@@ -8,6 +8,45 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 21, 2026 — Curriculum Navigation Functions (Daniela as Interactive Textbook)
+
+**Status**: COMPLETED
+
+#### What was built
+Five new Gemini native function calls that give Daniela full curriculum navigation capabilities, enabling her to replace most interactive textbook functionality conversationally:
+
+1. **`browse_syllabus`** — Queries the student's enrolled class to show units, lessons, and completion status. Supports filtering by unit number and showing/hiding completed lessons. Sends structured syllabus data to the whiteboard and feeds results back to Gemini for conversational narration.
+
+2. **`start_lesson`** — Loads a specific curriculum lesson into the active session. Pulls objectives, vocabulary requirements, grammar focus, conversation topics, drills, and estimated time. Supports lookup by lesson ID or fuzzy name search. Sets session's `lessonBundleContext` for drill integration.
+
+3. **`load_vocab_set`** — Loads all vocabulary words from a lesson's `requiredVocabulary` field. Designed to chain with `show_image` for visual vocabulary teaching. Sends vocab data to the whiteboard and provides the word list back to Gemini.
+
+4. **`show_progress`** — Displays a student progress snapshot: ACTFL level, words learned, lessons completed, streak days, and syllabus completion percentage. Optional detailed mode shows per-unit breakdown. Queries both ACTFL progress and syllabus progress tables.
+
+5. **`recommend_next`** — Finds the best next lesson for the student: prioritizes in-progress lessons first, then next not-started lesson in sequential order. Returns lesson name, unit name, and reasoning. Chains with `start_lesson` if student accepts.
+
+#### Architecture decisions
+- All 5 functions use existing database tables (no schema changes)
+- Queries go through `storage.*` methods for class enrollment, curriculum units/lessons, and syllabus progress
+- Results stored on session via `(session as any).lastSyllabusData` etc. for multi-step function call responses
+- Multi-step FC response handlers added in all 3 response sections (PTT, Open Mic, recursive continuation)
+- Procedural memory entries added to `tool_knowledge` database table with type "interaction"
+
+#### Key files modified
+- `server/services/gemini-function-declarations.ts` — 5 new declarations + 5 FUNCTION_TO_COMMAND_MAP entries
+- `server/services/streaming-voice-orchestrator.ts` — 5 handler cases in `handleNativeFunctionCall()`, 3 multi-step response sections updated
+- Database: 5 new rows in `tool_knowledge` table
+
+#### Follows the New Function Call Checklist
+1. Declaration in `DANIELA_FUNCTION_DECLARATIONS` — done
+2. Legacy type mapping in `FUNCTION_TO_COMMAND_MAP` — done
+3. Handler in `handleNativeFunctionCall()` — done
+4. All use `text` param for TTS audio — done
+5. Text extracted to `(session as any).functionCallText` — done
+6. Procedural memory docs in `tool_knowledge` table — done
+
+---
+
 ### Session: February 18, 2026 — Classroom Remodel Procedure Doc
 
 **Status**: COMPLETED

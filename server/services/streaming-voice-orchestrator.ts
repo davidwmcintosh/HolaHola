@@ -4671,6 +4671,50 @@ Remember: David may reference things discussed in these recent text chats.
               }
               break;
             }
+            case 'BROWSE_SYLLABUS': {
+              const syllabusData = (session as any).lastSyllabusData;
+              if (syllabusData) {
+                responseText = `Syllabus data loaded. Here is the syllabus structure:\n${JSON.stringify(syllabusData, null, 1)}\n\nPresent this information conversationally to the student. Don't just list it — narrate it naturally and help them understand where they are.`;
+                delete (session as any).lastSyllabusData;
+              } else {
+                responseText = `Syllabus lookup completed. No enrolled class found for this language, or no curriculum is available. Let the student know gently.`;
+              }
+              break;
+            }
+            case 'START_LESSON': {
+              const lessonData = (session as any).lastLoadedLesson;
+              if (lessonData) {
+                responseText = `Lesson loaded successfully. Here are the lesson details:\n${JSON.stringify(lessonData, null, 1)}\n\nBegin teaching this lesson naturally. Start with the objectives, then move into the content. Use your whiteboard tools (write, show_image, drill) as you teach.`;
+                delete (session as any).lastLoadedLesson;
+              } else {
+                responseText = `Could not find the requested lesson. Ask the student to clarify which lesson they want, or use browse_syllabus first to see available lessons.`;
+              }
+              break;
+            }
+            case 'LOAD_VOCAB_SET': {
+              const vocabData = (session as any).lastVocabSet;
+              if (vocabData && vocabData.length > 0) {
+                responseText = `Vocabulary set loaded: ${vocabData.length} words.\n${JSON.stringify(vocabData, null, 1)}\n\nTeach these vocabulary words one at a time. Use show_image for each word, say the word clearly, and ask the student to repeat. Mix in quick drills to reinforce.`;
+                delete (session as any).lastVocabSet;
+              } else {
+                responseText = `No vocabulary words found for this lesson. You can still teach vocabulary conversationally — ask the student what words they'd like to learn.`;
+              }
+              break;
+            }
+            case 'SHOW_PROGRESS': {
+              responseText = `Progress data displayed on the whiteboard. Share encouraging observations about their progress naturally. Highlight strengths and gently mention areas for growth.`;
+              break;
+            }
+            case 'RECOMMEND_NEXT': {
+              const recommendation = (session as any).lastRecommendation;
+              if (recommendation) {
+                responseText = `Recommendation ready: "${recommendation.lessonName}" from ${recommendation.unitName}. Reason: ${recommendation.reason}\n\nPresent this recommendation enthusiastically and ask if they'd like to start it. If yes, use start_lesson to load it.`;
+                delete (session as any).lastRecommendation;
+              } else {
+                responseText = `All available lessons are complete! Congratulate the student on their amazing progress and suggest reviewing or practicing conversation freely.`;
+              }
+              break;
+            }
             default:
               responseText = `${fc.name} executed successfully. Continue the conversation.`;
           }
@@ -7262,6 +7306,50 @@ Remember: David may reference things discussed in these recent text chats.
               }
               break;
             }
+            case 'BROWSE_SYLLABUS': {
+              const syllabusData = (session as any).lastSyllabusData;
+              if (syllabusData) {
+                responseText = `Syllabus data loaded. Here is the syllabus structure:\n${JSON.stringify(syllabusData, null, 1)}\n\nPresent this information conversationally to the student. Don't just list it — narrate it naturally and help them understand where they are.`;
+                delete (session as any).lastSyllabusData;
+              } else {
+                responseText = `Syllabus lookup completed. No enrolled class found for this language, or no curriculum is available. Let the student know gently.`;
+              }
+              break;
+            }
+            case 'START_LESSON': {
+              const lessonData = (session as any).lastLoadedLesson;
+              if (lessonData) {
+                responseText = `Lesson loaded successfully. Here are the lesson details:\n${JSON.stringify(lessonData, null, 1)}\n\nBegin teaching this lesson naturally. Start with the objectives, then move into the content. Use your whiteboard tools (write, show_image, drill) as you teach.`;
+                delete (session as any).lastLoadedLesson;
+              } else {
+                responseText = `Could not find the requested lesson. Ask the student to clarify which lesson they want, or use browse_syllabus first to see available lessons.`;
+              }
+              break;
+            }
+            case 'LOAD_VOCAB_SET': {
+              const vocabData = (session as any).lastVocabSet;
+              if (vocabData && vocabData.length > 0) {
+                responseText = `Vocabulary set loaded: ${vocabData.length} words.\n${JSON.stringify(vocabData, null, 1)}\n\nTeach these vocabulary words one at a time. Use show_image for each word, say the word clearly, and ask the student to repeat. Mix in quick drills to reinforce.`;
+                delete (session as any).lastVocabSet;
+              } else {
+                responseText = `No vocabulary words found for this lesson. You can still teach vocabulary conversationally — ask the student what words they'd like to learn.`;
+              }
+              break;
+            }
+            case 'SHOW_PROGRESS': {
+              responseText = `Progress data displayed on the whiteboard. Share encouraging observations about their progress naturally. Highlight strengths and gently mention areas for growth.`;
+              break;
+            }
+            case 'RECOMMEND_NEXT': {
+              const recommendation = (session as any).lastRecommendation;
+              if (recommendation) {
+                responseText = `Recommendation ready: "${recommendation.lessonName}" from ${recommendation.unitName}. Reason: ${recommendation.reason}\n\nPresent this recommendation enthusiastically and ask if they'd like to start it. If yes, use start_lesson to load it.`;
+                delete (session as any).lastRecommendation;
+              } else {
+                responseText = `All available lessons are complete! Congratulate the student on their amazing progress and suggest reviewing or practicing conversation freely.`;
+              }
+              break;
+            }
             default:
               responseText = `${fc.name} executed successfully. Continue the conversation.`;
           }
@@ -7443,6 +7531,32 @@ Remember: David may reference things discussed in these recent text chats.
                 responseText = lookupResult
                   ? `Express Lane ${label}:\n${lookupResult}\n\nNow respond using this information.`
                   : `No Express Lane messages found for "${query}". Respond naturally.`;
+              } else if (fc.legacyType === 'BROWSE_SYLLABUS') {
+                const syllabusData = (session as any).lastSyllabusData;
+                responseText = syllabusData
+                  ? `Syllabus data loaded:\n${JSON.stringify(syllabusData, null, 1)}\n\nPresent this conversationally.`
+                  : `No enrolled class or curriculum found. Let the student know gently.`;
+                delete (session as any).lastSyllabusData;
+              } else if (fc.legacyType === 'START_LESSON') {
+                const lessonData = (session as any).lastLoadedLesson;
+                responseText = lessonData
+                  ? `Lesson loaded:\n${JSON.stringify(lessonData, null, 1)}\n\nBegin teaching naturally.`
+                  : `Could not find the requested lesson.`;
+                delete (session as any).lastLoadedLesson;
+              } else if (fc.legacyType === 'LOAD_VOCAB_SET') {
+                const vocabData = (session as any).lastVocabSet;
+                responseText = vocabData?.length > 0
+                  ? `Vocabulary loaded: ${vocabData.length} words.\n${JSON.stringify(vocabData, null, 1)}\n\nTeach these words with show_image.`
+                  : `No vocabulary found for this lesson.`;
+                delete (session as any).lastVocabSet;
+              } else if (fc.legacyType === 'SHOW_PROGRESS') {
+                responseText = `Progress displayed on whiteboard. Share observations naturally.`;
+              } else if (fc.legacyType === 'RECOMMEND_NEXT') {
+                const recommendation = (session as any).lastRecommendation;
+                responseText = recommendation
+                  ? `Recommendation: "${recommendation.lessonName}" from ${recommendation.unitName}. ${recommendation.reason}`
+                  : `All lessons complete! Congratulate the student.`;
+                delete (session as any).lastRecommendation;
               } else {
                 responseText = `${fc.name} executed successfully. Continue the conversation.`;
               }
@@ -14425,6 +14539,472 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         break;
       }
       
+      // === CURRICULUM NAVIGATION (Daniela as Interactive Textbook) ===
+
+      case 'BROWSE_SYLLABUS': {
+        const text = fn.args.text as string | undefined;
+        const unitNumber = fn.args.unit_number as number | undefined;
+        const showCompleted = fn.args.show_completed !== false;
+
+        if (text && !(session as any).functionCallText) {
+          (session as any).functionCallText = text;
+        }
+
+        if (session.userId) {
+          try {
+            const studentId = String(session.userId);
+            const enrollments = await storage.getStudentEnrollments(studentId);
+            const activeClass = enrollments.find(e =>
+              e.isActive && e.class?.isActive && e.class?.language === session.targetLanguage
+            );
+
+            if (activeClass?.class) {
+              const classId = activeClass.class.id;
+              const units = await storage.getClassCurriculumUnits(classId);
+              const activeUnits = units.filter(u => !u.isRemoved).sort((a, b) => a.orderIndex - b.orderIndex);
+
+              const filteredUnits = unitNumber
+                ? activeUnits.filter((_, i) => i + 1 === unitNumber)
+                : activeUnits;
+
+              const syllabusProgress = await storage.getSyllabusProgress(studentId, classId);
+              const progressMap = new Map(syllabusProgress.map(sp => [sp.lessonId, sp]));
+
+              const syllabusData: Array<{
+                unitName: string;
+                unitIndex: number;
+                actflLevel: string | null;
+                lessons: Array<{
+                  id: string;
+                  name: string;
+                  type: string;
+                  status: string;
+                  orderIndex: number;
+                }>;
+              }> = [];
+
+              for (const unit of filteredUnits) {
+                const lessons = await storage.getClassCurriculumLessons(unit.id);
+                const activeLessons = lessons
+                  .filter(l => !l.isRemoved)
+                  .sort((a, b) => a.orderIndex - b.orderIndex);
+
+                const lessonData = activeLessons
+                  .map(l => {
+                    const progress = progressMap.get(l.sourceLessonId || l.id);
+                    const status = progress?.status || 'not_started';
+                    return {
+                      id: l.sourceLessonId || l.id,
+                      name: l.name,
+                      type: l.lessonType,
+                      status,
+                      orderIndex: l.orderIndex,
+                    };
+                  })
+                  .filter(l => showCompleted || l.status !== 'completed_assigned');
+
+                syllabusData.push({
+                  unitName: unit.name,
+                  unitIndex: unit.orderIndex,
+                  actflLevel: unit.actflLevel,
+                  lessons: lessonData,
+                });
+              }
+
+              const totalLessons = syllabusData.reduce((sum, u) => sum + u.lessons.length, 0);
+              const completedLessons = syllabusData.reduce(
+                (sum, u) => sum + u.lessons.filter(l => l.status === 'completed_assigned' || l.status === 'completed_early').length, 0
+              );
+
+              console.log(`[Native Function→BrowseSyllabus] ${syllabusData.length} units, ${totalLessons} lessons (${completedLessons} completed)`);
+
+              this.sendMessage(session.ws, {
+                type: 'whiteboard_update',
+                timestamp: Date.now(),
+                items: [{
+                  type: 'write',
+                  content: `Syllabus: ${activeClass.class.name}`,
+                  data: {
+                    syllabusOverview: true,
+                    className: activeClass.class.name,
+                    units: syllabusData,
+                    totalLessons,
+                    completedLessons,
+                    progressPercent: totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0,
+                  },
+                }],
+              });
+
+              if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+              session.pendingMemoryLookupPromises.push(Promise.resolve());
+              (session as any).lastSyllabusData = syllabusData;
+            } else {
+              console.log(`[Native Function→BrowseSyllabus] No active class found for ${session.targetLanguage}`);
+            }
+          } catch (err: any) {
+            console.error(`[Native Function→BrowseSyllabus] Error:`, err.message);
+          }
+        }
+        break;
+      }
+
+      case 'START_LESSON': {
+        const text = fn.args.text as string | undefined;
+        const lessonId = fn.args.lesson_id as string | undefined;
+        const lessonName = fn.args.lesson_name as string | undefined;
+
+        if (text && !(session as any).functionCallText) {
+          (session as any).functionCallText = text;
+        }
+
+        if (session.userId) {
+          try {
+            const { curriculumLessons, curriculumDrillItems, classCurriculumLessons, classCurriculumUnits } = await import('@shared/schema');
+            const sharedDb = getSharedDb();
+
+            let lesson: any = null;
+
+            if (lessonId) {
+              const [found] = await sharedDb.select().from(curriculumLessons).where(eq(curriculumLessons.id, lessonId)).limit(1);
+              lesson = found;
+            }
+
+            if (!lesson && lessonName) {
+              const studentId = String(session.userId);
+              const enrollments = await storage.getStudentEnrollments(studentId);
+              const activeClass = enrollments.find(e =>
+                e.isActive && e.class?.isActive && e.class?.language === session.targetLanguage
+              );
+
+              if (activeClass?.class) {
+                const units = await storage.getClassCurriculumUnits(activeClass.class.id);
+                const activeUnitIds = units.filter(u => !u.isRemoved).map(u => u.id);
+
+                if (activeUnitIds.length > 0) {
+                  const classLessons = await storage.getClassCurriculumLessonsForUnits(activeUnitIds);
+                  const match = classLessons.find(l =>
+                    !l.isRemoved && l.name.toLowerCase().includes(lessonName.toLowerCase())
+                  );
+
+                  if (match?.sourceLessonId) {
+                    const [found] = await sharedDb.select().from(curriculumLessons).where(eq(curriculumLessons.id, match.sourceLessonId)).limit(1);
+                    lesson = found;
+                  }
+                }
+              }
+            }
+
+            if (lesson) {
+              const drills = await sharedDb.select().from(curriculumDrillItems)
+                .where(eq(curriculumDrillItems.lessonId, lesson.id))
+                .orderBy(curriculumDrillItems.orderIndex);
+
+              session.lessonBundleContext = {
+                lessonId: lesson.id,
+                lessonName: lesson.name,
+                hasBundledDrills: drills.length > 0,
+                bundleId: lesson.bundleId || undefined,
+                linkedDrillLessonId: lesson.linkedDrillLessonId || undefined,
+                drillsProvisioned: drills.length > 0,
+                provisionedDrillCount: drills.length,
+              };
+
+              const lessonContent = {
+                id: lesson.id,
+                name: lesson.name,
+                type: lesson.lessonType,
+                description: lesson.description,
+                objectives: lesson.objectives || [],
+                conversationTopic: lesson.conversationTopic,
+                conversationPrompt: lesson.conversationPrompt,
+                requiredVocabulary: lesson.requiredVocabulary || [],
+                requiredGrammar: lesson.requiredGrammar || [],
+                estimatedMinutes: lesson.estimatedMinutes,
+                drillCount: drills.length,
+              };
+
+              console.log(`[Native Function→StartLesson] Loaded "${lesson.name}" (${lesson.id}) with ${drills.length} drills`);
+
+              this.sendMessage(session.ws, {
+                type: 'whiteboard_update',
+                timestamp: Date.now(),
+                items: [{
+                  type: 'write',
+                  content: `Lesson: ${lesson.name}`,
+                  data: {
+                    lessonLoaded: true,
+                    lesson: lessonContent,
+                  },
+                }],
+              });
+
+              if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+              session.pendingMemoryLookupPromises.push(Promise.resolve());
+              (session as any).lastLoadedLesson = lessonContent;
+            } else {
+              console.warn(`[Native Function→StartLesson] Lesson not found: id=${lessonId} name=${lessonName}`);
+            }
+          } catch (err: any) {
+            console.error(`[Native Function→StartLesson] Error:`, err.message);
+          }
+        }
+        break;
+      }
+
+      case 'LOAD_VOCAB_SET': {
+        const text = fn.args.text as string | undefined;
+        const lessonId = fn.args.lesson_id as string | undefined;
+
+        if (text && !(session as any).functionCallText) {
+          (session as any).functionCallText = text;
+        }
+
+        if (session.userId && lessonId) {
+          try {
+            const { curriculumLessons } = await import('@shared/schema');
+            const sharedDb = getSharedDb();
+
+            const [lesson] = await sharedDb.select().from(curriculumLessons).where(eq(curriculumLessons.id, lessonId)).limit(1);
+
+            if (lesson) {
+              const vocabWords = lesson.requiredVocabulary || [];
+
+              const vocabData = vocabWords.map((word: string, index: number) => ({
+                word,
+                index,
+              }));
+
+              console.log(`[Native Function→LoadVocabSet] Loaded ${vocabData.length} vocab items for "${lesson.name}"`);
+
+              this.sendMessage(session.ws, {
+                type: 'whiteboard_update',
+                timestamp: Date.now(),
+                items: [{
+                  type: 'write',
+                  content: `Vocabulary: ${lesson.name}`,
+                  data: {
+                    vocabSetLoaded: true,
+                    lessonId: lesson.id,
+                    lessonName: lesson.name,
+                    vocabulary: vocabData,
+                    totalWords: vocabData.length,
+                  },
+                }],
+              });
+
+              if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+              session.pendingMemoryLookupPromises.push(Promise.resolve());
+              (session as any).lastVocabSet = vocabData;
+            } else {
+              console.warn(`[Native Function→LoadVocabSet] Lesson not found: ${lessonId}`);
+            }
+          } catch (err: any) {
+            console.error(`[Native Function→LoadVocabSet] Error:`, err.message);
+          }
+        }
+        break;
+      }
+
+      case 'SHOW_PROGRESS': {
+        const text = fn.args.text as string | undefined;
+        const detailed = fn.args.detailed === true;
+
+        if (text && !(session as any).functionCallText) {
+          (session as any).functionCallText = text;
+        }
+
+        if (session.userId) {
+          try {
+            const studentId = String(session.userId);
+            const enrollments = await storage.getStudentEnrollments(studentId);
+            const activeClass = enrollments.find(e =>
+              e.isActive && e.class?.isActive && e.class?.language === session.targetLanguage
+            );
+
+            const actflProgress = await storage.getOrCreateActflProgress(session.targetLanguage || 'spanish', studentId).catch(() => null);
+            const userProgressData = await storage.getOrCreateUserProgress(session.targetLanguage || 'spanish', studentId).catch(() => null);
+
+            const progressData: Record<string, unknown> = {
+              actflLevel: actflProgress?.currentActflLevel || 'Novice Low',
+              wordsLearned: userProgressData?.wordsLearned || 0,
+              lessonsCompleted: userProgressData?.lessonsCompleted || 0,
+              totalMinutes: userProgressData?.totalMinutes || 0,
+              streakDays: userProgressData?.streakDays || 0,
+            };
+
+            if (activeClass?.class) {
+              const classId = activeClass.class.id;
+              const units = await storage.getClassCurriculumUnits(classId);
+              const activeUnits = units.filter(u => !u.isRemoved).sort((a, b) => a.orderIndex - b.orderIndex);
+
+              const syllabusProgress = await storage.getSyllabusProgress(studentId, classId);
+              const progressMap = new Map(syllabusProgress.map(sp => [sp.lessonId, sp]));
+
+              let totalLessons = 0;
+              let completedLessons = 0;
+              let inProgressLessons = 0;
+              const unitBreakdown: Array<{ name: string; total: number; completed: number; }> = [];
+
+              for (const unit of activeUnits) {
+                const lessons = await storage.getClassCurriculumLessons(unit.id);
+                const activeLessons = lessons.filter(l => !l.isRemoved);
+                const unitCompleted = activeLessons.filter(l => {
+                  const p = progressMap.get(l.sourceLessonId || l.id);
+                  return p?.status === 'completed_assigned' || p?.status === 'completed_early';
+                }).length;
+                const unitInProgress = activeLessons.filter(l => {
+                  const p = progressMap.get(l.sourceLessonId || l.id);
+                  return p?.status === 'in_progress';
+                }).length;
+
+                totalLessons += activeLessons.length;
+                completedLessons += unitCompleted;
+                inProgressLessons += unitInProgress;
+
+                if (detailed) {
+                  unitBreakdown.push({
+                    name: unit.name,
+                    total: activeLessons.length,
+                    completed: unitCompleted,
+                  });
+                }
+              }
+
+              progressData.className = activeClass.class.name;
+              progressData.totalLessons = totalLessons;
+              progressData.completedLessons = completedLessons;
+              progressData.inProgressLessons = inProgressLessons;
+              progressData.progressPercent = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+              if (detailed) {
+                progressData.unitBreakdown = unitBreakdown;
+              }
+            }
+
+            console.log(`[Native Function→ShowProgress] ACTFL: ${progressData.actflLevel}, ${progressData.completedLessons || 0}/${progressData.totalLessons || '?'} lessons`);
+
+            this.sendMessage(session.ws, {
+              type: 'whiteboard_update',
+              timestamp: Date.now(),
+              items: [{
+                type: 'write',
+                content: `Progress: ${progressData.actflLevel}`,
+                data: {
+                  progressSnapshot: true,
+                  ...progressData,
+                },
+              }],
+            });
+          } catch (err: any) {
+            console.error(`[Native Function→ShowProgress] Error:`, err.message);
+          }
+        }
+        break;
+      }
+
+      case 'RECOMMEND_NEXT': {
+        const text = fn.args.text as string | undefined;
+
+        if (text && !(session as any).functionCallText) {
+          (session as any).functionCallText = text;
+        }
+
+        if (session.userId) {
+          try {
+            const studentId = String(session.userId);
+            const enrollments = await storage.getStudentEnrollments(studentId);
+            const activeClass = enrollments.find(e =>
+              e.isActive && e.class?.isActive && e.class?.language === session.targetLanguage
+            );
+
+            if (activeClass?.class) {
+              const classId = activeClass.class.id;
+              const units = await storage.getClassCurriculumUnits(classId);
+              const activeUnits = units.filter(u => !u.isRemoved).sort((a, b) => a.orderIndex - b.orderIndex);
+
+              const syllabusProgress = await storage.getSyllabusProgress(studentId, classId);
+              const progressMap = new Map(syllabusProgress.map(sp => [sp.lessonId, sp]));
+
+              let recommended: { lessonId: string; lessonName: string; unitName: string; reason: string; } | null = null;
+
+              for (const unit of activeUnits) {
+                const lessons = await storage.getClassCurriculumLessons(unit.id);
+                const activeLessons = lessons.filter(l => !l.isRemoved).sort((a, b) => a.orderIndex - b.orderIndex);
+
+                const inProgressLesson = activeLessons.find(l => {
+                  const p = progressMap.get(l.sourceLessonId || l.id);
+                  return p?.status === 'in_progress';
+                });
+
+                if (inProgressLesson) {
+                  recommended = {
+                    lessonId: inProgressLesson.sourceLessonId || inProgressLesson.id,
+                    lessonName: inProgressLesson.name,
+                    unitName: unit.name,
+                    reason: 'You started this lesson but haven\'t finished it yet. Let\'s pick up where you left off!',
+                  };
+                  break;
+                }
+
+                const nextLesson = activeLessons.find(l => {
+                  const p = progressMap.get(l.sourceLessonId || l.id);
+                  return !p || p.status === 'not_started';
+                });
+
+                if (nextLesson) {
+                  recommended = {
+                    lessonId: nextLesson.sourceLessonId || nextLesson.id,
+                    lessonName: nextLesson.name,
+                    unitName: unit.name,
+                    reason: 'This is the next lesson in your syllabus. Ready to learn something new!',
+                  };
+                  break;
+                }
+              }
+
+              if (recommended) {
+                console.log(`[Native Function→RecommendNext] Recommending "${recommended.lessonName}" from ${recommended.unitName}`);
+
+                this.sendMessage(session.ws, {
+                  type: 'whiteboard_update',
+                  timestamp: Date.now(),
+                  items: [{
+                    type: 'write',
+                    content: `Recommended: ${recommended.lessonName}`,
+                    data: {
+                      recommendation: true,
+                      lessonId: recommended.lessonId,
+                      lessonName: recommended.lessonName,
+                      unitName: recommended.unitName,
+                      reason: recommended.reason,
+                    },
+                  }],
+                });
+
+                if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+                session.pendingMemoryLookupPromises.push(Promise.resolve());
+                (session as any).lastRecommendation = recommended;
+              } else {
+                console.log(`[Native Function→RecommendNext] No lessons available to recommend`);
+                this.sendMessage(session.ws, {
+                  type: 'whiteboard_update',
+                  timestamp: Date.now(),
+                  items: [{
+                    type: 'write',
+                    content: 'Congratulations! You\'ve completed all available lessons!',
+                    data: { recommendation: true, allComplete: true },
+                  }],
+                });
+              }
+            } else {
+              console.log(`[Native Function→RecommendNext] No active class found for ${session.targetLanguage}`);
+            }
+          } catch (err: any) {
+            console.error(`[Native Function→RecommendNext] Error:`, err.message);
+          }
+        }
+        break;
+      }
+
       default:
         console.log(`[Native Function Call] Unknown function type: ${fn.legacyType}`);
     }
