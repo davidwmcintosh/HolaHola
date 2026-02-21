@@ -17887,33 +17887,30 @@ Current conversation context:
         severity: req.query.severity as 'info' | 'warning' | 'critical' | 'maintenance' | undefined,
       });
       
-      // Track view counts for analytics with rate limiting
-      // Only count one view per session per alert within the dedupe window
+      res.json(alerts);
+
       const sessionId = req.session?.id || req.ip || 'anonymous';
       const now = Date.now();
-      
+      const viewPromises: Promise<void>[] = [];
       for (const alert of alerts) {
         const cacheKey = `${sessionId}-${alert.id}`;
         const lastView = alertViewCache.get(cacheKey);
-        
-        // Only increment if this is a new view (not seen in dedupe window)
         if (!lastView || (now - lastView) > VIEW_DEDUPE_WINDOW_MS) {
-          await storage.incrementAlertView(alert.id);
+          viewPromises.push(storage.incrementAlertView(alert.id));
           alertViewCache.set(cacheKey, now);
         }
       }
-      
-      // Periodically clean up old entries (every 100 requests)
+      if (viewPromises.length > 0) {
+        Promise.all(viewPromises).catch(err =>
+          console.error('[API] Error tracking alert views:', err)
+        );
+      }
       if (Math.random() < 0.01) {
         const cutoff = now - VIEW_DEDUPE_WINDOW_MS;
         for (const [key, timestamp] of alertViewCache.entries()) {
-          if (timestamp < cutoff) {
-            alertViewCache.delete(key);
-          }
+          if (timestamp < cutoff) alertViewCache.delete(key);
         }
       }
-      
-      res.json(alerts);
     } catch (error: any) {
       console.error('[API] Error getting system alerts:', error);
       res.status(500).json({ error: error.message });
