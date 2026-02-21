@@ -20,10 +20,6 @@ export function resolveSessionTTSProvider(
   return sessionProvider || fallbackProvider;
 }
 
-export function isBatchModeProvider(provider: TTSProviderName): boolean {
-  return provider === 'google';
-}
-
 class CartesiaTTSAdapter implements TTSStreamingProvider {
   readonly name: TTSProviderName = 'cartesia';
   readonly requiresBatchMode = false;
