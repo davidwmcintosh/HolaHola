@@ -5098,238 +5098,187 @@ export class DatabaseStorage implements IStorage {
       return validConditions.length > 0 ? and(...validConditions) : undefined;
     };
 
-    // Get due flashcards (limit to 10 for daily review) - filtered by class and language
-    const dueFlashcardsQuery = db
-      .select()
-      .from(vocabularyWords)
-      .where(buildAndConditions(
-        eq(vocabularyWords.userId, userId),
-        vocabLangFilter,
-        sql`${vocabularyWords.nextReviewDate} <= ${now}`,
-        vocabClassFilter
-      ))
-      .orderBy(vocabularyWords.nextReviewDate)
-      .limit(10);
-    const dueFlashcards = await dueFlashcardsQuery;
+    const [
+      dueFlashcards,
+      recentConvs,
+      recentVocabulary,
+      totalConvsResult,
+      totalVocabResult,
+      dueCountResult,
+      allTopics,
+      enrollments,
+    ] = await Promise.all([
+      db.select().from(vocabularyWords)
+        .where(buildAndConditions(
+          eq(vocabularyWords.userId, userId),
+          vocabLangFilter,
+          sql`${vocabularyWords.nextReviewDate} <= ${now}`,
+          vocabClassFilter
+        ))
+        .orderBy(vocabularyWords.nextReviewDate)
+        .limit(10),
 
-    // Get recent conversations (last 7 days) with their topics - filtered by class and language
-    const recentConvs = await db
-      .select()
-      .from(conversations)
-      .where(buildAndConditions(
-        eq(conversations.userId, userId),
-        convLangFilter,
-        gte(conversations.createdAt, weekAgo),
-        convClassFilter
-      ))
-      .orderBy(desc(conversations.createdAt))
-      .limit(10);
+      db.select().from(conversations)
+        .where(buildAndConditions(
+          eq(conversations.userId, userId),
+          convLangFilter,
+          gte(conversations.createdAt, weekAgo),
+          convClassFilter
+        ))
+        .orderBy(desc(conversations.createdAt))
+        .limit(10),
 
-    // Fetch topics for each conversation
-    const recentConversations: Array<Conversation & { topics: Array<{ topic: Topic }> }> = [];
-    for (const conv of recentConvs) {
-      const topicsResult = await this.getConversationTopics(conv.id);
-      recentConversations.push({
-        ...conv,
-        topics: topicsResult.map(t => ({ topic: t.topic }))
-      });
-    }
+      db.select().from(vocabularyWords)
+        .where(buildAndConditions(
+          eq(vocabularyWords.userId, userId),
+          vocabLangFilter,
+          sql`${vocabularyWords.repetition} < 3`,
+          vocabClassFilter
+        ))
+        .orderBy(desc(vocabularyWords.nextReviewDate))
+        .limit(20),
 
-    // Get cultural tips based on recent conversation topics (dynamic)
-    // First, collect topic slugs from recent conversations (convert name to slug format)
+      db.select({ count: sql<number>`count(*)` }).from(conversations)
+        .where(buildAndConditions(eq(conversations.userId, userId), convLangFilter, convClassFilter)),
+
+      db.select({ count: sql<number>`count(*)` }).from(vocabularyWords)
+        .where(buildAndConditions(eq(vocabularyWords.userId, userId), vocabLangFilter, vocabClassFilter)),
+
+      db.select({ count: sql<number>`count(*)` }).from(vocabularyWords)
+        .where(buildAndConditions(
+          eq(vocabularyWords.userId, userId), vocabLangFilter,
+          sql`${vocabularyWords.nextReviewDate} <= ${now}`, vocabClassFilter
+        )),
+
+      this.getTopics(),
+
+      this.getStudentEnrollments(userId).catch(() => [] as any[]),
+    ]);
+
+    const [conversationTopicResults, streakResult, tipsResult, activeLessonsResult] = await Promise.all([
+      Promise.all(recentConvs.map(conv =>
+        this.getConversationTopics(conv.id).then(topics => ({
+          ...conv,
+          topics: topics.map(t => ({ topic: t.topic }))
+        }))
+      )),
+
+      language
+        ? this.getOrCreateUserProgress(language, userId).then(p => p.currentStreak || 0)
+        : Promise.resolve(0),
+
+      (async () => {
+        let allTips: CulturalTip[] = [];
+        if (language) {
+          allTips = await this.getCulturalTips(language);
+        } else {
+          const userLanguages = await this.getUserLanguages(userId);
+          const tipResults = await Promise.all(userLanguages.map(lang => this.getCulturalTips(lang)));
+          allTips = tipResults.flat();
+        }
+        return allTips;
+      })(),
+
+      (async () => {
+        if (language) {
+          return this.getUserLessons(userId, language);
+        }
+        const userLanguages = await this.getUserLanguages(userId);
+        const results = await Promise.all(userLanguages.map(lang => this.getUserLessons(userId, lang)));
+        return results.flat();
+      })(),
+    ]);
+
+    const recentConversations = conversationTopicResults;
+    const streakDays = streakResult;
+    const activeLessons = activeLessonsResult;
+
     const nameToSlug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     const recentTopicSlugs = new Set<string>();
     for (const conv of recentConversations) {
       for (const t of conv.topics) {
-        if (t.topic.name) {
-          recentTopicSlugs.add(nameToSlug(t.topic.name));
-        }
+        if (t.topic.name) recentTopicSlugs.add(nameToSlug(t.topic.name));
       }
     }
 
-    // Get all tips for this language (or aggregate from all user's languages)
-    let allTips: CulturalTip[] = [];
-    if (language) {
-      allTips = await this.getCulturalTips(language);
-    } else {
-      // Aggregate tips from all languages the user has content in
-      const userLanguages = await this.getUserLanguages(userId);
-      for (const lang of userLanguages) {
-        const langTips = await this.getCulturalTips(lang);
-        allTips.push(...langTips);
-      }
-    }
-    
-    // Filter tips that match recent conversation topics
-    let relevantTips = allTips.filter(tip => {
-      if (!tip.relatedTopics || tip.relatedTopics.length === 0) return false;
-      return tip.relatedTopics.some(topicSlug => recentTopicSlugs.has(topicSlug));
-    });
-
-    // If not enough topic-based tips, fill with random tips
+    let relevantTips = tipsResult.filter(tip =>
+      tip.relatedTopics?.length && tip.relatedTopics.some(s => recentTopicSlugs.has(s))
+    );
     if (relevantTips.length < 3) {
-      const remainingTips = allTips.filter(tip => !relevantTips.includes(tip));
-      const shuffledRemaining = remainingTips.sort(() => Math.random() - 0.5);
-      relevantTips = [...relevantTips, ...shuffledRemaining.slice(0, 3 - relevantTips.length)];
+      const remaining = tipsResult.filter(tip => !relevantTips.includes(tip)).sort(() => Math.random() - 0.5);
+      relevantTips = [...relevantTips, ...remaining.slice(0, 3 - relevantTips.length)];
     } else {
-      // Shuffle and pick 3 from relevant tips
       relevantTips = relevantTips.sort(() => Math.random() - 0.5).slice(0, 3);
     }
-
     const culturalTips = relevantTips;
 
-    // Get active lessons (language-filtered if specified, or aggregate from all)
-    let activeLessons: UserLesson[] = [];
-    if (language) {
-      activeLessons = await this.getUserLessons(userId, language);
-    } else {
-      const userLanguages = await this.getUserLanguages(userId);
-      for (const lang of userLanguages) {
-        const langLessons = await this.getUserLessons(userId, lang);
-        activeLessons.push(...langLessons);
-      }
-    }
-
-    // Get recently learned vocabulary (words with few repetitions = newly learned) - filtered by class and language
-    const recentVocabulary = await db
-      .select()
-      .from(vocabularyWords)
-      .where(buildAndConditions(
-        eq(vocabularyWords.userId, userId),
-        vocabLangFilter,
-        sql`${vocabularyWords.repetition} < 3`, // Words with fewer than 3 repetitions are "new"
-        vocabClassFilter
-      ))
-      .orderBy(desc(vocabularyWords.nextReviewDate))
-      .limit(20);
-
-    // Get topics with content counts
-    const allTopics = await this.getTopics();
-    const topicsWithContent: Array<Topic & { conversationCount: number; vocabularyCount: number }> = [];
-
-    for (const topic of allTopics) {
-      // Count conversations with this topic for this user - filtered by class and language
-      const convTopicsQuery = db
-        .select({ conversationId: conversationTopics.conversationId })
+    const [topicConvCounts, topicVocabCounts] = await Promise.all([
+      db.select({
+        topicId: conversationTopics.topicId,
+        count: sql<number>`count(distinct ${conversationTopics.conversationId})`
+      })
         .from(conversationTopics)
         .innerJoin(conversations, eq(conversationTopics.conversationId, conversations.id))
-        .where(buildAndConditions(
-          eq(conversationTopics.topicId, topic.id),
-          eq(conversations.userId, userId),
-          convLangFilter,
-          convClassFilter
-        ));
-      const convTopics = await convTopicsQuery;
+        .where(buildAndConditions(eq(conversations.userId, userId), convLangFilter, convClassFilter))
+        .groupBy(conversationTopics.topicId),
 
-      // Count vocabulary with this topic for this user - filtered by class and language
-      const vocabTopicsQuery = db
-        .select({ vocabularyWordId: vocabularyWordTopics.vocabularyWordId })
+      db.select({
+        topicId: vocabularyWordTopics.topicId,
+        count: sql<number>`count(distinct ${vocabularyWordTopics.vocabularyWordId})`
+      })
         .from(vocabularyWordTopics)
         .innerJoin(vocabularyWords, eq(vocabularyWordTopics.vocabularyWordId, vocabularyWords.id))
-        .where(buildAndConditions(
-          eq(vocabularyWordTopics.topicId, topic.id),
-          eq(vocabularyWords.userId, userId),
-          vocabLangFilter,
-          vocabClassFilter
-        ));
-      const vocabTopics = await vocabTopicsQuery;
+        .where(buildAndConditions(eq(vocabularyWords.userId, userId), vocabLangFilter, vocabClassFilter))
+        .groupBy(vocabularyWordTopics.topicId),
+    ]);
 
-      if (convTopics.length > 0 || vocabTopics.length > 0) {
-        topicsWithContent.push({
-          ...topic,
-          conversationCount: convTopics.length,
-          vocabularyCount: vocabTopics.length
-        });
-      }
-    }
+    const convCountMap = new Map(topicConvCounts.map(r => [r.topicId, Number(r.count)]));
+    const vocabCountMap = new Map(topicVocabCounts.map(r => [r.topicId, Number(r.count)]));
 
-    // Sort by total content count
-    topicsWithContent.sort((a, b) => 
-      (b.conversationCount + b.vocabularyCount) - (a.conversationCount + a.vocabularyCount)
+    const topicsWithContent = allTopics
+      .map(topic => ({
+        ...topic,
+        conversationCount: convCountMap.get(topic.id) || 0,
+        vocabularyCount: vocabCountMap.get(topic.id) || 0,
+      }))
+      .filter(t => t.conversationCount > 0 || t.vocabularyCount > 0)
+      .sort((a, b) => (b.conversationCount + b.vocabularyCount) - (a.conversationCount + a.vocabularyCount));
+
+    const activeEnrollments = enrollments.filter((e: any) =>
+      e.isActive && (!language || e.class?.language === language)
     );
 
-    // Get total stats - filtered by class and language
-    const totalConvsResult = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(conversations)
-      .where(buildAndConditions(
-        eq(conversations.userId, userId),
-        convLangFilter,
-        convClassFilter
-      ));
-
-    const totalVocabResult = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(vocabularyWords)
-      .where(buildAndConditions(
-        eq(vocabularyWords.userId, userId),
-        vocabLangFilter,
-        vocabClassFilter
-      ));
-
-    const dueCountResult = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(vocabularyWords)
-      .where(buildAndConditions(
-        eq(vocabularyWords.userId, userId),
-        vocabLangFilter,
-        sql`${vocabularyWords.nextReviewDate} <= ${now}`,
-        vocabClassFilter
-      ));
-
-    // Calculate streak (simplified - just check consecutive days with activity)
-    // When "all languages" is selected, use the first language user has progress in
-    let streakDays = 0;
-    if (language) {
-      const progress = await this.getOrCreateUserProgress(language, userId);
-      streakDays = progress.currentStreak || 0;
-    }
-
-    // Find next lesson for enrolled students in this language
     let nextLesson: {
-      classId: string;
-      className: string;
-      lessonId: string;
-      lessonName: string;
-      lessonDescription: string | null;
-      unitName: string;
-      lessonType: string;
+      classId: string; className: string; lessonId: string; lessonName: string;
+      lessonDescription: string | null; unitName: string; lessonType: string;
     } | null = null;
 
     try {
-      const enrollments = await this.getStudentEnrollments(userId);
-      const activeEnrollments = enrollments.filter(e => 
-        e.isActive && (!language || e.class?.language === language)
-      );
-
       for (const enrollment of activeEnrollments) {
-        const teacherClass = enrollment.class;
+        const teacherClass = (enrollment as any).class;
         if (!teacherClass?.curriculumPathId) continue;
 
-        const curriculumPath = await this.getCurriculumPath(teacherClass.curriculumPathId);
+        const [curriculumPath, syllabusProgress] = await Promise.all([
+          this.getCurriculumPath(teacherClass.curriculumPathId),
+          this.getSyllabusProgress(userId, teacherClass.id),
+        ]);
         if (!curriculumPath) continue;
 
         const units = await this.getCurriculumUnits(curriculumPath.id);
-        const syllabusProgress = await this.getSyllabusProgress(userId, teacherClass.id);
-        
         const completedLessons = new Set(
           syllabusProgress
             .filter(p => p.status === 'completed_early' || p.status === 'completed_assigned' || p.tutorVerified)
             .map(p => p.lessonId)
         );
 
-        // Find first incomplete lesson
         for (const unit of units) {
           const lessons = await this.getCurriculumLessons(unit.id);
           for (const lesson of lessons) {
             if (!completedLessons.has(lesson.id)) {
               nextLesson = {
-                classId: teacherClass.id,
-                className: teacherClass.name,
-                lessonId: lesson.id,
-                lessonName: lesson.name,
-                lessonDescription: lesson.description,
-                unitName: unit.name,
+                classId: teacherClass.id, className: teacherClass.name,
+                lessonId: lesson.id, lessonName: lesson.name,
+                lessonDescription: lesson.description, unitName: unit.name,
                 lessonType: lesson.lessonType || 'conversation'
               };
               break;
@@ -5337,79 +5286,64 @@ export class DatabaseStorage implements IStorage {
           }
           if (nextLesson) break;
         }
-        if (nextLesson) break; // Use first class with incomplete lessons
+        if (nextLesson) break;
       }
     } catch (error) {
       console.error('[ReviewHub] Error finding next lesson:', error);
     }
 
-    // Fetch upcoming assignments for enrolled students
     type AssignmentWithStatus = {
-      id: string;
-      title: string;
-      description: string | null;
-      dueDate: Date | null;
-      classId: string;
-      className: string;
-      lessonId: string | null;
+      id: string; title: string; description: string | null; dueDate: Date | null;
+      classId: string; className: string; lessonId: string | null;
       status: 'not_started' | 'in_progress' | 'submitted' | 'graded' | 'overdue';
     };
     const upcomingAssignments: AssignmentWithStatus[] = [];
-    
+
     try {
-      const enrollments = await this.getStudentEnrollments(userId);
-      const activeEnrollments = enrollments.filter(e => 
-        e.isActive && (!language || e.class?.language === language) && 
-        (!classId || e.classId === classId)
+      const assignmentEnrollments = activeEnrollments.filter((e: any) =>
+        !classId || e.classId === classId
       );
-      
-      for (const enrollment of activeEnrollments) {
-        const teacherClass = enrollment.class;
-        if (!teacherClass) continue;
-        
-        // Get assignments for this class
-        const classAssignments = await this.getClassAssignments(teacherClass.id);
-        
-        for (const assignment of classAssignments) {
-          // Get submission status for this student
-          const submission = await this.getAssignmentSubmission(assignment.id, userId);
-          
-          let status: AssignmentWithStatus['status'] = 'not_started';
-          if (submission) {
-            if (submission.teacherScore !== null) {
-              status = 'graded';
-            } else if (submission.submittedAt) {
-              status = 'submitted';
-            } else {
-              status = 'in_progress';
-            }
-          } else if (assignment.dueDate && new Date(assignment.dueDate) < now) {
-            status = 'overdue';
-          }
-          
-          // Only show non-graded assignments (upcoming or in progress)
-          if (status !== 'graded') {
-            upcomingAssignments.push({
-              id: assignment.id,
-              title: assignment.title,
-              description: assignment.description,
-              dueDate: assignment.dueDate,
-              classId: teacherClass.id,
-              className: teacherClass.name,
-              lessonId: assignment.curriculumLessonId ?? null,
-              status
-            });
-          }
+
+      const classAssignmentResults = await Promise.all(
+        assignmentEnrollments.map(async (enrollment: any) => {
+          const teacherClass = enrollment.class;
+          if (!teacherClass) return [];
+          const classAssignments = await this.getClassAssignments(teacherClass.id);
+          return classAssignments.map(a => ({ assignment: a, teacherClass }));
+        })
+      );
+
+      const allAssignmentPairs = classAssignmentResults.flat();
+      const submissionResults = await Promise.all(
+        allAssignmentPairs.map(({ assignment }) =>
+          this.getAssignmentSubmission(assignment.id, userId)
+        )
+      );
+
+      for (let i = 0; i < allAssignmentPairs.length; i++) {
+        const { assignment, teacherClass } = allAssignmentPairs[i];
+        const submission = submissionResults[i];
+        let status: AssignmentWithStatus['status'] = 'not_started';
+        if (submission) {
+          if (submission.teacherScore !== null) status = 'graded';
+          else if (submission.submittedAt) status = 'submitted';
+          else status = 'in_progress';
+        } else if (assignment.dueDate && new Date(assignment.dueDate) < now) {
+          status = 'overdue';
+        }
+        if (status !== 'graded') {
+          upcomingAssignments.push({
+            id: assignment.id, title: assignment.title,
+            description: assignment.description, dueDate: assignment.dueDate,
+            classId: teacherClass.id, className: teacherClass.name,
+            lessonId: assignment.curriculumLessonId ?? null, status
+          });
         }
       }
-      
-      // Sort by urgency: overdue first, then by due date (soonest first), null dates last
+
       upcomingAssignments.sort((a, b) => {
-        // Overdue items come first
         if (a.status === 'overdue' && b.status !== 'overdue') return -1;
         if (a.status !== 'overdue' && b.status === 'overdue') return 1;
-        
-        // Then sort by due date
         if (!a.dueDate && !b.dueDate) return 0;
         if (!a.dueDate) return 1;
         if (!b.dueDate) return -1;

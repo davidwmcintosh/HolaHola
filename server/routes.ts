@@ -9656,35 +9656,38 @@ Return ONLY the ${targetLanguage} phrase:`;
 
       const { classId, pathId } = enrollments[0];
 
-      // Get all units for this curriculum path
       const units = await storage.getCurriculumUnits(pathId);
       if (units.length === 0) {
         return res.json({ recommendation: null });
       }
 
-      // Get all lessons for these units
-      const unitLessons: Record<string, { total: number; completed: number }> = {};
-      for (const unit of units) {
-        const lessons = await storage.getCurriculumLessons(unit.id);
-        
-        let completedCount = 0;
-        for (const lesson of lessons) {
-          const [progress] = await getSharedDb()
-            .select()
-            .from(syllabusProgress)
-            .where(
-              and(
-                eq(syllabusProgress.studentId, userId),
-                eq(syllabusProgress.classId, classId),
-                eq(syllabusProgress.lessonId, lesson.id)
-              )
-            );
-          if (progress && (progress.status === 'completed_early' || progress.status === 'completed_assigned')) {
-            completedCount++;
-          }
-        }
+      const [allLessonsByUnit, allProgress] = await Promise.all([
+        Promise.all(units.map(unit =>
+          storage.getCurriculumLessons(unit.id).then(lessons => ({ unitId: unit.id, lessons }))
+        )),
+        getSharedDb()
+          .select({ lessonId: syllabusProgress.lessonId, status: syllabusProgress.status })
+          .from(syllabusProgress)
+          .where(
+            and(
+              eq(syllabusProgress.studentId, userId),
+              eq(syllabusProgress.classId, classId)
+            )
+          ),
+      ]);
 
-        unitLessons[unit.id] = { total: lessons.length, completed: completedCount };
+      const completedLessonIds = new Set(
+        allProgress
+          .filter(p => p.status === 'completed_early' || p.status === 'completed_assigned')
+          .map(p => p.lessonId)
+      );
+
+      const unitLessons: Record<string, { total: number; completed: number }> = {};
+      for (const { unitId, lessons } of allLessonsByUnit) {
+        unitLessons[unitId] = {
+          total: lessons.length,
+          completed: lessons.filter(l => completedLessonIds.has(l.id)).length,
+        };
       }
 
       // Find the first unit that's not fully complete (Daniela's next recommendation)

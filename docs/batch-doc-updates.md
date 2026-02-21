@@ -30,6 +30,29 @@ Staging area for documentation changes to be consolidated later.
 - All API endpoints under 50ms except system-alerts (now fixed)
 - Reusable pattern for future performance audits
 
+### Session: February 21, 2026 — Review Hub & Textbook Recommendation Performance
+
+**Status**: COMPLETED
+
+#### Review Hub N+1 elimination (`getReviewHubData()`)
+- **Problem**: `/api/review-hub` was ~2.5s due to: (1) 37 topics × 2 queries = 74 serial DB calls for topic content counts, (2) duplicate `getStudentEnrollments()` calls, (3) all queries running serially
+- **Fix**: Three-tier parallelization:
+  - Tier 1: 8 independent queries in `Promise.all` (flashcards, conversations, vocabulary, stats × 3, topics, enrollments)
+  - Tier 2: 4 dependent-on-tier-1 queries in `Promise.all` (conversation topics, streak, cultural tips, active lessons)
+  - Tier 3: 2 aggregate GROUP BY queries replace 74-query N+1 loop
+  - Single enrollment fetch reused for nextLesson + assignments sections
+  - Assignment submissions fetched in parallel via `Promise.all`
+- **Result**: ~2,500ms → 258ms (90% improvement)
+- **File**: `server/storage.ts` — `getReviewHubData()`
+
+#### Textbook recommendation N+1 fix
+- **Problem**: `/api/textbook/:lang/recommendation` queried `syllabusProgress` individually per lesson per unit — O(units × lessons) queries
+- **Fix**: Single bulk `syllabusProgress` fetch + `Set` lookup for completed lesson IDs. Unit lesson fetches parallelized via `Promise.all`.
+- **File**: `server/routes.ts` — `/api/textbook/:language/recommendation` handler
+
+#### Beta hardening: Global error handlers
+- Added `process.on('uncaughtException')` and `process.on('unhandledRejection')` to `server/index.ts` for production crash visibility
+
 ---
 
 ### Session: February 21, 2026 — Voice Context Pipeline

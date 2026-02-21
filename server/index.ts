@@ -642,5 +642,13 @@ app.use((req, res, next) => {
 
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+    process.on('uncaughtException', (err) => {
+      console.error('[FATAL] Uncaught exception:', err.message, err.stack);
+    });
+
+    process.on('unhandledRejection', (reason) => {
+      console.error('[WARN] Unhandled promise rejection:', reason);
+    });
   });
 })();
