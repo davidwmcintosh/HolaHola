@@ -679,6 +679,69 @@ NEVER guess. NEVER roleplay searching. Actually call this function.`,
       required: ["type", "title", "content"],
     },
   },
+
+  // === CURRICULUM NAVIGATION (Daniela as Interactive Textbook) ===
+  {
+    name: "browse_syllabus",
+    description: "Browse the student's syllabus to see units, lessons, and their progress. Use when the student asks 'What are we learning?', 'What's in Unit 3?', 'What have we covered?', 'Show me the syllabus', or when you want to orient them in the curriculum. Returns structured data about units and lessons that you can narrate conversationally. You can filter by unit or show the full overview.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "What you say while looking up the syllabus (e.g., 'Let me pull up your syllabus...')" },
+        unit_number: { type: "number", description: "Optional: specific unit number to focus on. Omit to get full syllabus overview." },
+        show_completed: { type: "boolean", description: "Whether to include already-completed lessons (default: true)" },
+      },
+      required: ["text"],
+    },
+  },
+  {
+    name: "start_lesson",
+    description: "Load a specific curriculum lesson into the session to teach it. Pulls the lesson's objectives, vocabulary, drills, and conversation topics. Use when the student says 'Let's do lesson 3', 'Teach me food vocabulary', 'I want to practice greetings', or when you're ready to begin a lesson from the syllabus. After loading, you'll receive the lesson content and can begin teaching it naturally.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "What you say to transition into the lesson (e.g., 'Great choice! Let's dive into food vocabulary...')" },
+        lesson_id: { type: "string", description: "The lesson UUID to load. Get this from browse_syllabus results." },
+        lesson_name: { type: "string", description: "Optional: lesson name for fallback search if ID isn't available (e.g., 'Food Vocabulary', 'Greetings and Introductions')" },
+      },
+      required: ["text"],
+    },
+  },
+  {
+    name: "load_vocab_set",
+    description: "Load all vocabulary words for a specific lesson so you can teach them with images. Returns the full vocabulary list with translations and image URLs. Use when teaching vocabulary systematically — you can then show each word with show_image, quiz the student, or review previously learned words. Perfect for 'Let's review the vocabulary from that lesson' or starting a vocab-focused session.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "What you say while loading vocabulary (e.g., 'Let me pull up the vocabulary for this lesson...')" },
+        lesson_id: { type: "string", description: "The lesson UUID to load vocabulary from. Get this from browse_syllabus or start_lesson." },
+      },
+      required: ["text", "lesson_id"],
+    },
+  },
+  {
+    name: "show_progress",
+    description: "Display the student's learning progress on the whiteboard. Shows overall completion, ACTFL level, lessons completed, areas of strength and areas needing work. Use when the student asks 'How am I doing?', 'What's my level?', 'Show me my progress', or proactively at session start/end to motivate them.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "What you say while showing progress (e.g., 'Let's see how far you've come!')" },
+        detailed: { type: "boolean", description: "Whether to show detailed per-unit breakdown (default: false, shows summary)" },
+      },
+      required: ["text"],
+    },
+  },
+  {
+    name: "recommend_next",
+    description: "Get a personalized recommendation for what the student should study next based on their progress, strengths, and gaps. Use at the start of a session ('What should we work on today?'), after completing a lesson, or when the student seems unsure what to do. Returns the recommended lesson with reasoning you can share naturally.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "What you say while generating the recommendation (e.g., 'Let me think about what would be best for you today...')" },
+      },
+      required: ["text"],
+    },
+  },
 ];
 
 /**
@@ -747,6 +810,12 @@ export const FUNCTION_TO_COMMAND_MAP: Record<string, string> = {
   'first_meeting_complete': 'FIRST_MEETING_COMPLETE',
   'take_note': 'TAKE_NOTE',
   'milestone': 'MILESTONE',
+  // === CURRICULUM NAVIGATION ===
+  'browse_syllabus': 'BROWSE_SYLLABUS',
+  'start_lesson': 'START_LESSON',
+  'load_vocab_set': 'LOAD_VOCAB_SET',
+  'show_progress': 'SHOW_PROGRESS',
+  'recommend_next': 'RECOMMEND_NEXT',
 };
 
 /**
