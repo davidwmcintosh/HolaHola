@@ -1,3 +1,5 @@
+import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { TextAudioPlayButton } from "@/components/AudioPlayButton";
 
 interface SunArcGreetingsProps {
@@ -707,12 +709,115 @@ export function ObjectivesHighlight({
   );
 }
 
+interface VisualVocabGridProps {
+  lessonId: string;
+  drills: DrillItem[];
+  language: string;
+}
+
+function VisualVocabGrid({ lessonId, drills, language }: VisualVocabGridProps) {
+  const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+
+  const { data, isLoading } = useQuery<{ images: Record<string, { url: string; source: string }> }>({
+    queryKey: ['/api/textbook/vocab-images', lessonId, language],
+    queryFn: async () => {
+      const res = await fetch(`/api/textbook/vocab-images/${lessonId}?language=${language}`);
+      if (!res.ok) throw new Error('Failed to fetch vocab images');
+      return res.json();
+    },
+    staleTime: 1000 * 60 * 30,
+    gcTime: 1000 * 60 * 60,
+    retry: 1,
+  });
+
+  const vocabDrills = drills
+    .filter(d => d.itemType === 'listen_repeat' || d.itemType === 'translate_speak')
+    .filter(d => d.targetText && d.targetText.length < 50);
+
+  if (vocabDrills.length === 0) return null;
+
+  const images = data?.images || {};
+
+  return (
+    <div data-testid="visual-vocab-grid">
+      <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <path d="M21 15l-5-5L5 21"/>
+        </svg>
+        Visual Vocabulary
+      </p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {vocabDrills.map((drill, i) => {
+          const imgData = images[drill.id];
+          const hasImage = imgData?.url && !failedImages.has(drill.id);
+          const imageLoaded = loadedImages.has(drill.id);
+          const hasTranslation = drill.prompt && drill.prompt !== drill.targetText;
+
+          return (
+            <div
+              key={drill.id || i}
+              className="rounded-md border bg-card overflow-hidden"
+              data-testid={`visual-vocab-item-${i}`}
+            >
+              <div className="relative aspect-[4/3] bg-muted/30 overflow-hidden">
+                {isLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                  </div>
+                )}
+                {hasImage && (
+                  <img
+                    src={imgData.url}
+                    alt={drill.targetText}
+                    className={`w-full h-full object-cover transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+                    loading="lazy"
+                    onLoad={() => setLoadedImages(prev => new Set(prev).add(drill.id))}
+                    onError={() => setFailedImages(prev => new Set(prev).add(drill.id))}
+                  />
+                )}
+                {!isLoading && !hasImage && (
+                  <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/40">
+                    <svg viewBox="0 0 24 24" className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                      <circle cx="8.5" cy="8.5" r="1.5"/>
+                      <path d="M21 15l-5-5L5 21"/>
+                    </svg>
+                  </div>
+                )}
+              </div>
+              <div className="p-2 flex items-center gap-1.5">
+                <TextAudioPlayButton
+                  text={drill.targetText}
+                  language={language}
+                  size="sm"
+                  variant="ghost"
+                  className="shrink-0"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-sm truncate">{drill.targetText}</p>
+                  {hasTranslation && (
+                    <p className="text-xs text-muted-foreground truncate">{drill.prompt}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 interface LessonPrepCardProps {
   objectives?: string[];
   drills?: DrillItem[];
   conversationTopic?: string;
   lessonType: string;
   language?: string;
+  lessonId?: string;
   className?: string;
 }
 
@@ -722,6 +827,7 @@ export function LessonPrepCard({
   conversationTopic,
   lessonType,
   language,
+  lessonId,
   className = ''
 }: LessonPrepCardProps) {
   const langDisplay = language ? language.charAt(0).toUpperCase() + language.slice(1) : 'the target language';
@@ -835,7 +941,11 @@ export function LessonPrepCard({
           </div>
         )}
         
-        {hasVocab && (
+        {hasVocab && lessonId && language && (
+          <VisualVocabGrid lessonId={lessonId} drills={drills} language={language} />
+        )}
+        
+        {hasVocab && (!lessonId || !language) && (
           <div data-testid="prep-vocabulary">
             <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
               <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2">

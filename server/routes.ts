@@ -9954,6 +9954,61 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  app.get("/api/textbook/vocab-images/:lessonId", isAuthenticated, async (req: any, res) => {
+    try {
+      const { lessonId } = req.params;
+      const { language } = req.query;
+      
+      if (!language) {
+        return res.status(400).json({ error: "Language query param is required" });
+      }
+
+      const drillItems = await storage.getDrillItems(lessonId);
+      const vocabItems = drillItems
+        .filter(d => d.itemType === 'listen_repeat' || d.itemType === 'translate_speak')
+        .filter(d => d.targetText && d.targetText.length < 50);
+
+      if (vocabItems.length === 0) {
+        return res.json({ images: {} });
+      }
+
+      const { resolveVocabularyImage } = await import('./services/vocabulary-image-resolver');
+
+      const concurrency = 3;
+      const images: Record<string, { url: string; source: string }> = {};
+      
+      for (let i = 0; i < vocabItems.length; i += concurrency) {
+        const batch = vocabItems.slice(i, i + concurrency);
+        const results = await Promise.all(
+          batch.map(async (item) => {
+            try {
+              const result = await resolveVocabularyImage({
+                word: item.targetText,
+                language: language as string,
+                description: item.prompt || item.targetText,
+              });
+              return { id: item.id, url: result.imageUrl, source: result.source };
+            } catch (err: any) {
+              console.error(`[VocabImages] Failed for "${item.targetText}":`, err.message);
+              return { id: item.id, url: null, source: 'error' };
+            }
+          })
+        );
+        
+        for (const r of results) {
+          if (r.url) {
+            images[r.id] = { url: r.url, source: r.source };
+          }
+        }
+      }
+
+      res.json({ images });
+    } catch (error: any) {
+      console.error('Error resolving vocab images:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Create curriculum unit
   app.post("/api/curriculum/units", isAuthenticated, async (req: any, res) => {
     try {
