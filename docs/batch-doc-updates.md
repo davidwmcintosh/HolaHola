@@ -47,6 +47,43 @@ Five new Gemini native function calls that give Daniela full curriculum navigati
 
 ---
 
+### Session: February 21, 2026 — Drill Session & SRS Vocab Review Functions
+
+**Status**: COMPLETED
+
+#### What was built
+Four new Gemini native function calls that give Daniela structured drill session management and spaced repetition vocabulary review capabilities:
+
+1. **`drill_session`** — Starts a structured practice session by loading drill assignments from the database. Accepts optional `lesson_id` (defaults to last loaded lesson). Aggregates drill items across all assignments for the lesson, creates ephemeral session state (currentIndex, correctCount, incorrectCount), and displays the first drill item on the whiteboard using `parseDrillContent()`. Falls back to language-wide drills if no lesson-specific drills exist.
+
+2. **`drill_session_next`** — Advances to the next drill item in an active session. Accepts `was_correct` boolean to track scoring. When all items are exhausted, auto-generates a completion summary with accuracy percentage, duration, and item counts displayed as a whiteboard summary card.
+
+3. **`drill_session_end`** — Ends a drill session early at the student's request. Calculates partial statistics (items attempted vs total, accuracy, duration) and displays a summary. Cleans up the ephemeral session state.
+
+4. **`review_due_vocab`** — Queries the `vocabulary_words` table for words where `nextReviewDate <= now()`, filtered by user and target language, sorted by most overdue first. Returns word, translation, pronunciation, difficulty, and SRS stats. Accepts optional `max_items` parameter (default 10). Displays word list on the whiteboard.
+
+#### Architecture decisions
+- Drill session state is ephemeral (stored on `(session as any).drillSession`) — not persisted to database. This matches the conversational nature: Daniela manages the flow, not a UI state machine.
+- Drill items are sourced from `aris_drill_assignments` table, joined by `lessonId` or `targetLanguage`
+- Uses `parseDrillContent()` from `@shared/whiteboard-types` for all 12 drill types — same shared parser used by the single-drill handler
+- Vocab review queries the existing SM-2 SRS fields (`nextReviewDate`, `interval`, `easeFactor`, `correctCount`, `incorrectCount`)
+- Multi-step FC response handlers added in all 3 response sections (PTT switch, Open Mic switch, recursive else-if chain)
+
+#### Key files modified
+- `server/services/gemini-function-declarations.ts` — 4 new declarations + 4 FUNCTION_TO_COMMAND_MAP entries
+- `server/services/streaming-voice-orchestrator.ts` — 4 handler cases in `handleNativeFunctionCall()`, 3 multi-step response sections updated
+- Database: 4 new rows in `tool_knowledge` table (DRILL_SESSION, DRILL_SESSION_NEXT, DRILL_SESSION_END, REVIEW_DUE_VOCAB)
+
+#### Follows the New Function Call Checklist
+1. Declaration in `DANIELA_FUNCTION_DECLARATIONS` — done
+2. Legacy type mapping in `FUNCTION_TO_COMMAND_MAP` — done
+3. Handler in `handleNativeFunctionCall()` — done
+4. All use `text` param for TTS audio — done
+5. Text extracted to `(session as any).functionCallText` — done
+6. Procedural memory docs in `tool_knowledge` table — done
+
+---
+
 ### Session: February 18, 2026 — Classroom Remodel Procedure Doc
 
 **Status**: COMPLETED

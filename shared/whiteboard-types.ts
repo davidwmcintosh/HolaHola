@@ -1348,7 +1348,7 @@ function parseConjugationContent(content: string): Partial<DrillItemData> {
 /**
  * Parse DRILL content with optional type attribute
  */
-function parseDrillContent(typeAttr: string | undefined, content: string): DrillItemData {
+export function parseDrillContent(typeAttr: string | undefined, content: string): DrillItemData {
   const drillType = (typeAttr?.toLowerCase() || 'repeat') as DrillType;
   const validTypes: DrillType[] = ['repeat', 'translate', 'fill_blank', 'match', 'sentence_order', 'multiple_choice', 'true_false', 'conjugation', 'dictation', 'speak', 'cognate_match', 'false_friend_trap'];
   const validatedType = validTypes.includes(drillType) ? drillType : 'repeat';

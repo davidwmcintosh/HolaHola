@@ -394,8 +394,8 @@ NEVER guess. NEVER roleplay searching. Actually call this function.`,
       type: "object",
       properties: {
         text: { type: "string", description: "Your spoken instructions introducing the drill (e.g., 'Let's practice counting to ten!')" },
-        type: { type: "string", enum: ["repeat", "translate", "match", "fill_blank", "sentence_order"], description: "Type of drill exercise" },
-        content: { type: "string", description: "The drill content. Format depends on type: repeat='phrase to repeat', translate='phrase in native language', match='word1=translation1|word2=translation2', fill_blank='Sentence with ___ blank|option1,option2|correct', sentence_order='Word1|Word2|Word3|Word4'" },
+        type: { type: "string", enum: ["repeat", "translate", "match", "fill_blank", "sentence_order", "multiple_choice", "true_false", "conjugation", "dictation", "speak", "cognate_match", "false_friend_trap"], description: "Type of drill exercise" },
+        content: { type: "string", description: "The drill content. Format depends on type: repeat='phrase to repeat', translate='phrase in native language', match='word1=translation1|word2=translation2', fill_blank='Sentence with ___ blank|option1,option2|correct', sentence_order='Word1|Word2|Word3|Word4', multiple_choice='Question|ChoiceA|ChoiceB|ChoiceC|ChoiceD|correct_index', true_false='Statement to evaluate|true_or_false', conjugation='verb|tense|subject|correct_form', dictation='text to be spoken', speak='text to speak aloud|optional translation hint', cognate_match='source1=>target1\\nsource2=>target2', false_friend_trap='Question|option1|option2|option3|trap_index|explanation'" },
       },
       required: ["type", "content"],
     },
@@ -742,6 +742,55 @@ NEVER guess. NEVER roleplay searching. Actually call this function.`,
       required: ["text"],
     },
   },
+
+  // === DRILL SESSION & VOCAB REVIEW ===
+  {
+    name: "drill_session",
+    description: "Start a structured multi-drill practice session from a lesson's drill bundle. Loads all drill items for a lesson and runs them sequentially with cumulative scoring. Use when the student wants focused practice, after loading a lesson, or when they ask to 'practice' or 'do drills'. Returns drill items one at a time — call drill_session_next to advance to the next item, or drill_session_end to finish early.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "Your spoken introduction to the practice session (e.g., 'Alright, let's do some practice drills for this lesson!')" },
+        lesson_id: { type: "string", description: "The lesson ID to load drills from. If omitted, uses the currently loaded lesson." },
+      },
+      required: ["text"],
+    },
+  },
+  {
+    name: "drill_session_next",
+    description: "Advance to the next drill item in the current practice session. Use after the student completes a drill. Pass whether their last answer was correct for score tracking.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "Your spoken feedback or transition (e.g., 'Great job! Let's try the next one.')" },
+        was_correct: { type: "boolean", description: "Whether the student got the previous drill correct" },
+      },
+      required: ["text"],
+    },
+  },
+  {
+    name: "drill_session_end",
+    description: "End the current drill practice session and show a summary. Use when all drills are complete or the student wants to stop early. Provides session stats (correct/incorrect, accuracy, items completed).",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "Your spoken wrap-up (e.g., 'Great practice session! Let me show you how you did.')" },
+      },
+      required: ["text"],
+    },
+  },
+  {
+    name: "review_due_vocab",
+    description: "Load vocabulary words that are due for spaced repetition review. Uses the SM-2 algorithm to find words the student should review today based on their forgetting curve. Returns words as a list you can quiz conversationally or run as drills. Use at session start ('Let's review some vocabulary'), when the student asks to review, or after completing a lesson.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "Your spoken introduction (e.g., 'Let me check which words are due for review today...')" },
+        max_items: { type: "number", description: "Maximum number of words to load (default: 10)" },
+      },
+      required: ["text"],
+    },
+  },
 ];
 
 /**
@@ -816,6 +865,11 @@ export const FUNCTION_TO_COMMAND_MAP: Record<string, string> = {
   'load_vocab_set': 'LOAD_VOCAB_SET',
   'show_progress': 'SHOW_PROGRESS',
   'recommend_next': 'RECOMMEND_NEXT',
+  // === DRILL SESSION & VOCAB REVIEW ===
+  'drill_session': 'DRILL_SESSION',
+  'drill_session_next': 'DRILL_SESSION_NEXT',
+  'drill_session_end': 'DRILL_SESSION_END',
+  'review_due_vocab': 'REVIEW_DUE_VOCAB',
 };
 
 /**

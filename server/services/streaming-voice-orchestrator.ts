@@ -4715,6 +4715,46 @@ Remember: David may reference things discussed in these recent text chats.
               }
               break;
             }
+            case 'DRILL_SESSION': {
+              const data = (session as any).lastDrillSessionData;
+              if (data && data.totalItems > 0) {
+                responseText = `Drill session started with ${data.totalItems} practice items. The first item is displayed on the whiteboard. Walk the student through it conversationally — read the prompt, explain if needed, and wait for their response. Use drill_session_next with was_correct=true/false after they answer.`;
+              } else {
+                responseText = `No drill items found for this lesson or language. Let the student know and offer to practice conversationally instead, or suggest browsing the syllabus for a lesson that has drills.`;
+              }
+              delete (session as any).lastDrillSessionData;
+              break;
+            }
+            case 'DRILL_SESSION_NEXT': {
+              const data = (session as any).lastDrillSessionData;
+              if (data?.sessionComplete) {
+                responseText = `Session complete! Results: ${data.correct}/${data.totalItems} correct (${data.accuracy}% accuracy) in ${data.durationSeconds}s. Celebrate their effort and summarize what they did well. Suggest areas to review if accuracy was below 80%.`;
+              } else if (data) {
+                responseText = `Moving to item ${data.currentItem} of ${data.totalItems}. Score so far: ${data.correctSoFar} correct, ${data.incorrectSoFar} incorrect. Present the next drill item on the whiteboard to the student.`;
+              }
+              delete (session as any).lastDrillSessionData;
+              break;
+            }
+            case 'DRILL_SESSION_END': {
+              const data = (session as any).lastDrillSessionData;
+              if (data) {
+                responseText = `Session ended early. Attempted ${data.itemsAttempted} of ${data.totalItems} items. ${data.correct} correct (${data.accuracy}% accuracy). Acknowledge the student's decision warmly and summarize what they practiced.`;
+              } else {
+                responseText = `No active drill session to end. Continue the conversation normally.`;
+              }
+              delete (session as any).lastDrillSessionData;
+              break;
+            }
+            case 'REVIEW_DUE_VOCAB': {
+              const dueVocab = (session as any).lastDueVocab;
+              if (dueVocab && dueVocab.length > 0) {
+                responseText = `${dueVocab.length} vocabulary words are due for review:\n${JSON.stringify(dueVocab.map((w: any) => ({ word: w.word, translation: w.translation, difficulty: w.difficulty })), null, 1)}\n\nQuiz the student on these words one at a time. Say the word, ask for the translation, then confirm. Use encouraging feedback. Track mentally which ones they get right.`;
+              } else {
+                responseText = `No vocabulary words are due for review right now! Let the student know they're all caught up and suggest learning new words or doing conversation practice instead.`;
+              }
+              delete (session as any).lastDueVocab;
+              break;
+            }
             default:
               responseText = `${fc.name} executed successfully. Continue the conversation.`;
           }
@@ -7350,6 +7390,46 @@ Remember: David may reference things discussed in these recent text chats.
               }
               break;
             }
+            case 'DRILL_SESSION': {
+              const data = (session as any).lastDrillSessionData;
+              if (data && data.totalItems > 0) {
+                responseText = `Drill session started with ${data.totalItems} practice items. The first item is displayed on the whiteboard. Walk the student through it conversationally — read the prompt, explain if needed, and wait for their response. Use drill_session_next with was_correct=true/false after they answer.`;
+              } else {
+                responseText = `No drill items found for this lesson or language. Let the student know and offer to practice conversationally instead, or suggest browsing the syllabus for a lesson that has drills.`;
+              }
+              delete (session as any).lastDrillSessionData;
+              break;
+            }
+            case 'DRILL_SESSION_NEXT': {
+              const data = (session as any).lastDrillSessionData;
+              if (data?.sessionComplete) {
+                responseText = `Session complete! Results: ${data.correct}/${data.totalItems} correct (${data.accuracy}% accuracy) in ${data.durationSeconds}s. Celebrate their effort and summarize what they did well. Suggest areas to review if accuracy was below 80%.`;
+              } else if (data) {
+                responseText = `Moving to item ${data.currentItem} of ${data.totalItems}. Score so far: ${data.correctSoFar} correct, ${data.incorrectSoFar} incorrect. Present the next drill item on the whiteboard to the student.`;
+              }
+              delete (session as any).lastDrillSessionData;
+              break;
+            }
+            case 'DRILL_SESSION_END': {
+              const data = (session as any).lastDrillSessionData;
+              if (data) {
+                responseText = `Session ended early. Attempted ${data.itemsAttempted} of ${data.totalItems} items. ${data.correct} correct (${data.accuracy}% accuracy). Acknowledge the student's decision warmly and summarize what they practiced.`;
+              } else {
+                responseText = `No active drill session to end. Continue the conversation normally.`;
+              }
+              delete (session as any).lastDrillSessionData;
+              break;
+            }
+            case 'REVIEW_DUE_VOCAB': {
+              const dueVocab = (session as any).lastDueVocab;
+              if (dueVocab && dueVocab.length > 0) {
+                responseText = `${dueVocab.length} vocabulary words are due for review:\n${JSON.stringify(dueVocab.map((w: any) => ({ word: w.word, translation: w.translation, difficulty: w.difficulty })), null, 1)}\n\nQuiz the student on these words one at a time. Say the word, ask for the translation, then confirm. Use encouraging feedback. Track mentally which ones they get right.`;
+              } else {
+                responseText = `No vocabulary words are due for review right now! Let the student know they're all caught up and suggest learning new words or doing conversation practice instead.`;
+              }
+              delete (session as any).lastDueVocab;
+              break;
+            }
             default:
               responseText = `${fc.name} executed successfully. Continue the conversation.`;
           }
@@ -7557,6 +7637,31 @@ Remember: David may reference things discussed in these recent text chats.
                   ? `Recommendation: "${recommendation.lessonName}" from ${recommendation.unitName}. ${recommendation.reason}`
                   : `All lessons complete! Congratulate the student.`;
                 delete (session as any).lastRecommendation;
+              } else if (fc.legacyType === 'DRILL_SESSION') {
+                const data = (session as any).lastDrillSessionData;
+                responseText = data?.totalItems > 0
+                  ? `Drill session started with ${data.totalItems} items. First item displayed. Walk the student through it, then use drill_session_next.`
+                  : `No drill items found. Offer conversational practice instead.`;
+                delete (session as any).lastDrillSessionData;
+              } else if (fc.legacyType === 'DRILL_SESSION_NEXT') {
+                const data = (session as any).lastDrillSessionData;
+                responseText = data?.sessionComplete
+                  ? `Session complete! ${data.correct}/${data.totalItems} correct (${data.accuracy}%). Celebrate and summarize.`
+                  : data ? `Item ${data.currentItem}/${data.totalItems}. Score: ${data.correctSoFar} correct. Present next drill.`
+                  : `Drill session next processed.`;
+                delete (session as any).lastDrillSessionData;
+              } else if (fc.legacyType === 'DRILL_SESSION_END') {
+                const data = (session as any).lastDrillSessionData;
+                responseText = data
+                  ? `Session ended. ${data.itemsAttempted}/${data.totalItems} attempted, ${data.accuracy}% accuracy. Summarize warmly.`
+                  : `No active session to end.`;
+                delete (session as any).lastDrillSessionData;
+              } else if (fc.legacyType === 'REVIEW_DUE_VOCAB') {
+                const dueVocab = (session as any).lastDueVocab;
+                responseText = dueVocab?.length > 0
+                  ? `${dueVocab.length} vocab words due:\n${JSON.stringify(dueVocab.map((w: any) => ({ word: w.word, translation: w.translation })), null, 1)}\n\nQuiz the student.`
+                  : `No words due for review. All caught up!`;
+                delete (session as any).lastDueVocab;
               } else {
                 responseText = `${fc.name} executed successfully. Continue the conversation.`;
               }
@@ -13869,33 +13974,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         }
         
         if (drillType && content) {
-          const drillData: Record<string, unknown> = {
-            drillType,
-            prompt: content,
-            state: 'waiting',
-          };
-          
-          if (drillType === 'match') {
-            const pairs = content.split('|').map((pair: string) => {
-              const [left, right] = pair.split('=').map((s: string) => s.trim());
-              return { id: Math.random().toString(36).substring(7), left: left || pair, right: right || '' };
-            });
-            drillData.pairs = pairs;
-            drillData.selectedLeftId = null;
-            drillData.matchedCount = 0;
-            drillData.attempts = 0;
-            drillData.matchState = 'pending';
-          } else if (drillType === 'fill_blank') {
-            const parts = content.split('|').map((p: string) => p.trim());
-            drillData.blankedText = parts[0] || content;
-            drillData.options = parts[1] ? parts[1].split(',').map((o: string) => o.trim()) : [];
-            drillData.correctAnswer = parts[2] || '';
-          } else if (drillType === 'sentence_order') {
-            const words = content.split('|').map((w: string) => w.trim());
-            drillData.words = words.sort(() => Math.random() - 0.5);
-            drillData.correctOrder = words;
-            drillData.currentOrder = [];
-          }
+          const { parseDrillContent } = await import('@shared/whiteboard-types');
+          const drillData = parseDrillContent(drillType, content);
           
           console.log(`[Native Function→Drill] Type: ${drillType}, content: "${content.substring(0, 50)}..."`);
           this.sendMessage(session.ws, {
@@ -15000,6 +15080,312 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
             }
           } catch (err: any) {
             console.error(`[Native Function→RecommendNext] Error:`, err.message);
+          }
+        }
+        break;
+      }
+
+      case 'DRILL_SESSION': {
+        const text = fn.args.text as string | undefined;
+        const lessonId = fn.args.lesson_id as string | undefined;
+
+        if (text && !(session as any).functionCallText) {
+          (session as any).functionCallText = text;
+        }
+
+        if (session.userId) {
+          try {
+            const { arisDrillAssignments } = await import('@shared/schema');
+            const { eq, and } = await import('drizzle-orm');
+            const db = (await import('../db')).db;
+
+            let targetLessonId = lessonId;
+            if (!targetLessonId && (session as any).lastLoadedLesson) {
+              targetLessonId = (session as any).lastLoadedLesson.id;
+            }
+
+            let drillItems: Array<{ prompt: string; expectedAnswer?: string; options?: string[]; pronunciation?: string; drillType?: string }> = [];
+
+            if (targetLessonId) {
+              const assignments = await db.select().from(arisDrillAssignments)
+                .where(and(
+                  eq(arisDrillAssignments.userId, String(session.userId)),
+                  eq(arisDrillAssignments.lessonId, targetLessonId),
+                ));
+
+              for (const a of assignments) {
+                if (a.drillContent && Array.isArray((a.drillContent as any).items)) {
+                  for (const item of (a.drillContent as any).items) {
+                    drillItems.push({ ...item, drillType: a.drillType });
+                  }
+                }
+              }
+            }
+
+            if (drillItems.length === 0 && targetLessonId) {
+              const assignments = await db.select().from(arisDrillAssignments)
+                .where(and(
+                  eq(arisDrillAssignments.userId, String(session.userId)),
+                  eq(arisDrillAssignments.targetLanguage, session.targetLanguage || 'spanish'),
+                ));
+
+              for (const a of assignments) {
+                if (a.drillContent && Array.isArray((a.drillContent as any).items)) {
+                  for (const item of (a.drillContent as any).items) {
+                    drillItems.push({ ...item, drillType: a.drillType });
+                  }
+                }
+                if (drillItems.length >= 10) break;
+              }
+            }
+
+            if (drillItems.length > 0) {
+              const sessionState = {
+                items: drillItems,
+                currentIndex: 0,
+                correctCount: 0,
+                incorrectCount: 0,
+                totalItems: drillItems.length,
+                startTime: Date.now(),
+                lessonId: targetLessonId,
+              };
+              (session as any).drillSession = sessionState;
+
+              const firstItem = drillItems[0];
+              const { parseDrillContent } = await import('@shared/whiteboard-types');
+              const drillData = parseDrillContent(firstItem.drillType || 'repeat', firstItem.prompt);
+
+              console.log(`[Native Function→DrillSession] Started session with ${drillItems.length} items`);
+
+              this.sendMessage(session.ws, {
+                type: 'whiteboard_update',
+                timestamp: Date.now(),
+                items: [{
+                  type: 'drill',
+                  content: firstItem.prompt,
+                  data: { ...drillData, sessionProgress: `1 / ${drillItems.length}` },
+                }],
+              });
+
+              if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+              session.pendingMemoryLookupPromises.push(Promise.resolve());
+              (session as any).lastDrillSessionData = {
+                totalItems: drillItems.length,
+                currentItem: 1,
+                firstDrill: { type: firstItem.drillType, prompt: firstItem.prompt },
+              };
+            } else {
+              console.log(`[Native Function→DrillSession] No drill items found`);
+              if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+              session.pendingMemoryLookupPromises.push(Promise.resolve());
+              (session as any).lastDrillSessionData = { totalItems: 0, noDrillsAvailable: true };
+            }
+          } catch (err: any) {
+            console.error(`[Native Function→DrillSession] Error:`, err.message);
+          }
+        }
+        break;
+      }
+
+      case 'DRILL_SESSION_NEXT': {
+        const text = fn.args.text as string | undefined;
+        const wasCorrect = fn.args.was_correct as boolean | undefined;
+
+        if (text && !(session as any).functionCallText) {
+          (session as any).functionCallText = text;
+        }
+
+        const drillSession = (session as any).drillSession;
+        if (drillSession) {
+          if (wasCorrect === true) drillSession.correctCount++;
+          else if (wasCorrect === false) drillSession.incorrectCount++;
+
+          drillSession.currentIndex++;
+
+          if (drillSession.currentIndex < drillSession.totalItems) {
+            const nextItem = drillSession.items[drillSession.currentIndex];
+            const { parseDrillContent } = await import('@shared/whiteboard-types');
+            const drillData = parseDrillContent(nextItem.drillType || 'repeat', nextItem.prompt);
+
+            console.log(`[Native Function→DrillSessionNext] Item ${drillSession.currentIndex + 1}/${drillSession.totalItems}`);
+
+            this.sendMessage(session.ws, {
+              type: 'whiteboard_update',
+              timestamp: Date.now(),
+              items: [{
+                type: 'drill',
+                content: nextItem.prompt,
+                data: { ...drillData, sessionProgress: `${drillSession.currentIndex + 1} / ${drillSession.totalItems}` },
+              }],
+            });
+
+            if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+            session.pendingMemoryLookupPromises.push(Promise.resolve());
+            (session as any).lastDrillSessionData = {
+              totalItems: drillSession.totalItems,
+              currentItem: drillSession.currentIndex + 1,
+              correctSoFar: drillSession.correctCount,
+              incorrectSoFar: drillSession.incorrectCount,
+              nextDrill: { type: nextItem.drillType, prompt: nextItem.prompt },
+            };
+          } else {
+            const elapsed = Math.round((Date.now() - drillSession.startTime) / 1000);
+            const accuracy = drillSession.totalItems > 0
+              ? Math.round((drillSession.correctCount / drillSession.totalItems) * 100) : 0;
+
+            console.log(`[Native Function→DrillSessionNext] Session complete! ${drillSession.correctCount}/${drillSession.totalItems}`);
+
+            this.sendMessage(session.ws, {
+              type: 'whiteboard_update',
+              timestamp: Date.now(),
+              items: [{
+                type: 'summary',
+                content: 'Practice Session Complete',
+                data: {
+                  title: 'Practice Session Complete',
+                  stats: [
+                    { label: 'Items Completed', value: String(drillSession.totalItems) },
+                    { label: 'Correct', value: String(drillSession.correctCount) },
+                    { label: 'Incorrect', value: String(drillSession.incorrectCount) },
+                    { label: 'Accuracy', value: `${accuracy}%` },
+                    { label: 'Duration', value: `${Math.floor(elapsed / 60)}m ${elapsed % 60}s` },
+                  ],
+                },
+              }],
+            });
+
+            if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+            session.pendingMemoryLookupPromises.push(Promise.resolve());
+            (session as any).lastDrillSessionData = {
+              sessionComplete: true,
+              totalItems: drillSession.totalItems,
+              correct: drillSession.correctCount,
+              incorrect: drillSession.incorrectCount,
+              accuracy,
+              durationSeconds: elapsed,
+            };
+            delete (session as any).drillSession;
+          }
+        } else {
+          console.log(`[Native Function→DrillSessionNext] No active drill session`);
+        }
+        break;
+      }
+
+      case 'DRILL_SESSION_END': {
+        const text = fn.args.text as string | undefined;
+
+        if (text && !(session as any).functionCallText) {
+          (session as any).functionCallText = text;
+        }
+
+        const activeDrillSession = (session as any).drillSession;
+        if (activeDrillSession) {
+          const elapsed = Math.round((Date.now() - activeDrillSession.startTime) / 1000);
+          const completed = activeDrillSession.currentIndex;
+          const accuracy = completed > 0
+            ? Math.round((activeDrillSession.correctCount / completed) * 100) : 0;
+
+          console.log(`[Native Function→DrillSessionEnd] Ending early at ${completed}/${activeDrillSession.totalItems}`);
+
+          this.sendMessage(session.ws, {
+            type: 'whiteboard_update',
+            timestamp: Date.now(),
+            items: [{
+              type: 'summary',
+              content: 'Practice Session Summary',
+              data: {
+                title: 'Practice Session Summary',
+                stats: [
+                  { label: 'Items Attempted', value: `${completed} of ${activeDrillSession.totalItems}` },
+                  { label: 'Correct', value: String(activeDrillSession.correctCount) },
+                  { label: 'Incorrect', value: String(activeDrillSession.incorrectCount) },
+                  { label: 'Accuracy', value: `${accuracy}%` },
+                  { label: 'Duration', value: `${Math.floor(elapsed / 60)}m ${elapsed % 60}s` },
+                ],
+              },
+            }],
+          });
+
+          if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+          session.pendingMemoryLookupPromises.push(Promise.resolve());
+          (session as any).lastDrillSessionData = {
+            sessionComplete: true,
+            endedEarly: true,
+            itemsAttempted: completed,
+            totalItems: activeDrillSession.totalItems,
+            correct: activeDrillSession.correctCount,
+            incorrect: activeDrillSession.incorrectCount,
+            accuracy,
+            durationSeconds: elapsed,
+          };
+          delete (session as any).drillSession;
+        }
+        break;
+      }
+
+      case 'REVIEW_DUE_VOCAB': {
+        const text = fn.args.text as string | undefined;
+        const maxItems = (fn.args.max_items as number) || 10;
+
+        if (text && !(session as any).functionCallText) {
+          (session as any).functionCallText = text;
+        }
+
+        if (session.userId) {
+          try {
+            const { vocabularyWords } = await import('@shared/schema');
+            const { eq, and, lte } = await import('drizzle-orm');
+            const db = (await import('../db')).db;
+
+            const now = new Date();
+            const dueWords = await db.select().from(vocabularyWords)
+              .where(and(
+                eq(vocabularyWords.userId, String(session.userId)),
+                eq(vocabularyWords.language, session.targetLanguage || 'spanish'),
+                lte(vocabularyWords.nextReviewDate, now),
+              ))
+              .orderBy(vocabularyWords.nextReviewDate)
+              .limit(maxItems);
+
+            if (dueWords.length > 0) {
+              const vocabList = dueWords.map(w => ({
+                id: w.id,
+                word: w.word,
+                translation: w.translation,
+                pronunciation: w.pronunciation,
+                difficulty: w.difficulty,
+                correctCount: w.correctCount,
+                incorrectCount: w.incorrectCount,
+                interval: w.interval,
+              }));
+
+              console.log(`[Native Function→ReviewDueVocab] Found ${dueWords.length} words due for review`);
+
+              this.sendMessage(session.ws, {
+                type: 'whiteboard_update',
+                timestamp: Date.now(),
+                items: [{
+                  type: 'write',
+                  content: `Vocabulary Review: ${dueWords.length} words due`,
+                  data: {
+                    vocabReview: true,
+                    words: vocabList.map(w => `${w.word} → ${w.translation}`),
+                  },
+                }],
+              });
+
+              if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+              session.pendingMemoryLookupPromises.push(Promise.resolve());
+              (session as any).lastDueVocab = vocabList;
+            } else {
+              console.log(`[Native Function→ReviewDueVocab] No words due for review`);
+              if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+              session.pendingMemoryLookupPromises.push(Promise.resolve());
+              (session as any).lastDueVocab = [];
+            }
+          } catch (err: any) {
+            console.error(`[Native Function→ReviewDueVocab] Error:`, err.message);
           }
         }
         break;
