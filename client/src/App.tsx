@@ -157,13 +157,6 @@ function Router() {
   }, [currentPath, isAuthenticated, isLoading]);
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated && currentPath !== "/") {
-      const alreadyNavigated = sessionStorage.getItem("holahola_session_started");
-      if (!alreadyNavigated) {
-        sessionStorage.setItem("holahola_session_started", "1");
-        setLocation("/");
-      }
-    }
     if (!isLoading && isAuthenticated) {
       sessionStorage.setItem("holahola_session_started", "1");
     }
