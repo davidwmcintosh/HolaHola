@@ -8,6 +8,30 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 21, 2026 — Stack Latency Fix + Route Cleanup
+
+**Status**: COMPLETED
+
+#### System-alerts endpoint latency fix
+- **Problem**: `/api/system-alerts` was ~485ms — sequential `await` on `incrementAlertView()` for every active alert, each a separate Neon DB round-trip (~65ms)
+- **Fix**: Moved `res.json(alerts)` before view-tracking writes. View increments now fire in parallel via `Promise.all()` as fire-and-forget after response is sent
+- **Result**: 485ms → 74ms (85% improvement)
+- **File**: `server/routes.ts` — `/api/system-alerts` GET handler
+
+#### Interactive textbook route redirect
+- **Problem**: Replit webview preserved `/interactive-textbook` URL across server restarts, always reloading that page regardless of where user was working
+- **Fix**: Changed route from `component={InteractiveTextbook}` to `<Redirect to="/" />`. Removed lazy import. Textbook page still exists but route now redirects to dashboard.
+- **Future-proofing**: When textbook page is removed entirely, the redirect ensures no broken URLs
+- **File**: `client/src/App.tsx`
+
+#### Stack latency profiling methodology
+- Built Node.js latency profiler (`/tmp/latency-check.mjs`) that tests: (1) direct DB queries with timing, (2) API endpoint round-trips, (3) static asset serving, (4) process memory health
+- Neon DB baseline: ~65-80ms per query (first connection ~150-200ms cold start, then ~20ms warm)
+- All API endpoints under 50ms except system-alerts (now fixed)
+- Reusable pattern for future performance audits
+
+---
+
 ### Session: February 21, 2026 — Voice Context Pipeline
 
 **Status**: COMPLETED

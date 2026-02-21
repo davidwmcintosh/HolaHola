@@ -32,7 +32,11 @@ Additional architectural components include an Observation Summarization System,
 
 The Fluency Wiring System connects ACTFL Can-Do statements to lessons. An AI Lesson Generation System automatically creates structured lesson drafts, which are then processed by a Lesson Publishing Service. The Drill System supports multiple interactive drill types, and the Practice Explorer System enables self-directed drill practice. An Interactive Textbook serves as a visual quick-reference. The Gauntlet Runner Identity Stress Test System validates Daniela's voice identity.
 
-The TTS provider strategy supports Google Cloud TTS (Chirp 3 HD) as the recommended primary production provider, with Cartesia (Sonic-3), ElevenLabs (Flash v2.5), and Gemini (2.5 Flash Live) as alternatives. A WebSocket warm-up mechanism and an app-level heartbeat ensure connection reliability.
+The TTS provider strategy supports Google Cloud TTS (Chirp 3 HD) as the recommended primary production provider, with Cartesia (Sonic-3), ElevenLabs (Flash v2.5), and Gemini (2.5 Flash Live) as alternatives. TTS dispatch is centralized via `tts-provider-adapter.ts` — a unified `TTSStreamingProvider` interface with adapter classes for all 4 providers, so the orchestrator calls a single `streamSynthesizeProgressive()` method regardless of provider. Batch mode (Google) vs progressive streaming (others) is determined by the `adapter.requiresBatchMode` property. A WebSocket warm-up mechanism and an app-level heartbeat ensure connection reliability.
+
+The Voice Context Pipeline (`voice-context-pipeline.ts`) centralizes shared context-building logic used by both PTT and OpenMic voice paths: classroom environment building, passive memory search, identity memories, student intelligence, and dynamic preamble assembly. Constants like `PASSIVE_MEMORY_KEYWORDS` and `STOP_WORDS` are defined once in the pipeline.
+
+**INTERACTIVE TEXTBOOK STATUS:** Route `/interactive-textbook` redirects to `/` (dashboard). The textbook page file still exists but is not routed. Planned for phase-out — do not add new features to the textbook.
 
 ## External Dependencies
 - Stripe: Payment processing and subscription management.
