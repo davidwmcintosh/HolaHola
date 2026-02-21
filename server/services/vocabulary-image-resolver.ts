@@ -32,6 +32,39 @@ interface VocabImageResult {
 
 const UNSPLASH_ACCESS_KEY = process.env.UNSPLASH_ACCESS_KEY;
 
+const LANGUAGE_STOP_WORDS: Record<string, Set<string>> = {
+  spanish: new Set(['el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas', 'de', 'del', 'en', 'con', 'por', 'para', 'es', 'está', 'son', 'muy', 'más', 'y', 'o', 'que', 'se', 'me', 'te', 'le', 'nos', 'su', 'mi', 'tu', 'al', 'a', 'no', 'sí', 'como', 'pero', 'ya', 'hay', 'aquí', 'ahí', 'allí', 'esto', 'eso', 'este', 'ese', 'esta', 'esa', 'estos', 'esos', 'estas', 'esas', 'lo', 'yo', 'tú', 'él', 'ella', 'nosotros', 'ellos', 'ellas', 'usted', 'ustedes', 'quiero', 'quisiera', 'puedo', 'tiene', 'tengo', 'favor', 'entonces', 'también']),
+  french: new Set(['le', 'la', 'les', 'un', 'une', 'des', 'de', 'du', 'en', 'et', 'est', 'sont', 'très', 'plus', 'ou', 'que', 'se', 'me', 'te', 'ce', 'mon', 'ton', 'son', 'ma', 'ta', 'sa', 'au', 'aux', 'à', 'ne', 'pas', 'oui', 'non', 'je', 'tu', 'il', 'elle', 'nous', 'vous', 'ils', 'elles', 'avec', 'pour', 'par', 'sur', 'dans', 'qui', 'bien', 'aussi']),
+  german: new Set(['der', 'die', 'das', 'ein', 'eine', 'und', 'ist', 'sind', 'sehr', 'mehr', 'oder', 'dass', 'sich', 'mein', 'dein', 'sein', 'ihr', 'mit', 'für', 'von', 'zu', 'auf', 'in', 'an', 'nicht', 'ja', 'nein', 'ich', 'du', 'er', 'sie', 'wir', 'auch', 'aber', 'noch', 'den', 'dem', 'des']),
+  italian: new Set(['il', 'lo', 'la', 'i', 'gli', 'le', 'un', 'uno', 'una', 'di', 'del', 'in', 'con', 'per', 'è', 'sono', 'molto', 'più', 'e', 'o', 'che', 'si', 'mi', 'ti', 'ci', 'suo', 'mio', 'tuo', 'al', 'a', 'non', 'sì', 'come', 'ma', 'io', 'tu', 'lui', 'lei', 'noi', 'loro', 'anche', 'da']),
+  portuguese: new Set(['o', 'a', 'os', 'as', 'um', 'uma', 'de', 'do', 'da', 'em', 'com', 'por', 'para', 'é', 'são', 'muito', 'mais', 'e', 'ou', 'que', 'se', 'me', 'te', 'seu', 'meu', 'teu', 'ao', 'não', 'sim', 'como', 'mas', 'eu', 'tu', 'ele', 'ela', 'nós', 'eles', 'elas', 'também', 'já', 'no', 'na']),
+  english: new Set(['the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can', 'shall', 'and', 'but', 'or', 'nor', 'not', 'so', 'yet', 'for', 'at', 'by', 'to', 'in', 'on', 'of', 'up', 'out', 'off', 'with', 'from', 'into', 'over', 'it', 'its', 'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'we', 'they', 'me', 'him', 'her', 'us', 'them', 'my', 'your', 'his', 'our', 'their', 'very', 'then', 'than', 'also', 'just', 'more', 'some', 'any', 'all', 'each', 'every', 'both']),
+};
+
+function extractVisualConcept(word: string, language: string): string {
+  let text = word
+    .replace(/[¿¡?!.,;:'"()[\]{}]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (text.split(' ').length <= 2) {
+    return text;
+  }
+
+  const stopWords = LANGUAGE_STOP_WORDS[language] || LANGUAGE_STOP_WORDS.english;
+  const words = text.toLowerCase().split(' ');
+  const contentWords = words
+    .map(w => w.replace(/^[dl]['']/, ''))
+    .map(w => w.normalize('NFD').replace(/[\u0300-\u036f]/g, ''))
+    .filter(w => !stopWords.has(w) && w.length > 1);
+
+  if (contentWords.length === 0) {
+    return text.split(' ').slice(0, 3).join(' ');
+  }
+
+  return contentWords.slice(0, 3).join(' ');
+}
+
 function normalizeWord(word: string): string {
   return word
     .toLowerCase()
@@ -85,7 +118,8 @@ async function generateAIImage(word: string, description: string, language: stri
     const { GoogleGenAI } = await import('@google/genai');
     const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
     
-    const prompt = `Simple, clear illustration of "${word}" (${language}). ${description}. Educational style, colorful, child-friendly, no text or words in image.`;
+    const visualConcept = extractVisualConcept(word, language);
+    const prompt = `Create a clean, professional photograph-style image representing the concept "${visualConcept}" for a language learning flashcard. Show the object, action, or scene clearly with good lighting and a simple, uncluttered background. The image should immediately convey the meaning of the word "${word}" without any text, letters, numbers, or watermarks in the image. Realistic style, warm natural colors.`;
     
     const response = await gemini.models.generateContent({
       model: 'gemini-2.0-flash-exp',
@@ -136,7 +170,13 @@ export async function resolveVocabularyImage(request: VocabImageRequest): Promis
     };
   }
 
-  const stockUrl = await fetchStockImage(`${word} ${description}`);
+  const visualConcept = extractVisualConcept(word, language);
+  const stockQuery = visualConcept !== word.toLowerCase() 
+    ? visualConcept 
+    : `${word} ${description}`.substring(0, 80);
+  console.log(`[VocabImage] Search query: "${stockQuery}" (extracted from "${word}")`);
+  
+  const stockUrl = await fetchStockImage(stockQuery);
   if (stockUrl) {
     console.log(`[VocabImage] Stock image found for "${word}"`);
     
@@ -147,7 +187,7 @@ export async function resolveVocabularyImage(request: VocabImageRequest): Promis
         mimeType: 'image/jpeg',
         mediaType: 'image',
         imageSource: 'stock',
-        searchQuery: cacheKey,
+        searchQuery: stockQuery,
         uploadedBy: userId,
         targetWord: word,
         language,
@@ -222,3 +262,75 @@ export async function prefetchVocabularyImage(
     });
   }
 }
+
+export interface RefetchImageRequest {
+  word: string;
+  language: string;
+  preferredSource: 'stock' | 'ai';
+  customQuery?: string;
+  userId?: string;
+}
+
+export interface RefetchImageResult {
+  imageUrl: string;
+  source: 'stock' | 'ai' | 'placeholder';
+  searchQuery: string;
+  word: string;
+}
+
+export async function refetchImage(request: RefetchImageRequest): Promise<RefetchImageResult> {
+  const { word, language, preferredSource, customQuery, userId } = request;
+  const searchQuery = customQuery || extractVisualConcept(word, language);
+  const cacheKey = generateCacheKey(word, language);
+  
+  console.log(`[VocabImage] Refetch "${word}" via ${preferredSource}, query: "${searchQuery}"`);
+  
+  if (preferredSource === 'stock') {
+    const stockUrl = await fetchStockImage(searchQuery);
+    if (stockUrl) {
+      try {
+        await storage.cacheImage({
+          url: stockUrl,
+          filename: `vocab_${cacheKey}.jpg`,
+          mimeType: 'image/jpeg',
+          mediaType: 'image',
+          imageSource: 'stock',
+          searchQuery,
+          uploadedBy: userId,
+          targetWord: word,
+          language,
+        });
+      } catch (err: any) {
+        console.log('[VocabImage] Cache save skipped:', err.message);
+      }
+      return { imageUrl: stockUrl, source: 'stock', searchQuery, word };
+    }
+    console.log(`[VocabImage] Stock failed for "${searchQuery}", falling back to AI`);
+  }
+  
+  const aiUrl = await generateAIImage(word, searchQuery, language);
+  if (aiUrl) {
+    const promptHash = generatePromptHash(`${word}_${language}_${searchQuery}_refetch_${Date.now()}`);
+    try {
+      await storage.cacheImage({
+        url: aiUrl,
+        filename: `vocab_ai_${cacheKey}.png`,
+        mimeType: 'image/png',
+        mediaType: 'image',
+        imageSource: 'ai_generated',
+        promptHash,
+        searchQuery,
+        uploadedBy: userId,
+        targetWord: word,
+        language,
+      });
+    } catch (err: any) {
+      console.log('[VocabImage] AI cache save skipped:', err.message);
+    }
+    return { imageUrl: aiUrl, source: 'ai', searchQuery, word };
+  }
+  
+  return { imageUrl: getPlaceholderUrl(word), source: 'placeholder', searchQuery, word };
+}
+
+export { extractVisualConcept };

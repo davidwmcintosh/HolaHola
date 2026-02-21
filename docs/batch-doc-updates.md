@@ -65,6 +65,14 @@ Staging area for documentation changes to be consolidated later.
 - **Wrapped routes**: `/chat` (Voice Chat), `/practice` + `/aris` (Practice), `/pronunciation` + `/pronunciation-drill` (Pronunciation)
 - **Files**: `client/src/components/ErrorBoundary.tsx`, `client/src/App.tsx`
 
+#### Image library improvements
+- **Problem**: Vocabulary images from Unsplash were often irrelevant because full sentences (e.g., "La sopa está muy caliente") were sent as search queries, returning random photos
+- **Search quality fix**: Added `extractVisualConcept()` in `vocabulary-image-resolver.ts` — strips stop words in 6 languages (Spanish, French, German, Italian, Portuguese, English), removes diacritics and apostrophe prefixes (l', d'), extracts up to 3 key visual nouns/concepts. Example: "La sopa está muy caliente" → "sopa caliente"
+- **AI image prompt improved**: Better prompt for educational flashcard-style images — clean photography style, no text in image, warm natural colors
+- **Admin refetch**: New `/api/admin/media/refetch` endpoint lets admins replace images with choice of stock (Unsplash) or AI (Gemini), plus optional custom search query
+- **UI upgrade**: Image Library tab now shows search query used for each image, "Refetch" panel with editable search query and stock/AI source picker. Form state resets properly when switching between images.
+- **Files**: `server/services/vocabulary-image-resolver.ts`, `server/routes.ts`, `client/src/pages/admin/CommandCenter.tsx`
+
 ---
 
 ### Session: February 21, 2026 — Voice Context Pipeline

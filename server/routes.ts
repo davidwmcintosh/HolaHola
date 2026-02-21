@@ -16600,6 +16600,54 @@ Current conversation context:
     }
   });
 
+  app.post("/api/admin/media/refetch", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const adminId = getRequestUserId(req)!;
+      const { oldId, word, language, preferredSource, customQuery } = req.body;
+      
+      if (!word || !language || !preferredSource) {
+        return res.status(400).json({ error: "word, language, and preferredSource are required" });
+      }
+      
+      const { refetchImage } = await import('./services/vocabulary-image-resolver');
+      
+      const result = await refetchImage({
+        word,
+        language,
+        preferredSource,
+        customQuery: customQuery || undefined,
+        userId: adminId,
+      });
+      
+      if (oldId) {
+        try {
+          await storage.deleteMediaFile(oldId);
+        } catch (err: any) {
+          console.log('[AdminMedia] Old image cleanup skipped:', err.message);
+        }
+      }
+      
+      await storage.logAdminAction({
+        actorId: adminId,
+        action: 'refetch_media',
+        targetType: 'media_file',
+        targetId: oldId || 'new',
+        details: { word, language, preferredSource, customQuery, resultSource: result.source },
+      });
+      
+      res.json({
+        success: true,
+        imageUrl: result.imageUrl,
+        source: result.source,
+        searchQuery: result.searchQuery,
+        word: result.word,
+      });
+    } catch (error: any) {
+      console.error('Error refetching image:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Delete media file (admin only)
   app.delete("/api/admin/media/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {

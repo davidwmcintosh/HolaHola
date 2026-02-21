@@ -4001,10 +4001,15 @@ function ImageLibraryTab() {
     queryKey: [queryUrl],
   });
 
-  // Clear selections when page, filter, or view changes to prevent stale selections
   useEffect(() => {
     setSelectedIds(new Set());
   }, [page, sourceFilter, imageReviewFilter, viewMode, sortField, sortOrder]);
+
+  useEffect(() => {
+    setShowRefetchForm(false);
+    setRefetchQuery("");
+    setRefetchSource('stock');
+  }, [selectedImage?.id]);
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -4074,19 +4079,23 @@ function ImageLibraryTab() {
     },
   });
 
-  const regenerateImageMutation = useMutation({
-    mutationFn: async ({ oldId, word, language }: { oldId: string; word: string; language: string }) => {
-      const result = await apiRequest("POST", "/api/admin/media/request-image", { word, language });
-      await apiRequest("DELETE", `/api/admin/media/${oldId}`);
-      return result;
+  const [refetchSource, setRefetchSource] = useState<'stock' | 'ai'>('stock');
+  const [refetchQuery, setRefetchQuery] = useState("");
+  const [showRefetchForm, setShowRefetchForm] = useState(false);
+
+  const refetchImageMutation = useMutation({
+    mutationFn: async ({ oldId, word, language, preferredSource, customQuery }: { oldId: string; word: string; language: string; preferredSource: 'stock' | 'ai'; customQuery?: string }) => {
+      return apiRequest("POST", "/api/admin/media/refetch", { oldId, word, language, preferredSource, customQuery: customQuery || undefined });
     },
     onSuccess: () => {
-      toast({ title: "Image regenerated successfully" });
+      toast({ title: "Image replaced successfully" });
       refetch();
       setSelectedImage(null);
+      setShowRefetchForm(false);
+      setRefetchQuery("");
     },
     onError: (error: any) => {
-      toast({ title: "Regeneration failed", description: error.message || "Failed to regenerate image", variant: "destructive" });
+      toast({ title: "Refetch failed", description: error.message || "Failed to fetch new image", variant: "destructive" });
     },
   });
 
@@ -4467,7 +4476,7 @@ function ImageLibraryTab() {
         </div>
       </CollapsibleSection>
 
-      <AlertDialog open={!!selectedImage} onOpenChange={(open) => !open && setSelectedImage(null)}>
+      <AlertDialog open={!!selectedImage} onOpenChange={(open) => { if (!open) { setSelectedImage(null); setShowRefetchForm(false); setRefetchQuery(""); } }}>
         <AlertDialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
           <AlertDialogHeader className="flex-shrink-0">
             <AlertDialogTitle className="flex items-center gap-2">
@@ -4491,6 +4500,12 @@ function ImageLibraryTab() {
                   <div className="col-span-2">
                     <p className="text-muted-foreground text-xs mb-0.5">Target Word</p>
                     <p className="font-medium text-sm">{selectedImage.targetWord || selectedImage.searchQuery}</p>
+                  </div>
+                )}
+                {selectedImage.searchQuery && (
+                  <div className="col-span-2">
+                    <p className="text-muted-foreground text-xs mb-0.5">Search Query Used</p>
+                    <p className="font-medium text-sm font-mono text-xs bg-muted px-2 py-1 rounded">{selectedImage.searchQuery}</p>
                   </div>
                 )}
                 <div>
@@ -4560,6 +4575,74 @@ function ImageLibraryTab() {
             </div>
           )}
           
+          {showRefetchForm && selectedImage && (
+            <div className="border rounded-lg p-3 space-y-3 bg-muted/30" data-testid="refetch-form">
+              <p className="text-sm font-medium">Replace this image</p>
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground">Search query</label>
+                <Input
+                  value={refetchQuery}
+                  onChange={(e) => setRefetchQuery(e.target.value)}
+                  placeholder="Enter search terms..."
+                  data-testid="input-refetch-query"
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="text-xs text-muted-foreground">Source:</label>
+                <div className="flex gap-2">
+                  <Button
+                    variant={refetchSource === 'stock' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setRefetchSource('stock')}
+                    data-testid="button-source-stock"
+                  >
+                    <Image className="h-3 w-3 mr-1" />
+                    Stock Photo
+                  </Button>
+                  <Button
+                    variant={refetchSource === 'ai' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setRefetchSource('ai')}
+                    data-testid="button-source-ai"
+                  >
+                    <Sparkles className="h-3 w-3 mr-1" />
+                    AI Generated
+                  </Button>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    refetchImageMutation.mutate({
+                      oldId: selectedImage.id,
+                      word: selectedImage.targetWord || selectedImage.searchQuery || '',
+                      language: selectedImage.language || 'spanish',
+                      preferredSource: refetchSource,
+                      customQuery: refetchQuery.trim() || undefined,
+                    });
+                  }}
+                  disabled={refetchImageMutation.isPending}
+                  data-testid="button-refetch-submit"
+                >
+                  {refetchImageMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                  )}
+                  {refetchImageMutation.isPending ? "Fetching..." : "Fetch New Image"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowRefetchForm(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+
           <AlertDialogFooter className="flex-shrink-0 flex-row justify-between sm:justify-between gap-2 pt-4 border-t">
             <div className="flex gap-2 flex-wrap">
               <Button
@@ -4592,23 +4675,14 @@ function ImageLibraryTab() {
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    if (selectedImage) {
-                      regenerateImageMutation.mutate({
-                        oldId: selectedImage.id,
-                        word: selectedImage.targetWord || selectedImage.searchQuery || '',
-                        language: selectedImage.language || 'spanish',
-                      });
-                    }
+                    setRefetchQuery(selectedImage.searchQuery || selectedImage.targetWord || '');
+                    setRefetchSource('stock');
+                    setShowRefetchForm(!showRefetchForm);
                   }}
-                  disabled={regenerateImageMutation.isPending}
-                  data-testid="button-regenerate-image"
+                  data-testid="button-refetch-toggle"
                 >
-                  {regenerateImageMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4 mr-1" />
-                  )}
-                  {regenerateImageMutation.isPending ? "Regenerating..." : "Regenerate"}
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  Refetch
                 </Button>
               )}
               <AlertDialog>
