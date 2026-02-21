@@ -3,7 +3,7 @@ import { WelcomeHero } from "@/components/WelcomeHero";
 import { LearningAlerts } from "@/components/LearningAlerts";
 import { SyllabusMindMap } from "@/components/SyllabusMindMap";
 import { TutorShowcase, type TutorSelection } from "@/components/TutorShowcase";
-import { AssistantTutorShowcase } from "@/components/AssistantTutorShowcase";
+
 import { InteractiveTextbookCard } from "@/components/InteractiveTextbookCard";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -55,8 +55,7 @@ export default function Dashboard() {
           className="py-2"
         />
         
-        {/* Assistant Tutors / Practice Partners */}
-        <AssistantTutorShowcase className="py-2" />
+
       </div>
       
       {/* Interactive Textbook Entry */}

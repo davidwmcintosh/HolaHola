@@ -8,6 +8,34 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 21, 2026 — Unified Function Call Registry
+
+**Status**: COMPLETED
+
+#### What was built
+Created `daniela-function-registry.ts` as the single source of truth for all Daniela function calls. Previously, adding a new function required touching 5 separate locations. Now it requires only 2: the registry entry and the handler case.
+
+#### Key changes
+- **`server/services/daniela-function-registry.ts`** (NEW): Unified registry defining each function's Gemini declaration, legacy type mapping, and continuation response builder in one place.
+- **`server/services/gemini-function-declarations.ts`**: Converted from 937 lines of inline definitions to a thin re-export layer (~100 lines). All declarations and command mappings now derive from the registry.
+- **`server/services/streaming-voice-orchestrator.ts`**: Replaced two nearly-identical ~160-line switch blocks (PTT at ~line 4614 and OpenMic at ~line 7275) with shared `buildFunctionContinuationResponse()` calls (~20 lines each). Also fixed a bug where PTT was missing the `EXPRESS_LANE_LOOKUP` case that OpenMic had.
+
+#### How the registry works
+- Each function entry has: `declaration` (Gemini schema), `legacyType` (orchestrator dispatch key), and optional `buildContinuationResponse` (what to tell Gemini happened).
+- `DANIELA_FUNCTION_DECLARATIONS` and `FUNCTION_TO_COMMAND_MAP` are derived automatically from the registry array.
+- `buildFunctionContinuationResponse()` is a shared function that replaces the duplicated PTT/OpenMic switch blocks.
+- `handleNativeFunctionCall()` handler logic stays in the orchestrator (too deeply coupled to `this` context and session state).
+
+#### Adding a new function (checklist)
+1. Add an entry to `DANIELA_FUNCTION_REGISTRY` in `daniela-function-registry.ts`
+2. Add a handler case in `handleNativeFunctionCall()` in `streaming-voice-orchestrator.ts`
+3. (Optional) Add procedural docs in `procedural-memory-retrieval.ts`
+
+#### Bug fix
+Fixed inconsistency where PTT multi-step function calling was missing the `EXPRESS_LANE_LOOKUP` response builder that OpenMic had. Both paths now use the same registry-based builder.
+
+---
+
 ### Session: February 21, 2026 — Voice Chat Stability: Double Audio Fix & Reconnection Improvements
 
 **Status**: COMPLETED

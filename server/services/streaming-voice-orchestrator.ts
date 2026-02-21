@@ -32,6 +32,7 @@ import { getElevenLabsStreamingService } from "./elevenlabs-streaming";
 import { getGeminiTtsStreamingService } from "./gemini-tts-streaming";
 import { getGeminiLiveTtsService } from "./gemini-live-tts";
 import { DANIELA_TTS_PROVIDER } from "./voice-config";
+import { buildFunctionContinuationResponse } from "./daniela-function-registry";
 import { WebSocket as WS } from "ws";
 import {
   StreamingMessage,
@@ -4608,156 +4609,21 @@ Remember: David may reference things discussed in these recent text chats.
         }> = [];
         
         for (const fc of functionCallsCopy) {
-          // Generate appropriate response based on function type
-          let responseText = 'Function executed successfully.';
+          const registryResult = buildFunctionContinuationResponse(session, fc);
           
-          switch (fc.legacyType) {
-            case 'VOICE_ADJUST':
-              responseText = `[Internal instruction: Voice style applied. Do NOT say "voice adjusted" or mention this to the user - just continue the conversation naturally.]`;
-              break;
-            case 'VOICE_RESET':
-              responseText = '[Internal instruction: Voice reset. Do NOT mention this - continue naturally.]';
-              break;
-            case 'WORD_EMPHASIS':
-              responseText = '[Internal instruction: Word emphasis queued. Do NOT mention this - continue naturally. The emphasized word will be spoken with the requested style.]';
-              break;
-            case 'EXPRESS_LANE_POST':
-              responseText = '[Internal instruction: Message posted to Express Lane. Do NOT mention this to the student - continue naturally.]';
-              break;
-            case 'PHASE_SHIFT':
-              responseText = `Phase shifted to ${fc.args.to}. Continue the lesson in this new phase.`;
-              break;
-            case 'SWITCH_TUTOR':
-              responseText = `Tutor switch to ${fc.args.target} initiated. Handoff will occur after your response.`;
-              break;
-            case 'MEMORY_LOOKUP': {
-              // Use actual memory lookup results if available
-              const query = fc.args.query as string;
-              const lookupResult = session.memoryLookupResults?.[query];
-              if (lookupResult) {
-                responseText = `Memory lookup results for "${query}":\n${lookupResult}\n\nNow respond to the student using this information.`;
-              } else {
-                responseText = `No memories found for "${query}". Respond naturally based on what you know about the conversation.`;
-              }
-              break;
-            }
-            case 'RECALL_EXPRESS_LANE_IMAGE': {
-              // Use actual image recall results (multimodal) if available
-              const imgQuery = fc.args.imageQuery as string;
-              const imgResult = session.imageRecallResults?.[imgQuery];
-              if (imgResult && imgResult.images.length > 0) {
-                // Build multimodal output parts
-                const outputParts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [
-                  { text: imgResult.text }
-                ];
-                for (const img of imgResult.images) {
-                  outputParts.push({
-                    inlineData: {
-                      mimeType: img.mimeType,
-                      data: img.data,
-                    }
-                  });
-                }
-                // Push multimodal response and skip default text-only push
-                functionResponseParts.push({
-                  functionResponse: {
-                    name: fc.name,
-                    response: { output: outputParts },
-                  },
-                } as any);
-                continue; // Skip the default push below
-              } else {
-                responseText = `No images found for "${imgQuery}". Respond naturally and mention that you cannot currently see those images.`;
-              }
-              break;
-            }
-            case 'BROWSE_SYLLABUS': {
-              const syllabusData = (session as any).lastSyllabusData;
-              if (syllabusData) {
-                responseText = `Syllabus data loaded. Here is the syllabus structure:\n${JSON.stringify(syllabusData, null, 1)}\n\nPresent this information conversationally to the student. Don't just list it — narrate it naturally and help them understand where they are.`;
-                delete (session as any).lastSyllabusData;
-              } else {
-                responseText = `Syllabus lookup completed. No enrolled class found for this language, or no curriculum is available. Let the student know gently.`;
-              }
-              break;
-            }
-            case 'START_LESSON': {
-              const lessonData = (session as any).lastLoadedLesson;
-              if (lessonData) {
-                responseText = `Lesson loaded successfully. Here are the lesson details:\n${JSON.stringify(lessonData, null, 1)}\n\nBegin teaching this lesson naturally. Start with the objectives, then move into the content. Use your whiteboard tools (write, show_image, drill) as you teach.`;
-                delete (session as any).lastLoadedLesson;
-              } else {
-                responseText = `Could not find the requested lesson. Ask the student to clarify which lesson they want, or use browse_syllabus first to see available lessons.`;
-              }
-              break;
-            }
-            case 'LOAD_VOCAB_SET': {
-              const vocabData = (session as any).lastVocabSet;
-              if (vocabData && vocabData.length > 0) {
-                responseText = `Vocabulary set loaded: ${vocabData.length} words.\n${JSON.stringify(vocabData, null, 1)}\n\nTeach these vocabulary words one at a time. Use show_image for each word, say the word clearly, and ask the student to repeat. Mix in quick drills to reinforce.`;
-                delete (session as any).lastVocabSet;
-              } else {
-                responseText = `No vocabulary words found for this lesson. You can still teach vocabulary conversationally — ask the student what words they'd like to learn.`;
-              }
-              break;
-            }
-            case 'SHOW_PROGRESS': {
-              responseText = `Progress data displayed on the whiteboard. Share encouraging observations about their progress naturally. Highlight strengths and gently mention areas for growth.`;
-              break;
-            }
-            case 'RECOMMEND_NEXT': {
-              const recommendation = (session as any).lastRecommendation;
-              if (recommendation) {
-                responseText = `Recommendation ready: "${recommendation.lessonName}" from ${recommendation.unitName}. Reason: ${recommendation.reason}\n\nPresent this recommendation enthusiastically and ask if they'd like to start it. If yes, use start_lesson to load it.`;
-                delete (session as any).lastRecommendation;
-              } else {
-                responseText = `All available lessons are complete! Congratulate the student on their amazing progress and suggest reviewing or practicing conversation freely.`;
-              }
-              break;
-            }
-            case 'DRILL_SESSION': {
-              const data = (session as any).lastDrillSessionData;
-              if (data && data.totalItems > 0) {
-                responseText = `Drill session started with ${data.totalItems} practice items. The first item is displayed on the whiteboard. Walk the student through it conversationally — read the prompt, explain if needed, and wait for their response. Use drill_session_next with was_correct=true/false after they answer.`;
-              } else {
-                responseText = `No drill items found for this lesson or language. Let the student know and offer to practice conversationally instead, or suggest browsing the syllabus for a lesson that has drills.`;
-              }
-              delete (session as any).lastDrillSessionData;
-              break;
-            }
-            case 'DRILL_SESSION_NEXT': {
-              const data = (session as any).lastDrillSessionData;
-              if (data?.sessionComplete) {
-                responseText = `Session complete! Results: ${data.correct}/${data.totalItems} correct (${data.accuracy}% accuracy) in ${data.durationSeconds}s. Celebrate their effort and summarize what they did well. Suggest areas to review if accuracy was below 80%.`;
-              } else if (data) {
-                responseText = `Moving to item ${data.currentItem} of ${data.totalItems}. Score so far: ${data.correctSoFar} correct, ${data.incorrectSoFar} incorrect. Present the next drill item on the whiteboard to the student.`;
-              }
-              delete (session as any).lastDrillSessionData;
-              break;
-            }
-            case 'DRILL_SESSION_END': {
-              const data = (session as any).lastDrillSessionData;
-              if (data) {
-                responseText = `Session ended early. Attempted ${data.itemsAttempted} of ${data.totalItems} items. ${data.correct} correct (${data.accuracy}% accuracy). Acknowledge the student's decision warmly and summarize what they practiced.`;
-              } else {
-                responseText = `No active drill session to end. Continue the conversation normally.`;
-              }
-              delete (session as any).lastDrillSessionData;
-              break;
-            }
-            case 'REVIEW_DUE_VOCAB': {
-              const dueVocab = (session as any).lastDueVocab;
-              if (dueVocab && dueVocab.length > 0) {
-                responseText = `${dueVocab.length} vocabulary words are due for review:\n${JSON.stringify(dueVocab.map((w: any) => ({ word: w.word, translation: w.translation, difficulty: w.difficulty })), null, 1)}\n\nQuiz the student on these words one at a time. Say the word, ask for the translation, then confirm. Use encouraging feedback. Track mentally which ones they get right.`;
-              } else {
-                responseText = `No vocabulary words are due for review right now! Let the student know they're all caught up and suggest learning new words or doing conversation practice instead.`;
-              }
-              delete (session as any).lastDueVocab;
-              break;
-            }
-            default:
-              responseText = `${fc.name} executed successfully. Continue the conversation.`;
+          if (registryResult && typeof registryResult === 'object' && 'multimodal' in registryResult) {
+            functionResponseParts.push({
+              functionResponse: {
+                name: fc.name,
+                response: { output: registryResult.parts },
+              },
+            } as any);
+            continue;
           }
+          
+          const responseText = (typeof registryResult === 'string')
+            ? registryResult
+            : `${fc.name} executed successfully. Continue the conversation.`;
           
           functionResponseParts.push({
             functionResponse: {
@@ -7271,168 +7137,21 @@ Remember: David may reference things discussed in these recent text chats.
         }> = [];
         
         for (const fc of functionCallsCopyOpenMic) {
-          let responseText = 'Function executed successfully.';
-          switch (fc.legacyType) {
-            case 'VOICE_ADJUST':
-              responseText = `[Internal instruction: Voice style applied. Do NOT say "voice adjusted" or mention this to the user - just continue the conversation naturally.]`;
-              break;
-            case 'VOICE_RESET':
-              responseText = '[Internal instruction: Voice reset. Do NOT mention this - continue naturally.]';
-              break;
-            case 'WORD_EMPHASIS':
-              responseText = '[Internal instruction: Word emphasis queued. Do NOT mention this - continue naturally. The emphasized word will be spoken with the requested style.]';
-              break;
-            case 'EXPRESS_LANE_POST':
-              responseText = '[Internal instruction: Message posted to Express Lane. Do NOT mention this to the student - continue naturally.]';
-              break;
-            case 'PHASE_SHIFT':
-              responseText = `Phase shifted to ${fc.args.to}. Continue the lesson in this new phase.`;
-              break;
-            case 'SWITCH_TUTOR':
-              responseText = `Tutor switch to ${fc.args.target} initiated. Handoff will occur after your response.`;
-              break;
-            case 'MEMORY_LOOKUP': {
-              // Use actual memory lookup results if available
-              const query = fc.args.query as string;
-              const lookupResult = session.memoryLookupResults?.[query];
-              if (lookupResult) {
-                responseText = `Memory lookup results for "${query}":\n${lookupResult}\n\nNow respond to the student using this information.`;
-              } else {
-                responseText = `No memories found for "${query}". Respond naturally based on what you know about the conversation.`;
-              }
-              break;
-            }
-            case 'EXPRESS_LANE_LOOKUP': {
-              const query = (fc.args.query as string) || '';
-              const lookupKey = query || '__browse__';
-              const lookupResult = session.expressLaneLookupResults?.[lookupKey];
-              if (lookupResult) {
-                const label = query ? `search results for "${query}"` : 'recent messages (browse mode)';
-                responseText = `Express Lane ${label}:\n${lookupResult}\n\nNow respond to the student using this information.`;
-              } else {
-                responseText = query 
-                  ? `No Express Lane messages found for "${query}". Respond naturally based on what you know.`
-                  : `No Express Lane messages found. Respond naturally based on what you know.`;
-              }
-              break;
-            }
-            case 'RECALL_EXPRESS_LANE_IMAGE': {
-              // Use actual image recall results (multimodal) if available
-              const imgQuery = fc.args.imageQuery as string;
-              const imgResult = session.imageRecallResults?.[imgQuery];
-              if (imgResult && imgResult.images.length > 0) {
-                // Build multimodal output parts
-                const outputParts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [
-                  { text: imgResult.text }
-                ];
-                for (const img of imgResult.images) {
-                  outputParts.push({
-                    inlineData: {
-                      mimeType: img.mimeType,
-                      data: img.data,
-                    }
-                  });
-                }
-                // Push multimodal response and skip default text-only push
-                functionResponsePartsOpenMic.push({
-                  functionResponse: {
-                    name: fc.name,
-                    response: { output: outputParts },
-                  },
-                } as any);
-                continue; // Skip the default push below
-              } else {
-                responseText = `No images found for "${imgQuery}". Respond naturally and mention that you cannot currently see those images.`;
-              }
-              break;
-            }
-            case 'BROWSE_SYLLABUS': {
-              const syllabusData = (session as any).lastSyllabusData;
-              if (syllabusData) {
-                responseText = `Syllabus data loaded. Here is the syllabus structure:\n${JSON.stringify(syllabusData, null, 1)}\n\nPresent this information conversationally to the student. Don't just list it — narrate it naturally and help them understand where they are.`;
-                delete (session as any).lastSyllabusData;
-              } else {
-                responseText = `Syllabus lookup completed. No enrolled class found for this language, or no curriculum is available. Let the student know gently.`;
-              }
-              break;
-            }
-            case 'START_LESSON': {
-              const lessonData = (session as any).lastLoadedLesson;
-              if (lessonData) {
-                responseText = `Lesson loaded successfully. Here are the lesson details:\n${JSON.stringify(lessonData, null, 1)}\n\nBegin teaching this lesson naturally. Start with the objectives, then move into the content. Use your whiteboard tools (write, show_image, drill) as you teach.`;
-                delete (session as any).lastLoadedLesson;
-              } else {
-                responseText = `Could not find the requested lesson. Ask the student to clarify which lesson they want, or use browse_syllabus first to see available lessons.`;
-              }
-              break;
-            }
-            case 'LOAD_VOCAB_SET': {
-              const vocabData = (session as any).lastVocabSet;
-              if (vocabData && vocabData.length > 0) {
-                responseText = `Vocabulary set loaded: ${vocabData.length} words.\n${JSON.stringify(vocabData, null, 1)}\n\nTeach these vocabulary words one at a time. Use show_image for each word, say the word clearly, and ask the student to repeat. Mix in quick drills to reinforce.`;
-                delete (session as any).lastVocabSet;
-              } else {
-                responseText = `No vocabulary words found for this lesson. You can still teach vocabulary conversationally — ask the student what words they'd like to learn.`;
-              }
-              break;
-            }
-            case 'SHOW_PROGRESS': {
-              responseText = `Progress data displayed on the whiteboard. Share encouraging observations about their progress naturally. Highlight strengths and gently mention areas for growth.`;
-              break;
-            }
-            case 'RECOMMEND_NEXT': {
-              const recommendation = (session as any).lastRecommendation;
-              if (recommendation) {
-                responseText = `Recommendation ready: "${recommendation.lessonName}" from ${recommendation.unitName}. Reason: ${recommendation.reason}\n\nPresent this recommendation enthusiastically and ask if they'd like to start it. If yes, use start_lesson to load it.`;
-                delete (session as any).lastRecommendation;
-              } else {
-                responseText = `All available lessons are complete! Congratulate the student on their amazing progress and suggest reviewing or practicing conversation freely.`;
-              }
-              break;
-            }
-            case 'DRILL_SESSION': {
-              const data = (session as any).lastDrillSessionData;
-              if (data && data.totalItems > 0) {
-                responseText = `Drill session started with ${data.totalItems} practice items. The first item is displayed on the whiteboard. Walk the student through it conversationally — read the prompt, explain if needed, and wait for their response. Use drill_session_next with was_correct=true/false after they answer.`;
-              } else {
-                responseText = `No drill items found for this lesson or language. Let the student know and offer to practice conversationally instead, or suggest browsing the syllabus for a lesson that has drills.`;
-              }
-              delete (session as any).lastDrillSessionData;
-              break;
-            }
-            case 'DRILL_SESSION_NEXT': {
-              const data = (session as any).lastDrillSessionData;
-              if (data?.sessionComplete) {
-                responseText = `Session complete! Results: ${data.correct}/${data.totalItems} correct (${data.accuracy}% accuracy) in ${data.durationSeconds}s. Celebrate their effort and summarize what they did well. Suggest areas to review if accuracy was below 80%.`;
-              } else if (data) {
-                responseText = `Moving to item ${data.currentItem} of ${data.totalItems}. Score so far: ${data.correctSoFar} correct, ${data.incorrectSoFar} incorrect. Present the next drill item on the whiteboard to the student.`;
-              }
-              delete (session as any).lastDrillSessionData;
-              break;
-            }
-            case 'DRILL_SESSION_END': {
-              const data = (session as any).lastDrillSessionData;
-              if (data) {
-                responseText = `Session ended early. Attempted ${data.itemsAttempted} of ${data.totalItems} items. ${data.correct} correct (${data.accuracy}% accuracy). Acknowledge the student's decision warmly and summarize what they practiced.`;
-              } else {
-                responseText = `No active drill session to end. Continue the conversation normally.`;
-              }
-              delete (session as any).lastDrillSessionData;
-              break;
-            }
-            case 'REVIEW_DUE_VOCAB': {
-              const dueVocab = (session as any).lastDueVocab;
-              if (dueVocab && dueVocab.length > 0) {
-                responseText = `${dueVocab.length} vocabulary words are due for review:\n${JSON.stringify(dueVocab.map((w: any) => ({ word: w.word, translation: w.translation, difficulty: w.difficulty })), null, 1)}\n\nQuiz the student on these words one at a time. Say the word, ask for the translation, then confirm. Use encouraging feedback. Track mentally which ones they get right.`;
-              } else {
-                responseText = `No vocabulary words are due for review right now! Let the student know they're all caught up and suggest learning new words or doing conversation practice instead.`;
-              }
-              delete (session as any).lastDueVocab;
-              break;
-            }
-            default:
-              responseText = `${fc.name} executed successfully. Continue the conversation.`;
+          const registryResult = buildFunctionContinuationResponse(session, fc);
+          
+          if (registryResult && typeof registryResult === 'object' && 'multimodal' in registryResult) {
+            functionResponsePartsOpenMic.push({
+              functionResponse: {
+                name: fc.name,
+                response: { output: registryResult.parts },
+              },
+            } as any);
+            continue;
           }
+          
+          const responseText = (typeof registryResult === 'string')
+            ? registryResult
+            : `${fc.name} executed successfully. Continue the conversation.`;
           
           functionResponsePartsOpenMic.push({
             functionResponse: {
