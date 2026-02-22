@@ -1494,6 +1494,7 @@ export class StreamingVoiceOrchestrator {
   private geminiLiveTtsService = getGeminiLiveTtsService();
   private ttsProvider = DANIELA_TTS_PROVIDER;
   private ttsProviderRegistry: TTSProviderRegistry;
+  private userTranscriptDedup: Map<string, { hash: string; time: number }> = new Map();
   
   constructor() {
     this.ttsProviderRegistry = createTTSProviderRegistry({
@@ -2324,6 +2325,16 @@ Remember: David may reference things discussed in these recent text chats.
       const now = Date.now();
       const DEDUP_WINDOW_MS = 60000; // 60 second window to catch duplicates (longer than open-mic's 5s)
       
+      // CROSS-SESSION DEDUP (PTT path): Same as OpenMic — prevent reprocessing after reconnection
+      const userId = String(session.userId || sessionId);
+      const userLastTranscript = this.userTranscriptDedup.get(userId);
+      if (userLastTranscript && userLastTranscript.hash === transcriptHash &&
+          (now - userLastTranscript.time) < DEDUP_WINDOW_MS) {
+        console.log(`[DEDUP-PTT-CROSS-SESSION] Skipping transcript already processed in previous session (${now - userLastTranscript.time}ms ago): "${transcript.slice(0, 50)}..."`);
+        session.isGenerating = false;
+        return metrics;
+      }
+      
       if (session.lastProcessedTranscriptHash === transcriptHash && 
           session.lastProcessedTranscriptTime && 
           (now - session.lastProcessedTranscriptTime) < DEDUP_WINDOW_MS) {
@@ -2335,6 +2346,7 @@ Remember: David may reference things discussed in these recent text chats.
       // Track this transcript for dedup across both PTT and open-mic paths
       session.lastProcessedTranscriptHash = transcriptHash;
       session.lastProcessedTranscriptTime = now;
+      this.userTranscriptDedup.set(userId, { hash: transcriptHash, time: now });
       
       // CONTENT MODERATION: Check for severely inappropriate content (block only the worst)
       if (containsSeverelyInappropriateContent(transcript)) {
@@ -5473,6 +5485,27 @@ Remember: David may reference things discussed in these recent text chats.
     const now = Date.now();
     const DEDUP_WINDOW_MS = 60000; // 60 second window to catch duplicates (increased from 5s)
     
+    // CROSS-SESSION DEDUP: Prevent same transcript from being reprocessed after reconnection
+    // When a user disconnects and reconnects quickly, a new session is created but the same
+    // audio/transcript may arrive again. This guard uses a per-user map that persists across sessions.
+    const userId = String(session.userId || sessionId);
+    const userLastTranscript = this.userTranscriptDedup.get(userId);
+    if (userLastTranscript && userLastTranscript.hash === transcriptHash &&
+        (now - userLastTranscript.time) < DEDUP_WINDOW_MS) {
+      console.log(`[DEDUP-CROSS-SESSION] Skipping transcript already processed in previous session (${now - userLastTranscript.time}ms ago): "${transcript.slice(0, 50)}..."`);
+      this.sendGuardResetSignal(session, 'dedup');
+      return {
+        sessionId,
+        sttLatencyMs: 0,
+        aiFirstTokenMs: 0,
+        ttsFirstByteMs: 0,
+        totalLatencyMs: 0,
+        sentenceCount: 0,
+        audioBytes: 0,
+        audioChunkCount: 0,
+      };
+    }
+    
     if (session.lastProcessedTranscriptHash === transcriptHash && 
         session.lastProcessedTranscriptTime && 
         (now - session.lastProcessedTranscriptTime) < DEDUP_WINDOW_MS) {
@@ -5543,9 +5576,10 @@ Remember: David may reference things discussed in these recent text chats.
       this.handleInterrupt(sessionId);
     }
     
-    // Record this transcript as processed
+    // Record this transcript as processed (both session-level and cross-session)
     session.lastProcessedTranscriptHash = transcriptHash;
     session.lastProcessedTranscriptTime = now;
+    this.userTranscriptDedup.set(userId, { hash: transcriptHash, time: now });
     
     // SESSION ECONOMICS: Track exchange count for open-mic path
     // STT seconds estimated from transcript length (~3 words/sec speaking rate)

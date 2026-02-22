@@ -668,6 +668,25 @@ NEVER guess. NEVER roleplay searching. Actually call this function.`,
         required: ["slug", "spoken_text"],
       },
     },
+    buildContinuationResponse: ({ session, fc }) => {
+      const activeScenario = (session as any).activeScenario;
+      if (!activeScenario) {
+        return `Scenario "${fc.args.slug}" could not be loaded. Apologize briefly and suggest trying another scenario.`;
+      }
+      const parts: string[] = [
+        `Scenario "${activeScenario.title}" loaded successfully.`,
+        `Location: ${activeScenario.location || activeScenario.title}.`,
+        `Your role: ${activeScenario.levelGuide?.roleDescription || activeScenario.description}.`,
+      ];
+      if (activeScenario.levelGuide?.studentGoals) {
+        parts.push(`Student goals: ${JSON.stringify(activeScenario.levelGuide.studentGoals)}.`);
+      }
+      if (activeScenario.props?.length > 0) {
+        parts.push(`Props displayed to student: ${activeScenario.props.map((p: any) => p.title).join(', ')}.`);
+      }
+      parts.push(`The student's spoken_text introduction has already been played. Now stay in character and begin the roleplay interaction. Do NOT repeat the introduction.`);
+      return parts.join(' ');
+    },
   },
   {
     legacyType: 'UPDATE_PROP',

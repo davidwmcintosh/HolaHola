@@ -1064,6 +1064,7 @@ export class GeminiStreamingService {
       
       // Track function calls across the stream
       let functionCallsProcessed = 0;
+      let pendingFunctionCallPromise: Promise<void> | null = null;
       
       // Track streaming partial function calls (Gemini 3)
       // Maps callIndex -> accumulated state as args stream in
@@ -1235,8 +1236,7 @@ export class GeminiStreamingService {
             if (functionCalls.length > 0) {
               const elapsed = Date.now() - geminiRequestTime;
               console.log(`[Gemini Streaming] Function calls detected at ${elapsed}ms: ${functionCalls.map(f => f.name).join(', ')}`);
-              // Non-blocking: queue the function call handler without awaiting
-              onFunctionCall(functionCalls).catch(err => 
+              pendingFunctionCallPromise = onFunctionCall(functionCalls).catch(err => 
                 console.error('[Gemini Streaming] Function call handler error:', err.message)
               );
               functionCallsProcessed += functionCalls.length;
@@ -1398,6 +1398,20 @@ export class GeminiStreamingService {
         
         console.log(`[Gemini Streaming] Final sentence ${chunk.index}: "${chunk.text.substring(0, 50)}..."`);
         enqueueSentence(chunk);
+      }
+      
+      // CRITICAL: Await any pending function call handler before completion
+      // Function calls like load_scenario involve async DB queries that set session state
+      // (e.g., functionCallText). Without this await, the completion handler races ahead
+      // and finds empty state, causing spoken_text to be skipped and wrong continuation order.
+      if (pendingFunctionCallPromise) {
+        const fcWaitStart = Date.now();
+        await pendingFunctionCallPromise;
+        const fcWaitMs = Date.now() - fcWaitStart;
+        if (fcWaitMs > 5) {
+          console.log(`[Gemini Streaming] Awaited pending function call handler: ${fcWaitMs}ms`);
+        }
+        pendingFunctionCallPromise = null;
       }
       
       // PIPELINING: Wait for all queued sentences to finish TTS processing
