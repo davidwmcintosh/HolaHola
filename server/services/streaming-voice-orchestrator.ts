@@ -9236,6 +9236,24 @@ Remember: David may reference things discussed in these recent text chats.
         return;
       }
       
+      // DB-LEVEL DEDUP for AI responses: Check if this exact response was already saved recently
+      try {
+        const existingMessages = await storage.getMessages(conversationId);
+        const recentAiMessages = existingMessages
+          .filter(m => m.role === 'assistant')
+          .slice(-3);
+        const normalizedAiResponse = aiResponse.trim().substring(0, 200);
+        const isAiDuplicate = recentAiMessages.some(m => 
+          m.content.trim().substring(0, 200) === normalizedAiResponse
+        );
+        if (isAiDuplicate) {
+          console.log(`[Persist] DB dedup: AI response already exists in conversation, skipping save`);
+          return;
+        }
+      } catch (aiDedupErr: any) {
+        console.warn(`[Persist] AI dedup check failed, saving anyway: ${aiDedupErr.message}`);
+      }
+      
       // Extract target language text for the AI response
       const targetLanguageText = extractTargetLanguageText(aiResponse);
       const hasTargetLanguage = hasSignificantTargetLanguageContent(targetLanguageText);
@@ -11026,6 +11044,21 @@ Only include observations you can clearly justify from the exchange. Return empt
       throw new Error(`Session not found or inactive: ${sessionId}`);
     }
     
+    if ((session as any).__greetingInProgress || (session as any).__greetingDelivered) {
+      console.log(`[Streaming Greeting] SKIPPING duplicate greeting request (inProgress=${!!(session as any).__greetingInProgress}, delivered=${!!(session as any).__greetingDelivered})`);
+      return {
+        sessionId,
+        sttLatencyMs: 0,
+        aiFirstTokenMs: 0,
+        ttsFirstByteMs: 0,
+        totalLatencyMs: 0,
+        sentenceCount: 0,
+        audioBytes: 0,
+        audioChunkCount: 0,
+      };
+    }
+    (session as any).__greetingInProgress = true;
+    
     // Await warmup with timeout - don't block forever if Gemini is slow
     // If warmup takes longer than 3 seconds, proceed without waiting
     if (session.warmupPromise) {
@@ -11690,6 +11723,9 @@ Only include observations you can clearly justify from the exchange. Return empt
         },
       } as StreamingResponseCompleteMessage);
       
+      (session as any).__greetingInProgress = false;
+      (session as any).__greetingDelivered = true;
+      
       console.log(`[Streaming Greeting] Complete: ${metrics.sentenceCount} sentences, ${metrics.audioChunkCount} audio chunks in ${metrics.totalLatencyMs}ms`);
       
       // Log structured metrics for monitoring (non-blocking, just console.log)
@@ -11719,9 +11755,9 @@ Only include observations you can clearly justify from the exchange. Return empt
       return metrics;
       
     } catch (error: any) {
+      (session as any).__greetingInProgress = false;
       console.error(`[Streaming Greeting] Error:`, error.message);
       this.sendError(session.ws, 'GREETING_ERROR', error.message, true);
-      // Return metrics instead of throwing to prevent socket disconnect
       return metrics;
     }
   }
@@ -11924,6 +11960,21 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
    */
   private async persistGreetingMessage(conversationId: string, content: string): Promise<void> {
     try {
+      // Dedup check: don't save greeting if an identical one already exists
+      try {
+        const existingMessages = await storage.getMessages(conversationId);
+        const recentAiMessages = existingMessages
+          .filter(m => m.role === 'assistant')
+          .slice(-2);
+        const normalizedContent = content.trim().substring(0, 200);
+        if (recentAiMessages.some(m => m.content.trim().substring(0, 200) === normalizedContent)) {
+          console.log(`[Streaming Greeting] Greeting already persisted (dedup), skipping`);
+          return;
+        }
+      } catch (dedupErr: any) {
+        console.warn(`[Streaming Greeting] Dedup check failed, saving anyway: ${dedupErr.message}`);
+      }
+      
       const targetLanguageText = extractTargetLanguageText(content);
       const hasTargetLanguage = hasSignificantTargetLanguageContent(targetLanguageText);
       
@@ -11936,7 +11987,6 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
       
       console.log(`[Streaming Greeting] Message persisted to conversation: ${conversationId}`);
     } catch (error: any) {
-      // Log but don't throw - greeting persistence is non-critical for voice flow
       console.error('[Streaming Greeting] Database error (non-fatal):', error.message);
     }
   }
