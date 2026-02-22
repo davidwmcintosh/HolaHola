@@ -5647,6 +5647,7 @@ Remember: David may reference things discussed in these recent text chats.
       let actualSentenceCount = 0;
       
       // Check for architect notes and student learning context in parallel
+      const contextBuildStart = Date.now();
       let architectContext = '';
       let studentLearningSection = '';
       let identityMemoriesSection = (session.cachedContext?.identityMemoriesSection) || '';
@@ -5761,6 +5762,10 @@ Remember: David may reference things discussed in these recent text chats.
       }
       
       await Promise.all(contextPromises);
+      const contextBuildMs = Date.now() - contextBuildStart;
+      if (contextBuildMs > 100) {
+        console.log(`[LATENCY] Context building took ${contextBuildMs}ms (open mic)`);
+      }
       
       // BARGE-IN CONTEXT: Let Daniela know the student interrupted her
       let interruptContext = '';

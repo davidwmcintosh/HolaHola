@@ -1734,6 +1734,16 @@ Reference past discussions when relevant, but don't force it.
                   console.warn('[OpenMic] WebSocket not open, cannot send vad_speech_started');
                 }
               },
+              onSpeechFinal: (accumulatedTranscript) => {
+                if (ws.readyState === WS.OPEN && accumulatedTranscript.length > 0) {
+                  console.log(`[OpenMic] Speech final - sending processing_pending: "${accumulatedTranscript.slice(0, 50)}..."`);
+                  ws.send(JSON.stringify({
+                    type: 'processing_pending',
+                    timestamp: Date.now(),
+                    interimTranscript: accumulatedTranscript,
+                  }));
+                }
+              },
               onUtteranceEnd: async (transcript, confidence) => {
                 console.log(`[OpenMic] VAD: Utterance end - "${transcript}" (${(confidence * 100).toFixed(0)}%)`);
                 

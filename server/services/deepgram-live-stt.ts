@@ -402,6 +402,7 @@ export interface OpenMicEvents {
   onUtteranceEnd?: (transcript: string, confidence: number, intelligence?: DeepgramIntelligence) => void;
   onInterimTranscript?: (transcript: string) => void;
   onFinalReceived?: () => void;
+  onSpeechFinal?: (accumulatedTranscript: string) => void;
   onIntelligence?: (intelligence: DeepgramIntelligence) => void;
   onError?: (error: Error) => void;
   onClose?: () => void;
@@ -795,6 +796,13 @@ export class OpenMicSession {
           // This gives users more time to pause and think without being cut off
           if (data.speech_final) {
             console.log(`[OpenMic] Speech final detected (NOT auto-submitting - waiting for UtteranceEnd)`);
+            
+            // EARLY THINKING SIGNAL: Notify client immediately that user has finished a phrase
+            // This fires ~1.4s before UtteranceEnd, allowing the UI to show "thinking" sooner
+            const accumulatedSoFar = this.currentTranscript.trim();
+            if (accumulatedSoFar && !this.isSuppressed) {
+              this.events.onSpeechFinal?.(accumulatedSoFar);
+            }
             
             // SAFETY: When speech_final fires with empty transcript, Deepgram may never
             // send UtteranceEnd (no real utterance to end). Set a fallback timeout to
