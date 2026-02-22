@@ -4755,6 +4755,8 @@ Remember: David may reference things discussed in these recent text chats.
           'korean': '음, 잠깐만요...',
           'mandarin chinese': '嗯，稍等一下...',
           'english': 'Hmm, just a moment...',
+          'hebrew': '...רגע, אממ',
+          'arabic': 'همم، لحظة...',
         };
         const fallbackText = fallbackAcks[session.targetLanguage] || 'Hmm...';
         

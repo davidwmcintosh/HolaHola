@@ -478,8 +478,23 @@ export class StreamingAudioPlayer {
     const ctx = this.getAudioContext();
     if (ctx.state === 'suspended') {
       console.log('[AudioPlayer] Resuming suspended AudioContext');
-      await ctx.resume();
-      console.log(`[AudioPlayer] AudioContext resumed → ${ctx.state}`);
+      const maxRetries = 3;
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          await ctx.resume();
+          if (ctx.state === 'running') {
+            console.log(`[AudioPlayer] AudioContext resumed → running (attempt ${attempt})`);
+            return;
+          }
+          console.warn(`[AudioPlayer] AudioContext resume attempt ${attempt}: state=${ctx.state}, retrying...`);
+        } catch (err) {
+          console.warn(`[AudioPlayer] AudioContext resume attempt ${attempt} failed:`, err);
+        }
+        if (attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, 100 * attempt));
+        }
+      }
+      console.warn(`[AudioPlayer] AudioContext still ${ctx.state} after ${maxRetries} retries`);
     }
   }
   
@@ -920,9 +935,17 @@ export class StreamingAudioPlayer {
     
     const ctx = this.getAudioContext();
     
-    // Resume AudioContext if suspended
+    // Resume AudioContext if suspended — aggressive retry on each chunk
     if (ctx.state === 'suspended') {
-      await ctx.resume();
+      console.log('[AudioPlayer] AudioContext suspended at chunk receive — resuming');
+      try {
+        await ctx.resume();
+      } catch (resumeErr) {
+        console.warn('[AudioPlayer] Failed to resume AudioContext at chunk:', resumeErr);
+      }
+      if (ctx.state !== 'running') {
+        console.warn(`[AudioPlayer] AudioContext still ${ctx.state} after resume at chunk — audio may not play`);
+      }
     }
     
     // Detect new sentence - DON'T stop current audio, let it finish naturally!
@@ -1324,9 +1347,9 @@ export class StreamingAudioPlayer {
         console.log(`[TICK DEBUG] Frame ${frameCount}: ctx.currentTime=${now.toFixed(3)}, ctx.state=${ctxState}, ctxId=${ctxId}`);
       }
       
-      // Auto-resume if AudioContext became suspended mid-playback
-      if (ctxState === 'suspended' && frameCount > 0) {
-        ctx.resume();
+      // Auto-resume if AudioContext is suspended (including frame 0 — first tick)
+      if (ctxState === 'suspended') {
+        ctx.resume().catch(() => {});
       }
       
       // ═══════════════════════════════════════════════════════════════════════════

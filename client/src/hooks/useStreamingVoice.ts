@@ -1331,7 +1331,11 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     try {
       const player = getStreamingAudioPlayer();
       await player.resumeAudioContext();
-      console.log('[StreamingVoice] AudioContext pre-warmed during user gesture');
+      const ctxState = player.getAudioContextState();
+      console.log(`[StreamingVoice] AudioContext pre-warmed during user gesture → ${ctxState}`);
+      if (ctxState !== 'running') {
+        console.warn(`[StreamingVoice] AudioContext NOT running after pre-warm (${ctxState}) — playback may fail`);
+      }
     } catch (warmErr) {
       console.warn('[StreamingVoice] Failed to pre-warm AudioContext:', warmErr);
     }

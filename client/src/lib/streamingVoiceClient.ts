@@ -234,7 +234,7 @@ export class StreamingVoiceClient {
   private callbacks: Partial<StreamingVoiceCallbacks> = {};
   private state: StreamingConnectionState = 'disconnected';
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 3;
+  private maxReconnectAttempts = 5;
   private pendingBinaryData: ArrayBuffer | null = null;
   private currentSentenceIndex = -1;
   private eventListeners: Map<StreamingEventType, Set<EventListener>> = new Map();
@@ -1497,7 +1497,7 @@ export class StreamingVoiceClient {
     // Subsequent attempts: 1s, 2s, 4s
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
-      const delay = this.reconnectAttempts === 1 ? 200 : Math.pow(2, this.reconnectAttempts - 2) * 1000;
+      const delay = this.reconnectAttempts === 1 ? 200 : Math.min(Math.pow(2, this.reconnectAttempts - 2) * 1000, 5000);
       
       this.setState('reconnecting');
       
