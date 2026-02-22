@@ -76,6 +76,7 @@ const ArisPractice = lazyWithRetry(() => import("@/pages/aris-practice"));
 const ScenarioBrowser = lazyWithRetry(() => import("@/pages/scenario-browser"));
 const PronunciationDrill = lazyWithRetry(() => import("@/pages/pronunciation-drill"));
 const SessionReplay = lazyWithRetry(() => import("@/pages/session-replay"));
+const InteractiveTextbook = lazyWithRetry(() => import("@/pages/interactive-textbook"));
 const NotFound = lazyWithRetry(() => import("@/pages/not-found"));
 
 const Login = lazyWithRetry(() => import("@/pages/auth/Login"));
@@ -216,7 +217,7 @@ function Router() {
         <Route path="/pronunciation">{() => <WidgetErrorBoundary name="Pronunciation"><PronunciationDrill /></WidgetErrorBoundary>}</Route>
         <Route path="/pronunciation-drill">{() => <WidgetErrorBoundary name="Pronunciation"><PronunciationDrill /></WidgetErrorBoundary>}</Route>
         <Route path="/session-replay" component={SessionReplay} />
-        <Route path="/interactive-textbook"><Redirect to="/" /></Route>
+        <Route path="/interactive-textbook" component={InteractiveTextbook} />
         
         {/* Teacher Routes - Protected */}
         <Route path="/teacher/dashboard" component={TeacherDashboard} />

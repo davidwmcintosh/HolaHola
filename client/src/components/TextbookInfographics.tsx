@@ -832,22 +832,32 @@ export function LessonPrepCard({
 }: LessonPrepCardProps) {
   const langDisplay = language ? language.charAt(0).toUpperCase() + language.slice(1) : 'the target language';
   
+  function cleanPromptToEnglish(prompt: string): string {
+    return prompt
+      .replace(/^Say\s+"([^"]+)"\s+in\s+\w+\.\s*Context:\s*/i, '$1 — ')
+      .replace(/^Say\s+"([^"]+)"\s+in\s+\w+\.?\s*/i, '$1')
+      .replace(/^Translate[:\s]+/i, '')
+      .trim();
+  }
+
   const vocabDrills = drills
     .filter(d => d.itemType === 'listen_repeat' || d.itemType === 'translate_speak')
     .filter(d => d.targetText && d.targetText.length < 50)
     .slice(0, 6);
   
   const phraseDrills = drills
-    .filter(d => d.targetText && d.targetText.split(' ').length >= 2)
+    .filter(d => (d.itemType === 'listen_repeat' || d.itemType === 'translate_speak'))
+    .filter(d => d.targetText && d.targetText.split(' ').length >= 2 && d.targetText.length < 80)
     .slice(0, 4);
 
   const conversationScriptLines = conversationTopic ? drills
-    .filter(d => d.targetText && d.prompt)
+    .filter(d => d.targetText && d.prompt && d.targetText.length < 80)
+    .filter(d => d.itemType === 'listen_repeat' || d.itemType === 'translate_speak')
     .slice(0, 3)
     .map((d, i) => ({
       speaker: i % 2 === 0 ? 'Daniela' as const : 'You' as const,
       line: d.targetText,
-      translation: d.prompt,
+      translation: cleanPromptToEnglish(d.prompt),
     })) : [];
 
   const hasObjectives = objectives && objectives.length > 0;
@@ -941,21 +951,18 @@ export function LessonPrepCard({
           </div>
         )}
         
-        {hasVocab && lessonId && language && (
-          <VisualVocabGrid lessonId={lessonId} drills={drills} language={language} />
-        )}
-        
-        {hasVocab && (!lessonId || !language) && (
+        {hasVocab && (
           <div data-testid="prep-vocabulary">
             <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
               <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
-              Key Vocabulary
+              Vocabulary
             </p>
             <div className="grid grid-cols-2 gap-1.5">
               {vocabDrills.map((drill, i) => {
-                const hasTranslation = drill.prompt && drill.prompt !== drill.targetText;
+                const cleanedPrompt = drill.prompt ? cleanPromptToEnglish(drill.prompt) : '';
+                const hasTranslation = cleanedPrompt && cleanedPrompt !== drill.targetText;
                 return (
                   <div 
                     key={drill.id || i} 
@@ -974,7 +981,7 @@ export function LessonPrepCard({
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-sm truncate">{drill.targetText}</p>
                       {hasTranslation && (
-                        <p className="text-xs text-muted-foreground truncate">{drill.prompt}</p>
+                        <p className="text-xs text-muted-foreground truncate">{cleanedPrompt}</p>
                       )}
                     </div>
                   </div>
@@ -994,7 +1001,8 @@ export function LessonPrepCard({
             </p>
             <div className="space-y-1.5">
               {phraseDrills.map((drill, i) => {
-                const hasTranslation = drill.prompt && drill.prompt !== drill.targetText;
+                const cleanedPrompt = drill.prompt ? cleanPromptToEnglish(drill.prompt) : '';
+                const hasTranslation = cleanedPrompt && cleanedPrompt !== drill.targetText;
                 return (
                   <div 
                     key={drill.id || i} 
@@ -1013,7 +1021,7 @@ export function LessonPrepCard({
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-sm">{drill.targetText}</p>
                       {hasTranslation && (
-                        <p className="text-xs text-muted-foreground">{drill.prompt}</p>
+                        <p className="text-xs text-muted-foreground">{cleanedPrompt}</p>
                       )}
                     </div>
                   </div>

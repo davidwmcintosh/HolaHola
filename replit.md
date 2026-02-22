@@ -36,7 +36,7 @@ The TTS provider strategy supports Google Cloud TTS (Chirp 3 HD) as the recommen
 
 The Voice Context Pipeline (`voice-context-pipeline.ts`) centralizes shared context-building logic used by both PTT and OpenMic voice paths: classroom environment building, passive memory search, identity memories, student intelligence, and dynamic preamble assembly. Constants like `PASSIVE_MEMORY_KEYWORDS` and `STOP_WORDS` are defined once in the pipeline.
 
-**INTERACTIVE TEXTBOOK STATUS:** Route `/interactive-textbook` redirects to `/` (dashboard). The textbook page file still exists but is not routed. Planned for phase-out — do not add new features to the textbook.
+**INTERACTIVE TEXTBOOK:** Route `/interactive-textbook` renders the interactive textbook page. Active and accessible.
 
 ## External Dependencies
 - Stripe: Payment processing and subscription management.
