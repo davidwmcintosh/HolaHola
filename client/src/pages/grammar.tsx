@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +21,8 @@ import {
   Target,
   ChevronRight,
   RotateCcw,
-  Award
+  Award,
+  ArrowLeft
 } from "lucide-react";
 import holaholaIcon from "@assets/holaholajustbubblesBackgroundRemoved_1765309702014.png";
 import type { GrammarCompetency, GrammarExercise as GrammarExerciseType } from "@shared/schema";
@@ -388,6 +390,7 @@ function PracticeMode({
 }
 
 export default function Grammar() {
+  const [, navigate] = useLocation();
   const { language } = useLanguage();
   const { learningContext } = useLearningFilter();
   const [selectedCompetency, setSelectedCompetency] = useState<GrammarCompetency | null>(null);
@@ -459,6 +462,14 @@ export default function Grammar() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate("/")}
+            data-testid="button-back-home"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
           <img src={holaholaIcon} alt="" className="h-10 w-10 object-contain" />
           <div>
             <h1 className="text-3xl font-semibold mb-2">Grammar Hub</h1>

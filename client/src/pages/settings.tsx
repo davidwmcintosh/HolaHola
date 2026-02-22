@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useLogout } from "@/hooks/useLogout";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { UserCircle, Trash2, Globe, CreditCard, Crown, Sparkles, LogOut, Palette, Moon, Sun, Monitor, GraduationCap, AlertTriangle, CheckCircle2, Loader2, BookOpen, Users, Clock, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
+import { UserCircle, Trash2, Globe, CreditCard, Crown, Sparkles, LogOut, Palette, Moon, Sun, Monitor, GraduationCap, AlertTriangle, CheckCircle2, Loader2, BookOpen, Users, Clock, ArrowDownCircle, ArrowUpCircle, ArrowLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -89,6 +90,7 @@ interface TeacherClass {
 }
 
 export default function Settings() {
+  const [, navigate] = useLocation();
   const { user, isLoading: authLoading } = useAuth();
   const { userName, language } = useLanguage();
   const [isResetting, setIsResetting] = useState(false);
@@ -422,9 +424,19 @@ export default function Settings() {
   return (
     <div className="container mx-auto p-6 max-w-4xl">
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold" data-testid="text-settings-title">Account</h1>
-          <p className="text-muted-foreground mt-1">Manage your account, usage, and preferences</p>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate("/")}
+            data-testid="button-back-home"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold" data-testid="text-settings-title">Account</h1>
+            <p className="text-muted-foreground mt-1">Manage your account, usage, and preferences</p>
+          </div>
         </div>
 
         {/* Account Information */}

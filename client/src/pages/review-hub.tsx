@@ -955,15 +955,15 @@ export default function ReviewHub() {
       )}
 
 
-      {/* Topic Deep Dives with Culture Insight */}
-      {(hasTopics || (data?.culturalTips?.length ?? 0) > 0) && (
+      {/* Cultural Insights */}
+      {(data?.culturalTips?.length ?? 0) > 0 && (
         <Card data-testid="section-topic-deep-dives">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Hash className="h-5 w-5 text-primary" />
-              Explore & Learn
+              <Globe className="h-5 w-5 text-primary" />
+              Cultural Insights
             </CardTitle>
-            <CardDescription>Deep dive into topics, grammar, and cultural insights</CardDescription>
+            <CardDescription>Discover customs and cultural knowledge</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Featured Cultural Tip */}
@@ -1000,53 +1000,6 @@ export default function ReviewHub() {
               );
             })()}
 
-            {/* Topic Grid */}
-            {hasTopics && data && (
-              <>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {data.topicsWithContent.slice(0, 6).map((topic) => {
-                    const TopicIcon = topicTypeIcons[topic.topicType as keyof typeof topicTypeIcons] || Tag;
-                    return (
-                      <Link key={topic.id} href={`/history?topic=${topic.id}`}>
-                        <Card className="p-3 hover-elevate cursor-pointer" data-testid={`card-topic-${topic.id}`}>
-                          <div className="flex items-start gap-3">
-                            <div className={`p-2 rounded-lg ${topicTypeColors[topic.topicType as keyof typeof topicTypeColors]}`}>
-                              <TopicIcon className="h-4 w-4" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium truncate">{topic.name}</p>
-                              <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                                <span className="flex items-center gap-1">
-                                  <MessageSquare className="h-3 w-3" />
-                                  {topic.conversationCount}
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <BookOpen className="h-3 w-3" />
-                                  {topic.vocabularyCount}
-                                </span>
-                              </div>
-                            </div>
-                            <Badge variant="outline" className="capitalize text-xs">
-                              {topic.topicType}
-                            </Badge>
-                          </div>
-                        </Card>
-                      </Link>
-                    );
-                  })}
-                </div>
-                {data.topicsWithContent.length > 6 && (
-                  <div className="text-center">
-                    <Link href="/history">
-                      <Button variant="ghost" size="sm" className="gap-1">
-                        View all topics
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </Link>
-                  </div>
-                )}
-              </>
-            )}
           </CardContent>
         </Card>
       )}

@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Globe, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Globe, Loader2, ArrowLeft } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useEffect } from "react";
@@ -19,6 +21,7 @@ interface CulturalTip {
 }
 
 const languageOptions = [
+  { value: "english", label: "English" },
   { value: "spanish", label: "Spanish" },
   { value: "french", label: "French" },
   { value: "german", label: "German" },
@@ -31,6 +34,7 @@ const languageOptions = [
 ];
 
 export default function CulturalTips() {
+  const [, navigate] = useLocation();
   const [selectedLanguage, setSelectedLanguage] = useState<string>("spanish");
 
   // Try to detect user's current language from localStorage
@@ -65,6 +69,14 @@ export default function CulturalTips() {
       <div className="max-w-6xl mx-auto space-y-8">
         <div className="space-y-4">
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/")}
+              data-testid="button-back-home"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
             <img src={holaholaIcon} alt="" className="h-10 w-10 object-contain" />
             <h1 className="text-3xl font-bold" data-testid="heading-cultural-tips">Cultural Tips</h1>
           </div>

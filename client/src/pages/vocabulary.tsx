@@ -1,10 +1,11 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { VocabularyFlashcard } from "@/components/VocabularyFlashcard";
 import { LearningContextFilter } from "@/components/LearningContextFilter";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Filter, Download, FileSpreadsheet, FileText, Loader2 } from "lucide-react";
+import { Filter, Download, FileSpreadsheet, FileText, Loader2, ArrowLeft } from "lucide-react";
 import holaholaIcon from "@assets/holaholajustbubblesBackgroundRemoved_1765309702014.png";
 import {
   DropdownMenu,
@@ -27,6 +28,7 @@ const timeFilterLabels: Record<TimeFilter, string> = {
 
 export default function Vocabulary() {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
+  const [, navigate] = useLocation();
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
   const { language } = useLanguage();
@@ -76,6 +78,14 @@ export default function Vocabulary() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate("/")}
+            data-testid="button-back-home"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
           <img src={holaholaIcon} alt="" className="h-10 w-10 object-contain" />
           <div>
             <h1 className="text-3xl font-semibold mb-2">Vocabulary Practice</h1>

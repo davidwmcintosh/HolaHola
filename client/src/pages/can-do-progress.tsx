@@ -1,5 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { useLocation } from "wouter";
 import { useState } from "react";
 import {
   Select,
@@ -13,7 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircle2, Circle, Award, Brain, User } from "lucide-react";
+import { CheckCircle2, Circle, Award, Brain, User, ArrowLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import holaholaIcon from "@assets/holaholajustbubblesBackgroundRemoved_1765309702014.png";
@@ -45,6 +46,7 @@ function formatActflLevel(level: string): string {
 
 export default function CanDoProgress() {
   const { user } = useAuth();
+  const [, navigate] = useLocation();
   const [selectedLevel, setSelectedLevel] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
@@ -124,6 +126,14 @@ export default function CanDoProgress() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate("/")}
+          data-testid="button-back-home"
+        >
+          <ArrowLeft className="w-4 h-4" />
+        </Button>
         <img src={holaholaIcon} alt="" className="h-10 w-10 object-contain" />
         <div>
           <h1 className="text-3xl font-bold" data-testid="heading-can-do-progress">ACTFL Can-Do Statements</h1>
