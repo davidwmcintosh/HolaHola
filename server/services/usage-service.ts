@@ -427,10 +427,17 @@ export class UsageService {
       sttSeconds?: number;
     }
   ): Promise<void> {
+    const sanitized = {
+      ...updates,
+      ...(updates.studentSpeakingSeconds != null && { studentSpeakingSeconds: Math.round(updates.studentSpeakingSeconds) }),
+      ...(updates.tutorSpeakingSeconds != null && { tutorSpeakingSeconds: Math.round(updates.tutorSpeakingSeconds) }),
+      ...(updates.sttSeconds != null && { sttSeconds: Math.round(updates.sttSeconds) }),
+      ...(updates.ttsCharacters != null && { ttsCharacters: Math.round(updates.ttsCharacters) }),
+    };
     await db
       .update(voiceSessions)
       .set({
-        ...updates,
+        ...sanitized,
         durationSeconds: sql`EXTRACT(EPOCH FROM (NOW() - ${voiceSessions.startedAt}))::integer`,
       })
       .where(eq(voiceSessions.id, sessionId));

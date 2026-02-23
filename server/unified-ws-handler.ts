@@ -86,6 +86,86 @@ function withTimeout<T>(
 const activeVoiceConnections = new Map<string, SocketIOWebSocketAdapter>();
 
 /**
+ * Reconnection Grace Period System
+ * 
+ * When a WebSocket drops (infrastructure timeout, network hiccup), we DON'T immediately
+ * end the usage session. Instead, we store it in this map with a grace timer.
+ * If the client reconnects within the grace period, the session is RESUMED seamlessly
+ * (same usage session, accumulated metrics carried over).
+ * If the grace period expires without reconnection, the session is ended normally.
+ */
+interface PendingReconnectData {
+  usageSessionId: string;
+  compassSessionActive: boolean;
+  exchangeCount: number;
+  studentSpeakingSeconds: number;
+  tutorSpeakingSeconds: number;
+  ttsCharacters: number;
+  sttSeconds: number;
+  sessionStartTime: number;
+  userId: string;
+  conversationId: string;
+  timer: NodeJS.Timeout;
+}
+const RECONNECT_GRACE_PERIOD_MS = 15000;
+const pendingReconnectSessions = new Map<string, PendingReconnectData>();
+
+function storePendingReconnect(
+  conversationId: string,
+  data: Omit<PendingReconnectData, 'timer' | 'conversationId'>
+): void {
+  const existing = pendingReconnectSessions.get(conversationId);
+  if (existing) {
+    clearTimeout(existing.timer);
+  }
+
+  const timer = setTimeout(async () => {
+    const pending = pendingReconnectSessions.get(conversationId);
+    if (!pending) return;
+    pendingReconnectSessions.delete(conversationId);
+    console.log(`[Reconnect Grace] Grace period expired for ${conversationId.substring(0, 8)} — ending session`);
+    try {
+      await usageService.updateSessionMetrics(pending.usageSessionId, {
+        exchangeCount: pending.exchangeCount,
+        studentSpeakingSeconds: pending.studentSpeakingSeconds,
+        tutorSpeakingSeconds: pending.tutorSpeakingSeconds,
+        ttsCharacters: pending.ttsCharacters,
+        sttSeconds: pending.sttSeconds,
+      });
+      const endedSession = await usageService.endSession(pending.usageSessionId);
+      if (endedSession) {
+        console.log(`[Reconnect Grace] Usage session ended: ${endedSession.durationSeconds}s, ${pending.exchangeCount} exchanges`);
+      }
+    } catch (err: any) {
+      console.error('[Reconnect Grace] Failed to end session:', err.message);
+    }
+    if (pending.compassSessionActive) {
+      try {
+        await sessionCompassService.endSession(conversationId);
+      } catch (err: any) {
+        console.warn('[Reconnect Grace] Failed to end compass session:', err.message);
+      }
+    }
+  }, RECONNECT_GRACE_PERIOD_MS);
+
+  pendingReconnectSessions.set(conversationId, { ...data, conversationId, timer });
+  console.log(`[Reconnect Grace] Stored pending session for ${conversationId.substring(0, 8)} (${RECONNECT_GRACE_PERIOD_MS / 1000}s grace)`);
+}
+
+function claimPendingReconnect(conversationId: string, userId: string): PendingReconnectData | null {
+  const pending = pendingReconnectSessions.get(conversationId);
+  if (!pending) return null;
+  if (pending.userId !== userId) {
+    console.warn(`[Reconnect Grace] User mismatch for ${conversationId.substring(0, 8)}: expected ${pending.userId}, got ${userId}`);
+    return null;
+  }
+  clearTimeout(pending.timer);
+  pendingReconnectSessions.delete(conversationId);
+  console.log(`[Reconnect Grace] RESUMED session for ${conversationId.substring(0, 8)} — carrying ${pending.exchangeCount} exchanges`);
+  return pending;
+}
+
+/**
  * Normalize language keys for consistent comparison
  * Handles variations like "mandarin" vs "mandarin chinese"
  */
@@ -1290,20 +1370,41 @@ Reference past discussions when relevant, but don't force it.
           // IMPORTANT: Start usage tracking session FIRST before orchestrator session
           // This ensures dbSessionId is available BEFORE any whiteboard events can fire
           let dbSessionId: string | undefined;
-          try {
-            // Get class ID from conversation if any
-            const classId = conversation.classId || undefined;
-            usageSession = await usageService.startSession(
-              userId!,
-              conversationId!,
-              config.targetLanguage,
-              classId
-            );
-            dbSessionId = usageSession.id;
-            console.log(`[Streaming Voice] Usage session started: ${usageSession.id}${isDeveloper ? ' (developer)' : ''}`);
-          } catch (usageErr: any) {
-            console.warn('[Streaming Voice] Could not start usage session:', usageErr.message);
-            // Continue without usage session - dbSessionId will be undefined
+          
+          // Check for pending reconnect session — resume instead of creating new
+          const pendingReconnect = isReconnect && conversationId 
+            ? claimPendingReconnect(conversationId, userId!) 
+            : null;
+          
+          if (pendingReconnect) {
+            // RESUME the existing usage session — carry over accumulated metrics
+            dbSessionId = pendingReconnect.usageSessionId;
+            usageSession = { id: pendingReconnect.usageSessionId } as any;
+            exchangeCount = pendingReconnect.exchangeCount;
+            studentSpeakingSeconds = pendingReconnect.studentSpeakingSeconds;
+            tutorSpeakingSeconds = pendingReconnect.tutorSpeakingSeconds;
+            ttsCharacters = pendingReconnect.ttsCharacters;
+            sttSeconds = pendingReconnect.sttSeconds;
+            sessionStartTime = pendingReconnect.sessionStartTime;
+            console.log(`[Streaming Voice] RESUMED usage session ${dbSessionId} — ${exchangeCount} exchanges carried over`);
+          }
+          
+          if (!usageSession) {
+            try {
+              // Get class ID from conversation if any
+              const classId = conversation.classId || undefined;
+              usageSession = await usageService.startSession(
+                userId!,
+                conversationId!,
+                config.targetLanguage,
+                classId
+              );
+              dbSessionId = usageSession.id;
+              console.log(`[Streaming Voice] Usage session started: ${usageSession.id}${isDeveloper ? ' (developer)' : ''}`);
+            } catch (usageErr: any) {
+              console.warn('[Streaming Voice] Could not start usage session:', usageErr.message);
+              // Continue without usage session - dbSessionId will be undefined
+            }
           }
 
           session = await orchestrator.createSession(
@@ -2498,6 +2599,7 @@ Reference past discussions when relevant, but don't force it.
   });
 
   // Helper to end usage session on disconnect
+  // Uses grace period to allow seamless reconnection within 15s
   const endUsageSession = async () => {
     // Clear Compass tick interval
     if ((ws as any).__compassTickInterval) {
@@ -2505,43 +2607,41 @@ Reference past discussions when relevant, but don't force it.
       (ws as any).__compassTickInterval = null;
     }
     
-    // End Compass session on disconnect
-    if (compassSession && conversationId) {
-      try {
-        const elapsedSeconds = sessionStartTime > 0 
-          ? Math.round((Date.now() - sessionStartTime) / 1000) 
-          : 0;
-        await sessionCompassService.updateElapsedTime(conversationId, elapsedSeconds);
-        
-        // Generate session summary for Daniela's memory
-        const sessionSummary = await sessionCompassService.generateSessionSummary(conversationId);
-        await sessionCompassService.endSession(conversationId, sessionSummary || undefined);
-        console.log(`[Streaming Voice] Compass session ended on disconnect: ${Math.round(elapsedSeconds / 60)}min`);
-      } catch (compassErr: any) {
-        console.warn('[Streaming Voice] Could not end Compass session on disconnect:', compassErr.message);
-      }
+    // If we have a usage session and a conversationId, store for potential reconnection
+    // instead of ending immediately. The grace period timer will end it if no reconnect.
+    if (usageSession && conversationId && userId) {
+      console.log(`[Streaming Voice] Disconnect — storing session for reconnect grace period (${conversationId.substring(0, 8)})`);
+      storePendingReconnect(conversationId, {
+        usageSessionId: usageSession.id,
+        compassSessionActive: !!compassSession,
+        exchangeCount,
+        studentSpeakingSeconds: Math.round(studentSpeakingSeconds),
+        tutorSpeakingSeconds: Math.round(tutorSpeakingSeconds),
+        ttsCharacters,
+        sttSeconds: Math.round(sttSeconds),
+        sessionStartTime,
+        userId: userId!,
+      });
+      usageSession = null;
       compassSession = null;
       compassContext = null;
-    }
-    
-    if (usageSession) {
-      try {
-        await usageService.updateSessionMetrics(usageSession.id, {
-          exchangeCount,
-          studentSpeakingSeconds: Math.round(studentSpeakingSeconds),
-          tutorSpeakingSeconds: Math.round(tutorSpeakingSeconds),
-          ttsCharacters,
-        });
-        const endedSession = await usageService.endSession(usageSession.id);
-        if (endedSession) {
-          console.log(`[Streaming Voice] Usage session ended on disconnect: ${endedSession.durationSeconds}s, ${exchangeCount} exchanges`);
-        } else {
-          console.log(`[Streaming Voice] Usage session ended on disconnect (no metrics returned)`);
+    } else {
+      // No session to preserve — end compass normally
+      if (compassSession && conversationId) {
+        try {
+          const elapsedSeconds = sessionStartTime > 0 
+            ? Math.round((Date.now() - sessionStartTime) / 1000) 
+            : 0;
+          await sessionCompassService.updateElapsedTime(conversationId, elapsedSeconds);
+          const sessionSummary = await sessionCompassService.generateSessionSummary(conversationId);
+          await sessionCompassService.endSession(conversationId, sessionSummary || undefined);
+          console.log(`[Streaming Voice] Compass session ended on disconnect: ${Math.round(elapsedSeconds / 60)}min`);
+        } catch (compassErr: any) {
+          console.warn('[Streaming Voice] Could not end Compass session on disconnect:', compassErr.message);
         }
-      } catch (endErr: any) {
-        console.error('[Streaming Voice] Could not end usage session:', endErr.message);
+        compassSession = null;
+        compassContext = null;
       }
-      usageSession = null;
     }
     // Check if placement assessment is needed for Level 2+ class enrollments
     if (userId && conversationId) {
@@ -3108,8 +3208,10 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
           }
           
           const config = message as ClientStartSessionMessage;
+          const isReconnectSO = config.isReconnect === true;
           const tutorGender = config.tutorGender || 'female';
           const rawHonestyMode = config.rawHonestyMode || false;
+          console.log(`[Streaming Voice] Processing start_session (Socket.io)${isReconnectSO ? ' (RECONNECT — will skip greeting)' : ''}`);
           
           try {
             const initStart = Date.now();
@@ -3215,15 +3317,22 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
               SESSION_INIT_TIMEOUT, 'neuralNetwork', ''
             );
             
-            const usageSessionPromise = withTimeout(
-              (async () => {
-                const classId = conversation?.classId || undefined;
-                return await usageService.startSession(
-                  userId!, conversationId || undefined, config.targetLanguage, classId
+            // Check for pending reconnect session BEFORE starting a new one
+            const pendingReconnectSO = isReconnectSO && conversationId
+              ? claimPendingReconnect(conversationId, userId!)
+              : null;
+            
+            const usageSessionPromise = pendingReconnectSO
+              ? Promise.resolve(null)
+              : withTimeout(
+                  (async () => {
+                    const classId = conversation?.classId || undefined;
+                    return await usageService.startSession(
+                      userId!, conversationId || undefined, config.targetLanguage, classId
+                    );
+                  })(),
+                  SESSION_INIT_TIMEOUT, 'usageSession', null as UsageVoiceSession | null
                 );
-              })(),
-              SESSION_INIT_TIMEOUT, 'usageSession', null as UsageVoiceSession | null
-            );
             
             const [compassResult, neuralNetworkContext, usageSessionResult] = await Promise.all([
               compassPromise.catch((err: any) => { console.warn(`[Compass Init] Error: ${err.message}`); return null; }),
@@ -3240,9 +3349,19 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
               compassContext = compassResult.context;
             }
             
-            // Apply usage session
+            // Apply usage session — either resumed from grace period or newly created
             let dbSessionId: string | undefined;
-            if (usageSessionResult) {
+            if (pendingReconnectSO) {
+              dbSessionId = pendingReconnectSO.usageSessionId;
+              usageSession = { id: pendingReconnectSO.usageSessionId } as any;
+              exchangeCount = pendingReconnectSO.exchangeCount;
+              studentSpeakingSeconds = pendingReconnectSO.studentSpeakingSeconds;
+              tutorSpeakingSeconds = pendingReconnectSO.tutorSpeakingSeconds;
+              ttsCharacters = pendingReconnectSO.ttsCharacters;
+              sttSeconds = pendingReconnectSO.sttSeconds;
+              sessionStartTime = pendingReconnectSO.sessionStartTime;
+              console.log(`[Streaming Voice] RESUMED usage session ${dbSessionId} — ${exchangeCount} exchanges carried over (Socket.io)`);
+            } else if (usageSessionResult) {
               usageSession = usageSessionResult;
               dbSessionId = usageSessionResult.id;
               console.log(`[Streaming Voice] Usage session started: ${usageSessionResult.id}${isDeveloper ? ' (developer)' : ''}`);
@@ -3361,6 +3480,9 @@ ${buildNativeFunctionCallingSection()}`;
             // Note: tutorDirectory is built dynamically by Socket.io path
             // HTTP WebSocket path doesn't support tutor handoffs, so we skip this
             
+            // Track reconnection state — prevents double greetings when client reconnects
+            (session as any).__isReconnect = isReconnectSO;
+            
             pendingVoiceUpdate = tutorGender;
             console.log(`[Streaming Voice] Session created: ${session.id}${dbSessionId ? ` (db: ${dbSessionId.substring(0, 8)}...)` : ' (no db session)'}`);
             
@@ -3404,6 +3526,14 @@ ${buildNativeFunctionCallingSection()}`;
           if (!isAuthenticated || !session) {
             sendErrorAdapter(ws, 'UNKNOWN', 'Session not ready for greeting', true);
             return;
+          }
+          
+          // RECONNECTION GUARD: If this session was created via reconnection,
+          // skip the greeting to prevent double audio after infrastructure timeout
+          if ((session as any).__isReconnect) {
+            console.log('[Streaming Voice] Ignoring greeting request — session was reconnected (prevents double audio) [Socket.io]');
+            (session as any).__isReconnect = false;
+            break;
           }
           
           const greetingRequest = message as { type: 'request_greeting'; userName?: string; isResumed?: boolean };
@@ -4336,14 +4466,30 @@ ${buildNativeFunctionCallingSection()}`;
     pendingSpeculativeTranscript = null;
     pendingSpeculativeWordCount = 0;
     
-    // End usage session on disconnect for usage tracking and memory extraction
-    if (usageSession) {
+    // End usage session on disconnect — use grace period for seamless reconnection
+    if (usageSession && conversationId && userId) {
+      console.log(`[Streaming Voice] Socket.io disconnect — storing session for reconnect grace period (${conversationId.substring(0, 8)})`);
+      storePendingReconnect(conversationId, {
+        usageSessionId: usageSession.id,
+        compassSessionActive: !!compassSession,
+        exchangeCount,
+        studentSpeakingSeconds: Math.round(studentSpeakingSeconds),
+        tutorSpeakingSeconds: Math.round(tutorSpeakingSeconds),
+        ttsCharacters,
+        sttSeconds: Math.round(sttSeconds),
+        sessionStartTime,
+        userId: userId!,
+      });
+      usageSession = null;
+      compassSession = null;
+      compassContext = null;
+    } else if (usageSession) {
       usageService.updateSessionMetrics(usageSession.id, {
         exchangeCount,
-        studentSpeakingSeconds,
-        tutorSpeakingSeconds,
+        studentSpeakingSeconds: Math.round(studentSpeakingSeconds),
+        tutorSpeakingSeconds: Math.round(tutorSpeakingSeconds),
         ttsCharacters,
-        sttSeconds,
+        sttSeconds: Math.round(sttSeconds),
       }).then(() => usageService.endSession(usageSession!.id))
         .then((endedSession) => {
           if (endedSession) {
