@@ -2,6 +2,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { StreamingSubtitleState } from '../hooks/useStreamingSubtitles';
 import type { SubtitleMode } from '@shared/whiteboard-types';
 
+function cleanDisplayText(text: string): string {
+  return text
+    .replace(/\*\*/g, '')
+    .replace(/\\/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 interface FloatingSubtitleOverlayProps {
   subtitleState: StreamingSubtitleState;
   /**
@@ -101,7 +109,7 @@ export function FloatingSubtitleOverlay({
             data-mode="custom-overlay"
           >
             <p className="text-2xl md:text-3xl font-bold leading-relaxed tracking-wide text-primary drop-shadow-[0_0_12px_hsl(var(--primary)/0.6)]">
-              {customOverlayText}
+              {cleanDisplayText(customOverlayText!)}
             </p>
           </motion.div>
         </AnimatePresence>
@@ -152,7 +160,7 @@ export function FloatingSubtitleOverlay({
                       data-highlighted={isHighlighted}
                       data-current={isCurrentWord}
                     >
-                      {timing.word}
+                      {timing.word.replace(/\*\*/g, '')}
                     </span>
                   );
                 })
@@ -187,7 +195,7 @@ export function FloatingSubtitleOverlay({
                       data-highlighted={isHighlighted}
                       data-current={isCurrentWord}
                     >
-                      {word}
+                      {word.replace(/\*\*/g, '')}
                     </span>
                   );
                 })

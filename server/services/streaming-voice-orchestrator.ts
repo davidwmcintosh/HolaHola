@@ -14252,24 +14252,27 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       }
       
       case 'SUMMARY': {
-        const points = fn.args.points as string | undefined;
+        const summaryTitle = (fn.args.title as string | undefined) || "Session Summary";
+        const summaryItems = fn.args.items as string | undefined;
+        const summaryPoints = fn.args.points as string | undefined;
+        const rawContent = summaryItems || summaryPoints || '';
         
-        if (points) {
-          const lines = points.split('\n').map((l: string) => l.trim()).filter(Boolean);
-          const title = lines.length > 0 ? lines[0] : "Session Summary";
-          const bulletPoints = lines.length > 1 ? lines.slice(1) : lines;
+        if (rawContent || summaryTitle) {
+          const lines = rawContent.split('\n').map((l: string) => l.replace(/^\*\*|\*\*$/g, '').replace(/\*\*/g, '').trim()).filter(Boolean);
           const summaryData = {
-            title,
-            words: bulletPoints,
+            title: summaryTitle,
+            words: lines,
             phrases: [] as string[],
-            totalItems: bulletPoints.length,
+            totalItems: lines.length,
           };
-          console.log(`[Native Function→Summary] title="${title}" ${bulletPoints.length} points`);
+          console.log(`[Native Function→Summary] title="${summaryTitle}" ${lines.length} points`);
           this.sendMessage(session.ws, {
             type: 'whiteboard_update',
             timestamp: Date.now(),
-            items: [{ type: 'summary', content: points, data: summaryData }],
+            items: [{ type: 'summary', content: rawContent, data: summaryData }],
           });
+        } else {
+          console.warn(`[Native Function→Summary] No title or items provided, skipping. Args: ${JSON.stringify(fn.args).substring(0, 200)}`);
         }
         break;
       }
