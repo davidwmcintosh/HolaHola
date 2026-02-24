@@ -4628,3 +4628,26 @@ Currently, drill item translations are hardcoded to English in the `prompt` fiel
 
 #### Content gap: Spanish 3 curriculum depth
 Units 2-4 of Spanish 3 are hollow shells — they have conversation and cultural stub lessons but no vocabulary or drill content matching their Can-Do statements. Needs dedicated content authoring session.
+
+### Session: February 24, 2026 — Gemini 429 Rate Limit Recovery (Carol's Silence Bug)
+
+**Status**: COMPLETED
+
+#### Root cause analysis
+- **Symptom**: Daniela goes completely silent after student voice input — no response, no "thinking" indicator
+- **Root cause**: Gemini API returning 429 "Resource Exhausted" errors during peak usage
+- **Why silence**: The initial Gemini `streamWithSentenceChunking` calls in both PTT and OpenMic paths were NOT wrapped in `retryWithBackoff` — only the continuation (multi-step function calling) calls had retry logic. When a 429 hit the initial call, the error propagated to the catch block which logged it and sent a generic error + `response_complete` but never spoke anything, leaving the student in silence.
+
+#### Fix: Three-layer defense
+1. **Retry with backoff (PTT + OpenMic initial calls)**: Wrapped both initial `streamWithSentenceChunking` calls in `retryWithBackoff()` with 2 retries, 800ms base delay, 3s max delay. Previously only continuation calls had this.
+2. **Spoken fallback on 429 (both paths)**: When retries exhaust and a 429 error reaches the catch block, Daniela now speaks "One moment, I'm having a little trouble connecting. Could you say that again?" instead of going silent. Uses `synthesizeSentenceToClient()` with `force: true`.
+3. **Existing safety net**: The catch block already sends `response_complete` to prevent permanent mic lockout — now it also includes the spoken fallback sentence in `metrics.sentenceCount`.
+
+#### Files modified
+- `server/services/streaming-voice-orchestrator.ts` — lines ~3102 (PTT initial), ~4395 (PTT retry closure), ~5391 (PTT 429 fallback), ~5917 (OpenMic initial), ~6853 (OpenMic retry closure), ~7731 (OpenMic 429 fallback)
+
+#### Voice health findings from Carol's session data
+- Voice health status: YELLOW — 5 events in last hour, 2 errors, 1 user affected
+- Trigger types: `error`, `failsafe_tier2_45s`, `greeting_silence_15s`
+- Carol's sessions show 301s duration pattern (infrastructure timeout) — grace period fix from prior session should help
+- Sofia agent auto-disabled optional context sources (hive, express_lane, editor_feedback) for 30min to reduce Gemini token pressure during 429 events

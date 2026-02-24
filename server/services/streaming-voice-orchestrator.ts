@@ -3099,7 +3099,8 @@ Remember: David may reference things discussed in these recent text chats.
       pipelineTiming.contextFetchEnd = Date.now();
       pipelineTiming.geminiStart = Date.now();
       
-      await this.geminiService.streamWithSentenceChunking({
+      await retryWithBackoff(
+        () => this.geminiService.streamWithSentenceChunking({
         systemPrompt: session.systemPrompt,  // STATIC base prompt (cacheable)
         conversationHistory: conversationHistoryWithContext,
         userMessage: userMessageWithNote,
@@ -4391,7 +4392,16 @@ Remember: David may reference things discussed in these recent text chats.
           });
           this.sendError(session.ws, 'AI_FAILED', error.message, true);
         },
-      });
+      }),
+        {
+          maxRetries: 2,
+          baseDelayMs: 800,
+          maxDelayMs: 3000,
+          onRetry: (attempt, error, delayMs) => {
+            console.log(`[Gemini Retry - PTT] Attempt ${attempt} after ${delayMs}ms: ${error.message?.substring(0, 100)}`);
+          },
+        }
+      );
       
       // GOOGLE BATCH TTS: After Gemini finishes generating ALL sentences,
       // combine them into one paragraph and send as a single TTS call.
@@ -5375,6 +5385,22 @@ Remember: David may reference things discussed in these recent text chats.
       const errorType = isGeminiError ? 'GEMINI_API_ERROR' : 'VOICE_PROCESSING_ERROR';
       const elapsedMs = Date.now() - startTime;
       
+      // GRACEFUL RECOVERY (PTT): For 429 rate limit errors, speak a fallback so student isn't left in silence
+      const is429ErrorPTT = error.message?.includes('429') || 
+                            error.message?.includes('RESOURCE_EXHAUSTED') ||
+                            error.message?.includes('Resource exhausted');
+      if (is429ErrorPTT) {
+        console.log(`[Gemini Recovery - PTT] 429 rate limit detected, providing spoken fallback`);
+        const fallbackText = "One moment, I'm having a little trouble connecting. Could you say that again?";
+        try {
+          await this.synthesizeSentenceToClient(session, fallbackText, 0, null, { force: true });
+          metrics.sentenceCount = 1;
+          console.log(`[Gemini Recovery - PTT] Fallback response sent successfully`);
+        } catch (ttsError: any) {
+          console.error(`[Gemini Recovery - PTT] Fallback TTS failed:`, ttsError.message);
+        }
+      }
+      
       // TIMEOUT-SPECIFIC TELEMETRY: Log timeouts to shared database for monitoring
       const isTimeout = error.message?.includes('timeout') || 
                        error.message?.includes('ETIMEDOUT') ||
@@ -5396,7 +5422,6 @@ Remember: David may reference things discussed in these recent text chats.
         aiFirstTokenReceived: metrics.aiFirstTokenMs > 0,
         sttMs: metrics.sttLatencyMs || 0,
         aiMs: metrics.aiFirstTokenMs || 0,
-        // Checkpoint status - was user message saved before failure?
         userMessageCheckpointed: !!session.checkpointedUserMessageId,
       });
       
@@ -5889,7 +5914,8 @@ Remember: David may reference things discussed in these recent text chats.
         vocalStyle: (session as any).voiceOverride?.vocalStyle,
       };
       
-      await this.geminiService.streamWithSentenceChunking({
+      await retryWithBackoff(
+        () => this.geminiService.streamWithSentenceChunking({
         systemPrompt: session.systemPrompt,  // STATIC base prompt (cacheable)
         conversationHistory: conversationHistoryWithContext,
         userMessage: userMessageWithNote,
@@ -6836,7 +6862,16 @@ Remember: David may reference things discussed in these recent text chats.
           fullText += displayText + ' ';
           metrics.sentenceCount++;
         },
-      });
+      }),
+        {
+          maxRetries: 2,
+          baseDelayMs: 800,
+          maxDelayMs: 3000,
+          onRetry: (attempt, error, delayMs) => {
+            console.log(`[Gemini Retry - OpenMic] Attempt ${attempt} after ${delayMs}ms: ${error.message?.substring(0, 100)}`);
+          },
+        }
+      );
       
       console.log(`[Streaming Orchestrator] AI complete: ${actualSentenceCount} sentences`);
       
@@ -7705,12 +7740,19 @@ Remember: David may reference things discussed in these recent text chats.
       const errorType = isGeminiError ? 'GEMINI_API_ERROR' : 'VOICE_PROCESSING_ERROR';
       const elapsedMs = Date.now() - startTime;
       
-      // GRACEFUL RECOVERY: For JSON parse errors (function call truncation), provide fallback response
-      if (isJsonParseError) {
-        console.log(`[Gemini Recovery - OpenMic] JSON parse error detected, providing fallback response`);
-        const fallbackText = "Sorry, I had a brief hiccup. What were you saying?";
+      // GRACEFUL RECOVERY: For recoverable errors, speak a fallback so student isn't left in silence
+      const is429Error = error.message?.includes('429') || 
+                         error.message?.includes('RESOURCE_EXHAUSTED') ||
+                         error.message?.includes('Resource exhausted');
+      if (isJsonParseError || is429Error) {
+        const reason = is429Error ? '429 rate limit' : 'JSON parse error';
+        console.log(`[Gemini Recovery - OpenMic] ${reason} detected, providing spoken fallback`);
+        const fallbackText = is429Error 
+          ? "One moment, I'm having a little trouble connecting. Could you say that again?"
+          : "Sorry, I had a brief hiccup. What were you saying?";
         try {
           await this.synthesizeSentenceToClient(session, fallbackText, 0, null, { force: true });
+          metrics.sentenceCount = 1;
           console.log(`[Gemini Recovery - OpenMic] Fallback response sent successfully`);
         } catch (ttsError: any) {
           console.error(`[Gemini Recovery - OpenMic] Fallback TTS failed:`, ttsError.message);
