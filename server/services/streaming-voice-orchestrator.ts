@@ -13458,6 +13458,10 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       
       case 'TEXT_INPUT': {
         const prompt = fn.args.prompt as string | undefined;
+        const tiSpokenText = fn.args.spoken_text as string | undefined;
+        if (tiSpokenText && !(session as any).functionCallText) {
+          (session as any).functionCallText = tiSpokenText;
+        }
         this.sendMessage(session.ws, {
           type: 'whiteboard_update',
           timestamp: Date.now(),
@@ -13659,6 +13663,10 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       
       case 'FIRST_MEETING_COMPLETE': {
         const summary = fn.args.summary as string | undefined;
+        const fmcText = fn.args.text as string | undefined;
+        if (fmcText && !(session as any).functionCallText) {
+          (session as any).functionCallText = fmcText;
+        }
         if (session.userId && !session.isIncognito) {
           try {
             await storage.updateUser(session.userId, { hasCompletedFirstMeeting: true });
@@ -14205,7 +14213,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
 
       case 'END_SCENARIO': {
         const spokenText = (fn.args.spoken_text || fn.args.text) as string | undefined;
-        const performanceNotes = fn.args.performance_notes as string | undefined;
+        const performanceNotes = (fn.args.feedback || fn.args.performance_notes) as string | undefined;
         const activeScenario = (session as any).activeScenario;
 
         if (activeScenario) {
@@ -14278,27 +14286,36 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       }
       
       case 'READING': {
-        const passage = fn.args.passage as string | undefined;
+        const passage = (fn.args.content || fn.args.passage) as string | undefined;
+        const readingTitle = fn.args.title as string | undefined;
         const translation = fn.args.translation as string | undefined;
         
         if (passage) {
           const readingData = {
             character: passage,
             reading: translation || '',
+            title: readingTitle || undefined,
             language: session.targetLanguage || undefined,
           };
-          console.log(`[Native Function→Reading] "${passage.substring(0, 50)}..."${translation ? ` translation="${translation.substring(0, 50)}..."` : ''}`);
+          console.log(`[Native Function→Reading] "${passage.substring(0, 50)}..."${readingTitle ? ` title="${readingTitle}"` : ''}${translation ? ` translation="${translation.substring(0, 50)}..."` : ''}`);
           this.sendMessage(session.ws, {
             type: 'whiteboard_update',
             timestamp: Date.now(),
             items: [{ type: 'reading', content: passage, data: readingData, translation }],
           });
+        } else {
+          console.warn(`[Native Function→Reading] No content/passage provided. Args: ${JSON.stringify(fn.args).substring(0, 200)}`);
         }
         break;
       }
       
       case 'PLAY': {
         const description = fn.args.description as string | undefined;
+        const playText = fn.args.text as string | undefined;
+        
+        if (playText && !(session as any).functionCallText) {
+          (session as any).functionCallText = playText;
+        }
         
         if (description) {
           console.log(`[Native Function→Play] "${description.substring(0, 50)}..."`);
@@ -14350,6 +14367,11 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       
       case 'STROKE': {
         const character = fn.args.character as string | undefined;
+        const strokeText = fn.args.text as string | undefined;
+        
+        if (strokeText && !(session as any).functionCallText) {
+          (session as any).functionCallText = strokeText;
+        }
         
         if (character) {
           const strokeData = {
@@ -14368,38 +14390,45 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       }
       
       case 'TONE': {
-        const pinyin = fn.args.pinyin as string | undefined;
+        const syllable = (fn.args.syllable || fn.args.pinyin) as string | undefined;
+        const toneNumber = fn.args.toneNumber as number | undefined;
+        const toneText = fn.args.text as string | undefined;
         
-        if (pinyin) {
-          const toneNumbers = pinyin.match(/\d/g)?.map(Number) || [];
+        if (syllable) {
+          const toneNumbers = toneNumber ? [toneNumber] : (syllable.match(/\d/g)?.map(Number) || []);
           const toneData = {
-            word: pinyin,
-            pinyin,
+            word: syllable,
+            pinyin: syllable,
             tones: toneNumbers,
             language: 'mandarin',
             meaning: undefined as string | undefined,
           };
-          console.log(`[Native Function→Tone] Pinyin: ${pinyin} extracted tones: ${toneNumbers}`);
+          console.log(`[Native Function→Tone] Syllable: ${syllable} tones: ${toneNumbers}`);
           this.sendMessage(session.ws, {
             type: 'whiteboard_update',
             timestamp: Date.now(),
-            items: [{ type: 'tone', content: pinyin, data: toneData }],
+            items: [{ type: 'tone', content: syllable, data: toneData }],
           });
+        }
+        if (toneText && !(session as any).functionCallText) {
+          (session as any).functionCallText = toneText;
         }
         break;
       }
       
       case 'PRONUNCIATION_TAG': {
         const word = fn.args.word as string | undefined;
+        const ipa = fn.args.ipa as string | undefined;
+        const hint = fn.args.hint as string | undefined;
         const language = fn.args.language as string | undefined;
         
-        if (word && language) {
-          console.log(`[Native Function→PronunciationTag] [${language}:${word}]`);
-          // Pronunciation tags affect TTS, store for sentence processing
+        if (word) {
+          const tagLanguage = language || session.targetLanguage || 'spanish';
+          console.log(`[Native Function→PronunciationTag] [${tagLanguage}:${word}]${ipa ? ` IPA: ${ipa}` : ''}${hint ? ` hint: ${hint}` : ''}`);
           if (!session.pendingPronunciationTags) {
             session.pendingPronunciationTags = [];
           }
-          session.pendingPronunciationTags.push({ word, language });
+          session.pendingPronunciationTags.push({ word, language: tagLanguage, ipa, hint });
         }
         break;
       }
@@ -14408,8 +14437,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
 
       case 'BROWSE_SYLLABUS': {
         const text = fn.args.text as string | undefined;
-        const unitNumber = fn.args.unit_number as number | undefined;
-        const showCompleted = fn.args.show_completed !== false;
+        const unitNumber = (fn.args.unitNumber || fn.args.unit_number) as number | undefined;
+        const showCompleted = (fn.args.showCompleted ?? fn.args.show_completed) !== false;
 
         if (text && !(session as any).functionCallText) {
           (session as any).functionCallText = text;
@@ -14515,8 +14544,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
 
       case 'START_LESSON': {
         const text = fn.args.text as string | undefined;
-        const lessonId = fn.args.lesson_id as string | undefined;
-        const lessonName = fn.args.lesson_name as string | undefined;
+        const lessonId = (fn.args.lessonId || fn.args.lesson_id) as string | undefined;
+        const lessonName = (fn.args.lessonName || fn.args.lesson_name) as string | undefined;
 
         if (text && !(session as any).functionCallText) {
           (session as any).functionCallText = text;
@@ -14618,7 +14647,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
 
       case 'LOAD_VOCAB_SET': {
         const text = fn.args.text as string | undefined;
-        const lessonId = fn.args.lesson_id as string | undefined;
+        const lessonId = (fn.args.lessonId || fn.args.lesson_id) as string | undefined;
 
         if (text && !(session as any).functionCallText) {
           (session as any).functionCallText = text;
@@ -14872,7 +14901,9 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
 
       case 'DRILL_SESSION': {
         const text = fn.args.text as string | undefined;
-        const lessonId = fn.args.lesson_id as string | undefined;
+        const lessonId = (fn.args.lessonId || fn.args.lesson_id) as string | undefined;
+        const requestedDrillType = (fn.args.drillType || fn.args.drill_type) as string | undefined;
+        const requestedCount = (fn.args.count as number | undefined) || 10;
 
         if (text && !(session as any).functionCallText) {
           (session as any).functionCallText = text;
@@ -14899,6 +14930,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
                 ));
 
               for (const a of assignments) {
+                if (requestedDrillType && a.drillType !== requestedDrillType) continue;
                 if (a.drillContent && Array.isArray((a.drillContent as any).items)) {
                   for (const item of (a.drillContent as any).items) {
                     drillItems.push({ ...item, drillType: a.drillType });
@@ -14915,13 +14947,18 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
                 ));
 
               for (const a of assignments) {
+                if (requestedDrillType && a.drillType !== requestedDrillType) continue;
                 if (a.drillContent && Array.isArray((a.drillContent as any).items)) {
                   for (const item of (a.drillContent as any).items) {
                     drillItems.push({ ...item, drillType: a.drillType });
                   }
                 }
-                if (drillItems.length >= 10) break;
+                if (drillItems.length >= requestedCount) break;
               }
+            }
+
+            if (drillItems.length > requestedCount) {
+              drillItems = drillItems.slice(0, requestedCount);
             }
 
             if (drillItems.length > 0) {
@@ -15111,7 +15148,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
 
       case 'REVIEW_DUE_VOCAB': {
         const text = fn.args.text as string | undefined;
-        const maxItems = (fn.args.max_items as number) || 10;
+        const maxItems = (fn.args.limit || fn.args.max_items) as number || 10;
 
         if (text && !(session as any).functionCallText) {
           (session as any).functionCallText = text;
