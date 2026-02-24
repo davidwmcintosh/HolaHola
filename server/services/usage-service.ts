@@ -479,11 +479,25 @@ export class UsageService {
       .returning();
     
     // Record consumption in ledger (negative value)
-    // SAFEGUARD: Don't charge for sessions where Daniela never spoke (0 exchanges)
+    // SAFEGUARD 1: Don't charge for sessions where Daniela never spoke (0 exchanges)
     // These are failed connection attempts that should not cost the user
+    // SAFEGUARD 2: Cap charged time based on activity ratio — if session ran far longer
+    // than actual speech activity, only charge for estimated active time (exchanges × 30s avg)
+    // This prevents idle/frozen sessions from draining credits
     const exchangeCount = updatedSession.exchangeCount || 0;
     if (durationSeconds > 0 && exchangeCount > 0) {
-      await this.consumeCredits(session.userId, durationSeconds, sessionId, session.classId || undefined);
+      const AVG_SECONDS_PER_EXCHANGE = 30;
+      const IDLE_RATIO_THRESHOLD = 5;
+      const estimatedActiveSeconds = exchangeCount * AVG_SECONDS_PER_EXCHANGE;
+      const idleRatio = durationSeconds / Math.max(estimatedActiveSeconds, 1);
+      
+      if (idleRatio > IDLE_RATIO_THRESHOLD && durationSeconds > 600) {
+        const cappedSeconds = Math.min(durationSeconds, estimatedActiveSeconds * 2);
+        console.log(`[UsageService] IDLE SESSION CAP: session ${sessionId} duration=${durationSeconds}s but only ${exchangeCount} exchanges (est. ${estimatedActiveSeconds}s active). Idle ratio ${idleRatio.toFixed(1)}x. Charging capped ${cappedSeconds}s instead of ${durationSeconds}s`);
+        await this.consumeCredits(session.userId, cappedSeconds, sessionId, session.classId || undefined);
+      } else {
+        await this.consumeCredits(session.userId, durationSeconds, sessionId, session.classId || undefined);
+      }
     } else if (durationSeconds > 0 && exchangeCount === 0) {
       console.log(`[UsageService] Skipping charge for 0-exchange session ${sessionId} (${durationSeconds}s) - Daniela never spoke`);
     }
