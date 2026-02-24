@@ -1077,10 +1077,7 @@ export function StreamingVoiceChat({
             }
           },
           onReconnected: () => {
-            toast({
-              title: "Connection restored",
-              description: "We're back — let's continue where we left off.",
-            });
+            console.log('[StreamingVoice] Connection restored silently');
           },
           onTutorHandoff: (handoff) => {
             const { targetGender, targetLanguage, tutorName, isLanguageSwitch, isAssistant } = handoff;
@@ -3025,10 +3022,7 @@ export function StreamingVoiceChat({
                 }
               },
               onReconnected: () => {
-                toast({
-                  title: "Connection restored",
-                  description: "We're back — let's continue where we left off.",
-                });
+                console.log('[StreamingVoice] Connection restored silently (reconnect context)');
               },
               onTutorHandoff: (handoff) => {
                 const { targetGender, targetLanguage, tutorName, isLanguageSwitch, isAssistant } = handoff;
