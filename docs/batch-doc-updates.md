@@ -4651,3 +4651,34 @@ Units 2-4 of Spanish 3 are hollow shells — they have conversation and cultural
 - Trigger types: `error`, `failsafe_tier2_45s`, `greeting_silence_15s`
 - Carol's sessions show 301s duration pattern (infrastructure timeout) — grace period fix from prior session should help
 - Sofia agent auto-disabled optional context sources (hive, express_lane, editor_feedback) for 30min to reduce Gemini token pressure during 429 events
+
+---
+
+### Session: February 25, 2026 — Character-Based Billing Safeguard
+
+**Status**: COMPLETED
+
+#### What was built
+Replaced the estimation-based idle session billing cap with a precise, metered-usage cross-check. Billing now uses actual tracked data (`tts_characters`, `stt_seconds`) rather than estimating activity from exchange counts.
+
+#### Why
+The previous approach (`exchanges × 30s avg`) was an arbitrary estimate that could mis-bill in edge cases. TTS characters and STT seconds are real metered usage that map directly to actual provider costs (Gemini tokens, TTS billing, Deepgram STT).
+
+#### How it works — two-path billing guard
+1. **Zero activity** (0 exchanges, 0 TTS chars, 0 STT secs): No charge — dead connection
+2. **Primary path** (has metered TTS/STT data): 
+   - `ttsDurationEstimate = tts_characters / 15` (~15 chars/sec of spoken audio, industry standard)
+   - `activeSpeaking = ttsDurationEstimate + stt_seconds`
+   - `fairCap = max(activeSpeaking × 3, 120s)` — 3x multiplier for think time/pauses, 2-min floor
+   - If wall-clock > fairCap AND > 10min: cap charge at fairCap, log discrepancy
+3. **Fallback path** (exchanges exist but no metered data — older sessions):
+   - Uses `student_speaking_seconds × 2` if available, otherwise `exchanges × 30s`
+   - Same 3x multiplier and 120s floor
+
+#### Validation results (platform-wide, all sessions >60s)
+- 86 healthy sessions: avg 385 TTS chars/min — none would be capped (zero false positives)
+- 1,499 idle sessions: 0 chars, 0 exchanges — correctly skipped (no charge)
+- 4 suspect sessions: 4.2 chars/min — correctly capped (e.g., Daniel's Feb 22 session: 7614s wall-clock → capped at 132s)
+
+#### Key file modified
+- `server/services/usage-service.ts` — `endSession()` method, lines ~484-537
