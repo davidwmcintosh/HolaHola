@@ -8,6 +8,78 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 25, 2026 — Progress Tracking System Overhaul
+
+**Status**: COMPLETED
+
+#### Problem: Three interconnected bugs made progress tracking completely non-functional
+
+All three bugs fed into each other, leaving the mind map permanently dark, ACTFL level stuck, and vocabulary invisible for class-enrolled students.
+
+**Bug 1 — Streak stuck at 0**
+- The orchestrator was calling `updateUserProgress({ lastPracticeDate: new Date() })` mid-session during vocabulary extraction
+- This caused `recordActivityAndUpdateStreak()` (called at session end) to always see `daysDiff = 0` and skip streak initialization
+- Fix: Removed `lastPracticeDate` from the mid-session progress update. `lastPracticeDate` is now exclusively written by `recordActivityAndUpdateStreak()` at session end
+- File: `server/services/streaming-voice-orchestrator.ts` (~line 10038)
+
+**Bug 2 — Vocabulary blank for class students**
+- `createVocabularyWord()` was called without `classId`, so all vocab words were stored with `classId = null`
+- `getFilteredVocabulary()` applied strict `classId = ?` equality, returning 0 results for class-filtered queries
+- Fix 1: Added `classId: session.classId || null` to the `createVocabularyWord()` call
+- Fix 2: `getFilteredVocabulary()` now uses `(classId = ? OR classId IS NULL)` for backward compatibility with pre-fix words
+- Files: `streaming-voice-orchestrator.ts` (~line 9876), `server/storage.ts` (~line 4604)
+
+**Bug 3a — ACTFL `practice_hours` always 0**
+- `recordVoiceExchange()` never wrote the `practice_hours` field; it accumulated all other ACTFL metrics but left this one at 0
+- This meant students could never meet the minimum hours threshold for level advancement (5h for Novice Mid)
+- Fix: Post-session sync block (see below) now writes `practice_hours = practiceMinutes / 60` from `userProgress`
+
+**Bug 3b — ACTFL `topics_covered` stuck at 1 topic**
+- Per-message ACTFL tracking passed `[difficultyLevel + '_practice']` as the topic (e.g., `["beginner_practice"]`)
+- Since it was always the same string, unique topic accumulation never grew beyond 1
+- Students need 4 unique topics for Novice Mid advancement — impossible with only 1 forever
+- Fix: Replaced with keyword-based topic detection (10 topic categories: greetings, food, family, school, work, hobbies, weather, numbers, health, shopping) on the user transcript
+- File: `streaming-voice-orchestrator.ts` (~line 10081)
+
+**Bug 3c — Mind map permanently dark**
+- `syllabus_progress` records were never created when sessions ended
+- Without any progress records, `getUnifiedProgress()` returned all lessons as `not_started`
+- `unifiedProgressToTopics()` mapped all lessons to `discovered` status
+- The lobe brightness calculation only counted `mastered` (completed) topics — 0/all = 0% for every lobe
+
+#### Solution: Post-session progress sync block
+
+Added a non-blocking async block in `endSession()` that runs whenever a session had actual exchanges and wasn't incognito:
+
+1. **`practice_hours` sync**: Gets `userProgress.practiceMinutes`, divides by 60, writes to `actflProgress.practiceHours`
+2. **Topic merge**: Gets Gemini-tagged conversation topics from the conversation tagger, merges them into `actflProgress.topicsCovered`
+3. **Syllabus progress creation**: Calls `getNextLessonForClass()`, checks for existing progress record, creates `in_progress` record if none exists, or accumulates `actualMinutes` if already `in_progress`. Skips completed/skipped lessons.
+
+New storage helper: `getNextLessonForClass(studentId, classId)` — returns the first incomplete lesson in the class curriculum by walking `class_curriculum_units` and `class_curriculum_lessons` in order.
+
+File: `server/services/streaming-voice-orchestrator.ts` (~line 12293)
+File: `server/storage.ts` — `getNextLessonForClass()` added
+
+#### Mind map lobe calculation improvements
+
+Two changes to make the mind map meaningful even early in a course:
+
+1. **Emergent mode now hides unvisited units**: In `unifiedProgressToTopics()`, lessons from units where the student has no `in_progress` or `completed` lessons are now tagged as `locked`. In emergent mode, locked topics are filtered out, so they don't dilute the lobe brightness percentages with the full unvisited curriculum.
+
+2. **`practiced` topics count toward brightness**: Lobe brightness now counts `mastered` (completed) at full weight and `practiced` (in_progress) at 0.5 weight. Previously, only `mastered` counted, making it impossible to see any progress until lessons were fully completed.
+
+File: `client/src/components/SyllabusMindMap.tsx` — `unifiedProgressToTopics()` and `segmentProgress` useMemo
+
+#### Carol McIntosh data backfill
+
+Direct DB corrections applied to unblock Carol's account:
+- 828 vocab words tagged with Spanish 1 class_id
+- `user_progress`: current_streak=2, longest_streak=3, total_practice_days=6
+- `actfl_progress`: practice_hours=5.97, topics_covered=[greetings, food, family, numbers, school] (5 topics), topics_total=5
+- 8 `syllabus_progress` records created for Unit 1 (6 lessons) and Unit 2 (2 lessons) as `in_progress`
+
+---
+
 ### Session: February 21, 2026 — Stack Latency Fix + Route Cleanup
 
 **Status**: COMPLETED

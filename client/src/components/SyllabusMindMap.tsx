@@ -1112,11 +1112,19 @@ function unifiedProgressToTopics(progress: UnifiedProgressResponse): TopicNode[]
   const topics: TopicNode[] = [];
   
   progress.units.forEach(unit => {
+    // A unit is "engaged" if the student has started or completed at least one lesson in it.
+    // Units with zero engagement are marked 'locked' so emergent mode hides them and they
+    // don't dilute the lobe brightness percentages for units the student is actually working on.
+    const unitIsEngaged = unit.lessons.some(
+      l => l.status === 'in_progress' || l.status === 'completed' || l.status === 'skipped'
+    );
+
     unit.lessons.forEach(lesson => {
       const status: TopicNode['status'] = 
         lesson.status === 'completed' ? 'mastered' :
         lesson.status === 'in_progress' ? 'practiced' :
-        lesson.status === 'skipped' ? 'discovered' : 'discovered';
+        lesson.status === 'skipped' ? 'discovered' :
+        unitIsEngaged ? 'discovered' : 'locked'; // Lock unstarted lessons in untouched units
       
       topics.push({
         id: lesson.id,
@@ -1247,6 +1255,9 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
   }, [visibleTopics]);
   
   // Calculate segment progress for brain lighting
+  // Mastered (completed) lessons count at full weight; practiced (in_progress) at half weight.
+  // This means a lobe begins to glow as soon as a student starts working on lessons in it,
+  // and fully lights up once most lessons are completed.
   const segmentProgress = useMemo(() => {
     const segments: BrainSegment[] = ['frontal', 'temporal', 'parietal', 'occipital', 'cerebellum'];
     const result: Record<BrainSegment, number> = {} as any;
@@ -1254,8 +1265,11 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
     segments.forEach(segment => {
       const topics = topicsBySegment[segment];
       const mastered = topics.filter(t => t.status === 'mastered').length;
+      const practiced = topics.filter(t => t.status === 'practiced').length;
       const total = topics.length;
-      result[segment] = total > 0 ? (mastered / total) * 100 : 0;
+      // Practiced contributes half-weight toward lobe activation
+      const weightedProgress = mastered + practiced * 0.5;
+      result[segment] = total > 0 ? (weightedProgress / total) * 100 : 0;
     });
     
     return result;

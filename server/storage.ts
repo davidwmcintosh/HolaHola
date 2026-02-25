@@ -520,6 +520,7 @@ export interface IStorage {
   getSyllabusProgress(studentId: string, classId: string): Promise<SyllabusProgress[]>;
   getSyllabusProgressByLesson(studentId: string, classId: string, lessonId: string): Promise<SyllabusProgress | undefined>;
   updateSyllabusProgress(id: string, data: Partial<SyllabusProgress>): Promise<SyllabusProgress | undefined>;
+  getNextLessonForClass(studentId: string, classId: string): Promise<{ sourceLessonId: string; lessonName: string; lessonType: string } | null>;
   getEarlyCompletions(classId: string): Promise<Array<SyllabusProgress & { student: User; lesson: CurriculumLesson }>>;
   checkLessonCoverage(studentId: string, classId: string, lessonId: string, coveredTopics: string[]): Promise<{ covered: boolean; coveragePercent: number; missingTopics: string[] }>;
 
@@ -3645,6 +3646,45 @@ export class DatabaseStorage implements IStorage {
       .where(eq(syllabusProgress.id, id))
       .returning();
     return updated;
+  }
+
+  async getNextLessonForClass(studentId: string, classId: string): Promise<{ sourceLessonId: string; lessonName: string; lessonType: string } | null> {
+    try {
+      const units = await this.getClassCurriculumUnits(classId);
+      const activeUnits = units.filter(u => !u.isRemoved).sort((a, b) => a.orderIndex - b.orderIndex);
+      if (activeUnits.length === 0) return null;
+
+      const allLessons = await this.getClassCurriculumLessonsForUnits(activeUnits.map(u => u.id));
+      const progressRecords = await this.getSyllabusProgress(studentId, classId);
+
+      // Mark lessons as "done" if they're completed or skipped (sourceLessonId is the canonical key)
+      const completedSourceIds = new Set(
+        progressRecords
+          .filter(p => p.status === 'completed_early' || p.status === 'completed_assigned' || p.status === 'skipped')
+          .map(p => p.lessonId)
+      );
+
+      // Walk lessons in unit/order order; return the first one that isn't done
+      for (const unit of activeUnits) {
+        const unitLessons = allLessons
+          .filter(l => l.classUnitId === unit.id && !l.isRemoved)
+          .sort((a, b) => a.orderIndex - b.orderIndex);
+        for (const lesson of unitLessons) {
+          const key = lesson.sourceLessonId || lesson.id;
+          if (!completedSourceIds.has(key)) {
+            return {
+              sourceLessonId: key,
+              lessonName: lesson.name,
+              lessonType: lesson.lessonType || 'conversation',
+            };
+          }
+        }
+      }
+      return null;
+    } catch (err) {
+      console.error('[getNextLessonForClass] Error:', err);
+      return null;
+    }
   }
 
   async getEarlyCompletions(classId: string): Promise<Array<SyllabusProgress & { student: User; lesson: CurriculumLesson }>> {

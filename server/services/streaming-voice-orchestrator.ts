@@ -10075,6 +10075,40 @@ Only include observations you can clearly justify from the exchange. Return empt
             detectedTasks.push('thanking');
           }
           
+          // Detect actual conversation topic from user transcript (keyword-based, no API call)
+          // These become unique ACTFL topic coverage signals — critical for advancement readiness
+          const detectedTopics: string[] = [];
+          if (/\b(hello|hi|hola|buenos|goodbye|adi[oó]s|farewell|name|introduce|me llamo|encantado|mucho gusto)\b/i.test(lowerTranscript)) {
+            detectedTopics.push('greetings_and_introductions');
+          }
+          if (/\b(famil|mother|father|mom|dad|sister|brother|parent|grandm|grandp|son|daughter|wife|husband|relative|hermano|hermana|madre|padre|abuelo|abuela)\b/i.test(lowerTranscript)) {
+            detectedTopics.push('family_and_relationships');
+          }
+          if (/\b(food|eat|drink|breakfast|lunch|dinner|restaurant|hungry|thirsty|cook|meal|comer|beber|comida|hambre|desayuno|almuerzo|cena|gustar)\b/i.test(lowerTranscript)) {
+            detectedTopics.push('food_and_dining');
+          }
+          if (/\b(school|class|teacher|student|study|homework|subject|learn|universidad|escuela|clase|estudiar|tarea|materia)\b/i.test(lowerTranscript)) {
+            detectedTopics.push('school_and_education');
+          }
+          if (/\b(work|job|career|office|profession|salary|company|meeting|boss|colleague|trabajo|oficina|empresa|profesión)\b/i.test(lowerTranscript)) {
+            detectedTopics.push('work_and_career');
+          }
+          if (/\b(hobby|sport|music|movie|book|read|play|travel|trip|vacation|weekend|free time|pastime|deporte|música|película|libro|viaje|pasatiempo)\b/i.test(lowerTranscript)) {
+            detectedTopics.push('hobbies_and_free_time');
+          }
+          if (/\b(weather|hot|cold|rain|sun|wind|snow|temperature|season|clima|tiempo|calor|frío|lluvia|sol|nieve)\b/i.test(lowerTranscript)) {
+            detectedTopics.push('weather_and_environment');
+          }
+          if (/\b(number|color|time|date|day|week|month|year|how much|how many|count|número|hora|fecha|semana|mes|año|cuánto)\b/i.test(lowerTranscript)) {
+            detectedTopics.push('numbers_and_time');
+          }
+          if (/\b(health|doctor|sick|medicine|pain|hospital|feel|symptom|salud|médico|enfermo|medicina|dolor|hospital|sentir)\b/i.test(lowerTranscript)) {
+            detectedTopics.push('health_and_wellness');
+          }
+          if (/\b(shop|store|buy|sell|price|cheap|expensive|mall|market|pay|tienda|comprar|precio|barato|caro|mercado|pagar)\b/i.test(lowerTranscript)) {
+            detectedTopics.push('shopping_and_commerce');
+          }
+
           // Record the voice exchange with ACTUAL metrics
           const actflProgress = await storage.recordVoiceExchange(
             String(session.userId),
@@ -10082,7 +10116,7 @@ Only include observations you can clearly justify from the exchange. Return empt
             {
               pronunciationConfidence: pronunciationConfidence > 0 ? pronunciationConfidence : undefined,
               messageLength: userWordCount,
-              topicsCovered: session.difficultyLevel ? [`${session.difficultyLevel}_practice`] : undefined,
+              topicsCovered: detectedTopics.length > 0 ? detectedTopics : undefined,
               tasksCompleted: detectedTasks.length > 0 ? detectedTasks : undefined,
             }
           );
@@ -12145,6 +12179,8 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
         wordAnalyses: [...session.sessionWordAnalyses], // Clone word-level data for phoneme analysis
         dbSessionId: session.dbSessionId,
         isIncognito: session.isIncognito,  // Preserve incognito state for async operations
+        classId: session.classId || null,  // Class context for syllabus progress tracking
+        exchangeCount: session.telemetryExchangeCount || 0, // Actual exchange count for activity gate
         // Azure pronunciation assessment data
         audioChunks: [...session.sessionAudioChunks], // Clone audio chunks for Azure analysis
         transcripts: [...session.sessionTranscripts], // Clone transcripts for reference text
@@ -12251,6 +12287,81 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
       //   // Would need: const wavBuffer = await transcodeToWav(Buffer.concat(sessionData.audioChunks));
       // }
       
+      // POST-SESSION PROGRESS SYNC: Sync practice hours to ACTFL and create syllabus progress
+      // Runs asynchronously after session ends — fixes two data integrity gaps:
+      // 1. practice_hours in actfl_progress is never updated during session (only at end)
+      // 2. syllabus_progress records are never created, keeping the mind map dark
+      if (sessionData.exchangeCount > 0 && sessionData.conversationId && !sessionData.isIncognito) {
+        (async () => {
+          try {
+            // Step 1: Sync practice_hours from userProgress.practiceMinutes → ACTFL record
+            const userProgress = await storage.getOrCreateUserProgress(sessionData.language, sessionData.userId);
+            if (userProgress) {
+              const actflProgress = await storage.getOrCreateActflProgress(sessionData.language, sessionData.userId);
+              if (actflProgress) {
+                const currentHours = (userProgress.practiceMinutes || 0) / 60;
+                await storage.updateActflProgress(actflProgress.id, {
+                  practiceHours: currentHours,
+                });
+                console.log(`[Post-Session] ✓ ACTFL practice_hours synced: ${currentHours.toFixed(2)}h`);
+              }
+            }
+
+            // Step 2: Merge Gemini-tagged conversation topics into ACTFL topics_covered
+            if (sessionData.conversationId) {
+              const taggedTopics = await storage.getConversationTopics(sessionData.conversationId);
+              if (taggedTopics.length > 0) {
+                const actflProgress = await storage.getOrCreateActflProgress(sessionData.language, sessionData.userId);
+                if (actflProgress) {
+                  const existingTopics = new Set(actflProgress.topicsCovered || []);
+                  taggedTopics.forEach(ct => {
+                    if (ct.topic?.name) existingTopics.add(ct.topic.name.toLowerCase().replace(/\s+/g, '_'));
+                  });
+                  await storage.updateActflProgress(actflProgress.id, {
+                    topicsCovered: Array.from(existingTopics),
+                    topicsTotal: existingTopics.size,
+                  });
+                  console.log(`[Post-Session] ✓ ACTFL topics merged: ${existingTopics.size} total unique topics`);
+                }
+              }
+            }
+
+            // Step 3: Create/update syllabus_progress record for the current lesson (if in a class)
+            if (sessionData.classId) {
+              const nextLesson = await storage.getNextLessonForClass(sessionData.userId, sessionData.classId);
+              if (nextLesson) {
+                const existing = await storage.getSyllabusProgressByLesson(
+                  sessionData.userId, sessionData.classId, nextLesson.sourceLessonId
+                );
+                // Estimate session minutes from exchange count (rough: 2 min/exchange)
+                const sessionMinutes = Math.max(1, Math.round(sessionData.exchangeCount * 2));
+                if (!existing) {
+                  await storage.createSyllabusProgress({
+                    studentId: sessionData.userId,
+                    classId: sessionData.classId,
+                    lessonId: nextLesson.sourceLessonId,
+                    status: 'in_progress',
+                    evidenceConversationId: sessionData.conversationId || undefined,
+                    evidenceType: 'organic_conversation',
+                    actualMinutes: sessionMinutes,
+                  });
+                  console.log(`[Post-Session] ✓ Created syllabus_progress for lesson "${nextLesson.lessonName}" (in_progress, ${sessionMinutes}m)`);
+                } else if (existing.status === 'in_progress') {
+                  await storage.updateSyllabusProgress(existing.id, {
+                    actualMinutes: (existing.actualMinutes || 0) + sessionMinutes,
+                    evidenceConversationId: sessionData.conversationId || existing.evidenceConversationId,
+                  });
+                  console.log(`[Post-Session] ✓ Updated syllabus_progress for lesson "${nextLesson.lessonName}" (+${sessionMinutes}m)`);
+                }
+                // If status is completed/skipped, leave it alone — lesson is done
+              }
+            }
+          } catch (progressSyncErr: any) {
+            console.warn(`[Post-Session] Progress sync failed:`, progressSyncErr.message);
+          }
+        })();
+      }
+
       // Clean up post-TTS suppression timer
       if (session.postTtsSuppressionTimer) {
         clearTimeout(session.postTtsSuppressionTimer);
