@@ -4595,9 +4595,16 @@ export class DatabaseStorage implements IStorage {
       eq(vocabularyWords.language, language)
     ];
     
-    // Class-based filtering: show only vocabulary learned in this specific class
+    // Class-based filtering: show vocabulary for this class AND words with no class (e.g.,
+    // words created before classId tracking was added, or in self-directed sessions).
+    // Using OR with null ensures existing untagged words are always visible to the student.
     if (filter.classId) {
-      conditions.push(eq(vocabularyWords.classId, filter.classId));
+      conditions.push(
+        or(
+          eq(vocabularyWords.classId, filter.classId),
+          isNull(vocabularyWords.classId)
+        )
+      );
     }
     
     // Time-based filtering

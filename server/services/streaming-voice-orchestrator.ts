@@ -9870,6 +9870,7 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
               pronunciation: vocab.pronunciation || '',
               difficulty: session.difficultyLevel,
               sourceConversationId: conversationId,
+              classId: session.classId || null,
               wordType: vocab.wordType || 'other',
               verbTense: vocab.verbTense || null,
               verbMood: vocab.verbMood || null,
@@ -10028,10 +10029,12 @@ Only include observations you can clearly justify from the exchange. Return empt
         const progress = await storage.getOrCreateUserProgress(session.targetLanguage, String(session.userId));
         if (progress) {
           // Increment words learned if we extracted vocabulary
+          // NOTE: Do NOT set lastPracticeDate here — that is exclusively managed by
+          // recordActivityAndUpdateStreak() at session end. Setting it mid-session causes
+          // the streak initialization to be skipped (daysDiff=0 same-day short-circuit).
           const wordsLearned = progress.wordsLearned || 0;
           await storage.updateUserProgress(progress.id, {
             wordsLearned: wordsLearned + vocabularyItems.length,
-            lastPracticeDate: new Date(),
           });
         }
       } catch (progressError: any) {
