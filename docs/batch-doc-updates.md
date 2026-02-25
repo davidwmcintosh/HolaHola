@@ -8,6 +8,48 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 25, 2026 — Character-Based Billing Guard (Validation)
+
+**Status**: COMPLETED
+
+#### What
+Validated that the character-based billing guard (implemented in a prior session) contains zero false positives against all historical session data.
+
+#### Why the old estimation approach was risky
+The original idle-session cap estimated usage from exchange counts and an `AVG_SECONDS_PER_EXCHANGE` constant. At scale this could mis-bill: a student who had 10 exchanges but left the tab open for 2 hours would still be over-billed because the exchange estimate capped too high. Worse, it gave no protection against sessions with 0 exchanges but non-zero TTS chars (partial connections).
+
+#### How the current formula works (already live in `server/services/usage-service.ts`)
+
+Three billing paths, evaluated in order:
+
+1. **Zero activity** (`tts_characters = 0 AND stt_seconds = 0 AND exchange_count = 0`): Charged $0. No teaching happened.
+
+2. **Has metered data** (primary path — covers all modern sessions): Uses actual tracked metrics:
+   - `ttsDurationEstimate = ceil(tts_characters / 15)` — TTS industry constant: ~15 chars/second of natural speech
+   - `activeSpeakingSeconds = ttsDurationEstimate + stt_seconds`
+   - `fairBillableSeconds = max(activeSpeakingSeconds × 3, 120)` — 3× multiplier covers think time, reading whiteboard, pauses; 2-minute floor prevents micro-session under-billing
+   - If `wall_clock > fairBillableSeconds AND wall_clock > 600s`: cap at `fairBillableSeconds`, log the discrepancy
+   - Otherwise: charge wall-clock as normal
+
+3. **Fallback** (legacy sessions without TTS/STT tracking): Uses `student_speaking_seconds × 2` or `exchange_count × 30s` as the activity estimate, same 3× multiplier and 120s floor.
+
+#### Validation results (all completed sessions >60s)
+
+| Path | Sessions | Would-be-capped | Avg wall-clock | Avg TTS chars | Avg charged |
+|------|----------|-----------------|----------------|---------------|-------------|
+| zero_activity | 1,499 | — (all free) | 6,109s | 0 | 0s |
+| has_metered_data | 38 | 7 | 1,423s | 1,698 | 276s |
+| fallback | 52 | 12 | 1,295s | 0 | 305s |
+
+- **Zero false positives**: Every healthy session (>100 TTS chars/min, >5 exchanges) shows `fair_cap > wall_clock`, so the cap never triggers on real teaching activity
+- **Most borderline capped session**: 55.2 TTS chars/min — only 14.3% of the healthy baseline (385 chars/min), 6 exchanges over 24 minutes. Correctly identified as suspect.
+- **Platform savings**: ~152,627 minutes NOT over-billed from zero-activity sessions alone
+
+#### Key file
+`server/services/usage-service.ts` — `endVoiceSession()` method, lines ~481–534
+
+---
+
 ### Session: February 25, 2026 — Progress Tracking System Overhaul
 
 **Status**: COMPLETED
