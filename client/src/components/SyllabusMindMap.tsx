@@ -222,8 +222,9 @@ function LobeSatellite({
   const Icon = config.icon;
   
   const mastered = topics.filter(t => t.status === 'mastered').length;
+  const practiced = topics.filter(t => t.status === 'practiced').length;
   const total = topics.length;
-  const progress = total > 0 ? (mastered / total) * 100 : 0;
+  const progress = total > 0 ? ((mastered + practiced * 0.5) / total) * 100 : 0;
   const lightingState = getLightingState(progress);
   
   // Calculate position based on orbit - scales distance on mobile but keeps satellite size
@@ -1429,7 +1430,8 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
             progress={progress} 
             level={difficulty}
             syllabusProgress={unifiedProgress ? {
-              completed: unifiedProgress.lessonsCompleted,
+              completed: unifiedProgress.lessonsCompleted +
+                unifiedProgress.units.reduce((acc, u) => acc + u.lessons.filter(l => l.status === 'in_progress').length, 0) * 0.5,
               total: unifiedProgress.lessonsTotal
             } : hasSyllabus && syllabusOverview ? {
               completed: syllabusOverview.completedLessons,
