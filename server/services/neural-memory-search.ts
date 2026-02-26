@@ -175,11 +175,11 @@ export async function semanticSearchMessages(
         c.language,
         c.title as "conversationTitle",
         m.created_at as "createdAt",
-        ts_rank(m.search_vector, to_tsquery('simple', ${tsqueryText})) as rank
+        ts_rank(m.search_vector::tsvector, to_tsquery('simple', ${tsqueryText})) as rank
       FROM messages m
       INNER JOIN conversations c ON m.conversation_id = c.id
       WHERE c.user_id = ${studentId}
-        AND m.search_vector @@ to_tsquery('simple', ${tsqueryText})
+        AND m.search_vector::tsvector @@ to_tsquery('simple', ${tsqueryText})
       ORDER BY rank DESC, m.created_at DESC
       LIMIT ${limit}
     `);

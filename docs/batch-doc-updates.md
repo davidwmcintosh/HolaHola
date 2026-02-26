@@ -8,6 +8,65 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 26, 2026 — Character-Based Billing Guard
+
+**Status**: COMPLETED
+
+#### What
+Replaced the estimation-based idle session billing cap with a character-based cross-check using actual metered usage data (`tts_characters` and `stt_seconds`) already tracked per voice session.
+
+#### Why
+Estimation from exchange counts could mis-bill at scale — a session with 1 exchange early then left idle would be charged full wall-clock. TTS characters and STT seconds are real metered values that map directly to what we actually pay (Google TTS, Deepgram STT, Gemini tokens).
+
+#### Formula
+```
+ttsDurationEstimate = ceil(tts_characters / 15)   # 15 chars/sec = natural speech rate
+activeSpeakingSeconds = ttsDurationEstimate + stt_seconds
+fairBillableSeconds = max(activeSpeakingSeconds × 3, 120)   # 3x think-time multiplier; 2-min floor
+```
+Cap only applies when `wall-clock > fairBillableSeconds AND wall-clock > 600s`.
+Zero-activity sessions (0 TTS chars, 0 STT secs, 0 exchanges) are charged nothing — existing guard preserved.
+
+#### Validation (T002 — run against all historical sessions)
+- 1,620 completed sessions >60s examined
+- **0** healthy sessions (>100 chars/min) would be capped — zero false positives
+- **397** genuinely idle sessions correctly capped
+- **4** suspect sessions (low activity) correctly capped
+- Healthy sessions: max fair cap 702s, avg 415s — well above any real teaching session
+
+#### Key files
+- `server/services/usage-service.ts` — `endVoiceSession()` billing logic (lines ~482-520)
+
+#### Billing example
+Carol's session (527 TTS chars, 8 STT secs, 7614s wall-clock):
+- Active speaking: ceil(527/15) + 8 = 35 + 8 = 43s
+- Fair billable: max(43 × 3, 120) = 129s
+- Cap saves 7,485 seconds
+
+---
+
+### Session: February 26, 2026 — Neural Memory ts_rank Fix (Carol's Voice Crash)
+
+**Status**: COMPLETED
+
+#### What
+Fixed a crash in `semanticSearchMessages()` that caused every voice session turn to fail when the user spoke. The error was `function ts_rank(text, tsquery) does not exist` — PostgreSQL's `ts_rank` requires a `tsvector` first argument, but `messages.search_vector` is stored as `text` type.
+
+#### Fix
+Added explicit cast in both the `ts_rank()` call and the `@@` operator in the SQL query:
+```sql
+ts_rank(m.search_vector::tsvector, to_tsquery('simple', ...))
+m.search_vector::tsvector @@ to_tsquery('simple', ...)
+```
+
+#### Key file
+- `server/services/neural-memory-search.ts` — `semanticSearchMessages()` (lines ~178-185)
+
+#### Also fixed
+- Added `scaffolding` to `best_practice_category` PostgreSQL enum (was causing silent memory-save failures). Applied via `ALTER TYPE best_practice_category ADD VALUE 'scaffolding'` and updated `shared/schema.ts`.
+
+---
+
 ### Session: February 26, 2026 — Vocabulary Deduplication Fix
 
 **Status**: COMPLETED

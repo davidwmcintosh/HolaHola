@@ -2658,7 +2658,8 @@ export const bestPracticeCategoryEnum = pgEnum('best_practice_category', [
   'system',           // Technical/system awareness
   'encouragement',    // Positive reinforcement patterns
   'error_handling',   // How to handle mistakes gracefully
-  'personalization'   // Adapting to individual student needs
+  'personalization',  // Adapting to individual student needs
+  'scaffolding'       // Graduated support and complexity building
 ]);
 
 // Sync status enum for neural network promotion workflow
