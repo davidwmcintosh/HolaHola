@@ -4796,3 +4796,35 @@ The previous approach (`exchanges × 30s avg`) was an arbitrary estimate that co
 
 #### Key file modified
 - `server/services/usage-service.ts` — `endSession()` method, lines ~484-537
+
+---
+
+### Native Script TTS Rule for Non-Latin Languages (Hebrew, Japanese, Korean, Mandarin)
+**Date**: 2026-02-26
+
+#### What was built
+Added a `getNativeScriptTTSRule()` helper in `server/system-prompt.ts` that injects a language-specific voice script rule into Daniela's system prompt whenever she's teaching a language with a non-Latin alphabet.
+
+#### Why it was needed
+Google Chirp 3 HD voices read native script natively. When Daniela writes romanized Hebrew like `**im**`, the `**` bold markers are stripped before TTS (by `cleanTextForDisplay()` line 646), and Google receives the plain word `im`. The `he-IL-Chirp-HD-O` voice treats this as an English abbreviation and spells it out: "I-M" instead of "eem". This affected any short Hebrew word written in Latin characters (im, ken, lo, toda, ani, etc.).
+
+#### How it works
+The helper returns a one-paragraph instruction injected into all four voice mode blocks:
+- `streamingVoiceModeInstructions` (regular voice mode, line ~1224)
+- Founder Mode streaming voice note (line ~832)  
+- Honesty Mode language context (line ~525)
+- Honesty Mode voice note (line ~772)
+
+For Hebrew, the rule is:
+> "Always write Hebrew words in Hebrew script (**אם**, **שלום**, **תודה**, **כן**), NOT romanized Latin letters. Bold the Hebrew script; put the transliteration in parentheses after: **אם** (im)."
+
+Subtitle/karaoke system is unaffected — `extractBoldMarkedWords()` uses a Unicode-safe regex that extracts Hebrew script from `**אם**` correctly. The `detectUnquotedNonLatin()` in language-segmenter already handles non-Latin script detection independently.
+
+#### Languages covered
+- Hebrew → Hebrew script (aleph-bet)
+- Japanese → kana/kanji
+- Korean → Hangul
+- Mandarin → Chinese characters
+
+#### Key file modified
+- `server/system-prompt.ts` — new `getNativeScriptTTSRule()` function + injected into 4 voice instruction blocks

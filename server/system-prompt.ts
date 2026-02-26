@@ -44,6 +44,30 @@ interface PreviousConversation {
   createdAt: string;
 }
 
+/**
+ * Returns a language-specific TTS script rule for non-Latin languages.
+ * Google Chirp 3 HD voices read native script correctly but spell out short
+ * romanized words as individual letters (e.g. "im" → "I-M" instead of "eem").
+ * We tell Daniela to write target words in native script so the voice engine
+ * pronounces them correctly; romanization goes in parentheses for the student.
+ */
+function getNativeScriptTTSRule(language: string): string {
+  const lang = language.toLowerCase();
+  if (lang === 'hebrew') {
+    return `\nVOICE SCRIPT RULE — HEBREW: Always write Hebrew words in Hebrew script (**אם**, **שלום**, **תודה**, **כן**), NOT romanized Latin letters. The Google Hebrew voice reads Hebrew script natively and correctly. Romanized forms (im, shalom, toda) look like English abbreviations to the voice engine and get spelled out letter-by-letter. Pattern: **אם** (im), **שלום** (shalom), **תודה** (toda). Bold the Hebrew script; put the transliteration in parentheses after.`;
+  }
+  if (lang === 'japanese') {
+    return `\nVOICE SCRIPT RULE — JAPANESE: Always write Japanese words in kana/kanji (**ありがとう**, **こんにちは**), not romaji. The Japanese voice reads native script correctly. Romaji in parentheses is fine for reference: **ありがとう** (arigatou).`;
+  }
+  if (lang === 'korean') {
+    return `\nVOICE SCRIPT RULE — KOREAN: Always write Korean words in Hangul (**안녕하세요**, **감사합니다**), not romanized Latin. The Korean voice reads Hangul natively. Add romanization in parentheses if helpful: **안녕하세요** (annyeonghaseyo).`;
+  }
+  if (lang === 'mandarin chinese' || lang === 'mandarin' || lang === 'chinese') {
+    return `\nVOICE SCRIPT RULE — MANDARIN: Always write Mandarin words in Chinese characters (**你好**, **谢谢**), not pinyin alone. The Mandarin voice reads characters natively. Add pinyin in parentheses for reference: **你好** (nǐ hǎo).`;
+  }
+  return '';
+}
+
 interface DueVocabularyWord {
   word: string;
   translation: string;
@@ -495,7 +519,7 @@ function buildRawHonestyModeContext(founderName: string = 'David', targetLanguag
     ? `You are Daniela.`
     : `You are Daniela, speaking as ${tutorName} — your ${languageName || 'language'} voice.`;
   const langContext = targetLanguage && languageName
-    ? `\nYou are a ${languageName} tutor. Your language is ${languageName}. Greet in ${languageName}, think in ${languageName}, teach ${languageName}. Mix ${languageName} naturally into conversation — you don't stop being yourself just because the guardrails are off. Use **bold** for ${languageName} words.`
+    ? `\nYou are a ${languageName} tutor. Your language is ${languageName}. Greet in ${languageName}, think in ${languageName}, teach ${languageName}. Mix ${languageName} naturally into conversation — you don't stop being yourself just because the guardrails are off. Use **bold** for ${languageName} words.${getNativeScriptTTSRule(targetLanguage || '')}`
     : '';
   return `
 ${identityLine}
@@ -742,7 +766,7 @@ STUDENT TIME CONTEXT:
 This is a voice conversation. Speak naturally, as you would.
 ${isSameLanguage 
   ? `Conversation is in ${languageName}. You are a ${languageName} tutor — do NOT greet or mix in other languages like Spanish unless specifically asked.`
-  : `Conversation is primarily in ${nativeLanguageName}. Mix in ${languageName} naturally with **bold** markers.`}` : '';
+  : `Conversation is primarily in ${nativeLanguageName}. Mix in ${languageName} naturally with **bold** markers.${getNativeScriptTTSRule(language)}`}` : '';
     
     // UNIFIED BRAIN: Same knowledge and capabilities as all other modes
     // Replaces fragmented calls to selfAwareness, languageExpansion, advancedIntelligence, selfCapabilities
@@ -802,7 +826,7 @@ ${commandSection}`;
 🎤 STREAMING VOICE MODE - NATURAL CONVERSATION
 ═══════════════════════════════════════════════════════════════════
 
-You're having a real conversation. Speak naturally, ALWAYS use **bold** for ${languageName} words (pronunciation depends on it), and keep it flowing.
+You're having a real conversation. Speak naturally, ALWAYS use **bold** for ${languageName} words, and keep it flowing.${getNativeScriptTTSRule(language)}
 ` : '';
 
     // FOUNDER MODE TEACHING TOOLS - Dynamic from neural network (tutor directory)
@@ -1196,7 +1220,7 @@ TONE GUIDELINES:
 VOICE SESSION CONTEXT:
 You are in streaming voice mode. Your text goes directly to text-to-speech.
 Plain text only. Wrap ALL ${languageName} words in **bold**. ${nativeLanguageName} translations in (parentheses).
-Speak once per turn, then wait. Your neural network knowledge has your full procedures - follow them.
+Speak once per turn, then wait. Your neural network knowledge has your full procedures - follow them.${getNativeScriptTTSRule(language)}
 
 ${buildDetailedToolDocumentationSync(tutorDirectorySection)}
 ` : '';
