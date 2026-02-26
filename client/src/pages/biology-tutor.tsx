@@ -9,9 +9,14 @@ import { InsufficientCreditsDialog } from "@/components/InsufficientCreditsDialo
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { WhiteboardItem } from "@shared/whiteboard-types";
 
+const TUTORS = [
+  { name: "Evelyn", gender: "female" as const, tagline: "Reverent and precise" },
+  { name: "Gene", gender: "male" as const, tagline: "Methodical and curious" },
+];
+
 export default function BiologyTutor() {
   const [, setLocation] = useLocation();
-  const { setLanguage, language } = useLanguage();
+  const { setLanguage, language, tutorGender, setTutorGender } = useLanguage();
   const { isExhausted } = useCredits();
   const isMobile = useIsMobile();
 
@@ -30,13 +35,16 @@ export default function BiologyTutor() {
   } | null>(null);
 
   const previousLanguageRef = useRef<string>(language);
+  const previousGenderRef = useRef<'male' | 'female'>(tutorGender);
 
   useEffect(() => {
     previousLanguageRef.current = language;
+    previousGenderRef.current = tutorGender;
     setLanguage('biology');
 
     return () => {
       setLanguage(previousLanguageRef.current);
+      setTutorGender(previousGenderRef.current);
       sessionStorage.removeItem('biologyConversationId');
     };
   }, []);
@@ -47,8 +55,13 @@ export default function BiologyTutor() {
     }
   }, [conversationId]);
 
-  const handleBack = () => {
-    setLocation('/');
+  const activeTutor = TUTORS.find(t => t.gender === tutorGender) ?? TUTORS[0];
+
+  const handleTutorSwitch = (gender: 'male' | 'female') => {
+    if (gender === tutorGender) return;
+    setTutorGender(gender);
+    setConversationId(null);
+    sessionStorage.removeItem('biologyConversationId');
   };
 
   return (
@@ -61,7 +74,7 @@ export default function BiologyTutor() {
           <Button
             size="icon"
             variant="ghost"
-            onClick={handleBack}
+            onClick={() => setLocation('/')}
             data-testid="button-back-biology"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -75,11 +88,29 @@ export default function BiologyTutor() {
                 className="text-sm font-semibold leading-tight"
                 data-testid="text-biology-tutor-name"
               >
-                Evelyn
+                {activeTutor.name}
               </div>
               <div className="text-xs text-muted-foreground leading-tight">Biology</div>
             </div>
           </div>
+        </div>
+
+        <div className="flex items-center gap-1 rounded-md border p-1" data-testid="biology-tutor-picker">
+          {TUTORS.map(t => (
+            <button
+              key={t.gender}
+              onClick={() => handleTutorSwitch(t.gender)}
+              data-testid={`button-tutor-${t.name.toLowerCase()}`}
+              className={[
+                "px-3 py-1 text-xs rounded transition-colors",
+                tutorGender === t.gender
+                  ? "bg-emerald-600 text-white"
+                  : "text-muted-foreground hover:text-foreground",
+              ].join(" ")}
+            >
+              {t.name}
+            </button>
+          ))}
         </div>
       </header>
 

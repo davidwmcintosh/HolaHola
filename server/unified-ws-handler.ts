@@ -49,7 +49,8 @@ import { architectVoiceService } from './services/architect-voice-service';
 import { voiceTelemetry } from './services/voice-pipeline-telemetry';
 import { updateToolEventEngagement, mapWhiteboardTypeToToolType } from './services/pedagogical-insights-service';
 import { buildNeuralNetworkPromptSection } from './services/neural-network-retrieval';
-import { buildEvelynSystemPrompt, EVELYN_NAME, EVELYN_VOICE_CONFIG, isBiologySession } from './services/evelyn-persona';
+import { buildEvelynSystemPrompt, buildGeneSystemPrompt, EVELYN_NAME, GENE_NAME, EVELYN_VOICE_CONFIG, GENE_VOICE_CONFIG, isBiologySession } from './services/biology-persona';
+import { buildClioSystemPrompt, buildMarcusSystemPrompt, CLIO_NAME, MARCUS_NAME, CLIO_VOICE_CONFIG, MARCUS_VOICE_CONFIG, isHistorySession } from './services/history-persona';
 import { getPredictiveTeachingContext, getStudentSnapshotData, type PredictiveTeachingContext, type StudentSnapshotContext } from './services/procedural-memory-retrieval';
 import { studentLearningService } from './services/student-learning-service';
 import { voiceDiagnostics } from './services/voice-diagnostics-service';
@@ -3284,10 +3285,25 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
                 tutorName = voiceNameParts[0].trim();
               }
             }
-            // Biology sessions always use Evelyn with her own hardcoded voice config
+            // Biology sessions use Evelyn (female) or Gene (male)
             if (isBiologySession(config.subject, config.targetLanguage)) {
-              tutorName = EVELYN_NAME;
-              voiceId = EVELYN_VOICE_CONFIG.googleVoiceName;
+              if (tutorGender === 'male') {
+                tutorName = GENE_NAME;
+                voiceId = GENE_VOICE_CONFIG.googleVoiceName;
+              } else {
+                tutorName = EVELYN_NAME;
+                voiceId = EVELYN_VOICE_CONFIG.googleVoiceName;
+              }
+            }
+            // History sessions use Clio (female) or Marcus (male)
+            if (isHistorySession(config.subject, config.targetLanguage)) {
+              if (tutorGender === 'male') {
+                tutorName = MARCUS_NAME;
+                voiceId = MARCUS_VOICE_CONFIG.googleVoiceName;
+              } else {
+                tutorName = CLIO_NAME;
+                voiceId = CLIO_VOICE_CONFIG.googleVoiceName;
+              }
             }
             console.log(`[Streaming Voice] Session using tutor: ${tutorName} (${tutorGender})`);
             
@@ -3378,12 +3394,24 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
             // ══════════════════════════════════════════════════════════════
             // PHASE 3: Build system prompt (synchronous, fast)
             // ══════════════════════════════════════════════════════════════
+            const isSubjectSession = isBiologySession(config.subject, config.targetLanguage) || isHistorySession(config.subject, config.targetLanguage);
             let systemPrompt: string;
             if (isBiologySession(config.subject, config.targetLanguage)) {
-              systemPrompt = buildEvelynSystemPrompt({
-                studentName: user?.firstName || undefined,
-              });
-              console.log('[Streaming Voice] Using EVELYN (Biology) system prompt');
+              if (tutorGender === 'male') {
+                systemPrompt = buildGeneSystemPrompt({ studentName: user?.firstName || undefined });
+                console.log('[Streaming Voice] Using GENE (Biology) system prompt');
+              } else {
+                systemPrompt = buildEvelynSystemPrompt({ studentName: user?.firstName || undefined });
+                console.log('[Streaming Voice] Using EVELYN (Biology) system prompt');
+              }
+            } else if (isHistorySession(config.subject, config.targetLanguage)) {
+              if (tutorGender === 'male') {
+                systemPrompt = buildMarcusSystemPrompt({ studentName: user?.firstName || undefined });
+                console.log('[Streaming Voice] Using MARCUS (History) system prompt');
+              } else {
+                systemPrompt = buildClioSystemPrompt({ studentName: user?.firstName || undefined });
+                console.log('[Streaming Voice] Using CLIO (History) system prompt');
+              }
             } else if (rawHonestyMode) {
               const safeName = (userName || 'friend').replace(/[^a-zA-Z0-9\s\-']/g, '').substring(0, 50);
               systemPrompt = `You are ${tutorName}.
@@ -3421,16 +3449,18 @@ ${buildNativeFunctionCallingSection()}`;
               }
             }
             
-            // Append neural network context — language tutors only (biology has its own subject knowledge)
-            if (!isBiologySession(config.subject, config.targetLanguage)) {
+            // Append neural network context — language tutors only (subject tutors have their own domain knowledge)
+            if (!isSubjectSession) {
               if (neuralNetworkContext) {
                 systemPrompt += neuralNetworkContext;
                 console.log(`[Streaming Voice] ✓ Neural network context appended for ${effectiveLanguage}`);
               } else {
                 console.warn('[Streaming Voice] ⚠ Neural network context was empty — bold-marking relies on fallback in prompt');
               }
-              
-              // Append Compass or timezone context
+            }
+
+            // Append Compass or timezone context — all sessions (language AND subject tutors need session awareness)
+            {
               if (compassContext && COMPASS_ENABLED) {
                 const compassBlock = buildCompassContextBlock(compassContext);
                 systemPrompt += '\n\n' + compassBlock;

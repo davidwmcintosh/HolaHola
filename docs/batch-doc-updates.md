@@ -5003,3 +5003,33 @@ Also updated two stale log messages from "post-stream batch will handle TTS" to 
 
 ### User-facing impact
 Daniela will now speak all function-call responses correctly in Google batch mode. TTS character counts will be accurate for all turns. Carol's sessions should stabilize.
+
+---
+
+## Multi-Subject Platform Expansion: Gene, Clio & Marcus (Feb 26, 2026)
+
+### What was built
+Added three new subject tutors to the HolaHola platform, completing the first multi-subject expansion:
+- **Gene** (male biology tutor) — paired with Evelyn to give students a choice of biology teacher
+- **Clio** (female history tutor) — narrative-first, attentive to overlooked perspectives
+- **Marcus** (male history tutor) — structural and analytical, teaches students to see historical patterns
+
+### How it works
+Each subject page (`/biology`, `/history`) has a tutor picker in the header. Switching tutors starts a fresh conversation with that tutor's voice and system prompt. The gender preference is restored when the user leaves the page.
+
+Voices:
+- Evelyn: `en-US-Chirp3-HD-Aoede`
+- Gene: `en-US-Chirp3-HD-Orus`
+- Clio: `en-US-Chirp3-HD-Leda`
+- Marcus: `en-US-Chirp3-HD-Charon`
+
+Compass enrichments (session time awareness, last session summary) now apply to all subjects — previously biology was incorrectly excluded. Language-specific neural network context is still skipped for subject tutors (they have domain knowledge in their own prompts).
+
+### Key files modified
+- `server/services/biology-persona.ts` — new file replacing `evelyn-persona.ts`; exports both Evelyn and Gene with shared `buildBiologySystemPrompt()` base and distinct personalities
+- `server/services/history-persona.ts` — new file; exports Clio and Marcus with shared `buildHistorySystemPrompt()` base and C3 Framework teaching approach
+- `server/unified-ws-handler.ts` — updated imports; biology and history branching for voice selection and system prompt; Compass now applied to all sessions; `isSubjectSession` flag gates neural network context
+- `client/src/pages/biology-tutor.tsx` — added Evelyn/Gene tutor picker; saves/restores language and gender on mount/unmount
+- `client/src/pages/history-tutor.tsx` — new page; Clio/Marcus tutor picker; amber color accent
+- `client/src/App.tsx` — added `/history` route and `HistoryTutor` lazy import
+- `client/src/components/app-sidebar.tsx` — added History entry under "Other Subjects"
