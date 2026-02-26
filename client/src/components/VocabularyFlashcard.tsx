@@ -67,6 +67,14 @@ export function VocabularyFlashcard({ timeFilter = 'all' }: VocabularyFlashcardP
     setIsFlipped(false);
   }, [timeFilter]);
 
+  // Clamp index if the card list shrinks (e.g. after data refresh or due-only filter changes)
+  useEffect(() => {
+    if (vocabularyWords.length > 0 && currentIndex >= vocabularyWords.length) {
+      setCurrentIndex(vocabularyWords.length - 1);
+      setIsFlipped(false);
+    }
+  }, [vocabularyWords.length]);
+
   // Filter cards based on due status
   const vocabularyWords = useMemo(() => {
     if (!showDueOnly) return allWords;
