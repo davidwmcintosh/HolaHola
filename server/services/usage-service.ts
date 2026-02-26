@@ -479,54 +479,40 @@ export class UsageService {
       .returning();
     
     // Record consumption in ledger (negative value)
-    // Uses ACTUAL TRACKED METRICS (tts_characters, stt_seconds) to cross-check wall-clock time.
+    // Uses ACTUAL TRACKED METRICS (tts_characters, stt_seconds) as the single source of truth.
     // This prevents idle/frozen sessions from draining credits while ensuring healthy sessions
-    // are billed accurately based on real usage data — not estimates.
+    // are billed accurately based on real usage data — never estimates.
+    //
+    // Formula:
+    //   ttsDurationEstimate = tts_characters / 15  (15 chars/sec is standard natural speech rate)
+    //   activeSpeakingSeconds = ttsDurationEstimate + stt_seconds
+    //   fairBillableSeconds = max(activeSpeakingSeconds × 3, 120)  (3x for think time/pauses; 2-min floor)
+    //
+    // When TTS chars aren't tracked (e.g. session data gap), activeSpeakingSeconds = 0 and the
+    // 120s floor applies — so any session with real exchanges is never charged 0, but also never
+    // allowed to run uncapped on wall-clock alone.
     const exchangeCount = updatedSession.exchangeCount || 0;
     const ttsChars = updatedSession.ttsCharacters || 0;
     const sttSecs = updatedSession.sttSeconds || 0;
-    const studentSpeakingSecs = updatedSession.studentSpeakingSeconds || 0;
-    const hasMeteredData = ttsChars > 0 || sttSecs > 0;
-    
+
     if (durationSeconds <= 0) {
       // No duration, nothing to charge
     } else if (exchangeCount === 0 && ttsChars === 0 && sttSecs === 0) {
       console.log(`[UsageService] Skipping charge for zero-activity session ${sessionId} (${durationSeconds}s wall-clock, 0 exchanges, 0 TTS chars, 0 STT secs)`);
-    } else if (hasMeteredData) {
-      // PRIMARY PATH: Cross-check wall-clock against actual metered usage
-      // - TTS: ~15 characters per second of spoken audio (industry standard for natural speech)
-      // - STT: actual measured seconds of student speech
-      // - Multiplier of 3x accounts for think time, reading, pauses between turns
-      // - Floor of 120s ensures very short sessions aren't unfairly minimized
+    } else {
+      // UNIFIED PATH: Cross-check wall-clock against actual metered usage.
+      // Sessions where TTS chars weren't recorded contribute 0 to the active estimate,
+      // landing on the 120s floor — capping runaway wall-clock from idle/frozen sessions.
       const CHARS_PER_SECOND = 15;
       const ACTIVITY_MULTIPLIER = 3;
       const MIN_BILLABLE_SECONDS = 120;
-      
+
       const ttsDurationEstimate = Math.ceil(ttsChars / CHARS_PER_SECOND);
       const activeSpeakingSeconds = ttsDurationEstimate + sttSecs;
       const fairBillableSeconds = Math.max(activeSpeakingSeconds * ACTIVITY_MULTIPLIER, MIN_BILLABLE_SECONDS);
-      
+
       if (durationSeconds > fairBillableSeconds && durationSeconds > 600) {
-        console.log(`[UsageService] BILLING CAP: session ${sessionId} wall-clock=${durationSeconds}s, TTS=${ttsChars} chars (~${ttsDurationEstimate}s), STT=${sttSecs}s, active=${activeSpeakingSeconds}s, fair cap=${fairBillableSeconds}s. Saved user ${durationSeconds - fairBillableSeconds}s`);
-        await this.consumeCredits(session.userId, fairBillableSeconds, sessionId, session.classId || undefined);
-      } else {
-        await this.consumeCredits(session.userId, durationSeconds, sessionId, session.classId || undefined);
-      }
-    } else {
-      // FALLBACK PATH: Has exchanges but no metered TTS/STT data (older sessions before
-      // character tracking was fully wired). Use student_speaking_seconds if available,
-      // otherwise estimate from exchange count. Same 3x multiplier and 120s floor.
-      const ACTIVITY_MULTIPLIER = 3;
-      const MIN_BILLABLE_SECONDS = 120;
-      const AVG_EXCHANGE_DURATION = 30;
-      
-      const activityEstimate = studentSpeakingSecs > 0
-        ? studentSpeakingSecs * 2
-        : exchangeCount * AVG_EXCHANGE_DURATION;
-      const fairBillableSeconds = Math.max(activityEstimate * ACTIVITY_MULTIPLIER, MIN_BILLABLE_SECONDS);
-      
-      if (durationSeconds > fairBillableSeconds && durationSeconds > 600) {
-        console.log(`[UsageService] BILLING CAP (fallback): session ${sessionId} wall-clock=${durationSeconds}s, exchanges=${exchangeCount}, studentSpeaking=${studentSpeakingSecs}s, activityEst=${activityEstimate}s, fair cap=${fairBillableSeconds}s. Saved user ${durationSeconds - fairBillableSeconds}s`);
+        console.log(`[UsageService] BILLING CAP: session ${sessionId} wall-clock=${durationSeconds}s, TTS=${ttsChars} chars (~${ttsDurationEstimate}s spoken), STT=${sttSecs}s, active=${activeSpeakingSeconds}s, fair cap=${fairBillableSeconds}s. Saved user ${durationSeconds - fairBillableSeconds}s`);
         await this.consumeCredits(session.userId, fairBillableSeconds, sessionId, session.classId || undefined);
       } else {
         await this.consumeCredits(session.userId, durationSeconds, sessionId, session.classId || undefined);

@@ -4828,3 +4828,30 @@ Subtitle/karaoke system is unaffected — `extractBoldMarkedWords()` uses a Unic
 
 #### Key file modified
 - `server/system-prompt.ts` — new `getNativeScriptTTSRule()` function + injected into 4 voice instruction blocks
+
+---
+
+## Billing Safeguard: Unified Character-Based Guard (Feb 26, 2026)
+
+### What was built
+Replaced the two-path billing guard (primary character-based + estimation fallback) with a single unified character-based path in `server/services/usage-service.ts`. Sessions with exchange data but missing TTS/STT tracking now fall to a 120-second floor instead of being estimated from exchange count × 30s × 3.
+
+### Why
+The estimation fallback (`exchangeCount × AVG_EXCHANGE_DURATION`) could over-bill sessions where TTS character tracking failed (e.g. tracking gaps in production). The unified formula uses only real measured data — TTS characters and STT seconds — as the single source of truth for billing fairness.
+
+### How the formula works
+1. **Zero activity** (`exchanges = 0 AND tts_chars = 0 AND stt_secs = 0`): Charge $0. Dead connections never billed.
+2. **Any other session** (unified path):
+   - `ttsDurationEstimate = ceil(tts_characters / 15)` — 15 chars/sec is the standard natural speech rate
+   - `activeSpeakingSeconds = ttsDurationEstimate + stt_seconds`
+   - `fairBillableSeconds = max(activeSpeakingSeconds × 3, 120)` — 3x for think time/pauses; 120s floor
+   - If `wall-clock > fairBillableSeconds AND wall-clock > 600s`: cap charge at `fairBillableSeconds`
+   - Otherwise: charge wall-clock as normal
+
+### Validation results (historical data, Feb 26, 2026)
+- **Healthy sessions (>200 chars/min TTS rate)**: 0 would be capped — zero false positives
+- **NO_DATA sessions (0 TTS, 0 STT, has exchanges)**: All 13 capped to 120s (avg wall-clock: 4,384s)
+- **SUSPECT sessions (<100 chars/min)**: All 8 capped (avg wall-clock: 5,931s → avg fair cap: 394s)
+
+### Key files modified
+- `server/services/usage-service.ts` — lines 484–523: merged FALLBACK and PRIMARY paths into single UNIFIED path; removed `AVG_SECONDS_PER_EXCHANGE` estimation and `hasMeteredData` branch
