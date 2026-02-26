@@ -3168,7 +3168,7 @@ Remember: David may reference things discussed in these recent text chats.
             (session as any).earlyTtsActive = true;
             console.log(`[Early TTS] PRE-SIGNAL: earlyTtsActive=true BEFORE handleNativeFunctionCall (${functionCalls.map(f => f.name).join(',')})`);
           } else if (allMetadataOnly && hasTextArg && isGoogleBatchMode) {
-            console.log(`[Early TTS] SKIPPED PRE-SIGNAL: Google batch mode active — post-stream batch will handle TTS`);
+            console.log(`[Early TTS] SKIPPED PRE-SIGNAL: Google batch mode active — embedded text block will handle TTS after function calls complete`);
           }
           
           // Route native function calls to command processing
@@ -3192,7 +3192,7 @@ Remember: David may reference things discussed in these recent text chats.
           // instead of waiting for the Gemini stream to close (saves ~10s latency)
           const embeddedRawText = ensureTrailingPunctuation(((session as any).functionCallText || '').trim());
           
-          if (allMetadataOnly && embeddedRawText && !session.isInterrupted && !isGoogleBatchMode) {
+          if (allMetadataOnly && embeddedRawText && !session.isInterrupted) {
             const earlyTtsStart = Date.now();
             const embeddedText = cleanTextForDisplay(embeddedRawText).trim();
             if (embeddedText) {
@@ -5966,7 +5966,7 @@ Remember: David may reference things discussed in these recent text chats.
             (session as any).earlyTtsActive = true;
             console.log(`[Early TTS - OpenMic] PRE-SIGNAL: earlyTtsActive=true BEFORE handleNativeFunctionCall (${functionCalls.map(f => f.name).join(',')})`);
           } else if (allMetadataOnly && hasTextArg && isGoogleBatchModeOM) {
-            console.log(`[Early TTS - OpenMic] SKIPPED PRE-SIGNAL: Google batch mode active — post-stream batch will handle TTS`);
+            console.log(`[Early TTS - OpenMic] SKIPPED PRE-SIGNAL: Google batch mode active — embedded text block will handle TTS after function calls complete`);
           }
           
           for (const fn of functionCalls) {
@@ -5987,7 +5987,7 @@ Remember: David may reference things discussed in these recent text chats.
           // EARLY TTS: Start TTS immediately for metadata-only function calls (open-mic)
           const embeddedRawText = ensureTrailingPunctuation(((session as any).functionCallText || '').trim());
           
-          if (allMetadataOnly && embeddedRawText && !session.isInterrupted && !isGoogleBatchModeOM) {
+          if (allMetadataOnly && embeddedRawText && !session.isInterrupted) {
             const earlyTtsStart = Date.now();
             const embeddedText = cleanTextForDisplay(embeddedRawText).trim();
             if (embeddedText) {

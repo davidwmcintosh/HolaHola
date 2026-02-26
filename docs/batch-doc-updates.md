@@ -4855,3 +4855,28 @@ The estimation fallback (`exchangeCount × AVG_EXCHANGE_DURATION`) could over-bi
 
 ### Key files modified
 - `server/services/usage-service.ts` — lines 484–523: merged FALLBACK and PRIMARY paths into single UNIFIED path; removed `AVG_SECONDS_PER_EXCHANGE` estimation and `hasMeteredData` branch
+
+---
+
+## Bug Fix: Google Batch TTS Silent Function Call Responses (Feb 26, 2026)
+
+### What was fixed
+When Daniela (Google Chirp 3 HD / batch mode) returned a metadata-only function call (e.g. `voice_adjust`) with embedded text but **no accompanying sentences**, the audio was silently dropped. The response would appear in the conversation history but Daniela never spoke it. This caused students (including Carol) to think the session was frozen and restart.
+
+### Root cause
+Both the PTT path (`server/services/streaming-voice-orchestrator.ts:3195`) and OpenMic path (`:5990`) had conditions `&& !isGoogleBatchMode / !isGoogleBatchModeOM` that explicitly prevented Google batch mode from entering the function-call TTS block. The Google-specific TTS handler code was already written and correct inside that block at lines 3218 and 6019 — it just couldn't be reached. Non-Google providers (Cartesia, ElevenLabs, Gemini Live) were unaffected; they used a pre-signal path that bypassed the exclusion.
+
+### Side effects of the bug
+- **TTS character tracking = 0**: Because `streamSentenceAudioProgressive()` was never called for function-call-only turns, `session.telemetryTtsCharacters` was never incremented for those turns. This is why Carol's sessions showed 0 TTS chars despite real voice activity.
+- **Student restarts**: Carol heard silence on `voice_adjust`-only turns, assumed the session was broken, and manually disconnected — creating a string of short repeated sessions.
+- **Billing fallback activation**: Zero TTS chars triggered the estimation fallback in usage-service.ts (now replaced by the unified character guard from the same session).
+
+### Fix
+Two single-line changes — removed the `!isGoogleBatchMode(OM)` exclusion from both paths:
+- `server/services/streaming-voice-orchestrator.ts` line 3195 (PTT path)
+- `server/services/streaming-voice-orchestrator.ts` line 5990 (OpenMic path)
+
+Also updated two stale log messages from "post-stream batch will handle TTS" to accurately reflect the new flow.
+
+### User-facing impact
+Daniela will now speak all function-call responses correctly in Google batch mode. TTS character counts will be accurate for all turns. Carol's sessions should stabilize.
