@@ -8,6 +8,30 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 26, 2026 — New Tutor Personas Confirmed
+
+**Status**: DECIDED — not yet implemented in code
+
+#### What
+Confirmed the tutor roster for the multi-subject platform expansion (Option 3 architecture). Four new personas across two departments.
+
+#### Biology: Gene (male) + Evelyn (female)
+- No title — first-name basis only
+- Gene's name is a nod to gene splicing; light enough to be charming, not corny
+- Teaching style: precise but never dry. Genuine reverence for living systems. Conversations feel like a scientist thinking out loud. Light-hearted and enthusiastic — makes biology feel like a detective story, not rote memorization.
+
+#### History: Clio (female) + Marcus (male)
+- Clio is named for the Greek muse of history — built-in meaning
+- Teaching style: Socratic and narrative. History as humans making decisions under pressure, not dates and names. Always curious about the student's interpretation. Uses primary sources and cause-and-effect reasoning.
+
+#### TTS Voice Strategy
+All four use Google Chirp 3 HD. Cartesia is on hold (concurrency limits). Voice differentiation via Chirp 3 HD's voice pool — each persona gets an assigned voice, documented in their persona config record.
+
+#### Key Files
+- `docs/multi-subject-platform-vision.md` — updated with full roster and teaching style notes
+
+
+
 ### Session: February 26, 2026 — Character-Based Billing Guard
 
 **Status**: COMPLETED
