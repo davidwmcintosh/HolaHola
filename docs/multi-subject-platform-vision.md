@@ -122,8 +122,39 @@ All four new tutors use Google Chirp 3 HD (same as Daniela). Cartesia is on hold
 
 ---
 
+## Competency Framework (February 26, 2026)
+
+**Source:** Carol McIntosh and Hadassah (both practicing teachers). Students need facts first — Socratic methods layer on top of solid factual knowledge, not before it.
+
+**Foundation:** Bloom's Taxonomy. Same logic as ACTFL for language: novice students get direct instruction, advanced students get immersive reasoning. The persona stays consistent; the teaching approach shifts by level.
+
+### Six-Level Ladder (Biology and History)
+
+| Level | Tutor approach | Student activity |
+|-------|----------------|-----------------|
+| 1 — Recall | Explains, demonstrates, names | Identifies, labels, repeats |
+| 2 — Comprehension | Checks understanding, rephrases | Explains in own words |
+| 3 — Application | Introduces new scenarios | Uses concept in a new context |
+| 4 — Analysis | Asks "why" and "what if" | Compares, contrasts, finds patterns |
+| 5 — Synthesis/Evaluation | Challenges, debates, plays devil's advocate | Defends, designs, critiques |
+| 6 — AP Readiness | Coaches exam format and rubrics | Free response, DBQ practice |
+
+### Key Design Notes
+- Levels 1–2: Didactic. Gene/Clio explain and check recall. More telling, less asking.
+- Levels 3–4: Blended. Introduce scenarios and open questions once the substrate is solid.
+- Levels 5–6: Socratic and exam-oriented. Gene/Clio challenge, debate, coach writing.
+- **Critical transition:** Levels 2 → 3 is where students disengage if moved too fast, or get bored if kept too long. Tutor must read readiness, not just check a box.
+- AP track is a layer on top — same competency ladder, same persona, different content coverage (College Board syllabus) and drill format (free response rubrics, DBQ structure).
+- Both NGSS (biology) and C3 (history) are inquiry-based frameworks that align naturally with levels 3–5. Levels 1–2 are where direct instruction fills the gap before inquiry becomes productive.
+
+### Standards Mapping
+- **Biology:** NGSS (Next Generation Science Standards) — covers levels 1–5. AP Biology (College Board) covers level 6, with specific content requirements.
+- **History:** C3 Framework (College, Career, and Civic Life) — covers levels 1–5. AP US/World/European History covers level 6, with DBQ/LEQ/SAQ format requirements.
+- Common Core covers ELA and Math only — not directly applicable, though its literacy strand informs how students read primary sources at levels 4–5.
+
+---
+
 ## Open Questions
 
 1. What should the platform be called? (The school needs a name)
-2. What does "competency" look like for biology and history — the ACTFL equivalent?
-3. Which tutor goes first in the POC — Gene, Evelyn, Clio, or Marcus?
+2. Which tutor goes first in the POC — Gene, Evelyn, Clio, or Marcus?

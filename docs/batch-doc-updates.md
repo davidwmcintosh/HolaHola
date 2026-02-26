@@ -8,6 +8,25 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 26, 2026 — Competency Framework for Biology and History
+
+**Status**: DECIDED — not yet implemented in code
+
+#### What
+Established the six-level Bloom's Taxonomy-based competency ladder for biology and history tutors. Confirmed by Carol McIntosh and Hadassah (both practicing teachers): facts-first, then layer Socratic methods on top.
+
+#### Framework
+Six levels: Recall → Comprehension → Application → Analysis → Synthesis/Evaluation → AP Readiness. Tutor approach shifts by level (didactic early, Socratic late), persona stays consistent throughout.
+
+Standards: NGSS for biology, C3 Framework for history (levels 1–5). AP Biology / AP History layers on at level 6 with College Board-specific content and exam format coaching (free response, DBQ).
+
+Critical transition: levels 2→3. Moving too fast disengages students; staying too long bores them. Tutor reads readiness, not just a checklist.
+
+#### Key Files
+- `docs/multi-subject-platform-vision.md` — full table, design notes, standards mapping
+
+---
+
 ### Session: February 26, 2026 — New Tutor Personas Confirmed
 
 **Status**: DECIDED — not yet implemented in code
