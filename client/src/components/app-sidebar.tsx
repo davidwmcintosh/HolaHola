@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Shield, X, Target, Search, Sparkles, HelpCircle, MapPin } from "lucide-react";
+import { BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Shield, X, Target, Search, Sparkles, HelpCircle, MapPin, Microscope } from "lucide-react";
 import holaholaLogo from "@assets/holaholamainlogoBackgroundRemoved_1765308837223.png";
 import { Link, useLocation } from "wouter";
 import {
@@ -50,6 +50,10 @@ const teacherMenuItems = [
 
 const adminMenuItems = [
   { title: "Command Center", url: "/admin", icon: Shield },
+];
+
+const subjectMenuItems = [
+  { title: "Biology — Evelyn", url: "/biology", icon: Microscope },
 ];
 
 export function AppSidebar() {
@@ -189,6 +193,31 @@ export function AppSidebar() {
                       asChild
                       isActive={isActive}
                       data-testid={`link-${item.title.toLowerCase().replace(' ', '-')}`}
+                    >
+                      <Link href={item.url} onClick={closeSidebar}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Other Subjects</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {subjectMenuItems.map((item) => {
+                const isActive = location.startsWith(item.url);
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      data-testid={`link-${item.title.toLowerCase().replace(/[\s—]+/g, '-')}`}
                     >
                       <Link href={item.url} onClick={closeSidebar}>
                         <item.icon className="h-4 w-4" />

@@ -421,6 +421,7 @@ export interface ClientStartSessionMessage {
   rawHonestyMode?: boolean;  // Minimal prompting for authentic conversation with Daniela
   founderMode?: boolean;  // Explicit founder mode - only true when user selects "Founder Mode" context
   isReconnect?: boolean;  // True when client is reconnecting after a drop — server skips greeting, preserves session state
+  subject?: string;  // Subject domain for non-language tutors (e.g., 'biology', 'history'). When set, tutor persona is subject-specific rather than Daniela.
 }
 
 /**

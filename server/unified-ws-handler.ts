@@ -49,6 +49,7 @@ import { architectVoiceService } from './services/architect-voice-service';
 import { voiceTelemetry } from './services/voice-pipeline-telemetry';
 import { updateToolEventEngagement, mapWhiteboardTypeToToolType } from './services/pedagogical-insights-service';
 import { buildNeuralNetworkPromptSection } from './services/neural-network-retrieval';
+import { buildEvelynSystemPrompt, EVELYN_NAME, EVELYN_VOICE_CONFIG, isBiologySession } from './services/evelyn-persona';
 import { getPredictiveTeachingContext, getStudentSnapshotData, type PredictiveTeachingContext, type StudentSnapshotContext } from './services/procedural-memory-retrieval';
 import { studentLearningService } from './services/student-learning-service';
 import { voiceDiagnostics } from './services/voice-diagnostics-service';
@@ -3275,13 +3276,18 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
             
             const isFounderMode = isDeveloper && config.founderMode === true;
             
-            const voiceId = tutorVoice?.voiceId || '';
+            let voiceId = tutorVoice?.voiceId || '';
             let tutorName = tutorGender === 'male' ? 'Agustin' : 'Daniela';
             if (tutorVoice?.voiceName) {
               const voiceNameParts = tutorVoice.voiceName.split(/\s*[-–]\s*/);
               if (voiceNameParts[0]?.trim()) {
                 tutorName = voiceNameParts[0].trim();
               }
+            }
+            // Biology sessions always use Evelyn with her own hardcoded voice config
+            if (isBiologySession(config.subject, config.targetLanguage)) {
+              tutorName = EVELYN_NAME;
+              voiceId = EVELYN_VOICE_CONFIG.googleVoiceName;
             }
             console.log(`[Streaming Voice] Session using tutor: ${tutorName} (${tutorGender})`);
             
@@ -3373,7 +3379,12 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
             // PHASE 3: Build system prompt (synchronous, fast)
             // ══════════════════════════════════════════════════════════════
             let systemPrompt: string;
-            if (rawHonestyMode) {
+            if (isBiologySession(config.subject, config.targetLanguage)) {
+              systemPrompt = buildEvelynSystemPrompt({
+                studentName: user?.firstName || undefined,
+              });
+              console.log('[Streaming Voice] Using EVELYN (Biology) system prompt');
+            } else if (rawHonestyMode) {
               const safeName = (userName || 'friend').replace(/[^a-zA-Z0-9\s\-']/g, '').substring(0, 50);
               systemPrompt = `You are ${tutorName}.
 This is ${safeName}, your creator.
@@ -3410,30 +3421,32 @@ ${buildNativeFunctionCallingSection()}`;
               }
             }
             
-            // Append neural network context (already fetched in Phase 2)
-            if (neuralNetworkContext) {
-              systemPrompt += neuralNetworkContext;
-              console.log(`[Streaming Voice] ✓ Neural network context appended for ${effectiveLanguage}`);
-            } else {
-              console.warn('[Streaming Voice] ⚠ Neural network context was empty — bold-marking relies on fallback in prompt');
-            }
-            
-            // Append Compass or timezone context
-            if (compassContext && COMPASS_ENABLED) {
-              const compassBlock = buildCompassContextBlock(compassContext);
-              systemPrompt += '\n\n' + compassBlock;
-              console.log(`[Compass Init] ✓ Compass context appended to system prompt (handles time)`);
-            } else if (user?.timezone) {
-              const timezoneBlock = buildTimezoneContext(user.timezone);
-              if (timezoneBlock) {
-                systemPrompt += '\n\n' + timezoneBlock;
-                console.log(`[Streaming Voice] ✓ Timezone context appended: ${user.timezone}`);
+            // Append neural network context — language tutors only (biology has its own subject knowledge)
+            if (!isBiologySession(config.subject, config.targetLanguage)) {
+              if (neuralNetworkContext) {
+                systemPrompt += neuralNetworkContext;
+                console.log(`[Streaming Voice] ✓ Neural network context appended for ${effectiveLanguage}`);
+              } else {
+                console.warn('[Streaming Voice] ⚠ Neural network context was empty — bold-marking relies on fallback in prompt');
               }
-            } else {
-              const now = new Date();
-              const fullDate = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-              systemPrompt += `\n\nSTUDENT TIME CONTEXT:\n  Today's Date: ${fullDate}\n  Timezone: Unknown (UTC fallback)\n  IMPORTANT: Use this date when referring to past sessions or time elapsed.\n`;
-              console.log(`[Streaming Voice] No timezone found for user, using UTC date fallback`);
+              
+              // Append Compass or timezone context
+              if (compassContext && COMPASS_ENABLED) {
+                const compassBlock = buildCompassContextBlock(compassContext);
+                systemPrompt += '\n\n' + compassBlock;
+                console.log(`[Compass Init] ✓ Compass context appended to system prompt (handles time)`);
+              } else if (user?.timezone) {
+                const timezoneBlock = buildTimezoneContext(user.timezone);
+                if (timezoneBlock) {
+                  systemPrompt += '\n\n' + timezoneBlock;
+                  console.log(`[Streaming Voice] ✓ Timezone context appended: ${user.timezone}`);
+                }
+              } else {
+                const now = new Date();
+                const fullDate = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                systemPrompt += `\n\nSTUDENT TIME CONTEXT:\n  Today's Date: ${fullDate}\n  Timezone: Unknown (UTC fallback)\n  IMPORTANT: Use this date when referring to past sessions or time elapsed.\n`;
+                console.log(`[Streaming Voice] No timezone found for user, using UTC date fallback`);
+              }
             }
             
             // Build conversation history
