@@ -2003,6 +2003,22 @@ export class DatabaseStorage implements IStorage {
 
   async createVocabularyWord(data: InsertVocabularyWord): Promise<VocabularyWord> {
     // vocabulary_words is in SHARED database (FK to conversations which is also in SHARED)
+    // Dedup guard: case-insensitive check before inserting to prevent duplicates across sessions
+    const existing = await getSharedDb()
+      .select()
+      .from(vocabularyWords)
+      .where(
+        and(
+          eq(vocabularyWords.userId, data.userId),
+          eq(vocabularyWords.language, data.language),
+          sql`LOWER(${vocabularyWords.word}) = LOWER(${data.word})`
+        )
+      )
+      .limit(1);
+    if (existing.length > 0) {
+      console.log(`[Vocab] Skipped duplicate: "${data.word}" for user ${data.userId} (already exists as "${existing[0].word}")`);
+      return existing[0];
+    }
     const [word] = await getSharedDb().insert(vocabularyWords).values(data).returning();
     return word;
   }

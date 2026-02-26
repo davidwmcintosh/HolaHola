@@ -8,6 +8,27 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 26, 2026 — Vocabulary Deduplication Fix
+
+**Status**: COMPLETED
+
+#### What
+Fixed duplicate vocabulary cards accumulating across restarts and sessions. Carol McIntosh had 372 cards but only 238 unique words (134 excess duplicates). "Buenas noches" had 12 copies — one per session restart.
+
+#### Root cause
+`createVocabularyWord()` in `storage.ts` was a plain INSERT with no uniqueness guard. The `vocabulary_words` table had no UNIQUE constraint. Every session restart (or within-session repeated function call) would silently add a fresh copy of the same word.
+
+#### Fix — two layers
+1. **Application layer** (`server/storage.ts` — `createVocabularyWord`): Case-insensitive lookup before every insert using `LOWER(word)`. If the word already exists for that user + language, the existing record is returned instead of inserting a duplicate. Handles "Perfecto" vs "perfecto" variants.
+2. **Database layer** (`shared/schema.ts`): Added `uniqueIndex("idx_vocabulary_unique_word").on(table.userId, table.word, table.language)` — enforced at the DB level via `CREATE UNIQUE INDEX` (applied directly, bypassing a pre-existing FK issue blocking `db:push`).
+
+#### Data repair
+- Deleted 426 duplicate records across 3 affected users (kept oldest copy of each word)
+- Carol: 372 → 238 cards, total = unique (100% clean)
+- All future inserts will deduplicate silently
+
+---
+
 ### Session: February 25, 2026 — Character-Based Billing Guard (Validation)
 
 **Status**: COMPLETED

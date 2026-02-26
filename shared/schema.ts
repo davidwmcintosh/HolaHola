@@ -525,6 +525,7 @@ export const vocabularyWords = pgTable("vocabulary_words", {
   index("idx_vocabulary_source_conversation").on(table.sourceConversationId),
   index("idx_vocabulary_word_type").on(table.wordType),
   index("idx_vocabulary_class").on(table.classId),
+  uniqueIndex("idx_vocabulary_unique_word").on(table.userId, table.word, table.language),
 ]);
 
 export const grammarExercises = pgTable("grammar_exercises", {
