@@ -507,8 +507,9 @@ export async function searchMemory(
             ? keywordPatterns.map(pattern => ilike(messages.content, pattern))
             : [ilike(messages.content, searchPattern)];
           
-          // Search ALL matching messages without limit - we'll rank and filter later
-          // This ensures we never lose old but highly relevant messages (like specific songs, names, etc.)
+          // Limit ILIKE to recent 6 months — avoids full sequential scan on large history.
+          // Older memories are covered by semanticSearchMessages (full-text index via search_vector).
+          const sixMonthsAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
           const crossTutorByContent = await getSharedDb()
             .select({
               messageId: messages.id,
@@ -523,10 +524,11 @@ export async function searchMemory(
             .innerJoin(conversations, eq(messages.conversationId, conversations.id))
             .where(and(
               eq(conversations.userId, studentId),
+              gte(messages.createdAt, sixMonthsAgo),
               or(...keywordConditions)
             ))
             .orderBy(desc(messages.createdAt))
-            .limit(200); // Large limit to capture year+ of history
+            .limit(100);
           
           // Also run semantic search for broader matching (finds related content even without exact keywords)
           const semanticResults = await semanticSearchMessages(studentId, query, 100);
@@ -627,6 +629,7 @@ export async function searchMemory(
             // Run keyword, semantic, AND baseline recent search in parallel
             // The baseline ensures Daniela always "sees" recent conversations even if they don't match the query
             const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+            const sixMonthsAgoKeyword = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
             
             const [keywordResults, semanticResults, baselineRecent] = await Promise.all([
               getSharedDb()
@@ -643,10 +646,11 @@ export async function searchMemory(
                 .innerJoin(conversations, eq(messages.conversationId, conversations.id))
                 .where(and(
                   eq(conversations.userId, studentId),
+                  gte(messages.createdAt, sixMonthsAgoKeyword),
                   or(...contentKeywordConditions)
                 ))
                 .orderBy(desc(messages.createdAt))
-                .limit(200),
+                .limit(100),
               semanticSearchMessages(studentId, query, 100),
               // BASELINE: Always fetch recent messages so Daniela has visibility into recent activity
               getSharedDb()
