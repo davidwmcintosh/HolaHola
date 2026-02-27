@@ -54,7 +54,7 @@ const adminMenuItems = [
 
 const subjectMenuItems = [
   { title: "Biology — Evelyn / Gene", url: "/biology", icon: Microscope },
-  { title: "History — Clio / Marcus", url: "/history", icon: Landmark },
+  { title: "History — Clio / Marcus", url: "/history-tutor", icon: Landmark },
 ];
 
 export function AppSidebar() {

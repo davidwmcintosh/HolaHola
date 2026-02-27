@@ -7,22 +7,22 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useCredits } from "@/contexts/UsageContext";
 import { InsufficientCreditsDialog } from "@/components/InsufficientCreditsDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { apiRequest } from "@/lib/queryClient";
 import type { WhiteboardItem } from "@shared/whiteboard-types";
 
 const TUTORS = [
-  { name: "Clio", gender: "female" as const, tagline: "Narrative and inclusive" },
-  { name: "Marcus", gender: "male" as const, tagline: "Structural and analytical" },
+  { name: "Clio", gender: "female" as const },
+  { name: "Marcus", gender: "male" as const },
 ];
 
 export default function HistoryTutor() {
   const [, setLocation] = useLocation();
-  const { setLanguage, language, tutorGender, setTutorGender } = useLanguage();
+  const { setLanguage, language, tutorGender, setTutorGender, userName } = useLanguage();
   const { isExhausted } = useCredits();
   const isMobile = useIsMobile();
 
   const [conversationId, setConversationId] = useState<string | null>(() => {
-    const stored = sessionStorage.getItem('historyConversationId');
-    return stored || null;
+    return sessionStorage.getItem('historyConversationId') || null;
   });
   const [currentConversationOnboarding, setCurrentConversationOnboarding] = useState<boolean | null>(null);
   const [showInsufficientCreditsDialog, setShowInsufficientCreditsDialog] = useState(false);
@@ -36,6 +36,7 @@ export default function HistoryTutor() {
 
   const previousLanguageRef = useRef<string>(language);
   const previousGenderRef = useRef<'male' | 'female'>(tutorGender);
+  const creatingConversationRef = useRef(false);
 
   useEffect(() => {
     previousLanguageRef.current = language;
@@ -52,7 +53,26 @@ export default function HistoryTutor() {
   useEffect(() => {
     if (conversationId) {
       sessionStorage.setItem('historyConversationId', conversationId);
+      return;
     }
+    if (creatingConversationRef.current) return;
+    creatingConversationRef.current = true;
+
+    apiRequest("POST", "/api/conversations", {
+      language: "history",
+      difficulty: "beginner",
+      userName: userName || "Student",
+      title: null,
+      isOnboarding: false,
+    })
+      .then(r => r.json())
+      .then(data => {
+        setConversationId(data.id);
+      })
+      .catch(err => {
+        console.error("[History] Failed to create conversation:", err);
+        creatingConversationRef.current = false;
+      });
   }, [conversationId]);
 
   const activeTutor = TUTORS.find(t => t.gender === tutorGender) ?? TUTORS[0];
@@ -62,6 +82,7 @@ export default function HistoryTutor() {
     setTutorGender(gender);
     setConversationId(null);
     sessionStorage.removeItem('historyConversationId');
+    creatingConversationRef.current = false;
   };
 
   return (
@@ -84,10 +105,7 @@ export default function HistoryTutor() {
               <Landmark className="w-4 h-4 text-amber-600 dark:text-amber-400" />
             </div>
             <div>
-              <div
-                className="text-sm font-semibold leading-tight"
-                data-testid="text-history-tutor-name"
-              >
+              <div className="text-sm font-semibold leading-tight" data-testid="text-history-tutor-name">
                 {activeTutor.name}
               </div>
               <div className="text-xs text-muted-foreground leading-tight">History</div>

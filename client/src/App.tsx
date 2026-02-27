@@ -221,7 +221,7 @@ function Router() {
         <Route path="/session-replay" component={SessionReplay} />
         <Route path="/interactive-textbook" component={InteractiveTextbook} />
         <Route path="/biology" component={BiologyTutor} />
-        <Route path="/history" component={HistoryTutor} />
+        <Route path="/history-tutor" component={HistoryTutor} />
         
         {/* Teacher Routes - Protected */}
         <Route path="/teacher/dashboard" component={TeacherDashboard} />

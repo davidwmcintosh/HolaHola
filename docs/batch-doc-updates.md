@@ -5033,3 +5033,36 @@ Compass enrichments (session time awareness, last session summary) now apply to 
 - `client/src/pages/history-tutor.tsx` — new page; Clio/Marcus tutor picker; amber color accent
 - `client/src/App.tsx` — added `/history` route and `HistoryTutor` lazy import
 - `client/src/components/app-sidebar.tsx` — added History entry under "Other Subjects"
+
+---
+
+## Character-Based Billing Guard (T001-T003)
+**Date:** Feb 2026
+
+### What was built
+Replaced the estimation-based idle session billing cap with a precise, character-based cross-check using actual metered TTS and STT data already tracked per session.
+
+### Why
+The old approach used `AVG_SECONDS_PER_EXCHANGE` to estimate session value — an approximation that could mis-bill at scale. TTS characters and STT seconds are real metered metrics that map directly to actual platform costs (TTS provider billing, Deepgram STT usage, Gemini tokens). Using them as the cross-check source eliminates the estimation error.
+
+### How the formula works
+```
+ttsDurationEstimate  = ceil(tts_characters / 15)    # 15 chars/sec is standard natural speech rate
+activeSpeakingSeconds = ttsDurationEstimate + stt_seconds
+fairBillableSeconds   = max(activeSpeakingSeconds × 3, 120)   # 3x for think/pause time; 2-min floor
+```
+
+Cap is applied only when:
+- `wall-clock > fairBillableSeconds` (session billed more than metered activity justifies)
+- AND `wall-clock > 600s` (10-min minimum before cap kicks in, so short sessions are never clipped)
+
+Zero-activity guard still fires first: sessions with `exchange_count=0, tts_characters=0, stt_seconds=0` are charged nothing.
+
+### Validation (T002)
+SQL cross-check across all completed voice sessions >60s confirmed:
+- **All "WOULD BE CAPPED" sessions**: 0 exchanges, 0 TTS chars, 0 STT seconds — pure idle connections, no false cap concerns
+- **Healthy sessions** (real TTS chars, normal session lengths): zero false positives — none would have been incorrectly capped
+- Suspect sessions (some activity, very long wall-clock): correctly capped at fair metered value
+
+### Key files modified
+- `server/services/usage-service.ts` — replaced estimation logic with character-based cross-check (lines ~482–520); constants `CHARS_PER_SECOND=15`, `ACTIVITY_MULTIPLIER=3`, `MIN_BILLABLE_SECONDS=120`
