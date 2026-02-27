@@ -17,7 +17,7 @@ const TUTORS = [
 
 export default function HistoryTutor() {
   const [, setLocation] = useLocation();
-  const { setLanguage, language, tutorGender, setTutorGender, userName } = useLanguage();
+  const { tutorGender, setTutorGender } = useLanguage();
   const { isExhausted } = useCredits();
   const isMobile = useIsMobile();
 
@@ -34,18 +34,10 @@ export default function HistoryTutor() {
     textInputSubmit: (itemId: string, response: string) => void;
   } | null>(null);
 
-  const previousLanguageRef = useRef<string>(language);
-  const previousGenderRef = useRef<'male' | 'female'>(tutorGender);
   const creatingConversationRef = useRef(false);
 
   useEffect(() => {
-    previousLanguageRef.current = language;
-    previousGenderRef.current = tutorGender;
-    setLanguage('history');
-
     return () => {
-      setLanguage(previousLanguageRef.current);
-      setTutorGender(previousGenderRef.current);
       sessionStorage.removeItem('historyConversationId');
     };
   }, []);
@@ -61,7 +53,7 @@ export default function HistoryTutor() {
     apiRequest("POST", "/api/conversations", {
       language: "history",
       difficulty: "beginner",
-      userName: userName || "Student",
+      userName: "Student",
       title: null,
       isOnboarding: false,
     })
@@ -142,6 +134,8 @@ export default function HistoryTutor() {
           onWhiteboardItemsChange={setWhiteboardItems}
           whiteboardCallbacksRef={whiteboardCallbacksRef}
           useDesktopWhiteboard={!isMobile}
+          targetLanguageOverride="history"
+          homeRoute="/history-tutor"
         />
       </div>
 

@@ -17,7 +17,7 @@ const TUTORS = [
 
 export default function BiologyTutor() {
   const [, setLocation] = useLocation();
-  const { setLanguage, language, tutorGender, setTutorGender, userName } = useLanguage();
+  const { tutorGender, setTutorGender } = useLanguage();
   const { isExhausted } = useCredits();
   const isMobile = useIsMobile();
 
@@ -34,18 +34,10 @@ export default function BiologyTutor() {
     textInputSubmit: (itemId: string, response: string) => void;
   } | null>(null);
 
-  const previousLanguageRef = useRef<string>(language);
-  const previousGenderRef = useRef<'male' | 'female'>(tutorGender);
   const creatingConversationRef = useRef(false);
 
   useEffect(() => {
-    previousLanguageRef.current = language;
-    previousGenderRef.current = tutorGender;
-    setLanguage('biology');
-
     return () => {
-      setLanguage(previousLanguageRef.current);
-      setTutorGender(previousGenderRef.current);
       sessionStorage.removeItem('biologyConversationId');
     };
   }, []);
@@ -61,7 +53,7 @@ export default function BiologyTutor() {
     apiRequest("POST", "/api/conversations", {
       language: "biology",
       difficulty: "beginner",
-      userName: userName || "Student",
+      userName: "Student",
       title: null,
       isOnboarding: false,
     })
@@ -142,6 +134,8 @@ export default function BiologyTutor() {
           onWhiteboardItemsChange={setWhiteboardItems}
           whiteboardCallbacksRef={whiteboardCallbacksRef}
           useDesktopWhiteboard={!isMobile}
+          targetLanguageOverride="biology"
+          homeRoute="/biology"
         />
       </div>
 

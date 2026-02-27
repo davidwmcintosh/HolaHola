@@ -147,6 +147,12 @@ interface StreamingVoiceChatProps {
   onScenarioEnded?: (data: { scenarioId?: string; scenarioSlug?: string; performanceNotes?: string }) => void;
   onPropUpdate?: (data: { propTitle: string; updates: Array<{ label: string; value: string }>; updatedFields: Array<{ label: string; value: string }> }) => void;
   onStudioImage?: (image: { word: string; description: string; imageUrl: string; context?: string }) => void;
+  /** Override the language sent to the server without touching the user's stored language preference.
+   *  Use this for subject pages (biology, history) so their subject identifier reaches the WS handler
+   *  but does NOT bleed into the user's learning-language context. */
+  targetLanguageOverride?: string;
+  /** Route to navigate to when an unrecoverable error occurs. Defaults to '/chat'. */
+  homeRoute?: string;
 }
 
 export function StreamingVoiceChat({ 
@@ -166,6 +172,8 @@ export function StreamingVoiceChat({
   onScenarioEnded,
   onPropUpdate,
   onStudioImage,
+  targetLanguageOverride,
+  homeRoute = '/chat',
 }: StreamingVoiceChatProps) {
   const [, navigate] = useLocation();
   const { language, difficulty, setLanguage, subtitleMode, setSubtitleMode, tutorGender, voiceSpeed, setTutorGender, setVoiceSpeed } = useLanguage();
@@ -742,8 +750,7 @@ export function StreamingVoiceChat({
           description: "Unable to reach Daniela. Please try again.",
           variant: "destructive",
         });
-        // Navigate back to language hub
-        navigate(`/chat`);
+        navigate(homeRoute);
       }, CONNECTION_TIMEOUT_MS);
     }
     
@@ -780,7 +787,7 @@ export function StreamingVoiceChat({
         variant: "destructive",
       });
       setTimeout(() => {
-        navigate(`/chat`);
+        navigate(homeRoute);
       }, 2500);
       return;
     }
@@ -795,7 +802,7 @@ export function StreamingVoiceChat({
         variant: "destructive",
       });
       setTimeout(() => {
-        navigate(`/chat`);
+        navigate(homeRoute);
       }, 1500);
     }
   }, [streamingVoice.state.error, streamingVoice.state.connectionState, navigate, toast]);
@@ -864,7 +871,7 @@ export function StreamingVoiceChat({
         
         await streamingVoice.connect({
           conversationId,
-          targetLanguage: language,
+          targetLanguage: targetLanguageOverride ?? language,
           nativeLanguage: userDetails.nativeLanguage || 'english',
           difficultyLevel: difficulty,
           subtitleMode,
@@ -2911,7 +2918,7 @@ export function StreamingVoiceChat({
             console.log('[STREAMING] Attempting to reconnect...');
             await streamingVoice.connect({
               conversationId: targetConversationId,
-              targetLanguage: language,
+              targetLanguage: targetLanguageOverride ?? language,
               nativeLanguage: user?.nativeLanguage || 'english',
               difficultyLevel: difficulty,
               subtitleMode,

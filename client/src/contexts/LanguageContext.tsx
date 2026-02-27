@@ -81,9 +81,17 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         firstName: user.firstName
       });
 
-      // Sync target language
+      // Sync target language — but guard against subject identifiers (biology, history)
+      // that may have leaked in from subject tutor pages before the targetLanguageOverride fix.
+      const SUBJECT_IDENTIFIERS = new Set(['biology', 'history']);
       const normalizedTargetLang = user.targetLanguage ? normalizeLanguageCode(user.targetLanguage) : null;
-      if (normalizedTargetLang && normalizedTargetLang !== language) {
+      if (normalizedTargetLang && SUBJECT_IDENTIFIERS.has(normalizedTargetLang)) {
+        // Clear the bad value from the database silently — next language hub visit will restore
+        // the user's actual learning language from whatever they select.
+        console.log('[LanguageContext] Ignoring subject identifier stored as targetLanguage:', normalizedTargetLang, '— clearing from DB');
+        apiRequest("PUT", "/api/user/preferences", { targetLanguage: null }).catch(() => {});
+        localStorage.removeItem("language");
+      } else if (normalizedTargetLang && normalizedTargetLang !== language) {
         console.log('[LanguageContext] Updating language from user preferences:', normalizedTargetLang);
         setLanguageState(normalizedTargetLang);
         localStorage.setItem("language", normalizedTargetLang);
