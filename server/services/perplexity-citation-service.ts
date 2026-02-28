@@ -12,7 +12,7 @@ interface CitationResult {
 }
 
 const PERPLEXITY_API_URL = 'https://api.perplexity.ai/chat/completions';
-const MODEL = 'llama-3.1-sonar-large-128k-online';
+const MODEL = 'sonar-pro';
 
 const DOMAIN_FILTERS: Record<string, string[]> = {
   biology: [

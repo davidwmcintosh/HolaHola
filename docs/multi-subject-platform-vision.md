@@ -357,6 +357,38 @@ A student using both Gene and Daniela gets:
 
 ---
 
+## Immediate Next Steps (Reading Module Track)
+
+*Priority order as of February 28, 2026*
+
+### 1. Test the pipeline — validate output quality
+Fire the first real module generations for a biology topic (cell division) and a history topic (causes of World War I). Inspect every field: overview clarity, key concept accuracy, term definitions at the right reading level, framing question quality, recall check precision. This is the gate — everything else depends on knowing the pipeline produces trustworthy content.
+
+**Status:** First generation complete. Cell division module stored. Claude output quality confirmed high (accurate, student-appropriate, Socratic framing questions). OpenStax API was inaccessible (JS-rendered app); switched to Wikipedia API as seed source (same CC license, clean plain text, comprehensive coverage). Perplexity model updated to `sonar-pro`.
+
+### 2. Reading module UI — the student-facing reading pane
+A reading module with no UI is a database record. The student experience requires:
+- A dedicated reading view on the biology and history pages that renders the module fields cleanly
+- Gene/Clio able to reference the module during a session ("you read about mitosis — tell me what the phases are")
+- The Reading Library: a browsable index of all generated modules by subject and unit
+- Live Reading Mode: tutor minimized/sidebar while student reads, available for tap-to-ask questions
+
+The reading pane is the next concrete deliverable a student would actually experience.
+
+### 3. Core chapter set — batch generation
+Once the pipeline and UI are validated, generate the foundational topic set for both subjects so the library has real depth from day one:
+
+**Biology (NGSS/AP Biology core):**
+Cell structure, cell division, DNA structure, DNA replication, protein synthesis, photosynthesis, cellular respiration, genetics and inheritance, evolution by natural selection, ecosystems and energy flow
+
+**History (AP US History / World History core):**
+Causes of World War I, Causes of World War II, The American Revolution, Reconstruction era, The Civil Rights Movement, The Cold War, Causes of the Civil War, The Great Depression, Industrialization and its effects, Causes of the French Revolution
+
+### 4. Scenarios (independent track)
+Biology and history scenarios — structured Socratic dialogue situations Gene and Clio drop students into — are a parallel workstream that does not depend on reading modules. They can be developed anytime alongside the module track.
+
+---
+
 ## Open Questions
 
 1. What should the platform be called? (The school needs a name)

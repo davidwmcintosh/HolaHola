@@ -1,130 +1,97 @@
 /**
- * OpenStax Content Service
+ * Seed Content Service
  *
- * Fetches CC-licensed, curriculum-aligned textbook content from OpenStax
- * to use as seed material for reading module generation.
+ * Fetches CC-licensed encyclopedic content to use as grounding material
+ * for reading module generation. Wikipedia's REST API provides clean,
+ * structured plain text for any topic (CC BY-SA 4.0).
  *
- * Biology 2e is NGSS-aligned. US History / World History are C3-aligned.
- * All content is CC BY 4.0 licensed — free to use and adapt.
+ * OpenStax is the editorial standard for our curriculum alignment
+ * (NGSS for biology, C3 for history), but Wikipedia's API is used as
+ * the practical seed source because it returns clean plain text directly
+ * without HTML parsing, covers every topic, and requires no key.
+ *
+ * Topic → Wikipedia article matching uses Wikimedia's search API,
+ * then fetches the full page extract as plain text.
  */
-
-interface OpenStaxPage {
-  title: string;
-  slug: string;
-  content?: string;
-}
-
-interface OpenStaxTocEntry {
-  title: string;
-  slug: string;
-  contents?: OpenStaxTocEntry[];
-}
 
 type SubjectDomain = 'biology' | 'history';
 
-const BOOK_SLUGS: Record<SubjectDomain, string[]> = {
-  biology: ['biology-2e'],
-  history: ['us-history', 'world-history-volume-1', 'world-history-volume-2'],
-};
+const WIKIPEDIA_SEARCH_API = 'https://en.wikipedia.org/w/api.php';
 
-const OPENSTAX_API = 'https://openstax.org/apps/archive/20250403.172233/api/v0';
-
-const tocCache = new Map<string, OpenStaxTocEntry[]>();
 const contentCache = new Map<string, string>();
 
-async function fetchToc(bookSlug: string): Promise<OpenStaxTocEntry[]> {
-  if (tocCache.has(bookSlug)) {
-    return tocCache.get(bookSlug)!;
-  }
+const SUBJECT_CONTEXT: Record<SubjectDomain, string> = {
+  biology: 'biology',
+  history: 'history',
+};
+
+async function searchWikipedia(query: string, subject: SubjectDomain): Promise<string | null> {
+  const searchQuery = `${query} ${SUBJECT_CONTEXT[subject]}`;
 
   try {
-    const response = await fetch(`${OPENSTAX_API}/books/${bookSlug}`, {
+    const searchParams = new URLSearchParams({
+      action: 'query',
+      list: 'search',
+      srsearch: searchQuery,
+      srlimit: '3',
+      format: 'json',
+      origin: '*',
+    });
+
+    const searchResponse = await fetch(`${WIKIPEDIA_SEARCH_API}?${searchParams}`, {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (!searchResponse.ok) return null;
+
+    const searchData = await searchResponse.json() as {
+      query: { search: Array<{ title: string; snippet: string }> }
+    };
+
+    const results = searchData?.query?.search ?? [];
+    if (results.length === 0) return null;
+
+    return results[0].title;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchWikipediaExtract(title: string): Promise<string> {
+  try {
+    const params = new URLSearchParams({
+      action: 'query',
+      prop: 'extracts',
+      titles: title,
+      exintro: 'false',
+      explaintext: 'true',
+      exsectionformat: 'plain',
+      exlimit: '1',
+      format: 'json',
+      origin: '*',
+    });
+
+    const response = await fetch(`${WIKIPEDIA_SEARCH_API}?${params}`, {
       headers: { 'Accept': 'application/json' },
       signal: AbortSignal.timeout(10000),
     });
 
-    if (!response.ok) {
-      console.warn(`[OpenStax] Could not fetch TOC for ${bookSlug}: ${response.status}`);
-      return [];
-    }
+    if (!response.ok) return '';
 
-    const data = await response.json() as { tree?: { contents?: OpenStaxTocEntry[] } };
-    const entries = data?.tree?.contents ?? [];
-    tocCache.set(bookSlug, entries);
-    return entries;
-  } catch (error) {
-    console.warn(`[OpenStax] TOC fetch failed for ${bookSlug}:`, error);
-    return [];
-  }
-}
+    const data = await response.json() as {
+      query: { pages: Record<string, { extract?: string }> }
+    };
 
-function flattenToc(entries: OpenStaxTocEntry[]): OpenStaxPage[] {
-  const pages: OpenStaxPage[] = [];
+    const pages = data?.query?.pages ?? {};
+    const page = Object.values(pages)[0];
+    const extract = page?.extract ?? '';
 
-  for (const entry of entries) {
-    if (entry.slug) {
-      pages.push({ title: entry.title, slug: entry.slug });
-    }
-    if (entry.contents) {
-      pages.push(...flattenToc(entry.contents));
-    }
-  }
-
-  return pages;
-}
-
-function scorePage(page: OpenStaxPage, topic: string): number {
-  const topicWords = topic.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-  const titleLower = page.title.toLowerCase();
-  let score = 0;
-
-  for (const word of topicWords) {
-    if (titleLower.includes(word)) {
-      score += titleLower.startsWith(word) ? 3 : 2;
-    }
-  }
-
-  return score;
-}
-
-async function fetchPageContent(bookSlug: string, pageSlug: string): Promise<string> {
-  const cacheKey = `${bookSlug}:${pageSlug}`;
-  if (contentCache.has(cacheKey)) {
-    return contentCache.get(cacheKey)!;
-  }
-
-  try {
-    const response = await fetch(
-      `${OPENSTAX_API}/books/${bookSlug}/pages/${pageSlug}`,
-      {
-        headers: { 'Accept': 'application/json' },
-        signal: AbortSignal.timeout(10000),
-      }
-    );
-
-    if (!response.ok) {
-      console.warn(`[OpenStax] Could not fetch page ${pageSlug}: ${response.status}`);
-      return '';
-    }
-
-    const data = await response.json() as { content?: string };
-    const rawHtml = data?.content ?? '';
-
-    const plainText = rawHtml
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&quot;/g, '"')
-      .replace(/\s{2,}/g, ' ')
+    return extract
+      .replace(/\n{3,}/g, '\n\n')
       .trim()
-      .slice(0, 4000);
-
-    contentCache.set(cacheKey, plainText);
-    return plainText;
-  } catch (error) {
-    console.warn(`[OpenStax] Page content fetch failed for ${pageSlug}:`, error);
+      .slice(0, 5000);
+  } catch {
     return '';
   }
 }
@@ -133,31 +100,24 @@ export async function fetchSeedContent(
   topic: string,
   subject: SubjectDomain
 ): Promise<string> {
-  const bookSlugs = BOOK_SLUGS[subject] ?? [];
-
-  let bestPage: OpenStaxPage | null = null;
-  let bestScore = 0;
-  let bestBookSlug = '';
-
-  for (const bookSlug of bookSlugs) {
-    const toc = await fetchToc(bookSlug);
-    const pages = flattenToc(toc);
-
-    for (const page of pages) {
-      const score = scorePage(page, topic);
-      if (score > bestScore) {
-        bestScore = score;
-        bestPage = page;
-        bestBookSlug = bookSlug;
-      }
-    }
+  const cacheKey = `${subject}:${topic.toLowerCase()}`;
+  if (contentCache.has(cacheKey)) {
+    return contentCache.get(cacheKey)!;
   }
 
-  if (!bestPage || bestScore === 0) {
-    console.info(`[OpenStax] No matching chapter found for topic: "${topic}" (${subject})`);
+  const articleTitle = await searchWikipedia(topic, subject);
+  if (!articleTitle) {
+    console.info(`[SeedContent] No Wikipedia article found for: "${topic}" (${subject})`);
     return '';
   }
 
-  console.info(`[OpenStax] Using "${bestPage.title}" from ${bestBookSlug} for topic: "${topic}" (score: ${bestScore})`);
-  return fetchPageContent(bestBookSlug, bestPage.slug);
+  console.info(`[SeedContent] Wikipedia article: "${articleTitle}" for topic: "${topic}"`);
+  const content = await fetchWikipediaExtract(articleTitle);
+
+  if (content) {
+    contentCache.set(cacheKey, content);
+    console.info(`[SeedContent] Fetched ${content.length} chars for "${topic}"`);
+  }
+
+  return content;
 }
