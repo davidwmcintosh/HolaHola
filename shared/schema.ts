@@ -8089,3 +8089,35 @@ export const insertUserScenarioHistorySchema = createInsertSchema(userScenarioHi
 export type InsertUserScenarioHistory = z.infer<typeof insertUserScenarioHistorySchema>;
 export type UserScenarioHistory = typeof userScenarioHistory.$inferSelect;
 
+// ===== Reading Modules =====
+
+export const readingModuleContentSchema = z.object({
+  overview: z.string(),
+  keyConcepts: z.array(z.string()),
+  keyTerms: z.array(z.object({ term: z.string(), definition: z.string() })),
+  misconceptions: z.array(z.string()),
+  framingQuestions: z.array(z.string()),
+  recallCheck: z.array(z.object({ question: z.string(), answer: z.string() })),
+  citations: z.array(z.string()).default([]),
+});
+
+export type ReadingModuleContent = z.infer<typeof readingModuleContentSchema>;
+
+export const readingModules = pgTable("reading_modules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  subjectDomain: text("subject_domain").notNull(),
+  topic: text("topic").notNull(),
+  content: jsonb("content").notNull().$type<ReadingModuleContent>(),
+  generatedAt: timestamp("generated_at").notNull().defaultNow(),
+  version: integer("version").notNull().default(1),
+}, (table) => ({
+  uniqueSubjectTopic: uniqueIndex("idx_reading_modules_subject_topic").on(table.subjectDomain, table.topic),
+}));
+
+export const insertReadingModuleSchema = createInsertSchema(readingModules).omit({
+  id: true,
+  generatedAt: true,
+});
+export type InsertReadingModule = z.infer<typeof insertReadingModuleSchema>;
+export type ReadingModule = typeof readingModules.$inferSelect;
+

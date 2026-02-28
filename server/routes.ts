@@ -27457,5 +27457,42 @@ You have full access to your neural network knowledge.
   });
 
   // Server is now passed in from index.ts where WebSocket handler is attached first
+
+  // Reading Modules — pre-generated, permanently cached textbook content
+  app.get("/api/reading-modules/:subject/:topic", isAuthenticated, async (req: any, res) => {
+    try {
+      const { subject, topic } = req.params;
+      const validSubjects = ['biology', 'history', 'language'];
+      if (!validSubjects.includes(subject)) {
+        return res.status(400).json({ error: `Invalid subject. Must be one of: ${validSubjects.join(', ')}` });
+      }
+      if (!topic || topic.trim().length === 0) {
+        return res.status(400).json({ error: 'Topic is required' });
+      }
+      const { getOrGenerateModule } = await import('./services/reading-module-generator');
+      const module = await getOrGenerateModule(decodeURIComponent(topic), subject);
+      res.json(module);
+    } catch (error: any) {
+      console.error('[ReadingModules] Generation error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/reading-modules/:subject/:topic/regenerate", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = (req as any).user;
+      if (!user || (user.role !== 'admin' && user.role !== 'developer')) {
+        return res.status(403).json({ error: 'Admin only' });
+      }
+      const { subject, topic } = req.params;
+      const { generateReadingModule } = await import('./services/reading-module-generator');
+      const module = await generateReadingModule(decodeURIComponent(topic), subject);
+      res.json(module);
+    } catch (error: any) {
+      console.error('[ReadingModules] Regeneration error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // This ensures WS upgrade handler runs BEFORE Express/Vite middleware interferes
 }

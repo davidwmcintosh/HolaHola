@@ -39,6 +39,8 @@ The Voice Context Pipeline (`voice-context-pipeline.ts`) centralizes shared cont
 **INTERACTIVE TEXTBOOK:** Route `/interactive-textbook` renders the interactive textbook page. Active and accessible.
 **SUBJECT TUTORS (MULTI-SUBJECT PLATFORM):** Biology (`/biology`) and History (`/history-tutor`) are live subject tutor pages. Biology: Evelyn (female, `en-US-Chirp3-HD-Aoede`) and Gene (male, `en-US-Chirp3-HD-Orus`). History: Clio (female, `en-US-Chirp3-HD-Leda`) and Marcus (male, `en-US-Chirp3-HD-Charon`). Each page has a tutor picker that starts a fresh conversation with that tutor. Personas live in `server/services/biology-persona.ts` and `server/services/history-persona.ts`. The WS handler detects biology/history via `isBiologySession()` / `isHistorySession()` and routes to the correct voice + system prompt. Neural network context is skipped for subject sessions; Compass (session time awareness) applies to all sessions including subjects.
 
+**READING MODULE PIPELINE:** Reading modules are pre-generated, permanently cached textbook documents for each curriculum topic. Generated once via a four-stage pipeline: (1) OpenStax CC-licensed seed content fetched via their public API (`openstax-content-service.ts`), (2) Claude (Anthropic) generates the structured module JSON (overview, keyConcepts, keyTerms, misconceptions, framingQuestions, recallCheck) from the seed, (3) Perplexity online LLM adds sourced academic citations (`perplexity-citation-service.ts`, `llama-3.1-sonar-large-128k-online`, prefers `.edu`/`.gov`/`ncbi.nlm.nih.gov`), (4) Wolfram LLM API verifies quantitative scientific claims (`wolfram-fact-service.ts`, biology-primary). Stored permanently in `reading_modules` table (subject_domain, topic unique index). API: `GET /api/reading-modules/:subject/:topic` (returns cached or generates), `POST /api/reading-modules/:subject/:topic/regenerate` (admin only). Orchestrator: `reading-module-generator.ts`.
+
 ## External Dependencies
 - Stripe: Payment processing and subscription management.
 - Replit Auth: OIDC authentication.
@@ -50,3 +52,6 @@ The Voice Context Pipeline (`voice-context-pipeline.ts`) centralizes shared cont
 - Azure Speech Services: Pronunciation assessment for drill assignment.
 - Unsplash: Stock educational images.
 - Gemini Flash-Image: AI-generated contextual images.
+- Perplexity API: Academic citation enrichment for reading modules (`PERPLEXITY_API_KEY`). Model: `llama-3.1-sonar-large-128k-online`.
+- Wolfram Alpha LLM API: Scientific fact verification for reading modules (`WOLFRAM_APP_ID`). Endpoint: `/api/v1/llm-api`. Biology-primary (chromosome counts, atomic masses, physical constants).
+- OpenStax: CC BY 4.0 licensed textbook content as seed material for reading module generation. Books: `biology-2e`, `us-history`, `world-history-volume-1`, `world-history-volume-2`. No API key required — public access.
