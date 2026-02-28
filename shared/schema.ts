@@ -8136,6 +8136,7 @@ export interface SyllabusChapter {
   chapterNumber: number;
   chapterTitle: string;
   topic: string;
+  alternativeTopic?: string;
 }
 
 export interface SyllabusUnit {

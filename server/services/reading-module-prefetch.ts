@@ -48,25 +48,35 @@ export async function prefetchAllSyllabusModules(): Promise<void> {
         .where(eq(readingModules.subjectDomain, subject));
       const existingTopics = new Set(existing.map(r => r.topic.toLowerCase()));
 
-      const missing = chapters.filter(
-        ch => !existingTopics.has(ch.topic.toLowerCase())
+      // Collect all topics to prefetch: standard + any alternativeTopics
+      type ChapterWithAlt = SyllabusChapter & { alternativeTopic?: string };
+      const allTopics: Array<{ topic: string; label: string }> = [];
+      for (const ch of chapters as ChapterWithAlt[]) {
+        allTopics.push({ topic: ch.topic, label: ch.topic });
+        if (ch.alternativeTopic) {
+          allTopics.push({ topic: ch.alternativeTopic, label: `${ch.alternativeTopic} [alt]` });
+        }
+      }
+
+      const missing = allTopics.filter(
+        t => !existingTopics.has(t.topic.toLowerCase())
       );
 
       if (missing.length === 0) {
-        console.info(`[Prefetch] ${subject}: all ${chapters.length} chapters already cached`);
+        console.info(`[Prefetch] ${subject}: all ${allTopics.length} topics already cached`);
         continue;
       }
 
-      console.info(`[Prefetch] ${subject}: ${existing.length} cached, ${missing.length} to generate`);
+      console.info(`[Prefetch] ${subject}: ${existingTopics.size} cached, ${missing.length} to generate`);
 
-      for (const chapter of missing) {
+      for (const item of missing) {
         try {
-          await getOrGenerateModule(chapter.topic, subject);
-          console.info(`[Prefetch] Generated: "${chapter.topic}" (${subject})`);
+          await getOrGenerateModule(item.topic, subject);
+          console.info(`[Prefetch] Generated: "${item.label}" (${subject})`);
           // Pause between generations to avoid rate limiting external APIs
           await new Promise(r => setTimeout(r, 800));
         } catch (err: any) {
-          console.warn(`[Prefetch] Failed for "${chapter.topic}" (${subject}): ${err.message}`);
+          console.warn(`[Prefetch] Failed for "${item.label}" (${subject}): ${err.message}`);
           // Continue with next chapter even if one fails
           await new Promise(r => setTimeout(r, 2000));
         }

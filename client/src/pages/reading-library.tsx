@@ -25,6 +25,7 @@ interface SyllabusChapter {
   chapterNumber: number;
   chapterTitle: string;
   topic: string;
+  alternativeTopic?: string;
 }
 
 interface SyllabusUnit {
@@ -226,8 +227,54 @@ export default function ReadingLibrary() {
               {isExpanded && (
                 <div className={`${cfg.unitBg} border-t ${cfg.unitBorder}`}>
                   {unit.chapters.map(chapter => {
-                    const isViewed = viewedTopics.has(chapter.topic.toLowerCase());
-                    const isSelected = selectedTopic === chapter.topic;
+                    const isViewedStandard = viewedTopics.has(chapter.topic.toLowerCase());
+                    const isViewedAlt = chapter.alternativeTopic
+                      ? viewedTopics.has(chapter.alternativeTopic.toLowerCase())
+                      : false;
+                    const isViewed = isViewedStandard || isViewedAlt;
+                    const isSelected =
+                      selectedTopic === chapter.topic ||
+                      selectedTopic === chapter.alternativeTopic;
+
+                    if (chapter.alternativeTopic) {
+                      return (
+                        <div
+                          key={chapter.chapterNumber}
+                          className={`w-full flex items-start gap-3 px-5 py-2.5 border-b last:border-b-0 ${isSelected ? "bg-muted" : ""}`}
+                          data-testid={`chapter-row-${chapter.chapterNumber}`}
+                        >
+                          <span className="text-xs text-muted-foreground shrink-0 w-8 pt-1">
+                            {chapter.chapterNumber}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm ${isViewed ? "text-foreground" : "text-muted-foreground"}`}>
+                              {chapter.chapterTitle}
+                            </p>
+                            <div className="flex flex-wrap gap-1.5 mt-1.5">
+                              <Button
+                                size="sm"
+                                variant={selectedTopic === chapter.topic ? "default" : "outline"}
+                                onClick={() => setSelectedTopic(chapter.topic)}
+                                data-testid={`button-chapter-${chapter.chapterNumber}-science`}
+                              >
+                                {isViewedStandard && <CheckCircle2 className="w-3 h-3 mr-1" />}
+                                Scientific Theory
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant={selectedTopic === chapter.alternativeTopic ? "default" : "outline"}
+                                onClick={() => setSelectedTopic(chapter.alternativeTopic!)}
+                                data-testid={`button-chapter-${chapter.chapterNumber}-creation`}
+                              >
+                                {isViewedAlt && <CheckCircle2 className="w-3 h-3 mr-1" />}
+                                Creationist View
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+
                     return (
                       <button
                         key={chapter.chapterNumber}

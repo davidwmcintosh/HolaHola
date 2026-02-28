@@ -7,7 +7,7 @@ const biologyCurriculum: SyllabusUnit[] = [
     unitNumber: 1,
     unitTitle: "The Chemistry of Life",
     chapters: [
-      { chapterNumber: 1, chapterTitle: "The Study of Life", topic: "The Study of Life" },
+      { chapterNumber: 1, chapterTitle: "The Study of Life", topic: "The Study of Life", alternativeTopic: "The Study of Life: A Biblical Creationist Perspective" },
       { chapterNumber: 2, chapterTitle: "The Chemical Foundation of Life", topic: "The Chemical Foundation of Life" },
       { chapterNumber: 3, chapterTitle: "Biological Macromolecules", topic: "Biological Macromolecules" },
       { chapterNumber: 4, chapterTitle: "Cell Structure", topic: "Cell Structure" },
@@ -40,11 +40,11 @@ const biologyCurriculum: SyllabusUnit[] = [
   },
   {
     unitNumber: 4,
-    unitTitle: "Evolutionary Processes",
+    unitTitle: "Origins and Diversity of Life",
     chapters: [
-      { chapterNumber: 18, chapterTitle: "Evolution and the Origin of Species", topic: "Evolution and Natural Selection" },
-      { chapterNumber: 19, chapterTitle: "The Evolution of Populations", topic: "Population Genetics" },
-      { chapterNumber: 20, chapterTitle: "Phylogenies and the History of Life", topic: "Phylogenetics and Classification" },
+      { chapterNumber: 18, chapterTitle: "Evolution and the Origin of Species", topic: "Evolution and Natural Selection", alternativeTopic: "Intelligent Design and the Biblical Account of Species Origins" },
+      { chapterNumber: 19, chapterTitle: "The Evolution of Populations", topic: "Population Genetics and Microevolution", alternativeTopic: "Variation and Adaptation Within Created Kinds" },
+      { chapterNumber: 20, chapterTitle: "Phylogenies and the History of Life", topic: "Phylogenetics and Classification", alternativeTopic: "Baraminology: Classifying Life by Created Kinds" },
       { chapterNumber: 21, chapterTitle: "Viruses", topic: "Viruses and Viral Replication" },
       { chapterNumber: 22, chapterTitle: "Prokaryotes: Bacteria and Archaea", topic: "Bacteria and Archaea" },
     ],
@@ -246,8 +246,21 @@ async function seedSyllabi() {
       .from(subjectSyllabi)
       .where(eq(subjectSyllabi.subject, course.subject));
 
+    const totalChapters = course.units.reduce((acc, u) => acc + u.chapters.length, 0);
+
     if (existing.length > 0) {
-      console.log(`✓ ${course.subject} syllabus already exists (id: ${existing[0].id}) — skipping`);
+      const { eq: eqInner } = await import('drizzle-orm');
+      await db.update(subjectSyllabi)
+        .set({
+          units: course.units,
+          bookTitle: course.bookTitle,
+          bookSubtitle: course.bookSubtitle,
+          description: course.description,
+          targetAudience: course.targetAudience,
+          scope: course.scope,
+        })
+        .where(eqInner(subjectSyllabi.subject, course.subject));
+      console.log(`✓ Updated ${course.subject} syllabus (id: ${existing[0].id}): ${course.units.length} units, ${totalChapters} chapters`);
       continue;
     }
 
@@ -262,7 +275,6 @@ async function seedSyllabi() {
       scope: course.scope,
     });
 
-    const totalChapters = course.units.reduce((acc, u) => acc + u.chapters.length, 0);
     console.log(`✓ Seeded ${course.subject} (${course.bookTitle}): ${course.units.length} units, ${totalChapters} chapters`);
   }
 
