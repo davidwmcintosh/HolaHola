@@ -210,6 +210,7 @@ export default function ReadingLibrary() {
         {selectedTopic ? (
           <div className={`flex-1 overflow-hidden ${isMobile ? "" : ""}`}>
             <ReadingModulePanel
+              key={`${activeSubject}::${selectedTopic}`}
               subject={activeSubject}
               onClose={() => setSelectedTopic(null)}
               initialTopic={selectedTopic}
