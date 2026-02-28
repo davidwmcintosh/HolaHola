@@ -67,6 +67,12 @@ export function VocabularyFlashcard({ timeFilter = 'all' }: VocabularyFlashcardP
     setIsFlipped(false);
   }, [timeFilter]);
 
+  // Filter cards based on due status
+  const vocabularyWords = useMemo(() => {
+    if (!showDueOnly) return allWords;
+    return allWords.filter(word => isDue(word.nextReviewDate));
+  }, [allWords, showDueOnly]);
+
   // Clamp index if the card list shrinks (e.g. after data refresh or due-only filter changes)
   useEffect(() => {
     if (vocabularyWords.length > 0 && currentIndex >= vocabularyWords.length) {
@@ -74,12 +80,6 @@ export function VocabularyFlashcard({ timeFilter = 'all' }: VocabularyFlashcardP
       setIsFlipped(false);
     }
   }, [vocabularyWords.length]);
-
-  // Filter cards based on due status
-  const vocabularyWords = useMemo(() => {
-    if (!showDueOnly) return allWords;
-    return allWords.filter(word => isDue(word.nextReviewDate));
-  }, [allWords, showDueOnly]);
 
   // Calculate statistics
   const stats = useMemo(() => {
