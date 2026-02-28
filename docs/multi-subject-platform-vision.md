@@ -276,7 +276,7 @@ The result is a set of verifiable citations attached to the module — citations
 **Stage 4 — Wolfram LLM fact verification**
 For biology modules, the generator selects the top 2–3 quantitative claims (atomic masses, chromosome counts, enzyme ratios, population figures) and runs them through Wolfram Alpha's LLM API (`/api/v1/llm-api`). Wolfram returns a concise, computation-verified answer optimized for LLM consumption. If the Claude-generated value matches, the claim is marked verified. If not, the Wolfram answer replaces it.
 
-Wolfram is biased toward Gene's domain (biology, chemistry, physics) but is available to all subjects — Clio can use it to verify population figures or treaty dates. The Wolfram App ID (`WOLFRAM_APP_ID`) is being added this session.
+Wolfram is biased toward Gene's domain (biology, chemistry, physics) but is available to all subjects — Clio can use it to verify population figures or treaty dates. Both API keys are now active: `PERPLEXITY_API_KEY` and `WOLFRAM_APP_ID`.
 
 #### Why Not Just Use One API?
 

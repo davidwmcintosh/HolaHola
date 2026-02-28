@@ -36,36 +36,50 @@ const SUBJECT_CONTEXT: Record<SubjectDomain, string> = {
 };
 
 async function searchWikipedia(query: string, subject: SubjectDomain): Promise<string | null> {
-  const searchQuery = `${query} ${SUBJECT_CONTEXT[subject]}`;
+  // Try the exact topic first — this gets the right article most of the time
+  // (e.g. "cell division" → "Cell division", not "Aster (cell biology)")
+  const attempts = [query, `${query} ${SUBJECT_CONTEXT[subject]}`];
 
-  try {
-    const searchParams = new URLSearchParams({
-      action: 'query',
-      list: 'search',
-      srsearch: searchQuery,
-      srlimit: '3',
-      format: 'json',
-      origin: '*',
-    });
+  for (const searchQuery of attempts) {
+    try {
+      const searchParams = new URLSearchParams({
+        action: 'query',
+        list: 'search',
+        srsearch: searchQuery,
+        srlimit: '5',
+        format: 'json',
+        origin: '*',
+      });
 
-    const searchResponse = await fetch(`${WIKIPEDIA_SEARCH_API}?${searchParams}`, {
-      headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(8000),
-    });
+      const searchResponse = await fetch(`${WIKIPEDIA_SEARCH_API}?${searchParams}`, {
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(8000),
+      });
 
-    if (!searchResponse.ok) return null;
+      if (!searchResponse.ok) continue;
 
-    const searchData = await searchResponse.json() as {
-      query: { search: Array<{ title: string; snippet: string }> }
-    };
+      const searchData = await searchResponse.json() as {
+        query: { search: Array<{ title: string; snippet: string }> }
+      };
 
-    const results = searchData?.query?.search ?? [];
-    if (results.length === 0) return null;
+      const results = searchData?.query?.search ?? [];
+      if (results.length === 0) continue;
 
-    return results[0].title;
-  } catch {
-    return null;
+      // Prefer an exact title match (case-insensitive) if one exists in top results
+      const exactMatch = results.find(
+        r => r.title.toLowerCase() === query.toLowerCase()
+      );
+      if (exactMatch) return exactMatch.title;
+
+      // Otherwise return best result from first attempt only
+      if (searchQuery === query) return results[0].title;
+
+    } catch {
+      continue;
+    }
   }
+
+  return null;
 }
 
 async function fetchWikipediaExtract(title: string): Promise<string> {
