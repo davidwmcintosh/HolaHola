@@ -154,7 +154,140 @@ All four new tutors use Google Chirp 3 HD (same as Daniela). Cartesia is on hold
 
 ---
 
+## Reading Modules — The Textbook Layer
+
+*Captured February 28, 2026*
+
+### The Problem Being Solved
+
+Three distinct problems converge on the same solution:
+
+1. **Class notes:** In a normal classroom a student takes notes during the lecture to review later. Conversation is ephemeral — once the session ends, there is no textbook to return to. Students need a static, reviewable reference for each topic.
+2. **UX speed:** Sofia's current pattern of producing long text responses that can be read faster than she can speak is a real friction point. A student reading at 4x conversation speed while the tutor is still on sentence one is a broken experience.
+3. **Testing anchor:** For language, the conversation is the test. For biology and history, recall and application of specific facts and concepts must be measurable. A test needs something to test against — a defined body of content per topic.
+
+All three problems are solved by the same artifact: **a pre-authored, topic-scoped reading module** — the platform's equivalent of a textbook chapter.
+
+### What a Reading Module Is
+
+A reading module is a concise, structured document attached to each topic/unit in the curriculum. It is:
+
+- **Pre-generated**, not produced during conversation. It exists before the student sits down to learn, so it is available instantly.
+- **Static and reviewable** — the student can return to it at any time, read it at their own pace, and use it as reference material between sessions.
+- **The anchor for assessment** — quizzes and recall drills are drawn from the module's content, so testing is always against a defined set of concepts.
+
+### Structure of a Reading Module
+
+Each module covers one topic/lesson and contains:
+
+| Section | Purpose |
+|---------|---------|
+| **Overview** (2–3 sentences) | What this topic is and why it matters |
+| **Key Concepts** (3–7 bullet points) | The core ideas the student must understand |
+| **Key Terms / Vocabulary** | Definitions in plain language, 5–10 terms |
+| **Common Misconceptions** | 1–3 things students often get wrong |
+| **Framing Questions** | 2–3 open questions to discuss with the tutor |
+| **Quick Recall Check** | 3–5 factual questions with answers (self-test) |
+
+### Generation Strategy
+
+Modules are AI-generated from curriculum content and stored permanently in the database — they are not regenerated on each access. First access triggers generation; subsequent access reads from storage. This means:
+
+- Zero latency for the student after first generation
+- Consistent content across all students studying the same topic
+- Editable by a human curriculum author if needed
+
+### Flipped Classroom Model
+
+The natural workflow this enables:
+
+1. Student reads the module before the session (or the tutor opens with it)
+2. Session conversation is anchored to the module content — Gene/Clio can say "you read about X — tell me what you understood"
+3. Post-session, any gaps from the session are noted as a personalized addendum to the module (what *this student* still needs to review)
+4. Assessment draws from module content — no ambiguity about what was covered
+
+### Reading Modules vs. Post-Session Notes
+
+These are two distinct artifacts that complement each other:
+
+- **Reading module:** Pre-authored, topic-scoped, identical for all students, serves as the reference and test anchor
+- **Post-session note:** Personalized, session-scoped, captures what *this specific student* got right, got wrong, and what to revisit next time
+
+The reading module is the textbook. The post-session note is the teacher's feedback on the student's homework.
+
+### UX Implication
+
+Because the reading module is a separate page/panel — not spoken — the speed mismatch problem disappears. The tutor references it conversationally but does not read it aloud. Long structured content lives in the reading pane; conversation stays conversational.
+
+---
+
+## Memory Isolation — The HIV Architecture Across Subjects
+
+*Captured February 28, 2026*
+
+### The Risk
+
+The current memory system isolates by **user**, not by **tutor or subject domain**. This means:
+
+- Gene (biology) could surface Daniela's language-learning patterns when searching a student's history
+- Daniela could pull in biology session notes when composing her system prompt
+- The shared pedagogical neural network (language idioms, cultural nuances) has no subject boundary — Gene theoretically has access to Daniela's language-specific knowledge layer
+
+A student should never hear Gene casually throw in a congratulatory Spanish phrase. Daniela should never start referencing photosynthesis as prior context.
+
+### Two Categories of Memory
+
+The fix is to classify every memory type by scope:
+
+#### Universal Memory (shared across all tutors)
+Personal life facts about the student that any tutor would legitimately know and benefit from:
+- Name, age, family members, pets
+- School/grade level, learning goals
+- Emotional context (stressed about exams, recovering from illness)
+- General learning style and preferences
+
+These are stored in `learner_personal_facts` and are subject-agnostic. Gene knowing the student's name and that they're in 9th grade is not only acceptable — it makes the experience feel cohesive. This data is **not filtered** by subject domain.
+
+#### Subject-Scoped Memory (filtered by subject domain at query time)
+Pedagogical data that is only meaningful within a subject context:
+- Session history and conversation logs → tagged with `subject_domain`
+- Learning milestones and breakthrough moments → tagged with `subject_domain`
+- Vocabulary/concept gaps and error patterns → tagged with `subject_domain`
+- Hive snapshots (behavioral patterns within a subject) → tagged with `subject_domain`
+- Journey narrative → one per subject per student (not one global narrative)
+
+### The Shared Neural Network Problem
+
+The global `language_idioms` and `cultural_nuances` tables are currently Daniela's domain knowledge, but they are not labeled as such. As the platform adds subjects, the shared neural network must be partitioned:
+
+- `language_idioms` → subject_domain = 'language'
+- Biology concept patterns → subject_domain = 'biology'
+- History source analysis patterns → subject_domain = 'history'
+
+Each tutor's pedagogical knowledge layer is subject-scoped and only accessible to tutors operating within that domain.
+
+### Engineering Change Required
+
+The memory search service (`neural-memory-search.ts`) needs one additional filter parameter: `subjectDomain`. Behavior:
+
+- Personal facts queries: `subjectDomain` filter is **skipped** (universal)
+- Pedagogical memory queries: `subjectDomain` filter is **applied** (scoped)
+- Journey narrative: loaded by `(userId, subjectDomain)` pair, not just `userId`
+- Hive snapshots: tagged with `subjectDomain` on write, filtered on read
+
+This is a relatively contained schema and query change — `subject_domain` columns added to the relevant tables, filter added to query builders, writes updated to include the subject context from the active tutor config.
+
+### Result
+
+A student using both Gene and Daniela gets:
+- One cohesive identity across the platform (universal facts follow them everywhere)
+- Two completely separate academic experiences (biology memory never bleeds into language, and vice versa)
+- A journey narrative per subject, so each tutor knows exactly where the student is in *that* subject
+
+---
+
 ## Open Questions
 
 1. What should the platform be called? (The school needs a name)
 2. Which tutor goes first in the POC — Gene, Evelyn, Clio, or Marcus?
+3. Should reading modules be accessible from a dedicated library/reference page, or only surfaced contextually during sessions?
