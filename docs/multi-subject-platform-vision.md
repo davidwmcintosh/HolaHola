@@ -303,5 +303,5 @@ A student using both Gene and Daniela gets:
 ## Open Questions
 
 1. What should the platform be called? (The school needs a name)
-2. Which tutor goes first in the POC — Gene, Evelyn, Clio, or Marcus?
+2. ~~Which tutor goes first in the POC — Gene, Evelyn, Clio, or Marcus?~~ **Resolved:** All four tutors (Gene, Evelyn, Clio, Marcus) have been built as part of the initial implementation.
 3. ~~Should reading modules be accessible from a dedicated library/reference page, or only surfaced contextually during sessions?~~ **Resolved:** Both. A reading library for independent review, and live reading mode with the tutor present for first-time reads and real-time questions.
