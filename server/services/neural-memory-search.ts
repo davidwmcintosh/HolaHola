@@ -84,6 +84,10 @@ const TUTOR_NAME_TO_LANGUAGE: Record<string, string> = {
   'cindy': 'english',
   'yael': 'hebrew',
   'noam': 'hebrew',
+  'evelyn': 'biology',
+  'gene': 'biology',
+  'clio': 'history',
+  'marcus': 'history',
 };
 
 /**
