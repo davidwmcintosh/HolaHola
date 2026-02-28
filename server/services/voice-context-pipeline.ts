@@ -127,7 +127,8 @@ export async function fetchPassiveMemories(
     const memoryResults = await searchMemory(
       userId,
       searchQuery,
-      ['person', 'motivation', 'insight', 'conversation']
+      ['person', 'motivation', 'insight', 'conversation'],
+      targetLanguage || undefined
     );
     
     if (memoryResults.results.length > 0) {

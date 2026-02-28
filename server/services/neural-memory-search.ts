@@ -57,7 +57,7 @@ import {
   type ToolKnowledge,
   type DanielaNote,
 } from '@shared/schema';
-import { eq, sql, desc, and, or, ilike, gte } from 'drizzle-orm';
+import { eq, sql, desc, and, or, ilike, gte, isNull } from 'drizzle-orm';
 
 /**
  * Tutor name to language mapping
@@ -205,7 +205,8 @@ export async function semanticSearchMessages(
 export async function searchMemory(
   studentId: string,
   query: string,
-  domains?: ('person' | 'motivation' | 'insight' | 'struggle' | 'session' | 'progress' | 'conversation')[]
+  domains?: ('person' | 'motivation' | 'insight' | 'struggle' | 'session' | 'progress' | 'conversation')[],
+  subjectFilter?: string
 ): Promise<MemorySearchResponse> {
   const results: MemorySearchResult[] = [];
   const searchedDomains: string[] = [];
@@ -279,6 +280,9 @@ export async function searchMemory(
           .where(and(
             eq(studentInsights.studentId, studentId),
             eq(studentInsights.isActive, true),
+            subjectFilter
+              ? or(isNull(studentInsights.language), eq(studentInsights.language, subjectFilter))
+              : undefined,
             or(
               ilike(studentInsights.insight, searchPattern),
               ilike(studentInsights.insightType, searchPattern),
@@ -346,6 +350,7 @@ export async function searchMemory(
         const struggles = await getUserDb().select().from(recurringStruggles)
           .where(and(
             eq(recurringStruggles.studentId, studentId),
+            subjectFilter ? eq(recurringStruggles.language, subjectFilter) : undefined,
             or(
               ilike(recurringStruggles.struggleArea, searchPattern),
               ilike(recurringStruggles.description, searchPattern),
@@ -379,6 +384,9 @@ export async function searchMemory(
         const notes = await getUserDb().select().from(sessionNotes)
           .where(and(
             eq(sessionNotes.studentId, studentId),
+            subjectFilter
+              ? sql`${sessionNotes.conversationId} IN (SELECT id FROM conversations WHERE language = ${subjectFilter})`
+              : undefined,
             or(
               ilike(sessionNotes.wins, searchPattern),
               ilike(sessionNotes.challenges, searchPattern),

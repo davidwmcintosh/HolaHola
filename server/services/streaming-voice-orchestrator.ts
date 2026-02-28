@@ -2740,7 +2740,8 @@ TEACHING GUIDANCE:
                 const memoryResults = await searchMemory(
                   String(session.userId),
                   searchQuery,
-                  ['person', 'motivation', 'insight', 'conversation']
+                  ['person', 'motivation', 'insight', 'conversation'],
+                  session.targetLanguage || undefined
                 );
                 
                 if (memoryResults.results.length > 0) {
@@ -3735,7 +3736,7 @@ Remember: David may reference things discussed in these recent text chats.
                       // Search student memory if applicable
                       if (searchStudentMemory && studentId) {
                         const studentDomainFilter = requestedStudentDomains.length > 0 ? requestedStudentDomains : undefined;
-                        const memoryResults = await searchMemory(studentId, query, studentDomainFilter);
+                        const memoryResults = await searchMemory(studentId, query, studentDomainFilter, session.targetLanguage || undefined);
                         if (memoryResults.results.length > 0) {
                           results.push(formatMemoryForConversation(memoryResults));
                           totalFound += memoryResults.results.length;
@@ -5816,7 +5817,8 @@ Remember: David may reference things discussed in these recent text chats.
                 const memoryResults = await searchMemory(
                   String(session.userId),
                   searchQuery,
-                  ['person', 'motivation', 'insight', 'conversation']
+                  ['person', 'motivation', 'insight', 'conversation'],
+                  session.targetLanguage || undefined
                 );
                 
                 if (memoryResults.results.length > 0) {
@@ -6545,7 +6547,7 @@ Remember: David may reference things discussed in these recent text chats.
                     
                     if (searchStudentMemory && studentId) {
                       const studentDomainFilter = requestedStudentDomains.length > 0 ? requestedStudentDomains : undefined;
-                      const memoryResults = await searchMemory(studentId, query, studentDomainFilter);
+                      const memoryResults = await searchMemory(studentId, query, studentDomainFilter, session.targetLanguage || undefined);
                       if (memoryResults.results.length > 0) {
                         results.push(formatMemoryForConversation(memoryResults));
                         totalFound += memoryResults.results.length;
@@ -15385,7 +15387,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       // Search student memory
       if (searchStudentMemory && studentId) {
         const studentDomainFilter = requestedStudentDomains.length > 0 ? requestedStudentDomains : undefined;
-        const memoryResults = await searchMemory(studentId, query, studentDomainFilter);
+        const memoryResults = await searchMemory(studentId, query, studentDomainFilter, session.targetLanguage || undefined);
         if (memoryResults.results.length > 0) {
           results.push(formatMemoryForConversation(memoryResults));
           totalFound += memoryResults.results.length;
