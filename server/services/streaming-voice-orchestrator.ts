@@ -4406,6 +4406,16 @@ Remember: David may reference things discussed in these recent text chats.
       // GOOGLE BATCH TTS: After Gemini finishes generating ALL sentences,
       // combine them into one paragraph and send as a single TTS call.
       // This gives Chirp 3 HD the full context for natural cross-sentence prosody.
+      if (isGoogleBatchMode && batchedSentences.length > 0) {
+        // Early TTS spoke function call audio; batch has main-response sentences — different content.
+        // If early TTS is done (completed flag set), flags are stale. Clear them so the batch can
+        // still speak Daniela's main response that was deferred before the function call.
+        if ((session as any).earlyTtsCompleted && !session.isInterrupted) {
+          console.log(`[Google Batch TTS] Early TTS done — clearing stale flags, running batch for ${batchedSentences.length} deferred sentence(s)`);
+          (session as any).earlyTtsActive = undefined;
+          (session as any).earlyTtsCompleted = undefined;
+        }
+      }
       if (isGoogleBatchMode && batchedSentences.length > 0 && !session.isInterrupted && !(session as any).earlyTtsActive && !(session as any).earlyTtsCompleted) {
         const combinedDisplayText = batchedSentences.map(s => s.displayText).join(' ');
         console.log(`[Google Batch TTS] Combining ${batchedSentences.length} sentences (${combinedDisplayText.length} chars) for single TTS call`);
@@ -6877,6 +6887,14 @@ Remember: David may reference things discussed in these recent text chats.
       
       if (isGoogleBatchModeOM && batchedSentencesOM.length > 0) {
         console.log(`[Google Batch TTS - OpenMic] Post-stream check: ${batchedSentencesOM.length} batched, earlyTtsActive=${(session as any).earlyTtsActive}, earlyTtsCompleted=${(session as any).earlyTtsCompleted}, interrupted=${session.isInterrupted}`);
+        // Early TTS spoke function call audio; batch has main-response sentences — different content.
+        // If early TTS is done (completed flag set), the in-flight flags are stale. Clear them so
+        // the batch can still speak Daniela's main response that was deferred before the function call.
+        if ((session as any).earlyTtsCompleted && !session.isInterrupted) {
+          console.log(`[Google Batch TTS - OpenMic] Early TTS done — clearing stale flags, running batch for ${batchedSentencesOM.length} deferred sentence(s)`);
+          (session as any).earlyTtsActive = undefined;
+          (session as any).earlyTtsCompleted = undefined;
+        }
       }
       if (isGoogleBatchModeOM && batchedSentencesOM.length > 0 && !session.isInterrupted && !(session as any).earlyTtsActive && !(session as any).earlyTtsCompleted) {
         const combinedDisplayText = batchedSentencesOM.map(s => s.displayText).join(' ');
