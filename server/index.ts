@@ -565,6 +565,12 @@ app.use((req, res, next) => {
       startSecurityAuditWorker();
     }, 25000);
 
+    // +30s: Reading Module Pre-generation (shared cache for all students)
+    setTimeout(async () => {
+      const { startBackgroundPrefetch } = await import('./services/reading-module-prefetch');
+      startBackgroundPrefetch();
+    }, 30000);
+
     // +35s: Lyra Learning Experience Analyst Worker
     setTimeout(async () => {
       const { startLyraAnalyticsWorker } = await import('./services/lyra-analytics-worker');

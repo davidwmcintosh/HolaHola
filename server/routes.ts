@@ -27572,7 +27572,7 @@ You have full access to your neural network knowledge.
   // Reading Module Views — record when a student opens a module
   app.post("/api/reading-modules/:id/view", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = getRequestUserId(req);
       if (!userId) return res.status(401).json({ error: 'Unauthorized' });
       const { id: moduleId } = req.params;
       const { getSharedDb } = await import('./db');
@@ -27605,7 +27605,7 @@ You have full access to your neural network knowledge.
   // Progress Report — all viewed modules + recall check content for quiz
   app.get("/api/progress-report", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = getRequestUserId(req);
       if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
       const { getSharedDb } = await import('./db');
