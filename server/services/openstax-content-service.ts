@@ -1,9 +1,9 @@
 /**
  * Seed Content Service
  *
- * Fetches CC-licensed encyclopedic content to use as grounding material
- * for reading module generation. Wikipedia's REST API provides clean,
- * structured plain text for any topic (CC BY-SA 4.0).
+ * Fetches CC-licensed encyclopedic content and images to use as grounding
+ * material for reading module generation. Wikipedia's REST API provides clean,
+ * structured plain text and freely licensed images for any topic (CC BY-SA 4.0).
  *
  * OpenStax is the editorial standard for our curriculum alignment
  * (NGSS for biology, C3 for history), but Wikipedia's API is used as
@@ -11,14 +11,24 @@
  * without HTML parsing, covers every topic, and requires no key.
  *
  * Topic → Wikipedia article matching uses Wikimedia's search API,
- * then fetches the full page extract as plain text.
+ * then fetches the full page extract as plain text plus gallery images.
  */
 
 type SubjectDomain = 'biology' | 'history';
 
+export interface WikipediaImage {
+  url: string;
+  caption?: string;
+  altText?: string;
+  width?: number;
+  height?: number;
+}
+
 const WIKIPEDIA_SEARCH_API = 'https://en.wikipedia.org/w/api.php';
+const WIKIPEDIA_REST_API = 'https://en.wikipedia.org/api/rest_v1';
 
 const contentCache = new Map<string, string>();
+const imageCache = new Map<string, WikipediaImage[]>();
 
 const SUBJECT_CONTEXT: Record<SubjectDomain, string> = {
   biology: 'biology',
@@ -96,6 +106,131 @@ async function fetchWikipediaExtract(title: string): Promise<string> {
   }
 }
 
+function isUsableImage(item: {
+  type?: string;
+  title?: string;
+  showInGallery?: boolean;
+  srcset?: Array<{ src: string; scale: string }>;
+  original?: { source: string; width?: number; height?: number };
+  width?: number;
+  height?: number;
+}): boolean {
+  if (item.type !== 'image') return false;
+  const title = item.title ?? '';
+  const src = item.srcset?.[0]?.src ?? item.original?.source ?? '';
+  if (/\.svg$/i.test(title) || /\.svg/i.test(src)) return false;
+  if (/icon|flag|logo|symbol|map|blank|locator|wikimedia|commons-logo/i.test(title)) return false;
+  const w = item.original?.width ?? item.width ?? 0;
+  const h = item.original?.height ?? item.height ?? 0;
+  if (w > 0 && w < 150) return false;
+  if (h > 0 && h < 100) return false;
+  return true;
+}
+
+export async function fetchWikipediaImages(title: string): Promise<WikipediaImage[]> {
+  const cacheKey = title.toLowerCase();
+  if (imageCache.has(cacheKey)) {
+    return imageCache.get(cacheKey)!;
+  }
+
+  const images: WikipediaImage[] = [];
+
+  try {
+    const encodedTitle = encodeURIComponent(title.replace(/ /g, '_'));
+
+    const summaryResponse = await fetch(
+      `${WIKIPEDIA_REST_API}/page/summary/${encodedTitle}`,
+      {
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(6000),
+      }
+    );
+
+    if (summaryResponse.ok) {
+      const summary = await summaryResponse.json() as {
+        thumbnail?: { source: string; width?: number; height?: number };
+        originalimage?: { source: string; width?: number; height?: number };
+        description?: string;
+        title?: string;
+      };
+
+      const imgSrc = summary.originalimage?.source ?? summary.thumbnail?.source;
+      if (imgSrc && !/\.svg/i.test(imgSrc)) {
+        const w = summary.originalimage?.width ?? summary.thumbnail?.width;
+        const h = summary.originalimage?.height ?? summary.thumbnail?.height;
+        if (!w || w >= 150) {
+          images.push({
+            url: imgSrc.startsWith('//') ? `https:${imgSrc}` : imgSrc,
+            caption: summary.description ?? summary.title,
+            altText: summary.title,
+            width: w,
+            height: h,
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.info('[SeedContent] Summary image fetch failed:', err);
+  }
+
+  try {
+    const encodedTitle = encodeURIComponent(title.replace(/ /g, '_'));
+    const mediaResponse = await fetch(
+      `${WIKIPEDIA_REST_API}/page/media-list/${encodedTitle}`,
+      {
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(8000),
+      }
+    );
+
+    if (mediaResponse.ok) {
+      const mediaData = await mediaResponse.json() as {
+        items?: Array<{
+          type?: string;
+          title?: string;
+          showInGallery?: boolean;
+          srcset?: Array<{ src: string; scale: string }>;
+          original?: { source: string; width?: number; height?: number };
+          caption?: { text?: string };
+          alt?: string;
+          width?: number;
+          height?: number;
+        }>;
+      };
+
+      const galleryItems = (mediaData.items ?? [])
+        .filter(isUsableImage)
+        .filter(item => item.showInGallery !== false)
+        .slice(0, 6);
+
+      for (const item of galleryItems) {
+        const src = item.original?.source ?? item.srcset?.[0]?.src;
+        if (!src) continue;
+
+        const url = src.startsWith('//') ? `https:${src}` : src;
+        const alreadyHave = images.some(img => img.url === url);
+        if (alreadyHave) continue;
+
+        images.push({
+          url,
+          caption: item.caption?.text,
+          altText: item.alt ?? item.title,
+          width: item.original?.width ?? item.width,
+          height: item.original?.height ?? item.height,
+        });
+
+        if (images.length >= 3) break;
+      }
+    }
+  } catch (err) {
+    console.info('[SeedContent] Media-list fetch failed:', err);
+  }
+
+  imageCache.set(cacheKey, images);
+  console.info(`[SeedContent] Fetched ${images.length} images for "${title}"`);
+  return images;
+}
+
 export async function fetchSeedContent(
   topic: string,
   subject: SubjectDomain
@@ -120,4 +255,31 @@ export async function fetchSeedContent(
   }
 
   return content;
+}
+
+export async function fetchSeedAndImages(
+  topic: string,
+  subject: SubjectDomain
+): Promise<{ text: string; images: WikipediaImage[]; articleTitle: string | null }> {
+  const articleTitle = await searchWikipedia(topic, subject);
+
+  if (!articleTitle) {
+    console.info(`[SeedContent] No Wikipedia article found for: "${topic}" (${subject})`);
+    return { text: '', images: [], articleTitle: null };
+  }
+
+  console.info(`[SeedContent] Wikipedia article: "${articleTitle}" for topic: "${topic}"`);
+
+  const [text, images] = await Promise.all([
+    fetchWikipediaExtract(articleTitle),
+    fetchWikipediaImages(articleTitle),
+  ]);
+
+  if (text) {
+    const cacheKey = `${subject}:${topic.toLowerCase()}`;
+    contentCache.set(cacheKey, text);
+    console.info(`[SeedContent] Fetched ${text.length} chars + ${images.length} images for "${topic}"`);
+  }
+
+  return { text, images, articleTitle };
 }

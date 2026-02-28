@@ -15,6 +15,7 @@ import {
   Search,
   ChevronDown,
   ChevronRight,
+  ZoomIn,
 } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 
@@ -28,6 +29,14 @@ interface RecallItem {
   answer: string;
 }
 
+interface ModuleImage {
+  url: string;
+  caption?: string;
+  altText?: string;
+  width?: number;
+  height?: number;
+}
+
 interface ReadingModuleContent {
   overview: string;
   keyConcepts: string[];
@@ -36,6 +45,7 @@ interface ReadingModuleContent {
   framingQuestions: string[];
   recallCheck: RecallItem[];
   citations: string[];
+  images?: ModuleImage[];
 }
 
 interface ReadingModule {
@@ -60,6 +70,7 @@ const SUBJECT_STYLES = {
     icon: "text-emerald-600 dark:text-emerald-400",
     button: "bg-emerald-600 hover:bg-emerald-700 text-white",
     framing: "bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800",
+    dot: "bg-emerald-500",
   },
   history: {
     accent: "amber",
@@ -68,6 +79,7 @@ const SUBJECT_STYLES = {
     icon: "text-amber-600 dark:text-amber-400",
     button: "bg-amber-600 hover:bg-amber-700 text-white",
     framing: "bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800",
+    dot: "bg-amber-500",
   },
 };
 
@@ -94,8 +106,97 @@ function RecallCard({ item }: { item: RecallItem }) {
   );
 }
 
+function ImageLightbox({ image, onClose }: { image: ModuleImage; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div className="relative max-w-3xl max-h-[90vh] flex flex-col gap-2" onClick={e => e.stopPropagation()}>
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={onClose}
+          className="absolute -top-10 right-0 text-white"
+        >
+          <X className="w-5 h-5" />
+        </Button>
+        <img
+          src={image.url}
+          alt={image.altText ?? ""}
+          className="max-w-full max-h-[80vh] object-contain rounded-md"
+        />
+        {image.caption && (
+          <p className="text-xs text-white/70 text-center">{image.caption}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ImageGallery({ images }: { images: ModuleImage[] }) {
+  const [lightboxImage, setLightboxImage] = useState<ModuleImage | null>(null);
+
+  if (!images || images.length === 0) return null;
+
+  const [primary, ...secondary] = images;
+
+  return (
+    <>
+      <div className="space-y-2" data-testid="image-gallery">
+        <div
+          className="relative rounded-md overflow-hidden cursor-pointer group bg-muted"
+          onClick={() => setLightboxImage(primary)}
+          data-testid="image-primary"
+        >
+          <img
+            src={primary.url}
+            alt={primary.altText ?? ""}
+            className="w-full object-cover max-h-52"
+            onError={e => { (e.currentTarget as HTMLImageElement).closest('[data-testid="image-primary"]')?.classList.add('hidden'); }}
+          />
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-end justify-end p-2">
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 rounded p-1">
+              <ZoomIn className="w-4 h-4 text-white" />
+            </div>
+          </div>
+        </div>
+        {primary.caption && (
+          <p className="text-xs text-muted-foreground text-center px-1">{primary.caption}</p>
+        )}
+
+        {secondary.length > 0 && (
+          <div className="flex gap-2">
+            {secondary.map((img, i) => (
+              <div
+                key={i}
+                className="relative flex-1 rounded-md overflow-hidden cursor-pointer group bg-muted"
+                onClick={() => setLightboxImage(img)}
+                data-testid={`image-secondary-${i}`}
+              >
+                <img
+                  src={img.url}
+                  alt={img.altText ?? ""}
+                  className="w-full object-cover h-24"
+                  onError={e => { (e.currentTarget as HTMLImageElement).closest('[data-testid]')?.classList.add('hidden'); }}
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {lightboxImage && (
+        <ImageLightbox image={lightboxImage} onClose={() => setLightboxImage(null)} />
+      )}
+    </>
+  );
+}
+
 function ModuleContent({ module, styles }: { module: ReadingModule; styles: typeof SUBJECT_STYLES["biology"] }) {
   const { content } = module;
+  const images = content.images ?? [];
 
   return (
     <div className="space-y-6 pb-8">
@@ -108,6 +209,10 @@ function ModuleContent({ module, styles }: { module: ReadingModule; styles: type
         </p>
       </div>
 
+      {images.length > 0 && (
+        <ImageGallery images={images} />
+      )}
+
       <div>
         <div className="flex items-center gap-2 mb-3">
           <BookOpen className={`w-4 h-4 ${styles.icon}`} />
@@ -116,7 +221,7 @@ function ModuleContent({ module, styles }: { module: ReadingModule; styles: type
         <ul className="space-y-2">
           {content.keyConcepts.map((concept, i) => (
             <li key={i} className="flex items-start gap-2 text-sm" data-testid={`text-concept-${i}`}>
-              <span className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 bg-${styles.accent}-500`} />
+              <span className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${styles.dot}`} />
               <span>{concept}</span>
             </li>
           ))}
@@ -219,6 +324,7 @@ function ModuleSkeleton() {
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-3/4" />
       </div>
+      <Skeleton className="h-48 w-full rounded-md" />
       <div className="space-y-2">
         <Skeleton className="h-4 w-1/3" />
         <Skeleton className="h-4 w-full" />

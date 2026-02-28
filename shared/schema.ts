@@ -8091,6 +8091,14 @@ export type UserScenarioHistory = typeof userScenarioHistory.$inferSelect;
 
 // ===== Reading Modules =====
 
+export const readingModuleImageSchema = z.object({
+  url: z.string(),
+  caption: z.string().optional(),
+  altText: z.string().optional(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+});
+
 export const readingModuleContentSchema = z.object({
   overview: z.string(),
   keyConcepts: z.array(z.string()),
@@ -8099,6 +8107,7 @@ export const readingModuleContentSchema = z.object({
   framingQuestions: z.array(z.string()),
   recallCheck: z.array(z.object({ question: z.string(), answer: z.string() })),
   citations: z.array(z.string()).default([]),
+  images: z.array(readingModuleImageSchema).default([]),
 });
 
 export type ReadingModuleContent = z.infer<typeof readingModuleContentSchema>;

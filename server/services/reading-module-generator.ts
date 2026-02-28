@@ -15,7 +15,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { getSharedDb } from '../db';
 import { readingModules, type ReadingModule, type ReadingModuleContent } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
-import { fetchSeedContent } from './openstax-content-service';
+import { fetchSeedAndImages } from './openstax-content-service';
 import { addCitations } from './perplexity-citation-service';
 import { verifyFact, extractVerifiableClaims } from './wolfram-fact-service';
 
@@ -109,13 +109,16 @@ function contentToText(content: ReadingModuleContent): string {
 async function runPipeline(topic: string, subject: string): Promise<ReadingModuleContent> {
   console.info(`[ReadingModuleGenerator] Starting pipeline for "${topic}" (${subject})`);
 
-  const seedContent = await fetchSeedContent(topic, subject as 'biology' | 'history');
+  const { text: seedContent, images } = await fetchSeedAndImages(topic, subject as 'biology' | 'history');
   if (seedContent) {
-    console.info(`[ReadingModuleGenerator] OpenStax seed: ${seedContent.length} chars`);
+    console.info(`[ReadingModuleGenerator] Wikipedia seed: ${seedContent.length} chars`);
   }
+  console.info(`[ReadingModuleGenerator] Wikipedia images: ${images.length}`);
 
   const rawContent = await generateWithClaude(topic, subject, seedContent);
   console.info('[ReadingModuleGenerator] Claude generation complete');
+
+  rawContent.images = images;
 
   const plainText = contentToText(rawContent);
   const { enrichedContent, citations } = await addCitations(plainText, subject);
