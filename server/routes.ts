@@ -27458,6 +27458,34 @@ You have full access to your neural network knowledge.
 
   // Server is now passed in from index.ts where WebSocket handler is attached first
 
+
+  app.get("/api/reading-modules/:subject", isAuthenticated, async (req: any, res) => {
+    try {
+      const { subject } = req.params;
+      const validSubjects = ['biology', 'history', 'language'];
+      if (!validSubjects.includes(subject)) {
+        return res.status(400).json({ error: 'Invalid subject' });
+      }
+      const { getSharedDb } = await import('./db');
+      const { readingModules } = await import('@shared/schema');
+      const { eq, desc } = await import('drizzle-orm');
+      const db = getSharedDb();
+      const modules = await db.select({
+        id: readingModules.id,
+        subjectDomain: readingModules.subjectDomain,
+        topic: readingModules.topic,
+        generatedAt: readingModules.generatedAt,
+        version: readingModules.version,
+      }).from(readingModules)
+        .where(eq(readingModules.subjectDomain, subject))
+        .orderBy(desc(readingModules.generatedAt));
+      res.json(modules);
+    } catch (error: any) {
+      console.error('[ReadingModules] List error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Reading Modules — pre-generated, permanently cached textbook content
   app.get("/api/reading-modules/:subject/:topic", isAuthenticated, async (req: any, res) => {
     try {

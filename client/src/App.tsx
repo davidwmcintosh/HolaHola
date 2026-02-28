@@ -79,6 +79,7 @@ const SessionReplay = lazyWithRetry(() => import("@/pages/session-replay"));
 const InteractiveTextbook = lazyWithRetry(() => import("@/pages/interactive-textbook"));
 const BiologyTutor = lazyWithRetry(() => import("@/pages/biology-tutor"));
 const HistoryTutor = lazyWithRetry(() => import("@/pages/history-tutor"));
+const ReadingLibrary = lazyWithRetry(() => import("@/pages/reading-library"));
 const NotFound = lazyWithRetry(() => import("@/pages/not-found"));
 
 const Login = lazyWithRetry(() => import("@/pages/auth/Login"));
@@ -222,6 +223,7 @@ function Router() {
         <Route path="/interactive-textbook" component={InteractiveTextbook} />
         <Route path="/biology" component={BiologyTutor} />
         <Route path="/history-tutor" component={HistoryTutor} />
+        <Route path="/reading-library" component={ReadingLibrary} />
         
         {/* Teacher Routes - Protected */}
         <Route path="/teacher/dashboard" component={TeacherDashboard} />
