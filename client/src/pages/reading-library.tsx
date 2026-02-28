@@ -38,6 +38,11 @@ interface SubjectSyllabus {
   subject: string;
   units: SyllabusUnit[];
   source: string;
+  bookTitle: string | null;
+  bookSubtitle: string | null;
+  description: string | null;
+  targetAudience: string | null;
+  scope: string | null;
 }
 
 interface ProgressReport {
@@ -153,6 +158,33 @@ export default function ReadingLibrary() {
   const listPanel = (
     <div className={`flex flex-col ${selectedTopic && !isMobile ? "w-80 shrink-0 border-r" : "flex-1"} ${selectedTopic && isMobile ? "hidden" : ""}`}>
       <div className="flex-1 overflow-y-auto">
+        {/* Course metadata header */}
+        {syllabus && (syllabus.bookTitle || syllabus.description) && (
+          <div className="px-4 py-3 border-b bg-muted/30">
+            <div className="flex items-start gap-2">
+              <div className="flex-1 min-w-0">
+                {syllabus.bookTitle && (
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Textbook</p>
+                )}
+                {syllabus.bookTitle && (
+                  <p className="font-medium text-sm leading-snug">
+                    {syllabus.bookTitle}
+                    {syllabus.bookSubtitle && (
+                      <span className="text-muted-foreground font-normal"> — {syllabus.bookSubtitle}</span>
+                    )}
+                  </p>
+                )}
+                {syllabus.scope && (
+                  <p className="text-xs text-muted-foreground mt-0.5">{syllabus.scope}</p>
+                )}
+                {syllabus.description && (
+                  <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{syllabus.description}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {syllabusLoading && (
           <div className="p-4 space-y-2">
             {[...Array(6)].map((_, i) => (

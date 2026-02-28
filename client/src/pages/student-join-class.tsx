@@ -1,16 +1,18 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { 
   BookOpen, Users, ArrowRight, Search, Sparkles, GraduationCap, 
   ChevronRight, Languages, CheckCircle2, Award, Briefcase, Zap, 
-  Plane, Star, Mic, Target, TrendingUp
+  Plane, Star, Mic, Target, TrendingUp, Globe, BookMarked,
+  Microscope, Landmark
 } from "lucide-react";
 import holaholaIcon from "@assets/holaholajustbubblesBackgroundRemoved_1765309702014.png";
 import { useForm } from "react-hook-form";
@@ -75,6 +77,41 @@ interface HourPackage {
   totalPriceCents: number;
   stripePriceId: string;
 }
+
+interface AcademicSubject {
+  id: string;
+  subject: string;
+  bookTitle: string | null;
+  bookSubtitle: string | null;
+  description: string | null;
+  targetAudience: string | null;
+  scope: string | null;
+  source: string;
+}
+
+const SUBJECT_META: Record<string, { icon: typeof Microscope; color: string; tutorPath: string; libraryPath: string; label: string }> = {
+  biology: {
+    icon: Microscope,
+    color: 'text-emerald-600',
+    tutorPath: '/biology',
+    libraryPath: '/reading-library?subject=biology',
+    label: 'Biology',
+  },
+  history: {
+    icon: Landmark,
+    color: 'text-amber-600',
+    tutorPath: '/history-tutor',
+    libraryPath: '/reading-library?subject=history',
+    label: 'U.S. History',
+  },
+};
+
+type SubjectCategory = 'languages' | 'academic';
+
+const CATEGORY_OPTIONS: { value: SubjectCategory; label: string; icon: typeof Globe }[] = [
+  { value: 'languages', label: 'Languages', icon: Globe },
+  { value: 'academic', label: 'Academic Subjects', icon: BookMarked },
+];
 
 const joinClassFormSchema = z.object({
   joinCode: z.string().min(1, "Join code is required").toUpperCase(),
@@ -149,6 +186,8 @@ function getClassTypeIcon(iconName: string | null | undefined) {
 
 export default function StudentJoinClass() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
+  const [subjectCategory, setSubjectCategory] = useState<SubjectCategory>('languages');
   const [searchQuery, setSearchQuery] = useState("");
   const [languageFilter, setLanguageFilter] = useState<string | null>(null);
   const [classTypeFilter, setClassTypeFilter] = useState<string | null>(null);
@@ -195,6 +234,10 @@ export default function StudentJoinClass() {
 
   const { data: hourPackagesData } = useQuery<{ packages: HourPackage[] }>({
     queryKey: ['/api/billing/hour-packages'],
+  });
+
+  const { data: academicSubjects, isLoading: isLoadingAcademic } = useQuery<AcademicSubject[]>({
+    queryKey: ['/api/syllabi'],
   });
 
   const classPriceCents = parseInt(pricingConfig?.class_price_cents || '25000');
@@ -315,8 +358,101 @@ export default function StudentJoinClass() {
         </div>
       </div>
 
+      {/* Category toggle */}
+      <div className="flex justify-center gap-2" data-testid="category-toggle">
+        {CATEGORY_OPTIONS.map(({ value, label, icon: Icon }) => (
+          <Button
+            key={value}
+            variant={subjectCategory === value ? 'default' : 'outline'}
+            onClick={() => setSubjectCategory(value)}
+            data-testid={`button-category-${value}`}
+          >
+            <Icon className="h-4 w-4 mr-2" />
+            {label}
+          </Button>
+        ))}
+      </div>
+
+      {/* Academic Subjects panel */}
+      {subjectCategory === 'academic' && (
+        <section className="space-y-6">
+          <div className="flex items-center gap-3">
+            <BookMarked className="h-6 w-6 text-primary" />
+            <h2 className="text-2xl font-bold">Academic Subjects</h2>
+          </div>
+          <p className="text-muted-foreground max-w-xl">
+            OpenStax-aligned courses with AI tutors, reading libraries, and progress tracking.
+            Available to all students — no enrollment code needed.
+          </p>
+          {isLoadingAcademic ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {[1, 2].map(i => (
+                <Card key={i} className="animate-pulse">
+                  <CardHeader><div className="h-6 bg-muted rounded w-3/4" /><div className="h-4 bg-muted rounded w-1/2 mt-2" /></CardHeader>
+                  <CardContent><div className="h-24 bg-muted rounded" /></CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {(academicSubjects || []).map((subject) => {
+                const meta = SUBJECT_META[subject.subject];
+                if (!meta) return null;
+                const SubjectIcon = meta.icon;
+                return (
+                  <Card key={subject.id} className="flex flex-col hover-elevate" data-testid={`card-academic-${subject.subject}`}>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <SubjectIcon className={`h-5 w-5 ${meta.color}`} />
+                        <Badge variant="outline">{meta.label}</Badge>
+                        {subject.scope && (
+                          <Badge variant="secondary" className="text-xs">{subject.scope}</Badge>
+                        )}
+                      </div>
+                      <CardTitle className="text-lg">{subject.bookTitle}</CardTitle>
+                      {subject.bookSubtitle && (
+                        <CardDescription className="font-medium text-foreground/70">{subject.bookSubtitle}</CardDescription>
+                      )}
+                    </CardHeader>
+                    <CardContent className="flex-grow space-y-3">
+                      {subject.description && (
+                        <p className="text-sm text-muted-foreground line-clamp-4">{subject.description}</p>
+                      )}
+                      {subject.targetAudience && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Users className="h-3.5 w-3.5 shrink-0" />
+                          <span>{subject.targetAudience}</span>
+                        </div>
+                      )}
+                    </CardContent>
+                    <CardFooter className="flex gap-2 flex-wrap">
+                      <Button
+                        className="flex-1"
+                        onClick={() => setLocation(meta.tutorPath)}
+                        data-testid={`button-start-tutor-${subject.subject}`}
+                      >
+                        <ArrowRight className="h-4 w-4 mr-2" />
+                        Open Tutor
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => setLocation(meta.libraryPath)}
+                        data-testid={`button-view-library-${subject.subject}`}
+                      >
+                        <BookOpen className="h-4 w-4 mr-2" />
+                        Reading Library
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
       {/* Featured Classes */}
-      {featuredClasses && featuredClasses.length > 0 && (
+      {subjectCategory === 'languages' && featuredClasses && featuredClasses.length > 0 && (
         <section className="space-y-6">
           <div className="flex items-center gap-3">
             <Star className="h-6 w-6 text-yellow-500" />
@@ -377,7 +513,7 @@ export default function StudentJoinClass() {
       )}
 
       {/* Discovery Section */}
-      <section className="space-y-8">
+      {subjectCategory === 'languages' && <section className="space-y-8">
         <div className="text-center space-y-4">
           <h2 className="text-2xl md:text-3xl font-bold">Discover Your Path</h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
@@ -478,10 +614,10 @@ export default function StudentJoinClass() {
             </Button>
           </div>
         )}
-      </section>
+      </section>}
 
       {/* Search Results */}
-      {showCatalogue && (
+      {subjectCategory === 'languages' && showCatalogue && (
         <section className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold flex items-center gap-2">
@@ -602,7 +738,7 @@ export default function StudentJoinClass() {
       )}
 
       {/* Browse All Button */}
-      {!showCatalogue && (
+      {subjectCategory === 'languages' && !showCatalogue && (
         <div className="text-center">
           <Button 
             variant="outline" 

@@ -206,28 +206,64 @@ const historyCurriculum: SyllabusUnit[] = [
   },
 ];
 
+interface CourseMetadata {
+  subject: string;
+  units: typeof biologyCurriculum;
+  bookTitle: string;
+  bookSubtitle: string;
+  description: string;
+  targetAudience: string;
+  scope: string;
+}
+
+const courses: CourseMetadata[] = [
+  {
+    subject: 'biology',
+    units: biologyCurriculum,
+    bookTitle: 'Biology 2e',
+    bookSubtitle: 'For Science Majors',
+    description: 'Covers the scope and sequence of a typical two-semester biology course for science majors. Content is presented through an evolutionary lens with comprehensive coverage of foundational research and core concepts — cell biology, genetics, evolution, biological diversity, plant and animal structure and function, and ecology. Includes scientific inquiry features, career spotlights, and everyday applications.',
+    targetAudience: 'High school AP Biology / first-year college science majors',
+    scope: 'Two-semester comprehensive biology sequence (NGSS-aligned)',
+  },
+  {
+    subject: 'history',
+    units: historyCurriculum,
+    bookTitle: 'U.S. History',
+    bookSubtitle: 'Founding to the Present',
+    description: 'Covers the breadth of chronological American history from pre-colonial indigenous societies through the early 21st century. Emphasizes primary source analysis, diverse perspectives, and critical thinking about historical causation. Organized thematically within chronological units: colonial society, revolution and nation-building, sectional conflict, industrialization, progressivism, the World Wars, the Cold War, the civil rights era, and modern America.',
+    targetAudience: 'High school AP US History / first-year college survey',
+    scope: 'Two-semester US History survey (C3 Framework-aligned)',
+  },
+];
+
 async function seedSyllabi() {
   console.log('Seeding OpenStax syllabi...');
 
-  for (const [subject, units] of [['biology', biologyCurriculum], ['history', historyCurriculum]] as const) {
+  for (const course of courses) {
     const existing = await db
       .select({ id: subjectSyllabi.id })
       .from(subjectSyllabi)
-      .where(eq(subjectSyllabi.subject, subject));
+      .where(eq(subjectSyllabi.subject, course.subject));
 
     if (existing.length > 0) {
-      console.log(`✓ ${subject} syllabus already exists (id: ${existing[0].id}) — skipping`);
+      console.log(`✓ ${course.subject} syllabus already exists (id: ${existing[0].id}) — skipping`);
       continue;
     }
 
     await db.insert(subjectSyllabi).values({
-      subject,
-      units,
+      subject: course.subject,
+      units: course.units,
       source: 'openstax',
+      bookTitle: course.bookTitle,
+      bookSubtitle: course.bookSubtitle,
+      description: course.description,
+      targetAudience: course.targetAudience,
+      scope: course.scope,
     });
 
-    const totalChapters = units.reduce((acc, u) => acc + u.chapters.length, 0);
-    console.log(`✓ Seeded ${subject}: ${units.length} units, ${totalChapters} chapters`);
+    const totalChapters = course.units.reduce((acc, u) => acc + u.chapters.length, 0);
+    console.log(`✓ Seeded ${course.subject} (${course.bookTitle}): ${course.units.length} units, ${totalChapters} chapters`);
   }
 
   console.log('Done.');

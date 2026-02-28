@@ -8149,6 +8149,11 @@ export const subjectSyllabi = pgTable("subject_syllabi", {
   subject: text("subject").notNull(),
   units: jsonb("units").notNull().$type<SyllabusUnit[]>(),
   source: text("source").notNull().default("openstax"),
+  bookTitle: text("book_title"),
+  bookSubtitle: text("book_subtitle"),
+  description: text("description"),
+  targetAudience: text("target_audience"),
+  scope: text("scope"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => ({
   uniqueSubject: uniqueIndex("idx_subject_syllabi_subject").on(table.subject),

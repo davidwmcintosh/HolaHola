@@ -27523,7 +27523,30 @@ You have full access to your neural network knowledge.
   });
 
 
-  // Subject Syllabi — OpenStax-derived curriculum structure
+  // Subject Syllabi — public catalog listing (no auth required, no units payload)
+  app.get("/api/syllabi", async (req: any, res) => {
+    try {
+      const { getSharedDb } = await import('./db');
+      const { subjectSyllabi } = await import('@shared/schema');
+      const db = getSharedDb();
+      const rows = await db.select({
+        id: subjectSyllabi.id,
+        subject: subjectSyllabi.subject,
+        bookTitle: subjectSyllabi.bookTitle,
+        bookSubtitle: subjectSyllabi.bookSubtitle,
+        description: subjectSyllabi.description,
+        targetAudience: subjectSyllabi.targetAudience,
+        scope: subjectSyllabi.scope,
+        source: subjectSyllabi.source,
+      }).from(subjectSyllabi);
+      res.json(rows);
+    } catch (error: any) {
+      console.error('[Syllabi] Catalog fetch error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Subject Syllabi — full structure by subject (authenticated)
   app.get("/api/syllabi/:subject", isAuthenticated, async (req: any, res) => {
     try {
       const { subject } = req.params;
