@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Shield, X, Target, Search, Sparkles, HelpCircle, MapPin, Microscope, Landmark, Library } from "lucide-react";
+import { BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Shield, X, Target, Search, Sparkles, HelpCircle, MapPin, Microscope, Landmark, Library, ClipboardList } from "lucide-react";
 import holaholaLogo from "@assets/holaholamainlogoBackgroundRemoved_1765308837223.png";
 import { Link, useLocation } from "wouter";
 import {
@@ -56,6 +56,7 @@ const subjectMenuItems = [
   { title: "Biology — Evelyn / Gene", url: "/biology", icon: Microscope },
   { title: "History — Clio / Marcus", url: "/history-tutor", icon: Landmark },
   { title: "Reading Library", url: "/reading-library", icon: Library },
+  { title: "Progress Report", url: "/progress-report", icon: ClipboardList },
 ];
 
 export function AppSidebar() {

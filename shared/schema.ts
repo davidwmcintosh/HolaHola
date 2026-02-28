@@ -8130,3 +8130,54 @@ export const insertReadingModuleSchema = createInsertSchema(readingModules).omit
 export type InsertReadingModule = z.infer<typeof insertReadingModuleSchema>;
 export type ReadingModule = typeof readingModules.$inferSelect;
 
+// ─── Subject Syllabi (OpenStax-derived curriculum structure) ─────────────────
+
+export interface SyllabusChapter {
+  chapterNumber: number;
+  chapterTitle: string;
+  topic: string;
+}
+
+export interface SyllabusUnit {
+  unitNumber: number;
+  unitTitle: string;
+  chapters: SyllabusChapter[];
+}
+
+export const subjectSyllabi = pgTable("subject_syllabi", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  subject: text("subject").notNull(),
+  units: jsonb("units").notNull().$type<SyllabusUnit[]>(),
+  source: text("source").notNull().default("openstax"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  uniqueSubject: uniqueIndex("idx_subject_syllabi_subject").on(table.subject),
+}));
+
+export const insertSubjectSyllabusSchema = createInsertSchema(subjectSyllabi).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertSubjectSyllabus = z.infer<typeof insertSubjectSyllabusSchema>;
+export type SubjectSyllabus = typeof subjectSyllabi.$inferSelect;
+
+// ─── Reading Module Views (student progress tracking) ────────────────────────
+
+export const readingModuleViews = pgTable("reading_module_views", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  moduleId: varchar("module_id").notNull().references(() => readingModules.id),
+  viewedAt: timestamp("viewed_at").notNull().defaultNow(),
+  lastViewedAt: timestamp("last_viewed_at").notNull().defaultNow(),
+}, (table) => ({
+  uniqueUserModule: uniqueIndex("idx_reading_module_views_user_module").on(table.userId, table.moduleId),
+}));
+
+export const insertReadingModuleViewSchema = createInsertSchema(readingModuleViews).omit({
+  id: true,
+  viewedAt: true,
+  lastViewedAt: true,
+});
+export type InsertReadingModuleView = z.infer<typeof insertReadingModuleViewSchema>;
+export type ReadingModuleView = typeof readingModuleViews.$inferSelect;
+

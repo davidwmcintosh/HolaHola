@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -60,6 +60,7 @@ interface ReadingModulePanelProps {
   subject: "biology" | "history";
   onClose: () => void;
   initialTopic?: string;
+  onLoaded?: (moduleId: string) => void;
 }
 
 const SUBJECT_STYLES = {
@@ -343,7 +344,7 @@ function ModuleSkeleton() {
   );
 }
 
-export function ReadingModulePanel({ subject, onClose, initialTopic = "" }: ReadingModulePanelProps) {
+export function ReadingModulePanel({ subject, onClose, initialTopic = "", onLoaded }: ReadingModulePanelProps) {
   const styles = SUBJECT_STYLES[subject];
   const [topicInput, setTopicInput] = useState(initialTopic);
   const [activeTopic, setActiveTopic] = useState(initialTopic);
@@ -358,6 +359,12 @@ export function ReadingModulePanel({ subject, onClose, initialTopic = "" }: Read
     enabled: !!activeTopic,
     staleTime: Infinity,
   });
+
+  useEffect(() => {
+    if (module?.id && onLoaded) {
+      onLoaded(module.id);
+    }
+  }, [module?.id]);
 
   const handleLoad = () => {
     const trimmed = topicInput.trim();

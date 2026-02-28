@@ -27522,5 +27522,115 @@ You have full access to your neural network knowledge.
     }
   });
 
+
+  // Subject Syllabi — OpenStax-derived curriculum structure
+  app.get("/api/syllabi/:subject", isAuthenticated, async (req: any, res) => {
+    try {
+      const { subject } = req.params;
+      const validSubjects = ['biology', 'history'];
+      if (!validSubjects.includes(subject)) {
+        return res.status(400).json({ error: 'Invalid subject' });
+      }
+      const { getSharedDb } = await import('./db');
+      const { subjectSyllabi } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      const db = getSharedDb();
+      const rows = await db.select().from(subjectSyllabi).where(eq(subjectSyllabi.subject, subject));
+      if (rows.length === 0) {
+        return res.status(404).json({ error: 'Syllabus not found for subject' });
+      }
+      res.json(rows[0]);
+    } catch (error: any) {
+      console.error('[Syllabi] Fetch error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Reading Module Views — record when a student opens a module
+  app.post("/api/reading-modules/:id/view", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+      const { id: moduleId } = req.params;
+      const { getSharedDb } = await import('./db');
+      const { readingModuleViews, readingModules } = await import('@shared/schema');
+      const { eq, and } = await import('drizzle-orm');
+      const db = getSharedDb();
+
+      const [mod] = await db.select({ id: readingModules.id }).from(readingModules).where(eq(readingModules.id, moduleId));
+      if (!mod) return res.status(404).json({ error: 'Module not found' });
+
+      const existing = await db.select({ id: readingModuleViews.id })
+        .from(readingModuleViews)
+        .where(and(eq(readingModuleViews.userId, userId), eq(readingModuleViews.moduleId, moduleId)));
+
+      if (existing.length > 0) {
+        await db.update(readingModuleViews)
+          .set({ lastViewedAt: new Date() })
+          .where(eq(readingModuleViews.id, existing[0].id));
+      } else {
+        await db.insert(readingModuleViews).values({ userId, moduleId });
+      }
+
+      res.json({ ok: true });
+    } catch (error: any) {
+      console.error('[ModuleViews] Upsert error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Progress Report — all viewed modules + recall check content for quiz
+  app.get("/api/progress-report", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+      const { getSharedDb } = await import('./db');
+      const { readingModuleViews, readingModules } = await import('@shared/schema');
+      const { eq, desc } = await import('drizzle-orm');
+      const db = getSharedDb();
+
+      const rows = await db
+        .select({
+          viewedAt: readingModuleViews.viewedAt,
+          lastViewedAt: readingModuleViews.lastViewedAt,
+          id: readingModules.id,
+          topic: readingModules.topic,
+          subjectDomain: readingModules.subjectDomain,
+          content: readingModules.content,
+        })
+        .from(readingModuleViews)
+        .innerJoin(readingModules, eq(readingModuleViews.moduleId, readingModules.id))
+        .where(eq(readingModuleViews.userId, userId))
+        .orderBy(desc(readingModuleViews.lastViewedAt));
+
+      const bySubject: Record<string, { count: number; lastActivity: string | null }> = {};
+      for (const row of rows) {
+        const subj = row.subjectDomain;
+        if (!bySubject[subj]) bySubject[subj] = { count: 0, lastActivity: null };
+        bySubject[subj].count++;
+        if (!bySubject[subj].lastActivity) bySubject[subj].lastActivity = row.lastViewedAt?.toISOString() ?? null;
+      }
+
+      const viewedModules = rows.map(r => ({
+        id: r.id,
+        topic: r.topic,
+        subjectDomain: r.subjectDomain,
+        viewedAt: r.viewedAt,
+        lastViewedAt: r.lastViewedAt,
+        content: {
+          recallCheck: (r.content as any)?.recallCheck ?? [],
+          keyTerms: (r.content as any)?.keyTerms ?? [],
+          keyConcepts: (r.content as any)?.keyConcepts ?? [],
+        },
+      }));
+
+      res.json({ viewedModules, bySubject });
+    } catch (error: any) {
+      console.error('[ProgressReport] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // This ensures WS upgrade handler runs BEFORE Express/Vite middleware interferes
 }
