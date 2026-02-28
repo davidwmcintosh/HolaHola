@@ -233,6 +233,63 @@ This mirrors a real tutoring scenario: a tutor hands a student a handout and sit
 
 The library and live reading are the same content — one is self-directed, the other is tutor-accompanied. The distinction is context, not content.
 
+### Content Generation Pipeline
+
+*Added February 28, 2026*
+
+Reading modules are not written by hand and they are not produced live during a session. They are generated once by a four-stage AI pipeline, then stored permanently. The pipeline runs on first access for a given topic and is never repeated unless the module is explicitly regenerated.
+
+#### The Four Stages
+
+```
+OpenStax seed content
+        ↓
+Claude (Anthropic) — structured module generation
+        ↓
+Perplexity — academic citation enrichment
+        ↓
+Wolfram LLM — scientific fact verification (biology-primary)
+        ↓
+Stored in reading_modules table (permanent)
+```
+
+**Stage 1 — OpenStax seed content**
+OpenStax textbooks are CC-licensed, NGSS-aligned (biology), and C3-aligned (history) — the same standards our competency framework targets. Rather than starting from scratch, the generator fetches the relevant OpenStax chapter as grounding context before calling Claude. This anchors the output to a structured, peer-vetted knowledge base and keeps generation costs low because the seed reduces the AI's need to hallucinate structure.
+
+Relevant books by subject:
+- Biology: *OpenStax Biology 2e* (`biology-2e`) — AP Biology level, NGSS-aligned
+- US History: *OpenStax U.S. History* (`us-history`)
+- World History: *OpenStax World History Vol. 1 & 2* (`world-history-volume-1`, `world-history-volume-2`)
+
+If no OpenStax match is found for a given topic, generation proceeds without the seed — Claude falls back to its training data alone.
+
+**Stage 2 — Claude (Anthropic) structured generation**
+Claude receives the OpenStax seed text plus a system prompt that specifies the reading module schema (overview, key concepts, key terms, common misconceptions, framing questions, quick recall check). It returns a structured JSON object matching that schema. Claude is the authoring intelligence — it synthesizes the seed into a student-appropriate, pedagogy-aware module.
+
+**Stage 3 — Perplexity academic citation enrichment**
+The Claude-generated content is passed to Perplexity's online LLM (`llama-3.1-sonar-large-128k-online`), which has live web access. Perplexity identifies factual claims and appends sourced citations. The `search_domain_filter` parameter is set to prefer academic and government sources:
+- Biology: `.edu`, `.gov`, `ncbi.nlm.nih.gov`, `pubmed.ncbi.nlm.nih.gov`
+- History: `.edu`, `.gov`, historical archive domains
+
+The result is a set of verifiable citations attached to the module — citations the student can follow, and that a teacher or curriculum reviewer can audit. The Perplexity API key (`PERPLEXITY_API_KEY`) is now active in this project.
+
+**Stage 4 — Wolfram LLM fact verification**
+For biology modules, the generator selects the top 2–3 quantitative claims (atomic masses, chromosome counts, enzyme ratios, population figures) and runs them through Wolfram Alpha's LLM API (`/api/v1/llm-api`). Wolfram returns a concise, computation-verified answer optimized for LLM consumption. If the Claude-generated value matches, the claim is marked verified. If not, the Wolfram answer replaces it.
+
+Wolfram is biased toward Gene's domain (biology, chemistry, physics) but is available to all subjects — Clio can use it to verify population figures or treaty dates. The Wolfram App ID (`WOLFRAM_APP_ID`) is being added this session.
+
+#### Why Not Just Use One API?
+
+Each stage does something the others cannot:
+- OpenStax grounds the content in curriculum-aligned, peer-vetted material — reducing hallucination
+- Claude structures and explains — OpenStax text alone is not student-appropriate
+- Perplexity adds live, sourced citations — Claude's training data is static and uncited
+- Wolfram verifies numerical/scientific facts with computation — Perplexity can still hallucinate figures; Wolfram cannot
+
+#### Storage and Caching
+
+Once generated, a module is stored in the `reading_modules` table keyed by `(subject_domain, topic)`. Every subsequent request for that module returns the stored version instantly — no AI calls, no latency. Modules can be manually flagged for regeneration if curriculum content changes.
+
 ---
 
 ## Memory Isolation — The HIV Architecture Across Subjects
