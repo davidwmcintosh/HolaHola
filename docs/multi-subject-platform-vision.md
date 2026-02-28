@@ -219,6 +219,20 @@ The reading module is the textbook. The post-session note is the teacher's feedb
 
 Because the reading module is a separate page/panel — not spoken — the speed mismatch problem disappears. The tutor references it conversationally but does not read it aloud. Long structured content lives in the reading pane; conversation stays conversational.
 
+### Access Model — Library + Live Reading
+
+Reading modules are accessible in two contexts, and both are essential:
+
+**1. The Reading Library (independent access)**
+A dedicated reference section where students can browse and re-read any module they have previously encountered. No tutor present — just the student and the material. This serves review sessions, exam prep, and the student who needs to re-read something three times before it clicks. The library is always available, organized by subject and unit.
+
+**2. Live Reading Mode (tutor present)**
+When a module is opened for the first time — or when a tutor directs a student to read before discussing — the tutor stays present in a minimized or sidebar state. The student reads at their own pace; the tutor is available for real-time questions. If the student highlights a confusing term or taps a question mark, the tutor responds immediately without interrupting the reading flow.
+
+This mirrors a real tutoring scenario: a tutor hands a student a handout and sits nearby while they read, ready to explain anything that doesn't land. The student gets the speed of reading with the safety net of immediate help. After the student finishes, the tutor transitions naturally into discussion using the module's framing questions.
+
+The library and live reading are the same content — one is self-directed, the other is tutor-accompanied. The distinction is context, not content.
+
 ---
 
 ## Memory Isolation — The HIV Architecture Across Subjects
@@ -290,4 +304,4 @@ A student using both Gene and Daniela gets:
 
 1. What should the platform be called? (The school needs a name)
 2. Which tutor goes first in the POC — Gene, Evelyn, Clio, or Marcus?
-3. Should reading modules be accessible from a dedicated library/reference page, or only surfaced contextually during sessions?
+3. ~~Should reading modules be accessible from a dedicated library/reference page, or only surfaced contextually during sessions?~~ **Resolved:** Both. A reading library for independent review, and live reading mode with the tutor present for first-time reads and real-time questions.
