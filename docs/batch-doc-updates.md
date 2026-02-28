@@ -8,6 +8,38 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 28, 2026 — Character-Based Billing Guard
+
+#### What
+Replaced the estimation-based idle session billing cap with a precise, character-based cross-check using the session's actual metered data (`tts_characters`, `stt_seconds`).
+
+#### Why
+Wall-clock time alone cannot distinguish a healthy 2-hour lesson from a frozen/idle connection that ran for 2 hours. The old estimation approach (based on exchange counts) could scale poorly. TTS characters and STT seconds are actual metered usage — the same signals used to compute our real provider costs (Google TTS bills by character, Deepgram by second).
+
+#### Formula
+```
+ttsDurationEstimate   = ceil(tts_characters / 15)       # 15 chars/sec = standard natural speech
+activeSpeakingSeconds = ttsDurationEstimate + stt_seconds
+fairBillableSeconds   = max(activeSpeakingSeconds × 3, 120)   # 3× for think time / pauses; 2-min floor
+```
+Cap only fires if: `wall_clock > fairBillableSeconds AND wall_clock > 600s` (10-min minimum before any cap).
+Zero-activity sessions (0 exchanges AND 0 chars AND 0 STT) are charged $0 regardless.
+
+#### T002 Validation Results (all historical sessions >60s, completed, with activity)
+- **HEALTHY sessions (30)**: avg 438 chars/min — zero would be capped ✅
+- **NORMAL sessions (7)**: 2 would be capped — both confirmed low-activity (4–6 chars/min with very long wall-clock)
+- **SUSPECT sessions (9)**: 8 would be capped — avg 7614s wall-clock, avg 12 chars/min; clearly idle with occasional pings
+- **NO_TTS_TRACKED sessions (80)**: 13 capped — all exchange_count=0, zero TTS, dead connections
+- **Zero false positives** on genuinely healthy teaching sessions
+
+#### TTS Char Tracking Note
+Sessions with 0 TTS chars AND 0 STT seconds are legitimately text-only sessions where no voice audio was generated (Carol typing via keyboard, for example). The billing guard correctly applies the 120s floor in these cases. The telemetry flush guard in `endSession()` already requires chars > 0 OR stt > 0, which is correct — there's nothing to flush if no voice was used.
+
+#### Key Files Modified
+- `server/services/usage-service.ts` lines 482–520 — unified billing path with cap logic and logging
+
+---
+
 ### Session: February 26, 2026 — Competency Framework for Biology and History
 
 **Status**: DECIDED — not yet implemented in code
