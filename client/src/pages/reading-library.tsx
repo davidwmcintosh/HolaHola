@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronRight,
   CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { ReadingModulePanel } from "@/components/ReadingModulePanel";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -123,6 +124,13 @@ export default function ReadingLibrary() {
     );
   }, [progress, activeSubject]);
 
+  const viewedTopicToId = useMemo(() => {
+    if (!progress) return new Map<string, string>();
+    return new Map(
+      progress.viewedModules.map(m => [m.topic.toLowerCase(), m.id])
+    );
+  }, [progress]);
+
   const viewMutation = useMutation({
     mutationFn: (moduleId: string) =>
       apiRequest("POST", `/api/reading-modules/${moduleId}/view`),
@@ -130,6 +138,20 @@ export default function ReadingLibrary() {
       qc.invalidateQueries({ queryKey: ["/api/progress-report"] });
     },
   });
+
+  const unviewMutation = useMutation({
+    mutationFn: (moduleId: string) =>
+      apiRequest("DELETE", `/api/reading-modules/${moduleId}/view`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/progress-report"] });
+    },
+  });
+
+  const handleUnmark = (e: React.MouseEvent, topic: string) => {
+    e.stopPropagation();
+    const moduleId = viewedTopicToId.get(topic.toLowerCase());
+    if (moduleId) unviewMutation.mutate(moduleId);
+  };
 
   const handleModuleLoaded = (moduleId: string) => {
     viewMutation.mutate(moduleId);
@@ -255,24 +277,48 @@ export default function ReadingLibrary() {
                               {chapter.chapterTitle}
                             </p>
                             <div className="flex flex-wrap gap-1.5 mt-1.5">
-                              <Button
-                                size="sm"
-                                variant={selectedTopic === chapter.topic ? "default" : "outline"}
-                                onClick={() => setSelectedTopic(chapter.topic)}
-                                data-testid={`button-chapter-${chapter.chapterNumber}-standard`}
-                              >
-                                {isViewedStandard && <CheckCircle2 className="w-3 h-3 mr-1" />}
-                                {cfg.standardLabel}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant={selectedTopic === chapter.alternativeTopic ? "default" : "outline"}
-                                onClick={() => setSelectedTopic(chapter.alternativeTopic!)}
-                                data-testid={`button-chapter-${chapter.chapterNumber}-alternative`}
-                              >
-                                {isViewedAlt && <CheckCircle2 className="w-3 h-3 mr-1" />}
-                                {cfg.alternativeLabel}
-                              </Button>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  size="sm"
+                                  variant={selectedTopic === chapter.topic ? "default" : "outline"}
+                                  onClick={() => setSelectedTopic(chapter.topic)}
+                                  data-testid={`button-chapter-${chapter.chapterNumber}-standard`}
+                                >
+                                  {isViewedStandard && <CheckCircle2 className="w-3 h-3 mr-1" />}
+                                  {cfg.standardLabel}
+                                </Button>
+                                {isViewedStandard && (
+                                  <button
+                                    onClick={(e) => handleUnmark(e, chapter.topic)}
+                                    className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                                    title="Mark as unread"
+                                    data-testid={`button-unmark-${chapter.chapterNumber}-standard`}
+                                  >
+                                    <XCircle className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  size="sm"
+                                  variant={selectedTopic === chapter.alternativeTopic ? "default" : "outline"}
+                                  onClick={() => setSelectedTopic(chapter.alternativeTopic!)}
+                                  data-testid={`button-chapter-${chapter.chapterNumber}-alternative`}
+                                >
+                                  {isViewedAlt && <CheckCircle2 className="w-3 h-3 mr-1" />}
+                                  {cfg.alternativeLabel}
+                                </Button>
+                                {isViewedAlt && (
+                                  <button
+                                    onClick={(e) => handleUnmark(e, chapter.alternativeTopic!)}
+                                    className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                                    title="Mark as unread"
+                                    data-testid={`button-unmark-${chapter.chapterNumber}-alternative`}
+                                  >
+                                    <XCircle className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -293,7 +339,15 @@ export default function ReadingLibrary() {
                           {chapter.chapterTitle}
                         </span>
                         {isViewed && (
-                          <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${cfg.iconClass}`} />
+                          <button
+                            onClick={(e) => handleUnmark(e, chapter.topic)}
+                            className="flex items-center gap-0.5 shrink-0 text-muted-foreground hover:text-destructive transition-colors"
+                            title="Mark as unread"
+                            data-testid={`button-unmark-${chapter.chapterNumber}`}
+                          >
+                            <CheckCircle2 className={`w-3.5 h-3.5 ${cfg.iconClass}`} />
+                            <XCircle className="w-3 h-3 opacity-50" />
+                          </button>
                         )}
                       </button>
                     );

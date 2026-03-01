@@ -3,6 +3,14 @@
 ## Overview
 HolaHola is an AI-powered language learning application providing interactive conversation practice, vocabulary building, and grammar exercises across ten languages, adhering to ACTFL standards. It offers personalized chat, flashcards, and adaptive grammar modules, all orchestrated by a unified AI named Daniela. The project's vision is to be a leading AI-driven educational platform, leveraging advanced technology and pedagogical innovation to capture significant market potential in personalized language acquisition.
 
+## Platform Philosophy: Dual-Perspective Education
+A core differentiator of this platform is presenting **multiple legitimate perspectives** on contested topics rather than defaulting to a single viewpoint. This applies across subjects:
+
+- **Biology**: Evolution-related chapters (Ch 1, 18, 19, 20) offer both "Scientific Theory" (mainstream consensus) and "Creationist View" (intelligent design / biblical perspective) reading modules.
+- **US History**: 10 chapters spanning Columbus, the Founding Fathers, Civil War causes, American imperialism, Vietnam, the counterculture, and the Reagan era each offer both an "Academic View" (standard historiography) and a "Traditional View" (patriotic, faith-based, or conservative framing).
+
+The guiding principle: *present all relevant facts, show all legitimate interpretations, and trust families to think for themselves.* Debate and intellectual argument are not enemies of education — they are its foundation. This platform is designed for homeschool families who seek rigorous, balanced content that respects their values while not shying away from complexity.
+
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 **DATABASE CONNECTION RULE (CRITICAL):** NEVER use `DATABASE_URL` or `process.env.DATABASE_URL` anywhere in the codebase. ALWAYS use `NEON_SHARED_DATABASE_URL` (`process.env.NEON_SHARED_DATABASE_URL`) for all database connections. This applies to all current code, bug fixes, and future development.

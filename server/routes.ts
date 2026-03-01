@@ -27602,6 +27602,25 @@ You have full access to your neural network knowledge.
     }
   });
 
+  // Reading Module Unview — student marks a chapter as unread
+  app.delete("/api/reading-modules/:id/view", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getRequestUserId(req);
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+      const { id: moduleId } = req.params;
+      const { getSharedDb } = await import('./db');
+      const { readingModuleViews } = await import('@shared/schema');
+      const { and, eq } = await import('drizzle-orm');
+      const db = getSharedDb();
+      await db.delete(readingModuleViews)
+        .where(and(eq(readingModuleViews.userId, userId), eq(readingModuleViews.moduleId, moduleId)));
+      res.json({ ok: true });
+    } catch (error: any) {
+      console.error('[ModuleViews] Delete error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Progress Report — all viewed modules + recall check content for quiz
   app.get("/api/progress-report", isAuthenticated, async (req: any, res) => {
     try {
