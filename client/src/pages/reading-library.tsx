@@ -6,6 +6,15 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   ArrowLeft,
   BookOpen,
   Microscope,
@@ -134,7 +143,30 @@ function getSubjectConfig(subject: string): SubjectConfig {
   return SUBJECT_CONFIG_MAP[subject] ?? DEFAULT_CONFIG;
 }
 
-const MAIN_TABS: Subject[] = ["biology", "history"];
+const CATALOG_CATEGORIES = [
+  { key: "Natural Sciences", label: "Natural Sciences" },
+  { key: "Mathematics",      label: "Mathematics" },
+  { key: "Social Studies",   label: "Social Studies" },
+  { key: "Business",         label: "Business" },
+];
+
+const SUBJECT_TO_CATEGORY: Record<string, string> = {
+  biology: "Natural Sciences", microbiology: "Natural Sciences",
+  "anatomy-physiology": "Natural Sciences", chemistry: "Natural Sciences",
+  "university-physics-vol1": "Natural Sciences", "university-physics-vol2": "Natural Sciences",
+  "university-physics-vol3": "Natural Sciences", "college-physics": "Natural Sciences",
+  astronomy: "Natural Sciences", nutrition: "Natural Sciences",
+  prealgebra: "Mathematics", "elementary-algebra": "Mathematics",
+  "college-algebra": "Mathematics", precalculus: "Mathematics",
+  "calculus-vol1": "Mathematics", "calculus-vol2": "Mathematics",
+  "calculus-vol3": "Mathematics", statistics: "Mathematics", "contemporary-math": "Mathematics",
+  history: "Social Studies", "world-history-vol1": "Social Studies",
+  "world-history-vol2": "Social Studies", "american-government": "Social Studies",
+  "introduction-sociology": "Social Studies", psychology: "Social Studies",
+  macroeconomics: "Social Studies", microeconomics: "Social Studies", philosophy: "Social Studies",
+  "principles-management": "Business", "principles-accounting-vol1": "Business",
+  "principles-finance": "Business", entrepreneurship: "Business", "business-ethics": "Business",
+};
 
 function useSearchParam(key: string): string {
   if (typeof window === "undefined") return "";
@@ -155,7 +187,6 @@ export default function ReadingLibrary() {
 
   const cfg = getSubjectConfig(activeSubject);
   const Icon = cfg.icon;
-  const visibleTabs = MAIN_TABS.includes(activeSubject) ? MAIN_TABS : [...MAIN_TABS, activeSubject];
 
   const { data: syllabus, isLoading: syllabusLoading } = useQuery<SubjectSyllabus>({
     queryKey: ["/api/syllabi", activeSubject],
@@ -165,6 +196,11 @@ export default function ReadingLibrary() {
       return res.json();
     },
     staleTime: Infinity,
+  });
+
+  const { data: allSyllabi = [] } = useQuery<SubjectSyllabus[]>({
+    queryKey: ["/api/syllabi"],
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: progress } = useQuery<ProgressReport>({
@@ -484,25 +520,40 @@ export default function ReadingLibrary() {
         <BookOpen className="w-5 h-5 text-muted-foreground" />
         <h1 className="text-sm font-semibold">Reading Library</h1>
 
-        <div className="ml-auto flex items-center gap-1 rounded-md border p-1" data-testid="subject-tabs">
-          {visibleTabs.map(s => {
-            const tabCfg = getSubjectConfig(s);
-            return (
-              <button
-                key={s}
-                onClick={() => switchSubject(s)}
-                data-testid={`button-tab-${s}`}
-                className={[
-                  "px-3 py-1 text-xs rounded transition-colors capitalize",
-                  activeSubject === s
-                    ? tabCfg.activeTab
-                    : "text-muted-foreground hover:text-foreground",
-                ].join(" ")}
-              >
-                {tabCfg.label !== "Reading" ? tabCfg.label : s.replace(/-/g, " ")}
-              </button>
-            );
-          })}
+        <div className="ml-auto" data-testid="subject-selector">
+          <Select value={activeSubject} onValueChange={(s) => switchSubject(s as Subject)}>
+            <SelectTrigger className="h-8 text-xs gap-1.5 min-w-40 max-w-56" data-testid="select-subject-trigger">
+              <SelectValue>
+                <span className="flex items-center gap-1.5 truncate">
+                  <Icon className={`w-3.5 h-3.5 shrink-0 ${cfg.iconClass}`} />
+                  <span className="truncate">
+                    {syllabus?.bookTitle ?? (cfg.label !== "Reading" ? cfg.label : activeSubject.replace(/-/g, " "))}
+                  </span>
+                </span>
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent align="end" className="max-h-80">
+              {CATALOG_CATEGORIES.map(cat => {
+                const group = allSyllabi.filter(s => SUBJECT_TO_CATEGORY[s.subject] === cat.key);
+                if (group.length === 0) return null;
+                return (
+                  <SelectGroup key={cat.key}>
+                    <SelectLabel>{cat.label}</SelectLabel>
+                    {group.map(s => (
+                      <SelectItem key={s.subject} value={s.subject} data-testid={`option-subject-${s.subject}`}>
+                        {s.bookTitle ?? s.subject.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                );
+              })}
+              {allSyllabi.filter(s => !SUBJECT_TO_CATEGORY[s.subject]).map(s => (
+                <SelectItem key={s.subject} value={s.subject} data-testid={`option-subject-${s.subject}`}>
+                  {s.bookTitle ?? s.subject.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </header>
 

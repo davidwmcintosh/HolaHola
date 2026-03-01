@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Shield, X, Target, Search, Sparkles, HelpCircle, MapPin, Microscope, Landmark, Library, ClipboardList, FlaskConical, Calculator, Atom, BookMarked } from "lucide-react";
+import { BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Shield, X, Target, Search, Sparkles, HelpCircle, MapPin, Microscope, Landmark, Library, ClipboardList, FlaskConical, Calculator, Atom, BookMarked, TestTube2, Zap, Star, Telescope, Leaf, TrendingUp, BarChart2, Grid3X3, Building2, Users, Brain, Receipt, DollarSign, Rocket, Scale, Briefcase, Hash, HeartPulse } from "lucide-react";
 import holaholaLogo from "@assets/holaholamainlogoBackgroundRemoved_1765308837223.png";
 import { Link, useLocation } from "wouter";
 import {
@@ -53,7 +53,7 @@ const adminMenuItems = [
   { title: "Command Center", url: "/admin", icon: Shield },
 ];
 
-const FIXED_SUBJECT_ITEMS = [
+const TOOLS_ITEMS = [
   { title: "Reading Library", url: "/reading-library", icon: Library },
   { title: "Progress Report", url: "/progress-report", icon: ClipboardList },
 ];
@@ -65,13 +65,90 @@ type SubjectConfig = {
 };
 
 const SUBJECT_CONFIG: Record<string, SubjectConfig> = {
-  biology: { icon: Microscope, tutorPath: "/biology", tutorLabel: "Biology — Evelyn / Gene" },
-  history: { icon: Landmark, tutorPath: "/history-tutor", tutorLabel: "History — Clio / Marcus" },
-  chemistry: { icon: FlaskConical },
-  physics: { icon: Atom },
-  math: { icon: Calculator },
-  mathematics: { icon: Calculator },
+  // Natural Sciences
+  biology:                  { icon: Microscope,  tutorPath: "/biology",       tutorLabel: "Biology — Evelyn / Gene" },
+  microbiology:             { icon: TestTube2 },
+  "anatomy-physiology":     { icon: HeartPulse },
+  chemistry:                { icon: FlaskConical },
+  "university-physics-vol1":{ icon: Atom },
+  "university-physics-vol2":{ icon: Zap },
+  "university-physics-vol3":{ icon: Star },
+  "college-physics":        { icon: Atom },
+  astronomy:                { icon: Telescope },
+  nutrition:                { icon: Leaf },
+
+  // Mathematics
+  prealgebra:               { icon: Hash },
+  "elementary-algebra":     { icon: Hash },
+  "college-algebra":        { icon: Calculator },
+  precalculus:              { icon: Calculator },
+  "calculus-vol1":          { icon: TrendingUp },
+  "calculus-vol2":          { icon: TrendingUp },
+  "calculus-vol3":          { icon: TrendingUp },
+  statistics:               { icon: BarChart2 },
+  "contemporary-math":      { icon: Grid3X3 },
+
+  // Social Studies
+  history:                  { icon: Landmark,    tutorPath: "/history-tutor", tutorLabel: "History — Clio / Marcus" },
+  "world-history-vol1":     { icon: Globe },
+  "world-history-vol2":     { icon: Globe },
+  "american-government":    { icon: Building2 },
+  "introduction-sociology": { icon: Users },
+  psychology:               { icon: Brain },
+  macroeconomics:           { icon: TrendingUp },
+  microeconomics:           { icon: BarChart2 },
+  philosophy:               { icon: Lightbulb },
+
+  // Business
+  "principles-management":      { icon: Briefcase },
+  "principles-accounting-vol1": { icon: Receipt },
+  "principles-finance":         { icon: DollarSign },
+  entrepreneurship:             { icon: Rocket },
+  "business-ethics":            { icon: Scale },
 };
+
+const SUBJECT_TO_CATEGORY: Record<string, string> = {
+  biology:                  "Natural Sciences",
+  microbiology:             "Natural Sciences",
+  "anatomy-physiology":     "Natural Sciences",
+  chemistry:                "Natural Sciences",
+  "university-physics-vol1":"Natural Sciences",
+  "university-physics-vol2":"Natural Sciences",
+  "university-physics-vol3":"Natural Sciences",
+  "college-physics":        "Natural Sciences",
+  astronomy:                "Natural Sciences",
+  nutrition:                "Natural Sciences",
+  prealgebra:               "Mathematics",
+  "elementary-algebra":     "Mathematics",
+  "college-algebra":        "Mathematics",
+  precalculus:              "Mathematics",
+  "calculus-vol1":          "Mathematics",
+  "calculus-vol2":          "Mathematics",
+  "calculus-vol3":          "Mathematics",
+  statistics:               "Mathematics",
+  "contemporary-math":      "Mathematics",
+  history:                  "Social Studies",
+  "world-history-vol1":     "Social Studies",
+  "world-history-vol2":     "Social Studies",
+  "american-government":    "Social Studies",
+  "introduction-sociology": "Social Studies",
+  psychology:               "Social Studies",
+  macroeconomics:           "Social Studies",
+  microeconomics:           "Social Studies",
+  philosophy:               "Social Studies",
+  "principles-management":      "Business",
+  "principles-accounting-vol1": "Business",
+  "principles-finance":         "Business",
+  entrepreneurship:             "Business",
+  "business-ethics":            "Business",
+};
+
+const SIDEBAR_CATEGORIES = [
+  { key: "Natural Sciences", label: "Natural Sciences" },
+  { key: "Mathematics",      label: "Mathematics" },
+  { key: "Social Studies",   label: "Social Studies" },
+  { key: "Business",         label: "Business" },
+];
 
 function getSubjectIcon(subject: string): LucideIcon {
   return SUBJECT_CONFIG[subject.toLowerCase()]?.icon ?? BookMarked;
@@ -80,7 +157,7 @@ function getSubjectIcon(subject: string): LucideIcon {
 function getSubjectLabel(subject: string, syllabus: SubjectSyllabus): string {
   const cfg = SUBJECT_CONFIG[subject.toLowerCase()];
   if (cfg?.tutorLabel) return cfg.tutorLabel;
-  return syllabus.bookTitle ?? subject.charAt(0).toUpperCase() + subject.slice(1);
+  return syllabus.bookTitle ?? subject.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function getSubjectUrl(subject: string): string {
@@ -185,6 +262,7 @@ export function AppSidebar() {
           )}
         </div>
       </SidebarHeader>
+
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
@@ -206,7 +284,7 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Library</SidebarGroupLabel>
+          <SidebarGroupLabel>Languages</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {libraryMenuItems.map((item) => {
@@ -230,32 +308,46 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {SIDEBAR_CATEGORIES.map(cat => {
+          const catSyllabi = syllabi.filter(s => SUBJECT_TO_CATEGORY[s.subject] === cat.key);
+          if (catSyllabi.length === 0) return null;
+          return (
+            <SidebarGroup key={cat.key}>
+              <SidebarGroupLabel>{cat.label}</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {catSyllabi.map(syllabus => {
+                    const subject = syllabus.subject;
+                    const url = getSubjectUrl(subject);
+                    const label = getSubjectLabel(subject, syllabus);
+                    const Icon = getSubjectIcon(subject);
+                    const isActive = location === url || location.startsWith(url.split('?')[0]);
+                    return (
+                      <SidebarMenuItem key={subject}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={isActive}
+                          data-testid={`link-subject-${subject}`}
+                        >
+                          <Link href={url} onClick={closeSidebar}>
+                            <Icon className="h-4 w-4" />
+                            <span>{label}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          );
+        })}
+
         <SidebarGroup>
-          <SidebarGroupLabel>Other Subjects</SidebarGroupLabel>
+          <SidebarGroupLabel>Tools</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {syllabi.map((syllabus) => {
-                const subject = syllabus.subject;
-                const url = getSubjectUrl(subject);
-                const label = getSubjectLabel(subject, syllabus);
-                const Icon = getSubjectIcon(subject);
-                const isActive = location === url || location.startsWith(url.split('?')[0]);
-                return (
-                  <SidebarMenuItem key={subject}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      data-testid={`link-subject-${subject}`}
-                    >
-                      <Link href={url} onClick={closeSidebar}>
-                        <Icon className="h-4 w-4" />
-                        <span>{label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-              {FIXED_SUBJECT_ITEMS.map((item) => {
+              {TOOLS_ITEMS.map((item) => {
                 const isActive = location.startsWith(item.url.split('?')[0]);
                 return (
                   <SidebarMenuItem key={item.title}>
@@ -355,6 +447,7 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
       </SidebarContent>
+
       <SidebarFooter className="p-6 space-y-4">
         <div className="px-2 space-y-2">
           <StreakIndicator compact />
