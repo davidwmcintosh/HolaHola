@@ -51,6 +51,8 @@ import { updateToolEventEngagement, mapWhiteboardTypeToToolType } from './servic
 import { buildNeuralNetworkPromptSection } from './services/neural-network-retrieval';
 import { buildEvelynSystemPrompt, buildGeneSystemPrompt, EVELYN_NAME, GENE_NAME, EVELYN_VOICE_CONFIG, GENE_VOICE_CONFIG, isBiologySession } from './services/biology-persona';
 import { buildClioSystemPrompt, buildMarcusSystemPrompt, CLIO_NAME, MARCUS_NAME, CLIO_VOICE_CONFIG, MARCUS_VOICE_CONFIG, isHistorySession } from './services/history-persona';
+import { buildAdaSystemPrompt, buildLeoSystemPrompt, ADA_NAME, LEO_NAME, ADA_VOICE_CONFIG, LEO_VOICE_CONFIG, isMathSession } from './services/math-persona';
+import { buildMorganSystemPrompt, buildSterlingSystemPrompt, MORGAN_NAME, STERLING_NAME, MORGAN_VOICE_CONFIG, STERLING_VOICE_CONFIG, isBusinessSession } from './services/business-persona';
 import { getPredictiveTeachingContext, getStudentSnapshotData, type PredictiveTeachingContext, type StudentSnapshotContext } from './services/procedural-memory-retrieval';
 import { studentLearningService } from './services/student-learning-service';
 import { voiceDiagnostics } from './services/voice-diagnostics-service';
@@ -3305,6 +3307,26 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
                 voiceId = CLIO_VOICE_CONFIG.googleVoiceName;
               }
             }
+            // Math sessions use Ada (female) or Leo (male)
+            if (isMathSession(config.subject, config.targetLanguage)) {
+              if (tutorGender === 'male') {
+                tutorName = LEO_NAME;
+                voiceId = LEO_VOICE_CONFIG.googleVoiceName;
+              } else {
+                tutorName = ADA_NAME;
+                voiceId = ADA_VOICE_CONFIG.googleVoiceName;
+              }
+            }
+            // Business sessions use Morgan (female) or Sterling (male)
+            if (isBusinessSession(config.subject, config.targetLanguage)) {
+              if (tutorGender === 'male') {
+                tutorName = STERLING_NAME;
+                voiceId = STERLING_VOICE_CONFIG.googleVoiceName;
+              } else {
+                tutorName = MORGAN_NAME;
+                voiceId = MORGAN_VOICE_CONFIG.googleVoiceName;
+              }
+            }
             console.log(`[Streaming Voice] Session using tutor: ${tutorName} (${tutorGender})`);
             
             // ══════════════════════════════════════════════════════════════
@@ -3394,7 +3416,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
             // ══════════════════════════════════════════════════════════════
             // PHASE 3: Build system prompt (synchronous, fast)
             // ══════════════════════════════════════════════════════════════
-            const isSubjectSession = isBiologySession(config.subject, config.targetLanguage) || isHistorySession(config.subject, config.targetLanguage);
+            const isSubjectSession = isBiologySession(config.subject, config.targetLanguage) || isHistorySession(config.subject, config.targetLanguage) || isMathSession(config.subject, config.targetLanguage) || isBusinessSession(config.subject, config.targetLanguage);
             let systemPrompt: string;
             if (isBiologySession(config.subject, config.targetLanguage)) {
               if (tutorGender === 'male') {
@@ -3411,6 +3433,22 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
               } else {
                 systemPrompt = buildClioSystemPrompt({ studentName: user?.firstName || undefined });
                 console.log('[Streaming Voice] Using CLIO (History) system prompt');
+              }
+            } else if (isMathSession(config.subject, config.targetLanguage)) {
+              if (tutorGender === 'male') {
+                systemPrompt = buildLeoSystemPrompt({ studentName: user?.firstName || undefined });
+                console.log('[Streaming Voice] Using LEO (Math) system prompt');
+              } else {
+                systemPrompt = buildAdaSystemPrompt({ studentName: user?.firstName || undefined });
+                console.log('[Streaming Voice] Using ADA (Math) system prompt');
+              }
+            } else if (isBusinessSession(config.subject, config.targetLanguage)) {
+              if (tutorGender === 'male') {
+                systemPrompt = buildSterlingSystemPrompt({ studentName: user?.firstName || undefined });
+                console.log('[Streaming Voice] Using STERLING (Business) system prompt');
+              } else {
+                systemPrompt = buildMorganSystemPrompt({ studentName: user?.firstName || undefined });
+                console.log('[Streaming Voice] Using MORGAN (Business) system prompt');
               }
             } else if (rawHonestyMode) {
               const safeName = (userName || 'friend').replace(/[^a-zA-Z0-9\s\-']/g, '').substring(0, 50);

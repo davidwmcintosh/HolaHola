@@ -77,16 +77,16 @@ const SUBJECT_CONFIG: Record<string, SubjectConfig> = {
   "college-physics":         { icon: Atom },
   astronomy:                 { icon: Telescope },
 
-  // Mathematics — all share Calculator
-  prealgebra:                { icon: Calculator },
-  "elementary-algebra":      { icon: Calculator },
-  "college-algebra":         { icon: Calculator },
-  precalculus:               { icon: Calculator },
-  "calculus-vol1":           { icon: Calculator },
-  "calculus-vol2":           { icon: Calculator },
-  "calculus-vol3":           { icon: Calculator },
-  statistics:                { icon: Calculator },
-  "contemporary-math":       { icon: Calculator },
+  // Mathematics — all link to Math tutor (Ada / Leo)
+  prealgebra:                { icon: Calculator, tutorPath: "/math-tutor", tutorLabel: "Mathematics — Ada / Leo" },
+  "elementary-algebra":      { icon: Calculator, tutorPath: "/math-tutor", tutorLabel: "Mathematics — Ada / Leo" },
+  "college-algebra":         { icon: Calculator, tutorPath: "/math-tutor", tutorLabel: "Mathematics — Ada / Leo" },
+  precalculus:               { icon: Calculator, tutorPath: "/math-tutor", tutorLabel: "Mathematics — Ada / Leo" },
+  "calculus-vol1":           { icon: Calculator, tutorPath: "/math-tutor", tutorLabel: "Mathematics — Ada / Leo" },
+  "calculus-vol2":           { icon: Calculator, tutorPath: "/math-tutor", tutorLabel: "Mathematics — Ada / Leo" },
+  "calculus-vol3":           { icon: Calculator, tutorPath: "/math-tutor", tutorLabel: "Mathematics — Ada / Leo" },
+  statistics:                { icon: Calculator, tutorPath: "/math-tutor", tutorLabel: "Mathematics — Ada / Leo" },
+  "contemporary-math":       { icon: Calculator, tutorPath: "/math-tutor", tutorLabel: "Mathematics — Ada / Leo" },
 
   // Social Studies — history shares Landmark, econ shares TrendingUp
   history:                   { icon: Landmark, tutorPath: "/history-tutor", tutorLabel: "History — Clio / Marcus" },
@@ -99,12 +99,12 @@ const SUBJECT_CONFIG: Record<string, SubjectConfig> = {
   microeconomics:            { icon: TrendingUp },
   philosophy:                { icon: Lightbulb },
 
-  // Business — all share Briefcase
-  "principles-management":       { icon: Briefcase },
-  "principles-accounting-vol1":  { icon: Briefcase },
-  "principles-finance":          { icon: Briefcase },
-  entrepreneurship:              { icon: Briefcase },
-  "business-ethics":             { icon: Briefcase },
+  // Business — all link to Business tutor (Morgan / Sterling)
+  "principles-management":       { icon: Briefcase, tutorPath: "/business-tutor", tutorLabel: "Business — Morgan / Sterling" },
+  "principles-accounting-vol1":  { icon: Briefcase, tutorPath: "/business-tutor", tutorLabel: "Business — Morgan / Sterling" },
+  "principles-finance":          { icon: Briefcase, tutorPath: "/business-tutor", tutorLabel: "Business — Morgan / Sterling" },
+  entrepreneurship:              { icon: Briefcase, tutorPath: "/business-tutor", tutorLabel: "Business — Morgan / Sterling" },
+  "business-ethics":             { icon: Briefcase, tutorPath: "/business-tutor", tutorLabel: "Business — Morgan / Sterling" },
 };
 
 const SUBJECT_TO_CATEGORY: Record<string, string> = {
