@@ -57,13 +57,16 @@ interface ReadingModule {
 }
 
 interface ReadingModulePanelProps {
-  subject: "biology" | "history";
+  subject: string;
   onClose: () => void;
   initialTopic?: string;
   onLoaded?: (moduleId: string) => void;
 }
 
-const SUBJECT_STYLES = {
+const SUBJECT_STYLES: Record<string, {
+  accent: string; badge: string; section: string; icon: string;
+  button: string; framing: string; dot: string;
+}> = {
   biology: {
     accent: "emerald",
     badge: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
@@ -72,6 +75,15 @@ const SUBJECT_STYLES = {
     button: "bg-emerald-600 hover:bg-emerald-700 text-white",
     framing: "bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800",
     dot: "bg-emerald-500",
+  },
+  microbiology: {
+    accent: "teal",
+    badge: "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300",
+    section: "border-teal-200 dark:border-teal-800",
+    icon: "text-teal-600 dark:text-teal-400",
+    button: "bg-teal-600 hover:bg-teal-700 text-white",
+    framing: "bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800",
+    dot: "bg-teal-500",
   },
   history: {
     accent: "amber",
@@ -82,6 +94,25 @@ const SUBJECT_STYLES = {
     framing: "bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800",
     dot: "bg-amber-500",
   },
+  chemistry: {
+    accent: "blue",
+    badge: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
+    section: "border-blue-200 dark:border-blue-800",
+    icon: "text-blue-600 dark:text-blue-400",
+    button: "bg-blue-600 hover:bg-blue-700 text-white",
+    framing: "bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800",
+    dot: "bg-blue-500",
+  },
+};
+
+const DEFAULT_SUBJECT_STYLE = {
+  accent: "slate",
+  badge: "bg-slate-100 text-slate-800 dark:bg-slate-900/40 dark:text-slate-300",
+  section: "border-slate-200 dark:border-slate-800",
+  icon: "text-slate-600 dark:text-slate-400",
+  button: "bg-slate-600 hover:bg-slate-700 text-white",
+  framing: "bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800",
+  dot: "bg-slate-500",
 };
 
 function RecallCard({ item }: { item: RecallItem }) {
@@ -195,7 +226,7 @@ function ImageGallery({ images }: { images: ModuleImage[] }) {
   );
 }
 
-function ModuleContent({ module, styles }: { module: ReadingModule; styles: typeof SUBJECT_STYLES["biology"] }) {
+function ModuleContent({ module, styles }: { module: ReadingModule; styles: typeof DEFAULT_SUBJECT_STYLE }) {
   const { content } = module;
   const images = content.images ?? [];
 
@@ -345,7 +376,7 @@ function ModuleSkeleton() {
 }
 
 export function ReadingModulePanel({ subject, onClose, initialTopic = "", onLoaded }: ReadingModulePanelProps) {
-  const styles = SUBJECT_STYLES[subject];
+  const styles = SUBJECT_STYLES[subject] ?? DEFAULT_SUBJECT_STYLE;
   const [topicInput, setTopicInput] = useState(initialTopic);
   const [activeTopic, setActiveTopic] = useState(initialTopic);
 
