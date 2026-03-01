@@ -1,0 +1,39 @@
+git push github main
+rm '.local/state/replit/log-query.db'
+Enumerating objects: 49, done.
+Counting objects: 100% (49/49), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (30/30), done.
+Writing objects: 100% (32/32), 586.65 KiB | 2.90 MiB/s, done.
+Total 32 (delta 16), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (16/16), completed with 9 local objects.
+remote: warning: See https://gh.io/lfs for more information.
+remote: warning: File .local/state/replit/log-query.db is 79.80 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB
+remote: warning: GH001: Large files detected. You may want to try Git Large File Storage - https://git-lfs.github.com.
+To https://github.com/davidwmcintosh/HolaHola.git
+   9ef4c53a..e2b633a1  main -> main
+~/workspace$ git rm --cached .local/state/replit/log-query.db
+git commit -m "Remove large Replit internal file from tracking"
+git push github main
+fatal: pathspec '.local/state/replit/log-query.db' did not match any files
+On branch main
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+    modified:   .local/state/replit/log-query.db-shm
+    modified:   .local/state/replit/log-query.db-wal
+
+no changes added to commit (use "git add" and/or "git commit -a")
+Enumerating objects: 27, done.
+Counting objects: 100% (27/27), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (13/13), done.
+Writing objects: 100% (14/14), 238.88 KiB | 1.38 MiB/s, done.
+Total 14 (delta 6), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (6/6), completed with 6 local objects.
+To https://github.com/davidwmcintosh/HolaHola.git
+   e2b633a1..40381add  main -> main
+~/workspace$ git rm --cached .local/state/replit/log-query.db
+fatal: pathspec '.local/state/replit/log-query.db' did not match any files
+~/workspace$ ^C
+~/workspace$ 
