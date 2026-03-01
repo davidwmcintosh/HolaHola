@@ -644,8 +644,12 @@ export default function ClassCreationHub() {
                       <Select onValueChange={(val) => {
                         field.onChange(val);
                         const syllabus = syllabi.find(s => s.subject === val);
-                        if (syllabus && !academicForm.getValues("name")) {
-                          academicForm.setValue("name", `${getSubjectLabel(syllabus.subject)} Class`);
+                        if (syllabus) {
+                          const autoName = [syllabus.bookTitle, syllabus.bookSubtitle].filter(Boolean).join(" ");
+                          academicForm.setValue("name", autoName || getSubjectLabel(syllabus.subject));
+                          if (syllabus.description) {
+                            academicForm.setValue("description", syllabus.description);
+                          }
                         }
                       }} value={field.value}>
                         <FormControl>
