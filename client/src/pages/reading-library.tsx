@@ -62,6 +62,8 @@ const SUBJECT_CONFIG = {
     unitBg: "bg-emerald-50 dark:bg-emerald-950/30",
     unitBorder: "border-emerald-200 dark:border-emerald-800",
     placeholder: "e.g. photosynthesis, CRISPR, natural selection",
+    standardLabel: "Scientific Theory",
+    alternativeLabel: "Creationist View",
   },
   history: {
     label: "History",
@@ -73,6 +75,8 @@ const SUBJECT_CONFIG = {
     unitBg: "bg-amber-50 dark:bg-amber-950/30",
     unitBorder: "border-amber-200 dark:border-amber-800",
     placeholder: "e.g. the Cold War, women's suffrage, imperialism",
+    standardLabel: "Academic View",
+    alternativeLabel: "Traditional View",
   },
 };
 
@@ -255,19 +259,19 @@ export default function ReadingLibrary() {
                                 size="sm"
                                 variant={selectedTopic === chapter.topic ? "default" : "outline"}
                                 onClick={() => setSelectedTopic(chapter.topic)}
-                                data-testid={`button-chapter-${chapter.chapterNumber}-science`}
+                                data-testid={`button-chapter-${chapter.chapterNumber}-standard`}
                               >
                                 {isViewedStandard && <CheckCircle2 className="w-3 h-3 mr-1" />}
-                                Scientific Theory
+                                {cfg.standardLabel}
                               </Button>
                               <Button
                                 size="sm"
                                 variant={selectedTopic === chapter.alternativeTopic ? "default" : "outline"}
                                 onClick={() => setSelectedTopic(chapter.alternativeTopic!)}
-                                data-testid={`button-chapter-${chapter.chapterNumber}-creation`}
+                                data-testid={`button-chapter-${chapter.chapterNumber}-alternative`}
                               >
                                 {isViewedAlt && <CheckCircle2 className="w-3 h-3 mr-1" />}
-                                Creationist View
+                                {cfg.alternativeLabel}
                               </Button>
                             </div>
                           </div>

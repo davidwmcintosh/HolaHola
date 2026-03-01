@@ -103,7 +103,7 @@ const historyCurriculum: SyllabusUnit[] = [
     unitTitle: "Meeting of Three Worlds",
     chapters: [
       { chapterNumber: 1, chapterTitle: "The Americas, Europe, and Africa Before 1492", topic: "Pre-Columbian Americas" },
-      { chapterNumber: 2, chapterTitle: "Early Exploration and the Columbian Exchange", topic: "The Columbian Exchange" },
+      { chapterNumber: 2, chapterTitle: "Early Exploration and the Columbian Exchange", topic: "The Columbian Exchange", alternativeTopic: "Columbus, Discovery, and the Opening of the New World: A Traditional Perspective" },
       { chapterNumber: 3, chapterTitle: "Creating New Social Orders: Colonial Societies", topic: "Early Colonial Societies" },
     ],
   },
@@ -120,7 +120,7 @@ const historyCurriculum: SyllabusUnit[] = [
     unitTitle: "Creating a New Nation, 1754–1800",
     chapters: [
       { chapterNumber: 6, chapterTitle: "America's War for Independence", topic: "The American Revolution" },
-      { chapterNumber: 7, chapterTitle: "Creating Republican Governments, 1776–1790", topic: "The Articles of Confederation and Constitutional Convention" },
+      { chapterNumber: 7, chapterTitle: "Creating Republican Governments, 1776–1790", topic: "The Articles of Confederation and Constitutional Convention", alternativeTopic: "Faith, Providence, and the Christian Roots of American Government" },
       { chapterNumber: 8, chapterTitle: "Growing Pains: The New Republic", topic: "The Early American Republic" },
     ],
   },
@@ -130,23 +130,23 @@ const historyCurriculum: SyllabusUnit[] = [
     chapters: [
       { chapterNumber: 9, chapterTitle: "Industrial Transformation in the North", topic: "The Industrial Revolution in America" },
       { chapterNumber: 10, chapterTitle: "Jacksonian Democracy", topic: "Jacksonian Democracy" },
-      { chapterNumber: 11, chapterTitle: "A Nation on the Move: Westward Expansion", topic: "Westward Expansion and Manifest Destiny" },
+      { chapterNumber: 11, chapterTitle: "A Nation on the Move: Westward Expansion", topic: "Westward Expansion and Manifest Destiny", alternativeTopic: "Manifest Destiny: Providence, Pioneer Spirit, and the Settlement of the West" },
     ],
   },
   {
     unitNumber: 5,
     unitTitle: "Tensions Leading to Civil War, 1844–1861",
     chapters: [
-      { chapterNumber: 12, chapterTitle: "Cotton is King: The Antebellum South", topic: "The Antebellum South and Slavery" },
+      { chapterNumber: 12, chapterTitle: "Cotton is King: The Antebellum South", topic: "The Antebellum South and Slavery", alternativeTopic: "The Antebellum South: States' Rights, Regional Culture, and the Roots of Sectional Conflict" },
       { chapterNumber: 13, chapterTitle: "Antebellum Idealism and Reform Impulses", topic: "Antebellum Reform Movements" },
-      { chapterNumber: 14, chapterTitle: "Troubled Times: The Tumultuous 1850s", topic: "The Road to Civil War" },
+      { chapterNumber: 14, chapterTitle: "Troubled Times: The Tumultuous 1850s", topic: "The Road to Civil War", alternativeTopic: "The Road to Secession: Constitutional Crisis, States' Rights, and the Collapse of the Union" },
     ],
   },
   {
     unitNumber: 6,
     unitTitle: "The Civil War and Reconstruction, 1860–1877",
     chapters: [
-      { chapterNumber: 15, chapterTitle: "The Civil War", topic: "The American Civil War" },
+      { chapterNumber: 15, chapterTitle: "The Civil War", topic: "The American Civil War", alternativeTopic: "The War Between the States: Honor, Duty, and the Soldier's Experience on Both Sides" },
       { chapterNumber: 16, chapterTitle: "The Era of Reconstruction", topic: "Reconstruction Era" },
     ],
   },
@@ -165,7 +165,7 @@ const historyCurriculum: SyllabusUnit[] = [
     chapters: [
       { chapterNumber: 20, chapterTitle: "Politics in the Gilded Age", topic: "Politics in the Gilded Age" },
       { chapterNumber: 21, chapterTitle: "Leading the Way: The Progressive Movement", topic: "The Progressive Movement" },
-      { chapterNumber: 22, chapterTitle: "Age of Empire: US Foreign Policy", topic: "American Imperialism" },
+      { chapterNumber: 22, chapterTitle: "Age of Empire: US Foreign Policy", topic: "American Imperialism", alternativeTopic: "America's Global Mission: Spreading Liberty, Order, and Civilization Abroad" },
     ],
   },
   {
@@ -191,15 +191,15 @@ const historyCurriculum: SyllabusUnit[] = [
     unitTitle: "The Tumultuous Sixties and Seventies, 1960–1980",
     chapters: [
       { chapterNumber: 29, chapterTitle: "The Civil Rights Movement", topic: "The Civil Rights Movement" },
-      { chapterNumber: 30, chapterTitle: "Political Storms at Home and Abroad", topic: "The Vietnam War Era" },
-      { chapterNumber: 31, chapterTitle: "From the Counterculture to the New Right", topic: "Social Change in the 1960s and 1970s" },
+      { chapterNumber: 30, chapterTitle: "Political Storms at Home and Abroad", topic: "The Vietnam War Era", alternativeTopic: "Vietnam: The Soldier's Duty, Sacrifice, and Honor in an Unpopular War" },
+      { chapterNumber: 31, chapterTitle: "From the Counterculture to the New Right", topic: "Social Change in the 1960s and 1970s", alternativeTopic: "Traditional Values and the Conservative Response to the Cultural Revolution of the 1960s–70s" },
     ],
   },
   {
     unitNumber: 12,
     unitTitle: "Conservatism and Globalization, 1980–2000",
     chapters: [
-      { chapterNumber: 32, chapterTitle: "The Reagan Revolution", topic: "The Reagan Era" },
+      { chapterNumber: 32, chapterTitle: "The Reagan Revolution", topic: "The Reagan Era", alternativeTopic: "The Reagan Revolution: Restoring American Greatness, Faith, and Free Enterprise" },
       { chapterNumber: 33, chapterTitle: "New Challenges, New Fears", topic: "America in the 1990s" },
       { chapterNumber: 34, chapterTitle: "America in the 21st Century", topic: "Post-Cold War America" },
     ],
