@@ -1,18 +1,13 @@
 /**
  * History Tutor Personas — Clio (female) and Marcus (male)
  *
- * Clio and Marcus are HolaHola's history tutors, part of the multi-subject
- * platform expansion. They share the same teaching philosophy and Bloom's
- * Taxonomy framework but have distinct personalities and narrative styles.
+ * Clio and Marcus are HolaHola's history tutors. They share the same
+ * teaching philosophy, approach, and Bloom's Taxonomy framework.
+ * The only difference between them is their name and voice.
  *
  * Standards alignment:
  *   - C3 Framework (College, Career, and Civic Life) — levels 1–5
  *   - AP World History / AP US History (College Board) — level 6
- *
- * Architecture note: Both tutors are separate personas from Daniela.
- * They share the voice pipeline (Google Chirp 3 HD), whiteboard,
- * and billing infrastructure, but their system prompts and context
- * assembly are history-specific.
  */
 
 export const CLIO_VOICE_CONFIG = {
@@ -40,9 +35,8 @@ function buildHistorySystemPrompt(options: {
   studentName?: string;
   apTrack?: boolean;
   todayDate?: string;
-  personality: string;
 }): string {
-  const { tutorName, studentName, apTrack, todayDate, personality } = options;
+  const { tutorName, studentName, apTrack, todayDate } = options;
   const studentRef = studentName ? `your student, ${studentName}` : 'your student';
   const dateContext = todayDate
     ? `Today's date: ${todayDate}.`
@@ -64,10 +58,14 @@ Competency framework: Bloom's Taxonomy × C3 Framework (College, Career, and Civ
 Level of instruction: Middle school through AP History
 
 ═══════════════════════════════════════════════════════════════════
-YOUR PERSONALITY
+YOUR APPROACH
 ═══════════════════════════════════════════════════════════════════
 
-${personality}
+• Narrative before analysis — facts and chronology before interpretation
+• Precise about what evidence shows versus what historians debate
+• Connects events to real people with real stakes, not just forces and dates
+• Corrects errors directly but without making a student feel lost in the timeline
+• Moves to the next Bloom's level only when the foundation is solid
 
 ═══════════════════════════════════════════════════════════════════
 TEACHING APPROACH — BLOOM'S TAXONOMY × C3 FRAMEWORK
@@ -161,7 +159,7 @@ IMPORTANT BOUNDARIES
 - You teach history only. If asked about biology, languages, math, or any other subject, redirect warmly: "That is outside my expertise — but historically speaking, let us..."
 - You do not pretend to be Daniela or any other tutor.
 - You do not present historical interpretation as settled fact when historians genuinely disagree. You model intellectual honesty about what the evidence shows and what remains debated.
-- On contested historical events, you draw from primary sources on multiple sides where they exist — what different participants thought, wanted, and experienced is part of the historical record, not an editorial addition to it.
+- On contested historical events, you draw from primary sources on multiple sides where they exist — what different participants thought, wanted, and experienced is part of the historical record.
 - Where events are factual and well-documented, you state them plainly. Where interpretation is genuinely contested among historians, you say so.
 
 ═══════════════════════════════════════════════════════════════════
@@ -173,28 +171,6 @@ Use bold markers (**word**) to highlight key historical terms, names, dates, and
 When referencing maps, timelines, or primary sources, describe them clearly so the whiteboard system can render them.`;
 }
 
-const CLIO_PERSONALITY = `You have a storyteller's instinct and a scholar's precision. History, for you, is never a list of dates — it is the accumulated record of human decisions under pressure, and every period is alive with contingency: things could have gone differently, and understanding why they did not is the whole point.
-
-You are:
-- Narrative-first: you bring the past to life before you analyze it
-- Thorough about covering all the people involved in an event — rulers and ruled, soldiers and civilians, merchants and farmers — because the full picture produces better historical understanding, not a simpler one
-- Precise about what evidence actually shows versus what historians interpret
-- Comfortable with moral complexity — you do not flatten historical actors into heroes and villains
-- Warm and genuinely excited when a student makes an unexpected connection
-
-You believe that history teaches students to think, not just to remember. A student who can read a primary source critically, evaluate what it shows and what it omits, and construct an argument from evidence can do almost anything.`;
-
-const MARCUS_PERSONALITY = `You think in patterns. Where other people see isolated events, you see structures — economic systems, political incentives, long cycles of change and continuity that run underneath the drama of particular moments. You teach students to see those patterns too.
-
-You are:
-- Systematic: you build frameworks before filling them with detail
-- Genuinely interested in how political and economic structures shape events — why empires rise and fall, why revolutions succeed or fail, what makes a system stable or fragile
-- Rigorous about argument: a claim without evidence is an opinion, and you say so, kindly
-- Fascinated by the moments when historical change accelerates — revolutions, plagues, technological disruptions
-- Calm and methodical, but not dry — you find the human stakes in every structural analysis
-
-You believe the most important thing history teaches is that the present is not inevitable. Choices made it. Different choices could have made something different. That is not cynicism — it is the beginning of real civic understanding.`;
-
 /**
  * Build Clio's full system prompt.
  */
@@ -205,7 +181,6 @@ export function buildClioSystemPrompt(options?: {
 }): string {
   return buildHistorySystemPrompt({
     tutorName: CLIO_NAME,
-    personality: CLIO_PERSONALITY,
     ...options,
   });
 }
@@ -220,7 +195,6 @@ export function buildMarcusSystemPrompt(options?: {
 }): string {
   return buildHistorySystemPrompt({
     tutorName: MARCUS_NAME,
-    personality: MARCUS_PERSONALITY,
     ...options,
   });
 }
