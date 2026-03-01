@@ -45,7 +45,7 @@ import {
   ArrowRight,
   Microscope,
 } from "lucide-react";
-import type { CurriculumPath, CurriculumUnit, CurriculumLesson, SubjectSyllabus } from "@shared/schema";
+import type { CurriculumPath, CurriculumUnit, CurriculumLesson, SubjectSyllabus, TeacherClass } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -115,6 +115,17 @@ export default function ClassCreationHub() {
     enabled: !!user && hasTeacherAccess(user.role),
   });
 
+  const { data: teacherClasses = [] } = useQuery<TeacherClass[]>({
+    queryKey: ["/api/teacher/classes"],
+    enabled: !!user && hasTeacherAccess(user.role),
+  });
+
+  const existingAcademicSubjects = new Set(
+    teacherClasses
+      .filter(c => c.isAcademicClass && c.subjectSyllabusId)
+      .map(c => c.subjectSyllabusId!)
+  );
+
   const createClassMutation = useMutation({
     mutationFn: async (data: CreateClassFormValues) => {
       return apiRequest("POST", "/api/teacher/classes", data);
@@ -137,11 +148,11 @@ export default function ClassCreationHub() {
       return apiRequest("POST", "/api/teacher/classes", {
         ...data,
         isAcademicClass: true,
-        isPublicCatalogue: true,
       });
     },
     onSuccess: (newClass: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/teacher/classes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/syllabi"] });
       setCreateAcademicDialogOpen(false);
       academicForm.reset();
       toast({ title: "Academic Class Created", description: "Your class is ready for students to join." });
@@ -663,16 +674,26 @@ export default function ClassCreationHub() {
                               <SelectLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-2 py-1">
                                 {cat.label}
                               </SelectLabel>
-                              {cat.items.map(s => (
-                                <SelectItem key={s.subject} value={s.subject}>
-                                  <div className="flex flex-col">
-                                    <span>{s.bookTitle || getSubjectLabel(s.subject)}</span>
-                                    {s.bookSubtitle && (
-                                      <span className="text-xs text-muted-foreground">{s.bookSubtitle}</span>
-                                    )}
-                                  </div>
-                                </SelectItem>
-                              ))}
+                              {cat.items.map(s => {
+                                const alreadyCreated = existingAcademicSubjects.has(s.subject);
+                                return (
+                                  <SelectItem key={s.subject} value={s.subject} data-testid={`option-academic-${s.subject}`}>
+                                    <div className="flex items-center justify-between gap-3 w-full">
+                                      <div className="flex flex-col">
+                                        <span>{s.bookTitle || getSubjectLabel(s.subject)}</span>
+                                        {s.bookSubtitle && (
+                                          <span className="text-xs text-muted-foreground">{s.bookSubtitle}</span>
+                                        )}
+                                      </div>
+                                      {alreadyCreated && (
+                                        <Badge variant="secondary" className="no-default-hover-elevate no-default-active-elevate cursor-default text-xs shrink-0">
+                                          Created
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </SelectItem>
+                                );
+                              })}
                             </SelectGroup>
                           ))}
                         </SelectContent>

@@ -534,7 +534,7 @@ export default function ReadingLibrary() {
             </SelectTrigger>
             <SelectContent align="end" className="max-h-80">
               {CATALOG_CATEGORIES.map(cat => {
-                const group = allSyllabi.filter(s => SUBJECT_TO_CATEGORY[s.subject] === cat.key);
+                const group = allSyllabi.filter(s => SUBJECT_TO_CATEGORY[s.subject] === cat.key && (s as any).unitCount > 0);
                 if (group.length === 0) return null;
                 return (
                   <SelectGroup key={cat.key}>
@@ -547,7 +547,7 @@ export default function ReadingLibrary() {
                   </SelectGroup>
                 );
               })}
-              {allSyllabi.filter(s => !SUBJECT_TO_CATEGORY[s.subject]).map(s => (
+              {allSyllabi.filter(s => !SUBJECT_TO_CATEGORY[s.subject] && (s as any).unitCount > 0).map(s => (
                 <SelectItem key={s.subject} value={s.subject} data-testid={`option-subject-${s.subject}`}>
                   {s.bookTitle ?? s.subject.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
                 </SelectItem>

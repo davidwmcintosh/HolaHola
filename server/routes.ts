@@ -66,7 +66,9 @@ import {
   scenarioLevelGuides,
   userScenarioHistory,
   insertScenarioSchema,
+  subjectSyllabi,
 } from "@shared/schema";
+import { getTOCForSubject } from "./data/subject-tocs";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
 import OpenAI, { toFile } from "openai";
 import { setupUnifiedWebSocketHandler, getRecentTelemetryEvents, getPendingServerEmits } from "./unified-ws-handler";
@@ -7902,6 +7904,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       // Generate 6-digit join code
       const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
+      // Create class with isPublicCatalogue=false initially; will be updated after TOC seeding
       const teacherClass = await storage.createTeacherClass({
         teacherId,
         name,
@@ -7911,7 +7914,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         joinCode,
         subjectSyllabusId: subjectSyllabusId || null,
         isAcademicClass: isAcademicClass || false,
-        isPublicCatalogue: isAcademicClass ? true : false,
+        isPublicCatalogue: false,
       });
 
       // If a curriculum template was selected, clone it to the class
@@ -7920,7 +7923,43 @@ Return ONLY the ${targetLanguage} phrase:`;
           await storage.cloneCurriculumToClass(teacherClass.id, curriculumPathId);
         } catch (cloneError) {
           console.error('Error cloning curriculum to class:', cloneError);
-          // Don't fail the class creation, just log the error
+        }
+      }
+
+      // For academic classes: seed TOC if not already populated, then mark public
+      if (isAcademicClass && subjectSyllabusId) {
+        try {
+          const [existing] = await db
+            .select({ units: subjectSyllabi.units })
+            .from(subjectSyllabi)
+            .where(eq(subjectSyllabi.subject, subjectSyllabusId))
+            .limit(1);
+
+          let hasContent = Array.isArray(existing?.units) && existing.units.length > 0;
+
+          if (!hasContent) {
+            const toc = getTOCForSubject(subjectSyllabusId);
+            if (toc && toc.length > 0) {
+              await db
+                .update(subjectSyllabi)
+                .set({ units: toc })
+                .where(eq(subjectSyllabi.subject, subjectSyllabusId));
+              hasContent = true;
+              console.log(`[ClassCreation] Seeded TOC for subject: ${subjectSyllabusId} (${toc.length} units)`);
+            } else {
+              console.log(`[ClassCreation] No TOC data found for subject: ${subjectSyllabusId}`);
+            }
+          } else {
+            hasContent = true;
+            console.log(`[ClassCreation] TOC already seeded for subject: ${subjectSyllabusId}`);
+          }
+
+          if (hasContent) {
+            await storage.updateTeacherClass(teacherClass.id, { isPublicCatalogue: true });
+            teacherClass.isPublicCatalogue = true;
+          }
+        } catch (seedError) {
+          console.error(`[ClassCreation] TOC seeding error for ${subjectSyllabusId}:`, seedError);
         }
       }
 

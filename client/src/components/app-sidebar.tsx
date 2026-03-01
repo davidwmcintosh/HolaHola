@@ -309,7 +309,7 @@ export function AppSidebar() {
         </SidebarGroup>
 
         {SIDEBAR_CATEGORIES.map(cat => {
-          const catSyllabi = syllabi.filter(s => SUBJECT_TO_CATEGORY[s.subject] === cat.key);
+          const catSyllabi = syllabi.filter(s => SUBJECT_TO_CATEGORY[s.subject] === cat.key && ((s as any).unitCount > 0));
           if (catSyllabi.length === 0) return null;
           return (
             <SidebarGroup key={cat.key}>
