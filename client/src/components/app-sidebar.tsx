@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Shield, X, Target, Search, Sparkles, HelpCircle, MapPin, Microscope, Landmark, Library, ClipboardList, FlaskConical, Calculator, Atom, BookMarked, TestTube2, Zap, Star, Telescope, Leaf, TrendingUp, BarChart2, Grid3X3, Building2, Users, Brain, Receipt, DollarSign, Rocket, Scale, Briefcase, Hash, HeartPulse } from "lucide-react";
+import { BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Shield, X, Target, Search, Sparkles, HelpCircle, MapPin, Microscope, Landmark, Library, ClipboardList, FlaskConical, Calculator, Atom, BookMarked, Telescope, Leaf, TrendingUp, Building2, Users, Briefcase } from "lucide-react";
 import holaholaLogo from "@assets/holaholamainlogoBackgroundRemoved_1765308837223.png";
 import { Link, useLocation } from "wouter";
 import {
@@ -65,46 +65,46 @@ type SubjectConfig = {
 };
 
 const SUBJECT_CONFIG: Record<string, SubjectConfig> = {
-  // Natural Sciences
-  biology:                  { icon: Microscope,  tutorPath: "/biology",       tutorLabel: "Biology — Evelyn / Gene" },
-  microbiology:             { icon: TestTube2 },
-  "anatomy-physiology":     { icon: HeartPulse },
-  chemistry:                { icon: FlaskConical },
-  "university-physics-vol1":{ icon: Atom },
-  "university-physics-vol2":{ icon: Zap },
-  "university-physics-vol3":{ icon: Star },
-  "college-physics":        { icon: Atom },
-  astronomy:                { icon: Telescope },
-  nutrition:                { icon: Leaf },
+  // Natural Sciences — life sciences share Microscope, physics share Atom
+  biology:                   { icon: Microscope, tutorPath: "/biology",       tutorLabel: "Biology — Evelyn / Gene" },
+  microbiology:              { icon: Microscope },
+  "anatomy-physiology":      { icon: Microscope },
+  nutrition:                 { icon: Leaf },
+  chemistry:                 { icon: FlaskConical },
+  "university-physics-vol1": { icon: Atom },
+  "university-physics-vol2": { icon: Atom },
+  "university-physics-vol3": { icon: Atom },
+  "college-physics":         { icon: Atom },
+  astronomy:                 { icon: Telescope },
 
-  // Mathematics
-  prealgebra:               { icon: Hash },
-  "elementary-algebra":     { icon: Hash },
-  "college-algebra":        { icon: Calculator },
-  precalculus:              { icon: Calculator },
-  "calculus-vol1":          { icon: TrendingUp },
-  "calculus-vol2":          { icon: TrendingUp },
-  "calculus-vol3":          { icon: TrendingUp },
-  statistics:               { icon: BarChart2 },
-  "contemporary-math":      { icon: Grid3X3 },
+  // Mathematics — all share Calculator
+  prealgebra:                { icon: Calculator },
+  "elementary-algebra":      { icon: Calculator },
+  "college-algebra":         { icon: Calculator },
+  precalculus:               { icon: Calculator },
+  "calculus-vol1":           { icon: Calculator },
+  "calculus-vol2":           { icon: Calculator },
+  "calculus-vol3":           { icon: Calculator },
+  statistics:                { icon: Calculator },
+  "contemporary-math":       { icon: Calculator },
 
-  // Social Studies
-  history:                  { icon: Landmark,    tutorPath: "/history-tutor", tutorLabel: "History — Clio / Marcus" },
-  "world-history-vol1":     { icon: Globe },
-  "world-history-vol2":     { icon: Globe },
-  "american-government":    { icon: Building2 },
-  "introduction-sociology": { icon: Users },
-  psychology:               { icon: Brain },
-  macroeconomics:           { icon: TrendingUp },
-  microeconomics:           { icon: BarChart2 },
-  philosophy:               { icon: Lightbulb },
+  // Social Studies — history shares Landmark, econ shares TrendingUp
+  history:                   { icon: Landmark, tutorPath: "/history-tutor", tutorLabel: "History — Clio / Marcus" },
+  "world-history-vol1":      { icon: Landmark },
+  "world-history-vol2":      { icon: Landmark },
+  "american-government":     { icon: Building2 },
+  "introduction-sociology":  { icon: Users },
+  psychology:                { icon: Users },
+  macroeconomics:            { icon: TrendingUp },
+  microeconomics:            { icon: TrendingUp },
+  philosophy:                { icon: Lightbulb },
 
-  // Business
-  "principles-management":      { icon: Briefcase },
-  "principles-accounting-vol1": { icon: Receipt },
-  "principles-finance":         { icon: DollarSign },
-  entrepreneurship:             { icon: Rocket },
-  "business-ethics":            { icon: Scale },
+  // Business — all share Briefcase
+  "principles-management":       { icon: Briefcase },
+  "principles-accounting-vol1":  { icon: Briefcase },
+  "principles-finance":          { icon: Briefcase },
+  entrepreneurship:              { icon: Briefcase },
+  "business-ethics":             { icon: Briefcase },
 };
 
 const SUBJECT_TO_CATEGORY: Record<string, string> = {
