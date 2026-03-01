@@ -9,16 +9,12 @@ import { InsufficientCreditsDialog } from "@/components/InsufficientCreditsDialo
 import { useIsMobile } from "@/hooks/use-mobile";
 import { apiRequest } from "@/lib/queryClient";
 import { ReadingModulePanel } from "@/components/ReadingModulePanel";
+import { getTutorName } from "@/lib/tutor-avatars";
 import type { WhiteboardItem } from "@shared/whiteboard-types";
-
-const TUTORS = [
-  { name: "Clio", gender: "female" as const },
-  { name: "Marcus", gender: "male" as const },
-];
 
 export default function HistoryTutor() {
   const [, setLocation] = useLocation();
-  const { tutorGender, setTutorGender } = useLanguage();
+  const { tutorGender } = useLanguage();
   const { isExhausted } = useCredits();
   const isMobile = useIsMobile();
 
@@ -69,16 +65,6 @@ export default function HistoryTutor() {
       });
   }, [conversationId]);
 
-  const activeTutor = TUTORS.find(t => t.gender === tutorGender) ?? TUTORS[0];
-
-  const handleTutorSwitch = (gender: 'male' | 'female') => {
-    if (gender === tutorGender) return;
-    setTutorGender(gender);
-    setConversationId(null);
-    sessionStorage.removeItem('historyConversationId');
-    creatingConversationRef.current = false;
-  };
-
   return (
     <div className="flex flex-col h-full bg-background">
       <header
@@ -100,7 +86,7 @@ export default function HistoryTutor() {
             </div>
             <div>
               <div className="text-sm font-semibold leading-tight" data-testid="text-history-tutor-name">
-                {activeTutor.name}
+                {getTutorName('history', tutorGender)}
               </div>
               <div className="text-xs text-muted-foreground leading-tight">History</div>
             </div>
@@ -127,23 +113,6 @@ export default function HistoryTutor() {
           >
             <BookOpen className="w-4 h-4" />
           </Button>
-          <div className="flex items-center gap-1 rounded-md border p-1" data-testid="history-tutor-picker">
-            {TUTORS.map(t => (
-              <button
-                key={t.gender}
-                onClick={() => handleTutorSwitch(t.gender)}
-                data-testid={`button-tutor-${t.name.toLowerCase()}`}
-                className={[
-                  "px-3 py-1 text-xs rounded transition-colors",
-                  tutorGender === t.gender
-                    ? "bg-amber-600 text-white"
-                    : "text-muted-foreground hover:text-foreground",
-                ].join(" ")}
-              >
-                {t.name}
-              </button>
-            ))}
-          </div>
         </div>
       </header>
 

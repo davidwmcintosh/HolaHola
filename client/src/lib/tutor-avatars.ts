@@ -81,7 +81,8 @@ export type TutorState = 'listening' | 'thinking' | 'talking' | 'idle';
 export type TutorGender = 'male' | 'female';
 export type SupportedLanguage = 
   | 'spanish' | 'french' | 'german' | 'italian' | 'portuguese'
-  | 'chinese' | 'japanese' | 'korean' | 'english' | 'hebrew';
+  | 'chinese' | 'japanese' | 'korean' | 'english' | 'hebrew'
+  | 'biology' | 'history' | 'math' | 'business';
 
 interface TutorAvatarSet {
   listening: string;
@@ -101,6 +102,10 @@ export const languageAccentColors: Record<SupportedLanguage, string> = {
   korean: '#0EA5E9',     // Sky Blue
   english: '#8B5CF6',    // Purple
   hebrew: '#1D4ED8',     // Deep Blue (Star of David blue)
+  biology: '#10B981',   // Emerald Green
+  history: '#D97706',   // Amber
+  math: '#3B82F6',      // Blue
+  business: '#7C3AED',  // Violet
 };
 
 // Tutor personality taglines for showcase
@@ -115,6 +120,10 @@ export const tutorTaglines: Record<SupportedLanguage, { male: string; female: st
   korean: { male: 'Cool & supportive', female: 'Energetic & modern' },
   english: { male: 'Casual & helpful', female: 'Friendly & clear' },
   hebrew: { male: 'Friendly & cultural', female: 'Warm & playful' },
+  biology: { male: 'Methodical & curious', female: 'Precise & enthusiastic' },
+  history: { male: 'Narrative & challenging', female: 'Socratic & empathetic' },
+  math: { male: 'Logical & patient', female: 'Clear & encouraging' },
+  business: { male: 'Strategic & direct', female: 'Insightful & practical' },
 };
 
 // Get accent color for a language
@@ -175,6 +184,10 @@ const femaleAvatars: Record<SupportedLanguage, TutorAvatarSet> = {
   portuguese: { listening: portugueseFemaleListening, thinking: portugueseFemaleThinking, talking: portugueseFemaleTalking },
   spanish: { listening: spanishFemaleListening, thinking: spanishFemaleThinking, talking: spanishFemaleTalking },
   hebrew: { listening: spanishFemaleListening, thinking: spanishFemaleThinking, talking: spanishFemaleTalking }, // Uses Daniela's avatar (hidden language)
+  biology: { listening: spanishFemaleListening, thinking: spanishFemaleThinking, talking: spanishFemaleTalking },
+  history: { listening: spanishFemaleListening, thinking: spanishFemaleThinking, talking: spanishFemaleTalking },
+  math: { listening: spanishFemaleListening, thinking: spanishFemaleThinking, talking: spanishFemaleTalking },
+  business: { listening: spanishFemaleListening, thinking: spanishFemaleThinking, talking: spanishFemaleTalking },
 };
 
 const maleAvatars: Record<SupportedLanguage, TutorAvatarSet> = {
@@ -188,6 +201,10 @@ const maleAvatars: Record<SupportedLanguage, TutorAvatarSet> = {
   portuguese: { listening: portugueseMaleListening, thinking: portugueseMaleThinking, talking: portugueseMaleTalking },
   spanish: { listening: spanishMaleListening, thinking: spanishMaleThinking, talking: spanishMaleTalking },
   hebrew: { listening: spanishMaleListening, thinking: spanishMaleThinking, talking: spanishMaleTalking }, // Uses Agustin's avatar (hidden language)
+  biology: { listening: spanishMaleListening, thinking: spanishMaleThinking, talking: spanishMaleTalking },
+  history: { listening: spanishMaleListening, thinking: spanishMaleThinking, talking: spanishMaleTalking },
+  math: { listening: spanishMaleListening, thinking: spanishMaleThinking, talking: spanishMaleTalking },
+  business: { listening: spanishMaleListening, thinking: spanishMaleThinking, talking: spanishMaleTalking },
 };
 
 // Normalize language string to match our supported languages
@@ -228,6 +245,11 @@ export function normalizeLanguage(language: string | null | undefined): Supporte
     'hebrew': 'hebrew',
     'he': 'hebrew',
     'עברית': 'hebrew',
+    'biology': 'biology',
+    'history': 'history',
+    'math': 'math',
+    'mathematics': 'math',
+    'business': 'business',
   };
   
   return languageMap[normalized] || 'spanish';
@@ -279,6 +301,10 @@ const tutorNames: Record<SupportedLanguage, { male: string; female: string }> = 
   korean: { male: 'Minho', female: 'Jihyun' },
   english: { male: 'Blake', female: 'Cindy' },
   hebrew: { male: 'Noam', female: 'Yael' }, // Hebrew tutors (hidden language - special unlock)
+  biology: { male: 'Gene', female: 'Evelyn' },
+  history: { male: 'Marcus', female: 'Clio' },
+  math: { male: 'Leo', female: 'Ada' },
+  business: { male: 'Sterling', female: 'Morgan' },
 };
 
 // Get the tutor's display name for a given language and gender

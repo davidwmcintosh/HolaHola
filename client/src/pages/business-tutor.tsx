@@ -9,12 +9,8 @@ import { InsufficientCreditsDialog } from "@/components/InsufficientCreditsDialo
 import { useIsMobile } from "@/hooks/use-mobile";
 import { apiRequest } from "@/lib/queryClient";
 import { ReadingModulePanel } from "@/components/ReadingModulePanel";
+import { getTutorName } from "@/lib/tutor-avatars";
 import type { WhiteboardItem } from "@shared/whiteboard-types";
-
-const TUTORS = [
-  { name: "Morgan", gender: "female" as const },
-  { name: "Sterling", gender: "male" as const },
-];
 
 export default function BusinessTutor() {
   const [, setLocation] = useLocation();
@@ -69,16 +65,6 @@ export default function BusinessTutor() {
       });
   }, [conversationId]);
 
-  const activeTutor = TUTORS.find(t => t.gender === tutorGender) ?? TUTORS[0];
-
-  const handleTutorSwitch = (gender: 'male' | 'female') => {
-    if (gender === tutorGender) return;
-    setTutorGender(gender);
-    setConversationId(null);
-    sessionStorage.removeItem('businessConversationId');
-    creatingConversationRef.current = false;
-  };
-
   return (
     <div className="flex flex-col h-full bg-background">
       <header
@@ -100,7 +86,7 @@ export default function BusinessTutor() {
             </div>
             <div>
               <div className="text-sm font-semibold leading-tight" data-testid="text-business-tutor-name">
-                {activeTutor.name}
+                {getTutorName('business', tutorGender)}
               </div>
               <div className="text-xs text-muted-foreground leading-tight">Business</div>
             </div>
@@ -127,23 +113,6 @@ export default function BusinessTutor() {
           >
             <BookOpen className="w-4 h-4" />
           </Button>
-          <div className="flex items-center gap-1 rounded-md border p-1" data-testid="business-tutor-picker">
-            {TUTORS.map(t => (
-              <button
-                key={t.gender}
-                onClick={() => handleTutorSwitch(t.gender)}
-                data-testid={`button-tutor-${t.name.toLowerCase()}`}
-                className={[
-                  "px-3 py-1 text-xs rounded transition-colors",
-                  tutorGender === t.gender
-                    ? "bg-violet-600 text-white"
-                    : "text-muted-foreground hover:text-foreground",
-                ].join(" ")}
-              >
-                {t.name}
-              </button>
-            ))}
-          </div>
         </div>
       </header>
 
