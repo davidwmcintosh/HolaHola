@@ -1173,6 +1173,8 @@ export const teacherClasses = pgTable("teacher_classes", {
   // JSON object containing class-level teacher promises
   // Structure: { promises: string[], reviewPolicy: string, supportHours: string }
   commitments: jsonb("commitments"), // Class-level teacher promises: what students can expect from this class
+  subjectSyllabusId: varchar("subject_syllabus_id"), // For academic subject classes (links to subject_syllabi.subject)
+  isAcademicClass: boolean("is_academic_class").default(false), // True for OpenStax-style content classes
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

@@ -7890,10 +7890,13 @@ Return ONLY the ${targetLanguage} phrase:`;
         return res.status(403).json({ error: "Only teachers can create classes" });
       }
 
-      const { name, description, language, curriculumPathId } = req.body;
+      const { name, description, language, curriculumPathId, subjectSyllabusId, isAcademicClass } = req.body;
       
-      if (!name || !language) {
-        return res.status(400).json({ error: "Name and language are required" });
+      if (!name) {
+        return res.status(400).json({ error: 'Name is required' });
+      }
+      if (!language && !isAcademicClass) {
+        return res.status(400).json({ error: 'Language is required for language classes' });
       }
 
       // Generate 6-digit join code
@@ -7903,9 +7906,12 @@ Return ONLY the ${targetLanguage} phrase:`;
         teacherId,
         name,
         description,
-        language,
+        language: language || subjectSyllabusId || 'academic',
         curriculumPathId,
         joinCode,
+        subjectSyllabusId: subjectSyllabusId || null,
+        isAcademicClass: isAcademicClass || false,
+        isPublicCatalogue: isAcademicClass ? true : false,
       });
 
       // If a curriculum template was selected, clone it to the class
@@ -27529,6 +27535,7 @@ You have full access to your neural network knowledge.
       const { getSharedDb } = await import('./db');
       const { subjectSyllabi } = await import('@shared/schema');
       const db = getSharedDb();
+      const { sql } = await import('drizzle-orm');
       const rows = await db.select({
         id: subjectSyllabi.id,
         subject: subjectSyllabi.subject,
@@ -27538,6 +27545,7 @@ You have full access to your neural network knowledge.
         targetAudience: subjectSyllabi.targetAudience,
         scope: subjectSyllabi.scope,
         source: subjectSyllabi.source,
+        unitCount: sql`jsonb_array_length(units)`.mapWith(Number),
       }).from(subjectSyllabi);
       res.json(rows);
     } catch (error: any) {
