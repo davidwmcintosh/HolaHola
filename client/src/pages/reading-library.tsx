@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -15,12 +15,20 @@ import {
   ChevronRight,
   CheckCircle2,
   XCircle,
+  FlaskConical,
+  Calculator,
+  Globe,
+  Users,
+  Brain,
+  BarChart3,
+  Briefcase,
+  Lightbulb,
 } from "lucide-react";
 import { ReadingModulePanel } from "@/components/ReadingModulePanel";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { apiRequest } from "@/lib/queryClient";
 
-type Subject = "biology" | "history";
+type Subject = string;
 
 interface SyllabusChapter {
   chapterNumber: number;
@@ -52,7 +60,21 @@ interface ProgressReport {
   bySubject: Record<string, { count: number; lastActivity: string | null }>;
 }
 
-const SUBJECT_CONFIG = {
+type SubjectConfig = {
+  label: string;
+  icon: React.FC<{ className?: string }>;
+  activeTab: string;
+  iconClass: string;
+  bgIcon: string;
+  badgeClass: string;
+  unitBg: string;
+  unitBorder: string;
+  placeholder: string;
+  standardLabel: string;
+  alternativeLabel: string;
+};
+
+const SUBJECT_CONFIG_MAP: Record<string, SubjectConfig> = {
   biology: {
     label: "Biology",
     icon: Microscope,
@@ -79,7 +101,40 @@ const SUBJECT_CONFIG = {
     standardLabel: "Academic View",
     alternativeLabel: "Traditional View",
   },
+  chemistry: {
+    label: "Chemistry",
+    icon: FlaskConical,
+    activeTab: "bg-blue-600 text-white",
+    iconClass: "text-blue-600 dark:text-blue-400",
+    bgIcon: "bg-blue-100 dark:bg-blue-900/30",
+    badgeClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
+    unitBg: "bg-blue-50 dark:bg-blue-950/30",
+    unitBorder: "border-blue-200 dark:border-blue-800",
+    placeholder: "e.g. chemical bonding, stoichiometry, thermodynamics",
+    standardLabel: "Standard View",
+    alternativeLabel: "Alternative View",
+  },
 };
+
+const DEFAULT_CONFIG: SubjectConfig = {
+  label: "Reading",
+  icon: BookOpen,
+  activeTab: "bg-primary text-primary-foreground",
+  iconClass: "text-primary",
+  bgIcon: "bg-primary/10",
+  badgeClass: "bg-primary/10 text-primary",
+  unitBg: "bg-muted/30",
+  unitBorder: "border-border",
+  placeholder: "e.g. enter a topic to generate a module",
+  standardLabel: "Standard View",
+  alternativeLabel: "Alternative View",
+};
+
+function getSubjectConfig(subject: string): SubjectConfig {
+  return SUBJECT_CONFIG_MAP[subject] ?? DEFAULT_CONFIG;
+}
+
+const MAIN_TABS: Subject[] = ["biology", "history"];
 
 function useSearchParam(key: string): string {
   if (typeof window === "undefined") return "";
@@ -96,9 +151,11 @@ export default function ReadingLibrary() {
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [newTopicInput, setNewTopicInput] = useState("");
   const [expandedUnits, setExpandedUnits] = useState<Set<number>>(new Set([1]));
+  const [autoExpandDone, setAutoExpandDone] = useState(false);
 
-  const cfg = SUBJECT_CONFIG[activeSubject];
+  const cfg = getSubjectConfig(activeSubject);
   const Icon = cfg.icon;
+  const visibleTabs = MAIN_TABS.includes(activeSubject) ? MAIN_TABS : [...MAIN_TABS, activeSubject];
 
   const { data: syllabus, isLoading: syllabusLoading } = useQuery<SubjectSyllabus>({
     queryKey: ["/api/syllabi", activeSubject],
@@ -176,10 +233,31 @@ export default function ReadingLibrary() {
     });
   };
 
+  useEffect(() => {
+    if (autoExpandDone || !progress || !syllabus) return;
+    const viewedInSubject = progress.viewedModules.filter(m => m.subjectDomain === activeSubject);
+    if (viewedInSubject.length === 0) { setAutoExpandDone(true); return; }
+    const mostRecent = viewedInSubject[0];
+    for (const unit of syllabus.units) {
+      for (const ch of unit.chapters) {
+        if (
+          ch.topic.toLowerCase() === mostRecent.topic.toLowerCase() ||
+          ch.alternativeTopic?.toLowerCase() === mostRecent.topic.toLowerCase()
+        ) {
+          setExpandedUnits(prev => new Set([...prev, unit.unitNumber]));
+          setAutoExpandDone(true);
+          return;
+        }
+      }
+    }
+    setAutoExpandDone(true);
+  }, [progress, syllabus, activeSubject, autoExpandDone]);
+
   const switchSubject = (s: Subject) => {
     setActiveSubject(s);
     setSelectedTopic(null);
     setExpandedUnits(new Set([1]));
+    setAutoExpandDone(false);
   };
 
   const listPanel = (
@@ -217,6 +295,14 @@ export default function ReadingLibrary() {
             {[...Array(6)].map((_, i) => (
               <Skeleton key={i} className="h-10 rounded-md" />
             ))}
+          </div>
+        )}
+
+        {syllabus && syllabus.units.length === 0 && (
+          <div className="px-4 py-8 text-center text-muted-foreground">
+            <Icon className={`w-10 h-10 mx-auto mb-3 opacity-20 ${cfg.iconClass}`} />
+            <p className="text-sm font-medium mb-1">Chapter navigation coming soon</p>
+            <p className="text-xs">Use the topic generator below to explore any topic in this subject right now.</p>
           </div>
         )}
 
@@ -399,21 +485,24 @@ export default function ReadingLibrary() {
         <h1 className="text-sm font-semibold">Reading Library</h1>
 
         <div className="ml-auto flex items-center gap-1 rounded-md border p-1" data-testid="subject-tabs">
-          {(["biology", "history"] as Subject[]).map(s => (
-            <button
-              key={s}
-              onClick={() => switchSubject(s)}
-              data-testid={`button-tab-${s}`}
-              className={[
-                "px-3 py-1 text-xs rounded transition-colors capitalize",
-                activeSubject === s
-                  ? SUBJECT_CONFIG[s].activeTab
-                  : "text-muted-foreground hover:text-foreground",
-              ].join(" ")}
-            >
-              {SUBJECT_CONFIG[s].label}
-            </button>
-          ))}
+          {visibleTabs.map(s => {
+            const tabCfg = getSubjectConfig(s);
+            return (
+              <button
+                key={s}
+                onClick={() => switchSubject(s)}
+                data-testid={`button-tab-${s}`}
+                className={[
+                  "px-3 py-1 text-xs rounded transition-colors capitalize",
+                  activeSubject === s
+                    ? tabCfg.activeTab
+                    : "text-muted-foreground hover:text-foreground",
+                ].join(" ")}
+              >
+                {tabCfg.label !== "Reading" ? tabCfg.label : s.replace(/-/g, " ")}
+              </button>
+            );
+          })}
         </div>
       </header>
 

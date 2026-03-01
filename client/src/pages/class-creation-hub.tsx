@@ -8,7 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -219,8 +221,56 @@ export default function ClassCreationHub() {
       physics: "Physics",
       math: "Mathematics",
     };
-    return labels[subject] || subject.charAt(0).toUpperCase() + subject.slice(1);
+    return labels[subject] || subject.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
   };
+
+  const SUBJECT_CATEGORY_ORDER: { key: string; label: string }[] = [
+    { key: "Natural Sciences", label: "Natural Sciences" },
+    { key: "Mathematics", label: "Mathematics" },
+    { key: "Social Sciences & Humanities", label: "Social Sciences & Humanities" },
+    { key: "Business", label: "Business" },
+  ];
+
+  const SUBJECT_TO_CATEGORY: Record<string, string> = {
+    biology: "Natural Sciences",
+    microbiology: "Natural Sciences",
+    "anatomy-physiology": "Natural Sciences",
+    chemistry: "Natural Sciences",
+    "university-physics-vol1": "Natural Sciences",
+    "university-physics-vol2": "Natural Sciences",
+    "university-physics-vol3": "Natural Sciences",
+    "college-physics": "Natural Sciences",
+    astronomy: "Natural Sciences",
+    nutrition: "Natural Sciences",
+    prealgebra: "Mathematics",
+    "elementary-algebra": "Mathematics",
+    "college-algebra": "Mathematics",
+    precalculus: "Mathematics",
+    "calculus-vol1": "Mathematics",
+    "calculus-vol2": "Mathematics",
+    "calculus-vol3": "Mathematics",
+    statistics: "Mathematics",
+    "contemporary-math": "Mathematics",
+    history: "Social Sciences & Humanities",
+    "world-history-vol1": "Social Sciences & Humanities",
+    "world-history-vol2": "Social Sciences & Humanities",
+    "american-government": "Social Sciences & Humanities",
+    "introduction-sociology": "Social Sciences & Humanities",
+    psychology: "Social Sciences & Humanities",
+    macroeconomics: "Social Sciences & Humanities",
+    microeconomics: "Social Sciences & Humanities",
+    philosophy: "Social Sciences & Humanities",
+    "principles-management": "Business",
+    "principles-accounting-vol1": "Business",
+    "principles-finance": "Business",
+    entrepreneurship: "Business",
+    "business-ethics": "Business",
+  };
+
+  const syllabByCategory = SUBJECT_CATEGORY_ORDER.map(cat => ({
+    ...cat,
+    items: syllabi.filter(s => (SUBJECT_TO_CATEGORY[s.subject] ?? "Other") === cat.key),
+  })).filter(cat => cat.items.length > 0);
 
   return (
     <div className="container mx-auto p-6 max-w-7xl">
@@ -603,16 +653,23 @@ export default function ClassCreationHub() {
                             <SelectValue placeholder="Choose a textbook..." />
                           </SelectTrigger>
                         </FormControl>
-                        <SelectContent>
-                          {syllabi.map(s => (
-                            <SelectItem key={s.subject} value={s.subject}>
-                              <div className="flex flex-col">
-                                <span>{s.bookTitle || getSubjectLabel(s.subject)}</span>
-                                {s.bookSubtitle && (
-                                  <span className="text-xs text-muted-foreground">{s.bookSubtitle}</span>
-                                )}
-                              </div>
-                            </SelectItem>
+                        <SelectContent className="max-h-72">
+                          {syllabByCategory.map(cat => (
+                            <SelectGroup key={cat.key}>
+                              <SelectLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-2 py-1">
+                                {cat.label}
+                              </SelectLabel>
+                              {cat.items.map(s => (
+                                <SelectItem key={s.subject} value={s.subject}>
+                                  <div className="flex flex-col">
+                                    <span>{s.bookTitle || getSubjectLabel(s.subject)}</span>
+                                    {s.bookSubtitle && (
+                                      <span className="text-xs text-muted-foreground">{s.bookSubtitle}</span>
+                                    )}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
                           ))}
                         </SelectContent>
                       </Select>

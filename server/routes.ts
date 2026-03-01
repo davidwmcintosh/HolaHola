@@ -27558,9 +27558,8 @@ You have full access to your neural network knowledge.
   app.get("/api/syllabi/:subject", isAuthenticated, async (req: any, res) => {
     try {
       const { subject } = req.params;
-      const validSubjects = ['biology', 'history'];
-      if (!validSubjects.includes(subject)) {
-        return res.status(400).json({ error: 'Invalid subject' });
+      if (!subject || subject.trim().length === 0) {
+        return res.status(400).json({ error: 'Subject is required' });
       }
       const { getSharedDb } = await import('./db');
       const { subjectSyllabi } = await import('@shared/schema');
