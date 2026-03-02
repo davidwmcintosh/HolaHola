@@ -2882,6 +2882,7 @@ ${expressLaneContext.contextString}
         );
         
         // 4. Text Chat memory
+        const textChatStart = Date.now();
         contextPromises.push(
           (async () => {
             const recentConversations = await storage.getUserConversations(String(session.userId));
@@ -2925,10 +2926,14 @@ ${textChatContext}
 
 Remember: David may reference things discussed in these recent text chats.
 `;
-                console.log(`[Text Chat Memory] Injected ${textConversations.length} recent conversation(s)`);
+                const textChatMs = Date.now() - textChatStart;
+                console.log(`[Text Chat Memory] Injected ${textConversations.length} recent conversation(s) (${textChatMs}ms)`);
+                if (textChatMs > 2000) {
+                  console.warn(`[Context Timing] Text chat memory fetch took ${textChatMs}ms — slow DB query contributing to brain latency`);
+                }
               }
             }
-          })().catch(err => console.warn(`[Text Chat Memory] Failed:`, err.message))
+          })().catch(err => console.warn(`[Text Chat Memory] Failed (${Date.now() - textChatStart}ms):`, err.message))
         );
         
         // 5. Editor feedback
@@ -2958,15 +2963,20 @@ Remember: David may reference things discussed in these recent text chats.
         );
         
         // 6. Express Lane history for conversation context
+        const elHistStart = Date.now();
         contextPromises.push(
           getExpressLaneHistoryForVoice(session.userId, 15)
             .then(history => {
               expressLaneHistory = history;
-              if (history.length > 0) {
-                console.log(`[EXPRESS Lane Memory] Prefetched ${history.length} messages from text chat`);
+              const elMs = Date.now() - elHistStart;
+              console.log(`[EXPRESS Lane Memory] Prefetched ${history.length} messages from text chat (${elMs}ms)`);
+              if (elMs > 2000) {
+                console.warn(`[Context Timing] Express Lane history fetch took ${elMs}ms — this may be contributing to brain latency`);
               }
             })
-            .catch(err => console.warn(`[EXPRESS Lane Memory] Failed to prefetch:`, err.message))
+            .catch(err => {
+              console.warn(`[EXPRESS Lane Memory] Failed to prefetch (${Date.now() - elHistStart}ms):`, err.message);
+            })
         );
       } else if (!needsExpressLaneContext) {
         // Log when neither Founder Mode nor Honesty Mode is active - helps diagnose Express Lane visibility issues
@@ -2974,8 +2984,17 @@ Remember: David may reference things discussed in these recent text chats.
       }
       
       // Wait for all context fetches in parallel
-      await Promise.all(contextPromises);
-      console.log(`[Context Fetch] All context fetched in ${Date.now() - contextStart}ms (parallel)`)
+      // TIMEOUT: If any individual fetch hangs, don't block the entire turn.
+      // Individual fetches already have .catch() so partial context is safe to use.
+      const CONTEXT_FETCH_TIMEOUT_MS = 6000;
+      await Promise.race([
+        Promise.all(contextPromises),
+        new Promise<void>(resolve => setTimeout(() => {
+          console.warn(`[Context Fetch] PTT timeout after ${CONTEXT_FETCH_TIMEOUT_MS}ms — proceeding with partial context. Total wall time so far: ${Date.now() - contextStart}ms`);
+          resolve();
+        }, CONTEXT_FETCH_TIMEOUT_MS))
+      ]);
+      console.log(`[Context Fetch] All context fetched in ${Date.now() - contextStart}ms (parallel, PTT)`)
       
       // CONTEXT CACHING OPTIMIZATION: Separate static base prompt from dynamic context
       // The base system prompt (Daniela's personality, neural network) is STABLE and cacheable
@@ -3005,16 +3024,31 @@ Remember: David may reference things discussed in these recent text chats.
       }
       
       // CLASSROOM ENVIRONMENT: Daniela's unified workspace via shared pipeline
+      // TIMEOUT: Cap at 5s — this runs serially after the parallel batch so a hang here
+      // adds directly to total turn latency before the LLM call starts.
       {
-        const { classroomEnv, telemetry } = await buildClassroomDynamicContext({
-          session: session as any,
-          studentLearningSection: studentLearningSection || undefined,
-        });
+        const CLASSROOM_TIMEOUT_MS = 5000;
+        const classroomStart = Date.now();
+        type ClassroomResult = Awaited<ReturnType<typeof buildClassroomDynamicContext>>;
+        const classroomTimeoutResult: ClassroomResult = {
+          classroomEnv: null,
+          telemetry: { source: 'classroom_timeout', success: false, latencyMs: CLASSROOM_TIMEOUT_MS, richness: 0, errorMessage: 'Timed out after 5s' },
+        };
+        const { classroomEnv, telemetry } = await Promise.race([
+          buildClassroomDynamicContext({
+            session: session as any,
+            studentLearningSection: studentLearningSection || undefined,
+          }),
+          new Promise<ClassroomResult>(resolve => setTimeout(() => {
+            console.warn(`[Classroom] buildClassroomDynamicContext timed out after ${CLASSROOM_TIMEOUT_MS}ms (PTT, total turn wall time: ${Date.now() - contextStart}ms)`);
+            resolve(classroomTimeoutResult);
+          }, CLASSROOM_TIMEOUT_MS))
+        ]);
         if (classroomEnv) {
           dynamicContextParts.push(classroomEnv);
-          console.log(`[Classroom] Environment injected (PTT) — ${telemetry.richness} items`);
+          console.log(`[Classroom] Environment injected (PTT) — ${telemetry.richness} items in ${Date.now() - classroomStart}ms`);
         } else if (telemetry.errorMessage) {
-          console.warn(`[Classroom] Failed:`, telemetry.errorMessage);
+          console.warn(`[Classroom] Failed (PTT):`, telemetry.errorMessage);
         }
         brainHealthTelemetry.logContextInjection({
           sessionId: session.id, userId: String(session.userId), targetLanguage: session.targetLanguage,
@@ -5834,7 +5868,16 @@ Remember: David may reference things discussed in these recent text chats.
         }
       }
       
-      await Promise.all(contextPromises);
+      // TIMEOUT: If any individual fetch hangs, don't block the entire turn.
+      // Individual fetches already have .catch() so partial context is safe to use.
+      const CONTEXT_FETCH_TIMEOUT_OM_MS = 6000;
+      await Promise.race([
+        Promise.all(contextPromises),
+        new Promise<void>(resolve => setTimeout(() => {
+          console.warn(`[Context Fetch] OpenMic timeout after ${CONTEXT_FETCH_TIMEOUT_OM_MS}ms — proceeding with partial context. Total wall time so far: ${Date.now() - contextBuildStart}ms`);
+          resolve();
+        }, CONTEXT_FETCH_TIMEOUT_OM_MS))
+      ]);
       const contextBuildMs = Date.now() - contextBuildStart;
       if (contextBuildMs > 100) {
         console.log(`[LATENCY] Context building took ${contextBuildMs}ms (open mic)`);
@@ -5865,14 +5908,28 @@ Remember: David may reference things discussed in these recent text chats.
       }
       
       // CLASSROOM ENVIRONMENT (OpenMic): Daniela's unified workspace via shared pipeline
+      // TIMEOUT: Cap at 5s — runs serially, so a hang adds directly to turn latency.
       {
-        const { classroomEnv, telemetry } = await buildClassroomDynamicContext({
-          session: session as any,
-          studentLearningSection: studentLearningSection || undefined,
-        });
+        const CLASSROOM_TIMEOUT_OM_MS = 5000;
+        const classroomStartOM = Date.now();
+        type ClassroomResultOM = Awaited<ReturnType<typeof buildClassroomDynamicContext>>;
+        const classroomTimeoutResultOM: ClassroomResultOM = {
+          classroomEnv: null,
+          telemetry: { source: 'classroom_timeout', success: false, latencyMs: CLASSROOM_TIMEOUT_OM_MS, richness: 0, errorMessage: 'Timed out after 5s' },
+        };
+        const { classroomEnv, telemetry } = await Promise.race([
+          buildClassroomDynamicContext({
+            session: session as any,
+            studentLearningSection: studentLearningSection || undefined,
+          }),
+          new Promise<ClassroomResultOM>(resolve => setTimeout(() => {
+            console.warn(`[Classroom] buildClassroomDynamicContext timed out after ${CLASSROOM_TIMEOUT_OM_MS}ms (OpenMic, total wall time: ${Date.now() - contextBuildStart}ms)`);
+            resolve(classroomTimeoutResultOM);
+          }, CLASSROOM_TIMEOUT_OM_MS))
+        ]);
         if (classroomEnv) {
           dynamicContextPartsOpenMic.push(classroomEnv);
-          console.log(`[Classroom] Environment injected (OpenMic) — ${telemetry.richness} items`);
+          console.log(`[Classroom] Environment injected (OpenMic) — ${telemetry.richness} items in ${Date.now() - classroomStartOM}ms`);
         } else if (telemetry.errorMessage) {
           console.warn(`[Classroom - OpenMic] Failed:`, telemetry.errorMessage);
         }
