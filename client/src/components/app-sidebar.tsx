@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Shield, X, Target, Search, Sparkles, HelpCircle, MapPin, Microscope, Landmark, Library, ClipboardList, FlaskConical, Calculator, Atom, BookMarked, Telescope, Leaf, TrendingUp, Building2, Users, Briefcase } from "lucide-react";
+import { BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Shield, X, Target, Search, Sparkles, HelpCircle, MapPin, Microscope, Landmark, Library, ClipboardList, FlaskConical, Calculator, Atom, BookMarked, Telescope, Leaf, TrendingUp, Building2, Users, Briefcase, BrainCircuit } from "lucide-react";
 import holaholaLogo from "@assets/holaholamainlogoBackgroundRemoved_1765308837223.png";
 import { Link, useLocation } from "wouter";
 import {
@@ -56,6 +56,7 @@ const adminMenuItems = [
 const TOOLS_ITEMS = [
   { title: "Reading Library", url: "/reading-library", icon: Library },
   { title: "Progress Report", url: "/progress-report", icon: ClipboardList },
+  { title: "Talk to Alden", url: "/alden", icon: BrainCircuit },
 ];
 
 type SubjectConfig = {
