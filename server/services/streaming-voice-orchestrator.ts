@@ -3281,7 +3281,8 @@ Remember: David may reference things discussed in these recent text chats.
                   await this.streamSentenceAudio(session, batchChunkFC, embeddedText, metrics, session.turnId || `turn-${Date.now()}`);
                 }
 
-                console.log(`[Google Batch TTS - FC PTT] Complete. TTS duration: ${Date.now() - batchTtsStartFC}ms for ${sentences.length} sentences`);
+                console.log(`[Google Batch TTS - FC PTT] Complete. TTS duration: ${Date.now() - batchTtsStartFC}ms for ${sentences.length} sentences (sent as 1 batch sentence)`);
+                metrics.sentenceCount = 1;
               } else if (shouldPipelinePTT) {
                 const MAX_PREGEN_SENTENCES = 4;
                 const preGenCount = Math.min(sentences.length, MAX_PREGEN_SENTENCES);
@@ -3368,7 +3369,7 @@ Remember: David may reference things discussed in these recent text chats.
               }
 
               fullText = embeddedText;
-              metrics.sentenceCount = sentences.length;
+              if (!metrics.sentenceCount) metrics.sentenceCount = sentences.length;
 
               (session as any).functionCallText = undefined;
               (session as any).voiceAdjustText = undefined;
@@ -3377,7 +3378,7 @@ Remember: David may reference things discussed in these recent text chats.
 
               streamAbortSignal.aborted = true;
 
-              console.log(`[Early TTS] TTS completed in ${Date.now() - earlyTtsStart}ms (${sentences.length} sentences${shouldPipelinePTT ? ', pipelined' : ''}, started ${earlyTtsStart - geminiStartTime}ms after Gemini request)`);
+              console.log(`[Early TTS] TTS completed in ${Date.now() - earlyTtsStart}ms (${metrics.sentenceCount} emitted sentences${shouldPipelinePTT ? ', pipelined' : ''}, started ${earlyTtsStart - geminiStartTime}ms after Gemini request)`);
             } else if ((session as any).earlyTtsActive) {
               console.log(`[Early TTS] DEFENSIVE RESET: embeddedText empty after clean, clearing pre-signaled earlyTtsActive`);
               (session as any).earlyTtsActive = false;
@@ -6116,7 +6117,8 @@ Remember: David may reference things discussed in these recent text chats.
                   await this.streamSentenceAudio(session, batchChunkFC, embeddedText, metrics, session.turnId || `turn-${Date.now()}`);
                 }
 
-                console.log(`[Google Batch TTS - FC OpenMic] Complete. TTS duration: ${Date.now() - batchTtsStartFC}ms for ${sentences.length} sentences`);
+                console.log(`[Google Batch TTS - FC OpenMic] Complete. TTS duration: ${Date.now() - batchTtsStartFC}ms for ${sentences.length} sentences (sent as 1 batch sentence)`);
+                metrics.sentenceCount = 1;
               } else if (shouldPipeline) {
                 const MAX_PREGEN_SENTENCES = 4;
                 const preGenCount = Math.min(sentences.length, MAX_PREGEN_SENTENCES);
@@ -6203,7 +6205,7 @@ Remember: David may reference things discussed in these recent text chats.
               }
 
               fullText = embeddedText;
-              metrics.sentenceCount = sentences.length;
+              if (!metrics.sentenceCount) metrics.sentenceCount = sentences.length;
 
               (session as any).functionCallText = undefined;
               (session as any).voiceAdjustText = undefined;
@@ -6212,7 +6214,7 @@ Remember: David may reference things discussed in these recent text chats.
 
               streamAbortSignalOpenMic.aborted = true;
 
-              console.log(`[Early TTS - OpenMic] TTS completed in ${Date.now() - earlyTtsStart}ms (${sentences.length} sentences${isGoogleBatchModeFCOM ? ', Google batch' : shouldPipeline ? ', pipelined' : ''})`);
+              console.log(`[Early TTS - OpenMic] TTS completed in ${Date.now() - earlyTtsStart}ms (${metrics.sentenceCount} emitted sentences${isGoogleBatchModeFCOM ? ', Google batch' : shouldPipeline ? ', pipelined' : ''})`);
             } else if ((session as any).earlyTtsActive) {
               console.log(`[Early TTS - OpenMic] DEFENSIVE RESET: embeddedText empty after clean, clearing pre-signaled earlyTtsActive`);
               (session as any).earlyTtsActive = false;
