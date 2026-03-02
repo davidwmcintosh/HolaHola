@@ -1413,6 +1413,13 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       diagMarkConnect();
       startGreetingSilenceWatchdog();
       
+      (await import('@/lib/consoleCapture')).startSessionCapture({
+        conversationId: config.conversationId,
+        tutorGender: config.tutorGender,
+        language: config.targetLanguage,
+        difficulty: config.difficultyLevel,
+      });
+      
       // Start session with config - this triggers server to send 'connected' message
       // which will transition state to 'ready'
       clientRef.current.startSession({
@@ -1447,6 +1454,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const disconnect = useCallback(() => {
     diagMarkDisconnect('user_disconnect');
     releaseWakeLock();
+    import('@/lib/consoleCapture').then(m => m.endSessionCapture()).catch(() => {});
     if (isVerboseLoggingEnabled()) {
       console.log('[StreamingVoice] Disconnecting');
     }

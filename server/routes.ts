@@ -5855,6 +5855,64 @@ ${memoryContext}
     }
   });
 
+  const consoleCaptureThrottle = new Map<string, { count: number; hourStart: number }>();
+  app.post("/api/voice/console-capture", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getRequestUserId(req);
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      const now = Date.now();
+      let throttle = consoleCaptureThrottle.get(userId);
+      if (!throttle || now - throttle.hourStart > 3_600_000) {
+        throttle = { count: 0, hourStart: now };
+        consoleCaptureThrottle.set(userId, throttle);
+      }
+      if (throttle.count >= 10) {
+        return res.status(429).json({ error: "Rate limited" });
+      }
+      throttle.count++;
+
+      const { trigger, timestamp, sessionMeta, platform, diagnostics, entries, totalCaptured } = req.body;
+      const conversationId = sessionMeta?.conversationId || 'unknown';
+      const entryCount = Array.isArray(entries) ? entries.length : 0;
+
+      console.log(`[ConsoleCapture] Received: trigger=${trigger}, user=${userId}, conversation=${conversationId}, entries=${entryCount}, total=${totalCaptured}`);
+
+      const errorCount = Array.isArray(entries) ? entries.filter((e: any) => e.l === 'error').length : 0;
+      const warnCount = Array.isArray(entries) ? entries.filter((e: any) => e.l === 'warn').length : 0;
+
+      voiceTelemetry.log(
+        conversationId,
+        userId,
+        `console_capture_${trigger || 'unknown'}`,
+        {
+          trigger,
+          timestamp,
+          sessionMeta,
+          platform: platform ? {
+            userAgent: platform.userAgent?.substring(0, 200),
+            screenWidth: platform.screenWidth,
+            screenHeight: platform.screenHeight,
+            connectionType: platform.connectionType,
+            audioContextState: platform.audioContextState,
+            maxTouchPoints: platform.maxTouchPoints,
+            hardwareConcurrency: platform.hardwareConcurrency,
+            onLine: platform.onLine,
+            vendor: platform.vendor,
+          } : undefined,
+          diagnostics,
+          summary: { entryCount, errorCount, warnCount, totalCaptured },
+          entries: Array.isArray(entries) ? entries.slice(-200) : [],
+        },
+      );
+
+      res.json({ ok: true });
+    } catch (error: any) {
+      console.error("[ConsoleCapture] Error storing console capture:", error);
+      res.status(500).json({ error: "Failed to store" });
+    }
+  });
+
   // Admin endpoint: fetch recent client diagnostics for analysis
   app.get("/api/voice/client-diagnostics", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res) => {
     try {
