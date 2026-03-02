@@ -6,6 +6,47 @@ import { phaseTransitionService } from "./phase-transition-service";
 const DANIELA_PHOTO_CONFIG_KEY = "daniela_classroom_photo";
 const DANIELA_WINDOW_CONFIG_KEY = "daniela_classroom_window";
 
+// In-memory cache for static classroom data — refreshed every 5 minutes
+type CachedPrinciples = Array<{ principle: string; category: string }>;
+type CachedNotes = Array<{ title: string; content: string }>;
+let principlesCache: { data: CachedPrinciples; expiresAt: number } | null = null;
+let notesCache: { data: CachedNotes; expiresAt: number } | null = null;
+const CLASSROOM_CACHE_TTL_MS = 5 * 60 * 1000;
+
+async function getCachedPrinciples(): Promise<CachedPrinciples> {
+  const now = Date.now();
+  if (principlesCache && principlesCache.expiresAt > now) return principlesCache.data;
+  const data = await db
+    .select({ principle: northStarPrinciples.principle, category: northStarPrinciples.category })
+    .from(northStarPrinciples)
+    .where(eq(northStarPrinciples.isActive, true))
+    .orderBy(asc(northStarPrinciples.orderIndex))
+    .catch(() => [] as CachedPrinciples);
+  principlesCache = { data, expiresAt: now + CLASSROOM_CACHE_TTL_MS };
+  console.log(`[Classroom Cache] Refreshed northStarPrinciples (${data.length} rows)`);
+  return data;
+}
+
+async function getCachedNotes(): Promise<CachedNotes> {
+  const now = Date.now();
+  if (notesCache && notesCache.expiresAt > now) return notesCache.data;
+  const data = await db
+    .select({ title: danielaNotes.title, content: danielaNotes.content })
+    .from(danielaNotes)
+    .where(and(eq(danielaNotes.isActive, true), eq(danielaNotes.noteType, 'self_affirmation')))
+    .orderBy(desc(danielaNotes.createdAt))
+    .limit(5)
+    .catch(() => [] as CachedNotes);
+  notesCache = { data, expiresAt: now + CLASSROOM_CACHE_TTL_MS };
+  console.log(`[Classroom Cache] Refreshed danielaNotes (${data.length} rows)`);
+  return data;
+}
+
+export function invalidateClassroomCache() {
+  principlesCache = null;
+  notesCache = null;
+}
+
 export interface ClassroomWhiteboardItem {
   type: string;
   content?: string;
@@ -300,20 +341,9 @@ export async function buildClassroomEnvironment(params: {
       .then((r) => r[0])
       .catch(() => null),
 
-    db
-      .select({ principle: northStarPrinciples.principle, category: northStarPrinciples.category })
-      .from(northStarPrinciples)
-      .where(eq(northStarPrinciples.isActive, true))
-      .orderBy(asc(northStarPrinciples.orderIndex))
-      .catch(() => [] as Array<{ principle: string; category: string }>),
+    getCachedPrinciples(),
 
-    db
-      .select({ title: danielaNotes.title, content: danielaNotes.content })
-      .from(danielaNotes)
-      .where(and(eq(danielaNotes.isActive, true), eq(danielaNotes.noteType, 'self_affirmation')))
-      .orderBy(desc(danielaNotes.createdAt))
-      .limit(5)
-      .catch(() => [] as Array<{ title: string; content: string }>),
+    getCachedNotes(),
   ]);
 
   const phaseContext = phaseTransitionService.getCurrentPhase(userId);

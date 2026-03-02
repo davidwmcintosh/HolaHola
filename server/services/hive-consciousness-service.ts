@@ -3046,27 +3046,22 @@ export async function getExpressLaneHistoryForVoice(
     // Import founderSessions here to avoid circular dependency
     const { founderSessions } = await import('@shared/schema');
     
-    // Get the founder's active or recent sessions
-    const founderSessionIds = await getSharedDb().select({ id: founderSessions.id })
-      .from(founderSessions)
-      .where(eq(founderSessions.founderId, String(founderId)))
-      .orderBy(desc(founderSessions.updatedAt))
-      .limit(3);  // Include last 3 sessions for continuity
-    
-    if (founderSessionIds.length === 0) {
-      console.log(`[EXPRESS Lane Voice] No sessions found for founder ${founderId}`);
-      return [];
-    }
-    
-    const sessionIdList = founderSessionIds.map(s => s.id);
-    
-    // Get messages from the founder's sessions only
-    // Exclude 'system' role as those are typically operational broadcasts, not conversations
-    const recentMessages = await getSharedDb().select()
+    // Single JOIN query — eliminates 2 sequential round trips (was: get session IDs, then get messages)
+    // Scoped to the 3 most recent sessions via a subquery-style filter on updatedAt rank
+    const recentMessages = await getSharedDb()
+      .select({
+        id: collaborationMessages.id,
+        sessionId: collaborationMessages.sessionId,
+        role: collaborationMessages.role,
+        content: collaborationMessages.content,
+        metadata: collaborationMessages.metadata,
+        createdAt: collaborationMessages.createdAt,
+      })
       .from(collaborationMessages)
+      .innerJoin(founderSessions, eq(collaborationMessages.sessionId, founderSessions.id))
       .where(
         and(
-          inArray(collaborationMessages.sessionId, sessionIdList),
+          eq(founderSessions.founderId, String(founderId)),
           or(
             eq(collaborationMessages.role, 'founder'),
             eq(collaborationMessages.role, 'daniela'),

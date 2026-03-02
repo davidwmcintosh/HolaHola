@@ -1792,14 +1792,17 @@ export class DatabaseStorage implements IStorage {
   async getUserConversations(userId: string): Promise<Conversation[]> {
     console.log('[STORAGE] getUserConversations - querying shared DB for userId:', userId);
     
-    // First try exact userId match
-    let result = await getSharedDb().select().from(conversations)
-      .where(eq(conversations.userId, userId))
-      .orderBy(desc(conversations.createdAt));
+    // Run userId query and user lookup in parallel — previously the user lookup was sequential,
+    // blocking the ownerEmail query until after the first query resolved
+    const [result, user] = await Promise.all([
+      getSharedDb().select().from(conversations)
+        .where(eq(conversations.userId, userId))
+        .orderBy(desc(conversations.createdAt)),
+      this.getUser(userId),
+    ]);
     
     // CROSS-ENV LOOKUP: Also find conversations by ownerEmail
     // This handles accessing conversations created in another environment
-    const user = await this.getUser(userId);
     if (user?.email) {
       const emailResult = await getSharedDb().select().from(conversations)
         .where(eq(conversations.ownerEmail, user.email))
