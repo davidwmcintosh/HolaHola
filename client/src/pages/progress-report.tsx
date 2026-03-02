@@ -8,15 +8,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ArrowLeft,
   ClipboardList,
-  Microscope,
-  Landmark,
   BookOpen,
   Printer,
   Eye,
   EyeOff,
   Calendar,
   CheckCircle2,
+  Microscope,
+  Landmark,
+  Languages,
+  Calculator,
+  Briefcase,
+  GraduationCap,
 } from "lucide-react";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface RecallItem {
   question: string;
@@ -41,29 +47,73 @@ interface ProgressReport {
   bySubject: Record<string, { count: number; lastActivity: string | null }>;
 }
 
-interface AuthUser {
-  firstName?: string;
-  email?: string;
-}
+// ─── Subject config ───────────────────────────────────────────────────────────
 
-const SUBJECT_CONFIG = {
+const SUBJECT_CONFIG: Record<string, {
+  label: string;
+  Icon: React.ElementType;
+  badgeClass: string;
+  iconClass: string;
+  borderClass: string;
+}> = {
   biology: {
     label: "Biology",
     Icon: Microscope,
     badgeClass: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
     iconClass: "text-emerald-600 dark:text-emerald-400",
-    cardBg: "border-emerald-200 dark:border-emerald-800",
+    borderClass: "border-emerald-200 dark:border-emerald-800",
+  },
+  microbiology: {
+    label: "Microbiology",
+    Icon: Microscope,
+    badgeClass: "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300",
+    iconClass: "text-teal-600 dark:text-teal-400",
+    borderClass: "border-teal-200 dark:border-teal-800",
   },
   history: {
-    label: "History",
+    label: "US History",
     Icon: Landmark,
     badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
     iconClass: "text-amber-600 dark:text-amber-400",
-    cardBg: "border-amber-200 dark:border-amber-800",
+    borderClass: "border-amber-200 dark:border-amber-800",
+  },
+  math: {
+    label: "Mathematics",
+    Icon: Calculator,
+    badgeClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
+    iconClass: "text-blue-600 dark:text-blue-400",
+    borderClass: "border-blue-200 dark:border-blue-800",
+  },
+  business: {
+    label: "Business",
+    Icon: Briefcase,
+    badgeClass: "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300",
+    iconClass: "text-violet-600 dark:text-violet-400",
+    borderClass: "border-violet-200 dark:border-violet-800",
+  },
+  language: {
+    label: "Spanish",
+    Icon: Languages,
+    badgeClass: "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300",
+    iconClass: "text-rose-600 dark:text-rose-400",
+    borderClass: "border-rose-200 dark:border-rose-800",
   },
 };
 
-function formatDate(iso: string) {
+function getSubjectCfg(domain: string) {
+  return SUBJECT_CONFIG[domain] ?? {
+    label: domain.charAt(0).toUpperCase() + domain.slice(1),
+    Icon: GraduationCap,
+    badgeClass: "bg-muted text-muted-foreground",
+    iconClass: "text-muted-foreground",
+    borderClass: "",
+  };
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatDate(iso: string | null | undefined) {
+  if (!iso) return "—";
   return new Date(iso).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
@@ -71,10 +121,23 @@ function formatDate(iso: string) {
   });
 }
 
+function todayLong() {
+  return new Date().toLocaleDateString(undefined, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+// ─── Summary Tab ──────────────────────────────────────────────────────────────
+
 function SummaryTab({ report }: { report: ProgressReport }) {
   if (report.viewedModules.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 text-center text-muted-foreground gap-3 print:hidden">
+      <div
+        className="flex flex-col items-center justify-center h-64 text-center text-muted-foreground gap-3"
+        data-testid="summary-empty-state"
+      >
         <BookOpen className="w-12 h-12 opacity-20" />
         <div>
           <p className="font-medium">No reading modules studied yet.</p>
@@ -84,27 +147,28 @@ function SummaryTab({ report }: { report: ProgressReport }) {
     );
   }
 
+  const subjects = Object.keys(report.bySubject);
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {(["biology", "history"] as const).map(subj => {
-          const cfg = SUBJECT_CONFIG[subj];
-          const stats = report.bySubject[subj];
-          if (!stats) return null;
+        {subjects.map(domain => {
+          const cfg = getSubjectCfg(domain);
+          const stats = report.bySubject[domain];
           return (
-            <Card key={subj} className={cfg.cardBg} data-testid={`card-subject-${subj}`}>
+            <Card key={domain} className={cfg.borderClass} data-testid={`card-subject-${domain}`}>
               <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
                   <cfg.Icon className={`w-4 h-4 ${cfg.iconClass}`} />
-                  {cfg.label}
+                  <span data-testid={`text-subject-title-${domain}`}>{cfg.label}</span>
                 </CardTitle>
-                <Badge variant="outline" className={cfg.badgeClass}>
+                <Badge variant="outline" className={cfg.badgeClass} data-testid={`badge-count-${domain}`}>
                   {stats.count} {stats.count === 1 ? "topic" : "topics"}
                 </Badge>
               </CardHeader>
               <CardContent>
                 {stats.lastActivity && (
-                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5" data-testid={`text-last-activity-${domain}`}>
                     <Calendar className="w-3 h-3" />
                     Last studied {formatDate(stats.lastActivity)}
                   </p>
@@ -121,8 +185,7 @@ function SummaryTab({ report }: { report: ProgressReport }) {
         </h3>
         <div className="space-y-2">
           {report.viewedModules.map(mod => {
-            const cfg = SUBJECT_CONFIG[mod.subjectDomain as "biology" | "history"];
-            if (!cfg) return null;
+            const cfg = getSubjectCfg(mod.subjectDomain);
             return (
               <div
                 key={mod.id}
@@ -131,12 +194,10 @@ function SummaryTab({ report }: { report: ProgressReport }) {
               >
                 <CheckCircle2 className={`w-4 h-4 shrink-0 ${cfg.iconClass}`} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate capitalize">{mod.topic}</p>
+                  <p className="text-sm font-medium truncate capitalize" data-testid={`text-topic-${mod.id}`}>{mod.topic}</p>
                   <p className="text-xs text-muted-foreground">{cfg.label}</p>
                 </div>
-                <p className="text-xs text-muted-foreground shrink-0">
-                  {formatDate(mod.lastViewedAt)}
-                </p>
+                <p className="text-xs text-muted-foreground shrink-0">{formatDate(mod.lastViewedAt)}</p>
               </div>
             );
           })}
@@ -146,7 +207,9 @@ function SummaryTab({ report }: { report: ProgressReport }) {
   );
 }
 
-function QuizTab({ report, user }: { report: ProgressReport; user: AuthUser | null }) {
+// ─── Quiz Tab ─────────────────────────────────────────────────────────────────
+
+function QuizTab({ report, studentName }: { report: ProgressReport; studentName: string }) {
   const [showAnswers, setShowAnswers] = useState(false);
 
   const bySubject: Record<string, { mod: ViewedModule; questions: RecallItem[] }[]> = {};
@@ -158,64 +221,69 @@ function QuizTab({ report, user }: { report: ProgressReport; user: AuthUser | nu
 
   const hasQuestions = Object.values(bySubject).some(arr => arr.length > 0);
 
-  const today = new Date().toLocaleDateString(undefined, {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-
   if (!hasQuestions) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 text-center text-muted-foreground gap-3 print:hidden">
+      <div
+        className="flex flex-col items-center justify-center h-64 text-center text-muted-foreground gap-3"
+        data-testid="quiz-empty-state"
+      >
         <ClipboardList className="w-12 h-12 opacity-20" />
-        <p className="text-sm">Quiz questions will appear here once you've studied some topics.</p>
+        <p className="text-sm">Quiz questions will appear here once you have studied some topics.</p>
       </div>
     );
   }
 
+  const totalQuestions = Object.values(bySubject).reduce(
+    (n, arr) => n + arr.reduce((m, g) => m + g.questions.length, 0), 0
+  );
+
   return (
     <div>
-      <div className="print-header hidden print:block mb-6">
-        <h1 className="text-xl font-bold">Reading Quiz</h1>
-        <p className="text-sm text-muted-foreground">
-          {user?.firstName ? `Student: ${user.firstName}` : ""} &nbsp;|&nbsp; Date: {today}
+      {/* Print-only header — student copy */}
+      <div className="hidden print:block mb-6">
+        <h1 className="text-xl font-bold mb-1">Reading Quiz</h1>
+        <p className="text-sm">
+          <strong>Student:</strong> {studentName} &nbsp;&nbsp;
+          <strong>Date:</strong> {todayLong()}
         </p>
+        <hr className="mt-3" />
       </div>
 
+      {/* Screen controls */}
       <div className="flex items-center gap-3 mb-6 print:hidden">
+        <p className="text-sm text-muted-foreground mr-auto" data-testid="text-question-count">
+          {totalQuestions} {totalQuestions === 1 ? "question" : "questions"} from {report.viewedModules.filter(m => m.content.recallCheck?.length).length} modules
+        </p>
         <Button
           variant="outline"
           onClick={() => setShowAnswers(a => !a)}
           data-testid="button-toggle-answers"
-          className="flex items-center gap-2"
+          size="sm"
         >
-          {showAnswers ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          {showAnswers ? <EyeOff className="w-4 h-4 mr-1.5" /> : <Eye className="w-4 h-4 mr-1.5" />}
           {showAnswers ? "Hide Answers" : "Show Answers"}
         </Button>
         <Button
           onClick={() => window.print()}
           data-testid="button-print-quiz"
-          className="flex items-center gap-2"
+          size="sm"
         >
-          <Printer className="w-4 h-4" />
+          <Printer className="w-4 h-4 mr-1.5" />
           Print Quiz
         </Button>
       </div>
 
-      <div className="space-y-8 quiz-questions">
-        {(["biology", "history"] as const).map(subj => {
-          const groups = bySubject[subj];
-          if (!groups?.length) return null;
-          const cfg = SUBJECT_CONFIG[subj];
+      {/* Questions — student copy (answers hidden in print via .answer-block CSS) */}
+      <div className="space-y-8 quiz-questions" data-testid="quiz-questions-section">
+        {Object.entries(bySubject).map(([domain, groups]) => {
+          const cfg = getSubjectCfg(domain);
           let qNum = 0;
-
           return (
-            <div key={subj}>
-              <div className={`flex items-center gap-2 mb-4 pb-2 border-b ${cfg.cardBg}`}>
+            <div key={domain} data-testid={`quiz-subject-${domain}`}>
+              <div className={`flex items-center gap-2 mb-4 pb-2 border-b ${cfg.borderClass}`}>
                 <cfg.Icon className={`w-4 h-4 ${cfg.iconClass}`} />
                 <h2 className="text-base font-semibold">{cfg.label}</h2>
               </div>
-
               <div className="space-y-4">
                 {groups.map(({ mod, questions }) => (
                   <div key={mod.id}>
@@ -224,21 +292,20 @@ function QuizTab({ report, user }: { report: ProgressReport; user: AuthUser | nu
                     </p>
                     {questions.map((item, i) => {
                       qNum++;
+                      const n = qNum;
                       return (
-                        <div
-                          key={i}
-                          className="mb-3"
-                          data-testid={`question-${qNum}`}
-                        >
+                        <div key={i} className="mb-4" data-testid={`question-${n}`}>
                           <p className="text-sm">
-                            <span className="font-semibold">{qNum}.</span> {item.question}
+                            <span className="font-semibold">{n}.</span> {item.question}
                           </p>
-                          <div className={`answer-block mt-1 ml-5 ${showAnswers ? "" : "hidden"}`}>
+                          {/* Shown on screen only when toggle is on */}
+                          <div className={`answer-block mt-1 ml-5 ${showAnswers ? "" : "hidden"}`} data-testid={`answer-${n}`}>
                             <p className="text-sm text-muted-foreground italic">{item.answer}</p>
                           </div>
-                          <div className="mt-1 ml-5 answer-line-block">
-                            <div className="border-b border-dashed border-muted-foreground/30 mt-4" />
-                            <div className="border-b border-dashed border-muted-foreground/30 mt-4" />
+                          {/* Blank lines for writing — hidden in print on answer key page via CSS */}
+                          <div className="mt-2 ml-5 answer-line-block">
+                            <div className="border-b border-dashed border-muted-foreground/30 mt-5" />
+                            <div className="border-b border-dashed border-muted-foreground/30 mt-5" />
                           </div>
                         </div>
                       );
@@ -251,15 +318,19 @@ function QuizTab({ report, user }: { report: ProgressReport; user: AuthUser | nu
         })}
       </div>
 
+      {/* Answer Key — print only, page 2 */}
       <div className="answer-key hidden print:block mt-16 page-break-before">
-        <h2 className="text-lg font-bold mb-4 border-b pb-2">Answer Key</h2>
-        {(["biology", "history"] as const).map(subj => {
-          const groups = bySubject[subj];
-          if (!groups?.length) return null;
-          const cfg = SUBJECT_CONFIG[subj];
+        <h2 className="text-lg font-bold mb-1">Answer Key</h2>
+        <p className="text-sm mb-4">
+          <strong>Student:</strong> {studentName} &nbsp;&nbsp;
+          <strong>Date:</strong> {todayLong()}
+        </p>
+        <hr className="mb-4" />
+        {Object.entries(bySubject).map(([domain, groups]) => {
+          const cfg = getSubjectCfg(domain);
           let qNum = 0;
           return (
-            <div key={subj} className="mb-6">
+            <div key={domain} className="mb-6">
               <h3 className="font-semibold mb-2 flex items-center gap-2">
                 <cfg.Icon className={`w-4 h-4 ${cfg.iconClass}`} />
                 {cfg.label}
@@ -268,7 +339,7 @@ function QuizTab({ report, user }: { report: ProgressReport; user: AuthUser | nu
                 questions.map((item, i) => {
                   qNum++;
                   return (
-                    <p key={i} className="text-sm mb-1">
+                    <p key={i} className="text-sm mb-1.5">
                       <span className="font-semibold">{qNum}.</span> {item.answer}
                     </p>
                   );
@@ -282,6 +353,20 @@ function QuizTab({ report, user }: { report: ProgressReport; user: AuthUser | nu
   );
 }
 
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+
+function ReportSkeleton() {
+  return (
+    <div className="space-y-3">
+      {[...Array(4)].map((_, i) => (
+        <Skeleton key={i} className="h-16 rounded-md" />
+      ))}
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function ProgressReport() {
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState<"summary" | "quiz">("summary");
@@ -291,14 +376,19 @@ export default function ProgressReport() {
     staleTime: 30_000,
   });
 
-  const { data: user } = useQuery<AuthUser>({
+  const { data: authUser } = useQuery<{ firstName?: string; username?: string }>({
     queryKey: ["/api/auth/user"],
     staleTime: Infinity,
   });
 
+  const studentName = authUser?.firstName ?? authUser?.username ?? "Student";
+
   return (
     <div className="flex flex-col h-full bg-background">
-      <header className="flex items-center gap-3 px-4 py-3 border-b shrink-0 print:hidden" data-testid="progress-header">
+      <header
+        className="flex items-center gap-3 px-4 py-3 border-b shrink-0 print:hidden"
+        data-testid="progress-header"
+      >
         <Button
           size="icon"
           variant="ghost"
@@ -309,18 +399,27 @@ export default function ProgressReport() {
         </Button>
         <ClipboardList className="w-5 h-5 text-muted-foreground" />
         <h1 className="text-sm font-semibold">Progress Report</h1>
+        {studentName !== "Student" && (
+          <Badge variant="outline" className="ml-auto text-xs" data-testid="badge-student-name">
+            {studentName}
+          </Badge>
+        )}
       </header>
 
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-2xl mx-auto px-4 py-6">
-          <div className="flex items-center gap-1 rounded-md border p-1 w-fit mb-6 print:hidden" data-testid="report-tabs">
+          {/* Tab switcher */}
+          <div
+            className="flex items-center gap-1 rounded-md border p-1 w-fit mb-6 print:hidden"
+            data-testid="report-tabs"
+          >
             {(["summary", "quiz"] as const).map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 data-testid={`button-tab-${tab}`}
                 className={[
-                  "px-4 py-1.5 text-sm rounded transition-colors capitalize",
+                  "px-4 py-1.5 text-sm rounded transition-colors",
                   activeTab === tab
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground",
@@ -331,16 +430,12 @@ export default function ProgressReport() {
             ))}
           </div>
 
-          {isLoading && (
-            <div className="space-y-3">
-              {[...Array(4)].map((_, i) => (
-                <Skeleton key={i} className="h-16 rounded-md" />
-              ))}
-            </div>
-          )}
+          {isLoading && <ReportSkeleton />}
 
           {report && activeTab === "summary" && <SummaryTab report={report} />}
-          {report && activeTab === "quiz" && <QuizTab report={report} user={user ?? null} />}
+          {report && activeTab === "quiz" && (
+            <QuizTab report={report} studentName={studentName} />
+          )}
         </div>
       </div>
     </div>
