@@ -12967,6 +12967,49 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Alden session history — load recent messages for the UI
+  app.get("/api/alden/session", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { getSharedDb: _getDb2 } = await import('./db');
+      const { aldenConversations, aldenMessages } = await import('@shared/schema');
+      const { desc, isNull, gt, eq } = await import('drizzle-orm');
+      const _db2 = _getDb2();
+
+      // Find the most recent session from the last 24 hours
+      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const [session] = await _db2.select()
+        .from(aldenConversations)
+        .where(gt(aldenConversations.startedAt, cutoff))
+        .orderBy(desc(aldenConversations.startedAt))
+        .limit(1);
+
+      if (!session) {
+        return res.json({ messages: [], sessionId: null, sessionTitle: null });
+      }
+
+      const msgs = await _db2.select()
+        .from(aldenMessages)
+        .where(eq(aldenMessages.conversationId, session.id))
+        .orderBy(aldenMessages.createdAt);
+
+      res.json({
+        sessionId: session.id,
+        sessionTitle: session.title,
+        startedAt: session.startedAt,
+        messages: msgs.map(m => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          createdAt: m.createdAt,
+          isSignificant: m.isSignificant,
+        })),
+      });
+    } catch (error: any) {
+      console.error('[Alden Session] Fetch error:', error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/alden/synthesize", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
       const { text } = req.body;

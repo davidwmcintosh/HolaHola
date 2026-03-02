@@ -5,14 +5,15 @@ import {
   Volume2,
   VolumeX,
   Mic,
-  Terminal,
   Wrench,
+  Clock,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -22,10 +23,33 @@ interface AldenMessage {
   content: string;
   timestamp: Date;
   toolsUsed?: string[];
+  fromHistory?: boolean;
+}
+
+interface SessionHistory {
+  sessionId: string | null;
+  sessionTitle: string | null;
+  startedAt: string | null;
+  messages: Array<{
+    id: string;
+    role: string;
+    content: string;
+    createdAt: string;
+    isSignificant: boolean;
+  }>;
+}
+
+const WELCOME = "Hey. I'm here whenever you need me — system status, diagnostics, architecture decisions, or just thinking out loud. What's on your mind?";
+
+function formatSessionTime(iso: string) {
+  return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
 export function AldenChat() {
   const [messages, setMessages] = useState<AldenMessage[]>([]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [sessionTitle, setSessionTitle] = useState<string | null>(null);
+  const [sessionStartedAt, setSessionStartedAt] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -38,13 +62,45 @@ export function AldenChat() {
   const audioChunksRef = useRef<Blob[]>([]);
   const { toast } = useToast();
 
+  // Load conversation history on mount
   useEffect(() => {
-    setMessages([{
-      id: 'initial',
-      role: 'alden',
-      content: "Hey. I'm here whenever you need me — system status, diagnostics, architecture decisions, or just thinking out loud. What's on your mind?",
-      timestamp: new Date(),
-    }]);
+    async function loadHistory() {
+      try {
+        const res = await fetch('/api/alden/session', { credentials: 'include' });
+        if (!res.ok) throw new Error('Failed to load session');
+        const data: SessionHistory = await res.json();
+
+        if (data.messages.length === 0) {
+          setMessages([{
+            id: 'initial',
+            role: 'alden',
+            content: WELCOME,
+            timestamp: new Date(),
+          }]);
+        } else {
+          setSessionTitle(data.sessionTitle);
+          setSessionStartedAt(data.startedAt);
+          const loaded: AldenMessage[] = data.messages.map(m => ({
+            id: m.id,
+            role: m.role === 'david' ? 'user' : 'alden',
+            content: m.content,
+            timestamp: new Date(m.createdAt),
+            fromHistory: true,
+          }));
+          setMessages(loaded);
+        }
+      } catch {
+        setMessages([{
+          id: 'initial',
+          role: 'alden',
+          content: WELCOME,
+          timestamp: new Date(),
+        }]);
+      } finally {
+        setHistoryLoaded(true);
+      }
+    }
+    loadHistory();
   }, []);
 
   useEffect(() => {
@@ -68,30 +124,30 @@ export function AldenChat() {
 
   const synthesizeAndPlay = useCallback(async (text: string) => {
     if (!audioEnabled) return;
-    
+
     const mySessionId = ++playbackSessionRef.current;
-    
+
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
     }
-    
+
     try {
       setIsPlaying(true);
-      
+
       const sentences = text
         .split(/(?<=[.!?])\s+/)
         .map(s => s.trim())
         .filter(s => s.length > 3);
-      
+
       if (sentences.length === 0) {
         setIsPlaying(false);
         return;
       }
-      
+
       for (let i = 0; i < sentences.length; i++) {
         if (playbackSessionRef.current !== mySessionId) return;
-        
+
         try {
           const response = await fetch('/api/alden/synthesize', {
             method: 'POST',
@@ -99,29 +155,28 @@ export function AldenChat() {
             body: JSON.stringify({ text: sentences[i] }),
             credentials: 'include',
           });
-          
+
           if (playbackSessionRef.current !== mySessionId) return;
-          
           if (!response.ok) continue;
-          
+
           const audioBlob = await response.blob();
           const audioUrl = URL.createObjectURL(audioBlob);
-          
+
           await new Promise<void>((resolve) => {
             if (playbackSessionRef.current !== mySessionId) {
               URL.revokeObjectURL(audioUrl);
               resolve();
               return;
             }
-            
+
             const audio = new Audio(audioUrl);
             audioRef.current = audio;
-            
+
             const cleanup = () => {
               URL.revokeObjectURL(audioUrl);
               resolve();
             };
-            
+
             audio.onended = cleanup;
             audio.onerror = cleanup;
             audio.onpause = cleanup;
@@ -131,7 +186,7 @@ export function AldenChat() {
           continue;
         }
       }
-      
+
       if (playbackSessionRef.current === mySessionId) {
         setIsPlaying(false);
       }
@@ -144,18 +199,18 @@ export function AldenChat() {
 
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim() || isLoading) return;
-    
+
     const userMessage: AldenMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
       content: content.trim(),
       timestamp: new Date(),
     };
-    
+
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
     setIsLoading(true);
-    
+
     try {
       const conversationHistory = messages
         .filter(m => m.id !== 'initial')
@@ -163,19 +218,19 @@ export function AldenChat() {
           role: m.role === 'user' ? 'user' as const : 'model' as const,
           content: m.content,
         }));
-      
+
       const response = await apiRequest('POST', '/api/alden/message', {
         message: content.trim(),
         conversationHistory,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to get response');
       }
-      
+
       const data = await response.json();
-      
+
       const aldenMessage: AldenMessage = {
         id: `alden-${Date.now()}`,
         role: 'alden',
@@ -183,9 +238,9 @@ export function AldenChat() {
         timestamp: new Date(),
         toolsUsed: data.toolsUsed,
       };
-      
+
       setMessages(prev => [...prev, aldenMessage]);
-      
+
       if (audioEnabled) {
         synthesizeAndPlay(data.reply);
       }
@@ -212,33 +267,33 @@ export function AldenChat() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-      
+
       audioChunksRef.current = [];
-      
+
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
           audioChunksRef.current.push(e.data);
         }
       };
-      
+
       mediaRecorder.onstop = async () => {
         stream.getTracks().forEach(track => track.stop());
-        
+
         if (audioChunksRef.current.length === 0) return;
-        
+
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        
+
         setIsLoading(true);
         try {
           const formData = new FormData();
           formData.append('audio', audioBlob, 'recording.webm');
-          
+
           const sttResponse = await fetch('/api/voice/transcribe', {
             method: 'POST',
             body: formData,
             credentials: 'include',
           });
-          
+
           if (sttResponse.ok) {
             const { transcript } = await sttResponse.json();
             if (transcript && transcript.trim()) {
@@ -261,7 +316,7 @@ export function AldenChat() {
           setIsLoading(false);
         }
       };
-      
+
       mediaRecorderRef.current = mediaRecorder;
       mediaRecorder.start();
       setIsRecording(true);
@@ -311,7 +366,16 @@ export function AldenChat() {
         </Avatar>
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold text-sm" data-testid="text-alden-title">Alden</h3>
-          <p className="text-xs text-muted-foreground">Development Steward</p>
+          {sessionTitle ? (
+            <p className="text-xs text-muted-foreground truncate" data-testid="text-alden-session">
+              {sessionTitle}
+              {sessionStartedAt && (
+                <span className="ml-1 opacity-60">· {formatSessionTime(sessionStartedAt)}</span>
+              )}
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">Development Steward</p>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <Button
@@ -334,55 +398,89 @@ export function AldenChat() {
           className="flex-1 overflow-y-auto p-4 space-y-4"
           data-testid="alden-chat-messages"
         >
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              data-testid={`message-${msg.role}-${msg.id}`}
-            >
-              {msg.role === 'alden' && (
-                <Avatar className="h-8 w-8 flex-shrink-0">
-                  <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
-                    A
-                  </AvatarFallback>
-                </Avatar>
-              )}
-              <div className={`max-w-[80%] space-y-1 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                <div
-                  className={`rounded-md px-3 py-2 text-sm whitespace-pre-wrap ${
-                    msg.role === 'user'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted'
-                  }`}
-                >
-                  {msg.content}
+          {!historyLoaded && (
+            <div className="space-y-3">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className={`flex gap-3 ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
+                  {i % 2 === 0 && <Skeleton className="h-8 w-8 rounded-full shrink-0" />}
+                  <Skeleton className={`h-14 rounded-md ${i % 2 === 0 ? 'w-2/3' : 'w-1/2'}`} />
                 </div>
-                {msg.toolsUsed && msg.toolsUsed.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    <Wrench className="h-3 w-3 text-muted-foreground mt-0.5" />
-                    {[...new Set(msg.toolsUsed)].map((tool, idx) => (
-                      <Badge
-                        key={idx}
-                        variant="outline"
-                        className="text-[10px] px-1.5 py-0"
-                        data-testid={`badge-tool-${tool}`}
-                      >
-                        {toolLabels[tool] || tool}
-                      </Badge>
-                    ))}
+              ))}
+            </div>
+          )}
+
+          {historyLoaded && messages.length > 0 && messages[0].fromHistory && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground py-1" data-testid="text-history-divider">
+              <div className="flex-1 border-t border-dashed" />
+              <Clock className="w-3 h-3 shrink-0" />
+              <span className="shrink-0">Earlier today</span>
+              <div className="flex-1 border-t border-dashed" />
+            </div>
+          )}
+
+          {historyLoaded && messages.map((msg, idx) => {
+            const prevMsg = idx > 0 ? messages[idx - 1] : null;
+            const showNowDivider = prevMsg?.fromHistory && !msg.fromHistory;
+            return (
+              <div key={msg.id}>
+                {showNowDivider && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground py-1" data-testid="text-now-divider">
+                    <div className="flex-1 border-t" />
+                    <span className="shrink-0">Now</span>
+                    <div className="flex-1 border-t" />
                   </div>
                 )}
+                <div
+                  className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  data-testid={`message-${msg.role}-${msg.id}`}
+                >
+                  {msg.role === 'alden' && (
+                    <Avatar className="h-8 w-8 flex-shrink-0">
+                      <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                        A
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                  <div className={`max-w-[80%] space-y-1 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                    <div
+                      className={`rounded-md px-3 py-2 text-sm whitespace-pre-wrap ${
+                        msg.role === 'user'
+                          ? 'bg-primary text-primary-foreground'
+                          : msg.fromHistory
+                          ? 'bg-muted/60 text-foreground/80'
+                          : 'bg-muted'
+                      }`}
+                    >
+                      {msg.content}
+                    </div>
+                    {msg.toolsUsed && msg.toolsUsed.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        <Wrench className="h-3 w-3 text-muted-foreground mt-0.5" />
+                        {[...new Set(msg.toolsUsed)].map((tool, toolIdx) => (
+                          <Badge
+                            key={toolIdx}
+                            variant="outline"
+                            className="text-[10px] px-1.5 py-0"
+                            data-testid={`badge-tool-${tool}`}
+                          >
+                            {toolLabels[tool] || tool}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {msg.role === 'user' && (
+                    <Avatar className="h-8 w-8 flex-shrink-0">
+                      <AvatarFallback className="bg-accent text-accent-foreground text-xs font-bold">
+                        D
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                </div>
               </div>
-              {msg.role === 'user' && (
-                <Avatar className="h-8 w-8 flex-shrink-0">
-                  <AvatarFallback className="bg-accent text-accent-foreground text-xs font-bold">
-                    D
-                  </AvatarFallback>
-                </Avatar>
-              )}
-            </div>
-          ))}
-          
+            );
+          })}
+
           {isLoading && (
             <div className="flex gap-3 items-center" data-testid="alden-thinking">
               <Avatar className="h-8 w-8 flex-shrink-0">
@@ -405,7 +503,7 @@ export function AldenChat() {
             onKeyDown={handleKeyDown}
             placeholder="Talk to Alden..."
             className="flex-1 min-h-[40px] max-h-[120px] resize-none text-sm"
-            disabled={isLoading}
+            disabled={isLoading || !historyLoaded}
             data-testid="input-alden-message"
           />
           <div className="flex flex-col gap-1">
@@ -413,7 +511,7 @@ export function AldenChat() {
               size="icon"
               variant={isRecording ? "destructive" : "ghost"}
               onClick={isRecording ? stopRecording : startRecording}
-              disabled={isLoading}
+              disabled={isLoading || !historyLoaded}
               title={isRecording ? "Stop recording" : "Start voice input"}
               data-testid="button-alden-voice"
             >
@@ -422,7 +520,7 @@ export function AldenChat() {
             <Button
               size="icon"
               onClick={() => sendMessage(inputValue)}
-              disabled={!inputValue.trim() || isLoading}
+              disabled={!inputValue.trim() || isLoading || !historyLoaded}
               data-testid="button-alden-send"
             >
               {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
