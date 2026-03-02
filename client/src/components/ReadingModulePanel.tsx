@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,8 +16,10 @@ import {
   ChevronDown,
   ChevronRight,
   ZoomIn,
+  ClipboardCheck,
 } from "lucide-react";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface KeyTerm {
   term: string;
@@ -410,6 +412,25 @@ export function ReadingModulePanel({ subject, onClose, initialTopic = "", onLoad
     if (e.key === "Enter") handleLoad();
   };
 
+  const { toast } = useToast();
+
+  const reviewMutation = useMutation({
+    mutationFn: async (moduleId: string) => {
+      const res = await apiRequest("POST", `/api/reading-modules/${moduleId}/request-review`);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: `${data.reviewer} sent a review`,
+        description: "Check the Express Lane — their feedback is waiting.",
+        duration: 5000,
+      });
+    },
+    onError: () => {
+      toast({ title: "Review failed", description: "Could not request a tutor review.", variant: "destructive" });
+    },
+  });
+
   return (
     <div
       className="flex flex-col h-full bg-background border-l"
@@ -423,14 +444,28 @@ export function ReadingModulePanel({ subject, onClose, initialTopic = "", onLoad
             {subject}
           </Badge>
         </div>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={onClose}
-          data-testid="button-close-reading-panel"
-        >
-          <X className="w-4 h-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          {module && (
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => reviewMutation.mutate(module.id)}
+              disabled={reviewMutation.isPending}
+              title="Request tutor review — sends feedback to the Express Lane"
+              data-testid="button-request-review"
+            >
+              <ClipboardCheck className="w-4 h-4 text-muted-foreground" />
+            </Button>
+          )}
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onClose}
+            data-testid="button-close-reading-panel"
+          >
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
       <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0">

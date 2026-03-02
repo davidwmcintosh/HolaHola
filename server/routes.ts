@@ -27720,5 +27720,83 @@ You have full access to your neural network knowledge.
     }
   });
 
+  // Tutor Review — AI tutor reviews a reading module and posts to Express Lane
+  app.post("/api/reading-modules/:id/request-review", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getRequestUserId(req);
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+      const { id: moduleId } = req.params;
+      const { getSharedDb } = await import('./db');
+      const { readingModules } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+
+      const db = getSharedDb();
+      const [mod] = await db.select().from(readingModules).where(eq(readingModules.id, moduleId)).limit(1);
+      if (!mod) return res.status(404).json({ error: 'Module not found' });
+
+      const TUTOR_MAP: Record<string, { name: string; traits: string }> = {
+        biology: { name: 'Gene', traits: 'You are Gene, a Biology tutor on the HolaHola team. You are precise, warm, and invested in scientific accuracy. You care about students building correct mental models, not just passing tests.' },
+        microbiology: { name: 'Gene', traits: 'You are Gene, a Biology tutor on the HolaHola team. You are precise, warm, and invested in scientific accuracy. You care about students building correct mental models, not just passing tests.' },
+        history: { name: 'Clio', traits: 'You are Clio, a History tutor on the HolaHola team. You care about narrative, context, and causes. You want students to understand why events happened, not just that they happened.' },
+        math: { name: 'Ada', traits: 'You are Ada, a Math tutor on the HolaHola team. You value clarity, precision, and building intuition. You believe every student can understand math when it is explained well.' },
+        business: { name: 'Sterling', traits: 'You are Sterling, a Business tutor on the HolaHola team. You think strategically and love connecting classroom concepts to how the real world actually works.' },
+        language: { name: 'Daniela', traits: 'You are Daniela, a Spanish tutor on the HolaHola team. You are warm, encouraging, and focused on real communication over rote memorization.' },
+      };
+
+      const tutor = TUTOR_MAP[mod.subjectDomain] ?? { name: 'Evelyn', traits: 'You are Evelyn, a tutor on the HolaHola team. You care about student comprehension and clear explanations.' };
+      const c = mod.content as any;
+
+      const concepts = (c.keyConcepts ?? []).map((x: string, i: number) => `${i+1}. ${x}`).join('\n');
+      const terms = (c.keyTerms ?? []).map((t: any) => `- ${t.term}: ${t.definition}`).join('\n');
+      const recall = (c.recallCheck ?? []).map((q: any, i: number) => `${i+1}. Q: ${q.question}\n   A: ${q.answer}`).join('\n');
+      const overview = (c.overview ?? '').substring(0, 400);
+
+      const reviewPrompt = `${tutor.traits}
+
+David has asked you to review a reading module before it goes live to students. Your feedback goes to the team channel — be honest and direct, this is not a formal document.
+
+MODULE: ${mod.topic} (${mod.subjectDomain})
+
+Key Concepts:\n${concepts}
+
+Key Terms:\n${terms}
+
+Recall Questions:\n${recall}
+
+Overview excerpt: ${overview}
+
+Give your honest take on:
+1. Accuracy — anything factually wrong or misleading?
+2. Student fit — right level for a high school homeschool student new to this topic?
+3. Recall questions — do they test real understanding or surface memorization?
+4. One concrete improvement you would make.
+
+Under 250 words. Write as yourself.`;
+
+      const reviewResponse = await gemini.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: [{ role: 'user', parts: [{ text: reviewPrompt }] }],
+        config: { temperature: 0.7, maxOutputTokens: 500 },
+      });
+
+      const reviewText = reviewResponse.candidates?.[0]?.content?.parts?.[0]?.text ?? 'Review could not be generated.';
+
+      const SYSTEM_FOUNDER_ID = '49847136';
+      const session = await founderCollabService.getOrCreateActiveSession(SYSTEM_FOUNDER_ID);
+      await founderCollabService.addMessage(session.id, {
+        role: 'editor',
+        content: `**[Tutor Review — ${tutor.name}]** "${mod.topic}" (${mod.subjectDomain})\n\n${reviewText}`,
+        metadata: { type: 'tutor_review', reviewer: tutor.name, subject: mod.subjectDomain, moduleId: mod.id, topic: mod.topic },
+      });
+
+      console.log(`[TutorReview] ${tutor.name} reviewed "% s" → posted to Express Lane`, mod.topic);
+      res.json({ ok: true, reviewer: tutor.name, review: reviewText });
+    } catch (error: any) {
+      console.error('[TutorReview] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // This ensures WS upgrade handler runs BEFORE Express/Vite middleware interferes
 }
