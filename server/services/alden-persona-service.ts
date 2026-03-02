@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { buildAldenSystemPrompt } from "../alden-system-prompt";
 import { ALDEN_TOOLS, executeAldenTool } from "./alden-functions";
+import { buildAldenWorkspaceContext } from "./alden-workspace-context";
 
 let anthropicClient: Anthropic | null = null;
 
@@ -37,6 +38,22 @@ export async function generateAldenResponse(params: AldenChatParams): Promise<Al
     const systemPrompt = buildAldenSystemPrompt({ founderName, timezone });
 
     const messages: Anthropic.MessageParam[] = [];
+
+    // ── Workspace Context Injection (push model, every turn) ─────────────────
+    // Mirrors Daniela's classroom: persistent memory, significant past sessions,
+    // and Express Lane awareness are assembled and injected before every message.
+    const workspaceContext = await buildAldenWorkspaceContext();
+    if (workspaceContext) {
+      messages.push({
+        role: 'user',
+        content: `[WORKSPACE CONTEXT — read and internalize before responding]\n\n${workspaceContext}`,
+      });
+      messages.push({
+        role: 'assistant',
+        content: 'Workspace loaded. I have my memory, past session context, and Express Lane activity. Ready.',
+      });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     for (const msg of conversationHistory.slice(-20)) {
       messages.push({
