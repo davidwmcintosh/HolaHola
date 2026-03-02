@@ -5,7 +5,6 @@ import {
   Volume2,
   VolumeX,
   Mic,
-  MicOff,
   Terminal,
   Wrench,
 } from "lucide-react";
@@ -415,9 +414,10 @@ export function AldenChat() {
               variant={isRecording ? "destructive" : "ghost"}
               onClick={isRecording ? stopRecording : startRecording}
               disabled={isLoading}
+              title={isRecording ? "Stop recording" : "Start voice input"}
               data-testid="button-alden-voice"
             >
-              {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              <Mic className={`h-4 w-4 ${isRecording ? "animate-pulse" : ""}`} />
             </Button>
             <Button
               size="icon"
@@ -431,7 +431,14 @@ export function AldenChat() {
         </div>
       </Card>
 
-      {isPlaying && (
+      {isRecording && (
+        <div className="flex items-center justify-center gap-2 mt-2 text-xs text-destructive">
+          <span className="inline-block h-2 w-2 rounded-full bg-destructive animate-pulse" />
+          <span>Listening... click the mic to send</span>
+        </div>
+      )}
+
+      {isPlaying && !isRecording && (
         <div className="flex items-center justify-center gap-2 mt-2 text-xs text-muted-foreground">
           <Volume2 className="h-3 w-3 animate-pulse" />
           <span>Alden is speaking...</span>
