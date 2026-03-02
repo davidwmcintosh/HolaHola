@@ -1211,9 +1211,11 @@ export function StreamingVoiceChat({
   // Interval-based watchdog: checks every 5s whether mic has been locked too long.
   // Uses a monotonic "last voice activity" timestamp that only updates on actual pipeline
   // events (processing start, audio chunk, response_complete, playback state changes).
-  // If mic is locked and no voice activity for 20s, force-resets ALL three mic-gating states.
+  // If mic is locked and no voice activity for 35s, force-resets ALL three mic-gating states.
+  // 35s is intentionally above the observed worst-case brain latency (~23.6s) so the watchdog
+  // never fires before the brain has had a chance to respond.
   const lastVoiceActivityRef = useRef<number>(Date.now());
-  const MIC_LOCK_MAX_IDLE_MS = 20000;
+  const MIC_LOCK_MAX_IDLE_MS = 35000;
   
   useEffect(() => {
     lastVoiceActivityRef.current = Date.now();

@@ -1829,6 +1829,21 @@ export class StreamingAudioPlayer {
       const allReceivedEnded = allReceivedEntries.length > 0 && allReceivedEntries.every(([_, entry]) => entry.ended && entry.endCtxTime !== undefined);
       const debugState = window.__debugTimingState;
       if (allReceivedEnded && debugState?.wsResponseCompleteReceived) {
+        // FIX: Force-mark every entry in the schedule as ended so nothing downstream
+        // (timing loop, fallback checks, isPlaying guards) thinks a sentence is still
+        // playing. Without this, entries that were "ended" only via the allReceivedEnded
+        // check may still have endCtxTime undefined or other stale state from the
+        // interrupted/dropped audio path that could re-block completion on the next tick.
+        for (const entry of this.sentenceSchedule.values()) {
+          if (!entry.ended) {
+            entry.ended = true;
+            if (entry.endCtxTime === undefined) {
+              entry.endCtxTime = this.audioContext?.currentTime ?? 0;
+            }
+          }
+        }
+        // Also immediately clear the isPlaying flag so the timing loop exits cleanly
+        this.isPlaying = false;
         diagMarkMismatchRecovery(this.expectedSentenceCount!, this.sentenceSchedule.size);
         logResult(true, `MISMATCH_RECOVERY: expected ${this.expectedSentenceCount} but only ${this.sentenceSchedule.size} arrived, all ended + response_complete received`);
         return true;
