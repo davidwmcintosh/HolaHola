@@ -2553,6 +2553,7 @@ Remember: David may reference things discussed in these recent text chats.
       session.pendingWhiteboardUpdates = [];  // Clear stale pending updates from previous turn
       (session as any).earlyTtsActive = undefined;  // Reset Early TTS flags from previous turn
       (session as any).earlyTtsCompleted = undefined;
+      (session as any)._ttsTurnCallCount = 0;  // DIAG: Reset TTS call counter for new turn
       const turnId = session.currentTurnId;
       
       // Notify client that processing has started
@@ -5728,6 +5729,7 @@ Remember: David may reference things discussed in these recent text chats.
       session.pendingWhiteboardUpdates = [];  // Clear stale pending updates from previous turn
       (session as any).earlyTtsActive = undefined;  // Reset Early TTS flags from previous turn
       (session as any).earlyTtsCompleted = undefined;
+      (session as any)._ttsTurnCallCount = 0;  // DIAG: Reset TTS call counter for new turn
       const turnId = session.currentTurnId;
       
       // Notify client that processing has started
@@ -8525,6 +8527,12 @@ Remember: David may reference things discussed in these recent text chats.
   ): Promise<void> {
     // SESSION ECONOMICS: Count TTS characters for cost tracking
     session.telemetryTtsCharacters += (chunk.text || '').length;
+    
+    // PER-TURN TTS DIAGNOSTICS: Track how many TTS calls happen per turn
+    if (!(session as any)._ttsTurnCallCount) (session as any)._ttsTurnCallCount = 0;
+    (session as any)._ttsTurnCallCount++;
+    const ttsCallNum = (session as any)._ttsTurnCallCount;
+    console.log(`[TTS DIAG] streamSentenceAudioProgressive call #${ttsCallNum} for turn ${turnId ?? session.currentTurnId}, sentence=${chunk.index}, text="${displayText.substring(0, 60)}"`);
     
     // ASSISTANT MODE: Use Google TTS instead of Cartesia for practice partners
     // Falls back to non-progressive streaming since Google doesn't support streaming
@@ -11551,6 +11559,7 @@ Only include observations you can clearly justify from the exchange. Return empt
       session.sentAudioHashes.clear();  // Reset content-based deduplication for new turn
       session.firstAudioSent = false;   // Reset so whiteboard updates buffer until audio starts
       session.pendingWhiteboardUpdates = [];
+      (session as any)._ttsTurnCallCount = 0;  // DIAG: Reset TTS call counter for new turn
       const turnId = session.currentTurnId;
       
       // Notify client that greeting is being generated

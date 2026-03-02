@@ -357,6 +357,16 @@ export class StreamingAudioPlayer {
   // the same audio chunk to be delivered twice (via sentence_ready + audio_chunk, or retransmission)
   private processedChunks: Set<string> = new Set();
   
+  // CONTENT-HASH DEDUP: Last-resort dedup that catches same audio content
+  // regardless of chunk/sentence index. Hashes first+last 64 floats of PCM data.
+  // Cleared on new turn. Catches: transport retransmissions, proxy duplicates,
+  // double TTS calls for same text, or any unknown path that re-delivers audio.
+  private scheduledAudioHashes: Set<string> = new Set();
+  
+  // PER-TURN DIAGNOSTICS: Track source.start() calls for debugging double audio
+  private turnScheduleCount = 0;
+  private turnScheduleLog: Array<{ sentence: number; chunk: number; playTime: number; bytes: number; hash: string }> = [];
+  
   // Per-sentence chunk counter for monotonic fallback when chunkIndex is missing
   // This prevents collision when multiple chunks have undefined chunkIndex
   private sentenceChunkCounters: Map<number, number> = new Map();
@@ -544,6 +554,9 @@ export class StreamingAudioPlayer {
     this.sentenceSchedule.clear();
     this.wordSchedule.clear();
     this.processedChunks.clear();  // DEDUPLICATION: Reset for new turn
+    this.scheduledAudioHashes.clear();  // CONTENT-HASH DEDUP: Reset for new turn
+    this.turnScheduleCount = 0;  // DIAGNOSTICS: Reset schedule counter
+    this.turnScheduleLog = [];  // DIAGNOSTICS: Reset schedule log
     this.sentenceChunkCounters.clear();  // DEDUPLICATION: Reset counters for new turn
     this.pendingWordTimings.clear();  // CRITICAL: Also clear pending word timings
     this.activeSentenceInLoop = -1;
@@ -1025,6 +1038,38 @@ export class StreamingAudioPlayer {
       return; // Skip audio scheduling for empty chunks
     }
     
+    // CONTENT-HASH DEDUP: Hash audio content before scheduling to catch same-audio duplicates
+    // This is the LAST LINE OF DEFENSE against double audio. It catches cases where:
+    // - Same TTS output arrives via different message paths (sentence_ready + audio_chunk)
+    // - Transport retransmission sends identical audio with different chunk indices
+    // - Any unknown server-side bug produces duplicate audio for the same text
+    // Hash algorithm: Strided sampling across ENTIRE buffer (not just edges)
+    // Uses 3 independent accumulators combined for ~96-bit fingerprint
+    // Stride ensures we touch samples from start, middle, and end
+    const stride = Math.max(1, Math.floor(float32Data.length / 256));
+    let h1 = 0x811c9dc5; // FNV offset basis
+    let h2 = 0;
+    let h3 = 0x12345678;
+    for (let hi = 0; hi < float32Data.length; hi += stride) {
+      const sample = float32Data[hi] * 32767 | 0;
+      h1 = Math.imul(h1 ^ sample, 0x01000193) | 0;  // FNV-1a inspired
+      h2 = ((h2 << 5) - h2 + sample) | 0;           // djb2
+      h3 = ((h3 << 7) ^ sample ^ (h3 >>> 3)) | 0;   // rotate-xor
+    }
+    const contentHash = `h${h1}_${h2}_${h3}_${numSamples}`;
+    
+    if (this.scheduledAudioHashes.has(contentHash)) {
+      console.warn(`[AUDIO PLAYER] CONTENT-HASH DEDUP: Blocking duplicate audio! hash=${contentHash}, sentence=${sentenceIndex}, chunk=${chunkIndex}, bytes=${audio.byteLength}`);
+      if (typeof window !== 'undefined') {
+        const w = window as any;
+        if (!w._contentDedupStats) w._contentDedupStats = { blocked: 0, details: [] };
+        w._contentDedupStats.blocked++;
+        w._contentDedupStats.details.push({ hash: contentHash, sentence: sentenceIndex, chunk: chunkIndex, time: Date.now() });
+      }
+      return;
+    }
+    this.scheduledAudioHashes.add(contentHash);
+    
     // Store for potential replay
     this.progressiveChunks.push(float32Data);
     this.allAudioChunks.push(audio);
@@ -1045,6 +1090,14 @@ export class StreamingAudioPlayer {
     source.start(playTime);
     this.progressiveScheduledTime += chunkDuration;
     this.progressiveTotalDuration += chunkDuration;
+    
+    // DIAGNOSTICS: Track every source.start() call for double-audio debugging
+    this.turnScheduleCount++;
+    this.turnScheduleLog.push({ sentence: sentenceIndex, chunk: chunkIndex, playTime, bytes: audio.byteLength, hash: contentHash });
+    if (typeof window !== 'undefined') {
+      (window as any)._turnScheduleLog = this.turnScheduleLog;
+      (window as any)._turnScheduleCount = this.turnScheduleCount;
+    }
     
     // Auto-resume if AudioContext becomes suspended (check only, no logging)
     if (ctx.state === 'suspended') {
@@ -1129,6 +1182,9 @@ export class StreamingAudioPlayer {
     this.sentenceSchedule.clear();
     this.wordSchedule.clear();
     this.processedChunks.clear();  // DEDUPLICATION: Reset for new turn
+    this.scheduledAudioHashes.clear();  // CONTENT-HASH DEDUP: Reset for new turn
+    this.turnScheduleCount = 0;
+    this.turnScheduleLog = [];
     this.sentenceChunkCounters.clear();  // DEDUPLICATION: Reset counters for new turn
     this.pendingWordTimings.clear();
     this.activeSentenceInLoop = -1;
