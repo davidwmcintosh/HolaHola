@@ -1,7 +1,28 @@
+import { useEffect } from "react";
+import { useLocation } from "wouter";
 import { AldenChat } from "@/components/AldenChat";
 import { BrainCircuit } from "lucide-react";
+import { useUser } from "@/lib/auth";
 
 export default function AldenPage() {
+  const { user, isLoading } = useUser();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!isLoading && user) {
+      const role = user.role;
+      const hasAccess = role === 'admin' || role === 'developer';
+      if (!hasAccess) {
+        setLocation('/');
+      }
+    }
+  }, [user, isLoading, setLocation]);
+
+  if (isLoading) return null;
+
+  const role = user?.role;
+  if (role !== 'admin' && role !== 'developer') return null;
+
   return (
     <div className="flex flex-col h-full bg-background">
       <header className="flex items-center gap-3 px-4 py-3 border-b shrink-0">

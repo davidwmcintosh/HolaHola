@@ -56,7 +56,6 @@ const adminMenuItems = [
 const TOOLS_ITEMS = [
   { title: "Reading Library", url: "/reading-library", icon: Library },
   { title: "Progress Report", url: "/progress-report", icon: ClipboardList },
-  { title: "Talk to Alden", url: "/alden", icon: BrainCircuit },
 ];
 
 type SubjectConfig = {
@@ -365,6 +364,20 @@ export function AppSidebar() {
                   </SidebarMenuItem>
                 );
               })}
+              {isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location.startsWith('/alden')}
+                    data-testid="link-talk-to-alden"
+                  >
+                    <Link href="/alden" onClick={closeSidebar}>
+                      <BrainCircuit className="h-4 w-4" />
+                      <span>Talk to Alden</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
