@@ -1451,15 +1451,26 @@ export class GeminiStreamingService {
       if (pendingFunctionCallPromise) {
         const fcWaitStart = Date.now();
         const FC_AWAIT_TIMEOUT_MS = 20000;
+        let fcTimedOut = false;
         await Promise.race([
           pendingFunctionCallPromise,
           new Promise<void>((resolve) => setTimeout(() => {
-            console.warn(`[Gemini Streaming] pendingFunctionCallPromise timed out after ${FC_AWAIT_TIMEOUT_MS}ms — proceeding to prevent hang`);
+            fcTimedOut = true;
             resolve();
           }, FC_AWAIT_TIMEOUT_MS)),
         ]);
         const fcWaitMs = Date.now() - fcWaitStart;
-        if (fcWaitMs > 5) {
+        if (fcTimedOut) {
+          console.error(`[Gemini Streaming] FUNCTION_CALL_PROMISE_TIMEOUT: pendingFunctionCallPromise timed out after ${FC_AWAIT_TIMEOUT_MS}ms — proceeding to prevent hang`, {
+            chunkCount,
+            fullTextLength: fullText.length,
+            functionCallsProcessed,
+            streamAborted,
+            streamTimedOut,
+            elapsedMs: Date.now() - geminiRequestTime,
+          });
+          onError?.(new Error(`Function call promise timed out after ${FC_AWAIT_TIMEOUT_MS}ms (${functionCallsProcessed} FCs, ${chunkCount} chunks)`));
+        } else if (fcWaitMs > 5) {
           console.log(`[Gemini Streaming] Awaited pending function call handler: ${fcWaitMs}ms`);
         }
         pendingFunctionCallPromise = null;

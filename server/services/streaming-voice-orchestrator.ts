@@ -6266,14 +6266,43 @@ Remember: David may reference things discussed in these recent text chats.
               // This prevents permanent mic lockout when the Gemini stream doesn't terminate cleanly after abort
               earlyTtsSafetyTimerOpenMic = setTimeout(() => {
                 if (!responseCompleteSentOpenMic && session.ws) {
+                  const hangDurationMs = Date.now() - startTime;
                   console.warn(`[Early TTS Safety Net] Pipeline hung after early TTS — forcing response_complete for session ${sessionId}`);
+                  console.error(`[Early TTS Safety Net] PIPELINE_HANG_DETECTED:`, {
+                    sessionId,
+                    userId: session.userId,
+                    conversationId: session.conversationId,
+                    turnId,
+                    hangDurationMs,
+                    ttsProvider: effectiveTtsProviderOM,
+                    batchMode: isGoogleBatchModeOM,
+                    sentenceCount: metrics.sentenceCount,
+                    aiFirstTokenMs: metrics.aiFirstTokenMs,
+                    transcript: transcript?.substring(0, 100),
+                  });
                   responseCompleteSentOpenMic = true;
                   session.isGenerating = false;
                   session.lastResponseCompletedTime = Date.now();
-                  metrics.totalLatencyMs = Date.now() - startTime;
+                  metrics.totalLatencyMs = hangDurationMs;
                   
                   if (session.postTtsSuppressionTimer) clearTimeout(session.postTtsSuppressionTimer);
                   session.onTtsStateChange?.(false);
+                  
+                  voiceDiagnostics.emit({
+                    sessionId,
+                    stage: 'error',
+                    success: false,
+                    error: 'Pipeline hung after early TTS in FC OpenMic path — safety net fired',
+                    metadata: {
+                      phase: 'earlyTtsSafetyNet',
+                      errorType: 'FC_OPENMIC_PIPELINE_HANG',
+                      hangDurationMs,
+                      ttsProvider: effectiveTtsProviderOM,
+                      batchMode: isGoogleBatchModeOM,
+                      sentenceCount: metrics.sentenceCount,
+                      aiMs: metrics.aiFirstTokenMs || 0,
+                    }
+                  });
                   
                   this.sendMessage(session.ws, {
                     type: 'response_complete',
