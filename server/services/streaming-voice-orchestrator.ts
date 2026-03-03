@@ -5639,6 +5639,23 @@ Remember: David may reference things discussed in these recent text chats.
       };
     }
     
+    // GREETING GUARD: If the greeting is still streaming, skip the OpenMic utterance entirely.
+    // Without this, the greeting's response_complete poisons the OpenMic turn state, causing freeze.
+    if ((session as any).__greetingInProgress) {
+      console.log(`[DEDUP] Skipping OpenMic utterance while greeting is still in progress: "${transcript.slice(0, 50)}..."`);
+      this.sendGuardResetSignal(session, 'greeting_in_progress');
+      return {
+        sessionId,
+        sttLatencyMs: 0,
+        aiFirstTokenMs: 0,
+        ttsFirstByteMs: 0,
+        totalLatencyMs: 0,
+        sentenceCount: 0,
+        audioBytes: 0,
+        audioChunkCount: 0,
+      };
+    }
+    
     // IN-FLIGHT GUARD: If AI is currently generating a response, check if new transcript
     // is an extension of what we're already processing. If so, skip to prevent double response.
     // This catches the case where UtteranceEnd fires with partial, then full transcript.
@@ -11598,6 +11615,11 @@ Only include observations you can clearly justify from the exchange. Return empt
         preGeminiTotal: `${greetingTimings.preGeminiTotal}ms`,
       });
       
+      // CRITICAL FIX: Mark as generating during greeting to prevent OpenMic from running concurrently
+      // Without this, user speech during the greeting causes parallel processing, and the greeting's
+      // response_complete poisons the OpenMic turn state, causing a freeze.
+      session.isGenerating = true;
+      
       // NEW TURN: Increment turnId for this greeting response
       session.currentTurnId++;
       session.sentAudioChunks.clear();  // Reset audio deduplication for new turn
@@ -11978,6 +12000,7 @@ Only include observations you can clearly justify from the exchange. Return empt
       
       (session as any).__greetingInProgress = false;
       (session as any).__greetingDelivered = true;
+      session.isGenerating = false;
       
       console.log(`[Streaming Greeting] Complete: ${metrics.sentenceCount} sentences, ${metrics.audioChunkCount} audio chunks in ${metrics.totalLatencyMs}ms`);
       
@@ -12009,6 +12032,7 @@ Only include observations you can clearly justify from the exchange. Return empt
       
     } catch (error: any) {
       (session as any).__greetingInProgress = false;
+      session.isGenerating = false;
       console.error(`[Streaming Greeting] Error:`, error.message);
       this.sendError(session.ws, 'GREETING_ERROR', error.message, true);
       return metrics;

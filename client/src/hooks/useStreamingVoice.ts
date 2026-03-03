@@ -930,6 +930,15 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     if (isVerboseLoggingEnabled()) {
       console.log(`[StreamingVoice] Server signaled response complete: ${msg.totalSentences} sentences${msg.wasInterrupted ? ' (INTERRUPTED)' : ''}`);
     }
+    
+    // STALE TURN GUARD: Ignore response_complete from a previous turn.
+    // This prevents the greeting's response_complete from poisoning the OpenMic turn state
+    // when both run concurrently (causes freeze: client thinks turn ended with no audio).
+    if (msg.turnId !== undefined && msg.turnId < currentTurnIdRef.current) {
+      console.log(`[StreamingVoice] Ignoring stale response_complete: turnId=${msg.turnId}, current=${currentTurnIdRef.current}`);
+      return;
+    }
+    
     setMetrics(msg.metrics || null);
     
     // BARGE-IN: If response was interrupted, immediately stop audio playback
