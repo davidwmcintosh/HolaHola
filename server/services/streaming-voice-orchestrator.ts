@@ -6333,6 +6333,7 @@ Remember: David may reference things discussed in these recent text chats.
             console.log(`[Early TTS - OpenMic] DEFENSIVE RESET: no embeddedRawText, clearing pre-signaled earlyTtsActive`);
             (session as any).earlyTtsActive = false;
           }
+          console.log(`[FC OpenMic DIAG] onFunctionCall callback RETURNING (earlyTtsCompleted=${(session as any).earlyTtsCompleted}, aborted=${streamAbortSignalOpenMic.aborted})`);
         },
         onSentence: async (chunk: SentenceChunk) => {
           // EARLY TTS GUARD: Skip if function call handler is running or completed batch TTS

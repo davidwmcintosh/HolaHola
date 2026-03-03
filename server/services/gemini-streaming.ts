@@ -1406,6 +1406,7 @@ export class GeminiStreamingService {
       }
       
       // Clear stream timeout, flush timeout, and abort poll
+      console.log(`[Gemini Streaming DIAG] Stream loop exited (aborted=${streamAborted}, timedOut=${streamTimedOut}, chunks=${chunkCount}, FCs=${functionCallsProcessed}, pendingFC=${!!pendingFunctionCallPromise})`);
       clearStreamTimeout();
       if (abortPollId) {
         clearInterval(abortPollId);
@@ -1476,6 +1477,8 @@ export class GeminiStreamingService {
         pendingFunctionCallPromise = null;
       }
       
+      console.log(`[Gemini Streaming DIAG] pendingFunctionCallPromise resolved, about to drain sentence queue (queueLen=${sentenceQueue.length}, processing=${sentenceQueueProcessing}, done=${sentenceQueueDone})`);
+      
       // PIPELINING: Wait for all queued sentences to finish TTS processing
       // Gemini text generation is done, but TTS may still be processing earlier sentences
       const drainStart = Date.now();
@@ -1484,6 +1487,8 @@ export class GeminiStreamingService {
       if (drainMs > 50) {
         console.log(`[Gemini Streaming] Pipeline drain: waited ${drainMs}ms for TTS queue to finish`);
       }
+      
+      console.log(`[Gemini Streaming DIAG] Sentence queue drained (${drainMs}ms), proceeding to completion`);
       
       // Re-throw any sentence processing error that occurred in the queue
       if (sentenceQueueError) {
