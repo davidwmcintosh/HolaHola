@@ -1122,10 +1122,44 @@ export interface StreamingSession {
   };
   // FC OpenMic: Flags for coordinating function call TTS with main pipeline
   earlyTtsActive?: boolean;       // True while FC callback is running — guards onSentence from double-processing
-  earlyTtsCompleted?: boolean;    // True after early TTS finishes in PTT path — guards post-stream batch TTS
   functionCallText?: string;      // Accumulated spoken text from function call args (set by handleNativeFunctionCall)
   voiceAdjustText?: string;       // Text from voice_adjust function call
   accumulatedBoldWords?: string[]; // Bold-marked words accumulated across function calls
+  // ElevenLabs voice settings (per-session from tutor_voices DB record)
+  elStability?: number;
+  elSimilarityBoost?: number;
+  elStyle?: number;
+  elSpeakerBoost?: boolean;
+  // STT keyword biasing
+  sttKeyterms?: string[];
+  // Diagnostic counters
+  _ttsTurnCallCount?: number;
+  // Whiteboard/overlay state
+  customOverlayText?: string;
+  pendingTextInput?: { prompt: string };
+  commandParserClear?: boolean;
+  commandParserHold?: boolean;
+  // Greeting lifecycle flags
+  __greetingInProgress?: boolean;
+  __greetingDelivered?: boolean;
+  greetingTriggeredByOrchestrator?: boolean;
+  // Scenario immersion state
+  activeScenario?: Record<string, any> | null;
+  studentActflLevel?: string;
+  voiceGender?: string;
+  // Cached data from function call handlers (consumed by multi-step FC continuation)
+  lastSyllabusData?: Record<string, any>;
+  lastLoadedLesson?: Record<string, any>;
+  lastVocabSet?: Record<string, any>;
+  lastRecommendation?: Record<string, any>;
+  lastDueVocab?: any[];
+  lastCreditCheck?: Record<string, any>;
+  creditContextInjected?: boolean;
+  // Drill session state
+  drillSession?: Record<string, any>;
+  lastDrillSessionData?: Record<string, any>;
+  // Dynamic key support for recovery timestamps and active TTS tracking
+  [key: string]: any;
   // Deduplication: Track sent audio chunks to prevent double audio bug
   sentAudioChunks: Set<string>;
   // Content-based deduplication: Track audio content hashes to catch retries with new chunk IDs
@@ -1540,13 +1574,13 @@ export class StreamingVoiceOrchestrator {
     if (!session || !session.isActive) return;
 
     const recoveryKey = `lastRecoveryPhrase`;
-    const lastRecovery = (session as any)[recoveryKey] as number | undefined;
+    const lastRecovery = session[recoveryKey] as number | undefined;
     const now = Date.now();
     if (lastRecovery && now - lastRecovery < 15000) {
       console.log(`[Recovery] Skipping — last recovery phrase was ${Math.round((now - lastRecovery) / 1000)}s ago`);
       return;
     }
-    (session as any)[recoveryKey] = now;
+    session[recoveryKey] = now;
 
     const phrases: Record<string, string[]> = {
       spanish: [
@@ -1728,10 +1762,10 @@ export class StreamingVoiceOrchestrator {
         // teaching principles across all languages and voices. See buildPedagogicalPersonaSection().
         
         session.ttsProvider = (tutorVoice.provider === 'elevenlabs' ? 'elevenlabs' : tutorVoice.provider === 'google' ? 'google' : tutorVoice.provider === 'gemini' ? 'gemini' : 'cartesia') as 'elevenlabs' | 'cartesia' | 'google' | 'gemini';
-        (session as any).elStability = tutorVoice.elStability ?? 0.5;
-        (session as any).elSimilarityBoost = tutorVoice.elSimilarityBoost ?? 0.75;
-        (session as any).elStyle = tutorVoice.elStyle ?? 0;
-        (session as any).elSpeakerBoost = tutorVoice.elSpeakerBoost ?? true;
+        session.elStability = tutorVoice.elStability ?? 0.5;
+        session.elSimilarityBoost = tutorVoice.elSimilarityBoost ?? 0.75;
+        session.elStyle = tutorVoice.elStyle ?? 0;
+        session.elSpeakerBoost = tutorVoice.elSpeakerBoost ?? true;
         if (tutorVoice.geminiLanguageCode) {
           session.geminiLanguageCode = tutorVoice.geminiLanguageCode;
         }
@@ -2224,7 +2258,7 @@ Remember: David may reference things discussed in these recent text chats.
         ? Promise.race([session.contextCacheReady, new Promise<void>(r => setTimeout(r, 500))]) // Max 500ms wait
         : Promise.resolve();
       const [transcriptionResult, ttsWarmupTime] = await Promise.all([
-        this.transcribeAudio(audioData, session.targetLanguage, session.nativeLanguage, session.isFounderMode, (session as any).sttKeyterms),
+        this.transcribeAudio(audioData, session.targetLanguage, session.nativeLanguage, session.isFounderMode, session.sttKeyterms),
         ttsWarmup,
         contextCacheWait,
       ]);
@@ -2558,7 +2592,7 @@ Remember: David may reference things discussed in these recent text chats.
       session.firstAudioSent = false;   // Reset so whiteboard updates buffer until audio starts
       session.pendingWhiteboardUpdates = [];  // Clear stale pending updates from previous turn
       session.earlyTtsActive = undefined;
-      (session as any)._ttsTurnCallCount = 0;  // DIAG: Reset TTS call counter for new turn
+      session._ttsTurnCallCount = 0;  // DIAG: Reset TTS call counter for new turn
       const turnId = session.currentTurnId;
       
       // Notify client that processing has started
@@ -3118,6 +3152,8 @@ Remember: David may reference things discussed in these recent text chats.
       // Abort signal for early stream termination when function call TTS starts
       const streamAbortSignal = { aborted: false };
       
+      const responseCompleteSentPtt = { sent: false };
+      
       // TTS LOOKAHEAD PIPELINE: Pre-generate audio for upcoming sentences
       // while the current sentence is being processed/streamed.
       // This overlaps TTS generation of sentence N+1 with streaming of sentence N,
@@ -3134,7 +3170,7 @@ Remember: David may reference things discussed in these recent text chats.
         geminiLanguageCode: session.geminiLanguageCode,
         voiceId: session.voiceId,
         speakingRate: getAdaptiveSpeakingRate(session),
-        vocalStyle: (session as any).voiceOverride?.vocalStyle,
+        vocalStyle: session.voiceOverride?.vocalStyle,
       };
       
       pipelineTiming.contextFetchEnd = Date.now();
@@ -3157,7 +3193,7 @@ Remember: David may reference things discussed in these recent text chats.
           const promise = this.geminiLiveTtsService.preGenerateAudio({
             ...lookaheadTtsRequest,
             text: cleaned,
-            vocalStyle: (session as any).voiceOverride?.vocalStyle,
+            vocalStyle: session.voiceOverride?.vocalStyle,
           } as any).catch(err => {
             console.warn(`[TTS Lookahead] Pre-gen failed for sentence ${chunk.index}: ${err.message}`);
             return null;
@@ -3205,11 +3241,9 @@ Remember: David may reference things discussed in these recent text chats.
           const allMetadataOnly = functionCalls.every(fc => METADATA_ONLY_FC_NAMES.has(fc.name));
           const hasTextArg = functionCalls.some(fc => fc.args?.text && String(fc.args.text).trim().length > 0);
           
-          if (allMetadataOnly && hasTextArg && !session.isInterrupted && !isGoogleBatchMode) {
+          if (allMetadataOnly && hasTextArg && !session.isInterrupted) {
             session.earlyTtsActive = true;
-            console.log(`[Early TTS] PRE-SIGNAL: earlyTtsActive=true BEFORE handleNativeFunctionCall (${functionCalls.map(f => f.name).join(',')})`);
-          } else if (allMetadataOnly && hasTextArg && isGoogleBatchMode) {
-            console.log(`[Early TTS] SKIPPED PRE-SIGNAL: Google batch mode active — embedded text block will handle TTS after function calls complete`);
+            console.log(`[FC PTT] PRE-SIGNAL: earlyTtsActive=true BEFORE handleNativeFunctionCall (${functionCalls.map(f => f.name).join(',')})`);
           }
           
           // Route native function calls to command processing
@@ -3229,175 +3263,21 @@ Remember: David may reference things discussed in these recent text chats.
             });
           }
           
-          // EARLY TTS: Start TTS immediately for metadata-only function calls
-          // instead of waiting for the Gemini stream to close (saves ~10s latency)
-          const embeddedRawText = ensureTrailingPunctuation((session.functionCallText || '').trim());
-          
-          if (allMetadataOnly && embeddedRawText && !session.isInterrupted) {
-            const earlyTtsStart = Date.now();
-            const embeddedText = cleanTextForDisplay(embeddedRawText).trim();
-            if (embeddedText) {
-              session.earlyTtsActive = true;
-              
-              const directBoldWords = extractBoldMarkedWords(embeddedRawText);
-              const accumulatedWords: string[] = session.accumulatedBoldWords || [];
-              const allBoldWords = [...new Set([...directBoldWords, ...accumulatedWords])];
+          if (allMetadataOnly && !session.isInterrupted) {
+            session.earlyTtsActive = true;
+            streamAbortSignal.aborted = true;
+            console.log(`[FC PTT] earlyTtsActive=true, TTS deferred to post-stream (${functionCalls.map(f => f.name).join(',')})`);
 
-              const sentences = splitTextIntoSentences(embeddedText);
-              console.log(`[Early TTS] Splitting ${embeddedText.length} chars into ${sentences.length} sentences for pipelining`);
-
-              if (!firstTokenReceived) {
-                metrics.aiFirstTokenMs = Date.now() - aiStart;
-                firstTokenReceived = true;
-                console.log(`[Early TTS] AI first token (via FC): ${metrics.aiFirstTokenMs}ms`);
-              }
-
-              const effectiveTtsProviderPTT = resolveSessionTTSProvider(session.ttsProvider as TTSProviderName | undefined, this.ttsProvider as TTSProviderName);
-              const isGoogleBatchModeFCPTT = this.ttsProviderRegistry.getOrThrow(effectiveTtsProviderPTT).requiresBatchMode;
-              const shouldPipelinePTT = sentences.length > 1 && effectiveTtsProviderPTT === 'gemini' && !session.isAssistantActive;
-
-              if (isGoogleBatchModeFCPTT && !session.isInterrupted) {
-                console.log(`[Google Batch TTS - FC PTT] Combining ${sentences.length} sentences (${embeddedText.length} chars) for single TTS call`);
-                const batchTtsStartFC = Date.now();
-
-                for (let i = 0; i < sentences.length; i++) {
-                  seenSentences.add(sentences[i].toLowerCase().trim());
-                }
-
-                const batchExtraction = extractTargetLanguageWithMapping(embeddedText, allBoldWords);
-                const batchWordMapping: [number, number][] = batchExtraction.wordMapping.size > 0
-                  ? Array.from(batchExtraction.wordMapping.entries()) : [];
-                const batchHasTarget = !!(batchExtraction.targetText && batchExtraction.targetText.trim().length > 0);
-
-                this.sendMessage(session.ws, {
-                  type: 'sentence_start',
-                  timestamp: Date.now(),
-                  turnId: session.turnId || session.currentTurnId,
-                  sentenceIndex: 0,
-                  text: embeddedText,
-                  hasTargetContent: batchHasTarget,
-                  targetLanguageText: batchHasTarget ? batchExtraction.targetText : undefined,
-                  wordMapping: batchHasTarget && batchWordMapping.length > 0 ? batchWordMapping : undefined,
-                } as StreamingSentenceStartMessage);
-
-                const batchChunkFC: SentenceChunk = { index: 0, text: embeddedText, isComplete: true, isFinal: true };
-                if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
-                  await this.streamSentenceAudioProgressive(session, batchChunkFC, embeddedText, metrics, session.turnId || `turn-${Date.now()}`, allBoldWords);
-                } else {
-                  await this.streamSentenceAudio(session, batchChunkFC, embeddedText, metrics, session.turnId || `turn-${Date.now()}`);
-                }
-
-                console.log(`[Google Batch TTS - FC PTT] Complete. TTS duration: ${Date.now() - batchTtsStartFC}ms for ${sentences.length} sentences (sent as 1 batch sentence)`);
-                metrics.sentenceCount = 1;
-              } else if (shouldPipelinePTT) {
-                const MAX_PREGEN_SENTENCES = 4;
-                const preGenCount = Math.min(sentences.length, MAX_PREGEN_SENTENCES);
-                console.log(`[Early TTS] PIPELINED: Pre-generating ${preGenCount}/${sentences.length} sentences in parallel`);
-                const pipelineStartPTT = Date.now();
-
-                const progressiveRequestPTT = {
-                  text: '',
-                  autoDetectLanguage: true,
-                  targetLanguage: session.targetLanguage,
-                  nativeLanguage: session.nativeLanguage || 'english',
-                  geminiLanguageCode: session.geminiLanguageCode,
-                  voiceId: session.voiceId,
-                  speakingRate: getAdaptiveSpeakingRate(session),
-                  vocalStyle: (session as any).voiceOverride?.vocalStyle,
-                };
-
-                const preGenPromisesPTT = sentences.slice(0, preGenCount).map((sentenceText) => {
-                  return this.geminiLiveTtsService.preGenerateAudio({
-                    ...progressiveRequestPTT,
-                    text: sentenceText,
-                  } as any).catch(err => {
-                    console.error(`[Early TTS] Pre-gen failed for sentence: ${err.message}`);
-                    return null;
-                  });
-                });
-
-                const preGenResultsPTT = await Promise.all(preGenPromisesPTT);
-                const successCountPTT = preGenResultsPTT.filter(r => r !== null).length;
-                console.log(`[Early TTS] Pre-generated ${successCountPTT}/${preGenCount} sentences in ${Date.now() - pipelineStartPTT}ms (total: ${sentences.length})`);
-
-                for (let i = 0; i < sentences.length; i++) {
-                  if (session.isInterrupted) break;
-                  const sentenceText = sentences[i];
-                  seenSentences.add(sentenceText.toLowerCase().trim());
-                  const extraction = extractTargetLanguageWithMapping(sentenceText, allBoldWords);
-                  const wordMapping: [number, number][] = extraction.wordMapping.size > 0
-                    ? Array.from(extraction.wordMapping.entries()) : [];
-                  const hasTarget = !!(extraction.targetText && extraction.targetText.trim().length > 0);
-
-                  this.sendMessage(session.ws, {
-                    type: 'sentence_start',
-                    timestamp: Date.now(),
-                    turnId: session.turnId || session.currentTurnId,
-                    sentenceIndex: i,
-                    text: sentenceText,
-                    hasTargetContent: hasTarget,
-                    targetLanguageText: hasTarget ? extraction.targetText : undefined,
-                    wordMapping: hasTarget && wordMapping.length > 0 ? wordMapping : undefined,
-                    ...(i === 0 && sentences.length > 1 ? { totalSentences: sentences.length } : {}),
-                  } as StreamingSentenceStartMessage);
-
-                  const preGenResultPTT = preGenResultsPTT[i];
-                  if (preGenResultPTT) {
-                    await this.streamPreGeneratedSentenceAudio(session, { index: i, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, preGenResultPTT);
-                  } else {
-                    await this.streamSentenceAudioProgressive(session, { index: i, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, allBoldWords);
-                  }
-                }
-              } else {
-                for (let i = 0; i < sentences.length; i++) {
-                  if (session.isInterrupted) break;
-                  const sentenceText = sentences[i];
-                  seenSentences.add(sentenceText.toLowerCase().trim());
-                  const extraction = extractTargetLanguageWithMapping(sentenceText, allBoldWords);
-                  const wordMapping: [number, number][] = extraction.wordMapping.size > 0
-                    ? Array.from(extraction.wordMapping.entries()) : [];
-                  const hasTarget = !!(extraction.targetText && extraction.targetText.trim().length > 0);
-
-                  this.sendMessage(session.ws, {
-                    type: 'sentence_start',
-                    timestamp: Date.now(),
-                    turnId: session.turnId || session.currentTurnId,
-                    sentenceIndex: i,
-                    text: sentenceText,
-                    hasTargetContent: hasTarget,
-                    targetLanguageText: hasTarget ? extraction.targetText : undefined,
-                    wordMapping: hasTarget && wordMapping.length > 0 ? wordMapping : undefined,
-                    ...(i === 0 && sentences.length > 1 ? { totalSentences: sentences.length } : {}),
-                  } as StreamingSentenceStartMessage);
-
-                  await this.streamSentenceAudioProgressive(session, { index: i, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, allBoldWords);
-                }
-              }
-
-              fullText = embeddedText;
-              if (!metrics.sentenceCount) metrics.sentenceCount = sentences.length;
-
-              session.functionCallText = undefined;
-              session.voiceAdjustText = undefined;
-              session.accumulatedBoldWords = undefined;
-              session.earlyTtsCompleted = true;
-
-              streamAbortSignal.aborted = true;
-
-              console.log(`[Early TTS] TTS completed in ${Date.now() - earlyTtsStart}ms (${metrics.sentenceCount} emitted sentences${shouldPipelinePTT ? ', pipelined' : ''}, started ${earlyTtsStart - geminiStartTime}ms after Gemini request)`);
-            } else if (session.earlyTtsActive) {
-              console.log(`[Early TTS] DEFENSIVE RESET: embeddedText empty after clean, clearing pre-signaled earlyTtsActive`);
-              session.earlyTtsActive = false;
+            if (!firstTokenReceived) {
+              metrics.aiFirstTokenMs = Date.now() - aiStart;
+              firstTokenReceived = true;
+              console.log(`[FC PTT] AI first token (via FC): ${metrics.aiFirstTokenMs}ms`);
             }
-          } else if (session.earlyTtsActive && !embeddedRawText) {
-            console.log(`[Early TTS] DEFENSIVE RESET: no embeddedRawText, clearing pre-signaled earlyTtsActive`);
-            session.earlyTtsActive = false;
           }
         },
         onSentence: async (chunk: SentenceChunk) => {
-          // EARLY TTS GUARD: Skip if function call handler is running or completed batch TTS
-          if (session.earlyTtsActive || session.earlyTtsCompleted) {
-            console.log(`[Streaming Orchestrator] Skipping onSentence ${chunk.index} - Early TTS active/completed (PTT)`);
+          if (session.earlyTtsActive) {
+            console.log(`[Streaming Orchestrator] Skipping onSentence ${chunk.index} - Early TTS active, TTS deferred to post-stream (PTT)`);
             return;
           }
           
@@ -4032,7 +3912,7 @@ Remember: David may reference things discussed in these recent text chats.
                   
                   const mappedEmotion = emotion ? emotionMap[emotion] : undefined;
                   
-                  const currentOverride = (session as any).voiceOverride || {};
+                  const currentOverride = session.voiceOverride || {};
                   const newOverride = {
                     ...currentOverride,
                     ...(speed && { speakingRate: speedMap[speed] || 0.9 }),
@@ -4041,7 +3921,7 @@ Remember: David may reference things discussed in these recent text chats.
                     ...(vocalStyle && { vocalStyle }),
                   };
                   
-                  (session as any).voiceOverride = newOverride;
+                  session.voiceOverride = newOverride;
                   
                   if (text) {
                     session.voiceAdjustText = text;
@@ -4058,7 +3938,7 @@ Remember: David may reference things discussed in these recent text chats.
                   
                   if (session.voiceDefaults) {
                     // Clear all overrides and restore defaults
-                    (session as any).voiceOverride = {
+                    session.voiceOverride = {
                       speakingRate: session.voiceDefaults.speakingRate,
                       emotion: session.voiceDefaults.emotion,
                       personality: session.voiceDefaults.personality,
@@ -4067,7 +3947,7 @@ Remember: David may reference things discussed in these recent text chats.
                     console.log(`[CommandParser→VoiceReset] Reset to tutor defaults:`, session.voiceDefaults, `reason: ${reason || 'none'}`);
                   } else {
                     // Fallback: clear override entirely
-                    (session as any).voiceOverride = undefined;
+                    session.voiceOverride = undefined;
                     console.log(`[CommandParser→VoiceReset] Cleared override (no defaults stored), reason: ${reason || 'none'}`);
                   }
                   break;
@@ -4078,7 +3958,7 @@ Remember: David may reference things discussed in these recent text chats.
                   const customText = cmd.params.text as string | undefined;
                   
                   if (mode === 'custom' && customText) {
-                    (session as any).customOverlayText = customText;
+                    session.customOverlayText = customText;
                     console.log(`[CommandParser→Subtitle] Custom text: "${customText.substring(0, 50)}..." via ${cmd.source}`);
                     this.sendMessage(session.ws, {
                       type: 'custom_overlay',
@@ -4104,7 +3984,7 @@ Remember: David may reference things discussed in these recent text chats.
                   const text = cmd.params.text as string;
                   if (text) {
                     // Set custom overlay on session for frontend to display
-                    (session as any).customOverlayText = text;
+                    session.customOverlayText = text;
                     console.log(`[CommandParser→Show] Custom overlay: "${text.substring(0, 50)}..." via ${cmd.source} format`);
                     
                     // Send WebSocket message to client to display custom overlay
@@ -4122,7 +4002,7 @@ Remember: David may reference things discussed in these recent text chats.
                 }
                 case 'HIDE': {
                   // Hide custom overlay
-                  (session as any).customOverlayText = undefined;
+                  session.customOverlayText = undefined;
                   console.log(`[CommandParser→Hide] Custom overlay hidden via ${cmd.source} format`);
                   
                   // Send WebSocket message to client to hide custom overlay
@@ -4141,7 +4021,7 @@ Remember: David may reference things discussed in these recent text chats.
                   const prompt = cmd.params.prompt as string;
                   if (prompt) {
                     // Store pending text input request for frontend
-                    (session as any).pendingTextInput = { prompt };
+                    session.pendingTextInput = { prompt };
                     console.log(`[CommandParser→TextInput] Requested: "${prompt.substring(0, 50)}..." via ${cmd.source} format`);
                     
                     // Send WebSocket message to client to request text input
@@ -4157,7 +4037,7 @@ Remember: David may reference things discussed in these recent text chats.
                   break;
                 }
                 case 'CLEAR': {
-                  (session as any).commandParserClear = true;
+                  session.commandParserClear = true;
                   session.classroomWhiteboardItems = [];
                   console.log(`[CommandParser→Clear] Whiteboard clear requested via ${cmd.source} format (classroom tracking reset)`);
                   break;
@@ -4165,7 +4045,7 @@ Remember: David may reference things discussed in these recent text chats.
                 case 'HOLD': {
                   // Prevent whiteboard auto-clear - set session flag for inclusion in whiteboard_update message
                   // This ensures HOLD works when detected via JSON ACTION_TRIGGERS (not just text)
-                  (session as any).commandParserHold = true;
+                  session.commandParserHold = true;
                   console.log(`[CommandParser→Hold] Whiteboard hold requested via ${cmd.source} format`);
                   break;
                 }
@@ -4191,12 +4071,12 @@ Remember: David may reference things discussed in these recent text chats.
           );
           
           // Combine whiteboard parser flags with command parser flags (JSON ACTION_TRIGGERS)
-          const shouldClear = whiteboardParsed.shouldClear || (session as any).commandParserClear;
-          const shouldHold = whiteboardParsed.shouldHold || (session as any).commandParserHold;
+          const shouldClear = whiteboardParsed.shouldClear || session.commandParserClear;
+          const shouldHold = whiteboardParsed.shouldHold || session.commandParserHold;
           
           // Clear the command parser flags after use (one-shot)
-          if ((session as any).commandParserClear) (session as any).commandParserClear = false;
-          if ((session as any).commandParserHold) (session as any).commandParserHold = false;
+          if (session.commandParserClear) session.commandParserClear = false;
+          if (session.commandParserHold) session.commandParserHold = false;
           
           if (pttVisualItems.length > 0 || shouldClear || shouldHold) {
             this.sendMessage(session.ws, {
@@ -4450,15 +4330,12 @@ Remember: David may reference things discussed in these recent text chats.
       // This gives Chirp 3 HD the full context for natural cross-sentence prosody.
       if (isGoogleBatchMode && batchedSentences.length > 0) {
         // Early TTS spoke function call audio; batch has main-response sentences — different content.
-        // If early TTS is done (completed flag set), flags are stale. Clear them so the batch can
-        // still speak Daniela's main response that was deferred before the function call.
-        if (session.earlyTtsCompleted && !session.isInterrupted) {
-          console.log(`[Google Batch TTS] Early TTS done — clearing stale flags, running batch for ${batchedSentences.length} deferred sentence(s)`);
+        if (session.earlyTtsActive && !session.isInterrupted) {
+          console.log(`[Google Batch TTS] Clearing earlyTtsActive before batch TTS for ${batchedSentences.length} deferred sentence(s)`);
           session.earlyTtsActive = undefined;
-          session.earlyTtsCompleted = undefined;
         }
       }
-      if (isGoogleBatchMode && batchedSentences.length > 0 && !session.isInterrupted && !session.earlyTtsActive && !session.earlyTtsCompleted) {
+      if (isGoogleBatchMode && batchedSentences.length > 0 && !session.isInterrupted && !session.earlyTtsActive) {
         const combinedDisplayText = batchedSentences.map(s => s.displayText).join(' ');
         console.log(`[Google Batch TTS] Combining ${batchedSentences.length} sentences (${combinedDisplayText.length} chars) for single TTS call`);
         
@@ -4552,85 +4429,15 @@ Remember: David may reference things discussed in these recent text chats.
       );
       
       if (metrics.sentenceCount === 0 && hadFunctionCalls && functionsNeedingContinuation.length === 0) {
-        // Check if early TTS already handled this during streaming
-        if (session.earlyTtsCompleted) {
-          console.log(`[Voice PTT] Early TTS already completed during streaming - skipping post-stream TTS`);
-          session.earlyTtsCompleted = undefined;
-          session.earlyTtsActive = undefined;
+        const fcTtsResult = await this.dispatchPostStreamFcTts(session, metrics);
+        if (fcTtsResult) {
+          fullText = fcTtsResult.spokenText;
+          metrics.sentenceCount = fcTtsResult.sentenceCount;
         } else {
           const metadataOnlyFunctions = functionCallsCopy.map(fc => fc.name).join(', ');
-          const rawEmbeddedText = ensureTrailingPunctuation((session.functionCallText || '').trim());
-          const embeddedText = cleanTextForDisplay(rawEmbeddedText).trim();
-          if (embeddedText) {
-            const pttDirectBoldWords = extractBoldMarkedWords(rawEmbeddedText || '');
-            const pttAccumulatedWords: string[] = session.accumulatedBoldWords || [];
-            const pttEmbedBoldWords = [...new Set([...pttDirectBoldWords, ...pttAccumulatedWords])];
-            if (pttAccumulatedWords.length > 0) {
-              console.log(`[Voice PTT] Merged ${pttAccumulatedWords.length} accumulated bold words with ${pttDirectBoldWords.length} direct: ${pttEmbedBoldWords.join(', ')}`);
-            }
-
-            const pttSentences = splitTextIntoSentences(embeddedText);
-            console.log(`[Voice PTT] Metadata functions embedded text (${embeddedText.length} chars) → ${pttSentences.length} sentences for pipelined TTS`);
-            fullText = embeddedText;
-            metrics.sentenceCount = pttSentences.length;
-
-            const effectiveTtsProviderPostFC = resolveSessionTTSProvider(session.ttsProvider as TTSProviderName | undefined, this.ttsProvider as TTSProviderName);
-            if (this.ttsProviderRegistry.getOrThrow(effectiveTtsProviderPostFC).requiresBatchMode && pttSentences.length > 1 && !session.isInterrupted) {
-              console.log(`[Google Batch TTS - Post-FC PTT] Combining ${pttSentences.length} sentences (${embeddedText.length} chars) for single TTS call`);
-              const batchTtsStartPostFC = Date.now();
-
-              const pttBatchExtraction = extractTargetLanguageWithMapping(embeddedText, pttEmbedBoldWords);
-              const pttBatchWordMapping: [number, number][] = pttBatchExtraction.wordMapping.size > 0
-                ? Array.from(pttBatchExtraction.wordMapping.entries()) : [];
-              const pttBatchHasTarget = !!(pttBatchExtraction.targetText && pttBatchExtraction.targetText.trim().length > 0);
-
-              this.sendMessage(session.ws, {
-                type: 'sentence_start',
-                timestamp: Date.now(),
-                turnId: session.turnId || session.currentTurnId,
-                sentenceIndex: 0,
-                text: embeddedText,
-                hasTargetContent: pttBatchHasTarget,
-                targetLanguageText: pttBatchHasTarget ? pttBatchExtraction.targetText : undefined,
-                wordMapping: pttBatchHasTarget && pttBatchWordMapping.length > 0 ? pttBatchWordMapping : undefined,
-              } as StreamingSentenceStartMessage);
-
-              const batchChunkPostFC: SentenceChunk = { index: 0, text: embeddedText, isComplete: true, isFinal: true };
-              await this.streamSentenceAudioProgressive(session, batchChunkPostFC, embeddedText, metrics, session.turnId || `turn-${Date.now()}`, pttEmbedBoldWords);
-
-              metrics.sentenceCount = 1;
-              console.log(`[Google Batch TTS - Post-FC PTT] Complete. TTS duration: ${Date.now() - batchTtsStartPostFC}ms for ${pttSentences.length} sentences`);
-            } else {
-              for (let si = 0; si < pttSentences.length; si++) {
-                if (session.isInterrupted) break;
-                const sentenceText = pttSentences[si];
-                const pttEmbedExtraction = extractTargetLanguageWithMapping(sentenceText, pttEmbedBoldWords);
-                const pttEmbedWordMapping: [number, number][] = pttEmbedExtraction.wordMapping.size > 0
-                  ? Array.from(pttEmbedExtraction.wordMapping.entries()) : [];
-                const pttEmbedHasTarget = !!(pttEmbedExtraction.targetText && pttEmbedExtraction.targetText.trim().length > 0);
-
-                this.sendMessage(session.ws, {
-                  type: 'sentence_start',
-                  timestamp: Date.now(),
-                  turnId: session.turnId || session.currentTurnId,
-                  sentenceIndex: si,
-                  text: sentenceText,
-                  hasTargetContent: pttEmbedHasTarget,
-                  targetLanguageText: pttEmbedHasTarget ? pttEmbedExtraction.targetText : undefined,
-                  wordMapping: pttEmbedHasTarget && pttEmbedWordMapping.length > 0 ? pttEmbedWordMapping : undefined,
-                  ...(si === 0 && pttSentences.length > 1 ? { totalSentences: pttSentences.length } : {}),
-                } as StreamingSentenceStartMessage);
-
-                await this.streamSentenceAudioProgressive(session, { index: si, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, pttEmbedBoldWords);
-              }
-            }
-            session.functionCallText = undefined;
-            session.voiceAdjustText = undefined;
-            session.accumulatedBoldWords = undefined;
-          } else {
-            console.warn(`[Voice PTT] Gemini returned only metadata functions (${metadataOnlyFunctions}) - forcing continuation for spoken response`);
-            functionsNeedingContinuation.push(...functionCallsCopy);
-          }
+          console.warn(`[Voice PTT] Gemini returned only metadata functions (${metadataOnlyFunctions}) - forcing continuation for spoken response`);
+          session.earlyTtsActive = undefined;
+          functionsNeedingContinuation.push(...functionCallsCopy);
         }
       }
       
@@ -4950,6 +4757,7 @@ Remember: David may reference things discussed in these recent text chats.
         durationMs: metrics.totalLatencyMs
       });
       
+      responseCompleteSentPtt.sent = true;
       this.sendMessage(session.ws, {
         type: 'response_complete',
         timestamp: Date.now(),
@@ -5042,381 +4850,7 @@ Remember: David may reference things discussed in these recent text chats.
         console.warn('[Phase Transition] Detection failed:', err.message);
       });
       
-      // TUTOR SWITCH: Execute pending handoff after farewell completes
-      // Supports intra-language (gender only), cross-language (gender + language), and assistant handoffs
-      if (session.pendingTutorSwitch) {
-        const { targetGender, targetLanguage, targetRole } = session.pendingTutorSwitch;
-        
-        // CROSS-LANGUAGE TRANSFER GATE: Validate before executing
-        // Assistant switches are always within same-language context, so no validation needed
-        const transferValidation = targetRole !== 'assistant' 
-          ? validateTutorTransfer(session.targetLanguage, targetLanguage)
-          : { allowed: true as const };
-        
-        if (!transferValidation.allowed) {
-          console.log(`[Tutor Switch] BLOCKED: Cross-language transfer from ${session.targetLanguage} to ${targetLanguage}`);
-          console.log(`[Tutor Switch] Reason: ${transferValidation.reason}`);
-          session.pendingTutorSwitch = undefined; // Clear only after we've logged the blocked attempt
-          session.crossLanguageTransferBlocked = true; // Prevent retries within this turn
-          
-          // Notify client that the cross-language transfer was blocked
-          // This allows the UI to display a helpful message to the student
-          this.sendMessage(session.ws, {
-            type: 'tutor_transfer_blocked',
-            timestamp: Date.now(),
-            fromLanguage: session.targetLanguage,
-            toLanguage: targetLanguage,
-            reason: transferValidation.reason,
-          } as any);
-        } else {
-          // PROCEED WITH TRANSFER
-          session.pendingTutorSwitch = undefined; // Clear the pending switch now that we're executing
-          const isAssistantSwitch = targetRole === 'assistant';
-          const effectiveLanguage = targetLanguage?.toLowerCase() || session.targetLanguage.toLowerCase();
-          const isLanguageSwitch = effectiveLanguage !== session.targetLanguage.toLowerCase();
-          
-          // DEFENSE-IN-DEPTH: Secondary validation using final resolved language
-          // This catches any edge cases where effectiveLanguage differs from targetLanguage
-          if (!isAssistantSwitch && isLanguageSwitch && !CROSS_LANGUAGE_TRANSFERS_ENABLED) {
-            console.log(`[Tutor Switch] BLOCKED (defense): Resolved language ${effectiveLanguage} differs from session ${session.targetLanguage}`);
-            session.crossLanguageTransferBlocked = true;
-            this.sendMessage(session.ws, {
-              type: 'tutor_transfer_blocked',
-              timestamp: Date.now(),
-              fromLanguage: session.targetLanguage,
-              toLanguage: effectiveLanguage,
-              reason: 'Cross-language transfers are currently disabled.',
-            } as any);
-            return; // Exit the tutor switch block
-          }
-          
-          const roleInfo = isAssistantSwitch ? ' (assistant)' : '';
-          console.log(`[Tutor Switch] Executing handoff to ${targetGender} tutor${roleInfo}${isLanguageSwitch ? ` in ${effectiveLanguage}` : ''}`);
-        
-        // REBUILD tutorDirectory if missing or empty (for older sessions or session recovery)
-        // This ensures SWITCH_TUTOR instructions appear in the regenerated system prompt
-        // Rebuild on: undefined, null, OR empty array (no tutors = no SWITCH_TUTOR capability)
-        if (!session.tutorDirectory || session.tutorDirectory.length === 0) {
-          console.log('[Tutor Switch] Rebuilding tutorDirectory - was undefined/null on session');
-          try {
-            const allVoices = await storage.getAllTutorVoices();
-            const { ASSISTANT_TUTORS } = await import('./assistant-tutor-config');
-            
-            // Use current preference - prefer cachedMainTutorGender (accurate after assistant mode)
-            // Fall back to session.tutorGender if not in assistant mode
-            const preferredGender = session.cachedMainTutorGender || session.tutorGender || 'female';
-            const currentLanguage = session.targetLanguage?.toLowerCase() || 'spanish';
-            
-            // Build main tutor entries from database with normalized values
-            // isPreferred marks the tutor matching student's gender preference for CURRENT language
-            const mainTutorEntries: TutorDirectoryEntry[] = allVoices
-              .filter((v: any) => v.role === 'tutor' && v.isActive)
-              .map((v: any) => {
-                const voiceNameParts = v.voiceName?.split(/\s*[-–]\s*/) || [];
-                const name = voiceNameParts[0]?.trim() || 'Unknown';
-                const isCurrentTutor = v.voiceId === session.voiceId;
-                const normalizedGender = (v.gender || 'female').toLowerCase() as 'male' | 'female';
-                const normalizedLanguage = (v.language || 'spanish').toLowerCase();
-                // isPreferred = gender matches AND language matches current session
-                const isPreferred = preferredGender === normalizedGender && normalizedLanguage === currentLanguage;
-                return {
-                  name,
-                  gender: normalizedGender,
-                  language: normalizedLanguage,
-                  isPreferred,
-                  isCurrent: isCurrentTutor,
-                  role: 'tutor' as const,
-                };
-              });
-            
-            // Build assistant entries from config (config already uses lowercase)
-            // Mark assistant matching student's gender preference as preferred
-            const assistantEntries: TutorDirectoryEntry[] = Object.entries(ASSISTANT_TUTORS)
-              .flatMap(([lang, assistantConfig]) => {
-                const langNormalized = lang.toLowerCase();
-                return [
-                  { name: assistantConfig.male, gender: 'male' as const, language: langNormalized, isPreferred: preferredGender === 'male' && langNormalized === currentLanguage, isCurrent: false, role: 'assistant' as const },
-                  { name: assistantConfig.female, gender: 'female' as const, language: langNormalized, isPreferred: preferredGender === 'female' && langNormalized === currentLanguage, isCurrent: false, role: 'assistant' as const },
-                ];
-              });
-            
-            // Add Sofia support agent
-            const sofiaEntry: TutorDirectoryEntry = {
-              name: 'Sofia',
-              gender: 'female' as const,
-              language: 'multilingual',
-              isPreferred: false,
-              isCurrent: false,
-              role: 'support' as const,
-            };
-            
-            session.tutorDirectory = [...mainTutorEntries, ...assistantEntries, sofiaEntry];
-            console.log(`[Tutor Switch] Rebuilt tutorDirectory with ${session.tutorDirectory.length} entries (preferredGender=${preferredGender})`);
-          } catch (rebuildErr: any) {
-            console.warn(`[Tutor Switch] Failed to rebuild tutorDirectory: ${rebuildErr.message}`);
-          }
-        }
-        
-        // Store previous tutor name for natural handoff intro by the new tutor
-        session.previousTutorName = session.tutorName;
-        
-        try {
-          let tutorName: string | undefined;
-          
-          // ASSISTANT SWITCH: Use assistant tutor config + Google Cloud TTS
-          if (isAssistantSwitch) {
-            // Import assistant tutor config dynamically
-            const { ASSISTANT_TUTORS } = await import('./assistant-tutor-config');
-            const assistantConfig = ASSISTANT_TUTORS[effectiveLanguage] || ASSISTANT_TUTORS.spanish;
-            
-            if (assistantConfig) {
-              tutorName = targetGender === 'male' ? assistantConfig.male : assistantConfig.female;
-              
-              // CRITICAL: Cache current voiceId and gender before entering assistant mode
-              // This allows restoring the main tutor's voice AND gender when switching back
-              if (!session.isAssistantActive) {
-                if (session.voiceId) {
-                  session.cachedMainTutorVoiceId = session.voiceId;
-                }
-                session.cachedMainTutorGender = session.tutorGender as 'male' | 'female';
-                console.log(`[Tutor Switch] Cached main tutor: voiceId=${session.voiceId}, gender=${session.tutorGender}`);
-              }
-              
-              // Update session for assistant mode
-              // CRITICAL: Set isAssistantActive flag for TTS routing to use Google Cloud TTS
-              session.isAssistantActive = true;
-              session.voiceId = undefined; // Clear voiceId to signal Google TTS should be used
-              session.tutorGender = targetGender;
-              session.tutorName = tutorName;
-              
-              console.log(`[Tutor Switch] Assistant handoff: ${tutorName} (${effectiveLanguage}, ${targetGender}) - TTS: Google Cloud`);
-              
-              // Notify client of assistant handoff
-              // CRITICAL: isAssistant=true signals client to navigate to assistant practice page
-              this.sendMessage(session.ws, {
-                type: 'tutor_handoff',
-                timestamp: Date.now(),
-                targetGender,
-                targetLanguage: isLanguageSwitch ? effectiveLanguage : undefined,
-                tutorName,
-                isLanguageSwitch,
-                requiresGreeting: true,
-                isAssistant: true,  // Signals assistant mode - client should navigate to practice page
-              });
-            } else {
-              console.warn(`[Tutor Switch] No assistant config found for ${effectiveLanguage}`);
-            }
-          } else {
-            // MAIN TUTOR SWITCH: Look up the voice for the target language + gender (Cartesia)
-            // CRITICAL: When returning from assistant mode, use cached gender to restore original tutor
-            const wasAssistantActive = session.isAssistantActive;
-            const effectiveGender = wasAssistantActive && session.cachedMainTutorGender
-              ? session.cachedMainTutorGender  // Restore student's original preference
-              : targetGender;                  // Use command's target for normal switches
-            
-            if (wasAssistantActive && session.cachedMainTutorGender && session.cachedMainTutorGender !== targetGender) {
-              console.log(`[Tutor Switch] Overriding target=${targetGender} with cached main tutor gender=${session.cachedMainTutorGender}`);
-            }
-            
-            const allVoices = await storage.getAllTutorVoices();
-            const matchingVoice = allVoices.find(
-              (v: any) => v.language?.toLowerCase() === effectiveLanguage &&
-                          v.gender?.toLowerCase() === effectiveGender &&
-                          v.role === 'tutor' &&  // Only main Cartesia tutors, not Google assistants
-                          v.isActive
-            );
-          
-            if (matchingVoice) {
-              // Extract tutor name from voice_name (e.g., "Agustin - Clear Storyteller" → "Agustin")
-              const voiceNameParts = matchingVoice.voiceName?.split(/\s*[-–]\s*/) || [];
-              tutorName = voiceNameParts[0]?.trim();
-              
-              // CRITICAL: Clear assistant mode when switching to main tutor
-              // This ensures TTS routing uses Cartesia again
-              session.isAssistantActive = false;
-              
-              if (wasAssistantActive) {
-                console.log(`[Tutor Switch] Returning from assistant mode to main tutor (${effectiveGender}) - TTS: Cartesia`);
-                // Clear cached values after restoring
-                session.cachedMainTutorGender = undefined;
-                session.cachedMainTutorVoiceId = undefined;
-              }
-            
-              // Update session voice with voiceId, provider, and ElevenLabs settings
-              session.voiceId = matchingVoice.voiceId;
-              session.ttsProvider = (matchingVoice.provider === 'elevenlabs' ? 'elevenlabs' : matchingVoice.provider === 'google' ? 'google' : matchingVoice.provider === 'gemini' ? 'gemini' : 'cartesia') as 'elevenlabs' | 'cartesia' | 'google' | 'gemini';
-              (session as any).elStability = matchingVoice.elStability ?? 0.5;
-              (session as any).elSimilarityBoost = matchingVoice.elSimilarityBoost ?? 0.75;
-              (session as any).elStyle = matchingVoice.elStyle ?? 0;
-              (session as any).elSpeakerBoost = matchingVoice.elSpeakerBoost ?? true;
-              session.tutorGender = effectiveGender;
-              session.tutorName = tutorName;
-              
-              // Update voiceDefaults to reflect new tutor's baseline settings
-              // This ensures VOICE_RESET returns to this tutor's specific personality/emotion
-              // Use explicit defaults for missing fields (not previous session state)
-              const newPersonality = (matchingVoice.personality as TutorPersonality) || 'warm';
-              session.voiceDefaults = {
-                speakingRate: matchingVoice.speakingRate ?? 0.9,  // Standard tutor baseline
-                personality: newPersonality,
-                emotion: matchingVoice.emotion || getDefaultEmotion(newPersonality),  // Derive from personality
-                expressiveness: matchingVoice.expressiveness ?? 3,  // Standard baseline
-              };
-              console.log(`[Tutor Switch] Updated voiceDefaults for ${tutorName}:`, session.voiceDefaults);
-              
-              // Teaching persona is now global — no per-voice persona to load on tutor switch
-              
-              // Clear any active voice overrides to apply new tutor's baseline immediately
-              session.voiceOverride = undefined;
-            
-              // If cross-language switch, update target language and regenerate system prompt
-              if (isLanguageSwitch) {
-              // Store previous language for context in handoff intro
-              session.previousLanguage = session.targetLanguage;
-              session.isLanguageSwitchHandoff = true;
-              session.targetLanguage = effectiveLanguage;
-              
-              // CRITICAL: Update BOTH the conversation language AND user preferences
-              // This ensures that if the client reconnects/refreshes, it will use the correct language
-              try {
-                await storage.updateConversationLanguage(session.conversationId, effectiveLanguage);
-                console.log(`[Tutor Switch] Updated conversation language in database to ${effectiveLanguage}`);
-                
-                // Also update user preferences so they persist on refresh
-                await storage.updateUserPreferences(session.userId.toString(), {
-                  targetLanguage: effectiveLanguage,
-                });
-                console.log(`[Tutor Switch] Updated user preferences to ${effectiveLanguage}`);
-              } catch (dbErr: any) {
-                console.error(`[Tutor Switch] Failed to update language:`, dbErr.message);
-              }
-              
-              // Clear conversation history for cross-language switch
-              // New language = fresh start, but the handoff intro will reference conversation name
-              console.log(`[Tutor Switch] Clearing conversation history for cross-language switch (${session.previousLanguage} -> ${effectiveLanguage})`);
-              session.conversationHistory = [];
-              
-              // Regenerate system prompt for new language context
-              // Uses session's existing settings + new language/tutor + new persona
-              session.systemPrompt = createSystemPrompt(
-                effectiveLanguage,                           // language
-                session.difficultyLevel,                     // difficulty
-                0,                                            // messageCount (fresh start for new language)
-                false,                                        // isVoiceMode
-                undefined,                                    // topic
-                undefined,                                    // previousConversations
-                session.nativeLanguage,                      // nativeLanguage
-                undefined,                                    // dueVocabulary
-                undefined,                                    // sessionVocabulary
-                undefined,                                    // actflLevel
-                false,                                        // isResuming
-                0,                                            // totalMessageCount
-                session.tutorPersonality,                    // tutorPersonality
-                session.tutorExpressiveness,                 // tutorExpressiveness
-                true,                                         // isStreamingVoiceMode
-                null,                                         // curriculumContext
-                'flexible_goals',                            // tutorFreedomLevel
-                undefined,                                    // targetActflLevel
-                null,                                         // compassContext
-                session.isFounderMode,                       // isFounderMode
-                undefined,                                    // founderName
-                session.isRawHonestyMode,                    // isRawHonestyMode
-                tutorName || 'your tutor',                   // tutorName (dynamic from database)
-                targetGender,                                // tutorGender
-                session.tutorDirectory,                      // tutorDirectory - CRITICAL for switch instructions
-                undefined,                                    // studentTimezone
-                undefined,                                    // userRole
-                undefined,                                    // sessionIntent
-                undefined,                                    // editorConversationContext
-                undefined,                                    // surgeryContext
-                undefined,                                    // studentMemoryContext
-                undefined,                                    // studentDisplayName
-                undefined,                                    // predictiveTeachingContext
-                session.tutorPersona                         // tutorPersona - NEW TUTOR'S TEACHING STYLE
-              );
-              
-              console.log(`[Tutor Switch] Language switched to ${effectiveLanguage}, voice: ${matchingVoice.voiceName}, system prompt regenerated`);
-            } else {
-              // SAME-LANGUAGE SWITCH: Regenerate system prompt with new tutor persona
-              // This ensures the new tutor has their own distinct teaching personality
-              session.systemPrompt = createSystemPrompt(
-                session.targetLanguage,                        // language (unchanged)
-                session.difficultyLevel,                       // difficulty
-                session.conversationHistory.length,            // messageCount
-                false,                                          // isVoiceMode
-                undefined,                                      // topic
-                undefined,                                      // previousConversations
-                session.nativeLanguage,                        // nativeLanguage
-                undefined,                                      // dueVocabulary
-                undefined,                                      // sessionVocabulary
-                undefined,                                      // actflLevel
-                false,                                          // isResuming
-                0,                                              // totalMessageCount
-                session.tutorPersonality,                      // tutorPersonality
-                session.tutorExpressiveness,                   // tutorExpressiveness
-                true,                                           // isStreamingVoiceMode
-                null,                                           // curriculumContext
-                'flexible_goals',                              // tutorFreedomLevel
-                undefined,                                      // targetActflLevel
-                null,                                           // compassContext
-                session.isFounderMode,                         // isFounderMode
-                undefined,                                      // founderName
-                session.isRawHonestyMode,                      // isRawHonestyMode
-                tutorName || 'your tutor',                     // tutorName (dynamic from database)
-                targetGender,                                  // tutorGender
-                session.tutorDirectory,                        // tutorDirectory - CRITICAL for switch instructions
-                undefined,                                      // studentTimezone
-                undefined,                                      // userRole
-                undefined,                                      // sessionIntent
-                undefined,                                      // editorConversationContext
-                undefined,                                      // surgeryContext
-                undefined,                                      // studentMemoryContext
-                undefined,                                      // studentDisplayName
-                undefined,                                      // predictiveTeachingContext
-                session.tutorPersona                           // tutorPersona - NEW TUTOR'S TEACHING STYLE
-              );
-              console.log(`[Tutor Switch] Same-language switch, new voice: ${matchingVoice.voiceName}, persona updated for ${tutorName}`);
-            }
-          } else {
-            console.warn(`[Tutor Switch] No matching voice found for ${targetGender} in ${effectiveLanguage}`);
-          }
-          
-            // Notify client to update voice preference
-            // ALL handoffs should trigger a greeting from the new tutor
-            // The new tutor introduces themselves rather than the old tutor speaking for them
-            this.sendMessage(session.ws, {
-              type: 'tutor_handoff',
-              timestamp: Date.now(),
-              targetGender,
-              targetLanguage: isLanguageSwitch ? effectiveLanguage : undefined,
-              tutorName,
-              isLanguageSwitch,
-              requiresGreeting: true, // New tutor always speaks their own intro
-            });
-            
-            // Trigger new tutor's greeting directly from orchestrator (PTT path)
-            // Previously relied on client's update_voice → WS handler, which caused race conditions
-            // Set flag to prevent WS handler from triggering a duplicate greeting
-            if (tutorName && !isAssistantSwitch) {
-              (session as any).greetingTriggeredByOrchestrator = true;
-              console.log(`[Tutor Switch] PTT: Triggering ${tutorName}'s greeting`);
-              this.processVoiceSwitchIntro(sessionId, tutorName, targetGender).catch((err: Error) => {
-                console.error(`[Tutor Switch] Failed to generate greeting:`, err.message);
-              });
-            }
-          } // End of else (main tutor switch)
-        } catch (err: any) {
-          console.error(`[Tutor Switch] Error during handoff:`, err.message);
-          // Still send handoff message so client can proceed
-          this.sendMessage(session.ws, {
-            type: 'tutor_handoff',
-            timestamp: Date.now(),
-            targetGender,
-            isLanguageSwitch: false,
-          });
-        }
-        } // End of transferValidation.allowed else block
-      }
+      await this.executePendingTutorSwitch(session, sessionId, 'PTT');
       
       // Log structured metrics for monitoring (non-blocking, just console.log)
       const timeToFirstAudio = metrics.sttLatencyMs + metrics.aiFirstTokenMs + metrics.ttsFirstByteMs;
@@ -5525,30 +4959,510 @@ Remember: David may reference things discussed in these recent text chats.
       
       this.sendError(session.ws, 'UNKNOWN', error.message, true);
       
-      // SAFETY NET: Always send response_complete on pipeline error to prevent permanent mic lockout
-      // Without this, the client's isProcessing stays true forever, locking the mic on "Please wait..."
-      this.sendMessage(session.ws, {
-        type: 'response_complete',
-        timestamp: Date.now(),
-        turnId,
-        totalSentences: metrics.sentenceCount,
-        totalDurationMs: Date.now() - startTime,
-        fullText: '',
-        metrics: {
-          sttLatencyMs: metrics.sttLatencyMs,
-          aiFirstTokenMs: metrics.aiFirstTokenMs,
-          ttsFirstChunkMs: metrics.ttsFirstByteMs,
-          totalTtfbMs: 0,
-          sentenceCount: metrics.sentenceCount,
-        },
-      } as StreamingResponseCompleteMessage);
+      if (!responseCompleteSentPtt.sent) {
+        responseCompleteSentPtt.sent = true;
+        this.sendMessage(session.ws, {
+          type: 'response_complete',
+          timestamp: Date.now(),
+          turnId,
+          totalSentences: metrics.sentenceCount,
+          totalDurationMs: Date.now() - startTime,
+          fullText: '',
+          metrics: {
+            sttLatencyMs: metrics.sttLatencyMs,
+            aiFirstTokenMs: metrics.aiFirstTokenMs,
+            ttsFirstChunkMs: metrics.ttsFirstByteMs,
+            totalTtfbMs: 0,
+            sentenceCount: metrics.sentenceCount,
+          },
+        } as StreamingResponseCompleteMessage);
+      } else {
+        console.log(`[Streaming Orchestrator] response_complete already sent — skipping catch-block emit for session ${sessionId}`);
+      }
       
-      // Return metrics instead of throwing to prevent socket disconnect
-      // The error message has already been sent to the client
       return metrics;
     }
   }
   
+  /**
+   * Dispatch TTS for metadata-only function call embedded text in post-stream path.
+   * Shared between PTT and OpenMic. Handles batch mode, per-sentence dispatch,
+   * bold word extraction, and language mapping.
+   * Returns the spoken text and sentence count, or null if no text to speak.
+   */
+  private async dispatchPostStreamFcTts(
+    session: StreamingSession,
+    metrics: StreamingMetrics,
+  ): Promise<{ spokenText: string; sentenceCount: number } | null> {
+    const rawEmbeddedText = ensureTrailingPunctuation((session.functionCallText || '').trim());
+    const embeddedText = cleanTextForDisplay(rawEmbeddedText).trim();
+    if (!embeddedText) return null;
+
+    const directBoldWords = extractBoldMarkedWords(rawEmbeddedText || '');
+    const accumulatedWords: string[] = session.accumulatedBoldWords || [];
+    const boldWords = [...new Set([...directBoldWords, ...accumulatedWords])];
+    if (accumulatedWords.length > 0) {
+      console.log(`[Post-Stream FC TTS] Merged ${accumulatedWords.length} accumulated bold words with ${directBoldWords.length} direct: ${boldWords.join(', ')}`);
+    }
+
+    const sentences = splitTextIntoSentences(embeddedText);
+    console.log(`[Post-Stream FC TTS] ${embeddedText.length} chars -> ${sentences.length} sentences for TTS`);
+
+    const effectiveProvider = resolveSessionTTSProvider(session.ttsProvider as TTSProviderName | undefined, this.ttsProvider as TTSProviderName);
+    const requiresBatch = this.ttsProviderRegistry.getOrThrow(effectiveProvider).requiresBatchMode;
+    const turnId = session.turnId || session.currentTurnId || `turn-${Date.now()}`;
+
+    if (requiresBatch && sentences.length > 1 && !session.isInterrupted) {
+      console.log(`[Post-Stream FC TTS] Batch mode: Combining ${sentences.length} sentences (${embeddedText.length} chars)`);
+      const batchStart = Date.now();
+
+      const extraction = extractTargetLanguageWithMapping(embeddedText, boldWords);
+      const wordMapping: [number, number][] = extraction.wordMapping.size > 0
+        ? Array.from(extraction.wordMapping.entries()) : [];
+      const hasTarget = !!(extraction.targetText && extraction.targetText.trim().length > 0);
+
+      this.sendMessage(session.ws, {
+        type: 'sentence_start',
+        timestamp: Date.now(),
+        turnId,
+        sentenceIndex: 0,
+        text: embeddedText,
+        hasTargetContent: hasTarget,
+        targetLanguageText: hasTarget ? extraction.targetText : undefined,
+        wordMapping: hasTarget && wordMapping.length > 0 ? wordMapping : undefined,
+      } as StreamingSentenceStartMessage);
+
+      const batchChunk: SentenceChunk = { index: 0, text: embeddedText, isComplete: true, isFinal: true };
+      await this.streamSentenceAudioProgressive(session, batchChunk, embeddedText, metrics, turnId, boldWords);
+
+      console.log(`[Post-Stream FC TTS] Batch complete. Duration: ${Date.now() - batchStart}ms for ${sentences.length} sentences`);
+
+      session.functionCallText = undefined;
+      session.voiceAdjustText = undefined;
+      session.accumulatedBoldWords = undefined;
+      session.earlyTtsActive = undefined;
+      return { spokenText: embeddedText, sentenceCount: 1 };
+    } else {
+      for (let si = 0; si < sentences.length; si++) {
+        if (session.isInterrupted) break;
+        const sentenceText = sentences[si];
+        const extraction = extractTargetLanguageWithMapping(sentenceText, boldWords);
+        const wordMapping: [number, number][] = extraction.wordMapping.size > 0
+          ? Array.from(extraction.wordMapping.entries()) : [];
+        const hasTarget = !!(extraction.targetText && extraction.targetText.trim().length > 0);
+
+        this.sendMessage(session.ws, {
+          type: 'sentence_start',
+          timestamp: Date.now(),
+          turnId,
+          sentenceIndex: si,
+          text: sentenceText,
+          hasTargetContent: hasTarget,
+          targetLanguageText: hasTarget ? extraction.targetText : undefined,
+          wordMapping: hasTarget && wordMapping.length > 0 ? wordMapping : undefined,
+          ...(si === 0 && sentences.length > 1 ? { totalSentences: sentences.length } : {}),
+        } as StreamingSentenceStartMessage);
+
+        await this.streamSentenceAudioProgressive(session, { index: si, text: sentenceText }, sentenceText, metrics, turnId, boldWords);
+      }
+
+      session.functionCallText = undefined;
+      session.voiceAdjustText = undefined;
+      session.accumulatedBoldWords = undefined;
+      session.earlyTtsActive = undefined;
+      return { spokenText: embeddedText, sentenceCount: sentences.length };
+    }
+  }
+
+  /**
+   * Idempotent OpenMic response completion — single point for all cleanup.
+   * Safe to call multiple times; only the first call sends response_complete.
+   */
+  private async completeOpenMicResponse(
+    session: StreamingSession,
+    metrics: StreamingMetrics,
+    turnId: number,
+    startTime: number,
+    fullText: string,
+    transcript: string,
+    confidence: number,
+    sentRef: { sent: boolean },
+    options?: { skipPersist?: boolean; skipTutorSwitch?: boolean; errorPath?: boolean }
+  ): Promise<void> {
+    if (sentRef.sent) {
+      console.log(`[Streaming Orchestrator] response_complete already sent — skipping for session ${metrics.sessionId}`);
+      return;
+    }
+    sentRef.sent = true;
+
+    session.isGenerating = false;
+    session.lastResponseCompletedTime = Date.now();
+    session.earlyTtsActive = undefined;
+
+    if (session.pendingArchitectNoteIds.length > 0) {
+      await architectVoiceService.markNotesDelivered(session.pendingArchitectNoteIds);
+      session.pendingArchitectNoteIds = [];
+    }
+
+    metrics.totalLatencyMs = Date.now() - startTime;
+
+    const POST_TTS_SUPPRESSION_HOLD_MS = 2500;
+    if (session.postTtsSuppressionTimer) clearTimeout(session.postTtsSuppressionTimer);
+    session.postTtsSuppressionTimer = setTimeout(() => {
+      session.onTtsStateChange?.(false);
+      session.postTtsSuppressionTimer = null;
+    }, POST_TTS_SUPPRESSION_HOLD_MS);
+
+    this.sendMessage(session.ws, {
+      type: 'response_complete',
+      timestamp: Date.now(),
+      turnId,
+      totalSentences: metrics.sentenceCount,
+      totalDurationMs: metrics.totalLatencyMs,
+      fullText: options?.errorPath ? '' : fullText.trim(),
+      metrics: {
+        sttLatencyMs: metrics.sttLatencyMs,
+        aiFirstTokenMs: metrics.aiFirstTokenMs,
+        ttsFirstChunkMs: metrics.ttsFirstByteMs,
+        totalTtfbMs: options?.errorPath ? 0 : (metrics.sttLatencyMs + metrics.aiFirstTokenMs + metrics.ttsFirstByteMs),
+        sentenceCount: metrics.sentenceCount,
+      },
+    } as StreamingResponseCompleteMessage);
+
+    if (!options?.skipPersist) {
+      this.persistMessages(session.conversationId, transcript, fullText.trim(), session, confidence).catch((err: Error) => {
+        console.error('[Streaming Orchestrator] Failed to persist messages:', err.message);
+      });
+    }
+
+    if (!options?.skipTutorSwitch) {
+      await this.executePendingTutorSwitch(session, metrics.sessionId, 'OpenMic');
+    }
+  }
+
+  /**
+   * Execute pending tutor switch after response completes.
+   * Shared between PTT and OpenMic paths. Handles:
+   * - Cross-language transfer validation + defense-in-depth
+   * - tutorDirectory rebuild for older/recovered sessions
+   * - Assistant switch with voice caching
+   * - Main tutor switch with wasAssistantActive gender restore
+   * - DB updates + conversation history clearing for cross-language
+   * - System prompt regeneration (both cross-language and same-language)
+   * - Client notification + greeting trigger
+   */
+  private async executePendingTutorSwitch(
+    session: StreamingSession,
+    sessionId: string,
+    mode: 'PTT' | 'OpenMic'
+  ): Promise<void> {
+    if (!session.pendingTutorSwitch) return;
+
+    const { targetGender, targetLanguage, targetRole } = session.pendingTutorSwitch;
+
+    const transferValidation = targetRole !== 'assistant'
+      ? validateTutorTransfer(session.targetLanguage, targetLanguage)
+      : { allowed: true as const };
+
+    if (!transferValidation.allowed) {
+      console.log(`[Tutor Switch] ${mode} BLOCKED: Cross-language transfer from ${session.targetLanguage} to ${targetLanguage}`);
+      console.log(`[Tutor Switch] Reason: ${transferValidation.reason}`);
+      session.pendingTutorSwitch = undefined;
+      session.crossLanguageTransferBlocked = true;
+      this.sendMessage(session.ws, {
+        type: 'tutor_transfer_blocked',
+        timestamp: Date.now(),
+        fromLanguage: session.targetLanguage,
+        toLanguage: targetLanguage,
+        reason: transferValidation.reason,
+      } as any);
+      return;
+    }
+
+    session.pendingTutorSwitch = undefined;
+    const isAssistantSwitch = targetRole === 'assistant';
+    const effectiveLanguage = targetLanguage?.toLowerCase() || session.targetLanguage.toLowerCase();
+    const isLanguageSwitch = effectiveLanguage !== session.targetLanguage.toLowerCase();
+
+    if (!isAssistantSwitch && isLanguageSwitch && !CROSS_LANGUAGE_TRANSFERS_ENABLED) {
+      console.log(`[Tutor Switch] ${mode} BLOCKED (defense): Resolved language ${effectiveLanguage} differs from session ${session.targetLanguage}`);
+      session.crossLanguageTransferBlocked = true;
+      this.sendMessage(session.ws, {
+        type: 'tutor_transfer_blocked',
+        timestamp: Date.now(),
+        fromLanguage: session.targetLanguage,
+        toLanguage: effectiveLanguage,
+        reason: 'Cross-language transfers are currently disabled.',
+      } as any);
+      return;
+    }
+
+    const roleInfo = isAssistantSwitch ? ' (assistant)' : '';
+    console.log(`[Tutor Switch] ${mode}: Executing handoff to ${targetGender} tutor${roleInfo}${isLanguageSwitch ? ` in ${effectiveLanguage}` : ''}`);
+
+    if (!session.tutorDirectory || session.tutorDirectory.length === 0) {
+      console.log('[Tutor Switch] Rebuilding tutorDirectory - was undefined/null on session');
+      try {
+        const allVoices = await storage.getAllTutorVoices();
+        const { ASSISTANT_TUTORS } = await import('./assistant-tutor-config');
+        const preferredGender = session.cachedMainTutorGender || session.tutorGender || 'female';
+        const currentLanguage = session.targetLanguage?.toLowerCase() || 'spanish';
+
+        const mainTutorEntries: TutorDirectoryEntry[] = allVoices
+          .filter((v: any) => v.role === 'tutor' && v.isActive)
+          .map((v: any) => {
+            const voiceNameParts = v.voiceName?.split(/\s*[-–]\s*/) || [];
+            const name = voiceNameParts[0]?.trim() || 'Unknown';
+            const normalizedGender = (v.gender || 'female').toLowerCase() as 'male' | 'female';
+            const normalizedLanguage = (v.language || 'spanish').toLowerCase();
+            const isPreferred = preferredGender === normalizedGender && normalizedLanguage === currentLanguage;
+            return {
+              name,
+              gender: normalizedGender,
+              language: normalizedLanguage,
+              isPreferred,
+              isCurrent: v.voiceId === session.voiceId,
+              role: 'tutor' as const,
+            };
+          });
+
+        const assistantEntries: TutorDirectoryEntry[] = Object.entries(ASSISTANT_TUTORS)
+          .flatMap(([lang, assistantConfig]) => {
+            const langNormalized = lang.toLowerCase();
+            return [
+              { name: assistantConfig.male, gender: 'male' as const, language: langNormalized, isPreferred: preferredGender === 'male' && langNormalized === currentLanguage, isCurrent: false, role: 'assistant' as const },
+              { name: assistantConfig.female, gender: 'female' as const, language: langNormalized, isPreferred: preferredGender === 'female' && langNormalized === currentLanguage, isCurrent: false, role: 'assistant' as const },
+            ];
+          });
+
+        const sofiaEntry: TutorDirectoryEntry = {
+          name: 'Sofia',
+          gender: 'female' as const,
+          language: 'multilingual',
+          isPreferred: false,
+          isCurrent: false,
+          role: 'support' as const,
+        };
+
+        session.tutorDirectory = [...mainTutorEntries, ...assistantEntries, sofiaEntry];
+        console.log(`[Tutor Switch] Rebuilt tutorDirectory with ${session.tutorDirectory.length} entries (preferredGender=${preferredGender})`);
+      } catch (rebuildErr: any) {
+        console.warn(`[Tutor Switch] Failed to rebuild tutorDirectory: ${rebuildErr.message}`);
+      }
+    }
+
+    session.previousTutorName = session.tutorName;
+
+    try {
+      let tutorName: string | undefined;
+
+      if (isAssistantSwitch) {
+        const { ASSISTANT_TUTORS } = await import('./assistant-tutor-config');
+        const assistantConfig = ASSISTANT_TUTORS[effectiveLanguage] || ASSISTANT_TUTORS.spanish;
+        if (assistantConfig) {
+          tutorName = targetGender === 'male' ? assistantConfig.male : assistantConfig.female;
+          if (!session.isAssistantActive) {
+            if (session.voiceId) {
+              session.cachedMainTutorVoiceId = session.voiceId;
+            }
+            session.cachedMainTutorGender = session.tutorGender as 'male' | 'female';
+            console.log(`[Tutor Switch] Cached main tutor: voiceId=${session.voiceId}, gender=${session.tutorGender}`);
+          }
+          session.isAssistantActive = true;
+          session.voiceId = undefined;
+          session.tutorGender = targetGender;
+          session.tutorName = tutorName;
+
+          console.log(`[Tutor Switch] Assistant handoff: ${tutorName} (${effectiveLanguage}, ${targetGender}) - TTS: Google Cloud`);
+
+          this.sendMessage(session.ws, {
+            type: 'tutor_handoff',
+            timestamp: Date.now(),
+            targetGender,
+            targetLanguage: isLanguageSwitch ? effectiveLanguage : undefined,
+            tutorName,
+            isLanguageSwitch,
+            requiresGreeting: true,
+            isAssistant: true,
+          });
+        } else {
+          console.warn(`[Tutor Switch] No assistant config found for ${effectiveLanguage}`);
+        }
+      } else {
+        const wasAssistantActive = session.isAssistantActive;
+        const effectiveGender = wasAssistantActive && session.cachedMainTutorGender
+          ? session.cachedMainTutorGender
+          : targetGender;
+
+        if (wasAssistantActive && session.cachedMainTutorGender && session.cachedMainTutorGender !== targetGender) {
+          console.log(`[Tutor Switch] Overriding target=${targetGender} with cached main tutor gender=${session.cachedMainTutorGender}`);
+        }
+
+        const allVoices = await storage.getAllTutorVoices();
+        const matchingVoice = allVoices.find(
+          (v: any) => v.language?.toLowerCase() === effectiveLanguage &&
+                      v.gender?.toLowerCase() === effectiveGender &&
+                      v.role === 'tutor' && v.isActive
+        );
+
+        if (matchingVoice) {
+          const voiceNameParts = matchingVoice.voiceName?.split(/\s*[-–]\s*/) || [];
+          tutorName = voiceNameParts[0]?.trim();
+          session.isAssistantActive = false;
+
+          if (wasAssistantActive) {
+            console.log(`[Tutor Switch] Returning from assistant mode to main tutor (${effectiveGender}) - TTS: Cartesia`);
+            session.cachedMainTutorGender = undefined;
+            session.cachedMainTutorVoiceId = undefined;
+          }
+
+          session.voiceId = matchingVoice.voiceId;
+          session.ttsProvider = (matchingVoice.provider === 'elevenlabs' ? 'elevenlabs' : matchingVoice.provider === 'google' ? 'google' : matchingVoice.provider === 'gemini' ? 'gemini' : 'cartesia') as 'elevenlabs' | 'cartesia' | 'google' | 'gemini';
+          session.elStability = matchingVoice.elStability ?? 0.5;
+          session.elSimilarityBoost = matchingVoice.elSimilarityBoost ?? 0.75;
+          session.elStyle = matchingVoice.elStyle ?? 0;
+          session.elSpeakerBoost = matchingVoice.elSpeakerBoost ?? true;
+          session.tutorGender = effectiveGender;
+          session.tutorName = tutorName || 'your tutor';
+
+          const newPersonality = (matchingVoice.personality as TutorPersonality) || 'warm';
+          session.voiceDefaults = {
+            speakingRate: matchingVoice.speakingRate ?? 0.9,
+            personality: newPersonality,
+            emotion: matchingVoice.emotion || getDefaultEmotion(newPersonality),
+            expressiveness: matchingVoice.expressiveness ?? 3,
+          };
+          session.voiceOverride = undefined;
+          console.log(`[Tutor Switch] ${mode}: Updated voiceDefaults for ${tutorName}:`, session.voiceDefaults);
+
+          if (isLanguageSwitch) {
+            session.previousLanguage = session.targetLanguage;
+            session.isLanguageSwitchHandoff = true;
+            session.targetLanguage = effectiveLanguage;
+
+            try {
+              await storage.updateConversationLanguage(session.conversationId, effectiveLanguage);
+              console.log(`[Tutor Switch] Updated conversation language in database to ${effectiveLanguage}`);
+              await storage.updateUserPreferences(session.userId.toString(), {
+                targetLanguage: effectiveLanguage,
+              });
+              console.log(`[Tutor Switch] Updated user preferences to ${effectiveLanguage}`);
+            } catch (dbErr: any) {
+              console.error(`[Tutor Switch] Failed to update language:`, dbErr.message);
+            }
+
+            console.log(`[Tutor Switch] Clearing conversation history for cross-language switch (${session.previousLanguage} -> ${effectiveLanguage})`);
+            session.conversationHistory = [];
+
+            session.systemPrompt = createSystemPrompt(
+              effectiveLanguage,
+              session.difficultyLevel,
+              0,
+              false,
+              undefined,
+              undefined,
+              session.nativeLanguage,
+              undefined,
+              undefined,
+              undefined,
+              false,
+              0,
+              session.tutorPersonality,
+              session.tutorExpressiveness,
+              true,
+              null,
+              'flexible_goals',
+              undefined,
+              null,
+              session.isFounderMode,
+              undefined,
+              session.isRawHonestyMode,
+              tutorName || 'your tutor',
+              effectiveGender,
+              session.tutorDirectory,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              session.tutorPersona
+            );
+            console.log(`[Tutor Switch] Language switched to ${effectiveLanguage}, voice: ${matchingVoice.voiceName}, system prompt regenerated`);
+          } else {
+            session.systemPrompt = createSystemPrompt(
+              session.targetLanguage,
+              session.difficultyLevel,
+              session.conversationHistory.length,
+              false,
+              undefined,
+              undefined,
+              session.nativeLanguage,
+              undefined,
+              undefined,
+              undefined,
+              false,
+              0,
+              session.tutorPersonality,
+              session.tutorExpressiveness,
+              true,
+              null,
+              'flexible_goals',
+              undefined,
+              null,
+              session.isFounderMode,
+              undefined,
+              session.isRawHonestyMode,
+              tutorName || 'your tutor',
+              effectiveGender,
+              session.tutorDirectory,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              session.tutorPersona
+            );
+            console.log(`[Tutor Switch] Same-language switch, new voice: ${matchingVoice.voiceName}, persona updated for ${tutorName}`);
+          }
+        } else {
+          console.warn(`[Tutor Switch] No matching voice found for ${effectiveGender} in ${effectiveLanguage}`);
+        }
+
+        this.sendMessage(session.ws, {
+          type: 'tutor_handoff',
+          timestamp: Date.now(),
+          targetGender: effectiveGender,
+          targetLanguage: isLanguageSwitch ? effectiveLanguage : undefined,
+          tutorName,
+          isLanguageSwitch,
+          requiresGreeting: true,
+        });
+
+        if (tutorName && !isAssistantSwitch) {
+          session.greetingTriggeredByOrchestrator = true;
+          console.log(`[Tutor Switch] ${mode}: Triggering ${tutorName}'s greeting`);
+          this.processVoiceSwitchIntro(sessionId, tutorName, effectiveGender).catch((err: Error) => {
+            console.error(`[Tutor Switch] Failed to generate greeting:`, err.message);
+          });
+        }
+      }
+    } catch (err: any) {
+      console.error(`[Tutor Switch] ${mode} error:`, err.message);
+      this.sendMessage(session.ws, {
+        type: 'tutor_handoff',
+        timestamp: Date.now(),
+        targetGender,
+        isLanguageSwitch: false,
+      });
+    }
+  }
+
   /**
    * Process open mic transcript directly (no STT needed - Deepgram already transcribed)
    * Used when VAD detects utterance end in open mic mode
@@ -5646,7 +5560,7 @@ Remember: David may reference things discussed in these recent text chats.
     
     // GREETING GUARD: If the greeting is still streaming, skip the OpenMic utterance entirely.
     // Without this, the greeting's response_complete poisons the OpenMic turn state, causing freeze.
-    if ((session as any).__greetingInProgress) {
+    if (session.__greetingInProgress) {
       console.log(`[DEDUP] Skipping OpenMic utterance while greeting is still in progress: "${transcript.slice(0, 50)}..."`);
       this.sendGuardResetSignal(session, 'greeting_in_progress');
       return {
@@ -5772,7 +5686,7 @@ Remember: David may reference things discussed in these recent text chats.
       session.firstAudioSent = false;   // Reset so whiteboard updates buffer until audio starts
       session.pendingWhiteboardUpdates = [];  // Clear stale pending updates from previous turn
       session.earlyTtsActive = undefined;
-      (session as any)._ttsTurnCallCount = 0;  // DIAG: Reset TTS call counter for new turn
+      session._ttsTurnCallCount = 0;  // DIAG: Reset TTS call counter for new turn
       const turnId = session.currentTurnId;
       
       // Notify client that processing has started
@@ -6009,7 +5923,7 @@ Remember: David may reference things discussed in these recent text chats.
       // Abort signal for early stream termination when function call TTS starts (open-mic)
       const streamAbortSignalOpenMic = { aborted: false };
       
-      let responseCompleteSentOpenMic = false;
+      const responseCompleteSentOpenMic = { sent: false };
       
       // TTS LOOKAHEAD (OpenMic): Same pipeline as PTT path
       const ttsLookaheadMapOM = new Map<number, Promise<{ audio: Buffer; durationMs: number; timestamps: import('@shared/streaming-voice-types').WordTiming[] } | null>>();
@@ -6028,7 +5942,7 @@ Remember: David may reference things discussed in these recent text chats.
         geminiLanguageCode: session.geminiLanguageCode,
         voiceId: session.voiceId,
         speakingRate: getAdaptiveSpeakingRate(session),
-        vocalStyle: (session as any).voiceOverride?.vocalStyle,
+        vocalStyle: session.voiceOverride?.vocalStyle,
       };
       
       await retryWithBackoff(
@@ -6048,7 +5962,7 @@ Remember: David may reference things discussed in these recent text chats.
           const promise = this.geminiLiveTtsService.preGenerateAudio({
             ...lookaheadTtsRequestOM,
             text: cleaned,
-            vocalStyle: (session as any).voiceOverride?.vocalStyle,
+            vocalStyle: session.voiceOverride?.vocalStyle,
           } as any).catch(err => {
             console.warn(`[TTS Lookahead OM] Pre-gen failed for sentence ${chunk.index}: ${err.message}`);
             return null;
@@ -6251,7 +6165,7 @@ Remember: David may reference things discussed in these recent text chats.
                 const customText = cmd.params.text as string | undefined;
                 
                 if (mode === 'custom' && customText) {
-                  (session as any).customOverlayText = customText;
+                  session.customOverlayText = customText;
                   console.log(`[CommandParser→Subtitle - OpenMic] Custom: "${customText.substring(0, 50)}..."`);
                   this.sendMessage(session.ws, {
                     type: 'custom_overlay',
@@ -6275,7 +6189,7 @@ Remember: David may reference things discussed in these recent text chats.
               case 'SHOW': {
                 const text = cmd.params.text as string;
                 if (text) {
-                  (session as any).customOverlayText = text;
+                  session.customOverlayText = text;
                   console.log(`[CommandParser→Show - OpenMic] Custom overlay: "${text.substring(0, 50)}..."`);
                   
                   // Send WebSocket message to client to display custom overlay
@@ -6292,7 +6206,7 @@ Remember: David may reference things discussed in these recent text chats.
                 break;
               }
               case 'HIDE': {
-                (session as any).customOverlayText = undefined;
+                session.customOverlayText = undefined;
                 console.log(`[CommandParser→Hide - OpenMic] Custom overlay hidden`);
                 
                 // Send WebSocket message to client to hide custom overlay
@@ -6309,7 +6223,7 @@ Remember: David may reference things discussed in these recent text chats.
               case 'TEXT_INPUT': {
                 const prompt = cmd.params.prompt as string;
                 if (prompt) {
-                  (session as any).pendingTextInput = { prompt };
+                  session.pendingTextInput = { prompt };
                   console.log(`[CommandParser→TextInput - OpenMic] Requested: "${prompt.substring(0, 50)}..."`);
                   
                   // Send WebSocket message to client to request text input
@@ -6325,14 +6239,14 @@ Remember: David may reference things discussed in these recent text chats.
                 break;
               }
               case 'CLEAR': {
-                (session as any).commandParserClear = true;
+                session.commandParserClear = true;
                 session.classroomWhiteboardItems = [];
                 console.log(`[CommandParser→Clear - OpenMic] Whiteboard clear requested via ${cmd.source} format (classroom tracking reset)`);
                 break;
               }
               case 'HOLD': {
                 // Prevent whiteboard auto-clear - set session flag for inclusion in whiteboard_update message
-                (session as any).commandParserHold = true;
+                session.commandParserHold = true;
                 console.log(`[CommandParser→Hold - OpenMic] Whiteboard hold requested via ${cmd.source} format`);
                 break;
               }
@@ -6683,8 +6597,8 @@ Remember: David may reference things discussed in these recent text chats.
                 const validatedPersonality = personality && validPersonalities.includes(personality) ? personality : undefined;
                 const mappedEmotion = emotion ? emotionMap[emotion] : undefined;
                 
-                const currentOverride = (session as any).voiceOverride || {};
-                (session as any).voiceOverride = {
+                const currentOverride = session.voiceOverride || {};
+                session.voiceOverride = {
                   ...currentOverride,
                   ...(speed && { speakingRate: speedMap[speed] || 0.9 }),
                   ...(mappedEmotion && { emotion: mappedEmotion }),
@@ -6696,14 +6610,14 @@ Remember: David may reference things discussed in these recent text chats.
               case 'VOICE_RESET': {
                 // Reset voice to tutor's baseline settings
                 if (session.voiceDefaults) {
-                  (session as any).voiceOverride = {
+                  session.voiceOverride = {
                     speakingRate: session.voiceDefaults.speakingRate,
                     emotion: session.voiceDefaults.emotion,
                     personality: session.voiceDefaults.personality,
                     expressiveness: session.voiceDefaults.expressiveness,
                   };
                 } else {
-                  (session as any).voiceOverride = undefined;
+                  session.voiceOverride = undefined;
                 }
                 console.log(`[CommandParser→VoiceReset - OpenMic] Reset to defaults`);
                 break;
@@ -6718,12 +6632,12 @@ Remember: David may reference things discussed in these recent text chats.
           );
           
           // Combine whiteboard parser flags with command parser flags (JSON ACTION_TRIGGERS)
-          const openMicShouldClear = whiteboardParsed.shouldClear || (session as any).commandParserClear;
-          const openMicShouldHold = whiteboardParsed.shouldHold || (session as any).commandParserHold;
+          const openMicShouldClear = whiteboardParsed.shouldClear || session.commandParserClear;
+          const openMicShouldHold = whiteboardParsed.shouldHold || session.commandParserHold;
           
           // Clear the command parser flags after use (one-shot)
-          if ((session as any).commandParserClear) (session as any).commandParserClear = false;
-          if ((session as any).commandParserHold) (session as any).commandParserHold = false;
+          if (session.commandParserClear) session.commandParserClear = false;
+          if (session.commandParserHold) session.commandParserHold = false;
           
           if (visualWhiteboardItems.length > 0 || openMicShouldClear || openMicShouldHold) {
             this.sendMessage(session.ws, {
@@ -6940,91 +6854,21 @@ Remember: David may reference things discussed in these recent text chats.
       // voice_adjust and word_emphasis should ALWAYS accompany spoken text
       // If Gemini only returns these without text, check for embedded text first before forcing continuation
       if (metrics.sentenceCount === 0 && hadFunctionCallsOpenMic && functionsNeedingContinuationOpenMic.length === 0) {
-        {
+        if (session.postTtsSuppressionTimer) {
+          clearTimeout(session.postTtsSuppressionTimer);
+          session.postTtsSuppressionTimer = null;
+        }
+        session.onTtsStateChange?.(true);
+
+        const fcTtsResult = await this.dispatchPostStreamFcTts(session, metrics);
+        if (fcTtsResult) {
+          fullText = fcTtsResult.spokenText;
+          metrics.sentenceCount = fcTtsResult.sentenceCount;
+        } else {
           const metadataOnlyFunctions = functionCallsCopyOpenMic.map(fc => fc.name).join(', ');
-          
-          const rawEmbeddedText = ensureTrailingPunctuation((session.functionCallText || '').trim());
-          const embeddedText = cleanTextForDisplay(rawEmbeddedText).trim();
-          if (embeddedText) {
-            console.log(`[Post-Stream TTS - OpenMic] FC callback deferred TTS — now speaking embedded text (${embeddedText.length} chars)`);
-            const embeddedDirectBoldWords = extractBoldMarkedWords(rawEmbeddedText || '');
-            const embeddedAccumulatedWords: string[] = session.accumulatedBoldWords || [];
-            const embeddedBoldWords = [...new Set([...embeddedDirectBoldWords, ...embeddedAccumulatedWords])];
-            if (embeddedAccumulatedWords.length > 0) {
-              console.log(`[Voice] Merged ${embeddedAccumulatedWords.length} accumulated bold words with ${embeddedDirectBoldWords.length} direct: ${embeddedBoldWords.join(', ')}`);
-            }
-
-            const omSentences = splitTextIntoSentences(embeddedText);
-            console.log(`[Post-Stream TTS - OpenMic] ${embeddedText.length} chars → ${omSentences.length} sentences for TTS (functions: ${metadataOnlyFunctions})`);
-            fullText = embeddedText;
-            metrics.sentenceCount = omSentences.length;
-
-            if (session.postTtsSuppressionTimer) {
-              clearTimeout(session.postTtsSuppressionTimer);
-              session.postTtsSuppressionTimer = null;
-            }
-            session.onTtsStateChange?.(true);
-
-            const effectiveTtsProviderPostFCOM = resolveSessionTTSProvider(session.ttsProvider as TTSProviderName | undefined, this.ttsProvider as TTSProviderName);
-            if (this.ttsProviderRegistry.getOrThrow(effectiveTtsProviderPostFCOM).requiresBatchMode && omSentences.length > 1 && !session.isInterrupted) {
-              console.log(`[Google Batch TTS - Post-FC OpenMic] Combining ${omSentences.length} sentences (${embeddedText.length} chars) for single TTS call`);
-              const batchTtsStartPostFCOM = Date.now();
-
-              const omBatchExtraction = extractTargetLanguageWithMapping(embeddedText, embeddedBoldWords);
-              const omBatchWordMapping: [number, number][] = omBatchExtraction.wordMapping.size > 0
-                ? Array.from(omBatchExtraction.wordMapping.entries()) : [];
-              const omBatchHasTarget = !!(omBatchExtraction.targetText && omBatchExtraction.targetText.trim().length > 0);
-
-              this.sendMessage(session.ws, {
-                type: 'sentence_start',
-                timestamp: Date.now(),
-                turnId: session.turnId || session.currentTurnId,
-                sentenceIndex: 0,
-                text: embeddedText,
-                hasTargetContent: omBatchHasTarget,
-                targetLanguageText: omBatchHasTarget ? omBatchExtraction.targetText : undefined,
-                wordMapping: omBatchHasTarget && omBatchWordMapping.length > 0 ? omBatchWordMapping : undefined,
-              } as StreamingSentenceStartMessage);
-
-              const batchChunkPostFCOM: SentenceChunk = { index: 0, text: embeddedText, isComplete: true, isFinal: true };
-              await this.streamSentenceAudioProgressive(session, batchChunkPostFCOM, embeddedText, metrics, session.turnId || `turn-${Date.now()}`, embeddedBoldWords);
-
-              metrics.sentenceCount = 1;
-              console.log(`[Google Batch TTS - Post-FC OpenMic] Complete. TTS duration: ${Date.now() - batchTtsStartPostFCOM}ms for ${omSentences.length} sentences`);
-            } else {
-              for (let si = 0; si < omSentences.length; si++) {
-                if (session.isInterrupted) break;
-                const sentenceText = omSentences[si];
-                const embeddedExtraction = extractTargetLanguageWithMapping(sentenceText, embeddedBoldWords);
-                const embeddedWordMapping: [number, number][] = embeddedExtraction.wordMapping.size > 0
-                  ? Array.from(embeddedExtraction.wordMapping.entries()) : [];
-                const embeddedHasTarget = !!(embeddedExtraction.targetText && embeddedExtraction.targetText.trim().length > 0);
-
-                this.sendMessage(session.ws, {
-                  type: 'sentence_start',
-                  timestamp: Date.now(),
-                  turnId: session.turnId || session.currentTurnId,
-                  sentenceIndex: si,
-                  text: sentenceText,
-                  hasTargetContent: embeddedHasTarget,
-                  targetLanguageText: embeddedHasTarget ? embeddedExtraction.targetText : undefined,
-                  wordMapping: embeddedHasTarget && embeddedWordMapping.length > 0 ? embeddedWordMapping : undefined,
-                  ...(si === 0 && omSentences.length > 1 ? { totalSentences: omSentences.length } : {}),
-                } as StreamingSentenceStartMessage);
-
-                await this.streamSentenceAudioProgressive(session, { index: si, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, embeddedBoldWords);
-              }
-            }
-
-            session.functionCallText = undefined;
-            session.voiceAdjustText = undefined;
-            session.accumulatedBoldWords = undefined;
-            session.earlyTtsActive = undefined;
-          } else {
-            console.warn(`[Voice] Gemini returned only metadata functions (${metadataOnlyFunctions}) - these should accompany speech, forcing continuation`);
-            session.earlyTtsActive = undefined;
-            functionsNeedingContinuationOpenMic.push(...functionCallsCopyOpenMic);
-          }
+          console.warn(`[Voice OpenMic] Gemini returned only metadata functions (${metadataOnlyFunctions}) - forcing continuation`);
+          session.earlyTtsActive = undefined;
+          functionsNeedingContinuationOpenMic.push(...functionCallsCopyOpenMic);
         }
       }
       
@@ -7291,56 +7135,56 @@ Remember: David may reference things discussed in these recent text chats.
                   ? `Express Lane ${label}:\n${lookupResult}\n\nNow respond using this information.`
                   : `No Express Lane messages found for "${query}". Respond naturally.`;
               } else if (fc.legacyType === 'BROWSE_SYLLABUS') {
-                const syllabusData = (session as any).lastSyllabusData;
+                const syllabusData = session.lastSyllabusData;
                 responseText = syllabusData
                   ? `Syllabus data loaded:\n${JSON.stringify(syllabusData, null, 1)}\n\nPresent this conversationally.`
                   : `No enrolled class or curriculum found. Let the student know gently.`;
-                delete (session as any).lastSyllabusData;
+                delete session.lastSyllabusData;
               } else if (fc.legacyType === 'START_LESSON') {
-                const lessonData = (session as any).lastLoadedLesson;
+                const lessonData = session.lastLoadedLesson;
                 responseText = lessonData
                   ? `Lesson loaded:\n${JSON.stringify(lessonData, null, 1)}\n\nBegin teaching naturally.`
                   : `Could not find the requested lesson.`;
-                delete (session as any).lastLoadedLesson;
+                delete session.lastLoadedLesson;
               } else if (fc.legacyType === 'LOAD_VOCAB_SET') {
-                const vocabData = (session as any).lastVocabSet;
+                const vocabData = session.lastVocabSet;
                 responseText = vocabData?.length > 0
                   ? `Vocabulary loaded: ${vocabData.length} words.\n${JSON.stringify(vocabData, null, 1)}\n\nTeach these words with show_image.`
                   : `No vocabulary found for this lesson.`;
-                delete (session as any).lastVocabSet;
+                delete session.lastVocabSet;
               } else if (fc.legacyType === 'SHOW_PROGRESS') {
                 responseText = `Progress displayed on whiteboard. Share observations naturally.`;
               } else if (fc.legacyType === 'RECOMMEND_NEXT') {
-                const recommendation = (session as any).lastRecommendation;
+                const recommendation = session.lastRecommendation;
                 responseText = recommendation
                   ? `Recommendation: "${recommendation.lessonName}" from ${recommendation.unitName}. ${recommendation.reason}`
                   : `All lessons complete! Congratulate the student.`;
-                delete (session as any).lastRecommendation;
+                delete session.lastRecommendation;
               } else if (fc.legacyType === 'DRILL_SESSION') {
-                const data = (session as any).lastDrillSessionData;
+                const data = session.lastDrillSessionData;
                 responseText = data?.totalItems > 0
                   ? `Drill session started with ${data.totalItems} items. First item displayed. Walk the student through it, then use drill_session_next.`
                   : `No drill items found. Offer conversational practice instead.`;
-                delete (session as any).lastDrillSessionData;
+                delete session.lastDrillSessionData;
               } else if (fc.legacyType === 'DRILL_SESSION_NEXT') {
-                const data = (session as any).lastDrillSessionData;
+                const data = session.lastDrillSessionData;
                 responseText = data?.sessionComplete
                   ? `Session complete! ${data.correct}/${data.totalItems} correct (${data.accuracy}%). Celebrate and summarize.`
                   : data ? `Item ${data.currentItem}/${data.totalItems}. Score: ${data.correctSoFar} correct. Present next drill.`
                   : `Drill session next processed.`;
-                delete (session as any).lastDrillSessionData;
+                delete session.lastDrillSessionData;
               } else if (fc.legacyType === 'DRILL_SESSION_END') {
-                const data = (session as any).lastDrillSessionData;
+                const data = session.lastDrillSessionData;
                 responseText = data
                   ? `Session ended. ${data.itemsAttempted}/${data.totalItems} attempted, ${data.accuracy}% accuracy. Summarize warmly.`
                   : `No active session to end.`;
-                delete (session as any).lastDrillSessionData;
+                delete session.lastDrillSessionData;
               } else if (fc.legacyType === 'REVIEW_DUE_VOCAB') {
-                const dueVocab = (session as any).lastDueVocab;
+                const dueVocab = session.lastDueVocab;
                 responseText = dueVocab?.length > 0
                   ? `${dueVocab.length} vocab words due:\n${JSON.stringify(dueVocab.map((w: any) => ({ word: w.word, translation: w.translation })), null, 1)}\n\nQuiz the student.`
                   : `No words due for review. All caught up!`;
-                delete (session as any).lastDueVocab;
+                delete session.lastDueVocab;
               } else {
                 responseText = `${fc.name} executed successfully. Continue the conversation.`;
               }
@@ -7493,206 +7337,7 @@ Remember: David may reference things discussed in these recent text chats.
         }
       }
       
-      session.earlyTtsActive = undefined;
-      
-      if (responseCompleteSentOpenMic) {
-        console.log(`[Streaming Orchestrator] response_complete already sent — skipping normal emit for session ${sessionId}`);
-      } else {
-        responseCompleteSentOpenMic = true;
-      
-        // Clear generating flag - response complete
-        session.isGenerating = false;
-        session.lastResponseCompletedTime = Date.now();
-      
-        // Mark architect notes as delivered (only if not cleared by handleInterrupt)
-        // handleInterrupt clears session.pendingArchitectNoteIds, so this is empty if interrupted
-        if (session.pendingArchitectNoteIds.length > 0) {
-          await architectVoiceService.markNotesDelivered(session.pendingArchitectNoteIds);
-          session.pendingArchitectNoteIds = [];  // Clear after delivery
-        }
-      
-        // Response complete
-        metrics.totalLatencyMs = Date.now() - startTime;
-      
-        // ECHO SUPPRESSION: Delay re-enabling OpenMic transcription to allow client-side
-        // audio playback to complete. The server finishes sending TTS chunks before the client
-        // finishes playing them, so clearing suppression immediately would let Deepgram pick up
-        // TTS echo from the speakers as user speech, causing false utterance processing.
-        const POST_TTS_SUPPRESSION_HOLD_MS = 2500;
-        if (session.postTtsSuppressionTimer) clearTimeout(session.postTtsSuppressionTimer);
-        session.postTtsSuppressionTimer = setTimeout(() => {
-          session.onTtsStateChange?.(false);
-          session.postTtsSuppressionTimer = null;
-        }, POST_TTS_SUPPRESSION_HOLD_MS);
-      
-        this.sendMessage(session.ws, {
-          type: 'response_complete',
-          timestamp: Date.now(),
-          turnId,
-          totalSentences: metrics.sentenceCount,
-          totalDurationMs: metrics.totalLatencyMs,
-          fullText: fullText.trim(),
-          metrics: {
-            sttLatencyMs: metrics.sttLatencyMs,
-            aiFirstTokenMs: metrics.aiFirstTokenMs,
-            ttsFirstChunkMs: metrics.ttsFirstByteMs,
-            totalTtfbMs: metrics.sttLatencyMs + metrics.aiFirstTokenMs + metrics.ttsFirstByteMs,
-            sentenceCount: metrics.sentenceCount,
-          },
-        } as StreamingResponseCompleteMessage);
-      }
-      
-      // Persist messages
-      this.persistMessages(session.conversationId, transcript, fullText.trim(), session, confidence).catch((err: Error) => {
-        console.error('[Streaming Orchestrator] Failed to persist messages:', err.message);
-      });
-      
-      // TUTOR SWITCH: Execute pending handoff after response completes (Open-mic path)
-      if (session.pendingTutorSwitch) {
-        const { targetGender, targetLanguage, targetRole } = session.pendingTutorSwitch;
-        
-        // CROSS-LANGUAGE TRANSFER GATE: Validate before executing
-        // Assistant switches are always within same-language context, so no validation needed
-        const transferValidation = targetRole !== 'assistant' 
-          ? validateTutorTransfer(session.targetLanguage, targetLanguage)
-          : { allowed: true as const };
-        
-        if (!transferValidation.allowed) {
-          console.log(`[Tutor Switch] Open-mic BLOCKED: Cross-language transfer from ${session.targetLanguage} to ${targetLanguage}`);
-          console.log(`[Tutor Switch] Reason: ${transferValidation.reason}`);
-          session.pendingTutorSwitch = undefined; // Clear only after we've logged the blocked attempt
-          session.crossLanguageTransferBlocked = true; // Prevent retries within this turn
-          
-          // Notify client that the cross-language transfer was blocked
-          this.sendMessage(session.ws, {
-            type: 'tutor_transfer_blocked',
-            timestamp: Date.now(),
-            fromLanguage: session.targetLanguage,
-            toLanguage: targetLanguage,
-            reason: transferValidation.reason,
-          } as any);
-        } else {
-          // PROCEED WITH TRANSFER
-          session.pendingTutorSwitch = undefined; // Clear the pending switch now that we're executing
-          const isAssistantSwitch = targetRole === 'assistant';
-          const effectiveLanguage = targetLanguage?.toLowerCase() || session.targetLanguage.toLowerCase();
-          const isLanguageSwitch = effectiveLanguage !== session.targetLanguage.toLowerCase();
-          
-          // DEFENSE-IN-DEPTH: Secondary validation using final resolved language
-          // This catches any edge cases where effectiveLanguage differs from targetLanguage
-          if (!isAssistantSwitch && isLanguageSwitch && !CROSS_LANGUAGE_TRANSFERS_ENABLED) {
-            console.log(`[Tutor Switch] Open-mic BLOCKED (defense): Resolved language ${effectiveLanguage} differs from session ${session.targetLanguage}`);
-            session.crossLanguageTransferBlocked = true;
-            this.sendMessage(session.ws, {
-              type: 'tutor_transfer_blocked',
-              timestamp: Date.now(),
-              fromLanguage: session.targetLanguage,
-              toLanguage: effectiveLanguage,
-              reason: 'Cross-language transfers are currently disabled.',
-            } as any);
-            // Don't proceed with switch - skip the rest of tutor switch logic
-          } else {
-            // Defense passed - proceed with switch
-            console.log(`[Tutor Switch] Open-mic: Executing handoff to ${targetGender} tutor${isLanguageSwitch ? ` (${effectiveLanguage})` : ''}`);
-            
-            // Store previous tutor name for natural handoff intro
-            session.previousTutorName = session.tutorName;
-          
-            try {
-          let tutorName: string | undefined;
-          
-          if (isAssistantSwitch) {
-            // Assistant switch: Use Google Cloud TTS
-            const { ASSISTANT_TUTORS } = await import('./assistant-tutor-config');
-            const assistantConfig = ASSISTANT_TUTORS[effectiveLanguage] || ASSISTANT_TUTORS.spanish;
-            if (assistantConfig) {
-              tutorName = targetGender === 'male' ? assistantConfig.male : assistantConfig.female;
-              if (!session.isAssistantActive) {
-                session.cachedMainTutorVoiceId = session.voiceId;
-                session.cachedMainTutorGender = session.tutorGender as 'male' | 'female';
-              }
-              session.isAssistantActive = true;
-              session.voiceId = undefined;
-              session.tutorGender = targetGender;
-              session.tutorName = tutorName;
-            }
-          } else {
-            // Main tutor switch: Use Cartesia
-            const allVoices = await storage.getAllTutorVoices();
-            const matchingVoice = allVoices.find(
-              (v: any) => v.language?.toLowerCase() === effectiveLanguage &&
-                          v.gender?.toLowerCase() === targetGender &&
-                          v.role === 'tutor' && v.isActive
-            );
-            
-            if (matchingVoice) {
-              const voiceNameParts = matchingVoice.voiceName?.split(/\s*[-–]\s*/) || [];
-              tutorName = voiceNameParts[0]?.trim();
-              session.isAssistantActive = false;
-              session.voiceId = matchingVoice.voiceId;
-              session.ttsProvider = (matchingVoice.provider === 'elevenlabs' ? 'elevenlabs' : matchingVoice.provider === 'google' ? 'google' : matchingVoice.provider === 'gemini' ? 'gemini' : 'cartesia') as 'elevenlabs' | 'cartesia' | 'google' | 'gemini';
-              (session as any).elStability = matchingVoice.elStability ?? 0.5;
-              (session as any).elSimilarityBoost = matchingVoice.elSimilarityBoost ?? 0.75;
-              (session as any).elStyle = matchingVoice.elStyle ?? 0;
-              (session as any).elSpeakerBoost = matchingVoice.elSpeakerBoost ?? true;
-              session.tutorGender = targetGender;
-              session.tutorName = tutorName || 'your tutor';
-              
-              // Update voiceDefaults to reflect new tutor's baseline settings
-              // Use explicit defaults for missing fields (not previous session state)
-              const newPersonality = (matchingVoice.personality as TutorPersonality) || 'warm';
-              session.voiceDefaults = {
-                speakingRate: matchingVoice.speakingRate ?? 0.9,  // Standard tutor baseline
-                personality: newPersonality,
-                emotion: matchingVoice.emotion || getDefaultEmotion(newPersonality),  // Derive from personality
-                expressiveness: matchingVoice.expressiveness ?? 3,  // Standard baseline
-              };
-              session.voiceOverride = undefined; // Clear overrides for new tutor baseline
-              console.log(`[Tutor Switch] Open-mic: Updated voiceDefaults for ${tutorName}:`, session.voiceDefaults);
-              
-              if (isLanguageSwitch) {
-                session.previousLanguage = session.targetLanguage;
-                session.isLanguageSwitchHandoff = true;
-                session.targetLanguage = effectiveLanguage;
-              }
-            }
-          }
-          
-          // Notify client of handoff
-          this.sendMessage(session.ws, {
-            type: 'tutor_handoff',
-            timestamp: Date.now(),
-            targetGender,
-            targetLanguage: isLanguageSwitch ? effectiveLanguage : undefined,
-            tutorName,
-            isLanguageSwitch,
-            requiresGreeting: true,
-            isAssistant: isAssistantSwitch, // Signals assistant mode - client should navigate to practice page
-          });
-          
-          // Trigger new tutor's greeting automatically
-          // SKIP for assistant handoffs - client navigates immediately, practice page handles its own greeting
-          if (tutorName && !isAssistantSwitch) {
-            console.log(`[Tutor Switch] Open-mic: Triggering ${tutorName}'s greeting`);
-            this.processVoiceSwitchIntro(sessionId, tutorName, targetGender).catch((err: Error) => {
-              console.error(`[Tutor Switch] Failed to generate greeting:`, err.message);
-            });
-          } else if (isAssistantSwitch) {
-            console.log(`[Tutor Switch] Open-mic: Skipping greeting - assistant practice page will greet`);
-          }
-          
-        } catch (err: any) {
-          console.error(`[Tutor Switch] Open-mic error:`, err.message);
-          this.sendMessage(session.ws, {
-            type: 'tutor_handoff',
-            timestamp: Date.now(),
-            targetGender,
-            isLanguageSwitch: false,
-          });
-        }
-          } // End of defense-in-depth else block
-        } // End of transferValidation.allowed else block (Open-mic)
-      }
+      await this.completeOpenMicResponse(session, metrics, turnId, startTime, fullText, transcript, confidence, responseCompleteSentOpenMic);
       
       return metrics;
       
@@ -7785,46 +7430,13 @@ Remember: David may reference things discussed in these recent text chats.
       
       this.sendError(session.ws, 'UNKNOWN', error.message, true);
       
-      session.earlyTtsActive = undefined;
+      await this.completeOpenMicResponse(session, metrics, turnId, startTime, fullText, transcript, confidence, responseCompleteSentOpenMic, { errorPath: true, skipPersist: true, skipTutorSwitch: true });
       
-      if (!responseCompleteSentOpenMic) {
-        responseCompleteSentOpenMic = true;
-        this.sendMessage(session.ws, {
-          type: 'response_complete',
-          timestamp: Date.now(),
-          turnId,
-          totalSentences: metrics.sentenceCount,
-          totalDurationMs: Date.now() - startTime,
-          fullText: '',
-          metrics: {
-            sttLatencyMs: metrics.sttLatencyMs,
-            aiFirstTokenMs: metrics.aiFirstTokenMs,
-            ttsFirstChunkMs: metrics.ttsFirstByteMs,
-            totalTtfbMs: 0,
-            sentenceCount: metrics.sentenceCount,
-          },
-        } as StreamingResponseCompleteMessage);
-      } else {
-        console.log(`[Streaming Orchestrator] response_complete already sent by safety net — skipping catch-block emit for session ${sessionId}`);
-      }
-      
-      // Return metrics instead of throwing to prevent socket disconnect
       return metrics;
     } finally {
-      if (!responseCompleteSentOpenMic) {
+      if (!responseCompleteSentOpenMic.sent) {
         console.error(`[OpenMic SAFETY NET] response_complete was NEVER sent for session ${sessionId} — forcing now`);
-        responseCompleteSentOpenMic = true;
-        session.isGenerating = false;
-        session.earlyTtsActive = undefined;
-        this.sendMessage(session.ws, {
-          type: 'response_complete',
-          timestamp: Date.now(),
-          turnId,
-          totalSentences: 0,
-          totalDurationMs: Date.now() - startTime,
-          fullText: '',
-          metrics: { sttLatencyMs: 0, aiFirstTokenMs: 0, ttsFirstChunkMs: 0, totalTtfbMs: 0, sentenceCount: 0 },
-        } as StreamingResponseCompleteMessage);
+        await this.completeOpenMicResponse(session, metrics, turnId, startTime, '', transcript, confidence, responseCompleteSentOpenMic, { errorPath: true, skipPersist: true, skipTutorSwitch: true });
       }
     }
   }
@@ -8071,7 +7683,7 @@ Remember: David may reference things discussed in these recent text chats.
     const emotion = this.selectEmotionForContext(originalText, session);
     
     // Apply Voice Lab overrides if present (admin experimentation)
-    const voiceOverride = (session as any).voiceOverride;
+    const voiceOverride = session.voiceOverride;
     const effectiveSpeakingRate = voiceOverride?.speakingRate ?? getAdaptiveSpeakingRate(session);
     const effectiveEmotion = voiceOverride?.emotion ?? emotion;
     const effectivePersonality = voiceOverride?.personality ?? session.tutorPersonality;
@@ -8119,10 +7731,10 @@ Remember: David may reference things discussed in these recent text chats.
         personality: effectivePersonality,
         expressiveness: effectiveExpressiveness,
         // ElevenLabs-specific voice settings from DB
-        elStability: (session as any).elStability,
-        elSimilarityBoost: (session as any).elSimilarityBoost,
-        elStyle: (session as any).elStyle,
-        elSpeakerBoost: (session as any).elSpeakerBoost,
+        elStability: session.elStability,
+        elSimilarityBoost: session.elSimilarityBoost,
+        elStyle: session.elStyle,
+        elSpeakerBoost: session.elSpeakerBoost,
       };
       const effectiveTtsProvider = session.ttsProvider || this.ttsProvider;
       
@@ -8451,9 +8063,9 @@ Remember: David may reference things discussed in these recent text chats.
     session.telemetryTtsCharacters += (chunk.text || '').length;
     
     // PER-TURN TTS DIAGNOSTICS: Track how many TTS calls happen per turn
-    if (!(session as any)._ttsTurnCallCount) (session as any)._ttsTurnCallCount = 0;
-    (session as any)._ttsTurnCallCount++;
-    const ttsCallNum = (session as any)._ttsTurnCallCount;
+    if (!session._ttsTurnCallCount) session._ttsTurnCallCount = 0;
+    session._ttsTurnCallCount++;
+    const ttsCallNum = session._ttsTurnCallCount;
     console.log(`[TTS DIAG] streamSentenceAudioProgressive call #${ttsCallNum} for turn ${turnId ?? session.currentTurnId}, sentence=${chunk.index}, text="${displayText.substring(0, 60)}"`);
     
     // ASSISTANT MODE: Use Google TTS instead of Cartesia for practice partners
@@ -8467,17 +8079,17 @@ Remember: David may reference things discussed in these recent text chats.
     
     // DEFENSE-IN-DEPTH: Prevent two simultaneous TTS streams for the same sentenceIndex
     const activeTtsKey = `tts-active-${index}`;
-    if ((session as any)[activeTtsKey]) {
+    if (session[activeTtsKey]) {
       console.warn(`[Progressive DEDUP] Blocking duplicate TTS for sentenceIndex ${index} (already active) - text: "${displayText.substring(0, 60)}"`);
       return;
     }
-    (session as any)[activeTtsKey] = true;
+    session[activeTtsKey] = true;
     
     const emotion = this.selectEmotionForContext(originalText, session);
     const effectiveTurnId = turnId ?? session.currentTurnId;
     
     // Apply Voice Lab overrides if present (admin experimentation)
-    const voiceOverride = (session as any).voiceOverride;
+    const voiceOverride = session.voiceOverride;
     const effectiveSpeakingRate = voiceOverride?.speakingRate ?? getAdaptiveSpeakingRate(session);
     const effectiveEmotion = voiceOverride?.emotion ?? emotion;
     const effectivePersonality = voiceOverride?.personality ?? session.tutorPersonality;
@@ -8795,17 +8407,17 @@ Remember: David may reference things discussed in these recent text chats.
         personality: effectivePersonality,
         expressiveness: effectiveExpressiveness,
         vocalStyle: effectiveVocalStyle,
-        elStability: (session as any).elStability,
-        elSimilarityBoost: (session as any).elSimilarityBoost,
-        elStyle: (session as any).elStyle,
-        elSpeakerBoost: (session as any).elSpeakerBoost,
+        elStability: session.elStability,
+        elSimilarityBoost: session.elSimilarityBoost,
+        elStyle: session.elStyle,
+        elSpeakerBoost: session.elSpeakerBoost,
       };
       
       const ttsAdapter = this.ttsProviderRegistry.getOrThrow(effectiveTtsProvider);
       await ttsAdapter.streamSynthesizeProgressive(progressiveRequest, ttsCallbacks);
       
       // Clean up active TTS tracking after completion
-      (session as any)[activeTtsKey] = false;
+      session[activeTtsKey] = false;
       
     } catch (error: any) {
       const statusCode = error.status || error.statusCode || error.code || 'unknown';
@@ -8853,7 +8465,7 @@ Remember: David may reference things discussed in these recent text chats.
       } as StreamingSentenceEndMessage);
       
       // Clean up active TTS tracking on error
-      (session as any)[activeTtsKey] = false;
+      session[activeTtsKey] = false;
     }
   }
   
@@ -10486,7 +10098,7 @@ Only include observations you can clearly justify from the exchange. Return empt
         );
         
         // Store for future posts in this voice session
-        (session as any).expressLaneSessionId = expressSession.id;
+        session.expressLaneSessionId = expressSession.id;
         
         await founderCollabService.addMessage(expressSession.id, {
           role: 'daniela',
@@ -11027,10 +10639,10 @@ Only include observations you can clearly justify from the exchange. Return empt
    * up to 100 terms (Deepgram's recommended limit) per session.
    */
   private addSttKeyterms(session: StreamingSession, words: string[]): void {
-    const existing: string[] = (session as any).sttKeyterms || [];
+    const existing: string[] = session.sttKeyterms || [];
     const newSet = [...new Set([...existing, ...words.map(w => w.toLowerCase())])];
     const capped = newSet.slice(-100);
-    (session as any).sttKeyterms = capped;
+    session.sttKeyterms = capped;
     console.log(`[STT Keyterms] Updated: [${capped.join(', ')}] (${capped.length} terms)`);
   }
 
@@ -11173,8 +10785,8 @@ Only include observations you can clearly justify from the exchange. Return empt
       throw new Error(`Session not found or inactive: ${sessionId}`);
     }
     
-    if ((session as any).__greetingInProgress || (session as any).__greetingDelivered) {
-      console.log(`[Streaming Greeting] SKIPPING duplicate greeting request (inProgress=${!!(session as any).__greetingInProgress}, delivered=${!!(session as any).__greetingDelivered})`);
+    if (session.__greetingInProgress || session.__greetingDelivered) {
+      console.log(`[Streaming Greeting] SKIPPING duplicate greeting request (inProgress=${!!session.__greetingInProgress}, delivered=${!!session.__greetingDelivered})`);
       return {
         sessionId,
         sttLatencyMs: 0,
@@ -11186,7 +10798,7 @@ Only include observations you can clearly justify from the exchange. Return empt
         audioChunkCount: 0,
       };
     }
-    (session as any).__greetingInProgress = true;
+    session.__greetingInProgress = true;
     
     // Await warmup with timeout - don't block forever if Gemini is slow
     // If warmup takes longer than 3 seconds, proceed without waiting
@@ -11486,7 +11098,7 @@ Only include observations you can clearly justify from the exchange. Return empt
       session.sentAudioHashes.clear();  // Reset content-based deduplication for new turn
       session.firstAudioSent = false;   // Reset so whiteboard updates buffer until audio starts
       session.pendingWhiteboardUpdates = [];
-      (session as any)._ttsTurnCallCount = 0;  // DIAG: Reset TTS call counter for new turn
+      session._ttsTurnCallCount = 0;  // DIAG: Reset TTS call counter for new turn
       const turnId = session.currentTurnId;
       
       // Notify client that greeting is being generated
@@ -11858,8 +11470,8 @@ Only include observations you can clearly justify from the exchange. Return empt
         },
       } as StreamingResponseCompleteMessage);
       
-      (session as any).__greetingInProgress = false;
-      (session as any).__greetingDelivered = true;
+      session.__greetingInProgress = false;
+      session.__greetingDelivered = true;
       session.isGenerating = false;
       
       console.log(`[Streaming Greeting] Complete: ${metrics.sentenceCount} sentences, ${metrics.audioChunkCount} audio chunks in ${metrics.totalLatencyMs}ms`);
@@ -11891,7 +11503,7 @@ Only include observations you can clearly justify from the exchange. Return empt
       return metrics;
       
     } catch (error: any) {
-      (session as any).__greetingInProgress = false;
+      session.__greetingInProgress = false;
       session.isGenerating = false;
       console.error(`[Streaming Greeting] Error:`, error.message);
       this.sendError(session.ws, 'GREETING_ERROR', error.message, true);
@@ -12704,13 +12316,13 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
     
     // Apply ElevenLabs settings directly to session (read from session during TTS)
     if (override) {
-      if (override.elStability !== undefined) (session as any).elStability = override.elStability;
-      if (override.elSimilarityBoost !== undefined) (session as any).elSimilarityBoost = override.elSimilarityBoost;
-      if (override.elStyle !== undefined) (session as any).elStyle = override.elStyle;
+      if (override.elStability !== undefined) session.elStability = override.elStability;
+      if (override.elSimilarityBoost !== undefined) session.elSimilarityBoost = override.elSimilarityBoost;
+      if (override.elStyle !== undefined) session.elStyle = override.elStyle;
     }
     
     // Store override in session
-    (session as any).voiceOverride = override;
+    session.voiceOverride = override;
     console.log(`[Streaming Orchestrator] Voice override ${override ? 'applied' : 'cleared'} for session ${sessionId}:`, override);
     return true;
   }
@@ -13242,7 +12854,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         
         const mappedEmotion = emotion ? emotionMap[emotion] : undefined;
         
-        const currentOverride = (session as any).voiceOverride || {};
+        const currentOverride = session.voiceOverride || {};
         const newOverride = {
           ...currentOverride,
           ...(speed && { speakingRate: speedMap[speed] || 0.9 }),
@@ -13251,7 +12863,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           ...(vocalStyle && { vocalStyle }),
         };
         
-        (session as any).voiceOverride = newOverride;
+        session.voiceOverride = newOverride;
         
         if (text) {
           session.voiceAdjustText = text;
@@ -13272,7 +12884,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         const reason = fn.args.reason as string | undefined;
         
         if (session.voiceDefaults) {
-          (session as any).voiceOverride = {
+          session.voiceOverride = {
             speakingRate: session.voiceDefaults.speakingRate,
             emotion: session.voiceDefaults.emotion,
             personality: session.voiceDefaults.personality,
@@ -13281,7 +12893,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           console.log(`[Native Function→VoiceReset] Reset to tutor defaults:`, session.voiceDefaults, `reason: ${reason || 'none'}`);
         } else {
           // Fallback: clear override entirely
-          (session as any).voiceOverride = undefined;
+          session.voiceOverride = undefined;
           console.log(`[Native Function→VoiceReset] Cleared override (no defaults stored), reason: ${reason || 'none'}`);
         }
         if (text && !session.functionCallText) {
@@ -13330,8 +12942,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
             
             const creditSummary = `[CREDIT CHECK RESULT] Remaining: ${remainingHours}h (${Math.round(balance.percentRemaining)}% left), Used: ${usedHours}h of ${totalHours}h total, This session: ${sessionMinutes} minutes, Status: ${balance.warningLevel === 'none' ? 'Healthy' : balance.warningLevel.toUpperCase()}`;
             
-            (session as any).lastCreditCheck = creditSummary;
-            (session as any).creditContextInjected = false;
+            session.lastCreditCheck = creditSummary;
+            session.creditContextInjected = false;
             
             console.log(`[Native Function→CheckCredits] Balance: ${remainingHours}h remaining (${balance.warningLevel}), session: ${sessionMinutes}min, reason: ${reason || 'not specified'}`);
           } catch (err: any) {
@@ -13423,7 +13035,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
             console.warn(`[Native Function→Subtitle] Custom mode requires text parameter, skipping`);
           } else {
             console.log(`[Native Function→Subtitle] Custom text display: "${customText.substring(0, 50)}..."`);
-            (session as any).customOverlayText = customText;
+            session.customOverlayText = customText;
             this.sendMessage(session.ws, {
               type: 'custom_overlay',
               text: customText,
@@ -14151,7 +13763,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
                 .orderBy(scenarioProps.displayOrder);
 
               let levelGuide = null;
-              const studentLevel = (session as any).studentActflLevel || 'novice_mid';
+              const studentLevel = session.studentActflLevel || 'novice_mid';
               const [guide] = await sharedDb.select().from(scenarioLevelGuides)
                 .where(and(
                   eq(scenarioLevelGuides.scenarioId, scenario.id),
@@ -14160,7 +13772,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
                 .limit(1);
               levelGuide = guide || null;
 
-              (session as any).activeScenario = {
+              session.activeScenario = {
                 id: scenario.id,
                 slug: scenario.slug,
                 title: scenario.title,
@@ -14210,8 +13822,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
                   location: scenario.location,
                   defaultMood: scenario.defaultMood,
                   imageUrl: scenario.imageUrl,
-                  props: (session as any).activeScenario.props,
-                  levelGuide: (session as any).activeScenario.levelGuide,
+                  props: session.activeScenario.props,
+                  levelGuide: session.activeScenario.levelGuide,
                 },
               });
 
@@ -14254,7 +13866,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         const text = fn.args.text as string | undefined;
         const propTitle = fn.args.prop_title as string | undefined;
         const updates = fn.args.updates as Array<{ label: string; value: string }> | undefined;
-        const activeScenario = (session as any).activeScenario;
+        const activeScenario = session.activeScenario;
 
         if (propTitle && updates && updates.length > 0 && activeScenario?.props) {
           const targetProp = activeScenario.props.find((p: any) =>
@@ -14345,7 +13957,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       case 'END_SCENARIO': {
         const spokenText = (fn.args.spoken_text || fn.args.text) as string | undefined;
         const performanceNotes = (fn.args.feedback || fn.args.performance_notes) as string | undefined;
-        const activeScenario = (session as any).activeScenario;
+        const activeScenario = session.activeScenario;
 
         if (activeScenario) {
           console.log(`[Native Function→EndScenario] Ending "${activeScenario.title}"`);
@@ -14379,7 +13991,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
             performanceNotes: performanceNotes || undefined,
           });
 
-          (session as any).activeScenario = null;
+          session.activeScenario = null;
         } else {
           console.log('[Native Function→EndScenario] No active scenario to end');
         }
@@ -14459,7 +14071,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
             // Import dynamically to avoid circular dependencies
             const { getCachedPronunciationAudio } = await import('./audio-caching-service');
             const targetLanguage = session.targetLanguage || 'spanish';
-            const voiceGender = (session as any).voiceGender || 'female';
+            const voiceGender = session.voiceGender || 'female';
             
             // Use the description as the text to synthesize
             // (Daniela describes what she wants to play, which is typically the target phrase)
@@ -14662,7 +14274,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
 
               if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
               session.pendingMemoryLookupPromises.push(Promise.resolve());
-              (session as any).lastSyllabusData = syllabusData;
+              session.lastSyllabusData = syllabusData;
             } else {
               console.log(`[Native Function→BrowseSyllabus] No active class found for ${session.targetLanguage}`);
             }
@@ -14765,7 +14377,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
 
               if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
               session.pendingMemoryLookupPromises.push(Promise.resolve());
-              (session as any).lastLoadedLesson = lessonContent;
+              session.lastLoadedLesson = lessonContent;
             } else {
               console.warn(`[Native Function→StartLesson] Lesson not found: id=${lessonId} name=${lessonName}`);
             }
@@ -14819,7 +14431,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
 
               if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
               session.pendingMemoryLookupPromises.push(Promise.resolve());
-              (session as any).lastVocabSet = vocabData;
+              session.lastVocabSet = vocabData;
             } else {
               console.warn(`[Native Function→LoadVocabSet] Lesson not found: ${lessonId}`);
             }
@@ -15007,7 +14619,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
 
                 if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
                 session.pendingMemoryLookupPromises.push(Promise.resolve());
-                (session as any).lastRecommendation = recommended;
+                session.lastRecommendation = recommended;
               } else {
                 console.log(`[Native Function→RecommendNext] No lessons available to recommend`);
                 this.sendMessage(session.ws, {
@@ -15047,8 +14659,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
             const db = (await import('../db')).db;
 
             let targetLessonId = lessonId;
-            if (!targetLessonId && (session as any).lastLoadedLesson) {
-              targetLessonId = (session as any).lastLoadedLesson.id;
+            if (!targetLessonId && session.lastLoadedLesson) {
+              targetLessonId = session.lastLoadedLesson.id;
             }
 
             let drillItems: Array<{ prompt: string; expectedAnswer?: string; options?: string[]; pronunciation?: string; drillType?: string }> = [];
@@ -15102,7 +14714,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
                 startTime: Date.now(),
                 lessonId: targetLessonId,
               };
-              (session as any).drillSession = sessionState;
+              session.drillSession = sessionState;
 
               const firstItem = drillItems[0];
               const { parseDrillContent } = await import('@shared/whiteboard-types');
@@ -15122,7 +14734,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
 
               if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
               session.pendingMemoryLookupPromises.push(Promise.resolve());
-              (session as any).lastDrillSessionData = {
+              session.lastDrillSessionData = {
                 totalItems: drillItems.length,
                 currentItem: 1,
                 firstDrill: { type: firstItem.drillType, prompt: firstItem.prompt },
@@ -15131,7 +14743,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
               console.log(`[Native Function→DrillSession] No drill items found`);
               if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
               session.pendingMemoryLookupPromises.push(Promise.resolve());
-              (session as any).lastDrillSessionData = { totalItems: 0, noDrillsAvailable: true };
+              session.lastDrillSessionData = { totalItems: 0, noDrillsAvailable: true };
             }
           } catch (err: any) {
             console.error(`[Native Function→DrillSession] Error:`, err.message);
@@ -15148,7 +14760,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           session.functionCallText = text;
         }
 
-        const drillSession = (session as any).drillSession;
+        const drillSession = session.drillSession;
         if (drillSession) {
           if (wasCorrect === true) drillSession.correctCount++;
           else if (wasCorrect === false) drillSession.incorrectCount++;
@@ -15174,7 +14786,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
 
             if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
             session.pendingMemoryLookupPromises.push(Promise.resolve());
-            (session as any).lastDrillSessionData = {
+            session.lastDrillSessionData = {
               totalItems: drillSession.totalItems,
               currentItem: drillSession.currentIndex + 1,
               correctSoFar: drillSession.correctCount,
@@ -15209,7 +14821,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
 
             if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
             session.pendingMemoryLookupPromises.push(Promise.resolve());
-            (session as any).lastDrillSessionData = {
+            session.lastDrillSessionData = {
               sessionComplete: true,
               totalItems: drillSession.totalItems,
               correct: drillSession.correctCount,
@@ -15217,7 +14829,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
               accuracy,
               durationSeconds: elapsed,
             };
-            delete (session as any).drillSession;
+            delete session.drillSession;
           }
         } else {
           console.log(`[Native Function→DrillSessionNext] No active drill session`);
@@ -15232,7 +14844,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           session.functionCallText = text;
         }
 
-        const activeDrillSession = (session as any).drillSession;
+        const activeDrillSession = session.drillSession;
         if (activeDrillSession) {
           const elapsed = Math.round((Date.now() - activeDrillSession.startTime) / 1000);
           const completed = activeDrillSession.currentIndex;
@@ -15262,7 +14874,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
 
           if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
           session.pendingMemoryLookupPromises.push(Promise.resolve());
-          (session as any).lastDrillSessionData = {
+          session.lastDrillSessionData = {
             sessionComplete: true,
             endedEarly: true,
             itemsAttempted: completed,
@@ -15272,7 +14884,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
             accuracy,
             durationSeconds: elapsed,
           };
-          delete (session as any).drillSession;
+          delete session.drillSession;
         }
         break;
       }
@@ -15330,12 +14942,12 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
 
               if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
               session.pendingMemoryLookupPromises.push(Promise.resolve());
-              (session as any).lastDueVocab = vocabList;
+              session.lastDueVocab = vocabList;
             } else {
               console.log(`[Native Function→ReviewDueVocab] No words due for review`);
               if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
               session.pendingMemoryLookupPromises.push(Promise.resolve());
-              (session as any).lastDueVocab = [];
+              session.lastDueVocab = [];
             }
           } catch (err: any) {
             console.error(`[Native Function→ReviewDueVocab] Error:`, err.message);
