@@ -4876,6 +4876,28 @@ Remember: David may reference things discussed in these recent text chats.
       metrics.userTranscript = transcript;
       metrics.aiResponse = fullText.trim();
       
+      // ZERO-SENTENCE SAFETY NET (PTT): If Gemini completed but produced no spoken text
+      // (e.g., function call continuation returned empty), speak a fallback
+      if (metrics.sentenceCount === 0 && !session.isInterrupted && !fullText.trim()) {
+        const fallbackText = "Sorry, let me try that again. What were you saying?";
+        console.warn(`[PTT Safety Net] 0 sentences produced after Gemini complete — speaking fallback`);
+        try {
+          this.sendMessage(session.ws, {
+            type: 'sentence_start',
+            timestamp: Date.now(),
+            turnId,
+            sentenceIndex: 0,
+            text: fallbackText,
+            hasTargetContent: false,
+          } as StreamingSentenceStartMessage);
+          await this.streamSentenceAudioProgressive(session, { index: 0, text: fallbackText }, fallbackText, metrics, turnId);
+          fullText = fallbackText;
+          metrics.sentenceCount = 1;
+        } catch (fallbackErr: any) {
+          console.error(`[PTT Safety Net] Fallback TTS failed:`, fallbackErr.message);
+        }
+      }
+      
       // Send completion message
       metrics.totalLatencyMs = Date.now() - startTime;
       
@@ -7599,6 +7621,29 @@ Remember: David may reference things discussed in these recent text chats.
           console.error(`[Multi-Step FC - OpenMic] Continuation failed:`, contErr.message);
         }
         }  // Close the else block for embedded text check
+      }
+      
+      // ZERO-SENTENCE SAFETY NET: If Gemini completed but produced no spoken text
+      // (e.g., function call continuation returned empty), speak a fallback so the user
+      // isn't left in silence wondering if the app froze
+      if (metrics.sentenceCount === 0 && !session.isInterrupted && !fullText.trim()) {
+        const fallbackText = "Sorry, let me try that again. What were you saying?";
+        console.warn(`[OpenMic Safety Net] 0 sentences produced after Gemini complete — speaking fallback`);
+        try {
+          this.sendMessage(session.ws, {
+            type: 'sentence_start',
+            timestamp: Date.now(),
+            turnId,
+            sentenceIndex: 0,
+            text: fallbackText,
+            hasTargetContent: false,
+          } as StreamingSentenceStartMessage);
+          await this.streamSentenceAudioProgressive(session, { index: 0, text: fallbackText }, fallbackText, metrics, turnId);
+          fullText = fallbackText;
+          metrics.sentenceCount = 1;
+        } catch (fallbackErr: any) {
+          console.error(`[OpenMic Safety Net] Fallback TTS failed:`, fallbackErr.message);
+        }
       }
       
       // Clear generating flag - response complete
