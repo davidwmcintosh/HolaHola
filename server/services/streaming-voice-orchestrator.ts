@@ -6005,6 +6005,11 @@ Remember: David may reference things discussed in these recent text chats.
       // Abort signal for early stream termination when function call TTS starts (open-mic)
       const streamAbortSignalOpenMic = { aborted: false };
       
+      // SAFETY NET: Track whether response_complete has been sent for this turn
+      // Prevents permanent mic lockout if the pipeline hangs after early TTS
+      let responseCompleteSentOpenMic = false;
+      let earlyTtsSafetyTimerOpenMic: NodeJS.Timeout | null = null;
+      
       // TTS LOOKAHEAD (OpenMic): Same pipeline as PTT path
       const ttsLookaheadMapOM = new Map<number, Promise<{ audio: Buffer; durationMs: number; timestamps: import('@shared/streaming-voice-types').WordTiming[] } | null>>();
       const effectiveTtsProviderOM = resolveSessionTTSProvider(session.ttsProvider as TTSProviderName | undefined, this.ttsProvider as TTSProviderName);
@@ -6256,6 +6261,41 @@ Remember: David may reference things discussed in these recent text chats.
               streamAbortSignalOpenMic.aborted = true;
 
               console.log(`[Early TTS - OpenMic] TTS completed in ${Date.now() - earlyTtsStart}ms (${metrics.sentenceCount} emitted sentences${isGoogleBatchModeFCOM ? ', Google batch' : shouldPipeline ? ', pipelined' : ''})`);
+              
+              // SAFETY NET: Start a 15-second timer to send response_complete if the main pipeline hangs
+              // This prevents permanent mic lockout when the Gemini stream doesn't terminate cleanly after abort
+              earlyTtsSafetyTimerOpenMic = setTimeout(() => {
+                if (!responseCompleteSentOpenMic && session.ws) {
+                  console.warn(`[Early TTS Safety Net] Pipeline hung after early TTS — forcing response_complete for session ${sessionId}`);
+                  responseCompleteSentOpenMic = true;
+                  session.isGenerating = false;
+                  session.lastResponseCompletedTime = Date.now();
+                  metrics.totalLatencyMs = Date.now() - startTime;
+                  
+                  if (session.postTtsSuppressionTimer) clearTimeout(session.postTtsSuppressionTimer);
+                  session.onTtsStateChange?.(false);
+                  
+                  this.sendMessage(session.ws, {
+                    type: 'response_complete',
+                    timestamp: Date.now(),
+                    turnId,
+                    totalSentences: metrics.sentenceCount,
+                    totalDurationMs: metrics.totalLatencyMs,
+                    fullText: fullText.trim(),
+                    metrics: {
+                      sttLatencyMs: metrics.sttLatencyMs,
+                      aiFirstTokenMs: metrics.aiFirstTokenMs,
+                      ttsFirstChunkMs: metrics.ttsFirstByteMs,
+                      totalTtfbMs: 0,
+                      sentenceCount: metrics.sentenceCount,
+                    },
+                  } as StreamingResponseCompleteMessage);
+                  
+                  this.persistMessages(session.conversationId, transcript, fullText.trim(), session, confidence).catch((err: Error) => {
+                    console.error('[Early TTS Safety Net] Failed to persist messages:', err.message);
+                  });
+                }
+              }, 15000);
             } else if ((session as any).earlyTtsActive) {
               console.log(`[Early TTS - OpenMic] DEFENSIVE RESET: embeddedText empty after clean, clearing pre-signaled earlyTtsActive`);
               (session as any).earlyTtsActive = false;
@@ -7663,46 +7703,59 @@ Remember: David may reference things discussed in these recent text chats.
         }
       }
       
-      // Clear generating flag - response complete
-      session.isGenerating = false;
-      session.lastResponseCompletedTime = Date.now();
-      
-      // Mark architect notes as delivered (only if not cleared by handleInterrupt)
-      // handleInterrupt clears session.pendingArchitectNoteIds, so this is empty if interrupted
-      if (session.pendingArchitectNoteIds.length > 0) {
-        await architectVoiceService.markNotesDelivered(session.pendingArchitectNoteIds);
-        session.pendingArchitectNoteIds = [];  // Clear after delivery
+      // Cancel early TTS safety-net timer if it's still pending (normal completion beat it)
+      if (earlyTtsSafetyTimerOpenMic) {
+        clearTimeout(earlyTtsSafetyTimerOpenMic);
+        earlyTtsSafetyTimerOpenMic = null;
       }
       
-      // Response complete
-      metrics.totalLatencyMs = Date.now() - startTime;
+      // Guard: Skip if safety net already sent response_complete
+      if (responseCompleteSentOpenMic) {
+        console.log(`[Streaming Orchestrator] response_complete already sent by safety net — skipping normal emit for session ${sessionId}`);
+      } else {
+        responseCompleteSentOpenMic = true;
       
-      // ECHO SUPPRESSION: Delay re-enabling OpenMic transcription to allow client-side
-      // audio playback to complete. The server finishes sending TTS chunks before the client
-      // finishes playing them, so clearing suppression immediately would let Deepgram pick up
-      // TTS echo from the speakers as user speech, causing false utterance processing.
-      const POST_TTS_SUPPRESSION_HOLD_MS = 2500;
-      if (session.postTtsSuppressionTimer) clearTimeout(session.postTtsSuppressionTimer);
-      session.postTtsSuppressionTimer = setTimeout(() => {
-        session.onTtsStateChange?.(false);
-        session.postTtsSuppressionTimer = null;
-      }, POST_TTS_SUPPRESSION_HOLD_MS);
+        // Clear generating flag - response complete
+        session.isGenerating = false;
+        session.lastResponseCompletedTime = Date.now();
       
-      this.sendMessage(session.ws, {
-        type: 'response_complete',
-        timestamp: Date.now(),
-        turnId,
-        totalSentences: metrics.sentenceCount,
-        totalDurationMs: metrics.totalLatencyMs,
-        fullText: fullText.trim(),
-        metrics: {
-          sttLatencyMs: metrics.sttLatencyMs,
-          aiFirstTokenMs: metrics.aiFirstTokenMs,
-          ttsFirstChunkMs: metrics.ttsFirstByteMs,
-          totalTtfbMs: metrics.sttLatencyMs + metrics.aiFirstTokenMs + metrics.ttsFirstByteMs,
-          sentenceCount: metrics.sentenceCount,
-        },
-      } as StreamingResponseCompleteMessage);
+        // Mark architect notes as delivered (only if not cleared by handleInterrupt)
+        // handleInterrupt clears session.pendingArchitectNoteIds, so this is empty if interrupted
+        if (session.pendingArchitectNoteIds.length > 0) {
+          await architectVoiceService.markNotesDelivered(session.pendingArchitectNoteIds);
+          session.pendingArchitectNoteIds = [];  // Clear after delivery
+        }
+      
+        // Response complete
+        metrics.totalLatencyMs = Date.now() - startTime;
+      
+        // ECHO SUPPRESSION: Delay re-enabling OpenMic transcription to allow client-side
+        // audio playback to complete. The server finishes sending TTS chunks before the client
+        // finishes playing them, so clearing suppression immediately would let Deepgram pick up
+        // TTS echo from the speakers as user speech, causing false utterance processing.
+        const POST_TTS_SUPPRESSION_HOLD_MS = 2500;
+        if (session.postTtsSuppressionTimer) clearTimeout(session.postTtsSuppressionTimer);
+        session.postTtsSuppressionTimer = setTimeout(() => {
+          session.onTtsStateChange?.(false);
+          session.postTtsSuppressionTimer = null;
+        }, POST_TTS_SUPPRESSION_HOLD_MS);
+      
+        this.sendMessage(session.ws, {
+          type: 'response_complete',
+          timestamp: Date.now(),
+          turnId,
+          totalSentences: metrics.sentenceCount,
+          totalDurationMs: metrics.totalLatencyMs,
+          fullText: fullText.trim(),
+          metrics: {
+            sttLatencyMs: metrics.sttLatencyMs,
+            aiFirstTokenMs: metrics.aiFirstTokenMs,
+            ttsFirstChunkMs: metrics.ttsFirstByteMs,
+            totalTtfbMs: metrics.sttLatencyMs + metrics.aiFirstTokenMs + metrics.ttsFirstByteMs,
+            sentenceCount: metrics.sentenceCount,
+          },
+        } as StreamingResponseCompleteMessage);
+      }
       
       // Persist messages
       this.persistMessages(session.conversationId, transcript, fullText.trim(), session, confidence).catch((err: Error) => {
@@ -7947,22 +8000,33 @@ Remember: David may reference things discussed in these recent text chats.
       
       this.sendError(session.ws, 'UNKNOWN', error.message, true);
       
+      // Cancel early TTS safety-net timer on error path too
+      if (earlyTtsSafetyTimerOpenMic) {
+        clearTimeout(earlyTtsSafetyTimerOpenMic);
+        earlyTtsSafetyTimerOpenMic = null;
+      }
+      
       // SAFETY NET: Always send response_complete on pipeline error to prevent permanent mic lockout
-      this.sendMessage(session.ws, {
-        type: 'response_complete',
-        timestamp: Date.now(),
-        turnId,
-        totalSentences: metrics.sentenceCount,
-        totalDurationMs: Date.now() - startTime,
-        fullText: '',
-        metrics: {
-          sttLatencyMs: metrics.sttLatencyMs,
-          aiFirstTokenMs: metrics.aiFirstTokenMs,
-          ttsFirstChunkMs: metrics.ttsFirstByteMs,
-          totalTtfbMs: 0,
-          sentenceCount: metrics.sentenceCount,
-        },
-      } as StreamingResponseCompleteMessage);
+      if (!responseCompleteSentOpenMic) {
+        responseCompleteSentOpenMic = true;
+        this.sendMessage(session.ws, {
+          type: 'response_complete',
+          timestamp: Date.now(),
+          turnId,
+          totalSentences: metrics.sentenceCount,
+          totalDurationMs: Date.now() - startTime,
+          fullText: '',
+          metrics: {
+            sttLatencyMs: metrics.sttLatencyMs,
+            aiFirstTokenMs: metrics.aiFirstTokenMs,
+            ttsFirstChunkMs: metrics.ttsFirstByteMs,
+            totalTtfbMs: 0,
+            sentenceCount: metrics.sentenceCount,
+          },
+        } as StreamingResponseCompleteMessage);
+      } else {
+        console.log(`[Streaming Orchestrator] response_complete already sent by safety net — skipping catch-block emit for session ${sessionId}`);
+      }
       
       // Return metrics instead of throwing to prevent socket disconnect
       return metrics;

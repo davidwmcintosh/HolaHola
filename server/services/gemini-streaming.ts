@@ -1450,7 +1450,14 @@ export class GeminiStreamingService {
       // and finds empty state, causing spoken_text to be skipped and wrong continuation order.
       if (pendingFunctionCallPromise) {
         const fcWaitStart = Date.now();
-        await pendingFunctionCallPromise;
+        const FC_AWAIT_TIMEOUT_MS = 20000;
+        await Promise.race([
+          pendingFunctionCallPromise,
+          new Promise<void>((resolve) => setTimeout(() => {
+            console.warn(`[Gemini Streaming] pendingFunctionCallPromise timed out after ${FC_AWAIT_TIMEOUT_MS}ms — proceeding to prevent hang`);
+            resolve();
+          }, FC_AWAIT_TIMEOUT_MS)),
+        ]);
         const fcWaitMs = Date.now() - fcWaitStart;
         if (fcWaitMs > 5) {
           console.log(`[Gemini Streaming] Awaited pending function call handler: ${fcWaitMs}ms`);
