@@ -1087,11 +1087,31 @@ export class GeminiStreamingService {
       const FIRST_CHUNK_TIMEOUT_MS = 10000; // 10s for initial thinking + first token
       const INTER_CHUNK_TIMEOUT_MS = 8000;  // 8s between subsequent chunks (generous for slow networks)
       let streamTimedOut = false;
+      let streamAborted = false;
+      
+      const ABORT_SENTINEL = Symbol('STREAM_ABORT');
+      type AbortSentinel = typeof ABORT_SENTINEL;
+      
+      let abortResolve: (() => void) | null = null;
+      let abortPromise = new Promise<AbortSentinel>((resolve) => {
+        abortResolve = () => resolve(ABORT_SENTINEL);
+      });
       
       const clearStreamTimeout = () => {
         if (streamTimeoutId) {
           clearTimeout(streamTimeoutId);
           streamTimeoutId = null;
+        }
+      };
+      
+      const triggerAbort = (reason: string) => {
+        if (streamAborted) return;
+        streamAborted = true;
+        const elapsed = Date.now() - geminiRequestTime;
+        console.log(`[Gemini Streaming] Stream abort triggered (${reason}) at ${elapsed}ms`);
+        if (abortResolve) {
+          abortResolve();
+          abortResolve = null;
         }
       };
       
@@ -1104,28 +1124,48 @@ export class GeminiStreamingService {
           const phase = firstChunkReceived ? 'inter-chunk' : 'first-chunk';
           console.error(`[Gemini Streaming] STREAM TIMEOUT (${phase}) after ${elapsed}ms - aborting to prevent hang`);
           console.error(`[Gemini Streaming] State at timeout: ${chunkCount} chunks received, ${buffer.length} chars buffered, ${sentenceIndex} sentences emitted`);
+          triggerAbort(`timeout-${phase}`);
         }, timeoutMs);
       };
       
+      let abortPollId: NodeJS.Timeout | null = null;
+      if (abortSignal) {
+        abortPollId = setInterval(() => {
+          if (abortSignal.aborted && !streamAborted) {
+            triggerAbort('caller-abort-signal');
+          }
+        }, 250);
+      }
+      
       resetStreamTimeout();
       
-      // Process streamed tokens
+      // Process streamed tokens using manual iterator + race pattern
+      // This ensures abort/timeout can break the loop even when the iterator
+      // is blocked waiting for the next chunk from Gemini
       let chunkCount = 0;
       let lastLogTime = Date.now();
       let lastFinishReason: string | undefined;
-      for await (const chunk of result) {
-        if (streamTimedOut) {
-          console.warn(`[Gemini Streaming] Breaking out of stream loop after timeout`);
+      const iterator = result[Symbol.asyncIterator]();
+      
+      while (true) {
+        const raceResult = await Promise.race([
+          iterator.next(),
+          abortPromise,
+        ]);
+        
+        if (raceResult === ABORT_SENTINEL) {
+          if (streamTimedOut) {
+            console.warn(`[Gemini Streaming] Breaking out of stream loop after timeout (race won)`);
+          } else if (abortSignal?.aborted) {
+            const elapsed = Date.now() - geminiRequestTime;
+            console.log(`[Gemini Streaming] Early abort at ${elapsed}ms - caller received all needed content (race won)`);
+          }
           break;
         }
         
-        // EARLY ABORT: Caller signals that all needed content has been received
-        // (e.g., function call text already sent to TTS - no need to wait for stream close)
-        if (abortSignal?.aborted) {
-          const elapsed = Date.now() - geminiRequestTime;
-          console.log(`[Gemini Streaming] Early abort at ${elapsed}ms - caller received all needed content`);
-          break;
-        }
+        const iterResult = raceResult as IteratorResult<any>;
+        if (iterResult.done) break;
+        const chunk = iterResult.value;
         
         resetStreamTimeout();
         chunkCount++;
@@ -1365,13 +1405,17 @@ export class GeminiStreamingService {
         }
       }
       
-      // Clear stream timeout and flush timeout
+      // Clear stream timeout, flush timeout, and abort poll
       clearStreamTimeout();
+      if (abortPollId) {
+        clearInterval(abortPollId);
+        abortPollId = null;
+      }
       if (flushTimeoutId) {
         clearTimeout(flushTimeoutId);
       }
       
-      // If stream timed out, notify via onError callback
+      // If stream timed out or was aborted, notify via onError callback
       if (streamTimedOut) {
         const timeoutError = new Error(`Gemini stream timed out after ${Date.now() - geminiRequestTime}ms (${chunkCount} chunks received, ${fullText.length} chars)`);
         onError?.(timeoutError);
@@ -1455,9 +1499,12 @@ export class GeminiStreamingService {
         // Log to telemetry for monitoring frequency
         console.log(`[TELEMETRY] gemini_json_truncation: recovered=true, sentences=${sentenceIndex}, chars=${fullText.length}`);
         
-        // Clear pending timeouts
+        // Clear pending timeouts and abort poll
         if (streamTimeoutId) {
           clearTimeout(streamTimeoutId);
+        }
+        if (abortPollId) {
+          clearInterval(abortPollId);
         }
         if (flushTimeoutId) {
           clearTimeout(flushTimeoutId);
@@ -1488,6 +1535,12 @@ export class GeminiStreamingService {
         };
       }
       
+      if (abortPollId) {
+        clearInterval(abortPollId);
+      }
+      if (streamTimeoutId) {
+        clearTimeout(streamTimeoutId);
+      }
       onError?.(error);
       throw error;
     }
