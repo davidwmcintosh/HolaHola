@@ -1120,6 +1120,12 @@ export interface StreamingSession {
     scenarioStrengths?: string;
     teachingPhilosophy?: string;
   };
+  // FC OpenMic: Flags for coordinating function call TTS with main pipeline
+  earlyTtsActive?: boolean;       // True while FC callback is running — guards onSentence from double-processing
+  earlyTtsCompleted?: boolean;    // True after early TTS finishes in PTT path — guards post-stream batch TTS
+  functionCallText?: string;      // Accumulated spoken text from function call args (set by handleNativeFunctionCall)
+  voiceAdjustText?: string;       // Text from voice_adjust function call
+  accumulatedBoldWords?: string[]; // Bold-marked words accumulated across function calls
   // Deduplication: Track sent audio chunks to prevent double audio bug
   sentAudioChunks: Set<string>;
   // Content-based deduplication: Track audio content hashes to catch retries with new chunk IDs
@@ -2551,8 +2557,7 @@ Remember: David may reference things discussed in these recent text chats.
       session.sentAudioHashes.clear();  // Reset content-based deduplication for new turn
       session.firstAudioSent = false;   // Reset so whiteboard updates buffer until audio starts
       session.pendingWhiteboardUpdates = [];  // Clear stale pending updates from previous turn
-      (session as any).earlyTtsActive = undefined;  // Reset Early TTS flags from previous turn
-      (session as any).earlyTtsCompleted = undefined;
+      session.earlyTtsActive = undefined;
       (session as any)._ttsTurnCallCount = 0;  // DIAG: Reset TTS call counter for new turn
       const turnId = session.currentTurnId;
       
@@ -3201,7 +3206,7 @@ Remember: David may reference things discussed in these recent text chats.
           const hasTextArg = functionCalls.some(fc => fc.args?.text && String(fc.args.text).trim().length > 0);
           
           if (allMetadataOnly && hasTextArg && !session.isInterrupted && !isGoogleBatchMode) {
-            (session as any).earlyTtsActive = true;
+            session.earlyTtsActive = true;
             console.log(`[Early TTS] PRE-SIGNAL: earlyTtsActive=true BEFORE handleNativeFunctionCall (${functionCalls.map(f => f.name).join(',')})`);
           } else if (allMetadataOnly && hasTextArg && isGoogleBatchMode) {
             console.log(`[Early TTS] SKIPPED PRE-SIGNAL: Google batch mode active — embedded text block will handle TTS after function calls complete`);
@@ -3226,16 +3231,16 @@ Remember: David may reference things discussed in these recent text chats.
           
           // EARLY TTS: Start TTS immediately for metadata-only function calls
           // instead of waiting for the Gemini stream to close (saves ~10s latency)
-          const embeddedRawText = ensureTrailingPunctuation(((session as any).functionCallText || '').trim());
+          const embeddedRawText = ensureTrailingPunctuation((session.functionCallText || '').trim());
           
           if (allMetadataOnly && embeddedRawText && !session.isInterrupted) {
             const earlyTtsStart = Date.now();
             const embeddedText = cleanTextForDisplay(embeddedRawText).trim();
             if (embeddedText) {
-              (session as any).earlyTtsActive = true;
+              session.earlyTtsActive = true;
               
               const directBoldWords = extractBoldMarkedWords(embeddedRawText);
-              const accumulatedWords: string[] = (session as any).accumulatedBoldWords || [];
+              const accumulatedWords: string[] = session.accumulatedBoldWords || [];
               const allBoldWords = [...new Set([...directBoldWords, ...accumulatedWords])];
 
               const sentences = splitTextIntoSentences(embeddedText);
@@ -3372,26 +3377,26 @@ Remember: David may reference things discussed in these recent text chats.
               fullText = embeddedText;
               if (!metrics.sentenceCount) metrics.sentenceCount = sentences.length;
 
-              (session as any).functionCallText = undefined;
-              (session as any).voiceAdjustText = undefined;
-              (session as any).accumulatedBoldWords = undefined;
-              (session as any).earlyTtsCompleted = true;
+              session.functionCallText = undefined;
+              session.voiceAdjustText = undefined;
+              session.accumulatedBoldWords = undefined;
+              session.earlyTtsCompleted = true;
 
               streamAbortSignal.aborted = true;
 
               console.log(`[Early TTS] TTS completed in ${Date.now() - earlyTtsStart}ms (${metrics.sentenceCount} emitted sentences${shouldPipelinePTT ? ', pipelined' : ''}, started ${earlyTtsStart - geminiStartTime}ms after Gemini request)`);
-            } else if ((session as any).earlyTtsActive) {
+            } else if (session.earlyTtsActive) {
               console.log(`[Early TTS] DEFENSIVE RESET: embeddedText empty after clean, clearing pre-signaled earlyTtsActive`);
-              (session as any).earlyTtsActive = false;
+              session.earlyTtsActive = false;
             }
-          } else if ((session as any).earlyTtsActive && !embeddedRawText) {
+          } else if (session.earlyTtsActive && !embeddedRawText) {
             console.log(`[Early TTS] DEFENSIVE RESET: no embeddedRawText, clearing pre-signaled earlyTtsActive`);
-            (session as any).earlyTtsActive = false;
+            session.earlyTtsActive = false;
           }
         },
         onSentence: async (chunk: SentenceChunk) => {
           // EARLY TTS GUARD: Skip if function call handler is running or completed batch TTS
-          if ((session as any).earlyTtsActive || (session as any).earlyTtsCompleted) {
+          if (session.earlyTtsActive || session.earlyTtsCompleted) {
             console.log(`[Streaming Orchestrator] Skipping onSentence ${chunk.index} - Early TTS active/completed (PTT)`);
             return;
           }
@@ -4039,7 +4044,7 @@ Remember: David may reference things discussed in these recent text chats.
                   (session as any).voiceOverride = newOverride;
                   
                   if (text) {
-                    (session as any).voiceAdjustText = text;
+                    session.voiceAdjustText = text;
                     console.log(`[CommandParser→VoiceAdjust] Text included (${text.length} chars): "${text.substring(0, 80)}..."`);
                   }
                   
@@ -4447,13 +4452,13 @@ Remember: David may reference things discussed in these recent text chats.
         // Early TTS spoke function call audio; batch has main-response sentences — different content.
         // If early TTS is done (completed flag set), flags are stale. Clear them so the batch can
         // still speak Daniela's main response that was deferred before the function call.
-        if ((session as any).earlyTtsCompleted && !session.isInterrupted) {
+        if (session.earlyTtsCompleted && !session.isInterrupted) {
           console.log(`[Google Batch TTS] Early TTS done — clearing stale flags, running batch for ${batchedSentences.length} deferred sentence(s)`);
-          (session as any).earlyTtsActive = undefined;
-          (session as any).earlyTtsCompleted = undefined;
+          session.earlyTtsActive = undefined;
+          session.earlyTtsCompleted = undefined;
         }
       }
-      if (isGoogleBatchMode && batchedSentences.length > 0 && !session.isInterrupted && !(session as any).earlyTtsActive && !(session as any).earlyTtsCompleted) {
+      if (isGoogleBatchMode && batchedSentences.length > 0 && !session.isInterrupted && !session.earlyTtsActive && !session.earlyTtsCompleted) {
         const combinedDisplayText = batchedSentences.map(s => s.displayText).join(' ');
         console.log(`[Google Batch TTS] Combining ${batchedSentences.length} sentences (${combinedDisplayText.length} chars) for single TTS call`);
         
@@ -4548,17 +4553,17 @@ Remember: David may reference things discussed in these recent text chats.
       
       if (metrics.sentenceCount === 0 && hadFunctionCalls && functionsNeedingContinuation.length === 0) {
         // Check if early TTS already handled this during streaming
-        if ((session as any).earlyTtsCompleted) {
+        if (session.earlyTtsCompleted) {
           console.log(`[Voice PTT] Early TTS already completed during streaming - skipping post-stream TTS`);
-          (session as any).earlyTtsCompleted = undefined;
-          (session as any).earlyTtsActive = undefined;
+          session.earlyTtsCompleted = undefined;
+          session.earlyTtsActive = undefined;
         } else {
           const metadataOnlyFunctions = functionCallsCopy.map(fc => fc.name).join(', ');
-          const rawEmbeddedText = ensureTrailingPunctuation(((session as any).functionCallText || '').trim());
+          const rawEmbeddedText = ensureTrailingPunctuation((session.functionCallText || '').trim());
           const embeddedText = cleanTextForDisplay(rawEmbeddedText).trim();
           if (embeddedText) {
             const pttDirectBoldWords = extractBoldMarkedWords(rawEmbeddedText || '');
-            const pttAccumulatedWords: string[] = (session as any).accumulatedBoldWords || [];
+            const pttAccumulatedWords: string[] = session.accumulatedBoldWords || [];
             const pttEmbedBoldWords = [...new Set([...pttDirectBoldWords, ...pttAccumulatedWords])];
             if (pttAccumulatedWords.length > 0) {
               console.log(`[Voice PTT] Merged ${pttAccumulatedWords.length} accumulated bold words with ${pttDirectBoldWords.length} direct: ${pttEmbedBoldWords.join(', ')}`);
@@ -4619,9 +4624,9 @@ Remember: David may reference things discussed in these recent text chats.
                 await this.streamSentenceAudioProgressive(session, { index: si, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, pttEmbedBoldWords);
               }
             }
-            (session as any).functionCallText = undefined;
-            (session as any).voiceAdjustText = undefined;
-            (session as any).accumulatedBoldWords = undefined;
+            session.functionCallText = undefined;
+            session.voiceAdjustText = undefined;
+            session.accumulatedBoldWords = undefined;
           } else {
             console.warn(`[Voice PTT] Gemini returned only metadata functions (${metadataOnlyFunctions}) - forcing continuation for spoken response`);
             functionsNeedingContinuation.push(...functionCallsCopy);
@@ -5766,8 +5771,7 @@ Remember: David may reference things discussed in these recent text chats.
       session.sentAudioHashes.clear();  // Reset content-based deduplication for new turn
       session.firstAudioSent = false;   // Reset so whiteboard updates buffer until audio starts
       session.pendingWhiteboardUpdates = [];  // Clear stale pending updates from previous turn
-      (session as any).earlyTtsActive = undefined;  // Reset Early TTS flags from previous turn
-      (session as any).earlyTtsCompleted = undefined;
+      session.earlyTtsActive = undefined;
       (session as any)._ttsTurnCallCount = 0;  // DIAG: Reset TTS call counter for new turn
       const turnId = session.currentTurnId;
       
@@ -6005,10 +6009,7 @@ Remember: David may reference things discussed in these recent text chats.
       // Abort signal for early stream termination when function call TTS starts (open-mic)
       const streamAbortSignalOpenMic = { aborted: false };
       
-      // SAFETY NET: Track whether response_complete has been sent for this turn
-      // Prevents permanent mic lockout if the pipeline hangs after early TTS
       let responseCompleteSentOpenMic = false;
-      let earlyTtsSafetyTimerOpenMic: NodeJS.Timeout | null = null;
       
       // TTS LOOKAHEAD (OpenMic): Same pipeline as PTT path
       const ttsLookaheadMapOM = new Map<number, Promise<{ audio: Buffer; durationMs: number; timestamps: import('@shared/streaming-voice-types').WordTiming[] } | null>>();
@@ -6078,11 +6079,15 @@ Remember: David may reference things discussed in these recent text chats.
           const allMetadataOnly = functionCalls.every(fc => METADATA_ONLY_FC_NAMES.has(fc.name));
           const hasTextArg = functionCalls.some(fc => fc.args?.text && String(fc.args.text).trim().length > 0);
           
-          if (allMetadataOnly && hasTextArg && !session.isInterrupted && !isGoogleBatchModeOM) {
-            (session as any).earlyTtsActive = true;
-            console.log(`[Early TTS - OpenMic] PRE-SIGNAL: earlyTtsActive=true BEFORE handleNativeFunctionCall (${functionCalls.map(f => f.name).join(',')})`);
-          } else if (allMetadataOnly && hasTextArg && isGoogleBatchModeOM) {
-            console.log(`[Early TTS - OpenMic] SKIPPED PRE-SIGNAL: Google batch mode active — embedded text block will handle TTS after function calls complete`);
+          if (allMetadataOnly && hasTextArg && !session.isInterrupted) {
+            session.earlyTtsActive = true;
+            console.log(`[FC OpenMic] earlyTtsActive=true, TTS deferred to post-stream (${functionCalls.map(f => f.name).join(',')})`);
+          }
+          
+          if (!firstTokenReceived) {
+            metrics.aiFirstTokenMs = Date.now() - aiStart;
+            firstTokenReceived = true;
+            console.log(`[FC OpenMic] AI first token (via FC): ${metrics.aiFirstTokenMs}ms`);
           }
           
           for (const fn of functionCalls) {
@@ -6100,245 +6105,14 @@ Remember: David may reference things discussed in these recent text chats.
             });
           }
           
-          // EARLY TTS: Start TTS immediately for metadata-only function calls (open-mic)
-          const embeddedRawText = ensureTrailingPunctuation(((session as any).functionCallText || '').trim());
-          
-          if (allMetadataOnly && embeddedRawText && !session.isInterrupted) {
-            const earlyTtsStart = Date.now();
-            const embeddedText = cleanTextForDisplay(embeddedRawText).trim();
-            if (embeddedText) {
-              (session as any).earlyTtsActive = true;
-              
-              if (session.postTtsSuppressionTimer) {
-                clearTimeout(session.postTtsSuppressionTimer);
-                session.postTtsSuppressionTimer = null;
-              }
-              session.onTtsStateChange?.(true);
-
-              const directBoldWords = extractBoldMarkedWords(embeddedRawText);
-              const accumulatedWords: string[] = (session as any).accumulatedBoldWords || [];
-              const allBoldWords = [...new Set([...directBoldWords, ...accumulatedWords])];
-
-              const sentences = splitTextIntoSentences(embeddedText);
-              console.log(`[Early TTS - OpenMic] Splitting ${embeddedText.length} chars into ${sentences.length} sentences for pipelining`);
-
-              if (!firstTokenReceived) {
-                metrics.aiFirstTokenMs = Date.now() - aiStart;
-                firstTokenReceived = true;
-                console.log(`[Early TTS - OpenMic] AI first token (via FC): ${metrics.aiFirstTokenMs}ms`);
-              }
-
-              const effectiveTtsProvider = resolveSessionTTSProvider(session.ttsProvider as TTSProviderName | undefined, this.ttsProvider as TTSProviderName);
-              const isGoogleBatchModeFCOM = this.ttsProviderRegistry.getOrThrow(effectiveTtsProvider).requiresBatchMode;
-              const shouldPipeline = sentences.length > 1 && effectiveTtsProvider === 'gemini' && !session.isAssistantActive;
-
-              if (isGoogleBatchModeFCOM && !session.isInterrupted) {
-                console.log(`[Google Batch TTS - FC OpenMic] Combining ${sentences.length} sentences (${embeddedText.length} chars) for single TTS call`);
-                const batchTtsStartFC = Date.now();
-
-                for (let i = 0; i < sentences.length; i++) {
-                  seenSentences.add(sentences[i].toLowerCase().trim());
-                }
-
-                const batchExtraction = extractTargetLanguageWithMapping(embeddedText, allBoldWords);
-                const batchWordMapping: [number, number][] = batchExtraction.wordMapping.size > 0
-                  ? Array.from(batchExtraction.wordMapping.entries()) : [];
-                const batchHasTarget = !!(batchExtraction.targetText && batchExtraction.targetText.trim().length > 0);
-
-                this.sendMessage(session.ws, {
-                  type: 'sentence_start',
-                  timestamp: Date.now(),
-                  turnId: session.turnId || session.currentTurnId,
-                  sentenceIndex: 0,
-                  text: embeddedText,
-                  hasTargetContent: batchHasTarget,
-                  targetLanguageText: batchHasTarget ? batchExtraction.targetText : undefined,
-                  wordMapping: batchHasTarget && batchWordMapping.length > 0 ? batchWordMapping : undefined,
-                } as StreamingSentenceStartMessage);
-
-                const batchChunkFC: SentenceChunk = { index: 0, text: embeddedText, isComplete: true, isFinal: true };
-                if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
-                  await this.streamSentenceAudioProgressive(session, batchChunkFC, embeddedText, metrics, session.turnId || `turn-${Date.now()}`, allBoldWords);
-                } else {
-                  await this.streamSentenceAudio(session, batchChunkFC, embeddedText, metrics, session.turnId || `turn-${Date.now()}`);
-                }
-
-                console.log(`[Google Batch TTS - FC OpenMic] Complete. TTS duration: ${Date.now() - batchTtsStartFC}ms for ${sentences.length} sentences (sent as 1 batch sentence)`);
-                metrics.sentenceCount = 1;
-              } else if (shouldPipeline) {
-                const MAX_PREGEN_SENTENCES = 4;
-                const preGenCount = Math.min(sentences.length, MAX_PREGEN_SENTENCES);
-                console.log(`[Early TTS - OpenMic] PIPELINED: Pre-generating ${preGenCount}/${sentences.length} sentences in parallel`);
-                const pipelineStart = Date.now();
-
-                const progressiveRequest = {
-                  text: '',
-                  autoDetectLanguage: true,
-                  targetLanguage: session.targetLanguage,
-                  nativeLanguage: session.nativeLanguage || 'english',
-                  geminiLanguageCode: session.geminiLanguageCode,
-                  voiceId: session.voiceId,
-                  speakingRate: getAdaptiveSpeakingRate(session),
-                  vocalStyle: (session as any).voiceOverride?.vocalStyle,
-                };
-
-                const preGenPromises = sentences.slice(0, preGenCount).map((sentenceText) => {
-                  return this.geminiLiveTtsService.preGenerateAudio({
-                    ...progressiveRequest,
-                    text: sentenceText,
-                  } as any).catch(err => {
-                    console.error(`[Early TTS - OpenMic] Pre-gen failed for sentence: ${err.message}`);
-                    return null;
-                  });
-                });
-
-                const preGenResults = await Promise.all(preGenPromises);
-                const successCount = preGenResults.filter(r => r !== null).length;
-                console.log(`[Early TTS - OpenMic] Pre-generated ${successCount}/${preGenCount} sentences in ${Date.now() - pipelineStart}ms (total: ${sentences.length})`);
-
-                for (let i = 0; i < sentences.length; i++) {
-                  if (session.isInterrupted) break;
-                  const sentenceText = sentences[i];
-                  seenSentences.add(sentenceText.toLowerCase().trim());
-                  const extraction = extractTargetLanguageWithMapping(sentenceText, allBoldWords);
-                  const wordMapping: [number, number][] = extraction.wordMapping.size > 0
-                    ? Array.from(extraction.wordMapping.entries()) : [];
-                  const hasTarget = !!(extraction.targetText && extraction.targetText.trim().length > 0);
-
-                  this.sendMessage(session.ws, {
-                    type: 'sentence_start',
-                    timestamp: Date.now(),
-                    turnId: session.turnId || session.currentTurnId,
-                    sentenceIndex: i,
-                    text: sentenceText,
-                    hasTargetContent: hasTarget,
-                    targetLanguageText: hasTarget ? extraction.targetText : undefined,
-                    wordMapping: hasTarget && wordMapping.length > 0 ? wordMapping : undefined,
-                    ...(i === 0 && sentences.length > 1 ? { totalSentences: sentences.length } : {}),
-                  } as StreamingSentenceStartMessage);
-
-                  const preGenResult = preGenResults[i];
-                  if (preGenResult) {
-                    await this.streamPreGeneratedSentenceAudio(session, { index: i, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, preGenResult);
-                  } else {
-                    await this.streamSentenceAudioProgressive(session, { index: i, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, allBoldWords);
-                  }
-                }
-              } else {
-                for (let i = 0; i < sentences.length; i++) {
-                  if (session.isInterrupted) break;
-                  const sentenceText = sentences[i];
-                  seenSentences.add(sentenceText.toLowerCase().trim());
-                  const extraction = extractTargetLanguageWithMapping(sentenceText, allBoldWords);
-                  const wordMapping: [number, number][] = extraction.wordMapping.size > 0
-                    ? Array.from(extraction.wordMapping.entries()) : [];
-                  const hasTarget = !!(extraction.targetText && extraction.targetText.trim().length > 0);
-
-                  this.sendMessage(session.ws, {
-                    type: 'sentence_start',
-                    timestamp: Date.now(),
-                    turnId: session.turnId || session.currentTurnId,
-                    sentenceIndex: i,
-                    text: sentenceText,
-                    hasTargetContent: hasTarget,
-                    targetLanguageText: hasTarget ? extraction.targetText : undefined,
-                    wordMapping: hasTarget && wordMapping.length > 0 ? wordMapping : undefined,
-                    ...(i === 0 && sentences.length > 1 ? { totalSentences: sentences.length } : {}),
-                  } as StreamingSentenceStartMessage);
-
-                  await this.streamSentenceAudioProgressive(session, { index: i, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, allBoldWords);
-                }
-              }
-
-              fullText = embeddedText;
-              if (!metrics.sentenceCount) metrics.sentenceCount = sentences.length;
-
-              (session as any).functionCallText = undefined;
-              (session as any).voiceAdjustText = undefined;
-              (session as any).accumulatedBoldWords = undefined;
-              (session as any).earlyTtsCompleted = true;
-
-              streamAbortSignalOpenMic.aborted = true;
-
-              console.log(`[Early TTS - OpenMic] TTS completed in ${Date.now() - earlyTtsStart}ms (${metrics.sentenceCount} emitted sentences${isGoogleBatchModeFCOM ? ', Google batch' : shouldPipeline ? ', pipelined' : ''})`);
-              
-              // SAFETY NET: Start a 15-second timer to send response_complete if the main pipeline hangs
-              // This prevents permanent mic lockout when the Gemini stream doesn't terminate cleanly after abort
-              earlyTtsSafetyTimerOpenMic = setTimeout(() => {
-                if (!responseCompleteSentOpenMic && session.ws) {
-                  const hangDurationMs = Date.now() - startTime;
-                  console.warn(`[Early TTS Safety Net] Pipeline hung after early TTS — forcing response_complete for session ${sessionId}`);
-                  console.error(`[Early TTS Safety Net] PIPELINE_HANG_DETECTED:`, {
-                    sessionId,
-                    userId: session.userId,
-                    conversationId: session.conversationId,
-                    turnId,
-                    hangDurationMs,
-                    ttsProvider: effectiveTtsProviderOM,
-                    batchMode: isGoogleBatchModeOM,
-                    sentenceCount: metrics.sentenceCount,
-                    aiFirstTokenMs: metrics.aiFirstTokenMs,
-                    transcript: transcript?.substring(0, 100),
-                  });
-                  responseCompleteSentOpenMic = true;
-                  session.isGenerating = false;
-                  session.lastResponseCompletedTime = Date.now();
-                  metrics.totalLatencyMs = hangDurationMs;
-                  
-                  if (session.postTtsSuppressionTimer) clearTimeout(session.postTtsSuppressionTimer);
-                  session.onTtsStateChange?.(false);
-                  
-                  voiceDiagnostics.emit({
-                    sessionId,
-                    stage: 'error',
-                    success: false,
-                    error: 'Pipeline hung after early TTS in FC OpenMic path — safety net fired',
-                    metadata: {
-                      phase: 'earlyTtsSafetyNet',
-                      errorType: 'FC_OPENMIC_PIPELINE_HANG',
-                      hangDurationMs,
-                      ttsProvider: effectiveTtsProviderOM,
-                      batchMode: isGoogleBatchModeOM,
-                      sentenceCount: metrics.sentenceCount,
-                      aiMs: metrics.aiFirstTokenMs || 0,
-                    }
-                  });
-                  
-                  this.sendMessage(session.ws, {
-                    type: 'response_complete',
-                    timestamp: Date.now(),
-                    turnId,
-                    totalSentences: metrics.sentenceCount,
-                    totalDurationMs: metrics.totalLatencyMs,
-                    fullText: fullText.trim(),
-                    metrics: {
-                      sttLatencyMs: metrics.sttLatencyMs,
-                      aiFirstTokenMs: metrics.aiFirstTokenMs,
-                      ttsFirstChunkMs: metrics.ttsFirstByteMs,
-                      totalTtfbMs: 0,
-                      sentenceCount: metrics.sentenceCount,
-                    },
-                  } as StreamingResponseCompleteMessage);
-                  
-                  this.persistMessages(session.conversationId, transcript, fullText.trim(), session, confidence).catch((err: Error) => {
-                    console.error('[Early TTS Safety Net] Failed to persist messages:', err.message);
-                  });
-                }
-              }, 15000);
-            } else if ((session as any).earlyTtsActive) {
-              console.log(`[Early TTS - OpenMic] DEFENSIVE RESET: embeddedText empty after clean, clearing pre-signaled earlyTtsActive`);
-              (session as any).earlyTtsActive = false;
-            }
-          } else if ((session as any).earlyTtsActive && !embeddedRawText) {
-            console.log(`[Early TTS - OpenMic] DEFENSIVE RESET: no embeddedRawText, clearing pre-signaled earlyTtsActive`);
-            (session as any).earlyTtsActive = false;
+          if (allMetadataOnly && hasTextArg && !session.isInterrupted) {
+            streamAbortSignalOpenMic.aborted = true;
+            console.log(`[FC OpenMic] Callback complete — abort signal set, TTS deferred to post-stream path`);
           }
-          console.log(`[FC OpenMic DIAG] onFunctionCall callback RETURNING (earlyTtsCompleted=${(session as any).earlyTtsCompleted}, aborted=${streamAbortSignalOpenMic.aborted})`);
         },
         onSentence: async (chunk: SentenceChunk) => {
-          // EARLY TTS GUARD: Skip if function call handler is running or completed batch TTS
-          if ((session as any).earlyTtsActive || (session as any).earlyTtsCompleted || streamAbortSignalOpenMic.aborted) {
-            console.log(`[Streaming Orchestrator] Skipping onSentence ${chunk.index} - Early TTS active/completed (open mic)`);
+          if (session.earlyTtsActive || streamAbortSignalOpenMic.aborted) {
+            console.log(`[Streaming Orchestrator] Skipping onSentence ${chunk.index} - FC callback active/aborted (open mic)`);
             return;
           }
           
@@ -6999,7 +6773,7 @@ Remember: David may reference things discussed in these recent text chats.
             this.addSttKeyterms(session, boldWords);
           }
           
-          console.log(`[SENTENCE_START EMIT - OpenMic] sentence=${chunk.index}, hasTarget=${hasTargetContent}, displayText="${displayText.substring(0, 60)}", batchMode=${isGoogleBatchModeOM}, earlyTtsActive=${(session as any).earlyTtsActive || false}`);
+          console.log(`[SENTENCE_START EMIT - OpenMic] sentence=${chunk.index}, hasTarget=${hasTargetContent}, displayText="${displayText.substring(0, 60)}", batchMode=${isGoogleBatchModeOM}, earlyTtsActive=${session.earlyTtsActive || false}`);
           
           if (isGoogleBatchModeOM) {
             if (displayText.trim().length > 1) {
@@ -7009,7 +6783,7 @@ Remember: David may reference things discussed in these recent text chats.
               console.log(`[Google Batch - OpenMic] Skipping empty sentence ${chunk.index} from batch (cleaned to: "${displayText}")`);
             }
           } else {
-            console.log(`[INDIVIDUAL TTS - OpenMic] Sentence ${chunk.index}: starting individual TTS (non-batch path), earlyTtsActive=${(session as any).earlyTtsActive || false}`);
+            console.log(`[INDIVIDUAL TTS - OpenMic] Sentence ${chunk.index}: starting individual TTS (non-batch path), earlyTtsActive=${session.earlyTtsActive || false}`);
             this.sendMessage(session.ws, {
               type: 'sentence_start',
               timestamp: Date.now(),
@@ -7058,17 +6832,9 @@ Remember: David may reference things discussed in these recent text chats.
       console.log(`[Streaming Orchestrator] AI complete: ${actualSentenceCount} sentences`);
       
       if (isGoogleBatchModeOM && batchedSentencesOM.length > 0) {
-        console.log(`[Google Batch TTS - OpenMic] Post-stream check: ${batchedSentencesOM.length} batched, earlyTtsActive=${(session as any).earlyTtsActive}, earlyTtsCompleted=${(session as any).earlyTtsCompleted}, interrupted=${session.isInterrupted}`);
-        // Early TTS spoke function call audio; batch has main-response sentences — different content.
-        // If early TTS is done (completed flag set), the in-flight flags are stale. Clear them so
-        // the batch can still speak Daniela's main response that was deferred before the function call.
-        if ((session as any).earlyTtsCompleted && !session.isInterrupted) {
-          console.log(`[Google Batch TTS - OpenMic] Early TTS done — clearing stale flags, running batch for ${batchedSentencesOM.length} deferred sentence(s)`);
-          (session as any).earlyTtsActive = undefined;
-          (session as any).earlyTtsCompleted = undefined;
-        }
+        console.log(`[Google Batch TTS - OpenMic] Post-stream check: ${batchedSentencesOM.length} batched, earlyTtsActive=${session.earlyTtsActive}, interrupted=${session.isInterrupted}`);
       }
-      if (isGoogleBatchModeOM && batchedSentencesOM.length > 0 && !session.isInterrupted && !(session as any).earlyTtsActive && !(session as any).earlyTtsCompleted) {
+      if (isGoogleBatchModeOM && batchedSentencesOM.length > 0 && !session.isInterrupted && !session.earlyTtsActive) {
         const combinedDisplayText = batchedSentencesOM.map(s => s.displayText).join(' ');
         console.log(`[Google Batch TTS - OpenMic] Combining ${batchedSentencesOM.length} sentences (${combinedDisplayText.length} chars) for single TTS call`);
         
@@ -7174,33 +6940,25 @@ Remember: David may reference things discussed in these recent text chats.
       // voice_adjust and word_emphasis should ALWAYS accompany spoken text
       // If Gemini only returns these without text, check for embedded text first before forcing continuation
       if (metrics.sentenceCount === 0 && hadFunctionCallsOpenMic && functionsNeedingContinuationOpenMic.length === 0) {
-        // Check if early TTS already handled this during streaming
-        if ((session as any).earlyTtsCompleted) {
-          console.log(`[Voice - OpenMic] Early TTS already completed during streaming - skipping post-stream TTS`);
-          (session as any).earlyTtsCompleted = undefined;
-          (session as any).earlyTtsActive = undefined;
-        } else {
+        {
           const metadataOnlyFunctions = functionCallsCopyOpenMic.map(fc => fc.name).join(', ');
           
-          const rawEmbeddedText = ensureTrailingPunctuation(((session as any).functionCallText || '').trim());
+          const rawEmbeddedText = ensureTrailingPunctuation((session.functionCallText || '').trim());
           const embeddedText = cleanTextForDisplay(rawEmbeddedText).trim();
           if (embeddedText) {
+            console.log(`[Post-Stream TTS - OpenMic] FC callback deferred TTS — now speaking embedded text (${embeddedText.length} chars)`);
             const embeddedDirectBoldWords = extractBoldMarkedWords(rawEmbeddedText || '');
-            const embeddedAccumulatedWords: string[] = (session as any).accumulatedBoldWords || [];
+            const embeddedAccumulatedWords: string[] = session.accumulatedBoldWords || [];
             const embeddedBoldWords = [...new Set([...embeddedDirectBoldWords, ...embeddedAccumulatedWords])];
             if (embeddedAccumulatedWords.length > 0) {
               console.log(`[Voice] Merged ${embeddedAccumulatedWords.length} accumulated bold words with ${embeddedDirectBoldWords.length} direct: ${embeddedBoldWords.join(', ')}`);
             }
 
             const omSentences = splitTextIntoSentences(embeddedText);
-            console.log(`[Voice - OpenMic] Metadata functions embedded text (${embeddedText.length} chars) → ${omSentences.length} sentences for pipelined TTS`);
+            console.log(`[Post-Stream TTS - OpenMic] ${embeddedText.length} chars → ${omSentences.length} sentences for TTS (functions: ${metadataOnlyFunctions})`);
             fullText = embeddedText;
             metrics.sentenceCount = omSentences.length;
 
-            // ECHO SUPPRESSION: Activate before Post-FC TTS starts
-            // When Gemini returns only function calls (no text sentences), onSentence never fires,
-            // so onTtsStateChange(true) was never called. We must suppress here to prevent
-            // Daniela's audio from being picked up by the open mic as user speech.
             if (session.postTtsSuppressionTimer) {
               clearTimeout(session.postTtsSuppressionTimer);
               session.postTtsSuppressionTimer = null;
@@ -7258,11 +7016,13 @@ Remember: David may reference things discussed in these recent text chats.
               }
             }
 
-            (session as any).functionCallText = undefined;
-            (session as any).voiceAdjustText = undefined;
-            (session as any).accumulatedBoldWords = undefined;
+            session.functionCallText = undefined;
+            session.voiceAdjustText = undefined;
+            session.accumulatedBoldWords = undefined;
+            session.earlyTtsActive = undefined;
           } else {
             console.warn(`[Voice] Gemini returned only metadata functions (${metadataOnlyFunctions}) - these should accompany speech, forcing continuation`);
+            session.earlyTtsActive = undefined;
             functionsNeedingContinuationOpenMic.push(...functionCallsCopyOpenMic);
           }
         }
@@ -7274,11 +7034,11 @@ Remember: David may reference things discussed in these recent text chats.
         
         // PRIORITY CHECK: If voice_adjust already provided embedded text, use it NOW and skip continuation
         // This handles cases like voice_adjust + play_audio where voice_adjust has embedded spoken text
-        const rawEmbeddedTextBeforeContinuation = ensureTrailingPunctuation(((session as any).functionCallText || '').trim());
+        const rawEmbeddedTextBeforeContinuation = ensureTrailingPunctuation((session.functionCallText || '').trim());
         const embeddedTextBeforeContinuation = cleanTextForDisplay(rawEmbeddedTextBeforeContinuation).trim();
         if (embeddedTextBeforeContinuation) {
           const contDirectBoldWords = extractBoldMarkedWords(rawEmbeddedTextBeforeContinuation || '');
-          const accumulatedWords: string[] = (session as any).accumulatedBoldWords || [];
+          const accumulatedWords: string[] = session.accumulatedBoldWords || [];
           const contBoldWords = [...new Set([...contDirectBoldWords, ...accumulatedWords])];
           if (accumulatedWords.length > 0) {
             console.log(`[Multi-Step FC - OpenMic] Merged ${accumulatedWords.length} accumulated bold words with ${contDirectBoldWords.length} direct: ${contBoldWords.join(', ')}`);
@@ -7319,9 +7079,9 @@ Remember: David may reference things discussed in these recent text chats.
             await this.streamSentenceAudioProgressive(session, { index: si, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, contBoldWords);
           }
 
-          (session as any).functionCallText = undefined;
-          (session as any).voiceAdjustText = undefined;
-          (session as any).accumulatedBoldWords = undefined;
+          session.functionCallText = undefined;
+          session.voiceAdjustText = undefined;
+          session.accumulatedBoldWords = undefined;
         } else {
         // Await any pending memory lookups before building responses
         if (session.pendingMemoryLookupPromises?.length) {
@@ -7461,7 +7221,7 @@ Remember: David may reference things discussed in these recent text chats.
                  recursiveDepth < MAX_RECURSIVE_FC_DEPTH) {
             
             // CHECK: If voice_adjust already provided embedded text, use it and stop looping
-            const rawEmbeddedTextFromFC = ensureTrailingPunctuation(((session as any).functionCallText || '').trim());
+            const rawEmbeddedTextFromFC = ensureTrailingPunctuation((session.functionCallText || '').trim());
             const embeddedTextFromFC = cleanTextForDisplay(rawEmbeddedTextFromFC).trim();
             if (embeddedTextFromFC) {
               console.log(`[Multi-Step FC - OpenMic] Found embedded text (${embeddedTextFromFC.length} chars) - using for TTS and stopping continuation`);
@@ -7469,14 +7229,14 @@ Remember: David may reference things discussed in these recent text chats.
               metrics.sentenceCount = 1;
               
               const fcDirectBoldWords = extractBoldMarkedWords(rawEmbeddedTextFromFC || '');
-              const fcAccumulatedWords: string[] = (session as any).accumulatedBoldWords || [];
+              const fcAccumulatedWords: string[] = session.accumulatedBoldWords || [];
               const fcBoldWords = [...new Set([...fcDirectBoldWords, ...fcAccumulatedWords])];
               await this.streamSentenceAudioProgressive(session, { index: 0, text: embeddedTextFromFC }, embeddedTextFromFC, metrics, session.turnId || `turn-${Date.now()}`, fcBoldWords);
               
               // Clear after use
-              (session as any).functionCallText = undefined;
-              (session as any).voiceAdjustText = undefined;
-              (session as any).accumulatedBoldWords = undefined;
+              session.functionCallText = undefined;
+              session.voiceAdjustText = undefined;
+              session.accumulatedBoldWords = undefined;
               break;  // Exit the continuation loop
             }
             
@@ -7733,15 +7493,10 @@ Remember: David may reference things discussed in these recent text chats.
         }
       }
       
-      // Cancel early TTS safety-net timer if it's still pending (normal completion beat it)
-      if (earlyTtsSafetyTimerOpenMic) {
-        clearTimeout(earlyTtsSafetyTimerOpenMic);
-        earlyTtsSafetyTimerOpenMic = null;
-      }
+      session.earlyTtsActive = undefined;
       
-      // Guard: Skip if safety net already sent response_complete
       if (responseCompleteSentOpenMic) {
-        console.log(`[Streaming Orchestrator] response_complete already sent by safety net — skipping normal emit for session ${sessionId}`);
+        console.log(`[Streaming Orchestrator] response_complete already sent — skipping normal emit for session ${sessionId}`);
       } else {
         responseCompleteSentOpenMic = true;
       
@@ -8030,13 +7785,8 @@ Remember: David may reference things discussed in these recent text chats.
       
       this.sendError(session.ws, 'UNKNOWN', error.message, true);
       
-      // Cancel early TTS safety-net timer on error path too
-      if (earlyTtsSafetyTimerOpenMic) {
-        clearTimeout(earlyTtsSafetyTimerOpenMic);
-        earlyTtsSafetyTimerOpenMic = null;
-      }
+      session.earlyTtsActive = undefined;
       
-      // SAFETY NET: Always send response_complete on pipeline error to prevent permanent mic lockout
       if (!responseCompleteSentOpenMic) {
         responseCompleteSentOpenMic = true;
         this.sendMessage(session.ws, {
@@ -8060,6 +7810,22 @@ Remember: David may reference things discussed in these recent text chats.
       
       // Return metrics instead of throwing to prevent socket disconnect
       return metrics;
+    } finally {
+      if (!responseCompleteSentOpenMic) {
+        console.error(`[OpenMic SAFETY NET] response_complete was NEVER sent for session ${sessionId} — forcing now`);
+        responseCompleteSentOpenMic = true;
+        session.isGenerating = false;
+        session.earlyTtsActive = undefined;
+        this.sendMessage(session.ws, {
+          type: 'response_complete',
+          timestamp: Date.now(),
+          turnId,
+          totalSentences: 0,
+          totalDurationMs: Date.now() - startTime,
+          fullText: '',
+          metrics: { sttLatencyMs: 0, aiFirstTokenMs: 0, ttsFirstChunkMs: 0, totalTtfbMs: 0, sentenceCount: 0 },
+        } as StreamingResponseCompleteMessage);
+      }
     }
   }
   
@@ -11744,8 +11510,8 @@ Only include observations you can clearly justify from the exchange. Return empt
       }
       
       // Clear any previous function call text before greeting
-      (session as any).voiceAdjustText = undefined;
-      (session as any).functionCallText = undefined;
+      session.voiceAdjustText = undefined;
+      session.functionCallText = undefined;
       
       // Track function calls that need continuation (memory_lookup, express_lane_lookup)
       let greetingFunctionCalls: Array<{ name: string; args: Record<string, unknown>; legacyType?: string }> = [];
@@ -11789,9 +11555,9 @@ Only include observations you can clearly justify from the exchange. Return empt
                 const spokenText = (fc.args as Record<string, unknown>).spoken_text as string | undefined;
                 const text = (fc.args as Record<string, unknown>).text as string | undefined;
                 const extractedText = spokenText || text;
-                if (extractedText && typeof extractedText === 'string' && !(session as any).functionCallText) {
+                if (extractedText && typeof extractedText === 'string' && !session.functionCallText) {
                   console.log(`[Streaming Greeting] Extracted text from ${fc.name}: "${extractedText.substring(0, 50)}..."`);
-                  (session as any).functionCallText = extractedText;
+                  session.functionCallText = extractedText;
                 }
               }
             }
@@ -11988,7 +11754,7 @@ Only include observations you can clearly justify from the exchange. Return empt
       
       // FALLBACK: If no text was produced but function calls provided text, use that
       // This handles the case where Gemini only returns function calls (e.g., voice_adjust, drill, phase_shift with text)
-      const functionCallText = ensureTrailingPunctuation(((session as any).functionCallText as string | undefined)?.trim() || '');
+      const functionCallText = ensureTrailingPunctuation((session.functionCallText as string | undefined)?.trim() || '');
       if (metrics.sentenceCount === 0 && functionCallText) {
         console.log(`[Streaming Greeting] No AI text produced, using function call text: "${functionCallText.substring(0, 80)}..."`);
         
@@ -12064,8 +11830,8 @@ Only include observations you can clearly justify from the exchange. Return empt
       }
       
       // Clear function call text storage after use
-      (session as any).voiceAdjustText = undefined;
-      (session as any).functionCallText = undefined;
+      session.voiceAdjustText = undefined;
+      session.functionCallText = undefined;
       
       // Update conversation history
       session.conversationHistory.push({ role: 'model', content: fullText.trim() });
@@ -13375,8 +13141,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
     if (fnText && fnText.includes('**')) {
       const fnBoldWords = extractBoldMarkedWords(fnText);
       if (fnBoldWords.length > 0) {
-        const existing: string[] = (session as any).accumulatedBoldWords || [];
-        (session as any).accumulatedBoldWords = [...new Set([...existing, ...fnBoldWords])];
+        const existing: string[] = session.accumulatedBoldWords || [];
+        session.accumulatedBoldWords = [...new Set([...existing, ...fnBoldWords])];
         console.log(`[Native Function Call] Accumulated ${fnBoldWords.length} bold words from ${fn.name}: ${fnBoldWords.join(', ')}`);
         
         this.addSttKeyterms(session, fnBoldWords);
@@ -13426,8 +13192,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           console.log(`[Native Function→PhaseShift] Triggered: ${to} - ${reason}`);
         }
         // Store text for TTS fallback if no regular text output
-        if (text && !(session as any).functionCallText) {
-          (session as any).functionCallText = text;
+        if (text && !session.functionCallText) {
+          session.functionCallText = text;
           console.log(`[Native Function→PhaseShift] Text included: "${text.substring(0, 50)}..."`);
         }
         break;
@@ -13488,9 +13254,9 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         (session as any).voiceOverride = newOverride;
         
         if (text) {
-          (session as any).voiceAdjustText = text;
-          if (!(session as any).functionCallText) {
-            (session as any).functionCallText = text;
+          session.voiceAdjustText = text;
+          if (!session.functionCallText) {
+            session.functionCallText = text;
           }
           console.log(`[Native Function→VoiceAdjust] Text included (${text.length} chars): "${text.substring(0, 80)}..."`);
         }
@@ -13518,8 +13284,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           (session as any).voiceOverride = undefined;
           console.log(`[Native Function→VoiceReset] Cleared override (no defaults stored), reason: ${reason || 'none'}`);
         }
-        if (text && !(session as any).functionCallText) {
-          (session as any).functionCallText = text;
+        if (text && !session.functionCallText) {
+          session.functionCallText = text;
           console.log(`[Native Function→VoiceReset] Text included: "${text.substring(0, 80)}..."`);
         }
         break;
@@ -13549,8 +13315,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         const text = fn.args.text as string | undefined;
         const reason = fn.args.reason as string | undefined;
         
-        if (text && !(session as any).functionCallText) {
-          (session as any).functionCallText = text;
+        if (text && !session.functionCallText) {
+          session.functionCallText = text;
         }
         
         if (session.userId) {
@@ -13579,8 +13345,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         const text = fn.args.text as string | undefined;
         const scene = fn.args.scene as string | undefined;
         
-        if (text && !(session as any).functionCallText) {
-          (session as any).functionCallText = text;
+        if (text && !session.functionCallText) {
+          session.functionCallText = text;
         }
         
         if (scene) {
@@ -13598,8 +13364,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         const text = fn.args.text as string | undefined;
         const scene = fn.args.scene as string | undefined;
 
-        if (text && !(session as any).functionCallText) {
-          (session as any).functionCallText = text;
+        if (text && !session.functionCallText) {
+          session.functionCallText = text;
         }
 
         if (scene) {
@@ -13677,8 +13443,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           } as any, session);
           console.log(`[Native Function→Subtitle] ✓ Sent subtitle_mode_change via sendMessage: ${validMode}`);
         }
-        if (spokenText && !(session as any).functionCallText) {
-          (session as any).functionCallText = spokenText;
+        if (spokenText && !session.functionCallText) {
+          session.functionCallText = spokenText;
           console.log(`[Native Function→Subtitle] Spoken text for TTS: "${spokenText.substring(0, 80)}..."`);
         }
         break;
@@ -13693,8 +13459,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           timestamp: Date.now(),
           items: [{ type: 'hold', hold: hold !== false }],
         });
-        if (text && !(session as any).functionCallText) {
-          (session as any).functionCallText = text;
+        if (text && !session.functionCallText) {
+          session.functionCallText = text;
           console.log(`[Native Function→Hold] Text included: "${text.substring(0, 80)}..."`);
         }
         break;
@@ -13712,8 +13478,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           });
           console.log(`[Native Function Call] SHOW -> type: ${contentType}`);
         }
-        if (spokenText && !(session as any).functionCallText) {
-          (session as any).functionCallText = spokenText;
+        if (spokenText && !session.functionCallText) {
+          session.functionCallText = spokenText;
           console.log(`[Native Function→Show] Spoken text included: "${spokenText.substring(0, 80)}..."`);
         }
         break;
@@ -13727,8 +13493,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           items: [{ type: 'clear' }],
         });
         console.log(`[Native Function Call] HIDE -> cleared overlay`);
-        if (text && !(session as any).functionCallText) {
-          (session as any).functionCallText = text;
+        if (text && !session.functionCallText) {
+          session.functionCallText = text;
           console.log(`[Native Function→Hide] Text included: "${text.substring(0, 80)}..."`);
         }
         break;
@@ -13743,8 +13509,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         });
         session.classroomWhiteboardItems = [];
         console.log(`[Native Function Call] CLEAR -> whiteboard cleared (classroom tracking reset)`);
-        if (text && !(session as any).functionCallText) {
-          (session as any).functionCallText = text;
+        if (text && !session.functionCallText) {
+          session.functionCallText = text;
           console.log(`[Native Function→Clear] Text included: "${text.substring(0, 80)}..."`);
         }
         break;
@@ -13762,8 +13528,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         }
         
         // Store text for TTS fallback if no regular text output
-        if (text && !(session as any).functionCallText) {
-          (session as any).functionCallText = text;
+        if (text && !session.functionCallText) {
+          session.functionCallText = text;
           console.log(`[Native Function→ShowImage] Text included: "${text.substring(0, 50)}..."`);
         }
         
@@ -13824,8 +13590,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       case 'TEXT_INPUT': {
         const prompt = fn.args.prompt as string | undefined;
         const tiSpokenText = fn.args.spoken_text as string | undefined;
-        if (tiSpokenText && !(session as any).functionCallText) {
-          (session as any).functionCallText = tiSpokenText;
+        if (tiSpokenText && !session.functionCallText) {
+          session.functionCallText = tiSpokenText;
         }
         this.sendMessage(session.ws, {
           type: 'whiteboard_update',
@@ -13928,8 +13694,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
             console.error(`[Native Function→Milestone] Error:`, err.message);
           });
         }
-        if (text && !(session as any).functionCallText) {
-          (session as any).functionCallText = text;
+        if (text && !session.functionCallText) {
+          session.functionCallText = text;
           console.log(`[Native Function→Milestone] Spoken text: "${text.substring(0, 80)}..."`);
         }
         break;
@@ -14029,8 +13795,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       case 'FIRST_MEETING_COMPLETE': {
         const summary = fn.args.summary as string | undefined;
         const fmcText = fn.args.text as string | undefined;
-        if (fmcText && !(session as any).functionCallText) {
-          (session as any).functionCallText = fmcText;
+        if (fmcText && !session.functionCallText) {
+          session.functionCallText = fmcText;
         }
         if (session.userId && !session.isIncognito) {
           try {
@@ -14123,8 +13889,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         const drillType = fn.args.type as string | undefined;
         const content = fn.args.content as string | undefined;
         
-        if (text && !(session as any).functionCallText) {
-          (session as any).functionCallText = text;
+        if (text && !session.functionCallText) {
+          session.functionCallText = text;
           console.log(`[Native Function→Drill] Text included: "${text.substring(0, 50)}..."`);
         }
         
@@ -14166,8 +13932,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         const linesRaw = fn.args.lines as string | undefined;
         const title = fn.args.title as string | undefined;
 
-        if (dialogueText && !(session as any).functionCallText) {
-          (session as any).functionCallText = dialogueText;
+        if (dialogueText && !session.functionCallText) {
+          session.functionCallText = dialogueText;
           console.log(`[Native Function→Dialogue] Text included: "${dialogueText.substring(0, 50)}..."`);
         }
 
@@ -14336,8 +14102,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
             items: [{ type: 'scenario', content: description, data: scenarioData }],
           });
         }
-        if (spokenText && !(session as any).functionCallText) {
-          (session as any).functionCallText = spokenText;
+        if (spokenText && !session.functionCallText) {
+          session.functionCallText = spokenText;
         }
         break;
       }
@@ -14478,8 +14244,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
             console.error(`[Native Function→LoadScenario] Error:`, err);
           }
         }
-        if (spokenText && !(session as any).functionCallText) {
-          (session as any).functionCallText = spokenText;
+        if (spokenText && !session.functionCallText) {
+          session.functionCallText = spokenText;
         }
         break;
       }
@@ -14570,8 +14336,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           console.warn(`[Native Function→UpdateProp] Missing required args or no active scenario`);
         }
 
-        if (text && !(session as any).functionCallText) {
-          (session as any).functionCallText = text;
+        if (text && !session.functionCallText) {
+          session.functionCallText = text;
         }
         break;
       }
@@ -14618,8 +14384,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           console.log('[Native Function→EndScenario] No active scenario to end');
         }
 
-        if (spokenText && !(session as any).functionCallText) {
-          (session as any).functionCallText = spokenText;
+        if (spokenText && !session.functionCallText) {
+          session.functionCallText = spokenText;
         }
         break;
       }
@@ -14678,8 +14444,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         const description = fn.args.description as string | undefined;
         const playText = fn.args.text as string | undefined;
         
-        if (playText && !(session as any).functionCallText) {
-          (session as any).functionCallText = playText;
+        if (playText && !session.functionCallText) {
+          session.functionCallText = playText;
         }
         
         if (description) {
@@ -14734,8 +14500,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         const character = fn.args.character as string | undefined;
         const strokeText = fn.args.text as string | undefined;
         
-        if (strokeText && !(session as any).functionCallText) {
-          (session as any).functionCallText = strokeText;
+        if (strokeText && !session.functionCallText) {
+          session.functionCallText = strokeText;
         }
         
         if (character) {
@@ -14775,8 +14541,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
             items: [{ type: 'tone', content: syllable, data: toneData }],
           });
         }
-        if (toneText && !(session as any).functionCallText) {
-          (session as any).functionCallText = toneText;
+        if (toneText && !session.functionCallText) {
+          session.functionCallText = toneText;
         }
         break;
       }
@@ -14805,8 +14571,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         const unitNumber = (fn.args.unitNumber || fn.args.unit_number) as number | undefined;
         const showCompleted = (fn.args.showCompleted ?? fn.args.show_completed) !== false;
 
-        if (text && !(session as any).functionCallText) {
-          (session as any).functionCallText = text;
+        if (text && !session.functionCallText) {
+          session.functionCallText = text;
         }
 
         if (session.userId) {
@@ -14912,8 +14678,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         const lessonId = (fn.args.lessonId || fn.args.lesson_id) as string | undefined;
         const lessonName = (fn.args.lessonName || fn.args.lesson_name) as string | undefined;
 
-        if (text && !(session as any).functionCallText) {
-          (session as any).functionCallText = text;
+        if (text && !session.functionCallText) {
+          session.functionCallText = text;
         }
 
         if (session.userId) {
@@ -15014,8 +14780,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         const text = fn.args.text as string | undefined;
         const lessonId = (fn.args.lessonId || fn.args.lesson_id) as string | undefined;
 
-        if (text && !(session as any).functionCallText) {
-          (session as any).functionCallText = text;
+        if (text && !session.functionCallText) {
+          session.functionCallText = text;
         }
 
         if (session.userId && lessonId) {
@@ -15068,8 +14834,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         const text = fn.args.text as string | undefined;
         const detailed = fn.args.detailed === true;
 
-        if (text && !(session as any).functionCallText) {
-          (session as any).functionCallText = text;
+        if (text && !session.functionCallText) {
+          session.functionCallText = text;
         }
 
         if (session.userId) {
@@ -15163,8 +14929,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       case 'RECOMMEND_NEXT': {
         const text = fn.args.text as string | undefined;
 
-        if (text && !(session as any).functionCallText) {
-          (session as any).functionCallText = text;
+        if (text && !session.functionCallText) {
+          session.functionCallText = text;
         }
 
         if (session.userId) {
@@ -15270,8 +15036,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         const requestedDrillType = (fn.args.drillType || fn.args.drill_type) as string | undefined;
         const requestedCount = (fn.args.count as number | undefined) || 10;
 
-        if (text && !(session as any).functionCallText) {
-          (session as any).functionCallText = text;
+        if (text && !session.functionCallText) {
+          session.functionCallText = text;
         }
 
         if (session.userId) {
@@ -15378,8 +15144,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         const text = fn.args.text as string | undefined;
         const wasCorrect = fn.args.was_correct as boolean | undefined;
 
-        if (text && !(session as any).functionCallText) {
-          (session as any).functionCallText = text;
+        if (text && !session.functionCallText) {
+          session.functionCallText = text;
         }
 
         const drillSession = (session as any).drillSession;
@@ -15462,8 +15228,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       case 'DRILL_SESSION_END': {
         const text = fn.args.text as string | undefined;
 
-        if (text && !(session as any).functionCallText) {
-          (session as any).functionCallText = text;
+        if (text && !session.functionCallText) {
+          session.functionCallText = text;
         }
 
         const activeDrillSession = (session as any).drillSession;
@@ -15515,8 +15281,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         const text = fn.args.text as string | undefined;
         const maxItems = (fn.args.limit || fn.args.max_items) as number || 10;
 
-        if (text && !(session as any).functionCallText) {
-          (session as any).functionCallText = text;
+        if (text && !session.functionCallText) {
+          session.functionCallText = text;
         }
 
         if (session.userId) {
