@@ -27979,14 +27979,27 @@ Under 250 words. Write as yourself.`;
       const room = await storage.getTeamRoom(id);
       if (!room) return res.status(404).json({ error: 'Room not found' });
       const message = await storage.createRoomMessage({ roomId: id, speaker, content });
-      const { evaluateAndRespond } = await import('./services/team-room-alden-service');
-      const aldenResult = await evaluateAndRespond({ roomId: id, topic: room.topic, newMessage: content, speaker, autoAcknowledge: true });
-      let aldenMessage = null;
-      if (aldenResult.handRaise.shouldRaise && aldenResult.response) {
-        await storage.createRoomHandRaise({ roomId: id, participant: 'Alden', reasoning: aldenResult.handRaise.reasoning, acknowledged: true, acknowledgedAt: new Date() });
-        aldenMessage = await storage.createRoomMessage({ roomId: id, speaker: 'Alden', content: aldenResult.response });
+      const { evaluateAllParticipants } = await import('./services/team-room-alden-service');
+      const evalResult = await evaluateAllParticipants({ roomId: id, topic: room.topic, newMessage: content, speaker });
+      const aiMessages = [];
+      const expressLaneItems = [];
+      const artifacts = [];
+      for (const p of evalResult.participants) {
+        if (p.voiceContent) {
+          await storage.createRoomHandRaise({ roomId: id, participant: p.participant, reasoning: p.handRaise.reasoning, acknowledged: true, acknowledgedAt: new Date() });
+          const speakerName = p.participant.charAt(0).toUpperCase() + p.participant.slice(1);
+          const aiMsg = await storage.createRoomMessage({ roomId: id, speaker: speakerName, content: p.voiceContent });
+          aiMessages.push(aiMsg);
+        }
+        if (p.expressContent) {
+          expressLaneItems.push({ participant: p.participant, content: p.expressContent });
+        }
+        if (p.artifact) {
+          const artifact = await storage.createRoomArtifact({ roomId: id, artifactType: p.artifact.artifactType, title: p.artifact.title, content: p.artifact.content, createdBy: p.participant });
+          artifacts.push(artifact);
+        }
       }
-      res.json({ message, aldenHandRaise: aldenResult.handRaise, aldenMessage, aldenExpressLane: aldenResult.expressLaneContent });
+      res.json({ message, aiMessages, expressLaneItems, artifacts });
     } catch (e) { console.error('[TeamRoom]', e); res.status(500).json({ error: e.message }); }
   });
 
@@ -28007,6 +28020,44 @@ Under 250 words. Write as yourself.`;
       const { hrId } = req.params;
       const hr = await storage.acknowledgeHandRaise(hrId);
       res.json(hr);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Team Room TTS: synthesize speech for a participant
+  app.post("/api/team-room/voice/tts", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { text, speaker } = req.body;
+      if (!text) return res.status(400).json({ error: 'text is required' });
+      const { PARTICIPANT_VOICES } = await import('./services/team-room-alden-service');
+      const voiceConfig = PARTICIPANT_VOICES[speaker?.toLowerCase()] || PARTICIPANT_VOICES['alden'];
+      const ttsService = getTTSService();
+      const result = await ttsService.synthesize({
+        text,
+        language: 'english',
+        voiceOverride: voiceConfig.name,
+        speakingRate: 0.95,
+      });
+      res.set('Content-Type', 'audio/mpeg');
+      res.set('Content-Length', String(result.audioBuffer.length));
+      res.send(result.audioBuffer);
+    } catch (e: any) { console.error('[TeamRoom TTS]', e); res.status(500).json({ error: e.message }); }
+  });
+
+  // Team Room artifacts
+  app.get("/api/team-room/sessions/:id/artifacts", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
+    try {
+      const artifacts = await storage.getRoomArtifacts(req.params.id);
+      res.json(artifacts);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/team-room/sessions/:id/artifacts", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { artifactType, title, content, createdBy = 'david' } = req.body;
+      if (!artifactType || !title || !content) return res.status(400).json({ error: 'artifactType, title, and content are required' });
+      const artifact = await storage.createRoomArtifact({ roomId: id, artifactType, title, content, createdBy });
+      res.json(artifact);
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 

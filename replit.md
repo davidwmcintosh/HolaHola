@@ -31,7 +31,15 @@ The interactive textbook is accessible via `/interactive-textbook`. Subject tuto
 
 The Class Creation Hub (`/teacher/create-class`) now supports creating Language Classes, Academic Subject Classes linked to OpenStax textbooks, or starting from scratch. Academic classes are linked to `subject_syllabi` and identified by `is_academic_class`.
 
-The Team Room (`/team-room`) is an internal collaboration space for David and the AI team (Alden, Daniela, Sofia, subject tutors). It features a 3-panel layout: participants (left), discussion thread (center), Express Lane fast-text panel (right). Sessions are topic-scoped. Alden evaluates each message and decides whether to raise his hand and respond. When sessions close, Alden generates a summary stored in `room_session_summaries` and injected as a "Previously in this room..." preamble in future sessions on the same topic. Key files: `client/src/pages/TeamRoom.tsx`, `server/services/team-room-alden-service.ts`. DB tables: `team_rooms`, `room_voice_messages`, `room_hand_raises`, `room_artifacts`, `room_session_summaries`.
+The Team Room (`/team-room`) is an internal collaboration space for David and the full AI team. Features:
+- **3-panel layout**: participants (left), discussion thread (center), Express Lane analysis panel (right)
+- **4 participants**: David (amber), Alden (blue, Dev Steward via Claude), Daniela (purple, Curriculum Advisor via Gemini), Sofia (emerald, Tech Health via Gemini)
+- **Smart hand-raise logic**: all 3 AI participants evaluate each message in parallel; only those with genuine contributions respond (Daniela for curriculum/ACTFL, Sofia for technical health, Alden for architecture/dev)
+- **PTT voice input**: Web Speech API PTT button; AI responses played back via `/api/team-room/voice/tts` using distinct Neural2 voices per participant
+- **Shared canvas artifacts**: Alden generates structured artifacts (plans, tables, code blocks, insights, decisions) stored in `room_artifacts` and displayed as interactive cards in the Express Lane
+- **Cross-session continuity**: on session close, Alden generates an enriched summary (decisions, action items, momentum note) stored in `room_session_summaries` and injected as a "Previously in this room..." banner at next session start
+- Key files: `client/src/pages/TeamRoom.tsx`, `server/services/team-room-alden-service.ts`
+- DB tables: `team_rooms`, `room_voice_messages`, `room_hand_raises`, `room_artifacts`, `room_session_summaries`
 
 ## External Dependencies
 - Stripe: Payment processing.
