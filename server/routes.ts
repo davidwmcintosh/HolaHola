@@ -415,7 +415,10 @@ async function callGemini(
   // Call Gemini
   const response = await gemini.models.generateContent({
     model,
-    contents: contents.length > 0 ? contents : [{ role: 'user', parts: [{ text: 'Hello' }] }]
+    contents: contents.length > 0 ? contents : [{ role: 'user', parts: [{ text: 'Hello' }] }],
+    config: {
+      maxOutputTokens: 8192,
+    },
   });
   
   // Google GenAI returns text as a property getter
@@ -462,6 +465,7 @@ async function callGeminiWithSchema(
     config: {
       responseMimeType: "application/json",
       responseSchema: schema,
+      maxOutputTokens: 8192,
     },
   });
   

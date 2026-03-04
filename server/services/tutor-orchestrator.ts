@@ -804,7 +804,7 @@ export async function orchestrate(
       (request.mode === "drill" ? 0.3 : 0.7);
     const maxTokens =
       request.options?.maxTokens ??
-      (request.mode === "drill" ? 200 : 1000);
+      (request.mode === "drill" ? 200 : 4096);
 
     // 3. Build the conversation history
     const history = buildConversationHistory(request.context);
