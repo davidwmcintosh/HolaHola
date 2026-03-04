@@ -1009,10 +1009,14 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     
     // FAILSAFE: If checkAndClearProcessing didn't clear isProcessing (e.g., due to
     // pendingAudioCount stuck > 0 from a previous bug), schedule a delayed force-clear.
+    // IMPORTANT: Respect the audioReceivedInTurnRef guard — if audio was received but
+    // playback hasn't started yet (common in batch TTS mode), don't force-clear
+    // isProcessing here. Let the playback lifecycle (onSentenceStart → onComplete)
+    // handle it. Otherwise we get a thinking → listening flash before speaking starts.
     setTimeout(() => {
       if (turnCounterRef.current !== thisTurn) return;
+      if (audioReceivedInTurnRef.current) return;
       if (responseCompleteRef.current && pendingAudioCountRef.current === 0) {
-        audioReceivedInTurnRef.current = false;
         setIsProcessingRef.current(false);
       }
     }, 1000);
