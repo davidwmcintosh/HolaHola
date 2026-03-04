@@ -3245,7 +3245,7 @@ Remember: David may reference things discussed in these recent text chats.
         systemPrompt: session.systemPrompt,  // STATIC base prompt (cacheable)
         conversationHistory: conversationHistoryWithContext,
         userMessage: userMessageWithNote,
-        maxOutputTokens: session.isRawHonestyMode ? 8192 : 4096,
+        maxOutputTokens: (session.isRawHonestyMode || session.isFounderMode) ? 8192 : 4096,
         enableFunctionCalling: true,
         enableContextCaching: true,
         streamFunctionCallArguments: true,
@@ -4576,7 +4576,7 @@ Remember: David may reference things discussed in these recent text chats.
               systemPrompt: session.systemPrompt,  // Use stable base prompt (cached)
               conversationHistory: continuationHistory,  // Fresh: preamble + updated history
               userMessage: '', // Empty - we're continuing from function responses
-              maxOutputTokens: session.isRawHonestyMode ? 8192 : 4096,
+              maxOutputTokens: (session.isRawHonestyMode || session.isFounderMode) ? 8192 : 4096,
               enableFunctionCalling: true,
               enableContextCaching: true,  // Use cached system prompt
               onFunctionCall: async (newFunctionCalls: ExtractedFunctionCall[]) => {
@@ -5932,7 +5932,7 @@ Remember: David may reference things discussed in these recent text chats.
         systemPrompt: session.systemPrompt,  // STATIC base prompt (cacheable)
         conversationHistory: conversationHistoryWithContext,
         userMessage: userMessageWithNote,
-        maxOutputTokens: session.isRawHonestyMode ? 8192 : 4096,
+        maxOutputTokens: (session.isRawHonestyMode || session.isFounderMode) ? 8192 : 4096,
         enableFunctionCalling: true,
         enableContextCaching: true,
         streamFunctionCallArguments: true,
@@ -6974,7 +6974,7 @@ Remember: David may reference things discussed in these recent text chats.
               systemPrompt: session.systemPrompt,  // Use stable base prompt (cached)
               conversationHistory: continuationHistory,  // Fresh: preamble + updated history
               userMessage: '', // Empty - continuing from function responses
-              maxOutputTokens: session.isRawHonestyMode ? 8192 : 4096,
+              maxOutputTokens: (session.isRawHonestyMode || session.isFounderMode) ? 8192 : 4096,
               enableFunctionCalling: true,
               enableContextCaching: true,  // Use cached system prompt
               onFunctionCall: async (newFCs: ExtractedFunctionCall[]) => {
@@ -7201,7 +7201,7 @@ Remember: David may reference things discussed in these recent text chats.
                 systemPrompt: session.systemPrompt,
                 conversationHistory: recursiveHistory,
                 userMessage: '',
-                maxOutputTokens: session.isRawHonestyMode ? 8192 : 4096,
+                maxOutputTokens: (session.isRawHonestyMode || session.isFounderMode) ? 8192 : 4096,
                 enableFunctionCalling: true,
                 enableContextCaching: true,
                 onFunctionCall: async (newFCs: ExtractedFunctionCall[]) => {
@@ -8353,7 +8353,7 @@ Remember: David may reference things discussed in these recent text chats.
         systemPrompt: session.systemPrompt,
         conversationHistory: greetingHistory,  // Include history for resumed conversations
         userMessage: greetingPrompt,
-        maxOutputTokens: session.isRawHonestyMode ? 8192 : 4096,  // Allow verbose greetings in honesty mode
+        maxOutputTokens: (session.isRawHonestyMode || session.isFounderMode) ? 8192 : 4096,  // Allow verbose greetings in honesty mode
         enableFunctionCalling: true,  // Allow function calling (voice_adjust includes text now)
         enableContextCaching: true,  // Cache system prompt for faster response
         session: session as any,  // Pass session for function execution (voice_adjust stores text)
@@ -8534,7 +8534,7 @@ Remember: David may reference things discussed in these recent text chats.
           systemPrompt: session.systemPrompt,
           conversationHistory: continuationHistory,
           userMessage: '', // Empty - the continuation is already in history
-          maxOutputTokens: session.isRawHonestyMode ? 8192 : 4096,
+          maxOutputTokens: (session.isRawHonestyMode || session.isFounderMode) ? 8192 : 4096,
           enableFunctionCalling: false, // Don't allow more function calls in continuation
           enableContextCaching: true,
           session: session as any,
