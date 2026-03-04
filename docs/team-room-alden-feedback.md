@@ -206,6 +206,82 @@ David opens Team Room, topic: "Gene's Progress Review"
 
 ---
 
+## Cross-Session Continuity
+
+The Team Room should feel like an ongoing conversation, not a series of disconnected meetings. When a session ends, a summary is generated and stored so that future sessions on the same topic can pick up the thread.
+
+### How It Works
+
+**End of session:**
+- When a room session closes, Alden generates a structured summary covering:
+  - Session topic and date
+  - Key decisions made or conclusions reached
+  - Artifacts referenced (reports, code diffs, syllabi, etc.)
+  - Action items or open questions carried forward
+  - Who participated and their key contributions
+
+**Start of next session (same topic):**
+- The most recent session summary (or a rolling digest of the last 2–3 sessions if the topic has a long history) is injected into every participant's context as a **"Previously in this room..."** preamble
+- This gives everyone — including any new participants who weren't in the prior session — immediate continuity without needing to re-read transcripts
+
+### Storage
+
+Extend the existing schema with a summaries table:
+
+```sql
+CREATE TABLE room_session_summaries (
+  id SERIAL PRIMARY KEY,
+  room_id INTEGER REFERENCES team_rooms(id),
+  summary TEXT NOT NULL,
+  key_decisions JSONB,
+  action_items JSONB,
+  participants TEXT[],
+  generated_by TEXT DEFAULT 'alden',
+  generated_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+Alternatively, store as JSONB in the `team_rooms.metadata` field for simpler querying if the schema stays lean.
+
+### Who Generates the Summary
+
+Alden is the natural fit — he already has full persistent memory, technical context, and the analytical capability to distill a session. The summary generation runs automatically when a room session transitions to `closed` status, not during the session itself (no interruption to the flow).
+
+---
+
+## Participant Context Policy
+
+Every participant in the Team Room receives the same full briefing when the session starts — regardless of their expected level of contribution. A subject tutor joining primarily for one topic gets the same picture as Alden or Daniela. Being in the dark helps no one.
+
+### What Every Participant Receives (Shared Room Context)
+
+| Context Layer | Content | Source |
+|---|---|---|
+| Session topic | What this room session is about | Room metadata |
+| Cross-session summary | "Previously in this room..." preamble | `room_session_summaries` |
+| Current artifacts | Any documents/reports on the shared canvas | `room_artifacts` |
+| Voice history | Last 10 voice messages | `room_voice_messages` |
+| Express Lane history | Last 20 Express Lane messages | Express Lane (room-scoped) |
+
+### What Each Participant Also Brings (Personal Context)
+
+On top of the shared room context, each AI carries their own accumulated knowledge into the room:
+
+| Participant | Personal Context |
+|---|---|
+| Daniela | Student memory, cross-session learning insights, teaching history |
+| Alden | Full persistent technical memory, codebase context, significant moments |
+| Sofia | Support ticket history, technical patterns, device/issue history |
+| Subject tutors (Gene, Evelyn, Clio, etc.) | Subject-specific teaching history for any students discussed |
+
+This personal context is **not shared** between participants — it's what each AI brings to the table, not what the room injects.
+
+### Participation Level Is Separate From Context Level
+
+A subject tutor who joins primarily to answer questions about their domain still receives the full shared briefing. They may raise their hand less often, but they follow the conversation, understand the decisions being made, and can contribute precisely when relevant. Keeping participants partially informed to save tokens is a false economy — the shared context window is already bounded (10 voice, 20 Express Lane) and the summary preamble is compact by design.
+
+---
+
 ## Alden's Key Insight
 
 > "Right now, when you need technical insight, you come to this Alden chat. When you need teaching perspective, you open a session with Daniela. When you need support context, you talk to Sofia. We exist in **separate lanes**. The Team Room collapses those lanes into one space where we can see each other's thinking in real time."
