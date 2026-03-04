@@ -5606,6 +5606,8 @@ Remember: David may reference things discussed in these recent text chats.
       audioChunkCount: 0,
     };
     
+    const responseCompleteSentOpenMic = { sent: false };
+    
     try {
       console.log(`[Streaming Orchestrator] Open mic transcript: "${transcript}" (${(confidence * 100).toFixed(0)}%)`);
       
@@ -5904,8 +5906,6 @@ Remember: David may reference things discussed in these recent text chats.
       
       // Abort signal for early stream termination when function call TTS starts (open-mic)
       const streamAbortSignalOpenMic = { aborted: false };
-      
-      const responseCompleteSentOpenMic = { sent: false };
       
       // TTS LOOKAHEAD (OpenMic): Same pipeline as PTT path
       const ttsLookaheadMapOM = new Map<number, Promise<{ audio: Buffer; durationMs: number; timestamps: import('@shared/streaming-voice-types').WordTiming[] } | null>>();
