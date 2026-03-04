@@ -562,56 +562,65 @@ export function StreamingVoiceChat({
     };
   }, []);
 
-  // MOBILE AUDIO UNLOCK: Resume AudioContext on first user interaction
-  // Mobile browsers (iOS Safari, Chrome) suspend AudioContext until a user gesture
-  // Since voice chat auto-connects via useEffect (not a direct tap), audio stays blocked
+  // AUDIO CONTEXT PRE-WARM + MOBILE AUDIO UNLOCK
+  // Eagerly create & resume AudioContext on mount (may still be within user gesture window
+  // from clicking the tutor card to navigate here). Also listen for future clicks/taps
+  // in case the eager attempt fails (incognito, mobile Safari, background tab, etc.)
   useEffect(() => {
     if (!useStreamingMode) return;
     
     let unlocked = false;
-    const unlockAudio = async () => {
+    const unlockAudio = async (source: string) => {
       if (unlocked) return;
-      unlocked = true;
       
       try {
         const player = getStreamingAudioPlayer();
         await player.resumeAudioContext();
-        console.log('[MOBILE AUDIO] AudioContext unlocked via user gesture');
+        const ctxState = player.getAudioContextState?.() || 'unknown';
+        if (ctxState === 'running') {
+          unlocked = true;
+          console.log(`[AUDIO UNLOCK] AudioContext running (source: ${source})`);
+          document.removeEventListener('touchstart', onGesture, true);
+          document.removeEventListener('touchend', onGesture, true);
+          document.removeEventListener('click', onGesture, true);
+        } else {
+          console.log(`[AUDIO UNLOCK] AudioContext still ${ctxState} after resume attempt (source: ${source})`);
+        }
       } catch (err) {
-        console.warn('[MOBILE AUDIO] Failed to unlock AudioContext:', err);
+        console.warn(`[AUDIO UNLOCK] Failed (source: ${source}):`, err);
       }
       
       if (ringingAudioRef.current?.context?.state === 'suspended') {
         ringingAudioRef.current.context.resume().then(() => {
-          console.log('[MOBILE AUDIO] Ringing AudioContext also resumed via user gesture');
+          console.log('[AUDIO UNLOCK] Ringing AudioContext also resumed');
         }).catch(() => {});
       }
       
       if (ringingContextRef.current?.state === 'suspended') {
         ringingContextRef.current.resume().then(() => {
-          console.log('[MOBILE AUDIO] Pre-created ringing context resumed via user gesture');
+          console.log('[AUDIO UNLOCK] Pre-created ringing context resumed');
         }).catch(() => {});
       }
       
       if (openMicAudioContextRef.current?.state === 'suspended') {
         openMicAudioContextRef.current.resume().then(() => {
-          console.log('[MOBILE AUDIO] Open-mic AudioContext resumed via user gesture — mic should now capture real audio');
+          console.log('[AUDIO UNLOCK] Open-mic AudioContext resumed');
         }).catch(() => {});
       }
-      
-      document.removeEventListener('touchstart', unlockAudio, true);
-      document.removeEventListener('touchend', unlockAudio, true);
-      document.removeEventListener('click', unlockAudio, true);
     };
     
-    document.addEventListener('touchstart', unlockAudio, true);
-    document.addEventListener('touchend', unlockAudio, true);
-    document.addEventListener('click', unlockAudio, true);
+    const onGesture = () => unlockAudio('user-gesture');
+    
+    unlockAudio('eager-mount');
+    
+    document.addEventListener('touchstart', onGesture, true);
+    document.addEventListener('touchend', onGesture, true);
+    document.addEventListener('click', onGesture, true);
     
     return () => {
-      document.removeEventListener('touchstart', unlockAudio, true);
-      document.removeEventListener('touchend', unlockAudio, true);
-      document.removeEventListener('click', unlockAudio, true);
+      document.removeEventListener('touchstart', onGesture, true);
+      document.removeEventListener('touchend', onGesture, true);
+      document.removeEventListener('click', onGesture, true);
     };
   }, [useStreamingMode]);
   

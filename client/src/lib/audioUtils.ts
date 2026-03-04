@@ -1134,10 +1134,15 @@ export class StreamingAudioPlayer {
     const shouldRestartLoop = !wasPlayingBeforeThisChunk && isFirstChunkForSentence;
     
     if (shouldStartLoop || shouldRestartLoop) {
-      // NOTE: progressiveFirstChunkStarted is now set early (line ~782) for race condition fix
       this.playbackStartTime = performance.now();
       this.isPlaying = true;
-      this.setState('playing');
+      const ctxState = this.audioContext?.state;
+      if (ctxState === 'suspended') {
+        this.setState('buffering');
+        console.log('[AudioPlayer] AudioContext suspended at play start — reporting buffering instead of playing');
+      } else {
+        this.setState('playing');
+      }
       this.startUnifiedTimingLoop();
     }
     
@@ -1403,9 +1408,13 @@ export class StreamingAudioPlayer {
         console.log(`[TICK DEBUG] Frame ${frameCount}: ctx.currentTime=${now.toFixed(3)}, ctx.state=${ctxState}, ctxId=${ctxId}`);
       }
       
-      // Auto-resume if AudioContext is suspended (including frame 0 — first tick)
       if (ctxState === 'suspended') {
         ctx.resume().catch(() => {});
+      }
+      
+      if (ctxState === 'running' && this.state === 'buffering') {
+        console.log('[AudioPlayer] AudioContext resumed — transitioning buffering → playing');
+        this.setState('playing');
       }
       
       // ═══════════════════════════════════════════════════════════════════════════

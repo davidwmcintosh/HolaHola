@@ -1041,14 +1041,19 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       const player = playerRef.current;
       const ctxState = player?.getAudioContextState?.() || 'unknown';
       if (ctxState === 'suspended' || ctxState === 'closed' || ctxState === 'uninitialized') {
-        console.log(`[StreamingVoice] Tier-1 failsafe (20s): AudioContext ${ctxState} — force-clearing (turn=${thisTurn}, pending=${pendingAudioCountRef.current})`);
+        console.log(`[StreamingVoice] Tier-1 failsafe (20s): AudioContext ${ctxState} — clearing state (turn=${thisTurn}, pending=${pendingAudioCountRef.current})`);
         diagMarkFailsafe('tier1_20s', { ctxState, pending: pendingAudioCountRef.current });
         reportDiagnostic('failsafe_tier1_20s', { failsafeTier: 'tier1_20s' });
         pendingAudioCountRef.current = 0;
         audioReceivedInTurnRef.current = false;
         setIsProcessingRef.current(false);
         setGlobalPlaybackState('idle');
-        player?.stop?.();
+        if (ctxState === 'suspended') {
+          console.log('[StreamingVoice] Tier-1: AudioContext suspended — keeping queued audio alive (will play on user gesture)');
+          player?.resumeAudioContext?.().catch(() => {});
+        } else {
+          player?.stop?.();
+        }
       }
     }, 20000);
     
@@ -1090,7 +1095,12 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
         audioReceivedInTurnRef.current = false;
         setIsProcessingRef.current(false);
         setGlobalPlaybackState('idle');
-        player?.stop?.();
+        if (ctxState === 'suspended') {
+          console.log('[StreamingVoice] Tier-2: AudioContext suspended — keeping queued audio alive (will play on user gesture)');
+          player?.resumeAudioContext?.().catch(() => {});
+        } else {
+          player?.stop?.();
+        }
       }
     }, 45000);
     
