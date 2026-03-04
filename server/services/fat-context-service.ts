@@ -54,8 +54,17 @@ export async function buildFatContext(
   const start = Date.now();
   const db = getSharedDb();
 
+  const safeQuery = async <T>(name: string, query: Promise<T[]>): Promise<T[]> => {
+    try {
+      return await query;
+    } catch (err: any) {
+      console.warn(`[Fat Context] ${name} query failed:`, err.message);
+      return [];
+    }
+  };
+
   const [factsResult, insightsResult, strugglesResult, motivationsResult, peopleResult, vocabResult, conversationsResult] = await Promise.all([
-    db.select({
+    safeQuery('facts', db.select({
       factType: learnerPersonalFacts.factType,
       fact: learnerPersonalFacts.fact,
       confidenceScore: learnerPersonalFacts.confidenceScore,
@@ -68,9 +77,9 @@ export async function buildFatContext(
       eq(learnerPersonalFacts.isActive, true),
     ))
     .orderBy(desc(learnerPersonalFacts.mentionCount))
-    .limit(FAT_CONTEXT_LIMITS.MAX_PERSONAL_FACTS),
+    .limit(FAT_CONTEXT_LIMITS.MAX_PERSONAL_FACTS)),
 
-    db.select({
+    safeQuery('insights', db.select({
       insightType: studentInsights.insightType,
       insight: studentInsights.insight,
       confidenceScore: studentInsights.confidenceScore,
@@ -82,9 +91,9 @@ export async function buildFatContext(
       eq(studentInsights.isActive, true),
     ))
     .orderBy(desc(studentInsights.confidenceScore))
-    .limit(FAT_CONTEXT_LIMITS.MAX_INSIGHTS),
+    .limit(FAT_CONTEXT_LIMITS.MAX_INSIGHTS)),
 
-    db.select({
+    safeQuery('struggles', db.select({
       struggleArea: recurringStruggles.struggleArea,
       description: recurringStruggles.description,
       occurrenceCount: recurringStruggles.occurrenceCount,
@@ -93,9 +102,9 @@ export async function buildFatContext(
     .from(recurringStruggles)
     .where(eq(recurringStruggles.studentId, userId))
     .orderBy(desc(recurringStruggles.occurrenceCount))
-    .limit(FAT_CONTEXT_LIMITS.MAX_STRUGGLES),
+    .limit(FAT_CONTEXT_LIMITS.MAX_STRUGGLES)),
 
-    db.select({
+    safeQuery('motivations', db.select({
       motivation: learningMotivations.motivation,
       details: learningMotivations.details,
       priority: learningMotivations.priority,
@@ -107,18 +116,18 @@ export async function buildFatContext(
       eq(learningMotivations.status, 'active'),
     ))
     .orderBy(desc(learningMotivations.priority))
-    .limit(FAT_CONTEXT_LIMITS.MAX_MOTIVATIONS),
+    .limit(FAT_CONTEXT_LIMITS.MAX_MOTIVATIONS)),
 
-    db.select({
+    safeQuery('people', db.select({
       personName: peopleConnections.pendingPersonName,
       relationshipType: peopleConnections.relationshipType,
       details: peopleConnections.relationshipDetails,
     })
     .from(peopleConnections)
     .where(eq(peopleConnections.personAId, userId))
-    .limit(FAT_CONTEXT_LIMITS.MAX_PEOPLE),
+    .limit(FAT_CONTEXT_LIMITS.MAX_PEOPLE)),
 
-    db.select({
+    safeQuery('vocab', db.select({
       word: vocabularyWords.word,
       translation: vocabularyWords.translation,
       example: vocabularyWords.example,
@@ -130,9 +139,9 @@ export async function buildFatContext(
       eq(vocabularyWords.language, targetLanguage),
     ))
     .orderBy(desc(vocabularyWords.createdAt))
-    .limit(FAT_CONTEXT_LIMITS.MAX_VOCAB_WORDS),
+    .limit(FAT_CONTEXT_LIMITS.MAX_VOCAB_WORDS)),
 
-    db.select({
+    safeQuery('conversations', db.select({
       id: conversations.id,
       title: conversations.title,
       language: conversations.language,
@@ -145,7 +154,7 @@ export async function buildFatContext(
       currentConversationId ? sql`${conversations.id} != ${currentConversationId}` : sql`true`,
     ))
     .orderBy(desc(conversations.createdAt))
-    .limit(FAT_CONTEXT_LIMITS.MAX_RECENT_CONVERSATIONS),
+    .limit(FAT_CONTEXT_LIMITS.MAX_RECENT_CONVERSATIONS)),
   ]);
 
   const conversationMessages: Array<{ conversationId: string; title: string; date: Date; msgs: Array<{ role: string; content: string }> }> = [];
@@ -153,26 +162,34 @@ export async function buildFatContext(
 
   if (conversationsResult.length > 0) {
     const msgPromises = conversationsResult.map(async (conv) => {
-      const msgs = await db.select({
-        role: messages.role,
-        content: messages.content,
-      })
-      .from(messages)
-      .where(eq(messages.conversationId, conv.id))
-      .orderBy(desc(messages.createdAt))
-      .limit(FAT_CONTEXT_LIMITS.MAX_MESSAGES_PER_CONVERSATION);
+      try {
+        const msgs = await db.select({
+          role: messages.role,
+          content: messages.content,
+        })
+        .from(messages)
+        .where(eq(messages.conversationId, conv.id))
+        .orderBy(desc(messages.createdAt))
+        .limit(FAT_CONTEXT_LIMITS.MAX_MESSAGES_PER_CONVERSATION);
 
-      const ordered = msgs.reverse();
-      totalMsgCount += ordered.length;
+        const ordered = msgs.reverse();
+        totalMsgCount += ordered.length;
 
-      return {
-        conversationId: conv.id,
-        title: conv.title || 'Untitled',
-        date: conv.createdAt || new Date(),
-        msgs: ordered,
-      };
+        return {
+          conversationId: conv.id,
+          title: conv.title || 'Untitled',
+          date: conv.createdAt || new Date(),
+          msgs: ordered,
+        };
+      } catch (err: any) {
+        console.warn(`[Fat Context] Messages for ${conv.id} failed:`, err.message);
+        return null;
+      }
     });
-    conversationMessages.push(...(await Promise.all(msgPromises)));
+    const results = await Promise.all(msgPromises);
+    for (const r of results) {
+      if (r) conversationMessages.push(r);
+    }
   }
 
   const personalProfileSection = formatPersonalProfile(

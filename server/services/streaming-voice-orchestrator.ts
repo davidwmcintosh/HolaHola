@@ -64,6 +64,7 @@ import { usageService } from "./usage-service";
 import { TtsDispatcher } from "./tts-dispatcher";
 import { NativeFunctionCallHandler } from "./native-fc-handlers";
 import { PostResponseEnrichmentService } from "./post-response-enrichment";
+import { buildFatContext, FAT_CONTEXT_ENABLED } from "./fat-context-service";
 
 export function ensureTrailingPunctuation(text: string): string {
   const trimmed = text.trim();
@@ -1243,6 +1244,10 @@ export interface StreamingSession {
     textChatSection?: string;
     editorFeedbackSection?: string;
     editorFeedbackIds?: string[];
+    fatContextProfile?: string;
+    fatContextVocabulary?: string;
+    fatContextConversations?: string;
+    fatContextTokenEstimate?: number;
     lastFetchTime: number;  // Timestamp for TTL-based refresh
   };
   // Promise for background context pre-fetch (resolved when cache is ready)
@@ -2157,6 +2162,20 @@ Remember: David may reference things discussed in these recent text chats.
             }
           })
           .catch(err => console.warn(`[Context Prefetch] Editor feedback failed:`, err.message))
+      );
+    }
+    
+    if (FAT_CONTEXT_ENABLED && session.userId && session.targetLanguage) {
+      promises.push(
+        buildFatContext(String(session.userId), session.targetLanguage, session.conversationId || undefined)
+          .then(fatResult => {
+            cache.fatContextProfile = fatResult.personalProfileSection;
+            cache.fatContextVocabulary = fatResult.vocabularySection;
+            cache.fatContextConversations = fatResult.recentConversationsSection;
+            cache.fatContextTokenEstimate = fatResult.totalTokenEstimate;
+            console.log(`[Fat Context] Loaded ~${fatResult.totalTokenEstimate} tokens: ${fatResult.stats.facts} facts, ${fatResult.stats.vocabWords} vocab, ${fatResult.stats.conversations} convos (${fatResult.stats.messages} msgs), ${fatResult.stats.struggles} struggles, ${fatResult.stats.motivations} motivations, ${fatResult.stats.people} people, ${fatResult.stats.insights} insights`);
+          })
+          .catch(err => console.warn(`[Context Prefetch] Fat context failed:`, err.message))
       );
     }
     
@@ -3077,6 +3096,16 @@ Remember: David may reference things discussed in these recent text chats.
       
       // Build dynamic context preamble (injected as first message in history)
       const dynamicContextParts: string[] = [];
+      
+      if (hasFreshCache && session.cachedContext?.fatContextProfile) {
+        dynamicContextParts.push(session.cachedContext.fatContextProfile);
+      }
+      if (hasFreshCache && session.cachedContext?.fatContextVocabulary) {
+        dynamicContextParts.push(session.cachedContext.fatContextVocabulary);
+      }
+      if (hasFreshCache && session.cachedContext?.fatContextConversations) {
+        dynamicContextParts.push(session.cachedContext.fatContextConversations);
+      }
       
       // studentLearningSection is now folded into the classroom (Student Progress Board)
       if (passiveMemorySection) {
@@ -5800,6 +5829,19 @@ Remember: David may reference things discussed in these recent text chats.
       // Build dynamic context parts for OpenMic
       // studentLearningSection, beta tester, incognito, and tech health are now folded into the classroom
       const dynamicContextPartsOpenMic: string[] = [];
+      
+      const hasFreshCacheOpenMic = session.cachedContext && 
+        (Date.now() - session.cachedContext.lastFetchTime) < 5 * 60 * 1000;
+      if (hasFreshCacheOpenMic && session.cachedContext?.fatContextProfile) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.fatContextProfile);
+      }
+      if (hasFreshCacheOpenMic && session.cachedContext?.fatContextVocabulary) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.fatContextVocabulary);
+      }
+      if (hasFreshCacheOpenMic && session.cachedContext?.fatContextConversations) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.fatContextConversations);
+      }
+      
       if (passiveMemorySectionOpenMic) {
         dynamicContextPartsOpenMic.push(passiveMemorySectionOpenMic);
       }
