@@ -609,6 +609,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const handleAudioChunk = useCallback((msg: StreamingAudioChunkMessage) => {
     console.log('[HOOK handleAudioChunk] CALLED! sentence=', msg.sentenceIndex, 'chunk=', msg.chunkIndex, 'audioLen=', msg.audio?.length || 0);
     
+    audioReceivedInTurnRef.current = true;
+    
     diagMarkFirstAudio();
     
     // CRITICAL DEBUG: Track chunks via debug panel state (reliable visibility)
