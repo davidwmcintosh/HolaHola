@@ -753,7 +753,7 @@ function TutorObservationsBubble({
                   <Sparkles className="h-4 w-4 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-sm">{tutorName}'s Observations</h3>
+                  <h3 className="font-semibold text-sm">{tutorName}'s Insights</h3>
                   <p className="text-[10px] text-muted-foreground">
                     Your personalized insights
                   </p>

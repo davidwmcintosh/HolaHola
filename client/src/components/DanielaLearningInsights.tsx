@@ -16,6 +16,8 @@ import {
   BookOpen
 } from "lucide-react";
 import { Link } from "wouter";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { getTutorName } from "@/lib/tutor-avatars";
 
 interface RecurringStruggle {
   id: string;
@@ -98,6 +100,8 @@ const categoryIcons: Record<string, typeof BookOpen> = {
 };
 
 export function DanielaLearningInsights({ language, userId }: Props) {
+  const { tutorGender } = useLanguage();
+  const tutorName = getTutorName(language, tutorGender);
   const { data: context, isLoading, error } = useQuery<StudentLearningContext | null>({
     queryKey: ["/api/student-learning/context", userId, language],
     queryFn: async () => {
@@ -153,7 +157,7 @@ export function DanielaLearningInsights({ language, userId }: Props) {
           <div className="p-1.5 rounded-full bg-primary/10">
             <Sparkles className="h-4 w-4 text-primary" />
           </div>
-          <CardTitle className="text-lg">Daniela's Observations</CardTitle>
+          <CardTitle className="text-lg">{tutorName}'s Insights</CardTitle>
         </div>
         <CardDescription>
           Your personalized learning insights
@@ -278,7 +282,7 @@ export function DanielaLearningInsights({ language, userId }: Props) {
             data-testid="button-practice-now"
           >
             <Sparkles className="h-4 w-4" />
-            Practice with Daniela
+            Practice with {tutorName}
             <ChevronRight className="h-4 w-4 ml-auto" />
           </Button>
         </Link>

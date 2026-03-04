@@ -13102,7 +13102,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       const result = await tts.synthesize({
         text,
         language: 'english',
-        voiceId,
+        voice: voiceId,
         speakingRate,
         forceProvider: 'google',
       });
@@ -13157,7 +13157,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       const result = await tts.synthesize({
         text,
         language: 'english',
-        voiceId,
+        voice: voiceId,
         speakingRate,
         forceProvider: 'google',
       });
@@ -27649,7 +27649,7 @@ You have full access to your neural network knowledge.
   app.get("/api/reading-modules/:subject", isAuthenticated, async (req: any, res) => {
     try {
       const { subject } = req.params;
-      const validSubjects = ['biology', 'history', 'language'];
+      const validSubjects = ["biology","history","language","chemistry","microbiology","anatomy-physiology","nutrition","astronomy","prealgebra","elementary-algebra","college-algebra","precalculus","calculus-vol1","calculus-vol2","calculus-vol3","statistics","contemporary-math","university-physics-vol1","university-physics-vol2","university-physics-vol3","college-physics","world-history-vol1","world-history-vol2","american-government","introduction-sociology","psychology","macroeconomics","microeconomics","philosophy","principles-management","principles-accounting-vol1","principles-finance","entrepreneurship","business-ethics"];
       if (!validSubjects.includes(subject)) {
         return res.status(400).json({ error: 'Invalid subject' });
       }
@@ -27677,7 +27677,7 @@ You have full access to your neural network knowledge.
   app.get("/api/reading-modules/:subject/:topic", isAuthenticated, async (req: any, res) => {
     try {
       const { subject, topic } = req.params;
-      const validSubjects = ['biology', 'history', 'language'];
+      const validSubjects = ["biology","history","language","chemistry","microbiology","anatomy-physiology","nutrition","astronomy","prealgebra","elementary-algebra","college-algebra","precalculus","calculus-vol1","calculus-vol2","calculus-vol3","statistics","contemporary-math","university-physics-vol1","university-physics-vol2","university-physics-vol3","college-physics","world-history-vol1","world-history-vol2","american-government","introduction-sociology","psychology","macroeconomics","microeconomics","philosophy","principles-management","principles-accounting-vol1","principles-finance","entrepreneurship","business-ethics"];
       if (!validSubjects.includes(subject)) {
         return res.status(400).json({ error: `Invalid subject. Must be one of: ${validSubjects.join(', ')}` });
       }
