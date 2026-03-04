@@ -82,6 +82,7 @@ const HistoryTutor = lazyWithRetry(() => import("@/pages/history-tutor"));
 const MathTutor = lazyWithRetry(() => import("@/pages/math-tutor"));
 const BusinessTutor = lazyWithRetry(() => import("@/pages/business-tutor"));
 const AldenPage = lazyWithRetry(() => import("@/pages/alden"));
+const TeamRoom = lazyWithRetry(() => import("@/pages/TeamRoom"));
 const ReadingLibrary = lazyWithRetry(() => import("@/pages/reading-library"));
 const ProgressReport = lazyWithRetry(() => import("@/pages/progress-report"));
 const NotFound = lazyWithRetry(() => import("@/pages/not-found"));
@@ -232,6 +233,7 @@ function Router() {
         <Route path="/reading-library" component={ReadingLibrary} />
         <Route path="/progress-report" component={ProgressReport} />
         <Route path="/alden" component={AldenPage} />
+        <Route path="/team-room" component={TeamRoom} />
         
         {/* Teacher Routes - Protected */}
         <Route path="/teacher/dashboard" component={TeacherDashboard} />

@@ -243,6 +243,21 @@ import {
   wrenInsights,
   type WrenInsight,
   type InsertWrenInsight,
+  teamRooms,
+  type TeamRoom,
+  type InsertTeamRoom,
+  roomVoiceMessages,
+  type RoomVoiceMessage,
+  type InsertRoomVoiceMessage,
+  roomHandRaises,
+  type RoomHandRaise,
+  type InsertRoomHandRaise,
+  roomArtifacts,
+  type RoomArtifact,
+  type InsertRoomArtifact,
+  roomSessionSummaries,
+  type RoomSessionSummary,
+  type InsertRoomSessionSummary,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -982,6 +997,22 @@ export interface IStorage {
   updateWrenInsight(id: string, data: Partial<WrenInsight>): Promise<WrenInsight | undefined>;
   markWrenInsightUsed(id: string): Promise<WrenInsight | undefined>;
   deleteWrenInsight(id: string): Promise<boolean>;
+
+  // ===== Team Room =====
+  createTeamRoom(data: InsertTeamRoom): Promise<TeamRoom>;
+  getTeamRoom(id: string): Promise<TeamRoom | undefined>;
+  listTeamRooms(limit?: number): Promise<TeamRoom[]>;
+  closeTeamRoom(id: string): Promise<TeamRoom | undefined>;
+  createRoomMessage(data: InsertRoomVoiceMessage): Promise<RoomVoiceMessage>;
+  getRoomMessages(roomId: string, limit?: number): Promise<RoomVoiceMessage[]>;
+  createRoomHandRaise(data: InsertRoomHandRaise): Promise<RoomHandRaise>;
+  getPendingHandRaises(roomId: string): Promise<RoomHandRaise[]>;
+  acknowledgeHandRaise(id: string): Promise<RoomHandRaise | undefined>;
+  createRoomArtifact(data: InsertRoomArtifact): Promise<RoomArtifact>;
+  getRoomArtifacts(roomId: string): Promise<RoomArtifact[]>;
+  createRoomSessionSummary(data: InsertRoomSessionSummary): Promise<RoomSessionSummary>;
+  getRoomSessionSummaries(roomId: string, limit?: number): Promise<RoomSessionSummary[]>;
+  getLatestSummaryByTopic(topic: string): Promise<RoomSessionSummary | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -7852,6 +7883,90 @@ export class DatabaseStorage implements IStorage {
   async deleteWrenInsight(id: string): Promise<boolean> {
     const result = await db.delete(wrenInsights).where(eq(wrenInsights.id, id));
     return true;
+  }
+
+  // ===== Team Room =====
+  async createTeamRoom(data: InsertTeamRoom): Promise<TeamRoom> {
+    const [room] = await db.insert(teamRooms).values(data).returning();
+    return room;
+  }
+
+  async getTeamRoom(id: string): Promise<TeamRoom | undefined> {
+    const [room] = await db.select().from(teamRooms).where(eq(teamRooms.id, id));
+    return room;
+  }
+
+  async listTeamRooms(limit = 20): Promise<TeamRoom[]> {
+    return db.select().from(teamRooms).orderBy(desc(teamRooms.createdAt)).limit(limit);
+  }
+
+  async closeTeamRoom(id: string): Promise<TeamRoom | undefined> {
+    const [room] = await db.update(teamRooms).set({ status: 'closed' }).where(eq(teamRooms.id, id)).returning();
+    return room;
+  }
+
+  async createRoomMessage(data: InsertRoomVoiceMessage): Promise<RoomVoiceMessage> {
+    const [msg] = await db.insert(roomVoiceMessages).values(data).returning();
+    return msg;
+  }
+
+  async getRoomMessages(roomId: string, limit = 50): Promise<RoomVoiceMessage[]> {
+    return db.select().from(roomVoiceMessages)
+      .where(eq(roomVoiceMessages.roomId, roomId))
+      .orderBy(asc(roomVoiceMessages.timestamp))
+      .limit(limit);
+  }
+
+  async createRoomHandRaise(data: InsertRoomHandRaise): Promise<RoomHandRaise> {
+    const [hr] = await db.insert(roomHandRaises).values(data).returning();
+    return hr;
+  }
+
+  async getPendingHandRaises(roomId: string): Promise<RoomHandRaise[]> {
+    return db.select().from(roomHandRaises)
+      .where(and(eq(roomHandRaises.roomId, roomId), eq(roomHandRaises.acknowledged, false)))
+      .orderBy(asc(roomHandRaises.raisedAt));
+  }
+
+  async acknowledgeHandRaise(id: string): Promise<RoomHandRaise | undefined> {
+    const [hr] = await db.update(roomHandRaises)
+      .set({ acknowledged: true, acknowledgedAt: new Date() })
+      .where(eq(roomHandRaises.id, id))
+      .returning();
+    return hr;
+  }
+
+  async createRoomArtifact(data: InsertRoomArtifact): Promise<RoomArtifact> {
+    const [artifact] = await db.insert(roomArtifacts).values(data).returning();
+    return artifact;
+  }
+
+  async getRoomArtifacts(roomId: string): Promise<RoomArtifact[]> {
+    return db.select().from(roomArtifacts)
+      .where(eq(roomArtifacts.roomId, roomId))
+      .orderBy(desc(roomArtifacts.createdAt));
+  }
+
+  async createRoomSessionSummary(data: InsertRoomSessionSummary): Promise<RoomSessionSummary> {
+    const [summary] = await db.insert(roomSessionSummaries).values(data).returning();
+    return summary;
+  }
+
+  async getRoomSessionSummaries(roomId: string, limit = 3): Promise<RoomSessionSummary[]> {
+    return db.select().from(roomSessionSummaries)
+      .where(eq(roomSessionSummaries.roomId, roomId))
+      .orderBy(desc(roomSessionSummaries.generatedAt))
+      .limit(limit);
+  }
+
+  async getLatestSummaryByTopic(topic: string): Promise<RoomSessionSummary | undefined> {
+    const rooms = await db.select().from(teamRooms).where(eq(teamRooms.topic, topic)).orderBy(desc(teamRooms.createdAt));
+    if (!rooms.length) return undefined;
+    const summaries = await db.select().from(roomSessionSummaries)
+      .where(eq(roomSessionSummaries.roomId, rooms[0].id))
+      .orderBy(desc(roomSessionSummaries.generatedAt))
+      .limit(1);
+    return summaries[0];
   }
 }
 

@@ -27940,5 +27940,75 @@ Under 250 words. Write as yourself.`;
     }
   });
 
-  // This ensures WS upgrade handler runs BEFORE Express/Vite middleware interferes
+  // ===== Team Room Routes =====
+  app.post("/api/team-room/sessions", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
+    try {
+      const { topic } = req.body;
+      if (!topic) return res.status(400).json({ error: 'topic is required' });
+      const room = await storage.createTeamRoom({ topic, status: 'active', createdBy: 'david' });
+      res.json(room);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/team-room/sessions", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
+    try {
+      const rooms = await storage.listTeamRooms(20);
+      res.json(rooms);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/team-room/sessions/:id", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const [room, messages, handRaises, artifacts] = await Promise.all([
+        storage.getTeamRoom(id),
+        storage.getRoomMessages(id, 50),
+        storage.getPendingHandRaises(id),
+        storage.getRoomArtifacts(id),
+      ]);
+      if (!room) return res.status(404).json({ error: 'Room not found' });
+      res.json({ room, messages, handRaises, artifacts });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/team-room/sessions/:id/messages", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { content, speaker = 'David' } = req.body;
+      if (!content) return res.status(400).json({ error: 'content is required' });
+      const room = await storage.getTeamRoom(id);
+      if (!room) return res.status(404).json({ error: 'Room not found' });
+      const message = await storage.createRoomMessage({ roomId: id, speaker, content });
+      const { evaluateAndRespond } = await import('./services/team-room-alden-service');
+      const aldenResult = await evaluateAndRespond({ roomId: id, topic: room.topic, newMessage: content, speaker, autoAcknowledge: true });
+      let aldenMessage = null;
+      if (aldenResult.handRaise.shouldRaise && aldenResult.response) {
+        await storage.createRoomHandRaise({ roomId: id, participant: 'Alden', reasoning: aldenResult.handRaise.reasoning, acknowledged: true, acknowledgedAt: new Date() });
+        aldenMessage = await storage.createRoomMessage({ roomId: id, speaker: 'Alden', content: aldenResult.response });
+      }
+      res.json({ message, aldenHandRaise: aldenResult.handRaise, aldenMessage, aldenExpressLane: aldenResult.expressLaneContent });
+    } catch (e) { console.error('[TeamRoom]', e); res.status(500).json({ error: e.message }); }
+  });
+
+  app.patch("/api/team-room/sessions/:id/close", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const room = await storage.getTeamRoom(id);
+      if (!room) return res.status(404).json({ error: 'Room not found' });
+      const { generateSessionSummary } = await import('./services/team-room-alden-service');
+      await generateSessionSummary(id, room.topic);
+      const closed = await storage.closeTeamRoom(id);
+      res.json(closed);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.patch("/api/team-room/sessions/:id/hand-raises/:hrId/acknowledge", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
+    try {
+      const { hrId } = req.params;
+      const hr = await storage.acknowledgeHandRaise(hrId);
+      res.json(hr);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+    // This ensures WS upgrade handler runs BEFORE Express/Vite middleware interferes
 }

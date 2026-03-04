@@ -378,6 +378,20 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
+              {isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location.startsWith('/team-room')}
+                    data-testid="link-team-room"
+                  >
+                    <Link href="/team-room" onClick={closeSidebar}>
+                      <Users className="h-4 w-4" />
+                      <span>Team Room</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

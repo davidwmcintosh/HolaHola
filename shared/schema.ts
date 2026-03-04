@@ -8189,3 +8189,67 @@ export const insertReadingModuleViewSchema = createInsertSchema(readingModuleVie
 export type InsertReadingModuleView = z.infer<typeof insertReadingModuleViewSchema>;
 export type ReadingModuleView = typeof readingModuleViews.$inferSelect;
 
+export const teamRooms = pgTable("team_rooms", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  topic: text("topic").notNull(),
+  status: text("status").default("active").notNull(),
+  createdBy: text("created_by").default("david").notNull(),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export const insertTeamRoomSchema = createInsertSchema(teamRooms).omit({ id: true, createdAt: true });
+export type InsertTeamRoom = z.infer<typeof insertTeamRoomSchema>;
+export type TeamRoom = typeof teamRooms.$inferSelect;
+
+export const roomVoiceMessages = pgTable("room_voice_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  roomId: varchar("room_id").notNull().references(() => teamRooms.id),
+  speaker: text("speaker").notNull(),
+  content: text("content").notNull(),
+  audioUrl: text("audio_url"),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+});
+export const insertRoomVoiceMessageSchema = createInsertSchema(roomVoiceMessages).omit({ id: true, timestamp: true });
+export type InsertRoomVoiceMessage = z.infer<typeof insertRoomVoiceMessageSchema>;
+export type RoomVoiceMessage = typeof roomVoiceMessages.$inferSelect;
+
+export const roomHandRaises = pgTable("room_hand_raises", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  roomId: varchar("room_id").notNull().references(() => teamRooms.id),
+  participant: text("participant").notNull(),
+  raisedAt: timestamp("raised_at").defaultNow().notNull(),
+  reasoning: text("reasoning"),
+  acknowledged: boolean("acknowledged").default(false).notNull(),
+  acknowledgedAt: timestamp("acknowledged_at"),
+});
+export const insertRoomHandRaiseSchema = createInsertSchema(roomHandRaises).omit({ id: true, raisedAt: true });
+export type InsertRoomHandRaise = z.infer<typeof insertRoomHandRaiseSchema>;
+export type RoomHandRaise = typeof roomHandRaises.$inferSelect;
+
+export const roomArtifacts = pgTable("room_artifacts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  roomId: varchar("room_id").notNull().references(() => teamRooms.id),
+  artifactType: text("artifact_type"),
+  title: text("title"),
+  content: jsonb("content"),
+  createdBy: text("created_by"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export const insertRoomArtifactSchema = createInsertSchema(roomArtifacts).omit({ id: true, createdAt: true });
+export type InsertRoomArtifact = z.infer<typeof insertRoomArtifactSchema>;
+export type RoomArtifact = typeof roomArtifacts.$inferSelect;
+
+export const roomSessionSummaries = pgTable("room_session_summaries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  roomId: varchar("room_id").notNull().references(() => teamRooms.id),
+  summary: text("summary").notNull(),
+  keyDecisions: jsonb("key_decisions"),
+  actionItems: jsonb("action_items"),
+  participants: text("participants").array(),
+  generatedBy: text("generated_by").default("alden").notNull(),
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+});
+export const insertRoomSessionSummarySchema = createInsertSchema(roomSessionSummaries).omit({ id: true, generatedAt: true });
+export type InsertRoomSessionSummary = z.infer<typeof insertRoomSessionSummarySchema>;
+export type RoomSessionSummary = typeof roomSessionSummaries.$inferSelect;
+
