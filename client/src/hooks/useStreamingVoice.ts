@@ -249,7 +249,12 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
         // handle cleanup normally. This 10s timeout is a safety net only.
         setTimeout(() => {
           if (audioReceivedInTurnRef.current && responseCompleteRef.current && pendingAudioCountRef.current === 0) {
+            const currentPlaybackState = (window as any).__lastPlaybackCallback?.state || 'unknown';
             const ctxState = playerRef.current?.getAudioContextState?.() || 'unknown';
+            if (currentPlaybackState === 'playing' || currentPlaybackState === 'buffering') {
+              console.log(`[StreamingVoice] audioReceived guard timeout: playback still active (${currentPlaybackState}) — skipping force-clear`);
+              return;
+            }
             console.log(`[StreamingVoice] audioReceived guard timeout: playback never started after 10s — force-clearing (ctxState=${ctxState})`);
             audioReceivedInTurnRef.current = false;
             setIsProcessingRef.current(false);
@@ -609,7 +614,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const handleAudioChunk = useCallback((msg: StreamingAudioChunkMessage) => {
     console.log('[HOOK handleAudioChunk] CALLED! sentence=', msg.sentenceIndex, 'chunk=', msg.chunkIndex, 'audioLen=', msg.audio?.length || 0);
     
-    audioReceivedInTurnRef.current = true;
+    if (msg.chunkIndex === 0) {
+      audioReceivedInTurnRef.current = true;
+    }
     
     diagMarkFirstAudio();
     
