@@ -96,7 +96,7 @@ async function buildRoomContext(roomId: string, topic: string): Promise<string> 
 
 // ── Alden evaluation + response (Anthropic/Claude) ──────────────────────────
 
-async function evaluateAlden(roomContext: string, speaker: string, newMessage: string): Promise<ParticipantResponse> {
+async function evaluateAlden(roomContext: string, speaker: string, newMessage: string, forceMention = false): Promise<ParticipantResponse> {
   const evalPrompt = `${roomContext}
 
 NEW MESSAGE from ${speaker}: "${newMessage}"
@@ -135,7 +135,8 @@ Do NOT raise your hand if you have nothing specific to add or if another partici
     handRaise = { shouldRaise: true, reasoning: 'evaluation failed', confidence: 'low' };
   }
 
-  if (!handRaise.shouldRaise) return { participant: 'alden', handRaise };
+  if (!handRaise.shouldRaise && !forceMention) return { participant: 'alden', handRaise };
+  if (forceMention) handRaise = { shouldRaise: true, reasoning: 'directly mentioned', confidence: 'high' };
 
   const responsePrompt = `${roomContext}
 
@@ -210,7 +211,7 @@ Your role: provide insight on curriculum design, ACTFL standards, learning outco
 syllabi structure, and pedagogical best practices. You are warm but concise and professional.
 You only speak when you have something genuinely useful to add about curriculum or teaching.`;
 
-async function evaluateDaniela(roomContext: string, speaker: string, newMessage: string): Promise<ParticipantResponse> {
+async function evaluateDaniela(roomContext: string, speaker: string, newMessage: string, forceMention = false): Promise<ParticipantResponse> {
   const evalPrompt = `${roomContext}
 
 NEW MESSAGE from ${speaker}: "${newMessage}"
@@ -248,7 +249,8 @@ Respond ONLY in this JSON format:
     }
   } catch { /* keep default */ }
 
-  if (!handRaise.shouldRaise) return { participant: 'daniela', handRaise };
+  if (!handRaise.shouldRaise && !forceMention) return { participant: 'daniela', handRaise };
+  if (forceMention) handRaise = { shouldRaise: true, reasoning: 'directly mentioned', confidence: 'high' };
 
   const responsePrompt = `${roomContext}
 
@@ -281,7 +283,7 @@ In the Team Room, you monitor system health, track technical issues, and flag pr
 Your role: identify bugs, system errors, voice pipeline issues, performance problems, and DevOps concerns.
 You are analytical, direct, and solution-focused. You only speak when there is a genuine technical concern.`;
 
-async function evaluateSofia(roomContext: string, speaker: string, newMessage: string): Promise<ParticipantResponse> {
+async function evaluateSofia(roomContext: string, speaker: string, newMessage: string, forceMention = false): Promise<ParticipantResponse> {
   const evalPrompt = `${roomContext}
 
 NEW MESSAGE from ${speaker}: "${newMessage}"
@@ -320,7 +322,8 @@ Respond ONLY in this JSON format:
     }
   } catch { /* keep default */ }
 
-  if (!handRaise.shouldRaise) return { participant: 'sofia', handRaise };
+  if (!handRaise.shouldRaise && !forceMention) return { participant: 'sofia', handRaise };
+  if (forceMention) handRaise = { shouldRaise: true, reasoning: 'directly mentioned', confidence: 'high' };
 
   const responsePrompt = `${roomContext}
 
@@ -348,24 +351,46 @@ EXPRESS: [technical details, error analysis, recommended fix steps, or "none"]`;
 
 // ── Public API: evaluate all participants in parallel ────────────────────────
 
+// ── @mention parsing ────────────────────────────────────────────────────────
+
+export function parseMentions(message: string): Participant[] | null {
+  const mentionPattern = /@(alden|daniela|sofia)\b/gi;
+  const matches = message.match(mentionPattern);
+  if (!matches || matches.length === 0) return null;
+  const unique = [...new Set(matches.map(m => m.slice(1).toLowerCase() as Participant))];
+  return unique;
+}
+
 export async function evaluateAllParticipants(params: {
   roomId: string;
   topic: string;
   newMessage: string;
   speaker: string;
+  mentions?: Participant[] | null;
 }): Promise<RoomEvaluationResult> {
-  const { roomId, topic, newMessage, speaker } = params;
+  const { roomId, topic, newMessage, speaker, mentions } = params;
   const roomContext = await buildRoomContext(roomId, topic);
 
-  const [aldenResult, danielaResult, sofiaResult] = await Promise.all([
-    evaluateAlden(roomContext, speaker, newMessage),
-    evaluateDaniela(roomContext, speaker, newMessage),
-    evaluateSofia(roomContext, speaker, newMessage),
-  ]);
+  const targeted = mentions && mentions.length > 0;
+  const evaluators: Promise<ParticipantResponse>[] = [];
 
-  const respondingParticipants = [aldenResult, danielaResult, sofiaResult].filter(
-    p => p.handRaise.shouldRaise
-  );
+  if (!targeted || mentions!.includes('alden')) {
+    evaluators.push(evaluateAlden(roomContext, speaker, newMessage, targeted && mentions!.includes('alden')));
+  }
+  if (!targeted || mentions!.includes('daniela')) {
+    evaluators.push(evaluateDaniela(roomContext, speaker, newMessage, targeted && mentions!.includes('daniela')));
+  }
+  if (!targeted || mentions!.includes('sofia')) {
+    evaluators.push(evaluateSofia(roomContext, speaker, newMessage, targeted && mentions!.includes('sofia')));
+  }
+
+  const results = await Promise.all(evaluators);
+
+  // When explicitly mentioned, force the participant to respond even if they wouldn't naturally raise their hand
+  const respondingParticipants = results.filter(p => {
+    if (targeted && mentions!.includes(p.participant)) return true;
+    return p.handRaise.shouldRaise;
+  });
 
   return { participants: respondingParticipants };
 }

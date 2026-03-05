@@ -11,6 +11,7 @@ import { validateVoiceConfig } from "./services/voice-config";
 import { generalLimiter } from "./middleware/rate-limiter";
 import { setupUnifiedWebSocketHandler, setupSocketIOHandler } from "./unified-ws-handler";
 import { founderCollabWSBroker } from "./services/founder-collab-ws-broker";
+import { initializeTeamRoomWS } from "./services/team-room-ws-broker";
 import { hiveConsciousnessService } from "./services/hive-consciousness-service";
 import { migrationOrchestrator } from "./migrations/migration-orchestrator";
 import { memoryRecoveryWorker } from "./services/memory-recovery-worker";
@@ -45,6 +46,9 @@ setupSocketIOHandler(io);
 
 // Initialize Founder Collaboration WebSocket broker on /founder-collab namespace
 founderCollabWSBroker.initialize(io);
+
+// Initialize Team Room WebSocket broker on /team-room namespace
+initializeTeamRoomWS(io);
 
 // CRITICAL: Add immediate health check endpoint for Cloud Run deployment
 // This responds BEFORE any heavy initialization to pass health checks quickly

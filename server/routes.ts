@@ -27979,8 +27979,13 @@ Under 250 words. Write as yourself.`;
       const room = await storage.getTeamRoom(id);
       if (!room) return res.status(404).json({ error: 'Room not found' });
       const message = await storage.createRoomMessage({ roomId: id, speaker, content });
-      const { evaluateAllParticipants } = await import('./services/team-room-alden-service');
-      const evalResult = await evaluateAllParticipants({ roomId: id, topic: room.topic, newMessage: content, speaker });
+      const { evaluateAllParticipants, parseMentions } = await import('./services/team-room-alden-service');
+      const { emitNewMessage, emitExpressLane, emitArtifact, emitParticipantThinking, emitParticipantsDone } = await import('./services/team-room-ws-broker');
+      emitNewMessage(id, message);
+      const mentions = parseMentions(content);
+      const thinkingList = mentions && mentions.length > 0 ? mentions : ['alden', 'daniela', 'sofia'];
+      emitParticipantThinking(id, thinkingList);
+      const evalResult = await evaluateAllParticipants({ roomId: id, topic: room.topic, newMessage: content, speaker, mentions });
       const aiMessages = [];
       const expressLaneItems = [];
       const artifacts = [];
@@ -27990,6 +27995,7 @@ Under 250 words. Write as yourself.`;
           const speakerName = p.participant.charAt(0).toUpperCase() + p.participant.slice(1);
           const aiMsg = await storage.createRoomMessage({ roomId: id, speaker: speakerName, content: p.voiceContent });
           aiMessages.push(aiMsg);
+          emitNewMessage(id, aiMsg);
         }
         if (p.expressContent) {
           expressLaneItems.push({ participant: p.participant, content: p.expressContent });
@@ -27997,9 +28003,12 @@ Under 250 words. Write as yourself.`;
         if (p.artifact) {
           const artifact = await storage.createRoomArtifact({ roomId: id, artifactType: p.artifact.artifactType, title: p.artifact.title, content: p.artifact.content, createdBy: p.participant });
           artifacts.push(artifact);
+          emitArtifact(id, artifact);
         }
       }
-      res.json({ message, aiMessages, expressLaneItems, artifacts });
+      if (expressLaneItems.length > 0) emitExpressLane(id, expressLaneItems);
+      emitParticipantsDone(id);
+      res.json({ message, aiMessages, expressLaneItems, artifacts, mentions });
     } catch (e) { console.error('[TeamRoom]', e); res.status(500).json({ error: e.message }); }
   });
 
@@ -28009,8 +28018,10 @@ Under 250 words. Write as yourself.`;
       const room = await storage.getTeamRoom(id);
       if (!room) return res.status(404).json({ error: 'Room not found' });
       const { generateSessionSummary } = await import('./services/team-room-alden-service');
-      await generateSessionSummary(id, room.topic);
+      const summaryText = await generateSessionSummary(id, room.topic);
       const closed = await storage.closeTeamRoom(id);
+      const { emitSessionClosed } = await import('./services/team-room-ws-broker');
+      emitSessionClosed(id, { room: closed, summary: summaryText });
       res.json(closed);
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
@@ -28021,6 +28032,18 @@ Under 250 words. Write as yourself.`;
       const hr = await storage.acknowledgeHandRaise(hrId);
       res.json(hr);
     } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Team Room session templates
+  app.get("/api/team-room/templates", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (_req, res) => {
+    res.json([
+      { id: 'progress-review', topic: 'Student Progress Review', description: 'Review a specific student's learning trajectory and outcomes', icon: 'graduation-cap', context: 'Focus on ACTFL standards, session history, and learning patterns.' },
+      { id: 'sprint-planning', topic: 'Sprint Planning', description: 'Plan the next development sprint with the team', icon: 'git-branch', context: 'Review open tasks, recent bugs, and feature priorities.' },
+      { id: 'curriculum-audit', topic: 'Curriculum Audit', description: 'Audit syllabus coverage and identify gaps', icon: 'clipboard-list', context: 'Analyze existing syllabi completeness and ACTFL alignment.' },
+      { id: 'voice-pipeline', topic: 'Voice Pipeline Review', description: 'Review TTS/STT health and performance metrics', icon: 'radio', context: 'Check latency, error rates, provider health status.' },
+      { id: 'platform-strategy', topic: 'Platform Strategy', description: 'Discuss overall platform direction and priorities', icon: 'target', context: 'Open discussion about product vision and next steps.' },
+      { id: 'bug-triage', topic: 'Bug Triage', description: 'Review and prioritize open issues', icon: 'shield', context: 'Check Sofia's issue reports, pending alerts, and system health.' },
+    ]);
   });
 
   // Team Room TTS: synthesize speech for a participant
