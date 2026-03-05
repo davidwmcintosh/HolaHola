@@ -27985,31 +27985,34 @@ Under 250 words. Write as yourself.`;
       const mentions = parseMentions(content);
       const thinkingList = mentions && mentions.length > 0 ? mentions : ['alden', 'daniela', 'sofia'];
       emitParticipantThinking(id, thinkingList);
-      const evalResult = await evaluateAllParticipants({ roomId: id, topic: room.topic, newMessage: content, speaker, mentions });
-      const aiMessages = [];
-      const expressLaneItems = [];
-      const artifacts = [];
-      for (const p of evalResult.participants) {
-        if (p.voiceContent) {
-          await storage.createRoomHandRaise({ roomId: id, participant: p.participant, reasoning: p.handRaise.reasoning, acknowledged: true, acknowledgedAt: new Date() });
-          const speakerName = p.participant.charAt(0).toUpperCase() + p.participant.slice(1);
-          const aiMsg = await storage.createRoomMessage({ roomId: id, speaker: speakerName, content: p.voiceContent });
-          aiMessages.push(aiMsg);
-          emitNewMessage(id, aiMsg);
+      try {
+        const evalResult = await evaluateAllParticipants({ roomId: id, topic: room.topic, newMessage: content, speaker, mentions });
+        const aiMessages = [];
+        const expressLaneItems = [];
+        const artifacts = [];
+        for (const p of evalResult.participants) {
+          if (p.voiceContent) {
+            await storage.createRoomHandRaise({ roomId: id, participant: p.participant, reasoning: p.handRaise.reasoning, acknowledged: true, acknowledgedAt: new Date() });
+            const speakerName = p.participant.charAt(0).toUpperCase() + p.participant.slice(1);
+            const aiMsg = await storage.createRoomMessage({ roomId: id, speaker: speakerName, content: p.voiceContent });
+            aiMessages.push(aiMsg);
+            emitNewMessage(id, aiMsg);
+          }
+          if (p.expressContent) {
+            expressLaneItems.push({ participant: p.participant, content: p.expressContent });
+          }
+          if (p.artifact) {
+            const artifact = await storage.createRoomArtifact({ roomId: id, artifactType: p.artifact.artifactType, title: p.artifact.title, content: p.artifact.content, createdBy: p.participant });
+            artifacts.push(artifact);
+            emitArtifact(id, artifact);
+          }
         }
-        if (p.expressContent) {
-          expressLaneItems.push({ participant: p.participant, content: p.expressContent });
-        }
-        if (p.artifact) {
-          const artifact = await storage.createRoomArtifact({ roomId: id, artifactType: p.artifact.artifactType, title: p.artifact.title, content: p.artifact.content, createdBy: p.participant });
-          artifacts.push(artifact);
-          emitArtifact(id, artifact);
-        }
+        if (expressLaneItems.length > 0) emitExpressLane(id, expressLaneItems);
+        res.json({ message, aiMessages, expressLaneItems, artifacts, mentions });
+      } finally {
+        emitParticipantsDone(id);
       }
-      if (expressLaneItems.length > 0) emitExpressLane(id, expressLaneItems);
-      emitParticipantsDone(id);
-      res.json({ message, aiMessages, expressLaneItems, artifacts, mentions });
-    } catch (e) { console.error('[TeamRoom]', e); res.status(500).json({ error: e.message }); }
+    } catch (e) { console.error('[TeamRoom]', e); emitParticipantsDone(id); res.status(500).json({ error: e.message }); }
   });
 
   app.patch("/api/team-room/sessions/:id/close", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
@@ -28037,12 +28040,12 @@ Under 250 words. Write as yourself.`;
   // Team Room session templates
   app.get("/api/team-room/templates", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (_req, res) => {
     res.json([
-      { id: 'progress-review', topic: 'Student Progress Review', description: 'Review a specific student's learning trajectory and outcomes', icon: 'graduation-cap', context: 'Focus on ACTFL standards, session history, and learning patterns.' },
-      { id: 'sprint-planning', topic: 'Sprint Planning', description: 'Plan the next development sprint with the team', icon: 'git-branch', context: 'Review open tasks, recent bugs, and feature priorities.' },
-      { id: 'curriculum-audit', topic: 'Curriculum Audit', description: 'Audit syllabus coverage and identify gaps', icon: 'clipboard-list', context: 'Analyze existing syllabi completeness and ACTFL alignment.' },
-      { id: 'voice-pipeline', topic: 'Voice Pipeline Review', description: 'Review TTS/STT health and performance metrics', icon: 'radio', context: 'Check latency, error rates, provider health status.' },
-      { id: 'platform-strategy', topic: 'Platform Strategy', description: 'Discuss overall platform direction and priorities', icon: 'target', context: 'Open discussion about product vision and next steps.' },
-      { id: 'bug-triage', topic: 'Bug Triage', description: 'Review and prioritize open issues', icon: 'shield', context: 'Check Sofia's issue reports, pending alerts, and system health.' },
+      { id: "progress-review", topic: "Student Progress Review", description: "Review a specific student learning trajectory and outcomes", icon: "graduation-cap", context: "Focus on ACTFL standards, session history, and learning patterns." },
+      { id: "sprint-planning", topic: "Sprint Planning", description: "Plan the next development sprint with the team", icon: "git-branch", context: "Review open tasks, recent bugs, and feature priorities." },
+      { id: "curriculum-audit", topic: "Curriculum Audit", description: "Audit syllabus coverage and identify gaps", icon: "clipboard-list", context: "Analyze existing syllabi completeness and ACTFL alignment." },
+      { id: "voice-pipeline", topic: "Voice Pipeline Review", description: "Review TTS/STT health and performance metrics", icon: "radio", context: "Check latency, error rates, provider health status." },
+      { id: "platform-strategy", topic: "Platform Strategy", description: "Discuss overall platform direction and priorities", icon: "target", context: "Open discussion about product vision and next steps." },
+      { id: "bug-triage", topic: "Bug Triage", description: "Review and prioritize open issues", icon: "shield", context: "Check Sofia issue reports, pending alerts, and system health." },
     ]);
   });
 

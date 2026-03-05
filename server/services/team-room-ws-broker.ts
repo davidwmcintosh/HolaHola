@@ -1,19 +1,38 @@
 import type { Server as SocketIOServer, Namespace, Socket } from "socket.io";
+import type { IncomingMessage } from "http";
 
 let teamRoomNamespace: Namespace | null = null;
 
+function extractSessionFromRequest(req: IncomingMessage): boolean {
+  const cookie = req.headers.cookie;
+  if (!cookie) return false;
+  return cookie.includes("connect.sid=") || cookie.includes("replit:authed=");
+}
+
 export function initializeTeamRoomWS(io: SocketIOServer) {
   teamRoomNamespace = io.of("/team-room");
+
+  teamRoomNamespace.use((socket, next) => {
+    const req = socket.request;
+    if (extractSessionFromRequest(req)) {
+      next();
+    } else {
+      console.log(`[TeamRoomWS] Rejected unauthenticated connection: ${socket.id}`);
+      next(new Error("Authentication required"));
+    }
+  });
 
   teamRoomNamespace.on("connection", (socket: Socket) => {
     console.log(`[TeamRoomWS] Client connected: ${socket.id}`);
 
     socket.on("join_room", (roomId: string) => {
+      if (!roomId || typeof roomId !== "string") return;
       socket.join(`room:${roomId}`);
       console.log(`[TeamRoomWS] ${socket.id} joined room:${roomId}`);
     });
 
     socket.on("leave_room", (roomId: string) => {
+      if (!roomId || typeof roomId !== "string") return;
       socket.leave(`room:${roomId}`);
     });
 

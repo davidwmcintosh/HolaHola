@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -7,11 +7,15 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/hooks/use-toast";
 import {
   Users, Send, Plus, BrainCircuit, Radio, Code, X, ChevronDown,
   GraduationCap, Shield, Mic, MicOff, Volume2, FileText,
-  Table, Lightbulb, CheckSquare, GitBranch, Info,
+  Table, Lightbulb, CheckSquare, GitBranch, Info, Copy,
+  Target, ClipboardList, AtSign,
 } from "lucide-react";
+import { io, Socket } from "socket.io-client";
 import type { TeamRoom as TeamRoomType, RoomVoiceMessage, RoomArtifact } from "@shared/schema";
 
 // ── Participant config ────────────────────────────────────────────────────────
@@ -54,6 +58,17 @@ function getParticipantConfig(speakerName: string) {
   return PARTICIPANTS[key] ?? PARTICIPANTS.alden;
 }
 
+// ── Template icons ────────────────────────────────────────────────────────────
+
+const TEMPLATE_ICONS: Record<string, React.ElementType> = {
+  "graduation-cap": GraduationCap,
+  "git-branch": GitBranch,
+  "clipboard-list": ClipboardList,
+  "radio": Radio,
+  "target": Target,
+  "shield": Shield,
+};
+
 // ── Artifact rendering ────────────────────────────────────────────────────────
 
 const ARTIFACT_ICONS: Record<string, React.ElementType> = {
@@ -63,25 +78,30 @@ const ARTIFACT_ICONS: Record<string, React.ElementType> = {
 
 function ArtifactCard({ artifact }: { artifact: RoomArtifact }) {
   const [expanded, setExpanded] = useState(true);
+  const { toast } = useToast();
   const ArtifactIcon = ARTIFACT_ICONS[artifact.artifactType] ?? ARTIFACT_ICONS.default;
   const creator = getParticipantConfig(artifact.createdBy);
   const CreatorIcon = creator.Icon;
 
+  const handleCopy = () => {
+    const c = artifact.content as Record<string, unknown>;
+    navigator.clipboard.writeText(JSON.stringify(c, null, 2));
+    toast({ title: "Copied to clipboard" });
+  };
+
   const renderContent = () => {
     const c = artifact.content as Record<string, unknown>;
     if (artifact.artifactType === "table" && c.headers && c.rows) {
-      const headers = c.headers as string[];
-      const rows = c.rows as string[][];
       return (
         <div className="overflow-x-auto">
           <table className="w-full text-xs border-collapse">
             <thead>
               <tr className="border-b border-border">
-                {headers.map((h, i) => <th key={i} className="text-left py-1 px-2 font-medium text-muted-foreground">{h}</th>)}
+                {(c.headers as string[]).map((h, i) => <th key={i} className="text-left py-1 px-2 font-medium text-muted-foreground">{h}</th>)}
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, ri) => (
+              {(c.rows as string[][]).map((row, ri) => (
                 <tr key={ri} className="border-b border-border/50 last:border-0">
                   {row.map((cell, ci) => <td key={ci} className="py-1 px-2">{cell}</td>)}
                 </tr>
@@ -92,10 +112,9 @@ function ArtifactCard({ artifact }: { artifact: RoomArtifact }) {
       );
     }
     if (artifact.artifactType === "plan" && c.steps) {
-      const steps = c.steps as Array<{ step?: string; description?: string } | string>;
       return (
         <ol className="space-y-1">
-          {steps.map((s, i) => (
+          {(c.steps as Array<{ step?: string; description?: string } | string>).map((s, i) => (
             <li key={i} className="flex gap-2 text-xs">
               <span className="shrink-0 font-mono text-muted-foreground w-4">{i + 1}.</span>
               <span>{typeof s === "string" ? s : (s.step || s.description || JSON.stringify(s))}</span>
@@ -106,9 +125,7 @@ function ArtifactCard({ artifact }: { artifact: RoomArtifact }) {
     }
     if (artifact.artifactType === "code" && c.code) {
       return (
-        <pre className="text-xs font-mono whitespace-pre-wrap bg-muted/50 rounded p-2 overflow-x-auto">
-          {String(c.code)}
-        </pre>
+        <pre className="text-xs font-mono whitespace-pre-wrap bg-muted/50 rounded p-2 overflow-x-auto">{String(c.code)}</pre>
       );
     }
     if (artifact.artifactType === "decision") {
@@ -120,11 +137,7 @@ function ArtifactCard({ artifact }: { artifact: RoomArtifact }) {
         </div>
       );
     }
-    return (
-      <div className="text-xs whitespace-pre-wrap">
-        {typeof c === "object" ? JSON.stringify(c, null, 2) : String(c)}
-      </div>
-    );
+    return <div className="text-xs whitespace-pre-wrap">{typeof c === "object" ? JSON.stringify(c, null, 2) : String(c)}</div>;
   };
 
   return (
@@ -134,6 +147,9 @@ function ArtifactCard({ artifact }: { artifact: RoomArtifact }) {
           <ArtifactIcon className={`h-3.5 w-3.5 ${creator.color} shrink-0`} />
           <span className="text-xs font-medium flex-1 truncate">{artifact.title}</span>
           <div className="flex items-center gap-1 shrink-0">
+            <Button variant="ghost" size="icon" className="h-5 w-5" onClick={handleCopy} title="Copy" data-testid={`button-copy-artifact-${artifact.id}`}>
+              <Copy className="h-3 w-3" />
+            </Button>
             <Badge variant="outline" className="text-xs py-0 h-4 capitalize">{artifact.artifactType}</Badge>
             <button onClick={() => setExpanded(!expanded)} className="text-muted-foreground hover:text-foreground">
               <ChevronDown className={`h-3 w-3 transition-transform ${expanded ? "" : "-rotate-90"}`} />
@@ -166,14 +182,24 @@ function ExpressLaneMessage({ participant, content, time }: { participant: strin
         <span className={`text-xs font-medium ${p.color}`}>{p.name}</span>
         <span className="text-xs text-muted-foreground">{time}</span>
       </div>
-      <div className={`text-xs ${p.bgColor} ${p.borderColor} border rounded-md p-2 whitespace-pre-wrap leading-relaxed`}>
-        {content}
-      </div>
+      <div className={`text-xs ${p.bgColor} ${p.borderColor} border rounded-md p-2 whitespace-pre-wrap leading-relaxed`}>{content}</div>
     </div>
   );
 }
 
-// ── Message bubble ────────────────────────────────────────────────────────────
+// ── Message bubble with @mention highlights ───────────────────────────────────
+
+function renderWithMentions(text: string) {
+  const parts = text.split(/(@(?:alden|daniela|sofia))/gi);
+  return parts.map((part, i) => {
+    const lower = part.toLowerCase();
+    if (lower === "@alden" || lower === "@daniela" || lower === "@sofia") {
+      const p = getParticipantConfig(lower.slice(1));
+      return <span key={i} className={`font-semibold ${p.color}`}>{part}</span>;
+    }
+    return part;
+  });
+}
 
 function MessageBubble({ message, onPlayVoice }: {
   message: RoomVoiceMessage;
@@ -191,33 +217,25 @@ function MessageBubble({ message, onPlayVoice }: {
         <span className={`text-xs font-medium ${p.color}`}>{p.name}</span>
         <span className="text-xs text-muted-foreground">{time}</span>
         {!isDavid && onPlayVoice && (
-          <button
-            onClick={() => onPlayVoice(message.content, message.speaker)}
-            className="text-muted-foreground hover:text-foreground"
-            title={`Play ${p.name}'s voice`}
-            data-testid={`button-play-voice-${message.id}`}
-          >
+          <button onClick={() => onPlayVoice(message.content, message.speaker)} className="text-muted-foreground hover:text-foreground" title={`Play ${p.name}'s voice`} data-testid={`button-play-voice-${message.id}`}>
             <Volume2 className="h-3 w-3" />
           </button>
         )}
       </div>
-      <div className={`max-w-[85%] rounded-md px-3 py-2 text-sm ${
-        isDavid
-          ? "bg-primary text-primary-foreground"
-          : `${p.bgColor} ${p.borderColor} border text-foreground`
-      }`}>
-        {message.content}
+      <div className={`max-w-[85%] rounded-md px-3 py-2 text-sm ${isDavid ? "bg-primary text-primary-foreground" : `${p.bgColor} ${p.borderColor} border text-foreground`}`}>
+        {renderWithMentions(message.content)}
       </div>
     </div>
   );
 }
 
-// ── Participant card (left panel) ─────────────────────────────────────────────
+// ── Participant card ──────────────────────────────────────────────────────────
 
-function ParticipantCard({ participantId, isActive, isThinking }: {
+function ParticipantCard({ participantId, isActive, isThinking, onMention }: {
   participantId: ParticipantId;
   isActive: boolean;
   isThinking: boolean;
+  onMention?: (name: string) => void;
 }) {
   const p = PARTICIPANTS[participantId];
   const Icon = p.Icon;
@@ -236,7 +254,17 @@ function ParticipantCard({ participantId, isActive, isThinking }: {
         <p className="text-sm font-medium leading-none">{p.name}</p>
         <p className="text-xs text-muted-foreground">{p.role}</p>
       </div>
-      {isThinking && <span className="text-xs text-amber-500">thinking</span>}
+      {isThinking && <span className="text-xs text-amber-500 shrink-0">thinking</span>}
+      {!isThinking && isActive && participantId !== "david" && onMention && (
+        <button
+          onClick={() => onMention(p.name.toLowerCase())}
+          className="shrink-0 text-muted-foreground hover:text-foreground"
+          title={`Mention @${p.name.toLowerCase()}`}
+          data-testid={`button-mention-${p.id}`}
+        >
+          <AtSign className="h-3.5 w-3.5" />
+        </button>
+      )}
     </div>
   );
 }
@@ -249,18 +277,15 @@ function usePTT(onTranscript: (text: string) => void) {
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   useEffect(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    setIsSupported(!!SpeechRecognition);
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    setIsSupported(!!SR);
+    if (SR) {
+      const recognition = new SR();
       recognition.continuous = false;
       recognition.interimResults = false;
       recognition.lang = "en-US";
       recognition.onresult = (e: SpeechRecognitionEvent) => {
-        const transcript = Array.from(e.results)
-          .map(r => r[0].transcript)
-          .join(" ")
-          .trim();
+        const transcript = Array.from(e.results).map(r => r[0].transcript).join(" ").trim();
         if (transcript) onTranscript(transcript);
       };
       recognition.onend = () => setIsListening(false);
@@ -271,16 +296,12 @@ function usePTT(onTranscript: (text: string) => void) {
 
   const startListening = useCallback(() => {
     if (!recognitionRef.current || isListening) return;
-    try {
-      recognitionRef.current.start();
-      setIsListening(true);
-    } catch { setIsListening(false); }
+    try { recognitionRef.current.start(); setIsListening(true); } catch { setIsListening(false); }
   }, [isListening]);
 
   const stopListening = useCallback(() => {
     if (!recognitionRef.current || !isListening) return;
-    recognitionRef.current.stop();
-    setIsListening(false);
+    recognitionRef.current.stop(); setIsListening(false);
   }, [isListening]);
 
   return { isListening, isSupported, startListening, stopListening };
@@ -291,8 +312,7 @@ function usePTT(onTranscript: (text: string) => void) {
 async function playParticipantVoice(text: string, speaker: string) {
   try {
     const res = await fetch("/api/team-room/voice/tts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text, speaker }),
     });
     if (!res.ok) return;
@@ -301,10 +321,48 @@ async function playParticipantVoice(text: string, speaker: string) {
     const audio = new Audio(url);
     audio.onended = () => URL.revokeObjectURL(url);
     await audio.play();
-  } catch { /* voice unavailable — silent fail */ }
+  } catch { /* voice unavailable */ }
 }
 
-// ── Session data types ────────────────────────────────────────────────────────
+// ── WebSocket hook ────────────────────────────────────────────────────────────
+
+function useTeamRoomWS(roomId: string | null, callbacks: {
+  onNewMessage: (msg: RoomVoiceMessage) => void;
+  onExpressLane: (items: Array<{ participant: string; content: string }>) => void;
+  onArtifact: (artifact: RoomArtifact) => void;
+  onThinking: (participants: string[]) => void;
+  onDone: () => void;
+  onSessionClosed: () => void;
+}) {
+  const socketRef = useRef<Socket | null>(null);
+  const callbacksRef = useRef(callbacks);
+  callbacksRef.current = callbacks;
+
+  useEffect(() => {
+    if (!roomId) return;
+    const socket = io("/team-room", { transports: ["websocket", "polling"] });
+    socketRef.current = socket;
+
+    socket.on("connect", () => {
+      socket.emit("join_room", roomId);
+    });
+
+    socket.on("new_message", (msg: RoomVoiceMessage) => callbacksRef.current.onNewMessage(msg));
+    socket.on("express_lane", (items: Array<{ participant: string; content: string }>) => callbacksRef.current.onExpressLane(items));
+    socket.on("new_artifact", (artifact: RoomArtifact) => callbacksRef.current.onArtifact(artifact));
+    socket.on("participants_thinking", (participants: string[]) => callbacksRef.current.onThinking(participants));
+    socket.on("participants_done", () => callbacksRef.current.onDone());
+    socket.on("session_closed", () => callbacksRef.current.onSessionClosed());
+
+    return () => {
+      socket.emit("leave_room", roomId);
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [roomId]);
+}
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface SessionData {
   room: TeamRoomType;
@@ -313,23 +371,16 @@ interface SessionData {
   artifacts: RoomArtifact[];
 }
 
-interface ExpressItem {
-  participant: string;
-  content: string;
-  time: string;
-}
-
-interface SessionSummary {
-  summary: string;
-  keyDecisions?: string[];
-  actionItems?: string[];
-  momentum?: string;
-}
+interface ExpressItem { participant: string; content: string; time: string; }
+interface SessionSummary { summary: string; keyDecisions?: string[]; actionItems?: string[]; momentum?: string; }
+interface SessionTemplate { id: string; topic: string; description: string; icon: string; context?: string; }
 
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function TeamRoom() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
+
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [newTopic, setNewTopic] = useState("");
   const [messageInput, setMessageInput] = useState("");
@@ -338,31 +389,80 @@ export default function TeamRoom() {
   const [showPastSessions, setShowPastSessions] = useState(false);
   const [thinkingParticipants, setThinkingParticipants] = useState<Set<ParticipantId>>(new Set());
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
+  const [autoPlayVoice, setAutoPlayVoice] = useState(() => localStorage.getItem("teamroom-autoplay") === "true");
+  const [wsMessages, setWsMessages] = useState<RoomVoiceMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const expressEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleVoiceTranscript = useCallback((text: string) => {
-    setMessageInput(text);
-  }, []);
+  const toggleAutoPlay = (v: boolean) => {
+    setAutoPlayVoice(v);
+    localStorage.setItem("teamroom-autoplay", String(v));
+  };
 
+  const handleVoiceTranscript = useCallback((text: string) => setMessageInput(text), []);
   const { isListening, isSupported, startListening, stopListening } = usePTT(handleVoiceTranscript);
 
-  const { data: sessions } = useQuery<TeamRoomType[]>({
-    queryKey: ["/api/team-room/sessions"],
+  // WebSocket connection
+  useTeamRoomWS(activeSessionId, {
+    onNewMessage: (msg) => {
+      setWsMessages(prev => {
+        if (prev.some(m => m.id === msg.id)) return prev;
+        return [...prev, msg];
+      });
+      if (autoPlayVoice && msg.speaker.toLowerCase() !== "david") {
+        playParticipantVoice(msg.content, msg.speaker);
+      }
+    },
+    onExpressLane: (items) => {
+      const time = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+      setExpressLaneItems(prev => {
+        const newItems = items.filter(it => !prev.some(p => p.participant === it.participant && p.content === it.content));
+        if (newItems.length === 0) return prev;
+        return [...prev, ...newItems.map(n => ({ ...n, time }))];
+      });
+    },
+    onArtifact: (artifact) => {
+      setSessionArtifacts(prev => {
+        if (prev.some(a => a.id === artifact.id)) return prev;
+        return [...prev, artifact];
+      });
+    },
+    onThinking: (participants) => setThinkingParticipants(new Set(participants as ParticipantId[])),
+    onDone: () => setThinkingParticipants(new Set()),
+    onSessionClosed: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/team-room/sessions"] });
+    },
   });
+
+  const { data: sessions } = useQuery<TeamRoomType[]>({ queryKey: ["/api/team-room/sessions"] });
+  const { data: templates } = useQuery<SessionTemplate[]>({ queryKey: ["/api/team-room/templates"] });
 
   const { data: sessionData } = useQuery<SessionData>({
     queryKey: ["/api/team-room/sessions", activeSessionId],
     enabled: !!activeSessionId,
-    refetchInterval: 8000,
+    refetchInterval: false,
   });
 
-  // Load cross-session summary when session loads
   useEffect(() => {
     if (!sessionData?.room) return;
     const summary = (sessionData as any).summary;
     if (summary) setSessionSummary(summary);
+    setWsMessages([]);
   }, [sessionData]);
+
+  // Merge REST + WS messages
+  const allMessages = useMemo(() => {
+    const restMsgs = sessionData?.messages ?? [];
+    const merged = [...restMsgs];
+    for (const wsMsg of wsMessages) {
+      if (!merged.some(m => m.id === wsMsg.id)) {
+        merged.push(wsMsg);
+      }
+    }
+    merged.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    return merged;
+  }, [sessionData?.messages, wsMessages]);
 
   const createSession = useMutation({
     mutationFn: (topic: string) => apiRequest("POST", "/api/team-room/sessions", { topic }),
@@ -374,14 +474,22 @@ export default function TeamRoom() {
       setExpressLaneItems([]);
       setSessionArtifacts([]);
       setSessionSummary(null);
+      setWsMessages([]);
     },
   });
 
   const postMessage = useMutation({
     mutationFn: (content: string) =>
       apiRequest("POST", `/api/team-room/sessions/${activeSessionId}/messages`, { content, speaker: "David" }),
-    onMutate: () => {
-      setThinkingParticipants(new Set(["alden", "daniela", "sofia"] as ParticipantId[]));
+    onMutate: (content) => {
+      const mentionPattern = /@(alden|daniela|sofia)\b/gi;
+      const matches = content.match(mentionPattern);
+      if (matches && matches.length > 0) {
+        const mentioned = new Set(matches.map(m => m.slice(1).toLowerCase() as ParticipantId));
+        setThinkingParticipants(mentioned);
+      } else {
+        setThinkingParticipants(new Set(["alden", "daniela", "sofia"] as ParticipantId[]));
+      }
     },
     onSuccess: async (res) => {
       const data = await res.json();
@@ -389,22 +497,16 @@ export default function TeamRoom() {
       const time = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 
       if (data.expressLaneItems?.length) {
-        const newItems: ExpressItem[] = data.expressLaneItems.map((item: any) => ({
-          participant: item.participant,
-          content: item.content,
-          time,
-        }));
-        setExpressLaneItems(prev => [...prev, ...newItems]);
+        setExpressLaneItems(prev => [...prev, ...data.expressLaneItems.map((item: any) => ({ ...item, time }))]);
       }
-
       if (data.artifacts?.length) {
         setSessionArtifacts(prev => [...prev, ...data.artifacts]);
       }
 
-      // Auto-play the first AI voice response
-      const firstAIMessage = data.aiMessages?.[0];
-      if (firstAIMessage) {
-        playParticipantVoice(firstAIMessage.content, firstAIMessage.speaker);
+      if (autoPlayVoice && data.aiMessages?.length) {
+        for (const aiMsg of data.aiMessages) {
+          playParticipantVoice(aiMsg.content, aiMsg.speaker);
+        }
       }
 
       setMessageInput("");
@@ -422,12 +524,13 @@ export default function TeamRoom() {
       setSessionArtifacts([]);
       setSessionSummary(null);
       setThinkingParticipants(new Set());
+      setWsMessages([]);
     },
   });
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [sessionData?.messages, thinkingParticipants]);
+  }, [allMessages, thinkingParticipants]);
 
   useEffect(() => {
     expressEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -439,18 +542,23 @@ export default function TeamRoom() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+  };
+
+  const handleMention = (name: string) => {
+    const prefix = messageInput.endsWith(" ") || messageInput === "" ? "" : " ";
+    setMessageInput(prev => `${prev}${prefix}@${name} `);
+    inputRef.current?.focus();
+  };
+
+  const handleTemplateSelect = (template: SessionTemplate) => {
+    setNewTopic(template.topic);
   };
 
   const activeSessions = sessions?.filter(s => s.status === "active") ?? [];
   const pastSessions = sessions?.filter(s => s.status === "closed") ?? [];
   const isActive = sessionData?.room?.status === "active";
-  const allMessages = sessionData?.messages ?? [];
 
-  // Merge artifacts from session data + locally captured
   const displayArtifacts = [
     ...(sessionData?.artifacts ?? []),
     ...sessionArtifacts.filter(a => !sessionData?.artifacts?.some((sa: RoomArtifact) => sa.id === a.id)),
@@ -477,6 +585,7 @@ export default function TeamRoom() {
                   participantId={id}
                   isActive={!!activeSessionId}
                   isThinking={thinkingParticipants.has(id)}
+                  onMention={activeSessionId && isActive ? handleMention : undefined}
                 />
               ))}
             </div>
@@ -489,7 +598,7 @@ export default function TeamRoom() {
                   {activeSessions.map(s => (
                     <button
                       key={s.id}
-                      onClick={() => { setActiveSessionId(s.id); setExpressLaneItems([]); setSessionArtifacts([]); }}
+                      onClick={() => { setActiveSessionId(s.id); setExpressLaneItems([]); setSessionArtifacts([]); setWsMessages([]); }}
                       className="w-full text-left px-2 py-1.5 text-xs rounded-md hover-elevate truncate"
                       data-testid={`session-${s.id}`}
                     >
@@ -516,7 +625,7 @@ export default function TeamRoom() {
                     {pastSessions.slice(0, 10).map(s => (
                       <button
                         key={s.id}
-                        onClick={() => { setActiveSessionId(s.id); setExpressLaneItems([]); setSessionArtifacts([]); }}
+                        onClick={() => { setActiveSessionId(s.id); setExpressLaneItems([]); setSessionArtifacts([]); setWsMessages([]); }}
                         className="w-full text-left px-2 py-1.5 text-xs rounded-md text-muted-foreground hover-elevate truncate"
                         data-testid={`past-session-${s.id}`}
                       >
@@ -534,66 +643,93 @@ export default function TeamRoom() {
       {/* ── Center Panel: Discussion ── */}
       <div className="flex-1 flex flex-col min-w-0">
         {!activeSessionId ? (
-          <div className="flex-1 flex items-center justify-center p-6">
-            <Card className="w-full max-w-md">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Team Room
-                </CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Start a session to collaborate with the full team — Alden, Daniela, and Sofia.
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Input
-                  placeholder="Session topic (e.g. Gene's Progress Review)"
-                  value={newTopic}
-                  onChange={e => setNewTopic(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && newTopic.trim() && createSession.mutate(newTopic.trim())}
-                  data-testid="input-session-topic"
-                />
-                <Button
-                  onClick={() => createSession.mutate(newTopic.trim())}
-                  disabled={!newTopic.trim() || createSession.isPending}
-                  className="w-full"
-                  data-testid="button-start-session"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  {createSession.isPending ? "Starting..." : "Start Session"}
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+          <ScrollArea className="flex-1">
+            <div className="flex flex-col items-center p-6 gap-6">
+              <Card className="w-full max-w-md">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Team Room
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Start a session to collaborate with the full team — Alden, Daniela, and Sofia. Use @mentions to target specific participants.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Input
+                    placeholder="Session topic (e.g. Gene's Progress Review)"
+                    value={newTopic}
+                    onChange={e => setNewTopic(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && newTopic.trim() && createSession.mutate(newTopic.trim())}
+                    data-testid="input-session-topic"
+                  />
+                  <Button
+                    onClick={() => createSession.mutate(newTopic.trim())}
+                    disabled={!newTopic.trim() || createSession.isPending}
+                    className="w-full"
+                    data-testid="button-start-session"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    {createSession.isPending ? "Starting..." : "Start Session"}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Session Templates */}
+              {templates && templates.length > 0 && (
+                <div className="w-full max-w-md space-y-3">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Quick Start Templates</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {templates.map(t => {
+                      const TIcon = TEMPLATE_ICONS[t.icon] ?? Target;
+                      return (
+                        <button
+                          key={t.id}
+                          onClick={() => handleTemplateSelect(t)}
+                          className="text-left p-3 rounded-md border border-border bg-card hover-elevate"
+                          data-testid={`template-${t.id}`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <TIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <span className="text-sm font-medium">{t.topic}</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground line-clamp-2">{t.description}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
         ) : (
           <>
             {/* Session header */}
             <div className="px-4 py-2.5 border-b flex items-center justify-between gap-3 shrink-0">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="font-semibold text-sm truncate">{sessionData?.room?.topic ?? "Loading..."}</span>
-                <Badge variant="outline" className="text-xs shrink-0">
-                  {isActive ? "Live" : "Closed"}
-                </Badge>
+                <Badge variant="outline" className="text-xs shrink-0">{isActive ? "Live" : "Closed"}</Badge>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0 flex-wrap">
                 {isActive && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => closeSession.mutate()}
-                    disabled={closeSession.isPending}
-                    data-testid="button-close-session"
-                  >
+                  <div className="flex items-center gap-1.5">
+                    <Volume2 className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">Auto-play</span>
+                    <Switch
+                      checked={autoPlayVoice}
+                      onCheckedChange={toggleAutoPlay}
+                      data-testid="switch-autoplay"
+                      className="scale-75"
+                    />
+                  </div>
+                )}
+                {isActive && (
+                  <Button variant="outline" size="sm" onClick={() => closeSession.mutate()} disabled={closeSession.isPending} data-testid="button-close-session">
                     <X className="h-3.5 w-3.5 mr-1" />
                     {closeSession.isPending ? "Closing..." : "End Session"}
                   </Button>
                 )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => { setActiveSessionId(null); setExpressLaneItems([]); setSessionArtifacts([]); setSessionSummary(null); }}
-                  data-testid="button-leave-room"
-                >
+                <Button variant="ghost" size="sm" onClick={() => { setActiveSessionId(null); setExpressLaneItems([]); setSessionArtifacts([]); setSessionSummary(null); setWsMessages([]); }} data-testid="button-leave-room">
                   Leave
                 </Button>
               </div>
@@ -607,9 +743,7 @@ export default function TeamRoom() {
                   Previously in this room
                 </div>
                 <p>{sessionSummary.summary}</p>
-                {sessionSummary.momentum && (
-                  <p className="text-muted-foreground italic">{sessionSummary.momentum}</p>
-                )}
+                {sessionSummary.momentum && <p className="text-muted-foreground italic">{sessionSummary.momentum}</p>}
               </div>
             )}
 
@@ -618,28 +752,24 @@ export default function TeamRoom() {
               <div className="space-y-4">
                 {allMessages.length === 0 && !thinkingParticipants.size && (
                   <div className="text-center py-10 text-sm text-muted-foreground">
-                    Say something — Alden, Daniela, and Sofia will respond when they have something to contribute.
+                    Say something — or use <span className="font-mono text-xs bg-muted px-1 py-0.5 rounded">@alden</span> <span className="font-mono text-xs bg-muted px-1 py-0.5 rounded">@daniela</span> <span className="font-mono text-xs bg-muted px-1 py-0.5 rounded">@sofia</span> to summon a specific participant.
                   </div>
                 )}
                 {allMessages.map(msg => (
-                  <MessageBubble
-                    key={msg.id}
-                    message={msg}
-                    onPlayVoice={isActive ? playParticipantVoice : undefined}
-                  />
+                  <MessageBubble key={msg.id} message={msg} onPlayVoice={isActive ? playParticipantVoice : undefined} />
                 ))}
                 {thinkingParticipants.size > 0 && (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <div className="flex gap-0.5">
-                      {["", "", ""].map((_, i) => (
-                        <span
-                          key={i}
-                          className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-bounce"
-                          style={{ animationDelay: `${i * 150}ms` }}
-                        />
+                      {[0, 1, 2].map(i => (
+                        <span key={i} className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
                       ))}
                     </div>
-                    <span>Team is thinking...</span>
+                    <span>
+                      {thinkingParticipants.size === 3
+                        ? "Team is thinking..."
+                        : `${[...thinkingParticipants].map(p => PARTICIPANTS[p]?.name).filter(Boolean).join(", ")} thinking...`}
+                    </span>
                   </div>
                 )}
                 <div ref={messagesEndRef} />
@@ -666,7 +796,8 @@ export default function TeamRoom() {
                   </Button>
                 )}
                 <Input
-                  placeholder="Say something to the team..."
+                  ref={inputRef}
+                  placeholder="Say something to the team... (use @alden @daniela @sofia to mention)"
                   value={messageInput}
                   onChange={e => setMessageInput(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -674,11 +805,7 @@ export default function TeamRoom() {
                   data-testid="input-message"
                   className="flex-1"
                 />
-                <Button
-                  onClick={handleSend}
-                  disabled={!messageInput.trim() || postMessage.isPending}
-                  data-testid="button-send-message"
-                >
+                <Button onClick={handleSend} disabled={!messageInput.trim() || postMessage.isPending} data-testid="button-send-message">
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
@@ -694,9 +821,7 @@ export default function TeamRoom() {
             <Radio className="h-4 w-4 text-blue-500" />
             <span className="text-sm font-semibold">Express Lane</span>
             {hasExpressContent && (
-              <Badge variant="outline" className="ml-auto text-xs">
-                {expressLaneItems.length + displayArtifacts.length}
-              </Badge>
+              <Badge variant="outline" className="ml-auto text-xs">{expressLaneItems.length + displayArtifacts.length}</Badge>
             )}
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">Analysis, artifacts & insights</p>
@@ -708,24 +833,17 @@ export default function TeamRoom() {
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Artifacts first (pinned at top) */}
               {displayArtifacts.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Artifacts</p>
-                  {displayArtifacts.map(a => (
-                    <ArtifactCard key={a.id} artifact={a} />
-                  ))}
+                  {displayArtifacts.map(a => <ArtifactCard key={a.id} artifact={a} />)}
                 </div>
               )}
-
-              {/* Express lane analysis stream */}
               {expressLaneItems.length > 0 && (
                 <div className="space-y-3">
                   {displayArtifacts.length > 0 && <Separator />}
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Analysis Stream</p>
-                  {expressLaneItems.map((item, i) => (
-                    <ExpressLaneMessage key={i} {...item} />
-                  ))}
+                  {expressLaneItems.map((item, i) => <ExpressLaneMessage key={i} {...item} />)}
                 </div>
               )}
               <div ref={expressEndRef} />
