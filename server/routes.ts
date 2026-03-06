@@ -27982,11 +27982,13 @@ Under 250 words. Write as yourself.`;
       const { evaluateAllParticipants, parseMentions } = await import('./services/team-room-alden-service');
       const { emitNewMessage, emitExpressLane, emitArtifact, emitParticipantThinking, emitParticipantsDone } = await import('./services/team-room-ws-broker');
       emitNewMessage(id, message);
-      const mentions = parseMentions(content);
-      const thinkingList = mentions && mentions.length > 0 ? mentions : ['alden', 'daniela', 'sofia'];
+      const guestTutors = ((room.metadata as any)?.guestTutors || []);
+      const guestNames = guestTutors.map((g: any) => g.tutorName);
+      const mentions = parseMentions(content, guestNames);
+      const thinkingList = mentions && mentions.length > 0 ? mentions : ['alden', 'daniela', 'sofia', ...guestNames.map((n: string) => n.toLowerCase())];
       emitParticipantThinking(id, thinkingList);
       try {
-        const evalResult = await evaluateAllParticipants({ roomId: id, topic: room.topic, newMessage: content, speaker, mentions });
+        const evalResult = await evaluateAllParticipants({ roomId: id, topic: room.topic, newMessage: content, speaker, mentions, guestTutors });
         const aiMessages = [];
         const expressLaneItems = [];
         const artifacts = [];
@@ -28008,7 +28010,8 @@ Under 250 words. Write as yourself.`;
           }
         }
         if (expressLaneItems.length > 0) emitExpressLane(id, expressLaneItems);
-        res.json({ message, aiMessages, expressLaneItems, artifacts, mentions });
+        const allEvaluations = evalResult.participants.map(p => ({ participant: p.participant, handRaise: p.handRaise }));
+        res.json({ message, aiMessages, expressLaneItems, artifacts, mentions, allEvaluations });
       } finally {
         emitParticipantsDone(id);
       }
@@ -28037,7 +28040,74 @@ Under 250 words. Write as yourself.`;
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
-  // Team Room session templates
+  // Team Room: available tutors for invite
+  app.get("/api/team-room/available-tutors", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (_req, res) => {
+    try {
+      const allVoices = await storage.getAllTutorVoices();
+      const tutors = allVoices
+        .filter(v => v.role === 'tutor' && v.isActive)
+        .map(v => ({
+          tutorId: v.id,
+          tutorName: v.voiceName.split(' - ')[0].split(' ')[0],
+          language: v.language,
+          personality: v.personality,
+          personalityTraits: v.personalityTraits || '',
+          teachingPhilosophy: v.teachingPhilosophy || '',
+          gender: v.gender,
+        }));
+      const coreNames = ['alden', 'daniela', 'sofia', 'david'];
+      const filtered = tutors.filter(t => !coreNames.includes(t.tutorName.toLowerCase()));
+      res.json(filtered);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Team Room: invite a guest tutor into session
+  app.post("/api/team-room/sessions/:id/invite", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { tutorId, tutorName, language, personality, personalityTraits, teachingPhilosophy } = req.body;
+      if (!tutorName) return res.status(400).json({ error: 'tutorName is required' });
+      const room = await storage.getTeamRoom(id);
+      if (!room) return res.status(404).json({ error: 'Room not found' });
+      const metadata = (room.metadata || {}) as Record<string, unknown>;
+      const guests = (metadata.guestTutors || []) as Array<Record<string, unknown>>;
+      if (guests.some((g: any) => g.tutorName.toLowerCase() === tutorName.toLowerCase())) {
+        return res.status(409).json({ error: tutorName + ' is already in the room' });
+      }
+      guests.push({ tutorId, tutorName, language, personality, personalityTraits, teachingPhilosophy });
+      metadata.guestTutors = guests;
+      await storage.updateTeamRoomMetadata(id, metadata);
+      const { emitToRoom } = await import('./services/team-room-ws-broker');
+      emitToRoom(id, 'guest_joined', { tutorName, language });
+      const sysMsg = await storage.createRoomMessage({ roomId: id, speaker: 'System', content: tutorName + ' has joined the room as a guest (' + language + ').' });
+      const { emitNewMessage } = await import('./services/team-room-ws-broker');
+      emitNewMessage(id, sysMsg);
+      res.json({ success: true, guests });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Team Room: disconnect a guest tutor from session
+  app.post("/api/team-room/sessions/:id/disconnect", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { tutorName } = req.body;
+      if (!tutorName) return res.status(400).json({ error: 'tutorName is required' });
+      const room = await storage.getTeamRoom(id);
+      if (!room) return res.status(404).json({ error: 'Room not found' });
+      const metadata = (room.metadata || {}) as Record<string, unknown>;
+      const guests = (metadata.guestTutors || []) as Array<Record<string, unknown>>;
+      metadata.guestTutors = guests.filter((g: any) => g.tutorName.toLowerCase() !== tutorName.toLowerCase());
+      await storage.updateTeamRoomMetadata(id, metadata);
+      const { emitToRoom } = await import('./services/team-room-ws-broker');
+      emitToRoom(id, 'guest_left', { tutorName });
+      const sysMsg = await storage.createRoomMessage({ roomId: id, speaker: 'System', content: tutorName + ' has left the room.' });
+      const { emitNewMessage } = await import('./services/team-room-ws-broker');
+      emitNewMessage(id, sysMsg);
+      res.json({ success: true, guests: metadata.guestTutors });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+    // Team Room session templates
   app.get("/api/team-room/templates", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (_req, res) => {
     res.json([
       { id: "progress-review", topic: "Student Progress Review", description: "Review a specific student learning trajectory and outcomes", icon: "graduation-cap", context: "Focus on ACTFL standards, session history, and learning patterns." },

@@ -29,15 +29,15 @@ async function callGemini(systemPrompt: string, userPrompt: string): Promise<str
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-export type Participant = 'alden' | 'daniela' | 'sofia';
+export type Participant = 'alden' | 'daniela' | 'sofia' | string;
 
-interface HandRaiseEvaluation {
+export interface HandRaiseEvaluation {
   shouldRaise: boolean;
   reasoning: string;
   confidence: 'high' | 'medium' | 'low';
 }
 
-interface ParticipantResponse {
+export interface ParticipantResponse {
   participant: Participant;
   handRaise: HandRaiseEvaluation;
   voiceContent?: string;
@@ -51,6 +51,15 @@ interface ParticipantResponse {
 
 export interface RoomEvaluationResult {
   participants: ParticipantResponse[];
+}
+
+export interface GuestTutor {
+  tutorId: string;
+  tutorName: string;
+  language: string;
+  personality?: string;
+  teachingPhilosophy?: string;
+  personalityTraits?: string;
 }
 
 // ── Room context builder ─────────────────────────────────────────────────────
@@ -349,15 +358,94 @@ EXPRESS: [technical details, error analysis, recommended fix steps, or "none"]`;
   }
 }
 
+// ── Guest tutor evaluation (Gemini) ──────────────────────────────────────────
+
+async function evaluateGuestTutor(
+  guest: GuestTutor,
+  roomContext: string,
+  speaker: string,
+  newMessage: string,
+  forceMention = false
+): Promise<ParticipantResponse> {
+  const participantName = guest.tutorName.toLowerCase();
+  const systemPrompt = `You are ${guest.tutorName}, a ${guest.language} tutor who has been invited as a guest into a founder's Team Room session.
+Your personality: ${guest.personalityTraits || guest.personality || 'knowledgeable and helpful'}.
+${guest.teachingPhilosophy ? `Teaching philosophy: ${guest.teachingPhilosophy}` : ''}
+You contribute your expertise in ${guest.language} education when relevant.
+You speak when asked or when your subject expertise directly applies. Be concise and collaborative.`;
+
+  const evalPrompt = `${roomContext}
+
+NEW MESSAGE from ${speaker}: "${newMessage}"
+
+Evaluate whether you have something meaningful to contribute from your expertise in ${guest.language}.
+
+Respond in this exact JSON format:
+{
+  "shouldRaise": true or false,
+  "reasoning": "brief explanation",
+  "confidence": "high" or "medium" or "low"
+}
+
+Raise your hand if:
+- The message is directed at you or asks about ${guest.language} / your subject area
+- You have specific domain expertise that genuinely helps the discussion
+- Your perspective as a ${guest.language} tutor adds value
+
+Do NOT raise your hand if the discussion doesn't relate to your area at all.`;
+
+  let handRaise: HandRaiseEvaluation = { shouldRaise: false, reasoning: 'evaluating', confidence: 'medium' };
+
+  try {
+    const evalResult = await callGemini(systemPrompt, evalPrompt);
+    const jsonMatch = evalResult.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      handRaise = {
+        shouldRaise: Boolean(parsed.shouldRaise),
+        reasoning: parsed.reasoning || '',
+        confidence: parsed.confidence || 'medium',
+      };
+    }
+  } catch { /* keep default */ }
+
+  if (!handRaise.shouldRaise && !forceMention) return { participant: participantName, handRaise };
+  if (forceMention) handRaise = { shouldRaise: true, reasoning: 'directly mentioned', confidence: 'high' };
+
+  const responsePrompt = `${roomContext}
+
+NEW MESSAGE from ${speaker}: "${newMessage}"
+
+You are ${guest.tutorName}, a guest ${guest.language} tutor in the Team Room.
+
+Format your response as:
+VOICE: [2-3 sentences, conversational, will be spoken aloud]
+EXPRESS: [detailed subject-matter insight, recommendations, or "none"]`;
+
+  try {
+    const raw = await callGemini(systemPrompt, responsePrompt);
+    const voiceMatch = raw.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
+    const expressMatch = raw.match(/EXPRESS:\s*(.*?)$/s);
+    const voiceContent = voiceMatch ? voiceMatch[1].trim() : raw;
+    const expressRaw = expressMatch ? expressMatch[1].trim() : undefined;
+    const expressContent = expressRaw && expressRaw !== 'none' ? expressRaw : undefined;
+    return { participant: participantName, handRaise, voiceContent, expressContent };
+  } catch {
+    return { participant: participantName, handRaise, voiceContent: 'I had trouble formulating my thoughts. Could you rephrase that?' };
+  }
+}
+
 // ── Public API: evaluate all participants in parallel ────────────────────────
 
 // ── @mention parsing ────────────────────────────────────────────────────────
 
-export function parseMentions(message: string): Participant[] | null {
-  const mentionPattern = /@(alden|daniela|sofia)\b/gi;
-  const matches = message.match(mentionPattern);
+export function parseMentions(message: string, guestNames: string[] = []): Participant[] | null {
+  const coreNames = ['alden', 'daniela', 'sofia'];
+  const allNames = [...coreNames, ...guestNames.map(n => n.toLowerCase())];
+  const pattern = new RegExp(`@(${allNames.join('|')})\\b`, 'gi');
+  const matches = message.match(pattern);
   if (!matches || matches.length === 0) return null;
-  const unique = [...new Set(matches.map(m => m.slice(1).toLowerCase() as Participant))];
+  const unique = [...new Set(matches.map(m => m.slice(1).toLowerCase()))];
   return unique;
 }
 
@@ -367,8 +455,9 @@ export async function evaluateAllParticipants(params: {
   newMessage: string;
   speaker: string;
   mentions?: Participant[] | null;
+  guestTutors?: GuestTutor[];
 }): Promise<RoomEvaluationResult> {
-  const { roomId, topic, newMessage, speaker, mentions } = params;
+  const { roomId, topic, newMessage, speaker, mentions, guestTutors = [] } = params;
   const roomContext = await buildRoomContext(roomId, topic);
 
   const targeted = mentions && mentions.length > 0;
@@ -384,9 +473,15 @@ export async function evaluateAllParticipants(params: {
     evaluators.push(evaluateSofia(roomContext, speaker, newMessage, targeted && mentions!.includes('sofia')));
   }
 
+  for (const guest of guestTutors) {
+    const guestKey = guest.tutorName.toLowerCase();
+    if (!targeted || mentions!.includes(guestKey)) {
+      evaluators.push(evaluateGuestTutor(guest, roomContext, speaker, newMessage, targeted && mentions!.includes(guestKey)));
+    }
+  }
+
   const results = await Promise.all(evaluators);
 
-  // When explicitly mentioned, force the participant to respond even if they wouldn't naturally raise their hand
   const respondingParticipants = results.filter(p => {
     if (targeted && mentions!.includes(p.participant)) return true;
     return p.handRaise.shouldRaise;

@@ -8,29 +8,35 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import {
   Users, Send, Plus, BrainCircuit, Radio, Code, X, ChevronDown,
   GraduationCap, Shield, Mic, MicOff, Volume2, FileText,
   Table, Lightbulb, CheckSquare, GitBranch, Info, Copy,
-  Target, ClipboardList, AtSign,
+  Target, ClipboardList, AtSign, Hand, UserPlus, UserMinus,
+  BookOpen,
 } from "lucide-react";
 import { io, Socket } from "socket.io-client";
 import type { TeamRoom as TeamRoomType, RoomVoiceMessage, RoomArtifact } from "@shared/schema";
 
 // ── Participant config ────────────────────────────────────────────────────────
 
-type ParticipantId = "david" | "alden" | "daniela" | "sofia";
+type CoreParticipantId = "david" | "alden" | "daniela" | "sofia";
 
-const PARTICIPANTS: Record<ParticipantId, {
-  id: ParticipantId;
+interface ParticipantConfig {
+  id: string;
   name: string;
   role: string;
   Icon: React.ElementType;
   color: string;
   bgColor: string;
   borderColor: string;
-}> = {
+  isGuest?: boolean;
+}
+
+const CORE_PARTICIPANTS: Record<CoreParticipantId, ParticipantConfig> = {
   david: {
     id: "david", name: "David", role: "Founder",
     Icon: Code, color: "text-amber-500",
@@ -53,35 +59,48 @@ const PARTICIPANTS: Record<ParticipantId, {
   },
 };
 
-function getParticipantConfig(speakerName: string) {
-  const key = speakerName.toLowerCase() as ParticipantId;
-  return PARTICIPANTS[key] ?? PARTICIPANTS.alden;
+const GUEST_COLORS = [
+  { color: "text-rose-500", bgColor: "bg-rose-500/10", borderColor: "border-rose-500/20" },
+  { color: "text-cyan-500", bgColor: "bg-cyan-500/10", borderColor: "border-cyan-500/20" },
+  { color: "text-orange-500", bgColor: "bg-orange-500/10", borderColor: "border-orange-500/20" },
+  { color: "text-pink-500", bgColor: "bg-pink-500/10", borderColor: "border-pink-500/20" },
+  { color: "text-teal-500", bgColor: "bg-teal-500/10", borderColor: "border-teal-500/20" },
+  { color: "text-indigo-500", bgColor: "bg-indigo-500/10", borderColor: "border-indigo-500/20" },
+];
+
+function getParticipantConfig(speakerName: string, guestTutors: GuestTutorInfo[] = []): ParticipantConfig {
+  const key = speakerName.toLowerCase() as CoreParticipantId;
+  if (CORE_PARTICIPANTS[key]) return CORE_PARTICIPANTS[key];
+  if (speakerName.toLowerCase() === "system") {
+    return { id: "system", name: "System", role: "", Icon: Info, color: "text-muted-foreground", bgColor: "bg-muted/50", borderColor: "border-border" };
+  }
+  const guestIdx = guestTutors.findIndex(g => g.tutorName.toLowerCase() === speakerName.toLowerCase());
+  const colorSet = GUEST_COLORS[Math.max(0, guestIdx) % GUEST_COLORS.length];
+  const guest = guestTutors.find(g => g.tutorName.toLowerCase() === speakerName.toLowerCase());
+  return {
+    id: speakerName.toLowerCase(), name: speakerName, role: guest ? `${guest.language} Tutor (Guest)` : "Guest",
+    Icon: BookOpen, isGuest: true, ...colorSet,
+  };
 }
 
 // ── Template icons ────────────────────────────────────────────────────────────
 
 const TEMPLATE_ICONS: Record<string, React.ElementType> = {
-  "graduation-cap": GraduationCap,
-  "git-branch": GitBranch,
-  "clipboard-list": ClipboardList,
-  "radio": Radio,
-  "target": Target,
-  "shield": Shield,
+  "graduation-cap": GraduationCap, "git-branch": GitBranch, "clipboard-list": ClipboardList,
+  "radio": Radio, "target": Target, "shield": Shield,
 };
 
 // ── Artifact rendering ────────────────────────────────────────────────────────
 
 const ARTIFACT_ICONS: Record<string, React.ElementType> = {
-  plan: GitBranch, table: Table, code: Code,
-  insight: Lightbulb, decision: CheckSquare, default: FileText,
+  plan: GitBranch, table: Table, code: Code, insight: Lightbulb, decision: CheckSquare, default: FileText,
 };
 
-function ArtifactCard({ artifact }: { artifact: RoomArtifact }) {
+function ArtifactCard({ artifact, guestTutors }: { artifact: RoomArtifact; guestTutors: GuestTutorInfo[] }) {
   const [expanded, setExpanded] = useState(true);
   const { toast } = useToast();
   const ArtifactIcon = ARTIFACT_ICONS[artifact.artifactType] ?? ARTIFACT_ICONS.default;
-  const creator = getParticipantConfig(artifact.createdBy);
-  const CreatorIcon = creator.Icon;
+  const creator = getParticipantConfig(artifact.createdBy, guestTutors);
 
   const handleCopy = () => {
     const c = artifact.content as Record<string, unknown>;
@@ -124,9 +143,7 @@ function ArtifactCard({ artifact }: { artifact: RoomArtifact }) {
       );
     }
     if (artifact.artifactType === "code" && c.code) {
-      return (
-        <pre className="text-xs font-mono whitespace-pre-wrap bg-muted/50 rounded p-2 overflow-x-auto">{String(c.code)}</pre>
-      );
+      return <pre className="text-xs font-mono whitespace-pre-wrap bg-muted/50 rounded p-2 overflow-x-auto">{String(c.code)}</pre>;
     }
     if (artifact.artifactType === "decision") {
       return (
@@ -147,33 +164,23 @@ function ArtifactCard({ artifact }: { artifact: RoomArtifact }) {
           <ArtifactIcon className={`h-3.5 w-3.5 ${creator.color} shrink-0`} />
           <span className="text-xs font-medium flex-1 truncate">{artifact.title}</span>
           <div className="flex items-center gap-1 shrink-0">
-            <Button variant="ghost" size="icon" className="h-5 w-5" onClick={handleCopy} title="Copy" data-testid={`button-copy-artifact-${artifact.id}`}>
-              <Copy className="h-3 w-3" />
-            </Button>
+            <Button variant="ghost" size="icon" className="h-5 w-5" onClick={handleCopy} data-testid={`button-copy-artifact-${artifact.id}`}><Copy className="h-3 w-3" /></Button>
             <Badge variant="outline" className="text-xs py-0 h-4 capitalize">{artifact.artifactType}</Badge>
             <button onClick={() => setExpanded(!expanded)} className="text-muted-foreground hover:text-foreground">
               <ChevronDown className={`h-3 w-3 transition-transform ${expanded ? "" : "-rotate-90"}`} />
             </button>
           </div>
         </div>
-        <div className="flex items-center gap-1 mt-0.5">
-          <CreatorIcon className={`h-2.5 w-2.5 ${creator.color}`} />
-          <span className="text-xs text-muted-foreground">{creator.name}</span>
-        </div>
       </CardHeader>
-      {expanded && (
-        <CardContent className="p-2.5 pt-0">
-          {renderContent()}
-        </CardContent>
-      )}
+      {expanded && <CardContent className="p-2.5 pt-0">{renderContent()}</CardContent>}
     </Card>
   );
 }
 
 // ── Express Lane message ──────────────────────────────────────────────────────
 
-function ExpressLaneMessage({ participant, content, time }: { participant: string; content: string; time: string }) {
-  const p = getParticipantConfig(participant);
+function ExpressLaneMessage({ participant, content, time, guestTutors }: { participant: string; content: string; time: string; guestTutors: GuestTutorInfo[] }) {
+  const p = getParticipantConfig(participant, guestTutors);
   const Icon = p.Icon;
   return (
     <div className="space-y-1" data-testid="express-lane-message">
@@ -189,61 +196,77 @@ function ExpressLaneMessage({ participant, content, time }: { participant: strin
 
 // ── Message bubble with @mention highlights ───────────────────────────────────
 
-function renderWithMentions(text: string) {
-  const parts = text.split(/(@(?:alden|daniela|sofia))/gi);
+function renderWithMentions(text: string, guestTutors: GuestTutorInfo[] = []) {
+  const allNames = ["alden", "daniela", "sofia", ...guestTutors.map(g => g.tutorName.toLowerCase())];
+  const pattern = new RegExp(`(@(?:${allNames.join("|")}))`, "gi");
+  const parts = text.split(pattern);
   return parts.map((part, i) => {
     const lower = part.toLowerCase();
-    if (lower === "@alden" || lower === "@daniela" || lower === "@sofia") {
-      const p = getParticipantConfig(lower.slice(1));
+    if (lower.startsWith("@") && allNames.includes(lower.slice(1))) {
+      const p = getParticipantConfig(lower.slice(1), guestTutors);
       return <span key={i} className={`font-semibold ${p.color}`}>{part}</span>;
     }
     return part;
   });
 }
 
-function MessageBubble({ message, onPlayVoice }: {
+function MessageBubble({ message, onPlayVoice, guestTutors }: {
   message: RoomVoiceMessage;
   onPlayVoice?: (text: string, speaker: string) => void;
+  guestTutors: GuestTutorInfo[];
 }) {
-  const p = getParticipantConfig(message.speaker);
+  const p = getParticipantConfig(message.speaker, guestTutors);
   const isDavid = message.speaker.toLowerCase() === "david";
+  const isSystem = message.speaker.toLowerCase() === "system";
   const Icon = p.Icon;
   const time = new Date(message.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+
+  if (isSystem) {
+    return (
+      <div className="flex justify-center" data-testid={`message-${message.id}`}>
+        <span className="text-xs text-muted-foreground italic px-3 py-1 bg-muted/30 rounded-full">{message.content}</span>
+      </div>
+    );
+  }
 
   return (
     <div className={`flex flex-col gap-1 ${isDavid ? "items-end" : "items-start"}`} data-testid={`message-${message.id}`}>
       <div className={`flex items-center gap-1.5 ${isDavid ? "flex-row-reverse" : ""}`}>
         <Icon className={`h-3.5 w-3.5 ${p.color}`} />
         <span className={`text-xs font-medium ${p.color}`}>{p.name}</span>
+        {p.isGuest && <Badge variant="outline" className="text-xs py-0 h-3.5 px-1">guest</Badge>}
         <span className="text-xs text-muted-foreground">{time}</span>
         {!isDavid && onPlayVoice && (
-          <button onClick={() => onPlayVoice(message.content, message.speaker)} className="text-muted-foreground hover:text-foreground" title={`Play ${p.name}'s voice`} data-testid={`button-play-voice-${message.id}`}>
+          <button onClick={() => onPlayVoice(message.content, message.speaker)} className="text-muted-foreground hover:text-foreground" data-testid={`button-play-voice-${message.id}`}>
             <Volume2 className="h-3 w-3" />
           </button>
         )}
       </div>
       <div className={`max-w-[85%] rounded-md px-3 py-2 text-sm ${isDavid ? "bg-primary text-primary-foreground" : `${p.bgColor} ${p.borderColor} border text-foreground`}`}>
-        {renderWithMentions(message.content)}
+        {renderWithMentions(message.content, guestTutors)}
       </div>
     </div>
   );
 }
 
-// ── Participant card ──────────────────────────────────────────────────────────
+// ── Participant card with visible @ button and hand-raise ─────────────────────
 
-function ParticipantCard({ participantId, isActive, isThinking, onMention }: {
-  participantId: ParticipantId;
+function ParticipantCard({ config, isActive, isThinking, handRaise, onMention, onDisconnect }: {
+  config: ParticipantConfig;
   isActive: boolean;
   isThinking: boolean;
+  handRaise?: { reasoning: string } | null;
   onMention?: (name: string) => void;
+  onDisconnect?: () => void;
 }) {
-  const p = PARTICIPANTS[participantId];
-  const Icon = p.Icon;
+  const Icon = config.Icon;
+  const isAI = config.id !== "david" && config.id !== "system";
+
   return (
-    <div className={`flex items-center gap-2 p-2 rounded-md ${isActive ? "bg-muted" : ""}`} data-testid={`participant-${p.id}`}>
-      <div className="relative">
-        <Icon className={`h-5 w-5 ${p.color}`} />
-        {isActive && !isThinking && (
+    <div className={`flex items-center gap-2 p-2 rounded-md ${isActive ? "bg-muted" : ""}`} data-testid={`participant-${config.id}`}>
+      <div className="relative shrink-0">
+        <Icon className={`h-5 w-5 ${config.color}`} />
+        {isActive && !isThinking && !handRaise && (
           <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-green-500 ring-1 ring-background" />
         )}
         {isThinking && (
@@ -251,20 +274,54 @@ function ParticipantCard({ participantId, isActive, isThinking, onMention }: {
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium leading-none">{p.name}</p>
-        <p className="text-xs text-muted-foreground">{p.role}</p>
+        <div className="flex items-center gap-1 flex-wrap">
+          <p className="text-sm font-medium leading-none">{config.name}</p>
+          {config.isGuest && <Badge variant="outline" className="text-xs py-0 h-3.5 px-1">guest</Badge>}
+        </div>
+        <p className="text-xs text-muted-foreground">{config.role}</p>
       </div>
-      {isThinking && <span className="text-xs text-amber-500 shrink-0">thinking</span>}
-      {!isThinking && isActive && participantId !== "david" && onMention && (
-        <button
-          onClick={() => onMention(p.name.toLowerCase())}
-          className="shrink-0 text-muted-foreground hover:text-foreground"
-          title={`Mention @${p.name.toLowerCase()}`}
-          data-testid={`button-mention-${p.id}`}
-        >
-          <AtSign className="h-3.5 w-3.5" />
-        </button>
+
+      {handRaise && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="shrink-0 animate-bounce">
+              <Hand className={`h-4 w-4 ${config.color}`} />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="right" className="max-w-48">
+            <p className="text-xs">{handRaise.reasoning}</p>
+          </TooltipContent>
+        </Tooltip>
       )}
+
+      {isThinking && <span className="text-xs text-amber-500 shrink-0 animate-pulse">thinking</span>}
+
+      <div className="flex items-center gap-0.5 shrink-0">
+        {isActive && isAI && onMention && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={() => onMention(config.name.toLowerCase())}
+            title={`@${config.name.toLowerCase()}`}
+            data-testid={`button-mention-${config.id}`}
+          >
+            <AtSign className="h-3.5 w-3.5" />
+          </Button>
+        )}
+        {config.isGuest && onDisconnect && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-muted-foreground hover:text-destructive"
+            onClick={onDisconnect}
+            title={`Disconnect ${config.name}`}
+            data-testid={`button-disconnect-${config.id}`}
+          >
+            <UserMinus className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
@@ -333,6 +390,8 @@ function useTeamRoomWS(roomId: string | null, callbacks: {
   onThinking: (participants: string[]) => void;
   onDone: () => void;
   onSessionClosed: () => void;
+  onGuestJoined: (info: { tutorName: string; language: string }) => void;
+  onGuestLeft: (info: { tutorName: string }) => void;
 }) {
   const socketRef = useRef<Socket | null>(null);
   const callbacksRef = useRef(callbacks);
@@ -343,16 +402,15 @@ function useTeamRoomWS(roomId: string | null, callbacks: {
     const socket = io("/team-room", { transports: ["websocket", "polling"] });
     socketRef.current = socket;
 
-    socket.on("connect", () => {
-      socket.emit("join_room", roomId);
-    });
-
+    socket.on("connect", () => { socket.emit("join_room", roomId); });
     socket.on("new_message", (msg: RoomVoiceMessage) => callbacksRef.current.onNewMessage(msg));
     socket.on("express_lane", (items: Array<{ participant: string; content: string }>) => callbacksRef.current.onExpressLane(items));
     socket.on("new_artifact", (artifact: RoomArtifact) => callbacksRef.current.onArtifact(artifact));
     socket.on("participants_thinking", (participants: string[]) => callbacksRef.current.onThinking(participants));
     socket.on("participants_done", () => callbacksRef.current.onDone());
     socket.on("session_closed", () => callbacksRef.current.onSessionClosed());
+    socket.on("guest_joined", (info: { tutorName: string; language: string }) => callbacksRef.current.onGuestJoined(info));
+    socket.on("guest_left", (info: { tutorName: string }) => callbacksRef.current.onGuestLeft(info));
 
     return () => {
       socket.emit("leave_room", roomId);
@@ -374,6 +432,90 @@ interface SessionData {
 interface ExpressItem { participant: string; content: string; time: string; }
 interface SessionSummary { summary: string; keyDecisions?: string[]; actionItems?: string[]; momentum?: string; }
 interface SessionTemplate { id: string; topic: string; description: string; icon: string; context?: string; }
+interface GuestTutorInfo { tutorId: string; tutorName: string; language: string; personality?: string; personalityTraits?: string; teachingPhilosophy?: string; gender?: string; }
+interface AvailableTutor extends GuestTutorInfo { gender: string; }
+
+// ── Invite Tutor Popover ──────────────────────────────────────────────────────
+
+function InviteTutorPopover({ sessionId, currentGuests, onInvited }: {
+  sessionId: string;
+  currentGuests: GuestTutorInfo[];
+  onInvited: (guest: GuestTutorInfo) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const { toast } = useToast();
+
+  const { data: availableTutors } = useQuery<AvailableTutor[]>({
+    queryKey: ["/api/team-room/available-tutors"],
+    enabled: open,
+  });
+
+  const inviteMutation = useMutation({
+    mutationFn: (tutor: AvailableTutor) =>
+      apiRequest("POST", `/api/team-room/sessions/${sessionId}/invite`, tutor),
+    onSuccess: async (res, tutor) => {
+      onInvited(tutor);
+      toast({ title: `${tutor.tutorName} joined the room` });
+    },
+    onError: (e: any) => {
+      toast({ title: "Failed to invite", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const guestNames = currentGuests.map(g => g.tutorName.toLowerCase());
+  const filtered = (availableTutors ?? []).filter(t => !guestNames.includes(t.tutorName.toLowerCase()));
+
+  const grouped = filtered.reduce((acc, t) => {
+    const lang = t.language.charAt(0).toUpperCase() + t.language.slice(1);
+    if (!acc[lang]) acc[lang] = [];
+    acc[lang].push(t);
+    return acc;
+  }, {} as Record<string, AvailableTutor[]>);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="w-full" data-testid="button-invite-tutor">
+          <UserPlus className="h-3.5 w-3.5 mr-1.5" />
+          Invite Tutor
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-0" align="start">
+        <div className="p-2 border-b">
+          <p className="text-sm font-medium">Invite a Tutor</p>
+          <p className="text-xs text-muted-foreground">They will participate in the session</p>
+        </div>
+        <ScrollArea className="max-h-64">
+          <div className="p-1">
+            {Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([lang, tutors]) => (
+              <div key={lang}>
+                <p className="text-xs text-muted-foreground font-medium px-2 py-1 uppercase tracking-wide">{lang}</p>
+                {tutors.map(t => (
+                  <button
+                    key={t.tutorId}
+                    onClick={() => { inviteMutation.mutate(t); setOpen(false); }}
+                    disabled={inviteMutation.isPending}
+                    className="w-full text-left px-2 py-1.5 rounded-md text-sm hover-elevate flex items-center gap-2"
+                    data-testid={`invite-${t.tutorName.toLowerCase()}`}
+                  >
+                    <BookOpen className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <span className="font-medium">{t.tutorName}</span>
+                      <span className="text-xs text-muted-foreground ml-1">({t.gender})</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ))}
+            {Object.keys(grouped).length === 0 && (
+              <p className="text-xs text-muted-foreground p-3 text-center">No tutors available</p>
+            )}
+          </div>
+        </ScrollArea>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -387,10 +529,12 @@ export default function TeamRoom() {
   const [expressLaneItems, setExpressLaneItems] = useState<ExpressItem[]>([]);
   const [sessionArtifacts, setSessionArtifacts] = useState<RoomArtifact[]>([]);
   const [showPastSessions, setShowPastSessions] = useState(false);
-  const [thinkingParticipants, setThinkingParticipants] = useState<Set<ParticipantId>>(new Set());
+  const [thinkingParticipants, setThinkingParticipants] = useState<Set<string>>(new Set());
+  const [handRaises, setHandRaises] = useState<Record<string, { reasoning: string }>>({});
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
   const [autoPlayVoice, setAutoPlayVoice] = useState(() => localStorage.getItem("teamroom-autoplay") === "true");
   const [wsMessages, setWsMessages] = useState<RoomVoiceMessage[]>([]);
+  const [guestTutors, setGuestTutors] = useState<GuestTutorInfo[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const expressEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -403,14 +547,13 @@ export default function TeamRoom() {
   const handleVoiceTranscript = useCallback((text: string) => setMessageInput(text), []);
   const { isListening, isSupported, startListening, stopListening } = usePTT(handleVoiceTranscript);
 
-  // WebSocket connection
   useTeamRoomWS(activeSessionId, {
     onNewMessage: (msg) => {
       setWsMessages(prev => {
         if (prev.some(m => m.id === msg.id)) return prev;
         return [...prev, msg];
       });
-      if (autoPlayVoice && msg.speaker.toLowerCase() !== "david") {
+      if (autoPlayVoice && msg.speaker.toLowerCase() !== "david" && msg.speaker.toLowerCase() !== "system") {
         playParticipantVoice(msg.content, msg.speaker);
       }
     },
@@ -428,10 +571,21 @@ export default function TeamRoom() {
         return [...prev, artifact];
       });
     },
-    onThinking: (participants) => setThinkingParticipants(new Set(participants as ParticipantId[])),
-    onDone: () => setThinkingParticipants(new Set()),
+    onThinking: (participants) => setThinkingParticipants(new Set(participants)),
+    onDone: () => { setThinkingParticipants(new Set()); setHandRaises({}); },
     onSessionClosed: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/team-room/sessions"] });
+    },
+    onGuestJoined: (info) => {
+      setGuestTutors(prev => {
+        if (prev.some(g => g.tutorName.toLowerCase() === info.tutorName.toLowerCase())) return prev;
+        return [...prev, { tutorId: "", tutorName: info.tutorName, language: info.language }];
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/team-room/sessions", activeSessionId] });
+    },
+    onGuestLeft: (info) => {
+      setGuestTutors(prev => prev.filter(g => g.tutorName.toLowerCase() !== info.tutorName.toLowerCase()));
+      queryClient.invalidateQueries({ queryKey: ["/api/team-room/sessions", activeSessionId] });
     },
   });
 
@@ -449,16 +603,16 @@ export default function TeamRoom() {
     const summary = (sessionData as any).summary;
     if (summary) setSessionSummary(summary);
     setWsMessages([]);
+    const metadata = (sessionData.room.metadata || {}) as Record<string, unknown>;
+    const guests = (metadata.guestTutors || []) as GuestTutorInfo[];
+    setGuestTutors(guests);
   }, [sessionData]);
 
-  // Merge REST + WS messages
   const allMessages = useMemo(() => {
     const restMsgs = sessionData?.messages ?? [];
     const merged = [...restMsgs];
     for (const wsMsg of wsMessages) {
-      if (!merged.some(m => m.id === wsMsg.id)) {
-        merged.push(wsMsg);
-      }
+      if (!merged.some(m => m.id === wsMsg.id)) merged.push(wsMsg);
     }
     merged.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     return merged;
@@ -475,6 +629,8 @@ export default function TeamRoom() {
       setSessionArtifacts([]);
       setSessionSummary(null);
       setWsMessages([]);
+      setGuestTutors([]);
+      setHandRaises({});
     },
   });
 
@@ -482,13 +638,14 @@ export default function TeamRoom() {
     mutationFn: (content: string) =>
       apiRequest("POST", `/api/team-room/sessions/${activeSessionId}/messages`, { content, speaker: "David" }),
     onMutate: (content) => {
-      const mentionPattern = /@(alden|daniela|sofia)\b/gi;
+      const allNames = ["alden", "daniela", "sofia", ...guestTutors.map(g => g.tutorName.toLowerCase())];
+      const mentionPattern = new RegExp(`@(${allNames.join("|")})\\b`, "gi");
       const matches = content.match(mentionPattern);
       if (matches && matches.length > 0) {
-        const mentioned = new Set(matches.map(m => m.slice(1).toLowerCase() as ParticipantId));
+        const mentioned = new Set(matches.map(m => m.slice(1).toLowerCase()));
         setThinkingParticipants(mentioned);
       } else {
-        setThinkingParticipants(new Set(["alden", "daniela", "sofia"] as ParticipantId[]));
+        setThinkingParticipants(new Set(allNames));
       }
     },
     onSuccess: async (res) => {
@@ -497,10 +654,26 @@ export default function TeamRoom() {
       const time = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 
       if (data.expressLaneItems?.length) {
-        setExpressLaneItems(prev => [...prev, ...data.expressLaneItems.map((item: any) => ({ ...item, time }))]);
+        setExpressLaneItems(prev => {
+          const newItems = data.expressLaneItems.filter((it: any) => !prev.some(p => p.participant === it.participant && p.content === it.content));
+          return [...prev, ...newItems.map((item: any) => ({ ...item, time }))];
+        });
       }
       if (data.artifacts?.length) {
         setSessionArtifacts(prev => [...prev, ...data.artifacts]);
+      }
+
+      const allParticipants = data.allEvaluations as Array<{ participant: string; handRaise: { shouldRaise: boolean; reasoning: string } }> | undefined;
+      if (allParticipants) {
+        const raisedHands: Record<string, { reasoning: string }> = {};
+        for (const p of allParticipants) {
+          if (p.handRaise.shouldRaise) {
+            raisedHands[p.participant] = { reasoning: p.handRaise.reasoning };
+          }
+        }
+        if (Object.keys(raisedHands).length > 0) {
+          setHandRaises(raisedHands);
+        }
       }
 
       if (autoPlayVoice && data.aiMessages?.length) {
@@ -525,6 +698,21 @@ export default function TeamRoom() {
       setSessionSummary(null);
       setThinkingParticipants(new Set());
       setWsMessages([]);
+      setGuestTutors([]);
+      setHandRaises({});
+    },
+  });
+
+  const disconnectGuest = useMutation({
+    mutationFn: (tutorName: string) =>
+      apiRequest("POST", `/api/team-room/sessions/${activeSessionId}/disconnect`, { tutorName }),
+    onSuccess: async (_res, tutorName) => {
+      setGuestTutors(prev => prev.filter(g => g.tutorName.toLowerCase() !== tutorName.toLowerCase()));
+      queryClient.invalidateQueries({ queryKey: ["/api/team-room/sessions", activeSessionId] });
+      toast({ title: `${tutorName} disconnected` });
+    },
+    onError: (e: any, tutorName) => {
+      toast({ title: `Failed to disconnect ${tutorName}`, description: e.message, variant: "destructive" });
     },
   });
 
@@ -566,46 +754,77 @@ export default function TeamRoom() {
 
   const hasExpressContent = expressLaneItems.length > 0 || displayArtifacts.length > 0;
 
+  const allParticipantConfigs: ParticipantConfig[] = [
+    CORE_PARTICIPANTS.david,
+    CORE_PARTICIPANTS.alden,
+    CORE_PARTICIPANTS.daniela,
+    CORE_PARTICIPANTS.sofia,
+    ...guestTutors.map((g, i) => ({
+      id: g.tutorName.toLowerCase(),
+      name: g.tutorName,
+      role: `${g.language.charAt(0).toUpperCase() + g.language.slice(1)} Tutor (Guest)`,
+      Icon: BookOpen,
+      isGuest: true,
+      ...GUEST_COLORS[i % GUEST_COLORS.length],
+    })),
+  ];
+
   return (
     <div className="flex h-full bg-background overflow-hidden">
       {/* ── Left Panel: Participants ── */}
-      <div className="w-52 flex-none border-r flex flex-col">
+      <div className="w-56 flex-none border-r flex flex-col">
         <div className="p-3 border-b shrink-0">
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-semibold">Participants</span>
+            <Badge variant="outline" className="text-xs ml-auto">{allParticipantConfigs.length}</Badge>
           </div>
         </div>
         <ScrollArea className="flex-1">
-          <div className="p-2">
-            <div className="space-y-1">
-              {(Object.keys(PARTICIPANTS) as ParticipantId[]).map(id => (
-                <ParticipantCard
-                  key={id}
-                  participantId={id}
-                  isActive={!!activeSessionId}
-                  isThinking={thinkingParticipants.has(id)}
-                  onMention={activeSessionId && isActive ? handleMention : undefined}
+          <div className="p-2 space-y-1">
+            {allParticipantConfigs.map(p => (
+              <ParticipantCard
+                key={p.id}
+                config={p}
+                isActive={!!activeSessionId}
+                isThinking={thinkingParticipants.has(p.id)}
+                handRaise={handRaises[p.id] ?? null}
+                onMention={activeSessionId && isActive ? handleMention : undefined}
+                onDisconnect={p.isGuest && activeSessionId && isActive ? () => disconnectGuest.mutate(p.name) : undefined}
+              />
+            ))}
+
+            {activeSessionId && isActive && (
+              <>
+                <Separator className="my-2" />
+                <InviteTutorPopover
+                  sessionId={activeSessionId}
+                  currentGuests={guestTutors}
+                  onInvited={(guest) => {
+                    setGuestTutors(prev => {
+                      if (prev.some(g => g.tutorName.toLowerCase() === guest.tutorName.toLowerCase())) return prev;
+                      return [...prev, guest];
+                    });
+                    queryClient.invalidateQueries({ queryKey: ["/api/team-room/sessions", activeSessionId] });
+                  }}
                 />
-              ))}
-            </div>
+              </>
+            )}
 
             {activeSessions.length > 0 && !activeSessionId && (
               <>
                 <Separator className="my-3" />
                 <p className="text-xs text-muted-foreground px-2 mb-2">Active sessions</p>
-                <div className="space-y-1">
-                  {activeSessions.map(s => (
-                    <button
-                      key={s.id}
-                      onClick={() => { setActiveSessionId(s.id); setExpressLaneItems([]); setSessionArtifacts([]); setWsMessages([]); }}
-                      className="w-full text-left px-2 py-1.5 text-xs rounded-md hover-elevate truncate"
-                      data-testid={`session-${s.id}`}
-                    >
-                      {s.topic}
-                    </button>
-                  ))}
-                </div>
+                {activeSessions.map(s => (
+                  <button
+                    key={s.id}
+                    onClick={() => { setActiveSessionId(s.id); setExpressLaneItems([]); setSessionArtifacts([]); setWsMessages([]); setGuestTutors([]); }}
+                    className="w-full text-left px-2 py-1.5 text-xs rounded-md hover-elevate truncate"
+                    data-testid={`session-${s.id}`}
+                  >
+                    {s.topic}
+                  </button>
+                ))}
               </>
             )}
 
@@ -625,7 +844,7 @@ export default function TeamRoom() {
                     {pastSessions.slice(0, 10).map(s => (
                       <button
                         key={s.id}
-                        onClick={() => { setActiveSessionId(s.id); setExpressLaneItems([]); setSessionArtifacts([]); setWsMessages([]); }}
+                        onClick={() => { setActiveSessionId(s.id); setExpressLaneItems([]); setSessionArtifacts([]); setWsMessages([]); setGuestTutors([]); }}
                         className="w-full text-left px-2 py-1.5 text-xs rounded-md text-muted-foreground hover-elevate truncate"
                         data-testid={`past-session-${s.id}`}
                       >
@@ -652,7 +871,7 @@ export default function TeamRoom() {
                     Team Room
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    Start a session to collaborate with the full team — Alden, Daniela, and Sofia. Use @mentions to target specific participants.
+                    Start a session to collaborate with the team. Use @mentions to target specific participants, or invite guest tutors for domain expertise.
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -675,7 +894,6 @@ export default function TeamRoom() {
                 </CardContent>
               </Card>
 
-              {/* Session Templates */}
               {templates && templates.length > 0 && (
                 <div className="w-full max-w-md space-y-3">
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Quick Start Templates</p>
@@ -704,23 +922,20 @@ export default function TeamRoom() {
           </ScrollArea>
         ) : (
           <>
-            {/* Session header */}
             <div className="px-4 py-2.5 border-b flex items-center justify-between gap-3 shrink-0">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="font-semibold text-sm truncate">{sessionData?.room?.topic ?? "Loading..."}</span>
                 <Badge variant="outline" className="text-xs shrink-0">{isActive ? "Live" : "Closed"}</Badge>
+                {guestTutors.length > 0 && (
+                  <Badge variant="outline" className="text-xs shrink-0">+{guestTutors.length} guest{guestTutors.length > 1 ? "s" : ""}</Badge>
+                )}
               </div>
               <div className="flex items-center gap-2 shrink-0 flex-wrap">
                 {isActive && (
                   <div className="flex items-center gap-1.5">
                     <Volume2 className="h-3.5 w-3.5 text-muted-foreground" />
                     <span className="text-xs text-muted-foreground">Auto-play</span>
-                    <Switch
-                      checked={autoPlayVoice}
-                      onCheckedChange={toggleAutoPlay}
-                      data-testid="switch-autoplay"
-                      className="scale-75"
-                    />
+                    <Switch checked={autoPlayVoice} onCheckedChange={toggleAutoPlay} data-testid="switch-autoplay" className="scale-75" />
                   </div>
                 )}
                 {isActive && (
@@ -729,13 +944,12 @@ export default function TeamRoom() {
                     {closeSession.isPending ? "Closing..." : "End Session"}
                   </Button>
                 )}
-                <Button variant="ghost" size="sm" onClick={() => { setActiveSessionId(null); setExpressLaneItems([]); setSessionArtifacts([]); setSessionSummary(null); setWsMessages([]); }} data-testid="button-leave-room">
+                <Button variant="ghost" size="sm" onClick={() => { setActiveSessionId(null); setExpressLaneItems([]); setSessionArtifacts([]); setSessionSummary(null); setWsMessages([]); setGuestTutors([]); setHandRaises({}); }} data-testid="button-leave-room">
                   Leave
                 </Button>
               </div>
             </div>
 
-            {/* Cross-session summary banner */}
             {sessionSummary && (
               <div className="mx-4 mt-3 p-3 rounded-md bg-muted/60 border border-border text-xs space-y-1" data-testid="session-summary-banner">
                 <div className="flex items-center gap-1.5 text-muted-foreground font-medium">
@@ -747,16 +961,20 @@ export default function TeamRoom() {
               </div>
             )}
 
-            {/* Message thread */}
             <ScrollArea className="flex-1 px-4 py-3">
               <div className="space-y-4">
                 {allMessages.length === 0 && !thinkingParticipants.size && (
-                  <div className="text-center py-10 text-sm text-muted-foreground">
-                    Say something — or use <span className="font-mono text-xs bg-muted px-1 py-0.5 rounded">@alden</span> <span className="font-mono text-xs bg-muted px-1 py-0.5 rounded">@daniela</span> <span className="font-mono text-xs bg-muted px-1 py-0.5 rounded">@sofia</span> to summon a specific participant.
+                  <div className="text-center py-10 text-sm text-muted-foreground space-y-2">
+                    <p>Say something to the team.</p>
+                    <p className="text-xs">
+                      Use <span className="font-mono bg-muted px-1 py-0.5 rounded">@name</span> to summon a specific participant, or click the
+                      <AtSign className="h-3 w-3 inline mx-1" />
+                      button next to their name.
+                    </p>
                   </div>
                 )}
                 {allMessages.map(msg => (
-                  <MessageBubble key={msg.id} message={msg} onPlayVoice={isActive ? playParticipantVoice : undefined} />
+                  <MessageBubble key={msg.id} message={msg} onPlayVoice={isActive ? playParticipantVoice : undefined} guestTutors={guestTutors} />
                 ))}
                 {thinkingParticipants.size > 0 && (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -766,9 +984,12 @@ export default function TeamRoom() {
                       ))}
                     </div>
                     <span>
-                      {thinkingParticipants.size === 3
+                      {thinkingParticipants.size > 3
                         ? "Team is thinking..."
-                        : `${[...thinkingParticipants].map(p => PARTICIPANTS[p]?.name).filter(Boolean).join(", ")} thinking...`}
+                        : `${[...thinkingParticipants].map(p => {
+                            const cfg = allParticipantConfigs.find(c => c.id === p);
+                            return cfg?.name ?? p;
+                          }).join(", ")} thinking...`}
                     </span>
                   </div>
                 )}
@@ -776,7 +997,6 @@ export default function TeamRoom() {
               </div>
             </ScrollArea>
 
-            {/* Input area */}
             {isActive && (
               <div className="p-3 border-t flex gap-2 shrink-0">
                 {isSupported && (
@@ -797,7 +1017,7 @@ export default function TeamRoom() {
                 )}
                 <Input
                   ref={inputRef}
-                  placeholder="Say something to the team... (use @alden @daniela @sofia to mention)"
+                  placeholder={`Say something to the team... ${guestTutors.length > 0 ? "(use @name to mention anyone)" : "(use @alden @daniela @sofia)"}`}
                   value={messageInput}
                   onChange={e => setMessageInput(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -836,14 +1056,14 @@ export default function TeamRoom() {
               {displayArtifacts.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Artifacts</p>
-                  {displayArtifacts.map(a => <ArtifactCard key={a.id} artifact={a} />)}
+                  {displayArtifacts.map(a => <ArtifactCard key={a.id} artifact={a} guestTutors={guestTutors} />)}
                 </div>
               )}
               {expressLaneItems.length > 0 && (
                 <div className="space-y-3">
                   {displayArtifacts.length > 0 && <Separator />}
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Analysis Stream</p>
-                  {expressLaneItems.map((item, i) => <ExpressLaneMessage key={i} {...item} />)}
+                  {expressLaneItems.map((item, i) => <ExpressLaneMessage key={i} {...item} guestTutors={guestTutors} />)}
                 </div>
               )}
               <div ref={expressEndRef} />

@@ -1003,6 +1003,7 @@ export interface IStorage {
   getTeamRoom(id: string): Promise<TeamRoom | undefined>;
   listTeamRooms(limit?: number): Promise<TeamRoom[]>;
   closeTeamRoom(id: string): Promise<TeamRoom | undefined>;
+  updateTeamRoomMetadata(id: string, metadata: Record<string, unknown>): Promise<TeamRoom | undefined>;
   createRoomMessage(data: InsertRoomVoiceMessage): Promise<RoomVoiceMessage>;
   getRoomMessages(roomId: string, limit?: number): Promise<RoomVoiceMessage[]>;
   createRoomHandRaise(data: InsertRoomHandRaise): Promise<RoomHandRaise>;
@@ -7902,6 +7903,11 @@ export class DatabaseStorage implements IStorage {
 
   async closeTeamRoom(id: string): Promise<TeamRoom | undefined> {
     const [room] = await db.update(teamRooms).set({ status: 'closed' }).where(eq(teamRooms.id, id)).returning();
+    return room;
+  }
+
+  async updateTeamRoomMetadata(id: string, metadata: Record<string, unknown>): Promise<TeamRoom | undefined> {
+    const [room] = await db.update(teamRooms).set({ metadata }).where(eq(teamRooms.id, id)).returning();
     return room;
   }
 
