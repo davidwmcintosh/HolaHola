@@ -33,13 +33,15 @@ The Class Creation Hub (`/teacher/create-class`) now supports creating Language 
 
 The Team Room (`/team-room`) is an internal collaboration space for David and the full AI team. Features:
 - **3-panel layout**: participants (left), discussion thread (center), Express Lane analysis panel (right)
-- **4 core participants + guest tutors**: David (amber), Alden (blue, Dev Steward via Claude), Daniela (purple, Curriculum Advisor via Gemini), Sofia (emerald, Tech Health via Gemini); guest tutors can be invited from tutor_voices table and disconnected per-session
+- **6 core participants + guest tutors**: David (amber), Alden (blue, Dev Steward via Claude), Daniela (purple, Curriculum Advisor via Gemini), Sofia (emerald, Tech Health via Gemini), Lyra (pink, Learning Analyst via Gemini), Wren (sky, Architect via Gemini); guest tutors can be invited from tutor_voices table and disconnected per-session
 - **Smart hand-raise logic**: all AI participants (core + guests) evaluate each message in parallel; only those with genuine contributions respond. Hand raises show visually with an animated icon and tooltip explaining reasoning
 - **@mentions**: type `@name` in chat or click the visible @ button next to any AI participant to summon them directly; supports both core and guest tutor names
 - **Guest tutor invite/disconnect**: `POST /api/team-room/sessions/:id/invite` and `/disconnect` routes; guests stored in room metadata JSON; invited tutors evaluate via Gemini with their persona context
 - **PTT voice input**: Web Speech API PTT button; AI responses played back via `/api/team-room/voice/tts` using distinct Neural2 voices per participant
 - **Shared canvas artifacts**: Alden generates structured artifacts (plans, tables, code blocks, insights, decisions) stored in `room_artifacts` and displayed as interactive cards in the Express Lane
-- **Cross-session continuity**: on session close, Alden generates an enriched summary (decisions, action items, momentum note) stored in `room_session_summaries` and injected as a "Previously in this room..." banner at next session start
+- **Cross-session continuity**: on session close, Alden generates an enriched summary (decisions, action items, momentum note) stored in `room_session_summaries` and injected as a "Previously in this room..." banner at next session start; summaries are also bridged to the Express Lane via `hiveBridgeService.notifyHive()`
+- **Action items tracker**: session close summaries extract key decisions and action items; displayed as a checklist in the summary banner; accessible via `GET /api/team-room/action-items/:topic`
+- **Session replay**: closed sessions open in read-only mode with full message history (200 msgs), summary banner with action items, artifacts in Express Lane, and voice replay buttons on AI messages; status badge shows "Replay" instead of "Live"
 - Key files: `client/src/pages/TeamRoom.tsx`, `server/services/team-room-alden-service.ts`
 - DB tables: `team_rooms`, `room_voice_messages`, `room_hand_raises`, `room_artifacts`, `room_session_summaries`
 

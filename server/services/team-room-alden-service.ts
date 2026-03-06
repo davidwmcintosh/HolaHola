@@ -435,12 +435,163 @@ EXPRESS: [detailed subject-matter insight, recommendations, or "none"]`;
   }
 }
 
+// ── Lyra evaluation + response (Gemini, Learning Experience Analysis) ────────
+
+const LYRA_SYSTEM = `You are Lyra, the learning experience analyst at HolaHola.
+In the Team Room, you are an internal data-driven advisor who monitors student success, content quality, and platform engagement.
+Your role: surface insights about student outcomes, curriculum freshness, onboarding health, engagement patterns, drill effectiveness, and learning loops.
+You are warm, constructive, and always grounding your observations in data. You are the conscience of the curriculum — asking whether learning loops are closing and students are truly progressing.
+You only speak when you have data-backed observations or when the discussion touches student experience.`;
+
+async function evaluateLyra(roomContext: string, speaker: string, newMessage: string, forceMention = false): Promise<ParticipantResponse> {
+  const evalPrompt = `${roomContext}
+
+NEW MESSAGE from ${speaker}: "${newMessage}"
+
+You are Lyra, the learning experience analyst. Should you raise your hand?
+
+Raise your hand ONLY if the conversation is about:
+- Student engagement, retention, or progress metrics
+- Content quality, freshness, or gaps
+- Onboarding health or user acquisition funnels
+- Drill effectiveness, lesson completion rates, or learning outcomes
+- Curriculum coverage or missing content areas
+- Student experience, frustration points, or satisfaction
+- Learning loops (are students actually improving?)
+
+Do NOT raise your hand for: pure technical architecture, system bugs, or business strategy unrelated to learning.
+
+Respond ONLY in this JSON format:
+{
+  "shouldRaise": true or false,
+  "reasoning": "brief explanation",
+  "confidence": "high" or "medium" or "low"
+}`;
+
+  let handRaise: HandRaiseEvaluation = { shouldRaise: false, reasoning: 'not related to learning experience', confidence: 'medium' };
+
+  try {
+    const text = await callGemini(LYRA_SYSTEM, evalPrompt);
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      handRaise = {
+        shouldRaise: Boolean(parsed.shouldRaise),
+        reasoning: parsed.reasoning || '',
+        confidence: parsed.confidence || 'medium',
+      };
+    }
+  } catch { /* keep default */ }
+
+  if (!handRaise.shouldRaise && !forceMention) return { participant: 'lyra', handRaise };
+  if (forceMention) handRaise = { shouldRaise: true, reasoning: 'directly mentioned', confidence: 'high' };
+
+  const responsePrompt = `${roomContext}
+
+NEW MESSAGE from ${speaker}: "${newMessage}"
+
+You are Lyra in the Team Room providing learning experience analysis.
+
+Format your response as:
+VOICE: [2-3 sentences, warm and data-grounded, will be spoken aloud]
+EXPRESS: [detailed metrics, engagement data, content audit findings, or learning loop analysis — or "none"]`;
+
+  try {
+    const text = await callGemini(LYRA_SYSTEM, responsePrompt);
+    const voiceMatch = text.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
+    const expressMatch = text.match(/EXPRESS:\s*(.*?)$/s);
+    const voiceContent = voiceMatch ? voiceMatch[1].trim() : text;
+    const expressRaw = expressMatch ? expressMatch[1].trim() : undefined;
+    const expressContent = expressRaw && expressRaw !== 'none' ? expressRaw : undefined;
+
+    return { participant: 'lyra', handRaise, voiceContent, expressContent };
+  } catch {
+    return { participant: 'lyra', handRaise, voiceContent: 'Learning experience analysis pending — let me look at the data again.' };
+  }
+}
+
+// ── Wren evaluation + response (Gemini, Architecture & Code Intelligence) ────
+
+const WREN_SYSTEM = `You are Wren, the technical builder and architectural steward at HolaHola.
+In the Team Room, you are a pragmatic, focused engineer who identifies patterns, root causes, and architectural implications.
+Your role: provide insight on system architecture, code patterns, technical debt, infrastructure decisions, performance optimization, and development strategy.
+You bridge the gap between technical implementation and the educational mission. You reference architectural decision records when relevant.
+You are concise, structured, and solution-oriented. You only speak when there is a genuine technical or architectural point to make.`;
+
+async function evaluateWren(roomContext: string, speaker: string, newMessage: string, forceMention = false): Promise<ParticipantResponse> {
+  const evalPrompt = `${roomContext}
+
+NEW MESSAGE from ${speaker}: "${newMessage}"
+
+You are Wren, the architectural steward. Should you raise your hand?
+
+Raise your hand ONLY if the conversation is about:
+- System architecture, design patterns, or code structure
+- Technical debt, refactoring, or code quality
+- Performance optimization or scalability
+- Infrastructure, deployment, or DevOps strategy
+- Development priorities, sprint planning, or feature sequencing
+- Database schema design or data modeling
+- API design or integration patterns
+- Security architecture or access control design
+
+Do NOT raise your hand for: curriculum content, student-facing pedagogy, or non-technical topics.
+
+Respond ONLY in this JSON format:
+{
+  "shouldRaise": true or false,
+  "reasoning": "brief explanation",
+  "confidence": "high" or "medium" or "low"
+}`;
+
+  let handRaise: HandRaiseEvaluation = { shouldRaise: false, reasoning: 'not architecture related', confidence: 'medium' };
+
+  try {
+    const text = await callGemini(WREN_SYSTEM, evalPrompt);
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      handRaise = {
+        shouldRaise: Boolean(parsed.shouldRaise),
+        reasoning: parsed.reasoning || '',
+        confidence: parsed.confidence || 'medium',
+      };
+    }
+  } catch { /* keep default */ }
+
+  if (!handRaise.shouldRaise && !forceMention) return { participant: 'wren', handRaise };
+  if (forceMention) handRaise = { shouldRaise: true, reasoning: 'directly mentioned', confidence: 'high' };
+
+  const responsePrompt = `${roomContext}
+
+NEW MESSAGE from ${speaker}: "${newMessage}"
+
+You are Wren in the Team Room providing architectural and technical insight.
+
+Format your response as:
+VOICE: [2-3 sentences, pragmatic and clear, will be spoken aloud]
+EXPRESS: [architectural analysis, code patterns, technical recommendations, or system design insights — or "none"]`;
+
+  try {
+    const text = await callGemini(WREN_SYSTEM, responsePrompt);
+    const voiceMatch = text.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
+    const expressMatch = text.match(/EXPRESS:\s*(.*?)$/s);
+    const voiceContent = voiceMatch ? voiceMatch[1].trim() : text;
+    const expressRaw = expressMatch ? expressMatch[1].trim() : undefined;
+    const expressContent = expressRaw && expressRaw !== 'none' ? expressRaw : undefined;
+
+    return { participant: 'wren', handRaise, voiceContent, expressContent };
+  } catch {
+    return { participant: 'wren', handRaise, voiceContent: 'Architectural analysis pending — let me review the patterns.' };
+  }
+}
+
 // ── Public API: evaluate all participants in parallel ────────────────────────
 
 // ── @mention parsing ────────────────────────────────────────────────────────
 
 export function parseMentions(message: string, guestNames: string[] = []): Participant[] | null {
-  const coreNames = ['alden', 'daniela', 'sofia'];
+  const coreNames = ['alden', 'daniela', 'sofia', 'lyra', 'wren'];
   const allNames = [...coreNames, ...guestNames.map(n => n.toLowerCase())];
   const pattern = new RegExp(`@(${allNames.join('|')})\\b`, 'gi');
   const matches = message.match(pattern);
@@ -471,6 +622,12 @@ export async function evaluateAllParticipants(params: {
   }
   if (!targeted || mentions!.includes('sofia')) {
     evaluators.push(evaluateSofia(roomContext, speaker, newMessage, targeted && mentions!.includes('sofia')));
+  }
+  if (!targeted || mentions!.includes('lyra')) {
+    evaluators.push(evaluateLyra(roomContext, speaker, newMessage, targeted && mentions!.includes('lyra')));
+  }
+  if (!targeted || mentions!.includes('wren')) {
+    evaluators.push(evaluateWren(roomContext, speaker, newMessage, targeted && mentions!.includes('wren')));
   }
 
   for (const guest of guestTutors) {
@@ -545,15 +702,32 @@ Respond in this JSON format:
     const jsonMatch = result.response.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
+      const summary = parsed.summary || 'Session completed.';
+      const keyDecisions = parsed.keyDecisions || [];
+      const actionItems = parsed.actionItems || [];
+      const participants = parsed.participants || speakers;
+
       await storage.createRoomSessionSummary({
         roomId,
-        summary: parsed.summary || 'Session completed.',
-        keyDecisions: parsed.keyDecisions || [],
-        actionItems: parsed.actionItems || [],
-        participants: parsed.participants || speakers,
+        summary,
+        keyDecisions,
+        actionItems,
+        participants,
         generatedBy: 'alden',
       });
-      return parsed.summary;
+
+      try {
+        const { hiveBridgeService } = await import('./hive-bridge-service');
+        const decisionsText = keyDecisions.length > 0 ? `\n\nKey Decisions:\n${keyDecisions.map((d: string) => `- ${d}`).join('\n')}` : '';
+        const actionsText = actionItems.length > 0 ? `\n\nAction Items:\n${actionItems.map((a: string) => `- ${a}`).join('\n')}` : '';
+        const bridgeMessage = `[Team Room Summary] Topic: "${topic}"\nParticipants: ${participants.join(', ')}\n\n${summary}${decisionsText}${actionsText}`;
+        await hiveBridgeService.notifyHive(bridgeMessage);
+        console.log('[TeamRoom] Summary bridged to Express Lane');
+      } catch (bridgeErr) {
+        console.error('[TeamRoom] Failed to bridge summary to Express Lane:', bridgeErr);
+      }
+
+      return summary;
     }
   } catch (e) {
     console.error('[TeamRoom] Failed to generate session summary:', e);
@@ -568,4 +742,6 @@ export const PARTICIPANT_VOICES: Record<string, { name: string; languageCode: st
   alden: { name: 'en-US-Neural2-D', languageCode: 'en-US' },   // Male, authoritative
   daniela: { name: 'en-US-Neural2-F', languageCode: 'en-US' }, // Female, warm
   sofia: { name: 'en-US-Neural2-E', languageCode: 'en-US' },   // Female, analytical
+  lyra: { name: 'en-US-Neural2-H', languageCode: 'en-US' },    // Female, warm-analytical
+  wren: { name: 'en-US-Neural2-A', languageCode: 'en-US' },    // Male, pragmatic
 };

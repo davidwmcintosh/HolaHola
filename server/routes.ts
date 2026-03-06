@@ -27962,12 +27962,25 @@ Under 250 words. Write as yourself.`;
       const { id } = req.params;
       const [room, messages, handRaises, artifacts] = await Promise.all([
         storage.getTeamRoom(id),
-        storage.getRoomMessages(id, 50),
+        storage.getRoomMessages(id, 200),
         storage.getPendingHandRaises(id),
         storage.getRoomArtifacts(id),
       ]);
-      if (!room) return res.status(404).json({ error: 'Room not found' });
-      res.json({ room, messages, handRaises, artifacts });
+      if (!room) return res.status(404).json({ error: "Room not found" });
+      let summary = undefined;
+      try {
+        const summaries = await storage.getRoomSessionSummaries(id, 1);
+        if (summaries.length > 0) {
+          const summaryRecord = summaries[0];
+          summary = {
+            summary: summaryRecord.summary,
+            keyDecisions: summaryRecord.keyDecisions || [],
+            actionItems: summaryRecord.actionItems || [],
+            momentum: null,
+          };
+        }
+      } catch { /* no summary yet */ }
+      res.json({ room, messages, handRaises, artifacts, summary });
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
@@ -27985,7 +27998,7 @@ Under 250 words. Write as yourself.`;
       const guestTutors = ((room.metadata as any)?.guestTutors || []);
       const guestNames = guestTutors.map((g: any) => g.tutorName);
       const mentions = parseMentions(content, guestNames);
-      const thinkingList = mentions && mentions.length > 0 ? mentions : ['alden', 'daniela', 'sofia', ...guestNames.map((n: string) => n.toLowerCase())];
+      const thinkingList = mentions && mentions.length > 0 ? mentions : ['alden', 'daniela', 'sofia', 'lyra', 'wren', ...guestNames.map((n: string) => n.toLowerCase())];
       emitParticipantThinking(id, thinkingList);
       try {
         const evalResult = await evaluateAllParticipants({ roomId: id, topic: room.topic, newMessage: content, speaker, mentions, guestTutors });
@@ -28040,6 +28053,21 @@ Under 250 words. Write as yourself.`;
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
+  // Team Room: get action items for a topic
+  app.get("/api/team-room/action-items/:topic", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
+    try {
+      const topic = decodeURIComponent(req.params.topic);
+      const summary = await storage.getLatestSummaryByTopic(topic);
+      if (!summary) return res.json({ actionItems: [], keyDecisions: [] });
+      res.json({
+        actionItems: summary.actionItems || [],
+        keyDecisions: summary.keyDecisions || [],
+        summary: summary.summary,
+        generatedAt: summary.generatedAt,
+      });
+    } catch (e) { res.status(500).json({ error: (e as Error).message }); }
+  });
+
   // Team Room: available tutors for invite
   app.get("/api/team-room/available-tutors", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (_req, res) => {
     try {
@@ -28055,7 +28083,7 @@ Under 250 words. Write as yourself.`;
           teachingPhilosophy: v.teachingPhilosophy || '',
           gender: v.gender,
         }));
-      const coreNames = ['alden', 'daniela', 'sofia', 'david'];
+      const coreNames = ['alden', 'daniela', 'sofia', 'david', 'lyra', 'wren'];
       const filtered = tutors.filter(t => !coreNames.includes(t.tutorName.toLowerCase()));
       res.json(filtered);
     } catch (e) { res.status(500).json({ error: e.message }); }

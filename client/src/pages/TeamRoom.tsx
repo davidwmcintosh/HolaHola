@@ -16,14 +16,14 @@ import {
   GraduationCap, Shield, Mic, MicOff, Volume2, FileText,
   Table, Lightbulb, CheckSquare, GitBranch, Info, Copy,
   Target, ClipboardList, AtSign, Hand, UserPlus, UserMinus,
-  BookOpen,
+  BookOpen, TrendingUp, Cpu, Circle, RotateCcw,
 } from "lucide-react";
 import { io, Socket } from "socket.io-client";
 import type { TeamRoom as TeamRoomType, RoomVoiceMessage, RoomArtifact } from "@shared/schema";
 
 // ── Participant config ────────────────────────────────────────────────────────
 
-type CoreParticipantId = "david" | "alden" | "daniela" | "sofia";
+type CoreParticipantId = "david" | "alden" | "daniela" | "sofia" | "lyra" | "wren";
 
 interface ParticipantConfig {
   id: string;
@@ -56,6 +56,16 @@ const CORE_PARTICIPANTS: Record<CoreParticipantId, ParticipantConfig> = {
     id: "sofia", name: "Sofia", role: "Tech Health",
     Icon: Shield, color: "text-emerald-500",
     bgColor: "bg-emerald-500/10", borderColor: "border-emerald-500/20",
+  },
+  lyra: {
+    id: "lyra", name: "Lyra", role: "Learning Analyst",
+    Icon: TrendingUp, color: "text-pink-500",
+    bgColor: "bg-pink-500/10", borderColor: "border-pink-500/20",
+  },
+  wren: {
+    id: "wren", name: "Wren", role: "Architect",
+    Icon: Cpu, color: "text-sky-500",
+    bgColor: "bg-sky-500/10", borderColor: "border-sky-500/20",
   },
 };
 
@@ -197,7 +207,7 @@ function ExpressLaneMessage({ participant, content, time, guestTutors }: { parti
 // ── Message bubble with @mention highlights ───────────────────────────────────
 
 function renderWithMentions(text: string, guestTutors: GuestTutorInfo[] = []) {
-  const allNames = ["alden", "daniela", "sofia", ...guestTutors.map(g => g.tutorName.toLowerCase())];
+  const allNames = ["alden", "daniela", "sofia", "lyra", "wren", ...guestTutors.map(g => g.tutorName.toLowerCase())];
   const pattern = new RegExp(`(@(?:${allNames.join("|")}))`, "gi");
   const parts = text.split(pattern);
   return parts.map((part, i) => {
@@ -638,7 +648,7 @@ export default function TeamRoom() {
     mutationFn: (content: string) =>
       apiRequest("POST", `/api/team-room/sessions/${activeSessionId}/messages`, { content, speaker: "David" }),
     onMutate: (content) => {
-      const allNames = ["alden", "daniela", "sofia", ...guestTutors.map(g => g.tutorName.toLowerCase())];
+      const allNames = ["alden", "daniela", "sofia", "lyra", "wren", ...guestTutors.map(g => g.tutorName.toLowerCase())];
       const mentionPattern = new RegExp(`@(${allNames.join("|")})\\b`, "gi");
       const matches = content.match(mentionPattern);
       if (matches && matches.length > 0) {
@@ -759,6 +769,8 @@ export default function TeamRoom() {
     CORE_PARTICIPANTS.alden,
     CORE_PARTICIPANTS.daniela,
     CORE_PARTICIPANTS.sofia,
+    CORE_PARTICIPANTS.lyra,
+    CORE_PARTICIPANTS.wren,
     ...guestTutors.map((g, i) => ({
       id: g.tutorName.toLowerCase(),
       name: g.tutorName,
@@ -925,7 +937,13 @@ export default function TeamRoom() {
             <div className="px-4 py-2.5 border-b flex items-center justify-between gap-3 shrink-0">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="font-semibold text-sm truncate">{sessionData?.room?.topic ?? "Loading..."}</span>
-                <Badge variant="outline" className="text-xs shrink-0">{isActive ? "Live" : "Closed"}</Badge>
+                <Badge variant="outline" className="text-xs shrink-0">
+                  {isActive ? (
+                    <><Circle className="h-2 w-2 fill-green-500 text-green-500 mr-1" />Live</>
+                  ) : (
+                    <><RotateCcw className="h-2.5 w-2.5 mr-1" />Replay</>
+                  )}
+                </Badge>
                 {guestTutors.length > 0 && (
                   <Badge variant="outline" className="text-xs shrink-0">+{guestTutors.length} guest{guestTutors.length > 1 ? "s" : ""}</Badge>
                 )}
@@ -951,12 +969,33 @@ export default function TeamRoom() {
             </div>
 
             {sessionSummary && (
-              <div className="mx-4 mt-3 p-3 rounded-md bg-muted/60 border border-border text-xs space-y-1" data-testid="session-summary-banner">
+              <div className="mx-4 mt-3 p-3 rounded-md bg-muted/60 border border-border text-xs space-y-2" data-testid="session-summary-banner">
                 <div className="flex items-center gap-1.5 text-muted-foreground font-medium">
                   <Info className="h-3.5 w-3.5" />
-                  Previously in this room
+                  {isActive ? "Previously in this room" : "Session Summary"}
                 </div>
                 <p>{sessionSummary.summary}</p>
+                {sessionSummary.keyDecisions && sessionSummary.keyDecisions.length > 0 && (
+                  <div>
+                    <p className="font-medium text-muted-foreground mt-1">Key Decisions:</p>
+                    <ul className="list-disc list-inside space-y-0.5 ml-1">
+                      {sessionSummary.keyDecisions.map((d, i) => <li key={i}>{d}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {sessionSummary.actionItems && sessionSummary.actionItems.length > 0 && (
+                  <div>
+                    <p className="font-medium text-muted-foreground mt-1">Action Items:</p>
+                    <ul className="space-y-0.5 ml-1">
+                      {sessionSummary.actionItems.map((a, i) => (
+                        <li key={i} className="flex items-start gap-1.5">
+                          <CheckSquare className="h-3 w-3 mt-0.5 text-muted-foreground shrink-0" />
+                          <span>{a}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 {sessionSummary.momentum && <p className="text-muted-foreground italic">{sessionSummary.momentum}</p>}
               </div>
             )}
@@ -965,16 +1004,22 @@ export default function TeamRoom() {
               <div className="space-y-4">
                 {allMessages.length === 0 && !thinkingParticipants.size && (
                   <div className="text-center py-10 text-sm text-muted-foreground space-y-2">
-                    <p>Say something to the team.</p>
-                    <p className="text-xs">
-                      Use <span className="font-mono bg-muted px-1 py-0.5 rounded">@name</span> to summon a specific participant, or click the
-                      <AtSign className="h-3 w-3 inline mx-1" />
-                      button next to their name.
-                    </p>
+                    {isActive ? (
+                      <>
+                        <p>Say something to the team.</p>
+                        <p className="text-xs">
+                          Use <span className="font-mono bg-muted px-1 py-0.5 rounded">@name</span> to summon a specific participant, or click the
+                          <AtSign className="h-3 w-3 inline mx-1" />
+                          button next to their name.
+                        </p>
+                      </>
+                    ) : (
+                      <p>No messages in this session.</p>
+                    )}
                   </div>
                 )}
                 {allMessages.map(msg => (
-                  <MessageBubble key={msg.id} message={msg} onPlayVoice={isActive ? playParticipantVoice : undefined} guestTutors={guestTutors} />
+                  <MessageBubble key={msg.id} message={msg} onPlayVoice={playParticipantVoice} guestTutors={guestTutors} />
                 ))}
                 {thinkingParticipants.size > 0 && (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -1017,7 +1062,7 @@ export default function TeamRoom() {
                 )}
                 <Input
                   ref={inputRef}
-                  placeholder={`Say something to the team... ${guestTutors.length > 0 ? "(use @name to mention anyone)" : "(use @alden @daniela @sofia)"}`}
+                  placeholder={`Say something to the team... ${guestTutors.length > 0 ? "(use @name to mention anyone)" : "(use @name to mention)"}`}
                   value={messageInput}
                   onChange={e => setMessageInput(e.target.value)}
                   onKeyDown={handleKeyDown}
