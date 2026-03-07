@@ -549,7 +549,10 @@ export default function TeamRoom() {
   const [thinkingParticipants, setThinkingParticipants] = useState<Set<string>>(new Set());
   const [handRaises, setHandRaises] = useState<Record<string, { reasoning: string }>>({});
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
-  const [autoPlayVoice, setAutoPlayVoice] = useState(() => localStorage.getItem("teamroom-autoplay") === "true");
+  const [autoPlayVoice, setAutoPlayVoice] = useState(() => {
+    const saved = localStorage.getItem("teamroom-autoplay");
+    return saved === null ? true : saved === "true";
+  });
   const [wsMessages, setWsMessages] = useState<RoomVoiceMessage[]>([]);
   const [guestTutors, setGuestTutors] = useState<GuestTutorInfo[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -570,8 +573,15 @@ export default function TeamRoom() {
         if (prev.some(m => m.id === msg.id)) return prev;
         return [...prev, msg];
       });
-      if (autoPlayVoice && msg.speaker.toLowerCase() !== "david" && msg.speaker.toLowerCase() !== "system") {
-        playParticipantVoice(msg.content, msg.speaker);
+      const speaker = msg.speaker.toLowerCase();
+      if (speaker !== "david" && speaker !== "system") {
+        if (autoPlayVoice) playParticipantVoice(msg.content, msg.speaker);
+        setHandRaises(prev => {
+          if (!prev[speaker]) return prev;
+          const next = { ...prev };
+          delete next[speaker];
+          return next;
+        });
       }
     },
     onExpressLane: (items) => {
@@ -589,7 +599,7 @@ export default function TeamRoom() {
       });
     },
     onThinking: (participants) => setThinkingParticipants(new Set(participants)),
-    onDone: () => { setThinkingParticipants(new Set()); setHandRaises({}); },
+    onDone: () => { setThinkingParticipants(new Set()); },
     onSessionClosed: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/team-room/sessions"] });
     },
@@ -682,15 +692,15 @@ export default function TeamRoom() {
 
       const allParticipants = data.allEvaluations as Array<{ participant: string; handRaise: { shouldRaise: boolean; reasoning: string } }> | undefined;
       if (allParticipants) {
-        const raisedHands: Record<string, { reasoning: string }> = {};
-        for (const p of allParticipants) {
-          if (p.handRaise.shouldRaise) {
-            raisedHands[p.participant] = { reasoning: p.handRaise.reasoning };
+        setHandRaises(prev => {
+          const next = { ...prev };
+          for (const p of allParticipants) {
+            if (p.handRaise.shouldRaise) {
+              next[p.participant] = { reasoning: p.handRaise.reasoning };
+            }
           }
-        }
-        if (Object.keys(raisedHands).length > 0) {
-          setHandRaises(raisedHands);
-        }
+          return next;
+        });
       }
 
       if (autoPlayVoice && data.aiMessages?.length) {
@@ -798,6 +808,9 @@ export default function TeamRoom() {
             <span className="text-sm font-semibold">Participants</span>
             <Badge variant="outline" className="text-xs ml-auto">{allParticipantConfigs.length}</Badge>
           </div>
+          {activeSessionId && isActive && (
+            <p className="text-xs text-muted-foreground mt-1">Everyone listens to every message. Raised hand = wants to add something. Click the hand to summon them.</p>
+          )}
         </div>
         <ScrollArea className="flex-1">
           <div className="p-2 space-y-1">
@@ -1015,9 +1028,7 @@ export default function TeamRoom() {
                       <>
                         <p>Say something to the team.</p>
                         <p className="text-xs">
-                          Use <span className="font-mono bg-muted px-1 py-0.5 rounded">@name</span> to summon a specific participant, or click the
-                          <AtSign className="h-3 w-3 inline mx-1" />
-                          button next to their name.
+                          Everyone reads every message and decides whether to respond. Use <span className="font-mono bg-muted px-1 py-0.5 rounded">@name</span> to force a specific person to reply.
                         </p>
                       </>
                     ) : (
