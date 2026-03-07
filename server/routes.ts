@@ -27988,6 +27988,7 @@ Under 250 words. Write as yourself.`;
     try {
       const { id } = req.params;
       const { content, speaker = 'David' } = req.body;
+      console.log('[TeamRoom] POST message - room:', id, 'speaker:', speaker, 'content length:', content?.length ?? 0);
       if (!content) return res.status(400).json({ error: 'content is required' });
       const room = await storage.getTeamRoom(id);
       if (!room) return res.status(404).json({ error: 'Room not found' });
