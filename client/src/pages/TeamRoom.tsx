@@ -703,12 +703,6 @@ export default function TeamRoom() {
         });
       }
 
-      if (autoPlayVoice && data.aiMessages?.length) {
-        for (const aiMsg of data.aiMessages) {
-          playParticipantVoice(aiMsg.content, aiMsg.speaker);
-        }
-      }
-
       setMessageInput("");
       setThinkingParticipants(new Set());
     },

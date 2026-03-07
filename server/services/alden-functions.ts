@@ -119,7 +119,7 @@ export async function executeAldenTool(
         const [activeSessionCount] = await sharedDb.select({
           count: sql<number>`count(*)`,
         }).from(voiceSessions)
-          .where(eq(voiceSessions.isActive, true));
+          .where(eq(voiceSessions.status, 'active'));
 
         return {
           data: {
@@ -220,12 +220,12 @@ export async function executeAldenTool(
         }).from(voiceSessions)
           .where(gte(voiceSessions.startedAt, today));
 
-        const ttsBreakdown = await sharedDb.select({
-          provider: voiceSessions.ttsProvider,
+        const languageBreakdown = await sharedDb.select({
+          language: voiceSessions.language,
           count: sql<number>`count(*)`,
         }).from(voiceSessions)
           .where(gte(voiceSessions.startedAt, since))
-          .groupBy(voiceSessions.ttsProvider)
+          .groupBy(voiceSessions.language)
           .orderBy(desc(sql`count(*)`));
 
         return {
@@ -233,8 +233,8 @@ export async function executeAldenTool(
             period: `last ${days} days`,
             totalSessions: Number(totalSessions?.count || 0),
             sessionsToday: Number(todaySessions?.count || 0),
-            ttsProviderBreakdown: ttsBreakdown.map(t => ({
-              provider: t.provider || 'unknown',
+            languageBreakdown: languageBreakdown.map(t => ({
+              language: t.language || 'unknown',
               count: Number(t.count),
             })),
           },
@@ -249,9 +249,8 @@ export async function executeAldenTool(
         const recentIssues = await sharedDb.select({
           id: sofiaIssueReports.id,
           issueType: sofiaIssueReports.issueType,
-          severity: sofiaIssueReports.severity,
-          title: sofiaIssueReports.title,
-          description: sofiaIssueReports.description,
+          userDescription: sofiaIssueReports.userDescription,
+          sofiaAnalysis: sofiaIssueReports.sofiaAnalysis,
           status: sofiaIssueReports.status,
           createdAt: sofiaIssueReports.createdAt,
         }).from(sofiaIssueReports)
@@ -265,9 +264,8 @@ export async function executeAldenTool(
             issueCount: recentIssues.length,
             issues: recentIssues.map(i => ({
               type: i.issueType,
-              severity: i.severity,
-              title: i.title,
-              description: i.description?.substring(0, 200),
+              description: i.userDescription?.substring(0, 200),
+              analysis: i.sofiaAnalysis?.substring(0, 200),
               status: i.status,
               when: i.createdAt?.toISOString(),
             })),
@@ -282,14 +280,12 @@ export async function executeAldenTool(
         const digests = await sharedDb.select({
           id: sofiaIssueReports.id,
           issueType: sofiaIssueReports.issueType,
-          severity: sofiaIssueReports.severity,
-          title: sofiaIssueReports.title,
-          description: sofiaIssueReports.description,
+          userDescription: sofiaIssueReports.userDescription,
+          sofiaAnalysis: sofiaIssueReports.sofiaAnalysis,
           status: sofiaIssueReports.status,
-          source: sofiaIssueReports.source,
+          environment: sofiaIssueReports.environment,
           createdAt: sofiaIssueReports.createdAt,
         }).from(sofiaIssueReports)
-          .where(eq(sofiaIssueReports.source, 'health_agent'))
           .orderBy(desc(sofiaIssueReports.createdAt))
           .limit(limit);
 
@@ -297,10 +293,10 @@ export async function executeAldenTool(
           data: {
             sofiaDigests: digests.map(d => ({
               type: d.issueType,
-              severity: d.severity,
-              title: d.title,
-              analysis: d.description?.substring(0, 500),
+              userReport: d.userDescription?.substring(0, 300),
+              analysis: d.sofiaAnalysis?.substring(0, 500),
               status: d.status,
+              environment: d.environment,
               when: d.createdAt?.toISOString(),
             })),
           },
@@ -374,7 +370,7 @@ export async function executeAldenTool(
         const [activeSessionCount] = await sharedDb.select({
           count: sql<number>`count(*)`,
         }).from(voiceSessions)
-          .where(eq(voiceSessions.isActive, true));
+          .where(eq(voiceSessions.status, 'active'));
 
         const elapsed = Date.now() - startTime;
 
@@ -383,7 +379,7 @@ export async function executeAldenTool(
         const verdict = allGreen ? 'GO' : hasWarnings ? 'CAUTION' : 'NO-GO';
 
         const dimensionSummaries: string[] = [];
-        for (const [key, dim] of Object.entries(brainReport.dimensions)) {
+        for (const [key, dim] of Object.entries(brainReport.dimensions || {})) {
           const d = dim as any;
           const icon = d.status === 'green' ? 'PASS' : d.status === 'yellow' ? 'WARN' : 'FAIL';
           dimensionSummaries.push(`${icon}: ${d.name} — ${d.score}/100${d.reasons?.length ? ' (' + d.reasons[0] + ')' : ''}`);
