@@ -28023,7 +28023,8 @@ Under 250 words. Write as yourself.`;
           }
         }
         if (expressLaneItems.length > 0) emitExpressLane(id, expressLaneItems);
-        const allEvaluations = evalResult.participants.map(p => ({ participant: p.participant, handRaise: p.handRaise }));
+        const respondedSet = new Set(evalResult.participants.map(p => p.participant));
+        const allEvaluations = evalResult.allEvaluations.map(p => ({ participant: p.participant, handRaise: p.handRaise, hasResponded: respondedSet.has(p.participant) }));
         res.json({ message, aiMessages, expressLaneItems, artifacts, mentions, allEvaluations });
       } finally {
         emitParticipantsDone(id);

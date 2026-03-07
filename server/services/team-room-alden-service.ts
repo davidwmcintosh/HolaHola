@@ -156,6 +156,7 @@ You are Alden in the Team Room. Respond to this message.
 
 For your VOICE response (conversational, 2-4 sentences, will be spoken aloud):
 Keep it direct and natural. No lists, no headers.
+IMPORTANT: You MUST always provide a VOICE response — never write "none" for VOICE.
 
 For your EXPRESS LANE content (analytical, detailed, will appear in the text panel):
 Provide detailed analysis, data, code snippets, or structured information.
@@ -165,7 +166,7 @@ ARTIFACT_TITLE: [descriptive title]
 ARTIFACT_DATA: [JSON object with the artifact's structured content]
 
 Format your response as:
-VOICE: [spoken response]
+VOICE: [spoken response — required, never "none"]
 EXPRESS: [detailed analysis, or "none" if nothing to add]`;
 
   try {
@@ -175,10 +176,12 @@ EXPRESS: [detailed analysis, or "none" if nothing to add]`;
     const voiceMatch = raw.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
     const expressMatch = raw.match(/EXPRESS:\s*(.*?)$/s);
     const voiceContentRaw = voiceMatch ? voiceMatch[1].trim() : raw;
-    const voiceContent = voiceContentRaw && voiceContentRaw.toLowerCase() !== 'none' ? voiceContentRaw : undefined;
+    const parsedVoice = voiceContentRaw && voiceContentRaw.toLowerCase() !== 'none' ? voiceContentRaw : undefined;
     const expressRaw = expressMatch ? expressMatch[1].trim() : undefined;
 
     let expressContent = expressRaw && expressRaw !== 'none' ? expressRaw : undefined;
+    // Alden must always speak — fall back to first sentence of express or a default
+    const voiceContent = parsedVoice || (expressContent ? expressContent.split(/[.!?]/)[0].trim() + '.' : 'Let me think on that for a moment and get back to you.');
     let artifact: ParticipantResponse['artifact'];
 
     // Extract artifact if present in Express Lane content

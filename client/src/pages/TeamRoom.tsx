@@ -690,12 +690,14 @@ export default function TeamRoom() {
         setSessionArtifacts(prev => [...prev, ...data.artifacts]);
       }
 
-      const allParticipants = data.allEvaluations as Array<{ participant: string; handRaise: { shouldRaise: boolean; reasoning: string } }> | undefined;
+      const allParticipants = data.allEvaluations as Array<{ participant: string; handRaise: { shouldRaise: boolean; reasoning: string }; hasResponded?: boolean }> | undefined;
       if (allParticipants) {
         setHandRaises(prev => {
           const next = { ...prev };
           for (const p of allParticipants) {
-            if (p.handRaise.shouldRaise) {
+            if (p.hasResponded) {
+              delete next[p.participant];
+            } else if (p.handRaise.shouldRaise) {
               next[p.participant] = { reasoning: p.handRaise.reasoning };
             }
           }
