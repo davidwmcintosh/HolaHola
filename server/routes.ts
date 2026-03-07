@@ -28158,7 +28158,8 @@ Under 250 words. Write as yourself.`;
       const result = await ttsService.synthesize({
         text,
         language: 'english',
-        voiceOverride: voiceConfig.name,
+        voice: voiceConfig.name,
+        forceProvider: 'google',
         speakingRate: 0.95,
       });
       res.set('Content-Type', 'audio/mpeg');

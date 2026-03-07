@@ -51,6 +51,7 @@ export interface ParticipantResponse {
 
 export interface RoomEvaluationResult {
   participants: ParticipantResponse[];
+  allEvaluations?: ParticipantResponse[];
 }
 
 export interface GuestTutor {
@@ -600,6 +601,8 @@ export function parseMentions(message: string, guestNames: string[] = []): Parti
   return unique;
 }
 
+const CLARIFICATION_PATTERN = /\b(elaborate|clarify|explain more|what do you mean|tell me more|go on|continue|expand on|can you say more|could you say more|more detail|further|you said)\b/i;
+
 export async function evaluateAllParticipants(params: {
   roomId: string;
   topic: string;
@@ -609,42 +612,62 @@ export async function evaluateAllParticipants(params: {
   guestTutors?: GuestTutor[];
 }): Promise<RoomEvaluationResult> {
   const { roomId, topic, newMessage, speaker, mentions, guestTutors = [] } = params;
-  const roomContext = await buildRoomContext(roomId, topic);
+  const [roomContext, recentMessages] = await Promise.all([
+    buildRoomContext(roomId, topic),
+    storage.getRoomMessages(roomId, 5),
+  ]);
 
-  const targeted = mentions && mentions.length > 0;
+  // Detect clarification requests: if asking for elaboration, auto-force the last AI speaker
+  let clarificationTarget: string | null = null;
+  if (!mentions?.length && CLARIFICATION_PATTERN.test(newMessage)) {
+    const lastAiMsg = [...recentMessages].reverse().find(m =>
+      m.speaker.toLowerCase() !== 'david' && m.speaker.toLowerCase() !== 'system'
+    );
+    if (lastAiMsg) clarificationTarget = lastAiMsg.speaker.toLowerCase();
+  }
+
+  const targeted = (mentions && mentions.length > 0) || !!clarificationTarget;
+  const effectiveMentions: Participant[] = mentions?.length
+    ? mentions
+    : clarificationTarget ? [clarificationTarget as Participant] : [];
+
   const evaluators: Promise<ParticipantResponse>[] = [];
 
-  if (!targeted || mentions!.includes('alden')) {
-    evaluators.push(evaluateAlden(roomContext, speaker, newMessage, targeted && mentions!.includes('alden')));
+  if (!targeted || effectiveMentions.includes('alden')) {
+    evaluators.push(evaluateAlden(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('alden')));
   }
-  if (!targeted || mentions!.includes('daniela')) {
-    evaluators.push(evaluateDaniela(roomContext, speaker, newMessage, targeted && mentions!.includes('daniela')));
+  if (!targeted || effectiveMentions.includes('daniela')) {
+    evaluators.push(evaluateDaniela(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('daniela')));
   }
-  if (!targeted || mentions!.includes('sofia')) {
-    evaluators.push(evaluateSofia(roomContext, speaker, newMessage, targeted && mentions!.includes('sofia')));
+  if (!targeted || effectiveMentions.includes('sofia')) {
+    evaluators.push(evaluateSofia(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('sofia')));
   }
-  if (!targeted || mentions!.includes('lyra')) {
-    evaluators.push(evaluateLyra(roomContext, speaker, newMessage, targeted && mentions!.includes('lyra')));
+  if (!targeted || effectiveMentions.includes('lyra')) {
+    evaluators.push(evaluateLyra(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('lyra')));
   }
-  if (!targeted || mentions!.includes('wren')) {
-    evaluators.push(evaluateWren(roomContext, speaker, newMessage, targeted && mentions!.includes('wren')));
+  if (!targeted || effectiveMentions.includes('wren')) {
+    evaluators.push(evaluateWren(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('wren')));
   }
 
   for (const guest of guestTutors) {
     const guestKey = guest.tutorName.toLowerCase();
-    if (!targeted || mentions!.includes(guestKey)) {
-      evaluators.push(evaluateGuestTutor(guest, roomContext, speaker, newMessage, targeted && mentions!.includes(guestKey)));
+    if (!targeted || effectiveMentions.includes(guestKey)) {
+      evaluators.push(evaluateGuestTutor(guest, roomContext, speaker, newMessage, targeted && effectiveMentions.includes(guestKey)));
     }
   }
 
   const results = await Promise.all(evaluators);
 
   const respondingParticipants = results.filter(p => {
-    if (targeted && mentions!.includes(p.participant)) return true;
+    if (targeted && effectiveMentions.includes(p.participant)) return true;
     return p.handRaise.shouldRaise;
+  }).filter(p => {
+    // Drop "none" or empty voice content — participant has nothing real to say
+    const v = (p.voiceContent || '').trim().toLowerCase();
+    return v.length > 4 && v !== 'none';
   });
 
-  return { participants: respondingParticipants };
+  return { participants: respondingParticipants, allEvaluations: results };
 }
 
 // ── Legacy export (kept for backwards compatibility) ──────────────────────────
@@ -739,9 +762,9 @@ Respond in this JSON format:
 // ── TTS voice config for Team Room participants ───────────────────────────────
 
 export const PARTICIPANT_VOICES: Record<string, { name: string; languageCode: string }> = {
-  alden: { name: 'en-US-Neural2-D', languageCode: 'en-US' },   // Male, authoritative
-  daniela: { name: 'en-US-Neural2-F', languageCode: 'en-US' }, // Female, warm
-  sofia: { name: 'en-US-Neural2-E', languageCode: 'en-US' },   // Female, analytical
-  lyra: { name: 'en-US-Neural2-H', languageCode: 'en-US' },    // Female, warm-analytical
-  wren: { name: 'en-US-Neural2-A', languageCode: 'en-US' },    // Male, pragmatic
+  alden:   { name: 'en-US-Chirp3-HD-Orus',   languageCode: 'en-US' }, // Male, authoritative
+  daniela: { name: 'en-US-Chirp3-HD-Aoede',  languageCode: 'en-US' }, // Female, warm
+  sofia:   { name: 'en-US-Chirp3-HD-Kore',   languageCode: 'en-US' }, // Female, analytical
+  lyra:    { name: 'en-US-Chirp3-HD-Zephyr', languageCode: 'en-US' }, // Female, warm-analytical
+  wren:    { name: 'en-US-Chirp3-HD-Fenrir', languageCode: 'en-US' }, // Male, pragmatic
 };
