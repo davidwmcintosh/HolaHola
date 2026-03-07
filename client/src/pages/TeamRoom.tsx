@@ -261,12 +261,13 @@ function MessageBubble({ message, onPlayVoice, guestTutors }: {
 
 // ── Participant card with visible @ button and hand-raise ─────────────────────
 
-function ParticipantCard({ config, isActive, isThinking, handRaise, onMention, onDisconnect }: {
+function ParticipantCard({ config, isActive, isThinking, handRaise, onMention, onCallOn, onDisconnect }: {
   config: ParticipantConfig;
   isActive: boolean;
   isThinking: boolean;
   handRaise?: { reasoning: string } | null;
   onMention?: (name: string) => void;
+  onCallOn?: (name: string) => void;
   onDisconnect?: () => void;
 }) {
   const Icon = config.Icon;
@@ -298,7 +299,7 @@ function ParticipantCard({ config, isActive, isThinking, handRaise, onMention, o
               variant="ghost"
               size="icon"
               className="h-6 w-6 shrink-0 animate-bounce"
-              onClick={() => onMention && onMention(config.name.toLowerCase())}
+              onClick={() => onCallOn && onCallOn(config.name.toLowerCase())}
               data-testid={`button-hand-raise-${config.id}`}
             >
               <Hand className={`h-4 w-4 ${config.color}`} />
@@ -762,6 +763,11 @@ export default function TeamRoom() {
     inputRef.current?.focus();
   };
 
+  const handleCallOn = (name: string) => {
+    const content = `@${name}`;
+    postMessage.mutate(content);
+  };
+
   const handleTemplateSelect = (template: SessionTemplate) => {
     setNewTopic(template.topic);
   };
@@ -818,6 +824,7 @@ export default function TeamRoom() {
                 isThinking={thinkingParticipants.has(p.id)}
                 handRaise={handRaises[p.id] ?? null}
                 onMention={activeSessionId && isActive ? handleMention : undefined}
+                onCallOn={activeSessionId && isActive ? handleCallOn : undefined}
                 onDisconnect={p.isGuest && activeSessionId && isActive ? () => disconnectGuest.mutate(p.name) : undefined}
               />
             ))}
