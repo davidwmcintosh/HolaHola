@@ -174,7 +174,8 @@ EXPRESS: [detailed analysis, or "none" if nothing to add]`;
 
     const voiceMatch = raw.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
     const expressMatch = raw.match(/EXPRESS:\s*(.*?)$/s);
-    const voiceContent = voiceMatch ? voiceMatch[1].trim() : raw;
+    const voiceContentRaw = voiceMatch ? voiceMatch[1].trim() : raw;
+    const voiceContent = voiceContentRaw && voiceContentRaw.toLowerCase() !== 'none' ? voiceContentRaw : undefined;
     const expressRaw = expressMatch ? expressMatch[1].trim() : undefined;
 
     let expressContent = expressRaw && expressRaw !== 'none' ? expressRaw : undefined;
@@ -276,7 +277,8 @@ EXPRESS: [detailed curriculum insight, specific ACTFL references, or lesson reco
     const text = await callGemini(DANIELA_SYSTEM, responsePrompt);
     const voiceMatch = text.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
     const expressMatch = text.match(/EXPRESS:\s*(.*?)$/s);
-    const voiceContent = voiceMatch ? voiceMatch[1].trim() : text;
+    const voiceContentRaw = voiceMatch ? voiceMatch[1].trim() : text;
+    const voiceContent = voiceContentRaw && voiceContentRaw.toLowerCase() !== 'none' ? voiceContentRaw : undefined;
     const expressRaw = expressMatch ? expressMatch[1].trim() : undefined;
     const expressContent = expressRaw && expressRaw !== 'none' ? expressRaw : undefined;
 
@@ -349,7 +351,8 @@ EXPRESS: [technical details, error analysis, recommended fix steps, or "none"]`;
     const text = await callGemini(SOFIA_SYSTEM, responsePrompt);
     const voiceMatch = text.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
     const expressMatch = text.match(/EXPRESS:\s*(.*?)$/s);
-    const voiceContent = voiceMatch ? voiceMatch[1].trim() : text;
+    const voiceContentRaw = voiceMatch ? voiceMatch[1].trim() : text;
+    const voiceContent = voiceContentRaw && voiceContentRaw.toLowerCase() !== 'none' ? voiceContentRaw : undefined;
     const expressRaw = expressMatch ? expressMatch[1].trim() : undefined;
     const expressContent = expressRaw && expressRaw !== 'none' ? expressRaw : undefined;
 
@@ -427,7 +430,8 @@ EXPRESS: [detailed subject-matter insight, recommendations, or "none"]`;
     const raw = await callGemini(systemPrompt, responsePrompt);
     const voiceMatch = raw.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
     const expressMatch = raw.match(/EXPRESS:\s*(.*?)$/s);
-    const voiceContent = voiceMatch ? voiceMatch[1].trim() : raw;
+    const voiceContentRaw = voiceMatch ? voiceMatch[1].trim() : raw;
+    const voiceContent = voiceContentRaw && voiceContentRaw.toLowerCase() !== 'none' ? voiceContentRaw : undefined;
     const expressRaw = expressMatch ? expressMatch[1].trim() : undefined;
     const expressContent = expressRaw && expressRaw !== 'none' ? expressRaw : undefined;
     return { participant: participantName, handRaise, voiceContent, expressContent };
@@ -501,7 +505,8 @@ EXPRESS: [detailed metrics, engagement data, content audit findings, or learning
     const text = await callGemini(LYRA_SYSTEM, responsePrompt);
     const voiceMatch = text.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
     const expressMatch = text.match(/EXPRESS:\s*(.*?)$/s);
-    const voiceContent = voiceMatch ? voiceMatch[1].trim() : text;
+    const voiceContentRaw = voiceMatch ? voiceMatch[1].trim() : text;
+    const voiceContent = voiceContentRaw && voiceContentRaw.toLowerCase() !== 'none' ? voiceContentRaw : undefined;
     const expressRaw = expressMatch ? expressMatch[1].trim() : undefined;
     const expressContent = expressRaw && expressRaw !== 'none' ? expressRaw : undefined;
 
@@ -577,7 +582,8 @@ EXPRESS: [architectural analysis, code patterns, technical recommendations, or s
     const text = await callGemini(WREN_SYSTEM, responsePrompt);
     const voiceMatch = text.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
     const expressMatch = text.match(/EXPRESS:\s*(.*?)$/s);
-    const voiceContent = voiceMatch ? voiceMatch[1].trim() : text;
+    const voiceContentRaw = voiceMatch ? voiceMatch[1].trim() : text;
+    const voiceContent = voiceContentRaw && voiceContentRaw.toLowerCase() !== 'none' ? voiceContentRaw : undefined;
     const expressRaw = expressMatch ? expressMatch[1].trim() : undefined;
     const expressContent = expressRaw && expressRaw !== 'none' ? expressRaw : undefined;
 
@@ -662,9 +668,8 @@ export async function evaluateAllParticipants(params: {
     if (targeted && effectiveMentions.includes(p.participant)) return true;
     return p.handRaise.shouldRaise;
   }).filter(p => {
-    // Drop "none" or empty voice content — participant has nothing real to say
-    const v = (p.voiceContent || '').trim().toLowerCase();
-    return v.length > 4 && v !== 'none';
+    // Drop participants with no content at all (neither voice nor express)
+    return !!(p.voiceContent || p.expressContent || p.artifact);
   });
 
   return { participants: respondingParticipants, allEvaluations: results };
