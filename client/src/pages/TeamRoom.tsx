@@ -294,12 +294,19 @@ function ParticipantCard({ config, isActive, isThinking, handRaise, onMention, o
       {handRaise && (
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="shrink-0 animate-bounce">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 shrink-0 animate-bounce"
+              onClick={() => onMention && onMention(config.name.toLowerCase())}
+              data-testid={`button-hand-raise-${config.id}`}
+            >
               <Hand className={`h-4 w-4 ${config.color}`} />
-            </div>
+            </Button>
           </TooltipTrigger>
           <TooltipContent side="right" className="max-w-48">
-            <p className="text-xs">{handRaise.reasoning}</p>
+            <p className="text-xs font-medium mb-0.5">Click to summon {config.name}</p>
+            <p className="text-xs text-muted-foreground">{handRaise.reasoning}</p>
           </TooltipContent>
         </Tooltip>
       )}
