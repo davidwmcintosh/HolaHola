@@ -1,6 +1,7 @@
 import { lyraAnalyticsService, type LyraInsight } from './lyra-analytics-service';
 import { founderCollabService } from './founder-collaboration-service';
 import { postToActiveTeamRoom } from './team-room-proactive-poster';
+import { triggerActflAlignment } from './lyra-content-trigger-service';
 import { getSharedDb } from '../db';
 import { founderSessions, users } from '@shared/schema';
 import { eq, and, desc, inArray } from 'drizzle-orm';
@@ -197,6 +198,29 @@ async function runAnalysis(): Promise<void> {
         briefSummary,
         source: 'Lyra Analytics Worker',
       });
+    }
+
+    if (contentData.missingActflLevels.length > 0) {
+      try {
+        console.log(`[Lyra Worker] Triggering ACTFL alignment for ${contentData.missingActflLevels.length} lessons...`);
+        const triggerResult = await triggerActflAlignment(contentData.missingActflLevels);
+        if (triggerResult.actflAssigned > 0 && triggerResult.report) {
+          await founderCollabService.addMessage(sessionId, {
+            role: 'system',
+            content: triggerResult.report,
+            metadata: {
+              type: 'lyra_content_fix',
+              agent: 'lyra',
+              actflAssigned: triggerResult.actflAssigned,
+              actflFailed: triggerResult.actflFailed,
+              auditNumber: stats.totalAudits,
+            },
+          });
+          console.log(`[Lyra Worker] ACTFL trigger complete: ${triggerResult.actflAssigned} assigned`);
+        }
+      } catch (err: any) {
+        console.error(`[Lyra Worker] Content trigger failed:`, err.message);
+      }
     }
 
     const elapsed = Date.now() - startTime;

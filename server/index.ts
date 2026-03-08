@@ -587,6 +587,12 @@ app.use((req, res, next) => {
       startAldenDigestWorker();
     }, 40000);
 
+    // +50s: Sofia Issue Cleanup Worker (CAP-005)
+    setTimeout(async () => {
+      const { startSofiaCleanupWorker } = await import('./services/sofia-issue-cleanup-worker');
+      startSofiaCleanupWorker();
+    }, 50000);
+
     // +60s: Diagnostic retention (daily cleanup, no rush)
     setTimeout(async () => {
       const DIAG_RETENTION_DAYS = 30;

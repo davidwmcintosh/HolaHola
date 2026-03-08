@@ -28198,6 +28198,22 @@ Under 250 words. Write as yourself.`;
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  app.post("/api/team-room/trigger-content-fix", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { triggerLyraAnalysis } = await import('./services/lyra-analytics-worker');
+      await triggerLyraAnalysis();
+      res.json({ ok: true, message: 'Lyra content fix + ACTFL alignment triggered' });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/team-room/trigger-sofia-cleanup", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { triggerSofiaCleanup } = await import('./services/sofia-issue-cleanup-worker');
+      await triggerSofiaCleanup();
+      res.json({ ok: true, message: 'Sofia issue cleanup triggered' });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // Team Room artifacts
   app.get("/api/team-room/sessions/:id/artifacts", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
     try {

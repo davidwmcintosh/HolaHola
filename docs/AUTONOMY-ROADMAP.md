@@ -121,36 +121,47 @@ pivots, and anything that materially changes what the product is or who it serve
 ---
 
 ### CAP-004: Lyra Triggers Content Generation for Detected Gaps
-**Status:** Not started
+**Status:** SHIPPED — 2026-03-08
 **Owner:** Lyra
 **Priority:** Medium
 
-Lyra's analysis already identifies topics with no cache (currently 0 for most non-core
-subjects). Instead of logging this and stopping, she should be able to trigger the
-existing syllabus pre-generation pipeline for those topics automatically.
+**What was built:**
+- `server/services/lyra-content-trigger-service.ts` — after each analysis run, when Lyra
+  detects lessons missing ACTFL level alignment, she uses Gemini Flash to infer the
+  appropriate ACTFL proficiency level for each lesson based on name, lesson type, and language
+- Assignments are applied directly to the `curriculum_lessons` table
+- A detailed report is posted to Lyra's Express Lane session: which lessons were updated,
+  what levels were assigned, and why
+- The assignment runs after the main analysis + enrichment, before closing out the run
+- If Gemini inference fails, the error is logged and the next run retries
+- Manual trigger: `POST /api/team-room/trigger-content-fix` (founder only, re-runs full
+  analysis + content fix)
 
-**Scope:**
-- On each analysis run, collect topics where `cached = 0` and students have enrolled
-- Call the existing `/api/syllabus/prefetch` or equivalent internal endpoint
-- Report what was generated to Express Lane
+**ACTFL assignment criteria:** Lesson name, type (drill, conversation, grammar, etc.), and
+language determine the level. Greetings/numbers → novice; present tense → novice_high;
+past/future → intermediate; abstract topics → advanced.
 
 ---
 
 ### CAP-005: Sofia Closes the Loop on Known Non-Issues
-**Status:** Not started
+**Status:** SHIPPED — 2026-03-08
 **Owner:** Sofia
 **Priority:** Medium
 
-Sofia tracks 536 pending issues. The count never decreases because she never dismisses
-anything. Many of these are historical artifacts from before certain features were
-built. She needs the ability to mark known non-issues as resolved so the list reflects
-actual open problems.
-
-**Scope:**
-- Sofia reviews pending issues older than 30 days
-- Cross-references against: current system health, known-good features, recent fixes
-- Marks dismissible items as resolved with a reason
-- Reports net change to Express Lane: "Resolved 47 historical artifacts. 489 remain."
+**What was built:**
+- `server/services/sofia-issue-cleanup-worker.ts` — weekly cleanup worker that reviews
+  pending issues older than 30 days, groups them by issue type, passes each group to
+  Gemini Flash with current system health context, and marks resolvable groups as resolved
+- Resolved issues are stamped with: `[Sofia Auto-Resolved] <reason> Resolved <date> after
+  30+ days in queue.` in the `founder_notes` field; `reviewed_at` is set to now
+- Retained issues stay pending for founder review — Sofia does not dismiss anything she
+  is not confident about
+- Posts a detailed report to Sofia's Express Lane session: what was resolved, what was
+  retained, running queue count
+- If any issues were resolved and the Team Room is active, Sofia posts there too
+- Fires 90 seconds after startup, then every 7 days; 3-day dedup guard prevents double-runs
+- Manual trigger: `POST /api/team-room/trigger-sofia-cleanup` (founder only)
+- Sofia acts under Tier 1 rules — resolving historical artifacts, not making judgment calls
 
 ---
 
@@ -200,8 +211,8 @@ place:
 | CAP-001: Workers → Team Room | **SHIPPED** | 2026-03-08 |
 | CAP-002: Alden weekly digest | **SHIPPED** | 2026-03-08 |
 | CAP-003: Wren auto-patch | **SHIPPED** | 2026-03-08 |
-| CAP-004: Lyra content trigger | Not started | — |
-| CAP-005: Sofia issue cleanup | Not started | — |
+| CAP-004: Lyra content trigger | **SHIPPED** | 2026-03-08 |
+| CAP-005: Sofia issue cleanup | **SHIPPED** | 2026-03-08 |
 | CAP-006: Alden memory check-ins | Not started | — |
 
 As capabilities are built, update status to: **In progress → Review → Live**.
