@@ -1,5 +1,6 @@
 import { wrenSecurityAuditService, type SecurityFinding } from './wren-security-audit-service';
 import { founderCollabService } from './founder-collaboration-service';
+import { postToActiveTeamRoom } from './team-room-proactive-poster';
 import { getSharedDb } from '../db';
 import { founderSessions, users } from '@shared/schema';
 import { eq, and, desc, sql, or, inArray } from 'drizzle-orm';
@@ -170,6 +171,26 @@ async function runSecurityAudit(): Promise<void> {
       } catch (err: any) {
         console.error(`[Wren Security Worker] AI enrichment failed:`, err.message);
       }
+    }
+
+    const significantFindings = findings.filter(
+      f => f.severity === 'critical' || f.severity === 'high'
+    );
+    if (significantFindings.length > 0) {
+      const topTitles = significantFindings.slice(0, 3).map(f => f.title).join(', ');
+      const briefSummary = `Security audit #${auditCount} complete. Found ${findings.length} total issues — ${significantFindings.length} are high/critical severity. Top concerns: ${topTitles}.`;
+      await postToActiveTeamRoom({
+        participant: 'wren',
+        briefSummary,
+        source: 'Wren Security Worker',
+      });
+    } else if (findings.length === 0 && stats.lastFindingCount > 0) {
+      const briefSummary = `Security audit #${auditCount} complete. All clear this run — no issues found. The previous audit had ${stats.lastFindingCount} finding(s), so this is a clean sweep.`;
+      await postToActiveTeamRoom({
+        participant: 'wren',
+        briefSummary,
+        source: 'Wren Security Worker',
+      });
     }
 
     const elapsed = Date.now() - startTime;

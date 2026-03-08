@@ -1,5 +1,6 @@
 import { lyraAnalyticsService, type LyraInsight } from './lyra-analytics-service';
 import { founderCollabService } from './founder-collaboration-service';
+import { postToActiveTeamRoom } from './team-room-proactive-poster';
 import { getSharedDb } from '../db';
 import { founderSessions, users } from '@shared/schema';
 import { eq, and, desc, inArray } from 'drizzle-orm';
@@ -182,6 +183,20 @@ async function runAnalysis(): Promise<void> {
       } catch (err: any) {
         console.error('[Lyra Worker] Claude analysis failed:', err.message);
       }
+    }
+
+    const urgentInsights = insights.filter(
+      i => i.severity === 'critical' || i.severity === 'high' || i.needsReview
+    );
+    if (urgentInsights.length > 0) {
+      const needsReviewCount = urgentInsights.filter(i => i.needsReview).length;
+      const topTitles = urgentInsights.slice(0, 3).map(i => i.title).join(', ');
+      const briefSummary = `Learning experience analysis #${stats.totalAudits} complete. Found ${insights.length} total insights — ${urgentInsights.length} need attention${needsReviewCount > 0 ? `, ${needsReviewCount} flagged for Daniela's review` : ''}. Key issues: ${topTitles}.`;
+      await postToActiveTeamRoom({
+        participant: 'lyra',
+        briefSummary,
+        source: 'Lyra Analytics Worker',
+      });
     }
 
     const elapsed = Date.now() - startTime;

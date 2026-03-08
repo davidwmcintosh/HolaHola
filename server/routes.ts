@@ -28170,6 +28170,17 @@ Under 250 words. Write as yourself.`;
     } catch (e: any) { console.error('[TeamRoom TTS]', e); res.status(500).json({ error: e.message }); }
   });
 
+  // CAP-001 — manual test trigger for proactive worker posting
+  app.post("/api/team-room/test-proactive-post", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { participant = 'wren', message } = req.body;
+      const { postToActiveTeamRoom } = await import('./services/team-room-proactive-poster');
+      const briefSummary = message || `Test proactive post from ${participant} — CAP-001 trigger (fired manually by David).`;
+      const posted = await postToActiveTeamRoom({ participant, briefSummary, source: 'manual-test' });
+      res.json({ posted, participant, briefSummary });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // Team Room artifacts
   app.get("/api/team-room/sessions/:id/artifacts", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
     try {

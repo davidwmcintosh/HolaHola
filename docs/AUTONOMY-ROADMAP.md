@@ -46,26 +46,25 @@ pivots, and anything that materially changes what the product is or who it serve
 ## Capability Roadmap
 
 ### CAP-001: Workers Post Proactively to Active Team Room Sessions
-**Status:** Not started
+**Status:** SHIPPED — 2026-03-08
 **Owner:** Alden (coordinator), Wren / Lyra / Sofia (implementors)
 **Priority:** High
 
-Currently all worker output (security audits, learning analysis, issue monitoring) goes
-only to the Express Lane. If a Team Room session is active, significant findings should
-also be surfaced there so they can be discussed in real time.
+**What was built:**
+- `server/services/team-room-proactive-poster.ts` — shared utility that checks for an
+  active Team Room session, calls Gemini to generate a natural in-persona voice message,
+  saves it to `room_voice_messages`, and emits it over WebSocket so the UI updates live
+- Wren's security audit worker calls this after each audit when HIGH/CRITICAL findings exist,
+  or when the audit comes back clean after a run that had findings
+- Lyra's analytics worker calls this after each analysis when HIGH/CRITICAL insights exist
+  or any insight is flagged for Daniela review
+- Manual test trigger available at `POST /api/team-room/test-proactive-post` (founder only)
 
-**Scope:**
-- After each worker run, check if a Team Room session is currently active
-- If findings exceed a significance threshold, emit a message to the Team Room from
-  the relevant participant
-- "Significant" means: new security findings, content gaps affecting active students,
-  new bugs not previously flagged, or health metrics crossing a warning threshold
-
-**Significance thresholds (to be tuned):**
-- Wren: severity HIGH or CRITICAL, or any new finding not previously reported
-- Lyra: >3 new content gaps, student completion rate drop >10%, new failing drills
-- Sofia: any new bug not in the pending list, or pending count growing >10/day
-- Alden: any Tier 1 fix performed since the last Team Room session
+**Significance thresholds in production:**
+- Wren: severity HIGH or CRITICAL findings, or a clean sweep after prior findings
+- Lyra: any HIGH/CRITICAL insight, or any insight with `needsReview = true`
+- Sofia: not yet wired (CAP-005 scope)
+- Alden: not yet wired (CAP-002 scope)
 
 ---
 
