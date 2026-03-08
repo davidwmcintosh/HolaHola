@@ -2,6 +2,7 @@ import { lyraAnalyticsService, type LyraInsight } from './lyra-analytics-service
 import { founderCollabService } from './founder-collaboration-service';
 import { postToActiveTeamRoom } from './team-room-proactive-poster';
 import { triggerActflAlignment } from './lyra-content-trigger-service';
+import { triggerAldenCheckIn } from './alden-checkin-service';
 import { getSharedDb } from '../db';
 import { founderSessions, users } from '@shared/schema';
 import { eq, and, desc, inArray } from 'drizzle-orm';
@@ -221,6 +222,30 @@ async function runAnalysis(): Promise<void> {
       } catch (err: any) {
         console.error(`[Lyra Worker] Content trigger failed:`, err.message);
       }
+    }
+
+    try {
+      const significantFindings = insights
+        .filter(i => i.severity === 'critical' || i.severity === 'high' || i.needsReview)
+        .slice(0, 6)
+        .map(i => ({
+          title: i.title,
+          description: i.description,
+          severity: i.severity,
+          category: i.category,
+          needsReview: i.needsReview,
+        }));
+
+      if (significantFindings.length > 0) {
+        const checkInResult = await triggerAldenCheckIn(significantFindings, `Lyra Analysis #${stats.totalAudits}`);
+        if (checkInResult.triggered) {
+          console.log(`[Lyra Worker] Alden check-in triggered (confidence: ${checkInResult.confidence}): "${checkInResult.connection}"`);
+        } else {
+          console.log(`[Lyra Worker] No Alden check-in warranted (confidence: ${checkInResult.confidence})`);
+        }
+      }
+    } catch (err: any) {
+      console.error(`[Lyra Worker] Alden check-in error:`, err.message);
     }
 
     const elapsed = Date.now() - startTime;

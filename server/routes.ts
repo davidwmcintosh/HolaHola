@@ -28214,6 +28214,15 @@ Under 250 words. Write as yourself.`;
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  app.post("/api/team-room/trigger-alden-checkin", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { triggerAldenCheckIn } = await import('./services/alden-checkin-service');
+      const findings = req.body?.findings || [];
+      const result = await triggerAldenCheckIn(findings, 'Manual trigger');
+      res.json({ ok: true, triggered: result.triggered, confidence: result.confidence, connection: result.connection });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // Team Room artifacts
   app.get("/api/team-room/sessions/:id/artifacts", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
     try {

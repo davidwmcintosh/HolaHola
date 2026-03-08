@@ -166,22 +166,31 @@ past/future → intermediate; abstract topics → advanced.
 ---
 
 ### CAP-006: Memory-Driven Proactive Check-Ins from Alden
-**Status:** Not started
+**Status:** SHIPPED — 2026-03-08
 **Owner:** Alden
 **Priority:** Medium-Low
 
-Alden has access to David's stored learning facts (1,278 facts as of 2026-03-08). These
-currently inform session responses but are never used proactively. Alden could use this
-context to open relevant Team Room conversations — noting when a topic David expressed
-interest in has new content available, or when a student-facing area he cares about
-shows new data from Lyra.
+**What was built:**
+- `server/services/alden-checkin-service.ts` — after each Lyra analysis run, Alden
+  loads David's stored memory (up to 100 top facts from `learner_personal_facts` filtered
+  to `preference`, `goal`, `work`, `notable_mention` types) plus `editorInsights`
+- Gemini Flash cross-references Lyra's significant findings (HIGH/CRITICAL/needsReview)
+  against the memory and returns a confidence-rated decision (1-10 scale)
+- Only fires if confidence >= 6 — Alden is conservative and avoids noise
+- If triggered: posts a short, warm, memory-anchored check-in to Team Room AND Alden's
+  Express Lane session with the specific memory anchor cited
+- 4-hour minimum gap between check-ins prevents spam across multiple analysis runs
+- Integrated into `lyra-analytics-worker.ts` after each full analysis
+- Manual trigger: `POST /api/team-room/trigger-alden-checkin` with `{ findings: [...] }`
 
-**Scope:**
-- Triggered by Lyra or Daniela analysis events, not on a fixed schedule
-- Alden cross-references findings with David's stored preferences and prior discussions
-- If relevant, opens a Team Room conversation with the connection surfaced
-- Example: "Lyra flagged a content gap in history. You mentioned wanting to expand that
-  curriculum in March. Want to discuss it?"
+**Memory sources (1,278+ facts):**
+- David's `learner_personal_facts` (preference, goal, work, notable_mention)
+- `editorInsights` (architectural decisions, platform philosophy)
+
+**Example connection:** Lyra finds Spanish lessons have low completion + David's memory
+has "I want HolaHola to be the #1 Spanish learning app for beginners" → Alden posts
+"Lyra's latest analysis shows the Spanish beginner lessons have lower completion than
+other paths. You've mentioned making this our strongest track. Worth a deeper look?"
 
 ---
 
@@ -213,6 +222,6 @@ place:
 | CAP-003: Wren auto-patch | **SHIPPED** | 2026-03-08 |
 | CAP-004: Lyra content trigger | **SHIPPED** | 2026-03-08 |
 | CAP-005: Sofia issue cleanup | **SHIPPED** | 2026-03-08 |
-| CAP-006: Alden memory check-ins | Not started | — |
+| CAP-006: Alden memory check-ins | **SHIPPED** | 2026-03-08 |
 
 As capabilities are built, update status to: **In progress → Review → Live**.
