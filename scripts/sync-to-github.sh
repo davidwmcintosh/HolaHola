@@ -3,6 +3,7 @@ set -e
 
 REPO_URL="https://davidwmcintosh:${GITHUB_TOKEN}@github.com/davidwmcintosh/HolaHola.git"
 BRANCH="main"
+LOCK_FILE=".git/index.lock"
 
 if [ -z "$GITHUB_TOKEN" ]; then
   echo "ERROR: GITHUB_TOKEN secret is not set. Add it in Replit Secrets."
@@ -10,6 +11,24 @@ if [ -z "$GITHUB_TOKEN" ]; then
 fi
 
 echo "--- HolaHola: Sync to GitHub ---"
+
+# Wait for any in-progress git operation (checkpoint commit) to finish
+if [ -f "$LOCK_FILE" ]; then
+  echo "Git lock file detected — waiting for it to clear..."
+  WAIT=0
+  while [ -f "$LOCK_FILE" ] && [ $WAIT -lt 30 ]; do
+    sleep 2
+    WAIT=$((WAIT + 2))
+    echo "  still waiting... (${WAIT}s)"
+  done
+  if [ -f "$LOCK_FILE" ]; then
+    echo "Lock file still present after 30s. Remove it manually with:"
+    echo "  rm $LOCK_FILE"
+    echo "Then re-run this script."
+    exit 1
+  fi
+  echo "Lock cleared. Proceeding."
+fi
 
 CHANGES=$(git status --porcelain 2>/dev/null)
 if [ -z "$CHANGES" ]; then
