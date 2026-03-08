@@ -1,6 +1,6 @@
 import { db } from '../db';
-import { brainEvents, brainDailyMetrics, type InsertBrainEvent } from '@shared/schema';
-import { eq, and, gte, lte, sql, desc } from 'drizzle-orm';
+import { brainEvents, brainDailyMetrics, learnerPersonalFacts, type InsertBrainEvent } from '@shared/schema';
+import { eq, and, gte, lte, sql, desc, inArray } from 'drizzle-orm';
 import crypto from 'crypto';
 
 type BrainEventType = 'memory_retrieval' | 'memory_injection' | 'memory_lookup_tool' | 'fact_extraction' | 'action_trigger' | 'tool_call' | 'context_injection';
@@ -352,9 +352,14 @@ class BrainHealthTelemetry {
       ));
 
     const retrievals = memoryEvents.filter(e => e.eventType === 'memory_retrieval');
+    const lookupTools = memoryEvents.filter(e => e.eventType === 'memory_lookup_tool');
     const injections = memoryEvents.filter(e => e.eventType === 'memory_injection' || e.eventType === 'memory_lookup_tool');
     
-    const totalRetrievals = retrievals.length;
+    // Include memory_lookup_tool in total retrievals — they represent the same concept
+    // (memory was actively queried). Without this, the rate is always 0% because
+    // logMemoryRetrieval is only fired in the passive path, while tool-based lookups
+    // are the primary retrieval mechanism.
+    const totalRetrievals = retrievals.length + lookupTools.length;
     const totalInjections = injections.length;
     const injectionRate = totalRetrievals > 0 ? totalInjections / totalRetrievals : 0;
 
@@ -502,39 +507,50 @@ class BrainHealthTelemetry {
     studentsWithSparseMemory: number;
     coverageByStudent: { userId: string; eventCount: number; memoryCount: number }[];
   }> {
-    const events = await db
-      .select()
-      .from(brainEvents)
-      .where(sql`${brainEvents.userId} IS NOT NULL`);
+    // Get students who have had brain activity (use last 30 days for reasonable window)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const studentStats = new Map<string, { eventCount: number; memoryIds: Set<string> }>();
-    
-    for (const event of events) {
-      if (!event.userId) continue;
-      
-      if (!studentStats.has(event.userId)) {
-        studentStats.set(event.userId, { eventCount: 0, memoryIds: new Set() });
-      }
-      
-      const stats = studentStats.get(event.userId)!;
-      stats.eventCount++;
-      
-      if (event.memoryIds) {
-        for (const id of event.memoryIds) {
-          stats.memoryIds.add(id);
-        }
-      }
+    const recentEvents = await db
+      .select({ userId: brainEvents.userId })
+      .from(brainEvents)
+      .where(and(
+        sql`${brainEvents.userId} IS NOT NULL`,
+        gte(brainEvents.createdAt, thirtyDaysAgo)
+      ));
+
+    const activeUserIds = [...new Set(recentEvents.map(e => e.userId!).filter(Boolean))];
+
+    if (activeUserIds.length === 0) {
+      return { studentsWithActivity: 0, studentsWithRichMemory: 0, studentsWithSparseMemory: 0, coverageByStudent: [] };
     }
 
-    const coverageByStudent = Array.from(studentStats.entries())
-      .map(([userId, stats]) => ({
-        userId,
-        eventCount: stats.eventCount,
-        memoryCount: stats.memoryIds.size,
-      }))
-      .sort((a, b) => b.memoryCount - a.memoryCount);
+    // Count event activity per student
+    const eventCounts = new Map<string, number>();
+    for (const e of recentEvents) {
+      if (e.userId) eventCounts.set(e.userId, (eventCounts.get(e.userId) || 0) + 1);
+    }
 
-    const studentsWithActivity = studentStats.size;
+    // Count ACTUAL personal facts per student from learner_personal_facts table
+    // This is the authoritative source — not brain_events memory IDs
+    const factRows = await db
+      .select({ studentId: learnerPersonalFacts.studentId, count: sql<number>`count(*)` })
+      .from(learnerPersonalFacts)
+      .where(inArray(learnerPersonalFacts.studentId, activeUserIds))
+      .groupBy(learnerPersonalFacts.studentId);
+
+    const factCountByStudent = new Map<string, number>();
+    for (const row of factRows) {
+      factCountByStudent.set(row.studentId, Number(row.count));
+    }
+
+    const coverageByStudent = activeUserIds.map(userId => ({
+      userId,
+      eventCount: eventCounts.get(userId) || 0,
+      memoryCount: factCountByStudent.get(userId) || 0,
+    })).sort((a, b) => b.memoryCount - a.memoryCount);
+
+    const studentsWithActivity = activeUserIds.length;
     const studentsWithRichMemory = coverageByStudent.filter(s => s.memoryCount >= 10).length;
     const studentsWithSparseMemory = coverageByStudent.filter(s => s.memoryCount < 5).length;
 
