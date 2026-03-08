@@ -3096,8 +3096,17 @@ export class NeuralNetworkSyncService {
         originEnvironment: CURRENT_ENVIRONMENT,
       };
 
-      const [procedure] = await getSharedDb().insert(tutorProcedures).values(procedureData).returning();
-      
+      const [procedure] = await getSharedDb()
+        .insert(tutorProcedures)
+        .values(procedureData)
+        .onConflictDoNothing()
+        .returning();
+
+      if (!procedure) {
+        // Already synced — not an error, just a duplicate
+        return { success: true };
+      }
+
       console.log(`[NeuralSync] Shared Wren insight "${params.title}" with Daniela as procedure ${procedure.id}`);
       
       return { success: true, procedureId: procedure.id };
