@@ -69,22 +69,21 @@ pivots, and anything that materially changes what the product is or who it serve
 ---
 
 ### CAP-002: Alden as Initiative Tracker
-**Status:** Not started
+**Status:** SHIPPED — 2026-03-08
 **Owner:** Alden
 **Priority:** High
 
-Alden should compile a weekly summary of what the team surfaced — bugs found, fixes
-made, insights generated, content gaps, security posture — and open a Team Room
-conversation around priorities for the coming week. This happens without David initiating
-it.
-
-**Scope:**
-- Weekly digest: every Monday (or when the next session opens after the weekend)
-- Sources: Express Lane history, Wren security findings, Lyra analysis, Sofia issue list,
-  recent Tier 1 fixes performed autonomously
-- Output: a brief Team Room message from Alden with 3-5 prioritized items and a
-  recommendation on sequencing
-- Alden does NOT implement — he proposes. The team discusses. David confirms or redirects.
+**What was built:**
+- `server/services/alden-digest-worker.ts` — weekly digest worker that gathers data from
+  Wren's security stats, Lyra's analytics stats, Sofia's pending issue queue, and recent
+  Express Lane session activity; passes it to Claude (Opus) to generate a natural 3-5 item
+  prioritized agenda in Alden's voice; posts to active Team Room via `postToActiveTeamRoom`
+- Fires 3 minutes after server startup, then every 7 days
+- Deduplication guard: skips if a digest was posted within the last 3 days
+- If no active Team Room is open when the digest is ready, `lastDigestTime` is reset so
+  it retries the next time the trigger runs or is called manually
+- Manual trigger: `POST /api/team-room/trigger-weekly-digest` (founder only)
+- Alden does NOT implement — he proposes. The team discusses. David decides.
 
 ---
 

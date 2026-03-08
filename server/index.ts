@@ -581,6 +581,12 @@ app.use((req, res, next) => {
       startLyraAnalyticsWorker();
     }, 35000);
 
+    // +40s: Alden Weekly Digest Worker (CAP-002)
+    setTimeout(async () => {
+      const { startAldenDigestWorker } = await import('./services/alden-digest-worker');
+      startAldenDigestWorker();
+    }, 40000);
+
     // +60s: Diagnostic retention (daily cleanup, no rush)
     setTimeout(async () => {
       const DIAG_RETENTION_DAYS = 30;

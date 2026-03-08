@@ -28181,6 +28181,15 @@ Under 250 words. Write as yourself.`;
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // CAP-002 — Alden weekly digest manual trigger
+  app.post("/api/team-room/trigger-weekly-digest", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { triggerAldenDigest } = await import('./services/alden-digest-worker');
+      await triggerAldenDigest();
+      res.json({ ok: true, message: 'Weekly digest triggered' });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // Team Room artifacts
   app.get("/api/team-room/sessions/:id/artifacts", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
     try {
