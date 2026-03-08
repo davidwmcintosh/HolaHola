@@ -615,7 +615,7 @@ export function parseMentions(message: string, guestNames: string[] = []): Parti
 
 const CLARIFICATION_PATTERN = /\b(elaborate|clarify|explain more|what do you mean|tell me more|go on|continue|expand on|can you say more|could you say more|more detail|further|you said)\b/i;
 
-const GROUP_GREETING_PATTERN = /\b(how is everyone|how are you all|hey everyone|hi everyone|hi team|hey team|good morning|good afternoon|good evening|hello everyone|hello team|how are you guys|how's everyone|how's the team|how are things|how are we all|how are we doing|checking in|just checking in|what's everyone up to|how is everybody|how are you doing)\b/i;
+const GROUP_GREETING_PATTERN = /\b(how is everyone|how are you all|hey everyone|hi everyone|hi team|hey team|good morning|good afternoon|good evening|hello everyone|hello team|how are you guys|how's everyone|how's the team|how are things|how are we all|how are we doing|checking in|just checking in|what's everyone up to|how is everybody|how are you doing|is everyone|are you all|ok everyone|okay everyone|hi all|hey all|hello all|how are we|how's everybody)\b/i;
 
 async function evaluateGroupGreeting(
   roomContext: string,

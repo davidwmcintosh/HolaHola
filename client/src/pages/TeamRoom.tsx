@@ -382,7 +382,34 @@ function usePTT(onTranscript: (text: string) => void) {
   return { isListening, isSupported, startListening, stopListening };
 }
 
-// ── Voice playback helper ─────────────────────────────────────────────────────
+// ── Voice playback — queue-based so participants speak one at a time ──────────
+
+const _audioQueue: Array<{ text: string; speaker: string }> = [];
+let _audioPlaying = false;
+
+async function _processAudioQueue() {
+  if (_audioPlaying || _audioQueue.length === 0) return;
+  _audioPlaying = true;
+  const { text, speaker } = _audioQueue.shift()!;
+  try {
+    const res = await fetch("/api/team-room/voice/tts", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, speaker }),
+    });
+    if (!res.ok) { _audioPlaying = false; _processAudioQueue(); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.onended = () => { URL.revokeObjectURL(url); _audioPlaying = false; _processAudioQueue(); };
+    audio.onerror = () => { URL.revokeObjectURL(url); _audioPlaying = false; _processAudioQueue(); };
+    await audio.play();
+  } catch { _audioPlaying = false; _processAudioQueue(); }
+}
+
+function queueParticipantVoice(text: string, speaker: string) {
+  _audioQueue.push({ text, speaker });
+  _processAudioQueue();
+}
 
 async function playParticipantVoice(text: string, speaker: string) {
   try {
@@ -576,7 +603,7 @@ export default function TeamRoom() {
       });
       const speaker = msg.speaker.toLowerCase();
       if (speaker !== "david" && speaker !== "system") {
-        if (autoPlayVoice) playParticipantVoice(msg.content, msg.speaker);
+        if (autoPlayVoice) queueParticipantVoice(msg.content, msg.speaker);
         setHandRaises(prev => {
           if (!prev[speaker]) return prev;
           const next = { ...prev };
