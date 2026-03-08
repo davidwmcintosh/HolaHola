@@ -28190,6 +28190,14 @@ Under 250 words. Write as yourself.`;
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  app.post("/api/team-room/trigger-auto-patch", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { triggerSecurityAudit } = await import('./services/wren-security-audit-worker');
+      await triggerSecurityAudit();
+      res.json({ ok: true, message: 'Security audit + auto-patch triggered' });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // Team Room artifacts
   app.get("/api/team-room/sessions/:id/artifacts", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
     try {

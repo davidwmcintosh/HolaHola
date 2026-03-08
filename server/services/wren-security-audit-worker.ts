@@ -1,6 +1,7 @@
 import { wrenSecurityAuditService, type SecurityFinding } from './wren-security-audit-service';
 import { founderCollabService } from './founder-collaboration-service';
 import { postToActiveTeamRoom } from './team-room-proactive-poster';
+import { processFindings, formatAutoPatchReport, isFalsePositiveKnown } from './wren-auto-patch-service';
 import { getSharedDb } from '../db';
 import { founderSessions, users } from '@shared/schema';
 import { eq, and, desc, sql, or, inArray } from 'drizzle-orm';
@@ -171,10 +172,32 @@ async function runSecurityAudit(): Promise<void> {
       } catch (err: any) {
         console.error(`[Wren Security Worker] AI enrichment failed:`, err.message);
       }
+
+      try {
+        console.log(`[Wren Security Worker] Running auto-patch review on ${findings.length} finding(s)...`);
+        const patchResults = await processFindings(findings);
+        const patchReport = formatAutoPatchReport(patchResults, auditCount);
+        await founderCollabService.addMessage(sessionId, {
+          role: 'wren',
+          content: patchReport,
+          metadata: {
+            type: 'auto_patch_report',
+            auditNumber: auditCount,
+            patched: patchResults.filter(r => r.action === 'patched').length,
+            dismissed: patchResults.filter(r => r.action === 'dismissed_false_positive').length,
+            skipped: patchResults.filter(r => r.action === 'skipped').length,
+          },
+        });
+        const patchedCount = patchResults.filter(r => r.action === 'patched').length;
+        const dismissedCount = patchResults.filter(r => r.action === 'dismissed_false_positive').length;
+        console.log(`[Wren Security Worker] Auto-patch complete: ${patchedCount} patched, ${dismissedCount} dismissed`);
+      } catch (err: any) {
+        console.error(`[Wren Security Worker] Auto-patch review failed:`, err.message);
+      }
     }
 
     const significantFindings = findings.filter(
-      f => f.severity === 'critical' || f.severity === 'high'
+      f => (f.severity === 'critical' || f.severity === 'high') && !isFalsePositiveKnown(f)
     );
     if (significantFindings.length > 0) {
       const topTitles = significantFindings.slice(0, 3).map(f => f.title).join(', ');

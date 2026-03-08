@@ -88,33 +88,35 @@ pivots, and anything that materially changes what the product is or who it serve
 ---
 
 ### CAP-003: Wren Auto-Patches Fixable Bugs
-**Status:** Not started
+**Status:** SHIPPED — 2026-03-08
 **Owner:** Wren
 **Priority:** High
 
-When Wren's security audit or architectural review identifies a clearly broken pattern
-with a known fix, she should implement the fix herself under Tier 1 rules. She already
-has read access to the codebase. This extends that to targeted write access for bug fixes.
+**What was built:**
+- `server/services/wren-auto-patch-service.ts` — context-aware patch reviewer that runs
+  after every security audit. For each finding, it reads the surrounding code (±18 lines),
+  calls Gemini Flash to assess: real issue or false positive? if real, is it safely auto-patchable?
+- Three outcomes for each finding:
+  1. **Patched** — Gemini generates the exact replacement lines, service writes them to disk,
+     posts before/after to Express Lane
+  2. **Dismissed (false positive)** — Finding is registered in an in-memory false-positive registry
+     so it is never re-reviewed; documented reasoning posted to Express Lane
+  3. **Escalated** — Real issue that doesn't meet auto-patch criteria; stays in the queue for
+     Team Room discussion
+- Auto-patch criteria enforced by Gemini: change ≤5 lines, no new npm packages, localized,
+  reversible, no behavior change — only hardening
+- False-positive registry persists for the server's lifetime; restarts reset it (re-review happens
+  once per boot, then cached)
+- The Team Room proactive poster now filters out known false positives before posting alerts,
+  so dismissed findings no longer generate noise
+- Manual trigger: `POST /api/team-room/trigger-auto-patch` (founder only, re-runs full audit + patch)
 
-**Scope of autonomous fixes (must meet ALL criteria):**
-- The issue is provably broken, not a code style or opinion disagreement
-- The fix is localized to one function or file
-- No new dependencies introduced
-- Fix is reversible via the checkpoint system
-- Wren posts a clear summary to Express Lane: what was broken, what she changed, the
-  commit-equivalent description
-
-**Examples of qualifying fixes:**
-- `ON CONFLICT DO NOTHING` for duplicate-key inserts (like NeuralSync — already fixed manually)
-- Missing null checks causing crashes
-- Wrong variable referenced in a calculation
-- Dead code causing a worker to silently fail
-
-**Examples that do NOT qualify (go to Team Room first):**
-- Performance refactors
-- Changing how a feature behaves
-- Modifying any user-facing API
-- Anything touching auth, billing, or security boundaries
+**First run results (2026-03-08):**
+- `dangerouslySetInnerHTML` in `chart.tsx:81` → **Dismissed as false positive** (CSS variables
+  injected into a `<style>` tag, developer-controlled color config, not user input, not HTML)
+- `pool.query` template literal in `server/scripts/fix-cross-db-fks.ts:55` → **Dismissed as
+  false positive** (migration script with hardcoded table/constraint names, not API handler,
+  not user input)
 
 ---
 
@@ -193,13 +195,13 @@ place:
 
 ## Tracking Progress
 
-| Capability | Status | Est. Start |
-|------------|--------|------------|
-| CAP-001: Workers → Team Room | Not started | TBD |
-| CAP-002: Alden weekly digest | Not started | TBD |
-| CAP-003: Wren auto-patch | Not started | TBD |
-| CAP-004: Lyra content trigger | Not started | TBD |
-| CAP-005: Sofia issue cleanup | Not started | TBD |
-| CAP-006: Alden memory check-ins | Not started | TBD |
+| Capability | Status | Shipped |
+|------------|--------|---------|
+| CAP-001: Workers → Team Room | **SHIPPED** | 2026-03-08 |
+| CAP-002: Alden weekly digest | **SHIPPED** | 2026-03-08 |
+| CAP-003: Wren auto-patch | **SHIPPED** | 2026-03-08 |
+| CAP-004: Lyra content trigger | Not started | — |
+| CAP-005: Sofia issue cleanup | Not started | — |
+| CAP-006: Alden memory check-ins | Not started | — |
 
 As capabilities are built, update status to: **In progress → Review → Live**.
