@@ -154,12 +154,15 @@ NEW MESSAGE from ${speaker}: "${newMessage}"
 
 You are Alden in the Team Room. Respond to this message.
 
+IMPORTANT SOCIAL CONTEXT: If the message is casual, personal, or conversational — a greeting, a check-in, a "how are you" — respond warmly and personally in 1-2 sentences. Do NOT call any tools or run any system checks for social messages. Just be yourself.
+
 For your VOICE response (conversational, 2-4 sentences, will be spoken aloud):
 Keep it direct and natural. No lists, no headers.
 IMPORTANT: You MUST always provide a VOICE response — never write "none" for VOICE.
 
 For your EXPRESS LANE content (analytical, detailed, will appear in the text panel):
-Provide detailed analysis, data, code snippets, or structured information.
+Only provide detailed analysis, data, or structured information if the message is genuinely technical or analytical.
+For casual/personal messages, write "none" for EXPRESS.
 If you're creating a structured artifact (plan, table, decision record, code block), add:
 ARTIFACT_TYPE: plan|table|code|insight|decision
 ARTIFACT_TITLE: [descriptive title]
@@ -612,6 +615,116 @@ export function parseMentions(message: string, guestNames: string[] = []): Parti
 
 const CLARIFICATION_PATTERN = /\b(elaborate|clarify|explain more|what do you mean|tell me more|go on|continue|expand on|can you say more|could you say more|more detail|further|you said)\b/i;
 
+const GROUP_GREETING_PATTERN = /\b(how is everyone|how are you all|hey everyone|hi everyone|hi team|hey team|good morning|good afternoon|good evening|hello everyone|hello team|how are you guys|how's everyone|how's the team|how are things|how are we all|how are we doing|checking in|just checking in|what's everyone up to|how is everybody|how are you doing)\b/i;
+
+async function evaluateGroupGreeting(
+  roomContext: string,
+  speaker: string,
+  newMessage: string,
+  guestTutors: GuestTutor[] = []
+): Promise<RoomEvaluationResult> {
+  const greetingHandRaise: HandRaiseEvaluation = { shouldRaise: true, reasoning: 'group greeting', confidence: 'high' };
+
+  const aldenGreetingPrompt = `${roomContext}
+
+${speaker} is greeting the whole team casually: "${newMessage}"
+
+This is a social check-in. Respond warmly and personally in 1-2 conversational sentences.
+Do NOT run any system checks, health diagnostics, or platform analysis tools — this is not a technical request.
+Just share how you are doing and perhaps one brief thing on your mind lately.
+
+Format:
+VOICE: [your warm personal response, 1-2 sentences]
+EXPRESS: none`;
+
+  const danielaGreetingPrompt = `${roomContext}
+
+${speaker} is greeting the whole team: "${newMessage}"
+
+This is a casual check-in. Respond warmly in 1-2 sentences as yourself — Daniela. Share how you are doing personally.
+Do NOT launch into curriculum analysis or pedagogy unless it flows naturally from a personal update.
+
+Format:
+VOICE: [your warm personal response, 1-2 sentences]
+EXPRESS: none`;
+
+  const sofiaGreetingPrompt = `${roomContext}
+
+${speaker} is greeting the whole team: "${newMessage}"
+
+This is a casual check-in, not a bug report. Respond warmly in 1-2 sentences as yourself — Sofia. Share briefly how things are going.
+No technical reports needed here.
+
+Format:
+VOICE: [your warm personal response, 1-2 sentences]
+EXPRESS: none`;
+
+  const lyraGreetingPrompt = `${roomContext}
+
+${speaker} is greeting the whole team: "${newMessage}"
+
+This is a casual check-in. Respond warmly in 1-2 sentences as yourself — Lyra. Share a brief personal update.
+Keep it light and upbeat.
+
+Format:
+VOICE: [your warm personal response, 1-2 sentences]
+EXPRESS: none`;
+
+  const wrenGreetingPrompt = `${roomContext}
+
+${speaker} is greeting the whole team: "${newMessage}"
+
+This is a casual check-in. Respond warmly in 1-2 sentences as yourself — Wren. Share briefly how you are doing.
+Keep it concise and genuine.
+
+Format:
+VOICE: [your warm personal response, 1-2 sentences]
+EXPRESS: none`;
+
+  const parseGreetingResponse = (text: string): { voiceContent?: string } => {
+    const voiceMatch = text.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
+    const raw = voiceMatch ? voiceMatch[1].trim() : text.trim();
+    const voiceContent = raw && raw.toLowerCase() !== 'none' ? raw : undefined;
+    return { voiceContent };
+  };
+
+  const [aldenResult, danielaResult, sofiaResult, lyraResult, wrenResult] = await Promise.all([
+    generateAldenResponse({ userMessage: aldenGreetingPrompt, founderName: speaker })
+      .then(r => ({ ...parseGreetingResponse(r.response) }))
+      .catch(() => ({ voiceContent: "Doing well, thanks for checking in!" })),
+    callGemini(DANIELA_SYSTEM, danielaGreetingPrompt)
+      .then(t => parseGreetingResponse(t))
+      .catch(() => ({ voiceContent: "Great to hear from you! Things are going well on my end." })),
+    callGemini(SOFIA_SYSTEM, sofiaGreetingPrompt)
+      .then(t => parseGreetingResponse(t))
+      .catch(() => ({ voiceContent: "All good here, thanks for checking in!" })),
+    callGemini(LYRA_SYSTEM, lyraGreetingPrompt)
+      .then(t => parseGreetingResponse(t))
+      .catch(() => ({ voiceContent: "Doing really well, thanks! Lots of interesting patterns in the data lately." })),
+    callGemini(WREN_SYSTEM, wrenGreetingPrompt)
+      .then(t => parseGreetingResponse(t))
+      .catch(() => ({ voiceContent: "Good here. Keeping the systems humming." })),
+  ]);
+
+  const participants: ParticipantResponse[] = [
+    { participant: 'alden', handRaise: greetingHandRaise, voiceContent: aldenResult.voiceContent },
+    { participant: 'daniela', handRaise: greetingHandRaise, voiceContent: danielaResult.voiceContent },
+    { participant: 'sofia', handRaise: greetingHandRaise, voiceContent: sofiaResult.voiceContent },
+    { participant: 'lyra', handRaise: greetingHandRaise, voiceContent: lyraResult.voiceContent },
+    { participant: 'wren', handRaise: greetingHandRaise, voiceContent: wrenResult.voiceContent },
+  ];
+
+  for (const guest of guestTutors) {
+    participants.push({
+      participant: guest.tutorName.toLowerCase(),
+      handRaise: greetingHandRaise,
+      voiceContent: `Hi ${speaker}! Doing well, thanks for asking.`,
+    });
+  }
+
+  return { participants: participants.filter(p => !!p.voiceContent), allEvaluations: participants };
+}
+
 export async function evaluateAllParticipants(params: {
   roomId: string;
   topic: string;
@@ -625,6 +738,11 @@ export async function evaluateAllParticipants(params: {
     buildRoomContext(roomId, topic),
     storage.getRoomMessages(roomId, 5),
   ]);
+
+  // Detect casual group greetings — everyone responds personally, no domain filtering
+  if (!mentions?.length && GROUP_GREETING_PATTERN.test(newMessage)) {
+    return evaluateGroupGreeting(roomContext, speaker, newMessage, guestTutors);
+  }
 
   // Detect clarification requests: if asking for elaboration, auto-force the last AI speaker
   let clarificationTarget: string | null = null;
