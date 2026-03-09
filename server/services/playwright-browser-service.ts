@@ -393,6 +393,70 @@ export async function runBrowserPipeline(
   }
 }
 
+// ── Sofia issue-type → affected page resolution ───────────────────────────────
+
+const ISSUE_TYPE_PAGE_MAP: Array<[string, string, string]> = [
+  // [keyword, page label, url]
+  ['double_audio', 'conversations', '/conversations'],
+  ['no_audio', 'conversations', '/conversations'],
+  ['audio', 'conversations', '/conversations'],
+  ['latency', 'conversations', '/conversations'],
+  ['connection', 'conversations', '/conversations'],
+  ['microphone', 'conversations', '/conversations'],
+  ['tts', 'conversations', '/conversations'],
+  ['stt', 'conversations', '/conversations'],
+  ['session', 'conversations', '/conversations'],
+  ['voice', 'conversations', '/conversations'],
+  ['login', 'auth', '/auth'],
+  ['auth', 'auth', '/auth'],
+  ['vocabulary', 'vocabulary', '/vocabulary'],
+  ['vocab', 'vocabulary', '/vocabulary'],
+  ['lesson', 'lessons', '/lessons'],
+  ['textbook', 'textbook', '/textbook'],
+  ['progress', 'progress report', '/progress-report'],
+];
+
+function resolveIssueTypePage(issueType: string): { page: string; url: string } {
+  const lower = issueType.toLowerCase();
+  for (const [keyword, page, url] of ISSUE_TYPE_PAGE_MAP) {
+    if (lower.includes(keyword)) return { page, url };
+  }
+  return { page: 'dashboard', url: '/' };
+}
+
+async function findActiveTeamRoomId(): Promise<string | null> {
+  try {
+    const rooms = await storage.listTeamRooms(10);
+    const active = (rooms as any[]).find(r => r.status === 'active');
+    return active ? active.id : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function sofiaIssueScreenshot(
+  issueType: string,
+  count: number,
+  roomId?: string
+): Promise<void> {
+  const targetRoomId = roomId || await findActiveTeamRoomId();
+  if (!targetRoomId) {
+    console.log(`[PlaywrightBrowser] Sofia screenshot skipped — no active Team Room`);
+    return;
+  }
+  const { page, url } = resolveIssueTypePage(issueType);
+  console.log(`[PlaywrightBrowser] Sofia issue screenshot: "${issueType}" (${count}x) → ${url}`);
+  const intent: BrowseIntent = {
+    isBrowseRequest: true,
+    participant: 'sofia',
+    targetPage: page,
+    targetUrl: url,
+    question: `I just detected a cluster of ${count} "${issueType}" reports in the last hour. Does the ${page} page look healthy? Note any error states, broken UI, missing content, or visible signs of this issue.`,
+    confidence: 'high',
+  };
+  await runBrowserPipeline(`${count}x ${issueType} cluster detected`, targetRoomId, '', intent);
+}
+
 // ── Page keyword → URL resolution ─────────────────────────────────────────────
 
 const PAGE_KEYWORD_MAP: Array<[string, string]> = [

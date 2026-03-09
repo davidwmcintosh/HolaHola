@@ -1454,6 +1454,13 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
         
         // Set cooldown
         this.patternAlertCooldown.set(cooldownKey, new Date());
+
+        // CAP-009: Visual verification — screenshot the likely affected page
+        import('./playwright-browser-service').then(({ sofiaIssueScreenshot }) => {
+          sofiaIssueScreenshot(issueType, count).catch(err =>
+            console.error(`[Sofia Monitor] Screenshot error for "${issueType}":`, err.message)
+          );
+        }).catch(() => {});
         
         console.log(`[Sofia Monitor] Pattern alert: ${count}x ${issueType}`);
       }
