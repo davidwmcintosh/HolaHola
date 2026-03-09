@@ -194,6 +194,40 @@ other paths. You've mentioned making this our strongest track. Worth a deeper lo
 
 ---
 
+### CAP-007: Alden as Architectural Code Reviewer
+**Status:** SHIPPED — 2026-03-09
+**Owner:** Alden (reviewer) + Wren (proposer)
+**Priority:** High
+
+**What was built:**
+- `server/services/alden-code-review-service.ts` — Alden reviews Wren's proposed fixes
+  using Claude Opus + `editorInsights` architectural memory
+- `shared/schema.ts` — `proposed_code_changes` table + `proposed_change_status` enum
+  (pending_review, approved, applied, rejected, revised, escalated)
+- `server/services/wren-auto-patch-service.ts` — modified: Wren now **proposes** fixes
+  (stores to `proposed_code_changes`) instead of applying them directly
+- `server/services/wren-security-audit-worker.ts` — wired: after proposing, triggers
+  `runReviewQueue()` so the full cycle (audit → propose → review → apply → sync) runs
+  in one pass
+- `server/services/alden-digest-worker.ts` — weekly digest now includes code review
+  stats: applied, revised, escalated (escalated items named explicitly for David)
+
+**Authority boundary (enforced by Claude Opus prompt):**
+- **APPROVE autonomously:** ≤15 lines changed, bug fixes, security patches, no new
+  dependencies, no schema changes, no auth/payment/data model changes
+- **REVISE:** correct intent but wrong approach — Alden explains specifically what to change
+- **ESCALATE to David:** architectural changes, new files/services, dependency additions,
+  schema changes, auth/payment logic, anything uncertain
+
+**On approval:** file is patched, `scripts/sync-to-github.sh` syncs to GitHub with
+commit message `[AUTO-FIX] <finding title> — reviewed by Alden`
+
+**Trigger routes:**
+- `POST /api/team-room/trigger-code-review` — manually run review queue (founder only)
+- `GET /api/team-room/proposed-changes` — list all proposed changes with status (founder only)
+
+---
+
 ## GitHub Access for the Team
 
 For the team to contribute code under Tier 1 and CAP-003, the following needs to be in
@@ -223,5 +257,6 @@ place:
 | CAP-004: Lyra content trigger | **SHIPPED** | 2026-03-08 |
 | CAP-005: Sofia issue cleanup | **SHIPPED** | 2026-03-08 |
 | CAP-006: Alden memory check-ins | **SHIPPED** | 2026-03-08 |
+| CAP-007: Alden as code reviewer | **SHIPPED** | 2026-03-09 |
 
 As capabilities are built, update status to: **In progress → Review → Live**.

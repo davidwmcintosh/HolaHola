@@ -1,14 +1,17 @@
 import * as fs from 'fs';
 import { type SecurityFinding } from './wren-security-audit-service';
 import { callGeminiWithSchema, GEMINI_MODELS } from '../gemini-utils';
+import { getSharedDb } from '../db';
+import { proposedCodeChanges } from '@shared/schema';
 
 export interface AutoPatchResult {
   finding: SecurityFinding;
-  action: 'patched' | 'dismissed_false_positive' | 'skipped' | 'failed';
+  action: 'proposed' | 'dismissed_false_positive' | 'skipped' | 'failed';
   reason: string;
   patchSummary?: string;
   beforeCode?: string;
   afterCode?: string;
+  proposedChangeId?: string;
 }
 
 interface PatchReview {
@@ -195,21 +198,39 @@ export async function processFindings(findings: SecurityFinding[]): Promise<Auto
       typeof review.lineStart === 'number' &&
       typeof review.lineEnd === 'number'
     ) {
-      const { success, beforeCode } = applyPatch(
-        finding.filePath,
-        review.lineStart,
-        review.lineEnd,
-        review.patchedCode
-      );
+      const raw = readFileSafe(finding.filePath);
+      const lines = raw ? raw.split('\n') : [];
+      const beforeCode = lines.slice(review.lineStart - 1, review.lineEnd).join('\n');
+
+      let proposedChangeId: string | undefined;
+      try {
+        const db = getSharedDb();
+        const [inserted] = await db.insert(proposedCodeChanges).values({
+          findingTitle: finding.title,
+          findingDescription: finding.description,
+          findingSeverity: finding.severity,
+          findingSource: 'wren_security',
+          filePath: finding.filePath,
+          lineStart: review.lineStart,
+          lineEnd: review.lineEnd,
+          beforeCode,
+          afterCode: review.patchedCode,
+          patchRationale: review.reason,
+        }).returning({ id: proposedCodeChanges.id });
+        proposedChangeId = inserted?.id;
+        console.log(`[WrenAutoPatch] Proposed fix for "${finding.title}" → awaiting Alden review (id: ${proposedChangeId})`);
+      } catch (err: any) {
+        console.error(`[WrenAutoPatch] Failed to store proposal for "${finding.title}":`, err.message);
+      }
+
       results.push({
         finding,
-        action: success ? 'patched' : 'failed',
+        action: 'proposed',
         reason: review.reason,
-        patchSummary: success
-          ? `Lines ${review.lineStart}-${review.lineEnd} in ${finding.filePath}`
-          : `Patch generated but file write failed`,
+        patchSummary: `Lines ${review.lineStart}-${review.lineEnd} in ${finding.filePath}`,
         beforeCode,
         afterCode: review.patchedCode,
+        proposedChangeId,
       });
     } else {
       console.log(`[WrenAutoPatch] Skipped (needs discussion): ${finding.title}`);
@@ -225,23 +246,23 @@ export function formatAutoPatchReport(results: AutoPatchResult[], auditNumber: n
     return `**Wren Auto-Patch Review — Audit #${auditNumber}**\n\nNo findings to review.\n\n*Wren Security Officer*`;
   }
 
-  const patched = results.filter(r => r.action === 'patched');
+  const proposed = results.filter(r => r.action === 'proposed');
   const dismissed = results.filter(r => r.action === 'dismissed_false_positive');
   const skipped = results.filter(r => r.action === 'skipped');
   const failed = results.filter(r => r.action === 'failed');
 
   const lines: string[] = [
-    `**Wren Auto-Patch Review — Audit #${auditNumber}**`,
+    `**Wren Security Review — Audit #${auditNumber}**`,
     ``,
-    `Reviewed ${results.length} finding(s): ${patched.length} patched · ${dismissed.length} false positives · ${skipped.length} escalated · ${failed.length} errors`,
+    `Reviewed ${results.length} finding(s): ${proposed.length} proposed for Alden review · ${dismissed.length} false positives · ${skipped.length} escalated · ${failed.length} errors`,
     ``,
   ];
 
-  for (const r of patched) {
-    lines.push(`⚡ **PATCHED** — ${r.finding.title}`);
+  for (const r of proposed) {
+    lines.push(`📋 **PROPOSED** (awaiting Alden review) — ${r.finding.title}`);
     lines.push(`File: \`${r.finding.filePath}:${r.finding.lineNumber}\``);
     lines.push(r.reason);
-    if (r.patchSummary) lines.push(`Applied: ${r.patchSummary}`);
+    if (r.patchSummary) lines.push(`Proposed change: ${r.patchSummary}`);
     if (r.beforeCode) lines.push(`\`\`\`\nBefore:\n${r.beforeCode}\nAfter:\n${r.afterCode}\n\`\`\``);
     lines.push('');
   }

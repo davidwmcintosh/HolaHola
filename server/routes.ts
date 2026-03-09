@@ -28223,6 +28223,25 @@ Under 250 words. Write as yourself.`;
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  app.post("/api/team-room/trigger-code-review", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { runReviewQueue } = await import('./services/alden-code-review-service');
+      const summary = await runReviewQueue();
+      res.json({ ok: true, summary });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/team-room/proposed-changes", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { getSharedDb } = await import('./db');
+      const { proposedCodeChanges } = await import('../shared/schema');
+      const { desc } = await import('drizzle-orm');
+      const db = getSharedDb();
+      const changes = await db.select().from(proposedCodeChanges).orderBy(desc(proposedCodeChanges.createdAt)).limit(50);
+      res.json(changes);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // Team Room artifacts
   app.get("/api/team-room/sessions/:id/artifacts", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
     try {

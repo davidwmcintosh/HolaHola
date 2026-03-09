@@ -2,6 +2,7 @@ import { wrenSecurityAuditService, type SecurityFinding } from './wren-security-
 import { founderCollabService } from './founder-collaboration-service';
 import { postToActiveTeamRoom } from './team-room-proactive-poster';
 import { processFindings, formatAutoPatchReport, isFalsePositiveKnown } from './wren-auto-patch-service';
+import { runReviewQueue } from './alden-code-review-service';
 import { getSharedDb } from '../db';
 import { founderSessions, users } from '@shared/schema';
 import { eq, and, desc, sql, or, inArray } from 'drizzle-orm';
@@ -177,20 +178,30 @@ async function runSecurityAudit(): Promise<void> {
         console.log(`[Wren Security Worker] Running auto-patch review on ${findings.length} finding(s)...`);
         const patchResults = await processFindings(findings);
         const patchReport = formatAutoPatchReport(patchResults, auditCount);
+        const proposedCount = patchResults.filter(r => r.action === 'proposed').length;
+        const dismissedCount = patchResults.filter(r => r.action === 'dismissed_false_positive').length;
+
         await founderCollabService.addMessage(sessionId, {
           role: 'wren',
           content: patchReport,
           metadata: {
             type: 'auto_patch_report',
             auditNumber: auditCount,
-            patched: patchResults.filter(r => r.action === 'patched').length,
-            dismissed: patchResults.filter(r => r.action === 'dismissed_false_positive').length,
+            proposed: proposedCount,
+            dismissed: dismissedCount,
             skipped: patchResults.filter(r => r.action === 'skipped').length,
           },
         });
-        const patchedCount = patchResults.filter(r => r.action === 'patched').length;
-        const dismissedCount = patchResults.filter(r => r.action === 'dismissed_false_positive').length;
-        console.log(`[Wren Security Worker] Auto-patch complete: ${patchedCount} patched, ${dismissedCount} dismissed`);
+        console.log(`[Wren Security Worker] Proposal pass complete: ${proposedCount} proposed, ${dismissedCount} dismissed — handing off to Alden`);
+
+        if (proposedCount > 0) {
+          try {
+            const reviewSummary = await runReviewQueue();
+            console.log(`[Wren Security Worker] Alden review complete: ${reviewSummary.approved} approved (${reviewSummary.applied} applied, ${reviewSummary.githubSynced} synced), ${reviewSummary.revised} revised, ${reviewSummary.escalated} escalated`);
+          } catch (reviewErr: any) {
+            console.error(`[Wren Security Worker] Alden review queue failed:`, reviewErr.message);
+          }
+        }
       } catch (err: any) {
         console.error(`[Wren Security Worker] Auto-patch review failed:`, err.message);
       }

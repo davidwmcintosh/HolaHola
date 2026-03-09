@@ -16,7 +16,7 @@ import { postToActiveTeamRoom } from './team-room-proactive-poster';
 import { getSecurityAuditStats } from './wren-security-audit-worker';
 import { getLyraAnalyticsStats } from './lyra-analytics-worker';
 import { getSharedDb } from '../db';
-import { founderSessions, sofiaIssueReports } from '@shared/schema';
+import { founderSessions, sofiaIssueReports, proposedCodeChanges } from '@shared/schema';
 import { eq, desc, gte, and, count, sql } from 'drizzle-orm';
 
 const DIGEST_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -66,6 +66,14 @@ interface TeamSnapshot {
     totalSessions: number;
     activeSessionTitles: string[];
   };
+  codeReview: {
+    total: number;
+    applied: number;
+    revised: number;
+    escalated: number;
+    escalatedTitles: string[];
+    pendingReview: number;
+  };
 }
 
 async function gatherTeamSnapshot(): Promise<TeamSnapshot> {
@@ -94,6 +102,20 @@ async function gatherTeamSnapshot(): Promise<TeamSnapshot> {
     .map(s => s.title)
     .filter(Boolean) as string[];
 
+  const codeReviewRows = await getSharedDb()
+    .select({
+      id: proposedCodeChanges.id,
+      status: proposedCodeChanges.status,
+      findingTitle: proposedCodeChanges.findingTitle,
+    })
+    .from(proposedCodeChanges)
+    .where(gte(proposedCodeChanges.createdAt, oneWeekAgo));
+
+  const crApplied = codeReviewRows.filter(r => r.status === 'applied').length;
+  const crRevised = codeReviewRows.filter(r => r.status === 'revised').length;
+  const crEscalated = codeReviewRows.filter(r => r.status === 'escalated');
+  const crPending = codeReviewRows.filter(r => r.status === 'pending_review').length;
+
   return {
     wren: {
       lastAuditTime: wrenStats.lastAuditTime,
@@ -113,6 +135,14 @@ async function gatherTeamSnapshot(): Promise<TeamSnapshot> {
       totalSessions: recentSessions.length,
       activeSessionTitles,
     },
+    codeReview: {
+      total: codeReviewRows.length,
+      applied: crApplied,
+      revised: crRevised,
+      escalated: crEscalated.length,
+      escalatedTitles: crEscalated.map(r => r.findingTitle),
+      pendingReview: crPending,
+    },
   };
 }
 
@@ -131,12 +161,24 @@ function buildDigestPrompt(snap: TeamSnapshot, digestNumber: number): string {
     ? `${snap.expressSessions.totalSessions} active collaboration session(s) this week`
     : 'No collaboration sessions started this week';
 
+  const crSummary = snap.codeReview.total > 0
+    ? [
+        `${snap.codeReview.total} fix(es) proposed this week: ${snap.codeReview.applied} auto-applied, ${snap.codeReview.revised} sent back for revision, ${snap.codeReview.escalated} escalated, ${snap.codeReview.pendingReview} pending`,
+        snap.codeReview.escalatedTitles.length > 0
+          ? `ESCALATED (needs David's attention): ${snap.codeReview.escalatedTitles.join('; ')}`
+          : '',
+      ].filter(Boolean).join('\n')
+    : 'No code fixes proposed this week';
+
   return `You are Alden, the development steward at HolaHola. You are thoughtful, direct, and forward-looking. You do NOT implement things — you propose, coordinate, and prioritize.
 
 Here is what the team surfaced this week:
 
 SECURITY (Wren):
 ${wrenSummary}
+
+CODE REVIEW (Alden):
+${crSummary}
 
 LEARNING EXPERIENCE (Lyra):
 ${lyraSummary}
@@ -151,7 +193,7 @@ ${sessionSummary}
 
 Write a concise weekly digest for David. Your digest should:
 1. Open with 1-2 sentences acknowledging the team's work this week — brief and genuine, not performative
-2. List 3-5 prioritized focus items for the coming week, in order of importance
+2. List 3-5 prioritized focus items for the coming week, in order of importance — if there are escalated code changes requiring David's attention, name them specifically
 3. For each item: one clear sentence describing what it is and ONE sentence on why it matters now
 4. Close with a single sentence recommendation on where David should put his attention first
 

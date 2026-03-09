@@ -8253,3 +8253,59 @@ export const insertRoomSessionSummarySchema = createInsertSchema(roomSessionSumm
 export type InsertRoomSessionSummary = z.infer<typeof insertRoomSessionSummarySchema>;
 export type RoomSessionSummary = typeof roomSessionSummaries.$inferSelect;
 
+
+// ===== CAP-007: Alden Code Review Pipeline =====
+
+export const proposedChangeStatusEnum = pgEnum('proposed_change_status', [
+  'pending_review',
+  'approved',
+  'applied',
+  'rejected',
+  'revised',
+  'escalated',
+]);
+
+export const proposedCodeChanges = pgTable("proposed_code_changes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  // What triggered the change
+  findingTitle: text("finding_title").notNull(),
+  findingDescription: text("finding_description").notNull(),
+  findingSeverity: varchar("finding_severity").notNull(),
+  findingSource: varchar("finding_source").notNull().default('wren_security'),
+
+  // The proposed change
+  filePath: text("file_path").notNull(),
+  lineStart: integer("line_start").notNull(),
+  lineEnd: integer("line_end").notNull(),
+  beforeCode: text("before_code").notNull(),
+  afterCode: text("after_code").notNull(),
+  patchRationale: text("patch_rationale").notNull(),
+
+  // Review
+  status: proposedChangeStatusEnum("status").default('pending_review').notNull(),
+  reviewerNotes: text("reviewer_notes"),
+  aldenDecisionReason: text("alden_decision_reason"),
+  reviewedAt: timestamp("reviewed_at"),
+
+  // Application
+  appliedAt: timestamp("applied_at"),
+  githubSynced: boolean("github_synced").default(false),
+  githubCommitHash: varchar("github_commit_hash"),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertProposedCodeChangeSchema = createInsertSchema(proposedCodeChanges).omit({
+  id: true,
+  status: true,
+  reviewerNotes: true,
+  aldenDecisionReason: true,
+  reviewedAt: true,
+  appliedAt: true,
+  githubSynced: true,
+  githubCommitHash: true,
+  createdAt: true,
+});
+export type InsertProposedCodeChange = z.infer<typeof insertProposedCodeChangeSchema>;
+export type ProposedCodeChange = typeof proposedCodeChanges.$inferSelect;
