@@ -28014,6 +28014,19 @@ Under 250 words. Write as yourself.`;
             .finally(() => emitParticipantsDone(id));
           return;
         }
+
+        // CAP-009: Self-critique pipeline — Daniela-founder reviews Daniela-tutor's real session data
+        const { classifyCritiqueIntent, runCritiquePipeline } = await import('./services/daniela-self-critique-service');
+        const critiqueIntent = await classifyCritiqueIntent(content);
+        if (critiqueIntent.isCritiqueRequest && critiqueIntent.confidence !== 'low') {
+          emitParticipantThinking(id, ['daniela']);
+          const ownerEmail = (req as any).user?.email || '';
+          res.json({ message, aiMessages: [], expressLaneItems: [], artifacts: [], mentions: [], allEvaluations: [], critiquePipelineStarted: true });
+          runCritiquePipeline(content, id, room.topic, ownerEmail, critiqueIntent)
+            .catch(err => console.error('[DanielaCritique] Pipeline error:', err))
+            .finally(() => emitParticipantsDone(id));
+          return;
+        }
       }
 
       const guestTutors = ((room.metadata as any)?.guestTutors || []);
