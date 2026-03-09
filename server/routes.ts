@@ -27996,6 +27996,21 @@ Under 250 words. Write as yourself.`;
       const { evaluateAllParticipants, parseMentions } = await import('./services/team-room-alden-service');
       const { emitNewMessage, emitExpressLane, emitArtifact, emitParticipantThinking, emitParticipantsDone } = await import('./services/team-room-ws-broker');
       emitNewMessage(id, message);
+
+      // CAP-008: Build pipeline — fires for feature/bug requests from the founder
+      if (speaker === 'David' || speaker === 'david') {
+        const { classifyBuildIntent, runBuildPipeline } = await import('./services/alden-build-service');
+        const buildIntent = await classifyBuildIntent(content);
+        if (buildIntent.isBuildRequest && buildIntent.confidence !== 'low') {
+          emitParticipantThinking(id, ['alden', 'daniela']);
+          res.json({ message, aiMessages: [], expressLaneItems: [], artifacts: [], mentions: [], allEvaluations: [], buildPipelineStarted: true });
+          runBuildPipeline(content, id, room.topic)
+            .catch(err => console.error('[AldenBuild] Pipeline error:', err))
+            .finally(() => emitParticipantsDone(id));
+          return;
+        }
+      }
+
       const guestTutors = ((room.metadata as any)?.guestTutors || []);
       const guestNames = guestTutors.map((g: any) => g.tutorName);
       const mentions = parseMentions(content, guestNames);

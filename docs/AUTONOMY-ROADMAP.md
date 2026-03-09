@@ -228,6 +228,56 @@ commit message `[AUTO-FIX] <finding title> — reviewed by Alden`
 
 ---
 
+### CAP-008: Real-Time Collaborative Building in the Team Room
+**Status:** SHIPPED — 2026-03-09
+**Owner:** Alden (architect/implementer) + Daniela (co-planner)
+**Priority:** High
+
+**What was built:**
+- `server/services/alden-build-service.ts` — full build pipeline:
+  - `classifyBuildIntent()` — Gemini Flash classifies David's messages as
+    feature_request, bug_fix_request, question, discussion, or feedback
+  - `loadCodeContext()` — Gemini identifies relevant files (max 5), reads them
+    with line numbers for Claude; skips files > 120KB
+  - `getDanielaBuildPerspective()` — Daniela fires as co-founder and the AI
+    who will use the feature: API/function call design, ROI, student experience
+  - `planBuild()` — Claude Opus produces structured JSON plan with exact file
+    changes (filePath, lineStart, lineEnd, beforeCode, afterCode, rationale)
+  - `applyBuildPlan()` — applies each change to disk; runs
+    `scripts/sync-to-github.sh "[FEATURE] name"` on success
+  - `runBuildPipeline()` — orchestrator: classify → ack → load context →
+    Daniela posts → Alden plans (with Daniela's input) → artifact → implement
+    → GitHub sync → completion report
+- `server/routes.ts` — `POST /api/team-room/sessions/:id/messages` now checks
+  build intent first; if detected, fires pipeline async and returns HTTP
+  response immediately (WebSocket handles all subsequent updates)
+
+**Build flow:**
+1. David sends a feature request in the Team Room
+2. Gemini Flash classifies it (~500ms) — if build intent detected, pipeline fires
+3. Alden posts immediate ack: "On it — loading context for X"
+4. Context loaded from relevant files (with line numbers for accuracy)
+5. Daniela posts her perspective (co-founder + AI-who-uses-it angle)
+6. Alden plans with Claude Opus — Daniela's input is in the planning prompt
+7. Plan posted as Artifact to Team Room (file-by-file breakdown)
+8. Alden posts "Implementing — N changes across M files"
+9. Changes applied to disk; GitHub synced with `[FEATURE]` commit
+10. Completion report: files changed, line count, what to test
+
+**Daniela's role in CAP-008:**
+- NOT just pedagogical — she is a full co-planner
+- For function calls/tools: describes what she needs from the interface (params,
+  response format, edge cases she'll hit as the AI invoking them)
+- For UI features: how real students behave with this, ROI justification
+- For backend: impact on the learner loop, competes/compounds with existing
+- Always includes business angle: right thing to build right now?
+- Her output is passed to Claude Opus before planning — influences the final plan
+
+**If build intent NOT detected:** normal Team Room evaluation runs (all participants
+evaluate and respond per their domain — no change to existing behavior).
+
+---
+
 ## GitHub Access for the Team
 
 For the team to contribute code under Tier 1 and CAP-003, the following needs to be in
@@ -258,5 +308,6 @@ place:
 | CAP-005: Sofia issue cleanup | **SHIPPED** | 2026-03-08 |
 | CAP-006: Alden memory check-ins | **SHIPPED** | 2026-03-08 |
 | CAP-007: Alden as code reviewer | **SHIPPED** | 2026-03-09 |
+| CAP-008: Real-time collaborative building | **SHIPPED** | 2026-03-09 |
 
 As capabilities are built, update status to: **In progress → Review → Live**.
