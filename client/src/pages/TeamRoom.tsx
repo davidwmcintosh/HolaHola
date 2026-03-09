@@ -895,7 +895,7 @@ export default function TeamRoom() {
   return (
     <div className="flex h-full bg-background overflow-hidden">
       {/* ── Left Panel: Participants ── */}
-      <div className="w-56 flex-none border-r flex flex-col">
+      <div className="w-56 flex-none border-r flex flex-col overflow-hidden">
         <div className="p-3 border-b shrink-0">
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-muted-foreground" />
@@ -987,7 +987,7 @@ export default function TeamRoom() {
       </div>
 
       {/* ── Center Panel: Discussion ── */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {!activeSessionId ? (
           <ScrollArea className="flex-1">
             <div className="flex flex-col items-center p-6 gap-6">
@@ -1084,7 +1084,7 @@ export default function TeamRoom() {
             </div>
 
             {sessionSummary && (
-              <div className="mx-4 mt-3 p-3 rounded-md bg-muted/60 border border-border text-xs space-y-2" data-testid="session-summary-banner">
+              <div className="mx-4 mt-3 p-3 rounded-md bg-muted/60 border border-border text-xs space-y-2 shrink-0" data-testid="session-summary-banner">
                 <div className="flex items-center gap-1.5 text-muted-foreground font-medium">
                   <Info className="h-3.5 w-3.5" />
                   {isActive ? "Previously in this room" : "Session Summary"}
@@ -1193,7 +1193,7 @@ export default function TeamRoom() {
       </div>
 
       {/* ── Right Panel: Express Lane ── */}
-      <div className="w-80 flex-none border-l flex flex-col">
+      <div className="w-80 flex-none border-l flex flex-col overflow-hidden">
         <div className="p-3 border-b shrink-0">
           <div className="flex items-center gap-2">
             <Radio className="h-4 w-4 text-blue-500" />
