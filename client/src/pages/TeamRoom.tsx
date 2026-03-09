@@ -16,7 +16,7 @@ import {
   GraduationCap, Shield, Mic, MicOff, Volume2, FileText,
   Table, Lightbulb, CheckSquare, GitBranch, Info, Copy,
   Target, ClipboardList, AtSign, Hand, UserPlus, UserMinus,
-  BookOpen, TrendingUp, Cpu, Circle, RotateCcw,
+  BookOpen, TrendingUp, Cpu, Circle, RotateCcw, Monitor, ScanEye,
 } from "lucide-react";
 import { io, Socket } from "socket.io-client";
 import type { TeamRoom as TeamRoomType, RoomVoiceMessage, RoomArtifact } from "@shared/schema";
@@ -103,7 +103,8 @@ const TEMPLATE_ICONS: Record<string, React.ElementType> = {
 // ── Artifact rendering ────────────────────────────────────────────────────────
 
 const ARTIFACT_ICONS: Record<string, React.ElementType> = {
-  plan: GitBranch, table: Table, code: Code, insight: Lightbulb, decision: CheckSquare, default: FileText,
+  plan: GitBranch, table: Table, code: Code, insight: Lightbulb, decision: CheckSquare,
+  browser_screenshot: Monitor, daniela_self_critique: ScanEye, default: FileText,
 };
 
 function ArtifactCard({ artifact, guestTutors }: { artifact: RoomArtifact; guestTutors: GuestTutorInfo[] }) {
@@ -161,6 +162,70 @@ function ArtifactCard({ artifact, guestTutors }: { artifact: RoomArtifact; guest
           {c.decision && <p className="font-medium">{String(c.decision)}</p>}
           {c.rationale && <p className="text-muted-foreground">{String(c.rationale)}</p>}
           {c.impact && <p className="text-amber-600 dark:text-amber-400">Impact: {String(c.impact)}</p>}
+        </div>
+      );
+    }
+    if (artifact.artifactType === "browser_screenshot" && c.screenshotBase64) {
+      const errors = c.consoleErrors as string[] | undefined;
+      const broken = c.brokenImages as string[] | undefined;
+      return (
+        <div className="space-y-2">
+          <img
+            src={`data:image/png;base64,${String(c.screenshotBase64)}`}
+            alt={`Screenshot of ${String(c.url || "page")}`}
+            className="w-full rounded-sm border border-border"
+            data-testid="browser-screenshot-image"
+          />
+          {c.analysis && <p className="text-xs text-muted-foreground whitespace-pre-wrap">{String(c.analysis)}</p>}
+          {errors && errors.length > 0 && (
+            <div className="text-xs text-destructive space-y-0.5">
+              <span className="font-medium">Console errors ({errors.length}):</span>
+              {errors.slice(0, 3).map((e, i) => <div key={i} className="font-mono truncate opacity-80">{e}</div>)}
+            </div>
+          )}
+          {broken && broken.length > 0 && (
+            <p className="text-xs text-amber-600 dark:text-amber-400">{broken.length} broken image(s) on this page.</p>
+          )}
+          <p className="text-xs text-muted-foreground/60 font-mono truncate">{String(c.url || "")}</p>
+        </div>
+      );
+    }
+    if (artifact.artifactType === "daniela_self_critique") {
+      const rating = String(c.overallRating || "");
+      const ratingColor = rating === "needs_work" ? "text-destructive" : rating === "strong" ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400";
+      const moments = c.specificMoments as Array<{exchange: number; whatWasWrong: string; whatIShouldHaveDone: string}> | undefined;
+      const forAlden = c.forAlden as string[] | undefined;
+      const forMyself = c.forMyself as string[] | undefined;
+      const patterns = c.patterns as string[] | undefined;
+      return (
+        <div className="space-y-2.5 text-xs">
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className={`font-semibold ${ratingColor}`}>{rating.replace("_", " ").toUpperCase()}</span>
+            <span className="text-muted-foreground">{Number(c.sessionCount) || 0} session(s)</span>
+            <span className="text-muted-foreground">Trend: {String(c.performanceTrend || "")}</span>
+            {c.speakingRatio && <span className="text-muted-foreground">Tutor {(c.speakingRatio as any).tutor}% / Student {(c.speakingRatio as any).student}%</span>}
+          </div>
+          {c.sessionSummary && <p className="text-muted-foreground">{String(c.sessionSummary)}</p>}
+          {patterns && patterns.length > 0 && (
+            <div><p className="font-medium mb-1">Patterns:</p>{patterns.map((p, i) => <p key={i} className="text-muted-foreground">• {p}</p>)}</div>
+          )}
+          {moments && moments.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="font-medium">Specific moments:</p>
+              {moments.map((m, i) => (
+                <div key={i} className="bg-muted/40 rounded-md p-2 space-y-1">
+                  <p className="text-muted-foreground">Exchange {m.exchange}: {m.whatWasWrong}</p>
+                  <p className="text-emerald-600 dark:text-emerald-400">→ {m.whatIShouldHaveDone}</p>
+                </div>
+              ))}
+            </div>
+          )}
+          {forAlden && forAlden.length > 0 && (
+            <div><p className="font-medium text-blue-600 dark:text-blue-400 mb-1">For Alden:</p>{forAlden.map((item, i) => <p key={i} className="text-muted-foreground">• {item}</p>)}</div>
+          )}
+          {forMyself && forMyself.length > 0 && (
+            <div><p className="font-medium text-purple-600 dark:text-purple-400 mb-1">Personal notes:</p>{forMyself.map((item, i) => <p key={i} className="text-muted-foreground">• {item}</p>)}</div>
+          )}
         </div>
       );
     }

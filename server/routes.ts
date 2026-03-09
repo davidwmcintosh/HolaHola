@@ -28375,6 +28375,14 @@ Under 250 words. Write as yourself.`;
       emitNewMessage(roomId, guardianMsg);
       emitExpressLane(roomId, [{ participant: 'alden', content: expressContent }]);
 
+      // CAP-009: Post-build screenshot — Alden visually verifies what he built
+      if (success) {
+        const { aldenPostBuildScreenshot } = await import('./services/playwright-browser-service');
+        const screenContext = whatToTest || featureName || 'dashboard';
+        aldenPostBuildScreenshot(screenContext, featureName, roomId)
+          .catch(err => console.error('[PlaywrightBrowser] Post-build screenshot error:', err));
+      }
+
       console.log(`[Guardian] Report received — ${success ? 'SUCCESS' : 'ROLLBACK'} for "${featureName}" in room ${roomId}`);
       res.json({ ok: true });
     } catch (e: any) {

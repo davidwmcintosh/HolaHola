@@ -393,19 +393,54 @@ export async function runBrowserPipeline(
   }
 }
 
+// ── Page keyword → URL resolution ─────────────────────────────────────────────
+
+const PAGE_KEYWORD_MAP: Array<[string, string]> = [
+  ['team room', '/team-room'],
+  ['teamroom', '/team-room'],
+  ['vocabulary', '/vocabulary'],
+  ['vocab', '/vocabulary'],
+  ['flashcard', '/vocabulary'],
+  ['textbook', '/textbook'],
+  ['interactive textbook', '/textbook'],
+  ['lesson', '/lessons'],
+  ['conversation', '/conversations'],
+  ['progress report', '/progress-report'],
+  ['progress', '/progress-report'],
+  ['profile', '/profile'],
+  ['settings', '/settings'],
+  ['curriculum', '/curriculum'],
+  ['classes', '/classes'],
+  ['login', '/auth'],
+  ['auth', '/auth'],
+  ['dashboard', '/'],
+  ['home', '/'],
+];
+
+function resolvePageUrl(context: string): { page: string; url: string } {
+  const lower = context.toLowerCase();
+  for (const [keyword, url] of PAGE_KEYWORD_MAP) {
+    if (lower.includes(keyword)) {
+      return { page: keyword, url };
+    }
+  }
+  return { page: 'dashboard', url: '/' };
+}
+
 // ── Post-build screenshot for Alden ──────────────────────────────────────────
 
 export async function aldenPostBuildScreenshot(
-  affectedPage: string,
+  context: string,
   buildDescription: string,
   roomId: string
 ): Promise<void> {
-  console.log('[PlaywrightBrowser] Alden post-build screenshot:', affectedPage);
+  const { page, url } = resolvePageUrl(context);
+  console.log(`[PlaywrightBrowser] Alden post-build screenshot: "${page}" (${url}) — context: "${context}"`);
   const intent: BrowseIntent = {
     isBrowseRequest: true,
     participant: 'alden',
-    targetPage: affectedPage,
-    targetUrl: affectedPage,
+    targetPage: page,
+    targetUrl: url,
     question: `I just built: "${buildDescription}". Does this feature appear correctly on screen? What do you see? Note any layout issues, missing elements, or anything that looks wrong.`,
     confidence: 'high',
   };
