@@ -207,6 +207,16 @@ export function isFounder(user: User | undefined): boolean {
  */
 export function requireFounder(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
+    // Password auth path: session.userId set directly (covers AI browser + password login)
+    const sessionUserId = (req.session as any)?.userId;
+    if (sessionUserId === FOUNDER_USER_ID) {
+      if (!req.authenticatedUser) {
+        return res.status(500).json({ error: "User data not loaded. Ensure loadAuthenticatedUser middleware runs first." });
+      }
+      return next();
+    }
+
+    // OIDC / Replit Auth path
     if (!req.user?.claims?.sub) {
       return res.status(401).json({ error: "Authentication required" });
     }

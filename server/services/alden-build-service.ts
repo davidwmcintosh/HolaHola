@@ -15,7 +15,7 @@ import { GoogleGenAI } from '@google/genai';
 import { storage } from '../storage';
 
 const GUARDIAN_MANIFEST_PATH = '/tmp/alden-guardian-manifest.json';
-export const GUARDIAN_TOKEN = 'alden-guardian-internal-2024';
+export const GUARDIAN_TOKEN = process.env.GUARDIAN_TOKEN || 'alden-guardian-internal-2024';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
