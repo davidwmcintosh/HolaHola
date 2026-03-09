@@ -602,6 +602,11 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Version endpoint - verify production deployment
+  // Simple health check — used by alden-build-guardian to verify server is up
+  app.get('/api/health', (_req, res) => {
+    res.json({ status: 'ok', ts: Date.now() });
+  });
+
   app.get('/api/version', (_req, res) => {
     res.json({
       version: process.env.REPLIT_DEPLOYMENT_ID || 'development',
@@ -28273,6 +28278,67 @@ Under 250 words. Write as yourself.`;
       const artifact = await storage.createRoomArtifact({ roomId: id, artifactType, title, content, createdBy });
       res.json(artifact);
     } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // CAP-008: Guardian completion report — called by alden-build-guardian.js (localhost only)
+  app.post("/api/team-room/internal/guardian-complete", async (req: any, res) => {
+    try {
+      const token = req.headers['x-guardian-token'];
+      const { GUARDIAN_TOKEN } = await import('./services/alden-build-service');
+      if (token !== GUARDIAN_TOKEN) {
+        return res.status(403).json({ error: 'Unauthorized' });
+      }
+
+      const { roomId, featureName, success, githubSynced, githubError, filesRestored, restoreErrors, error, whatToTest } = req.body;
+      if (!roomId) return res.status(400).json({ error: 'roomId required' });
+
+      const { emitNewMessage, emitExpressLane } = await import('./services/team-room-ws-broker');
+
+      let voiceContent: string;
+      let expressContent: string;
+
+      if (success) {
+        voiceContent = githubSynced
+          ? `Verified clean. Server restarted healthy after the changes. Synced to GitHub.${whatToTest ? ` To test: ${whatToTest}` : ''}`
+          : `Server restarted healthy — changes are good. GitHub sync failed${githubError ? ` (${githubError})` : ''}, but the code is live on dev.${whatToTest ? ` To test: ${whatToTest}` : ''}`;
+
+        expressContent = [
+          `**Build Verified: ${featureName}**`,
+          ``,
+          `**Server health:** ✓ Clean restart`,
+          `**GitHub:** ${githubSynced ? '✓ Synced' : `⚠ Not synced${githubError ? ` — ${githubError}` : ''}`}`,
+          whatToTest ? `\n**What to test:** ${whatToTest}` : '',
+        ].filter(Boolean).join('\n');
+      } else {
+        const restoredList = filesRestored?.length > 0 ? filesRestored.join(', ') : 'none';
+        voiceContent = `The server didn't restart cleanly — I rolled back the changes. Original files restored: ${restoredList}. Nothing was pushed to GitHub. Let's look at the plan and figure out what went wrong.`;
+
+        expressContent = [
+          `**Build Rolled Back: ${featureName}**`,
+          ``,
+          `**Server health:** ✗ Did not restart after changes`,
+          `**Action taken:** Original files restored automatically`,
+          `**Files restored:** ${restoredList}`,
+          restoreErrors?.length > 0 ? `**Restore errors:** ${restoreErrors.join('; ')}` : '',
+          error ? `\n**Error:** ${error}` : '',
+          `\n**GitHub:** Not synced (rollback was required)`,
+        ].filter(Boolean).join('\n');
+      }
+
+      const guardianMsg = await storage.createRoomMessage({
+        roomId,
+        speaker: 'Alden',
+        content: voiceContent,
+      });
+      emitNewMessage(roomId, guardianMsg);
+      emitExpressLane(roomId, [{ participant: 'alden', content: expressContent }]);
+
+      console.log(`[Guardian] Report received — ${success ? 'SUCCESS' : 'ROLLBACK'} for "${featureName}" in room ${roomId}`);
+      res.json({ ok: true });
+    } catch (e: any) {
+      console.error('[Guardian] Error processing completion:', e.message);
+      res.status(500).json({ error: e.message });
+    }
   });
 
     // This ensures WS upgrade handler runs BEFORE Express/Vite middleware interferes

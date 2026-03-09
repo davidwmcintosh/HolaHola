@@ -9,10 +9,13 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
+import { execSync, spawn } from 'child_process';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenAI } from '@google/genai';
 import { storage } from '../storage';
+
+const GUARDIAN_MANIFEST_PATH = '/tmp/alden-guardian-manifest.json';
+export const GUARDIAN_TOKEN = 'alden-guardian-internal-2024';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -350,9 +353,59 @@ async function syncToGithub(featureName: string): Promise<boolean> {
   }
 }
 
-export async function applyBuildPlan(plan: BuildPlan): Promise<ApplyResult> {
+export async function applyBuildPlan(plan: BuildPlan, roomId: string): Promise<ApplyResult> {
   const result: ApplyResult = { filesChanged: [], linesChanged: 0, githubSynced: false, errors: [] };
 
+  // ── Step 1: Save backups of every file that will be edited (synchronous) ───
+  const backups: Record<string, string> = {};
+  for (const change of plan.changes) {
+    if (change.changeType === 'edit') {
+      try {
+        backups[change.filePath] = fs.readFileSync(change.filePath, 'utf-8');
+        console.log(`[AldenBuild] Backed up: ${change.filePath}`);
+      } catch {
+        // File might not exist yet if it's actually a create — that's fine
+      }
+    }
+  }
+
+  // ── Step 2: Write guardian manifest BEFORE touching any real files ─────────
+  const manifest = {
+    roomId,
+    featureName: plan.featureName,
+    whatToTest: plan.whatToTest,
+    backups,
+    port: 5000,
+    cwd: process.cwd(),
+    timestamp: new Date().toISOString(),
+  };
+  try {
+    fs.writeFileSync(GUARDIAN_MANIFEST_PATH, JSON.stringify(manifest), 'utf-8');
+    console.log(`[AldenBuild] Guardian manifest written`);
+  } catch (err: any) {
+    console.error(`[AldenBuild] Failed to write guardian manifest:`, err.message);
+    // Continue — apply will still work, just without rollback protection
+  }
+
+  // ── Step 3: Spawn guardian as a fully detached, independent process ────────
+  try {
+    const guardianPath = path.join(process.cwd(), 'scripts/alden-build-guardian.js');
+    const guardian = spawn(process.execPath, [guardianPath], {
+      detached: true,
+      stdio: 'ignore',
+      env: { ...process.env },
+      cwd: process.cwd(),
+    });
+    guardian.unref(); // Fully detach — guardian outlives this process
+    console.log(`[AldenBuild] Guardian spawned (PID: ${guardian.pid})`);
+  } catch (err: any) {
+    console.error(`[AldenBuild] Guardian spawn failed:`, err.message);
+    // Continue — changes will apply, just without guardian protection
+  }
+
+  // ── Step 4: Apply all changes synchronously ────────────────────────────────
+  // tsx will detect file changes and kill this process shortly after.
+  // The guardian handles health verification and GitHub sync independently.
   for (const change of plan.changes) {
     const { success, linesChanged, error } = applyChange(change);
     if (success) {
@@ -365,10 +418,9 @@ export async function applyBuildPlan(plan: BuildPlan): Promise<ApplyResult> {
     }
   }
 
-  if (result.filesChanged.length > 0) {
-    result.githubSynced = await syncToGithub(plan.featureName);
-  }
-
+  // GitHub sync is intentionally NOT done here.
+  // The guardian process verifies server health first, then syncs.
+  // result.githubSynced stays false — guardian reports the actual outcome.
   return result;
 }
 
@@ -485,10 +537,10 @@ export async function runBuildPipeline(
 
   if (plan.changes.length === 0) return true;
 
-  // T004: Apply
+  // T004: Apply — guardian is spawned inside applyBuildPlan before file writes
   let applyResult: ApplyResult;
   try {
-    applyResult = await applyBuildPlan(plan);
+    applyResult = await applyBuildPlan(plan, roomId);
   } catch (err: any) {
     const failMsg = await storage.createRoomMessage({
       roomId,
@@ -502,40 +554,29 @@ export async function runBuildPipeline(
   const successCount = applyResult.filesChanged.length;
   const failCount = applyResult.errors.length;
 
-  // Completion report
-  let completionText: string;
+  // Post the "applied — guardian watching" message.
+  // This is the LAST async operation before tsx hot-reload kills this process.
+  // The guardian (already spawned) handles health verification, rollback if needed,
+  // GitHub sync, and the final Team Room report.
+  let handoffText: string;
   if (successCount > 0 && failCount === 0) {
-    completionText = `Done. ${successCount === 1 ? applyResult.filesChanged[0] : `${successCount} files`} updated, ~${applyResult.linesChanged} lines.${applyResult.githubSynced ? ' Synced to GitHub.' : ''}\n\n**To test:** ${plan.whatToTest}`;
+    handoffText = `Applied ${successCount} change(s) across ${applyResult.filesChanged.length} file(s). Guardian is verifying the server restarted cleanly — I'll confirm health and sync to GitHub in about 15 seconds.`;
   } else if (successCount > 0) {
-    completionText = `Partial — ${successCount} file(s) updated, ${failCount} failed: ${applyResult.errors.join('; ')}.\n\n**To test:** ${plan.whatToTest}`;
+    handoffText = `Applied ${successCount} change(s) — ${failCount} failed: ${applyResult.errors.join('; ')}. Guardian is verifying health.`;
   } else {
-    completionText = `All changes failed: ${applyResult.errors.join('; ')}. Want me to approach this differently?`;
+    // All failed — guardian manifest is written but changes didn't apply. Clean up.
+    handoffText = `All changes failed to apply: ${applyResult.errors.join('; ')}. No files were modified. Want me to try a different approach?`;
+    try { fs.unlinkSync(GUARDIAN_MANIFEST_PATH); } catch {}
   }
 
-  const completeMsg = await storage.createRoomMessage({
+  const handoffMsg = await storage.createRoomMessage({
     roomId,
     speaker: 'Alden',
-    content: completionText,
+    content: handoffText,
   });
-  emitNewMessage(roomId, completeMsg);
+  emitNewMessage(roomId, handoffMsg);
 
-  // Express Lane summary
-  const expressContent = [
-    `**Build: ${plan.featureName}**`,
-    ``,
-    plan.summary,
-    ``,
-    `**Files:**`,
-    ...applyResult.filesChanged.map(f => `\`${f}\``),
-    ``,
-    `**Complexity:** ${plan.complexity} · **Lines:** ~${applyResult.linesChanged}`,
-    `**GitHub:** ${applyResult.githubSynced ? '✓ Synced' : '⚠ Not synced'}`,
-    applyResult.errors.length > 0 ? `\n**Errors:** ${applyResult.errors.join('; ')}` : '',
-    ``,
-    `**What to test:** ${plan.whatToTest}`,
-  ].filter(l => l !== '').join('\n');
-
-  emitExpressLane(roomId, [{ participant: 'alden', content: expressContent }]);
-  console.log(`[AldenBuild] Complete — ${successCount} applied, ${failCount} failed, GitHub: ${applyResult.githubSynced}`);
+  console.log(`[AldenBuild] Handed off to guardian — ${successCount} applied, ${failCount} failed`);
+  // tsx hot-reload will kill this process shortly. Guardian takes it from here.
   return true;
 }

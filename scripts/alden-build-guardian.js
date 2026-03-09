@@ -1,0 +1,201 @@
+#!/usr/bin/env node
+/**
+ * Alden Build Guardian — CAP-008 Verification
+ *
+ * Runs as a DETACHED process, fully independent of the tsx-managed server.
+ * Survives the tsx hot reload that kills the main server process after file writes.
+ *
+ * Flow:
+ *   1. Read manifest (written by alden-build-service before applying changes)
+ *   2. Wait 14 seconds for tsx to detect changes and restart the server
+ *   3. Poll /api/health until the server responds or timeout (30s)
+ *   4. SUCCESS → sync to GitHub, POST success to server, clean up manifest
+ *   5. FAILURE → restore all backup files, wait for tsx to re-detect, POST failure
+ */
+
+'use strict';
+
+const fs = require('fs');
+const http = require('http');
+const { execSync } = require('child_process');
+
+const MANIFEST_PATH = '/tmp/alden-guardian-manifest.json';
+const INITIAL_WAIT_MS = 14000;   // tsx typically restarts within 8-12 seconds
+const POLL_INTERVAL_MS = 2500;
+const MAX_POLL_MS = 35000;       // Total post-initial polling window
+const GUARDIAN_TOKEN = 'alden-guardian-internal-2024';
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function checkHealth(port) {
+  return new Promise(resolve => {
+    const req = http.get(`http://localhost:${port}/api/health`, res => {
+      resolve(res.statusCode >= 200 && res.statusCode < 500);
+    });
+    req.setTimeout(3000, () => { req.destroy(); resolve(false); });
+    req.on('error', () => resolve(false));
+  });
+}
+
+async function pollUntilHealthy(port) {
+  const deadline = Date.now() + MAX_POLL_MS;
+  while (Date.now() < deadline) {
+    const ok = await checkHealth(port);
+    if (ok) return true;
+    await sleep(POLL_INTERVAL_MS);
+  }
+  return false;
+}
+
+function restoreBackups(backups) {
+  const restored = [];
+  const errors = [];
+  for (const [filePath, content] of Object.entries(backups)) {
+    try {
+      fs.writeFileSync(filePath, content, 'utf-8');
+      restored.push(filePath);
+      console.log(`[Guardian] Restored: ${filePath}`);
+    } catch (err) {
+      errors.push(`${filePath}: ${err.message}`);
+      console.error(`[Guardian] Restore failed for ${filePath}:`, err.message);
+    }
+  }
+  return { restored, errors };
+}
+
+function syncToGithub(featureName, cwd) {
+  try {
+    const commitMsg = `[FEATURE] ${featureName}`;
+    execSync(`bash scripts/sync-to-github.sh "${commitMsg}"`, {
+      cwd,
+      timeout: 60000,
+      encoding: 'utf-8',
+      env: { ...process.env },
+    });
+    console.log(`[Guardian] GitHub synced: ${commitMsg}`);
+    return { synced: true };
+  } catch (err) {
+    const msg = err.message?.substring(0, 300) || 'Unknown error';
+    console.error('[Guardian] GitHub sync failed:', msg);
+    return { synced: false, error: msg };
+  }
+}
+
+function postToServer(port, payload) {
+  return new Promise(resolve => {
+    const body = JSON.stringify(payload);
+    const req = http.request({
+      hostname: 'localhost',
+      port,
+      path: '/api/team-room/internal/guardian-complete',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+        'X-Guardian-Token': GUARDIAN_TOKEN,
+      },
+    }, res => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => resolve({ status: res.statusCode, data }));
+    });
+    req.setTimeout(8000, () => { req.destroy(); resolve({ status: 0, data: 'timeout' }); });
+    req.on('error', err => resolve({ status: 0, data: err.message }));
+    req.write(body);
+    req.end();
+  });
+}
+
+async function main() {
+  console.log('[Guardian] Starting up');
+
+  // Read manifest
+  let manifest;
+  try {
+    manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf-8'));
+  } catch (err) {
+    console.error('[Guardian] Cannot read manifest:', err.message);
+    process.exit(1);
+  }
+
+  const { roomId, featureName, backups, port = 5000, cwd = process.cwd() } = manifest;
+  console.log(`[Guardian] Monitoring build: "${featureName}" for room ${roomId}`);
+
+  // Phase 1: Wait for tsx to detect changes and restart
+  console.log(`[Guardian] Waiting ${INITIAL_WAIT_MS / 1000}s for tsx hot reload...`);
+  await sleep(INITIAL_WAIT_MS);
+
+  // Phase 2: Poll for server health
+  console.log('[Guardian] Polling server health...');
+  const healthy = await pollUntilHealthy(port);
+
+  if (healthy) {
+    console.log('[Guardian] Server healthy — proceeding with GitHub sync');
+
+    // Give the server another moment to fully settle
+    await sleep(3000);
+
+    // GitHub sync
+    const { synced, error: githubError } = syncToGithub(featureName, cwd);
+
+    // Report success to server
+    const postResult = await postToServer(port, {
+      roomId,
+      featureName,
+      success: true,
+      githubSynced: synced,
+      githubError: githubError || null,
+      filesRestored: [],
+    });
+    console.log(`[Guardian] Posted success to server: HTTP ${postResult.status}`);
+
+  } else {
+    console.error('[Guardian] Server did not come back — rolling back');
+
+    // Restore backups
+    const { restored, errors: restoreErrors } = restoreBackups(backups);
+
+    // Wait for tsx to pick up the restored files and restart again
+    console.log('[Guardian] Waiting for tsx to re-load restored files...');
+    await sleep(INITIAL_WAIT_MS);
+
+    // Poll again — server should come back with original code
+    const recoveredHealthy = await pollUntilHealthy(port);
+
+    if (recoveredHealthy) {
+      await sleep(2000);
+      const postResult = await postToServer(port, {
+        roomId,
+        featureName,
+        success: false,
+        githubSynced: false,
+        filesRestored: restored,
+        restoreErrors,
+        error: `Server crashed after applying changes — original files restored. Server is back online.`,
+      });
+      console.log(`[Guardian] Posted rollback to server: HTTP ${postResult.status}`);
+    } else {
+      console.error('[Guardian] Server did not recover after rollback — manual intervention needed');
+      // Write a result file as last resort
+      try {
+        fs.writeFileSync('/tmp/alden-guardian-failed.json', JSON.stringify({
+          roomId, featureName, filesRestored: restored, restoreErrors,
+          error: 'Server did not recover after rollback',
+          timestamp: new Date().toISOString(),
+        }));
+      } catch {}
+    }
+  }
+
+  // Clean up manifest
+  try { fs.unlinkSync(MANIFEST_PATH); } catch {}
+  console.log('[Guardian] Done');
+  process.exit(0);
+}
+
+main().catch(err => {
+  console.error('[Guardian] Fatal:', err.message);
+  process.exit(1);
+});

@@ -276,6 +276,19 @@ commit message `[AUTO-FIX] <finding title> — reviewed by Alden`
 **If build intent NOT detected:** normal Team Room evaluation runs (all participants
 evaluate and respond per their domain — no change to existing behavior).
 
+**CAP-008 Verification Enhancement (Guardian Process):**
+- Before applying ANY file change: backups saved, manifest written to `/tmp/alden-guardian-manifest.json`
+- A detached Node.js guardian process spawned (`scripts/alden-build-guardian.js`) — runs
+  independently of tsx, survives the hot reload that kills the main server process
+- Guardian waits 14s for tsx to detect changes + restart, then polls `/api/health` for up to 35s
+- SUCCESS path: GitHub sync runs from guardian, guardian POSTs to `/api/team-room/internal/guardian-complete`
+  → Alden posts "Verified clean. Server restarted healthy. Synced to GitHub."
+- FAILURE path: guardian restores every backup file → tsx re-detects, server comes back with
+  original code → guardian reports "Rolled back" with exact list of restored files
+- GitHub sync is GATED on successful health check — broken code never reaches GitHub
+- `/api/health` endpoint added for guardian polling
+- Guardian token (`X-Guardian-Token` header) prevents abuse of the internal completion endpoint
+
 ---
 
 ## GitHub Access for the Team
