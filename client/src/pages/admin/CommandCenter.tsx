@@ -27,6 +27,7 @@ import { FluencyCoverageContent } from "@/pages/admin/FluencyCoverage";
 import { LessonDraftsContent } from "@/pages/admin/LessonDrafts";
 import { VoiceIntelligenceContent } from "@/pages/admin/VoiceIntelligence";
 import { ClientDiagnosticsViewer } from "@/components/admin/ClientDiagnosticsViewer";
+import { TextbookSeederTab } from "@/components/TextbookSeederTab";
 import { SyncControlCenterContent } from "@/pages/admin/SyncControlCenter";
 import { 
   LayoutDashboard,
@@ -1606,6 +1607,7 @@ export default function CommandCenter() {
         { id: "lesson-drafts", label: "Lessons", icon: Sparkles, roles: ['admin', 'developer'] },
         { id: "fluency-coverage", label: "Fluency", icon: Target, roles: ['admin', 'developer'] },
         { id: "images", label: "Images", icon: Image, roles: ['admin', 'developer'] },
+        { id: "textbook-seeder", label: "Textbook", icon: BookOpen, roles: ['admin', 'developer'] },
       ]
     },
     {
@@ -1756,6 +1758,10 @@ export default function CommandCenter() {
 
           <TabsContent value="images" className="space-y-4">
             <ImageLibraryTab />
+          </TabsContent>
+
+          <TabsContent value="textbook-seeder" className="space-y-4">
+            <TextbookSeederTab />
           </TabsContent>
 
           <TabsContent value="voice-analytics" className="space-y-4">

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,6 +18,7 @@ import {
 import { LessonPrepCard } from "./TextbookInfographics";
 import { ChapterRecap } from "./ChapterRecap";
 import { ChapterIntroduction } from "./ChapterIntroduction";
+import { TextbookLessonReader } from "./TextbookLessonReader";
 import { apiRequest } from "@/lib/queryClient";
 
 interface DrillItem {
@@ -90,7 +91,8 @@ function VisualLessonCard({
   language,
   onStartConversation,
   onStartDrill,
-  onViewed
+  onViewed,
+  onRead,
 }: {
   section: Section;
   index: number;
@@ -98,6 +100,7 @@ function VisualLessonCard({
   onStartConversation: () => void;
   onStartDrill: () => void;
   onViewed: () => void;
+  onRead: () => void;
 }) {
   const viewedRef = useRef(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -177,6 +180,16 @@ function VisualLessonCard({
           />
           
           <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+            <Button
+              variant="outline"
+              size="sm"
+              className="min-h-[44px] touch-manipulation"
+              onClick={onRead}
+              data-testid={`button-read-lesson-${section.id}`}
+            >
+              <BookOpen className="h-4 w-4 mr-1" />
+              Read
+            </Button>
             {section.conversationTopic && (
               <Button 
                 className="flex-1 min-h-[44px] touch-manipulation" 
@@ -226,6 +239,7 @@ export function TextbookChapterView({
 }: TextbookChapterViewProps) {
   const completedCount = chapter.sections.filter(s => s.isComplete).length;
   const viewedSectionsRef = useRef<Set<string>>(new Set());
+  const [readerLesson, setReaderLesson] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     viewedSectionsRef.current = new Set();
@@ -309,6 +323,7 @@ export function TextbookChapterView({
             onStartConversation={onStartConversation}
             onStartDrill={() => onStartDrill(section.id)}
             onViewed={() => handleSectionViewed(section.id)}
+            onRead={() => setReaderLesson({ id: section.id, name: section.name })}
           />
         ))}
       </div>
@@ -331,6 +346,13 @@ export function TextbookChapterView({
           onReviewFlashcards={handleReviewFlashcards}
         />
       )}
+
+      <TextbookLessonReader
+        lessonId={readerLesson?.id ?? ""}
+        lessonName={readerLesson?.name ?? ""}
+        open={!!readerLesson}
+        onClose={() => setReaderLesson(null)}
+      />
     </div>
   );
 }

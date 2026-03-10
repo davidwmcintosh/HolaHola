@@ -280,6 +280,7 @@ export async function buildClassroomEnvironment(params: {
   studentLearningSection?: string;
   technicalHealthNote?: string | null;
   activeScenario?: { title: string; location: string; slug: string; propsCount?: number } | null;
+  currentLessonId?: string;
 }): Promise<string> {
   const {
     userId,
@@ -301,9 +302,10 @@ export async function buildClassroomEnvironment(params: {
     studentLearningSection,
     technicalHealthNote,
     activeScenario,
+    currentLessonId,
   } = params;
 
-  const [personalFacts, milestoneCount, danielaPhoto, classroomWindow, userRow, principles, recentNotes] = await Promise.all([
+  const [personalFacts, milestoneCount, danielaPhoto, classroomWindow, userRow, principles, recentNotes, textbookContent] = await Promise.all([
     db
       .select({ factType: learnerPersonalFacts.factType, fact: learnerPersonalFacts.fact })
       .from(learnerPersonalFacts)
@@ -344,6 +346,18 @@ export async function buildClassroomEnvironment(params: {
     getCachedPrinciples(),
 
     getCachedNotes(),
+
+    currentLessonId
+      ? (async () => {
+          try {
+            const { sql: sqlRaw } = await import('drizzle-orm');
+            const { getUserDb } = await import('../db');
+            const userDb = getUserDb();
+            const rows = await userDb.execute(sqlRaw`SELECT vocabulary_list, grammar_explanation, key_phrases_for_chat, actfl_level FROM textbook_lesson_content WHERE lesson_id = ${currentLessonId} LIMIT 1`);
+            return rows.rows[0] ?? null;
+          } catch { return null; }
+        })()
+      : Promise.resolve(null),
   ]);
 
   const phaseContext = phaseTransitionService.getCurrentPhase(userId);
@@ -367,6 +381,21 @@ export async function buildClassroomEnvironment(params: {
 
   const northStarWall = formatNorthStarWall(principles);
   const identityWall = formatIdentityNotes(recentNotes);
+
+  let textbookSection = '';
+  if (textbookContent) {
+    const tc = textbookContent as any;
+    const vocabList = Array.isArray(tc.vocabulary_list) ? tc.vocabulary_list : [];
+    const phrases = Array.isArray(tc.key_phrases_for_chat) ? tc.key_phrases_for_chat : [];
+    const vocabStr = vocabList.slice(0, 10).map((v: any) => `${v.word} (${v.translation})`).join(', ');
+    const phrasesStr = phrases.slice(0, 6).map((p: any) => `"${p.phrase}" = ${p.meaning}`).join(' | ');
+    textbookSection = `
+---
+Lesson Textbook Context (ACTFL: ${tc.actfl_level || 'unknown'}):
+Grammar Focus: ${tc.grammar_explanation ? tc.grammar_explanation.slice(0, 200) : '—'}
+Vocabulary: ${vocabStr || '—'}
+Key Phrases: ${phrasesStr || '—'}`;
+  }
 
   const vineLeaves = milestoneCount;
   const vineDescription = vineLeaves === 0
@@ -443,7 +472,7 @@ Classroom Window: ${classroomWindow}
 North Star Polaroid: ${danielaPhoto}
 My Notes to Self: ${identityWall}
 ---
-North Star Wall: ${northStarWall}${studentProgressBoard}${betaTesterSection}${incognitoSection}${toolRack}
+North Star Wall: ${northStarWall}${studentProgressBoard}${textbookSection}${betaTesterSection}${incognitoSection}${toolRack}
 === END CLASSROOM ===`.trim();
 
   return env;

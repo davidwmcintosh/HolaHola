@@ -10126,6 +10126,76 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ── Textbook Content Routes ───────────────────────────────────────────────
+
+  // Fetch textbook prose content for a single lesson
+  app.get('/api/textbook-content/:lessonId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { lessonId } = req.params;
+      const { getUserDb } = await import('./db');
+      const { sql: drizzleSql } = await import('drizzle-orm');
+      const db = getUserDb();
+      const row = await db.execute(drizzleSql`SELECT * FROM textbook_lesson_content WHERE lesson_id = ${lessonId} LIMIT 1`);
+      if (row.rows.length === 0) return res.json({ content: null });
+      res.json({ content: row.rows[0] });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Trigger seed job for a curriculum path (admin only)
+  app.post('/api/admin/textbook/seed', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { pathId } = req.body;
+      if (!pathId) return res.status(400).json({ error: 'pathId required' });
+      const jobId = `seed-${pathId}-${Date.now()}`;
+      const { seedCurriculumPath } = await import('./services/textbook-seed-service');
+      // Fire-and-forget
+      seedCurriculumPath(pathId, jobId).catch((e: any) =>
+        console.error('[TextbookSeed] Fatal error:', e.message)
+      );
+      res.json({ jobId });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Poll seed job progress
+  app.get('/api/admin/textbook/seed-progress/:jobId', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { jobId } = req.params;
+      const { seedJobs } = await import('./services/textbook-seed-service');
+      const job = seedJobs.get(jobId);
+      if (!job) return res.status(404).json({ error: 'Job not found' });
+      res.json(job);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get seeding status for all paths in a language
+  app.get('/api/admin/textbook/status', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { getUserDb } = await import('./db');
+      const { sql: drizzleSql } = await import('drizzle-orm');
+      const db = getUserDb();
+      const rows = await db.execute(drizzleSql`
+        SELECT cp.id as path_id, cp.name as path_name, cp.language,
+               COUNT(cl.id) as total_lessons,
+               COUNT(tlc.id) as seeded_lessons
+        FROM curriculum_paths cp
+        LEFT JOIN curriculum_units cu ON cu.curriculum_path_id = cp.id
+        LEFT JOIN curriculum_lessons cl ON cl.curriculum_unit_id = cu.id
+        LEFT JOIN textbook_lesson_content tlc ON tlc.lesson_id = cl.id
+        GROUP BY cp.id, cp.name, cp.language
+        ORDER BY cp.language, cp.name
+      `);
+      res.json({ paths: rows.rows });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Create curriculum unit
   app.post("/api/curriculum/units", isAuthenticated, async (req: any, res) => {
     try {

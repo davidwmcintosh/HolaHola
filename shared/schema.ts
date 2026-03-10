@@ -1720,6 +1720,41 @@ export const insertTextbookVisualAssetSchema = createInsertSchema(textbookVisual
 export type InsertTextbookVisualAsset = z.infer<typeof insertTextbookVisualAssetSchema>;
 export type TextbookVisualAsset = typeof textbookVisualAssets.$inferSelect;
 
+// ===== Textbook Lesson Content =====
+// Stores OER-seeded textbook prose for each curriculum lesson.
+// Populated once per lesson by the textbook seed pipeline (Wiktionary + Tatoeba + Wikipedia → Gemini).
+
+export const textbookLessonContent = pgTable("textbook_lesson_content", {
+  id:                         varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  lessonId:                   varchar("lesson_id").notNull(),
+  language:                   text("language").notNull(),
+  actflLevel:                 text("actfl_level"),
+  // === Prose sections ===
+  introduction:               text("introduction"),
+  grammarExplanation:         text("grammar_explanation"),
+  grammarExamples:            jsonb("grammar_examples"),          // [{target, translation, note}]
+  vocabularyList:             jsonb("vocabulary_list"),           // [{word, translation, partOfSpeech, conjugations?, gender?, exampleSentences:[{target,translation}]}]
+  culturalNote:               text("cultural_note"),
+  readingPassage:             text("reading_passage"),
+  readingPassageTranslation:  text("reading_passage_translation"),
+  comprehensionQuestions:     jsonb("comprehension_questions"),   // [{question, answer}]
+  keyPhrasesForChat:          jsonb("key_phrases_for_chat"),      // [{phrase, translation, context}]
+  // === Metadata ===
+  sources:                    jsonb("sources"),                   // [{source:'wiktionary'|'tatoeba'|'wikipedia'|'wikivoyage', url?}]
+  seedVersion:                integer("seed_version").default(1),
+  seededAt:                   timestamp("seeded_at").notNull().defaultNow(),
+}, (table) => ({
+  lessonIdx:   index("idx_tlc_lesson").on(table.lessonId),
+  languageIdx: index("idx_tlc_language").on(table.language),
+}));
+
+export const insertTextbookLessonContentSchema = createInsertSchema(textbookLessonContent).omit({
+  id: true,
+  seededAt: true,
+});
+export type InsertTextbookLessonContent = z.infer<typeof insertTextbookLessonContentSchema>;
+export type TextbookLessonContent = typeof textbookLessonContent.$inferSelect;
+
 // ===== Multimedia Content System =====
 
 // Core media files table - stores all images, videos, and audio

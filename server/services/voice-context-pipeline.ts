@@ -66,6 +66,7 @@ export async function buildClassroomDynamicContext(params: ClassroomBuildParams)
       tutorName: session.tutorName || 'Daniela',
       studentLearningSection: studentLearningSection || undefined,
       technicalHealthNote: voiceDiagnostics.getTechnicalHealthContext(),
+      currentLessonId: session.lessonBundleContext?.lessonId,
       activeScenario: session.activeScenario ? {
         title: session.activeScenario.title,
         location: session.activeScenario.location || session.activeScenario.title,
