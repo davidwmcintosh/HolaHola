@@ -10144,6 +10144,59 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Trigger seed job for a curriculum path (admin only)
+
+  // ── Curriculum Enrichment Routes ──────────────────────────────────────────
+
+  app.post('/api/admin/curriculum/enrich', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { pathId } = req.body;
+      if (!pathId) return res.status(400).json({ error: 'pathId required' });
+      const jobId = `enrich-${pathId}-${Date.now()}`;
+      const { enrichCurriculumPath } = await import('./services/curriculum-enrichment-service');
+      enrichCurriculumPath(pathId, jobId).catch((e: any) =>
+        console.error('[CurriculumEnrich] Fatal error:', e.message)
+      );
+      res.json({ jobId });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get('/api/admin/curriculum/enrich-progress/:jobId', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { jobId } = req.params;
+      const { enrichJobs } = await import('./services/curriculum-enrichment-service');
+      const job = enrichJobs.get(jobId);
+      if (!job) return res.status(404).json({ error: 'Job not found' });
+      res.json(job);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get('/api/admin/curriculum/enrich-status', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { getUserDb } = await import('./db');
+      const { sql: drizzleSql } = await import('drizzle-orm');
+      const db = getUserDb();
+      const rows = await db.execute(drizzleSql`
+        SELECT cp.id as path_id, cp.name as path_name, cp.language,
+               COUNT(cl.id) as total_lessons,
+               COUNT(cl.enriched_at) as enriched_lessons,
+               COUNT(cl.required_vocabulary) as has_vocab,
+               COUNT(cl.required_grammar) as has_grammar
+        FROM curriculum_paths cp
+        LEFT JOIN curriculum_units cu ON cu.curriculum_path_id = cp.id
+        LEFT JOIN curriculum_lessons cl ON cl.curriculum_unit_id = cu.id
+        GROUP BY cp.id, cp.name, cp.language
+        ORDER BY cp.language, cp.name
+      `);
+      res.json({ paths: rows.rows });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post('/api/admin/textbook/seed', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { pathId } = req.body;

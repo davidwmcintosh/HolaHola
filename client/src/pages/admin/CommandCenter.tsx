@@ -28,6 +28,7 @@ import { LessonDraftsContent } from "@/pages/admin/LessonDrafts";
 import { VoiceIntelligenceContent } from "@/pages/admin/VoiceIntelligence";
 import { ClientDiagnosticsViewer } from "@/components/admin/ClientDiagnosticsViewer";
 import { TextbookSeederTab } from "@/components/TextbookSeederTab";
+import { CurriculumEnrichmentTab } from "@/components/CurriculumEnrichmentTab";
 import { SyncControlCenterContent } from "@/pages/admin/SyncControlCenter";
 import { 
   LayoutDashboard,
@@ -109,6 +110,7 @@ import {
   Save,
   Archive,
   Database,
+  DatabaseZap,
   Target,
   Percent,
   Map as MapIcon,
@@ -1607,6 +1609,7 @@ export default function CommandCenter() {
         { id: "lesson-drafts", label: "Lessons", icon: Sparkles, roles: ['admin', 'developer'] },
         { id: "fluency-coverage", label: "Fluency", icon: Target, roles: ['admin', 'developer'] },
         { id: "images", label: "Images", icon: Image, roles: ['admin', 'developer'] },
+        { id: "curriculum-enrichment", label: "Curriculum", icon: DatabaseZap, roles: ['admin', 'developer'] },
         { id: "textbook-seeder", label: "Textbook", icon: BookOpen, roles: ['admin', 'developer'] },
       ]
     },
@@ -1758,6 +1761,10 @@ export default function CommandCenter() {
 
           <TabsContent value="images" className="space-y-4">
             <ImageLibraryTab />
+          </TabsContent>
+
+          <TabsContent value="curriculum-enrichment" className="space-y-4">
+            <CurriculumEnrichmentTab />
           </TabsContent>
 
           <TabsContent value="textbook-seeder" className="space-y-4">
