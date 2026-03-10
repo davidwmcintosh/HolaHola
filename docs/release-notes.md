@@ -39,6 +39,30 @@ None — uses existing DB connection.
 
 ---
 
+## Permanent Image Storage for Study Mode Visuals
+**Shipped:** March 10, 2026
+**Built by:** Replit Agent
+
+DALL-E images are now archived to permanent cloud storage immediately after generation. All subsequent students load the same lesson and get the stored image for free — zero regeneration cost per lesson.
+
+**How it works:**
+1. DALL-E generates the image (returns a URL that expires in ~1 hour)
+2. `image-storage.ts` downloads the bytes and uploads them to the object storage bucket at `public/ai-images/{md5hash}.jpg`
+3. The permanent `storage.googleapis.com` URL is saved in `media_files.url` and linked via `lesson_visual_aids`
+4. Cache check no longer uses a TTL — if a record exists, it's permanent and returned directly
+
+**Fallback:** If object storage is unavailable, logs a warning and falls back to the original DALL-E URL (so Study Mode keeps working).
+
+**Note:** Existing `lesson_visual_aids` rows with old expiring DALL-E URLs will re-generate on next load (one-time cost per lesson) and be replaced with permanent URLs.
+
+**Files added/modified:**
+- `server/services/image-storage.ts` — new; `archiveImageToPermanentStorage(url, filename)` helper
+- `server/services/study-mode-service.ts` — imports helper, calls archive after generation, drops TTL check
+
+**Config required:** `DEFAULT_OBJECT_STORAGE_BUCKET_ID` (set automatically by object storage integration).
+
+---
+
 ## DALL-E Key Priority Fix
 **Shipped:** March 10, 2026
 **Built by:** Replit Agent

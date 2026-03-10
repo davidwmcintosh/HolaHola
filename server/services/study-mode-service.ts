@@ -8,17 +8,17 @@ import { GoogleGenAI } from "@google/genai";
 import { getUserDb } from "../db";
 import { sql } from "drizzle-orm";
 import { generateVisual } from "./visual-content-service";
+import { archiveImageToPermanentStorage } from "./image-storage";
 import { storage } from "../storage";
 import crypto from "crypto";
 import type { ImmersionScenario, ImmersionObjective, ImmersionScaffold } from "./team-room-alden-service";
 
-const VISUAL_URL_TTL_MS = 55 * 60 * 1000; // 55 min — DALL-E URLs expire in ~1h
-
 async function getOrGenerateLessonVisual(lessonId: string, visualPrompt: string, lessonName: string) {
   const db = getUserDb();
-  // Check lesson_visual_aids for an existing fresh image
+
+  // Check lesson_visual_aids for any stored image — no TTL, URLs are now permanent
   const cached = await db.execute(sql`
-    SELECT mf.url, mf.description, mf.tags, mf.created_at
+    SELECT mf.url, mf.description, mf.tags
     FROM lesson_visual_aids lva
     JOIN media_files mf ON mf.id = lva.media_file_id
     WHERE lva.lesson_id = ${lessonId}
@@ -27,22 +27,25 @@ async function getOrGenerateLessonVisual(lessonId: string, visualPrompt: string,
   `);
   if (cached.rows.length > 0) {
     const row = cached.rows[0] as any;
-    const age = Date.now() - new Date(row.created_at).getTime();
-    if (age < VISUAL_URL_TTL_MS) {
-      return {
-        imageUrl: row.url as string,
-        altText: (row.description as string) || lessonName,
-        semanticTags: (row.tags as string[]) || [],
-      };
-    }
+    return {
+      imageUrl: row.url as string,
+      altText: (row.description as string) || lessonName,
+      semanticTags: (row.tags as string[]) || [],
+    };
   }
+
   // Generate fresh image via DALL-E
   const result = await generateVisual(visualPrompt, 'image', {}, 'warm, friendly illustration, educational');
-  // Save to media_files
+
+  // Archive the temporary DALL-E URL to permanent object storage immediately
   const promptHash = crypto.createHash('md5').update('study_visual_' + lessonId).digest('hex');
+  const filename = `${promptHash}.jpg`;
+  const permanentUrl = await archiveImageToPermanentStorage(result.imageUrl, filename);
+
+  // Save permanent URL to media_files
   const mediaFile = await storage.cacheImage({
     mediaType: 'image',
-    url: result.imageUrl,
+    url: permanentUrl,
     filename: `study-visual-${lessonId}.jpg`,
     mimeType: 'image/jpeg',
     imageSource: 'ai_generated',
@@ -52,12 +55,14 @@ async function getOrGenerateLessonVisual(lessonId: string, visualPrompt: string,
     tags: result.semanticTags,
     language: 'spanish',
   });
+
   // Link to lesson via lesson_visual_aids
   await db.execute(sql`
     INSERT INTO lesson_visual_aids (id, lesson_id, media_file_id, title, description, display_order, is_required)
     VALUES (gen_random_uuid(), ${lessonId}, ${mediaFile.id}, ${lessonName}, ${result.altText}, 0, false)
   `);
-  return { imageUrl: result.imageUrl, altText: result.altText, semanticTags: result.semanticTags };
+
+  return { imageUrl: permanentUrl, altText: result.altText, semanticTags: result.semanticTags };
 }
 
 // ── Gemini client ─────────────────────────────────────────────────────────────
