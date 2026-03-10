@@ -185,7 +185,11 @@ Requirements:
   const response = await ai.models.generateContent({
     model:    'gemini-2.5-flash',
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    config:   { temperature: 0.4, maxOutputTokens: 3000 },
+    config:   {
+      temperature:   0.4,
+      maxOutputTokens: 6000,
+      thinkingConfig: { thinkingBudget: 0 },
+    },
   });
 
   const rawText = response.candidates?.[0]?.content?.parts?.[0]?.text ?? '';

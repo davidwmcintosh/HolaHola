@@ -49,7 +49,7 @@ export async function fetchTatoebaSentences(
 
     const res = await fetch(`${TATOEBA_API}?${params}`, {
       headers: { Accept: 'application/json' },
-      signal:  AbortSignal.timeout(10000),
+      signal:  AbortSignal.timeout(3000),
     });
 
     if (!res.ok) return [];

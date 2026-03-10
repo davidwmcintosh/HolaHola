@@ -622,6 +622,34 @@ app.use((req, res, next) => {
       setInterval(runDiagRetention, DIAG_CLEANUP_INTERVAL_MS);
     }, 60000);
 
+    // +75s: Curriculum Enrichment Auto-Resume
+    // Fires on every boot. The enrichment service skips already-enriched lessons
+    // (within 7 days), so this is safe to run repeatedly and acts as a self-healing
+    // resume mechanism when server restarts interrupt a bulk enrichment run.
+    setTimeout(async () => {
+      try {
+        const { Pool } = await import('pg');
+        const pool = new Pool({ connectionString: process.env.NEON_SHARED_DATABASE_URL });
+        const result = await pool.query(
+          'SELECT COUNT(*)::int AS cnt FROM curriculum_lessons WHERE enriched_at IS NULL'
+        );
+        await pool.end();
+        const remaining = result.rows[0].cnt as number;
+        if (remaining > 0) {
+          console.log(`[CurriculumEnrich] Boot-resume: ${remaining} unenriched lessons found — starting bulk enrichment`);
+          const { bulkEnrichAllPaths } = await import('./services/curriculum-enrichment-service');
+          const jobId = `bulk-enrich-boot-${Date.now()}`;
+          bulkEnrichAllPaths(jobId).catch((err: any) => {
+            console.error('[CurriculumEnrich] Boot-resume failed:', err.message);
+          });
+        } else {
+          console.log('[CurriculumEnrich] Boot-resume: all lessons already enriched, nothing to do');
+        }
+      } catch (err: any) {
+        console.warn('[CurriculumEnrich] Boot-resume check failed:', err.message);
+      }
+    }, 75000);
+
     // GRACEFUL SHUTDOWN: Drain active sessions and flush data before exit
     const gracefulShutdown = async (signal: string) => {
       console.log(`[Shutdown] ${signal} received — starting graceful drain...`);

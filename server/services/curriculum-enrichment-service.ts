@@ -101,8 +101,9 @@ const GRAMMAR_FORMAT_EXAMPLES: Record<string, string> = {
 // ── Core: enrich one lesson ──────────────────────────────────────────────────
 
 export async function enrichLesson(lessonId: string, language: string): Promise<{
-  backfilled: boolean;
-  validated:  boolean;
+  backfilled:   boolean;
+  validated:    boolean;
+  usedGemini:   boolean;
 }> {
   const db = getUserDb();
 
@@ -129,6 +130,19 @@ export async function enrichLesson(lessonId: string, language: string): Promise<
   const existingGrammar: string[] | null = lesson.required_grammar;
   const needsBackfill = !existingVocab || existingVocab.length === 0
                      || !existingGrammar || existingGrammar.length === 0;
+
+  // ── Fast-path: skip Gemini + OER for lessons that already have rich data ──
+  // If both vocab (≥4 words) and grammar (≥2 concepts) already exist, just
+  // stamp enriched_at and return — no API calls needed.
+  const vocabCount  = existingVocab  ? existingVocab.filter(v => v && v.trim()).length  : 0;
+  const grammarCount = existingGrammar ? existingGrammar.filter(g => g && g.trim()).length : 0;
+  if (vocabCount >= 4 && grammarCount >= 2) {
+    await getPgPool().query(
+      `UPDATE curriculum_lessons SET enriched_at = NOW() WHERE id = $1`,
+      [lessonId],
+    );
+    return { backfilled: false, validated: true, usedGemini: false };
+  }
 
   // ── OER fetches ──
   // For Wiktionary: use bare words stripped from existing vocab entries, or
@@ -227,12 +241,14 @@ Respond ONLY with a JSON object (no markdown fences):
   const response = await ai.models.generateContent({
     model:    'gemini-2.5-flash',
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    config:   { temperature: 0.3, maxOutputTokens: 2500 },
+    config:   { temperature: 0.3, maxOutputTokens: 4096, thinkingConfig: { thinkingBudget: 512 } },
   });
 
   const rawText = response.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-  const jsonText = rawText
-    .replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
+  // Robustly extract the first JSON object from the response,
+  // ignoring any preamble text, markdown fences, or thinking output
+  const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+  const jsonText = jsonMatch ? jsonMatch[0] : rawText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
 
   let parsed: any = {};
   try {
@@ -266,7 +282,7 @@ Respond ONLY with a JSON object (no markdown fences):
     [newVocab, newGrammar, JSON.stringify(notes), lessonId],
   );
 
-  return { backfilled: needsBackfill, validated: true };
+  return { backfilled: needsBackfill, validated: true, usedGemini: true };
 }
 
 // ── Enrich an entire curriculum path ────────────────────────────────────────
@@ -313,17 +329,22 @@ export async function enrichCurriculumPath(pathId: string, jobId: string): Promi
       }
     }
 
+    let usedGemini = false;
     try {
       const result = await enrichLesson(lesson.id, language);
       if (result.backfilled) job.backfilled++;
       if (result.validated)  job.validated++;
+      usedGemini = result.usedGemini ?? false;
     } catch (err: any) {
       console.error(`[CurriculumEnrich] ${lesson.name}:`, err.message);
       job.errors.push(`${lesson.name}: ${err.message.slice(0, 120)}`);
+      usedGemini = true; // treat errors as Gemini calls to avoid hammering on failures
     }
 
-    // Throttle: 1 lesson per 1.2 s to respect Gemini rate limits
-    await new Promise(r => setTimeout(r, 1200));
+    // Throttle only when a Gemini call was made (fast-path DB-only cases don't need throttle)
+    if (usedGemini) {
+      await new Promise(r => setTimeout(r, 1200));
+    }
   }
 
   job.status = 'complete';

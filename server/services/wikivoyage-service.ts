@@ -69,7 +69,7 @@ async function fetchArticleExtract(title: string, charLimit = 3000): Promise<str
   const url = `${EN_WIKIVOYAGE}?${params}`;
   const res = await fetch(url, {
     headers: { 'User-Agent': 'HolaHola/1.0 (language learning platform; contact@holahola.com)' },
-    signal: AbortSignal.timeout(5000),
+    signal: AbortSignal.timeout(3000),
   });
   if (!res.ok) return '';
   const data = await res.json();
@@ -91,7 +91,7 @@ async function searchWikivoyage(query: string, charLimit = 2000): Promise<string
   const searchUrl = `${EN_WIKIVOYAGE}?${searchParams}`;
   const searchRes = await fetch(searchUrl, {
     headers: { 'User-Agent': 'HolaHola/1.0 (language learning platform)' },
-    signal: AbortSignal.timeout(5000),
+    signal: AbortSignal.timeout(3000),
   });
   if (!searchRes.ok) return '';
   const [, titles] = await searchRes.json();
