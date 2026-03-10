@@ -1204,7 +1204,8 @@ export default function TeamRoom() {
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">Analysis, artifacts & insights</p>
         </div>
-        <ScrollArea className="flex-1 p-3">
+        <ScrollArea className="flex-1">
+          <div className="p-3">
           {!hasExpressContent ? (
             <div className="text-center py-10 text-xs text-muted-foreground px-3">
               Detailed analysis and shared artifacts from the team will appear here during the session.
@@ -1227,6 +1228,7 @@ export default function TeamRoom() {
               <div ref={expressEndRef} />
             </div>
           )}
+          </div>
         </ScrollArea>
       </div>
     </div>
