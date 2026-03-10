@@ -481,8 +481,15 @@ export class NativeFunctionCallHandler {
           break;
         }
 
-        if (text && !session.functionCallText) {
+        // Guard: reject text args that look like image alt-text descriptions — Gemini
+        // occasionally generates the concept as spoken text rather than natural speech.
+        // These should NEVER be spoken aloud; the continuation will handle speech.
+        const IMAGE_DESC_PREFIXES = ['illustration depicting', 'educational infographic', 'image showing', 'photo of', 'visual of'];
+        const isImageDesc = text ? IMAGE_DESC_PREFIXES.some(p => text.toLowerCase().startsWith(p)) : false;
+        if (text && !isImageDesc && !session.functionCallText) {
           session.functionCallText = text;
+        } else if (text && isImageDesc) {
+          console.warn(`[Native Function→GenerateVisual] Rejecting image-description text as speech: "${text.substring(0, 60)}..."`);
         }
 
         console.log(`[Native Function→GenerateVisual] Generating DALL-E image for: "${concept}"`);

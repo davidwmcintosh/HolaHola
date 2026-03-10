@@ -355,16 +355,20 @@ const registry: DanielaFunctionEntry[] = [
     legacyType: 'GENERATE_VISUAL',
     declaration: {
       name: "generate_visual",
-      description: `Create a custom AI-generated illustration to display on the whiteboard. Use this when you want a specific scene, concept illustration, or educational image that a stock photo can't capture — for example, showing a grammar concept in action, depicting a scenario setting, or creating a cultural scene. The image will appear on the whiteboard in a few seconds while you continue speaking. Include your spoken words in the 'text' parameter.`,
+      description: `Create a custom AI-generated illustration to display on the whiteboard. Use this when you want a specific scene, concept illustration, or educational image that a stock photo can't capture — for example, showing a grammar concept in action, depicting a scenario setting, or creating a cultural scene. The image will appear on the whiteboard in a few seconds while you continue speaking. Include natural conversational words in the 'text' parameter — NOT a description of the image. For example: "Let me show you a scene to set the mood!" or "Here's an illustration to help visualize this."`,
       parametersJsonSchema: {
         type: "object",
         properties: {
-          text: { type: "string", description: "What you're saying while the image generates" },
+          text: { type: "string", description: "What you're SAYING aloud — natural conversational speech, e.g. 'Let me show you a scene!' Do NOT write an image description here." },
           concept: { type: "string", description: "What to illustrate — be specific and descriptive, e.g. 'a Mexican family sharing a meal at a colorful kitchen table'" },
           style: { type: "string", description: "Art style or mood, e.g. 'warm, friendly illustration' or 'bright educational poster'. Defaults to warm educational illustration." },
         },
         required: ["concept"],
       },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      const concept = fc.args.concept as string | undefined;
+      return `Image generation started for "${concept || 'the concept'}". The illustration will appear on the student's screen in a few seconds. Continue the conversation naturally — say something brief and encouraging while they wait.`;
     },
   },
 

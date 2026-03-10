@@ -267,7 +267,7 @@ const ImageItemDisplay = ({ item, index }: ImageItemDisplayProps) => {
         />
       ) : (
         <div className="flex items-center justify-center h-32 bg-muted/50 rounded-lg text-muted-foreground text-sm">
-          {data.description}
+          Generating image...
         </div>
       )}
       
