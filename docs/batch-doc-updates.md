@@ -5098,3 +5098,35 @@ SQL cross-check across all completed voice sessions >60s confirmed:
 
 ### Key files modified
 - `server/services/usage-service.ts` — replaced estimation logic with character-based cross-check (lines ~482–520); constants `CHARS_PER_SECOND=15`, `ACTIVITY_MULTIPLIER=3`, `MIN_BILLABLE_SECONDS=120`
+
+---
+
+## Study Mode + Visual Content Service + Immersion Framework
+**Date:** March 10, 2026
+
+### What was built
+Three related features shipped in one session:
+
+**1. Visual Content Service** (`server/services/visual-content-service.ts`)
+Shared image generation utility. Call `generateVisual(concept, type, data, style)` from any service. Auto-detects OpenAI DALL-E → Stability AI → Picsum placeholder. Returns full metadata including ACTFL-aware semantic tags, alt text, and concept alignment score. Batch version available. Re-exported through team-room-alden-service.ts.
+
+**2. Conversational Immersion Framework** (types in `team-room-alden-service.ts`)
+`ImmersionObjective`, `ImmersionScaffold`, `ImmersionScenario`, `ImmersionSession` interfaces. Built in the Team Room with Daniela's curriculum input shaping the design. Used by Study Mode and available to all AI participants.
+
+**3. Study Mode** (`/study-mode`, `server/services/study-mode-service.ts`, `client/src/pages/StudyMode.tsx`)
+Full immersive study feature. Pick a Spanish curriculum unit → Daniela generates a scenario per lesson via Gemini → DALL-E scene visual per lesson → user practices with Daniela in character. Auto-advancing through lessons, objective checklist, inline grammar coaching.
+
+### Key files
+- `server/services/visual-content-service.ts` — new, 256 lines
+- `server/services/study-mode-service.ts` — new, 324 lines
+- `client/src/pages/StudyMode.tsx` — new frontend page
+- `server/services/team-room-alden-service.ts` — immersion types added, visual service imported/re-exported, all persona prompts updated with self-check + PASS mechanism, response cap added
+- `server/routes.ts` — 3 new study-mode endpoints
+- `client/src/App.tsx` — /study-mode route + isFullHeightPage
+- `client/src/components/app-sidebar.tsx` — Study Mode nav link
+
+### Config required
+- `USER_OPENAI_API_KEY` (or `OPENAI_API_KEY`) — for DALL-E visuals. Currently returning `invalid_api_key` from OpenAI; needs verification. Fallback to Picsum placeholders is functional; a banner shows in the UI when in placeholder mode.
+
+### User-facing instructions
+Navigate to Study Mode in the sidebar. Select a Spanish course unit. Daniela will prepare an immersive session (takes 15-30 seconds). Practice each lesson's scenario in conversation with Daniela — she stays in character, corrects gently inline, and tracks your objectives. Use the Next Lesson button to advance.

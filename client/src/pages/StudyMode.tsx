@@ -123,6 +123,17 @@ function UnitSelector({ onSelect }: { onSelect: (unit: StudyUnit) => void }) {
   );
 }
 
+function PlaceholderBanner() {
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs" data-testid="status-placeholder-mode">
+      <ImageIcon className="w-3.5 h-3.5 shrink-0" />
+      <span>
+        Scene visuals are using placeholder images. Add an <strong>OPENAI_API_KEY</strong> secret to enable DALL-E generation.
+      </span>
+    </div>
+  );
+}
+
 function SessionLoading({ unitName }: { unitName: string }) {
   return (
     <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
@@ -457,14 +468,19 @@ export default function StudyMode() {
           </div>
         )}
         {session && !done && session.scenarios[scenarioIndex] && (
-          <div className="h-full">
-            <ScenarioView
-              scenario={session.scenarios[scenarioIndex]}
-              scenarioIndex={scenarioIndex}
-              total={session.scenarios.length}
-              onNext={handleNext}
-              onBack={handleBack}
-            />
+          <div className="flex flex-col gap-3 h-full">
+            {session.scenarios.some(s => s.visual?.imageUrl?.includes('picsum')) && (
+              <PlaceholderBanner />
+            )}
+            <div className="flex-1 min-h-0">
+              <ScenarioView
+                scenario={session.scenarios[scenarioIndex]}
+                scenarioIndex={scenarioIndex}
+                total={session.scenarios.length}
+                onNext={handleNext}
+                onBack={handleBack}
+              />
+            </div>
           </div>
         )}
         {done && session && (
