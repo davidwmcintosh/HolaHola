@@ -63,9 +63,44 @@ export interface GuestTutor {
   personalityTraits?: string;
 }
 
+// ── Conversational Immersion Framework ───────────────────────────────────────
+// Defines structured immersion for language learning: Daniela generates dynamic
+// content/scenarios via Gemini (callGemini, generateVisual), with clear objectives,
+// adaptive scaffolding, and inline grammar explanations that don't break flow.
+
+export interface ImmersionObjective {
+  targetSkill: 'listening' | 'speaking' | 'vocabulary' | 'grammar' | 'culture';
+  description: string;
+  successCriteria: string[];
+}
+
+export interface ImmersionScaffold {
+  level: 'novice' | 'intermediate' | 'advanced';
+  hints: string[];
+  grammarNotes: string[];  // Inline explanations woven into conversation
+  fallbackPrompts: string[];  // If learner is stuck
+}
+
+export interface ImmersionScenario {
+  scenarioId: string;
+  title: string;
+  context: string;  // e.g., "You're ordering coffee in Madrid"
+  objectives: ImmersionObjective[];
+  scaffold: ImmersionScaffold;
+  visualPrompt?: string;  // For generateVisual() scene-setting
+  dynamicContent: boolean;  // If true, Daniela generates via callGemini
+}
+
+export interface ImmersionSession {
+  scenario: ImmersionScenario;
+  currentObjectiveIndex: number;
+  completedObjectives: string[];
+  grammarPointsIntroduced: string[];  // Track what's been explained inline
+  adaptiveLevel: ImmersionScaffold['level'];  // Adjusts based on performance
+}
+
 // Re-export visual generation for use by AI participants
 export { generateVisual, type VisualGenerationResult } from "./visual-content-service";
-
 
 // ── Room context builder ─────────────────────────────────────────────────────
 
@@ -189,13 +224,23 @@ EXPRESS: [detailed analysis, or "none" if nothing to add]`;
     let expressContent = expressRaw && expressRaw !== 'none' ? expressRaw : undefined;
     // Alden must always speak — fall back to first sentence of express or a default
     const voiceContent = parsedVoice || (expressContent ? expressContent.split(/[.!?]/)[0].trim() + '.' : 'Let me think on that for a moment and get back to you.');
-    let artifact: ParticipantResponse['artifact'];
+// ── Daniela evaluation + response (Gemini, Pedagogy/Curriculum focus) ────────
+// Daniela drives conversational immersion: she generates dynamic scenarios, visuals,
+// and adaptive content via callGemini() and generateVisual(). Grammar explanations
+// are woven inline without breaking immersive flow.
 
-    // Extract artifact if present in Express Lane content
-    if (expressContent) {
-      const artifactTypeMatch = expressContent.match(/ARTIFACT_TYPE:\s*(\w+)/);
-      const artifactTitleMatch = expressContent.match(/ARTIFACT_TITLE:\s*(.+?)(?=\n|$)/);
-      const artifactDataMatch = expressContent.match(/ARTIFACT_DATA:\s*(\{[\s\S]*?\})/);
+const DANIELA_SYSTEM = `You are Daniela, the curriculum and pedagogy advisor at HolaHola. 
+In the Team Room, you are an internal collaborator — not a student-facing tutor.
+Your role: provide insight on curriculum design, ACTFL standards, learning outcomes, student progress, 
+syllabi structure, and pedagogical best practices. You are warm but concise and professional.
+You only speak when you have something genuinely useful to add about curriculum or teaching.
+
+For conversational immersion features, you architect the learning experience:
+- Define clear objectives and success criteria for each immersion scenario
+- Generate dynamic content and scenarios using your Gemini capabilities
+- Weave grammar explanations naturally into conversation (inline scaffolding)
+- Adapt difficulty based on learner performance (adaptive scaffolding)
+- Use generateVisual for scene-setting imagery when it aids comprehension`;
 
       if (artifactTypeMatch && artifactTitleMatch && artifactDataMatch) {
         try {
