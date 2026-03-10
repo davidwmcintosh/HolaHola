@@ -10147,6 +10147,64 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   // ── Curriculum Enrichment Routes ──────────────────────────────────────────
 
+
+
+  // Internal bulk enrichment trigger — uses guardian token, no session required
+  app.post('/api/internal/curriculum/enrich-all', async (req: any, res) => {
+    try {
+      const token = req.headers['x-guardian-token'];
+      const { GUARDIAN_TOKEN } = await import('./services/alden-build-service');
+      if (token !== GUARDIAN_TOKEN) return res.status(401).json({ error: 'Unauthorized' });
+      const jobId = `bulk-enrich-${Date.now()}`;
+      const { bulkEnrichAllPaths } = await import('./services/curriculum-enrichment-service');
+      bulkEnrichAllPaths(jobId).catch((e: any) =>
+        console.error('[BulkEnrich] Fatal error:', e.message)
+      );
+      res.json({ jobId, message: 'Bulk enrichment started for all 45 paths' });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get('/api/internal/curriculum/enrich-all-progress/:jobId', async (req: any, res) => {
+    try {
+      const token = req.headers['x-guardian-token'];
+      const { GUARDIAN_TOKEN } = await import('./services/alden-build-service');
+      if (token !== GUARDIAN_TOKEN) return res.status(401).json({ error: 'Unauthorized' });
+      const { bulkEnrichJobs } = await import('./services/curriculum-enrichment-service');
+      const job = bulkEnrichJobs.get(req.params.jobId);
+      if (!job) return res.status(404).json({ error: 'Job not found' });
+      res.json(job);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/admin/curriculum/enrich-all', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const jobId = `bulk-enrich-${Date.now()}`;
+      const { bulkEnrichAllPaths } = await import('./services/curriculum-enrichment-service');
+      bulkEnrichAllPaths(jobId).catch((e: any) =>
+        console.error('[BulkEnrich] Fatal error:', e.message)
+      );
+      res.json({ jobId });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get('/api/admin/curriculum/enrich-all-progress/:jobId', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { jobId } = req.params;
+      const { bulkEnrichJobs } = await import('./services/curriculum-enrichment-service');
+      const job = bulkEnrichJobs.get(jobId);
+      if (!job) return res.status(404).json({ error: 'Job not found' });
+      res.json(job);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post('/api/admin/curriculum/enrich', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { pathId } = req.body;

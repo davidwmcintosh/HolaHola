@@ -44,6 +44,10 @@ function getGemini() {
   if (!gemini) {
     gemini = new GoogleGenAI({
       apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '',
+      httpOptions: {
+        apiVersion: '',
+        baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
+      },
     });
   }
   return gemini;
@@ -179,7 +183,7 @@ Requirements:
 
   const ai = getGemini();
   const response = await ai.models.generateContent({
-    model:    'gemini-2.0-flash',
+    model:    'gemini-2.5-flash',
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     config:   { temperature: 0.4, maxOutputTokens: 3000 },
   });

@@ -22,11 +22,21 @@
  */
 
 import { GoogleGenAI } from '@google/genai';
+import { Pool } from 'pg';
 import { getUserDb } from '../db';
 import { sql } from 'drizzle-orm';
 import { fetchWiktionaryEntries } from './wiktionary-service';
 import { fetchTatoebaSentences } from './tatoeba-service';
 import { fetchWikivoyagePhrases } from './wikivoyage-service';
+
+// Dedicated pg pool for array writes (Drizzle sql template can't bind text[] params directly)
+let pgPool: Pool | null = null;
+function getPgPool(): Pool {
+  if (!pgPool) {
+    pgPool = new Pool({ connectionString: process.env.NEON_SHARED_DATABASE_URL });
+  }
+  return pgPool;
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -51,6 +61,10 @@ function getGemini() {
   if (!gemini) {
     gemini = new GoogleGenAI({
       apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '',
+      httpOptions: {
+        apiVersion: '',
+        baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
+      },
     });
   }
   return gemini;
@@ -211,34 +225,46 @@ Respond ONLY with a JSON object (no markdown fences):
 
   const ai = getGemini();
   const response = await ai.models.generateContent({
-    model:    'gemini-2.0-flash',
+    model:    'gemini-2.5-flash',
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    config:   { temperature: 0.3, maxOutputTokens: 1500 },
+    config:   { temperature: 0.3, maxOutputTokens: 2500 },
   });
 
   const rawText = response.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
   const jsonText = rawText
     .replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
 
-  let parsed: any;
+  let parsed: any = {};
   try {
     parsed = JSON.parse(jsonText);
   } catch {
-    throw new Error(`Gemini returned invalid JSON for lesson ${lessonId}: ${jsonText.slice(0, 200)}`);
+    // Attempt to salvage arrays from truncated JSON via regex extraction
+    const vocabMatch   = jsonText.match(/"vocabulary"\s*:\s*(\[[\s\S]*?\])/);
+    const grammarMatch = jsonText.match(/"grammar"\s*:\s*(\[[\s\S]*?\])/);
+    if (vocabMatch || grammarMatch) {
+      try { parsed.vocabulary  = JSON.parse(vocabMatch?.[1]  ?? '[]'); } catch {}
+      try { parsed.grammar     = JSON.parse(grammarMatch?.[1] ?? '[]'); } catch {}
+      console.warn(`[CurriculumEnrich] Salvaged partial JSON for lesson ${lessonId}`);
+    } else {
+      throw new Error(`Gemini returned invalid JSON for lesson ${lessonId}: ${jsonText.slice(0, 200)}`);
+    }
   }
 
-  const newVocab:   string[] = parsed.vocabulary  ?? existingVocab  ?? [];
-  const newGrammar: string[] = parsed.grammar      ?? existingGrammar ?? [];
+  const newVocab:   string[] = (parsed.vocabulary  && parsed.vocabulary.length  > 0) ? parsed.vocabulary  : (existingVocab  ?? []);
+  const newGrammar: string[] = (parsed.grammar      && parsed.grammar.length      > 0) ? parsed.grammar      : (existingGrammar ?? []);
   const notes = parsed.oerCorroboration ?? {};
 
-  await db.execute(sql`
-    UPDATE curriculum_lessons
-    SET required_vocabulary = ${newVocab},
-        required_grammar    = ${newGrammar},
-        enrichment_notes    = ${JSON.stringify(notes)},
-        enriched_at         = NOW()
-    WHERE id = ${lessonId}
-  `);
+  // Use native pg Pool for this write — Drizzle sql template cannot bind text[] arrays directly
+  const pool = getPgPool();
+  await pool.query(
+    `UPDATE curriculum_lessons
+     SET required_vocabulary = $1,
+         required_grammar    = $2,
+         enrichment_notes    = $3,
+         enriched_at         = NOW()
+     WHERE id = $4`,
+    [newVocab, newGrammar, JSON.stringify(notes), lessonId],
+  );
 
   return { backfilled: needsBackfill, validated: true };
 }
@@ -292,4 +318,96 @@ export async function enrichCurriculumPath(pathId: string, jobId: string): Promi
 
   job.status = 'complete';
   enrichJobs.set(jobId, { ...job });
+}
+
+// ── Bulk: enrich ALL paths across all languages sequentially ────────────────
+
+export interface BulkEnrichProgress {
+  totalPaths:      number;
+  completedPaths:  number;
+  currentPath:     string;
+  currentLanguage: string;
+  totalLessons:    number;
+  processedLessons: number;
+  backfilled:      number;
+  validated:       number;
+  status:          'running' | 'complete' | 'error';
+  errors:          string[];
+  startedAt:       string;
+  estimatedMinutes: number;
+}
+
+export const bulkEnrichJobs = new Map<string, BulkEnrichProgress>();
+
+export async function bulkEnrichAllPaths(jobId: string): Promise<void> {
+  const db = getUserDb();
+
+  const pathRows = await db.execute(sql`
+    SELECT id, name, language,
+           (SELECT COUNT(*) FROM curriculum_units cu
+            JOIN curriculum_lessons cl ON cl.curriculum_unit_id = cu.id
+            WHERE cu.curriculum_path_id = curriculum_paths.id) as lesson_count
+    FROM curriculum_paths
+    ORDER BY language, name
+  `);
+  const paths = pathRows.rows as any[];
+  const totalLessons = paths.reduce((s, p) => s + Number(p.lesson_count), 0);
+
+  const bulk: BulkEnrichProgress = {
+    totalPaths: paths.length,
+    completedPaths: 0,
+    currentPath: '',
+    currentLanguage: '',
+    totalLessons,
+    processedLessons: 0,
+    backfilled: 0,
+    validated: 0,
+    status: 'running',
+    errors: [],
+    startedAt: new Date().toISOString(),
+    estimatedMinutes: Math.ceil((totalLessons * 1.2) / 60),
+  };
+  bulkEnrichJobs.set(jobId, { ...bulk });
+
+  for (let pi = 0; pi < paths.length; pi++) {
+    const path = paths[pi];
+    bulk.currentPath     = path.name;
+    bulk.currentLanguage = path.language;
+    bulkEnrichJobs.set(jobId, { ...bulk });
+
+    // Fetch lessons for this path
+    const lessonRows = await db.execute(sql`
+      SELECT cl.id, cl.name
+      FROM curriculum_lessons cl
+      JOIN curriculum_units cu ON cu.id = cl.curriculum_unit_id
+      WHERE cu.curriculum_path_id = ${path.id}
+      ORDER BY cu.order_index, cl.order_index
+    `);
+    const lessons = lessonRows.rows as any[];
+
+    for (let li = 0; li < lessons.length; li++) {
+      const lesson = lessons[li];
+      try {
+        const result = await enrichLesson(lesson.id, path.language);
+        if (result.backfilled) bulk.backfilled++;
+        if (result.validated)  bulk.validated++;
+      } catch (err: any) {
+        console.error(`[BulkEnrich] ${path.name} / ${lesson.name}:`, err.message);
+        bulk.errors.push(`[${path.language}] ${lesson.name}: ${err.message.slice(0, 100)}`);
+      }
+      bulk.processedLessons++;
+      bulkEnrichJobs.set(jobId, { ...bulk });
+
+      // Throttle to respect Gemini rate limits
+      await new Promise(r => setTimeout(r, 1200));
+    }
+
+    bulk.completedPaths++;
+    bulkEnrichJobs.set(jobId, { ...bulk });
+    console.log(`[BulkEnrich] ✓ ${path.name} complete (${pi + 1}/${paths.length})`);
+  }
+
+  bulk.status = 'complete';
+  bulkEnrichJobs.set(jobId, { ...bulk });
+  console.log(`[BulkEnrich] All ${paths.length} paths enriched. ${bulk.backfilled} backfilled, ${bulk.validated} validated, ${bulk.errors.length} errors.`);
 }
