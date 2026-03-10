@@ -233,8 +233,9 @@ export async function generateStudySession(unitId: string): Promise<StudySession
   if (!unitRow.rows.length) throw new Error(`Unit ${unitId} not found`);
   const unit = unitRow.rows[0] as any;
 
-  const lessons = await getUnitLessons(unitId);
-  if (!lessons.length) throw new Error(`No lessons found for unit ${unitId}`);
+  const allLessons = await getUnitLessons(unitId);
+  if (!allLessons.length) throw new Error(`No lessons found for unit ${unitId}`);
+  const lessons = allLessons.slice(0, 3);
 
   // Generate scenarios and visuals in parallel
   const scenarioResults = await Promise.all(
