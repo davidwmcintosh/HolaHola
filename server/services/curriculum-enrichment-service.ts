@@ -303,6 +303,16 @@ export async function enrichCurriculumPath(pathId: string, jobId: string): Promi
     job.currentLesson = lesson.name;
     enrichJobs.set(jobId, { ...job });
 
+    // Skip lessons already enriched in the last 7 days (resume-safe)
+    if (lesson.enriched_at) {
+      const age = Date.now() - new Date(lesson.enriched_at).getTime();
+      if (age < 7 * 24 * 60 * 60 * 1000) {
+        job.validated++;
+        enrichJobs.set(jobId, { ...job });
+        continue;
+      }
+    }
+
     try {
       const result = await enrichLesson(lesson.id, language);
       if (result.backfilled) job.backfilled++;
