@@ -2,6 +2,7 @@ import { generateAldenResponse } from "./alden-persona-service";
 import { storage } from "../storage";
 import { GoogleGenAI } from "@google/genai";
 import type { RoomVoiceMessage, RoomSessionSummary, RoomArtifact } from "@shared/schema";
+import { generateVisual, type VisualGenerationResult } from "./visual-content-service";
 
 // ── Gemini client (shared by Daniela + Sofia in Team Room) ──────────────────
 let geminiClient: GoogleGenAI | null = null;
@@ -53,7 +54,6 @@ export interface RoomEvaluationResult {
   participants: ParticipantResponse[];
   allEvaluations?: ParticipantResponse[];
 }
-
 export interface GuestTutor {
   tutorId: string;
   tutorName: string;
@@ -62,6 +62,10 @@ export interface GuestTutor {
   teachingPhilosophy?: string;
   personalityTraits?: string;
 }
+
+// Re-export visual generation for use by AI participants
+export { generateVisual, type VisualGenerationResult } from "./visual-content-service";
+
 
 // ── Room context builder ─────────────────────────────────────────────────────
 
