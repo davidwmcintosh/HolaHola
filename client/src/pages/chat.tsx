@@ -275,6 +275,15 @@ export default function Chat() {
       setConversationId(null);
       sessionStorage.removeItem('currentChatConversationId');
       setLocation('/chat', { replace: true });
+    } else if (params.get('scenario')) {
+      const scenarioSlug = params.get('scenario')!;
+      console.log('[SHARED CHAT] Scenario selected from browser:', scenarioSlug);
+      resumeHandledRef.current = true;
+      sessionStorage.setItem('pending_scenario_slug', scenarioSlug);
+      setForceNewConversation(true);
+      setConversationId(null);
+      sessionStorage.removeItem('currentChatConversationId');
+      setLocation('/chat', { replace: true });
     }
   }, [search, setLocation]);
 

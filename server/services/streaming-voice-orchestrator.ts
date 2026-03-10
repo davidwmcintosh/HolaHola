@@ -7998,7 +7998,8 @@ Remember: David may reference things discussed in these recent text chats.
   async processGreetingRequest(
     sessionId: string,
     userName?: string,
-    isResumed?: boolean
+    isResumed?: boolean,
+    scenarioSlug?: string
   ): Promise<StreamingMetrics> {
     const session = this.sessions.get(sessionId);
     if (!session || !session.isActive) {
@@ -8282,7 +8283,7 @@ Remember: David may reference things discussed in these recent text chats.
       });
       
       const promptBuildStart = Date.now();
-      const greetingPrompt = this.buildGreetingPrompt(
+      let greetingPrompt = this.buildGreetingPrompt(
         session,
         userName,
         actflLevel,
@@ -8294,6 +8295,13 @@ Remember: David may reference things discussed in these recent text chats.
         colleagueFeedback,
         todaysEarlierChats
       );
+      
+      // Inject scenario context if the student navigated here from the scenario browser
+      if (scenarioSlug) {
+        console.log(`[Streaming Greeting] Injecting scenario context for slug: "${scenarioSlug}"`);
+        greetingPrompt += `\n\nIMPORTANT OVERRIDE: The student just selected a specific roleplay scenario from the scenario browser. You MUST immediately load it by calling the load_scenario function with slug="${scenarioSlug}". Do NOT give a standard greeting — instead, introduce the scenario briefly and start it right away.`;
+      }
+      
       greetingTimings.promptBuild = Date.now() - promptBuildStart;
       greetingTimings.preGeminiTotal = Date.now() - timingStart;
       

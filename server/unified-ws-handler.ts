@@ -1646,7 +1646,7 @@ Reference past discussions when relevant, but don't force it.
             break;
           }
           
-          const greetingRequest = message as { type: 'request_greeting'; userName?: string; isResumed?: boolean };
+          const greetingRequest = message as { type: 'request_greeting'; userName?: string; isResumed?: boolean; scenarioSlug?: string };
           
           // CHECK FOR PENDING HANDOFF INTRO - If a cross-language switch just happened,
           // the new tutor needs to introduce themselves instead of giving a normal greeting
@@ -1678,13 +1678,14 @@ Reference past discussions when relevant, but don't force it.
             }
           }
           
-          console.log(`[Streaming Voice] Generating AI greeting... (resumed: ${greetingRequest.isResumed || false})`);
+          console.log(`[Streaming Voice] Generating AI greeting... (resumed: ${greetingRequest.isResumed || false}, scenario: ${greetingRequest.scenarioSlug || 'none'})`);
           
           try {
             await orchestrator.processGreetingRequest(
               session.id, 
               greetingRequest.userName,
-              greetingRequest.isResumed
+              greetingRequest.isResumed,
+              greetingRequest.scenarioSlug
             );
           } catch (greetingError: any) {
             console.error('[Streaming Voice] Greeting error:', greetingError.message);
@@ -3617,7 +3618,7 @@ ${buildNativeFunctionCallingSection()}`;
             break;
           }
           
-          const greetingRequest = message as { type: 'request_greeting'; userName?: string; isResumed?: boolean };
+          const greetingRequest = message as { type: 'request_greeting'; userName?: string; isResumed?: boolean; scenarioSlug?: string };
           
           // Check for pending handoff intro
           if (userId && pendingHandoffIntros.has(userId)) {
@@ -3643,13 +3644,14 @@ ${buildNativeFunctionCallingSection()}`;
             }
           }
           
-          console.log(`[Streaming Voice] Generating AI greeting... (resumed: ${greetingRequest.isResumed || false})`);
+          console.log(`[Streaming Voice] Generating AI greeting... (resumed: ${greetingRequest.isResumed || false}, scenario: ${greetingRequest.scenarioSlug || 'none'})`);
           
           try {
             await orchestrator.processGreetingRequest(
               session.id,
               greetingRequest.userName,
-              greetingRequest.isResumed
+              greetingRequest.isResumed,
+              greetingRequest.scenarioSlug
             );
           } catch (greetingError: any) {
             console.error('[Streaming Voice] Greeting error:', greetingError.message);

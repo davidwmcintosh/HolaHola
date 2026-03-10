@@ -733,7 +733,7 @@ export class StreamingVoiceClient {
    * @param userName - Optional student name for personalization
    * @param isResumed - True if resuming a previous conversation (triggers context-aware welcome back)
    */
-  requestGreeting(userName?: string, isResumed?: boolean): void {
+  requestGreeting(userName?: string, isResumed?: boolean, scenarioSlug?: string): void {
     if (!this.isReady()) {
       throw new Error('Socket.io not ready for greeting');
     }
@@ -742,6 +742,7 @@ export class StreamingVoiceClient {
       type: 'request_greeting',
       userName,
       isResumed,
+      scenarioSlug,
     });
 
     if (this.greetingTimer) clearTimeout(this.greetingTimer);
@@ -755,6 +756,7 @@ export class StreamingVoiceClient {
           type: 'request_greeting',
           userName,
           isResumed,
+          scenarioSlug,
           isRetry: true,
         });
       }

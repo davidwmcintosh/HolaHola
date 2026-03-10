@@ -1574,10 +1574,17 @@ export function StreamingVoiceChat({
       const greetingType = isResumedConversation ? 'RESUMED (welcome-back)' : 'NEW conversation';
       console.log(`[STREAMING GREETING] Requesting ${greetingType} AI-generated personalized greeting...`);
       
+      // Pick up any pending scenario slug (set when navigating from scenario browser)
+      const pendingScenarioSlug = sessionStorage.getItem('pending_scenario_slug') || undefined;
+      if (pendingScenarioSlug) {
+        sessionStorage.removeItem('pending_scenario_slug');
+        console.log('[STREAMING GREETING] Passing pending scenario slug to greeting:', pendingScenarioSlug);
+      }
+      
       // Request greeting through the streaming pipeline
       // The server will generate an ACTFL-aware, history-aware greeting
       // For resumed conversations, it will generate a contextual "welcome back" message
-      streamingVoice.requestGreeting(userDetails.firstName ?? undefined, isResumedConversation);
+      streamingVoice.requestGreeting(userDetails.firstName ?? undefined, isResumedConversation, pendingScenarioSlug);
       
       // Mark resume as handled so we don't keep triggering it
       if (isResumedConversation && onResumeHandled) {
