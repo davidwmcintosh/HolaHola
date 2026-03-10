@@ -489,19 +489,53 @@ export class NativeFunctionCallHandler {
 
         import('../services/visual-content-service').then(async ({ generateVisual }) => {
           try {
-            const result = await generateVisual(concept, 'image', {}, style);
-            console.log(`[Native Function→GenerateVisual] DALL-E complete — archiving to permanent storage`);
-
-            let imageUrl = result.imageUrl;
+            // Check library first — reuse an existing ai_generated image if available
+            let result: Awaited<ReturnType<typeof generateVisual>> | null = null;
             try {
-              const { archiveImageToPermanentStorage } = await import('../services/image-storage');
-              const crypto = await import('crypto');
-              const hash = crypto.createHash('md5').update('visual_' + concept + Date.now()).digest('hex');
-              imageUrl = await archiveImageToPermanentStorage(result.imageUrl, `${hash}.jpg`);
-            } catch (archiveErr: any) {
-              console.warn(`[Native Function→GenerateVisual] Archive failed, using DALL-E URL directly:`, archiveErr.message);
+              const { getUserDb } = await import('../db');
+              const { sql } = await import('drizzle-orm');
+              const db = getUserDb();
+              const existing = await db.execute(sql`
+                SELECT url, description, tags, accessibility_description, concept_alignment
+                FROM media_files
+                WHERE image_source = 'ai_generated'
+                  AND (
+                    title ILIKE ${`%${concept.substring(0, 40)}%`}
+                    OR description ILIKE ${`%${concept.substring(0, 40)}%`}
+                  )
+                ORDER BY concept_alignment DESC NULLS LAST, created_at DESC
+                LIMIT 1
+              `);
+              if (existing.rows.length > 0) {
+                const row = existing.rows[0] as any;
+                console.log(`[Native Function→GenerateVisual] Found library match — skipping DALL-E generation`);
+                result = {
+                  imageUrl: row.url as string,
+                  altText: (row.description as string) || concept,
+                  semanticTags: (row.tags as string[]) || [],
+                  accessibilityDescription: (row.accessibility_description as string) || '',
+                  conceptAlignment: Number(row.concept_alignment) || 0.85,
+                };
+              }
+            } catch (lookupErr: any) {
+              console.warn(`[Native Function→GenerateVisual] Library lookup failed, proceeding with generation:`, lookupErr.message);
             }
 
+            if (!result) {
+              result = await generateVisual(concept, 'image', {}, style);
+              // Archive the temporary DALL-E URL to permanent storage
+              console.log(`[Native Function→GenerateVisual] DALL-E complete — archiving to permanent storage`);
+              try {
+                const { archiveImageToPermanentStorage } = await import('../services/image-storage');
+                const crypto = await import('crypto');
+                const hash = crypto.createHash('md5').update('visual_' + concept + Date.now()).digest('hex');
+                result = { ...result, imageUrl: await archiveImageToPermanentStorage(result.imageUrl, `${hash}.jpg`) };
+              } catch (archiveErr: any) {
+                console.warn(`[Native Function→GenerateVisual] Archive failed, using DALL-E URL directly:`, archiveErr.message);
+              }
+            }
+
+            // Send to whiteboard (result is set either from library match or fresh generation)
             const whiteboardUpdate = {
               type: 'whiteboard_update' as const,
               timestamp: Date.now(),
@@ -511,7 +545,7 @@ export class NativeFunctionCallHandler {
                 data: {
                   word: concept,
                   description: result.altText,
-                  imageUrl,
+                  imageUrl: result.imageUrl,
                   source: 'dalle',
                   semanticTags: result.semanticTags,
                   accessibilityDescription: result.accessibilityDescription,

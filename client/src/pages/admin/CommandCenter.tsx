@@ -3985,6 +3985,9 @@ function ImageLibraryTab() {
   const [showRequestDialog, setShowRequestDialog] = useState(false);
   const [requestWord, setRequestWord] = useState("");
   const [requestLanguage, setRequestLanguage] = useState("spanish");
+  const [showGenerateDialog, setShowGenerateDialog] = useState(false);
+  const [generateConcept, setGenerateConcept] = useState("");
+  const [generateStyle, setGenerateStyle] = useState("warm, friendly illustration, educational");
   const limit = viewMode === 'list' ? 25 : 20;
 
   const queryParams = new URLSearchParams({
@@ -4128,6 +4131,21 @@ function ImageLibraryTab() {
     },
   });
 
+  const generateIllustrationMutation = useMutation({
+    mutationFn: async ({ concept, style }: { concept: string; style: string }) => {
+      return apiRequest("POST", "/api/admin/media/generate-illustration", { concept, style });
+    },
+    onSuccess: () => {
+      toast({ title: "Illustration generated and added to library" });
+      refetch();
+      setShowGenerateDialog(false);
+      setGenerateConcept("");
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to generate illustration", variant: "destructive" });
+    },
+  });
+
   const getSourceBadge = (source?: string | null) => {
     switch (source) {
       case 'ai_generated':
@@ -4196,6 +4214,15 @@ function ImageLibraryTab() {
               >
                 <Plus className="h-4 w-4 mr-1" />
                 Request Image
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowGenerateDialog(true)}
+                data-testid="button-generate-illustration"
+              >
+                <Sparkles className="h-4 w-4 mr-1" />
+                Generate Illustration
               </Button>
               
               <div className="flex border rounded-md overflow-hidden">
@@ -4716,6 +4743,69 @@ function ImageLibraryTab() {
               </AlertDialog>
             </div>
             <AlertDialogCancel data-testid="button-close-details">Close</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showGenerateDialog} onOpenChange={setShowGenerateDialog}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5" />
+              Generate Illustration
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Create a custom DALL-E illustration for teaching concepts, scenarios, or cultural scenes. The image will be archived to permanent storage and added to the library — Daniela will reuse it automatically when teaching similar concepts.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Concept to illustrate</label>
+              <textarea
+                value={generateConcept}
+                onChange={(e) => setGenerateConcept(e.target.value)}
+                placeholder="e.g., a family eating dinner together at a colorful Mexican kitchen table, evening light"
+                className="w-full px-3 py-2 border rounded-md bg-background resize-none"
+                rows={3}
+                data-testid="input-generate-concept"
+              />
+              <p className="text-xs text-muted-foreground">Be descriptive — specific scenes produce better educational images.</p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Style</label>
+              <Select value={generateStyle} onValueChange={setGenerateStyle}>
+                <SelectTrigger data-testid="select-generate-style">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="warm, friendly illustration, educational">Warm educational illustration</SelectItem>
+                  <SelectItem value="bright, colorful educational poster style">Colorful educational poster</SelectItem>
+                  <SelectItem value="realistic photography style, natural lighting">Realistic / photographic</SelectItem>
+                  <SelectItem value="simple flat design, minimal, clean educational">Flat / minimal design</SelectItem>
+                  <SelectItem value="vibrant cultural art style, rich colors">Cultural / vibrant art</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button
+              onClick={() => generateIllustrationMutation.mutate({ concept: generateConcept, style: generateStyle })}
+              disabled={!generateConcept.trim() || generateIllustrationMutation.isPending}
+              data-testid="button-submit-generate"
+            >
+              {generateIllustrationMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Generating (~15s)...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Generate & Save
+                </>
+              )}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

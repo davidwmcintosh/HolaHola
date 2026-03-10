@@ -16842,7 +16842,59 @@ Current conversation context:
     }
   });
 
-  // Delete media file (admin only)
+  app.post("/api/admin/media/generate-illustration", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const adminId = getRequestUserId(req)!;
+      const { concept, style } = req.body;
+      if (!concept?.trim()) {
+        return res.status(400).json({ error: "Concept is required" });
+      }
+      const { generateVisual } = await import('./services/visual-content-service');
+      const { archiveImageToPermanentStorage } = await import('./services/image-storage');
+      const crypto = await import('crypto');
+      const result = await generateVisual(
+        concept,
+        'image',
+        {},
+        style || 'warm, friendly illustration, educational'
+      );
+      const hash = crypto.createHash('md5').update('admin_visual_' + concept + Date.now()).digest('hex');
+      const permanentUrl = await archiveImageToPermanentStorage(result.imageUrl, `${hash}.jpg`);
+      const mediaFile = await storage.cacheImage({
+        mediaType: 'image',
+        url: permanentUrl,
+        filename: `illustration-${hash}.jpg`,
+        mimeType: 'image/jpeg',
+        imageSource: 'ai_generated',
+        promptHash: hash,
+        title: concept,
+        description: result.altText,
+        tags: result.semanticTags,
+        language: 'spanish',
+      });
+      await storage.logAdminAction({
+        actorId: adminId,
+        action: 'generate_illustration',
+        targetType: 'media_file',
+        targetId: mediaFile.id,
+        details: { concept, style, conceptAlignment: result.conceptAlignment, semanticTags: result.semanticTags },
+      });
+      res.json({
+        success: true,
+        imageUrl: permanentUrl,
+        altText: result.altText,
+        semanticTags: result.semanticTags,
+        accessibilityDescription: result.accessibilityDescription,
+        conceptAlignment: result.conceptAlignment,
+        mediaFileId: mediaFile.id,
+      });
+    } catch (error: any) {
+      console.error('Error generating illustration:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+    // Delete media file (admin only)
   app.delete("/api/admin/media/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { id } = req.params;
