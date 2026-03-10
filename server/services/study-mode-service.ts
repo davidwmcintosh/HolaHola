@@ -8,7 +8,57 @@ import { GoogleGenAI } from "@google/genai";
 import { getUserDb } from "../db";
 import { sql } from "drizzle-orm";
 import { generateVisual } from "./visual-content-service";
+import { storage } from "../storage";
+import crypto from "crypto";
 import type { ImmersionScenario, ImmersionObjective, ImmersionScaffold } from "./team-room-alden-service";
+
+const VISUAL_URL_TTL_MS = 55 * 60 * 1000; // 55 min — DALL-E URLs expire in ~1h
+
+async function getOrGenerateLessonVisual(lessonId: string, visualPrompt: string, lessonName: string) {
+  const db = getUserDb();
+  // Check lesson_visual_aids for an existing fresh image
+  const cached = await db.execute(sql`
+    SELECT mf.url, mf.description, mf.tags, mf.created_at
+    FROM lesson_visual_aids lva
+    JOIN media_files mf ON mf.id = lva.media_file_id
+    WHERE lva.lesson_id = ${lessonId}
+    ORDER BY lva.created_at DESC
+    LIMIT 1
+  `);
+  if (cached.rows.length > 0) {
+    const row = cached.rows[0] as any;
+    const age = Date.now() - new Date(row.created_at).getTime();
+    if (age < VISUAL_URL_TTL_MS) {
+      return {
+        imageUrl: row.url as string,
+        altText: (row.description as string) || lessonName,
+        semanticTags: (row.tags as string[]) || [],
+      };
+    }
+  }
+  // Generate fresh image via DALL-E
+  const result = await generateVisual(visualPrompt, 'image', {}, 'warm, friendly illustration, educational');
+  // Save to media_files
+  const promptHash = crypto.createHash('md5').update('study_visual_' + lessonId).digest('hex');
+  const mediaFile = await storage.cacheImage({
+    mediaType: 'image',
+    url: result.imageUrl,
+    filename: `study-visual-${lessonId}.jpg`,
+    mimeType: 'image/jpeg',
+    imageSource: 'ai_generated',
+    promptHash,
+    title: lessonName,
+    description: result.altText,
+    tags: result.semanticTags,
+    language: 'spanish',
+  });
+  // Link to lesson via lesson_visual_aids
+  await db.execute(sql`
+    INSERT INTO lesson_visual_aids (id, lesson_id, media_file_id, title, description, display_order, is_required)
+    VALUES (gen_random_uuid(), ${lessonId}, ${mediaFile.id}, ${lessonName}, ${result.altText}, 0, false)
+  `);
+  return { imageUrl: result.imageUrl, altText: result.altText, semanticTags: result.semanticTags };
+}
 
 // ── Gemini client ─────────────────────────────────────────────────────────────
 let geminiClient: GoogleGenAI | null = null;
@@ -242,11 +292,11 @@ export async function generateStudySession(unitId: string): Promise<StudySession
     lessons.map(async (lesson): Promise<StudyScenario> => {
       const [scenarioBase, visual] = await Promise.allSettled([
         generateScenarioForLesson(lesson, unit.actfl_level || 'novice_low', unit.cultural_theme || ''),
-        (async () => {
-          const visualPrompt = `${lesson.conversation_topic}, Spanish-speaking country, illustrated educational style`;
-          const result = await generateVisual(visualPrompt, 'image', {}, 'warm, friendly illustration, educational');
-          return { imageUrl: result.imageUrl, altText: result.altText, semanticTags: result.semanticTags };
-        })(),
+        getOrGenerateLessonVisual(
+          lesson.id,
+          `${lesson.conversation_topic}, Spanish-speaking country, illustrated educational style`,
+          lesson.name
+        ),
       ]);
 
       return {

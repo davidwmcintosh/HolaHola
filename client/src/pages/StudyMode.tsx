@@ -241,16 +241,16 @@ function ScenarioView({
         {/* Left panel: visual + objectives */}
         <div className="w-72 shrink-0 flex flex-col gap-3">
           {/* Visual */}
-          <div className="rounded-md border bg-muted flex items-center justify-center overflow-hidden w-full" style={{height: '288px'}}>
+          <div className="rounded-md border overflow-hidden w-full relative bg-muted" style={{height: '288px'}}>
             {scenario.visual?.imageUrl ? (
               <img
                 src={scenario.visual.imageUrl}
                 alt={scenario.visual.altText}
-                className="w-full h-full object-contain"
+                className="absolute inset-0 w-full h-full object-cover"
                 data-testid="img-scenario-visual"
               />
             ) : (
-              <div className="flex flex-col items-center gap-1 text-muted-foreground p-4 text-center">
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-muted-foreground p-4 text-center">
                 <ImageIcon className="w-6 h-6" />
                 <p className="text-xs">{scenario.lessonName}</p>
               </div>
