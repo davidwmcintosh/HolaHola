@@ -16,10 +16,11 @@ import {
   GraduationCap, Shield, Mic, MicOff, Volume2, FileText,
   Table, Lightbulb, CheckSquare, GitBranch, Info, Copy,
   Target, ClipboardList, AtSign, Hand, UserPlus, UserMinus,
-  BookOpen, TrendingUp, Cpu, Circle, RotateCcw, Monitor, ScanEye,
+  BookOpen, TrendingUp, Cpu, Circle, RotateCcw, Monitor, ScanEye, Terminal,
+  CheckCircle2, AlertCircle, Clock,
 } from "lucide-react";
 import { io, Socket } from "socket.io-client";
-import type { TeamRoom as TeamRoomType, RoomVoiceMessage, RoomArtifact } from "@shared/schema";
+import type { TeamRoom as TeamRoomType, RoomVoiceMessage, RoomArtifact, AgentActivityLog } from "@shared/schema";
 
 // ── Participant config ────────────────────────────────────────────────────────
 
@@ -639,6 +640,7 @@ export default function TeamRoom() {
   const [expressLaneItems, setExpressLaneItems] = useState<ExpressItem[]>([]);
   const [sessionArtifacts, setSessionArtifacts] = useState<RoomArtifact[]>([]);
   const [showPastSessions, setShowPastSessions] = useState(false);
+  const [showAgentActivity, setShowAgentActivity] = useState(true);
   const [thinkingParticipants, setThinkingParticipants] = useState<Set<string>>(new Set());
   const [handRaises, setHandRaises] = useState<Record<string, { reasoning: string }>>({});
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
@@ -711,6 +713,10 @@ export default function TeamRoom() {
 
   const { data: sessions } = useQuery<TeamRoomType[]>({ queryKey: ["/api/team-room/sessions"] });
   const { data: templates } = useQuery<SessionTemplate[]>({ queryKey: ["/api/team-room/templates"] });
+  const { data: agentActivity } = useQuery<AgentActivityLog[]>({
+    queryKey: ["/api/agent-activity"],
+    refetchInterval: 30000,
+  });
 
   const { data: sessionData } = useQuery<SessionData>({
     queryKey: ["/api/team-room/sessions", activeSessionId],
@@ -977,6 +983,52 @@ export default function TeamRoom() {
                       >
                         {s.topic}
                       </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ── Agent Activity Log ── */}
+            {agentActivity && agentActivity.length > 0 && (
+              <>
+                <Separator className="my-3" />
+                <button
+                  onClick={() => setShowAgentActivity(!showAgentActivity)}
+                  className="flex items-center gap-1 text-xs text-muted-foreground px-2 w-full"
+                  data-testid="button-toggle-agent-activity"
+                >
+                  <Terminal className="h-3 w-3" />
+                  <ChevronDown className={`h-3 w-3 transition-transform ${showAgentActivity ? "" : "-rotate-90"}`} />
+                  Agent Activity ({agentActivity.length})
+                </button>
+                {showAgentActivity && (
+                  <div className="mt-1 space-y-1 pb-2">
+                    {agentActivity.slice(0, 15).map(log => (
+                      <div key={log.id} className="px-2 py-2 rounded-md bg-muted/40 space-y-1" data-testid={`activity-log-${log.id}`}>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {log.status === 'complete' && <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />}
+                          {log.status === 'in_progress' && <Clock className="h-3 w-3 text-amber-500 shrink-0" />}
+                          {log.status === 'blocked' && <AlertCircle className="h-3 w-3 text-red-500 shrink-0" />}
+                          <span className="text-xs font-medium leading-tight">{log.title}</span>
+                        </div>
+                        {log.details && (
+                          <p className="text-xs text-muted-foreground leading-snug">{log.details}</p>
+                        )}
+                        {log.todos && log.todos.length > 0 && (
+                          <ul className="space-y-0.5">
+                            {log.todos.map((todo, i) => (
+                              <li key={i} className="text-xs text-amber-600 dark:text-amber-400 flex items-start gap-1">
+                                <span className="shrink-0 mt-0.5">→</span>
+                                <span>{todo}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        <p className="text-xs text-muted-foreground/60">
+                          {log.actor} · {new Date(log.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
                     ))}
                   </div>
                 )}

@@ -28431,5 +28431,29 @@ Under 250 words. Write as yourself.`;
     }
   });
 
+
+  // ── Agent Activity Log ──────────────────────────────────────────────────────
+  app.get("/api/agent-activity", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (_req, res) => {
+    try {
+      const logs = await storage.getAgentActivityLogs(40);
+      res.json(logs);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/agent-activity", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { actor, actionType, title, details, status, todos, sessionRef } = req.body;
+      if (!actor || !actionType || !title) {
+        return res.status(400).json({ error: 'actor, actionType, title required' });
+      }
+      const log = await storage.addAgentActivityLog({ actor, actionType, title, details, status: status || 'complete', todos: todos || [], sessionRef });
+      res.json(log);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
     // This ensures WS upgrade handler runs BEFORE Express/Vite middleware interferes
 }

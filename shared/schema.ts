@@ -8309,3 +8309,25 @@ export const insertProposedCodeChangeSchema = createInsertSchema(proposedCodeCha
 });
 export type InsertProposedCodeChange = z.infer<typeof insertProposedCodeChangeSchema>;
 export type ProposedCodeChange = typeof proposedCodeChanges.$inferSelect;
+
+// ── Agent Activity Log ─────────────────────────────────────────────────────────
+// Surfaced in Team Room / Talk to Alden so David can see what agents are doing
+
+export const agentActivityLogs = pgTable("agent_activity_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  actor: varchar("actor").notNull(),
+  actionType: varchar("action_type").notNull(),
+  title: varchar("title").notNull(),
+  details: text("details"),
+  status: varchar("status").notNull().default("complete"),
+  todos: text("todos").array().default(sql`'{}'`),
+  sessionRef: varchar("session_ref"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertAgentActivityLogSchema = createInsertSchema(agentActivityLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAgentActivityLog = z.infer<typeof insertAgentActivityLogSchema>;
+export type AgentActivityLog = typeof agentActivityLogs.$inferSelect;

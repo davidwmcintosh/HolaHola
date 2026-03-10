@@ -1,7 +1,61 @@
 # HolaHola Release Notes
 
-This file is the authoritative log of features shipped. Updated by Alden and the agent after every build.
+This file is the authoritative log of features shipped. Updated by the agent after every build session.
 Format: reverse chronological. Each entry includes what it does, what to check, and any config required.
+
+> **Note on docs:** This is the single source of truth. `batch-doc-updates.md` is retired — all session notes go here directly.
+
+---
+
+## March 10 Session: Scenario Routing + Agent Activity Log
+**Shipped:** March 10, 2026
+**Built by:** Replit Agent
+
+### Scenario direct-launch from browser
+Navigating to `/chat?scenario=cafe-ordering` (or any scenario slug) now works end-to-end. Previously the URL parameter was silently ignored.
+
+**How it works:** The slug is captured in `chat.tsx` → stored in `sessionStorage` → picked up in `StreamingVoiceChat.tsx` → passed through the WS `request_greeting` message → the orchestrator's `processGreetingRequest` appends an override instruction telling Daniela to call `load_scenario(slug)` immediately instead of giving a standard greeting.
+
+**Files modified:**
+- `client/src/pages/chat.tsx` — new `scenario` param branch in URL handler
+- `client/src/lib/streamingVoiceClient.ts` — `requestGreeting()` gains `scenarioSlug` param
+- `client/src/components/StreamingVoiceChat.tsx` — reads pending slug from sessionStorage before calling requestGreeting
+- `server/unified-ws-handler.ts` — both handlers parse `scenarioSlug` and pass to orchestrator
+- `server/services/streaming-voice-orchestrator.ts` — `processGreetingRequest` injects scenario override when slug present
+
+### Agent Activity Log
+A new "Agent Activity" panel in the Team Room sidebar (below Past sessions) shows what agents are currently building, have completed, or are blocked on — similar to the think-aloud style in this chat.
+
+**How it works:** New `agent_activity_logs` table with actor, action_type, title, details, status (complete/in_progress/blocked), and a `todos` array for remaining items. GET `/api/agent-activity` reads the last 40 entries. POST `/api/agent-activity` writes a new entry (founder-only). At the end of each coding session, the agent writes a summary entry.
+
+**Files modified:**
+- `shared/schema.ts` — `agentActivityLogs` table + insert schema/types
+- `server/storage.ts` — `addAgentActivityLog()`, `getAgentActivityLogs()`
+- `server/routes.ts` — `GET /api/agent-activity`, `POST /api/agent-activity`
+- `client/src/pages/TeamRoom.tsx` — collapsible "Agent Activity" sidebar section with status icons and todo list
+
+### Config required
+None — uses existing DB connection.
+
+---
+
+## DALL-E Key Priority Fix
+**Shipped:** March 10, 2026
+**Built by:** Replit Agent
+
+`visual-content-service.ts` now checks `USER_OPENAI_API_KEY` before `OPENAI_API_KEY`. The old ordering was shadowing the valid key with an invalid one. Study Mode images now generate correctly.
+
+**Files modified:** `server/services/visual-content-service.ts`
+
+---
+
+## Study Mode Image Caching
+**Shipped:** March 10, 2026
+**Built by:** Replit Agent
+
+DALL-E images for Study Mode lessons are now cached in `lesson_visual_aids` (55-min TTL — just under DALL-E URL expiry). On cache miss, the image is generated and saved to `media_files` + `lesson_visual_aids`. Subsequent loads for the same lesson skip DALL-E entirely.
+
+**Pending:** Full permanent storage (download bytes to file storage) not yet implemented — requires App Storage integration approval.
 
 ---
 

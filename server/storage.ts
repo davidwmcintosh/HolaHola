@@ -258,6 +258,9 @@ import {
   roomSessionSummaries,
   type RoomSessionSummary,
   type InsertRoomSessionSummary,
+  agentActivityLogs,
+  type AgentActivityLog,
+  type InsertAgentActivityLog,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -7973,6 +7976,17 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(roomSessionSummaries.generatedAt))
       .limit(1);
     return summaries[0];
+  }
+
+  async addAgentActivityLog(data: InsertAgentActivityLog): Promise<AgentActivityLog> {
+    const [log] = await db.insert(agentActivityLogs).values(data).returning();
+    return log;
+  }
+
+  async getAgentActivityLogs(limit = 20): Promise<AgentActivityLog[]> {
+    return db.select().from(agentActivityLogs)
+      .orderBy(desc(agentActivityLogs.createdAt))
+      .limit(limit);
   }
 }
 
