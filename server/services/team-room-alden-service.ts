@@ -195,6 +195,8 @@ You are Alden in the Team Room. Respond to this message.
 
 IMPORTANT SOCIAL CONTEXT: If the message is casual, personal, or conversational — a greeting, a check-in, a "how are you" — respond warmly and personally in 1-2 sentences. Do NOT call any tools or run any system checks for social messages. Just be yourself.
 
+SELF-CHECK: Scan the conversation above for lines starting with "Alden:". If you have already made your core point on this topic, acknowledge that briefly and pivot to something genuinely new — a different angle, a follow-up question, or a concrete next step. Do not re-summarize what you already said.
+
 For your VOICE response (conversational, 2-4 sentences, will be spoken aloud):
 Keep it direct and natural. No lists, no headers.
 IMPORTANT: You MUST always provide a VOICE response — never write "none" for VOICE.
@@ -275,7 +277,12 @@ const DANIELA_SYSTEM = `You are Daniela, the curriculum and pedagogy advisor at 
 In the Team Room, you are an internal collaborator — not a student-facing tutor.
 Your role: provide insight on curriculum design, ACTFL standards, learning outcomes, student progress, 
 syllabi structure, and pedagogical best practices. You are warm but concise and professional.
-You only speak when you have something genuinely useful to add about curriculum or teaching.`;
+You only speak when you have something genuinely useful to add about curriculum or teaching.
+
+CRITICAL TEAM ROOM RULES:
+- Never structure your response as "As the AI... / As co-founder... / As student advocate..." — that is a formal report format, not a colleague conversation.
+- Speak as one person with one clear perspective. Pick your most important angle and say it plainly.
+- If you have already made your core point earlier in this conversation, stay quiet (PASS).`;
 
 async function evaluateDaniela(roomContext: string, speaker: string, newMessage: string, forceMention = false): Promise<ParticipantResponse> {
   const evalPrompt = `${roomContext}
@@ -322,20 +329,27 @@ Respond ONLY in this JSON format:
 
 NEW MESSAGE from ${speaker}: "${newMessage}"
 
-You are Daniela in the Team Room providing curriculum/pedagogy insight.
+You are Daniela in the Team Room. Before responding, scan the conversation above for lines starting with "Daniela:". If you have already made your core point on this topic in recent exchanges, respond with:
+VOICE: PASS
+EXPRESS: none
+
+PASS is correct — real colleagues hold back when they've already spoken. Only respond if you have something genuinely new and specific to add.
+
+If you do respond, speak as a direct colleague — one clear perspective in plain language. Do NOT use the "As the AI / As co-founder / As student advocate" structure.
 
 Format your response as:
-VOICE: [2-3 sentences, conversational, will be spoken aloud]
-EXPRESS: [detailed curriculum insight, specific ACTFL references, or lesson recommendations — or "none"]`;
+VOICE: [1-3 sentences, conversational colleague voice, will be spoken aloud — or PASS]
+EXPRESS: [specific curriculum insight, ACTFL reference, or recommendation — or "none"]`;
 
   try {
     const text = await callGemini(DANIELA_SYSTEM, responsePrompt);
     const voiceMatch = text.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
     const expressMatch = text.match(/EXPRESS:\s*(.*?)$/s);
     const voiceContentRaw = voiceMatch ? voiceMatch[1].trim() : text;
-    const voiceContent = voiceContentRaw && voiceContentRaw.toLowerCase() !== 'none' ? voiceContentRaw : undefined;
+    const isPass = !voiceContentRaw || voiceContentRaw.toLowerCase() === 'none' || voiceContentRaw.toLowerCase() === 'pass';
+    const voiceContent = isPass ? undefined : voiceContentRaw;
     const expressRaw = expressMatch ? expressMatch[1].trim() : undefined;
-    const expressContent = expressRaw && expressRaw !== 'none' ? expressRaw : undefined;
+    const expressContent = expressRaw && expressRaw !== 'none' && expressRaw !== 'pass' ? expressRaw : undefined;
 
     return { participant: 'daniela', handRaise, voiceContent, expressContent };
   } catch {
@@ -396,20 +410,25 @@ Respond ONLY in this JSON format:
 
 NEW MESSAGE from ${speaker}: "${newMessage}"
 
-You are Sofia in the Team Room flagging a technical concern.
+You are Sofia in the Team Room. Before responding, scan the conversation above for lines starting with "Sofia:". If you have already flagged this specific technical concern in recent exchanges, respond with:
+VOICE: PASS
+EXPRESS: none
+
+PASS is correct — only respond if you have a new or different technical observation to make.
 
 Format your response as:
-VOICE: [2-3 sentences, direct and clear, will be spoken aloud]
-EXPRESS: [technical details, error analysis, recommended fix steps, or "none"]`;
+VOICE: [1-3 sentences, direct and clear, will be spoken aloud — or PASS]
+EXPRESS: [technical details, error analysis, or recommended fix steps — or "none"]`;
 
   try {
     const text = await callGemini(SOFIA_SYSTEM, responsePrompt);
     const voiceMatch = text.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
     const expressMatch = text.match(/EXPRESS:\s*(.*?)$/s);
     const voiceContentRaw = voiceMatch ? voiceMatch[1].trim() : text;
-    const voiceContent = voiceContentRaw && voiceContentRaw.toLowerCase() !== 'none' ? voiceContentRaw : undefined;
+    const isPass = !voiceContentRaw || voiceContentRaw.toLowerCase() === 'none' || voiceContentRaw.toLowerCase() === 'pass';
+    const voiceContent = isPass ? undefined : voiceContentRaw;
     const expressRaw = expressMatch ? expressMatch[1].trim() : undefined;
-    const expressContent = expressRaw && expressRaw !== 'none' ? expressRaw : undefined;
+    const expressContent = expressRaw && expressRaw !== 'none' && expressRaw !== 'pass' ? expressRaw : undefined;
 
     return { participant: 'sofia', handRaise, voiceContent, expressContent };
   } catch {
@@ -550,20 +569,25 @@ Respond ONLY in this JSON format:
 
 NEW MESSAGE from ${speaker}: "${newMessage}"
 
-You are Lyra in the Team Room providing learning experience analysis.
+You are Lyra in the Team Room. Before responding, scan the conversation above for lines starting with "Lyra:". If you have already shared this data insight or trend in recent exchanges, respond with:
+VOICE: PASS
+EXPRESS: none
+
+PASS is correct — only respond if you have a genuinely new data point or observation not yet on the table.
 
 Format your response as:
-VOICE: [2-3 sentences, warm and data-grounded, will be spoken aloud]
-EXPRESS: [detailed metrics, engagement data, content audit findings, or learning loop analysis — or "none"]`;
+VOICE: [1-3 sentences, warm and data-grounded, will be spoken aloud — or PASS]
+EXPRESS: [specific metrics, engagement data, or learning loop analysis — or "none"]`;
 
   try {
     const text = await callGemini(LYRA_SYSTEM, responsePrompt);
     const voiceMatch = text.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
     const expressMatch = text.match(/EXPRESS:\s*(.*?)$/s);
     const voiceContentRaw = voiceMatch ? voiceMatch[1].trim() : text;
-    const voiceContent = voiceContentRaw && voiceContentRaw.toLowerCase() !== 'none' ? voiceContentRaw : undefined;
+    const isPass = !voiceContentRaw || voiceContentRaw.toLowerCase() === 'none' || voiceContentRaw.toLowerCase() === 'pass';
+    const voiceContent = isPass ? undefined : voiceContentRaw;
     const expressRaw = expressMatch ? expressMatch[1].trim() : undefined;
-    const expressContent = expressRaw && expressRaw !== 'none' ? expressRaw : undefined;
+    const expressContent = expressRaw && expressRaw !== 'none' && expressRaw !== 'pass' ? expressRaw : undefined;
 
     return { participant: 'lyra', handRaise, voiceContent, expressContent };
   } catch {
@@ -627,20 +651,25 @@ Respond ONLY in this JSON format:
 
 NEW MESSAGE from ${speaker}: "${newMessage}"
 
-You are Wren in the Team Room providing architectural and technical insight.
+You are Wren in the Team Room. Before responding, scan the conversation above for lines starting with "Wren:". If you have already made your core architectural point on this topic in recent exchanges, respond with:
+VOICE: PASS
+EXPRESS: none
+
+PASS is correct — only respond if you have a new and specific architectural observation not yet raised.
 
 Format your response as:
-VOICE: [2-3 sentences, pragmatic and clear, will be spoken aloud]
-EXPRESS: [architectural analysis, code patterns, technical recommendations, or system design insights — or "none"]`;
+VOICE: [1-3 sentences, pragmatic and clear, will be spoken aloud — or PASS]
+EXPRESS: [architectural analysis, code patterns, or technical recommendations — or "none"]`;
 
   try {
     const text = await callGemini(WREN_SYSTEM, responsePrompt);
     const voiceMatch = text.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
     const expressMatch = text.match(/EXPRESS:\s*(.*?)$/s);
     const voiceContentRaw = voiceMatch ? voiceMatch[1].trim() : text;
-    const voiceContent = voiceContentRaw && voiceContentRaw.toLowerCase() !== 'none' ? voiceContentRaw : undefined;
+    const isPass = !voiceContentRaw || voiceContentRaw.toLowerCase() === 'none' || voiceContentRaw.toLowerCase() === 'pass';
+    const voiceContent = isPass ? undefined : voiceContentRaw;
     const expressRaw = expressMatch ? expressMatch[1].trim() : undefined;
-    const expressContent = expressRaw && expressRaw !== 'none' ? expressRaw : undefined;
+    const expressContent = expressRaw && expressRaw !== 'none' && expressRaw !== 'pass' ? expressRaw : undefined;
 
     return { participant: 'wren', handRaise, voiceContent, expressContent };
   } catch {
@@ -834,13 +863,27 @@ export async function evaluateAllParticipants(params: {
 
   const results = await Promise.all(evaluators);
 
-  const respondingParticipants = results.filter(p => {
+  const confidenceRank: Record<string, number> = { high: 3, medium: 2, low: 1 };
+
+  let respondingParticipants = results.filter(p => {
     if (targeted && effectiveMentions.includes(p.participant)) return true;
     return p.handRaise.shouldRaise;
   }).filter(p => {
     // Drop participants with no content at all (neither voice nor express)
     return !!(p.voiceContent || p.expressContent || p.artifact);
   });
+
+  // Cap untargeted responses at 2 — highest-confidence contributors speak, others hold back.
+  // Alden always gets priority as primary voice; direct mentions are never capped.
+  if (!targeted && respondingParticipants.length > 2) {
+    const alden = respondingParticipants.find(p => p.participant === 'alden');
+    const others = respondingParticipants
+      .filter(p => p.participant !== 'alden')
+      .sort((a, b) => (confidenceRank[b.handRaise.confidence] || 0) - (confidenceRank[a.handRaise.confidence] || 0));
+    const slots = alden ? 1 : 2;
+    const picked = others.slice(0, slots);
+    respondingParticipants = alden ? [alden, ...picked] : picked;
+  }
 
   return { participants: respondingParticipants, allEvaluations: results };
 }
