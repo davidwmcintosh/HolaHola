@@ -39,6 +39,30 @@ None — uses existing DB connection.
 
 ---
 
+## generate_visual() — Daniela's On-Demand DALL-E Illustration Tool
+**Shipped:** March 10, 2026
+**Built by:** Replit Agent
+
+Daniela can now call `generate_visual(concept, style?)` during any conversation to create a custom DALL-E 3 illustration that appears on the student's whiteboard. This was the original intent behind building the visual generation service.
+
+**Difference from `show_image`:**
+- `show_image(word)` → finds a real Unsplash photo of a vocabulary noun ("manzana", "mercado")
+- `generate_visual(concept)` → creates a custom AI illustration of any scene, grammar concept, cultural moment, or scenario setting that a stock photo can't capture
+
+**Rich metadata returned:**
+- `semanticTags` — ACTFL-aligned vocabulary tags
+- `accessibilityDescription` — full accessibility description
+- `conceptAlignment` — 0–1 score of how well the image matched the concept
+
+**Async by design:** Generation takes ~10 seconds. Daniela calls the function and keeps talking; the image appears on the whiteboard when ready (same buffering system as `show_image`). The image is immediately archived to permanent object storage so it's served from cache on repeat visits.
+
+**Files modified:**
+- `server/services/daniela-function-registry.ts` — added `generate_visual` function declaration
+- `server/services/native-fc-handlers.ts` — added `GENERATE_VISUAL` async handler
+- `server/services/classroom-environment.ts` — updated Tool Rack to distinguish `show_image` vs `generate_visual`
+
+---
+
 ## Permanent Image Storage for Study Mode Visuals
 **Shipped:** March 10, 2026
 **Built by:** Replit Agent

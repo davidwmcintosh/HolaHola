@@ -351,6 +351,22 @@ const registry: DanielaFunctionEntry[] = [
       },
     },
   },
+  {
+    legacyType: 'GENERATE_VISUAL',
+    declaration: {
+      name: "generate_visual",
+      description: `Create a custom AI-generated illustration to display on the whiteboard. Use this when you want a specific scene, concept illustration, or educational image that a stock photo can't capture — for example, showing a grammar concept in action, depicting a scenario setting, or creating a cultural scene. The image will appear on the whiteboard in a few seconds while you continue speaking. Include your spoken words in the 'text' parameter.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you're saying while the image generates" },
+          concept: { type: "string", description: "What to illustrate — be specific and descriptive, e.g. 'a Mexican family sharing a meal at a colorful kitchen table'" },
+          style: { type: "string", description: "Art style or mood, e.g. 'warm, friendly illustration' or 'bright educational poster'. Defaults to warm educational illustration." },
+        },
+        required: ["concept"],
+      },
+    },
+  },
 
   // === MEMORY ===
   {

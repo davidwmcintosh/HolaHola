@@ -470,6 +470,74 @@ export class NativeFunctionCallHandler {
         });
         break;
       }
+
+      case 'GENERATE_VISUAL': {
+        const concept = fn.args.concept as string | undefined;
+        const style = (fn.args.style as string | undefined) || 'warm, friendly illustration, educational';
+        const text = fn.args.text as string | undefined;
+
+        if (!concept) {
+          console.warn(`[Native Function→GenerateVisual] Missing concept param — skipping`);
+          break;
+        }
+
+        if (text && !session.functionCallText) {
+          session.functionCallText = text;
+        }
+
+        console.log(`[Native Function→GenerateVisual] Generating DALL-E image for: "${concept}"`);
+
+        import('../services/visual-content-service').then(async ({ generateVisual }) => {
+          try {
+            const result = await generateVisual(concept, 'image', {}, style);
+            console.log(`[Native Function→GenerateVisual] DALL-E complete — archiving to permanent storage`);
+
+            let imageUrl = result.imageUrl;
+            try {
+              const { archiveImageToPermanentStorage } = await import('../services/image-storage');
+              const crypto = await import('crypto');
+              const hash = crypto.createHash('md5').update('visual_' + concept + Date.now()).digest('hex');
+              imageUrl = await archiveImageToPermanentStorage(result.imageUrl, `${hash}.jpg`);
+            } catch (archiveErr: any) {
+              console.warn(`[Native Function→GenerateVisual] Archive failed, using DALL-E URL directly:`, archiveErr.message);
+            }
+
+            const whiteboardUpdate = {
+              type: 'whiteboard_update' as const,
+              timestamp: Date.now(),
+              items: [{
+                type: 'image',
+                content: concept,
+                data: {
+                  word: concept,
+                  description: result.altText,
+                  imageUrl,
+                  source: 'dalle',
+                  semanticTags: result.semanticTags,
+                  accessibilityDescription: result.accessibilityDescription,
+                  conceptAlignment: result.conceptAlignment,
+                },
+              }],
+            };
+
+            if (session.firstAudioSent) {
+              this.sendMessage(session.ws, whiteboardUpdate);
+            } else {
+              if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
+              session.pendingWhiteboardUpdates.push(whiteboardUpdate);
+              console.log(`[Native Function→GenerateVisual] Buffered for audio sync`);
+            }
+
+            if (!session.classroomSessionImages) session.classroomSessionImages = [];
+            session.classroomSessionImages.push(concept);
+            if (!session.classroomWhiteboardItems) session.classroomWhiteboardItems = [];
+            session.classroomWhiteboardItems.push({ type: 'image', content: concept, label: result.altText });
+          } catch (err: any) {
+            console.error(`[Native Function→GenerateVisual] Error:`, err.message);
+          }
+        });
+        break;
+      }
       
       case 'TEXT_INPUT': {
         const prompt = fn.args.prompt as string | undefined;

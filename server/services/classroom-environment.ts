@@ -412,7 +412,7 @@ ${studentLearningSection}` : '';
     : '';
   const toolRack = `
 ---
-Tool Rack: memory_lookup(query, domains) — recall student memories | take_note — save observations for future sessions | milestone — celebrate achievements | drill/write/grammar_table/compare/word_map/phonetic/culture/context/scenario/summary/reading — whiteboard teaching tools | show_image — contextual images | voice_adjust — change speaking style | load_scenario/end_scenario — immersive roleplay scenes | change_classroom_window — change your window view | self_surgery — report gaps or propose improvements to your own knowledge${founderTools}${founderNote}`;
+Tool Rack: memory_lookup(query, domains) — recall student memories | take_note — save observations for future sessions | milestone — celebrate achievements | drill/write/grammar_table/compare/word_map/phonetic/culture/context/scenario/summary/reading — whiteboard teaching tools | show_image(word) — real photo of a vocabulary word or noun | generate_visual(concept, style?) — AI-generated illustration for scenes, grammar concepts, or custom scenarios (takes ~10s, you can keep talking) | voice_adjust — change speaking style | load_scenario/end_scenario — immersive roleplay scenes | change_classroom_window — change your window view | self_surgery — report gaps or propose improvements to your own knowledge${founderTools}${founderNote}`;
 
   const scenarioSection = activeScenario
     ? `\nActive Scene: "${activeScenario.title}" at ${activeScenario.location} [${activeScenario.slug}]${activeScenario.propsCount ? ` — ${activeScenario.propsCount} props visible` : ''}`
