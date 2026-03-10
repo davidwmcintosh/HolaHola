@@ -5,9 +5,10 @@
  * in a curriculum path by synthesising OER sources:
  *
  *   Wiktionary   → vocabulary entries (definitions, conjugations, forms)
- *   Tatoeba      → natural example sentences
+ *   Tatoeba      → natural example sentences in the target language
+ *   Wikivoyage   → phrasebook + destination content (Gemini picks Tatoeba OR
+ *                  Wikivoyage depending on which fits the lesson better)
  *   Wikipedia    → cultural context for the unit's cultural theme
- *   Wikivoyage   → travel/scenario phrases (for applicable lessons)
  *   Gemini       → synthesises everything into structured textbook prose
  *
  * Run once per curriculum path. Already-seeded lessons are skipped.
@@ -18,6 +19,7 @@ import { getUserDb } from '../db';
 import { sql } from 'drizzle-orm';
 import { fetchWiktionaryEntries } from './wiktionary-service';
 import { fetchTatoebaSentences, fetchTatoebaForVocabulary } from './tatoeba-service';
+import { fetchWikivoyagePhrases } from './wikivoyage-service';
 import { fetchSeedAndImages } from './openstax-content-service';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -83,7 +85,7 @@ export async function seedLesson(
   const level             = actflLevel || lesson.unit_actfl || 'novice_low';
 
   // ── Parallel OER fetches ──
-  const [wiktionaryData, tatoebaVocab, topicSentences, culturalSeed] = await Promise.all([
+  const [wiktionaryData, tatoebaVocab, topicSentences, culturalSeed, wikivoyageData] = await Promise.all([
     vocab.length > 0
       ? fetchWiktionaryEntries(vocab.slice(0, 10), language)
       : Promise.resolve({} as Record<string, string>),
@@ -95,6 +97,8 @@ export async function seedLesson(
     fetchTatoebaSentences(topic, language, 6),
 
     fetchSeedAndImages(culturalTheme, 'history').then(r => r.content).catch(() => ''),
+
+    fetchWikivoyagePhrases(topic, language).catch(() => ''),
   ]);
 
   // ── Gemini synthesis ──
@@ -122,19 +126,23 @@ Grammar focus: ${grammar.join(', ') || 'none specified'}
 Key vocabulary: ${vocab.join(', ') || 'none specified'}
 Learning objectives: ${(lesson.objectives ?? []).join(', ') || 'none specified'}
 
-Reference material from open educational resources:
+Reference material from open educational resources. You have been given TWO sources of example sentences/phrases (Tatoeba and Wikivoyage). Choose whichever is the better fit for this lesson — or blend both — based on the topic. For conversational, travel, restaurant, hotel, shopping, or situational lessons, Wikivoyage phrasebook content is often the richer choice. For abstract grammar or literary topics, Tatoeba sentences tend to be better.
 
 <wiktionary_entries>
 ${wiktionaryBlock || '(none available)'}
 </wiktionary_entries>
 
-<example_sentences_vocabulary>
+<tatoeba_vocabulary_sentences>
 ${tatoebaVocabBlock || '(none available)'}
-</example_sentences_vocabulary>
+</tatoeba_vocabulary_sentences>
 
-<example_sentences_topic>
+<tatoeba_topic_sentences>
 ${topicSentsBlock || '(none available)'}
-</example_sentences_topic>
+</tatoeba_topic_sentences>
+
+<wikivoyage_phrases>
+${wikivoyageData || '(none available)'}
+</wikivoyage_phrases>
 
 <cultural_context>
 ${culturalSeed ? culturalSeed.slice(0, 1500) : '(none available)'}
@@ -194,6 +202,7 @@ Requirements:
   const sourcesUsed = [
     { source: 'wiktionary', note: `${Object.keys(wiktionaryData).length} entries` },
     { source: 'tatoeba', note: `${topicSentences.length} topic sentences` },
+    wikivoyageData ? { source: 'wikivoyage', note: 'phrasebook + destination content' } : null,
     culturalSeed ? { source: 'wikipedia', note: 'cultural context' } : null,
   ].filter(Boolean);
 
