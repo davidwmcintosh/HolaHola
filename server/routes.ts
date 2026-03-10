@@ -27948,6 +27948,44 @@ Under 250 words. Write as yourself.`;
   });
 
   // ===== Team Room Routes =====
+
+  // ── Study Mode ─────────────────────────────────────────────────────────────
+  app.get('/api/study-mode/units', isAuthenticated, loadAuthenticatedUser(storage), async (req, res) => {
+    try {
+      const { getStudyUnits } = await import('./services/study-mode-service');
+      const language = (req.query.language as string) || 'spanish';
+      const groups = await getStudyUnits(language);
+      res.json(groups);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/study-mode/generate', isAuthenticated, loadAuthenticatedUser(storage), async (req, res) => {
+    try {
+      const { generateStudySession } = await import('./services/study-mode-service');
+      const { unitId } = req.body;
+      if (!unitId) return res.status(400).json({ error: 'unitId required' });
+      const session = await generateStudySession(unitId);
+      res.json(session);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/study-mode/chat', isAuthenticated, loadAuthenticatedUser(storage), async (req, res) => {
+    try {
+      const { studyModeChat } = await import('./services/study-mode-service');
+      const { scenario, history, message } = req.body;
+      if (!scenario || !message) return res.status(400).json({ error: 'scenario and message required' });
+      const reply = await studyModeChat(scenario, history || [], message);
+      res.json({ reply });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+
   app.post("/api/team-room/sessions", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
     try {
       const { topic } = req.body;

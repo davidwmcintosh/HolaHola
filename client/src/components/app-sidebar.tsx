@@ -32,6 +32,7 @@ const dashboardItem = { title: "Language Hub", url: "/", icon: Target };
 
 const libraryMenuItems = [
   { title: "Scenarios", url: "/scenarios", icon: MapPin },
+  { title: "Study Mode", url: "/study-mode", icon: BookMarked },
   { title: "Vocabulary", url: "/vocabulary", icon: BookOpen },
   { title: "Grammar", url: "/grammar", icon: Languages },
   { title: "Past Chats", url: "/history", icon: History },

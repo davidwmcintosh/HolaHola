@@ -83,6 +83,7 @@ const MathTutor = lazyWithRetry(() => import("@/pages/math-tutor"));
 const BusinessTutor = lazyWithRetry(() => import("@/pages/business-tutor"));
 const AldenPage = lazyWithRetry(() => import("@/pages/alden"));
 const TeamRoom = lazyWithRetry(() => import("@/pages/TeamRoom"));
+const StudyMode = lazyWithRetry(() => import("@/pages/StudyMode"));
 const ReadingLibrary = lazyWithRetry(() => import("@/pages/reading-library"));
 const ProgressReport = lazyWithRetry(() => import("@/pages/progress-report"));
 const NotFound = lazyWithRetry(() => import("@/pages/not-found"));
@@ -134,7 +135,7 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
   
   // Only chat page is full-height for authenticated users
   // Landing page (/) is full-height for unauthenticated users
-  const isFullHeightPage = location === "/chat" || location === "/team-room" || location === "/admin/mission" || (!isAuthenticated && !isLoading && location === "/");
+  const isFullHeightPage = location === "/chat" || location === "/team-room" || location === "/admin/mission" || location === "/study-mode" || (!isAuthenticated && !isLoading && location === "/");
 
   const content = (
     <Suspense fallback={<PageLoader />}>
@@ -234,6 +235,7 @@ function Router() {
         <Route path="/progress-report" component={ProgressReport} />
         <Route path="/alden" component={AldenPage} />
         <Route path="/team-room" component={TeamRoom} />
+        <Route path="/study-mode" component={StudyMode} />
         
         {/* Teacher Routes - Protected */}
         <Route path="/teacher/dashboard" component={TeacherDashboard} />
