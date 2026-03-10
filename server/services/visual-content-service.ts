@@ -41,10 +41,11 @@ const EDUCATIONAL_TAG_CATEGORIES = [
 ] as const;
 
 function getProviderConfig(): VisualProviderConfig {
-  if (process.env.OPENAI_API_KEY) {
+  const openaiKey = process.env.OPENAI_API_KEY || process.env.USER_OPENAI_API_KEY;
+  if (openaiKey) {
     return {
       provider: 'openai',
-      apiKey: process.env.OPENAI_API_KEY,
+      apiKey: openaiKey,
     };
   }
   if (process.env.STABILITY_API_KEY) {
