@@ -241,7 +241,7 @@ function ScenarioView({
         {/* Left panel: visual + objectives */}
         <div className="w-72 shrink-0 flex flex-col gap-3">
           {/* Visual */}
-          <div className="rounded-md border bg-muted flex items-center justify-center overflow-hidden" style={{aspectRatio: '1/1'}}>
+          <div className="rounded-md border bg-muted flex items-center justify-center overflow-hidden w-full" style={{height: '288px'}}>
             {scenario.visual?.imageUrl ? (
               <img
                 src={scenario.visual.imageUrl}
