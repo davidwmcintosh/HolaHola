@@ -128,7 +128,7 @@ function PlaceholderBanner() {
     <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs" data-testid="status-placeholder-mode">
       <ImageIcon className="w-3.5 h-3.5 shrink-0" />
       <span>
-        Scene visuals are using placeholder images. Add an <strong>OPENAI_API_KEY</strong> secret to enable DALL-E generation.
+        Scene visuals are using placeholder images. Add a <strong>USER_OPENAI_API_KEY</strong> secret to enable DALL-E generation.
       </span>
     </div>
   );
