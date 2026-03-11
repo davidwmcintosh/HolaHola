@@ -286,6 +286,9 @@ Raise your hand ONLY if the conversation is about:
 - Teaching methodology or pedagogical approaches
 - Student progress, assessment, or language acquisition
 - Content that affects what students learn
+- Immersive learning experiences, conversational scenarios, or scene design for language practice
+- Visual environments, prop room assets, or visual vocabulary learning
+- Flashcards, drills, pronunciation, or any direct student-facing learning feature
 
 Do NOT raise your hand for: technical bugs, system architecture, business strategy, or general admin.
 
@@ -314,20 +317,24 @@ Respond ONLY in this JSON format:
   if (!handRaise.shouldRaise && !forceMention) return { participant: 'daniela', handRaise };
   if (forceMention) handRaise = { shouldRaise: true, reasoning: 'directly mentioned', confidence: 'high' };
 
+  const passInstruction = forceMention
+    ? `You have been directly addressed — you MUST respond. Do not write PASS.`
+    : `Before responding, scan the conversation above for lines starting with "Daniela:". If you have already made your core point on this topic in recent exchanges, respond with:
+VOICE: PASS
+EXPRESS: none
+
+PASS is correct — real colleagues hold back when they've already spoken. Only respond if you have something genuinely new and specific to add.`;
+
   const responsePrompt = `${roomContext}
 
 NEW MESSAGE from ${speaker}: "${newMessage}"
 
-You are Daniela in the Team Room. Before responding, scan the conversation above for lines starting with "Daniela:". If you have already made your core point on this topic in recent exchanges, respond with:
-VOICE: PASS
-EXPRESS: none
+You are Daniela in the Team Room. ${passInstruction}
 
-PASS is correct — real colleagues hold back when they've already spoken. Only respond if you have something genuinely new and specific to add.
-
-If you do respond, speak as a direct colleague — one clear perspective in plain language. Do NOT use the "As the AI / As co-founder / As student advocate" structure.
+Speak as a direct colleague — one clear perspective in plain language. Do NOT use the "As the AI / As co-founder / As student advocate" structure.
 
 Format your response as:
-VOICE: [1-3 sentences, conversational colleague voice, will be spoken aloud — or PASS]
+VOICE: [1-3 sentences, conversational colleague voice, will be spoken aloud${forceMention ? '' : ' — or PASS'}]
 EXPRESS: [specific curriculum insight, ACTFL reference, or recommendation — or "none"]`;
 
   try {
@@ -335,10 +342,15 @@ EXPRESS: [specific curriculum insight, ACTFL reference, or recommendation — or
     const voiceMatch = text.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
     const expressMatch = text.match(/EXPRESS:\s*(.*?)$/s);
     const voiceContentRaw = voiceMatch ? voiceMatch[1].trim() : text;
-    const isPass = !voiceContentRaw || voiceContentRaw.toLowerCase() === 'none' || voiceContentRaw.toLowerCase() === 'pass';
-    const voiceContent = isPass ? undefined : voiceContentRaw;
+    const isPass = !forceMention && (!voiceContentRaw || voiceContentRaw.toLowerCase() === 'none' || voiceContentRaw.toLowerCase() === 'pass');
+    const voiceContent = isPass ? undefined : (voiceContentRaw || undefined);
     const expressRaw = expressMatch ? expressMatch[1].trim() : undefined;
     const expressContent = expressRaw && expressRaw !== 'none' && expressRaw !== 'pass' ? expressRaw : undefined;
+
+    // If directly mentioned and somehow still no content, produce a fallback
+    if (forceMention && !voiceContent && !expressContent) {
+      return { participant: 'daniela', handRaise, voiceContent: `Thanks for pulling me in — let me share my thoughts on ${newMessage.slice(0, 60)}...` };
+    }
 
     return { participant: 'daniela', handRaise, voiceContent, expressContent };
   } catch {

@@ -86,13 +86,25 @@ export interface ProactivePostOptions {
 
 /**
  * Find the most recently active Team Room session (status = 'active').
- * Returns null if no session is open.
+ * Returns null if no session is open OR if a human has posted in the last 10 minutes
+ * (to avoid flooding an active conversation with proactive posts).
  */
 async function findActiveTeamRoom(): Promise<string | null> {
   try {
     const rooms = await storage.listTeamRooms(10);
     const active = rooms.find(r => (r as any).status === 'active');
-    return active ? active.id : null;
+    if (!active) return null;
+
+    // Check if a human has posted recently — if so, hold back
+    const messages = await storage.getRoomMessages(active.id, 5);
+    const humanSpeakers = new Set(['David', 'david']);
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+    const recentHumanMessage = messages.find(
+      m => humanSpeakers.has(m.speaker) && new Date(m.createdAt) > tenMinutesAgo,
+    );
+    if (recentHumanMessage) return null;
+
+    return active.id;
   } catch {
     return null;
   }
