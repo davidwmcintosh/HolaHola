@@ -10160,6 +10160,37 @@ Return ONLY the ${targetLanguage} phrase:`;
 
 
 
+  // Internal bulk textbook seed trigger — uses guardian token, no session required
+  app.post('/api/internal/textbook/seed-all', async (req: any, res) => {
+    try {
+      const token = req.headers['x-guardian-token'];
+      const { GUARDIAN_TOKEN } = await import('./services/alden-build-service');
+      if (token !== GUARDIAN_TOKEN) return res.status(401).json({ error: 'Unauthorized' });
+      const jobId = `bulk-seed-${Date.now()}`;
+      const { bulkSeedAllPaths } = await import('./services/textbook-seed-service');
+      bulkSeedAllPaths(jobId).catch((e: any) =>
+        console.error('[BulkSeed] Fatal error:', e.message)
+      );
+      res.json({ jobId, message: 'Bulk textbook seeding started for all 45 paths' });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get('/api/internal/textbook/seed-all-progress/:jobId', async (req: any, res) => {
+    try {
+      const token = req.headers['x-guardian-token'];
+      const { GUARDIAN_TOKEN } = await import('./services/alden-build-service');
+      if (token !== GUARDIAN_TOKEN) return res.status(401).json({ error: 'Unauthorized' });
+      const { bulkSeedJobs } = await import('./services/textbook-seed-service');
+      const job = bulkSeedJobs.get(req.params.jobId);
+      if (!job) return res.status(404).json({ error: 'Job not found' });
+      res.json(job);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Internal bulk enrichment trigger — uses guardian token, no session required
   app.post('/api/internal/curriculum/enrich-all', async (req: any, res) => {
     try {
@@ -10288,6 +10319,33 @@ Return ONLY the ${targetLanguage} phrase:`;
       const { jobId } = req.params;
       const { seedJobs } = await import('./services/textbook-seed-service');
       const job = seedJobs.get(jobId);
+      if (!job) return res.status(404).json({ error: 'Job not found' });
+      res.json(job);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Bulk seed ALL paths (fire-and-forget; poll /api/admin/textbook/bulk-seed-progress/:jobId)
+  app.post('/api/admin/textbook/seed-all', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const jobId = `bulk-seed-${Date.now()}`;
+      const { bulkSeedAllPaths } = await import('./services/textbook-seed-service');
+      bulkSeedAllPaths(jobId).catch((e: any) =>
+        console.error('[BulkSeed] Fatal error:', e.message)
+      );
+      res.json({ jobId, message: 'Bulk textbook seeding started — poll /api/admin/textbook/bulk-seed-progress/:jobId for status' });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Poll bulk seed job progress
+  app.get('/api/admin/textbook/bulk-seed-progress/:jobId', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { jobId } = req.params;
+      const { bulkSeedJobs } = await import('./services/textbook-seed-service');
+      const job = bulkSeedJobs.get(jobId);
       if (!job) return res.status(404).json({ error: 'Job not found' });
       res.json(job);
     } catch (error: any) {

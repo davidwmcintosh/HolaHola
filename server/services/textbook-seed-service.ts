@@ -66,7 +66,7 @@ export async function seedLesson(
   const existing = await db.execute(sql`
     SELECT id FROM textbook_lesson_content WHERE lesson_id = ${lessonId} LIMIT 1
   `);
-  if (existing.rows.length > 0) return true;
+  if (existing.rows.length > 0) return false;
 
   // Fetch lesson + unit data
   const lessonRow = await db.execute(sql`
@@ -294,4 +294,97 @@ export async function seedCurriculumPath(
   job.currentLesson = 'Done';
   seedJobs.set(jobId, { ...job });
   console.log(`[TextbookSeed] ✓ Path "${path.name}" seeded — ${lessons.length} lessons, ${job.errors.length} errors`);
+}
+
+// ── Bulk seed ALL paths ────────────────────────────────────────────────────
+
+export interface BulkSeedProgress {
+  totalPaths:       number;
+  completedPaths:   number;
+  currentPath:      string;
+  currentLanguage:  string;
+  totalLessons:     number;
+  processedLessons: number;
+  skipped:          number;
+  seeded:           number;
+  status:           'running' | 'complete' | 'error';
+  errors:           string[];
+  startedAt:        string;
+  estimatedMinutes: number;
+}
+
+export const bulkSeedJobs = new Map<string, BulkSeedProgress>();
+
+export async function bulkSeedAllPaths(jobId: string): Promise<void> {
+  const db = getUserDb();
+
+  const pathRows = await db.execute(sql`
+    SELECT cp.id, cp.name, cp.language,
+           (SELECT COUNT(cl.id)
+            FROM curriculum_units cu
+            JOIN curriculum_lessons cl ON cl.curriculum_unit_id = cu.id
+            WHERE cu.curriculum_path_id = cp.id) as lesson_count
+    FROM curriculum_paths cp
+    ORDER BY cp.language, cp.name
+  `);
+  const paths = pathRows.rows as any[];
+  const totalLessons = paths.reduce((s, p) => s + Number(p.lesson_count), 0);
+
+  const bulk: BulkSeedProgress = {
+    totalPaths:       paths.length,
+    completedPaths:   0,
+    currentPath:      '',
+    currentLanguage:  '',
+    totalLessons,
+    processedLessons: 0,
+    skipped:          0,
+    seeded:           0,
+    status:           'running',
+    errors:           [],
+    startedAt:        new Date().toISOString(),
+    estimatedMinutes: Math.ceil((totalLessons * 2) / 60),
+  };
+  bulkSeedJobs.set(jobId, { ...bulk });
+
+  for (let pi = 0; pi < paths.length; pi++) {
+    const path = paths[pi];
+    bulk.currentPath     = path.name;
+    bulk.currentLanguage = path.language;
+    bulkSeedJobs.set(jobId, { ...bulk });
+
+    const lessonRows = await db.execute(sql`
+      SELECT cl.id, cl.name, cl.actfl_level, cu.actfl_level as unit_actfl
+      FROM curriculum_lessons cl
+      JOIN curriculum_units cu ON cu.id = cl.curriculum_unit_id
+      WHERE cu.curriculum_path_id = ${path.id}
+      ORDER BY cu.order_index, cl.order_index
+    `);
+    const lessons = lessonRows.rows as any[];
+
+    for (let li = 0; li < lessons.length; li++) {
+      const lesson = lessons[li];
+      try {
+        const level = lesson.actfl_level || lesson.unit_actfl;
+        const wasNew = await seedLesson(lesson.id, path.language, level);
+        if (wasNew) bulk.seeded++;
+        else        bulk.skipped++;
+      } catch (err: any) {
+        console.error(`[BulkSeed] ${path.name} / ${lesson.name}:`, err.message);
+        bulk.errors.push(`[${path.language}] ${lesson.name}: ${err.message.slice(0, 120)}`);
+      }
+      bulk.processedLessons++;
+      bulkSeedJobs.set(jobId, { ...bulk });
+
+      // Throttle: Gemini + 5 OER API calls per lesson
+      await new Promise(r => setTimeout(r, 1500));
+    }
+
+    bulk.completedPaths++;
+    bulkSeedJobs.set(jobId, { ...bulk });
+    console.log(`[BulkSeed] ✓ ${path.name} complete (${pi + 1}/${paths.length}) — ${bulk.seeded} seeded, ${bulk.skipped} skipped`);
+  }
+
+  bulk.status = 'complete';
+  bulkSeedJobs.set(jobId, { ...bulk });
+  console.log(`[BulkSeed] All ${paths.length} paths seeded. ${bulk.seeded} new, ${bulk.skipped} skipped, ${bulk.errors.length} errors.`);
 }
