@@ -27,12 +27,14 @@
 
 | Component | Status | Gap |
 |-----------|--------|-----|
-| Rhythm drills | Component built, not wired | Configuration system not done |
-| Infographics | Spec exists, not built | Zero actual infographics in production |
-| Chapter Recap sections | Designed, not implemented | End-of-chapter practice/summary missing |
-| Mind map integration with textbook | Planned, not connected | Progress doesn't flow to mind map |
-| Visual assets library | Designed (`curriculum_assets` table spec) | Table not created, no assets |
-| Whiteboard ↔ textbook connection | Planned | Daniela doesn't reference textbook content |
+| Rhythm drills | `RhythmDrill.tsx` exists (full component), imported nowhere | Not wired into any page or view |
+| Infographics | `TextbookInfographics.tsx` — 1,079 lines, 15+ components, used in `ChapterIntroduction` and `TextbookChapterView` | Working for some lesson types; not all lesson types trigger an infographic |
+| Chapter Recap | `ChapterRecap.tsx` exists and is imported in `TextbookChapterView` | Built — verify content quality in practice |
+| Mind map integration with textbook | Planned, not connected | Textbook progress doesn't flow to mind map nodes |
+| Visual assets library | Designed in spec | `curriculum_assets` table never created; no asset pipeline exists |
+| Whiteboard ↔ textbook connection | `TextbookWhiteboardBridge.tsx` exists, imported nowhere | Component built, not wired into any page |
+| Recommendation queue (Daniela → student) | `danielaRecommendations` table + storage methods exist | No student-facing UI to surface these recommendations |
+| Session compass (pacing service) | `session-compass-service.ts` exists — gives Daniela clock, syllabus visibility, pacing context | Backend service only; no student-visible roadmap widget |
 
 ### What's Not Started Despite Being In Specs
 
@@ -43,9 +45,8 @@
 - Offline access
 
 **Voice session experience:**
-- Confidence check-ins mid-session (tap-to-rate after activities)
-- Session roadmap widget (adaptive, updates as Daniela adjusts mid-lesson)
-- Recommendation queue between sessions (Daniela's persistent follow-up nudges)
+- Confidence check-ins mid-session (tap-to-rate after activities) — student-facing; `alden-checkin-service.ts` is founder-focused and does not cover this
+- Student-visible session roadmap widget — `session-compass-service.ts` gives Daniela pacing context but there is no UI widget the student sees
 - Daniela referencing teacher commitments/promises during sessions
 
 **Class management:**
