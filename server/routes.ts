@@ -590,8 +590,8 @@ export async function registerRoutes(app: Express): Promise<void> {
       }
 
       // 3. Generate with DALL-E
-      const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-      if (!apiKey) return res.json({ url: null });
+      const apiKey = process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+      if (!apiKey || apiKey.startsWith('_DUMMY')) return res.json({ url: null });
 
       const prompt = `Appetizing illustration of ${q}, warm watercolor style, soft natural tones, isolated on clean white background, artisan restaurant menu aesthetic, suitable for all ages`;
       const dalleRes = await fetch('https://api.openai.com/v1/images/generations', {

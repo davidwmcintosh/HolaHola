@@ -306,6 +306,106 @@ export async function listVisualLibrary(): Promise<{ environments: any[]; assetC
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Base scene image generation
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SCENE_STYLE = 'warm illustrated watercolor style, soft natural lighting, inviting and welcoming atmosphere, culturally diverse people, no visible text or signs or labels on objects, language learning educational context, suitable for all ages, wide establishing shot';
+
+const SCENE_PROMPTS: Record<string, string> = {
+  airport:          'A busy international airport terminal interior — check-in counters, departure boards, travellers with luggage, large windows overlooking planes on the tarmac',
+  bathroom:         'A clean modern home bathroom — pedestal sink with mirror, shower curtain, neatly arranged toiletries on shelves, towels on rack, soft morning light',
+  bedroom:          'A cozy home bedroom — neatly made bed with colourful pillows, wooden dresser with mirror, nightstand with lamp, sunlight through curtains',
+  cafe:             'Interior of a charming coffee shop — wooden counter with espresso machine, chalkboard menu, pastries in glass display case, warm hanging lights, small tables and chairs',
+  city_street:      'A lively city street scene — shops and cafés lining the pavement, a crosswalk, a bus stop, pedestrians going about their day, trees and clear sky',
+  classroom:        'A bright school classroom — rows of wooden desks, whiteboard at front, bookshelves along the wall, globe and maps, plants on windowsills, afternoon light',
+  doctor_office:    'A welcoming doctor\'s examination room — padded exam table, desk with medical charts, anatomical poster on wall, instrument tray, plants, soft lighting',
+  grocery_store:    'Inside a well-stocked grocery store — colourful produce section with fresh fruits and vegetables in wooden bins, hanging signs for each aisle, shopping carts',
+  hotel_lobby:      'A grand hotel lobby — polished marble front desk with staff, plush seating area, potted palms, luggage racks, elevator doors, chandeliers',
+  kitchen:          'A warm home kitchen — granite countertops, stove and oven, refrigerator, wooden cabinets, cutting board with vegetables, herbs on windowsill',
+  living_room:      'A comfortable living room — sofa with throw pillows, wooden coffee table, bookshelf, television on wall unit, rug, plants, afternoon sunlight',
+  office:           'A modern open-plan office — rows of desks with computers, glass meeting room in background, reception desk, potted plants, city view through large windows',
+  outdoor_market:   'A lively outdoor street market — colourful vendor stalls with awnings, crates of fresh produce, shoppers browsing, cobblestone square, blue sky',
+  park:             'A sunny public park — winding path through green trees, wooden benches, families picnicking, a small food cart, fountain in the distance',
+  restaurant_table: 'A beautifully set restaurant table — white tablecloth, ceramic plates, polished cutlery, folded napkins, small candle, bread basket, water glasses, warm bistro lighting',
+};
+
+export interface SceneImageResult {
+  name: string;
+  success: boolean;
+  url?: string;
+  error?: string;
+  skipped?: boolean;
+}
+
+export async function generateAllSceneImages(
+  opts: { force?: boolean; only?: string[] } = {}
+): Promise<SceneImageResult[]> {
+  const apiKey = process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  if (!apiKey || apiKey.startsWith('_DUMMY')) throw new Error('No valid OpenAI API key found (USER_OPENAI_API_KEY, OPENAI_API_KEY, or AI_INTEGRATIONS_OPENAI_API_KEY)');
+
+  const envRows = await db.execute(sql`SELECT id, name, display_name, image_url FROM visual_environments ORDER BY name`);
+  const envs = envRows.rows as Array<{ id: string; name: string; display_name: string; image_url: string }>;
+
+  const results: SceneImageResult[] = [];
+
+  for (const env of envs) {
+    if (opts.only && !opts.only.includes(env.name)) continue;
+    if (!opts.force && env.image_url && env.image_url.trim() !== '') {
+      results.push({ name: env.name, success: true, url: env.image_url, skipped: true });
+      continue;
+    }
+
+    const customPrompt = SCENE_PROMPTS[env.name];
+    const prompt = customPrompt
+      ? `${customPrompt}. ${SCENE_STYLE}`
+      : `${env.display_name} scene for language learning: ${env.name.replace(/_/g, ' ')}. ${SCENE_STYLE}`;
+
+    console.log(`[PropRoom] Generating image for ${env.name}...`);
+    try {
+      const dalleRes = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'dall-e-3',
+          prompt,
+          n: 1,
+          size: '1792x1024',
+          quality: 'standard',
+          response_format: 'url',
+        }),
+      });
+
+      if (!dalleRes.ok) {
+        const errText = await dalleRes.text();
+        console.error(`[PropRoom] DALL-E failed for ${env.name}: ${errText}`);
+        results.push({ name: env.name, success: false, error: errText });
+        continue;
+      }
+
+      const dalleData = await dalleRes.json();
+      const tempUrl = dalleData.data?.[0]?.url;
+      if (!tempUrl) {
+        results.push({ name: env.name, success: false, error: 'No URL in response' });
+        continue;
+      }
+
+      const { archiveImageToPermanentStorage } = await import('./image-storage');
+      const permanentUrl = await archiveImageToPermanentStorage(tempUrl, `scene-${env.name}-${Date.now()}.jpg`);
+
+      await db.execute(sql`UPDATE visual_environments SET image_url = ${permanentUrl} WHERE id = ${env.id}`);
+      console.log(`[PropRoom] ✓ ${env.name} → ${permanentUrl}`);
+      results.push({ name: env.name, success: true, url: permanentUrl });
+
+    } catch (err: any) {
+      console.error(`[PropRoom] Error generating ${env.name}: ${err.message}`);
+      results.push({ name: env.name, success: false, error: err.message });
+    }
+  }
+
+  return results;
+}
+
 export async function getSceneZones(sceneName: string): Promise<{
   scene: { name: string; displayName: string; description: string } | null;
   zones: Array<{

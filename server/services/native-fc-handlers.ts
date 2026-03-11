@@ -1321,6 +1321,33 @@ export class NativeFunctionCallHandler {
 
               console.log(`[Native Function→LoadScenario] Loaded "${scenario.title}" (${slug}) with ${props.length} props`);
 
+              // Map scenario slugs to Prop Room visual environment names
+              const SCENARIO_SCENE_MAP: Record<string, string> = {
+                'restaurant':        'restaurant_table',
+                'dinner-with-friend':'restaurant_table',
+                'coffee-shop':       'cafe',
+                'grocery-store':     'grocery_store',
+                'hotel-checkin':     'hotel_lobby',
+                'airport-checkin':   'airport',
+                'doctors-office':    'doctor_office',
+                'job-interview':     'office',
+                'office-meeting':    'office',
+              };
+              let resolvedImageUrl: string | null = (scenario.imageUrl as string | null) || null;
+              if (!resolvedImageUrl) {
+                const sceneName = SCENARIO_SCENE_MAP[slug];
+                if (sceneName) {
+                  try {
+                    const envRow = await sharedDb.execute(
+                      sql`SELECT image_url FROM visual_environments WHERE name = ${sceneName} AND image_url IS NOT NULL AND image_url != '' LIMIT 1`
+                    );
+                    resolvedImageUrl = (envRow.rows[0] as any)?.image_url ?? null;
+                  } catch (e) {
+                    console.warn('[LoadScenario] Scene image lookup failed:', e);
+                  }
+                }
+              }
+
               this.sendMessage(session.ws, {
                 type: 'scenario_loaded',
                 timestamp: Date.now(),
@@ -1332,7 +1359,7 @@ export class NativeFunctionCallHandler {
                   category: scenario.category,
                   location: scenario.location,
                   defaultMood: scenario.defaultMood,
-                  imageUrl: scenario.imageUrl,
+                  imageUrl: resolvedImageUrl,
                   props: session.activeScenario.props,
                   levelGuide: session.activeScenario.levelGuide,
                 },

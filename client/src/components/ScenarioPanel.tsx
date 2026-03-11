@@ -53,6 +53,7 @@ function MenuItemImage({ query }: { query: string }) {
       alt={query}
       className="w-10 h-10 rounded object-cover flex-shrink-0"
       loading="lazy"
+      data-testid={`img-menu-item-${query.replace(/\s+/g, '-').toLowerCase()}`}
     />
   );
 }
