@@ -177,7 +177,7 @@ function ArtifactCard({ artifact, guestTutors }: { artifact: RoomArtifact; guest
             className="w-full rounded-sm border border-border"
             data-testid="browser-screenshot-image"
           />
-          {c.analysis && <p className="text-xs text-muted-foreground whitespace-pre-wrap">{String(c.analysis)}</p>}
+          {c.analysis && <p className="text-xs text-muted-foreground whitespace-pre-wrap break-words overflow-hidden">{String(c.analysis)}</p>}
           {errors && errors.length > 0 && (
             <div className="text-xs text-destructive space-y-0.5">
               <span className="font-medium">Console errors ({errors.length}):</span>
@@ -234,7 +234,7 @@ function ArtifactCard({ artifact, guestTutors }: { artifact: RoomArtifact; guest
   };
 
   return (
-    <Card className={`${creator.bgColor} ${creator.borderColor} border`} data-testid={`artifact-${artifact.id}`}>
+    <Card className={`${creator.bgColor} ${creator.borderColor} border overflow-hidden min-w-0`} data-testid={`artifact-${artifact.id}`}>
       <CardHeader className="p-2.5">
         <div className="flex items-center gap-2">
           <ArtifactIcon className={`h-3.5 w-3.5 ${creator.color} shrink-0`} />
@@ -259,13 +259,13 @@ function ExpressLaneMessage({ participant, content, time, guestTutors }: { parti
   const p = getParticipantConfig(participant, guestTutors);
   const Icon = p.Icon;
   return (
-    <div className="space-y-1" data-testid="express-lane-message">
-      <div className="flex items-center gap-1.5">
-        <Icon className={`h-3 w-3 ${p.color}`} />
-        <span className={`text-xs font-medium ${p.color}`}>{p.name}</span>
-        <span className="text-xs text-muted-foreground">{time}</span>
+    <div className="space-y-1 min-w-0 overflow-hidden" data-testid="express-lane-message">
+      <div className="flex items-center gap-1.5 min-w-0">
+        <Icon className={`h-3 w-3 shrink-0 ${p.color}`} />
+        <span className={`text-xs font-medium shrink-0 ${p.color}`}>{p.name}</span>
+        <span className="text-xs text-muted-foreground shrink-0">{time}</span>
       </div>
-      <div className={`text-xs ${p.bgColor} ${p.borderColor} border rounded-md p-2 whitespace-pre-wrap leading-relaxed`}>{content}</div>
+      <div className={`text-xs ${p.bgColor} ${p.borderColor} border rounded-md p-2 whitespace-pre-wrap leading-relaxed break-words overflow-hidden`}>{content}</div>
     </div>
   );
 }
@@ -1257,15 +1257,15 @@ export default function TeamRoom() {
           <p className="text-xs text-muted-foreground mt-0.5">Analysis, artifacts & insights</p>
         </div>
         <ScrollArea className="flex-1">
-          <div className="p-3">
+          <div className="p-3 min-w-0 overflow-x-hidden">
           {!hasExpressContent ? (
             <div className="text-center py-10 text-xs text-muted-foreground px-3">
               Detailed analysis and shared artifacts from the team will appear here during the session.
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-4 min-w-0">
               {displayArtifacts.length > 0 && (
-                <div className="space-y-2">
+                <div className="space-y-2 min-w-0">
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Artifacts</p>
                   {displayArtifacts.map(a => <ArtifactCard key={a.id} artifact={a} guestTutors={guestTutors} />)}
                 </div>
