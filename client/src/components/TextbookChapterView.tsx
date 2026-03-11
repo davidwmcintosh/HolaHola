@@ -13,12 +13,16 @@ import {
   BookOpen,
   Sparkles,
   CheckCircle2,
-  Play
+  Play,
+  Music2,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import { LessonPrepCard } from "./TextbookInfographics";
 import { ChapterRecap } from "./ChapterRecap";
 import { ChapterIntroduction } from "./ChapterIntroduction";
 import { TextbookLessonReader } from "./TextbookLessonReader";
+import { RhythmDrill } from "./RhythmDrill";
 import { apiRequest } from "@/lib/queryClient";
 
 interface DrillItem {
@@ -104,6 +108,21 @@ function VisualLessonCard({
 }) {
   const viewedRef = useRef(false);
   const cardRef = useRef<HTMLDivElement>(null);
+  const [showRhythmDrill, setShowRhythmDrill] = useState(false);
+
+  const isRhythmEligible =
+    (section.lessonType === 'vocabulary' || section.lessonType === 'drill') &&
+    section.hasDrills &&
+    section.drills &&
+    section.drills.length > 0;
+
+  const rhythmItems = (section.drills ?? []).map(d => ({
+    id: d.id,
+    prompt: d.prompt,
+    targetText: d.targetText,
+    difficulty: d.difficulty,
+    category: d.itemType,
+  }));
 
   useEffect(() => {
     const el = cardRef.current;
@@ -200,7 +219,7 @@ function VisualLessonCard({
                 Practice with Daniela
               </Button>
             )}
-            {section.hasDrills && section.drillCount > 0 && (
+            {section.hasDrills && section.drillCount > 0 && !isRhythmEligible && (
               <Button 
                 variant={section.conversationTopic ? "outline" : "default"}
                 className={`min-h-[44px] touch-manipulation ${section.conversationTopic ? "" : "flex-1"}`}
@@ -209,6 +228,21 @@ function VisualLessonCard({
               >
                 <Dumbbell className="h-4 w-4 mr-2" />
                 {section.drillCount} Drills
+              </Button>
+            )}
+            {isRhythmEligible && (
+              <Button
+                variant={showRhythmDrill ? "default" : "outline"}
+                className="flex-1 min-h-[44px] touch-manipulation"
+                onClick={() => setShowRhythmDrill(prev => !prev)}
+                data-testid={`button-rhythm-drill-${section.id}`}
+              >
+                <Music2 className="h-4 w-4 mr-2" />
+                Rhythm Practice
+                {showRhythmDrill
+                  ? <ChevronUp className="h-4 w-4 ml-2" />
+                  : <ChevronDown className="h-4 w-4 ml-2" />
+                }
               </Button>
             )}
             {!section.conversationTopic && !section.hasDrills && (
@@ -223,6 +257,22 @@ function VisualLessonCard({
               </Button>
             )}
           </div>
+
+          {showRhythmDrill && isRhythmEligible && rhythmItems.length > 0 && (
+            <div className="pt-2" data-testid={`rhythm-drill-panel-${section.id}`}>
+              <RhythmDrill
+                title={section.name}
+                description={`Practice each item — listen, then repeat aloud.`}
+                items={rhythmItems}
+                onComplete={(results) => {
+                  const correct = results.filter(r => r.correct).length;
+                  if (correct / results.length >= 0.7) {
+                    setShowRhythmDrill(false);
+                  }
+                }}
+              />
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

@@ -27,7 +27,7 @@
 
 | Component | Status | Gap |
 |-----------|--------|-----|
-| Rhythm drills | `RhythmDrill.tsx` exists (full component), imported nowhere | Not wired into any page or view |
+| Rhythm drills | `RhythmDrill.tsx` now wired into `VisualLessonCard` in `TextbookChapterView` — shows as inline "Rhythm Practice" toggle for vocabulary/drill lessons that have drills | Auto-collapses on 70%+ score; pronunciation eval is still mocked (no real STT scoring pipeline) |
 | Infographics | `TextbookInfographics.tsx` — 1,079 lines, 15+ components, used in `ChapterIntroduction` and `TextbookChapterView` | Working for some lesson types; not all lesson types trigger an infographic |
 | Chapter Recap | `ChapterRecap.tsx` exists and is imported in `TextbookChapterView` | Built — verify content quality in practice |
 | Mind map integration with textbook | Planned, not connected | Textbook progress doesn't flow to mind map nodes |
@@ -94,6 +94,28 @@ Run `npx tsx server/scripts/curriculum-audit.ts` for live results. As of March 2
 ### Lyra Missed All of This
 
 Lyra runs content audits every 12 hours. She found 0 content quality issues in her most recent run while the March 2026 manual audit found 442 total flags. This is a gap in Lyra's audit criteria — she checks for stale/empty/missing ACTFL metadata but not for objective-vocabulary alignment or duplicate lesson content.
+
+### Drill Audit: Daniela's Jan 19, 2026 Review
+
+Full thread in `docs/drill-audit-for-daniela.md`. Daniela reviewed the then-current drill inventory and gave five prioritized recommendations. This is where we stand on each as of March 2026:
+
+**Priority 1 — Level Up Numbers** ✅ Done  
+Two scripts built and run: `add-intermediate-number-drills.ts` and `add-advanced-number-drills.ts`. Result: 279 drills at intermediate_low + 234 at intermediate_mid across all 9 languages (513 total). Numbers 21–1000+ are now covered.
+
+**Priority 2 — Asian Production Drills (translate_speak with phonetic aids)** ⚠️ Half done  
+`boost-drill-variety.ts` (Jan 26) ran and added `translate_speak` drills for Japanese, Korean, and Mandarin. But Daniela specifically asked for romaji/pinyin/hangeul phonetic training aids embedded in the drill prompts to help production. The script generates standard prompts without them. Better than zero, not the designed solution.
+
+**Priority 3 — Prosody/Shadowing Drills** ❌ Not started  
+No shadowing drill type was ever created. No database entries. The concept exists only in the audit doc. This is the highest-impact gap that touches the non-numbers curriculum.
+
+**Secondary — Matching Drill Expansion** ⚠️ Partially done  
+Daniela flagged matching at 155 drills as insufficient (she said 300+ minimum). Currently at 285. Closer, but `boost-drill-variety.ts` didn't fully close it.
+
+**Secondary — Sentence Transformation (Advanced)** ❌ Not started  
+Daniela requested transformation drills for level 4–5 learners as a bridge to production fluency. Zero built.
+
+**RhythmDrill Component Status** — previously built but unattached  
+`RhythmDrill.tsx` was clearly built in response to Daniela's numbers-rhythm concept. As of March 2026, it is now wired into `VisualLessonCard` in `TextbookChapterView` for vocabulary and drill lesson types. It renders inline when a section has drills, with a "Rhythm Practice" toggle button. Auto-collapses when the student scores ≥70%. The pronunciation evaluation inside is still mocked — real STT scoring would require connecting to the Deepgram pipeline.
 
 ---
 
@@ -261,6 +283,8 @@ Should we update Lyra's audit criteria to catch these? The audit script exists �
 | Mar 2026 | Curriculum audit script | Done — `server/scripts/curriculum-audit.ts` |
 | Mar 2026 | Single-lesson re-seed endpoint | Done — `POST /api/internal/textbook/seed-lesson` |
 | Mar 2026 | Fix Los Números 0-10 → 0-20 | Done — re-seeded with correct vocabulary |
+| Mar 2026 | Wire RhythmDrill into textbook | Done — `RhythmDrill` renders inline in `VisualLessonCard` for vocabulary/drill lessons; toggle button, auto-collapse on ≥70% score; STT scoring still mocked |
+| Mar 2026 | Drill audit findings added to curriculum-strategy.md | Done — Daniela's Jan 19 recommendations tracked with current status; two open gaps (shadowing, sentence transformation) documented |
 
 ---
 
