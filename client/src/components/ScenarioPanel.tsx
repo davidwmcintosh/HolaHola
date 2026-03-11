@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { Tv, ChevronLeft, ChevronRight, Sparkles, BookOpen, UtensilsCrossed, FileText, CreditCard, MapIcon, List, Receipt, ImageIcon, X } from "lucide-react";
+import { Tv, ChevronLeft, ChevronRight, Sparkles, BookOpen, UtensilsCrossed, FileText, CreditCard, MapIcon, List, Receipt, ImageIcon, X, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { ScenarioItemData, ScenarioLoadedProp } from "@shared/whiteboard-types";
 import type { StudioImage } from "./DesktopChatLayout";
@@ -267,19 +268,45 @@ function ScenarioPropCard({ prop, difficulty }: { prop: ScenarioLoadedProp; diff
   );
 }
 
+function ImageLightbox({ url, label, open, onClose }: { url: string; label: string; open: boolean; onClose: () => void }) {
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-3xl p-0 overflow-hidden bg-black border-0" data-testid="image-lightbox">
+        <img
+          src={url}
+          alt={label}
+          className="w-full h-auto max-h-[80vh] object-contain"
+          data-testid="img-lightbox-full"
+        />
+        {label && (
+          <p className="text-white/80 text-sm text-center px-4 py-2 bg-black/70">{label}</p>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function StudioImageGallery({ images }: { images: StudioImage[] }) {
   const latestImage = images[images.length - 1];
   const previousImages = images.slice(0, -1);
+  const [lightbox, setLightbox] = useState<{ url: string; label: string } | null>(null);
 
   return (
     <div className="space-y-2" data-testid="studio-image-gallery">
-      <div className="rounded-md overflow-hidden border bg-background" data-testid={`studio-image-${latestImage.word}`}>
+      <div
+        className="rounded-md overflow-hidden border bg-background cursor-zoom-in relative group"
+        data-testid={`studio-image-${latestImage.word}`}
+        onClick={() => setLightbox({ url: latestImage.imageUrl, label: latestImage.description || latestImage.word })}
+      >
         <img
           src={latestImage.imageUrl}
           alt={latestImage.description}
           className="w-full h-44 object-cover"
           data-testid="img-studio-latest"
         />
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
+          <ZoomIn className="h-7 w-7 text-white drop-shadow" />
+        </div>
         <div className="px-2.5 py-2">
           <p className="text-sm font-semibold truncate">{latestImage.word}</p>
           {latestImage.description && latestImage.description !== latestImage.word && (
@@ -291,16 +318,33 @@ function StudioImageGallery({ images }: { images: StudioImage[] }) {
       {previousImages.length > 0 && (
         <div className="grid grid-cols-2 gap-1.5">
           {previousImages.map((img, i) => (
-            <div key={`${img.word}-${i}`} className="rounded-md overflow-hidden border bg-background" data-testid={`studio-image-prev-${i}`}>
+            <div
+              key={`${img.word}-${i}`}
+              className="rounded-md overflow-hidden border bg-background cursor-zoom-in relative group"
+              data-testid={`studio-image-prev-${i}`}
+              onClick={() => setLightbox({ url: img.imageUrl, label: img.description || img.word })}
+            >
               <img
                 src={img.imageUrl}
                 alt={img.description}
                 className="w-full h-20 object-cover"
               />
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
+                <ZoomIn className="h-5 w-5 text-white drop-shadow" />
+              </div>
               <p className="text-[11px] font-medium px-1.5 py-1 truncate">{img.word}</p>
             </div>
           ))}
         </div>
+      )}
+
+      {lightbox && (
+        <ImageLightbox
+          url={lightbox.url}
+          label={lightbox.label}
+          open={true}
+          onClose={() => setLightbox(null)}
+        />
       )}
     </div>
   );
@@ -308,6 +352,7 @@ function StudioImageGallery({ images }: { images: StudioImage[] }) {
 
 export function ScenarioPanel({ scenario, isCollapsed, onToggleCollapse, studioImages }: ScenarioPanelProps) {
   const { difficulty } = useLanguage();
+  const [sceneLightbox, setSceneLightbox] = useState<{ url: string; label: string } | null>(null);
 
   if (isCollapsed) {
     return (
@@ -351,13 +396,19 @@ export function ScenarioPanel({ scenario, isCollapsed, onToggleCollapse, studioI
         {scenario ? (
           <div className="space-y-3">
             {scenario.imageUrl && (
-              <div className="rounded-md overflow-hidden border">
+              <div
+                className="rounded-md overflow-hidden border cursor-zoom-in relative group"
+                onClick={() => setSceneLightbox({ url: scenario.imageUrl!, label: scenario.location || scenario.title || '' })}
+              >
                 <img
                   src={scenario.imageUrl}
                   alt={scenario.location}
                   className="w-full h-40 object-cover"
                   data-testid="img-scenario-scene"
                 />
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
+                  <ZoomIn className="h-7 w-7 text-white drop-shadow" />
+                </div>
               </div>
             )}
             {scenario.isLoading && !scenario.imageUrl && (
@@ -396,6 +447,15 @@ export function ScenarioPanel({ scenario, isCollapsed, onToggleCollapse, studioI
           </div>
         )}
       </div>
+
+      {sceneLightbox && (
+        <ImageLightbox
+          url={sceneLightbox.url}
+          label={sceneLightbox.label}
+          open={true}
+          onClose={() => setSceneLightbox(null)}
+        />
+      )}
     </div>
   );
 }

@@ -61,9 +61,11 @@ import {
   MessageCircle,
   User,
   GraduationCap,
+  ZoomIn,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { synthesizeSpeech } from "@/lib/restVoiceApi";
 import type HanziWriter from "hanzi-writer";
@@ -237,6 +239,7 @@ interface ImageItemDisplayProps {
 
 const ImageItemDisplay = ({ item, index }: ImageItemDisplayProps) => {
   const { data } = item;
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   
   return (
     <motion.div
@@ -259,12 +262,20 @@ const ImageItemDisplay = ({ item, index }: ImageItemDisplayProps) => {
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : data.imageUrl ? (
-        <img 
-          src={data.imageUrl} 
-          alt={data.description}
-          className="w-full h-32 object-cover rounded-lg"
-          data-testid={`image-vocab-${data.word}`}
-        />
+        <div
+          className="relative group cursor-zoom-in rounded-lg overflow-hidden"
+          onClick={() => setLightboxOpen(true)}
+        >
+          <img 
+            src={data.imageUrl} 
+            alt={data.description}
+            className="w-full h-32 object-cover"
+            data-testid={`image-vocab-${data.word}`}
+          />
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-lg">
+            <ZoomIn className="h-7 w-7 text-white drop-shadow" />
+          </div>
+        </div>
       ) : (
         <div className="flex items-center justify-center h-32 bg-muted/50 rounded-lg text-muted-foreground text-sm">
           Generating image...
@@ -275,6 +286,21 @@ const ImageItemDisplay = ({ item, index }: ImageItemDisplayProps) => {
         <span className="text-sm text-muted-foreground italic">
           {data.description}
         </span>
+      )}
+
+      {data.imageUrl && (
+        <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
+          <DialogContent className="max-w-3xl p-0 overflow-hidden bg-black border-0" data-testid="whiteboard-image-lightbox">
+            <img
+              src={data.imageUrl}
+              alt={data.description}
+              className="w-full h-auto max-h-[80vh] object-contain"
+            />
+            {data.description && (
+              <p className="text-white/80 text-sm text-center px-4 py-2 bg-black/70">{data.description}</p>
+            )}
+          </DialogContent>
+        </Dialog>
       )}
     </motion.div>
   );
