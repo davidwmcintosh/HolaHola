@@ -156,8 +156,6 @@ function getSubjectIcon(subject: string): LucideIcon {
 }
 
 function getSubjectLabel(subject: string, syllabus: SubjectSyllabus): string {
-  const cfg = SUBJECT_CONFIG[subject.toLowerCase()];
-  if (cfg?.tutorLabel) return cfg.tutorLabel;
   return syllabus.bookTitle ?? subject.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
