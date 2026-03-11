@@ -10177,6 +10177,37 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Re-seed a single lesson by ID (useful after fixing vocab/grammar data)
+  app.post('/api/internal/textbook/seed-lesson', async (req: any, res) => {
+    try {
+      const token = req.headers['x-guardian-token'];
+      const { GUARDIAN_TOKEN } = await import('./services/alden-build-service');
+      if (token !== GUARDIAN_TOKEN) return res.status(401).json({ error: 'Unauthorized' });
+      const { lessonId } = req.body;
+      if (!lessonId) return res.status(400).json({ error: 'lessonId required' });
+      const { seedLesson } = await import('./services/textbook-seed-service');
+      // Fetch language + actfl level for this lesson
+      const db = (await import('./db')).db;
+      const { sql: drizzleSql } = await import('drizzle-orm');
+      const row = await db.execute(drizzleSql`
+        SELECT cp.language, cu.actfl_level
+        FROM curriculum_lessons cl
+        JOIN curriculum_units cu ON cu.id = cl.curriculum_unit_id
+        JOIN curriculum_paths cp ON cp.id = cu.curriculum_path_id
+        WHERE cl.id = ${lessonId}
+        LIMIT 1
+      `);
+      if (!row.rows.length) return res.status(404).json({ error: 'Lesson not found' });
+      const { language, actfl_level } = row.rows[0] as any;
+      seedLesson(lessonId, language, actfl_level).then((wasNew: boolean) => {
+        console.log(`[SingleSeed] Lesson ${lessonId} seeded: wasNew=${wasNew}`);
+      }).catch((e: any) => console.error('[SingleSeed] Error:', e.message));
+      res.json({ lessonId, language, status: 'seeding started' });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get('/api/internal/textbook/seed-all-progress/:jobId', async (req: any, res) => {
     try {
       const token = req.headers['x-guardian-token'];
