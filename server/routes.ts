@@ -17330,6 +17330,40 @@ Current conversation context:
     }
   });
 
+  // List scene background images (from visual_environments)
+  app.get("/api/admin/scene-images", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res) => {
+    try {
+      const sharedDb = getSharedDb();
+      const rows = await sharedDb.execute(sql`
+        SELECT id, name, display_name, description, image_url
+        FROM visual_environments
+        WHERE image_url IS NOT NULL AND image_url != ''
+        ORDER BY display_name ASC
+      `);
+      res.json({ images: rows.rows });
+    } catch (error: any) {
+      console.error('Error fetching scene images:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // List prop room asset images (from visual_assets)
+  app.get("/api/admin/prop-images", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res) => {
+    try {
+      const sharedDb = getSharedDb();
+      const rows = await sharedDb.execute(sql`
+        SELECT id, name, display_name, object_type, image_url, tags
+        FROM visual_assets
+        WHERE image_url IS NOT NULL AND image_url != ''
+        ORDER BY object_type ASC, display_name ASC
+      `);
+      res.json({ images: rows.rows });
+    } catch (error: any) {
+      console.error('Error fetching prop images:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ===== Impersonation =====
   
   // Start impersonation (admin only)

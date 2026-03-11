@@ -4760,6 +4760,8 @@ function ImageLibraryTab() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <SceneAndPropImageSections />
+
       <AlertDialog open={showGenerateDialog} onOpenChange={setShowGenerateDialog}>
         <AlertDialogContent className="max-w-lg">
           <AlertDialogHeader>
@@ -4890,6 +4892,110 @@ function ImageLibraryTab() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+function SceneAndPropImageSections() {
+  const { data: sceneData, isLoading: scenesLoading } = useQuery<{ images: Array<{ id: string; name: string; display_name: string; description: string | null; image_url: string }> }>({
+    queryKey: ['/api/admin/scene-images'],
+  });
+  const { data: propData, isLoading: propsLoading } = useQuery<{ images: Array<{ id: string; name: string; display_name: string; object_type: string; image_url: string; tags: string[] | null }> }>({
+    queryKey: ['/api/admin/prop-images'],
+  });
+
+  const [sceneLightbox, setSceneLightbox] = useState<{ url: string; label: string } | null>(null);
+  const [propLightbox, setPropLightbox] = useState<{ url: string; label: string } | null>(null);
+
+  return (
+    <>
+      <CollapsibleSection
+        title="Scenario Scene Backgrounds"
+        icon={<Sparkles className="h-5 w-5 text-primary" />}
+        badge={sceneData?.images?.length?.toString()}
+        defaultOpen={true}
+      >
+        {scenesLoading ? (
+          <div className="grid gap-3 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 mt-4">
+            {[...Array(6)].map((_, i) => <Skeleton key={i} className="aspect-video rounded-md" />)}
+          </div>
+        ) : sceneData?.images?.length ? (
+          <div className="grid gap-3 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 mt-4">
+            {sceneData.images.map(img => (
+              <div
+                key={img.id}
+                className="relative group cursor-zoom-in overflow-hidden rounded-md border bg-muted"
+                onClick={() => setSceneLightbox({ url: img.image_url, label: img.display_name || img.name })}
+                data-testid={`scene-img-${img.name}`}
+              >
+                <img
+                  src={img.image_url}
+                  alt={img.display_name || img.name}
+                  className="w-full aspect-video object-cover"
+                  loading="lazy"
+                />
+                <div className="absolute inset-x-0 bottom-0 bg-black/60 px-1.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <p className="text-[11px] text-white truncate">{img.display_name || img.name}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground mt-4">No scene backgrounds have been generated yet.</p>
+        )}
+        {sceneLightbox && (
+          <Dialog open onOpenChange={() => setSceneLightbox(null)}>
+            <DialogContent className="max-w-3xl p-0 overflow-hidden bg-black border-0">
+              <img src={sceneLightbox.url} alt={sceneLightbox.label} className="w-full h-auto max-h-[80vh] object-contain" />
+              <p className="text-white/80 text-sm text-center px-4 py-2">{sceneLightbox.label}</p>
+            </DialogContent>
+          </Dialog>
+        )}
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Prop Room Assets"
+        icon={<Image className="h-5 w-5 text-primary" />}
+        badge={propData?.images?.length?.toString()}
+        defaultOpen={true}
+      >
+        {propsLoading ? (
+          <div className="grid gap-3 grid-cols-4 sm:grid-cols-6 md:grid-cols-8 mt-4">
+            {[...Array(8)].map((_, i) => <Skeleton key={i} className="aspect-square rounded-md" />)}
+          </div>
+        ) : propData?.images?.length ? (
+          <div className="grid gap-3 grid-cols-4 sm:grid-cols-6 md:grid-cols-8 mt-4">
+            {propData.images.map(img => (
+              <div
+                key={img.id}
+                className="relative group cursor-zoom-in overflow-hidden rounded-md border bg-muted"
+                onClick={() => setPropLightbox({ url: img.image_url, label: img.display_name || img.name })}
+                data-testid={`prop-img-${img.name}`}
+              >
+                <img
+                  src={img.image_url}
+                  alt={img.display_name || img.name}
+                  className="w-full aspect-square object-cover"
+                  loading="lazy"
+                />
+                <div className="absolute inset-x-0 bottom-0 bg-black/60 px-1 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <p className="text-[10px] text-white truncate">{img.display_name || img.name}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground mt-4">No prop room assets have been generated yet.</p>
+        )}
+        {propLightbox && (
+          <Dialog open onOpenChange={() => setPropLightbox(null)}>
+            <DialogContent className="max-w-lg p-0 overflow-hidden bg-black border-0">
+              <img src={propLightbox.url} alt={propLightbox.label} className="w-full h-auto max-h-[80vh] object-contain" />
+              <p className="text-white/80 text-sm text-center px-4 py-2">{propLightbox.label}</p>
+            </DialogContent>
+          </Dialog>
+        )}
+      </CollapsibleSection>
+    </>
   );
 }
 
