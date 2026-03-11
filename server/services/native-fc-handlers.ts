@@ -533,13 +533,40 @@ export class NativeFunctionCallHandler {
               result = await generateVisual(concept, 'image', {}, style);
               // Archive the temporary DALL-E URL to permanent storage
               console.log(`[Native Function→GenerateVisual] DALL-E complete — archiving to permanent storage`);
+              let archivedFilename = '';
               try {
                 const { archiveImageToPermanentStorage } = await import('../services/image-storage');
                 const crypto = await import('crypto');
                 const hash = crypto.createHash('md5').update('visual_' + concept + Date.now()).digest('hex');
-                result = { ...result, imageUrl: await archiveImageToPermanentStorage(result.imageUrl, `${hash}.jpg`) };
+                archivedFilename = `${hash}.jpg`;
+                result = { ...result, imageUrl: await archiveImageToPermanentStorage(result.imageUrl, archivedFilename) };
               } catch (archiveErr: any) {
                 console.warn(`[Native Function→GenerateVisual] Archive failed, using DALL-E URL directly:`, archiveErr.message);
+              }
+
+              // Persist in media_files so the Images tab shows it and future
+              // generation calls can reuse it from the library
+              try {
+                const shortLabel = concept.split(/[,;]/)[0].trim().substring(0, 60);
+                await storage.cacheImage({
+                  uploadedBy: null,
+                  mediaType: 'image',
+                  url: result.imageUrl,
+                  thumbnailUrl: null,
+                  filename: archivedFilename || `ai-visual-${Date.now()}.jpg`,
+                  mimeType: 'image/jpeg',
+                  title: shortLabel,
+                  description: concept,
+                  tags: result.semanticTags || [],
+                  language: session.targetLanguage || null,
+                  imageSource: 'ai_generated',
+                  promptHash: null,
+                  attributionJson: null,
+                  usageCount: 1,
+                });
+                console.log(`[Native Function→GenerateVisual] Saved to media_files library: "${shortLabel}"`);
+              } catch (saveErr: any) {
+                console.warn(`[Native Function→GenerateVisual] Failed to save to media library:`, saveErr.message);
               }
             }
 
