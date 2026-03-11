@@ -2,10 +2,12 @@
  * Permanent Image Storage Service
  *
  * Downloads AI-generated image bytes (e.g. expiring DALL-E URLs) and uploads
- * them to Replit Object Storage, returning a permanent public URL.
+ * them to Replit Object Storage, returning an app-relative URL that is served
+ * through the Express proxy route /api/media/ai-image/:filename.
  *
- * All subsequent students who trigger the same lesson visual get the stored
- * URL for free — zero regeneration cost.
+ * Direct storage.googleapis.com URLs return 403 (bucket not public).
+ * All image access goes through the app proxy so the Replit sidecar credentials
+ * are used to authorise the download from GCS.
  */
 
 import { objectStorageClient } from '../replit_integrations/object_storage/objectStorage';
@@ -18,29 +20,29 @@ function getBucketName(): string {
 }
 
 /**
- * Upload a buffer to the public directory of the object storage bucket.
- * Returns a permanent public HTTPS URL.
+ * Upload a buffer to the public/ai-images directory of the object storage bucket.
+ * Returns an app-relative URL served through /api/media/ai-image/:filename.
  */
 async function uploadPublicBuffer(
-  objectPath: string,
+  filename: string,
   buffer: Buffer,
   contentType: string
 ): Promise<string> {
   const bucket = objectStorageClient.bucket(getBucketName());
-  const file = bucket.file(`public/${objectPath}`);
+  const file = bucket.file(`public/ai-images/${filename}`);
   await file.save(buffer, {
     contentType,
     metadata: { cacheControl: 'public, max-age=31536000' },
   });
-  return `https://storage.googleapis.com/${getBucketName()}/public/${objectPath}`;
+  return `/api/media/ai-image/${filename}`;
 }
 
 /**
  * Download an image from a URL and upload it to permanent object storage.
  *
  * @param sourceUrl  - The temporary URL to download from (e.g. DALL-E URL)
- * @param filename   - Destination filename inside the public/ai-images/ folder
- * @returns          - Permanent public URL, or the original URL on failure
+ * @param filename   - Destination filename (e.g. "abc123.jpg")
+ * @returns          - App-relative permanent URL, or the original URL on failure
  */
 export async function archiveImageToPermanentStorage(
   sourceUrl: string,
@@ -60,13 +62,68 @@ export async function archiveImageToPermanentStorage(
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const contentType = response.headers.get('content-type') || 'image/png';
-    const objectPath = `ai-images/${filename}`;
 
-    const permanentUrl = await uploadPublicBuffer(objectPath, buffer, contentType);
-    console.log(`[ImageStorage] Archived ${filename} → ${permanentUrl}`);
-    return permanentUrl;
+    const appUrl = await uploadPublicBuffer(filename, buffer, contentType);
+    console.log(`[ImageStorage] Archived ${filename} → ${appUrl}`);
+    return appUrl;
   } catch (err: any) {
     console.error(`[ImageStorage] Failed to archive ${filename}: ${err.message} — falling back to source URL`);
     return sourceUrl;
   }
+}
+
+/**
+ * Normalise any stored image URL so it is always an app-relative proxy URL.
+ *
+ * Old images were stored with a raw GCS URL that returns 403 in the browser.
+ * This function converts those to the proxy path; already-normalised paths
+ * and external URLs (e.g. expiring DALL-E URLs) are returned unchanged.
+ */
+export function normalizeImageUrl(url: string): string {
+  // Already an app-relative proxy URL — leave as-is
+  if (url.startsWith('/api/media/ai-image/')) return url;
+
+  // Old format: https://storage.googleapis.com/<bucket>/public/ai-images/<filename>
+  const gcsMatch = url.match(/https:\/\/storage\.googleapis\.com\/[^/]+\/public\/ai-images\/([^?#]+)/);
+  if (gcsMatch) {
+    return `/api/media/ai-image/${gcsMatch[1]}`;
+  }
+
+  return url;
+}
+
+/**
+ * Stream a stored AI image from object storage to the Express response.
+ * Used by GET /api/media/ai-image/:filename.
+ */
+export async function serveStoredAiImage(
+  filename: string,
+  res: import('express').Response
+): Promise<void> {
+  if (!BUCKET_ID) {
+    res.status(404).json({ error: 'Object storage not configured' });
+    return;
+  }
+
+  const bucket = objectStorageClient.bucket(getBucketName());
+  const file = bucket.file(`public/ai-images/${filename}`);
+
+  const [exists] = await file.exists();
+  if (!exists) {
+    res.status(404).json({ error: 'Image not found' });
+    return;
+  }
+
+  const [metadata] = await file.getMetadata();
+  res.set({
+    'Content-Type': (metadata.contentType as string) || 'image/jpeg',
+    'Cache-Control': 'public, max-age=31536000',
+  });
+
+  file.createReadStream()
+    .on('error', (err: Error) => {
+      console.error(`[ImageStorage] Stream error for ${filename}:`, err.message);
+      if (!res.headersSent) res.status(500).json({ error: 'Stream error' });
+    })
+    .pipe(res);
 }

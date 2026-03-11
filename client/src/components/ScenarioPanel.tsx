@@ -281,9 +281,9 @@ function StudioImageGallery({ images }: { images: StudioImage[] }) {
           data-testid="img-studio-latest"
         />
         <div className="px-2.5 py-2">
-          <p className="text-sm font-semibold">{latestImage.word}</p>
+          <p className="text-sm font-semibold truncate">{latestImage.word}</p>
           {latestImage.description && latestImage.description !== latestImage.word && (
-            <p className="text-xs text-muted-foreground">{latestImage.description}</p>
+            <p className="text-xs text-muted-foreground line-clamp-2">{latestImage.description}</p>
           )}
         </div>
       </div>

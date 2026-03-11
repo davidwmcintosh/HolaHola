@@ -7655,6 +7655,17 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Serve permanently stored AI-generated images from object storage
+  app.get("/api/media/ai-image/:filename", async (req: any, res) => {
+    try {
+      const { serveStoredAiImage } = await import('./services/image-storage');
+      await serveStoredAiImage(req.params.filename, res);
+    } catch (err: any) {
+      console.error('[Route] ai-image serve error:', err.message);
+      if (!res.headersSent) res.status(500).json({ error: 'Failed to serve image' });
+    }
+  });
+
   // Multimedia - Fetch stock image from Unsplash
   app.post("/api/media/stock-image", isAuthenticated, async (req: any, res) => {
     try {

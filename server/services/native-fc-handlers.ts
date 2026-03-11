@@ -516,8 +516,9 @@ export class NativeFunctionCallHandler {
               if (existing.rows.length > 0) {
                 const row = existing.rows[0] as any;
                 console.log(`[Native Function→GenerateVisual] Found library match — skipping DALL-E generation`);
+                const { normalizeImageUrl } = await import('../services/image-storage');
                 result = {
-                  imageUrl: row.url as string,
+                  imageUrl: normalizeImageUrl(row.url as string),
                   altText: (row.description as string) || concept,
                   semanticTags: (row.tags as string[]) || [],
                   accessibilityDescription: (row.accessibility_description as string) || '',
@@ -542,16 +543,23 @@ export class NativeFunctionCallHandler {
               }
             }
 
+            // Derive a short human-readable label from the concept (concepts are
+            // often full scene descriptions — we don't want to render 150 chars as a title)
+            const conceptLabel = (() => {
+              const firstPhrase = concept.split(/[,;]/)[0].trim();
+              return firstPhrase.length <= 45 ? firstPhrase : firstPhrase.substring(0, 42) + '…';
+            })();
+
             // Send to whiteboard (result is set either from library match or fresh generation)
             const whiteboardUpdate = {
               type: 'whiteboard_update' as const,
               timestamp: Date.now(),
               items: [{
                 type: 'image',
-                content: concept,
+                content: conceptLabel,
                 data: {
-                  word: concept,
-                  description: result.altText,
+                  word: conceptLabel,
+                  description: concept,
                   imageUrl: result.imageUrl,
                   source: 'dalle',
                   semanticTags: result.semanticTags,
