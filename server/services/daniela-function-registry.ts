@@ -372,6 +372,81 @@ const registry: DanielaFunctionEntry[] = [
     },
   },
 
+  // === PROP ROOM (VISUAL COMPOSITION) ===
+  {
+    legacyType: 'COMPOSE_VISUAL',
+    declaration: {
+      name: "compose_visual_scene",
+      description: `Compose a visual scene by layering objects from the prop library onto a base environment. 
+PREFER this over generate_visual for any common vocabulary — it is instant (no wait), free (no DALL-E cost), and consistent.
+ESPECIALLY useful for teaching prepositions: compose the SAME object in different positions to show spatial contrast.
+If a required object or environment is not yet in the library, it automatically falls back to DALL-E generation.
+
+WHEN TO USE:
+- Teaching nouns in context (la taza, la cama, la maleta)
+- Teaching prepositions (sobre/on, debajo de/under, al lado de/beside)
+- Setting a scene at the start of a topic (hotel room for travel vocab, café for ordering food)
+- Showing the same object in multiple locations to contrast meaning`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you're SAYING aloud — natural conversational speech. Do NOT write an image description here." },
+          environment: {
+            type: "string",
+            description: "The base scene to use",
+            enum: ["hotel_room", "cafe_outdoor", "cafe_indoor", "kitchen", "living_room", "bedroom", "bathroom", "park", "airport", "restaurant", "street", "office", "classroom", "market", "doctor_office"],
+          },
+          objects: {
+            type: "array",
+            description: "Objects to place in the scene",
+            items: {
+              type: "object",
+              properties: {
+                term: { type: "string", description: "The vocabulary word (e.g. 'taza', 'maleta', 'cama') in any language" },
+                position: {
+                  type: "string",
+                  description: "Where to place the object",
+                  enum: ["center", "left", "right", "foreground", "background", "on_table", "on_floor", "beside_bed", "on_counter", "in_hand"],
+                },
+                emphasis: { type: "boolean", description: "Highlight this object with a glow (use for the focus vocab word)" },
+              },
+              required: ["term"],
+            },
+          },
+          preposition_context: {
+            type: "string",
+            description: "If teaching a preposition, name it (e.g. 'sobre', 'debajo de', 'al lado de') — helps cache the scene for reuse",
+          },
+        },
+        required: ["environment", "objects"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      const env = fc.args.environment as string | undefined;
+      const objs = (fc.args.objects as any[] | undefined) ?? [];
+      const terms = objs.map((o: any) => o.term).join(', ');
+      return `Scene composition started for ${env || 'the scene'} with: ${terms || 'objects'}. The image will appear on the student's screen in a moment. Continue the lesson naturally.`;
+    },
+  },
+  {
+    legacyType: 'SEARCH_VISUAL_LIBRARY',
+    declaration: {
+      name: "search_visual_library",
+      description: `Search the prop room library to see which environments and objects are available for compose_visual_scene.
+Call this when you want to know if a particular word or scene is in the library before composing.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          term: { type: "string", description: "Word or concept to search for (Spanish or English)" },
+        },
+        required: ["term"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      return `Library search complete for "${fc.args.term}". Check the results and decide whether to use compose_visual_scene or generate_visual.`;
+    },
+  },
+
   // === MEMORY ===
   {
     legacyType: 'MEMORY_LOOKUP',

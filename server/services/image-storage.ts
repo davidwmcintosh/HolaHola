@@ -23,7 +23,7 @@ function getBucketName(): string {
  * Upload a buffer to the public/ai-images directory of the object storage bucket.
  * Returns an app-relative URL served through /api/media/ai-image/:filename.
  */
-async function uploadPublicBuffer(
+export async function uploadPublicBuffer(
   filename: string,
   buffer: Buffer,
   contentType: string

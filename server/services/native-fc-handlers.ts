@@ -614,7 +614,101 @@ export class NativeFunctionCallHandler {
         });
         break;
       }
-      
+
+      case 'COMPOSE_VISUAL': {
+        const environment = fn.args.environment as string | undefined;
+        const objects = (fn.args.objects as any[] | undefined) ?? [];
+        const prepCtx = fn.args.preposition_context as string | undefined;
+        const text = fn.args.text as string | undefined;
+
+        if (!environment || objects.length === 0) {
+          console.warn(`[Native Function→ComposeVisual] Missing environment or objects — skipping`);
+          break;
+        }
+        if (text && !session.functionCallText) {
+          session.functionCallText = text;
+        }
+
+        console.log(`[Native Function→ComposeVisual] Composing scene: ${environment} + ${objects.map((o: any) => o.term).join(', ')}`);
+
+        import('../services/prop-room-compositor').then(async ({ composeVisualScene }) => {
+          try {
+            const result = await composeVisualScene({
+              environment,
+              objects,
+              preposition_context: prepCtx,
+              language: session.targetLanguage || 'spanish',
+            });
+
+            let imageUrl: string;
+            let sourceName: string;
+
+            if (result.success && result.imageUrl) {
+              imageUrl = result.imageUrl;
+              sourceName = result.source === 'pre_composed' ? 'prop_room_cached' : 'prop_room_composed';
+              console.log(`[Native Function→ComposeVisual] ${result.cacheHit ? 'Cache hit' : 'Composed'}: ${imageUrl}`);
+            } else {
+              // Fallback: delegate to generate_visual with a descriptive prompt
+              console.log(`[Native Function→ComposeVisual] Falling back to DALL-E — ${result.error || ('missing: ' + (result.missingAssets || []).join(', '))}`);
+              const fallbackConcept = `${environment.replace(/_/g, ' ')} scene with ${objects.map((o: any) => o.term).join(', ')}${prepCtx ? `, showing "${prepCtx}" relationship` : ''}`;
+              const { generateVisual } = await import('../services/visual-content-service');
+              const { archiveImageToPermanentStorage } = await import('../services/image-storage');
+              const crypto = await import('crypto');
+              const genResult = await generateVisual(fallbackConcept, 'image', {}, 'warm, friendly educational illustration');
+              const hash = crypto.createHash('md5').update('compose_' + fallbackConcept + Date.now()).digest('hex');
+              imageUrl = await archiveImageToPermanentStorage(genResult.imageUrl, `${hash}.jpg`);
+              sourceName = 'dalle_fallback';
+            }
+
+            const label = `${environment.replace(/_/g, ' ')}: ${objects.map((o: any) => o.term).join(', ')}`;
+            const whiteboardUpdate = {
+              type: 'whiteboard_update' as const,
+              timestamp: Date.now(),
+              items: [{
+                type: 'image',
+                content: label,
+                data: {
+                  word: label,
+                  description: label,
+                  imageUrl,
+                  source: sourceName,
+                  semanticTags: [environment, ...objects.map((o: any) => o.term)],
+                  accessibilityDescription: label,
+                  conceptAlignment: 0.95,
+                },
+              }],
+            };
+            if (session.firstAudioSent) {
+              this.sendMessage(session.ws, whiteboardUpdate);
+            } else {
+              if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
+              session.pendingWhiteboardUpdates.push(whiteboardUpdate);
+            }
+            if (!session.classroomSessionImages) session.classroomSessionImages = [];
+            session.classroomSessionImages.push(label);
+          } catch (err: any) {
+            console.error(`[Native Function→ComposeVisual] Error:`, err.message);
+          }
+        });
+        break;
+      }
+
+      case 'SEARCH_VISUAL_LIBRARY': {
+        const term = fn.args.term as string | undefined;
+        if (!term) break;
+        import('../services/prop-room-compositor').then(async ({ searchVisualLibrary }) => {
+          try {
+            const results = await searchVisualLibrary(term, session.targetLanguage || 'spanish');
+            // Results are consumed by the continuation response built in the registry
+            console.log(`[Native Function→SearchVisualLibrary] "${term}": ${results.environments.length} envs, ${results.assets.length} assets`);
+            session.lastVisualLibrarySearch = results;
+          } catch (err: any) {
+            console.error(`[Native Function→SearchVisualLibrary] Error:`, err.message);
+          }
+        });
+        break;
+      }
+
       case 'TEXT_INPUT': {
         const prompt = fn.args.prompt as string | undefined;
         const tiSpokenText = fn.args.spoken_text as string | undefined;

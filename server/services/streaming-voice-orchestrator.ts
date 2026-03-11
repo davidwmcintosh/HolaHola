@@ -502,6 +502,7 @@ export function cleanTextForDisplay(text: string): string {
   // IMPORTANT: This list MUST include ALL functions from gemini-function-declarations.ts
   const functionNames = [
     'voice_adjust', 'voice_reset', 'subtitle', 'play_audio', 'show_image', 'generate_visual',
+    'compose_visual_scene', 'search_visual_library',
     'show_overlay', 'hide_overlay', 'clear_whiteboard', 'word_emphasis', 'hold_whiteboard',
     'phase_shift', 'milestone', 'take_note', 'drill', 'express_lane_lookup',
     'switch_tutor', 'actfl_update', 'syllabus_progress', 'call_support', 'call_assistant',
@@ -524,8 +525,9 @@ export function cleanTextForDisplay(text: string): string {
   // Strip bare function names that are compound underscore terms (safe — won't appear in natural speech)
   // These are internal system function names that should NEVER be spoken aloud
   const safeToStripBare = [
-    'voice_adjust', 'voice_reset', 'play_audio', 'show_image', 'generate_visual', 'show_overlay',
-    'hide_overlay', 'clear_whiteboard', 'word_emphasis', 'hold_whiteboard',
+    'voice_adjust', 'voice_reset', 'play_audio', 'show_image', 'generate_visual',
+    'compose_visual_scene', 'search_visual_library',
+    'show_overlay', 'hide_overlay', 'clear_whiteboard', 'word_emphasis', 'hold_whiteboard',
     'phase_shift', 'take_note', 'switch_tutor', 'actfl_update',
     'syllabus_progress', 'call_support', 'call_assistant', 'request_text_input',
     'memory_lookup', 'recall_express_lane_image', 'express_lane_lookup',
