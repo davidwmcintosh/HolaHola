@@ -28459,6 +28459,7 @@ Under 250 words. Write as yourself.`;
   });
 
   app.post("/api/team-room/sessions/:id/messages", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
+    let emitParticipantsDone: ((roomId: string) => void) | undefined;
     try {
       const { id } = req.params;
       const { content, speaker = 'David' } = req.body;
@@ -28468,7 +28469,8 @@ Under 250 words. Write as yourself.`;
       if (!room) return res.status(404).json({ error: 'Room not found' });
       const message = await storage.createRoomMessage({ roomId: id, speaker, content });
       const { evaluateAllParticipants, parseMentions } = await import('./services/team-room-alden-service');
-      const { emitNewMessage, emitExpressLane, emitArtifact, emitParticipantThinking, emitParticipantsDone } = await import('./services/team-room-ws-broker');
+      const { emitNewMessage, emitExpressLane, emitArtifact, emitParticipantThinking, emitParticipantsDone: _done } = await import('./services/team-room-ws-broker');
+      emitParticipantsDone = _done;
       emitNewMessage(id, message);
 
       // CAP-008: Build pipeline — fires for feature/bug requests from the founder
@@ -28544,7 +28546,7 @@ Under 250 words. Write as yourself.`;
       } finally {
         emitParticipantsDone(id);
       }
-    } catch (e) { console.error('[TeamRoom]', e); emitParticipantsDone(id); res.status(500).json({ error: e.message }); }
+    } catch (e) { console.error('[TeamRoom]', e); if (emitParticipantsDone) emitParticipantsDone(id); res.status(500).json({ error: (e as any).message }); }
   });
 
   app.patch("/api/team-room/sessions/:id/close", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
