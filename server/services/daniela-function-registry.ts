@@ -446,6 +446,31 @@ Call this when you want to know if a particular word or scene is in the library 
       return `Library search complete for "${fc.args.term}". Check the results and decide whether to use compose_visual_scene or generate_visual.`;
     },
   },
+  {
+    legacyType: 'GET_SCENE_ZONES',
+    declaration: {
+      name: "get_scene_zones",
+      description: `Get the available zones for a scene (environment) in the prop room library.
+Zones define the pedagogical areas within a scene — each with a type that tells you how to teach:
+  - spatial: teach prepositions and object placement (on/under/beside/in)
+  - interactional: teach dialogue sequences and social language functions (ordering, checking in, asking for help)
+  - departmental: teach vocabulary categories (produce names, menu items, medications)
+  - navigational: teach directions and wayfinding language
+
+Call this before compose_visual_scene to know which zones exist for a given scene so you can
+place objects in the right zones and use the correct teaching approach for each zone.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          scene_name: { type: "string", description: "The environment/scene name (e.g. 'restaurant_table', 'hotel_lobby', 'grocery_store')" },
+        },
+        required: ["scene_name"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      return `Scene zones loaded for "${fc.args.scene_name}". Use the zone info to choose the right teaching approach and object placement.`;
+    },
+  },
 
   // === MEMORY ===
   {

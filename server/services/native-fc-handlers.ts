@@ -709,6 +709,21 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'GET_SCENE_ZONES': {
+        const sceneName = fn.args.scene_name as string | undefined;
+        if (!sceneName) break;
+        import('../services/prop-room-compositor').then(async ({ getSceneZones }) => {
+          try {
+            const result = await getSceneZones(sceneName);
+            session.lastSceneZones = result;
+            console.log(`[Native Function→GetSceneZones] "${sceneName}": ${result.zones?.length || 0} zones`);
+          } catch (err: any) {
+            console.error(`[Native Function→GetSceneZones] Error:`, err.message);
+          }
+        });
+        break;
+      }
+
       case 'TEXT_INPUT': {
         const prompt = fn.args.prompt as string | undefined;
         const tiSpokenText = fn.args.spoken_text as string | undefined;

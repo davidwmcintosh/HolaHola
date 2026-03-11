@@ -305,3 +305,39 @@ export async function listVisualLibrary(): Promise<{ environments: any[]; assetC
     assetCount: (countRow.rows[0] as any)?.count ?? 0,
   };
 }
+
+export async function getSceneZones(sceneName: string): Promise<{
+  scene: { name: string; displayName: string; description: string } | null;
+  zones: Array<{
+    zoneKey: string;
+    zoneName: string;
+    zoneType: string;
+    description: string;
+    languageFunctions: string[];
+    positionHint: string | null;
+  }>;
+}> {
+  const envRow = await db.execute(
+    sql`SELECT id, name, display_name, description FROM visual_environments WHERE name = ${sceneName} LIMIT 1`
+  );
+  const env = envRow.rows[0] as any ?? null;
+  if (!env) return { scene: null, zones: [] };
+
+  const zoneRows = await db.execute(
+    sql`SELECT zone_key, zone_name, zone_type, description, language_functions, position_hint
+        FROM visual_zones WHERE environment_id = ${env.id}
+        ORDER BY zone_type, zone_key`
+  );
+
+  return {
+    scene: { name: env.name, displayName: env.display_name, description: env.description },
+    zones: (zoneRows.rows as any[]).map(z => ({
+      zoneKey: z.zone_key,
+      zoneName: z.zone_name,
+      zoneType: z.zone_type,
+      description: z.description,
+      languageFunctions: z.language_functions ?? [],
+      positionHint: z.position_hint ?? null,
+    })),
+  };
+}

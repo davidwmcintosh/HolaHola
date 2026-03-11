@@ -15,11 +15,27 @@ function getAnthropicClient(): Anthropic {
   return anthropicClient;
 }
 
+export interface SceneContext {
+  sceneId: string;
+  sceneName: string;
+  sceneObjective: string;
+  zoneKey?: string;
+  zoneName?: string;
+  zoneType?: string; // 'spatial' | 'interactional' | 'departmental' | 'navigational'
+}
+
+export interface LearningContext {
+  currentScene?: SceneContext;
+  isOffScene?: boolean;
+  sceneTransitionPending?: boolean;
+}
+
 interface AldenChatParams {
   userMessage: string;
   conversationHistory?: Array<{ role: 'user' | 'model'; content: string }>;
   founderName?: string;
   timezone?: string;
+  learningContext?: LearningContext;
 }
 
 interface AldenChatResponse {
@@ -30,7 +46,7 @@ interface AldenChatResponse {
 const MAX_AGENT_ROUNDS = 4;
 
 export async function generateAldenResponse(params: AldenChatParams): Promise<AldenChatResponse> {
-  const { userMessage, conversationHistory = [], founderName = 'David', timezone } = params;
+  const { userMessage, conversationHistory = [], founderName = 'David', timezone, learningContext } = params;
   const toolsUsed: string[] = [];
 
   try {
@@ -52,6 +68,40 @@ export async function generateAldenResponse(params: AldenChatParams): Promise<Al
         role: 'assistant',
         content: 'Workspace loaded. I have my memory, past session context, and Express Lane activity. Ready.',
       });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // ── Learning Context Injection (scene & zone awareness) ──────────────────
+    // Passes structured info about where the student is in their learning journey.
+    // Zone type determines what kind of teaching Daniela should do:
+    //   spatial → prepositions/object placement
+    //   interactional → dialogue sequences and social functions
+    //   departmental → vocabulary categories
+    //   navigational → directions and wayfinding
+    if (learningContext) {
+      const parts: string[] = [];
+      if (learningContext.currentScene) {
+        const s = learningContext.currentScene;
+        parts.push(`CURRENT SCENE: ${s.sceneName} (${s.sceneId})
+Objective: ${s.sceneObjective}`);
+        if (s.zoneKey) {
+          parts.push(`ACTIVE ZONE: ${s.zoneName} [${s.zoneType}]
+Key: ${s.zoneKey}
+Note: Zone type '${s.zoneType}' means ${
+            s.zoneType === 'spatial' ? 'focus on prepositions and object placement' :
+            s.zoneType === 'interactional' ? 'focus on dialogue sequences and social language functions' :
+            s.zoneType === 'departmental' ? 'focus on vocabulary categories and item identification' :
+            'focus on directions, navigation, and wayfinding language'
+          }`);
+        }
+      }
+      if (learningContext.isOffScene) parts.push('NOTE: Student is exploring outside the main scene objective. Stay flexible and encouraging.');
+      if (learningContext.sceneTransitionPending) parts.push('NOTE: Scene transition pending — help wrap up current context gracefully.');
+      if (parts.length > 0) {
+        const separator = '\n\n';
+        messages.push({ role: 'user', content: '[LEARNING CONTEXT]\n\n' + parts.join(separator) });
+        messages.push({ role: 'assistant', content: 'Learning context received. I understand the current scene and zone and will tailor my teaching accordingly.' });
+      }
     }
     // ─────────────────────────────────────────────────────────────────────────
 

@@ -8366,3 +8366,71 @@ export const insertAgentActivityLogSchema = createInsertSchema(agentActivityLogs
 });
 export type InsertAgentActivityLog = z.infer<typeof insertAgentActivityLogSchema>;
 export type AgentActivityLog = typeof agentActivityLogs.$inferSelect;
+
+// ── Prop Room: Visual Scene Library ──────────────────────────────────────────
+// Base environments (scenes) and their pedagogical zones for Daniela's
+// visual vocabulary teaching. See server/services/prop-room-compositor.ts.
+
+export const visualEnvironments = pgTable("visual_environments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  description: text("description").notNull(),
+  imageUrl: text("image_url").notNull().default(''),
+  width: integer("width").notNull().default(1920),
+  height: integer("height").notNull().default(1080),
+  tags: text("tags").array().notNull().default(sql`'{}'`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type VisualEnvironment = typeof visualEnvironments.$inferSelect;
+
+export const visualZones = pgTable("visual_zones", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  environmentId: varchar("environment_id").notNull(),
+  zoneKey: text("zone_key").notNull(),
+  zoneName: text("zone_name").notNull(),
+  zoneType: text("zone_type").notNull(), // 'spatial' | 'interactional' | 'departmental' | 'navigational'
+  description: text("description").notNull(),
+  languageFunctions: text("language_functions").array().notNull().default(sql`'{}'`),
+  positionHint: text("position_hint"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  uniqueEnvZone: uniqueIndex("unique_env_zone").on(table.environmentId, table.zoneKey),
+}));
+export type VisualZone = typeof visualZones.$inferSelect;
+
+export const visualAssets = pgTable("visual_assets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  objectType: text("object_type").notNull(),
+  imageUrl: text("image_url").notNull().default(''),
+  width: integer("width").notNull().default(200),
+  height: integer("height").notNull().default(200),
+  spanishTerms: text("spanish_terms").array().notNull().default(sql`'{}'`),
+  frenchTerms: text("french_terms").array().notNull().default(sql`'{}'`),
+  germanTerms: text("german_terms").array().notNull().default(sql`'{}'`),
+  italianTerms: text("italian_terms").array().notNull().default(sql`'{}'`),
+  portugueseTerms: text("portuguese_terms").array().notNull().default(sql`'{}'`),
+  japaneseTerms: text("japanese_terms").array().notNull().default(sql`'{}'`),
+  koreanTerms: text("korean_terms").array().notNull().default(sql`'{}'`),
+  mandarinTerms: text("mandarin_terms").array().notNull().default(sql`'{}'`),
+  englishTerms: text("english_terms").array().notNull().default(sql`'{}'`),
+  tags: text("tags").array().notNull().default(sql`'{}'`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type VisualAsset = typeof visualAssets.$inferSelect;
+
+export const visualCompositions = pgTable("visual_compositions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  displayName: text("display_name").notNull(),
+  environmentId: varchar("environment_id").notNull(),
+  compositionData: jsonb("composition_data"),
+  composedImageUrl: text("composed_image_url"),
+  teachingContext: text("teaching_context"),
+  vocabTerms: text("vocab_terms").array().notNull().default(sql`'{}'`),
+  useCount: integer("use_count").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type VisualComposition = typeof visualCompositions.$inferSelect;
