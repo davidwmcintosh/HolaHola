@@ -1,7 +1,7 @@
 # HolaHola Curriculum Strategy
 ## Consolidated Reference Document
 
-**Supersedes:** `interactive-textbook-spec.md`, `interactive-textbook.md`, `syllabus-template-kit.md`, `class-model-rethink.md`  
+**Supersedes:** `interactive-textbook-spec.md`, `interactive-textbook.md`, `syllabus-template-kit.md`, `class-model-rethink.md`, `class-audit.md`  
 **Last Updated:** March 11, 2026  
 **Status:** In Review — no active build work should start until decisions in Section 4 are made.
 
@@ -36,13 +36,24 @@
 
 ### What's Not Started Despite Being In Specs
 
+**Curriculum/textbook:**
 - Asian language production drills (translate/speak in Japanese/Korean/Mandarin)
 - Prosody/shadowing drills
 - Teacher content authoring for textbook
 - Offline access
-- Confidence check-ins mid-session
-- Session roadmap widget (adaptive)
-- Recommendation queue between sessions
+
+**Voice session experience:**
+- Confidence check-ins mid-session (tap-to-rate after activities)
+- Session roadmap widget (adaptive, updates as Daniela adjusts mid-lesson)
+- Recommendation queue between sessions (Daniela's persistent follow-up nudges)
+- Daniela referencing teacher commitments/promises during sessions
+
+**Class management:**
+- UI for teachers to choose bundle vs custom class when creating
+- Audit of which existing classes should be converted to bundles
+- Adaptive recommendation engine (remediation / reinforcement / acceleration based on time tracking)
+- Premium upsell flow for optional_premium tier content
+- "Challenge Moments" style descriptions in lesson previews
 
 ---
 
@@ -94,6 +105,61 @@ The curriculum was built top-down: structure first (units, lesson types, lesson 
 The result is a large, complete-looking curriculum that has real quality gaps distributed unevenly and invisibly across it.
 
 **The enrichment, seeding, and Lyra were all treatments applied to a patient without a diagnosis first.**
+
+---
+
+## 3b. Architecture Principles That Are Working (Keep These)
+
+These are settled decisions from December 2025 that are implemented and should not be revisited.
+
+### WHAT vs HOW
+
+The syllabus is a **student-facing comfort tool** (WHAT). It shows students what they'll learn in language that feels inviting and human. It does not prescribe how Daniela teaches.
+
+Daniela's neural network handles HOW — when and how to deploy drills, which tools to use, how to adapt mid-session. All pedagogical methodology lives there, not in the syllabus.
+
+This means: syllabus items should never name specific drill types or tool invocations. They describe topics, not techniques.
+
+### Brain Map and Linear Syllabus View Must Not Diverge
+
+Both views are driven from the same underlying bundle-aware data model. If they show different progress states, something is broken. This is an invariant, not a preference.
+
+### Content Requirement Tiers
+
+Every lesson has a `requirementTier` field:
+
+| Tier | Meaning | Can skip? | Fee? |
+|------|---------|-----------|------|
+| `required` | Core lesson, must complete to progress | No | Included |
+| `recommended` | Suggested reinforcement (extra drills, practice) | Yes | Included |
+| `optional_premium` | Extra help for students who want more | Yes | Additional fee |
+
+### Bundle System
+
+A bundle = one conversation lesson paired with a linked drill lesson, created together and linked via `bundleId` and `linkedDrillLessonId`. Built December 2025 with idempotent management script at `server/scripts/bundle-management.ts`.
+
+Use cases by institution:
+
+| Institution | Class type |
+|-------------|-----------|
+| ASU (conversation lab) | Conversation-only custom class |
+| High school supplement | Conversation-only custom class |
+| Self-directed learner | Bundle-based (conversation + linked drill) |
+| Corporate training | Custom mix of bundles |
+
+### Unified Label System (Implemented Dec 2025)
+
+All three views (Syllabus, Mind Map, Activity Pills) use consistent terminology:
+
+| Content Type | Syllabus prefix | Mind Map lobe | Activity pill |
+|-------------|-----------------|---------------|---------------|
+| Conversation | `Let's Chat:` | Chat! | Chat |
+| Drill/Practice | `Practice Time:` | Practice! | Practice |
+| Vocabulary | `New Words:` | Words! | Memorize |
+| Culture | `Culture Corner:` | Culture! | Culture |
+| Grammar | `Grammar Spotlight:` | Grammar! | — |
+
+426 lessons across 17 curricula were transformed to this format in December 2025.
 
 ---
 
@@ -180,10 +246,16 @@ Should we update Lyra's audit criteria to catch these? The audit script exists �
 
 | Date | Decision | Outcome |
 |------|----------|---------|
-| Jan 2026 | Add 513 intermediate number drills | Done — numbers 21-1000+ added |
+| Dec 2025 | Bundle data model | Done — `bundleId`, `linkedDrillLessonId`, `requirementTier`, `commitments` fields added to curriculum schema |
+| Dec 2025 | Shared progress API | Done — brain map and linear view consume same data; Daniela's observations included |
+| Dec 2025 | Bundle management script | Done — `server/scripts/bundle-management.ts` (idempotent) |
+| Dec 2025 | Unified label system | Done — 426 lessons across 17 curricula transformed; mind map lobes and activity pills aligned |
+| Dec 2025 | Time tracking display | Done — estimated vs actual time per unit visible |
+| Dec 2025 | Skip/mark-complete for non-required content | Done — `requirementTier` drives UI behavior |
+| Jan 2026 | Add 513 intermediate number drills | Done — numbers 21-1000+ added across all 9 languages |
 | Jan 2026 | Build Interactive Textbook page | Done — chapter nav and reading modules working |
-| Jan 2026 | Syllabus template kit (engaging labels) | Done — prefills implemented in lesson creator |
-| Feb 2026 | OER enrichment pipeline (Wiktionary/Tatoeba/Wikivoyage) | Done — ran on 1,300 lessons; limited impact |
+| Jan 2026 | Syllabus template kit (engaging labels) | Done — auto-prefills implemented in lesson creator |
+| Feb 2026 | OER enrichment pipeline (Wiktionary/Tatoeba/Wikivoyage) | Done — ran on 1,300 lessons; limited real-world impact |
 | Mar 2026 | Bulk textbook seed all 1,300 lessons | Done — all seeded overnight |
 | Mar 2026 | Curriculum audit script | Done — `server/scripts/curriculum-audit.ts` |
 | Mar 2026 | Single-lesson re-seed endpoint | Done — `POST /api/internal/textbook/seed-lesson` |
@@ -211,4 +283,4 @@ These files can be deleted or kept for reference. Their content has been consoli
 - `docs/interactive-textbook.md` — Architecture doc + drill audit findings, captured above
 - `docs/syllabus-template-kit.md` — Label conventions and bundle creation API, implemented and stable, no open items
 - `docs/class-model-rethink.md` — Decision framework captured in Decision 3 above
-- `docs/class-audit.md` — December 2025 discussion points, most captured in Daniela's persona/brain systems
+- `docs/class-audit.md` — December 2025 discussion session; architecture principles (WHAT vs HOW, brain map invariant), bundle system, content tiers, and unified labels all captured in Section 3b; remaining action items captured in Section 1 (What's Not Started)
