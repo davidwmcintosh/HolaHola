@@ -561,43 +561,70 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Set up Replit Auth with rate limiting
   await setupAuth(app, authLimiter);
 
-  const menuImageCache = new Map<string, { url: string; ts: number }>();
-  const MENU_IMAGE_TTL = 24 * 60 * 60 * 1000;
+  const menuImageCache = new Map<string, string>();
 
   app.get('/api/menu-image', async (req: any, res) => {
     const q = (req.query.q as string || '').trim();
     if (!q) return res.status(400).json({ error: 'Missing q parameter' });
 
     const cacheKey = q.toLowerCase();
-    const cached = menuImageCache.get(cacheKey);
-    if (cached && Date.now() - cached.ts < MENU_IMAGE_TTL) {
-      return res.json({ url: cached.url });
-    }
 
-    const UNSPLASH_KEY = process.env.UNSPLASH_ACCESS_KEY;
-    if (!UNSPLASH_KEY) {
-      return res.json({ url: null });
-    }
+    // 1. In-memory cache (session-lifetime, fast path)
+    const cached = menuImageCache.get(cacheKey);
+    if (cached) return res.json({ url: cached });
 
     try {
-      const response = await fetch(
-        `https://api.unsplash.com/photos/random?query=${encodeURIComponent(q + ' food drink')}&orientation=squarish&content_filter=high`,
-        {
-          headers: {
-            'Authorization': `Client-ID ${UNSPLASH_KEY}`,
-            'Accept-Version': 'v1'
-          }
-        }
-      );
-      if (!response.ok) {
-        return res.json({ url: null });
+      // 2. Persistent DB cache — visual_assets stores generated food images permanently
+      const { getUserDb } = await import('./db');
+      const { sql: rawSql } = await import('drizzle-orm');
+      const userDb = getUserDb();
+      const existing = await userDb.execute(rawSql`
+        SELECT image_url FROM visual_assets
+        WHERE lower(name) = ${cacheKey} AND image_url IS NOT NULL AND image_url != ''
+        LIMIT 1
+      `);
+      if (existing.rows[0]?.image_url) {
+        const url = existing.rows[0].image_url as string;
+        menuImageCache.set(cacheKey, url);
+        return res.json({ url });
       }
-      const data = await response.json();
-      const url = data.urls?.small || data.urls?.thumb || null;
-      if (url) {
-        menuImageCache.set(cacheKey, { url, ts: Date.now() });
+
+      // 3. Generate with DALL-E
+      const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+      if (!apiKey) return res.json({ url: null });
+
+      const prompt = `Appetizing illustration of ${q}, warm watercolor style, soft natural tones, isolated on clean white background, artisan restaurant menu aesthetic, suitable for all ages`;
+      const dalleRes = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'dall-e-3', prompt, n: 1, size: '1024x1024', quality: 'standard', response_format: 'url' }),
+      });
+      if (!dalleRes.ok) return res.json({ url: null });
+
+      const dalleData = await dalleRes.json();
+      const tempUrl = dalleData.data?.[0]?.url;
+      if (!tempUrl) return res.json({ url: null });
+
+      // 4. Archive to permanent object storage (DALL-E URLs expire in ~1 hour)
+      const slug = q.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40);
+      const filename = `menu-item-${slug}-${Date.now()}.jpg`;
+      let permanentUrl: string = tempUrl;
+      try {
+        const { archiveImageToPermanentStorage } = await import('./services/image-storage');
+        permanentUrl = await archiveImageToPermanentStorage(tempUrl, filename);
+      } catch (storageErr) {
+        console.warn('[MenuImage] Object storage archive failed, using temp URL:', storageErr);
       }
-      res.json({ url });
+
+      // 5. Persist to visual_assets for reuse across sessions
+      await userDb.execute(rawSql`
+        INSERT INTO visual_assets (id, name, display_name, object_type, image_url, tags)
+        VALUES (gen_random_uuid(), ${cacheKey}, ${q}, 'food', ${permanentUrl}, ARRAY['menu_item', 'food'])
+        ON CONFLICT (name) DO UPDATE SET image_url = ${permanentUrl}
+      `).catch((e: any) => console.warn('[MenuImage] visual_assets upsert failed:', e.message));
+
+      menuImageCache.set(cacheKey, permanentUrl);
+      res.json({ url: permanentUrl });
     } catch {
       res.json({ url: null });
     }
