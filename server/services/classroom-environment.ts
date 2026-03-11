@@ -305,7 +305,7 @@ export async function buildClassroomEnvironment(params: {
     currentLessonId,
   } = params;
 
-  const [personalFacts, milestoneCount, danielaPhoto, classroomWindow, userRow, principles, recentNotes, textbookContent] = await Promise.all([
+  const [personalFacts, milestoneCount, danielaPhoto, classroomWindow, userRow, principles, recentNotes, textbookContent, sceneZones] = await Promise.all([
     db
       .select({ factType: learnerPersonalFacts.factType, fact: learnerPersonalFacts.fact })
       .from(learnerPersonalFacts)
@@ -355,6 +355,18 @@ export async function buildClassroomEnvironment(params: {
             const userDb = getUserDb();
             const rows = await userDb.execute(sqlRaw`SELECT vocabulary_list, grammar_explanation, key_phrases_for_chat, actfl_level FROM textbook_lesson_content WHERE lesson_id = ${currentLessonId} LIMIT 1`);
             return rows.rows[0] ?? null;
+          } catch { return null; }
+        })()
+      : Promise.resolve(null),
+
+    activeScenario?.slug
+      ? (async () => {
+          try {
+            const envRows = await db.execute(sql`SELECT id FROM visual_environments WHERE name = ${activeScenario.slug} LIMIT 1`);
+            if (!envRows.rows[0]) return null;
+            const envId = (envRows.rows[0] as any).id;
+            const zoneRows = await db.execute(sql`SELECT name, display_name, zone_type, description FROM visual_zones WHERE environment_id = ${envId} ORDER BY name`);
+            return zoneRows.rows as Array<{ name: string; display_name: string; zone_type: string; description: string }>;
           } catch { return null; }
         })()
       : Promise.resolve(null),
@@ -443,8 +455,14 @@ ${studentLearningSection}` : '';
 ---
 Tool Rack: memory_lookup(query, domains) — recall student memories | take_note — save observations for future sessions | milestone — celebrate achievements | drill/write/grammar_table/compare/word_map/phonetic/culture/context/scenario/summary/reading — whiteboard teaching tools | show_image(word) — real photo of a vocabulary word or noun | generate_visual(concept, style?) — AI-generated illustration for scenes, grammar concepts, or custom scenarios (takes ~10s, you can keep talking) | voice_adjust — change speaking style | load_scenario/end_scenario — immersive roleplay scenes | change_classroom_window — change your window view | self_surgery — report gaps or propose improvements to your own knowledge${founderTools}${founderNote}`;
 
+  const ZONE_TYPE_LABELS: Record<string, string> = {
+    spatial: 'prepositions',
+    interactional: 'dialogue/roleplay',
+    departmental: 'vocabulary categories',
+    navigational: 'directions/wayfinding',
+  };
   const scenarioSection = activeScenario
-    ? `\nActive Scene: "${activeScenario.title}" at ${activeScenario.location} [${activeScenario.slug}]${activeScenario.propsCount ? ` — ${activeScenario.propsCount} props visible` : ''}`
+    ? `\nActive Scene: "${activeScenario.title}" at ${activeScenario.location} [${activeScenario.slug}]${activeScenario.propsCount ? ` — ${activeScenario.propsCount} props visible` : ''}${sceneZones && sceneZones.length > 0 ? `\nScene Zones: ${sceneZones.map((z) => `${z.display_name} [${ZONE_TYPE_LABELS[z.zone_type] || z.zone_type}]`).join(' | ')}` : ''}`
     : '';
 
   const modeExtras = [
