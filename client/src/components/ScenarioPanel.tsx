@@ -170,12 +170,25 @@ function FieldsRenderer({ content, difficulty }: { content: any; difficulty: str
           {resolved.title}
         </div>
       )}
-      {fields.map((field: any, i: number) => (
-        <div key={i} className="flex items-baseline justify-between gap-2" data-testid={`text-field-${i}`}>
-          <span className="text-[11px] text-muted-foreground flex-shrink-0">{field.label}</span>
-          <span className="text-xs font-medium text-right">{field.value}</span>
-        </div>
-      ))}
+      {fields.map((field: any, i: number) => {
+        const isMultiLine = typeof field.value === 'string' && field.value.includes('\n');
+        if (isMultiLine) {
+          return (
+            <div key={i} className="space-y-0.5" data-testid={`text-field-${i}`}>
+              <span className="text-[11px] text-muted-foreground">{field.label}</span>
+              <div className="text-xs font-medium whitespace-pre-wrap leading-snug pl-1 border-l-2 border-muted">
+                {field.value}
+              </div>
+            </div>
+          );
+        }
+        return (
+          <div key={i} className="flex items-baseline justify-between gap-2" data-testid={`text-field-${i}`}>
+            <span className="text-[11px] text-muted-foreground flex-shrink-0">{field.label}</span>
+            <span className="text-xs font-medium text-right">{field.value}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }

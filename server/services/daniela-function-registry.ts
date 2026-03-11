@@ -812,20 +812,35 @@ NEVER guess. NEVER roleplay searching. Actually call this function.`,
     legacyType: 'UPDATE_PROP',
     declaration: {
       name: "update_prop",
-      description: "Update a scenario prop's content fields in the Studio panel. Use during active scenarios to dynamically modify prop data.",
+      description: `Update a scenario prop's content fields in the Studio panel. This is how you keep the on-screen bill/receipt live and accurate during commerce and hospitality scenarios.
+
+BILL TALLYING — critical for café, restaurant, grocery, hotel, and taxi scenarios:
+- Every time the student successfully orders or confirms an item, call update_prop to add it to the bill.
+- Update the "Items / Artículos" field with a running list (e.g. "1x Café con leche 3.50€\\n1x Croissant 2.00€").
+- After each addition, recalculate and update Subtotal and Total fields.
+- When the student asks for the bill ("la cuenta", "¿me puede traer la cuenta?", "l'addition", etc.), update the Total to the final amount with any tax applied.
+- When simulating payment / change, update relevant fields to reflect the tendered amount and change given.
+
+USE THIS whenever:
+- A student orders an item (add it to Items and update running total)
+- They ask for the bill (confirm final Total)
+- They pay or receive change (add a "Paid / Pagado" and "Change / Cambio" field)
+- Any prop field needs to reflect what's happened in the conversation (room number, driver name, destination, etc.)
+
+prop_title must exactly match the prop's title as shown in the Studio panel (e.g. "Receipt/Bill", "Check/Bill", "Hotel Invoice", "Taxi Receipt").`,
       parametersJsonSchema: {
         type: "object",
         properties: {
-          text: { type: "string", description: "What you say while updating the prop (spoken aloud)" },
-          prop_title: { type: "string", description: "Title of the prop to update. Must match an existing prop title." },
+          text: { type: "string", description: "What you say while updating the prop (spoken aloud). Keep it natural — e.g. 'Let me add that to your order.' or 'Here is your bill.')" },
+          prop_title: { type: "string", description: "Title of the prop to update. Must exactly match the prop title shown in Studio (e.g. 'Receipt/Bill', 'Check/Bill', 'Hotel Invoice', 'Taxi Receipt')." },
           updates: {
             type: "array",
-            description: "Array of field updates.",
+            description: "Array of field updates. Each entry specifies a label (must match an existing field label) and its new value. To add a new line item, set label='Items / Artículos' with the full updated multi-line string. Always also update Subtotal and Total when items change.",
             items: {
               type: "object",
               properties: {
-                label: { type: "string", description: "The field label to update" },
-                value: { type: "string", description: "The new value for that field" },
+                label: { type: "string", description: "The field label to update (e.g. 'Items / Artículos', 'Subtotal', 'Total', 'Tax / Impuesto (IVA 10%)')" },
+                value: { type: "string", description: "The new value for that field (e.g. '1x Café con leche 3.50€\\n1x Croissant 2.00€', '5.50€', '6.05€')" },
               },
               required: ["label", "value"],
             },
