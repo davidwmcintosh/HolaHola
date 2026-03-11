@@ -8023,6 +8023,18 @@ Remember: David may reference things discussed in these recent text chats.
     }
     session.__greetingInProgress = true;
     
+    // SAFETY WATCHDOG: If greeting generation hangs (e.g. Gemini timeout), automatically
+    // clear the guard after 12s so the client's retry request can go through.
+    // Without this, a hung greeting locks out ALL retries indefinitely.
+    const greetingWatchdogMs = 12000;
+    const greetingWatchdog = setTimeout(() => {
+      if (session.__greetingInProgress && !session.__greetingDelivered) {
+        console.warn(`[Streaming Greeting] ⚠ Watchdog triggered after ${greetingWatchdogMs}ms — clearing stuck guard to allow client retry`);
+        session.__greetingInProgress = false;
+        this.sendGuardResetSignal(session, 'greeting_in_progress');
+      }
+    }, greetingWatchdogMs);
+    
     // Await warmup with timeout - don't block forever if Gemini is slow
     // If warmup takes longer than 3 seconds, proceed without waiting
     if (session.warmupPromise) {
@@ -8700,6 +8712,7 @@ Remember: David may reference things discussed in these recent text chats.
         },
       } as StreamingResponseCompleteMessage);
       
+      clearTimeout(greetingWatchdog);
       session.__greetingInProgress = false;
       session.__greetingDelivered = true;
       session.isGenerating = false;
@@ -8733,6 +8746,7 @@ Remember: David may reference things discussed in these recent text chats.
       return metrics;
       
     } catch (error: any) {
+      clearTimeout(greetingWatchdog);
       session.__greetingInProgress = false;
       session.isGenerating = false;
       console.error(`[Streaming Greeting] Error:`, error.message);
