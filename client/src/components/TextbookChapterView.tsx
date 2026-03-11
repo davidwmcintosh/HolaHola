@@ -262,8 +262,9 @@ function VisualLessonCard({
             <div className="pt-2" data-testid={`rhythm-drill-panel-${section.id}`}>
               <RhythmDrill
                 title={section.name}
-                description={`Practice each item — listen, then repeat aloud.`}
+                description={`Listen to each item, then say it aloud when the mic appears.`}
                 items={rhythmItems}
+                language={language}
                 onComplete={(results) => {
                   const correct = results.filter(r => r.correct).length;
                   if (correct / results.length >= 0.7) {

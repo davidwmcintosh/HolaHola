@@ -6371,6 +6371,102 @@ ${memoryContext}
     }
   });
 
+
+  // Pronunciation scoring endpoint for RhythmDrill textbook exercises
+  // Uses Deepgram prerecorded API to score a short spoken word/phrase
+  // NOTE: Completely separate from the live voice chat pipeline
+  app.post("/api/pronunciation/score", isAuthenticated, upload.single('audio'), async (req: any, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No audio file provided" });
+      }
+
+      const targetWord: string = (req.body.targetWord || "").trim().toLowerCase();
+      const language: string = req.body.language || "english";
+
+      if (!targetWord) {
+        return res.status(400).json({ error: "targetWord is required" });
+      }
+
+      // Map language name to Deepgram language code
+      const languageCodeMap: Record<string, string> = {
+        english: "en", french: "fr", german: "de", italian: "it",
+        japanese: "ja", korean: "ko", mandarin: "zh", portuguese: "pt",
+        spanish: "es",
+      };
+      const langCode = languageCodeMap[language.toLowerCase()] || "en";
+
+      const { result } = await getDeepgramClient().listen.prerecorded.transcribeFile(
+        req.file.buffer,
+        {
+          model: "nova-2",
+          language: langCode,
+          smart_format: false, // Single word — formatting not needed
+          punctuate: false,
+        }
+      );
+
+      if (!result) {
+        return res.status(500).json({ error: "Deepgram returned null result" });
+      }
+
+      const alternative = result.results?.channels?.[0]?.alternatives?.[0];
+      const transcript = (alternative?.transcript || "").trim().toLowerCase();
+      const words = alternative?.words || [];
+
+      // Strip accents + punctuation for fuzzy match
+      const normalize = (s: string) =>
+        s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s]/g, "").trim();
+
+      const normTarget = normalize(targetWord);
+      const normTranscript = normalize(transcript);
+
+      // Find the best-matching word's confidence
+      let pronunciationScore = 0;
+
+      if (words.length > 0) {
+        // Prefer the word that best matches the target
+        const matchedWord = words.find((w: any) =>
+          normalize(w.word || "") === normTarget
+        );
+
+        if (matchedWord) {
+          // Exact match: use its confidence directly
+          pronunciationScore = matchedWord.confidence ?? 0;
+        } else if (normTranscript.includes(normTarget)) {
+          // Target word appears somewhere in the transcript: use average confidence
+          pronunciationScore = words.reduce((s: number, w: any) => s + (w.confidence ?? 0), 0) / words.length;
+          pronunciationScore *= 0.85; // Small penalty for not an isolated word
+        } else if (transcript.length > 0) {
+          // Said something, but it didn't match. Score reflects avg confidence
+          // penalised strongly — the word said is likely wrong
+          const avgConf = words.reduce((s: number, w: any) => s + (w.confidence ?? 0), 0) / words.length;
+          pronunciationScore = avgConf * 0.4;
+        } else {
+          // Empty transcript — microphone issue or total miss
+          pronunciationScore = 0.1;
+        }
+      } else if (transcript.length > 0) {
+        // Words array empty but transcript exists — use overall confidence hint
+        pronunciationScore = 0.5;
+      }
+
+      // Clamp to 0-1
+      pronunciationScore = Math.max(0, Math.min(1, pronunciationScore));
+
+      return res.json({
+        score: pronunciationScore,
+        transcript,
+        targetWord,
+        matched: normTranscript.includes(normTarget),
+      });
+    } catch (error: any) {
+      console.error("[PronunciationScore] Error:", error.message);
+      return res.status(500).json({ error: error.message || "Pronunciation scoring failed" });
+    }
+  });
+
+
   // Synthesize speech using TTS API
   // Now uses Google Cloud WaveNet for authentic native pronunciation (with OpenAI fallback)
   // Returns both audio and word-level timing data for synchronized subtitles
