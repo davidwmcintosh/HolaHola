@@ -7048,6 +7048,7 @@ export const editorInsightCategoryEnum = pgEnum('editor_insight_category', [
   'workflow',      // Process learnings, how we work together
   'context',       // Project state, current priorities
   'journal',       // Session summaries and key moments
+  'tools',         // Tool usage, integrations, and scripts
 ]);
 
 export const editorInsights = pgTable("editor_insights", {
