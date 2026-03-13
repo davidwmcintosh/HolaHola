@@ -7049,6 +7049,7 @@ export const editorInsightCategoryEnum = pgEnum('editor_insight_category', [
   'context',       // Project state, current priorities
   'journal',       // Session summaries and key moments
   'tools',         // Tool usage, integrations, and scripts
+  'shared',        // Shared lobe — written by Alden OR the Replit Agent; both can read this
 ]);
 
 export const editorInsights = pgTable("editor_insights", {

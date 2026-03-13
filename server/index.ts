@@ -593,6 +593,12 @@ app.use((req, res, next) => {
       startAldenWatchWorker();
     }, 45000);
 
+    // +46s: Shared Lobe Snapshot — regenerate docs/shared-lobe-snapshot.md from DB
+    setTimeout(async () => {
+      const { generateSharedLobeSnapshot } = await import('./services/shared-lobe-snapshot');
+      await generateSharedLobeSnapshot();
+    }, 46000);
+
     // +50s: Sofia Issue Cleanup Worker (CAP-005)
     setTimeout(async () => {
       const { startSofiaCleanupWorker } = await import('./services/sofia-issue-cleanup-worker');

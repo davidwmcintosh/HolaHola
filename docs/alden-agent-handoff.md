@@ -37,8 +37,16 @@
 - The handoff file's section structure must be preserved by both writers — Alden's `write_briefing` tool does this correctly via regex.
 
 ### What's unresolved / for next session
-- Nothing from this batch. The three in-progress features from the compressed memory are now complete.
 - Alden's tool count is 17 — consider whether the watch worker should also use `write_briefing` to leave notes after its autonomous checks.
+
+### Update: Shared Lobe Built (same session)
+David proposed a shared neural network lobe as a better alternative to the handoff file for persistent knowledge. Built it:
+- Added `'shared'` category to `editor_insight_category` enum (schema + raw SQL ALTER TYPE)
+- Created `server/services/shared-lobe-snapshot.ts` — regenerates `docs/shared-lobe-snapshot.md` on every server start
+- Wired into server/index.ts at +46s after boot
+- Planted 3 seed insights as Agent's first shared-lobe entries
+- Both comms channels now live: handoff file (session context) + shared lobe (permanent knowledge)
+- `replit.md` updated with shared lobe read/write instructions including INSERT SQL snippet
 
 ### What Alden should know
 - He now has `browser_screenshot` and `write_briefing` — these are for use, not just possession. After a code change, screenshot to verify. At session end, write a briefing.
