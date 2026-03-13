@@ -15,6 +15,7 @@ import { founderCollabService } from "./founder-collaboration-service";
 import * as fs from "fs";
 import * as path from "path";
 import { execSync, spawn } from "child_process";
+import { aldenActivity } from "./alden-activity-emitter";
 
 const WORKSPACE_ROOT = path.resolve('/home/runner/workspace');
 

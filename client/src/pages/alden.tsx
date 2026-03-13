@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { AldenChat } from "@/components/AldenChat";
+import { AldenWorkspacePane } from "@/components/AldenWorkspacePane";
 import { BrainCircuit } from "lucide-react";
 import { useUser } from "@/lib/auth";
 
@@ -31,12 +32,17 @@ export default function AldenPage() {
         </div>
         <div>
           <h1 className="text-sm font-semibold leading-tight">Alden</h1>
-          <p className="text-xs text-muted-foreground leading-tight">Team Collaborator</p>
+          <p className="text-xs text-muted-foreground leading-tight">Development Steward</p>
         </div>
       </header>
 
-      <div className="flex-1 overflow-hidden px-4 py-4">
-        <AldenChat />
+      <div className="flex-1 overflow-hidden flex gap-4 px-4 py-4 min-h-0">
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <AldenChat />
+        </div>
+        <div className="w-72 shrink-0 min-h-0 overflow-hidden flex flex-col">
+          <AldenWorkspacePane />
+        </div>
       </div>
     </div>
   );

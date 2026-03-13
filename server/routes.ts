@@ -29004,6 +29004,35 @@ Under 250 words. Write as yourself.`;
   });
 
 
+  // ── Alden Live Activity Stream (SSE) ───────────────────────────────────────
+  // Streams real-time tool call events as Alden works. The frontend subscribes
+  // from the Talk to Alden page and shows a live "thinking out loud" pane.
+  app.get("/api/alden/activity-stream", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    const { aldenActivity } = await import('./services/alden-activity-emitter');
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+
+    const send = (data: any) => {
+      try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch { /* client disconnected */ }
+    };
+
+    // Send heartbeat every 20s to keep the connection alive
+    const heartbeat = setInterval(() => send({ type: 'heartbeat', timestamp: new Date().toISOString() }), 20000);
+
+    const onEvent = (event: any) => send(event);
+    aldenActivity.on('activity', onEvent);
+
+    req.on('close', () => {
+      clearInterval(heartbeat);
+      aldenActivity.off('activity', onEvent);
+      res.end();
+    });
+  });
+
   // ── Agent Activity Log ──────────────────────────────────────────────────────
   app.get("/api/agent-activity", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (_req, res) => {
     try {

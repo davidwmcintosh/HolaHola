@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { buildAldenSystemPrompt } from "../alden-system-prompt";
 import { ALDEN_TOOLS, executeAldenTool } from "./alden-functions";
 import { buildAldenWorkspaceContext } from "./alden-workspace-context";
+import { aldenActivity } from "./alden-activity-emitter";
 
 let anthropicClient: Anthropic | null = null;
 
@@ -156,8 +157,11 @@ Note: Zone type '${s.zoneType}' means ${
       for (const toolUse of toolUseBlocks) {
         toolsUsed.push(toolUse.name);
 
+        aldenActivity.push({ type: 'tool_start', name: toolUse.name, timestamp: new Date().toISOString() });
+
         try {
           const toolResult = await executeAldenTool(toolUse.name, (toolUse.input as Record<string, any>) || {}, { conversationId });
+          aldenActivity.push({ type: 'tool_result', name: toolUse.name, success: true, timestamp: new Date().toISOString() });
           toolResults.push({
             type: 'tool_result',
             tool_use_id: toolUse.id,
@@ -165,6 +169,7 @@ Note: Zone type '${s.zoneType}' means ${
           });
         } catch (err: any) {
           console.warn(`[Alden Chat] Tool ${toolUse.name} failed:`, err.message);
+          aldenActivity.push({ type: 'tool_result', name: toolUse.name, success: false, error: err.message, timestamp: new Date().toISOString() });
           toolResults.push({
             type: 'tool_result',
             tool_use_id: toolUse.id,
@@ -185,6 +190,8 @@ Note: Zone type '${s.zoneType}' means ${
     }
 
     console.log(`[Alden Chat] Response generated (${aldenResponse.length} chars, ${toolsUsed.length} tools used)`);
+
+    aldenActivity.push({ type: 'response_complete', timestamp: new Date().toISOString() });
 
     return { response: aldenResponse, toolsUsed };
   } catch (error: any) {
