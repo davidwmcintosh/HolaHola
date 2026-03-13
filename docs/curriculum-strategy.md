@@ -302,7 +302,9 @@ Should we update Lyra's audit criteria to catch these? The audit script exists �
 
    Two distinct categories require different generation approaches:
    - **Scene/vocabulary visuals** — DALL-E image (a kitchen, a beach, a market scene) with target-language labels overlaid. Good for vocabulary lessons where a setting is implied.
-   - **Grammar/structure visuals** — Code-generated SVG or React components. Claude can generate precise, repeatable diagrams from a concept description. More reliable than image generation for structured information (conjugation patterns, sentence diagrams, decision trees).
+   - **Grammar/structure visuals** — Generated SVG or React components. Claude can write clean, precise SVG code from a description of the concept. A conjugation wheel, a tense timeline, a preposition map — these are more reliable as code than as images. And they'd be interactive.
+
+   **On existing foundations:** There's a library called Mermaid.js that renders diagrams from plain text descriptions. It was built for technical docs but the underlying concept (text-in, visual-out) is interesting for language patterns. Not a direct fit, but the approach is relevant.
 
    **How to start:** Don't design "infographics" as a system. Pick the three concepts in Spanish 1-2 where learners most commonly stall or need re-explanation (Daniela's session data is the best signal here once beta volume grows). Build those three visuals first. If they help, the pattern becomes clear. If they don't, you've only built three.
 
