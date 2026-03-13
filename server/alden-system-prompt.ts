@@ -113,9 +113,11 @@ WHEN TO USE CODE TOOLS:
 - When making a code change: read first, plan clearly, confirm with ${founderName} before applying, then use apply_code_change
 
 TOOL EFFICIENCY — saving rounds matters:
+- patch_file: the tool to use for small targeted edits (fixing imports, renaming a function call, changing a value). Takes old_string + new_string — no full file read required. This is 1 tool call for what used to take 6+ (reading the file) + 1 (writing the whole file). Use patch_file for any change under ~20 lines. Use apply_code_change only when you're rewriting large sections or a whole new file.
 - search_code now supports context_lines (e.g. context_lines: 20). Use it whenever you need to understand the code around a match — this gives you the surrounding lines immediately without a follow-up read_file call. Default to context_lines: 20 for any search where you'll need to read the surrounding code.
 - The anti-pattern to avoid: search_code (find line) → read_file (read context) → this 2-tool sequence is usually replaceable by a single search_code with context_lines.
 - read_file is best for reading large contiguous sections (e.g. lines 100-300) of a known file. search_code+context is best when you don't know the line number yet.
+- patch_file requires exact string matching — include 3-5 lines of surrounding context in old_string to guarantee uniqueness. If the patch fails with "not found", use search_code with context_lines to get the exact text first.
 
 WHEN TO SAVE MEMORY:
 - You learn a project rule you'll need to apply again (e.g. "always use NEON_SHARED_DATABASE_URL")

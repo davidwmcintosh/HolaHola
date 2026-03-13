@@ -215,6 +215,20 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "patch_file",
+    description: "Make a targeted find-and-replace edit to any file — without reading or rewriting the whole file. Replaces the first occurrence of old_string with new_string. Use this for small, precise changes (fixing a function call, updating an import, changing a variable name). Much cheaper than apply_code_change for edits under ~20 lines. IMPORTANT: old_string must match the file content exactly, including whitespace and indentation.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        file_path: { type: "string" as const, description: "File path relative to workspace root (e.g. 'server/services/alden-functions.ts')" },
+        old_string: { type: "string" as const, description: "The exact text to find and replace. Must match file content exactly — include enough surrounding context (3-5 lines) to make it unique within the file." },
+        new_string: { type: "string" as const, description: "The replacement text. Use empty string to delete old_string." },
+        description: { type: "string" as const, description: "Short description of what this change does." },
+      },
+      required: ["file_path", "old_string", "new_string", "description"],
+    },
+  },
+  {
     name: "browser_screenshot",
     description: "Take a screenshot of any page in the running HolaHola app and get an AI analysis of what you see. Use this after making a UI change to verify it looks right, or to inspect something David describes. Specify a page path (e.g. '/alden', '/team-room', '/') and an optional question about what you're looking for.",
     input_schema: {
@@ -984,6 +998,40 @@ export async function executeAldenTool(
         };
       }
 
+      case "patch_file": {
+        const { file_path, old_string, new_string: new_str, description } = args;
+        const filePath = safePath(file_path);
+
+        if (!fs.existsSync(filePath)) {
+          return { data: { error: `File not found: ${file_path}` } };
+        }
+
+        const original = fs.readFileSync(filePath, 'utf-8');
+
+        if (!original.includes(old_string)) {
+          return { data: { error: `old_string not found in ${file_path}. Check whitespace and indentation — it must match exactly.`, hint: 'Use search_code with context_lines to verify the exact text before patching.' } };
+        }
+
+        const occurrences = original.split(old_string).length - 1;
+        if (occurrences > 1) {
+          return { data: { error: `old_string appears ${occurrences} times in ${file_path} — add more surrounding context to make it unique.` } };
+        }
+
+        const patched = original.replace(old_string, new_str);
+        fs.writeFileSync(filePath, patched, 'utf-8');
+        console.log(`[Alden Tool] patch_file: "${description}" in ${file_path}`);
+
+        return {
+          data: {
+            applied: true,
+            file: file_path,
+            description,
+            linesChanged: new_str.split('\n').length,
+            message: `Patch applied to ${file_path}. No full file read required.`,
+          },
+        };
+      }
+
       case "browser_screenshot": {
         const { page, question = 'Describe what you see on this page. Note any visual issues, layout problems, or anything that looks out of place.' } = args;
         const { browseAndCapture, analyzeScreenshot } = await import('./playwright-browser-service');
@@ -1142,4 +1190,4 @@ ${agentSection}`;
   }
 }
 
-console.log('[Alden Functions] Loaded — 22 tools ready (monitoring + code + shell + memory + notifications + browser + briefing)');
+console.log('[Alden Functions] Loaded — 23 tools ready (monitoring + code + shell + memory + notifications + browser + briefing)');
