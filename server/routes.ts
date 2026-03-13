@@ -13423,49 +13423,47 @@ Return ONLY the ${targetLanguage} phrase:`;
       const lastPhase = phases[phases.length - 1];
       const allToolsUsed = phases.flatMap(p => p.toolsUsed);
 
+      // Save conversation to DB before responding — ensures messages persist even if client disconnects
+      try {
+        const { getSharedDb: _getDb } = await import('./db');
+        const { aldenConversations, aldenMessages } = await import('@shared/schema');
+        const { and, isNull, gt } = await import('drizzle-orm');
+        const _db = _getDb();
+
+        // Find or create an active session (within last 4 hours)
+        const cutoff = new Date(Date.now() - 4 * 60 * 60 * 1000);
+        const [activeConv] = await _db.select({ id: aldenConversations.id })
+          .from(aldenConversations)
+          .where(and(isNull(aldenConversations.endedAt), gt(aldenConversations.startedAt, cutoff)))
+          .limit(1);
+
+        let convId: string;
+        if (activeConv) {
+          convId = activeConv.id;
+        } else {
+          const now = new Date();
+          const sessionTitle = 'Session — ' + now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+          const [newConv] = await _db.insert(aldenConversations)
+            .values({ title: sessionTitle, startedAt: now })
+            .returning({ id: aldenConversations.id });
+          convId = newConv.id;
+        }
+
+        const messagesToLog = [
+          { conversationId: convId, role: 'david', content: message, isSignificant: false },
+          ...phases.map(p => ({ conversationId: convId, role: 'alden', content: p.response, isSignificant: false })),
+        ];
+        await _db.insert(aldenMessages).values(messagesToLog);
+        console.log(`[Alden Log] Saved ${phases.length} phase(s) to conversation ${convId}`);
+      } catch (logErr: any) {
+        console.error('[Alden Log] Failed to save conversation:', logErr.message);
+      }
+
       res.json({
         reply: lastPhase.response,
         toolsUsed: allToolsUsed,
         phases: phases.length > 1 ? phases : undefined,
       });
-
-      // Log conversation to alden_conversations + alden_messages (non-blocking)
-      ;(async () => {
-        try {
-          const { getSharedDb: _getDb } = await import('./db');
-          const { aldenConversations, aldenMessages } = await import('@shared/schema');
-          const { and, isNull, gt } = await import('drizzle-orm');
-          const _db = _getDb();
-
-          // Find or create an active session (within last 4 hours)
-          const cutoff = new Date(Date.now() - 4 * 60 * 60 * 1000);
-          const [activeConv] = await _db.select({ id: aldenConversations.id })
-            .from(aldenConversations)
-            .where(and(isNull(aldenConversations.endedAt), gt(aldenConversations.startedAt, cutoff)))
-            .limit(1);
-
-          let convId: string;
-          if (activeConv) {
-            convId = activeConv.id;
-          } else {
-            const now = new Date();
-            const sessionTitle = 'Session — ' + now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
-            const [newConv] = await _db.insert(aldenConversations)
-              .values({ title: sessionTitle, startedAt: now })
-              .returning({ id: aldenConversations.id });
-            convId = newConv.id;
-          }
-
-          const messagesToLog = [
-            { conversationId: convId, role: 'david', content: message, isSignificant: false },
-            ...phases.map(p => ({ conversationId: convId, role: 'alden', content: p.response, isSignificant: false })),
-          ];
-          await _db.insert(aldenMessages).values(messagesToLog);
-          console.log(`[Alden Log] Saved ${phases.length} phase(s) to conversation ${convId}`);
-        } catch (logErr: any) {
-          console.error('[Alden Log] Failed to save conversation:', logErr.message);
-        }
-      })();
     } catch (error: any) {
       console.error('[Alden API] Error:', error.message);
       res.status(500).json({ error: error.message });
