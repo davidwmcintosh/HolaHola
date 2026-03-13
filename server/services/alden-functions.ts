@@ -118,6 +118,29 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "run_shell",
+    description: "Run a whitelisted shell command in the project root. Use this to push schema changes to the database after editing shared/schema.ts, verify TypeScript compilation, or run a full build check. Only pre-approved commands are allowed — anything else is rejected. This makes you autonomous for the full build cycle without needing to involve David.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        command: {
+          type: "string" as const,
+          enum: [
+            "npm run db:push --force",
+            "npx tsc --noEmit",
+            "npm run build",
+          ],
+          description: "The command to run. Must be one of the whitelisted options.",
+        },
+        reason: {
+          type: "string" as const,
+          description: "Why you are running this command — brief context for the audit log.",
+        },
+      },
+      required: ["command", "reason"],
+    },
+  },
+  {
     name: "get_pending_issues",
     description: "Get unresolved or open issues from the Sofia issues tracker. Shows issues that are waiting for review or haven't been addressed yet.",
     input_schema: {
@@ -554,6 +577,70 @@ export async function executeAldenTool(
         };
       }
 
+      case "run_shell": {
+        const { command, reason } = args;
+
+        // Strict whitelist — enforced in code, not just the schema enum
+        const ALLOWED_COMMANDS: readonly string[] = [
+          "npm run db:push --force",
+          "npx tsc --noEmit",
+          "npm run build",
+        ];
+
+        if (!ALLOWED_COMMANDS.includes(command)) {
+          return {
+            data: {
+              success: false,
+              error: `Command not in whitelist: "${command}". Allowed: ${ALLOWED_COMMANDS.join(', ')}`,
+            },
+          };
+        }
+
+        console.log(`[Alden Shell] Running: ${command} | Reason: ${reason}`);
+        const startMs = Date.now();
+
+        try {
+          const output = execSync(command, {
+            cwd: WORKSPACE_ROOT,
+            timeout: 120_000, // 2 minute max
+            encoding: 'utf-8',
+            env: { ...process.env },
+            stdio: 'pipe',
+          });
+
+          const durationMs = Date.now() - startMs;
+          console.log(`[Alden Shell] ✓ Complete in ${durationMs}ms: ${command}`);
+
+          return {
+            data: {
+              success: true,
+              command,
+              reason,
+              output: output.trim().substring(0, 3000),
+              durationMs,
+            },
+          };
+        } catch (err: any) {
+          const durationMs = Date.now() - startMs;
+          const stdout = err.stdout?.toString().trim() || '';
+          const stderr = err.stderr?.toString().trim() || '';
+          const combined = [stdout, stderr].filter(Boolean).join('\n').substring(0, 3000);
+
+          console.error(`[Alden Shell] ✗ Failed in ${durationMs}ms: ${command}\n${combined}`);
+
+          return {
+            data: {
+              success: false,
+              command,
+              reason,
+              error: err.message,
+              output: combined,
+              durationMs,
+            },
+          };
+        }
+      }
+
       case "get_pending_issues": {
         const limit = Math.min(args.limit || 10, 20);
         const sharedDb = getSharedDb();
@@ -920,4 +1007,4 @@ ${agentSection}`;
   }
 }
 
-console.log('[Alden Functions] Loaded — 19 tools ready (monitoring + code + memory + notifications + browser + briefing)');
+console.log('[Alden Functions] Loaded — 20 tools ready (monitoring + code + shell + memory + notifications + browser + briefing)');
