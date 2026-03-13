@@ -116,7 +116,7 @@ export function AldenWorkspacePane() {
   const pendingCount = rows.filter(r => !r.resultEvent).length;
 
   return (
-    <div className="flex flex-col h-full rounded-md border bg-card overflow-hidden" data-testid="alden-workspace-pane">
+    <div className="flex flex-col flex-1 min-h-0 rounded-md border bg-card overflow-hidden" data-testid="alden-workspace-pane">
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2 border-b shrink-0">
         <Activity className="h-3.5 w-3.5 text-muted-foreground" />
@@ -137,7 +137,7 @@ export function AldenWorkspacePane() {
       </div>
 
       {/* Event stream */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div ref={scrollRef} className="p-2 space-y-1">
           {rows.length === 0 && (
             <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">

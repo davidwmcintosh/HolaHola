@@ -382,7 +382,7 @@ export function AldenChat() {
   };
 
   return (
-    <div className="flex flex-col h-full" data-testid="alden-chat-container">
+    <div className="flex flex-col flex-1 min-h-0" data-testid="alden-chat-container">
       <div className="flex items-center gap-3 mb-4 px-1">
         <Avatar className="h-10 w-10 border-2 border-primary/20">
           <AvatarFallback className="bg-primary/10 text-primary font-bold text-sm">
@@ -417,7 +417,7 @@ export function AldenChat() {
         </div>
       </div>
 
-      <Card className="flex-1 flex flex-col overflow-hidden">
+      <Card className="flex-1 flex flex-col overflow-hidden min-h-0">
         <div
           ref={scrollRef}
           className="flex-1 overflow-y-auto p-4 space-y-4"

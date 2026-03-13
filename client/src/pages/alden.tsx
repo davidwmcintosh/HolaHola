@@ -36,11 +36,11 @@ export default function AldenPage() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-hidden flex gap-4 px-4 py-4 min-h-0">
-        <div className="flex-1 min-w-0 overflow-hidden">
+      <div className="flex-1 flex gap-4 px-4 py-4 min-h-0 overflow-hidden">
+        <div className="flex-1 min-w-0 flex flex-col min-h-0 overflow-hidden">
           <AldenChat />
         </div>
-        <div className="w-72 shrink-0 min-h-0 overflow-hidden flex flex-col">
+        <div className="w-72 shrink-0 flex flex-col min-h-0 overflow-hidden">
           <AldenWorkspacePane />
         </div>
       </div>
