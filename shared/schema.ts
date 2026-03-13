@@ -7092,6 +7092,34 @@ export const insertEditorInsightSchema = createInsertSchema(editorInsights).omit
 export type InsertEditorInsight = z.infer<typeof insertEditorInsightSchema>;
 export type EditorInsight = typeof editorInsights.$inferSelect;
 
+// ===== Conversation Memories =====
+// Persistent record of meaningful conversations between David and the Agent.
+// These are not transcripts — they are curated moments: strategy breakthroughs,
+// relationship context, the texture of how ideas came together.
+// Surfaced at session start so continuity exists across conversations.
+
+export const conversationMemories = pgTable("conversation_memories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  recordedAt: timestamp("recorded_at").notNull().defaultNow(),
+  title: varchar("title").notNull(), // Short name for this memory
+  summary: text("summary").notNull(), // Key themes and insights — what matters about this conversation
+  content: text("content").notNull(), // The actual exchange or curated excerpts worth preserving
+  participants: varchar("participants").default('David + Agent'), // Who was in this conversation
+
+  tags: text("tags").array().default(sql`'{}'::text[]`),
+  importance: integer("importance").default(7), // 1-10
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertConversationMemorySchema = createInsertSchema(conversationMemories).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertConversationMemory = z.infer<typeof insertConversationMemorySchema>;
+export type ConversationMemory = typeof conversationMemories.$inferSelect;
+
 // ===== Alden Conversation Logs =====
 // Full transcript memory for the development steward (Alden/Replit Agent)
 // Gives Alden the same conversation continuity Daniela has

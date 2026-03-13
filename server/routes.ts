@@ -25158,6 +25158,41 @@ ${memoryContext}
     }
   });
 
+  // ===== Conversation Memories =====
+  // Persistent record of meaningful conversations between David and the Agent.
+
+  app.post("/api/conversation-memories", async (req, res) => {
+    try {
+      const { conversationMemories, insertConversationMemorySchema } = await import('../shared/schema');
+      const parsed = insertConversationMemorySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: 'Invalid memory data', details: parsed.error.flatten() });
+      }
+      const [memory] = await getUserDb().insert(conversationMemories).values(parsed.data).returning();
+      console.log(`[Conversation Memories] Saved: "${memory.title}"`);
+      res.json({ success: true, memory });
+    } catch (error: any) {
+      console.error('[Conversation Memories] Save error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/conversation-memories", async (req, res) => {
+    try {
+      const { conversationMemories } = await import('../shared/schema');
+      const limit = parseInt(req.query.limit as string) || 20;
+      const memories = await getUserDb()
+        .select()
+        .from(conversationMemories)
+        .orderBy(desc(conversationMemories.recordedAt))
+        .limit(limit);
+      res.json({ memories });
+    } catch (error: any) {
+      console.error('[Conversation Memories] Fetch error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Post to Hive collaboration system as Alden
   app.post("/api/editor/hive/post", async (req, res) => {
     try {
