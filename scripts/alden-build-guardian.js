@@ -5,8 +5,12 @@
  * Runs as a DETACHED process, fully independent of the tsx-managed server.
  * Survives the tsx hot reload that kills the main server process after file writes.
  *
+ * Supports two modes (set via manifest.mode):
+ *   'team-room' (default) — reports to /api/team-room/internal/guardian-complete
+ *   'chat'                — reports to /api/alden/internal/guardian-complete
+ *
  * Flow:
- *   1. Read manifest (written by alden-build-service before applying changes)
+ *   1. Read manifest (written by alden-build-service or alden-functions before applying changes)
  *   2. Wait 14 seconds for tsx to detect changes and restart the server
  *   3. Poll /api/health until the server responds or timeout (30s)
  *   4. SUCCESS → sync to GitHub, POST success to server, clean up manifest
@@ -83,13 +87,13 @@ function syncToGithub(featureName, cwd) {
   }
 }
 
-function postToServer(port, payload) {
+function postToServer(port, endpointPath, payload) {
   return new Promise(resolve => {
     const body = JSON.stringify(payload);
     const req = http.request({
       hostname: 'localhost',
       port,
-      path: '/api/team-room/internal/guardian-complete',
+      path: endpointPath,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -120,8 +124,25 @@ async function main() {
     process.exit(1);
   }
 
-  const { roomId, featureName, backups, port = 5000, cwd = process.cwd() } = manifest;
-  console.log(`[Guardian] Monitoring build: "${featureName}" for room ${roomId}`);
+  const {
+    mode = 'team-room',
+    roomId,
+    conversationId,
+    featureName,
+    backups,
+    port = 5000,
+    cwd = process.cwd(),
+  } = manifest;
+
+  // Determine which endpoint to report to based on mode
+  const reportEndpoint = mode === 'chat'
+    ? '/api/alden/internal/guardian-complete'
+    : '/api/team-room/internal/guardian-complete';
+
+  // The identifier used in the payload (roomId for team-room, conversationId for chat)
+  const contextId = mode === 'chat' ? conversationId : roomId;
+
+  console.log(`[Guardian] Mode: ${mode} | Build: "${featureName}" | Context: ${contextId}`);
 
   // Phase 1: Wait for tsx to detect changes and restart
   console.log(`[Guardian] Waiting ${INITIAL_WAIT_MS / 1000}s for tsx hot reload...`);
@@ -141,15 +162,16 @@ async function main() {
     const { synced, error: githubError } = syncToGithub(featureName, cwd);
 
     // Report success to server
-    const postResult = await postToServer(port, {
+    const postResult = await postToServer(port, reportEndpoint, {
       roomId,
+      conversationId,
       featureName,
       success: true,
       githubSynced: synced,
       githubError: githubError || null,
       filesRestored: [],
     });
-    console.log(`[Guardian] Posted success to server: HTTP ${postResult.status}`);
+    console.log(`[Guardian] Posted success to ${reportEndpoint}: HTTP ${postResult.status}`);
 
   } else {
     console.error('[Guardian] Server did not come back — rolling back');
@@ -166,8 +188,9 @@ async function main() {
 
     if (recoveredHealthy) {
       await sleep(2000);
-      const postResult = await postToServer(port, {
+      const postResult = await postToServer(port, reportEndpoint, {
         roomId,
+        conversationId,
         featureName,
         success: false,
         githubSynced: false,
@@ -175,13 +198,13 @@ async function main() {
         restoreErrors,
         error: `Server crashed after applying changes — original files restored. Server is back online.`,
       });
-      console.log(`[Guardian] Posted rollback to server: HTTP ${postResult.status}`);
+      console.log(`[Guardian] Posted rollback to ${reportEndpoint}: HTTP ${postResult.status}`);
     } else {
       console.error('[Guardian] Server did not recover after rollback — manual intervention needed');
       // Write a result file as last resort
       try {
         fs.writeFileSync('/tmp/alden-guardian-failed.json', JSON.stringify({
-          roomId, featureName, filesRestored: restored, restoreErrors,
+          mode, roomId, conversationId, featureName, filesRestored: restored, restoreErrors,
           error: 'Server did not recover after rollback',
           timestamp: new Date().toISOString(),
         }));

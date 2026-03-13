@@ -12,7 +12,7 @@ import { computeHealthStatus } from "./voice-health-monitor";
 import { founderCollabService } from "./founder-collaboration-service";
 import * as fs from "fs";
 import * as path from "path";
-import { execSync } from "child_process";
+import { execSync, spawn } from "child_process";
 
 const WORKSPACE_ROOT = path.resolve('/home/runner/workspace');
 
@@ -153,11 +153,25 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
       required: ["path"],
     },
   },
+  {
+    name: "apply_code_change",
+    description: "Write a code change to a file in the codebase. The original file is automatically backed up before writing. A Guardian process watches the server — if it crashes after your change, the file is automatically restored. Always read_file first to understand the current state before applying a change. Use for targeted edits only.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        file_path: { type: "string" as const, description: "File path relative to workspace root to write (e.g. 'server/services/alden-functions.ts')" },
+        new_content: { type: "string" as const, description: "The complete new content for the file. Must be the full file, not just a diff." },
+        description: { type: "string" as const, description: "Short description of what this change does — used for the Guardian report and GitHub commit message" },
+      },
+      required: ["file_path", "new_content", "description"],
+    },
+  },
 ];
 
 export async function executeAldenTool(
   toolName: string,
-  args: Record<string, any>
+  args: Record<string, any>,
+  context?: { conversationId?: string }
 ): Promise<{ data: any; sideEffects?: Record<string, any> }> {
   try {
     switch (toolName) {
@@ -555,6 +569,66 @@ export async function executeAldenTool(
         };
       }
 
+      case "apply_code_change": {
+        const { file_path, new_content, description } = args;
+        const conversationId = context?.conversationId;
+        const filePath = safePath(file_path);
+
+        // Backup original content
+        let backup: string | null = null;
+        if (fs.existsSync(filePath)) {
+          backup = fs.readFileSync(filePath, 'utf-8');
+        }
+
+        // Write guardian manifest before touching the file
+        const GUARDIAN_MANIFEST_PATH = '/tmp/alden-guardian-manifest.json';
+        const manifest = {
+          mode: 'chat',
+          conversationId: conversationId || null,
+          featureName: description,
+          backups: backup !== null ? { [filePath]: backup } : {},
+          port: 5000,
+          cwd: process.cwd(),
+          timestamp: new Date().toISOString(),
+        };
+        try {
+          fs.writeFileSync(GUARDIAN_MANIFEST_PATH, JSON.stringify(manifest), 'utf-8');
+          console.log(`[Alden Tool] Guardian manifest written for chat-mode change: ${description}`);
+        } catch (err: any) {
+          console.warn(`[Alden Tool] Guardian manifest write failed: ${err.message} — proceeding without protection`);
+        }
+
+        // Spawn guardian as detached process
+        const guardianPath = path.join(process.cwd(), 'scripts/alden-build-guardian.js');
+        try {
+          const guardian = spawn(process.execPath, [guardianPath], {
+            detached: true,
+            stdio: 'ignore',
+            env: { ...process.env },
+            cwd: process.cwd(),
+          });
+          guardian.unref();
+          console.log(`[Alden Tool] Guardian spawned (PID: ${guardian.pid}) for chat-mode change`);
+        } catch (err: any) {
+          console.warn(`[Alden Tool] Guardian spawn failed: ${err.message} — proceeding without protection`);
+        }
+
+        // Apply the change
+        fs.mkdirSync(path.dirname(filePath), { recursive: true });
+        fs.writeFileSync(filePath, new_content, 'utf-8');
+        console.log(`[Alden Tool] Applied change to: ${file_path}`);
+
+        return {
+          data: {
+            applied: true,
+            file: file_path,
+            description,
+            protected: backup !== null,
+            message: `Change applied to ${file_path}. Guardian is watching — if the server crashes it will automatically restore the original and report back. You'll see a follow-up message in about 15 seconds confirming the server came back up cleanly.`,
+          },
+        };
+      }
+
       default:
         return { data: { error: `Unknown tool: ${toolName}` } };
     }
@@ -564,4 +638,4 @@ export async function executeAldenTool(
   }
 }
 
-console.log('[Alden Functions] Loaded — 12 platform management + code tools ready');
+console.log('[Alden Functions] Loaded — 13 platform management + code tools ready');

@@ -36,6 +36,7 @@ interface AldenChatParams {
   founderName?: string;
   timezone?: string;
   learningContext?: LearningContext;
+  conversationId?: string;
 }
 
 interface AldenChatResponse {
@@ -46,7 +47,7 @@ interface AldenChatResponse {
 const MAX_AGENT_ROUNDS = 4;
 
 export async function generateAldenResponse(params: AldenChatParams): Promise<AldenChatResponse> {
-  const { userMessage, conversationHistory = [], founderName = 'David', timezone, learningContext } = params;
+  const { userMessage, conversationHistory = [], founderName = 'David', timezone, learningContext, conversationId } = params;
   const toolsUsed: string[] = [];
 
   try {
@@ -156,7 +157,7 @@ Note: Zone type '${s.zoneType}' means ${
         toolsUsed.push(toolUse.name);
 
         try {
-          const toolResult = await executeAldenTool(toolUse.name, (toolUse.input as Record<string, any>) || {});
+          const toolResult = await executeAldenTool(toolUse.name, (toolUse.input as Record<string, any>) || {}, { conversationId });
           toolResults.push({
             type: 'tool_result',
             tool_use_id: toolUse.id,

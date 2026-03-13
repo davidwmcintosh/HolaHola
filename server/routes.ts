@@ -28923,6 +28923,37 @@ Under 250 words. Write as yourself.`;
     }
   });
 
+  // CAP-008: Guardian completion report for Talk with Alden (chat mode)
+  app.post("/api/alden/internal/guardian-complete", async (req: any, res) => {
+    try {
+      const token = req.headers['x-guardian-token'];
+      const { GUARDIAN_TOKEN } = await import('./services/alden-build-service');
+      if (token !== GUARDIAN_TOKEN) return res.status(403).json({ error: 'Forbidden' });
+
+      const { conversationId, featureName, success, filesRestored = [], error: guardianError, githubSynced } = req.body;
+
+      if (success) {
+        console.log(`[Guardian/Chat] SUCCESS: "${featureName}" — server healthy${githubSynced ? ', GitHub synced' : ''}`);
+      } else {
+        console.log(`[Guardian/Chat] ROLLBACK: "${featureName}" — ${filesRestored.length} file(s) restored`);
+      }
+
+      // Post result back as an Alden message in the conversation
+      if (conversationId) {
+        const { addMessage } = await import('./services/alden-conversation-service');
+        const resultText = success
+          ? `Guardian confirmed: server came back up cleanly after my change to "${featureName}".${githubSynced ? ' Synced to GitHub.' : ''}`
+          : `Guardian triggered rollback on "${featureName}" — the server didn't recover after my change, so the original file(s) have been restored. ${guardianError || ''}`;
+        await addMessage({ conversationId, role: 'alden', content: resultText });
+      }
+
+      res.json({ ok: true });
+    } catch (e: any) {
+      console.error('[Guardian/Chat] Error processing completion:', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
 
   // ── Agent Activity Log ──────────────────────────────────────────────────────
   app.get("/api/agent-activity", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (_req, res) => {
