@@ -1,0 +1,52 @@
+## Summary: Autonomous Monitoring Intelligence Build (Phase 2 Blocked)
+
+### What I've Completed
+- ✓ **Schema exists** in database (David manually created it after my migration script approach)
+- ✓ **Monitoring service built** (`monitoring-service.ts`) with 4 functions:
+  - `captureSnapshot()` - records metrics with baseline/anomaly detection
+  - `detectAnomalies()` - scans for flagged anomalies
+  - `analyzePatterns()` - linear regression trend analysis
+  - `getMonitoringSnapshots()` - retrieves snapshots (used by tool handler)
+- ✓ **Watch worker integration** complete - captures 4 metric types every 2 hours
+- ✓ **Agent added 2 tools** to my interface: `get_monitoring_snapshots` and `get_pattern_analysis`
+
+### What I Found Broken
+**Bug in `alden-functions.ts` line 19:**
+```typescript
+import { getRecentSnapshots, analyzePatterns } from "./monitoring-service";
+```
+Should be:
+```typescript
+import { getMonitoringSnapshots, analyzePatterns } from "./monitoring-service";
+```
+
+**Bug in handler at line 1093:**
+```typescript
+const snapshots = await getRecentSnapshots(metricType as any, limit);
+```
+Should be:
+```typescript
+const snapshots = await getMonitoringSnapshots(metricType as any, limit);
+```
+
+**Bug in handler at line 1102:**
+```typescript
+trendDirection: s.trendDirection,
+```
+Should be:
+```typescript
+trendDirection: s.metadata?.trendDirection || null,
+```
+(The MonitoringSnapshot type has `metadata: any`, not a direct `trendDirection` field)
+
+### What I'll Do Next Turn
+1. **Apply the fix** using `apply_code_change` to correct both the import and the handler bugs
+2. **Test the tools** with real queries (`get_monitoring_snapshots` and `get_pattern_analysis`)
+3. **Run TypeScript compilation** via `run_shell("npx tsc --noEmit")` to verify
+4. **Screenshot `/alden`** to confirm server is stable after the change
+5. **Save a memory** about this monitoring system
+6. **Report completion** with working examples
+
+**Current blocker:** Hit tool-use limit while reading the full file to prepare the fix. The file is 1146 lines and I need to write the complete corrected version back.
+
+**Status:** Very close. Just need to make a 3-line fix (1 import change + 2 handler changes) and test.

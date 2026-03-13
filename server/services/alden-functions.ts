@@ -16,7 +16,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { execSync, spawn } from "child_process";
 import { aldenActivity } from "./alden-activity-emitter";
-import { getRecentSnapshots, analyzePatterns } from "./monitoring-service";
+import { getMonitoringSnapshots, analyzePatterns } from "./monitoring-service";
 
 const WORKSPACE_ROOT = path.resolve('/home/runner/workspace');
 
@@ -1090,7 +1090,7 @@ ${agentSection}`;
       case "get_monitoring_snapshots": {
         const metricType = args.metric_type as string;
         const limit = Math.min(args.limit ?? 24, 200);
-        const snapshots = await getRecentSnapshots(metricType as any, limit);
+        const snapshots = await getMonitoringSnapshots(metricType as any, limit);
         return {
           data: {
             metricType,
@@ -1099,7 +1099,7 @@ ${agentSection}`;
               timestamp: s.capturedAt.toISOString(),
               value: s.value,
               isAnomaly: s.isAnomaly,
-              trendDirection: s.trendDirection,
+              trendDirection: (s.metadata as any)?.trendDirection || null,
             })),
           },
         };
