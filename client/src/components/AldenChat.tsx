@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface AldenMessage {
   id: string;
@@ -62,33 +62,58 @@ export function AldenChat() {
   const audioChunksRef = useRef<Blob[]>([]);
   const { toast } = useToast();
 
-  // Load conversation history on mount
+  // Load conversation history and surface any unread notifications on mount
   useEffect(() => {
     async function loadHistory() {
       try {
-        const res = await fetch('/api/alden/session', { credentials: 'include' });
-        if (!res.ok) throw new Error('Failed to load session');
-        const data: SessionHistory = await res.json();
+        // Fetch history and unread notifications in parallel
+        const [sessionRes, notifRes] = await Promise.all([
+          fetch('/api/alden/session', { credentials: 'include' }),
+          fetch('/api/alden/notifications', { credentials: 'include' }),
+        ]);
 
+        const data: SessionHistory = sessionRes.ok ? await sessionRes.json() : { messages: [], sessionId: null, sessionTitle: null, startedAt: null };
+        const notifications: Array<{ id: string; content: string; severity: string; createdAt: string }> =
+          notifRes.ok ? await notifRes.json() : [];
+
+        // Build message list
+        let loaded: AldenMessage[] = [];
         if (data.messages.length === 0) {
-          setMessages([{
+          loaded = [{
             id: 'initial',
             role: 'alden',
             content: WELCOME,
             timestamp: new Date(),
-          }]);
+          }];
         } else {
           setSessionTitle(data.sessionTitle);
           setSessionStartedAt(data.startedAt);
-          const loaded: AldenMessage[] = data.messages.map(m => ({
+          loaded = data.messages.map(m => ({
             id: m.id,
             role: m.role === 'david' ? 'user' : 'alden',
             content: m.content,
             timestamp: new Date(m.createdAt),
             fromHistory: true,
           }));
-          setMessages(loaded);
         }
+
+        // Prepend any unread notifications as Alden-initiated messages
+        if (notifications.length > 0) {
+          const notifMessages: AldenMessage[] = notifications.map(n => ({
+            id: `notif-${n.id}`,
+            role: 'alden' as const,
+            content: n.content,
+            timestamp: new Date(n.createdAt),
+            fromHistory: true,
+          }));
+          loaded = [...notifMessages, ...loaded];
+          // Mark all as read and clear sidebar badge
+          fetch('/api/alden/notifications/read', { method: 'POST', credentials: 'include' })
+            .then(() => queryClient.invalidateQueries({ queryKey: ['/api/alden/notifications/unread-count'] }))
+            .catch(() => {});
+        }
+
+        setMessages(loaded);
       } catch {
         setMessages([{
           id: 'initial',

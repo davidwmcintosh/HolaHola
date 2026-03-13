@@ -7145,6 +7145,26 @@ export const insertAldenMessageSchema = createInsertSchema(aldenMessages).omit({
 export type InsertAldenMessage = z.infer<typeof insertAldenMessageSchema>;
 export type AldenMessage = typeof aldenMessages.$inferSelect;
 
+// ===== Alden Proactive Notifications =====
+// Alden's inbox for reaching out to the founder when something warrants attention.
+// Written by: the Alden watch worker (autonomous), or Alden's notify_david tool (in-conversation).
+
+export const aldenNotifications = pgTable("alden_notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  content: text("content").notNull(),
+  triggeredBy: varchar("triggered_by").notNull().default('alden'), // 'alden-watch' | 'tool' | 'system'
+  severity: varchar("severity").notNull().default('info'), // 'info' | 'warning' | 'alert'
+  read: boolean("read").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertAldenNotificationSchema = createInsertSchema(aldenNotifications).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAldenNotification = z.infer<typeof insertAldenNotificationSchema>;
+export type AldenNotification = typeof aldenNotifications.$inferSelect;
+
 // ===== Wren Proactive Triggers =====
 // Detected patterns that warrant attention - enables proactive surfacing
 

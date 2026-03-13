@@ -28954,6 +28954,55 @@ Under 250 words. Write as yourself.`;
     }
   });
 
+  // CAP-009: Alden Proactive Notifications
+  // GET /api/alden/notifications — list unread (or all with ?all=true)
+  app.get("/api/alden/notifications", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { aldenNotifications } = await import('@shared/schema');
+      const { eq, desc, ne } = await import('drizzle-orm');
+      const showAll = req.query.all === 'true';
+      const rows = await db
+        .select()
+        .from(aldenNotifications)
+        .where(showAll ? undefined : eq(aldenNotifications.read, false))
+        .orderBy(desc(aldenNotifications.createdAt))
+        .limit(20);
+      res.json(rows);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // GET /api/alden/notifications/unread-count — for sidebar badge
+  app.get("/api/alden/notifications/unread-count", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { aldenNotifications } = await import('@shared/schema');
+      const { eq, sql: drizzleSql } = await import('drizzle-orm');
+      const [result] = await db
+        .select({ count: drizzleSql<number>`count(*)::int` })
+        .from(aldenNotifications)
+        .where(eq(aldenNotifications.read, false));
+      res.json({ count: result?.count ?? 0 });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // POST /api/alden/notifications/read — mark all as read
+  app.post("/api/alden/notifications/read", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { aldenNotifications } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      await db
+        .update(aldenNotifications)
+        .set({ read: true })
+        .where(eq(aldenNotifications.read, false));
+      res.json({ ok: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
 
   // ── Agent Activity Log ──────────────────────────────────────────────────────
   app.get("/api/agent-activity", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (_req, res) => {

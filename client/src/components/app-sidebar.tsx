@@ -164,6 +164,39 @@ function getSubjectUrl(subject: string): string {
   return cfg?.tutorPath ?? `/reading-library?subject=${subject}`;
 }
 
+function AldenNavItem({ location, closeSidebar }: { location: string; closeSidebar: () => void }) {
+  const { data } = useQuery<{ count: number }>({
+    queryKey: ['/api/alden/notifications/unread-count'],
+    refetchInterval: 60000,
+    staleTime: 30000,
+  });
+  const unread = data?.count ?? 0;
+
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        asChild
+        isActive={location.startsWith('/alden')}
+        data-testid="link-talk-to-alden"
+      >
+        <Link href="/alden" onClick={closeSidebar}>
+          <BrainCircuit className="h-4 w-4" />
+          <span className="flex-1">Talk to Alden</span>
+          {unread > 0 && (
+            <Badge
+              variant="destructive"
+              className="ml-auto text-xs h-5 min-w-5 flex items-center justify-center no-default-active-elevate"
+              data-testid="badge-alden-unread"
+            >
+              {unread}
+            </Badge>
+          )}
+        </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+}
+
 export function AppSidebar() {
   const [location] = useLocation();
   const { userName } = useLanguage();
@@ -364,18 +397,7 @@ export function AppSidebar() {
                 );
               })}
               {isAdmin && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location.startsWith('/alden')}
-                    data-testid="link-talk-to-alden"
-                  >
-                    <Link href="/alden" onClick={closeSidebar}>
-                      <BrainCircuit className="h-4 w-4" />
-                      <span>Talk to Alden</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                <AldenNavItem location={location} closeSidebar={closeSidebar} />
               )}
               {isAdmin && (
                 <SidebarMenuItem>

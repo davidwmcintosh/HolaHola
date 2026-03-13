@@ -5,6 +5,7 @@ import {
   voiceSessions, 
   sofiaIssueReports,
   editorInsights,
+  aldenNotifications,
   users,
 } from "@shared/schema";
 import { sql, desc, eq, and, gte } from "drizzle-orm";
@@ -164,6 +165,45 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
         description: { type: "string" as const, description: "Short description of what this change does — used for the Guardian report and GitHub commit message" },
       },
       required: ["file_path", "new_content", "description"],
+    },
+  },
+  {
+    name: "save_to_memory",
+    description: "Save something important to your persistent memory (editor insights). Use this when you learn something new about the project, the founder's preferences, an architectural decision, a debugging strategy that worked, or any insight worth remembering across sessions. The memory is injected into your context at the start of every conversation.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        title: { type: "string" as const, description: "Short, searchable title for this memory (e.g. 'Guardian protection requires manifest before file write')" },
+        content: { type: "string" as const, description: "The full insight — what you learned, why it matters, how to apply it" },
+        category: {
+          type: "string" as const,
+          enum: ["philosophy", "architecture", "relationship", "debugging", "personality", "workflow", "context", "journal", "tools"],
+          description: "Category: philosophy=core principles, architecture=technical design, relationship=founder preferences/facts, debugging=strategies that worked, workflow=process learnings, context=current project state, journal=session summaries, tools=integrations/scripts",
+        },
+        importance: { type: "number" as const, description: "Importance 1-10. Use 8-10 for critical architectural rules or hard-won debugging lessons. Use 5-7 for useful context. Use 1-4 for minor notes." },
+        tags: {
+          type: "array" as const,
+          items: { type: "string" as const },
+          description: "Searchable tags, e.g. ['guardian', 'code-change', 'protection']",
+        },
+      },
+      required: ["title", "content", "category", "importance"],
+    },
+  },
+  {
+    name: "notify_david",
+    description: "Queue a proactive notification for David. Use when you want to flag something for his attention that doesn't need an immediate response — a concern you noticed, a follow-up reminder, something to revisit. The notification will appear as a badge on the Talk to Alden link in the sidebar and surface when he next opens it.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        message: { type: "string" as const, description: "What you want to tell David. Write it as you'd naturally say it — this will appear as a message from you." },
+        severity: {
+          type: "string" as const,
+          enum: ["info", "warning", "alert"],
+          description: "info=general note or follow-up, warning=something that needs attention soon, alert=something urgent",
+        },
+      },
+      required: ["message", "severity"],
     },
   },
 ];
@@ -629,6 +669,49 @@ export async function executeAldenTool(
         };
       }
 
+      case "save_to_memory": {
+        const { title, content, category, importance, tags = [] } = args;
+        const db = getUserDb();
+        const [saved] = await db.insert(editorInsights).values({
+          title,
+          content,
+          category,
+          importance: Math.max(1, Math.min(10, Math.round(importance))),
+          tags,
+        }).returning({ id: editorInsights.id, title: editorInsights.title });
+
+        console.log(`[Alden Tool] Saved memory: "${title}" (${category}, importance ${importance})`);
+        return {
+          data: {
+            saved: true,
+            id: saved.id,
+            title: saved.title,
+            message: `Saved to memory as a ${category} insight with importance ${importance}/10. It will be included in my context from the next conversation onward.`,
+          },
+        };
+      }
+
+      case "notify_david": {
+        const { message, severity = 'info' } = args;
+        const db = getUserDb();
+        const [notification] = await db.insert(aldenNotifications).values({
+          content: message,
+          triggeredBy: 'tool',
+          severity,
+          read: false,
+        }).returning({ id: aldenNotifications.id });
+
+        console.log(`[Alden Tool] Queued notification for David (${severity}): "${message.substring(0, 80)}..."`);
+        return {
+          data: {
+            queued: true,
+            id: notification.id,
+            severity,
+            message: `Notification queued. David will see it the next time he opens this chat — it'll appear as a badge on the sidebar link.`,
+          },
+        };
+      }
+
       default:
         return { data: { error: `Unknown tool: ${toolName}` } };
     }
@@ -638,4 +721,4 @@ export async function executeAldenTool(
   }
 }
 
-console.log('[Alden Functions] Loaded — 13 platform management + code tools ready');
+console.log('[Alden Functions] Loaded — 15 tools ready (monitoring + code + memory + notifications)');

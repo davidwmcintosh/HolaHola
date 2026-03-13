@@ -587,6 +587,12 @@ app.use((req, res, next) => {
       startAldenDigestWorker();
     }, 40000);
 
+    // +45s: Alden Watch Worker — proactive notifications (CAP-009)
+    setTimeout(async () => {
+      const { startAldenWatchWorker } = await import('./services/alden-watch-worker');
+      startAldenWatchWorker();
+    }, 45000);
+
     // +50s: Sofia Issue Cleanup Worker (CAP-005)
     setTimeout(async () => {
       const { startSofiaCleanupWorker } = await import('./services/sofia-issue-cleanup-worker');
