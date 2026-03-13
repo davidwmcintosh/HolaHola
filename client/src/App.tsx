@@ -135,7 +135,7 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
   
   // Only chat page is full-height for authenticated users
   // Landing page (/) is full-height for unauthenticated users
-  const isFullHeightPage = location === "/chat" || location === "/team-room" || location === "/admin/mission" || location === "/study-mode" || (!isAuthenticated && !isLoading && location === "/");
+  const isFullHeightPage = location === "/chat" || location === "/team-room" || location === "/admin/mission" || location === "/study-mode" || location === "/alden" || (!isAuthenticated && !isLoading && location === "/");
 
   const content = (
     <Suspense fallback={<PageLoader />}>
