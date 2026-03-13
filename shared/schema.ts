@@ -983,6 +983,9 @@ export const curriculumLessons = pgTable("curriculum_lessons", {
   bundleId: varchar("bundle_id"), // Optional: groups lessons into cohesive learning bundles
   // Linked drill lesson - for conversation↔drill pairing
   linkedDrillLessonId: varchar("linked_drill_lesson_id"), // Links a conversation lesson to its paired drill lesson
+  // Enrichment data (AI-generated supplemental content)
+  enrichmentNotes: jsonb("enrichment_notes"),
+  enrichedAt: timestamp("enriched_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
