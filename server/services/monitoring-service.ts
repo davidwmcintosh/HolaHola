@@ -8,11 +8,12 @@ export interface MonitoringSnapshot {
   capturedAt: Date;
   metricType: MetricType;
   value: any;
-  baseline: number | null;
+  baselineValue: any | null;
   deviationPercent: number | null;
   isAnomaly: boolean;
-  trendDirection: 'up' | 'down' | 'stable' | null;
-  analysisNotes: string | null;
+  anomalySeverity: string | null;
+  anomalyReason: string | null;
+  metadata: any;
 }
 
 export interface AnomalyDetection {
@@ -40,7 +41,7 @@ export interface PatternAnalysis {
 export async function captureSnapshot(
   metricType: MetricType,
   value: any,
-  analysisNotes?: string
+  source = 'watch-worker'
 ): Promise<MonitoringSnapshot> {
   const sharedDb = getSharedDb();
   
@@ -51,35 +52,50 @@ export async function captureSnapshot(
   const numericValue = extractNumericValue(value);
   let deviationPercent: number | null = null;
   let isAnomaly = false;
+  let anomalySeverity: string | null = null;
+  let anomalyReason: string | null = null;
   
   if (baseline !== null && numericValue !== null) {
     deviationPercent = ((numericValue - baseline) / baseline) * 100;
+    const absDev = Math.abs(deviationPercent);
+    
     // Flag as anomaly if deviation exceeds ±30%
-    isAnomaly = Math.abs(deviationPercent) > 30;
+    if (absDev > 30) {
+      isAnomaly = true;
+      
+      // Assign severity
+      if (absDev > 100) anomalySeverity = 'critical';
+      else if (absDev > 60) anomalySeverity = 'high';
+      else if (absDev > 40) anomalySeverity = 'medium';
+      else anomalySeverity = 'low';
+      
+      anomalyReason = `${deviationPercent > 0 ? 'Increased' : 'Decreased'} ${absDev.toFixed(1)}% from 7-day baseline`;
+    }
   }
   
-  // Determine trend direction
+  // Determine trend direction and store in metadata
   const trendDirection = await calculateTrendDirection(metricType, numericValue);
   
   const result = await sharedDb.execute(sql`
     INSERT INTO monitoring_snapshots (
-      id, captured_at, metric_type, value, baseline, deviation_percent,
-      is_anomaly, trend_direction, analysis_notes
+      id, captured_at, metric_type, value, baseline_value, deviation_percent,
+      is_anomaly, anomaly_severity, anomaly_reason, metadata
     )
     VALUES (
       gen_random_uuid(),
       NOW(),
       ${metricType},
       ${JSON.stringify(value)}::jsonb,
-      ${baseline},
+      ${baseline !== null ? JSON.stringify({ value: baseline }) : null}::jsonb,
       ${deviationPercent},
       ${isAnomaly},
-      ${trendDirection},
-      ${analysisNotes || null}
+      ${anomalySeverity},
+      ${anomalyReason},
+      ${JSON.stringify({ source, trendDirection })}::jsonb
     )
     RETURNING 
-      id, captured_at, metric_type, value, baseline, deviation_percent,
-      is_anomaly, trend_direction, analysis_notes
+      id, captured_at, metric_type, value, baseline_value, deviation_percent,
+      is_anomaly, anomaly_severity, anomaly_reason, metadata
   `);
   
   const row = result.rows[0] as any;
@@ -89,11 +105,12 @@ export async function captureSnapshot(
     capturedAt: new Date(row.captured_at),
     metricType: row.metric_type,
     value: row.value,
-    baseline: row.baseline,
+    baselineValue: row.baseline_value,
     deviationPercent: row.deviation_percent,
     isAnomaly: row.is_anomaly,
-    trendDirection: row.trend_direction,
-    analysisNotes: row.analysis_notes,
+    anomalySeverity: row.anomaly_severity,
+    anomalyReason: row.anomaly_reason,
+    metadata: row.metadata,
   };
 }
 
@@ -108,9 +125,10 @@ export async function detectAnomalies(hours = 24): Promise<AnomalyDetection[]> {
     SELECT 
       metric_type,
       value,
-      baseline,
+      baseline_value,
       deviation_percent,
       is_anomaly,
+      anomaly_severity,
       captured_at
     FROM monitoring_snapshots
     WHERE captured_at >= ${since}
@@ -122,15 +140,16 @@ export async function detectAnomalies(hours = 24): Promise<AnomalyDetection[]> {
   
   for (const row of result.rows as any[]) {
     const currentValue = extractNumericValue(row.value);
-    if (currentValue === null || row.baseline === null) continue;
+    const baselineValue = row.baseline_value ? extractNumericValue(row.baseline_value) : null;
+    
+    if (currentValue === null || baselineValue === null) continue;
     
     const deviationPercent = row.deviation_percent || 0;
-    const absDev = Math.abs(deviationPercent);
     
     let severity: AnomalyDetection['severity'] = 'low';
-    if (absDev > 100) severity = 'critical';
-    else if (absDev > 60) severity = 'high';
-    else if (absDev > 40) severity = 'medium';
+    if (row.anomaly_severity === 'critical') severity = 'critical';
+    else if (row.anomaly_severity === 'high') severity = 'high';
+    else if (row.anomaly_severity === 'medium') severity = 'medium';
     
     anomalies.push({
       detected: true,
@@ -138,7 +157,7 @@ export async function detectAnomalies(hours = 24): Promise<AnomalyDetection[]> {
       message: `${row.metric_type} deviated ${deviationPercent.toFixed(1)}% from baseline`,
       metric: row.metric_type,
       currentValue,
-      baselineValue: row.baseline,
+      baselineValue,
       deviationPercent,
     });
   }
@@ -161,7 +180,7 @@ export async function analyzePatterns(
       value,
       captured_at,
       deviation_percent,
-      trend_direction
+      metadata
     FROM monitoring_snapshots
     WHERE metric_type = ${metricType}
       AND captured_at >= ${since}
@@ -236,7 +255,7 @@ export async function analyzePatterns(
   // Anomaly summary
   const anomalyCount = result.rows.filter((row: any) => row.deviation_percent && Math.abs(row.deviation_percent) > 30).length;
   if (anomalyCount > 0) {
-    findings.push(`${anomalyCount} anomalies detected (>${anomalyCount / dataPoints * 100}% of samples)`);
+    findings.push(`${anomalyCount} anomalies detected (${(anomalyCount / dataPoints * 100).toFixed(0)}% of samples)`);
   }
   
   return {
@@ -250,22 +269,24 @@ export async function analyzePatterns(
 }
 
 /**
- * Get recent snapshots for a metric type
+ * Get recent snapshots for a metric type (used by get_monitoring_snapshots tool)
  */
-export async function getRecentSnapshots(
+export async function getMonitoringSnapshots(
   metricType: MetricType,
-  limit = 20
+  hours = 24
 ): Promise<MonitoringSnapshot[]> {
   const sharedDb = getSharedDb();
+  const since = new Date(Date.now() - hours * 60 * 60 * 1000);
   
   const result = await sharedDb.execute(sql`
     SELECT 
-      id, captured_at, metric_type, value, baseline, deviation_percent,
-      is_anomaly, trend_direction, analysis_notes
+      id, captured_at, metric_type, value, baseline_value, deviation_percent,
+      is_anomaly, anomaly_severity, anomaly_reason, metadata
     FROM monitoring_snapshots
     WHERE metric_type = ${metricType}
+      AND captured_at >= ${since}
     ORDER BY captured_at DESC
-    LIMIT ${limit}
+    LIMIT 50
   `);
   
   return result.rows.map((row: any) => ({
@@ -273,11 +294,12 @@ export async function getRecentSnapshots(
     capturedAt: new Date(row.captured_at),
     metricType: row.metric_type,
     value: row.value,
-    baseline: row.baseline,
+    baselineValue: row.baseline_value,
     deviationPercent: row.deviation_percent,
     isAnomaly: row.is_anomaly,
-    trendDirection: row.trend_direction,
-    analysisNotes: row.analysis_notes,
+    anomalySeverity: row.anomaly_severity,
+    anomalyReason: row.anomaly_reason,
+    metadata: row.metadata,
   }));
 }
 
