@@ -16,6 +16,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { execSync, spawn } from "child_process";
 import { aldenActivity } from "./alden-activity-emitter";
+import { getRecentSnapshots, analyzePatterns } from "./monitoring-service";
 
 const WORKSPACE_ROOT = path.resolve('/home/runner/workspace');
 
@@ -273,6 +274,38 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
         },
       },
       required: ["message", "severity"],
+    },
+  },
+  {
+    name: "get_monitoring_snapshots",
+    description: "Get recent monitoring snapshots for a specific metric type. Use this to see captured baseline data, anomaly flags, and trend direction over time.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        metric_type: {
+          type: "string" as const,
+          enum: ["system_health", "user_activity", "voice_engagement", "error_rate"],
+          description: "Which metric to query",
+        },
+        limit: { type: "number" as const, description: "Number of recent snapshots to return (default 24, max 200)" },
+      },
+      required: ["metric_type"],
+    },
+  },
+  {
+    name: "get_pattern_analysis",
+    description: "Get trend analysis and pattern detection for a metric type over a time window. Returns linear regression trend, volatility, confidence score, and interpretation.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        metric_type: {
+          type: "string" as const,
+          enum: ["system_health", "user_activity", "voice_engagement", "error_rate"],
+          description: "Which metric to analyze",
+        },
+        days: { type: "number" as const, description: "Days to analyze (default 7, max 30)" },
+      },
+      required: ["metric_type"],
     },
   },
   {
@@ -1054,6 +1087,37 @@ ${agentSection}`;
         };
       }
 
+      case "get_monitoring_snapshots": {
+        const metricType = args.metric_type as string;
+        const limit = Math.min(args.limit ?? 24, 200);
+        const snapshots = await getRecentSnapshots(metricType as any, limit);
+        return {
+          data: {
+            metricType,
+            snapshotCount: snapshots.length,
+            snapshots: snapshots.map(s => ({
+              timestamp: s.capturedAt.toISOString(),
+              value: s.value,
+              isAnomaly: s.isAnomaly,
+              trendDirection: s.trendDirection,
+            })),
+          },
+        };
+      }
+
+      case "get_pattern_analysis": {
+        const metricType = args.metric_type as string;
+        const days = Math.min(args.days ?? 7, 30);
+        const analysis = await analyzePatterns(metricType as any, days);
+        return {
+          data: {
+            metricType,
+            period: `last ${days} days`,
+            ...analysis,
+          },
+        };
+      }
+
       case "request_continuation": {
         const { phase_title, phase_summary, next_prompt } = args;
         console.log(`[Alden Tool] Continuation requested: "${phase_title}" → next: "${next_prompt.substring(0, 80)}..."`);
@@ -1078,4 +1142,4 @@ ${agentSection}`;
   }
 }
 
-console.log('[Alden Functions] Loaded — 20 tools ready (monitoring + code + shell + memory + notifications + browser + briefing)');
+console.log('[Alden Functions] Loaded — 22 tools ready (monitoring + code + shell + memory + notifications + browser + briefing)');
