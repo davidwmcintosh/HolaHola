@@ -2,24 +2,43 @@
  * Alden Workspace Context
  *
  * Assembles Alden's persistent memory and awareness into a structured block
- * that is injected at the start of every conversation turn — the same
- * "push not pull" model Daniela uses for her classroom.
+ * that is injected at the start of every conversation turn.
  *
  * Sources:
- *   1. Editor Insights      — permanent architectural decisions, project history
+ *   0. replit.md          — the project bible (architecture, rules, preferences)
+ *   1. Editor Insights    — permanent architectural decisions, project history (ALL of them)
  *   2. Significant Messages — notable past exchanges between David and Alden
- *   3. Express Lane         — recent team collaboration and platform alerts
+ *   3. Recent Sessions    — summarized conversation history
+ *   4. Express Lane       — recent team collaboration and platform alerts
+ *   5. Recent Commits     — last 8 git commits so Alden knows what just changed
  */
 
 import { db } from '../db';
 import { editorInsights, aldenMessages, aldenConversations, collaborationMessages } from '@shared/schema';
-import { desc, eq, and } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import { execSync } from 'child_process';
 
 export async function buildAldenWorkspaceContext(): Promise<string> {
   const sections: string[] = [];
 
-  // ── 1. EDITOR INSIGHTS ─────────────────────────────────────────────────────
-  // Alden's permanent memory: architectural decisions, learned rules, project history
+  // ── 0. replit.md — PROJECT BIBLE ──────────────────────────────────────────
+  // The authoritative record of architecture, rules, and user preferences.
+  // The Replit Agent always has this in memory — now Alden does too.
+  try {
+    const replitMdPath = join(process.cwd(), 'replit.md');
+    const replitMd = readFileSync(replitMdPath, 'utf-8').trim();
+    if (replitMd) {
+      sections.push(`📖 PROJECT BIBLE — replit.md\n${replitMd}`);
+    }
+  } catch (err: any) {
+    console.warn('[AldenWorkspace] replit.md read failed:', err.message);
+  }
+
+  // ── 1. EDITOR INSIGHTS — ALL OF THEM ─────────────────────────────────────
+  // Alden's permanent memory. Load every insight, not just the top 12.
+  // Content shown up to 500 chars so critical details aren't truncated.
   try {
     const insights = await db
       .select({
@@ -29,12 +48,11 @@ export async function buildAldenWorkspaceContext(): Promise<string> {
         importance: editorInsights.importance,
       })
       .from(editorInsights)
-      .orderBy(desc(editorInsights.importance), desc(editorInsights.createdAt))
-      .limit(12);
+      .orderBy(desc(editorInsights.importance), desc(editorInsights.createdAt));
 
     if (insights.length > 0) {
       const lines = insights.map(i => {
-        const preview = (i.content || '').substring(0, 280).replace(/\n+/g, ' ');
+        const preview = (i.content || '').substring(0, 500).replace(/\n+/g, ' ');
         return `  [${(i.category || 'note').toUpperCase()} · importance ${i.importance}] ${i.title}\n  ${preview}`;
       });
       sections.push(`📚 PERSISTENT MEMORY — Editor Insights (${insights.length} entries)\n${lines.join('\n\n')}`);
@@ -130,6 +148,22 @@ export async function buildAldenWorkspaceContext(): Promise<string> {
     }
   } catch (err: any) {
     console.warn('[AldenWorkspace] Express Lane fetch failed:', err.message);
+  }
+
+  // ── 5. RECENT GIT COMMITS ─────────────────────────────────────────────────
+  // Shows Alden what has changed recently so he's not reasoning from a
+  // stale picture of the codebase.
+  try {
+    const gitLog = execSync('git log --oneline -8 2>/dev/null', {
+      cwd: process.cwd(),
+      timeout: 3000,
+      encoding: 'utf-8',
+    }).trim();
+    if (gitLog) {
+      sections.push(`🔀 RECENT COMMITS (latest first)\n${gitLog.split('\n').map((l: string) => `  ${l}`).join('\n')}`);
+    }
+  } catch (err: any) {
+    console.warn('[AldenWorkspace] Git log fetch failed:', err.message);
   }
 
   if (sections.length === 0) {
