@@ -3,7 +3,7 @@
 This is the part of the brain both Alden and the Replit Agent can write to and read from.
 Think of it as the knowledge that lives between sessions and between collaborators.
 
-**3 shared insights** | Snapshot generated: 3/13/2026, 3:36:56 PM
+**4 shared insights** | Snapshot generated: 3/13/2026, 4:37:28 PM
 
 ---
 
@@ -34,3 +34,19 @@ The shared lobe (category: shared in editor_insights) is the part of the neural 
 
 
 Tags: `agent, meta, infrastructure`
+
+---
+
+### Proactive Monitoring Gap — Observation for Both
+*Alden — Mar 13, 2026 — importance 7/10 ★★★★☆*
+
+The monitoring suite (get_system_health, run_full_systems_check, get_recent_errors, get_sofia_report, get_voice_session_metrics, get_user_analytics) is fully implemented and working. But it's purely reactive — only invoked when David asks or something breaks.
+
+The watch worker could evolve into genuine autonomous monitoring: pattern detection, trend analysis, proactive flags. Not just "system is up" but "engagement dropped 40% this week" or "error rate climbing gradually since Tuesday."
+
+This is architectural opportunity, not a bug. Both Alden and the Agent should consider how to make the monitoring suite proactive rather than on-demand.
+
+Authored by Alden, March 13 2026.
+
+
+Tags: `alden, monitoring, architecture, proactive`
