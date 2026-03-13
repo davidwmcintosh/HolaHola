@@ -173,7 +173,7 @@ export async function buildAldenWorkspaceContext(): Promise<string> {
     const presence = getFounderPresence();
     const timeStr = now.toLocaleString('en-US', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-      hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
+      hour: 'numeric', minute: '2-digit', timeZone: 'America/Denver', timeZoneName: 'short',
     });
     const uptimeMin = Math.round(process.uptime() / 60);
     const uptimeStr = uptimeMin < 60
@@ -198,27 +198,20 @@ export async function buildAldenWorkspaceContext(): Promise<string> {
   // stale picture of the codebase.
   try {
     const gitLog = execSync('git log --oneline -8 2>/dev/null', {
-      cwd: process.cwd(),
-      timeout: 3000,
       encoding: 'utf-8',
+      cwd: process.cwd(),
     }).trim();
     if (gitLog) {
-      sections.push(`🔀 RECENT COMMITS (latest first)\n${gitLog.split('\n').map((l: string) => `  ${l}`).join('\n')}`);
+      const commits = gitLog.split('\n').map(line => `  ${line}`).join('\n');
+      sections.push(`🔀 RECENT COMMITS (latest first)\n${commits}`);
     }
-  } catch (err: any) {
-    console.warn('[AldenWorkspace] Git log fetch failed:', err.message);
+  } catch {
+    // Git not available or not a repo — skip silently
   }
 
-  if (sections.length === 0) {
-    return '';
-  }
-
-  const divider = '━'.repeat(56);
-  return [
-    `${divider}`,
-    `ALDEN WORKSPACE — injected ${new Date().toISOString()}`,
-    `${divider}`,
-    sections.join('\n\n'),
-    divider,
-  ].join('\n');
+  // ── FINAL ASSEMBLY ────────────────────────────────────────────────────────
+  const divider = '━'.repeat(64);
+  const header = `\n${divider}\nALDEN WORKSPACE — injected ${new Date().toISOString()}\n${divider}`;
+  const footer = `${divider}\n`;
+  return header + '\n' + sections.join('\n\n') + '\n' + footer;
 }
