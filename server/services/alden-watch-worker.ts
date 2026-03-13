@@ -14,6 +14,12 @@ import { getUserDb } from "../db";
 import { aldenNotifications } from "@shared/schema";
 import { executeAldenTool } from "./alden-functions";
 import { eq, desc } from "drizzle-orm";
+import {
+  captureSnapshot,
+  detectAnomalies,
+  analyzePatterns,
+  type MetricType,
+} from "./monitoring-service";
 
 const CHECK_INTERVAL_MS = 2 * 60 * 60 * 1000; // every 2 hours
 const COOLDOWN_MS = 6 * 60 * 60 * 1000;        // don't notify more than once per 6 hours
@@ -50,12 +56,56 @@ async function runWatchCycle() {
       executeAldenTool('check_learning_metrics', {}),
     ]);
 
+    // Capture monitoring snapshots
+    await Promise.all([
+      captureSnapshot('system_health', {
+        status: health.data?.voiceHealth?.status,
+        score: health.data?.voiceHealth?.score,
+        activeSessions: health.data?.activeSessions,
+      }, 'Watch cycle - system health'),
+      
+      captureSnapshot('user_activity', {
+        activeStudents: learning.data?.activeStudents || 0,
+        conversationsInProgress: learning.data?.conversationsInProgress || 0,
+      }, 'Watch cycle - user activity'),
+      
+      captureSnapshot('voice_engagement', {
+        sessionsToday: learning.data?.voiceSessionsToday || 0,
+      }, 'Watch cycle - voice engagement'),
+      
+      captureSnapshot('error_rate', {
+        count: issues.data?.issues?.length || 0,
+      }, 'Watch cycle - error rate'),
+    ]);
+
+    // Detect anomalies across the last 24 hours
+    const anomalies = await detectAnomalies(24);
+
+    // Analyze patterns for each metric type
+    const patterns = await Promise.all([
+      analyzePatterns('system_health', 7),
+      analyzePatterns('user_activity', 7),
+      analyzePatterns('voice_engagement', 7),
+      analyzePatterns('error_rate', 7),
+    ]);
+
     const systemSnapshot = JSON.stringify({
       health: health.data,
       database: dbStats.data,
       issues: issues.data,
       learning: learning.data,
-    }, null, 2).substring(0, 4000);
+      anomalies: anomalies.map(a => ({
+        metric: a.metric,
+        severity: a.severity,
+        message: a.message,
+      })),
+      patterns: patterns.map(p => ({
+        metric: p.metricType,
+        trend: p.trend,
+        confidence: p.confidence,
+        findings: p.findings,
+      })),
+    }, null, 2).substring(0, 5000);
 
     // Ask Alden's intelligence if anything warrants a notification
     const client = new Anthropic({
@@ -68,7 +118,7 @@ async function runWatchCycle() {
       max_tokens: 256,
       messages: [{
         role: 'user',
-        content: `You are Alden, the development steward of HolaHola. You just ran a routine system check. Review this snapshot and decide: is there anything genuinely worth notifying the founder (David) about?
+        content: `You are Alden, the development steward of HolaHola. You just ran a routine system check with autonomous pattern detection and anomaly analysis. Review this snapshot and decide: is there anything genuinely worth notifying the founder (David) about?
 
 System snapshot:
 ${systemSnapshot}
@@ -76,6 +126,7 @@ ${systemSnapshot}
 Rules:
 - Only notify if something is actually wrong, unusual, or worth his attention
 - Don't notify for normal healthy states
+- Anomalies and pattern changes are provided — use them in your analysis
 - If there's nothing worth mentioning, respond with exactly: NOTHING
 - If something warrants attention, respond with a brief natural message (1-3 sentences) written as Alden speaking directly to David. Include the severity as the first word: INFO:, WARNING:, or ALERT:
 
@@ -85,6 +136,7 @@ Respond with NOTHING or a message starting with INFO:, WARNING:, or ALERT:`,
 
     const text = (response.content[0] as any)?.text?.trim() || 'NOTHING';
     if (text === 'NOTHING' || text.startsWith('NOTHING')) {
+      console.log('[AldenWatch] Check complete — no notification needed');
       return;
     }
 
