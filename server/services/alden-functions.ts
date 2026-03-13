@@ -10,6 +10,17 @@ import {
 import { sql, desc, eq, and, gte } from "drizzle-orm";
 import { computeHealthStatus } from "./voice-health-monitor";
 import { founderCollabService } from "./founder-collaboration-service";
+import * as fs from "fs";
+import * as path from "path";
+import { execSync } from "child_process";
+
+const WORKSPACE_ROOT = path.resolve('/home/runner/workspace');
+
+function safePath(filePath: string): string {
+  const resolved = path.resolve(WORKSPACE_ROOT, filePath.replace(/^\//, ''));
+  if (!resolved.startsWith(WORKSPACE_ROOT)) throw new Error('Path outside workspace');
+  return resolved;
+}
 
 export const ALDEN_TOOLS: Anthropic.Tool[] = [
   {
@@ -102,6 +113,44 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object" as const,
       properties: {},
+    },
+  },
+  {
+    name: "read_file",
+    description: "Read the contents of any file in the HolaHola codebase. Use this to examine actual implementation details rather than guessing from memory. Can read specific line ranges for large files.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        path: { type: "string" as const, description: "File path relative to workspace root (e.g. 'server/routes.ts', 'client/src/pages/Home.tsx', 'shared/schema.ts')" },
+        start_line: { type: "number" as const, description: "Line to start reading from (1-indexed, optional)" },
+        end_line: { type: "number" as const, description: "Line to stop reading at (optional — max 200 lines returned per call)" },
+      },
+      required: ["path"],
+    },
+  },
+  {
+    name: "search_code",
+    description: "Search the codebase for any pattern — function names, variable names, imports, API routes, SQL queries, or any text. Returns matching lines with file paths and line numbers.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        pattern: { type: "string" as const, description: "Search pattern (regex supported, e.g. 'generateAldenResponse', 'alden.*tool', '/api/voice')" },
+        directory: { type: "string" as const, description: "Sub-directory to restrict search to (optional, e.g. 'server/services', 'client/src')" },
+        file_glob: { type: "string" as const, description: "File extension filter (optional, e.g. '*.ts', '*.tsx', '*.json')" },
+        case_sensitive: { type: "boolean" as const, description: "Case-sensitive search (default false)" },
+      },
+      required: ["pattern"],
+    },
+  },
+  {
+    name: "list_directory",
+    description: "List the files and sub-directories at a path in the codebase. Use to orient yourself before reading files.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        path: { type: "string" as const, description: "Directory path relative to workspace root (e.g. 'server/services', 'client/src/pages', '.')" },
+      },
+      required: ["path"],
     },
   },
 ];
@@ -407,6 +456,105 @@ export async function executeAldenTool(
         };
       }
 
+      case "read_file": {
+        const filePath = safePath(args.path);
+        if (!fs.existsSync(filePath)) {
+          return { data: { error: `File not found: ${args.path}` } };
+        }
+        const stat = fs.statSync(filePath);
+        if (stat.isDirectory()) {
+          return { data: { error: `${args.path} is a directory — use list_directory instead` } };
+        }
+        const allLines = fs.readFileSync(filePath, 'utf-8').split('\n');
+        const totalLines = allLines.length;
+        const startLine = Math.max(1, args.start_line || 1);
+        const endLine = Math.min(totalLines, args.end_line || startLine + 199);
+        const clampedEnd = Math.min(endLine, startLine + 199);
+        const slice = allLines.slice(startLine - 1, clampedEnd);
+        const content = slice.map((line, i) => `${startLine + i}: ${line}`).join('\n');
+        return {
+          data: {
+            path: args.path,
+            totalLines,
+            showing: `lines ${startLine}–${clampedEnd}`,
+            content,
+            truncated: clampedEnd < totalLines,
+            hint: clampedEnd < totalLines ? `File has ${totalLines} lines — call again with start_line: ${clampedEnd + 1} to continue reading` : undefined,
+          },
+        };
+      }
+
+      case "search_code": {
+        const pattern = args.pattern as string;
+        const searchDir = args.directory ? safePath(args.directory) : WORKSPACE_ROOT;
+        const glob = args.file_glob as string | undefined;
+        const caseSensitive = Boolean(args.case_sensitive);
+
+        const rgParts: string[] = [
+          'rg',
+          '--line-number',
+          '--with-filename',
+          '--no-heading',
+          '--max-count=3',
+          '--glob=!node_modules/**',
+          '--glob=!dist/**',
+          '--glob=!.git/**',
+        ];
+        if (!caseSensitive) rgParts.push('-i');
+        if (glob) rgParts.push(`--glob=${glob}`);
+        // Safely quote the pattern and directory using single quotes (escaping any single quotes inside)
+        const safePattern = pattern.replace(/'/g, `'\\''`);
+        const safeDir = searchDir.replace(/'/g, `'\\''`);
+        rgParts.push(`-e '${safePattern}'`);
+        rgParts.push(`'${safeDir}'`);
+
+        let output = '';
+        try {
+          output = execSync(rgParts.join(' '), { cwd: WORKSPACE_ROOT, maxBuffer: 512 * 1024, timeout: 15000, shell: '/bin/sh' }).toString();
+        } catch (e: any) {
+          if (e.status === 1) return { data: { pattern, matches: [], matchCount: 0, note: 'No matches found' } };
+          throw e;
+        }
+
+        const lines = output.trim().split('\n').filter(Boolean).slice(0, 40);
+        const matches = lines.map(line => {
+          const m = line.match(/^(.+?):(\d+):(.*)$/);
+          if (!m) return { raw: line };
+          return {
+            file: m[1].replace(WORKSPACE_ROOT + '/', ''),
+            line: parseInt(m[2]),
+            content: m[3].trim(),
+          };
+        });
+
+        return {
+          data: {
+            pattern,
+            matchCount: matches.length,
+            matches,
+            note: matches.length === 40 ? 'Results capped at 40 — narrow your search or restrict directory/glob' : undefined,
+          },
+        };
+      }
+
+      case "list_directory": {
+        const dirPath = safePath(args.path || '.');
+        if (!fs.existsSync(dirPath)) {
+          return { data: { error: `Directory not found: ${args.path}` } };
+        }
+        const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+        const dirs = entries.filter(e => e.isDirectory() && !e.name.startsWith('.')).map(e => e.name + '/').sort();
+        const files = entries.filter(e => e.isFile()).map(e => e.name).sort();
+        return {
+          data: {
+            path: args.path || '.',
+            directories: dirs,
+            files,
+            total: dirs.length + files.length,
+          },
+        };
+      }
+
       default:
         return { data: { error: `Unknown tool: ${toolName}` } };
     }
@@ -416,4 +564,4 @@ export async function executeAldenTool(
   }
 }
 
-console.log('[Alden Functions] Loaded — 9 platform management tools ready');
+console.log('[Alden Functions] Loaded — 12 platform management + code tools ready');
