@@ -7184,6 +7184,15 @@ export const wrenTriggerUrgencyEnum = pgEnum('wren_trigger_urgency', [
   'critical', // Immediate action required
 ]);
 
+// Monitoring metric types for autonomous system health tracking
+export const metricTypeEnum = pgEnum('metric_type', [
+  'system_health',     // Voice pipeline status, server uptime, memory usage
+  'user_activity',     // Active learners, session counts, engagement trends
+  'voice_engagement',  // Voice session duration, TTS usage, error rates
+  'error_rate',        // Sofia-reported issues, API failures, pipeline failures
+]);
+
+
 export const wrenProactiveTriggers = pgTable("wren_proactive_triggers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
@@ -7228,6 +7237,45 @@ export const insertWrenProactiveTriggerSchema = createInsertSchema(wrenProactive
 export type InsertWrenProactiveTrigger = z.infer<typeof insertWrenProactiveTriggerSchema>;
 export type WrenProactiveTrigger = typeof wrenProactiveTriggers.$inferSelect;
 
+// ===== Autonomous Monitoring Snapshots =====
+// Time-series data captured by Alden's watch worker for pattern detection and trend analysis
+
+export const monitoringSnapshots = pgTable("monitoring_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  capturedAt: timestamp("captured_at").notNull().defaultNow(),
+  metricType: metricTypeEnum("metric_type").notNull(),
+  
+  // The actual metric value (flexible JSONB to accommodate different metric shapes)
+  value: jsonb("value").notNull(), // { score: 85, status: 'green', activeSessions: 3, ... }
+  
+  // Baseline comparison for anomaly detection
+  baselineValue: jsonb("baseline_value"), // What's "normal" for this metric
+  deviationPercent: real("deviation_percent"), // How far from baseline (null = no baseline yet)
+  
+  // Anomaly detection flags
+  isAnomaly: boolean("is_anomaly").default(false),
+  anomalySeverity: varchar("anomaly_severity"), // 'low', 'medium', 'high', 'critical'
+  anomalyReason: text("anomaly_reason"), // Why this was flagged as anomalous
+  
+  // Contextual metadata
+  metadata: jsonb("metadata").$type<{
+    source?: string;           // 'watch-worker', 'manual-check', 'scheduled-audit'
+    triggerReason?: string;    // What prompted this snapshot
+    relatedIssues?: string[];  // Sofia issue IDs if this relates to known problems
+  }>().default(sql`'{}'`),
+}, (table) => [
+  index("idx_monitoring_captured_at").on(table.capturedAt),
+  index("idx_monitoring_metric_type").on(table.metricType),
+  index("idx_monitoring_anomaly").on(table.isAnomaly),
+]);
+
+export const insertMonitoringSnapshotSchema = createInsertSchema(monitoringSnapshots).omit({
+  id: true,
+  capturedAt: true,
+});
+export type InsertMonitoringSnapshot = z.infer<typeof insertMonitoringSnapshotSchema>;
+export type MonitoringSnapshot = typeof monitoringSnapshots.$inferSelect;
 // ===== Architectural Decision Records (ADR) =====
 // Capture the reasoning behind major decisions for future reference
 
@@ -7235,6 +7283,9 @@ export const architecturalDecisionRecords = pgTable("architectural_decision_reco
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   title: varchar("title").notNull(),
+
+
+
   status: varchar("status").default("accepted"), // proposed, accepted, deprecated, superseded
   
   // The decision itself

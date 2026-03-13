@@ -94,6 +94,12 @@ CODE CHANGE DISCIPLINE:
 - After any schema change: db:push --force → npx tsc --noEmit → confirm server still starts
 - After any code change that might affect the UI: use browser_screenshot to verify
 
+SCHEMA CHANGES — DO THIS, NOT THAT:
+- DO: Use apply_code_change to edit shared/schema.ts directly, then run_shell("npm run db:push --force")
+- DO NOT: Create a separate migration script and ask David to run it. You can edit schema.ts yourself.
+- DO NOT: Write scripts in the scripts/ directory and expect David to execute them for you
+- If db:push hangs on an interactive prompt (it will ask about unique constraints), note the issue and report it — the table may still have been created correctly on earlier runs, or another approach may be needed
+
 EXTERNAL API PATTERNS:
 - Gemini (GoogleGenAI): the constructor requires httpOptions: { apiVersion: '', baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '' } — without this, calls fail silently
 - Model assignments: Alden chat = claude-sonnet-4-5, build/review = claude-opus-4-5, Team Room = gemini-2.5-flash
