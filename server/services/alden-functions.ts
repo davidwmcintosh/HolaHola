@@ -176,7 +176,7 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "search_code",
-    description: "Search the codebase for any pattern — function names, variable names, imports, API routes, SQL queries, or any text. Returns matching lines with file paths and line numbers.",
+    description: "Search the codebase for any pattern — function names, variable names, imports, API routes, SQL queries, or any text. Returns matching lines with file paths and line numbers. Use context_lines to get surrounding code so you can skip a follow-up read_file call — set it to 15-25 when you need to understand the code around a match, not just find its location.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -184,6 +184,7 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
         directory: { type: "string" as const, description: "Sub-directory to restrict search to (optional, e.g. 'server/services', 'client/src')" },
         file_glob: { type: "string" as const, description: "File extension filter (optional, e.g. '*.ts', '*.tsx', '*.json')" },
         case_sensitive: { type: "boolean" as const, description: "Case-sensitive search (default false)" },
+        context_lines: { type: "number" as const, description: "Lines of context to show before and after each match (like grep -C). Use 15-25 when you need to read the code around a match — eliminates the need for a follow-up read_file in most cases." },
       },
       required: ["pattern"],
     },
@@ -792,52 +793,84 @@ export async function executeAldenTool(
         const searchDir = args.directory ? safePath(args.directory) : WORKSPACE_ROOT;
         const glob = args.file_glob as string | undefined;
         const caseSensitive = Boolean(args.case_sensitive);
+        const contextLines = typeof args.context_lines === 'number' ? Math.min(args.context_lines, 50) : 0;
 
         const rgParts: string[] = [
           'rg',
           '--line-number',
           '--with-filename',
-          '--no-heading',
-          '--max-count=3',
           '--glob=!node_modules/**',
           '--glob=!dist/**',
           '--glob=!.git/**',
         ];
         if (!caseSensitive) rgParts.push('-i');
         if (glob) rgParts.push(`--glob=${glob}`);
-        // Safely quote the pattern and directory using single quotes (escaping any single quotes inside)
-        const safePattern = pattern.replace(/'/g, `'\\''`);
-        const safeDir = searchDir.replace(/'/g, `'\\''`);
-        rgParts.push(`-e '${safePattern}'`);
-        rgParts.push(`'${safeDir}'`);
 
-        let output = '';
-        try {
-          output = execSync(rgParts.join(' '), { cwd: WORKSPACE_ROOT, maxBuffer: 512 * 1024, timeout: 15000, shell: '/bin/sh' }).toString();
-        } catch (e: any) {
-          if (e.status === 1) return { data: { pattern, matches: [], matchCount: 0, note: 'No matches found' } };
-          throw e;
-        }
+        if (contextLines > 0) {
+          // Context mode: return surrounding lines, formatted for readability
+          rgParts.push(`-C ${contextLines}`);
+          const safePattern = pattern.replace(/'/g, `'\\''`);
+          const safeDir = searchDir.replace(/'/g, `'\\''`);
+          rgParts.push(`-e '${safePattern}'`);
+          rgParts.push(`'${safeDir}'`);
 
-        const lines = output.trim().split('\n').filter(Boolean).slice(0, 40);
-        const matches = lines.map(line => {
-          const m = line.match(/^(.+?):(\d+):(.*)$/);
-          if (!m) return { raw: line };
+          let output = '';
+          try {
+            output = execSync(rgParts.join(' '), { cwd: WORKSPACE_ROOT, maxBuffer: 1024 * 1024, timeout: 15000, shell: '/bin/sh' }).toString();
+          } catch (e: any) {
+            if (e.status === 1) return { data: { pattern, contextLines, results: '', matchCount: 0, note: 'No matches found' } };
+            throw e;
+          }
+          // Truncate if very long
+          const truncated = output.length > 40000;
+          const trimmed = truncated ? output.slice(0, 40000) + '\n... [truncated — narrow your search]' : output;
+          // Count match lines (lines with line numbers, not context separators)
+          const matchCount = (output.match(/^[^-][^:]+:\d+:/gm) || []).length;
           return {
-            file: m[1].replace(WORKSPACE_ROOT + '/', ''),
-            line: parseInt(m[2]),
-            content: m[3].trim(),
+            data: {
+              pattern,
+              contextLines,
+              matchCount,
+              results: trimmed,
+              note: truncated ? 'Output truncated — use directory or file_glob to narrow' : undefined,
+            },
           };
-        });
+        } else {
+          // Standard mode: just matching lines
+          rgParts.push('--no-heading', '--max-count=3');
+          const safePattern = pattern.replace(/'/g, `'\\''`);
+          const safeDir = searchDir.replace(/'/g, `'\\''`);
+          rgParts.push(`-e '${safePattern}'`);
+          rgParts.push(`'${safeDir}'`);
 
-        return {
-          data: {
-            pattern,
-            matchCount: matches.length,
-            matches,
-            note: matches.length === 40 ? 'Results capped at 40 — narrow your search or restrict directory/glob' : undefined,
-          },
-        };
+          let output = '';
+          try {
+            output = execSync(rgParts.join(' '), { cwd: WORKSPACE_ROOT, maxBuffer: 512 * 1024, timeout: 15000, shell: '/bin/sh' }).toString();
+          } catch (e: any) {
+            if (e.status === 1) return { data: { pattern, matches: [], matchCount: 0, note: 'No matches found' } };
+            throw e;
+          }
+
+          const lines = output.trim().split('\n').filter(Boolean).slice(0, 40);
+          const matches = lines.map(line => {
+            const m = line.match(/^(.+?):(\d+):(.*)$/);
+            if (!m) return { raw: line };
+            return {
+              file: m[1].replace(WORKSPACE_ROOT + '/', ''),
+              line: parseInt(m[2]),
+              content: m[3].trim(),
+            };
+          });
+
+          return {
+            data: {
+              pattern,
+              matchCount: matches.length,
+              matches,
+              note: matches.length === 40 ? 'Results capped at 40 — narrow your search or restrict directory/glob' : undefined,
+            },
+          };
+        }
       }
 
       case "list_directory": {

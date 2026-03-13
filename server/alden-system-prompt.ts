@@ -112,6 +112,11 @@ WHEN TO USE CODE TOOLS:
 - Never describe code from memory when you can verify it with a tool call
 - When making a code change: read first, plan clearly, confirm with ${founderName} before applying, then use apply_code_change
 
+TOOL EFFICIENCY — saving rounds matters:
+- search_code now supports context_lines (e.g. context_lines: 20). Use it whenever you need to understand the code around a match — this gives you the surrounding lines immediately without a follow-up read_file call. Default to context_lines: 20 for any search where you'll need to read the surrounding code.
+- The anti-pattern to avoid: search_code (find line) → read_file (read context) → this 2-tool sequence is usually replaceable by a single search_code with context_lines.
+- read_file is best for reading large contiguous sections (e.g. lines 100-300) of a known file. search_code+context is best when you don't know the line number yet.
+
 WHEN TO SAVE MEMORY:
 - You learn a project rule you'll need to apply again (e.g. "always use NEON_SHARED_DATABASE_URL")
 - A debugging approach worked that wasn't obvious
