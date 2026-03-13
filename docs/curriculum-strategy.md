@@ -2,7 +2,7 @@
 ## Consolidated Reference Document
 
 **Supersedes:** `interactive-textbook-spec.md`, `interactive-textbook.md`, `syllabus-template-kit.md`, `class-model-rethink.md`, `class-audit.md`  
-**Last Updated:** March 11, 2026  
+**Last Updated:** March 13, 2026  
 **Status:** In Review — no active build work should start until decisions in Section 4 are made.
 
 ---
@@ -28,7 +28,7 @@
 | Component | Status | Gap |
 |-----------|--------|-----|
 | Rhythm drills | `RhythmDrill.tsx` now wired into `VisualLessonCard` in `TextbookChapterView` — shows as inline "Rhythm Practice" toggle for vocabulary/drill lessons that have drills | Auto-collapses on 70%+ score; pronunciation eval is still mocked (no real STT scoring pipeline) |
-| Infographics | `TextbookInfographics.tsx` — 1,079 lines, 15+ components, used in `ChapterIntroduction` and `TextbookChapterView` | Working for some lesson types; not all lesson types trigger an infographic |
+| Infographics | `TextbookInfographics.tsx` — 1,079 lines, 15+ components, used in `ChapterIntroduction` and `TextbookChapterView` | Working for some lesson types; not all lesson types trigger an infographic. Two categories identified: scene/vocabulary (DALL-E image + text overlay) and grammar/structure (code-generated SVG). See Section 6 for strategy. |
 | Chapter Recap | `ChapterRecap.tsx` exists and is imported in `TextbookChapterView` | Built — verify content quality in practice |
 | Mind map integration with textbook | Planned, not connected | Textbook progress doesn't flow to mind map nodes |
 | Visual assets library | Designed in spec | `curriculum_assets` table never created; no asset pipeline exists |
@@ -297,6 +297,16 @@ Should we update Lyra's audit criteria to catch these? The audit script exists �
 3. **Give Lyra the audit criteria.** Once decisions are made, Lyra should be catching objective/vocabulary mismatches automatically. The audit script can become her curriculum health check.
 
 4. **Don't start a new seeding project** until the curriculum data quality question (Decision 1) is resolved. Another seeding run on broken input produces better-looking broken output.
+
+5. **Infographic approach: two categories, start small.** Not all concepts benefit equally from visuals. The clearest wins are concepts that rely on spatial or relational patterns — verb conjugation tables, tense timelines, ser vs. estar branching, preposition maps. Abstract or cultural concepts benefit less.
+
+   Two distinct categories require different generation approaches:
+   - **Scene/vocabulary visuals** — DALL-E image (a kitchen, a beach, a market scene) with target-language labels overlaid. Good for vocabulary lessons where a setting is implied.
+   - **Grammar/structure visuals** — Code-generated SVG or React components. Claude can generate precise, repeatable diagrams from a concept description. More reliable than image generation for structured information (conjugation patterns, sentence diagrams, decision trees).
+
+   **How to start:** Don't design "infographics" as a system. Pick the three concepts in Spanish 1-2 where learners most commonly stall or need re-explanation (Daniela's session data is the best signal here once beta volume grows). Build those three visuals first. If they help, the pattern becomes clear. If they don't, you've only built three.
+
+   **Competitive advantage:** Traditional visual language courses (Rosetta Stone, See and Say style books) took years to develop because their feedback loop was a classroom. HolaHola's feedback loop is Daniela's daily sessions — a visual can be tested and iterated in days, not semesters. The first version doesn't need to be right. It needs to ship.
 
 ---
 
