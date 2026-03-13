@@ -40,9 +40,16 @@ interface AldenChatParams {
   conversationId?: string;
 }
 
+interface ContinuationInfo {
+  phaseTitle: string;
+  phaseSummary: string;
+  nextPrompt: string;
+}
+
 interface AldenChatResponse {
   response: string;
   toolsUsed: string[];
+  continuation?: ContinuationInfo;
 }
 
 const MAX_AGENT_ROUNDS = 10;
@@ -120,6 +127,7 @@ Note: Zone type '${s.zoneType}' means ${
     });
 
     let aldenResponse: string | null = null;
+    let pendingContinuation: ContinuationInfo | undefined;
 
     for (let round = 0; round < MAX_AGENT_ROUNDS; round++) {
       const result = await client.messages.create({
@@ -166,6 +174,10 @@ Note: Zone type '${s.zoneType}' means ${
             tool_use_id: toolUse.id,
             content: JSON.stringify(toolResult.data),
           });
+          // Detect continuation signal from request_continuation tool
+          if (toolResult.sideEffects?.continuation) {
+            pendingContinuation = toolResult.sideEffects.continuation as ContinuationInfo;
+          }
         } catch (err: any) {
           console.warn(`[Alden Chat] Tool ${toolUse.name} failed:`, err.message);
           aldenActivity.push({ type: 'tool_result', name: toolUse.name, success: false, error: err.message, timestamp: new Date().toISOString() });
@@ -182,6 +194,25 @@ Note: Zone type '${s.zoneType}' means ${
         role: 'user',
         content: toolResults,
       });
+
+      // If continuation was requested this round, let Claude write its phase-completion
+      // text in the next iteration (with no more tools to call), then we'll break.
+      if (pendingContinuation) {
+        // One more pass so Claude can write the phase-completion summary text
+        const finalResult = await client.messages.create({
+          model: 'claude-sonnet-4-5',
+          max_tokens: 2048,
+          system: systemPrompt,
+          messages,
+          tools: [],
+        });
+        const finalText = finalResult.content
+          .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+          .map(b => b.text)
+          .join('\n');
+        if (finalText) aldenResponse = finalText;
+        break;
+      }
     }
 
     if (!aldenResponse) {
@@ -214,7 +245,11 @@ Note: Zone type '${s.zoneType}' means ${
 
     aldenActivity.push({ type: 'response_complete', timestamp: new Date().toISOString() });
 
-    return { response: aldenResponse, toolsUsed };
+    if (pendingContinuation) {
+      console.log(`[Alden Chat] Continuation queued: "${pendingContinuation.phaseTitle}" → "${pendingContinuation.nextPrompt.substring(0, 60)}..."`);
+    }
+
+    return { response: aldenResponse, toolsUsed, continuation: pendingContinuation };
   } catch (error: any) {
     console.error('[Alden Chat] Error:', error.message);
     return {

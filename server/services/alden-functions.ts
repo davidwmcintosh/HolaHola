@@ -274,6 +274,28 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
       required: ["message", "severity"],
     },
   },
+  {
+    name: "request_continuation",
+    description: "Signal that you have completed a phase of work and want to autonomously proceed to the next phase WITHOUT waiting for David to respond. The system will immediately give you a fresh set of tool-use rounds to execute the next phase. Use this when you have a clear multi-phase plan (e.g. Phase 1: Research → Phase 2: Implement → Phase 3: Verify). Call this tool as your LAST tool in a phase, after summarising what you found/did in your text response for that phase.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        phase_title: {
+          type: "string" as const,
+          description: "Short label for the phase just completed, e.g. 'Phase 1: Research'",
+        },
+        phase_summary: {
+          type: "string" as const,
+          description: "1-3 sentence summary of what was discovered or accomplished in this phase.",
+        },
+        next_prompt: {
+          type: "string" as const,
+          description: "Full instruction for the next phase, written as if David sent it. Be specific — include file names, decisions made in this phase, and exactly what to do next.",
+        },
+      },
+      required: ["phase_title", "phase_summary", "next_prompt"],
+    },
+  },
 ];
 
 export async function executeAldenTool(
@@ -995,6 +1017,21 @@ ${agentSection}`;
             id: notification.id,
             severity,
             message: `Notification queued. David will see it the next time he opens this chat — it'll appear as a badge on the sidebar link.`,
+          },
+        };
+      }
+
+      case "request_continuation": {
+        const { phase_title, phase_summary, next_prompt } = args;
+        console.log(`[Alden Tool] Continuation requested: "${phase_title}" → next: "${next_prompt.substring(0, 80)}..."`);
+        return {
+          data: { queued: true, message: `Continuation queued. Moving to next phase after this response.` },
+          sideEffects: {
+            continuation: {
+              phaseTitle: phase_title as string,
+              phaseSummary: phase_summary as string,
+              nextPrompt: next_prompt as string,
+            },
           },
         };
       }

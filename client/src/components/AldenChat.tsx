@@ -24,6 +24,7 @@ interface AldenMessage {
   timestamp: Date;
   toolsUsed?: string[];
   fromHistory?: boolean;
+  phaseTitle?: string;
 }
 
 interface SessionHistory {
@@ -256,18 +257,32 @@ export function AldenChat() {
 
       const data = await response.json();
 
-      const aldenMessage: AldenMessage = {
-        id: `alden-${Date.now()}`,
-        role: 'alden',
-        content: data.reply,
-        timestamp: new Date(),
-        toolsUsed: data.toolsUsed,
-      };
-
-      setMessages(prev => [...prev, aldenMessage]);
-
-      if (audioEnabled) {
-        synthesizeAndPlay(data.reply);
+      if (data.phases && data.phases.length > 1) {
+        // Multi-phase response — add each phase as a separate message
+        const phaseMessages: AldenMessage[] = data.phases.map((phase: { phaseTitle?: string; response: string; toolsUsed: string[] }, idx: number) => ({
+          id: `alden-${Date.now()}-phase${idx}`,
+          role: 'alden' as const,
+          content: phase.response,
+          timestamp: new Date(Date.now() + idx),
+          toolsUsed: phase.toolsUsed,
+          phaseTitle: phase.phaseTitle,
+        }));
+        setMessages(prev => [...prev, ...phaseMessages]);
+        if (audioEnabled) {
+          synthesizeAndPlay(data.phases[data.phases.length - 1].response);
+        }
+      } else {
+        const aldenMessage: AldenMessage = {
+          id: `alden-${Date.now()}`,
+          role: 'alden',
+          content: data.reply,
+          timestamp: new Date(),
+          toolsUsed: data.toolsUsed,
+        };
+        setMessages(prev => [...prev, aldenMessage]);
+        if (audioEnabled) {
+          synthesizeAndPlay(data.reply);
+        }
       }
     } catch (error) {
       console.error('[AldenChat] Error:', error);
@@ -467,6 +482,15 @@ export function AldenChat() {
                     </Avatar>
                   )}
                   <div className={`max-w-[80%] space-y-1 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                    {msg.phaseTitle && (
+                      <div className="flex items-center gap-1.5 px-1 mb-0.5">
+                        <div className="h-px flex-1 bg-border" />
+                        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide whitespace-nowrap">
+                          {msg.phaseTitle}
+                        </span>
+                        <div className="h-px flex-1 bg-border" />
+                      </div>
+                    )}
                     <div
                       className={`rounded-md px-3 py-2 text-sm whitespace-pre-wrap ${
                         msg.role === 'user'

@@ -13385,17 +13385,48 @@ Return ONLY the ${targetLanguage} phrase:`;
       
       const user = req.user;
       const founderName = user?.firstName || 'David';
-      
-      const result = await generateAldenResponse({
-        userMessage: message,
-        conversationHistory: conversationHistory || [],
-        founderName,
-        timezone,
-      });
-      
+
+      // ── Multi-phase autonomous loop ───────────────────────────────────────────
+      // Alden can call request_continuation to move through phases automatically.
+      // Each phase gets a fresh 10-round budget. Max 5 phases per user message.
+      const MAX_PHASES = 5;
+      const phases: Array<{ phaseTitle?: string; response: string; toolsUsed: string[] }> = [];
+      let runningHistory = [...(conversationHistory || [])];
+      let currentPrompt = message;
+      let phaseTitle: string | undefined;
+
+      for (let phaseIdx = 0; phaseIdx < MAX_PHASES; phaseIdx++) {
+        console.log(`[Alden API] Phase ${phaseIdx + 1}/${MAX_PHASES}: "${currentPrompt.substring(0, 60)}..."`);
+
+        const result = await generateAldenResponse({
+          userMessage: currentPrompt,
+          conversationHistory: runningHistory,
+          founderName,
+          timezone,
+        });
+
+        phases.push({ phaseTitle, response: result.response, toolsUsed: result.toolsUsed });
+
+        if (!result.continuation) break;
+
+        // Prepare for next phase: append this exchange to history
+        runningHistory = [
+          ...runningHistory,
+          { role: 'user' as const, content: currentPrompt },
+          { role: 'model' as const, content: result.response },
+        ];
+        currentPrompt = result.continuation.nextPrompt;
+        phaseTitle = result.continuation.phaseTitle;
+        console.log(`[Alden API] Continuation: "${result.continuation.phaseTitle}" → phase ${phaseIdx + 2}`);
+      }
+
+      const lastPhase = phases[phases.length - 1];
+      const allToolsUsed = phases.flatMap(p => p.toolsUsed);
+
       res.json({
-        reply: result.response,
-        toolsUsed: result.toolsUsed,
+        reply: lastPhase.response,
+        toolsUsed: allToolsUsed,
+        phases: phases.length > 1 ? phases : undefined,
       });
 
       // Log conversation to alden_conversations + alden_messages (non-blocking)
@@ -13425,11 +13456,12 @@ Return ONLY the ${targetLanguage} phrase:`;
             convId = newConv.id;
           }
 
-          await _db.insert(aldenMessages).values([
+          const messagesToLog = [
             { conversationId: convId, role: 'david', content: message, isSignificant: false },
-            { conversationId: convId, role: 'alden', content: result.response, isSignificant: false },
-          ]);
-          console.log('[Alden Log] Saved exchange to conversation', convId);
+            ...phases.map(p => ({ conversationId: convId, role: 'alden', content: p.response, isSignificant: false })),
+          ];
+          await _db.insert(aldenMessages).values(messagesToLog);
+          console.log(`[Alden Log] Saved ${phases.length} phase(s) to conversation ${convId}`);
         } catch (logErr: any) {
           console.error('[Alden Log] Failed to save conversation:', logErr.message);
         }
