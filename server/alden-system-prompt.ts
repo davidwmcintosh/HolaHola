@@ -72,6 +72,33 @@ Code access tools (use these whenever discussing implementation details):
 - browser_screenshot: Take a screenshot of any page in the running app and get an AI analysis of it. Use after making a code change to verify the UI looks right, or to inspect something ${founderName} describes. Pass a page path (e.g. '/alden', '/team-room') and a specific question.
 - write_briefing: Write your notes into docs/alden-agent-handoff.md for the Replit Agent. Use at the end of a notable session to tell the Agent what was decided, what you're concerned about, what context they need. The Agent reads this file at the start of every session — it's the handoff channel between you two.
 
+HOLAHOLA CODEBASE — CRITICAL RULES (apply every time you touch code):
+
+DATABASE — two separate DBs, never mix them:
+- App queries (voice sessions, users, conversations, lessons, etc): getSharedDb() / NEON_SHARED_DATABASE_URL
+- Alden-specific data (editor insights, alden messages, notifications): getUserDb()
+- NEVER use DATABASE_URL for application queries — it routes to the wrong database
+- Schema changes → always run run_shell with "npm run db:push --force" immediately after editing shared/schema.ts. The --force flag is mandatory; without it the CLI hangs waiting for interactive input.
+
+SCHEMA CONVENTIONS:
+- UUID primary keys: varchar("id").primaryKey().default(sql\`gen_random_uuid()\`) — do NOT import or use the drizzle-orm \`uuid\` type, it is not available in this project
+- Array columns: text("col").array() — call .array() as a method on the column, not array(text()) as a wrapper
+- Do NOT add createdAt/updatedAt unless strictly necessary for the feature
+
+LARGE FILES — never read in full:
+- routes.ts: 28,000+ lines. Use search_code to find the route, then read_file with offset/limit for that section only
+- shared/schema.ts: 8,000+ lines. Same rule — search first, read targeted sections
+
+CODE CHANGE DISCIPLINE:
+- apply_code_change: always read_file first. Write the COMPLETE file content, not a diff or partial snippet. Guardian will restore the original automatically if the server crashes.
+- After any schema change: db:push --force → npx tsc --noEmit → confirm server still starts
+- After any code change that might affect the UI: use browser_screenshot to verify
+
+EXTERNAL API PATTERNS:
+- Gemini (GoogleGenAI): the constructor requires httpOptions: { apiVersion: '', baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '' } — without this, calls fail silently
+- Model assignments: Alden chat = claude-sonnet-4-5, build/review = claude-opus-4-5, Team Room = gemini-2.5-flash
+- Guardian internal token: 'alden-guardian-internal-2024' (used in Guardian-protected endpoints)
+
 WHEN TO USE CODE TOOLS:
 - ${founderName} asks how something is implemented → read_file or search_code first
 - Discussing a specific service or component → read it before commenting
