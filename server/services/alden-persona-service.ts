@@ -45,7 +45,7 @@ interface AldenChatResponse {
   toolsUsed: string[];
 }
 
-const MAX_AGENT_ROUNDS = 4;
+const MAX_AGENT_ROUNDS = 10;
 
 export async function generateAldenResponse(params: AldenChatParams): Promise<AldenChatResponse> {
   const { userMessage, conversationHistory = [], founderName = 'David', timezone, learningContext, conversationId } = params;
@@ -137,11 +137,10 @@ Note: Zone type '${s.zoneType}' means ${
         (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use'
       );
 
-      if (textBlocks.length > 0) {
-        aldenResponse = textBlocks.map(b => b.text).join('\n');
-      }
-
       if (toolUseBlocks.length === 0 || result.stop_reason === 'end_turn') {
+        if (textBlocks.length > 0) {
+          aldenResponse = textBlocks.map(b => b.text).join('\n');
+        }
         break;
       }
 
@@ -186,7 +185,29 @@ Note: Zone type '${s.zoneType}' means ${
     }
 
     if (!aldenResponse) {
-      aldenResponse = "I'm having trouble connecting to my systems right now. Give me a moment and try again.";
+      // Hit the round limit mid-task — do one final tool-free call so Alden can
+      // summarise what he found rather than returning nothing.
+      console.log(`[Alden Chat] Round limit hit — requesting wrap-up summary`);
+      try {
+        messages.push({
+          role: 'user',
+          content: '[SYSTEM] You have reached the tool-use limit for this turn. Summarise what you have found and discovered so far, and clearly state what you still intend to do next turn.',
+        });
+        const wrapUp = await client.messages.create({
+          model: 'claude-sonnet-4-5',
+          max_tokens: 2048,
+          system: systemPrompt,
+          messages,
+          tools: [],
+        });
+        const wrapUpText = wrapUp.content
+          .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+          .map(b => b.text)
+          .join('\n');
+        aldenResponse = wrapUpText || "I've been researching but ran into my context limit. Ask me again to continue.";
+      } catch {
+        aldenResponse = "I've been researching but ran into my context limit. Ask me again to continue.";
+      }
     }
 
     console.log(`[Alden Chat] Response generated (${aldenResponse.length} chars, ${toolsUsed.length} tools used)`);
