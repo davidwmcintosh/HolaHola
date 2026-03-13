@@ -19,6 +19,7 @@ import { desc, eq } from 'drizzle-orm';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
+import { getFounderPresence } from './founder-presence';
 
 export async function buildAldenWorkspaceContext(): Promise<string> {
   const sections: string[] = [];
@@ -150,7 +151,49 @@ export async function buildAldenWorkspaceContext(): Promise<string> {
     console.warn('[AldenWorkspace] Express Lane fetch failed:', err.message);
   }
 
-  // ── 5. RECENT GIT COMMITS ─────────────────────────────────────────────────
+  // ── 5. HANDOFF FILE ───────────────────────────────────────────────────────
+  // Bidirectional briefing between Alden and the Replit Agent.
+  // Alden writes "From Alden" when ending a notable session.
+  // The Agent writes "From Agent" after major build sessions.
+  try {
+    const handoffPath = join(process.cwd(), 'docs/alden-agent-handoff.md');
+    const handoff = readFileSync(handoffPath, 'utf-8').trim();
+    if (handoff) {
+      sections.push(`🤝 HANDOFF NOTES — alden-agent-handoff.md\n${handoff}`);
+    }
+  } catch {
+    // File may not exist yet — that's fine
+  }
+
+  // ── 6. TEMPORAL CONTEXT & FOUNDER PRESENCE ────────────────────────────────
+  // Alden's compass: what time it is, whether David is around.
+  // This changes how he prioritises notifications and what to lead with.
+  try {
+    const now = new Date();
+    const presence = getFounderPresence();
+    const timeStr = now.toLocaleString('en-US', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+      hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
+    });
+    const uptimeMin = Math.round(process.uptime() / 60);
+    const uptimeStr = uptimeMin < 60
+      ? `${uptimeMin}m`
+      : `${Math.floor(uptimeMin / 60)}h ${uptimeMin % 60}m`;
+
+    const lines = [
+      `Current time: ${timeStr}`,
+      `David's presence: ${presence.description}`,
+      `Server uptime: ${uptimeStr}`,
+    ];
+    if (presence.isCurrentlyActive) {
+      lines.push(`Note: David is actively working right now.`);
+    }
+    sections.push(`🕐 TEMPORAL CONTEXT\n${lines.map(l => `  ${l}`).join('\n')}`);
+  } catch (err: any) {
+    console.warn('[AldenWorkspace] Temporal context failed:', err.message);
+  }
+
+  // ── 7. RECENT GIT COMMITS ─────────────────────────────────────────────────
   // Shows Alden what has changed recently so he's not reasoning from a
   // stale picture of the codebase.
   try {

@@ -168,6 +168,29 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "browser_screenshot",
+    description: "Take a screenshot of any page in the running HolaHola app and get an AI analysis of what you see. Use this after making a UI change to verify it looks right, or to inspect something David describes. Specify a page path (e.g. '/alden', '/team-room', '/') and an optional question about what you're looking for.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        page: { type: "string" as const, description: "Page path to visit, e.g. '/', '/alden', '/team-room', '/interactive-textbook'. Do not include the domain." },
+        question: { type: "string" as const, description: "What you want to know about the screenshot, e.g. 'Does the sidebar badge appear correctly?' or 'Is the layout broken?'" },
+      },
+      required: ["page"],
+    },
+  },
+  {
+    name: "write_briefing",
+    description: "Update the shared handoff file (docs/alden-agent-handoff.md) with notes for the Replit Agent. Use at the end of a notable session to summarise what you've been thinking, what you've noticed, what you'd want the Agent to know before their next session with David. This is your side of a bidirectional conversation.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        content: { type: "string" as const, description: "Your briefing for the Agent. Be concise but complete — what decisions were made, what concerns you have, what context the Agent would need to pick up seamlessly." },
+      },
+      required: ["content"],
+    },
+  },
+  {
     name: "save_to_memory",
     description: "Save something important to your persistent memory (editor insights). Use this when you learn something new about the project, the founder's preferences, an architectural decision, a debugging strategy that worked, or any insight worth remembering across sessions. The memory is injected into your context at the start of every conversation.",
     input_schema: {
@@ -669,6 +692,66 @@ export async function executeAldenTool(
         };
       }
 
+      case "browser_screenshot": {
+        const { page, question = 'Describe what you see on this page. Note any visual issues, layout problems, or anything that looks out of place.' } = args;
+        const { browseAndCapture, analyzeScreenshot } = await import('./playwright-browser-service');
+        const targetUrl = `http://localhost:5000${page.startsWith('/') ? page : '/' + page}`;
+
+        const browseResult = await browseAndCapture(targetUrl);
+        const analysis = await analyzeScreenshot(browseResult.screenshotBase64, question);
+
+        return {
+          data: {
+            page,
+            url: targetUrl,
+            analysis,
+            loadTimeMs: browseResult.loadTimeMs,
+            message: analysis,
+          },
+        };
+      }
+
+      case "write_briefing": {
+        const { content } = args;
+        const handoffPath = path.join(process.cwd(), 'docs/alden-agent-handoff.md');
+
+        // Read existing file to preserve the Agent's section
+        let existing = '';
+        try { existing = fs.readFileSync(handoffPath, 'utf-8'); } catch { /* new file */ }
+
+        const timestamp = new Date().toLocaleString('en-US', {
+          weekday: 'short', month: 'short', day: 'numeric',
+          hour: 'numeric', minute: '2-digit',
+        });
+
+        // Update or create the "From Alden" section, preserve "From Agent" section
+        const agentSection = (() => {
+          const match = existing.match(/## From Agent[\s\S]*$/m);
+          return match ? match[0] : '## From Agent — last updated: (none)\n\n*(Nothing yet — the Agent will write here after major build sessions.)*';
+        })();
+
+        const newContent = `# Alden ↔ Agent Handoff
+
+## From Alden — last updated: ${timestamp}
+
+${content}
+
+---
+
+${agentSection}`;
+
+        fs.writeFileSync(handoffPath, newContent, 'utf-8');
+        console.log('[Alden Tool] Briefing written to docs/alden-agent-handoff.md');
+
+        return {
+          data: {
+            written: true,
+            file: 'docs/alden-agent-handoff.md',
+            message: `Briefing written. The Agent will see this at the start of their next session with David.`,
+          },
+        };
+      }
+
       case "save_to_memory": {
         const { title, content, category, importance, tags = [] } = args;
         const db = getUserDb();
@@ -721,4 +804,4 @@ export async function executeAldenTool(
   }
 }
 
-console.log('[Alden Functions] Loaded — 15 tools ready (monitoring + code + memory + notifications)');
+console.log('[Alden Functions] Loaded — 17 tools ready (monitoring + code + memory + notifications + browser + briefing)');

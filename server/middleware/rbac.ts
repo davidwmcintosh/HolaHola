@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import type { User } from "../../shared/schema";
 import crypto from "crypto";
+import { touchFounderPresence } from "../services/founder-presence";
 
 // Role hierarchy: admin > developer > teacher > student
 const roleHierarchy = {
@@ -213,6 +214,7 @@ export function requireFounder(req: AuthenticatedRequest, res: Response, next: N
       if (!req.authenticatedUser) {
         return res.status(500).json({ error: "User data not loaded. Ensure loadAuthenticatedUser middleware runs first." });
       }
+      touchFounderPresence();
       return next();
     }
 
@@ -228,7 +230,8 @@ export function requireFounder(req: AuthenticatedRequest, res: Response, next: N
     if (req.authenticatedUser.id !== FOUNDER_USER_ID) {
       return res.status(403).json({ error: "Founder access required" });
     }
-    
+
+    touchFounderPresence();
     next();
   } catch (error) {
     console.error("[RBAC] Error in requireFounder middleware:", error);

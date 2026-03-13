@@ -5130,3 +5130,50 @@ Full immersive study feature. Pick a Spanish curriculum unit → Daniela generat
 
 ### User-facing instructions
 Navigate to Study Mode in the sidebar. Select a Spanish course unit. Daniela will prepare an immersive session (takes 15-30 seconds). Practice each lesson's scenario in conversation with Daniela — she stays in character, corrects gently inline, and tracks your objectives. Use the Next Lesson button to advance.
+
+
+---
+
+## Session: Alden Autonomy Completion (Mar 13, 2026)
+
+### What was built
+
+**1. Founder Presence Tracking**
+- New file: `server/services/founder-presence.ts`
+- `touchFounderPresence()` called in `requireFounder` middleware (both session + OIDC paths)
+- `getFounderPresence()` returns last-active time, human description, `isCurrentlyActive` flag
+- Injected into Alden workspace context as section 6 (Temporal Context)
+
+**2. Bidirectional Handoff File**
+- New file: `docs/alden-agent-handoff.md`
+- Two sections: "From Alden" (written via `write_briefing` tool) and "From Agent" (written by the Replit Agent manually at end of build sessions)
+- Injected into Alden workspace context as section 5
+- Documented in `replit.md` as required reading at each session start
+
+**3. Alden Tool: `browser_screenshot`**
+- Added to `server/services/alden-functions.ts`
+- Calls `browseAndCapture()` + `analyzeScreenshot()` from playwright-browser-service
+- Alden passes a page path, gets back an AI text analysis of the rendered page
+- Useful for: verifying code changes, inspecting what David describes, system health visual check
+
+**4. Alden Tool: `write_briefing`**
+- Added to `server/services/alden-functions.ts`
+- Writes to `docs/alden-agent-handoff.md`, updating "From Alden" section while preserving "From Agent" section
+- Timestamps each entry; file is preserved across writes
+
+**5. Temporal Context in Workspace Builder**
+- Section 6 of `buildAldenWorkspaceContext()` now includes: current date/time, David presence description, server uptime
+- Alden can reason about time of day and David availability in every conversation
+
+### Key files modified
+- `server/services/founder-presence.ts` (new)
+- `server/middleware/rbac.ts` (added import + touchFounderPresence calls)
+- `server/services/alden-workspace-context.ts` (sections 5 + 6 added)
+- `server/services/alden-functions.ts` (2 new tools + 2 new handler cases; count now 17)
+- `server/alden-system-prompt.ts` (tool docs + when-to-use sections for new tools)
+- `docs/alden-agent-handoff.md` (new)
+- `replit.md` (handoff convention documented)
+
+### Tool count: 17
+9 monitoring + 3 code read + 1 apply_code_change + save_to_memory + notify_david + browser_screenshot + write_briefing
+
