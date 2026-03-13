@@ -7,6 +7,7 @@ import {
   editorInsights,
   aldenNotifications,
   users,
+  conversations,
 } from "@shared/schema";
 import { sql, desc, eq, and, gte } from "drizzle-orm";
 import { computeHealthStatus } from "./voice-health-monitor";
@@ -114,6 +115,26 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object" as const,
       properties: {},
+    },
+  },
+  {
+    name: "get_pending_issues",
+    description: "Get unresolved or open issues from the Sofia issues tracker. Shows issues that are waiting for review or haven't been addressed yet.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        limit: { type: "number" as const, description: "Max issues to return (default 10)" },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "check_learning_metrics",
+    description: "Check current learning activity metrics: active students, conversations in progress, voice sessions today, and overall platform engagement. Good for a quick read on whether students are actively using the platform.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+      required: [],
     },
   },
   {
@@ -533,6 +554,101 @@ export async function executeAldenTool(
         };
       }
 
+      case "get_pending_issues": {
+        const limit = Math.min(args.limit || 10, 20);
+        const sharedDb = getSharedDb();
+
+        const pending = await sharedDb
+          .select({
+            id: sofiaIssueReports.id,
+            issueType: sofiaIssueReports.issueType,
+            userDescription: sofiaIssueReports.userDescription,
+            sofiaAnalysis: sofiaIssueReports.sofiaAnalysis,
+            status: sofiaIssueReports.status,
+            environment: sofiaIssueReports.environment,
+            createdAt: sofiaIssueReports.createdAt,
+          })
+          .from(sofiaIssueReports)
+          .where(eq(sofiaIssueReports.status, 'open'))
+          .orderBy(desc(sofiaIssueReports.createdAt))
+          .limit(limit);
+
+        return {
+          data: {
+            pendingCount: pending.length,
+            issues: pending.map(i => ({
+              id: i.id,
+              type: i.issueType,
+              summary: i.userDescription?.substring(0, 200),
+              analysis: i.sofiaAnalysis?.substring(0, 300),
+              environment: i.environment,
+              when: i.createdAt?.toISOString(),
+            })),
+            message: pending.length === 0
+              ? 'No open issues — issues tracker is clear'
+              : `${pending.length} open issue(s) awaiting review`,
+          },
+        };
+      }
+
+      case "check_learning_metrics": {
+        const sharedDb = getSharedDb();
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+        const [
+          activeSessionsResult,
+          todaySessionsResult,
+          weekSessionsResult,
+          recentConvsResult,
+          totalUsersResult,
+          activeUsersResult,
+        ] = await Promise.all([
+          sharedDb.select({ count: sql<number>`count(*)` })
+            .from(voiceSessions)
+            .where(eq(voiceSessions.status, 'active')),
+          sharedDb.select({ count: sql<number>`count(*)` })
+            .from(voiceSessions)
+            .where(gte(voiceSessions.startedAt, today)),
+          sharedDb.select({ count: sql<number>`count(*)` })
+            .from(voiceSessions)
+            .where(gte(voiceSessions.startedAt, weekAgo)),
+          sharedDb.select({ count: sql<number>`count(*)` })
+            .from(conversations)
+            .where(gte(conversations.createdAt, dayAgo)),
+          sharedDb.select({ count: sql<number>`count(*)` })
+            .from(users),
+          // Active users = distinct users with a voice session this week
+          sharedDb.select({ count: sql<number>`count(distinct user_id)` })
+            .from(voiceSessions)
+            .where(gte(voiceSessions.startedAt, weekAgo)),
+        ]);
+
+        const activeSessions = Number(activeSessionsResult[0]?.count || 0);
+        const todaySessions = Number(todaySessionsResult[0]?.count || 0);
+        const weekSessions = Number(weekSessionsResult[0]?.count || 0);
+        const recentConversations = Number(recentConvsResult[0]?.count || 0);
+        const totalUsers = Number(totalUsersResult[0]?.count || 0);
+        const activeUsersThisWeek = Number(activeUsersResult[0]?.count || 0);
+
+        return {
+          data: {
+            activeSessions,
+            todayVoiceSessions: todaySessions,
+            weekVoiceSessions: weekSessions,
+            newConversationsLast24h: recentConversations,
+            totalRegisteredUsers: totalUsers,
+            activeUsersThisWeek,
+            engagementRate: totalUsers > 0
+              ? `${Math.round((activeUsersThisWeek / totalUsers) * 100)}%`
+              : '0%',
+            summary: `${activeSessions} live sessions now · ${todaySessions} voice sessions today · ${activeUsersThisWeek}/${totalUsers} users active this week`,
+          },
+        };
+      }
+
       case "read_file": {
         const filePath = safePath(args.path);
         if (!fs.existsSync(filePath)) {
@@ -804,4 +920,4 @@ ${agentSection}`;
   }
 }
 
-console.log('[Alden Functions] Loaded — 17 tools ready (monitoring + code + memory + notifications + browser + briefing)');
+console.log('[Alden Functions] Loaded — 19 tools ready (monitoring + code + memory + notifications + browser + briefing)');
