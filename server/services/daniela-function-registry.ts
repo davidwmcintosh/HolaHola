@@ -355,7 +355,19 @@ const registry: DanielaFunctionEntry[] = [
     legacyType: 'GENERATE_VISUAL',
     declaration: {
       name: "generate_visual",
-      description: `Create a custom AI-generated illustration to display on the whiteboard. Use this when you want a specific scene, concept illustration, or educational image that a stock photo can't capture — for example, showing a grammar concept in action, depicting a scenario setting, or creating a cultural scene. The image will appear on the whiteboard in a few seconds while you continue speaking. Include natural conversational words in the 'text' parameter — NOT a description of the image. For example: "Let me show you a scene to set the mood!" or "Here's an illustration to help visualize this."`,
+      description: `Create a custom AI-generated illustration to display on the whiteboard.
+
+⚠️ DO NOT use this for preposition teaching (sobre, debajo de, al lado de, en el piso, etc.) or for placing objects in a scene — use compose_visual_scene instead. compose_visual_scene is instant, free, and purpose-built for exactly that.
+⚠️ DO NOT use this for common vocabulary nouns (taza, mochila, maleta, cama, etc.) — use compose_visual_scene instead.
+
+ONLY use generate_visual for:
+- Abstract grammar concepts with no physical object to place (e.g. verb tense timelines)
+- Cultural scenes where no prop-room environment exists (e.g. a Mexican fiesta street scene)
+- Concepts that are genuinely impossible to compose from the library
+
+If in doubt, call search_visual_library first. If the library has what you need, use compose_visual_scene.
+
+The image will appear on the whiteboard in a few seconds while you continue speaking. Include natural conversational words in the 'text' parameter — NOT a description of the image.`,
       parametersJsonSchema: {
         type: "object",
         properties: {
@@ -451,7 +463,7 @@ Call this when you want to know if a particular word or scene is in the library 
       },
     },
     buildContinuationResponse: ({ fc }) => {
-      return `Library search complete for "${fc.args.term}". Check the results and decide whether to use compose_visual_scene or generate_visual.`;
+      return `Library search complete for "${fc.args.term}". If the environment or objects are in the library, use compose_visual_scene — do NOT fall back to generate_visual unless the required assets are genuinely absent from the library.`;
     },
   },
   {
