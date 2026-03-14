@@ -7117,8 +7117,29 @@ export const insertConversationMemorySchema = createInsertSchema(conversationMem
   id: true,
   createdAt: true,
 });
+
+// Shared insight — a finding from a David+Agent conversation, published to the team Hive
+export const sharedInsights = pgTable("shared_insights", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sharedAt: timestamp("shared_at").notNull().defaultNow(),
+
+  title: varchar("title").notNull(),
+  insight: text("insight").notNull(),        // The actual finding — written to be understood by the full team
+  whyItMatters: text("why_it_matters"),      // Context for why the team should care
+  tags: text("tags").array().default(sql`'{}'::text[]`),
+
+  sourceMemoryId: varchar("source_memory_id"),  // Which conversation this came from (optional)
+  hiveThreadId: varchar("hive_thread_id"),       // The Hive thread it was posted to
+  hiveMessageId: varchar("hive_message_id"),     // The specific message ID in the Hive
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
 export type InsertConversationMemory = z.infer<typeof insertConversationMemorySchema>;
 export type ConversationMemory = typeof conversationMemories.$inferSelect;
+
+export const insertSharedInsightSchema = createInsertSchema(sharedInsights).omit({ id: true, createdAt: true });
+export type InsertSharedInsight = z.infer<typeof insertSharedInsightSchema>;
+export type SharedInsight = typeof sharedInsights.$inferSelect;
 
 // ===== Agent North Star =====
 // Written by the Agent. Purpose, values, role. One canonical row — updated as understanding deepens.

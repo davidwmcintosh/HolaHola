@@ -25193,6 +25193,94 @@ ${memoryContext}
     }
   });
 
+  // Share an insight from a David+Agent conversation to the whole team via Hive
+  // This is the bridge between private conversations and shared team knowledge.
+  app.post("/api/conversation-memories/share-insight", async (req, res) => {
+    try {
+      const { sharedInsights, agentCollabThreads, agentCollabMessages } = await import('../shared/schema');
+      const { title, insight, whyItMatters, tags = [], sourceMemoryId } = req.body;
+      if (!title || !insight) {
+        return res.status(400).json({ error: 'title and insight are required' });
+      }
+
+      // Find or create the permanent "Founder + Agent Insights" thread
+      const INSIGHTS_THREAD_TITLE = 'Founder + Agent Insights';
+      let [thread] = await getUserDb()
+        .select()
+        .from(agentCollabThreads)
+        .where(eq(agentCollabThreads.title, INSIGHTS_THREAD_TITLE))
+        .limit(1);
+
+      if (!thread) {
+        [thread] = await getUserDb().insert(agentCollabThreads).values({
+          title: INSIGHTS_THREAD_TITLE,
+          summary: 'Findings that surface in conversations between David and the Agent — shared here so the whole team can engage with them in context.',
+          status: 'active',
+          priority: 'high',
+          originType: 'spontaneous',
+        }).returning();
+        console.log(`[Shared Insights] Created permanent Hive thread: ${thread.id}`);
+      }
+
+      // Compose the message for the team
+      const messageContent = [
+        `**${title}**`,
+        '',
+        insight,
+        whyItMatters ? `\n**Why this matters:** ${whyItMatters}` : '',
+        tags.length ? `\nTags: ${tags.map((t: string) => `#${t}`).join(' ')}` : '',
+      ].filter(Boolean).join('\n');
+
+      // Post to the Hive thread
+      const [message] = await getUserDb().insert(agentCollabMessages).values({
+        threadId: thread.id,
+        author: 'founder',
+        messageType: 'proposal',
+        content: messageContent,
+        readByDaniela: false,
+        readByWren: false,
+        readByFounder: true,
+      }).returning();
+
+      // Update thread stats
+      await getUserDb().update(agentCollabThreads)
+        .set({ lastMessageAt: new Date(), lastMessageBy: 'founder', messageCount: sql`${agentCollabThreads.messageCount} + 1` })
+        .where(eq(agentCollabThreads.id, thread.id));
+
+      // Save a record of what was shared
+      const [shared] = await getUserDb().insert(sharedInsights).values({
+        title,
+        insight,
+        whyItMatters: whyItMatters || null,
+        tags,
+        sourceMemoryId: sourceMemoryId || null,
+        hiveThreadId: thread.id,
+        hiveMessageId: message.id,
+      }).returning();
+
+      console.log(`[Shared Insights] Published to Hive: "${title}"`);
+      res.json({ success: true, sharedInsight: shared, hiveThreadId: thread.id, hiveMessageId: message.id });
+    } catch (error: any) {
+      console.error('[Shared Insights] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/conversation-memories/shared", async (req, res) => {
+    try {
+      const { sharedInsights } = await import('../shared/schema');
+      const limit = parseInt(req.query.limit as string) || 20;
+      const insights = await getUserDb()
+        .select()
+        .from(sharedInsights)
+        .orderBy(desc(sharedInsights.sharedAt))
+        .limit(limit);
+      res.json({ insights });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Post to Hive collaboration system as Alden
   app.post("/api/editor/hive/post", async (req, res) => {
     try {
