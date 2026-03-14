@@ -44,7 +44,35 @@ The Class Creation Hub (`/teacher/create-class`) now supports creating Language 
 
 **Prop Room Visual Scene System** — 15 DALL-E-generated base scene images for the Scenarios Library, stored permanently in object storage. Each `visual_environment` row (table: `visual_environments`) maps to a pedagogical location (restaurant_table, cafe, hotel_lobby, airport, doctor_office, grocery_store, office, classroom, etc.) with zone-based pedagogy (`visual_zones` table: spatial/interactional/departmental/navigational zones). When a scenario loads via WebSocket `load_scenario`, a `SCENARIO_SCENE_MAP` in `native-fc-handlers.ts` maps the scenario slug to its visual environment and injects `imageUrl` into the `scenario_loaded` WS message — the `ScenarioPanel` (`client/src/components/ScenarioPanel.tsx`) renders it as `data-testid="img-scenario-scene"`. Daniela's context includes a "Scene Zones" line when a scenario is active. A `GET /api/menu-image?q={query}` endpoint (in `server/routes.ts`) returns DALL-E 3 warm-watercolor food illustrations for beginner menu props — 3-layer cache (in-memory → `visual_assets` DB → DALL-E generate → object storage archive). Beginner menus show `data-testid="img-menu-item-{slug}"` thumbnail images; intermediate/advanced menus are image-free. Scene images generated via `generateAllSceneImages()` in `server/services/prop-room-compositor.ts`; seeded via `scripts/generate-scene-images.ts`. 16 dining/tableware vocabulary items (plate, fork, knife, espresso machine, etc.) with all 9 language translations seeded into `visual_assets` via `scripts/seed-dining-vocabulary.ts`. API keys: `USER_OPENAI_API_KEY` or `OPENAI_API_KEY` (not the integrations dummy key).
 
-⚠️ **PROP CREATION RULE — REQUIRED FOR ALL NEW PROPS**: Every new row inserted into `visual_assets` MUST populate all 9 language term columns — `english_terms`, `spanish_terms`, `french_terms`, `german_terms`, `italian_terms`, `portuguese_terms`, `japanese_terms`, `korean_terms`, `mandarin_terms` — as text arrays. If any column is left as the default empty array `{}`, the prop-room compositor (`prop-room-compositor.ts`) will fail to match it when a tutor uses a non-English term, silently fall back to DALL-E generation, and produce an AI-generated image instead of using the library asset. All 50 existing props were backfilled with full multilingual terms on 2026-03-14. Example insert pattern: `INSERT INTO visual_assets (name, display_name, object_type, image_url, english_terms, spanish_terms, french_terms, german_terms, italian_terms, portuguese_terms, japanese_terms, korean_terms, mandarin_terms, tags) VALUES ('backpack', 'Travel Backpack', 'luggage', '...url...', ARRAY['backpack','bag'], ARRAY['mochila','bolsa'], ARRAY['sac à dos','sac'], ARRAY['Rucksack','Tasche'], ARRAY['zaino','borsa'], ARRAY['mochila','bolsa'], ARRAY['リュックサック','バックパック'], ARRAY['배낭','백팩'], ARRAY['背包','书包'], ARRAY['backpack','bag','travel'])`
+⚠️ **PROP CREATION RULE — REQUIRED FOR ALL NEW PROPS** (3 rules — all must pass or the compositor silently falls back to DALL-E):
+
+**Rule 1 — All 9 language term arrays must be populated.** Every new row in `visual_assets` MUST have non-empty `english_terms`, `spanish_terms`, `french_terms`, `german_terms`, `italian_terms`, `portuguese_terms`, `japanese_terms`, `korean_terms`, and `mandarin_terms`. Any empty `{}` default causes the compositor to fail the term-lookup and fall back to DALL-E silently. All 50 existing props were backfilled on 2026-03-14.
+
+**Rule 2 — `object_type` must be one of the known TYPE_SCALE values.** The compositor in `prop-room-compositor.ts` uses `object_type` to look up a size multiplier in the `TYPE_SCALE` map. Using an unknown type falls back to 0.85× (close to correct), but using the right type gives accurate sizing. Known types and their approximate rendered sizes relative to a 1920px-wide scene:
+- `tableware` (0.50×) — cups, plates, cutlery (~134px wide at on_table)
+- `beverage` (0.45×) — coffee drinks, sodas
+- `food` (0.50×) — food items
+- `food_prop` (0.60×) — bread baskets, serving dishes
+- `condiment` (0.38×) — salt/pepper, sauce bottles
+- `decoration` (0.45×) — candles, vases
+- `drinkware` (0.52×) — wine glasses, pitchers
+- `document` (0.60×) — passport, boarding pass, prescription
+- `document_prop` (0.65×) — menus, bills
+- `access` (0.40×) — key cards, tickets
+- `medical` (0.60×) — stethoscope, thermometer
+- `household` (0.70×) — books, phones, wallets, umbrellas
+- `luggage` (1.20×) — backpacks, suitcases (large)
+- `equipment` (1.10×) — shopping carts, baskets
+- `appliance` (1.30×) — espresso machines (large)
+- `display` (1.20×) — produce displays, racks
+To add a new type: add an entry to `TYPE_SCALE` in `prop-room-compositor.ts`.
+
+**Rule 3 — Image must be a PNG with a white or near-white background.** The compositor runs `removeWhiteBackground()` (Sharp pixel scan, threshold R/G/B > 220, low saturation) to strip the background before compositing. DALL-E 3 generates exactly this format. If a prop image has a dark, colored, or complex background the removal step will not work and the background will appear as a visible box in the scene. Always generate props on a plain white or off-white background.
+
+**Position vocabulary Daniela uses** when calling `compose_visual_scene` (defined in `POSITION_MAP` in `prop-room-compositor.ts`): `center`, `left`, `right`, `foreground`, `background`, `on_table`, `under_table`, `on_floor`, `beside_bed`, `on_counter`, `under_counter`, `in_hand`, `on_chair`, `beside_table`.
+
+**Example insert pattern:**
+`INSERT INTO visual_assets (name, display_name, object_type, image_url, english_terms, spanish_terms, french_terms, german_terms, italian_terms, portuguese_terms, japanese_terms, korean_terms, mandarin_terms, tags) VALUES ('backpack', 'Travel Backpack', 'luggage', '...url...', ARRAY['backpack','bag'], ARRAY['mochila','bolsa'], ARRAY['sac à dos','sac'], ARRAY['Rucksack','Tasche'], ARRAY['zaino','borsa'], ARRAY['mochila','bolsa'], ARRAY['リュックサック','バックパック'], ARRAY['배낭','백팩'], ARRAY['背包','书包'], ARRAY['backpack','bag','travel'])`
 
 **Visual Content Service** (`server/services/visual-content-service.ts`) is a shared image generation utility exposing `generateVisual(concept, type, data, style)` and `generateVisualBatch()`. Auto-detects provider: `OPENAI_API_KEY`/`USER_OPENAI_API_KEY` → DALL-E 3, `STABILITY_API_KEY` → Stability AI SDXL, else Picsum placeholder. Returns `imageUrl`, `altText`, ACTFL-aware `semanticTags`, `accessibilityDescription`, `conceptAlignment` score. Re-exported through `team-room-alden-service.ts` so Team Room AI participants can invoke it. **Release notes**: `docs/release-notes.md` — update this file whenever a feature ships. It is the authoritative record of what's live, what config it needs, and any known limitations.
 
