@@ -71,6 +71,10 @@ To add a new type: add an entry to `TYPE_SCALE` in `prop-room-compositor.ts`.
 
 **Position vocabulary Daniela uses** when calling `compose_visual_scene` (defined in `POSITION_MAP` in `prop-room-compositor.ts`): `center`, `left`, `right`, `foreground`, `background`, `on_table`, `under_table`, `on_floor`, `beside_bed`, `on_counter`, `under_counter`, `in_hand`, `on_chair`, `beside_table`.
 
+**Environment-specific position calibration** — Different scenes have the table/counter at different vertical positions in the frame. The global `POSITION_MAP` is a baseline; `ENV_POSITION_OVERRIDES` in the same file provides per-environment `{ cy, cx, scale }` adjustments that override the baseline. `restaurant_table` has its table surface at ~40% from the top (so `on_table` cy=0.40 there, vs 0.70 globally). When a new environment image is added, visually inspect it and add/refine its entry in `ENV_POSITION_OVERRIDES`.
+
+**Pre-cleaned prop images** — Running the background-removal BFS on every composition is unnecessary if prop images already have proper RGBA transparency. To use pre-cleaned images: (1) remove the background with your preferred tool (Photoshop, remove.bg, etc.), (2) export as PNG with RGBA transparency, (3) upload to object storage, (4) update `image_url` in the `visual_assets` row. The BFS will seed from the existing transparent pixels, find no adjacent near-white pixels to expand into, and exit cleanly — it is effectively a no-op on already-clean images.
+
 **Example insert pattern:**
 `INSERT INTO visual_assets (name, display_name, object_type, image_url, english_terms, spanish_terms, french_terms, german_terms, italian_terms, portuguese_terms, japanese_terms, korean_terms, mandarin_terms, tags) VALUES ('backpack', 'Travel Backpack', 'luggage', '...url...', ARRAY['backpack','bag'], ARRAY['mochila','bolsa'], ARRAY['sac à dos','sac'], ARRAY['Rucksack','Tasche'], ARRAY['zaino','borsa'], ARRAY['mochila','bolsa'], ARRAY['リュックサック','バックパック'], ARRAY['배낭','백팩'], ARRAY['背包','书包'], ARRAY['backpack','bag','travel'])`
 

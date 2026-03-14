@@ -67,6 +67,51 @@ const POSITION_MAP: Record<string, { cx: number; cy: number; scale: number }> = 
 
 const DEFAULT_POSITION = POSITION_MAP.center;
 
+// Per-environment position overrides — applied on top of the global POSITION_MAP.
+// Each environment has a different camera angle and table height, so positions need tuning.
+// Add / refine entries here as new environments are calibrated visually.
+const ENV_POSITION_OVERRIDES: Record<string, Partial<Record<string, Partial<{ cx: number; cy: number; scale: number }>>>> = {
+  restaurant_table: {
+    // Table surface is in the upper 40% of this camera angle
+    center:       { cy: 0.42 },
+    left:         { cy: 0.44, cx: 0.28 },
+    right:        { cy: 0.44, cx: 0.72 },
+    on_table:     { cy: 0.40, scale: 0.13 },
+    under_table:  { cy: 0.80, cx: 0.35, scale: 0.20 },
+    beside_table: { cy: 0.60 },
+    on_counter:   { cy: 0.40, scale: 0.12 },
+  },
+  cafe: {
+    // Café tables are visible in the mid-lower third
+    center:       { cy: 0.60 },
+    on_table:     { cy: 0.63, scale: 0.12 },
+    under_table:  { cy: 0.82 },
+    on_counter:   { cy: 0.52, scale: 0.10 },  // bar counter is higher in frame
+  },
+  kitchen: {
+    center:       { cy: 0.60 },
+    on_counter:   { cy: 0.55, scale: 0.12 },
+    on_table:     { cy: 0.62, scale: 0.12 },
+  },
+  hotel_lobby: {
+    center:       { cy: 0.62 },
+    on_table:     { cy: 0.65, scale: 0.12 },
+    on_counter:   { cy: 0.52, scale: 0.12 },
+  },
+  bedroom: {
+    beside_bed:   { cy: 0.66, cx: 0.70 },
+    on_table:     { cy: 0.58, scale: 0.12 },
+  },
+  office: {
+    on_table:     { cy: 0.55, scale: 0.12 },
+    center:       { cy: 0.58 },
+  },
+  classroom: {
+    on_table:     { cy: 0.60, scale: 0.12 },
+    center:       { cy: 0.58 },
+  },
+};
+
 // Per-object-type scale multiplier applied on top of the position base scale.
 // Values < 1 = small objects (cups, condiments); values > 1 = large objects (luggage, appliances).
 const TYPE_SCALE: Record<string, number> = {
@@ -313,14 +358,17 @@ async function compositeScene(
     asset: { image_url: string; width: number; height: number; display_name: string; object_type: string };
     position: string;
     emphasis: boolean;
-  }>
+  }>,
+  environment: string
 ): Promise<Buffer> {
   const baseBuffer = await downloadImageBuffer(base.image_url);
 
   const compositeLayers: sharp.OverlayOptions[] = [];
 
   for (const layer of layers) {
-    const pos = POSITION_MAP[layer.position] ?? DEFAULT_POSITION;
+    const basePos = POSITION_MAP[layer.position] ?? DEFAULT_POSITION;
+    const envOverride = ENV_POSITION_OVERRIDES[environment]?.[layer.position] ?? {};
+    const pos = { ...basePos, ...envOverride };
 
     // Apply per-type scale multiplier so cups stay small and suitcases stay large
     const typeMultiplier = TYPE_SCALE[layer.asset.object_type] ?? 0.85;
@@ -399,7 +447,7 @@ export async function composeVisualScene(req: ComposeRequest): Promise<ComposeRe
       emphasis: obj.emphasis ?? false,
     }));
 
-    const composedBuffer = await compositeScene(envRow, layers);
+    const composedBuffer = await compositeScene(envRow, layers, environment);
     const filename = `composed_${buildCompositionKey(environment, termsSorted, preposition_context)}.jpg`;
     const permanentUrl = await uploadPublicBuffer(filename, composedBuffer, 'image/jpeg');
 
