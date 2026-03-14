@@ -73,6 +73,15 @@ To add a new type: add an entry to `TYPE_SCALE` in `prop-room-compositor.ts`.
 
 **Environment-specific position calibration** — Different scenes have the table/counter at different vertical positions in the frame. The global `POSITION_MAP` is a baseline; `ENV_POSITION_OVERRIDES` in the same file provides per-environment `{ cy, cx, scale }` adjustments that override the baseline. `restaurant_table` has its table surface at ~40% from the top (so `on_table` cy=0.40 there, vs 0.70 globally). When a new environment image is added, visually inspect it and add/refine its entry in `ENV_POSITION_OVERRIDES`.
 
+**Two-mode visual scene architecture:**
+- **Mode A — Vocabulary in context** (most lessons): Use any of the 15 wide-shot environments as backdrop. Props placed at `center`, `foreground`, `left`, `right` float visibly for vocabulary reinforcement. Background sets the "where", prop teaches the word.
+- **Mode B — Preposition lessons**: Use only the dedicated close-up zone environments where surface geometry is clear and unambiguous. Three zone environments exist for this purpose: `kitchen_counter` (on_counter, under_counter), `bedroom_closeup` (beside_bed, on_table/nightstand, on_floor), `desk_closeup` (on_table, under_table, on_chair). `restaurant_table` also remains a zone environment for table prepositions.
+- Daniela's function instructions explicitly lay out both modes so she self-selects correctly.
+
+**Zone environments** (close-up surface shots, watercolor illustrated style, `ZONE_STYLE`): `kitchen_counter`, `bedroom_closeup`, `desk_closeup`, `restaurant_table`. Wide-shot environments use `SCENE_STYLE`. Both are defined in `ZONE_STYLE` / `SCENE_STYLE` constants in `prop-room-compositor.ts`.
+
+**Prop art style**: All 50 props regenerated with consistent warm illustrated watercolor style (matching zone environments). Each prop has a distinctive per-prop prompt in `scripts/regenerate-props.ts` — especially important for similar-looking items (espresso uses tiny demitasse cup with crema; latte uses wide cup with foam art; coffee with cream uses swirl pattern; hot chocolate uses whipped cream topping). To add new props or regenerate specific ones: `tsx scripts/regenerate-props.ts --only=prop_name`.
+
 **Pre-cleaned prop images** — Running the background-removal BFS on every composition is unnecessary if prop images already have proper RGBA transparency. To use pre-cleaned images: (1) remove the background with your preferred tool (Photoshop, remove.bg, etc.), (2) export as PNG with RGBA transparency, (3) upload to object storage, (4) update `image_url` in the `visual_assets` row. The BFS will seed from the existing transparent pixels, find no adjacent near-white pixels to expand into, and exit cleanly — it is effectively a no-op on already-clean images.
 
 **Example insert pattern:**

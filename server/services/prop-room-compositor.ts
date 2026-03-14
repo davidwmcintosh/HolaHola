@@ -86,6 +86,10 @@ const ENV_VALID_POSITIONS: Record<string, string[]> = {
   outdoor_market: ['center','left','right','foreground','background','on_floor','on_counter','beside_table'],
   grocery_store:  ['center','left','right','on_floor','on_counter','beside_table'],
   doctor_office:  ['center','left','right','on_table','on_counter','on_chair','on_floor'],
+  // ── Close-up zone environments ─────────────────────────────────────────────
+  kitchen_counter: ['center','left','right','on_counter','under_counter','on_floor'],
+  bedroom_closeup: ['center','left','right','beside_bed','on_table','on_chair','on_floor'],
+  desk_closeup:    ['center','left','right','on_table','under_table','on_chair','on_floor'],
 };
 
 // If a requested position is invalid for this environment, fall back to the first valid position,
@@ -159,6 +163,36 @@ const ENV_POSITION_OVERRIDES: Record<string, Partial<Record<string, Partial<{ cx
   classroom: {
     on_table:     { cy: 0.60, scale: 0.12 },
     center:       { cy: 0.58 },
+  },
+  // ── Close-up zone environments ─────────────────────────────────────────────
+  kitchen_counter: {
+    // Counter surface is in the lower 50% of the frame
+    center:       { cy: 0.52 },
+    on_counter:   { cy: 0.52, scale: 0.16 },
+    under_counter:{ cy: 0.82, scale: 0.18 },
+    on_floor:     { cy: 0.88 },
+    left:         { cy: 0.54, cx: 0.25 },
+    right:        { cy: 0.54, cx: 0.75 },
+  },
+  bedroom_closeup: {
+    // Bed takes up left side; nightstand center-right; floor at very bottom
+    center:       { cy: 0.55 },
+    beside_bed:   { cy: 0.62, cx: 0.72, scale: 0.18 },
+    on_table:     { cy: 0.50, cx: 0.68, scale: 0.14 },  // nightstand surface
+    on_floor:     { cy: 0.88 },
+    on_chair:     { cy: 0.60, cx: 0.20 },
+    left:         { cy: 0.50, cx: 0.28 },
+    right:        { cy: 0.55, cx: 0.72 },
+  },
+  desk_closeup: {
+    // Desk surface fills the lower two-thirds
+    center:       { cy: 0.55 },
+    on_table:     { cy: 0.52, scale: 0.16 },
+    under_table:  { cy: 0.84, scale: 0.20 },
+    on_chair:     { cy: 0.86, cx: 0.50, scale: 0.18 },
+    on_floor:     { cy: 0.90 },
+    left:         { cy: 0.54, cx: 0.25 },
+    right:        { cy: 0.54, cx: 0.75 },
   },
 };
 
@@ -566,7 +600,15 @@ export async function listVisualLibrary(): Promise<{ environments: any[]; assetC
 
 const SCENE_STYLE = 'warm illustrated watercolor style, soft natural lighting, inviting and welcoming atmosphere, culturally diverse people, no visible text or signs or labels on objects, language learning educational context, suitable for all ages, wide establishing shot';
 
+// Style for close-up zone environments — same illustrated watercolor feel but camera is much closer.
+// These environments exist specifically for preposition lessons where surface geometry matters.
+const ZONE_STYLE = 'warm illustrated watercolor style, soft natural lighting, cozy interior atmosphere, no visible text or signs or labels on objects, language learning educational context, suitable for all ages, close-up interior view, flat clear surface prominently occupying the center and lower frame where objects can be placed, clean and uncluttered';
+
+// Environments that use ZONE_STYLE instead of SCENE_STYLE (close-up surface shots for preposition lessons)
+const ZONE_ENVIRONMENTS = new Set(['kitchen_counter', 'bedroom_closeup', 'desk_closeup']);
+
 const SCENE_PROMPTS: Record<string, string> = {
+  // ── Wide-shot contextual environments ──────────────────────────────────────
   airport:          'A busy international airport terminal interior — check-in counters, departure boards, travellers with luggage, large windows overlooking planes on the tarmac',
   bathroom:         'A clean modern home bathroom — pedestal sink with mirror, shower curtain, neatly arranged toiletries on shelves, towels on rack, soft morning light',
   bedroom:          'A cozy home bedroom — neatly made bed with colourful pillows, wooden dresser with mirror, nightstand with lamp, sunlight through curtains',
@@ -582,6 +624,13 @@ const SCENE_PROMPTS: Record<string, string> = {
   outdoor_market:   'A lively outdoor street market — colourful vendor stalls with awnings, crates of fresh produce, shoppers browsing, cobblestone square, blue sky',
   park:             'A sunny public park — winding path through green trees, wooden benches, families picnicking, a small food cart, fountain in the distance',
   restaurant_table: 'A beautifully set restaurant table — white tablecloth, ceramic plates, polished cutlery, folded napkins, small candle, bread basket, water glasses, warm bistro lighting',
+
+  // ── Close-up zone environments (for preposition lessons) ──────────────────
+  // Camera is much closer; the primary surface fills the lower frame so props
+  // land visibly ON / UNDER / BESIDE it. Use ZONE_STYLE when generating.
+  kitchen_counter:  'Close-up view looking at a kitchen counter from standing height — the smooth stone counter surface fills the bottom half of the frame with generous open space, a simple tile backsplash behind, warm wood cabinets at the sides, a window with soft daylight above, a few subtle background items (a small plant, a mixing bowl) but the counter surface is clean and clear',
+  bedroom_closeup:  'Close-up view of a cozy room interior showing a neatly made sleeping area — a tidy mattress with a crisp white blanket and two white pillows on the left, a warm wooden side table with a small reading lamp at center-right with a clear flat top surface available for objects, a strip of warm hardwood floor visible at the very bottom, soft daylight from a window on the right, peaceful and tidy home interior',
+  desk_closeup:     'Close-up view of a wooden study desk — the desk surface fills the lower two-thirds of the frame with open clear space, the back of a simple wooden chair just visible at the very bottom edge, a warm daylit window and a bookshelf with colourful spines visible in the background, desk surface is clean and ready to receive objects',
 };
 
 export interface SceneImageResult {
@@ -611,9 +660,10 @@ export async function generateAllSceneImages(
     }
 
     const customPrompt = SCENE_PROMPTS[env.name];
+    const styleForEnv = ZONE_ENVIRONMENTS.has(env.name) ? ZONE_STYLE : SCENE_STYLE;
     const prompt = customPrompt
-      ? `${customPrompt}. ${SCENE_STYLE}`
-      : `${env.display_name} scene for language learning: ${env.name.replace(/_/g, ' ')}. ${SCENE_STYLE}`;
+      ? `${customPrompt}. ${styleForEnv}`
+      : `${env.display_name} scene for language learning: ${env.name.replace(/_/g, ' ')}. ${styleForEnv}`;
 
     console.log(`[PropRoom] Generating image for ${env.name}...`);
     try {
