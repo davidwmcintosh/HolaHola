@@ -4905,6 +4905,31 @@ function SceneAndPropImageSections() {
 
   const [sceneLightbox, setSceneLightbox] = useState<{ url: string; label: string } | null>(null);
   const [propLightbox, setPropLightbox] = useState<{ url: string; label: string } | null>(null);
+  const [zonePropsDownloading, setZonePropsDownloading] = useState(false);
+
+  async function downloadZoneProps() {
+    setZonePropsDownloading(true);
+    try {
+      const res = await fetch('/api/admin/download-zone-props');
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Download failed' }));
+        throw new Error(err.error || 'Download failed');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'zone-props.tar.gz';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(`Download failed: ${err.message}`);
+    } finally {
+      setZonePropsDownloading(false);
+    }
+  }
 
   return (
     <>
@@ -4958,17 +4983,20 @@ function SceneAndPropImageSections() {
         badge={propData?.images?.length?.toString()}
         defaultOpen={true}
       >
-        <div className="flex items-center gap-2 mt-3">
-          <a
-            href="/api/admin/download-zone-props"
-            download="zone-props.tar.gz"
+        <div className="flex items-center gap-2 mt-3 flex-wrap">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={downloadZoneProps}
+            disabled={zonePropsDownloading}
             data-testid="button-download-zone-props"
-            className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground hover-elevate"
           >
-            <Download className="h-4 w-4" />
-            Download 22 Zone Props (.tar.gz)
-          </a>
-          <span className="text-xs text-muted-foreground">Background-remove these, then re-upload</span>
+            {zonePropsDownloading
+              ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Packing 22 props…</>
+              : <><Download className="h-4 w-4 mr-2" />Download 22 Zone Props (.tar.gz)</>
+            }
+          </Button>
+          <span className="text-xs text-muted-foreground">Remove backgrounds, then re-upload with the upload script</span>
         </div>
         {propsLoading ? (
           <div className="grid gap-3 grid-cols-4 sm:grid-cols-6 md:grid-cols-8 mt-4">

@@ -17417,13 +17417,13 @@ Current conversation context:
 
     try {
       const sharedDb = getSharedDb();
-      const rows = await sharedDb.execute(sql`
+      const allRows = await sharedDb.execute(sql`
         SELECT name, image_url FROM visual_assets
-        WHERE name = ANY(${Array.from(ZONE_COMPATIBLE_PROPS)})
-          AND image_url IS NOT NULL AND image_url != ''
+        WHERE image_url IS NOT NULL AND image_url != ''
         ORDER BY name
       `);
-      const props = rows.rows as Array<{ name: string; image_url: string }>;
+      const props = (allRows.rows as Array<{ name: string; image_url: string }>)
+        .filter(r => ZONE_COMPATIBLE_PROPS.has(r.name));
 
       await fsp.mkdir(tmpDir, { recursive: true });
 
