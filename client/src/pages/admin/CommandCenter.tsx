@@ -4958,6 +4958,18 @@ function SceneAndPropImageSections() {
         badge={propData?.images?.length?.toString()}
         defaultOpen={true}
       >
+        <div className="flex items-center gap-2 mt-3">
+          <a
+            href="/api/admin/download-zone-props"
+            download="zone-props.tar.gz"
+            data-testid="button-download-zone-props"
+            className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground hover-elevate"
+          >
+            <Download className="h-4 w-4" />
+            Download 22 Zone Props (.tar.gz)
+          </a>
+          <span className="text-xs text-muted-foreground">Background-remove these, then re-upload</span>
+        </div>
         {propsLoading ? (
           <div className="grid gap-3 grid-cols-4 sm:grid-cols-6 md:grid-cols-8 mt-4">
             {[...Array(8)].map((_, i) => <Skeleton key={i} className="aspect-square rounded-md" />)}

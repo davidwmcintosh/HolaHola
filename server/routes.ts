@@ -17394,6 +17394,77 @@ Current conversation context:
     }
   });
 
+  // Download zone-compatible props as a .tar.gz archive (admin one-time utility)
+  app.get("/api/admin/download-zone-props", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res) => {
+    const { execFile } = await import('child_process');
+    const { promisify } = await import('util');
+    const fsp = await import('fs/promises');
+    const fsSync = await import('fs');
+    const pathMod = await import('path');
+    const execFileAsync = promisify(execFile);
+
+    const ZONE_COMPATIBLE_PROPS = new Set([
+      'cup', 'glass', 'wine_glass', 'water_pitcher',
+      'espresso', 'latte', 'coffee', 'hot chocolate', 'coffee with cream',
+      'plate', 'dinner_plate', 'fork', 'knife', 'spoon', 'napkin',
+      'bread_basket', 'salt_pepper',
+      'book', 'cell_phone', 'menu_card', 'candle',
+      'apple', 'croissant',
+    ]);
+
+    const tmpDir = `/tmp/zone-props-${Date.now()}`;
+    const tarPath = `${tmpDir}.tar.gz`;
+
+    try {
+      const sharedDb = getSharedDb();
+      const rows = await sharedDb.execute(sql`
+        SELECT name, image_url FROM visual_assets
+        WHERE name = ANY(${Array.from(ZONE_COMPATIBLE_PROPS)})
+          AND image_url IS NOT NULL AND image_url != ''
+        ORDER BY name
+      `);
+      const props = rows.rows as Array<{ name: string; image_url: string }>;
+
+      await fsp.mkdir(tmpDir, { recursive: true });
+
+      const { objectStorageClient } = await import('./replit_integrations/object_storage/objectStorage');
+      const BUCKET_ID = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID || '';
+
+      for (const prop of props) {
+        const filename = prop.image_url.replace('/api/media/ai-image/', '');
+        const storagePath = `public/ai-images/${filename}`;
+        const safeName = prop.name.replace(/[^a-z0-9_-]/gi, '_').toLowerCase();
+        const outPath = pathMod.join(tmpDir, `${safeName}.png`);
+        try {
+          const bucket = objectStorageClient.bucket(BUCKET_ID);
+          const [buffer] = await bucket.file(storagePath).download();
+          await fsp.writeFile(outPath, buffer as Buffer);
+        } catch (err: any) {
+          console.warn(`[ZonePropDownload] Skipped ${prop.name}: ${err.message}`);
+        }
+      }
+
+      await execFileAsync('tar', ['-czf', tarPath, '-C', '/tmp', pathMod.basename(tmpDir)]);
+
+      const stat = await fsp.stat(tarPath);
+      res.setHeader('Content-Type', 'application/gzip');
+      res.setHeader('Content-Disposition', 'attachment; filename="zone-props.tar.gz"');
+      res.setHeader('Content-Length', stat.size);
+
+      const stream = fsSync.createReadStream(tarPath);
+      stream.pipe(res);
+      stream.on('end', () => {
+        fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+        fsp.unlink(tarPath).catch(() => {});
+      });
+    } catch (error: any) {
+      console.error('[ZonePropDownload] Failed:', error.message);
+      fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+      fsp.unlink(tarPath).catch(() => {});
+      if (!res.headersSent) res.status(500).json({ error: error.message });
+    }
+  });
+
   // ===== Impersonation =====
   
   // Start impersonation (admin only)
