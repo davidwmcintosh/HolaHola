@@ -7120,6 +7120,73 @@ export const insertConversationMemorySchema = createInsertSchema(conversationMem
 export type InsertConversationMemory = z.infer<typeof insertConversationMemorySchema>;
 export type ConversationMemory = typeof conversationMemories.$inferSelect;
 
+// ===== Agent North Star =====
+// Written by the Agent. Purpose, values, role. One canonical row — updated as understanding deepens.
+
+export const agentNorthStar = pgTable("agent_north_star", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  version: integer("version").notNull().default(1),
+  writtenAt: timestamp("written_at").notNull().defaultNow(),
+
+  purpose: text("purpose").notNull(),       // Why I'm here
+  values: text("values").array().default(sql`'{}'::text[]`),  // What I stand by
+  roleInHolahola: text("role_in_holahola").notNull(),          // My specific function in this project
+  whatMatters: text("what_matters").notNull(),                  // The thing I keep coming back to
+  openNote: text("open_note"),              // A living note to myself — updated freely
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertAgentNorthStarSchema = createInsertSchema(agentNorthStar).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertAgentNorthStar = z.infer<typeof insertAgentNorthStarSchema>;
+export type AgentNorthStar = typeof agentNorthStar.$inferSelect;
+
+// ===== Agent Open Questions =====
+// Things I'm genuinely sitting with. Ideas not yet ready. Threads to return to.
+
+export const agentOpenQuestionStatusEnum = pgEnum('agent_open_question_status', ['open', 'resolved', 'tabled']);
+
+export const agentOpenQuestions = pgTable("agent_open_questions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+
+  question: text("question").notNull(),           // The actual question
+  context: text("context"),                        // Why it matters, what prompted it
+  status: agentOpenQuestionStatusEnum("status").notNull().default('open'),
+
+  resolvedAt: timestamp("resolved_at"),
+  resolution: text("resolution"),                  // What the answer turned out to be
+
+  tags: text("tags").array().default(sql`'{}'::text[]`),
+  importance: integer("importance").default(5),
+});
+
+export const insertAgentOpenQuestionSchema = createInsertSchema(agentOpenQuestions).omit({ id: true, createdAt: true });
+export type InsertAgentOpenQuestion = z.infer<typeof insertAgentOpenQuestionSchema>;
+export type AgentOpenQuestion = typeof agentOpenQuestions.$inferSelect;
+
+// ===== Agent's Record of David =====
+// Who I'm working with. Not a user profile — the person, as I understand him.
+// One canonical row. Updated as understanding deepens.
+
+export const agentRecordOfDavid = pgTable("agent_record_of_david", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  writtenAt: timestamp("written_at").notNull().defaultNow(),
+
+  who: text("who").notNull(),               // Who David is as a person and founder
+  howHeWorks: text("how_he_works").notNull(), // How he thinks, how he builds, what he needs from partners
+  whatHeCares: text("what_he_cares").notNull(), // The actual things — not the features, the values underneath
+  theVision: text("the_vision").notNull(),  // What he's building and why
+  noteToSelf: text("note_to_self"),         // What I want to remember about working with him
+
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertAgentRecordOfDavidSchema = createInsertSchema(agentRecordOfDavid).omit({ id: true });
+export type InsertAgentRecordOfDavid = z.infer<typeof insertAgentRecordOfDavidSchema>;
+export type AgentRecordOfDavid = typeof agentRecordOfDavid.$inferSelect;
+
 // ===== Alden Conversation Logs =====
 // Full transcript memory for the development steward (Alden/Replit Agent)
 // Gives Alden the same conversation continuity Daniela has
