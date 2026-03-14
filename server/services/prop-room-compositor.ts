@@ -164,18 +164,20 @@ async function cacheComposition(
   envId: string
 ): Promise<void> {
   const key = buildCompositionKey(envName, termsSorted, prepCtx);
-  await db.execute(sql`
+  // Build a proper SQL array literal — Drizzle sql`` passes JS arrays as records, not text[]
+  const arrayLiteral = `ARRAY[${termsSorted.map(t => `'${t.replace(/'/g, "''")}'`).join(',')}]::text[]`;
+  await db.execute(sql.raw(`
     INSERT INTO visual_compositions (name, display_name, environment_id, composition_data, composed_image_url, vocab_terms)
     VALUES (
-      ${key},
-      ${`${envName} + ${termsSorted.join(', ')}`},
-      ${envId},
-      ${JSON.stringify(compositionData)},
-      ${imageUrl},
-      ${termsSorted}
+      '${key.replace(/'/g, "''")}',
+      '${(`${envName} + ${termsSorted.join(', ')}`).replace(/'/g, "''")}',
+      '${envId.replace(/'/g, "''")}',
+      '${JSON.stringify(compositionData).replace(/'/g, "''")}',
+      '${imageUrl.replace(/'/g, "''")}',
+      ${arrayLiteral}
     )
     ON CONFLICT (name) DO UPDATE SET composed_image_url = EXCLUDED.composed_image_url, use_count = visual_compositions.use_count + 1
-  `);
+  `));
 }
 
 function buildCompositionKey(envName: string, termsSorted: string[], prepCtx?: string): string {
@@ -288,12 +290,16 @@ export async function composeVisualScene(req: ComposeRequest): Promise<ComposeRe
     const filename = `composed_${buildCompositionKey(environment, termsSorted, preposition_context)}.jpg`;
     const permanentUrl = await uploadPublicBuffer(filename, composedBuffer, 'image/jpeg');
 
-    await cacheComposition(environment, termsSorted, preposition_context, permanentUrl, layers.map((l, i) => ({
+    // Cache asynchronously — a cache write failure must NOT prevent returning the composed image
+    cacheComposition(environment, termsSorted, preposition_context, permanentUrl, layers.map((l, i) => ({
       asset_id: assetResults[i].asset!.id,
       position: l.position,
       emphasis: l.emphasis,
-    })), envRow.id);
+    })), envRow.id).catch((err: any) => {
+      console.warn('[PropRoomCompositor] Cache save failed (non-fatal):', err.message);
+    });
 
+    console.log(`[PropRoomCompositor] Composed: ${environment} + ${termsSorted.join(', ')} → ${permanentUrl}`);
     return { success: true, imageUrl: permanentUrl, source: 'dynamic_composition', cacheHit: false };
   } catch (err: any) {
     console.error('[PropRoomCompositor] Composition failed:', err.message);
