@@ -414,7 +414,7 @@ PREPOSITION → POSITION MAPPING (use these exact positions for preposition less
           environment: {
             type: "string",
             description: "The base scene to use",
-            enum: ["hotel_room", "cafe_outdoor", "cafe_indoor", "kitchen", "living_room", "bedroom", "bathroom", "park", "airport", "restaurant", "street", "office", "classroom", "market", "doctor_office"],
+            enum: ["cafe", "restaurant_table", "hotel_lobby", "kitchen", "living_room", "bedroom", "bathroom", "park", "airport", "city_street", "office", "classroom", "outdoor_market", "grocery_store", "doctor_office"],
           },
           objects: {
             type: "array",

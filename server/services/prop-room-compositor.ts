@@ -69,11 +69,36 @@ const DEFAULT_POSITION = POSITION_MAP.center;
 // DB helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
+const ENV_ALIASES: Record<string, string> = {
+  cafe_indoor: 'cafe',
+  cafe_outdoor: 'cafe',
+  cafe_room: 'cafe',
+  hotel_room: 'hotel_lobby',
+  hotel: 'hotel_lobby',
+  restaurant: 'restaurant_table',
+  restaurant_indoor: 'restaurant_table',
+  street: 'city_street',
+  city: 'city_street',
+  market: 'outdoor_market',
+  grocery: 'grocery_store',
+  supermarket: 'grocery_store',
+  doctors_office: 'doctor_office',
+  medical: 'doctor_office',
+};
+
 async function findEnvironment(name: string): Promise<{ id: string; image_url: string; width: number; height: number } | null> {
+  const normalized = ENV_ALIASES[name] ?? name;
+  if (normalized !== name) console.log(`[PropRoom] Environment alias: '${name}' → '${normalized}'`);
   const rows = await db.execute(
-    sql`SELECT id, image_url, width, height FROM visual_environments WHERE name = ${name} LIMIT 1`
+    sql`SELECT id, image_url, width, height FROM visual_environments WHERE name = ${normalized} LIMIT 1`
   );
-  return (rows.rows[0] as any) ?? null;
+  if ((rows.rows as any[]).length) return rows.rows[0] as any;
+  // Last-resort: partial match (e.g. "cafe_something" → "cafe")
+  const prefix = normalized.split('_')[0];
+  const fallback = await db.execute(
+    sql`SELECT id, image_url, width, height FROM visual_environments WHERE name LIKE ${prefix + '%'} LIMIT 1`
+  ).catch(() => ({ rows: [] as any[] }));
+  return (fallback.rows[0] as any) ?? null;
 }
 
 async function findAsset(
