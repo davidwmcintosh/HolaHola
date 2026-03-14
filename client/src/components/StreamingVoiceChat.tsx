@@ -1104,12 +1104,8 @@ export function StreamingVoiceChat({
             isRecordingRef.current = false;
             isAwaitingResponseRef.current = false;
             isProcessingRef.current = false;
-
-            toast({
-              title: "You're back!",
-              description: "Connection restored. Continue your session.",
-              duration: 3000,
-            });
+            // No toast — reconnects from autoscale rotation are routine infrastructure
+            // events and should be completely invisible to the user.
 
             // Restart open-mic automatically if that was the active mode
             if (inputModeRef.current === 'open-mic') {
@@ -3092,12 +3088,7 @@ export function StreamingVoiceChat({
                 isRecordingRef.current = false;
                 isAwaitingResponseRef.current = false;
                 isProcessingRef.current = false;
-
-                toast({
-                  title: "You're back!",
-                  description: "Connection restored. Continue your session.",
-                  duration: 3000,
-                });
+                // No toast — routine infrastructure reconnect, fully invisible to user.
 
                 if (inputModeRef.current === 'open-mic') {
                   setOpenMicState('idle');
@@ -3531,8 +3522,11 @@ export function StreamingVoiceChat({
           isConnecting={useStreamingMode && (streamingVoice.state.connectionState === 'connecting' || streamingVoice.state.connectionState === 'reconnecting')}
           isReconnecting={useStreamingMode && streamingVoice.state.connectionState === 'reconnecting'}
           reconnectMessage={
+            // Only surface a message for genuinely prolonged outages (slow phase, attempt >3).
+            // Fast autoscale rotations (~3s) are routine infrastructure and should be invisible.
             useStreamingMode && streamingVoice.state.connectionState === 'reconnecting'
-              ? (streamingVoice.state.error || 'Reconnecting...')
+              && streamingVoice.state.error?.includes('Server is restarting')
+              ? streamingVoice.state.error
               : undefined
           }
           isUsersTurn={

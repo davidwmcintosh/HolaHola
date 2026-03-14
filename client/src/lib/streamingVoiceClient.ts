@@ -506,7 +506,18 @@ export class StreamingVoiceClient {
         socket.on('heartbeat_ack', () => {
           this.missedHeartbeats = 0;
         });
-        
+
+        // PRE-EMPTIVE RECONNECT: Server sends this on SIGTERM (autoscale rotation, deployment).
+        // Instead of waiting 3s for heartbeat failure, disconnect immediately so the new
+        // WebSocket connection can establish while buffered audio is still finishing.
+        // This turns a "sentence cutoff + 3s silence" into a seamless background handoff.
+        socket.on('server_restarting', () => {
+          console.log('[StreamingVoice] Server shutdown imminent — pre-triggering reconnect while audio finishes');
+          this.stopHeartbeat();
+          // Disconnect now to start reconnect. Audio already in the client buffer keeps playing.
+          socket.disconnect();
+        });
+
         socket.on('binary', (data: ArrayBuffer) => {
           this.missedHeartbeats = 0;
           if (this.connectionId === currentConnectionId) {
