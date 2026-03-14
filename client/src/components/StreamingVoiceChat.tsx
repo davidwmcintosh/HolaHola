@@ -1778,21 +1778,6 @@ export function StreamingVoiceChat({
     playbackStateRef.current = globalPlaybackState; 
   }, [globalPlaybackState]);
 
-  // ECHO BARGE-IN FIX: Mute the open-mic audio track during Juliette's playback.
-  // Problem: Laptop mics pick up speaker output. Despite echoCancellation:true,
-  // Deepgram still transcribes Juliette's voice as user speech, triggering the
-  // barge-in logic and stopping her mid-sentence with no follow-up response.
-  // Solution: setting track.enabled=false sends silence to Deepgram without
-  // closing the stream. Re-enabled as soon as audio finishes.
-  useEffect(() => {
-    if (inputMode !== 'open-mic') return;
-    const tracks = openMicStreamRef.current?.getAudioTracks() || [];
-    if (tracks.length === 0) return;
-    const isPlayingAudio = globalPlaybackState === 'playing' || globalPlaybackState === 'buffering';
-    tracks.forEach(track => { track.enabled = !isPlayingAudio; });
-    console.log(`[OPEN MIC ECHO] Mic ${isPlayingAudio ? 'MUTED (Juliette speaking)' : 're-enabled (playback done)'} — state=${globalPlaybackState}`);
-  }, [globalPlaybackState, inputMode]);
-
   // Stable keyboard handlers that use refs instead of state (no dependency churn)
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
