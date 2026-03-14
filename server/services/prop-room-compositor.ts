@@ -67,6 +67,56 @@ const POSITION_MAP: Record<string, { cx: number; cy: number; scale: number }> = 
 
 const DEFAULT_POSITION = POSITION_MAP.center;
 
+// Valid positions per environment.
+// Positions NOT listed here will be silently remapped to the best available fallback.
+// Update this whenever a new background is added — a wrong placement is worse than a fallback to center.
+const ENV_VALID_POSITIONS: Record<string, string[]> = {
+  cafe:           ['center','left','right','foreground','background','on_table','under_table','beside_table','on_chair','on_floor','on_counter'],
+  restaurant_table:['center','left','right','on_table','under_table','beside_table','on_chair','on_floor'],
+  hotel_lobby:    ['center','left','right','foreground','background','on_floor','on_counter','beside_table','on_chair'],
+  kitchen:        ['center','left','right','on_counter','under_counter','on_table','on_floor'],
+  living_room:    ['center','left','right','foreground','background','on_table','beside_table','on_chair','on_floor'],
+  bedroom:        ['center','left','right','beside_bed','on_table','on_chair','on_floor'],
+  bathroom:       ['center','left','right','on_counter','under_counter','on_floor'],
+  park:           ['center','left','right','foreground','background','on_floor','on_chair','beside_table'],
+  airport:        ['center','left','right','foreground','background','on_floor','on_chair'],
+  city_street:    ['center','left','right','foreground','background','on_floor'],
+  office:         ['center','left','right','on_table','under_table','on_chair','on_floor','on_counter'],
+  classroom:      ['center','left','right','on_table','under_table','on_chair','on_floor'],
+  outdoor_market: ['center','left','right','foreground','background','on_floor','on_counter','beside_table'],
+  grocery_store:  ['center','left','right','on_floor','on_counter','beside_table'],
+  doctor_office:  ['center','left','right','on_table','on_counter','on_chair','on_floor'],
+};
+
+// If a requested position is invalid for this environment, fall back to the first valid position,
+// preferring a meaningful one over just 'center' where possible.
+function resolvePosition(environment: string, requestedPosition: string): string {
+  const valid = ENV_VALID_POSITIONS[environment];
+  if (!valid || valid.includes(requestedPosition)) return requestedPosition;
+
+  // Graceful fallback chain: try semantically similar positions, then center
+  const fallbackChain: Record<string, string[]> = {
+    on_table:     ['on_counter', 'beside_table', 'center'],
+    under_table:  ['on_floor', 'center'],
+    on_counter:   ['on_table', 'beside_table', 'center'],
+    under_counter:['on_floor', 'center'],
+    beside_table: ['beside_bed', 'on_floor', 'center'],
+    beside_bed:   ['beside_table', 'on_floor', 'center'],
+    on_chair:     ['on_floor', 'center'],
+    in_hand:      ['center'],
+  };
+
+  const chain = fallbackChain[requestedPosition] ?? ['center'];
+  for (const alt of chain) {
+    if (valid.includes(alt)) {
+      console.warn(`[PropRoom] Position "${requestedPosition}" invalid for ${environment} — using "${alt}" instead`);
+      return alt;
+    }
+  }
+  console.warn(`[PropRoom] Position "${requestedPosition}" invalid for ${environment} — falling back to center`);
+  return 'center';
+}
+
 // Per-environment position overrides — applied on top of the global POSITION_MAP.
 // Each environment has a different camera angle and table height, so positions need tuning.
 // Add / refine entries here as new environments are calibrated visually.
@@ -366,8 +416,9 @@ async function compositeScene(
   const compositeLayers: sharp.OverlayOptions[] = [];
 
   for (const layer of layers) {
-    const basePos = POSITION_MAP[layer.position] ?? DEFAULT_POSITION;
-    const envOverride = ENV_POSITION_OVERRIDES[environment]?.[layer.position] ?? {};
+    const resolvedPositionKey = resolvePosition(environment, layer.position);
+    const basePos = POSITION_MAP[resolvedPositionKey] ?? DEFAULT_POSITION;
+    const envOverride = ENV_POSITION_OVERRIDES[environment]?.[resolvedPositionKey] ?? {};
     const pos = { ...basePos, ...envOverride };
 
     // Apply per-type scale multiplier so cups stay small and suitcases stay large

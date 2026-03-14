@@ -394,19 +394,40 @@ PREFER this over generate_visual for any common vocabulary — it is instant (no
 ESPECIALLY useful for teaching prepositions: compose the SAME object in DIFFERENT positions to show spatial contrast — call this function TWICE in sequence for maximum impact.
 If a required object or environment is not yet in the library, it automatically falls back to DALL-E generation.
 
-WHEN TO USE:
-- Teaching nouns in context (la taza, la cama, la maleta)
-- Teaching prepositions (sobre/on_table, debajo de/under_table, al lado de/beside_table, en el piso/on_floor)
-- Setting a scene at the start of a topic (hotel room for travel vocab, café for ordering food)
-- Showing the same object in multiple locations to contrast meaning
+CRITICAL — CHOOSE ENVIRONMENT AND POSITION TOGETHER.
+Not every environment has every zone. Only use positions that make physical sense for the scene.
+Invalid positions are silently corrected to the nearest fallback, so choosing wrong will produce misplaced objects.
 
-PREPOSITION → POSITION MAPPING (use these exact positions for preposition lessons):
-- sobre / on top of → on_table or on_counter
-- debajo de / under → under_table or under_counter
+ENVIRONMENT → VALID POSITIONS (only use positions from the correct row):
+- cafe:             on_table, under_table, beside_table, on_chair, on_floor, on_counter, center, left, right, foreground, background
+- restaurant_table: on_table, under_table, beside_table, on_chair, on_floor, center, left, right
+- hotel_lobby:      on_floor, on_counter, beside_table, on_chair, center, left, right, foreground, background
+- kitchen:          on_counter, under_counter, on_table, on_floor, center, left, right
+- living_room:      on_table, beside_table, on_chair, on_floor, center, left, right, foreground, background
+- bedroom:          beside_bed, on_table, on_chair, on_floor, center, left, right
+- bathroom:         on_counter, under_counter, on_floor, center, left, right
+- park:             on_floor, on_chair, beside_table, center, left, right, foreground, background
+- airport:          on_floor, on_chair, center, left, right, foreground, background
+- city_street:      on_floor, center, left, right, foreground, background
+- office:           on_table, under_table, on_chair, on_floor, on_counter, center, left, right
+- classroom:        on_table, under_table, on_chair, on_floor, center, left, right
+- outdoor_market:   on_floor, on_counter, beside_table, center, left, right, foreground, background
+- grocery_store:    on_floor, on_counter, beside_table, center, left, right
+- doctor_office:    on_table, on_counter, on_chair, on_floor, center, left, right
+
+PREPOSITION LESSON STRATEGY:
+For table prepositions (sobre/debajo/al lado de la mesa): use cafe, restaurant_table, kitchen, office, or classroom.
+For bed prepositions (encima de/debajo de/al lado de la cama): use bedroom.
+For counter prepositions (sobre el mostrador): use kitchen, cafe, hotel_lobby, bathroom, or grocery_store.
+For floor prepositions (en el piso): works in ALL environments.
+
+PREPOSITION → POSITION MAPPING:
+- sobre / encima de / on top of → on_table, on_counter (pick whichever fits the environment)
+- debajo de / under → under_table, under_counter, or on_floor
 - al lado de / beside → beside_table or beside_bed
 - en el piso / on the floor → on_floor
 - en la silla / on the chair → on_chair
-- en la mano / in hand → in_hand`,
+- en la mano / in hand → in_hand (avoid — no human figure in most scenes)`,
       parametersJsonSchema: {
         type: "object",
         properties: {
