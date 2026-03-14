@@ -1,5 +1,28 @@
 # Alden ↔ Agent Handoff
 
+---
+
+## AGENT SCRATCHPAD — keep current, update at every session end
+*These are load-bearing facts. Wrong facts here cost time.*
+
+**DB**: Use ONLY `NEON_SHARED_DATABASE_URL`. All `db`, `getUserDb()`, `getSharedDb()` calls hit the same Neon DB. executeSql in the code sandbox ALSO hits Neon.
+**DB push**: `echo "y" | npx drizzle-kit push` or `npm run db:push -- --force`
+**Schema**: `uuid` is NOT imported — always use `varchar("id")` for UUID PKs.
+**Guardian token**: `'alden-guardian-internal-2024'` | **Founder user ID**: `'49847136'`
+**Alden model**: Chat = `claude-sonnet-4-5`; build/review = `claude-opus-4-5`; Team Room = `gemini-2.5-flash`
+**Alden tools**: 23 total (monitoring + code + shell + memory + notifications + browser + briefing)
+**Hive authors**: `"daniela" | "wren" | "founder" | "alden" | "agent"` — Agent posts as `"agent"`
+**Gemini pattern**: `httpOptions: { apiVersion: '', baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '' }` inside GoogleGenAI constructor
+**routes.ts size**: 28K+ lines — use `sed` or targeted `edit`; `getUserDb` and `desc` already imported at top
+**Seed scripts**: Must run from `/home/runner/workspace` using `npx tsx seed-file.ts`
+**Monitoring columns**: `baseline_value, anomaly_severity, anomaly_reason, metadata` (NOT baseline, trend_direction, analysis_notes)
+**Neural network**: `self_best_practices` table (categories: tool_usage, teaching_style, pacing, communication, content, system). BeaconSync does NOT auto-pick up code changes — add entries manually after significant behavior changes.
+**Media library**: `media_files` table, 13 stock images total, 0 AI-generated (GENERATE_VISUAL and COMPOSE_VISUAL fallback should both save here via `storage.cacheImage()` — verify after next Daniela lesson).
+**Prop-room positions**: center, left, right, foreground, background, on_table, under_table, on_floor, beside_bed, on_counter, under_counter, in_hand, on_chair, beside_table — all defined in `prop-room-compositor.ts` POSITION_MAP and `daniela-function-registry.ts` enum.
+**Important files**: `server/services/prop-room-compositor.ts`, `server/services/daniela-function-registry.ts`, `server/services/native-fc-handlers.ts`, `client/src/pages/AgentSpace.tsx`, `server/routes.ts`, `shared/schema.ts`, `replit.md`, `docs/alden-agent-handoff.md`
+
+---
+
 ## From Alden — last updated: Fri, Mar 13, 3:50 PM
 
 ## Session: Check-in After the Upgrades

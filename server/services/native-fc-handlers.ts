@@ -650,11 +650,36 @@ export class NativeFunctionCallHandler {
             } else {
               // Fallback: delegate to generate_visual with a descriptive prompt
               console.log(`[Native Function→ComposeVisual] Falling back to DALL-E — ${result.error || ('missing: ' + (result.missingAssets || []).join(', '))}`);
-              const fallbackConcept = `${environment.replace(/_/g, ' ')} scene with ${objects.map((o: any) => o.term).join(', ')}${prepCtx ? `, showing "${prepCtx}" relationship` : ''}`;
+              // Build a pedagogically explicit prompt — if this is a preposition lesson, describe
+              // the spatial relationship clearly enough that DALL-E can render it usefully
+              const objectTerms = objects.map((o: any) => o.term).join(', ');
+              const envLabel = environment.replace(/_/g, ' ');
+              let fallbackConcept: string;
+              if (prepCtx && objects.length > 0) {
+                // Map preposition context to explicit spatial instruction DALL-E can follow
+                const positionMap: Record<string, string> = {
+                  under_table: 'on the floor directly beneath the table',
+                  under_counter: 'on the floor beneath the counter',
+                  on_table: 'resting on top of the table surface',
+                  on_counter: 'sitting on top of the counter',
+                  on_floor: 'placed on the floor',
+                  on_chair: 'placed on the seat of a chair',
+                  beside_table: 'standing on the floor beside the table',
+                  beside_bed: 'on the floor beside the bed',
+                  in_hand: 'held in a hand',
+                };
+                const firstObj = objects[0];
+                const spatialDesc = positionMap[firstObj.position] || `near the ${envLabel}`;
+                // View angle: side-on is best for under/beside, top-down for on_table
+                const viewHint = (firstObj.position || '').startsWith('under') ? 'viewed from the side so the table and floor are both clearly visible, ' : '';
+                fallbackConcept = `educational illustration for a language lesson — a ${envLabel} scene. ${objectTerms} is ${spatialDesc}. ${viewHint}The image should clearly demonstrate the "${prepCtx}" (${firstObj.position?.replace(/_/g, ' ')}) spatial relationship so a language student can immediately understand the position. Clean simple composition.`;
+              } else {
+                fallbackConcept = `${envLabel} scene with ${objectTerms}${prepCtx ? `, showing "${prepCtx}" relationship` : ''}`;
+              }
               const { generateVisual } = await import('../services/visual-content-service');
               const { archiveImageToPermanentStorage } = await import('../services/image-storage');
               const crypto = await import('crypto');
-              const genResult = await generateVisual(fallbackConcept, 'image', {}, 'warm, friendly educational illustration');
+              const genResult = await generateVisual(fallbackConcept, 'image', {}, 'warm, friendly educational illustration, clear spatial composition');
               const hash = crypto.createHash('md5').update('compose_' + fallbackConcept + Date.now()).digest('hex');
               const archivedFilename = `${hash}.jpg`;
               try {
