@@ -84,6 +84,7 @@ interface ImmersiveTutorProps {
   isPlaying: boolean;
   isConnecting?: boolean;
   isReconnecting?: boolean;
+  reconnectMessage?: string;
   isUsersTurn?: boolean;
   onToggleView?: () => void;
   onEndCall?: () => void;
@@ -138,6 +139,7 @@ export function ImmersiveTutor({
   isPlaying,
   isConnecting = false,
   isReconnecting = false,
+  reconnectMessage,
   isUsersTurn = true,
   onToggleView,
   onEndCall,
@@ -786,7 +788,7 @@ export function ImmersiveTutor({
         {/* Debug: Log instruction text state changes */}
         <p className="text-xs text-muted-foreground" data-testid="text-mic-instruction">
           {isReconnecting
-            ? "Reconnecting..."
+            ? (reconnectMessage || "Reconnecting...")
             : isConnecting 
               ? `Calling ${tutorGender === 'male' ? maleVoiceName : femaleVoiceName}...` 
               : inputMode === 'open-mic'

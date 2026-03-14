@@ -22,6 +22,7 @@ interface VoiceChatViewManagerProps {
   isPlaying: boolean;
   isConnecting?: boolean;
   isReconnecting?: boolean;
+  reconnectMessage?: string;
   isUsersTurn?: boolean;
   onEndCall?: () => void;
   tutorGender?: 'male' | 'female';
@@ -74,6 +75,7 @@ export function VoiceChatViewManager({
   isPlaying,
   isConnecting = false,
   isReconnecting = false,
+  reconnectMessage,
   isUsersTurn = true,
   onEndCall,
   tutorGender = "female",
@@ -198,6 +200,7 @@ export function VoiceChatViewManager({
                 isPlaying={isPlaying}
                 isConnecting={isConnecting}
                 isReconnecting={isReconnecting}
+                reconnectMessage={reconnectMessage}
                 isUsersTurn={isUsersTurn}
                 onToggleView={toggleView}
                 onEndCall={onEndCall}

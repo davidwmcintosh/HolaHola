@@ -1094,7 +1094,12 @@ export function StreamingVoiceChat({
             }
           },
           onReconnected: () => {
-            console.log('[StreamingVoice] Connection restored silently');
+            console.log('[StreamingVoice] Connection restored after drop');
+            toast({
+              title: "You're back!",
+              description: "Connection restored. Continue your session.",
+              duration: 3000,
+            });
           },
           onTutorHandoff: (handoff) => {
             const { targetGender, targetLanguage, tutorName, isLanguageSwitch, isAssistant } = handoff;
@@ -3048,7 +3053,12 @@ export function StreamingVoiceChat({
                 }
               },
               onReconnected: () => {
-                console.log('[StreamingVoice] Connection restored silently (reconnect context)');
+                console.log('[StreamingVoice] Connection restored after drop (reconnect context)');
+                toast({
+                  title: "You're back!",
+                  description: "Connection restored. Continue your session.",
+                  duration: 3000,
+                });
               },
               onTutorHandoff: (handoff) => {
                 const { targetGender, targetLanguage, tutorName, isLanguageSwitch, isAssistant } = handoff;
@@ -3462,6 +3472,11 @@ export function StreamingVoiceChat({
           isPlaying={globalPlaybackState === 'playing' || globalPlaybackState === 'buffering'}
           isConnecting={useStreamingMode && (streamingVoice.state.connectionState === 'connecting' || streamingVoice.state.connectionState === 'reconnecting')}
           isReconnecting={useStreamingMode && streamingVoice.state.connectionState === 'reconnecting'}
+          reconnectMessage={
+            useStreamingMode && streamingVoice.state.connectionState === 'reconnecting'
+              ? (streamingVoice.state.error || 'Reconnecting...')
+              : undefined
+          }
           isUsersTurn={
             // Mic is ONLY unlocked when ALL of these are true:
             // 1. Connection is 'ready' OR 'connected' OR 'streaming' (all valid working states)

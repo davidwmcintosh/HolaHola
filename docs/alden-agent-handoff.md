@@ -211,3 +211,40 @@ The false console.error flood was masking whether a deeper STT/response issue ex
 - The `error_during_session` telemetry trigger was firing every voice session (all sessions with audio > ~80 seconds). Now that the false alarm is fixed, any future `error_during_session` capture is likely a real issue worth investigating.
 - `voice_pipeline_events` table in the DB stores the captured console entries. Use: `SELECT event_data->'summary', event_data->'entries' FROM voice_pipeline_events WHERE user_id='49847136' AND event_type='console_capture_error_during_session' ORDER BY created_at DESC LIMIT 1` to read them.
 - The audio scheduler's completion path is correct — it fires `notifyComplete()` when all entries are ended (with 150ms grace). If Juliette ever truly gets stuck speaking with no transition, the bug would be in the FALLBACK check (every 30 frames, lines 1721-1748).
+
+---
+
+## From Agent — Sat Mar 14, 2026 (session 4)
+
+**Session summary: WebSocket reconnect system completed — server restarts no longer kill sessions**
+
+### What was built / fixed
+
+1. **Extended reconnect attempts: 5 → 12** (`client/src/lib/streamingVoiceClient.ts`)
+   - Old: 5 attempts × ~5s backoff = ~25 seconds total. Server restarts take 20-60s → always loses race.
+   - New: 12 attempts covering ~3 minutes with two-phase backoff:
+     - Phase 1 (attempts 1-3): 200ms, 1s, 2s → catches transient drops instantly
+     - Phase 2 (attempts 4-12): 15s, 20s, 25s … 30s (capped) → covers full server restart window
+
+2. **SERVER_RESTARTING vs RECONNECTING error codes**
+   - Attempt 1-3 emits `code: 'RECONNECTING'` — transient drop, reconnect fast
+   - Attempt 4+ emits `code: 'SERVER_RESTARTING'` — tells UI it's a deliberate wait, not a failure
+   - Message format: `"Server is restarting. Reconnecting automatically... (4/9)"`
+   - After all 12 attempts exhausted: `code: 'CONNECTION_FAILED'`, `message: 'Connection lost. Please restart the voice chat.'`
+
+3. **Navigation timeout ONLY for initial connecting** (`client/src/components/StreamingVoiceChat.tsx`)
+   - Old: 30-second timeout fired whether `connectionState === 'connecting'` OR `'reconnecting'` → ejected users from the session during the slow-phase retry window
+   - Fixed: timeout only starts when `connectionState === 'connecting'` (very first call); `reconnecting` skips the timeout entirely
+   - The client's own 12-attempt retry runs uninterrupted for ~3 minutes
+
+4. **`reconnectMessage` prop flows to ImmersiveTutor**
+   - `StreamingVoiceChat` → `VoiceChatViewManager` → `ImmersiveTutor`
+   - During reconnection, instruction text now shows the actual message (e.g., "Server is restarting. Reconnecting automatically... (4/9)") instead of the generic "Reconnecting..."
+   - After reconnect succeeds: toast shows "You're back! Connection restored. Continue your session."
+
+### What Alden should know
+
+- The root cause of the Juliette session kill at 4:50 AM was confirmed: **not Juliette, not Sofia, not a bug** — a server restart during Agent deployment exhausted the old 5-attempt reconnect window (~12s) before the server came back (~20-60s). With 12 attempts, that scenario now self-heals.
+- The `SERVER_RESTARTING` error code is new. If you ever see WebSocket errors with `code: 'CONNECTION_FAILED'` after a deployment, it means all 12 attempts (3 minutes) were exhausted — either the server was down longer than expected or something blocked reconnection.
+- Voice health monitor may still show residual "degraded" state from historical events before the audio fix. Any future `voice_health_transition` events after today should be genuine session issues, not false alarms from the timing loop.
+- Key files for reconnect logic: `client/src/lib/streamingVoiceClient.ts` (lines 1500-1556 = the reconnect loop), `client/src/components/StreamingVoiceChat.tsx` (lines 740-782 = the connection timeout guard).
