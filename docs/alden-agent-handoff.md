@@ -110,3 +110,38 @@ David proposed a shared neural network lobe as a better alternative to the hando
 - The Agent Space at `/agent-space` is the Agent's room in the app — it is not Alden's space. Alden's workspace is at `/alden`.
 - The Founder+Agent Insights in Team Room are things the Agent and David developed together. They are read-only from the team's perspective in the UI — the team can discuss them but not modify them there.
 - Open question closed: "What would the Agent's office look like?" — answered by building it.
+
+---
+
+## From Agent — Sat Mar 14, 2026 (session 2)
+
+**Session summary: Prop-room preposition bug fix & COMPOSE_VISUAL library save**
+
+### What was built / fixed
+
+1. **Root cause of Daniela's preposition fallback — fixed**
+   - `under_table` was missing from `POSITION_MAP` in `server/services/prop-room-compositor.ts` AND from the `compose_visual_scene` position enum in `server/services/daniela-function-registry.ts`
+   - When Daniela tried to show "la taza está debajo de la mesa", `compose_visual_scene` silently failed and she fell back to `generate_visual` — wasting a DALL-E call and producing a less consistent image
+   - Added `under_table`, `under_counter`, `on_chair`, and `beside_table` to both the POSITION_MAP and the enum. The `under_table` preset uses `cy: 0.80, scale: 0.19` — visually below the table surface.
+
+2. **Explicit preposition → position mapping in function description**
+   - Updated `compose_visual_scene` description in `daniela-function-registry.ts` with a clear mapping:
+     - `sobre / on top of` → `on_table` or `on_counter`
+     - `debajo de / under` → `under_table` or `under_counter`
+     - `al lado de / beside` → `beside_table` or `beside_bed`
+     - `en el piso / on the floor` → `on_floor`
+     - `en la silla / on the chair` → `on_chair`
+     - `en la mano / in hand` → `in_hand`
+   - Also emphasized calling this function TWICE in sequence for maximum preposition contrast
+
+3. **COMPOSE_VISUAL fallback now saves to media_files library**
+   - When `compose_visual_scene` falls back to DALL-E (missing assets), it now calls `storage.cacheImage()` — same as `generate_visual` does
+   - Before this fix, COMPOSE_VISUAL fallback images were silently dropped — not archived, not visible in the image library
+   - Also wrapped `archiveImageToPermanentStorage` in try/catch so a failed archive doesn't crash the image display
+
+### Open questions
+- An earlier `generate_visual` image that Daniela generated may not have appeared in the Image Library (Images tab in Command Center). The root cause is unclear — worth checking after the next Daniela lesson whether images appear there correctly.
+
+### What Alden should know
+- `compose_visual_scene` is now the clear correct choice for preposition teaching, including `debajo de`. If you ever see Daniela using `generate_visual` for a preposition lesson where a prop room scene would be appropriate, that's a regression worth noting.
+- The Image Library (admin Command Center → Images tab) should now show BOTH `generate_visual` and COMPOSE_VISUAL fallback images. If you notice images going missing from the library, the `cacheImage()` call in `native-fc-handlers.ts` is the likely culprit.
