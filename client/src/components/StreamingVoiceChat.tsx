@@ -1094,12 +1094,42 @@ export function StreamingVoiceChat({
             }
           },
           onReconnected: () => {
-            console.log('[StreamingVoice] Connection restored after drop');
+            console.log('[StreamingVoice] Connection restored after drop — resetting UI state for fresh start');
+
+            // AUTOSCALE RECOVERY: Clear all stale "Juliette was speaking" client state
+            // so the user isn't stuck waiting for audio from the dead server instance.
+            setGlobalPlaybackState('idle');
+            setAvatarState('idle');
+            setIsRecording(false);
+            isRecordingRef.current = false;
+            isAwaitingResponseRef.current = false;
+            isProcessingRef.current = false;
+
             toast({
               title: "You're back!",
               description: "Connection restored. Continue your session.",
               duration: 3000,
             });
+
+            // Restart open-mic automatically if that was the active mode
+            if (inputModeRef.current === 'open-mic') {
+              setOpenMicState('idle');
+              let retries = 0;
+              const tryRestart = () => {
+                const state = connectionStateRef.current;
+                if ((state === 'ready' || state === 'processing') && startOpenMicRecordingRef.current) {
+                  console.log('[RECONNECT] Auto-restarting open mic after reconnect');
+                  startOpenMicRecordingRef.current().catch((err: any) => {
+                    console.error('[RECONNECT] Failed to restart open mic:', err);
+                    setOpenMicState('idle');
+                  });
+                } else if (retries < 20 && inputModeRef.current === 'open-mic') {
+                  retries++;
+                  setTimeout(tryRestart, 250);
+                }
+              };
+              setTimeout(tryRestart, 300);
+            }
           },
           onTutorHandoff: (handoff) => {
             const { targetGender, targetLanguage, tutorName, isLanguageSwitch, isAssistant } = handoff;
@@ -3053,12 +3083,40 @@ export function StreamingVoiceChat({
                 }
               },
               onReconnected: () => {
-                console.log('[StreamingVoice] Connection restored after drop (reconnect context)');
+                console.log('[StreamingVoice] Connection restored after drop (reconnect context) — resetting UI state');
+
+                // AUTOSCALE RECOVERY: Same stale-state clear as the primary callback
+                setGlobalPlaybackState('idle');
+                setAvatarState('idle');
+                setIsRecording(false);
+                isRecordingRef.current = false;
+                isAwaitingResponseRef.current = false;
+                isProcessingRef.current = false;
+
                 toast({
                   title: "You're back!",
                   description: "Connection restored. Continue your session.",
                   duration: 3000,
                 });
+
+                if (inputModeRef.current === 'open-mic') {
+                  setOpenMicState('idle');
+                  let retries = 0;
+                  const tryRestart = () => {
+                    const state = connectionStateRef.current;
+                    if ((state === 'ready' || state === 'processing') && startOpenMicRecordingRef.current) {
+                      console.log('[RECONNECT] Auto-restarting open mic after reconnect (reconnect context)');
+                      startOpenMicRecordingRef.current().catch((err: any) => {
+                        console.error('[RECONNECT] Failed to restart open mic (reconnect context):', err);
+                        setOpenMicState('idle');
+                      });
+                    } else if (retries < 20 && inputModeRef.current === 'open-mic') {
+                      retries++;
+                      setTimeout(tryRestart, 250);
+                    }
+                  };
+                  setTimeout(tryRestart, 300);
+                }
               },
               onTutorHandoff: (handoff) => {
                 const { targetGender, targetLanguage, tutorName, isLanguageSwitch, isAssistant } = handoff;

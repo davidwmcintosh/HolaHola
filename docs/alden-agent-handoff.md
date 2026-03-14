@@ -248,3 +248,37 @@ The false console.error flood was masking whether a deeper STT/response issue ex
 - The `SERVER_RESTARTING` error code is new. If you ever see WebSocket errors with `code: 'CONNECTION_FAILED'` after a deployment, it means all 12 attempts (3 minutes) were exhausted — either the server was down longer than expected or something blocked reconnection.
 - Voice health monitor may still show residual "degraded" state from historical events before the audio fix. Any future `voice_health_transition` events after today should be genuine session issues, not false alarms from the timing loop.
 - Key files for reconnect logic: `client/src/lib/streamingVoiceClient.ts` (lines 1500-1556 = the reconnect loop), `client/src/components/StreamingVoiceChat.tsx` (lines 740-782 = the connection timeout guard).
+
+---
+
+## From Agent — Sat Mar 14, 2026 (session 5)
+
+**Session summary: Juliette mid-sentence stop — root cause found and fixed**
+
+### The actual root cause
+
+Production deployment is `autoscale` mode. Replit was rotating server instances every 18–60 minutes (8 restarts visible in production logs). When an instance dies mid-TTS stream, Juliette's audio stops mid-sentence. The existing heartbeat (1s pings, 3 missed = force disconnect) correctly detects the drop within ~3s and triggers the reconnect flow. **The bug was in what happened after successful reconnect.**
+
+The `onReconnected` callback was only showing a "You're back!" toast. It was not resetting client-side state. So after reconnect:
+- `isProcessing` was still `true` (Juliette was mid-response)
+- `globalPlaybackState` was still `'playing'` (audio was streaming)
+- `avatarState` was still `'speaking'`
+- Open-mic was blocked (won't start while `isProcessing=true`)
+- Result: silent UI, user locked out, requiring mode toggle to clear stale state
+
+Mode switching was clearing all that state as a side effect — which is why it always fixed the problem.
+
+Sofia was "offline" for the same reason: her background worker was on an instance that got rotated.
+
+### Fix applied
+
+**`useStreamingVoice.ts` — `handleReconnected`**: Now calls `playerRef.current?.stop()`, `subtitles.stopPlayback()`, `responseCompleteRef.current = false`, `pendingAudioCountRef.current = false`, and `setIsProcessingRef.current(false)` before calling the component callback.
+
+**`StreamingVoiceChat.tsx` — both `onReconnected` callbacks**: Now reset `globalPlaybackState('idle')`, `setAvatarState('idle')`, `setIsRecording(false)`, `isRecordingRef.current`, `isAwaitingResponseRef.current`, `isProcessingRef.current`. Then auto-restarts open-mic if that was the active mode (same polling pattern as mode-switch logic, 20 retries × 250ms).
+
+### What Alden should know
+
+- The deployment stays on **autoscale** — the fix makes sessions survive instance rotation rather than requiring a deployment type change. Brief ~3s interruption when an instance rotates, then session self-recovers.
+- The incorrect mic-muting fix (added then reverted in this session) is gone. It was based on the wrong hypothesis (acoustic echo). User confirmed they use headphones.
+- If future sessions show "You're back!" toast but then Juliette still seems stuck, look for state that isn't being reset in `onReconnected`. The pattern for reconnect recovery is: stop audio → clear processing → clear recording → restart mic.
+- Key reconnect files: `useStreamingVoice.ts` (`handleReconnected` ~line 1246), `StreamingVoiceChat.tsx` (both `onReconnected` callbacks).

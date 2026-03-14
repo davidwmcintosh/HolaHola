@@ -1241,9 +1241,19 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
 
   const handleReconnected = useCallback((_message: { timestamp: number }) => {
-    console.log('[StreamingVoice] Successfully reconnected after connection drop');
+    console.log('[StreamingVoice] Successfully reconnected after connection drop — clearing stale processing state');
+
+    // AUTOSCALE RECOVERY: The server instance that was mid-sentence is gone.
+    // Reset all processing/playback state so the client isn't stuck waiting
+    // for audio that will never arrive from the old instance.
+    playerRef.current?.stop();
+    subtitles.stopPlayback();
+    responseCompleteRef.current = false;
+    pendingAudioCountRef.current = 0;
+    setIsProcessingRef.current(false);
+
     sessionConfigRef.current?.onReconnected?.();
-  }, []);
+  }, [subtitles]);
   
   /**
    * Handle subtitle mode change from server (tutor [SUBTITLE on/off/target] command)
