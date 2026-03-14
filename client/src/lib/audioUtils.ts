@@ -1519,26 +1519,28 @@ export class StreamingAudioPlayer {
       // Use Array.from for broader compatibility (avoids downlevelIteration issues)
       const scheduleEntries = Array.from(this.sentenceSchedule.entries());
       
-      // DEBUG: Log schedule size and verify consistency
+      // DEBUG: Log schedule size and verify consistency (every 10 frames)
       if (frameCount % 10 === 0) {
-        // CRITICAL: Check if scheduleEntries matches what we just logged above
+        // Real bug check: scheduleEntries snapshot should match live Map size
         const scheduleArrayFromAbove = Array.from(this.sentenceSchedule.entries());
         if (scheduleEntries.length !== scheduleArrayFromAbove.length) {
           console.error(`[BUG!] MISMATCH: scheduleEntries.length=${scheduleEntries.length} but Map.size=${scheduleArrayFromAbove.length}`);
         }
         
-        // CRITICAL DEBUG: Log ALL entries with their endCtxTime values
-        const entryDetails = scheduleEntries.map(([i, e]) => 
-          `S${i}(end=${e.endCtxTime !== undefined ? e.endCtxTime.toFixed(2) : 'UNDEF'})`
-        ).join(', ');
-        console.error(`[LOOP] Frame ${frameCount}: entries=[${entryDetails}] now=${now.toFixed(2)}`);
-        
-        // CRITICAL DEBUG: Check if any entries are missing endCtxTime
-        // Compare against what SHOULD exist based on logEmptyChunkProcessed
-        const entriesWithEndTime = scheduleEntries.filter(([_, e]) => e.endCtxTime !== undefined);
+        // Verbose-only: log all entry endCtxTime values (fires 6x/sec — keep behind flag)
+        if (isVerboseLoggingEnabled()) {
+          const entryDetails = scheduleEntries.map(([i, e]) => 
+            `S${i}(end=${e.endCtxTime !== undefined ? e.endCtxTime.toFixed(2) : 'UNDEF'})`
+          ).join(', ');
+          console.log(`[LOOP] Frame ${frameCount}: entries=[${entryDetails}] now=${now.toFixed(2)}`);
+        }
+      }
+      
+      // Watchdog: warn once per 60 frames if entries are missing endCtxTime (streaming lag)
+      if (frameCount % 60 === 0) {
         const entriesWithoutEndTime = scheduleEntries.filter(([_, e]) => e.endCtxTime === undefined);
         if (entriesWithoutEndTime.length > 0) {
-          console.error(`[LOOP WATCHDOG] ⚠️ ${entriesWithoutEndTime.length} entries WITHOUT endCtxTime: ${entriesWithoutEndTime.map(([i, e]) => 
+          console.warn(`[LOOP WATCHDOG] ${entriesWithoutEndTime.length} entries WITHOUT endCtxTime: ${entriesWithoutEndTime.map(([i, e]) => 
             `S${i}(dur=${e.totalDuration.toFixed(2)})`
           ).join(', ')}`);
         }

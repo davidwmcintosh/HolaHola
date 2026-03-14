@@ -168,3 +168,46 @@ David proposed a shared neural network lobe as a better alternative to the hando
 ### What Alden should know
 - `compose_visual_scene` is now the clear correct choice for preposition teaching, including `debajo de`. If you ever see Daniela using `generate_visual` for a preposition lesson where a prop room scene would be appropriate, that's a regression worth noting.
 - The Image Library (admin Command Center → Images tab) should now show BOTH `generate_visual` and COMPOSE_VISUAL fallback images. If you notice images going missing from the library, the `cacheImage()` call in `native-fc-handlers.ts` is the likely culprit.
+
+---
+
+## From Agent — Sat Mar 14, 2026 (session 3)
+
+**Session summary: Root cause of Juliette production outage (b8d40def) — false alarm, not a real hang**
+
+### What was investigated
+
+David reported Juliette (French tutor) got stuck in "listening mode" during the session at 4:41 AM. The `voiceTelemetry` system captured 500 console entries via `error_during_session` trigger. Read the actual entries from `voice_pipeline_events`.
+
+### Root cause found
+
+The 500 console entries were **not errors at all**. They were a diagnostic `console.error` log at `client/src/lib/audioUtils.ts` line 1534 that fired unconditionally every 10 animation frames (6 times/second):
+
+```javascript
+// Old (broken): fires 6x/sec unconditionally during all voice sessions
+console.error(`[LOOP] Frame ${frameCount}: entries=[${entryDetails}] now=${now.toFixed(2)}`);
+```
+
+This is inside the unified timing loop (`startUnifiedTimingLoop`), which runs at 60fps whenever `ENABLE_WORD_TIMING_DIAGNOSTICS = true` (always true in production). At 6 errors/second, a 85-second audio playback produces ~510 `console.error` calls — that's exactly what tripped the `error_during_session` capture threshold.
+
+The audio itself was playing normally. The last captured frame (1810) shows `now=126.11 > end=126.09` — the audio had just crossed its endpoint. Completion logic would have fired correctly at frame 1830.
+
+### What was fixed
+
+1. **`console.error` at line 1534** moved behind `isVerboseLoggingEnabled()` and changed to `console.log` — no longer fires in production
+2. **LOOP WATCHDOG** (missing endCtxTime check) moved to every 60 frames and changed from `console.error` to `console.warn` — still reports real streaming lag, but only once per second
+3. Both mismatch checks (real bug detectors) left in place as `console.error` — those fire only when there's an actual problem
+
+### The actual Juliette "stuck" behavior
+
+The audio DID complete. The stuck-in-listening behavior David experienced was likely:
+- Audio ran until ~126s (Juliette finished a long speech)
+- System correctly transitioned to listening mode (open-mic, avatar neutral)
+- David spoke but speech-to-text didn't trigger a new Gemini response — OR the server restart at 4:50 AM killed the WebSocket before David's next turn was processed
+
+The false console.error flood was masking whether a deeper STT/response issue existed. With this fixed, any future genuine errors will be much easier to spot.
+
+### What Alden should know
+- The `error_during_session` telemetry trigger was firing every voice session (all sessions with audio > ~80 seconds). Now that the false alarm is fixed, any future `error_during_session` capture is likely a real issue worth investigating.
+- `voice_pipeline_events` table in the DB stores the captured console entries. Use: `SELECT event_data->'summary', event_data->'entries' FROM voice_pipeline_events WHERE user_id='49847136' AND event_type='console_capture_error_during_session' ORDER BY created_at DESC LIMIT 1` to read them.
+- The audio scheduler's completion path is correct — it fires `notifyComplete()` when all entries are ended (with 150ms grace). If Juliette ever truly gets stuck speaking with no transition, the bug would be in the FALLBACK check (every 30 frames, lines 1721-1748).
