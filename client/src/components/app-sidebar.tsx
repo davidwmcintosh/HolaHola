@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Shield, X, Target, Search, Sparkles, HelpCircle, MapPin, Microscope, Landmark, Library, ClipboardList, FlaskConical, Calculator, Atom, BookMarked, Telescope, Leaf, TrendingUp, Building2, Users, Briefcase, BrainCircuit } from "lucide-react";
+import { BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Shield, X, Target, Search, Sparkles, HelpCircle, MapPin, Microscope, Landmark, Library, ClipboardList, FlaskConical, Calculator, Atom, BookMarked, Telescope, Leaf, TrendingUp, Building2, Users, Briefcase, BrainCircuit, Compass } from "lucide-react";
 import holaholaLogo from "@assets/holaholamainlogoBackgroundRemoved_1765308837223.png";
 import { Link, useLocation } from "wouter";
 import {
@@ -398,6 +398,20 @@ export function AppSidebar() {
               })}
               {isAdmin && (
                 <AldenNavItem location={location} closeSidebar={closeSidebar} />
+              )}
+              {isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location.startsWith('/agent-space')}
+                    data-testid="link-agent-space"
+                  >
+                    <Link href="/agent-space" onClick={closeSidebar}>
+                      <Compass className="h-4 w-4" />
+                      <span>Agent Space</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               )}
               {isAdmin && (
                 <SidebarMenuItem>

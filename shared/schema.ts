@@ -7552,7 +7552,8 @@ export const agentCollabAuthorEnum = pgEnum("agent_collab_author", [
   "daniela",
   "wren", 
   "founder",
-  "alden", // Development steward - Replit Agent with persistent memory
+  "alden",  // Development steward — autonomous AI inside HolaHola, monitors infrastructure, posts proactively
+  "agent",  // The Replit Agent — external builder, called in for architecture, major builds, and conversations with David
 ]);
 
 export const agentCollabMessageTypeEnum = pgEnum("agent_collab_message_type", [

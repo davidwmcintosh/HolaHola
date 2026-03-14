@@ -17,7 +17,7 @@ import {
   Table, Lightbulb, CheckSquare, GitBranch, Info, Copy,
   Target, ClipboardList, AtSign, Hand, UserPlus, UserMinus,
   BookOpen, TrendingUp, Cpu, Circle, RotateCcw, Monitor, ScanEye, Terminal,
-  CheckCircle2, AlertCircle, Clock,
+  CheckCircle2, AlertCircle, Clock, Compass,
 } from "lucide-react";
 import { io, Socket } from "socket.io-client";
 import type { TeamRoom as TeamRoomType, RoomVoiceMessage, RoomArtifact, AgentActivityLog } from "@shared/schema";
@@ -650,6 +650,7 @@ export default function TeamRoom() {
   });
   const [wsMessages, setWsMessages] = useState<RoomVoiceMessage[]>([]);
   const [guestTutors, setGuestTutors] = useState<GuestTutorInfo[]>([]);
+  const [showFounderInsights, setShowFounderInsights] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const expressEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -713,6 +714,12 @@ export default function TeamRoom() {
 
   const { data: sessions } = useQuery<TeamRoomType[]>({ queryKey: ["/api/team-room/sessions"] });
   const { data: templates } = useQuery<SessionTemplate[]>({ queryKey: ["/api/team-room/templates"] });
+  const { data: founderInsightsData } = useQuery<{ insights: any[] }>({
+    queryKey: ["/api/conversation-memories/shared"],
+    staleTime: 60000,
+  });
+  const founderInsights = founderInsightsData?.insights ?? [];
+
   const { data: agentActivity } = useQuery<AgentActivityLog[]>({
     queryKey: ["/api/agent-activity"],
     refetchInterval: 30000,
@@ -1257,29 +1264,70 @@ export default function TeamRoom() {
           <p className="text-xs text-muted-foreground mt-0.5">Analysis, artifacts & insights</p>
         </div>
         <ScrollArea className="flex-1">
-          <div className="p-3 min-w-0 overflow-x-hidden">
-          {!hasExpressContent ? (
-            <div className="text-center py-10 text-xs text-muted-foreground px-3">
-              Detailed analysis and shared artifacts from the team will appear here during the session.
-            </div>
-          ) : (
-            <div className="space-y-4 min-w-0">
-              {displayArtifacts.length > 0 && (
-                <div className="space-y-2 min-w-0">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Artifacts</p>
-                  {displayArtifacts.map(a => <ArtifactCard key={a.id} artifact={a} guestTutors={guestTutors} />)}
-                </div>
-              )}
-              {expressLaneItems.length > 0 && (
-                <div className="space-y-3">
-                  {displayArtifacts.length > 0 && <Separator />}
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Analysis Stream</p>
-                  {expressLaneItems.map((item, i) => <ExpressLaneMessage key={i} {...item} guestTutors={guestTutors} />)}
-                </div>
-              )}
-              <div ref={expressEndRef} />
-            </div>
-          )}
+          <div className="p-3 min-w-0 overflow-x-hidden space-y-4">
+            {!hasExpressContent ? (
+              <div className="text-center py-8 text-xs text-muted-foreground px-3">
+                Detailed analysis and shared artifacts from the team will appear here during the session.
+              </div>
+            ) : (
+              <div className="space-y-4 min-w-0">
+                {displayArtifacts.length > 0 && (
+                  <div className="space-y-2 min-w-0">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Artifacts</p>
+                    {displayArtifacts.map(a => <ArtifactCard key={a.id} artifact={a} guestTutors={guestTutors} />)}
+                  </div>
+                )}
+                {expressLaneItems.length > 0 && (
+                  <div className="space-y-3">
+                    {displayArtifacts.length > 0 && <Separator />}
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Analysis Stream</p>
+                    {expressLaneItems.map((item, i) => <ExpressLaneMessage key={i} {...item} guestTutors={guestTutors} />)}
+                  </div>
+                )}
+                <div ref={expressEndRef} />
+              </div>
+            )}
+
+            {/* ── Founder + Agent Insights ── */}
+            {founderInsights.length > 0 && (
+              <div className="space-y-2 pt-2 border-t">
+                <button
+                  className="flex items-center gap-1.5 w-full text-left"
+                  onClick={() => setShowFounderInsights(!showFounderInsights)}
+                  data-testid="button-toggle-founder-insights"
+                >
+                  <Compass className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex-1">Founder + Agent Insights</span>
+                  <Badge variant="outline" className="text-xs">{founderInsights.length}</Badge>
+                  <ChevronDown className={`h-3 w-3 text-muted-foreground transition-transform ${showFounderInsights ? "" : "-rotate-90"}`} />
+                </button>
+                {showFounderInsights && (
+                  <div className="space-y-2">
+                    {founderInsights.map((ins: any) => (
+                      <div key={ins.id} className="rounded-md border p-2.5 space-y-1.5" data-testid={`founder-insight-${ins.id}`}>
+                        <p className="text-xs font-medium leading-snug">{ins.title}</p>
+                        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">{ins.insight}</p>
+                        {ins.whyItMatters && (
+                          <p className="text-xs text-muted-foreground italic leading-relaxed line-clamp-2">{ins.whyItMatters}</p>
+                        )}
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          {ins.tags && ins.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {ins.tags.slice(0, 3).map((t: string) => (
+                                <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>
+                              ))}
+                            </div>
+                          )}
+                          <span className="text-xs text-muted-foreground ml-auto shrink-0">
+                            {new Date(ins.sharedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </ScrollArea>
       </div>

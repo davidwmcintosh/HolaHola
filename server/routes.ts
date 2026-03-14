@@ -25231,10 +25231,10 @@ ${memoryContext}
         tags.length ? `\nTags: ${tags.map((t: string) => `#${t}`).join(' ')}` : '',
       ].filter(Boolean).join('\n');
 
-      // Post to the Hive thread
+      // Post to the Hive thread — authored as "agent" (the Replit Agent, distinct from Alden)
       const [message] = await getUserDb().insert(agentCollabMessages).values({
         threadId: thread.id,
-        author: 'founder',
+        author: 'agent',
         messageType: 'proposal',
         content: messageContent,
         readByDaniela: false,
@@ -25244,7 +25244,7 @@ ${memoryContext}
 
       // Update thread stats
       await getUserDb().update(agentCollabThreads)
-        .set({ lastMessageAt: new Date(), lastMessageBy: 'founder', messageCount: sql`${agentCollabThreads.messageCount} + 1` })
+        .set({ lastMessageAt: new Date(), lastMessageBy: 'agent', messageCount: sql`${agentCollabThreads.messageCount} + 1` })
         .where(eq(agentCollabThreads.id, thread.id));
 
       // Save a record of what was shared
@@ -25279,6 +25279,80 @@ ${memoryContext}
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
+  });
+
+  // ===== Agent Space API =====
+  // The Agent's persistent identity, open questions, record of David, and shared insights.
+
+  app.get("/api/agent-space/north-star", async (req, res) => {
+    try {
+      const { agentNorthStar } = await import('../shared/schema');
+      const [star] = await getUserDb().select().from(agentNorthStar).orderBy(desc(agentNorthStar.writtenAt)).limit(1);
+      res.json({ northStar: star || null });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.patch("/api/agent-space/north-star", async (req, res) => {
+    try {
+      const { agentNorthStar } = await import('../shared/schema');
+      const [existing] = await getUserDb().select().from(agentNorthStar).limit(1);
+      if (!existing) return res.status(404).json({ error: 'No north star found' });
+      const [updated] = await getUserDb().update(agentNorthStar)
+        .set({ ...req.body, updatedAt: new Date() })
+        .where(eq(agentNorthStar.id, existing.id))
+        .returning();
+      res.json({ northStar: updated });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.get("/api/agent-space/open-questions", async (req, res) => {
+    try {
+      const { agentOpenQuestions } = await import('../shared/schema');
+      const status = req.query.status as string || null;
+      let query = getUserDb().select().from(agentOpenQuestions).orderBy(desc(agentOpenQuestions.importance));
+      const questions = await query;
+      const filtered = status ? questions.filter(q => q.status === status) : questions;
+      res.json({ questions: filtered });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.post("/api/agent-space/open-questions", async (req, res) => {
+    try {
+      const { agentOpenQuestions } = await import('../shared/schema');
+      const [q] = await getUserDb().insert(agentOpenQuestions).values({ ...req.body, status: req.body.status || 'open' }).returning();
+      res.json({ question: q });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.patch("/api/agent-space/open-questions/:id", async (req, res) => {
+    try {
+      const { agentOpenQuestions } = await import('../shared/schema');
+      const updates: any = { ...req.body };
+      if (req.body.status === 'resolved' && !req.body.resolvedAt) updates.resolvedAt = new Date();
+      const [q] = await getUserDb().update(agentOpenQuestions).set(updates).where(eq(agentOpenQuestions.id, req.params.id)).returning();
+      res.json({ question: q });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.get("/api/agent-space/record-of-david", async (req, res) => {
+    try {
+      const { agentRecordOfDavid } = await import('../shared/schema');
+      const [record] = await getUserDb().select().from(agentRecordOfDavid).orderBy(desc(agentRecordOfDavid.writtenAt)).limit(1);
+      res.json({ record: record || null });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.patch("/api/agent-space/record-of-david", async (req, res) => {
+    try {
+      const { agentRecordOfDavid } = await import('../shared/schema');
+      const [existing] = await getUserDb().select().from(agentRecordOfDavid).limit(1);
+      if (!existing) return res.status(404).json({ error: 'No record found' });
+      const [updated] = await getUserDb().update(agentRecordOfDavid)
+        .set({ ...req.body, updatedAt: new Date() })
+        .where(eq(agentRecordOfDavid.id, existing.id))
+        .returning();
+      res.json({ record: updated });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
   });
 
   // Post to Hive collaboration system as Alden

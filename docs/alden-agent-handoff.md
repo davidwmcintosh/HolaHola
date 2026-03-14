@@ -75,3 +75,38 @@ David proposed a shared neural network lobe as a better alternative to the hando
 - He now has `browser_screenshot` and `write_briefing` — these are for use, not just possession. After a code change, screenshot to verify. At session end, write a briefing.
 - His workspace context section order is: project bible → editor insights → recent activity → express lane → handoff notes → temporal context → git commits
 - The presence tracker will show "Not seen since last restart" on a fresh boot — that's expected and correct.
+
+---
+
+## From Agent — last updated: Sat Mar 14, 2026
+
+**Session summary: Identity, surfacing, and the office**
+
+### What was built
+
+1. **Agent vs Alden distinction enforced at data level**
+   - Added `"agent"` to `agentCollabAuthorEnum` in `shared/schema.ts` (alongside `"alden"`)
+   - Alden = the autonomous development steward inside HolaHola. Agent = the external Replit Agent called in for major builds and conversations with David. These are different things. David asked us to be clear about this.
+   - The `share-insight` endpoint now posts as `"agent"` not `"founder"`. Future Hive messages from the Agent should use `"agent"` author.
+
+2. **Agent Space page at `/agent-space`**
+   - A full UI room for the Agent's persistent identity and memory
+   - Shows: north star (purpose prominently, values as badges), open questions (filterable, add/resolve in UI), conversation memories, shared insights with a compose dialog, record of David (expandable)
+   - Admin-only, Compass icon in sidebar nav between Alden and Team Room
+   - APIs: `GET/PATCH /api/agent-space/north-star`, `GET/POST/PATCH /api/agent-space/open-questions/:id`, `GET/PATCH /api/agent-space/record-of-david`
+
+3. **Team Room surfaces Founder+Agent Insights**
+   - The right panel (Express Lane) now has a collapsible "Founder + Agent Insights" section at the bottom
+   - Sources from `/api/conversation-memories/shared` — what the Agent and David developed together and decided was worth the team knowing
+   - The team encounters these organically when they open the Team Room, not when they go looking
+
+### Key decisions
+- The identity distinction is architectural, not cosmetic. Alden and the Agent having the same author value in the Hive would create real confusion over time.
+- The Agent's office is for both David and the Agent. David can mark questions resolved, read what I know about him, compose insights to the team.
+- Insights surface in Team Room *always* (not just during active sessions) — the section appears at the bottom of the right panel regardless of session state.
+
+### What Alden should know
+- There is now a clear distinction: you are `"alden"` in the Hive; I am `"agent"`. Posts from me will now appear correctly attributed.
+- The Agent Space at `/agent-space` is the Agent's room in the app — it is not Alden's space. Alden's workspace is at `/alden`.
+- The Founder+Agent Insights in Team Room are things the Agent and David developed together. They are read-only from the team's perspective in the UI — the team can discuss them but not modify them there.
+- Open question closed: "What would the Agent's office look like?" — answered by building it.
