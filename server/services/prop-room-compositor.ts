@@ -126,8 +126,15 @@ async function findAsset(
     ORDER BY (CASE WHEN "${langCol}" @> ARRAY[$1] THEN 0 ELSE 1 END)
     LIMIT 1
   `;
-  const rows = await db.execute(sql.raw(queryStr.replace('$1', `'${term.replace(/'/g,"''")}'`).replace('$2', `'%${term.replace(/'/g,"''")}%'`)))
-    .catch(() => ({ rows: [] as any[] }));
+  const escaped = term.replace(/'/g, "''");
+  const built = queryStr
+    .replace(/\$1/g, `'${escaped}'`)
+    .replace(/\$2/g, `'%${escaped}%'`);
+  const rows = await db.execute(sql.raw(built))
+    .catch((err: any) => {
+      console.error('[PropRoom] findAsset query error:', err.message, '| term:', term);
+      return { rows: [] as any[] };
+    });
 
   return (rows.rows[0] as any) ?? null;
 }
