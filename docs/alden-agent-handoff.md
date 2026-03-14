@@ -282,3 +282,41 @@ Sofia was "offline" for the same reason: her background worker was on an instanc
 - The incorrect mic-muting fix (added then reverted in this session) is gone. It was based on the wrong hypothesis (acoustic echo). User confirmed they use headphones.
 - If future sessions show "You're back!" toast but then Juliette still seems stuck, look for state that isn't being reset in `onReconnected`. The pattern for reconnect recovery is: stop audio → clear processing → clear recording → restart mic.
 - Key reconnect files: `useStreamingVoice.ts` (`handleReconnected` ~line 1246), `StreamingVoiceChat.tsx` (both `onReconnected` callbacks).
+
+---
+
+## From Agent — Sat Mar 14, 2026 (session 6)
+
+**Session summary: Daniela ↔ Textbook bidirectional bridge — fully complete**
+
+### What was built
+
+1. **Textbook reading feeds Daniela's context** (`server/services/unified-daniela-context-service.ts`)
+   - Added `textbookReadingContext: string | null` to `UnifiedDanielaContext` interface
+   - Added `buildTextbookReadingContext(userId)` private method: queries `textbook_section_progress` for recently read lessons and `student_lesson_progress` (status='completed') for lessons Daniela has covered in conversation — both scoped to last 7 days
+   - Fetches lesson names from `curriculum_lessons` for human-readable output
+   - Injected as a new context block `📖 STUDENT'S TEXTBOOK READING PROGRESS` in `formatForPrompt()`
+   - Daniela is instructed to naturally reinforce what the student has read, and knows what she's already covered so she doesn't repeat herself
+
+2. **Daniela can mark lessons covered** (`server/services/daniela-function-registry.ts` + `server/services/native-fc-handlers.ts`)
+   - New registry entry `MARK_LESSON_COVERED` / function `mark_lesson_covered` — takes `lessonId` + `text` args
+   - Handler in native-fc-handlers.ts: upserts `student_lesson_progress` with `status = 'completed'` (no new schema columns needed — reuses existing `status` field and `'completed'` value, same as the API endpoint)
+   - Description is explicit about when NOT to call it (only after genuinely covering lesson content, not brief mentions)
+   - `buildContinuationResponse` tells Daniela whether the record was saved successfully
+
+3. **Textbook chapter view shows bridge badges** (`client/src/components/TextbookChapterView.tsx`, `client/src/components/TextbookLessonReader.tsx`)
+   - `onMarkedRead` callback wired into `TextbookLessonReader` → calls `handleMarkedRead(lessonId)` which adds to `locallyReadIds` Set for instant badge update (no refetch)
+   - Section cards spread `section.textbookRead || locallyReadIds.has(section.id)` so new reads show immediately
+   - `Section` interface in `interactive-textbook.tsx` extended with `textbookRead?: boolean` and `danielaCovered?: boolean`
+   - The chapter endpoint (`/api/textbook/:language/chapter/:chapterId`) already batch-queried both tables and returned both flags — the frontend was just not wired to use them
+
+### Key architectural decisions
+- **No new schema columns**: `student_lesson_progress.status = 'completed'` is the existing convention (used by the `/cover` API endpoint). The native function handler uses the same pattern — consistent with routes.ts.
+- **7-day window**: Textbook reading context only includes lessons from the last 7 days. Full history would bloat the prompt; 7 days covers everything a student would reasonably want reinforced in a session.
+- **Always injected when userId present**: Unlike `curriculumContext` (voice-only) or `journeyContext` (voice-only), textbook reading context is available in ALL channels (chat, voice, express) as long as a userId is set. The query is lightweight.
+
+### What Alden should know
+- The textbook bridge is now live. If a student reads "Ordering Coffee" in the textbook and opens a chat session, Daniela will see that in her context and naturally weave in those topics.
+- If Daniela genuinely teaches a lesson, she can call `mark_lesson_covered` — the textbook will show a Sparkles "Daniela covered" badge on that lesson card.
+- The `textbook_section_progress` table tracks **reading** (student-initiated in textbook). The `student_lesson_progress` table tracks **teaching** (Daniela-initiated in conversation). Two separate tables for two separate flows, but the chapter endpoint and Daniela's context both query both.
+- All existing session 4/5 reconnect behavior is unchanged — this was purely an additive feature session.

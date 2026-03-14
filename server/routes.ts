@@ -57,6 +57,7 @@ import {
   neuralNetworkTelemetry,
   tutorVoices,
   textbookSectionProgress,
+  studentLessonProgress,
   textbookUserPosition,
   textbookVisualAssets,
   syllabusProgress,
@@ -9714,6 +9715,25 @@ Return ONLY the ${targetLanguage} phrase:`;
       
       const lessons = await storage.getCurriculumLessons(chapterId);
       
+      const lessonIds = lessons.map(l => l.id);
+
+      // Batch-fetch textbook read status and Daniela-covered status for all lessons
+      const [textbookReadRecords, danielaCoveredRecords] = await Promise.all([
+        lessonIds.length > 0
+          ? getUserDb().select({ lessonId: textbookSectionProgress.lessonId, completed: textbookSectionProgress.completed })
+              .from(textbookSectionProgress)
+              .where(and(eq(textbookSectionProgress.userId, userId), inArray(textbookSectionProgress.lessonId, lessonIds)))
+          : Promise.resolve([]),
+        lessonIds.length > 0
+          ? getUserDb().select({ lessonId: studentLessonProgress.lessonId, status: studentLessonProgress.status })
+              .from(studentLessonProgress)
+              .where(and(eq(studentLessonProgress.studentId, userId), inArray(studentLessonProgress.lessonId, lessonIds)))
+          : Promise.resolve([]),
+      ]);
+
+      const textbookReadMap = new Map(textbookReadRecords.map(r => [r.lessonId, r.completed]));
+      const danielaCoveredMap = new Map(danielaCoveredRecords.map(r => [r.lessonId, r.status]));
+
       const sections = await Promise.all(lessons.map(async (lesson) => {
         const drillItems = await storage.getDrillItems(lesson.id);
         
@@ -9748,6 +9768,8 @@ Return ONLY the ${targetLanguage} phrase:`;
           drills: drillsWithProgress,
           conversationTopic: lesson.conversationTopic,
           conversationPrompt: lesson.conversationPrompt,
+          textbookRead: textbookReadMap.get(lesson.id) === true,
+          danielaCovered: danielaCoveredMap.get(lesson.id) === 'completed',
         };
       }));
       
@@ -10150,6 +10172,53 @@ Return ONLY the ${targetLanguage} phrase:`;
       });
     } catch (error: any) {
       console.error('Error fetching chapter progress:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Daniela marks a lesson as covered in conversation
+  // Also used by the frontend's "Mark as Taught" flow
+  app.post("/api/student-progress/lesson/:lessonId/cover", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getRequestUserId(req);
+      const { lessonId } = req.params;
+      const { conversationId, lessonName } = req.body;
+
+      const [existing] = await getUserDb()
+        .select()
+        .from(studentLessonProgress)
+        .where(and(eq(studentLessonProgress.studentId, userId), eq(studentLessonProgress.lessonId, lessonId)));
+
+      if (existing) {
+        await getUserDb()
+          .update(studentLessonProgress)
+          .set({ status: 'completed', conversationId: conversationId ?? existing.conversationId, updatedAt: new Date() })
+          .where(eq(studentLessonProgress.id, existing.id));
+      } else {
+        await getUserDb()
+          .insert(studentLessonProgress)
+          .values({ studentId: userId, lessonId, status: 'completed', conversationId: conversationId ?? null });
+      }
+
+      console.log(`[LessonCover] Lesson "${lessonName ?? lessonId}" marked covered for user ${userId} via conversation ${conversationId ?? 'none'}`);
+      res.json({ success: true, lessonId });
+    } catch (error: any) {
+      console.error('Error marking lesson covered:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get covered lesson IDs for the current user (used by textbook to show Daniela badges)
+  app.get("/api/student-progress/covered-lessons", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getRequestUserId(req);
+      const records = await getUserDb()
+        .select({ lessonId: studentLessonProgress.lessonId, conversationId: studentLessonProgress.conversationId, updatedAt: studentLessonProgress.updatedAt })
+        .from(studentLessonProgress)
+        .where(and(eq(studentLessonProgress.studentId, userId), eq(studentLessonProgress.status, 'completed')));
+      res.json({ coveredLessons: records });
+    } catch (error: any) {
+      console.error('Error fetching covered lessons:', error);
       res.status(500).json({ error: error.message });
     }
   });

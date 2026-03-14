@@ -50,6 +50,7 @@ export interface UnifiedDanielaContext {
   neuralNetworkContext: string | null;
   hiveContext: string | null;
   curriculumContext: string | null;
+  textbookReadingContext: string | null;
   journeyContext: string | null;
   channel: string;
   loadedAt: Date;
@@ -200,6 +201,15 @@ class UnifiedDanielaContextService {
       contextKeys.push('journeyContext');
     }
 
+    // Always include textbook reading context when a userId is present (lightweight query)
+    if (userId) {
+      contextPromises.push(this.buildTextbookReadingContext(userId.toString()));
+      contextKeys.push('textbookReadingContext');
+    } else {
+      contextPromises.push(Promise.resolve(null));
+      contextKeys.push('textbookReadingContext');
+    }
+
     const results = await Promise.all(contextPromises);
     
     const context: UnifiedDanielaContext = {
@@ -212,6 +222,7 @@ class UnifiedDanielaContextService {
       hiveContext: results[6],
       curriculumContext: results[7],
       journeyContext: results[8],
+      textbookReadingContext: results[9] ?? null,
       channel,
       loadedAt: new Date(),
     };
@@ -293,6 +304,14 @@ ${context.neuralNetworkContext}`);
 ${context.curriculumContext}`);
     }
 
+    if (context.textbookReadingContext) {
+      sections.push(`
+═══════════════════════════════════════════════════════════════════
+📖 STUDENT'S TEXTBOOK READING PROGRESS
+═══════════════════════════════════════════════════════════════════
+${context.textbookReadingContext}`);
+    }
+
     if (context.journeyContext) {
       sections.push(`
 ═══════════════════════════════════════════════════════════════════
@@ -318,6 +337,81 @@ ${context.journeyContext}`);
       );
     } catch (error) {
       console.error('[UnifiedDanielContext] Student snapshot error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Build textbook reading context — tells Daniela what the student has read recently
+   * and which lessons have been covered in conversation, so she can follow up or reinforce.
+   */
+  private async buildTextbookReadingContext(userId: string): Promise<string | null> {
+    try {
+      const { getUserDb } = await import('../db');
+      const { textbookSectionProgress, studentLessonProgress, curriculumLessons } = await import('@shared/schema');
+      const { eq, desc, inArray, and } = await import('drizzle-orm');
+      const db = getUserDb();
+
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      // Recently read lessons (marked completed in textbook)
+      const readRecords = await db
+        .select({ lessonId: textbookSectionProgress.lessonId, completedAt: textbookSectionProgress.completedAt })
+        .from(textbookSectionProgress)
+        .where(eq(textbookSectionProgress.userId, userId))
+        .orderBy(desc(textbookSectionProgress.completedAt))
+        .limit(8);
+
+      const recentlyRead = readRecords.filter(r => r.completedAt !== null && r.completedAt > sevenDaysAgo);
+
+      // Lessons Daniela has covered in conversation (status = 'completed')
+      const coveredRecords = await db
+        .select({ lessonId: studentLessonProgress.lessonId, updatedAt: studentLessonProgress.updatedAt })
+        .from(studentLessonProgress)
+        .where(and(
+          eq(studentLessonProgress.studentId, userId),
+          eq(studentLessonProgress.status, 'completed'),
+        ))
+        .orderBy(desc(studentLessonProgress.updatedAt))
+        .limit(8);
+
+      const recentlyCovered = coveredRecords.filter(r => r.updatedAt > sevenDaysAgo);
+
+      if (recentlyRead.length === 0 && recentlyCovered.length === 0) return null;
+
+      // Fetch lesson names for all relevant IDs
+      const allLessonIds = [
+        ...new Set([...recentlyRead.map(r => r.lessonId), ...recentlyCovered.map(r => r.lessonId)])
+      ];
+
+      const lessonRows = allLessonIds.length > 0
+        ? await db.select({ id: curriculumLessons.id, name: curriculumLessons.name })
+            .from(curriculumLessons)
+            .where(inArray(curriculumLessons.id, allLessonIds))
+        : [];
+
+      const lessonNameMap = new Map(lessonRows.map(l => [l.id, l.name]));
+
+      let output = '';
+
+      if (recentlyRead.length > 0) {
+        const names = recentlyRead.map(r => lessonNameMap.get(r.lessonId) ?? r.lessonId).filter(Boolean);
+        output += `Student has recently read in the textbook (last 7 days):\n`;
+        names.forEach(n => { output += `  • ${n}\n`; });
+        output += `\nINSTRUCTION: If you haven't already reinforced these topics in conversation, naturally work them in. Ask the student if they have questions about what they read, or use the vocabulary/grammar from those lessons.\n`;
+      }
+
+      if (recentlyCovered.length > 0) {
+        const names = recentlyCovered.map(r => lessonNameMap.get(r.lessonId) ?? r.lessonId).filter(Boolean);
+        output += `\nLessons you've already covered with this student in conversation (last 7 days):\n`;
+        names.forEach(n => { output += `  • ${n}\n`; });
+        output += `\nINSTRUCTION: The textbook will show these as "Daniela covered" so the student can read ahead or review. You don't need to re-teach these unless the student asks.\n`;
+      }
+
+      return output || null;
+    } catch (error) {
+      console.error('[UnifiedDanielContext] Textbook reading context error:', error);
       return null;
     }
   }

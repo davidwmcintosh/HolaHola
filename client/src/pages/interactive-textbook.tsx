@@ -50,6 +50,8 @@ interface Section {
   objectives?: string[];
   conversationTopic?: string;
   drills?: DrillItem[];
+  textbookRead?: boolean;
+  danielaCovered?: boolean;
 }
 
 interface Chapter {

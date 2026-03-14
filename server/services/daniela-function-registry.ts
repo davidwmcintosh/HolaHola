@@ -1286,6 +1286,36 @@ prop_title must exactly match the prop's title as shown in the Studio panel (e.g
       return result;
     },
   },
+  {
+    legacyType: 'MARK_LESSON_COVERED',
+    declaration: {
+      name: "mark_lesson_covered",
+      description: `Mark a curriculum lesson as "covered in conversation" so it shows as "Daniela covered" in the student's interactive textbook.
+
+USE THIS FUNCTION when you have naturally taught or practiced the core content of a specific lesson — vocabulary set, grammar topic, or scenario — during conversation. This helps the student see their textbook and chat progress in one place.
+
+ONLY call this after genuinely covering the lesson content (not just mentioning it briefly). The lesson ID should come from the student's lesson context or from a load_lesson call earlier in the session.
+
+DO NOT call this for every exchange — only when a full lesson's worth of material has been meaningfully introduced or practiced.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          lessonId: { type: "string", description: "The curriculum lesson ID that was covered in this conversation" },
+          text: { type: "string", description: "What you say to the student after covering the lesson (optional confirmation, or empty string)" },
+        },
+        required: ["lessonId", "text"],
+      },
+    },
+    buildContinuationResponse: ({ session, fc }) => {
+      const lessonId = fc.args?.lessonId;
+      const covered = (session as any).lastLessonCoveredResult;
+      delete (session as any).lastLessonCoveredResult;
+      if (covered?.success) {
+        return `Lesson "${lessonId}" has been marked as covered in conversation. The student's textbook will now show the "Daniela covered" badge for this lesson.`;
+      }
+      return `Could not mark lesson "${lessonId}" as covered — it may not exist or the student may not be enrolled. Continue the conversation normally.`;
+    },
+  },
 ];
 
 

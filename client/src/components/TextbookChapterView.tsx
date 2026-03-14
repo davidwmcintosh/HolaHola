@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +16,8 @@ import {
   Play,
   Music2,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  BookMarked,
 } from "lucide-react";
 import { LessonPrepCard } from "./TextbookInfographics";
 import { ChapterRecap } from "./ChapterRecap";
@@ -43,6 +44,8 @@ interface Section {
   estimatedMinutes: number;
   progress: number;
   isComplete: boolean;
+  textbookRead?: boolean;
+  danielaCovered?: boolean;
   hasDrills: boolean;
   drillCount: number;
   objectives?: string[];
@@ -165,13 +168,25 @@ function VisualLessonCard({
               </div>
               <div>
                 <h3 className="font-semibold text-sm">{section.name}</h3>
-                <div className="flex items-center gap-2 mt-0.5">
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   <Badge variant="outline" className="text-xs">
                     {section.lessonType}
                   </Badge>
                   <span className="text-xs text-muted-foreground">
                     {section.estimatedMinutes} min
                   </span>
+                  {section.textbookRead && (
+                    <Badge variant="secondary" className="text-xs gap-1" data-testid={`badge-read-${section.id}`}>
+                      <BookMarked className="h-3 w-3" />
+                      Read
+                    </Badge>
+                  )}
+                  {section.danielaCovered && (
+                    <Badge className="text-xs gap-1 bg-primary/20 text-primary hover:bg-primary/20" data-testid={`badge-daniela-${section.id}`}>
+                      <Sparkles className="h-3 w-3" />
+                      Daniela covered
+                    </Badge>
+                  )}
                 </div>
               </div>
             </div>
@@ -291,6 +306,9 @@ export function TextbookChapterView({
   const completedCount = chapter.sections.filter(s => s.isComplete).length;
   const viewedSectionsRef = useRef<Set<string>>(new Set());
   const [readerLesson, setReaderLesson] = useState<{ id: string; name: string } | null>(null);
+  // Local read state for immediate badge updates without refetch
+  const [locallyReadIds, setLocallyReadIds] = useState<Set<string>>(new Set());
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     viewedSectionsRef.current = new Set();
@@ -312,6 +330,12 @@ export function TextbookChapterView({
       saveProgressMutation.mutate({ lessonId: sectionId, viewed: true });
     }
   }, [saveProgressMutation]);
+
+  const handleMarkedRead = useCallback((lessonId: string) => {
+    setLocallyReadIds(prev => new Set([...prev, lessonId]));
+    // Also refresh chapter-level data in the background
+    queryClient.invalidateQueries({ queryKey: ['/api/textbook'] });
+  }, [queryClient]);
   
   const handleReviewFlashcards = () => {
     if (onReviewFlashcards) {
@@ -368,7 +392,10 @@ export function TextbookChapterView({
         {chapter.sections.map((section, index) => (
           <VisualLessonCard
             key={section.id}
-            section={section}
+            section={{
+              ...section,
+              textbookRead: section.textbookRead || locallyReadIds.has(section.id),
+            }}
             index={index}
             language={language}
             onStartConversation={onStartConversation}
@@ -403,6 +430,7 @@ export function TextbookChapterView({
         lessonName={readerLesson?.name ?? ""}
         open={!!readerLesson}
         onClose={() => setReaderLesson(null)}
+        onMarkedRead={() => readerLesson && handleMarkedRead(readerLesson.id)}
       />
     </div>
   );

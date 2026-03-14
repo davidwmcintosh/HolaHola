@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, BookOpen, Languages, HelpCircle, MessageSquare } from "lucide-react";
+import { Loader2, BookOpen, Languages, HelpCircle, MessageSquare, CheckCircle2, BookMarked } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 interface TextbookContent {
   lesson_id:                   string;
@@ -21,18 +22,41 @@ interface TextbookContent {
 }
 
 interface TextbookLessonReaderProps {
-  lessonId:   string;
-  lessonName: string;
-  open:       boolean;
-  onClose:    () => void;
+  lessonId:       string;
+  lessonName:     string;
+  open:           boolean;
+  onClose:        () => void;
+  onMarkedRead?:  () => void;
 }
 
-export function TextbookLessonReader({ lessonId, lessonName, open, onClose }: TextbookLessonReaderProps) {
+export function TextbookLessonReader({ lessonId, lessonName, open, onClose, onMarkedRead }: TextbookLessonReaderProps) {
   const [showTranslation, setShowTranslation] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery<{ content: TextbookContent | null }>({
     queryKey: ["/api/textbook-content", lessonId],
     enabled: open && !!lessonId,
+  });
+
+  const { data: progressData } = useQuery<{ progress: { completed: boolean; viewed: boolean } | null }>({
+    queryKey: ["/api/textbook/progress", lessonId],
+    enabled: open && !!lessonId,
+  });
+
+  const isAlreadyRead = progressData?.progress?.completed === true;
+
+  const markReadMutation = useMutation({
+    mutationFn: () =>
+      apiRequest("POST", `/api/textbook/progress/${lessonId}`, {
+        sectionType: "content",
+        viewed: true,
+        completed: true,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/textbook/progress", lessonId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/textbook"] });
+      onMarkedRead?.();
+    },
   });
 
   const content = data?.content;
@@ -44,6 +68,12 @@ export function TextbookLessonReader({ lessonId, lessonName, open, onClose }: Te
           <DialogTitle className="flex items-center gap-2">
             <BookOpen className="h-5 w-5 text-primary" />
             {lessonName}
+            {isAlreadyRead && (
+              <Badge variant="secondary" className="ml-1 text-xs gap-1">
+                <CheckCircle2 className="h-3 w-3" />
+                Read
+              </Badge>
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -190,6 +220,29 @@ export function TextbookLessonReader({ lessonId, lessonName, open, onClose }: Te
                 </div>
               </section>
             )}
+
+            {/* Mark as Read */}
+            <div className="pt-2 border-t flex justify-end">
+              {isAlreadyRead ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="status-lesson-read">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  Marked as read
+                </div>
+              ) : (
+                <Button
+                  onClick={() => markReadMutation.mutate()}
+                  disabled={markReadMutation.isPending}
+                  data-testid="button-mark-lesson-read"
+                >
+                  {markReadMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <BookMarked className="h-4 w-4 mr-2" />
+                  )}
+                  Mark as Read
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </DialogContent>

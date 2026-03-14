@@ -2541,6 +2541,60 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'MARK_LESSON_COVERED': {
+        const lessonId = fn.args.lessonId as string | undefined;
+        const text = fn.args.text as string | undefined;
+
+        if (text && !session.functionCallText) {
+          session.functionCallText = text;
+        }
+
+        if (lessonId && session.userId) {
+          try {
+            const { studentLessonProgress } = await import('@shared/schema');
+            const { eq, and } = await import('drizzle-orm');
+            const { getUserDb } = await import('../db');
+            const db = getUserDb();
+
+            // Upsert: set coveredByDaniela = true, update timestamp
+            const existing = await db.select()
+              .from(studentLessonProgress)
+              .where(and(
+                eq(studentLessonProgress.studentId, String(session.userId)),
+                eq(studentLessonProgress.lessonId, lessonId),
+              ))
+              .limit(1);
+
+            if (existing.length > 0) {
+              await db.update(studentLessonProgress)
+                .set({ status: 'completed', updatedAt: new Date() })
+                .where(and(
+                  eq(studentLessonProgress.studentId, String(session.userId)),
+                  eq(studentLessonProgress.lessonId, lessonId),
+                ));
+            } else {
+              await db.insert(studentLessonProgress).values({
+                studentId: String(session.userId),
+                lessonId,
+                status: 'completed',
+                updatedAt: new Date(),
+              });
+            }
+
+            console.log(`[Native Function→MarkLessonCovered] Lesson "${lessonId}" marked covered for user ${session.userId}`);
+            if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+            session.pendingMemoryLookupPromises.push(Promise.resolve());
+            (session as any).lastLessonCoveredResult = { success: true };
+          } catch (err: any) {
+            console.error(`[Native Function→MarkLessonCovered] Error:`, err.message);
+            (session as any).lastLessonCoveredResult = { success: false };
+          }
+        } else {
+          (session as any).lastLessonCoveredResult = { success: false };
+        }
+        break;
+      }
+
       default:
         console.log(`[Native Function Call] Unknown function type: ${fn.legacyType}`);
     }
