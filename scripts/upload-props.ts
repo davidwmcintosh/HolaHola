@@ -1,14 +1,18 @@
 /**
- * Upload cleaned prop images back to object storage and update the database.
+ * Upload background-removed prop images to object storage.
  *
- * Expects files named {prop_name}.png in the source folder.
- * Any file whose name matches a prop in visual_assets gets uploaded and
- * the image_url updated in the database.
+ * Writes to zone_image_url (the clean transparent version used by the compositor).
+ * The original image_url is NEVER modified — it stays as the rich full-background
+ * version used for vocabulary display.
+ *
+ * Expects files named {prop_name}.png in the source folder (use the tar.gz from the
+ * admin download button, remove backgrounds, extract, then run this).
  *
  * Run: tsx scripts/upload-props.ts --from=./props_download
  * Options:
  *   --from=./folder   Folder containing the cleaned PNG files (required)
  *   --only=cup,fork   Comma-separated subset of prop names
+ *   --replace-main    Write to image_url instead (replaces the vocab version — not recommended)
  *   --dry-run         Show what would happen without uploading
  */
 
@@ -24,6 +28,7 @@ const FROM_DIR = fromArg ? fromArg.replace('--from=', '') : null;
 const onlyArg = args.find(a => a.startsWith('--only='));
 const ONLY = onlyArg ? onlyArg.replace('--only=', '').split(',').map(s => s.trim()) : null;
 const DRY_RUN = args.includes('--dry-run');
+const REPLACE_MAIN = args.includes('--replace-main'); // writes image_url instead of zone_image_url
 
 if (!FROM_DIR) {
   console.error('Error: --from=<folder> is required');
@@ -36,8 +41,10 @@ async function main() {
     throw new Error(`Folder not found: ${absDir}`);
   }
 
+  const targetCol = REPLACE_MAIN ? 'image_url' : 'zone_image_url';
   console.log(`=== Prop Image Uploader ===`);
   console.log(`Source: ${absDir}`);
+  console.log(`Target column: ${targetCol}${REPLACE_MAIN ? ' (WARNING: replaces vocab version)' : ' (safe — vocab version untouched)'}`);
   if (DRY_RUN) console.log(`DRY RUN — no uploads\n`);
   console.log('');
 
@@ -70,9 +77,14 @@ async function main() {
     }
 
     try {
-      const filename = `prop-${safeName}-cleaned-${Date.now()}.png`;
+      const suffix = REPLACE_MAIN ? 'main' : 'zone';
+      const filename = `prop-${safeName}-${suffix}-${Date.now()}.png`;
       const newUrl = await uploadPublicBuffer(filename, buffer, 'image/png');
-      await db.execute(sql`UPDATE visual_assets SET image_url = ${newUrl} WHERE id = ${prop.id}`);
+      if (REPLACE_MAIN) {
+        await db.execute(sql`UPDATE visual_assets SET image_url = ${newUrl} WHERE id = ${prop.id}`);
+      } else {
+        await db.execute(sql`UPDATE visual_assets SET zone_image_url = ${newUrl} WHERE id = ${prop.id}`);
+      }
       console.log(`✓  → ${newUrl}`);
       succeeded++;
     } catch (err: any) {

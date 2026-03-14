@@ -17382,7 +17382,7 @@ Current conversation context:
     try {
       const sharedDb = getSharedDb();
       const rows = await sharedDb.execute(sql`
-        SELECT id, name, display_name, object_type, image_url, tags
+        SELECT id, name, display_name, object_type, image_url, zone_image_url, tags
         FROM visual_assets
         WHERE image_url IS NOT NULL AND image_url != ''
         ORDER BY object_type ASC, display_name ASC

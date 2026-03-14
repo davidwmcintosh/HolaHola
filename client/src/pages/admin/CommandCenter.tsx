@@ -4899,7 +4899,7 @@ function SceneAndPropImageSections() {
   const { data: sceneData, isLoading: scenesLoading } = useQuery<{ images: Array<{ id: string; name: string; display_name: string; description: string | null; image_url: string }> }>({
     queryKey: ['/api/admin/scene-images'],
   });
-  const { data: propData, isLoading: propsLoading } = useQuery<{ images: Array<{ id: string; name: string; display_name: string; object_type: string; image_url: string; tags: string[] | null }> }>({
+  const { data: propData, isLoading: propsLoading } = useQuery<{ images: Array<{ id: string; name: string; display_name: string; object_type: string; image_url: string; zone_image_url: string | null; tags: string[] | null }> }>({
     queryKey: ['/api/admin/prop-images'],
   });
 
@@ -5017,6 +5017,9 @@ function SceneAndPropImageSections() {
                   className="w-full aspect-square object-cover"
                   loading="lazy"
                 />
+                {img.zone_image_url && (
+                  <div className="absolute top-1 right-1 bg-emerald-500/90 text-white text-[9px] font-bold leading-none px-1 py-0.5 rounded">Z</div>
+                )}
                 <div className="absolute inset-x-0 bottom-0 bg-black/60 px-1 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   <p className="text-[10px] text-white truncate">{img.display_name || img.name}</p>
                 </div>

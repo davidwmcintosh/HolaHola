@@ -256,13 +256,13 @@ async function findEnvironment(name: string): Promise<{ id: string; image_url: s
 async function findAsset(
   term: string,
   language = 'spanish'
-): Promise<{ id: string; image_url: string; width: number; height: number; display_name: string; object_type: string } | null> {
+): Promise<{ id: string; image_url: string; zone_image_url: string | null; width: number; height: number; display_name: string; object_type: string; name: string } | null> {
   const allowed = ['spanish','french','german','italian','portuguese','japanese','korean','mandarin','english'];
   const langCol = (allowed.includes(language) ? language : 'spanish') + '_terms';
 
   // Search all language columns and tags in one query, preferring the target language
   const queryStr = `
-    SELECT id, image_url, width, height, display_name, object_type
+    SELECT id, name, image_url, zone_image_url, width, height, display_name, object_type
     FROM visual_assets
     WHERE spanish_terms    @> ARRAY[$1]
        OR english_terms    @> ARRAY[$1]
@@ -439,7 +439,7 @@ async function removeWhiteBackground(buffer: Buffer): Promise<Buffer> {
 async function compositeScene(
   base: { image_url: string; width: number; height: number },
   layers: Array<{
-    asset: { image_url: string; width: number; height: number; display_name: string; object_type: string };
+    asset: { image_url: string; zone_image_url?: string | null; width: number; height: number; display_name: string; object_type: string };
     position: string;
     emphasis: boolean;
   }>,
@@ -466,10 +466,16 @@ async function compositeScene(
     const left = Math.round(base.width * pos.cx - targetW / 2);
     const top  = Math.round(base.height * pos.cy - targetH / 2);
 
-    let rawBuffer = await downloadImageBuffer(layer.asset.image_url);
-
-    // 1. Strip near-white DALL-E backgrounds
-    rawBuffer = await removeWhiteBackground(rawBuffer);
+    // Use zone_image_url (pre-cleaned transparent PNG) when available — skip BFS.
+    // Fall back to image_url + BFS removal for assets without a cleaned version.
+    let rawBuffer: Buffer;
+    if (layer.asset.zone_image_url) {
+      rawBuffer = await downloadImageBuffer(layer.asset.zone_image_url);
+    } else {
+      rawBuffer = await downloadImageBuffer(layer.asset.image_url);
+      // 1. Strip near-white DALL-E backgrounds
+      rawBuffer = await removeWhiteBackground(rawBuffer);
+    }
 
     // 2. Resize to target dimensions, preserving transparency
     let objBuffer = await sharp(rawBuffer)
