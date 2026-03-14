@@ -734,36 +734,37 @@ export function StreamingVoiceChat({
     }
   }, [streamingVoice.state.connectionState, useStreamingMode]);
   
-  // Connection timeout: If stuck ringing/connecting for too long, redirect to language hub
-  // This prevents users from being stuck in a "calling" state forever
+  // Connection timeout: If stuck in INITIAL connecting for too long, redirect to language hub
+  // IMPORTANT: Only applies to 'connecting' (first call), NOT 'reconnecting' (auto-recovery).
+  // During reconnection after a server restart we want to stay on the page and keep retrying.
   const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const CONNECTION_TIMEOUT_MS = 30000; // 30 seconds max to connect
+  const INITIAL_CONNECTION_TIMEOUT_MS = 30000; // 30 seconds for the very first connect attempt
   
   useEffect(() => {
     if (!useStreamingMode) return;
     
     const { connectionState } = streamingVoice.state;
     
-    // Start timeout when entering connecting/reconnecting states
-    if (connectionState === 'connecting' || connectionState === 'reconnecting') {
-      // Clear any existing timeout
+    // Only timeout on INITIAL connection — reconnection has its own multi-minute retry window
+    if (connectionState === 'connecting') {
       if (connectionTimeoutRef.current) {
         clearTimeout(connectionTimeoutRef.current);
       }
       
       connectionTimeoutRef.current = setTimeout(() => {
-        console.log('[STREAMING] Connection timeout - redirecting to language hub');
+        console.log('[STREAMING] Initial connection timeout - redirecting to language hub');
         stopRinging();
         toast({
           title: "Connection timed out",
-          description: "Unable to reach Daniela. Please try again.",
+          description: "Unable to reach the tutor. Please try again.",
           variant: "destructive",
         });
         navigate(homeRoute);
-      }, CONNECTION_TIMEOUT_MS);
+      }, INITIAL_CONNECTION_TIMEOUT_MS);
     }
     
-    // Clear timeout when connected successfully or disconnected
+    // Clear timeout when connected successfully or disconnected (but NOT on reconnecting —
+    // let the client's own retry logic run uninterrupted during server restarts)
     if (connectionState === 'ready' || connectionState === 'disconnected') {
       if (connectionTimeoutRef.current) {
         clearTimeout(connectionTimeoutRef.current);

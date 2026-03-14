@@ -234,7 +234,7 @@ export class StreamingVoiceClient {
   private callbacks: Partial<StreamingVoiceCallbacks> = {};
   private state: StreamingConnectionState = 'disconnected';
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
+  private maxReconnectAttempts = 12; // Covers server restarts (fast: 3 tries ~3s, slow: 9 tries ~3 min)
   private pendingBinaryData: ArrayBuffer | null = null;
   private currentSentenceIndex = -1;
   private eventListeners: Map<StreamingEventType, Set<EventListener>> = new Map();
@@ -1494,19 +1494,29 @@ export class StreamingVoiceClient {
       return;
     }
     
-    // Attempt auto-reconnect with fast-first exponential backoff
-    // First attempt is near-instant (200ms) to minimize silence window
-    // Subsequent attempts: 1s, 2s, 4s
+    // Two-phase auto-reconnect:
+    // Phase 1 (attempts 1-3): Fast — covers brief drops / tab backgrounding (200ms, 1s, 2s)
+    // Phase 2 (attempts 4-12): Slow — covers server restarts / deployments (10s, 15s, 20s … 30s)
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
-      const delay = this.reconnectAttempts === 1 ? 200 : Math.min(Math.pow(2, this.reconnectAttempts - 2) * 1000, 5000);
+      const isServerRestartPhase = this.reconnectAttempts > 3;
+      const delay = this.reconnectAttempts === 1
+        ? 200
+        : this.reconnectAttempts <= 3
+          ? Math.pow(2, this.reconnectAttempts - 2) * 1000  // 1s, 2s
+          : Math.min((this.reconnectAttempts - 3) * 5000 + 10000, 30000); // 15s, 20s, 25s … 30s
       
       this.setState('reconnecting');
       
-      // Emit error event so UI can show reconnecting message
+      // Use distinct code so UI can show the right message
+      const code = isServerRestartPhase ? 'SERVER_RESTARTING' : 'RECONNECTING';
+      const slowAttempt = this.reconnectAttempts - 3;
+      const slowMax = this.maxReconnectAttempts - 3;
       this.emit('error', { 
-        code: 'RECONNECTING', 
-        message: `Connection lost. Reconnecting... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`,
+        code,
+        message: isServerRestartPhase
+          ? `Server is restarting. Reconnecting automatically... (${slowAttempt}/${slowMax})`
+          : `Connection lost. Reconnecting... (${this.reconnectAttempts}/3)`,
         recoverable: true 
       });
       
