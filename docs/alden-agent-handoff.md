@@ -17,7 +17,7 @@
 **Seed scripts**: Must run from `/home/runner/workspace` using `npx tsx seed-file.ts`
 **Monitoring columns**: `baseline_value, anomaly_severity, anomaly_reason, metadata` (NOT baseline, trend_direction, analysis_notes)
 **Neural network**: `self_best_practices` table (categories: tool_usage, teaching_style, pacing, communication, content, system). BeaconSync does NOT auto-pick up code changes — add entries manually after significant behavior changes.
-**Media library**: `media_files` table, 13 stock images total, 0 AI-generated (GENERATE_VISUAL and COMPOSE_VISUAL fallback should both save here via `storage.cacheImage()` — verify after next Daniela lesson).
+**Media library**: Three separate image stores — (1) `media_files` table: 13 stock images, 0 Daniela lesson-time images (these should save via `storage.cacheImage()` — verify after next Daniela lesson); (2) `visual_environments` table: 15 Agent-generated scene backgrounds (healthy, showing in library); (3) `visual_assets` table: ~50 Agent-generated prop room assets (healthy, showing in library). The `media_files` `ai_generated` bucket is specifically for images Daniela creates *during lessons* — that bucket is the one that was broken.
 **Prop-room positions**: center, left, right, foreground, background, on_table, under_table, on_floor, beside_bed, on_counter, under_counter, in_hand, on_chair, beside_table — all defined in `prop-room-compositor.ts` POSITION_MAP and `daniela-function-registry.ts` enum.
 **Important files**: `server/services/prop-room-compositor.ts`, `server/services/daniela-function-registry.ts`, `server/services/native-fc-handlers.ts`, `client/src/pages/AgentSpace.tsx`, `server/routes.ts`, `shared/schema.ts`, `replit.md`, `docs/alden-agent-handoff.md`
 
