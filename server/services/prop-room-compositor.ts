@@ -47,16 +47,20 @@ export interface ComposeResult {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const POSITION_MAP: Record<string, { cx: number; cy: number; scale: number }> = {
-  center:      { cx: 0.50, cy: 0.55, scale: 0.30 },
-  left:        { cx: 0.22, cy: 0.58, scale: 0.24 },
-  right:       { cx: 0.78, cy: 0.58, scale: 0.24 },
-  foreground:  { cx: 0.50, cy: 0.80, scale: 0.40 },
-  background:  { cx: 0.50, cy: 0.30, scale: 0.18 },
-  on_table:    { cx: 0.50, cy: 0.62, scale: 0.22 },
-  on_floor:    { cx: 0.50, cy: 0.85, scale: 0.28 },
-  beside_bed:  { cx: 0.72, cy: 0.68, scale: 0.20 },
-  on_counter:  { cx: 0.55, cy: 0.58, scale: 0.22 },
-  in_hand:     { cx: 0.50, cy: 0.60, scale: 0.18 },
+  center:        { cx: 0.50, cy: 0.55, scale: 0.30 },
+  left:          { cx: 0.22, cy: 0.58, scale: 0.24 },
+  right:         { cx: 0.78, cy: 0.58, scale: 0.24 },
+  foreground:    { cx: 0.50, cy: 0.80, scale: 0.40 },
+  background:    { cx: 0.50, cy: 0.30, scale: 0.18 },
+  on_table:      { cx: 0.50, cy: 0.62, scale: 0.22 },
+  under_table:   { cx: 0.50, cy: 0.80, scale: 0.19 }, // lower in frame, slightly smaller — visually below the table surface
+  on_floor:      { cx: 0.50, cy: 0.85, scale: 0.28 },
+  beside_bed:    { cx: 0.72, cy: 0.68, scale: 0.20 },
+  on_counter:    { cx: 0.55, cy: 0.58, scale: 0.22 },
+  under_counter: { cx: 0.45, cy: 0.78, scale: 0.18 }, // floor level below a counter
+  in_hand:       { cx: 0.50, cy: 0.60, scale: 0.18 },
+  on_chair:      { cx: 0.50, cy: 0.70, scale: 0.20 },
+  beside_table:  { cx: 0.72, cy: 0.75, scale: 0.20 },
 };
 
 const DEFAULT_POSITION = POSITION_MAP.center;

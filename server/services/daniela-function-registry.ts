@@ -379,14 +379,22 @@ const registry: DanielaFunctionEntry[] = [
       name: "compose_visual_scene",
       description: `Compose a visual scene by layering objects from the prop library onto a base environment. 
 PREFER this over generate_visual for any common vocabulary — it is instant (no wait), free (no DALL-E cost), and consistent.
-ESPECIALLY useful for teaching prepositions: compose the SAME object in different positions to show spatial contrast.
+ESPECIALLY useful for teaching prepositions: compose the SAME object in DIFFERENT positions to show spatial contrast — call this function TWICE in sequence for maximum impact.
 If a required object or environment is not yet in the library, it automatically falls back to DALL-E generation.
 
 WHEN TO USE:
 - Teaching nouns in context (la taza, la cama, la maleta)
-- Teaching prepositions (sobre/on, debajo de/under, al lado de/beside)
+- Teaching prepositions (sobre/on_table, debajo de/under_table, al lado de/beside_table, en el piso/on_floor)
 - Setting a scene at the start of a topic (hotel room for travel vocab, café for ordering food)
-- Showing the same object in multiple locations to contrast meaning`,
+- Showing the same object in multiple locations to contrast meaning
+
+PREPOSITION → POSITION MAPPING (use these exact positions for preposition lessons):
+- sobre / on top of → on_table or on_counter
+- debajo de / under → under_table or under_counter
+- al lado de / beside → beside_table or beside_bed
+- en el piso / on the floor → on_floor
+- en la silla / on the chair → on_chair
+- en la mano / in hand → in_hand`,
       parametersJsonSchema: {
         type: "object",
         properties: {
@@ -406,7 +414,7 @@ WHEN TO USE:
                 position: {
                   type: "string",
                   description: "Where to place the object",
-                  enum: ["center", "left", "right", "foreground", "background", "on_table", "on_floor", "beside_bed", "on_counter", "in_hand"],
+                  enum: ["center", "left", "right", "foreground", "background", "on_table", "under_table", "on_floor", "beside_bed", "on_counter", "under_counter", "in_hand", "on_chair", "beside_table"],
                 },
                 emphasis: { type: "boolean", description: "Highlight this object with a glow (use for the focus vocab word)" },
               },

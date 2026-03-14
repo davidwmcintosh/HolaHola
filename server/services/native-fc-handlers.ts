@@ -656,8 +656,36 @@ export class NativeFunctionCallHandler {
               const crypto = await import('crypto');
               const genResult = await generateVisual(fallbackConcept, 'image', {}, 'warm, friendly educational illustration');
               const hash = crypto.createHash('md5').update('compose_' + fallbackConcept + Date.now()).digest('hex');
-              imageUrl = await archiveImageToPermanentStorage(genResult.imageUrl, `${hash}.jpg`);
+              const archivedFilename = `${hash}.jpg`;
+              try {
+                imageUrl = await archiveImageToPermanentStorage(genResult.imageUrl, archivedFilename);
+              } catch {
+                imageUrl = genResult.imageUrl;
+              }
               sourceName = 'dalle_fallback';
+              // Save to media_files library (same as generate_visual does) so it's findable later
+              try {
+                const shortLabel = fallbackConcept.split(/[,;]/)[0].trim().substring(0, 60);
+                await storage.cacheImage({
+                  uploadedBy: null,
+                  mediaType: 'image',
+                  url: imageUrl,
+                  thumbnailUrl: null,
+                  filename: archivedFilename,
+                  mimeType: 'image/jpeg',
+                  title: shortLabel,
+                  description: fallbackConcept,
+                  tags: [environment, ...objects.map((o: any) => o.term), ...(prepCtx ? [prepCtx] : [])],
+                  language: session.targetLanguage || null,
+                  imageSource: 'ai_generated',
+                  promptHash: null,
+                  attributionJson: null,
+                  usageCount: 1,
+                });
+                console.log(`[Native Function→ComposeVisual] Fallback image saved to media library: "${shortLabel}"`);
+              } catch (saveErr: any) {
+                console.warn(`[Native Function→ComposeVisual] Failed to save fallback to library:`, saveErr.message);
+              }
             }
 
             const label = `${environment.replace(/_/g, ' ')}: ${objects.map((o: any) => o.term).join(', ')}`;
