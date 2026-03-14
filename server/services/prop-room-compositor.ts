@@ -226,31 +226,78 @@ async function downloadImageBuffer(url: string): Promise<Buffer> {
 // Background removal
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Removes near-white / near-gray pixels (DALL-E backgrounds) from a PNG buffer.
-// Uses a soft threshold so the removal feathers naturally at object edges.
+// Removes the background from a DALL-E prop image using BFS flood-fill.
+//
+// Strategy: DALL-E images often have partial transparency already (correct corners)
+// but leave near-white/near-gray fringe pixels opaque along object edges.
+// This function:
+//   1. Seeds the BFS from every already-transparent pixel
+//   2. Also seeds from image edges that are near-white (handles fully-opaque images)
+//   3. Expands outward through adjacent near-white/near-gray opaque pixels
+//   4. Sets all found pixels to alpha=0
+//
+// Because BFS only travels through CONNECTED near-white regions, it cannot
+// "leak" into a dark or saturated object even if the object itself has light areas.
 async function removeWhiteBackground(buffer: Buffer): Promise<Buffer> {
   const { data, info } = await sharp(buffer)
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
 
-  const WHITE_MIN = 220;   // pixels with all channels above this are candidates
-  const SAT_MAX   = 28;    // max channel spread allowed (low = near-gray/white)
+  const w = info.width, h = info.height;
   const buf = Buffer.from(data);
+  const pxAt = (x: number, y: number) => (y * w + x) * 4;
 
-  for (let i = 0; i < buf.length; i += 4) {
+  // A pixel qualifies as background if it is transparent OR near-white/near-gray.
+  // MIN=200 keeps light-gray object bodies (cup center: min=181) while removing
+  // near-white backgrounds (min=229-252). SAT_MAX=45 allows for slight color cast.
+  const isBackground = (x: number, y: number): boolean => {
+    const i = pxAt(x, y);
+    if (buf[i + 3] === 0) return true;
     const r = buf[i], g = buf[i + 1], b = buf[i + 2];
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    if (max >= WHITE_MIN && (max - min) <= SAT_MAX) {
-      // Smooth alpha: fully transparent at pure white, opaque at the threshold
-      const t = (max - WHITE_MIN) / (255 - WHITE_MIN);
-      buf[i + 3] = Math.round(buf[i + 3] * (1 - t));
+    return Math.min(r, g, b) >= 200 && Math.max(r, g, b) - Math.min(r, g, b) <= 45;
+  };
+
+  const visited = new Uint8Array(w * h);
+  const queue: number[] = [];
+  let head = 0; // O(1) queue drain — avoid Array.shift()
+
+  const enqueue = (x: number, y: number) => {
+    const pi = y * w + x;
+    if (!visited[pi] && isBackground(x, y)) { visited[pi] = 1; queue.push(pi); }
+  };
+
+  // Seed 1: existing transparent pixels (the "clean" background DALL-E already masked)
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (buf[pxAt(x, y) + 3] === 0) enqueue(x, y);
     }
   }
 
-  return sharp(buf, {
-    raw: { width: info.width, height: info.height, channels: 4 },
+  // Seed 2: all 4 image edges (catches fully-opaque images with no existing transparency)
+  for (let x = 0; x < w; x++) { enqueue(x, 0); enqueue(x, h - 1); }
+  for (let y = 1; y < h - 1; y++) { enqueue(0, y); enqueue(w - 1, y); }
+
+  // BFS flood-fill outward through connected near-white/near-gray pixels
+  const DIRS: [number, number][] = [[-1,0],[1,0],[0,-1],[0,1]];
+  while (head < queue.length) {
+    const pi = queue[head++];
+    const x = pi % w, y = (pi / w) | 0;
+    for (const [dx, dy] of DIRS) {
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && nx < w && ny >= 0 && ny < h) enqueue(nx, ny);
+    }
+  }
+
+  // Remove all found background pixels
+  for (let i = 0; i < queue.length; i++) {
+    buf[queue[i] * 4 + 3] = 0;
+  }
+
+  console.log(`[PropRoomCompositor] BG removal: ${queue.length} of ${w * h} pixels cleared`);
+
+  return sharp(Buffer.from(buf), {
+    raw: { width: w, height: h, channels: 4 },
   })
     .png()
     .toBuffer();
