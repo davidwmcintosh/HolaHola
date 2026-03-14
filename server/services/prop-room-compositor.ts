@@ -46,24 +46,47 @@ export interface ComposeResult {
 // Position presets (normalized 0-1 of base image dimensions)
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Base scale = fraction of scene width for a "medium" object.
+// TYPE_SCALE (below) multiplies this based on how big/small the object type actually is.
 const POSITION_MAP: Record<string, { cx: number; cy: number; scale: number }> = {
-  center:        { cx: 0.50, cy: 0.55, scale: 0.30 },
-  left:          { cx: 0.22, cy: 0.58, scale: 0.24 },
-  right:         { cx: 0.78, cy: 0.58, scale: 0.24 },
-  foreground:    { cx: 0.50, cy: 0.80, scale: 0.40 },
-  background:    { cx: 0.50, cy: 0.30, scale: 0.18 },
-  on_table:      { cx: 0.50, cy: 0.62, scale: 0.22 },
-  under_table:   { cx: 0.50, cy: 0.80, scale: 0.19 }, // lower in frame, slightly smaller — visually below the table surface
-  on_floor:      { cx: 0.50, cy: 0.85, scale: 0.28 },
-  beside_bed:    { cx: 0.72, cy: 0.68, scale: 0.20 },
-  on_counter:    { cx: 0.55, cy: 0.58, scale: 0.22 },
-  under_counter: { cx: 0.45, cy: 0.78, scale: 0.18 }, // floor level below a counter
-  in_hand:       { cx: 0.50, cy: 0.60, scale: 0.18 },
-  on_chair:      { cx: 0.50, cy: 0.70, scale: 0.20 },
-  beside_table:  { cx: 0.72, cy: 0.75, scale: 0.20 },
+  center:        { cx: 0.50, cy: 0.65, scale: 0.20 },
+  left:          { cx: 0.25, cy: 0.68, scale: 0.16 },
+  right:         { cx: 0.75, cy: 0.68, scale: 0.16 },
+  foreground:    { cx: 0.50, cy: 0.82, scale: 0.28 },
+  background:    { cx: 0.50, cy: 0.35, scale: 0.12 },
+  on_table:      { cx: 0.50, cy: 0.70, scale: 0.14 }, // table surface — lower in frame
+  under_table:   { cx: 0.38, cy: 0.84, scale: 0.18 }, // floor below table, offset left so visible
+  on_floor:      { cx: 0.50, cy: 0.87, scale: 0.22 },
+  beside_bed:    { cx: 0.72, cy: 0.74, scale: 0.14 },
+  on_counter:    { cx: 0.52, cy: 0.68, scale: 0.14 },
+  under_counter: { cx: 0.45, cy: 0.84, scale: 0.12 },
+  in_hand:       { cx: 0.50, cy: 0.62, scale: 0.12 },
+  on_chair:      { cx: 0.50, cy: 0.74, scale: 0.14 },
+  beside_table:  { cx: 0.70, cy: 0.80, scale: 0.14 },
 };
 
 const DEFAULT_POSITION = POSITION_MAP.center;
+
+// Per-object-type scale multiplier applied on top of the position base scale.
+// Values < 1 = small objects (cups, condiments); values > 1 = large objects (luggage, appliances).
+const TYPE_SCALE: Record<string, number> = {
+  tableware:     0.50,  // cups, plates, cutlery — small table items
+  beverage:      0.45,  // coffee/drink servings
+  food:          0.50,  // food items
+  food_prop:     0.60,  // bread basket etc.
+  condiment:     0.38,  // salt & pepper — tiny
+  decoration:    0.45,
+  drinkware:     0.52,  // wine glass, water pitcher
+  document:      0.60,  // passport, boarding pass
+  document_prop: 0.65,  // restaurant menu
+  access:        0.40,  // hotel key card
+  medical:       0.60,  // stethoscope, thermometer
+  household:     0.70,  // books, phones, wallets, umbrellas
+  luggage:       1.20,  // backpack, suitcase — large
+  equipment:     1.10,  // shopping cart/basket
+  appliance:     1.30,  // espresso machine
+  display:       1.20,  // produce display
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DB helpers
@@ -104,13 +127,13 @@ async function findEnvironment(name: string): Promise<{ id: string; image_url: s
 async function findAsset(
   term: string,
   language = 'spanish'
-): Promise<{ id: string; image_url: string; width: number; height: number; display_name: string } | null> {
+): Promise<{ id: string; image_url: string; width: number; height: number; display_name: string; object_type: string } | null> {
   const allowed = ['spanish','french','german','italian','portuguese','japanese','korean','mandarin','english'];
   const langCol = (allowed.includes(language) ? language : 'spanish') + '_terms';
 
   // Search all language columns and tags in one query, preferring the target language
   const queryStr = `
-    SELECT id, image_url, width, height, display_name
+    SELECT id, image_url, width, height, display_name, object_type
     FROM visual_assets
     WHERE spanish_terms    @> ARRAY[$1]
        OR english_terms    @> ARRAY[$1]
@@ -200,13 +223,47 @@ async function downloadImageBuffer(url: string): Promise<Buffer> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Background removal
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Removes near-white / near-gray pixels (DALL-E backgrounds) from a PNG buffer.
+// Uses a soft threshold so the removal feathers naturally at object edges.
+async function removeWhiteBackground(buffer: Buffer): Promise<Buffer> {
+  const { data, info } = await sharp(buffer)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const WHITE_MIN = 220;   // pixels with all channels above this are candidates
+  const SAT_MAX   = 28;    // max channel spread allowed (low = near-gray/white)
+  const buf = Buffer.from(data);
+
+  for (let i = 0; i < buf.length; i += 4) {
+    const r = buf[i], g = buf[i + 1], b = buf[i + 2];
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    if (max >= WHITE_MIN && (max - min) <= SAT_MAX) {
+      // Smooth alpha: fully transparent at pure white, opaque at the threshold
+      const t = (max - WHITE_MIN) / (255 - WHITE_MIN);
+      buf[i + 3] = Math.round(buf[i + 3] * (1 - t));
+    }
+  }
+
+  return sharp(buf, {
+    raw: { width: info.width, height: info.height, channels: 4 },
+  })
+    .png()
+    .toBuffer();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Compositor
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function compositeScene(
   base: { image_url: string; width: number; height: number },
   layers: Array<{
-    asset: { image_url: string; width: number; height: number; display_name: string };
+    asset: { image_url: string; width: number; height: number; display_name: string; object_type: string };
     position: string;
     emphasis: boolean;
   }>
@@ -218,21 +275,30 @@ async function compositeScene(
   for (const layer of layers) {
     const pos = POSITION_MAP[layer.position] ?? DEFAULT_POSITION;
 
-    const targetW = Math.round(base.width * pos.scale);
+    // Apply per-type scale multiplier so cups stay small and suitcases stay large
+    const typeMultiplier = TYPE_SCALE[layer.asset.object_type] ?? 0.85;
+    const finalScale = pos.scale * typeMultiplier;
+
+    const targetW = Math.round(base.width * finalScale);
     const targetH = Math.round(
       (layer.asset.height / layer.asset.width) * targetW
     );
     const left = Math.round(base.width * pos.cx - targetW / 2);
     const top  = Math.round(base.height * pos.cy - targetH / 2);
 
-    let objBuffer = await downloadImageBuffer(layer.asset.image_url);
+    let rawBuffer = await downloadImageBuffer(layer.asset.image_url);
 
-    objBuffer = await sharp(objBuffer)
+    // 1. Strip near-white DALL-E backgrounds
+    rawBuffer = await removeWhiteBackground(rawBuffer);
+
+    // 2. Resize to target dimensions, preserving transparency
+    let objBuffer = await sharp(rawBuffer)
       .resize(targetW, targetH, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .png()
       .toBuffer();
 
     if (layer.emphasis) {
-      // Bright outline effect: composite a slightly scaled, tinted version underneath
+      // Bright outline effect: slightly enlarged, warm-tinted glow behind the object
       const glowBuffer = await sharp(objBuffer)
         .resize(targetW + 8, targetH + 8, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
         .modulate({ brightness: 2.0, saturation: 0.3 })
