@@ -525,6 +525,25 @@ export async function composeVisualScene(req: ComposeRequest): Promise<ComposeRe
     return { success: false, source: 'fallback_needed', cacheHit: false, missingAssets: missing };
   }
 
+  // Zone enforcement: zone environments only accept surface-plausible props
+  // (ZONE_COMPATIBLE_PROPS). Vocab-only props have colored backgrounds and
+  // cannot be cleanly composited — Daniela should use generate_visual for those.
+  const isZoneEnv = ZONE_ENVIRONMENTS.has(environment) || environment === 'restaurant_table';
+  if (isZoneEnv) {
+    const notZoneCompatible = assetResults
+      .filter(r => r.asset && !ZONE_COMPATIBLE_PROPS.has(r.asset.name))
+      .map(r => r.asset!.name);
+    if (notZoneCompatible.length > 0) {
+      const zoneList = Array.from(ZONE_COMPATIBLE_PROPS).join(', ');
+      return {
+        success: false,
+        source: 'fallback_needed',
+        cacheHit: false,
+        error: `Props [${notZoneCompatible.join(', ')}] are not zone-compatible and cannot be composited onto zone environments. Zone environments only accept these surface-plausible objects: ${zoneList}. For vocab display of other props, use generate_visual instead.`,
+      };
+    }
+  }
+
   try {
     const layers = assetResults.map(({ obj, asset }) => ({
       asset: asset!,
@@ -606,6 +625,29 @@ const ZONE_STYLE = 'warm illustrated watercolor style, soft natural lighting, co
 
 // Environments that use ZONE_STYLE instead of SCENE_STYLE (close-up surface shots for preposition lessons)
 const ZONE_ENVIRONMENTS = new Set(['kitchen_counter', 'bedroom_closeup', 'desk_closeup']);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Zone-compatible props
+//
+// Only these props may be used with zone environments (Mode B — preposition
+// lessons). They are surface-plausible objects that always have plain white
+// backgrounds so the BFS flood-fill can remove them cleanly.
+//
+// All other props are "vocab-only" — they are displayed as full DALL-E images
+// without compositing and do not require background removal.
+// ─────────────────────────────────────────────────────────────────────────────
+export const ZONE_COMPATIBLE_PROPS = new Set([
+  // Drinks & drinkware
+  'cup', 'glass', 'wine_glass', 'water_pitcher',
+  'espresso', 'latte', 'coffee', 'hot chocolate', 'coffee with cream',
+  // Table setting
+  'plate', 'dinner_plate', 'fork', 'knife', 'spoon', 'napkin',
+  'bread_basket', 'salt_pepper',
+  // Common surface / desk objects
+  'book', 'cell_phone', 'menu_card', 'candle',
+  // Light food items that sit on a plate or surface
+  'apple', 'croissant',
+]);
 
 const SCENE_PROMPTS: Record<string, string> = {
   // ── Wide-shot contextual environments ──────────────────────────────────────

@@ -73,10 +73,17 @@ To add a new type: add an entry to `TYPE_SCALE` in `prop-room-compositor.ts`.
 
 **Environment-specific position calibration** — Different scenes have the table/counter at different vertical positions in the frame. The global `POSITION_MAP` is a baseline; `ENV_POSITION_OVERRIDES` in the same file provides per-environment `{ cy, cx, scale }` adjustments that override the baseline. `restaurant_table` has its table surface at ~40% from the top (so `on_table` cy=0.40 there, vs 0.70 globally). When a new environment image is added, visually inspect it and add/refine its entry in `ENV_POSITION_OVERRIDES`.
 
-**Two-mode visual scene architecture:**
-- **Mode A — Vocabulary in context** (most lessons): Use any of the 15 wide-shot environments as backdrop. Props placed at `center`, `foreground`, `left`, `right` float visibly for vocabulary reinforcement. Background sets the "where", prop teaches the word.
-- **Mode B — Preposition lessons**: Use only the dedicated close-up zone environments where surface geometry is clear and unambiguous. Three zone environments exist for this purpose: `kitchen_counter` (on_counter, under_counter), `bedroom_closeup` (beside_bed, on_table/nightstand, on_floor), `desk_closeup` (on_table, under_table, on_chair). `restaurant_table` also remains a zone environment for table prepositions.
-- Daniela's function instructions explicitly lay out both modes so she self-selects correctly.
+**Two-mode visual scene architecture + two-tier prop system:**
+
+**Mode A — Vocabulary in context**: Wide-shot environments. Daniela uses `compose_visual_scene` for zone-compatible props, or `generate_visual` for any other vocab prop (displayed as a full image, no compositing).
+
+**Mode B — Preposition lessons**: Zone environments only + zone-compatible props only. The compositor enforces this — a non-zone-compatible prop on a zone environment returns an error, not a bad composite.
+
+**Two prop tiers:**
+- **Zone-compatible props** (~22 curated): `cup, glass, wine_glass, water_pitcher, espresso, latte, coffee, hot chocolate, coffee with cream, plate, dinner_plate, fork, knife, spoon, napkin, bread_basket, salt_pepper, book, cell_phone, menu_card, candle, apple, croissant`. These always have white backgrounds and composite cleanly. Can be used in both Mode A (wide env) and Mode B (zone env).
+- **Vocab-only props**: Everything else (luggage, medical, shopping equipment, etc.) + any new prop Daniela or the dev team creates with DALL-E. Displayed as full images via `generate_visual`. No background removal ever required. The compositor (`compose_visual_scene`) will reject these on zone environments.
+
+**New prop creation flow (zero friction)**: Generate with DALL-E using "warm illustrated watercolor style, vibrant saturated colours" — backgrounds are fine and expected. Images save to the library and are displayed directly as vocabulary visuals. No background cleanup step needed. Only zone-compatible props need the white-background treatment (which our current curated 22 already have).
 
 **Zone environments** (close-up surface shots, watercolor illustrated style, `ZONE_STYLE`): `kitchen_counter`, `bedroom_closeup`, `desk_closeup`, `restaurant_table`. Wide-shot environments use `SCENE_STYLE`. Both are defined in `ZONE_STYLE` / `SCENE_STYLE` constants in `prop-room-compositor.ts`.
 

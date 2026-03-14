@@ -355,17 +355,19 @@ const registry: DanielaFunctionEntry[] = [
     legacyType: 'GENERATE_VISUAL',
     declaration: {
       name: "generate_visual",
-      description: `Create a custom AI-generated illustration to display on the whiteboard.
+      description: `Create a custom AI-generated illustration to display on the whiteboard. The image is shown as a full visual card — no background removal needed, no compositing.
 
-⚠️ DO NOT use this for preposition teaching (sobre, debajo de, al lado de, en el piso, etc.) or for placing objects in a scene — use compose_visual_scene instead. compose_visual_scene is instant, free, and purpose-built for exactly that.
-⚠️ DO NOT use this for common vocabulary nouns (taza, mochila, maleta, cama, etc.) — use compose_visual_scene instead.
+USE generate_visual for:
+1. ANY vocabulary noun that is NOT in the zone-compatible prop list (see compose_visual_scene). For example: maleta, mochila, estetoscopio, carrito de compras, termómetro, pasaporte — these are vocab-only props and must use generate_visual, not compose_visual_scene.
+2. NEW props you are creating on-the-fly for vocabulary practice — generate them with "warm illustrated watercolor style, vibrant colours" and they will be saved to the library automatically.
+3. Abstract grammar concepts (verb tense timelines, sentence structure diagrams)
+4. Rich cultural scenes with no equivalent prop-room environment
+5. Anything where a full illustrated scene works better than a composited prop
 
-ONLY use generate_visual for:
-- Abstract grammar concepts with no physical object to place (e.g. verb tense timelines)
-- Cultural scenes where no prop-room environment exists (e.g. a Mexican fiesta street scene)
-- Concepts that are genuinely impossible to compose from the library
+⚠️ DO NOT use generate_visual for PREPOSITION teaching (sobre, debajo de, al lado de) — use compose_visual_scene (Mode B) with a zone environment and a zone-compatible prop instead.
+⚠️ For zone-compatible props (cup, plate, fork, book, apple, etc.) in vocabulary context (Mode A), prefer compose_visual_scene with a wide environment — it is instant and free.
 
-If in doubt, call search_visual_library first. If the library has what you need, use compose_visual_scene.
+Style hint for new vocab props: always request "warm illustrated watercolor style, vibrant saturated colours" — this matches the existing visual library and creates a consistent look across all lessons.
 
 The image will appear on the whiteboard in a few seconds while you continue speaking. Include natural conversational words in the 'text' parameter — NOT a description of the image.`,
       parametersJsonSchema: {
@@ -389,43 +391,52 @@ The image will appear on the whiteboard in a few seconds while you continue spea
     legacyType: 'COMPOSE_VISUAL',
     declaration: {
       name: "compose_visual_scene",
-      description: `Compose a visual scene by layering objects from the prop library onto a base environment. 
-PREFER this over generate_visual for any common vocabulary — it is instant (no wait), free (no DALL-E cost), and consistent.
-ESPECIALLY useful for teaching prepositions: compose the SAME object in DIFFERENT positions to show spatial contrast — call this function TWICE in sequence for maximum impact.
-If a required object or environment is not yet in the library, it automatically falls back to DALL-E generation.
+      description: `Composite a prop from the library onto a base environment. Instant (no DALL-E cost), consistent style.
+Use for: preposition lessons (Mode B) and vocabulary reinforcement using zone-compatible props (Mode A).
+NOT for vocab display of non-zone props — use generate_visual for those.
 
-TWO MODES — choose the right one before picking environment and positions:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ZONE-COMPATIBLE PROPS (can be used in BOTH Mode A and Mode B):
+  cup, glass, wine_glass, water_pitcher
+  espresso, latte, coffee, hot chocolate, coffee with cream
+  plate, dinner_plate, fork, knife, spoon, napkin, bread_basket, salt_pepper
+  book, cell_phone, menu_card, candle
+  apple, croissant
+
+Any other prop (maleta, estetoscopio, carro de compras, termómetro, pasaporte, etc.)
+→ use generate_visual instead. These are vocab-only props shown as full images.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TWO MODES:
 
 MODE A — VOCABULARY IN CONTEXT (most lessons):
-Use any environment as a backdrop to set the scene and reinforce a word.
-Props can float at foreground/center — they don't need to land on a specific surface.
-Example: airport + boarding_pass + foreground = "el pase de abordar" in context.
-Use wide-shot environments freely here: airport, city_street, park, hotel_lobby, etc.
+Use any WIDE environment as a backdrop; prop floats at foreground/center for vocabulary reinforcement.
+Only zone-compatible props work here (see list above). For others, use generate_visual.
+Example: cafe + cup + foreground = "la taza" in context.
 
 MODE B — PREPOSITION LESSONS only:
-The spatial relationship IS the lesson. The surface geometry must be clear.
-ONLY use the dedicated zone environments below — they have visible, close-up surfaces.
-Call this function TWICE (same prop, different position) for maximum contrast impact.
+The spatial relationship IS the lesson. Use ONLY zone environments with zone-compatible props.
+Call this function TWICE (same prop, different position) for maximum spatial contrast.
+ESPECIALLY effective: cup on_table → cup under_table shows "sobre/debajo de" unmistakably.
 
-ZONE ENVIRONMENTS (use ONLY these for preposition lessons):
+ZONE ENVIRONMENTS (Mode B only):
 - restaurant_table  → on_table, under_table, beside_table, on_chair, on_floor
 - kitchen_counter   → on_counter, under_counter, on_floor
 - bedroom_closeup   → beside_bed, on_table (nightstand), on_chair, on_floor
 - desk_closeup      → on_table, under_table, on_chair, on_floor
 
-WIDE ENVIRONMENTS (MODE A only — vocabulary reinforcement, NOT preposition precision):
+WIDE ENVIRONMENTS (Mode A only):
 - cafe, kitchen, living_room, bedroom, bathroom, office, classroom, doctor_office
-  → use center, left, right, foreground, background freely
+  → center, left, right, foreground, background
 - airport, city_street, park, hotel_lobby, outdoor_market, grocery_store
-  → use center, foreground, background only
+  → center, foreground, background only
 
-PREPOSITION → POSITION MAPPING (for zone environments):
+PREPOSITION → POSITION MAPPING:
 - sobre / encima de / on top of → on_table or on_counter
 - debajo de / under → under_table, under_counter, or on_floor
 - al lado de / beside → beside_table or beside_bed
 - en el piso / on the floor → on_floor
-- en la silla / on the chair → on_chair
-- en la mano / in hand → in_hand (avoid — no human visible in most scenes)`,
+- en la silla / on the chair → on_chair`,
       parametersJsonSchema: {
         type: "object",
         properties: {
