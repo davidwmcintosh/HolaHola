@@ -576,7 +576,163 @@ Visual mouth-position or phoneme guides for sounds that don't exist in English. 
 
 ---
 
-## Cross-Language Notes
+## Section 9 — Interactive Scene Canvas (Architecture Concept)
+
+**Status: Planning — not yet built**  
+**Decision required before build: frontend compositing approach (see below)**
+
+### The Core Idea
+
+The current compositor works like a camera: it takes a snapshot of a background + props and returns one flat JPEG. Every new scene requires a server round-trip and image generation.
+
+The Interactive Scene Canvas works like a stage: the background is a persistent backdrop, and individual props are layers that Daniela can add, remove, move, or replace at any moment — without regenerating anything. The student watches the scene evolve in real time as the lesson unfolds.
+
+**Current architecture (snapshot model):**
+```
+Daniela calls compose_visual_scene → server composites PNG layers into JPEG → client receives URL → displays static image
+```
+
+**Interactive Scene Canvas (stage model):**
+```
+Daniela calls open_scene(environment) → client loads background image
+Daniela calls add_to_scene(prop, position) → client overlays transparent PNG at cx/cy coords
+Daniela calls remove_from_scene(prop) → client removes that layer (animated fade)
+Daniela calls set_clock(time) → SVG clock updates hands (no image at all)
+```
+
+### Why the Infrastructure Is Already ~60% There
+
+The prop room was built with the right primitives:
+
+| What we have | How it enables the canvas |
+|---|---|
+| `zone_image_url` transparent PNGs for 24 props | Client can overlay them as CSS layers — no server compositing |
+| `POSITION_MAP` with cx/cy as percentages | Already the right coordinate system for CSS `position: absolute; left: cx%; top: cy%` |
+| `visual_environments` background images | Client loads the background, holds it across the whole lesson |
+| `visual_assets` with all 9 language translations | Client can display the word label alongside the prop image |
+
+The only missing piece is a frontend `SceneCanvas` component that manages layers client-side, and a set of new Daniela function calls that emit canvas commands instead of returning image URLs.
+
+### Use Cases
+
+**Time & Numbers**
+- `set_clock(time: "3:15")` — SVG clock with rotating hands. Daniela says "son las tres y cuarto" and the clock moves. No image generation. Covers an entire unit of time vocabulary from one reusable component.
+- `set_calendar(day: "miércoles", month: "marzo")` — SVG calendar highlights the correct cell.
+
+**Progressive Scene Building (Restaurant)**
+- Scene opens on an empty `restaurant_table` background
+- `add_to_scene("glass", "on_table")` — water arrives
+- `add_to_scene("bread_basket", "on_table")` — bread arrives
+- `add_to_scene("dinner_plate", "on_table")` — el plato principal
+- `remove_from_scene("dinner_plate")` — cleared after dessert
+- `add_to_scene("menu_card", "on_table")` — la cuenta
+- The full dining experience in one conversation, on one canvas
+
+**Body Parts**
+- Background: illustrated neutral body outline (SVG)
+- `highlight_body_part("cabeza")` — that region glows or labels appear
+- `highlight_body_part("hombro")` — added to the active set
+- Daniela can narrate "me duele la cabeza y también el hombro" while the diagram tracks
+
+**Conjugation Table**
+- Blank table with pronoun rows
+- `fill_conjugation("yo", "hablo")` — cell fills in
+- `fill_conjugation("tú", "hablas")` — next cell
+- Student watches the pattern emerge as Daniela explains each form
+
+**World Map (Cultural)**
+- SVG map of Spanish-speaking countries
+- `highlight_country("México")` — country shades
+- `add_label("México", "Ciudad de México")` — capital appears
+- Daniela can tour the Spanish-speaking world, country by country
+
+**Other uses identified**
+- Shopping cart that fills as vocab is taught at el mercado
+- Recipe assembly: ingredients arrive on a kitchen counter as Daniela names them
+- Emotion face: SVG face that transitions between alegre / triste / sorprendido / enojado
+- Weather forecast card that updates icons as Daniela discusses the week
+- Thermometer that rises/falls for temperature vocabulary
+- Classroom seating chart where "siéntate al lado de María" is shown spatially
+
+### Canvas Command Architecture
+
+Daniela emits canvas commands that the client receives via the existing WebSocket/streaming channel. The client's whiteboard panel holds the current canvas state.
+
+**New function calls to add to Daniela's registry:**
+
+```
+open_scene(environment, label?)     → establishes background, clears any existing scene
+add_to_scene(prop, position, label?)  → adds a prop layer at cx/cy from POSITION_MAP
+remove_from_scene(prop)             → fades out and removes that layer
+move_in_scene(prop, new_position)   → animates prop from current position to new one
+clear_scene()                        → removes all props, keeps background
+
+// Special canvas types (SVG components, no images):
+set_clock(time: "HH:MM")           → rotates clock hands
+set_calendar(day, month, year?)    → highlights a date
+highlight_body_part(part, active: bool) → body diagram labeling
+fill_table_cell(row, col, value)   → conjugation table fill-in
+highlight_country(country)          → world map highlight
+```
+
+**What this replaces:**
+- `compose_visual_scene` remains for the snapshot use case (static vocab cards, Mode A wide scenes)
+- The canvas commands are the NEW primitive for interactive/progressive lessons (Mode B prepositions, time lessons, ordered vocabulary)
+
+### Frontend Component Architecture
+
+```
+<SceneCanvas>
+  ├── <SceneBackground src={environment.image_url} />   ← CSS background-image
+  ├── <SceneLayer key={prop.name}                       ← absolute positioned
+  │     src={prop.zone_image_url}
+  │     cx={POSITION_MAP[position].cx}
+  │     cy={POSITION_MAP[position].cy}
+  │     scale={POSITION_MAP[position].scale}
+  │     animate="fade-in"
+  │   />
+  ├── <ClockCanvas time={clockState.time} />            ← SVG component
+  ├── <BodyDiagram highlighted={bodyState.parts} />     ← SVG component
+  └── <ConjugationTable filled={tableState.cells} />   ← React component
+</SceneCanvas>
+```
+
+### Build Sequencing Recommendation
+
+The canvas concept has two phases:
+
+**Phase 1 — Prop layer canvas (low risk, high value)**  
+Pure client-side compositing of what we already have. No new assets needed. No new DB schema. Just a new frontend component and new Daniela function calls. Enables the progressive restaurant scene immediately with the 24 existing zone-compatible props.
+
+**Phase 2 — SVG canvas types (medium effort, extremely high value)**  
+Clock, body diagram, conjugation table, world map. Each is a standalone React/SVG component. The clock alone covers an entire vocabulary unit. The body diagram covers half of Intermediate Low health vocabulary. These should be built in Section 9's batch generation order below:
+
+| Canvas type | Lessons it covers | Build complexity |
+|---|---|---|
+| Clock (analog + hands) | All time expressions, Novice Low → Advanced | Low — pure SVG |
+| Body diagram | Body parts, health vocabulary, Intermediate Low | Medium — labeled regions |
+| Conjugation table | Every tense, every verb pattern | Low — React table component |
+| Weather icon set | Weather vocabulary, Novice Low | Low — SVG icons |
+| World map (Spanish-speaking) | Cultural units, Intermediate+ | Medium — SVG paths |
+| Emotion face | Emotions, Intermediate Mid | Low — SVG expressions |
+| Calendar | Dates, days, months, Novice Low | Low — SVG grid |
+| Thermometer | Temperature, weather, Novice High | Low — SVG fill |
+
+### Connection to Static Assets in Sections 1–8
+
+Many of the static assets listed earlier become redundant or complementary once the canvas is built:
+
+- **Clock reference cards (Section 2)** → still useful as textbook illustrations; the live clock handles lesson interactions
+- **Body diagram (referenced in Section 1)** → the static version for textbook; the SVG version for Daniela's sessions
+- **Conjugation tables (Section 3)** → the static versions are textbook/reference cards; the live fill-in version is the lesson experience
+- **Preposition maps (Section 4)** → the static card is a reference; the live prop room compositor (already built) handles lesson interactions
+- **Weather icons (Section 2)** → SVG canvas icons for live lessons; illustrated images for textbook/library
+
+The roadmap sections 1–8 describe the library of reference assets. Section 9 describes how those assets come alive in real-time lessons.
+
+---
+
+## Asset Creation Pipeline
 
 This roadmap is written for Spanish (our primary language) but the vocabulary images, time/weather visuals, preposition maps, and grammar structure cards all need to adapt to all 9 languages. The approach:
 

@@ -344,6 +344,9 @@ The visual asset roadmap is the master list of every visual we intend to pre-gen
 6. Preposition maps
 7. Continue vocabulary by level (Novice Mid → Novice High → Intermediate)
 
+### Interactive Scene Canvas (Section 9 of roadmap)
+A planned architectural evolution from snapshot compositing (server returns one flat JPEG) to a live stage (client holds a persistent background, Daniela adds/removes/moves prop layers and SVG components in real time). Key examples: a blank SVG clock whose hands Daniela rotates to show any time without regenerating an image; a restaurant table that accumulates items across an entire dining lesson (water → bread → main → dessert → la cuenta) on one persistent canvas; a body diagram Daniela annotates part by part. The infrastructure is ~60% already there — `zone_image_url` transparent PNGs + `POSITION_MAP` percentages are exactly the coordinate system CSS absolute positioning uses. The missing piece is a frontend `SceneCanvas` component. See Section 9 of the roadmap for full architecture, use cases, and build sequencing.
+
 ### Personal vocabulary (not in this list)
 Words students guide Daniela into teaching based on personal interests are intentionally excluded. Those generate on-demand via `generate_visual`. This roadmap covers only the required core that every student at a given level must learn.
 
