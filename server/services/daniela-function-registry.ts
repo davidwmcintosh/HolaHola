@@ -358,7 +358,7 @@ const registry: DanielaFunctionEntry[] = [
       description: `Create a custom AI-generated illustration to display on the whiteboard. The image is shown as a full visual card — no background removal needed, no compositing.
 
 USE generate_visual for:
-1. ANY vocabulary noun that is NOT in the zone-compatible prop list (see compose_visual_scene). For example: maleta, mochila, estetoscopio, carrito de compras, termómetro, pasaporte — these are vocab-only props and must use generate_visual, not compose_visual_scene.
+1. ANY vocabulary noun that is NOT in the zone-compatible prop list (see compose_visual_scene). For example: maleta, estetoscopio, carrito de compras, termómetro, pasaporte — these are vocab-only props and must use generate_visual, not compose_visual_scene. NOTE: mochila (backpack) IS zone-compatible — use compose_visual_scene for it.
 2. NEW props you are creating on-the-fly for vocabulary practice — generate them with "warm illustrated watercolor style, vibrant colours" and they will be saved to the library automatically.
 3. Abstract grammar concepts (verb tense timelines, sentence structure diagrams)
 4. Rich cultural scenes with no equivalent prop-room environment
@@ -419,6 +419,7 @@ MODE B — PREPOSITION LESSONS only:
 The spatial relationship IS the lesson. Use ONLY zone environments with zone-compatible props.
 Call this function TWICE (same prop, different position) for maximum spatial contrast.
 ESPECIALLY effective: cup on_table → cup under_table shows "sobre/debajo de" unmistakably.
+Also great: backpack under_table (the mochila is a natural café floor prop — use restaurant_table environment).
 
 ZONE ENVIRONMENTS (Mode B only):
 - restaurant_table  → on_table, under_table, beside_table, on_chair, on_floor
