@@ -571,13 +571,22 @@ Use the live canvas only when the SEQUENCE of changes is pedagogically meaningfu
       name: "add_to_scene",
       description: `Add a prop to the live scene canvas. The prop slides in with a gentle animation.
 
-Only works after open_scene has been called (or alongside it in the same turn).
-Only zone-compatible props work here — same list as compose_visual_scene:
+Only works after open_scene has been called. Zone-compatible props:
   cup, glass, wine_glass, water_pitcher
   espresso, latte, coffee, hot chocolate, coffee with cream
   plate, dinner_plate, fork, knife, spoon, napkin, bread_basket, salt_pepper
   book, cell_phone, menu_card, candle, apple, croissant, backpack
 
+POSITIONING — each prop must use a DIFFERENT position. Never place two props at the same position:
+  Standard restaurant table spread:
+    menu_card → "left"         candle → "right"        salt_pepper → "beside_table"
+    coffee → "center"          croissant → "right"     water_pitcher → "left"
+    plate → "center"           fork → "left"           knife → "right"
+  
+  Position reference:  left | center | right | foreground | background
+                        on_table | on_counter | beside_table | in_hand | on_chair
+
+The system auto-repositions if two props would overlap, but specifying correct positions explicitly always looks best.
 If a prop is already on the canvas, calling add_to_scene again replaces it in place.`,
       parametersJsonSchema: {
         type: "object",
@@ -677,11 +686,16 @@ After set_clock, say the time expression naturally in your speech.`,
     declaration: {
       name: "enter_immersive",
       description: `Enter fullscreen immersive mode on the student's screen.
-Use this BEFORE beginning a roleplay or scenario so the student is fully immersed in the scene.
-The student's screen will go fullscreen, showing only the scene canvas with ambient audio state indicators.
-Subtitles will appear at the bottom so the student can follow along.
-Call this right before you begin the roleplay — e.g. "¡Bienvenido al restaurante! ¿En qué le puedo servir?" 
-An exit button will always be visible so the student can leave immersive mode at any time.`,
+Use this right before beginning a roleplay scenario so the student is fully immersed.
+The student's screen goes fullscreen showing only the live scene canvas.
+
+IMPORTANT — set up the FULL scene BEFORE calling enter_immersive:
+1. Call open_scene(environment) to load the background
+2. Call add_to_scene() for every prop that should already be on the table (menu_card, candle, salt_pepper, etc.)
+3. THEN call enter_immersive() — so the student sees a fully dressed scene the moment it goes fullscreen
+Do NOT wait until the student orders to add initial scene dressing. The menu, candle, salt_pepper etc. should already be on the table when you enter immersive.
+
+An exit button is always visible so the student can leave at any time.`,
       parametersJsonSchema: {
         type: "object",
         properties: {

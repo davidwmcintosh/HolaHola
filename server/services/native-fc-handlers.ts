@@ -850,7 +850,29 @@ export class NativeFunctionCallHandler {
           on_chair:      { cx: 0.50, cy: 0.74, scale: 0.14 },
           beside_table:  { cx: 0.70, cy: 0.80, scale: 0.14 },
         };
-        const addPos = CANVAS_POSITION_MAP[addPosition] || CANVAS_POSITION_MAP.center;
+        let addPos = CANVAS_POSITION_MAP[addPosition] || CANVAS_POSITION_MAP.center;
+        // Auto-spread: if requested position is already occupied by an existing prop,
+        // cycle through fallback slots so items don't stack on top of each other
+        if (session.sceneCanvas?.props?.length) {
+          const SPREAD_FALLBACK: Array<{ cx: number; cy: number; scale: number }> = [
+            { cx: 0.25, cy: 0.68, scale: 0.16 }, // left
+            { cx: 0.50, cy: 0.65, scale: 0.20 }, // center
+            { cx: 0.75, cy: 0.68, scale: 0.16 }, // right
+            { cx: 0.35, cy: 0.80, scale: 0.14 }, // far-left-low
+            { cx: 0.65, cy: 0.80, scale: 0.14 }, // far-right-low
+            { cx: 0.50, cy: 0.82, scale: 0.22 }, // foreground
+          ];
+          const isTooClose = (a: { cx: number; cy: number }, b: { cx: number; cy: number }) =>
+            Math.abs(a.cx - b.cx) < 0.12 && Math.abs(a.cy - b.cy) < 0.12;
+          const existingProps = session.sceneCanvas.props.filter((p: any) => p.name !== addPropName);
+          if (existingProps.some((p: any) => isTooClose(addPos, p))) {
+            const available = SPREAD_FALLBACK.find(slot => !existingProps.some((p: any) => isTooClose(slot, p)));
+            if (available) {
+              console.log(`[Native Function→AddToScene] Auto-repositioning "${addPropName}" to avoid overlap`);
+              addPos = available;
+            }
+          }
+        }
         const { getUserDb: getDbForAdd } = await import('../db');
         const { sql: sqlForAdd } = await import('drizzle-orm');
         const addDb = getDbForAdd();

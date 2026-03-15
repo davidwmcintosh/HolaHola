@@ -989,6 +989,7 @@ export default function Chat() {
       <ImmersiveOverlay
         isActive={isImmersiveMode}
         sceneCanvas={activeSceneCanvas}
+        displayWhiteboardItems={displayWhiteboardItems}
         onExit={() => setIsImmersiveMode(false)}
       />
     </div>
