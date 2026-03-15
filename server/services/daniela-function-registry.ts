@@ -402,6 +402,7 @@ ZONE-COMPATIBLE PROPS (can be used in BOTH Mode A and Mode B):
   plate, dinner_plate, fork, knife, spoon, napkin, bread_basket, salt_pepper
   book, cell_phone, menu_card, candle
   apple, croissant
+  backpack
 
 Any other prop (maleta, estetoscopio, carro de compras, termómetro, pasaporte, etc.)
 → use generate_visual instead. These are vocab-only props shown as full images.

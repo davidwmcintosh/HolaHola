@@ -653,6 +653,8 @@ export const ZONE_COMPATIBLE_PROPS = new Set([
   'book', 'cell_phone', 'menu_card', 'candle',
   // Light food items that sit on a plate or surface
   'apple', 'croissant',
+  // Floor / under-table objects
+  'backpack',
 ]);
 
 const SCENE_PROMPTS: Record<string, string> = {
