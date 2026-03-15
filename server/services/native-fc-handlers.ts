@@ -778,10 +778,11 @@ export class NativeFunctionCallHandler {
         const { sql: sqlTag } = await import('drizzle-orm');
         const openDb = getUserDb();
         try {
-          const [envRow] = await openDb.execute(sqlTag`
+          const envResult = await openDb.execute(sqlTag`
             SELECT image_url, display_name FROM visual_environments WHERE name = ${sceneEnv} LIMIT 1
           `);
-          const envImageUrl = (envRow as any)?.image_url as string | undefined;
+          const envRow = envResult.rows[0] as any;
+          const envImageUrl = envRow?.image_url as string | undefined;
           if (!envImageUrl) {
             console.warn(`[Native Function→OpenScene] No image_url for environment "${sceneEnv}"`);
             break;
@@ -854,13 +855,14 @@ export class NativeFunctionCallHandler {
         const { sql: sqlForAdd } = await import('drizzle-orm');
         const addDb = getDbForAdd();
         try {
-          const [assetRow] = await addDb.execute(sqlForAdd`
+          const assetResult = await addDb.execute(sqlForAdd`
             SELECT zone_image_url, image_url, display_name FROM visual_assets
             WHERE (name = ${addPropName} OR display_name ILIKE ${addPropName})
               AND zone_image_url IS NOT NULL
             LIMIT 1
           `);
-          const propImageUrl = (assetRow as any)?.zone_image_url as string | undefined;
+          const assetRow = assetResult.rows[0] as any;
+          const propImageUrl = assetRow?.zone_image_url as string | undefined;
           if (!propImageUrl) {
             console.warn(`[Native Function→AddToScene] No zone_image_url for prop "${addPropName}" — cannot add to canvas`);
             break;
