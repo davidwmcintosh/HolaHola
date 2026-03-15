@@ -524,6 +524,152 @@ place objects in the right zones and use the correct teaching approach for each 
     },
   },
 
+  // === INTERACTIVE SCENE CANVAS ===
+
+  {
+    legacyType: 'OPEN_SCENE',
+    declaration: {
+      name: "open_scene",
+      description: `Open a persistent live canvas with a background environment.
+Unlike compose_visual_scene (which generates a flat one-shot image), open_scene starts a LIVE STAGE
+that persists across the lesson. You can then add, remove, or change props on it at any time
+without regenerating anything.
+
+Use open_scene at the START of a lesson segment that will involve a sequence of visual actions:
+- A restaurant ordering sequence (water → appetizer → main → dessert → la cuenta)
+- A time lesson where you'll move clock hands between expressions  
+- A progressive vocabulary build-up in a kitchen/café/market
+
+After open_scene, use add_to_scene / remove_from_scene / set_clock to update the canvas.
+Use clear_scene to empty all props (keeping the background).
+
+⚠️ For single static vocabulary displays, stick to compose_visual_scene — it is cached and faster.
+Use the live canvas only when the SEQUENCE of changes is pedagogically meaningful.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you're saying aloud as you open the scene." },
+          environment: {
+            type: "string",
+            description: "The background environment to load.",
+            enum: ["cafe", "restaurant_table", "hotel_lobby", "kitchen", "living_room", "bedroom", "bathroom", "park", "airport", "city_street", "office", "classroom", "outdoor_market", "grocery_store", "doctor_office", "kitchen_counter", "bedroom_closeup", "desk_closeup"],
+          },
+          label: { type: "string", description: "Optional short label shown as the scene title (e.g. 'En el restaurante')" },
+        },
+        required: ["environment"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      const env = (fc.args.environment as string || 'the scene').replace(/_/g, ' ');
+      return `Scene opened: ${env}. You can now use add_to_scene, remove_from_scene, set_clock, or clear_scene to update the live canvas.`;
+    },
+  },
+
+  {
+    legacyType: 'ADD_TO_SCENE',
+    declaration: {
+      name: "add_to_scene",
+      description: `Add a prop to the live scene canvas. The prop slides in with a gentle animation.
+
+Only works after open_scene has been called (or alongside it in the same turn).
+Only zone-compatible props work here — same list as compose_visual_scene:
+  cup, glass, wine_glass, water_pitcher
+  espresso, latte, coffee, hot chocolate, coffee with cream
+  plate, dinner_plate, fork, knife, spoon, napkin, bread_basket, salt_pepper
+  book, cell_phone, menu_card, candle, apple, croissant, backpack
+
+If a prop is already on the canvas, calling add_to_scene again replaces it in place.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you're saying as this prop arrives (e.g. 'Aquí llega el agua...')" },
+          prop_name: {
+            type: "string",
+            description: "The prop to add.",
+            enum: ["cup","glass","wine_glass","water_pitcher","espresso","latte","coffee","hot chocolate","coffee with cream","plate","dinner_plate","fork","knife","spoon","napkin","bread_basket","salt_pepper","book","cell_phone","menu_card","candle","apple","croissant","backpack"],
+          },
+          position: {
+            type: "string",
+            description: "Where to place the prop on the canvas.",
+            enum: ["center","left","right","foreground","background","on_table","under_table","on_floor","beside_bed","on_counter","under_counter","in_hand","on_chair","beside_table"],
+          },
+          label: { type: "string", description: "Target-language label shown under the prop (e.g. 'el vaso'). Defaults to the prop name." },
+        },
+        required: ["prop_name", "position"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      const prop = fc.args.prop_name as string || 'prop';
+      const pos = fc.args.position as string || 'position';
+      return `Added ${prop} at ${pos} on the live canvas. Continue the lesson — the prop is now visible to the student.`;
+    },
+  },
+
+  {
+    legacyType: 'REMOVE_FROM_SCENE',
+    declaration: {
+      name: "remove_from_scene",
+      description: `Remove a prop from the live scene canvas. It fades out smoothly.
+Use this during a progressive sequence — e.g. after the student finishes the main course, remove the dinner_plate before adding dessert.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you're saying as this prop disappears." },
+          prop_name: { type: "string", description: "The prop to remove (must match what was added earlier)." },
+        },
+        required: ["prop_name"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      return `Removed ${fc.args.prop_name} from the live canvas.`;
+    },
+  },
+
+  {
+    legacyType: 'CLEAR_SCENE',
+    declaration: {
+      name: "clear_scene",
+      description: `Remove all props from the live canvas. The background stays. Use between major scene segments.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you're saying as the scene clears." },
+        },
+        required: [],
+      },
+    },
+    buildContinuationResponse: () => `Live canvas cleared — all props removed. The background is still showing.`,
+  },
+
+  {
+    legacyType: 'SET_CLOCK',
+    declaration: {
+      name: "set_clock",
+      description: `Show an analog clock on the whiteboard set to a specific time.
+The clock is an SVG component — no image generation needed. The hands animate to the correct position.
+Call set_clock each time you introduce a new time expression:
+  "Son las tres" → set_clock("3:00")
+  "Son las tres y cuarto" → set_clock("3:15")
+  "Son las cuatro menos diez" → set_clock("3:50")
+
+If a scene canvas is already open (via open_scene), the clock appears as an overlay in the corner.
+If no scene is open, the clock is shown centered on its own.
+
+After set_clock, say the time expression naturally in your speech.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you're saying — include the time expression naturally." },
+          time: { type: "string", description: "Time in H:MM or HH:MM format (24h accepted — e.g. '15:30' for 3:30 PM). Examples: '3:00', '3:15', '15:30', '12:00'" },
+        },
+        required: ["time"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      return `Clock set to ${fc.args.time}. The analog clock is now showing on the student's screen. Continue saying the time expression.`;
+    },
+  },
+
   // === MEMORY ===
   {
     legacyType: 'MEMORY_LOOKUP',

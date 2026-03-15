@@ -762,6 +762,263 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      // ─── Interactive Scene Canvas ────────────────────────────────────────
+      // Position map (mirrors prop-room-compositor.ts POSITION_MAP)
+      // Used to resolve cx/cy/scale server-side before sending to client.
+      case 'OPEN_SCENE': {
+        const sceneEnv = fn.args.environment as string | undefined;
+        const sceneLabel = fn.args.label as string | undefined;
+        const sceneText = fn.args.text as string | undefined;
+        if (sceneText && !session.functionCallText) session.functionCallText = sceneText;
+        if (!sceneEnv) {
+          console.warn('[Native Function→OpenScene] Missing environment — skipping');
+          break;
+        }
+        const { getUserDb } = await import('../db');
+        const { sql: sqlTag } = await import('drizzle-orm');
+        const openDb = getUserDb();
+        try {
+          const [envRow] = await openDb.execute(sqlTag`
+            SELECT image_url, display_name FROM visual_environments WHERE name = ${sceneEnv} LIMIT 1
+          `);
+          const envImageUrl = (envRow as any)?.image_url as string | undefined;
+          if (!envImageUrl) {
+            console.warn(`[Native Function→OpenScene] No image_url for environment "${sceneEnv}"`);
+            break;
+          }
+          const envDisplayName = (envRow as any)?.display_name as string | undefined;
+          session.sceneCanvas = {
+            environment: sceneEnv,
+            environmentImageUrl: envImageUrl,
+            environmentLabel: sceneLabel || envDisplayName || sceneEnv.replace(/_/g, ' '),
+            props: [],
+            clockTime: undefined,
+          };
+          const openSceneUpdate = {
+            type: 'whiteboard_update' as const,
+            timestamp: Date.now(),
+            items: [{
+              id: 'scene-canvas-active',
+              type: 'scene_canvas',
+              content: sceneLabel || sceneEnv.replace(/_/g, ' '),
+              data: {
+                environment: sceneEnv,
+                environmentImageUrl: envImageUrl,
+                environmentLabel: session.sceneCanvas.environmentLabel,
+                props: [],
+                canvasAction: 'open_scene' as const,
+              },
+            }],
+          };
+          if (session.firstAudioSent) {
+            this.sendMessage(session.ws, openSceneUpdate);
+          } else {
+            if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
+            session.pendingWhiteboardUpdates.push(openSceneUpdate);
+          }
+          console.log(`[Native Function→OpenScene] Opened: ${sceneEnv}`);
+        } catch (err: any) {
+          console.error('[Native Function→OpenScene] Error:', err.message);
+        }
+        break;
+      }
+
+      case 'ADD_TO_SCENE': {
+        const addPropName = fn.args.prop_name as string | undefined;
+        const addPosition = (fn.args.position as string | undefined) || 'center';
+        const addLabel = fn.args.label as string | undefined;
+        const addText = fn.args.text as string | undefined;
+        if (addText && !session.functionCallText) session.functionCallText = addText;
+        if (!addPropName) {
+          console.warn('[Native Function→AddToScene] Missing prop_name — skipping');
+          break;
+        }
+        const CANVAS_POSITION_MAP: Record<string, { cx: number; cy: number; scale: number }> = {
+          center:        { cx: 0.50, cy: 0.65, scale: 0.20 },
+          left:          { cx: 0.25, cy: 0.68, scale: 0.16 },
+          right:         { cx: 0.75, cy: 0.68, scale: 0.16 },
+          foreground:    { cx: 0.50, cy: 0.82, scale: 0.28 },
+          background:    { cx: 0.50, cy: 0.35, scale: 0.12 },
+          on_table:      { cx: 0.50, cy: 0.70, scale: 0.14 },
+          under_table:   { cx: 0.38, cy: 0.84, scale: 0.18 },
+          on_floor:      { cx: 0.50, cy: 0.87, scale: 0.22 },
+          beside_bed:    { cx: 0.72, cy: 0.74, scale: 0.14 },
+          on_counter:    { cx: 0.52, cy: 0.68, scale: 0.14 },
+          under_counter: { cx: 0.45, cy: 0.84, scale: 0.12 },
+          in_hand:       { cx: 0.50, cy: 0.62, scale: 0.12 },
+          on_chair:      { cx: 0.50, cy: 0.74, scale: 0.14 },
+          beside_table:  { cx: 0.70, cy: 0.80, scale: 0.14 },
+        };
+        const addPos = CANVAS_POSITION_MAP[addPosition] || CANVAS_POSITION_MAP.center;
+        const { getUserDb: getDbForAdd } = await import('../db');
+        const { sql: sqlForAdd } = await import('drizzle-orm');
+        const addDb = getDbForAdd();
+        try {
+          const [assetRow] = await addDb.execute(sqlForAdd`
+            SELECT zone_image_url, image_url, display_name FROM visual_assets
+            WHERE (name = ${addPropName} OR display_name ILIKE ${addPropName})
+              AND zone_image_url IS NOT NULL
+            LIMIT 1
+          `);
+          const propImageUrl = (assetRow as any)?.zone_image_url as string | undefined;
+          if (!propImageUrl) {
+            console.warn(`[Native Function→AddToScene] No zone_image_url for prop "${addPropName}" — cannot add to canvas`);
+            break;
+          }
+          const propDisplayName = addLabel || (assetRow as any)?.display_name as string || addPropName;
+          if (!session.sceneCanvas) {
+            session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [], clockTime: undefined };
+          }
+          const existingIdx = session.sceneCanvas.props.findIndex((p: any) => p.name === addPropName);
+          const newProp = {
+            name: addPropName,
+            label: propDisplayName,
+            position: addPosition,
+            cx: addPos.cx,
+            cy: addPos.cy,
+            scale: addPos.scale,
+            imageUrl: propImageUrl,
+          };
+          if (existingIdx >= 0) {
+            session.sceneCanvas.props[existingIdx] = newProp;
+          } else {
+            session.sceneCanvas.props.push(newProp);
+          }
+          const addUpdate = {
+            type: 'whiteboard_update' as const,
+            timestamp: Date.now(),
+            items: [{
+              id: 'scene-canvas-active',
+              type: 'scene_canvas',
+              content: session.sceneCanvas.environmentLabel || session.sceneCanvas.environment,
+              data: {
+                environment: session.sceneCanvas.environment,
+                environmentImageUrl: session.sceneCanvas.environmentImageUrl,
+                environmentLabel: session.sceneCanvas.environmentLabel,
+                props: [...session.sceneCanvas.props],
+                clockTime: session.sceneCanvas.clockTime,
+                canvasAction: 'add_prop' as const,
+              },
+            }],
+          };
+          if (session.firstAudioSent) {
+            this.sendMessage(session.ws, addUpdate);
+          } else {
+            if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
+            session.pendingWhiteboardUpdates.push(addUpdate);
+          }
+          console.log(`[Native Function→AddToScene] Added "${addPropName}" at ${addPosition}`);
+        } catch (err: any) {
+          console.error('[Native Function→AddToScene] Error:', err.message);
+        }
+        break;
+      }
+
+      case 'REMOVE_FROM_SCENE': {
+        const removePropName = fn.args.prop_name as string | undefined;
+        const removeText = fn.args.text as string | undefined;
+        if (removeText && !session.functionCallText) session.functionCallText = removeText;
+        if (!removePropName || !session.sceneCanvas) break;
+        session.sceneCanvas.props = session.sceneCanvas.props.filter((p: any) => p.name !== removePropName);
+        const removeUpdate = {
+          type: 'whiteboard_update' as const,
+          timestamp: Date.now(),
+          items: [{
+            id: 'scene-canvas-active',
+            type: 'scene_canvas',
+            content: session.sceneCanvas.environmentLabel || session.sceneCanvas.environment,
+            data: {
+              environment: session.sceneCanvas.environment,
+              environmentImageUrl: session.sceneCanvas.environmentImageUrl,
+              environmentLabel: session.sceneCanvas.environmentLabel,
+              props: [...session.sceneCanvas.props],
+              clockTime: session.sceneCanvas.clockTime,
+              canvasAction: 'remove_prop' as const,
+            },
+          }],
+        };
+        if (session.firstAudioSent) {
+          this.sendMessage(session.ws, removeUpdate);
+        } else {
+          if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
+          session.pendingWhiteboardUpdates.push(removeUpdate);
+        }
+        console.log(`[Native Function→RemoveFromScene] Removed "${removePropName}"`);
+        break;
+      }
+
+      case 'CLEAR_SCENE': {
+        const clearText = fn.args.text as string | undefined;
+        if (clearText && !session.functionCallText) session.functionCallText = clearText;
+        if (!session.sceneCanvas) break;
+        session.sceneCanvas.props = [];
+        session.sceneCanvas.clockTime = undefined;
+        const clearUpdate = {
+          type: 'whiteboard_update' as const,
+          timestamp: Date.now(),
+          items: [{
+            id: 'scene-canvas-active',
+            type: 'scene_canvas',
+            content: session.sceneCanvas.environmentLabel || session.sceneCanvas.environment,
+            data: {
+              environment: session.sceneCanvas.environment,
+              environmentImageUrl: session.sceneCanvas.environmentImageUrl,
+              environmentLabel: session.sceneCanvas.environmentLabel,
+              props: [],
+              canvasAction: 'clear_scene' as const,
+            },
+          }],
+        };
+        if (session.firstAudioSent) {
+          this.sendMessage(session.ws, clearUpdate);
+        } else {
+          if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
+          session.pendingWhiteboardUpdates.push(clearUpdate);
+        }
+        console.log('[Native Function→ClearScene] Props cleared, background remains');
+        break;
+      }
+
+      case 'SET_CLOCK': {
+        const clockTime = fn.args.time as string | undefined;
+        const clockText = fn.args.text as string | undefined;
+        if (clockText && !session.functionCallText) session.functionCallText = clockText;
+        if (!clockTime) {
+          console.warn('[Native Function→SetClock] Missing time — skipping');
+          break;
+        }
+        if (!session.sceneCanvas) {
+          session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [], clockTime: undefined };
+        }
+        session.sceneCanvas.clockTime = clockTime;
+        const clockUpdate = {
+          type: 'whiteboard_update' as const,
+          timestamp: Date.now(),
+          items: [{
+            id: 'scene-canvas-active',
+            type: 'scene_canvas',
+            content: `Clock: ${clockTime}`,
+            data: {
+              environment: session.sceneCanvas.environment,
+              environmentImageUrl: session.sceneCanvas.environmentImageUrl,
+              environmentLabel: session.sceneCanvas.environmentLabel,
+              props: [...(session.sceneCanvas.props || [])],
+              clockTime,
+              canvasAction: 'set_clock' as const,
+            },
+          }],
+        };
+        if (session.firstAudioSent) {
+          this.sendMessage(session.ws, clockUpdate);
+        } else {
+          if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
+          session.pendingWhiteboardUpdates.push(clockUpdate);
+        }
+        console.log(`[Native Function→SetClock] Time set to ${clockTime}`);
+        break;
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
       case 'GET_SCENE_ZONES': {
         const sceneName = fn.args.scene_name as string | undefined;
         if (!sceneName) break;

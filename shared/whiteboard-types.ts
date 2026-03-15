@@ -73,7 +73,7 @@ export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 /**
  * Whiteboard item display types (lowercase for UI styling)
  */
-export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'call_assistant' | 'actfl_update' | 'syllabus_progress' | 'phase_shift' | 'hive' | 'self_surgery' | 'pronunciation_coaching' | 'assistant_handoff' | 'dialogue';
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'call_assistant' | 'actfl_update' | 'syllabus_progress' | 'phase_shift' | 'hive' | 'self_surgery' | 'pronunciation_coaching' | 'assistant_handoff' | 'dialogue' | 'scene_canvas';
 
 /**
  * Drill types for inline micro-exercises
@@ -783,6 +783,45 @@ export interface DialogueItem extends WhiteboardItemBase {
   data: DialogueItemData;
 }
 
+// ─── Interactive Scene Canvas ─────────────────────────────────────────────────
+
+/**
+ * A single prop layer rendered on the live scene canvas.
+ * Coordinates (cx, cy, scale) are resolved server-side from POSITION_MAP
+ * so the client can simply place the image at `left: cx*100%, top: cy*100%`.
+ */
+export interface SceneCanvasProp {
+  name: string;       // prop identifier (e.g. "glass")
+  label: string;      // target-language word shown as label
+  position: string;   // position key (e.g. "on_table")
+  cx: number;         // 0..1 horizontal center
+  cy: number;         // 0..1 vertical center
+  scale: number;      // 0..1 size relative to canvas width
+  imageUrl: string;   // zone_image_url (transparent PNG)
+}
+
+/**
+ * Full state of the live scene canvas.
+ * The server always sends the complete state so the client can simply
+ * replace any existing scene_canvas item with this one.
+ */
+export interface SceneCanvasItemData {
+  environment: string;
+  environmentImageUrl: string;
+  environmentLabel?: string;
+  props: SceneCanvasProp[];
+  clockTime?: string;       // "H:MM" — renders analog clock overlay when set
+  canvasAction: 'open_scene' | 'add_prop' | 'remove_prop' | 'set_clock' | 'clear_scene';
+}
+
+export interface SceneCanvasItem extends WhiteboardItemBase {
+  type: 'scene_canvas';
+  content: string;
+  data: SceneCanvasItemData;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+
 export type WhiteboardItem = 
   | WriteItem 
   | PhoneticItem 
@@ -810,7 +849,8 @@ export type WhiteboardItem =
   | PhaseShiftItem
   | HiveItem
   | SelfSurgeryItem
-  | DialogueItem;
+  | DialogueItem
+  | SceneCanvasItem;
 
 /**
  * Legacy interface for backward compatibility
@@ -2605,6 +2645,10 @@ export function isTextInputItem(item: WhiteboardItem): item is TextInputItem {
 
 export function isDialogueItem(item: WhiteboardItem): item is DialogueItem {
   return item.type === 'dialogue';
+}
+
+export function isSceneCanvasItem(item: WhiteboardItem): item is SceneCanvasItem {
+  return item.type === 'scene_canvas';
 }
 
 /**

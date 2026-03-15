@@ -94,7 +94,8 @@ import type {
   DialogueItem,
   DialogueLine,
 } from "@shared/whiteboard-types";
-import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isDialogueItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, isMultipleChoiceDrill, isTrueFalseDrill, isConjugationDrill, isDictationDrill, isSpeakDrill, isCognateMatchDrill, isFalseFriendTrapDrill, getDrillInstructions } from "@shared/whiteboard-types";
+import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isDialogueItem, isSceneCanvasItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, isMultipleChoiceDrill, isTrueFalseDrill, isConjugationDrill, isDictationDrill, isSpeakDrill, isCognateMatchDrill, isFalseFriendTrapDrill, getDrillInstructions } from "@shared/whiteboard-types";
+import { SceneCanvas } from "@/components/SceneCanvas";
 import type { CognatePair, FalseFriendOption } from "@shared/whiteboard-types";
 import type { ToneItem } from "@shared/whiteboard-types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -3869,6 +3870,15 @@ const WhiteboardItemDisplay = ({
 
   if (isDialogueItem(item)) {
     return <DialogueItemDisplay item={item} index={index} />;
+  }
+
+  if (isSceneCanvasItem(item)) {
+    return (
+      <SceneCanvas
+        data={item.data}
+        data-testid={`whiteboard-item-scene-canvas-${index}`}
+      />
+    );
   }
   
   return <TextItemDisplay item={item} index={index} />;

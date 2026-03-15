@@ -100,6 +100,14 @@ To add a new type: add an entry to `TYPE_SCALE` in `prop-room-compositor.ts`.
 - The compositor always checks `zone_image_url` first → falls back to `image_url` + BFS if null. So even unpopulated zone props continue to work.
 - The admin prop grid shows a green **Z** badge on any prop that has `zone_image_url` set.
 
+**Interactive Scene Canvas (Phase 1 + Clock — built March 2026)** — A live-compositing alternative to the snapshot model. Instead of generating a flat JPEG each time Daniela wants to show a scene, the canvas holds a persistent background and overlays prop images as CSS-positioned transparent PNG layers. Daniela uses five new function calls:
+- `open_scene(environment)` — loads background from `visual_environments`, clears existing props, emits `scene_canvas` whiteboard item with fixed `id: 'scene-canvas-active'`
+- `add_to_scene(prop_name, position, label?)` — queries `zone_image_url` from `visual_assets`, appends to session.sceneCanvas.props, emits full state
+- `remove_from_scene(prop_name)` — removes named prop, emits full state
+- `clear_scene()` — empties all props (background stays), emits full state
+- `set_clock(time)` — sets clockTime (format "H:MM"), emits full state; no environment needed for clock-only displays
+The fixed item ID means `addOrUpdateItems` in `useWhiteboard.ts` REPLACES the existing scene item in-place (not a new card). Client: `SceneCanvas.tsx` renders background + prop layers (framer-motion fade transitions) + `AnalogClock` SVG component (hands computed from H:MM string). Handlers: `native-fc-handlers.ts` OPEN_SCENE / ADD_TO_SCENE / REMOVE_FROM_SCENE / CLEAR_SCENE / SET_CLOCK cases (all `async`, use `getUserDb()` for DB queries). Session state: `session.sceneCanvas: { environment, environmentImageUrl, environmentLabel, props: SceneCanvasProp[], clockTime }`. No server-side image compositing — all rendering is client-side. Whiteboard type added: `'scene_canvas'` with `SceneCanvasItemData` / `SceneCanvasItem` interfaces in `shared/whiteboard-types.ts`.
+
 **Textbook vocabulary images** — The `visual_assets` table is the shared pool for ALL visual content: prop room compositing, Daniela's generate_visual, AND the interactive textbook vocab sections. When building textbook vocabulary pages, pull `image_url` from `visual_assets` directly (the full beautiful illustrated version). No separate image generation needed for words that already exist as props. New textbook-specific vocabulary items that don't need compositing only need `image_url` populated (no `zone_image_url` required).
 
 **Example insert pattern:**
