@@ -98,6 +98,8 @@ export interface StreamingSessionConfig {
   onScenarioEnded?: (data: { scenarioId?: string; scenarioSlug?: string; performanceNotes?: string }) => void;
   /** Called when a scenario prop is updated (e.g., bill filled in with items/total) */
   onPropUpdate?: (data: { propTitle: string; updates: Array<{ label: string; value: string }>; updatedFields: Array<{ label: string; value: string }> }) => void;
+  /** Called when Daniela enters or exits immersive fullscreen mode */
+  onImmersiveModeChange?: (active: boolean) => void;
 }
 
 /**
@@ -1300,6 +1302,11 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     console.log('[StreamingVoice] Prop updated:', message.propTitle);
     sessionConfigRef.current?.onPropUpdate?.(message);
   }, []);
+
+  const handleImmersiveMode = useCallback((message: any) => {
+    console.log('[StreamingVoice] Immersive mode change:', message.active);
+    sessionConfigRef.current?.onImmersiveModeChange?.(Boolean(message.active));
+  }, []);
   
   /**
    * Handle tutor handoff - triggered after current tutor says goodbye
@@ -1429,6 +1436,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('scenarioLoaded', handleScenarioLoaded);
       clientRef.current.on('scenarioEnded', handleScenarioEnded);
       clientRef.current.on('propUpdate', handlePropUpdate);
+      clientRef.current.on('immersiveMode', handleImmersiveMode);
       
       // Keep screen alive on mobile during voice session
       acquireWakeLock();
@@ -1488,7 +1496,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded, handlePropUpdate]);
+  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded, handlePropUpdate, handleImmersiveMode]);
   
   /**
    * Disconnect from streaming voice service
@@ -1528,6 +1536,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('scenarioLoaded', handleScenarioLoaded);
       clientRef.current.off('scenarioEnded', handleScenarioEnded);
       clientRef.current.off('propUpdate', handlePropUpdate);
+      clientRef.current.off('immersiveMode', handleImmersiveMode);
       clientRef.current.disconnect();
       clientRef.current = null;
     }

@@ -18,6 +18,7 @@ import { useCredits } from "@/contexts/UsageContext";
 import { InsufficientCreditsDialog } from "@/components/InsufficientCreditsDialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DevToolsFloatingMenu } from "@/components/DevToolsFloatingMenu";
+import { ImmersiveOverlay } from "@/components/ImmersiveOverlay";
 import type { WhiteboardItem, ScenarioItemData, SceneCanvasItemData } from "@shared/whiteboard-types";
 import { isScenarioItem, isSceneCanvasItem } from "@shared/whiteboard-types";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -62,6 +63,7 @@ export default function Chat() {
   
   const [loadedScenarioData, setLoadedScenarioData] = useState<any>(null);
   const [studioImages, setStudioImages] = useState<Array<{ word: string; description: string; imageUrl: string; context?: string }>>([]);
+  const [isImmersiveMode, setIsImmersiveMode] = useState(false);
   
   const whiteboardScenario = whiteboardItems.find(isScenarioItem)?.data as ScenarioItemData | undefined ?? null;
   const activeSceneCanvas = whiteboardItems.find(isSceneCanvasItem)?.data as SceneCanvasItemData | undefined ?? null;
@@ -730,6 +732,7 @@ export default function Chat() {
                     });
                   }}
                   onStudioImage={(img) => setStudioImages(prev => [...prev.slice(-4), img])}
+                  onImmersiveModeChange={setIsImmersiveMode}
                 />
             ) : (
               <ChatInterface 
@@ -980,6 +983,13 @@ export default function Chat() {
         reason={supportHandoffContext?.reason || ''}
         priority={supportHandoffContext?.priority || 'normal'}
         mode="support"
+      />
+
+      {/* Immersive fullscreen overlay — driven by Daniela's enter_immersive / exit_immersive */}
+      <ImmersiveOverlay
+        isActive={isImmersiveMode}
+        sceneCanvas={activeSceneCanvas}
+        onExit={() => setIsImmersiveMode(false)}
       />
     </div>
   );

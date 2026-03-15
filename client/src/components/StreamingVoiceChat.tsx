@@ -147,6 +147,7 @@ interface StreamingVoiceChatProps {
   onScenarioEnded?: (data: { scenarioId?: string; scenarioSlug?: string; performanceNotes?: string }) => void;
   onPropUpdate?: (data: { propTitle: string; updates: Array<{ label: string; value: string }>; updatedFields: Array<{ label: string; value: string }> }) => void;
   onStudioImage?: (image: { word: string; description: string; imageUrl: string; context?: string }) => void;
+  onImmersiveModeChange?: (active: boolean) => void;
   /** Override the language sent to the server without touching the user's stored language preference.
    *  Use this for subject pages (biology, history) so their subject identifier reaches the WS handler
    *  but does NOT bleed into the user's learning-language context. */
@@ -172,6 +173,7 @@ export function StreamingVoiceChat({
   onScenarioEnded,
   onPropUpdate,
   onStudioImage,
+  onImmersiveModeChange,
   targetLanguageOverride,
   homeRoute = '/chat',
 }: StreamingVoiceChatProps) {
@@ -979,6 +981,9 @@ export function StreamingVoiceChat({
           },
           onPropUpdate: (data) => {
             onPropUpdate?.(data);
+          },
+          onImmersiveModeChange: (active) => {
+            onImmersiveModeChange?.(active);
           },
           onVadSpeechStarted: () => {
             // TRUE DUPLEX: Always handle VAD speech events for visual feedback
@@ -2999,6 +3004,9 @@ export function StreamingVoiceChat({
               },
               onPropUpdate: (data) => {
                 onPropUpdate?.(data);
+              },
+              onImmersiveModeChange: (active) => {
+                onImmersiveModeChange?.(active);
               },
               onVadSpeechStarted: () => {
                 // TRUE DUPLEX: Always handle VAD speech events for visual feedback

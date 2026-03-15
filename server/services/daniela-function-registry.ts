@@ -670,6 +670,47 @@ After set_clock, say the time expression naturally in your speech.`,
     },
   },
 
+  // === IMMERSIVE MODE ===
+
+  {
+    legacyType: 'ENTER_IMMERSIVE',
+    declaration: {
+      name: "enter_immersive",
+      description: `Enter fullscreen immersive mode on the student's screen.
+Use this BEFORE beginning a roleplay or scenario so the student is fully immersed in the scene.
+The student's screen will go fullscreen, showing only the scene canvas with ambient audio state indicators.
+Subtitles will appear at the bottom so the student can follow along.
+Call this right before you begin the roleplay — e.g. "¡Bienvenido al restaurante! ¿En qué le puedo servir?" 
+An exit button will always be visible so the student can leave immersive mode at any time.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you say aloud as you enter immersive mode — your opening line of the scenario." },
+        },
+        required: [],
+      },
+    },
+    buildContinuationResponse: () => `Immersive mode activated. The student's screen is now fullscreen. Begin the roleplay scenario now.`,
+  },
+
+  {
+    legacyType: 'EXIT_IMMERSIVE',
+    declaration: {
+      name: "exit_immersive",
+      description: `Exit fullscreen immersive mode and return to the normal lesson view.
+Call this when the roleplay or scenario is complete, or when you need to return to teaching mode.
+Use this after giving performance feedback or when transitioning to a new activity.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you say aloud as you exit immersive mode — e.g. wrapping up the scenario." },
+        },
+        required: [],
+      },
+    },
+    buildContinuationResponse: () => `Immersive mode deactivated. The student's screen has returned to normal lesson view.`,
+  },
+
   // === MEMORY ===
   {
     legacyType: 'MEMORY_LOOKUP',

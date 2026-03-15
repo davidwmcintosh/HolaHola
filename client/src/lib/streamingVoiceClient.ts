@@ -222,6 +222,8 @@ type StreamingEventType =
   | 'textInputRequest'   // Server command to request text input
   | 'scenarioLoaded'     // Immersive scenario loaded from library
   | 'scenarioEnded'      // Active scenario ended
+  | 'propUpdate'         // Scenario prop updated
+  | 'immersiveMode'      // Enter/exit immersive fullscreen mode
   | 'error';
 
 /**
@@ -1187,7 +1189,12 @@ export class StreamingVoiceClient {
           console.log('[StreamingVoice] Prop updated:', message.propTitle);
           this.emit('propUpdate', message);
           break;
-          
+
+        case 'immersive_mode':
+          console.log('[StreamingVoice] Immersive mode:', message.active ? 'entering' : 'exiting');
+          this.emit('immersiveMode', message);
+          break;
+
         case 'activity':
           // Keep-alive message from server during speculative PTT suppression
           // Intentionally ignored - just prevents heartbeat timeout

@@ -1021,6 +1021,36 @@ export class NativeFunctionCallHandler {
       }
       // ─────────────────────────────────────────────────────────────────────
 
+      case 'ENTER_IMMERSIVE': {
+        const immersiveText = fn.args.text as string | undefined;
+        if (immersiveText && !session.functionCallText) session.functionCallText = immersiveText;
+        const enterMsg = { type: 'immersive_mode' as const, active: true, timestamp: Date.now() };
+        if (session.firstAudioSent) {
+          this.sendMessage(session.ws, enterMsg);
+        } else {
+          session.pendingWhiteboardUpdates = session.pendingWhiteboardUpdates || [];
+          session.pendingWhiteboardUpdates.push(enterMsg as any);
+        }
+        console.log('[Native Function→EnterImmersive] Immersive mode activated');
+        break;
+      }
+
+      case 'EXIT_IMMERSIVE': {
+        const exitText = fn.args.text as string | undefined;
+        if (exitText && !session.functionCallText) session.functionCallText = exitText;
+        const exitMsg = { type: 'immersive_mode' as const, active: false, timestamp: Date.now() };
+        if (session.firstAudioSent) {
+          this.sendMessage(session.ws, exitMsg);
+        } else {
+          session.pendingWhiteboardUpdates = session.pendingWhiteboardUpdates || [];
+          session.pendingWhiteboardUpdates.push(exitMsg as any);
+        }
+        console.log('[Native Function→ExitImmersive] Immersive mode deactivated');
+        break;
+      }
+
+      // ─────────────────────────────────────────────────────────────────────
+
       case 'GET_SCENE_ZONES': {
         const sceneName = fn.args.scene_name as string | undefined;
         if (!sceneName) break;
