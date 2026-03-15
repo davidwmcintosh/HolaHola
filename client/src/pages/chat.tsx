@@ -18,8 +18,8 @@ import { useCredits } from "@/contexts/UsageContext";
 import { InsufficientCreditsDialog } from "@/components/InsufficientCreditsDialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DevToolsFloatingMenu } from "@/components/DevToolsFloatingMenu";
-import type { WhiteboardItem, ScenarioItemData } from "@shared/whiteboard-types";
-import { isScenarioItem } from "@shared/whiteboard-types";
+import type { WhiteboardItem, ScenarioItemData, SceneCanvasItemData } from "@shared/whiteboard-types";
+import { isScenarioItem, isSceneCanvasItem } from "@shared/whiteboard-types";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function Chat() {
@@ -64,6 +64,8 @@ export default function Chat() {
   const [studioImages, setStudioImages] = useState<Array<{ word: string; description: string; imageUrl: string; context?: string }>>([]);
   
   const whiteboardScenario = whiteboardItems.find(isScenarioItem)?.data as ScenarioItemData | undefined ?? null;
+  const activeSceneCanvas = whiteboardItems.find(isSceneCanvasItem)?.data as SceneCanvasItemData | undefined ?? null;
+  const displayWhiteboardItems = whiteboardItems.filter(item => !isSceneCanvasItem(item));
   const activeScenario: ScenarioItemData | null = loadedScenarioData
     ? {
         location: loadedScenarioData.location || loadedScenarioData.title,
@@ -679,12 +681,13 @@ export default function Chat() {
       />
       <div className="flex-1 min-h-0 flex">
         <DesktopChatLayout
-          whiteboardItems={whiteboardItems}
+          whiteboardItems={displayWhiteboardItems}
           onClearWhiteboard={whiteboardCallbacksRef.current?.clear}
           onDrillComplete={whiteboardCallbacksRef.current?.drillComplete}
           onTextInputSubmit={whiteboardCallbacksRef.current?.textInputSubmit}
           activeScenario={activeScenario}
           studioImages={studioImages}
+          sceneCanvas={activeSceneCanvas}
         >
           {/* Main chat area */}
           <div className="h-full relative">

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { ScenarioPanel } from "./ScenarioPanel";
 import { WhiteboardPanel } from "./WhiteboardPanel";
 import type { WhiteboardItem } from "@shared/whiteboard-types";
-import type { ScenarioItemData } from "@shared/whiteboard-types";
+import type { ScenarioItemData, SceneCanvasItemData } from "@shared/whiteboard-types";
 
 export interface StudioImage {
   word: string;
@@ -19,6 +19,7 @@ interface DesktopChatLayoutProps {
   onTextInputSubmit?: (itemId: string, response: string) => void;
   activeScenario?: ScenarioItemData | null;
   studioImages?: StudioImage[];
+  sceneCanvas?: SceneCanvasItemData | null;
 }
 
 type ScreenSize = "mobile" | "tablet" | "desktop";
@@ -53,16 +54,17 @@ export function DesktopChatLayout({
   onTextInputSubmit,
   activeScenario,
   studioImages,
+  sceneCanvas,
 }: DesktopChatLayoutProps) {
   const screenSize = useScreenSize();
   const [scenarioCollapsed, setScenarioCollapsed] = useState(false);
   const [whiteboardCollapsed, setWhiteboardCollapsed] = useState(false);
 
   useEffect(() => {
-    if (activeScenario && screenSize === "desktop") {
+    if ((activeScenario || sceneCanvas) && screenSize === "desktop") {
       setScenarioCollapsed(false);
     }
-  }, [activeScenario, screenSize]);
+  }, [activeScenario, sceneCanvas, screenSize]);
 
   if (screenSize === "mobile") {
     return <>{children}</>;
@@ -76,6 +78,7 @@ export function DesktopChatLayout({
           isCollapsed={scenarioCollapsed}
           onToggleCollapse={() => setScenarioCollapsed((prev) => !prev)}
           studioImages={studioImages}
+          sceneCanvas={sceneCanvas}
         />
       )}
 
