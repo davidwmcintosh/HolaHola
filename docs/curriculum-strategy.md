@@ -312,7 +312,44 @@ Should we update Lyra's audit criteria to catch these? The audit script exists �
 
 ---
 
-## 7. Archived Docs (Superseded)
+## 8. Visual Asset Roadmap
+
+**Full document:** `docs/visual-asset-roadmap.md`  
+**Last updated:** March 15, 2026
+
+The visual asset roadmap is the master list of every visual we intend to pre-generate for the platform. It covers eight categories:
+
+1. **Core vocabulary images** — concrete nouns and verbs sorted by ACTFL level and thematic cluster (people, places, things, activities). ~250–300 words students must know regardless of personal interests. Generated as illustrated watercolor images matching the current prop library style.
+
+2. **Numbers, time & weather** — cross-ACTFL foundational visuals used at every level. Clocks, calendars, seasons, number scales, weather icons, ¿Qué tiempo hace? reference cards. Among the highest-ROI assets to generate first because they appear in every level.
+
+3. **Grammar structure cards** — conjugation tables, SER vs ESTAR decision tree, preterite vs imperfect contrast diagram, por vs para decision tree, object pronoun placement, adjective agreement. Built as React/SVG components in `TextbookInfographics.tsx` — not images.
+
+4. **Preposition maps** — spatial (full room diagram with en/sobre/debajo de/delante de/detrás de etc.), motion (map with directional arrows for a/hacia/desde/por/para), temporal (timeline for antes de/después de/desde/hasta). Static reference cards that complement the dynamic prop room compositor.
+
+5. **Cultural infographics** — Spanish-speaking world map, regional food guide, festival calendar, tú vs usted register guide, gesture guide, dialect map, currency overview.
+
+6. **Word family maps** — branching diagrams connecting a root verb to its noun/adjective/adverb forms (hablar → habla, hablante, hablador, hablado). Most valuable at Intermediate+.
+
+7. **False cognate warning cards** — high-impact because they prevent real mistakes. embarazada ≠ embarrassed, éxito ≠ exit, librería ≠ library, etc.
+
+8. **Phonetic/pronunciation guides** — vowel purity chart, rolled R, silent H, J sound, stress rules — for self-study between sessions.
+
+### Batch generation order
+1. Numbers 0–20 (illustrated)
+2. Time — clocks, days, months, seasons
+3. Weather set — all illustrated icons + reference card
+4. Novice Low vocabulary — people, places, things, activities
+5. Grammar diagrams — SER/ESTAR/TENER + core decision trees
+6. Preposition maps
+7. Continue vocabulary by level (Novice Mid → Novice High → Intermediate)
+
+### Personal vocabulary (not in this list)
+Words students guide Daniela into teaching based on personal interests are intentionally excluded. Those generate on-demand via `generate_visual`. This roadmap covers only the required core that every student at a given level must learn.
+
+---
+
+## 9. Archived Docs (Superseded)
 
 These files can be deleted or kept for reference. Their content has been consolidated here:
 
