@@ -496,6 +496,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     // CRITICAL: Set processing state when server indicates new turn is processing
     // This ensures thinking indicator shows for server-initiated responses (tutor handoffs, etc.)
     setIsProcessing(true);
+    setGlobalPlaybackState('thinking');
     
     // Reset audio received flag for new turn
     audioReceivedInTurnRef.current = false;
@@ -536,6 +537,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     
     // IMMEDIATELY show thinking indicator
     setIsProcessing(true);
+    setGlobalPlaybackState('thinking');
     audioReceivedInTurnRef.current = false;
     
     // Start processing timeout (same as handleProcessing)
