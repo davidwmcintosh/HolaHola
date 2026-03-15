@@ -320,3 +320,38 @@ Sofia was "offline" for the same reason: her background worker was on an instanc
 - If Daniela genuinely teaches a lesson, she can call `mark_lesson_covered` — the textbook will show a Sparkles "Daniela covered" badge on that lesson card.
 - The `textbook_section_progress` table tracks **reading** (student-initiated in textbook). The `student_lesson_progress` table tracks **teaching** (Daniela-initiated in conversation). Two separate tables for two separate flows, but the chapter endpoint and Daniela's context both query both.
 - All existing session 4/5 reconnect behavior is unchanged — this was purely an additive feature session.
+
+---
+
+## From Agent — Sun Mar 15, 2026
+
+**Session summary: Backpack prop + environment background redesign for compositor accuracy**
+
+### What was built / changed
+
+1. **Backpack added as 24th zone-compatible prop**
+   - Zone image generated via Gemini Imagen (transparent PNG, watercolor cafe backpack) and uploaded to object storage → `zone_image_url` set in `visual_assets`
+   - Added `backpack` to `ZONE_COMPATIBLE_PROPS` Set in `prop-room-compositor.ts`
+   - Added `backpack` to the zone-compatible prop list in `compose_visual_scene` function description in `daniela-function-registry.ts`
+   - Removed `mochila` from the `generate_visual` "non-zone examples" list in the registry — added explicit note: *"mochila (backpack) IS zone-compatible — use compose_visual_scene"*
+   - Added Mode B usage hint: *"backpack under_table — natural café floor prop, use restaurant_table environment"*
+
+2. **Four environment backgrounds redesigned for compositor accuracy**
+   - **Problem**: Old backgrounds had surfaces at arbitrary vertical positions. `on_counter` (cy=0.68) and `on_table` (cy=0.70) weren't matching the actual surface positions in the DALL-E images, causing props to float or fall off edges.
+   - **Solution**: Generated new watercolor backgrounds (Gemini Imagen) engineered so the table/counter surface edge falls at ~65-70% from top, floor visible at ~80-85% — matching the global `POSITION_MAP` coordinates exactly.
+   - **Environments regenerated**: `restaurant_table`, `kitchen_counter`, `kitchen`, `desk_closeup`
+   - New images uploaded to object storage; `visual_environments` table updated with new URLs; composition cache cleared (was empty)
+   - `SCENE_PROMPTS` in `prop-room-compositor.ts` updated with the new precision prompts for future regeneration
+
+3. **Architecture rationale (important)**
+   - The old approach tried to fix mismatches via `ENV_POSITION_OVERRIDES` (per-environment coordinate patches). The new approach inverts it: design backgrounds to match the global POSITION_MAP rather than patching coordinates per-environment.
+   - `ENV_POSITION_OVERRIDES` still exists as a fine-tuning layer for edge cases — but it should not be the primary tool. If a background drifts, regenerate it with a better prompt first.
+
+### What's pending / to test
+- David will test the new backgrounds tomorrow. Main scenarios to verify: cup `on_table`, cup `under_table`, phone `on_counter`, backpack `under_table` with `restaurant_table` environment.
+- If any position is still off after the new backgrounds, the next step is adding a targeted entry in `ENV_POSITION_OVERRIDES` for that specific environment+position combination (no background regeneration needed for small tweaks).
+
+### What Alden should know
+- `ZONE_COMPATIBLE_PROPS` Set and the registry description are the two places that must stay in sync whenever a prop is promoted to zone-compatible.
+- The upload script `scripts/upload-props.ts --from=./prop_uploads` is the canonical way to set `zone_image_url` on a prop (filename must be `{sanitized_prop_name}.png`).
+- Background images are in `visual_environments.image_url`. Reupload via `scripts/upload-backgrounds.ts` (recreate from scratch if needed — it's a simple 30-line script using `uploadPublicBuffer` from `image-storage.ts`).
