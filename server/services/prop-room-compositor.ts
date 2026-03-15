@@ -668,19 +668,20 @@ const SCENE_PROMPTS: Record<string, string> = {
   doctor_office:    'A welcoming doctor\'s examination room — padded exam table, desk with medical charts, anatomical poster on wall, instrument tray, plants, soft lighting',
   grocery_store:    'Inside a well-stocked grocery store — colourful produce section with fresh fruits and vegetables in wooden bins, hanging signs for each aisle, shopping carts',
   hotel_lobby:      'A grand hotel lobby — polished marble front desk with staff, plush seating area, potted palms, luggage racks, elevator doors, chandeliers',
-  kitchen:          'A warm home kitchen — granite countertops, stove and oven, refrigerator, wooden cabinets, cutting board with vegetables, herbs on windowsill',
+  kitchen:          'Wide shot of a warm home kitchen — a kitchen island with smooth stone counter surface occupies the center-lower portion of the image, the island top at roughly 60% from the top, with the island\'s wooden base and a strip of tile floor visible in the bottom 20%; in the background a stove, refrigerator, cabinets, and a window with herbs on the sill; the island counter surface is completely empty',
   living_room:      'A comfortable living room — sofa with throw pillows, wooden coffee table, bookshelf, television on wall unit, rug, plants, afternoon sunlight',
   office:           'A modern open-plan office — rows of desks with computers, glass meeting room in background, reception desk, potted plants, city view through large windows',
   outdoor_market:   'A lively outdoor street market — colourful vendor stalls with awnings, crates of fresh produce, shoppers browsing, cobblestone square, blue sky',
   park:             'A sunny public park — winding path through green trees, wooden benches, families picnicking, a small food cart, fountain in the distance',
-  restaurant_table: 'A beautifully set restaurant table — white tablecloth, ceramic plates, polished cutlery, folded napkins, small candle, bread basket, water glasses, warm bistro lighting',
+  restaurant_table: 'Cozy bistro table viewed from standing height looking slightly downward — the warm wood bistro tabletop with white tablecloth occupies the bottom 40% of the image, the table edge running across roughly two-thirds of the way down the frame; below the table a clean tile floor is visible in the bottom 20%; bistro chairs pushed to either side; in the upper half: warm restaurant interior, other candlelit tables, brick wall, hanging Edison bulbs; the table surface is completely empty and clear',
 
   // ── Close-up zone environments (for preposition lessons) ──────────────────
   // Camera is much closer; the primary surface fills the lower frame so props
-  // land visibly ON / UNDER / BESIDE it. Use ZONE_STYLE when generating.
-  kitchen_counter:  'Close-up view looking at a kitchen counter from standing height — the smooth stone counter surface fills the bottom half of the frame with generous open space, a simple tile backsplash behind, warm wood cabinets at the sides, a window with soft daylight above, a few subtle background items (a small plant, a mixing bowl) but the counter surface is clean and clear',
+  // land visibly ON / UNDER / BESIDE it. Surface should fall at ~65-70% from top.
+  // Use ZONE_STYLE when generating.
+  kitchen_counter:  'Kitchen counter viewed from standing height looking slightly downward — the smooth stone counter surface occupies the bottom 40% of the image, the counter\'s front edge running across roughly two-thirds of the way down the frame; below the counter front a small strip of wooden kitchen floor is visible in the bottom 15%; counter surface is completely empty and clear; behind the counter a classic tile backsplash, warm wood cabinets, and a window with soft daylight above; minimal decoration only',
   bedroom_closeup:  'Close-up view of a cozy room interior showing a neatly made sleeping area — a tidy mattress with a crisp white blanket and two white pillows on the left, a warm wooden side table with a small reading lamp at center-right with a clear flat top surface available for objects, a strip of warm hardwood floor visible at the very bottom, soft daylight from a window on the right, peaceful and tidy home interior',
-  desk_closeup:     'Close-up view of a wooden study desk — the desk surface fills the lower two-thirds of the frame with open clear space, the back of a simple wooden chair just visible at the very bottom edge, a warm daylit window and a bookshelf with colourful spines visible in the background, desk surface is clean and ready to receive objects',
+  desk_closeup:     'Wooden study desk viewed from standing height looking slightly downward — the warm wood desk surface occupies the bottom 40% of the image, the desk\'s front edge running across roughly two-thirds of the way down the frame; below the desk the top of a wooden chair back and a strip of floor are visible in the bottom 15%; desk surface is completely empty and clear; in the background a warm daylit window, a bookshelf with colourful spines, a small plant; close-up interior view',
 };
 
 export interface SceneImageResult {
