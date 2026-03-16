@@ -598,6 +598,13 @@ POSITIONING — each prop must use a DIFFERENT position. The positions form a la
     Ketchup:        condiment_1     Mustard:        condiment_2
     Hot sauce:      condiment_3     Sugar packets:  condiment_4
 
+  PLATE ZONE positions (use with restaurant_table_with_plate environment ONLY):
+  The environment "restaurant_table_with_plate" has an empty plate baked into the
+  background. Use these positions to place food items directly ON the plate:
+    on_plate       → center of plate (main item: steak, pasta, omelette, etc.)
+    on_plate_left  → left side of plate (side salad, vegetables)
+    on_plate_right → right side of plate (sauce, garnish)
+
   GENERIC positions (for non-restaurant scenes):
     left | center | right | foreground | background
     on_table | on_counter | beside_table | in_hand | on_chair
@@ -627,7 +634,8 @@ If a prop is already on the canvas, calling add_to_scene again replaces it in pl
               "center","left","right","foreground","background",
               "on_table","under_table","on_floor","beside_bed","on_counter","under_counter","in_hand","on_chair","beside_table",
               "place_left","place_right","glass_spot","bread_corner",
-              "condiment_1","condiment_2","condiment_3","condiment_4"
+              "condiment_1","condiment_2","condiment_3","condiment_4",
+              "on_plate","on_plate_left","on_plate_right"
             ],
           },
           label: { type: "string", description: "Target-language label shown under the prop (e.g. 'el vaso'). Defaults to the prop name." },
@@ -720,13 +728,19 @@ The student's screen goes fullscreen showing only the live scene canvas.
 IMPORTANT — set up the FULL scene BEFORE calling enter_immersive:
 1. Call open_scene(environment) to load the background
 2. Call add_to_scene() for every prop that should already be visible:
-   - Restaurant table: breakfast_menu/lunch_menu/dinner_menu (position: left), candle (right),
-     salt_pepper (condiment_1), bread_basket (bread_corner), water_pitcher (glass_spot)
-   - Add ketchup (condiment_1), mustard (condiment_2) etc. if appropriate for the meal
+   - For ordering scenarios USE environment "restaurant_table_with_plate" — it has an
+     empty plate baked in so food props snap directly onto it with on_plate position.
+   - For non-ordering scenes use "restaurant_table" (original, no built-in plate).
+   - Standard table dressing: breakfast/lunch/dinner_menu (left), candle (right),
+     salt_pepper (condiment_1), bread_corner, water_pitcher (glass_spot)
+   - Add ketchup/mustard if appropriate for the meal style
 3. THEN call enter_immersive() — the student sees a fully dressed scene immediately
 
-Use the appropriate meal-time menu: breakfast_menu for morning, lunch_menu for midday,
-dinner_menu for evening. Only use the generic menu_card if the time of day is unknown.
+Choose the right menu for the time of day: breakfast_menu (morning), lunch_menu (midday),
+dinner_menu (evening). Only use menu_card if time is unknown.
+
+When the student orders food, add the food prop at "on_plate" (for restaurant_table_with_plate)
+or "center" (for restaurant_table) so it appears at the correct position.
 
 Do NOT wait until the student orders to add initial scene dressing.
 

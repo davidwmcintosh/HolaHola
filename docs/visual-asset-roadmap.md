@@ -742,3 +742,94 @@ This roadmap is written for Spanish (our primary language) but the vocabulary im
 - **False cognates**: language-specific — different false friends for each L1→L2 pair
 
 Priority order for language expansion: Spanish → French → German → then others.
+
+---
+
+## Section 10 — Interactive Ordering Menus
+
+**Status: Planned**  
+**Origin:** Late-night brainstorm session, March 16 2026
+
+### The Idea
+
+The decorative menu props (`breakfast_menu`, `lunch_menu`, `dinner_menu`, `menu_card`) that sit on the table as scene dressing are not the same thing as an **interactive ordering menu**. This section describes that second thing — which doesn't exist yet and should.
+
+When a student is doing a restaurant roleplay and Daniela hands them a menu, they should be able to **tap the menu prop on the canvas** and have a full menu overlay appear — showing actual dishes, descriptions, and prices in the target language, calibrated to their ACTFL level.
+
+### What It Would Look Like
+
+A modal/overlay slides up (or the canvas zooms into the menu), showing:
+
+```
+┌──────────────────────────────────────────────────────────┐
+│              LA MESA ESPAÑOLA — Menú del Día              │
+│──────────────────────────────────────────────────────────│
+│  ENTRANTES                                                │
+│  • Sopa del día ....................................... $6 │
+│    Caldo de pollo con fideos y verduras frescas           │
+│  • Ensalada mixta ..................................... $8 │
+│    Lechuga, tomate, cebolla, aceitunas y vinagreta        │
+│                                                           │
+│  PLATOS PRINCIPALES                                       │
+│  • Pollo asado con patatas ........................... $18 │
+│    Muslo de pollo al horno con hierbas provenzales        │
+│  • Pasta con salsa marinera ......................... $15  │
+│    Espaguetis con tomate, ajo y albahaca fresca           │
+│                                                           │
+│  POSTRES                                                  │
+│  • Flan casero ....................................... $6  │
+│    Flan de huevo con caramelo líquido                     │
+└──────────────────────────────────────────────────────────┘
+```
+
+### Data Architecture
+
+This requires a new concept: **scenario-specific menu data** that lives in the database and is tied to:
+
+1. **Language** — all descriptions and dish names in the target language
+2. **ACTFL Level** — Novice levels get simpler vocabulary; Advanced levels get richer descriptions, less-common dishes, regional cuisine
+3. **Meal type** — breakfast, lunch, dinner (matching which menu prop is on the table)
+4. **Region/cuisine style** — a Mexican restaurant menu vs a Spanish tapas bar vs an Argentine parrilla should feel different even at the same ACTFL level
+
+### Implementation Ideas
+
+**Option A — Pre-written menu content per language/level/meal (simplest)**
+- Author 3–4 menus per language (breakfast, lunch, dinner, café) × however many ACTFL levels want distinct menus (probably 3 tiers: Novice, Intermediate, Advanced)
+- Store as structured JSON/DB rows: `{ dish_name, description, price, category, language, actfl_tier }`
+- The menu overlay renders from this data
+- Daniela references specific dishes from the menu when asking what the student wants to order
+
+**Option B — Dynamically generated menus (more flexible)**  
+- Generate menu content on the fly using the AI, scoped to language/level/region
+- Cache the generated menu in the session so Daniela can reference it consistently throughout
+- Allows infinite variety — every session could have a slightly different menu
+
+**Option C — Hybrid**
+- Pre-authored core menu templates per language/level that Daniela can reference
+- Daniela can add or swap individual items dynamically using a function call (`add_menu_item`, `set_todays_special`)
+- Gives consistency + flexibility
+
+### What Daniela Needs
+
+For the restaurant roleplay to work end-to-end, Daniela needs to:
+
+1. Know what's on the menu (so she can roleplay as a waiter and suggest dishes)
+2. Be able to surface the menu to the student when appropriate
+3. Reference specific menu items when the student orders, comments, asks questions
+4. Know which items are linguistically useful for the lesson (vocabulary targets)
+
+A future function tool `show_menu()` could:
+- Trigger the menu overlay on the student's screen
+- Pass menu content to Daniela's context so she knows what's available
+- Allow Daniela to highlight specific items as she speaks about them
+
+### Connection to Plate-as-Background
+
+The `restaurant_table_with_plate` environment (added March 16 2026) solves the food-on-plate compositing problem. The interactive menu is the natural companion — the student reads the menu, orders a dish, and Daniela adds that dish's prop at `on_plate`. The loop closes: menu → order → food appears on plate.
+
+### Priority
+
+**Medium — after core curriculum assets.** The restaurant roleplay already works without interactive menus (Daniela improvises). But an interactive menu with real content would make the experience significantly more authentic, more replayable, and more linguistically purposeful.
+
+---
+

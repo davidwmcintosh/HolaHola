@@ -864,6 +864,12 @@ export class NativeFunctionCallHandler {
           condiment_2:   { cx: 0.86, cy: 0.60, scale: 0.10 }, // e.g. mustard
           condiment_3:   { cx: 0.78, cy: 0.49, scale: 0.09 }, // e.g. hot sauce
           condiment_4:   { cx: 0.86, cy: 0.52, scale: 0.09 }, // e.g. sugar packets
+          // ── Plate zone — for restaurant_table_with_plate environment ──────
+          // The plate is baked into the background. Food items placed here
+          // appear ON the plate. Scale is smaller so items fit within the plate.
+          on_plate:      { cx: 0.45, cy: 0.70, scale: 0.13 }, // center of the baked-in plate
+          on_plate_left: { cx: 0.38, cy: 0.72, scale: 0.09 }, // left side of plate (e.g. side salad)
+          on_plate_right:{ cx: 0.52, cy: 0.68, scale: 0.09 }, // right side of plate
         };
         let addPos = CANVAS_POSITION_MAP[addPosition] || CANVAS_POSITION_MAP.center;
         // Auto-spread: if requested position is already occupied by an existing prop,
