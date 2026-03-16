@@ -408,6 +408,7 @@ export class UsageService {
         status: 'active',
         isTestSession,
         tutorMode,
+        environment: process.env.NODE_ENV as 'development' | 'production',
       })
       .returning();
     

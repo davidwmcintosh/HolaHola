@@ -1464,6 +1464,12 @@ export type StudentTierSignal = typeof studentTierSignals.$inferSelect;
 // Entitlement type enum - how credits were earned
 export const entitlementTypeEnum = pgEnum('entitlement_type', ['class_allocation', 'purchase', 'bonus', 'trial']);
 
+// Environment origin — which server created a record (development or production)
+export const environmentOriginEnum = pgEnum('environment_origin', [
+  'development',
+  'production'
+]);
+
 // Voice session status enum
 export const voiceSessionStatusEnum = pgEnum('voice_session_status', ['active', 'completed', 'abandoned', 'error']);
 
@@ -1495,12 +1501,15 @@ export const voiceSessions = pgTable("voice_sessions", {
   classId: varchar("class_id").references(() => teacherClasses.id),
   // Test session flag - sessions from test accounts excluded from production analytics
   isTestSession: boolean("is_test_session").default(false),
+  // Environment tracking - which server created this session
+  environment: environmentOriginEnum("environment"),
 }, (table) => [
   index("idx_voice_sessions_user").on(table.userId),
   index("idx_voice_sessions_started").on(table.startedAt),
   index("idx_voice_sessions_class").on(table.classId),
   index("idx_voice_sessions_test").on(table.isTestSession),
   index("idx_voice_sessions_tutor_mode").on(table.tutorMode),
+  index("idx_voice_sessions_environment").on(table.environment),
 ]);
 
 // Usage ledger - credit transactions (earned and consumed)
@@ -2709,12 +2718,6 @@ export const syncStatusEnum = pgEnum('sync_status', [
   'approved',         // Approved and synced to other environment
   'rejected',         // Rejected during review
   'synced'            // Successfully synced from other environment
-]);
-
-// Environment origin enum
-export const environmentOriginEnum = pgEnum('environment_origin', [
-  'development',
-  'production'
 ]);
 
 // Self Best Practices - Universal teaching wisdom (applies to all students)
@@ -8598,6 +8601,7 @@ export const visualAssets = pgTable("visual_assets", {
   displayName: text("display_name").notNull(),
   objectType: text("object_type").notNull(),
   imageUrl: text("image_url").notNull().default(''),
+  zoneImageUrl: text("zone_image_url"),
   width: integer("width").notNull().default(200),
   height: integer("height").notNull().default(200),
   spanishTerms: text("spanish_terms").array().notNull().default(sql`'{}'`),

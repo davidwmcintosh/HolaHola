@@ -191,6 +191,40 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "search_multi",
+    description: `Run up to 6 code searches in a single tool call. Use this whenever you need to find multiple patterns, functions, or concepts at once — it replaces what would otherwise be 2-6 sequential search_code calls, saving you tool-call budget.
+
+WHEN TO USE:
+- After patching one file, you need to find 3+ other files that also need the same change
+- You want to understand how several related functions/variables are distributed across the codebase
+- You're doing an audit and need to collect all instances of several different patterns
+- Any time you'd naturally do back-to-back search_code calls
+
+Each search in the array is independent and supports the same options as search_code.
+Results are returned as an array, one entry per pattern, in the order requested.`,
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        searches: {
+          type: "array" as const,
+          description: "Array of search specs. Max 6.",
+          items: {
+            type: "object" as const,
+            properties: {
+              pattern: { type: "string" as const, description: "Search pattern (regex supported)" },
+              context_lines: { type: "number" as const, description: "Lines of surrounding context per match (0 = just the matching line). Use 10-20 to read code without a follow-up read_file." },
+              directory: { type: "string" as const, description: "Sub-directory to restrict search to (optional)" },
+              file_glob: { type: "string" as const, description: "File extension filter (optional, e.g. '*.ts')" },
+              case_sensitive: { type: "boolean" as const, description: "Case-sensitive search (default false)" },
+            },
+            required: ["pattern"],
+          },
+        },
+      },
+      required: ["searches"],
+    },
+  },
+  {
     name: "list_directory",
     description: "List the files and sub-directories at a path in the codebase. Use to orient yourself before reading files.",
     input_schema: {
@@ -924,6 +958,65 @@ export async function executeAldenTool(
         }
       }
 
+      case "search_multi": {
+        const searches = args.searches as Array<{
+          pattern: string;
+          context_lines?: number;
+          directory?: string;
+          file_glob?: string;
+          case_sensitive?: boolean;
+        }>;
+        if (!Array.isArray(searches) || searches.length === 0) {
+          return { data: { error: 'searches must be a non-empty array' } };
+        }
+        const capped = searches.slice(0, 6);
+
+        const runOneSearch = (spec: typeof capped[0]) => {
+          const searchDir = spec.directory ? safePath(spec.directory) : WORKSPACE_ROOT;
+          const contextLines = typeof spec.context_lines === 'number' ? Math.min(spec.context_lines, 50) : 0;
+          const rgParts: string[] = [
+            'rg', '--line-number', '--with-filename',
+            '--glob=!node_modules/**', '--glob=!dist/**', '--glob=!.git/**',
+          ];
+          if (!spec.case_sensitive) rgParts.push('-i');
+          if (spec.file_glob) rgParts.push(`--glob=${spec.file_glob}`);
+          const safePattern = spec.pattern.replace(/'/g, `'\\''`);
+          const safeDir = searchDir.replace(/'/g, `'\\''`);
+          if (contextLines > 0) {
+            rgParts.push(`-C ${contextLines}`);
+          } else {
+            rgParts.push('--no-heading', '--max-count=3');
+          }
+          rgParts.push(`-e '${safePattern}'`, `'${safeDir}'`);
+          try {
+            const output = execSync(rgParts.join(' '), {
+              cwd: WORKSPACE_ROOT, maxBuffer: 1024 * 512, timeout: 10000, shell: '/bin/sh',
+            }).toString();
+            const truncated = output.length > 12000;
+            const trimmed = truncated ? output.slice(0, 12000) + '\n... [truncated]' : output;
+            if (contextLines > 0) {
+              const matchCount = (output.match(/^[^-][^:]+:\d+:/gm) || []).length;
+              return { pattern: spec.pattern, matchCount, results: trimmed, truncated };
+            } else {
+              const lines = output.trim().split('\n').filter(Boolean).slice(0, 20);
+              const matches = lines.map(line => {
+                const m = line.match(/^(.+?):(\d+):(.*)$/);
+                if (!m) return { raw: line };
+                return { file: m[1].replace(WORKSPACE_ROOT + '/', ''), line: parseInt(m[2]), content: m[3].trim() };
+              });
+              return { pattern: spec.pattern, matchCount: matches.length, matches };
+            }
+          } catch (e: any) {
+            if (e.status === 1) return { pattern: spec.pattern, matchCount: 0, note: 'No matches found' };
+            return { pattern: spec.pattern, error: e.message?.slice(0, 200) };
+          }
+        };
+
+        const results = capped.map(runOneSearch);
+        const totalMatches = results.reduce((sum, r) => sum + (r.matchCount || 0), 0);
+        return { data: { searchCount: capped.length, totalMatches, results } };
+      }
+
       case "list_directory": {
         const dirPath = safePath(args.path || '.');
         if (!fs.existsSync(dirPath)) {
@@ -1194,4 +1287,4 @@ ${agentSection}`;
   }
 }
 
-console.log('[Alden Functions] Loaded — 23 tools ready (monitoring + code + shell + memory + notifications + browser + briefing)');
+console.log('[Alden Functions] Loaded — 24 tools ready (monitoring + code + shell + memory + notifications + browser + briefing)');
