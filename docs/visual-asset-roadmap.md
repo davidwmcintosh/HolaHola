@@ -833,3 +833,67 @@ The `restaurant_table_with_plate` environment (added March 16 2026) solves the f
 
 ---
 
+
+---
+
+## Food Props by Language & Meal — Localization Backlog
+
+**Added:** March 16 2026  
+**Priority:** High — current food props (scrambled_eggs, bacon_strips, ham_slice, hash_browns, plain_toast, omelette, fried_eggs) are Anglo-American and unsuitable for Spanish, French, Japanese, or other language lessons.
+
+### Design Principle
+
+Food props must reflect what a student would actually encounter in the culture they are learning. A Spanish lesson should show *churros* and *tortilla española*, not bacon and hash browns. Every language we support needs its own culturally authentic food set — split by meal category.
+
+### Required Food Props per Language
+
+| Language | Breakfast | Lunch / Midday | Dinner | Dessert / Snack |
+|---|---|---|---|---|
+| **Spanish (ES/MX/LA)** | churros, tortilla española, pan con tomate, café con leche, molletes | bocadillo, gazpacho, empanada, tacos (MX), quesadilla | paella, cocido, tamales, enchiladas, arroz con pollo | flan, tres leches, arroz con leche, churros |
+| **French** | croissant ✅ (exists), tartine, pain au chocolat, café au lait | baguette sandwich, quiche lorraine, salade niçoise | coq au vin, ratatouille, bouillabaisse, steak frites | crêpe, éclair, madeleine, tarte tatin |
+| **Italian** | cornetto, cappuccino, fette biscottate | bruschetta, insalata caprese, panino | pizza margherita, spaghetti bolognese, risotto, osso buco | gelato, tiramisu, cannoli, panna cotta |
+| **Portuguese** | pastel de nata, torrada, galão | bifana, francesinha, caldo verde | bacalhau à brás, cozido, frango assado | pastel de nata ✅, arroz doce |
+| **German** | Brötchen, Brezel, Aufschnitt | Bratwurst, Schnitzel, Kartoffelsalat | Sauerbraten, Kassler, Erbsensuppe | Schwarzwälder Kirschtorte, Apfelstrudel |
+| **Japanese** | onigiri, miso soup, tamagoyaki, rice bowl | ramen, soba, bento box, udon | sushi platter, tempura, yakitori, tonkatsu | mochi, dorayaki, matcha ice cream |
+| **Chinese (Mandarin)** | congee, dim sum, baozi, youtiao | dumplings/jiaozi, fried rice, spring rolls | Peking duck, hot pot, mapo tofu, kung pao chicken | tang yuan, egg tart, sesame balls |
+| **Korean** | dosirak (lunchbox), juk (porridge) | bibimbap, tteokbokki, japchae | bulgogi, galbi, samgyeopsal, kimchi jjigae | bingsu, hotteok, sikhye |
+
+### Meal Category Completeness (per language)
+
+Each language needs at minimum:
+- **3–5 breakfast items** (visually distinct, iconic for that culture)
+- **3–5 lunch/midday items**
+- **3–5 dinner items** (including at least one "special occasion" dish)
+- **2–3 dessert/snack items**
+
+### Implementation Notes
+
+- Generate with the standard prop style: *warm illustrated watercolor style, vibrant saturated colours, soft natural shading, object centred on clean white background, no shadows or background elements*
+- Name props with language prefix where needed to avoid conflicts: `es_churros`, `fr_croissant`, `ja_ramen`, etc. (or a single `churros` if it maps cleanly to one language)
+- DB `object_type`: use `'food'` for all
+- Consider tagging with `tags` array: `['food', 'breakfast', 'spanish']` for filtering
+- The `breakfast_menu`, `lunch_menu`, `dinner_menu` image props should eventually be language-specific too (Spanish menu card, Japanese menu card, etc.)
+
+### Existing Food Props (Anglo-American only — needs cultural counterparts)
+
+| Prop | Language context | Notes |
+|---|---|---|
+| scrambled_eggs | EN only | Add es_huevos_revueltos equivalent? Or use for bilingual EN/ES lessons |
+| fried_eggs | EN only | es: huevo frito |
+| omelette | EN/FR | fr: omelette already correct — reuse |
+| bacon_strips | EN only | Not culturally appropriate for most other languages |
+| ham_slice | EN | es: jamón serrano is different visually |
+| hash_browns | EN only | No direct equivalent in most cultures |
+| plain_toast | Universal | Can reuse across languages |
+| croissant | FR/universal | Already in prop library ✅ |
+| apple | Universal | Already in prop library ✅ |
+| pasta | IT/ES/universal | Already in prop library ✅ |
+
+### Priority Order
+
+1. **Spanish** — largest user base, most immediate need
+2. **French** — high demand, many props overlap with existing
+3. **Japanese** — visually very distinct, high educational value
+4. **Italian** — overlaps with French, efficient to do together
+5. **Others** — as language support expands
+

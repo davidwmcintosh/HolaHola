@@ -592,15 +592,19 @@ POSITIONING — each prop must use a DIFFERENT position. The positions form a la
   └──────────────────────────────────────────────────────────────┘
 
   Recommended prop → position assignments:
-    Main plate:     center            Fork:          place_left
-    Knife:          place_right       Spoon:         place_right
-    Napkin:         place_left        Wine glass:    glass_spot
+    Napkin:         napkin_spot       Fork:          fork_spot
+    Main plate:     center            Knife:         knife_spot
+    Spoon:          spoon_spot        Wine glass:    glass_spot
     Water pitcher:  glass_spot        Bread basket:  bread_corner
     Menu:           left              Candle:        right
     Salt & pepper:  condiment_1       Ketchup:       condiment_1
     Mustard:        condiment_2       Hot sauce:     condiment_3
     Sugar packets:  condiment_4
     Side plate:     side_plate  ← place bread_plate prop here first, then put toast on it
+
+  Precision utensil positions (left → right from student's perspective):
+    napkin_spot → fork_spot → [plate/center] → knife_spot → spoon_spot
+  Use place_left / place_right only as generic fallbacks when multiple items share a side.
 
   SETTING THE TABLE (restaurant_table environment — bare table, add everything as labeled props):
   Daniela narrates each prop as it arrives — the vocabulary IS the lesson warmup.
@@ -660,6 +664,7 @@ If a prop is already on the canvas, calling add_to_scene again replaces it in pl
             enum: [
               "center","left","right","foreground","background",
               "on_table","under_table","on_floor","beside_bed","on_counter","under_counter","in_hand","on_chair","beside_table",
+              "napkin_spot","fork_spot","knife_spot","spoon_spot",
               "place_left","place_right","glass_spot","bread_corner",
               "side_plate","on_side_plate","on_side_plate_left","on_side_plate_right",
               "condiment_1","condiment_2","condiment_3","condiment_4",

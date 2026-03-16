@@ -855,8 +855,13 @@ export class NativeFunctionCallHandler {
           //   [bread_corner]  [glass_spot]  [condiment_1][condiment_2]
           //   [side_plate]                  [condiment_3][condiment_4]
           //   [place_left]  [main plate]    [place_right]
-          place_left:    { cx: 0.30, cy: 0.72, scale: 0.09 }, // fork / napkin
-          place_right:   { cx: 0.68, cy: 0.72, scale: 0.09 }, // knife / spoon
+          place_left:    { cx: 0.30, cy: 0.72, scale: 0.09 }, // fork (generic left)
+          place_right:   { cx: 0.68, cy: 0.72, scale: 0.09 }, // knife (generic right)
+          // ── Individual utensil spots (use these for precision placement) ──
+          napkin_spot:   { cx: 0.23, cy: 0.73, scale: 0.09 }, // napkin — far left of fork
+          fork_spot:     { cx: 0.31, cy: 0.72, scale: 0.08 }, // fork — left of plate
+          knife_spot:    { cx: 0.59, cy: 0.72, scale: 0.08 }, // knife — right of plate
+          spoon_spot:    { cx: 0.67, cy: 0.71, scale: 0.08 }, // spoon — right of knife
           glass_spot:    { cx: 0.62, cy: 0.57, scale: 0.13 }, // water glass / wine glass
           bread_corner:  { cx: 0.22, cy: 0.58, scale: 0.15 }, // bread basket, upper-left
           // ── Side / bread plate — lower-left of main plate ─────────────────
