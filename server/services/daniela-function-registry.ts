@@ -598,19 +598,25 @@ POSITIONING — each prop must use a DIFFERENT position. The positions form a la
     Ketchup:        condiment_1     Mustard:        condiment_2
     Hot sauce:      condiment_3     Sugar packets:  condiment_4
 
-  PLATE ZONE positions (use with restaurant_table_with_plate environment ONLY):
-  The environment "restaurant_table_with_plate" has a pre-set table baked into the
-  background: plate, fork, knife, wine glass, bread basket, and candle are ALREADY
-  PAINTED IN. DO NOT add these as props — it creates duplicates.
+  RESTAURANT TABLE — FULL PROP SETUP (use "restaurant_table" environment for dining scenes):
+  The restaurant_table background is a bare table with tablecloth and room ambiance only.
+  Daniela adds EVERY item as a labeled prop so the student sees and learns each word.
+  Setting the table IS part of the lesson — narrate each prop as you place it.
 
-  Only add props that are NOT already in the background:
-    ✓ water_pitcher (glass_spot)     ✓ menu cards (left)
-    ✓ salt_pepper (condiment_1)      ✓ ketchup, mustard (condiment_2/3)
-    ✓ food items ordered by student (on_plate / on_plate_left / on_plate_right)
+  Suggested table-setting order before enter_immersive:
+    1. plate          → place_left or center   ("Aquí está tu plato")
+    2. fork           → place_left             ("El tenedor va a la izquierda")
+    3. knife          → place_right            ("El cuchillo va a la derecha")
+    4. wine_glass     → glass_spot             ("La copa de vino")
+    5. dinner_menu    → left                   ("El menú del restaurante")
+    6. candle         → right                  ("La vela")
+    7. bread_basket   → bread_corner           ("La canasta de pan")
+    8. salt_pepper    → condiment_1            ("La sal y la pimienta")
+  Add ketchup / mustard / water_pitcher if appropriate for the style of restaurant.
 
-  Plate zone positions for placing food ON the plate:
-    on_plate       → center of plate (main item: steak, pasta, omelette, eggs, etc.)
-    on_plate_left  → left side of plate (side salad, vegetables, toast)
+  Plate zone positions — for placing FOOD onto the plate once student orders:
+    on_plate       → center of plate (main dish: steak, pasta, omelette, eggs, etc.)
+    on_plate_left  → left side of plate (salad, vegetables, toast)
     on_plate_right → right side of plate (sauce, garnish)
 
   GENERIC positions (for non-restaurant scenes):
@@ -737,21 +743,20 @@ IMPORTANT — set up the FULL scene BEFORE calling enter_immersive:
 1. Call open_scene(environment) to load the background
 2. Call add_to_scene() for props NOT already in the background:
 
-   For "restaurant_table_with_plate" (use when food ordering will happen):
-   - ALREADY IN BACKGROUND (DO NOT ADD): plate, fork, knife, wine_glass, bread_basket, candle
-   - ADD THESE: breakfast/lunch/dinner_menu (position: left), water_pitcher (glass_spot),
-     salt_pepper (condiment_1) — plus ketchup/mustard if it's that kind of place
-   - When student orders: add the food at on_plate / on_plate_left / on_plate_right
+   For "restaurant_table" (use for ALL dining/ordering scenarios):
+   - Background is bare: just a tablecloth and room ambiance — no items on table
+   - Add EVERY item as a labeled prop so the student learns each word as the table is set
+   - Minimum before enter_immersive: plate, fork, knife, wine_glass, dinner_menu (or
+     breakfast_menu / lunch_menu by time of day), candle, bread_basket, salt_pepper
+   - Add water_pitcher, ketchup, mustard if appropriate
+   - When student orders food: add the dish at on_plate / on_plate_left / on_plate_right
 
-   For "restaurant_table" (generic, no pre-set plate):
-   - Add whatever the scene needs — plate, utensils, candle, menu, condiments all fine
-
-3. THEN call enter_immersive() — student sees a fully dressed scene immediately
+3. THEN call enter_immersive() — student sees a fully dressed, labeled scene immediately
 
 Choose the right menu: breakfast_menu (morning), lunch_menu (midday), dinner_menu (evening).
 
-Do NOT wait until the student orders to add the water pitcher, menu, and condiments —
-those go out BEFORE enter_immersive so the table looks naturally set from the start.
+Setting the table with narration IS the lesson warmup — don't skip it. Place items one at a
+time (or in quick pairs) with a short spoken line for each so the student hears every word.
 
 An exit button is always visible so the student can leave at any time.`,
       parametersJsonSchema: {

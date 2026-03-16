@@ -695,9 +695,6 @@ export interface SceneImageResult {
 export async function generateAllSceneImages(
   opts: { force?: boolean; only?: string[] } = {}
 ): Promise<SceneImageResult[]> {
-  const apiKey = process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  if (!apiKey || apiKey.startsWith('_DUMMY')) throw new Error('No valid OpenAI API key found (USER_OPENAI_API_KEY, OPENAI_API_KEY, or AI_INTEGRATIONS_OPENAI_API_KEY)');
-
   const envRows = await db.execute(sql`SELECT id, name, display_name, image_url FROM visual_environments ORDER BY name`);
   const envs = envRows.rows as Array<{ id: string; name: string; display_name: string; image_url: string }>;
 
@@ -716,37 +713,33 @@ export async function generateAllSceneImages(
       ? `${customPrompt}. ${styleForEnv}`
       : `${env.display_name} scene for language learning: ${env.name.replace(/_/g, ' ')}. ${styleForEnv}`;
 
-    console.log(`[PropRoom] Generating image for ${env.name}...`);
+    console.log(`[PropRoom] Generating image for ${env.name} via Gemini Imagen...`);
     try {
-      const dalleRes = await fetch('https://api.openai.com/v1/images/generations', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'dall-e-3',
-          prompt,
-          n: 1,
-          size: '1792x1024',
-          quality: 'standard',
-          response_format: 'url',
-        }),
+      const { GoogleGenAI } = await import('@google/genai');
+      const geminiKey = process.env.GEMINI_API_KEY;
+      if (!geminiKey) {
+        results.push({ name: env.name, success: false, error: 'GEMINI_API_KEY not set' });
+        continue;
+      }
+      const genai = new GoogleGenAI({ apiKey: geminiKey });
+      const imgResponse = await genai.models.generateImages({
+        model: 'imagen-3.0-generate-002',
+        prompt,
+        config: { numberOfImages: 1, aspectRatio: '16:9', outputMimeType: 'image/jpeg' },
       });
 
-      if (!dalleRes.ok) {
-        const errText = await dalleRes.text();
-        console.error(`[PropRoom] DALL-E failed for ${env.name}: ${errText}`);
-        results.push({ name: env.name, success: false, error: errText });
+      const imageBytes = imgResponse.generatedImages?.[0]?.image?.imageBytes;
+      if (!imageBytes) {
+        results.push({ name: env.name, success: false, error: 'No image bytes in Gemini response' });
         continue;
       }
 
-      const dalleData = await dalleRes.json();
-      const tempUrl = dalleData.data?.[0]?.url;
-      if (!tempUrl) {
-        results.push({ name: env.name, success: false, error: 'No URL in response' });
-        continue;
-      }
+      const buf = Buffer.isBuffer(imageBytes)
+        ? imageBytes
+        : Buffer.from(imageBytes as string, 'base64');
 
-      const { archiveImageToPermanentStorage } = await import('./image-storage');
-      const permanentUrl = await archiveImageToPermanentStorage(tempUrl, `scene-${env.name}-${Date.now()}.jpg`);
+      const { uploadPublicBuffer } = await import('./image-storage');
+      const permanentUrl = await uploadPublicBuffer(`scene-${env.name}-${Date.now()}.jpg`, buf, 'image/jpeg');
 
       await db.execute(sql`UPDATE visual_environments SET image_url = ${permanentUrl} WHERE id = ${env.id}`);
       console.log(`[PropRoom] ✓ ${env.name} → ${permanentUrl}`);
