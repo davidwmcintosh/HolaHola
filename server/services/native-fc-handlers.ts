@@ -1799,6 +1799,207 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'SHOW_MENU': {
+        const menuText = fn.args.text as string | undefined;
+        const mealType = (fn.args.meal_type as string | undefined) || 'dinner';
+        const menuTitle = fn.args.title as string | undefined;
+        const menuSections = fn.args.sections as any[] | undefined;
+
+        if (menuText && !session.functionCallText) session.functionCallText = menuText;
+
+        if (!session.sceneCanvas) {
+          console.warn('[Native Function→ShowMenu] No active scene canvas — call open_scene first');
+          break;
+        }
+
+        const menuPropName = mealType === 'breakfast' ? 'breakfast_menu'
+          : mealType === 'lunch' ? 'lunch_menu'
+          : 'dinner_menu';
+
+        const { getUserDb: getMenuDb } = await import('../db');
+        const { sql: menuSql } = await import('drizzle-orm');
+        const menuDb = getMenuDb();
+
+        try {
+          const menuAssetResult = await menuDb.execute(menuSql`
+            SELECT zone_image_url, display_name FROM visual_assets
+            WHERE name = ${menuPropName} AND zone_image_url IS NOT NULL
+            LIMIT 1
+          `);
+          const menuAssetRow = menuAssetResult.rows[0] as any;
+          const menuImageUrl = menuAssetRow?.zone_image_url as string | undefined;
+
+          if (!menuImageUrl) {
+            console.warn(`[Native Function→ShowMenu] No zone_image_url for "${menuPropName}"`);
+            break;
+          }
+
+          const resolvedMenuTitle = menuTitle || (
+            mealType === 'breakfast' ? 'Breakfast Menu'
+            : mealType === 'lunch' ? 'Lunch Menu'
+            : 'Dinner Menu'
+          );
+
+          const richContent = {
+            type: 'menu' as const,
+            title: resolvedMenuTitle,
+            content: { sections: menuSections || [] },
+          };
+
+          const menuCanvasProp = {
+            name: menuPropName,
+            label: menuAssetRow?.display_name || resolvedMenuTitle,
+            position: 'left',
+            cx: 0.20,
+            cy: 0.60,
+            scale: 0.14,
+            imageUrl: menuImageUrl,
+            richContent,
+          };
+
+          if (!session.sceneCanvas.props) session.sceneCanvas.props = [];
+          const existingMenuIdx = session.sceneCanvas.props.findIndex((p: any) => p.name === menuPropName);
+          if (existingMenuIdx >= 0) {
+            session.sceneCanvas.props[existingMenuIdx] = menuCanvasProp;
+          } else {
+            session.sceneCanvas.props.push(menuCanvasProp);
+          }
+
+          const menuUpdate = {
+            type: 'whiteboard_update' as const,
+            timestamp: Date.now(),
+            items: [{
+              id: 'scene-canvas-active',
+              type: 'scene_canvas',
+              content: session.sceneCanvas.environmentLabel || session.sceneCanvas.environment,
+              data: {
+                environment: session.sceneCanvas.environment,
+                environmentImageUrl: session.sceneCanvas.environmentImageUrl,
+                environmentLabel: session.sceneCanvas.environmentLabel,
+                props: [...session.sceneCanvas.props],
+                clockTime: session.sceneCanvas.clockTime,
+                canvasAction: 'add_prop' as const,
+              },
+            }],
+          };
+
+          if (session.firstAudioSent) {
+            this.sendMessage(session.ws, menuUpdate);
+          } else {
+            if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
+            session.pendingWhiteboardUpdates.push(menuUpdate);
+          }
+          console.log(`[Native Function→ShowMenu] Placed "${menuPropName}" on scene with ${menuSections?.length || 0} sections`);
+        } catch (err: any) {
+          console.error('[Native Function→ShowMenu] Error:', err.message);
+        }
+        break;
+      }
+
+      case 'SHOW_BILL': {
+        const billText = fn.args.text as string | undefined;
+        const billTitle = fn.args.title as string | undefined;
+        const billItems = fn.args.items as Array<{ label: string; value: string }> | undefined;
+        const billSubtotal = fn.args.subtotal as string | undefined;
+        const billService = fn.args.service as string | undefined;
+        const billTax = fn.args.tax as string | undefined;
+        const billTotal = fn.args.total as string | undefined;
+
+        if (billText && !session.functionCallText) session.functionCallText = billText;
+
+        if (!session.sceneCanvas) {
+          console.warn('[Native Function→ShowBill] No active scene canvas — call open_scene first');
+          break;
+        }
+
+        const { getUserDb: getBillDb } = await import('../db');
+        const { sql: billSql } = await import('drizzle-orm');
+        const billDb = getBillDb();
+
+        try {
+          const billAssetResult = await billDb.execute(billSql`
+            SELECT COALESCE(zone_image_url, image_url) as prop_url, display_name
+            FROM visual_assets
+            WHERE name = 'restaurant_bill'
+            LIMIT 1
+          `);
+          const billAssetRow = billAssetResult.rows[0] as any;
+          const billImageUrl = billAssetRow?.prop_url as string | undefined;
+
+          if (!billImageUrl) {
+            console.warn('[Native Function→ShowBill] No image for restaurant_bill');
+            break;
+          }
+
+          // Build bill fields: items + breakdown
+          const fields: Array<{ label: string; value: string }> = [];
+          if (billItems) {
+            for (const item of billItems) {
+              fields.push({ label: item.label, value: item.value });
+            }
+          }
+          if (billSubtotal) fields.push({ label: 'Subtotal', value: billSubtotal });
+          if (billService) fields.push({ label: 'Service', value: billService });
+          if (billTax) fields.push({ label: 'Tax', value: billTax });
+          if (billTotal) fields.push({ label: 'Total', value: billTotal });
+
+          const resolvedBillTitle = billTitle || 'Bill';
+          const richContent = {
+            type: 'bill' as const,
+            title: resolvedBillTitle,
+            content: { fields },
+          };
+
+          const billCanvasProp = {
+            name: 'restaurant_bill',
+            label: resolvedBillTitle,
+            position: 'right',
+            cx: 0.72,
+            cy: 0.70,
+            scale: 0.14,
+            imageUrl: billImageUrl,
+            richContent,
+          };
+
+          if (!session.sceneCanvas.props) session.sceneCanvas.props = [];
+          const existingBillIdx = session.sceneCanvas.props.findIndex((p: any) => p.name === 'restaurant_bill');
+          if (existingBillIdx >= 0) {
+            session.sceneCanvas.props[existingBillIdx] = billCanvasProp;
+          } else {
+            session.sceneCanvas.props.push(billCanvasProp);
+          }
+
+          const billUpdate = {
+            type: 'whiteboard_update' as const,
+            timestamp: Date.now(),
+            items: [{
+              id: 'scene-canvas-active',
+              type: 'scene_canvas',
+              content: session.sceneCanvas.environmentLabel || session.sceneCanvas.environment,
+              data: {
+                environment: session.sceneCanvas.environment,
+                environmentImageUrl: session.sceneCanvas.environmentImageUrl,
+                environmentLabel: session.sceneCanvas.environmentLabel,
+                props: [...session.sceneCanvas.props],
+                clockTime: session.sceneCanvas.clockTime,
+                canvasAction: 'add_prop' as const,
+              },
+            }],
+          };
+
+          if (session.firstAudioSent) {
+            this.sendMessage(session.ws, billUpdate);
+          } else {
+            if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
+            session.pendingWhiteboardUpdates.push(billUpdate);
+          }
+          console.log(`[Native Function→ShowBill] Placed restaurant_bill on scene with ${fields.length} fields`);
+        } catch (err: any) {
+          console.error('[Native Function→ShowBill] Error:', err.message);
+        }
+        break;
+      }
+
       case 'UPDATE_PROP': {
         const text = fn.args.text as string | undefined;
         const propTitle = fn.args.prop_title as string | undefined;

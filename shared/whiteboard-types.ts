@@ -798,6 +798,17 @@ export interface SceneCanvasProp {
   cy: number;         // 0..1 vertical center
   scale: number;      // 0..1 size relative to canvas width
   imageUrl: string;   // zone_image_url (transparent PNG)
+  richContent?: SceneCanvasRichContent; // optional tap-to-open content (menu, bill)
+}
+
+/**
+ * Rich tap-to-open content attached to a canvas prop.
+ * When present, the prop is tappable in immersive mode and opens a bottom sheet.
+ */
+export interface SceneCanvasRichContent {
+  type: 'menu' | 'bill';
+  title: string;
+  content: any;
 }
 
 /**

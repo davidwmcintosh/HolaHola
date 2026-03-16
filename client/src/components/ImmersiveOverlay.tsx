@@ -1,9 +1,10 @@
-import { useEffect } from "react";
-import { X, Mic, Volume2, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Mic, Volume2, Loader2, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { usePlaybackState } from "@/lib/playbackStateStore";
-import type { SceneCanvasItemData, WhiteboardItem } from "@shared/whiteboard-types";
+import { useLanguage } from "@/contexts/LanguageContext";
+import type { SceneCanvasItemData, SceneCanvasRichContent, WhiteboardItem } from "@shared/whiteboard-types";
 
 interface ImmersiveOverlayProps {
   isActive: boolean;
@@ -12,10 +13,229 @@ interface ImmersiveOverlayProps {
   onExit: () => void;
 }
 
+// ─── Inline menu renderers (immersive-themed) ────────────────────────────────
+
+function ImmersiveMenuItemImage({ query }: { query: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/menu-image?q=${encodeURIComponent(query)}`)
+      .then(r => r.json())
+      .then(data => { if (!cancelled && data.url) setUrl(data.url); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [query]);
+
+  if (!url) return <div className="w-10 h-10 rounded-lg bg-white/10 flex-shrink-0" />;
+  return (
+    <img
+      src={url}
+      alt={query}
+      className="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-white/10"
+      loading="lazy"
+    />
+  );
+}
+
+function ImmersiveBeginnerMenu({ content }: { content: any }) {
+  const sections = content?.sections;
+  if (!sections || !Array.isArray(sections)) return null;
+  return (
+    <div className="space-y-5">
+      {sections.map((section: any, si: number) => (
+        <div key={si} className="space-y-2">
+          <div className="text-[11px] font-bold uppercase tracking-widest text-white/50 pb-1 border-b border-white/10">
+            {section.name_target || section.name}
+            {section.name_target && section.name_target !== section.name && (
+              <span className="ml-2 font-normal normal-case text-white/35">({section.name})</span>
+            )}
+          </div>
+          <div className="space-y-2">
+            {section.items?.map((item: any, ii: number) => (
+              <div key={ii} className="flex items-center gap-3 rounded-xl bg-white/5 px-3 py-2.5" data-testid={`immersive-menu-item-${si}-${ii}`}>
+                <ImmersiveMenuItemImage query={item.name} />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-white">{item.name_target || item.name}</div>
+                  {item.name_target && item.name_target !== item.name && (
+                    <div className="text-[11px] text-white/50">{item.name}</div>
+                  )}
+                  {item.description_target && (
+                    <div className="text-[11px] text-white/40 mt-0.5">{item.description_target}</div>
+                  )}
+                </div>
+                {item.price && (
+                  <span className="text-sm font-bold text-white/80 flex-shrink-0">
+                    {item.price.includes('€') || item.price.includes('$') || item.price.includes('£') || item.price.includes('¥') ? item.price : `€${item.price}`}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ImmersiveAdvancedMenu({ content }: { content: any }) {
+  const sections = content?.sections;
+  if (!sections || !Array.isArray(sections)) return null;
+  return (
+    <div className="space-y-4">
+      {sections.map((section: any, si: number) => (
+        <div key={si} className="space-y-1.5">
+          <div className="text-[11px] font-bold uppercase tracking-widest text-white/50 pb-1 border-b border-white/10">
+            {section.name_target || section.name}
+          </div>
+          <div className="space-y-2">
+            {section.items?.map((item: any, ii: number) => (
+              <div key={ii} className="flex items-baseline justify-between gap-3" data-testid={`immersive-menu-item-${si}-${ii}`}>
+                <div className="min-w-0">
+                  <span className="text-sm font-medium text-white">{item.name_target || item.name}</span>
+                  {item.description_target && (
+                    <span className="text-[11px] text-white/50 ml-2">— {item.description_target}</span>
+                  )}
+                </div>
+                {item.price && (
+                  <span className="text-sm font-medium text-white/80 flex-shrink-0">
+                    {item.price.includes('€') || item.price.includes('$') || item.price.includes('£') || item.price.includes('¥') ? item.price : `€${item.price}`}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ImmersiveMenuRenderer({ content, difficulty }: { content: any; difficulty: string }) {
+  const { language } = useLanguage();
+  const resolved = content?.byLanguage?.[language]?.[difficulty]
+    || content?.byLanguage?.[language]?.beginner
+    || content;
+  if (difficulty === 'beginner') return <ImmersiveBeginnerMenu content={resolved} />;
+  return <ImmersiveAdvancedMenu content={resolved} />;
+}
+
+function ImmersiveBillRenderer({ content }: { content: any }) {
+  const fields = content?.fields;
+  if (!fields || !Array.isArray(fields)) return null;
+  const isTotal = (label: string) => /total/i.test(label);
+  return (
+    <div className="space-y-2">
+      {content.title && (
+        <div className="text-[11px] font-bold uppercase tracking-widest text-white/50 pb-1 border-b border-white/10 mb-3">
+          {content.title}
+        </div>
+      )}
+      {fields.map((field: any, i: number) => {
+        const total = isTotal(field.label);
+        const isMultiLine = typeof field.value === 'string' && field.value.includes('\n');
+        if (isMultiLine) {
+          return (
+            <div key={i} className="space-y-1" data-testid={`immersive-bill-field-${i}`}>
+              <span className="text-[11px] text-white/50">{field.label}</span>
+              <div className="text-sm font-medium whitespace-pre-wrap leading-snug pl-3 border-l border-white/15 text-white/80">
+                {field.value}
+              </div>
+            </div>
+          );
+        }
+        return (
+          <div
+            key={i}
+            className={`flex items-baseline justify-between gap-3 ${total ? 'mt-3 pt-3 border-t border-white/20' : ''}`}
+            data-testid={`immersive-bill-field-${i}`}
+          >
+            <span className={`text-sm flex-shrink-0 ${total ? 'font-bold text-white' : 'text-white/60'}`}>
+              {field.label}
+            </span>
+            <span className={`text-sm font-semibold text-right ${total ? 'text-white text-base' : 'text-white/80'}`}>
+              {field.value}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Rich content bottom sheet ────────────────────────────────────────────────
+
+function RichContentSheet({
+  content,
+  difficulty,
+  onClose,
+}: {
+  content: SceneCanvasRichContent;
+  difficulty: string;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      {/* Backdrop */}
+      <motion.div
+        key="sheet-backdrop"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="absolute inset-0 z-20 bg-black/40"
+        onClick={onClose}
+        data-testid="immersive-sheet-backdrop"
+      />
+      {/* Sheet */}
+      <motion.div
+        key="sheet-panel"
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+        className="absolute bottom-0 left-0 right-0 z-30 rounded-t-2xl overflow-hidden"
+        style={{ maxHeight: '72vh', background: 'rgba(12,12,16,0.96)', backdropFilter: 'blur(24px)' }}
+        data-testid="immersive-rich-sheet"
+      >
+        {/* Handle + header */}
+        <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-white/10">
+          <div className="flex items-center gap-2">
+            <div className="h-1 w-8 rounded-full bg-white/20 absolute top-2.5 left-1/2 -translate-x-1/2" />
+            <span className="text-sm font-semibold text-white mt-0.5">{content.title}</span>
+          </div>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="text-white/60 hover:text-white"
+            onClick={onClose}
+            data-testid="button-close-immersive-sheet"
+          >
+            <ChevronDown className="w-5 h-5" />
+          </Button>
+        </div>
+        {/* Content */}
+        <div className="overflow-y-auto px-5 py-4" style={{ maxHeight: 'calc(72vh - 56px)' }}>
+          {content.type === 'menu' && (
+            <ImmersiveMenuRenderer content={content.content} difficulty={difficulty} />
+          )}
+          {content.type === 'bill' && (
+            <ImmersiveBillRenderer content={content.content} />
+          )}
+        </div>
+      </motion.div>
+    </>
+  );
+}
+
+// ─── Main overlay ─────────────────────────────────────────────────────────────
+
 export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems, onExit }: ImmersiveOverlayProps) {
   const playbackState = usePlaybackState();
+  const { difficulty } = useLanguage();
   const isSpeaking = playbackState === 'playing' || playbackState === 'buffering';
   const isThinking = playbackState === 'thinking';
+
+  const [openSheet, setOpenSheet] = useState<SceneCanvasRichContent | null>(null);
 
   useEffect(() => {
     if (isActive) {
@@ -25,6 +245,11 @@ export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems
         document.exitFullscreen?.().catch(() => {});
       }
     }
+  }, [isActive]);
+
+  // Close sheet when leaving immersive
+  useEffect(() => {
+    if (!isActive) setOpenSheet(null);
   }, [isActive]);
 
   const imageItems = (displayWhiteboardItems ?? []).filter(
@@ -43,7 +268,7 @@ export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems
           className="fixed inset-0 z-[200] overflow-hidden bg-black"
           data-testid="immersive-overlay"
         >
-          {/* Background — fills the entire viewport with object-cover */}
+          {/* Background */}
           {sceneCanvas?.environmentImageUrl ? (
             <img
               src={sceneCanvas.environmentImageUrl}
@@ -60,62 +285,87 @@ export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems
 
           {/*
            * Virtual 16:9 canvas — mirrors the object-cover image coordinate space.
-           *
-           * object-cover scales the image so it covers the container fully.
-           * This div uses the same math:
-           *   width  = max(100vw, 100vh * 16/9)
-           *   height = max(100vh, 100vw * 9/16)
-           * …then is centered. Props positioned at cx/cy% within this div
-           * will land at the same visual location as in the source image.
+           * Props positioned at cx/cy% within this div land at the same visual
+           * location as in the source image.
            */}
           <div
-            className="absolute pointer-events-none"
+            className="absolute"
             style={{
               width: 'max(100%, calc(100vh * 16 / 9))',
               height: 'max(100%, calc(100vw * 9 / 16))',
               top: '50%',
               left: '50%',
               transform: 'translate(-50%, -50%)',
+              pointerEvents: 'none',
             }}
           >
             <AnimatePresence>
-              {sceneCanvas?.props.map((prop) => (
-                <motion.div
-                  key={prop.name}
-                  initial={{ opacity: 0, scale: 0.65 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.65 }}
-                  transition={{ duration: 0.35, ease: "easeOut" }}
-                  className="absolute"
-                  style={{
-                    left: `${prop.cx * 100}%`,
-                    top: `${prop.cy * 100}%`,
-                    width: `${prop.scale * 100}%`,
-                    transform: "translate(-50%, -50%)",
-                    pointerEvents: "none",
-                  }}
-                >
-                  <img
-                    src={prop.imageUrl}
-                    alt={prop.label}
-                    className="w-full h-auto"
-                    style={{ filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.45))" }}
-                    draggable={false}
-                  />
-                  <div
-                    className="absolute left-1/2 -translate-x-1/2"
-                    style={{ top: "calc(100% + 4px)" }}
+              {sceneCanvas?.props.map((prop) => {
+                const tappable = Boolean(prop.richContent);
+                return (
+                  <motion.div
+                    key={prop.name}
+                    initial={{ opacity: 0, scale: 0.65 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.65 }}
+                    transition={{ duration: 0.35, ease: "easeOut" }}
+                    className="absolute"
+                    style={{
+                      left: `${prop.cx * 100}%`,
+                      top: `${prop.cy * 100}%`,
+                      width: `${prop.scale * 100}%`,
+                      transform: "translate(-50%, -50%)",
+                      pointerEvents: tappable ? 'auto' : 'none',
+                      cursor: tappable ? 'pointer' : 'default',
+                    }}
+                    onClick={tappable ? () => setOpenSheet(prop.richContent!) : undefined}
+                    data-testid={tappable ? `button-tap-prop-${prop.name}` : undefined}
                   >
-                    <span className="text-white text-[11px] leading-none font-semibold px-2 py-1 rounded bg-black/70 whitespace-nowrap">
-                      {prop.label}
-                    </span>
-                  </div>
-                </motion.div>
-              ))}
+                    <img
+                      src={prop.imageUrl}
+                      alt={prop.label}
+                      className="w-full h-auto"
+                      style={{ filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.45))" }}
+                      draggable={false}
+                    />
+                    {/* Tap-to-open glow ring for tappable props */}
+                    {tappable && (
+                      <motion.div
+                        className="absolute inset-0 rounded-full"
+                        animate={{ boxShadow: ['0 0 0 0px rgba(255,255,255,0.25)', '0 0 0 6px rgba(255,255,255,0)'] }}
+                        transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut' }}
+                        style={{ pointerEvents: 'none' }}
+                      />
+                    )}
+                    {/* Tap hint badge on tappable props */}
+                    {tappable && (
+                      <div
+                        className="absolute left-1/2 -translate-x-1/2"
+                        style={{ top: "calc(100% + 4px)", pointerEvents: 'none' }}
+                      >
+                        <span className="text-white text-[10px] leading-none font-semibold px-2 py-1 rounded-full bg-white/20 backdrop-blur-sm whitespace-nowrap border border-white/20">
+                          {prop.label} — tap to open
+                        </span>
+                      </div>
+                    )}
+                    {/* Regular label for non-tappable props */}
+                    {!tappable && (
+                      <div
+                        className="absolute left-1/2 -translate-x-1/2"
+                        style={{ top: "calc(100% + 4px)" }}
+                      >
+                        <span className="text-white text-[11px] leading-none font-semibold px-2 py-1 rounded bg-black/70 whitespace-nowrap">
+                          {prop.label}
+                        </span>
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
             </AnimatePresence>
           </div>
 
-          {/* Floating whiteboard image items (e.g. ordering menu from compose_visual_scene) */}
+          {/* Floating whiteboard image items */}
           {imageItems.length > 0 && (
             <div className="absolute right-4 bottom-20 flex flex-col gap-2 items-end">
               {imageItems.slice(-3).map((item: any) => (
@@ -205,6 +455,18 @@ export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems
               <X className="w-5 h-5" />
             </Button>
           </div>
+
+          {/* Rich content sheet (menu / bill) */}
+          <AnimatePresence>
+            {openSheet && (
+              <RichContentSheet
+                key="rich-sheet"
+                content={openSheet}
+                difficulty={difficulty}
+                onClose={() => setOpenSheet(null)}
+              />
+            )}
+          </AnimatePresence>
         </motion.div>
       )}
     </AnimatePresence>

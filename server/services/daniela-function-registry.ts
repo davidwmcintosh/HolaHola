@@ -1144,6 +1144,109 @@ NEVER guess. NEVER roleplay searching. Actually call this function.`,
     },
   },
   {
+    legacyType: 'SHOW_MENU',
+    declaration: {
+      name: "show_menu",
+      description: `Place the restaurant menu on the table as a tappable physical prop in the immersive scene.
+
+Use show_menu when:
+- Starting a restaurant scenario (place the menu early so the student can explore it)
+- The student asks to see the menu ("¿me puede traer la carta?", "la carte s'il vous plaît", etc.)
+- Switching meal courses and they need to see dessert or drink options
+
+The menu appears as a physical menu book/card on the table. In immersive mode the student can tap it to read the full menu with dishes and prices in the target language. The menu stays on the table throughout the meal.
+
+Provide menu content appropriate for the target language and culture:
+- Spanish (Spain): tapas, platos combinados, menú del día with euro prices
+- French: entrée/plat/dessert structure, regional dishes, euro prices
+- Italian: antipasto/primo/secondo/dolce, regional specialties, euro prices
+- German: Vorspeise/Hauptspeise/Nachspeise, local dishes, euro prices
+- Portuguese: petiscos, pratos principais, euro prices
+- Japanese: 前菜/主菜/デザート, yen prices
+- Chinese: 前菜/主菜/甜点, yuan prices
+
+IMPORTANT: Always provide items.name_target (the target language name) AND items.name (English translation) for all items. Include culturally authentic dishes — not tourist versions.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you say while presenting the menu (spoken aloud)" },
+          meal_type: {
+            type: "string",
+            enum: ["breakfast", "lunch", "dinner"],
+            description: "Type of meal — determines which menu prop image is placed on the table",
+          },
+          title: { type: "string", description: "Menu title shown in the sheet header (e.g. 'La Carta', 'Le Menu', 'Die Speisekarte')" },
+          sections: {
+            type: "array",
+            description: "Menu sections (e.g. Entrées, Main Courses, Desserts)",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string", description: "Section name in English (e.g. 'Starters')" },
+                name_target: { type: "string", description: "Section name in the target language (e.g. 'Entrantes', 'Entrées', 'Antipasti')" },
+                items: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      name: { type: "string", description: "Dish name in English" },
+                      name_target: { type: "string", description: "Dish name in target language" },
+                      description_target: { type: "string", description: "Short description in target language" },
+                      price: { type: "string", description: "Price with currency symbol (e.g. '€12', '¥800', '£9.50')" },
+                    },
+                    required: ["name", "name_target", "price"],
+                  },
+                },
+              },
+              required: ["name", "name_target", "items"],
+            },
+          },
+        },
+        required: ["text", "meal_type", "sections"],
+      },
+    },
+  },
+  {
+    legacyType: 'SHOW_BILL',
+    declaration: {
+      name: "show_bill",
+      description: `Place the restaurant bill/check on the table as a tappable prop in the immersive scene.
+
+Use show_bill when:
+- The student asks for the bill ("la cuenta", "l'addition", "il conto", "die Rechnung", "お会計", etc.)
+- The meal is concluding and it's time to pay
+- After the student has ordered their final course
+
+The bill appears as a physical receipt/check on the table. The student can tap it to see the itemized total.
+
+Include all ordered items with their prices, a subtotal, any applicable service charge or tax, and the final total in the local currency. Label everything in the target language with English translations.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you say while presenting the bill (spoken aloud)" },
+          title: { type: "string", description: "Bill title in target language (e.g. 'La Cuenta', 'L'Addition', 'Il Conto', 'Die Rechnung')" },
+          items: {
+            type: "array",
+            description: "Itemized list of ordered dishes and their prices",
+            items: {
+              type: "object",
+              properties: {
+                label: { type: "string", description: "Item name (target language / English, e.g. 'Tortilla española / Spanish omelette')" },
+                value: { type: "string", description: "Price with currency symbol (e.g. '€8.50')" },
+              },
+              required: ["label", "value"],
+            },
+          },
+          subtotal: { type: "string", description: "Subtotal before tax/service (e.g. '€24.00')" },
+          service: { type: "string", description: "Service charge if applicable (e.g. '€2.40 (10%)')" },
+          tax: { type: "string", description: "Tax if applicable (e.g. '€2.64 (IVA 11%)')" },
+          total: { type: "string", description: "Final total (e.g. '€26.64')" },
+        },
+        required: ["text", "items", "total"],
+      },
+    },
+  },
+  {
     legacyType: 'UPDATE_PROP',
     declaration: {
       name: "update_prop",
