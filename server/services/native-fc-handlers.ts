@@ -835,6 +835,7 @@ export class NativeFunctionCallHandler {
           break;
         }
         const CANVAS_POSITION_MAP: Record<string, { cx: number; cy: number; scale: number }> = {
+          // ── Generic positions ──────────────────────────────────────────────
           center:        { cx: 0.50, cy: 0.65, scale: 0.20 },
           left:          { cx: 0.25, cy: 0.68, scale: 0.16 },
           right:         { cx: 0.75, cy: 0.68, scale: 0.16 },
@@ -849,6 +850,20 @@ export class NativeFunctionCallHandler {
           in_hand:       { cx: 0.50, cy: 0.62, scale: 0.12 },
           on_chair:      { cx: 0.50, cy: 0.74, scale: 0.14 },
           beside_table:  { cx: 0.70, cy: 0.80, scale: 0.14 },
+          // ── Restaurant table place-setting positions ───────────────────────
+          // Imagining student seated at the near edge of the table:
+          //   [bread_corner]       [condiment_1][condiment_2]
+          //       [glass_spot]     [condiment_3][condiment_4]
+          //   [place_left] [plate/center] [place_right]
+          place_left:    { cx: 0.30, cy: 0.72, scale: 0.09 }, // fork / napkin
+          place_right:   { cx: 0.68, cy: 0.72, scale: 0.09 }, // knife / spoon
+          glass_spot:    { cx: 0.62, cy: 0.57, scale: 0.13 }, // water glass / wine glass above plate
+          bread_corner:  { cx: 0.22, cy: 0.58, scale: 0.15 }, // bread basket, upper-left
+          // ── Condiment cluster — back-right corner of table ─────────────────
+          condiment_1:   { cx: 0.78, cy: 0.56, scale: 0.10 }, // e.g. ketchup
+          condiment_2:   { cx: 0.86, cy: 0.60, scale: 0.10 }, // e.g. mustard
+          condiment_3:   { cx: 0.78, cy: 0.49, scale: 0.09 }, // e.g. hot sauce
+          condiment_4:   { cx: 0.86, cy: 0.52, scale: 0.09 }, // e.g. sugar packets
         };
         let addPos = CANVAS_POSITION_MAP[addPosition] || CANVAS_POSITION_MAP.center;
         // Auto-spread: if requested position is already occupied by an existing prop,
@@ -858,8 +873,11 @@ export class NativeFunctionCallHandler {
             { cx: 0.25, cy: 0.68, scale: 0.16 }, // left
             { cx: 0.50, cy: 0.65, scale: 0.20 }, // center
             { cx: 0.75, cy: 0.68, scale: 0.16 }, // right
-            { cx: 0.35, cy: 0.80, scale: 0.14 }, // far-left-low
-            { cx: 0.65, cy: 0.80, scale: 0.14 }, // far-right-low
+            { cx: 0.30, cy: 0.72, scale: 0.09 }, // place_left
+            { cx: 0.68, cy: 0.72, scale: 0.09 }, // place_right
+            { cx: 0.78, cy: 0.56, scale: 0.10 }, // condiment_1
+            { cx: 0.86, cy: 0.60, scale: 0.10 }, // condiment_2
+            { cx: 0.22, cy: 0.58, scale: 0.15 }, // bread_corner
             { cx: 0.50, cy: 0.82, scale: 0.22 }, // foreground
           ];
           const isTooClose = (a: { cx: number; cy: number }, b: { cx: number; cy: number }) =>

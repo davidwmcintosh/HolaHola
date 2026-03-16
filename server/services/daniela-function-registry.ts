@@ -572,19 +572,35 @@ Use the live canvas only when the SEQUENCE of changes is pedagogically meaningfu
       description: `Add a prop to the live scene canvas. The prop slides in with a gentle animation.
 
 Only works after open_scene has been called. Zone-compatible props:
-  cup, glass, wine_glass, water_pitcher
-  espresso, latte, coffee, hot chocolate, coffee with cream
-  plate, dinner_plate, fork, knife, spoon, napkin, bread_basket, salt_pepper
-  book, cell_phone, menu_card, candle, apple, croissant, backpack
+  Drinks:      cup, glass, wine_glass, water_pitcher
+               espresso, latte, coffee, hot chocolate, coffee with cream
+  Food:        plate, dinner_plate, bread_basket, apple, croissant
+  Utensils:    fork, knife, spoon, napkin
+  Condiments:  salt_pepper, ketchup, mustard, hot_sauce, butter, jam, sugar_packets
+  Menus:       menu_card, breakfast_menu, lunch_menu, dinner_menu
+  Other:       book, cell_phone, candle, backpack
 
-POSITIONING — each prop must use a DIFFERENT position. Never place two props at the same position:
-  Standard restaurant table spread:
-    menu_card → "left"         candle → "right"        salt_pepper → "beside_table"
-    coffee → "center"          croissant → "right"     water_pitcher → "left"
-    plate → "center"           fork → "left"           knife → "right"
-  
-  Position reference:  left | center | right | foreground | background
-                        on_table | on_counter | beside_table | in_hand | on_chair
+POSITIONING — each prop must use a DIFFERENT position. The positions form a layout:
+
+  RESTAURANT TABLE LAYOUT (use these for restaurant/café scenes):
+  ┌─────────────────────────────────────────────────┐
+  │ bread_corner    glass_spot   condiment_1/2/3/4  │  ← back of table
+  │                                                  │
+  │  place_left    center/plate    place_right       │  ← near student
+  └─────────────────────────────────────────────────┘
+
+  Recommended assignments:
+    Plate:          center          Fork:           place_left
+    Knife/spoon:    place_right     Napkin:         place_left
+    Water glass:    glass_spot      Wine glass:     glass_spot
+    Bread basket:   bread_corner    Menu:           left
+    Candle:         right           Salt & pepper:  condiment_1
+    Ketchup:        condiment_1     Mustard:        condiment_2
+    Hot sauce:      condiment_3     Sugar packets:  condiment_4
+
+  GENERIC positions (for non-restaurant scenes):
+    left | center | right | foreground | background
+    on_table | on_counter | beside_table | in_hand | on_chair
 
 The system auto-repositions if two props would overlap, but specifying correct positions explicitly always looks best.
 If a prop is already on the canvas, calling add_to_scene again replaces it in place.`,
@@ -595,12 +611,24 @@ If a prop is already on the canvas, calling add_to_scene again replaces it in pl
           prop_name: {
             type: "string",
             description: "The prop to add.",
-            enum: ["cup","glass","wine_glass","water_pitcher","espresso","latte","coffee","hot chocolate","coffee with cream","plate","dinner_plate","fork","knife","spoon","napkin","bread_basket","salt_pepper","book","cell_phone","menu_card","candle","apple","croissant","backpack"],
+            enum: [
+              "cup","glass","wine_glass","water_pitcher",
+              "espresso","latte","coffee","hot chocolate","coffee with cream",
+              "plate","dinner_plate","fork","knife","spoon","napkin","bread_basket",
+              "salt_pepper","ketchup","mustard","hot_sauce","butter","jam","sugar_packets",
+              "menu_card","breakfast_menu","lunch_menu","dinner_menu",
+              "book","cell_phone","candle","apple","croissant","backpack"
+            ],
           },
           position: {
             type: "string",
-            description: "Where to place the prop on the canvas.",
-            enum: ["center","left","right","foreground","background","on_table","under_table","on_floor","beside_bed","on_counter","under_counter","in_hand","on_chair","beside_table"],
+            description: "Where to place the prop on the canvas. For restaurant tables use the specific table positions.",
+            enum: [
+              "center","left","right","foreground","background",
+              "on_table","under_table","on_floor","beside_bed","on_counter","under_counter","in_hand","on_chair","beside_table",
+              "place_left","place_right","glass_spot","bread_corner",
+              "condiment_1","condiment_2","condiment_3","condiment_4"
+            ],
           },
           label: { type: "string", description: "Target-language label shown under the prop (e.g. 'el vaso'). Defaults to the prop name." },
         },
@@ -691,9 +719,16 @@ The student's screen goes fullscreen showing only the live scene canvas.
 
 IMPORTANT — set up the FULL scene BEFORE calling enter_immersive:
 1. Call open_scene(environment) to load the background
-2. Call add_to_scene() for every prop that should already be on the table (menu_card, candle, salt_pepper, etc.)
-3. THEN call enter_immersive() — so the student sees a fully dressed scene the moment it goes fullscreen
-Do NOT wait until the student orders to add initial scene dressing. The menu, candle, salt_pepper etc. should already be on the table when you enter immersive.
+2. Call add_to_scene() for every prop that should already be visible:
+   - Restaurant table: breakfast_menu/lunch_menu/dinner_menu (position: left), candle (right),
+     salt_pepper (condiment_1), bread_basket (bread_corner), water_pitcher (glass_spot)
+   - Add ketchup (condiment_1), mustard (condiment_2) etc. if appropriate for the meal
+3. THEN call enter_immersive() — the student sees a fully dressed scene immediately
+
+Use the appropriate meal-time menu: breakfast_menu for morning, lunch_menu for midday,
+dinner_menu for evening. Only use the generic menu_card if the time of day is unknown.
+
+Do NOT wait until the student orders to add initial scene dressing.
 
 An exit button is always visible so the student can leave at any time.`,
       parametersJsonSchema: {
