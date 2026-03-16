@@ -852,24 +852,30 @@ export class NativeFunctionCallHandler {
           beside_table:  { cx: 0.70, cy: 0.80, scale: 0.14 },
           // ── Restaurant table place-setting positions ───────────────────────
           // Imagining student seated at the near edge of the table:
-          //   [bread_corner]       [condiment_1][condiment_2]
-          //       [glass_spot]     [condiment_3][condiment_4]
-          //   [place_left] [plate/center] [place_right]
+          //   [bread_corner]  [glass_spot]  [condiment_1][condiment_2]
+          //   [side_plate]                  [condiment_3][condiment_4]
+          //   [place_left]  [main plate]    [place_right]
           place_left:    { cx: 0.30, cy: 0.72, scale: 0.09 }, // fork / napkin
           place_right:   { cx: 0.68, cy: 0.72, scale: 0.09 }, // knife / spoon
-          glass_spot:    { cx: 0.62, cy: 0.57, scale: 0.13 }, // water glass / wine glass above plate
+          glass_spot:    { cx: 0.62, cy: 0.57, scale: 0.13 }, // water glass / wine glass
           bread_corner:  { cx: 0.22, cy: 0.58, scale: 0.15 }, // bread basket, upper-left
+          // ── Side / bread plate — lower-left of main plate ─────────────────
+          side_plate:          { cx: 0.22, cy: 0.70, scale: 0.13 }, // the plate prop itself
+          on_side_plate:       { cx: 0.22, cy: 0.70, scale: 0.08 }, // item centered on side plate
+          on_side_plate_left:  { cx: 0.17, cy: 0.71, scale: 0.07 }, // left of side plate
+          on_side_plate_right: { cx: 0.27, cy: 0.71, scale: 0.07 }, // right of side plate
           // ── Condiment cluster — back-right corner of table ─────────────────
-          condiment_1:   { cx: 0.78, cy: 0.56, scale: 0.10 }, // e.g. ketchup
-          condiment_2:   { cx: 0.86, cy: 0.60, scale: 0.10 }, // e.g. mustard
-          condiment_3:   { cx: 0.78, cy: 0.49, scale: 0.09 }, // e.g. hot sauce
-          condiment_4:   { cx: 0.86, cy: 0.52, scale: 0.09 }, // e.g. sugar packets
-          // ── Plate zone — for restaurant_table_with_plate environment ──────
-          // The plate is baked into the background. Food items placed here
-          // appear ON the plate. Scale is smaller so items fit within the plate.
-          on_plate:      { cx: 0.45, cy: 0.70, scale: 0.13 }, // center of the baked-in plate
-          on_plate_left: { cx: 0.38, cy: 0.72, scale: 0.09 }, // left side of plate (e.g. side salad)
-          on_plate_right:{ cx: 0.52, cy: 0.68, scale: 0.09 }, // right side of plate
+          condiment_1:   { cx: 0.78, cy: 0.56, scale: 0.10 },
+          condiment_2:   { cx: 0.86, cy: 0.60, scale: 0.10 },
+          condiment_3:   { cx: 0.78, cy: 0.49, scale: 0.09 },
+          condiment_4:   { cx: 0.86, cy: 0.52, scale: 0.09 },
+          // ── Main plate — 5 sub-zones for multi-item meals ──────────────────
+          // Use on_plate for the first/main item, then spread extras across the zone.
+          on_plate:            { cx: 0.46, cy: 0.70, scale: 0.11 }, // center (primary item)
+          on_plate_top_left:   { cx: 0.40, cy: 0.66, scale: 0.08 }, // e.g. eggs top-left
+          on_plate_top_right:  { cx: 0.52, cy: 0.66, scale: 0.08 }, // e.g. bacon top-right
+          on_plate_left:       { cx: 0.38, cy: 0.71, scale: 0.08 }, // e.g. ham left
+          on_plate_right:      { cx: 0.54, cy: 0.71, scale: 0.08 }, // e.g. garnish right
         };
         let addPos = CANVAS_POSITION_MAP[addPosition] || CANVAS_POSITION_MAP.center;
         // Auto-spread: if requested position is already occupied by an existing prop,

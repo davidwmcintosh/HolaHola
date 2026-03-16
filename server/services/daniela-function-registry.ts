@@ -574,50 +574,61 @@ Use the live canvas only when the SEQUENCE of changes is pedagogically meaningfu
 Only works after open_scene has been called. Zone-compatible props:
   Drinks:      cup, glass, wine_glass, water_pitcher
                espresso, latte, coffee, hot chocolate, coffee with cream
-  Food:        plate, dinner_plate, bread_basket, apple, croissant
-  Utensils:    fork, knife, spoon, napkin
+  Tableware:   plate, dinner_plate, bread_plate (small side plate)
+               fork, knife, spoon, napkin
+  Bread:       bread_basket, plain_toast
+  Breakfast:   scrambled_eggs, fried_eggs, omelette, bacon_strips, ham_slice, hash_browns
   Condiments:  salt_pepper, ketchup, mustard, hot_sauce, butter, jam, sugar_packets
   Menus:       menu_card, breakfast_menu, lunch_menu, dinner_menu
-  Other:       book, cell_phone, candle, backpack
+  Other:       book, cell_phone, candle, apple, croissant, backpack
 
 POSITIONING — each prop must use a DIFFERENT position. The positions form a layout:
 
   RESTAURANT TABLE LAYOUT (use these for restaurant/café scenes):
-  ┌─────────────────────────────────────────────────┐
-  │ bread_corner    glass_spot   condiment_1/2/3/4  │  ← back of table
-  │                                                  │
-  │  place_left    center/plate    place_right       │  ← near student
-  └─────────────────────────────────────────────────┘
+  ┌──────────────────────────────────────────────────────────────┐
+  │ bread_corner   glass_spot        condiment_1   condiment_2  │ ← back
+  │ side_plate                       condiment_3   condiment_4  │
+  │ place_left   [main plate]        place_right                │ ← near student
+  └──────────────────────────────────────────────────────────────┘
 
-  Recommended assignments:
-    Plate:          center          Fork:           place_left
-    Knife/spoon:    place_right     Napkin:         place_left
-    Water glass:    glass_spot      Wine glass:     glass_spot
-    Bread basket:   bread_corner    Menu:           left
-    Candle:         right           Salt & pepper:  condiment_1
-    Ketchup:        condiment_1     Mustard:        condiment_2
-    Hot sauce:      condiment_3     Sugar packets:  condiment_4
+  Recommended prop → position assignments:
+    Main plate:     center            Fork:          place_left
+    Knife:          place_right       Spoon:         place_right
+    Napkin:         place_left        Wine glass:    glass_spot
+    Water pitcher:  glass_spot        Bread basket:  bread_corner
+    Menu:           left              Candle:        right
+    Salt & pepper:  condiment_1       Ketchup:       condiment_1
+    Mustard:        condiment_2       Hot sauce:     condiment_3
+    Sugar packets:  condiment_4
+    Side plate:     side_plate  ← place bread_plate prop here first, then put toast on it
 
-  RESTAURANT TABLE — FULL PROP SETUP (use "restaurant_table" environment for dining scenes):
-  The restaurant_table background is a bare table with tablecloth and room ambiance only.
-  Daniela adds EVERY item as a labeled prop so the student sees and learns each word.
-  Setting the table IS part of the lesson — narrate each prop as you place it.
+  SETTING THE TABLE (restaurant_table environment — bare table, add everything as labeled props):
+  Daniela narrates each prop as it arrives — the vocabulary IS the lesson warmup.
+  Suggested order before enter_immersive:
+    plate → center | fork → place_left | knife → place_right
+    wine_glass → glass_spot | dinner_menu → left | candle → right
+    bread_basket → bread_corner | salt_pepper → condiment_1
+  Add ketchup/mustard/water_pitcher for casual restaurants.
+  For a breakfast scene: add bread_plate → side_plate for toast placement.
 
-  Suggested table-setting order before enter_immersive:
-    1. plate          → place_left or center   ("Aquí está tu plato")
-    2. fork           → place_left             ("El tenedor va a la izquierda")
-    3. knife          → place_right            ("El cuchillo va a la derecha")
-    4. wine_glass     → glass_spot             ("La copa de vino")
-    5. dinner_menu    → left                   ("El menú del restaurante")
-    6. candle         → right                  ("La vela")
-    7. bread_basket   → bread_corner           ("La canasta de pan")
-    8. salt_pepper    → condiment_1            ("La sal y la pimienta")
-  Add ketchup / mustard / water_pitcher if appropriate for the style of restaurant.
+  MULTI-ITEM MEALS — main plate has 5 sub-zones:
+    on_plate          → center (primary item: omelette, pasta, steak…)
+    on_plate_top_left → top-left quadrant (e.g. scrambled_eggs)
+    on_plate_top_right→ top-right quadrant (e.g. bacon_strips)
+    on_plate_left     → left edge (e.g. ham_slice)
+    on_plate_right    → right edge (e.g. hash_browns)
 
-  Plate zone positions — for placing FOOD onto the plate once student orders:
-    on_plate       → center of plate (main dish: steak, pasta, omelette, eggs, etc.)
-    on_plate_left  → left side of plate (salad, vegetables, toast)
-    on_plate_right → right side of plate (sauce, garnish)
+  SIDE / BREAD PLATE — for toast and extras, keeping the main plate uncluttered:
+    side_plate        → place the bread_plate prop here first
+    on_side_plate     → center of side plate (e.g. plain_toast)
+    on_side_plate_left → left of side plate
+    on_side_plate_right→ right of side plate
+
+  EXAMPLE — student orders "eggs and ham with toast":
+    add_to_scene(scrambled_eggs, on_plate_top_left)
+    add_to_scene(ham_slice,      on_plate_left)
+    add_to_scene(bread_plate,    side_plate)
+    add_to_scene(plain_toast,    on_side_plate)
 
   GENERIC positions (for non-restaurant scenes):
     left | center | right | foreground | background
@@ -635,7 +646,9 @@ If a prop is already on the canvas, calling add_to_scene again replaces it in pl
             enum: [
               "cup","glass","wine_glass","water_pitcher",
               "espresso","latte","coffee","hot chocolate","coffee with cream",
-              "plate","dinner_plate","fork","knife","spoon","napkin","bread_basket",
+              "plate","dinner_plate","bread_plate",
+              "fork","knife","spoon","napkin","bread_basket",
+              "scrambled_eggs","fried_eggs","omelette","bacon_strips","ham_slice","hash_browns","plain_toast",
               "salt_pepper","ketchup","mustard","hot_sauce","butter","jam","sugar_packets",
               "menu_card","breakfast_menu","lunch_menu","dinner_menu",
               "book","cell_phone","candle","apple","croissant","backpack"
@@ -648,8 +661,9 @@ If a prop is already on the canvas, calling add_to_scene again replaces it in pl
               "center","left","right","foreground","background",
               "on_table","under_table","on_floor","beside_bed","on_counter","under_counter","in_hand","on_chair","beside_table",
               "place_left","place_right","glass_spot","bread_corner",
+              "side_plate","on_side_plate","on_side_plate_left","on_side_plate_right",
               "condiment_1","condiment_2","condiment_3","condiment_4",
-              "on_plate","on_plate_left","on_plate_right"
+              "on_plate","on_plate_top_left","on_plate_top_right","on_plate_left","on_plate_right"
             ],
           },
           label: { type: "string", description: "Target-language label shown under the prop (e.g. 'el vaso'). Defaults to the prop name." },
