@@ -576,30 +576,66 @@ export async function executeAldenTool(
         const hours = Math.min(args.hours || 24, 72);
         const since = new Date(Date.now() - hours * 60 * 60 * 1000);
         const sharedDb = getSharedDb();
+        const currentEnv = process.env.NODE_ENV as 'development' | 'production';
 
-        const recentIssues = await sharedDb.select({
+        // Current environment errors
+        const currentEnvIssues = await sharedDb.select({
           id: sofiaIssueReports.id,
           issueType: sofiaIssueReports.issueType,
           userDescription: sofiaIssueReports.userDescription,
           sofiaAnalysis: sofiaIssueReports.sofiaAnalysis,
           status: sofiaIssueReports.status,
+          environment: sofiaIssueReports.environment,
           createdAt: sofiaIssueReports.createdAt,
         }).from(sofiaIssueReports)
-          .where(gte(sofiaIssueReports.createdAt, since))
+          .where(and(
+            gte(sofiaIssueReports.createdAt, since),
+            eq(sofiaIssueReports.environment, currentEnv)
+          ))
+          .orderBy(desc(sofiaIssueReports.createdAt))
+          .limit(15);
+
+        // Production errors (always show, even when in dev)
+        const productionIssues = await sharedDb.select({
+          id: sofiaIssueReports.id,
+          issueType: sofiaIssueReports.issueType,
+          userDescription: sofiaIssueReports.userDescription,
+          sofiaAnalysis: sofiaIssueReports.sofiaAnalysis,
+          status: sofiaIssueReports.status,
+          environment: sofiaIssueReports.environment,
+          createdAt: sofiaIssueReports.createdAt,
+        }).from(sofiaIssueReports)
+          .where(and(
+            gte(sofiaIssueReports.createdAt, since),
+            eq(sofiaIssueReports.environment, 'production')
+          ))
           .orderBy(desc(sofiaIssueReports.createdAt))
           .limit(15);
 
         return {
           data: {
+            currentEnvironment: currentEnv,
             period: `last ${hours} hours`,
-            issueCount: recentIssues.length,
-            issues: recentIssues.map(i => ({
-              type: i.issueType,
-              description: i.userDescription?.substring(0, 200),
-              analysis: i.sofiaAnalysis?.substring(0, 200),
-              status: i.status,
-              when: i.createdAt?.toISOString(),
-            })),
+            currentEnv: {
+              issueCount: currentEnvIssues.length,
+              issues: currentEnvIssues.map(i => ({
+                type: i.issueType,
+                description: i.userDescription?.substring(0, 200),
+                analysis: i.sofiaAnalysis?.substring(0, 200),
+                status: i.status,
+                when: i.createdAt?.toISOString(),
+              })),
+            },
+            production: {
+              issueCount: productionIssues.length,
+              issues: productionIssues.map(i => ({
+                type: i.issueType,
+                description: i.userDescription?.substring(0, 200),
+                analysis: i.sofiaAnalysis?.substring(0, 200),
+                status: i.status,
+                when: i.createdAt?.toISOString(),
+              })),
+            },
           },
         };
       }
