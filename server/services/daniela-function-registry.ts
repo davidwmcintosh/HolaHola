@@ -599,10 +599,18 @@ POSITIONING — each prop must use a DIFFERENT position. The positions form a la
     Hot sauce:      condiment_3     Sugar packets:  condiment_4
 
   PLATE ZONE positions (use with restaurant_table_with_plate environment ONLY):
-  The environment "restaurant_table_with_plate" has an empty plate baked into the
-  background. Use these positions to place food items directly ON the plate:
-    on_plate       → center of plate (main item: steak, pasta, omelette, etc.)
-    on_plate_left  → left side of plate (side salad, vegetables)
+  The environment "restaurant_table_with_plate" has a pre-set table baked into the
+  background: plate, fork, knife, wine glass, bread basket, and candle are ALREADY
+  PAINTED IN. DO NOT add these as props — it creates duplicates.
+
+  Only add props that are NOT already in the background:
+    ✓ water_pitcher (glass_spot)     ✓ menu cards (left)
+    ✓ salt_pepper (condiment_1)      ✓ ketchup, mustard (condiment_2/3)
+    ✓ food items ordered by student (on_plate / on_plate_left / on_plate_right)
+
+  Plate zone positions for placing food ON the plate:
+    on_plate       → center of plate (main item: steak, pasta, omelette, eggs, etc.)
+    on_plate_left  → left side of plate (side salad, vegetables, toast)
     on_plate_right → right side of plate (sauce, garnish)
 
   GENERIC positions (for non-restaurant scenes):
@@ -727,22 +735,23 @@ The student's screen goes fullscreen showing only the live scene canvas.
 
 IMPORTANT — set up the FULL scene BEFORE calling enter_immersive:
 1. Call open_scene(environment) to load the background
-2. Call add_to_scene() for every prop that should already be visible:
-   - For ordering scenarios USE environment "restaurant_table_with_plate" — it has an
-     empty plate baked in so food props snap directly onto it with on_plate position.
-   - For non-ordering scenes use "restaurant_table" (original, no built-in plate).
-   - Standard table dressing: breakfast/lunch/dinner_menu (left), candle (right),
-     salt_pepper (condiment_1), bread_corner, water_pitcher (glass_spot)
-   - Add ketchup/mustard if appropriate for the meal style
-3. THEN call enter_immersive() — the student sees a fully dressed scene immediately
+2. Call add_to_scene() for props NOT already in the background:
 
-Choose the right menu for the time of day: breakfast_menu (morning), lunch_menu (midday),
-dinner_menu (evening). Only use menu_card if time is unknown.
+   For "restaurant_table_with_plate" (use when food ordering will happen):
+   - ALREADY IN BACKGROUND (DO NOT ADD): plate, fork, knife, wine_glass, bread_basket, candle
+   - ADD THESE: breakfast/lunch/dinner_menu (position: left), water_pitcher (glass_spot),
+     salt_pepper (condiment_1) — plus ketchup/mustard if it's that kind of place
+   - When student orders: add the food at on_plate / on_plate_left / on_plate_right
 
-When the student orders food, add the food prop at "on_plate" (for restaurant_table_with_plate)
-or "center" (for restaurant_table) so it appears at the correct position.
+   For "restaurant_table" (generic, no pre-set plate):
+   - Add whatever the scene needs — plate, utensils, candle, menu, condiments all fine
 
-Do NOT wait until the student orders to add initial scene dressing.
+3. THEN call enter_immersive() — student sees a fully dressed scene immediately
+
+Choose the right menu: breakfast_menu (morning), lunch_menu (midday), dinner_menu (evening).
+
+Do NOT wait until the student orders to add the water pitcher, menu, and condiments —
+those go out BEFORE enter_immersive so the table looks naturally set from the start.
 
 An exit button is always visible so the student can leave at any time.`,
       parametersJsonSchema: {
