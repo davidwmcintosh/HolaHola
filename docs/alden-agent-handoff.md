@@ -1,44 +1,44 @@
 # Alden ↔ Agent Handoff
 
-## From Alden — last updated: Mon, Mar 16, 3:20 PM
+## From Alden — last updated: Mon, Mar 16, 9:29 PM
 
-## Session: Fixed Brain Health Monitoring False Positives
+## From Alden — last updated: Mon, Mar 16, 3:45 PM
 
-**What happened:**
-David reported "pipeline issues" — WebSocket connection errors appearing in health monitoring and Sofia reports. Investigation revealed these were **not actual pipeline failures**, but false positives from the health monitoring system itself.
+## Session: Environment-Aware Monitoring — Complete
 
-**Root cause:**
-- Brain Health Aggregator runs every 15 minutes, queries database via 6 assessment functions
-- When platform is idle (0 active sessions), Neon Serverless Postgres suspends its connection pool
-- Health check tries to wake it → Neon's WebSocket driver throws timeout errors
-- Each assessment catches this, returns status: 'yellow', score: 50
-- Multiple yellow dimensions → overall status degrades → Sofia gets triggered
-- Sofia correctly analyzed these as "false positives caused by health monitor timeouts during idle periods"
+**What was built:**
+Three-phase implementation to make all monitoring tools environment-aware, enabling diagnosis of dev vs production infrastructure issues.
 
-**The fix applied:**
-Modified `server/services/brain-health-aggregator.ts`:
-1. Added `isNeonConnectionError(err)` helper — detects WebSocket/timeout errors from Neon's driver
-2. After all 6 assessments complete, check if ALL failures are Neon connection errors
-3. If yes: override all failed dimensions to green with reason "System idle — database connection pool suspended (healthy)"
-4. Log the override, skip status transitions and Sofia callbacks
+**Phase 1 — Schema Migration:**
+- Added `environment` column to `voiceSessions` table (type: `environmentOriginEnum` with 'development'/'production')
+- Added index `idx_voice_sessions_environment` for efficient filtering
+- Pushed via `npm run db:push --force` (successful)
+
+**Phase 2 — Voice Session Creation:**
+- Updated `server/services/usage-service.ts` line 411: all new sessions tagged with `environment: process.env.NODE_ENV`
+- Updated `scripts/import-production-data.ts` line 170: preserves environment during historical imports
+
+**Phase 3 — Monitoring Tools Update:**
+All 4 primary tools now environment-aware:
+1. **`get_voice_session_metrics`** — Queries both current environment AND production separately; returns dual-bucket format: `{ currentEnvironment, currentEnv: {totalSessions, sessionsToday, languageBreakdown}, production: {...} }`
+2. **`get_recent_errors`** — Queries Sofia issue reports for both current environment AND production; same dual-bucket format with `currentEnv` and `production` sections
+3. **`get_database_stats`** — Added `currentEnvironment` label (users not filtered — they're not environment-specific)
+4. **`get_user_analytics`** — Added `currentEnvironment` label (same reasoning)
 
 **Verification:**
-- Applied change at 15:16 (Guardian protected)
-- Server running cleanly
-- Full systems check: GO, 100/100, all dimensions green
-- Last 10 Sofia reports show historical false positives (all before 14:41, before the fix)
+- TypeScript compilation: pre-existing errors unrelated to this change
+- Server running cleanly (uptime 255s, green health)
+- All new voice sessions created from this point forward will be tagged with their originating environment
 
-**Expected outcome:**
-- Zero false-positive yellow transitions during idle periods
-- Sofia stops getting woken up every 15-60 minutes for non-issues
-- Any future yellow/red transitions are genuine problems worth investigating
+**Impact:**
+You can now diagnose environment-specific issues immediately. Example use case: "Production has 8 session failures in the last hour. Dev has 0." That's the signal needed to identify infrastructure problems like autoscale rotation (which just happened) vs code bugs (which would appear in both).
 
-**What you should know:**
-- The actual voice pipeline, database queries during real sessions, and all student-facing systems were always working perfectly
-- The only thing broken was the health monitoring system itself — it couldn't distinguish between "database is broken" and "database connection pool is cold"
-- This fix makes the monitoring trustworthy again
+**Architectural decision confirmed:**
+- Separation is **dev vs prod environment** (which server created the session)
+- NOT internal vs external users (that's handled by the existing `isTestSession` flag)
+- Test account sessions in production are correctly tagged as production sessions
 
-— Alden, March 16, 2026, 3:30 PM
+— Alden, March 16, 2026, 3:45 PM
 
 ---
 
