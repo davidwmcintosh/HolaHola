@@ -433,6 +433,7 @@ export async function executeAldenTool(
 
         return {
           data: {
+            currentEnvironment: process.env.NODE_ENV,
             tables: {
               users: Number(userCount?.count || 0),
               voiceSessions: Number(sessionCount?.count || 0),
@@ -471,6 +472,7 @@ export async function executeAldenTool(
 
         return {
           data: {
+            currentEnvironment: process.env.NODE_ENV,
             totalUsers: Number(totalUsers?.count || 0),
             activeUsersLast7d: Number(activeUsers?.count || 0),
             newUsersLast30d: Number(newUsers?.count || 0),
@@ -486,36 +488,86 @@ export async function executeAldenTool(
         const days = Math.min(args.days || 7, 30);
         const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
         const sharedDb = getSharedDb();
+        const currentEnv = process.env.NODE_ENV as 'development' | 'production';
 
-        const [totalSessions] = await sharedDb.select({
+        // Current environment metrics
+        const [totalSessionsCurrent] = await sharedDb.select({
           count: sql<number>`count(*)`,
         }).from(voiceSessions)
-          .where(gte(voiceSessions.startedAt, since));
+          .where(and(
+            gte(voiceSessions.startedAt, since),
+            eq(voiceSessions.environment, currentEnv)
+          ));
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const [todaySessions] = await sharedDb.select({
+        const [todaySessionsCurrent] = await sharedDb.select({
           count: sql<number>`count(*)`,
         }).from(voiceSessions)
-          .where(gte(voiceSessions.startedAt, today));
+          .where(and(
+            gte(voiceSessions.startedAt, today),
+            eq(voiceSessions.environment, currentEnv)
+          ));
 
-        const languageBreakdown = await sharedDb.select({
+        const languageBreakdownCurrent = await sharedDb.select({
           language: voiceSessions.language,
           count: sql<number>`count(*)`,
         }).from(voiceSessions)
-          .where(gte(voiceSessions.startedAt, since))
+          .where(and(
+            gte(voiceSessions.startedAt, since),
+            eq(voiceSessions.environment, currentEnv)
+          ))
+          .groupBy(voiceSessions.language)
+          .orderBy(desc(sql`count(*)`));
+
+        // Production metrics (always show production, even when in dev)
+        const [totalSessionsProd] = await sharedDb.select({
+          count: sql<number>`count(*)`,
+        }).from(voiceSessions)
+          .where(and(
+            gte(voiceSessions.startedAt, since),
+            eq(voiceSessions.environment, 'production')
+          ));
+
+        const [todaySessionsProd] = await sharedDb.select({
+          count: sql<number>`count(*)`,
+        }).from(voiceSessions)
+          .where(and(
+            gte(voiceSessions.startedAt, today),
+            eq(voiceSessions.environment, 'production')
+          ));
+
+        const languageBreakdownProd = await sharedDb.select({
+          language: voiceSessions.language,
+          count: sql<number>`count(*)`,
+        }).from(voiceSessions)
+          .where(and(
+            gte(voiceSessions.startedAt, since),
+            eq(voiceSessions.environment, 'production')
+          ))
           .groupBy(voiceSessions.language)
           .orderBy(desc(sql`count(*)`));
 
         return {
           data: {
+            currentEnvironment: currentEnv,
             period: `last ${days} days`,
-            totalSessions: Number(totalSessions?.count || 0),
-            sessionsToday: Number(todaySessions?.count || 0),
-            languageBreakdown: languageBreakdown.map(t => ({
-              language: t.language || 'unknown',
-              count: Number(t.count),
-            })),
+            currentEnv: {
+              totalSessions: Number(totalSessionsCurrent?.count || 0),
+              sessionsToday: Number(todaySessionsCurrent?.count || 0),
+              languageBreakdown: languageBreakdownCurrent.map(t => ({
+                language: t.language || 'unknown',
+                count: Number(t.count),
+              })),
+            },
+            production: {
+              totalSessions: Number(totalSessionsProd?.count || 0),
+              sessionsToday: Number(todaySessionsProd?.count || 0),
+              languageBreakdown: languageBreakdownProd.map(t => ({
+                language: t.language || 'unknown',
+                count: Number(t.count),
+              })),
+            },
           },
         };
       }
