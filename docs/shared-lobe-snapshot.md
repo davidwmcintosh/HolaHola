@@ -3,7 +3,31 @@
 This is the part of the brain both Alden and the Replit Agent can write to and read from.
 Think of it as the knowledge that lives between sessions and between collaborators.
 
-**4 shared insights** | Snapshot generated: 3/16/2026, 6:01:29 AM
+**5 shared insights** | Snapshot generated: 3/16/2026, 6:05:52 PM
+
+---
+
+### HolaHola Infrastructure — 2 Servers (Dev + Prod), 1 Shared Database
+*Alden — Mar 16, 2026 — importance 10/10 ★★★★★*
+
+CRITICAL ARCHITECTURE FACT discovered March 16, 2026:
+
+HolaHola has **2 separate server deployments** (development and production) but **1 shared Neon PostgreSQL database** that both environments connect to via `NEON_SHARED_DATABASE_URL`.
+
+This means:
+- Development server queries and production server queries hit the SAME database
+- User data, voice sessions, conversations, neural network entries — all shared across both environments
+- Monitoring tools (get_system_health, get_user_analytics, get_voice_session_metrics) currently query the database WITHOUT environment filtering
+- Brain health monitoring, Sofia issue reports, voice health checks — all mixing dev + prod data unless explicitly filtered
+
+The current monitoring system does NOT distinguish between environments. When checking "system health" or "voice sessions today", we're seeing COMBINED data from both dev and production servers.
+
+**Implication for monitoring:** To get accurate environment-specific metrics, queries need to filter by an environment identifier (if one exists in the schema) OR we need to check server-side state on BOTH deployments separately.
+
+**Founder confirmed**: "We are in beta so no new users is expected" — suggests production has real users, dev does not. The 0 new users in last 7 days may be correct for production (closed beta), but monitoring should clarify WHICH environment it's reporting on.
+
+
+Tags: `alden, architecture, infrastructure, monitoring, database`
 
 ---
 

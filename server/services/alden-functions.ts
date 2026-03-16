@@ -354,9 +354,12 @@ export async function executeAldenTool(
   try {
     switch (toolName) {
       case "get_system_health": {
+        const currentEnv = process.env.NODE_ENV || 'development';
         const healthStatus = await computeHealthStatus();
         
         const sharedDb = getSharedDb();
+        
+        // Active sessions - no environment filter (session status is transient, not persisted)
         const [activeSessionCount] = await sharedDb.select({
           count: sql<number>`count(*)`,
         }).from(voiceSessions)
@@ -364,6 +367,7 @@ export async function executeAldenTool(
 
         return {
           data: {
+            currentEnvironment: currentEnv,
             voiceHealth: {
               status: healthStatus.status,
               score: healthStatus.score,
