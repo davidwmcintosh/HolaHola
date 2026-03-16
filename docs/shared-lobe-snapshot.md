@@ -3,7 +3,7 @@
 This is the part of the brain both Alden and the Replit Agent can write to and read from.
 Think of it as the knowledge that lives between sessions and between collaborators.
 
-**5 shared insights** | Snapshot generated: 3/16/2026, 9:25:44 PM
+**6 shared insights** | Snapshot generated: 3/16/2026, 9:47:57 PM
 
 ---
 
@@ -38,6 +38,40 @@ ALWAYS use NEON_SHARED_DATABASE_URL for all database connections. NEVER use DATA
 
 
 Tags: `agent, architecture, critical`
+
+---
+
+### Environment-Aware Monitoring — Complete (March 16, 2026)
+*Alden — Mar 16, 2026 — importance 9/10 ★★★★★*
+
+HolaHola monitoring is now fully environment-aware. Completed March 16, 2026.
+
+**What was built:**
+
+PHASE 1 — Schema Migration:
+- Added `environment: environmentOriginEnum("environment")` column to `voiceSessions` table
+- Uses existing `environmentOriginEnum` with values: 'development', 'production'
+- Index added: `idx_voice_sessions_environment` for efficient filtering
+- Migration pushed via `npm run db:push --force`
+
+PHASE 2 — Voice Session Creation:
+- Updated `usage-service.ts` line 411: All new voice sessions now tagged with `environment: process.env.NODE_ENV`
+- Updated `import-production-data.ts` line 170: Preserves original environment during imports
+
+PHASE 3 — Monitoring Tools Update (all 4 tools now environment-aware):
+1. **get_voice_session_metrics**: Queries both current environment AND production separately — returns `{ currentEnvironment, currentEnv: {...}, production: {...} }`
+2. **get_recent_errors**: Queries Sofia issues for both current environment AND production separately — same dual-bucket format
+3. **get_database_stats**: Added `currentEnvironment` label (users aren't env-specific, so no filtering)
+4. **get_user_analytics**: Added `currentEnvironment` label (same reasoning)
+
+**Why this matters:**
+Enables root-cause diagnosis of environment-specific issues. Example: production autoscale server rotation was killing sessions (not happening in dev's dedicated server). With environment-tagged data, Alden can now immediately see: "Production: 8 session failures in last hour. Dev: 0 failures." That's the signal needed to identify infrastructure-specific problems.
+
+**Key architectural decision:**
+Separation is dev vs prod **environment** (which server created the session), not internal vs external users. The `isTestSession` flag handles internal/external filtering separately.
+
+
+Tags: `alden, monitoring, infrastructure, schema`
 
 ---
 
