@@ -17,34 +17,34 @@ Visual assets live in the `visual_assets` table. Grammar/infographic SVGs are ge
 
 ### Interactive Canvas — What's Built
 
-The `SceneCanvas` component (client-side stage model) is **fully operational**. Section 9 of this document described it as "not yet built" — that is now out of date.
+The `SceneCanvas` component (client-side stage model) is **fully operational**. Phase 1 (scene/props/clock) shipped earlier; Phase 2 (grammar & body diagrams) shipped March 17, 2026 — all canvas capabilities are now complete.
 
 | Capability | Status | Notes |
 |---|---|---|
 | `open_scene(environment)` | ✅ Built | Loads background, clears existing scene |
 | `add_to_scene(prop, position)` | ✅ Built | Overlays transparent PNG at zone coordinates |
 | `remove_from_scene(prop)` | ✅ Built | Fades out and removes prop layer |
-| `set_clock(time)` | ✅ Built | SVG analog clock with rotating hands — **fantastic** |
+| `set_clock(time)` | ✅ Built | SVG analog clock with rotating hands |
 | `clear_scene()` | ✅ Built | Removes all props, keeps background |
-| `highlight_body_part(part)` | ⬜ Not built | Body diagram SVG — planned |
-| `fill_conjugation(row, value)` | ⬜ Not built | Conjugation table fill-in — planned |
-| `highlight_country(country)` | ⬜ Not built | World map SVG — planned |
-| `set_calendar(day, month)` | ⬜ Not built | Calendar SVG — planned |
-| Emotion face SVG | ⬜ Not built | Planned |
-| Thermometer SVG | ⬜ Not built | Planned |
-| Weather icon SVG set | ⬜ Not built | Planned (also useful as static images) |
+| `highlight_body_part(part)` | ✅ Built | Interactive SVG body diagram with highlight overlay — March 17, 2026 |
+| `fill_conjugation(row, value)` | ✅ Built | Live conjugation table fill-in with pronoun/ending highlighting — March 17, 2026 |
+| `highlight_country(country)` | ✅ Built | SVG world map with country highlight + label — March 17, 2026 |
+| `set_calendar(day, month)` | ✅ Built | SVG calendar with day highlight and month label — March 17, 2026 |
+| Emotion face SVG | ✅ Built | Animated face expressions (happy, sad, angry, surprised, etc.) — March 17, 2026 |
+| Thermometer SVG | ✅ Built | Animated mercury fill with °C/°F display — March 17, 2026 |
+| Weather icon SVG set | ✅ Built | Full set: sunny, cloudy, rainy, stormy, snowy, windy, foggy — March 17, 2026 |
 
 ### Image Library — What Exists
 
 | Category | Records in DB | With actual images | Notes |
 |---|---|---|---|
-| Food vocabulary | 1,176 | 20 | 1,156 entries are text/translation metadata only — images not yet generated |
+| Food vocabulary | 1,176 | 60+ (actively generating) | Worker auto-starts on server boot — resumes until all 1,176 are done |
 | Scene canvas props | ~40 | ~40 | glass, fork, book, stethoscope, passport, etc. — all have real images |
 | Vocabulary images (Section 1) | 0 | 0 | Nothing generated yet |
-| Time/weather/numbers (Section 2) | 0 | 0 | Clock handled by SVG component; others not started |
+| Time/weather/numbers (Section 2) | 0 | 0 | Clock + weather handled by SVG components; static reference cards not started |
 | Cultural infographics (Section 5) | 0 | 0 | Not started |
 
-**What this means for generation priority:** The food menu images are the most visible gap — the menus are live, students can open them, but ~98% fall back to placeholders. Core vocabulary images (Section 1) are entirely absent. Everything else in this roadmap is genuinely planned but not started.
+**What this means for generation priority:** The food menu images are the active gap — worker is running continuously and picks up automatically on each server restart. Core vocabulary images (Section 1) are next on the list once food is complete. Everything else in this roadmap is genuinely planned but not started.
 
 ---
 
