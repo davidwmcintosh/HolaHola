@@ -3,6 +3,7 @@ import { ExtractedFunctionCall } from "./gemini-streaming";
 import type { StreamingSession } from "./streaming-voice-orchestrator";
 import { breakfastMenus, lunchMenus, menuTitleByLanguage } from '../data/language-menus-restaurant-mealtime';
 import { restaurantMenus } from '../data/language-menus-restaurant-festival';
+import { coffeeShopMenus } from '../data/language-menus-cafe-grocery';
 import { getGeminiStreamingService } from "./gemini-streaming";
 import { extractBoldMarkedWords } from "./language-segmenter";
 import { TutorPersonality } from "./tts-service";
@@ -1816,6 +1817,7 @@ export class NativeFunctionCallHandler {
 
         const menuPropName = mealType === 'breakfast' ? 'breakfast_menu'
           : mealType === 'lunch' ? 'lunch_menu'
+          : mealType === 'cafe' ? 'cafe_menu'
           : 'dinner_menu';
 
         // Auto-load culturally appropriate menu from static data based on language + level
@@ -1830,6 +1832,8 @@ export class NativeFunctionCallHandler {
           resolvedSections = breakfastMenus[lang][level].sections;
         } else if (mealType === 'lunch' && lunchMenus[lang]?.[level]) {
           resolvedSections = lunchMenus[lang][level].sections;
+        } else if (mealType === 'cafe' && coffeeShopMenus[lang]?.[level]) {
+          resolvedSections = coffeeShopMenus[lang][level].sections;
         } else if (restaurantMenus[lang]?.[level]) {
           resolvedSections = restaurantMenus[lang][level].sections;
         }
@@ -1839,16 +1843,25 @@ export class NativeFunctionCallHandler {
         const menuDb = getMenuDb();
 
         try {
+          // Try exact prop name first, fall back to dinner_menu if zone image not found
           const menuAssetResult = await menuDb.execute(menuSql`
             SELECT zone_image_url, display_name FROM visual_assets
             WHERE name = ${menuPropName} AND zone_image_url IS NOT NULL
             LIMIT 1
           `);
-          const menuAssetRow = menuAssetResult.rows[0] as any;
+          let menuAssetRow = menuAssetResult.rows[0] as any;
+          if (!menuAssetRow?.zone_image_url && menuPropName !== 'dinner_menu') {
+            const fallbackResult = await menuDb.execute(menuSql`
+              SELECT zone_image_url, display_name FROM visual_assets
+              WHERE name = 'dinner_menu' AND zone_image_url IS NOT NULL
+              LIMIT 1
+            `);
+            menuAssetRow = fallbackResult.rows[0] as any;
+          }
           const menuImageUrl = menuAssetRow?.zone_image_url as string | undefined;
 
           if (!menuImageUrl) {
-            console.warn(`[Native Function→ShowMenu] No zone_image_url for "${menuPropName}"`);
+            console.warn(`[Native Function→ShowMenu] No zone_image_url for "${menuPropName}" or fallback`);
             break;
           }
 
@@ -1856,6 +1869,7 @@ export class NativeFunctionCallHandler {
             || menuTitleByLanguage[lang]?.[mealType]
             || (mealType === 'breakfast' ? 'Breakfast Menu'
               : mealType === 'lunch' ? 'Lunch Menu'
+              : mealType === 'cafe' ? 'Café Menu'
               : 'Dinner Menu');
 
           const richContent = {

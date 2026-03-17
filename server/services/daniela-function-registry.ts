@@ -579,7 +579,7 @@ Only works after open_scene has been called. Zone-compatible props:
   Bread:       bread_basket, plain_toast
   Breakfast:   scrambled_eggs, fried_eggs, omelette, bacon_strips, ham_slice, hash_browns
   Condiments:  salt_pepper, ketchup, mustard, hot_sauce, butter, jam, sugar_packets
-  Menus:       menu_card, breakfast_menu, lunch_menu, dinner_menu
+  Menus:       menu_card, breakfast_menu, lunch_menu, dinner_menu, cafe_menu
   Other:       book, cell_phone, candle, apple, croissant, backpack
 
 POSITIONING — each prop must use a DIFFERENT position. The positions form a layout:
@@ -654,7 +654,7 @@ If a prop is already on the canvas, calling add_to_scene again replaces it in pl
               "fork","knife","spoon","napkin","bread_basket",
               "scrambled_eggs","fried_eggs","omelette","bacon_strips","ham_slice","hash_browns","plain_toast",
               "salt_pepper","ketchup","mustard","hot_sauce","butter","jam","sugar_packets",
-              "menu_card","breakfast_menu","lunch_menu","dinner_menu",
+              "menu_card","breakfast_menu","lunch_menu","dinner_menu","cafe_menu",
               "book","cell_phone","candle","apple","croissant","backpack"
             ],
           },
@@ -772,7 +772,11 @@ IMPORTANT — set up the FULL scene BEFORE calling enter_immersive:
 
 3. THEN call enter_immersive() — student sees a fully dressed, labeled scene immediately
 
-Choose the right menu: breakfast_menu (morning), lunch_menu (midday), dinner_menu (evening).
+Choose the right menu prop and meal_type based on the scenario:
+  - Restaurant (morning): show_menu(meal_type='breakfast') → breakfast_menu prop
+  - Restaurant (midday): show_menu(meal_type='lunch') → lunch_menu prop
+  - Restaurant (evening): show_menu(meal_type='dinner') → dinner_menu prop
+  - Coffee shop (any time): show_menu(meal_type='cafe') → cafe_menu prop (uses coffee shop menu)
 
 Setting the table with narration IS the lesson warmup — don't skip it. Place items one at a
 time (or in quick pairs) with a short spoken line for each so the student hears every word.
@@ -1172,8 +1176,8 @@ You only need to provide meal_type and your spoken text. The system handles the 
           text: { type: "string", description: "What you say while presenting the menu (spoken aloud by you as the waiter/waitress)" },
           meal_type: {
             type: "string",
-            enum: ["breakfast", "lunch", "dinner"],
-            description: "Type of meal — determines which culturally-appropriate menu is shown and which prop image appears on the table",
+            enum: ["breakfast", "lunch", "dinner", "cafe"],
+            description: "Type of meal — determines which culturally-appropriate menu is shown and which prop image appears on the table. Use 'cafe' for coffee shop scenarios.",
           },
           title: { type: "string", description: "Optional override for the menu title shown in the header. If omitted, the system uses the culturally correct term (e.g. 'Desayuno', 'Menú del Día', 'Carta')." },
         },

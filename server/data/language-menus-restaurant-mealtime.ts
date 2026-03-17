@@ -1807,14 +1807,14 @@ export const lunchMenus: Record<string, Record<string, MenuSections>> = {
 };
 
 export const menuTitleByLanguage: Record<string, Record<string, string>> = {
-  spanish:    { breakfast: 'Desayuno', lunch: 'Menú del Día', dinner: 'Carta' },
-  french:     { breakfast: 'Petit-déjeuner', lunch: 'Menu du Déjeuner', dinner: 'Carte' },
-  german:     { breakfast: 'Frühstück', lunch: 'Mittagessen', dinner: 'Speisekarte' },
-  italian:    { breakfast: 'Prima Colazione', lunch: 'Pranzo', dinner: 'Menu' },
-  portuguese: { breakfast: 'Pequeno-almoço', lunch: 'Ementa do Dia', dinner: 'Ementa' },
-  japanese:   { breakfast: '朝食メニュー', lunch: 'ランチメニュー', dinner: 'ディナーメニュー' },
-  mandarin:   { breakfast: '早餐菜单', lunch: '午餐菜单', dinner: '晚餐菜单' },
-  korean:     { breakfast: '아침 식사 메뉴', lunch: '점심 메뉴', dinner: '저녁 메뉴' },
-  arabic:     { breakfast: 'قائمة الفطور', lunch: 'قائمة الغداء', dinner: 'قائمة العشاء' },
-  russian:    { breakfast: 'Меню завтрака', lunch: 'Обеденное меню', dinner: 'Меню ужина' },
+  spanish:    { breakfast: 'Desayuno', lunch: 'Menú del Día', dinner: 'Carta', cafe: 'Carta de Bebidas' },
+  french:     { breakfast: 'Petit-déjeuner', lunch: 'Menu du Déjeuner', dinner: 'Carte', cafe: 'Carte du Café' },
+  german:     { breakfast: 'Frühstück', lunch: 'Mittagessen', dinner: 'Speisekarte', cafe: 'Kaffeekarte' },
+  italian:    { breakfast: 'Prima Colazione', lunch: 'Pranzo', dinner: 'Menu', cafe: 'Menu del Bar' },
+  portuguese: { breakfast: 'Pequeno-almoço', lunch: 'Ementa do Dia', dinner: 'Ementa', cafe: 'Lista do Café' },
+  japanese:   { breakfast: '朝食メニュー', lunch: 'ランチメニュー', dinner: 'ディナーメニュー', cafe: 'カフェメニュー' },
+  mandarin:   { breakfast: '早餐菜单', lunch: '午餐菜单', dinner: '晚餐菜单', cafe: '咖啡馆菜单' },
+  korean:     { breakfast: '아침 식사 메뉴', lunch: '점심 메뉴', dinner: '저녁 메뉴', cafe: '카페 메뉴' },
+  arabic:     { breakfast: 'قائمة الفطور', lunch: 'قائمة الغداء', dinner: 'قائمة العشاء', cafe: 'قائمة المقهى' },
+  russian:    { breakfast: 'Меню завтрака', lunch: 'Обеденное меню', dinner: 'Меню ужина', cafe: 'Меню кофейни' },
 };

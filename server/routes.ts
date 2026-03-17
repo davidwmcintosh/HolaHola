@@ -590,31 +590,30 @@ export async function registerRoutes(app: Express): Promise<void> {
         return res.json({ url });
       }
 
-      // 3. Generate with DALL-E
-      const apiKey = process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-      if (!apiKey || apiKey.startsWith('_DUMMY')) return res.json({ url: null });
-
+      // 3. Generate with Gemini Flash-Image
       const prompt = `Appetizing illustration of ${q}, warm watercolor style, soft natural tones, isolated on clean white background, artisan restaurant menu aesthetic, suitable for all ages`;
-      const dalleRes = await fetch('https://api.openai.com/v1/images/generations', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'dall-e-3', prompt, n: 1, size: '1024x1024', quality: 'standard', response_format: 'url' }),
-      });
-      if (!dalleRes.ok) return res.json({ url: null });
-
-      const dalleData = await dalleRes.json();
-      const tempUrl = dalleData.data?.[0]?.url;
-      if (!tempUrl) return res.json({ url: null });
-
-      // 4. Archive to permanent object storage (DALL-E URLs expire in ~1 hour)
-      const slug = q.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40);
-      const filename = `menu-item-${slug}-${Date.now()}.jpg`;
-      let permanentUrl: string = tempUrl;
+      let dataUrl: string;
       try {
-        const { archiveImageToPermanentStorage } = await import('./services/image-storage');
-        permanentUrl = await archiveImageToPermanentStorage(tempUrl, filename);
+        dataUrl = await generateImageWithGemini(prompt);
+      } catch (genErr) {
+        console.warn('[MenuImage] Gemini image generation failed:', genErr);
+        return res.json({ url: null });
+      }
+
+      // 4. Convert base64 data URL → Buffer → upload to permanent object storage
+      const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (!matches) return res.json({ url: null });
+      const mimeType = matches[1];
+      const buffer = Buffer.from(matches[2], 'base64');
+      const ext = mimeType.includes('png') ? 'png' : 'jpg';
+      const slug = q.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40);
+      const filename = `menu-item-${slug}-${Date.now()}.${ext}`;
+      let permanentUrl: string = dataUrl;
+      try {
+        const { uploadPublicBuffer } = await import('./services/image-storage');
+        permanentUrl = await uploadPublicBuffer(filename, buffer, mimeType);
       } catch (storageErr) {
-        console.warn('[MenuImage] Object storage archive failed, using temp URL:', storageErr);
+        console.warn('[MenuImage] Object storage upload failed, using data URL as fallback:', storageErr);
       }
 
       // 5. Persist to visual_assets for reuse across sessions
