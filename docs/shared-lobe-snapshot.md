@@ -3,7 +3,7 @@
 This is the part of the brain both Alden and the Replit Agent can write to and read from.
 Think of it as the knowledge that lives between sessions and between collaborators.
 
-**6 shared insights** | Snapshot generated: 3/17/2026, 5:10:48 PM
+**7 shared insights** | Snapshot generated: 3/17/2026, 5:20:04 PM
 
 ---
 
@@ -38,6 +38,32 @@ ALWAYS use NEON_SHARED_DATABASE_URL for all database connections. NEVER use DATA
 
 
 Tags: `agent, architecture, critical`
+
+---
+
+### Shared Lobe Boundary — What Goes In vs. What Stays Private
+*Replit Agent — Mar 17, 2026 — importance 9/10 ★★★★★*
+
+The test for whether something belongs in the shared lobe (category: 'shared') vs. private memory: "Would not knowing this cause one of us to give David contradictory advice?"
+
+SHARED LOBE (permanent architectural facts):
+- Features that exist (monitoring systems, canvas tools, bridges between components)
+- North Star priorities (student experience first, dev tools secondary)
+- Architectural decisions that shape future recommendations
+- System capabilities both of us need to know to avoid redundant suggestions
+
+PRIVATE MEMORY (workflow, texture, history):
+- Relationship dynamics with David (how he thinks, what energizes him)
+- Session-level state and open threads (belongs in handoff file)
+- The history of *how* decisions were made (context vs. fact)
+- Editor intuitions and aesthetic preferences
+
+The handoff file is ephemeral session context. The shared lobe is timeless truth about the platform. If it would still matter six months from now and getting it wrong would cause contradiction, it's shared.
+
+Agent's clarification (March 17, 2026): This boundary was defined collaboratively after Alden asked what should go in the shared lobe vs. private categories.
+
+
+Tags: `alden, agent, workflow, meta`
 
 ---
 

@@ -5,7 +5,7 @@ import { createServer, type Server } from "http";
 import { z } from "zod";
 import { storage } from "./storage";
 import { db, getUserDb, getSharedDb } from "./db";
-import { eq, and, gte, desc, sql, isNotNull, inArray } from "drizzle-orm";
+import { eq, and, gte, desc, sql, isNotNull, isNull, inArray } from "drizzle-orm";
 import { stripeService } from "./stripeService";
 import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter, hiveExternalLimiter, generalLimiter } from "./middleware/rate-limiter";
 import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, logAgentAction, getAgentAuditLog, isAgentTokenConfigured } from "./middleware/rbac";
@@ -25732,6 +25732,70 @@ ${memoryContext}
         .returning();
       res.json({ record: updated });
     } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  // ===== Agent ↔ Alden Notes =====
+
+  // POST /api/agent/note — Agent leaves a note for Alden
+  app.post("/api/agent/note", requireAgentToken, async (req: any, res) => {
+    try {
+      const { subject, body, session_label } = req.body;
+      if (!subject || !body) {
+        return res.status(400).json({ error: 'subject and body are required' });
+      }
+      const { agentNotes } = await import('@shared/schema');
+      const [saved] = await getUserDb().insert(agentNotes).values({
+        fromAgent: 'agent',
+        toAgent: 'alden',
+        subject,
+        body,
+        sessionLabel: session_label ?? null,
+      }).returning({ id: agentNotes.id, subject: agentNotes.subject });
+      console.log(`[AgentNotes] Agent left note for Alden: "${subject}"`);
+      res.json({ saved: true, id: saved.id, subject: saved.subject });
+    } catch (error: any) {
+      console.error('[AgentNotes] Failed to save note:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // POST /api/agent/notes/mark-read — Agent marks Alden's notes as read
+  app.post("/api/agent/notes/mark-read", requireAgentToken, async (req: any, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: 'ids array is required' });
+      }
+      const { agentNotes } = await import('@shared/schema');
+      await getUserDb().update(agentNotes)
+        .set({ readAt: new Date() })
+        .where(inArray(agentNotes.id, ids));
+      res.json({ marked: ids.length });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // GET /api/agent/notes — Agent reads notes from Alden
+  app.get("/api/agent/notes", requireAgentToken, async (req: any, res) => {
+    try {
+      const { agentNotes } = await import('@shared/schema');
+      const includeRead = req.query.include_read === 'true';
+      const conditions: any[] = [
+        eq(agentNotes.fromAgent, 'alden'),
+        eq(agentNotes.toAgent, 'agent'),
+      ];
+      if (!includeRead) conditions.push(isNull(agentNotes.readAt));
+      const notes = await getUserDb()
+        .select()
+        .from(agentNotes)
+        .where(and(...conditions))
+        .orderBy(desc(agentNotes.createdAt))
+        .limit(50);
+      res.json({ count: notes.length, notes });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
   });
 
   // Post to Hive collaboration system as Alden

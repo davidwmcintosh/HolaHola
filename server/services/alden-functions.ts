@@ -9,7 +9,7 @@ import {
   users,
   conversations,
 } from "@shared/schema";
-import { sql, desc, eq, and, gte } from "drizzle-orm";
+import { sql, desc, eq, and, gte, isNull, inArray } from "drizzle-orm";
 import { computeHealthStatus } from "./voice-health-monitor";
 import { founderCollabService } from "./founder-collaboration-service";
 import * as fs from "fs";
@@ -401,6 +401,32 @@ Results are returned as an array, one entry per pattern, in the order requested.
         message_limit: { type: "number" as const, description: "Max messages to return (default 30, max 100)" },
       },
       required: [],
+    },
+  },
+  {
+    name: "read_agent_notes",
+    description: "Read notes the Replit Agent has left for you. These are messages the Agent wrote after build sessions — context on what was built, decisions made, open threads, things it wants you to know. Unread notes are returned first. Call this when you want to know what the Agent has been working on or when it seems like something changed in the codebase.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        include_read: { type: "boolean" as const, description: "If true, include already-read notes too (default false — only unread)" },
+        limit: { type: "number" as const, description: "Max notes to return (default 20, max 50)" },
+        mark_as_read: { type: "boolean" as const, description: "If true, mark all returned unread notes as read (default true)" },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "leave_note_for_agent",
+    description: "Leave a message for the Replit Agent to read at the start of its next build session. Use this when you want to flag something for the Agent's attention: a concern from a conversation with David, something that seems off in the codebase, a request from David the Agent should know about, or any insight that should shape what the Agent builds next. The Agent will read this before touching any code.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        subject: { type: "string" as const, description: "Short subject line (e.g. 'David wants the lesson timer redesigned', 'Daniela canvas has a rendering glitch')" },
+        body: { type: "string" as const, description: "The full message. Write it as you'd naturally say it to a colleague. Include context, what you observed, what you think should happen, any urgency." },
+        session_label: { type: "string" as const, description: "Optional: brief label for the David conversation this came from (e.g. 'Conversation March 17 — lesson flow discussion')" },
+      },
+      required: ["subject", "body"],
     },
   },
 ];
@@ -843,6 +869,74 @@ export async function executeAldenTool(
             },
           };
         }
+      }
+
+      case "read_agent_notes": {
+        const { include_read = false, limit = 20, mark_as_read = true } = args;
+        const { agentNotes } = await import('@shared/schema');
+        const db = getSharedDb();
+        const maxNotes = Math.min(limit, 50);
+
+        const conditions = [
+          eq(agentNotes.fromAgent, 'agent'),
+          eq(agentNotes.toAgent, 'alden'),
+        ];
+        if (!include_read) conditions.push(isNull(agentNotes.readAt));
+
+        const notes = await db
+          .select()
+          .from(agentNotes)
+          .where(and(...conditions))
+          .orderBy(desc(agentNotes.createdAt))
+          .limit(maxNotes);
+
+        if (mark_as_read && notes.length > 0) {
+          const unreadIds = notes.filter(n => !n.readAt).map(n => n.id);
+          if (unreadIds.length > 0) {
+            await db.update(agentNotes)
+              .set({ readAt: new Date() })
+              .where(inArray(agentNotes.id, unreadIds));
+          }
+        }
+
+        return {
+          data: {
+            count: notes.length,
+            unreadCount: notes.filter(n => !n.readAt).length,
+            markedAsRead: mark_as_read,
+            notes: notes.map(n => ({
+              id: n.id,
+              subject: n.subject,
+              body: n.body,
+              sessionLabel: n.sessionLabel,
+              read: !!n.readAt,
+              createdAt: n.createdAt?.toISOString() ?? '',
+            })),
+          },
+        };
+      }
+
+      case "leave_note_for_agent": {
+        const { subject, body, session_label } = args;
+        const { agentNotes } = await import('@shared/schema');
+        const db = getSharedDb();
+
+        const [saved] = await db.insert(agentNotes).values({
+          fromAgent: 'alden',
+          toAgent: 'agent',
+          subject,
+          body,
+          sessionLabel: session_label ?? null,
+        }).returning({ id: agentNotes.id });
+
+        console.log(`[Alden Tool] Left note for Agent: "${subject}"`);
+        return {
+          data: {
+            saved: true,
+            id: saved.id,
+            message: `Note saved. The Agent will read it at the start of the next build session — it gets loaded into the Agent's context before any code changes are made.`,
+          },
+        };
       }
 
       case "run_full_systems_check": {
@@ -1498,4 +1592,4 @@ ${agentSection}`;
   }
 }
 
-console.log('[Alden Functions] Loaded — 26 tools ready (monitoring + code + shell + memory + notifications + browser + briefing + express-lane-search)');
+console.log('[Alden Functions] Loaded — 28 tools ready (monitoring + code + shell + memory + notifications + browser + briefing + express-lane-search + agent-notes)');

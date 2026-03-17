@@ -7190,6 +7190,28 @@ export const insertAgentOpenQuestionSchema = createInsertSchema(agentOpenQuestio
 export type InsertAgentOpenQuestion = z.infer<typeof insertAgentOpenQuestionSchema>;
 export type AgentOpenQuestion = typeof agentOpenQuestions.$inferSelect;
 
+// ===== Agent ↔ Alden Notes =====
+// Async message queue between the Replit Agent and Alden.
+// Agent writes via POST /api/agent/note (requireAgentToken).
+// Alden writes via leave_note_for_agent tool.
+// Agent reads via docs/alden-to-agent.md snapshot (generated at server start).
+// Alden reads via read_agent_notes tool.
+
+export const agentNotes = pgTable("agent_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  fromAgent: varchar("from_agent", { length: 20 }).notNull(), // 'agent' | 'alden'
+  toAgent: varchar("to_agent", { length: 20 }).notNull(),     // 'agent' | 'alden'
+  subject: varchar("subject", { length: 300 }).notNull(),
+  body: text("body").notNull(),
+  sessionLabel: varchar("session_label", { length: 300 }),    // e.g. "Build session March 17 — Phase 2 canvas"
+  readAt: timestamp("read_at"),                               // null = unread
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertAgentNoteSchema = createInsertSchema(agentNotes).omit({ id: true, createdAt: true, readAt: true });
+export type InsertAgentNote = z.infer<typeof insertAgentNoteSchema>;
+export type AgentNote = typeof agentNotes.$inferSelect;
+
 // ===== Agent's Record of David =====
 // Who I'm working with. Not a user profile — the person, as I understand him.
 // One canonical row. Updated as understanding deepens.

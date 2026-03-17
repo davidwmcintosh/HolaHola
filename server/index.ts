@@ -599,6 +599,12 @@ app.use((req, res, next) => {
       await generateSharedLobeSnapshot();
     }, 46000);
 
+    // +47s: Agent Notes Snapshot — regenerate docs/alden-to-agent.md from unread Alden→Agent notes
+    setTimeout(async () => {
+      const { generateAgentNotesSnapshot } = await import('./services/agent-notes-snapshot');
+      await generateAgentNotesSnapshot();
+    }, 47000);
+
     // +50s: Sofia Issue Cleanup Worker (CAP-005)
     setTimeout(async () => {
       const { startSofiaCleanupWorker } = await import('./services/sofia-issue-cleanup-worker');
