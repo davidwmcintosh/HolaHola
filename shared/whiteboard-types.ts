@@ -811,18 +811,62 @@ export interface SceneCanvasRichContent {
   content: any;
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Phase 2 Grammar Canvas data types
+// ──────────────────────────────────────────────────────────────────────────────
+
+/** A single cell in a conjugation table. `form` is null until Daniela reveals it. */
+export interface ConjugationCell {
+  pronoun: string;      // "yo", "tú", "il/elle", etc.
+  pronounAlt?: string;  // secondary pronoun label, e.g. "vos" or "vous (pl.)"
+  form: string | null;  // conjugated form, null = not yet revealed
+  isNew?: boolean;      // true for the most recently revealed cell (drives CSS animation)
+}
+
+/** Full conjugation table state — grows as Daniela fills cells one by one. */
+export interface ConjugationTableData {
+  verb: string;                // infinitive, e.g. "hablar"
+  tense: string;               // display label, e.g. "presente de indicativo"
+  cells: ConjugationCell[];    // ordered list of rows
+  highlightPronoun?: string;   // optional: bold-highlight a specific pronoun row
+}
+
+/** Calendar data — highlights a specific day/month and optionally a day-of-week. */
+export interface CalendarData {
+  month: string;          // display label in target language, e.g. "marzo" or "März"
+  monthNumber: number;    // 1-12 — used to compute the calendar grid
+  year: number;           // e.g. 2026 — used to compute the calendar grid
+  dayNames: string[];     // 7 short day names starting from startDow, in target language, e.g. ["Lu","Ma","Mi","Ju","Vi","Sa","Do"]
+  highlightDay?: number;  // 1-31 — the specific date to highlight
+  highlightDowIndex?: number; // 0-6 index into dayNames array — highlights the entire column
+  markedDays?: number[];  // additional days to mark (lighter highlight)
+  startDow?: number;      // 0 = Sunday, 1 = Monday (default 1, Mon-first as in most of world)
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+
 /**
  * Full state of the live scene canvas.
  * The server always sends the complete state so the client can simply
  * replace any existing scene_canvas item with this one.
+ *
+ * Grammar canvas types (conjugationTable, calendarData) are mutually exclusive
+ * with the spatial scene (environment + props). When a grammar canvas is active
+ * the SceneCanvas component renders the grammar view full-width instead of the
+ * background scene. Call open_scene to return to the spatial view.
  */
 export interface SceneCanvasItemData {
   environment: string;
   environmentImageUrl: string;
   environmentLabel?: string;
   props: SceneCanvasProp[];
-  clockTime?: string;       // "H:MM" — renders analog clock overlay when set
-  canvasAction: 'open_scene' | 'add_prop' | 'remove_prop' | 'set_clock' | 'clear_scene';
+  clockTime?: string;              // "H:MM" — renders analog clock overlay when set
+  conjugationTable?: ConjugationTableData;   // Phase 2 — grammar canvas
+  calendarData?: CalendarData;               // Phase 2 — calendar canvas
+  canvasAction:
+    | 'open_scene' | 'add_prop' | 'remove_prop' | 'set_clock' | 'clear_scene'
+    | 'init_conjugation' | 'fill_conjugation' | 'clear_conjugation'
+    | 'set_calendar' | 'clear_calendar';
 }
 
 export interface SceneCanvasItem extends WhiteboardItemBase {

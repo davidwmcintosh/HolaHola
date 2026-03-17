@@ -630,6 +630,251 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
+  // ─── Menu Image Batch Generator ──────────────────────────────────────────────
+
+  // Stats: how many food items have/need images
+  app.get('/api/admin/menu-image-stats', async (req: any, res) => {
+    const user = req.user;
+    if (!user || !['admin', 'developer'].includes(user.role)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    try {
+      const { getUserDb } = await import('./db');
+      const { sql: rawSql } = await import('drizzle-orm');
+      const userDb = getUserDb();
+      const rows = await userDb.execute(rawSql`
+        SELECT
+          COUNT(*) AS total,
+          COUNT(CASE WHEN image_url IS NOT NULL AND image_url != '' THEN 1 END) AS done
+        FROM visual_assets WHERE object_type = 'food'
+      `);
+      const r = rows.rows[0] as any;
+      res.json({ total: Number(r.total), done: Number(r.done), remaining: Number(r.total) - Number(r.done) });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ─── Server-side background image generation worker ──────────────────────────
+  // Runs independently of browser connections — call start, let it run, check status.
+
+  const menuWorker = {
+    running: false,
+    processed: 0,
+    errors: 0,
+    currentItem: null as string | null,
+    lastError: null as string | null,
+    startedAt: null as Date | null,
+  };
+
+  app.post('/api/admin/start-menu-image-worker', async (req: any, res) => {
+    const user = req.user;
+    if (!user || !['admin', 'developer'].includes(user.role)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    if (menuWorker.running) {
+      return res.json({ ok: false, message: 'Worker already running', status: menuWorker });
+    }
+
+    const batchLimit = Math.min(parseInt((req.body?.limit as string) || '200', 10), 500);
+    const delayBetween = Math.max(parseInt((req.body?.delay as string) || '2000', 10), 1000);
+
+    menuWorker.running = true;
+    menuWorker.processed = 0;
+    menuWorker.errors = 0;
+    menuWorker.currentItem = null;
+    menuWorker.lastError = null;
+    menuWorker.startedAt = new Date();
+
+    // Fire-and-forget async loop
+    (async () => {
+      try {
+        const { getUserDb } = await import('./db');
+        const { sql: rawSql } = await import('drizzle-orm');
+        const { uploadPublicBuffer } = await import('./services/image-storage');
+        const userDb = getUserDb();
+
+        const rows = await userDb.execute(rawSql`
+          SELECT name, display_name
+          FROM visual_assets
+          WHERE object_type = 'food' AND (image_url IS NULL OR image_url = '')
+          ORDER BY name
+          LIMIT ${batchLimit}
+        `);
+        const items = rows.rows as { name: string; display_name: string }[];
+
+        console.log(`[MenuWorker] Starting — ${items.length} items to generate`);
+
+        for (const item of items) {
+          if (!menuWorker.running) break;
+
+          const displayName = item.display_name || item.name.replace(/_/g, ' ');
+          menuWorker.currentItem = displayName;
+
+          try {
+            const prompt = `Appetizing illustration of ${displayName}, warm watercolor style, soft natural tones, isolated on clean white background, artisan restaurant menu aesthetic, suitable for all ages`;
+            const dataUrl = await generateImageWithGemini(prompt);
+            const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+            if (!matches) throw new Error('Bad data URL');
+
+            const mimeType = matches[1];
+            const buffer = Buffer.from(matches[2], 'base64');
+            const ext = mimeType.includes('png') ? 'png' : 'jpg';
+            const slug = item.name.replace(/[^a-z0-9]+/g, '-').slice(0, 40);
+            const filename = `menu-item-${slug}-${Date.now()}.${ext}`;
+            const permanentUrl = await uploadPublicBuffer(filename, buffer, mimeType);
+
+            await userDb.execute(rawSql`
+              UPDATE visual_assets SET image_url = ${permanentUrl} WHERE name = ${item.name}
+            `);
+
+            menuWorker.processed++;
+            if (menuWorker.processed % 10 === 0) {
+              console.log(`[MenuWorker] ${menuWorker.processed}/${items.length} complete`);
+            }
+          } catch (err: any) {
+            menuWorker.errors++;
+            menuWorker.lastError = err.message;
+            console.warn(`[MenuWorker] Error on ${displayName}:`, err.message);
+          }
+
+          if (menuWorker.running) {
+            await new Promise(r => setTimeout(r, delayBetween));
+          }
+        }
+      } catch (e: any) {
+        console.error('[MenuWorker] Fatal error:', e.message);
+        menuWorker.lastError = e.message;
+      } finally {
+        menuWorker.running = false;
+        menuWorker.currentItem = null;
+        console.log(`[MenuWorker] Done — ${menuWorker.processed} generated, ${menuWorker.errors} errors`);
+      }
+    })();
+
+    res.json({ ok: true, message: `Worker started — processing up to ${batchLimit} items`, status: menuWorker });
+  });
+
+  app.get('/api/admin/menu-image-worker-status', async (req: any, res) => {
+    const user = req.user;
+    if (!user || !['admin', 'developer'].includes(user.role)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    res.json(menuWorker);
+  });
+
+  app.post('/api/admin/stop-menu-image-worker', async (req: any, res) => {
+    const user = req.user;
+    if (!user || !['admin', 'developer'].includes(user.role)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    menuWorker.running = false;
+    res.json({ ok: true, message: 'Worker stop requested', status: menuWorker });
+  });
+
+  // SSE streaming batch generator
+  // GET /api/admin/batch-menu-images?limit=50&delay=2000
+  app.get('/api/admin/batch-menu-images', async (req: any, res) => {
+    const user = req.user;
+    if (!user || !['admin', 'developer'].includes(user.role)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const limit = Math.min(parseInt(req.query.limit as string || '30', 10), 100);
+    const delayMs = Math.max(parseInt(req.query.delay as string || '2000', 10), 1000);
+
+    // SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const send = (data: object) => {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    let aborted = false;
+    req.on('close', () => { aborted = true; });
+
+    try {
+      const { getUserDb } = await import('./db');
+      const { sql: rawSql } = await import('drizzle-orm');
+      const userDb = getUserDb();
+
+      // Fetch items that need images
+      const rows = await userDb.execute(rawSql`
+        SELECT name, display_name
+        FROM visual_assets
+        WHERE object_type = 'food' AND (image_url IS NULL OR image_url = '')
+        ORDER BY name
+        LIMIT ${limit}
+      `);
+      const items = rows.rows as { name: string; display_name: string }[];
+
+      // Also get current totals for progress context
+      const statsRows = await userDb.execute(rawSql`
+        SELECT
+          COUNT(*) AS total,
+          COUNT(CASE WHEN image_url IS NOT NULL AND image_url != '' THEN 1 END) AS done
+        FROM visual_assets WHERE object_type = 'food'
+      `);
+      const st = statsRows.rows[0] as any;
+      const totalItems = Number(st.total);
+      let doneItems = Number(st.done);
+
+      send({ type: 'start', batchSize: items.length, total: totalItems, done: doneItems });
+
+      const { uploadPublicBuffer } = await import('./services/image-storage');
+
+      for (let i = 0; i < items.length; i++) {
+        if (aborted) break;
+
+        const item = items[i];
+        const displayName = item.display_name || item.name.replace(/_/g, ' ');
+
+        send({ type: 'generating', name: item.name, displayName, index: i + 1, batchSize: items.length });
+
+        try {
+          const prompt = `Appetizing illustration of ${displayName}, warm watercolor style, soft natural tones, isolated on clean white background, artisan restaurant menu aesthetic, suitable for all ages`;
+
+          const dataUrl = await generateImageWithGemini(prompt);
+          const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+          if (!matches) throw new Error('Bad data URL format');
+
+          const mimeType = matches[1];
+          const buffer = Buffer.from(matches[2], 'base64');
+          const ext = mimeType.includes('png') ? 'png' : 'jpg';
+          const slug = item.name.replace(/[^a-z0-9]+/g, '-').slice(0, 40);
+          const filename = `menu-item-${slug}-${Date.now()}.${ext}`;
+
+          const permanentUrl = await uploadPublicBuffer(filename, buffer, mimeType);
+
+          await userDb.execute(rawSql`
+            UPDATE visual_assets
+            SET image_url = ${permanentUrl}
+            WHERE name = ${item.name}
+          `);
+
+          doneItems++;
+          send({ type: 'done', name: item.name, displayName, url: permanentUrl, index: i + 1, batchSize: items.length, total: totalItems, done: doneItems });
+        } catch (genErr: any) {
+          send({ type: 'error', name: item.name, displayName, error: genErr.message, index: i + 1, batchSize: items.length });
+        }
+
+        // Rate-limit delay between items (skip after last one)
+        if (i < items.length - 1 && !aborted) {
+          await new Promise(r => setTimeout(r, delayMs));
+        }
+      }
+
+      send({ type: 'complete', total: totalItems, done: doneItems, remaining: totalItems - doneItems });
+    } catch (e: any) {
+      send({ type: 'fatal', error: e.message });
+    }
+
+    res.end();
+  });
+
   // Version endpoint - verify production deployment
   // Simple health check — used by alden-build-guardian to verify server is up
   app.get('/api/health', (_req, res) => {

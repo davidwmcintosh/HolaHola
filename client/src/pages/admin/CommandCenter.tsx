@@ -30,6 +30,7 @@ import { ClientDiagnosticsViewer } from "@/components/admin/ClientDiagnosticsVie
 import { TextbookSeederTab } from "@/components/TextbookSeederTab";
 import { CurriculumEnrichmentTab } from "@/components/CurriculumEnrichmentTab";
 import { SyncControlCenterContent } from "@/pages/admin/SyncControlCenter";
+import { MenuImageGeneratorContent } from "@/pages/admin/MenuImageGenerator";
 import { 
   LayoutDashboard,
   Users,
@@ -61,6 +62,7 @@ import {
   Pencil,
   Trash2,
   Briefcase,
+  Utensils,
   Zap,
   Plane,
   BookOpen,
@@ -1609,6 +1611,7 @@ export default function CommandCenter() {
         { id: "lesson-drafts", label: "Lessons", icon: Sparkles, roles: ['admin', 'developer'] },
         { id: "fluency-coverage", label: "Fluency", icon: Target, roles: ['admin', 'developer'] },
         { id: "images", label: "Images", icon: Image, roles: ['admin', 'developer'] },
+        { id: "menu-gen", label: "Menu Gen", icon: Utensils, roles: ['admin', 'developer'] },
         { id: "curriculum-enrichment", label: "Curriculum", icon: DatabaseZap, roles: ['admin', 'developer'] },
         { id: "textbook-seeder", label: "Textbook", icon: BookOpen, roles: ['admin', 'developer'] },
       ]
@@ -1761,6 +1764,10 @@ export default function CommandCenter() {
 
           <TabsContent value="images" className="space-y-4">
             <ImageLibraryTab />
+          </TabsContent>
+
+          <TabsContent value="menu-gen" className="space-y-4">
+            <MenuImageGeneratorContent />
           </TabsContent>
 
           <TabsContent value="curriculum-enrichment" className="space-y-4">
