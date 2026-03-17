@@ -28942,7 +28942,7 @@ Under 250 words. Write as yourself.`;
       const guestTutors = ((room.metadata as any)?.guestTutors || []);
       const guestNames = guestTutors.map((g: any) => g.tutorName);
       const mentions = parseMentions(content, guestNames);
-      const thinkingList = mentions && mentions.length > 0 ? mentions : ['alden', 'daniela', 'sofia', 'lyra', 'wren', ...guestNames.map((n: string) => n.toLowerCase())];
+      const thinkingList = mentions && mentions.length > 0 ? mentions : ['alden', 'daniela', ...guestNames.map((n: string) => n.toLowerCase())];
       emitParticipantThinking(id, thinkingList);
       try {
         const evalResult = await evaluateAllParticipants({ roomId: id, topic: room.topic, newMessage: content, speaker, mentions, guestTutors });
