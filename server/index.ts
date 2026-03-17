@@ -605,6 +605,17 @@ app.use((req, res, next) => {
       await generateAgentNotesSnapshot();
     }, 47000);
 
+    // +55s: Menu Image Worker — auto-resume if there are still pending food images
+    setTimeout(async () => {
+      const { startMenuImageWorker } = await import('./services/menu-image-worker');
+      const result = await startMenuImageWorker({ batchLimit: 1000, delayBetween: 2000, silent: false });
+      if (result.ok) {
+        console.log(`[MenuWorker] Auto-started at boot — ${result.pending} pending items`);
+      } else if (result.pending === 0) {
+        console.log('[MenuWorker] Boot check: all food images already generated');
+      }
+    }, 55000);
+
     // +50s: Sofia Issue Cleanup Worker (CAP-005)
     setTimeout(async () => {
       const { startSofiaCleanupWorker } = await import('./services/sofia-issue-cleanup-worker');

@@ -655,117 +655,39 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // ─── Server-side background image generation worker ──────────────────────────
-  // Runs independently of browser connections — call start, let it run, check status.
-
-  const menuWorker = {
-    running: false,
-    processed: 0,
-    errors: 0,
-    currentItem: null as string | null,
-    lastError: null as string | null,
-    startedAt: null as Date | null,
-  };
+  // Worker logic lives in server/services/menu-image-worker.ts
+  // Auto-starts at server boot if there are pending items (see server/index.ts)
 
   app.post('/api/admin/start-menu-image-worker', async (req: any, res) => {
     if (getRequestUserId(req) !== '49847136') {
       return res.status(403).json({ error: 'Forbidden' });
     }
-    if (menuWorker.running) {
-      return res.json({ ok: false, message: 'Worker already running', status: menuWorker });
+    const { startMenuImageWorker, getMenuWorkerStatus } = await import('./services/menu-image-worker');
+    const status = getMenuWorkerStatus();
+    if (status.running) {
+      return res.json({ ok: false, message: 'Worker already running', status });
     }
-
-    const batchLimit = Math.min(parseInt((req.body?.limit as string) || '200', 10), 500);
+    const batchLimit = Math.min(parseInt((req.body?.limit as string) || '500', 10), 1000);
     const delayBetween = Math.max(parseInt((req.body?.delay as string) || '2000', 10), 1000);
-
-    menuWorker.running = true;
-    menuWorker.processed = 0;
-    menuWorker.errors = 0;
-    menuWorker.currentItem = null;
-    menuWorker.lastError = null;
-    menuWorker.startedAt = new Date();
-
-    // Fire-and-forget async loop
-    (async () => {
-      try {
-        const { getUserDb } = await import('./db');
-        const { sql: rawSql } = await import('drizzle-orm');
-        const { uploadPublicBuffer } = await import('./services/image-storage');
-        const userDb = getUserDb();
-
-        const rows = await userDb.execute(rawSql`
-          SELECT name, display_name
-          FROM visual_assets
-          WHERE object_type = 'food' AND (image_url IS NULL OR image_url = '')
-          ORDER BY name
-          LIMIT ${batchLimit}
-        `);
-        const items = rows.rows as { name: string; display_name: string }[];
-
-        console.log(`[MenuWorker] Starting — ${items.length} items to generate`);
-
-        for (const item of items) {
-          if (!menuWorker.running) break;
-
-          const displayName = item.display_name || item.name.replace(/_/g, ' ');
-          menuWorker.currentItem = displayName;
-
-          try {
-            const prompt = `Appetizing illustration of ${displayName}, warm watercolor style, soft natural tones, isolated on clean white background, artisan restaurant menu aesthetic, suitable for all ages`;
-            const dataUrl = await generateImageWithGemini(prompt);
-            const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-            if (!matches) throw new Error('Bad data URL');
-
-            const mimeType = matches[1];
-            const buffer = Buffer.from(matches[2], 'base64');
-            const ext = mimeType.includes('png') ? 'png' : 'jpg';
-            const slug = item.name.replace(/[^a-z0-9]+/g, '-').slice(0, 40);
-            const filename = `menu-item-${slug}-${Date.now()}.${ext}`;
-            const permanentUrl = await uploadPublicBuffer(filename, buffer, mimeType);
-
-            await userDb.execute(rawSql`
-              UPDATE visual_assets SET image_url = ${permanentUrl} WHERE name = ${item.name}
-            `);
-
-            menuWorker.processed++;
-            if (menuWorker.processed % 10 === 0) {
-              console.log(`[MenuWorker] ${menuWorker.processed}/${items.length} complete`);
-            }
-          } catch (err: any) {
-            menuWorker.errors++;
-            menuWorker.lastError = err.message;
-            console.warn(`[MenuWorker] Error on ${displayName}:`, err.message);
-          }
-
-          if (menuWorker.running) {
-            await new Promise(r => setTimeout(r, delayBetween));
-          }
-        }
-      } catch (e: any) {
-        console.error('[MenuWorker] Fatal error:', e.message);
-        menuWorker.lastError = e.message;
-      } finally {
-        menuWorker.running = false;
-        menuWorker.currentItem = null;
-        console.log(`[MenuWorker] Done — ${menuWorker.processed} generated, ${menuWorker.errors} errors`);
-      }
-    })();
-
-    res.json({ ok: true, message: `Worker started — processing up to ${batchLimit} items`, status: menuWorker });
+    const result = await startMenuImageWorker({ batchLimit, delayBetween });
+    res.json({ ...result, status: getMenuWorkerStatus() });
   });
 
   app.get('/api/admin/menu-image-worker-status', async (req: any, res) => {
     if (getRequestUserId(req) !== '49847136') {
       return res.status(403).json({ error: 'Forbidden' });
     }
-    res.json(menuWorker);
+    const { getMenuWorkerStatus } = await import('./services/menu-image-worker');
+    res.json(getMenuWorkerStatus());
   });
 
   app.post('/api/admin/stop-menu-image-worker', async (req: any, res) => {
     if (getRequestUserId(req) !== '49847136') {
       return res.status(403).json({ error: 'Forbidden' });
     }
-    menuWorker.running = false;
-    res.json({ ok: true, message: 'Worker stop requested', status: menuWorker });
+    const { stopMenuImageWorker, getMenuWorkerStatus } = await import('./services/menu-image-worker');
+    stopMenuImageWorker();
+    res.json({ ok: true, message: 'Worker stop requested', status: getMenuWorkerStatus() });
   });
 
   // SSE streaming batch generator
