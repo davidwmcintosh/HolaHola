@@ -11,6 +11,43 @@ Visual assets live in the `visual_assets` table. Grammar/infographic SVGs are ge
 
 ---
 
+## Platform Status Snapshot
+
+**Last audited:** March 17 2026
+
+### Interactive Canvas — What's Built
+
+The `SceneCanvas` component (client-side stage model) is **fully operational**. Section 9 of this document described it as "not yet built" — that is now out of date.
+
+| Capability | Status | Notes |
+|---|---|---|
+| `open_scene(environment)` | ✅ Built | Loads background, clears existing scene |
+| `add_to_scene(prop, position)` | ✅ Built | Overlays transparent PNG at zone coordinates |
+| `remove_from_scene(prop)` | ✅ Built | Fades out and removes prop layer |
+| `set_clock(time)` | ✅ Built | SVG analog clock with rotating hands — **fantastic** |
+| `clear_scene()` | ✅ Built | Removes all props, keeps background |
+| `highlight_body_part(part)` | ⬜ Not built | Body diagram SVG — planned |
+| `fill_conjugation(row, value)` | ⬜ Not built | Conjugation table fill-in — planned |
+| `highlight_country(country)` | ⬜ Not built | World map SVG — planned |
+| `set_calendar(day, month)` | ⬜ Not built | Calendar SVG — planned |
+| Emotion face SVG | ⬜ Not built | Planned |
+| Thermometer SVG | ⬜ Not built | Planned |
+| Weather icon SVG set | ⬜ Not built | Planned (also useful as static images) |
+
+### Image Library — What Exists
+
+| Category | Records in DB | With actual images | Notes |
+|---|---|---|---|
+| Food vocabulary | 1,176 | 20 | 1,156 entries are text/translation metadata only — images not yet generated |
+| Scene canvas props | ~40 | ~40 | glass, fork, book, stethoscope, passport, etc. — all have real images |
+| Vocabulary images (Section 1) | 0 | 0 | Nothing generated yet |
+| Time/weather/numbers (Section 2) | 0 | 0 | Clock handled by SVG component; others not started |
+| Cultural infographics (Section 5) | 0 | 0 | Not started |
+
+**What this means for generation priority:** The food menu images are the most visible gap — the menus are live, students can open them, but ~98% fall back to placeholders. Core vocabulary images (Section 1) are entirely absent. Everything else in this roadmap is genuinely planned but not started.
+
+---
+
 ## Philosophy
 
 Language learning has two visual use cases:
@@ -83,13 +120,14 @@ Organization: thematic clusters. A student at Novice Low needs the Novice Low cl
 
 | Word | Spanish | Status | Notes |
 |------|---------|--------|-------|
-| bread | pan | ⬜ | |
+| bread | pan | ✅ | bread_basket in prop library |
 | milk | leche | ⬜ | glass + carton |
 | apple | manzana | ✅ | in prop library |
 | banana | plátano/banana | ✅ | in prop library |
 | egg | huevo | ⬜ | |
 | rice | arroz | ⬜ | bowl of rice |
 | coffee | café | ✅ | in prop library (multiple) |
+| water | agua | ✅ | glass in prop library |
 
 **Activities (simple verbs — illustrated as action)**
 
@@ -347,13 +385,15 @@ These are cross-ACTFL. A Novice Low student needs numbers 1–10. An Advanced st
 
 ### Time
 
+> **Note (March 17 2026):** The interactive SVG analog clock (`set_clock`) is fully built in `SceneCanvas`. For lesson interactions, Daniela uses the live clock — no static image needed. The static reference cards below are for the textbook/reference view and are lower priority as a result.
+
 | Asset | Description | ACTFL Entry Point | Status |
 |-------|-------------|-------------------|--------|
-| Analog clock face — hour | Clean clock showing full hours with Spanish labels | Novice Low | ⬜ |
-| Analog clock face — half/quarter | Son las tres y media, tres y cuarto, tres menos cuarto | Novice Mid | ⬜ |
-| Clock face — full grid | 12 clocks showing every hour variant in one reference image | Novice Mid | ⬜ |
-| AM/PM scene strip | Morning scene → afternoon scene → evening scene → night scene with time expressions | Novice Low | ⬜ |
-| Days of the week card | lunes → domingo visual strip (with Mon-start calendar format, common in Spanish-speaking world) | Novice Low | ⬜ |
+| Analog clock face — hour | Static reference card — live clock handles lesson use | Novice Low | ⬜ lower priority |
+| Analog clock face — half/quarter | Static reference card | Novice Mid | ⬜ lower priority |
+| Clock face — full grid | 12 clocks on one reference card | Novice Mid | ⬜ lower priority |
+| AM/PM scene strip | Morning → afternoon → evening → night with time expressions | Novice Low | ⬜ |
+| Days of the week card | lunes → domingo visual strip (Mon-start calendar format) | Novice Low | ⬜ |
 | Months of the year card | enero → diciembre in circular calendar format | Novice Low | ⬜ |
 | Four seasons illustrated | primavera, verano, otoño, invierno — each as a mini landscape scene | Novice Mid | ⬜ |
 | Duration expressions timeline | hace dos años, desde hace, hace + time — horizontal timeline diagram | Intermediate Low | ⬜ |
@@ -565,53 +605,56 @@ Visual mouth-position or phoneme guides for sounds that don't exist in English. 
 - These are pure text + simple illustration → React component, not generated images
 - One reusable `FalseCognateCard` component taking the data as props
 
-### Batch generation order (recommended)
-1. **Numbers 0–20** — highest usage, all levels
-2. **Time (clocks + days + months + seasons)** — used in every lesson at every level  
-3. **Weather set** — early vocabulary, all illustrations
-4. **Core vocabulary Novice Low** — people, places, things, activities
-5. **Grammar diagrams** — SER/ESTAR/TENER tables + decision trees
-6. **Preposition maps** — spatial first (ties into prop room lessons)
-7. **Continue vocabulary by level** — Novice Mid → Novice High → Intermediate
+### Batch generation order (revised March 17 2026)
+
+The original order put Numbers and Time at the top. That assumed the clock wasn't built. It is. The live SVG clock handles all lesson-time interactions — static clock reference images are now textbook supplements, not urgent. The order below reflects actual current gaps:
+
+1. **Food menu images (Section 11)** — live feature, ~98% of items have no image, visible to students today. Spanish first, then Japanese, French, Italian in sequence.
+2. **Animals (Novice Mid)** — universally loved by learners, language-agnostic images, high Daniela usage
+3. **Novice Low core vocabulary** — people, basic objects, food staples not yet in the prop library (bread, milk, egg, rice)
+4. **Fruits & vegetables (Novice Mid)** — visually clear-cut, language-agnostic, used across multiple scenario types
+5. **Clothing (Novice Mid)** — high-frequency vocabulary cluster, all language-agnostic
+6. **Days/months/seasons (Section 2)** — static reference cards to complement the live clock (clock handles lessons; these handle textbook)
+7. **Weather illustrated set** — these are good candidates for SVG (see Section 9 Phase 2) but illustrated versions work for the textbook
+8. **Continue vocabulary by level** — Novice High travel/transport → Intermediate body/health → Intermediate emotions
 
 ---
 
-## Section 9 — Interactive Scene Canvas (Architecture Concept)
+## Section 9 — Interactive Scene Canvas
 
-**Status: Planning — not yet built**  
-**Decision required before build: frontend compositing approach (see below)**
+**Status: Phase 1 complete ✅ | Phase 2 not yet started ⬜**  
+**Updated:** March 17 2026 — this section previously said "not yet built." That was stale.
 
-### The Core Idea
+### Phase 1 — Prop Layer Canvas ✅ Complete
 
-The current compositor works like a camera: it takes a snapshot of a background + props and returns one flat JPEG. Every new scene requires a server round-trip and image generation.
+The `SceneCanvas` component is fully operational. Daniela can open a live stage, place and remove props, and run the analog clock — all client-side with no server round-trip.
 
-The Interactive Scene Canvas works like a stage: the background is a persistent backdrop, and individual props are layers that Daniela can add, remove, move, or replace at any moment — without regenerating anything. The student watches the scene evolve in real time as the lesson unfolds.
-
-**Current architecture (snapshot model):**
+**Built and working:**
 ```
-Daniela calls compose_visual_scene → server composites PNG layers into JPEG → client receives URL → displays static image
-```
-
-**Interactive Scene Canvas (stage model):**
-```
-Daniela calls open_scene(environment) → client loads background image
-Daniela calls add_to_scene(prop, position) → client overlays transparent PNG at cx/cy coords
-Daniela calls remove_from_scene(prop) → client removes that layer (animated fade)
-Daniela calls set_clock(time) → SVG clock updates hands (no image at all)
+open_scene(environment)         → loads background, establishes the stage
+add_to_scene(prop, position)    → overlays transparent PNG at zone coordinates
+remove_from_scene(prop)         → fades out and removes that layer
+set_clock(time: "H:MM")         → SVG analog clock with rotating hands ✅ fantastic
+clear_scene()                   → removes all props, keeps background
 ```
 
-### Why the Infrastructure Is Already ~60% There
+Both `compose_visual_scene` (snapshot model, for single static vocabulary displays) and the live canvas (stage model, for sequential lessons) now coexist. Daniela chooses based on context.
 
-The prop room was built with the right primitives:
+### Phase 2 — SVG Canvas Types ⬜ Not Yet Built
 
-| What we have | How it enables the canvas |
-|---|---|
-| `zone_image_url` transparent PNGs for 24 props | Client can overlay them as CSS layers — no server compositing |
-| `POSITION_MAP` with cx/cy as percentages | Already the right coordinate system for CSS `position: absolute; left: cx%; top: cy%` |
-| `visual_environments` background images | Client loads the background, holds it across the whole lesson |
-| `visual_assets` with all 9 language translations | Client can display the word label alongside the prop image |
+These are standalone React/SVG components that extend the canvas beyond prop images. Each covers an entire vocabulary domain from a single reusable component:
 
-The only missing piece is a frontend `SceneCanvas` component that manages layers client-side, and a set of new Daniela function calls that emit canvas commands instead of returning image URLs.
+| Component | Daniela function | Vocabulary domain | Build complexity |
+|---|---|---|---|
+| Body diagram (labeled regions) | `highlight_body_part(part)` | Body parts, health, Intermediate Low | Medium |
+| Conjugation table (fill-in) | `fill_conjugation(row, value)` | Every tense, every verb pattern | Low |
+| World map (Spanish-speaking countries) | `highlight_country(country)` | Cultural units, geography, Intermediate+ | Medium |
+| Calendar SVG | `set_calendar(day, month)` | Dates, days, months, Novice Low | Low |
+| Emotion face SVG | `set_emotion(state)` | Emotions vocabulary, Intermediate Mid | Low |
+| Thermometer SVG | `set_temperature(celsius)` | Weather/temperature, Novice High | Low |
+| Weather icon set | `show_weather(condition)` | Weather vocabulary, Novice Low | Low |
+
+**Build sequence recommendation:** Conjugation table first (low complexity, extremely high usage across every grammar lesson), then calendar (complements the existing clock perfectly), then body diagram, then world map.
 
 ### Use Cases
 
