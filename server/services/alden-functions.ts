@@ -378,6 +378,31 @@ Results are returned as an array, one entry per pattern, in the order requested.
       required: ["phase_title", "phase_summary", "next_prompt"],
     },
   },
+  {
+    name: "search_express_lane",
+    description: "Search the Express Lane conversation history across all sessions. Use this to find past discussions, decisions, or messages involving Wren, Daniela, or the founder. Searches message content and returns matching excerpts with context. Great for answering 'did we ever discuss X?' or 'find the conversation where David showed us how to do Y'.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        query: { type: "string" as const, description: "Search term or phrase to find in Express Lane messages (e.g. 'joke', 'auth bug', 'pronunciation fix')" },
+        limit: { type: "number" as const, description: "Max number of matching messages to return (default 10, max 30)" },
+        session_limit: { type: "number" as const, description: "How many past sessions to search through (default 30, max 100)" },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "read_express_lane_session",
+    description: "Read the full messages of a specific Express Lane session, or the most recent N messages across all sessions. Use this when you need the full context of a conversation, not just matching snippets.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        session_id: { type: "string" as const, description: "Specific session ID to read (from search_express_lane results). If omitted, returns recent messages across all sessions." },
+        message_limit: { type: "number" as const, description: "Max messages to return (default 30, max 100)" },
+      },
+      required: [],
+    },
+  },
 ];
 
 export async function executeAldenTool(
@@ -720,6 +745,104 @@ export async function executeAldenTool(
         return {
           data: { posted: true, channel: 'express-lane' },
         };
+      }
+
+      case "search_express_lane": {
+        const { query, limit = 10, session_limit = 30 } = args;
+        const FOUNDER_ID = '49847136';
+        const maxResults = Math.min(limit, 30);
+        const maxSessions = Math.min(session_limit, 100);
+
+        const sessions = await founderCollabService.getFounderSessions(FOUNDER_ID, maxSessions);
+        const results: Array<{
+          sessionId: string;
+          sessionTitle: string | null;
+          messageId: string;
+          role: string;
+          snippet: string;
+          fullContent: string;
+          createdAt: string;
+        }> = [];
+
+        const searchLower = query.toLowerCase();
+
+        for (const session of sessions) {
+          if (results.length >= maxResults) break;
+          const messages = await founderCollabService.getSessionMessages(session.id, 200);
+          for (const msg of messages) {
+            if (results.length >= maxResults) break;
+            if (msg.content.toLowerCase().includes(searchLower)) {
+              const idx = msg.content.toLowerCase().indexOf(searchLower);
+              const start = Math.max(0, idx - 80);
+              const end = Math.min(msg.content.length, idx + query.length + 80);
+              const snippet = (start > 0 ? '…' : '') + msg.content.slice(start, end) + (end < msg.content.length ? '…' : '');
+              results.push({
+                sessionId: session.id,
+                sessionTitle: session.title,
+                messageId: msg.id,
+                role: msg.role,
+                snippet,
+                fullContent: msg.content.substring(0, 600),
+                createdAt: msg.createdAt?.toISOString() ?? '',
+              });
+            }
+          }
+        }
+
+        return {
+          data: {
+            query,
+            sessionsSearched: sessions.length,
+            matchCount: results.length,
+            results,
+          },
+        };
+      }
+
+      case "read_express_lane_session": {
+        const { session_id, message_limit = 30 } = args;
+        const FOUNDER_ID = '49847136';
+        const maxMessages = Math.min(message_limit, 100);
+
+        if (session_id) {
+          const messages = await founderCollabService.getSessionMessages(session_id, maxMessages);
+          const session = await founderCollabService.getSession(session_id);
+          return {
+            data: {
+              sessionId: session_id,
+              sessionTitle: session?.title ?? null,
+              messageCount: messages.length,
+              messages: messages.map(m => ({
+                id: m.id,
+                role: m.role,
+                content: m.content.substring(0, 800),
+                createdAt: m.createdAt?.toISOString() ?? '',
+              })),
+            },
+          };
+        } else {
+          // Return recent messages across all sessions
+          const sessions = await founderCollabService.getFounderSessions(FOUNDER_ID, 5);
+          const allMessages: Array<{ sessionTitle: string | null; role: string; content: string; createdAt: string }> = [];
+          for (const session of sessions) {
+            const msgs = await founderCollabService.getSessionMessages(session.id, Math.ceil(maxMessages / sessions.length));
+            for (const m of msgs) {
+              allMessages.push({
+                sessionTitle: session.title,
+                role: m.role,
+                content: m.content.substring(0, 600),
+                createdAt: m.createdAt?.toISOString() ?? '',
+              });
+            }
+            if (allMessages.length >= maxMessages) break;
+          }
+          return {
+            data: {
+              messageCount: allMessages.length,
+              messages: allMessages.slice(0, maxMessages),
+            },
+          };
+        }
       }
 
       case "run_full_systems_check": {
@@ -1375,4 +1498,4 @@ ${agentSection}`;
   }
 }
 
-console.log('[Alden Functions] Loaded — 24 tools ready (monitoring + code + shell + memory + notifications + browser + briefing)');
+console.log('[Alden Functions] Loaded — 26 tools ready (monitoring + code + shell + memory + notifications + browser + briefing + express-lane-search)');
