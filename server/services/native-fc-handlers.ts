@@ -1079,6 +1079,225 @@ export class NativeFunctionCallHandler {
         console.log(`[Native Function→SetClock] Time set to ${clockTime}`);
         break;
       }
+      // ─── Phase 2 Grammar Canvas Handlers ──────────────────────────────────
+
+      case 'INIT_CONJUGATION': {
+        const verb = fn.args.verb as string | undefined;
+        const tense = fn.args.tense as string | undefined;
+        const pronouns = fn.args.pronouns as string[] | undefined;
+        const initText = fn.args.text as string | undefined;
+        if (initText && !session.functionCallText) session.functionCallText = initText;
+        if (!verb || !tense || !pronouns?.length) {
+          console.warn('[Native Function→InitConjugation] Missing verb, tense, or pronouns — skipping');
+          break;
+        }
+        if (!session.sceneCanvas) {
+          session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [] };
+        }
+        session.sceneCanvas.conjugationTable = {
+          verb,
+          tense,
+          cells: pronouns.map((p: string) => ({ pronoun: p, form: null })),
+        };
+        const initConjUpdate = {
+          type: 'whiteboard_update' as const,
+          timestamp: Date.now(),
+          items: [{
+            id: 'scene-canvas-active',
+            type: 'scene_canvas',
+            content: `${verb} — ${tense}`,
+            data: {
+              environment: session.sceneCanvas.environment,
+              environmentImageUrl: session.sceneCanvas.environmentImageUrl,
+              environmentLabel: session.sceneCanvas.environmentLabel,
+              props: [...(session.sceneCanvas.props || [])],
+              clockTime: session.sceneCanvas.clockTime,
+              conjugationTable: session.sceneCanvas.conjugationTable,
+              canvasAction: 'init_conjugation' as const,
+            },
+          }],
+        };
+        if (session.firstAudioSent) {
+          this.sendMessage(session.ws, initConjUpdate);
+        } else {
+          if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
+          session.pendingWhiteboardUpdates.push(initConjUpdate);
+        }
+        console.log(`[Native Function→InitConjugation] ${verb} (${tense}) — ${pronouns.length} rows`);
+        break;
+      }
+
+      case 'FILL_CONJUGATION': {
+        const pronoun = fn.args.pronoun as string | undefined;
+        const form = fn.args.form as string | undefined;
+        const highlightPronoun = fn.args.highlightPronoun as string | undefined;
+        const fillText = fn.args.text as string | undefined;
+        if (fillText && !session.functionCallText) session.functionCallText = fillText;
+        if (!pronoun || !form || !session.sceneCanvas?.conjugationTable) {
+          console.warn('[Native Function→FillConjugation] Missing data or no active table — skipping');
+          break;
+        }
+        const table = session.sceneCanvas.conjugationTable;
+        const cells = table.cells.map((c: any) => ({
+          ...c,
+          isNew: false,
+          form: c.pronoun === pronoun ? form : c.form,
+          isNew2: c.pronoun === pronoun ? true : false,
+        }));
+        // rename isNew2 → isNew (avoid rename issues)
+        const updatedCells = cells.map((c: any) => ({ pronoun: c.pronoun, pronounAlt: c.pronounAlt, form: c.form, isNew: c.isNew2 }));
+        table.cells = updatedCells;
+        if (highlightPronoun !== undefined) table.highlightPronoun = highlightPronoun;
+        const fillUpdate = {
+          type: 'whiteboard_update' as const,
+          timestamp: Date.now(),
+          items: [{
+            id: 'scene-canvas-active',
+            type: 'scene_canvas',
+            content: `${table.verb} — ${pronoun}: ${form}`,
+            data: {
+              environment: session.sceneCanvas.environment,
+              environmentImageUrl: session.sceneCanvas.environmentImageUrl,
+              environmentLabel: session.sceneCanvas.environmentLabel,
+              props: [...(session.sceneCanvas.props || [])],
+              clockTime: session.sceneCanvas.clockTime,
+              conjugationTable: { ...table, cells: updatedCells, highlightPronoun: highlightPronoun ?? table.highlightPronoun },
+              canvasAction: 'fill_conjugation' as const,
+            },
+          }],
+        };
+        if (session.firstAudioSent) {
+          this.sendMessage(session.ws, fillUpdate);
+        } else {
+          if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
+          session.pendingWhiteboardUpdates.push(fillUpdate);
+        }
+        console.log(`[Native Function→FillConjugation] ${pronoun} → ${form}`);
+        break;
+      }
+
+      case 'CLEAR_CONJUGATION': {
+        const clearConjText = fn.args.text as string | undefined;
+        if (clearConjText && !session.functionCallText) session.functionCallText = clearConjText;
+        if (session.sceneCanvas) {
+          delete session.sceneCanvas.conjugationTable;
+        }
+        const clearConjUpdate = {
+          type: 'whiteboard_update' as const,
+          timestamp: Date.now(),
+          items: [{
+            id: 'scene-canvas-active',
+            type: 'scene_canvas',
+            content: '',
+            data: {
+              environment: session.sceneCanvas?.environment || '',
+              environmentImageUrl: session.sceneCanvas?.environmentImageUrl || '',
+              environmentLabel: session.sceneCanvas?.environmentLabel || '',
+              props: [...(session.sceneCanvas?.props || [])],
+              clockTime: session.sceneCanvas?.clockTime,
+              canvasAction: 'clear_conjugation' as const,
+            },
+          }],
+        };
+        if (session.firstAudioSent) {
+          this.sendMessage(session.ws, clearConjUpdate);
+        } else {
+          if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
+          session.pendingWhiteboardUpdates.push(clearConjUpdate);
+        }
+        console.log('[Native Function→ClearConjugation] Table cleared');
+        break;
+      }
+
+      case 'SET_CALENDAR': {
+        const calMonth = fn.args.month as string | undefined;
+        const calMonthNumber = fn.args.monthNumber as number | undefined;
+        const calYear = fn.args.year as number | undefined;
+        const calDayNames = fn.args.dayNames as string[] | undefined;
+        const calHighlightDay = fn.args.highlightDay as number | undefined;
+        const calHighlightDowIndex = fn.args.highlightDowIndex as number | undefined;
+        const calMarkedDays = fn.args.markedDays as number[] | undefined;
+        const calStartDow = fn.args.startDow as number | undefined;
+        const calText = fn.args.text as string | undefined;
+        if (calText && !session.functionCallText) session.functionCallText = calText;
+        if (!calMonth || !calMonthNumber || !calYear || !calDayNames?.length) {
+          console.warn('[Native Function→SetCalendar] Missing required calendar data — skipping');
+          break;
+        }
+        if (!session.sceneCanvas) {
+          session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [] };
+        }
+        session.sceneCanvas.calendarData = {
+          month: calMonth,
+          monthNumber: calMonthNumber,
+          year: calYear,
+          dayNames: calDayNames,
+          highlightDay: calHighlightDay,
+          highlightDowIndex: calHighlightDowIndex,
+          markedDays: calMarkedDays,
+          startDow: calStartDow,
+        };
+        const calUpdate = {
+          type: 'whiteboard_update' as const,
+          timestamp: Date.now(),
+          items: [{
+            id: 'scene-canvas-active',
+            type: 'scene_canvas',
+            content: `${calMonth} ${calYear}`,
+            data: {
+              environment: session.sceneCanvas.environment,
+              environmentImageUrl: session.sceneCanvas.environmentImageUrl,
+              environmentLabel: session.sceneCanvas.environmentLabel,
+              props: [...(session.sceneCanvas.props || [])],
+              clockTime: session.sceneCanvas.clockTime,
+              calendarData: session.sceneCanvas.calendarData,
+              canvasAction: 'set_calendar' as const,
+            },
+          }],
+        };
+        if (session.firstAudioSent) {
+          this.sendMessage(session.ws, calUpdate);
+        } else {
+          if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
+          session.pendingWhiteboardUpdates.push(calUpdate);
+        }
+        console.log(`[Native Function→SetCalendar] ${calMonth} ${calYear}${calHighlightDay ? `, day ${calHighlightDay}` : ''}`);
+        break;
+      }
+
+      case 'CLEAR_CALENDAR': {
+        const clearCalText = fn.args.text as string | undefined;
+        if (clearCalText && !session.functionCallText) session.functionCallText = clearCalText;
+        if (session.sceneCanvas) {
+          delete session.sceneCanvas.calendarData;
+        }
+        const clearCalUpdate = {
+          type: 'whiteboard_update' as const,
+          timestamp: Date.now(),
+          items: [{
+            id: 'scene-canvas-active',
+            type: 'scene_canvas',
+            content: '',
+            data: {
+              environment: session.sceneCanvas?.environment || '',
+              environmentImageUrl: session.sceneCanvas?.environmentImageUrl || '',
+              environmentLabel: session.sceneCanvas?.environmentLabel || '',
+              props: [...(session.sceneCanvas?.props || [])],
+              clockTime: session.sceneCanvas?.clockTime,
+              canvasAction: 'clear_calendar' as const,
+            },
+          }],
+        };
+        if (session.firstAudioSent) {
+          this.sendMessage(session.ws, clearCalUpdate);
+        } else {
+          if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
+          session.pendingWhiteboardUpdates.push(clearCalUpdate);
+        }
+        console.log('[Native Function→ClearCalendar] Calendar cleared');
+        break;
+      }
+
       // ─────────────────────────────────────────────────────────────────────
 
       case 'ENTER_IMMERSIVE': {

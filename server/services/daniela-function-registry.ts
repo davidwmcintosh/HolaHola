@@ -748,6 +748,148 @@ After set_clock, say the time expression naturally in your speech.`,
     },
   },
 
+  // === PHASE 2 GRAMMAR CANVAS ===
+
+  {
+    legacyType: 'INIT_CONJUGATION',
+    declaration: {
+      name: "init_conjugation_table",
+      description: `Open a conjugation table on the student's canvas for a given verb and tense.
+This creates the table frame with all pronoun rows visible but empty (cells show "___" placeholders).
+Then use fill_conjugation to reveal forms one row at a time as you teach them.
+
+The table replaces the canvas view when no scene is open. If a scene is active, the table appears as a side panel.
+
+Use a language-appropriate set of pronouns for the student's target language:
+  Spanish: yo, tú, él/ella, nosotros, vosotros, ellos/ellas
+  French:  je, tu, il/elle, nous, vous, ils/elles
+  Italian: io, tu, lui/lei, noi, voi, loro
+  Portuguese: eu, tu, ele/ela, nós, vós, eles/elas
+  German:  ich, du, er/sie, wir, ihr, sie/Sie
+  Japanese / Chinese / Arabic: use appropriate subject pronouns for that language
+
+Example usage:
+  init_conjugation_table("hablar", "presente de indicativo", ["yo","tú","él/ella","nosotros","vosotros","ellos/ellas"])
+  → Then: fill_conjugation("yo", "hablo") — fill_conjugation("tú", "hablas") — etc.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you say aloud as the table appears — e.g. 'Let\\'s conjugate hablar in the present tense.'" },
+          verb: { type: "string", description: "The infinitive form, e.g. 'hablar', 'être', 'sein'" },
+          tense: { type: "string", description: "Display label for the tense, e.g. 'presente de indicativo', 'passé composé', 'Präsens'" },
+          pronouns: { type: "array", items: { type: "string" }, description: "Ordered list of pronoun rows to show, e.g. ['yo','tú','él/ella','nosotros','vosotros','ellos/ellas']" },
+        },
+        required: ["verb", "tense", "pronouns"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      return `Conjugation table opened for ${fc.args.verb} (${fc.args.tense}) with ${(fc.args.pronouns as string[]).length} rows. Now use fill_conjugation to reveal forms one by one.`;
+    },
+  },
+
+  {
+    legacyType: 'FILL_CONJUGATION',
+    declaration: {
+      name: "fill_conjugation",
+      description: `Reveal one row in the active conjugation table.
+Call this for each pronoun as you introduce it verbally, so the student sees and hears each form together.
+
+The newly revealed form is underlined briefly to draw the student's eye to it.
+
+Example: fill_conjugation("yo", "hablo") → the "yo" row now shows "hablo"
+         fill_conjugation("tú", "hablas") → the "tú" row now shows "hablas"
+
+Must call init_conjugation_table first.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you say — include the conjugated form naturally, e.g. 'Yo hablo — I speak.'" },
+          pronoun: { type: "string", description: "The pronoun row to fill, exactly as it appears in the table, e.g. 'yo', 'tú', 'il/elle'" },
+          form: { type: "string", description: "The conjugated verb form, e.g. 'hablo', 'parles', 'spricht'" },
+          highlightPronoun: { type: "string", description: "Optional: bold-highlight a specific row (useful to draw attention to an irregular form). Pass the pronoun value." },
+        },
+        required: ["pronoun", "form"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      return `Conjugation row filled: ${fc.args.pronoun} → ${fc.args.form}. Continue teaching the next form.`;
+    },
+  },
+
+  {
+    legacyType: 'CLEAR_CONJUGATION',
+    declaration: {
+      name: "clear_conjugation_table",
+      description: `Close and remove the conjugation table from the canvas.
+Call this when you're done with the grammar drill and want to return to the scene or a clean canvas.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you say as the table is cleared." },
+        },
+        required: [],
+      },
+    },
+    buildContinuationResponse: () => `Conjugation table cleared. The canvas is now empty again.`,
+  },
+
+  {
+    legacyType: 'SET_CALENDAR',
+    declaration: {
+      name: "set_calendar",
+      description: `Show a month calendar on the canvas. Useful for teaching days, dates, months, and scheduling vocabulary.
+
+The calendar highlights a specific day and/or day-of-week column. Use it with date and calendar vocabulary lessons.
+
+Always pass day names in the student's TARGET language. Short 2-letter abbreviations work best.
+
+Spanish example:
+  set_calendar({ month: "marzo", monthNumber: 3, year: 2026, dayNames: ["Lu","Ma","Mi","Ju","Vi","Sa","Do"], highlightDay: 15 })
+
+French example:
+  set_calendar({ month: "mars", monthNumber: 3, year: 2026, dayNames: ["Lu","Ma","Me","Je","Ve","Sa","Di"], highlightDay: 15 })
+
+Japanese example:
+  set_calendar({ month: "3月", monthNumber: 3, year: 2026, dayNames: ["月","火","水","木","金","土","日"], highlightDay: 15, startDow: 0 })
+
+Works standalone (fills the canvas) or alongside an active scene (appears as a side panel).`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you say as the calendar appears." },
+          month: { type: "string", description: "Month display name in the target language, e.g. 'marzo', 'mars', '3月'" },
+          monthNumber: { type: "number", description: "Month number 1-12" },
+          year: { type: "number", description: "4-digit year, e.g. 2026" },
+          dayNames: { type: "array", items: { type: "string" }, description: "7 short day-name labels in the target language starting from startDow (Mon-first by default), e.g. ['Lu','Ma','Mi','Ju','Vi','Sa','Do']" },
+          highlightDay: { type: "number", description: "Day of month to highlight (1-31), e.g. 15" },
+          highlightDowIndex: { type: "number", description: "0-based index into dayNames array — highlights the entire day-of-week column, e.g. 0 for Monday in a Mon-first calendar" },
+          markedDays: { type: "array", items: { type: "number" }, description: "Additional days to mark with a lighter accent, e.g. [1, 8, 15, 22, 29] for every Monday" },
+          startDow: { type: "number", description: "First day of week: 1 = Monday (default, most of the world), 0 = Sunday (US, Japan, some others)" },
+        },
+        required: ["month", "monthNumber", "year", "dayNames"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      return `Calendar showing ${fc.args.month} ${fc.args.year}${fc.args.highlightDay ? `, day ${fc.args.highlightDay} highlighted` : ""}. Continue with the vocabulary.`;
+    },
+  },
+
+  {
+    legacyType: 'CLEAR_CALENDAR',
+    declaration: {
+      name: "clear_calendar",
+      description: `Remove the calendar from the canvas. Call this when the date/calendar vocabulary segment is done.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you say as the calendar is cleared." },
+        },
+        required: [],
+      },
+    },
+    buildContinuationResponse: () => `Calendar cleared.`,
+  },
+
   // === IMMERSIVE MODE ===
 
   {

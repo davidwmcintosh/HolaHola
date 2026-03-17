@@ -646,15 +646,17 @@ These are standalone React/SVG components that extend the canvas beyond prop ima
 
 | Component | Daniela function | Vocabulary domain | Build complexity |
 |---|---|---|---|
-| Body diagram (labeled regions) | `highlight_body_part(part)` | Body parts, health, Intermediate Low | Medium |
-| Conjugation table (fill-in) | `fill_conjugation(row, value)` | Every tense, every verb pattern | Low |
-| World map (Spanish-speaking countries) | `highlight_country(country)` | Cultural units, geography, Intermediate+ | Medium |
-| Calendar SVG | `set_calendar(day, month)` | Dates, days, months, Novice Low | Low |
-| Emotion face SVG | `set_emotion(state)` | Emotions vocabulary, Intermediate Mid | Low |
-| Thermometer SVG | `set_temperature(celsius)` | Weather/temperature, Novice High | Low |
-| Weather icon set | `show_weather(condition)` | Weather vocabulary, Novice Low | Low |
+| Body diagram (labeled regions) | `highlight_body_part(part)` | Body parts, health, Intermediate Low | ⬜ Medium |
+| Conjugation table (fill-in) | `init_conjugation_table` + `fill_conjugation` + `clear_conjugation_table` | Every tense, every verb pattern | ✅ Built March 17 2026 |
+| World map (Spanish-speaking countries) | `highlight_country(country)` | Cultural units, geography, Intermediate+ | ⬜ Medium |
+| Calendar SVG | `set_calendar` + `clear_calendar` | Dates, days, months, Novice Low | ✅ Built March 17 2026 |
+| Emotion face SVG | `set_emotion(state)` | Emotions vocabulary, Intermediate Mid | ⬜ Low |
+| Thermometer SVG | `set_temperature(celsius)` | Weather/temperature, Novice High | ⬜ Low |
+| Weather icon set | `show_weather(condition)` | Weather vocabulary, Novice Low | ⬜ Low |
 
-**Build sequence recommendation:** Conjugation table first (low complexity, extremely high usage across every grammar lesson), then calendar (complements the existing clock perfectly), then body diagram, then world map.
+**Built March 17 2026:** Conjugation table and calendar are fully operational. Daniela can call `init_conjugation_table("hablar", "presente de indicativo", ["yo","tú","él/ella","nosotros","vosotros","ellos/ellas"])` then reveal rows one at a time with `fill_conjugation`. Calendar shows a full month grid with day/dow highlighting — all day names in the target language.
+
+**Remaining sequence:** Body diagram → Thermometer → Emotion face → World map → Weather icon set.
 
 ### Use Cases
 
