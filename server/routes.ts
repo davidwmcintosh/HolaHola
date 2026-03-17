@@ -634,8 +634,7 @@ export async function registerRoutes(app: Express): Promise<void> {
 
   // Stats: how many food items have/need images
   app.get('/api/admin/menu-image-stats', async (req: any, res) => {
-    const user = req.user;
-    if (!user || !['admin', 'developer'].includes(user.role)) {
+    if (getRequestUserId(req) !== '49847136') {
       return res.status(403).json({ error: 'Forbidden' });
     }
     try {
@@ -668,8 +667,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   };
 
   app.post('/api/admin/start-menu-image-worker', async (req: any, res) => {
-    const user = req.user;
-    if (!user || !['admin', 'developer'].includes(user.role)) {
+    if (getRequestUserId(req) !== '49847136') {
       return res.status(403).json({ error: 'Forbidden' });
     }
     if (menuWorker.running) {
@@ -756,16 +754,14 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   app.get('/api/admin/menu-image-worker-status', async (req: any, res) => {
-    const user = req.user;
-    if (!user || !['admin', 'developer'].includes(user.role)) {
+    if (getRequestUserId(req) !== '49847136') {
       return res.status(403).json({ error: 'Forbidden' });
     }
     res.json(menuWorker);
   });
 
   app.post('/api/admin/stop-menu-image-worker', async (req: any, res) => {
-    const user = req.user;
-    if (!user || !['admin', 'developer'].includes(user.role)) {
+    if (getRequestUserId(req) !== '49847136') {
       return res.status(403).json({ error: 'Forbidden' });
     }
     menuWorker.running = false;
@@ -775,8 +771,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // SSE streaming batch generator
   // GET /api/admin/batch-menu-images?limit=50&delay=2000
   app.get('/api/admin/batch-menu-images', async (req: any, res) => {
-    const user = req.user;
-    if (!user || !['admin', 'developer'].includes(user.role)) {
+    if (getRequestUserId(req) !== '49847136') {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
