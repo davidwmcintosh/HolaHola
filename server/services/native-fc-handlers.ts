@@ -1,6 +1,8 @@
 import { sql, eq, and } from "drizzle-orm";
 import { ExtractedFunctionCall } from "./gemini-streaming";
 import type { StreamingSession } from "./streaming-voice-orchestrator";
+import { breakfastMenus, lunchMenus, menuTitleByLanguage } from '../data/language-menus-restaurant-mealtime';
+import { restaurantMenus } from '../data/language-menus-restaurant-festival';
 import { getGeminiStreamingService } from "./gemini-streaming";
 import { extractBoldMarkedWords } from "./language-segmenter";
 import { TutorPersonality } from "./tts-service";
@@ -1803,7 +1805,7 @@ export class NativeFunctionCallHandler {
         const menuText = fn.args.text as string | undefined;
         const mealType = (fn.args.meal_type as string | undefined) || 'dinner';
         const menuTitle = fn.args.title as string | undefined;
-        const menuSections = fn.args.sections as any[] | undefined;
+        const menuSectionsFromDaniela = fn.args.sections as any[] | undefined;
 
         if (menuText && !session.functionCallText) session.functionCallText = menuText;
 
@@ -1815,6 +1817,22 @@ export class NativeFunctionCallHandler {
         const menuPropName = mealType === 'breakfast' ? 'breakfast_menu'
           : mealType === 'lunch' ? 'lunch_menu'
           : 'dinner_menu';
+
+        // Auto-load culturally appropriate menu from static data based on language + level
+        const lang = (session.targetLanguage || 'spanish').toLowerCase();
+        const level = (session.difficultyLevel || 'beginner').toLowerCase();
+
+        let resolvedSections: any[] = [];
+        if (menuSectionsFromDaniela && menuSectionsFromDaniela.length > 0) {
+          // Daniela explicitly provided content — use it
+          resolvedSections = menuSectionsFromDaniela;
+        } else if (mealType === 'breakfast' && breakfastMenus[lang]?.[level]) {
+          resolvedSections = breakfastMenus[lang][level].sections;
+        } else if (mealType === 'lunch' && lunchMenus[lang]?.[level]) {
+          resolvedSections = lunchMenus[lang][level].sections;
+        } else if (restaurantMenus[lang]?.[level]) {
+          resolvedSections = restaurantMenus[lang][level].sections;
+        }
 
         const { getUserDb: getMenuDb } = await import('../db');
         const { sql: menuSql } = await import('drizzle-orm');
@@ -1834,16 +1852,16 @@ export class NativeFunctionCallHandler {
             break;
           }
 
-          const resolvedMenuTitle = menuTitle || (
-            mealType === 'breakfast' ? 'Breakfast Menu'
-            : mealType === 'lunch' ? 'Lunch Menu'
-            : 'Dinner Menu'
-          );
+          const resolvedMenuTitle = menuTitle
+            || menuTitleByLanguage[lang]?.[mealType]
+            || (mealType === 'breakfast' ? 'Breakfast Menu'
+              : mealType === 'lunch' ? 'Lunch Menu'
+              : 'Dinner Menu');
 
           const richContent = {
             type: 'menu' as const,
             title: resolvedMenuTitle,
-            content: { sections: menuSections || [] },
+            content: { sections: resolvedSections },
           };
 
           const menuCanvasProp = {

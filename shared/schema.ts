@@ -8612,6 +8612,8 @@ export const visualAssets = pgTable("visual_assets", {
   japaneseTerms: text("japanese_terms").array().notNull().default(sql`'{}'`),
   koreanTerms: text("korean_terms").array().notNull().default(sql`'{}'`),
   mandarinTerms: text("mandarin_terms").array().notNull().default(sql`'{}'`),
+  arabicTerms: text("arabic_terms").array().notNull().default(sql`'{}'`),
+  russianTerms: text("russian_terms").array().notNull().default(sql`'{}'`),
   englishTerms: text("english_terms").array().notNull().default(sql`'{}'`),
   tags: text("tags").array().notNull().default(sql`'{}'`),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

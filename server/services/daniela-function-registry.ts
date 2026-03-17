@@ -1154,55 +1154,30 @@ Use show_menu when:
 - The student asks to see the menu ("¿me puede traer la carta?", "la carte s'il vous plaît", etc.)
 - Switching meal courses and they need to see dessert or drink options
 
-The menu appears as a physical menu book/card on the table. In immersive mode the student can tap it to read the full menu with dishes and prices in the target language. The menu stays on the table throughout the meal.
+The menu appears as a physical menu book/card on the table. In immersive mode the student can tap it to open a full culturally-appropriate menu with dishes and prices in the target language. The menu stays on the table throughout the entire meal so the student can consult it at any time.
 
-Provide menu content appropriate for the target language and culture:
-- Spanish (Spain): tapas, platos combinados, menú del día with euro prices
-- French: entrée/plat/dessert structure, regional dishes, euro prices
-- Italian: antipasto/primo/secondo/dolce, regional specialties, euro prices
-- German: Vorspeise/Hauptspeise/Nachspeise, local dishes, euro prices
-- Portuguese: petiscos, pratos principais, euro prices
-- Japanese: 前菜/主菜/デザート, yen prices
-- Chinese: 前菜/主菜/甜点, yuan prices
+The system automatically loads the correct menu for the student's language and proficiency level — just specify the meal_type. The menu content is pre-authored and culturally authentic (no tourist versions):
+- Spanish: menú del día, tapas, platos principales with euro prices
+- French: entrée/plat/dessert structure with French regional dishes
+- German: Frühstück, Mittagessen, Abendessen with German specialties
+- Italian: colazione/pranzo/cena with regional Italian dishes
+- Portuguese: pequeno-almoço, almoço, jantar with Portuguese classics
+- Japanese: 朝食/ランチ/ディナー with authentic Japanese cuisine
+- And so on for all other supported languages.
 
-IMPORTANT: Always provide items.name_target (the target language name) AND items.name (English translation) for all items. Include culturally authentic dishes — not tourist versions.`,
+You only need to provide meal_type and your spoken text. The system handles the rest.`,
       parametersJsonSchema: {
         type: "object",
         properties: {
-          text: { type: "string", description: "What you say while presenting the menu (spoken aloud)" },
+          text: { type: "string", description: "What you say while presenting the menu (spoken aloud by you as the waiter/waitress)" },
           meal_type: {
             type: "string",
             enum: ["breakfast", "lunch", "dinner"],
-            description: "Type of meal — determines which menu prop image is placed on the table",
+            description: "Type of meal — determines which culturally-appropriate menu is shown and which prop image appears on the table",
           },
-          title: { type: "string", description: "Menu title shown in the sheet header (e.g. 'La Carta', 'Le Menu', 'Die Speisekarte')" },
-          sections: {
-            type: "array",
-            description: "Menu sections (e.g. Entrées, Main Courses, Desserts)",
-            items: {
-              type: "object",
-              properties: {
-                name: { type: "string", description: "Section name in English (e.g. 'Starters')" },
-                name_target: { type: "string", description: "Section name in the target language (e.g. 'Entrantes', 'Entrées', 'Antipasti')" },
-                items: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      name: { type: "string", description: "Dish name in English" },
-                      name_target: { type: "string", description: "Dish name in target language" },
-                      description_target: { type: "string", description: "Short description in target language" },
-                      price: { type: "string", description: "Price with currency symbol (e.g. '€12', '¥800', '£9.50')" },
-                    },
-                    required: ["name", "name_target", "price"],
-                  },
-                },
-              },
-              required: ["name", "name_target", "items"],
-            },
-          },
+          title: { type: "string", description: "Optional override for the menu title shown in the header. If omitted, the system uses the culturally correct term (e.g. 'Desayuno', 'Menú del Día', 'Carta')." },
         },
-        required: ["text", "meal_type", "sections"],
+        required: ["text", "meal_type"],
       },
     },
   },
