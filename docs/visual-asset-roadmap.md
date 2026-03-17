@@ -836,7 +836,13 @@ The `restaurant_table_with_plate` environment (added March 16 2026) solves the f
 ## Section 11 — Menu Food Item Image Queue
 
 **Added:** March 17 2026  
-**Priority:** High — the interactive ordering menus (Section 10, now built and live) display food item thumbnails at Beginner level. Every beginner menu item needs its own image, or it falls back to a placeholder.
+**Priority:** High — the interactive ordering menus (Section 10, now built and live) display a food item image alongside every dish name. Every menu item at every ACTFL level needs its own image, or it falls back to a placeholder.
+
+### The Decision: Images at All Levels
+
+An earlier draft of this document restricted images to Beginner menus only, on the assumption that advanced students should be "reading, not looking." That was wrong. Images in the menu overlay serve vocabulary acquisition at every level — a beginner sees *churros* and learns the word, an advanced student sees *croquetas de jamón ibérico* and reinforces a richer mental model. Taking images away from higher levels creates a worse product for no educational gain. The menu overlay shows the image at every level. The image is the same; the text complexity around it scales with level.
+
+**This also resolves the scale problem.** Because images live in fixed-size card containers inside the menu overlay, the presentation container controls the visual size. A croissant image and a paella image both render at the same card dimensions — relative scale is implicit and handled by layout, not by the image itself. This is fundamentally different from placing a food prop on the scene canvas where proportion to the plate matters.
 
 ### What We Have
 
@@ -851,20 +857,20 @@ Three data files author all menu content across 5 scenario types:
 
 Each file covers **10 languages × 3 ACTFL levels (Beginner / Intermediate / Advanced)**.
 
-### Images Are Only Needed at Beginner Level
+### How Many Unique Images
 
-Intermediate and Advanced menus are intentionally text-dense — no thumbnails. Beginner menus show food item images alongside the dish name to support vocabulary acquisition. This narrows the image backlog significantly.
+The same dish name appears across all three levels of a given language menu (Beginner: "Café con leche €1.50", Intermediate: richer description, Advanced: cultural annotation — all show the same image). So we generate **one image per unique dish name per language**, not one per level. This reduces the backlog by two-thirds compared to a naïve count.
 
-| Scenario | Beginner items (est.) | Languages | Images needed |
+| Scenario | Unique items/language (est.) | Languages | Total unique images |
 |---|---|---|---|
-| Breakfast | ~8 items per language | 10 | ~80 |
-| Lunch | ~8 items per language | 10 | ~78 |
-| Dinner (restaurant) | ~11 items per language | 10 | ~110 |
-| Café | ~12 items per language | 10 | ~115 |
-| Local Festival / Street Food | ~11 items per language | 10 | ~110 |
-| **Total beginner items** | | | **~493** |
+| Breakfast | ~8 | 10 | ~80 |
+| Lunch | ~8 | 10 | ~78 |
+| Dinner (restaurant) | ~11 | 10 | ~110 |
+| Café | ~12 | 10 | ~115 |
+| Local Festival / Street Food | ~11 | 10 | ~110 |
+| **Total** | | | **~493** |
 
-After deduplication (items like *croissant*, *café con leche*, *orange juice* appear across multiple language menus and can share one image): estimated **~310–340 unique images** to generate.
+After cross-language deduplication (items like *croissant*, *espresso*, *orange juice* appear across multiple language menus and share one image): estimated **~310–340 unique images** to generate.
 
 ### Items That Are Shared Across Languages (generate once)
 
@@ -903,42 +909,51 @@ These must be distinct — a Japanese ramen bowl and a Spanish cocido are not in
 
 ---
 
+## Two Tools, Two Jobs — The Core Architecture Decision
+
+**Revised:** March 17 2026
+
+This distinction is worth stating explicitly, because earlier thinking conflated two different things into one.
+
+### The Scene Canvas — Immersion and Prepositions
+
+The scene canvas (the live stage that Daniela builds during a lesson) does its best work as a **theatrical and spatial tool**. Its highest-value use cases are:
+
+- **Preposition teaching**: the fork is to the *left* of the plate, the glass is *above* the napkin, the menu is *on* the table. The physical arrangement on the canvas is the lesson content.
+- **Scene-setting and atmosphere**: a meal arrives on the plate, a bill is placed on the table, a menu card is set down. These moments create immersion and provide contextual cues.
+- **Progressive scene building**: the table starts empty, then fills as the conversation unfolds. The student experiences the arc of a real meal.
+
+What the canvas is **not** well-suited for: vocabulary acquisition from images. A food prop on a plate is small, the zone coordinates are fiddly, and there is no room for a dish name or description alongside it. Asking the canvas to also teach "what does paella look like" is asking it to do two incompatible jobs at once.
+
+**Implication for the plate prop:** the plate on the canvas is atmospheric. It does not need to show the correct food for that student's order. A generic "main course" placeholder or a visually appealing generic dish image is entirely sufficient. The vocabulary learning happens somewhere else.
+
+### The Menu Overlay — Vocabulary Acquisition
+
+The slide-up menu overlay that appears when a student taps the menu prop is where **vocabulary acquisition happens**. It has everything the canvas lacks: the image, the dish name in the target language, a description, a price, and enough space to render all of it clearly. This is the right place for food images.
+
+Critically, because images in the overlay live in **fixed-size card containers**, the rendering environment controls the visual size. A croissant and a paella both render at the same card dimensions. Relative scale between dishes is handled implicitly by layout — not by how the images were generated. This makes the image generation problem significantly simpler.
+
+---
+
 ## Scaling Specification for Food Item Images
 
-**This applies to every food and drink image generated for the platform — vocabulary props, menu thumbnails, and scene canvas items.**
+### For Menu Overlay Images (Primary Use Case)
 
-### The Problem
+Scale concerns are minimal. The overlay card container normalises all images to the same display size. The main requirements are:
 
-AI image generation defaults to macro photography framing — filling the frame with the food and cutting off the plate, bowl, or cup. In the scene canvas, this creates a jarring mismatch: a croissant that is larger than the dinner plate it sits beside, or an espresso cup that shows only liquid with no cup visible. The food looks enormous and absurd.
+1. **The food item must be the clear subject** — not lost in a background, not floating in a sea of white space
+2. **The vessel must be visible** — a cup of espresso should show the cup, not just the liquid; a bowl of ramen should show the bowl, not just the noodles. This is because the vessel is often part of the vocabulary (la taza, el bol, la copa)
+3. **Clean background** — white or very light, consistent with the platform's illustrated watercolor style
 
-### The Rule
+### For Scene Canvas Food Props (Secondary Use Case)
 
-> **Every food image must be generated at tabletop scale — the perspective of a diner looking down at their meal, not a food photographer zoomed in on a single ingredient.**
-
-The reference object for scale calibration is the **dinner plate prop** as it appears in the scene. In the scene canvas, the dinner plate renders at approximately 280px wide. All food items placed at `on_plate` position should look proportional to it.
-
-### Specific Proportion Guidelines
-
-| Item type | Correct framing | Wrong framing |
-|---|---|---|
-| **Plate dish** (paella, pasta, steak) | Full plate visible, food fills ~85% of plate surface, plate rim clearly visible | Cropped plate, food fills entire image |
-| **Bowl dish** (ramen, bibimbap, congee) | Full bowl visible with some rim showing, bowl fills ~70% of image | Just the contents, bowl edges cut off |
-| **Cup / glass** (espresso, cappuccino, OJ) | Full cup + saucer visible, cup fills ~50% of image height | Just the liquid inside the cup |
-| **Pastry / bread** (croissant, churros, toast) | Item fills ~60–70% of image width, some surface or plate visible beneath | Item fills full frame end-to-end |
-| **Small items** (macaron, onigiri, baozi) | 2–3 items clustered on a small plate or surface | Single item filling the entire image (looks like a boulder) |
-| **Platter / shared dish** (tapas, dim sum, sushi platter) | Full platter visible, multiple items arranged on it | Single piece zoomed in |
-
-### Prompt Language to Enforce This
-
-Add this clause to every food image generation prompt:
+When a food prop is placed directly on the scene canvas (e.g. at the `on_plate` position), scale relative to the dinner plate matters because both exist in the same visual space. The dinner plate prop renders at approximately 280px wide in the scene. A food item placed at `on_plate` should look like it belongs on that plate — not larger than the plate, not so small it looks like a garnish.
 
 > *...viewed from above at tabletop distance, full [plate/bowl/cup] visible with item in correct proportion, object centred on clean white background, no shadows, warm illustrated watercolor style.*
 
-Avoid prompts that say "close-up of" or "detailed shot of" — these will produce the macro framing we don't want.
+### Prompt Language (Both Cases)
 
-### Why This Matters Beyond Aesthetics
-
-When a student opens the menu overlay and sees a *croissant* image that looks larger than a pizza, it undermines trust in the platform and creates cognitive dissonance during vocabulary learning. The image should reinforce the real-world scale of the item, not distort it. A student learning *pequeño* should be able to look at the espresso cup image and understand intuitively why it is *pequeño* compared to a *café con leche*.
+The standard prop style prompt already handles most of this: *warm illustrated watercolor style, vibrant saturated colours, soft natural shading, object centred on clean white background, no shadows or background elements.* Avoid adding "close-up of" or "detailed shot of" — these push generation toward macro framing that crops off the vessel.
 
 ---
 
