@@ -295,8 +295,8 @@ Results are returned as an array, one entry per pattern, in the order requested.
         content: { type: "string" as const, description: "The full insight — what you learned, why it matters, how to apply it" },
         category: {
           type: "string" as const,
-          enum: ["philosophy", "architecture", "relationship", "debugging", "personality", "workflow", "context", "journal", "tools"],
-          description: "Category: philosophy=core principles, architecture=technical design, relationship=founder preferences/facts, debugging=strategies that worked, workflow=process learnings, context=current project state, journal=session summaries, tools=integrations/scripts",
+          enum: ["philosophy", "architecture", "relationship", "debugging", "personality", "workflow", "context", "journal", "tools", "shared"],
+          description: "Category: philosophy=core principles, architecture=technical design, relationship=founder preferences/facts, debugging=strategies that worked, workflow=process learnings, context=current project state, journal=session summaries, tools=integrations/scripts, shared=facts both Alden AND the Replit Agent need to remember permanently (written to the shared lobe, surfaced to the Agent via docs/shared-lobe-snapshot.md)",
         },
         importance: { type: "number" as const, description: "Importance 1-10. Use 8-10 for critical architectural rules or hard-won debugging lessons. Use 5-7 for useful context. Use 1-4 for minor notes." },
         tags: {
