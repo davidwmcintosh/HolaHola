@@ -833,6 +833,112 @@ The `restaurant_table_with_plate` environment (added March 16 2026) solves the f
 
 ---
 
+## Section 11 — Menu Food Item Image Queue
+
+**Added:** March 17 2026  
+**Priority:** High — the interactive ordering menus (Section 10, now built and live) display food item thumbnails at Beginner level. Every beginner menu item needs its own image, or it falls back to a placeholder.
+
+### What We Have
+
+Three data files author all menu content across 5 scenario types:
+
+| File | Scenario types | Total items authored |
+|---|---|---|
+| `language-menus-restaurant-mealtime.ts` | Breakfast, Lunch | 474 items |
+| `language-menus-cafe-grocery.ts` | Café, Grocery | 688 items |
+| `language-menus-restaurant-festival.ts` | Dinner, Local Festival | 662 items |
+| **Total** | **5 scenario types** | **1,824 authored items** |
+
+Each file covers **10 languages × 3 ACTFL levels (Beginner / Intermediate / Advanced)**.
+
+### Images Are Only Needed at Beginner Level
+
+Intermediate and Advanced menus are intentionally text-dense — no thumbnails. Beginner menus show food item images alongside the dish name to support vocabulary acquisition. This narrows the image backlog significantly.
+
+| Scenario | Beginner items (est.) | Languages | Images needed |
+|---|---|---|---|
+| Breakfast | ~8 items per language | 10 | ~80 |
+| Lunch | ~8 items per language | 10 | ~78 |
+| Dinner (restaurant) | ~11 items per language | 10 | ~110 |
+| Café | ~12 items per language | 10 | ~115 |
+| Local Festival / Street Food | ~11 items per language | 10 | ~110 |
+| **Total beginner items** | | | **~493** |
+
+After deduplication (items like *croissant*, *café con leche*, *orange juice* appear across multiple language menus and can share one image): estimated **~310–340 unique images** to generate.
+
+### Items That Are Shared Across Languages (generate once)
+
+- Basic coffee drinks: espresso, cappuccino, café con leche, latte, Americano
+- Croissant (French, Spanish, Italian, German café menus)
+- Orange juice / fresh-squeezed OJ
+- Plain toast / white bread
+- Sparkling water / still water
+- Salad (green salad, mixed salad)
+- Omelette (French/Spanish versions are visually similar enough)
+
+### Items That Are Language-Specific (generate per cuisine)
+
+These must be distinct — a Japanese ramen bowl and a Spanish cocido are not interchangeable. Generate separately with cultural fidelity.
+
+| Category | Language-specific examples |
+|---|---|
+| Japanese | ramen, miso soup, onigiri, bento box, tamagoyaki, soba, udon, yakitori |
+| Korean | bibimbap, tteokbokki, bulgogi, galbi, kimchi jjigae, dosirak |
+| Mandarin | dim sum, baozi, congee, jiaozi, Peking duck, mapo tofu, tang yuan |
+| Arabic | shakshuka, ful medames, manakish, kibbeh, hummus, knafeh, baklava |
+| Russian | borscht, blini, pelmeni, shchi, syrniki, beef stroganoff, medovik |
+| Spanish/Latin | churros, tortilla española, gazpacho, paella, tacos, enchiladas, flan |
+| French | tartine, pain au chocolat, quiche, salade niçoise, coq au vin, crêpe |
+| Italian | cornetto, bruschetta, caprese, pizza margherita, risotto, tiramisu |
+| German | Brötchen, Brezel, Bratwurst, Schnitzel, Sauerbraten, Apfelstrudel |
+| Portuguese | pastel de nata, torrada, bifana, bacalhau, caldo verde, arroz doce |
+
+### Generation Priority
+
+1. **Spanish** (all 5 meal types) — largest user base
+2. **Japanese** (all 5 meal types) — visually very distinct, high student engagement
+3. **French** (all 5) — many items overlap with existing prop library
+4. **Italian** (all 5) — overlaps with French, efficient batch
+5. **Korean, Mandarin, German, Portuguese, Arabic, Russian** — in order of user demand
+
+---
+
+## Scaling Specification for Food Item Images
+
+**This applies to every food and drink image generated for the platform — vocabulary props, menu thumbnails, and scene canvas items.**
+
+### The Problem
+
+AI image generation defaults to macro photography framing — filling the frame with the food and cutting off the plate, bowl, or cup. In the scene canvas, this creates a jarring mismatch: a croissant that is larger than the dinner plate it sits beside, or an espresso cup that shows only liquid with no cup visible. The food looks enormous and absurd.
+
+### The Rule
+
+> **Every food image must be generated at tabletop scale — the perspective of a diner looking down at their meal, not a food photographer zoomed in on a single ingredient.**
+
+The reference object for scale calibration is the **dinner plate prop** as it appears in the scene. In the scene canvas, the dinner plate renders at approximately 280px wide. All food items placed at `on_plate` position should look proportional to it.
+
+### Specific Proportion Guidelines
+
+| Item type | Correct framing | Wrong framing |
+|---|---|---|
+| **Plate dish** (paella, pasta, steak) | Full plate visible, food fills ~85% of plate surface, plate rim clearly visible | Cropped plate, food fills entire image |
+| **Bowl dish** (ramen, bibimbap, congee) | Full bowl visible with some rim showing, bowl fills ~70% of image | Just the contents, bowl edges cut off |
+| **Cup / glass** (espresso, cappuccino, OJ) | Full cup + saucer visible, cup fills ~50% of image height | Just the liquid inside the cup |
+| **Pastry / bread** (croissant, churros, toast) | Item fills ~60–70% of image width, some surface or plate visible beneath | Item fills full frame end-to-end |
+| **Small items** (macaron, onigiri, baozi) | 2–3 items clustered on a small plate or surface | Single item filling the entire image (looks like a boulder) |
+| **Platter / shared dish** (tapas, dim sum, sushi platter) | Full platter visible, multiple items arranged on it | Single piece zoomed in |
+
+### Prompt Language to Enforce This
+
+Add this clause to every food image generation prompt:
+
+> *...viewed from above at tabletop distance, full [plate/bowl/cup] visible with item in correct proportion, object centred on clean white background, no shadows, warm illustrated watercolor style.*
+
+Avoid prompts that say "close-up of" or "detailed shot of" — these will produce the macro framing we don't want.
+
+### Why This Matters Beyond Aesthetics
+
+When a student opens the menu overlay and sees a *croissant* image that looks larger than a pizza, it undermines trust in the platform and creates cognitive dissonance during vocabulary learning. The image should reinforce the real-world scale of the item, not distort it. A student learning *pequeño* should be able to look at the espresso cup image and understand intuitively why it is *pequeño* compared to a *café con leche*.
 
 ---
 
