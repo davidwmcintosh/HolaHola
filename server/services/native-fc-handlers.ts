@@ -1298,6 +1298,170 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      // ─── Phase 2 Visual Canvas Handlers ───────────────────────────────────
+
+      case 'SET_BODY_PART': {
+        const bodyParts = fn.args.parts as string[] | undefined;
+        const bodyLabels = fn.args.labels as Record<string, string> | undefined;
+        const bodyText = fn.args.text as string | undefined;
+        if (bodyText && !session.functionCallText) session.functionCallText = bodyText;
+        if (!bodyParts?.length) { console.warn('[Native Function→SetBodyPart] Missing parts — skipping'); break; }
+        if (!session.sceneCanvas) session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [] };
+        session.sceneCanvas.bodyDiagram = { highlightParts: bodyParts, labels: bodyLabels };
+        const bodyUpdate = {
+          type: 'whiteboard_update' as const, timestamp: Date.now(),
+          items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: bodyParts.join(', '),
+            data: { environment: session.sceneCanvas.environment, environmentImageUrl: session.sceneCanvas.environmentImageUrl, environmentLabel: session.sceneCanvas.environmentLabel, props: [...(session.sceneCanvas.props || [])], clockTime: session.sceneCanvas.clockTime, bodyDiagram: session.sceneCanvas.bodyDiagram, canvasAction: 'set_body_part' as const } }],
+        };
+        if (session.firstAudioSent) { this.sendMessage(session.ws, bodyUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(bodyUpdate); }
+        console.log(`[Native Function→SetBodyPart] Parts: ${bodyParts.join(', ')}`);
+        break;
+      }
+
+      case 'CLEAR_BODY_DIAGRAM': {
+        const clearBodyText = fn.args.text as string | undefined;
+        if (clearBodyText && !session.functionCallText) session.functionCallText = clearBodyText;
+        if (session.sceneCanvas) delete session.sceneCanvas.bodyDiagram;
+        const clearBodyUpdate = {
+          type: 'whiteboard_update' as const, timestamp: Date.now(),
+          items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: '',
+            data: { environment: session.sceneCanvas?.environment || '', environmentImageUrl: session.sceneCanvas?.environmentImageUrl || '', environmentLabel: session.sceneCanvas?.environmentLabel || '', props: [...(session.sceneCanvas?.props || [])], clockTime: session.sceneCanvas?.clockTime, canvasAction: 'clear_body_diagram' as const } }],
+        };
+        if (session.firstAudioSent) { this.sendMessage(session.ws, clearBodyUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(clearBodyUpdate); }
+        console.log('[Native Function→ClearBodyDiagram] Cleared');
+        break;
+      }
+
+      case 'SET_THERMOMETER': {
+        const thermCelsius = fn.args.celsius as number | undefined;
+        const thermLabel = fn.args.labelText as string | undefined;
+        const thermFahrenheit = fn.args.showFahrenheit as boolean | undefined;
+        const thermText = fn.args.text as string | undefined;
+        if (thermText && !session.functionCallText) session.functionCallText = thermText;
+        if (thermCelsius === undefined) { console.warn('[Native Function→SetThermometer] Missing celsius — skipping'); break; }
+        if (!session.sceneCanvas) session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [] };
+        session.sceneCanvas.thermometerData = { celsius: thermCelsius, labelText: thermLabel, showFahrenheit: thermFahrenheit };
+        const thermUpdate = {
+          type: 'whiteboard_update' as const, timestamp: Date.now(),
+          items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: `${thermCelsius}°C`,
+            data: { environment: session.sceneCanvas.environment, environmentImageUrl: session.sceneCanvas.environmentImageUrl, environmentLabel: session.sceneCanvas.environmentLabel, props: [...(session.sceneCanvas.props || [])], clockTime: session.sceneCanvas.clockTime, thermometerData: session.sceneCanvas.thermometerData, canvasAction: 'set_thermometer' as const } }],
+        };
+        if (session.firstAudioSent) { this.sendMessage(session.ws, thermUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(thermUpdate); }
+        console.log(`[Native Function→SetThermometer] ${thermCelsius}°C`);
+        break;
+      }
+
+      case 'CLEAR_THERMOMETER': {
+        const clearThermText = fn.args.text as string | undefined;
+        if (clearThermText && !session.functionCallText) session.functionCallText = clearThermText;
+        if (session.sceneCanvas) delete session.sceneCanvas.thermometerData;
+        const clearThermUpdate = {
+          type: 'whiteboard_update' as const, timestamp: Date.now(),
+          items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: '',
+            data: { environment: session.sceneCanvas?.environment || '', environmentImageUrl: session.sceneCanvas?.environmentImageUrl || '', environmentLabel: session.sceneCanvas?.environmentLabel || '', props: [...(session.sceneCanvas?.props || [])], clockTime: session.sceneCanvas?.clockTime, canvasAction: 'clear_thermometer' as const } }],
+        };
+        if (session.firstAudioSent) { this.sendMessage(session.ws, clearThermUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(clearThermUpdate); }
+        console.log('[Native Function→ClearThermometer] Cleared');
+        break;
+      }
+
+      case 'SET_EMOTION': {
+        const emotionSlug = fn.args.emotion as string | undefined;
+        const emotionLabel = fn.args.label as string | undefined;
+        const emotionText = fn.args.text as string | undefined;
+        if (emotionText && !session.functionCallText) session.functionCallText = emotionText;
+        if (!emotionSlug) { console.warn('[Native Function→SetEmotion] Missing emotion slug — skipping'); break; }
+        if (!session.sceneCanvas) session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [] };
+        session.sceneCanvas.emotionData = { emotion: emotionSlug, label: emotionLabel };
+        const emotionUpdate = {
+          type: 'whiteboard_update' as const, timestamp: Date.now(),
+          items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: emotionLabel ?? emotionSlug,
+            data: { environment: session.sceneCanvas.environment, environmentImageUrl: session.sceneCanvas.environmentImageUrl, environmentLabel: session.sceneCanvas.environmentLabel, props: [...(session.sceneCanvas.props || [])], clockTime: session.sceneCanvas.clockTime, emotionData: session.sceneCanvas.emotionData, canvasAction: 'set_emotion' as const } }],
+        };
+        if (session.firstAudioSent) { this.sendMessage(session.ws, emotionUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(emotionUpdate); }
+        console.log(`[Native Function→SetEmotion] ${emotionSlug}${emotionLabel ? ` (${emotionLabel})` : ''}`);
+        break;
+      }
+
+      case 'CLEAR_EMOTION': {
+        const clearEmotionText = fn.args.text as string | undefined;
+        if (clearEmotionText && !session.functionCallText) session.functionCallText = clearEmotionText;
+        if (session.sceneCanvas) delete session.sceneCanvas.emotionData;
+        const clearEmotionUpdate = {
+          type: 'whiteboard_update' as const, timestamp: Date.now(),
+          items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: '',
+            data: { environment: session.sceneCanvas?.environment || '', environmentImageUrl: session.sceneCanvas?.environmentImageUrl || '', environmentLabel: session.sceneCanvas?.environmentLabel || '', props: [...(session.sceneCanvas?.props || [])], clockTime: session.sceneCanvas?.clockTime, canvasAction: 'clear_emotion' as const } }],
+        };
+        if (session.firstAudioSent) { this.sendMessage(session.ws, clearEmotionUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(clearEmotionUpdate); }
+        console.log('[Native Function→ClearEmotion] Cleared');
+        break;
+      }
+
+      case 'SET_WEATHER': {
+        const weatherCondition = fn.args.condition as string | undefined;
+        const weatherLabel = fn.args.label as string | undefined;
+        const weatherCelsius = fn.args.celsius as number | undefined;
+        const weatherText = fn.args.text as string | undefined;
+        if (weatherText && !session.functionCallText) session.functionCallText = weatherText;
+        if (!weatherCondition) { console.warn('[Native Function→SetWeather] Missing condition — skipping'); break; }
+        if (!session.sceneCanvas) session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [] };
+        session.sceneCanvas.weatherData = { condition: weatherCondition, label: weatherLabel, celsius: weatherCelsius };
+        const weatherUpdate = {
+          type: 'whiteboard_update' as const, timestamp: Date.now(),
+          items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: weatherLabel ?? weatherCondition,
+            data: { environment: session.sceneCanvas.environment, environmentImageUrl: session.sceneCanvas.environmentImageUrl, environmentLabel: session.sceneCanvas.environmentLabel, props: [...(session.sceneCanvas.props || [])], clockTime: session.sceneCanvas.clockTime, weatherData: session.sceneCanvas.weatherData, canvasAction: 'set_weather' as const } }],
+        };
+        if (session.firstAudioSent) { this.sendMessage(session.ws, weatherUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(weatherUpdate); }
+        console.log(`[Native Function→SetWeather] ${weatherCondition}${weatherLabel ? ` (${weatherLabel})` : ''}`);
+        break;
+      }
+
+      case 'CLEAR_WEATHER': {
+        const clearWeatherText = fn.args.text as string | undefined;
+        if (clearWeatherText && !session.functionCallText) session.functionCallText = clearWeatherText;
+        if (session.sceneCanvas) delete session.sceneCanvas.weatherData;
+        const clearWeatherUpdate = {
+          type: 'whiteboard_update' as const, timestamp: Date.now(),
+          items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: '',
+            data: { environment: session.sceneCanvas?.environment || '', environmentImageUrl: session.sceneCanvas?.environmentImageUrl || '', environmentLabel: session.sceneCanvas?.environmentLabel || '', props: [...(session.sceneCanvas?.props || [])], clockTime: session.sceneCanvas?.clockTime, canvasAction: 'clear_weather' as const } }],
+        };
+        if (session.firstAudioSent) { this.sendMessage(session.ws, clearWeatherUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(clearWeatherUpdate); }
+        console.log('[Native Function→ClearWeather] Cleared');
+        break;
+      }
+
+      case 'HIGHLIGHT_COUNTRY': {
+        const mapCountries = fn.args.countries as string[] | undefined;
+        const mapLabels = fn.args.labels as Record<string, string> | undefined;
+        const mapText = fn.args.text as string | undefined;
+        if (mapText && !session.functionCallText) session.functionCallText = mapText;
+        if (!mapCountries?.length) { console.warn('[Native Function→HighlightCountry] Missing countries — skipping'); break; }
+        if (!session.sceneCanvas) session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [] };
+        session.sceneCanvas.worldMapData = { highlightCountries: mapCountries, labels: mapLabels };
+        const mapUpdate = {
+          type: 'whiteboard_update' as const, timestamp: Date.now(),
+          items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: mapCountries.join(', '),
+            data: { environment: session.sceneCanvas.environment, environmentImageUrl: session.sceneCanvas.environmentImageUrl, environmentLabel: session.sceneCanvas.environmentLabel, props: [...(session.sceneCanvas.props || [])], clockTime: session.sceneCanvas.clockTime, worldMapData: session.sceneCanvas.worldMapData, canvasAction: 'highlight_country' as const } }],
+        };
+        if (session.firstAudioSent) { this.sendMessage(session.ws, mapUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(mapUpdate); }
+        console.log(`[Native Function→HighlightCountry] ${mapCountries.join(', ')}`);
+        break;
+      }
+
+      case 'CLEAR_WORLD_MAP': {
+        const clearMapText = fn.args.text as string | undefined;
+        if (clearMapText && !session.functionCallText) session.functionCallText = clearMapText;
+        if (session.sceneCanvas) delete session.sceneCanvas.worldMapData;
+        const clearMapUpdate = {
+          type: 'whiteboard_update' as const, timestamp: Date.now(),
+          items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: '',
+            data: { environment: session.sceneCanvas?.environment || '', environmentImageUrl: session.sceneCanvas?.environmentImageUrl || '', environmentLabel: session.sceneCanvas?.environmentLabel || '', props: [...(session.sceneCanvas?.props || [])], clockTime: session.sceneCanvas?.clockTime, canvasAction: 'clear_world_map' as const } }],
+        };
+        if (session.firstAudioSent) { this.sendMessage(session.ws, clearMapUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(clearMapUpdate); }
+        console.log('[Native Function→ClearWorldMap] Cleared');
+        break;
+      }
+
       // ─────────────────────────────────────────────────────────────────────
 
       case 'ENTER_IMMERSIVE': {

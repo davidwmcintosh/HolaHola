@@ -875,6 +875,267 @@ Works standalone (fills the canvas) or alongside an active scene (appears as a s
   },
 
   {
+    legacyType: 'SET_BODY_PART',
+    declaration: {
+      name: "set_body_part",
+      description: `Show a labeled human body diagram on the canvas and highlight specific body parts.
+Use this for body-part vocabulary lessons at any level.
+
+The diagram shows a front-view human silhouette. Highlighted parts glow in the theme color and their
+target-language labels appear below the figure.
+
+Supported part slugs (use EXACTLY these — aliases like "eyes", "hands", "legs" highlight both sides):
+  head, hair, face, eyes, left_eye, right_eye, nose, mouth, ear,
+  neck, shoulders, chest, abdomen, torso, back,
+  arms, left_arm, right_arm, elbow, left_elbow, right_elbow,
+  hands, left_hand, right_hand,
+  hips, legs, left_leg, right_leg, knee, left_knee, right_knee,
+  feet, left_foot, right_foot
+
+Use labels to pass the target-language name for each highlighted part.
+
+Example for Spanish body-parts lesson:
+  set_body_part(
+    ["head", "eyes", "nose", "mouth", "ears"],
+    { "head":"la cabeza", "eyes":"los ojos", "nose":"la nariz", "mouth":"la boca", "ear":"las orejas" }
+  )
+
+Build up from one part at a time for Novice students; show a group for Intermediate review.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you say as the diagram appears." },
+          parts: { type: "array", items: { type: "string" }, description: "List of part slugs to highlight, e.g. ['head','eyes','nose']" },
+          labels: { type: "object", additionalProperties: { type: "string" }, description: "Part slug → target-language label, e.g. { 'head': 'la cabeza', 'eyes': 'los ojos' }" },
+        },
+        required: ["parts"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      const parts = (fc.args.parts as string[]) ?? [];
+      return `Body diagram showing: ${parts.join(', ')}. Continue teaching the vocabulary.`;
+    },
+  },
+
+  {
+    legacyType: 'CLEAR_BODY_DIAGRAM',
+    declaration: {
+      name: "clear_body_diagram",
+      description: `Remove the body diagram from the canvas. Call this after the body-parts vocabulary segment.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you say as the diagram is cleared." },
+        },
+        required: [],
+      },
+    },
+    buildContinuationResponse: () => `Body diagram cleared.`,
+  },
+
+  {
+    legacyType: 'SET_THERMOMETER',
+    declaration: {
+      name: "set_thermometer",
+      description: `Show an animated thermometer on the canvas set to a specific temperature.
+The mercury fill animates up/down and changes color (blue ≤ 0°C, green 1-15, orange 16-30, red > 30).
+
+Use this when teaching weather/temperature vocabulary:
+  "Hace frío" → set_thermometer(-5, "Hace frío — It's cold")
+  "Hace calor" → set_thermometer(35, "Hace mucho calor — It's very hot")
+  "Está fresco" → set_thermometer(12, "Está fresco — It's cool")
+
+Always give temperature in Celsius. Set showFahrenheit: true for US audiences.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you say as the thermometer appears." },
+          celsius: { type: "number", description: "Temperature in Celsius, range -30 to 60." },
+          labelText: { type: "string", description: "Optional spoken description shown below the thermometer, e.g. 'Hace mucho calor — It\\'s very hot'" },
+          showFahrenheit: { type: "boolean", description: "If true, also show the Fahrenheit equivalent. Default: false" },
+        },
+        required: ["celsius"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      return `Thermometer set to ${fc.args.celsius}°C. Continue with weather/temperature vocabulary.`;
+    },
+  },
+
+  {
+    legacyType: 'CLEAR_THERMOMETER',
+    declaration: {
+      name: "clear_thermometer",
+      description: `Remove the thermometer from the canvas.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you say as the thermometer is cleared." },
+        },
+        required: [],
+      },
+    },
+    buildContinuationResponse: () => `Thermometer cleared.`,
+  },
+
+  {
+    legacyType: 'SET_EMOTION',
+    declaration: {
+      name: "set_emotion",
+      description: `Show an expressive face on the canvas to teach emotion vocabulary.
+The face is an SVG character — no image generation needed.
+
+Available emotions (pass the slug exactly):
+  happy, excited, sad, angry, surprised, afraid, confused, tired, nervous, disgusted, bored
+
+Always pair with the target-language word as the label.
+
+Examples:
+  set_emotion("happy", "feliz")       → smiling yellow face + label "feliz"
+  set_emotion("sad", "triste")        → frowning blue face + label "triste"
+  set_emotion("excited", "emocionado")
+  set_emotion("afraid", "asustado")
+  set_emotion("confused", "confundido")
+
+Rotate through emotions to practice a set: show each face, say the word, ask the student to repeat.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you say — include the emotion word naturally." },
+          emotion: { type: "string", description: "Emotion slug: happy|excited|sad|angry|surprised|afraid|confused|tired|nervous|disgusted|bored" },
+          label: { type: "string", description: "Target-language word for the emotion, e.g. 'feliz', 'triste', 'enojado'" },
+        },
+        required: ["emotion"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      return `Emotion face showing: ${fc.args.emotion}${fc.args.label ? ` (${fc.args.label})` : ''}. Continue teaching emotion vocabulary.`;
+    },
+  },
+
+  {
+    legacyType: 'CLEAR_EMOTION',
+    declaration: {
+      name: "clear_emotion",
+      description: `Remove the emotion face from the canvas.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you say as the emotion face is cleared." },
+        },
+        required: [],
+      },
+    },
+    buildContinuationResponse: () => `Emotion face cleared.`,
+  },
+
+  {
+    legacyType: 'SET_WEATHER',
+    declaration: {
+      name: "set_weather",
+      description: `Show a weather condition icon on the canvas to teach weather vocabulary.
+The icon is an SVG — no image generation needed.
+
+Available conditions (pass the slug exactly):
+  sunny, cloudy, partly_cloudy, rainy, stormy, snowy, windy, foggy, hot, cold
+
+Background color adapts automatically (sunny = warm yellow, rainy = grey-blue, snowy = icy blue, etc.)
+
+Always pass the target-language description as label.
+
+Examples:
+  set_weather("sunny", "hace sol")
+  set_weather("rainy", "está lloviendo")
+  set_weather("stormy", "hay tormenta")
+  set_weather("snowy", "está nevando", -3)      ← celsius optional
+  set_weather("hot", "hace mucho calor", 38)`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you say as the weather icon appears." },
+          condition: { type: "string", description: "Weather slug: sunny|cloudy|partly_cloudy|rainy|stormy|snowy|windy|foggy|hot|cold" },
+          label: { type: "string", description: "Target-language weather description, e.g. 'hace sol', 'está lloviendo', 'nieva'" },
+          celsius: { type: "number", description: "Optional temperature in Celsius to show as a badge." },
+        },
+        required: ["condition"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      return `Weather icon showing: ${fc.args.condition}${fc.args.label ? ` (${fc.args.label})` : ''}. Continue with weather vocabulary.`;
+    },
+  },
+
+  {
+    legacyType: 'CLEAR_WEATHER',
+    declaration: {
+      name: "clear_weather",
+      description: `Remove the weather icon from the canvas.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you say as the weather icon is cleared." },
+        },
+        required: [],
+      },
+    },
+    buildContinuationResponse: () => `Weather icon cleared.`,
+  },
+
+  {
+    legacyType: 'HIGHLIGHT_COUNTRY',
+    declaration: {
+      name: "highlight_country",
+      description: `Show a map of Spanish-speaking countries and highlight one or more of them.
+The map covers Latin America + Spain + the Philippines + Equatorial Guinea.
+
+Use this for geography, cultural, and sociolinguistic vocabulary:
+  "¿Sabes dónde se habla español?" → highlight multiple countries
+  "¿De dónde es?" → highlight the country being discussed
+  "Este dialecto viene de..." → highlight that region
+
+Available country slugs:
+  spain, mexico, guatemala, honduras, el_salvador, nicaragua, costa_rica, panama,
+  cuba, dominican_republic, puerto_rico,
+  colombia, venezuela, ecuador, peru, bolivia, chile, argentina, uruguay, paraguay,
+  equatorial_guinea, philippines, western_sahara
+
+Pass labels as the country's name in the target language (or translation if teaching that vocabulary).
+
+Example:
+  highlight_country(["mexico","colombia","argentina"], { "mexico":"México","colombia":"Colombia","argentina":"Argentina" })`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you say as the map appears." },
+          countries: { type: "array", items: { type: "string" }, description: "List of country slugs to highlight, e.g. ['mexico','spain','colombia']" },
+          labels: { type: "object", additionalProperties: { type: "string" }, description: "Country slug → target-language label, e.g. { 'mexico': 'México', 'spain': 'España' }" },
+        },
+        required: ["countries"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      const countries = (fc.args.countries as string[]) ?? [];
+      return `World map highlighting: ${countries.join(', ')}. Continue with geography/cultural vocabulary.`;
+    },
+  },
+
+  {
+    legacyType: 'CLEAR_WORLD_MAP',
+    declaration: {
+      name: "clear_world_map",
+      description: `Remove the world map from the canvas.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you say as the map is cleared." },
+        },
+        required: [],
+      },
+    },
+    buildContinuationResponse: () => `World map cleared.`,
+  },
+
+  {
     legacyType: 'CLEAR_CALENDAR',
     declaration: {
       name: "clear_calendar",

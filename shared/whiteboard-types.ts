@@ -831,6 +831,38 @@ export interface ConjugationTableData {
   highlightPronoun?: string;   // optional: bold-highlight a specific pronoun row
 }
 
+/** Body diagram data — highlights one or more body regions. */
+export interface BodyDiagramData {
+  highlightParts: string[];        // e.g. ['head', 'left_arm', 'knee'] — supports aliases like 'eyes', 'hands', 'legs'
+  labels?: Record<string, string>; // part slug → target-language label shown below the diagram
+}
+
+/** Thermometer data — shows a temperature reading. */
+export interface ThermometerData {
+  celsius: number;          // -30 to 60
+  labelText?: string;       // optional spoken description, e.g. "Hace mucho calor — It's very hot"
+  showFahrenheit?: boolean; // if true, also show °F equivalent
+}
+
+/** Emotion face data — shows an expressive face with a label. */
+export interface EmotionData {
+  emotion: string;   // 'happy'|'sad'|'angry'|'surprised'|'afraid'|'confused'|'excited'|'tired'|'nervous'|'disgusted'|'bored'
+  label?: string;    // target-language word for the emotion, e.g. "feliz", "triste", "enojado"
+}
+
+/** Weather data — shows a weather condition icon and optional temperature. */
+export interface WeatherData {
+  condition: string;  // 'sunny'|'cloudy'|'partly_cloudy'|'rainy'|'stormy'|'snowy'|'windy'|'foggy'|'hot'|'cold'
+  label?: string;     // target-language description, e.g. "hace sol", "está nublado", "llueve"
+  celsius?: number;   // optional temperature badge
+}
+
+/** World map data — highlights Spanish-speaking (or other) countries. */
+export interface WorldMapData {
+  highlightCountries: string[];    // slug list, e.g. ['spain','mexico','colombia']
+  labels?: Record<string, string>; // country slug → target-language label override
+}
+
 /** Calendar data — highlights a specific day/month and optionally a day-of-week. */
 export interface CalendarData {
   month: string;          // display label in target language, e.g. "marzo" or "März"
@@ -863,10 +895,20 @@ export interface SceneCanvasItemData {
   clockTime?: string;              // "H:MM" — renders analog clock overlay when set
   conjugationTable?: ConjugationTableData;   // Phase 2 — grammar canvas
   calendarData?: CalendarData;               // Phase 2 — calendar canvas
+  bodyDiagram?: BodyDiagramData;             // Phase 2 — body diagram
+  thermometerData?: ThermometerData;         // Phase 2 — thermometer
+  emotionData?: EmotionData;                 // Phase 2 — emotion face
+  weatherData?: WeatherData;                 // Phase 2 — weather icon
+  worldMapData?: WorldMapData;               // Phase 2 — world map
   canvasAction:
     | 'open_scene' | 'add_prop' | 'remove_prop' | 'set_clock' | 'clear_scene'
     | 'init_conjugation' | 'fill_conjugation' | 'clear_conjugation'
-    | 'set_calendar' | 'clear_calendar';
+    | 'set_calendar' | 'clear_calendar'
+    | 'set_body_part' | 'clear_body_diagram'
+    | 'set_thermometer' | 'clear_thermometer'
+    | 'set_emotion' | 'clear_emotion'
+    | 'set_weather' | 'clear_weather'
+    | 'highlight_country' | 'clear_world_map';
 }
 
 export interface SceneCanvasItem extends WhiteboardItemBase {

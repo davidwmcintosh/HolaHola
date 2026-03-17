@@ -646,17 +646,15 @@ These are standalone React/SVG components that extend the canvas beyond prop ima
 
 | Component | Daniela function | Vocabulary domain | Build complexity |
 |---|---|---|---|
-| Body diagram (labeled regions) | `highlight_body_part(part)` | Body parts, health, Intermediate Low | ⬜ Medium |
+| Body diagram (labeled regions) | `set_body_part` + `clear_body_diagram` | Body parts, health, all levels | ✅ Built March 17 2026 |
 | Conjugation table (fill-in) | `init_conjugation_table` + `fill_conjugation` + `clear_conjugation_table` | Every tense, every verb pattern | ✅ Built March 17 2026 |
-| World map (Spanish-speaking countries) | `highlight_country(country)` | Cultural units, geography, Intermediate+ | ⬜ Medium |
+| World map (Spanish-speaking countries) | `highlight_country` + `clear_world_map` | Cultural units, geography, Intermediate+ | ✅ Built March 17 2026 |
 | Calendar SVG | `set_calendar` + `clear_calendar` | Dates, days, months, Novice Low | ✅ Built March 17 2026 |
-| Emotion face SVG | `set_emotion(state)` | Emotions vocabulary, Intermediate Mid | ⬜ Low |
-| Thermometer SVG | `set_temperature(celsius)` | Weather/temperature, Novice High | ⬜ Low |
-| Weather icon set | `show_weather(condition)` | Weather vocabulary, Novice Low | ⬜ Low |
+| Emotion face SVG | `set_emotion` + `clear_emotion` | Emotions vocabulary, all levels | ✅ Built March 17 2026 |
+| Thermometer SVG | `set_thermometer` + `clear_thermometer` | Weather/temperature, Novice High | ✅ Built March 17 2026 |
+| Weather icon set | `set_weather` + `clear_weather` | Weather vocabulary, all levels | ✅ Built March 17 2026 |
 
-**Built March 17 2026:** Conjugation table and calendar are fully operational. Daniela can call `init_conjugation_table("hablar", "presente de indicativo", ["yo","tú","él/ella","nosotros","vosotros","ellos/ellas"])` then reveal rows one at a time with `fill_conjugation`. Calendar shows a full month grid with day/dow highlighting — all day names in the target language.
-
-**Remaining sequence:** Body diagram → Thermometer → Emotion face → World map → Weather icon set.
+**Phase 2 complete (March 17 2026):** All 7 grammar/visual canvas components are fully built and wired end-to-end. Daniela has 20 new function calls total across Phase 2. All components work standalone (full-panel) or as a side-panel overlay on top of an active spatial scene.
 
 ### Use Cases
 
