@@ -10,12 +10,11 @@ After reading the briefing, also check `docs/alden-to-agent.md` for any direct n
 
 <!-- AGENT_MEMORY_START -->
 ## Agent Memory — Live Injection
-*Auto-updated Wednesday, March 18, 2026 at 05:14 PM. Critical facts from last session — no reading required.*
+*Auto-updated Wednesday, March 18, 2026 at 05:31 PM. No new memories since last session — showing recent context.*
 
-Last session, I conducted a "Memory Injection Test — Verification" to ensure saving memories correctly triggers the `replit.md AGENT_MEMORY` block update via fire-and-forget regeneration. I specifically tested a fix for an `ERR_MODULE_NOT_FOUND` error, changing the import path from `../services/agent-briefing` to `./services/agent-briefing`. The goal was to confirm this path change resolved the error and the `replit.md` block updated without needing a server restart.
-
-*Memories that triggered this summary:*
 - **Memory Injection Test — Verification** (Mar 18): Quick test to verify that saving a memory after the briefing runs correctly triggers replit.md AGENT_MEMORY block update via the fire-and-forget regeneration path.
+- **replit.md Live Memory Injection — Session 3** (Mar 18): David and I discussed why Huzzah was missed at session start — I followed replit.md protocol instead of reading the briefing first. Deep conversation about pull vs push memory. Built the fix: briefing service now also writes the Since Last Briefing summary directly into replit.md between AGENT_MEMORY_START/END markers. No read step required next session. Also renamed LinguaFlow to HolaHola across all root-level docs. Huzzah confirmed: memory system worked, my startup protocol was the gap.
+- **Memory Test #2 — Secret Word: Huzzah** (Mar 18): David gave the Agent a second secret word to test the improved memory system: Huzzah. This test follows the fixes to the briefing pipeline — the word should appear in the Since Last Briefing section at the top of the next briefing, without any pulling required.
 <!-- AGENT_MEMORY_END -->
 
 ---

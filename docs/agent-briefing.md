@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, March 18, 2026 at 05:14 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-Last session, I conducted a "Memory Injection Test — Verification" to ensure saving memories correctly triggers the `replit.md AGENT_MEMORY` block update via fire-and-forget regeneration. I specifically tested a fix for an `ERR_MODULE_NOT_FOUND` error, changing the import path from `../services/agent-briefing` to `./services/agent-briefing`. The goal was to confirm this path change resolved the error and the `replit.md` block updated without needing a server restart.
-
-*Memories that triggered this summary:*
-- **Memory Injection Test — Verification** (Mar 18): Quick test to verify that saving a memory after the briefing runs correctly triggers replit.md AGENT_MEMORY block update via the fire-and-forget regeneration path.
+**Generated:** Wednesday, March 18, 2026 at 05:31 PM
 
 ---
 

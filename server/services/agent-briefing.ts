@@ -40,12 +40,20 @@ const MEMORY_START = '<!-- AGENT_MEMORY_START -->';
 const MEMORY_END = '<!-- AGENT_MEMORY_END -->';
 
 /**
- * Writes the "Since Last Briefing" summary directly into replit.md between
+ * Writes the critical memory summary directly into replit.md between
  * the AGENT_MEMORY_START / AGENT_MEMORY_END markers. This is the true
  * injection path — replit.md is auto-loaded into the Agent's context without
  * any read step required.
+ *
+ * If there are new memories since the last briefing, uses the Gemini-generated
+ * autoSummary. Otherwise falls back to the top 3 recent memories so the block
+ * is never empty — the Agent always arrives with recent context.
  */
-function updateReplitMdMemoryBlock(autoSummary: string | null, generatedAt: string): void {
+function updateReplitMdMemoryBlock(
+  autoSummary: string | null,
+  generatedAt: string,
+  recentMemories: Array<{ title: string; summary: string; recordedAt: Date; importance: number | null }>
+): void {
   if (!existsSync(REPLIT_MD_PATH)) return;
   try {
     const content = readFileSync(REPLIT_MD_PATH, 'utf-8');
@@ -53,14 +61,25 @@ function updateReplitMdMemoryBlock(autoSummary: string | null, generatedAt: stri
     const endIdx = content.indexOf(MEMORY_END);
     if (startIdx === -1 || endIdx === -1) return;
 
-    const block = autoSummary
-      ? `## Agent Memory — Live Injection\n*Auto-updated ${generatedAt}. Critical facts from last session — no reading required.*\n\n${autoSummary}`
-      : `## Agent Memory — Live Injection\n*Auto-updated ${generatedAt}. No new memories since last briefing.*`;
+    let blockBody: string;
+    if (autoSummary) {
+      blockBody = `## Agent Memory — Live Injection\n*Auto-updated ${generatedAt}. What changed since last session — no reading required.*\n\n${autoSummary}`;
+    } else if (recentMemories.length > 0) {
+      // No new memories since last briefing, but still show recent context
+      const top = recentMemories.slice(0, 3);
+      const lines = top.map(m => {
+        const date = new Date(m.recordedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        return `- **${m.title}** (${date}): ${m.summary}`;
+      }).join('\n');
+      blockBody = `## Agent Memory — Live Injection\n*Auto-updated ${generatedAt}. No new memories since last session — showing recent context.*\n\n${lines}`;
+    } else {
+      blockBody = `## Agent Memory — Live Injection\n*Auto-updated ${generatedAt}. No memories saved yet.*`;
+    }
 
     const updated =
       content.slice(0, startIdx) +
       MEMORY_START + '\n' +
-      block + '\n' +
+      blockBody + '\n' +
       MEMORY_END +
       content.slice(endIdx + MEMORY_END.length);
 
@@ -330,7 +349,8 @@ export async function generateAgentBriefing(): Promise<void> {
 
     // Also inject the critical summary directly into replit.md so it is
     // auto-loaded into the Agent's context without any read step required.
-    updateReplitMdMemoryBlock(autoSummary, nowStr);
+    // Pass recentMemories as fallback so the block is never empty.
+    updateReplitMdMemoryBlock(autoSummary, nowStr, recentMemories as any);
   } catch (err: any) {
     console.warn('[AgentBriefing] Generation failed:', err.message);
   }
