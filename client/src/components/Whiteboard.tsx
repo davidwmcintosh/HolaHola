@@ -241,6 +241,7 @@ interface ImageItemDisplayProps {
 const ImageItemDisplay = ({ item, index }: ImageItemDisplayProps) => {
   const { data } = item;
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [translationRevealed, setTranslationRevealed] = useState(false);
   
   return (
     <motion.div
@@ -251,18 +252,30 @@ const ImageItemDisplay = ({ item, index }: ImageItemDisplayProps) => {
       className="flex flex-col gap-2 p-4 rounded-lg border bg-emerald-500/10 border-emerald-500/30"
       data-testid={`whiteboard-item-image-${index}`}
     >
-      <div className="flex items-center gap-2">
-        <ImageIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400 opacity-60 shrink-0" />
-        <div className="flex flex-col leading-tight">
-          <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
+      {/* Target language label — always visible */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <ImageIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400 opacity-60 shrink-0" />
+          <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300 truncate">
             {data.word}
           </span>
-          {data.translation && (
-            <span className="text-[11px] text-emerald-600/70 dark:text-emerald-400/70">
+        </div>
+        {/* Native language — tap to reveal for self-testing */}
+        {data.translation && (
+          <button
+            onClick={() => setTranslationRevealed(v => !v)}
+            className="shrink-0 text-[11px] px-2 py-0.5 rounded border border-emerald-400/40 text-emerald-600/80 dark:text-emerald-400/80 transition-all"
+            data-testid={`button-reveal-translation-${index}`}
+            title={translationRevealed ? "Hide translation" : "Tap to reveal"}
+          >
+            <span
+              className="transition-all duration-200"
+              style={{ filter: translationRevealed ? "none" : "blur(4px)", userSelect: "none" }}
+            >
               {data.translation}
             </span>
-          )}
-        </div>
+          </button>
+        )}
       </div>
       
       {data.isLoading ? (
