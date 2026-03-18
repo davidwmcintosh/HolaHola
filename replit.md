@@ -8,6 +8,18 @@ After reading the briefing, also check `docs/alden-to-agent.md` for any direct n
 
 ---
 
+<!-- AGENT_MEMORY_START -->
+## Agent Memory — Live Injection
+*Auto-updated Wednesday, March 18, 2026 at 05:14 PM. Critical facts from last session — no reading required.*
+
+Last session, I conducted a "Memory Injection Test — Verification" to ensure saving memories correctly triggers the `replit.md AGENT_MEMORY` block update via fire-and-forget regeneration. I specifically tested a fix for an `ERR_MODULE_NOT_FOUND` error, changing the import path from `../services/agent-briefing` to `./services/agent-briefing`. The goal was to confirm this path change resolved the error and the `replit.md` block updated without needing a server restart.
+
+*Memories that triggered this summary:*
+- **Memory Injection Test — Verification** (Mar 18): Quick test to verify that saving a memory after the briefing runs correctly triggers replit.md AGENT_MEMORY block update via the fire-and-forget regeneration path.
+<!-- AGENT_MEMORY_END -->
+
+---
+
 ## Overview
 HolaHola is an AI-powered language learning application designed to offer interactive conversation practice, vocabulary building, and grammar exercises across ten languages, adhering to ACTFL standards. It aims to be a leading AI-driven educational platform, leveraging advanced technology and pedagogical innovation to personalize language acquisition. The platform also provides balanced content by presenting multiple perspectives on contested topics in subjects like Biology and US History, catering to homeschool families.
 

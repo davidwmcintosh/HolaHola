@@ -25476,7 +25476,7 @@ ${memoryContext}
       res.json({ success: true, memory });
       // Regenerate the briefing immediately so the new memory is in the Agent's room
       // without waiting for the next server restart. Fire-and-forget — response already sent.
-      import('../services/agent-briefing').then(({ generateAgentBriefing }) => {
+      import('./services/agent-briefing').then(({ generateAgentBriefing }) => {
         generateAgentBriefing().catch(err =>
           console.warn('[Conversation Memories] Briefing refresh failed:', err.message)
         );

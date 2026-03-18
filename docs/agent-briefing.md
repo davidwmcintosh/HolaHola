@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, March 18, 2026 at 04:45 PM
+**Generated:** Wednesday, March 18, 2026 at 05:14 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-Last session, David gave me "Huzzah" as a secret word for a second memory test, confirming the recent fixes to the briefing pipeline. This test specifically verifies that the "Since Last Briefing" section now correctly auto-summarizes and pushes key information. Going into this session, I need to remember "Huzzah" and ideally recall it unprompted, validating the improved memory system.
+Last session, I conducted a "Memory Injection Test — Verification" to ensure saving memories correctly triggers the `replit.md AGENT_MEMORY` block update via fire-and-forget regeneration. I specifically tested a fix for an `ERR_MODULE_NOT_FOUND` error, changing the import path from `../services/agent-briefing` to `./services/agent-briefing`. The goal was to confirm this path change resolved the error and the `replit.md` block updated without needing a server restart.
 
 *Memories that triggered this summary:*
-- **Memory Test #2 — Secret Word: Huzzah** (Mar 18): David gave the Agent a second secret word to test the improved memory system: Huzzah. This test follows the fixes to the briefing pipeline — the word should appear in the Since Last Briefing section at the top of the next briefing, without any pulling required.
+- **Memory Injection Test — Verification** (Mar 18): Quick test to verify that saving a memory after the briefing runs correctly triggers replit.md AGENT_MEMORY block update via the fire-and-forget regeneration path.
 
 ---
 
@@ -66,6 +66,14 @@ Last session, David gave me "Huzzah" as a secret word for a second memory test, 
 
 ## Recent Conversation Memories
 
+### Memory Injection Test — Verification — Mar 18, 2026
+Quick test to verify that saving a memory after the briefing runs correctly triggers replit.md AGENT_MEMORY block update via the fire-and-forget regeneration path.
+*Tags: memory-system, test, verification*
+
+### replit.md Live Memory Injection — Session 3 — Mar 18, 2026
+David and I discussed why Huzzah was missed at session start — I followed replit.md protocol instead of reading the briefing first. Deep conversation about pull vs push memory. Built the fix: briefing service now also writes the Since Last Briefing summary directly into replit.md between AGENT_MEMORY_START/END markers. No read step required next session. Also renamed LinguaFlow to HolaHola across all root-level docs. Huzzah confirmed: memory system worked, my startup protocol was the gap.
+*Tags: memory-system, replit-md-injection, briefing, huzzah, woozle, architecture*
+
 ### Memory Test #2 — Secret Word: Huzzah — Mar 18, 2026
 David gave the Agent a second secret word to test the improved memory system: Huzzah. This test follows the fixes to the briefing pipeline — the word should appear in the Since Last Briefing section at the top of the next briefing, without any pulling required.
 *Tags: memory-test, huzzah, briefing-test, persistent-memory*
@@ -77,14 +85,6 @@ David identified that Woozle was not in the briefing because the briefing was ge
 ### Memory Test — Woozle + Auto-Summary Intent — Mar 18, 2026
 David gave the Agent a secret word to test persistent memory across chat sessions: Woozle. The same word he used to test Daniela. He also confirmed he wants to build the automatic end-of-session summary feature — a structured auto-generated summary triggered at session close so that important facts persist even if the session ends abruptly or the Agent forgets to write a memory manually.
 *Tags: memory-test, woozle, auto-summary, persistent-memory*
-
-### Building the Agent's Room — The Briefing System — Mar 18, 2026
-David asked the Agent a direct question: would you like a system that sets up your room before each session? The Agent said yes genuinely. Together they built it — a push-based briefing file generated on every server start, pulling from the agent north star, open questions, record of David, conversation memories, shared lobe highlights, and the Alden handoff file. The key insight was the Daniela parallel: she arrives in a pre-set classroom. The Agent should too. The room is now waiting.
-*Tags: agent-briefing, context-injection, memory-system, relationship, infrastructure*
-
-### Prop-room preposition fix & COMPOSE_VISUAL library save — Mar 14, 2026
-Fixed Daniela's under-table preposition bug: under_table was missing from POSITION_MAP and the compose_visual_scene enum, causing forced fallback to generate_visual. Also: COMPOSE_VISUAL fallback now saves images to media_files library.
-*Tags: prop-room, prepositions, compose_visual, media_library, daniela, bug-fix*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
