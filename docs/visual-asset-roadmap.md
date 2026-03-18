@@ -13,26 +13,29 @@ Visual assets live in the `visual_assets` table. Grammar/infographic SVGs are ge
 
 ## Platform Status Snapshot
 
-**Last audited:** March 17 2026
+**Last audited:** March 18 2026
 
 ### Interactive Canvas — What's Built
 
-The `SceneCanvas` component (client-side stage model) is **fully operational**. Phase 1 (scene/props/clock) shipped earlier; Phase 2 (grammar & body diagrams) shipped March 17, 2026 — all canvas capabilities are now complete.
+The `SceneCanvas` component (client-side stage model) is **fully operational**. Phase 1 (scene/props/clock) shipped earlier; Phase 2 (grammar & body diagrams) shipped March 17, 2026 — all canvas capabilities are now complete. Bilingual label system added March 18, 2026.
 
 | Capability | Status | Notes |
 |---|---|---|
 | `open_scene(environment)` | ✅ Built | Loads background, clears existing scene |
-| `add_to_scene(prop, position)` | ✅ Built | Overlays transparent PNG at zone coordinates |
+| `add_to_scene(prop, position)` | ✅ Built | Overlays transparent PNG at zone coordinates; `label` = target language, `native_label` = student's L1 — both shown stacked below prop |
 | `remove_from_scene(prop)` | ✅ Built | Fades out and removes prop layer |
 | `set_clock(time)` | ✅ Built | SVG analog clock with rotating hands |
 | `clear_scene()` | ✅ Built | Removes all props, keeps background |
-| `highlight_body_part(part)` | ✅ Built | Interactive SVG body diagram with highlight overlay — March 17, 2026 |
+| `highlight_body_part(part)` | ✅ Built | Interactive SVG body diagram; `labels` + `native_labels` maps show bilingual badges — March 17, 2026 |
+| `set_face_part(parts)` | ✅ Built | SVG face close-up (ears→hair→face→eyes→nose→mouth); bilingual badge cloud — March 17, 2026 |
+| `set_hand_part(parts)` | ✅ Built | SVG dorsal hand (dorsal right, mirrored for left); bilingual badge cloud — March 17, 2026 |
 | `fill_conjugation(row, value)` | ✅ Built | Live conjugation table fill-in with pronoun/ending highlighting — March 17, 2026 |
 | `highlight_country(country)` | ✅ Built | SVG world map with country highlight + label — March 17, 2026 |
 | `set_calendar(day, month)` | ✅ Built | SVG calendar with day highlight and month label — March 17, 2026 |
 | Emotion face SVG | ✅ Built | Animated face expressions (happy, sad, angry, surprised, etc.) — March 17, 2026 |
 | Thermometer SVG | ✅ Built | Animated mercury fill with °C/°F display — March 17, 2026 |
 | Weather icon SVG set | ✅ Built | Full set: sunny, cloudy, rainy, stormy, snowy, windy, foggy — March 17, 2026 |
+| **Bilingual label system** | ✅ Built | All props and diagrams show target-language label (bold) + native-language label (muted, below) simultaneously — March 18, 2026 |
 
 ### Image Library — What Exists
 
@@ -654,7 +657,7 @@ These are standalone React/SVG components that extend the canvas beyond prop ima
 | Thermometer SVG | `set_thermometer` + `clear_thermometer` | Weather/temperature, Novice High | ✅ Built March 17 2026 |
 | Weather icon set | `set_weather` + `clear_weather` | Weather vocabulary, all levels | ✅ Built March 17 2026 |
 
-**Phase 2 complete (March 17 2026):** All 7 grammar/visual canvas components are fully built and wired end-to-end. Daniela has 20 new function calls total across Phase 2. All components work standalone (full-panel) or as a side-panel overlay on top of an active spatial scene.
+**Phase 2 complete (March 17–18 2026):** All 10 grammar/visual canvas components are fully built and wired end-to-end. Daniela has 20+ new function calls total across Phase 2. All components work standalone (full-panel) or as a side-panel overlay on top of an active spatial scene. Bilingual label support (target + native language stacked) is live across all diagram types and the prop layer.
 
 ### Use Cases
 
