@@ -605,6 +605,12 @@ app.use((req, res, next) => {
       await generateAgentNotesSnapshot();
     }, 47000);
 
+    // +48s: Agent Briefing — regenerate docs/agent-briefing.md (the Agent's room at session start)
+    setTimeout(async () => {
+      const { generateAgentBriefing } = await import('./services/agent-briefing');
+      await generateAgentBriefing();
+    }, 48000);
+
     // +55s: Menu Image Worker — auto-resume if there are still pending food images
     setTimeout(async () => {
       const { startMenuImageWorker } = await import('./services/menu-image-worker');

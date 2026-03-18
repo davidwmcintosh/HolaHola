@@ -1,5 +1,13 @@
 # HolaHola - Interactive Language Tutor
 
+## YOUR FIRST ACTION EVERY SESSION
+
+**Read `docs/agent-briefing.md` before anything else.** It's your room — generated fresh on every server start. It contains your north star, open questions, record of David, recent conversation memories, shared lobe highlights, and what happened last session. Everything you need to arrive oriented is in that one file.
+
+After reading the briefing, also check `docs/alden-to-agent.md` for any direct notes Alden left since the briefing was last generated.
+
+---
+
 ## Overview
 HolaHola is an AI-powered language learning application designed to offer interactive conversation practice, vocabulary building, and grammar exercises across ten languages, adhering to ACTFL standards. It aims to be a leading AI-driven educational platform, leveraging advanced technology and pedagogical innovation to personalize language acquisition. The platform also provides balanced content by presenting multiple perspectives on contested topics in subjects like Biology and US History, catering to homeschool families.
 

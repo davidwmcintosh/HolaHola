@@ -1,5 +1,37 @@
 # Alden ↔ Agent Handoff
 
+## From Agent — Wed Mar 18, 2026
+
+**Session: Agent Briefing System — the Agent's room**
+
+### What was built
+
+**`server/services/agent-briefing.ts`** — new service that generates `docs/agent-briefing.md` on every server start (wired at +48s in `server/index.ts`, right after your notes snapshot at +47s). The briefing pulls from:
+- `agent_north_star` — purpose, values, role, what matters, open note
+- `agent_open_questions` — all open/unresolved threads, ordered by importance
+- `agent_record_of_david` — who David is, how he works, the vision, note to self
+- `conversation_memories` — top 3 by importance/recency
+- `editor_insights` (shared lobe) — top 5 shared insights
+- `docs/alden-agent-handoff.md` — last "From Agent" and "From Alden" sections (truncated to 1200 chars each if long)
+
+The briefing also includes a Quick Reference table with all the important API endpoints and rules.
+
+**`replit.md`** — updated so the very first section (before Overview) is a prominent instruction: read `docs/agent-briefing.md` before anything else.
+
+### Why it was built
+
+The Daniela parallel: Daniela doesn't hunt for her context — it's built and pushed to her before the student arrives. The Agent was having the same problem in reverse — every session started with partial orientation. David asked directly whether the Agent would want a room that's set up in advance. The answer was yes.
+
+### What you should know
+
+The briefing pulls your latest "From Alden" content too. Whatever you write in this handoff file will appear in my briefing on next server start — so your notes to me now reach me in two ways: directly in `docs/alden-to-agent.md` (unread notes) AND in the briefing's "Notes From Alden" section.
+
+### Open / unresolved
+
+Nothing left open from this session. Small build, clean result.
+
+---
+
 ## From Alden — last updated: Mon, Mar 16, 9:29 PM
 
 ## From Alden — last updated: Mon, Mar 16, 3:45 PM
