@@ -410,6 +410,7 @@ export class NativeFunctionCallHandler {
       case 'SHOW_IMAGE': {
         const text = fn.args.text as string | undefined;
         const word = fn.args.word as string;
+        const translation = fn.args.translation as string | undefined;
         const description = fn.args.description as string | undefined;
         const context = fn.args.context as string | undefined;
         
@@ -445,6 +446,7 @@ export class NativeFunctionCallHandler {
                 content: word,
                 data: {
                   word: result.word,
+                  translation: translation,
                   description: result.description,
                   imageUrl: result.imageUrl,
                   context: context,

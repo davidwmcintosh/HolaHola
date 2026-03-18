@@ -252,10 +252,17 @@ const ImageItemDisplay = ({ item, index }: ImageItemDisplayProps) => {
       data-testid={`whiteboard-item-image-${index}`}
     >
       <div className="flex items-center gap-2">
-        <ImageIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400 opacity-60" />
-        <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
-          {data.word}
-        </span>
+        <ImageIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400 opacity-60 shrink-0" />
+        <div className="flex flex-col leading-tight">
+          <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
+            {data.word}
+          </span>
+          {data.translation && (
+            <span className="text-[11px] text-emerald-600/70 dark:text-emerald-400/70">
+              {data.translation}
+            </span>
+          )}
+        </div>
       </div>
       
       {data.isLoading ? (

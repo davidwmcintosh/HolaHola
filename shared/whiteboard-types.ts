@@ -136,6 +136,7 @@ export interface FalseFriendOption {
  */
 export interface ImageItemData {
   word: string;
+  translation?: string;
   description: string;
   imageUrl?: string;
   isLoading?: boolean;

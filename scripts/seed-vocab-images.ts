@@ -84,6 +84,79 @@ async function seedMediaFile(
 }
 
 // Map: { localFile, destFilename, cacheKeys[], title, description }
+const vocabPlacesImages = [
+  {
+    localFile: "attached_assets/generated_images/vocab/places_casa.png",
+    destFilename: "vocab_places_casa.png",
+    cacheKeys: ["vocab_spanish_casa"],
+    title: "La Casa",
+    description: "House / home exterior",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/places_escuela.png",
+    destFilename: "vocab_places_escuela.png",
+    cacheKeys: ["vocab_spanish_escuela"],
+    title: "La Escuela",
+    description: "School building exterior",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/places_aula.png",
+    destFilename: "vocab_places_aula.png",
+    cacheKeys: ["vocab_spanish_aula", "vocab_spanish_salon", "vocab_spanish_clase"],
+    title: "El Aula",
+    description: "Classroom interior",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/places_restaurante.png",
+    destFilename: "vocab_places_restaurante.png",
+    cacheKeys: ["vocab_spanish_restaurante"],
+    title: "El Restaurante",
+    description: "Restaurant dining",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/places_parque.png",
+    destFilename: "vocab_places_parque.png",
+    cacheKeys: ["vocab_spanish_parque"],
+    title: "El Parque",
+    description: "City park with grass and trees",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/places_hospital.png",
+    destFilename: "vocab_places_hospital.png",
+    cacheKeys: ["vocab_spanish_hospital"],
+    title: "El Hospital",
+    description: "Hospital building exterior",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/places_supermercado.png",
+    destFilename: "vocab_places_supermercado.png",
+    cacheKeys: ["vocab_spanish_supermercado", "vocab_spanish_tienda", "vocab_spanish_mercado"],
+    title: "El Supermercado",
+    description: "Supermarket / grocery store",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/places_bano.png",
+    destFilename: "vocab_places_bano.png",
+    cacheKeys: ["vocab_spanish_bano", "vocab_spanish_servicio", "vocab_spanish_lavabo"],
+    title: "El Baño",
+    description: "Bathroom interior",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/places_dormitorio.png",
+    destFilename: "vocab_places_dormitorio.png",
+    cacheKeys: ["vocab_spanish_dormitorio", "vocab_spanish_cuarto", "vocab_spanish_habitacion"],
+    title: "El Dormitorio",
+    description: "Bedroom interior",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/places_cocina.png",
+    destFilename: "vocab_places_cocina.png",
+    cacheKeys: ["vocab_spanish_cocina"],
+    title: "La Cocina",
+    description: "Kitchen interior",
+  },
+];
+
 const vocabPeopleImages = [
   {
     localFile: "attached_assets/generated_images/vocab/people_familia.png",
@@ -144,9 +217,11 @@ const vocabPeopleImages = [
 ];
 
 async function main() {
-  console.log("=== Seeding People vocabulary images ===\n");
+  const allImages = [...vocabPeopleImages, ...vocabPlacesImages];
 
-  for (const item of vocabPeopleImages) {
+  console.log(`=== Seeding ${allImages.length} vocabulary images (People + Places) ===\n`);
+
+  for (const item of allImages) {
     if (!fs.existsSync(item.localFile)) {
       console.error(`✗ File not found: ${item.localFile}`);
       continue;

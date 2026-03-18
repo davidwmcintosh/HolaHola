@@ -343,7 +343,8 @@ const registry: DanielaFunctionEntry[] = [
         type: "object",
         properties: {
           text: { type: "string", description: "What you're saying about the image" },
-          word: { type: "string", description: "The vocabulary word or concept to show" },
+          word: { type: "string", description: "The vocabulary word or concept to show (target language)" },
+          translation: { type: "string", description: "English translation of the word shown below the image as a bilingual label" },
           description: { type: "string", description: "Brief description to help find the right image" },
           context: { type: "string", description: "Optional teaching context" },
         },

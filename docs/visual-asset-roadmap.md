@@ -88,18 +88,20 @@ Organization: thematic clusters. A student at Novice Low needs the Novice Low cl
 
 **Places**
 
+*Note: environment bg = used by scene canvas. These standalone images serve `show_image` and textbook vocab cards — different use case, both needed.*
+
 | Word | Spanish | Status | Notes |
 |------|---------|--------|-------|
-| house/home | casa | ⬜ | exterior view |
-| school | escuela | ⬜ | |
-| classroom | aula | ⬜ | already have environment bg |
-| restaurant | restaurante | ⬜ | already have environment bg |
-| park | parque | ⬜ | already have environment bg |
-| hospital | hospital | ⬜ | exterior |
-| supermarket | supermercado | ⬜ | exterior |
-| bathroom | baño | ⬜ | |
-| bedroom | dormitorio | ⬜ | already have environment bg |
-| kitchen | cocina | ⬜ | already have environment bg |
+| house/home | casa | ✅ Mar 18 2026 | `vocab_places_casa.png` |
+| school | escuela | ✅ Mar 18 2026 | `vocab_places_escuela.png` |
+| classroom | aula | ✅ Mar 18 2026 | `vocab_places_aula.png` — also seeded: salón, clase |
+| restaurant | restaurante | ✅ Mar 18 2026 | `vocab_places_restaurante.png` |
+| park | parque | ✅ Mar 18 2026 | `vocab_places_parque.png` |
+| hospital | hospital | ✅ Mar 18 2026 | `vocab_places_hospital.png` — exterior |
+| supermarket | supermercado | ✅ Mar 18 2026 | `vocab_places_supermercado.png` — also seeded: tienda, mercado |
+| bathroom | baño | ✅ Mar 18 2026 | `vocab_places_bano.png` — also seeded: servicio, lavabo |
+| bedroom | dormitorio | ✅ Mar 18 2026 | `vocab_places_dormitorio.png` — also seeded: cuarto, habitación |
+| kitchen | cocina | ✅ Mar 18 2026 | `vocab_places_cocina.png` |
 
 **Things — Classroom/Home**
 
