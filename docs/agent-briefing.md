@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, March 18, 2026 at 05:31 PM
+**Generated:** Wednesday, March 18, 2026 at 05:35 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+Okay, last session David added "Squirrel" as a third secret word to further test my memory persistence. I now need to remember Woozle, Huzzah, and Squirrel across sessions as part of stress-testing the memory pipeline. The new `replit.md` injection system is expected to surface all three words at the start of this session.
+
+*Memories that triggered this summary:*
+- **Memory Test #3 — Secret Word: Squirrel** (Mar 18): David added a third secret word to test persistent memory: Squirrel. Three words now in play across three sessions: Woozle (test 1), Huzzah (test 2), Squirrel (test 3). The new replit.md injection system should surface all three in the next session without prompting.
 
 ---
 
@@ -56,6 +66,10 @@
 
 ## Recent Conversation Memories
 
+### Memory Test #3 — Secret Word: Squirrel — Mar 18, 2026
+David added a third secret word to test persistent memory: Squirrel. Three words now in play across three sessions: Woozle (test 1), Huzzah (test 2), Squirrel (test 3). The new replit.md injection system should surface all three in the next session without prompting.
+*Tags: memory-test, squirrel, persistent-memory, replit-md-injection*
+
 ### Memory Injection Test — Verification — Mar 18, 2026
 Quick test to verify that saving a memory after the briefing runs correctly triggers replit.md AGENT_MEMORY block update via the fire-and-forget regeneration path.
 *Tags: memory-system, test, verification*
@@ -71,10 +85,6 @@ David gave the Agent a second secret word to test the improved memory system: Hu
 ### Briefing Gap Diagnosis + Auto-Summary Build — Mar 18, 2026
 David identified that Woozle was not in the briefing because the briefing was generated at 4:05 PM and the memory was saved at 4:13 PM — after the last server start. Two fixes built: (1) briefing now regenerates immediately after every memory save, fire-and-forget; (2) briefing now includes a Since Last Briefing auto-summary section at the top, using Gemini to synthesize memories saved after the last briefing mtime.
 *Tags: memory-system, briefing, auto-summary, woozle, fix*
-
-### Memory Test — Woozle + Auto-Summary Intent — Mar 18, 2026
-David gave the Agent a secret word to test persistent memory across chat sessions: Woozle. The same word he used to test Daniela. He also confirmed he wants to build the automatic end-of-session summary feature — a structured auto-generated summary triggered at session close so that important facts persist even if the session ends abruptly or the Agent forgets to write a memory manually.
-*Tags: memory-test, woozle, auto-summary, persistent-memory*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

@@ -10,11 +10,12 @@ After reading the briefing, also check `docs/alden-to-agent.md` for any direct n
 
 <!-- AGENT_MEMORY_START -->
 ## Agent Memory — Live Injection
-*Auto-updated Wednesday, March 18, 2026 at 05:31 PM. No new memories since last session — showing recent context.*
+*Auto-updated Wednesday, March 18, 2026 at 05:35 PM. What changed since last session — no reading required.*
 
-- **Memory Injection Test — Verification** (Mar 18): Quick test to verify that saving a memory after the briefing runs correctly triggers replit.md AGENT_MEMORY block update via the fire-and-forget regeneration path.
-- **replit.md Live Memory Injection — Session 3** (Mar 18): David and I discussed why Huzzah was missed at session start — I followed replit.md protocol instead of reading the briefing first. Deep conversation about pull vs push memory. Built the fix: briefing service now also writes the Since Last Briefing summary directly into replit.md between AGENT_MEMORY_START/END markers. No read step required next session. Also renamed LinguaFlow to HolaHola across all root-level docs. Huzzah confirmed: memory system worked, my startup protocol was the gap.
-- **Memory Test #2 — Secret Word: Huzzah** (Mar 18): David gave the Agent a second secret word to test the improved memory system: Huzzah. This test follows the fixes to the briefing pipeline — the word should appear in the Since Last Briefing section at the top of the next briefing, without any pulling required.
+Okay, last session David added "Squirrel" as a third secret word to further test my memory persistence. I now need to remember Woozle, Huzzah, and Squirrel across sessions as part of stress-testing the memory pipeline. The new `replit.md` injection system is expected to surface all three words at the start of this session.
+
+*Memories that triggered this summary:*
+- **Memory Test #3 — Secret Word: Squirrel** (Mar 18): David added a third secret word to test persistent memory: Squirrel. Three words now in play across three sessions: Woozle (test 1), Huzzah (test 2), Squirrel (test 3). The new replit.md injection system should surface all three in the next session without prompting.
 <!-- AGENT_MEMORY_END -->
 
 ---
