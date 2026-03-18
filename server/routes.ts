@@ -4603,7 +4603,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
             const defaultGreetings: Record<string, string> = {
               spanish: "Hola", french: "Bonjour", german: "Hallo", italian: "Ciao",
               portuguese: "Olá", japanese: "こんにちは", korean: "안녕하세요",
-              mandarin: "你好", russian: "Привет"
+              mandarin: "你好", hebrew: "שלום"
             };
             target = defaultGreetings[targetLangName] || "Hello";
             native = `Let's practice the most common greeting: '${target}'. Try saying it!`;
@@ -4615,7 +4615,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
             const langToISO: Record<string, string> = {
               'english': 'eng', 'spanish': 'spa', 'french': 'fra', 'german': 'deu',
               'italian': 'ita', 'portuguese': 'por', 'japanese': 'jpn', 'korean': 'kor',
-              'mandarin chinese': 'cmn', 'mandarin': 'cmn', 'russian': 'rus', 'chinese': 'cmn'
+              'mandarin chinese': 'cmn', 'mandarin': 'cmn', 'chinese': 'cmn', 'hebrew': 'heb'
             };
             
             let isWrongLanguage = false;
@@ -4676,7 +4676,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
                 // Fallback to language-specific encouragement
                 const encouragements: Record<string, string> = {
                   spanish: "¡Perfecto!", french: "Parfait!", german: "Gut!", italian: "Perfetto!",
-                  portuguese: "Perfeito!", japanese: "すごい!", korean: "좋아요!", mandarin: "好!", russian: "Отлично!"
+                  portuguese: "Perfeito!", japanese: "すごい!", korean: "좋아요!", mandarin: "好!", hebrew: "!מצוין"
                 };
                 target = encouragements[targetLangName] || "Hola";
                 console.log(`[VOICE LANG GUARD] ✓ Using encouragement fallback: "${target}"`);
@@ -18089,6 +18089,8 @@ Current conversation context:
           'chinese (mandarin)': 'cmn-CN',
           // Korean
           'korean': 'ko-KR',
+          // Hebrew
+          'hebrew': 'he-IL',
         };
         const normalizedLang = language.toLowerCase().trim();
         const langCode = langToCode[normalizedLang] || 'en-US';

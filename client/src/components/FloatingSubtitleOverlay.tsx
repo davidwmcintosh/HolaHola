@@ -108,7 +108,7 @@ export function FloatingSubtitleOverlay({
             data-testid="custom-overlay-container"
             data-mode="custom-overlay"
           >
-            <p className="text-2xl md:text-3xl font-bold leading-relaxed tracking-wide text-primary drop-shadow-[0_0_12px_hsl(var(--primary)/0.6)]">
+            <p className="text-2xl md:text-3xl font-bold leading-relaxed tracking-wide text-primary drop-shadow-[0_0_12px_hsl(var(--primary)/0.6)]" dir="auto">
               {cleanDisplayText(customOverlayText!)}
             </p>
           </motion.div>
@@ -130,7 +130,7 @@ export function FloatingSubtitleOverlay({
             data-testid="regular-subtitle-container"
             data-mode={regularSubtitleMode}
           >
-            <p className="text-2xl md:text-3xl font-medium leading-relaxed tracking-wide">
+            <p className="text-2xl md:text-3xl font-medium leading-relaxed tracking-wide" dir="auto">
               {regularSubtitleMode === 'all' ? (
                 // Render from wordTimings array directly (preserves Cartesia alignment)
                 // visibleWordCount controls progressive reveal (ACTFL policy driven)

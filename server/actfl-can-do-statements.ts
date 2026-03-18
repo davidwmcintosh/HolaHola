@@ -2,8 +2,8 @@
  * ACTFL Can-Do Statements for Language Proficiency
  * Based on NCSSFL-ACTFL Can-Do Statements (2017) and ACTFL Proficiency Guidelines 2024
  * 
- * Comprehensive implementation for all 9 supported languages:
- * Spanish, French, German, Italian, Portuguese, Japanese, Korean, Chinese (Mandarin), English
+ * Comprehensive implementation for all 10 supported languages:
+ * Spanish, French, German, Italian, Portuguese, Japanese, Korean, Chinese (Mandarin), English, Hebrew
  * 
  * Proficiency Levels: Novice (Low, Mid, High), Intermediate (Low, Mid, High), Advanced (Low, Mid, High)
  * Communication Modes: Interpersonal, Interpretive, Presentational
@@ -191,7 +191,7 @@ function createCanDoStatements(language: string): CanDoStatement[] {
 }
 
 /**
- * All Can-Do Statements for 9 supported languages
+ * All Can-Do Statements for 10 supported languages
  */
 export const canDoStatements: CanDoStatement[] = [
   ...createCanDoStatements('spanish'),
@@ -203,6 +203,7 @@ export const canDoStatements: CanDoStatement[] = [
   ...createCanDoStatements('korean'),
   ...createCanDoStatements('mandarin'),
   ...createCanDoStatements('english'),
+  ...createCanDoStatements('hebrew'),
 ];
 
 /**

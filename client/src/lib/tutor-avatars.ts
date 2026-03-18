@@ -183,7 +183,7 @@ const femaleAvatars: Record<SupportedLanguage, TutorAvatarSet> = {
   korean: { listening: koreanFemaleListening, thinking: koreanFemaleThinking, talking: koreanFemaleTalking },
   portuguese: { listening: portugueseFemaleListening, thinking: portugueseFemaleThinking, talking: portugueseFemaleTalking },
   spanish: { listening: spanishFemaleListening, thinking: spanishFemaleThinking, talking: spanishFemaleTalking },
-  hebrew: { listening: spanishFemaleListening, thinking: spanishFemaleThinking, talking: spanishFemaleTalking }, // Uses Daniela's avatar (hidden language)
+  hebrew: { listening: spanishFemaleListening, thinking: spanishFemaleThinking, talking: spanishFemaleTalking }, // Uses Daniela's avatar (dedicated Hebrew avatar coming soon)
   biology: { listening: spanishFemaleListening, thinking: spanishFemaleThinking, talking: spanishFemaleTalking },
   history: { listening: spanishFemaleListening, thinking: spanishFemaleThinking, talking: spanishFemaleTalking },
   math: { listening: spanishFemaleListening, thinking: spanishFemaleThinking, talking: spanishFemaleTalking },
@@ -200,7 +200,7 @@ const maleAvatars: Record<SupportedLanguage, TutorAvatarSet> = {
   korean: { listening: koreanMaleListening, thinking: koreanMaleThinking, talking: koreanMaleTalking },
   portuguese: { listening: portugueseMaleListening, thinking: portugueseMaleThinking, talking: portugueseMaleTalking },
   spanish: { listening: spanishMaleListening, thinking: spanishMaleThinking, talking: spanishMaleTalking },
-  hebrew: { listening: spanishMaleListening, thinking: spanishMaleThinking, talking: spanishMaleTalking }, // Uses Agustin's avatar (hidden language)
+  hebrew: { listening: spanishMaleListening, thinking: spanishMaleThinking, talking: spanishMaleTalking }, // Uses Agustin's avatar (dedicated Hebrew avatar coming soon)
   biology: { listening: spanishMaleListening, thinking: spanishMaleThinking, talking: spanishMaleTalking },
   history: { listening: spanishMaleListening, thinking: spanishMaleThinking, talking: spanishMaleTalking },
   math: { listening: spanishMaleListening, thinking: spanishMaleThinking, talking: spanishMaleTalking },
@@ -300,7 +300,7 @@ const tutorNames: Record<SupportedLanguage, { male: string; female: string }> = 
   japanese: { male: 'Daisuke', female: 'Sayuri' },
   korean: { male: 'Minho', female: 'Jihyun' },
   english: { male: 'Blake', female: 'Cindy' },
-  hebrew: { male: 'Noam', female: 'Yael' }, // Hebrew tutors (hidden language - special unlock)
+  hebrew: { male: 'Noam', female: 'Yael' }, // Hebrew tutors
   biology: { male: 'Gene', female: 'Evelyn' },
   history: { male: 'Marcus', female: 'Clio' },
   math: { male: 'Leo', female: 'Ada' },
