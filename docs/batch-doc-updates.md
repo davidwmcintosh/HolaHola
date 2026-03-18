@@ -5177,3 +5177,61 @@ Navigate to Study Mode in the sidebar. Select a Spanish course unit. Daniela wil
 ### Tool count: 17
 9 monitoring + 3 code read + 1 apply_code_change + save_to_memory + notify_david + browser_screenshot + write_briefing
 
+---
+
+## Session: Bilingual Labels + Grammar Cards + move_in_scene (Mar 18, 2026)
+
+### What was built
+
+**1. Bilingual Label System — ImmersiveOverlay**
+Scene canvas props now show stacked two-line labels in Immersive Mode: target language (primary color, bold, `text-xs`) on top, native language (70% opacity, `text-[9px]`) below. Applies to both tappable and non-tappable prop types. Same pattern already used in PropLayer and diagram badge clouds — ImmersiveOverlay now matches.
+
+Key file: `client/src/components/ImmersiveOverlay.tsx` — `native_label` extracted from prop params and rendered below primary label in the badge cloud.
+
+**2. `native_labels` param in body/face/hand function schemas**
+All three body-diagram function schemas (`set_body_part`, `set_face_part`, `set_hand_part`) now include a `native_labels` parameter (array of strings). Daniela can pass the native-language translations alongside target-language terms. The registry documents when to use it.
+
+Key file: `server/services/daniela-function-registry.ts` — schema updated for all three body/face/hand functions.
+
+**3. Grammar Reference Cards (TextbookInfographics.tsx)**
+Three new exported components for Spanish grammar chapters:
+
+- `SerEstarCard` — two-column layout: SER (permanent/identity) vs ESTAR (temporary/state), 6 real examples each, summary rule at bottom, blue/amber color coding
+- `PretImperfectCard` — SVG timeline showing preterite as completed dots vs imperfect as continuous wavy line, with trigger word lists for each
+- `PorParaCard` — two-column layout: POR (cause/exchange/duration) vs PARA (purpose/recipient/destination), 6 examples each, green/rose color coding
+
+Key file: `client/src/components/TextbookInfographics.tsx` — all three added above `LessonNarrativeProps`.
+
+**4. False Cognate Cards (TextbookInfographics.tsx)**
+Two more exported components:
+
+- `FalseCognateCard` — single entry: shows English word → correct Spanish translation → the dangerous lookalike (struck through in red) with what it actually means
+- `FalseCognatesGrid` — 12-entry grid (embarazada, sensible, éxito, librería, realizar, actual, asistir, carpeta, constipado, parientes, introducir, molestar), responsive 1→2 column
+
+Data backed by `FALSE_COGNATES_DATA` array defined in the same file.
+
+Key file: `client/src/components/TextbookInfographics.tsx` — both components + data array.
+
+**5. Grammar Chapter Detection in ChapterIntroduction**
+`classifyGrammarType(title)` scans chapter title keywords for: 'ser'+'estar', 'pret'/'imperfec'/'past tense', 'por'+'para', 'false cognate'/'falso cognado'. If matched, renders a `GrammarChapterView` with the appropriate grammar card — bypassing the `languageChapterData` lookup entirely (grammar cards are language-independent reference material, not cultural/greeting content). Grammar chapter path runs before the cultural chapter path.
+
+Key file: `client/src/components/ChapterIntroduction.tsx` — `classifyGrammarType()`, `GrammarChapterView` component, updated `ChapterIntroduction` component flow.
+
+**6. `move_in_scene` — animate props to new positions**
+Full end-to-end implementation:
+
+- `'move_prop'` added to `canvasAction` union in `shared/whiteboard-types.ts`
+- `MOVE_IN_SCENE` case added to `native-fc-handlers.ts` after `REMOVE_FROM_SCENE`: finds prop by name in `session.sceneCanvas.props`, looks up `new_position` in the full `MOVE_POSITION_MAP` (all 30+ positions matching `ADD_TO_SCENE`), updates `cx`/`cy`/`scale` in-place, sends `whiteboard_update` with `canvasAction: 'move_prop'`
+- `move_in_scene` function declaration added to `daniela-function-registry.ts` after `remove_from_scene`, with examples for preposition teaching (fork to fork_spot, glass to glass_spot, book from left to right)
+- Client-side: SceneCanvas re-renders from the updated props array; Framer Motion animates position changes automatically — no SceneCanvas edits needed
+
+Key files:
+- `shared/whiteboard-types.ts` line ~926 — `'move_prop'` added to union
+- `server/services/native-fc-handlers.ts` — `MOVE_IN_SCENE` case (after line ~1012)
+- `server/services/daniela-function-registry.ts` — `move_in_scene` declaration (after `remove_from_scene` entry)
+
+### User-facing impact
+- Any Spanish chapter titled "Ser y Estar", "Preterite vs Imperfect", "Por y Para", or "False Cognates" now shows an auto-detected grammar reference card in the chapter header
+- Daniela can now move props around the live scene canvas mid-lesson — say "el tenedor está a la izquierda del plato" while the fork slides to fork_spot
+- Immersive overlay prop labels show both the target language and the student's native language simultaneously
+
