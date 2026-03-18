@@ -837,6 +837,19 @@ export interface BodyDiagramData {
   labels?: Record<string, string>; // part slug → target-language label shown below the diagram
 }
 
+/** Face close-up diagram — highlights detailed facial features. */
+export interface FaceDiagramData {
+  highlightParts: string[];        // e.g. ['nose', 'lips', 'left_eye'] — see FACE_PARTS for full slug list
+  labels?: Record<string, string>; // part slug → target-language label shown below the diagram
+}
+
+/** Hand close-up diagram — highlights fingers, palm, knuckles, etc. */
+export interface HandDiagramData {
+  highlightParts: string[];        // e.g. ['thumb', 'index_finger', 'palm'] — see HAND_PARTS for full slug list
+  labels?: Record<string, string>; // part slug → target-language label shown below the diagram
+  hand?: 'left' | 'right';        // which hand to show (default: right)
+}
+
 /** Thermometer data — shows a temperature reading. */
 export interface ThermometerData {
   celsius: number;          // -30 to 60
@@ -896,6 +909,8 @@ export interface SceneCanvasItemData {
   conjugationTable?: ConjugationTableData;   // Phase 2 — grammar canvas
   calendarData?: CalendarData;               // Phase 2 — calendar canvas
   bodyDiagram?: BodyDiagramData;             // Phase 2 — body diagram
+  faceDiagram?: FaceDiagramData;             // Phase 2 — face close-up
+  handDiagram?: HandDiagramData;             // Phase 2 — hand close-up
   thermometerData?: ThermometerData;         // Phase 2 — thermometer
   emotionData?: EmotionData;                 // Phase 2 — emotion face
   weatherData?: WeatherData;                 // Phase 2 — weather icon
@@ -905,6 +920,8 @@ export interface SceneCanvasItemData {
     | 'init_conjugation' | 'fill_conjugation' | 'clear_conjugation'
     | 'set_calendar' | 'clear_calendar'
     | 'set_body_part' | 'clear_body_diagram'
+    | 'set_face_part' | 'clear_face_diagram'
+    | 'set_hand_part' | 'clear_hand_diagram'
     | 'set_thermometer' | 'clear_thermometer'
     | 'set_emotion' | 'clear_emotion'
     | 'set_weather' | 'clear_weather'

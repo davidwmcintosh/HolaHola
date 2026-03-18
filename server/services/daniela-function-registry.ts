@@ -881,8 +881,11 @@ Works standalone (fills the canvas) or alongside an active scene (appears as a s
       description: `Show a labeled human body diagram on the canvas and highlight specific body parts.
 Use this for body-part vocabulary lessons at any level.
 
-The diagram shows a front-view human silhouette. Highlighted parts glow in the theme color and their
+The diagram shows a front-view human silhouette. Highlighted parts glow and their
 target-language labels appear below the figure.
+
+IMPORTANT: For DETAILED face parts (lips, chin, cheeks, eyebrows, teeth, etc.) use set_face_part instead.
+IMPORTANT: For DETAILED hand parts (thumb, fingers, palm, knuckles, fingernails) use set_hand_part instead.
 
 Supported part slugs (use EXACTLY these — aliases like "eyes", "hands", "legs" highlight both sides):
   head, hair, face, eyes, left_eye, right_eye, nose, mouth, ear,
@@ -931,6 +934,118 @@ Build up from one part at a time for Novice students; show a group for Intermedi
       },
     },
     buildContinuationResponse: () => `Body diagram cleared.`,
+  },
+
+  {
+    legacyType: 'SET_FACE_PART',
+    declaration: {
+      name: "set_face_part",
+      description: `Show a labeled face close-up diagram and highlight specific facial features.
+Use this when teaching face-part vocabulary (nose, lips, chin, cheeks, eyebrows, teeth, etc.).
+
+The diagram shows a large front-view face. Highlighted parts glow and labels appear below.
+
+Supported part slugs:
+  face, hair, forehead, jaw, chin,
+  left_eye, right_eye, eyes,
+  left_eyebrow, right_eyebrow, eyebrows,
+  nose,
+  left_cheek, right_cheek, cheeks,
+  upper_lip, lower_lip, lips, mouth, teeth,
+  left_ear, right_ear, ears
+
+Use labels to pass the target-language name for each highlighted part.
+
+Example for Spanish face lesson:
+  set_face_part(
+    ["nose", "lips", "chin", "cheeks"],
+    { "nose":"la nariz", "lips":"los labios", "chin":"el mentón", "cheeks":"las mejillas" }
+  )`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you say as the diagram appears." },
+          parts: { type: "array", items: { type: "string" }, description: "List of face part slugs to highlight, e.g. ['nose','lips','chin']" },
+          labels: { type: "object", additionalProperties: { type: "string" }, description: "Part slug → target-language label" },
+        },
+        required: ["parts"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      const parts = (fc.args.parts as string[]) ?? [];
+      return `Face diagram showing: ${parts.join(', ')}. Continue teaching the vocabulary.`;
+    },
+  },
+
+  {
+    legacyType: 'CLEAR_FACE_DIAGRAM',
+    declaration: {
+      name: "clear_face_diagram",
+      description: `Remove the face close-up diagram from the canvas.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you say as the diagram is cleared." },
+        },
+        required: [],
+      },
+    },
+    buildContinuationResponse: () => `Face diagram cleared.`,
+  },
+
+  {
+    legacyType: 'SET_HAND_PART',
+    declaration: {
+      name: "set_hand_part",
+      description: `Show a labeled hand close-up diagram and highlight specific hand parts.
+Use this when teaching hand/finger vocabulary (thumb, fingers, palm, knuckles, fingernails, wrist).
+
+The diagram shows a dorsal (back-of-hand) view. Highlighted parts glow and labels appear below.
+By default shows the right hand; pass hand="left" to flip it.
+
+Supported part slugs:
+  thumb, index_finger, middle_finger, ring_finger, pinky,
+  fingers (all four non-thumb fingers),
+  palm, wrist, knuckles, fingernails
+
+Use labels to pass the target-language name for each highlighted part.
+
+Example for Spanish hand lesson:
+  set_hand_part(
+    ["thumb", "index_finger", "pinky"],
+    { "thumb":"el pulgar", "index_finger":"el índice", "pinky":"el meñique" }
+  )`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you say as the diagram appears." },
+          parts: { type: "array", items: { type: "string" }, description: "List of hand part slugs to highlight, e.g. ['thumb','index_finger','palm']" },
+          labels: { type: "object", additionalProperties: { type: "string" }, description: "Part slug → target-language label" },
+          hand: { type: "string", enum: ["left", "right"], description: "Which hand to show (default: right)" },
+        },
+        required: ["parts"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      const parts = (fc.args.parts as string[]) ?? [];
+      return `Hand diagram showing: ${parts.join(', ')}. Continue teaching the vocabulary.`;
+    },
+  },
+
+  {
+    legacyType: 'CLEAR_HAND_DIAGRAM',
+    declaration: {
+      name: "clear_hand_diagram",
+      description: `Remove the hand close-up diagram from the canvas.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you say as the diagram is cleared." },
+        },
+        required: [],
+      },
+    },
+    buildContinuationResponse: () => `Hand diagram cleared.`,
   },
 
   {

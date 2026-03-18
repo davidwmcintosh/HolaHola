@@ -750,16 +750,18 @@ Pure client-side compositing of what we already have. No new assets needed. No n
 **Phase 2 — SVG canvas types (medium effort, extremely high value)**  
 Clock, body diagram, conjugation table, world map. Each is a standalone React/SVG component. The clock alone covers an entire vocabulary unit. The body diagram covers half of Intermediate Low health vocabulary. These should be built in Section 9's batch generation order below:
 
-| Canvas type | Lessons it covers | Build complexity |
-|---|---|---|
-| Clock (analog + hands) | All time expressions, Novice Low → Advanced | Low — pure SVG |
-| Body diagram | Body parts, health vocabulary, Intermediate Low | Medium — labeled regions |
-| Conjugation table | Every tense, every verb pattern | Low — React table component |
-| Weather icon set | Weather vocabulary, Novice Low | Low — SVG icons |
-| World map (Spanish-speaking) | Cultural units, Intermediate+ | Medium — SVG paths |
-| Emotion face | Emotions, Intermediate Mid | Low — SVG expressions |
-| Calendar | Dates, days, months, Novice Low | Low — SVG grid |
-| Thermometer | Temperature, weather, Novice High | Low — SVG fill |
+| Canvas type | Lessons it covers | Build complexity | Status |
+|---|---|---|---|
+| Clock (analog + hands) | All time expressions, Novice Low → Advanced | Low — pure SVG | ✅ Done |
+| Body diagram | Body parts, health vocabulary, Intermediate Low | Medium — organic bezier paths | ✅ Done (organic shapes + glow) |
+| Face close-up diagram | Lips, chin, cheeks, eyebrows, teeth, nostrils, ears, forehead, jaw | Medium — layered SVG regions | ✅ Done (March 2026) |
+| Hand close-up diagram | Thumb, fingers, palm, wrist, knuckles, fingernails | Medium — tapered bezier paths | ✅ Done (March 2026) |
+| Conjugation table | Every tense, every verb pattern | Low — React table component | ✅ Done |
+| Weather icon set | Weather vocabulary, Novice Low | Low — SVG icons | ✅ Done |
+| World map (Spanish-speaking) | Cultural units, Intermediate+ | Medium — SVG paths | ✅ Done |
+| Emotion face | Emotions, Intermediate Mid | Low — SVG expressions | ✅ Done |
+| Calendar | Dates, days, months, Novice Low | Low — SVG grid | ✅ Done |
+| Thermometer | Temperature, weather, Novice High | Low — SVG fill | ✅ Done |
 
 ### Connection to Static Assets in Sections 1–8
 

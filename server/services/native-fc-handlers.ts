@@ -1332,6 +1332,71 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'SET_FACE_PART': {
+        const faceParts = fn.args.parts as string[] | undefined;
+        const faceLabels = fn.args.labels as Record<string, string> | undefined;
+        const faceText = fn.args.text as string | undefined;
+        if (faceText && !session.functionCallText) session.functionCallText = faceText;
+        if (!faceParts?.length) { console.warn('[Native Function→SetFacePart] Missing parts — skipping'); break; }
+        if (!session.sceneCanvas) session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [] };
+        session.sceneCanvas.faceDiagram = { highlightParts: faceParts, labels: faceLabels };
+        const faceUpdate = {
+          type: 'whiteboard_update' as const, timestamp: Date.now(),
+          items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: faceParts.join(', '),
+            data: { environment: session.sceneCanvas.environment, environmentImageUrl: session.sceneCanvas.environmentImageUrl, environmentLabel: session.sceneCanvas.environmentLabel, props: [...(session.sceneCanvas.props || [])], clockTime: session.sceneCanvas.clockTime, faceDiagram: session.sceneCanvas.faceDiagram, canvasAction: 'set_face_part' as const } }],
+        };
+        if (session.firstAudioSent) { this.sendMessage(session.ws, faceUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(faceUpdate); }
+        console.log(`[Native Function→SetFacePart] Parts: ${faceParts.join(', ')}`);
+        break;
+      }
+
+      case 'CLEAR_FACE_DIAGRAM': {
+        const clearFaceText = fn.args.text as string | undefined;
+        if (clearFaceText && !session.functionCallText) session.functionCallText = clearFaceText;
+        if (session.sceneCanvas) delete session.sceneCanvas.faceDiagram;
+        const clearFaceUpdate = {
+          type: 'whiteboard_update' as const, timestamp: Date.now(),
+          items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: '',
+            data: { environment: session.sceneCanvas?.environment || '', environmentImageUrl: session.sceneCanvas?.environmentImageUrl || '', environmentLabel: session.sceneCanvas?.environmentLabel || '', props: [...(session.sceneCanvas?.props || [])], clockTime: session.sceneCanvas?.clockTime, canvasAction: 'clear_face_diagram' as const } }],
+        };
+        if (session.firstAudioSent) { this.sendMessage(session.ws, clearFaceUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(clearFaceUpdate); }
+        console.log('[Native Function→ClearFaceDiagram] Cleared');
+        break;
+      }
+
+      case 'SET_HAND_PART': {
+        const handParts = fn.args.parts as string[] | undefined;
+        const handLabels = fn.args.labels as Record<string, string> | undefined;
+        const handSide = fn.args.hand as 'left' | 'right' | undefined;
+        const handText = fn.args.text as string | undefined;
+        if (handText && !session.functionCallText) session.functionCallText = handText;
+        if (!handParts?.length) { console.warn('[Native Function→SetHandPart] Missing parts — skipping'); break; }
+        if (!session.sceneCanvas) session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [] };
+        session.sceneCanvas.handDiagram = { highlightParts: handParts, labels: handLabels, hand: handSide ?? 'right' };
+        const handUpdate = {
+          type: 'whiteboard_update' as const, timestamp: Date.now(),
+          items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: handParts.join(', '),
+            data: { environment: session.sceneCanvas.environment, environmentImageUrl: session.sceneCanvas.environmentImageUrl, environmentLabel: session.sceneCanvas.environmentLabel, props: [...(session.sceneCanvas.props || [])], clockTime: session.sceneCanvas.clockTime, handDiagram: session.sceneCanvas.handDiagram, canvasAction: 'set_hand_part' as const } }],
+        };
+        if (session.firstAudioSent) { this.sendMessage(session.ws, handUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(handUpdate); }
+        console.log(`[Native Function→SetHandPart] Parts: ${handParts.join(', ')}`);
+        break;
+      }
+
+      case 'CLEAR_HAND_DIAGRAM': {
+        const clearHandText = fn.args.text as string | undefined;
+        if (clearHandText && !session.functionCallText) session.functionCallText = clearHandText;
+        if (session.sceneCanvas) delete session.sceneCanvas.handDiagram;
+        const clearHandUpdate = {
+          type: 'whiteboard_update' as const, timestamp: Date.now(),
+          items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: '',
+            data: { environment: session.sceneCanvas?.environment || '', environmentImageUrl: session.sceneCanvas?.environmentImageUrl || '', environmentLabel: session.sceneCanvas?.environmentLabel || '', props: [...(session.sceneCanvas?.props || [])], clockTime: session.sceneCanvas?.clockTime, canvasAction: 'clear_hand_diagram' as const } }],
+        };
+        if (session.firstAudioSent) { this.sendMessage(session.ws, clearHandUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(clearHandUpdate); }
+        console.log('[Native Function→ClearHandDiagram] Cleared');
+        break;
+      }
+
       case 'SET_THERMOMETER': {
         const thermCelsius = fn.args.celsius as number | undefined;
         const thermLabel = fn.args.labelText as string | undefined;

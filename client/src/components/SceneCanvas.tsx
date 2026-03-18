@@ -18,6 +18,8 @@ import type {
   ConjugationTableData,
   CalendarData,
   BodyDiagramData,
+  FaceDiagramData,
+  HandDiagramData,
   ThermometerData,
   EmotionData,
   WeatherData,
@@ -739,6 +741,227 @@ function BodyDiagramCanvas({ data }: { data: BodyDiagramData }) {
   );
 }
 
+// ─── Face Close-up Canvas ────────────────────────────────────────────────────
+
+// Render order matters: define parts back-to-front so small detail parts sit on top of larger regions.
+const FACE_PARTS: Record<string, BodyPartSpec> = {
+  // ── back layer: ears behind face ────────────────────────────────────────────
+  left_ear:  { aliases: ['oreja izquierda','oreille gauche'],                                   shapes: [{ k:'ellipse', cx:18, cy:128, rx:15, ry:27 }],          labelX:0, labelY:0 },
+  right_ear: { aliases: ['oreja derecha','oreille droite'],                                     shapes: [{ k:'ellipse', cx:182, cy:128, rx:15, ry:27 }],         labelX:0, labelY:0 },
+  ears:      { aliases: ['orejas','oreilles','Ohren','耳朵','耳'],                               shapes: [{ k:'ellipse', cx:18, cy:128, rx:15, ry:27 },{ k:'ellipse', cx:182, cy:128, rx:15, ry:27 }], labelX:0, labelY:0 },
+  // ── hair cap ────────────────────────────────────────────────────────────────
+  hair:      { aliases: ['pelo','cabello','cheveux','Haar','头发','髪'],                         shapes: [{ k:'path', d:'M22,112 C22,52 55,18 100,14 C145,18 178,52 178,112 Q162,82 100,76 Q38,82 22,112 Z' }], labelX:0, labelY:0 },
+  // ── full face oval ──────────────────────────────────────────────────────────
+  face:      { aliases: ['cara','visage','Gesicht','脸','顔','rosto'],                          shapes: [{ k:'ellipse', cx:100, cy:128, rx:78, ry:100 }],         labelX:0, labelY:0 },
+  // ── upper / lower face regions ──────────────────────────────────────────────
+  forehead:  { aliases: ['frente','front','Stirn','额头','おでこ'],                              shapes: [{ k:'path', d:'M32,104 Q100,82 168,104 L166,122 Q130,112 100,110 Q70,112 34,122 Z' }], labelX:0, labelY:0 },
+  jaw:       { aliases: ['mandíbula','mâchoire','Kiefer','下颌'],                               shapes: [{ k:'path', d:'M28,156 Q18,186 38,208 Q64,228 100,230 Q136,228 162,208 Q182,186 172,156 Q150,176 100,180 Q50,176 28,156 Z' }], labelX:0, labelY:0 },
+  left_cheek:  { aliases: ['mejilla izquierda'],                                               shapes: [{ k:'ellipse', cx:44, cy:158, rx:28, ry:24 }],          labelX:0, labelY:0 },
+  right_cheek: { aliases: ['mejilla derecha'],                                                 shapes: [{ k:'ellipse', cx:156, cy:158, rx:28, ry:24 }],         labelX:0, labelY:0 },
+  cheeks:    { aliases: ['mejillas','pommettes','Wangen','脸颊','頬'],                           shapes: [{ k:'ellipse', cx:44, cy:158, rx:28, ry:24 },{ k:'ellipse', cx:156, cy:158, rx:28, ry:24 }], labelX:0, labelY:0 },
+  chin:      { aliases: ['mentón','menton','Kinn','下巴','あご'],                               shapes: [{ k:'ellipse', cx:100, cy:214, rx:30, ry:16 }],         labelX:0, labelY:0 },
+  // ── eyes + brows ────────────────────────────────────────────────────────────
+  left_eyebrow:  { aliases: ['ceja izquierda'],                                               shapes: [{ k:'path', d:'M44,103 C58,93 80,91 97,98 C82,104 58,105 44,103 Z' }], labelX:0, labelY:0 },
+  right_eyebrow: { aliases: ['ceja derecha'],                                                 shapes: [{ k:'path', d:'M103,98 C120,91 142,93 156,103 C142,105 118,104 103,98 Z' }], labelX:0, labelY:0 },
+  eyebrows:  { aliases: ['cejas','sourcils','Augenbrauen','眉毛','眉'],                          shapes: [{ k:'path', d:'M44,103 C58,93 80,91 97,98 C82,104 58,105 44,103 Z' },{ k:'path', d:'M103,98 C120,91 142,93 156,103 C142,105 118,104 103,98 Z' }], labelX:0, labelY:0 },
+  left_eye:  { aliases: ['ojo izquierdo','left eye'],                                          shapes: [{ k:'path', d:'M44,116 Q68,106 92,116 Q68,126 44,116 Z' }], labelX:0, labelY:0 },
+  right_eye: { aliases: ['ojo derecho','right eye'],                                           shapes: [{ k:'path', d:'M108,116 Q132,106 156,116 Q132,126 108,116 Z' }], labelX:0, labelY:0 },
+  eyes:      { aliases: ['ojos','yeux','Augen','眼睛','目'],                                    shapes: [{ k:'path', d:'M44,116 Q68,106 92,116 Q68,126 44,116 Z' },{ k:'path', d:'M108,116 Q132,106 156,116 Q132,126 108,116 Z' }], labelX:0, labelY:0 },
+  // ── nose ────────────────────────────────────────────────────────────────────
+  nose:      { aliases: ['nariz','nez','Nase','鼻子','鼻'],                                     shapes: [{ k:'path', d:'M97,120 Q95,132 90,142 Q94,153 100,155 Q106,153 110,142 Q105,132 103,120 Z' }], labelX:0, labelY:0 },
+  // ── mouth ───────────────────────────────────────────────────────────────────
+  upper_lip: { aliases: ['labio superior'],                                                     shapes: [{ k:'path', d:'M67,162 Q100,152 133,162 Q117,170 100,172 Q83,170 67,162 Z' }], labelX:0, labelY:0 },
+  lower_lip: { aliases: ['labio inferior'],                                                     shapes: [{ k:'path', d:'M67,172 Q83,180 100,182 Q117,180 133,172 Q116,177 100,178 Q84,177 67,172 Z' }], labelX:0, labelY:0 },
+  lips:      { aliases: ['labios','lèvres','Lippen','嘴唇','唇'],                               shapes: [{ k:'path', d:'M67,162 Q100,152 133,162 Q117,170 100,172 Q83,170 67,162 Z' },{ k:'path', d:'M67,172 Q83,180 100,182 Q117,180 133,172 Q116,177 100,178 Q84,177 67,172 Z' }], labelX:0, labelY:0 },
+  teeth:     { aliases: ['dientes','dents','Zähne','牙齿','歯'],                                shapes: [{ k:'rect', x:83, y:172, w:34, h:9, rx:4 }],           labelX:0, labelY:0 },
+  mouth:     { aliases: ['boca','bouche','Mund','嘴','口'],                                     shapes: [{ k:'path', d:'M67,162 Q100,152 133,162 Q117,170 100,172 Q83,170 67,162 Z' },{ k:'rect', x:83, y:172, w:34, h:9, rx:4 },{ k:'path', d:'M67,172 Q83,180 100,182 Q117,180 133,172 Q116,177 100,178 Q84,177 67,172 Z' }], labelX:0, labelY:0 },
+};
+
+function resolveFaceParts(parts: string[]): Set<string> {
+  const resolved = new Set<string>();
+  const lc = parts.map(p => p.toLowerCase());
+  for (const [key, spec] of Object.entries(FACE_PARTS)) {
+    for (const input of lc) {
+      if (input === key || spec.aliases.some(a => a.toLowerCase() === input)) {
+        resolved.add(key);
+        break;
+      }
+    }
+  }
+  if (resolved.size === 0) parts.forEach(p => resolved.add(p.toLowerCase()));
+  return resolved;
+}
+
+function FaceDiagramCanvas({ data }: { data: FaceDiagramData }) {
+  const highlighted = resolveFaceParts(data.highlightParts);
+  const baseFill   = 'hsl(var(--muted))';
+  const baseStroke = 'hsl(var(--border))';
+  const hlFill     = 'hsl(var(--primary) / 0.78)';
+  const hlStroke   = 'hsl(var(--primary))';
+
+  const eyeHl   = highlighted.has('left_eye') || highlighted.has('right_eye') || highlighted.has('eyes') || highlighted.has('face');
+  const mouthHl = highlighted.has('mouth') || highlighted.has('lips') || highlighted.has('upper_lip') || highlighted.has('lower_lip') || highlighted.has('teeth');
+  const noseHl  = highlighted.has('nose') || highlighted.has('face');
+
+  const labelParts = Array.from(highlighted).map(key => ({
+    key,
+    label: (data.labels?.[key]) ?? key.replace(/_/g, ' '),
+  }));
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center gap-2 p-4">
+      <svg viewBox="0 0 200 244" className="w-28 sm:w-36" aria-label="Face close-up diagram">
+        <defs>
+          <filter id="face-hl-glow" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="3.5" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
+
+        {Object.entries(FACE_PARTS).map(([key, spec]) => {
+          const isHl = highlighted.has(key);
+          return (
+            <g key={key} filter={isHl ? 'url(#face-hl-glow)' : undefined}>
+              {spec.shapes.map((shape, i) => (
+                <g key={i}>{renderShape(shape, isHl ? hlFill : baseFill, isHl ? hlStroke : baseStroke)}</g>
+              ))}
+            </g>
+          );
+        })}
+
+        {/* Always-visible eye details */}
+        <ellipse cx={68} cy={116} rx={5} ry={6} fill={eyeHl ? 'hsl(var(--primary-foreground))' : 'hsl(var(--foreground) / 0.55)'} />
+        <circle  cx={70} cy={114} r={1.5} fill={eyeHl ? 'hsl(var(--primary) / 0.5)' : 'hsl(var(--background) / 0.6)'} />
+        <ellipse cx={132} cy={116} rx={5} ry={6} fill={eyeHl ? 'hsl(var(--primary-foreground))' : 'hsl(var(--foreground) / 0.55)'} />
+        <circle  cx={134} cy={114} r={1.5} fill={eyeHl ? 'hsl(var(--primary) / 0.5)' : 'hsl(var(--background) / 0.6)'} />
+
+        {/* Always-visible nostril dots */}
+        <ellipse cx={92} cy={146} rx={4.5} ry={3} fill={noseHl ? 'hsl(var(--primary-foreground) / 0.5)' : 'hsl(var(--foreground) / 0.2)'} />
+        <ellipse cx={108} cy={146} rx={4.5} ry={3} fill={noseHl ? 'hsl(var(--primary-foreground) / 0.5)' : 'hsl(var(--foreground) / 0.2)'} />
+
+        {/* Always-visible smile line */}
+        <path d="M80,168 Q100,175 120,168" fill="none"
+          stroke={mouthHl ? 'hsl(var(--primary-foreground) / 0.6)' : 'hsl(var(--foreground) / 0.25)'}
+          strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+
+      {labelParts.length > 0 && (
+        <div className="flex flex-wrap justify-center gap-1.5 mt-1 max-w-48">
+          {labelParts.map(({ key, label }) => (
+            <motion.span key={key} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
+              className="px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold">
+              {label}
+            </motion.span>
+          ))}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+// ─── Hand Close-up Canvas ────────────────────────────────────────────────────
+
+// Dorsal (back of hand) view, fingers pointing up, right hand by default.
+// Render order: wrist → palm → thumb → fingers → knuckles → fingernails (front-most)
+const HAND_PARTS: Record<string, BodyPartSpec> = {
+  wrist:         { aliases: ['muñeca','poignet','Handgelenk','手腕','手首'],                     shapes: [{ k:'path', d:'M60,240 C58,262 62,282 68,287 L132,287 C138,282 142,262 140,240 Z' }], labelX:0, labelY:0 },
+  palm:          { aliases: ['palma','paume','Handfläche','手掌','掌'],                           shapes: [{ k:'path', d:'M48,124 C44,156 46,200 60,240 L140,240 C154,200 156,156 152,124 Q138,112 100,110 Q62,112 48,124 Z' }], labelX:0, labelY:0 },
+  thumb:         { aliases: ['pulgar','pouce','Daumen','拇指','親指'],                            shapes: [{ k:'path', d:'M48,130 C40,116 34,96 36,74 C38,58 48,52 58,60 C68,70 68,92 64,126 Z' }], labelX:0, labelY:0 },
+  index_finger:  { aliases: ['dedo índice','index','Zeigefinger','食指','人差し指','pointer','index finger','índice'], shapes: [{ k:'path', d:'M66,114 C64,92 64,58 66,36 C68,24 78,22 84,26 C90,30 90,54 88,82 L88,114 Z' }], labelX:0, labelY:0 },
+  middle_finger: { aliases: ['dedo medio','majeur','Mittelfinger','中指'],                       shapes: [{ k:'path', d:'M92,110 C90,88 90,50 92,26 C94,14 106,14 108,26 C110,50 110,88 108,110 Z' }], labelX:0, labelY:0 },
+  ring_finger:   { aliases: ['dedo anular','annulaire','Ringfinger','无名指','薬指'],             shapes: [{ k:'path', d:'M112,112 C112,90 112,56 114,36 C116,24 126,22 130,28 C136,34 134,62 132,90 L130,112 Z' }], labelX:0, labelY:0 },
+  pinky:         { aliases: ['meñique','auriculaire','kleiner Finger','小指','little finger'],   shapes: [{ k:'path', d:'M134,120 C133,100 134,78 136,60 C138,48 148,46 154,54 C160,62 158,84 154,114 Z' }], labelX:0, labelY:0 },
+  fingers:       { aliases: ['dedos','doigts','Finger','手指','指'],                              shapes: [{ k:'path', d:'M66,114 C64,92 64,58 66,36 C68,24 78,22 84,26 C90,30 90,54 88,82 L88,114 Z' },{ k:'path', d:'M92,110 C90,88 90,50 92,26 C94,14 106,14 108,26 C110,50 110,88 108,110 Z' },{ k:'path', d:'M112,112 C112,90 112,56 114,36 C116,24 126,22 130,28 C136,34 134,62 132,90 L130,112 Z' },{ k:'path', d:'M134,120 C133,100 134,78 136,60 C138,48 148,46 154,54 C160,62 158,84 154,114 Z' }], labelX:0, labelY:0 },
+  knuckles:      { aliases: ['nudillos','articulations','Knöchel','指关节','ナックル'],            shapes: [{ k:'circle', cx:77, cy:114, r:9 },{ k:'circle', cx:100, cy:110, r:9 },{ k:'circle', cx:121, cy:112, r:9 },{ k:'circle', cx:141, cy:120, r:9 }], labelX:0, labelY:0 },
+  fingernails:   { aliases: ['uñas','ongles','Fingernägel','指甲','爪'],                         shapes: [{ k:'ellipse', cx:53, cy:64, rx:8, ry:9 },{ k:'ellipse', cx:77, cy:31, rx:7, ry:9 },{ k:'ellipse', cx:100, cy:21, rx:7, ry:9 },{ k:'ellipse', cx:121, cy:31, rx:7, ry:9 },{ k:'ellipse', cx:144, cy:55, rx:6, ry:8 }], labelX:0, labelY:0 },
+};
+
+function resolveHandParts(parts: string[]): Set<string> {
+  const resolved = new Set<string>();
+  const lc = parts.map(p => p.toLowerCase());
+  for (const [key, spec] of Object.entries(HAND_PARTS)) {
+    for (const input of lc) {
+      if (input === key || spec.aliases.some(a => a.toLowerCase() === input)) {
+        resolved.add(key);
+        break;
+      }
+    }
+  }
+  if (resolved.size === 0) parts.forEach(p => resolved.add(p.toLowerCase()));
+  return resolved;
+}
+
+function HandDiagramCanvas({ data }: { data: HandDiagramData }) {
+  const highlighted = resolveHandParts(data.highlightParts);
+  const baseFill   = 'hsl(var(--muted))';
+  const baseStroke = 'hsl(var(--border))';
+  const hlFill     = 'hsl(var(--primary) / 0.78)';
+  const hlStroke   = 'hsl(var(--primary))';
+
+  // Mirror transform for left hand
+  const mirror = data.hand === 'left';
+  const transform = mirror ? 'scale(-1,1) translate(-200,0)' : undefined;
+
+  const labelParts = Array.from(highlighted).map(key => ({
+    key,
+    label: (data.labels?.[key]) ?? key.replace(/_/g, ' '),
+  }));
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center gap-2 p-4">
+      <svg viewBox="0 0 200 295" className="w-24 sm:w-32" aria-label="Hand diagram">
+        <defs>
+          <filter id="hand-hl-glow" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="3.5" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
+        <g transform={transform}>
+          {Object.entries(HAND_PARTS).map(([key, spec]) => {
+            const isHl = highlighted.has(key);
+            return (
+              <g key={key} filter={isHl ? 'url(#hand-hl-glow)' : undefined}>
+                {spec.shapes.map((shape, i) => (
+                  <g key={i}>{renderShape(shape, isHl ? hlFill : baseFill, isHl ? hlStroke : baseStroke)}</g>
+                ))}
+              </g>
+            );
+          })}
+
+          {/* Always-visible finger crease lines on palm */}
+          {[78, 100, 121].map((x, i) => (
+            <line key={i}
+              x1={x} y1={115} x2={x} y2={135}
+              stroke="hsl(var(--foreground) / 0.12)" strokeWidth="1.5" strokeLinecap="round"
+            />
+          ))}
+
+          {/* Always-visible fingernail detail lines */}
+          {[
+            { cx: 77, cy: 31 }, { cx: 100, cy: 21 }, { cx: 121, cy: 31 }, { cx: 144, cy: 55 }
+          ].map((n, i) => (
+            <line key={i}
+              x1={n.cx - 4} y1={n.cy + 6} x2={n.cx + 4} y2={n.cy + 6}
+              stroke="hsl(var(--foreground) / 0.15)" strokeWidth="1" strokeLinecap="round"
+            />
+          ))}
+        </g>
+      </svg>
+
+      {labelParts.length > 0 && (
+        <div className="flex flex-wrap justify-center gap-1.5 mt-1 max-w-48">
+          {labelParts.map(({ key, label }) => (
+            <motion.span key={key} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
+              className="px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold">
+              {label}
+            </motion.span>
+          ))}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
 // ─── World Map Canvas ─────────────────────────────────────────────────────────
 
 interface CountryDef { x: number; y: number; name: string; short: string }
@@ -853,6 +1076,8 @@ export function SceneCanvas({ data, "data-testid": testId }: SceneCanvasProps) {
   const hasConjugation = Boolean(data.conjugationTable);
   const hasCalendar = Boolean(data.calendarData);
   const hasBody = Boolean(data.bodyDiagram);
+  const hasFace = Boolean(data.faceDiagram);
+  const hasHand = Boolean(data.handDiagram);
   const hasThermometer = Boolean(data.thermometerData);
   const hasEmotion = Boolean(data.emotionData);
   const hasWeather = Boolean(data.weatherData);
@@ -862,6 +1087,8 @@ export function SceneCanvas({ data, "data-testid": testId }: SceneCanvasProps) {
   // Priority: body > world map > conjugation > calendar > thermometer > emotion > weather > clock
   if (!hasBackground && !hasProps) {
     if (hasBody) return <div data-testid={testId} className="w-full min-h-32"><BodyDiagramCanvas data={data.bodyDiagram!} /></div>;
+    if (hasFace) return <div data-testid={testId} className="w-full min-h-32 flex justify-center"><FaceDiagramCanvas data={data.faceDiagram!} /></div>;
+    if (hasHand) return <div data-testid={testId} className="w-full min-h-32 flex justify-center"><HandDiagramCanvas data={data.handDiagram!} /></div>;
     if (hasWorldMap) return <div data-testid={testId} className="w-full"><WorldMapCanvas data={data.worldMapData!} /></div>;
     if (hasConjugation) return <div data-testid={testId} className="w-full min-h-32"><ConjugationTableCanvas table={data.conjugationTable!} /></div>;
     if (hasCalendar) return <div data-testid={testId} className="w-full min-h-32"><CalendarCanvas cal={data.calendarData!} /></div>;
@@ -912,7 +1139,7 @@ export function SceneCanvas({ data, "data-testid": testId }: SceneCanvasProps) {
       )}
 
       {/* Phase 2 overlays on top of spatial scene (right side panel) */}
-      {(hasConjugation || hasCalendar || hasBody || hasWorldMap || hasThermometer || hasEmotion || hasWeather) && (
+      {(hasConjugation || hasCalendar || hasBody || hasFace || hasHand || hasWorldMap || hasThermometer || hasEmotion || hasWeather) && (
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -921,6 +1148,8 @@ export function SceneCanvas({ data, "data-testid": testId }: SceneCanvasProps) {
           {hasConjugation && <ConjugationTableCanvas table={data.conjugationTable!} />}
           {hasCalendar && <CalendarCanvas cal={data.calendarData!} />}
           {hasBody && <BodyDiagramCanvas data={data.bodyDiagram!} />}
+          {hasFace && <FaceDiagramCanvas data={data.faceDiagram!} />}
+          {hasHand && <HandDiagramCanvas data={data.handDiagram!} />}
           {hasWorldMap && <WorldMapCanvas data={data.worldMapData!} />}
           {hasThermometer && <ThermometerCanvas data={data.thermometerData!} />}
           {hasEmotion && <EmotionFaceCanvas data={data.emotionData!} />}
