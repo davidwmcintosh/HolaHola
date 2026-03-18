@@ -1021,6 +1021,7 @@ Food props must reflect what a student would actually encounter in the culture t
 | **Japanese** | onigiri, miso soup, tamagoyaki, rice bowl | ramen, soba, bento box, udon | sushi platter, tempura, yakitori, tonkatsu | mochi, dorayaki, matcha ice cream |
 | **Chinese (Mandarin)** | congee, dim sum, baozi, youtiao | dumplings/jiaozi, fried rice, spring rolls | Peking duck, hot pot, mapo tofu, kung pao chicken | tang yuan, egg tart, sesame balls |
 | **Korean** | dosirak (lunchbox), juk (porridge) | bibimbap, tteokbokki, japchae | bulgogi, galbi, samgyeopsal, kimchi jjigae | bingsu, hotteok, sikhye |
+| **Hebrew** | shakshuka, bourekas, labane toast, café hafuch | sabich, falafel wrap, hummus plate, Israeli salad | shwarma plate, grilled fish, couscous, stuffed peppers | rugelach, ka'ak cookies, halva |
 
 ### Meal Category Completeness (per language)
 
@@ -1059,5 +1060,66 @@ Each language needs at minimum:
 2. **French** — high demand, many props overlap with existing
 3. **Japanese** — visually very distinct, high educational value
 4. **Italian** — overlaps with French, efficient to do together
-5. **Others** — as language support expands
+5. **Hebrew** — new language, Israeli Coffee Shop scenario drives immediate need
+6. **Others** — as language support expands
+
+---
+
+## Section 9 — Immersive Experience: Tutor in Scene
+
+**Added:** March 18 2026  
+**Status:** 🔬 Exploration  
+**Priority:** Medium — high visual impact once proven
+
+### Concept
+
+Currently the tutor avatars (listening/thinking/talking portrait cutouts) live exclusively in the standard lesson view. The immersive scene mode is a separate fullscreen experience with only the environment background and props — no tutor visible. The idea is to place Daniela (or any tutor) visibly *inside* the scene during immersive mode, making her feel like a real person standing in the environment rather than a disembodied voice.
+
+### Chosen Approach — Option 2: Transparent Avatar Overlay
+
+Float the existing no-background tutor portrait on top of the scene background at a contextually natural position. For counter/bar scenes (taqueria, french_brasserie, israeli_cafe) she would appear behind the counter on one side. For table scenes (izakaya, biergarten, trattoria, korean_bbq) she would appear seated or standing at the far edge. Her three animation states (listening, thinking, talking) continue to work as normal.
+
+**Why this approach:**
+- Reuses existing transparent cutout art — no new image set needed per scene
+- Tutor animation states (listening/thinking/talking) still function
+- Works across all 9 cultural scene backgrounds without additional art production
+- Can be toggled or positioned per scene type without a full visual overhaul
+
+**Why not the alternatives:**
+- Option 1 (bake tutor into scene art): one set of images per tutor per scene — exponentially more art to produce, tutor can't animate
+- Option 3 (docked side panel): breaks immersion, defeats the point of the fullscreen scene
+
+### Pilot Plan
+
+Test with one scene first before rolling out to all 9:
+
+| Step | Detail |
+|------|--------|
+| Choose pilot scene | `taqueria` — widest use, most developed; Daniela as the taquera behind the counter |
+| Position | Bottom-left quadrant, behind the counter — scaled to ~40% of scene height |
+| Anchor point | Fixed to scene coordinates, not floating UI layer |
+| Animation states | Swap listening/thinking/talking cutouts on Daniela's state change as normal |
+| Evaluate | Does she look natural? Is scale correct? Does she occlude props awkwardly? |
+| Rollout | If pilot works, parameterize position per scene type and enable all 9 |
+
+### Scene-Specific Position Guide (draft)
+
+| Scene | Tutor position | Notes |
+|-------|---------------|-------|
+| taqueria | Behind counter, left side | Natural as the taquera |
+| french_brasserie | Behind counter/zinc bar, right side | Natural as the café server |
+| japanese_izakaya | Right side, standing — slightly behind table | Izakaya staff position |
+| german_biergarten | Standing at end of bench, right | Open air — less natural but workable |
+| italian_trattoria | Left side, standing near wall | Natural as the host/waiter |
+| korean_bbq | Standing to right of table | Grillmaster position |
+| chinese_teahouse | Left side, seated low | Tea ceremony host |
+| israeli_cafe | Behind counter, right side | Natural as the barista |
+| cafe | Behind counter, center-left | Generic barista position |
+
+### Technical Notes
+
+- Tutor overlay would be a new `TutorInScene` component rendered inside `ImmersiveSceneView` (or equivalent) as an absolutely positioned layer above the background but below the prop canvas
+- Scene-specific position and scale stored as metadata per visual environment (or hardcoded per scene name initially for the pilot)
+- No new avatar images needed unless we later want scene-specific costume variants (e.g. Daniela in a taqueria apron)
+- Costume variants (Option 1-hybrid) could be a future phase if the overlay approach proves compelling
 
