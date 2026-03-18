@@ -446,7 +446,7 @@ PREPOSITION → POSITION MAPPING:
           environment: {
             type: "string",
             description: "The base scene to use",
-            enum: ["cafe", "restaurant_table", "hotel_lobby", "kitchen", "living_room", "bedroom", "bathroom", "park", "airport", "city_street", "office", "classroom", "outdoor_market", "grocery_store", "doctor_office", "kitchen_counter", "bedroom_closeup", "desk_closeup", "taqueria", "french_brasserie", "japanese_izakaya", "german_biergarten", "italian_trattoria", "korean_bbq", "chinese_teahouse"],
+            enum: ["cafe", "restaurant_table", "hotel_lobby", "kitchen", "living_room", "bedroom", "bathroom", "park", "airport", "city_street", "office", "classroom", "outdoor_market", "grocery_store", "doctor_office", "kitchen_counter", "bedroom_closeup", "desk_closeup", "taqueria", "french_brasserie", "japanese_izakaya", "german_biergarten", "italian_trattoria", "korean_bbq", "chinese_teahouse", "israeli_cafe"],
           },
           objects: {
             type: "array",
@@ -552,7 +552,7 @@ Use the live canvas only when the SEQUENCE of changes is pedagogically meaningfu
           environment: {
             type: "string",
             description: "The background environment to load.",
-            enum: ["cafe", "restaurant_table", "hotel_lobby", "kitchen", "living_room", "bedroom", "bathroom", "park", "airport", "city_street", "office", "classroom", "outdoor_market", "grocery_store", "doctor_office", "kitchen_counter", "bedroom_closeup", "desk_closeup", "taqueria", "french_brasserie", "japanese_izakaya", "german_biergarten", "italian_trattoria", "korean_bbq", "chinese_teahouse"],
+            enum: ["cafe", "restaurant_table", "hotel_lobby", "kitchen", "living_room", "bedroom", "bathroom", "park", "airport", "city_street", "office", "classroom", "outdoor_market", "grocery_store", "doctor_office", "kitchen_counter", "bedroom_closeup", "desk_closeup", "taqueria", "french_brasserie", "japanese_izakaya", "german_biergarten", "italian_trattoria", "korean_bbq", "chinese_teahouse", "israeli_cafe"],
           },
           label: { type: "string", description: "Optional short label shown as the scene title (e.g. 'En el restaurante')" },
         },
@@ -1226,6 +1226,15 @@ IMPORTANT — set up the FULL scene BEFORE calling enter_immersive:
    - For a full meal: add dim_sum / dumplings / rice at on_plate positions
    - This environment suits a slow, contemplative lesson on tea vocabulary and ritual phrases
    - Label props in Mandarin Chinese characters — this is a Mandarin-immersive environment
+
+   For "israeli_cafe" (modern Tel Aviv coffee shop scenario):
+   - White Caesarstone counter is bare — espresso machine, display case, and Hebrew chalkboard are background art
+   - Use counter positions (center, left, right) for coffee cups, pastries, and small plates
+   - Suggested opening props: coffee_cup → center | cafe_menu → left | plate → right
+   - When student orders: add pastry / croissant / cake at on_plate; espresso or latte at glass_spot
+   - This environment is purpose-built for Hebrew — use it for Israeli Coffee Shop scenario lessons
+   - Label props in Hebrew (right-to-left script) — this is a Hebrew-immersive environment
+   - Great for novice vocabulary (kafeh, teh, ugah) and intermediate ordering conversations
 
 3. THEN call enter_immersive() — student sees a fully dressed, labeled scene immediately
 
