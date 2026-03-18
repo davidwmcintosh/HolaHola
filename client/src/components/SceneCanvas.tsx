@@ -589,45 +589,46 @@ interface BodyPartSpec {
   labelX: number; labelY: number;
 }
 
+// Organic human figure — tapered bezier paths for limbs/torso, viewBox 200×400
 const BODY_PARTS: Record<string, BodyPartSpec> = {
-  head:         { aliases: ['cabeza','tête','Kopf','头','頭','rosto'],         shapes: [{ k:'circle', cx:100, cy:42, r:30 }],                                labelX:136, labelY:42 },
-  hair:         { aliases: ['pelo','cabello','cheveux','Haar','头发'],          shapes: [{ k:'path', d:'M 72 36 Q 76 8 100 10 Q 124 8 128 36 Q 120 20 100 18 Q 80 20 72 36 Z' }], labelX:136, labelY:18 },
-  face:         { aliases: ['cara','visage','Gesicht','脸'],                    shapes: [{ k:'circle', cx:100, cy:46, r:22 }],                                labelX:136, labelY:46 },
-  left_eye:     { aliases: ['ojo izquierdo','left eye'],                       shapes: [{ k:'ellipse', cx:91, cy:38, rx:6, ry:5 }],                          labelX:136, labelY:38 },
-  right_eye:    { aliases: ['ojo derecho','right eye'],                        shapes: [{ k:'ellipse', cx:109, cy:38, rx:6, ry:5 }],                         labelX:136, labelY:38 },
-  eyes:         { aliases: ['ojos','yeux','Augen','眼睛','目'],                 shapes: [{ k:'ellipse', cx:91, cy:38, rx:6, ry:5 },{ k:'ellipse', cx:109, cy:38, rx:6, ry:5 }], labelX:136, labelY:38 },
-  nose:         { aliases: ['nariz','nez','Nase','鼻子','鼻'],                  shapes: [{ k:'ellipse', cx:100, cy:47, rx:4, ry:5 }],                         labelX:136, labelY:47 },
-  mouth:        { aliases: ['boca','bouche','Mund','嘴','口'],                  shapes: [{ k:'rect', x:90, y:55, w:20, h:8, rx:4 }],                         labelX:136, labelY:59 },
-  ear:          { aliases: ['oreja','oreille','Ohr','耳'],                      shapes: [{ k:'ellipse', cx:69, cy:44, rx:5, ry:8 },{ k:'ellipse', cx:131, cy:44, rx:5, ry:8 }], labelX:136, labelY:44 },
-  neck:         { aliases: ['cuello','cou','Hals','脖子','首'],                 shapes: [{ k:'rect', x:91, y:71, w:18, h:16, rx:4 }],                        labelX:136, labelY:79 },
-  left_shoulder:{ aliases: ['hombro izquierdo'],                               shapes: [{ k:'ellipse', cx:63, cy:89, rx:18, ry:11 }],                        labelX:28, labelY:89 },
-  right_shoulder:{ aliases:['hombro derecho'],                                 shapes: [{ k:'ellipse', cx:137, cy:89, rx:18, ry:11 }],                       labelX:136, labelY:89 },
-  shoulders:    { aliases: ['hombros','épaules','Schultern','肩'],              shapes: [{ k:'ellipse', cx:63, cy:89, rx:18, ry:11 },{ k:'ellipse', cx:137, cy:89, rx:18, ry:11 }], labelX:136, labelY:89 },
-  chest:        { aliases: ['pecho','poitrine','Brust','胸'],                   shapes: [{ k:'rect', x:73, y:87, w:54, h:68, rx:5 }],                        labelX:136, labelY:121 },
-  torso:        { aliases: ['torso','tronc','Rumpf','躯干'],                    shapes: [{ k:'rect', x:73, y:87, w:54, h:68, rx:5 },{ k:'rect', x:73, y:152, w:54, h:40, rx:5 }], labelX:136, labelY:121 },
-  abdomen:      { aliases: ['estómago','abdomen','ventre','Bauch','お腹','腹'], shapes: [{ k:'rect', x:73, y:152, w:54, h:40, rx:5 }],                       labelX:136, labelY:172 },
-  left_arm:     { aliases: ['brazo izquierdo','left arm'],                     shapes: [{ k:'rect', x:45, y:87, w:30, h:60, rx:12 }],                       labelX:28, labelY:117 },
-  right_arm:    { aliases: ['brazo derecho','right arm'],                      shapes: [{ k:'rect', x:125, y:87, w:30, h:60, rx:12 }],                      labelX:136, labelY:117 },
-  arms:         { aliases: ['brazos','bras','Arme','腕','手腕'],                shapes: [{ k:'rect', x:45, y:87, w:30, h:60, rx:12 },{ k:'rect', x:125, y:87, w:30, h:60, rx:12 }], labelX:136, labelY:117 },
-  left_elbow:   { aliases: ['codo izquierdo'],                                 shapes: [{ k:'circle', cx:60, cy:147, r:12 }],                                labelX:28, labelY:147 },
-  right_elbow:  { aliases: ['codo derecho'],                                   shapes: [{ k:'circle', cx:140, cy:147, r:12 }],                               labelX:136, labelY:147 },
-  elbow:        { aliases: ['codo','coude','Ellbogen','肘'],                    shapes: [{ k:'circle', cx:60, cy:147, r:12 },{ k:'circle', cx:140, cy:147, r:12 }], labelX:136, labelY:147 },
-  left_forearm: { aliases: ['antebrazo izquierdo'],                            shapes: [{ k:'rect', x:46, y:157, w:26, h:55, rx:10 }],                      labelX:28, labelY:184 },
-  right_forearm:{ aliases: ['antebrazo derecho'],                              shapes: [{ k:'rect', x:128, y:157, w:26, h:55, rx:10 }],                     labelX:136, labelY:184 },
-  left_hand:    { aliases: ['mano izquierda'],                                 shapes: [{ k:'rect', x:42, y:210, w:32, h:34, rx:10 }],                      labelX:28, labelY:227 },
-  right_hand:   { aliases: ['mano derecha'],                                   shapes: [{ k:'rect', x:126, y:210, w:32, h:34, rx:10 }],                     labelX:136, labelY:227 },
-  hands:        { aliases: ['manos','mains','Hände','手'],                      shapes: [{ k:'rect', x:42, y:210, w:32, h:34, rx:10 },{ k:'rect', x:126, y:210, w:32, h:34, rx:10 }], labelX:136, labelY:227 },
-  hips:         { aliases: ['cadera','hanches','Hüfte','腰'],                   shapes: [{ k:'rect', x:67, y:190, w:66, h:32, rx:5 }],                       labelX:136, labelY:206 },
-  left_leg:     { aliases: ['pierna izquierda'],                               shapes: [{ k:'rect', x:68, y:220, w:34, h:80, rx:12 },{k:'circle',cx:85,cy:300,r:12},{k:'rect',x:70,y:310,w:30,h:65,rx:10}], labelX:28, labelY:280 },
-  right_leg:    { aliases: ['pierna derecha'],                                 shapes: [{ k:'rect', x:98, y:220, w:34, h:80, rx:12 },{k:'circle',cx:115,cy:300,r:12},{k:'rect',x:100,y:310,w:30,h:65,rx:10}], labelX:136, labelY:280 },
-  legs:         { aliases: ['piernas','jambes','Beine','足','脚'],              shapes: [{ k:'rect', x:68, y:220, w:34, h:80, rx:12 },{k:'circle',cx:85,cy:300,r:12},{k:'rect',x:70,y:310,w:30,h:65,rx:10},{k:'rect',x:98,y:220,w:34,h:80,rx:12},{k:'circle',cx:115,cy:300,r:12},{k:'rect',x:100,y:310,w:30,h:65,rx:10}], labelX:136, labelY:280 },
-  left_knee:    { aliases: ['rodilla izquierda'],                              shapes: [{ k:'circle', cx:85, cy:300, r:12 }],                                labelX:28, labelY:300 },
-  right_knee:   { aliases: ['rodilla derecha'],                                shapes: [{ k:'circle', cx:115, cy:300, r:12 }],                               labelX:136, labelY:300 },
-  knee:         { aliases: ['rodilla','genou','Knie','膝'],                     shapes: [{ k:'circle', cx:85, cy:300, r:12 },{ k:'circle', cx:115, cy:300, r:12 }], labelX:136, labelY:300 },
-  left_foot:    { aliases: ['pie izquierdo'],                                  shapes: [{ k:'ellipse', cx:82, cy:384, rx:26, ry:12 }],                       labelX:28, labelY:390 },
-  right_foot:   { aliases: ['pie derecho'],                                    shapes: [{ k:'ellipse', cx:118, cy:384, rx:26, ry:12 }],                      labelX:136, labelY:390 },
-  feet:         { aliases: ['pies','pieds','Füße','足の裏','脚'],               shapes: [{ k:'ellipse', cx:82, cy:384, rx:26, ry:12 },{ k:'ellipse', cx:118, cy:384, rx:26, ry:12 }], labelX:136, labelY:390 },
-  back:         { aliases: ['espalda','dos','Rücken','背中','背'],              shapes: [{ k:'rect', x:73, y:87, w:54, h:100, rx:5 }],                       labelX:136, labelY:137 },
+  head:          { aliases: ['cabeza','tête','Kopf','头','頭','rosto'],          shapes: [{ k:'ellipse', cx:100, cy:40, rx:27, ry:31 }],  labelX:136, labelY:40 },
+  hair:          { aliases: ['pelo','cabello','cheveux','Haar','头发'],           shapes: [{ k:'path', d:'M74,25 Q76,6 100,5 Q124,6 126,25 Q116,12 100,11 Q84,12 74,25 Z' }], labelX:136, labelY:12 },
+  face:          { aliases: ['cara','visage','Gesicht','脸'],                     shapes: [{ k:'ellipse', cx:100, cy:44, rx:21, ry:23 }],  labelX:136, labelY:44 },
+  left_eye:      { aliases: ['ojo izquierdo','left eye'],                        shapes: [{ k:'ellipse', cx:91, cy:37, rx:6, ry:5 }],    labelX:55,  labelY:37 },
+  right_eye:     { aliases: ['ojo derecho','right eye'],                         shapes: [{ k:'ellipse', cx:109, cy:37, rx:6, ry:5 }],   labelX:136, labelY:37 },
+  eyes:          { aliases: ['ojos','yeux','Augen','眼睛','目'],                  shapes: [{ k:'ellipse', cx:91, cy:37, rx:6, ry:5 },{ k:'ellipse', cx:109, cy:37, rx:6, ry:5 }], labelX:136, labelY:37 },
+  nose:          { aliases: ['nariz','nez','Nase','鼻子','鼻'],                   shapes: [{ k:'ellipse', cx:100, cy:47, rx:4, ry:5 }],   labelX:136, labelY:47 },
+  mouth:         { aliases: ['boca','bouche','Mund','嘴','口'],                   shapes: [{ k:'ellipse', cx:100, cy:57, rx:9, ry:5 }],   labelX:136, labelY:57 },
+  ear:           { aliases: ['oreja','oreille','Ohr','耳'],                       shapes: [{ k:'ellipse', cx:72, cy:42, rx:5, ry:8 },{ k:'ellipse', cx:128, cy:42, rx:5, ry:8 }], labelX:136, labelY:42 },
+  neck:          { aliases: ['cuello','cou','Hals','脖子','首'],                  shapes: [{ k:'path', d:'M91,70 Q88,79 91,89 L109,89 Q112,79 109,70 Z' }], labelX:136, labelY:79 },
+  left_shoulder: { aliases: ['hombro izquierdo'],                                shapes: [{ k:'ellipse', cx:60, cy:100, rx:18, ry:11 }], labelX:28,  labelY:100 },
+  right_shoulder:{ aliases: ['hombro derecho'],                                  shapes: [{ k:'ellipse', cx:140, cy:100, rx:18, ry:11 }],labelX:136, labelY:100 },
+  shoulders:     { aliases: ['hombros','épaules','Schultern','肩'],               shapes: [{ k:'ellipse', cx:60, cy:100, rx:18, ry:11 },{ k:'ellipse', cx:140, cy:100, rx:18, ry:11 }], labelX:136, labelY:100 },
+  chest:         { aliases: ['pecho','poitrine','Brust','胸'],                    shapes: [{ k:'path', d:'M80,89 C58,93 54,112 55,170 Q72,186 100,187 Q128,186 145,170 C146,112 142,93 120,89 Z' }], labelX:136, labelY:128 },
+  torso:         { aliases: ['torso','tronc','Rumpf','躯干'],                     shapes: [{ k:'path', d:'M80,89 C58,93 54,112 55,170 Q72,186 100,187 Q128,186 145,170 C146,112 142,93 120,89 Z' }], labelX:136, labelY:138 },
+  abdomen:       { aliases: ['estómago','abdomen','ventre','Bauch','お腹','腹'],  shapes: [{ k:'path', d:'M60,184 C58,198 59,215 62,222 L138,222 C141,215 142,198 140,184 Q124,193 100,194 Q76,193 60,184 Z' }], labelX:136, labelY:206 },
+  left_arm:      { aliases: ['brazo izquierdo','left arm'],                      shapes: [{ k:'path', d:'M44,107 C38,122 36,138 38,154 L57,158 C61,142 67,124 70,109 Z' }], labelX:24,  labelY:132 },
+  right_arm:     { aliases: ['brazo derecho','right arm'],                       shapes: [{ k:'path', d:'M156,107 C162,122 164,138 162,154 L143,158 C139,142 133,124 130,109 Z' }], labelX:136, labelY:132 },
+  arms:          { aliases: ['brazos','bras','Arme','腕','手腕'],                 shapes: [{ k:'path', d:'M44,107 C38,122 36,138 38,154 L57,158 C61,142 67,124 70,109 Z' },{ k:'path', d:'M156,107 C162,122 164,138 162,154 L143,158 C139,142 133,124 130,109 Z' }], labelX:136, labelY:132 },
+  left_elbow:    { aliases: ['codo izquierdo'],                                  shapes: [{ k:'circle', cx:47, cy:156, r:12 }],          labelX:24,  labelY:156 },
+  right_elbow:   { aliases: ['codo derecho'],                                    shapes: [{ k:'circle', cx:153, cy:156, r:12 }],         labelX:136, labelY:156 },
+  elbow:         { aliases: ['codo','coude','Ellbogen','肘'],                     shapes: [{ k:'circle', cx:47, cy:156, r:12 },{ k:'circle', cx:153, cy:156, r:12 }], labelX:136, labelY:156 },
+  left_forearm:  { aliases: ['antebrazo izquierdo'],                             shapes: [{ k:'path', d:'M38,154 C35,172 37,196 40,214 L57,215 C59,196 60,172 57,158 Z' }], labelX:24,  labelY:186 },
+  right_forearm: { aliases: ['antebrazo derecho'],                               shapes: [{ k:'path', d:'M162,154 C165,172 163,196 160,214 L143,215 C141,196 140,172 143,158 Z' }], labelX:136, labelY:186 },
+  left_hand:     { aliases: ['mano izquierda'],                                  shapes: [{ k:'ellipse', cx:49, cy:224, rx:15, ry:17 }], labelX:24,  labelY:224 },
+  right_hand:    { aliases: ['mano derecha'],                                    shapes: [{ k:'ellipse', cx:151, cy:224, rx:15, ry:17 }],labelX:136, labelY:224 },
+  hands:         { aliases: ['manos','mains','Hände','手'],                       shapes: [{ k:'ellipse', cx:49, cy:224, rx:15, ry:17 },{ k:'ellipse', cx:151, cy:224, rx:15, ry:17 }], labelX:136, labelY:224 },
+  hips:          { aliases: ['cadera','hanches','Hüfte','腰'],                    shapes: [{ k:'path', d:'M60,184 C58,198 59,215 62,222 L138,222 C141,215 142,198 140,184 Q124,193 100,194 Q76,193 60,184 Z' }], labelX:136, labelY:206 },
+  left_leg:      { aliases: ['pierna izquierda'],                                shapes: [{ k:'path', d:'M63,222 C61,252 64,270 68,288 L88,287 C92,269 93,251 95,222 Z' },{ k:'circle', cx:76,cy:290,r:13 },{ k:'path', d:'M65,288 C62,322 64,348 68,368 L86,368 C87,348 88,322 88,288 Z' }], labelX:24,  labelY:278 },
+  right_leg:     { aliases: ['pierna derecha'],                                  shapes: [{ k:'path', d:'M137,222 C139,252 136,270 132,288 L112,287 C108,269 107,251 105,222 Z' },{ k:'circle', cx:124,cy:290,r:13 },{ k:'path', d:'M135,288 C138,322 136,348 132,368 L114,368 C112,348 112,322 112,288 Z' }], labelX:136, labelY:278 },
+  legs:          { aliases: ['piernas','jambes','Beine','足','脚'],               shapes: [{ k:'path', d:'M63,222 C61,252 64,270 68,288 L88,287 C92,269 93,251 95,222 Z' },{ k:'circle', cx:76,cy:290,r:13 },{ k:'path', d:'M65,288 C62,322 64,348 68,368 L86,368 C87,348 88,322 88,288 Z' },{ k:'path', d:'M137,222 C139,252 136,270 132,288 L112,287 C108,269 107,251 105,222 Z' },{ k:'circle', cx:124,cy:290,r:13 },{ k:'path', d:'M135,288 C138,322 136,348 132,368 L114,368 C112,348 112,322 112,288 Z' }], labelX:136, labelY:278 },
+  left_knee:     { aliases: ['rodilla izquierda'],                               shapes: [{ k:'circle', cx:76, cy:290, r:13 }],          labelX:24,  labelY:290 },
+  right_knee:    { aliases: ['rodilla derecha'],                                 shapes: [{ k:'circle', cx:124, cy:290, r:13 }],         labelX:136, labelY:290 },
+  knee:          { aliases: ['rodilla','genou','Knie','膝'],                      shapes: [{ k:'circle', cx:76, cy:290, r:13 },{ k:'circle', cx:124, cy:290, r:13 }], labelX:136, labelY:290 },
+  left_foot:     { aliases: ['pie izquierdo'],                                   shapes: [{ k:'ellipse', cx:77, cy:379, rx:22, ry:11 }], labelX:24,  labelY:382 },
+  right_foot:    { aliases: ['pie derecho'],                                     shapes: [{ k:'ellipse', cx:123, cy:379, rx:22, ry:11 }],labelX:136, labelY:382 },
+  feet:          { aliases: ['pies','pieds','Füße','足の裏','脚'],                shapes: [{ k:'ellipse', cx:77, cy:379, rx:22, ry:11 },{ k:'ellipse', cx:123, cy:379, rx:22, ry:11 }], labelX:136, labelY:382 },
+  back:          { aliases: ['espalda','dos','Rücken','背中','背'],               shapes: [{ k:'path', d:'M80,89 C58,93 54,112 55,170 Q72,186 100,187 Q128,186 145,170 C146,112 142,93 120,89 Z' }], labelX:136, labelY:138 },
 };
 
 function resolveBodyParts(parts: string[]): Set<string> {
@@ -656,14 +657,20 @@ function renderShape(shape: SvgShape, fill: string, stroke: string) {
 
 function BodyDiagramCanvas({ data }: { data: BodyDiagramData }) {
   const highlighted = resolveBodyParts(data.highlightParts);
-  const baseFill = 'hsl(var(--muted))';
+  const baseFill   = 'hsl(var(--muted))';
   const baseStroke = 'hsl(var(--border))';
-  const hlFill = 'hsl(var(--primary) / 0.85)';
-  const hlStroke = 'hsl(var(--primary))';
+  const hlFill     = 'hsl(var(--primary) / 0.78)';
+  const hlStroke   = 'hsl(var(--primary))';
+
+  const faceHighlighted = highlighted.has('head') || highlighted.has('face');
+  const eyeHighlighted  = faceHighlighted || highlighted.has('eyes') || highlighted.has('left_eye') || highlighted.has('right_eye');
+  const mouthHighlighted = faceHighlighted || highlighted.has('mouth');
+
   const labelParts = Array.from(highlighted).map(key => ({
     key,
     label: (data.labels?.[key]) ?? key.replace(/_/g, ' '),
   }));
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -671,21 +678,49 @@ function BodyDiagramCanvas({ data }: { data: BodyDiagramData }) {
       className="flex flex-col items-center gap-2 p-4"
     >
       <svg viewBox="0 0 200 400" className="w-28 sm:w-36" aria-label="Body diagram">
+        <defs>
+          <filter id="body-hl-glow" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="4" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+
+        {/* Body parts — organic shapes */}
         {Object.entries(BODY_PARTS).map(([key, spec]) => {
           const isHighlighted = highlighted.has(key);
-          const fill = isHighlighted ? hlFill : baseFill;
+          const fill   = isHighlighted ? hlFill   : baseFill;
           const stroke = isHighlighted ? hlStroke : baseStroke;
           return (
-            <g key={key}>
+            <g key={key} filter={isHighlighted ? 'url(#body-hl-glow)' : undefined}>
               {spec.shapes.map((shape, i) => (
-                <g key={i}>
-                  {renderShape(shape, fill, stroke)}
-                </g>
+                <g key={i}>{renderShape(shape, fill, stroke)}</g>
               ))}
             </g>
           );
         })}
+
+        {/* Always-visible face features — eyes */}
+        <ellipse
+          cx={91} cy={37} rx={3.5} ry={4}
+          fill={eyeHighlighted ? 'hsl(var(--primary-foreground))' : 'hsl(var(--foreground) / 0.45)'}
+        />
+        <ellipse
+          cx={109} cy={37} rx={3.5} ry={4}
+          fill={eyeHighlighted ? 'hsl(var(--primary-foreground))' : 'hsl(var(--foreground) / 0.45)'}
+        />
+        {/* Always-visible face features — smile */}
+        <path
+          d="M92,54 Q100,61 108,54"
+          fill="none"
+          stroke={mouthHighlighted ? 'hsl(var(--primary-foreground))' : 'hsl(var(--foreground) / 0.35)'}
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
       </svg>
+
       {labelParts.length > 0 && (
         <div className="flex flex-wrap justify-center gap-1.5 mt-1 max-w-48">
           {labelParts.map(({ key, label }) => (
