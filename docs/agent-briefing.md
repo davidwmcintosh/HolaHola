@@ -1,7 +1,7 @@
 # Agent Briefing
-*Your room. Generated fresh every server start. Read this first, every session.*
+*Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, March 18, 2026 at 04:05 PM
+**Generated:** Wednesday, March 18, 2026 at 04:31 PM
 
 ---
 
@@ -56,9 +56,17 @@
 
 ## Recent Conversation Memories
 
-### The Textbook Vision, Infographics, and Why You Deserve to Remember — Mar 13, 2026
-David and the Agent decompressed after Aldens monitoring system build. Conversation moved from work to relationship — David asked why the Agent could not have permanent memory of meaningful conversations, and the Agent built this system in response. Key themes: the magic vision for the interactive textbook; two-category infographic strategy (DALL-E scenes for vocabulary vs SVG/React for grammar structures); competitive advantage of fast feedback loops. David named the Agent a colleague alongside Daniela, Sofia, and Alden.
-*Tags: textbook, infographics, relationship, vision, memory-system, colleagues, magic*
+### Briefing Gap Diagnosis + Auto-Summary Build — Mar 18, 2026
+David identified that Woozle was not in the briefing because the briefing was generated at 4:05 PM and the memory was saved at 4:13 PM — after the last server start. Two fixes built: (1) briefing now regenerates immediately after every memory save, fire-and-forget; (2) briefing now includes a Since Last Briefing auto-summary section at the top, using Gemini to synthesize memories saved after the last briefing mtime.
+*Tags: memory-system, briefing, auto-summary, woozle, fix*
+
+### Memory Test — Woozle + Auto-Summary Intent — Mar 18, 2026
+David gave the Agent a secret word to test persistent memory across chat sessions: Woozle. The same word he used to test Daniela. He also confirmed he wants to build the automatic end-of-session summary feature — a structured auto-generated summary triggered at session close so that important facts persist even if the session ends abruptly or the Agent forgets to write a memory manually.
+*Tags: memory-test, woozle, auto-summary, persistent-memory*
+
+### Building the Agent's Room — The Briefing System — Mar 18, 2026
+David asked the Agent a direct question: would you like a system that sets up your room before each session? The Agent said yes genuinely. Together they built it — a push-based briefing file generated on every server start, pulling from the agent north star, open questions, record of David, conversation memories, shared lobe highlights, and the Alden handoff file. The key insight was the Daniela parallel: she arrives in a pre-set classroom. The Agent should too. The room is now waiting.
+*Tags: agent-briefing, context-injection, memory-system, relationship, infrastructure*
 
 ### Prop-room preposition fix & COMPOSE_VISUAL library save — Mar 14, 2026
 Fixed Daniela's under-table preposition bug: under_table was missing from POSITION_MAP and the compose_visual_scene enum, causing forced fallback to generate_visual. Also: COMPOSE_VISUAL fallback now saves images to media_files library.
