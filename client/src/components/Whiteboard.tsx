@@ -243,12 +243,12 @@ const ImageItemDisplay = ({ item, index }: ImageItemDisplayProps) => {
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
   // labelMode is set by Daniela — students have no control over labels.
-  // 'teach'  → show target word + native translation
-  // 'target' → show target word only, no translation
-  // 'quiz'   → image only — student must produce the word unprompted
+  // 'teach'  → show Spanish word + English translation (both labels — introducing)
+  // 'target' → show English translation only (hint toward the target language — student produces Spanish)
+  // 'quiz'   → image only — no labels, student must produce the Spanish word unprompted
   const labelMode = data.labelMode ?? 'teach';
-  const showWord = labelMode !== 'quiz';
-  const showTranslation = labelMode === 'teach' && !!data.translation;
+  const showWord = labelMode === 'teach';
+  const showTranslation = (labelMode === 'teach' || labelMode === 'target') && !!data.translation;
   
   return (
     <motion.div

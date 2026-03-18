@@ -136,8 +136,8 @@ export interface FalseFriendOption {
  *
  * labelMode controls what Daniela chooses to show:
  *   'teach'  — show target-language word + native translation (both labels)
- *   'target' — show target-language word only (no translation)
- *   'quiz'   — image only, no labels — student must produce the word
+ *   'target' — show native translation only (e.g. "apple") — student must produce the target word (e.g. "manzana")
+ *   'quiz'   — image only, no labels — student must produce the target word with no hint
  *
  * labelMode is set by Daniela via show_image(label_mode=...).
  * Students have no control over labels.

@@ -350,7 +350,7 @@ const registry: DanielaFunctionEntry[] = [
           label_mode: {
             type: "string",
             enum: ["teach", "target", "quiz"],
-            description: "Controls which labels are shown. 'teach' = show target word + native translation (default when introducing a word). 'target' = show target word only, no translation (useful for asking the student to give the native translation). 'quiz' = image only, no labels at all — use this when testing whether the student can produce the target word, e.g. show apple and ask '¿Qué es esto?'.",
+            description: "Controls which labels are shown. 'teach' = show target word + native translation (default when introducing a word). 'target' = show native translation only (e.g. show 'apple') so the student must produce the target word (e.g. 'manzana') — a hint toward the target language. 'quiz' = image only, no labels at all — student must produce the target word with no hint.",
           },
         },
         required: ["word"],
