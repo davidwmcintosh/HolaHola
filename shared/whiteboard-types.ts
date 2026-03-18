@@ -920,7 +920,7 @@ export interface SceneCanvasItemData {
   weatherData?: WeatherData;                 // Phase 2 — weather icon
   worldMapData?: WorldMapData;               // Phase 2 — world map
   canvasAction:
-    | 'open_scene' | 'add_prop' | 'remove_prop' | 'set_clock' | 'clear_scene'
+    | 'open_scene' | 'add_prop' | 'move_prop' | 'remove_prop' | 'set_clock' | 'clear_scene'
     | 'init_conjugation' | 'fill_conjugation' | 'clear_conjugation'
     | 'set_calendar' | 'clear_calendar'
     | 'set_body_part' | 'clear_body_diagram'

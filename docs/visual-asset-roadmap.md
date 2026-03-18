@@ -13,7 +13,7 @@ Visual assets live in the `visual_assets` table. Grammar/infographic SVGs are ge
 
 ## Platform Status Snapshot
 
-**Last audited:** March 18 2026
+**Last audited:** March 18 2026 (session 2)
 
 ### Interactive Canvas — What's Built
 

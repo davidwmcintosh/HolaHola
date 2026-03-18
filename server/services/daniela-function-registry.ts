@@ -705,6 +705,35 @@ Use this during a progressive sequence — e.g. after the student finishes the m
   },
 
   {
+    legacyType: 'MOVE_IN_SCENE',
+    declaration: {
+      name: "move_in_scene",
+      description: `Animate an existing prop to a new position on the live scene canvas.
+The prop slides smoothly to its new location — great for preposition teaching.
+
+Example uses:
+  • Move the fork from center to fork_spot while saying "el tenedor está a la izquierda del plato"
+  • Slide the glass to glass_spot while saying "el vaso está encima, al lado derecho"
+  • Move a book from left to right while saying "el libro está a la derecha"
+
+Only call this for a prop that is already on the canvas via add_to_scene.
+Use the same position names as add_to_scene (left, right, center, on_table, fork_spot, glass_spot, etc.).`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you're saying as the prop moves — include the spatial expression naturally." },
+          prop_name: { type: "string", description: "The name of the prop to move (must already be on the canvas)." },
+          new_position: { type: "string", description: "Destination position. Same names as add_to_scene: left, right, center, on_table, fork_spot, glass_spot, on_plate, place_left, place_right, etc." },
+        },
+        required: ["prop_name", "new_position"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      return `Moved ${fc.args.prop_name} to ${fc.args.new_position}. Continue teaching the spatial expression.`;
+    },
+  },
+
+  {
     legacyType: 'CLEAR_SCENE',
     declaration: {
       name: "clear_scene",

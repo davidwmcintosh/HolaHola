@@ -1011,6 +1011,89 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'MOVE_IN_SCENE': {
+        const movePropName = fn.args.prop_name as string | undefined;
+        const movePosition = (fn.args.new_position as string | undefined) || 'center';
+        const moveText = fn.args.text as string | undefined;
+        if (moveText && !session.functionCallText) session.functionCallText = moveText;
+        if (!movePropName || !session.sceneCanvas?.props?.length) break;
+        const MOVE_POSITION_MAP: Record<string, { cx: number; cy: number; scale: number }> = {
+          center:        { cx: 0.50, cy: 0.65, scale: 0.20 },
+          left:          { cx: 0.25, cy: 0.68, scale: 0.16 },
+          right:         { cx: 0.75, cy: 0.68, scale: 0.16 },
+          foreground:    { cx: 0.50, cy: 0.82, scale: 0.28 },
+          background:    { cx: 0.50, cy: 0.35, scale: 0.12 },
+          on_table:      { cx: 0.50, cy: 0.70, scale: 0.14 },
+          under_table:   { cx: 0.38, cy: 0.84, scale: 0.18 },
+          on_floor:      { cx: 0.50, cy: 0.87, scale: 0.22 },
+          beside_bed:    { cx: 0.72, cy: 0.74, scale: 0.14 },
+          on_counter:    { cx: 0.52, cy: 0.68, scale: 0.14 },
+          under_counter: { cx: 0.45, cy: 0.84, scale: 0.12 },
+          in_hand:       { cx: 0.50, cy: 0.62, scale: 0.12 },
+          on_chair:      { cx: 0.50, cy: 0.74, scale: 0.14 },
+          beside_table:  { cx: 0.70, cy: 0.80, scale: 0.14 },
+          place_left:    { cx: 0.30, cy: 0.72, scale: 0.09 },
+          place_right:   { cx: 0.68, cy: 0.72, scale: 0.09 },
+          napkin_spot:   { cx: 0.23, cy: 0.73, scale: 0.09 },
+          fork_spot:     { cx: 0.31, cy: 0.72, scale: 0.08 },
+          knife_spot:    { cx: 0.59, cy: 0.72, scale: 0.08 },
+          spoon_spot:    { cx: 0.67, cy: 0.71, scale: 0.08 },
+          glass_spot:    { cx: 0.62, cy: 0.57, scale: 0.13 },
+          bread_corner:  { cx: 0.22, cy: 0.58, scale: 0.15 },
+          side_plate:          { cx: 0.22, cy: 0.70, scale: 0.13 },
+          on_side_plate:       { cx: 0.22, cy: 0.70, scale: 0.08 },
+          on_side_plate_left:  { cx: 0.17, cy: 0.71, scale: 0.07 },
+          on_side_plate_right: { cx: 0.27, cy: 0.71, scale: 0.07 },
+          condiment_1:   { cx: 0.78, cy: 0.56, scale: 0.10 },
+          condiment_2:   { cx: 0.86, cy: 0.60, scale: 0.10 },
+          condiment_3:   { cx: 0.78, cy: 0.49, scale: 0.09 },
+          condiment_4:   { cx: 0.86, cy: 0.52, scale: 0.09 },
+          on_plate:            { cx: 0.46, cy: 0.70, scale: 0.11 },
+          on_plate_top_left:   { cx: 0.40, cy: 0.66, scale: 0.08 },
+          on_plate_top_right:  { cx: 0.52, cy: 0.66, scale: 0.08 },
+          on_plate_left:       { cx: 0.38, cy: 0.71, scale: 0.08 },
+          on_plate_right:      { cx: 0.54, cy: 0.71, scale: 0.08 },
+        };
+        const propIdx = session.sceneCanvas.props.findIndex((p: any) => p.name === movePropName);
+        if (propIdx < 0) {
+          console.warn(`[Native Function→MoveInScene] Prop "${movePropName}" not in scene — skipping`);
+          break;
+        }
+        const newPos = MOVE_POSITION_MAP[movePosition] || MOVE_POSITION_MAP.center;
+        session.sceneCanvas.props[propIdx] = {
+          ...session.sceneCanvas.props[propIdx],
+          position: movePosition,
+          cx: newPos.cx,
+          cy: newPos.cy,
+          scale: newPos.scale,
+        };
+        const moveUpdate = {
+          type: 'whiteboard_update' as const,
+          timestamp: Date.now(),
+          items: [{
+            id: 'scene-canvas-active',
+            type: 'scene_canvas',
+            content: session.sceneCanvas.environmentLabel || session.sceneCanvas.environment,
+            data: {
+              environment: session.sceneCanvas.environment,
+              environmentImageUrl: session.sceneCanvas.environmentImageUrl,
+              environmentLabel: session.sceneCanvas.environmentLabel,
+              props: [...session.sceneCanvas.props],
+              clockTime: session.sceneCanvas.clockTime,
+              canvasAction: 'move_prop' as const,
+            },
+          }],
+        };
+        if (session.firstAudioSent) {
+          this.sendMessage(session.ws, moveUpdate);
+        } else {
+          if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
+          session.pendingWhiteboardUpdates.push(moveUpdate);
+        }
+        console.log(`[Native Function→MoveInScene] Moved "${movePropName}" to ${movePosition}`);
+        break;
+      }
+
       case 'CLEAR_SCENE': {
         const clearText = fn.args.text as string | undefined;
         if (clearText && !session.functionCallText) session.functionCallText = clearText;

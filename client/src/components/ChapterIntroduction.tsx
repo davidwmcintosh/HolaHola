@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, Globe, Users, BookOpen, Lightbulb } from "lucide-react";
-import { SunArcGreetings, FormalInformalComparison, QuickPhraseGrid } from "./TextbookInfographics";
+import { SunArcGreetings, FormalInformalComparison, QuickPhraseGrid, SerEstarCard, PretImperfectCard, PorParaCard, FalseCognatesGrid } from "./TextbookInfographics";
 import { languageChapterData } from "@/data/chapter-intro-content";
 
 import familyGatheringImg from "@assets/stock_images/family_gathering_aro_0f321ed1.jpg";
@@ -41,6 +41,54 @@ function classifyChapterType(title: string): string | null {
   return null;
 }
 
+type GrammarChapterType = 'ser_estar' | 'pret_imp' | 'por_para' | 'false_cognates';
+
+function classifyGrammarType(title: string): GrammarChapterType | null {
+  const lower = title.toLowerCase();
+  if (lower.includes('ser') && (lower.includes('estar') || lower.includes('vs') || lower.includes(' y '))) return 'ser_estar';
+  if (lower.includes('estar') && lower.includes('ser')) return 'ser_estar';
+  if (lower.includes('pret') || lower.includes('imperfec') || lower.includes('past tense')) return 'pret_imp';
+  if (lower.includes('por') && lower.includes('para')) return 'por_para';
+  if (lower.includes('false cognate') || lower.includes('falso cognado') || lower.includes('false friend') || lower.includes('amigos falsos')) return 'false_cognates';
+  return null;
+}
+
+function GrammarChapterView({ type, chapterNumber }: { type: GrammarChapterType; chapterNumber: number }) {
+  const labels: Record<GrammarChapterType, { title: string; subtitle: string }> = {
+    ser_estar: { title: 'SER vs ESTAR', subtitle: 'The two "to be" verbs — both essential, each with its own job' },
+    pret_imp: { title: 'Pretérito vs Imperfecto', subtitle: 'Two ways to talk about the past — context decides which you need' },
+    por_para: { title: 'POR vs PARA', subtitle: 'Both translate as "for" in English — but they express different relationships' },
+    false_cognates: { title: 'False Cognates', subtitle: 'Spanish words that look like English — but mean something else entirely' },
+  };
+  const { title, subtitle } = labels[type];
+  return (
+    <div className="space-y-4">
+      <Card className="overflow-hidden border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+        <CardContent className="p-4 md:p-6">
+          <div className="flex items-start gap-3">
+            <div className="shrink-0 w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+              <BookOpen className="w-4 h-4 text-primary" />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-primary mb-1">Chapter {chapterNumber} — Grammar Focus</p>
+              <h3 className="text-base font-semibold mb-1">{title}</h3>
+              <p className="text-sm text-muted-foreground">{subtitle}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      {type === 'ser_estar' && <SerEstarCard />}
+      {type === 'pret_imp' && <PretImperfectCard />}
+      {type === 'por_para' && <PorParaCard />}
+      {type === 'false_cognates' && <FalseCognatesGrid />}
+      <div className="flex items-center gap-2 text-sm text-muted-foreground justify-center">
+        <Users className="h-4 w-4" />
+        <span>Explore the lessons below to practice these patterns with Daniela!</span>
+      </div>
+    </div>
+  );
+}
+
 function normalizeLanguageKey(language: string): string {
   const lower = language.toLowerCase();
   if (lower === 'mandarin chinese' || lower === 'mandarin') return 'mandarin';
@@ -50,8 +98,19 @@ function normalizeLanguageKey(language: string): string {
 export function ChapterIntroduction({ chapterNumber, chapterTitle, language, chapterType: chapterTypeProp, className = "" }: ChapterIntroductionProps) {
   const langKey = normalizeLanguageKey(language);
   const langData = languageChapterData[langKey];
-  
-  if (!langData || !chapterTitle) return null;
+
+  if (!chapterTitle) return null;
+
+  const grammarType = classifyGrammarType(chapterTitle);
+  if (grammarType) {
+    return (
+      <div className={className}>
+        <GrammarChapterView type={grammarType} chapterNumber={chapterNumber} />
+      </div>
+    );
+  }
+
+  if (!langData) return null;
   
   const chapterType = chapterTypeProp || classifyChapterType(chapterTitle);
   if (!chapterType) return null;

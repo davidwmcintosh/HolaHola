@@ -1035,6 +1035,251 @@ export function LessonPrepCard({
   );
 }
 
+// ─── Grammar Reference Cards ────────────────────────────────────────────────
+
+export function SerEstarCard({ className = '' }: { className?: string }) {
+  return (
+    <div className={`rounded-lg border bg-card overflow-hidden ${className}`} data-testid="grammar-card-ser-estar">
+      <div className="px-4 py-3 border-b bg-gradient-to-r from-blue-500/10 via-amber-500/5 to-transparent">
+        <p className="text-sm font-semibold text-center">SER vs ESTAR — both mean "to be"</p>
+        <p className="text-xs text-muted-foreground text-center">but they have very different jobs</p>
+      </div>
+      <div className="grid grid-cols-2 divide-x">
+        <div className="p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-base font-bold text-blue-600 dark:text-blue-400">SER</span>
+            <span className="text-xs text-muted-foreground">permanent / identity</span>
+          </div>
+          <div className="space-y-2">
+            {[
+              { label: 'Identity', ex: 'Soy Pedro.' },
+              { label: 'Origin', ex: 'Soy de México.' },
+              { label: 'Profession', ex: 'Es médica.' },
+              { label: 'Time', ex: 'Son las tres.' },
+              { label: 'Trait', ex: 'Es inteligente.' },
+              { label: 'Material', ex: 'Es de madera.' },
+            ].map(({ label, ex }) => (
+              <div key={label} className="text-xs">
+                <span className="font-semibold text-blue-600 dark:text-blue-400">{label}</span>
+                <span className="text-muted-foreground ml-1">— {ex}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-base font-bold text-amber-600 dark:text-amber-400">ESTAR</span>
+            <span className="text-xs text-muted-foreground">temporary / state</span>
+          </div>
+          <div className="space-y-2">
+            {[
+              { label: 'Location', ex: 'Estoy en casa.' },
+              { label: 'Health', ex: 'Está enfermo.' },
+              { label: 'Emotion', ex: 'Estás contento.' },
+              { label: 'Condition', ex: 'Está abierto.' },
+              { label: 'In progress', ex: 'Estoy comiendo.' },
+              { label: 'Result', ex: 'Está cansada.' },
+            ].map(({ label, ex }) => (
+              <div key={label} className="text-xs">
+                <span className="font-semibold text-amber-600 dark:text-amber-400">{label}</span>
+                <span className="text-muted-foreground ml-1">— {ex}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="px-4 py-2.5 border-t bg-muted/20">
+        <p className="text-xs text-center text-muted-foreground">
+          <span className="text-blue-600 dark:text-blue-400 font-medium">SER</span> = who/what something <em>is</em> &nbsp;·&nbsp;
+          <span className="text-amber-600 dark:text-amber-400 font-medium">ESTAR</span> = how something <em>feels or is right now</em>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export function PretImperfectCard({ className = '' }: { className?: string }) {
+  return (
+    <div className={`rounded-lg border bg-card overflow-hidden ${className}`} data-testid="grammar-card-pret-imp">
+      <div className="px-4 py-3 border-b bg-gradient-to-r from-purple-500/10 to-transparent">
+        <p className="text-sm font-semibold text-center">Pretérito vs Imperfecto</p>
+        <p className="text-xs text-muted-foreground text-center">two ways to talk about the past</p>
+      </div>
+      <svg viewBox="0 0 400 110" className="w-full h-auto" aria-hidden="true">
+        <defs>
+          <marker id="arrow-pret-imp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="hsl(var(--muted-foreground) / 0.5)" />
+          </marker>
+        </defs>
+        <line x1="30" y1="55" x2="370" y2="55" stroke="hsl(var(--border))" strokeWidth="1.5" markerEnd="url(#arrow-pret-imp)" />
+        {[75, 150, 225, 300].map((x, i) => (
+          <g key={i}>
+            <circle cx={x} cy="35" r="7" fill="hsl(var(--primary) / 0.15)" stroke="hsl(var(--primary))" strokeWidth="1.5" />
+            <line x1={x} y1="42" x2={x} y2="54" stroke="hsl(var(--primary))" strokeWidth="1" strokeDasharray="2,2" />
+          </g>
+        ))}
+        <path
+          d="M 45 72 Q 65 64 85 72 Q 105 80 125 72 Q 145 64 165 72 Q 185 80 205 72 Q 225 64 245 72 Q 265 80 285 72 Q 305 64 325 72 Q 345 80 362 72"
+          fill="none" stroke="hsl(var(--chart-3) / 0.8)" strokeWidth="2.5" strokeLinecap="round"
+        />
+        <text x="190" y="18" textAnchor="middle" fontSize="10" fontWeight="600" fill="hsl(var(--primary))">Preterite — completed</text>
+        <text x="190" y="100" textAnchor="middle" fontSize="10" fontWeight="600" fill="hsl(var(--chart-3))">Imperfect — ongoing / habitual</text>
+      </svg>
+      <div className="grid grid-cols-2 divide-x border-t">
+        <div className="p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-2.5 h-2.5 rounded-full bg-primary shrink-0" />
+            <span className="text-xs font-semibold text-primary">Preterite</span>
+          </div>
+          <ul className="space-y-1 text-xs text-muted-foreground mb-3">
+            <li>• completed, single action</li>
+            <li>• specific time is mentioned</li>
+            <li>• clear beginning or end</li>
+          </ul>
+          <p className="text-xs font-medium text-foreground mb-1">Trigger words</p>
+          <p className="text-xs text-muted-foreground">ayer, anoche, el lunes,<br />de repente, una vez</p>
+        </div>
+        <div className="p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-5 h-0.5 bg-amber-500 shrink-0" />
+            <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">Imperfect</span>
+          </div>
+          <ul className="space-y-1 text-xs text-muted-foreground mb-3">
+            <li>• ongoing or habitual action</li>
+            <li>• background / description</li>
+            <li>• age, weather, feelings in past</li>
+          </ul>
+          <p className="text-xs font-medium text-foreground mb-1">Trigger words</p>
+          <p className="text-xs text-muted-foreground">siempre, todos los días,<br />cuando era niño, antes</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function PorParaCard({ className = '' }: { className?: string }) {
+  return (
+    <div className={`rounded-lg border bg-card overflow-hidden ${className}`} data-testid="grammar-card-por-para">
+      <div className="px-4 py-3 border-b bg-gradient-to-r from-green-500/10 to-transparent">
+        <p className="text-sm font-semibold text-center">POR vs PARA — both translate as "for"</p>
+        <p className="text-xs text-muted-foreground text-center">but they express very different relationships</p>
+      </div>
+      <div className="grid grid-cols-2 divide-x">
+        <div className="p-4">
+          <span className="text-base font-bold text-green-600 dark:text-green-400">POR</span>
+          <div className="mt-2 space-y-2.5">
+            {[
+              { use: 'Cause / reason', ex: 'Gracias por ayudar.' },
+              { use: 'Exchange', ex: 'Lo compré por €5.' },
+              { use: 'Duration', ex: 'Estudié por dos horas.' },
+              { use: 'Through / along', ex: 'Caminé por el parque.' },
+              { use: 'On behalf of', ex: 'Habla por mí.' },
+              { use: 'Per', ex: 'Gana €20 por hora.' },
+            ].map(({ use, ex }) => (
+              <div key={use} className="text-xs">
+                <span className="font-semibold text-green-600 dark:text-green-400">{use}</span>
+                <span className="text-muted-foreground block">{ex}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="p-4">
+          <span className="text-base font-bold text-rose-600 dark:text-rose-400">PARA</span>
+          <div className="mt-2 space-y-2.5">
+            {[
+              { use: 'Purpose / goal', ex: 'Estudio para aprender.' },
+              { use: 'Recipient', ex: 'Este regalo es para ti.' },
+              { use: 'Destination', ex: 'Salgo para México.' },
+              { use: 'Deadline', ex: 'Lo necesito para el lunes.' },
+              { use: 'Opinion', ex: 'Para mí, es difícil.' },
+              { use: 'Employment', ex: 'Trabajo para Apple.' },
+            ].map(({ use, ex }) => (
+              <div key={use} className="text-xs">
+                <span className="font-semibold text-rose-600 dark:text-rose-400">{use}</span>
+                <span className="text-muted-foreground block">{ex}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="px-4 py-2.5 border-t bg-muted/20">
+        <p className="text-xs text-center text-muted-foreground">
+          <span className="text-green-600 dark:text-green-400 font-medium">POR</span> = cause, means, exchange &nbsp;·&nbsp;
+          <span className="text-rose-600 dark:text-rose-400 font-medium">PARA</span> = purpose, recipient, direction
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── False Cognate Cards ─────────────────────────────────────────────────────
+
+const FALSE_COGNATES_DATA = [
+  { english: 'embarrassed', correct: 'avergonzado/a', lookAlike: 'embarazada', lookAlikeMeans: 'pregnant' },
+  { english: 'sensible', correct: 'sensato/a', lookAlike: 'sensible', lookAlikeMeans: 'sensitive' },
+  { english: 'to realize', correct: 'darse cuenta de', lookAlike: 'realizar', lookAlikeMeans: 'to accomplish' },
+  { english: 'actual', correct: 'real / verdadero', lookAlike: 'actual', lookAlikeMeans: 'current, present-day' },
+  { english: 'exit', correct: 'salida', lookAlike: 'éxito', lookAlikeMeans: 'success' },
+  { english: 'library', correct: 'biblioteca', lookAlike: 'librería', lookAlikeMeans: 'bookstore' },
+  { english: 'to assist', correct: 'ayudar', lookAlike: 'asistir', lookAlikeMeans: 'to attend' },
+  { english: 'carpet', correct: 'alfombra', lookAlike: 'carpeta', lookAlikeMeans: 'folder/binder' },
+  { english: 'constipated', correct: 'estreñido', lookAlike: 'constipado', lookAlikeMeans: 'having a cold' },
+  { english: 'parents', correct: 'padres', lookAlike: 'parientes', lookAlikeMeans: 'relatives' },
+  { english: 'to introduce', correct: 'presentar', lookAlike: 'introducir', lookAlikeMeans: 'to insert' },
+  { english: 'to molest', correct: 'acosar', lookAlike: 'molestar', lookAlikeMeans: 'to bother/annoy' },
+];
+
+interface FalseCognateCardProps {
+  english: string;
+  correct: string;
+  lookAlike: string;
+  lookAlikeMeans: string;
+  className?: string;
+}
+
+export function FalseCognateCard({ english, correct, lookAlike, lookAlikeMeans, className = '' }: FalseCognateCardProps) {
+  return (
+    <div className={`rounded-lg border bg-card p-4 ${className}`} data-testid={`false-cognate-${english.replace(/\s/g, '-')}`}>
+      <div className="flex items-start gap-3">
+        <div className="shrink-0 w-7 h-7 rounded-full bg-red-500/15 flex items-center justify-center mt-0.5">
+          <svg viewBox="0 0 24 24" className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+          </svg>
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap mb-1.5">
+            <span className="text-sm font-semibold">{english}</span>
+            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-muted-foreground shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+            <span className="text-sm font-bold text-green-600 dark:text-green-400">{correct}</span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            <span className="text-red-500 line-through mr-1">{lookAlike}</span>
+            means <em>{lookAlikeMeans}</em> — not what you want!
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function FalseCognatesGrid({ className = '' }: { className?: string }) {
+  return (
+    <div className={`rounded-lg border bg-card overflow-hidden ${className}`} data-testid="false-cognates-grid">
+      <div className="px-4 py-3 border-b bg-gradient-to-r from-red-500/10 to-transparent">
+        <p className="text-sm font-semibold">False Cognates — Words That Trick English Speakers</p>
+        <p className="text-xs text-muted-foreground">These Spanish words look like English words — but they mean something completely different</p>
+      </div>
+      <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-2">
+        {FALSE_COGNATES_DATA.map((item) => (
+          <FalseCognateCard key={item.english} {...item} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 interface LessonNarrativeProps {
   lessonName: string;
   description?: string;
