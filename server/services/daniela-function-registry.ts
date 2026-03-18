@@ -446,7 +446,7 @@ PREPOSITION → POSITION MAPPING:
           environment: {
             type: "string",
             description: "The base scene to use",
-            enum: ["cafe", "restaurant_table", "hotel_lobby", "kitchen", "living_room", "bedroom", "bathroom", "park", "airport", "city_street", "office", "classroom", "outdoor_market", "grocery_store", "doctor_office", "kitchen_counter", "bedroom_closeup", "desk_closeup"],
+            enum: ["cafe", "restaurant_table", "hotel_lobby", "kitchen", "living_room", "bedroom", "bathroom", "park", "airport", "city_street", "office", "classroom", "outdoor_market", "grocery_store", "doctor_office", "kitchen_counter", "bedroom_closeup", "desk_closeup", "taqueria", "french_brasserie", "japanese_izakaya"],
           },
           objects: {
             type: "array",
@@ -552,7 +552,7 @@ Use the live canvas only when the SEQUENCE of changes is pedagogically meaningfu
           environment: {
             type: "string",
             description: "The background environment to load.",
-            enum: ["cafe", "restaurant_table", "hotel_lobby", "kitchen", "living_room", "bedroom", "bathroom", "park", "airport", "city_street", "office", "classroom", "outdoor_market", "grocery_store", "doctor_office", "kitchen_counter", "bedroom_closeup", "desk_closeup"],
+            enum: ["cafe", "restaurant_table", "hotel_lobby", "kitchen", "living_room", "bedroom", "bathroom", "park", "airport", "city_street", "office", "classroom", "outdoor_market", "grocery_store", "doctor_office", "kitchen_counter", "bedroom_closeup", "desk_closeup", "taqueria", "french_brasserie", "japanese_izakaya"],
           },
           label: { type: "string", description: "Optional short label shown as the scene title (e.g. 'En el restaurante')" },
         },
@@ -1165,13 +1165,35 @@ IMPORTANT — set up the FULL scene BEFORE calling enter_immersive:
 1. Call open_scene(environment) to load the background
 2. Call add_to_scene() for props NOT already in the background:
 
-   For "restaurant_table" (use for ALL dining/ordering scenarios):
+   For "restaurant_table" (classic dining scenario):
    - Background is bare: just a tablecloth and room ambiance — no items on table
    - Add EVERY item as a labeled prop so the student learns each word as the table is set
    - Minimum before enter_immersive: plate, fork, knife, wine_glass, dinner_menu (or
      breakfast_menu / lunch_menu by time of day), candle, bread_basket, salt_pepper
    - Add water_pitcher, ketchup, mustard if appropriate
    - When student orders food: add the dish at on_plate / on_plate_left / on_plate_right
+
+   For "taqueria" (Mexican street food scenario):
+   - Counter surface is bare — trompo, salsa jars, tiles are part of the background art
+   - Use same prop positions as restaurant_table (center, left, right, etc.)
+   - Suggested opening props: plate → center | salsa_verde → condiment_1 | salsa_roja → condiment_2 | cafe_menu → left
+   - When student orders: add tacos / quesadilla / vampiro at center (the plate)
+   - Label props in Spanish — this is a Spanish-immersive environment
+
+   For "french_brasserie" (Parisian café/brasserie scenario):
+   - Marble table surface is bare — bar, windows, and chalkboard are background art
+   - Use same prop positions as restaurant_table (center, left, right, etc.)
+   - Suggested opening props: plate → center | fork → fork_spot | knife → knife_spot | wine_glass → glass_spot | cafe_menu → left | candle → right
+   - For a café-only visit: espresso → center | croissant → side_plate | sugar_packets → condiment_4
+   - Label props in French — this is a French-immersive environment
+
+   For "japanese_izakaya" (Japanese pub scenario):
+   - Dark wood table surface is bare — lanterns, sake shelves, grill are background art
+   - Use same prop positions as restaurant_table (center, left, right, etc.)
+   - Suggested opening props: plate → center | chopsticks → fork_spot | glass → glass_spot | dinner_menu → left
+   - When student orders: add yakitori / edamame / gyoza at center or on_plate
+   - Add sake cup at glass_spot after the first round
+   - Label props in Japanese romaji or kanji — this is a Japanese-immersive environment
 
 3. THEN call enter_immersive() — student sees a fully dressed, labeled scene immediately
 

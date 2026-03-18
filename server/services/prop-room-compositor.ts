@@ -675,6 +675,11 @@ const SCENE_PROMPTS: Record<string, string> = {
   park:             'A sunny public park — winding path through green trees, wooden benches, families picnicking, a small food cart, fountain in the distance',
   restaurant_table: 'Cozy bistro table viewed from standing height looking slightly downward — the warm wood bistro tabletop with white tablecloth occupies the bottom 40% of the image, the table edge running across roughly two-thirds of the way down the frame; below the table a clean tile floor is visible in the bottom 20%; bistro chairs pushed to either side; in the upper half: warm restaurant interior, other candlelit tables, brick wall, hanging Edison bulbs; the table surface is completely empty and clear',
 
+  // ── Culturally-specific dining environments ────────────────────────────────
+  taqueria:         'Mexican street taqueria counter viewed from the customer side, looking slightly downward — a worn wooden prep counter with a warm terra cotta tile surface occupies the bottom 40% of the image, the counter edge running across two-thirds of the way down the frame; a thin strip of cobblestone floor is visible at the very bottom; in the upper half: a traditional trompo (vertical spit with layered marinated pork) glowing orange on the left, a comal griddle with wisps of steam, jars of colorful salsas verde and roja, hanging dried ancho and guajillo chiles, hand-painted talavera tiles in turquoise and ochre on the back wall, a hand-written chalkboard menu in Spanish, warm golden evening light; the counter surface is completely empty and clear',
+  french_brasserie: 'Classic Parisian brasserie bistro table viewed from standing height looking slightly downward — a round marble-topped bistro table with a crisp white linen cloth occupies the bottom 40% of the image, the table edge running across two-thirds of the way down the frame; below the table a herringbone parquet floor is visible in the bottom 20%; rattan bistro chairs tucked to either side; in the upper half: a zinc bar counter gleaming in the background left, wicker café chairs at neighboring marble tables, tall arched windows revealing a Parisian boulevard with plane trees and soft golden afternoon light, an art nouveau wall sconce, a chalkboard menu listing plats du jour; the table surface is completely empty and clear',
+  japanese_izakaya: 'Japanese izakaya low dining table viewed from a standing height looking slightly downward — a dark lacquered wooden table surface occupies the bottom 40% of the image, the near edge of the table running across two-thirds of the way down the frame; below the table a polished wooden floor with thin tatami mat strips is visible in the bottom 20%; in the upper half: warm amber paper lanterns (chōchin) hanging from low wooden ceiling beams, wooden shelving displaying rows of sake bottles and shochu, a noren split curtain in indigo blue with white kanji, the distant glow of a yakitori charcoal grill with wisps of smoke, dark wood paneling; intimate, warm, evening atmosphere; the table surface is completely empty and clear',
+
   // ── Close-up zone environments (for preposition lessons) ──────────────────
   // Camera is much closer; the primary surface fills the lower frame so props
   // land visibly ON / UNDER / BESIDE it. Surface should fall at ~65-70% from top.
@@ -713,30 +718,33 @@ export async function generateAllSceneImages(
       ? `${customPrompt}. ${styleForEnv}`
       : `${env.display_name} scene for language learning: ${env.name.replace(/_/g, ' ')}. ${styleForEnv}`;
 
-    console.log(`[PropRoom] Generating image for ${env.name} via Gemini Imagen...`);
+    console.log(`[PropRoom] Generating image for ${env.name} via Gemini Flash-Image...`);
     try {
-      const { GoogleGenAI } = await import('@google/genai');
-      const geminiKey = process.env.GEMINI_API_KEY;
+      const { GoogleGenAI, Modality } = await import('@google/genai');
+      const geminiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+      const baseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
       if (!geminiKey) {
-        results.push({ name: env.name, success: false, error: 'GEMINI_API_KEY not set' });
+        results.push({ name: env.name, success: false, error: 'AI_INTEGRATIONS_GEMINI_API_KEY not set' });
         continue;
       }
-      const genai = new GoogleGenAI({ apiKey: geminiKey });
-      const imgResponse = await genai.models.generateImages({
-        model: 'imagen-3.0-generate-002',
-        prompt,
-        config: { numberOfImages: 1, aspectRatio: '16:9', outputMimeType: 'image/jpeg' },
+      const genai = new GoogleGenAI({
+        apiKey: geminiKey,
+        httpOptions: { apiVersion: '', baseUrl: baseUrl || '' },
+      });
+      const imgResponse = await genai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: { responseModalities: [Modality.TEXT, Modality.IMAGE] },
       });
 
-      const imageBytes = imgResponse.generatedImages?.[0]?.image?.imageBytes;
-      if (!imageBytes) {
-        results.push({ name: env.name, success: false, error: 'No image bytes in Gemini response' });
+      const candidate = imgResponse.candidates?.[0];
+      const imagePart = candidate?.content?.parts?.find((p: any) => p.inlineData);
+      if (!imagePart?.inlineData?.data) {
+        results.push({ name: env.name, success: false, error: 'No image data in Gemini response' });
         continue;
       }
 
-      const buf = Buffer.isBuffer(imageBytes)
-        ? imageBytes
-        : Buffer.from(imageBytes as string, 'base64');
+      const buf = Buffer.from(imagePart.inlineData.data as string, 'base64');
 
       const { uploadPublicBuffer } = await import('./image-storage');
       const permanentUrl = await uploadPublicBuffer(`scene-${env.name}-${Date.now()}.jpg`, buf, 'image/jpeg');
