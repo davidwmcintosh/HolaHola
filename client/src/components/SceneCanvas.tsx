@@ -108,8 +108,11 @@ function PropLayer({ prop }: { prop: SceneCanvasProp }) {
         draggable={false}
       />
       <div className="absolute left-1/2 -translate-x-1/2" style={{ top: "calc(100% + 3px)" }}>
-        <span className="text-white text-[10px] leading-none font-semibold px-1.5 py-0.5 rounded bg-black/65 whitespace-nowrap">
-          {prop.label}
+        <span className="flex flex-col items-center text-white rounded bg-black/65 px-1.5 py-0.5 whitespace-nowrap">
+          <span className="text-[10px] leading-tight font-semibold">{prop.label}</span>
+          {prop.nativeLabel && (
+            <span className="text-[8px] leading-tight text-white/70">{prop.nativeLabel}</span>
+          )}
         </span>
       </div>
     </motion.div>
@@ -671,6 +674,7 @@ function BodyDiagramCanvas({ data }: { data: BodyDiagramData }) {
   const labelParts = Array.from(highlighted).map(key => ({
     key,
     label: (data.labels?.[key]) ?? key.replace(/_/g, ' '),
+    nativeLabel: data.nativeLabels?.[key],
   }));
 
   return (
@@ -724,15 +728,16 @@ function BodyDiagramCanvas({ data }: { data: BodyDiagramData }) {
       </svg>
 
       {labelParts.length > 0 && (
-        <div className="flex flex-wrap justify-center gap-1.5 mt-1 max-w-48">
-          {labelParts.map(({ key, label }) => (
+        <div className="flex flex-wrap justify-center gap-1.5 mt-1 max-w-52">
+          {labelParts.map(({ key, label, nativeLabel }) => (
             <motion.span
               key={key}
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold"
+              className="flex flex-col items-center px-2 py-0.5 rounded-full bg-primary text-primary-foreground"
             >
-              {label}
+              <span className="text-xs font-semibold leading-tight">{label}</span>
+              {nativeLabel && <span className="text-[9px] leading-tight opacity-70">{nativeLabel}</span>}
             </motion.span>
           ))}
         </div>
@@ -806,6 +811,7 @@ function FaceDiagramCanvas({ data }: { data: FaceDiagramData }) {
   const labelParts = Array.from(highlighted).map(key => ({
     key,
     label: (data.labels?.[key]) ?? key.replace(/_/g, ' '),
+    nativeLabel: data.nativeLabels?.[key],
   }));
 
   return (
@@ -846,11 +852,12 @@ function FaceDiagramCanvas({ data }: { data: FaceDiagramData }) {
       </svg>
 
       {labelParts.length > 0 && (
-        <div className="flex flex-wrap justify-center gap-1.5 mt-1 max-w-48">
-          {labelParts.map(({ key, label }) => (
+        <div className="flex flex-wrap justify-center gap-1.5 mt-1 max-w-52">
+          {labelParts.map(({ key, label, nativeLabel }) => (
             <motion.span key={key} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
-              className="px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold">
-              {label}
+              className="flex flex-col items-center px-2 py-0.5 rounded-full bg-primary text-primary-foreground">
+              <span className="text-xs font-semibold leading-tight">{label}</span>
+              {nativeLabel && <span className="text-[9px] leading-tight opacity-70">{nativeLabel}</span>}
             </motion.span>
           ))}
         </div>
@@ -905,6 +912,7 @@ function HandDiagramCanvas({ data }: { data: HandDiagramData }) {
   const labelParts = Array.from(highlighted).map(key => ({
     key,
     label: (data.labels?.[key]) ?? key.replace(/_/g, ' '),
+    nativeLabel: data.nativeLabels?.[key],
   }));
 
   return (
@@ -949,11 +957,12 @@ function HandDiagramCanvas({ data }: { data: HandDiagramData }) {
       </svg>
 
       {labelParts.length > 0 && (
-        <div className="flex flex-wrap justify-center gap-1.5 mt-1 max-w-48">
-          {labelParts.map(({ key, label }) => (
+        <div className="flex flex-wrap justify-center gap-1.5 mt-1 max-w-52">
+          {labelParts.map(({ key, label, nativeLabel }) => (
             <motion.span key={key} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
-              className="px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold">
-              {label}
+              className="flex flex-col items-center px-2 py-0.5 rounded-full bg-primary text-primary-foreground">
+              <span className="text-xs font-semibold leading-tight">{label}</span>
+              {nativeLabel && <span className="text-[9px] leading-tight opacity-70">{nativeLabel}</span>}
             </motion.span>
           ))}
         </div>

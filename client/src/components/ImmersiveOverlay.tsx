@@ -343,8 +343,9 @@ export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems
                         className="absolute left-1/2 -translate-x-1/2"
                         style={{ top: "calc(100% + 4px)", pointerEvents: 'none' }}
                       >
-                        <span className="text-white text-[10px] leading-none font-semibold px-2 py-1 rounded-full bg-white/20 backdrop-blur-sm whitespace-nowrap border border-white/20">
-                          {prop.label} — tap to open
+                        <span className="flex flex-col items-center text-white rounded-full bg-white/20 backdrop-blur-sm px-2 py-1 whitespace-nowrap border border-white/20">
+                          <span className="text-[10px] leading-tight font-semibold">{prop.label} — tap to open</span>
+                          {prop.nativeLabel && <span className="text-[8px] leading-tight text-white/70">{prop.nativeLabel}</span>}
                         </span>
                       </div>
                     )}
@@ -354,8 +355,9 @@ export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems
                         className="absolute left-1/2 -translate-x-1/2"
                         style={{ top: "calc(100% + 4px)" }}
                       >
-                        <span className="text-white text-[11px] leading-none font-semibold px-2 py-1 rounded bg-black/70 whitespace-nowrap">
-                          {prop.label}
+                        <span className="flex flex-col items-center text-white rounded bg-black/70 px-2 py-1 whitespace-nowrap">
+                          <span className="text-[11px] leading-tight font-semibold">{prop.label}</span>
+                          {prop.nativeLabel && <span className="text-[9px] leading-tight text-white/70">{prop.nativeLabel}</span>}
                         </span>
                       </div>
                     )}

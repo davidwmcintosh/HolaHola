@@ -791,13 +791,14 @@ export interface DialogueItem extends WhiteboardItemBase {
  * so the client can simply place the image at `left: cx*100%, top: cy*100%`.
  */
 export interface SceneCanvasProp {
-  name: string;       // prop identifier (e.g. "glass")
-  label: string;      // target-language word shown as label
-  position: string;   // position key (e.g. "on_table")
-  cx: number;         // 0..1 horizontal center
-  cy: number;         // 0..1 vertical center
-  scale: number;      // 0..1 size relative to canvas width
-  imageUrl: string;   // zone_image_url (transparent PNG)
+  name: string;         // prop identifier (e.g. "glass")
+  label: string;        // target-language word shown as label (e.g. "el vaso")
+  nativeLabel?: string; // native-language word shown below label (e.g. "glass")
+  position: string;     // position key (e.g. "on_table")
+  cx: number;           // 0..1 horizontal center
+  cy: number;           // 0..1 vertical center
+  scale: number;        // 0..1 size relative to canvas width
+  imageUrl: string;     // zone_image_url (transparent PNG)
   richContent?: SceneCanvasRichContent; // optional tap-to-open content (menu, bill)
 }
 
@@ -833,21 +834,24 @@ export interface ConjugationTableData {
 
 /** Body diagram data — highlights one or more body regions. */
 export interface BodyDiagramData {
-  highlightParts: string[];        // e.g. ['head', 'left_arm', 'knee'] — supports aliases like 'eyes', 'hands', 'legs'
-  labels?: Record<string, string>; // part slug → target-language label shown below the diagram
+  highlightParts: string[];              // e.g. ['head', 'left_arm', 'knee'] — supports aliases like 'eyes', 'hands', 'legs'
+  labels?: Record<string, string>;       // part slug → target-language label shown below the diagram (e.g. "la cabeza")
+  nativeLabels?: Record<string, string>; // part slug → native-language label (e.g. "head" for English speakers)
 }
 
 /** Face close-up diagram — highlights detailed facial features. */
 export interface FaceDiagramData {
-  highlightParts: string[];        // e.g. ['nose', 'lips', 'left_eye'] — see FACE_PARTS for full slug list
-  labels?: Record<string, string>; // part slug → target-language label shown below the diagram
+  highlightParts: string[];              // e.g. ['nose', 'lips', 'left_eye'] — see FACE_PARTS for full slug list
+  labels?: Record<string, string>;       // part slug → target-language label shown below the diagram (e.g. "la nariz")
+  nativeLabels?: Record<string, string>; // part slug → native-language label (e.g. "nose" for English speakers)
 }
 
 /** Hand close-up diagram — highlights fingers, palm, knuckles, etc. */
 export interface HandDiagramData {
-  highlightParts: string[];        // e.g. ['thumb', 'index_finger', 'palm'] — see HAND_PARTS for full slug list
-  labels?: Record<string, string>; // part slug → target-language label shown below the diagram
-  hand?: 'left' | 'right';        // which hand to show (default: right)
+  highlightParts: string[];              // e.g. ['thumb', 'index_finger', 'palm'] — see HAND_PARTS for full slug list
+  labels?: Record<string, string>;       // part slug → target-language label shown below the diagram (e.g. "el pulgar")
+  nativeLabels?: Record<string, string>; // part slug → native-language label (e.g. "thumb" for English speakers)
+  hand?: 'left' | 'right';              // which hand to show (default: right)
 }
 
 /** Thermometer data — shows a temperature reading. */

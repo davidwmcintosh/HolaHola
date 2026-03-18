@@ -831,6 +831,7 @@ export class NativeFunctionCallHandler {
         const addPropName = fn.args.prop_name as string | undefined;
         const addPosition = (fn.args.position as string | undefined) || 'center';
         const addLabel = fn.args.label as string | undefined;
+        const addNativeLabel = fn.args.native_label as string | undefined;
         const addText = fn.args.text as string | undefined;
         if (addText && !session.functionCallText) session.functionCallText = addText;
         if (!addPropName) {
@@ -932,7 +933,7 @@ export class NativeFunctionCallHandler {
             session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [], clockTime: undefined };
           }
           const existingIdx = session.sceneCanvas.props.findIndex((p: any) => p.name === addPropName);
-          const newProp = {
+          const newProp: Record<string, any> = {
             name: addPropName,
             label: propDisplayName,
             position: addPosition,
@@ -941,6 +942,7 @@ export class NativeFunctionCallHandler {
             scale: addPos.scale,
             imageUrl: propImageUrl,
           };
+          if (addNativeLabel) newProp.nativeLabel = addNativeLabel;
           if (existingIdx >= 0) {
             session.sceneCanvas.props[existingIdx] = newProp;
           } else {
@@ -1303,11 +1305,12 @@ export class NativeFunctionCallHandler {
       case 'SET_BODY_PART': {
         const bodyParts = fn.args.parts as string[] | undefined;
         const bodyLabels = fn.args.labels as Record<string, string> | undefined;
+        const bodyNativeLabels = fn.args.native_labels as Record<string, string> | undefined;
         const bodyText = fn.args.text as string | undefined;
         if (bodyText && !session.functionCallText) session.functionCallText = bodyText;
         if (!bodyParts?.length) { console.warn('[Native Function→SetBodyPart] Missing parts — skipping'); break; }
         if (!session.sceneCanvas) session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [] };
-        session.sceneCanvas.bodyDiagram = { highlightParts: bodyParts, labels: bodyLabels };
+        session.sceneCanvas.bodyDiagram = { highlightParts: bodyParts, labels: bodyLabels, nativeLabels: bodyNativeLabels };
         const bodyUpdate = {
           type: 'whiteboard_update' as const, timestamp: Date.now(),
           items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: bodyParts.join(', '),
@@ -1335,11 +1338,12 @@ export class NativeFunctionCallHandler {
       case 'SET_FACE_PART': {
         const faceParts = fn.args.parts as string[] | undefined;
         const faceLabels = fn.args.labels as Record<string, string> | undefined;
+        const faceNativeLabels = fn.args.native_labels as Record<string, string> | undefined;
         const faceText = fn.args.text as string | undefined;
         if (faceText && !session.functionCallText) session.functionCallText = faceText;
         if (!faceParts?.length) { console.warn('[Native Function→SetFacePart] Missing parts — skipping'); break; }
         if (!session.sceneCanvas) session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [] };
-        session.sceneCanvas.faceDiagram = { highlightParts: faceParts, labels: faceLabels };
+        session.sceneCanvas.faceDiagram = { highlightParts: faceParts, labels: faceLabels, nativeLabels: faceNativeLabels };
         const faceUpdate = {
           type: 'whiteboard_update' as const, timestamp: Date.now(),
           items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: faceParts.join(', '),
@@ -1367,12 +1371,13 @@ export class NativeFunctionCallHandler {
       case 'SET_HAND_PART': {
         const handParts = fn.args.parts as string[] | undefined;
         const handLabels = fn.args.labels as Record<string, string> | undefined;
+        const handNativeLabels = fn.args.native_labels as Record<string, string> | undefined;
         const handSide = fn.args.hand as 'left' | 'right' | undefined;
         const handText = fn.args.text as string | undefined;
         if (handText && !session.functionCallText) session.functionCallText = handText;
         if (!handParts?.length) { console.warn('[Native Function→SetHandPart] Missing parts — skipping'); break; }
         if (!session.sceneCanvas) session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [] };
-        session.sceneCanvas.handDiagram = { highlightParts: handParts, labels: handLabels, hand: handSide ?? 'right' };
+        session.sceneCanvas.handDiagram = { highlightParts: handParts, labels: handLabels, nativeLabels: handNativeLabels, hand: handSide ?? 'right' };
         const handUpdate = {
           type: 'whiteboard_update' as const, timestamp: Date.now(),
           items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: handParts.join(', '),
