@@ -81,6 +81,17 @@ function AnalogClock({ time }: { time: string }) {
   );
 }
 
+// ─── 12-hour time label helper ────────────────────────────────────────────────
+
+function formatTime12h(time: string): string {
+  const parts = time.split(":");
+  const h = parseInt(parts[0] ?? "12", 10);
+  const m = parseInt(parts[1] ?? "0", 10);
+  const period = h < 12 ? "AM" : "PM";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${m.toString().padStart(2, "0")} ${period}`;
+}
+
 // ─── Prop layer ────────────────────────────────────────────────────────────────
 
 function PropLayer({ prop }: { prop: SceneCanvasProp }) {
@@ -132,7 +143,7 @@ function ClockOnlyCanvas({ time }: { time: string }) {
       <div className="w-48 h-48 bg-white rounded-full shadow-md border border-border p-2">
         <AnalogClock time={time} />
       </div>
-      <span className="text-sm font-mono text-muted-foreground">{time}</span>
+      <span className="text-sm font-mono text-muted-foreground">{formatTime12h(time)}</span>
     </motion.div>
   );
 }
@@ -1141,7 +1152,7 @@ export function SceneCanvas({ data, "data-testid": testId }: SceneCanvasProps) {
           <div className="bg-white/92 backdrop-blur-sm rounded-xl p-2 shadow-lg">
             <AnalogClock time={data.clockTime!} />
             <p className="text-center text-[10px] font-mono text-gray-600 mt-1 leading-none">
-              {data.clockTime}
+              {formatTime12h(data.clockTime!)}
             </p>
           </div>
         </motion.div>
