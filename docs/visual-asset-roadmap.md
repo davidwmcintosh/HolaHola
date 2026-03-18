@@ -132,6 +132,38 @@ Organization: thematic clusters. A student at Novice Low needs the Novice Low cl
 | coffee | café | ✅ | in prop library (multiple) |
 | water | agua | ✅ | glass in prop library |
 
+**Colors**
+
+*Format: filled color swatch circle with the Spanish word below. Simple, flat, unambiguous — no illustrated object needed. A red swatch IS the concept.*
+
+| Word | Spanish | Status | Notes |
+|------|---------|--------|-------|
+| red | rojo | ⬜ | |
+| blue | azul | ⬜ | |
+| yellow | amarillo | ⬜ | |
+| green | verde | ⬜ | |
+| orange | anaranjado/naranja | ⬜ | note: naranja (the fruit) doubles as the color name |
+| purple | morado/violeta | ⬜ | both forms used regionally |
+| pink | rosa/rosado | ⬜ | |
+| brown | marrón/café | ⬜ | regional note: café common in Latin America |
+| black | negro | ⬜ | |
+| white | blanco | ⬜ | |
+| grey | gris | ⬜ | |
+
+**Adjectives — Size & Temperature (Novice Low)**
+
+*Format: contrast pairs on one card — same object shown twice at different sizes, or two objects with contrasting temperatures. The pair format makes the meaning unambiguous without needing a sentence.*
+
+| Pair | Spanish | Status | Notes |
+|------|---------|--------|-------|
+| big / small | grande / pequeño | ⬜ | same object at two sizes |
+| hot / cold | caliente / frío | ⬜ | steaming cup vs ice cubes |
+| good / bad | bueno / malo | ⬜ | thumbs up/down or happy/sad face |
+| open / closed | abierto / cerrado | ⬜ | door shown both ways |
+| full / empty | lleno / vacío | ⬜ | glass full vs empty |
+| clean / dirty | limpio / sucio | ⬜ | |
+| new / old | nuevo / viejo | ⬜ | same object: new shiny vs worn |
+
 **Activities (simple verbs — illustrated as action)**
 
 | Word | Spanish | Status | Notes |
@@ -223,6 +255,23 @@ Organization: thematic clusters. A student at Novice Low needs the Novice Low cl
 | to dance | bailar | ⬜ | |
 | to sing | cantar | ⬜ | |
 | to paint | pintar | ⬜ | |
+
+**Adjectives — Spatial & Descriptive (Novice Mid)**
+
+*Format: contrast pairs. Near/far use distance from a reference point (a door, a tree). Tall/short use two versions of the same figure. Fast/slow use motion blur or trail lines.*
+
+| Pair | Spanish | Status | Notes |
+|------|---------|--------|-------|
+| near / far | cerca / lejos | ⬜ | two figures at different distances from same reference |
+| tall / short | alto / bajo | ⬜ | two people side by side |
+| fast / slow | rápido / lento | ⬜ | motion blur vs crawling pace |
+| heavy / light | pesado / ligero | ⬜ | scale or effort shown |
+| young / old | joven / viejo | ⬜ | for describing people (vs nuevo/viejo for objects) |
+| happy / sad | feliz / triste | ⬜ | faces — distinct from emotion SVG canvas tool |
+| easy / difficult | fácil / difícil | ⬜ | illustrated task contrast |
+| loud / quiet | ruidoso / tranquilo | ⬜ | sound wave vs calm |
+| dark / light | oscuro / claro | ⬜ | same room lit two ways |
+| hard / soft | duro / suave | ⬜ | rock vs pillow |
 
 ---
 
