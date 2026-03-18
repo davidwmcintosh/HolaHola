@@ -41,13 +41,13 @@ The `SceneCanvas` component (client-side stage model) is **fully operational**. 
 
 | Category | Records in DB | With actual images | Notes |
 |---|---|---|---|
-| Food vocabulary | 1,176 | 60+ (actively generating) | Worker auto-starts on server boot — resumes until all 1,176 are done |
+| Food vocabulary | 1,176 | 1,176 ✅ | Complete as of Mar 18 2026 — all menu items + basics (tacos, staples, etc.) generated |
 | Scene canvas props | ~40 | ~40 | glass, fork, book, stethoscope, passport, etc. — all have real images |
 | Vocabulary images (Section 1) | 0 | 0 | Nothing generated yet |
 | Time/weather/numbers (Section 2) | 0 | 0 | Clock + weather handled by SVG components; static reference cards not started |
 | Cultural infographics (Section 5) | 0 | 0 | Not started |
 
-**What this means for generation priority:** The food menu images are the active gap — worker is running continuously and picks up automatically on each server restart. Core vocabulary images (Section 1) are next on the list once food is complete. Everything else in this roadmap is genuinely planned but not started.
+**What this means for generation priority (as of Mar 18 2026):** Food images are complete. Core vocabulary images (Section 1) are the next gap — people, animals, places, clothing, and basic objects that aren't already in the prop library. Everything else in this roadmap is planned but not started.
 
 ---
 
@@ -428,6 +428,8 @@ These are diagrams, not photos. Generated as code (SVG or React components) — 
 
 ### Verb Conjugation Tables
 
+> **Note (March 18 2026):** The **live interactive conjugation canvas** (`init_conjugation` / `fill_conjugation` / `clear_conjugation`) is ✅ fully built — Daniela uses it in real-time during lessons. The items below are static **textbook reference cards** (pre-generated, always visible in the textbook without Daniela). These are separate deliverables and still ⬜.
+
 | Asset | ACTFL Level | Format | Status |
 |-------|-------------|--------|--------|
 | Regular -AR pattern (hablar) | Novice Low | table with pronouns + endings highlighted | ⬜ |
@@ -453,9 +455,9 @@ These are diagrams, not photos. Generated as code (SVG or React components) — 
 
 | Asset | ACTFL Level | Status |
 |-------|-------------|--------|
-| SER vs ESTAR decision tree | Novice Low — Novice Mid | ⬜ |
-| Preterite vs Imperfect contrast diagram | Intermediate Low | ⬜ |
-| Por vs Para decision tree | Intermediate Mid | ⬜ |
+| SER vs ESTAR decision tree | Novice Low — Novice Mid | ✅ Built Mar 18 2026 — `SerEstarCard` in TextbookInfographics.tsx |
+| Preterite vs Imperfect contrast diagram | Intermediate Low | ✅ Built Mar 18 2026 — `PretImperfectCard` in TextbookInfographics.tsx |
+| Por vs Para decision tree | Intermediate Mid | ✅ Built Mar 18 2026 — `PorParaCard` in TextbookInfographics.tsx |
 | Indicative vs Subjunctive trigger map | Intermediate High | ⬜ |
 | Direct vs Indirect object pronoun chart | Intermediate Low | ⬜ |
 | Object pronoun placement diagram | Intermediate Low | ⬜ |
@@ -549,20 +551,22 @@ Visual clusters connecting a root verb to its noun, adjective, and adverb forms.
 
 These are high-impact because they prevent actual embarrassing mistakes. Single card format: English word → wrong Spanish assumption → correct Spanish word → correct usage of the look-alike.
 
+> **All 12 false cognate cards built Mar 18 2026** — `FalseCognateCard` (individual) + `FalseCognatesGrid` (full grid) live in `TextbookInfographics.tsx`. Auto-detected by `classifyGrammarType()` in `ChapterIntroduction.tsx`.
+
 | English | Wrong assumption | Actual Spanish | Look-alike | Look-alike means | Status |
 |---------|-----------------|----------------|-----------|-----------------|--------|
-| embarrassed | embarazada | avergonzado/a | embarazada | pregnant | ⬜ |
-| sensible | sensible | sensato/a | sensible | sensitive | ⬜ |
-| to realize | realizar | darse cuenta de | realizar | to accomplish/carry out | ⬜ |
-| actual | actual | real, verdadero | actual | current, present-day | ⬜ |
-| exit | éxito | salida | éxito | success | ⬜ |
-| library | librería | biblioteca | librería | bookstore | ⬜ |
-| to assist | asistir | ayudar | asistir | to attend | ⬜ |
-| to introduce | introducir | presentar | introducir | to insert | ⬜ |
-| carpet | carpeta | alfombra | carpeta | folder/binder | ⬜ |
-| constipated | constipado | estreñido | constipado | having a cold | ⬜ |
-| to molest | molestar | acosar | molestar | to bother/annoy | ⬜ |
-| parents | parientes | padres | parientes | relatives | ⬜ |
+| embarrassed | embarazada | avergonzado/a | embarazada | pregnant | ✅ |
+| sensible | sensible | sensato/a | sensible | sensitive | ✅ |
+| to realize | realizar | darse cuenta de | realizar | to accomplish/carry out | ✅ |
+| actual | actual | real, verdadero | actual | current, present-day | ✅ |
+| exit | éxito | salida | éxito | success | ✅ |
+| library | librería | biblioteca | librería | bookstore | ✅ |
+| to assist | asistir | ayudar | asistir | to attend | ✅ |
+| to introduce | introducir | presentar | introducir | to insert | ✅ |
+| carpet | carpeta | alfombra | carpeta | folder/binder | ✅ |
+| constipated | constipado | estreñido | constipado | having a cold | ✅ |
+| to molest | molestar | acosar | molestar | to bother/annoy | ✅ |
+| parents | parientes | padres | parientes | relatives | ✅ |
 
 ---
 
