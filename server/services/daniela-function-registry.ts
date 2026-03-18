@@ -446,7 +446,7 @@ PREPOSITION → POSITION MAPPING:
           environment: {
             type: "string",
             description: "The base scene to use",
-            enum: ["cafe", "restaurant_table", "hotel_lobby", "kitchen", "living_room", "bedroom", "bathroom", "park", "airport", "city_street", "office", "classroom", "outdoor_market", "grocery_store", "doctor_office", "kitchen_counter", "bedroom_closeup", "desk_closeup", "taqueria", "french_brasserie", "japanese_izakaya"],
+            enum: ["cafe", "restaurant_table", "hotel_lobby", "kitchen", "living_room", "bedroom", "bathroom", "park", "airport", "city_street", "office", "classroom", "outdoor_market", "grocery_store", "doctor_office", "kitchen_counter", "bedroom_closeup", "desk_closeup", "taqueria", "french_brasserie", "japanese_izakaya", "german_biergarten", "italian_trattoria", "korean_bbq", "arabic_coffeehouse", "chinese_teahouse"],
           },
           objects: {
             type: "array",
@@ -552,7 +552,7 @@ Use the live canvas only when the SEQUENCE of changes is pedagogically meaningfu
           environment: {
             type: "string",
             description: "The background environment to load.",
-            enum: ["cafe", "restaurant_table", "hotel_lobby", "kitchen", "living_room", "bedroom", "bathroom", "park", "airport", "city_street", "office", "classroom", "outdoor_market", "grocery_store", "doctor_office", "kitchen_counter", "bedroom_closeup", "desk_closeup", "taqueria", "french_brasserie", "japanese_izakaya"],
+            enum: ["cafe", "restaurant_table", "hotel_lobby", "kitchen", "living_room", "bedroom", "bathroom", "park", "airport", "city_street", "office", "classroom", "outdoor_market", "grocery_store", "doctor_office", "kitchen_counter", "bedroom_closeup", "desk_closeup", "taqueria", "french_brasserie", "japanese_izakaya", "german_biergarten", "italian_trattoria", "korean_bbq", "arabic_coffeehouse", "chinese_teahouse"],
           },
           label: { type: "string", description: "Optional short label shown as the scene title (e.g. 'En el restaurante')" },
         },
@@ -1194,6 +1194,46 @@ IMPORTANT — set up the FULL scene BEFORE calling enter_immersive:
    - When student orders: add yakitori / edamame / gyoza at center or on_plate
    - Add sake cup at glass_spot after the first round
    - Label props in Japanese romaji or kanji — this is a Japanese-immersive environment
+
+   For "german_biergarten" (Bavarian beer garden scenario):
+   - Long pine Biertisch table surface is bare — trees, kiosk, and guests are background art
+   - Use same prop positions as restaurant_table (center, left, right, etc.)
+   - Suggested opening props: beer_mug → glass_spot | pretzel → center | dinner_menu → left
+   - When student orders food: add weisswurst / obatzda / radish at center or on_plate
+   - Add a second Masskrug at glass_spot_right when student orders another round
+   - Label props in German — this is a German-immersive environment
+
+   For "italian_trattoria" (Italian rustic restaurant scenario):
+   - Checkered tablecloth is bare — stone arches, Chianti bottles, and candles are background art
+   - Use same prop positions as restaurant_table (center, left, right, etc.)
+   - Suggested opening props: plate → center | fork → fork_spot | knife → knife_spot | wine_glass → glass_spot | dinner_menu → left | candle → right
+   - When student orders: add pasta / pizza / bruschetta at center or on_plate
+   - Add olive_oil and bread_basket at side_plate for an Italian starter experience
+   - Label props in Italian — this is an Italian-immersive environment
+
+   For "korean_bbq" (Korean barbecue restaurant scenario):
+   - Stone table has a built-in grill at center — the grill is part of the background art
+   - Place food props AROUND the grill (left, right, side_plate positions), not on top of it
+   - Suggested opening props: tongs → fork_spot | scissors → knife_spot | dinner_menu → left | glass → glass_spot
+   - When student orders: add raw meat (pork_belly / beef_bulgogi) at left or right, then cooked at on_plate
+   - Banchan bowls: add kimchi → condiment_1, spinach → condiment_2, pickled radish → condiment_3
+   - Label props in Korean (Korean script where possible) — this is a Korean-immersive environment
+
+   For "arabic_coffeehouse" (traditional Middle Eastern coffeehouse scenario):
+   - Brass-inlaid hexagonal table surface is bare — tiles, lanterns, and lattice screens are background art
+   - Use same prop positions as cafe / restaurant_table (center, left, right, etc.)
+   - Suggested opening props: coffee_cup → center | cafe_menu → left | date_sweets → side_plate
+   - For a full meal setting: add mezze / hummus / flatbread at center or on_plate
+   - Add dallah_pot at condiment_1 position to reinforce the hospitality culture
+   - Label props in Arabic script where possible — this is an Arabic-immersive environment
+
+   For "chinese_teahouse" (classical Chinese teahouse scenario):
+   - Rosewood gongfu tea table with drainage tray is bare — bamboo, scrolls, and garden are background art
+   - The drainage tray is built into the center — tea ceremony props sit ON or AROUND it
+   - Suggested opening props: teapot → center | teacup → glass_spot | teacup_2 → glass_spot_right | tea_caddy → left
+   - For a full meal: add dim_sum / dumplings / rice at on_plate positions
+   - This environment suits a slow, contemplative lesson on tea vocabulary and ritual phrases
+   - Label props in Mandarin Chinese characters — this is a Mandarin-immersive environment
 
 3. THEN call enter_immersive() — student sees a fully dressed, labeled scene immediately
 
