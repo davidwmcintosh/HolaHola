@@ -551,7 +551,9 @@ Visual clusters connecting a root verb to its noun, adjective, and adverb forms.
 
 These are high-impact because they prevent actual embarrassing mistakes. Single card format: English word → wrong Spanish assumption → correct Spanish word → correct usage of the look-alike.
 
-> **All 12 false cognate cards built Mar 18 2026** — `FalseCognateCard` (individual) + `FalseCognatesGrid` (full grid) live in `TextbookInfographics.tsx`. Auto-detected by `classifyGrammarType()` in `ChapterIntroduction.tsx`.
+> **Two separate deliverables — same distinction as Section 3:**
+> - **Static textbook cards** (`FalseCognateCard` / `FalseCognatesGrid` in `TextbookInfographics.tsx`) — ✅ Built Mar 18 2026. Auto-detected by `classifyGrammarType()` and rendered in `ChapterIntroduction.tsx`.
+> - **Dynamic Daniela tool** (e.g. `highlight_false_cognate` — surface a warning card mid-lesson when Daniela detects a student is about to use a false cognate) — ⬜ Not yet built. Separate future feature.
 
 | English | Wrong assumption | Actual Spanish | Look-alike | Look-alike means | Status |
 |---------|-----------------|----------------|-----------|-----------------|--------|
