@@ -1,8 +1,8 @@
-# LinguaFlow - AI-Powered Language Learning Platform
+# HolaHola - AI-Powered Language Learning Platform
 
 ## Transform How You Learn Languages
 
-LinguaFlow is a next-generation language learning platform that uses advanced AI to create personalized, immersive conversation practice. Whether you're a solo learner or an educational institution, LinguaFlow adapts to your needs.
+HolaHola is a next-generation language learning platform that uses advanced AI to create personalized, immersive conversation practice. Whether you're a solo learner or an educational institution, HolaHola adapts to your needs.
 
 ---
 
@@ -283,7 +283,7 @@ LinguaFlow is a next-generation language learning platform that uses advanced AI
 - Basic voice and text chat
 - Limited daily messages
 - Core vocabulary features
-- Perfect for trying LinguaFlow
+- Perfect for trying HolaHola
 
 ### Basic Tier
 - Increased message limits
@@ -308,7 +308,7 @@ LinguaFlow is a next-generation language learning platform that uses advanced AI
 
 ---
 
-## Why LinguaFlow?
+## Why HolaHola?
 
 ### vs. Traditional Apps (Duolingo, Babbel)
 - **Real conversations** instead of repetitive exercises
@@ -357,6 +357,6 @@ LinguaFlow is a next-generation language learning platform that uses advanced AI
 
 ---
 
-*LinguaFlow - Where AI Meets Language Learning*
+*HolaHola - Where AI Meets Language Learning*
 
 *Last Updated: December 1, 2025*

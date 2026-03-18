@@ -1,11 +1,11 @@
 # PWA & Capacitor Setup Guide
 
-LinguaFlow is now configured as a **Progressive Web App (PWA)** with **Capacitor** support for native iOS and Android apps.
+HolaHola is now configured as a **Progressive Web App (PWA)** with **Capacitor** support for native iOS and Android apps.
 
 ## 🌐 Progressive Web App (PWA)
 
 ### Features
-- ✅ **Install to Home Screen**: Users can add LinguaFlow to their device home screen
+- ✅ **Install to Home Screen**: Users can add HolaHola to their device home screen
 - ✅ **Offline Support**: Service worker caches conversations and vocabulary for offline access
 - ✅ **Native App Feel**: Full-screen mode, splash screen, and app icons
 - ✅ **Auto-updates**: Service worker automatically updates when new versions are available
@@ -80,7 +80,7 @@ npx cap open android  # Opens Android Studio
 ### Configuration
 
 Edit `capacitor.config.ts` to customize:
-- **appId**: `com.linguaflow.app` (change before publishing)
+- **appId**: `com.holahola.app` (change before publishing)
 - **appName**: Display name in app stores
 - **webDir**: `dist/public` (matches Vite build output - client assets go here, server code goes to dist/)
 - **Plugins**: Splash screen, push notifications, etc.

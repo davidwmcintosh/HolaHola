@@ -4,7 +4,7 @@
 ⚠️ **DEPRECATED**: `VoiceChat.tsx` (WebSocket-based) is NOT USED - See VOICE_CHAT_TROUBLESHOOTING.md for history
 
 ## Overview
-LinguaFlow uses a **stable REST-based voice pipeline** for voice learning features, replacing the unstable OpenAI Realtime WebSocket API. This architecture has been proven reliable through extensive testing and is production-ready.
+HolaHola uses a **stable REST-based voice pipeline** for voice learning features, replacing the unstable OpenAI Realtime WebSocket API. This architecture has been proven reliable through extensive testing and is production-ready.
 
 **Status**: ✅ Fully Operational (Nov 21, 2025)
 
@@ -128,7 +128,7 @@ Content-Type: audio/mpeg
 ## Dual OpenAI Client Architecture
 
 ### Critical Distinction
-LinguaFlow uses **TWO separate OpenAI API keys**:
+HolaHola uses **TWO separate OpenAI API keys**:
 
 1. **Replit AI Integrations** (`OPENAI_API_KEY`)
    - Used for: Text chat completions

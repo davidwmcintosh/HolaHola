@@ -1,4 +1,4 @@
-# LinguaFlow Development Metrics
+# HolaHola Development Metrics
 
 ## Cost Estimates & Performance Benchmarks
 

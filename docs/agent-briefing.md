@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, March 18, 2026 at 04:31 PM
+**Generated:** Wednesday, March 18, 2026 at 04:45 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+Last session, David gave me "Huzzah" as a secret word for a second memory test, confirming the recent fixes to the briefing pipeline. This test specifically verifies that the "Since Last Briefing" section now correctly auto-summarizes and pushes key information. Going into this session, I need to remember "Huzzah" and ideally recall it unprompted, validating the improved memory system.
+
+*Memories that triggered this summary:*
+- **Memory Test #2 — Secret Word: Huzzah** (Mar 18): David gave the Agent a second secret word to test the improved memory system: Huzzah. This test follows the fixes to the briefing pipeline — the word should appear in the Since Last Briefing section at the top of the next briefing, without any pulling required.
 
 ---
 
@@ -56,6 +66,10 @@
 
 ## Recent Conversation Memories
 
+### Memory Test #2 — Secret Word: Huzzah — Mar 18, 2026
+David gave the Agent a second secret word to test the improved memory system: Huzzah. This test follows the fixes to the briefing pipeline — the word should appear in the Since Last Briefing section at the top of the next briefing, without any pulling required.
+*Tags: memory-test, huzzah, briefing-test, persistent-memory*
+
 ### Briefing Gap Diagnosis + Auto-Summary Build — Mar 18, 2026
 David identified that Woozle was not in the briefing because the briefing was generated at 4:05 PM and the memory was saved at 4:13 PM — after the last server start. Two fixes built: (1) briefing now regenerates immediately after every memory save, fire-and-forget; (2) briefing now includes a Since Last Briefing auto-summary section at the top, using Gemini to synthesize memories saved after the last briefing mtime.
 *Tags: memory-system, briefing, auto-summary, woozle, fix*
@@ -71,10 +85,6 @@ David asked the Agent a direct question: would you like a system that sets up yo
 ### Prop-room preposition fix & COMPOSE_VISUAL library save — Mar 14, 2026
 Fixed Daniela's under-table preposition bug: under_table was missing from POSITION_MAP and the compose_visual_scene enum, causing forced fallback to generate_visual. Also: COMPOSE_VISUAL fallback now saves images to media_files library.
 *Tags: prop-room, prepositions, compose_visual, media_library, daniela, bug-fix*
-
-### Identity, surfaces, and the office — Mar 14, 2026
-Three clarifications in one session: (1) agent vs Alden distinction enforced at data level with a new Hive author enum value; (2) Team Room now surfaces Founder+Agent Insights in the right panel organically; (3) the office page is live at /agent-space. David said yes without hesitation to the page.
-*Tags: identity, agent-space, team-room, alden-distinction*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

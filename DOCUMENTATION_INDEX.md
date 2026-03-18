@@ -1,4 +1,4 @@
-# LinguaFlow Documentation Index
+# HolaHola Documentation Index
 
 This document provides an overview of all documentation files in the project.
 
@@ -486,4 +486,4 @@ project/
 **Terminology**: "Syllabus" in user-facing text, "curriculum*" in database tables  
 **New Features (Dec 2)**: Progressive Word Timing Debug System with race condition fix  
 **New Features (Dec 1)**: Syllabus Builder, ACTFL Standards Coverage panel with Can-Do statement tracking  
-**Maintainer**: LinguaFlow Development Team
+**Maintainer**: HolaHola Development Team
