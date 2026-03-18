@@ -74,20 +74,17 @@ Organization: thematic clusters. A student at Novice Low needs the Novice Low cl
 
 **People**
 
-| Word | Spanish | Status | Notes |
-|------|---------|--------|-------|
-| mother | madre | ⬜ | |
-| father | padre | ⬜ | |
-| brother | hermano | ⬜ | sibling pair image? |
-| sister | hermana | ⬜ | |
-| baby | bebé | ⬜ | |
-| boy/child | niño | ⬜ | |
-| girl/child | niña | ⬜ | |
-| man | hombre | ⬜ | |
-| woman | mujer | ⬜ | |
-| friend | amigo/amiga | ⬜ | |
-| teacher | profesor/a | ⬜ | |
-| student | estudiante | ⬜ | |
+*Grouping note: several people words are ambiguous as solo images (a woman alone could be madre, hermana, mujer, or amiga). Group and pair images are used where the relationship itself is the meaning.*
+
+| Image | Covers | Spanish | Status | Notes |
+|-------|--------|---------|--------|-------|
+| Familia (group portrait) | mother, father, brother, sister, baby | madre, padre, hermano, hermana, bebé | ✅ Mar 18 2026 | `vocab_people_familia.png` — seeded under 6 cache keys incl. familia |
+| Los niños (pair) | boy, girl | niño, niña | ✅ Mar 18 2026 | `vocab_people_ninos.png` — seeded under niño + niña |
+| Los amigos (pair greeting) | friend (m/f) | amigo, amiga | ✅ Mar 18 2026 | `vocab_people_amigos.png` — seeded under amigo + amiga |
+| El hombre (solo) | man | hombre | ✅ Mar 18 2026 | `vocab_people_hombre.png` |
+| La mujer (solo) | woman | mujer | ✅ Mar 18 2026 | `vocab_people_mujer.png` |
+| El/la profesor/a (solo) | teacher | profesor/a | ✅ Mar 18 2026 | `vocab_people_profesor.png` — seeded under profesor + profesora |
+| El/la estudiante (solo) | student | estudiante | ✅ Mar 18 2026 | `vocab_people_estudiante.png` |
 
 **Places**
 
