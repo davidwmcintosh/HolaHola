@@ -413,6 +413,11 @@ export class NativeFunctionCallHandler {
         const translation = fn.args.translation as string | undefined;
         const description = fn.args.description as string | undefined;
         const context = fn.args.context as string | undefined;
+        const rawLabelMode = fn.args.label_mode as string | undefined;
+        const labelMode: 'teach' | 'target' | 'quiz' =
+          rawLabelMode === 'quiz' ? 'quiz'
+          : rawLabelMode === 'target' ? 'target'
+          : 'teach';
         
         if (!word) {
           console.warn(`[Native Function→ShowImage] Missing word parameter`);
@@ -451,6 +456,7 @@ export class NativeFunctionCallHandler {
                   imageUrl: result.imageUrl,
                   context: context,
                   source: result.source,
+                  labelMode: labelMode,
                 },
               }],
             };

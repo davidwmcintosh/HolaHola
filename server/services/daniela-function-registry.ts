@@ -338,15 +338,20 @@ const registry: DanielaFunctionEntry[] = [
     legacyType: 'SHOW_IMAGE',
     declaration: {
       name: "show_image",
-      description: "Display an image on the whiteboard for vocabulary or cultural teaching. Include your spoken words in the 'text' parameter so the image and speech are delivered together.",
+      description: "Display an image on the whiteboard for vocabulary or cultural teaching. Include your spoken words in the 'text' parameter so the image and speech are delivered together. Use label_mode to control what labels appear — you decide, the student cannot change this.",
       parametersJsonSchema: {
         type: "object",
         properties: {
           text: { type: "string", description: "What you're saying about the image" },
-          word: { type: "string", description: "The vocabulary word or concept to show (target language)" },
-          translation: { type: "string", description: "English translation of the word shown below the image as a bilingual label" },
+          word: { type: "string", description: "The vocabulary word or concept to show (target language) — used for image lookup even when labels are hidden" },
+          translation: { type: "string", description: "Native language translation (e.g. English). Only shown when label_mode is 'teach'." },
           description: { type: "string", description: "Brief description to help find the right image" },
           context: { type: "string", description: "Optional teaching context" },
+          label_mode: {
+            type: "string",
+            enum: ["teach", "target", "quiz"],
+            description: "Controls which labels are shown. 'teach' = show target word + native translation (default when introducing a word). 'target' = show target word only, no translation (useful for asking the student to give the native translation). 'quiz' = image only, no labels at all — use this when testing whether the student can produce the target word, e.g. show apple and ask '¿Qué es esto?'.",
+          },
         },
         required: ["word"],
       },

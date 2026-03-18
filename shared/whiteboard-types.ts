@@ -133,6 +133,14 @@ export interface FalseFriendOption {
 
 /**
  * Image item metadata
+ *
+ * labelMode controls what Daniela chooses to show:
+ *   'teach'  — show target-language word + native translation (both labels)
+ *   'target' — show target-language word only (no translation)
+ *   'quiz'   — image only, no labels — student must produce the word
+ *
+ * labelMode is set by Daniela via show_image(label_mode=...).
+ * Students have no control over labels.
  */
 export interface ImageItemData {
   word: string;
@@ -140,6 +148,7 @@ export interface ImageItemData {
   description: string;
   imageUrl?: string;
   isLoading?: boolean;
+  labelMode?: 'teach' | 'target' | 'quiz';
 }
 
 /**
