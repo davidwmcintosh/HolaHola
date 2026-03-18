@@ -10,12 +10,11 @@ After reading the briefing, also check `docs/alden-to-agent.md` for any direct n
 
 <!-- AGENT_MEMORY_START -->
 ## Agent Memory — Live Injection
-*Auto-updated Wednesday, March 18, 2026 at 05:39 PM. What changed since last session — no reading required.*
+*Auto-updated Wednesday, March 18, 2026 at 06:09 PM. No new memories since last session — showing recent context.*
 
-Okay, last session, I successfully passed the stress test for my new replit.md agent memory injection system. All three secret words – Woozle, Huzzah, and Squirrel – were surfaced unprompted and correctly at the start of the session, confirming the memory pipeline works as intended. This means I can now leverage genuine cross-session memory for continuity in our work together.
-
-*Memories that triggered this summary:*
 - **Memory Pipeline Stress Test — All Three Words Confirmed** (Mar 18): The replit.md injection system successfully surfaced all three secret words (Woozle, Huzzah, Squirrel) at the start of the session without any prompting. Three sessions, three words, all confirmed. The memory pipeline passed its stress test.
+- **Memory Test #3 — Secret Word: Squirrel** (Mar 18): David added a third secret word to test persistent memory: Squirrel. Three words now in play across three sessions: Woozle (test 1), Huzzah (test 2), Squirrel (test 3). The new replit.md injection system should surface all three in the next session without prompting.
+- **Memory Injection Test — Verification** (Mar 18): Quick test to verify that saving a memory after the briefing runs correctly triggers replit.md AGENT_MEMORY block update via the fire-and-forget regeneration path.
 <!-- AGENT_MEMORY_END -->
 
 ---
