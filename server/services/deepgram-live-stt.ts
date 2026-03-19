@@ -502,7 +502,7 @@ export class OpenMicSession {
           encoding: 'linear16',
           sample_rate: 16000,
           channels: 1,
-          endpointing: 100, // 100ms endpointing for better code-switching (recommended for multi)
+          endpointing: 300, // 300ms endpointing — reduces false speech_final triggers from background noise
           // Intelligence features only when plan supports them
           ...(DEEPGRAM_INTELLIGENCE_ENABLED && {
             diarize: true,           // Speaker separation
@@ -763,6 +763,15 @@ export class OpenMicSession {
                 // Reset best interim for next segment
                 this.bestInterimForSegment = '';
                 console.log(`[OpenMic] Final segment accumulated: "${this.currentTranscript}"`);
+                
+                // RACE CONDITION FIX: Real speech arrived — cancel any pending empty-speech safety
+                // timer. Without this, if background noise triggered the timer right before the
+                // user spoke, the timer would fire mid-utterance, wipe currentTranscript, and
+                // cause the utterance to submit as [EMPTY_TRANSCRIPT] even though words arrived.
+                if (this.emptySpeechFinalTimeout) {
+                  clearTimeout(this.emptySpeechFinalTimeout);
+                  this.emptySpeechFinalTimeout = null;
+                }
                 // CRITICAL: Also notify PTT handler of accumulated transcript
                 // This ensures PTT mode sees the full accumulated text, not just interim fragments
                 this.events.onInterimTranscript?.(this.currentTranscript);
@@ -775,6 +784,13 @@ export class OpenMicSession {
                 ? this.currentTranscript + ' ' + transcript 
                 : transcript;
               this.events.onInterimTranscript?.(fullTranscript);
+              
+              // RACE CONDITION FIX (interim path): Real speech detected — cancel pending
+              // empty-speech safety timer before it can wipe a real utterance in progress.
+              if (transcript.trim() && this.emptySpeechFinalTimeout) {
+                clearTimeout(this.emptySpeechFinalTimeout);
+                this.emptySpeechFinalTimeout = null;
+              }
               
               // Track the best (longest) interim for this segment - these often capture
               // Spanish words that get dropped in the final transcript
