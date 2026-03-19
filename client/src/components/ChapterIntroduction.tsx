@@ -175,6 +175,26 @@ import {
 } from "./TextbookKoreanPhoneticGuides";
 import { resolveKoFamilyCard } from "./TextbookKoreanWordFamilies";
 
+// ── Mandarin ────────────────────────────────────────────────────────────────────
+import {
+  ZhPinyinTonesCard, ZhHanziBasicsCard, ZhShiCard, ZhYouCard, ZhZaiCard,
+  ZhActionVerbsCard, ZhModalVerbsCard, ZhLeAspectCard, ZhNegationCard,
+  ZhQuestionsCard, ZhQuestionWordsCard, ZhNumbersCard, ZhMeasureWordsCard,
+  ZhTimeExpressionsCard, ZhDirectionCard, ZhResultativeCard, ZhBaCard,
+  ZhComparisonCard, ZhDeParticlesCard, ZhProgressiveCard, ZhDegreeComplementCard,
+  ZhTopicCommentCard, ZhChengYuCard,
+} from "./TextbookMandarinGrammarCards";
+import {
+  MandarinophoneWorldCard, ChineseHolidayCalendarCard, ChineseFoodGuideCard,
+  ChineseDialectCard, ChineseEtiquetteCard, ChineseCurrencyCard, ChinesePopCultureCard,
+} from "./TextbookMandarinCulturalCards";
+import {
+  ZhTonesOverviewCard, ZhPinyinInitialsCard, ZhPinyinFinalsCard, ZhRetroflexCard,
+  ZhPalatalCard, ZhNeutralToneCard, ZhVowelSoundsCard, ZhSyllableStructureCard,
+  ZhPronunciationOverviewCard,
+} from "./TextbookMandarinPhoneticGuides";
+import { resolveZhFamilyCard } from "./TextbookMandarinWordFamilies";
+
 import { languageChapterData } from "@/data/chapter-intro-content";
 
 import familyGatheringImg from "@assets/stock_images/family_gathering_aro_0f321ed1.jpg";
@@ -347,7 +367,23 @@ type GrammarChapterType =
   // ── KOREAN Section 8 — Phonetics ────────────────────────────────────────────
   | 'ko_consonants_chart' | 'ko_vowels_chart' | 'ko_batchim'
   | 'ko_aspiration' | 'ko_vowel_harmony' | 'ko_linking_sounds'
-  | 'ko_tensification' | 'ko_hieuth' | 'ko_pronunciation_overview';
+  | 'ko_tensification' | 'ko_hieuth' | 'ko_pronunciation_overview'
+  // ── MANDARIN Section 3 — Grammar ────────────────────────────────────────────
+  | 'zh_tones' | 'zh_hanzi' | 'zh_shi' | 'zh_you' | 'zh_zai'
+  | 'zh_action_verbs' | 'zh_modal_verbs' | 'zh_le_aspect' | 'zh_negation'
+  | 'zh_questions' | 'zh_question_words' | 'zh_numbers' | 'zh_measure_words'
+  | 'zh_time_expressions' | 'zh_direction' | 'zh_resultative' | 'zh_ba'
+  | 'zh_comparison' | 'zh_de_particles' | 'zh_progressive' | 'zh_degree_complement'
+  | 'zh_topic_comment' | 'zh_chengyу'
+  // ── MANDARIN Section 5 — Cultural ───────────────────────────────────────────
+  | 'zh_world_map' | 'zh_holidays' | 'zh_food_guide'
+  | 'zh_dialects' | 'zh_etiquette' | 'zh_currency' | 'zh_pop_culture'
+  // ── MANDARIN Section 6 — Word families ──────────────────────────────────────
+  | 'zh_word_family'
+  // ── MANDARIN Section 8 — Phonetics ──────────────────────────────────────────
+  | 'zh_tones_overview' | 'zh_pinyin_initials' | 'zh_pinyin_finals'
+  | 'zh_retroflex' | 'zh_palatals' | 'zh_neutral_tone'
+  | 'zh_vowel_sounds' | 'zh_syllable_structure' | 'zh_pronunciation_overview';
 
 function classifyFrenchGrammarType(title: string): GrammarChapterType | null {
   const lower = title.toLowerCase();
@@ -719,6 +755,60 @@ function classifyKoreanGrammarType(title: string): GrammarChapterType | null {
   return null;
 }
 
+function classifyMandarinGrammarType(title: string): GrammarChapterType | null {
+  const lower = title.toLowerCase();
+
+  // ── Section 3 — Grammar ──────────────────────────────────────────────────
+  if (lower.includes('声调') || lower.includes('tone') && (lower.includes('mandarin') || lower.includes('chinese') || lower.includes('pinyin') || lower.includes('shēngdiào')) || lower.includes('pinyin tone') || lower.includes('four tone') || lower.includes('shengdiao')) return 'zh_tones';
+  if (lower.includes('汉字') || lower.includes('hanzi') || lower.includes('character') && lower.includes('chinese') || lower.includes('radical') && lower.includes('chinese') || lower.includes('stroke') && lower.includes('chinese') || lower.includes('部首') || lower.includes('笔画') || lower.includes('hànzì')) return 'zh_hanzi';
+  if ((lower.includes('是') || lower.includes('shì') || lower.includes('shi') && lower.includes('to be')) && (lower.includes('mandarin') || lower.includes('chinese') || lower.includes('是字') || lower.includes('bù shì') || lower.includes('bu shi'))) return 'zh_shi';
+  if ((lower.includes('有') || lower.includes('yǒu') || lower.includes('you') && lower.includes('have') || lower.includes('there is') && lower.includes('chinese') || lower.includes('there are') && lower.includes('mandarin')) && (lower.includes('mandarin') || lower.includes('chinese') || lower.includes('有字') || lower.includes('méi yǒu'))) return 'zh_you';
+  if ((lower.includes('在') || lower.includes('zài') || lower.includes('zai') && lower.includes('location') || lower.includes('at location') && lower.includes('chinese')) && (lower.includes('mandarin') || lower.includes('chinese') || lower.includes('在哪里') || lower.includes('location word'))) return 'zh_zai';
+  if ((lower.includes('action verb') || lower.includes('动词') || lower.includes('dòngcí') || lower.includes('dongci') || lower.includes('basic verb') && lower.includes('chinese') || lower.includes('verb') && lower.includes('mandarin') && lower.includes('action')) && !lower.includes('modal') && !lower.includes('resultative')) return 'zh_action_verbs';
+  if (lower.includes('modal') && (lower.includes('mandarin') || lower.includes('chinese')) || lower.includes('能愿动词') || lower.includes('néng yuàn') || lower.includes('可以') && lower.includes('能') && lower.includes('会') || lower.includes('modal verb') && lower.includes('chinese') || lower.includes('hui neng keyi')) return 'zh_modal_verbs';
+  if (lower.includes('了') && (lower.includes('aspect') || lower.includes('completion') || lower.includes('mandarin') || lower.includes('chinese')) || lower.includes('le aspect') || lower.includes('aspect particle') && lower.includes('chinese') || lower.includes('completion aspect') && lower.includes('mandarin') || lower.includes('guò') && lower.includes('aspect')) return 'zh_le_aspect';
+  if ((lower.includes('negation') || lower.includes('否定') || lower.includes('不') && lower.includes('没') || lower.includes('bu mei') || lower.includes('fǒudìng')) && (lower.includes('mandarin') || lower.includes('chinese')) || lower.includes('chinese negation') || lower.includes('mandarin negation')) return 'zh_negation';
+  if ((lower.includes('question') || lower.includes('疑问句') || lower.includes('yíwènjù') || lower.includes('吗') && (lower.includes('chinese') || lower.includes('mandarin')) || lower.includes('ma particle') || lower.includes('question formation') && lower.includes('chinese')) && !lower.includes('question word')) return 'zh_questions';
+  if ((lower.includes('question word') || lower.includes('疑问词') || lower.includes('什么') && lower.includes('哪') || lower.includes('shénme') || lower.includes('wh-word') && lower.includes('chinese') || lower.includes('interrogative word') && lower.includes('mandarin'))) return 'zh_question_words';
+  if ((lower.includes('number') || lower.includes('数字') || lower.includes('shùzì') || lower.includes('counting') && lower.includes('chinese') || lower.includes('wan system') || lower.includes('万') && lower.includes('number') || lower.includes('yī èr sān')) && (lower.includes('mandarin') || lower.includes('chinese'))) return 'zh_numbers';
+  if (lower.includes('measure word') || lower.includes('量词') || lower.includes('liàngcí') || lower.includes('classifier') && lower.includes('chinese') || lower.includes('gè measure') || lower.includes('chinese counter') || lower.includes('量词 measure')) return 'zh_measure_words';
+  if ((lower.includes('time expression') || lower.includes('时间') || lower.includes('shíjiān') || lower.includes('telling time') && lower.includes('chinese') || lower.includes('clock') && lower.includes('mandarin') || lower.includes('今天') && lower.includes('明天') || lower.includes('jīntiān')) && (lower.includes('mandarin') || lower.includes('chinese'))) return 'zh_time_expressions';
+  if ((lower.includes('direction') || lower.includes('趋向') || lower.includes('qūxiàng') || lower.includes('movement') && lower.includes('chinese') || lower.includes('lái qù') || lower.includes('来去') || lower.includes('directional complement')) && (lower.includes('mandarin') || lower.includes('chinese'))) return 'zh_direction';
+  if ((lower.includes('resultative') || lower.includes('结果补语') || lower.includes('jiéguǒ') || lower.includes('result complement') || lower.includes('verb result') && lower.includes('chinese')) && (lower.includes('mandarin') || lower.includes('chinese'))) return 'zh_resultative';
+  if ((lower.includes('把') || lower.includes('bǎ') || lower.includes('ba construction') || lower.includes('ba sentence') || lower.includes('object fronting') && lower.includes('chinese')) && (lower.includes('mandarin') || lower.includes('chinese'))) return 'zh_ba';
+  if ((lower.includes('comparison') || lower.includes('比较') || lower.includes('bǐjiào') || lower.includes('比 bi') || lower.includes('bǐ ') && lower.includes('chinese') || lower.includes('superlative') && lower.includes('mandarin') || lower.includes('zuì') && lower.includes('gèng')) && (lower.includes('mandarin') || lower.includes('chinese'))) return 'zh_comparison';
+  if (lower.includes('的 地 得') || lower.includes('的地得') || lower.includes('de particle') && lower.includes('chinese') || lower.includes('三个de') || lower.includes('three de') && lower.includes('chinese') || lower.includes('de/di/de') && lower.includes('mandarin') || (lower.includes('的') && lower.includes('地') && lower.includes('得') && (lower.includes('mandarin') || lower.includes('chinese')))) return 'zh_de_particles';
+  if ((lower.includes('progressive') || lower.includes('进行体') || lower.includes('正在') || lower.includes('zhèngzài') || lower.includes('ongoing') && lower.includes('chinese') || lower.includes('在 verb') && lower.includes('mandarin') || lower.includes('continuous') && lower.includes('mandarin')) && (lower.includes('mandarin') || lower.includes('chinese'))) return 'zh_progressive';
+  if ((lower.includes('degree complement') || lower.includes('程度补语') || lower.includes('chéngdù') || lower.includes('verb 得') || lower.includes('de complement') && lower.includes('chinese') || lower.includes('verb de adv') && lower.includes('mandarin')) && (lower.includes('mandarin') || lower.includes('chinese'))) return 'zh_degree_complement';
+  if ((lower.includes('topic') && lower.includes('comment') || lower.includes('话题') || lower.includes('主题') && lower.includes('chinese') || lower.includes('topic prominent') || lower.includes('sentence particle') && lower.includes('mandarin') || lower.includes('sentence final particle') && lower.includes('chinese')) && (lower.includes('mandarin') || lower.includes('chinese'))) return 'zh_topic_comment';
+  if (lower.includes('成语') || lower.includes('chéngyǔ') || lower.includes('chengyú') || lower.includes('chengyu') || lower.includes('4-character idiom') || lower.includes('four character') && lower.includes('chinese') || lower.includes('chinese idiom') || lower.includes('chinese proverb') && lower.includes('character')) return 'zh_chengyу';
+
+  // ── Section 5 — Cultural ─────────────────────────────────────────────────
+  if (lower.includes('mandarin-speaking') || lower.includes('chinese-speaking world') || lower.includes('普通话的世界') || lower.includes('sinophone') || lower.includes('where is mandarin spoken') || lower.includes('mandarin world') || lower.includes('putonghua world')) return 'zh_world_map';
+  if ((lower.includes('holiday') || lower.includes('festival') || lower.includes('节假日') || lower.includes('中国节') || lower.includes('春节') || lower.includes('chūnjié') || lower.includes('chinese new year') || lower.includes('mid-autumn') || lower.includes('lunar new year')) && (lower.includes('china') || lower.includes('chinese') || lower.includes('mandarin'))) return 'zh_holidays';
+  if ((lower.includes('food') || lower.includes('cuisine') || lower.includes('菜系') || lower.includes('美食') || lower.includes('cài') || lower.includes('peking duck') || lower.includes('hot pot') || lower.includes('chinese dish') || lower.includes('dim sum')) && (lower.includes('china') || lower.includes('chinese') || lower.includes('mandarin'))) return 'zh_food_guide';
+  if ((lower.includes('dialect') || lower.includes('方言') || lower.includes('fāngyán') || lower.includes('cantonese') || lower.includes('hokkien') || lower.includes('simplified') && lower.includes('traditional') || lower.includes('min nan') || lower.includes('wu chinese')) && (lower.includes('china') || lower.includes('chinese') || lower.includes('mandarin'))) return 'zh_dialects';
+  if ((lower.includes('etiquette') || lower.includes('礼仪') || lower.includes('mianzi') || lower.includes('面子') || lower.includes('guanxi') || lower.includes('关系') || lower.includes('social norm') && lower.includes('china') || lower.includes('chinese etiquette') || lower.includes('chinese culture')) && (lower.includes('china') || lower.includes('chinese') || lower.includes('mandarin'))) return 'zh_etiquette';
+  if ((lower.includes('currency') || lower.includes('货币') || lower.includes('renminbi') || lower.includes('人民币') || lower.includes('rmb') || lower.includes('yuan') || lower.includes('元') && lower.includes('chinese')) && (lower.includes('china') || lower.includes('chinese') || lower.includes('mandarin'))) return 'zh_currency';
+  if (lower.includes('c-pop') || lower.includes('cpop') || lower.includes('chinese pop') || lower.includes('wechat') || lower.includes('微信') || lower.includes('tiktok') && lower.includes('chinese') || lower.includes('douyīn') || lower.includes('抖音') || lower.includes('chinese pop culture') || lower.includes('chinese internet') || lower.includes('chinese media')) return 'zh_pop_culture';
+
+  // ── Section 6 — Word families ─────────────────────────────────────────────
+  if (lower.includes('word family') && (lower.includes('mandarin') || lower.includes('chinese')) || lower.includes('chinese word family') || lower.includes('汉语词族') || lower.includes('词族') && lower.includes('mandarin') || lower.includes('character family') && lower.includes('chinese')) return 'zh_word_family';
+
+  // ── Section 8 — Phonetics ─────────────────────────────────────────────────
+  if ((lower.includes('tone') && (lower.includes('overview') || lower.includes('system') || lower.includes('sandhi') || lower.includes('4 tone')) && (lower.includes('mandarin') || lower.includes('chinese'))) || lower.includes('tone sandhi') && lower.includes('mandarin') || lower.includes('四声') || lower.includes('sìshēng')) return 'zh_tones_overview';
+  if ((lower.includes('initial') || lower.includes('声母') || lower.includes('shēngmǔ') || lower.includes('consonant initial') || lower.includes('pinyin consonant') || lower.includes('b p m f d t')) && (lower.includes('mandarin') || lower.includes('chinese') || lower.includes('pinyin'))) return 'zh_pinyin_initials';
+  if ((lower.includes('final') || lower.includes('韵母') || lower.includes('yùnmǔ') || lower.includes('vowel final') || lower.includes('pinyin vowel') || lower.includes('pinyin final')) && (lower.includes('mandarin') || lower.includes('chinese') || lower.includes('pinyin'))) return 'zh_pinyin_finals';
+  if (lower.includes('retroflex') || lower.includes('翘舌') || lower.includes('qiào shé') || lower.includes('zh ch sh') && (lower.includes('mandarin') || lower.includes('chinese')) || lower.includes('dental sibilant') && lower.includes('chinese') || lower.includes('zh vs z') || lower.includes('平舌音')) return 'zh_retroflex';
+  if (lower.includes('palatal') || lower.includes('j q x') && (lower.includes('mandarin') || lower.includes('chinese')) || lower.includes('腭音') || lower.includes('jqx sound') || lower.includes('tongue tip down') && lower.includes('mandarin')) return 'zh_palatals';
+  if (lower.includes('neutral tone') || lower.includes('轻声') || lower.includes('qīngshēng') || lower.includes('erhua') || lower.includes('儿化') || lower.includes('érhuà') || lower.includes('rhotacization') && lower.includes('mandarin')) return 'zh_neutral_tone';
+  if ((lower.includes('vowel sound') || lower.includes('tricky vowel') || lower.includes('难发音') || lower.includes('ü sound') || lower.includes('u-umlaut') && lower.includes('mandarin') || lower.includes('e vowel') && lower.includes('mandarin')) && (lower.includes('mandarin') || lower.includes('chinese'))) return 'zh_vowel_sounds';
+  if ((lower.includes('syllable structure') || lower.includes('音节') || lower.includes('yīnjié') || lower.includes('cvcv') && lower.includes('mandarin') || lower.includes('syllable mandarin') || lower.includes('mandarin syllable') || lower.includes('phonology overview') && lower.includes('mandarin')) && (lower.includes('mandarin') || lower.includes('chinese'))) return 'zh_syllable_structure';
+  if ((lower.includes('pronunciation') && (lower.includes('mandarin') || lower.includes('chinese')) || lower.includes('phonetic') && (lower.includes('mandarin') || lower.includes('chinese')) || lower.includes('发音') && lower.includes('mandarin') || lower.includes('mandarin pronunciation overview') || lower.includes('chinese pronunciation guide'))) return 'zh_pronunciation_overview';
+
+  return null;
+}
+
 function classifyGrammarType(title: string, language = 'spanish'): GrammarChapterType | null {
   if (language === 'french') return classifyFrenchGrammarType(title);
   if (language === 'portuguese') return classifyPortugueseGrammarType(title);
@@ -726,6 +816,7 @@ function classifyGrammarType(title: string, language = 'spanish'): GrammarChapte
   if (language === 'italian') return classifyItalianGrammarType(title);
   if (language === 'japanese') return classifyJapaneseGrammarType(title);
   if (language === 'korean') return classifyKoreanGrammarType(title);
+  if (language === 'mandarin') return classifyMandarinGrammarType(title);
 
   const lower = title.toLowerCase();
 
@@ -1133,6 +1224,50 @@ const GRAMMAR_LABELS: Record<GrammarChapterType, { title: string; subtitle: stri
   ko_tensification:      { title: '경음화 — Tensification', subtitle: 'Automatic fortis consonants after unreleased stops and in noun compounds — not reflected in spelling' },
   ko_hieuth:             { title: 'ㅎ 탈락 / 격음화 — ㅎ Sound Changes', subtitle: 'ㅎ + plain stop → aspirated · ㅎ before vowel → silent · rules for 좋다, 많다, 넣다 patterns' },
   ko_pronunciation_overview: { title: '발음 개요 — Korean Pronunciation Overview', subtitle: 'ㅡ vowel, ㄹ liquid, syllable timing, intonation patterns, word-final devoicing, ㄴ-ㄹ rule' },
+  // ── MANDARIN Section 3 — Grammar
+  zh_tones:               { title: '声调 — Pinyin Tones', subtitle: 'The 4 tones + neutral tone — same syllable, completely different words depending on pitch' },
+  zh_hanzi:               { title: '汉字 — Chinese Characters', subtitle: 'Strokes → components → radicals — how characters are built and remembered' },
+  zh_shi:                 { title: '是 (Shì) — To Be', subtitle: 'The Mandarin copula — identity, classification, and how negation and questions work' },
+  zh_you:                 { title: '有 (Yǒu) — To Have / There Is', subtitle: 'Possession and existence — and why negation uses 没 instead of 不' },
+  zh_zai:                 { title: '在 (Zài) — Location & Progressive', subtitle: 'At/in a place + ongoing actions — plus all position words (上/下/里/旁边…)' },
+  zh_action_verbs:        { title: '动词 — Action Verbs', subtitle: 'No conjugation — same form for all subjects; tense shown by time words and particles' },
+  zh_modal_verbs:         { title: '能愿动词 — Modal Verbs', subtitle: '会/能/可以/要/想/应该 — can, may, want, should — and the key nuances between them' },
+  zh_le_aspect:           { title: '了 (Le) — Completion Aspect', subtitle: 'Marks completed action or change of state — not a past tense marker; two distinct uses' },
+  zh_negation:            { title: '否定 — Negation', subtitle: '不 for general negation · 没 for 有 and past events · 别 for commands — placement rules' },
+  zh_questions:           { title: '疑问句 — Question Formation', subtitle: '3 methods: 吗-particle · A-not-A · question words — plus 呢 for follow-up questions' },
+  zh_question_words:      { title: '疑问词 — Question Words', subtitle: '什么/谁/哪里/什么时候/为什么/怎么/多少/几 — stay in position, replace the unknown' },
+  zh_numbers:             { title: '数字 — Numbers', subtitle: 'The 万 counting system — 10,000 as the key unit, not 1,000 like English' },
+  zh_measure_words:       { title: '量词 — Measure Words', subtitle: 'Every noun needs a classifier: 个/本/张/条/件… — Number + Measure + Noun' },
+  zh_time_expressions:    { title: '时间表达 — Time Expressions', subtitle: 'Time words come BEFORE the verb; clock time, calendar, and relative time vocabulary' },
+  zh_direction:           { title: '趋向补语 — Direction Complements', subtitle: 'Verb + 来/去 and compound directionals showing movement toward or away from speaker' },
+  zh_resultative:         { title: '结果补语 — Resultative Complements', subtitle: 'Verb + result: 好/完/到/见/懂 — showing the outcome of an action; potential form with 得/不' },
+  zh_ba:                  { title: '把 (Bǎ) — Object-Fronting Construction', subtitle: 'Moves the object before the verb to emphasize disposal or effect — requires result or complement' },
+  zh_comparison:          { title: '比较 — Comparison Structures', subtitle: 'A+比+B · A+没有+B · A+跟B+一样 · 更/最 — three comparison patterns, one superlative' },
+  zh_de_particles:        { title: '的/地/得 — The Three "De" Particles', subtitle: 'All pronounced "de" — 的 (modifier→noun) · 地 (adverb→verb) · 得 (verb→degree complement)' },
+  zh_progressive:         { title: '进行体 — Progressive Aspect', subtitle: '在/正在 + Verb + (呢) for ongoing actions · 着 for durative states · 一边…一边 for simultaneous' },
+  zh_degree_complement:   { title: '程度补语 — Degree Complement', subtitle: 'Verb + 得 + degree phrase: 说得很好 — how the action is done; object requires verb repetition' },
+  zh_topic_comment:       { title: '话题-评论 — Topic-Comment Structure', subtitle: 'Mandarin is topic-prominent — front the known element, then comment on it; sentence particles' },
+  zh_chengyу:             { title: '成语 — Four-Character Idioms', subtitle: 'Fixed classical expressions: 一石二鸟 · 半途而废 · 马到成功 — culture encoded in language' },
+  // ── MANDARIN Section 5 — Cultural
+  zh_world_map:    { title: '普通话的世界 — The Mandarin-Speaking World', subtitle: '~920M L1 speakers — mainland China, Taiwan, Singapore + diaspora across SE Asia and beyond' },
+  zh_holidays:     { title: '中国节假日 — Chinese Holidays & Festivals', subtitle: '春节 to 国庆节 — lunar and solar calendar celebrations, Golden Weeks, and their traditions' },
+  zh_food_guide:   { title: '中国美食 — Chinese Cuisine', subtitle: '8 great cuisine traditions — from Peking Duck and Mapo Tofu to soup dumplings and hot pot' },
+  zh_dialects:     { title: '汉语方言 — Chinese Dialect Groups', subtitle: 'Mandarin · Cantonese · Hokkien · Wu — distinct languages sharing a written system' },
+  zh_etiquette:    { title: '中国礼仪 — Chinese Etiquette & Social Norms', subtitle: '面子 (mianzi) · 关系 (guanxi) · dining customs · red envelopes · lucky numbers' },
+  zh_currency:     { title: '华人世界的货币 — Chinese-World Currencies', subtitle: 'Renminbi (RMB/CNY) · NTD · HKD — plus mobile payment (WeChat Pay, Alipay) dominance' },
+  zh_pop_culture:  { title: '中国流行文化 — Chinese Pop Culture', subtitle: '抖音 · 微信 · C-pop · xianxia dramas · 汉服 · tea culture · internet slang 666/520/yyds' },
+  // ── MANDARIN Section 6 — Word families
+  zh_word_family:  { title: '汉语词族 — Mandarin Word Families', subtitle: 'Core characters and their compounds — how Mandarin vocabulary builds from roots' },
+  // ── MANDARIN Section 8 — Phonetics
+  zh_tones_overview:        { title: '声调系统 — Tone System Overview', subtitle: '4 tones + sandhi rules: 3rd+3rd → 2nd+3rd · 不 before 4th · 一 in context' },
+  zh_pinyin_initials:       { title: '声母 — Pinyin Initial Consonants', subtitle: 'Aspirated (p/t/k/q/ch/c) vs. unaspirated (b/d/g/j/zh/z) — the key distinction, not voicing' },
+  zh_pinyin_finals:         { title: '韵母 — Pinyin Final Vowels', subtitle: 'Simple vowels, diphthongs, triphthongs, and nasal endings — with spelling conventions' },
+  zh_retroflex:             { title: '翘舌音 vs 平舌音 — Retroflex vs Dental', subtitle: 'zh/ch/sh/r (tongue back) vs z/c/s (tongue forward) — the most common beginner distinction' },
+  zh_palatals:              { title: 'j / q / x — Palatal Consonants', subtitle: 'Tongue tip DOWN — only before i and ü — no English equivalent; minimal pairs with zh/ch/sh' },
+  zh_neutral_tone:          { title: '轻声 & 儿化 — Neutral Tone & Rhotacization', subtitle: 'Unstressed particles (的/了/吗/们) + Beijing 儿 coloring — what they sound like and when to use' },
+  zh_vowel_sounds:          { title: '难发音的韵母 — Tricky Vowel Sounds', subtitle: 'e · ü · -i after zh/ch/sh · ian · ui · ong — what Pinyin spelling doesn\'t tell you' },
+  zh_syllable_structure:    { title: '音节结构 — Syllable Structure', subtitle: '(C)(G)V(N)T — ~400 syllables, no clusters, syllable-timed, one morpheme per syllable' },
+  zh_pronunciation_overview:{ title: '发音指南 — Pronunciation Overview', subtitle: 'Tones first · aspiration not voicing · j/q/x tongue tip down · ü rounded · sandhi mandatory' },
 };
 
 function resolveFrenchWordFamilyCard(title?: string): JSX.Element {
@@ -1223,6 +1358,18 @@ const GRAMMAR_LABELS_KO: Partial<Record<GrammarChapterType, { title: string; sub
   country_dot_map:  { title: '한국어의 세계', subtitle: 'Where Korean is spoken around the world — Korea + diaspora communities globally' },
 };
 
+const GRAMMAR_LABELS_ZH: Partial<Record<GrammarChapterType, { title: string; subtitle: string }>> = {
+  weather_vocab:    { title: '天气 — 天气词汇', subtitle: 'All 10 weather conditions with Mandarin Chinese expressions — the same icons used in lessons' },
+  emotions_vocab:   { title: '情感 — 感情词汇', subtitle: 'All 11 emotion faces with Mandarin labels — the same faces used in lessons' },
+  telling_time:     { title: '时钟 — 几点了？', subtitle: 'Analog clocks + key Mandarin time patterns and parts-of-day vocabulary' },
+  days_week:        { title: '星期、月份和日历', subtitle: 'Days of the week, months of the year, and Mandarin date expressions' },
+  body_parts:       { title: '身体 — 身体部位词汇', subtitle: 'Body diagram + complete Mandarin vocabulary reference — same diagram used in lessons' },
+  face_parts:       { title: '脸 — 脸部词汇', subtitle: 'Face close-up + full Mandarin vocabulary for facial features' },
+  hand_parts:       { title: '手 — 手部词汇', subtitle: 'Hand diagram + Mandarin vocabulary for fingers, palm, and wrist' },
+  temperature_vocab:{ title: '气温 — 温度词汇', subtitle: 'Temperature scale in Mandarin Chinese — same thermometer used in lessons' },
+  country_dot_map:  { title: '普通话的世界', subtitle: 'Where Mandarin is spoken around the world — mainland China, Taiwan, Singapore + global diaspora' },
+};
+
 function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spanish' }: { type: GrammarChapterType; chapterNumber: number; chapterTitle?: string; language?: string }) {
   const baseLabel = GRAMMAR_LABELS[type];
   const frLabel = language === 'french' ? GRAMMAR_LABELS_FR[type] : undefined;
@@ -1231,7 +1378,8 @@ function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spa
   const itLabel = language === 'italian' ? GRAMMAR_LABELS_IT[type] : undefined;
   const jaLabel = language === 'japanese' ? GRAMMAR_LABELS_JA[type] : undefined;
   const koLabel = language === 'korean' ? GRAMMAR_LABELS_KO[type] : undefined;
-  const { title, subtitle } = koLabel ?? jaLabel ?? itLabel ?? deLabel ?? ptLabel ?? frLabel ?? baseLabel;
+  const zhLabel = language === 'mandarin' ? GRAMMAR_LABELS_ZH[type] : undefined;
+  const { title, subtitle } = zhLabel ?? koLabel ?? jaLabel ?? itLabel ?? deLabel ?? ptLabel ?? frLabel ?? baseLabel;
   const wordFamilyRoot = type === 'word_family' && chapterTitle ? resolveWordFamilyRoot(chapterTitle) : null;
 
   return (
@@ -1298,15 +1446,15 @@ function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spa
       {type === 'word_family' && <WordFamilyCard root={wordFamilyRoot ?? 'hablar'} />}
 
       {/* Section 7 — Canvas vocabulary cards (same SVG renderers as /chat) */}
-      {type === 'weather_vocab'    && <WeatherVocabCard     language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean'} />}
-      {type === 'emotions_vocab'   && <EmotionsVocabCard    language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean'} />}
-      {type === 'telling_time'     && <TimeVocabCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean'} />}
-      {type === 'days_week'        && <DaysOfWeekCard       language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean'} />}
-      {type === 'body_parts'       && <BodyPartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean'} />}
-      {type === 'face_parts'       && <FacePartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean'} />}
-      {type === 'hand_parts'       && <HandPartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean'} />}
-      {type === 'temperature_vocab'&& <ThermometerVocabCard language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean'} />}
-      {type === 'country_dot_map'  && (language === 'french' ? <FrancophoneWorldMapCard /> : language === 'portuguese' ? <LusophoneWorldMapCard /> : language === 'german' ? <GermanSpeakingWorldCard /> : language === 'italian' ? <ItalophoneWorldCard /> : language === 'japanese' ? <JapanophoneWorldCard /> : language === 'korean' ? <KoreanophoneWorldCard /> : <CountryDotMapCard />)}
+      {type === 'weather_vocab'    && <WeatherVocabCard     language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean' | 'mandarin'} />}
+      {type === 'emotions_vocab'   && <EmotionsVocabCard    language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean' | 'mandarin'} />}
+      {type === 'telling_time'     && <TimeVocabCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean' | 'mandarin'} />}
+      {type === 'days_week'        && <DaysOfWeekCard       language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean' | 'mandarin'} />}
+      {type === 'body_parts'       && <BodyPartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean' | 'mandarin'} />}
+      {type === 'face_parts'       && <FacePartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean' | 'mandarin'} />}
+      {type === 'hand_parts'       && <HandPartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean' | 'mandarin'} />}
+      {type === 'temperature_vocab'&& <ThermometerVocabCard language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean' | 'mandarin'} />}
+      {type === 'country_dot_map'  && (language === 'french' ? <FrancophoneWorldMapCard /> : language === 'portuguese' ? <LusophoneWorldMapCard /> : language === 'german' ? <GermanSpeakingWorldCard /> : language === 'italian' ? <ItalophoneWorldCard /> : language === 'japanese' ? <JapanophoneWorldCard /> : language === 'korean' ? <KoreanophoneWorldCard /> : language === 'mandarin' ? <MandarinophoneWorldCard /> : <CountryDotMapCard />)}
 
       {/* Section 8 — Phonetics */}
       {type === 'vowel_purity' && <VowelPurityCard />}
@@ -1606,6 +1754,54 @@ function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spa
       {type === 'ko_tensification' && <KoTensificationCard />}
       {type === 'ko_hieuth' && <KoHieuthCard />}
       {type === 'ko_pronunciation_overview' && <KoPronunciationOverviewCard />}
+
+      {/* ── MANDARIN Section 3 — Grammar ─────────────────────────────────────── */}
+      {type === 'zh_tones' && <ZhPinyinTonesCard />}
+      {type === 'zh_hanzi' && <ZhHanziBasicsCard />}
+      {type === 'zh_shi' && <ZhShiCard />}
+      {type === 'zh_you' && <ZhYouCard />}
+      {type === 'zh_zai' && <ZhZaiCard />}
+      {type === 'zh_action_verbs' && <ZhActionVerbsCard />}
+      {type === 'zh_modal_verbs' && <ZhModalVerbsCard />}
+      {type === 'zh_le_aspect' && <ZhLeAspectCard />}
+      {type === 'zh_negation' && <ZhNegationCard />}
+      {type === 'zh_questions' && <ZhQuestionsCard />}
+      {type === 'zh_question_words' && <ZhQuestionWordsCard />}
+      {type === 'zh_numbers' && <ZhNumbersCard />}
+      {type === 'zh_measure_words' && <ZhMeasureWordsCard />}
+      {type === 'zh_time_expressions' && <ZhTimeExpressionsCard />}
+      {type === 'zh_direction' && <ZhDirectionCard />}
+      {type === 'zh_resultative' && <ZhResultativeCard />}
+      {type === 'zh_ba' && <ZhBaCard />}
+      {type === 'zh_comparison' && <ZhComparisonCard />}
+      {type === 'zh_de_particles' && <ZhDeParticlesCard />}
+      {type === 'zh_progressive' && <ZhProgressiveCard />}
+      {type === 'zh_degree_complement' && <ZhDegreeComplementCard />}
+      {type === 'zh_topic_comment' && <ZhTopicCommentCard />}
+      {type === 'zh_chengyу' && <ZhChengYuCard />}
+
+      {/* ── MANDARIN Section 5 — Cultural ────────────────────────────────────── */}
+      {type === 'zh_world_map' && <MandarinophoneWorldCard />}
+      {type === 'zh_holidays' && <ChineseHolidayCalendarCard />}
+      {type === 'zh_food_guide' && <ChineseFoodGuideCard />}
+      {type === 'zh_dialects' && <ChineseDialectCard />}
+      {type === 'zh_etiquette' && <ChineseEtiquetteCard />}
+      {type === 'zh_currency' && <ChineseCurrencyCard />}
+      {type === 'zh_pop_culture' && <ChinesePopCultureCard />}
+
+      {/* ── MANDARIN Section 6 — Word families ───────────────────────────────── */}
+      {type === 'zh_word_family' && resolveZhFamilyCard(chapterTitle ?? '')}
+
+      {/* ── MANDARIN Section 8 — Phonetics ───────────────────────────────────── */}
+      {type === 'zh_tones_overview' && <ZhTonesOverviewCard />}
+      {type === 'zh_pinyin_initials' && <ZhPinyinInitialsCard />}
+      {type === 'zh_pinyin_finals' && <ZhPinyinFinalsCard />}
+      {type === 'zh_retroflex' && <ZhRetroflexCard />}
+      {type === 'zh_palatals' && <ZhPalatalCard />}
+      {type === 'zh_neutral_tone' && <ZhNeutralToneCard />}
+      {type === 'zh_vowel_sounds' && <ZhVowelSoundsCard />}
+      {type === 'zh_syllable_structure' && <ZhSyllableStructureCard />}
+      {type === 'zh_pronunciation_overview' && <ZhPronunciationOverviewCard />}
 
       <div className="flex items-center gap-2 text-sm text-muted-foreground justify-center">
         <Users className="h-4 w-4" />
