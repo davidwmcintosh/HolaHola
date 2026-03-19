@@ -996,13 +996,13 @@ const MONTHS_HE: CalMonth[] = [
 ];
 
 const DAYS_HE: CalDay[] = [
-  { abbr: 'ב'', full: 'יום שני (Yom Sheni)', en: 'Monday' },
-  { abbr: 'ג'', full: 'יום שלישי (Yom Shlishi)', en: 'Tuesday' },
-  { abbr: 'ד'', full: 'יום רביעי (Yom Revi'i)', en: 'Wednesday' },
-  { abbr: 'ה'', full: 'יום חמישי (Yom Khamishi)', en: 'Thursday' },
-  { abbr: 'ו'', full: 'יום שישי (Yom Shishi)', en: 'Friday' },
-  { abbr: 'שב', full: 'שבת (Shabbat)', en: 'Saturday' },
-  { abbr: 'א'', full: 'יום ראשון (Yom Rishon)', en: 'Sunday' },
+  { abbr: 'ב׳', full: 'יום שני (Yom Sheni)', en: 'Monday' },
+  { abbr: 'ג׳', full: 'יום שלישי (Yom Shlishi)', en: 'Tuesday' },
+  { abbr: 'ד׳', full: "יום רביעי (Yom Revi'i)", en: 'Wednesday' },
+  { abbr: 'ה׳', full: 'יום חמישי (Yom Khamishi)', en: 'Thursday' },
+  { abbr: 'ו׳', full: 'יום שישי (Yom Shishi)', en: 'Friday' },
+  { abbr: 'שב',      full: 'שבת (Shabbat)', en: 'Saturday' },
+  { abbr: 'א׳', full: 'יום ראשון (Yom Rishon)', en: 'Sunday' },
 ];
 
 const DATE_EXPRESSIONS: Record<LangCode, [string, string][]> = {
@@ -1417,13 +1417,11 @@ const BODY_VOCAB_ZH: BodyEntry[] = [
   { key: 'feet',      label: '脚 (jiǎo) — Jiǎo',                 english: 'feet' },
 ];
 
-export function BodyPartsCard({ language = 'spanish' }: { language?: LangCode }) {
-
 const BODY_VOCAB_HE: BodyEntry[] = [
   { part: 'head',         label: 'ראש (rosh)',                    english: 'head' },
-  { part: 'hair',         label: 'שער (se'ar)',                  english: 'hair' },
+  { part: 'hair',         label: "שער (se'ar)",                  english: 'hair' },
   { part: 'shoulder',     label: 'כתף (katef)',                   english: 'shoulder' },
-  { part: 'arm',          label: 'זרוע (zero'a)',           english: 'arm' },
+  { part: 'arm',          label: "זרוע (zero'a)",           english: 'arm' },
   { part: 'elbow',        label: 'מרפק (marpek)',            english: 'elbow' },
   { part: 'hand',         label: 'יד (yad)',                           english: 'hand' },
   { part: 'chest',        label: 'חזה (khaze)',                   english: 'chest' },
@@ -1434,6 +1432,7 @@ const BODY_VOCAB_HE: BodyEntry[] = [
   { part: 'foot',         label: 'כף רגל (kaf regel)', english: 'foot (sole)' },
 ];
 
+export function BodyPartsCard({ language = 'spanish' }: { language?: LangCode }) {
   const vocab = language === 'french' ? BODY_VOCAB_FR : language === 'portuguese' ? BODY_VOCAB_PT : language === 'german' ? BODY_VOCAB_DE : language === 'italian' ? BODY_VOCAB_IT : language === 'japanese' ? BODY_VOCAB_JA : language === 'korean' ? BODY_VOCAB_KO : language === 'mandarin' ? BODY_VOCAB_ZH : language === 'hebrew' ? BODY_VOCAB_HE : BODY_VOCAB_ES;
   const phrases = BODY_PHRASES[language] ?? BODY_PHRASES.spanish;
   const diagLabels = language === 'french'
@@ -1701,11 +1700,11 @@ export function FacePartsCard({ language = 'spanish' }: { language?: LangCode })
   
 const FACE_VOCAB_HE: BodyEntry[] = [
   { part: 'forehead',  label: 'מצח (metsakh)',               english: 'forehead' },
-  { part: 'eye',       label: 'עין ('ayin)',                 english: 'eye' },
+  { part: 'eye',       label: "עין ('ayin)",                 english: 'eye' },
   { part: 'eyebrow',   label: 'גבה (gaba)',                   english: 'eyebrow' },
   { part: 'nose',      label: 'אף (af)',                           english: 'nose' },
   { part: 'cheek',     label: 'לחי (lekhi)',                  english: 'cheek' },
-  { part: 'ear',       label: 'אוזן ('ozen)',           english: 'ear' },
+  { part: 'ear',       label: "אוזן ('ozen)",           english: 'ear' },
   { part: 'mouth',     label: 'פה (peh)',                          english: 'mouth' },
   { part: 'lip',       label: 'שפה (safa)',                   english: 'lip' },
   { part: 'tooth',     label: 'שן (shen)',                         english: 'tooth' },
@@ -1942,8 +1941,8 @@ export function HandPartsCard({ language = 'spanish' }: { language?: LangCode })
 const HAND_VOCAB_HE: BodyEntry[] = [
   { part: 'thumb',       label: 'אגודל (agudal)',           english: 'thumb' },
   { part: 'index',       label: 'אצבע מורה (etsba mora)', english: 'index finger' },
-  { part: 'middle',      label: 'אצבע אמצעית (etsba emtsa'it)', english: 'middle finger' },
-  { part: 'ring',        label: 'אצבע טבעת (etsba taba'at)', english: 'ring finger' },
+  { part: 'middle',      label: "אצבע אמצעית (etsba emtsa'it)", english: 'middle finger' },
+  { part: 'ring',        label: "אצבע טבעת (etsba taba'at)", english: 'ring finger' },
   { part: 'pinky',       label: 'אצבע קטנה (etsba ktana)', english: 'little finger' },
   { part: 'palm',        label: 'כף יד (kaf yad)',                english: 'palm' },
   { part: 'wrist',       label: 'פרק יד (parak yad)',        english: 'wrist' },
@@ -2191,12 +2190,12 @@ const TEMP_CONVERSIONS: Record<LangCode, [string, string][]> = {
 export function ThermometerVocabCard({ language = 'spanish' }: { language?: LangCode }) {
   
 const TEMP_VOCAB_HE: TempEntry[] = [
-  { celsius: 40, label: 'חם מאוד (kham me'od)', english: 'very hot' },
-  { celsius: 30, label: 'חם (kham)', english: 'hot' },
-  { celsius: 20, label: 'נעים (na'im)', english: 'pleasant' },
-  { celsius: 10, label: 'קר (kar)', english: 'cold' },
-  { celsius: 0,  label: 'קפא (kafa)', english: 'freezing' },
-  { celsius: -10,label: 'קפא עז (kafa 'az)', english: 'very cold / icy' },
+  { celsius: 40, label: "חם מאוד (kham me'od)", english: 'very hot' },
+  { celsius: 30, label: 'חם (kham)',             english: 'hot' },
+  { celsius: 20, label: "נעים (na'im)",          english: 'pleasant' },
+  { celsius: 10, label: 'קר (kar)',              english: 'cold' },
+  { celsius: 0,  label: 'קפא (kafa)',            english: 'freezing' },
+  { celsius: -10,label: "קפא עז (kafa 'az)",    english: 'very cold / icy' },
 ];
 
   const vocab = language === 'french' ? TEMP_VOCAB_FR : language === 'portuguese' ? TEMP_VOCAB_PT : language === 'german' ? TEMP_VOCAB_DE : language === 'italian' ? TEMP_VOCAB_IT : language === 'japanese' ? TEMP_VOCAB_JA : language === 'korean' ? TEMP_VOCAB_KO : language === 'mandarin' ? TEMP_VOCAB_ZH : language === 'hebrew' ? TEMP_VOCAB_HE : TEMP_VOCAB_ES;
