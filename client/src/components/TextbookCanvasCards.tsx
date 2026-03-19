@@ -64,7 +64,7 @@ function MiniEmotionFace({ emotion, size = 60 }: { emotion: string; size?: numbe
 
 // ─── Language label helpers ───────────────────────────────────────────────────
 
-type LangCode = 'spanish' | 'french' | 'portuguese' | 'german';
+type LangCode = 'spanish' | 'french' | 'portuguese' | 'german' | 'italian';
 
 // ─── 1. Weather Vocabulary Card ───────────────────────────────────────────────
 
@@ -122,6 +122,19 @@ const WEATHER_VOCAB_DE: WeatherEntry[] = [
   { condition: 'foggy',        label: 'Es ist neblig / Es gibt Nebel', english: 'It\'s foggy' },
 ];
 
+const WEATHER_VOCAB_IT: WeatherEntry[] = [
+  { condition: 'sunny',        label: 'C\'è il sole / È soleggiato',  english: 'It\'s sunny' },
+  { condition: 'hot',          label: 'Fa molto caldo',               english: 'It\'s very hot' },
+  { condition: 'cold',         label: 'Fa freddo',                    english: 'It\'s cold' },
+  { condition: 'cloudy',       label: 'È nuvoloso / È coperto',       english: 'It\'s cloudy' },
+  { condition: 'partly_cloudy',label: 'Parzialmente nuvoloso',        english: 'Partly cloudy' },
+  { condition: 'rainy',        label: 'Piove / Sta piovendo',         english: 'It\'s raining' },
+  { condition: 'stormy',       label: 'C\'è un temporale',            english: 'There\'s a storm' },
+  { condition: 'snowy',        label: 'Nevica / Sta nevicando',       english: 'It\'s snowing' },
+  { condition: 'windy',        label: 'C\'è vento / Tira vento',      english: 'It\'s windy' },
+  { condition: 'foggy',        label: 'C\'è nebbia / È nebbioso',     english: 'It\'s foggy' },
+];
+
 const WEATHER_EXPRESSIONS: Record<LangCode, [string, string][]> = {
   spanish: [
     ['¿Qué tiempo hace?', 'What\'s the weather like?'],
@@ -155,12 +168,20 @@ const WEATHER_EXPRESSIONS: Record<LangCode, [string, string][]> = {
     ['Es ist sonnig / bewölkt / windig.', 'It\'s sunny / cloudy / windy.'],
     ['Die Wettervorhersage sagt…', 'The forecast says…'],
   ],
+  italian: [
+    ['Com\'è il tempo?', 'What\'s the weather like?'],
+    ['Il tempo è bello.', 'The weather is nice.'],
+    ['Il tempo è brutto.', 'The weather is bad.'],
+    ['Quanti gradi ci sono?', 'What is the temperature?'],
+    ['C\'è il sole / nuvoloso / vento.', 'It\'s sunny / cloudy / windy.'],
+    ['Le previsioni del tempo dicono…', 'The forecast says…'],
+  ],
 };
 
 export function WeatherVocabCard({ language = 'spanish' }: { language?: LangCode }) {
-  const vocab = language === 'french' ? WEATHER_VOCAB_FR : language === 'portuguese' ? WEATHER_VOCAB_PT : language === 'german' ? WEATHER_VOCAB_DE : WEATHER_VOCAB_ES;
+  const vocab = language === 'french' ? WEATHER_VOCAB_FR : language === 'portuguese' ? WEATHER_VOCAB_PT : language === 'german' ? WEATHER_VOCAB_DE : language === 'italian' ? WEATHER_VOCAB_IT : WEATHER_VOCAB_ES;
   const exprs = WEATHER_EXPRESSIONS[language] ?? WEATHER_EXPRESSIONS.spanish;
-  const sectionTitle = language === 'french' ? 'La Météo — Weather Conditions' : language === 'portuguese' ? 'O Tempo — Weather Conditions' : language === 'german' ? 'Das Wetter — Weather Conditions' : 'El Tiempo — Weather Conditions';
+  const sectionTitle = language === 'french' ? 'La Météo — Weather Conditions' : language === 'portuguese' ? 'O Tempo — Weather Conditions' : language === 'german' ? 'Das Wetter — Weather Conditions' : language === 'italian' ? 'Il Tempo — Condizioni Meteorologiche' : 'El Tiempo — Weather Conditions';
   return (
     <Card>
       <CardContent className="p-4 md:p-6">
@@ -254,6 +275,20 @@ const EMOTIONS_VOCAB_DE: EmotionEntry[] = [
   { emotion: 'bored',     label: 'gelangweilt',              english: 'bored' },
 ];
 
+const EMOTIONS_VOCAB_IT: EmotionEntry[] = [
+  { emotion: 'happy',     label: 'felice / contento/a',         english: 'happy' },
+  { emotion: 'excited',   label: 'emozionato/a / entusiasta',   english: 'excited' },
+  { emotion: 'sad',       label: 'triste',                      english: 'sad' },
+  { emotion: 'angry',     label: 'arrabbiato/a',                english: 'angry' },
+  { emotion: 'surprised', label: 'sorpreso/a',                  english: 'surprised' },
+  { emotion: 'afraid',    label: 'spaventato/a / aver paura',   english: 'afraid' },
+  { emotion: 'confused',  label: 'confuso/a / disorientato/a',  english: 'confused' },
+  { emotion: 'tired',     label: 'stanco/a',                    english: 'tired' },
+  { emotion: 'nervous',   label: 'nervoso/a',                   english: 'nervous' },
+  { emotion: 'disgusted', label: 'disgustato/a / schifato/a',   english: 'disgusted' },
+  { emotion: 'bored',     label: 'annoiato/a',                  english: 'bored' },
+];
+
 const EMOTION_EXPRESSIONS: Record<LangCode, [string, string][]> = {
   spanish: [
     ['¿Cómo te sientes?', 'How do you feel?'],
@@ -287,12 +322,20 @@ const EMOTION_EXPRESSIONS: Record<LangCode, [string, string][]> = {
     ['Warum bist du wütend?', 'Why are you angry?'],
     ['Ich fühle mich nicht wohl.', 'I don\'t feel well.'],
   ],
+  italian: [
+    ['Come ti senti? / Come stai?', 'How do you feel?'],
+    ['Mi sento felice / triste.', 'I feel happy / sad.'],
+    ['Sono stanco/a.', 'I am tired.'],
+    ['Sono molto emozionato/a!', 'I\'m very excited!'],
+    ['Perché sei arrabbiato/a?', 'Why are you angry?'],
+    ['Non mi sento bene.', 'I don\'t feel well.'],
+  ],
 };
 
 export function EmotionsVocabCard({ language = 'spanish' }: { language?: LangCode }) {
-  const vocab = language === 'french' ? EMOTIONS_VOCAB_FR : language === 'portuguese' ? EMOTIONS_VOCAB_PT : language === 'german' ? EMOTIONS_VOCAB_DE : EMOTIONS_VOCAB_ES;
+  const vocab = language === 'french' ? EMOTIONS_VOCAB_FR : language === 'portuguese' ? EMOTIONS_VOCAB_PT : language === 'german' ? EMOTIONS_VOCAB_DE : language === 'italian' ? EMOTIONS_VOCAB_IT : EMOTIONS_VOCAB_ES;
   const exprs = EMOTION_EXPRESSIONS[language] ?? EMOTION_EXPRESSIONS.spanish;
-  const sectionTitle = language === 'french' ? 'Les Émotions — Feelings & Emotions' : language === 'portuguese' ? 'As Emoções — Feelings & Emotions' : language === 'german' ? 'Die Gefühle — Feelings & Emotions' : 'Las Emociones — Feelings & Emotions';
+  const sectionTitle = language === 'french' ? 'Les Émotions — Feelings & Emotions' : language === 'portuguese' ? 'As Emoções — Feelings & Emotions' : language === 'german' ? 'Die Gefühle — Feelings & Emotions' : language === 'italian' ? 'Le Emozioni — Feelings & Emotions' : 'Las Emociones — Feelings & Emotions';
   return (
     <Card>
       <CardContent className="p-4 md:p-6">
@@ -374,6 +417,17 @@ const TIME_VOCAB_DE: TimeEntry[] = [
   { time: '0:00',  label: 'Es ist Mitternacht / null Uhr',      english: 'It\'s midnight' },
 ];
 
+const TIME_VOCAB_IT: TimeEntry[] = [
+  { time: '12:00', label: 'È mezzogiorno',                 english: 'It\'s noon' },
+  { time: '1:00',  label: 'È l\'una in punto',             english: 'It\'s one o\'clock' },
+  { time: '2:30',  label: 'Sono le due e mezza',           english: 'It\'s two-thirty' },
+  { time: '3:15',  label: 'Sono le tre e un quarto',       english: 'It\'s quarter past three' },
+  { time: '8:45',  label: 'Sono le nove meno un quarto',   english: 'It\'s quarter to nine' },
+  { time: '10:10', label: 'Sono le dieci e dieci',         english: 'It\'s ten past ten' },
+  { time: '6:00',  label: 'Sono le sei di sera',           english: 'It\'s six in the evening' },
+  { time: '0:00',  label: 'È mezzanotte',                  english: 'It\'s midnight' },
+];
+
 const TIME_KEY_PATTERNS: Record<LangCode, [string, string][]> = {
   spanish: [
     ['¿Qué hora es?', 'What time is it?'],
@@ -406,6 +460,14 @@ const TIME_KEY_PATTERNS: Record<LangCode, [string, string][]> = {
     ['Viertel nach [#]', '+ 15 min — quarter past'],
     ['halb [#+1]', '+ 30 min — half past (to next hour!)'],
     ['Viertel vor [#]', '- 15 min — quarter to'],
+  ],
+  italian: [
+    ['Che ora è? / Che ore sono?', 'What time is it?'],
+    ['È l\'una.', 'It\'s one o\'clock. (singular)'],
+    ['Sono le [#].', 'It\'s [#] o\'clock. (plural)'],
+    ['e un quarto', '+ 15 min — quarter past'],
+    ['e mezza', '+ 30 min — half past'],
+    ['meno un quarto', '- 15 min — quarter to'],
   ],
 };
 
@@ -442,13 +504,21 @@ const TIME_DAY_PARTS: Record<LangCode, [string, string][]> = {
     ['Um wie viel Uhr…?', 'At what time…?'],
     ['um [#] Uhr', 'at [#] o\'clock'],
   ],
+  italian: [
+    ['di mattina / la mattina', 'in the morning'],
+    ['a mezzogiorno', 'at noon'],
+    ['del pomeriggio / nel pomeriggio', 'in the afternoon'],
+    ['di sera / la sera', 'in the evening'],
+    ['A che ora…?', 'At what time…?'],
+    ['alle [#]', 'at [#] o\'clock'],
+  ],
 };
 
 export function TimeVocabCard({ language = 'spanish' }: { language?: LangCode }) {
-  const vocab = language === 'french' ? TIME_VOCAB_FR : language === 'portuguese' ? TIME_VOCAB_PT : language === 'german' ? TIME_VOCAB_DE : TIME_VOCAB_ES;
+  const vocab = language === 'french' ? TIME_VOCAB_FR : language === 'portuguese' ? TIME_VOCAB_PT : language === 'german' ? TIME_VOCAB_DE : language === 'italian' ? TIME_VOCAB_IT : TIME_VOCAB_ES;
   const patterns = TIME_KEY_PATTERNS[language] ?? TIME_KEY_PATTERNS.spanish;
   const dayParts = TIME_DAY_PARTS[language] ?? TIME_DAY_PARTS.spanish;
-  const sectionTitle = language === 'french' ? "L'Heure — Telling Time" : language === 'portuguese' ? 'As Horas — Telling Time' : language === 'german' ? 'Die Uhrzeit — Telling Time' : 'La Hora — Telling Time';
+  const sectionTitle = language === 'french' ? "L'Heure — Telling Time" : language === 'portuguese' ? 'As Horas — Telling Time' : language === 'german' ? 'Die Uhrzeit — Telling Time' : language === 'italian' ? "L'Ora — Telling Time" : 'La Hora — Telling Time';
   return (
     <Card>
       <CardContent className="p-4 md:p-6">
@@ -578,6 +648,25 @@ const DAYS_DE: CalDay[] = [
   { abbr: 'So', full: 'Sonntag', en: 'Sunday' },
 ];
 
+const MONTHS_IT: CalMonth[] = [
+  { label: 'gennaio', en: 'January' }, { label: 'febbraio', en: 'February' },
+  { label: 'marzo', en: 'March' }, { label: 'aprile', en: 'April' },
+  { label: 'maggio', en: 'May' }, { label: 'giugno', en: 'June' },
+  { label: 'luglio', en: 'July' }, { label: 'agosto', en: 'August' },
+  { label: 'settembre', en: 'September' }, { label: 'ottobre', en: 'October' },
+  { label: 'novembre', en: 'November' }, { label: 'dicembre', en: 'December' },
+];
+
+const DAYS_IT: CalDay[] = [
+  { abbr: 'Lu', full: 'lunedì', en: 'Monday' },
+  { abbr: 'Ma', full: 'martedì', en: 'Tuesday' },
+  { abbr: 'Me', full: 'mercoledì', en: 'Wednesday' },
+  { abbr: 'Gi', full: 'giovedì', en: 'Thursday' },
+  { abbr: 'Ve', full: 'venerdì', en: 'Friday' },
+  { abbr: 'Sa', full: 'sabato', en: 'Saturday' },
+  { abbr: 'Do', full: 'domenica', en: 'Sunday' },
+];
+
 const DATE_EXPRESSIONS: Record<LangCode, [string, string][]> = {
   spanish: [
     ['¿Qué día es hoy?', 'What day is today?'],
@@ -611,23 +700,33 @@ const DATE_EXPRESSIONS: Record<LangCode, [string, string][]> = {
     ['das Wochenende', 'the weekend'],
     ['unter der Woche / werktags', 'on weekdays'],
   ],
+  italian: [
+    ['Che giorno è oggi?', 'What day is today?'],
+    ['Oggi è lunedì.', 'Today is Monday.'],
+    ['Qual è la data?', 'What is the date?'],
+    ['Oggi è il 15 marzo.', 'Today is March 15th.'],
+    ['il fine settimana', 'the weekend'],
+    ['durante la settimana / nei giorni feriali', 'on weekdays'],
+  ],
 };
 
 export function DaysOfWeekCard({ language = 'spanish' }: { language?: LangCode }) {
-  const days = language === 'french' ? DAYS_FR : language === 'portuguese' ? DAYS_PT : language === 'german' ? DAYS_DE : DAYS_ES;
-  const months = language === 'french' ? MONTHS_FR : language === 'portuguese' ? MONTHS_PT : language === 'german' ? MONTHS_DE : MONTHS_ES;
+  const days = language === 'french' ? DAYS_FR : language === 'portuguese' ? DAYS_PT : language === 'german' ? DAYS_DE : language === 'italian' ? DAYS_IT : DAYS_ES;
+  const months = language === 'french' ? MONTHS_FR : language === 'portuguese' ? MONTHS_PT : language === 'german' ? MONTHS_DE : language === 'italian' ? MONTHS_IT : MONTHS_ES;
   const exprs = DATE_EXPRESSIONS[language] ?? DATE_EXPRESSIONS.spanish;
-  const calMonthLabel = language === 'french' ? 'mars' : language === 'portuguese' ? 'março' : language === 'german' ? 'März' : 'marzo';
+  const calMonthLabel = language === 'french' ? 'mars' : language === 'portuguese' ? 'março' : language === 'german' ? 'März' : language === 'italian' ? 'marzo' : 'marzo';
   const calNote = language === 'french'
     ? 'Note: Weeks start on Monday (lundi) in France and most Francophone countries.'
     : language === 'portuguese'
     ? 'Note: Weeks start on Monday (segunda-feira) in Portugal and Brazil.'
     : language === 'german'
     ? 'Note: Weeks start on Monday (Montag) in Germany, Austria, and Switzerland.'
+    : language === 'italian'
+    ? 'Note: Weeks start on Monday (lunedì) in Italy and most Italian-speaking regions.'
     : 'Note: Weeks start on Monday (lunes) in most Spanish-speaking countries.';
-  const daysHeading = language === 'french' ? 'Les Jours de la Semaine — Days of the Week' : language === 'portuguese' ? 'Os Dias da Semana — Days of the Week' : language === 'german' ? 'Die Wochentage — Days of the Week' : 'Los Días de la Semana — Days of the Week';
-  const monthsHeading = language === 'french' ? 'Les Mois de l\'Année — Months of the Year' : language === 'portuguese' ? 'Os Meses do Ano — Months of the Year' : language === 'german' ? 'Die Monate des Jahres — Months of the Year' : 'Los Meses del Año — Months of the Year';
-  const calLabel = language === 'french' ? 'Calendrier — Calendar' : language === 'portuguese' ? 'Calendário — Calendar' : language === 'german' ? 'Kalender — Calendar' : 'Calendario — Calendar';
+  const daysHeading = language === 'french' ? 'Les Jours de la Semaine — Days of the Week' : language === 'portuguese' ? 'Os Dias da Semana — Days of the Week' : language === 'german' ? 'Die Wochentage — Days of the Week' : language === 'italian' ? 'I Giorni della Settimana — Days of the Week' : 'Los Días de la Semana — Days of the Week';
+  const monthsHeading = language === 'french' ? 'Les Mois de l\'Année — Months of the Year' : language === 'portuguese' ? 'Os Meses do Ano — Months of the Year' : language === 'german' ? 'Die Monate des Jahres — Months of the Year' : language === 'italian' ? 'I Mesi dell\'Anno — Months of the Year' : 'Los Meses del Año — Months of the Year';
+  const calLabel = language === 'french' ? 'Calendrier — Calendar' : language === 'portuguese' ? 'Calendário — Calendar' : language === 'german' ? 'Kalender — Calendar' : language === 'italian' ? 'Calendario — Calendar' : 'Calendario — Calendar';
 
   const calData = {
     month: calMonthLabel,
@@ -785,6 +884,28 @@ const BODY_VOCAB_DE: BodyEntry[] = [
   { key: 'feet',      label: 'die Füße',                 english: 'feet' },
 ];
 
+const BODY_VOCAB_IT: BodyEntry[] = [
+  { key: 'head',      label: 'la testa',               english: 'head' },
+  { key: 'hair',      label: 'i capelli',              english: 'hair' },
+  { key: 'face',      label: 'il viso / la faccia',    english: 'face' },
+  { key: 'eyes',      label: 'gli occhi',              english: 'eyes' },
+  { key: 'nose',      label: 'il naso',                english: 'nose' },
+  { key: 'mouth',     label: 'la bocca',               english: 'mouth' },
+  { key: 'ear',       label: 'l\'orecchio',            english: 'ear' },
+  { key: 'neck',      label: 'il collo',               english: 'neck' },
+  { key: 'shoulders', label: 'le spalle',              english: 'shoulders' },
+  { key: 'chest',     label: 'il petto',               english: 'chest' },
+  { key: 'back',      label: 'la schiena',             english: 'back' },
+  { key: 'arms',      label: 'le braccia',             english: 'arms' },
+  { key: 'elbow',     label: 'il gomito',              english: 'elbow' },
+  { key: 'hands',     label: 'le mani',                english: 'hands' },
+  { key: 'abdomen',   label: 'l\'addome / la pancia',  english: 'stomach / abdomen' },
+  { key: 'hips',      label: 'i fianchi',              english: 'hips' },
+  { key: 'legs',      label: 'le gambe',               english: 'legs' },
+  { key: 'knee',      label: 'il ginocchio',           english: 'knee' },
+  { key: 'feet',      label: 'i piedi',                english: 'feet' },
+];
+
 const BODY_PHRASES: Record<LangCode, [string, string][]> = {
   spanish: [
     ['Me duele la cabeza.', 'My head hurts.'],
@@ -818,10 +939,18 @@ const BODY_PHRASES: Record<LangCode, [string, string][]> = {
     ['Ich habe Rückenschmerzen.', 'I have back pain.'],
     ['Hebe deinen rechten Arm.', 'Raise your right arm.'],
   ],
+  italian: [
+    ['Mi fa male la testa.', 'My head hurts.'],
+    ['Mi fanno male i piedi.', 'My feet hurt.'],
+    ['Indica il tuo naso.', 'Point to your nose.'],
+    ['Che parte del corpo è?', 'What body part is it?'],
+    ['Ho mal di schiena.', 'I have back pain.'],
+    ['Alza il braccio destro.', 'Raise your right arm.'],
+  ],
 };
 
 export function BodyPartsCard({ language = 'spanish' }: { language?: LangCode }) {
-  const vocab = language === 'french' ? BODY_VOCAB_FR : language === 'portuguese' ? BODY_VOCAB_PT : language === 'german' ? BODY_VOCAB_DE : BODY_VOCAB_ES;
+  const vocab = language === 'french' ? BODY_VOCAB_FR : language === 'portuguese' ? BODY_VOCAB_PT : language === 'german' ? BODY_VOCAB_DE : language === 'italian' ? BODY_VOCAB_IT : BODY_VOCAB_ES;
   const phrases = BODY_PHRASES[language] ?? BODY_PHRASES.spanish;
   const diagLabels = language === 'french'
     ? { head: 'la tête', shoulders: 'les épaules', chest: 'la poitrine', arms: 'les bras', abdomen: 'le ventre', legs: 'les jambes' }
@@ -829,8 +958,10 @@ export function BodyPartsCard({ language = 'spanish' }: { language?: LangCode })
     ? { head: 'a cabeça', shoulders: 'os ombros', chest: 'o peito', arms: 'os braços', abdomen: 'o abdômen', legs: 'as pernas' }
     : language === 'german'
     ? { head: 'der Kopf', shoulders: 'die Schultern', chest: 'die Brust', arms: 'die Arme', abdomen: 'der Bauch', legs: 'die Beine' }
+    : language === 'italian'
+    ? { head: 'la testa', shoulders: 'le spalle', chest: 'il petto', arms: 'le braccia', abdomen: 'la pancia', legs: 'le gambe' }
     : { head: 'la cabeza', shoulders: 'los hombros', chest: 'el pecho', arms: 'los brazos', abdomen: 'el abdomen', legs: 'las piernas' };
-  const sectionTitle = language === 'french' ? 'Le Corps Humain' : language === 'portuguese' ? 'O Corpo Humano' : language === 'german' ? 'Der menschliche Körper' : 'El Cuerpo Humano';
+  const sectionTitle = language === 'french' ? 'Le Corps Humain' : language === 'portuguese' ? 'O Corpo Humano' : language === 'german' ? 'Der menschliche Körper' : language === 'italian' ? 'Il Corpo Umano' : 'El Cuerpo Humano';
   const diagHighlights = ['head', 'shoulders', 'chest', 'arms', 'abdomen', 'legs'];
 
   return (
@@ -941,6 +1072,23 @@ const FACE_VOCAB_DE: BodyEntry[] = [
   { key: 'face',      label: 'das Gesicht',            english: 'face' },
 ];
 
+const FACE_VOCAB_IT: BodyEntry[] = [
+  { key: 'hair',      label: 'i capelli',              english: 'hair' },
+  { key: 'forehead',  label: 'la fronte',              english: 'forehead' },
+  { key: 'eyebrows',  label: 'le sopracciglia',        english: 'eyebrows' },
+  { key: 'eyes',      label: 'gli occhi',              english: 'eyes' },
+  { key: 'eyelashes', label: 'le ciglia',              english: 'eyelashes' },
+  { key: 'nose',      label: 'il naso',                english: 'nose' },
+  { key: 'cheeks',    label: 'le guance',              english: 'cheeks' },
+  { key: 'ears',      label: 'le orecchie',            english: 'ears' },
+  { key: 'lips',      label: 'le labbra',              english: 'lips' },
+  { key: 'teeth',     label: 'i denti',                english: 'teeth' },
+  { key: 'tongue',    label: 'la lingua',              english: 'tongue' },
+  { key: 'chin',      label: 'il mento',               english: 'chin' },
+  { key: 'jaw',       label: 'la mascella',            english: 'jaw' },
+  { key: 'face',      label: 'il viso / la faccia',    english: 'face' },
+];
+
 const FACE_DESCRIPTIONS: Record<LangCode, [string, string][]> = {
   spanish: [
     ['Tiene los ojos azules.', 'She/He has blue eyes.'],
@@ -974,10 +1122,18 @@ const FACE_DESCRIPTIONS: Record<LangCode, [string, string][]> = {
     ['Welche Farbe haben seine/ihre Augen?', 'What color are her/his eyes?'],
     ['Er/Sie hat dunkle Augenbrauen.', 'She/He has dark eyebrows.'],
   ],
+  italian: [
+    ['Ha gli occhi azzurri.', 'She/He has blue eyes.'],
+    ['Ha i capelli ricci.', 'She/He has curly hair.'],
+    ['Ha un naso piccolo.', 'She/He has a small nose.'],
+    ['Ha il viso tondo.', 'She/He has a round face.'],
+    ['Di che colore sono i suoi occhi?', 'What color are her/his eyes?'],
+    ['Ha le sopracciglia scure.', 'She/He has dark eyebrows.'],
+  ],
 };
 
 export function FacePartsCard({ language = 'spanish' }: { language?: LangCode }) {
-  const vocab = language === 'french' ? FACE_VOCAB_FR : language === 'portuguese' ? FACE_VOCAB_PT : language === 'german' ? FACE_VOCAB_DE : FACE_VOCAB_ES;
+  const vocab = language === 'french' ? FACE_VOCAB_FR : language === 'portuguese' ? FACE_VOCAB_PT : language === 'german' ? FACE_VOCAB_DE : language === 'italian' ? FACE_VOCAB_IT : FACE_VOCAB_ES;
   const descriptions = FACE_DESCRIPTIONS[language] ?? FACE_DESCRIPTIONS.spanish;
   const diagLabels = language === 'french'
     ? { eyes: 'les yeux', nose: 'le nez', mouth: 'la bouche', ears: 'les oreilles', eyebrows: 'les sourcils', cheeks: 'les joues' }
@@ -985,8 +1141,10 @@ export function FacePartsCard({ language = 'spanish' }: { language?: LangCode })
     ? { eyes: 'os olhos', nose: 'o nariz', mouth: 'a boca', ears: 'as orelhas', eyebrows: 'as sobrancelhas', cheeks: 'as bochechas' }
     : language === 'german'
     ? { eyes: 'die Augen', nose: 'die Nase', mouth: 'der Mund', ears: 'die Ohren', eyebrows: 'die Augenbrauen', cheeks: 'die Wangen' }
+    : language === 'italian'
+    ? { eyes: 'gli occhi', nose: 'il naso', mouth: 'la bocca', ears: 'le orecchie', eyebrows: 'le sopracciglia', cheeks: 'le guance' }
     : { eyes: 'los ojos', nose: 'la nariz', mouth: 'la boca', ears: 'las orejas', eyebrows: 'las cejas', cheeks: 'las mejillas' };
-  const sectionTitle = language === 'french' ? 'Le Visage — The Face' : language === 'portuguese' ? 'O Rosto — The Face' : language === 'german' ? 'Das Gesicht — The Face' : 'La Cara — The Face';
+  const sectionTitle = language === 'french' ? 'Le Visage — The Face' : language === 'portuguese' ? 'O Rosto — The Face' : language === 'german' ? 'Das Gesicht — The Face' : language === 'italian' ? 'Il Viso — The Face' : 'La Cara — The Face';
   const diagHighlights = ['eyes', 'nose', 'mouth', 'ears', 'eyebrows', 'cheeks'];
 
   return (
@@ -1081,6 +1239,19 @@ const HAND_VOCAB_DE: BodyEntry[] = [
   { key: 'fingernails',   label: 'die Fingernägel',              english: 'fingernails' },
 ];
 
+const HAND_VOCAB_IT: BodyEntry[] = [
+  { key: 'thumb',         label: 'il pollice',                   english: 'thumb' },
+  { key: 'index_finger',  label: 'il dito indice',               english: 'index finger' },
+  { key: 'middle_finger', label: 'il dito medio',                english: 'middle finger' },
+  { key: 'ring_finger',   label: 'il dito anulare',              english: 'ring finger' },
+  { key: 'pinky',         label: 'il mignolo',                   english: 'pinky / little finger' },
+  { key: 'fingers',       label: 'le dita',                      english: 'fingers' },
+  { key: 'knuckles',      label: 'le nocche',                    english: 'knuckles' },
+  { key: 'palm',          label: 'il palmo',                     english: 'palm' },
+  { key: 'wrist',         label: 'il polso',                     english: 'wrist' },
+  { key: 'fingernails',   label: 'le unghie',                    english: 'fingernails' },
+];
+
 const HAND_COUNTING: Record<LangCode, [string, string][]> = {
   spanish: [
     ['uno', 'thumb — pulgar'],
@@ -1110,10 +1281,17 @@ const HAND_COUNTING: Record<LangCode, [string, string][]> = {
     ['vier', 'ring — der Ringfinger'],
     ['fünf', 'pinky — der kleine Finger'],
   ],
+  italian: [
+    ['uno', 'thumb — il pollice'],
+    ['due', 'index — il dito indice'],
+    ['tre', 'middle — il dito medio'],
+    ['quattro', 'ring — il dito anulare'],
+    ['cinque', 'pinky — il mignolo'],
+  ],
 };
 
 export function HandPartsCard({ language = 'spanish' }: { language?: LangCode }) {
-  const vocab = language === 'french' ? HAND_VOCAB_FR : language === 'portuguese' ? HAND_VOCAB_PT : language === 'german' ? HAND_VOCAB_DE : HAND_VOCAB_ES;
+  const vocab = language === 'french' ? HAND_VOCAB_FR : language === 'portuguese' ? HAND_VOCAB_PT : language === 'german' ? HAND_VOCAB_DE : language === 'italian' ? HAND_VOCAB_IT : HAND_VOCAB_ES;
   const counting = HAND_COUNTING[language] ?? HAND_COUNTING.spanish;
   const diagLabels = language === 'french'
     ? { thumb: 'pouce', index_finger: 'index', middle_finger: 'majeur', ring_finger: 'annulaire', pinky: 'auriculaire', palm: 'paume' }
@@ -1121,9 +1299,11 @@ export function HandPartsCard({ language = 'spanish' }: { language?: LangCode })
     ? { thumb: 'polegar', index_finger: 'indicador', middle_finger: 'médio', ring_finger: 'anelar', pinky: 'mindinho', palm: 'palma' }
     : language === 'german'
     ? { thumb: 'Daumen', index_finger: 'Zeigefinger', middle_finger: 'Mittelfinger', ring_finger: 'Ringfinger', pinky: 'kl. Finger', palm: 'Handfläche' }
+    : language === 'italian'
+    ? { thumb: 'pollice', index_finger: 'indice', middle_finger: 'medio', ring_finger: 'anulare', pinky: 'mignolo', palm: 'palmo' }
     : { thumb: 'pulgar', index_finger: 'índice', middle_finger: 'medio', ring_finger: 'anular', pinky: 'meñique', palm: 'palma' };
-  const sectionTitle = language === 'french' ? 'La Main — The Hand' : language === 'portuguese' ? 'A Mão — The Hand' : language === 'german' ? 'Die Hand — The Hand' : 'La Mano — The Hand';
-  const fingerCountingLabel = language === 'french' ? 'Counting on Fingers (compter sur les doigts)' : language === 'portuguese' ? 'Counting on Fingers (contar nos dedos)' : language === 'german' ? 'Counting on Fingers (an den Fingern zählen)' : 'Counting on Fingers (contar con los dedos)';
+  const sectionTitle = language === 'french' ? 'La Main — The Hand' : language === 'portuguese' ? 'A Mão — The Hand' : language === 'german' ? 'Die Hand — The Hand' : language === 'italian' ? 'La Mano — The Hand' : 'La Mano — The Hand';
+  const fingerCountingLabel = language === 'french' ? 'Counting on Fingers (compter sur les doigts)' : language === 'portuguese' ? 'Counting on Fingers (contar nos dedos)' : language === 'german' ? 'Counting on Fingers (an den Fingern zählen)' : language === 'italian' ? 'Counting on Fingers (contare sulle dita)' : 'Counting on Fingers (contar con los dedos)';
   const diagHighlights = ['thumb', 'index_finger', 'middle_finger', 'ring_finger', 'pinky', 'palm'];
 
   return (
@@ -1204,6 +1384,15 @@ const TEMP_VOCAB_DE: TempEntry[] = [
   { celsius: 40,  label: 'Es ist sehr heiß',      english: 'It\'s very hot' },
 ];
 
+const TEMP_VOCAB_IT: TempEntry[] = [
+  { celsius: -10, label: 'Fa molto freddo',   english: 'It\'s very cold' },
+  { celsius: 5,   label: 'Fa freddo',          english: 'It\'s cold' },
+  { celsius: 15,  label: 'Fa fresco',          english: 'It\'s cool' },
+  { celsius: 22,  label: 'Il tempo è bello',   english: 'The weather is nice' },
+  { celsius: 32,  label: 'Fa caldo',           english: 'It\'s hot' },
+  { celsius: 40,  label: 'Fa molto caldo',     english: 'It\'s very hot' },
+];
+
 const TEMP_KEY_EXPRS: Record<LangCode, [string, string][]> = {
   spanish: [
     ['Hace calor / frío.', 'It\'s hot / cold.'],
@@ -1228,6 +1417,12 @@ const TEMP_KEY_EXPRS: Record<LangCode, [string, string][]> = {
     ['Es ist heute sehr kalt.', 'It\'s very cold today.'],
     ['Wie viel Grad hat es?', 'How many degrees is it?'],
     ['Es sind 25 Grad.', 'It\'s 25 degrees.'],
+  ],
+  italian: [
+    ['Fa caldo / freddo.', 'It\'s hot / cold.'],
+    ['Fa molto freddo oggi.', 'It\'s very cold today.'],
+    ['Quanti gradi ci sono?', 'How many degrees is it?'],
+    ['Ci sono 25 gradi.', 'It\'s 25 degrees.'],
   ],
 };
 
@@ -1256,14 +1451,20 @@ const TEMP_CONVERSIONS: Record<LangCode, [string, string][]> = {
     ['0°C = 32°F', 'Gefrierpunkt — freezing'],
     ['37°C = 98,6°F', 'Körpertemperatur — body temperature'],
   ],
+  italian: [
+    ['°F = (°C × 9/5) + 32', 'Celsius → Fahrenheit'],
+    ['100°C = 212°F', 'punto di ebollizione — boiling point'],
+    ['0°C = 32°F', 'punto di congelamento — freezing'],
+    ['37°C = 98,6°F', 'temperatura corporea — body temperature'],
+  ],
 };
 
 export function ThermometerVocabCard({ language = 'spanish' }: { language?: LangCode }) {
-  const vocab = language === 'french' ? TEMP_VOCAB_FR : language === 'portuguese' ? TEMP_VOCAB_PT : language === 'german' ? TEMP_VOCAB_DE : TEMP_VOCAB_ES;
+  const vocab = language === 'french' ? TEMP_VOCAB_FR : language === 'portuguese' ? TEMP_VOCAB_PT : language === 'german' ? TEMP_VOCAB_DE : language === 'italian' ? TEMP_VOCAB_IT : TEMP_VOCAB_ES;
   const keyExprs = TEMP_KEY_EXPRS[language] ?? TEMP_KEY_EXPRS.spanish;
   const conversions = TEMP_CONVERSIONS[language] ?? TEMP_CONVERSIONS.spanish;
-  const sectionTitle = language === 'french' ? 'La Température — Temperature' : language === 'portuguese' ? 'A Temperatura — Temperature' : language === 'german' ? 'Die Temperatur — Temperature' : 'La Temperatura — Temperature';
-  const exprHeading = language === 'french' ? 'Expressions with IL FAIT' : language === 'portuguese' ? 'Expressions with ESTÁ' : language === 'german' ? 'Expressions with ES IST' : 'Expressions with HACE';
+  const sectionTitle = language === 'french' ? 'La Température — Temperature' : language === 'portuguese' ? 'A Temperatura — Temperature' : language === 'german' ? 'Die Temperatur — Temperature' : language === 'italian' ? 'La Temperatura — Temperature' : 'La Temperatura — Temperature';
+  const exprHeading = language === 'french' ? 'Expressions with IL FAIT' : language === 'portuguese' ? 'Expressions with ESTÁ' : language === 'german' ? 'Expressions with ES IST' : language === 'italian' ? 'Expressions with FA' : 'Expressions with HACE';
 
   return (
     <Card>

@@ -107,6 +107,30 @@ import {
   DeFINDENFamilyCard, DeDENKENFamilyCard, resolveDeFamilyCard,
 } from "./TextbookGermanWordFamilies";
 
+// ── Italian ────────────────────────────────────────────────────────────────────
+import {
+  ItEssereCard, ItAvereCard, ItStareCard, ItRegularVerbsCard,
+  ItModalVerbsCard, ItReflexiveCard, ItPassatoProssimoCard,
+  ItImperfettoCard, ItPastComparisonCard, ItFuturoCard, ItCondizionaleCard,
+  ItNegationCard, ItDefiniteArticlesCard, ItIndefiniteArticlesCard,
+  ItAdjAgreementCard, ItArticulatedPrepCard, ItObjectPronounsCard,
+  ItSubjectPronounsCard, ItQuestionsCard, ItPartitiveCard,
+  ItImperativeCard, ItComparativesCard,
+} from "./TextbookItalianGrammarCards";
+import {
+  ItalophoneWorldCard, ItalianHolidayCalendarCard, ItalianFoodGuideCard,
+  ItalianDialectCard, ItalianEtiquetteCard, ItalianCurrencyCard, ItalianGestureCard,
+} from "./TextbookItalianCulturalCards";
+import {
+  ItCGSoundsCard, ItSCSoundsCard, ItGLGNCard, ItDoubleConsonantCard,
+  ItZSoundCard, ItRolledRCard, ItOpenClosedVowelsCard, ItStressPatternsCard, ItDiphthongsCard,
+} from "./TextbookItalianPhoneticGuides";
+import {
+  ItPARLAREFamilyCard, ItESSEREFamilyCard, ItAVEREFamilyCard, ItFAREFamilyCard,
+  ItANDAREFamilyCard, ItVENIREFamilyCard, ItVEDEREFamilyCard, ItSAPEREFamilyCard,
+  ItTROVAREFamilyCard, ItPENSAREFamilyCard, resolveItFamilyCard,
+} from "./TextbookItalianWordFamilies";
+
 import { languageChapterData } from "@/data/chapter-intro-content";
 
 import familyGatheringImg from "@assets/stock_images/family_gathering_aro_0f321ed1.jpg";
@@ -226,7 +250,25 @@ type GrammarChapterType =
   // ── GERMAN Section 8 — Phonetics ─────────────────────────────────────────
   | 'de_umlauts' | 'de_eszett' | 'de_german_r' | 'de_ch_sound'
   | 'de_long_short_vowels' | 'de_w_v_sound' | 'de_consonant_clusters'
-  | 'de_word_stress' | 'de_diphthongs';
+  | 'de_word_stress' | 'de_diphthongs'
+  // ── ITALIAN Section 3 — Grammar ──────────────────────────────────────────
+  | 'it_essere' | 'it_avere' | 'it_stare' | 'it_regular_verbs'
+  | 'it_modal_verbs' | 'it_reflexive'
+  | 'it_passato_prossimo' | 'it_imperfetto' | 'it_past_comparison'
+  | 'it_futuro' | 'it_condizionale'
+  | 'it_negation' | 'it_definite_articles' | 'it_indefinite_articles'
+  | 'it_adj_agreement' | 'it_articulated_prep'
+  | 'it_object_pronouns' | 'it_subject_pronouns' | 'it_questions'
+  | 'it_partitive' | 'it_imperative' | 'it_comparatives'
+  // ── ITALIAN Section 5 — Cultural ──────────────────────────────────────────
+  | 'it_world_map' | 'it_holidays' | 'it_food_guide'
+  | 'it_dialects' | 'it_etiquette' | 'it_currency' | 'it_gestures'
+  // ── ITALIAN Section 6 — Word families ─────────────────────────────────────
+  | 'it_word_family'
+  // ── ITALIAN Section 8 — Phonetics ─────────────────────────────────────────
+  | 'it_cg_sounds' | 'it_sc_sounds' | 'it_gl_gn' | 'it_double_consonant'
+  | 'it_z_sound' | 'it_rolled_r' | 'it_open_closed_vowels'
+  | 'it_stress_patterns' | 'it_diphthongs';
 
 function classifyFrenchGrammarType(title: string): GrammarChapterType | null {
   const lower = title.toLowerCase();
@@ -427,10 +469,69 @@ function classifyGermanGrammarType(title: string): GrammarChapterType | null {
   return null;
 }
 
+function classifyItalianGrammarType(title: string): GrammarChapterType | null {
+  const lower = title.toLowerCase();
+
+  // ── Section 3 — Core verbs ────────────────────────────────────────────────
+  if ((lower.includes('essere') && lower.includes('avere')) || (lower.includes('essere') && lower.includes('vs') && lower.includes('avere'))) return 'it_passato_prossimo';
+  if (lower === 'essere' || lower.includes('verbo essere') || lower.includes('il verbo essere') || (lower.startsWith('essere') && !lower.includes('avere'))) return 'it_essere';
+  if (lower === 'avere' || lower.includes('verbo avere') || lower.includes('il verbo avere') || (lower.startsWith('avere') && !lower.includes('essere'))) return 'it_avere';
+  if (lower === 'stare' || lower.includes('verbo stare') || lower.includes('il verbo stare') || lower.includes('stare + gerundio') || lower.includes('progressive') && lower.includes('ital')) return 'it_stare';
+  if (lower.includes('-are verb') || lower.includes('are verb') || lower.includes('verbos -are') || lower.includes('verbi in -are') || lower.includes('parlare') || lower.includes('regular verbs') && lower.includes('ital') || lower.includes('verbi regolari')) return 'it_regular_verbs';
+  if (lower.includes('potere') || lower.includes('volere') || lower.includes('dovere') || lower.includes('modal') && lower.includes('ital') || lower.includes('verbi modali')) return 'it_modal_verbs';
+  if (lower.includes('reflexive') && lower.includes('ital') || lower.includes('verbi riflessivi') || lower.includes('riflessivi') || lower.includes('lavarsi') || lower.includes('alzarsi')) return 'it_reflexive';
+
+  // ── Tenses ────────────────────────────────────────────────────────────────
+  if ((lower.includes('passato prossimo') || lower.includes('present perfect') && lower.includes('ital')) && (lower.includes('vs') || lower.includes('imperfetto') || lower.includes('versus'))) return 'it_past_comparison';
+  if (lower.includes('passato prossimo') || lower.includes('present perfect') && lower.includes('ital') || lower.includes('ho/è + particip')) return 'it_passato_prossimo';
+  if (lower.includes('imperfetto') || lower.includes('imperfect') && !lower.includes('vs') && !lower.includes('versus') && lower.includes('ital')) return 'it_imperfetto';
+  if ((lower.includes('passato') && lower.includes('imperfetto')) || (lower.includes('past') && lower.includes('imperfect') && lower.includes('ital') && lower.includes('vs'))) return 'it_past_comparison';
+  if (lower.includes('futuro') || lower.includes('future') && lower.includes('ital') || lower.includes('future simple') && lower.includes('ital')) return 'it_futuro';
+  if (lower.includes('condizionale') || lower.includes('conditional') && lower.includes('ital')) return 'it_condizionale';
+  if (lower.includes('negazione') || lower.includes('negation') && lower.includes('ital') || lower.includes('non +') || lower.includes('negativa') && lower.includes('ital')) return 'it_negation';
+  if ((lower.includes('articolo determinativo') || lower.includes('definite article') && lower.includes('ital') || lower.includes('il/la/lo') || lower.includes('il/lo/la')) && !lower.includes('indefinite') && !lower.includes('indeterminativo')) return 'it_definite_articles';
+  if (lower.includes('articolo indeterminativo') || lower.includes('indefinite article') && lower.includes('ital') || lower.includes('un/una/uno') || lower.includes('un/una')) return 'it_indefinite_articles';
+  if (lower.includes('aggettivo') || lower.includes('adjective') && lower.includes('ital') || lower.includes('agreement') && lower.includes('ital') || lower.includes('concordanza')) return 'it_adj_agreement';
+  if (lower.includes('preposizione articolata') || lower.includes('articulated prep') || lower.includes('del/della') || lower.includes('al/alla') || lower.includes('preposizioni articolate')) return 'it_articulated_prep';
+  if ((lower.includes('pronome oggetto') || lower.includes('object pronoun') && lower.includes('ital') || lower.includes('mi/ti/lo/la') || lower.includes('direct object') && lower.includes('ital'))) return 'it_object_pronouns';
+  if ((lower.includes('pronome soggetto') || lower.includes('subject pronoun') && lower.includes('ital') || lower.includes('io/tu/lui') || lower.includes('personal pronoun') && lower.includes('ital'))) return 'it_subject_pronouns';
+  if ((lower.includes('domanda') || lower.includes('question') && lower.includes('ital') || lower.includes('interrogativa') || lower.includes('che cosa') || lower.includes('interrogative') && lower.includes('ital'))) return 'it_questions';
+  if (lower.includes('partitivo') || lower.includes('partitive') && lower.includes('ital') || lower.includes('del/della/degli') || lower.includes('some/any') && lower.includes('ital')) return 'it_partitive';
+  if (lower.includes('imperativo') || lower.includes('imperative') && lower.includes('ital') || lower.includes('command') && lower.includes('ital')) return 'it_imperative';
+  if (lower.includes('comparativo') || lower.includes('superlativo') || lower.includes('comparative') && lower.includes('ital') || lower.includes('più di') || lower.includes('più...di')) return 'it_comparatives';
+
+  // ── Section 5 — Cultural ─────────────────────────────────────────────────
+  if (lower.includes('italophone') || lower.includes('italofonos') || lower.includes('italian-speaking world') || lower.includes('mondo italofono') || lower.includes('dove si parla italiano')) return 'it_world_map';
+  if ((lower.includes('holiday') && lower.includes('ital')) || lower.includes('ferragosto') || lower.includes('feste italiane') || lower.includes('ferie') && lower.includes('ital') || lower.includes('festa') && lower.includes('ital') || lower.includes('capodanno') && lower.includes('ital')) return 'it_holidays';
+  if ((lower.includes('food') || lower.includes('cibo') || lower.includes('cucina')) && lower.includes('ital') || lower.includes('gastronomia italiana') || lower.includes('pizza') && lower.includes('pasta') || lower.includes('italian cuisine')) return 'it_food_guide';
+  if ((lower.includes('dialect') || lower.includes('dialetto')) && lower.includes('ital') || lower.includes('dialetti italiani') || lower.includes('toscano') && lower.includes('siciliano') || lower.includes('veneto') && lower.includes('dialect')) return 'it_dialects';
+  if ((lower.includes('etiquette') || lower.includes('etichetta')) && lower.includes('ital') || lower.includes('greeting') && lower.includes('ital') || lower.includes('bella figura') || lower.includes('italian social') || lower.includes('italian culture') && lower.includes('greet')) return 'it_etiquette';
+  if ((lower.includes('currency') || lower.includes('valuta') || lower.includes('euro')) && lower.includes('ital') || lower.includes('lira') && lower.includes('ital') || lower.includes('moneta') && lower.includes('ital')) return 'it_currency';
+  if ((lower.includes('gesture') || lower.includes('gesto')) && lower.includes('ital') || lower.includes('gesti italiani') || lower.includes('italian body language') || lower.includes('italian gesture')) return 'it_gestures';
+
+  // ── Section 6 — Word families ─────────────────────────────────────────────
+  if (lower.includes('word family') && lower.includes('ital') || lower.includes('famiglia di parole') || lower.includes('famiglie di parole') || lower.includes('derivazione') && lower.includes('ital') || lower.includes('vocabolario') && lower.includes('famil')) return 'it_word_family';
+
+  // ── Section 8 — Phonetics ─────────────────────────────────────────────────
+  if (lower.includes('c/g') && lower.includes('ital') || lower.includes('ci/ce') || lower.includes('chi/che') || lower.includes('cg sound') || lower.includes('ca/co/cu') && lower.includes('ital')) return 'it_cg_sounds';
+  if (lower.includes('sc sound') || lower.includes('sci/sce') || lower.includes('schi/sche') || lower.includes('sc ital')) return 'it_sc_sounds';
+  if (lower.includes('gl/gn') || lower.includes('gli ') && lower.includes('gn') || lower.includes('gnocchi') && lower.includes('sound') || lower.includes('foglio') && lower.includes('sound')) return 'it_gl_gn';
+  if (lower.includes('doppia') || lower.includes('double consonant') && lower.includes('ital') || lower.includes('consonante doppia') || lower.includes('geminate') && lower.includes('ital') || lower.includes('doppio') && lower.includes('consonant')) return 'it_double_consonant';
+  if (lower.includes('z sound') && lower.includes('ital') || lower.includes('zeta') && lower.includes('ital') || (lower.includes('/ts/') && lower.includes('ital')) || (lower.includes('/dz/') && lower.includes('ital'))) return 'it_z_sound';
+  if (lower.includes('rolled r') && lower.includes('ital') || lower.includes('italian r') || lower.includes('r italiano') || lower.includes('vibrant') && lower.includes('ital')) return 'it_rolled_r';
+  if (lower.includes('open') && lower.includes('closed') && lower.includes('vowel') && lower.includes('ital') || lower.includes('vocale aperta') || lower.includes('vocale chiusa') || lower.includes('è/é') || lower.includes('ò/ó')) return 'it_open_closed_vowels';
+  if (lower.includes('stress') && lower.includes('ital') || lower.includes('accento tonico') || lower.includes('italian stress') || lower.includes('word stress') && lower.includes('ital') || lower.includes('accentazione') && lower.includes('ital')) return 'it_stress_patterns';
+  if (lower.includes('diphthong') && lower.includes('ital') || lower.includes('dittongo') || lower.includes('trittongo') || lower.includes('ie/uo') && lower.includes('ital') || lower.includes('italian diphthong')) return 'it_diphthongs';
+  if (lower.includes('pronunciation') && lower.includes('ital') || lower.includes('fonetica italiana') || lower.includes('phonetic') && lower.includes('ital') || lower.includes('italian sound') || lower.includes('pronuncia italiana')) return 'it_cg_sounds';
+
+  return null;
+}
+
 function classifyGrammarType(title: string, language = 'spanish'): GrammarChapterType | null {
   if (language === 'french') return classifyFrenchGrammarType(title);
   if (language === 'portuguese') return classifyPortugueseGrammarType(title);
   if (language === 'german') return classifyGermanGrammarType(title);
+  if (language === 'italian') return classifyItalianGrammarType(title);
 
   const lower = title.toLowerCase();
 
@@ -707,6 +808,49 @@ const GRAMMAR_LABELS: Record<GrammarChapterType, { title: string; subtitle: stri
   de_consonant_clusters: { title: 'SP, ST, Z, SCH — Key Consonants', subtitle: 'SP/ST at word start = "shp"/"sht"; Z = "ts"; SCH = "sh"; TH = "t"' },
   de_word_stress:        { title: 'Wortakzent — Word Stress', subtitle: 'Root syllable stressed in native words; prefix stressed in separable verbs; not in inseparable prefixes' },
   de_diphthongs:         { title: 'Diphthonge — EI, AU, EU/ÄU', subtitle: 'EI=[aɪ], AU=[aʊ], EU/ÄU=[ɔɪ] — and the critical EI vs. IE distinction' },
+  // ── ITALIAN Section 3 — Grammar ───────────────────────────────────────────
+  it_essere:             { title: 'Essere — To Be', subtitle: 'Irregular auxiliary — identity, origin, profession, and Passato Prossimo helper for motion/change verbs' },
+  it_avere:              { title: 'Avere — To Have', subtitle: 'Irregular auxiliary — possession, age, sensations, and Passato Prossimo helper for most verbs' },
+  it_stare:              { title: 'Stare — To Stay / Be', subtitle: 'Irregular verb — health/feeling with adjectives + stare + gerundio for progressive actions' },
+  it_regular_verbs:      { title: 'Verbi Regolari — -ARE, -ERE, -IRE', subtitle: 'Present tense endings for all three Italian verb classes — the core conjugation pattern' },
+  it_modal_verbs:        { title: 'Verbi Modali — Modal Verbs', subtitle: 'potere, dovere, volere — full conjugation + infinitive complement pattern' },
+  it_reflexive:          { title: 'Verbi Riflessivi — Reflexive Verbs', subtitle: 'Reflexive pronoun placement + common reflexive verbs for daily routines' },
+  it_passato_prossimo:   { title: 'Il Passato Prossimo', subtitle: 'avere/essere + participio passato — how to form it and when to use each auxiliary' },
+  it_imperfetto:         { title: "L'Imperfetto — Imperfect", subtitle: 'Habitual actions, ongoing states, and background descriptions in the past' },
+  it_past_comparison:    { title: 'Passato Prossimo vs. Imperfetto', subtitle: 'Completed events vs. habitual/ongoing past — the key contrast in Italian storytelling' },
+  it_futuro:             { title: 'Il Futuro Semplice — Future', subtitle: 'Future tense endings for all three verb classes + irregular stems' },
+  it_condizionale:       { title: 'Il Condizionale — Conditional', subtitle: 'Polite requests, hypotheticals, and wishes — conditional endings + common irregulars' },
+  it_negation:           { title: 'La Negazione — Negation', subtitle: 'non + verb placement + double negatives (non...niente, non...mai, non...nessuno)' },
+  it_definite_articles:  { title: 'Gli Articoli Determinativi', subtitle: 'il/lo/la/l\' (sing.) · i/gli/le (pl.) — gender, number, and the context rules' },
+  it_indefinite_articles:{ title: 'Gli Articoli Indeterminativi', subtitle: 'un/uno/una/un\' — gender agreement + partitive articles for plural/uncountable nouns' },
+  it_adj_agreement:      { title: 'Concordanza degli Aggettivi', subtitle: 'Adjectives agree in gender and number — -o/-a/-i/-e endings + invariable adjectives' },
+  it_articulated_prep:   { title: 'Preposizioni Articolate', subtitle: 'di/a/da/in/su + definite article → del/al/dal/nel/sul — contraction tables' },
+  it_object_pronouns:    { title: 'Pronomi Complemento — Object Pronouns', subtitle: 'Direct (mi/ti/lo/la) and indirect (mi/ti/gli/le) pronouns + placement rules' },
+  it_subject_pronouns:   { title: 'Pronomi Soggetto — Subject Pronouns', subtitle: 'io/tu/lui/lei/noi/voi/loro — when to omit them and formal Lei usage' },
+  it_questions:          { title: 'Le Domande — Questions', subtitle: 'Intonation questions, question words (chi/che/cosa/dove/quando/come/perché/quanto)' },
+  it_partitive:          { title: 'Il Partitivo — Some / Any', subtitle: 'del/della/dell\'/dei/degli/delle — expressing indefinite quantities in Italian' },
+  it_imperative:         { title: "L'Imperativo — Imperative", subtitle: 'Commands in tu/Lei/noi/voi forms — regular patterns and key irregulars' },
+  it_comparatives:       { title: 'Comparativi e Superlativi', subtitle: 'più/meno...di/che, tanto...quanto — and irregular forms (migliore, peggiore, maggiore, minore)' },
+  // ── ITALIAN Section 5 — Cultural ───────────────────────────────────────────
+  it_world_map:          { title: 'Il Mondo Italofono — Italian-Speaking World', subtitle: '~85 million speakers · Italy, Switzerland, San Marino, Vatican + diaspora communities' },
+  it_holidays:           { title: 'Feste e Ferie — Italian Holidays', subtitle: '12 national holidays + Ferragosto · Carnevale · regional sagre — the Italian festive calendar' },
+  it_food_guide:         { title: 'La Cucina Italiana — Italian Cuisine', subtitle: 'Regional specialties from Lombardy to Sicily · pasta, pizza, risotto, and more' },
+  it_dialects:           { title: 'I Dialetti Italiani — Dialect Zones', subtitle: 'Standard Italian · Venetian · Neapolitan · Sicilian · Sardinian — one flag, many voices' },
+  it_etiquette:          { title: 'Galateo — Italian Etiquette', subtitle: 'Bella figura, greeting customs, table manners, and social norms in Italian culture' },
+  it_currency:           { title: 'La Moneta — Italian Currency', subtitle: 'Euro in Italy, San Marino & Vatican · Swiss Franc in Canton Ticino — denominations and tips' },
+  it_gestures:           { title: 'I Gesti Italiani — Italian Gestures', subtitle: 'The most expressive hand-gesture vocabulary in the world — meanings and contexts' },
+  // ── ITALIAN Section 6 — Word families ──────────────────────────────────────
+  it_word_family:        { title: 'Famiglie di Parole — Italian Word Families', subtitle: 'Root verb + derived nouns, adjectives, and compounds — the building blocks of Italian vocabulary' },
+  // ── ITALIAN Section 8 — Phonetics ──────────────────────────────────────────
+  it_cg_sounds:          { title: 'C e G — Soft vs. Hard Sounds', subtitle: 'ca/co/cu=[k], ci/ce=[tʃ], chi/che=[k] · ga/go/gu=[g], gi/ge=[dʒ], ghi/ghe=[g]' },
+  it_sc_sounds:          { title: 'SC — Soft vs. Hard Sounds', subtitle: 'sci/sce=[ʃ] (soft) vs. sca/sco/scu=[sk] (hard) · schi/sche=[sk] · the digraph rule' },
+  it_gl_gn:              { title: 'GL e GN — Special Italian Sounds', subtitle: 'gli=[ʎ] (palatal lateral) and gn=[ɲ] (palatal nasal) — two uniquely Italian sounds' },
+  it_double_consonant:   { title: 'Le Consonanti Doppie — Geminate Consonants', subtitle: 'Double consonants are longer and change meaning: fatto vs. fato, palla vs. pala' },
+  it_z_sound:            { title: 'La Z — [ts] vs. [dz]', subtitle: 'Voiceless [ts] in pizza, grazie · Voiced [dz] in zona, zero — regional and positional rules' },
+  it_rolled_r:           { title: 'La R Italiana — The Rolled R', subtitle: 'Alveolar trill [r] — single tap vs. full roll, position in word, and practice techniques' },
+  it_open_closed_vowels: { title: 'Vocali Aperte e Chiuse — E and O', subtitle: 'Open [ɛ/ɔ] vs. closed [e/o] — accent marks, regional variation, and minimal pairs' },
+  it_stress_patterns:    { title: "L'Accento Tonico — Word Stress", subtitle: 'Most Italian words stress the penultimate syllable — exceptions, accent marks, and oxytones' },
+  it_diphthongs:         { title: 'I Dittonghi — Italian Diphthongs', subtitle: 'Rising (ie, uo) and falling diphthongs — when vowels combine vs. stay separate' },
 };
 
 function resolveFrenchWordFamilyCard(title?: string): JSX.Element {
@@ -749,6 +893,18 @@ const GRAMMAR_LABELS_DE: Partial<Record<GrammarChapterType, { title: string; sub
   country_dot_map:  { title: 'Die deutschsprachige Welt', subtitle: 'Where German is spoken around the world — DACH + Liechtenstein, Luxembourg, South Tyrol & minorities' },
 };
 
+const GRAMMAR_LABELS_IT: Partial<Record<GrammarChapterType, { title: string; subtitle: string }>> = {
+  weather_vocab:    { title: 'Il Tempo — Le Condizioni Meteorologiche', subtitle: 'All 10 weather conditions with Italian expressions — the same icons used in lessons' },
+  emotions_vocab:   { title: 'Le Emozioni — I Sentimenti', subtitle: 'All 11 emotion faces with Italian labels — the same faces used in lessons' },
+  telling_time:     { title: "L'Ora — Come si dice l'ora", subtitle: 'Analog clocks + key Italian time patterns and parts-of-day vocabulary' },
+  days_week:        { title: 'Giorni, Mesi e Calendario', subtitle: 'Days of the week, months of the year, and Italian date expressions' },
+  body_parts:       { title: 'Il Corpo Umano — Le Parti del Corpo', subtitle: 'Body diagram + complete Italian vocabulary reference — same diagram used in lessons' },
+  face_parts:       { title: 'Il Viso — Il Vocabolario del Viso', subtitle: 'Face close-up + full Italian vocabulary for facial features' },
+  hand_parts:       { title: 'La Mano — Le Dita', subtitle: 'Hand diagram + Italian vocabulary for fingers, palm, and wrist' },
+  temperature_vocab:{ title: 'La Temperatura', subtitle: 'Temperature scale in Italian — same thermometer used in lessons' },
+  country_dot_map:  { title: 'Il Mondo Italofono', subtitle: 'Where Italian is spoken around the world — Italy, Switzerland, San Marino, Vatican & diaspora' },
+};
+
 const GRAMMAR_LABELS_FR: Partial<Record<GrammarChapterType, { title: string; subtitle: string }>> = {
   weather_vocab:    { title: 'La Météo — Le Temps qu\'il fait', subtitle: 'All 10 weather conditions with French expressions — the same icons used in lessons' },
   emotions_vocab:   { title: 'Les Émotions — Les Sentiments', subtitle: 'All 11 emotion faces with French labels — the same faces used in lessons' },
@@ -766,7 +922,8 @@ function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spa
   const frLabel = language === 'french' ? GRAMMAR_LABELS_FR[type] : undefined;
   const ptLabel = language === 'portuguese' ? GRAMMAR_LABELS_PT[type] : undefined;
   const deLabel = language === 'german' ? GRAMMAR_LABELS_DE[type] : undefined;
-  const { title, subtitle } = deLabel ?? ptLabel ?? frLabel ?? baseLabel;
+  const itLabel = language === 'italian' ? GRAMMAR_LABELS_IT[type] : undefined;
+  const { title, subtitle } = itLabel ?? deLabel ?? ptLabel ?? frLabel ?? baseLabel;
   const wordFamilyRoot = type === 'word_family' && chapterTitle ? resolveWordFamilyRoot(chapterTitle) : null;
 
   return (
@@ -833,15 +990,15 @@ function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spa
       {type === 'word_family' && <WordFamilyCard root={wordFamilyRoot ?? 'hablar'} />}
 
       {/* Section 7 — Canvas vocabulary cards (same SVG renderers as /chat) */}
-      {type === 'weather_vocab'    && <WeatherVocabCard     language={language as 'spanish' | 'french' | 'portuguese' | 'german'} />}
-      {type === 'emotions_vocab'   && <EmotionsVocabCard    language={language as 'spanish' | 'french' | 'portuguese' | 'german'} />}
-      {type === 'telling_time'     && <TimeVocabCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german'} />}
-      {type === 'days_week'        && <DaysOfWeekCard       language={language as 'spanish' | 'french' | 'portuguese' | 'german'} />}
-      {type === 'body_parts'       && <BodyPartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german'} />}
-      {type === 'face_parts'       && <FacePartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german'} />}
-      {type === 'hand_parts'       && <HandPartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german'} />}
-      {type === 'temperature_vocab'&& <ThermometerVocabCard language={language as 'spanish' | 'french' | 'portuguese' | 'german'} />}
-      {type === 'country_dot_map'  && (language === 'french' ? <FrancophoneWorldMapCard /> : language === 'portuguese' ? <LusophoneWorldMapCard /> : language === 'german' ? <GermanSpeakingWorldCard /> : <CountryDotMapCard />)}
+      {type === 'weather_vocab'    && <WeatherVocabCard     language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian'} />}
+      {type === 'emotions_vocab'   && <EmotionsVocabCard    language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian'} />}
+      {type === 'telling_time'     && <TimeVocabCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian'} />}
+      {type === 'days_week'        && <DaysOfWeekCard       language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian'} />}
+      {type === 'body_parts'       && <BodyPartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian'} />}
+      {type === 'face_parts'       && <FacePartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian'} />}
+      {type === 'hand_parts'       && <HandPartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian'} />}
+      {type === 'temperature_vocab'&& <ThermometerVocabCard language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian'} />}
+      {type === 'country_dot_map'  && (language === 'french' ? <FrancophoneWorldMapCard /> : language === 'portuguese' ? <LusophoneWorldMapCard /> : language === 'german' ? <GermanSpeakingWorldCard /> : language === 'italian' ? <ItalophoneWorldCard /> : <CountryDotMapCard />)}
 
       {/* Section 8 — Phonetics */}
       {type === 'vowel_purity' && <VowelPurityCard />}
@@ -998,6 +1155,53 @@ function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spa
       {type === 'de_consonant_clusters' && <DeConsonantClustersCard />}
       {type === 'de_word_stress' && <DeWordStressCard />}
       {type === 'de_diphthongs' && <DeDiphthongsCard />}
+
+      {/* ── ITALIAN Section 3 — Grammar ───────────────────────────────────── */}
+      {type === 'it_essere' && <ItEssereCard />}
+      {type === 'it_avere' && <ItAvereCard />}
+      {type === 'it_stare' && <ItStareCard />}
+      {type === 'it_regular_verbs' && <ItRegularVerbsCard />}
+      {type === 'it_modal_verbs' && <ItModalVerbsCard />}
+      {type === 'it_reflexive' && <ItReflexiveCard />}
+      {type === 'it_passato_prossimo' && <ItPassatoProssimoCard />}
+      {type === 'it_imperfetto' && <ItImperfettoCard />}
+      {type === 'it_past_comparison' && <ItPastComparisonCard />}
+      {type === 'it_futuro' && <ItFuturoCard />}
+      {type === 'it_condizionale' && <ItCondizionaleCard />}
+      {type === 'it_negation' && <ItNegationCard />}
+      {type === 'it_definite_articles' && <ItDefiniteArticlesCard />}
+      {type === 'it_indefinite_articles' && <ItIndefiniteArticlesCard />}
+      {type === 'it_adj_agreement' && <ItAdjAgreementCard />}
+      {type === 'it_articulated_prep' && <ItArticulatedPrepCard />}
+      {type === 'it_object_pronouns' && <ItObjectPronounsCard />}
+      {type === 'it_subject_pronouns' && <ItSubjectPronounsCard />}
+      {type === 'it_questions' && <ItQuestionsCard />}
+      {type === 'it_partitive' && <ItPartitiveCard />}
+      {type === 'it_imperative' && <ItImperativeCard />}
+      {type === 'it_comparatives' && <ItComparativesCard />}
+
+      {/* ── ITALIAN Section 5 — Cultural ──────────────────────────────────── */}
+      {type === 'it_world_map' && <ItalophoneWorldCard />}
+      {type === 'it_holidays' && <ItalianHolidayCalendarCard />}
+      {type === 'it_food_guide' && <ItalianFoodGuideCard />}
+      {type === 'it_dialects' && <ItalianDialectCard />}
+      {type === 'it_etiquette' && <ItalianEtiquetteCard />}
+      {type === 'it_currency' && <ItalianCurrencyCard />}
+      {type === 'it_gestures' && <ItalianGestureCard />}
+
+      {/* ── ITALIAN Section 6 — Word families ─────────────────────────────── */}
+      {type === 'it_word_family' && resolveItFamilyCard(chapterTitle ?? '')}
+
+      {/* ── ITALIAN Section 8 — Phonetics ─────────────────────────────────── */}
+      {type === 'it_cg_sounds' && <ItCGSoundsCard />}
+      {type === 'it_sc_sounds' && <ItSCSoundsCard />}
+      {type === 'it_gl_gn' && <ItGLGNCard />}
+      {type === 'it_double_consonant' && <ItDoubleConsonantCard />}
+      {type === 'it_z_sound' && <ItZSoundCard />}
+      {type === 'it_rolled_r' && <ItRolledRCard />}
+      {type === 'it_open_closed_vowels' && <ItOpenClosedVowelsCard />}
+      {type === 'it_stress_patterns' && <ItStressPatternsCard />}
+      {type === 'it_diphthongs' && <ItDiphthongsCard />}
 
       <div className="flex items-center gap-2 text-sm text-muted-foreground justify-center">
         <Users className="h-4 w-4" />
