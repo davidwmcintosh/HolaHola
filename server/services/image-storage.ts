@@ -117,7 +117,7 @@ export async function serveStoredAiImage(
   const [metadata] = await file.getMetadata();
   res.set({
     'Content-Type': (metadata.contentType as string) || 'image/jpeg',
-    'Cache-Control': 'public, max-age=31536000',
+    'Cache-Control': 'public, max-age=3600',
   });
 
   file.createReadStream()
