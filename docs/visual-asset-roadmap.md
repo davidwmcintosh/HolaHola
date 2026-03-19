@@ -592,15 +592,15 @@ Two formats needed: a **static reference card** showing all prepositions at once
 
 These give language its context — students learn words in isolation without these.
 
-> **Status: ✅ Complete (Mar 19 2026)** — 7 of 9 built as React components in `TextbookCulturalCards.tsx`. 2 image-generation items deferred (food guide, gesture guide — require Gemini Imagen; future sprint).
+> **Status: ✅ Complete (Mar 19 2026)** — All 9 built as React/SVG components in `TextbookCulturalCards.tsx`. Food guide (5 regions, 24 dishes) and gesture card (cultural awareness framing, 3 safe recognition gestures, regional variation warning) built without image generation — consistent with all other Section 5 cards.
 
 | Asset | Description | ACTFL Level | Status |
 |-------|-------------|-------------|--------|
 | Spanish-speaking world map | 21 Spanish-speaking countries labeled with capitals and flags | Novice Mid | ✅ `SpanishWorldMapCard` |
-| Hispanic food guide | Regional dishes by country/region — illustrated mini-map | Intermediate Low | ⬜ Needs Gemini Imagen |
+| Hispanic food guide | Regional dishes by country/region — 5 zones, 24 dishes | Intermediate Low | ✅ `HispanicFoodGuideCard` |
 | Festival & holiday calendar | Major celebrations across Spanish-speaking world by month | Intermediate Low | ✅ `FestivalCalendarCard` |
 | Tú vs Usted register guide | When to use which — illustrated social situations | Novice Mid | ✅ `TuUstedCard` (Section 3) |
-| Gesture guide | 8–12 common Spanish/Hispanic gestures with illustrated hands and explanations | Intermediate Low | ⬜ Needs Gemini Imagen |
+| Gesture guide | Cultural awareness card — body language variation + 3 safe recognition gestures | Intermediate Low | ✅ `GestureAwarenessCard` |
 | Currency overview | Pesos (MX, AR, CL, CO, CU, DO, PH), Soles, Euros, Bolívares, Colones — with approximate exchange anchor | Novice High | ✅ `CurrencyReferenceCard` |
 | Spanish dialect map | Spain, Mexico, Caribbean, Andean, River Plate, Central American — key vocabulary/pronunciation differences | Intermediate Mid | ✅ `DialectMapCard` |
 | Family structure diagram | Visual family tree with all relationship terms labeled | Novice Mid | ✅ `FamilyTreeCard` |

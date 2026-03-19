@@ -16,6 +16,7 @@ import {
 import {
   SpanishWorldMapCard, FestivalCalendarCard, DialectMapCard,
   FamilyTreeCard, GreetingEtiquetteCard, CurrencyReferenceCard,
+  HispanicFoodGuideCard, GestureAwarenessCard,
 } from "./TextbookCulturalCards";
 import { WordFamilyCard, resolveWordFamilyRoot } from "./TextbookWordFamilies";
 import {
@@ -81,6 +82,7 @@ type GrammarChapterType =
   // ── Section 5 — Cultural infographics ───────────────────────────────────
   | 'world_map' | 'festival_calendar' | 'dialect_map'
   | 'family_tree' | 'greeting_etiquette' | 'currency_ref'
+  | 'hispanic_food' | 'gesture_awareness'
   // ── Section 6 — Word family maps ────────────────────────────────────────
   | 'word_family'
   // ── Section 7 — Canvas vocabulary cards (shared with /chat canvas tools) ──
@@ -137,6 +139,8 @@ function classifyGrammarType(title: string): GrammarChapterType | null {
   if (lower.includes('dialect') || lower.includes('dialecto') || lower.includes('regional spanish') || lower.includes('variedades del español') || lower.includes('ceceo') || lower.includes('seseo') || lower.includes('voseo')) return 'dialect_map';
   if (lower.includes('greeting custom') || lower.includes('cheek kiss') || lower.includes('saludar en') || lower.includes('greeting by country') || lower.includes('etiqueta de saludo')) return 'greeting_etiquette';
   if (lower.includes('currency') || lower.includes('moneda') || lower.includes('dinero del mundo') || lower.includes('currencies')) return 'currency_ref';
+  if (lower.includes('food guide') || lower.includes('gastronomía') || lower.includes('gastronomia') || lower.includes('regional food') || lower.includes('comida hispana') || lower.includes('hispanic food') || lower.includes('comida típica') || lower.includes('platos típicos') || lower.includes('dishes by region')) return 'hispanic_food';
+  if (lower.includes('gesture') || lower.includes('body language') || lower.includes('gesto') || lower.includes('comunicación no verbal') || lower.includes('non-verbal') || lower.includes('lenguaje corporal') || lower.includes('hand gesture')) return 'gesture_awareness';
 
   // ── Section 6 — Word family maps ─────────────────────────────────────────
   if (lower.includes('word family') || lower.includes('familia de palabras') || lower.includes('word derivation') || lower.includes('derivation') || lower.includes('familia léxica')) return 'word_family';
@@ -207,6 +211,8 @@ const GRAMMAR_LABELS: Record<GrammarChapterType, { title: string; subtitle: stri
   family_tree: { title: 'La Familia', subtitle: 'Family vocabulary — all the relationship terms you need' },
   greeting_etiquette: { title: 'Saludos por Región', subtitle: 'Physical greeting customs — knowing the norms shows cultural respect' },
   currency_ref: { title: 'Monedas Hispanas', subtitle: 'Currency vocabulary across the Spanish-speaking world' },
+  hispanic_food: { title: 'La Gastronomía Hispana', subtitle: 'Regional dishes across 5 zones — food is one of the easiest ways to start a real conversation' },
+  gesture_awareness: { title: 'La Comunicación No Verbal', subtitle: 'Body language in Spanish-speaking cultures — what to recognise and why it matters' },
   // Section 6
   word_family: { title: 'Familia de Palabras', subtitle: 'Words that share a root — see how the language builds itself' },
   // Section 7 — Canvas vocabulary cards
@@ -292,6 +298,8 @@ function GrammarChapterView({ type, chapterNumber, chapterTitle }: { type: Gramm
       {type === 'family_tree' && <FamilyTreeCard />}
       {type === 'greeting_etiquette' && <GreetingEtiquetteCard />}
       {type === 'currency_ref' && <CurrencyReferenceCard />}
+      {type === 'hispanic_food' && <HispanicFoodGuideCard />}
+      {type === 'gesture_awareness' && <GestureAwarenessCard />}
 
       {/* Section 6 — Word families */}
       {type === 'word_family' && <WordFamilyCard root={wordFamilyRoot ?? 'hablar'} />}

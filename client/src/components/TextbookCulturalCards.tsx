@@ -5,12 +5,14 @@
  * Auto-triggered by chapter title via classifyGrammarType() in ChapterIntroduction.tsx.
  *
  * Components:
- *  SpanishWorldMapCard  — 21 countries × 5 regions, capitals
- *  FestivalCalendarCard — 12-month celebration calendar
- *  DialectMapCard       — 6 dialect zones + key differences
- *  FamilyTreeCard       — SVG family tree with relationship vocabulary
+ *  SpanishWorldMapCard   — 21 countries × 5 regions, capitals
+ *  FestivalCalendarCard  — 12-month celebration calendar
+ *  DialectMapCard        — 6 dialect zones + key differences
+ *  FamilyTreeCard        — SVG family tree with relationship vocabulary
  *  GreetingEtiquetteCard — country-by-country greeting customs
  *  CurrencyReferenceCard — 8 Spanish-world currencies
+ *  HispanicFoodGuideCard — Regional dishes by country/area across 5 zones
+ *  GestureAwarenessCard  — Cultural awareness: body language variation, not a how-to guide
  */
 
 // ─── SPANISH-SPEAKING WORLD MAP ──────────────────────────────────────────────
@@ -395,6 +397,251 @@ export function GreetingEtiquetteCard({ className = '' }: { className?: string }
       </div>
       <div className="px-4 py-2.5 border-t bg-muted/20">
         <p className="text-xs text-muted-foreground text-center">Key phrase: <span className="font-semibold text-foreground">Mucho gusto en conocerte</span> = Nice to meet you (informal) &nbsp;·&nbsp; <span className="font-semibold text-foreground">Es un placer conocerle</span> = formal</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── HISPANIC FOOD GUIDE ─────────────────────────────────────────────────────
+
+const FOOD_REGIONS = [
+  {
+    name: 'México',
+    color: 'bg-blue-500/15 border-blue-500/30',
+    labelColor: 'text-blue-700 dark:text-blue-300',
+    dotColor: 'bg-blue-500',
+    dishes: [
+      { es: 'tacos', note: 'corn tortilla + filling — a national staple' },
+      { es: 'tamales', note: 'masa dough steamed in corn husks' },
+      { es: 'mole negro', note: 'rich dark sauce with 30+ ingredients incl. chocolate' },
+      { es: 'pozole', note: 'hearty hominy soup, often pork' },
+      { es: 'chiles rellenos', note: 'stuffed roasted peppers' },
+    ],
+  },
+  {
+    name: 'Centroamérica',
+    color: 'bg-emerald-500/15 border-emerald-500/30',
+    labelColor: 'text-emerald-700 dark:text-emerald-300',
+    dotColor: 'bg-emerald-500',
+    dishes: [
+      { es: 'pupusas', note: 'El Salvador — thick corn cakes with cheese or beans' },
+      { es: 'gallo pinto', note: 'Costa Rica & Nicaragua — rice-and-beans side dish' },
+      { es: 'chuchitos', note: 'Guatemala — small tamales in tomato sauce' },
+      { es: 'baleadas', note: 'Honduras — flour tortilla with beans and cream' },
+    ],
+  },
+  {
+    name: 'El Caribe',
+    color: 'bg-cyan-500/15 border-cyan-500/30',
+    labelColor: 'text-cyan-700 dark:text-cyan-300',
+    dotColor: 'bg-cyan-500',
+    dishes: [
+      { es: 'ropa vieja', note: 'Cuba — shredded beef in tomato-pepper sauce' },
+      { es: 'mofongo', note: 'Puerto Rico — mashed fried plantains with garlic' },
+      { es: 'arroz con pollo', note: 'rice with chicken, herbs and saffron — everywhere' },
+      { es: 'tostones', note: 'twice-fried green plantain slices' },
+    ],
+  },
+  {
+    name: 'Sudamérica',
+    color: 'bg-amber-500/15 border-amber-500/30',
+    labelColor: 'text-amber-700 dark:text-amber-300',
+    dotColor: 'bg-amber-500',
+    dishes: [
+      { es: 'ceviche', note: 'Perú — raw fish cured in citrus, the national dish' },
+      { es: 'arepas', note: 'Colombia & Venezuela — grilled corn cakes, filled or plain' },
+      { es: 'asado', note: 'Argentina — slow-grilled beef, a social event in itself' },
+      { es: 'empanadas', note: 'throughout South America — filled pastry, baked or fried' },
+      { es: 'lomo saltado', note: 'Perú — stir-fried beef with soy sauce (Chinese influence)' },
+    ],
+  },
+  {
+    name: 'España',
+    color: 'bg-purple-500/15 border-purple-500/30',
+    labelColor: 'text-purple-700 dark:text-purple-300',
+    dotColor: 'bg-purple-500',
+    dishes: [
+      { es: 'paella', note: 'Valencia — saffron rice with seafood or rabbit' },
+      { es: 'gazpacho', note: 'Andalucía — cold blended tomato soup, served chilled' },
+      { es: 'tortilla española', note: 'thick potato-and-egg omelette (not the bread)' },
+      { es: 'churros', note: 'fried dough with thick hot chocolate for dipping' },
+      { es: 'jamón ibérico', note: 'aged cured ham — a national pride and common tapa' },
+    ],
+  },
+];
+
+const FOOD_VOCAB = [
+  { es: 'el desayuno', en: 'breakfast' },
+  { es: 'el almuerzo', en: 'lunch' },
+  { es: 'la cena', en: 'dinner' },
+  { es: 'las tapas', en: 'small shared dishes (Spain)' },
+  { es: 'los antojitos', en: 'street-food snacks (Mexico)' },
+  { es: 'a la plancha', en: 'grilled on a flat iron' },
+  { es: 'al horno', en: 'baked / oven-cooked' },
+  { es: 'picante', en: 'spicy' },
+  { es: '¿Qué me recomienda?', en: 'What do you recommend?' },
+  { es: 'La cuenta, por favor', en: 'The bill, please' },
+];
+
+export function HispanicFoodGuideCard({ className = '' }: { className?: string }) {
+  return (
+    <div className={`rounded-lg border bg-card overflow-hidden ${className}`} data-testid="grammar-card-hispanic-food">
+      <div className="px-4 py-2.5 border-b bg-gradient-to-r from-orange-500/10 to-transparent">
+        <p className="text-sm font-semibold text-center">La Gastronomía Hispana</p>
+        <p className="text-xs text-muted-foreground text-center">
+          Regional dishes across the Spanish-speaking world — food is conversation
+        </p>
+      </div>
+
+      <div className="divide-y">
+        {FOOD_REGIONS.map(({ name, color, labelColor, dotColor, dishes }) => (
+          <div key={name} className={`px-4 py-3 ${color} border-l-0 border-r-0`}>
+            <div className="flex items-center gap-2 mb-2">
+              <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${dotColor}`} />
+              <span className={`text-xs font-bold uppercase tracking-wide ${labelColor}`}>{name}</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+              {dishes.map(({ es, note }) => (
+                <div key={es} className="flex items-start gap-1.5">
+                  <span className="text-xs font-semibold text-foreground min-w-[100px]">{es}</span>
+                  <span className="text-xs text-muted-foreground leading-snug">{note}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="px-4 py-3 border-t bg-muted/20">
+        <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Essential food vocabulary</p>
+        <div className="grid grid-cols-2 gap-1">
+          {FOOD_VOCAB.map(({ es, en }) => (
+            <div key={es} className="flex items-baseline gap-1.5">
+              <span className="text-xs font-medium text-foreground">{es}</span>
+              <span className="text-xs text-muted-foreground">— {en}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="px-4 py-2 border-t bg-muted/10 text-center">
+        <p className="text-xs text-muted-foreground italic">
+          Knowing regional dishes shows respect — and opens real conversations
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── GESTURE AWARENESS CARD ───────────────────────────────────────────────────
+
+const RECOGNITION_GESTURES = [
+  {
+    label: 'Más o menos',
+    meaning: 'So-so / more or less',
+    description: 'Flat open hand rocked side to side — a universal "eh, okay" across Latin America and Spain.',
+    svg: (
+      <svg viewBox="0 0 64 48" className="w-16 h-12" aria-hidden="true">
+        <rect x="20" y="16" width="24" height="18" rx="4" fill="currentColor" opacity="0.2" stroke="currentColor" strokeWidth="1.5" />
+        <rect x="22" y="10" width="4" height="10" rx="2" fill="currentColor" opacity="0.3" stroke="currentColor" strokeWidth="1" />
+        <rect x="28" y="8" width="4" height="12" rx="2" fill="currentColor" opacity="0.3" stroke="currentColor" strokeWidth="1" />
+        <rect x="34" y="9" width="4" height="11" rx="2" fill="currentColor" opacity="0.3" stroke="currentColor" strokeWidth="1" />
+        <rect x="40" y="11" width="4" height="9" rx="2" fill="currentColor" opacity="0.3" stroke="currentColor" strokeWidth="1" />
+        <path d="M32 36 L32 44" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
+        <path d="M24 44 L40 44" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
+        <path d="M20 28 Q10 32 12 36" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 2" fill="none" opacity="0.5" />
+        <path d="M44 28 Q54 32 52 36" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 2" fill="none" opacity="0.5" />
+      </svg>
+    ),
+  },
+  {
+    label: 'Un poquito',
+    meaning: 'Just a little / a tiny bit',
+    description: 'Index finger and thumb held close together — nearly touching. Used to mean "a little" or to ask for a small portion.',
+    svg: (
+      <svg viewBox="0 0 64 48" className="w-16 h-12" aria-hidden="true">
+        <rect x="22" y="20" width="22" height="16" rx="4" fill="currentColor" opacity="0.2" stroke="currentColor" strokeWidth="1.5" />
+        <rect x="24" y="14" width="4" height="10" rx="2" fill="currentColor" opacity="0.3" stroke="currentColor" strokeWidth="1" />
+        <rect x="30" y="12" width="4" height="12" rx="2" fill="currentColor" opacity="0.3" stroke="currentColor" strokeWidth="1" />
+        <rect x="36" y="14" width="4" height="10" rx="2" fill="currentColor" opacity="0.3" stroke="currentColor" strokeWidth="1" />
+        <ellipse cx="22" cy="9" rx="4" ry="3.5" fill="currentColor" opacity="0.5" stroke="currentColor" strokeWidth="1.5" />
+        <ellipse cx="30" cy="7" rx="3.5" ry="3" fill="currentColor" opacity="0.5" stroke="currentColor" strokeWidth="1.5" />
+        <line x1="22" y1="9" x2="30" y2="7" stroke="currentColor" strokeWidth="1" strokeDasharray="1.5 1.5" opacity="0.7" />
+        <path d="M32 36 L32 44" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
+        <path d="M24 44 L40 44" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
+      </svg>
+    ),
+  },
+  {
+    label: 'Órale / ¡Bien!',
+    meaning: 'Great! / Okay! / Let\'s go!',
+    description: 'Thumbs up is broadly positive, but the verbal meaning of "órale" (Mexico) or "¡dale!" (Argentina) carries the real energy — the gesture just reinforces it.',
+    svg: (
+      <svg viewBox="0 0 64 48" className="w-16 h-12" aria-hidden="true">
+        <rect x="22" y="22" width="20" height="16" rx="3" fill="currentColor" opacity="0.2" stroke="currentColor" strokeWidth="1.5" />
+        <rect x="24" y="16" width="4" height="10" rx="2" fill="currentColor" opacity="0.3" stroke="currentColor" strokeWidth="1" />
+        <rect x="30" y="15" width="4" height="11" rx="2" fill="currentColor" opacity="0.3" stroke="currentColor" strokeWidth="1" />
+        <rect x="36" y="16" width="4" height="10" rx="2" fill="currentColor" opacity="0.3" stroke="currentColor" strokeWidth="1" />
+        <rect x="40" y="19" width="4" height="8" rx="2" fill="currentColor" opacity="0.3" stroke="currentColor" strokeWidth="1" />
+        <ellipse cx="21" cy="20" rx="4" ry="5" transform="rotate(-20 21 20)" fill="currentColor" opacity="0.6" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M32 38 L32 45" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
+        <path d="M24 45 L40 45" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
+      </svg>
+    ),
+  },
+];
+
+export function GestureAwarenessCard({ className = '' }: { className?: string }) {
+  return (
+    <div className={`rounded-lg border bg-card overflow-hidden ${className}`} data-testid="grammar-card-gesture-awareness">
+      <div className="px-4 py-2.5 border-b bg-gradient-to-r from-violet-500/10 to-transparent">
+        <p className="text-sm font-semibold text-center">La Comunicación No Verbal</p>
+        <p className="text-xs text-muted-foreground text-center">
+          Body language and gesture in the Spanish-speaking world — cultural awareness
+        </p>
+      </div>
+
+      <div className="px-4 py-3 bg-violet-500/5 border-b">
+        <p className="text-sm text-foreground leading-relaxed">
+          Spanish-speaking cultures tend to use <span className="font-medium">expressive hand gestures, close physical proximity, and animated facial expressions</span> more naturally than many American English speakers. This is not aggression or over-emphasis — it is simply a different communication style where the body participates in the conversation.
+        </p>
+        <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+          As a learner, awareness matters more than imitation. Recognize what you see; let your own gesture style develop naturally over time with exposure.
+        </p>
+      </div>
+
+      <div className="px-4 py-3 border-b">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Gestures worth recognizing</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {RECOGNITION_GESTURES.map(({ label, meaning, description, svg }) => (
+            <div key={label} className="flex flex-col items-center text-center gap-2">
+              <div className="text-muted-foreground">{svg}</div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">{label}</p>
+                <p className="text-xs text-primary font-medium mb-1">{meaning}</p>
+                <p className="text-xs text-muted-foreground leading-snug">{description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="px-4 py-3 border-b bg-amber-500/5">
+        <div className="flex items-start gap-2">
+          <span className="text-amber-500 text-sm mt-0.5 flex-shrink-0">⚠</span>
+          <div>
+            <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 mb-1">Gesture meanings vary significantly by country and context</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              A gesture that is warm and friendly in Mexico may be neutral or even rude in Spain or Argentina. Regional variation is wide. When in doubt, observe — let native speakers lead. Copying gestures without full context can unintentionally cause offence.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-4 py-3 bg-muted/20">
+        <p className="text-xs text-muted-foreground text-center leading-relaxed">
+          If you see a gesture you don't understand in a film, TV show, or conversation — ask Daniela. Describe what you saw and she can explain what it likely means and where.
+        </p>
       </div>
     </div>
   );

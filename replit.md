@@ -10,7 +10,7 @@ After reading the briefing, also check `docs/alden-to-agent.md` for any direct n
 
 <!-- AGENT_MEMORY_START -->
 ## Agent Memory — Live Injection
-*Auto-updated Thursday, March 19, 2026 at 05:08 PM. No new memories since last session — showing recent context.*
+*Auto-updated Thursday, March 19, 2026 at 05:17 PM. No new memories since last session — showing recent context.*
 
 - **Memory Pipeline Stress Test — All Three Words Confirmed** (Mar 18): The replit.md injection system successfully surfaced all three secret words (Woozle, Huzzah, Squirrel) at the start of the session without any prompting. Three sessions, three words, all confirmed. The memory pipeline passed its stress test.
 - **Memory Test #3 — Secret Word: Squirrel** (Mar 18): David added a third secret word to test persistent memory: Squirrel. Three words now in play across three sessions: Woozle (test 1), Huzzah (test 2), Squirrel (test 3). The new replit.md injection system should surface all three in the next session without prompting.
@@ -71,11 +71,11 @@ The Visual Content Service (`server/services/visual-content-service.ts`) is a sh
 **React/SVG textbook reference cards — status as of Mar 19 2026 — all complete:**
 - `TextbookInfographics.tsx` — SerEstar, PretImperfect, PorPara, FalseCognates, greetings/quick-phrase infographics
 - `TextbookGrammarDiagrams.tsx` — 25 grammar cards (Sections 3–4): all verb types, ser/estar/tener/ir/stem-change/go-verbs/saber-conocer/reflexive, all tenses (pret/imperfect/future/conditional/subjunctive/commands), gender & articles, adjective agreement, object pronouns, negation & questions, tú/usted, spatial & temporal preposition maps
-- `TextbookCulturalCards.tsx` — 6 Section 5 cultural cards: SpanishWorldMapCard (21 countries), FestivalCalendarCard (12-month), DialectMapCard (6 zones), FamilyTreeCard (SVG tree), GreetingEtiquetteCard, CurrencyReferenceCard
+- `TextbookCulturalCards.tsx` — 8 Section 5 cultural cards: SpanishWorldMapCard (21 countries), FestivalCalendarCard (12-month), DialectMapCard (6 zones), FamilyTreeCard (SVG tree), GreetingEtiquetteCard, CurrencyReferenceCard, HispanicFoodGuideCard (5 regions × 24 dishes), GestureAwarenessCard (cultural awareness frame, 3 safe recognition gestures, regional variation warning)
 - `TextbookWordFamilies.tsx` — Section 6: 1 reusable hub-and-spoke WordFamilyCard + 12 root verb datasets (hablar→pensar) + resolveWordFamilyRoot()
 - `TextbookPhoneticGuides.tsx` — 9 Section 8 phonetic guides: VowelPurityCard, RolledRCard, BVSoundCard, SilentHCard, JSoundCard, NyenCard, LLYCard, StressAccentCard, LinkingSoundsCard
 - `TextbookCanvasCards.tsx` — 9 Section 7 canvas vocabulary cards built from the same SVG renderers as `/chat` (visual consistency guarantee): WeatherVocabCard (10 conditions), EmotionsVocabCard (11 faces), TimeVocabCard (8 clocks), DaysOfWeekCard (calendar + months), BodyPartsCard, FacePartsCard, HandPartsCard, ThermometerVocabCard (6-point scale), CountryDotMapCard (21 countries). `SceneCanvas.tsx` exports: AnalogClock, WeatherIcon, EMOTION_CONFIG, CalendarCanvas, ThermometerCanvas, BodyDiagramCanvas, FaceDiagramCanvas, HandDiagramCanvas, WorldMapCanvas.
-- All 59+ types auto-triggered via `classifyGrammarType()` in `ChapterIntroduction.tsx`. Remaining: food guide + gesture guide (need image generation); dynamic false-cognate tool (future/low priority).
+- All 61 types auto-triggered via `classifyGrammarType()` in `ChapterIntroduction.tsx`. Only remaining deferred item: dynamic false-cognate Daniela tool (low priority, future sprint).
 
 The Conversational Immersion Framework defines `ImmersionObjective`, `ImmersionScaffold`, `ImmersionScenario`, and `ImmersionSession` interfaces to track learning objectives, adaptive scaffolding, grammar notes, and session state.
 
