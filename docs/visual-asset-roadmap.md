@@ -13,7 +13,7 @@ Visual assets live in the `visual_assets` table. Grammar/infographic SVGs are ge
 
 ## Platform Status Snapshot
 
-**Last audited:** March 19 2026 (session 3)
+**Last audited:** March 19 2026 (session 4)
 
 ### Interactive Canvas — What's Built
 
@@ -45,13 +45,19 @@ The `SceneCanvas` component (client-side stage model) is **fully operational**. 
 | Scene canvas props | ~40 | ~40 | glass, fork, book, stethoscope, passport, etc. — all have real images |
 | Vocabulary images — Novice Low (Section 1) | 85 cache keys | 55 images ✅ | Complete Mar 19 2026 — people, places, things, colors, adjectives, activities |
 | Vocabulary images — Novice Mid People | 18 cache keys | 10 images ✅ | Complete Mar 19 2026 — family pairs, community professionals, extended family scene |
-| Vocabulary images — Novice Mid (remaining) | 0 | 0 | Animals, fruits/veg, clothing, activities, adjectives — not started |
+| Vocabulary images — Novice Mid Animals | 11 cache keys | 10 images ✅ | Complete Mar 19 2026 — perro, gato, pájaro, pez, caballo, vaca, oveja, oso, pato, conejo |
+| Vocabulary images — Novice Mid Food | 14 cache keys | 12 images ✅ | Complete Mar 19 2026 — naranja, fresa, uva, sandía, limón, tomate, zanahoria, lechuga, papa/patata, cebolla, ajo, maíz |
+| Vocabulary images — Novice Mid Clothing | 10 cache keys | 8 images ✅ | Complete Mar 19 2026 — camisa, pantalón, vestido, zapatos, sombrero, chaqueta, calcetines, falda |
+| Vocabulary images — Novice Mid Activities | 8 cache keys | 8 images ✅ | Complete Mar 19 2026 — comprar, pagar, cocinar, limpiar, nadar, bailar, cantar, pintar |
+| Vocabulary images — Novice Mid Adjectives | 23 cache keys | 10 images ✅ | Complete Mar 19 2026 — 10 contrast pairs (cerca/lejos, alto/bajo, rápido/lento, pesado/ligero, joven/viejo, feliz/triste, fácil/difícil, ruidoso/tranquilo, oscuro/claro, duro/suave) |
 | Time/weather/numbers (Section 2) | 0 | 0 | Clock + weather handled by SVG components; static reference cards not started |
 | Cultural infographics (Section 5) | 0 | 0 | Not started |
 
 **Generation pipeline (as of Mar 19 2026):** All images — seeded library and Daniela's live fallback — use **DALL-E 3** with the watercolor illustrated style. Library lookup is instant (cache key `vocab_spanish_{word}`); fallback generates on demand and saves to cache automatically.
 
-**What's next:** Novice Mid animals, fruits/vegetables, clothing, activities, adjectives. Then Novice High (travel, transport, professions).
+**Novice Mid complete:** 58 images total (10 people + 10 animals + 12 food + 8 clothing + 8 activities + 10 adjective pairs), covering 84 cache keys. All seeded in DB and uploaded to object storage.
+
+**What's next:** Novice High (travel, transport, professions, hobbies, weather vocabulary).
 
 ---
 
