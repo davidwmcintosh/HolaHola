@@ -338,28 +338,37 @@ const registry: DanielaFunctionEntry[] = [
     legacyType: 'SHOW_IMAGE',
     declaration: {
       name: "show_image",
-      description: `Display a vocabulary illustration on the whiteboard. Use this for ALL vocabulary words — nouns, verbs, adjectives, colors, everything. Pass the Spanish word in 'word' and the tool will find the pre-built watercolor illustration from the library automatically. If no library image exists for that word, one will be sourced or generated on the fly.
+      description: `Display an image on the whiteboard. This is the ONLY image tool for vocabulary — use it for every vocabulary word: nouns, verbs, adjectives, colors, everything.
 
-⭐ ALWAYS use show_image when you are teaching or reinforcing a specific vocabulary word (correr, bailar, rojo, grande, la escuela, etc.). This is the right tool for vocabulary.
-⚠️ Do NOT use generate_visual for vocabulary word teaching — it bypasses the vocabulary library.
+HOW IT WORKS:
+1. Pass the Spanish word in 'word'. The tool checks the curated watercolor illustration library first (instant, free, stylistically consistent).
+2. If no library image exists, it automatically generates one in the same watercolor style and saves it for future use. You don't need to do anything — it's fully automatic.
+
+USE show_image for:
+• Teaching or reinforcing any vocabulary word: correr, bailar, rojo, grande, el mercado, la escuela…
+• Cultural scenes or custom visuals — use 'word' as a short label and 'scene' to describe the image you want generated (e.g. word="mercado", scene="a bustling Mexican open-air market with colorful fruit stalls at sunset")
+• Grammar concept diagrams — use word="conjugation" and scene="a verb tense timeline diagram showing past, present, future"
+
+⚠️ Do NOT use compose_visual_scene for vocabulary unless it's a preposition lesson — show_image is always the right choice for vocabulary.
 
 Include your spoken words in 'text'. Use label_mode to control what labels appear — you decide, the student cannot change this.`,
       parametersJsonSchema: {
         type: "object",
         properties: {
           text: { type: "string", description: "What you're saying about the image" },
-          word: { type: "string", description: "The vocabulary word or concept to show (target language) — used for image lookup even when labels are hidden" },
+          word: { type: "string", description: "The vocabulary word or short label (target language) — used for library lookup and as the displayed label. Always provide this." },
           translation: { type: "string", description: "Native language translation (e.g. English). Only shown when label_mode is 'teach'." },
-          description: { type: "string", description: "Brief description to help find the right image" },
+          description: { type: "string", description: "Brief description to help disambiguate the image (e.g. 'a person running on a path')" },
+          scene: { type: "string", description: "Rich scene description for generation when no library image exists — or when you want a custom illustration (e.g. 'a bustling Mexican open-air market at sunset with colorful stalls and fresh fruit'). The watercolor style is applied automatically." },
           context: { type: "string", description: "Optional teaching context" },
           label_mode: {
             type: "string",
             enum: ["teach", "target", "quiz"],
-            description: "Controls which labels are shown. 'teach' = show target word + native translation (default when introducing a word). 'target' = show native translation only (e.g. show 'apple') so the student must produce the target word (e.g. 'manzana') — a hint toward the target language. 'quiz' = image only, no labels at all — student must produce the target word with no hint.",
+            description: "Controls which labels are shown. 'teach' = show target word + native translation (default when introducing a word). 'target' = show native translation only so the student must produce the target word. 'quiz' = image only, no labels at all.",
           },
           labels: {
             type: "array",
-            description: "Use when one image covers multiple vocabulary words (e.g. a family photo for madre/padre/hermano/hermana/bebé). Each entry has a 'word' (target language) and optional 'translation' (native language). Rendered as chips below the image. label_mode still controls visibility across all chips — 'teach' shows both, 'target' shows native translation only, 'quiz' hides all. When labels is provided, the single word/translation header is replaced by these chips.",
+            description: "Use when one image covers multiple vocabulary words (e.g. a family photo for madre/padre/hermano). Each entry has a 'word' (target language) and optional 'translation'. label_mode controls visibility across all chips.",
             items: {
               type: "object",
               properties: {
@@ -373,39 +382,13 @@ Include your spoken words in 'text'. Use label_mode to control what labels appea
         required: ["word"],
       },
     },
-  },
-  {
-    legacyType: 'GENERATE_VISUAL',
-    declaration: {
-      name: "generate_visual",
-      description: `Create a custom AI-generated illustration to display on the whiteboard. The image is shown as a full visual card — no background removal needed, no compositing.
-
-⚠️ DO NOT use generate_visual for vocabulary word teaching. Use show_image instead — it looks up the curated illustration library by Spanish word (correr, bailar, rojo, grande…) and is always the right choice for vocabulary.
-
-USE generate_visual ONLY for:
-1. Abstract grammar concepts (verb tense timelines, sentence structure diagrams, conjugation tables)
-2. Rich cultural scenes with no specific vocabulary word (e.g. "a busy Mexican mercado at sunset")
-3. Custom scenarios that don't correspond to a single vocabulary word
-
-⚠️ DO NOT use generate_visual for PREPOSITION teaching (sobre, debajo de, al lado de) — use compose_visual_scene (Mode B) with a zone environment and a zone-compatible prop instead.
-⚠️ For zone-compatible props (cup, plate, fork, book, apple, etc.) in vocabulary context (Mode A), prefer compose_visual_scene with a wide environment — it is instant and free.
-
-Style hint: always request "warm illustrated watercolor style, vibrant saturated colours" to match the existing visual library.
-
-The image will appear on the whiteboard in a few seconds while you continue speaking. Include natural conversational words in the 'text' parameter — NOT a description of the image.`,
-      parametersJsonSchema: {
-        type: "object",
-        properties: {
-          text: { type: "string", description: "What you're SAYING aloud — natural conversational speech, e.g. 'Let me show you a scene!' Do NOT write an image description here." },
-          concept: { type: "string", description: "What to illustrate — be specific and descriptive, e.g. 'a Mexican family sharing a meal at a colorful kitchen table'" },
-          style: { type: "string", description: "Art style or mood, e.g. 'warm, friendly illustration' or 'bright educational poster'. Defaults to warm educational illustration." },
-        },
-        required: ["concept"],
-      },
-    },
     buildContinuationResponse: ({ fc }) => {
-      const concept = fc.args.concept as string | undefined;
-      return `Image generation started for "${concept || 'the concept'}". The illustration will appear on the student's screen in a few seconds. Continue the conversation naturally — say something brief and encouraging while they wait.`;
+      const word = fc.args.word as string | undefined;
+      const scene = fc.args.scene as string | undefined;
+      if (scene && !fc.args.description) {
+        return `Image for "${word || scene}" is loading. Continue speaking naturally.`;
+      }
+      return null;
     },
   },
 

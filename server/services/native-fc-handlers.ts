@@ -409,9 +409,10 @@ export class NativeFunctionCallHandler {
       
       case 'SHOW_IMAGE': {
         const text = fn.args.text as string | undefined;
-        const word = fn.args.word as string;
+        const word = (fn.args.word as string | undefined) || '';
         const translation = fn.args.translation as string | undefined;
         const description = fn.args.description as string | undefined;
+        const scene = fn.args.scene as string | undefined;
         const context = fn.args.context as string | undefined;
         const rawLabelMode = fn.args.label_mode as string | undefined;
         const labelMode: 'teach' | 'target' | 'quiz' =
@@ -420,25 +421,27 @@ export class NativeFunctionCallHandler {
           : 'teach';
         const rawLabels = fn.args.labels as { word: string; translation?: string }[] | undefined;
         const labels = Array.isArray(rawLabels) && rawLabels.length > 0 ? rawLabels : undefined;
-        
-        if (!word) {
-          console.warn(`[Native Function→ShowImage] Missing word parameter`);
+
+        if (!word && !scene) {
+          console.warn(`[Native Function→ShowImage] Missing word or scene parameter`);
           break;
         }
-        
+
         if (text && !session.functionCallText) {
           session.functionCallText = text;
           console.log(`[Native Function→ShowImage] Text included: "${text.substring(0, 50)}..."`);
         }
-        
-        console.log(`[Native Function→ShowImage] Resolving image for "${word}" (${description || 'no description'})`);
-        
+
+        const displayWord = word || (scene || '').split(' ').slice(0, 3).join(' ');
+        console.log(`[Native Function→ShowImage] Resolving image for "${displayWord}" (scene: ${scene || 'none'})`);
+
         import('../services/vocabulary-image-resolver').then(async ({ resolveVocabularyImage }) => {
           try {
             const result = await resolveVocabularyImage({
-              word,
+              word: displayWord,
               language: session.language || 'spanish',
-              description: description || word,
+              description: description || displayWord,
+              scene,
               conversationId: session.conversationId?.toString(),
               userId: session.userId?.toString(),
             });
@@ -486,8 +489,10 @@ export class NativeFunctionCallHandler {
       }
 
       case 'GENERATE_VISUAL': {
+        // Legacy path — now routed through the unified show_image resolver.
+        // generate_visual is no longer exposed in the function registry; this case
+        // handles any in-flight calls or backward-compat scenarios.
         const concept = fn.args.concept as string | undefined;
-        const style = (fn.args.style as string | undefined) || 'warm, friendly illustration, educational';
         const text = fn.args.text as string | undefined;
 
         if (!concept) {
@@ -495,138 +500,32 @@ export class NativeFunctionCallHandler {
           break;
         }
 
-        // Guard: reject text args that look like image alt-text descriptions — Gemini
-        // occasionally generates the concept as spoken text rather than natural speech.
-        // These should NEVER be spoken aloud; the continuation will handle speech.
         const IMAGE_DESC_PREFIXES = ['illustration depicting', 'educational infographic', 'image showing', 'photo of', 'visual of'];
         const isImageDesc = text ? IMAGE_DESC_PREFIXES.some(p => text.toLowerCase().startsWith(p)) : false;
         if (text && !isImageDesc && !session.functionCallText) {
           session.functionCallText = text;
         } else if (text && isImageDesc) {
-          console.warn(`[Native Function→GenerateVisual] Rejecting image-description text as speech: "${text.substring(0, 60)}..."`);
+          console.warn(`[Native Function→GenerateVisual] Rejecting image-description text as speech`);
         }
 
-        console.log(`[Native Function→GenerateVisual] Generating DALL-E image for: "${concept}"`);
+        console.log(`[Native Function→GenerateVisual] Routing through unified resolver for: "${concept}"`);
 
-        import('../services/visual-content-service').then(async ({ generateVisual }) => {
+        // Derive a short label from the concept for the whiteboard card
+        const conceptLabel = (() => {
+          const firstPhrase = concept.split(/[,;]/)[0].trim();
+          return firstPhrase.length <= 45 ? firstPhrase : firstPhrase.substring(0, 42) + '…';
+        })();
+
+        import('../services/vocabulary-image-resolver').then(async ({ resolveVocabularyImage }) => {
           try {
-            // Check library first — reuse an existing ai_generated image if available
-            let result: Awaited<ReturnType<typeof generateVisual>> | null = null;
-            try {
-              const { getUserDb } = await import('../db');
-              const { sql } = await import('drizzle-orm');
-              const db = getUserDb();
+            const result = await resolveVocabularyImage({
+              word: conceptLabel,
+              language: session.language || 'spanish',
+              description: concept,
+              scene: concept,
+              userId: session.userId?.toString(),
+            });
 
-              // Safety net: if Daniela accidentally calls generate_visual for a vocab word,
-              // try the vocab cache key first (vocab_spanish_{normalizedWord}).
-              // This catches single-word or short concepts like "correr", "bailar", "rojo".
-              const conceptWords = concept.trim().toLowerCase()
-                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-                .replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 2);
-              const language = session.language || 'spanish';
-              let vocabCacheHit: any = null;
-              for (const word of conceptWords.slice(0, 3)) {
-                const cacheKey = `vocab_${language}_${word}`;
-                const hit = await db.execute(sql`
-                  SELECT url, description, tags, accessibility_description
-                  FROM media_files WHERE search_query = ${cacheKey} LIMIT 1
-                `);
-                if (hit.rows.length > 0) {
-                  vocabCacheHit = hit.rows[0];
-                  console.log(`[Native Function→GenerateVisual] Vocab cache hit for "${word}" (key: ${cacheKey}) — bypassing DALL-E`);
-                  break;
-                }
-              }
-              if (vocabCacheHit) {
-                const { normalizeImageUrl } = await import('../services/image-storage');
-                result = {
-                  imageUrl: normalizeImageUrl(vocabCacheHit.url as string),
-                  altText: (vocabCacheHit.description as string) || concept,
-                  semanticTags: (vocabCacheHit.tags as string[]) || [],
-                  accessibilityDescription: (vocabCacheHit.accessibility_description as string) || '',
-                  conceptAlignment: 0.95,
-                };
-              }
-
-              // Fallback: title/description fuzzy match
-              if (!result) {
-                const existing = await db.execute(sql`
-                  SELECT url, description, tags, accessibility_description, concept_alignment
-                  FROM media_files
-                  WHERE image_source = 'ai_generated'
-                    AND (
-                      title ILIKE ${`%${concept.substring(0, 40)}%`}
-                      OR description ILIKE ${`%${concept.substring(0, 40)}%`}
-                    )
-                  ORDER BY concept_alignment DESC NULLS LAST, created_at DESC
-                  LIMIT 1
-                `);
-                if (existing.rows.length > 0) {
-                  const row = existing.rows[0] as any;
-                  console.log(`[Native Function→GenerateVisual] Found library match — skipping DALL-E generation`);
-                  const { normalizeImageUrl } = await import('../services/image-storage');
-                  result = {
-                    imageUrl: normalizeImageUrl(row.url as string),
-                    altText: (row.description as string) || concept,
-                    semanticTags: (row.tags as string[]) || [],
-                    accessibilityDescription: (row.accessibility_description as string) || '',
-                    conceptAlignment: Number(row.concept_alignment) || 0.85,
-                  };
-                }
-              }
-            } catch (lookupErr: any) {
-              console.warn(`[Native Function→GenerateVisual] Library lookup failed, proceeding with generation:`, lookupErr.message);
-            }
-
-            if (!result) {
-              result = await generateVisual(concept, 'image', {}, style);
-              // Archive the temporary DALL-E URL to permanent storage
-              console.log(`[Native Function→GenerateVisual] DALL-E complete — archiving to permanent storage`);
-              let archivedFilename = '';
-              try {
-                const { archiveImageToPermanentStorage } = await import('../services/image-storage');
-                const crypto = await import('crypto');
-                const hash = crypto.createHash('md5').update('visual_' + concept + Date.now()).digest('hex');
-                archivedFilename = `${hash}.jpg`;
-                result = { ...result, imageUrl: await archiveImageToPermanentStorage(result.imageUrl, archivedFilename) };
-              } catch (archiveErr: any) {
-                console.warn(`[Native Function→GenerateVisual] Archive failed, using DALL-E URL directly:`, archiveErr.message);
-              }
-
-              // Persist in media_files so the Images tab shows it and future
-              // generation calls can reuse it from the library
-              try {
-                const shortLabel = concept.split(/[,;]/)[0].trim().substring(0, 60);
-                await storage.cacheImage({
-                  uploadedBy: null,
-                  mediaType: 'image',
-                  url: result.imageUrl,
-                  thumbnailUrl: null,
-                  filename: archivedFilename || `ai-visual-${Date.now()}.jpg`,
-                  mimeType: 'image/jpeg',
-                  title: shortLabel,
-                  description: concept,
-                  tags: result.semanticTags || [],
-                  language: session.targetLanguage || null,
-                  imageSource: 'ai_generated',
-                  promptHash: null,
-                  attributionJson: null,
-                  usageCount: 1,
-                });
-                console.log(`[Native Function→GenerateVisual] Saved to media_files library: "${shortLabel}"`);
-              } catch (saveErr: any) {
-                console.warn(`[Native Function→GenerateVisual] Failed to save to media library:`, saveErr.message);
-              }
-            }
-
-            // Derive a short human-readable label from the concept (concepts are
-            // often full scene descriptions — we don't want to render 150 chars as a title)
-            const conceptLabel = (() => {
-              const firstPhrase = concept.split(/[,;]/)[0].trim();
-              return firstPhrase.length <= 45 ? firstPhrase : firstPhrase.substring(0, 42) + '…';
-            })();
-
-            // Send to whiteboard (result is set either from library match or fresh generation)
             const whiteboardUpdate = {
               type: 'whiteboard_update' as const,
               timestamp: Date.now(),
@@ -637,10 +536,8 @@ export class NativeFunctionCallHandler {
                   word: conceptLabel,
                   description: concept,
                   imageUrl: result.imageUrl,
-                  source: 'dalle',
-                  semanticTags: result.semanticTags,
-                  accessibilityDescription: result.accessibilityDescription,
-                  conceptAlignment: result.conceptAlignment,
+                  source: result.source,
+                  labelMode: 'quiz' as const,
                 },
               }],
             };
@@ -656,7 +553,7 @@ export class NativeFunctionCallHandler {
             if (!session.classroomSessionImages) session.classroomSessionImages = [];
             session.classroomSessionImages.push(concept);
             if (!session.classroomWhiteboardItems) session.classroomWhiteboardItems = [];
-            session.classroomWhiteboardItems.push({ type: 'image', content: concept, label: result.altText });
+            session.classroomWhiteboardItems.push({ type: 'image', content: concept, label: conceptLabel });
           } catch (err: any) {
             console.error(`[Native Function→GenerateVisual] Error:`, err.message);
           }
