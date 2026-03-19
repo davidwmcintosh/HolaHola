@@ -27,6 +27,35 @@ import {
   VowelPurityCard, RolledRCard, BVSoundCard, SilentHCard,
   JSoundCard, NyenCard, LLYCard, StressAccentCard, LinkingSoundsCard,
 } from "./TextbookPhoneticGuides";
+
+// ── French ────────────────────────────────────────────────────────────────────
+import {
+  ÊtreCard, AvoirCard, AllerCard, FaireCard,
+  FrErVerbsCard, FrIrVerbsCard, FrReVerbsCard,
+  FrModalsCard, FrReflexiveCard,
+  FrPasseComposeAvoirCard, FrPasseComposeEtreCard,
+  FrImparfaitCard, FrPcVsImpCard,
+  FrFutureCard, FrConditionalCard, FrSubjunctiveCard,
+  FrNegationCard, FrArticlesGenderCard, FrAdjAgreeCard,
+  FrObjectPronounsCard, FrTuVousCard, FrQuestionsCard,
+  FrSpatialPrepCard, FrTemporalPrepCard,
+} from "./TextbookFrenchGrammarCards";
+import {
+  FrancophoneWorldMapCard, FrenchHolidayCalendarCard, FrenchFoodGuideCard,
+  FrenchDialectZonesCard, LaBiseEtiquetteCard, FrenchCurrencyCard,
+  FrGestureAwarenessCard,
+} from "./TextbookFrenchCulturalCards";
+import {
+  FrNasalVowelsCard, FrFrenchRCard, FrLiaisonCard,
+  FrUSoundCard, FrEUSoundCard, FrSilentConsonantsCard,
+  FrWrittenAccentsCard, FrIntonationCard, FrElisionCard,
+} from "./TextbookFrenchPhoneticGuides";
+import {
+  FrParlerFamilyCard, FrAimerFamilyCard, FrVoirFamilyCard,
+  FrFaireFamilyCard, FrDireFamilyCard, FrAllerFamilyCard,
+  FrVenirFamilyCard, FrPrendreFamilyCard, FrSavoirFamilyCard,
+  FrCroireFamilyCard,
+} from "./TextbookFrenchWordFamilies";
 import { languageChapterData } from "@/data/chapter-intro-content";
 
 import familyGatheringImg from "@assets/stock_images/family_gathering_aro_0f321ed1.jpg";
@@ -67,7 +96,7 @@ function classifyChapterType(title: string): string | null {
 }
 
 type GrammarChapterType =
-  // ── Section 3 — Grammar diagrams ────────────────────────────────────────
+  // ── SPANISH Section 3 — Grammar diagrams ────────────────────────────────
   | 'ser_estar' | 'pret_imp' | 'por_para' | 'false_cognates'
   | 'ar_verbs' | 'er_verbs' | 'ir_verbs'
   | 'ser_only' | 'estar_only' | 'tener' | 'ir_go'
@@ -77,22 +106,121 @@ type GrammarChapterType =
   | 'imperfect' | 'future' | 'conditional' | 'subjunctive' | 'commands'
   | 'gender_articles' | 'adjective_agreement' | 'object_pronouns'
   | 'negation_questions' | 'tu_usted'
-  // ── Section 4 — Preposition maps ────────────────────────────────────────
+  // ── SPANISH Section 4 — Preposition maps ────────────────────────────────
   | 'spatial_prep' | 'temporal_prep'
-  // ── Section 5 — Cultural infographics ───────────────────────────────────
+  // ── SPANISH Section 5 — Cultural infographics ───────────────────────────
   | 'world_map' | 'festival_calendar' | 'dialect_map'
   | 'family_tree' | 'greeting_etiquette' | 'currency_ref'
   | 'hispanic_food' | 'gesture_awareness'
-  // ── Section 6 — Word family maps ────────────────────────────────────────
+  // ── SPANISH Section 6 — Word family maps ────────────────────────────────
   | 'word_family'
   // ── Section 7 — Canvas vocabulary cards (shared with /chat canvas tools) ──
   | 'weather_vocab' | 'emotions_vocab' | 'telling_time' | 'days_week'
   | 'body_parts' | 'face_parts' | 'hand_parts' | 'temperature_vocab' | 'country_dot_map'
-  // ── Section 8 — Phonetic guides ─────────────────────────────────────────
+  // ── SPANISH Section 8 — Phonetic guides ─────────────────────────────────
   | 'vowel_purity' | 'rolled_r' | 'bv_sound' | 'silent_h'
-  | 'j_sound' | 'nyen_sound' | 'lly_sound' | 'stress_accent' | 'linking_sounds';
+  | 'j_sound' | 'nyen_sound' | 'lly_sound' | 'stress_accent' | 'linking_sounds'
+  // ── FRENCH Section 3 — Grammar diagrams ─────────────────────────────────
+  | 'fr_etre' | 'fr_avoir' | 'fr_aller' | 'fr_faire'
+  | 'fr_er_verbs' | 'fr_ir_verbs' | 'fr_re_verbs'
+  | 'fr_modals' | 'fr_reflexive'
+  | 'fr_passe_compose_avoir' | 'fr_passe_compose_etre'
+  | 'fr_imparfait' | 'fr_pc_vs_imp'
+  | 'fr_future' | 'fr_conditional' | 'fr_subjunctive'
+  | 'fr_negation' | 'fr_articles_gender' | 'fr_adj_agree'
+  | 'fr_object_pronouns' | 'fr_tu_vous' | 'fr_questions'
+  // ── FRENCH Section 4 — Preposition maps ─────────────────────────────────
+  | 'fr_spatial_prep' | 'fr_temporal_prep'
+  // ── FRENCH Section 5 — Cultural infographics ─────────────────────────────
+  | 'fr_world_map' | 'fr_holiday_calendar' | 'fr_food_guide'
+  | 'fr_dialect_zones' | 'fr_la_bise' | 'fr_currency' | 'fr_gesture'
+  // ── FRENCH Section 6 — Word families ────────────────────────────────────
+  | 'fr_word_family'
+  // ── FRENCH Section 8 — Phonetic guides ──────────────────────────────────
+  | 'fr_nasal_vowels' | 'fr_french_r' | 'fr_liaison'
+  | 'fr_u_sound' | 'fr_eu_sound' | 'fr_silent_consonants'
+  | 'fr_written_accents' | 'fr_intonation' | 'fr_elision';
 
-function classifyGrammarType(title: string): GrammarChapterType | null {
+function classifyFrenchGrammarType(title: string): GrammarChapterType | null {
+  const lower = title.toLowerCase();
+
+  // ── Section 3 — French grammar ──────────────────────────────────────────
+  if (lower.includes('être') && lower.includes('avoir') && (lower.includes('vs') || lower.includes('auxiliaire') || lower.includes('versus') || lower.includes(' et '))) return 'fr_passe_compose_avoir'; // PC context
+  if (lower === 'être' || lower.includes('le verbe être') || lower.includes('verb être') || (lower.startsWith('être') && !lower.includes('avoir'))) return 'fr_etre';
+  if (lower === 'avoir' || lower.includes('le verbe avoir') || lower.includes('verb avoir') || (lower.startsWith('avoir') && !lower.includes('être'))) return 'fr_avoir';
+  if ((lower === 'aller' || lower.includes('le verbe aller') || lower.includes('futur proche')) && !lower.includes('passe') && !lower.includes('passé')) return 'fr_aller';
+  if (lower === 'faire' || lower.includes('le verbe faire') || lower.includes('expressions avec faire')) return 'fr_faire';
+
+  if (lower.includes('-er verb') || lower.includes('er verb') || lower.includes('verbos -er') || lower.includes('verbes en -er') || lower.includes('parler') || lower.includes('aimer') || lower.includes('regular -er')) return 'fr_er_verbs';
+  if ((lower.includes('-ir verb') || lower.includes('ir verb') || lower.includes('verbes en -ir') || lower.includes('finir') || lower.includes('regular -ir')) && !lower.includes('-re') && !lower.includes('re verb')) return 'fr_ir_verbs';
+  if (lower.includes('-re verb') || lower.includes('re verb') || lower.includes('verbes en -re') || lower.includes('vendre') || lower.includes('attendre') || lower.includes('regular -re')) return 'fr_re_verbs';
+
+  if (lower.includes('pouvoir') || lower.includes('vouloir') || lower.includes('devoir') || lower.includes('modal') || lower.includes('verbes modaux')) return 'fr_modals';
+  if (lower.includes('reflexive') || lower.includes('réfléchi') || lower.includes('pronominal') || lower.includes('se lever') || lower.includes('verbos pronominaux') || lower.includes('verbes pronominaux')) return 'fr_reflexive';
+
+  if ((lower.includes('passé composé') || lower.includes('passe compose') || lower.includes('past tense')) && lower.includes('être') && !lower.includes('avoir')) return 'fr_passe_compose_etre';
+  if ((lower.includes('passé composé') || lower.includes('passe compose')) && lower.includes('être') && lower.includes('avoir')) return 'fr_pc_vs_imp';
+  if (lower.includes('passé composé') || lower.includes('passe compose') || lower.includes('past perfect french')) return 'fr_passe_compose_avoir';
+
+  if (lower.includes('imparfait') || (lower.includes('imperfect') && !lower.includes('vs') && !lower.includes('versus'))) return 'fr_imparfait';
+  if ((lower.includes('passé') && lower.includes('imparfait')) || (lower.includes('pc') && lower.includes('imparfait')) || (lower.includes('passe compose') && lower.includes('imparfait')) || (lower.includes('past tense') && lower.includes('vs'))) return 'fr_pc_vs_imp';
+
+  if ((lower.includes('futur') || lower.includes('future')) && !lower.includes('proche') && !lower.includes('aller')) return 'fr_future';
+  if (lower.includes('conditionnel') || (lower.includes('conditional') && lower.includes('french'))) return 'fr_conditional';
+  if (lower.includes('subjonctif') || (lower.includes('subjunctive') && lower.includes('french'))) return 'fr_subjunctive';
+
+  if (lower.includes('négation') || lower.includes('negation') && (lower.includes('french') || lower.includes('français') || lower.includes('ne...pas') || lower.includes('ne pas'))) return 'fr_negation';
+  if ((lower.includes('article') || lower.includes('genre') || lower.includes('gender')) && (lower.includes('french') || lower.includes('français') || lower.includes('le/la') || lower.includes('un/une') || lower.includes('du/de'))) return 'fr_articles_gender';
+  if ((lower.includes('adjective') || lower.includes('adjectif') || lower.includes('accord')) && (lower.includes('french') || lower.includes('français') || lower.includes('bangs') || lower.includes('accords'))) return 'fr_adj_agree';
+  if ((lower.includes('pronoun') || lower.includes('pronom') || lower.includes('object pronoun') || lower.includes('cod') || lower.includes('coi')) && (lower.includes('french') || lower.includes('français'))) return 'fr_object_pronouns';
+  if ((lower.includes('tu') && lower.includes('vous')) && (lower.includes('french') || lower.includes('français') || lower.includes('tutoiement') || lower.includes('vouvoiement'))) return 'fr_tu_vous';
+  if ((lower.includes('question') || lower.includes('interrogat') || lower.includes('est-ce que') || lower.includes('inversion')) && (lower.includes('french') || lower.includes('français'))) return 'fr_questions';
+
+  // ── Section 4 — French Prepositions ─────────────────────────────────────
+  if (lower.includes('temporal prep') || lower.includes('préposition de temps') || lower.includes('avant de') || lower.includes('depuis') || lower.includes('pendant')) return 'fr_temporal_prep';
+  if (lower.includes('preposition') || lower.includes('préposition') || lower.includes('spatial') || lower.includes('dans') || lower.includes('à côté')) return 'fr_spatial_prep';
+
+  // ── Section 5 — French Cultural ─────────────────────────────────────────
+  if (lower.includes('francophone') || lower.includes('french-speaking world') || lower.includes('monde francophone') || lower.includes('la francophonie')) return 'fr_world_map';
+  if (lower.includes('french holiday') || lower.includes('fête nationale') || lower.includes('bastille') || lower.includes('calendrier') || lower.includes('french public holiday') || lower.includes('fête française')) return 'fr_holiday_calendar';
+  if (lower.includes('french food') || lower.includes('gastronomie française') || lower.includes('french cuisine') || lower.includes('french regional food') || lower.includes('cuisines françaises')) return 'fr_food_guide';
+  if (lower.includes('french dialect') || lower.includes('variétés du français') || lower.includes('québécois') || lower.includes('français belge') || lower.includes('french variety') || lower.includes('français africain')) return 'fr_dialect_zones';
+  if (lower.includes('la bise') || lower.includes('bisous') || lower.includes('french greeting') || lower.includes('cheek kiss') && lower.includes('french')) return 'fr_la_bise';
+  if ((lower.includes('currency') || lower.includes('monnaie') || lower.includes('euro')) && (lower.includes('french') || lower.includes('français') || lower.includes('franco'))) return 'fr_currency';
+  if ((lower.includes('gesture') || lower.includes('geste') || lower.includes('body language')) && (lower.includes('french') || lower.includes('français'))) return 'fr_gesture';
+
+  // ── Section 6 — French Word Families ─────────────────────────────────────
+  if (lower.includes('word family') || lower.includes('famille de mots') || lower.includes('famille lexicale') || lower.includes('word derivation') || lower.includes('famille lexicale')) return 'fr_word_family';
+
+  // ── Section 7 — Canvas vocab (shared with /chat) — same SVG, French labels ──
+  if (lower.includes('weather') || lower.includes('météo') || lower.includes('la météo') || lower.includes('le temps')) return 'weather_vocab';
+  if (lower.includes('emotion') || lower.includes('émotion') || lower.includes('les émotions') || lower.includes('feeling') || lower.includes('sentiments')) return 'emotions_vocab';
+  if (lower.includes('time') || lower.includes("l'heure") || lower.includes('la montre') || lower.includes('telling time') || lower.includes('quelle heure')) return 'telling_time';
+  if (lower.includes('days') || lower.includes('week') || lower.includes('month') || lower.includes('jours') || lower.includes('mois') || lower.includes('calendrier') || lower.includes('la semaine')) return 'days_week';
+  if (lower.includes('body part') || lower.includes('le corps') || lower.includes('corps humain') || lower.includes('body vocab')) return 'body_parts';
+  if (lower.includes('face') || lower.includes('le visage') || lower.includes('facial feature')) return 'face_parts';
+  if (lower.includes('hand') || lower.includes('la main') || lower.includes('les doigts') || lower.includes('finger')) return 'hand_parts';
+  if (lower.includes('temperature') || lower.includes('la température') || lower.includes('thermomètre') || lower.includes('degrés')) return 'temperature_vocab';
+  if (lower.includes('map') || lower.includes('carte') || lower.includes('french country') || lower.includes('pays francophone')) return 'country_dot_map';
+
+  // ── Section 8 — French Phonetics ─────────────────────────────────────────
+  if (lower.includes('nasal') || lower.includes('voyelle nasale') || lower.includes('nasale') || lower.includes('an/en') || lower.includes('in/ein') || lower.includes('on/om')) return 'fr_nasal_vowels';
+  if (lower.includes('french r') || lower.includes('le r français') || lower.includes('r uvulaire') || lower.includes('uvular') || lower.includes('erre française')) return 'fr_french_r';
+  if (lower.includes('liaison') || lower.includes('linking') && lower.includes('french') || lower.includes('enchaînement')) return 'fr_liaison';
+  if ((lower.includes(' u ') || lower.includes('le son u') || lower.includes('french u') || lower.includes('[y]') || lower.includes('son [y]')) && !lower.includes('ou')) return 'fr_u_sound';
+  if (lower.includes('eu') && (lower.includes('son') || lower.includes('oeu') || lower.includes('[ø]') || lower.includes('[œ]'))) return 'fr_eu_sound';
+  if (lower.includes('silent consonant') || lower.includes('consonnes muettes') || lower.includes('finale muette') || lower.includes('h aspiré') || lower.includes('h muet')) return 'fr_silent_consonants';
+  if (lower.includes('accent') && (lower.includes('écrit') || lower.includes('written') || lower.includes('accent aigu') || lower.includes('accent grave') || lower.includes('cédille') || lower.includes('cedille') || lower.includes('circumflex'))) return 'fr_written_accents';
+  if (lower.includes('intonation') && (lower.includes('french') || lower.includes('français'))) return 'fr_intonation';
+  if (lower.includes('élision') || lower.includes('elision') || lower.includes('contraction') && lower.includes('french') || lower.includes('au/aux') || lower.includes('du/des')) return 'fr_elision';
+  if (lower.includes('pronunciation') || lower.includes('phonétique') || lower.includes('phonetic') && lower.includes('french') || lower.includes('sons du français')) return 'fr_nasal_vowels'; // default French phonetics entry
+
+  return null;
+}
+
+function classifyGrammarType(title: string, language = 'spanish'): GrammarChapterType | null {
+  if (language === 'french') return classifyFrenchGrammarType(title);
+
   const lower = title.toLowerCase();
 
   // ── Section 3 — existing 4 types (most specific first) ──────────────────
@@ -235,10 +363,86 @@ const GRAMMAR_LABELS: Record<GrammarChapterType, { title: string; subtitle: stri
   lly_sound: { title: 'LL y Y — Yeísmo & Sheísmo', subtitle: 'Regional variation in how LL and Y are pronounced' },
   stress_accent: { title: 'El Acento — Stress Rules', subtitle: 'Spanish stress is predictable — accent marks only break the default rules' },
   linking_sounds: { title: 'El Enlace — Linking Sounds', subtitle: 'Vowels link across word boundaries in natural spoken Spanish' },
+  // ── FRENCH Section 3
+  fr_etre:               { title: 'Le Verbe ÊTRE', subtitle: 'To be — the most essential French verb + auxiliary for passé composé' },
+  fr_avoir:              { title: 'Le Verbe AVOIR', subtitle: 'To have — plus dozens of fixed expressions using avoir instead of être' },
+  fr_aller:              { title: 'Le Verbe ALLER', subtitle: 'To go — plus aller + infinitive for the immediate future (futur proche)' },
+  fr_faire:              { title: 'Le Verbe FAIRE', subtitle: 'To do / to make — key for weather, activities, and countless expressions' },
+  fr_er_verbs:           { title: 'Verbes Réguliers en -ER', subtitle: 'Over 90% of French verbs — master parler and you master the pattern' },
+  fr_ir_verbs:           { title: 'Verbes Réguliers en -IR', subtitle: 'Type-2 -IR verbs add -iss- in the plural — finir is the model' },
+  fr_re_verbs:           { title: 'Verbes Réguliers en -RE', subtitle: 'The third French conjugation class — unique to French, not in Spanish' },
+  fr_modals:             { title: 'Verbes Modaux — Pouvoir · Vouloir · Devoir', subtitle: 'Can · Want · Must — all take an infinitive, all fully irregular' },
+  fr_reflexive:          { title: 'Verbes Pronominaux', subtitle: 'Reflexive verbs — subject acts on itself, reflexive pronoun always present' },
+  fr_passe_compose_avoir:{ title: 'Le Passé Composé — avec AVOIR', subtitle: 'Completed past actions — avoir + past participle, most French verbs' },
+  fr_passe_compose_etre: { title: 'Le Passé Composé — avec ÊTRE', subtitle: 'Motion & state-change verbs use être — past participle agrees with subject' },
+  fr_imparfait:          { title: "L'Imparfait", subtitle: 'Background, habitual, and ongoing past — the counterpart to passé composé' },
+  fr_pc_vs_imp:          { title: 'Passé Composé vs Imparfait', subtitle: 'One language, two pasts — context decides which tense you need' },
+  fr_future:             { title: 'Le Futur Simple', subtitle: 'Will — infinitive stem + future endings, just a few irregular stems' },
+  fr_conditional:        { title: 'Le Conditionnel Présent', subtitle: 'Would — same stem as future, imparfait endings; polite requests & hypotheticals' },
+  fr_subjunctive:        { title: 'Le Subjonctif Présent', subtitle: 'Used after trigger phrases — wishes, doubts, necessity, conjunction clauses' },
+  fr_negation:           { title: 'La Négation Française', subtitle: 'ne…pas is just the start — French has a full system of negation pairs' },
+  fr_articles_gender:    { title: 'Les Articles et le Genre', subtitle: 'Every French noun has a gender — le/la/un/une/du/de la and their rules' },
+  fr_adj_agree:          { title: "L'Accord des Adjectifs", subtitle: 'Adjectives agree in gender and number — plus BAGS position rules' },
+  fr_object_pronouns:    { title: 'Les Pronoms Objets', subtitle: 'COD (direct) and COI (indirect) object pronouns — order and placement' },
+  fr_tu_vous:            { title: 'Tu vs Vous — Le Registre', subtitle: 'One of the most important cultural choices in French — know the difference' },
+  fr_questions:          { title: 'Poser une Question', subtitle: 'Three ways to ask questions in French — intonation, est-ce que, and inversion' },
+  // ── FRENCH Section 4
+  fr_spatial_prep:       { title: 'Les Prépositions de Lieu', subtitle: 'dans, sur, sous, devant, derrière… + prepositions with cities and countries' },
+  fr_temporal_prep:      { title: 'Les Prépositions de Temps', subtitle: 'avant, après, depuis, pendant, dès, jusqu\'à… — timing in French' },
+  // ── FRENCH Section 5
+  fr_world_map:          { title: 'La Francophonie', subtitle: '~274 million French speakers across 5 continents — 29 countries with French as official language' },
+  fr_holiday_calendar:   { title: 'Les Fêtes Françaises', subtitle: 'Major French and Francophone public holidays — jours fériés and cultural celebrations' },
+  fr_food_guide:         { title: 'La Gastronomie Française', subtitle: 'Regional French cuisine — 7 zones from Normandie to Provence to Alsace' },
+  fr_dialect_zones:      { title: 'Les Variétés du Français', subtitle: 'Standard, Québécois, Belge, Suisse, Africain — all are equally valid French' },
+  fr_la_bise:            { title: 'La Bise — Greeting Etiquette', subtitle: 'The French cheek-kiss — how many, which cheek, and when not to' },
+  fr_currency:           { title: 'Les Monnaies de la Francophonie', subtitle: 'Euro, Canadian dollar, Swiss franc, CFA franc — French is spoken with 6+ currencies' },
+  fr_gesture:            { title: 'Les Gestes Français', subtitle: 'Body language awareness in French-speaking cultures — recognition, not imitation' },
+  // ── FRENCH Section 6
+  fr_word_family:        { title: 'Famille de Mots', subtitle: 'French words that share a root — see how the language builds itself from Latin' },
+  // ── FRENCH Section 8
+  fr_nasal_vowels:       { title: 'Les Voyelles Nasales', subtitle: 'The four nasal vowels [ã] [ɛ̃] [ɔ̃] — air through nose and mouth simultaneously' },
+  fr_french_r:           { title: 'Le R Français [ʁ]', subtitle: 'The uvular R — produced at the back of the throat, nothing like English or Spanish R' },
+  fr_liaison:            { title: 'La Liaison', subtitle: 'Silent final consonants link to the next vowel — obligatoire, facultative, or interdite' },
+  fr_u_sound:            { title: 'Le Son [y] — Le "U" Français', subtitle: 'No English equivalent — lips rounded for "oo" while tongue says "ee"' },
+  fr_eu_sound:           { title: 'Les Sons [ø] et [œ] — EU / OEU', subtitle: 'The "bird vowel" of French — closed EU in feu, open EU in peur' },
+  fr_silent_consonants:  { title: 'Les Consonnes Muettes', subtitle: 'Most French final consonants are silent — the CaReFuL rule for exceptions' },
+  fr_written_accents:    { title: 'Les Accents Écrits', subtitle: 'é è ê à â ô ç ï — 5 accent marks, each with phonetic or semantic meaning' },
+  fr_intonation:         { title: "L'Intonation Française", subtitle: 'French stress falls at the end of rhythmic groups — distinct from English patterns' },
+  fr_elision:            { title: "L'Élision et les Contractions", subtitle: "Vowel dropping (l', j', m'…) and mandatory contractions (au, du, aux, des)" },
 };
 
-function GrammarChapterView({ type, chapterNumber, chapterTitle }: { type: GrammarChapterType; chapterNumber: number; chapterTitle?: string }) {
-  const { title, subtitle } = GRAMMAR_LABELS[type];
+function resolveFrenchWordFamilyCard(title?: string): JSX.Element {
+  if (!title) return <FrParlerFamilyCard />;
+  const lower = title.toLowerCase();
+  if (lower.includes('parler') || lower.includes('parole') || lower.includes('speak')) return <FrParlerFamilyCard />;
+  if (lower.includes('aimer') || lower.includes('amour') || lower.includes('love') || lower.includes('like')) return <FrAimerFamilyCard />;
+  if (lower.includes('voir') || lower.includes('vue') || lower.includes('see') || lower.includes('vision')) return <FrVoirFamilyCard />;
+  if (lower.includes('faire') || lower.includes('fait') || lower.includes('do') || lower.includes('make')) return <FrFaireFamilyCard />;
+  if (lower.includes('dire') || lower.includes('dit') || lower.includes('say') || lower.includes('tell') || lower.includes('diction')) return <FrDireFamilyCard />;
+  if (lower.includes('aller') || lower.includes('allée') || lower.includes('go') || lower.includes('travel')) return <FrAllerFamilyCard />;
+  if (lower.includes('venir') || lower.includes('venue') || lower.includes('come') || lower.includes('avenir')) return <FrVenirFamilyCard />;
+  if (lower.includes('prendre') || lower.includes('prise') || lower.includes('take') || lower.includes('apprendre') || lower.includes('comprendre')) return <FrPrendreFamilyCard />;
+  if (lower.includes('savoir') || lower.includes('connaissance') || lower.includes('know') || lower.includes('savant')) return <FrSavoirFamilyCard />;
+  if (lower.includes('croire') || lower.includes('croyance') || lower.includes('believe') || lower.includes('incroyable')) return <FrCroireFamilyCard />;
+  return <FrParlerFamilyCard />;
+}
+
+const GRAMMAR_LABELS_FR: Partial<Record<GrammarChapterType, { title: string; subtitle: string }>> = {
+  weather_vocab:    { title: 'La Météo — Le Temps qu\'il fait', subtitle: 'All 10 weather conditions with French expressions — the same icons used in lessons' },
+  emotions_vocab:   { title: 'Les Émotions — Les Sentiments', subtitle: 'All 11 emotion faces with French labels — the same faces used in lessons' },
+  telling_time:     { title: "L'Heure — Dire l'heure", subtitle: 'Analog clocks + key French time patterns and parts-of-day vocabulary' },
+  days_week:        { title: 'Jours, Mois et Calendrier', subtitle: 'Days of the week, months of the year, and useful French date expressions' },
+  body_parts:       { title: 'Le Corps Humain — Les Parties du Corps', subtitle: 'Body diagram + complete French vocabulary reference — same diagram used in lessons' },
+  face_parts:       { title: 'Le Visage — Vocabulaire du Visage', subtitle: 'Face close-up + full French vocabulary for facial features' },
+  hand_parts:       { title: 'La Main — Les Doigts', subtitle: 'Hand diagram + French vocabulary for fingers, palm, and wrist' },
+  temperature_vocab:{ title: 'La Température', subtitle: 'Temperature scale in French — same thermometer used in lessons' },
+  country_dot_map:  { title: 'Les Pays Francophones', subtitle: 'Where French is spoken around the world — 29+ countries across 5 continents' },
+};
+
+function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spanish' }: { type: GrammarChapterType; chapterNumber: number; chapterTitle?: string; language?: string }) {
+  const baseLabel = GRAMMAR_LABELS[type];
+  const frLabel = language === 'french' ? GRAMMAR_LABELS_FR[type] : undefined;
+  const { title, subtitle } = frLabel ?? baseLabel;
   const wordFamilyRoot = type === 'word_family' && chapterTitle ? resolveWordFamilyRoot(chapterTitle) : null;
 
   return (
@@ -305,15 +509,15 @@ function GrammarChapterView({ type, chapterNumber, chapterTitle }: { type: Gramm
       {type === 'word_family' && <WordFamilyCard root={wordFamilyRoot ?? 'hablar'} />}
 
       {/* Section 7 — Canvas vocabulary cards (same SVG renderers as /chat) */}
-      {type === 'weather_vocab'    && <WeatherVocabCard />}
-      {type === 'emotions_vocab'   && <EmotionsVocabCard />}
-      {type === 'telling_time'     && <TimeVocabCard />}
-      {type === 'days_week'        && <DaysOfWeekCard />}
-      {type === 'body_parts'       && <BodyPartsCard />}
-      {type === 'face_parts'       && <FacePartsCard />}
-      {type === 'hand_parts'       && <HandPartsCard />}
-      {type === 'temperature_vocab'&& <ThermometerVocabCard />}
-      {type === 'country_dot_map'  && <CountryDotMapCard />}
+      {type === 'weather_vocab'    && <WeatherVocabCard     language={language as 'spanish' | 'french'} />}
+      {type === 'emotions_vocab'   && <EmotionsVocabCard    language={language as 'spanish' | 'french'} />}
+      {type === 'telling_time'     && <TimeVocabCard        language={language as 'spanish' | 'french'} />}
+      {type === 'days_week'        && <DaysOfWeekCard       language={language as 'spanish' | 'french'} />}
+      {type === 'body_parts'       && <BodyPartsCard        language={language as 'spanish' | 'french'} />}
+      {type === 'face_parts'       && <FacePartsCard        language={language as 'spanish' | 'french'} />}
+      {type === 'hand_parts'       && <HandPartsCard        language={language as 'spanish' | 'french'} />}
+      {type === 'temperature_vocab'&& <ThermometerVocabCard language={language as 'spanish' | 'french'} />}
+      {type === 'country_dot_map'  && (language === 'french' ? <FrancophoneWorldMapCard /> : <CountryDotMapCard />)}
 
       {/* Section 8 — Phonetics */}
       {type === 'vowel_purity' && <VowelPurityCard />}
@@ -325,6 +529,57 @@ function GrammarChapterView({ type, chapterNumber, chapterTitle }: { type: Gramm
       {type === 'lly_sound' && <LLYCard />}
       {type === 'stress_accent' && <StressAccentCard />}
       {type === 'linking_sounds' && <LinkingSoundsCard />}
+
+      {/* ── FRENCH Section 3 — Grammar ───────────────────────────────────── */}
+      {type === 'fr_etre' && <ÊtreCard />}
+      {type === 'fr_avoir' && <AvoirCard />}
+      {type === 'fr_aller' && <AllerCard />}
+      {type === 'fr_faire' && <FaireCard />}
+      {type === 'fr_er_verbs' && <FrErVerbsCard />}
+      {type === 'fr_ir_verbs' && <FrIrVerbsCard />}
+      {type === 'fr_re_verbs' && <FrReVerbsCard />}
+      {type === 'fr_modals' && <FrModalsCard />}
+      {type === 'fr_reflexive' && <FrReflexiveCard />}
+      {type === 'fr_passe_compose_avoir' && <FrPasseComposeAvoirCard />}
+      {type === 'fr_passe_compose_etre' && <FrPasseComposeEtreCard />}
+      {type === 'fr_imparfait' && <FrImparfaitCard />}
+      {type === 'fr_pc_vs_imp' && <FrPcVsImpCard />}
+      {type === 'fr_future' && <FrFutureCard />}
+      {type === 'fr_conditional' && <FrConditionalCard />}
+      {type === 'fr_subjunctive' && <FrSubjunctiveCard />}
+      {type === 'fr_negation' && <FrNegationCard />}
+      {type === 'fr_articles_gender' && <FrArticlesGenderCard />}
+      {type === 'fr_adj_agree' && <FrAdjAgreeCard />}
+      {type === 'fr_object_pronouns' && <FrObjectPronounsCard />}
+      {type === 'fr_tu_vous' && <FrTuVousCard />}
+      {type === 'fr_questions' && <FrQuestionsCard />}
+
+      {/* ── FRENCH Section 4 — Prepositions ──────────────────────────────── */}
+      {type === 'fr_spatial_prep' && <FrSpatialPrepCard />}
+      {type === 'fr_temporal_prep' && <FrTemporalPrepCard />}
+
+      {/* ── FRENCH Section 5 — Cultural ──────────────────────────────────── */}
+      {type === 'fr_world_map' && <FrancophoneWorldMapCard />}
+      {type === 'fr_holiday_calendar' && <FrenchHolidayCalendarCard />}
+      {type === 'fr_food_guide' && <FrenchFoodGuideCard />}
+      {type === 'fr_dialect_zones' && <FrenchDialectZonesCard />}
+      {type === 'fr_la_bise' && <LaBiseEtiquetteCard />}
+      {type === 'fr_currency' && <FrenchCurrencyCard />}
+      {type === 'fr_gesture' && <FrGestureAwarenessCard />}
+
+      {/* ── FRENCH Section 6 — Word families ─────────────────────────────── */}
+      {type === 'fr_word_family' && resolveFrenchWordFamilyCard(chapterTitle)}
+
+      {/* ── FRENCH Section 8 — Phonetics ─────────────────────────────────── */}
+      {type === 'fr_nasal_vowels' && <FrNasalVowelsCard />}
+      {type === 'fr_french_r' && <FrFrenchRCard />}
+      {type === 'fr_liaison' && <FrLiaisonCard />}
+      {type === 'fr_u_sound' && <FrUSoundCard />}
+      {type === 'fr_eu_sound' && <FrEUSoundCard />}
+      {type === 'fr_silent_consonants' && <FrSilentConsonantsCard />}
+      {type === 'fr_written_accents' && <FrWrittenAccentsCard />}
+      {type === 'fr_intonation' && <FrIntonationCard />}
+      {type === 'fr_elision' && <FrElisionCard />}
 
       <div className="flex items-center gap-2 text-sm text-muted-foreground justify-center">
         <Users className="h-4 w-4" />
@@ -346,11 +601,11 @@ export function ChapterIntroduction({ chapterNumber, chapterTitle, language, cha
 
   if (!chapterTitle) return null;
 
-  const grammarType = classifyGrammarType(chapterTitle);
+  const grammarType = classifyGrammarType(chapterTitle, langKey);
   if (grammarType) {
     return (
       <div className={className}>
-        <GrammarChapterView type={grammarType} chapterNumber={chapterNumber} chapterTitle={chapterTitle} />
+        <GrammarChapterView type={grammarType} chapterNumber={chapterNumber} chapterTitle={chapterTitle} language={langKey} />
       </div>
     );
   }
