@@ -66,7 +66,15 @@ The `SceneCanvas` component (client-side stage model) is **fully operational**. 
 
 **Novice High complete:** 23 images (9 places + 10 transport + 4 professions). All seeded in DB and uploaded to object storage.
 
-**What's next:** Intermediate Low (body parts, health, home rooms & furniture).
+**Novice Low people refreshed Mar 19 2026:** All 7 Novice Low people images regenerated in canonical children's book style (v=1). Neighbour (vecino/a) added to Novice Mid.
+
+**Intermediate Low complete Mar 19 2026:** 12 images — 1 body diagram (covers 15 body-part cache keys), 4 health items, 7 furniture/home items. All seeded in DB and uploaded to object storage.
+
+**Intermediate Mid complete Mar 19 2026:** 20 images — 12 nature scenes (árbol → estrella), 8 emotion portraits (enojado → aburrido). All seeded in DB and uploaded to object storage.
+
+**Section 2 (Weather + Time) complete Mar 19 2026:** 13 images — 9 weather scenes, 4 time reference cards (day parts, days of week, months circle, four seasons). All seeded in DB.
+
+**What's next (Section 1 DALL-E complete):** All DALL-E vocabulary images through Intermediate Mid are complete (~145 images total). Remaining ⬜ items are grammar/concept diagrams (Sections 3–7), higher-level supplementary cards (weather forecast, temperature scale, clock reference), and numbers cards — all React/SVG components, not DALL-E images.
 
 ---
 
@@ -97,13 +105,13 @@ Organization: thematic clusters. A student at Novice Low needs the Novice Low cl
 
 | Image | Covers | Spanish | Status | Notes |
 |-------|--------|---------|--------|-------|
-| Familia (group portrait) | mother, father, brother, sister, baby | madre, padre, hermano, hermana, bebé | ✅ Mar 18 2026 | `vocab_people_familia.png` — seeded under 6 cache keys incl. familia |
-| Los niños (pair) | boy, girl | niño, niña | ✅ Mar 18 2026 | `vocab_people_ninos.png` — seeded under niño + niña |
-| Los amigos (pair greeting) | friend (m/f) | amigo, amiga | ✅ Mar 18 2026 | `vocab_people_amigos.png` — seeded under amigo + amiga |
-| El hombre (solo) | man | hombre | ✅ Mar 18 2026 | `vocab_people_hombre.png` |
-| La mujer (solo) | woman | mujer | ✅ Mar 18 2026 | `vocab_people_mujer.png` |
-| El/la profesor/a (solo) | teacher | profesor/a | ✅ Mar 18 2026 | `vocab_people_profesor.png` — seeded under profesor + profesora |
-| El/la estudiante (solo) | student | estudiante | ✅ Mar 18 2026 | `vocab_people_estudiante.png` |
+| Familia (group portrait) | mother, father, brother, sister, baby | madre, padre, hermano, hermana, bebé | ✅ Mar 19 2026 | `vocab_people_familia.png` — regenerated in children's book style v=1 |
+| Los niños (pair) | boy, girl | niño, niña | ✅ Mar 19 2026 | `vocab_people_ninos.png` — regenerated v=1 |
+| Los amigos (pair greeting) | friend (m/f) | amigo, amiga | ✅ Mar 19 2026 | `vocab_people_amigos.png` — regenerated v=1 |
+| El hombre (solo) | man | hombre | ✅ Mar 19 2026 | `vocab_people_hombre.png` — regenerated v=1 |
+| La mujer (solo) | woman | mujer | ✅ Mar 19 2026 | `vocab_people_mujer.png` — regenerated v=1 |
+| El/la profesor/a (solo) | teacher | profesor/a | ✅ Mar 19 2026 | `vocab_people_profesor.png` — regenerated v=1 |
+| El/la estudiante (solo) | student | estudiante | ✅ Mar 19 2026 | `vocab_people_estudiante.png` — regenerated v=1 |
 
 **Places**
 
@@ -217,65 +225,65 @@ Organization: thematic clusters. A student at Novice Low needs the Novice Low cl
 | Bombero/a | firefighter | bombero/a | ✅ Mar 19 2026 | `vocab_ppl_bombero.png` — by fire truck in full gear; dual keys |
 | Dentista | dentist | dentista | ✅ Mar 19 2026 | `vocab_ppl_dentista.png` — in dental office |
 | Familia extendida (scene) | extended family gathering | abuelo, abuela, tío, tía, primo, prima + more | ✅ Mar 19 2026 | `vocab_ppl_familia_extendida.png` — multi-chip scene; key: vocab_spanish_familia_extendida |
-| Vecino/a | neighbor | vecino/a | ⬜ | |
+| Vecino/a | neighbor | vecino/a | ✅ Mar 19 2026 | `vocab_ppl_vecino.png` — dual keys: vecino + vecina |
 
 **Animals**
 
 | Word | Spanish | Status | Notes |
 |------|---------|--------|-------|
-| dog | perro | ⬜ | |
-| cat | gato | ⬜ | |
-| bird | pájaro | ⬜ | |
-| fish | pez | ⬜ | in water; pez vs pescado distinction |
-| horse | caballo | ⬜ | |
-| cow | vaca | ⬜ | |
-| sheep | oveja | ⬜ | |
-| bear | oso | ⬜ | |
-| duck | pato | ⬜ | |
-| rabbit | conejo | ⬜ | |
+| dog | perro | ✅ Mar 19 2026 | `vocab_animal_perro.png` |
+| cat | gato | ✅ Mar 19 2026 | `vocab_animal_gato.png` |
+| bird | pájaro | ✅ Mar 19 2026 | `vocab_animal_pajaro.png` — key: pajaro |
+| fish | pez | ✅ Mar 19 2026 | `vocab_animal_pez.png` — in water; also seeded: pescado |
+| horse | caballo | ✅ Mar 19 2026 | `vocab_animal_caballo.png` |
+| cow | vaca | ✅ Mar 19 2026 | `vocab_animal_vaca.png` |
+| sheep | oveja | ✅ Mar 19 2026 | `vocab_animal_oveja.png` |
+| bear | oso | ✅ Mar 19 2026 | `vocab_animal_oso.png` |
+| duck | pato | ✅ Mar 19 2026 | `vocab_animal_pato.png` |
+| rabbit | conejo | ✅ Mar 19 2026 | `vocab_animal_conejo.png` |
 
 **Fruits & Vegetables**
 
 | Word | Spanish | Status | Notes |
 |------|---------|--------|-------|
-| orange | naranja | ⬜ | |
-| strawberry | fresa | ⬜ | |
-| grape | uva | ⬜ | cluster |
-| watermelon | sandía | ⬜ | |
-| lemon | limón | ⬜ | |
-| tomato | tomate | ⬜ | |
-| carrot | zanahoria | ⬜ | |
-| lettuce | lechuga | ⬜ | |
-| potato | papa/patata | ⬜ | regional note |
-| onion | cebolla | ⬜ | |
-| garlic | ajo | ⬜ | |
-| corn | maíz | ⬜ | |
+| orange | naranja | ✅ Mar 19 2026 | `vocab_food_naranja.png` |
+| strawberry | fresa | ✅ Mar 19 2026 | `vocab_food_fresa.png` — key: fresa |
+| grape | uva | ✅ Mar 19 2026 | `vocab_food_uva.png` — cluster |
+| watermelon | sandía | ✅ Mar 19 2026 | `vocab_food_sandia.png` — key: sandia |
+| lemon | limón | ✅ Mar 19 2026 | `vocab_food_limon.png` — key: limon |
+| tomato | tomate | ✅ Mar 19 2026 | `vocab_food_tomate.png` |
+| carrot | zanahoria | ✅ Mar 19 2026 | `vocab_food_zanahoria.png` |
+| lettuce | lechuga | ✅ Mar 19 2026 | `vocab_food_lechuga.png` |
+| potato | papa/patata | ✅ Mar 19 2026 | `vocab_food_papa.png` — dual keys: papa + patata |
+| onion | cebolla | ✅ Mar 19 2026 | `vocab_food_cebolla.png` |
+| garlic | ajo | ✅ Mar 19 2026 | `vocab_food_ajo.png` |
+| corn | maíz | ✅ Mar 19 2026 | `vocab_food_maiz.png` — key: maiz |
 
 **Clothing**
 
 | Word | Spanish | Status | Notes |
 |------|---------|--------|-------|
-| shirt | camisa | ⬜ | |
-| pants/trousers | pantalón | ⬜ | |
-| dress | vestido | ⬜ | |
-| shoes | zapatos | ⬜ | pair |
-| hat | sombrero | ⬜ | |
-| jacket | chaqueta | ⬜ | |
-| socks | calcetines | ⬜ | |
-| skirt | falda | ⬜ | |
+| shirt | camisa | ✅ Mar 19 2026 | `vocab_cloth_camisa.png` |
+| pants/trousers | pantalón | ✅ Mar 19 2026 | `vocab_cloth_pantalon.png` — key: pantalon |
+| dress | vestido | ✅ Mar 19 2026 | `vocab_cloth_vestido.png` |
+| shoes | zapatos | ✅ Mar 19 2026 | `vocab_cloth_zapatos.png` — pair |
+| hat | sombrero | ✅ Mar 19 2026 | `vocab_cloth_sombrero.png` |
+| jacket | chaqueta | ✅ Mar 19 2026 | `vocab_cloth_chaqueta.png` |
+| socks | calcetines | ✅ Mar 19 2026 | `vocab_cloth_calcetines.png` |
+| skirt | falda | ✅ Mar 19 2026 | `vocab_cloth_falda.png` |
 
 **Activities**
 
 | Word | Spanish | Status | Notes |
 |------|---------|--------|-------|
-| to buy | comprar | ⬜ | person at store |
-| to pay | pagar | ⬜ | |
-| to cook | cocinar | ⬜ | |
-| to clean | limpiar | ⬜ | |
-| to swim | nadar | ⬜ | |
-| to dance | bailar | ⬜ | |
-| to sing | cantar | ⬜ | |
-| to paint | pintar | ⬜ | |
+| to buy | comprar | ✅ Mar 19 2026 | `vocab_act_comprar.png` |
+| to pay | pagar | ✅ Mar 19 2026 | `vocab_act_pagar.png` |
+| to cook | cocinar | ✅ Mar 19 2026 | `vocab_act_cocinar.png` |
+| to clean | limpiar | ✅ Mar 19 2026 | `vocab_act_limpiar.png` |
+| to swim | nadar | ✅ Mar 19 2026 | `vocab_act_nadar.png` |
+| to dance | bailar | ✅ Mar 19 2026 | `vocab_act_bailar.png` — v=5 style fix |
+| to sing | cantar | ✅ Mar 19 2026 | `vocab_act_cantar.png` — v=5 style fix |
+| to paint | pintar | ✅ Mar 19 2026 | `vocab_act_pintar.png` |
 
 **Adjectives — Spatial & Descriptive (Novice Mid)**
 
@@ -283,16 +291,16 @@ Organization: thematic clusters. A student at Novice Low needs the Novice Low cl
 
 | Pair | Spanish | Status | Notes |
 |------|---------|--------|-------|
-| near / far | cerca / lejos | ⬜ | two figures at different distances from same reference |
-| tall / short | alto / bajo | ⬜ | two people side by side |
-| fast / slow | rápido / lento | ⬜ | motion blur vs crawling pace |
-| heavy / light | pesado / ligero | ⬜ | scale or effort shown |
-| young / old | joven / viejo | ⬜ | for describing people (vs nuevo/viejo for objects) |
-| happy / sad | feliz / triste | ⬜ | faces — distinct from emotion SVG canvas tool |
-| easy / difficult | fácil / difícil | ⬜ | illustrated task contrast |
-| loud / quiet | ruidoso / tranquilo | ⬜ | sound wave vs calm |
-| dark / light | oscuro / claro | ⬜ | same room lit two ways |
-| hard / soft | duro / suave | ⬜ | rock vs pillow |
+| near / far | cerca / lejos | ✅ Mar 19 2026 | `vocab_adj_cerca_lejos.png` — dual keys |
+| tall / short | alto / bajo | ✅ Mar 19 2026 | `vocab_adj_alto_bajo.png` — dual keys |
+| fast / slow | rápido / lento | ✅ Mar 19 2026 | `vocab_adj_rapido_lento.png` — dual keys |
+| heavy / light | pesado / ligero | ✅ Mar 19 2026 | `vocab_adj_pesado_ligero.png` — dual keys |
+| young / old | joven / viejo | ✅ Mar 19 2026 | `vocab_adj_joven_viejo_personas.png` — dual keys (person-focused) |
+| happy / sad | feliz / triste | ✅ Mar 19 2026 | `vocab_adj_feliz_triste.png` — v=5 style fix; dual keys |
+| easy / difficult | fácil / difícil | ✅ Mar 19 2026 | `vocab_adj_facil_dificil.png` — dual keys |
+| loud / quiet | ruidoso / tranquilo | ✅ Mar 19 2026 | `vocab_adj_ruidoso_tranquilo.png` — dual keys |
+| dark / light | oscuro / claro | ✅ Mar 19 2026 | `vocab_adj_oscuro_claro.png` — dual keys |
+| hard / soft | duro / suave | ✅ Mar 19 2026 | `vocab_adj_duro_suave.png` — v=5 style fix; dual keys |
 
 ---
 
@@ -345,49 +353,49 @@ Organization: thematic clusters. A student at Novice Low needs the Novice Low cl
 
 | Word | Spanish | Status | Notes |
 |------|---------|--------|-------|
-| head | cabeza | ⬜ | part of body diagram |
-| arm | brazo | ⬜ | |
-| leg | pierna | ⬜ | |
-| hand | mano | ⬜ | |
-| foot | pie | ⬜ | |
-| eye | ojo | ⬜ | |
-| ear | oído/oreja | ⬜ | both terms |
-| mouth | boca | ⬜ | |
-| nose | nariz | ⬜ | |
-| heart | corazón | ⬜ | |
-| stomach | estómago | ⬜ | |
-| back | espalda | ⬜ | |
-| knee | rodilla | ⬜ | |
-| shoulder | hombro | ⬜ | |
+| head | cabeza | ✅ Mar 19 2026 | `vocab_body_diagram.png` — all body terms seeded to this one diagram |
+| arm | brazo | ✅ Mar 19 2026 | → body diagram |
+| leg | pierna | ✅ Mar 19 2026 | → body diagram |
+| hand | mano | ✅ Mar 19 2026 | → body diagram |
+| foot | pie | ✅ Mar 19 2026 | → body diagram |
+| eye | ojo | ✅ Mar 19 2026 | → body diagram |
+| ear | oído/oreja | ✅ Mar 19 2026 | → body diagram — dual keys: oido + oreja |
+| mouth | boca | ✅ Mar 19 2026 | → body diagram |
+| nose | nariz | ✅ Mar 19 2026 | → body diagram |
+| heart | corazón | ✅ Mar 19 2026 | → body diagram — key: corazon |
+| stomach | estómago | ✅ Mar 19 2026 | → body diagram — key: estomago |
+| back | espalda | ✅ Mar 19 2026 | → body diagram |
+| knee | rodilla | ✅ Mar 19 2026 | → body diagram |
+| shoulder | hombro | ✅ Mar 19 2026 | → body diagram |
 
-*Note: Body diagram image (full outline labeled in Spanish) counts as one image but covers all terms.*
+*Note: Body diagram image (full outline labeled in Spanish) — 1 image seeded under cuerpo + all 14 body part keys.*
 
 **Health**
 
 | Word | Spanish | Status | Notes |
 |------|---------|--------|-------|
-| pill/tablet | pastilla | ⬜ | already have medicine_bottle prop |
-| injection/shot | inyección | ⬜ | |
+| pill/tablet | pastilla | ✅ Mar 19 2026 | `vocab_health_pastilla.png` — also: tableta, comprimido |
+| injection/shot | inyección | ✅ Mar 19 2026 | `vocab_health_inyeccion.png` — also: vacuna, jeringa |
 | prescription | receta médica | ✅ | prescription_pad in prop library |
 | thermometer | termómetro | ✅ | in prop library |
-| bandage | venda | ⬜ | |
-| appointment | cita médica | ⬜ | calendar/clock visual |
+| bandage | venda | ✅ Mar 19 2026 | `vocab_health_venda.png` — also: vendaje, curita |
+| appointment | cita médica | ✅ Mar 19 2026 | `vocab_health_cita_medica.png` — also: cita, consulta |
 
 **Home Rooms & Furniture**
 
 | Word | Spanish | Status | Notes |
 |------|---------|--------|-------|
-| living room | sala de estar | ⬜ | already have env bg |
-| kitchen | cocina | ⬜ | already have env bg |
-| bedroom | dormitorio | ⬜ | already have env bg |
-| bathroom | baño | ⬜ | already have env bg |
-| garden/yard | jardín | ⬜ | |
-| bed | cama | ⬜ | |
-| sofa | sofá | ⬜ | |
-| wardrobe | armario | ⬜ | |
-| refrigerator | refrigerador | ⬜ | |
-| stove | estufa/cocina | ⬜ | |
-| washing machine | lavadora | ⬜ | |
+| living room | sala de estar | ✅ | env background in prop library |
+| kitchen | cocina | ✅ | env background in prop library |
+| bedroom | dormitorio | ✅ | env background in prop library |
+| bathroom | baño | ✅ | env background in prop library |
+| garden/yard | jardín | ✅ Mar 19 2026 | `vocab_home_jardin.png` — also: patio |
+| bed | cama | ✅ Mar 19 2026 | `vocab_home_cama.png` |
+| sofa | sofá | ✅ Mar 19 2026 | `vocab_home_sofa.png` — also: divan, canapé |
+| wardrobe | armario | ✅ Mar 19 2026 | `vocab_home_armario.png` — also: closet, guardarropa |
+| refrigerator | refrigerador | ✅ Mar 19 2026 | `vocab_home_refrigerador.png` — also: nevera, frigorifico, heladera |
+| stove | estufa/cocina | ✅ Mar 19 2026 | `vocab_home_estufa.png` — also: hornilla |
+| washing machine | lavadora | ✅ Mar 19 2026 | `vocab_home_lavadora.png` — also: lavarropas |
 
 ---
 
@@ -397,33 +405,33 @@ Organization: thematic clusters. A student at Novice Low needs the Novice Low cl
 
 | Word | Spanish | Status | Notes |
 |------|---------|--------|-------|
-| tree | árbol | ⬜ | |
-| flower | flor | ⬜ | |
-| river | río | ⬜ | |
-| lake | lago | ⬜ | |
-| sea | mar | ⬜ | |
-| forest | bosque | ⬜ | |
-| desert | desierto | ⬜ | |
-| volcano | volcán | ⬜ | |
-| cloud | nube | ⬜ | weather section also |
-| sun | sol | ⬜ | |
-| moon | luna | ⬜ | |
-| star | estrella | ⬜ | |
+| tree | árbol | ✅ Mar 19 2026 | `vocab_nature_arbol.png` |
+| flower | flor | ✅ Mar 19 2026 | `vocab_nature_flor.png` |
+| river | río | ✅ Mar 19 2026 | `vocab_nature_rio.png` |
+| lake | lago | ✅ Mar 19 2026 | `vocab_nature_lago.png` |
+| sea | mar | ✅ Mar 19 2026 | `vocab_nature_mar.png` — also: oceano |
+| forest | bosque | ✅ Mar 19 2026 | `vocab_nature_bosque.png` — also: selva |
+| desert | desierto | ✅ Mar 19 2026 | `vocab_nature_desierto.png` |
+| volcano | volcán | ✅ Mar 19 2026 | `vocab_nature_volcan.png` |
+| cloud | nube | ✅ Mar 19 2026 | `vocab_nature_nube.png` — weather section also |
+| sun | sol | ✅ Mar 19 2026 | `vocab_nature_sol.png` |
+| moon | luna | ✅ Mar 19 2026 | `vocab_nature_luna.png` |
+| star | estrella | ✅ Mar 19 2026 | `vocab_nature_estrella.png` |
 
 **Emotions**
 
 | Word | Spanish | Status | Notes |
 |------|---------|--------|-------|
-| happy | feliz/alegre | ⬜ | face + scene |
-| sad | triste | ⬜ | |
-| angry | enojado/enfadado | ⬜ | regional note |
-| afraid | asustado | ⬜ | |
-| surprised | sorprendido | ⬜ | |
-| embarrassed | avergonzado | ⬜ | NOT embarazada — false cognate |
-| tired | cansado | ⬜ | |
-| excited | emocionado | ⬜ | |
-| nervous | nervioso | ⬜ | |
-| bored | aburrido | ⬜ | |
+| happy | feliz/alegre | ✅ Mar 19 2026 | `vocab_adj_feliz_triste.png` — dual keys (paired with sad) |
+| sad | triste | ✅ Mar 19 2026 | → feliz/triste pair image |
+| angry | enojado/enfadado | ✅ Mar 19 2026 | `vocab_emo_enojado.png` — also: enfadado, molesto |
+| afraid | asustado | ✅ Mar 19 2026 | `vocab_emo_asustado.png` — also: atemorizado |
+| surprised | sorprendido | ✅ Mar 19 2026 | `vocab_emo_sorprendido.png` — also: asombrado |
+| embarrassed | avergonzado | ✅ Mar 19 2026 | `vocab_emo_avergonzado.png` — NOT embarazada (false cognate) |
+| tired | cansado | ✅ Mar 19 2026 | `vocab_emo_cansado.png` — also: agotado |
+| excited | emocionado | ✅ Mar 19 2026 | `vocab_emo_emocionado.png` — also: entusiasmado |
+| nervous | nervioso | ✅ Mar 19 2026 | `vocab_emo_nervioso.png` — also: ansioso |
+| bored | aburrido | ✅ Mar 19 2026 | `vocab_emo_aburrido.png` — also: aburrimiento |
 
 **Abstract Concepts (Intermediate+)**
 
@@ -465,10 +473,10 @@ These are cross-ACTFL. A Novice Low student needs numbers 1–10. An Advanced st
 | Analog clock face — hour | Static reference card — live clock handles lesson use | Novice Low | ⬜ lower priority |
 | Analog clock face — half/quarter | Static reference card | Novice Mid | ⬜ lower priority |
 | Clock face — full grid | 12 clocks on one reference card | Novice Mid | ⬜ lower priority |
-| AM/PM scene strip | Morning → afternoon → evening → night with time expressions | Novice Low | ⬜ |
-| Days of the week card | lunes → domingo visual strip (Mon-start calendar format) | Novice Low | ⬜ |
-| Months of the year card | enero → diciembre in circular calendar format | Novice Low | ⬜ |
-| Four seasons illustrated | primavera, verano, otoño, invierno — each as a mini landscape scene | Novice Mid | ⬜ |
+| AM/PM scene strip | Morning → afternoon → evening → night with time expressions | Novice Low | ✅ Mar 19 2026 | `vocab_time_partes_dia.png` — keys: manana, tarde, noche |
+| Days of the week card | lunes → domingo visual strip (Mon-start calendar format) | Novice Low | ✅ Mar 19 2026 | `vocab_time_dias_semana.png` — all 7 days seeded |
+| Months of the year card | enero → diciembre in circular calendar format | Novice Low | ✅ Mar 19 2026 | `vocab_time_meses.png` — all 12 months seeded |
+| Four seasons illustrated | primavera, verano, otoño, invierno — each as a mini landscape scene | Novice Mid | ✅ Mar 19 2026 | `vocab_time_estaciones.png` — all 4 seasons seeded |
 | Duration expressions timeline | hace dos años, desde hace, hace + time — horizontal timeline diagram | Intermediate Low | ⬜ |
 | Daily routine timeline | levantarse → desayunar → ... → acostarse shown as timeline with clock icons | Intermediate Low | ⬜ |
 | Tense timeline overview | past ←—— present ——→ future with verb tense markers | Intermediate Low | ⬜ |
@@ -477,15 +485,15 @@ These are cross-ACTFL. A Novice Low student needs numbers 1–10. An Advanced st
 
 | Asset | Description | ACTFL Entry Point | Status |
 |-------|-------------|-------------------|--------|
-| Sunny / soleado | Illustrated weather icon — warm scene | Novice Low | ⬜ |
-| Cloudy / nublado | Illustrated | Novice Low | ⬜ |
-| Rainy / lluvioso | Illustrated — rain falling | Novice Low | ⬜ |
-| Snowy / nevado | Illustrated | Novice Low | ⬜ |
-| Stormy / tormentoso | Lightning + dark clouds | Novice Mid | ⬜ |
-| Windy / ventoso | Illustrated — leaves blowing | Novice Mid | ⬜ |
-| Foggy / neblinoso | Illustrated | Novice Mid | ⬜ |
-| Hot / caluroso | Illustrated — sun + person sweating | Novice Low | ⬜ |
-| Cold / frío | Illustrated — person in coat, breath visible | Novice Low | ⬜ |
+| Sunny / soleado | Illustrated weather icon — warm scene | Novice Low | ✅ Mar 19 2026 | `vocab_weather_soleado.png` — keys: soleado, sol_tiempo |
+| Cloudy / nublado | Illustrated | Novice Low | ✅ Mar 19 2026 | `vocab_weather_nublado.png` |
+| Rainy / lluvioso | Illustrated — rain falling | Novice Low | ✅ Mar 19 2026 | `vocab_weather_lluvioso.png` — also: lluvia |
+| Snowy / nevado | Illustrated | Novice Low | ✅ Mar 19 2026 | `vocab_weather_nevado.png` — also: nieve |
+| Stormy / tormentoso | Lightning + dark clouds | Novice Mid | ✅ Mar 19 2026 | `vocab_weather_tormentoso.png` — also: tormenta |
+| Windy / ventoso | Illustrated — leaves blowing | Novice Mid | ✅ Mar 19 2026 | `vocab_weather_ventoso.png` — also: viento |
+| Foggy / neblinoso | Illustrated | Novice Mid | ✅ Mar 19 2026 | `vocab_weather_neblinoso.png` — also: niebla, neblina |
+| Hot / caluroso | Illustrated — sun + person sweating | Novice Low | ✅ Mar 19 2026 | `vocab_weather_caluroso.png` — also: calor |
+| Cold / frío | Illustrated — person in coat, breath visible | Novice Low | ✅ Mar 19 2026 | `vocab_weather_frio.png` — keys: frio_tiempo, frio_clima |
 | Weather forecast card | Full illustrated forecast showing icons + temperature + day of week (como en la tele) | Novice High | ⬜ |
 | Temperature scale | Celsius + Fahrenheit comparison — common confusion for English-speaking learners | Novice High | ⬜ |
 | ¿Qué tiempo hace? reference card | All weather expressions on one card with their corresponding images | Novice Mid | ⬜ |
