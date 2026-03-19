@@ -56,8 +56,9 @@ The `SceneCanvas` component (client-side stage model) is **fully operational**. 
 **Generation pipeline (as of Mar 19 2026):** All images — seeded library and Daniela's live fallback — use **DALL-E 3** with the **canonical style** below. Library lookup is instant (cache key `vocab_spanish_{word}`); fallback generates on demand and saves to cache automatically.
 
 **Canonical illustration style (updated Mar 19 2026):**
-- Objects/props: `soft watercolor children's book illustration style, warm gentle colors, light pencil outlines, visible brushwork texture, object centred and prominent on a clean pure white background, no background elements, clear and recognisable silhouette, language learning educational quality`
-- Scenes/activities with characters: `soft watercolor children's book illustration style, warm gentle colors, light pencil outlines, visible brushwork texture, friendly expressive characters, no visible text or labels on anything, language learning educational context, suitable for all ages`
+- Objects/props: `soft watercolor children's book illustration style, warm gentle colors, clean fine ink outlines, visible brushwork texture, object centred and prominent on a clean pure white background, no background elements, clear and recognisable silhouette, language learning educational quality`
+- Scenes/activities with characters: `soft watercolor children's book illustration style, warm gentle colors, clean fine ink outlines, visible brushwork texture, friendly expressive characters, no visible text or labels on anything, language learning educational context, suitable for all ages`
+- **IMPORTANT:** Never use "pencil outlines" — DALL-E interprets this literally and adds physical pencils to the image. Use "clean fine ink outlines" instead.
 - Always append: `ZERO TEXT ZERO WORDS ZERO LETTERS ZERO NUMBERS anywhere in the image.`
 - Model: **DALL-E 3**, size **1024×1024**, quality **standard**
 

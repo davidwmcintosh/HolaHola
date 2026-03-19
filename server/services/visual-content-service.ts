@@ -32,12 +32,12 @@ export interface VisualGenerationResult {
 
 // Shared style — soft watercolor children's book illustration used across all generated assets
 const PROP_STYLE =
-  'soft watercolor children\'s book illustration style, warm gentle colors, light pencil outlines, ' +
+  'soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, ' +
   'visible brushwork texture, object centred and prominent on a clean pure white background, ' +
   'no background elements, clear and recognisable silhouette, language learning educational quality';
 
 const SCENE_STYLE =
-  'soft watercolor children\'s book illustration style, warm gentle colors, light pencil outlines, ' +
+  'soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, ' +
   'visible brushwork texture, friendly expressive characters, no visible text or labels on anything, ' +
   'language learning educational context, suitable for all ages';
 
