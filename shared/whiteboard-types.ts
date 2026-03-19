@@ -149,6 +149,16 @@ export interface ImageItemData {
   imageUrl?: string;
   isLoading?: boolean;
   labelMode?: 'teach' | 'target' | 'quiz';
+  /**
+   * Multi-subject labels — used when one image depicts several vocabulary
+   * words (e.g. a family photo covering madre, padre, hermano, hermana, bebé).
+   * When present, rendered as chips below the image instead of the single
+   * word/translation header. labelMode still controls visibility:
+   *   'teach'  → word chip + translation chip
+   *   'target' → translation chip only  (student produces the target word)
+   *   'quiz'   → no chips               (student produces all words)
+   */
+  labels?: { word: string; translation?: string }[];
 }
 
 /**

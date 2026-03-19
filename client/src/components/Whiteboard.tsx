@@ -243,12 +243,17 @@ const ImageItemDisplay = ({ item, index }: ImageItemDisplayProps) => {
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
   // labelMode is set by Daniela — students have no control over labels.
-  // 'teach'  → show Spanish word + English translation (both labels — introducing)
-  // 'target' → show English translation only (hint toward the target language — student produces Spanish)
-  // 'quiz'   → image only — no labels, student must produce the Spanish word unprompted
+  // 'teach'  → show target word + native translation (both labels — introducing)
+  // 'target' → show native translation only (hint toward the target language — student produces target word)
+  // 'quiz'   → image only — no labels, student must produce the target word unprompted
   const labelMode = data.labelMode ?? 'teach';
   const showWord = labelMode === 'teach';
   const showTranslation = (labelMode === 'teach' || labelMode === 'target') && !!data.translation;
+
+  // Multi-subject: when labels array is present, use chips instead of single header
+  const multiLabels = data.labels && data.labels.length > 0 ? data.labels : null;
+  // For multi-subject chips, only render if labelMode is not 'quiz'
+  const showChips = multiLabels !== null && labelMode !== 'quiz';
   
   return (
     <motion.div
@@ -259,8 +264,8 @@ const ImageItemDisplay = ({ item, index }: ImageItemDisplayProps) => {
       className="flex flex-col gap-2 p-4 rounded-lg border bg-emerald-500/10 border-emerald-500/30"
       data-testid={`whiteboard-item-image-${index}`}
     >
-      {/* Labels — fully controlled by Daniela, not interactive */}
-      {showWord && (
+      {/* Single-subject label — only when no labels array */}
+      {!multiLabels && showWord && (
         <div className="flex items-center gap-2">
           <ImageIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400 opacity-60 shrink-0" />
           <div className="flex flex-col leading-tight">
@@ -273,6 +278,14 @@ const ImageItemDisplay = ({ item, index }: ImageItemDisplayProps) => {
               </span>
             )}
           </div>
+        </div>
+      )}
+      {!multiLabels && !showWord && showTranslation && (
+        <div className="flex items-center gap-2">
+          <ImageIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400 opacity-60 shrink-0" />
+          <span className="text-[13px] text-emerald-600/80 dark:text-emerald-400/80">
+            {data.translation}
+          </span>
         </div>
       )}
       
@@ -301,6 +314,32 @@ const ImageItemDisplay = ({ item, index }: ImageItemDisplayProps) => {
         </div>
       )}
       
+      {/* Multi-subject chip grid — rendered after image, controlled by labelMode */}
+      {showChips && (
+        <div className="flex flex-wrap gap-1.5" data-testid={`chips-multi-${index}`}>
+          {multiLabels!.map((label, i) => (
+            <div
+              key={i}
+              className="flex flex-col leading-tight px-2 py-1 rounded-md bg-emerald-500/15 border border-emerald-500/20"
+              data-testid={`chip-vocab-${label.word}`}
+            >
+              {/* teach mode: show target word (bold) + native translation */}
+              {labelMode === 'teach' && (
+                <span className="text-[12px] font-bold text-emerald-700 dark:text-emerald-300">
+                  {label.word}
+                </span>
+              )}
+              {/* teach + target modes: show native translation */}
+              {label.translation && (
+                <span className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70">
+                  {label.translation}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {data.description && data.description !== data.word && (
         <span className="text-sm text-muted-foreground italic">
           {data.description}

@@ -352,6 +352,18 @@ const registry: DanielaFunctionEntry[] = [
             enum: ["teach", "target", "quiz"],
             description: "Controls which labels are shown. 'teach' = show target word + native translation (default when introducing a word). 'target' = show native translation only (e.g. show 'apple') so the student must produce the target word (e.g. 'manzana') — a hint toward the target language. 'quiz' = image only, no labels at all — student must produce the target word with no hint.",
           },
+          labels: {
+            type: "array",
+            description: "Use when one image covers multiple vocabulary words (e.g. a family photo for madre/padre/hermano/hermana/bebé). Each entry has a 'word' (target language) and optional 'translation' (native language). Rendered as chips below the image. label_mode still controls visibility across all chips — 'teach' shows both, 'target' shows native translation only, 'quiz' hides all. When labels is provided, the single word/translation header is replaced by these chips.",
+            items: {
+              type: "object",
+              properties: {
+                word: { type: "string", description: "Target language word (e.g. 'madre')" },
+                translation: { type: "string", description: "Native language translation (e.g. 'mother')" },
+              },
+              required: ["word"],
+            },
+          },
         },
         required: ["word"],
       },
