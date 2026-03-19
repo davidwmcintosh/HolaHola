@@ -153,6 +153,28 @@ import {
 } from "./TextbookJapanesePhoneticGuides";
 import { resolveJaFamilyCard } from "./TextbookJapaneseWordFamilies";
 
+// ── Korean ─────────────────────────────────────────────────────────────────────
+import {
+  KoHangulCard, KoTopicMarkerCard, KoParticlesCard,
+  KoIdaCard, KoRegularVerbsCard, KoPastTenseCard,
+  KoNegationCard, KoFormalSpeechCard, KoAdjectivesCard,
+  KoQuestionWordsCard, KoNumbersCard, KoCountersCard,
+  KoTimeExpressionsCard, KoDirectionMovementCard, KoGivingReceivingCard,
+  KoPotentialFormCard, KoVolitionalCard, KoConditionalCard,
+  KoProgressiveCard, KoHonorificsCard, KoConnectiveCard,
+  KoComparativesCard, KoRequestsCard, KoSubjectObjectCard,
+} from "./TextbookKoreanGrammarCards";
+import {
+  KoreanophoneWorldCard, KoreanHolidayCalendarCard, KoreanFoodGuideCard,
+  KoreanDialectCard, KoreanEtiquetteCard, KoreanCurrencyCard, KoreanPopCultureCard,
+} from "./TextbookKoreanCulturalCards";
+import {
+  KoConsonantsChartCard, KoVowelsChartCard, KoBatchimCard,
+  KoAspirationCard, KoVowelHarmonyCard, KoLinkingSoundsCard,
+  KoTensificationCard, KoHieuthCard, KoPronunciationOverviewCard,
+} from "./TextbookKoreanPhoneticGuides";
+import { resolveKoFamilyCard } from "./TextbookKoreanWordFamilies";
+
 import { languageChapterData } from "@/data/chapter-intro-content";
 
 import familyGatheringImg from "@assets/stock_images/family_gathering_aro_0f321ed1.jpg";
@@ -307,7 +329,25 @@ type GrammarChapterType =
   // ── JAPANESE Section 8 — Phonetics ────────────────────────────────────────
   | 'ja_hiragana_chart' | 'ja_katakana_chart' | 'ja_vowel_sounds'
   | 'ja_consonant_sounds' | 'ja_long_vowels' | 'ja_double_consonants'
-  | 'ja_pitch_accent' | 'ja_loanwords' | 'ja_n_sound';
+  | 'ja_pitch_accent' | 'ja_loanwords' | 'ja_n_sound'
+  // ── KOREAN Section 3 — Writing & Grammar ──────────────────────────────────
+  | 'ko_hangul' | 'ko_topic_marker' | 'ko_particles'
+  | 'ko_ida' | 'ko_regular_verbs' | 'ko_past_tense'
+  | 'ko_negation' | 'ko_formal_speech' | 'ko_adjectives'
+  | 'ko_question_words' | 'ko_numbers' | 'ko_counters'
+  | 'ko_time_expressions' | 'ko_direction_movement' | 'ko_giving_receiving'
+  | 'ko_potential_form' | 'ko_volitional' | 'ko_conditional'
+  | 'ko_progressive' | 'ko_honorifics' | 'ko_connective'
+  | 'ko_comparatives' | 'ko_requests' | 'ko_subject_object'
+  // ── KOREAN Section 5 — Cultural ────────────────────────────────────────────
+  | 'ko_world_map' | 'ko_holidays' | 'ko_food_guide'
+  | 'ko_dialects' | 'ko_etiquette' | 'ko_currency' | 'ko_pop_culture'
+  // ── KOREAN Section 6 — Word families ───────────────────────────────────────
+  | 'ko_word_family'
+  // ── KOREAN Section 8 — Phonetics ────────────────────────────────────────────
+  | 'ko_consonants_chart' | 'ko_vowels_chart' | 'ko_batchim'
+  | 'ko_aspiration' | 'ko_vowel_harmony' | 'ko_linking_sounds'
+  | 'ko_tensification' | 'ko_hieuth' | 'ko_pronunciation_overview';
 
 function classifyFrenchGrammarType(title: string): GrammarChapterType | null {
   const lower = title.toLowerCase();
@@ -622,12 +662,70 @@ function classifyJapaneseGrammarType(title: string): GrammarChapterType | null {
   return null;
 }
 
+function classifyKoreanGrammarType(title: string): GrammarChapterType | null {
+  const lower = title.toLowerCase();
+
+  // ── Section 3 — Writing system ───────────────────────────────────────────
+  if (lower.includes('hangul') || lower.includes('한글') || lower.includes('hangeul') || lower.includes('korean alphabet') || lower.includes('korean writing') || lower.includes('자음') && lower.includes('모음') || lower.includes('korean script')) return 'ko_hangul';
+
+  // ── Section 3 — Grammar ───────────────────────────────────────────────────
+  if (lower.includes('topic marker') || lower.includes('은/는') || lower.includes('은는') || lower.includes('eun/neun') || lower.includes('eunneun') || (lower.includes('topic') && lower.includes('korea'))) return 'ko_topic_marker';
+  if (lower.includes('이/가') || lower.includes('을/를') || lower.includes('subject marker') || lower.includes('object marker') || lower.includes('subject.*object') || (lower.includes('particle') && lower.includes('korea') && !lower.includes('topic'))) return 'ko_subject_object';
+  if ((lower.includes('particle') && (lower.includes('korea') || lower.includes('korean') || lower.includes('조사') || lower.includes('josa') || lower.includes('postposition'))) || lower.includes('에서') && lower.includes('에') && lower.includes('korea') || lower.includes('korean particles')) return 'ko_particles';
+  if (lower.includes('이다') || lower.includes('있다') || lower.includes('없다') || lower.includes('ida') && lower.includes('korea') || lower.includes('itda') || lower.includes('eopda') || (lower.includes('to be') && lower.includes('korea') && lower.includes('have'))) return 'ko_ida';
+  if ((lower.includes('regular verb') || lower.includes('verb conjugat') || lower.includes('아요') || lower.includes('어요') || lower.includes('ayo') || lower.includes('eoyo')) && (lower.includes('korea') || lower.includes('korean') || lower.includes('동사'))) return 'ko_regular_verbs';
+  if ((lower.includes('past tense') || lower.includes('았어요') || lower.includes('었어요') || lower.includes('asseoyo') || lower.includes('eosseoyo') || lower.includes('과거')) && (lower.includes('korea') || lower.includes('korean'))) return 'ko_past_tense';
+  if ((lower.includes('negat') || lower.includes('안') && lower.includes('못') || lower.includes('지 않') || lower.includes('ji anta') || lower.includes('부정')) && (lower.includes('korea') || lower.includes('korean'))) return 'ko_negation';
+  if (lower.includes('합쇼체') || lower.includes('습니다') || lower.includes('ㅂ니다') || lower.includes('seumnida') || lower.includes('formal speech') && lower.includes('korea') || lower.includes('formal polite') && lower.includes('korea') || lower.includes('speech level') && lower.includes('korea')) return 'ko_formal_speech';
+  if ((lower.includes('adjective') || lower.includes('형용사') || lower.includes('descriptive verb')) && (lower.includes('korea') || lower.includes('korean') || lower.includes('hyeongyongsa'))) return 'ko_adjectives';
+  if ((lower.includes('question word') || lower.includes('의문사') || lower.includes('뭐') && lower.includes('어디') || lower.includes('interrogative')) && (lower.includes('korea') || lower.includes('korean'))) return 'ko_question_words';
+  if ((lower.includes('number') || lower.includes('숫자') || lower.includes('sino-korean') || lower.includes('native korean') && lower.includes('number') || lower.includes('두 number')) && (lower.includes('korea') || lower.includes('korean') || lower.includes('하나') || lower.includes('일 이 삼'))) return 'ko_numbers';
+  if ((lower.includes('counter') || lower.includes('단위') || lower.includes('개') && lower.includes('명') || lower.includes('measure word')) && (lower.includes('korea') || lower.includes('korean'))) return 'ko_counters';
+  if ((lower.includes('time expression') || lower.includes('시간 표현') || lower.includes('어제') && lower.includes('오늘') || lower.includes('yesterday') && lower.includes('korea')) && !lower.includes('telling time') && !lower.includes('clock')) return 'ko_time_expressions';
+  if ((lower.includes('direction') || lower.includes('movement') || lower.includes('방향') || lower.includes('가다') && lower.includes('오다')) && (lower.includes('korea') || lower.includes('korean'))) return 'ko_direction_movement';
+  if ((lower.includes('giving') || lower.includes('receiving') || lower.includes('주다') || lower.includes('받다') || lower.includes('드리다') || lower.includes('juda') || lower.includes('batda')) && (lower.includes('korea') || lower.includes('korean'))) return 'ko_giving_receiving';
+  if ((lower.includes('potential') || lower.includes('ㄹ 수 있') || lower.includes('l su it') || lower.includes('can do') || lower.includes('ability')) && (lower.includes('korea') || lower.includes('korean'))) return 'ko_potential_form';
+  if ((lower.includes('volitional') || lower.includes('싶다') || lower.includes('싶어') || lower.includes('want to') || lower.includes('고 싶') || lower.includes('ㄹ게요') || lower.includes('intention')) && (lower.includes('korea') || lower.includes('korean'))) return 'ko_volitional';
+  if ((lower.includes('conditional') || lower.includes('으면') || lower.includes('면') && lower.includes('korea') || lower.includes('eumyeon') || lower.includes('if clause') && lower.includes('korea')) && (lower.includes('korea') || lower.includes('korean'))) return 'ko_conditional';
+  if ((lower.includes('progressive') || lower.includes('고 있') || lower.includes('go it') || lower.includes('ongoing') || lower.includes('continuous')) && (lower.includes('korea') || lower.includes('korean'))) return 'ko_progressive';
+  if ((lower.includes('honorific') || lower.includes('존댓말') || lower.includes('jondaemal') || lower.includes('keigo') && lower.includes('korea') || lower.includes('speech level') && lower.includes('korea') || lower.includes('으시') || lower.includes('seyo')) && (lower.includes('korea') || lower.includes('korean'))) return 'ko_honorifics';
+  if ((lower.includes('connective') || lower.includes('고 나서') || lower.includes('아서') || lower.includes('면서') || lower.includes('linking ending') || lower.includes('연결어')) && (lower.includes('korea') || lower.includes('korean'))) return 'ko_connective';
+  if ((lower.includes('comparative') || lower.includes('더') && lower.includes('가장') || lower.includes('superlative') || lower.includes('deo ') && lower.includes('korea') || lower.includes('비교')) && (lower.includes('korea') || lower.includes('korean'))) return 'ko_comparatives';
+  if ((lower.includes('request') || lower.includes('imperative') || lower.includes('으세요') || lower.includes('주세요') || lower.includes('please') && lower.includes('korea') || lower.includes('명령')) && (lower.includes('korea') || lower.includes('korean'))) return 'ko_requests';
+
+  // ── Section 5 — Cultural ─────────────────────────────────────────────────
+  if (lower.includes('koreanophone') || lower.includes('korean-speaking world') || lower.includes('korean speaking world') || lower.includes('한국어의 세계') || lower.includes('koreaphone')) return 'ko_world_map';
+  if ((lower.includes('holiday') && lower.includes('korea')) || lower.includes('설날') || lower.includes('추석') || lower.includes('chuseok') || lower.includes('seollal') || lower.includes('korean holiday') || lower.includes('korean festival') || lower.includes('공휴일') && lower.includes('korea')) return 'ko_holidays';
+  if ((lower.includes('food') || lower.includes('cuisine') || lower.includes('음식') || lower.includes('한식')) && lower.includes('korea') || lower.includes('hansik') || lower.includes('kimchi') && lower.includes('bibimbap') || lower.includes('korean food') || lower.includes('korean cuisine')) return 'ko_food_guide';
+  if ((lower.includes('dialect') || lower.includes('사투리') || lower.includes('saturi') || lower.includes('regional')) && lower.includes('korea') || lower.includes('gyeongsang') && lower.includes('dialect') || lower.includes('korean dialect')) return 'ko_dialects';
+  if ((lower.includes('etiquette') || lower.includes('manner') || lower.includes('예절') || lower.includes('customs')) && lower.includes('korea') || lower.includes('korean etiquette') || lower.includes('bowing') && lower.includes('korea') || lower.includes('ppalli ppalli') || lower.includes('nunchi')) return 'ko_etiquette';
+  if ((lower.includes('currency') || lower.includes('won') || lower.includes('원') || lower.includes('money')) && lower.includes('korea') || lower.includes('korean won') || lower.includes('krw')) return 'ko_currency';
+  if (lower.includes('hallyu') || lower.includes('한류') || lower.includes('k-pop') || lower.includes('kpop') || lower.includes('k-drama') || lower.includes('k-wave') || lower.includes('korean wave') || lower.includes('k-beauty') || lower.includes('kbeauty') || lower.includes('케이팝')) return 'ko_pop_culture';
+
+  // ── Section 6 — Word families ─────────────────────────────────────────────
+  if (lower.includes('word family') && lower.includes('korea') || lower.includes('korean word family') || lower.includes('한국어') && lower.includes('word family') || lower.includes('동사 가족') || lower.includes('어족') && lower.includes('korea')) return 'ko_word_family';
+
+  // ── Section 8 — Phonetics ─────────────────────────────────────────────────
+  if ((lower.includes('consonant') && (lower.includes('korea') || lower.includes('korean') || lower.includes('자음') || lower.includes('jaeum'))) || lower.includes('자음표') || lower.includes('korean consonant')) return 'ko_consonants_chart';
+  if ((lower.includes('vowel') && (lower.includes('korea') || lower.includes('korean') || lower.includes('모음') || lower.includes('moeum'))) || lower.includes('모음표') || lower.includes('korean vowel')) return 'ko_vowels_chart';
+  if (lower.includes('batchim') || lower.includes('받침') || lower.includes('final consonant') && lower.includes('korea') || lower.includes('7 terminal') || lower.includes('7종성')) return 'ko_batchim';
+  if ((lower.includes('aspiration') || lower.includes('aspirated') || lower.includes('fortis') || lower.includes('격음') || lower.includes('경음') || lower.includes('tensed consonant') || lower.includes('tensification')) && (lower.includes('korea') || lower.includes('korean'))) return 'ko_aspiration';
+  if (lower.includes('vowel harmony') || lower.includes('모음조화') || lower.includes('bright vowel') || lower.includes('dark vowel') || lower.includes('yangseong') || lower.includes('eumseong')) return 'ko_vowel_harmony';
+  if ((lower.includes('linking') || lower.includes('연음') || lower.includes('resyllabif') || lower.includes('liaison') && lower.includes('korea')) && (lower.includes('korea') || lower.includes('korean'))) return 'ko_linking_sounds';
+  if ((lower.includes('tensification') || lower.includes('경음화') || lower.includes('gyeong-eumhwa') || lower.includes('automatic fortis')) && (lower.includes('korea') || lower.includes('korean'))) return 'ko_tensification';
+  if (lower.includes('ㅎ') && (lower.includes('sound') || lower.includes('change') || lower.includes('hieuth') || lower.includes('탈락')) || lower.includes('hieuth') || lower.includes('h sound') && lower.includes('korea')) return 'ko_hieuth';
+  if ((lower.includes('pronunciation') && lower.includes('korea') || lower.includes('발음') && lower.includes('korea') || lower.includes('phonetic') && lower.includes('korea') || lower.includes('korean pronunciation') || lower.includes('korean sound'))) return 'ko_pronunciation_overview';
+
+  return null;
+}
+
 function classifyGrammarType(title: string, language = 'spanish'): GrammarChapterType | null {
   if (language === 'french') return classifyFrenchGrammarType(title);
   if (language === 'portuguese') return classifyPortugueseGrammarType(title);
   if (language === 'german') return classifyGermanGrammarType(title);
   if (language === 'italian') return classifyItalianGrammarType(title);
   if (language === 'japanese') return classifyJapaneseGrammarType(title);
+  if (language === 'korean') return classifyKoreanGrammarType(title);
 
   const lower = title.toLowerCase();
 
@@ -990,6 +1088,51 @@ const GRAMMAR_LABELS: Record<GrammarChapterType, { title: string; subtitle: stri
   ja_pitch_accent:       { title: 'アクセント — Pitch Accent', subtitle: '4 Tokyo dialect patterns (heiban, atamadaka, nakadaka, odaka) + pitch minimal pairs' },
   ja_loanwords:          { title: '外来語 — Katakana Loanwords', subtitle: 'Phonological adaptation rules + common loanword categories + false friends in katakana' },
   ja_n_sound:            { title: 'ん/ン — The Syllabic N', subtitle: 'The chameleon nasal — 5 phonological variants depending on following consonant + mora counting' },
+  // ── KOREAN Section 3 — Writing & Grammar ──────────────────────────────────
+  ko_hangul:             { title: '한글 — Hangul: The Korean Alphabet', subtitle: 'Korea\'s phonetic script created in 1443 — 14 consonants + 10 vowels grouped into syllable blocks' },
+  ko_topic_marker:       { title: '은/는 — Topic Marker', subtitle: '은 (after consonant) / 는 (after vowel) — marks the sentence topic, signals contrast or known information' },
+  ko_particles:          { title: '조사 — Korean Particles (Postpositions)', subtitle: 'Grammatical particles attached after nouns: 이/가 subject, 을/를 object, 에 location, 에서 action place' },
+  ko_ida:                { title: '이다 / 있다 / 없다 — To Be / Have / Not Have', subtitle: 'Three core copula/existential verbs — polite forms 이에요/예요, 있어요, 없어요' },
+  ko_regular_verbs:      { title: '동사 — Regular Verb Conjugation', subtitle: '-아요 (after ㅏ/ㅗ stems) / -어요 (all other stems) — the core polite present tense pattern' },
+  ko_past_tense:         { title: '과거형 — Past Tense (-았어요 / -었어요)', subtitle: '-았어요 after bright vowels · -었어요 after dark vowels · 했어요 for 하다 verbs' },
+  ko_negation:           { title: '부정형 — Negation (안 / 못 / -지 않다)', subtitle: '안 for choice-based negation · 못 for inability · -지 않다 / -지 못하다 for long-form negation' },
+  ko_formal_speech:      { title: '합쇼체 — Formal Polite Speech (-습니다)', subtitle: '-습니다/ㅂ니다 in formal contexts vs. -아요/어요 (해요체) for everyday polite conversation' },
+  ko_adjectives:         { title: '형용사 — Descriptive Verbs (Korean Adjectives)', subtitle: 'Korean adjectives conjugate as verbs — -(으)ㄴ before nouns · predicate form without copula' },
+  ko_question_words:     { title: '의문사 — Question Words', subtitle: '뭐/무엇 (what), 어디 (where), 언제 (when), 누구 (who), 왜 (why), 어떻게 (how), 얼마 (how much)' },
+  ko_numbers:            { title: '숫자 — Two Number Systems', subtitle: 'Sino-Korean (일/이/삼...) for dates/money/minutes · Native Korean (하나/둘/셋...) for objects/hours/age' },
+  ko_counters:           { title: '단위 명사 — Counters / Measure Words', subtitle: '개 (objects), 명 (people), 권 (books), 장 (flat objects), 잔 (cups), 번 (times), 시 (hours)' },
+  ko_time_expressions:   { title: '시간 표현 — Time Expressions', subtitle: 'Relative time (어제/오늘/내일) + parts of the day (아침/오전/오후/저녁/밤) + week references' },
+  ko_direction_movement: { title: '방향과 이동 — Direction & Movement', subtitle: 'Motion verbs (가다/오다/올라가다...) + location words (위/아래/앞/뒤/왼쪽/오른쪽...)' },
+  ko_giving_receiving:   { title: '주다 / 받다 / 드리다 — Giving & Receiving', subtitle: '주다 (give to equal/lower) · 받다 (receive) · 드리다 (give to senior) + particle 에게/께' },
+  ko_potential_form:     { title: '-(으)ㄹ 수 있다 — Potential / Can', subtitle: '-(으)ㄹ 수 있어요 (can) / -(으)ㄹ 수 없어요 (cannot) + 못 + verb as short-form alternative' },
+  ko_volitional:         { title: '-고 싶다 / -(으)ㄹ게요 — Want & Intention', subtitle: '-고 싶어요 (want to) + -(으)ㄹ게요 (I will / intention) + -자 / -(으)ㄹ까요 (let\'s)' },
+  ko_conditional:        { title: '조건형 — Conditional (-(으)면)', subtitle: '-(으)면 = "if/when" — add -면 after vowel stems, -으면 after consonant stems' },
+  ko_progressive:        { title: '-고 있다 — Progressive / Ongoing Action', subtitle: '-고 있어요 = currently doing (action verbs) or resultant state (change-of-state verbs)' },
+  ko_honorifics:         { title: '존댓말 — Korean Honorific Speech', subtitle: '-(으)시 honorific marker + 세요 imperative + honorific vocabulary pairs (드시다, 주무시다...)' },
+  ko_connective:         { title: '연결어미 — Connective Endings', subtitle: '-고 (and/then) · -아서/어서 (because/so) · -(으)면서 (while/simultaneously doing)' },
+  ko_comparatives:       { title: '비교 — Comparisons (더, 덜, 가장/제일)', subtitle: '더 (more) · 덜 (less) · 가장/제일 (most/best) + A보다 B가 더 ~ (B is more ~ than A)' },
+  ko_requests:           { title: '명령형 — Requests & Imperative', subtitle: '-(으)세요 (polite command) · -아/어 주세요 (please do for me) · -지 마세요 (don\'t)' },
+  ko_subject_object:     { title: '이/가 & 을/를 — Subject & Object Markers', subtitle: '이/가 marks the grammatical subject (new info) · 을/를 marks the direct object of the verb' },
+  // ── KOREAN Section 5 — Cultural ────────────────────────────────────────────
+  ko_world_map:          { title: '한국어의 세계 — The Korean-Speaking World', subtitle: '~80 million speakers · South Korea + North Korea + diaspora in China, USA, Japan, Central Asia' },
+  ko_holidays:           { title: '한국의 공휴일 — Korean Public Holidays', subtitle: '설날 (Lunar New Year) · 추석 (Chuseok) · 한글날 · 광복절 + 11 official public holidays' },
+  ko_food_guide:         { title: '한식 — Korean Cuisine', subtitle: 'Kimchi, bibimbap, samgyeopsal, bulgogi, tteokbokki — banchan side-dish culture + dining customs' },
+  ko_dialects:           { title: '사투리 — Korean Regional Dialects', subtitle: '경상도, 전라도, 충청도, 제주도 방언 — pronunciation, vocabulary, and identity markers' },
+  ko_etiquette:          { title: '예절 — Korean Etiquette & Social Customs', subtitle: 'Bowing, age hierarchy, nunchi (눈치), chemyeon (체면), ppalli ppalli, two-handed giving/receiving' },
+  ko_currency:           { title: '한국 원 — Korean Won (₩ / KRW)', subtitle: '₩1,000 – ₩50,000 banknotes · King Sejong on ₩10,000 · Shin Saimdang on ₩50,000' },
+  ko_pop_culture:        { title: '한류 — Hallyu: The Korean Wave', subtitle: 'K-Pop, K-Drama, K-Movie, K-Beauty, Webtoons, E-Sports — Korea\'s global cultural influence' },
+  // ── KOREAN Section 6 — Word families ───────────────────────────────────────
+  ko_word_family:        { title: '한국어 단어 가족 — Korean Word Families', subtitle: 'Core Korean verbs + their conjugated forms, compounds, and related vocabulary patterns' },
+  // ── KOREAN Section 8 — Phonetics ────────────────────────────────────────────
+  ko_consonants_chart:   { title: '자음 — Korean Consonants', subtitle: '14 basic + 5 tensed consonants — plain (평음) · aspirated (격음) · fortis/tensed (경음) series' },
+  ko_vowels_chart:       { title: '모음 — Korean Vowels', subtitle: '10 simple vowels + 11 diphthongs — monophthongs, compound vowels, and the unique ㅡ (eu) sound' },
+  ko_batchim:            { title: '받침 — Batchim: Final Consonants', subtitle: '7 terminal sound rule — all batchim consonants reduce to 7 actual sounds at syllable end' },
+  ko_aspiration:         { title: '격음화 / 경음화 — Aspiration & Fortis Consonants', subtitle: 'Three-way distinction: plain (ㄱ) · aspirated (ㅋ) · tensed (ㄲ) — tissue test + minimal pairs' },
+  ko_vowel_harmony:      { title: '모음조화 — Vowel Harmony', subtitle: 'Bright vowels (ㅏ/ㅗ) → -아 endings · Dark vowels (all others) → -어 endings in verb conjugation' },
+  ko_linking_sounds:     { title: '연음 — Linking Sounds (Resyllabification)', subtitle: 'Batchim moves to the next syllable\'s onset when followed by ㅇ — key to natural-sounding Korean' },
+  ko_tensification:      { title: '경음화 — Tensification', subtitle: 'Automatic fortis consonants after unreleased stops and in noun compounds — not reflected in spelling' },
+  ko_hieuth:             { title: 'ㅎ 탈락 / 격음화 — ㅎ Sound Changes', subtitle: 'ㅎ + plain stop → aspirated · ㅎ before vowel → silent · rules for 좋다, 많다, 넣다 patterns' },
+  ko_pronunciation_overview: { title: '발음 개요 — Korean Pronunciation Overview', subtitle: 'ㅡ vowel, ㄹ liquid, syllable timing, intonation patterns, word-final devoicing, ㄴ-ㄹ rule' },
 };
 
 function resolveFrenchWordFamilyCard(title?: string): JSX.Element {
@@ -1068,6 +1211,18 @@ const GRAMMAR_LABELS_JA: Partial<Record<GrammarChapterType, { title: string; sub
   country_dot_map:  { title: '日本語の世界', subtitle: 'Where Japanese is spoken around the world — Japan + diaspora communities' },
 };
 
+const GRAMMAR_LABELS_KO: Partial<Record<GrammarChapterType, { title: string; subtitle: string }>> = {
+  weather_vocab:    { title: '날씨 — 날씨 어휘', subtitle: 'All 10 weather conditions with Korean expressions — the same icons used in lessons' },
+  emotions_vocab:   { title: '감정 — 감정 어휘', subtitle: 'All 11 emotion faces with Korean labels — the same faces used in lessons' },
+  telling_time:     { title: '시계 — 몇 시예요?', subtitle: 'Analog clocks + key Korean time patterns and parts-of-day vocabulary' },
+  days_week:        { title: '요일, 월, 달력 — Days, Months & Calendar', subtitle: 'Days of the week, months of the year, and Korean date expressions' },
+  body_parts:       { title: '몸 — 신체 어휘', subtitle: 'Body diagram + complete Korean vocabulary reference — same diagram used in lessons' },
+  face_parts:       { title: '얼굴 — 얼굴 어휘', subtitle: 'Face close-up + full Korean vocabulary for facial features' },
+  hand_parts:       { title: '손 — 손 어휘', subtitle: 'Hand diagram + Korean vocabulary for fingers, palm, and wrist' },
+  temperature_vocab:{ title: '기온 — 온도 어휘', subtitle: 'Temperature scale in Korean — same thermometer used in lessons' },
+  country_dot_map:  { title: '한국어의 세계', subtitle: 'Where Korean is spoken around the world — Korea + diaspora communities globally' },
+};
+
 function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spanish' }: { type: GrammarChapterType; chapterNumber: number; chapterTitle?: string; language?: string }) {
   const baseLabel = GRAMMAR_LABELS[type];
   const frLabel = language === 'french' ? GRAMMAR_LABELS_FR[type] : undefined;
@@ -1075,7 +1230,8 @@ function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spa
   const deLabel = language === 'german' ? GRAMMAR_LABELS_DE[type] : undefined;
   const itLabel = language === 'italian' ? GRAMMAR_LABELS_IT[type] : undefined;
   const jaLabel = language === 'japanese' ? GRAMMAR_LABELS_JA[type] : undefined;
-  const { title, subtitle } = jaLabel ?? itLabel ?? deLabel ?? ptLabel ?? frLabel ?? baseLabel;
+  const koLabel = language === 'korean' ? GRAMMAR_LABELS_KO[type] : undefined;
+  const { title, subtitle } = koLabel ?? jaLabel ?? itLabel ?? deLabel ?? ptLabel ?? frLabel ?? baseLabel;
   const wordFamilyRoot = type === 'word_family' && chapterTitle ? resolveWordFamilyRoot(chapterTitle) : null;
 
   return (
@@ -1142,15 +1298,15 @@ function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spa
       {type === 'word_family' && <WordFamilyCard root={wordFamilyRoot ?? 'hablar'} />}
 
       {/* Section 7 — Canvas vocabulary cards (same SVG renderers as /chat) */}
-      {type === 'weather_vocab'    && <WeatherVocabCard     language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese'} />}
-      {type === 'emotions_vocab'   && <EmotionsVocabCard    language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese'} />}
-      {type === 'telling_time'     && <TimeVocabCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese'} />}
-      {type === 'days_week'        && <DaysOfWeekCard       language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese'} />}
-      {type === 'body_parts'       && <BodyPartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese'} />}
-      {type === 'face_parts'       && <FacePartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese'} />}
-      {type === 'hand_parts'       && <HandPartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese'} />}
-      {type === 'temperature_vocab'&& <ThermometerVocabCard language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese'} />}
-      {type === 'country_dot_map'  && (language === 'french' ? <FrancophoneWorldMapCard /> : language === 'portuguese' ? <LusophoneWorldMapCard /> : language === 'german' ? <GermanSpeakingWorldCard /> : language === 'italian' ? <ItalophoneWorldCard /> : language === 'japanese' ? <JapanophoneWorldCard /> : <CountryDotMapCard />)}
+      {type === 'weather_vocab'    && <WeatherVocabCard     language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean'} />}
+      {type === 'emotions_vocab'   && <EmotionsVocabCard    language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean'} />}
+      {type === 'telling_time'     && <TimeVocabCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean'} />}
+      {type === 'days_week'        && <DaysOfWeekCard       language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean'} />}
+      {type === 'body_parts'       && <BodyPartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean'} />}
+      {type === 'face_parts'       && <FacePartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean'} />}
+      {type === 'hand_parts'       && <HandPartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean'} />}
+      {type === 'temperature_vocab'&& <ThermometerVocabCard language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean'} />}
+      {type === 'country_dot_map'  && (language === 'french' ? <FrancophoneWorldMapCard /> : language === 'portuguese' ? <LusophoneWorldMapCard /> : language === 'german' ? <GermanSpeakingWorldCard /> : language === 'italian' ? <ItalophoneWorldCard /> : language === 'japanese' ? <JapanophoneWorldCard /> : language === 'korean' ? <KoreanophoneWorldCard /> : <CountryDotMapCard />)}
 
       {/* Section 8 — Phonetics */}
       {type === 'vowel_purity' && <VowelPurityCard />}
@@ -1401,6 +1557,55 @@ function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spa
       {type === 'ja_pitch_accent' && <JaPitchAccentCard />}
       {type === 'ja_loanwords' && <JaLoanwordsCard />}
       {type === 'ja_n_sound' && <JaNSoundCard />}
+
+      {/* ── KOREAN Section 3 — Writing & Grammar ────────────────────────────── */}
+      {type === 'ko_hangul' && <KoHangulCard />}
+      {type === 'ko_topic_marker' && <KoTopicMarkerCard />}
+      {type === 'ko_particles' && <KoParticlesCard />}
+      {type === 'ko_ida' && <KoIdaCard />}
+      {type === 'ko_regular_verbs' && <KoRegularVerbsCard />}
+      {type === 'ko_past_tense' && <KoPastTenseCard />}
+      {type === 'ko_negation' && <KoNegationCard />}
+      {type === 'ko_formal_speech' && <KoFormalSpeechCard />}
+      {type === 'ko_adjectives' && <KoAdjectivesCard />}
+      {type === 'ko_question_words' && <KoQuestionWordsCard />}
+      {type === 'ko_numbers' && <KoNumbersCard />}
+      {type === 'ko_counters' && <KoCountersCard />}
+      {type === 'ko_time_expressions' && <KoTimeExpressionsCard />}
+      {type === 'ko_direction_movement' && <KoDirectionMovementCard />}
+      {type === 'ko_giving_receiving' && <KoGivingReceivingCard />}
+      {type === 'ko_potential_form' && <KoPotentialFormCard />}
+      {type === 'ko_volitional' && <KoVolitionalCard />}
+      {type === 'ko_conditional' && <KoConditionalCard />}
+      {type === 'ko_progressive' && <KoProgressiveCard />}
+      {type === 'ko_honorifics' && <KoHonorificsCard />}
+      {type === 'ko_connective' && <KoConnectiveCard />}
+      {type === 'ko_comparatives' && <KoComparativesCard />}
+      {type === 'ko_requests' && <KoRequestsCard />}
+      {type === 'ko_subject_object' && <KoSubjectObjectCard />}
+
+      {/* ── KOREAN Section 5 — Cultural ─────────────────────────────────────── */}
+      {type === 'ko_world_map' && <KoreanophoneWorldCard />}
+      {type === 'ko_holidays' && <KoreanHolidayCalendarCard />}
+      {type === 'ko_food_guide' && <KoreanFoodGuideCard />}
+      {type === 'ko_dialects' && <KoreanDialectCard />}
+      {type === 'ko_etiquette' && <KoreanEtiquetteCard />}
+      {type === 'ko_currency' && <KoreanCurrencyCard />}
+      {type === 'ko_pop_culture' && <KoreanPopCultureCard />}
+
+      {/* ── KOREAN Section 6 — Word families ────────────────────────────────── */}
+      {type === 'ko_word_family' && resolveKoFamilyCard(chapterTitle ?? '')}
+
+      {/* ── KOREAN Section 8 — Phonetics ────────────────────────────────────── */}
+      {type === 'ko_consonants_chart' && <KoConsonantsChartCard />}
+      {type === 'ko_vowels_chart' && <KoVowelsChartCard />}
+      {type === 'ko_batchim' && <KoBatchimCard />}
+      {type === 'ko_aspiration' && <KoAspirationCard />}
+      {type === 'ko_vowel_harmony' && <KoVowelHarmonyCard />}
+      {type === 'ko_linking_sounds' && <KoLinkingSoundsCard />}
+      {type === 'ko_tensification' && <KoTensificationCard />}
+      {type === 'ko_hieuth' && <KoHieuthCard />}
+      {type === 'ko_pronunciation_overview' && <KoPronunciationOverviewCard />}
 
       <div className="flex items-center gap-2 text-sm text-muted-foreground justify-center">
         <Users className="h-4 w-4" />
