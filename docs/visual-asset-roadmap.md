@@ -53,7 +53,13 @@ The `SceneCanvas` component (client-side stage model) is **fully operational**. 
 | Time/weather/numbers (Section 2) | 0 | 0 | Clock + weather handled by SVG components; static reference cards not started |
 | Cultural infographics (Section 5) | 0 | 0 | Not started |
 
-**Generation pipeline (as of Mar 19 2026):** All images — seeded library and Daniela's live fallback — use **DALL-E 3** with the watercolor illustrated style. Library lookup is instant (cache key `vocab_spanish_{word}`); fallback generates on demand and saves to cache automatically.
+**Generation pipeline (as of Mar 19 2026):** All images — seeded library and Daniela's live fallback — use **DALL-E 3** with the **canonical style** below. Library lookup is instant (cache key `vocab_spanish_{word}`); fallback generates on demand and saves to cache automatically.
+
+**Canonical illustration style (updated Mar 19 2026):**
+- Objects/props: `soft watercolor children's book illustration style, warm gentle colors, light pencil outlines, visible brushwork texture, object centred and prominent on a clean pure white background, no background elements, clear and recognisable silhouette, language learning educational quality`
+- Scenes/activities with characters: `soft watercolor children's book illustration style, warm gentle colors, light pencil outlines, visible brushwork texture, friendly expressive characters, no visible text or labels on anything, language learning educational context, suitable for all ages`
+- Always append: `ZERO TEXT ZERO WORDS ZERO LETTERS ZERO NUMBERS anywhere in the image.`
+- Model: **DALL-E 3**, size **1024×1024**, quality **standard**
 
 **Novice Mid complete:** 58 images total (10 people + 10 animals + 12 food + 8 clothing + 8 activities + 10 adjective pairs), covering 84 cache keys. All seeded in DB and uploaded to object storage.
 
@@ -1068,7 +1074,7 @@ When a food prop is placed directly on the scene canvas (e.g. at the `on_plate` 
 
 ### Prompt Language (Both Cases)
 
-The standard prop style prompt already handles most of this: *warm illustrated watercolor style, vibrant saturated colours, soft natural shading, object centred on clean white background, no shadows or background elements.* Avoid adding "close-up of" or "detailed shot of" — these push generation toward macro framing that crops off the vessel.
+The canonical prop style prompt handles most of this: *soft watercolor children's book illustration style, warm gentle colors, light pencil outlines, visible brushwork texture, object centred and prominent on a clean pure white background, no background elements, clear and recognisable silhouette.* Avoid adding "close-up of" or "detailed shot of" — these push generation toward macro framing that crops off the vessel.
 
 ---
 

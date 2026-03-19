@@ -30,17 +30,16 @@ export interface VisualGenerationResult {
   };
 }
 
-// Shared style — matches the prop zone asset style exactly so everything looks cohesive
+// Shared style — soft watercolor children's book illustration used across all generated assets
 const PROP_STYLE =
-  'warm illustrated watercolor style, vibrant saturated colours, soft natural shading, ' +
-  'object centred and prominent on a clean pure white background, no shadows or background elements, ' +
-  'language learning educational illustration quality, consistent flat illustration style, ' +
-  'clear and recognisable silhouette';
+  'soft watercolor children\'s book illustration style, warm gentle colors, light pencil outlines, ' +
+  'visible brushwork texture, object centred and prominent on a clean pure white background, ' +
+  'no background elements, clear and recognisable silhouette, language learning educational quality';
 
 const SCENE_STYLE =
-  'warm illustrated watercolor style, soft natural lighting, inviting and welcoming atmosphere, ' +
-  'no visible text or signs or labels on objects, language learning educational context, ' +
-  'suitable for all ages, wide establishing shot';
+  'soft watercolor children\'s book illustration style, warm gentle colors, light pencil outlines, ' +
+  'visible brushwork texture, friendly expressive characters, no visible text or labels on anything, ' +
+  'language learning educational context, suitable for all ages';
 
 // Semantic tag categories for educational content
 const EDUCATIONAL_TAG_CATEGORIES = [
