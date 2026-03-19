@@ -592,17 +592,19 @@ Two formats needed: a **static reference card** showing all prepositions at once
 
 These give language its context — students learn words in isolation without these.
 
+> **Status: ✅ Complete (Mar 19 2026)** — 7 of 9 built as React components in `TextbookCulturalCards.tsx`. 2 image-generation items deferred (food guide, gesture guide — require Gemini Imagen; future sprint).
+
 | Asset | Description | ACTFL Level | Status |
 |-------|-------------|-------------|--------|
-| Spanish-speaking world map | 21 Spanish-speaking countries labeled with capitals and flags | Novice Mid | ⬜ |
-| Hispanic food guide | Regional dishes by country/region — illustrated mini-map | Intermediate Low | ⬜ |
-| Festival & holiday calendar | Major celebrations across Spanish-speaking world by month | Intermediate Low | ⬜ |
-| Tú vs Usted register guide | When to use which — illustrated social situations | Novice Mid | ⬜ |
-| Gesture guide | 8–12 common Spanish/Hispanic gestures with illustrated hands and explanations | Intermediate Low | ⬜ |
-| Currency overview | Pesos (MX, AR, CL, CO, CU, DO, PH), Soles, Euros, Bolívares, Colones — with approximate exchange anchor | Novice High | ⬜ |
-| Spanish dialect map | Spain, Mexico, Caribbean, Andean, River Plate, Central American — key vocabulary/pronunciation differences | Intermediate Mid | ⬜ |
-| Family structure diagram | Visual family tree with all relationship terms labeled | Novice Mid | ⬜ |
-| Formal greetings by country | Handshake, cheek kiss, both — illustrated regional etiquette | Novice High | ⬜ |
+| Spanish-speaking world map | 21 Spanish-speaking countries labeled with capitals and flags | Novice Mid | ✅ `SpanishWorldMapCard` |
+| Hispanic food guide | Regional dishes by country/region — illustrated mini-map | Intermediate Low | ⬜ Needs Gemini Imagen |
+| Festival & holiday calendar | Major celebrations across Spanish-speaking world by month | Intermediate Low | ✅ `FestivalCalendarCard` |
+| Tú vs Usted register guide | When to use which — illustrated social situations | Novice Mid | ✅ `TuUstedCard` (Section 3) |
+| Gesture guide | 8–12 common Spanish/Hispanic gestures with illustrated hands and explanations | Intermediate Low | ⬜ Needs Gemini Imagen |
+| Currency overview | Pesos (MX, AR, CL, CO, CU, DO, PH), Soles, Euros, Bolívares, Colones — with approximate exchange anchor | Novice High | ✅ `CurrencyReferenceCard` |
+| Spanish dialect map | Spain, Mexico, Caribbean, Andean, River Plate, Central American — key vocabulary/pronunciation differences | Intermediate Mid | ✅ `DialectMapCard` |
+| Family structure diagram | Visual family tree with all relationship terms labeled | Novice Mid | ✅ `FamilyTreeCard` |
+| Formal greetings by country | Handshake, cheek kiss, both — illustrated regional etiquette | Novice High | ✅ `GreetingEtiquetteCard` |
 
 ---
 
@@ -610,22 +612,24 @@ These give language its context — students learn words in isolation without th
 
 Visual clusters connecting a root verb to its noun, adjective, and adverb forms. These are especially powerful at Intermediate+ where students start using words productively across contexts.
 
+> **Status: ✅ Complete (Mar 19 2026)** — All 12 word families built in `TextbookWordFamilies.tsx`. One reusable `WordFamilyCard` component with hub-and-spoke SVG layout + `resolveWordFamilyRoot()` resolver picks the correct family from the chapter title.
+
 | Root | Family members | ACTFL Level | Status |
 |------|---------------|-------------|--------|
-| hablar | habla, hablante, hablador/a, hablado | Novice Low | ⬜ |
-| comer | comida, comedor, comestible, comilón | Novice Low | ⬜ |
-| vivir | vida, viviente, vivienda, vivo/a | Novice Low | ⬜ |
-| trabajar | trabajo, trabajador/a, trabajable | Novice Low | ⬜ |
-| dormir | sueño, dormilón, dormitorio | Novice Mid | ⬜ |
-| viajar | viaje, viajero/a | Novice High | ⬜ |
-| amar | amor, amante, amado/a, amoroso/a | Novice Mid | ⬜ |
-| escribir | escritura, escritor/a, escrito | Novice Mid | ⬜ |
-| leer | lectura, lector/a, leído | Novice Mid | ⬜ |
-| conocer | conocimiento, conocido/a, desconocer | Novice High | ⬜ |
-| poder | poder (n), poderoso/a, poderío | Intermediate Low | ⬜ |
-| pensar | pensamiento, pensador/a, pensativo/a | Intermediate Low | ⬜ |
+| hablar | habla, hablante, hablador/a, hablado | Novice Low | ✅ |
+| comer | comida, comedor, comestible, comilón | Novice Low | ✅ |
+| vivir | vida, viviente, vivienda, vivo/a | Novice Low | ✅ |
+| trabajar | trabajo, trabajador/a, trabajable | Novice Low | ✅ |
+| dormir | sueño, dormilón, dormitorio | Novice Mid | ✅ |
+| viajar | viaje, viajero/a | Novice High | ✅ |
+| amar | amor, amante, amado/a, amoroso/a | Novice Mid | ✅ |
+| escribir | escritura, escritor/a, escrito | Novice Mid | ✅ |
+| leer | lectura, lector/a, leído | Novice Mid | ✅ |
+| conocer | conocimiento, conocido/a, desconocer | Novice High | ✅ |
+| poder | poder (n), poderoso/a, poderío | Intermediate Low | ✅ |
+| pensar | pensamiento, pensador/a, pensativo/a | Intermediate Low | ✅ |
 
-*Format: branching diagram from the root verb with color-coded word class (verb = blue, noun = orange, adjective = green, adverb = purple).*
+*Format: hub-and-spoke SVG with root verb at center; branches colour-coded — verb=blue, noun=orange, adjective=green, adverb=purple.*
 
 ---
 
@@ -658,17 +662,19 @@ These are high-impact because they prevent actual embarrassing mistakes. Single 
 
 Visual mouth-position or phoneme guides for sounds that don't exist in English. These are especially valuable for student self-study between sessions.
 
+> **Status: ✅ Complete (Mar 19 2026)** — All 9 phonetic guide cards built in `TextbookPhoneticGuides.tsx`. Each is a self-contained React component with IPA notation, production notes, examples, and English contrast. Auto-triggered by chapter title via `classifyGrammarType()`.
+
 | Asset | Description | ACTFL Entry Point | Status |
 |-------|-------------|-------------------|--------|
-| Spanish vowel purity chart | A, E, I, O, U — each shown as single pure sound vs English diphthong equivalent | Novice Low | ⬜ |
-| The rolled R (rr) guide | Tongue position illustration + where rr appears (perro, carro, alrededor) | Novice Mid | ⬜ |
-| B vs V in Spanish | Illustrated — both are essentially the same sound; contrast to English | Novice Mid | ⬜ |
-| The silent H | Simple rule card + illustrated examples (hablar, hola, hotel) | Novice Low | ⬜ |
-| The J sound | Contrast to English H/J — illustrated with throat position | Novice Mid | ⬜ |
-| Ñ pronunciation | How it differs from N — examples (niño, mañana, año) | Novice Low | ⬜ |
-| LL/Y regional variation | Map + phoneme guide — ceceo, seseo, ll-vs-y | Intermediate Low | ⬜ |
-| Stress rules & accent marks | Visual rule card: where stress falls without accent, when accent is written | Novice High | ⬜ |
-| Linking sounds (enlace) | How word-final vowel links to word-initial vowel in spoken Spanish | Intermediate Low | ⬜ |
+| Spanish vowel purity chart | A, E, I, O, U — each shown as single pure sound vs English diphthong equivalent | Novice Low | ✅ `VowelPurityCard` |
+| The rolled R (rr) guide | Tongue position illustration + where rr appears (perro, carro, alrededor) | Novice Mid | ✅ `RolledRCard` |
+| B vs V in Spanish | Illustrated — both are essentially the same sound; contrast to English | Novice Mid | ✅ `BVSoundCard` |
+| The silent H | Simple rule card + illustrated examples (hablar, hola, hotel) | Novice Low | ✅ `SilentHCard` |
+| The J sound | Contrast to English H/J — illustrated with throat position | Novice Mid | ✅ `JSoundCard` |
+| Ñ pronunciation | How it differs from N — examples (niño, mañana, año) | Novice Low | ✅ `NyenCard` |
+| LL/Y regional variation | Map + phoneme guide — ceceo, seseo, ll-vs-y | Intermediate Low | ✅ `LLYCard` |
+| Stress rules & accent marks | Visual rule card: where stress falls without accent, when accent is written | Novice High | ✅ `StressAccentCard` |
+| Linking sounds (enlace) | How word-final vowel links to word-initial vowel in spoken Spanish | Intermediate Low | ✅ `LinkingSoundsCard` |
 
 ---
 

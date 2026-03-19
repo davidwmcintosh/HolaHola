@@ -13,6 +13,15 @@ import {
   NegationQuestionsCard, TuUstedCard,
   SpatialPrepositionMap, TemporalPrepositionTimeline,
 } from "./TextbookGrammarDiagrams";
+import {
+  SpanishWorldMapCard, FestivalCalendarCard, DialectMapCard,
+  FamilyTreeCard, GreetingEtiquetteCard, CurrencyReferenceCard,
+} from "./TextbookCulturalCards";
+import { WordFamilyCard, resolveWordFamilyRoot } from "./TextbookWordFamilies";
+import {
+  VowelPurityCard, RolledRCard, BVSoundCard, SilentHCard,
+  JSoundCard, NyenCard, LLYCard, StressAccentCard, LinkingSoundsCard,
+} from "./TextbookPhoneticGuides";
 import { languageChapterData } from "@/data/chapter-intro-content";
 
 import familyGatheringImg from "@assets/stock_images/family_gathering_aro_0f321ed1.jpg";
@@ -53,6 +62,7 @@ function classifyChapterType(title: string): string | null {
 }
 
 type GrammarChapterType =
+  // ── Section 3 — Grammar diagrams ────────────────────────────────────────
   | 'ser_estar' | 'pret_imp' | 'por_para' | 'false_cognates'
   | 'ar_verbs' | 'er_verbs' | 'ir_verbs'
   | 'ser_only' | 'estar_only' | 'tener' | 'ir_go'
@@ -62,19 +72,28 @@ type GrammarChapterType =
   | 'imperfect' | 'future' | 'conditional' | 'subjunctive' | 'commands'
   | 'gender_articles' | 'adjective_agreement' | 'object_pronouns'
   | 'negation_questions' | 'tu_usted'
-  | 'spatial_prep' | 'temporal_prep';
+  // ── Section 4 — Preposition maps ────────────────────────────────────────
+  | 'spatial_prep' | 'temporal_prep'
+  // ── Section 5 — Cultural infographics ───────────────────────────────────
+  | 'world_map' | 'festival_calendar' | 'dialect_map'
+  | 'family_tree' | 'greeting_etiquette' | 'currency_ref'
+  // ── Section 6 — Word family maps ────────────────────────────────────────
+  | 'word_family'
+  // ── Section 8 — Phonetic guides ─────────────────────────────────────────
+  | 'vowel_purity' | 'rolled_r' | 'bv_sound' | 'silent_h'
+  | 'j_sound' | 'nyen_sound' | 'lly_sound' | 'stress_accent' | 'linking_sounds';
 
 function classifyGrammarType(title: string): GrammarChapterType | null {
   const lower = title.toLowerCase();
 
-  // ── Existing 4 types (check first — more specific) ──────────────────────
+  // ── Section 3 — existing 4 types (most specific first) ──────────────────
   if (lower.includes('ser') && (lower.includes('estar') || lower.includes('vs') || lower.includes(' y '))) return 'ser_estar';
   if (lower.includes('estar') && lower.includes('ser')) return 'ser_estar';
   if ((lower.includes('pret') && lower.includes('imperfec')) || (lower.includes('preterite') && lower.includes('imperfect'))) return 'pret_imp';
   if (lower.includes('por') && lower.includes('para')) return 'por_para';
   if (lower.includes('false cognate') || lower.includes('falso cognado') || lower.includes('false friend') || lower.includes('amigos falsos')) return 'false_cognates';
 
-  // ── Verb conjugation tables ───────────────────────────────────────────────
+  // ── Section 3 — verb conjugation tables ─────────────────────────────────
   if (lower.includes('-ar verb') || lower.includes('ar verb') || (lower.includes('hablar') && !lower.includes('pret')) || lower.includes('regular ar') || lower.includes('verbos -ar')) return 'ar_verbs';
   if (lower.includes('-er verb') || lower.includes('er verb') || (lower.includes('comer') && !lower.includes('pret')) || lower.includes('regular er') || lower.includes('verbos -er')) return 'er_verbs';
   if (lower.includes('-ir verb') || lower.includes('ir verb') || (lower.includes('vivir') && !lower.includes('pret')) || lower.includes('regular ir') || lower.includes('verbos -ir')) return 'ir_verbs';
@@ -82,8 +101,6 @@ function classifyGrammarType(title: string): GrammarChapterType | null {
   if (lower === 'estar' || lower.includes('verb estar') || lower.includes('el verbo estar') || (lower.startsWith('estar') && !lower.includes('ser'))) return 'estar_only';
   if (lower.includes('tener') && !lower.includes('pret')) return 'tener';
   if ((lower.includes(' ir ') || lower.startsWith('ir') || lower.includes('verb ir') || lower.includes('going to') || lower.includes('ir a ')) && !lower.includes('vivir') && !lower.includes('subjun') && !lower.includes('pret')) return 'ir_go';
-
-  // ── Tense-specific ────────────────────────────────────────────────────────
   if (lower.includes('stem change') || lower.includes('boot verb') || lower.includes('cambio de raíz') || lower.includes('e→ie') || lower.includes('o→ue') || lower.includes('stem-change') || (lower.includes('querer') && lower.includes('poder'))) return 'stem_change';
   if (lower.includes('-go verb') || lower.includes('go verb') || lower.includes('verbos irregulares con go') || (lower.includes('hacer') && lower.includes('poner'))) return 'go_verbs';
   if (lower.includes('saber') || lower.includes('conocer')) return 'saber_conocer';
@@ -95,22 +112,46 @@ function classifyGrammarType(title: string): GrammarChapterType | null {
   if (lower.includes('conditional') || lower.includes('condicional')) return 'conditional';
   if (lower.includes('subjunctive') || lower.includes('subjuntivo') || lower.includes('present subjunctive')) return 'subjunctive';
   if (lower.includes('command') || lower.includes('imperativo') || lower.includes('imperative') || lower.includes('mandato')) return 'commands';
-
-  // ── Structural / comparison cards ─────────────────────────────────────────
   if (lower.includes('gender') || lower.includes('article') || lower.includes('género') || lower.includes('artículo') || lower.includes('el/la') || lower.includes('un/una')) return 'gender_articles';
   if (lower.includes('adjective') || lower.includes('adjetivo') || lower.includes('adjective agreement') || lower.includes('concordancia')) return 'adjective_agreement';
-  if (lower.includes('object pronoun') || lower.includes('pronoun') || lower.includes('pronombre de objeto') || lower.includes('direct object') || lower.includes('indirect object') || lower.includes('lo/la/le')) return 'object_pronouns';
-  if (lower.includes('negation') || lower.includes('negativo') || lower.includes('question') || lower.includes('pregunta') || lower.includes('interrogative') || lower.includes('sentence structure') || lower.includes('word order')) return 'negation_questions';
-  if ((lower.includes('tú') && lower.includes('usted')) || (lower.includes('tu vs') && !lower.includes('tutor')) || lower.includes('formal vs informal') || lower.includes('register')) return 'tu_usted';
+  if (lower.includes('object pronoun') || lower.includes('direct object') || lower.includes('indirect object') || lower.includes('pronombre de objeto') || lower.includes('lo/la/le')) return 'object_pronouns';
+  if (lower.includes('negation') || lower.includes('negativo') || lower.includes('sentence structure') || lower.includes('word order') || lower.includes('question word')) return 'negation_questions';
+  if ((lower.includes('tú') && lower.includes('usted')) || lower.includes('formal vs informal') || lower.includes('register')) return 'tu_usted';
 
-  // ── Section 4 — Prepositions ──────────────────────────────────────────────
-  if (lower.includes('temporal prep') || lower.includes('preposicion de tiempo') || lower.includes('antes de') || lower.includes('después de') || lower.includes('duration') || lower.includes('hace + tiempo')) return 'temporal_prep';
-  if (lower.includes('preposition') || lower.includes('preposición') || lower.includes('spatial') || lower.includes('donde está') || lower.includes('location prep') || lower.includes('prep of place')) return 'spatial_prep';
+  // ── Section 4 — Prepositions ─────────────────────────────────────────────
+  if (lower.includes('temporal prep') || lower.includes('preposicion de tiempo') || lower.includes('antes de') || lower.includes('después de') || lower.includes('hace + tiempo')) return 'temporal_prep';
+  if (lower.includes('preposition') || lower.includes('preposición') || lower.includes('spatial') || lower.includes('prep of place')) return 'spatial_prep';
+
+  // ── Section 5 — Cultural infographics ────────────────────────────────────
+  // More specific first to avoid false positives
+  if (lower.includes('family tree') || lower.includes('árbol genealóg') || lower.includes('árbol familiar') || lower.includes('family member') || lower.includes('miembro') || lower.includes('relaciones familiares') || lower.includes('family relationship')) return 'family_tree';
+  if (lower.includes('world map') || lower.includes('hispanohablante') || lower.includes('21 countries') || lower.includes('mundo hispano') || lower.includes('spanish-speaking world') || lower.includes('español en el mundo')) return 'world_map';
+  if (lower.includes('festival') || lower.includes('festividad') || lower.includes('holiday') || lower.includes('celebration') || lower.includes('fiesta') || lower.includes('day of the dead') || lower.includes('día de los muertos')) return 'festival_calendar';
+  if (lower.includes('dialect') || lower.includes('dialecto') || lower.includes('regional spanish') || lower.includes('variedades del español') || lower.includes('ceceo') || lower.includes('seseo') || lower.includes('voseo')) return 'dialect_map';
+  if (lower.includes('greeting custom') || lower.includes('cheek kiss') || lower.includes('saludar en') || lower.includes('greeting by country') || lower.includes('etiqueta de saludo')) return 'greeting_etiquette';
+  if (lower.includes('currency') || lower.includes('moneda') || lower.includes('dinero del mundo') || lower.includes('currencies')) return 'currency_ref';
+
+  // ── Section 6 — Word family maps ─────────────────────────────────────────
+  if (lower.includes('word family') || lower.includes('familia de palabras') || lower.includes('word derivation') || lower.includes('derivation') || lower.includes('familia léxica')) return 'word_family';
+
+  // ── Section 8 — Phonetics ────────────────────────────────────────────────
+  // Most specific first
+  if (lower.includes('rolled r') || lower.includes('erre') || lower.includes('rr sound') || lower.includes('rolling r') || lower.includes('trilled r')) return 'rolled_r';
+  if (lower.includes('b vs v') || lower.includes('b and v') || lower.includes('b/v') || lower.includes('b y v')) return 'bv_sound';
+  if (lower.includes('silent h') || lower.includes('h muda') || lower.includes('la h') || lower.includes('mute h')) return 'silent_h';
+  if (lower.includes('j sound') || lower.includes('jota') || lower.includes('the j') || lower.includes('la jota')) return 'j_sound';
+  if (lower.includes('eñe') || lower.includes(' ñ ') || lower.startsWith('ñ') || lower.includes('ny sound') || lower.includes('la ñ')) return 'nyen_sound';
+  if (lower.includes('ll') && lower.includes('y') || lower.includes('yeísmo') || lower.includes('sheísmo') || lower.includes('ll/y') || lower.includes('ll vs y')) return 'lly_sound';
+  if (lower.includes('accent mark') || lower.includes('stress rule') || lower.includes('tilde') || lower.includes('acento ortográfico') || lower.includes('written accent')) return 'stress_accent';
+  if (lower.includes('enlace') || lower.includes('linking sound') || lower.includes('connected speech') || lower.includes('vowel linking') || lower.includes('sinalefa')) return 'linking_sounds';
+  if (lower.includes('vowel') || lower.includes('vocal') || lower.includes('vowel purity')) return 'vowel_purity';
+  if (lower.includes('pronunciation') || lower.includes('pronunciación') || lower.includes('phonetic') || lower.includes('fonética') || lower.includes('sounds of spanish')) return 'vowel_purity';
 
   return null;
 }
 
 const GRAMMAR_LABELS: Record<GrammarChapterType, { title: string; subtitle: string }> = {
+  // Section 3
   ser_estar: { title: 'SER vs ESTAR', subtitle: 'The two "to be" verbs — both essential, each with its own job' },
   pret_imp: { title: 'Pretérito vs Imperfecto', subtitle: 'Two ways to talk about the past — context decides which you need' },
   por_para: { title: 'POR vs PARA', subtitle: 'Both translate as "for" in English — but they express very different relationships' },
@@ -138,12 +179,34 @@ const GRAMMAR_LABELS: Record<GrammarChapterType, { title: string; subtitle: stri
   object_pronouns: { title: 'Object Pronouns', subtitle: 'Direct and indirect object pronouns — placement and order' },
   negation_questions: { title: 'Sentence Structure Essentials', subtitle: 'Word order, negation, and question formation' },
   tu_usted: { title: 'Tú vs Usted', subtitle: 'Register guide — when to be informal vs. formal' },
+  // Section 4
   spatial_prep: { title: 'Spatial Prepositions', subtitle: 'Where things are — en, sobre, debajo de, delante de…' },
   temporal_prep: { title: 'Temporal Prepositions', subtitle: 'When things happen — antes de, después de, desde, hasta, hace…' },
+  // Section 5
+  world_map: { title: 'El Mundo Hispanohablante', subtitle: '21 Spanish-speaking countries across 5 regions — ~500 million native speakers' },
+  festival_calendar: { title: 'Festividades Hispanas', subtitle: 'Major celebrations across the Spanish-speaking world, month by month' },
+  dialect_map: { title: 'Dialectos del Español', subtitle: '6 major dialect zones — same language, fascinating regional variation' },
+  family_tree: { title: 'La Familia', subtitle: 'Family vocabulary — all the relationship terms you need' },
+  greeting_etiquette: { title: 'Saludos por Región', subtitle: 'Physical greeting customs — knowing the norms shows cultural respect' },
+  currency_ref: { title: 'Monedas Hispanas', subtitle: 'Currency vocabulary across the Spanish-speaking world' },
+  // Section 6
+  word_family: { title: 'Familia de Palabras', subtitle: 'Words that share a root — see how the language builds itself' },
+  // Section 8
+  vowel_purity: { title: 'Las Vocales Españolas', subtitle: 'Pure, short, consistent — no diphthong glides like English' },
+  rolled_r: { title: 'La Erre — The Spanish R', subtitle: 'Flap vs. trill — two different sounds, both spelled "r"' },
+  bv_sound: { title: 'B y V en Español', subtitle: 'Both letters share the same sound — unlike English' },
+  silent_h: { title: 'La H Muda', subtitle: 'H is always silent in Spanish — adjust your expectations from English' },
+  j_sound: { title: 'La Jota — The J Sound', subtitle: 'A guttural sound produced at the back of the throat' },
+  nyen_sound: { title: 'La Eñe — Ñ', subtitle: 'A palatalized N — like "ny" in canyon — unique to Spanish' },
+  lly_sound: { title: 'LL y Y — Yeísmo & Sheísmo', subtitle: 'Regional variation in how LL and Y are pronounced' },
+  stress_accent: { title: 'El Acento — Stress Rules', subtitle: 'Spanish stress is predictable — accent marks only break the default rules' },
+  linking_sounds: { title: 'El Enlace — Linking Sounds', subtitle: 'Vowels link across word boundaries in natural spoken Spanish' },
 };
 
-function GrammarChapterView({ type, chapterNumber }: { type: GrammarChapterType; chapterNumber: number }) {
+function GrammarChapterView({ type, chapterNumber, chapterTitle }: { type: GrammarChapterType; chapterNumber: number; chapterTitle?: string }) {
   const { title, subtitle } = GRAMMAR_LABELS[type];
+  const wordFamilyRoot = type === 'word_family' && chapterTitle ? resolveWordFamilyRoot(chapterTitle) : null;
+
   return (
     <div className="space-y-4">
       <Card className="overflow-hidden border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
@@ -153,7 +216,7 @@ function GrammarChapterView({ type, chapterNumber }: { type: GrammarChapterType;
               <BookOpen className="w-4 h-4 text-primary" />
             </div>
             <div>
-              <p className="text-xs font-medium text-primary mb-1">Chapter {chapterNumber} — Grammar Focus</p>
+              <p className="text-xs font-medium text-primary mb-1">Chapter {chapterNumber} — Reference</p>
               <h3 className="text-base font-semibold mb-1">{title}</h3>
               <p className="text-sm text-muted-foreground">{subtitle}</p>
             </div>
@@ -161,6 +224,7 @@ function GrammarChapterView({ type, chapterNumber }: { type: GrammarChapterType;
         </CardContent>
       </Card>
 
+      {/* Section 3 — Grammar */}
       {type === 'ser_estar' && <SerEstarCard />}
       {type === 'pret_imp' && <PretImperfectCard />}
       {type === 'por_para' && <PorParaCard />}
@@ -188,12 +252,36 @@ function GrammarChapterView({ type, chapterNumber }: { type: GrammarChapterType;
       {type === 'object_pronouns' && <ObjectPronounChart />}
       {type === 'negation_questions' && <NegationQuestionsCard />}
       {type === 'tu_usted' && <TuUstedCard />}
+
+      {/* Section 4 — Prepositions */}
       {type === 'spatial_prep' && <SpatialPrepositionMap />}
       {type === 'temporal_prep' && <TemporalPrepositionTimeline />}
 
+      {/* Section 5 — Cultural */}
+      {type === 'world_map' && <SpanishWorldMapCard />}
+      {type === 'festival_calendar' && <FestivalCalendarCard />}
+      {type === 'dialect_map' && <DialectMapCard />}
+      {type === 'family_tree' && <FamilyTreeCard />}
+      {type === 'greeting_etiquette' && <GreetingEtiquetteCard />}
+      {type === 'currency_ref' && <CurrencyReferenceCard />}
+
+      {/* Section 6 — Word families */}
+      {type === 'word_family' && <WordFamilyCard root={wordFamilyRoot ?? 'hablar'} />}
+
+      {/* Section 8 — Phonetics */}
+      {type === 'vowel_purity' && <VowelPurityCard />}
+      {type === 'rolled_r' && <RolledRCard />}
+      {type === 'bv_sound' && <BVSoundCard />}
+      {type === 'silent_h' && <SilentHCard />}
+      {type === 'j_sound' && <JSoundCard />}
+      {type === 'nyen_sound' && <NyenCard />}
+      {type === 'lly_sound' && <LLYCard />}
+      {type === 'stress_accent' && <StressAccentCard />}
+      {type === 'linking_sounds' && <LinkingSoundsCard />}
+
       <div className="flex items-center gap-2 text-sm text-muted-foreground justify-center">
         <Users className="h-4 w-4" />
-        <span>Explore the lessons below to practice these patterns with Daniela!</span>
+        <span>Explore the lessons below to practice with Daniela!</span>
       </div>
     </div>
   );
@@ -215,7 +303,7 @@ export function ChapterIntroduction({ chapterNumber, chapterTitle, language, cha
   if (grammarType) {
     return (
       <div className={className}>
-        <GrammarChapterView type={grammarType} chapterNumber={chapterNumber} />
+        <GrammarChapterView type={grammarType} chapterNumber={chapterNumber} chapterTitle={chapterTitle} />
       </div>
     );
   }
