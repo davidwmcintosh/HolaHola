@@ -81,6 +81,32 @@ import {
   PtSaberFamilyCard, PtQuererFamilyCard, resolvePtWordFamilyCard,
 } from "./TextbookPortugueseWordFamilies";
 
+// ── German ─────────────────────────────────────────────────────────────────────
+import {
+  DeSeinCard, DeHabenCard, DeWerdenCard,
+  DeRegularVerbsCard, DeModalVerbsCard, DeReflexiveCard,
+  DePerfektCard, DePrateritumCard, DePerfVsPratCard,
+  DeFuturCard, DeKonjunktiv2Card,
+  DeNegationCard, DeDefiniteArticlesCard, DeIndefiniteArticlesCard,
+  DeAdjEndingsCard, DeAccusativeCard, DeDativeCard, DeCasesOverviewCard,
+  DeSeparableVerbsCard, DeWordOrderCard,
+  DeQuestionsCard, DePronounsCard,
+} from "./TextbookGermanGrammarCards";
+import {
+  GermanSpeakingWorldCard, GermanHolidayCalendarCard, GermanFoodGuideCard,
+  GermanDialectCard, GermanEtiquetteCard, GermanCurrencyCard, GermanGestureCard,
+} from "./TextbookGermanCulturalCards";
+import {
+  DeUmlautsCard, DeEszettCard, DeGermanRCard, DeChSoundCard,
+  DeLongShortVowelsCard, DeWVSoundCard, DeConsonantClustersCard,
+  DeWordStressCard, DeDiphthongsCard,
+} from "./TextbookGermanPhoneticGuides";
+import {
+  DeSPRECHENFamilyCard, DeLIEBENFamilyCard, DeSEHENFamilyCard, DeMACHENFamilyCard,
+  DeGEHENFamilyCard, DeKOMMENFamilyCard, DeHABENFamilyCard, DeWISSENFamilyCard,
+  DeFINDENFamilyCard, DeDENKENFamilyCard, resolveDeFamilyCard,
+} from "./TextbookGermanWordFamilies";
+
 import { languageChapterData } from "@/data/chapter-intro-content";
 
 import familyGatheringImg from "@assets/stock_images/family_gathering_aro_0f321ed1.jpg";
@@ -182,7 +208,25 @@ type GrammarChapterType =
   // ── PORTUGUESE Section 8 — Phonetics ─────────────────────────────────────
   | 'pt_nasal_vowels' | 'pt_portuguese_r' | 'pt_lh_nh'
   | 'pt_vowel_reduction' | 'pt_ti_di' | 'pt_stress_accent'
-  | 'pt_eu_vs_br' | 'pt_linking' | 'pt_intonation';
+  | 'pt_eu_vs_br' | 'pt_linking' | 'pt_intonation'
+  // ── GERMAN Section 3 — Grammar ───────────────────────────────────────────
+  | 'de_sein' | 'de_haben' | 'de_werden'
+  | 'de_regular_verbs' | 'de_modal_verbs' | 'de_reflexive'
+  | 'de_perfekt' | 'de_prateritum' | 'de_perf_vs_prat'
+  | 'de_futur' | 'de_konjunktiv2'
+  | 'de_negation' | 'de_definite_articles' | 'de_indefinite_articles'
+  | 'de_adj_endings' | 'de_accusative' | 'de_dative' | 'de_cases_overview'
+  | 'de_separable_verbs' | 'de_word_order'
+  | 'de_questions' | 'de_pronouns'
+  // ── GERMAN Section 5 — Cultural ──────────────────────────────────────────
+  | 'de_world_map' | 'de_holidays' | 'de_food_guide'
+  | 'de_dialects' | 'de_etiquette' | 'de_currency' | 'de_gestures'
+  // ── GERMAN Section 6 — Word families ─────────────────────────────────────
+  | 'de_word_family'
+  // ── GERMAN Section 8 — Phonetics ─────────────────────────────────────────
+  | 'de_umlauts' | 'de_eszett' | 'de_german_r' | 'de_ch_sound'
+  | 'de_long_short_vowels' | 'de_w_v_sound' | 'de_consonant_clusters'
+  | 'de_word_stress' | 'de_diphthongs';
 
 function classifyFrenchGrammarType(title: string): GrammarChapterType | null {
   const lower = title.toLowerCase();
@@ -323,9 +367,70 @@ function classifyPortugueseGrammarType(title: string): GrammarChapterType | null
   return null;
 }
 
+function classifyGermanGrammarType(title: string): GrammarChapterType | null {
+  const lower = title.toLowerCase();
+
+  // ── Core verbs ────────────────────────────────────────────────────────────
+  if (lower === 'sein' || lower.includes('das verb sein') || lower.includes('verb sein') || (lower.startsWith('sein') && !lower.includes('haben') && !lower.includes('werden'))) return 'de_sein';
+  if ((lower === 'haben' || lower.includes('das verb haben') || lower.includes('verb haben') || (lower.startsWith('haben') && !lower.includes('sein') && !lower.includes('werden'))) && !lower.includes('perfekt') && !lower.includes('partizip')) return 'de_haben';
+  if (lower === 'werden' || lower.includes('das verb werden') || lower.includes('verb werden') || (lower.startsWith('werden') && !lower.includes('konjunktiv'))) return 'de_werden';
+
+  // ── Regular and modal verbs ───────────────────────────────────────────────
+  if (lower.includes('regular') && lower.includes('verb') && lower.includes('german') || lower.includes('-en verb') || lower.includes('regelm') || lower.includes('schwache verb') || lower.includes('spielen') && lower.includes('lernen')) return 'de_regular_verbs';
+  if (lower.includes('modalverb') || lower.includes('modal verb') && lower.includes('german') || lower.includes('können') || lower.includes('müssen') && lower.includes('wollen') || lower.includes('dürfen') || (lower.includes('sollen') && lower.includes('können'))) return 'de_modal_verbs';
+  if (lower.includes('reflexiv') || lower.includes('reflexive verb') && lower.includes('german') || lower.includes('sich waschen') || lower.includes('sich freuen') || lower.includes('reflexive') && lower.includes('sich')) return 'de_reflexive';
+
+  // ── Tenses ────────────────────────────────────────────────────────────────
+  if ((lower.includes('perf') || lower.includes('präteritum')) && (lower.includes('vs') || lower.includes('versus') || lower.includes('or präteritum') || lower.includes('compared') || lower.includes('when to use'))) return 'de_perf_vs_prat';
+  if (lower.includes('perfekt') || lower.includes('conversational past') && lower.includes('german') || lower.includes('partizip ii') || lower.includes('past participle') && lower.includes('german') || lower.includes('haben + partizip') || lower.includes('sein + partizip')) return 'de_perfekt';
+  if (lower.includes('präteritum') || lower.includes('prateritum') || lower.includes('narrative past') && lower.includes('german') || lower.includes('simple past') && lower.includes('german') || lower.includes('war') && lower.includes('hatte') && lower.includes('german')) return 'de_prateritum';
+  if (lower.includes('futur') || lower.includes('future') && lower.includes('german') || lower.includes('werden +') || lower.includes('futur i')) return 'de_futur';
+  if (lower.includes('konjunktiv') || lower.includes('konjunktiv ii') || lower.includes('subjunctive') && lower.includes('german') || lower.includes('würde') || lower.includes('conditional') && lower.includes('german')) return 'de_konjunktiv2';
+
+  // ── Grammar rules ─────────────────────────────────────────────────────────
+  if (lower.includes('vernein') || lower.includes('negation') && lower.includes('german') || lower.includes('nicht') && lower.includes('kein') || lower.includes('kein/keine') || lower.includes('nicht/kein')) return 'de_negation';
+  if ((lower.includes('der die das') || lower.includes('bestimmte') || lower.includes('definite article') && lower.includes('german') || lower.includes('gender') && lower.includes('german') && !lower.includes('indefinite') && !lower.includes('kein')) && !lower.includes('kein')) return 'de_definite_articles';
+  if (lower.includes('ein eine') || lower.includes('unbestimmte') || lower.includes('indefinite article') && lower.includes('german') || lower.includes('kein/keine') && lower.includes('ein/eine')) return 'de_indefinite_articles';
+  if (lower.includes('adjektivend') || lower.includes('adjective ending') && lower.includes('german') || lower.includes('adjektiv') && lower.includes('endung') || lower.includes('weak ending') || lower.includes('strong ending') && lower.includes('german')) return 'de_adj_endings';
+  if (lower.includes('akkusativ') || lower.includes('accusative') && lower.includes('german') || lower.includes('direct object') && lower.includes('german') || lower.includes('den/die/das') || (lower.includes('akk') && lower.includes('german'))) return 'de_accusative';
+  if (lower.includes('dativ') || lower.includes('dative') && lower.includes('german') || lower.includes('indirect object') && lower.includes('german') || lower.includes('dem/der/dem') || (lower.includes('dat') && lower.includes('german') && !lower.includes('dat '))) return 'de_dative';
+  if (lower.includes('vier fälle') || lower.includes('four cases') && lower.includes('german') || lower.includes('nominativ') || lower.includes('genitiv') || (lower.includes('case') && lower.includes('german') && !lower.includes('accusative') && !lower.includes('dative') && !lower.includes('adjective')) || lower.includes('wechselpräp')) return 'de_cases_overview';
+  if (lower.includes('trennbar') || lower.includes('separable verb') && lower.includes('german') || lower.includes('trennbare') || lower.includes('aufmachen') || lower.includes('anrufen') && lower.includes('german') || lower.includes('prefix') && lower.includes('german') && lower.includes('verb')) return 'de_separable_verbs';
+  if (lower.includes('wortstellung') || lower.includes('word order') && lower.includes('german') || lower.includes('verb second') || lower.includes('v2') && lower.includes('german') || lower.includes('nebensatz') || lower.includes('hauptsatz') && lower.includes('verb') || lower.includes('verb final') && lower.includes('german')) return 'de_word_order';
+  if (lower.includes('fragen') || lower.includes('question') && lower.includes('german') || lower.includes('w-frage') || lower.includes('fragewort') || lower.includes('ja/nein') || lower.includes('wer/was/wo') || lower.includes('wohin') && lower.includes('woher')) return 'de_questions';
+  if (lower.includes('personalpron') || lower.includes('personal pronoun') && lower.includes('german') || lower.includes('du/sie') || lower.includes('ich/du') || lower.includes('pronoun') && lower.includes('german') && !lower.includes('reflexive')) return 'de_pronouns';
+
+  // ── Cultural ─────────────────────────────────────────────────────────────
+  if (lower.includes('dach') || lower.includes('deutschsprachig') || lower.includes('german-speaking world') || lower.includes('german speaking world') || lower.includes('österreich') && lower.includes('schweiz') && lower.includes('world') || lower.includes('wo wird deutsch') || lower.includes('wo spricht man deutsch')) return 'de_world_map';
+  if ((lower.includes('feiertag') || lower.includes('holiday') && lower.includes('german') || lower.includes('oktoberfest') || lower.includes('weihnacht') || lower.includes('ostern') && lower.includes('german') || lower.includes('festival') && lower.includes('german')) && !lower.includes('swiss')) return 'de_holidays';
+  if (lower.includes('deutsche küche') || lower.includes('german food') || lower.includes('german cuisine') || lower.includes('bayerisch') && lower.includes('essen') || lower.includes('weißwurst') || lower.includes('brot') && lower.includes('german') || lower.includes('wiener schnitzel')) return 'de_food_guide';
+  if (lower.includes('deutsch') && lower.includes('dialekt') || lower.includes('german dialect') || lower.includes('bairisch') || lower.includes('plattdeutsch') || lower.includes('kölsch') && lower.includes('dialect') || lower.includes('hochdeutsch') && lower.includes('dialekt')) return 'de_dialects';
+  if (lower.includes('etikette') && lower.includes('deutsch') || lower.includes('german etiquette') || lower.includes('german greeting') || lower.includes('german culture') && (lower.includes('greet') || lower.includes('formal') || lower.includes('du/sie')) || lower.includes('pünktlichkeit') || lower.includes('german formal')) return 'de_etiquette';
+  if (lower.includes('euro') && lower.includes('german') || lower.includes('währung') || lower.includes('german currency') || lower.includes('schweizer franken') || lower.includes('chf') && lower.includes('german') || lower.includes('currency') && lower.includes('german')) return 'de_currency';
+  if (lower.includes('geste') && lower.includes('deutsch') || lower.includes('german gesture') || lower.includes('german body language') || lower.includes('tischklopfen') || lower.includes('german cultural gesture')) return 'de_gestures';
+
+  // ── Word families ─────────────────────────────────────────────────────────
+  if (lower.includes('wortfamilie') || lower.includes('word family') && lower.includes('german') || lower.includes('deutsch') && lower.includes('word family') || lower.includes('wortbildung') || lower.includes('wortstamm')) return 'de_word_family';
+
+  // ── Phonetics ─────────────────────────────────────────────────────────────
+  if (lower.includes('umlaut') || lower.includes('ä') && lower.includes('ö') && lower.includes('ü') || lower.includes('ö/ü/ä') || lower.includes('umlautvokal')) return 'de_umlauts';
+  if (lower.includes('eszett') || lower.includes('scharfes s') || lower.includes(' ß ') || lower.startsWith('ß') || lower.includes('ß vs ss') || lower.includes('ss vs ß')) return 'de_eszett';
+  if (lower.includes('german r') || lower.includes('uvular r') && lower.includes('german') || lower.includes('das r ') && lower.includes('deutsch') || lower.includes('german r sound') || lower.includes('r sound') && lower.includes('german')) return 'de_german_r';
+  if (lower.includes(' ch ') || lower.includes('ich-laut') || lower.includes('ach-laut') || lower.includes('das ch') || lower.includes('ch sound') && lower.includes('german')) return 'de_ch_sound';
+  if (lower.includes('langer vokal') || lower.includes('kurzer vokal') || lower.includes('long vowel') && lower.includes('german') || lower.includes('short vowel') && lower.includes('german') || lower.includes('vowel length') && lower.includes('german')) return 'de_long_short_vowels';
+  if (lower.includes('german w') || lower.includes('das w ') && lower.includes('german') || lower.includes('w vs v') && lower.includes('german') || lower.includes('w und v') || lower.includes('v sound') && lower.includes('german')) return 'de_w_v_sound';
+  if (lower.includes('sp/st') || lower.includes('konsonantencluster') || lower.includes('consonant cluster') && lower.includes('german') || lower.includes('sch sound') || lower.includes('german z') || (lower.includes('sp ') && lower.includes('st ') && lower.includes('german'))) return 'de_consonant_clusters';
+  if (lower.includes('wortakzent') || lower.includes('word stress') && lower.includes('german') || lower.includes('german stress') || lower.includes('betonung') && lower.includes('deutsch') || lower.includes('german accent') && lower.includes('syllable')) return 'de_word_stress';
+  if (lower.includes('diphthong') && lower.includes('german') || lower.includes('ei/au/eu') || lower.includes('german diphthong') || lower.includes('ei vs ie') || lower.includes('au/eu') && lower.includes('german')) return 'de_diphthongs';
+  if (lower.includes('pronunciation') && lower.includes('german') || lower.includes('aussprache') || lower.includes('phonetic') && lower.includes('german') || lower.includes('german sound') || lower.includes('deutsch aussprache')) return 'de_umlauts'; // default entry
+
+  return null;
+}
+
 function classifyGrammarType(title: string, language = 'spanish'): GrammarChapterType | null {
   if (language === 'french') return classifyFrenchGrammarType(title);
   if (language === 'portuguese') return classifyPortugueseGrammarType(title);
+  if (language === 'german') return classifyGermanGrammarType(title);
 
   const lower = title.toLowerCase();
 
@@ -559,6 +664,49 @@ const GRAMMAR_LABELS: Record<GrammarChapterType, { title: string; subtitle: stri
   pt_eu_vs_br:           { title: 'EU-PT vs BR-PT', subtitle: 'The 10 biggest pronunciation differences between European and Brazilian Portuguese' },
   pt_linking:            { title: 'Ligação Fonética', subtitle: 'Linking sounds and mandatory contractions that make Portuguese flow as one stream' },
   pt_intonation:         { title: 'Entoação Portuguesa', subtitle: 'Rising vs falling patterns — and the distinct melody of each regional accent' },
+  // ── GERMAN Section 3 — Grammar ────────────────────────────────────────────
+  de_sein:               { title: 'Sein — To Be', subtitle: 'Fully irregular — all 6 present forms + uses of sein + Perfekt auxiliary rule' },
+  de_haben:              { title: 'Haben — To Have', subtitle: 'Slightly irregular — possession, feelings, and Perfekt auxiliary for most verbs' },
+  de_werden:             { title: 'Werden — To Become / Will / Would', subtitle: 'Triple function: to become, Futur I helper, Konjunktiv II base' },
+  de_regular_verbs:      { title: 'Regular -EN Verbs', subtitle: 'Present tense endings for all regular German verbs — the core pattern' },
+  de_modal_verbs:        { title: 'Modalverben — Modal Verbs', subtitle: 'können, müssen, wollen, sollen, dürfen, mögen — full conjugation chart' },
+  de_reflexive:          { title: 'Reflexive Verben', subtitle: 'Accusative and dative reflexive pronouns + common reflexive verbs' },
+  de_perfekt:            { title: 'Das Perfekt — Conversational Past', subtitle: 'haben/sein + Partizip II — how to form it and when to use each auxiliary' },
+  de_prateritum:         { title: 'Das Präteritum — Narrative Past', subtitle: 'Simple past for writing, formal speech, and the key verbs sein/haben/modals' },
+  de_perf_vs_prat:       { title: 'Perfekt vs. Präteritum', subtitle: 'When to use each — spoken vs. written, regional differences, and the always-Präteritum verbs' },
+  de_futur:              { title: 'Futur I — Future Tense', subtitle: 'werden + infinitive — and when Präsens replaces it in everyday speech' },
+  de_konjunktiv2:        { title: 'Konjunktiv II — The Subjunctive', subtitle: 'würde, wäre, hätte — hypotheticals, polite requests, and unreal conditions' },
+  de_negation:           { title: 'Verneinung — Negation', subtitle: 'nicht (negates verbs/adjectives) vs. kein (negates nouns) — position rules' },
+  de_definite_articles:  { title: 'Der, Die, Das — Definite Articles', subtitle: 'Article declension across all 4 cases + gender-predicting suffixes' },
+  de_indefinite_articles:{ title: 'Ein, Eine — Indefinite Articles', subtitle: 'Indefinite article + kein/keine across all 4 cases' },
+  de_adj_endings:        { title: 'Adjektivendungen — Adjective Endings', subtitle: 'Weak (after definite) vs. mixed (after indefinite) adjective ending tables' },
+  de_accusative:         { title: 'Der Akkusativ — Direct Object', subtitle: 'Only masculine changes nom→akk; accusative-only prepositions (durch/für/gegen/ohne/um)' },
+  de_dative:             { title: 'Der Dativ — Indirect Object', subtitle: 'All article forms change; dative-only prepositions (aus/bei/mit/nach/seit/von/zu)' },
+  de_cases_overview:     { title: 'Die vier Fälle — Four Cases', subtitle: 'Nominativ / Akkusativ / Dativ / Genitiv — and two-way prepositions (Wechselpräpositionen)' },
+  de_separable_verbs:    { title: 'Trennbare Verben — Separable Verbs', subtitle: 'Prefix detaches and moves to end of clause — common prefixes and patterns' },
+  de_word_order:         { title: 'Wortstellung — Word Order', subtitle: 'Verb-second (V2) in main clauses; verb-final in subordinate clauses after weil/dass/wenn' },
+  de_questions:          { title: 'Fragen — Questions', subtitle: 'Ja/Nein questions (verb first) and W-Fragen (Wer, Was, Wo, Wann, Wie, Warum…)' },
+  de_pronouns:           { title: 'Personalpronomen — Personal Pronouns', subtitle: 'Nominativ / Akkusativ / Dativ forms for all persons + du vs. Sie formality' },
+  // ── GERMAN Section 5 — Cultural ───────────────────────────────────────────
+  de_world_map:          { title: 'Die deutschsprachige Welt — DACH & Beyond', subtitle: '~100 million native speakers · 6 countries · Germany, Austria, Switzerland & more' },
+  de_holidays:           { title: 'Feiertage & Feste — German Holidays', subtitle: '9 nationwide holidays + regional ones — Oktoberfest, Karneval, Weihnachtsmärkte' },
+  de_food_guide:         { title: 'Deutsche Küche — German Cuisine', subtitle: 'Regional specialties across Deutschland · Österreich · Schweiz — Brot, Wurst, Käse, Bier' },
+  de_dialects:           { title: 'Deutsche Dialekte — Dialect Zones', subtitle: 'Hochdeutsch · Bairisch · Plattdeutsch · Kölsch · Schweizerdeutsch — same script, different voices' },
+  de_etiquette:          { title: 'Etikette — German Etiquette', subtitle: 'Pünktlichkeit, du/Sie formality, direct communication — core German cultural values' },
+  de_currency:           { title: 'Währungen — DACH Currencies', subtitle: 'Euro (DE/AT/LU) and Swiss Franc (CH/LI) — with denominations and practical tips' },
+  de_gestures:           { title: 'Gesten — German Body Language', subtitle: 'Tischklopfen at lectures, Prost eye-contact rules, and gestures to avoid' },
+  // ── GERMAN Section 6 — Word families ──────────────────────────────────────
+  de_word_family:        { title: 'Wortfamilien — German Word Families', subtitle: 'Root verb + derived nouns, adjectives, and compounds — the building blocks of German vocabulary' },
+  // ── GERMAN Section 8 — Phonetics ──────────────────────────────────────────
+  de_umlauts:            { title: 'Umlaute — Ä, Ö, Ü', subtitle: 'How to pronounce the three modified German vowels + typing substitutions (ae/oe/ue)' },
+  de_eszett:             { title: 'Das ß — Eszett / Scharfes S', subtitle: 'When to write ß vs. ss — long vowel rule + Swiss German always uses ss' },
+  de_german_r:           { title: 'Das Deutsche R', subtitle: 'Uvular fricative [ʁ] vs. vocalic -er at word end — how to produce it' },
+  de_ch_sound:           { title: 'Das CH — Ich-Laut vs. Ach-Laut', subtitle: '[ç] after front vowels (ich) vs. [x] after back vowels (ach) — same letters, two sounds' },
+  de_long_short_vowels:  { title: 'Lange und kurze Vokale', subtitle: 'Vowel length changes meaning — markers of long (aa, ah, -h) vs. short (double consonant) vowels' },
+  de_w_v_sound:          { title: 'W und V — Common Confusion', subtitle: 'German W = English V. German V = English F (usually). Loanword exceptions.' },
+  de_consonant_clusters: { title: 'SP, ST, Z, SCH — Key Consonants', subtitle: 'SP/ST at word start = "shp"/"sht"; Z = "ts"; SCH = "sh"; TH = "t"' },
+  de_word_stress:        { title: 'Wortakzent — Word Stress', subtitle: 'Root syllable stressed in native words; prefix stressed in separable verbs; not in inseparable prefixes' },
+  de_diphthongs:         { title: 'Diphthonge — EI, AU, EU/ÄU', subtitle: 'EI=[aɪ], AU=[aʊ], EU/ÄU=[ɔɪ] — and the critical EI vs. IE distinction' },
 };
 
 function resolveFrenchWordFamilyCard(title?: string): JSX.Element {
@@ -589,6 +737,18 @@ const GRAMMAR_LABELS_PT: Partial<Record<GrammarChapterType, { title: string; sub
   country_dot_map:  { title: 'Os Países Lusófonos', subtitle: 'Where Portuguese is spoken around the world — 10 countries across 4 continents' },
 };
 
+const GRAMMAR_LABELS_DE: Partial<Record<GrammarChapterType, { title: string; subtitle: string }>> = {
+  weather_vocab:    { title: 'Das Wetter — Wettervokabular', subtitle: 'All 10 weather conditions with German expressions — the same icons used in lessons' },
+  emotions_vocab:   { title: 'Gefühle — Emotionen', subtitle: 'All 11 emotion faces with German labels — the same faces used in lessons' },
+  telling_time:     { title: 'Die Uhrzeit — Wie spät ist es?', subtitle: 'Analog clocks + key German time patterns and parts-of-day vocabulary' },
+  days_week:        { title: 'Tage, Monate und Kalender', subtitle: 'Days of the week, months of the year, and German date expressions' },
+  body_parts:       { title: 'Der Körper — Körperteile', subtitle: 'Body diagram + complete German vocabulary reference — same diagram used in lessons' },
+  face_parts:       { title: 'Das Gesicht — Gesichtsteile', subtitle: 'Face close-up + full German vocabulary for facial features' },
+  hand_parts:       { title: 'Die Hand — Finger und Handfläche', subtitle: 'Hand diagram + German vocabulary for fingers, palm, and wrist' },
+  temperature_vocab:{ title: 'Die Temperatur', subtitle: 'Temperature scale in German — same thermometer used in lessons' },
+  country_dot_map:  { title: 'Die deutschsprachige Welt', subtitle: 'Where German is spoken around the world — DACH + Liechtenstein, Luxembourg, South Tyrol & minorities' },
+};
+
 const GRAMMAR_LABELS_FR: Partial<Record<GrammarChapterType, { title: string; subtitle: string }>> = {
   weather_vocab:    { title: 'La Météo — Le Temps qu\'il fait', subtitle: 'All 10 weather conditions with French expressions — the same icons used in lessons' },
   emotions_vocab:   { title: 'Les Émotions — Les Sentiments', subtitle: 'All 11 emotion faces with French labels — the same faces used in lessons' },
@@ -605,7 +765,8 @@ function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spa
   const baseLabel = GRAMMAR_LABELS[type];
   const frLabel = language === 'french' ? GRAMMAR_LABELS_FR[type] : undefined;
   const ptLabel = language === 'portuguese' ? GRAMMAR_LABELS_PT[type] : undefined;
-  const { title, subtitle } = ptLabel ?? frLabel ?? baseLabel;
+  const deLabel = language === 'german' ? GRAMMAR_LABELS_DE[type] : undefined;
+  const { title, subtitle } = deLabel ?? ptLabel ?? frLabel ?? baseLabel;
   const wordFamilyRoot = type === 'word_family' && chapterTitle ? resolveWordFamilyRoot(chapterTitle) : null;
 
   return (
@@ -672,15 +833,15 @@ function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spa
       {type === 'word_family' && <WordFamilyCard root={wordFamilyRoot ?? 'hablar'} />}
 
       {/* Section 7 — Canvas vocabulary cards (same SVG renderers as /chat) */}
-      {type === 'weather_vocab'    && <WeatherVocabCard     language={language as 'spanish' | 'french' | 'portuguese'} />}
-      {type === 'emotions_vocab'   && <EmotionsVocabCard    language={language as 'spanish' | 'french' | 'portuguese'} />}
-      {type === 'telling_time'     && <TimeVocabCard        language={language as 'spanish' | 'french' | 'portuguese'} />}
-      {type === 'days_week'        && <DaysOfWeekCard       language={language as 'spanish' | 'french' | 'portuguese'} />}
-      {type === 'body_parts'       && <BodyPartsCard        language={language as 'spanish' | 'french' | 'portuguese'} />}
-      {type === 'face_parts'       && <FacePartsCard        language={language as 'spanish' | 'french' | 'portuguese'} />}
-      {type === 'hand_parts'       && <HandPartsCard        language={language as 'spanish' | 'french' | 'portuguese'} />}
-      {type === 'temperature_vocab'&& <ThermometerVocabCard language={language as 'spanish' | 'french' | 'portuguese'} />}
-      {type === 'country_dot_map'  && (language === 'french' ? <FrancophoneWorldMapCard /> : language === 'portuguese' ? <LusophoneWorldMapCard /> : <CountryDotMapCard />)}
+      {type === 'weather_vocab'    && <WeatherVocabCard     language={language as 'spanish' | 'french' | 'portuguese' | 'german'} />}
+      {type === 'emotions_vocab'   && <EmotionsVocabCard    language={language as 'spanish' | 'french' | 'portuguese' | 'german'} />}
+      {type === 'telling_time'     && <TimeVocabCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german'} />}
+      {type === 'days_week'        && <DaysOfWeekCard       language={language as 'spanish' | 'french' | 'portuguese' | 'german'} />}
+      {type === 'body_parts'       && <BodyPartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german'} />}
+      {type === 'face_parts'       && <FacePartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german'} />}
+      {type === 'hand_parts'       && <HandPartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german'} />}
+      {type === 'temperature_vocab'&& <ThermometerVocabCard language={language as 'spanish' | 'french' | 'portuguese' | 'german'} />}
+      {type === 'country_dot_map'  && (language === 'french' ? <FrancophoneWorldMapCard /> : language === 'portuguese' ? <LusophoneWorldMapCard /> : language === 'german' ? <GermanSpeakingWorldCard /> : <CountryDotMapCard />)}
 
       {/* Section 8 — Phonetics */}
       {type === 'vowel_purity' && <VowelPurityCard />}
@@ -790,6 +951,53 @@ function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spa
       {type === 'pt_eu_vs_br' && <PtEuVsBrCard />}
       {type === 'pt_linking' && <PtLinkingCard />}
       {type === 'pt_intonation' && <PtIntonationCard />}
+
+      {/* ── GERMAN Section 3 — Grammar ───────────────────────────────────── */}
+      {type === 'de_sein' && <DeSeinCard />}
+      {type === 'de_haben' && <DeHabenCard />}
+      {type === 'de_werden' && <DeWerdenCard />}
+      {type === 'de_regular_verbs' && <DeRegularVerbsCard />}
+      {type === 'de_modal_verbs' && <DeModalVerbsCard />}
+      {type === 'de_reflexive' && <DeReflexiveCard />}
+      {type === 'de_perfekt' && <DePerfektCard />}
+      {type === 'de_prateritum' && <DePrateritumCard />}
+      {type === 'de_perf_vs_prat' && <DePerfVsPratCard />}
+      {type === 'de_futur' && <DeFuturCard />}
+      {type === 'de_konjunktiv2' && <DeKonjunktiv2Card />}
+      {type === 'de_negation' && <DeNegationCard />}
+      {type === 'de_definite_articles' && <DeDefiniteArticlesCard />}
+      {type === 'de_indefinite_articles' && <DeIndefiniteArticlesCard />}
+      {type === 'de_adj_endings' && <DeAdjEndingsCard />}
+      {type === 'de_accusative' && <DeAccusativeCard />}
+      {type === 'de_dative' && <DeDativeCard />}
+      {type === 'de_cases_overview' && <DeCasesOverviewCard />}
+      {type === 'de_separable_verbs' && <DeSeparableVerbsCard />}
+      {type === 'de_word_order' && <DeWordOrderCard />}
+      {type === 'de_questions' && <DeQuestionsCard />}
+      {type === 'de_pronouns' && <DePronounsCard />}
+
+      {/* ── GERMAN Section 5 — Cultural ───────────────────────────────────── */}
+      {type === 'de_world_map' && <GermanSpeakingWorldCard />}
+      {type === 'de_holidays' && <GermanHolidayCalendarCard />}
+      {type === 'de_food_guide' && <GermanFoodGuideCard />}
+      {type === 'de_dialects' && <GermanDialectCard />}
+      {type === 'de_etiquette' && <GermanEtiquetteCard />}
+      {type === 'de_currency' && <GermanCurrencyCard />}
+      {type === 'de_gestures' && <GermanGestureCard />}
+
+      {/* ── GERMAN Section 6 — Word families ─────────────────────────────── */}
+      {type === 'de_word_family' && resolveDeFamilyCard(chapterTitle ?? '')}
+
+      {/* ── GERMAN Section 8 — Phonetics ─────────────────────────────────── */}
+      {type === 'de_umlauts' && <DeUmlautsCard />}
+      {type === 'de_eszett' && <DeEszettCard />}
+      {type === 'de_german_r' && <DeGermanRCard />}
+      {type === 'de_ch_sound' && <DeChSoundCard />}
+      {type === 'de_long_short_vowels' && <DeLongShortVowelsCard />}
+      {type === 'de_w_v_sound' && <DeWVSoundCard />}
+      {type === 'de_consonant_clusters' && <DeConsonantClustersCard />}
+      {type === 'de_word_stress' && <DeWordStressCard />}
+      {type === 'de_diphthongs' && <DeDiphthongsCard />}
 
       <div className="flex items-center gap-2 text-sm text-muted-foreground justify-center">
         <Users className="h-4 w-4" />
