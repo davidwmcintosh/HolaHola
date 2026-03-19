@@ -2622,15 +2622,12 @@ export class DatabaseStorage implements IStorage {
 
   // Image Caching - for reducing API costs and improving speed
   async getCachedStockImage(searchQuery: string): Promise<MediaFile | undefined> {
+    // Looks up any cached image by searchQuery regardless of imageSource —
+    // covers both 'stock' (legacy/external) and 'ai_generated' (our seeded vocab images)
     const result = await db
       .select()
       .from(mediaFiles)
-      .where(
-        and(
-          eq(mediaFiles.imageSource, "stock"),
-          eq(mediaFiles.searchQuery, searchQuery)
-        )
-      )
+      .where(eq(mediaFiles.searchQuery, searchQuery))
       .limit(1);
     return result[0];
   }

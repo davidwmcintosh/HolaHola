@@ -55,10 +55,10 @@ async function seedMediaFile(
   title: string,
   description: string
 ) {
-  // Check if already exists
+  // Check if already exists (match on searchQuery regardless of imageSource)
   const existing = await db.execute(sql`
     SELECT id FROM media_files
-    WHERE image_source = 'stock' AND search_query = ${searchQuery}
+    WHERE search_query = ${searchQuery}
     LIMIT 1
   `);
   if (existing.rows.length > 0) {
@@ -74,9 +74,9 @@ async function seedMediaFile(
       usage_count, created_at
     ) VALUES (
       gen_random_uuid(), 'image', ${url}, ${filename}, 'image/png',
-      'stock', ${searchQuery},
+      'ai_generated', ${searchQuery},
       ${title}, ${description},
-      'spanish', ARRAY['vocabulary','novice_low','people','section1'],
+      'spanish', ARRAY['vocabulary','novice_low','section1'],
       0, NOW()
     )
   `);
