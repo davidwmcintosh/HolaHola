@@ -494,6 +494,7 @@ const EMOTION_EXPRESSIONS: Record<LangCode, [string, string][]> = {
     ['我很兴奋！', 'I\'m very excited!'],
     ['你为什么生气？', 'Why are you angry?'],
     ['我感觉不舒服。', 'I don\'t feel well.'],
+  ],
   hebrew: [
     ['איך אתה מרגיש?', 'How do you feel?'],
     ['אני מרגיש שמח / עצוב.', 'I feel happy / sad.'],
