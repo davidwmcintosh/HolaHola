@@ -104,7 +104,7 @@ export function JapaneseHolidayCalendarCard() {
     { date: 'May 3–5', jp: 'ゴールデンウィーク', en: 'Golden Week', note: 'Constitution Day (5/3), Greenery Day (5/4), Children\'s Day (5/5)' },
     { date: 'Jul (3rd Mon)', jp: '海の日 (Umi no Hi)', en: 'Marine Day', note: 'Celebrates the ocean and Japan\'s island geography' },
     { date: 'Aug 11', jp: '山の日 (Yama no Hi)', en: 'Mountain Day', note: 'Newest holiday (since 2016); celebrates mountains' },
-    { date: 'Mid-Aug', jp: 'お盆 (O-Bon)', en: 'Bon Festival', note: 'Not a national holiday but widely observed; honors ancestors' spirits; lanterns, dances' },
+    { date: 'Mid-Aug', jp: 'お盆 (O-Bon)', en: 'Bon Festival', note: 'Not a national holiday but widely observed; honors ancestors\' spirits; lanterns, dances' },
     { date: 'Sep (3rd Mon)', jp: '敬老の日 (Keirō no Hi)', en: 'Respect for the Aged Day', note: 'Honors elderly citizens; Japan has world\'s oldest population' },
     { date: 'Nov 3', jp: '文化の日 (Bunka no Hi)', en: 'Culture Day', note: 'Celebrates arts and culture; many museums free' },
     { date: 'Dec 31', jp: '大晦日 (Ōmisoka)', en: 'New Year\'s Eve', note: 'Temple bells ring 108 times (除夜の鐘); soba noodles eaten for longevity' },

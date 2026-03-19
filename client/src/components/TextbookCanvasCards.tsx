@@ -64,7 +64,7 @@ function MiniEmotionFace({ emotion, size = 60 }: { emotion: string; size?: numbe
 
 // ─── Language label helpers ───────────────────────────────────────────────────
 
-type LangCode = 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean' | 'mandarin';
+type LangCode = 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean' | 'mandarin' | 'hebrew';
 
 // ─── 1. Weather Vocabulary Card ───────────────────────────────────────────────
 
@@ -174,6 +174,19 @@ const WEATHER_VOCAB_ZH: WeatherEntry[] = [
   { condition: 'foggy',        label: '有雾 (yǒu wù) — Yǒu Wù',           english: 'It\'s foggy' },
 ];
 
+const WEATHER_VOCAB_HE: WeatherEntry[] = [
+  { condition: 'sunny',        label: 'שמשי (shamshi)',                    english: 'It\'s sunny' },
+  { condition: 'hot',          label: 'חם מאוד (kham me\'od)',             english: 'It\'s very hot' },
+  { condition: 'cold',         label: 'קר (kar)',                          english: 'It\'s cold' },
+  { condition: 'cloudy',       label: 'מעונן (me\'unan)',                  english: 'It\'s cloudy' },
+  { condition: 'partly_cloudy',label: 'מעונן חלקית (me\'unan khalkit)',    english: 'Partly cloudy' },
+  { condition: 'rainy',        label: 'גשום (gashuam) / יורד גשם',        english: 'It\'s raining' },
+  { condition: 'stormy',       label: 'סוער (so\'er)',                     english: 'There\'s a storm' },
+  { condition: 'snowy',        label: 'יורד שלג (yored sheleg)',           english: 'It\'s snowing' },
+  { condition: 'windy',        label: 'רוח חזקה (ruakh khazaka)',          english: 'It\'s windy' },
+  { condition: 'foggy',        label: 'ערפילי (arplili)',                  english: 'It\'s foggy' },
+];
+
 const WEATHER_EXPRESSIONS: Record<LangCode, [string, string][]> = {
   spanish: [
     ['¿Qué tiempo hace?', 'What\'s the weather like?'],
@@ -239,12 +252,20 @@ const WEATHER_EXPRESSIONS: Record<LangCode, [string, string][]> = {
     ['晴天 / 多云 / 有风。', 'It\'s sunny / cloudy / windy.'],
     ['天气预报说…', 'The forecast says…'],
   ],
+  hebrew: [
+    ['מה מזג האוויר?', 'What\'s the weather like?'],
+    ['מזג האוויר נחמד.', 'The weather is nice.'],
+    ['מזג האוויר רע.', 'The weather is bad.'],
+    ['כמה מעלות יש?', 'How many degrees is it?'],
+    ['שמשי / מעונן / רוח חזקה.', 'It\'s sunny / cloudy / windy.'],
+    ['תחזית מזג האוויר אומרת...', 'The forecast says...'],
+  ],
 };
 
 export function WeatherVocabCard({ language = 'spanish' }: { language?: LangCode }) {
-  const vocab = language === 'french' ? WEATHER_VOCAB_FR : language === 'portuguese' ? WEATHER_VOCAB_PT : language === 'german' ? WEATHER_VOCAB_DE : language === 'italian' ? WEATHER_VOCAB_IT : language === 'japanese' ? WEATHER_VOCAB_JA : language === 'korean' ? WEATHER_VOCAB_KO : language === 'mandarin' ? WEATHER_VOCAB_ZH : WEATHER_VOCAB_ES;
+  const vocab = language === 'french' ? WEATHER_VOCAB_FR : language === 'portuguese' ? WEATHER_VOCAB_PT : language === 'german' ? WEATHER_VOCAB_DE : language === 'italian' ? WEATHER_VOCAB_IT : language === 'japanese' ? WEATHER_VOCAB_JA : language === 'korean' ? WEATHER_VOCAB_KO : language === 'mandarin' ? WEATHER_VOCAB_ZH : language === 'hebrew' ? WEATHER_VOCAB_HE : WEATHER_VOCAB_ES;
   const exprs = WEATHER_EXPRESSIONS[language] ?? WEATHER_EXPRESSIONS.spanish;
-  const sectionTitle = language === 'french' ? 'La Météo — Weather Conditions' : language === 'portuguese' ? 'O Tempo — Weather Conditions' : language === 'german' ? 'Das Wetter — Weather Conditions' : language === 'italian' ? 'Il Tempo — Condizioni Meteorologiche' : language === 'japanese' ? '天气 — Weather Conditions' : language === 'korean' ? '날씨 — Weather Conditions' : language === 'mandarin' ? '天气 — Weather Conditions' : 'El Tiempo — Weather Conditions';
+  const sectionTitle = language === 'french' ? 'La Météo — Weather Conditions' : language === 'portuguese' ? 'O Tempo — Weather Conditions' : language === 'german' ? 'Das Wetter — Weather Conditions' : language === 'italian' ? 'Il Tempo — Condizioni Meteorologiche' : language === 'japanese' ? '天气 — Weather Conditions' : language === 'korean' ? '날씨 — Weather Conditions' : language === 'mandarin' ? 'Weather Conditions' : language === 'hebrew' ? 'Weather Conditions' : 'El Tiempo — Weather Conditions';
   return (
     <Card>
       <CardContent className="p-4 md:p-6">
@@ -394,6 +415,21 @@ const EMOTIONS_VOCAB_ZH: EmotionEntry[] = [
   { emotion: 'bored',     label: '无聊 (wúliáo) — Wúliáo',            english: 'bored' },
 ];
 
+
+const EMOTIONS_VOCAB_HE: EmotionEntry[] = [
+  { emotion: 'happy',     label: 'שמח (sameʻakh)',                  english: 'happy' },
+  { emotion: 'excited',   label: 'נרגש (nirgas)',                   english: 'excited' },
+  { emotion: 'sad',       label: 'עצוב (atzuv)',                    english: 'sad' },
+  { emotion: 'angry',     label: 'כועס (khoʻes)',              english: 'angry' },
+  { emotion: 'surprised', label: 'מופתע (mufta)',              english: 'surprised' },
+  { emotion: 'afraid',    label: 'פוחד (pokhad)',                   english: 'afraid' },
+  { emotion: 'confused',  label: 'מבולבל (mevulval)',    english: 'confused' },
+  { emotion: 'tired',     label: 'עיף (ʻayef)',                     english: 'tired' },
+  { emotion: 'nervous',   label: 'עצבני (atzabni)',           english: 'nervous' },
+  { emotion: 'disgusted', label: 'ניאוץ (niʻots)',       english: 'disgusted' },
+  { emotion: 'bored',     label: 'משועמם (meshoaʻam)', english: 'bored' },
+];
+
 const EMOTION_EXPRESSIONS: Record<LangCode, [string, string][]> = {
   spanish: [
     ['¿Cómo te sientes?', 'How do you feel?'],
@@ -458,13 +494,20 @@ const EMOTION_EXPRESSIONS: Record<LangCode, [string, string][]> = {
     ['我很兴奋！', 'I\'m very excited!'],
     ['你为什么生气？', 'Why are you angry?'],
     ['我感觉不舒服。', 'I don\'t feel well.'],
+  hebrew: [
+    ['איך אתה מרגיש?', 'How do you feel?'],
+    ['אני מרגיש שמח / עצוב.', 'I feel happy / sad.'],
+    ['אני עיף.', 'I am tired.'],
+    ['אני או נרגש!', "I'm very excited!"],
+    ['למה אתה כועס?', 'Why are you angry?'],
+    ['אני לא מרגיש טוב.', "I don't feel well."],
   ],
 };
 
 export function EmotionsVocabCard({ language = 'spanish' }: { language?: LangCode }) {
-  const vocab = language === 'french' ? EMOTIONS_VOCAB_FR : language === 'portuguese' ? EMOTIONS_VOCAB_PT : language === 'german' ? EMOTIONS_VOCAB_DE : language === 'italian' ? EMOTIONS_VOCAB_IT : language === 'japanese' ? EMOTIONS_VOCAB_JA : language === 'korean' ? EMOTIONS_VOCAB_KO : language === 'mandarin' ? EMOTIONS_VOCAB_ZH : EMOTIONS_VOCAB_ES;
+  const vocab = language === 'french' ? EMOTIONS_VOCAB_FR : language === 'portuguese' ? EMOTIONS_VOCAB_PT : language === 'german' ? EMOTIONS_VOCAB_DE : language === 'italian' ? EMOTIONS_VOCAB_IT : language === 'japanese' ? EMOTIONS_VOCAB_JA : language === 'korean' ? EMOTIONS_VOCAB_KO : language === 'mandarin' ? EMOTIONS_VOCAB_ZH : language === 'hebrew' ? EMOTIONS_VOCAB_HE : EMOTIONS_VOCAB_ES;
   const exprs = EMOTION_EXPRESSIONS[language] ?? EMOTION_EXPRESSIONS.spanish;
-  const sectionTitle = language === 'french' ? 'Les Émotions — Feelings & Emotions' : language === 'portuguese' ? 'As Emoções — Feelings & Emotions' : language === 'german' ? 'Die Gefühle — Feelings & Emotions' : language === 'italian' ? 'Le Emozioni — Feelings & Emotions' : language === 'japanese' ? '感情 — Feelings & Emotions' : language === 'korean' ? '감정 — Feelings & Emotions' : language === 'mandarin' ? '情感 — Feelings & Emotions' : 'Las Emociones — Feelings & Emotions';
+  const sectionTitle = language === 'french' ? 'Les Émotions — Feelings & Emotions' : language === 'portuguese' ? 'As Emoções — Feelings & Emotions' : language === 'german' ? 'Die Gefühle — Feelings & Emotions' : language === 'italian' ? 'Le Emozioni — Feelings & Emotions' : language === 'japanese' ? '感情 — Feelings & Emotions' : language === 'korean' ? '감정 — Feelings & Emotions' : language === 'mandarin' ? 'Feelings & Emotions' : language === 'hebrew' ? 'רגשות — Feelings & Emotions' : 'Las Emociones — Feelings & Emotions';
   return (
     <Card>
       <CardContent className="p-4 md:p-6">
@@ -720,14 +763,21 @@ const TIME_DAY_PARTS: Record<LangCode, [string, string][]> = {
     ['晚上 (wǎnshang)', 'in the evening / at night'],
     ['几点…？', 'At what time…?'],
     ['[#]点 — [#]diǎn', 'at [#] o\'clock'],
+  hebrew: [
+    ['כמה השעה?', 'What time is it?'],
+    ['השעה שתיים בדיוק.', "It's exactly noon."],
+    ['איכב להיפגש בשלוש.', "Let's meet at 3 o'clock."],
+    ['בבוקר / בצהריים / בערב / בלילה', 'morning / noon / evening / night'],
+    ['חצי שעה / רבע שעה', 'half past / quarter past'],
+    ['אחרי הצהריים / לפני הצהריים', 'PM / AM'],
   ],
 };
 
 export function TimeVocabCard({ language = 'spanish' }: { language?: LangCode }) {
-  const vocab = language === 'french' ? TIME_VOCAB_FR : language === 'portuguese' ? TIME_VOCAB_PT : language === 'german' ? TIME_VOCAB_DE : language === 'italian' ? TIME_VOCAB_IT : language === 'japanese' ? TIME_VOCAB_JA : language === 'korean' ? TIME_VOCAB_KO : language === 'mandarin' ? TIME_VOCAB_ZH : TIME_VOCAB_ES;
+  const vocab = language === 'french' ? TIME_VOCAB_FR : language === 'portuguese' ? TIME_VOCAB_PT : language === 'german' ? TIME_VOCAB_DE : language === 'italian' ? TIME_VOCAB_IT : language === 'japanese' ? TIME_VOCAB_JA : language === 'korean' ? TIME_VOCAB_KO : language === 'mandarin' ? TIME_VOCAB_ZH : language === 'hebrew' ? TIME_VOCAB_HE : TIME_VOCAB_ES;
   const patterns = TIME_KEY_PATTERNS[language] ?? TIME_KEY_PATTERNS.spanish;
   const dayParts = TIME_DAY_PARTS[language] ?? TIME_DAY_PARTS.spanish;
-  const sectionTitle = language === 'french' ? "L'Heure — Telling Time" : language === 'portuguese' ? 'As Horas — Telling Time' : language === 'german' ? 'Die Uhrzeit — Telling Time' : language === 'italian' ? "L'Ora — Telling Time" : language === 'japanese' ? '時計 — Telling Time' : language === 'korean' ? '시계 — Telling Time' : language === 'mandarin' ? '时钟 — Telling Time' : 'La Hora — Telling Time';
+  const sectionTitle = language === 'french' ? "L'Heure — Telling Time" : language === 'portuguese' ? 'As Horas — Telling Time' : language === 'german' ? 'Die Uhrzeit — Telling Time' : language === 'italian' ? "L'Ora — Telling Time" : language === 'japanese' ? '時計 — Telling Time' : language === 'korean' ? '시계 — Telling Time' : language === 'mandarin' ? 'Telling Time' : language === 'hebrew' ? 'שעון — Telling Time' : 'La Hora — Telling Time';
   return (
     <Card>
       <CardContent className="p-4 md:p-6">
@@ -933,6 +983,26 @@ const DAYS_ZH: CalDay[] = [
   { abbr: '日', full: '星期日 (Xīngqīrì)', en: 'Sunday' },
 ];
 
+
+const MONTHS_HE: CalMonth[] = [
+  { label: 'ינואר (Yanuar)', en: 'January' }, { label: 'פברואר (Februar)', en: 'February' },
+  { label: 'מרץ (Merts)', en: 'March' }, { label: 'אפריל (April)', en: 'April' },
+  { label: 'מאי (Mai)', en: 'May' }, { label: 'יוני (Yuni)', en: 'June' },
+  { label: 'יולי (Yuli)', en: 'July' }, { label: 'אוגוסט (Ogust)', en: 'August' },
+  { label: 'ספטמבר (September)', en: 'September' }, { label: 'אוקטובר (Oktober)', en: 'October' },
+  { label: 'נובמבר (Novembar)', en: 'November' }, { label: 'דצמבר (Detsember)', en: 'December' },
+];
+
+const DAYS_HE: CalDay[] = [
+  { abbr: 'ב'', full: 'יום שני (Yom Sheni)', en: 'Monday' },
+  { abbr: 'ג'', full: 'יום שלישי (Yom Shlishi)', en: 'Tuesday' },
+  { abbr: 'ד'', full: 'יום רביעי (Yom Revi'i)', en: 'Wednesday' },
+  { abbr: 'ה'', full: 'יום חמישי (Yom Khamishi)', en: 'Thursday' },
+  { abbr: 'ו'', full: 'יום שישי (Yom Shishi)', en: 'Friday' },
+  { abbr: 'שב', full: 'שבת (Shabbat)', en: 'Saturday' },
+  { abbr: 'א'', full: 'יום ראשון (Yom Rishon)', en: 'Sunday' },
+];
+
 const DATE_EXPRESSIONS: Record<LangCode, [string, string][]> = {
   spanish: [
     ['¿Qué día es hoy?', 'What day is today?'],
@@ -997,12 +1067,19 @@ const DATE_EXPRESSIONS: Record<LangCode, [string, string][]> = {
     ['今天是三月十五号。', 'Today is March 15th.'],
     ['周末 (zhōumò)', 'the weekend'],
     ['工作日 (gōngzuòrì)', 'on weekdays'],
+  hebrew: [
+    ['איזה יום זה היום?', 'What day is today?'],
+    ['היום יום שני.', 'Today is Monday.'],
+    ['מה התאריך היום?', 'What is the date?'],
+    ['היום ה-15 במרץ.', 'Today is March 15th.'],
+    ['סוף שבוע (sof shavua)', 'the weekend'],
+    ['ימי חול (yamei khol)', 'on weekdays'],
   ],
 };
 
 export function DaysOfWeekCard({ language = 'spanish' }: { language?: LangCode }) {
-  const days = language === 'french' ? DAYS_FR : language === 'portuguese' ? DAYS_PT : language === 'german' ? DAYS_DE : language === 'italian' ? DAYS_IT : language === 'japanese' ? DAYS_JA : language === 'korean' ? DAYS_KO : language === 'mandarin' ? DAYS_ZH : DAYS_ES;
-  const months = language === 'french' ? MONTHS_FR : language === 'portuguese' ? MONTHS_PT : language === 'german' ? MONTHS_DE : language === 'italian' ? MONTHS_IT : language === 'japanese' ? MONTHS_JA : language === 'korean' ? MONTHS_KO : language === 'mandarin' ? MONTHS_ZH : MONTHS_ES;
+  const days = language === 'french' ? DAYS_FR : language === 'portuguese' ? DAYS_PT : language === 'german' ? DAYS_DE : language === 'italian' ? DAYS_IT : language === 'japanese' ? DAYS_JA : language === 'korean' ? DAYS_KO : language === 'mandarin' ? DAYS_ZH : language === 'hebrew' ? DAYS_HE : DAYS_ES;
+  const months = language === 'french' ? MONTHS_FR : language === 'portuguese' ? MONTHS_PT : language === 'german' ? MONTHS_DE : language === 'italian' ? MONTHS_IT : language === 'japanese' ? MONTHS_JA : language === 'korean' ? MONTHS_KO : language === 'mandarin' ? MONTHS_ZH : language === 'hebrew' ? MONTHS_HE : MONTHS_ES;
   const exprs = DATE_EXPRESSIONS[language] ?? DATE_EXPRESSIONS.spanish;
   const calMonthLabel = language === 'french' ? 'mars' : language === 'portuguese' ? 'março' : language === 'german' ? 'März' : language === 'italian' ? 'marzo' : language === 'japanese' ? '三月' : language === 'korean' ? '3월' : language === 'mandarin' ? '三月' : 'marzo';
   const calNote = language === 'french'
@@ -1019,10 +1096,12 @@ export function DaysOfWeekCard({ language = 'spanish' }: { language?: LangCode }
     ? 'Note: Weeks start on Monday (월요일) in Korea. Sunday (일요일) is the last day.'
     : language === 'mandarin'
     ? 'Note: Weeks start on Monday (星期一) in mainland China and Taiwan. Sunday (星期日/天) ends the week.'
+    : language === 'hebrew'
+    ? 'Note: Weeks start on Sunday (יום ראשון, Yom Rishon) in Israel. Saturday (שבת, Shabbat) is the day of rest.'
     : 'Note: Weeks start on Monday (lunes) in most Spanish-speaking countries.';
-  const daysHeading = language === 'french' ? 'Les Jours de la Semaine — Days of the Week' : language === 'portuguese' ? 'Os Dias da Semana — Days of the Week' : language === 'german' ? 'Die Wochentage — Days of the Week' : language === 'italian' ? 'I Giorni della Settimana — Days of the Week' : language === 'japanese' ? '曜日 — Days of the Week' : language === 'korean' ? '요일 — Days of the Week' : language === 'mandarin' ? '星期 — Days of the Week' : 'Los Días de la Semana — Days of the Week';
-  const monthsHeading = language === 'french' ? 'Les Mois de l\'Année — Months of the Year' : language === 'portuguese' ? 'Os Meses do Ano — Months of the Year' : language === 'german' ? 'Die Monate des Jahres — Months of the Year' : language === 'italian' ? 'I Mesi dell\'Anno — Months of the Year' : language === 'japanese' ? '月 — Months of the Year' : language === 'korean' ? '월 — Months of the Year' : language === 'mandarin' ? '月份 — Months of the Year' : 'Los Meses del Año — Months of the Year';
-  const calLabel = language === 'french' ? 'Calendrier — Calendar' : language === 'portuguese' ? 'Calendário — Calendar' : language === 'german' ? 'Kalender — Calendar' : language === 'italian' ? 'Calendario — Calendar' : language === 'japanese' ? 'カレンダー — Calendar' : language === 'korean' ? '달력 — Calendar' : language === 'mandarin' ? '日历 — Calendar' : 'Calendario — Calendar';
+  const daysHeading = language === 'french' ? 'Les Jours de la Semaine — Days of the Week' : language === 'portuguese' ? 'Os Dias da Semana — Days of the Week' : language === 'german' ? 'Die Wochentage — Days of the Week' : language === 'italian' ? 'I Giorni della Settimana — Days of the Week' : language === 'japanese' ? '曜日 — Days of the Week' : language === 'korean' ? '요일 — Days of the Week' : language === 'mandarin' ? 'Days of the Week' : language === 'hebrew' ? 'ימות השבוע — Days of the Week' : 'Los Días de la Semana — Days of the Week';
+  const monthsHeading = language === 'french' ? 'Les Mois de l\'Année — Months of the Year' : language === 'portuguese' ? 'Os Meses do Ano — Months of the Year' : language === 'german' ? 'Die Monate des Jahres — Months of the Year' : language === 'italian' ? 'I Mesi dell\'Anno — Months of the Year' : language === 'japanese' ? '月 — Months of the Year' : language === 'korean' ? '월 — Months of the Year' : language === 'mandarin' ? 'Months of the Year' : language === 'hebrew' ? 'חודשי השנה — Months of the Year' : 'Los Meses del Año — Months of the Year';
+  const calLabel = language === 'french' ? 'Calendrier — Calendar' : language === 'portuguese' ? 'Calendário — Calendar' : language === 'german' ? 'Kalender — Calendar' : language === 'italian' ? 'Calendario — Calendar' : language === 'japanese' ? 'カレンダー — Calendar' : language === 'korean' ? '달력 — Calendar' : language === 'mandarin' ? 'Calendar' : language === 'hebrew' ? 'לוח שנה — Calendar' : 'Calendario — Calendar';
 
   const calData = {
     month: calMonthLabel,
@@ -1336,7 +1415,23 @@ const BODY_VOCAB_ZH: BodyEntry[] = [
 ];
 
 export function BodyPartsCard({ language = 'spanish' }: { language?: LangCode }) {
-  const vocab = language === 'french' ? BODY_VOCAB_FR : language === 'portuguese' ? BODY_VOCAB_PT : language === 'german' ? BODY_VOCAB_DE : language === 'italian' ? BODY_VOCAB_IT : language === 'japanese' ? BODY_VOCAB_JA : language === 'korean' ? BODY_VOCAB_KO : language === 'mandarin' ? BODY_VOCAB_ZH : BODY_VOCAB_ES;
+
+const BODY_VOCAB_HE: BodyEntry[] = [
+  { part: 'head',         label: 'ראש (rosh)',                    english: 'head' },
+  { part: 'hair',         label: 'שער (se'ar)',                  english: 'hair' },
+  { part: 'shoulder',     label: 'כתף (katef)',                   english: 'shoulder' },
+  { part: 'arm',          label: 'זרוע (zero'a)',           english: 'arm' },
+  { part: 'elbow',        label: 'מרפק (marpek)',            english: 'elbow' },
+  { part: 'hand',         label: 'יד (yad)',                           english: 'hand' },
+  { part: 'chest',        label: 'חזה (khaze)',                   english: 'chest' },
+  { part: 'stomach',      label: 'בטן (beten)',                   english: 'stomach' },
+  { part: 'back',         label: 'גב (gav)',                           english: 'back' },
+  { part: 'leg',          label: 'רגל (regel)',                   english: 'leg/foot' },
+  { part: 'knee',         label: 'ברך (berekh)',                  english: 'knee' },
+  { part: 'foot',         label: 'כף רגל (kaf regel)', english: 'foot (sole)' },
+];
+
+  const vocab = language === 'french' ? BODY_VOCAB_FR : language === 'portuguese' ? BODY_VOCAB_PT : language === 'german' ? BODY_VOCAB_DE : language === 'italian' ? BODY_VOCAB_IT : language === 'japanese' ? BODY_VOCAB_JA : language === 'korean' ? BODY_VOCAB_KO : language === 'mandarin' ? BODY_VOCAB_ZH : language === 'hebrew' ? BODY_VOCAB_HE : BODY_VOCAB_ES;
   const phrases = BODY_PHRASES[language] ?? BODY_PHRASES.spanish;
   const diagLabels = language === 'french'
     ? { head: 'la tête', shoulders: 'les épaules', chest: 'la poitrine', arms: 'les bras', abdomen: 'le ventre', legs: 'les jambes' }
@@ -1353,7 +1448,7 @@ export function BodyPartsCard({ language = 'spanish' }: { language?: LangCode })
     : language === 'mandarin'
     ? { head: '头', shoulders: '肩膀', chest: '胸', arms: '手臂', abdomen: '肚子', legs: '腿' }
     : { head: 'la cabeza', shoulders: 'los hombros', chest: 'el pecho', arms: 'los brazos', abdomen: 'el abdomen', legs: 'las piernas' };
-  const sectionTitle = language === 'french' ? 'Le Corps Humain' : language === 'portuguese' ? 'O Corpo Humano' : language === 'german' ? 'Der menschliche Körper' : language === 'italian' ? 'Il Corpo Umano' : language === 'japanese' ? '体 — Human Body' : language === 'korean' ? '몸 — Human Body' : language === 'mandarin' ? '身体 — Human Body' : 'El Cuerpo Humano';
+  const sectionTitle = language === 'french' ? 'Le Corps Humain' : language === 'portuguese' ? 'O Corpo Humano' : language === 'german' ? 'Der menschliche Körper' : language === 'italian' ? 'Il Corpo Umano' : language === 'japanese' ? '体 — Human Body' : language === 'korean' ? '몸 — Human Body' : language === 'mandarin' ? 'Human Body' : language === 'hebrew' ? 'גוף האדם — Human Body' : 'El Cuerpo Humano';
   const diagHighlights = ['head', 'shoulders', 'chest', 'arms', 'abdomen', 'legs'];
 
   return (
@@ -1600,7 +1695,23 @@ const FACE_DESCRIPTIONS: Record<LangCode, [string, string][]> = {
 };
 
 export function FacePartsCard({ language = 'spanish' }: { language?: LangCode }) {
-  const vocab = language === 'french' ? FACE_VOCAB_FR : language === 'portuguese' ? FACE_VOCAB_PT : language === 'german' ? FACE_VOCAB_DE : language === 'italian' ? FACE_VOCAB_IT : language === 'japanese' ? FACE_VOCAB_JA : language === 'korean' ? FACE_VOCAB_KO : language === 'mandarin' ? FACE_VOCAB_ZH : FACE_VOCAB_ES;
+  
+const FACE_VOCAB_HE: BodyEntry[] = [
+  { part: 'forehead',  label: 'מצח (metsakh)',               english: 'forehead' },
+  { part: 'eye',       label: 'עין ('ayin)',                 english: 'eye' },
+  { part: 'eyebrow',   label: 'גבה (gaba)',                   english: 'eyebrow' },
+  { part: 'nose',      label: 'אף (af)',                           english: 'nose' },
+  { part: 'cheek',     label: 'לחי (lekhi)',                  english: 'cheek' },
+  { part: 'ear',       label: 'אוזן ('ozen)',           english: 'ear' },
+  { part: 'mouth',     label: 'פה (peh)',                          english: 'mouth' },
+  { part: 'lip',       label: 'שפה (safa)',                   english: 'lip' },
+  { part: 'tooth',     label: 'שן (shen)',                         english: 'tooth' },
+  { part: 'chin',      label: 'סנטר (santar)',           english: 'chin' },
+  { part: 'tongue',    label: 'לשון (lashon)',           english: 'tongue' },
+  { part: 'neck',      label: 'צוואר (tsavar)',     english: 'neck' },
+];
+
+  const vocab = language === 'french' ? FACE_VOCAB_FR : language === 'portuguese' ? FACE_VOCAB_PT : language === 'german' ? FACE_VOCAB_DE : language === 'italian' ? FACE_VOCAB_IT : language === 'japanese' ? FACE_VOCAB_JA : language === 'korean' ? FACE_VOCAB_KO : language === 'mandarin' ? FACE_VOCAB_ZH : language === 'hebrew' ? FACE_VOCAB_HE : FACE_VOCAB_ES;
   const descriptions = FACE_DESCRIPTIONS[language] ?? FACE_DESCRIPTIONS.spanish;
   const diagLabels = language === 'french'
     ? { eyes: 'les yeux', nose: 'le nez', mouth: 'la bouche', ears: 'les oreilles', eyebrows: 'les sourcils', cheeks: 'les joues' }
@@ -1617,7 +1728,7 @@ export function FacePartsCard({ language = 'spanish' }: { language?: LangCode })
     : language === 'mandarin'
     ? { eyes: '眼睛', nose: '鼻子', mouth: '嘴', ears: '耳朵', eyebrows: '眉毛', cheeks: '脸颊' }
     : { eyes: 'los ojos', nose: 'la nariz', mouth: 'la boca', ears: 'las orejas', eyebrows: 'las cejas', cheeks: 'las mejillas' };
-  const sectionTitle = language === 'french' ? 'Le Visage — The Face' : language === 'portuguese' ? 'O Rosto — The Face' : language === 'german' ? 'Das Gesicht — The Face' : language === 'italian' ? 'Il Viso — The Face' : language === 'japanese' ? '顔 — The Face' : language === 'korean' ? '얼굴 — The Face' : language === 'mandarin' ? '脸 — The Face' : 'La Cara — The Face';
+  const sectionTitle = language === 'french' ? 'Le Visage — The Face' : language === 'portuguese' ? 'O Rosto — The Face' : language === 'german' ? 'Das Gesicht — The Face' : language === 'italian' ? 'Il Viso — The Face' : language === 'japanese' ? '顔 — The Face' : language === 'korean' ? '얼굴 — The Face' : language === 'mandarin' ? 'The Face' : language === 'hebrew' ? 'הפנים — The Face' : 'La Cara — The Face';
   const diagHighlights = ['eyes', 'nose', 'mouth', 'ears', 'eyebrows', 'cheeks'];
 
   return (
@@ -1824,7 +1935,20 @@ const HAND_COUNTING: Record<LangCode, [string, string][]> = {
 };
 
 export function HandPartsCard({ language = 'spanish' }: { language?: LangCode }) {
-  const vocab = language === 'french' ? HAND_VOCAB_FR : language === 'portuguese' ? HAND_VOCAB_PT : language === 'german' ? HAND_VOCAB_DE : language === 'italian' ? HAND_VOCAB_IT : language === 'japanese' ? HAND_VOCAB_JA : language === 'korean' ? HAND_VOCAB_KO : language === 'mandarin' ? HAND_VOCAB_ZH : HAND_VOCAB_ES;
+  
+const HAND_VOCAB_HE: BodyEntry[] = [
+  { part: 'thumb',       label: 'אגודל (agudal)',           english: 'thumb' },
+  { part: 'index',       label: 'אצבע מורה (etsba mora)', english: 'index finger' },
+  { part: 'middle',      label: 'אצבע אמצעית (etsba emtsa'it)', english: 'middle finger' },
+  { part: 'ring',        label: 'אצבע טבעת (etsba taba'at)', english: 'ring finger' },
+  { part: 'pinky',       label: 'אצבע קטנה (etsba ktana)', english: 'little finger' },
+  { part: 'palm',        label: 'כף יד (kaf yad)',                english: 'palm' },
+  { part: 'wrist',       label: 'פרק יד (parak yad)',        english: 'wrist' },
+  { part: 'knuckle',     label: 'קשר אצבע (kesher etsba)', english: 'knuckle' },
+  { part: 'fingernail',  label: 'ציפורן (tsiporen)',   english: 'fingernail' },
+];
+
+  const vocab = language === 'french' ? HAND_VOCAB_FR : language === 'portuguese' ? HAND_VOCAB_PT : language === 'german' ? HAND_VOCAB_DE : language === 'italian' ? HAND_VOCAB_IT : language === 'japanese' ? HAND_VOCAB_JA : language === 'korean' ? HAND_VOCAB_KO : language === 'mandarin' ? HAND_VOCAB_ZH : language === 'hebrew' ? HAND_VOCAB_HE : HAND_VOCAB_ES;
   const counting = HAND_COUNTING[language] ?? HAND_COUNTING.spanish;
   const diagLabels = language === 'french'
     ? { thumb: 'pouce', index_finger: 'index', middle_finger: 'majeur', ring_finger: 'annulaire', pinky: 'auriculaire', palm: 'paume' }
@@ -1841,7 +1965,7 @@ export function HandPartsCard({ language = 'spanish' }: { language?: LangCode })
     : language === 'mandarin'
     ? { thumb: '大拇指', index_finger: '食指', middle_finger: '中指', ring_finger: '无名指', pinky: '小指', palm: '手掌' }
     : { thumb: 'pulgar', index_finger: 'índice', middle_finger: 'medio', ring_finger: 'anular', pinky: 'meñique', palm: 'palma' };
-  const sectionTitle = language === 'french' ? 'La Main — The Hand' : language === 'portuguese' ? 'A Mão — The Hand' : language === 'german' ? 'Die Hand — The Hand' : language === 'italian' ? 'La Mano — The Hand' : language === 'japanese' ? '手 — The Hand' : language === 'korean' ? '손 — The Hand' : language === 'mandarin' ? '手 — The Hand' : 'La Mano — The Hand';
+  const sectionTitle = language === 'french' ? 'La Main — The Hand' : language === 'portuguese' ? 'A Mão — The Hand' : language === 'german' ? 'Die Hand — The Hand' : language === 'italian' ? 'La Mano — The Hand' : language === 'japanese' ? '手 — The Hand' : language === 'korean' ? '손 — The Hand' : language === 'mandarin' ? 'The Hand' : language === 'hebrew' ? 'היד — The Hand' : 'La Mano — The Hand';
   const fingerCountingLabel = language === 'french' ? 'Counting on Fingers (compter sur les doigts)' : language === 'portuguese' ? 'Counting on Fingers (contar nos dedos)' : language === 'german' ? 'Counting on Fingers (an den Fingern zählen)' : language === 'italian' ? 'Counting on Fingers (contare sulle dita)' : language === 'japanese' ? '指で数える (Yubi de kazoeru)' : language === 'korean' ? '손가락으로 세기 (Songarak-euro Segi)' : language === 'mandarin' ? '用手指数数 (Yòng Shǒuzhǐ Shǔshù)' : 'Counting on Fingers (contar con los dedos)';
   const diagHighlights = ['thumb', 'index_finger', 'middle_finger', 'ring_finger', 'pinky', 'palm'];
 
@@ -2062,10 +2186,20 @@ const TEMP_CONVERSIONS: Record<LangCode, [string, string][]> = {
 };
 
 export function ThermometerVocabCard({ language = 'spanish' }: { language?: LangCode }) {
-  const vocab = language === 'french' ? TEMP_VOCAB_FR : language === 'portuguese' ? TEMP_VOCAB_PT : language === 'german' ? TEMP_VOCAB_DE : language === 'italian' ? TEMP_VOCAB_IT : language === 'japanese' ? TEMP_VOCAB_JA : language === 'korean' ? TEMP_VOCAB_KO : language === 'mandarin' ? TEMP_VOCAB_ZH : TEMP_VOCAB_ES;
+  
+const TEMP_VOCAB_HE: TempEntry[] = [
+  { celsius: 40, label: 'חם מאוד (kham me'od)', english: 'very hot' },
+  { celsius: 30, label: 'חם (kham)', english: 'hot' },
+  { celsius: 20, label: 'נעים (na'im)', english: 'pleasant' },
+  { celsius: 10, label: 'קר (kar)', english: 'cold' },
+  { celsius: 0,  label: 'קפא (kafa)', english: 'freezing' },
+  { celsius: -10,label: 'קפא עז (kafa 'az)', english: 'very cold / icy' },
+];
+
+  const vocab = language === 'french' ? TEMP_VOCAB_FR : language === 'portuguese' ? TEMP_VOCAB_PT : language === 'german' ? TEMP_VOCAB_DE : language === 'italian' ? TEMP_VOCAB_IT : language === 'japanese' ? TEMP_VOCAB_JA : language === 'korean' ? TEMP_VOCAB_KO : language === 'mandarin' ? TEMP_VOCAB_ZH : language === 'hebrew' ? TEMP_VOCAB_HE : TEMP_VOCAB_ES;
   const keyExprs = TEMP_KEY_EXPRS[language] ?? TEMP_KEY_EXPRS.spanish;
   const conversions = TEMP_CONVERSIONS[language] ?? TEMP_CONVERSIONS.spanish;
-  const sectionTitle = language === 'french' ? 'La Température — Temperature' : language === 'portuguese' ? 'A Temperatura — Temperature' : language === 'german' ? 'Die Temperatur — Temperature' : language === 'italian' ? 'La Temperatura — Temperature' : language === 'japanese' ? '気温 — Temperature' : language === 'korean' ? '기온 — Temperature' : language === 'mandarin' ? '气温 — Temperature' : 'La Temperatura — Temperature';
+  const sectionTitle = language === 'french' ? 'La Température — Temperature' : language === 'portuguese' ? 'A Temperatura — Temperature' : language === 'german' ? 'Die Temperatur — Temperature' : language === 'italian' ? 'La Temperatura — Temperature' : language === 'japanese' ? '気温 — Temperature' : language === 'korean' ? '기온 — Temperature' : language === 'mandarin' ? 'Temperature' : language === 'hebrew' ? 'טמפרטורה — Temperature' : 'La Temperatura — Temperature';
   const exprHeading = language === 'french' ? 'Expressions with IL FAIT' : language === 'portuguese' ? 'Expressions with ESTÁ' : language === 'german' ? 'Expressions with ES IST' : language === 'italian' ? 'Expressions with FA' : language === 'japanese' ? 'Expressions with です (desu)' : language === 'korean' ? 'Expressions with 아요/어요 (ayo/eoyo)' : language === 'mandarin' ? 'Expressions with 很 (hěn)' : 'Expressions with HACE';
 
   return (

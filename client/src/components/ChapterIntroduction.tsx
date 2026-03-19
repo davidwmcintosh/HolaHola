@@ -195,6 +195,27 @@ import {
 } from "./TextbookMandarinPhoneticGuides";
 import { resolveZhFamilyCard } from "./TextbookMandarinWordFamilies";
 
+// ── Hebrew ───────────────────────────────────────────────────────────────────
+import {
+  HeAlefBetCard, HeNiqqudCard, HePronounsCard,
+  HePresentCard, HePastCard, HeFutureCard,
+  HeBinyanCard, HePiyelCard, HeHifilCard, HeHitpaelCard,
+  HeGenderCard, HePluralCard, HeArticleCard, HeAdjCard,
+  HeNegationCard, HeQuestionsCard, HeYeshEinCard,
+  HePossessionCard, HePrepositionsCard, HeNumbersCard,
+  HeTimeCard, HeConstructCard,
+} from "./TextbookHebrewGrammarCards";
+import {
+  HebrewophoneWorldMapCard, IsraeliHolidayCalendarCard, IsraeliFoodGuideCard,
+  HebrewDialectCard, IsraeliEtiquetteCard, IsraeliCurrencyCard, IsraeliCultureCard,
+} from "./TextbookHebrewCulturalCards";
+import {
+  HeAlefBetChartCard, HeVowelSystemCard, HeGutturalsCard,
+  HeShimSinCard, HeDageshCard, HeStressCard,
+  HeModernBiblicalCard, HeVowelReductionCard, HePronunciationOverviewCard,
+} from "./TextbookHebrewPhoneticGuides";
+import { resolveHeFamilyCard } from "./TextbookHebrewWordFamilies";
+
 import { languageChapterData } from "@/data/chapter-intro-content";
 
 import familyGatheringImg from "@assets/stock_images/family_gathering_aro_0f321ed1.jpg";
@@ -383,7 +404,24 @@ type GrammarChapterType =
   // ── MANDARIN Section 8 — Phonetics ──────────────────────────────────────────
   | 'zh_tones_overview' | 'zh_pinyin_initials' | 'zh_pinyin_finals'
   | 'zh_retroflex' | 'zh_palatals' | 'zh_neutral_tone'
-  | 'zh_vowel_sounds' | 'zh_syllable_structure' | 'zh_pronunciation_overview';
+  | 'zh_vowel_sounds' | 'zh_syllable_structure' | 'zh_pronunciation_overview'
+  // ── HEBREW Section 3 — Grammar ───────────────────────────────────────────
+  | 'he_alefbet' | 'he_niqqud' | 'he_pronouns'
+  | 'he_present' | 'he_past' | 'he_future'
+  | 'he_binyan' | 'he_piyel' | 'he_hifil' | 'he_hitpael'
+  | 'he_gender' | 'he_plural' | 'he_article' | 'he_adj'
+  | 'he_negation' | 'he_questions' | 'he_yesh_ein'
+  | 'he_possession' | 'he_prepositions' | 'he_numbers'
+  | 'he_time' | 'he_construct'
+  // ── HEBREW Section 5 — Cultural ──────────────────────────────────────────
+  | 'he_world_map' | 'he_holidays' | 'he_food_guide'
+  | 'he_dialects' | 'he_etiquette' | 'he_currency' | 'he_culture'
+  // ── HEBREW Section 6 — Word families ─────────────────────────────────────
+  | 'he_word_family'
+  // ── HEBREW Section 8 — Phonetics ─────────────────────────────────────────
+  | 'he_alefbet_chart' | 'he_vowel_system' | 'he_gutturals'
+  | 'he_shin_sin' | 'he_dagesh' | 'he_stress'
+  | 'he_modern_biblical' | 'he_vowel_reduction' | 'he_pronunciation_overview';
 
 function classifyFrenchGrammarType(title: string): GrammarChapterType | null {
   const lower = title.toLowerCase();
@@ -809,6 +847,59 @@ function classifyMandarinGrammarType(title: string): GrammarChapterType | null {
   return null;
 }
 
+function classifyHebrewGrammarType(title: string): GrammarChapterType | null {
+  const lower = title.toLowerCase();
+
+  // ── Section 3 — Grammar ──────────────────────────────────────────────────
+  if (lower.includes('אלף-בית') || lower.includes('alefbet') || lower.includes('aleph-bet') || lower.includes('alphabet') && lower.includes('hebrew') || lower.includes('hebrew letters') || lower.includes('hebrew alphabet') || lower.includes('ktav')) return 'he_alefbet';
+  if (lower.includes('ניקוד') || lower.includes('niqqud') || lower.includes('nikkud') || lower.includes('vowel point') && lower.includes('hebrew') || lower.includes('vowel mark') && lower.includes('hebrew') || lower.includes('diacritics') && lower.includes('hebrew')) return 'he_niqqud';
+  if ((lower.includes('כינוי') || lower.includes('pronoun') || lower.includes('אני') && lower.includes('אתה') || lower.includes('subject pronoun') || lower.includes('personal pronoun')) && (lower.includes('hebrew') || lower.includes('עברית') || lower.includes('כינויי גוף'))) return 'he_pronouns';
+  if ((lower.includes('present') || lower.includes('הווה') || lower.includes('hoveh') || lower.includes('binyan present') || lower.includes('present tense hebrew')) && (lower.includes('hebrew') || lower.includes('עברית'))) return 'he_present';
+  if ((lower.includes('past') || lower.includes('עבר') || lower.includes('avar') || lower.includes('past tense hebrew') || lower.includes('binyan past')) && (lower.includes('hebrew') || lower.includes('עברית'))) return 'he_past';
+  if ((lower.includes('future') || lower.includes('עתיד') || lower.includes('atid') || lower.includes('future tense hebrew') || lower.includes('future form')) && (lower.includes('hebrew') || lower.includes('עברית'))) return 'he_future';
+  if (lower.includes('בניין') || lower.includes('binyan') || lower.includes('binyanim') || lower.includes('verb pattern') && lower.includes('hebrew') || lower.includes('verb structure') && lower.includes('hebrew') || lower.includes('הבניינים')) return 'he_binyan';
+  if (lower.includes('פיעל') || lower.includes('pi\'el') || lower.includes("pi'el") || lower.includes('piel') || lower.includes('piyal')) return 'he_piyel';
+  if (lower.includes('הפעיל') || lower.includes('hif\'il') || lower.includes("hif'il") || lower.includes('hifil') || lower.includes('causative hebrew')) return 'he_hifil';
+  if (lower.includes('התפעל') || lower.includes('hitpa\'el') || lower.includes("hitpa'el") || lower.includes('hitpael') || lower.includes('reflexive binyan')) return 'he_hitpael';
+  if ((lower.includes('gender') || lower.includes('מין') || lower.includes('masculine') && lower.includes('feminine') || lower.includes('זכר') && lower.includes('נקבה') || lower.includes('grammatical gender')) && (lower.includes('hebrew') || lower.includes('עברית'))) return 'he_gender';
+  if ((lower.includes('plural') || lower.includes('רבים') || lower.includes('rabim') || lower.includes('ים-') || lower.includes('ות-') || lower.includes('plural form hebrew')) && (lower.includes('hebrew') || lower.includes('עברית'))) return 'he_plural';
+  if ((lower.includes('definite') && lower.includes('article') || lower.includes('ה-') && lower.includes('hebrew') || lower.includes('ha-article') || lower.includes('the article hebrew') || lower.includes('הידיעה')) && (lower.includes('hebrew') || lower.includes('עברית') || lower.includes('ha'))) return 'he_article';
+  if ((lower.includes('adjective') || lower.includes('תואר') || lower.includes('to\'ar') || lower.includes('adjective agreement') || lower.includes('adjective hebrew')) && (lower.includes('hebrew') || lower.includes('עברית'))) return 'he_adj';
+  if ((lower.includes('negation') || lower.includes('לא') && lower.includes('hebrew') || lower.includes('אי') && lower.includes('hebrew') || lower.includes('negative') && lower.includes('hebrew') || lower.includes('שלילה')) && (lower.includes('hebrew') || lower.includes('עברית'))) return 'he_negation';
+  if ((lower.includes('question') || lower.includes('שאלה') || lower.includes('sha\'ela') || lower.includes('האם') || lower.includes('ha\'im') || lower.includes('interrogative hebrew')) && (lower.includes('hebrew') || lower.includes('עברית'))) return 'he_questions';
+  if (lower.includes('יש') && lower.includes('אין') || lower.includes('yesh') && lower.includes('ein') || lower.includes('there is') && lower.includes('hebrew') || lower.includes('existence hebrew') || lower.includes('יש/אין')) return 'he_yesh_ein';
+  if ((lower.includes('possession') || lower.includes('שייכות') || lower.includes('שלי') && lower.includes('hebrew') || lower.includes('של') && lower.includes('hebrew') || lower.includes('possessive hebrew') || lower.includes('shel')) && (lower.includes('hebrew') || lower.includes('עברית'))) return 'he_possession';
+  if ((lower.includes('preposition') || lower.includes('מילת יחס') || lower.includes('ב-') && lower.includes('hebrew') || lower.includes('ל-') && lower.includes('hebrew') || lower.includes('hebrew prep')) && (lower.includes('hebrew') || lower.includes('עברית'))) return 'he_prepositions';
+  if ((lower.includes('number') || lower.includes('מספר') || lower.includes('mispar') || lower.includes('counting') && lower.includes('hebrew') || lower.includes('cardinal') && lower.includes('hebrew') || lower.includes('ordinal') && lower.includes('hebrew')) && (lower.includes('hebrew') || lower.includes('עברית'))) return 'he_numbers';
+  if ((lower.includes('time expression') || lower.includes('זמן') && lower.includes('hebrew') || lower.includes('telling time') && lower.includes('hebrew') || lower.includes('clock') && lower.includes('hebrew') || lower.includes('שעות')) && (lower.includes('hebrew') || lower.includes('עברית'))) return 'he_time';
+  if (lower.includes('סמיכות') || lower.includes('smichut') || lower.includes('construct state') || lower.includes('genitive chain') && lower.includes('hebrew') || lower.includes('noun chain hebrew')) return 'he_construct';
+
+  // ── Section 5 — Cultural ─────────────────────────────────────────────────
+  if (lower.includes('hebrew-speaking') || lower.includes('world hebrew') || lower.includes('israel world') || lower.includes('עברית בעולם') || lower.includes('hebrew world') || lower.includes('hebraophone') || lower.includes('diaspora hebrew') || lower.includes('israel map')) return 'he_world_map';
+  if ((lower.includes('holiday') || lower.includes('חג') || lower.includes('rosh hashana') || lower.includes('yom kippur') || lower.includes('hanukkah') || lower.includes('passover') || lower.includes('pesach') || lower.includes('shabbat') || lower.includes('jewish holiday')) && (lower.includes('hebrew') || lower.includes('israel') || lower.includes('jewish') || lower.includes('חגים'))) return 'he_holidays';
+  if ((lower.includes('food') || lower.includes('cuisine') || lower.includes('אוכל') || lower.includes('hummus') || lower.includes('falafel') || lower.includes('shakshuka') || lower.includes('israeli food') || lower.includes('jewish food')) && (lower.includes('hebrew') || lower.includes('israel') || lower.includes('jewish'))) return 'he_food_guide';
+  if ((lower.includes('dialect') || lower.includes('variety') || lower.includes('ashkenazi') || lower.includes('mizrahi') || lower.includes('yemenite') || lower.includes('biblical hebrew') || lower.includes('modern hebrew')) && lower.includes('hebrew')) return 'he_dialects';
+  if ((lower.includes('etiquette') || lower.includes('culture') && lower.includes('israel') || lower.includes('chutzpah') || lower.includes('dugri') || lower.includes('norms israel') || lower.includes('israeli etiquette') || lower.includes('customs israel')) && (lower.includes('hebrew') || lower.includes('israel'))) return 'he_etiquette';
+  if ((lower.includes('currency') || lower.includes('shekel') || lower.includes('שקל') || lower.includes('nis') || lower.includes('ils') || lower.includes('israeli money')) && (lower.includes('hebrew') || lower.includes('israel'))) return 'he_currency';
+  if ((lower.includes('pop culture') || lower.includes('culture') || lower.includes('startup') || lower.includes('music') && lower.includes('israel') || lower.includes('slang') && lower.includes('hebrew') || lower.includes('yalla') || lower.includes('sababa') || lower.includes('israeli culture')) && (lower.includes('hebrew') || lower.includes('israel'))) return 'he_culture';
+
+  // ── Section 6 — Word families ─────────────────────────────────────────────
+  if (lower.includes('word family') && lower.includes('hebrew') || lower.includes('shoresh') || lower.includes('שורש') || lower.includes('root family') && lower.includes('hebrew') || lower.includes('hebrew root') || lower.includes('trilateral root')) return 'he_word_family';
+
+  // ── Section 8 — Phonetics ─────────────────────────────────────────────────
+  if (lower.includes('alef-bet chart') || lower.includes('consonant chart') && lower.includes('hebrew') || lower.includes('complete alphabet') && lower.includes('hebrew') || lower.includes('alefbet chart') || lower.includes('all hebrew letters') || lower.includes('letter chart hebrew')) return 'he_alefbet_chart';
+  if (lower.includes('niqqud vowel') || lower.includes('vowel system hebrew') || lower.includes('vowel chart hebrew') || lower.includes('nikud') || lower.includes('vowel signs') && lower.includes('hebrew') || lower.includes('נקודות')) return 'he_vowel_system';
+  if (lower.includes('guttural') || lower.includes('אותיות הגרון') || lower.includes('pharyngeal') && lower.includes('hebrew') || lower.includes('ayin alef') || lower.includes('throat letter') || lower.includes('het ayin') || lower.includes('laryngeal')) return 'he_gutturals';
+  if (lower.includes('shin') && lower.includes('sin') || lower.includes('שׁ') && lower.includes('שׂ') || lower.includes('shin dot') || lower.includes('sin dot') || lower.includes('shin vs sin') || lower.includes('שין שׂין')) return 'he_shin_sin';
+  if (lower.includes('dagesh') || lower.includes('דגש') || lower.includes('dagesh kal') || lower.includes('dagesh chazak') || lower.includes('begadkefat') || lower.includes('dagesh dot')) return 'he_dagesh';
+  if ((lower.includes('stress') || lower.includes('הטעמה') || lower.includes('milra') || lower.includes('milelra') || lower.includes('mil\'el') || lower.includes('word stress') || lower.includes('accentuation')) && lower.includes('hebrew')) return 'he_stress';
+  if (lower.includes('biblical vs modern') || lower.includes('modern vs biblical') || lower.includes('classical hebrew') || lower.includes('biblical hebrew pronunciation') || lower.includes('ancient hebrew') || lower.includes('modern hebrew pronunciation')) return 'he_modern_biblical';
+  if (lower.includes('sheva') || lower.includes('שׁוָא') || lower.includes('vowel reduction') && lower.includes('hebrew') || lower.includes('hataf') || lower.includes('furtivum') || lower.includes('patach furtivum') || lower.includes('shva')) return 'he_vowel_reduction';
+  if ((lower.includes('pronunciation') && lower.includes('hebrew') || lower.includes('phonetic') && lower.includes('hebrew') || lower.includes('הגייה') || lower.includes('hebrew sound') || lower.includes('hebrew pronunciation guide'))) return 'he_pronunciation_overview';
+
+  return null;
+}
+
 function classifyGrammarType(title: string, language = 'spanish'): GrammarChapterType | null {
   if (language === 'french') return classifyFrenchGrammarType(title);
   if (language === 'portuguese') return classifyPortugueseGrammarType(title);
@@ -817,6 +908,7 @@ function classifyGrammarType(title: string, language = 'spanish'): GrammarChapte
   if (language === 'japanese') return classifyJapaneseGrammarType(title);
   if (language === 'korean') return classifyKoreanGrammarType(title);
   if (language === 'mandarin') return classifyMandarinGrammarType(title);
+  if (language === 'hebrew') return classifyHebrewGrammarType(title);
 
   const lower = title.toLowerCase();
 
@@ -1268,6 +1360,49 @@ const GRAMMAR_LABELS: Record<GrammarChapterType, { title: string; subtitle: stri
   zh_vowel_sounds:          { title: '难发音的韵母 — Tricky Vowel Sounds', subtitle: 'e · ü · -i after zh/ch/sh · ian · ui · ong — what Pinyin spelling doesn\'t tell you' },
   zh_syllable_structure:    { title: '音节结构 — Syllable Structure', subtitle: '(C)(G)V(N)T — ~400 syllables, no clusters, syllable-timed, one morpheme per syllable' },
   zh_pronunciation_overview:{ title: '发音指南 — Pronunciation Overview', subtitle: 'Tones first · aspiration not voicing · j/q/x tongue tip down · ü rounded · sandhi mandatory' },
+  // ── HEBREW Section 3 — Grammar
+  he_alefbet:         { title: 'The Hebrew Alphabet — האלף-בית', subtitle: '22 consonant letters · right-to-left script · 5 final-letter forms · no capital letters' },
+  he_niqqud:          { title: 'Niqqud — ניקוד Vowel Points', subtitle: 'Dots and dashes below/above letters mark vowels — omitted in adult Hebrew texts' },
+  he_pronouns:        { title: 'Subject Pronouns — כינויי גוף', subtitle: 'אני/אתה/את/הוא/היא/אנחנו/אתם/אתן/הם/הן — gender applies to 2nd and 3rd person' },
+  he_present:         { title: 'Present Tense — זמן הווה', subtitle: '4 forms per root: m.s. / f.s. / m.pl. / f.pl. — no person distinction (subject pronouns optional)' },
+  he_past:            { title: 'Past Tense — זמן עבר', subtitle: '7 conjugated forms — person, number, gender all marked on the verb' },
+  he_future:          { title: 'Future Tense — זמן עתיד', subtitle: 'Prefix + root + suffix — 5 paradigm slots; the most morphologically complex Hebrew tense' },
+  he_binyan:          { title: 'Binyan System — בניינים', subtitle: '7 verb patterns (binyanim): Pa\'al · Nif\'al · Pi\'el · Pu\'al · Hif\'il · Huf\'al · Hitpa\'el' },
+  he_piyel:           { title: "Pi'el — פִּיעֵל Intensive Binyan", subtitle: 'Middle-radical doubling (dagesh chazak) marks Pi\'el — intensive, factitive, or denominative meaning' },
+  he_hifil:           { title: "Hif'il — הִפְעִיל Causative Binyan", subtitle: 'ה prefix in infinitive/past — makes another do the action; transitivizes intransitive roots' },
+  he_hitpael:         { title: "Hitpa'el — הִתְפַּעֵל Reflexive Binyan", subtitle: 'הִת prefix — reflexive, reciprocal, or middle-voice meanings; root can metathese after sibilants' },
+  he_gender:          { title: 'Grammatical Gender — מין דקדוקי', subtitle: 'Every noun is masculine or feminine — verbs, adjectives, numbers all must agree' },
+  he_plural:          { title: 'Plural Forms — רבים', subtitle: 'Masculine plural: ים- · Feminine plural: ות- · Many irregulars must be memorized' },
+  he_article:         { title: 'The Definite Article — ה (Ha-)', subtitle: 'ה prefix = "the" — changes vowel before gutturals; adjectives must also take ה when noun is definite' },
+  he_adj:             { title: 'Adjective Agreement — הסכמת תואר', subtitle: 'Adjectives follow their noun · agree in gender, number, definiteness — 4 forms per adjective' },
+  he_negation:        { title: 'Negation — שלילה', subtitle: 'לא (lo) = not · אין (ein) = there is not · אל (al) = do not (imperatives)' },
+  he_questions:       { title: 'Questions — שאלות', subtitle: 'האם (ha\'im) for yes/no · Question words: מה/מי/איפה/מתי/למה/איך/כמה' },
+  he_yesh_ein:        { title: 'Yesh & Ein — יש ואין', subtitle: 'יש (yesh) = there is/there are · אין (ein) = there is not — core existential structure' },
+  he_possession:      { title: 'Possession — שייכות', subtitle: 'יש לי (yesh li) = I have · של (shel) + pronoun suffix for ownership · possessive suffixes on nouns' },
+  he_prepositions:    { title: 'Prepositions — מילות יחס', subtitle: 'ב (in/at) · ל (to/for) · מ (from) · עם (with) · על (on/about) · בין (between) — many take pronoun suffixes' },
+  he_numbers:         { title: 'Numbers — מספרים', subtitle: 'Cardinal numbers 1–10 have masculine and feminine forms; numbers agree with noun gender' },
+  he_time:            { title: 'Time Expressions — ביטויי זמן', subtitle: 'Clock time · days · months · seasons · relative time: עכשיו/אתמול/מחר/השנה' },
+  he_construct:       { title: 'Construct State — סמיכות', subtitle: 'Noun chains without של — first noun changes form; the entire chain is definite or indefinite together' },
+  // ── HEBREW Section 5 — Cultural
+  he_world_map:       { title: 'עברית בעולם — Hebrew Around the World', subtitle: '~9M speakers worldwide · Israel as primary Hebrew-speaking country · diaspora communities' },
+  he_holidays:        { title: 'חגים ומועדים — Jewish & Israeli Holidays', subtitle: 'Rosh Hashana · Yom Kippur · Sukkot · Hanukkah · Purim · Passover · Shabbat weekly' },
+  he_food_guide:      { title: 'אוכל ישראלי — Israeli & Jewish Cuisine', subtitle: 'Hummus · falafel · shakshuka · sabich · burekas — a culinary mosaic of global Jewish traditions' },
+  he_dialects:        { title: 'שונות עברית — Hebrew Varieties', subtitle: 'Modern Israeli · Mizrahi · Ashkenazi liturgical · Yemenite · Biblical vs. Modern Hebrew' },
+  he_etiquette:       { title: 'נימוסים ישראליים — Israeli Etiquette', subtitle: 'Dugri (direct speech) · chutzpah · warm informality · Shabbat · hospitality customs' },
+  he_currency:        { title: 'שקל חדש (₪) — New Israeli Shekel', subtitle: 'ILS / ₪ — divided into 100 agorot · Rachel Bluwstein on ₪20 · Agnon on ₪50' },
+  he_culture:         { title: 'תרבות ישראלית — Israeli Culture & Society', subtitle: 'Startup Nation · post-army travel · Israeli music & cinema · Arabic loanwords in everyday Hebrew' },
+  // ── HEBREW Section 6 — Word families
+  he_word_family:     { title: 'משפחת מילים — Hebrew Word Families', subtitle: 'Semitic 3-letter roots (שורשים/shorashim) — the engine of Hebrew vocabulary' },
+  // ── HEBREW Section 8 — Phonetics
+  he_alefbet_chart:   { title: 'האלף-בית המלא — Complete Consonant Chart', subtitle: 'All 22 letters with name, IPA sound, and production notes — including BeGaDKeFaT alternations' },
+  he_vowel_system:    { title: 'ניקוד — The Hebrew Vowel System', subtitle: 'Qamats · Patach · Tsere · Segol · Hiriq · Holam · Qibbuts · Shuruk · Sheva — and Hataf vowels' },
+  he_gutturals:       { title: 'אותיות הגרון — Guttural Letters', subtitle: 'א ה ח ע (and ר) — never take dagesh · trigger hataf vowels · patach furtivum before final ח' },
+  he_shin_sin:        { title: 'שׁ vs שׂ — Shin and Sin', subtitle: 'Same letter, two sounds: dot on right = sh · dot on left = s — look identical without dots' },
+  he_dagesh:          { title: 'דגש — The Dagesh Dot', subtitle: 'Dagesh kal (BeGaDKeFaT: b/v, k/kh, p/f) · Dagesh chazak (consonant doubling in Pi\'el and more)' },
+  he_stress:          { title: 'הטעמה — Hebrew Stress Patterns', subtitle: 'Default: final syllable stress (milra) · penultimate exceptions (mil\'el) must be memorized' },
+  he_modern_biblical: { title: 'Biblical vs. Modern Hebrew Pronunciation', subtitle: 'Het · Ayin · Qof · Resh · vowel length — what changed from Classical to Modern Israeli Hebrew' },
+  he_vowel_reduction: { title: 'שׁוָא ותנועות מוקטנות — Sheva & Vowel Reduction', subtitle: 'Sheva nach (silent) vs. sheva na (mobile ĕ) · hataf vowels under gutturals · patach furtivum' },
+  he_pronunciation_overview: { title: 'מדריך הגייה — Hebrew Pronunciation Overview', subtitle: 'Alphabet first · RTL reading · 5 vowel sounds · uvular resh · final stress default · roots' },
 };
 
 function resolveFrenchWordFamilyCard(title?: string): JSX.Element {
@@ -1370,6 +1505,18 @@ const GRAMMAR_LABELS_ZH: Partial<Record<GrammarChapterType, { title: string; sub
   country_dot_map:  { title: '普通话的世界', subtitle: 'Where Mandarin is spoken around the world — mainland China, Taiwan, Singapore + global diaspora' },
 };
 
+const GRAMMAR_LABELS_HE: Partial<Record<GrammarChapterType, { title: string; subtitle: string }>> = {
+  weather_vocab:    { title: 'מזג אוויר — Weather Vocabulary', subtitle: 'All 10 weather conditions with Hebrew expressions — the same icons used in lessons' },
+  emotions_vocab:   { title: 'רגשות — Emotions Vocabulary', subtitle: 'All 11 emotion faces with Hebrew labels — the same faces used in lessons' },
+  telling_time:     { title: 'שעון — Telling Time in Hebrew', subtitle: 'Analog clocks + key Hebrew time patterns and parts-of-day vocabulary' },
+  days_week:        { title: 'ימים, חודשים ולוח שנה', subtitle: 'Days of the week, months of the year, and Hebrew date expressions' },
+  body_parts:       { title: 'גוף האדם — Body Parts', subtitle: 'Body diagram + complete Hebrew vocabulary reference — same diagram used in lessons' },
+  face_parts:       { title: 'הפנים — Face Vocabulary', subtitle: 'Face close-up + full Hebrew vocabulary for facial features' },
+  hand_parts:       { title: 'היד — Hand & Fingers', subtitle: 'Hand diagram + Hebrew vocabulary for fingers, palm, and wrist' },
+  temperature_vocab:{ title: 'טמפרטורה — Temperature', subtitle: 'Temperature scale in Hebrew — same thermometer used in lessons' },
+  country_dot_map:  { title: 'עברית בעולם', subtitle: 'Where Hebrew is spoken — Israel and diaspora communities worldwide' },
+};
+
 function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spanish' }: { type: GrammarChapterType; chapterNumber: number; chapterTitle?: string; language?: string }) {
   const baseLabel = GRAMMAR_LABELS[type];
   const frLabel = language === 'french' ? GRAMMAR_LABELS_FR[type] : undefined;
@@ -1379,7 +1526,8 @@ function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spa
   const jaLabel = language === 'japanese' ? GRAMMAR_LABELS_JA[type] : undefined;
   const koLabel = language === 'korean' ? GRAMMAR_LABELS_KO[type] : undefined;
   const zhLabel = language === 'mandarin' ? GRAMMAR_LABELS_ZH[type] : undefined;
-  const { title, subtitle } = zhLabel ?? koLabel ?? jaLabel ?? itLabel ?? deLabel ?? ptLabel ?? frLabel ?? baseLabel;
+  const heLabel = language === 'hebrew' ? GRAMMAR_LABELS_HE[type] : undefined;
+  const { title, subtitle } = heLabel ?? zhLabel ?? koLabel ?? jaLabel ?? itLabel ?? deLabel ?? ptLabel ?? frLabel ?? baseLabel;
   const wordFamilyRoot = type === 'word_family' && chapterTitle ? resolveWordFamilyRoot(chapterTitle) : null;
 
   return (
@@ -1446,15 +1594,15 @@ function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spa
       {type === 'word_family' && <WordFamilyCard root={wordFamilyRoot ?? 'hablar'} />}
 
       {/* Section 7 — Canvas vocabulary cards (same SVG renderers as /chat) */}
-      {type === 'weather_vocab'    && <WeatherVocabCard     language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean' | 'mandarin'} />}
-      {type === 'emotions_vocab'   && <EmotionsVocabCard    language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean' | 'mandarin'} />}
-      {type === 'telling_time'     && <TimeVocabCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean' | 'mandarin'} />}
-      {type === 'days_week'        && <DaysOfWeekCard       language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean' | 'mandarin'} />}
-      {type === 'body_parts'       && <BodyPartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean' | 'mandarin'} />}
-      {type === 'face_parts'       && <FacePartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean' | 'mandarin'} />}
-      {type === 'hand_parts'       && <HandPartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean' | 'mandarin'} />}
-      {type === 'temperature_vocab'&& <ThermometerVocabCard language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean' | 'mandarin'} />}
-      {type === 'country_dot_map'  && (language === 'french' ? <FrancophoneWorldMapCard /> : language === 'portuguese' ? <LusophoneWorldMapCard /> : language === 'german' ? <GermanSpeakingWorldCard /> : language === 'italian' ? <ItalophoneWorldCard /> : language === 'japanese' ? <JapanophoneWorldCard /> : language === 'korean' ? <KoreanophoneWorldCard /> : language === 'mandarin' ? <MandarinophoneWorldCard /> : <CountryDotMapCard />)}
+      {type === 'weather_vocab'    && <WeatherVocabCard     language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean' | 'mandarin' | 'hebrew'} />}
+      {type === 'emotions_vocab'   && <EmotionsVocabCard    language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean' | 'mandarin' | 'hebrew'} />}
+      {type === 'telling_time'     && <TimeVocabCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean' | 'mandarin' | 'hebrew'} />}
+      {type === 'days_week'        && <DaysOfWeekCard       language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean' | 'mandarin' | 'hebrew'} />}
+      {type === 'body_parts'       && <BodyPartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean' | 'mandarin' | 'hebrew'} />}
+      {type === 'face_parts'       && <FacePartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean' | 'mandarin' | 'hebrew'} />}
+      {type === 'hand_parts'       && <HandPartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean' | 'mandarin' | 'hebrew'} />}
+      {type === 'temperature_vocab'&& <ThermometerVocabCard language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese' | 'korean' | 'mandarin' | 'hebrew'} />}
+      {type === 'country_dot_map'  && (language === 'french' ? <FrancophoneWorldMapCard /> : language === 'portuguese' ? <LusophoneWorldMapCard /> : language === 'german' ? <GermanSpeakingWorldCard /> : language === 'italian' ? <ItalophoneWorldCard /> : language === 'japanese' ? <JapanophoneWorldCard /> : language === 'korean' ? <KoreanophoneWorldCard /> : language === 'mandarin' ? <MandarinophoneWorldCard /> : language === 'hebrew' ? <HebrewophoneWorldMapCard /> : <CountryDotMapCard />)}
 
       {/* Section 8 — Phonetics */}
       {type === 'vowel_purity' && <VowelPurityCard />}
@@ -1802,6 +1950,53 @@ function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spa
       {type === 'zh_vowel_sounds' && <ZhVowelSoundsCard />}
       {type === 'zh_syllable_structure' && <ZhSyllableStructureCard />}
       {type === 'zh_pronunciation_overview' && <ZhPronunciationOverviewCard />}
+
+      {/* ── HEBREW Section 3 — Grammar ────────────────────────────────────── */}
+      {type === 'he_alefbet' && <HeAlefBetCard />}
+      {type === 'he_niqqud' && <HeNiqqudCard />}
+      {type === 'he_pronouns' && <HePronounsCard />}
+      {type === 'he_present' && <HePresentCard />}
+      {type === 'he_past' && <HePastCard />}
+      {type === 'he_future' && <HeFutureCard />}
+      {type === 'he_binyan' && <HeBinyanCard />}
+      {type === 'he_piyel' && <HePiyelCard />}
+      {type === 'he_hifil' && <HeHifilCard />}
+      {type === 'he_hitpael' && <HeHitpaelCard />}
+      {type === 'he_gender' && <HeGenderCard />}
+      {type === 'he_plural' && <HePluralCard />}
+      {type === 'he_article' && <HeArticleCard />}
+      {type === 'he_adj' && <HeAdjCard />}
+      {type === 'he_negation' && <HeNegationCard />}
+      {type === 'he_questions' && <HeQuestionsCard />}
+      {type === 'he_yesh_ein' && <HeYeshEinCard />}
+      {type === 'he_possession' && <HePossessionCard />}
+      {type === 'he_prepositions' && <HePrepositionsCard />}
+      {type === 'he_numbers' && <HeNumbersCard />}
+      {type === 'he_time' && <HeTimeCard />}
+      {type === 'he_construct' && <HeConstructCard />}
+
+      {/* ── HEBREW Section 5 — Cultural ───────────────────────────────────── */}
+      {type === 'he_world_map' && <HebrewophoneWorldMapCard />}
+      {type === 'he_holidays' && <IsraeliHolidayCalendarCard />}
+      {type === 'he_food_guide' && <IsraeliFoodGuideCard />}
+      {type === 'he_dialects' && <HebrewDialectCard />}
+      {type === 'he_etiquette' && <IsraeliEtiquetteCard />}
+      {type === 'he_currency' && <IsraeliCurrencyCard />}
+      {type === 'he_culture' && <IsraeliCultureCard />}
+
+      {/* ── HEBREW Section 6 — Word families ─────────────────────────────── */}
+      {type === 'he_word_family' && resolveHeFamilyCard(chapterTitle ?? '')}
+
+      {/* ── HEBREW Section 8 — Phonetics ─────────────────────────────────── */}
+      {type === 'he_alefbet_chart' && <HeAlefBetChartCard />}
+      {type === 'he_vowel_system' && <HeVowelSystemCard />}
+      {type === 'he_gutturals' && <HeGutturalsCard />}
+      {type === 'he_shin_sin' && <HeShimSinCard />}
+      {type === 'he_dagesh' && <HeDageshCard />}
+      {type === 'he_stress' && <HeStressCard />}
+      {type === 'he_modern_biblical' && <HeModernBiblicalCard />}
+      {type === 'he_vowel_reduction' && <HeVowelReductionCard />}
+      {type === 'he_pronunciation_overview' && <HePronunciationOverviewCard />}
 
       <div className="flex items-center gap-2 text-sm text-muted-foreground justify-center">
         <Users className="h-4 w-4" />
