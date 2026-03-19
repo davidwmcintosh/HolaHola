@@ -131,6 +131,28 @@ import {
   ItTROVAREFamilyCard, ItPENSAREFamilyCard, resolveItFamilyCard,
 } from "./TextbookItalianWordFamilies";
 
+// ── Japanese ──────────────────────────────────────────────────────────────────
+import {
+  JaHiraganaCard, JaKatakanaCard, JaKanjiBasicsCard,
+  JaParticlesCard, JaVerbGroupsCard, JaTEFormCard,
+  JaPastTenseCard, JaNegativeFormCard, JaPoliteFormCard,
+  JaAdjectivesCard, JaNounPhrasesCard, JaQuestionWordsCard,
+  JaNumbersCard, JaCountersCard, JaTimeExpressionsCard,
+  JaDirectionMovementCard, JaGivingReceivingCard, JaPotentialFormCard,
+  JaVolitionalFormCard, JaConditionalCard, JaTeIruCard, JaHonorificsCard,
+} from "./TextbookJapaneseGrammarCards";
+import {
+  JapanophoneWorldCard, JapaneseHolidayCalendarCard, JapaneseFoodGuideCard,
+  JapaneseRegionsCard, JapaneseEtiquetteCard, JapaneseCurrencyCard,
+  JapanesePopCultureCard,
+} from "./TextbookJapaneseCulturalCards";
+import {
+  JaHiraganaChartCard, JaKatakanaChartCard, JaVowelSoundsCard,
+  JaConsonantSoundsCard, JaLongVowelsCard, JaDoubleConsonantsCard,
+  JaPitchAccentCard, JaLoanwordsCard, JaNSoundCard,
+} from "./TextbookJapanesePhoneticGuides";
+import { resolveJaFamilyCard } from "./TextbookJapaneseWordFamilies";
+
 import { languageChapterData } from "@/data/chapter-intro-content";
 
 import familyGatheringImg from "@assets/stock_images/family_gathering_aro_0f321ed1.jpg";
@@ -268,7 +290,24 @@ type GrammarChapterType =
   // ── ITALIAN Section 8 — Phonetics ─────────────────────────────────────────
   | 'it_cg_sounds' | 'it_sc_sounds' | 'it_gl_gn' | 'it_double_consonant'
   | 'it_z_sound' | 'it_rolled_r' | 'it_open_closed_vowels'
-  | 'it_stress_patterns' | 'it_diphthongs';
+  | 'it_stress_patterns' | 'it_diphthongs'
+  // ── JAPANESE Section 3 — Grammar ──────────────────────────────────────────
+  | 'ja_hiragana' | 'ja_katakana' | 'ja_kanji_basics'
+  | 'ja_particles' | 'ja_verb_groups' | 'ja_te_form'
+  | 'ja_past_tense' | 'ja_negative_form' | 'ja_polite_form'
+  | 'ja_adjectives' | 'ja_noun_phrases' | 'ja_question_words'
+  | 'ja_numbers' | 'ja_counters' | 'ja_time_expressions'
+  | 'ja_direction_movement' | 'ja_giving_receiving' | 'ja_potential_form'
+  | 'ja_volitional_form' | 'ja_conditional' | 'ja_te_iru' | 'ja_honorifics'
+  // ── JAPANESE Section 5 — Cultural ─────────────────────────────────────────
+  | 'ja_world_map' | 'ja_holidays' | 'ja_food_guide'
+  | 'ja_regions' | 'ja_etiquette' | 'ja_currency' | 'ja_pop_culture'
+  // ── JAPANESE Section 6 — Word families ────────────────────────────────────
+  | 'ja_word_family'
+  // ── JAPANESE Section 8 — Phonetics ────────────────────────────────────────
+  | 'ja_hiragana_chart' | 'ja_katakana_chart' | 'ja_vowel_sounds'
+  | 'ja_consonant_sounds' | 'ja_long_vowels' | 'ja_double_consonants'
+  | 'ja_pitch_accent' | 'ja_loanwords' | 'ja_n_sound';
 
 function classifyFrenchGrammarType(title: string): GrammarChapterType | null {
   const lower = title.toLowerCase();
@@ -527,11 +566,68 @@ function classifyItalianGrammarType(title: string): GrammarChapterType | null {
   return null;
 }
 
+function classifyJapaneseGrammarType(title: string): GrammarChapterType | null {
+  const lower = title.toLowerCase();
+
+  // ── Section 3 — Writing systems ──────────────────────────────────────────
+  if (lower.includes('hiragana') && !lower.includes('chart') && !lower.includes('完全') && !lower.includes('complete')) return 'ja_hiragana';
+  if (lower.includes('katakana') && !lower.includes('chart') && !lower.includes('完全') && !lower.includes('complete')) return 'ja_katakana';
+  if (lower.includes('kanji') && !lower.includes('family') && !lower.includes('famil')) return 'ja_kanji_basics';
+
+  // ── Section 3 — Grammar ───────────────────────────────────────────────────
+  if (lower.includes('particle') || lower.includes('助詞') || lower.includes('joshi') || lower.includes('は/が') || lower.includes('wa/ga') || lower.includes('topic marker') || lower.includes('object marker')) return 'ja_particles';
+  if (lower.includes('verb group') || lower.includes('godan') || lower.includes('ichidan') || lower.includes('五段') || lower.includes('一段') || lower.includes('verb class') || lower.includes('u-verb') || lower.includes('ru-verb')) return 'ja_verb_groups';
+  if (lower.includes('te-form') || lower.includes('te form') || lower.includes('て形') || lower.includes('て-form') || lower.includes('teform') || lower.includes('て + ') || (lower.includes('て') && lower.includes('form'))) return 'ja_te_form';
+  if (lower.includes('past tense') || lower.includes('た形') || lower.includes('ta-form') || lower.includes('ta form') || lower.includes('過去形') || lower.includes('kakokei') || lower.includes('past form')) return 'ja_past_tense';
+  if (lower.includes('negative') && (lower.includes('japan') || lower.includes('japanese') || lower.includes('ない') || lower.includes('ません') || lower.includes('nai') || lower.includes('masen')) || lower.includes('否定形')) return 'ja_negative_form';
+  if (lower.includes('polite') && (lower.includes('japan') || lower.includes('japanese') || lower.includes('ます') || lower.includes('です') || lower.includes('masu') || lower.includes('desu')) || lower.includes('丁寧語') || lower.includes('masu form')) return 'ja_polite_form';
+  if ((lower.includes('adjective') || lower.includes('形容詞')) && (lower.includes('japan') || lower.includes('japanese') || lower.includes('い-adj') || lower.includes('な-adj') || lower.includes('i-adj') || lower.includes('na-adj'))) return 'ja_adjectives';
+  if (lower.includes('noun phrase') || lower.includes('名詞句') || lower.includes('の particle') || lower.includes('の as') || lower.includes('nominalizer') || lower.includes('nominalization') || (lower.includes('の') && lower.includes('modifier'))) return 'ja_noun_phrases';
+  if (lower.includes('question word') || lower.includes('疑問詞') || lower.includes('なに') || lower.includes('どこ') || lower.includes('interrogative') && (lower.includes('japan') || lower.includes('japanese')) || lower.includes('gimonshi')) return 'ja_question_words';
+  if ((lower.includes('number') || lower.includes('数字') || lower.includes('すうじ')) && (lower.includes('japan') || lower.includes('japanese') || lower.includes('kanji num') || lower.includes('counting'))) return 'ja_numbers';
+  if (lower.includes('counter') || lower.includes('助数詞') || lower.includes('josūshi') || lower.includes('〜本') || lower.includes('〜枚') || lower.includes('classifier') && lower.includes('japan')) return 'ja_counters';
+  if ((lower.includes('time expression') || lower.includes('時間表現') || lower.includes('jikan') && lower.includes('expression') || lower.includes('temporal') && lower.includes('japan') || (lower.includes('kinō') || lower.includes('kinou') || lower.includes('ashita') || lower.includes('kyō') || lower.includes('kyou'))) && !lower.includes('telling time') && !lower.includes('clock')) return 'ja_time_expressions';
+  if (lower.includes('direction') || lower.includes('movement') || lower.includes('方向') || lower.includes('移動') || lower.includes('iku') && lower.includes('kuru') || lower.includes('go/come') || lower.includes('transportation') && lower.includes('japan')) return 'ja_direction_movement';
+  if (lower.includes('giving') || lower.includes('receiving') || lower.includes('あげる') || lower.includes('もらう') || lower.includes('くれる') || lower.includes('ageru') || lower.includes('morau') || lower.includes('kureru') || lower.includes('やり・もらい')) return 'ja_giving_receiving';
+  if (lower.includes('potential') || lower.includes('可能形') || lower.includes('kanō') || lower.includes('dekiru') || lower.includes('できる') || lower.includes('can do') && lower.includes('japan')) return 'ja_potential_form';
+  if (lower.includes('volitional') || lower.includes('意志形') || lower.includes('ましょう') || lower.includes('masho') || lower.includes('let\'s') && lower.includes('japan') || lower.includes('たい') && lower.includes('japan') || lower.includes('want to') && lower.includes('japan')) return 'ja_volitional_form';
+  if (lower.includes('conditional') || lower.includes('条件形') || lower.includes('〜たら') || lower.includes('〜ば') || lower.includes('〜なら') || lower.includes('tara') && lower.includes('japan') || lower.includes('if clause') && lower.includes('japan')) return 'ja_conditional';
+  if (lower.includes('〜ている') || lower.includes('te iru') || lower.includes('te + iru') || lower.includes('ています') || lower.includes('teiru') || lower.includes('ongoing') && lower.includes('japan') || lower.includes('resultant state') && lower.includes('japan')) return 'ja_te_iru';
+  if (lower.includes('honorific') || lower.includes('敬語') || lower.includes('keigo') || lower.includes('尊敬語') || lower.includes('謙譲語') || lower.includes('polite speech') && lower.includes('japan') || lower.includes('〜さん') || lower.includes('speech level')) return 'ja_honorifics';
+
+  // ── Section 5 — Cultural ─────────────────────────────────────────────────
+  if (lower.includes('japanophone') || lower.includes('japanese-speaking world') || lower.includes('japanese speaking world') || lower.includes('nihongo no sekai') || lower.includes('日本語の世界')) return 'ja_world_map';
+  if ((lower.includes('holiday') && lower.includes('japan')) || lower.includes('golden week') || lower.includes('ゴールデンウィーク') || lower.includes('お盆') || lower.includes('japanese festival') || lower.includes('japanese public holiday') || lower.includes('祝日') || lower.includes('shukujitsu')) return 'ja_holidays';
+  if ((lower.includes('food') || lower.includes('cuisine') || lower.includes('料理') || lower.includes('ryōri')) && lower.includes('japan') || lower.includes('washoku') || lower.includes('和食') || lower.includes('japanese food') || lower.includes('sushi') && lower.includes('ramen')) return 'ja_food_guide';
+  if ((lower.includes('region') || lower.includes('prefecture') || lower.includes('都道府県') || lower.includes('地方')) && lower.includes('japan') || lower.includes('kanto') && lower.includes('kansai') || lower.includes('hokkaidō') && lower.includes('japan')) return 'ja_regions';
+  if ((lower.includes('etiquette') || lower.includes('manner') || lower.includes('マナー') || lower.includes('customs')) && lower.includes('japan') || lower.includes('japanese etiquette') || lower.includes('bowing') && lower.includes('japan') || lower.includes('omotenashi') || lower.includes('おもてなし')) return 'ja_etiquette';
+  if ((lower.includes('currency') || lower.includes('yen') || lower.includes('円') || lower.includes('money')) && lower.includes('japan') || lower.includes('japanese yen') || lower.includes('日本円')) return 'ja_currency';
+  if (lower.includes('pop culture') || lower.includes('anime') && lower.includes('manga') || lower.includes('j-pop') || lower.includes('jpop') || lower.includes('cool japan') || lower.includes('クールジャパン') || lower.includes('アニメ') && lower.includes('マンガ')) return 'ja_pop_culture';
+
+  // ── Section 6 — Word families ─────────────────────────────────────────────
+  if (lower.includes('word family') && lower.includes('japan') || lower.includes('kanji family') || lower.includes('漢字') && lower.includes('family') || lower.includes('kanji radical') && lower.includes('family') || lower.includes('日本語') && lower.includes('word family')) return 'ja_word_family';
+
+  // ── Section 8 — Phonetics ─────────────────────────────────────────────────
+  if ((lower.includes('hiragana') && (lower.includes('chart') || lower.includes('complete') || lower.includes('完全') || lower.includes('all') || lower.includes('table'))) || lower.includes('hiragana chart')) return 'ja_hiragana_chart';
+  if ((lower.includes('katakana') && (lower.includes('chart') || lower.includes('complete') || lower.includes('完全') || lower.includes('all') || lower.includes('table'))) || lower.includes('katakana chart')) return 'ja_katakana_chart';
+  if (lower.includes('japanese vowel') || lower.includes('母音') || lower.includes('boin') || lower.includes('a/i/u/e/o') && lower.includes('japan') || lower.includes('vowel sound') && lower.includes('japan') || lower.includes('5 vowel')) return 'ja_vowel_sounds';
+  if (lower.includes('consonant sound') && lower.includes('japan') || lower.includes('子音') || lower.includes('し/し') || lower.includes('japanese r') || lower.includes('special consonant') && lower.includes('japan') || lower.includes('shi/chi/tsu') || lower.includes('japanese pronunciation') && lower.includes('consonant')) return 'ja_consonant_sounds';
+  if (lower.includes('long vowel') && lower.includes('japan') || lower.includes('長音') || lower.includes('chōon') || lower.includes('vowel length') && lower.includes('japan') || lower.includes('macron') && lower.includes('japan') || lower.includes('ā/ī/ū/ē/ō')) return 'ja_long_vowels';
+  if (lower.includes('double consonant') && lower.includes('japan') || lower.includes('促音') || lower.includes('sokuon') || lower.includes('っ') && lower.includes('double') || lower.includes('geminate') && lower.includes('japan')) return 'ja_double_consonants';
+  if (lower.includes('pitch accent') || lower.includes('アクセント') || lower.includes('音程アクセント') || lower.includes('heiban') || lower.includes('atamadaka') || lower.includes('pitch') && lower.includes('japan')) return 'ja_pitch_accent';
+  if (lower.includes('loanword') || lower.includes('外来語') || lower.includes('gairaigo') || lower.includes('katakana word') || lower.includes('borrowed word') && lower.includes('japan') || lower.includes('katakana loanword')) return 'ja_loanwords';
+  if (lower.includes('ん') && (lower.includes('sound') || lower.includes('syllabic')) || lower.includes('syllabic n') || lower.includes('撥音') || lower.includes('hatsuon') || lower.includes('n sound') && lower.includes('japan') || lower.includes('moraic n')) return 'ja_n_sound';
+  if (lower.includes('pronunciation') && lower.includes('japan') || lower.includes('fonetica') && lower.includes('japan') || lower.includes('phonetic') && lower.includes('japan') || lower.includes('発音') || lower.includes('hatsuon') && lower.includes('guide')) return 'ja_hiragana_chart'; // default entry
+
+  return null;
+}
+
 function classifyGrammarType(title: string, language = 'spanish'): GrammarChapterType | null {
   if (language === 'french') return classifyFrenchGrammarType(title);
   if (language === 'portuguese') return classifyPortugueseGrammarType(title);
   if (language === 'german') return classifyGermanGrammarType(title);
   if (language === 'italian') return classifyItalianGrammarType(title);
+  if (language === 'japanese') return classifyJapaneseGrammarType(title);
 
   const lower = title.toLowerCase();
 
@@ -851,6 +947,49 @@ const GRAMMAR_LABELS: Record<GrammarChapterType, { title: string; subtitle: stri
   it_open_closed_vowels: { title: 'Vocali Aperte e Chiuse — E and O', subtitle: 'Open [ɛ/ɔ] vs. closed [e/o] — accent marks, regional variation, and minimal pairs' },
   it_stress_patterns:    { title: "L'Accento Tonico — Word Stress", subtitle: 'Most Italian words stress the penultimate syllable — exceptions, accent marks, and oxytones' },
   it_diphthongs:         { title: 'I Dittonghi — Italian Diphthongs', subtitle: 'Rising (ie, uo) and falling diphthongs — when vowels combine vs. stay separate' },
+  // ── JAPANESE Section 3 — Grammar ──────────────────────────────────────────
+  ja_hiragana:           { title: 'ひらがな — Hiragana', subtitle: 'The 46-character phonetic syllabary for native Japanese words, grammar particles, and verb endings' },
+  ja_katakana:           { title: 'カタカナ — Katakana', subtitle: 'The 46-character syllabary used for foreign loanwords, foreign names, and onomatopoeia' },
+  ja_kanji_basics:       { title: '漢字 — Kanji Basics', subtitle: 'Logographic characters with on-yomi (Chinese) and kun-yomi (Japanese) readings — 2,136 jōyō kanji' },
+  ja_particles:          { title: '助詞 — Particles', subtitle: 'Grammatical markers (は、が、を、に、で、の、と、も、か...) that define the role of nouns in a sentence' },
+  ja_verb_groups:        { title: '動詞のグループ — Verb Groups', subtitle: 'Group 1 Godan (u-verbs), Group 2 Ichidan (ru-verbs), Group 3 Irregular (する、くる)' },
+  ja_te_form:            { title: 'て形 — Te-form', subtitle: 'The essential connecting form — used for sequences, requests (〜てください), permission, and compound patterns' },
+  ja_past_tense:         { title: '過去形 — Past Tense (た形)', subtitle: 'た-form / ta-form formation rules (same as て-form) + polite past 〜ました' },
+  ja_negative_form:      { title: '否定形 — Negative Forms', subtitle: 'Plain negative ない/くない + polite negative ません — verb, noun, and adjective negation' },
+  ja_polite_form:        { title: '丁寧語 — Polite Form (です・ます)', subtitle: 'The essential ます/です register — present, past, negative, and volitional polite forms' },
+  ja_adjectives:         { title: '形容詞 — Adjectives (い vs な)', subtitle: 'い-adjectives conjugate like verbs; な-adjectives use particle な before nouns and だ/です as predicate' },
+  ja_noun_phrases:       { title: '名詞句 — Noun Phrases & の', subtitle: 'の as possessive/modifier + の as nominalizer (turning verb phrases into noun phrases)' },
+  ja_question_words:     { title: '疑問詞 — Question Words', subtitle: '何、どこ、だれ、いつ、どう、なぜ、どれ、いくら... — question words + か sentence-final question marker' },
+  ja_numbers:            { title: '数字 — Numbers', subtitle: 'Japanese number system (1–万) with kanji numerals + the 万 (10,000) grouping system' },
+  ja_counters:           { title: '助数詞 — Counters', subtitle: 'Counter words by object type: 本/枚/冊/台/匹/頭/羽/個/杯/人... + the general つ counter' },
+  ja_time_expressions:   { title: '時間表現 — Time Expressions', subtitle: 'Days (今日、昨日、明日), weeks, months, years + clock time + frequency expressions' },
+  ja_direction_movement: { title: '方向・移動 — Direction & Movement', subtitle: 'Movement verbs + に/へ direction patterns + transportation vocabulary' },
+  ja_giving_receiving:   { title: 'やり・もらい表現 — Giving & Receiving', subtitle: 'あげる/くれる/もらう + て-form versions + honorific forms さしあげる/くださる/いただく' },
+  ja_potential_form:     { title: '可能形 — Potential Form', subtitle: 'Can do ~ — formation rules for all verb groups + できる as general potential verb' },
+  ja_volitional_form:    { title: '意志形 — Volitional & Desire', subtitle: '〜ましょう / 〜よう (let\'s ~) + 〜たい (want to ~) + 〜たがる for third-person desire' },
+  ja_conditional:        { title: '条件形 — Conditional Forms', subtitle: '〜たら (if/when) · 〜ば (formal if) · 〜なら (given that) · 〜と (natural result)' },
+  ja_te_iru:             { title: '〜ています — Ongoing & Resultant States', subtitle: 'Activity verbs → ongoing action; change-of-state verbs → resultant state — the critical distinction' },
+  ja_honorifics:         { title: '敬語 — Honorific Language (Keigo)', subtitle: '丁寧語/尊敬語/謙譲語 — the three levels of keigo + お〜/ご〜 prefixes + title suffixes' },
+  // ── JAPANESE Section 5 — Cultural ─────────────────────────────────────────
+  ja_world_map:          { title: '日本語の世界 — Japanese-Speaking World', subtitle: '~125 million native speakers · Japan + diaspora · Japonic language family · JLPT levels' },
+  ja_holidays:           { title: '日本の祝日・行事 — Japanese Holidays', subtitle: '16 national holidays · Golden Week · Obon · Year-End customs · seasonal festivals' },
+  ja_food_guide:         { title: '日本の食文化 — Japanese Cuisine', subtitle: 'Washoku UNESCO heritage · ramen/soba/udon/sushi · regional specialties · dining vocabulary' },
+  ja_regions:            { title: '日本の地方 — Regions of Japan', subtitle: '9 regions · 47 prefectures · Hokkaidō to Okinawa — geography, culture, and local identity' },
+  ja_etiquette:          { title: '日本のマナー — Japanese Etiquette', subtitle: 'Bowing, shoes, chopstick rules, tipping customs, public transport behavior, gifting (お土産)' },
+  ja_currency:           { title: '日本円 — Japanese Yen', subtitle: '6 coins · 3 banknotes (redesigned 2024) · cash culture · IC cards · useful payment phrases' },
+  ja_pop_culture:        { title: 'ポップカルチャー — Japanese Pop Culture', subtitle: 'Anime, manga, J-pop, gaming, cosplay, Akihabara — Japan\'s global "Cool Japan" soft power' },
+  // ── JAPANESE Section 6 — Word families ────────────────────────────────────
+  ja_word_family:        { title: '漢字の家族 — Kanji Word Families', subtitle: 'Root kanji + on-yomi and kun-yomi compound words — building vocabulary through kanji patterns' },
+  // ── JAPANESE Section 8 — Phonetics ────────────────────────────────────────
+  ja_hiragana_chart:     { title: 'ひらがな完全表 — Complete Hiragana Chart', subtitle: '46 base + 25 voiced/semi-voiced + 拗音 combination characters — the full hiragana system' },
+  ja_katakana_chart:     { title: 'カタカナ完全表 — Complete Katakana Chart', subtitle: '46 base characters + special foreign-sound combinations + the ー long vowel mark' },
+  ja_vowel_sounds:       { title: '母音 — Japanese Vowel Sounds', subtitle: '5 pure, consistent vowels (a/i/u/e/o) — pronunciation guide with IPA + devoiced vowels' },
+  ja_consonant_sounds:   { title: '子音 — Special Consonant Sounds', subtitle: 'shi, chi, tsu, fu, the Japanese r (flap), and common pronunciation traps for English speakers' },
+  ja_long_vowels:        { title: '長音 — Long Vowels', subtitle: 'Long vs. short vowels change meaning — minimal pairs (おじさん vs おじいさん) + romanization rules' },
+  ja_double_consonants:  { title: '促音 — Double Consonants (っ/ッ)', subtitle: 'Sokuon — the held-stop consonant that changes meaning (きて vs きって) + production technique' },
+  ja_pitch_accent:       { title: 'アクセント — Pitch Accent', subtitle: '4 Tokyo dialect patterns (heiban, atamadaka, nakadaka, odaka) + pitch minimal pairs' },
+  ja_loanwords:          { title: '外来語 — Katakana Loanwords', subtitle: 'Phonological adaptation rules + common loanword categories + false friends in katakana' },
+  ja_n_sound:            { title: 'ん/ン — The Syllabic N', subtitle: 'The chameleon nasal — 5 phonological variants depending on following consonant + mora counting' },
 };
 
 function resolveFrenchWordFamilyCard(title?: string): JSX.Element {
@@ -917,13 +1056,26 @@ const GRAMMAR_LABELS_FR: Partial<Record<GrammarChapterType, { title: string; sub
   country_dot_map:  { title: 'Les Pays Francophones', subtitle: 'Where French is spoken around the world — 29+ countries across 5 continents' },
 };
 
+const GRAMMAR_LABELS_JA: Partial<Record<GrammarChapterType, { title: string; subtitle: string }>> = {
+  weather_vocab:    { title: '天気 — お天気のことば', subtitle: 'All 10 weather conditions with Japanese expressions — the same icons used in lessons' },
+  emotions_vocab:   { title: '感情 — 気持ちのことば', subtitle: 'All 11 emotion faces with Japanese labels — the same faces used in lessons' },
+  telling_time:     { title: '時計 — 時刻の言い方', subtitle: 'Analog clocks + key Japanese time patterns and parts-of-day vocabulary' },
+  days_week:        { title: '曜日・月・カレンダー', subtitle: 'Days of the week, months of the year, and Japanese date expressions' },
+  body_parts:       { title: '体 — からだのことば', subtitle: 'Body diagram + complete Japanese vocabulary reference — same diagram used in lessons' },
+  face_parts:       { title: '顔 — かおのことば', subtitle: 'Face close-up + full Japanese vocabulary for facial features' },
+  hand_parts:       { title: '手 — てのことば', subtitle: 'Hand diagram + Japanese vocabulary for fingers, palm, and wrist' },
+  temperature_vocab:{ title: '気温 — おんどのことば', subtitle: 'Temperature scale in Japanese — same thermometer used in lessons' },
+  country_dot_map:  { title: '日本語の世界', subtitle: 'Where Japanese is spoken around the world — Japan + diaspora communities' },
+};
+
 function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spanish' }: { type: GrammarChapterType; chapterNumber: number; chapterTitle?: string; language?: string }) {
   const baseLabel = GRAMMAR_LABELS[type];
   const frLabel = language === 'french' ? GRAMMAR_LABELS_FR[type] : undefined;
   const ptLabel = language === 'portuguese' ? GRAMMAR_LABELS_PT[type] : undefined;
   const deLabel = language === 'german' ? GRAMMAR_LABELS_DE[type] : undefined;
   const itLabel = language === 'italian' ? GRAMMAR_LABELS_IT[type] : undefined;
-  const { title, subtitle } = itLabel ?? deLabel ?? ptLabel ?? frLabel ?? baseLabel;
+  const jaLabel = language === 'japanese' ? GRAMMAR_LABELS_JA[type] : undefined;
+  const { title, subtitle } = jaLabel ?? itLabel ?? deLabel ?? ptLabel ?? frLabel ?? baseLabel;
   const wordFamilyRoot = type === 'word_family' && chapterTitle ? resolveWordFamilyRoot(chapterTitle) : null;
 
   return (
@@ -990,15 +1142,15 @@ function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spa
       {type === 'word_family' && <WordFamilyCard root={wordFamilyRoot ?? 'hablar'} />}
 
       {/* Section 7 — Canvas vocabulary cards (same SVG renderers as /chat) */}
-      {type === 'weather_vocab'    && <WeatherVocabCard     language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian'} />}
-      {type === 'emotions_vocab'   && <EmotionsVocabCard    language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian'} />}
-      {type === 'telling_time'     && <TimeVocabCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian'} />}
-      {type === 'days_week'        && <DaysOfWeekCard       language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian'} />}
-      {type === 'body_parts'       && <BodyPartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian'} />}
-      {type === 'face_parts'       && <FacePartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian'} />}
-      {type === 'hand_parts'       && <HandPartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian'} />}
-      {type === 'temperature_vocab'&& <ThermometerVocabCard language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian'} />}
-      {type === 'country_dot_map'  && (language === 'french' ? <FrancophoneWorldMapCard /> : language === 'portuguese' ? <LusophoneWorldMapCard /> : language === 'german' ? <GermanSpeakingWorldCard /> : language === 'italian' ? <ItalophoneWorldCard /> : <CountryDotMapCard />)}
+      {type === 'weather_vocab'    && <WeatherVocabCard     language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese'} />}
+      {type === 'emotions_vocab'   && <EmotionsVocabCard    language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese'} />}
+      {type === 'telling_time'     && <TimeVocabCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese'} />}
+      {type === 'days_week'        && <DaysOfWeekCard       language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese'} />}
+      {type === 'body_parts'       && <BodyPartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese'} />}
+      {type === 'face_parts'       && <FacePartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese'} />}
+      {type === 'hand_parts'       && <HandPartsCard        language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese'} />}
+      {type === 'temperature_vocab'&& <ThermometerVocabCard language={language as 'spanish' | 'french' | 'portuguese' | 'german' | 'italian' | 'japanese'} />}
+      {type === 'country_dot_map'  && (language === 'french' ? <FrancophoneWorldMapCard /> : language === 'portuguese' ? <LusophoneWorldMapCard /> : language === 'german' ? <GermanSpeakingWorldCard /> : language === 'italian' ? <ItalophoneWorldCard /> : language === 'japanese' ? <JapanophoneWorldCard /> : <CountryDotMapCard />)}
 
       {/* Section 8 — Phonetics */}
       {type === 'vowel_purity' && <VowelPurityCard />}
@@ -1202,6 +1354,53 @@ function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spa
       {type === 'it_open_closed_vowels' && <ItOpenClosedVowelsCard />}
       {type === 'it_stress_patterns' && <ItStressPatternsCard />}
       {type === 'it_diphthongs' && <ItDiphthongsCard />}
+
+      {/* ── JAPANESE Section 3 — Grammar ───────────────────────────────────── */}
+      {type === 'ja_hiragana' && <JaHiraganaCard />}
+      {type === 'ja_katakana' && <JaKatakanaCard />}
+      {type === 'ja_kanji_basics' && <JaKanjiBasicsCard />}
+      {type === 'ja_particles' && <JaParticlesCard />}
+      {type === 'ja_verb_groups' && <JaVerbGroupsCard />}
+      {type === 'ja_te_form' && <JaTEFormCard />}
+      {type === 'ja_past_tense' && <JaPastTenseCard />}
+      {type === 'ja_negative_form' && <JaNegativeFormCard />}
+      {type === 'ja_polite_form' && <JaPoliteFormCard />}
+      {type === 'ja_adjectives' && <JaAdjectivesCard />}
+      {type === 'ja_noun_phrases' && <JaNounPhrasesCard />}
+      {type === 'ja_question_words' && <JaQuestionWordsCard />}
+      {type === 'ja_numbers' && <JaNumbersCard />}
+      {type === 'ja_counters' && <JaCountersCard />}
+      {type === 'ja_time_expressions' && <JaTimeExpressionsCard />}
+      {type === 'ja_direction_movement' && <JaDirectionMovementCard />}
+      {type === 'ja_giving_receiving' && <JaGivingReceivingCard />}
+      {type === 'ja_potential_form' && <JaPotentialFormCard />}
+      {type === 'ja_volitional_form' && <JaVolitionalFormCard />}
+      {type === 'ja_conditional' && <JaConditionalCard />}
+      {type === 'ja_te_iru' && <JaTeIruCard />}
+      {type === 'ja_honorifics' && <JaHonorificsCard />}
+
+      {/* ── JAPANESE Section 5 — Cultural ──────────────────────────────────── */}
+      {type === 'ja_world_map' && <JapanophoneWorldCard />}
+      {type === 'ja_holidays' && <JapaneseHolidayCalendarCard />}
+      {type === 'ja_food_guide' && <JapaneseFoodGuideCard />}
+      {type === 'ja_regions' && <JapaneseRegionsCard />}
+      {type === 'ja_etiquette' && <JapaneseEtiquetteCard />}
+      {type === 'ja_currency' && <JapaneseCurrencyCard />}
+      {type === 'ja_pop_culture' && <JapanesePopCultureCard />}
+
+      {/* ── JAPANESE Section 6 — Word families ─────────────────────────────── */}
+      {type === 'ja_word_family' && resolveJaFamilyCard(chapterTitle ?? '')}
+
+      {/* ── JAPANESE Section 8 — Phonetics ─────────────────────────────────── */}
+      {type === 'ja_hiragana_chart' && <JaHiraganaChartCard />}
+      {type === 'ja_katakana_chart' && <JaKatakanaChartCard />}
+      {type === 'ja_vowel_sounds' && <JaVowelSoundsCard />}
+      {type === 'ja_consonant_sounds' && <JaConsonantSoundsCard />}
+      {type === 'ja_long_vowels' && <JaLongVowelsCard />}
+      {type === 'ja_double_consonants' && <JaDoubleConsonantsCard />}
+      {type === 'ja_pitch_accent' && <JaPitchAccentCard />}
+      {type === 'ja_loanwords' && <JaLoanwordsCard />}
+      {type === 'ja_n_sound' && <JaNSoundCard />}
 
       <div className="flex items-center gap-2 text-sm text-muted-foreground justify-center">
         <Users className="h-4 w-4" />
