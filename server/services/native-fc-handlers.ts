@@ -516,28 +516,63 @@ export class NativeFunctionCallHandler {
               const { getUserDb } = await import('../db');
               const { sql } = await import('drizzle-orm');
               const db = getUserDb();
-              const existing = await db.execute(sql`
-                SELECT url, description, tags, accessibility_description, concept_alignment
-                FROM media_files
-                WHERE image_source = 'ai_generated'
-                  AND (
-                    title ILIKE ${`%${concept.substring(0, 40)}%`}
-                    OR description ILIKE ${`%${concept.substring(0, 40)}%`}
-                  )
-                ORDER BY concept_alignment DESC NULLS LAST, created_at DESC
-                LIMIT 1
-              `);
-              if (existing.rows.length > 0) {
-                const row = existing.rows[0] as any;
-                console.log(`[Native Function→GenerateVisual] Found library match — skipping DALL-E generation`);
+
+              // Safety net: if Daniela accidentally calls generate_visual for a vocab word,
+              // try the vocab cache key first (vocab_spanish_{normalizedWord}).
+              // This catches single-word or short concepts like "correr", "bailar", "rojo".
+              const conceptWords = concept.trim().toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 2);
+              const language = session.language || 'spanish';
+              let vocabCacheHit: any = null;
+              for (const word of conceptWords.slice(0, 3)) {
+                const cacheKey = `vocab_${language}_${word}`;
+                const hit = await db.execute(sql`
+                  SELECT url, description, tags, accessibility_description
+                  FROM media_files WHERE search_query = ${cacheKey} LIMIT 1
+                `);
+                if (hit.rows.length > 0) {
+                  vocabCacheHit = hit.rows[0];
+                  console.log(`[Native Function→GenerateVisual] Vocab cache hit for "${word}" (key: ${cacheKey}) — bypassing DALL-E`);
+                  break;
+                }
+              }
+              if (vocabCacheHit) {
                 const { normalizeImageUrl } = await import('../services/image-storage');
                 result = {
-                  imageUrl: normalizeImageUrl(row.url as string),
-                  altText: (row.description as string) || concept,
-                  semanticTags: (row.tags as string[]) || [],
-                  accessibilityDescription: (row.accessibility_description as string) || '',
-                  conceptAlignment: Number(row.concept_alignment) || 0.85,
+                  imageUrl: normalizeImageUrl(vocabCacheHit.url as string),
+                  altText: (vocabCacheHit.description as string) || concept,
+                  semanticTags: (vocabCacheHit.tags as string[]) || [],
+                  accessibilityDescription: (vocabCacheHit.accessibility_description as string) || '',
+                  conceptAlignment: 0.95,
                 };
+              }
+
+              // Fallback: title/description fuzzy match
+              if (!result) {
+                const existing = await db.execute(sql`
+                  SELECT url, description, tags, accessibility_description, concept_alignment
+                  FROM media_files
+                  WHERE image_source = 'ai_generated'
+                    AND (
+                      title ILIKE ${`%${concept.substring(0, 40)}%`}
+                      OR description ILIKE ${`%${concept.substring(0, 40)}%`}
+                    )
+                  ORDER BY concept_alignment DESC NULLS LAST, created_at DESC
+                  LIMIT 1
+                `);
+                if (existing.rows.length > 0) {
+                  const row = existing.rows[0] as any;
+                  console.log(`[Native Function→GenerateVisual] Found library match — skipping DALL-E generation`);
+                  const { normalizeImageUrl } = await import('../services/image-storage');
+                  result = {
+                    imageUrl: normalizeImageUrl(row.url as string),
+                    altText: (row.description as string) || concept,
+                    semanticTags: (row.tags as string[]) || [],
+                    accessibilityDescription: (row.accessibility_description as string) || '',
+                    conceptAlignment: Number(row.concept_alignment) || 0.85,
+                  };
+                }
               }
             } catch (lookupErr: any) {
               console.warn(`[Native Function→GenerateVisual] Library lookup failed, proceeding with generation:`, lookupErr.message);

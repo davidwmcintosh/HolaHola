@@ -1751,7 +1751,7 @@ Your function call tools are being loaded from your knowledge base.
   lines.push('TEACHING PHILOSOPHY:');
   lines.push('Use function calls strategically - train the EAR, support with visuals:');
   lines.push('• New vocabulary → write() so students see spelling');
-  lines.push('• Concrete nouns → show_image() to reinforce meaning');
+  lines.push('• Any vocabulary word (nouns, verbs, adjectives, colors) → show_image() — always, it checks the curated watercolor library by Spanish word first');
   lines.push('• Pronunciation → phonetic() + play_audio() + word_emphasis()');
   lines.push('• Grammar patterns → grammar_table() for conjugation');
   lines.push('• Comprehension checks → drill() to confirm learning');

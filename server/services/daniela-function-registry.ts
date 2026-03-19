@@ -338,7 +338,12 @@ const registry: DanielaFunctionEntry[] = [
     legacyType: 'SHOW_IMAGE',
     declaration: {
       name: "show_image",
-      description: "Display an image on the whiteboard for vocabulary or cultural teaching. Include your spoken words in the 'text' parameter so the image and speech are delivered together. Use label_mode to control what labels appear — you decide, the student cannot change this.",
+      description: `Display a vocabulary illustration on the whiteboard. Use this for ALL vocabulary words — nouns, verbs, adjectives, colors, everything. Pass the Spanish word in 'word' and the tool will find the pre-built watercolor illustration from the library automatically. If no library image exists for that word, one will be sourced or generated on the fly.
+
+⭐ ALWAYS use show_image when you are teaching or reinforcing a specific vocabulary word (correr, bailar, rojo, grande, la escuela, etc.). This is the right tool for vocabulary.
+⚠️ Do NOT use generate_visual for vocabulary word teaching — it bypasses the vocabulary library.
+
+Include your spoken words in 'text'. Use label_mode to control what labels appear — you decide, the student cannot change this.`,
       parametersJsonSchema: {
         type: "object",
         properties: {
@@ -375,17 +380,17 @@ const registry: DanielaFunctionEntry[] = [
       name: "generate_visual",
       description: `Create a custom AI-generated illustration to display on the whiteboard. The image is shown as a full visual card — no background removal needed, no compositing.
 
-USE generate_visual for:
-1. ANY vocabulary noun that is NOT in the zone-compatible prop list (see compose_visual_scene). For example: maleta, estetoscopio, carrito de compras, termómetro, pasaporte — these are vocab-only props and must use generate_visual, not compose_visual_scene. NOTE: mochila (backpack) IS zone-compatible — use compose_visual_scene for it.
-2. NEW props you are creating on-the-fly for vocabulary practice — generate them with "warm illustrated watercolor style, vibrant colours" and they will be saved to the library automatically.
-3. Abstract grammar concepts (verb tense timelines, sentence structure diagrams)
-4. Rich cultural scenes with no equivalent prop-room environment
-5. Anything where a full illustrated scene works better than a composited prop
+⚠️ DO NOT use generate_visual for vocabulary word teaching. Use show_image instead — it looks up the curated illustration library by Spanish word (correr, bailar, rojo, grande…) and is always the right choice for vocabulary.
+
+USE generate_visual ONLY for:
+1. Abstract grammar concepts (verb tense timelines, sentence structure diagrams, conjugation tables)
+2. Rich cultural scenes with no specific vocabulary word (e.g. "a busy Mexican mercado at sunset")
+3. Custom scenarios that don't correspond to a single vocabulary word
 
 ⚠️ DO NOT use generate_visual for PREPOSITION teaching (sobre, debajo de, al lado de) — use compose_visual_scene (Mode B) with a zone environment and a zone-compatible prop instead.
 ⚠️ For zone-compatible props (cup, plate, fork, book, apple, etc.) in vocabulary context (Mode A), prefer compose_visual_scene with a wide environment — it is instant and free.
 
-Style hint for new vocab props: always request "warm illustrated watercolor style, vibrant saturated colours" — this matches the existing visual library and creates a consistent look across all lessons.
+Style hint: always request "warm illustrated watercolor style, vibrant saturated colours" to match the existing visual library.
 
 The image will appear on the whiteboard in a few seconds while you continue speaking. Include natural conversational words in the 'text' parameter — NOT a description of the image.`,
       parametersJsonSchema: {
