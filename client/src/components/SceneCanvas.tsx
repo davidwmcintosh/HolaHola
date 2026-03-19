@@ -28,7 +28,7 @@ import type {
 
 // ─── Analog Clock SVG ─────────────────────────────────────────────────────────
 
-function AnalogClock({ time }: { time: string }) {
+export function AnalogClock({ time }: { time: string }) {
   const parts = time.split(":");
   const hourRaw = parseInt(parts[0] ?? "12", 10);
   const minute = parseInt(parts[1] ?? "0", 10);
@@ -236,7 +236,7 @@ function ConjugationTableCanvas({ table }: { table: ConjugationTableData }) {
 
 // ─── Calendar Canvas ──────────────────────────────────────────────────────────
 
-function CalendarCanvas({ cal }: { cal: CalendarData }) {
+export function CalendarCanvas({ cal }: { cal: CalendarData }) {
   const startDow = cal.startDow ?? 1; // default Mon-first
 
   // Compute first day of month's day-of-week (0=Sun)
@@ -344,7 +344,7 @@ function CalendarCanvas({ cal }: { cal: CalendarData }) {
 
 // ─── Thermometer Canvas ───────────────────────────────────────────────────────
 
-function ThermometerCanvas({ data }: { data: ThermometerData }) {
+export function ThermometerCanvas({ data }: { data: ThermometerData }) {
   const { celsius, labelText, showFahrenheit } = data;
   const minTemp = -30, maxTemp = 60;
   const pct = Math.min(1, Math.max(0, (celsius - minTemp) / (maxTemp - minTemp)));
@@ -406,7 +406,7 @@ function ThermometerCanvas({ data }: { data: ThermometerData }) {
 
 // ─── Emotion Face Canvas ──────────────────────────────────────────────────────
 
-const EMOTION_CONFIG: Record<string, {
+export const EMOTION_CONFIG: Record<string, {
   faceColor: string;
   mouth: string;
   eyeClose: boolean;
@@ -466,7 +466,7 @@ function EmotionFaceCanvas({ data }: { data: EmotionData }) {
 
 // ─── Weather Canvas ───────────────────────────────────────────────────────────
 
-function WeatherIcon({ condition, size = 80 }: { condition: string; size?: number }) {
+export function WeatherIcon({ condition, size = 80 }: { condition: string; size?: number }) {
   const s = size;
   const c = s / 2;
   switch (condition) {
@@ -671,7 +671,7 @@ function renderShape(shape: SvgShape, fill: string, stroke: string) {
   }
 }
 
-function BodyDiagramCanvas({ data }: { data: BodyDiagramData }) {
+export function BodyDiagramCanvas({ data }: { data: BodyDiagramData }) {
   const highlighted = resolveBodyParts(data.highlightParts);
   const baseFill   = 'hsl(var(--muted))';
   const baseStroke = 'hsl(var(--border))';
@@ -808,7 +808,7 @@ function resolveFaceParts(parts: string[]): Set<string> {
   return resolved;
 }
 
-function FaceDiagramCanvas({ data }: { data: FaceDiagramData }) {
+export function FaceDiagramCanvas({ data }: { data: FaceDiagramData }) {
   const highlighted = resolveFaceParts(data.highlightParts);
   const baseFill   = 'hsl(var(--muted))';
   const baseStroke = 'hsl(var(--border))';
@@ -909,7 +909,7 @@ function resolveHandParts(parts: string[]): Set<string> {
   return resolved;
 }
 
-function HandDiagramCanvas({ data }: { data: HandDiagramData }) {
+export function HandDiagramCanvas({ data }: { data: HandDiagramData }) {
   const highlighted = resolveHandParts(data.highlightParts);
   const baseFill   = 'hsl(var(--muted))';
   const baseStroke = 'hsl(var(--border))';
@@ -1011,7 +1011,7 @@ const WORLD_COUNTRIES: Record<string, CountryDef> = {
   western_sahara:      { x:210, y:88,  name:'Sáhara Occidental',short:'EH' },
 };
 
-function WorldMapCanvas({ data }: { data: WorldMapData }) {
+export function WorldMapCanvas({ data }: { data: WorldMapData }) {
   const hlSlugs = new Set(data.highlightCountries.map(s => s.toLowerCase().replace(/ /g,'_').replace(/-/g,'_')));
   return (
     <motion.div

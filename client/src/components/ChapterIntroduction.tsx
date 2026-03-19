@@ -19,6 +19,10 @@ import {
 } from "./TextbookCulturalCards";
 import { WordFamilyCard, resolveWordFamilyRoot } from "./TextbookWordFamilies";
 import {
+  WeatherVocabCard, EmotionsVocabCard, TimeVocabCard, DaysOfWeekCard,
+  BodyPartsCard, FacePartsCard, HandPartsCard, ThermometerVocabCard, CountryDotMapCard,
+} from "./TextbookCanvasCards";
+import {
   VowelPurityCard, RolledRCard, BVSoundCard, SilentHCard,
   JSoundCard, NyenCard, LLYCard, StressAccentCard, LinkingSoundsCard,
 } from "./TextbookPhoneticGuides";
@@ -79,6 +83,9 @@ type GrammarChapterType =
   | 'family_tree' | 'greeting_etiquette' | 'currency_ref'
   // ── Section 6 — Word family maps ────────────────────────────────────────
   | 'word_family'
+  // ── Section 7 — Canvas vocabulary cards (shared with /chat canvas tools) ──
+  | 'weather_vocab' | 'emotions_vocab' | 'telling_time' | 'days_week'
+  | 'body_parts' | 'face_parts' | 'hand_parts' | 'temperature_vocab' | 'country_dot_map'
   // ── Section 8 — Phonetic guides ─────────────────────────────────────────
   | 'vowel_purity' | 'rolled_r' | 'bv_sound' | 'silent_h'
   | 'j_sound' | 'nyen_sound' | 'lly_sound' | 'stress_accent' | 'linking_sounds';
@@ -133,6 +140,17 @@ function classifyGrammarType(title: string): GrammarChapterType | null {
 
   // ── Section 6 — Word family maps ─────────────────────────────────────────
   if (lower.includes('word family') || lower.includes('familia de palabras') || lower.includes('word derivation') || lower.includes('derivation') || lower.includes('familia léxica')) return 'word_family';
+
+  // ── Section 7 — Canvas vocabulary cards ─────────────────────────────────
+  if (lower.includes('weather vocab') || lower.includes('el tiempo') || lower.includes('tiempo atmosférico') || lower.includes('weather condition') || lower.includes('el clima')) return 'weather_vocab';
+  if (lower.includes('emotion') || lower.includes('emoción') || lower.includes('emociones') || lower.includes('feeling') || lower.includes('sentimiento') || lower.includes('estado de ánimo') || lower.includes('cómo te sientes') || lower.includes('how do you feel')) return 'emotions_vocab';
+  if (lower.includes('la hora') || lower.includes('telling time') || lower.includes('telling the time') || lower.includes('time expression') || lower.includes('what time') || lower.includes('qué hora')) return 'telling_time';
+  if (lower.includes('días de la semana') || lower.includes('days of the week') || lower.includes('meses del año') || lower.includes('months of the year') || lower.includes('calendar vocab') || lower.includes('la semana') || lower.includes('el mes')) return 'days_week';
+  if (lower.includes('body part') || lower.includes('el cuerpo') || lower.includes('partes del cuerpo') || lower.includes('cuerpo humano') || lower.includes('body vocab')) return 'body_parts';
+  if (lower.includes('face part') || lower.includes('la cara') || lower.includes('parts of the face') || lower.includes('face vocab') || lower.includes('cara y cabeza') || lower.includes('facial feature')) return 'face_parts';
+  if (lower.includes('la mano') || lower.includes('hand vocab') || lower.includes('hand part') || lower.includes('los dedos') || lower.includes('finger vocab')) return 'hand_parts';
+  if (lower.includes('temperatura') || lower.includes('temperature vocab') || lower.includes('thermometer') || lower.includes('degrees') || lower.includes('grados')) return 'temperature_vocab';
+  if (lower.includes('spanish country') || lower.includes('país hispanohablante') || lower.includes('hispanic country') || lower.includes('spanish speaking countr') || lower.includes('dot map')) return 'country_dot_map';
 
   // ── Section 8 — Phonetics ────────────────────────────────────────────────
   // Most specific first
@@ -191,6 +209,16 @@ const GRAMMAR_LABELS: Record<GrammarChapterType, { title: string; subtitle: stri
   currency_ref: { title: 'Monedas Hispanas', subtitle: 'Currency vocabulary across the Spanish-speaking world' },
   // Section 6
   word_family: { title: 'Familia de Palabras', subtitle: 'Words that share a root — see how the language builds itself' },
+  // Section 7 — Canvas vocabulary cards
+  weather_vocab:    { title: 'El Tiempo — Weather', subtitle: 'All 10 weather conditions with Spanish expressions — the same icons Daniela uses in lessons' },
+  emotions_vocab:   { title: 'Las Emociones — Feelings', subtitle: 'All 11 emotion faces with Spanish labels — the same faces Daniela uses in lessons' },
+  telling_time:     { title: 'La Hora — Telling Time', subtitle: 'Analog clocks + key Spanish time patterns and day-part vocabulary' },
+  days_week:        { title: 'Días, Meses y Calendario', subtitle: 'Days of the week, months of the year, and useful date expressions' },
+  body_parts:       { title: 'El Cuerpo Humano — Body Parts', subtitle: 'Body diagram + complete vocabulary reference — same diagram Daniela uses in lessons' },
+  face_parts:       { title: 'La Cara — Face Vocabulary', subtitle: 'Face close-up + full vocabulary for facial features' },
+  hand_parts:       { title: 'La Mano — Hand & Fingers', subtitle: 'Hand diagram + vocabulary for fingers, palm, and wrist' },
+  temperature_vocab:{ title: 'La Temperatura — Temperature', subtitle: 'Temperature scale in Spanish — same thermometer Daniela uses in lessons' },
+  country_dot_map:  { title: 'Países Hispanohablantes', subtitle: 'Interactive dot map of all 21 Spanish-speaking countries — same map Daniela uses in lessons' },
   // Section 8
   vowel_purity: { title: 'Las Vocales Españolas', subtitle: 'Pure, short, consistent — no diphthong glides like English' },
   rolled_r: { title: 'La Erre — The Spanish R', subtitle: 'Flap vs. trill — two different sounds, both spelled "r"' },
@@ -267,6 +295,17 @@ function GrammarChapterView({ type, chapterNumber, chapterTitle }: { type: Gramm
 
       {/* Section 6 — Word families */}
       {type === 'word_family' && <WordFamilyCard root={wordFamilyRoot ?? 'hablar'} />}
+
+      {/* Section 7 — Canvas vocabulary cards (same SVG renderers as /chat) */}
+      {type === 'weather_vocab'    && <WeatherVocabCard />}
+      {type === 'emotions_vocab'   && <EmotionsVocabCard />}
+      {type === 'telling_time'     && <TimeVocabCard />}
+      {type === 'days_week'        && <DaysOfWeekCard />}
+      {type === 'body_parts'       && <BodyPartsCard />}
+      {type === 'face_parts'       && <FacePartsCard />}
+      {type === 'hand_parts'       && <HandPartsCard />}
+      {type === 'temperature_vocab'&& <ThermometerVocabCard />}
+      {type === 'country_dot_map'  && <CountryDotMapCard />}
 
       {/* Section 8 — Phonetics */}
       {type === 'vowel_purity' && <VowelPurityCard />}
