@@ -18,6 +18,12 @@ export interface VocabImageCardProps {
   translation?: string;
   imageUrl?: string;
   isLoading?: boolean;
+  /**
+   * Multi-subject labels — when one image depicts several vocabulary words
+   * (e.g. a family photo for madre/padre/hermano/hermana/bebé).
+   * The textbook always shows all labels — no mode switching.
+   */
+  labels?: { word: string; translation?: string }[];
   /** Optional click-through to a detail view */
   onClick?: () => void;
 }
@@ -27,8 +33,10 @@ export function VocabImageCard({
   translation,
   imageUrl,
   isLoading = false,
+  labels,
   onClick,
 }: VocabImageCardProps) {
+  const multiLabels = labels && labels.length > 0 ? labels : null;
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
   return (
@@ -63,25 +71,46 @@ export function VocabImageCard({
           )}
         </div>
 
-        {/* Bilingual label area — always shows both */}
-        <div className="flex flex-col items-center px-2 py-1.5 gap-0.5">
-          {/* Target language — bold, primary color */}
-          <span
-            className="text-[13px] font-bold text-primary leading-tight text-center"
-            data-testid={`label-target-${word}`}
-          >
-            {word}
-          </span>
-          {/* Native language — smaller, muted, always visible */}
-          {translation && (
+        {/* Label area — textbook always shows all labels */}
+        {multiLabels ? (
+          /* Multi-subject: chip row for each vocabulary word in the image */
+          <div className="flex flex-wrap justify-center gap-1 px-2 py-1.5">
+            {multiLabels.map((label, i) => (
+              <div
+                key={i}
+                className="flex flex-col items-center leading-tight px-1.5 py-0.5 rounded bg-primary/8"
+                data-testid={`chip-${word}-${label.word}`}
+              >
+                <span className="text-[11px] font-bold text-primary">
+                  {label.word}
+                </span>
+                {label.translation && (
+                  <span className="text-[9px] text-muted-foreground">
+                    {label.translation}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          /* Single subject: standard bilingual label */
+          <div className="flex flex-col items-center px-2 py-1.5 gap-0.5">
             <span
-              className="text-[10px] text-muted-foreground leading-tight text-center"
-              data-testid={`label-native-${word}`}
+              className="text-[13px] font-bold text-primary leading-tight text-center"
+              data-testid={`label-target-${word}`}
             >
-              {translation}
+              {word}
             </span>
-          )}
-        </div>
+            {translation && (
+              <span
+                className="text-[10px] text-muted-foreground leading-tight text-center"
+                data-testid={`label-native-${word}`}
+              >
+                {translation}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Lightbox */}
@@ -120,6 +149,7 @@ export interface VocabImageGridItem {
   translation?: string;
   imageUrl?: string;
   isLoading?: boolean;
+  labels?: { word: string; translation?: string }[];
 }
 
 export function VocabImageGrid({ items }: { items: VocabImageGridItem[] }) {
@@ -127,7 +157,14 @@ export function VocabImageGrid({ items }: { items: VocabImageGridItem[] }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
       {items.map((item) => (
-        <VocabImageCard key={item.word} {...item} />
+        <VocabImageCard
+          key={item.word}
+          word={item.word}
+          translation={item.translation}
+          imageUrl={item.imageUrl}
+          isLoading={item.isLoading}
+          labels={item.labels}
+        />
       ))}
     </div>
   );
