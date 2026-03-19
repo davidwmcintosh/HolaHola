@@ -514,24 +514,24 @@ These are diagrams, not photos. Generated as code (SVG or React components) — 
 
 | Asset | ACTFL Level | Format | Status |
 |-------|-------------|--------|--------|
-| Regular -AR pattern (hablar) | Novice Low | table with pronouns + endings highlighted | ⬜ |
-| Regular -ER pattern (comer) | Novice Low | table | ⬜ |
-| Regular -IR pattern (vivir) | Novice Low | table | ⬜ |
-| SER (full present) | Novice Low | table — with usage examples | ⬜ |
-| ESTAR (full present) | Novice Low | table — with usage examples | ⬜ |
-| TENER (full present) | Novice Low | table | ⬜ |
-| IR (full present) | Novice Low | table + ir + a + infinitive | ⬜ |
-| QUERER / PODER / VOLVER | Novice Mid | stem-change o→ue visual | ⬜ |
-| HACER / PONER / TRAER | Novice Mid | go-verb pattern | ⬜ |
-| SABER vs CONOCER | Novice High | split table with usage contrast | ⬜ |
-| Reflexive verbs (ducharse) | Intermediate Low | pronoun placement diagram | ⬜ |
-| Preterite regular (-ar/-er/-ir) | Intermediate Low | table | ⬜ |
-| Preterite irregular (ser/ir/tener/hacer) | Intermediate Low | grouped table | ⬜ |
-| Imperfect (-ar/-er/-ir) | Intermediate Low | table | ⬜ |
-| Future (regular + irregular stems) | Intermediate Mid | table with irregulars highlighted | ⬜ |
-| Conditional | Intermediate Mid | table | ⬜ |
-| Present subjunctive | Intermediate High | table with trigger phrases | ⬜ |
-| Commands (tú / usted / ustedes) | Intermediate Mid | table | ⬜ |
+| Regular -AR pattern (hablar) | Novice Low | table with pronouns + endings highlighted | ✅ Mar 19 2026 | `ArVerbsCard` in TextbookGrammarDiagrams.tsx — trigger: "-ar verb", "hablar" |
+| Regular -ER pattern (comer) | Novice Low | table | ✅ Mar 19 2026 | `ErVerbsCard` |
+| Regular -IR pattern (vivir) | Novice Low | table | ✅ Mar 19 2026 | `IrVerbsCard` |
+| SER (full present) | Novice Low | table — with usage examples | ✅ Mar 19 2026 | `SerCard` |
+| ESTAR (full present) | Novice Low | table — with usage examples | ✅ Mar 19 2026 | `EstarCard` |
+| TENER (full present) | Novice Low | table + tener expressions | ✅ Mar 19 2026 | `TenerCard` |
+| IR (full present) | Novice Low | table + ir + a + infinitive | ✅ Mar 19 2026 | `IrCard` |
+| QUERER / PODER / VOLVER | Novice Mid | stem-change boot diagram + tables | ✅ Mar 19 2026 | `StemChangeCard` with SVG boot diagram |
+| HACER / PONER / TRAER | Novice Mid | go-verb pattern | ✅ Mar 19 2026 | `GoVerbsCard` with full –go inventory |
+| SABER vs CONOCER | Novice High | split table with usage contrast | ✅ Mar 19 2026 | `SaberConocerCard` |
+| Reflexive verbs (ducharse) | Intermediate Low | pronoun placement diagram | ✅ Mar 19 2026 | `ReflexiveVerbCard` with placement rules |
+| Preterite regular (-ar/-er/-ir) | Intermediate Low | table | ✅ Mar 19 2026 | `PretRegularCard` |
+| Preterite irregular (ser/ir/tener/hacer) | Intermediate Low | grouped table | ✅ Mar 19 2026 | `PretIrregularCard` |
+| Imperfect (-ar/-er/-ir) | Intermediate Low | table | ✅ Mar 19 2026 | `ImperfectCard` |
+| Future (regular + irregular stems) | Intermediate Mid | table with irregulars highlighted | ✅ Mar 19 2026 | `FutureCard` |
+| Conditional | Intermediate Mid | table | ✅ Mar 19 2026 | `ConditionalCard` |
+| Present subjunctive | Intermediate High | table with trigger phrases | ✅ Mar 19 2026 | `SubjunctiveCard` |
+| Commands (tú / usted / ustedes) | Intermediate Mid | table | ✅ Mar 19 2026 | `CommandsCard` |
 
 ### Decision Trees & Comparison Cards
 
@@ -540,24 +540,24 @@ These are diagrams, not photos. Generated as code (SVG or React components) — 
 | SER vs ESTAR decision tree | Novice Low — Novice Mid | ✅ Built Mar 18 2026 — `SerEstarCard` in TextbookInfographics.tsx |
 | Preterite vs Imperfect contrast diagram | Intermediate Low | ✅ Built Mar 18 2026 — `PretImperfectCard` in TextbookInfographics.tsx |
 | Por vs Para decision tree | Intermediate Mid | ✅ Built Mar 18 2026 — `PorParaCard` in TextbookInfographics.tsx |
-| Indicative vs Subjunctive trigger map | Intermediate High | ⬜ |
-| Direct vs Indirect object pronoun chart | Intermediate Low | ⬜ |
-| Object pronoun placement diagram | Intermediate Low | ⬜ |
-| Gender & article overview (el/la/un/una) | Novice Low | ⬜ |
-| Adjective agreement diagram | Novice Mid | ⬜ |
-| Stem-change verb visual (e→ie, o→ue, e→i) | Novice High | ⬜ |
-| -GO verbs pattern card | Novice High | ⬜ |
-| Diminutives & augmentatives | Intermediate Mid | ⬜ |
+| Indicative vs Subjunctive trigger map | Intermediate High | ⬜ future — covered partially by SubjunctiveCard trigger phrases |
+| Direct vs Indirect object pronoun chart | Intermediate Low | ✅ Mar 19 2026 | `ObjectPronounChart` — full DO/IO table with placement rules |
+| Object pronoun placement diagram | Intermediate Low | ✅ Mar 19 2026 | included in `ObjectPronounChart` |
+| Gender & article overview (el/la/un/una) | Novice Low | ✅ Mar 19 2026 | `GenderArticleCard` — rules, examples, plural forms |
+| Adjective agreement diagram | Novice Mid | ✅ Mar 19 2026 | `AdjAgreeCard` — m/f × s/pl grid + placement rules |
+| Stem-change verb visual (e→ie, o→ue, e→i) | Novice High | ✅ Mar 19 2026 | `StemChangeCard` — SVG boot diagram + 2 full tables |
+| -GO verbs pattern card | Novice High | ✅ Mar 19 2026 | `GoVerbsCard` — 8 –go verbs with yo forms |
+| Diminutives & augmentatives | Intermediate Mid | ⬜ future |
 
 ### Sentence Structure Diagrams
 
 | Asset | ACTFL Level | Status |
 |-------|-------------|--------|
-| Basic SVO sentence structure | Novice Low | ⬜ |
-| Adjective placement rules | Novice Mid | ⬜ |
-| Negative sentence construction | Novice Low | ⬜ |
-| Question formation (¿Cómo/Qué/Dónde/Cuándo/Por qué?) | Novice Low | ⬜ |
-| Tú vs Usted — register chart | Novice Mid | ⬜ |
+| Basic SVO sentence structure | Novice Low | ✅ Mar 19 2026 | `NegationQuestionsCard` — SVO + negation + 9 question words |
+| Adjective placement rules | Novice Mid | ✅ Mar 19 2026 | included in `AdjAgreeCard` |
+| Negative sentence construction | Novice Low | ✅ Mar 19 2026 | included in `NegationQuestionsCard` — no/nada/nadie/nunca |
+| Question formation (¿Cómo/Qué/Dónde/Cuándo/Por qué?) | Novice Low | ✅ Mar 19 2026 | included in `NegationQuestionsCard` |
+| Tú vs Usted — register chart | Novice Mid | ✅ Mar 19 2026 | `TuUstedCard` — contexts, examples, regional note |
 
 ---
 
@@ -569,8 +569,8 @@ Two formats needed: a **static reference card** showing all prepositions at once
 
 | Asset | Description | Status |
 |-------|-------------|--------|
-| Full spatial preposition map | Overhead/isometric room view with arrows and labels for: en, sobre, debajo de, delante de, detrás de, al lado de, entre, cerca de, lejos de, dentro de, fuera de, encima de | ⬜ |
-| Simplified 6-preposition card | Just the six most confused ones (sobre/en/encima de, debajo de, delante de, detrás de) with clear illustrations | ⬜ |
+| Full spatial preposition map | Overhead/isometric room view with arrows and labels for: en, sobre, debajo de, delante de, detrás de, al lado de, entre, cerca de, lejos de, dentro de, fuera de, encima de | ✅ Mar 19 2026 | `SpatialPrepositionMap` — SVG room diagram + 9-cell reference grid |
+| Simplified 6-preposition card | Just the six most confused ones (sobre/en/encima de, debajo de, delante de, detrás de) with clear illustrations | ✅ Mar 19 2026 | combined into `SpatialPrepositionMap` |
 
 *Note: Dynamic compositing via `compose_visual_scene` (Mode B) handles on/under/beside in real lessons. These static cards are for reference and textbook.*
 
@@ -578,13 +578,13 @@ Two formats needed: a **static reference card** showing all prepositions at once
 
 | Asset | Description | Status |
 |-------|-------------|--------|
-| Motion preposition diagram | Map-style graphic showing: a (destination), hacia (toward), desde (from), hasta (as far as), por (through/along), para (toward/for) with arrows on streets/paths | ⬜ |
+| Motion preposition diagram | Map-style graphic showing: a (destination), hacia (toward), desde (from), hasta (as far as), por (through/along), para (toward/for) with arrows on streets/paths | ⬜ future |
 
 ### Temporal Prepositions
 
 | Asset | Description | Status |
 |-------|-------------|--------|
-| Temporal preposition timeline | Horizontal timeline showing: antes de, después de, durante, desde, hasta, hace + time — all placed on the timeline relative to "now" | ⬜ |
+| Temporal preposition timeline | Horizontal timeline showing: antes de, después de, durante, desde, hasta, hace + time — all placed on the timeline relative to "now" | ✅ Mar 19 2026 | `TemporalPrepositionTimeline` — SVG timeline + 6-entry reference |
 
 ---
 
