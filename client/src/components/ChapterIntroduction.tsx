@@ -56,6 +56,31 @@ import {
   FrVenirFamilyCard, FrPrendreFamilyCard, FrSavoirFamilyCard,
   FrCroireFamilyCard,
 } from "./TextbookFrenchWordFamilies";
+
+// ── Portuguese ────────────────────────────────────────────────────────────────
+import {
+  PtSerEstarCard, PtSerCard, PtEstarCard, PtTerCard, PtIrCard,
+  PtArVerbsCard, PtErVerbsCard, PtIrRegVerbsCard, PtReflexiveCard,
+  PtPreteritoPerfeito, PtPreteritoImperfeito, PtPretVsImpCard,
+  PtFutureCard, PtConditionalCard, PtSubjunctiveCard,
+  PtNegativeCard, PtGenderArticlesCard, PtAdjectiveAgreementCard,
+  PtObjectPronounsCard, PtTuVoceCard, PtQuestionsCard, PtContractionsCard,
+} from "./TextbookPortugueseGrammarCards";
+import {
+  LusophoneWorldMapCard, PortugueseHolidayCalendarCard, PortugueseFoodGuideCard,
+  PortugueseDialectCard, PortugueseEtiquetteCard, PortugueseCurrencyCard,
+  PortugueseGestureCard,
+} from "./TextbookPortugueseCulturalCards";
+import {
+  PtNasalVowelsCard, PtPortugueseRCard, PtLhNhCard, PtVowelReductionCard,
+  PtTiDiCard, PtStressAccentCard, PtEuVsBrCard, PtLinkingCard, PtIntonationCard,
+} from "./TextbookPortuguesePhoneticGuides";
+import {
+  PtFalarFamilyCard, PtAmarFamilyCard, PtVerFamilyCard, PtFazerFamilyCard,
+  PtDizerFamilyCard, PtIrFamilyCard, PtVirFamilyCard, PtTomarFamilyCard,
+  PtSaberFamilyCard, PtQuererFamilyCard, resolvePtWordFamilyCard,
+} from "./TextbookPortugueseWordFamilies";
+
 import { languageChapterData } from "@/data/chapter-intro-content";
 
 import familyGatheringImg from "@assets/stock_images/family_gathering_aro_0f321ed1.jpg";
@@ -139,7 +164,25 @@ type GrammarChapterType =
   // ── FRENCH Section 8 — Phonetic guides ──────────────────────────────────
   | 'fr_nasal_vowels' | 'fr_french_r' | 'fr_liaison'
   | 'fr_u_sound' | 'fr_eu_sound' | 'fr_silent_consonants'
-  | 'fr_written_accents' | 'fr_intonation' | 'fr_elision';
+  | 'fr_written_accents' | 'fr_intonation' | 'fr_elision'
+  // ── PORTUGUESE Section 3 — Grammar ──────────────────────────────────────
+  | 'pt_ser_estar' | 'pt_ser_only' | 'pt_estar_only'
+  | 'pt_ter' | 'pt_ir'
+  | 'pt_ar_verbs' | 'pt_er_verbs' | 'pt_ir_verbs'
+  | 'pt_reflexive'
+  | 'pt_preterito_perfeito' | 'pt_preterito_imperfeito' | 'pt_pret_vs_imp'
+  | 'pt_future' | 'pt_conditional' | 'pt_subjunctive'
+  | 'pt_negation' | 'pt_gender_articles' | 'pt_adjective_agreement'
+  | 'pt_object_pronouns' | 'pt_tu_voce' | 'pt_questions' | 'pt_contractions'
+  // ── PORTUGUESE Section 5 — Cultural ──────────────────────────────────────
+  | 'pt_world_map' | 'pt_holidays' | 'pt_food_guide'
+  | 'pt_dialects' | 'pt_etiquette' | 'pt_currency' | 'pt_gestures'
+  // ── PORTUGUESE Section 6 — Word families ─────────────────────────────────
+  | 'pt_word_family'
+  // ── PORTUGUESE Section 8 — Phonetics ─────────────────────────────────────
+  | 'pt_nasal_vowels' | 'pt_portuguese_r' | 'pt_lh_nh'
+  | 'pt_vowel_reduction' | 'pt_ti_di' | 'pt_stress_accent'
+  | 'pt_eu_vs_br' | 'pt_linking' | 'pt_intonation';
 
 function classifyFrenchGrammarType(title: string): GrammarChapterType | null {
   const lower = title.toLowerCase();
@@ -218,8 +261,71 @@ function classifyFrenchGrammarType(title: string): GrammarChapterType | null {
   return null;
 }
 
+function classifyPortugueseGrammarType(title: string): GrammarChapterType | null {
+  const lower = title.toLowerCase();
+
+  // ── Section 3 — Core verbs (most specific first) ─────────────────────────
+  if ((lower.includes('ser') && lower.includes('estar')) || (lower.includes('ser vs') || lower.includes('ser e estar'))) return 'pt_ser_estar';
+  if (lower === 'ser' || lower.includes('verbo ser') || (lower.startsWith('ser') && !lower.includes('estar'))) return 'pt_ser_only';
+  if (lower === 'estar' || lower.includes('verbo estar') || (lower.startsWith('estar') && !lower.includes('ser'))) return 'pt_estar_only';
+  if (lower.includes('ter') && !lower.includes('pret') && !lower.includes('perfect')) return 'pt_ter';
+  if ((lower === 'ir' || lower.includes('verb ir') || lower.includes('verbo ir') || lower.includes('ir a ') || lower.includes('going to')) && !lower.includes('partir') && !lower.includes('pret')) return 'pt_ir';
+
+  if (lower.includes('-ar verb') || lower.includes('ar verb') || lower.includes('verbos -ar') || lower.includes('falar') || lower.includes('regular -ar') || lower.includes('verbos em -ar')) return 'pt_ar_verbs';
+  if ((lower.includes('-er verb') || lower.includes('er verb') || lower.includes('verbos -er') || lower.includes('comer') || lower.includes('regular -er') || lower.includes('verbos em -er')) && !lower.includes('-ir') && !lower.includes('-ar')) return 'pt_er_verbs';
+  if (lower.includes('-ir verb') || lower.includes('ir verb') || lower.includes('verbos -ir') || lower.includes('partir') || lower.includes('regular -ir') || lower.includes('verbos em -ir')) return 'pt_ir_verbs';
+
+  if (lower.includes('reflexive') || lower.includes('reflexivo') || lower.includes('reflexivo') || lower.includes('levantar-se') || lower.includes('verbos reflexivos')) return 'pt_reflexive';
+
+  // ── Section 4 — Tenses ───────────────────────────────────────────────────
+  if ((lower.includes('pretérito') || lower.includes('preterito') || lower.includes('pretérito')) && (lower.includes('vs') || lower.includes('versus') || lower.includes(' x ') || (lower.includes('perfeito') && lower.includes('imperfeito')))) return 'pt_pret_vs_imp';
+  if (lower.includes('pretérito perfeito') || lower.includes('preterito perfeito') || lower.includes('simple past') && lower.includes('portuguese') || lower.includes('passé simple') || lower.includes('past tense') && !lower.includes('imperfect') && !lower.includes('imperfeito')) return 'pt_preterito_perfeito';
+  if (lower.includes('pretérito imperfeito') || lower.includes('preterito imperfeito') || lower.includes('imperfeito') || lower.includes('imperfect') && !lower.includes('vs') && !lower.includes('versus')) return 'pt_preterito_imperfeito';
+  if (lower.includes('futuro') || (lower.includes('future') && !lower.includes('conditional'))) return 'pt_future';
+  if (lower.includes('condicional') || lower.includes('conditional')) return 'pt_conditional';
+  if (lower.includes('subjuntivo') || lower.includes('subjunctive') || lower.includes('conjuntivo')) return 'pt_subjunctive';
+  if (lower.includes('negação') || lower.includes('negacao') || lower.includes('negation') || lower.includes('negação') || lower.includes('não')) return 'pt_negation';
+  if (lower.includes('género') || lower.includes('genero') || lower.includes('gender') || lower.includes('artigo') || lower.includes('article') || lower.includes('o/a ') || lower.includes('um/uma')) return 'pt_gender_articles';
+  if (lower.includes('adjetivo') || lower.includes('adjective') || lower.includes('concordância') || lower.includes('concordancia') || lower.includes('agreement')) return 'pt_adjective_agreement';
+  if (lower.includes('pronome') || lower.includes('pronoun') || lower.includes('objeto direto') || lower.includes('objeto indireto') || lower.includes('object pronoun') || lower.includes('me/te') || lower.includes('lhe')) return 'pt_object_pronouns';
+  if ((lower.includes('tu') && lower.includes('você')) || lower.includes('tu vs você') || lower.includes('tu vs voce') || lower.includes('address form')) return 'pt_tu_voce';
+  if (lower.includes('pergunta') || lower.includes('perguntas') || lower.includes('question') || lower.includes('interrogativa') || lower.includes('making questions')) return 'pt_questions';
+  if (lower.includes('contração') || lower.includes('contracao') || lower.includes('contraction') || lower.includes('ao/à') || lower.includes('do/da') || lower.includes('no/na') || lower.includes('pelo/pela')) return 'pt_contractions';
+
+  // ── Section 5 — Cultural ─────────────────────────────────────────────────
+  if (lower.includes('lusophone') || lower.includes('lusófono') || lower.includes('lusofono') || lower.includes('mundo lusófono') || lower.includes('portuguese-speaking world') || lower.includes('mundo lusofono')) return 'pt_world_map';
+  if (lower.includes('feriado') || lower.includes('holiday') && lower.includes('portugal') || lower.includes('holiday') && lower.includes('brazil') || lower.includes('holiday') && lower.includes('portuguese') || lower.includes('carnaval') || lower.includes('carnival')) return 'pt_holidays';
+  if (lower.includes('gastronomia') || lower.includes('comida') && lower.includes('portu') || lower.includes('food guide') && lower.includes('portu') || lower.includes('culinária') || lower.includes('bacalhau') || lower.includes('feijoada')) return 'pt_food_guide';
+  if (lower.includes('dialeto') || lower.includes('dialecto') || lower.includes('dialect') && lower.includes('portu') || lower.includes('eu-pt') || lower.includes('br-pt') || lower.includes('europeu') && lower.includes('brasileiro')) return 'pt_dialects';
+  if (lower.includes('etiqueta') && lower.includes('portu') || lower.includes('greeting') && lower.includes('portu') || lower.includes('cumprimento') || lower.includes('saudação') || lower.includes('social etiquette') && lower.includes('portu')) return 'pt_etiquette';
+  if (lower.includes('moeda') || lower.includes('euro') && lower.includes('real') || lower.includes('currency') && lower.includes('portu') || lower.includes('real brasileiro') || lower.includes('brl') || lower.includes('eur') && lower.includes('portu')) return 'pt_currency';
+  if (lower.includes('gesto') && lower.includes('portu') || lower.includes('gesture') && lower.includes('portu') || lower.includes('linguagem corporal') && lower.includes('portu')) return 'pt_gestures';
+
+  // ── Section 6 — Word families ─────────────────────────────────────────────
+  if (lower.includes('word family') || lower.includes('família de palavras') || lower.includes('familia de palavras') || lower.includes('derivação') || lower.includes('derivacao')) return 'pt_word_family';
+
+  // ── Section 7 — Canvas vocab (shared types, handled by language prop) ────
+  // Portuguese uses the same canvas card type names as Spanish — no separate pt_weather_vocab etc.
+  // The language='portuguese' prop will be passed through to the cards.
+
+  // ── Section 8 — Phonetics ────────────────────────────────────────────────
+  if (lower.includes('nasal') && lower.includes('portu') || lower.includes('vogal nasal') || lower.includes('nasal vowel') && lower.includes('portu') || lower.includes('ão') || lower.includes('ã ') || lower.includes(' ão') || lower.includes('vogais nasais')) return 'pt_nasal_vowels';
+  if (lower.includes('r português') || lower.includes('portuguese r') || lower.includes('o r ') && lower.includes('portu') || lower.includes('r sound') && lower.includes('portu') || lower.includes('guttural r') || lower.includes('r uvular') && lower.includes('portu')) return 'pt_portuguese_r';
+  if (lower.includes('lh') || lower.includes('nh') || lower.includes('lh e nh') || lower.includes('lh/nh') || lower.includes('digraph') && lower.includes('portu')) return 'pt_lh_nh';
+  if (lower.includes('vowel reduction') && lower.includes('portu') || lower.includes('redução vocálica') || lower.includes('reducao vocalica') || lower.includes('unstressed vowel') && lower.includes('portu') || lower.includes('european portuguese vowel')) return 'pt_vowel_reduction';
+  if (lower.includes('ti') && lower.includes('di') || lower.includes('palataliz') && lower.includes('portu') || lower.includes('tch') && lower.includes('portu') || lower.includes('ti/di') || lower.includes('ti e di')) return 'pt_ti_di';
+  if (lower.includes('acentuação') || lower.includes('acentuacao') || lower.includes('acento') && lower.includes('portu') || lower.includes('accent mark') && lower.includes('portu') || lower.includes('stress rule') && lower.includes('portu')) return 'pt_stress_accent';
+  if (lower.includes('eu-pt vs br') || lower.includes('eu vs br') || lower.includes('european vs brazilian') || lower.includes('portugal vs brazil') && lower.includes('pronunci') || lower.includes('eu-pt vs br-pt')) return 'pt_eu_vs_br';
+  if (lower.includes('ligação') && lower.includes('portu') || lower.includes('linking') && lower.includes('portu') || lower.includes('sandhi') && lower.includes('portu') || lower.includes('ligação fonética')) return 'pt_linking';
+  if (lower.includes('entoação') || lower.includes('entoacao') || lower.includes('intonation') && lower.includes('portu') || lower.includes('melodia') && lower.includes('portu')) return 'pt_intonation';
+  if (lower.includes('pronunciation') && lower.includes('portu') || lower.includes('pronunciação') || lower.includes('phonetic') && lower.includes('portu') || lower.includes('fonética portuguesa')) return 'pt_nasal_vowels'; // default entry
+
+  return null;
+}
+
 function classifyGrammarType(title: string, language = 'spanish'): GrammarChapterType | null {
   if (language === 'french') return classifyFrenchGrammarType(title);
+  if (language === 'portuguese') return classifyPortugueseGrammarType(title);
 
   const lower = title.toLowerCase();
 
@@ -409,6 +515,50 @@ const GRAMMAR_LABELS: Record<GrammarChapterType, { title: string; subtitle: stri
   fr_written_accents:    { title: 'Les Accents Écrits', subtitle: 'é è ê à â ô ç ï — 5 accent marks, each with phonetic or semantic meaning' },
   fr_intonation:         { title: "L'Intonation Française", subtitle: 'French stress falls at the end of rhythmic groups — distinct from English patterns' },
   fr_elision:            { title: "L'Élision et les Contractions", subtitle: "Vowel dropping (l', j', m'…) and mandatory contractions (au, du, aux, des)" },
+
+  // ── PORTUGUESE Section 3 — Grammar ──────────────────────────────────────
+  pt_ser_estar:          { title: 'Ser vs. Estar', subtitle: 'The two "to be" verbs in Portuguese — permanent vs. temporary, with key use cases' },
+  pt_ser_only:           { title: 'O Verbo SER', subtitle: 'Identity, origin, profession, nationality, time — ser for defining characteristics' },
+  pt_estar_only:         { title: 'O Verbo ESTAR', subtitle: 'Location, emotions, progressive, results — estar for changeable states' },
+  pt_ter:                { title: 'O Verbo TER', subtitle: 'To have — possession, age, obligation, and physical states (tenho fome/sede)' },
+  pt_ir:                 { title: 'O Verbo IR', subtitle: 'To go — plus ir + infinitive for future plans (Vou falar = I\'m going to speak)' },
+  pt_ar_verbs:           { title: 'Verbos Regulares em -AR', subtitle: 'The most common verb pattern — falar (to speak) is the model' },
+  pt_er_verbs:           { title: 'Verbos Regulares em -ER', subtitle: 'Second verb type — comer (to eat) is the model for all -ER verbs' },
+  pt_ir_verbs:           { title: 'Verbos Regulares em -IR', subtitle: 'Third verb type — partir (to leave) is the model for all -IR verbs' },
+  pt_reflexive:          { title: 'Verbos Reflexivos', subtitle: 'Reflexive verbs — subject acts on itself; pronoun placement differs in BR and EU-PT' },
+  pt_preterito_perfeito: { title: 'Pretérito Perfeito', subtitle: 'Simple past — completed, specific actions with distinct endings for each verb class' },
+  pt_preterito_imperfeito:{ title: 'Pretérito Imperfeito', subtitle: 'Habitual, ongoing, and background past — the imperfect tense in Portuguese' },
+  pt_pret_vs_imp:        { title: 'Perfeito vs. Imperfeito', subtitle: 'When to use each past tense — completed vs. habitual, event vs. background setting' },
+  pt_future:             { title: 'O Futuro', subtitle: 'Simple future (falarei) and the common ir + infinitive near future (vou falar)' },
+  pt_conditional:        { title: 'O Condicional', subtitle: 'Would — polite requests, hypotheticals, and indirect speech in Portuguese' },
+  pt_subjunctive:        { title: 'O Subjuntivo Presente', subtitle: 'Used after trigger expressions of wish, doubt, emotion, and necessity' },
+  pt_negation:           { title: 'A Negação', subtitle: 'Não + verb is standard; Portuguese also has nunca, nada, ninguém, nem, jamais' },
+  pt_gender_articles:    { title: 'Género e Artigos', subtitle: 'Every Portuguese noun has gender — o/a (the), um/uma (a/an) + their plurals' },
+  pt_adjective_agreement:{ title: 'Concordância dos Adjetivos', subtitle: 'Adjectives agree in gender and number — after the noun by default' },
+  pt_object_pronouns:    { title: 'Pronomes Oblíquos', subtitle: 'Direct (me/te/o/a/nos) and indirect (me/te/lhe/nos/lhes) object pronouns' },
+  pt_tu_voce:            { title: 'Tu vs. Você', subtitle: 'Address forms — tu (informal EU-PT) vs. você (dominant in Brazil); verb conjugation differs' },
+  pt_questions:          { title: 'Fazer Perguntas', subtitle: 'Question words, intonation questions, inversion, and tag questions (né?)' },
+  pt_contractions:       { title: 'Contrações', subtitle: 'Mandatory preposition + article contractions: ao/à, do/da, no/na, pelo/pela…' },
+  // ── PORTUGUESE Section 5 — Cultural ──────────────────────────────────────
+  pt_world_map:          { title: 'O Mundo Lusófono', subtitle: '~260 million speakers in 10 countries across 4 continents — one language, many worlds' },
+  pt_holidays:           { title: 'Feriados Lusófonos', subtitle: 'Key holidays in Portugal and Brazil — from Carnaval to Independência do Brasil' },
+  pt_food_guide:         { title: 'Gastronomia Lusófona', subtitle: 'From bacalhau in Lisbon to feijoada in São Paulo — a culinary tour of the Portuguese-speaking world' },
+  pt_dialects:           { title: 'Variedades do Português', subtitle: 'EU-PT vs BR-PT vs African Portuguese — same language, very different sounds' },
+  pt_etiquette:          { title: 'Etiqueta — Cumprimentos', subtitle: 'Greeting customs in Portugal and Brazil — kisses, handshakes, and how formal to be' },
+  pt_currency:           { title: 'As Moedas Lusófonas', subtitle: 'Euro in Portugal, Real in Brazil — plus currencies across the wider Lusophone world' },
+  pt_gestures:           { title: 'Gestos e Linguagem Corporal', subtitle: 'Body language and gesture awareness in Portuguese-speaking cultures' },
+  // ── PORTUGUESE Section 6 — Word families ─────────────────────────────────
+  pt_word_family:        { title: 'Família de Palavras', subtitle: 'Portuguese words that share a root — see how the language builds from Latin' },
+  // ── PORTUGUESE Section 8 — Phonetics ─────────────────────────────────────
+  pt_nasal_vowels:       { title: 'Vogais Nasais', subtitle: 'ã, ão, em, im, om, um — air flows through nose and mouth simultaneously' },
+  pt_portuguese_r:       { title: 'O R Português', subtitle: 'Tapped r vs guttural RR — and why EU-PT, Rio, and São Paulo all sound different' },
+  pt_lh_nh:              { title: 'LH e NH — Dígrafos', subtitle: 'LH = /ʎ/ (like "million"), NH = /ɲ/ (like Spanish ñ) — unique to Portuguese spelling' },
+  pt_vowel_reduction:    { title: 'Redução Vocálica — EU-PT', subtitle: 'European Portuguese dramatically reduces unstressed vowels — why it sounds "swallowed"' },
+  pt_ti_di:              { title: 'Palatalização de TI e DI', subtitle: 'Brazilian Portuguese: ti=/tʃi/ (chi), di=/dʒi/ (ji) — not palatalized in EU-PT' },
+  pt_stress_accent:      { title: 'Acentuação', subtitle: 'Agudo ´, circunflexo ˆ, til ~, grave ` — written accents mark stress and nasalization' },
+  pt_eu_vs_br:           { title: 'EU-PT vs BR-PT', subtitle: 'The 10 biggest pronunciation differences between European and Brazilian Portuguese' },
+  pt_linking:            { title: 'Ligação Fonética', subtitle: 'Linking sounds and mandatory contractions that make Portuguese flow as one stream' },
+  pt_intonation:         { title: 'Entoação Portuguesa', subtitle: 'Rising vs falling patterns — and the distinct melody of each regional accent' },
 };
 
 function resolveFrenchWordFamilyCard(title?: string): JSX.Element {
@@ -427,6 +577,18 @@ function resolveFrenchWordFamilyCard(title?: string): JSX.Element {
   return <FrParlerFamilyCard />;
 }
 
+const GRAMMAR_LABELS_PT: Partial<Record<GrammarChapterType, { title: string; subtitle: string }>> = {
+  weather_vocab:    { title: 'Vocabulário de Tempo — O Tempo', subtitle: 'All 10 weather conditions with Portuguese expressions — the same icons used in lessons' },
+  emotions_vocab:   { title: 'As Emoções — Os Sentimentos', subtitle: 'All 11 emotion faces with Portuguese labels — the same faces used in lessons' },
+  telling_time:     { title: 'As Horas — Dizer as Horas', subtitle: 'Analog clocks + key Portuguese time patterns and parts-of-day vocabulary' },
+  days_week:        { title: 'Dias, Meses e Calendário', subtitle: 'Days of the week, months of the year, and Portuguese date expressions' },
+  body_parts:       { title: 'O Corpo Humano — As Partes do Corpo', subtitle: 'Body diagram + complete Portuguese vocabulary reference — same diagram used in lessons' },
+  face_parts:       { title: 'O Rosto — Vocabulário do Rosto', subtitle: 'Face close-up + full Portuguese vocabulary for facial features' },
+  hand_parts:       { title: 'A Mão — Os Dedos', subtitle: 'Hand diagram + Portuguese vocabulary for fingers, palm, and wrist' },
+  temperature_vocab:{ title: 'A Temperatura', subtitle: 'Temperature scale in Portuguese — same thermometer used in lessons' },
+  country_dot_map:  { title: 'Os Países Lusófonos', subtitle: 'Where Portuguese is spoken around the world — 10 countries across 4 continents' },
+};
+
 const GRAMMAR_LABELS_FR: Partial<Record<GrammarChapterType, { title: string; subtitle: string }>> = {
   weather_vocab:    { title: 'La Météo — Le Temps qu\'il fait', subtitle: 'All 10 weather conditions with French expressions — the same icons used in lessons' },
   emotions_vocab:   { title: 'Les Émotions — Les Sentiments', subtitle: 'All 11 emotion faces with French labels — the same faces used in lessons' },
@@ -442,7 +604,8 @@ const GRAMMAR_LABELS_FR: Partial<Record<GrammarChapterType, { title: string; sub
 function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spanish' }: { type: GrammarChapterType; chapterNumber: number; chapterTitle?: string; language?: string }) {
   const baseLabel = GRAMMAR_LABELS[type];
   const frLabel = language === 'french' ? GRAMMAR_LABELS_FR[type] : undefined;
-  const { title, subtitle } = frLabel ?? baseLabel;
+  const ptLabel = language === 'portuguese' ? GRAMMAR_LABELS_PT[type] : undefined;
+  const { title, subtitle } = ptLabel ?? frLabel ?? baseLabel;
   const wordFamilyRoot = type === 'word_family' && chapterTitle ? resolveWordFamilyRoot(chapterTitle) : null;
 
   return (
@@ -509,15 +672,15 @@ function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spa
       {type === 'word_family' && <WordFamilyCard root={wordFamilyRoot ?? 'hablar'} />}
 
       {/* Section 7 — Canvas vocabulary cards (same SVG renderers as /chat) */}
-      {type === 'weather_vocab'    && <WeatherVocabCard     language={language as 'spanish' | 'french'} />}
-      {type === 'emotions_vocab'   && <EmotionsVocabCard    language={language as 'spanish' | 'french'} />}
-      {type === 'telling_time'     && <TimeVocabCard        language={language as 'spanish' | 'french'} />}
-      {type === 'days_week'        && <DaysOfWeekCard       language={language as 'spanish' | 'french'} />}
-      {type === 'body_parts'       && <BodyPartsCard        language={language as 'spanish' | 'french'} />}
-      {type === 'face_parts'       && <FacePartsCard        language={language as 'spanish' | 'french'} />}
-      {type === 'hand_parts'       && <HandPartsCard        language={language as 'spanish' | 'french'} />}
-      {type === 'temperature_vocab'&& <ThermometerVocabCard language={language as 'spanish' | 'french'} />}
-      {type === 'country_dot_map'  && (language === 'french' ? <FrancophoneWorldMapCard /> : <CountryDotMapCard />)}
+      {type === 'weather_vocab'    && <WeatherVocabCard     language={language as 'spanish' | 'french' | 'portuguese'} />}
+      {type === 'emotions_vocab'   && <EmotionsVocabCard    language={language as 'spanish' | 'french' | 'portuguese'} />}
+      {type === 'telling_time'     && <TimeVocabCard        language={language as 'spanish' | 'french' | 'portuguese'} />}
+      {type === 'days_week'        && <DaysOfWeekCard       language={language as 'spanish' | 'french' | 'portuguese'} />}
+      {type === 'body_parts'       && <BodyPartsCard        language={language as 'spanish' | 'french' | 'portuguese'} />}
+      {type === 'face_parts'       && <FacePartsCard        language={language as 'spanish' | 'french' | 'portuguese'} />}
+      {type === 'hand_parts'       && <HandPartsCard        language={language as 'spanish' | 'french' | 'portuguese'} />}
+      {type === 'temperature_vocab'&& <ThermometerVocabCard language={language as 'spanish' | 'french' | 'portuguese'} />}
+      {type === 'country_dot_map'  && (language === 'french' ? <FrancophoneWorldMapCard /> : language === 'portuguese' ? <LusophoneWorldMapCard /> : <CountryDotMapCard />)}
 
       {/* Section 8 — Phonetics */}
       {type === 'vowel_purity' && <VowelPurityCard />}
@@ -580,6 +743,53 @@ function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spa
       {type === 'fr_written_accents' && <FrWrittenAccentsCard />}
       {type === 'fr_intonation' && <FrIntonationCard />}
       {type === 'fr_elision' && <FrElisionCard />}
+
+      {/* ── PORTUGUESE Section 3 — Grammar ───────────────────────────────── */}
+      {type === 'pt_ser_estar' && <PtSerEstarCard />}
+      {type === 'pt_ser_only' && <PtSerCard />}
+      {type === 'pt_estar_only' && <PtEstarCard />}
+      {type === 'pt_ter' && <PtTerCard />}
+      {type === 'pt_ir' && <PtIrCard />}
+      {type === 'pt_ar_verbs' && <PtArVerbsCard />}
+      {type === 'pt_er_verbs' && <PtErVerbsCard />}
+      {type === 'pt_ir_verbs' && <PtIrRegVerbsCard />}
+      {type === 'pt_reflexive' && <PtReflexiveCard />}
+      {type === 'pt_preterito_perfeito' && <PtPreteritoPerfeito />}
+      {type === 'pt_preterito_imperfeito' && <PtPreteritoImperfeito />}
+      {type === 'pt_pret_vs_imp' && <PtPretVsImpCard />}
+      {type === 'pt_future' && <PtFutureCard />}
+      {type === 'pt_conditional' && <PtConditionalCard />}
+      {type === 'pt_subjunctive' && <PtSubjunctiveCard />}
+      {type === 'pt_negation' && <PtNegativeCard />}
+      {type === 'pt_gender_articles' && <PtGenderArticlesCard />}
+      {type === 'pt_adjective_agreement' && <PtAdjectiveAgreementCard />}
+      {type === 'pt_object_pronouns' && <PtObjectPronounsCard />}
+      {type === 'pt_tu_voce' && <PtTuVoceCard />}
+      {type === 'pt_questions' && <PtQuestionsCard />}
+      {type === 'pt_contractions' && <PtContractionsCard />}
+
+      {/* ── PORTUGUESE Section 5 — Cultural ──────────────────────────────── */}
+      {type === 'pt_world_map' && <LusophoneWorldMapCard />}
+      {type === 'pt_holidays' && <PortugueseHolidayCalendarCard />}
+      {type === 'pt_food_guide' && <PortugueseFoodGuideCard />}
+      {type === 'pt_dialects' && <PortugueseDialectCard />}
+      {type === 'pt_etiquette' && <PortugueseEtiquetteCard />}
+      {type === 'pt_currency' && <PortugueseCurrencyCard />}
+      {type === 'pt_gestures' && <PortugueseGestureCard />}
+
+      {/* ── PORTUGUESE Section 6 — Word families ─────────────────────────── */}
+      {type === 'pt_word_family' && resolvePtWordFamilyCard(chapterTitle ?? '')}
+
+      {/* ── PORTUGUESE Section 8 — Phonetics ─────────────────────────────── */}
+      {type === 'pt_nasal_vowels' && <PtNasalVowelsCard />}
+      {type === 'pt_portuguese_r' && <PtPortugueseRCard />}
+      {type === 'pt_lh_nh' && <PtLhNhCard />}
+      {type === 'pt_vowel_reduction' && <PtVowelReductionCard />}
+      {type === 'pt_ti_di' && <PtTiDiCard />}
+      {type === 'pt_stress_accent' && <PtStressAccentCard />}
+      {type === 'pt_eu_vs_br' && <PtEuVsBrCard />}
+      {type === 'pt_linking' && <PtLinkingCard />}
+      {type === 'pt_intonation' && <PtIntonationCard />}
 
       <div className="flex items-center gap-2 text-sm text-muted-foreground justify-center">
         <Users className="h-4 w-4" />
