@@ -13,7 +13,7 @@ Visual assets live in the `visual_assets` table. Grammar/infographic SVGs are ge
 
 ## Platform Status Snapshot
 
-**Last audited:** March 18 2026 (session 2)
+**Last audited:** March 19 2026 (session 3)
 
 ### Interactive Canvas — What's Built
 
@@ -43,11 +43,15 @@ The `SceneCanvas` component (client-side stage model) is **fully operational**. 
 |---|---|---|---|
 | Food vocabulary | 1,176 | 1,176 ✅ | Complete as of Mar 18 2026 — all menu items + basics (tacos, staples, etc.) generated |
 | Scene canvas props | ~40 | ~40 | glass, fork, book, stethoscope, passport, etc. — all have real images |
-| Vocabulary images (Section 1) | 0 | 0 | Nothing generated yet |
+| Vocabulary images — Novice Low (Section 1) | 85 cache keys | 55 images ✅ | Complete Mar 19 2026 — people, places, things, colors, adjectives, activities |
+| Vocabulary images — Novice Mid People | 18 cache keys | 10 images ✅ | Complete Mar 19 2026 — family pairs, community professionals, extended family scene |
+| Vocabulary images — Novice Mid (remaining) | 0 | 0 | Animals, fruits/veg, clothing, activities, adjectives — not started |
 | Time/weather/numbers (Section 2) | 0 | 0 | Clock + weather handled by SVG components; static reference cards not started |
 | Cultural infographics (Section 5) | 0 | 0 | Not started |
 
-**What this means for generation priority (as of Mar 18 2026):** Food images are complete. Core vocabulary images (Section 1) are the next gap — people, animals, places, clothing, and basic objects that aren't already in the prop library. Everything else in this roadmap is planned but not started.
+**Generation pipeline (as of Mar 19 2026):** All images — seeded library and Daniela's live fallback — use **DALL-E 3** with the watercolor illustrated style. Library lookup is instant (cache key `vocab_spanish_{word}`); fallback generates on demand and saves to cache automatically.
+
+**What's next:** Novice Mid animals, fruits/vegetables, clothing, activities, adjectives. Then Novice High (travel, transport, professions).
 
 ---
 
@@ -182,20 +186,23 @@ Organization: thematic clusters. A student at Novice Low needs the Novice Low cl
 
 ### Novice Mid — Building Blocks
 
-**People (community)**
+**People (extended family + community)**
 
-| Word | Spanish | Status | Notes |
-|------|---------|--------|-------|
-| grandfather | abuelo | ⬜ | |
-| grandmother | abuela | ⬜ | |
-| uncle | tío | ⬜ | |
-| aunt | tía | ⬜ | |
-| cousin | primo/prima | ⬜ | |
-| neighbor | vecino/a | ⬜ | |
-| doctor | médico/a | ⬜ | in white coat |
-| nurse | enfermero/a | ⬜ | |
-| police officer | policía | ⬜ | |
-| cook/chef | cocinero/a | ⬜ | |
+*Strategy: family members paired as dual-key images (same approach as Novice Low). Community helpers shown in full professional context — the setting carries the meaning. Bonus extended family gathering scene for multi-word teaching.*
+
+| Image | Covers | Spanish | Status | Notes |
+|-------|--------|---------|--------|-------|
+| Abuelos (pair) | grandfather, grandmother | abuelo, abuela | ✅ Mar 19 2026 | `vocab_ppl_abuelos.png` — dual keys: abuelo + abuela |
+| Tíos (pair) | uncle, aunt | tío, tía | ✅ Mar 19 2026 | `vocab_ppl_tios.png` — dual keys: tío + tía |
+| Primos (pair) | cousin m/f | primo, prima | ✅ Mar 19 2026 | `vocab_ppl_primos.png` — dual keys: primo + prima |
+| Médico/a | doctor | médico/a | ✅ Mar 19 2026 | `vocab_ppl_medico.png` — in clinic; also seeded: médica, doctor |
+| Enfermero/a | nurse | enfermero/a | ✅ Mar 19 2026 | `vocab_ppl_enfermero.png` — in hospital; dual keys: enfermero + enfermera |
+| Policía | police officer | policía | ✅ Mar 19 2026 | `vocab_ppl_policia.png` — in uniform on city street |
+| Cocinero/a | cook / chef | cocinero/a | ✅ Mar 19 2026 | `vocab_ppl_cocinero.png` — in kitchen with chef's hat; dual keys |
+| Bombero/a | firefighter | bombero/a | ✅ Mar 19 2026 | `vocab_ppl_bombero.png` — by fire truck in full gear; dual keys |
+| Dentista | dentist | dentista | ✅ Mar 19 2026 | `vocab_ppl_dentista.png` — in dental office |
+| Familia extendida (scene) | extended family gathering | abuelo, abuela, tío, tía, primo, prima + more | ✅ Mar 19 2026 | `vocab_ppl_familia_extendida.png` — multi-chip scene; key: vocab_spanish_familia_extendida |
+| Vecino/a | neighbor | vecino/a | ⬜ | |
 
 **Animals**
 
@@ -311,7 +318,7 @@ Organization: thematic clusters. A student at Novice Low needs the Novice Low cl
 |------|---------|--------|-------|
 | waiter/waitress | camarero/a | ⬜ | |
 | shop clerk | dependiente/a | ⬜ | |
-| firefighter | bombero/a | ⬜ | |
+| firefighter | bombero/a | ✅ Mar 19 2026 | Moved up to Novice Mid — `vocab_ppl_bombero.png` |
 | journalist | periodista | ⬜ | |
 | lawyer | abogado/a | ⬜ | |
 
