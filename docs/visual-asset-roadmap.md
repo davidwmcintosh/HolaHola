@@ -123,11 +123,11 @@ Organization: thematic clusters. A student at Novice Low needs the Novice Low cl
 | Word | Spanish | Status | Notes |
 |------|---------|--------|-------|
 | bread | pan | ✅ | bread_basket in prop library |
-| milk | leche | ⬜ | glass + carton |
+| milk | leche | ✅ Mar 19 2026 | `vocab_food_leche.png` |
 | apple | manzana | ✅ | in prop library |
 | banana | plátano/banana | ✅ | in prop library |
-| egg | huevo | ⬜ | |
-| rice | arroz | ⬜ | bowl of rice |
+| egg | huevo | ✅ Mar 19 2026 | `vocab_food_huevo.png` |
+| rice | arroz | ✅ Mar 19 2026 | `vocab_food_arroz.png` |
 | coffee | café | ✅ | in prop library (multiple) |
 | water | agua | ✅ | glass in prop library |
 
@@ -137,17 +137,17 @@ Organization: thematic clusters. A student at Novice Low needs the Novice Low cl
 
 | Word | Spanish | Status | Notes |
 |------|---------|--------|-------|
-| red | rojo | ⬜ | |
-| blue | azul | ⬜ | |
-| yellow | amarillo | ⬜ | |
-| green | verde | ⬜ | |
-| orange | anaranjado/naranja | ⬜ | note: naranja (the fruit) doubles as the color name |
-| purple | morado/violeta | ⬜ | both forms used regionally |
-| pink | rosa/rosado | ⬜ | |
-| brown | marrón/café | ⬜ | regional note: café common in Latin America |
-| black | negro | ⬜ | |
-| white | blanco | ⬜ | |
-| grey | gris | ⬜ | |
+| red | rojo | ✅ Mar 19 2026 | `vocab_color_rojo.png` |
+| blue | azul | ✅ Mar 19 2026 | `vocab_color_azul.png` |
+| yellow | amarillo | ✅ Mar 19 2026 | `vocab_color_amarillo.png` |
+| green | verde | ✅ Mar 19 2026 | `vocab_color_verde.png` |
+| orange | anaranjado/naranja | ✅ Mar 19 2026 | `vocab_color_anaranjado.png` — dual keys: anaranjado + naranja_color |
+| purple | morado/violeta | ✅ Mar 19 2026 | `vocab_color_morado.png` — dual keys: morado (Latin Am.) + violeta (Spain) |
+| pink | rosa/rosado | ✅ Mar 19 2026 | `vocab_color_rosa.png` — dual keys: rosa + rosado |
+| brown | marrón/café | ✅ Mar 19 2026 | `vocab_color_marron.png` — dual keys: marron + cafe_color |
+| black | negro | ✅ Mar 19 2026 | `vocab_color_negro.png` |
+| white | blanco | ✅ Mar 19 2026 | `vocab_color_blanco.png` |
+| grey | gris | ✅ Mar 19 2026 | `vocab_color_gris.png` |
 
 **Adjectives — Size & Temperature (Novice Low)**
 
@@ -155,28 +155,28 @@ Organization: thematic clusters. A student at Novice Low needs the Novice Low cl
 
 | Pair | Spanish | Status | Notes |
 |------|---------|--------|-------|
-| big / small | grande / pequeño | ⬜ | same object at two sizes |
-| hot / cold | caliente / frío | ⬜ | steaming cup vs ice cubes |
-| good / bad | bueno / malo | ⬜ | thumbs up/down or happy/sad face |
-| open / closed | abierto / cerrado | ⬜ | door shown both ways |
-| full / empty | lleno / vacío | ⬜ | glass full vs empty |
-| clean / dirty | limpio / sucio | ⬜ | |
-| new / old | nuevo / viejo | ⬜ | same object: new shiny vs worn |
+| big / small | grande / pequeño | ✅ Mar 19 2026 | `vocab_adj_grande_pequeno.png` — elephant vs mouse; dual keys |
+| hot / cold | caliente / frío | ✅ Mar 19 2026 | `vocab_adj_caliente_frio.png` — steaming cup vs iced glass; dual keys |
+| good / bad | bueno / malo | ✅ Mar 19 2026 | `vocab_adj_bueno_malo.png` — thumbs up vs down; dual keys |
+| open / closed | abierto / cerrado | ✅ Mar 19 2026 | `vocab_adj_abierto_cerrado.png` — door both ways; dual keys |
+| full / empty | lleno / vacío | ✅ Mar 19 2026 | `vocab_adj_lleno_vacio.png` — full vs empty glass; dual keys |
+| clean / dirty | limpio / sucio | ✅ Mar 19 2026 | `vocab_adj_limpio_sucio.png` — clean plate vs muddy boot; dual keys |
+| new / old | nuevo / viejo | ✅ Mar 19 2026 | `vocab_adj_nuevo_viejo.png` — shiny sneaker vs worn shoe; dual keys |
 
 **Activities (simple verbs — illustrated as action)**
 
 | Word | Spanish | Status | Notes |
 |------|---------|--------|-------|
-| to eat | comer | ⬜ | person eating |
-| to drink | beber | ⬜ | person drinking |
-| to sleep | dormir | ⬜ | |
-| to read | leer | ⬜ | |
-| to write | escribir | ⬜ | |
-| to walk | caminar | ⬜ | |
-| to run | correr | ⬜ | |
-| to talk | hablar | ⬜ | |
-| to listen | escuchar | ⬜ | |
-| to play | jugar | ⬜ | |
+| to eat | comer | ✅ Mar 19 2026 | `vocab_act_comer.png` |
+| to drink | beber | ✅ Mar 19 2026 | `vocab_act_beber.png` — dual keys: beber + tomar |
+| to sleep | dormir | ✅ Mar 19 2026 | `vocab_act_dormir.png` |
+| to read | leer | ✅ Mar 19 2026 | `vocab_act_leer.png` |
+| to write | escribir | ✅ Mar 19 2026 | `vocab_act_escribir.png` |
+| to walk | caminar | ✅ Mar 19 2026 | `vocab_act_caminar.png` |
+| to run | correr | ✅ Mar 19 2026 | `vocab_act_correr.png` |
+| to talk | hablar | ✅ Mar 19 2026 | `vocab_act_hablar.png` |
+| to listen | escuchar | ✅ Mar 19 2026 | `vocab_act_escuchar.png` — dual keys: escuchar + oír |
+| to play | jugar | ✅ Mar 19 2026 | `vocab_act_jugar.png` |
 
 ---
 

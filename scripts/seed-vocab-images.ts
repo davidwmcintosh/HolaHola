@@ -270,10 +270,250 @@ const vocabThingsImages = [
   },
 ];
 
-async function main() {
-  const allImages = [...vocabPeopleImages, ...vocabPlacesImages, ...vocabThingsImages];
+const vocabFoodImages = [
+  {
+    localFile: "attached_assets/generated_images/vocab/food_leche.png",
+    destFilename: "vocab_food_leche.png",
+    cacheKeys: ["vocab_spanish_leche"],
+    title: "La Leche",
+    description: "Milk — glass and carton",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/food_huevo.png",
+    destFilename: "vocab_food_huevo.png",
+    cacheKeys: ["vocab_spanish_huevo"],
+    title: "El Huevo",
+    description: "Egg — whole and cracked showing yolk",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/food_arroz.png",
+    destFilename: "vocab_food_arroz.png",
+    cacheKeys: ["vocab_spanish_arroz"],
+    title: "El Arroz",
+    description: "Rice — bowl of cooked white rice",
+  },
+];
 
-  console.log(`=== Seeding ${allImages.length} vocabulary images (People + Places + Things) ===\n`);
+const vocabColorImages = [
+  {
+    localFile: "attached_assets/generated_images/vocab/color_rojo.png",
+    destFilename: "vocab_color_rojo.png",
+    cacheKeys: ["vocab_spanish_rojo"],
+    title: "Rojo",
+    description: "Red — color swatch",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/color_azul.png",
+    destFilename: "vocab_color_azul.png",
+    cacheKeys: ["vocab_spanish_azul"],
+    title: "Azul",
+    description: "Blue — color swatch",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/color_amarillo.png",
+    destFilename: "vocab_color_amarillo.png",
+    cacheKeys: ["vocab_spanish_amarillo"],
+    title: "Amarillo",
+    description: "Yellow — color swatch",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/color_verde.png",
+    destFilename: "vocab_color_verde.png",
+    cacheKeys: ["vocab_spanish_verde"],
+    title: "Verde",
+    description: "Green — color swatch",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/color_anaranjado.png",
+    destFilename: "vocab_color_anaranjado.png",
+    // naranja doubles as both the fruit and the color name in Spanish
+    cacheKeys: ["vocab_spanish_anaranjado", "vocab_spanish_naranja_color"],
+    title: "Anaranjado / Naranja",
+    description: "Orange — color swatch (anaranjado = formal; naranja = common spoken)",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/color_morado.png",
+    destFilename: "vocab_color_morado.png",
+    cacheKeys: ["vocab_spanish_morado", "vocab_spanish_violeta"],
+    title: "Morado / Violeta",
+    description: "Purple — color swatch (morado = Latin America; violeta = Spain)",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/color_rosa.png",
+    destFilename: "vocab_color_rosa.png",
+    cacheKeys: ["vocab_spanish_rosa", "vocab_spanish_rosado"],
+    title: "Rosa / Rosado",
+    description: "Pink — color swatch (rosa = common; rosado = also used)",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/color_marron.png",
+    destFilename: "vocab_color_marron.png",
+    // café = brown in Latin American Spanish (same word as coffee)
+    cacheKeys: ["vocab_spanish_marron", "vocab_spanish_cafe_color"],
+    title: "Marrón / Café",
+    description: "Brown — color swatch (marrón = Spain; café = common in Latin America)",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/color_negro.png",
+    destFilename: "vocab_color_negro.png",
+    cacheKeys: ["vocab_spanish_negro"],
+    title: "Negro",
+    description: "Black — color swatch",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/color_blanco.png",
+    destFilename: "vocab_color_blanco.png",
+    cacheKeys: ["vocab_spanish_blanco"],
+    title: "Blanco",
+    description: "White — color swatch",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/color_gris.png",
+    destFilename: "vocab_color_gris.png",
+    cacheKeys: ["vocab_spanish_gris"],
+    title: "Gris",
+    description: "Gray — color swatch",
+  },
+];
+
+const vocabAdjectiveImages = [
+  {
+    localFile: "attached_assets/generated_images/vocab/adj_grande_pequeno.png",
+    destFilename: "vocab_adj_grande_pequeno.png",
+    // Both words on one contrast image
+    cacheKeys: ["vocab_spanish_grande", "vocab_spanish_pequeno"],
+    title: "Grande / Pequeño",
+    description: "Big vs small — elephant and mouse contrast pair",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/adj_caliente_frio.png",
+    destFilename: "vocab_adj_caliente_frio.png",
+    cacheKeys: ["vocab_spanish_caliente", "vocab_spanish_frio"],
+    title: "Caliente / Frío",
+    description: "Hot vs cold — steaming cup and glass of ice",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/adj_bueno_malo.png",
+    destFilename: "vocab_adj_bueno_malo.png",
+    cacheKeys: ["vocab_spanish_bueno", "vocab_spanish_malo"],
+    title: "Bueno / Malo",
+    description: "Good vs bad — thumbs up and thumbs down",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/adj_abierto_cerrado.png",
+    destFilename: "vocab_adj_abierto_cerrado.png",
+    cacheKeys: ["vocab_spanish_abierto", "vocab_spanish_cerrado"],
+    title: "Abierto / Cerrado",
+    description: "Open vs closed — door shown both ways",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/adj_lleno_vacio.png",
+    destFilename: "vocab_adj_lleno_vacio.png",
+    cacheKeys: ["vocab_spanish_lleno", "vocab_spanish_vacio"],
+    title: "Lleno / Vacío",
+    description: "Full vs empty — full and empty glass",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/adj_limpio_sucio.png",
+    destFilename: "vocab_adj_limpio_sucio.png",
+    cacheKeys: ["vocab_spanish_limpio", "vocab_spanish_sucio"],
+    title: "Limpio / Sucio",
+    description: "Clean vs dirty — clean plate and muddy boot",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/adj_nuevo_viejo.png",
+    destFilename: "vocab_adj_nuevo_viejo.png",
+    cacheKeys: ["vocab_spanish_nuevo", "vocab_spanish_viejo"],
+    title: "Nuevo / Viejo",
+    description: "New vs old — shiny new sneaker and worn old shoe",
+  },
+];
+
+const vocabActivityImages = [
+  {
+    localFile: "attached_assets/generated_images/vocab/act_comer.png",
+    destFilename: "vocab_act_comer.png",
+    cacheKeys: ["vocab_spanish_comer"],
+    title: "Comer",
+    description: "To eat — person eating at a table",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/act_beber.png",
+    destFilename: "vocab_act_beber.png",
+    cacheKeys: ["vocab_spanish_beber", "vocab_spanish_tomar"],
+    title: "Beber / Tomar",
+    description: "To drink — person drinking (beber = standard; tomar = common in Latin America)",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/act_dormir.png",
+    destFilename: "vocab_act_dormir.png",
+    cacheKeys: ["vocab_spanish_dormir"],
+    title: "Dormir",
+    description: "To sleep — person sleeping in bed",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/act_leer.png",
+    destFilename: "vocab_act_leer.png",
+    cacheKeys: ["vocab_spanish_leer"],
+    title: "Leer",
+    description: "To read — person reading a book",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/act_escribir.png",
+    destFilename: "vocab_act_escribir.png",
+    cacheKeys: ["vocab_spanish_escribir"],
+    title: "Escribir",
+    description: "To write — person writing with pencil on paper",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/act_caminar.png",
+    destFilename: "vocab_act_caminar.png",
+    cacheKeys: ["vocab_spanish_caminar"],
+    title: "Caminar",
+    description: "To walk — person walking on a path",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/act_correr.png",
+    destFilename: "vocab_act_correr.png",
+    cacheKeys: ["vocab_spanish_correr"],
+    title: "Correr",
+    description: "To run — person running",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/act_hablar.png",
+    destFilename: "vocab_act_hablar.png",
+    cacheKeys: ["vocab_spanish_hablar"],
+    title: "Hablar",
+    description: "To talk — two people in conversation",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/act_escuchar.png",
+    destFilename: "vocab_act_escuchar.png",
+    cacheKeys: ["vocab_spanish_escuchar", "vocab_spanish_oir"],
+    title: "Escuchar / Oír",
+    description: "To listen — person with headphones (escuchar = to listen attentively; oír = to hear)",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/act_jugar.png",
+    destFilename: "vocab_act_jugar.png",
+    cacheKeys: ["vocab_spanish_jugar"],
+    title: "Jugar",
+    description: "To play — child playing with a ball",
+  },
+];
+
+async function main() {
+  const allImages = [
+    ...vocabPeopleImages,
+    ...vocabPlacesImages,
+    ...vocabThingsImages,
+    ...vocabFoodImages,
+    ...vocabColorImages,
+    ...vocabAdjectiveImages,
+    ...vocabActivityImages,
+  ];
+
+  console.log(`=== Seeding ${allImages.length} vocabulary images (People + Places + Things + Food + Colors + Adjectives + Activities) ===\n`);
 
   for (const item of allImages) {
     if (!fs.existsSync(item.localFile)) {
