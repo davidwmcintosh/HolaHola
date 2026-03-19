@@ -216,10 +216,64 @@ const vocabPeopleImages = [
   },
 ];
 
-async function main() {
-  const allImages = [...vocabPeopleImages, ...vocabPlacesImages];
+const vocabThingsImages = [
+  {
+    localFile: "attached_assets/generated_images/vocab/things_lapiz.png",
+    destFilename: "vocab_things_lapiz.png",
+    cacheKeys: ["vocab_spanish_lapiz"],
+    title: "El Lápiz",
+    description: "Pencil",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/things_boligrafo.png",
+    destFilename: "vocab_things_boligrafo.png",
+    // Both bolígrafo (formal/written) and pluma (common spoken, esp. Latin America)
+    // point to the same image — Daniela may use either word
+    cacheKeys: ["vocab_spanish_boligrafo", "vocab_spanish_pluma"],
+    title: "El Bolígrafo / La Pluma",
+    description: "Pen — bolígrafo (formal) or pluma (common spoken form)",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/things_mesa.png",
+    destFilename: "vocab_things_mesa.png",
+    cacheKeys: ["vocab_spanish_mesa", "vocab_spanish_escritorio"],
+    title: "La Mesa / El Escritorio",
+    description: "Desk or table",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/things_silla.png",
+    destFilename: "vocab_things_silla.png",
+    cacheKeys: ["vocab_spanish_silla"],
+    title: "La Silla",
+    description: "Chair",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/things_puerta.png",
+    destFilename: "vocab_things_puerta.png",
+    cacheKeys: ["vocab_spanish_puerta"],
+    title: "La Puerta",
+    description: "Door",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/things_ventana.png",
+    destFilename: "vocab_things_ventana.png",
+    cacheKeys: ["vocab_spanish_ventana"],
+    title: "La Ventana",
+    description: "Window",
+  },
+  {
+    localFile: "attached_assets/generated_images/vocab/things_agua.png",
+    destFilename: "vocab_things_agua.png",
+    cacheKeys: ["vocab_spanish_agua"],
+    title: "El Agua",
+    description: "Glass of water",
+  },
+];
 
-  console.log(`=== Seeding ${allImages.length} vocabulary images (People + Places) ===\n`);
+async function main() {
+  const allImages = [...vocabPeopleImages, ...vocabPlacesImages, ...vocabThingsImages];
+
+  console.log(`=== Seeding ${allImages.length} vocabulary images (People + Places + Things) ===\n`);
 
   for (const item of allImages) {
     if (!fs.existsSync(item.localFile)) {

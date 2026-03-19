@@ -109,14 +109,14 @@ Organization: thematic clusters. A student at Novice Low needs the Novice Low cl
 |------|---------|--------|-------|
 | book | libro | ✅ | in prop library |
 | backpack | mochila | ✅ | in prop library |
-| pencil | lápiz | ⬜ | |
-| pen | bolígrafo | ⬜ | |
-| desk/table | mesa | ⬜ | |
-| chair | silla | ⬜ | |
-| door | puerta | ⬜ | |
-| window | ventana | ⬜ | |
+| pencil | lápiz | ✅ Mar 19 2026 | `vocab_things_lapiz.png` |
+| pen | bolígrafo / pluma | ✅ Mar 19 2026 | `vocab_things_boligrafo.png` — dual keys: bolígrafo (formal) + pluma (common spoken) |
+| desk/table | mesa | ✅ Mar 19 2026 | `vocab_things_mesa.png` — also seeded: escritorio |
+| chair | silla | ✅ Mar 19 2026 | `vocab_things_silla.png` |
+| door | puerta | ✅ Mar 19 2026 | `vocab_things_puerta.png` |
+| window | ventana | ✅ Mar 19 2026 | `vocab_things_ventana.png` |
 | phone | teléfono | ✅ | cell_phone in prop library |
-| water | agua | ⬜ | glass of water |
+| water | agua | ✅ Mar 19 2026 | `vocab_things_agua.png` |
 
 **Things — Food Basics**
 
