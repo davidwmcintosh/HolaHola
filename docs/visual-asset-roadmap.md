@@ -74,7 +74,11 @@ The `SceneCanvas` component (client-side stage model) is **fully operational**. 
 
 **Section 2 (Weather + Time) complete Mar 19 2026:** 13 images — 9 weather scenes, 4 time reference cards (day parts, days of week, months circle, four seasons). All seeded in DB.
 
-**What's next (Section 1 DALL-E complete):** All DALL-E vocabulary images through Intermediate Mid are complete (~145 images total). Remaining ⬜ items are grammar/concept diagrams (Sections 3–7), higher-level supplementary cards (weather forecast, temperature scale, clock reference), and numbers cards — all React/SVG components, not DALL-E images.
+**Numbers complete Mar 19 2026:** 7 number cards (0-10, 11-20, tens grid, hundreds/thousands, ordinals, price/currency, phone/address). Covers cero → millón and related keys.
+
+**Specific fixes Mar 19 2026:** avión (v=2, correct 2 wings), metro (v=2, no pencil artifacts), nervioso (v=2, culturally neutral), meses (v=2, pure visual mandala), días de semana (v=2, pure activity scenes, no text).
+
+**ALL DALL-E WORK COMPLETE.** ~200 images total. Remaining ⬜ items are React/SVG grammar diagrams (Sections 3–7) — these are code components, not DALL-E images, and will be built as a separate coding task.
 
 ---
 
@@ -456,13 +460,13 @@ These are cross-ACTFL. A Novice Low student needs numbers 1–10. An Advanced st
 
 | Asset | Description | ACTFL Entry Point | Status |
 |-------|-------------|-------------------|--------|
-| 0–10 illustrated cards | Each numeral with illustrated objects (3 apples, 7 stars) | Novice Low | ⬜ |
-| 11–20 pattern card | Illustrated grouping showing the 11–19 pattern (diez + ...) | Novice Low | ⬜ |
-| Tens 10–100 grid | Visual grid: 10, 20, 30... 100 with pattern highlight | Novice Mid | ⬜ |
-| Hundreds & thousands | Scale card: 100, 500, 1,000, 10,000, 1,000,000 with real-world size anchors (people, city, country) | Novice High | ⬜ |
-| Ordinals 1st–10th | primero, segundo... with illustrated podium/ranking | Novice Mid | ⬜ |
-| Phone/address number reading | Illustrated guide to how numbers appear in real-life context (phone numbers said in pairs) | Intermediate Low | ⬜ |
-| Price & currency visual | Price tags in different currencies (pesos, soles, euros) with "¿Cuánto cuesta?" | Novice High | ⬜ |
+| 0–10 illustrated cards | Each numeral with illustrated objects (3 apples, 7 stars) | Novice Low | ✅ Mar 19 2026 | `vocab_num_0_10.png` — 12 cache keys (cero → diez) |
+| 11–20 pattern card | Illustrated grouping showing the 11–19 pattern (diez + ...) | Novice Low | ✅ Mar 19 2026 | `vocab_num_11_20.png` — 11 cache keys (once → veinte) |
+| Tens 10–100 grid | Visual grid: 10, 20, 30... 100 with pattern highlight | Novice Mid | ✅ Mar 19 2026 | `vocab_num_tens.png` — 10 cache keys (veinte → cien) |
+| Hundreds & thousands | Scale card: 100, 500, 1,000, 10,000, 1,000,000 with real-world size anchors | Novice High | ✅ Mar 19 2026 | `vocab_num_hundreds.png` — keys: cien, quinientos, mil, millon |
+| Ordinals 1st–10th | primero, segundo... with illustrated podium/ranking | Novice Mid | ✅ Mar 19 2026 | `vocab_num_ordinals.png` — keys: primero → quinto |
+| Phone/address number reading | Illustrated guide to how numbers appear in real-life context (phone numbers said in pairs) | Intermediate Low | ✅ Mar 19 2026 | `vocab_num_phone.png` — keys: numero_telefono, direccion |
+| Price & currency visual | Price tags in different currencies (pesos, soles, euros) with "¿Cuánto cuesta?" | Novice High | ✅ Mar 19 2026 | `vocab_num_currency.png` — keys: precio, cuanto_cuesta, peso, euro |
 
 ### Time
 
@@ -477,9 +481,9 @@ These are cross-ACTFL. A Novice Low student needs numbers 1–10. An Advanced st
 | Days of the week card | lunes → domingo visual strip (Mon-start calendar format) | Novice Low | ✅ Mar 19 2026 | `vocab_time_dias_semana.png` — all 7 days seeded |
 | Months of the year card | enero → diciembre in circular calendar format | Novice Low | ✅ Mar 19 2026 | `vocab_time_meses.png` — all 12 months seeded |
 | Four seasons illustrated | primavera, verano, otoño, invierno — each as a mini landscape scene | Novice Mid | ✅ Mar 19 2026 | `vocab_time_estaciones.png` — all 4 seasons seeded |
-| Duration expressions timeline | hace dos años, desde hace, hace + time — horizontal timeline diagram | Intermediate Low | ⬜ |
-| Daily routine timeline | levantarse → desayunar → ... → acostarse shown as timeline with clock icons | Intermediate Low | ⬜ |
-| Tense timeline overview | past ←—— present ——→ future with verb tense markers | Intermediate Low | ⬜ |
+| Duration expressions timeline | hace dos años, desde hace, hace + time — horizontal timeline diagram | Intermediate Low | ⬜ React component — see Section 3 |
+| Daily routine timeline | levantarse → desayunar → ... → acostarse shown as timeline with clock icons | Intermediate Low | ✅ Mar 19 2026 | `vocab_time_rutina_diaria.png` — 7 daily routine keys seeded |
+| Tense timeline overview | past ←—— present ——→ future with verb tense markers | Intermediate Low | ⬜ React component — see Section 3 |
 
 ### Weather
 
@@ -494,9 +498,9 @@ These are cross-ACTFL. A Novice Low student needs numbers 1–10. An Advanced st
 | Foggy / neblinoso | Illustrated | Novice Mid | ✅ Mar 19 2026 | `vocab_weather_neblinoso.png` — also: niebla, neblina |
 | Hot / caluroso | Illustrated — sun + person sweating | Novice Low | ✅ Mar 19 2026 | `vocab_weather_caluroso.png` — also: calor |
 | Cold / frío | Illustrated — person in coat, breath visible | Novice Low | ✅ Mar 19 2026 | `vocab_weather_frio.png` — keys: frio_tiempo, frio_clima |
-| Weather forecast card | Full illustrated forecast showing icons + temperature + day of week (como en la tele) | Novice High | ⬜ |
-| Temperature scale | Celsius + Fahrenheit comparison — common confusion for English-speaking learners | Novice High | ⬜ |
-| ¿Qué tiempo hace? reference card | All weather expressions on one card with their corresponding images | Novice Mid | ⬜ |
+| Weather forecast card | Full illustrated forecast showing icons + temperature + day of week (como en la tele) | Novice High | ✅ Mar 19 2026 | `vocab_weather_forecast_card.png` — keys: pronostico, tiempo_semana |
+| Temperature scale | Celsius + Fahrenheit comparison — common confusion for English-speaking learners | Novice High | ✅ Mar 19 2026 | `vocab_weather_temperature_scale.png` — keys: temperatura, celsius, grados |
+| ¿Qué tiempo hace? reference card | All weather expressions on one card with their corresponding images | Novice Mid | ⬜ React component — see Section 3 |
 
 ---
 
