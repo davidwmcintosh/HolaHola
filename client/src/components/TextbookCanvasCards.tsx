@@ -764,6 +764,7 @@ const TIME_DAY_PARTS: Record<LangCode, [string, string][]> = {
     ['晚上 (wǎnshang)', 'in the evening / at night'],
     ['几点…？', 'At what time…?'],
     ['[#]点 — [#]diǎn', 'at [#] o\'clock'],
+  ],
   hebrew: [
     ['כמה השעה?', 'What time is it?'],
     ['השעה שתיים בדיוק.', "It's exactly noon."],
@@ -1068,6 +1069,7 @@ const DATE_EXPRESSIONS: Record<LangCode, [string, string][]> = {
     ['今天是三月十五号。', 'Today is March 15th.'],
     ['周末 (zhōumò)', 'the weekend'],
     ['工作日 (gōngzuòrì)', 'on weekdays'],
+  ],
   hebrew: [
     ['איזה יום זה היום?', 'What day is today?'],
     ['היום יום שני.', 'Today is Monday.'],
