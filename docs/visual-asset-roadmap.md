@@ -63,7 +63,9 @@ The `SceneCanvas` component (client-side stage model) is **fully operational**. 
 
 **Novice Mid complete:** 58 images total (10 people + 10 animals + 12 food + 8 clothing + 8 activities + 10 adjective pairs), covering 84 cache keys. All seeded in DB and uploaded to object storage.
 
-**What's next:** Novice High (travel, transport, professions, hobbies, weather vocabulary).
+**Novice High complete:** 23 images (9 places + 10 transport + 4 professions). All seeded in DB and uploaded to object storage.
+
+**What's next:** Intermediate Low (body parts, health, home rooms & furniture).
 
 ---
 
@@ -299,40 +301,40 @@ Organization: thematic clusters. A student at Novice Low needs the Novice Low cl
 
 | Word | Spanish | Status | Notes |
 |------|---------|--------|-------|
-| hotel | hotel | ⬜ | exterior |
-| airport | aeropuerto | ⬜ | already have env bg |
-| train station | estación de tren | ⬜ | |
-| beach | playa | ⬜ | |
-| mountain | montaña | ⬜ | |
-| museum | museo | ⬜ | |
-| pharmacy | farmacia | ⬜ | |
-| bank | banco | ⬜ | |
-| library | biblioteca | ⬜ | |
+| hotel | hotel | ✅ Mar 19 2026 | `vocab_place_hotel.png` |
+| airport | aeropuerto | ✅ Mar 19 2026 | `vocab_place_aeropuerto.png` |
+| train station | estación de tren | ✅ Mar 19 2026 | `vocab_place_estacion_tren.png` — keys: estacion_tren + estacion |
+| beach | playa | ✅ Mar 19 2026 | `vocab_place_playa.png` |
+| mountain | montaña | ✅ Mar 19 2026 | `vocab_place_montana.png` — keys: montana + montaña |
+| museum | museo | ✅ Mar 19 2026 | `vocab_place_museo.png` |
+| pharmacy | farmacia | ✅ Mar 19 2026 | `vocab_place_farmacia.png` |
+| bank | banco | ✅ Mar 19 2026 | `vocab_place_banco.png` |
+| library | biblioteca | ✅ Mar 19 2026 | `vocab_place_biblioteca.png` |
 
 **Transportation**
 
 | Word | Spanish | Status | Notes |
 |------|---------|--------|-------|
-| bus | autobús | ⬜ | |
-| train | tren | ⬜ | |
-| airplane | avión | ⬜ | |
-| bicycle | bicicleta | ⬜ | |
-| car | coche/carro | ⬜ | regional note |
-| boat | barco | ⬜ | |
-| taxi | taxi | ⬜ | |
-| subway/metro | metro | ⬜ | |
-| motorcycle | motocicleta | ⬜ | |
-| walking (on foot) | a pie | ⬜ | illustrated as feet walking |
+| bus | autobús | ✅ Mar 19 2026 | `vocab_trans_autobus.png` — keys: autobus + autobús |
+| train | tren | ✅ Mar 19 2026 | `vocab_trans_tren.png` |
+| airplane | avión | ✅ Mar 19 2026 | `vocab_trans_avion.png` — keys: avion + avión |
+| bicycle | bicicleta | ✅ Mar 19 2026 | `vocab_trans_bicicleta.png` |
+| car | coche/carro | ✅ Mar 19 2026 | `vocab_trans_coche.png` — keys: coche + carro + auto |
+| boat | barco | ✅ Mar 19 2026 | `vocab_trans_barco.png` |
+| taxi | taxi | ✅ Mar 19 2026 | `vocab_trans_taxi.png` |
+| subway/metro | metro | ✅ Mar 19 2026 | `vocab_trans_metro.png` — keys: metro + subte |
+| motorcycle | motocicleta | ✅ Mar 19 2026 | `vocab_trans_motocicleta.png` — keys: motocicleta + moto |
+| walking (on foot) | a pie | ✅ Mar 19 2026 | `vocab_trans_a_pie.png` — keys: a_pie + caminar |
 
 **Professions**
 
 | Word | Spanish | Status | Notes |
 |------|---------|--------|-------|
-| waiter/waitress | camarero/a | ⬜ | |
-| shop clerk | dependiente/a | ⬜ | |
+| waiter/waitress | camarero/a | ✅ Mar 19 2026 | `vocab_prof_camarero.png` — keys: camarero + camarera + mesero |
+| shop clerk | dependiente/a | ✅ Mar 19 2026 | `vocab_prof_dependiente.png` — keys: dependiente + dependienta |
 | firefighter | bombero/a | ✅ Mar 19 2026 | Moved up to Novice Mid — `vocab_ppl_bombero.png` |
-| journalist | periodista | ⬜ | |
-| lawyer | abogado/a | ⬜ | |
+| journalist | periodista | ✅ Mar 19 2026 | `vocab_prof_periodista.png` |
+| lawyer | abogado/a | ✅ Mar 19 2026 | `vocab_prof_abogado.png` — keys: abogado + abogada |
 
 ---
 
