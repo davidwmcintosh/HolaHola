@@ -4,7 +4,7 @@
  * All images use the same watercolor illustrated style as the prop zone assets.
  */
 
-import { GoogleGenAI } from '@google/genai';
+import OpenAI from 'openai';
 import { uploadPublicBuffer } from './image-storage';
 
 export interface VisualGenerationRequest {
@@ -49,39 +49,39 @@ const EDUCATIONAL_TAG_CATEGORIES = [
   'beginner', 'intermediate', 'advanced', 'actfl-novice', 'actfl-intermediate',
 ] as const;
 
-function getGeminiClient(): GoogleGenAI | null {
-  const key = process.env.GEMINI_API_KEY;
+function getDallEClient(): OpenAI | null {
+  const key = process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
   if (!key) return null;
-  return new GoogleGenAI({ apiKey: key });
+  return new OpenAI({ apiKey: key });
 }
 
-async function generateWithGemini(
+async function generateWithDallE(
   request: VisualGenerationRequest,
 ): Promise<{ imageUrl: string }> {
-  const client = getGeminiClient();
-  if (!client) throw new Error('GEMINI_API_KEY not set');
+  const client = getDallEClient();
+  if (!client) throw new Error('OPENAI_API_KEY not set');
 
   const style = request.type === 'infographic' ? SCENE_STYLE : PROP_STYLE;
   const prompt = request.type === 'infographic'
-    ? `Educational scene illustrating: ${request.concept}. ${style}`
-    : `${request.concept}. ${style}`;
+    ? `Educational scene illustrating: ${request.concept}. ${style}. ZERO TEXT ZERO WORDS ZERO LETTERS.`
+    : `${request.concept}. ${style}. ZERO TEXT ZERO WORDS ZERO LETTERS.`;
 
-  const response = await client.models.generateImages({
-    model: 'imagen-3.0-generate-002',
+  const response = await client.images.generate({
+    model: 'dall-e-3',
     prompt,
-    config: {
-      numberOfImages: 1,
-      aspectRatio: request.type === 'infographic' ? '16:9' : '1:1',
-      outputMimeType: 'image/jpeg',
-    },
+    n: 1,
+    size: '1024x1024',
+    quality: 'standard',
+    response_format: 'url',
   });
 
-  const imageBytes = response.generatedImages?.[0]?.image?.imageBytes;
-  if (!imageBytes) throw new Error('Gemini Imagen returned no image bytes');
+  const imageUrl = response.data?.[0]?.url;
+  if (!imageUrl) throw new Error('DALL-E returned no image URL');
 
-  const buf = Buffer.isBuffer(imageBytes)
-    ? imageBytes
-    : Buffer.from(imageBytes as string, 'base64');
+  // Download the image from the temporary URL
+  const fetchRes = await fetch(imageUrl);
+  if (!fetchRes.ok) throw new Error(`Failed to download generated image: ${fetchRes.status}`);
+  const buf = Buffer.from(await fetchRes.arrayBuffer());
 
   const filename = `visual-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
   const url = await uploadPublicBuffer(filename, buf, 'image/jpeg');
@@ -139,11 +139,11 @@ export async function generateVisual(
   let provider: string;
 
   try {
-    const result = await generateWithGemini(request);
+    const result = await generateWithDallE(request);
     imageUrl = result.imageUrl;
-    provider = 'gemini-imagen';
+    provider = 'dall-e-3';
   } catch (error) {
-    console.warn('[VisualContent] Gemini Imagen failed, falling back to placeholder:', error);
+    console.warn('[VisualContent] DALL-E generation failed, falling back to placeholder:', error);
     imageUrl = generatePlaceholderImage(request).imageUrl;
     provider = 'placeholder';
   }

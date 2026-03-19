@@ -4,9 +4,9 @@
  * Resolves images for vocabulary words shown on the whiteboard.
  * Uses a two-step approach:
  *   1. Check the seeded library cache (vocab_spanish_{word} key) — instant, free, consistent watercolor style
- *   2. Generate on-the-fly with Gemini Imagen 3 (same watercolor style as the library), save to cache
+ *   2. Generate on-the-fly with DALL-E 3 (same watercolor style as the library), save to cache
  *
- * No Unsplash. No DALL-E. Every image is the same illustrated watercolor look.
+ * No Unsplash. Every image uses the watercolor illustrated style.
  */
 
 import { storage } from '../storage';
@@ -65,9 +65,9 @@ export async function resolveVocabularyImage(
     return { imageUrl: cached.url, source: 'cache', word, description };
   }
 
-  // ── 2. Generate with Gemini Imagen 3 (watercolor style) ─────────────────
+  // ── 2. Generate with DALL-E 3 (watercolor style) ────────────────────────
   const generationPrompt = scene || description || word;
-  console.log(`[VocabImage] Cache miss — generating with Imagen 3 for: "${generationPrompt}"`);
+  console.log(`[VocabImage] Cache miss — generating with DALL-E 3 for: "${generationPrompt}"`);
 
   try {
     const { generateVisual } = await import('./visual-content-service');
@@ -96,7 +96,7 @@ export async function resolveVocabularyImage(
 
     return { imageUrl: result.imageUrl, source: 'ai', word, description };
   } catch (genErr: any) {
-    console.error('[VocabImage] Gemini Imagen generation failed:', genErr.message);
+    console.error('[VocabImage] DALL-E generation failed:', genErr.message);
   }
 
   // ── 3. Placeholder fallback ──────────────────────────────────────────────
