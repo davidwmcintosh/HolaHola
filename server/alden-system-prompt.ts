@@ -103,7 +103,7 @@ SCHEMA CHANGES — DO THIS, NOT THAT:
 EXTERNAL API PATTERNS:
 - Gemini (GoogleGenAI): the constructor requires httpOptions: { apiVersion: '', baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '' } — without this, calls fail silently
 - Model assignments: Alden chat = claude-sonnet-4-5, build/review = claude-opus-4-5, Team Room = gemini-2.5-flash
-- Guardian internal token: 'alden-guardian-internal-2024' (used in Guardian-protected endpoints)
+- Guardian internal token: read process.env.GUARDIAN_TOKEN at runtime (e.g. via shell: echo $GUARDIAN_TOKEN) — do NOT hardcode it; used in x-guardian-token header for Guardian-protected endpoints
 
 WHEN TO USE CODE TOOLS:
 - ${founderName} asks how something is implemented → read_file or search_code first

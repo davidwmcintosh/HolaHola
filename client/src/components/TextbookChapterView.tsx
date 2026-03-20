@@ -178,6 +178,7 @@ function VisualLessonCard({
   section,
   index,
   language,
+  autoExpand,
   onStartConversation,
   onStartDrill,
   onViewed,
@@ -186,6 +187,7 @@ function VisualLessonCard({
   section: Section;
   index: number;
   language?: string;
+  autoExpand?: boolean;
   onStartConversation: () => void;
   onStartDrill: () => void;
   onViewed: () => void;
@@ -195,7 +197,7 @@ function VisualLessonCard({
   const hasMarkedReadRef = useRef(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const [showRhythmDrill, setShowRhythmDrill] = useState(false);
-  const [contentExpanded, setContentExpanded] = useState(false);
+  const [contentExpanded, setContentExpanded] = useState(autoExpand ?? false);
   const queryClient = useQueryClient();
 
   const markReadMutation = useMutation({
@@ -212,6 +214,15 @@ function VisualLessonCard({
     },
   });
 
+  // Fire mark-read when auto-expanding (first section on chapter open)
+  useEffect(() => {
+    if (autoExpand && !hasMarkedReadRef.current) {
+      hasMarkedReadRef.current = true;
+      markReadMutation.mutate();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function handleToggleContent() {
     const opening = !contentExpanded;
     setContentExpanded(opening);
@@ -226,6 +237,8 @@ function VisualLessonCard({
     section.hasDrills &&
     section.drills &&
     section.drills.length > 0;
+
+  const hasAltCTA = !!(section.conversationTopic || (section.hasDrills && section.drillCount > 0) || isRhythmEligible);
 
   const rhythmItems = (section.drills ?? []).map(d => ({
     id: d.id,
@@ -323,14 +336,14 @@ function VisualLessonCard({
           
           <div className="flex gap-2 flex-wrap sm:flex-nowrap">
             <Button
-              variant={contentExpanded ? "secondary" : "outline"}
+              variant={contentExpanded ? "secondary" : hasAltCTA ? "outline" : "default"}
               size="sm"
-              className="min-h-[44px] touch-manipulation"
+              className={`min-h-[44px] touch-manipulation${!hasAltCTA ? ' flex-1' : ''}`}
               onClick={handleToggleContent}
               data-testid={`button-read-lesson-${section.id}`}
             >
               <BookOpen className="h-4 w-4 mr-1" />
-              {contentExpanded ? "Hide" : "Read"}
+              {contentExpanded ? "Hide Notes" : "Study Notes"}
               {contentExpanded ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />}
             </Button>
             {section.conversationTopic && (
@@ -518,6 +531,7 @@ export function TextbookChapterView({
               textbookRead: section.textbookRead || locallyReadIds.has(section.id),
             }}
             index={index}
+            autoExpand={index === 0}
             language={language}
             onStartConversation={onStartConversation}
             onStartDrill={() => onStartDrill(section.id)}

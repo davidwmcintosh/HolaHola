@@ -15,6 +15,7 @@ import { GoogleGenAI } from '@google/genai';
 import { storage } from '../storage';
 
 const GUARDIAN_MANIFEST_PATH = '/tmp/alden-guardian-manifest.json';
+// GUARDIAN_TOKEN must be set as a Replit secret — the fallback is a placeholder only
 export const GUARDIAN_TOKEN = process.env.GUARDIAN_TOKEN || 'alden-guardian-internal-2024';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
