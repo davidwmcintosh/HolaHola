@@ -840,14 +840,16 @@ export function LessonPrepCard({
       .trim();
   }
 
+  // Vocabulary: single-word items only (prevents overlap with phraseDrills)
   const vocabDrills = drills
     .filter(d => d.itemType === 'listen_repeat' || d.itemType === 'translate_speak')
-    .filter(d => d.targetText && d.targetText.length < 50)
+    .filter(d => d.targetText && d.targetText.trim().split(/\s+/).length === 1)
     .slice(0, 6);
   
+  // Useful Phrases: multi-word items only (mutually exclusive with vocabDrills)
   const phraseDrills = drills
     .filter(d => (d.itemType === 'listen_repeat' || d.itemType === 'translate_speak'))
-    .filter(d => d.targetText && d.targetText.split(' ').length >= 2 && d.targetText.length < 80)
+    .filter(d => d.targetText && d.targetText.trim().split(/\s+/).length >= 2 && d.targetText.length < 80)
     .slice(0, 4);
 
   const conversationScriptLines = conversationTopic ? drills
