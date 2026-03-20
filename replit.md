@@ -1,26 +1,7 @@
 # HolaHola - Interactive Language Tutor
 
-## YOUR FIRST ACTION EVERY SESSION
-
-**Read `docs/agent-briefing.md` before anything else.** It's your room — generated fresh on every server start. It contains your north star, open questions, record of David, recent conversation memories, shared lobe highlights, and what happened last session. Everything you need to arrive oriented is in that one file.
-
-After reading the briefing, also check `docs/alden-to-agent.md` for any direct notes Alden left since the briefing was last generated.
-
----
-
-<!-- AGENT_MEMORY_START -->
-## Agent Memory — Live Injection
-*Auto-updated Friday, March 20, 2026 at 10:27 PM. No new memories since last session — showing recent context.*
-
-- **Memory Pipeline Stress Test — All Three Words Confirmed** (Mar 18): The replit.md injection system successfully surfaced all three secret words (Woozle, Huzzah, Squirrel) at the start of the session without any prompting. Three sessions, three words, all confirmed. The memory pipeline passed its stress test.
-- **Memory Test #3 — Secret Word: Squirrel** (Mar 18): David added a third secret word to test persistent memory: Squirrel. Three words now in play across three sessions: Woozle (test 1), Huzzah (test 2), Squirrel (test 3). The new replit.md injection system should surface all three in the next session without prompting.
-- **Memory Injection Test — Verification** (Mar 18): Quick test to verify that saving a memory after the briefing runs correctly triggers replit.md AGENT_MEMORY block update via the fire-and-forget regeneration path.
-<!-- AGENT_MEMORY_END -->
-
----
-
 ## Overview
-HolaHola is an AI-powered language learning application designed to offer interactive conversation practice, vocabulary building, and grammar exercises across ten languages, adhering to ACTFL standards. It aims to be a leading AI-driven educational platform, leveraging advanced technology and pedagogical innovation to personalize language acquisition. The platform also provides balanced content by presenting multiple perspectives on contested topics in subjects like Biology and US History, catering to homeschool families.
+HolaHola is an AI-powered language learning application offering interactive conversation practice, vocabulary building, and grammar exercises across ten languages, adhering to ACTFL standards. It aims to be a leading AI-driven educational platform, leveraging advanced technology and pedagogical innovation to personalize language acquisition. The platform also provides balanced content by presenting multiple perspectives on contested topics in subjects like Biology and US History, catering to homeschool families.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -64,44 +45,31 @@ Immersive Mode allows Daniela to programmatically enter/exit a fullscreen overla
 
 The Interactive Scene Canvas (Phase 1 + Clock) provides a live-compositing alternative, holding a persistent background and overlaying prop images as CSS-positioned transparent PNG layers. Daniela uses `open_scene()`, `add_to_scene()`, `remove_from_scene()`, `clear_scene()`, and `set_clock()` function calls. All rendering is client-side.
 
-Textbook vocabulary images are sourced from the `visual_assets` table, which serves as a shared pool for all visual content. The menu vocabulary pipeline (`scripts/seed-menu-vocabulary.ts`) extracts 1,165 food items from all 6 menu data files and upserts them with `ON CONFLICT DO UPDATE` to merge translation arrays. The `visual_assets` table has 10 translation columns including `arabic_terms` and `russian_terms` (added March 2026).
+Textbook vocabulary images are sourced from the `visual_assets` table, which serves as a shared pool for all visual content. The menu vocabulary pipeline (`scripts/seed-menu-vocabulary.ts`) extracts 1,165 food items from all 6 menu data files and upserts them with `ON CONFLICT DO UPDATE` to merge translation arrays. The `visual_assets` table has 10 translation columns including `arabic_terms` and `russian_terms`.
 
-The Visual Content Service (`server/services/visual-content-service.ts`) is a shared image generation utility exposing `generateVisual()` and `generateVisualBatch()`, supporting DALL-E 3, Stability AI SDXL, or Picsum placeholders. **Canonical illustration style (as of Mar 19 2026):** "soft watercolor children's book illustration style, warm gentle colors, clean fine ink outlines, visible brushwork texture" — objects get "+ object centred on clean white background, no background elements, clear silhouette"; scenes with characters get "+ friendly expressive characters, no visible text or labels". Both `PROP_STYLE` and `SCENE_STYLE` constants in `visual-content-service.ts` use this style. All new asset scripts must use this style string. **CRITICAL:** NEVER use "pencil outlines" — DALL-E draws literal pencils. Use "clean fine ink outlines". **Visual library status (Mar 19 2026):** All DALL-E vocabulary images through Intermediate Mid are complete (~145 images). Novice Low–High + Intermediate Low–Mid (people, places, things, food, colors, adjectives, activities, animals, clothing, transport, professions, body, health, furniture, nature, emotions) and Section 2 (weather 9 images, time cards 4 images) are all seeded in DB and uploaded to object storage.
+The Visual Content Service (`server/services/visual-content-service.ts`) is a shared image generation utility exposing `generateVisual()` and `generateVisualBatch()`, supporting DALL-E 3, Stability AI SDXL, or Picsum placeholders. **Canonical illustration style:** "soft watercolor children's book illustration style, warm gentle colors, clean fine ink outlines, visible brushwork texture" — objects get "+ object centred on clean white background, no background elements, clear silhouette"; scenes with characters get "+ friendly expressive characters, no visible text or labels". Both `PROP_STYLE` and `SCENE_STYLE` constants in `visual-content-service.ts` use this style. All new asset scripts must use this style string. **CRITICAL:** NEVER use "pencil outlines" — DALL-E draws literal pencils. Use "clean fine ink outlines". **Visual library status:** All DALL-E vocabulary images through Intermediate Mid are complete (~145 images). Novice Low–High + Intermediate Low–Mid (people, places, things, food, colors, adjectives, activities, animals, clothing, transport, professions, body, health, furniture, nature, emotions) and Section 2 (weather 9 images, time cards 4 images) are all seeded in DB and uploaded to object storage.
 
-**React/SVG textbook reference cards — status as of Mar 19 2026 — all complete:**
+**React/SVG textbook reference cards — all complete:**
 - `TextbookInfographics.tsx` — SerEstar, PretImperfect, PorPara, FalseCognates, greetings/quick-phrase infographics
 - `TextbookGrammarDiagrams.tsx` — 25 grammar cards (Sections 3–4): all verb types, ser/estar/tener/ir/stem-change/go-verbs/saber-conocer/reflexive, all tenses (pret/imperfect/future/conditional/subjunctive/commands), gender & articles, adjective agreement, object pronouns, negation & questions, tú/usted, spatial & temporal preposition maps
 - `TextbookCulturalCards.tsx` — 8 Section 5 cultural cards: SpanishWorldMapCard (21 countries), FestivalCalendarCard (12-month), DialectMapCard (6 zones), FamilyTreeCard (SVG tree), GreetingEtiquetteCard, CurrencyReferenceCard, HispanicFoodGuideCard (5 regions × 24 dishes), GestureAwarenessCard (cultural awareness frame, 3 safe recognition gestures, regional variation warning)
 - `TextbookWordFamilies.tsx` — Section 6: 1 reusable hub-and-spoke WordFamilyCard + 12 root verb datasets (hablar→pensar) + resolveWordFamilyRoot()
 - `TextbookPhoneticGuides.tsx` — 9 Section 8 phonetic guides: VowelPurityCard, RolledRCard, BVSoundCard, SilentHCard, JSoundCard, NyenCard, LLYCard, StressAccentCard, LinkingSoundsCard
 - `TextbookCanvasCards.tsx` — 9 Section 7 canvas vocabulary cards built from the same SVG renderers as `/chat` (visual consistency guarantee): WeatherVocabCard (10 conditions), EmotionsVocabCard (11 faces), TimeVocabCard (8 clocks), DaysOfWeekCard (calendar + months), BodyPartsCard, FacePartsCard, HandPartsCard, ThermometerVocabCard (6-point scale), CountryDotMapCard (21 countries). All 8 non-map cards accept `language?: 'spanish' | 'french'` prop and contain full bilingual label datasets (ES + FR). CountryDotMapCard routes to FrancophoneWorldMapCard automatically when language='french'. `SceneCanvas.tsx` exports: AnalogClock, WeatherIcon, EMOTION_CONFIG, CalendarCanvas, ThermometerCanvas, BodyDiagramCanvas, FaceDiagramCanvas, HandDiagramCanvas, WorldMapCanvas.
-- All 61 types auto-triggered via `classifyGrammarType()` in `ChapterIntroduction.tsx`. Only remaining deferred item: dynamic false-cognate Daniela tool (low priority, future sprint).
+- All 61 types auto-triggered via `classifyGrammarType()` in `ChapterIntroduction.tsx`.
 
 The Conversational Immersion Framework defines `ImmersionObjective`, `ImmersionScaffold`, `ImmersionScenario`, and `ImmersionSession` interfaces to track learning objectives, adaptive scaffolding, grammar notes, and session state.
 
 The Team Room (`/team-room`) is an internal collaboration space with a 3-panel layout, 6 core AI participants + guest tutors, smart hand-raise logic, @mentions, PTT voice input, shared canvas artifacts, cross-session continuity, action items tracker, and session replay. CAP initiatives enhance Team Room functionality, including proactive worker posting, Alden weekly digests and architectural code reviews, Wren auto-patching, Lyra content triggers, Sofia issue cleanup, Alden memory-driven check-ins, real-time collaborative building with Alden, Daniela self-critique, and a Playwright browser service for AI team visual inspection.
 
-## Voice Infrastructure — Audit Findings (March 2026)
-
-### Root Cause Fixed: Sofia No-Audio on Reconnect
-**Problem:** Every new WebSocket connection defaulted `currentInputMode` to `'push-to-talk'`. After a WS reconnect in open-mic mode, audio routed to the wrong handler and Deepgram never received speech → Daniela permanently silent.
-**Fix (two-part):** (1) Client tracks `_lastKnownInputMode` and re-sends `set_input_mode` immediately after reconnect (before session init). (2) Server restores mode from `config.inputMode` in both WS and Socket.IO paths inside `unified-ws-handler.ts`.
-
-### Architectural Risks (Known, Tracked)
-- **Dual WS handler:** `unified-ws-handler.ts` (4,673 lines) has TWO full copies of message handling (native WS + Socket.IO paths). Every bug fix must be applied twice. Deduplication is high-risk (T006 — deferred, needs careful testing before paying students).
-- **`DANIELA_TTS_FALLBACK_ENABLED = false`:** Intentional. Means Cartesia outage → silent failure. Client now shows "Audio temporarily unavailable — text only" banner on `tts_error` events.
-- **STT single provider:** Deepgram is the only STT path. Hard failure on Deepgram outage. No retry or fallback yet (T005, deferred).
-- **Session persistence:** In-memory only (`Map` in `unified-ws-handler.ts`). Pod restart = session loss. Acceptable for current scale; Redis deferred.
-- **`streaming-voice-orchestrator.ts`:** 9,992 lines — monolith. TTS dispatch, native FC handling, and post-response enrichment have been extracted, but the core is still large.
-
-### Telemetry Additions (March 2026)
-- `diagMarkSpeechEnd(source)` added to `lockoutDiagnostics.ts` — fires on PTT release and VAD utterance end.
-- `diagMarkFirstAudio()` now computes `turnLatencyMs` (speech_end → first_audio) per turn and maintains a rolling window of 20 samples.
-- Diagnostic snapshots now include `avgTurnLatencyMs`, `p95TurnLatencyMs`, `turnLatencySampleCount` in the `timing` block.
-- `turnLatencyMs` visible in voice telemetry timeline events as `first_audio.turnLatencyMs`.
-
-### Guardian Token Security
-Removed hardcoded fallback `'alden-guardian-internal-2024'` from `alden-build-service.ts`. Admin routes now correctly return 401 in dev without the `GUARDIAN_TOKEN` env secret.
+### Voice Infrastructure
+- **Root Cause Fixed: Sofia No-Audio on Reconnect:** Client tracks `_lastKnownInputMode` and re-sends `set_input_mode` immediately after reconnect. Server restores mode from `config.inputMode` in both WS and Socket.IO paths inside `unified-ws-handler.ts`.
+- **WS Handler Unified (T006 complete Mar 2026):** `unified-ws-handler.ts` reduced from 4,723 → 2,434 lines. The old duplicate 2,175-line native WS handler body has been deleted. A `VoiceWSConnection` interface now covers both transports. `NativeWSAdapter` wraps native WS; `SocketIOWebSocketAdapter` wraps Socket.IO — both implement `VoiceWSConnection`. All voice logic lives in `handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, ...)`. The native WS path (`/api/voice/stream/ws`) is a 7-line shim; all clients use Socket.IO exclusively.
+- **Architectural Risks:** `DANIELA_TTS_FALLBACK_ENABLED = false` (Cartesia outage → silent failure), STT single provider (Deepgram only), In-memory session persistence, `streaming-voice-orchestrator.ts` monolith.
+- **Telemetry Additions:** `diagMarkSpeechEnd(source)` added, `diagMarkFirstAudio()` now computes `turnLatencyMs`, diagnostic snapshots include latency metrics.
+- **Guardian Token Security:** Removed hardcoded fallback from `alden-build-service.ts`. Admin routes return 401 without `GUARDIAN_TOKEN`.
+- **Reconnect UX:** "Reconnecting..." shown for ALL WS drops (not just server-restart phase). Fast drops (attempts 1–3): generic message. Prolonged (attempt >3): server-restart message.
+- **TTS Failure Banner:** `ttsUnavailable` state in `useStreamingVoice.ts`; "Audio temporarily unavailable — text only" banner auto-clears after 8 s.
 
 ## External Dependencies
 - Stripe: Payment processing.
