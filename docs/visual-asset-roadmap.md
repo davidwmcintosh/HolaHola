@@ -2,18 +2,56 @@
 ## HolaHola — Pre-Generated Visual Library
 
 **Created:** March 15, 2026  
+**Last updated:** March 20, 2026  
 **Referenced by:** `docs/curriculum-strategy.md` (Section 8)  
+**Component coverage manifest:** `docs/textbook-component-coverage.json` (machine-readable, Lyra-monitored)  
 **Status column key:** ⬜ Planned | 🔄 Generating | ✅ In Library
 
 This document is the master list of every visual asset we intend to pre-create for the platform. Assets fall into eight categories. The goal is not to be exhaustive on day one — it's to be deliberate: the right visuals for the words and concepts students absolutely must learn, generated ahead of time so Daniela can surface them instantly.
 
-Visual assets live in the `visual_assets` table. Grammar/infographic SVGs are generated as React components in `TextbookInfographics.tsx`. Prop room backgrounds live in `visual_environments`.
+Visual assets live in the `visual_assets` table. Grammar/infographic SVGs are generated as React components per language (see 9-Language Matrix below). Prop room backgrounds live in `visual_environments`.
+
+---
+
+## 9-Language Textbook Component Coverage Matrix
+
+**As of March 20, 2026** — all 9 languages have complete coverage across all 5 card types. Machine-readable version at `docs/textbook-component-coverage.json`, monitored by Lyra on every analysis run.
+
+| Language | Grammar Cards | Cultural Cards | Phonetic Guides | Word Families | Canvas Vocab | Status |
+|----------|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Spanish** | ✅ 46 (GrammarDiagrams + Infographics) | ✅ 8 | ✅ 9 | ✅ 12 | ✅ 8 types | ✅ Complete |
+| **French** | ✅ 24 | ✅ 7 | ✅ 9 | ✅ 10 | ✅ 8 types | ✅ Complete |
+| **Portuguese** | ✅ 22 | ✅ 7 | ✅ 9 | ✅ 11 | ✅ 8 types | ✅ Complete |
+| **German** | ✅ 22 | ✅ 7 | ✅ 9 | ✅ 11 | ✅ 8 types | ✅ Complete |
+| **Italian** | ✅ 22 | ✅ 7 | ✅ 9 | ✅ 11 | ✅ 8 types | ✅ Complete |
+| **Japanese** | ✅ 22 | ✅ 7 | ✅ 9 | ✅ 11 | ✅ 8 types | ✅ Complete |
+| **Korean** | ✅ 24 | ✅ 7 | ✅ 9 | ✅ 11 | ✅ 8 types | ✅ Complete |
+| **Mandarin** | ✅ 23 | ✅ 7 | ✅ 9 | ✅ 11 | ✅ 8 types | ✅ Complete |
+| **Hebrew** | ✅ 22 | ✅ 7 | ✅ 9 | ✅ 12 | ✅ 8 types | ✅ Complete |
+
+### Component Files Per Language
+
+| Language | Grammar | Cultural | Phonetic | Word Families |
+|----------|---------|----------|----------|---------------|
+| Spanish | `TextbookGrammarDiagrams.tsx` + `TextbookInfographics.tsx` | `TextbookCulturalCards.tsx` | `TextbookPhoneticGuides.tsx` | `TextbookWordFamilies.tsx` |
+| French | `TextbookFrenchGrammarCards.tsx` | `TextbookFrenchCulturalCards.tsx` | `TextbookFrenchPhoneticGuides.tsx` | `TextbookFrenchWordFamilies.tsx` |
+| Portuguese | `TextbookPortugueseGrammarCards.tsx` | `TextbookPortugueseCulturalCards.tsx` | `TextbookPortuguesePhoneticGuides.tsx` | `TextbookPortugueseWordFamilies.tsx` |
+| German | `TextbookGermanGrammarCards.tsx` | `TextbookGermanCulturalCards.tsx` | `TextbookGermanPhoneticGuides.tsx` | `TextbookGermanWordFamilies.tsx` |
+| Italian | `TextbookItalianGrammarCards.tsx` | `TextbookItalianCulturalCards.tsx` | `TextbookItalianPhoneticGuides.tsx` | `TextbookItalianWordFamilies.tsx` |
+| Japanese | `TextbookJapaneseGrammarCards.tsx` | `TextbookJapaneseCulturalCards.tsx` | `TextbookJapanesePhoneticGuides.tsx` | `TextbookJapaneseWordFamilies.tsx` |
+| Korean | `TextbookKoreanGrammarCards.tsx` | `TextbookKoreanCulturalCards.tsx` | `TextbookKoreanPhoneticGuides.tsx` | `TextbookKoreanWordFamilies.tsx` |
+| Mandarin | `TextbookMandarinGrammarCards.tsx` | `TextbookMandarinCulturalCards.tsx` | `TextbookMandarinPhoneticGuides.tsx` | `TextbookMandarinWordFamilies.tsx` |
+| Hebrew | `TextbookHebrewGrammarCards.tsx` | `TextbookHebrewCulturalCards.tsx` | `TextbookHebrewPhoneticGuides.tsx` | `TextbookHebrewWordFamilies.tsx` |
+
+**Canvas vocab cards** (weather, emotions, time, days/months, body, face, hand, temperature): all 9 languages in a single `TextbookCanvasCards.tsx` with per-language dataset branches.
+
+**Wiring**: All card types route through `classifyGrammarType(lessonName, language)` in `ChapterIntroduction.tsx`, which returns the correct `GrammarChapterType` enum value → `GrammarChapterView` renders the matching card. Lesson reader content is now rendered **inline** in `VisualLessonCard` (modal removed March 20, 2026).
 
 ---
 
 ## Platform Status Snapshot
 
-**Last audited:** March 19 2026 (session 4)
+**Last audited:** March 20 2026 (session 5)
 
 ### Interactive Canvas — What's Built
 

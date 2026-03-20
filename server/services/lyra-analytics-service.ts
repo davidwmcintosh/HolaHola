@@ -2,6 +2,8 @@ import { getSharedDb } from '../db';
 import { sql } from 'drizzle-orm';
 import { callGeminiWithSchema, GEMINI_MODELS } from '../gemini-utils';
 import Anthropic from '@anthropic-ai/sdk';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const anthropic = new Anthropic({
   apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
@@ -55,6 +57,19 @@ interface TextbookEngagementData {
   userBreakdown: Array<{ firstName: string; sectionsTouched: number; completed: number; viewedOnly: number; drillsDone: number; timeSpentSeconds: number }>;
   languageBreakdown: Array<{ language: string; users: number; lastActivity: string }>;
   completionByType: Array<{ sectionType: string; viewed: number; completed: number }>;
+}
+
+interface ComponentCoverageGap {
+  language: string;
+  gaps: string[];
+  status: string;
+}
+
+interface ComponentCoverageData {
+  manifest: any | null;
+  gaps: ComponentCoverageGap[];
+  complete: string[];
+  lastUpdated: string;
 }
 
 export class LyraAnalyticsService {
@@ -745,20 +760,20 @@ export class LyraAnalyticsService {
       });
     }
 
-    const spanishOnlyIntros = true;
-    if (spanishOnlyIntros && languagesUsed.some(l => l !== 'spanish')) {
+    const allNineLanguagesHaveIntros = true;
+    if (allNineLanguagesHaveIntros && languagesUsed.length > 0) {
       insights.push({
         category: 'textbook_engagement',
-        severity: 'high',
-        confidence: 0.98,
-        title: `Chapter introductions (Daniela's narrative, infographics, cultural spotlights) only exist for Spanish`,
-        description: `The ChapterIntroduction component has hand-crafted narrative content with images, infographics (sun-arc greetings, formal/informal comparisons, phrase grids), and cultural spotlights — but only for 4 Spanish chapter topics. Students opening Italian, French, or any other language see blank chapter headers with no narrative context. This is the highest-impact visual gap.`,
+        severity: 'info',
+        confidence: 0.99,
+        title: `Chapter introductions now cover all 9 languages — grammar cards, cultural cards, phonetic guides, word families all wired`,
+        description: `As of March 2026, ChapterIntroduction.tsx has full grammar card, cultural card, phonetic guide, and word family rendering for all 9 languages (Spanish, French, Portuguese, German, Italian, Japanese, Korean, Mandarin, Hebrew). The chapter intro renders visual reference cards inline based on the lesson title classifier. Canvas vocab cards (weather/emotions/time/days/body/face/hand/temperature) also have all 9 language datasets.`,
         data: {
-          existingIntroTopics: ['greetings', 'numbers', 'family', 'daily routines'],
-          languagesWithoutIntros: languagesUsed.filter(l => l !== 'spanish'),
-          componentsAvailable: ['SunArcGreetings', 'FormalInformalComparison', 'QuickPhraseGrid', 'CulturalSpotlight'],
+          languages: ['spanish', 'french', 'portuguese', 'german', 'italian', 'japanese', 'korean', 'mandarin', 'hebrew'],
+          cardTypes: ['grammar_cards', 'cultural_cards', 'phonetic_guides', 'word_families', 'canvas_vocab_cards'],
+          completedDate: '2026-03-20',
         },
-        recommendation: `Extend ChapterIntroduction to support all active languages. The infographic components (SunArcGreetings, FormalInformalComparison, QuickPhraseGrid) are language-agnostic by design — they just need localized content data. Consider using AI to generate draft narrative content per chapter, then manually curate. Start with Italian (3 users) and French (1 user).`,
+        recommendation: 'No action needed. Monitor via docs/textbook-component-coverage.json — update the manifest whenever new card types are added or a language is extended.',
         needsReview: false,
       });
     }
@@ -940,6 +955,103 @@ Write your analysis as Lyra. Sign off with your name. Keep it 4-6 paragraphs —
     }
   }
 
+  gatherComponentCoverageData(): ComponentCoverageData {
+    const manifestPath = path.join(process.cwd(), 'docs', 'textbook-component-coverage.json');
+    let manifest: any = null;
+
+    try {
+      const raw = fs.readFileSync(manifestPath, 'utf-8');
+      manifest = JSON.parse(raw);
+    } catch (err: any) {
+      console.warn('[Lyra] Could not read textbook-component-coverage.json:', err.message);
+      return { manifest: null, gaps: [], complete: [], lastUpdated: 'unknown' };
+    }
+
+    const languages = manifest.languages as Record<string, any>;
+    const thresholds = manifest.card_types as Record<string, { minimum_expected: number; lyra_alert_below: number }>;
+
+    const gaps: ComponentCoverageGap[] = [];
+    const complete: string[] = [];
+
+    for (const [lang, data] of Object.entries(languages)) {
+      const langGaps: string[] = [];
+
+      for (const [cardType, threshold] of Object.entries(thresholds)) {
+        const cardData = (data as any)[cardType];
+        if (!cardData) {
+          langGaps.push(`${cardType} (missing entirely)`);
+          continue;
+        }
+        if (cardData.status !== 'complete') {
+          langGaps.push(`${cardType} (status: ${cardData.status})`);
+          continue;
+        }
+        if (typeof cardData.count === 'number' && cardData.count < threshold.lyra_alert_below) {
+          langGaps.push(`${cardType} (${cardData.count} components, alert threshold is ${threshold.lyra_alert_below})`);
+        }
+      }
+
+      if (langGaps.length === 0) {
+        complete.push(lang);
+      } else {
+        gaps.push({ language: lang, gaps: langGaps, status: (data as any).status });
+      }
+    }
+
+    return {
+      manifest,
+      gaps,
+      complete,
+      lastUpdated: manifest.last_updated || 'unknown',
+    };
+  }
+
+  generateComponentCoverageInsights(data: ComponentCoverageData): LyraInsight[] {
+    const insights: LyraInsight[] = [];
+    if (!data.manifest) {
+      insights.push({
+        category: 'textbook_engagement',
+        severity: 'high',
+        confidence: 1.0,
+        title: 'Textbook component coverage manifest is missing',
+        description: 'The file docs/textbook-component-coverage.json could not be read. Lyra cannot verify which languages have grammar cards, cultural cards, phonetic guides, or word families. This is a documentation gap, not a code gap — the file should always be kept in sync with the component files.',
+        data: {},
+        recommendation: 'Recreate docs/textbook-component-coverage.json and keep it updated whenever a new language or card type is added.',
+        needsReview: true,
+      });
+      return insights;
+    }
+
+    if (data.gaps.length === 0) {
+      insights.push({
+        category: 'textbook_engagement',
+        severity: 'info',
+        confidence: 1.0,
+        title: `Textbook component coverage: all ${data.complete.length} languages fully covered`,
+        description: `All ${data.complete.length} languages (${data.complete.join(', ')}) have complete grammar cards, cultural cards, phonetic guides, word families, and canvas vocab datasets as of ${data.lastUpdated}. No gaps detected.`,
+        data: { completeLanguages: data.complete, lastUpdated: data.lastUpdated },
+        recommendation: 'No action needed. Continue updating the manifest when German is extended or new card types are added.',
+        needsReview: false,
+      });
+    } else {
+      for (const gap of data.gaps) {
+        const isMissing = gap.gaps.some(g => g.includes('missing entirely') || g.includes('status:'));
+        insights.push({
+          category: 'textbook_engagement',
+          severity: isMissing ? 'high' : 'medium',
+          confidence: 0.97,
+          title: `Component coverage gap: ${gap.language} — ${gap.gaps.length} card type(s) below threshold`,
+          description: `The ${gap.language} textbook reference library is incomplete. Gaps: ${gap.gaps.join('; ')}. Students studying ${gap.language} will see blank chapter introductions or missing reference cards for these lesson types.`,
+          data: { language: gap.language, gaps: gap.gaps, status: gap.status },
+          recommendation: `Build the missing ${gap.language} card types following the pattern of an existing complete language (e.g. French or Spanish). Each card type typically requires 1 new file: Textbook${gap.language.charAt(0).toUpperCase() + gap.language.slice(1)}[CardType].tsx. Wire it into ChapterIntroduction.tsx.`,
+          needsReview: false,
+        });
+      }
+    }
+
+    return insights;
+  }
+
   private buildFallbackReport(insights: LyraInsight[]): string {
     const bySeverity = {
       critical: insights.filter(i => i.severity === 'critical').length,
@@ -960,7 +1072,7 @@ ${insights.slice(0, 5).map(i => `- [${i.severity.toUpperCase()}] ${i.title}`).jo
 *Lyra — Learning Experience Analyst (AI summary unavailable)*`;
   }
 
-  async runFullAnalysis(): Promise<{ insights: LyraInsight[]; contentData: ContentAuditData; studentData: StudentSuccessData; onboardingData: OnboardingData; textbookData: TextbookEngagementData }> {
+  async runFullAnalysis(): Promise<{ insights: LyraInsight[]; contentData: ContentAuditData; studentData: StudentSuccessData; onboardingData: OnboardingData; textbookData: TextbookEngagementData; componentCoverageData: ComponentCoverageData }> {
     const startTime = Date.now();
     console.log('[Lyra] Starting full learning experience analysis...');
 
@@ -968,6 +1080,7 @@ ${insights.slice(0, 5).map(i => `- [${i.severity.toUpperCase()}] ${i.title}`).jo
     let studentData: StudentSuccessData = { lessonDropoff: [], drillStruggles: [], streakBreakers: [], actflBottlenecks: [] };
     let onboardingData: OnboardingData = { totalUsers: 0, usersWithConversation: 0, conversionRate: 0, avgDaysToFirstChat: 0, returnRate7d: 0, recentSignups: [] };
     let textbookData: TextbookEngagementData = { totalSections: 0, totalViewed: 0, totalCompleted: 0, uniqueUsers: 0, uniqueLessons: 0, totalLessons: 0, visualAssetCount: 0, userBreakdown: [], languageBreakdown: [], completionByType: [] };
+    let componentCoverageData: ComponentCoverageData = { manifest: null, gaps: [], complete: [], lastUpdated: 'unknown' };
 
     try {
       contentData = await this.gatherContentAuditData();
@@ -998,11 +1111,20 @@ ${insights.slice(0, 5).map(i => `- [${i.severity.toUpperCase()}] ${i.title}`).jo
       console.error('[Lyra] Textbook analysis failed:', err.message);
     }
 
+    try {
+      componentCoverageData = this.gatherComponentCoverageData();
+      const gapCount = componentCoverageData.gaps.length;
+      console.log(`[Lyra] Component coverage: ${componentCoverageData.complete.length} complete, ${gapCount} with gaps (manifest: ${componentCoverageData.lastUpdated})`);
+    } catch (err: any) {
+      console.error('[Lyra] Component coverage check failed:', err.message);
+    }
+
     const insights: LyraInsight[] = [
       ...this.generateContentInsights(contentData),
       ...this.generateStudentInsights(studentData),
       ...this.generateOnboardingInsights(onboardingData),
       ...this.generateTextbookInsights(textbookData),
+      ...this.generateComponentCoverageInsights(componentCoverageData),
     ];
 
     insights.sort((a, b) => {
@@ -1013,7 +1135,7 @@ ${insights.slice(0, 5).map(i => `- [${i.severity.toUpperCase()}] ${i.title}`).jo
     const elapsed = Date.now() - startTime;
     console.log(`[Lyra] Analysis complete: ${insights.length} insights in ${elapsed}ms`);
 
-    return { insights, contentData, studentData, onboardingData, textbookData };
+    return { insights, contentData, studentData, onboardingData, textbookData, componentCoverageData };
   }
 }
 

@@ -2,8 +2,8 @@
 ## Consolidated Reference Document
 
 **Supersedes:** `interactive-textbook-spec.md`, `interactive-textbook.md`, `syllabus-template-kit.md`, `class-model-rethink.md`, `class-audit.md`  
-**Last Updated:** March 13, 2026  
-**Status:** In Review — no active build work should start until decisions in Section 4 are made.
+**Last Updated:** March 20, 2026  
+**Status:** Decisions made — all four open decisions in Section 4 closed March 20, 2026. Build work is unblocked.
 
 ---
 
@@ -186,82 +186,63 @@ All three views (Syllabus, Mind Map, Activity Pills) use consistent terminology:
 
 ---
 
-## 4. Strategic Decisions That Need to Be Made
+## 4. Strategic Decisions — Closed March 20, 2026
 
-These questions are unresolved. No build work should start until they're answered.
+All four decisions are now recorded. Build work is unblocked.
+
+---
 
 ### Decision 1: Fix forward or rebuild the curriculum data?
 
-**Option A — Fix forward (targeted repairs)**  
-Run the audit, triage the real issues, fix the worst lessons manually or with targeted re-seeding. Accept that some lessons will remain imperfect. Prioritize Spanish 1-2 since that's where real users are.
+**Decision: Option A + Option C hybrid — fix forward on the data layer, bypass on the content layer.**
 
-*Pro:* Fast. Keeps all 1,300 lessons.  
-*Con:* Doesn't address systemic issues. We'll keep finding new problems.
+The curriculum structure (unit names, lesson order, lesson types, lesson names) is treated as authoritative and kept as-is. The curriculum data fields (`required_vocabulary`, `objectives`, `required_grammar`) are treated as advisory, not authoritative. All primary student-facing content in the textbook layer is generated from lesson name + unit context alone — not from the data fields — bypassing quality issues in the underlying curriculum rows.
 
-**Option B — Rebuild curriculum data from source**  
-For each lesson, go back to first principles: what should a student learn here, what vocabulary does that require, what grammar does it use? Generate vocabulary lists and objectives from scratch using a better prompt, with human review of a sample.
+Targeted repairs continue in parallel: the audit script flags the worst lessons, and the single-lesson re-seed endpoint allows surgical fixes without full re-seeding. But re-seeding all 1,300 lessons is not planned unless a systematic data quality intervention is specifically decided.
 
-*Pro:* Fixes the root cause. Content quality becomes reliable.  
-*Con:* Slow. Requires either significant AI compute or human review time.
-
-**Option C — Accept the curriculum as reference structure, not content**  
-Stop treating `required_vocabulary`, `objectives`, and `required_grammar` as authoritative. Use them only for structure (unit names, lesson order, lesson types). Generate all student-facing content purely from the textbook layer using lesson name + unit context as the only prompt input.
-
-*Pro:* Bypasses the bad curriculum data entirely for student-facing content.  
-*Con:* Requires re-seeding all 1,300 textbook lessons with better prompts. Loses whatever good data the curriculum has.
+*Rationale:* The build work from March 2026 (grammar cards, cultural cards, phonetic guides, word family cards) demonstrates this model in practice — all 9 language card sets generate from lesson title classification, with no dependency on `required_vocabulary` or `required_grammar` fields. The visual reference layer is the primary content surface.
 
 ---
 
 ### Decision 2: What is the textbook actually for?
 
-Right now we have two overlapping things:
-- The **reading library** (OpenStax-based modules, generated on demand per topic click)
-- The **interactive textbook** (curriculum-driven, lesson-by-lesson, `textbook_lesson_content` table)
+**Decision: Option C — both coexist, different roles.**
 
-These are not the same thing and serve different purposes, but students and the team have not always been clear on the distinction.
+- **Reading library** (OpenStax-based) = deep academic reference; the thing you read before class or when you want a comprehensive explanation of a grammar concept.
+- **Interactive textbook** (curriculum-driven, `textbook_lesson_content` + visual reference cards) = lesson companion; what you review immediately before or after a voice session with Daniela; the chapter introduction visual cards (grammar/cultural/phonetic/word family) are the primary value.
 
-**Option A — Reading library is the textbook**  
-The OpenStax-powered reading library IS the textbook. It's comprehensive, sources-backed, and generates on demand. Remove or de-emphasize the curriculum-driven textbook. Focus investment on making reading library chapters better.
+The distinction should eventually be clear in the UI. The interactive textbook's value comes from its tight coupling to lesson progression — not from competing with the reading library on depth.
 
-**Option B — Curriculum textbook is the textbook**  
-The `textbook_lesson_content` table is the authoritative textbook. The reading library is supplemental academic reading. Invest in making curriculum textbook content higher quality.
-
-**Option C — They serve different roles, both stay**  
-Reading library = deep academic reference (like a textbook you'd read before class)  
-Curriculum textbook = lesson companion (what you review right before/after a voice session)  
-These are complementary; make the distinction clear in the UI.
+*Rationale:* The inline visual reference card system (grammar cards, cultural cards, phonetic guides, word family cards, canvas vocab) built across March 2026 only makes sense as a lesson companion. The READ modal has been removed (March 20, 2026) — all content is now rendered inline in `VisualLessonCard`, reinforcing the companion-not-reference model.
 
 ---
 
 ### Decision 3: What's the learning model for individual (non-school) users?
 
-From `class-model-rethink.md`, this was unresolved as of January 2026 and remains unresolved:
+**Decision: Option A/D — Interactive textbook + voice, subscription model.**
 
-| Option | Model | What you sell |
-|--------|-------|---------------|
-| A | Interactive textbook + flexible voice | Textbook access + voice hours |
-| B | HolaHola public classes (recreate 27) | Class enrollment + voice hours |
-| C | Voice only, no textbook/classes | Voice hour packages |
-| D | Textbook + voice, no public classes | Subscription for both |
+The textbook IS a primary learning surface for individual learners, not just a supplemental reference. The model is:
+- Students work through the interactive textbook (visual reference cards, grammar cards, cultural context, phonetic guides, word families) as structured self-study.
+- Voice sessions with Daniela are the practice layer — applying what the textbook introduced.
+- The subscription covers both textbook access and voice hours.
 
-Schools need structured classes (non-negotiable for auditors/state standards). The question is only about individual learners. **This decision drives everything else** — infographics, rhythm drills, visual assets, chapter recaps only matter if the textbook is the primary learning surface for individuals.
+Schools retain structured classes (non-negotiable for state auditors). Individual learners get textbook + voice as a unified subscription.
+
+*Rationale:* The build work across five sessions (infographics, grammar cards, cultural cards, phonetic guides, word families, canvas vocab — all 9 languages, all complete) constitutes a commitment to the textbook as a primary learning surface. Reversing to voice-only would invalidate this investment. The textbook visual reference system is the most differentiated asset HolaHola has relative to competitors — it should be central, not supplemental.
 
 ---
 
-### Decision 4: Should Lyra be given curriculum audit criteria?
+### Decision 4: Should Lyra be given expanded curriculum audit criteria?
 
-Lyra currently checks:
-- Stale content (not recently generated)
-- Empty content fields
-- Missing ACTFL metadata
+**Decision: Yes — both curriculum audit criteria and component coverage monitoring.**
 
-Lyra does NOT check:
-- Objective/vocabulary alignment
-- Duplicate lessons within units
-- Source hit rates
-- Vocabulary completeness relative to objectives
+Lyra now has two new monitoring domains added March 20, 2026:
 
-Should we update Lyra's audit criteria to catch these? The audit script exists — it just needs to be plugged into Lyra's monitoring loop.
+1. **Component Coverage analysis** — reads `docs/textbook-component-coverage.json` on every analysis run. Flags any language with missing or below-threshold card counts. All 9 languages currently show zero gaps (all complete). The manifest is the canonical coverage record; Lyra is the watchdog.
+
+2. **Curriculum audit criteria (next step)** — the `server/scripts/curriculum-audit.ts` script should be wired into Lyra's monitoring loop as a `gatherCurriculumAuditData()` domain, analogous to the existing content audit domain. This would give Lyra visibility into objective/vocabulary mismatches, duplicate lessons within units, and vocabulary completeness. Not yet implemented — scheduled for the next Lyra expansion sprint.
+
+*Rationale:* Lyra caught zero of the 442 flags identified in the March 2026 manual audit. The component coverage domain closes the gap for textbook content completeness. The curriculum audit domain would close the gap for data quality. Both are necessary.
 
 ---
 
@@ -285,55 +266,73 @@ Should we update Lyra's audit criteria to catch these? The audit script exists �
 | Mar 2026 | Fix Los Números 0-10 → 0-20 | Done — re-seeded with correct vocabulary |
 | Mar 2026 | Wire RhythmDrill into textbook | Done — `RhythmDrill` renders inline in `VisualLessonCard` for vocabulary/drill lessons; toggle button, auto-collapse on ≥70% score; STT scoring still mocked |
 | Mar 2026 | Drill audit findings added to curriculum-strategy.md | Done — Daniela's Jan 19 recommendations tracked with current status; two open gaps (shadowing, sentence transformation) documented |
+| Mar 2026 | Spanish visual reference cards (grammar, cultural, phonetic, word family) | Done — `TextbookGrammarDiagrams.tsx` + `TextbookInfographics.tsx` + `TextbookCulturalCards.tsx` + `TextbookPhoneticGuides.tsx` + `TextbookWordFamilies.tsx`; 46 grammar + 8 cultural + 9 phonetic + 12 word family cards; wired into `ChapterIntroduction.tsx` |
+| Mar 2026 | French visual reference cards (all 4 types) | Done — 24 grammar + 7 cultural + 9 phonetic + 10 word family cards |
+| Mar 2026 | Portuguese visual reference cards (all 4 types) | Done — 22 grammar + 7 cultural + 9 phonetic + 11 word family cards |
+| Mar 2026 | German, Italian, Japanese, Korean, Mandarin, Hebrew visual reference cards | Done — each: 22–24 grammar + 7 cultural + 9 phonetic + 11–12 word family cards |
+| Mar 2026 | Canvas vocab Portuguese (all 8 types) | Done — weather/emotions/time/days/body/face/hand/temperature datasets added to `TextbookCanvasCards.tsx`; all 9 languages in one shared file |
+| Mar 2026 | classifyGrammarType() 9-language routing + GrammarChapterType enum | Done — `ChapterIntroduction.tsx` classifies any lesson name for any language into the correct card type; 200+ enum values across all 9 languages |
+| Mar 20, 2026 | READ modal removed — inline content in VisualLessonCard | Done — `InlineLessonContent` renders `GrammarChapterView` + AI prose inline; `TextbookLessonReader` modal removed from `TextbookChapterView.tsx` |
+| Mar 20, 2026 | Coverage manifest created — `docs/textbook-component-coverage.json` | Done — machine-readable 9-language × 5-card-type coverage with Lyra alert thresholds |
+| Mar 20, 2026 | Lyra component coverage domain added | Done — `gatherComponentCoverageData()` + `generateComponentCoverageInsights()` wired into `runFullAnalysis()`; reads manifest; flags gaps; stale Spanish-only intro insight removed |
+| Mar 20, 2026 | Strategic decisions 1–4 closed | Done — all four open decisions recorded in Section 4 of this document |
 
 ---
 
-## 6. Recommendations Before Next Build Sprint
+## 6. Current Status and Next Priorities
 
-1. **Run the audit, triage manually.** The 414 flagged objective mismatches need a human to separate real problems from false positives. Realistic estimate: 30-50 genuinely broken lessons in Spanish 1-2 that students actually see.
+**As of March 20, 2026.** All major visual reference card work is complete. The four previous build-blocking recommendations are resolved.
 
-2. **Answer Decision 3 (learning model) first.** Everything else — infographics, rhythm drills, visual assets — only makes sense once you know whether individuals learn through the textbook or through voice sessions. Building infographics for a textbook that might not be the primary surface is wasted effort.
+### Resolved Since Last Review
 
-3. **Give Lyra the audit criteria.** Once decisions are made, Lyra should be catching objective/vocabulary mismatches automatically. The audit script can become her curriculum health check.
+1. ~~**Answer Decision 3 first**~~ — **Done.** Decision 3 closed: textbook + voice is the learning model for individuals. Textbook is a primary surface.
 
-4. **Don't start a new seeding project** until the curriculum data quality question (Decision 1) is resolved. Another seeding run on broken input produces better-looking broken output.
+2. ~~**Infographic approach — start small**~~ — **Done at scale.** All 9 languages have complete visual reference card libraries (grammar, cultural, phonetic, word family, canvas vocab). Grammar/structure visual approach (React components, not images) is confirmed as the right pattern and is now live for all languages.
 
-5. **Infographic approach: two categories, start small.** Not all concepts benefit equally from visuals. The clearest wins are concepts that rely on spatial or relational patterns — verb conjugation tables, tense timelines, ser vs. estar branching, preposition maps. Abstract or cultural concepts benefit less.
+3. ~~**Give Lyra the audit criteria**~~ — **Partially done.** Lyra monitors component coverage (all 9 languages via manifest). Curriculum data quality audit criteria (objective/vocabulary mismatches, duplicate lessons) still needs to be wired into Lyra's monitoring loop — the script exists, it just needs a `gatherCurriculumAuditData()` domain.
 
-   Two distinct categories require different generation approaches:
-   - **Scene/vocabulary visuals** — DALL-E image (a kitchen, a beach, a market scene) with target-language labels overlaid. Good for vocabulary lessons where a setting is implied.
-   - **Grammar/structure visuals** — Generated SVG or React components. Claude can write clean, precise SVG code from a description of the concept. A conjugation wheel, a tense timeline, a preposition map — these are more reliable as code than as images. And they'd be interactive.
+4. ~~**Don't seed until Decision 1 is resolved**~~ — **Decision 1 closed.** Bypass model confirmed: generate from lesson title, not curriculum data fields. New seeding should use this model.
 
-   **On existing foundations:** There's a library called Mermaid.js that renders diagrams from plain text descriptions. It was built for technical docs but the underlying concept (text-in, visual-out) is interesting for language patterns. Not a direct fit, but the approach is relevant.
+### Active Next Priorities
 
-   **How to start:** Don't design "infographics" as a system. Pick the three concepts in Spanish 1-2 where learners most commonly stall or need re-explanation (Daniela's session data is the best signal here once beta volume grows). Build those three visuals first. If they help, the pattern becomes clear. If they don't, you've only built three.
+1. **Wire curriculum audit into Lyra.** `server/scripts/curriculum-audit.ts` exists. Lyra needs a `gatherCurriculumAuditData()` domain that runs this logic on her monitoring cycle. Missing 442 real content issues is the highest-severity monitoring gap.
 
-   **Competitive advantage:** Traditional visual language courses (Rosetta Stone, See and Say style books) took years to develop because their feedback loop was a classroom. HolaHola's feedback loop is Daniela's daily sessions — a visual can be tested and iterated in days, not semesters. The first version doesn't need to be right. It needs to ship.
+2. **Fix the drill launcher in the textbook.** "Start Drill" logs to console and doesn't navigate. Lyra's UX audit flagged this — it's a broken feature that degrades the textbook-as-primary-surface model.
+
+3. **Pass chapter context to Daniela from the textbook.** When a student clicks "Practice with Daniela" after a textbook chapter, Daniela receives no context about what they studied. Wiring lesson context into the `/chat` navigation is the highest-leverage personalization improvement available.
+
+4. **Asian language production drills.** Translate/speak drills for Japanese, Korean, Mandarin still lack romaji/pinyin/hangeul phonetic aids in their prompts. Daniela specifically flagged this in the January 2026 drill audit.
+
+5. **Shadowing/prosody drills.** Zero built. Highest-impact pronunciation gap across all levels.
+
+6. **Run the curriculum audit, triage manually.** The 414 flagged objective mismatches need a human to separate real problems from false positives. Estimate: 30–50 genuinely broken lessons in Spanish 1-2 that actual users see.
 
 ---
 
 ## 8. Visual Asset Roadmap
 
-**Full document:** `docs/visual-asset-roadmap.md`  
-**Last updated:** March 15, 2026
+**Full document:** `docs/visual-asset-roadmap.md` (updated March 20, 2026 — includes 9-language coverage matrix)  
+**Component coverage manifest:** `docs/textbook-component-coverage.json` (machine-readable, Lyra-monitored)
 
-The visual asset roadmap is the master list of every visual we intend to pre-generate for the platform. It covers eight categories:
+**Status as of March 20, 2026:** The visual reference card system (the core of the textbook-as-primary-surface model) is complete for all 9 languages. All four types of reference cards — grammar cards, cultural cards, phonetic guides, and word family cards — are wired and rendering for Spanish, French, Portuguese, German, Italian, Japanese, Korean, Mandarin, and Hebrew. Canvas vocab cards (8 types) are complete for all 9 languages.
 
-1. **Core vocabulary images** — concrete nouns and verbs sorted by ACTFL level and thematic cluster (people, places, things, activities). ~250–300 words students must know regardless of personal interests. Generated as illustrated watercolor images matching the current prop library style.
+The roadmap's original eight asset categories remain as the longer-term content roadmap, but the in-code component system is now the primary delivery mechanism:
 
-2. **Numbers, time & weather** — cross-ACTFL foundational visuals used at every level. Clocks, calendars, seasons, number scales, weather icons, ¿Qué tiempo hace? reference cards. Among the highest-ROI assets to generate first because they appear in every level.
+1. **Core vocabulary images** — concrete nouns and verbs by ACTFL level. Canvas vocab cards cover thematic clusters (weather, emotions, time, days/months, body parts, face, hands, temperature) for all 9 languages — this is the implemented version of this category.
 
-3. **Grammar structure cards** — conjugation tables, SER vs ESTAR decision tree, preterite vs imperfect contrast diagram, por vs para decision tree, object pronoun placement, adjective agreement. Built as React/SVG components in `TextbookInfographics.tsx` — not images.
+2. **Numbers, time & weather** — canvas vocab cards cover time and weather for all 9 languages. Illustrated watercolor image generation for these concepts is still in the roadmap for the `visual_assets` table.
 
-4. **Preposition maps** — spatial (full room diagram with en/sobre/debajo de/delante de/detrás de etc.), motion (map with directional arrows for a/hacia/desde/por/para), temporal (timeline for antes de/después de/desde/hasta). Static reference cards that complement the dynamic prop room compositor.
+3. **Grammar structure cards** — complete for all 9 languages. Grammar cards are React/SVG components (not images), rendering conjugation tables, tense comparisons, ser/estar/être/sein decision trees, pitch accent charts, tonal guides, etc. per language.
 
-5. **Cultural infographics** — Spanish-speaking world map, regional food guide, festival calendar, tú vs usted register guide, gesture guide, dialect map, currency overview.
+4. **Preposition maps** — included within the grammar card library for applicable languages. Deep preposition maps (multi-scenario, animated) remain a future extension.
 
-6. **Word family maps** — branching diagrams connecting a root verb to its noun/adjective/adverb forms (hablar → habla, hablante, hablador, hablado). Most valuable at Intermediate+.
+5. **Cultural infographics** — complete for all 9 languages. Cultural cards cover script introductions, world/region maps, gesture guides, festival calendars, formality registers, regional food guides, currency overviews per language.
 
-7. **False cognate warning cards** — high-impact because they prevent real mistakes. embarazada ≠ embarrassed, éxito ≠ exit, librería ≠ library, etc.
+6. **Word family maps** — complete for all 9 languages. Word family cards show branching root → noun/verb/adjective/adverb forms with example sentences.
 
-8. **Phonetic/pronunciation guides** — vowel purity chart, rolled R, silent H, J sound, stress rules — for self-study between sessions.
+7. **False cognate warning cards** — not yet built as a distinct card type. Could be added as a 6th card type in the existing system.
+
+8. **Phonetic/pronunciation guides** — complete for all 9 languages. Phonetic guide cards cover vowel purity, consonant rules, pitch/tone systems, stress patterns, romanization systems (romaji, pinyin, romanization) per language.
 
 ### Batch generation order
 1. Numbers 0–20 (illustrated)

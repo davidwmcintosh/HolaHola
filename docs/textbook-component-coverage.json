@@ -1,0 +1,378 @@
+{
+  "_comment": "Textbook Component Coverage Manifest — machine-readable source of truth for Lyra's Component Coverage analysis. Update this file whenever a new language or card type is added. Lyra reads this at runtime via lyra-analytics-service.ts.",
+  "schema_version": "1.1",
+  "last_updated": "2026-03-20",
+  "updated_by": "automated session — Portuguese complete, inline READ wired",
+
+  "card_types": {
+    "grammar_cards": {
+      "description": "Verb tables, decision trees, sentence-structure diagrams, false cognates, preposition maps",
+      "minimum_expected": 20,
+      "lyra_alert_below": 18
+    },
+    "cultural_cards": {
+      "description": "World map, food guide, festival calendar, gesture awareness, currency, dialect map, family tree, greetings",
+      "minimum_expected": 7,
+      "lyra_alert_below": 6
+    },
+    "phonetic_guides": {
+      "description": "Vowel purity, consonant sounds, tones, script guides, stress and pitch rules",
+      "minimum_expected": 9,
+      "lyra_alert_below": 7
+    },
+    "word_families": {
+      "description": "Hub-and-spoke root→verb/noun/adjective/adverb clusters for high-frequency words",
+      "minimum_expected": 10,
+      "lyra_alert_below": 8
+    },
+    "canvas_vocab_cards": {
+      "description": "Interactive vocabulary datasets for the scene canvas (weather, emotions, time, days, body, face, hand, temperature)",
+      "minimum_expected": 8,
+      "lyra_alert_below": 6
+    }
+  },
+
+  "languages": {
+    "spanish": {
+      "status": "complete",
+      "completed_date": "2026-03-18",
+      "notes": "Baseline language — deepest coverage. Grammar split across GrammarDiagrams + Infographics (includes false cognates, preposition maps, sentence structure). Canvas vocab in shared TextbookCanvasCards.tsx.",
+      "grammar_cards": {
+        "status": "complete",
+        "count": 46,
+        "files": [
+          "client/src/components/TextbookGrammarDiagrams.tsx",
+          "client/src/components/TextbookInfographics.tsx"
+        ],
+        "notes": "25 grammar diagrams + 21 infographic components (false cognates, preposition maps, SVO diagrams, weather references)"
+      },
+      "cultural_cards": {
+        "status": "complete",
+        "count": 8,
+        "files": ["client/src/components/TextbookCulturalCards.tsx"],
+        "notes": "SpanishWorldMapCard, HispanicFoodGuideCard, FestivalCalendarCard, GestureAwarenessCard, CurrencyReferenceCard, DialectMapCard, FamilyTreeCard, GreetingEtiquetteCard"
+      },
+      "phonetic_guides": {
+        "status": "complete",
+        "count": 9,
+        "files": ["client/src/components/TextbookPhoneticGuides.tsx"],
+        "notes": "VowelPurityCard, RolledRCard, BVSoundCard, SilentHCard, JSoundCard, NyenCard, LLYCard, StressAccentCard, LinkingSoundsCard"
+      },
+      "word_families": {
+        "status": "complete",
+        "count": 12,
+        "files": ["client/src/components/TextbookWordFamilies.tsx"],
+        "notes": "Data-driven via resolveWordFamilyRoot() — hablar, comer, vivir, trabajar, dormir, viajar, amar, escribir, leer, conocer, poder, pensar"
+      },
+      "canvas_vocab_cards": {
+        "status": "complete",
+        "count": 8,
+        "files": ["client/src/components/TextbookCanvasCards.tsx"],
+        "notes": "weather, emotions, time, days/months, body parts, face parts, hand parts, temperature"
+      }
+    },
+
+    "french": {
+      "status": "complete",
+      "completed_date": "2026-03-19",
+      "notes": "Second language completed. All 4 card types + canvas vocab extension in shared CanvasCards file.",
+      "grammar_cards": {
+        "status": "complete",
+        "count": 24,
+        "files": ["client/src/components/TextbookFrenchGrammarCards.tsx"],
+        "notes": "Includes être/avoir, ER/IR/RE verbs, passé composé, imparfait, futur, conditionnel, subjonctif, gender/articles, negation, pronouns, adjective agreement, prepositions, commands"
+      },
+      "cultural_cards": {
+        "status": "complete",
+        "count": 7,
+        "files": ["client/src/components/TextbookFrenchCulturalCards.tsx"],
+        "notes": "FrancophoneWorldMapCard, FrenchCuisineCard, FrenchHolidaysCard, FrenchGestureCard, FrenchCurrencyCard, FrenchDialectCard, FrenchFamilyCard"
+      },
+      "phonetic_guides": {
+        "status": "complete",
+        "count": 9,
+        "files": ["client/src/components/TextbookFrenchPhoneticGuides.tsx"],
+        "notes": "Nasal vowels, silent letters, liaison, enchaînement, R guttural, U vs OU, é/è/ê distinctions, intonation, rhythm"
+      },
+      "word_families": {
+        "status": "complete",
+        "count": 10,
+        "files": ["client/src/components/TextbookFrenchWordFamilies.tsx"],
+        "notes": "parler, manger, voir, partir, venir, faire, avoir, être, savoir, aimer"
+      },
+      "canvas_vocab_cards": {
+        "status": "complete",
+        "count": 8,
+        "files": ["client/src/components/TextbookCanvasCards.tsx"],
+        "notes": "French datasets added to all 8 canvas vocab card types"
+      }
+    },
+
+    "portuguese": {
+      "status": "complete",
+      "completed_date": "2026-03-20",
+      "notes": "Third language completed. Full parity with French structure. LusophoneWorldMapCard for country map.",
+      "grammar_cards": {
+        "status": "complete",
+        "count": 22,
+        "files": ["client/src/components/TextbookPortugueseGrammarCards.tsx"],
+        "notes": "ser/estar, AR/ER/IR verbs, pretérito perfeito, imperfeito, futuro, condicional, subjuntivo, gênero/artigos, negação, pronomes, concordância, preposições, imperativos"
+      },
+      "cultural_cards": {
+        "status": "complete",
+        "count": 7,
+        "files": ["client/src/components/TextbookPortugueseCulturalCards.tsx"],
+        "notes": "LusophoneWorldMapCard, FoodGuideCard (PT/BR regional), HolidaysCard, GestureCard, CurrencyCard (real, escudo, kwanza, metical), DialectCard (EP vs BP), FamilyCard"
+      },
+      "phonetic_guides": {
+        "status": "complete",
+        "count": 9,
+        "files": ["client/src/components/TextbookPortuguesePhoneticGuides.tsx"],
+        "notes": "Nasal vowels (ã, em, om), lhx/nhx consonants, European vs Brazilian reduction, open/closed vowels, R variations, s/z distinction, stress rules, intonation, liaison"
+      },
+      "word_families": {
+        "status": "complete",
+        "count": 11,
+        "files": ["client/src/components/TextbookPortugueseWordFamilies.tsx"],
+        "notes": "falar, comer, viver, trabalhar, dormir, viajar, amar, escrever, ler, conhecer, poder"
+      },
+      "canvas_vocab_cards": {
+        "status": "complete",
+        "count": 8,
+        "files": ["client/src/components/TextbookCanvasCards.tsx"],
+        "notes": "Portuguese datasets added to all 8 canvas vocab card types; country map routes to LusophoneWorldMapCard"
+      }
+    },
+
+    "german": {
+      "status": "complete",
+      "completed_date": "2026-03-19",
+      "notes": "Complex grammar language — noun gender and case system receive dedicated cards.",
+      "grammar_cards": {
+        "status": "complete",
+        "count": 22,
+        "files": ["client/src/components/TextbookGermanGrammarCards.tsx"],
+        "notes": "sein/haben, regular verbs, Perfekt, Präteritum, Futur, Konjunktiv, noun genders, 4-case system (nominativ/akkusativ/dativ/genitiv), adjective endings, word order (V2), negation, pronouns, modal verbs, prepositions, separable verbs"
+      },
+      "cultural_cards": {
+        "status": "complete",
+        "count": 7,
+        "files": ["client/src/components/TextbookGermanCulturalCards.tsx"],
+        "notes": "GermanSpeakingWorldCard, FoodGuideCard, HolidaysCard (Weihnachten/Ostern etc), GestureCard, CurrencyCard, DialectCard (Hochdeutsch/Bairisch/Schweizerdeutsch), FamilyCard"
+      },
+      "phonetic_guides": {
+        "status": "complete",
+        "count": 9,
+        "files": ["client/src/components/TextbookGermanPhoneticGuides.tsx"],
+        "notes": "Umlauts (ä/ö/ü), ß vs ss, ch sounds (ich/ach), R variations, final consonant devoicing, ie/ei distinction, W/V sounds, stress patterns, compound word rhythm"
+      },
+      "word_families": {
+        "status": "complete",
+        "count": 11,
+        "files": ["client/src/components/TextbookGermanWordFamilies.tsx"],
+        "notes": "sprechen, essen, wohnen, arbeiten, schlafen, reisen, lieben, schreiben, lesen, wissen, können"
+      },
+      "canvas_vocab_cards": {
+        "status": "complete",
+        "count": 8,
+        "files": ["client/src/components/TextbookCanvasCards.tsx"],
+        "notes": "German datasets added to all 8 canvas vocab card types"
+      }
+    },
+
+    "italian": {
+      "status": "complete",
+      "completed_date": "2026-03-19",
+      "notes": "Romance language parity with Spanish — similar structure, Italian-specific phonetics.",
+      "grammar_cards": {
+        "status": "complete",
+        "count": 22,
+        "files": ["client/src/components/TextbookItalianGrammarCards.tsx"],
+        "notes": "essere/avere, ARE/ERE/IRE verbs, passato prossimo, imperfetto, futuro, condizionale, congiuntivo, genere/articoli, negazione, pronomi, concordanza aggettivi, preposizioni articolate, imperativo"
+      },
+      "cultural_cards": {
+        "status": "complete",
+        "count": 7,
+        "files": ["client/src/components/TextbookItalianCulturalCards.tsx"],
+        "notes": "ItalophoneWorldCard, CucinaItalianaCard, FestivitàCard, GestureCard (Italian gesture-rich culture), CurrencyCard, DialectCard (Nord/Centro/Sud), FamilyCard"
+      },
+      "phonetic_guides": {
+        "status": "complete",
+        "count": 9,
+        "files": ["client/src/components/TextbookItalianPhoneticGuides.tsx"],
+        "notes": "Double consonants (geminazione), c/g before e/i, gli/gn sounds, r/rr contrast, open/closed vowels, stress rules, intonation, z variants, sc sounds"
+      },
+      "word_families": {
+        "status": "complete",
+        "count": 11,
+        "files": ["client/src/components/TextbookItalianWordFamilies.tsx"],
+        "notes": "parlare, mangiare, vivere, lavorare, dormire, viaggiare, amare, scrivere, leggere, sapere, potere"
+      },
+      "canvas_vocab_cards": {
+        "status": "complete",
+        "count": 8,
+        "files": ["client/src/components/TextbookCanvasCards.tsx"],
+        "notes": "Italian datasets added to all 8 canvas vocab card types"
+      }
+    },
+
+    "japanese": {
+      "status": "complete",
+      "completed_date": "2026-03-19",
+      "notes": "Script-first language — phonetic guides cover hiragana/katakana/kanji introductions. Grammar cards address SOV structure and particle system.",
+      "grammar_cards": {
+        "status": "complete",
+        "count": 22,
+        "files": ["client/src/components/TextbookJapaneseGrammarCards.tsx"],
+        "notes": "です/ます forms, SOV structure, topic marker は, subject marker が, object marker を, location に/で/へ, te-form, past tense, negative forms, adjective types (i-adj/na-adj), counters, politeness levels, て-form chaining, potential form, たい form, conditionals"
+      },
+      "cultural_cards": {
+        "status": "complete",
+        "count": 7,
+        "files": ["client/src/components/TextbookJapaneseCulturalCards.tsx"],
+        "notes": "JapanMapCard, JapaneseCuisineCard, JapaneseFestivalsCard, BowingEtiquetteCard, CurrencyCard (yen), DialectCard (標準語/関西弁/東北弁), FamilyCard (uchi/soto terminology)"
+      },
+      "phonetic_guides": {
+        "status": "complete",
+        "count": 9,
+        "files": ["client/src/components/TextbookJapanesePhoneticGuides.tsx"],
+        "notes": "Hiragana chart, Katakana chart, Pitch accent (Tokyo pattern), Long vowels, Double consonants (っ), R/L sound, N sound variations, Vowel devoicing (i/u in fast speech), Kanji reading intro (on/kun)"
+      },
+      "word_families": {
+        "status": "complete",
+        "count": 11,
+        "files": ["client/src/components/TextbookJapaneseWordFamilies.tsx"],
+        "notes": "話す, 食べる, 見る, 聞く, 読む, 書く, 行く, 来る, する, 寝る, 飲む"
+      },
+      "canvas_vocab_cards": {
+        "status": "complete",
+        "count": 8,
+        "files": ["client/src/components/TextbookCanvasCards.tsx"],
+        "notes": "Japanese datasets added to all 8 canvas vocab card types"
+      }
+    },
+
+    "korean": {
+      "status": "complete",
+      "completed_date": "2026-03-19",
+      "notes": "Script-first language — Hangul phonetics central. Grammar cards cover SOV structure, particles, speech levels (formal/informal).",
+      "grammar_cards": {
+        "status": "complete",
+        "count": 24,
+        "files": ["client/src/components/TextbookKoreanGrammarCards.tsx"],
+        "notes": "이다/있다/없다, SOV structure, topic marker 은/는, subject 이/가, object 을/를, location 에/에서/으로, -아요/-어요 present, past tense -(으)ㄴ, negation 안/못, adjectives as predicates, honorific system, -고 싶다, conditionals, connectives, honorific vocabulary pairs"
+      },
+      "cultural_cards": {
+        "status": "complete",
+        "count": 7,
+        "files": ["client/src/components/TextbookKoreanCulturalCards.tsx"],
+        "notes": "KoreaMapCard, KoreanCuisineCard, KoreanHolidaysCard (설날/추석), BowingAndHonorificsCard, CurrencyCard (원), DialectCard (서울말/경상도/전라도), FamilyTermsCard (age-based kinship)"
+      },
+      "phonetic_guides": {
+        "status": "complete",
+        "count": 9,
+        "files": ["client/src/components/TextbookKoreanPhoneticGuides.tsx"],
+        "notes": "Hangul consonants (19), Hangul vowels (21), Syllable block structure, Aspirated vs plain vs tense consonants, Vowel harmony, Liaison rules (연음), Final consonant neutralisation, Intonation (yes/no vs wh), Batchim sounds"
+      },
+      "word_families": {
+        "status": "complete",
+        "count": 11,
+        "files": ["client/src/components/TextbookKoreanWordFamilies.tsx"],
+        "notes": "말하다, 먹다, 살다, 일하다, 자다, 여행하다, 사랑하다, 쓰다, 읽다, 알다, 할 수 있다"
+      },
+      "canvas_vocab_cards": {
+        "status": "complete",
+        "count": 8,
+        "files": ["client/src/components/TextbookCanvasCards.tsx"],
+        "notes": "Korean datasets added to all 8 canvas vocab card types"
+      }
+    },
+
+    "mandarin": {
+      "status": "complete",
+      "completed_date": "2026-03-19",
+      "notes": "Tonal language — phonetic cards emphasise tones and Pinyin heavily. No inflection, so grammar cards focus on measure words, aspect markers, topic-comment structure.",
+      "grammar_cards": {
+        "status": "complete",
+        "count": 23,
+        "files": ["client/src/components/TextbookMandarinGrammarCards.tsx"],
+        "notes": "是/有, SVO baseline, topic-comment structure, 的 attributive, aspect markers 了/过/着, measure words (量词), negation 不/没, question particles 吗/呢, 比 comparisons, resultative complements, directional complements, 把 construction, passive 被, time expressions, modal verbs 要/会/可以/应该, 如果 conditionals"
+      },
+      "cultural_cards": {
+        "status": "complete",
+        "count": 7,
+        "files": ["client/src/components/TextbookMandarinCulturalCards.tsx"],
+        "notes": "MandarinWorldMapCard (China/Taiwan/Singapore/Malaysia), ChineseCuisineCard (8 regional cuisines), ChineseFestivalsCard (春节/中秋/清明), GiftAndFaceCard (礼物/面子 etiquette), CurrencyCard (人民币/港币/新台币), DialectCard (普通话/粤语/闽南语 overview), FamilyCard (extended kinship terms)"
+      },
+      "phonetic_guides": {
+        "status": "complete",
+        "count": 9,
+        "files": ["client/src/components/TextbookMandarinPhoneticGuides.tsx"],
+        "notes": "Four tones + neutral tone, Tone sandhi (3rd+3rd→2nd+3rd), Pinyin initials, Pinyin finals, Pinyin special rules (yi/wu/yu), Aspirated vs unaspirated (b/p, d/t, g/k), X/Q/Z/C/Zh/Ch/Sh sounds, Syllable structure, ü disambiguation"
+      },
+      "word_families": {
+        "status": "complete",
+        "count": 11,
+        "files": ["client/src/components/TextbookMandarinWordFamilies.tsx"],
+        "notes": "说话, 吃饭, 住, 工作, 睡觉, 旅行, 爱, 写, 读, 知道, 能"
+      },
+      "canvas_vocab_cards": {
+        "status": "complete",
+        "count": 8,
+        "files": ["client/src/components/TextbookCanvasCards.tsx"],
+        "notes": "Mandarin datasets added to all 8 canvas vocab card types"
+      }
+    },
+
+    "hebrew": {
+      "status": "complete",
+      "completed_date": "2026-03-19",
+      "notes": "RTL script language. Phonetic guides cover nikud (vowel marks) and guttural consonants. Grammar cards address gendered verbs, root system (shoresh), and binyanim.",
+      "grammar_cards": {
+        "status": "complete",
+        "count": 22,
+        "files": ["client/src/components/TextbookHebrewGrammarCards.tsx"],
+        "notes": "Noun gender (m/f), definite article ה, present tense (present participle), past tense (pa'al binyan), future tense, negation אין/לא, pronouns, adjective agreement, prepositions (ב/ל/מ/כ prefix), שורש root system, pa'al/pi'el/hif'il binyanim overview, question words, numbers (m/f), possession ל+pronoun, construct state (סמיכות)"
+      },
+      "cultural_cards": {
+        "status": "complete",
+        "count": 7,
+        "files": ["client/src/components/TextbookHebrewCulturalCards.tsx"],
+        "notes": "HebrewWorldMapCard (Israel + diaspora), IsraeliCuisineCard, JewishHolidaysCard (ראש השנה/יום כיפור/פסח/חנוכה), SabbathEtiquetteCard, CurrencyCard (שקל), DialectCard (Israeli modern/Mizrahi/Ashkenazi pronunciation), FamilyCard (mishpacha terms)"
+      },
+      "phonetic_guides": {
+        "status": "complete",
+        "count": 9,
+        "files": ["client/src/components/TextbookHebrewPhoneticGuides.tsx"],
+        "notes": "Aleph-Bet chart (22 letters), Final letter forms (ך ם ן ף ץ), Guttural consonants (א/ע/ח/ר), Nikud vowel system, Dagesh (kal vs chazak), Shin/Sin distinction (שׁ/שׂ), Vet/Bet (ב/ב+dagesh), Tsere/Segol vowels, Stress patterns (mil'el vs mil'ra)"
+      },
+      "word_families": {
+        "status": "complete",
+        "count": 12,
+        "files": ["client/src/components/TextbookHebrewWordFamilies.tsx"],
+        "notes": "דיבר, אכל, גר, עבד, ישן, טייל, אהב, כתב, קרא, ידע, יכול, שמע — 12 families (largest set; Hebrew root system makes derivations especially rich)"
+      },
+      "canvas_vocab_cards": {
+        "status": "complete",
+        "count": 8,
+        "files": ["client/src/components/TextbookCanvasCards.tsx"],
+        "notes": "Hebrew datasets added to all 8 canvas vocab card types"
+      }
+    }
+  },
+
+  "coverage_summary": {
+    "languages_total": 9,
+    "languages_complete": 9,
+    "languages_partial": 0,
+    "languages_missing": 0,
+    "known_gaps": [],
+    "global_notes": [
+      "Spanish is the baseline/reference language — its grammar split across TextbookGrammarDiagrams.tsx + TextbookInfographics.tsx intentionally provides ~2× the grammar card coverage of other languages.",
+      "All canvas vocab datasets (weather/emotions/time/days/body/face/hand/temperature) share a single TextbookCanvasCards.tsx file with per-language dataset branches.",
+      "TextbookLessonReader.tsx is now deprecated — content was moved inline to VisualLessonCard in TextbookChapterView.tsx (March 20, 2026). The file is retained for reference.",
+      "Lyra should alert if any language drops below the minimum thresholds in card_types[].lyra_alert_below.",
+      "Hebrew transliteration convention: always double-quoted strings with apostrophes for aleph/ayin (me'od, na'im, 'ayin). Never single-quoted strings."
+    ]
+  }
+}

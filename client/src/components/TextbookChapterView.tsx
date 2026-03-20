@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,11 +18,11 @@ import {
   ChevronDown,
   ChevronUp,
   BookMarked,
+  Loader2,
 } from "lucide-react";
 import { LessonPrepCard } from "./TextbookInfographics";
 import { ChapterRecap } from "./ChapterRecap";
-import { ChapterIntroduction } from "./ChapterIntroduction";
-import { TextbookLessonReader } from "./TextbookLessonReader";
+import { ChapterIntroduction, classifyGrammarType, GrammarChapterView } from "./ChapterIntroduction";
 import { RhythmDrill } from "./RhythmDrill";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -92,6 +92,88 @@ function getLessonTypeIcon(type: string) {
   }
 }
 
+interface TextbookContent {
+  lesson_id: string;
+  introduction?: string;
+  grammar_explanation?: string;
+  vocabulary_notes?: string;
+  example_sentences?: Array<{ target: string; native: string }>;
+  cultural_notes?: string;
+  actfl_level?: string;
+}
+
+function InlineLessonContent({ lessonId, lessonName, language }: {
+  lessonId: string;
+  lessonName: string;
+  language: string;
+}) {
+  const referenceType = classifyGrammarType(lessonName, language);
+
+  const { data, isLoading } = useQuery<{ content: TextbookContent | null }>({
+    queryKey: ["/api/textbook-content", lessonId],
+    enabled: !!lessonId,
+  });
+
+  const content = data?.content;
+
+  return (
+    <div className="space-y-4 pt-1">
+      {referenceType && (
+        <GrammarChapterView type={referenceType} chapterNumber={0} language={language} />
+      )}
+
+      {isLoading && (
+        <div className="flex items-center justify-center py-6">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      )}
+
+      {!isLoading && content && (
+        <div className="space-y-4 text-sm">
+          {content.introduction && (
+            <p className="text-muted-foreground leading-relaxed">{content.introduction}</p>
+          )}
+          {content.grammar_explanation && (
+            <div className="space-y-1">
+              <p className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Grammar Focus</p>
+              <p className="text-muted-foreground leading-relaxed">{content.grammar_explanation}</p>
+            </div>
+          )}
+          {content.vocabulary_notes && (
+            <div className="space-y-1">
+              <p className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Vocabulary Notes</p>
+              <p className="text-muted-foreground leading-relaxed">{content.vocabulary_notes}</p>
+            </div>
+          )}
+          {content.example_sentences && content.example_sentences.length > 0 && (
+            <div className="space-y-1">
+              <p className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Examples</p>
+              <div className="space-y-1.5">
+                {content.example_sentences.slice(0, 4).map((ex, i) => (
+                  <div key={i} className="rounded-md bg-muted/50 px-3 py-1.5">
+                    <p className="font-medium">{ex.target}</p>
+                    <p className="text-xs text-muted-foreground">{ex.native}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {content.cultural_notes && (
+            <div className="space-y-1">
+              <p className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Cultural Notes</p>
+              <p className="text-muted-foreground leading-relaxed">{content.cultural_notes}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!isLoading && !content && !referenceType && (
+        <p className="text-sm text-muted-foreground text-center py-4">No additional content available for this lesson.</p>
+      )}
+    </div>
+  );
+}
+
 function VisualLessonCard({
   section,
   index,
@@ -99,7 +181,7 @@ function VisualLessonCard({
   onStartConversation,
   onStartDrill,
   onViewed,
-  onRead,
+  onMarkedRead,
 }: {
   section: Section;
   index: number;
@@ -107,11 +189,37 @@ function VisualLessonCard({
   onStartConversation: () => void;
   onStartDrill: () => void;
   onViewed: () => void;
-  onRead: () => void;
+  onMarkedRead?: (id: string) => void;
 }) {
   const viewedRef = useRef(false);
+  const hasMarkedReadRef = useRef(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const [showRhythmDrill, setShowRhythmDrill] = useState(false);
+  const [contentExpanded, setContentExpanded] = useState(false);
+  const queryClient = useQueryClient();
+
+  const markReadMutation = useMutation({
+    mutationFn: () =>
+      apiRequest("POST", `/api/textbook/progress/${section.id}`, {
+        sectionType: "content",
+        viewed: true,
+        completed: true,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/textbook/progress", section.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/textbook"] });
+      onMarkedRead?.(section.id);
+    },
+  });
+
+  function handleToggleContent() {
+    const opening = !contentExpanded;
+    setContentExpanded(opening);
+    if (opening && !hasMarkedReadRef.current) {
+      hasMarkedReadRef.current = true;
+      markReadMutation.mutate();
+    }
+  }
 
   const isRhythmEligible =
     (section.lessonType === 'vocabulary' || section.lessonType === 'drill') &&
@@ -215,14 +323,15 @@ function VisualLessonCard({
           
           <div className="flex gap-2 flex-wrap sm:flex-nowrap">
             <Button
-              variant="outline"
+              variant={contentExpanded ? "secondary" : "outline"}
               size="sm"
               className="min-h-[44px] touch-manipulation"
-              onClick={onRead}
+              onClick={handleToggleContent}
               data-testid={`button-read-lesson-${section.id}`}
             >
               <BookOpen className="h-4 w-4 mr-1" />
-              Read
+              {contentExpanded ? "Hide" : "Read"}
+              {contentExpanded ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />}
             </Button>
             {section.conversationTopic && (
               <Button 
@@ -289,6 +398,19 @@ function VisualLessonCard({
               />
             </div>
           )}
+
+          {contentExpanded && (
+            <div
+              className="border-t pt-4"
+              data-testid={`inline-lesson-content-${section.id}`}
+            >
+              <InlineLessonContent
+                lessonId={section.id}
+                lessonName={section.name}
+                language={language ?? "spanish"}
+              />
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -305,7 +427,6 @@ export function TextbookChapterView({
 }: TextbookChapterViewProps) {
   const completedCount = chapter.sections.filter(s => s.isComplete).length;
   const viewedSectionsRef = useRef<Set<string>>(new Set());
-  const [readerLesson, setReaderLesson] = useState<{ id: string; name: string } | null>(null);
   // Local read state for immediate badge updates without refetch
   const [locallyReadIds, setLocallyReadIds] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
@@ -401,7 +522,7 @@ export function TextbookChapterView({
             onStartConversation={onStartConversation}
             onStartDrill={() => onStartDrill(section.id)}
             onViewed={() => handleSectionViewed(section.id)}
-            onRead={() => setReaderLesson({ id: section.id, name: section.name })}
+            onMarkedRead={handleMarkedRead}
           />
         ))}
       </div>
@@ -425,14 +546,6 @@ export function TextbookChapterView({
         />
       )}
 
-      <TextbookLessonReader
-        lessonId={readerLesson?.id ?? ""}
-        lessonName={readerLesson?.name ?? ""}
-        language={language}
-        open={!!readerLesson}
-        onClose={() => setReaderLesson(null)}
-        onMarkedRead={() => readerLesson && handleMarkedRead(readerLesson.id)}
-      />
     </div>
   );
 }
