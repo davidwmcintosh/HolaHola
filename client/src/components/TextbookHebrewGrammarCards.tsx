@@ -268,7 +268,7 @@ export function HeFutureCard() {
           <PhraseList pairs={[
             ['מחר', 'tomorrow — machar'],
             ['בשבוע הבא', 'next week — bashavua haba'],
-            ['עוד מעט', 'soon / in a little while — od me'at'],
+            ['עוד מעט', "soon / in a little while — od me'at"],
             ['בקרוב', 'soon — bekarov'],
           ]} />
         </div>
