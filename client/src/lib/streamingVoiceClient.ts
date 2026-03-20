@@ -253,6 +253,7 @@ export class StreamingVoiceClient {
   private consecutiveSessionErrors = 0;
   private readonly MAX_SESSION_ERRORS = 5;
   private _isReconnectedSession = false;  // True after reconnect — prevents greeting re-trigger
+  private _lastKnownInputMode: 'push-to-talk' | 'open-mic' = 'push-to-talk';  // Restored on reconnect
   
   // Heartbeat state for fast drop detection
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
@@ -682,6 +683,7 @@ export class StreamingVoiceClient {
    * Set input mode (push-to-talk or open-mic)
    */
   setInputMode(mode: 'push-to-talk' | 'open-mic'): void {
+    this._lastKnownInputMode = mode;  // Track for reconnect restoration
     if (this.socket?.connected) {
       this.socket.emit('message', { type: 'set_input_mode', inputMode: mode });
     }
@@ -1553,6 +1555,15 @@ export class StreamingVoiceClient {
             console.log('[StreamingVoice] Reconnected - reinitializing session (isReconnect=true)');
             this._isReconnectedSession = true;
             this.startSession({ ...this.lastSessionConfig, isReconnect: true });
+            
+            // RECONNECT FIX: Restore input mode immediately after start_session.
+            // The server always defaults to push-to-talk on a new WS connection.
+            // set_input_mode requires no auth so it takes effect before session creation
+            // completes — ensuring open-mic audio chunks route to the correct handler.
+            if (this._lastKnownInputMode === 'open-mic') {
+              console.log('[StreamingVoice] Restoring open-mic mode after reconnect');
+              this.socket!.emit('message', { type: 'set_input_mode', inputMode: 'open-mic' });
+            }
           }
 
           this.emit('reconnected', { timestamp: Date.now() });

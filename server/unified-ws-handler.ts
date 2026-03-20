@@ -1434,6 +1434,16 @@ Reference past discussions when relevant, but don't force it.
           (session as any).__isReconnect = isReconnect;
 
           console.log(`[Streaming Voice] Session created: ${session.id}${dbSessionId ? ` (db: ${dbSessionId.substring(0, 8)}...)` : ' (no db session)'}`);
+          
+          // RECONNECT FIX: Restore input mode from config.
+          // Every new WS connection defaults currentInputMode to 'push-to-talk', but the client
+          // may have been in open-mic mode. Without this restoration, all post-reconnect open-mic
+          // audio chunks route to the wrong handler and Deepgram never receives speech.
+          if (config.inputMode && config.inputMode !== currentInputMode) {
+            currentInputMode = config.inputMode;
+            console.log(`[Streaming Voice] Input mode restored from config: ${currentInputMode}${isReconnect ? ' (reconnect)' : ''}`);
+          }
+          
           telemetrySessionId = dbSessionId || session.id;
           telemetryUserId = userId!;
           voiceTelemetry.log(telemetrySessionId, telemetryUserId, 'session_start', {
@@ -3564,6 +3574,15 @@ ${buildNativeFunctionCallingSection()}`;
             
             // Track reconnection state — prevents double greetings when client reconnects
             (session as any).__isReconnect = isReconnectSO;
+            
+            // RECONNECT FIX: Restore input mode from config.
+            // Every new WS connection defaults currentInputMode to 'push-to-talk', but the client
+            // may have been in open-mic mode. Without this restoration, all post-reconnect open-mic
+            // audio chunks route to the wrong handler and Deepgram never receives speech.
+            if (config.inputMode && config.inputMode !== currentInputMode) {
+              currentInputMode = config.inputMode;
+              console.log(`[Streaming Voice] Input mode restored from config (Socket.io): ${currentInputMode}${isReconnectSO ? ' (reconnect)' : ''}`);
+            }
             
             pendingVoiceUpdate = tutorGender;
             console.log(`[Streaming Voice] Session created: ${session.id}${dbSessionId ? ` (db: ${dbSessionId.substring(0, 8)}...)` : ' (no db session)'}`);

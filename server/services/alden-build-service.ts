@@ -15,8 +15,9 @@ import { GoogleGenAI } from '@google/genai';
 import { storage } from '../storage';
 
 const GUARDIAN_MANIFEST_PATH = '/tmp/alden-guardian-manifest.json';
-// GUARDIAN_TOKEN must be set as a Replit secret — the fallback is a placeholder only
-export const GUARDIAN_TOKEN = process.env.GUARDIAN_TOKEN || 'alden-guardian-internal-2024';
+// GUARDIAN_TOKEN must be set as a Replit secret in production.
+// If not set (dev/CI), internal admin routes return 401 — correct and safe behavior.
+export const GUARDIAN_TOKEN = process.env.GUARDIAN_TOKEN;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
