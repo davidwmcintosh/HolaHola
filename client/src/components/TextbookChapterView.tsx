@@ -428,6 +428,7 @@ export function TextbookChapterView({
       <TextbookLessonReader
         lessonId={readerLesson?.id ?? ""}
         lessonName={readerLesson?.name ?? ""}
+        language={language}
         open={!!readerLesson}
         onClose={() => setReaderLesson(null)}
         onMarkedRead={() => readerLesson && handleMarkedRead(readerLesson.id)}

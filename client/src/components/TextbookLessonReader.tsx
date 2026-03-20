@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, BookOpen, Languages, HelpCircle, MessageSquare, CheckCircle2, BookMarked } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { classifyGrammarType, GrammarChapterView } from "@/components/ChapterIntroduction";
 
 interface TextbookContent {
   lesson_id:                   string;
@@ -24,12 +25,13 @@ interface TextbookContent {
 interface TextbookLessonReaderProps {
   lessonId:       string;
   lessonName:     string;
+  language?:      string;
   open:           boolean;
   onClose:        () => void;
   onMarkedRead?:  () => void;
 }
 
-export function TextbookLessonReader({ lessonId, lessonName, open, onClose, onMarkedRead }: TextbookLessonReaderProps) {
+export function TextbookLessonReader({ lessonId, lessonName, language = 'spanish', open, onClose, onMarkedRead }: TextbookLessonReaderProps) {
   const [showTranslation, setShowTranslation] = useState(false);
   const queryClient = useQueryClient();
 
@@ -60,6 +62,7 @@ export function TextbookLessonReader({ lessonId, lessonName, open, onClose, onMa
   });
 
   const content = data?.content;
+  const referenceType = classifyGrammarType(lessonName, language);
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
@@ -76,6 +79,12 @@ export function TextbookLessonReader({ lessonId, lessonName, open, onClose, onMa
             )}
           </DialogTitle>
         </DialogHeader>
+
+        {referenceType && (
+          <div className="border-b pb-4 mb-2">
+            <GrammarChapterView type={referenceType} chapterNumber={0} language={language} />
+          </div>
+        )}
 
         {isLoading && (
           <div className="flex items-center justify-center py-12">

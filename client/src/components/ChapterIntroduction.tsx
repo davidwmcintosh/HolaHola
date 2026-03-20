@@ -900,7 +900,7 @@ function classifyHebrewGrammarType(title: string): GrammarChapterType | null {
   return null;
 }
 
-function classifyGrammarType(title: string, language = 'spanish'): GrammarChapterType | null {
+export function classifyGrammarType(title: string, language = 'spanish'): GrammarChapterType | null {
   if (language === 'french') return classifyFrenchGrammarType(title);
   if (language === 'portuguese') return classifyPortugueseGrammarType(title);
   if (language === 'german') return classifyGermanGrammarType(title);
@@ -939,31 +939,31 @@ function classifyGrammarType(title: string, language = 'spanish'): GrammarChapte
   if (lower.includes('subjunctive') || lower.includes('subjuntivo') || lower.includes('present subjunctive')) return 'subjunctive';
   if (lower.includes('command') || lower.includes('imperativo') || lower.includes('imperative') || lower.includes('mandato')) return 'commands';
   if (lower.includes('gender') || lower.includes('article') || lower.includes('género') || lower.includes('artículo') || lower.includes('el/la') || lower.includes('un/una')) return 'gender_articles';
-  if (lower.includes('adjective') || lower.includes('adjetivo') || lower.includes('adjective agreement') || lower.includes('concordancia')) return 'adjective_agreement';
+  if (lower.includes('adjective') || lower.includes('adjetivo') || lower.includes('adjective agreement') || lower.includes('concordancia') || (lower.includes('agreement') && !lower.includes('subject'))) return 'adjective_agreement';
   if (lower.includes('object pronoun') || lower.includes('direct object') || lower.includes('indirect object') || lower.includes('pronombre de objeto') || lower.includes('lo/la/le')) return 'object_pronouns';
   if (lower.includes('negation') || lower.includes('negativo') || lower.includes('sentence structure') || lower.includes('word order') || lower.includes('question word')) return 'negation_questions';
   if ((lower.includes('tú') && lower.includes('usted')) || lower.includes('formal vs informal') || lower.includes('register')) return 'tu_usted';
 
   // ── Section 4 — Prepositions ─────────────────────────────────────────────
   if (lower.includes('temporal prep') || lower.includes('preposicion de tiempo') || lower.includes('antes de') || lower.includes('después de') || lower.includes('hace + tiempo')) return 'temporal_prep';
-  if (lower.includes('preposition') || lower.includes('preposición') || lower.includes('spatial') || lower.includes('prep of place')) return 'spatial_prep';
+  if (lower.includes('preposition') || lower.includes('preposición') || lower.includes('spatial') || lower.includes('prep of place') || lower.includes('places in town') || lower.includes('places in the community') || lower.includes('la ciudad') || lower.includes('giving direction') || lower.includes('getting around')) return 'spatial_prep';
 
   // ── Section 5 — Cultural infographics ────────────────────────────────────
   // More specific first to avoid false positives
-  if (lower.includes('family tree') || lower.includes('árbol genealóg') || lower.includes('árbol familiar') || lower.includes('family member') || lower.includes('miembro') || lower.includes('relaciones familiares') || lower.includes('family relationship')) return 'family_tree';
+  if (lower.includes('family tree') || lower.includes('árbol genealóg') || lower.includes('árbol familiar') || lower.includes('family member') || lower.includes('miembro') || lower.includes('relaciones familiares') || lower.includes('family relationship') || lower.includes('mi familia') || lower.includes('family & relation') || lower.includes('family life') || lower.includes('meet the family') || lower.includes('hispanic family')) return 'family_tree';
   if (lower.includes('world map') || lower.includes('hispanohablante') || lower.includes('21 countries') || lower.includes('mundo hispano') || lower.includes('spanish-speaking world') || lower.includes('español en el mundo')) return 'world_map';
   if (lower.includes('festival') || lower.includes('festividad') || lower.includes('holiday') || lower.includes('celebration') || lower.includes('fiesta') || lower.includes('day of the dead') || lower.includes('día de los muertos')) return 'festival_calendar';
   if (lower.includes('dialect') || lower.includes('dialecto') || lower.includes('regional spanish') || lower.includes('variedades del español') || lower.includes('ceceo') || lower.includes('seseo') || lower.includes('voseo')) return 'dialect_map';
   if (lower.includes('greeting custom') || lower.includes('cheek kiss') || lower.includes('saludar en') || lower.includes('greeting by country') || lower.includes('etiqueta de saludo')) return 'greeting_etiquette';
   if (lower.includes('currency') || lower.includes('moneda') || lower.includes('dinero del mundo') || lower.includes('currencies')) return 'currency_ref';
-  if (lower.includes('food guide') || lower.includes('gastronomía') || lower.includes('gastronomia') || lower.includes('regional food') || lower.includes('comida hispana') || lower.includes('hispanic food') || lower.includes('comida típica') || lower.includes('platos típicos') || lower.includes('dishes by region')) return 'hispanic_food';
+  if (lower.includes('food guide') || lower.includes('gastronomía') || lower.includes('gastronomia') || lower.includes('regional food') || lower.includes('comida hispana') || lower.includes('hispanic food') || lower.includes('comida típica') || lower.includes('platos típicos') || lower.includes('dishes by region') || lower.includes('cuisine') || lower.includes('la comida') || lower.includes('food & dining') || lower.includes('food favorite') || lower.includes('food lesson')) return 'hispanic_food';
   if (lower.includes('gesture') || lower.includes('body language') || lower.includes('gesto') || lower.includes('comunicación no verbal') || lower.includes('non-verbal') || lower.includes('lenguaje corporal') || lower.includes('hand gesture')) return 'gesture_awareness';
 
   // ── Section 6 — Word family maps ─────────────────────────────────────────
   if (lower.includes('word family') || lower.includes('familia de palabras') || lower.includes('word derivation') || lower.includes('derivation') || lower.includes('familia léxica')) return 'word_family';
 
   // ── Section 7 — Canvas vocabulary cards ─────────────────────────────────
-  if (lower.includes('weather vocab') || lower.includes('el tiempo') || lower.includes('tiempo atmosférico') || lower.includes('weather condition') || lower.includes('el clima')) return 'weather_vocab';
+  if (lower.includes('weather vocab') || lower.includes('el tiempo') || lower.includes('tiempo atmosférico') || lower.includes('weather condition') || lower.includes('el clima') || lower.includes('weather talk') || lower.includes('weather lesson') || lower.includes('weather unit') || lower.includes('las vacaciones') || lower.includes('travel & vacation') || lower.includes('travel essentials')) return 'weather_vocab';
   if (lower.includes('emotion') || lower.includes('emoción') || lower.includes('emociones') || lower.includes('feeling') || lower.includes('sentimiento') || lower.includes('estado de ánimo') || lower.includes('cómo te sientes') || lower.includes('how do you feel')) return 'emotions_vocab';
   if (lower.includes('la hora') || lower.includes('telling time') || lower.includes('telling the time') || lower.includes('time expression') || lower.includes('what time') || lower.includes('qué hora')) return 'telling_time';
   if (lower.includes('días de la semana') || lower.includes('days of the week') || lower.includes('meses del año') || lower.includes('months of the year') || lower.includes('calendar vocab') || lower.includes('la semana') || lower.includes('el mes')) return 'days_week';
@@ -1517,7 +1517,7 @@ const GRAMMAR_LABELS_HE: Partial<Record<GrammarChapterType, { title: string; sub
   country_dot_map:  { title: 'עברית בעולם', subtitle: 'Where Hebrew is spoken — Israel and diaspora communities worldwide' },
 };
 
-function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spanish' }: { type: GrammarChapterType; chapterNumber: number; chapterTitle?: string; language?: string }) {
+export function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spanish' }: { type: GrammarChapterType; chapterNumber: number; chapterTitle?: string; language?: string }) {
   const baseLabel = GRAMMAR_LABELS[type];
   const frLabel = language === 'french' ? GRAMMAR_LABELS_FR[type] : undefined;
   const ptLabel = language === 'portuguese' ? GRAMMAR_LABELS_PT[type] : undefined;
