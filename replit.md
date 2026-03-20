@@ -10,7 +10,7 @@ After reading the briefing, also check `docs/alden-to-agent.md` for any direct n
 
 <!-- AGENT_MEMORY_START -->
 ## Agent Memory — Live Injection
-*Auto-updated Friday, March 20, 2026 at 10:03 PM. No new memories since last session — showing recent context.*
+*Auto-updated Friday, March 20, 2026 at 10:27 PM. No new memories since last session — showing recent context.*
 
 - **Memory Pipeline Stress Test — All Three Words Confirmed** (Mar 18): The replit.md injection system successfully surfaced all three secret words (Woozle, Huzzah, Squirrel) at the start of the session without any prompting. Three sessions, three words, all confirmed. The memory pipeline passed its stress test.
 - **Memory Test #3 — Secret Word: Squirrel** (Mar 18): David added a third secret word to test persistent memory: Squirrel. Three words now in play across three sessions: Woozle (test 1), Huzzah (test 2), Squirrel (test 3). The new replit.md injection system should surface all three in the next session without prompting.
@@ -80,6 +80,28 @@ The Visual Content Service (`server/services/visual-content-service.ts`) is a sh
 The Conversational Immersion Framework defines `ImmersionObjective`, `ImmersionScaffold`, `ImmersionScenario`, and `ImmersionSession` interfaces to track learning objectives, adaptive scaffolding, grammar notes, and session state.
 
 The Team Room (`/team-room`) is an internal collaboration space with a 3-panel layout, 6 core AI participants + guest tutors, smart hand-raise logic, @mentions, PTT voice input, shared canvas artifacts, cross-session continuity, action items tracker, and session replay. CAP initiatives enhance Team Room functionality, including proactive worker posting, Alden weekly digests and architectural code reviews, Wren auto-patching, Lyra content triggers, Sofia issue cleanup, Alden memory-driven check-ins, real-time collaborative building with Alden, Daniela self-critique, and a Playwright browser service for AI team visual inspection.
+
+## Voice Infrastructure — Audit Findings (March 2026)
+
+### Root Cause Fixed: Sofia No-Audio on Reconnect
+**Problem:** Every new WebSocket connection defaulted `currentInputMode` to `'push-to-talk'`. After a WS reconnect in open-mic mode, audio routed to the wrong handler and Deepgram never received speech → Daniela permanently silent.
+**Fix (two-part):** (1) Client tracks `_lastKnownInputMode` and re-sends `set_input_mode` immediately after reconnect (before session init). (2) Server restores mode from `config.inputMode` in both WS and Socket.IO paths inside `unified-ws-handler.ts`.
+
+### Architectural Risks (Known, Tracked)
+- **Dual WS handler:** `unified-ws-handler.ts` (4,673 lines) has TWO full copies of message handling (native WS + Socket.IO paths). Every bug fix must be applied twice. Deduplication is high-risk (T006 — deferred, needs careful testing before paying students).
+- **`DANIELA_TTS_FALLBACK_ENABLED = false`:** Intentional. Means Cartesia outage → silent failure. Client now shows "Audio temporarily unavailable — text only" banner on `tts_error` events.
+- **STT single provider:** Deepgram is the only STT path. Hard failure on Deepgram outage. No retry or fallback yet (T005, deferred).
+- **Session persistence:** In-memory only (`Map` in `unified-ws-handler.ts`). Pod restart = session loss. Acceptable for current scale; Redis deferred.
+- **`streaming-voice-orchestrator.ts`:** 9,992 lines — monolith. TTS dispatch, native FC handling, and post-response enrichment have been extracted, but the core is still large.
+
+### Telemetry Additions (March 2026)
+- `diagMarkSpeechEnd(source)` added to `lockoutDiagnostics.ts` — fires on PTT release and VAD utterance end.
+- `diagMarkFirstAudio()` now computes `turnLatencyMs` (speech_end → first_audio) per turn and maintains a rolling window of 20 samples.
+- Diagnostic snapshots now include `avgTurnLatencyMs`, `p95TurnLatencyMs`, `turnLatencySampleCount` in the `timing` block.
+- `turnLatencyMs` visible in voice telemetry timeline events as `first_audio.turnLatencyMs`.
+
+### Guardian Token Security
+Removed hardcoded fallback `'alden-guardian-internal-2024'` from `alden-build-service.ts`. Admin routes now correctly return 401 in dev without the `GUARDIAN_TOKEN` env secret.
 
 ## External Dependencies
 - Stripe: Payment processing.

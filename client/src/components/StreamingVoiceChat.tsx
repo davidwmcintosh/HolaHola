@@ -16,7 +16,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, Loader2, EyeOff } from "lucide-react";
+import { Mic, MicOff, Loader2, EyeOff, VolumeX } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { type Message, type User } from "@shared/schema";
@@ -3516,6 +3516,16 @@ export function StreamingVoiceChat({
           </Button>
         </div>
       )}
+      {/* TTS Unavailable Banner — shown when Daniela's voice fails, auto-clears in 8s */}
+      {useStreamingMode && streamingVoice.state.ttsUnavailable && (
+        <div
+          className="absolute top-3 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted text-muted-foreground text-xs border"
+          data-testid="status-tts-unavailable"
+        >
+          <VolumeX className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>Audio temporarily unavailable — text only</span>
+        </div>
+      )}
       {/* Immersive Voice Chat with View Manager - Full Screen */}
       <div className="flex-1 min-h-0 overflow-hidden relative">
         <VoiceChatViewManager
@@ -3530,11 +3540,13 @@ export function StreamingVoiceChat({
           isConnecting={useStreamingMode && (streamingVoice.state.connectionState === 'connecting' || streamingVoice.state.connectionState === 'reconnecting')}
           isReconnecting={useStreamingMode && streamingVoice.state.connectionState === 'reconnecting'}
           reconnectMessage={
-            // Only surface a message for genuinely prolonged outages (slow phase, attempt >3).
-            // Fast autoscale rotations (~3s) are routine infrastructure and should be invisible.
+            // Surface a reconnect message for all WS drops so the user knows why Daniela is silent.
+            // Fast reconnects (~1-3s): generic "Reconnecting..." keeps users informed without alarm.
+            // Prolonged restarts (attempt >3): show the specific server restart message.
             useStreamingMode && streamingVoice.state.connectionState === 'reconnecting'
-              && streamingVoice.state.error?.includes('Server is restarting')
-              ? streamingVoice.state.error
+              ? (streamingVoice.state.error?.includes('Server is restarting')
+                  ? streamingVoice.state.error
+                  : 'Reconnecting...')
               : undefined
           }
           isUsersTurn={

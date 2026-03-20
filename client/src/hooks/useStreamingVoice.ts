@@ -13,7 +13,7 @@ import { getStreamingAudioPlayer, StreamingAudioPlayer, StreamingAudioChunk, Str
 import { useStreamingSubtitles, UseStreamingSubtitlesReturn } from './useStreamingSubtitles';
 import { logAudioChunkReceived, updateDebugTimingState, trackWsMessage } from '../lib/debugTimingState';
 import { setGlobalPlaybackState, getGlobalPlaybackState } from '../lib/playbackStateStore';
-import { diagSetSession, diagSetHookRefs, diagEvent, diagMarkConnect, diagMarkFirstAudio, diagMarkResponseComplete, diagMarkDisconnect, diagMarkTurnStart, diagMarkError, diagMarkTtsError, diagMarkFailsafe, reportDiagnostic, startLockoutWatchdog, startGreetingSilenceWatchdog } from '../lib/lockoutDiagnostics';
+import { diagSetSession, diagSetHookRefs, diagEvent, diagMarkConnect, diagMarkFirstAudio, diagMarkResponseComplete, diagMarkDisconnect, diagMarkTurnStart, diagMarkSpeechEnd, diagMarkError, diagMarkTtsError, diagMarkFailsafe, reportDiagnostic, startLockoutWatchdog, startGreetingSilenceWatchdog } from '../lib/lockoutDiagnostics';
 import { acquireWakeLock, releaseWakeLock } from '../lib/wakeLock';
 import { 
   STREAMING_FEATURE_FLAGS,
@@ -185,6 +185,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   isSwitchingTutorRef.current = isSwitchingTutor;
   const [error, setError] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<StreamingMetrics | null>(null);
+  const [ttsUnavailable, setTtsUnavailable] = useState(false);
+  const ttsUnavailableTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Ref for tutor switch timeout (error recovery)
   const tutorSwitchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1123,9 +1125,11 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    */
   const handleTtsError = useCallback((data: { code: string; message: string }) => {
     diagMarkTtsError(data.code, data.message);
-    if (import.meta.env.DEV) {
-      console.warn(`[StreamingVoice] TTS audio failed (dev-only): ${data.message}`);
-    }
+    console.warn(`[StreamingVoice] TTS audio failed: ${data.message}`);
+    // Show a brief "audio unavailable" indicator so the user knows what happened
+    setTtsUnavailable(true);
+    if (ttsUnavailableTimerRef.current) clearTimeout(ttsUnavailableTimerRef.current);
+    ttsUnavailableTimerRef.current = setTimeout(() => setTtsUnavailable(false), 8000);
   }, []);
 
   const handleError = useCallback((err: Error) => {
@@ -1214,6 +1218,10 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const handleVadUtteranceEnd = useCallback((message: { type: string; transcript?: string; empty?: boolean }) => {
     if (isVerboseLoggingEnabled()) {
       console.log('[StreamingVoice] VAD utterance end, transcript:', message.transcript, 'empty:', message.empty);
+    }
+    // Mark speech end for E2E latency tracking (speech_end → first_audio) — skip empty VAD pings
+    if (!message.empty) {
+      diagMarkSpeechEnd('vad');
     }
     sessionConfigRef.current?.onVadUtteranceEnd?.(message.transcript || '', message.empty);
   }, []);
@@ -1670,6 +1678,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * Also releases audio playback to start playing buffered audio
    */
   const sendPttRelease = useCallback(() => {
+    // Mark speech end for E2E latency tracking (speech_end → first_audio)
+    diagMarkSpeechEnd('ptt');
     // Release audio playback - any buffered audio will now play
     playerRef.current?.releasePlayback();
     clientRef.current?.sendPttRelease();
@@ -1833,6 +1843,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       isProcessing,
       isPlaying: playbackState === 'playing',
       isSwitchingTutor,  // Mic lockout during tutor handoff
+      ttsUnavailable,    // True when TTS fails; clears after 8s
       currentText: subtitles.state.fullText,
       currentWordIndex: subtitles.state.currentWordIndex,
       visibleWordCount: subtitles.state.visibleWordCount,
