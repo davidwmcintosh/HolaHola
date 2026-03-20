@@ -558,6 +558,83 @@ export default function ReviewHub() {
         </div>
       </div>
 
+      {/* Learning Momentum Strip — only shown once the user has started */}
+      {data && data.stats.totalConversations > 0 && (() => {
+        const streakDays = data.stats.streakDays;
+        const sessionsThisWeek = data.recentConversations.length;
+        const lastConv = data.recentConversations[0];
+
+        let daysSinceLast: number | null = null;
+        let lastSessionLabel = '';
+        if (lastConv?.createdAt) {
+          daysSinceLast = Math.floor(
+            (Date.now() - new Date(lastConv.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+          );
+          if (daysSinceLast === 0) lastSessionLabel = 'Today';
+          else if (daysSinceLast === 1) lastSessionLabel = 'Yesterday';
+          else lastSessionLabel = `${daysSinceLast} days ago`;
+        }
+
+        let nudgeText = '';
+        let nudgeClass = 'text-muted-foreground';
+        if (streakDays > 0 && daysSinceLast === 0) {
+          nudgeText = 'Keep it going!';
+          nudgeClass = 'text-orange-600 dark:text-orange-400 font-medium';
+        } else if (streakDays > 0 && daysSinceLast === 1) {
+          nudgeText = 'Keep your streak alive today';
+          nudgeClass = 'text-amber-600 dark:text-amber-400 font-medium';
+        } else if (daysSinceLast !== null && daysSinceLast >= 2) {
+          nudgeText = `${currentTutorName} misses you`;
+        } else if (daysSinceLast === 0 && streakDays === 0) {
+          nudgeText = 'Great start — come back tomorrow!';
+        }
+
+        return (
+          <div
+            className="flex items-center gap-x-4 gap-y-1.5 px-3 py-2.5 rounded-lg bg-muted/40 flex-wrap"
+            data-testid="momentum-strip"
+          >
+            <div className="flex items-center gap-1.5">
+              <Flame className={`h-4 w-4 ${streakDays > 0 ? 'text-orange-500' : 'text-muted-foreground'}`} />
+              <span className={`text-sm font-medium ${streakDays > 0 ? '' : 'text-muted-foreground'}`}>
+                {streakDays > 0
+                  ? `${streakDays} day${streakDays === 1 ? '' : 's'}`
+                  : 'No streak yet'}
+              </span>
+            </div>
+            <span className="text-muted-foreground/30 hidden sm:block">·</span>
+            <div className="flex items-center gap-1.5">
+              <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">
+                {sessionsThisWeek} {sessionsThisWeek === 1 ? 'session' : 'sessions'} this week
+              </span>
+            </div>
+            {lastSessionLabel && (
+              <>
+                <span className="text-muted-foreground/30 hidden sm:block">·</span>
+                <div className="flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span
+                    className={`text-sm ${
+                      daysSinceLast !== null && daysSinceLast >= 2
+                        ? 'text-amber-600 dark:text-amber-400'
+                        : 'text-muted-foreground'
+                    }`}
+                  >
+                    Last session: {lastSessionLabel}
+                  </span>
+                </div>
+              </>
+            )}
+            {nudgeText && (
+              <span className={`text-xs italic ml-auto ${nudgeClass}`} data-testid="momentum-nudge">
+                {nudgeText}
+              </span>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Tutor Showcase - Click the tutor to start a conversation */}
       <TutorShowcase 
         onTutorSelect={(selection) => {
