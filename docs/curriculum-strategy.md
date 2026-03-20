@@ -206,14 +206,24 @@ Targeted repairs continue in parallel: the audit script flags the worst lessons,
 
 ### Decision 2: What is the textbook actually for?
 
-**Decision: Option C — both coexist, different roles.**
+**Decision: Option C — both coexist, different roles. Content density must match the role each surface plays.**
 
-- **Reading library** (OpenStax-based) = deep academic reference; the thing you read before class or when you want a comprehensive explanation of a grammar concept.
-- **Interactive textbook** (curriculum-driven, `textbook_lesson_content` + visual reference cards) = lesson companion; what you review immediately before or after a voice session with Daniela; the chapter introduction visual cards (grammar/cultural/phonetic/word family) are the primary value.
+- **Reading library** (OpenStax-based) = the reading *is* the primary learning event. For history, science, and subject-area content, students are acquiring concepts, cause-and-effect chains, chronology, and significance — not just vocabulary. "King Ferdinand" isn't a vocab word; he's a node in a web of events that requires narrative to understand. This content should be **dense, comprehensive, and explanatory** — longer chapters, full paragraphs, rich context. Voice sessions with that tutor are then discussion and synthesis of what was read. The reading library is expected to be longer and more demanding than the language textbook.
 
-The distinction should eventually be clear in the UI. The interactive textbook's value comes from its tight coupling to lesson progression — not from competing with the reading library on depth.
+- **Interactive textbook** (curriculum-driven, `textbook_lesson_content` + visual reference cards) = **not verbose**. For language learning, the reading is preparation for Daniela, not the learning event itself. Students need to absorb a grammar pattern, a vocabulary set, or a phonetic rule quickly — then go use it. The language textbook should be compact, scannable, and non-discursive: visual reference cards, short phrase examples, audio reference, minimal prose. If a language lesson reads like a history chapter, it has failed its job. The goal is rapid uptake, not comprehensive explanation.
 
-*Rationale:* The inline visual reference card system (grammar cards, cultural cards, phonetic guides, word family cards, canvas vocab) built across March 2026 only makes sense as a lesson companion. The READ modal has been removed (March 20, 2026) — all content is now rendered inline in `VisualLessonCard`, reinforcing the companion-not-reference model.
+**The critical difference is what the reading event IS:**
+
+| Surface | What the reading IS | Right content density | Voice session role |
+|---------|--------------------|-----------------------|-------------------|
+| OpenStax reading library (history, science) | The primary learning event | Dense, narrative, comprehensive | Discussion, debate, synthesis |
+| Language interactive textbook | Preparation for the learning event | Compact, visual, scannable | Production, cementing, real use |
+
+Both have voice sessions as the cementing mechanism — but the amount and density of what feeds into those sessions differs by subject type. History students arrive at voice sessions having digested a chapter; language students arrive having absorbed a pattern.
+
+The distinction should be clear in content generation: the prompts that generate OpenStax reading library modules should produce substantive, explanatory prose; the prompts that generate language textbook content (`textbook_lesson_content` table) should produce minimal, structural, reference-oriented content — no padding, no re-explanation of what the card already shows.
+
+*Rationale:* The inline visual reference card system (grammar cards, cultural cards, phonetic guides, word family cards, canvas vocab) built across March 2026 is already in the right direction — compact by design. The READ modal was removed (March 20, 2026) to reinforce the scan-and-go model. The remaining risk is in the AI-generated prose sections of `textbook_lesson_content` — these should be audited to ensure they stay brief and structural, not discursive.
 
 ---
 
