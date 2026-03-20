@@ -219,16 +219,20 @@ The distinction should eventually be clear in the UI. The interactive textbook's
 
 ### Decision 3: What's the learning model for individual (non-school) users?
 
-**Decision: Option A/D — Interactive textbook + voice, subscription model.**
+**Decision: Voice chat is the primary teaching tool. The textbook is the rapid-acquisition companion that feeds it.**
 
-The textbook IS a primary learning surface for individual learners, not just a supplemental reference. The model is:
-- Students work through the interactive textbook (visual reference cards, grammar cards, cultural context, phonetic guides, word families) as structured self-study.
-- Voice sessions with Daniela are the practice layer — applying what the textbook introduced.
-- The subscription covers both textbook access and voice hours.
+The two surfaces do different cognitive jobs at different stages of the same learning cycle:
 
-Schools retain structured classes (non-negotiable for state auditors). Individual learners get textbook + voice as a unified subscription.
+- **Textbook** → rapid initial uptake. Students absorb numbers 1–10, a grammar rule, or a cultural concept quickly through visual reference cards, phonetic guides, and structured examples. Text and visuals are faster for first exposure — the student can scan, replay audio snippets, and absorb the pattern before they've had to speak a word.
+- **Voice session with Daniela** → cementing through real use. The numbers get used in a scenario. The grammar rule surfaces in an actual exchange. Daniela corrects, reinforces, and adds nuance in context. This is where the learning becomes durable — where the student stops recalling and starts producing.
 
-*Rationale:* The build work across five sessions (infographics, grammar cards, cultural cards, phonetic guides, word families, canvas vocab — all 9 languages, all complete) constitutes a commitment to the textbook as a primary learning surface. Reversing to voice-only would invalidate this investment. The textbook visual reference system is the most differentiated asset HolaHola has relative to competitors — it should be central, not supplemental.
+The textbook doesn't replace Daniela; it accelerates the student *into* a better Daniela session. A student who has already absorbed the form through the textbook can use their voice time for meaning and fluency instead of first-exposure confusion.
+
+The subscription covers both: textbook access for rapid uptake, voice hours for contextual cementing. For individual learners, neither is optional — they're one learning loop.
+
+Schools retain structured classes (non-negotiable for state auditors). Individual learners get the textbook + voice loop as a unified subscription.
+
+*Rationale:* This matches how the system was actually built. The visual reference cards (grammar cards, phonetic guides, cultural cards, word families, canvas vocab — all 9 languages) are designed for fast comprehension, not deep reference. The inline rendering in VisualLessonCard, the compact card format, and the "then practice with Daniela" CTA all reflect this pattern: get it fast, then make it real.
 
 ---
 
@@ -285,7 +289,7 @@ Lyra now has two new monitoring domains added March 20, 2026:
 
 ### Resolved Since Last Review
 
-1. ~~**Answer Decision 3 first**~~ — **Done.** Decision 3 closed: textbook + voice is the learning model for individuals. Textbook is a primary surface.
+1. ~~**Answer Decision 3 first**~~ — **Done.** Decision 3 closed: voice chat is the primary teaching tool; textbook is the rapid-acquisition companion that prepares students for better Daniela sessions. They form one learning loop, not competing surfaces.
 
 2. ~~**Infographic approach — start small**~~ — **Done at scale.** All 9 languages have complete visual reference card libraries (grammar, cultural, phonetic, word family, canvas vocab). Grammar/structure visual approach (React components, not images) is confirmed as the right pattern and is now live for all languages.
 
