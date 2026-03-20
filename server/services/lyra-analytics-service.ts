@@ -1007,13 +1007,13 @@ Write your analysis as Lyra. Sign off with your name. Keep it 4-6 paragraphs —
     const weakDrillsResult = await db.execute(sql`
       SELECT cl.id as lesson_id, cl.name as lesson_name,
              cu.name as unit_name, cp.language,
-             COALESCE(jsonb_array_length(cl.required_vocabulary::jsonb), 0) as vocab_count
+             COALESCE(cardinality(cl.required_vocabulary), 0) as vocab_count
       FROM curriculum_lessons cl
       JOIN curriculum_units cu ON cu.id = cl.curriculum_unit_id
       JOIN curriculum_paths cp ON cp.id = cu.curriculum_path_id
       WHERE cp.is_published = true
         AND cl.lesson_type IN ('vocabulary', 'drill')
-        AND COALESCE(jsonb_array_length(cl.required_vocabulary::jsonb), 0) <= 5
+        AND COALESCE(cardinality(cl.required_vocabulary), 0) <= 5
       ORDER BY cp.language, vocab_count ASC
       LIMIT 50
     `);
