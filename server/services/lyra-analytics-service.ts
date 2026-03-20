@@ -72,6 +72,36 @@ interface ComponentCoverageData {
   lastUpdated: string;
 }
 
+interface CurriculumAuditData {
+  missingTextbook: Array<{
+    lessonId: string;
+    lessonName: string;
+    unitName: string;
+    language: string;
+    lessonType: string;
+  }>;
+  weakDrills: Array<{
+    lessonId: string;
+    lessonName: string;
+    unitName: string;
+    language: string;
+    vocabCount: number;
+  }>;
+  verboseTextbook: Array<{
+    language: string;
+    verboseCount: number;
+    totalCount: number;
+    avgIntroLength: number;
+    avgGrammarLength: number;
+  }>;
+  unseededLanguages: Array<{
+    language: string;
+    lessonCount: number;
+    seededCount: number;
+  }>;
+  totalLessonsAudited: number;
+}
+
 export class LyraAnalyticsService {
 
   async gatherContentAuditData(): Promise<ContentAuditData> {
@@ -955,6 +985,210 @@ Write your analysis as Lyra. Sign off with your name. Keep it 4-6 paragraphs —
     }
   }
 
+  async gatherCurriculumAuditData(): Promise<CurriculumAuditData> {
+    const db = getSharedDb();
+
+    // Check 1: Lessons with no textbook_lesson_content row
+    const missingTextbookResult = await db.execute(sql`
+      SELECT cl.id as lesson_id, cl.name as lesson_name, cl.lesson_type,
+             cu.name as unit_name, cp.language
+      FROM curriculum_lessons cl
+      JOIN curriculum_units cu ON cu.id = cl.curriculum_unit_id
+      JOIN curriculum_paths cp ON cp.id = cu.curriculum_path_id
+      WHERE cp.is_published = true
+        AND NOT EXISTS (
+          SELECT 1 FROM textbook_lesson_content tlc WHERE tlc.lesson_id = cl.id
+        )
+      ORDER BY cp.language, cu.order_index, cl.lesson_type
+      LIMIT 100
+    `);
+
+    // Check 2: Vocabulary/drill lessons with very few or zero required_vocabulary items
+    const weakDrillsResult = await db.execute(sql`
+      SELECT cl.id as lesson_id, cl.name as lesson_name,
+             cu.name as unit_name, cp.language,
+             COALESCE(jsonb_array_length(cl.required_vocabulary::jsonb), 0) as vocab_count
+      FROM curriculum_lessons cl
+      JOIN curriculum_units cu ON cu.id = cl.curriculum_unit_id
+      JOIN curriculum_paths cp ON cp.id = cu.curriculum_path_id
+      WHERE cp.is_published = true
+        AND cl.lesson_type IN ('vocabulary', 'drill')
+        AND COALESCE(jsonb_array_length(cl.required_vocabulary::jsonb), 0) <= 5
+      ORDER BY cp.language, vocab_count ASC
+      LIMIT 50
+    `);
+
+    // Check 3: Verbosity regression — intro > 600ch or grammar > 800ch (should be 0 after compact reseed)
+    const verbosityResult = await db.execute(sql`
+      SELECT
+        tlc.language,
+        COUNT(*) FILTER (
+          WHERE LENGTH(tlc.introduction) > 600 OR LENGTH(tlc.grammar_explanation) > 800
+        ) as verbose_count,
+        COUNT(*) as total_count,
+        ROUND(AVG(LENGTH(tlc.introduction)))::int as avg_intro_length,
+        ROUND(AVG(LENGTH(tlc.grammar_explanation)))::int as avg_grammar_length
+      FROM textbook_lesson_content tlc
+      JOIN curriculum_lessons cl ON cl.id = tlc.lesson_id
+      WHERE tlc.language IN ('spanish','french','portuguese','german','italian','korean')
+      GROUP BY tlc.language
+      HAVING COUNT(*) FILTER (
+        WHERE LENGTH(tlc.introduction) > 600 OR LENGTH(tlc.grammar_explanation) > 800
+      ) > 0
+      ORDER BY verbose_count DESC
+    `);
+
+    // Check 4: Per-language seeding coverage (what % of lessons have textbook content)
+    const unseededResult = await db.execute(sql`
+      SELECT cp.language,
+        COUNT(DISTINCT cl.id) as lesson_count,
+        COUNT(DISTINCT tlc.lesson_id) as seeded_count
+      FROM curriculum_paths cp
+      JOIN curriculum_units cu ON cu.curriculum_path_id = cp.id
+      JOIN curriculum_lessons cl ON cl.curriculum_unit_id = cu.id
+      LEFT JOIN textbook_lesson_content tlc ON tlc.lesson_id = cl.id
+      WHERE cp.is_published = true
+      GROUP BY cp.language
+      HAVING COUNT(DISTINCT cl.id) > COUNT(DISTINCT tlc.lesson_id)
+      ORDER BY (COUNT(DISTINCT cl.id) - COUNT(DISTINCT tlc.lesson_id)) DESC
+    `);
+
+    const totalResult = await db.execute(sql`
+      SELECT COUNT(*) as total
+      FROM curriculum_lessons cl
+      JOIN curriculum_units cu ON cu.id = cl.curriculum_unit_id
+      JOIN curriculum_paths cp ON cp.id = cu.curriculum_path_id
+      WHERE cp.is_published = true
+    `);
+    const total = parseInt(((totalResult.rows || [])[0] as any)?.total || '0');
+
+    return {
+      missingTextbook: (missingTextbookResult.rows || []).map((r: any) => ({
+        lessonId: r.lesson_id,
+        lessonName: r.lesson_name,
+        unitName: r.unit_name,
+        language: r.language,
+        lessonType: r.lesson_type,
+      })),
+      weakDrills: (weakDrillsResult.rows || []).map((r: any) => ({
+        lessonId: r.lesson_id,
+        lessonName: r.lesson_name,
+        unitName: r.unit_name,
+        language: r.language,
+        vocabCount: parseInt(r.vocab_count || '0'),
+      })),
+      verboseTextbook: (verbosityResult.rows || []).map((r: any) => ({
+        language: r.language,
+        verboseCount: parseInt(r.verbose_count || '0'),
+        totalCount: parseInt(r.total_count || '0'),
+        avgIntroLength: parseInt(r.avg_intro_length || '0'),
+        avgGrammarLength: parseInt(r.avg_grammar_length || '0'),
+      })),
+      unseededLanguages: (unseededResult.rows || []).map((r: any) => ({
+        language: r.language,
+        lessonCount: parseInt(r.lesson_count || '0'),
+        seededCount: parseInt(r.seeded_count || '0'),
+      })),
+      totalLessonsAudited: total,
+    };
+  }
+
+  generateCurriculumAuditInsights(data: CurriculumAuditData): LyraInsight[] {
+    const insights: LyraInsight[] = [];
+
+    // Verbosity regression (highest priority — we just fixed this; if it comes back it's a seeding regression)
+    if (data.verboseTextbook.length > 0) {
+      const totalVerbose = data.verboseTextbook.reduce((s, r) => s + r.verboseCount, 0);
+      const affected = data.verboseTextbook.map(r => `${r.language} (${r.verboseCount}/${r.totalCount})`).join(', ');
+      insights.push({
+        category: 'content_quality',
+        severity: totalVerbose > 50 ? 'high' : 'medium',
+        confidence: 1.0,
+        title: `Textbook verbosity regression: ${totalVerbose} lessons have bloated intro or grammar text`,
+        description: `Affected languages: ${affected}. Compact textbook content (intro ≤ 220ch, grammar ≤ 400ch) was enforced in March 2026. Verbose content re-appearing means a seeding job ran with the old prompt format. Students see wall-of-text lesson openers that bury the actual teaching point.`,
+        data: { totalVerbose, affectedLanguages: data.verboseTextbook },
+        recommendation: `Re-run server/scripts/compact-textbook-reseed.ts --run to restore compact format. Then find the seeding job that generated the verbose content and update its prompt to match the compact format.`,
+        needsReview: true,
+      });
+    }
+
+    // Missing textbook content
+    if (data.missingTextbook.length > 0) {
+      const byLanguage: Record<string, number> = {};
+      for (const r of data.missingTextbook) {
+        byLanguage[r.language] = (byLanguage[r.language] || 0) + 1;
+      }
+      const summary = Object.entries(byLanguage)
+        .sort((a, b) => b[1] - a[1])
+        .map(([lang, count]) => `${lang}: ${count}`)
+        .join(', ');
+      insights.push({
+        category: 'coverage_gap',
+        severity: data.missingTextbook.length > 30 ? 'high' : data.missingTextbook.length > 10 ? 'medium' : 'low',
+        confidence: 1.0,
+        title: `${data.missingTextbook.length} published lessons have no textbook content`,
+        description: `These lessons appear in the syllabus but have no textbook_lesson_content row — students will see empty chapter views. By language: ${summary}.`,
+        data: { count: data.missingTextbook.length, byLanguage, samples: data.missingTextbook.slice(0, 8) },
+        recommendation: `Run the textbook seeder for the affected lessons. Prioritize languages with the highest missing counts. The lesson IDs are available in the data field.`,
+        needsReview: false,
+      });
+    }
+
+    // Weak drills
+    if (data.weakDrills.length > 0) {
+      const zeroVocab = data.weakDrills.filter(r => r.vocabCount === 0);
+      const thinVocab = data.weakDrills.filter(r => r.vocabCount > 0 && r.vocabCount <= 5);
+      const desc = [
+        zeroVocab.length > 0 ? `${zeroVocab.length} with zero vocabulary items` : null,
+        thinVocab.length > 0 ? `${thinVocab.length} with 1–5 items (typical is 12–14)` : null,
+      ].filter(Boolean).join(', ');
+      insights.push({
+        category: 'content_quality',
+        severity: zeroVocab.length > 5 ? 'medium' : 'low',
+        confidence: 0.9,
+        title: `${data.weakDrills.length} vocabulary/drill lessons have thin required_vocabulary`,
+        description: `${desc}. Vocabulary and drill lessons with few items give Daniela insufficient material to work with during practice sessions. Typical drill lessons should have 12–14 items.`,
+        data: { total: data.weakDrills.length, zeroVocab: zeroVocab.length, thinVocab: thinVocab.length, samples: data.weakDrills.slice(0, 8) },
+        recommendation: `Review and expand the required_vocabulary for these lessons. Zero-item lessons are the most urgent — they prevent the drill system from functioning.`,
+        needsReview: false,
+      });
+    }
+
+    // Unseeded languages (partial seeding gaps)
+    if (data.unseededLanguages.length > 0) {
+      for (const lang of data.unseededLanguages) {
+        const missing = lang.lessonCount - lang.seededCount;
+        const pct = Math.round((lang.seededCount / lang.lessonCount) * 100);
+        insights.push({
+          category: 'coverage_gap',
+          severity: pct < 50 ? 'high' : pct < 80 ? 'medium' : 'low',
+          confidence: 1.0,
+          title: `${lang.language}: ${missing} lessons unseeded (${pct}% coverage)`,
+          description: `${lang.language} has ${lang.seededCount} of ${lang.lessonCount} lessons with textbook content. The remaining ${missing} lessons will show empty chapter views in the textbook.`,
+          data: { language: lang.language, lessonCount: lang.lessonCount, seededCount: lang.seededCount, missing, pct },
+          recommendation: `Run the textbook seeder targeting ${lang.language} to fill the remaining ${missing} lessons.`,
+          needsReview: false,
+        });
+      }
+    }
+
+    // All clear
+    if (insights.length === 0) {
+      insights.push({
+        category: 'content_quality',
+        severity: 'info',
+        confidence: 1.0,
+        title: `Curriculum audit: no structural issues found across ${data.totalLessonsAudited} lessons`,
+        description: `All published lessons have textbook content, no verbosity regression detected, vocabulary/drill lessons have adequate items, and all languages are fully seeded.`,
+        data: { totalLessonsAudited: data.totalLessonsAudited },
+        recommendation: 'No action needed. Lyra will continue monitoring on each analysis run.',
+        needsReview: false,
+      });
+    }
+
+    return insights;
+  }
+
   gatherComponentCoverageData(): ComponentCoverageData {
     const manifestPath = path.join(process.cwd(), 'docs', 'textbook-component-coverage.json');
     let manifest: any = null;
@@ -1072,7 +1306,7 @@ ${insights.slice(0, 5).map(i => `- [${i.severity.toUpperCase()}] ${i.title}`).jo
 *Lyra — Learning Experience Analyst (AI summary unavailable)*`;
   }
 
-  async runFullAnalysis(): Promise<{ insights: LyraInsight[]; contentData: ContentAuditData; studentData: StudentSuccessData; onboardingData: OnboardingData; textbookData: TextbookEngagementData; componentCoverageData: ComponentCoverageData }> {
+  async runFullAnalysis(): Promise<{ insights: LyraInsight[]; contentData: ContentAuditData; studentData: StudentSuccessData; onboardingData: OnboardingData; textbookData: TextbookEngagementData; componentCoverageData: ComponentCoverageData; curriculumAuditData: CurriculumAuditData }> {
     const startTime = Date.now();
     console.log('[Lyra] Starting full learning experience analysis...');
 
@@ -1081,6 +1315,7 @@ ${insights.slice(0, 5).map(i => `- [${i.severity.toUpperCase()}] ${i.title}`).jo
     let onboardingData: OnboardingData = { totalUsers: 0, usersWithConversation: 0, conversionRate: 0, avgDaysToFirstChat: 0, returnRate7d: 0, recentSignups: [] };
     let textbookData: TextbookEngagementData = { totalSections: 0, totalViewed: 0, totalCompleted: 0, uniqueUsers: 0, uniqueLessons: 0, totalLessons: 0, visualAssetCount: 0, userBreakdown: [], languageBreakdown: [], completionByType: [] };
     let componentCoverageData: ComponentCoverageData = { manifest: null, gaps: [], complete: [], lastUpdated: 'unknown' };
+    let curriculumAuditData: CurriculumAuditData = { missingTextbook: [], weakDrills: [], verboseTextbook: [], unseededLanguages: [], totalLessonsAudited: 0 };
 
     try {
       contentData = await this.gatherContentAuditData();
@@ -1119,12 +1354,21 @@ ${insights.slice(0, 5).map(i => `- [${i.severity.toUpperCase()}] ${i.title}`).jo
       console.error('[Lyra] Component coverage check failed:', err.message);
     }
 
+    try {
+      curriculumAuditData = await this.gatherCurriculumAuditData();
+      const issueCount = curriculumAuditData.missingTextbook.length + curriculumAuditData.weakDrills.length + curriculumAuditData.verboseTextbook.length + curriculumAuditData.unseededLanguages.length;
+      console.log(`[Lyra] Curriculum audit: ${curriculumAuditData.totalLessonsAudited} lessons checked, ${issueCount} issues (${curriculumAuditData.missingTextbook.length} missing textbook, ${curriculumAuditData.weakDrills.length} weak drills, ${curriculumAuditData.verboseTextbook.length} verbose regressions)`);
+    } catch (err: any) {
+      console.error('[Lyra] Curriculum audit failed:', err.message);
+    }
+
     const insights: LyraInsight[] = [
       ...this.generateContentInsights(contentData),
       ...this.generateStudentInsights(studentData),
       ...this.generateOnboardingInsights(onboardingData),
       ...this.generateTextbookInsights(textbookData),
       ...this.generateComponentCoverageInsights(componentCoverageData),
+      ...this.generateCurriculumAuditInsights(curriculumAuditData),
     ];
 
     insights.sort((a, b) => {
@@ -1135,7 +1379,7 @@ ${insights.slice(0, 5).map(i => `- [${i.severity.toUpperCase()}] ${i.title}`).jo
     const elapsed = Date.now() - startTime;
     console.log(`[Lyra] Analysis complete: ${insights.length} insights in ${elapsed}ms`);
 
-    return { insights, contentData, studentData, onboardingData, textbookData, componentCoverageData };
+    return { insights, contentData, studentData, onboardingData, textbookData, componentCoverageData, curriculumAuditData };
   }
 }
 
