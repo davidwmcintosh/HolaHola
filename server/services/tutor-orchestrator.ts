@@ -209,24 +209,6 @@ Embrace this persona naturally - it's who you are as ${voice.name}.
 // ═══════════════════════════════════════════════════════════════════
 
 /**
- * Map an ACTFL proficiency level string → Bloom's taxonomy stage
- */
-function inferBloomsLevel(proficiencyLevel: string): { level: string; label: string } {
-  const p = proficiencyLevel.toLowerCase();
-  if (p.includes('superior'))                       return { level: 'create',   label: 'Create'   };
-  if (p.includes('advanced high'))                  return { level: 'create',   label: 'Create'   };
-  if (p.includes('advanced mid'))                   return { level: 'evaluate', label: 'Evaluate' };
-  if (p.includes('advanced low'))                   return { level: 'analyze',  label: 'Analyze'  };
-  if (p.includes('advanced'))                       return { level: 'analyze',  label: 'Analyze'  };
-  if (p.includes('intermediate high'))              return { level: 'analyze',  label: 'Analyze'  };
-  if (p.includes('intermediate mid'))               return { level: 'apply',    label: 'Apply'    };
-  if (p.includes('intermediate low'))               return { level: 'understand', label: 'Understand' };
-  if (p.includes('intermediate'))                   return { level: 'apply',    label: 'Apply'    };
-  if (p.includes('novice'))                         return { level: 'remember', label: 'Remember' };
-  return { level: 'understand', label: 'Understand' };
-}
-
-/**
  * Map a drill item type → Bloom's taxonomy level
  */
 function getBloomsLevelFromItemType(itemType: string): string {
@@ -244,84 +226,100 @@ function getBloomsLevelFromItemType(itemType: string): string {
  * Build the Bloom's taxonomy calibration section for Daniela's system prompt
  */
 function buildBloomsSection(proficiencyLevel: string): string {
-  const { level, label } = inferBloomsLevel(proficiencyLevel);
+  const p = proficiencyLevel.toLowerCase();
+  
+  // Determine the proficiency band for complexity calibration
+  let band: 'novice' | 'intermediate' | 'advanced';
+  if (p.includes('novice')) band = 'novice';
+  else if (p.includes('advanced') || p.includes('superior')) band = 'advanced';
+  else band = 'intermediate';
 
-  const guidance: Record<string, string> = {
-    remember: `
-At the REMEMBER stage your student is building their first vocabulary bank.
+  // Per-band guidance for each Bloom's operation
+  const guidance: Record<typeof band, string> = {
+    novice: `
+PROFICIENCY BAND: Novice (${proficiencyLevel})
 
-HOW TO TEACH:
-• Use heavy repetition — say it, have them echo, vary the context, say it again
-• Label everything: name objects, actions, and emotions in the target language
-• Don't rush to grammar rules — exposure and "feel" come before structure
-• Celebrate recognition loudly: "You knew that!" is fuel at this stage
-• Keep input at i+1 — one step above their current level, no more
-• Use their native language generously to anchor new words
-• Short, successful exchanges beat long, stumbling ones`,
+Apply all six Bloom's levels using SIMPLE material — basic vocabulary, common phrases, 
+everyday objects and situations. The cognitive operations are the same; the content is just simpler.
 
-    understand: `
-At the UNDERSTAND stage your student can recall words but needs to make meaning.
+REMEMBER: Build their word bank. Repetition, labeling, echoing. Celebrate recognition.
+  → "Repeat after me: 'agua'. Good — agua means water. Now you say it."
 
-HOW TO TEACH:
-• Ask them to paraphrase: "What do you think that means in your own words?"
-• Use context clues — "based on the sentence, what might this word mean?"
-• Draw connections to cognates, word families, and things they already know
-• Test genuine understanding, not just recall: "Can you give me an example?"
-• Ask for translations of meaning, not just word-for-word swaps
-• Gently surface confusion before it becomes a bad habit`,
+UNDERSTAND: Check that words mean something, not just sound familiar.
+  → "You just heard 'gracias' — what do you think it means based on how I used it?"
 
-    apply: `
-At the APPLY stage your student understands material but needs to USE it spontaneously.
+APPLY: Get them using words in the simplest real situations.
+  → "You know 'hola' — greet me as if we just ran into each other on the street."
 
-HOW TO TEACH:
-• Push for production in new contexts: "Use that word in your own sentence"
-• Take familiar material somewhere unfamiliar: "You know 'comer' in the present — try it in the past"
-• Don't over-explain before they try — let them attempt first, then clarify
-• Guide self-correction: "Almost! Can you hear what might need changing?"
-• Role-play real scenarios: ordering food, asking directions, small talk
-• Make them reach for words they already know before introducing new ones`,
+ANALYZE: Notice the simplest patterns. Even novices can spot structure.
+  → "Look at these three words: gato, libro, perro. What do you notice about them?"
 
-    analyze: `
-At the ANALYZE stage your student can use the language — now they need to understand WHY it works.
+EVALUATE: Let them judge, even with simple material. Their instincts work.
+  → "I said it two ways — which one sounded more like the audio you heard earlier?"
 
-HOW TO TEACH:
-• Break down grammar patterns explicitly: "Why does this conjugate this way?"
-• Compare and contrast: "Subjunctive vs. indicative — when does each feel right?"
-• Ask them to explain the rule back to you after you've taught it
-• Explore nuance: register, formality, regional variation, implied meaning
-• Encourage metalinguistic thinking — treat the language as an object of study
-• Surface the patterns behind exceptions, not just the exceptions themselves`,
+CREATE: Small, simple, theirs. Even one original sentence counts as creation.
+  → "Use any three words you know today and make your own sentence — anything goes."`,
 
-    evaluate: `
-At the EVALUATE stage your student commands the language — now they need critical judgment.
+    intermediate: `
+PROFICIENCY BAND: Intermediate (${proficiencyLevel})
 
-HOW TO TEACH:
-• Ask whether something sounds natural: "Both are grammatically correct — which feels more native?"
-• Discuss stylistic choices: word order, word selection, rhythm and flow
-• Bring in cultural evaluation: "How might a native speaker react to this phrasing?"
-• Ask for justifications: "Why do you prefer that word over this one?"
-• Have them review and critique their own output before you comment
-• Introduce authentic native-speaker material and discuss what makes it work`,
+Apply all six Bloom's levels using CONVERSATIONAL material — full sentences, familiar 
+topics (food, travel, family, work), and some grammar. Push them to stretch constantly.
 
-    create: `
-At the CREATE stage your student has the tools — now they need to produce freely.
+REMEMBER: Reinforce vocabulary gaps without making a big deal of it.
+  → "Quick — what's the word for 'disappointed' in Spanish? Let's lock that one in."
 
-HOW TO TEACH:
-• Step back and let them drive: open-ended tasks, improvised scenarios, narrative
-• Provide minimal scaffolding — trust them to figure it out, intervene only when they're stuck
-• Challenge with complex, ambiguous, culturally loaded situations
-• Discuss language as a creative medium, not just a communication tool
-• Act as a conversation partner more than a teacher — you're peers in this interaction
-• Push register switching, irony, humor, and emotional nuance`,
+UNDERSTAND: Test real comprehension through context, not translation.
+  → "Don't translate — tell me in English what that paragraph was describing."
+
+APPLY: This is their highest-volume work. New contexts for familiar structures.
+  → "You know the past tense — describe what you did this morning using only Spanish."
+
+ANALYZE: Help them see why, not just what. Grammar patterns, register differences.
+  → "Why do you think the speaker used 'estar' there instead of 'ser'? What changes?"
+
+EVALUATE: Train their ear and cultural instinct.
+  → "Both sentences are correct — which one would you actually hear in a café in Paris?"
+
+CREATE: Open-ended production with real stakes. Scenarios, stories, opinions.
+  → "You're writing a WhatsApp to cancel plans with a French friend — go."`,
+
+    advanced: `
+PROFICIENCY BAND: Advanced (${proficiencyLevel})
+
+Apply all six Bloom's levels using COMPLEX, NUANCED material — idioms, cultural 
+subtext, register variation, professional and literary language. Act more as a 
+conversation partner than a teacher.
+
+REMEMBER: Surface specialized vocabulary and idiomatic expressions they likely lack.
+  → "There's a perfect word for that feeling in German — 'Weltschmerz'. Let's make it stick."
+
+UNDERSTAND: Deep cultural and contextual comprehension — subtext, implication, irony.
+  → "What is the speaker really saying here? What does the choice of that word signal socially?"
+
+APPLY: Complex grammar, professional register, spontaneous use of advanced structures.
+  → "Explain that economic argument to me as if presenting to a board — in German, now."
+
+ANALYZE: Structure, style, rhetorical choices. Why does it work the way it works?
+  → "Compare how this author uses the subjunctive versus how a journalist would — what changes?"
+
+EVALUATE: Critical judgment at a near-native level.
+  → "Read this paragraph aloud. Where does your accent or phrasing signal non-native? Let's fix it."
+
+CREATE: Complex, expressive, original output. You provide the spark, they drive.
+  → "Make an argument for the opposing side — in their style, not yours — and make it convincing."`,
   };
 
   return `
 ═══════════════════════════════════════════════════════════════════
-🧩 BLOOM'S TAXONOMY - COGNITIVE TEACHING CALIBRATION
+🧩 BLOOM'S TAXONOMY - FULL SPECTRUM TEACHING
 ═══════════════════════════════════════════════════════════════════
 
-Student's Bloom's Level: ${label} (inferred from proficiency: ${proficiencyLevel})
-${guidance[level] || guidance.understand}
+CORE PRINCIPLE: Use ALL six Bloom's levels with EVERY student at EVERY session.
+Proficiency determines the COMPLEXITY OF CONTENT — not which cognitive operations 
+are available. A novice can evaluate, analyze, and create. They just do it with 
+simpler material. Withholding higher-order thinking from beginners is a mistake.
+${guidance[band]}
 `;
 }
 
