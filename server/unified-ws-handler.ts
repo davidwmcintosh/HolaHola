@@ -57,6 +57,9 @@ import { getPredictiveTeachingContext, getStudentSnapshotData, type PredictiveTe
 import { studentLearningService } from './services/student-learning-service';
 import { voiceDiagnostics } from './services/voice-diagnostics-service';
 import type { VoiceSession as UsageVoiceSession, CompassContext, TutorSession } from '@shared/schema';
+import { voiceGracePeriods } from '@shared/schema';
+import { db } from './db';
+import { eq, and, gt, lt } from 'drizzle-orm';
 
 // Use /api/ paths - Replit's proxy properly routes these
 const STREAMING_VOICE_PATH = '/api/voice/stream/ws';
@@ -114,6 +117,42 @@ interface PendingReconnectData {
 const RECONNECT_GRACE_PERIOD_MS = 15000;
 const pendingReconnectSessions = new Map<string, PendingReconnectData>();
 
+function armReconnectTimer(
+  conversationId: string,
+  pending: PendingReconnectData,
+  delayMs: number
+): NodeJS.Timeout {
+  return setTimeout(async () => {
+    const current = pendingReconnectSessions.get(conversationId);
+    if (!current) return;
+    pendingReconnectSessions.delete(conversationId);
+    db.delete(voiceGracePeriods).where(eq(voiceGracePeriods.conversationId, conversationId)).catch(() => {});
+    console.log(`[Reconnect Grace] Grace period expired for ${conversationId.substring(0, 8)} — ending session`);
+    try {
+      await usageService.updateSessionMetrics(current.usageSessionId, {
+        exchangeCount: current.exchangeCount,
+        studentSpeakingSeconds: current.studentSpeakingSeconds,
+        tutorSpeakingSeconds: current.tutorSpeakingSeconds,
+        ttsCharacters: current.ttsCharacters,
+        sttSeconds: current.sttSeconds,
+      });
+      const endedSession = await usageService.endSession(current.usageSessionId);
+      if (endedSession) {
+        console.log(`[Reconnect Grace] Usage session ended: ${endedSession.durationSeconds}s, ${current.exchangeCount} exchanges`);
+      }
+    } catch (err: any) {
+      console.error('[Reconnect Grace] Failed to end session:', err.message);
+    }
+    if (current.compassSessionActive) {
+      try {
+        await sessionCompassService.endSession(conversationId);
+      } catch (err: any) {
+        console.warn('[Reconnect Grace] Failed to end compass session:', err.message);
+      }
+    }
+  }, delayMs);
+}
+
 function storePendingReconnect(
   conversationId: string,
   data: Omit<PendingReconnectData, 'timer' | 'conversationId'>
@@ -123,50 +162,127 @@ function storePendingReconnect(
     clearTimeout(existing.timer);
   }
 
-  const timer = setTimeout(async () => {
-    const pending = pendingReconnectSessions.get(conversationId);
-    if (!pending) return;
-    pendingReconnectSessions.delete(conversationId);
-    console.log(`[Reconnect Grace] Grace period expired for ${conversationId.substring(0, 8)} — ending session`);
-    try {
-      await usageService.updateSessionMetrics(pending.usageSessionId, {
-        exchangeCount: pending.exchangeCount,
-        studentSpeakingSeconds: pending.studentSpeakingSeconds,
-        tutorSpeakingSeconds: pending.tutorSpeakingSeconds,
-        ttsCharacters: pending.ttsCharacters,
-        sttSeconds: pending.sttSeconds,
-      });
-      const endedSession = await usageService.endSession(pending.usageSessionId);
-      if (endedSession) {
-        console.log(`[Reconnect Grace] Usage session ended: ${endedSession.durationSeconds}s, ${pending.exchangeCount} exchanges`);
-      }
-    } catch (err: any) {
-      console.error('[Reconnect Grace] Failed to end session:', err.message);
-    }
-    if (pending.compassSessionActive) {
-      try {
-        await sessionCompassService.endSession(conversationId);
-      } catch (err: any) {
-        console.warn('[Reconnect Grace] Failed to end compass session:', err.message);
-      }
-    }
-  }, RECONNECT_GRACE_PERIOD_MS);
-
-  pendingReconnectSessions.set(conversationId, { ...data, conversationId, timer });
+  const entry: PendingReconnectData = { ...data, conversationId, timer: null as any };
+  entry.timer = armReconnectTimer(conversationId, entry, RECONNECT_GRACE_PERIOD_MS);
+  pendingReconnectSessions.set(conversationId, entry);
   console.log(`[Reconnect Grace] Stored pending session for ${conversationId.substring(0, 8)} (${RECONNECT_GRACE_PERIOD_MS / 1000}s grace)`);
+
+  // Persist to DB for server-restart resilience (fire-and-forget)
+  db.insert(voiceGracePeriods).values({
+    conversationId,
+    usageSessionId: data.usageSessionId,
+    compassSessionActive: data.compassSessionActive,
+    exchangeCount: data.exchangeCount,
+    studentSpeakingSeconds: data.studentSpeakingSeconds,
+    tutorSpeakingSeconds: data.tutorSpeakingSeconds,
+    ttsCharacters: data.ttsCharacters,
+    sttSeconds: data.sttSeconds,
+    sessionStartTime: data.sessionStartTime,
+    userId: data.userId,
+    expiresAt: new Date(Date.now() + RECONNECT_GRACE_PERIOD_MS),
+  }).onConflictDoUpdate({
+    target: voiceGracePeriods.conversationId,
+    set: {
+      usageSessionId: data.usageSessionId,
+      compassSessionActive: data.compassSessionActive,
+      exchangeCount: data.exchangeCount,
+      studentSpeakingSeconds: data.studentSpeakingSeconds,
+      tutorSpeakingSeconds: data.tutorSpeakingSeconds,
+      ttsCharacters: data.ttsCharacters,
+      sttSeconds: data.sttSeconds,
+      sessionStartTime: data.sessionStartTime,
+      userId: data.userId,
+      expiresAt: new Date(Date.now() + RECONNECT_GRACE_PERIOD_MS),
+    },
+  }).catch((err: Error) => {
+    console.warn('[Reconnect Grace] DB write failed (in-memory path still active):', err.message);
+  });
 }
 
-function claimPendingReconnect(conversationId: string, userId: string): PendingReconnectData | null {
+async function claimPendingReconnect(conversationId: string, userId: string): Promise<PendingReconnectData | null> {
+  // Fast path: check in-memory map first
   const pending = pendingReconnectSessions.get(conversationId);
-  if (!pending) return null;
-  if (pending.userId !== userId) {
-    console.warn(`[Reconnect Grace] User mismatch for ${conversationId.substring(0, 8)}: expected ${pending.userId}, got ${userId}`);
+  if (pending) {
+    if (pending.userId !== userId) {
+      console.warn(`[Reconnect Grace] User mismatch for ${conversationId.substring(0, 8)}: expected ${pending.userId}, got ${userId}`);
+      return null;
+    }
+    clearTimeout(pending.timer);
+    pendingReconnectSessions.delete(conversationId);
+    db.delete(voiceGracePeriods).where(eq(voiceGracePeriods.conversationId, conversationId)).catch(() => {});
+    console.log(`[Reconnect Grace] RESUMED session for ${conversationId.substring(0, 8)} — carrying ${pending.exchangeCount} exchanges`);
+    return pending;
+  }
+
+  // DB fallback: handles server-restart scenario where in-memory map was cleared
+  try {
+    const rows = await db.select().from(voiceGracePeriods).where(
+      and(
+        eq(voiceGracePeriods.conversationId, conversationId),
+        eq(voiceGracePeriods.userId, userId),
+        gt(voiceGracePeriods.expiresAt, new Date())
+      )
+    );
+    if (rows.length === 0) return null;
+    const row = rows[0];
+    await db.delete(voiceGracePeriods).where(eq(voiceGracePeriods.conversationId, conversationId));
+    console.log(`[Reconnect Grace] RESUMED session from DB for ${conversationId.substring(0, 8)} after server restart — carrying ${row.exchangeCount} exchanges`);
+    return {
+      conversationId: row.conversationId,
+      usageSessionId: row.usageSessionId,
+      compassSessionActive: row.compassSessionActive,
+      exchangeCount: row.exchangeCount,
+      studentSpeakingSeconds: row.studentSpeakingSeconds,
+      tutorSpeakingSeconds: row.tutorSpeakingSeconds,
+      ttsCharacters: row.ttsCharacters,
+      sttSeconds: row.sttSeconds,
+      sessionStartTime: row.sessionStartTime,
+      userId: row.userId,
+      timer: null as any,
+    };
+  } catch (err: any) {
+    console.error('[Reconnect Grace] DB claim failed:', err.message);
     return null;
   }
-  clearTimeout(pending.timer);
-  pendingReconnectSessions.delete(conversationId);
-  console.log(`[Reconnect Grace] RESUMED session for ${conversationId.substring(0, 8)} — carrying ${pending.exchangeCount} exchanges`);
-  return pending;
+}
+
+async function hydratePendingReconnectsFromDb(): Promise<void> {
+  try {
+    const now = new Date();
+    // Clean up expired entries first
+    await db.delete(voiceGracePeriods).where(lt(voiceGracePeriods.expiresAt, now));
+
+    // Load any unexpired entries (e.g., from before a server restart)
+    const rows = await db.select().from(voiceGracePeriods).where(
+      gt(voiceGracePeriods.expiresAt, now)
+    );
+
+    for (const row of rows) {
+      const remainingMs = row.expiresAt.getTime() - Date.now();
+      if (remainingMs <= 0) continue;
+      const entry: PendingReconnectData = {
+        conversationId: row.conversationId,
+        usageSessionId: row.usageSessionId,
+        compassSessionActive: row.compassSessionActive,
+        exchangeCount: row.exchangeCount,
+        studentSpeakingSeconds: row.studentSpeakingSeconds,
+        tutorSpeakingSeconds: row.tutorSpeakingSeconds,
+        ttsCharacters: row.ttsCharacters,
+        sttSeconds: row.sttSeconds,
+        sessionStartTime: row.sessionStartTime,
+        userId: row.userId,
+        timer: null as any,
+      };
+      entry.timer = armReconnectTimer(row.conversationId, entry, remainingMs);
+      pendingReconnectSessions.set(row.conversationId, entry);
+    }
+
+    if (rows.length > 0) {
+      console.log(`[Reconnect Grace] Hydrated ${rows.length} pending session(s) from DB after restart`);
+    }
+  } catch (err: any) {
+    console.error('[Reconnect Grace] DB hydration failed (non-fatal):', err.message);
+  }
 }
 
 /**
@@ -566,7 +682,10 @@ async function handleRealtimeConnection(ws: WS, req: IncomingMessage) {
  */
 export function setupUnifiedWebSocketHandler(server: Server) {
   console.log('[Unified WS] Setting up unified WebSocket handler...');
-  
+  hydratePendingReconnectsFromDb().catch((err: Error) => {
+    console.error('[Reconnect Grace] Hydration failed on startup:', err.message);
+  });
+
   // Create a single WebSocketServer in noServer mode
   const wss = new WebSocketServer({ noServer: true });
 
@@ -1134,7 +1253,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             
             // Check for pending reconnect session BEFORE starting a new one
             const pendingReconnectSO = isReconnectSO && conversationId
-              ? claimPendingReconnect(conversationId, userId!)
+              ? await claimPendingReconnect(conversationId, userId!)
               : null;
             
             const usageSessionPromise = pendingReconnectSO

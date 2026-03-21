@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, real, index, uniqueIndex, jsonb, pgEnum, date } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, real, bigint, index, uniqueIndex, jsonb, pgEnum, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -8655,3 +8655,17 @@ export const visualCompositions = pgTable("visual_compositions", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 export type VisualComposition = typeof visualCompositions.$inferSelect;
+
+export const voiceGracePeriods = pgTable('voice_grace_periods', {
+  conversationId: varchar('conversation_id').primaryKey(),
+  usageSessionId: varchar('usage_session_id').notNull(),
+  compassSessionActive: boolean('compass_session_active').notNull().default(false),
+  exchangeCount: integer('exchange_count').notNull().default(0),
+  studentSpeakingSeconds: real('student_speaking_seconds').notNull().default(0),
+  tutorSpeakingSeconds: real('tutor_speaking_seconds').notNull().default(0),
+  ttsCharacters: integer('tts_characters').notNull().default(0),
+  sttSeconds: real('stt_seconds').notNull().default(0),
+  sessionStartTime: bigint('session_start_time', { mode: 'number' }).notNull(),
+  userId: varchar('user_id').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+});

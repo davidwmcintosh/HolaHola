@@ -65,13 +65,12 @@ import { TtsDispatcher } from "./tts-dispatcher";
 import { NativeFunctionCallHandler } from "./native-fc-handlers";
 import { PostResponseEnrichmentService } from "./post-response-enrichment";
 import { buildFatContext, FAT_CONTEXT_ENABLED } from "./fat-context-service";
+import { ensureTrailingPunctuation } from './voice-text-utils';
+import { VoiceSpeedOption, voiceSpeedToRate } from './voice-speed-config';
 
-export function ensureTrailingPunctuation(text: string): string {
-  const trimmed = text.trim();
-  if (!trimmed) return trimmed;
-  if (/[.!?\u2026\u3002\uff01\uff1f]["'\u201c\u201d\u2019\u2018)\]]*$/.test(trimmed)) return trimmed;
-  return trimmed + '.';
-}
+export { ensureTrailingPunctuation } from './voice-text-utils';
+export type { VoiceSpeedOption };
+export { voiceSpeedToRate };
 
 const TEXT_FC_COMMAND_MAP: Record<string, string> = {
   'switch_tutor': 'SWITCH_TUTOR', 'phase_shift': 'PHASE_SHIFT',
@@ -872,28 +871,6 @@ function stripArchitectMessages(text: string): string {
  */
 const SESSION_IDLE_TIMEOUT_MS = 120000; // 2 minutes of inactivity before cleanup
 const CREDIT_CHECK_INTERVAL_MS = 30000; // Check credit balance every 30 seconds during active sessions
-
-/**
- * Voice speed options for speaking rate control
- * Maps to numeric speaking rates for TTS
- */
-export type VoiceSpeedOption = 'slower' | 'slow' | 'normal' | 'fast' | 'faster';
-
-/**
- * Convert voice speed string to numeric speaking rate
- * These values map to Cartesia's 0.6-1.5 range
- * UI labels: 0.6x, 0.8x, 1x, 1.25x, 1.5x
- */
-export function voiceSpeedToRate(speed: VoiceSpeedOption | undefined): number {
-  switch (speed) {
-    case 'slower': return 0.6;   // 0.6x - slowest for pronunciation practice
-    case 'slow': return 0.8;     // 0.8x - slightly slower for beginners
-    case 'normal': return 1.0;   // 1x - natural conversation speed
-    case 'fast': return 1.25;    // 1.25x - faster for advanced learners
-    case 'faster': return 1.5;   // 1.5x - fastest available
-    default: return 1.0;
-  }
-}
 
 /**
  * Adaptive Speech Rate Configuration
