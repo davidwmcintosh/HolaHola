@@ -528,6 +528,12 @@ class SocketIOWebSocketAdapter implements VoiceWSConnection {
 }
 
 /**
+ * Shared readyState constant for both transports.
+ * SocketIOWebSocketAdapter.OPEN === NativeWSAdapter.OPEN === WS.OPEN === 1
+ */
+const WS_OPEN = 1;
+
+/**
  * Common interface for both native WS and Socket.IO voice connections.
  * Allows handleStreamingVoiceConnectionShared to work with either transport.
  */
@@ -940,11 +946,13 @@ export function setupSocketIOHandler(io: SocketIOServer) {
 }
 
 /**
- * Handle streaming voice connection with Socket.io adapter
- * This is a wrapper that delegates to the main handler with adapter type
+ * Handle streaming voice connection — unified handler for all transports.
+ * Called by both the native WS path (via NativeWSAdapter) and the Socket.IO path
+ * (via SocketIOWebSocketAdapter). All voice logic lives here; transport differences
+ * are encapsulated entirely in the adapter layer.
  */
 function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: IncomingMessage) {
-  console.log('[Streaming Voice] Client connected via Socket.io');
+  console.log('[Streaming Voice] Client connected');
 
   const orchestrator = getStreamingVoiceOrchestrator();
   let session: StreamingSession | null = null;
@@ -1009,12 +1017,12 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
   // Send connected confirmation immediately
   const sendConnected = () => {
     try {
-      if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+      if (ws.readyState === WS_OPEN) {
         ws.send(JSON.stringify({
           type: 'connected',
           timestamp: Date.now(),
         }));
-        console.log('[Streaming Voice] Connected message sent via Socket.io');
+        console.log('[Streaming Voice] Connected message sent');
       } else {
         setTimeout(sendConnected, 50);
       }
@@ -1031,7 +1039,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
 
   // Message handler - delegate to shared logic
   ws.on('message', async (data: Buffer | string) => {
-    console.log('[Streaming Voice] Message received via Socket.io');
+    console.log('[Streaming Voice] Message received');
     
     try {
       const dataStr = Buffer.isBuffer(data) ? data.toString('utf-8') : 
@@ -1759,7 +1767,7 @@ ${buildNativeFunctionCallingSection()}`;
             const openMicEvents: OpenMicEvents = {
               onSpeechStarted: () => {
                 console.log('[OpenMic] VAD: Speech started - sending to client');
-                if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                if (ws.readyState === WS_OPEN) {
                   const msg = JSON.stringify({
                     type: 'vad_speech_started',
                     timestamp: Date.now(),
@@ -1775,7 +1783,7 @@ ${buildNativeFunctionCallingSection()}`;
                 
                 const isEmptyTranscript = !transcript.trim() || transcript.trim() === '[EMPTY_TRANSCRIPT]';
                 
-                if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                if (ws.readyState === WS_OPEN) {
                   ws.send(JSON.stringify({
                     type: 'vad_utterance_end',
                     timestamp: Date.now(),
@@ -1819,7 +1827,7 @@ ${buildNativeFunctionCallingSection()}`;
                   
                   if (openMicSession) {
                     const diag = openMicSession.getDiagnostics();
-                    if (diag.inSilenceLoop && ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                    if (diag.inSilenceLoop && ws.readyState === WS_OPEN) {
                       ws.send(JSON.stringify({
                         type: 'open_mic_silence_loop',
                         timestamp: Date.now(),
@@ -1838,7 +1846,7 @@ ${buildNativeFunctionCallingSection()}`;
                 }
               },
               onInterimTranscript: (transcript) => {
-                if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                if (ws.readyState === WS_OPEN) {
                   ws.send(JSON.stringify({
                     type: 'interim_transcript',
                     timestamp: Date.now(),
@@ -1851,7 +1859,7 @@ ${buildNativeFunctionCallingSection()}`;
                 // Notify client with a user-friendly degraded-STT message.
                 // The session sets itself to null via onClose; the next audio chunk
                 // will trigger a fresh start automatically.
-                if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                if (ws.readyState === WS_OPEN) {
                   ws.send(JSON.stringify({
                     type: 'stt_degraded',
                     timestamp: Date.now(),
@@ -1865,7 +1873,7 @@ ${buildNativeFunctionCallingSection()}`;
                 openMicSession = null;
                 
                 // Notify client that open mic session closed (so it can restart if needed)
-                if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                if (ws.readyState === WS_OPEN) {
                   ws.send(JSON.stringify({
                     type: 'open_mic_session_closed',
                     timestamp: Date.now(),
@@ -1906,7 +1914,7 @@ ${buildNativeFunctionCallingSection()}`;
               console.error(`[OpenMic] All STT start attempts failed (fail #${openMicStartFailCount}) — notifying client`);
               // After 2+ consecutive failures suggest switching to push-to-talk
               const suggestPtt = openMicStartFailCount >= 2;
-              if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+              if (ws.readyState === WS_OPEN) {
                 ws.send(JSON.stringify({
                   type: 'stt_degraded',
                   timestamp: Date.now(),
@@ -1962,7 +1970,7 @@ ${buildNativeFunctionCallingSection()}`;
                   return;
                 }
                 console.log('[SpeculativePTT] VAD: Speech started');
-                if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                if (ws.readyState === WS_OPEN) {
                   ws.send(JSON.stringify({
                     type: 'ptt_speech_started',
                     timestamp: Date.now(),
@@ -1985,7 +1993,7 @@ ${buildNativeFunctionCallingSection()}`;
                 console.log(`[SpeculativePTT] Interim: "${transcript}" (${speculativePttWordCount} words, triggered: ${speculativePttTriggered})`);
                 
                 // Send interim transcript to client for display
-                if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                if (ws.readyState === WS_OPEN) {
                   ws.send(JSON.stringify({
                     type: 'ptt_interim_transcript',
                     timestamp: Date.now(),
@@ -2023,7 +2031,7 @@ ${buildNativeFunctionCallingSection()}`;
                     });
                   
                   // Notify client that speculative AI has started
-                  if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                  if (ws.readyState === WS_OPEN) {
                     ws.send(JSON.stringify({
                       type: 'ptt_speculative_ai_started',
                       timestamp: Date.now(),
@@ -2039,7 +2047,7 @@ ${buildNativeFunctionCallingSection()}`;
               onError: (error) => {
                 if (currentPttSessionId !== speculativePttSessionId) return;
                 console.error('[SpeculativePTT] STT error:', error.message);
-                if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                if (ws.readyState === WS_OPEN) {
                   ws.send(JSON.stringify({
                     type: 'stt_degraded',
                     timestamp: Date.now(),
@@ -2076,7 +2084,7 @@ ${buildNativeFunctionCallingSection()}`;
               speculativePttPendingChunks = [];
               // Speculative PTT is best-effort — the ptt_release path still works without it.
               // Surface degraded state so user knows there may be a delay.
-              if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+              if (ws.readyState === WS_OPEN) {
                 ws.send(JSON.stringify({
                   type: 'stt_degraded',
                   timestamp: Date.now(),
@@ -2197,7 +2205,7 @@ ${buildNativeFunctionCallingSection()}`;
               speculativeAiAccepted = true;  // Mark as accepted so audio_data skips processing
               
               // Notify client
-              if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+              if (ws.readyState === WS_OPEN) {
                 ws.send(JSON.stringify({
                   type: 'ptt_speculative_ai_accepted',
                   timestamp: Date.now(),
@@ -2231,7 +2239,7 @@ ${buildNativeFunctionCallingSection()}`;
                 pendingSpeculativeWordCount = speculativePttWordCount;
                 
                 // Notify client
-                if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                if (ws.readyState === WS_OPEN) {
                   ws.send(JSON.stringify({
                     type: 'ptt_speculative_ai_rejected',
                     timestamp: Date.now(),
@@ -2250,7 +2258,7 @@ ${buildNativeFunctionCallingSection()}`;
                 speculativeAiAccepted = true;  // Mark as accepted so audio_data skips processing
                 
                 // Notify client that we're using the speculative result (even though transcript changed slightly)
-                if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                if (ws.readyState === WS_OPEN) {
                   ws.send(JSON.stringify({
                     type: 'ptt_speculative_ai_accepted',
                     timestamp: Date.now(),
@@ -2312,7 +2320,7 @@ ${buildNativeFunctionCallingSection()}`;
               
               // CRITICAL: Send response_complete so client exits "processing" state
               // Without this, the client stays stuck in "thinking" forever
-              if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+              if (ws.readyState === WS_OPEN) {
                 ws.send(JSON.stringify({
                   type: 'response_complete',
                   timestamp: Date.now(),
@@ -2322,7 +2330,7 @@ ${buildNativeFunctionCallingSection()}`;
             }
           }
           
-          if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+          if (ws.readyState === WS_OPEN) {
             ws.send(JSON.stringify({
               type: 'ptt_final_transcript',
               timestamp: Date.now(),
@@ -2593,10 +2601,10 @@ ${buildNativeFunctionCallingSection()}`;
 }
 
 /**
- * Send error message via Socket.io adapter
+ * Send error message via voice connection adapter (works for both native WS and Socket.IO)
  */
 function sendErrorAdapter(ws: VoiceWSConnection, code: string, message: string, recoverable: boolean) {
-  if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+  if (ws.readyState === WS_OPEN) {
     ws.send(JSON.stringify({
       type: 'error',
       timestamp: Date.now(),
