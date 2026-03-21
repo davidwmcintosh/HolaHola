@@ -531,7 +531,7 @@ export function TextbookChapterView({
               textbookRead: section.textbookRead || locallyReadIds.has(section.id),
             }}
             index={index}
-            autoExpand={index === 0}
+            autoExpand={true}
             language={language}
             onStartConversation={onStartConversation}
             onStartDrill={() => onStartDrill(section.id)}
