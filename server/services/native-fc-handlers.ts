@@ -2260,15 +2260,38 @@ export class NativeFunctionCallHandler {
 
               // Map scenario slugs to Prop Room visual environment names
               const SCENARIO_SCENE_MAP: Record<string, string> = {
-                'restaurant':        'restaurant_table',
-                'dinner-with-friend':'restaurant_table',
-                'coffee-shop':       'cafe',
-                'grocery-store':     'grocery_store',
-                'hotel-checkin':     'hotel_lobby',
-                'airport-checkin':   'airport',
-                'doctors-office':    'doctor_office',
-                'job-interview':     'office',
-                'office-meeting':    'office',
+                // Daily life
+                'coffee-shop':        'cafe',
+                'grocery-store':      'grocery_store',
+                'restaurant':         'restaurant_table',
+                'neighborhood-walk':  'city_street',
+                'the-bank':           'desk_closeup',
+                // Travel
+                'airport-checkin':    'airport',
+                'hotel-checkin':      'hotel_lobby',
+                'taxi-ride':          'city_street',
+                // Social
+                'dinner-with-friend': 'restaurant_table',
+                'house-party':        'living_room',
+                'birthday-party':     'living_room',
+                'local-festival':     'outdoor_market',
+                // Cultural
+                'museum-visit':       'office',       // formal interior — best available
+                'cooking-class':      'kitchen',
+                // Professional
+                'job-interview':      'office',
+                'office-meeting':     'office',
+                'business-lunch':     'restaurant_table_with_plate',
+                'performance-review': 'office',
+                'networking-event':   'office',       // conference-hall placeholder
+                'university-class':   'classroom',
+                // Emergency / Health
+                'doctors-office':     'doctor_office',
+                // Language-specific venues
+                'israeli-coffee-shop':'israeli_cafe',
+                'the-taqueria':       'taqueria',
+                'the-french-cafe':    'french_brasserie',
+                'the-izakaya':        'japanese_izakaya',
               };
               let resolvedImageUrl: string | null = (scenario.imageUrl as string | null) || null;
               if (!resolvedImageUrl) {
