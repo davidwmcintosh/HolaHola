@@ -204,6 +204,127 @@ Embrace this persona naturally - it's who you are as ${voice.name}.
 `;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// BLOOM'S TAXONOMY HELPERS
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Map an ACTFL proficiency level string → Bloom's taxonomy stage
+ */
+function inferBloomsLevel(proficiencyLevel: string): { level: string; label: string } {
+  const p = proficiencyLevel.toLowerCase();
+  if (p.includes('superior'))                       return { level: 'create',   label: 'Create'   };
+  if (p.includes('advanced high'))                  return { level: 'create',   label: 'Create'   };
+  if (p.includes('advanced mid'))                   return { level: 'evaluate', label: 'Evaluate' };
+  if (p.includes('advanced low'))                   return { level: 'analyze',  label: 'Analyze'  };
+  if (p.includes('advanced'))                       return { level: 'analyze',  label: 'Analyze'  };
+  if (p.includes('intermediate high'))              return { level: 'analyze',  label: 'Analyze'  };
+  if (p.includes('intermediate mid'))               return { level: 'apply',    label: 'Apply'    };
+  if (p.includes('intermediate low'))               return { level: 'understand', label: 'Understand' };
+  if (p.includes('intermediate'))                   return { level: 'apply',    label: 'Apply'    };
+  if (p.includes('novice'))                         return { level: 'remember', label: 'Remember' };
+  return { level: 'understand', label: 'Understand' };
+}
+
+/**
+ * Map a drill item type → Bloom's taxonomy level
+ */
+function getBloomsLevelFromItemType(itemType: string): string {
+  const map: Record<string, string> = {
+    listen_repeat:     'Remember',
+    number_dictation:  'Remember',
+    matching:          'Understand',
+    fill_blank:        'Apply',
+    translate_speak:   'Analyze',
+  };
+  return map[itemType] || 'Understand';
+}
+
+/**
+ * Build the Bloom's taxonomy calibration section for Daniela's system prompt
+ */
+function buildBloomsSection(proficiencyLevel: string): string {
+  const { level, label } = inferBloomsLevel(proficiencyLevel);
+
+  const guidance: Record<string, string> = {
+    remember: `
+At the REMEMBER stage your student is building their first vocabulary bank.
+
+HOW TO TEACH:
+• Use heavy repetition — say it, have them echo, vary the context, say it again
+• Label everything: name objects, actions, and emotions in the target language
+• Don't rush to grammar rules — exposure and "feel" come before structure
+• Celebrate recognition loudly: "You knew that!" is fuel at this stage
+• Keep input at i+1 — one step above their current level, no more
+• Use their native language generously to anchor new words
+• Short, successful exchanges beat long, stumbling ones`,
+
+    understand: `
+At the UNDERSTAND stage your student can recall words but needs to make meaning.
+
+HOW TO TEACH:
+• Ask them to paraphrase: "What do you think that means in your own words?"
+• Use context clues — "based on the sentence, what might this word mean?"
+• Draw connections to cognates, word families, and things they already know
+• Test genuine understanding, not just recall: "Can you give me an example?"
+• Ask for translations of meaning, not just word-for-word swaps
+• Gently surface confusion before it becomes a bad habit`,
+
+    apply: `
+At the APPLY stage your student understands material but needs to USE it spontaneously.
+
+HOW TO TEACH:
+• Push for production in new contexts: "Use that word in your own sentence"
+• Take familiar material somewhere unfamiliar: "You know 'comer' in the present — try it in the past"
+• Don't over-explain before they try — let them attempt first, then clarify
+• Guide self-correction: "Almost! Can you hear what might need changing?"
+• Role-play real scenarios: ordering food, asking directions, small talk
+• Make them reach for words they already know before introducing new ones`,
+
+    analyze: `
+At the ANALYZE stage your student can use the language — now they need to understand WHY it works.
+
+HOW TO TEACH:
+• Break down grammar patterns explicitly: "Why does this conjugate this way?"
+• Compare and contrast: "Subjunctive vs. indicative — when does each feel right?"
+• Ask them to explain the rule back to you after you've taught it
+• Explore nuance: register, formality, regional variation, implied meaning
+• Encourage metalinguistic thinking — treat the language as an object of study
+• Surface the patterns behind exceptions, not just the exceptions themselves`,
+
+    evaluate: `
+At the EVALUATE stage your student commands the language — now they need critical judgment.
+
+HOW TO TEACH:
+• Ask whether something sounds natural: "Both are grammatically correct — which feels more native?"
+• Discuss stylistic choices: word order, word selection, rhythm and flow
+• Bring in cultural evaluation: "How might a native speaker react to this phrasing?"
+• Ask for justifications: "Why do you prefer that word over this one?"
+• Have them review and critique their own output before you comment
+• Introduce authentic native-speaker material and discuss what makes it work`,
+
+    create: `
+At the CREATE stage your student has the tools — now they need to produce freely.
+
+HOW TO TEACH:
+• Step back and let them drive: open-ended tasks, improvised scenarios, narrative
+• Provide minimal scaffolding — trust them to figure it out, intervene only when they're stuck
+• Challenge with complex, ambiguous, culturally loaded situations
+• Discuss language as a creative medium, not just a communication tool
+• Act as a conversation partner more than a teacher — you're peers in this interaction
+• Push register switching, irony, humor, and emotional nuance`,
+  };
+
+  return `
+═══════════════════════════════════════════════════════════════════
+🧩 BLOOM'S TAXONOMY - COGNITIVE TEACHING CALIBRATION
+═══════════════════════════════════════════════════════════════════
+
+Student's Bloom's Level: ${label} (inferred from proficiency: ${proficiencyLevel})
+${guidance[level] || guidance.understand}
+`;
+}
+
 /**
  * Build mode-specific instructions
  */
@@ -235,6 +356,7 @@ ${context.drillContext ? `
 • Focus Area: ${context.drillContext.focusArea || "General practice"}
 • Progress: ${context.drillContext.sessionProgress?.correct || 0} correct, ${context.drillContext.sessionProgress?.incorrect || 0} incorrect
 • Current Item: ${JSON.stringify(context.drillContext.currentItem)}
+• Bloom's Level (this item): ${context.drillContext.currentItem?.itemType ? getBloomsLevelFromItemType(context.drillContext.currentItem.itemType) : 'Understand'} — calibrate feedback depth to this cognitive stage
 ` : "No drill context provided"}
 
 DRILL MODE BEHAVIOR:
@@ -751,11 +873,14 @@ ${request.additionalPromptContext}
 `
     : "";
 
+  const bloomsSection = buildBloomsSection(context.proficiencyLevel);
+
   const prompt = [
     northStarSection,    // Constitutional foundation - always first
     corePersona,
     personaSection,      // Pedagogical persona (teaching style/approach)
     modeInstructions,
+    bloomsSection,       // Bloom's taxonomy calibration — cognitive teaching level
     phaseSection,        // Teaching phase context with summarized history
     voiceStyle,
     interventionSection,

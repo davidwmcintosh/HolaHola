@@ -16,7 +16,8 @@ import {
   MicOff,
   Trophy,
   Target,
-  MessageCircle
+  MessageCircle,
+  Brain
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -256,12 +257,16 @@ export function DrillLesson({ lessonId, language, nativeLanguage, lessonName, co
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Badge variant="secondary" data-testid="badge-item-count">
             {currentIndex + 1} / {totalItems}
           </Badge>
           <Badge variant="outline" data-testid="badge-drill-type">
             {formatDrillType(currentItem.itemType)}
+          </Badge>
+          <Badge variant="outline" className="gap-1 text-muted-foreground" data-testid="badge-blooms-level">
+            <Brain className="h-3 w-3" />
+            {getBloomsLevel(currentItem.itemType)}
           </Badge>
         </div>
         <div className="flex items-center gap-2">
@@ -643,4 +648,15 @@ function getDrillInstruction(type: DrillMode): string {
     fill_blank: 'Fill in the missing word',
   };
   return instructions[type] || 'Complete the exercise';
+}
+
+function getBloomsLevel(itemType: string): string {
+  const map: Record<string, string> = {
+    listen_repeat:    'Remember',
+    number_dictation: 'Remember',
+    matching:         'Understand',
+    fill_blank:       'Apply',
+    translate_speak:  'Analyze',
+  };
+  return map[itemType] || 'Understand';
 }
