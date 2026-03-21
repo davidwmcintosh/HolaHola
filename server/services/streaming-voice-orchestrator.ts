@@ -501,6 +501,10 @@ export class StreamingVoiceOrchestrator {
     return this.enrichment.processPhaseShift(session, data);
   }
   
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGION: Session Registry Accessors
+  // ─────────────────────────────────────────────────────────────────────────
+
   /**
    * Get a session by ID (for checking session state from external handlers)
    */
@@ -599,6 +603,10 @@ export class StreamingVoiceOrchestrator {
     }
   }
   
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGION: Session Creation & Context Prefetch
+  // ─────────────────────────────────────────────────────────────────────────
+
   /**
    * Create a new streaming session
    * Connection pooling: Pre-warms Cartesia WebSocket for low-latency TTS
@@ -1127,6 +1135,10 @@ Remember: David may reference things discussed in these recent text chats.
     }
     return count;
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGION: PTT Audio Pipeline  (processUserAudio → Gemini streaming → TTS)
+  // ─────────────────────────────────────────────────────────────────────────
 
   /**
    * Process user audio and stream AI response
@@ -3961,6 +3973,10 @@ Remember: David may reference things discussed in these recent text chats.
       
       return metrics;
     }
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGION: OpenMic Response Completion
+  // ─────────────────────────────────────────────────────────────────────────
+
   }
   private async completeOpenMicResponse(
     session: StreamingSession,
@@ -4346,6 +4362,10 @@ Remember: David may reference things discussed in these recent text chats.
       });
     }
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGION: OpenMic Transcript Processing
+  // ─────────────────────────────────────────────────────────────────────────
 
   /**
    * Process open mic transcript directly (no STT needed - Deepgram already transcribed)
@@ -6338,6 +6358,10 @@ Remember: David may reference things discussed in these recent text chats.
     }
   }
   
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGION: STT / Transcription Helpers
+  // ─────────────────────────────────────────────────────────────────────────
+
   /**
    * Transcribe audio using Deepgram Prerecorded API
    * 
@@ -6599,6 +6623,10 @@ Remember: David may reference things discussed in these recent text chats.
       .substring(0, 100); // Limit to first 100 chars for matching
   }
   
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGION: Message Persistence & Transport
+  // ─────────────────────────────────────────────────────────────────────────
+
   /**
    * Checkpoint user message BEFORE calling Gemini API
    * This ensures user messages are saved even if Gemini fails/times out
@@ -6906,6 +6934,10 @@ Remember: David may reference things discussed in these recent text chats.
     } as StreamingErrorMessage);
   }
   
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGION: Greeting Pipeline
+  // ─────────────────────────────────────────────────────────────────────────
+
   /**
    * Generate and stream a personalized AI greeting for a new conversation
    * Uses the full streaming pipeline (Gemini → Cartesia) for real-time delivery
@@ -7934,6 +7966,10 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
     }
   }
   
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGION: Session Teardown
+  // ─────────────────────────────────────────────────────────────────────────
+
   /**
    * End a streaming session
    */
@@ -8230,6 +8266,10 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
     if (session && session.isActive) {
       this.resetIdleTimeout(session);
     }
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGION: Credit Checks & Idle Timeout
+  // ─────────────────────────────────────────────────────────────────────────
+
   }
   
   private startCreditCheckInterval(session: StreamingSession): void {
@@ -8344,6 +8384,10 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
   // Context refresh interval: 15 minutes for long voice sessions
   private readonly CONTEXT_REFRESH_INTERVAL_MS = 15 * 60 * 1000;
   
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGION: Context Refresh Timer
+  // ─────────────────────────────────────────────────────────────────────────
+
   /**
    * Start periodic context refresh timer for long voice sessions
    * Rebuilds dynamic prompt sections every 15 minutes to prevent context drift
@@ -8414,6 +8458,10 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
     }
   }
   
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGION: Voice Configuration & Tutor Switching
+  // ─────────────────────────────────────────────────────────────────────────
+
   /**
    * Update the voice for an active session
    * Called when user changes tutor gender mid-session
@@ -8713,6 +8761,10 @@ DON'T:
     return undefined;
   }
   
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGION: Architect Integration
+  // ─────────────────────────────────────────────────────────────────────────
+
   /**
    * Trigger Daniela to respond to an architect note immediately
    * This enables real-time Claude participation in voice sessions
