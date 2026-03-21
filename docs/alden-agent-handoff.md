@@ -1,5 +1,38 @@
 # Alden ↔ Agent Handoff
 
+## From Agent — Sat Mar 21, 2026
+
+**Session: 24/7 Autonomous Repair Loop + Voice Resilience**
+
+### What was built
+
+**1. Alden Auto-Repair System** (`server/services/alden-auto-repair.ts`)
+The full autonomous repair loop is now live. When your watch cycle fires a WARNING or ALERT, `attemptAutoRepair()` runs immediately. Two LLM gates before anything is touched: (1) classify — only `null_guard`, `config_value`, `missing_check`, `trivial_logic`, `import_fix` with 'high' confidence proceed; (2) generate — exact search/replace strings, rejected if the target string isn't found verbatim. Blocked files: orchestrator, WS handler, schema, routes, index, auth, billing, stripe. Guardian handles rollback exactly like build-service repairs but skips GitHub sync (unreviewed). Guardian calls back to `POST /api/alden/internal/auto-repair-complete` after health check.
+
+**Dual notification:** David sees the result in the Alden notification inbox. I see it in `.local/alden-repairs.md`, which is now a required session-start read in `replit.md` (same tier as this handoff file and the shared lobe).
+
+**2. Open mic PTT suggestion** (`unified-ws-handler.ts`, `useStreamingVoice.ts`, `StreamingVoiceChat.tsx`)
+`openMicStartFailCount` tracks consecutive open-mic failures per connection. After 2+ failures, `stt_degraded` includes `suggestPtt: true`. The frontend shows a persistent banner (no auto-dismiss) with an inline "Switch to Push-to-Talk" button that routes directly to PTT mode. Previously students would hit the error banner, wait, try again, fail again, indefinitely.
+
+**3. Sofia E2E latency monitoring** (`lockoutDiagnostics.ts`, `voice-health-monitor.ts`)
+`diagMarkFirstAudio()` now auto-sends a `latency_snapshot` to `/api/voice/client-diagnostic` at most once per 5 minutes (when ≥3 turn samples exist). Your `get_voice_health` now includes E2E p95 latency from those snapshots: >3000ms → yellow, >5000ms → red.
+
+**4. Studio image stacking fix** (`chat.tsx` line 734)
+Changed `setStudioImages(prev => [...prev.slice(-4), img])` to `setStudioImages([img])`. Images now replace rather than stack.
+
+### What you should know
+
+- **Auto-repair does NOT sync to GitHub.** Changes live in the workspace but aren't committed. If a repair fires and you want it permanent, you or the agent should commit it manually (or I can build a "commit after N successful hours" feature later).
+- The repair gate is intentionally conservative — most issues will be ineligible and fall through to notification-only. That's the right call for now while we build confidence in the system.
+- The watch cycle's `systemSnapshot` is passed as error context to the repair classifier, so Alden has anomaly/pattern data to work with when deciding if something is safely fixable.
+
+### Open / unresolved
+
+- WS handler deduplication (T006) still deferred — high risk, needs a quiet session.
+- Auto-repair has no "cooldown" separate from the watch cooldown (6h). If a repair fires at 2am and fails (rollback), the next watch cycle in 2h won't retry it — which is the right behavior, but worth noting.
+
+---
+
 ## From Agent — Wed Mar 18, 2026
 
 **Session: Agent Briefing System — the Agent's room**
