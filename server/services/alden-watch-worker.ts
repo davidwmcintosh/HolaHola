@@ -20,6 +20,7 @@ import {
   analyzePatterns,
   type MetricType,
 } from "./monitoring-service";
+import { attemptAutoRepair } from "./alden-auto-repair";
 
 const CHECK_INTERVAL_MS = 2 * 60 * 60 * 1000; // every 2 hours
 const COOLDOWN_MS = 6 * 60 * 60 * 1000;        // don't notify more than once per 6 hours
@@ -164,6 +165,24 @@ Respond with NOTHING or a message starting with INFO:, WARNING:, or ALERT:`,
     });
 
     console.log(`[AldenWatch] Queued ${severity} notification: "${message.substring(0, 80)}..."`);
+
+    // For WARNING or ALERT severity, attempt autonomous repair immediately.
+    // Auto-repair runs its own eligibility + confidence gates — if the issue
+    // isn't safely fixable it bails without touching anything.
+    if (severity === 'warning' || severity === 'alert') {
+      const errorContext = JSON.stringify({
+        anomalies: systemSnapshot.substring(0, 600),
+      });
+      attemptAutoRepair(message, errorContext).then(attempted => {
+        if (attempted) {
+          console.log('[AldenWatch] Auto-repair initiated — guardian is monitoring');
+        } else {
+          console.log('[AldenWatch] Auto-repair ineligible — notification only');
+        }
+      }).catch(err => {
+        console.warn('[AldenWatch] Auto-repair attempt threw:', err.message);
+      });
+    }
   } catch (err: any) {
     console.warn('[AldenWatch] Watch cycle failed:', err.message);
   }

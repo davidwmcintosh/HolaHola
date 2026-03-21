@@ -29555,6 +29555,26 @@ Under 250 words. Write as yourself.`;
     }
   });
 
+
+  // Auto-Repair Guardian Callback — called by alden-build-guardian.js after health check
+  // No session auth required; protected by guardian token (same pattern as other guardian routes)
+  app.post("/api/alden/internal/auto-repair-complete", async (req, res) => {
+    try {
+      const token = req.headers['x-guardian-token'];
+      const { GUARDIAN_TOKEN } = await import('./services/alden-build-service');
+      if (token !== GUARDIAN_TOKEN) return res.status(403).json({ error: 'Forbidden' });
+
+      const payload = req.body;
+      const { handleAutoRepairComplete } = await import('./services/alden-auto-repair');
+      handleAutoRepairComplete(payload);
+
+      res.json({ ok: true });
+    } catch (e) {
+      console.error('[AutoRepair/Route] Error processing guardian callback:', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // CAP-009: Alden Proactive Notifications
   // GET /api/alden/notifications — list unread (or all with ?all=true)
   app.get("/api/alden/notifications", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {

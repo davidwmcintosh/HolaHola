@@ -137,12 +137,14 @@ async function main() {
   // Determine which endpoint to report to based on mode
   const reportEndpoint = mode === 'chat'
     ? '/api/alden/internal/guardian-complete'
+    : mode === 'auto-repair'
+    ? '/api/alden/internal/auto-repair-complete'
     : '/api/team-room/internal/guardian-complete';
 
   // The identifier used in the payload (roomId for team-room, conversationId for chat)
   const contextId = mode === 'chat' ? conversationId : roomId;
 
-  console.log(`[Guardian] Mode: ${mode} | Build: "${featureName}" | Context: ${contextId}`);
+  console.log(`[Guardian] Mode: ${mode} | Build: "${featureName}" | Context: ${contextId || manifest.repairId || 'n/a'}`);
 
   // Phase 1: Wait for tsx to detect changes and restart
   console.log(`[Guardian] Waiting ${INITIAL_WAIT_MS / 1000}s for tsx hot reload...`);
@@ -153,24 +155,42 @@ async function main() {
   const healthy = await pollUntilHealthy(port);
 
   if (healthy) {
-    console.log('[Guardian] Server healthy — proceeding with GitHub sync');
+    console.log('[Guardian] Server healthy — proceeding');
 
     // Give the server another moment to fully settle
     await sleep(3000);
 
-    // GitHub sync
-    const { synced, error: githubError } = syncToGithub(featureName, cwd);
+    // GitHub sync (skip for auto-repair — changes are unreviewed)
+    let synced = false;
+    let githubError = null;
+    if (mode !== 'auto-repair') {
+      const syncResult = syncToGithub(featureName, cwd);
+      synced = syncResult.synced;
+      githubError = syncResult.error || null;
+    }
 
     // Report success to server
-    const postResult = await postToServer(port, reportEndpoint, {
-      roomId,
-      conversationId,
-      featureName,
-      success: true,
-      githubSynced: synced,
-      githubError: githubError || null,
-      filesRestored: [],
-    });
+    const successPayload = mode === 'auto-repair'
+      ? {
+          repairId: manifest.repairId,
+          featureName,
+          issueDescription: manifest.issueDescription,
+          explanation: manifest.explanation,
+          changeDescriptions: manifest.changeDescriptions || [],
+          success: true,
+          filesRestored: [],
+        }
+      : {
+          roomId,
+          conversationId,
+          featureName,
+          success: true,
+          githubSynced: synced,
+          githubError,
+          filesRestored: [],
+        };
+
+    const postResult = await postToServer(port, reportEndpoint, successPayload);
     console.log(`[Guardian] Posted success to ${reportEndpoint}: HTTP ${postResult.status}`);
 
   } else {
@@ -188,16 +208,30 @@ async function main() {
 
     if (recoveredHealthy) {
       await sleep(2000);
-      const postResult = await postToServer(port, reportEndpoint, {
-        roomId,
-        conversationId,
-        featureName,
-        success: false,
-        githubSynced: false,
-        filesRestored: restored,
-        restoreErrors,
-        error: `Server crashed after applying changes — original files restored. Server is back online.`,
-      });
+
+      const failPayload = mode === 'auto-repair'
+        ? {
+            repairId: manifest.repairId,
+            featureName,
+            issueDescription: manifest.issueDescription,
+            explanation: manifest.explanation,
+            changeDescriptions: manifest.changeDescriptions || [],
+            success: false,
+            filesRestored: restored,
+            error: 'Server crashed after applying auto-repair — original files restored.',
+          }
+        : {
+            roomId,
+            conversationId,
+            featureName,
+            success: false,
+            githubSynced: false,
+            filesRestored: restored,
+            restoreErrors,
+            error: `Server crashed after applying changes — original files restored. Server is back online.`,
+          };
+
+      const postResult = await postToServer(port, reportEndpoint, failPayload);
       console.log(`[Guardian] Posted rollback to ${reportEndpoint}: HTTP ${postResult.status}`);
     } else {
       console.error('[Guardian] Server did not recover after rollback — manual intervention needed');
