@@ -187,6 +187,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const [metrics, setMetrics] = useState<StreamingMetrics | null>(null);
   const [ttsUnavailable, setTtsUnavailable] = useState(false);
   const ttsUnavailableTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [sttDegraded, setSttDegraded] = useState(false);
+  const sttDegradedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [sttDegradedMessage, setSttDegradedMessage] = useState<string>('');
   
   // Ref for tutor switch timeout (error recovery)
   const tutorSwitchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1132,6 +1135,15 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     ttsUnavailableTimerRef.current = setTimeout(() => setTtsUnavailable(false), 8000);
   }, []);
 
+  const handleSttDegraded = useCallback((data: { userMessage?: string }) => {
+    const msg = data?.userMessage || 'Having trouble hearing you — please try again.';
+    console.warn('[StreamingVoice] STT degraded:', msg);
+    setSttDegraded(true);
+    setSttDegradedMessage(msg);
+    if (sttDegradedTimerRef.current) clearTimeout(sttDegradedTimerRef.current);
+    sttDegradedTimerRef.current = setTimeout(() => setSttDegraded(false), 6000);
+  }, []);
+
   const handleError = useCallback((err: Error) => {
     console.error('[StreamingVoice] Error:', err);
     diagMarkError('ws_error', err.message);
@@ -1432,6 +1444,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('pronunciationCoaching', handlePronunciationCoaching);  // Live pronunciation feedback
       clientRef.current.on('error', handleError);
       clientRef.current.on('ttsError', handleTtsError);
+      clientRef.current.on('sttDegraded', handleSttDegraded);
       clientRef.current.on('noSpeechDetected', handleNoSpeechDetected);  // Empty PTT reset
       clientRef.current.on('vadSpeechStarted', handleVadSpeechStarted);  // Open mic VAD
       clientRef.current.on('vadUtteranceEnd', handleVadUtteranceEnd);  // Open mic VAD
@@ -1844,6 +1857,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       isPlaying: playbackState === 'playing',
       isSwitchingTutor,  // Mic lockout during tutor handoff
       ttsUnavailable,    // True when TTS fails; clears after 8s
+      sttDegraded,       // True when Deepgram STT has an error; clears after 6s
+      sttDegradedMessage, // User-facing message for STT degraded state
       currentText: subtitles.state.fullText,
       currentWordIndex: subtitles.state.currentWordIndex,
       visibleWordCount: subtitles.state.visibleWordCount,

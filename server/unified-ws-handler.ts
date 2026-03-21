@@ -39,7 +39,7 @@ import {
   VoiceInputMode,
   ClientTelemetryEvent,
 } from '@shared/streaming-voice-types';
-import { OpenMicSession, getDeepgramLanguageCode } from './services/deepgram-live-stt';
+import { OpenMicSession, OpenMicEvents, getDeepgramLanguageCode } from './services/deepgram-live-stt';
 import { generateCongratulatoryPromptAddition } from './services/competency-verifier';
 import { buildCurriculumContext, detectSyllabusQuery } from './services/curriculum-context';
 import { usageService } from './services/usage-service';
@@ -1634,7 +1634,7 @@ ${buildNativeFunctionCallingSection()}`;
             const sessionKeytermsForMic = (session as any).sttKeyterms as string[] | undefined;
             console.log(`[OpenMic] Starting PCM session for language: ${languageCode}${sessionKeytermsForMic?.length ? ` (${sessionKeytermsForMic.length} keyterms)` : ''}`);
             
-            const newSession = new OpenMicSession(languageCode, {
+            const openMicEvents: OpenMicEvents = {
               onSpeechStarted: () => {
                 console.log('[OpenMic] VAD: Speech started - sending to client');
                 if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
@@ -1725,8 +1725,18 @@ ${buildNativeFunctionCallingSection()}`;
                 }
               },
               onError: (error) => {
-                console.error('[OpenMic] Session error:', error);
-                sendErrorAdapter(ws, 'STT_FAILED', error.message, true);
+                console.error('[OpenMic] STT runtime error:', error.message);
+                // Notify client with a user-friendly degraded-STT message.
+                // The session sets itself to null via onClose; the next audio chunk
+                // will trigger a fresh start automatically.
+                if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'stt_degraded',
+                    timestamp: Date.now(),
+                    userMessage: 'Having trouble hearing you — please try speaking again.',
+                    recoverable: true,
+                  }));
+                }
               },
               onClose: () => {
                 console.log('[OpenMic] Session closed');
@@ -1740,25 +1750,44 @@ ${buildNativeFunctionCallingSection()}`;
                   }));
                 }
               },
-            }, sessionKeytermsForMic);
+            };
             
-            try {
-              await newSession.start();
-              openMicSession = newSession;
-              openMicSessionStarting = false;
-              console.log('[OpenMic] Session started successfully');
-              
-              // Send all buffered PCM chunks (no header needed for raw PCM)
-              if (openMicPendingChunks.length > 0) {
-                console.log(`[OpenMic] Sending ${openMicPendingChunks.length} buffered PCM chunks`);
-                for (const chunk of openMicPendingChunks) {
-                  openMicSession.sendAudio(chunk);
+            // Attempt to start STT, with one automatic retry on transient failure.
+            let openMicStarted = false;
+            for (let attempt = 1; attempt <= 2 && !openMicStarted; attempt++) {
+              const attemptSession = new OpenMicSession(languageCode, openMicEvents, sessionKeytermsForMic);
+              try {
+                if (attempt > 1) {
+                  console.warn('[OpenMic] Retrying STT connection (attempt 2 of 2)...');
+                  await new Promise<void>(r => setTimeout(r, 1500));
                 }
-                openMicPendingChunks = [];
+                await attemptSession.start();
+                openMicSession = attemptSession;
+                openMicSessionStarting = false;
+                openMicStarted = true;
+                console.log(`[OpenMic] Session started successfully (attempt ${attempt})`);
+                
+                if (openMicPendingChunks.length > 0) {
+                  console.log(`[OpenMic] Sending ${openMicPendingChunks.length} buffered PCM chunks`);
+                  for (const chunk of openMicPendingChunks) {
+                    openMicSession.sendAudio(chunk);
+                  }
+                  openMicPendingChunks = [];
+                }
+              } catch (err: any) {
+                console.error(`[OpenMic] STT start attempt ${attempt} failed:`, err.message);
               }
-            } catch (err: any) {
-              console.error('[OpenMic] Failed to start session:', err);
-              sendErrorAdapter(ws, 'STT_FAILED', 'Failed to start open mic session', true);
+            }
+            if (!openMicStarted) {
+              console.error('[OpenMic] All STT start attempts failed — notifying client');
+              if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'stt_degraded',
+                  timestamp: Date.now(),
+                  userMessage: 'Having trouble with voice recognition right now. Please try again in a moment.',
+                  recoverable: true,
+                }));
+              }
               openMicSession = null;
               openMicSessionStarting = false;
               openMicPendingChunks = [];
@@ -1880,7 +1909,15 @@ ${buildNativeFunctionCallingSection()}`;
               },
               onError: (error) => {
                 if (currentPttSessionId !== speculativePttSessionId) return;
-                console.error('[SpeculativePTT] Session error:', error);
+                console.error('[SpeculativePTT] STT error:', error.message);
+                if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'stt_degraded',
+                    timestamp: Date.now(),
+                    userMessage: 'Having trouble hearing you — please try again.',
+                    recoverable: true,
+                  }));
+                }
               },
               onClose: () => {
                 if (currentPttSessionId !== speculativePttSessionId) return;
@@ -1904,11 +1941,20 @@ ${buildNativeFunctionCallingSection()}`;
                 speculativePttPendingChunks = [];
               }
             } catch (err: any) {
-              console.error('[SpeculativePTT] Failed to start session:', err);
+              console.error('[SpeculativePTT] Failed to start STT session:', err.message);
               speculativePttSession = null;
               speculativePttSessionStarting = false;
               speculativePttPendingChunks = [];
-              // Fallback: normal PTT will still work via audio_data message
+              // Speculative PTT is best-effort — the ptt_release path still works without it.
+              // Surface degraded state so user knows there may be a delay.
+              if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'stt_degraded',
+                  timestamp: Date.now(),
+                  userMessage: 'Voice recognition is slow right now — there may be a delay.',
+                  recoverable: true,
+                }));
+              }
             }
           }
           break;

@@ -3526,6 +3526,16 @@ export function StreamingVoiceChat({
           <span>Audio temporarily unavailable — text only</span>
         </div>
       )}
+      {/* STT Degraded Banner — shown when Deepgram voice recognition has an error, auto-clears in 6s */}
+      {useStreamingMode && streamingVoice.state.sttDegraded && (
+        <div
+          className="absolute top-12 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted text-muted-foreground text-xs border"
+          data-testid="status-stt-degraded"
+        >
+          <MicOff className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>{streamingVoice.state.sttDegradedMessage || 'Having trouble hearing you — please try again.'}</span>
+        </div>
+      )}
       {/* Immersive Voice Chat with View Manager - Full Screen */}
       <div className="flex-1 min-h-0 overflow-hidden relative">
         <VoiceChatViewManager

@@ -1155,6 +1155,10 @@ export class StreamingVoiceClient {
           this.emit('openMicSessionClosed', message);
           break;
           
+        case 'stt_degraded':
+          this.emit('sttDegraded', { userMessage: (message as any).userMessage });
+          break;
+          
         case 'open_mic_silence_loop':
           console.warn(`[StreamingVoice] Silence loop detected: ${message.consecutiveEmptyCount} consecutive empty transcripts`);
           this.emit('openMicSilenceLoop', message);
