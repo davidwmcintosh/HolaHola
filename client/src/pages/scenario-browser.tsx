@@ -5,10 +5,11 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, Briefcase, Plane, Users, AlertTriangle, Palette, ArrowLeft, Search, Play } from "lucide-react";
+import { MapPin, Briefcase, Plane, Users, AlertTriangle, Palette, ArrowLeft, Search, Play, BookOpen, ChevronDown, ChevronUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { Scenario } from "@shared/schema";
+import { Link } from "wouter";
 
 const CATEGORY_CONFIG: Record<string, { label: string; icon: typeof MapPin; color: string }> = {
   daily: { label: "Daily Life", icon: MapPin, color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" },
@@ -19,10 +20,86 @@ const CATEGORY_CONFIG: Record<string, { label: string; icon: typeof MapPin; colo
   cultural: { label: "Cultural", icon: Palette, color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300" },
 };
 
+const LESSON_TYPE_LABEL: Record<string, string> = {
+  grammar: "Grammar",
+  vocabulary: "Vocab",
+  conversation: "Conversation",
+  culture: "Culture",
+  reading: "Reading",
+  listening: "Listening",
+};
 
-function ScenarioCard({ scenario, onStart }: { scenario: Scenario; onStart: () => void }) {
+interface RelatedLesson {
+  id: string;
+  name: string;
+  description: string;
+  lessonType: string;
+  estimatedMinutes: number | null;
+}
+
+function RelatedLessonsSection({ slug, language }: { slug: string; language: string }) {
+  const { data, isLoading } = useQuery<{ lessons: RelatedLesson[] }>({
+    queryKey: ["/api/scenarios", slug, "related-lessons", language],
+    queryFn: async () => {
+      const res = await fetch(`/api/scenarios/${encodeURIComponent(slug)}/related-lessons?language=${encodeURIComponent(language)}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to load related lessons");
+      return res.json();
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-1.5 pt-2 border-t">
+        <Skeleton className="h-3.5 w-32" />
+        <Skeleton className="h-8 w-full" />
+        <Skeleton className="h-8 w-full" />
+      </div>
+    );
+  }
+
+  const lessons = data?.lessons || [];
+  if (lessons.length === 0) return null;
+
+  return (
+    <div className="pt-2 border-t space-y-1.5">
+      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+        <BookOpen className="w-3 h-3" />
+        Study first in the textbook
+      </p>
+      {lessons.map((lesson) => (
+        <Link href={`/textbook`} key={lesson.id}>
+          <div
+            className="flex items-center gap-2 p-2 rounded-md hover-elevate cursor-pointer"
+            data-testid={`link-related-lesson-${lesson.id}`}
+          >
+            <Badge variant="outline" className="text-xs shrink-0">
+              {LESSON_TYPE_LABEL[lesson.lessonType] || lesson.lessonType}
+            </Badge>
+            <span className="text-xs text-foreground truncate flex-1">{lesson.name}</span>
+            {lesson.estimatedMinutes && (
+              <span className="text-xs text-muted-foreground shrink-0">{lesson.estimatedMinutes}m</span>
+            )}
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function ScenarioCard({
+  scenario,
+  onStart,
+  language,
+}: {
+  scenario: Scenario;
+  onStart: () => void;
+  language: string;
+}) {
   const config = CATEGORY_CONFIG[scenario.category] || CATEGORY_CONFIG.daily;
   const CategoryIcon = config.icon;
+  const [showRelated, setShowRelated] = useState(false);
 
   return (
     <Card className="flex flex-col hover-elevate transition-all duration-200 overflow-visible" data-testid={`card-scenario-${scenario.slug}`}>
@@ -57,6 +134,21 @@ function ScenarioCard({ scenario, onStart }: { scenario: Scenario; onStart: () =
           <Play className="w-3.5 h-3.5 mr-1.5" />
           Start Scenario
         </Button>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full -mt-1 text-xs text-muted-foreground"
+          onClick={() => setShowRelated(v => !v)}
+          data-testid={`button-toggle-related-${scenario.slug}`}
+        >
+          {showRelated ? <ChevronUp className="w-3 h-3 mr-1" /> : <ChevronDown className="w-3 h-3 mr-1" />}
+          {showRelated ? "Hide" : "Textbook prep"}
+        </Button>
+
+        {showRelated && (
+          <RelatedLessonsSection slug={scenario.slug} language={language} />
+        )}
       </div>
     </Card>
   );
@@ -210,6 +302,7 @@ export default function ScenarioBrowser() {
               <ScenarioCard
                 key={scenario.id}
                 scenario={scenario}
+                language={language}
                 onStart={() => handleStartScenario(scenario)}
               />
             ))}

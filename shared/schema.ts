@@ -8662,6 +8662,37 @@ export const visualCompositions = pgTable("visual_compositions", {
 });
 export type VisualComposition = typeof visualCompositions.$inferSelect;
 
+// === Conversation-Generated Review Items ===
+// Items extracted by AI from voice sessions — student-specific review queue
+export const userReviewItems = pgTable("user_review_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  language: varchar("language").notNull(), // Target language being learned (e.g. "spanish")
+  // What to show the student
+  prompt: text("prompt").notNull(),       // English label: "to ask for the bill" / "42"
+  targetText: text("target_text").notNull(), // Correct form in target language: "la cuenta, por favor"
+  nativeTranslation: text("native_translation"), // Native-language gloss (set for non-English learners)
+  context: text("context"),              // Sentence it appeared in during the conversation
+  itemType: varchar("item_type").notNull().default("vocabulary"), // vocabulary | phrase | grammar | pronunciation
+  // Source tracking
+  sourceConversationId: varchar("source_conversation_id").references(() => conversations.id, { onDelete: 'set null' }),
+  scenarioSlug: varchar("scenario_slug"), // Which scenario generated this item
+  // SRS progress
+  mastered: boolean("mastered").notNull().default(false),
+  attempts: integer("attempts").notNull().default(0),
+  correctCount: integer("correct_count").notNull().default(0),
+  lastScore: real("last_score"),
+  nextReviewAt: timestamp("next_review_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_review_items_user_lang").on(table.userId, table.language),
+  index("idx_review_items_next_review").on(table.nextReviewAt),
+]);
+
+export const insertUserReviewItemSchema = createInsertSchema(userReviewItems).omit({ id: true, createdAt: true });
+export type InsertUserReviewItem = z.infer<typeof insertUserReviewItemSchema>;
+export type UserReviewItem = typeof userReviewItems.$inferSelect;
+
 export const voiceGracePeriods = pgTable('voice_grace_periods', {
   conversationId: varchar('conversation_id').primaryKey(),
   usageSessionId: varchar('usage_session_id').notNull(),

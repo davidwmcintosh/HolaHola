@@ -74,6 +74,9 @@ import {
   type InsertCurriculumDrillItem,
   type UserDrillProgress,
   type InsertUserDrillProgress,
+  userReviewItems,
+  type InsertUserReviewItem,
+  type UserReviewItem,
   userLanguagePreferences,
   curriculumDrillItems,
   userDrillProgress,
@@ -84,6 +87,7 @@ import {
   users,
   conversations,
   messages,
+  scenarios,
   vocabularyWords,
   grammarExercises,
   grammarCompetencies,
@@ -495,6 +499,14 @@ export interface IStorage {
   recordDrillAttempt(userId: string, drillItemId: string, score: number, timeSpentMs: number, classId?: string): Promise<UserDrillProgress>;
   getDueReviewItems(userId: string, lessonId?: string, limit?: number): Promise<CurriculumDrillItem[]>;
   checkDrillLessonCompletion(userId: string, lessonId: string): Promise<{ completed: boolean; masteredCount: number; totalCount: number; completionPercent: number }>;
+  // Cross-modality mastery signals: aggregated from userDrillProgress for Daniela's context
+  getUserDrillMasterySignals(userId: string, targetLanguage: string): Promise<{ mastered: string[]; struggling: string[] }>;
+  // Scenario-to-textbook: find lessons relevant to a scenario's curriculum topics
+  getRelatedLessonsForScenario(scenarioSlug: string, targetLanguage: string): Promise<{ id: string; name: string; description: string; lessonType: string; estimatedMinutes: number | null }[]>;
+  // Conversation-generated review items
+  createReviewItems(items: InsertUserReviewItem[]): Promise<UserReviewItem[]>;
+  getReviewItems(userId: string, language: string, limit?: number): Promise<UserReviewItem[]>;
+  recordReviewItemAttempt(id: string, isCorrect: boolean): Promise<UserReviewItem | undefined>;
 
   // Class-Specific Curriculum (Teacher's Customizable Syllabi)
   cloneCurriculumToClass(classId: string, curriculumPathId: string): Promise<{ units: ClassCurriculumUnit[]; lessons: ClassCurriculumLesson[] }>;
@@ -3353,6 +3365,146 @@ export class DatabaseStorage implements IStorage {
     const completed = completionPercent >= 70;
     
     return { completed, masteredCount, totalCount, completionPercent };
+  }
+
+  async getUserDrillMasterySignals(userId: string, _targetLanguage: string): Promise<{ mastered: string[]; struggling: string[] }> {
+    // Join userDrillProgress → curriculumDrillItems → curriculumLessons to get lesson-level signals
+    const rows = await getSharedDb()
+      .select({
+        lessonName: curriculumLessons.name,
+        requiredTopics: curriculumLessons.requiredTopics,
+        mastered: userDrillProgress.mastered,
+        attempts: userDrillProgress.attempts,
+        averageScore: userDrillProgress.averageScore,
+      })
+      .from(userDrillProgress)
+      .innerJoin(curriculumDrillItems, eq(curriculumDrillItems.id, userDrillProgress.drillItemId))
+      .innerJoin(curriculumLessons, eq(curriculumLessons.id, curriculumDrillItems.lessonId))
+      .where(eq(userDrillProgress.userId, userId));
+
+    // Aggregate at lesson + topic level
+    const masteredTopics = new Set<string>();
+    const strugglingTopics = new Set<string>();
+
+    // Group by lessonName to get lesson-level picture
+    const lessonMap: Record<string, { name: string; topics: string[]; totalItems: number; masteredItems: number; strugglingItems: number }> = {};
+    for (const row of rows) {
+      const key = row.lessonName;
+      if (!lessonMap[key]) {
+        lessonMap[key] = { name: row.lessonName, topics: row.requiredTopics || [], totalItems: 0, masteredItems: 0, strugglingItems: 0 };
+      }
+      lessonMap[key].totalItems++;
+      if (row.mastered) lessonMap[key].masteredItems++;
+      if (!row.mastered && (row.attempts ?? 0) >= 2 && (row.averageScore ?? 1) < 0.6) lessonMap[key].strugglingItems++;
+    }
+
+    for (const lesson of Object.values(lessonMap)) {
+      const pct = lesson.totalItems > 0 ? lesson.masteredItems / lesson.totalItems : 0;
+      if (pct >= 0.7) {
+        // Mastered lesson — add all its topics + the lesson name itself
+        masteredTopics.add(lesson.name);
+        for (const t of lesson.topics) masteredTopics.add(t);
+      } else if (lesson.strugglingItems >= 2 || (lesson.totalItems > 0 && lesson.strugglingItems / lesson.totalItems >= 0.4)) {
+        // Struggling lesson
+        strugglingTopics.add(lesson.name);
+        for (const t of lesson.topics) strugglingTopics.add(t);
+      }
+    }
+
+    // Remove overlap: mastered takes priority
+    for (const t of masteredTopics) strugglingTopics.delete(t);
+
+    return {
+      mastered: [...masteredTopics].slice(0, 12),
+      struggling: [...strugglingTopics].slice(0, 8),
+    };
+  }
+
+  async getRelatedLessonsForScenario(scenarioSlug: string, targetLanguage: string): Promise<{ id: string; name: string; description: string; lessonType: string; estimatedMinutes: number | null }[]> {
+    // 1. Find the scenario and its curriculumTopics
+    const [scenario] = await getSharedDb()
+      .select({ curriculumTopics: scenarios.curriculumTopics })
+      .from(scenarios)
+      .where(eq(scenarios.slug, scenarioSlug))
+      .limit(1);
+
+    if (!scenario || !scenario.curriculumTopics || scenario.curriculumTopics.length === 0) return [];
+
+    // 2. Fetch all lessons for the target language with their topics, then filter in JS
+    const topicSet = new Set(scenario.curriculumTopics);
+    const allLessons = await getSharedDb()
+      .select({
+        id: curriculumLessons.id,
+        name: curriculumLessons.name,
+        description: curriculumLessons.description,
+        lessonType: curriculumLessons.lessonType,
+        estimatedMinutes: curriculumLessons.estimatedMinutes,
+        requiredTopics: curriculumLessons.requiredTopics,
+      })
+      .from(curriculumLessons)
+      .innerJoin(curriculumUnits, eq(curriculumUnits.id, curriculumLessons.curriculumUnitId))
+      .innerJoin(curriculumPaths, eq(curriculumPaths.id, curriculumUnits.curriculumPathId))
+      .where(eq(curriculumPaths.language, targetLanguage));
+
+    // Filter for topic overlap in JS and return top 4
+    const related = allLessons
+      .filter(l => (l.requiredTopics || []).some(t => topicSet.has(t)))
+      .slice(0, 4)
+      .map(({ requiredTopics: _, ...rest }) => rest);
+
+    return related;
+  }
+
+  async createReviewItems(items: InsertUserReviewItem[]): Promise<UserReviewItem[]> {
+    if (items.length === 0) return [];
+    const now = new Date();
+    // Set initial nextReviewAt to 24 hours from now (SRS first interval)
+    const nextReview = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const withDefaults = items.map(item => ({ ...item, nextReviewAt: item.nextReviewAt ?? nextReview }));
+    return await getSharedDb().insert(userReviewItems).values(withDefaults).returning();
+  }
+
+  async getReviewItems(userId: string, language: string, limit = 20): Promise<UserReviewItem[]> {
+    return await getSharedDb()
+      .select()
+      .from(userReviewItems)
+      .where(
+        and(
+          eq(userReviewItems.userId, userId),
+          eq(userReviewItems.language, language),
+          eq(userReviewItems.mastered, false),
+        )
+      )
+      .orderBy(sql`COALESCE(${userReviewItems.nextReviewAt}, ${userReviewItems.createdAt}) ASC`)
+      .limit(limit);
+  }
+
+  async recordReviewItemAttempt(id: string, isCorrect: boolean): Promise<UserReviewItem | undefined> {
+    const [item] = await getSharedDb().select().from(userReviewItems).where(eq(userReviewItems.id, id)).limit(1);
+    if (!item) return undefined;
+
+    const attempts = (item.attempts ?? 0) + 1;
+    const correctCount = (item.correctCount ?? 0) + (isCorrect ? 1 : 0);
+    const score = isCorrect ? 1.0 : 0.0;
+
+    // Simple SRS: correct → double interval (min 1d, max 14d); wrong → reset to 1d
+    const now = new Date();
+    let nextDays = 1;
+    if (isCorrect) {
+      const prevIntervalMs = item.nextReviewAt
+        ? (item.nextReviewAt.getTime() - (item.createdAt?.getTime() ?? now.getTime()))
+        : 24 * 60 * 60 * 1000;
+      nextDays = Math.min(14, Math.max(1, Math.round(prevIntervalMs / (24 * 60 * 60 * 1000) * 2)));
+    }
+    const nextReviewAt = new Date(now.getTime() + nextDays * 24 * 60 * 60 * 1000);
+    const mastered = correctCount >= 3 && correctCount / attempts >= 0.8;
+
+    const [updated] = await getSharedDb()
+      .update(userReviewItems)
+      .set({ attempts, correctCount, lastScore: score, nextReviewAt, mastered })
+      .where(eq(userReviewItems.id, id))
+      .returning();
+    return updated;
   }
 
   // ===== Class-Specific Curriculum (Teacher's Customizable Syllabi) =====

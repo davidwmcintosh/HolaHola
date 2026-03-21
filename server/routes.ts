@@ -28877,6 +28877,48 @@ You have full access to your neural network knowledge.
     }
   });
 
+  app.get("/api/scenarios/:slug/related-lessons", async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const language = (req.query.language as string) || 'spanish';
+      const lessons = await storage.getRelatedLessonsForScenario(slug, language);
+      res.json({ lessons });
+    } catch (error: any) {
+      console.error("[Scenarios] Related lessons error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/review-items", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getRequestUserId(req);
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      const language = (req.query.language as string) || 'spanish';
+      const limit = parseInt(req.query.limit as string) || 20;
+      const items = await storage.getReviewItems(userId, language, limit);
+      res.json({ items });
+    } catch (error: any) {
+      console.error("[ReviewItems] Get error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/review-items/:id/attempt", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getRequestUserId(req);
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      const { id } = req.params;
+      const { isCorrect } = req.body;
+      if (typeof isCorrect !== 'boolean') return res.status(400).json({ error: "isCorrect must be a boolean" });
+      const updated = await storage.recordReviewItemAttempt(id, isCorrect);
+      if (!updated) return res.status(404).json({ error: "Review item not found" });
+      res.json({ item: updated });
+    } catch (error: any) {
+      console.error("[ReviewItems] Attempt error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/user/scenario-history", isAuthenticated, async (req, res) => {
     try {
       const userId = getRequestUserId(req);

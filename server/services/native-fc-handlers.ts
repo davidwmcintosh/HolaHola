@@ -2245,6 +2245,21 @@ export class NativeFunctionCallHandler {
                   console.warn('[LoadScenario] Textbook bridge query failed (non-fatal):', (tbErr as Error).message);
                 }
               }
+              // ── Drill mastery bridge: load cross-modality mastery signals ─────────
+              if (session.userId) {
+                try {
+                  const masterySignals = await storage.getUserDrillMasterySignals(
+                    String(session.userId),
+                    session.targetLanguage || 'spanish'
+                  );
+                  if (masterySignals.mastered.length > 0 || masterySignals.struggling.length > 0) {
+                    session.activeScenario!.drillMastery = masterySignals;
+                    console.log(`[LoadScenario] Drill mastery: ${masterySignals.mastered.length} mastered, ${masterySignals.struggling.length} struggling topics`);
+                  }
+                } catch (masteryErr) {
+                  console.warn('[LoadScenario] Drill mastery query failed (non-fatal):', (masteryErr as Error).message);
+                }
+              }
               // ─────────────────────────────────────────────────────────────────────
 
               if (session.userId) {

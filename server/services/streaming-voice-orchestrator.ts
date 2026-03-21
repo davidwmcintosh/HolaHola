@@ -217,6 +217,7 @@ import { founderCollabService } from "./founder-collaboration-service";
 import { phaseTransitionService } from "./phase-transition-service";
 import { voiceDiagnostics } from "./voice-diagnostics-service";
 import { learnerMemoryExtractionService } from "./learner-memory-extraction-service";
+import { mineVocabularyFromSession } from "./vocabulary-mining-service";
 import { studentLearningService } from "./student-learning-service";
 import { memoryCheckpointService } from "./memory-checkpoint-service";
 import { phonemeAnalyticsService } from "./phoneme-analytics-service";
@@ -8130,6 +8131,25 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
         });
       }
       
+      // VOCABULARY MINING: Extract vocab/phrases the student struggled with for the review queue
+      // Runs async after session — extracts 3-5 items using Gemini Flash for the "From your conversations" section
+      if (sessionData.history.length >= 10 && !sessionData.isIncognito && sessionData.userId) {
+        const scenarioSlug = (sessionData as any).activeScenarioSlug || null;
+        mineVocabularyFromSession(
+          sessionData.userId,
+          sessionData.language || 'spanish',
+          sessionData.history.map(h => ({ role: h.role, content: h.content })),
+          sessionData.conversationId,
+          scenarioSlug,
+        ).then(result => {
+          if (result.saved > 0) {
+            console.log(`[Streaming Orchestrator] ✓ Vocab mining: saved ${result.saved} review items`);
+          }
+        }).catch((err: Error) => {
+          console.warn(`[Streaming Orchestrator] Vocab mining failed:`, err.message);
+        });
+      }
+
       // AZURE PRONUNCIATION ASSESSMENT: Deep phoneme-level analysis (when configured)
       // NOTE: Currently disabled for live sessions - requires audio transcoding from WebM to WAV
       // The test endpoint (/api/voice/assess-pronunciation) works with WAV files uploaded directly

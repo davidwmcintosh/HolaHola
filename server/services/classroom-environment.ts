@@ -297,6 +297,10 @@ export async function buildClassroomEnvironment(params: {
       topics?: string[];
       vocabulary?: string[];
     } | null;
+    drillMastery?: {
+      mastered: string[];
+      struggling: string[];
+    } | null;
   } | null;
   currentLessonId?: string;
 }): Promise<string> {
@@ -504,8 +508,19 @@ Tool Rack: memory_lookup(query, domains) — recall student memories | take_note
       ].filter(Boolean).join('\n')
     : '';
 
+  const drillMasterySection = activeScenario?.drillMastery
+    ? [
+        activeScenario.drillMastery.mastered?.length
+          ? `Drill-mastered topics (don't over-scaffold these): ${activeScenario.drillMastery.mastered.join(', ')}`
+          : '',
+        activeScenario.drillMastery.struggling?.length
+          ? `Drill-struggling topics (give extra support): ${activeScenario.drillMastery.struggling.join(', ')}`
+          : '',
+      ].filter(Boolean).join('\n')
+    : '';
+
   const scenarioSection = activeScenario
-    ? `\nActive Scene: "${activeScenario.title}" at ${activeScenario.location} [${activeScenario.slug}]${activeScenario.propsCount ? ` — ${activeScenario.propsCount} props visible` : ''}${sceneZones && sceneZones.length > 0 ? `\nScene Zones: ${sceneZones.map((z) => `${z.display_name} [${ZONE_TYPE_LABELS[z.zone_type] || z.zone_type}]`).join(' | ')}` : ''}${scenarioLevelGuideSection ? `\n${scenarioLevelGuideSection}` : ''}${textbookBridgeSection ? `\n${textbookBridgeSection}` : ''}`
+    ? `\nActive Scene: "${activeScenario.title}" at ${activeScenario.location} [${activeScenario.slug}]${activeScenario.propsCount ? ` — ${activeScenario.propsCount} props visible` : ''}${sceneZones && sceneZones.length > 0 ? `\nScene Zones: ${sceneZones.map((z) => `${z.display_name} [${ZONE_TYPE_LABELS[z.zone_type] || z.zone_type}]`).join(' | ')}` : ''}${scenarioLevelGuideSection ? `\n${scenarioLevelGuideSection}` : ''}${textbookBridgeSection ? `\n${textbookBridgeSection}` : ''}${drillMasterySection ? `\n${drillMasterySection}` : ''}`
     : '';
 
   const modeExtras = [
