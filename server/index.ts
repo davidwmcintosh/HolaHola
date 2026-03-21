@@ -248,6 +248,14 @@ const stripeInitPromise = (async function initStripe() {
       console.error('Failed to seed reflection triggers:', error);
     }
     
+    // Enrich scenario curriculum topic tags (auto-tagging pass)
+    try {
+      const { seedScenarioTopics } = await import('./seed-scenario-topics');
+      await seedScenarioTopics();
+    } catch (error) {
+      console.error('Failed to seed scenario topics:', error);
+    }
+
     // Initialize procedural memory cache for tool knowledge
     try {
       console.log('Initializing procedural memory cache...');

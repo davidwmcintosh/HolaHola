@@ -8677,11 +8677,13 @@ export const userReviewItems = pgTable("user_review_items", {
   // Source tracking
   sourceConversationId: varchar("source_conversation_id").references(() => conversations.id, { onDelete: 'set null' }),
   scenarioSlug: varchar("scenario_slug"), // Which scenario generated this item
-  // SRS progress
+  // SRS progress (SM-2 algorithm)
   mastered: boolean("mastered").notNull().default(false),
   attempts: integer("attempts").notNull().default(0),
   correctCount: integer("correct_count").notNull().default(0),
   lastScore: real("last_score"),
+  easeFactor: real("ease_factor").notNull().default(2.5),
+  intervalDays: real("interval_days").notNull().default(1),
   nextReviewAt: timestamp("next_review_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [

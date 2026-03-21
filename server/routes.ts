@@ -15813,6 +15813,40 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // ===== Teacher: Class Drill Mastery =====
+
+  app.get("/api/teacher/classes/:classId/drill-mastery", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user?.claims?.sub;
+      const { classId } = req.params;
+      const user = await storage.getUser(teacherId);
+
+      if (!hasTeacherAccess(user?.role)) {
+        return res.status(403).json({ error: "Teacher access required" });
+      }
+
+      const teacherClass = await storage.getTeacherClass(classId);
+      if (!teacherClass) return res.status(404).json({ error: "Class not found" });
+
+      if (user?.role !== 'admin' && teacherClass.teacherId !== teacherId) {
+        return res.status(403).json({ error: "Not authorized for this class" });
+      }
+
+      // Get all enrolled student IDs (from user DB)
+      const enrollments = await getUserDb().select({ userId: classEnrollments.studentId })
+        .from(classEnrollments)
+        .where(eq(classEnrollments.classId, classId));
+
+      const studentIds = enrollments.map(e => e.userId);
+
+      const lessons = await storage.getClassDrillMastery(classId, studentIds);
+      res.json({ lessons, studentCount: studentIds.length, language: teacherClass.language });
+    } catch (error: any) {
+      console.error('[Drill Mastery] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ===== Historical Memory Migration (Founder Only) =====
   // One-time migration of founder voice conversations to Daniela's neural network
   

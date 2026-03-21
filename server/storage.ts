@@ -507,6 +507,10 @@ export interface IStorage {
   createReviewItems(items: InsertUserReviewItem[]): Promise<UserReviewItem[]>;
   getReviewItems(userId: string, language: string, limit?: number): Promise<UserReviewItem[]>;
   recordReviewItemAttempt(id: string, isCorrect: boolean): Promise<UserReviewItem | undefined>;
+  getClassDrillMastery(classId: string, studentIds: string[]): Promise<{
+    lessonId: string; lessonName: string; lessonType: string; unitName: string;
+    totalStudents: number; masteredStudents: number; attemptedStudents: number; strugglingStudents: number;
+  }[]>;
 
   // Class-Specific Curriculum (Teacher's Customizable Syllabi)
   cloneCurriculumToClass(classId: string, curriculumPathId: string): Promise<{ units: ClassCurriculumUnit[]; lessons: ClassCurriculumLesson[] }>;
@@ -3487,24 +3491,107 @@ export class DatabaseStorage implements IStorage {
     const correctCount = (item.correctCount ?? 0) + (isCorrect ? 1 : 0);
     const score = isCorrect ? 1.0 : 0.0;
 
-    // Simple SRS: correct → double interval (min 1d, max 14d); wrong → reset to 1d
-    const now = new Date();
-    let nextDays = 1;
-    if (isCorrect) {
-      const prevIntervalMs = item.nextReviewAt
-        ? (item.nextReviewAt.getTime() - (item.createdAt?.getTime() ?? now.getTime()))
-        : 24 * 60 * 60 * 1000;
-      nextDays = Math.min(14, Math.max(1, Math.round(prevIntervalMs / (24 * 60 * 60 * 1000) * 2)));
+    // SM-2 spaced repetition algorithm
+    // quality: 5 = perfect, 4 = correct with hesitation, 1 = incorrect (blackout)
+    const quality = isCorrect ? 4 : 1;
+    const prevEF = item.easeFactor ?? 2.5;
+    const prevInterval = item.intervalDays ?? 1;
+
+    // Update ease factor: EF' = EF + (0.1 - (5-q)*(0.08 + (5-q)*0.02))
+    let newEF = prevEF + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+    newEF = Math.max(1.3, Math.min(3.0, newEF)); // clamp between 1.3 and 3.0
+
+    // Calculate next interval
+    let newInterval: number;
+    if (!isCorrect) {
+      newInterval = 1; // Reset to 1 day on failure
+    } else if (attempts <= 1) {
+      newInterval = 1;
+    } else if (attempts === 2) {
+      newInterval = 6;
+    } else {
+      newInterval = Math.min(90, Math.round(prevInterval * newEF));
     }
-    const nextReviewAt = new Date(now.getTime() + nextDays * 24 * 60 * 60 * 1000);
-    const mastered = correctCount >= 3 && correctCount / attempts >= 0.8;
+
+    const now = new Date();
+    const nextReviewAt = new Date(now.getTime() + newInterval * 24 * 60 * 60 * 1000);
+    // Mastered when correct 3+ times with 80%+ accuracy and interval reached 21+ days
+    const mastered = correctCount >= 3 && correctCount / attempts >= 0.8 && newInterval >= 21;
 
     const [updated] = await getSharedDb()
       .update(userReviewItems)
-      .set({ attempts, correctCount, lastScore: score, nextReviewAt, mastered })
+      .set({ attempts, correctCount, lastScore: score, nextReviewAt, mastered, easeFactor: newEF, intervalDays: newInterval })
       .where(eq(userReviewItems.id, id))
       .returning();
     return updated;
+  }
+
+  async getClassDrillMastery(classId: string, studentIds: string[]): Promise<{
+    lessonId: string;
+    lessonName: string;
+    lessonType: string;
+    unitName: string;
+    totalStudents: number;
+    masteredStudents: number;
+    attemptedStudents: number;
+    strugglingStudents: number;
+  }[]> {
+    if (studentIds.length === 0) return [];
+
+    // Get all drill progress for students in this class, joined to lessons
+    const rows = await getSharedDb()
+      .select({
+        lessonId: curriculumLessons.id,
+        lessonName: curriculumLessons.name,
+        lessonType: curriculumLessons.lessonType,
+        unitName: curriculumUnits.name,
+        userId: userDrillProgress.userId,
+        mastered: userDrillProgress.mastered,
+        attempts: userDrillProgress.attempts,
+        averageScore: userDrillProgress.averageScore,
+      })
+      .from(userDrillProgress)
+      .innerJoin(curriculumDrillItems, eq(curriculumDrillItems.id, userDrillProgress.drillItemId))
+      .innerJoin(curriculumLessons, eq(curriculumLessons.id, curriculumDrillItems.lessonId))
+      .innerJoin(curriculumUnits, eq(curriculumUnits.id, curriculumLessons.curriculumUnitId))
+      .where(inArray(userDrillProgress.userId, studentIds));
+
+    const totalStudents = studentIds.length;
+
+    // Aggregate per lesson
+    const lessonMap: Record<string, {
+      lessonId: string; lessonName: string; lessonType: string; unitName: string;
+      masteredByUser: Set<string>; attemptedByUser: Set<string>; strugglingByUser: Set<string>;
+    }> = {};
+
+    for (const row of rows) {
+      const key = row.lessonId;
+      if (!lessonMap[key]) {
+        lessonMap[key] = {
+          lessonId: row.lessonId, lessonName: row.lessonName,
+          lessonType: row.lessonType, unitName: row.unitName,
+          masteredByUser: new Set(), attemptedByUser: new Set(), strugglingByUser: new Set(),
+        };
+      }
+      lessonMap[key].attemptedByUser.add(row.userId);
+      if (row.mastered) lessonMap[key].masteredByUser.add(row.userId);
+      if (!row.mastered && (row.attempts ?? 0) >= 2 && (row.averageScore ?? 1) < 0.6) {
+        lessonMap[key].strugglingByUser.add(row.userId);
+      }
+    }
+
+    return Object.values(lessonMap)
+      .map(l => ({
+        lessonId: l.lessonId,
+        lessonName: l.lessonName,
+        lessonType: l.lessonType,
+        unitName: l.unitName,
+        totalStudents,
+        masteredStudents: l.masteredByUser.size,
+        attemptedStudents: l.attemptedByUser.size,
+        strugglingStudents: l.strugglingByUser.size,
+      }))
+      .sort((a, b) => b.attemptedStudents - a.attemptedStudents);
   }
 
   // ===== Class-Specific Curriculum (Teacher's Customizable Syllabi) =====

@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Copy, Plus, Trash2, Users, ClipboardList, BookOpen, UserMinus, Sparkles, AlertCircle, CheckCircle, TrendingDown, TrendingUp, Layers, Pencil, RotateCcw, Mic, Loader2 } from "lucide-react";
+import { Copy, Plus, Trash2, Users, ClipboardList, BookOpen, UserMinus, Sparkles, AlertCircle, CheckCircle, TrendingDown, TrendingUp, Layers, Pencil, RotateCcw, Mic, Loader2, Target, GraduationCap, HelpCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useParams, Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -95,6 +95,137 @@ interface PatternsData {
   patterns: PronunciationPattern[];
   studentCount: number;
   language: string;
+}
+
+interface DrillMasteryLesson {
+  lessonId: string;
+  lessonName: string;
+  lessonType: string;
+  unitName: string;
+  totalStudents: number;
+  masteredStudents: number;
+  attemptedStudents: number;
+  strugglingStudents: number;
+}
+
+function DrillMasteryPanel({ classId }: { classId: string }) {
+  const { data, isLoading } = useQuery<{ lessons: DrillMasteryLesson[]; studentCount: number; language: string }>({
+    queryKey: ['/api/teacher/classes', classId, 'drill-mastery'],
+    queryFn: () => fetch(`/api/teacher/classes/${classId}/drill-mastery`, { credentials: 'include' }).then(r => r.json()),
+    enabled: !!classId,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!data || data.lessons.length === 0) {
+    return (
+      <Card className="p-12">
+        <div className="text-center space-y-4">
+          <div className="flex justify-center">
+            <div className="p-4 bg-muted rounded-full">
+              <Target className="w-12 h-12 text-muted-foreground" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-xl font-semibold">No Drill Data Yet</h3>
+            <p className="text-muted-foreground max-w-md mx-auto">
+              As students complete drill exercises, their mastery data will appear here showing which lessons the class is excelling at and where they need more practice.
+            </p>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  const getMasteryPct = (l: DrillMasteryLesson) =>
+    l.attemptedStudents > 0 ? Math.round((l.masteredStudents / l.totalStudents) * 100) : 0;
+
+  const getStatusColor = (l: DrillMasteryLesson) => {
+    const pct = getMasteryPct(l);
+    if (pct >= 70) return 'text-green-600 dark:text-green-400';
+    if (l.strugglingStudents > 0 && l.strugglingStudents / Math.max(l.attemptedStudents, 1) >= 0.4) return 'text-red-600 dark:text-red-400';
+    return 'text-amber-600 dark:text-amber-400';
+  };
+
+  const getBarColor = (l: DrillMasteryLesson) => {
+    const pct = getMasteryPct(l);
+    if (pct >= 70) return 'bg-green-500';
+    if (l.strugglingStudents > 0 && l.strugglingStudents / Math.max(l.attemptedStudents, 1) >= 0.4) return 'bg-red-500';
+    return 'bg-amber-500';
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-2xl font-semibold">Drill Mastery</h2>
+        <p className="text-muted-foreground">
+          {data.studentCount} student{data.studentCount !== 1 ? 's' : ''} · {data.lessons.length} drill lesson{data.lessons.length !== 1 ? 's' : ''} with activity
+        </p>
+      </div>
+
+      <div className="grid gap-3">
+        {data.lessons.map((lesson) => {
+          const masteryPct = getMasteryPct(lesson);
+          const notStarted = data.studentCount - lesson.attemptedStudents;
+          return (
+            <Card key={lesson.lessonId} data-testid={`card-drill-lesson-${lesson.lessonId}`}>
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="font-medium text-sm truncate">{lesson.lessonName}</span>
+                      <Badge variant="outline" className="text-xs shrink-0 capitalize">{lesson.lessonType}</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-3">{lesson.unitName}</p>
+
+                    <div className="w-full bg-muted rounded-full h-2 mb-2">
+                      <div
+                        className={`h-2 rounded-full transition-all ${getBarColor(lesson)}`}
+                        style={{ width: `${masteryPct}%` }}
+                        data-testid={`bar-mastery-${lesson.lessonId}`}
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-4 text-xs flex-wrap">
+                      <span className="flex items-center gap-1 text-green-600 dark:text-green-400" data-testid={`text-mastered-${lesson.lessonId}`}>
+                        <CheckCircle className="w-3 h-3" />
+                        {lesson.masteredStudents} mastered
+                      </span>
+                      {lesson.strugglingStudents > 0 && (
+                        <span className="flex items-center gap-1 text-red-600 dark:text-red-400" data-testid={`text-struggling-${lesson.lessonId}`}>
+                          <TrendingDown className="w-3 h-3" />
+                          {lesson.strugglingStudents} struggling
+                        </span>
+                      )}
+                      {notStarted > 0 && (
+                        <span className="flex items-center gap-1 text-muted-foreground">
+                          <HelpCircle className="w-3 h-3" />
+                          {notStarted} not started
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <span className={`text-2xl font-bold ${getStatusColor(lesson)}`} data-testid={`text-mastery-pct-${lesson.lessonId}`}>
+                      {masteryPct}%
+                    </span>
+                    <p className="text-xs text-muted-foreground">mastered</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function PronunciationPatterns({ classId }: { classId: string }) {
@@ -595,6 +726,10 @@ export default function ClassManagement() {
             <Sparkles className="h-4 w-4" />
             Organic Progress
           </TabsTrigger>
+          <TabsTrigger value="drill-mastery" data-testid="tab-drill-mastery" className="gap-1">
+            <Target className="h-4 w-4" />
+            Drill Mastery
+          </TabsTrigger>
           <TabsTrigger value="patterns" data-testid="tab-patterns" className="gap-1">
             <Mic className="h-4 w-4" />
             Pronunciation Patterns
@@ -879,6 +1014,10 @@ export default function ClassManagement() {
 
         <TabsContent value="progress">
           <TeacherEarlyCompletions classId={classId || ''} />
+        </TabsContent>
+
+        <TabsContent value="drill-mastery">
+          <DrillMasteryPanel classId={classId || ''} />
         </TabsContent>
 
         <TabsContent value="patterns" className="space-y-4">
