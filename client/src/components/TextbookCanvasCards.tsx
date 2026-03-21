@@ -15,6 +15,8 @@
  *   CountryDotMapCard     — World map with all Spanish-speaking countries
  */
 
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   WeatherIcon,
@@ -775,16 +777,47 @@ const TIME_DAY_PARTS: Record<LangCode, [string, string][]> = {
   ],
 };
 
+interface ClockImageFile {
+  id: string;
+  url: string;
+  title: string;
+  target_word: string;
+  tags: string[];
+}
+
+const CLOCK_PATTERNS: { tag: string; label: string; description: string }[] = [
+  { tag: 'en-punto',    label: 'En Punto',    description: 'On the hour — es/son las...' },
+  { tag: 'y-media',     label: 'Y Media',     description: 'Half past — y media (+30)' },
+  { tag: 'y-cuarto',    label: 'Y Cuarto',    description: 'Quarter past — y cuarto (+15)' },
+  { tag: 'menos-cuarto',label: 'Menos Cuarto',description: 'Quarter to — menos cuarto (−15)' },
+];
+
 export function TimeVocabCard({ language = 'spanish' }: { language?: LangCode }) {
   const vocab = language === 'french' ? TIME_VOCAB_FR : language === 'portuguese' ? TIME_VOCAB_PT : language === 'german' ? TIME_VOCAB_DE : language === 'italian' ? TIME_VOCAB_IT : language === 'japanese' ? TIME_VOCAB_JA : language === 'korean' ? TIME_VOCAB_KO : language === 'mandarin' ? TIME_VOCAB_ZH : language === 'hebrew' ? TIME_VOCAB_HE : TIME_VOCAB_ES;
   const patterns = TIME_KEY_PATTERNS[language] ?? TIME_KEY_PATTERNS.spanish;
   const dayParts = TIME_DAY_PARTS[language] ?? TIME_DAY_PARTS.spanish;
   const sectionTitle = language === 'french' ? "L'Heure — Telling Time" : language === 'portuguese' ? 'As Horas — Telling Time' : language === 'german' ? 'Die Uhrzeit — Telling Time' : language === 'italian' ? "L'Ora — Telling Time" : language === 'japanese' ? '時計 — Telling Time' : language === 'korean' ? '시계 — Telling Time' : language === 'mandarin' ? 'Telling Time' : language === 'hebrew' ? 'שעון — Telling Time' : 'La Hora — Telling Time';
+
+  const [activePattern, setActivePattern] = useState<string>('en-punto');
+
+  const { data: clockData } = useQuery<{ files: ClockImageFile[] }>({
+    queryKey: [`/api/textbook/media-by-tag?tag=clock&language=${language}`],
+    enabled: language === 'spanish',
+  });
+
+  const clockImages = clockData?.files ?? [];
+
+  const visibleClocks = activePattern === 'all'
+    ? clockImages
+    : clockImages.filter(f => Array.isArray(f.tags) && f.tags.includes(activePattern));
+
   return (
     <Card>
-      <CardContent className="p-4 md:p-6">
+      <CardContent className="p-4 md:p-6 space-y-4">
         <SectionLabel>{sectionTitle}</SectionLabel>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-2">
+
+        {/* Quick-reference SVG clocks — all languages */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {vocab.map(({ time, label, english }) => (
             <div
               key={time}
@@ -799,7 +832,8 @@ export function TimeVocabCard({ language = 'spanish' }: { language?: LangCode })
           ))}
         </div>
 
-        <div className="mt-4 pt-4 border-t border-border/40 grid grid-cols-1 sm:grid-cols-2 gap-6">
+        {/* Pattern + day-parts reference — all languages */}
+        <div className="pt-2 border-t border-border/40 grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div>
             <SectionLabel>Key Patterns</SectionLabel>
             <div className="space-y-1 mt-1">
@@ -823,6 +857,61 @@ export function TimeVocabCard({ language = 'spanish' }: { language?: LangCode })
             </div>
           </div>
         </div>
+
+        {/* Clock image gallery — Spanish only (48 images by pattern) */}
+        {language === 'spanish' && clockImages.length > 0 && (
+          <div className="pt-2 border-t border-border/40">
+            <SectionLabel>Clock Gallery — All Times</SectionLabel>
+            <p className="text-[11px] text-muted-foreground mb-3">
+              Practice reading each clock face and saying the time aloud in Spanish.
+            </p>
+
+            {/* Pattern tabs */}
+            <div className="flex gap-2 flex-wrap mb-4">
+              {CLOCK_PATTERNS.map(({ tag, label, description }) => (
+                <button
+                  key={tag}
+                  data-testid={`clock-pattern-tab-${tag}`}
+                  onClick={() => setActivePattern(tag)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                    activePattern === tag
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted/60 text-muted-foreground hover-elevate'
+                  }`}
+                  title={description}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+              {visibleClocks.map((img) => (
+                <div
+                  key={img.id}
+                  className="flex flex-col items-center gap-1.5 p-2 rounded-md bg-muted/40 border border-border/40"
+                  data-testid={`clock-image-${img.target_word}`}
+                >
+                  <img
+                    src={img.url}
+                    alt={img.title}
+                    className="w-full aspect-square object-contain rounded"
+                    loading="lazy"
+                  />
+                  <span className="text-[10px] font-medium text-center leading-tight">
+                    {img.title.split(' — ')[1] ?? img.title}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {visibleClocks.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No images for this pattern yet.
+              </p>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

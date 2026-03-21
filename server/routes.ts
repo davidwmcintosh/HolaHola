@@ -10435,6 +10435,44 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // Fetch media files by tag for textbook visual sections (e.g. clock images)
+  app.get("/api/textbook/media-by-tag", isAuthenticated, async (req: any, res) => {
+    try {
+      const { tag, language } = req.query;
+      if (!tag) return res.status(400).json({ error: "tag query param is required" });
+
+      const sharedDb = getSharedDb();
+      const tagVal = tag as string;
+      const rows = await sharedDb.execute(
+        language
+          ? sql`SELECT id, url, title, target_word, tags, filename
+                FROM media_files
+                WHERE language = ${language as string}
+                  AND ${tagVal} = ANY(tags)
+                ORDER BY title
+                LIMIT 200`
+          : sql`SELECT id, url, title, target_word, tags, filename
+                FROM media_files
+                WHERE ${tagVal} = ANY(tags)
+                ORDER BY title
+                LIMIT 200`
+      );
+      // Normalize PostgreSQL text array strings to JS arrays
+      const files = (rows.rows as any[]).map(row => ({
+        ...row,
+        tags: Array.isArray(row.tags)
+          ? row.tags
+          : typeof row.tags === 'string'
+            ? row.tags.replace(/^\{/, '').replace(/\}$/, '').split(',').map((t: string) => t.trim())
+            : [],
+      }));
+      res.json({ files });
+    } catch (error: any) {
+      console.error('[textbook/media-by-tag] error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/textbook/vocab-images/:lessonId", isAuthenticated, async (req: any, res) => {
     try {
       const { lessonId } = req.params;
