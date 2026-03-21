@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -51,6 +52,7 @@ interface Section {
   objectives?: string[];
   conversationTopic?: string;
   imageUrl?: string | null;
+  relatedScenario?: { slug: string; title: string } | null;
   drills?: DrillItem[];
 }
 
@@ -194,6 +196,7 @@ function VisualLessonCard({
   onViewed: () => void;
   onMarkedRead?: (id: string) => void;
 }) {
+  const [, setLocation] = useLocation();
   const viewedRef = useRef(false);
   const hasMarkedReadRef = useRef(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -239,7 +242,7 @@ function VisualLessonCard({
     section.drills &&
     section.drills.length > 0;
 
-  const hasAltCTA = !!(section.conversationTopic || (section.hasDrills && section.drillCount > 0) || isRhythmEligible);
+  const hasAltCTA = !!(section.relatedScenario || section.conversationTopic || (section.hasDrills && section.drillCount > 0) || isRhythmEligible);
 
   const rhythmItems = (section.drills ?? []).map(d => ({
     id: d.id,
@@ -357,7 +360,16 @@ function VisualLessonCard({
               {contentExpanded ? "Hide Notes" : "Study Notes"}
               {contentExpanded ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />}
             </Button>
-            {section.conversationTopic && (
+            {section.relatedScenario ? (
+              <Button
+                className="flex-1 min-h-[44px] touch-manipulation"
+                onClick={() => setLocation(`/chat?scenario=${section.relatedScenario!.slug}`)}
+                data-testid={`button-practice-scenario-${section.id}`}
+              >
+                <MessageSquare className="h-4 w-4 mr-2" />
+                Practice: {section.relatedScenario.title}
+              </Button>
+            ) : section.conversationTopic ? (
               <Button 
                 className="flex-1 min-h-[44px] touch-manipulation" 
                 onClick={onStartConversation}
@@ -366,11 +378,11 @@ function VisualLessonCard({
                 <MessageSquare className="h-4 w-4 mr-2" />
                 Practice with Daniela
               </Button>
-            )}
+            ) : null}
             {section.hasDrills && section.drillCount > 0 && !isRhythmEligible && (
               <Button 
-                variant={section.conversationTopic ? "outline" : "default"}
-                className={`min-h-[44px] touch-manipulation ${section.conversationTopic ? "" : "flex-1"}`}
+                variant={(section.relatedScenario || section.conversationTopic) ? "outline" : "default"}
+                className={`min-h-[44px] touch-manipulation ${(section.relatedScenario || section.conversationTopic) ? "" : "flex-1"}`}
                 onClick={onStartDrill}
                 data-testid={`button-start-drill-${section.id}`}
               >
@@ -393,7 +405,7 @@ function VisualLessonCard({
                 }
               </Button>
             )}
-            {!section.conversationTopic && !section.hasDrills && (
+            {!section.relatedScenario && !section.conversationTopic && !section.hasDrills && (
               <Button 
                 className="flex-1 min-h-[44px] touch-manipulation" 
                 variant="secondary"

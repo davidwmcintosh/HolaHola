@@ -9818,6 +9818,12 @@ Return ONLY the ${targetLanguage} phrase:`;
       // Get all units (chapters) for this path
       const units = await storage.getCurriculumUnits(primaryPath.id);
       
+      // Pre-load all scenario topic data once for reverse bridge (lesson → scenario)
+      const allScenarioTopics = await getSharedDb()
+        .select({ slug: scenarios.slug, title: scenarios.title, curriculumTopics: scenarios.curriculumTopics })
+        .from(scenarios)
+        .where(isNotNull(scenarios.curriculumTopics));
+      
       console.log('[Textbook API] Found units:', units.length);
       
       // Build chapter structure with lessons (sections)
@@ -9844,6 +9850,15 @@ Return ONLY the ${targetLanguage} phrase:`;
             objectives: lesson.objectives || [],
             conversationTopic: lesson.conversationTopic,
             imageUrl: lesson.imageUrl || null,
+            relatedScenario: (() => {
+              const lt = new Set(lesson.requiredTopics || []);
+              if (lt.size === 0) return null;
+              const scored = allScenarioTopics
+                .map(s => ({ slug: s.slug, title: s.title, score: (s.curriculumTopics || []).filter((t) => lt.has(t)).length }))
+                .filter(s => s.score > 0)
+                .sort((a, b) => b.score - a.score);
+              return scored[0] ? { slug: scored[0].slug, title: scored[0].title } : null;
+            })(),
             drills: drillItems.slice(0, 12).map(item => ({
               id: item.id,
               itemType: item.itemType,
@@ -9918,6 +9933,12 @@ Return ONLY the ${targetLanguage} phrase:`;
       const lessons = await storage.getCurriculumLessons(chapterId);
       
       const lessonIds = lessons.map(l => l.id);
+      
+      // Pre-load scenario topics once for reverse bridge
+      const allScenarioTopicsDetail = await getSharedDb()
+        .select({ slug: scenarios.slug, title: scenarios.title, curriculumTopics: scenarios.curriculumTopics })
+        .from(scenarios)
+        .where(isNotNull(scenarios.curriculumTopics));
 
       // Batch-fetch textbook read status and Daniela-covered status for all lessons
       const [textbookReadRecords, danielaCoveredRecords] = await Promise.all([
@@ -9970,6 +9991,15 @@ Return ONLY the ${targetLanguage} phrase:`;
           drills: drillsWithProgress,
           conversationTopic: lesson.conversationTopic,
           conversationPrompt: lesson.conversationPrompt,
+          relatedScenario: (() => {
+            const lt = new Set(lesson.requiredTopics || []);
+            if (lt.size === 0) return null;
+            const scored = allScenarioTopicsDetail
+              .map(s => ({ slug: s.slug, title: s.title, score: (s.curriculumTopics || []).filter((t) => lt.has(t)).length }))
+              .filter(s => s.score > 0)
+              .sort((a, b) => b.score - a.score);
+            return scored[0] ? { slug: scored[0].slug, title: scored[0].title } : null;
+          })(),
           textbookRead: textbookReadMap.get(lesson.id) === true,
           danielaCovered: danielaCoveredMap.get(lesson.id) === 'completed',
           imageUrl: lesson.imageUrl || null,
