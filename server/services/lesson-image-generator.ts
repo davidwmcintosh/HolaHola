@@ -10,7 +10,8 @@
  *  - Don't already have an imageUrl
  *  - Across all languages (Spanish first as priority)
  *
- * Caps at MAX_PER_RUN to control API cost per startup.
+ * startLessonImageWorker() runs continuously: batch → 30s cooldown → next batch
+ * until all lessons are covered, then stops.
  */
 
 import { getSharedDb } from '../db';
@@ -183,8 +184,42 @@ export async function generateLessonImages(): Promise<void> {
       }
     }
 
-    console.log(`[LessonImages] Done: ${generated} generated, ${failed} failed, ${candidates.length - toProcess.length} remaining`);
+    const remaining = candidates.length - toProcess.length;
+    console.log(`[LessonImages] Done: ${generated} generated, ${failed} failed, ${remaining} remaining`);
+    return remaining;
   } catch (error) {
     console.error('[LessonImages] Error:', error);
+    return -1;
   }
+}
+
+let _workerRunning = false;
+
+/**
+ * Starts a continuous image generation worker.
+ * Runs batches back-to-back with a short cooldown until all lessons are covered.
+ * Safe to call multiple times — only one worker runs at a time.
+ */
+export function startLessonImageWorker(): void {
+  if (_workerRunning) return;
+  _workerRunning = true;
+
+  const COOLDOWN_MS = 10_000; // 10 seconds between batches
+
+  async function loop() {
+    try {
+      const remaining = await generateLessonImages();
+      if (remaining === 0) {
+        console.log('[LessonImages] Worker complete — all lessons have images');
+        _workerRunning = false;
+        return;
+      }
+    } catch (err) {
+      console.error('[LessonImages] Worker error:', err);
+    }
+    // Schedule next batch
+    setTimeout(loop, COOLDOWN_MS);
+  }
+
+  loop();
 }
