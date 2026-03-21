@@ -266,13 +266,10 @@ const stripeInitPromise = (async function initStripe() {
       console.error('Failed to seed scenario topics:', error);
     }
 
-    // Generate cover images for curriculum lessons that have topic tags but no image
-    try {
-      const { generateLessonImages } = await import('./services/lesson-image-generator');
-      await generateLessonImages();
-    } catch (error) {
-      console.error('Failed to generate lesson images:', error);
-    }
+    // Generate cover images for curriculum lessons in the background (non-blocking)
+    import('./services/lesson-image-generator').then(({ generateLessonImages }) => {
+      generateLessonImages().catch(err => console.error('Failed to generate lesson images:', err));
+    }).catch(err => console.error('Failed to import lesson-image-generator:', err));
 
     // Initialize procedural memory cache for tool knowledge
     try {

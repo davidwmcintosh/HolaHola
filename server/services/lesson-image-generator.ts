@@ -5,20 +5,46 @@
  * Gemini Flash Image. Images are stored permanently in object storage and
  * the URL is saved back to curriculumLessons.imageUrl.
  *
- * Only processes lessons that:
+ * Processes lessons that:
  *  - Have requiredTopics (tagged by lesson-topic-tagger)
  *  - Don't already have an imageUrl
- *  - Are from the Spanish curriculum (priority language)
+ *  - Across all languages (Spanish first as priority)
  *
  * Caps at MAX_PER_RUN to control API cost per startup.
  */
 
 import { getSharedDb } from '../db';
 import { curriculumLessons, curriculumUnits, curriculumPaths } from '../../shared/schema';
-import { eq, isNull, and, inArray } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { uploadPublicBuffer } from './image-storage';
 
-const MAX_PER_RUN = 20; // Max images to generate per startup to control cost
+const MAX_PER_RUN = 50;
+
+// Language priority order — Spanish first (highest scenario coverage), then others
+const LANGUAGE_PRIORITY: Record<string, number> = {
+  spanish: 0,
+  french: 1,
+  italian: 2,
+  portuguese: 3,
+  german: 4,
+  english: 5,
+  japanese: 6,
+  korean: 7,
+  mandarin: 8,
+};
+
+// Cultural context per language for richer prompts
+const LANGUAGE_CULTURE: Record<string, string> = {
+  spanish: 'Latin American or Spanish culture — warm, vibrant, colorful',
+  french:  'French culture — elegant, Parisian, café atmosphere',
+  italian: 'Italian culture — Mediterranean warmth, architecture, food',
+  portuguese: 'Brazilian or Portuguese culture — lively, coastal, warm',
+  german:  'German culture — modern, orderly, Central European',
+  english: 'global English-speaking context — diverse, modern',
+  japanese: 'Japanese culture — clean aesthetics, modern Tokyo or traditional',
+  korean:  'Korean culture — K-culture, urban Seoul, modern and vibrant',
+  mandarin: 'Chinese culture — rich heritage, modern China, diverse scenery',
+};
 
 // Topic slugs most critical to the scenario-to-textbook bridge (priority order)
 const PRIORITY_TOPICS = [
@@ -28,22 +54,24 @@ const PRIORITY_TOPICS = [
   'describing-symptoms', 'transportation', 'self-introduction', 'prices-money', 'quantities',
 ];
 
-function buildImagePrompt(lessonName: string, lessonType: string, topics: string[]): string {
+function buildImagePrompt(lessonName: string, lessonType: string, topics: string[], language: string): string {
   const topicContext = topics.slice(0, 3).join(', ').replace(/-/g, ' ');
-  const typeLabel = {
+  const culture = LANGUAGE_CULTURE[language] || 'a multicultural educational context';
+  const typeLabel = ({
     conversation: 'two people having a friendly conversation',
     vocabulary: 'a visually rich scene showing key vocabulary items',
     grammar: 'a clear educational illustration',
     cultural_exploration: 'a vibrant cultural scene',
     drill: 'an engaging practice activity',
-  }[lessonType] || 'a language learning scene';
+  } as Record<string, string>)[lessonType] || 'a language learning scene';
 
-  return `Create a warm, friendly educational illustration for a Spanish language learning app.
+  return `Create a warm, friendly educational illustration for a ${language} language learning app.
 Scene: ${typeLabel} related to "${lessonName}" covering topics: ${topicContext}.
+Cultural setting: ${culture}.
 Style: Soft warm colors, clean editorial illustration, diverse characters, inviting and approachable.
-Composition: Wide landscape format (16:9), clear focal point, minimal text, suitable as a lesson card header.
-Mood: Encouraging, modern, culturally rich.
-Do NOT include any text or labels in the image.`;
+Composition: Wide landscape format (16:9), clear focal point, no text or labels, suitable as a lesson card header.
+Mood: Encouraging, modern, culturally authentic.
+Do NOT include any text, words, or labels in the image.`;
 }
 
 async function generateImageBuffer(prompt: string): Promise<{ buffer: Buffer; mimeType: string } | null> {
@@ -79,7 +107,7 @@ export async function generateLessonImages(): Promise<void> {
   try {
     const db = getSharedDb();
 
-    // Find Spanish lessons that have topics but no image
+    // Fetch all lessons with their language
     const lessons = await db.select({
       id: curriculumLessons.id,
       name: curriculumLessons.name,
@@ -92,9 +120,8 @@ export async function generateLessonImages(): Promise<void> {
     .innerJoin(curriculumUnits, eq(curriculumUnits.id, curriculumLessons.curriculumUnitId))
     .innerJoin(curriculumPaths, eq(curriculumPaths.id, curriculumUnits.curriculumPathId));
 
-    // Filter: Spanish, has topics, no image
+    // Filter: has topics, no image yet
     const candidates = lessons.filter(l =>
-      l.language === 'spanish' &&
       l.topics && l.topics.length > 0 &&
       !l.imageUrl
     );
@@ -104,7 +131,7 @@ export async function generateLessonImages(): Promise<void> {
       return;
     }
 
-    // Sort by priority: lessons covering the most-needed scenario gap topics first
+    // Sort: language priority first, then by topic relevance score
     const topicPriorityScore = (topics: string[]) => {
       let score = 0;
       for (const t of topics) {
@@ -114,7 +141,12 @@ export async function generateLessonImages(): Promise<void> {
       return score;
     };
 
-    candidates.sort((a, b) => topicPriorityScore(b.topics || []) - topicPriorityScore(a.topics || []));
+    candidates.sort((a, b) => {
+      const langA = LANGUAGE_PRIORITY[a.language] ?? 99;
+      const langB = LANGUAGE_PRIORITY[b.language] ?? 99;
+      if (langA !== langB) return langA - langB;
+      return topicPriorityScore(b.topics || []) - topicPriorityScore(a.topics || []);
+    });
 
     const toProcess = candidates.slice(0, MAX_PER_RUN);
     console.log(`[LessonImages] Generating images for ${toProcess.length} priority lessons (${candidates.length} total need images)...`);
@@ -124,7 +156,7 @@ export async function generateLessonImages(): Promise<void> {
 
     for (const lesson of toProcess) {
       try {
-        const prompt = buildImagePrompt(lesson.name, lesson.lessonType, lesson.topics || []);
+        const prompt = buildImagePrompt(lesson.name, lesson.lessonType, lesson.topics || [], lesson.language);
         const img = await generateImageBuffer(prompt);
 
         if (!img) {
@@ -141,7 +173,7 @@ export async function generateLessonImages(): Promise<void> {
           .where(eq(curriculumLessons.id, lesson.id));
 
         generated++;
-        console.log(`[LessonImages] Generated: ${lesson.name.slice(0, 50)}`);
+        console.log(`[LessonImages] Generated: [${lesson.language}] ${lesson.name.slice(0, 50)}`);
 
         // Small delay to avoid rate limits
         await new Promise(r => setTimeout(r, 1500));
@@ -151,7 +183,7 @@ export async function generateLessonImages(): Promise<void> {
       }
     }
 
-    console.log(`[LessonImages] Done: ${generated} generated, ${failed} failed, ${candidates.length - toProcess.length} remaining for future runs`);
+    console.log(`[LessonImages] Done: ${generated} generated, ${failed} failed, ${candidates.length - toProcess.length} remaining`);
   } catch (error) {
     console.error('[LessonImages] Error:', error);
   }
