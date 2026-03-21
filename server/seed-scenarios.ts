@@ -67,7 +67,9 @@ const CURRICULUM_TOPICS_BY_SLUG: Record<string, string[]> = {
   'pharmacy':          ['health', 'body-parts', 'medicine', 'numbers', 'formal-requests', 'describing-symptoms', 'quantities'],
   'birthday-party':    ['social-vocabulary', 'celebrations', 'numbers', 'family', 'greetings', 'expressing-emotions'],
   'cooking-class':     ['food-vocabulary', 'kitchen-vocabulary', 'quantities', 'instructions', 'verbs-of-action', 'ordering'],
-  'first-date':        ['greetings', 'self-introduction', 'hobbies', 'opinions', 'preferences', 'social-vocabulary'],
+  'business-lunch':    ['professional-vocabulary', 'food-vocabulary', 'ordering', 'social-vocabulary', 'opinions', 'formal-language'],
+  'performance-review':['professional-vocabulary', 'formal-language', 'past-tense', 'opinions', 'future-plans', 'expressing-emotions'],
+  'networking-event':  ['self-introduction', 'professional-vocabulary', 'opinions', 'formal-language', 'social-vocabulary', 'hobbies'],
   'university-class':  ['academic-vocabulary', 'formal-language', 'questions', 'note-taking', 'education', 'opinions'],
   'neighborhood-walk': ['directions', 'greetings', 'landmarks', 'describing-places', 'numbers', 'transportation'],
   'the-bank':          ['numbers', 'formal-requests', 'financial-vocabulary', 'formal-language', 'quantities', 'time'],
@@ -2798,91 +2800,300 @@ const scenarioData: ScenarioSeed[] = [
     ]
   },
   {
-    slug: "first-date",
-    title: "The First Date",
-    description: "Meet someone special for the first time at a café. Practice introductions, expressing likes and dislikes, asking personal questions, and keeping the conversation flowing naturally.",
-    category: "social",
-    location: "A quiet, intimate café table for two",
-    defaultMood: "warm",
-    minActflLevel: "novice_mid",
+    slug: "business-lunch",
+    title: "The Business Lunch",
+    description: "Navigate the delicate balance of professional small talk and serious business over a meal. Build rapport with a client or colleague while ordering food and discussing work.",
+    category: "professional",
+    location: "A upscale restaurant, reserved table for two",
+    defaultMood: "professional",
+    minActflLevel: "novice_high",
     maxActflLevel: "advanced_high",
     props: [
       {
         propType: "menu",
-        title: "Café Menu",
+        title: "Restaurant Menu",
         content: {
           sections: [
             {
-              name: "Drinks",
+              name: "Starters",
               items: [
-                { name: "Espresso", price: "2.00" },
-                { name: "Tea / Té / Thé", price: "2.50" },
-                { name: "Fresh juice", price: "4.00" }
+                { name: "Soup of the day", price: "8.00" },
+                { name: "House salad", price: "9.00" }
+              ]
+            },
+            {
+              name: "Mains",
+              items: [
+                { name: "Grilled fish", price: "22.00" },
+                { name: "Steak", price: "28.00" },
+                { name: "Pasta of the day", price: "18.00" }
               ]
             }
           ]
         },
         displayOrder: 0,
         isInteractive: false,
+      },
+      {
+        propType: "form",
+        title: "Meeting Agenda Notes",
+        content: {
+          fields: [
+            { label: "Key topic to discuss", placeholder: "e.g. contract renewal, new project…" },
+            { label: "Next steps to propose", placeholder: "e.g. follow-up call, send proposal…" }
+          ]
+        },
+        displayOrder: 1,
+        isInteractive: true,
       }
     ],
     levelGuides: [
       {
-        actflLevel: "novice_mid",
-        roleDescription: "You are a friendly, patient date who asks very simple questions and responds warmly. Keep the conversation light: hobbies, food, family. Give the student space to respond.",
+        actflLevel: "novice_high",
+        roleDescription: "You are a friendly client or colleague meeting the student for lunch. Keep conversation light and welcoming. Introduce simple small talk topics: weather, how they're finding the city, what they do.",
         studentGoals: [
-          "Introduce yourself: name, where you're from, what you do",
-          "Name 2-3 hobbies or things you like",
-          "Ask and answer: 'Do you like…?'",
-          "Order a drink politely"
+          "Greet a professional contact and exchange pleasantries",
+          "Order from the menu politely using formal register",
+          "Answer simple questions about your work and company",
+          "Confirm a simple next step: 'I'll send you an email'"
         ],
-        vocabularyFocus: ["me llamo", "soy de", "trabajo en", "me gusta", "no me gusta", "aficiones", "música", "deporte", "familia", "¿y tú?"],
-        grammarFocus: ["Gustar construction: me gusta / me gustan", "Ser vs. estar for introductions", "Simple questions: ¿De dónde eres? ¿Qué haces?"],
+        vocabularyFocus: ["reunión", "empresa", "proyecto", "cliente", "colega", "propuesta", "encantado de conocerle", "el menú del día", "me gustaría pedir"],
+        grammarFocus: ["Formal usted register throughout", "Quisiera + infinitive for orders", "Simple present for job description: 'Me dedico a…'"],
         conversationStarters: [
-          "¡Hola! ¿Cómo estás? Me alegro mucho de conocerte.",
-          "¿Qué te gusta hacer en tu tiempo libre?",
-          "¿De dónde eres? ¿Llevas mucho tiempo aquí?",
-          "¿Quieres pedir algo para beber?"
+          "Encantado/a de conocerle en persona por fin.",
+          "¿Cómo ha ido el viaje?",
+          "¿Ya conoce la ciudad o es su primera vez?",
+          "¿Qué le apetece pedir? El menú del día suele estar muy bien."
         ],
-        complexityNotes: "Make it fun and low-stakes. Compliment any attempt. Model naturally: share your own 'answer' first to scaffold the student's response. Avoid complex grammar at this level."
+        complexityNotes: "Keep business talk to one simple topic: 'We'd like to continue the project.' The main skill is maintaining formal register while ordering and doing small talk. Celebrate any usted usage."
       },
       {
         actflLevel: "intermediate_mid",
-        roleDescription: "You are a curious, engaging date who digs beneath the surface. Ask follow-up questions about opinions, past experiences, and future plans. React genuinely to what the student says.",
+        roleDescription: "You are a client or business partner with a real agenda. Weave business discussion between ordering and eating. Express opinions, ask probing questions, and move toward a concrete decision or commitment.",
         studentGoals: [
-          "Share a personal story or past experience",
-          "Express opinions with reasons: 'Creo que… porque…'",
-          "Ask about the other person's values and plans",
-          "Handle a light awkward moment naturally (misunderstanding, pause)"
+          "Navigate naturally between small talk and business topics",
+          "Express your company's needs or position clearly",
+          "Ask about terms, timelines, or deliverables",
+          "Reach a soft agreement or propose a clear next step"
         ],
-        vocabularyFocus: ["en mi opinión", "me parece que", "sin embargo", "por ejemplo", "lo que más me importa", "sueños", "planes", "valores", "actitud"],
-        grammarFocus: ["Preterite for past stories", "Opinar + infinitive or que + subjunctive", "Discourse connectors: además, sin embargo, por eso"],
+        vocabularyFocus: ["plazo", "entrega", "presupuesto", "acuerdo", "condiciones", "negociar", "nos interesa", "pendiente", "compromiso", "contrato"],
+        grammarFocus: ["Conditional for proposals: 'Podríamos considerar…'", "Future for plans: 'Lo enviaré el viernes'", "Subjunctive in formal requests: 'Le pediría que…'"],
         conversationStarters: [
-          "¿Cuál fue la mejor experiencia de tu vida hasta ahora?",
-          "¿Qué es lo más importante para ti en una relación?",
-          "Si pudieras vivir en otro país, ¿dónde irías?",
-          "¿Hay algo que la gente se sorprende al saber de ti?"
+          "Antes de pedir, quería comentarle algo sobre el plazo de entrega.",
+          "¿Cuáles son exactamente sus expectativas para este trimestre?",
+          "Creemos que podríamos ofrecerle unas condiciones muy competitivas.",
+          "¿Estarían en posición de tomar una decisión antes de final de mes?"
         ],
-        complexityNotes: "Build genuine conversational chemistry. The student should feel they're getting to know a real person. Create a small misunderstanding to practice clarification strategies."
+        complexityNotes: "The food serves as rhythm and reset between business topics. Push for one genuine negotiation moment — a term that needs adjustment. Student must propose a solution, not just respond."
       },
       {
         actflLevel: "advanced_mid",
-        roleDescription: "You are a thoughtful, intellectually curious date. Move the conversation toward deeper themes: ambitions, worldview, cultural identity. Be genuinely interested and push back thoughtfully when you disagree.",
+        roleDescription: "You are a senior executive. The lunch is a relationship-building moment but also a subtle negotiation. Read between the lines, use formal and informal registers strategically, and push for real commitments.",
         studentGoals: [
-          "Discuss personal values, ambitions, and worldview fluently",
-          "Navigate a friendly disagreement with tact",
-          "Use humour and irony appropriately",
-          "Reflect on what you're looking for in life and relationships"
+          "Navigate strategic conversation with subtext and implication",
+          "Use persuasion techniques: framing, concession, anchoring",
+          "Manage the transition between relationship-building and business",
+          "Close the lunch with a specific, mutually agreed next step"
         ],
-        vocabularyFocus: ["ambición", "perspectiva", "integridad", "comprometerse", "cosmovisión", "ironía", "matiz", "trascendencia", "autenticidad"],
-        grammarFocus: ["Subjunctive for uncertainty and emotion", "Hypothetical: Si fuera/tuviera…", "Hedging language: 'En cierta medida…', 'Podría decirse que…'"],
+        vocabularyFocus: ["estrategia", "alianza estratégica", "rentabilidad", "margen de maniobra", "visión a largo plazo", "acuerdo de principio", "due diligence", "sinergias"],
+        grammarFocus: ["Conditional perfect for hypotheticals in negotiation", "Implicit subjunctive: 'Sería importante que…'", "Hedging and understatement as power tools"],
         conversationStarters: [
-          "¿Crees que la gente puede cambiar fundamentalmente?",
-          "¿Qué te haría abandonar un sueño?",
-          "Me parece interesante lo que dices, pero yo lo veo de otra manera…",
-          "¿Hay algo que nunca has contado en una primera cita y que cambiaría cómo te ven?"
+          "Ha sido un año complicado para todos, pero creo que hay aquí una oportunidad real.",
+          "Dicho esto, hay ciertos aspectos del contrato que nos generan dudas.",
+          "No quisiera presionar, pero un acuerdo de principio hoy nos facilitaría mucho las cosas.",
+          "Brindemos — y cerremos esto antes del café."
         ],
-        complexityNotes: "This is sophisticated social conversation. Push the student to use irony, hedging, and nuance. A friendly philosophical disagreement is the centrepiece — model graceful disagreement and active listening."
+        complexityNotes: "This is elite business language. The student must read intent, use strategic concessions, and close. Push all Bloom's levels: Analyse the power dynamic, Evaluate the offer, Create a closing proposal."
+      }
+    ]
+  },
+  {
+    slug: "performance-review",
+    title: "The Performance Review",
+    description: "Sit down with your manager for your annual review. Discuss achievements, areas for improvement, and career goals. Practice formal feedback language in both giving and receiving modes.",
+    category: "professional",
+    location: "A manager's office or private meeting room",
+    defaultMood: "formal",
+    minActflLevel: "novice_high",
+    maxActflLevel: "advanced_high",
+    props: [
+      {
+        propType: "form",
+        title: "Self-Assessment Form",
+        content: {
+          fields: [
+            { label: "Key achievement this year", placeholder: "What are you most proud of?" },
+            { label: "Area to develop", placeholder: "What do you want to improve?" },
+            { label: "Career goal", placeholder: "Where do you want to be in 1-2 years?" }
+          ]
+        },
+        displayOrder: 0,
+        isInteractive: true,
+      },
+      {
+        propType: "sign",
+        title: "Review Context",
+        content: {
+          text: "Annual Performance Review",
+          subtext: "Confidential — Please speak openly",
+          style: "institutional"
+        },
+        displayOrder: 1,
+        isInteractive: false,
+      }
+    ],
+    levelGuides: [
+      {
+        actflLevel: "novice_high",
+        roleDescription: "You are a patient, supportive manager conducting a first review with a new employee. Ask structured questions, confirm understanding often, and respond positively to honest answers.",
+        studentGoals: [
+          "Describe one thing you accomplished this year",
+          "Name one area you want to improve",
+          "Understand and respond to basic feedback",
+          "Express a simple career goal: 'I want to learn X' or 'I'd like to be promoted'"
+        ],
+        vocabularyFocus: ["logro", "objetivo", "mejorar", "esfuerzo", "resultado", "ascenso", "formación", "equipo", "responsabilidad", "evaluación"],
+        grammarFocus: ["Preterite for accomplishments: 'Logré…', 'Completé…'", "Quiero / me gustaría + infinitive for goals", "Ser vs. estar for describing performance states"],
+        conversationStarters: [
+          "Gracias por venir. ¿Cómo crees que ha ido el año en general?",
+          "¿Cuál crees que ha sido tu logro más importante este año?",
+          "¿En qué área te gustaría mejorar el año que viene?",
+          "Tengo algunos comentarios que hacerte — ¿estás listo/a?"
+        ],
+        complexityNotes: "Keep feedback positive and structured. The student should feel heard, not judged. Scaffold: give a compliment before any constructive feedback. One goal, one achievement, one improvement area."
+      },
+      {
+        actflLevel: "intermediate_mid",
+        roleDescription: "You are a direct but fair manager. Give balanced feedback — one area of genuine strength, one area requiring real improvement. Ask the student to reflect and propose solutions.",
+        studentGoals: [
+          "Articulate achievements with specific examples and impact",
+          "Receive constructive criticism and respond professionally",
+          "Propose an action plan for development",
+          "Negotiate a raise or promotion with a reasoned argument"
+        ],
+        vocabularyFocus: ["rendimiento", "indicadores de desempeño", "iniciativa", "proactividad", "retroalimentación", "plan de desarrollo", "incremento salarial", "asumir responsabilidades"],
+        grammarFocus: ["Imperfect for background context: 'Durante el proyecto, yo…'", "Conditional for negotiation: 'Consideraría un aumento si…'", "Subjunctive for goals: 'Mi objetivo es que el equipo…'"],
+        conversationStarters: [
+          "Tus resultados en Q3 fueron muy sólidos. Cuéntame cómo lo lograste.",
+          "Sin embargo, recibí comentarios de que hubo dificultades de comunicación con el equipo.",
+          "¿Qué harías diferente si afrontaras ese proyecto otra vez?",
+          "Mencionaste que te gustaría un aumento. ¿Qué argumento me darías?"
+        ],
+        complexityNotes: "The raise negotiation is the centrepiece. Student must build a case, not just ask. Introduce a moment of constructive friction — a genuine concern the manager has — that the student must address."
+      },
+      {
+        actflLevel: "advanced_mid",
+        roleDescription: "You are a senior manager discussing a high-stakes review: a possible promotion, a performance issue, or a team restructure. Expect analytical thinking, clear self-advocacy, and strategic vision.",
+        studentGoals: [
+          "Build a structured business case for promotion or salary increase",
+          "Navigate difficult feedback about a significant failure with grace",
+          "Discuss long-term career trajectory and alignment with company strategy",
+          "Demonstrate leadership potential through how you communicate, not just what you say"
+        ],
+        vocabularyFocus: ["trayectoria profesional", "liderazgo", "gestión del cambio", "alineación estratégica", "impacto medible", "accountability", "visibilidad ejecutiva", "plan de sucesión"],
+        grammarFocus: ["Perfect tenses for career narrative", "Subjunctive in concessions: 'Aunque reconozco que…'", "Nominalisation for gravitas: 'el hecho de haber logrado…'"],
+        conversationStarters: [
+          "Hablemos primero de tu evaluación global, y luego del tema del ascenso.",
+          "Voy a ser directo/a: el incidente de octubre fue un problema. ¿Cómo lo ves tú?",
+          "¿Cuál es tu visión para el equipo si asumieras el rol de director/a?",
+          "Convénceme de que estás lista/o para el siguiente nivel."
+        ],
+        complexityNotes: "This is executive-level conversation. The student must demonstrate strategic thinking, emotional intelligence, and self-awareness simultaneously. Bloom's Create: student constructs a vision for their role."
+      }
+    ]
+  },
+  {
+    slug: "networking-event",
+    title: "The Networking Event",
+    description: "Work a professional event: introduce yourself confidently, ask about others' work, exchange contact details, and make a lasting impression in brief conversations.",
+    category: "professional",
+    location: "A conference hall or professional mixer, drinks in hand",
+    defaultMood: "energetic",
+    minActflLevel: "novice_high",
+    maxActflLevel: "advanced_high",
+    props: [
+      {
+        propType: "sign",
+        title: "Event Banner",
+        content: {
+          text: "Industry Networking Night",
+          subtext: "Connect • Collaborate • Grow",
+          style: "event"
+        },
+        displayOrder: 0,
+        isInteractive: false,
+      },
+      {
+        propType: "form",
+        title: "Business Card",
+        content: {
+          fields: [
+            { label: "Your name & title", placeholder: "e.g. Ana García, Marketing Director" },
+            { label: "Company & sector", placeholder: "e.g. TechStart, SaaS / Fintech" },
+            { label: "What you're looking for", placeholder: "e.g. partnerships, talent, investors" }
+          ]
+        },
+        displayOrder: 1,
+        isInteractive: true,
+      }
+    ],
+    levelGuides: [
+      {
+        actflLevel: "novice_high",
+        roleDescription: "You are a friendly professional at the same event. Approach the student first, make it easy for them to introduce themselves, and end with a warm offer to connect on LinkedIn.",
+        studentGoals: [
+          "Give a clear 2-sentence self-introduction: name, company, role",
+          "Ask what the other person does",
+          "Say what your company does in one simple sentence",
+          "Exchange contact info and say goodbye professionally"
+        ],
+        vocabularyFocus: ["me dedico a", "trabajo en", "empresa", "sector", "industria", "encantado/a", "tarjeta de visita", "LinkedIn", "mantenemos el contacto", "fue un placer"],
+        grammarFocus: ["Present tense for job description", "Ser + noun for identity: 'Soy directora de…'", "¿A qué se dedica? / ¿En qué sector trabaja?"],
+        conversationStarters: [
+          "¡Hola! No nos conocemos — soy [name]. ¿Y usted?",
+          "¿A qué se dedica exactamente?",
+          "¿Es la primera vez que viene a este tipo de evento?",
+          "¿Me deja su tarjeta? Con mucho gusto nos conectamos."
+        ],
+        complexityNotes: "Focus on the elevator pitch: 2 sentences, clear and confident. Practice 3 times with slight variation. End every conversation with a concrete next step — always. This is professional networking muscle memory."
+      },
+      {
+        actflLevel: "intermediate_mid",
+        roleDescription: "You are an experienced networker who asks probing questions and shares genuine insights. Guide the student through a real conversation: find common ground, explore synergies, and set up a follow-up.",
+        studentGoals: [
+          "Deliver a compelling 30-second pitch about yourself and your work",
+          "Find a genuine point of connection or shared interest",
+          "Ask substantive questions about the other person's work",
+          "Propose a concrete follow-up: coffee, call, collaboration"
+        ],
+        vocabularyFocus: ["sinergias", "colaborar", "ponernos en contacto", "propuesta de valor", "sector en crecimiento", "desafíos del sector", "tendencias", "oportunidades de negocio"],
+        grammarFocus: ["Conditional for suggestions: '¿No cree que podríamos…?'", "Gerund for activities: 'Estamos desarrollando…'", "Relative clauses: 'Una empresa que se especializa en…'"],
+        conversationStarters: [
+          "Llevo siguiendo a su empresa desde que lanzaron su producto el año pasado.",
+          "¿Cuál dirías que es el mayor reto del sector ahora mismo?",
+          "Casualmente, nosotros estamos trabajando en algo muy similar.",
+          "Deberíamos quedar para un café y hablar de esto con más calma."
+        ],
+        complexityNotes: "Networking is about finding real value for both parties. Push the student to identify a specific synergy, not just exchange pleasantries. End every exchange with a proposed next meeting — make the student ask for it."
+      },
+      {
+        actflLevel: "advanced_mid",
+        roleDescription: "You are a highly connected senior professional. Test the student with harder questions, explore their vision, and evaluate whether to invest time in building a real relationship. Be impressed by authenticity, not by buzzwords.",
+        studentGoals: [
+          "Make a memorable impression in under 3 minutes",
+          "Articulate your professional vision and unique value clearly",
+          "Navigate someone who is sceptical or distracted",
+          "Leave the conversation with a genuine, mutual interest established"
+        ],
+        vocabularyFocus: ["diferenciador", "tracción", "escalabilidad", "ecosistema", "inversión de tiempo", "relación de confianza", "valor añadido", "red de contactos", "referencia"],
+        grammarFocus: ["Conditional perfect for what you've achieved", "Subjunctive after 'lo que busco es que…'", "Rhetorical questions as engagement tools"],
+        conversationStarters: [
+          "He hablado con mucha gente esta noche, pero pocas han dicho algo realmente diferente.",
+          "¿Cuál es su visión a cinco años? No me dé la respuesta de empresa — dígame la suya.",
+          "¿Qué le hace diferente a usted de los demás que hacen lo mismo?",
+          "Conozco a alguien que debería conocerle. Pero primero convénzame."
+        ],
+        complexityNotes: "The challenge: make a real impression on a tough audience. Student must be authentic, concise, and memorable. Push Bloom's Evaluate: student evaluates the interaction and decides whether to invest in the relationship."
       }
     ]
   },
@@ -3163,8 +3374,22 @@ const scenarioData: ScenarioSeed[] = [
   }
 ];
 
+// Slugs that were removed and must be deleted from the DB on next seed run
+const REMOVED_SLUGS = ['first-date'];
+
 async function seed() {
   console.log('Starting scenario seed...');
+
+  if (REMOVED_SLUGS.length > 0) {
+    for (const slug of REMOVED_SLUGS) {
+      const [existing] = await db.select({ id: scenarios.id }).from(scenarios).where(eq(scenarios.slug, slug)).limit(1);
+      if (existing) {
+        await db.delete(scenarios).where(eq(scenarios.slug, slug));
+        console.log(`  Removed deprecated scenario: ${slug}`);
+      }
+    }
+  }
+
   console.log(`Seeding ${scenarioData.length} scenarios...`);
 
   let seededCount = 0;
