@@ -28,7 +28,7 @@ Changed `setStudioImages(prev => [...prev.slice(-4), img])` to `setStudioImages(
 
 ### Open / unresolved
 
-- WS handler deduplication (T006) still deferred — high risk, needs a quiet session.
+- **T006 — WS handler deduplication: START HERE NEXT SESSION.** David confirmed this is first priority tomorrow. File: `server/unified-ws-handler.ts` (~2,600 lines). Problem: two complete copies of message routing — one for native WebSocket, one for Socket.IO. They've diverged subtly. Goal: audit every difference, extract a shared dispatch function, keep transport adapter as the only delta. High risk — needs careful diff of both paths before any refactoring. Start by reading both paths in full and cataloguing every divergence before touching anything.
 - Auto-repair has no "cooldown" separate from the watch cooldown (6h). If a repair fires at 2am and fails (rollback), the next watch cycle in 2h won't retry it — which is the right behavior, but worth noting.
 
 ---
