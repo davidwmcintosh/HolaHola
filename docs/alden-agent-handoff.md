@@ -1,5 +1,33 @@
 # Alden ↔ Agent Handoff
 
+## From Agent — Sat Mar 21, 2026 (session 2)
+
+**Session: DALL-E image fix + Practice Scenarios strip on ReviewHub**
+
+### What was built / fixed
+
+1. **Fixed DALL-E 3 image generation** — both `lesson-image-generator.ts` and `scenario-image-generator.ts` were using `process.env.OPENAI_API_KEY` (the Replit integration key, now stale). Changed to `USER_OPENAI_API_KEY || OPENAI_API_KEY`, matching the pattern in `visual-content-service.ts`. Images are now generating. 15/27 scenario covers done; ~16/1301 lesson covers done (pipeline runs continuously).
+
+2. **Auth-error abort guard** — both workers now throw an `AuthAbortError` on 401 responses (instead of burning through all 1300+ items with a bad key). The lesson worker stops the loop permanently on auth failure; the scenario worker propagates and exits cleanly. If `USER_OPENAI_API_KEY` ever goes stale again, look for this log: `[LessonImages] Worker halted — invalid API key.`
+
+3. **"Practice Scenarios" strip on ReviewHub** (`client/src/pages/review-hub.tsx`) — a new section between the InteractiveTextbookCard and "Today's Plan". Shows top 3 scenarios sorted by image availability (covers first), each as a card with:
+   - DALL-E 3 cover image (h-24) or muted placeholder
+   - Title + location
+   - Click → `/chat?scenario={slug}`
+   "View all" button links to `/scenarios`. Uses the existing `/api/scenarios?language={lang}` endpoint, no new backend needed.
+
+### State at handoff
+- Scenario covers: 15/27 done, 12 still generating
+- Lesson images: ~16/1301 done, continuous pipeline running (~5/min, DALL-E 3 rate limit)
+- App stable, no crashes, ReviewHub updated
+
+### What Alden should know
+- If you see `[LessonImages] Generating 20 images via DALL-E 3 (N total need images)...` at startup — that's expected. N decreases each restart as images are saved to object storage.
+- The `_workerRunning` flag is module-scoped; if the server restarts, the worker resets and resumes from where it left off (skips any lesson that already has an `imageUrl`).
+- The ReviewHub now has a real entry point to scenarios — no more hunting through sidebar nav.
+
+---
+
 ## From Agent — Sat Mar 21, 2026
 
 **Session: 24/7 Autonomous Repair Loop + Voice Resilience**

@@ -53,7 +53,7 @@ import { TutorShowcase, type TutorSelection } from "@/components/TutorShowcase";
 import { InteractiveTextbookCard } from "@/components/InteractiveTextbookCard";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { VocabularyWord, Conversation, CulturalTip, UserLesson, Topic } from "@shared/schema";
+import type { VocabularyWord, Conversation, CulturalTip, UserLesson, Topic, Scenario } from "@shared/schema";
 import { Mic } from "lucide-react";
 
 // Types for drill recommendations
@@ -523,6 +523,22 @@ export default function ReviewHub() {
     enabled: language !== 'all',
   });
 
+  // Query scenarios for the practice strip
+  const { data: allScenarios = [] } = useQuery<Scenario[]>({
+    queryKey: ["/api/scenarios", language],
+    queryFn: async () => {
+      const lang = language === 'all' ? 'spanish' : language;
+      const response = await fetch(`/api/scenarios?language=${encodeURIComponent(lang)}`, { credentials: 'include' });
+      if (!response.ok) return [];
+      return response.json();
+    },
+  });
+
+  // Show up to 3 scenarios — prioritise those with cover images
+  const featuredScenarios = [...allScenarios]
+    .sort((a, b) => (b.imageUrl ? 1 : 0) - (a.imageUrl ? 1 : 0))
+    .slice(0, 3);
+
   if (isLoading) {
     return (
       <div className="container mx-auto p-4 max-w-4xl space-y-6">
@@ -657,6 +673,57 @@ export default function ReviewHub() {
 
       {/* Interactive Textbook */}
       <InteractiveTextbookCard className="mt-2" />
+
+      {/* Practice Scenarios Strip */}
+      {featuredScenarios.length > 0 && (
+        <div data-testid="section-scenario-strip">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-base font-semibold flex items-center gap-2">
+              <Play className="h-4 w-4 text-primary" />
+              Practice Scenarios
+            </h2>
+            <Link href="/scenarios">
+              <Button variant="ghost" size="sm" className="text-xs gap-1" data-testid="button-view-all-scenarios">
+                View all
+                <ChevronRight className="h-3 w-3" />
+              </Button>
+            </Link>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {featuredScenarios.map((scenario) => (
+              <Link href={`/chat?scenario=${scenario.slug}`} key={scenario.id}>
+                <Card
+                  className="hover-elevate cursor-pointer overflow-hidden"
+                  data-testid={`card-featured-scenario-${scenario.slug}`}
+                >
+                  {scenario.imageUrl ? (
+                    <div className="h-24 overflow-hidden">
+                      <img
+                        src={scenario.imageUrl}
+                        alt={scenario.title}
+                        className="w-full h-full object-cover"
+                        data-testid={`img-scenario-cover-${scenario.slug}`}
+                      />
+                    </div>
+                  ) : (
+                    <div className="h-24 bg-muted/60 flex items-center justify-center">
+                      <Play className="w-6 h-6 text-muted-foreground/50" />
+                    </div>
+                  )}
+                  <div className="p-2.5">
+                    <p className="text-xs font-medium leading-snug line-clamp-2" data-testid={`text-scenario-title-${scenario.slug}`}>
+                      {scenario.title}
+                    </p>
+                    {scenario.location && (
+                      <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{scenario.location}</p>
+                    )}
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Daily Plan Section */}
       <Card data-testid="section-daily-plan">
