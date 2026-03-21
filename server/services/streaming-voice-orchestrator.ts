@@ -23,7 +23,6 @@
 
 import { createHash } from "crypto";
 import { sql, eq, and, desc } from "drizzle-orm";
-import { createClient } from "@deepgram/sdk";
 import { getDeepgramLanguageCode, DeepgramIntelligence, DeepgramSentiment, DeepgramIntent, DeepgramEntity, DeepgramTopic, transcribeWithLiveAPI, TranscriptionResult } from "./deepgram-live-stt";
 import { analyzePronunciation, generateQuickCoaching, PronunciationCoaching } from "./live-pronunciation-coach";
 import { getGeminiStreamingService, SentenceChunk, ExtractedFunctionCall, ConversationHistoryEntry, PartialFunctionCall } from "./gemini-streaming";
@@ -69,6 +68,9 @@ import { VoiceSpeedOption, voiceSpeedToRate } from './voice-speed-config';
 import type { StreamingSession, StreamingMetrics } from './streaming-session-types';
 import { calculateAdaptiveSpeedMultiplier, getAdaptiveSpeakingRate, trackSttConfidence, trackStruggle } from './adaptive-speed-control';
 import { splitTextIntoSentences, cleanTextForDisplay, applyWordEmphases } from './voice-text-processing';
+import { deepgram, gemini } from './voice-ai-clients';
+import { containsSeverelyInappropriateContent, containsMildlyInappropriateContent } from './content-moderation';
+import { VOCABULARY_EXTRACTION_SCHEMA, STUDENT_OBSERVATION_SCHEMA } from './extraction-schemas';
 
 export { ensureTrailingPunctuation } from './voice-text-utils';
 export type { VoiceSpeedOption };
@@ -199,7 +201,6 @@ import { segmentByLanguage, segmentsToCartesiaChunks, logSegmentation, extractBo
 import { storage } from "../storage";
 import { generateConversationTitle } from "../conversation-utils";
 import { validateOneUnitRule, UnitValidationResult } from "../phrase-detection";
-import { GoogleGenAI } from "@google/genai";
 import { assessAdvancementReadiness, formatLevel } from "../actfl-advancement";
 import { tagConversation } from "./conversation-tagger";
 import { architectVoiceService } from "./architect-voice-service";
@@ -440,192 +441,8 @@ export { calculateAdaptiveSpeedMultiplier, getAdaptiveSpeakingRate, trackSttConf
  */
 export type { StreamingSession, StreamingMetrics };
 
-/**
- * Deepgram client (STT) - lazy initialization to allow server start without API key
- */
-let _deepgramClient: ReturnType<typeof createClient> | null = null;
-function getDeepgramClient(): ReturnType<typeof createClient> {
-  if (!_deepgramClient) {
-    const apiKey = process.env.DEEPGRAM_API_KEY;
-    if (!apiKey) {
-      throw new Error('DEEPGRAM_API_KEY is required for voice features');
-    }
-    _deepgramClient = createClient(apiKey);
-  }
-  return _deepgramClient;
-}
-const deepgram = { get client() { return getDeepgramClient(); } };
-
-/**
- * Gemini client for vocabulary extraction (using Replit AI integrations)
- * IMPORTANT: Must include apiVersion: "" and baseUrl for Replit's AI proxy to work correctly
- */
-const gemini = new GoogleGenAI({
-  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '',
-  httpOptions: {
-    apiVersion: "",  // Required: removes /v1beta path prefix for Replit proxy
-    baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
-  }
-});
-
-/**
- * Content moderation: Check for severely inappropriate content
- * Only blocks truly explicit content - mild issues are handled by the AI tutor naturally
- * Uses word boundary matching to avoid false positives (e.g., "hello" matching "hell")
- */
-const SEVERE_INAPPROPRIATE_TERMS = [
-  'fuck', 'shit', 'bitch', 'slur', 'n-word', 'faggot',
-];
-
-function containsSeverelyInappropriateContent(text: string): boolean {
-  const lowerText = text.toLowerCase();
-  return SEVERE_INAPPROPRIATE_TERMS.some(term => {
-    const regex = new RegExp(`\\b${term}\\b`, 'i');
-    return regex.test(lowerText);
-  });
-}
-
-/**
- * Check for mildly inappropriate content that the tutor should gently redirect
- * These are passed to the AI with a note to redirect gracefully
- */
-const MILD_INAPPROPRIATE_TERMS = [
-  'damn', 'hell', 'crap', 'ass', 'hate', 'kill', 'murder',
-  'offensive', 'curse', 'swear', 'violent',
-];
-
-function containsMildlyInappropriateContent(text: string): boolean {
-  const lowerText = text.toLowerCase();
-  return MILD_INAPPROPRIATE_TERMS.some(term => {
-    const regex = new RegExp(`\\b${term}\\b`, 'i');
-    return regex.test(lowerText);
-  });
-}
 
 
-/**
- * Schema for vocabulary extraction using Gemini structured output
- * Includes grammar classification for enhanced flashcard filtering
- */
-const VOCABULARY_EXTRACTION_SCHEMA = {
-  type: "object",
-  properties: {
-    vocabulary: {
-      type: "array",
-      description: "New vocabulary words introduced in this response (max 3 per exchange)",
-      items: {
-        type: "object",
-        properties: {
-          word: { type: "string", description: "The foreign language word/phrase" },
-          translation: { type: "string", description: "English translation" },
-          example: { type: "string", description: "Example sentence using the word" },
-          pronunciation: { type: "string", description: "Phonetic pronunciation guide" },
-          wordType: { 
-            type: "string", 
-            enum: ["noun", "verb", "adjective", "adverb", "preposition", "conjunction", "pronoun", "article", "other"],
-            description: "Grammatical category of the word" 
-          },
-          verbTense: { type: "string", description: "For verbs: present, past_preterite, past_imperfect, future, conditional" },
-          verbMood: { type: "string", description: "For verbs: indicative, subjunctive, imperative" },
-          verbPerson: { type: "string", description: "For verbs: 1st_singular, 2nd_singular, 3rd_singular, 1st_plural, 2nd_plural, 3rd_plural" },
-          nounGender: { type: "string", description: "For nouns: masculine, feminine, neuter" },
-          nounNumber: { type: "string", description: "For nouns: singular, plural" },
-          grammarNotes: { type: "string", description: "Additional notes: irregular, reflexive, stem-changing, etc." }
-        },
-        required: ["word", "translation", "example", "pronunciation", "wordType"]
-      }
-    }
-  },
-  required: ["vocabulary"]
-};
-
-/**
- * Schema for student observation extraction
- * Extracts insights, motivations, struggles, and people connections from conversation
- * 
- * PHILOSOPHY: A good tutor remembers the WHOLE person, not just their learning stats.
- * This includes their hobbies, interests, family, likes/dislikes - the personal context
- * that makes conversations feel like talking to someone who genuinely cares.
- */
-const STUDENT_OBSERVATION_SCHEMA = {
-  type: "object",
-  properties: {
-    insights: {
-      type: "array",
-      description: "Observations about this student - both learning AND personal (max 3)",
-      items: {
-        type: "object",
-        properties: {
-          type: { 
-            type: "string", 
-            enum: ["learning_style", "preference", "strength", "personality", "personal_interest", "life_context", "hobby", "likes_dislikes"], 
-            description: "Type of insight - includes personal life details a caring mentor would remember" 
-          },
-          insight: { type: "string", description: "The observation (e.g., 'Loves salsa dancing', 'Prefers Cuban coffee', 'Works in tech')" },
-          evidence: { type: "string", description: "What in the conversation led to this insight" }
-        },
-        required: ["type", "insight"]
-      }
-    },
-    motivations: {
-      type: "array",
-      description: "Why the student is learning this language (max 1)",
-      items: {
-        type: "object",
-        properties: {
-          motivation: { type: "string", description: "The purpose (e.g., 'Trip to Spain next summer')" },
-          details: { type: "string", description: "Additional context" },
-          targetDate: { type: "string", description: "When they want to achieve it (ISO date if mentioned)" }
-        },
-        required: ["motivation"]
-      }
-    },
-    struggles: {
-      type: "array",
-      description: "Recurring challenges the student faces (max 1)",
-      items: {
-        type: "object",
-        properties: {
-          area: { type: "string", enum: ["grammar", "pronunciation", "vocabulary", "listening", "cultural", "confidence"], description: "Area of struggle" },
-          description: { type: "string", description: "What they struggle with" },
-          examples: { type: "string", description: "Specific examples from the conversation" }
-        },
-        required: ["area", "description"]
-      }
-    },
-    peopleConnections: {
-      type: "array",
-      description: "People the student mentioned (max 2)",
-      items: {
-        type: "object",
-        properties: {
-          name: { type: "string", description: "Person's name if mentioned" },
-          relationship: { type: "string", description: "How they're related (friend, family, colleague, etc.)" },
-          context: { type: "string", description: "Why they were mentioned" }
-        },
-        required: ["relationship", "context"]
-      }
-    },
-    tutorSelfReflections: {
-      type: "array",
-      description: "Teaching insights Daniela noticed about her own approach (max 1)",
-      items: {
-        type: "object",
-        properties: {
-          category: { 
-            type: "string", 
-            enum: ["correction", "encouragement", "scaffolding", "tool_usage", "teaching_style", "pacing", "communication", "content"],
-            description: "Category of teaching insight" 
-          },
-          insight: { type: "string", description: "What worked well or could be improved (e.g., 'Breaking down conjugations step-by-step helped understanding')" },
-          context: { type: "string", description: "When this applies" }
-        },
-        required: ["category", "insight"]
-      }
-    }
-  },
-  required: []  // All fields optional - Gemini may not detect observations in every exchange
-};
 
 /**
  * Streaming Voice Orchestrator
