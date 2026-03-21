@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -592,6 +592,10 @@ export default function InteractiveTextbook() {
   const { language } = useLanguage();
   const [, setLocation] = useLocation();
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
+  const [deepLinkChapterId] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('chapterId');
+  });
   const [selectedPathId, setSelectedPathId] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('pathId');
@@ -626,6 +630,16 @@ export default function InteractiveTextbook() {
   });
   
   const chapters = textbookData?.chapters || [];
+
+  // Auto-open chapter from deep-link (?chapterId=<id>) — used by scenario "Textbook prep" links
+  useEffect(() => {
+    if (!deepLinkChapterId || chapters.length === 0 || selectedChapter) return;
+    const target = chapters.find(ch => ch.id === deepLinkChapterId && !ch.isLocked);
+    if (target) {
+      setSelectedChapter(target);
+      savePositionMutation.mutate({ chapterId: target.id });
+    }
+  }, [deepLinkChapterId, chapters]);
   
   const totalProgress = chapters.length > 0
     ? Math.round(chapters.reduce((acc, ch) => acc + ch.progress, 0) / chapters.length)

@@ -502,7 +502,7 @@ export interface IStorage {
   // Cross-modality mastery signals: aggregated from userDrillProgress for Daniela's context
   getUserDrillMasterySignals(userId: string, targetLanguage: string): Promise<{ mastered: string[]; struggling: string[] }>;
   // Scenario-to-textbook: find lessons relevant to a scenario's curriculum topics
-  getRelatedLessonsForScenario(scenarioSlug: string, targetLanguage: string): Promise<{ id: string; name: string; description: string; lessonType: string; estimatedMinutes: number | null }[]>;
+  getRelatedLessonsForScenario(scenarioSlug: string, targetLanguage: string): Promise<{ id: string; chapterId: string; name: string; description: string; lessonType: string; estimatedMinutes: number | null; imageUrl: string | null }[]>;
   // Conversation-generated review items
   createReviewItems(items: InsertUserReviewItem[]): Promise<UserReviewItem[]>;
   getReviewItems(userId: string, language: string, limit?: number): Promise<UserReviewItem[]>;
@@ -3424,7 +3424,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getRelatedLessonsForScenario(scenarioSlug: string, targetLanguage: string): Promise<{ id: string; name: string; description: string; lessonType: string; estimatedMinutes: number | null }[]> {
+  async getRelatedLessonsForScenario(scenarioSlug: string, targetLanguage: string): Promise<{ id: string; chapterId: string; name: string; description: string; lessonType: string; estimatedMinutes: number | null; imageUrl: string | null }[]> {
     // 1. Find the scenario and its curriculumTopics
     const [scenario] = await getSharedDb()
       .select({ curriculumTopics: scenarios.curriculumTopics })
@@ -3439,10 +3439,12 @@ export class DatabaseStorage implements IStorage {
     const allLessons = await getSharedDb()
       .select({
         id: curriculumLessons.id,
+        chapterId: curriculumUnits.id,
         name: curriculumLessons.name,
         description: curriculumLessons.description,
         lessonType: curriculumLessons.lessonType,
         estimatedMinutes: curriculumLessons.estimatedMinutes,
+        imageUrl: curriculumLessons.imageUrl,
         requiredTopics: curriculumLessons.requiredTopics,
       })
       .from(curriculumLessons)
@@ -3450,11 +3452,16 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(curriculumPaths, eq(curriculumPaths.id, curriculumUnits.curriculumPathId))
       .where(eq(curriculumPaths.language, targetLanguage));
 
-    // Filter for topic overlap in JS and return top 4
+    // Filter for topic overlap, rank by number of matching topics (most relevant first), return top 4
     const related = allLessons
       .filter(l => (l.requiredTopics || []).some(t => topicSet.has(t)))
+      .map(l => ({
+        ...l,
+        _score: (l.requiredTopics || []).filter(t => topicSet.has(t)).length,
+      }))
+      .sort((a, b) => b._score - a._score)
       .slice(0, 4)
-      .map(({ requiredTopics: _, ...rest }) => rest);
+      .map(({ requiredTopics: _, _score: __, ...rest }) => rest);
 
     return related;
   }

@@ -31,10 +31,12 @@ const LESSON_TYPE_LABEL: Record<string, string> = {
 
 interface RelatedLesson {
   id: string;
+  chapterId: string;
   name: string;
   description: string;
   lessonType: string;
   estimatedMinutes: number | null;
+  imageUrl: string | null;
 }
 
 function RelatedLessonsSection({ slug, language }: { slug: string; language: string }) {
@@ -53,8 +55,8 @@ function RelatedLessonsSection({ slug, language }: { slug: string; language: str
     return (
       <div className="space-y-1.5 pt-2 border-t">
         <Skeleton className="h-3.5 w-32" />
-        <Skeleton className="h-8 w-full" />
-        <Skeleton className="h-8 w-full" />
+        <Skeleton className="h-10 w-full rounded-md" />
+        <Skeleton className="h-10 w-full rounded-md" />
       </div>
     );
   }
@@ -69,18 +71,33 @@ function RelatedLessonsSection({ slug, language }: { slug: string; language: str
         Study first in the textbook
       </p>
       {lessons.map((lesson) => (
-        <Link href={`/textbook`} key={lesson.id}>
+        <Link href={`/textbook?chapterId=${encodeURIComponent(lesson.chapterId)}`} key={lesson.id}>
           <div
             className="flex items-center gap-2 p-2 rounded-md hover-elevate cursor-pointer"
             data-testid={`link-related-lesson-${lesson.id}`}
           >
-            <Badge variant="outline" className="text-xs shrink-0">
-              {LESSON_TYPE_LABEL[lesson.lessonType] || lesson.lessonType}
-            </Badge>
-            <span className="text-xs text-foreground truncate flex-1">{lesson.name}</span>
-            {lesson.estimatedMinutes && (
-              <span className="text-xs text-muted-foreground shrink-0">{lesson.estimatedMinutes}m</span>
+            {lesson.imageUrl ? (
+              <img
+                src={lesson.imageUrl}
+                alt={lesson.name}
+                className="w-10 h-10 rounded object-cover shrink-0"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded bg-muted flex items-center justify-center shrink-0">
+                <BookOpen className="w-4 h-4 text-muted-foreground" />
+              </div>
             )}
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-foreground truncate">{lesson.name}</p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <Badge variant="outline" className="text-[10px] px-1 py-0 h-4">
+                  {LESSON_TYPE_LABEL[lesson.lessonType] || lesson.lessonType}
+                </Badge>
+                {lesson.estimatedMinutes && (
+                  <span className="text-[10px] text-muted-foreground">{lesson.estimatedMinutes}m</span>
+                )}
+              </div>
+            </div>
           </div>
         </Link>
       ))}
