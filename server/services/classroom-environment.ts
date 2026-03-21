@@ -292,6 +292,11 @@ export async function buildClassroomEnvironment(params: {
       conversationStarters?: string[] | null;
       complexityNotes?: string | null;
     } | null;
+    recentTextbookTopics?: {
+      lessonNames?: string[];
+      topics?: string[];
+      vocabulary?: string[];
+    } | null;
   } | null;
   currentLessonId?: string;
 }): Promise<string> {
@@ -485,8 +490,22 @@ Tool Rack: memory_lookup(query, domains) — recall student memories | take_note
       ].filter(Boolean).join('\n')
     : '';
 
+  const textbookBridgeSection = activeScenario?.recentTextbookTopics
+    ? [
+        activeScenario.recentTextbookTopics.lessonNames?.length
+          ? `Textbook sync — student recently studied: ${activeScenario.recentTextbookTopics.lessonNames.join(', ')}`
+          : '',
+        activeScenario.recentTextbookTopics.topics?.length
+          ? `Topics to reinforce: ${activeScenario.recentTextbookTopics.topics.join(', ')}`
+          : '',
+        activeScenario.recentTextbookTopics.vocabulary?.length
+          ? `Vocabulary already introduced (actively use these): ${activeScenario.recentTextbookTopics.vocabulary.join(', ')}`
+          : '',
+      ].filter(Boolean).join('\n')
+    : '';
+
   const scenarioSection = activeScenario
-    ? `\nActive Scene: "${activeScenario.title}" at ${activeScenario.location} [${activeScenario.slug}]${activeScenario.propsCount ? ` — ${activeScenario.propsCount} props visible` : ''}${sceneZones && sceneZones.length > 0 ? `\nScene Zones: ${sceneZones.map((z) => `${z.display_name} [${ZONE_TYPE_LABELS[z.zone_type] || z.zone_type}]`).join(' | ')}` : ''}${scenarioLevelGuideSection ? `\n${scenarioLevelGuideSection}` : ''}`
+    ? `\nActive Scene: "${activeScenario.title}" at ${activeScenario.location} [${activeScenario.slug}]${activeScenario.propsCount ? ` — ${activeScenario.propsCount} props visible` : ''}${sceneZones && sceneZones.length > 0 ? `\nScene Zones: ${sceneZones.map((z) => `${z.display_name} [${ZONE_TYPE_LABELS[z.zone_type] || z.zone_type}]`).join(' | ')}` : ''}${scenarioLevelGuideSection ? `\n${scenarioLevelGuideSection}` : ''}${textbookBridgeSection ? `\n${textbookBridgeSection}` : ''}`
     : '';
 
   const modeExtras = [

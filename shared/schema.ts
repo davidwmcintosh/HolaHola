@@ -8279,6 +8279,9 @@ export const scenarios = pgTable("scenarios", {
   minActflLevel: varchar("min_actfl_level").default("novice_low"),
   maxActflLevel: varchar("max_actfl_level").default("distinguished"),
   languages: text("languages").array().notNull(),
+  // Textbook topic linkages — matches requiredTopics slugs in curriculumLessons
+  // Used to bridge what students study in the textbook with immersive scenarios
+  curriculumTopics: text("curriculum_topics").array().default(sql`'{}'::text[]`),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

@@ -73,6 +73,7 @@ export async function buildClassroomDynamicContext(params: ClassroomBuildParams)
         slug: session.activeScenario.slug,
         propsCount: session.activeScenario.props?.length,
         levelGuide: session.activeScenario.levelGuide || null,
+        recentTextbookTopics: session.activeScenario.recentTextbookTopics || null,
       } : null,
     });
     const boardItems = session.classroomWhiteboardItems?.length || 0;

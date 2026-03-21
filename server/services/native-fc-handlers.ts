@@ -2202,6 +2202,51 @@ export class NativeFunctionCallHandler {
                 startedAt: Date.now(),
               };
 
+              // ── Textbook bridge: pull student's recent lesson topics ──────────────
+              if (session.userId) {
+                try {
+                  const { selfPracticeSessions, curriculumLessons: clTable } = await import('@shared/schema');
+                  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+                  const recentSessions = await sharedDb
+                    .select({
+                      lessonName: clTable.name,
+                      conversationTopic: clTable.conversationTopic,
+                      requiredTopics: clTable.requiredTopics,
+                      requiredVocabulary: clTable.requiredVocabulary,
+                    })
+                    .from(selfPracticeSessions)
+                    .innerJoin(clTable, eq(clTable.id, selfPracticeSessions.lessonId))
+                    .where(
+                      and(
+                        eq(selfPracticeSessions.userId, String(session.userId)),
+                        sql`${selfPracticeSessions.startedAt} > ${thirtyDaysAgo}`
+                      )
+                    )
+                    .orderBy(sql`${selfPracticeSessions.startedAt} DESC`)
+                    .limit(8);
+
+                  if (recentSessions.length > 0) {
+                    const topicSet = new Set<string>();
+                    const vocabSet = new Set<string>();
+                    const lessonNames: string[] = [];
+                    for (const s of recentSessions) {
+                      if (s.lessonName) lessonNames.push(s.lessonName);
+                      if (s.conversationTopic) topicSet.add(s.conversationTopic);
+                      for (const t of (s.requiredTopics || [])) topicSet.add(t);
+                      for (const v of (s.requiredVocabulary || [])) vocabSet.add(v);
+                    }
+                    session.activeScenario!.recentTextbookTopics = {
+                      lessonNames: [...new Set(lessonNames)].slice(0, 5),
+                      topics: [...topicSet].slice(0, 10),
+                      vocabulary: [...vocabSet].slice(0, 15),
+                    };
+                  }
+                } catch (tbErr) {
+                  console.warn('[LoadScenario] Textbook bridge query failed (non-fatal):', (tbErr as Error).message);
+                }
+              }
+              // ─────────────────────────────────────────────────────────────────────
+
               if (session.userId) {
                 sharedDb.insert(userScenarioHistory).values({
                   userId: String(session.userId),
