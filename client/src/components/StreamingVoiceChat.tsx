@@ -3670,6 +3670,7 @@ export function StreamingVoiceChat({
           voiceOverride={voiceOverride}
           onVoiceOverrideChange={setVoiceOverride}
           onHelpClick={() => setIsSupportModalOpen(true)}
+          microAckPlaying={streamingVoice.microAckPlaying}
         />
       </div>
       

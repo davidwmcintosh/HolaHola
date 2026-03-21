@@ -2265,7 +2265,7 @@ export class NativeFunctionCallHandler {
                 'grocery-store':      'grocery_store',
                 'restaurant':         'restaurant_table',
                 'neighborhood-walk':  'city_street',
-                'the-bank':           'desk_closeup',
+                'the-bank':           'bank',
                 // Travel
                 'airport-checkin':    'airport',
                 'hotel-checkin':      'hotel_lobby',
@@ -2283,10 +2283,11 @@ export class NativeFunctionCallHandler {
                 'office-meeting':     'office',
                 'business-lunch':     'restaurant_table_with_plate',
                 'performance-review': 'office',
-                'networking-event':   'office',       // conference-hall placeholder
+                'networking-event':   'networking_event',
                 'university-class':   'classroom',
                 // Emergency / Health
                 'doctors-office':     'doctor_office',
+                'pharmacy':           'pharmacy',
                 // Language-specific venues
                 'israeli-coffee-shop':'israeli_cafe',
                 'the-taqueria':       'taqueria',

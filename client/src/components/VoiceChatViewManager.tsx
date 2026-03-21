@@ -62,6 +62,8 @@ interface VoiceChatViewManagerProps {
   onVoiceOverrideChange?: (override: VoiceOverride | null) => void;
   // Help button callback - opens support modal
   onHelpClick?: () => void;
+  // Micro-ack playing state — drives avatar to 'talking' during ack clip
+  microAckPlaying?: boolean;
 }
 
 export function VoiceChatViewManager({
@@ -107,6 +109,7 @@ export function VoiceChatViewManager({
   voiceOverride,
   onVoiceOverrideChange,
   onHelpClick,
+  microAckPlaying = false,
 }: VoiceChatViewManagerProps) {
   const [view, setView] = useState<"live" | "history">("live");
   const touchStartX = useRef<number>(0);
@@ -234,6 +237,7 @@ export function VoiceChatViewManager({
                 voiceOverride={voiceOverride}
                 onVoiceOverrideChange={onVoiceOverrideChange}
                 onHelpClick={onHelpClick}
+                microAckPlaying={microAckPlaying}
               />
             </div>
           ) : (

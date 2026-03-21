@@ -127,6 +127,8 @@ interface ImmersiveTutorProps {
   onVoiceOverrideChange?: (override: VoiceOverride | null) => void;
   // Help button callback - opens support modal
   onHelpClick?: () => void;
+  // Micro-ack playing — forces avatar to 'talking' state while ack clip plays
+  microAckPlaying?: boolean;
 }
 
 export function ImmersiveTutor({
@@ -173,6 +175,7 @@ export function ImmersiveTutor({
   voiceOverride,
   onVoiceOverrideChange,
   onHelpClick,
+  microAckPlaying = false,
 }: ImmersiveTutorProps) {
   // CRITICAL: Use global playback state store instead of prop
   // This bypasses React prop drilling which becomes stale during HMR
@@ -338,7 +341,7 @@ export function ImmersiveTutor({
     // - Don't rely on isPlaying prop which goes through extra React state cycle
     let avatarState: TutorState = 'idle';
     const isStreamingAudio = playbackState === 'playing' || playbackState === 'buffering';
-    if (isStreamingAudio) avatarState = 'talking';
+    if (isStreamingAudio || microAckPlaying) avatarState = 'talking';
     else if (isProcessing) avatarState = 'thinking';
     else if (isRecording) avatarState = 'listening';
     
@@ -346,6 +349,7 @@ export function ImmersiveTutor({
     console.log('[IMMERSIVE AVATAR DEBUG]', {
       playbackState,
       isStreamingAudio,
+      microAckPlaying,
       isProcessing,
       isRecording,
       derivedAvatarState: avatarState,
@@ -364,7 +368,7 @@ export function ImmersiveTutor({
     // CRITICAL: Use playbackState directly for immediate response
     // Buffering happens between sentences during multi-sentence responses
     const isStreamingAudio = playbackState === 'playing' || playbackState === 'buffering';
-    if (isStreamingAudio) return "speaking";
+    if (isStreamingAudio || microAckPlaying) return "speaking";
     // Thinking = processing user input (and NOT in any playback state)
     if (isProcessing) return "thinking";
     // Listening = user is recording/speaking
