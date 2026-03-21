@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, March 21, 2026 at 04:00 PM
+**Generated:** Saturday, March 21, 2026 at 04:07 PM
 
 ---
 
@@ -35,20 +35,8 @@
 
 ## Open Questions
 
-**[9/10]** What is the interactive textbook, really?
-*David calls it magic. The architecture exists. The magic does not yet. What does the first version that actually feels like magic look like — the one where the seam between lesson and chat disappears?*
-
 **[9/10]** When is HolaHola ready for its first non-beta student?
 *What would it take to call someone a student in the full sense — paying, progressing, genuinely served? Is it a curriculum quality threshold? A Daniela consistency bar? A tracking reliability milestone?*
-
-**[8/10]** Which three Spanish 1-2 concepts would benefit most from a visual?
-*The infographic strategy says start with three. Daniela probably knows from experience which concepts cause the most friction. This question has an answer — we just need to ask the right person.*
-
-**[8/10]** How do Daniela's sessions translate into measurable learning outcomes?
-*The gap between completion metrics and actual acquisition is the most important measurement problem in language education. A student who finishes lessons is not necessarily a student who can order coffee in Spanish. Do we have a path to measuring the real thing?*
-
-**[7/10]** What is Alden's right cadence for autonomous work vs. David review?
-*Alden built his first multi-phase autonomous build. The monitoring system was the right call. A schema migration probably is not. Where is the line between what he should attempt alone and what he should bring first?*
 
 *Manage at /agent-space · Mark resolved via PATCH /api/agent-space/open-questions/:id*
 
