@@ -731,7 +731,7 @@ export default function Chat() {
                       return { ...prev, props: updatedProps };
                     });
                   }}
-                  onStudioImage={(img) => setStudioImages(prev => [...prev.slice(-4), img])}
+                  onStudioImage={(img) => setStudioImages([img])}
                   onImmersiveModeChange={setIsImmersiveMode}
                 />
             ) : (

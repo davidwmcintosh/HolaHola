@@ -3534,6 +3534,15 @@ export function StreamingVoiceChat({
         >
           <MicOff className="w-3.5 h-3.5 flex-shrink-0" />
           <span>{streamingVoice.state.sttDegradedMessage || 'Having trouble hearing you — please try again.'}</span>
+          {streamingVoice.state.sttSuggestPtt && inputMode !== 'push-to-talk' && (
+            <button
+              className="ml-1 underline underline-offset-2 text-foreground font-medium hover:text-foreground/80 transition-colors"
+              data-testid="button-switch-to-ptt"
+              onClick={() => setInputMode('push-to-talk')}
+            >
+              Switch to Push-to-Talk
+            </button>
+          )}
         </div>
       )}
       {/* Immersive Voice Chat with View Manager - Full Screen */}

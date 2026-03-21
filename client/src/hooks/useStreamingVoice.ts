@@ -40,6 +40,10 @@ export interface StreamingVoiceState {
   isProcessing: boolean;
   isPlaying: boolean;
   isSwitchingTutor: boolean;  // True during tutor handoff - mic should stay locked
+  ttsUnavailable: boolean;    // True when TTS fails; clears after 8s
+  sttDegraded: boolean;       // True when Deepgram STT has an error; clears after 6s
+  sttDegradedMessage: string; // User-facing message for STT degraded state
+  sttSuggestPtt: boolean;     // True when repeated open-mic failures suggest switching to PTT
   currentText: string;
   currentWordIndex: number;
   visibleWordCount: number;
@@ -190,6 +194,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const [sttDegraded, setSttDegraded] = useState(false);
   const sttDegradedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sttDegradedMessage, setSttDegradedMessage] = useState<string>('');
+  const [sttSuggestPtt, setSttSuggestPtt] = useState(false);
   
   // Ref for tutor switch timeout (error recovery)
   const tutorSwitchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1135,13 +1140,18 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     ttsUnavailableTimerRef.current = setTimeout(() => setTtsUnavailable(false), 8000);
   }, []);
 
-  const handleSttDegraded = useCallback((data: { userMessage?: string }) => {
+  const handleSttDegraded = useCallback((data: { userMessage?: string; suggestPtt?: boolean }) => {
     const msg = data?.userMessage || 'Having trouble hearing you — please try again.';
-    console.warn('[StreamingVoice] STT degraded:', msg);
+    const suggest = Boolean(data?.suggestPtt);
+    console.warn('[StreamingVoice] STT degraded:', msg, suggest ? '(suggest PTT)' : '');
     setSttDegraded(true);
     setSttDegradedMessage(msg);
+    setSttSuggestPtt(suggest);
     if (sttDegradedTimerRef.current) clearTimeout(sttDegradedTimerRef.current);
-    sttDegradedTimerRef.current = setTimeout(() => setSttDegraded(false), 6000);
+    // Persistent failures stay visible; transient ones auto-clear after 6s
+    if (!suggest) {
+      sttDegradedTimerRef.current = setTimeout(() => setSttDegraded(false), 6000);
+    }
   }, []);
 
   const handleError = useCallback((err: Error) => {
@@ -1859,6 +1869,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       ttsUnavailable,    // True when TTS fails; clears after 8s
       sttDegraded,       // True when Deepgram STT has an error; clears after 6s
       sttDegradedMessage, // User-facing message for STT degraded state
+      sttSuggestPtt,     // True when repeated open-mic failures suggest switching to PTT
       currentText: subtitles.state.fullText,
       currentWordIndex: subtitles.state.currentWordIndex,
       visibleWordCount: subtitles.state.visibleWordCount,

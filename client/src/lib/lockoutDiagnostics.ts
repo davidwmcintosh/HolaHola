@@ -104,6 +104,7 @@ declare global {
       connectTimestamp: number | null;
       speechEndTimestamp: number | null;   // When user finished speaking (PTT release / VAD end)
       turnLatencySamples: number[];        // Rolling per-turn latency samples (ms): speech_end → first_audio
+      lastLatencyReportAt: number;         // Timestamp of last latency_snapshot report sent to backend
       timeline: TimelineEvent[];
       isProcessingFn: (() => boolean) | null;
       pendingAudioCountFn: (() => number) | null;
@@ -148,6 +149,7 @@ function getDiagStore() {
       connectTimestamp: null,
       speechEndTimestamp: null,
       turnLatencySamples: [],
+      lastLatencyReportAt: 0,
       timeline: [],
       isProcessingFn: null,
       pendingAudioCountFn: null,
@@ -208,6 +210,11 @@ export function diagMarkConnect() {
   diagEvent('session_connect');
 }
 
+// Minimum interval between automatic latency snapshot reports (5 minutes)
+const LATENCY_REPORT_INTERVAL_MS = 5 * 60 * 1000;
+// Minimum turn samples needed before sending a latency report
+const LATENCY_MIN_SAMPLES = 3;
+
 export function diagMarkFirstAudio() {
   const store = getDiagStore();
   if (!store.firstAudioTimestamp) {
@@ -219,6 +226,17 @@ export function diagMarkFirstAudio() {
     if (turnLatencyMs !== null) {
       store.turnLatencySamples.push(turnLatencyMs);
       if (store.turnLatencySamples.length > 20) store.turnLatencySamples.shift(); // rolling window
+
+      // Periodically snapshot latency to the backend for Sofia health monitoring.
+      // Fires at most once per LATENCY_REPORT_INTERVAL_MS and only when we have
+      // enough samples to compute a meaningful p95.
+      const enoughSamples = store.turnLatencySamples.length >= LATENCY_MIN_SAMPLES;
+      const cooldownElapsed = (now - store.lastLatencyReportAt) >= LATENCY_REPORT_INTERVAL_MS;
+      if (enoughSamples && cooldownElapsed) {
+        store.lastLatencyReportAt = now;
+        const snapshot = captureSnapshot('latency_snapshot');
+        void sendSnapshot(snapshot);
+      }
     }
     diagEvent('first_audio', {
       latencyMs: greetingLatencyMs,

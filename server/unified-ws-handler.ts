@@ -956,6 +956,9 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
   let openMicPendingChunks: Buffer[] = [];
   let openMicSessionStarting = false;
   let currentInputMode: VoiceInputMode = 'push-to-talk';
+  // Track how many times open-mic has failed to start in this connection.
+  // After 2+ failures we suggest the user switch to push-to-talk.
+  let openMicStartFailCount = 0;
   
   // Echo suppression safety timeout (Socket.io path)
   const ECHO_SUPPRESSION_MAX_MS_SO = 30000;
@@ -1884,6 +1887,7 @@ ${buildNativeFunctionCallingSection()}`;
                 openMicSession = attemptSession;
                 openMicSessionStarting = false;
                 openMicStarted = true;
+                openMicStartFailCount = 0; // Reset on successful start
                 console.log(`[OpenMic] Session started successfully (attempt ${attempt})`);
                 
                 if (openMicPendingChunks.length > 0) {
@@ -1898,13 +1902,19 @@ ${buildNativeFunctionCallingSection()}`;
               }
             }
             if (!openMicStarted) {
-              console.error('[OpenMic] All STT start attempts failed — notifying client');
+              openMicStartFailCount++;
+              console.error(`[OpenMic] All STT start attempts failed (fail #${openMicStartFailCount}) — notifying client`);
+              // After 2+ consecutive failures suggest switching to push-to-talk
+              const suggestPtt = openMicStartFailCount >= 2;
               if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
                 ws.send(JSON.stringify({
                   type: 'stt_degraded',
                   timestamp: Date.now(),
-                  userMessage: 'Having trouble with voice recognition right now. Please try again in a moment.',
-                  recoverable: true,
+                  userMessage: suggestPtt
+                    ? 'Voice recognition is unavailable right now. Try switching to Push-to-Talk mode.'
+                    : 'Having trouble with voice recognition right now. Please try again in a moment.',
+                  recoverable: !suggestPtt,
+                  suggestPtt,
                 }));
               }
               openMicSession = null;

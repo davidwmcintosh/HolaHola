@@ -27,7 +27,7 @@ async function computeHealthStatus(): Promise<{ status: string; reasons: string[
   const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
   const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
 
-  const [last1h, last6h] = await Promise.all([
+  const [last1h, last6h, latency1h] = await Promise.all([
     sharedDb.execute(sql`
       SELECT 
         COUNT(*)::int as total,
@@ -44,11 +44,26 @@ async function computeHealthStatus(): Promise<{ status: string; reasons: string[
       FROM voice_pipeline_events
       WHERE event_type LIKE 'client_diag_%' AND created_at >= ${sixHoursAgo}
     `),
+    // E2E turn latency: aggregate p95 values reported by clients in the last hour.
+    // event_data->timing->p95TurnLatencyMs is the per-session p95 (ms: speech_end → first_audio).
+    sharedDb.execute(sql`
+      SELECT
+        COUNT(*)::int as sample_count,
+        AVG((event_data->'timing'->>'p95TurnLatencyMs')::float)::int as avg_p95_ms,
+        MAX((event_data->'timing'->>'p95TurnLatencyMs')::float)::int as max_p95_ms
+      FROM voice_pipeline_events
+      WHERE event_type = 'client_diag_latency_snapshot'
+        AND created_at >= ${oneHourAgo}
+        AND event_data->'timing'->>'p95TurnLatencyMs' IS NOT NULL
+        AND (event_data->'timing'->>'p95TurnLatencyMs')::float > 0
+    `),
   ]);
 
   const h1 = last1h.rows[0] as any;
   const h6 = last6h.rows[0] as any;
   const eventsPerUserPer6h = h6.users > 0 ? h6.total / h6.users : 0;
+  const lat = latency1h.rows[0] as any;
+  const avgP95Ms: number | null = lat?.avg_p95_ms ?? null;
 
   let status: string = 'green';
   const reasons: string[] = [];
@@ -69,9 +84,29 @@ async function computeHealthStatus(): Promise<{ status: string; reasons: string[
     reasons.push(`Elevated event rate: ${eventsPerUserPer6h.toFixed(1)} events/user over 6h`);
   }
 
+  // Latency health: E2E turn latency p95 thresholds (speech_end → first_audio)
+  // Green: < 3 000 ms  Yellow: 3 000–5 000 ms  Red: > 5 000 ms
+  if (avgP95Ms !== null && lat?.sample_count > 0) {
+    if (avgP95Ms > 5000) {
+      status = 'red';
+      reasons.push(`High E2E latency: avg p95=${avgP95Ms}ms over last hour (${lat.sample_count} reports)`);
+    } else if (avgP95Ms > 3000) {
+      if (status !== 'red') status = 'yellow';
+      reasons.push(`Elevated E2E latency: avg p95=${avgP95Ms}ms over last hour (${lat.sample_count} reports)`);
+    }
+  }
+
   if (reasons.length === 0) reasons.push('All systems nominal');
 
-  return { status, reasons, metrics: { last1h: h1, last6h: h6 } };
+  return {
+    status,
+    reasons,
+    metrics: {
+      last1h: h1,
+      last6h: h6,
+      latency: avgP95Ms !== null ? { avgP95Ms, maxP95Ms: lat?.max_p95_ms, sampleCount: lat?.sample_count } : null,
+    },
+  };
 }
 
 async function runHealthCheck(): Promise<void> {
