@@ -69,6 +69,7 @@ import type { StreamingSession, StreamingMetrics } from './streaming-session-typ
 import { calculateAdaptiveSpeedMultiplier, getAdaptiveSpeakingRate, trackSttConfidence, trackStruggle } from './adaptive-speed-control';
 import { splitTextIntoSentences, cleanTextForDisplay, applyWordEmphases } from './voice-text-processing';
 import { deepgram, gemini } from './voice-ai-clients';
+import { transcribeWithGoogleSTT } from './google-stt-fallback';
 import { containsSeverelyInappropriateContent, containsMildlyInappropriateContent } from './content-moderation';
 import { VOCABULARY_EXTRACTION_SCHEMA, STUDENT_OBSERVATION_SCHEMA } from './extraction-schemas';
 
@@ -6419,15 +6420,25 @@ Remember: David may reference things discussed in these recent text chats.
         intelligence: result.intelligence,
         words: result.words,
       };
-    } catch (error: any) {
-      console.error(`[Deepgram Live] Error: ${error.message}`);
-      // Fallback to prerecorded API if live fails
-      console.log('[Deepgram] Falling back to prerecorded API...');
-      const result = await this.transcribeWithPrerecorded(audioData, languageCode, true);
-      if (!result.transcript) {
-        console.log('[Deepgram Prerecorded] Empty transcript returned');
+    } catch (deepgramLiveError: any) {
+      console.error(`[Deepgram Live] Error: ${deepgramLiveError.message}`);
+
+      // Tier 2: Deepgram Prerecorded API
+      try {
+        console.log('[STT Fallback] Tier 2 — Deepgram Prerecorded...');
+        const result = await this.transcribeWithPrerecorded(audioData, languageCode, true);
+        if (!result.transcript) {
+          console.log('[Deepgram Prerecorded] Empty transcript returned');
+        }
+        return { transcript: result.transcript, confidence: result.confidence, intelligence: result.intelligence };
+      } catch (deepgramPrerecordedError: any) {
+        console.error(`[Deepgram Prerecorded] Error: ${deepgramPrerecordedError.message}`);
+
+        // Tier 3: Google Cloud Speech-to-Text (last resort)
+        console.log('[STT Fallback] Tier 3 — Google Cloud STT (Deepgram fully unavailable)...');
+        const result = await transcribeWithGoogleSTT(audioData, targetLanguage, nativeLanguage);
+        return { transcript: result.transcript, confidence: result.confidence };
       }
-      return { transcript: result.transcript, confidence: result.confidence, intelligence: result.intelligence };
     }
   }
   
