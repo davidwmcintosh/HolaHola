@@ -76,7 +76,7 @@ function buildImagePrompt(lessonName: string, lessonType: string, topics: string
 }
 
 function getDallEClient(): OpenAI | null {
-  const key = process.env.OPENAI_API_KEY;
+  const key = process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
   if (!key) return null;
   return new OpenAI({ apiKey: key });
 }
