@@ -24,9 +24,9 @@ const genAI = new GoogleGenAI({
 });
 
 const MODELS = [
-  "gemini-2.5-flash",
+  "gemini-3-flash-preview",
   "gemini-2.5-flash-lite",
-  "gemini-2.0-flash"
+  "gemini-3-flash-preview"
 ];
 
 const TEST_PROMPTS = [
@@ -183,7 +183,7 @@ async function runBenchmark() {
     console.log(`└─────────────────────────────────────────────────────────┘`);
   }
 
-  const flash25 = allResults.filter(r => r.model === "gemini-2.5-flash" && !r.error);
+  const flash25 = allResults.filter(r => r.model === "gemini-3-flash-preview" && !r.error);
   const flash30 = allResults.filter(r => r.model === "gemini-3-flash-preview" && !r.error);
 
   if (flash25.length > 0 && flash30.length > 0) {

@@ -382,7 +382,7 @@ function getModelForTier(tier: string | null | undefined, user?: { role?: string
   
   // All other tiers (free, basic, institutional) get Gemini 2.5 Flash
   // Fast, cheap, excellent for daily learning (1M context, $0.10/$0.40 per 1M tokens)
-  return 'gemini-2.5-flash';
+  return 'gemini-3-flash-preview';
 }
 
 /**
@@ -6931,7 +6931,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
         // Generate simplified response using Gemini
         const response = await gemini.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3-flash-preview',
           contents: simplifyPrompt,
         });
         
@@ -16912,7 +16912,7 @@ Current conversation context:
       ];
       
       // Call Gemini for response
-      const model = 'gemini-2.5-flash';
+      const model = 'gemini-3-flash-preview';
       const responseText = await callGemini(model, geminiMessages);
       
       // Save Daniela's response
@@ -23525,7 +23525,7 @@ ${memoryContext}
       }
 
       const response = await gemini.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: [
           { role: 'user', parts: [{ text: `${systemPrompt}\n\nWren asks:\n${question}` }] }
         ],
@@ -29015,7 +29015,7 @@ Give your honest take on:
 Under 250 words. Write as yourself.`;
 
       const reviewResponse = await gemini.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-3-flash-preview',
         contents: [{ role: 'user', parts: [{ text: reviewPrompt }] }],
         config: { temperature: 0.7, maxOutputTokens: 500 },
       });

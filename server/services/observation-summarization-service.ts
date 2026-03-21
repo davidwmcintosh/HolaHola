@@ -147,7 +147,7 @@ Respond in this exact JSON format:
 Only output valid JSON, no other text.`;
 
       const result = await this.genAI.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3-flash-preview",
         contents: prompt,
       });
       const text = result.text || '';

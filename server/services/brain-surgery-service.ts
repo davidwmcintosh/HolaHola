@@ -949,7 +949,7 @@ export async function editorToDanielaStreaming(
     systemPrompt: DANIELA_BRAIN_SURGERY_PERSONA,
     conversationHistory,
     userMessage: enhancedMessage,
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3-flash-preview',
     onSentence: async (chunk) => {
       fullResponse += chunk.text + ' ';
       // Call onChunk synchronously - it just writes to SSE stream

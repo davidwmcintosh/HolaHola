@@ -207,7 +207,7 @@ export async function browseAndCapture(targetUrl: string): Promise<BrowseResult>
 export async function analyzeScreenshot(screenshotBase64: string, question: string): Promise<string> {
   const gemini = getGemini();
   const result = await gemini.models.generateContent({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3-flash-preview',
     contents: [{
       role: 'user',
       parts: [
@@ -272,7 +272,7 @@ Respond ONLY in this exact JSON format:
 
   try {
     const result = await gemini.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
     });
     const text = result.text || '';

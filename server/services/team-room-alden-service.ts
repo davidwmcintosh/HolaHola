@@ -21,7 +21,7 @@ function getGemini(): GoogleGenAI {
 async function callGemini(systemPrompt: string, userPrompt: string): Promise<string> {
   const gemini = getGemini();
   const result = await gemini.models.generateContent({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3-flash-preview',
     config: { systemInstruction: systemPrompt },
     contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
   });

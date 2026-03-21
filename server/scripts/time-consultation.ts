@@ -117,7 +117,7 @@ async function runConsultation(): Promise<void> {
   console.log('═'.repeat(70) + '\n');
 
   const results: Array<{ id: string; prompt: string; response: string }> = [];
-  const model = 'gemini-2.5-flash';
+  const model = 'gemini-3-flash-preview';
 
   for (const topic of CONSULTATION_TOPICS) {
     console.log(`\n${'─'.repeat(60)}`);

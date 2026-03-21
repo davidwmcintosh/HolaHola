@@ -150,7 +150,7 @@ Evaluate the translation accuracy.`;
 
   try {
     const result = await gemini.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: [
         { role: 'user', parts: [{ text: systemPrompt + '\n\n' + userPrompt }] }
       ],
@@ -197,7 +197,7 @@ Evaluate if the student filled in the blank correctly.`;
 
   try {
     const result = await gemini.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: [
         { role: 'user', parts: [{ text: systemPrompt + '\n\n' + userPrompt }] }
       ],

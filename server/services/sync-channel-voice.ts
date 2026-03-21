@@ -23,7 +23,7 @@ const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY;
 const DEEPGRAM_MODEL = "nova-3";
 
 // Gemini config
-const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL = "gemini-3-flash-preview";
 
 interface VoiceSession {
   sessionId: string;

@@ -743,7 +743,7 @@ ${transcript}
 Summary (2-3 sentences):`;
 
       const response = await getGeminiClient().models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           temperature: 0.5,

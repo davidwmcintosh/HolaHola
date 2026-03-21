@@ -239,7 +239,7 @@ Respond ONLY with a JSON object (no markdown fences):
 
   const ai = getGemini();
   const response = await ai.models.generateContent({
-    model:    'gemini-2.5-flash',
+    model:    'gemini-3-flash-preview',
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     config:   { temperature: 0.3, maxOutputTokens: 4096, thinkingConfig: { thinkingBudget: 512 } },
   });

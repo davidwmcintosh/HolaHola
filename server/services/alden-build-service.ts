@@ -89,7 +89,7 @@ function getGemini(): GoogleGenAI {
 
 async function callGeminiFlash(system: string, user: string): Promise<string> {
   const result = await getGemini().models.generateContent({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3-flash-preview',
     config: { systemInstruction: system },
     contents: [{ role: 'user', parts: [{ text: user }] }],
   });

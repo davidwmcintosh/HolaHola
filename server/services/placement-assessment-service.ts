@@ -137,7 +137,7 @@ Confidence should be between 0.5 and 1.0.`;
 
   try {
     const response = await gemini.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: assessmentPrompt,
     });
 
