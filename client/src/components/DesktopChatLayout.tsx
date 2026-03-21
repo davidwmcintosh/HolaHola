@@ -9,6 +9,8 @@ export interface StudioImage {
   description: string;
   imageUrl: string;
   context?: string;
+  slot?: 'scene' | 'context';
+  category?: string;
 }
 
 interface DesktopChatLayoutProps {

@@ -731,7 +731,14 @@ export default function Chat() {
                       return { ...prev, props: updatedProps };
                     });
                   }}
-                  onStudioImage={(img) => setStudioImages([img])}
+                  onStudioImage={(img) => setStudioImages(prev => {
+                    if (img.slot === 'scene') {
+                      return [...prev.filter(i => i.slot !== 'scene'), img];
+                    } else if (img.slot === 'context' && img.category) {
+                      return [...prev.filter(i => !(i.slot === 'context' && i.category === img.category)), img];
+                    }
+                    return [img];
+                  })}
                   onImmersiveModeChange={setIsImmersiveMode}
                 />
             ) : (

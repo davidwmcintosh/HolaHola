@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Tv, ChevronLeft, ChevronRight, Sparkles, BookOpen, UtensilsCrossed, FileText, CreditCard, MapIcon, List, Receipt, ImageIcon, X, ZoomIn } from "lucide-react";
+import { Tv, ChevronLeft, ChevronRight, Sparkles, BookOpen, UtensilsCrossed, FileText, CreditCard, MapIcon, List, Receipt, ImageIcon, ZoomIn, Cloud, Clock, Smile, Calendar, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -302,6 +302,47 @@ function ImageLightbox({ url, label, open, onClose }: { url: string; label: stri
   );
 }
 
+function categoryIcon(category?: string) {
+  switch (category?.toLowerCase()) {
+    case 'weather': return <Cloud className="h-3 w-3" />;
+    case 'time': return <Clock className="h-3 w-3" />;
+    case 'emotion': return <Smile className="h-3 w-3" />;
+    case 'calendar': return <Calendar className="h-3 w-3" />;
+    default: return <Star className="h-3 w-3" />;
+  }
+}
+
+function ContextStrip({ images, onLightbox }: { images: StudioImage[]; onLightbox: (url: string, label: string) => void }) {
+  return (
+    <div className="flex flex-col gap-1.5 w-[68px] shrink-0" data-testid="studio-context-strip">
+      {images.map((img, i) => (
+        <div
+          key={`${img.category}-${i}`}
+          className="rounded-md overflow-hidden border bg-background cursor-zoom-in relative group"
+          data-testid={`studio-context-${img.category || i}`}
+          onClick={() => onLightbox(img.imageUrl, img.description || img.word)}
+          title={img.description || img.word}
+        >
+          <img
+            src={img.imageUrl}
+            alt={img.description}
+            className="w-full h-[60px] object-cover"
+          />
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
+            <ZoomIn className="h-4 w-4 text-white drop-shadow" />
+          </div>
+          {img.category && (
+            <div className="flex items-center gap-0.5 px-1 py-0.5 bg-background/90">
+              {categoryIcon(img.category)}
+              <span className="text-[9px] text-muted-foreground truncate capitalize">{img.category}</span>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function StudioImageGallery({ images }: { images: StudioImage[] }) {
   const latestImage = images[images.length - 1];
   const previousImages = images.slice(0, -1);
@@ -371,6 +412,9 @@ export function ScenarioPanel({ scenario, isCollapsed, onToggleCollapse, studioI
   const [sceneLightbox, setSceneLightbox] = useState<{ url: string; label: string } | null>(null);
 
   const hasCanvas = Boolean(sceneCanvas);
+  const contextImages = (studioImages || []).filter(img => img.slot === 'context');
+  const mainImages = (studioImages || []).filter(img => img.slot !== 'context');
+  const hasContextStrip = contextImages.length > 0;
   const canvasLabel = sceneCanvas?.environmentLabel || (sceneCanvas?.clockTime ? 'Clock' : 'Stage');
 
   if (isCollapsed) {
@@ -412,67 +456,76 @@ export function ScenarioPanel({ scenario, isCollapsed, onToggleCollapse, studioI
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
-        <div className="space-y-3">
-          {hasCanvas && (
-            <SceneCanvas
-              data={sceneCanvas!}
-              data-testid="studio-scene-canvas"
+        <div className={hasContextStrip ? "flex gap-2 min-h-0" : "space-y-3"}>
+          {hasContextStrip && (
+            <ContextStrip
+              images={contextImages}
+              onLightbox={(url, label) => setSceneLightbox({ url, label })}
             />
           )}
 
-          {scenario ? (
-            <>
-              {!hasCanvas && scenario.imageUrl && (
-                <div
-                  className="rounded-md overflow-hidden border cursor-zoom-in relative group"
-                  onClick={() => setSceneLightbox({ url: scenario.imageUrl!, label: scenario.location || scenario.title || '' })}
-                >
-                  <img
-                    src={scenario.imageUrl}
-                    alt={scenario.location}
-                    className="w-full h-40 object-cover"
-                    data-testid="img-scenario-scene"
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
-                    <ZoomIn className="h-7 w-7 text-white drop-shadow" />
-                  </div>
-                </div>
-              )}
-              {!hasCanvas && scenario.isLoading && !scenario.imageUrl && (
-                <div className="rounded-md border h-40 flex items-center justify-center bg-muted/50 animate-pulse">
-                  <Sparkles className="h-6 w-6 text-muted-foreground" />
-                </div>
-              )}
+          <div className={hasContextStrip ? "flex-1 min-w-0 space-y-3" : "space-y-3"}>
+            {hasCanvas && (
+              <SceneCanvas
+                data={sceneCanvas!}
+                data-testid="studio-scene-canvas"
+              />
+            )}
 
-              {studioImages && studioImages.length > 0 && (
-                <StudioImageGallery images={studioImages} />
-              )}
-
-              {scenario.props && scenario.props.length > 0 && (
-                <div className="space-y-2" data-testid="list-scenario-props">
-                  {scenario.props.map(prop => (
-                    <ScenarioPropCard key={prop.id} prop={prop} difficulty={difficulty} />
-                  ))}
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              {studioImages && studioImages.length > 0 ? (
-                <StudioImageGallery images={studioImages} />
-              ) : !hasCanvas && (
-                <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                  <div className="rounded-full bg-muted p-4 mb-4">
-                    <BookOpen className="h-8 w-8 text-muted-foreground" />
+            {scenario ? (
+              <>
+                {!hasCanvas && scenario.imageUrl && (
+                  <div
+                    className="rounded-md overflow-hidden border cursor-zoom-in relative group"
+                    onClick={() => setSceneLightbox({ url: scenario.imageUrl!, label: scenario.location || scenario.title || '' })}
+                  >
+                    <img
+                      src={scenario.imageUrl}
+                      alt={scenario.location}
+                      className="w-full h-40 object-cover"
+                      data-testid="img-scenario-scene"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
+                      <ZoomIn className="h-7 w-7 text-white drop-shadow" />
+                    </div>
                   </div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Ready for action</p>
-                  <p className="text-xs text-muted-foreground max-w-[200px]">
-                    Scenarios, images, and media will appear here during your lesson
-                  </p>
-                </div>
-              )}
-            </>
-          )}
+                )}
+                {!hasCanvas && scenario.isLoading && !scenario.imageUrl && (
+                  <div className="rounded-md border h-40 flex items-center justify-center bg-muted/50 animate-pulse">
+                    <Sparkles className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                )}
+
+                {mainImages.length > 0 && (
+                  <StudioImageGallery images={mainImages} />
+                )}
+
+                {scenario.props && scenario.props.length > 0 && (
+                  <div className="space-y-2" data-testid="list-scenario-props">
+                    {scenario.props.map(prop => (
+                      <ScenarioPropCard key={prop.id} prop={prop} difficulty={difficulty} />
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                {mainImages.length > 0 ? (
+                  <StudioImageGallery images={mainImages} />
+                ) : !hasCanvas && !hasContextStrip && (
+                  <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                    <div className="rounded-full bg-muted p-4 mb-4">
+                      <BookOpen className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">Ready for action</p>
+                    <p className="text-xs text-muted-foreground max-w-[200px]">
+                      Scenarios, images, and media will appear here during your lesson
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
 

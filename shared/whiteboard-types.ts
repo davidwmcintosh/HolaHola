@@ -159,6 +159,18 @@ export interface ImageItemData {
    *   'quiz'   → no chips               (student produces all words)
    */
   labels?: { word: string; translation?: string }[];
+  /**
+   * Studio pane slot — controls which zone this image occupies.
+   *   'scene'   → main scene area (replaces any previous scene image)
+   *   'context' → left vertical strip (stacks by category — same category replaces)
+   *   undefined → default: replaces all images (vocab/standalone use)
+   *
+   * Context categories: 'weather' | 'time' | 'emotion' | 'calendar' | 'event' | string
+   * Markup: [IMAGE]word|description|slot=scene[/IMAGE]
+   *         [IMAGE]word|description|slot=context|category=weather[/IMAGE]
+   */
+  slot?: 'scene' | 'context';
+  category?: string;
 }
 
 /**
@@ -1224,11 +1236,19 @@ export function normalizeSwitchTutorAttributes(
  */
 function parseImageContent(content: string): ImageItemData {
   const parts = content.split('|').map(p => p.trim());
-  return {
+  const result: ImageItemData = {
     word: parts[0] || content,
     description: parts[1] || parts[0] || content,
     isLoading: true,
   };
+  for (let i = 2; i < parts.length; i++) {
+    const match = parts[i].match(/^(\w+)=(.+)$/);
+    if (!match) continue;
+    const [, key, val] = match;
+    if (key === 'slot' && (val === 'scene' || val === 'context')) result.slot = val as 'scene' | 'context';
+    if (key === 'category') result.category = val;
+  }
+  return result;
 }
 
 /**

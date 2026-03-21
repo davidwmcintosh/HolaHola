@@ -967,6 +967,8 @@ export function StreamingVoiceChat({
                 description: img.data.description || img.content,
                 imageUrl: img.data.imageUrl,
                 context: img.data.context,
+                slot: img.data.slot,
+                category: img.data.category,
               });
             });
             if (otherItems.length > 0 || shouldClear) {
@@ -2990,6 +2992,8 @@ export function StreamingVoiceChat({
                     description: img.data.description || img.content,
                     imageUrl: img.data.imageUrl,
                     context: img.data.context,
+                    slot: img.data.slot,
+                    category: img.data.category,
                   });
                 });
                 if (otherItems.length > 0 || shouldClear) {
