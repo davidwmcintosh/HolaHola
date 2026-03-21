@@ -1,4 +1,5 @@
 import { SENTENCE_CHUNKING_CONFIG } from "@shared/streaming-voice-types";
+import { stripWhiteboardMarkup } from "@shared/whiteboard-types";
 
 export function splitTextIntoSentences(text: string): string[] {
   const sentences: string[] = [];
