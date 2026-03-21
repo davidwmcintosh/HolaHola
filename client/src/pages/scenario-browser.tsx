@@ -120,6 +120,16 @@ function ScenarioCard({
 
   return (
     <Card className="flex flex-col hover-elevate transition-all duration-200 overflow-visible" data-testid={`card-scenario-${scenario.slug}`}>
+      {scenario.imageUrl && (
+        <div className="h-36 rounded-t-md overflow-hidden shrink-0">
+          <img
+            src={scenario.imageUrl}
+            alt={scenario.title}
+            className="w-full h-full object-cover"
+            data-testid={`img-scenario-cover-${scenario.slug}`}
+          />
+        </div>
+      )}
       <div className="p-4 flex-1 flex flex-col gap-3">
         <div className="flex items-start justify-between gap-2 flex-wrap">
           <h3 className="font-semibold text-base" data-testid={`text-scenario-title-${scenario.slug}`}>

@@ -34,6 +34,11 @@ A "Smart Fat Context" memory architecture preloads student data into Gemini's co
 
 An OER Textbook Seed Pipeline generates textbook prose for 9 language curricula from various sources, stored in `textbook_lesson_content`, with an admin UI for management. The Daniela ↔ Textbook Bidirectional Bridge connects reading and practice.
 
+The **Scenario ↔ Textbook Bidirectional Bridge** creates a full loop between the 27 practice scenarios and the 1,301-lesson curriculum:
+- **Scenario → Textbook**: Each scenario card in the Scenario Browser shows a "Textbook prep" panel listing the top-ranked curriculum lessons by topic overlap, with thumbnails and deep-links to `/textbook?chapterId=<id>`. The textbook auto-opens to the right chapter on load.
+- **Textbook → Scenario**: Each lesson card's primary CTA button is now scenario-aware — if `relatedScenario` is set (computed from topic-overlap scoring between `requiredTopics` and scenario `curriculumTopics`), the button reads "Practice: {Scenario Title}" and navigates directly to `/chat?scenario={slug}`. Falls back to "Practice with Daniela" if only `conversationTopic` is set, or "Start Lesson" otherwise.
+- **Image generation pipeline**: `startLessonImageWorker()` in `server/services/lesson-image-generator.ts` generates Gemini Flash-Image covers for all 1,301 curriculum lessons (438/1,301 done, Italian/Portuguese/German/English/Japanese/Korean/Mandarin in progress). `startScenarioImageWorker()` in `server/services/scenario-image-generator.ts` generates covers for all 27 scenarios (runs once at startup). Scenario cards in the browser display covers when available. All images go to object storage via `uploadPublicBuffer`.
+
 Subject tutors for Biology and History are live, with reading modules generated via a four-stage pipeline from OpenStax content, including citation enrichment and claim verification. Student reading progress is tracked, with progress reports and quizzes available. A Class Creation Hub supports creating both language and academic subject classes.
 
 Study Mode generates Daniela-led immersion sessions from any Spanish curriculum unit, creating `ImmersionScenario` objects with DALL-E visuals for conversational practice.

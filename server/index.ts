@@ -272,6 +272,11 @@ const stripeInitPromise = (async function initStripe() {
       startLessonImageWorker();
     }).catch(err => console.error('Failed to import lesson-image-generator:', err));
 
+    // Generate cover images for all 27 practice scenarios — one-shot background worker
+    import('./services/scenario-image-generator').then(({ startScenarioImageWorker }) => {
+      startScenarioImageWorker();
+    }).catch(err => console.error('Failed to import scenario-image-generator:', err));
+
     // Initialize procedural memory cache for tool knowledge
     try {
       console.log('Initializing procedural memory cache...');
