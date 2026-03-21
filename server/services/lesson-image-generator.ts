@@ -2,24 +2,25 @@
  * Lesson Image Generator
  *
  * Generates warm illustrative cover images for curriculum lessons using
- * Gemini Flash Image. Images are stored permanently in object storage and
- * the URL is saved back to curriculumLessons.imageUrl.
+ * DALL-E 3. Images are stored permanently in object storage and the URL
+ * is saved back to curriculumLessons.imageUrl.
  *
  * Processes lessons that:
  *  - Have requiredTopics (tagged by lesson-topic-tagger)
  *  - Don't already have an imageUrl
  *  - Across all languages (Spanish first as priority)
  *
- * startLessonImageWorker() runs continuously: batch → 30s cooldown → next batch
+ * startLessonImageWorker() runs continuously: batch → 10s cooldown → next batch
  * until all lessons are covered, then stops.
  */
 
+import OpenAI from 'openai';
 import { getSharedDb } from '../db';
 import { curriculumLessons, curriculumUnits, curriculumPaths } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
 import { uploadPublicBuffer } from './image-storage';
 
-const MAX_PER_RUN = 50;
+const MAX_PER_RUN = 20; // DALL-E 3 is slower than Gemini — smaller batches
 
 // Language priority order — Spanish first (highest scenario coverage), then others
 const LANGUAGE_PRIORITY: Record<string, number> = {
@@ -36,15 +37,15 @@ const LANGUAGE_PRIORITY: Record<string, number> = {
 
 // Cultural context per language for richer prompts
 const LANGUAGE_CULTURE: Record<string, string> = {
-  spanish: 'Latin American or Spanish culture — warm, vibrant, colorful',
-  french:  'French culture — elegant, Parisian, café atmosphere',
-  italian: 'Italian culture — Mediterranean warmth, architecture, food',
-  portuguese: 'Brazilian or Portuguese culture — lively, coastal, warm',
-  german:  'German culture — modern, orderly, Central European',
-  english: 'global English-speaking context — diverse, modern',
-  japanese: 'Japanese culture — clean aesthetics, modern Tokyo or traditional',
-  korean:  'Korean culture — K-culture, urban Seoul, modern and vibrant',
-  mandarin: 'Chinese culture — rich heritage, modern China, diverse scenery',
+  spanish: 'Latin American or Spanish cultural setting — warm, vibrant, colorful',
+  french:  'French cultural setting — elegant, Parisian, café atmosphere',
+  italian: 'Italian cultural setting — Mediterranean warmth, terracotta rooftops, food culture',
+  portuguese: 'Brazilian or Portuguese cultural setting — lively, coastal, warm',
+  german:  'German cultural setting — modern, orderly, Central European architecture',
+  english: 'global English-speaking setting — diverse, modern, urban',
+  japanese: 'Japanese cultural setting — clean aesthetics, modern Tokyo or traditional ryokan',
+  korean:  'Korean cultural setting — K-culture, urban Seoul, modern and vibrant',
+  mandarin: 'Chinese cultural setting — rich heritage blended with modern China',
 };
 
 // Topic slugs most critical to the scenario-to-textbook bridge (priority order)
@@ -55,60 +56,71 @@ const PRIORITY_TOPICS = [
   'describing-symptoms', 'transportation', 'self-introduction', 'prices-money', 'quantities',
 ];
 
+const DALL_E_STYLE = `Warm editorial illustration style. Soft, inviting color palette with gentle gradients. 
+Diverse, friendly characters in natural poses. Clean composition with a clear focal point. 
+No text, no words, no labels, no letters anywhere in the image. 
+Wide landscape format. Suitable as an educational app lesson card header.`;
+
 function buildImagePrompt(lessonName: string, lessonType: string, topics: string[], language: string): string {
   const topicContext = topics.slice(0, 3).join(', ').replace(/-/g, ' ');
   const culture = LANGUAGE_CULTURE[language] || 'a multicultural educational context';
-  const typeLabel = ({
-    conversation: 'two people having a friendly conversation',
-    vocabulary: 'a visually rich scene showing key vocabulary items',
-    grammar: 'a clear educational illustration',
-    cultural_exploration: 'a vibrant cultural scene',
-    drill: 'an engaging practice activity',
-  } as Record<string, string>)[lessonType] || 'a language learning scene';
+  const typeScene = ({
+    conversation: 'Two people having a warm, engaged conversation',
+    vocabulary: 'A visually rich everyday scene showcasing key objects and vocabulary',
+    grammar: 'A clear, friendly educational scene',
+    cultural_exploration: 'A vibrant authentic cultural moment',
+    drill: 'An engaging hands-on practice scene',
+  } as Record<string, string>)[lessonType] || 'A language learning scene';
 
-  return `Create a warm, friendly educational illustration for a ${language} language learning app.
-Scene: ${typeLabel} related to "${lessonName}" covering topics: ${topicContext}.
-Cultural setting: ${culture}.
-Style: Soft warm colors, clean editorial illustration, diverse characters, inviting and approachable.
-Composition: Wide landscape format (16:9), clear focal point, no text or labels, suitable as a lesson card header.
-Mood: Encouraging, modern, culturally authentic.
-Do NOT include any text, words, or labels in the image.`;
+  return `${typeScene} for a "${lessonName}" language lesson. Topics: ${topicContext}. Setting: ${culture}. ${DALL_E_STYLE}`;
 }
 
+function getDallEClient(): OpenAI | null {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) return null;
+  return new OpenAI({ apiKey: key });
+}
+
+// Thrown to abort the worker when the API key is invalid
+class AuthAbortError extends Error {}
+
 async function generateImageBuffer(prompt: string): Promise<{ buffer: Buffer; mimeType: string } | null> {
+  const client = getDallEClient();
+  if (!client) {
+    console.warn('[LessonImages] OPENAI_API_KEY not set — skipping');
+    return null;
+  }
+
   try {
-    const { GoogleGenAI, Modality } = await import('@google/genai');
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return null;
-
-    const genAI = new GoogleGenAI({ apiKey });
-
-    const response = await genAI.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      config: { responseModalities: [Modality.TEXT, Modality.IMAGE] },
+    const response = await client.images.generate({
+      model: 'dall-e-3',
+      prompt,
+      n: 1,
+      size: '1792x1024',
+      quality: 'standard',
+      response_format: 'url',
     });
 
-    const candidate = response.candidates?.[0];
-    if (!candidate?.content?.parts) return null;
+    const imageUrl = response.data?.[0]?.url;
+    if (!imageUrl) return null;
 
-    const imagePart = candidate.content.parts.find((p: any) => p.inlineData?.data);
-    if (!imagePart?.inlineData?.data) return null;
-
-    const buffer = Buffer.from(imagePart.inlineData.data, 'base64');
-    const mimeType = imagePart.inlineData.mimeType || 'image/png';
-    return { buffer, mimeType };
-  } catch (err) {
-    console.error('[LessonImages] Image generation error:', err);
+    const fetchRes = await fetch(imageUrl);
+    if (!fetchRes.ok) throw new Error(`Failed to download image: ${fetchRes.status}`);
+    const buffer = Buffer.from(await fetchRes.arrayBuffer());
+    return { buffer, mimeType: 'image/png' };
+  } catch (err: any) {
+    if (err?.status === 401 || err?.code === 'invalid_api_key') {
+      throw new AuthAbortError('OpenAI API key is invalid — lesson image worker halted. Update OPENAI_API_KEY to resume.');
+    }
+    console.error('[LessonImages] DALL-E generation error:', err);
     return null;
   }
 }
 
-export async function generateLessonImages(): Promise<void> {
+export async function generateLessonImages(): Promise<number> {
   try {
     const db = getSharedDb();
 
-    // Fetch all lessons with their language
     const lessons = await db.select({
       id: curriculumLessons.id,
       name: curriculumLessons.name,
@@ -121,7 +133,6 @@ export async function generateLessonImages(): Promise<void> {
     .innerJoin(curriculumUnits, eq(curriculumUnits.id, curriculumLessons.curriculumUnitId))
     .innerJoin(curriculumPaths, eq(curriculumPaths.id, curriculumUnits.curriculumPathId));
 
-    // Filter: has topics, no image yet
     const candidates = lessons.filter(l =>
       l.topics && l.topics.length > 0 &&
       !l.imageUrl
@@ -129,10 +140,9 @@ export async function generateLessonImages(): Promise<void> {
 
     if (candidates.length === 0) {
       console.log('[LessonImages] All lessons already have images');
-      return;
+      return 0;
     }
 
-    // Sort: language priority first, then by topic relevance score
     const topicPriorityScore = (topics: string[]) => {
       let score = 0;
       for (const t of topics) {
@@ -150,7 +160,7 @@ export async function generateLessonImages(): Promise<void> {
     });
 
     const toProcess = candidates.slice(0, MAX_PER_RUN);
-    console.log(`[LessonImages] Generating images for ${toProcess.length} priority lessons (${candidates.length} total need images)...`);
+    console.log(`[LessonImages] Generating ${toProcess.length} images via DALL-E 3 (${candidates.length} total need images)...`);
 
     let generated = 0;
     let failed = 0;
@@ -165,8 +175,7 @@ export async function generateLessonImages(): Promise<void> {
           continue;
         }
 
-        const ext = img.mimeType === 'image/jpeg' ? 'jpg' : 'png';
-        const filename = `lesson-${lesson.id}.${ext}`;
+        const filename = `lesson-${lesson.id}.png`;
         const url = await uploadPublicBuffer(filename, img.buffer, img.mimeType);
 
         await db.update(curriculumLessons)
@@ -174,11 +183,12 @@ export async function generateLessonImages(): Promise<void> {
           .where(eq(curriculumLessons.id, lesson.id));
 
         generated++;
-        console.log(`[LessonImages] Generated: [${lesson.language}] ${lesson.name.slice(0, 50)}`);
+        console.log(`[LessonImages] ✓ [${lesson.language}] ${lesson.name.slice(0, 50)}`);
 
-        // Small delay to avoid rate limits
-        await new Promise(r => setTimeout(r, 1500));
+        // DALL-E 3 rate limit: ~5 images/min — 12s between calls
+        await new Promise(r => setTimeout(r, 12_000));
       } catch (err) {
+        if (err instanceof AuthAbortError) throw err; // propagate to stop worker
         console.error(`[LessonImages] Failed for lesson ${lesson.id}:`, err);
         failed++;
       }
@@ -188,6 +198,7 @@ export async function generateLessonImages(): Promise<void> {
     console.log(`[LessonImages] Done: ${generated} generated, ${failed} failed, ${remaining} remaining`);
     return remaining;
   } catch (error) {
+    if (error instanceof AuthAbortError) throw error; // let worker stop permanently
     console.error('[LessonImages] Error:', error);
     return -1;
   }
@@ -196,7 +207,7 @@ export async function generateLessonImages(): Promise<void> {
 let _workerRunning = false;
 
 /**
- * Starts a continuous image generation worker.
+ * Starts a continuous image generation worker using DALL-E 3.
  * Runs batches back-to-back with a short cooldown until all lessons are covered.
  * Safe to call multiple times — only one worker runs at a time.
  */
@@ -204,7 +215,7 @@ export function startLessonImageWorker(): void {
   if (_workerRunning) return;
   _workerRunning = true;
 
-  const COOLDOWN_MS = 10_000; // 10 seconds between batches
+  const COOLDOWN_MS = 10_000;
 
   async function loop() {
     try {
@@ -215,9 +226,13 @@ export function startLessonImageWorker(): void {
         return;
       }
     } catch (err) {
+      if (err instanceof AuthAbortError) {
+        console.error('[LessonImages] Worker halted — invalid API key. Update OPENAI_API_KEY and restart to resume.');
+        _workerRunning = false;
+        return; // do not reschedule
+      }
       console.error('[LessonImages] Worker error:', err);
     }
-    // Schedule next batch
     setTimeout(loop, COOLDOWN_MS);
   }
 

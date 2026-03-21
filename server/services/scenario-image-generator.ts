@@ -2,67 +2,77 @@
  * Scenario Image Generator
  *
  * Generates vivid, illustrative cover images for each practice scenario
- * using Gemini Flash Image. Images are stored in object storage and the
- * URL is saved back to scenarios.imageUrl.
+ * using DALL-E 3. Images are stored in object storage and the URL is
+ * saved back to scenarios.imageUrl.
  *
  * Runs once at startup (fire-and-forget) and processes only scenarios
  * that are missing images — safe to restart.
  */
 
+import OpenAI from 'openai';
 import { getSharedDb } from '../db';
 import { scenarios } from '../../shared/schema';
-import { isNull } from 'drizzle-orm';
-import { eq } from 'drizzle-orm';
+import { isNull, eq } from 'drizzle-orm';
 import { uploadPublicBuffer } from './image-storage';
 
+const DALL_E_STYLE = `Warm editorial illustration style. Rich, inviting color palette with soft depth. 
+Diverse, friendly characters in natural, authentic poses. Cinematic but illustrated — not photographic. 
+No text, no words, no signs, no labels, no letters anywhere in the image. 
+Wide landscape format (16:9). Suitable as a scenario card cover image for a language-learning app.`;
+
 const CATEGORY_CONTEXT: Record<string, string> = {
-  social:       'lively social gathering, warm conversation between friends',
-  professional: 'modern professional office or business setting',
-  travel:       'exciting travel destination, airport, or transportation hub',
-  daily:        'everyday life scene, neighborhood, market, or home',
-  emergency:    'calm, helpful scene in a clinic or assistance context',
-  cultural:     'vibrant cultural event, local festival, or traditional setting',
+  social:       'lively social gathering or warm conversation between friends in an everyday setting',
+  professional: 'modern professional office, business meeting, or workplace interaction',
+  travel:       'exciting travel scene at an airport, train station, or iconic destination',
+  daily:        'everyday life — a neighborhood, local market, or familiar home environment',
+  emergency:    'calm, helpful scene inside a clinic, pharmacy, or assistance context',
+  cultural:     'vibrant local cultural event, traditional festival, or authentic neighborhood scene',
 };
 
 function buildScenarioPrompt(title: string, description: string, location: string | null, category: string, topics: string[]): string {
   const categoryCtx = CATEGORY_CONTEXT[category] || 'an engaging real-world situation';
   const topicHint = topics.slice(0, 3).map(t => t.replace(/-/g, ' ')).join(', ');
-  const locationHint = location ? ` The setting is: ${location}.` : '';
+  const locationHint = location ? ` The specific setting is: ${location}.` : '';
 
-  return `Create a warm, cinematic editorial illustration for a language-learning app scenario card.
-Scenario: "${title}" — ${description}${locationHint}
-Visual context: ${categoryCtx}${topicHint ? `, featuring themes of ${topicHint}` : ''}.
-Style: Soft warm color palette, clean modern illustration, diverse and friendly characters, inviting atmosphere.
-Composition: Wide landscape (16:9), strong focal point, visually rich but uncluttered, no text or labels anywhere.
-Mood: Approachable, realistic, culturally authentic, encouraging learners to jump in.
-Do NOT include any text, words, signs, or labels in the image.`;
+  return `Editorial illustration for a language-learning app scenario card. Scene: "${title}" — ${description}${locationHint} Context: ${categoryCtx}${topicHint ? `, with themes of ${topicHint}` : ''}. ${DALL_E_STYLE}`;
+}
+
+function getDallEClient(): OpenAI | null {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) return null;
+  return new OpenAI({ apiKey: key });
 }
 
 async function generateImageBuffer(prompt: string): Promise<{ buffer: Buffer; mimeType: string } | null> {
+  const client = getDallEClient();
+  if (!client) {
+    console.warn('[ScenarioImages] OPENAI_API_KEY not set — skipping');
+    return null;
+  }
+
   try {
-    const { GoogleGenAI, Modality } = await import('@google/genai');
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return null;
-
-    const genAI = new GoogleGenAI({ apiKey });
-
-    const response = await genAI.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      config: { responseModalities: [Modality.TEXT, Modality.IMAGE] },
+    const response = await client.images.generate({
+      model: 'dall-e-3',
+      prompt,
+      n: 1,
+      size: '1792x1024',
+      quality: 'standard',
+      response_format: 'url',
     });
 
-    const candidate = response.candidates?.[0];
-    if (!candidate?.content?.parts) return null;
+    const imageUrl = response.data?.[0]?.url;
+    if (!imageUrl) return null;
 
-    const imagePart = candidate.content.parts.find((p: any) => p.inlineData?.data);
-    if (!imagePart?.inlineData?.data) return null;
-
-    const buffer = Buffer.from(imagePart.inlineData.data, 'base64');
-    const mimeType = imagePart.inlineData.mimeType || 'image/png';
-    return { buffer, mimeType };
-  } catch (err) {
-    console.error('[ScenarioImages] Generation error:', err);
+    const fetchRes = await fetch(imageUrl);
+    if (!fetchRes.ok) throw new Error(`Failed to download image: ${fetchRes.status}`);
+    const buffer = Buffer.from(await fetchRes.arrayBuffer());
+    return { buffer, mimeType: 'image/png' };
+  } catch (err: any) {
+    if (err?.status === 401 || err?.code === 'invalid_api_key') {
+      console.error('[ScenarioImages] OpenAI API key is invalid — worker halted. Update OPENAI_API_KEY to resume.');
+      throw err; // propagate to stop the loop
+    }
+    console.error('[ScenarioImages] DALL-E generation error:', err);
     return null;
   }
 }
@@ -89,7 +99,7 @@ async function generateScenarioImages(): Promise<void> {
       return;
     }
 
-    console.log(`[ScenarioImages] Generating images for ${pending.length} scenarios...`);
+    console.log(`[ScenarioImages] Generating ${pending.length} scenario covers via DALL-E 3...`);
     let generated = 0;
     let failed = 0;
 
@@ -110,8 +120,7 @@ async function generateScenarioImages(): Promise<void> {
           continue;
         }
 
-        const ext = img.mimeType === 'image/jpeg' ? 'jpg' : 'png';
-        const filename = `scenario-${scenario.slug}.${ext}`;
+        const filename = `scenario-${scenario.slug}.png`;
         const url = await uploadPublicBuffer(filename, img.buffer, img.mimeType);
 
         await db
@@ -122,9 +131,10 @@ async function generateScenarioImages(): Promise<void> {
         generated++;
         console.log(`[ScenarioImages] ✓ ${scenario.title}`);
 
-        // Respect API rate limits
-        await new Promise(r => setTimeout(r, 2000));
-      } catch (err) {
+        // DALL-E 3 rate limit — 12s between calls
+        await new Promise(r => setTimeout(r, 12_000));
+      } catch (err: any) {
+        if (err?.status === 401 || err?.code === 'invalid_api_key') throw err; // abort on bad key
         console.error(`[ScenarioImages] Failed for ${scenario.slug}:`, err);
         failed++;
       }
@@ -146,5 +156,5 @@ export function startScenarioImageWorker(): void {
   if (_scenarioWorkerStarted) return;
   _scenarioWorkerStarted = true;
   // Small delay so it doesn't race with the lesson image worker at startup
-  setTimeout(() => generateScenarioImages(), 5000);
+  setTimeout(() => generateScenarioImages(), 8_000);
 }
