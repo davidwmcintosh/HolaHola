@@ -1246,7 +1246,16 @@ Remember: David may reference things discussed in these recent text chats.
       ]);
       
       // Extract transcript, pronunciation confidence, intelligence data, and word-level data (per-session, no race conditions)
-      const { transcript, confidence: pronunciationConfidence, intelligence, words } = transcriptionResult;
+      const { transcript, confidence: pronunciationConfidence, intelligence, words, sttDegraded } = transcriptionResult;
+      
+      // If STT fell through to the Google tier, notify the student non-intrusively
+      if (sttDegraded) {
+        console.warn('[STT] Operating in degraded mode (Google STT) — Deepgram unavailable');
+        this.sendMessage(session.ws, {
+          type: 'stt_degraded',
+          userMessage: 'Audio quality may be reduced — Deepgram is temporarily unavailable.',
+        } as any);
+      }
       
       metrics.sttLatencyMs = Date.now() - sttStart;
       pipelineTiming.sttEnd = Date.now();
@@ -3873,6 +3882,17 @@ Remember: David may reference things discussed in these recent text chats.
       // Clear generating flag on error
       session.isGenerating = false;
       
+      // STT FAILURE: If latency was never recorded, the error happened during transcription
+      // Show the student a human-readable banner instead of a generic error
+      const isSttFailure = metrics.sttLatencyMs === 0;
+      if (isSttFailure) {
+        console.error('[STT] All transcription tiers failed — notifying student');
+        this.sendMessage(session.ws, {
+          type: 'stt_degraded',
+          userMessage: "I'm having trouble hearing you right now — please try again.",
+        } as any);
+      }
+      
       // STRUCTURED ERROR LOGGING: Capture Gemini failure patterns for debugging
       const isGeminiError = error.message?.includes('Gemini') || 
                            error.message?.includes('API') ||
@@ -6388,7 +6408,7 @@ Remember: David may reference things discussed in these recent text chats.
     nativeLanguage: string = 'english',
     isFounderMode: boolean = false,
     keyterms?: string[]
-  ): Promise<{ transcript: string; confidence: number; intelligence?: DeepgramIntelligence; words?: TranscriptionResult['words'] }> {
+  ): Promise<{ transcript: string; confidence: number; intelligence?: DeepgramIntelligence; words?: TranscriptionResult['words']; sttDegraded?: boolean }> {
     // MULTI-LANGUAGE: Always use multi-language detection
     // Students naturally mix native + target language during lessons
     const languageCode = 'multi';
@@ -6437,7 +6457,7 @@ Remember: David may reference things discussed in these recent text chats.
         // Tier 3: Google Cloud Speech-to-Text (last resort)
         console.log('[STT Fallback] Tier 3 — Google Cloud STT (Deepgram fully unavailable)...');
         const result = await transcribeWithGoogleSTT(audioData, targetLanguage, nativeLanguage);
-        return { transcript: result.transcript, confidence: result.confidence };
+        return { transcript: result.transcript, confidence: result.confidence, sttDegraded: true };
       }
     }
   }
