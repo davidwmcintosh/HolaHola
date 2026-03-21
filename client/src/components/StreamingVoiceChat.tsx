@@ -16,7 +16,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, Loader2, EyeOff, VolumeX } from "lucide-react";
+import { Mic, MicOff, Loader2, EyeOff, VolumeX, Zap } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { type Message, type User } from "@shared/schema";
@@ -28,6 +28,7 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { VoiceChatViewManager } from "@/components/VoiceChatViewManager";
 import { useStreamingVoice } from "@/hooks/useStreamingVoice";
+import { isMicroAckEnabled, setMicroAckEnabled } from "@/services/microAckService";
 import { usePlaybackState, getGlobalPlaybackState, setGlobalPlaybackState } from "@/lib/playbackStateStore";
 import { useUser } from "@/lib/auth";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
@@ -277,6 +278,7 @@ export function StreamingVoiceChat({
   const [voiceOverride, setVoiceOverride] = useState<VoiceOverride | null>(null);
   // Incognito mode: off-the-record voice sessions (Founder/Honesty mode only)
   const [isIncognito, setIsIncognito] = useState(false);
+  const [microAckOn, setMicroAckOn] = useState(() => isMicroAckEnabled());
   const isPttButtonHeldRef = useRef(false); // Synchronous ref for guards (state is async)
   const activeInputTypeRef = useRef<'mouse' | 'touch' | 'keyboard' | null>(null); // Track which input started recording
   const [isMicPreparing, setIsMicPreparing] = useState(false); // Show "Preparing mic..." before actual recording starts
@@ -2815,6 +2817,12 @@ export function StreamingVoiceChat({
     streamingVoice.sendToggleIncognito(newState);
   };
 
+  const handleToggleMicroAck = () => {
+    const newVal = !microAckOn;
+    setMicroAckOn(newVal);
+    setMicroAckEnabled(newVal);
+  };
+
   const handleEndCall = () => {
     console.log('[END CALL] User requested to end voice session');
     
@@ -3520,6 +3528,21 @@ export function StreamingVoiceChat({
           </Button>
         </div>
       )}
+      {/* Micro-Ack Toggle — shown during active streaming sessions */}
+      {useStreamingMode && streamingVoice.state.connectionState !== 'disconnected' && (
+        <div className="absolute top-3 right-3 z-50">
+          <Button
+            size="sm"
+            variant={microAckOn ? "outline" : "ghost"}
+            onClick={handleToggleMicroAck}
+            className="gap-1.5 opacity-70 hover:opacity-100"
+            data-testid="button-toggle-micro-ack"
+            title={microAckOn ? "Quick ack: ON — Daniela responds instantly" : "Quick ack: OFF"}
+          >
+            <Zap className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+      )}
       {/* TTS Unavailable Banner — shown when Daniela's voice fails, auto-clears in 8s */}
       {useStreamingMode && streamingVoice.state.ttsUnavailable && (
         <div
@@ -3559,7 +3582,7 @@ export function StreamingVoiceChat({
           isRecording={isRecording}
           isMicPreparing={isMicPreparing}
           isProcessing={isProcessing}
-          isPlaying={globalPlaybackState === 'playing' || globalPlaybackState === 'buffering'}
+          isPlaying={globalPlaybackState === 'playing' || globalPlaybackState === 'buffering' || streamingVoice.microAckPlaying}
           isConnecting={useStreamingMode && (streamingVoice.state.connectionState === 'connecting' || streamingVoice.state.connectionState === 'reconnecting')}
           isReconnecting={useStreamingMode && streamingVoice.state.connectionState === 'reconnecting'}
           reconnectMessage={

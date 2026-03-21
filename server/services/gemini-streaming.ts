@@ -12,12 +12,10 @@ import { SENTENCE_CHUNKING_CONFIG } from "@shared/streaming-voice-types";
 import { 
   createDanielaTools, 
   extractFunctionCalls, 
-  FUNCTION_TO_COMMAND_MAP,
   type ExtractedFunctionCall,
 } from "./gemini-function-declarations";
 
 // Re-export types and utilities for convenience
-export { FUNCTION_TO_COMMAND_MAP } from "./gemini-function-declarations";
 export type { ExtractedFunctionCall } from "./gemini-function-declarations";
 
 /**

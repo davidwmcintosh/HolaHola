@@ -6989,6 +6989,46 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Micro-ack pre-generation
+  app.post("/api/voice/micro-ack/pregenerate", voiceLimiter, isAuthenticated, async (req: any, res) => {
+    try {
+      const { language, gender, phrases } = req.body;
+      if (!language || !Array.isArray(phrases) || phrases.length === 0) {
+        return res.status(400).json({ error: "language and phrases[] required" });
+      }
+
+      const { getSupportAgentVoice } = await import('./services/support-agent-config');
+      const voiceConfig = getSupportAgentVoice(language, gender || 'female');
+
+      const ttsService = getTTSService();
+      const clips: { phrase: string; audioBase64: string }[] = [];
+
+      for (const phrase of phrases.slice(0, 10)) {
+        try {
+          const result = await ttsService.synthesize({
+            text: phrase,
+            language,
+            voice: gender || 'female',
+            voiceId: voiceConfig?.voiceId,
+            speakingRate: 0.95,
+          });
+          clips.push({
+            phrase,
+            audioBase64: result.audioBuffer.toString('base64'),
+          });
+        } catch (clipErr: any) {
+          console.warn(`[MicroAck] Failed to generate clip for "${phrase}":`, clipErr.message);
+        }
+      }
+
+      console.log(`[MicroAck] Generated ${clips.length}/${phrases.length} clips for ${language}`);
+      res.json({ clips });
+    } catch (error: any) {
+      console.error("[MicroAck] Pregenerate failed:", error);
+      res.status(500).json({ error: error.message || "Failed to pregenerate micro-acks" });
+    }
+  });
+
   // Vocabulary
   app.get("/api/vocabulary", isAuthenticated, async (req: any, res) => {
     try {
@@ -10852,8 +10892,50 @@ Return ONLY the ${targetLanguage} phrase:`;
   app.get("/api/drill-items/:lessonId", isAuthenticated, async (req: any, res) => {
     try {
       const { lessonId } = req.params;
+      const nativeLang = (req.query.nativeLanguage as string || '').toLowerCase().trim();
       const items = await storage.getDrillItems(lessonId);
-      res.json(items);
+
+      // English speakers: prompt field IS the translation — no extra work needed
+      if (!nativeLang || nativeLang === 'en' || nativeLang === 'english') {
+        return res.json(items);
+      }
+
+      // Non-English: lazily generate + cache translations per item
+      const translatedItems = await Promise.all(items.map(async (item) => {
+        const existing = (item.translations as Record<string, string> | null)?.[nativeLang];
+        if (existing) {
+          return { ...item, nativeTranslation: existing };
+        }
+
+        // Generate translation via Gemini Flash
+        let translation: string | null = null;
+        try {
+          const genai = new GoogleGenAI({ apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || '' });
+          const result = await genai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: [{
+              role: 'user',
+              parts: [{ text: `Translate this English text to ${nativeLang}. Return ONLY the translated text with no explanation, quotes, or extra formatting.\n\n"${item.prompt}"` }],
+            }],
+          });
+          translation = result.text?.trim() || null;
+        } catch (genErr: any) {
+          console.warn(`[DrillTranslation] Failed to generate ${nativeLang} translation for item ${item.id}:`, genErr.message);
+        }
+
+        if (translation) {
+          // Cache in DB (fire-and-forget — don't block the response)
+          const currentTranslations = (item.translations as Record<string, string> | null) || {};
+          const updatedTranslations = { ...currentTranslations, [nativeLang]: translation };
+          storage.updateDrillItem(item.id, { translations: updatedTranslations as any }).catch(e =>
+            console.warn('[DrillTranslation] Failed to cache translation:', e.message)
+          );
+        }
+
+        return { ...item, nativeTranslation: translation };
+      }));
+
+      res.json(translatedItems);
     } catch (error: any) {
       console.error('Error fetching drill items:', error);
       res.status(500).json({ error: error.message });
@@ -10933,12 +11015,45 @@ Return ONLY the ${targetLanguage} phrase:`;
     try {
       const userId = getRequestUserId(req);
       const { lessonId } = req.params;
+      const nativeLang = (req.query.nativeLanguage as string || '').toLowerCase().trim();
       
       const progress = await storage.getDrillProgressForLesson(userId, lessonId);
       const items = await storage.getDrillItems(lessonId);
       
+      // Resolve native-language translations (lazy generate + cache if needed)
+      const needsTranslation = nativeLang && nativeLang !== 'en' && nativeLang !== 'english';
+
+      const resolvedItems = needsTranslation
+        ? await Promise.all(items.map(async (item) => {
+            const existing = (item.translations as Record<string, string> | null)?.[nativeLang];
+            if (existing) return { ...item, nativeTranslation: existing };
+
+            let translation: string | null = null;
+            try {
+              const genai = new GoogleGenAI({ apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || '' });
+              const result = await genai.models.generateContent({
+                model: 'gemini-2.0-flash',
+                contents: [{
+                  role: 'user',
+                  parts: [{ text: `Translate this English text to ${nativeLang}. Return ONLY the translated text with no explanation, quotes, or extra formatting.\n\n"${item.prompt}"` }],
+                }],
+              });
+              translation = result.text?.trim() || null;
+            } catch (e: any) {
+              console.warn(`[DrillTranslation] ${nativeLang} gen failed for ${item.id}:`, e.message);
+            }
+
+            if (translation) {
+              const merged = { ...((item.translations as Record<string, string> | null) || {}), [nativeLang]: translation };
+              storage.updateDrillItem(item.id, { translations: merged as any }).catch(() => {});
+            }
+
+            return { ...item, nativeTranslation: translation };
+          }))
+        : items;
+
       // Combine items with their progress
-      const itemsWithProgress = items.map(item => {
+      const itemsWithProgress = resolvedItems.map(item => {
         const itemProgress = progress.find(p => p.drillItemId === item.id);
         return {
           ...item,

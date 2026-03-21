@@ -15,6 +15,7 @@ import { logAudioChunkReceived, updateDebugTimingState, trackWsMessage } from '.
 import { setGlobalPlaybackState, getGlobalPlaybackState } from '../lib/playbackStateStore';
 import { diagSetSession, diagSetHookRefs, diagEvent, diagMarkConnect, diagMarkFirstAudio, diagMarkResponseComplete, diagMarkDisconnect, diagMarkTurnStart, diagMarkSpeechEnd, diagMarkError, diagMarkTtsError, diagMarkFailsafe, reportDiagnostic, startLockoutWatchdog, startGreetingSilenceWatchdog } from '../lib/lockoutDiagnostics';
 import { acquireWakeLock, releaseWakeLock } from '../lib/wakeLock';
+import { preWarmMicroAcks, selectMicroAck, playMicroAck } from '../services/microAckService';
 import { 
   STREAMING_FEATURE_FLAGS,
   type StreamingClientState,
@@ -172,6 +173,7 @@ export interface UseStreamingVoiceReturn {
   } | null) => void;
   sendToggleIncognito: (enabled: boolean) => void;
   forceResetProcessing: () => void;
+  microAckPlaying: boolean;
 }
 
 /**
@@ -195,6 +197,15 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const sttDegradedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sttDegradedMessage, setSttDegradedMessage] = useState<string>('');
   const [sttSuggestPtt, setSttSuggestPtt] = useState(false);
+
+  // Micro-ack: short ack clip played immediately after user stops speaking
+  const [microAckPlaying, setMicroAckPlaying] = useState(false);
+  const microAckPlayingRef = useRef(false);
+  const microAckMsgBufferRef = useRef<StreamingAudioChunkMessage[]>([]);
+  const microAckFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Ref used by fireMicroAck to replay buffered audio chunks after ack ends
+  const handleAudioChunkRef = useRef<((msg: StreamingAudioChunkMessage) => void) | null>(null);
   
   // Ref for tutor switch timeout (error recovery)
   const tutorSwitchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -660,7 +671,13 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       console.warn('[StreamingVoice] Audio chunk received but no player - DROPPING AUDIO');
       return;
     }
-    
+
+    // Buffer main response chunks while micro-ack is playing (max 700ms hold via safety timer)
+    if (microAckPlayingRef.current) {
+      microAckMsgBufferRef.current.push(msg);
+      return;
+    }
+
     const formatLabel = msg.audioFormat === 'pcm_f32le' ? 'PCM' : 'MP3';
     // Ensure chunkIndex is a number, not a string
     const chunkIndex = typeof msg.chunkIndex === 'number' ? msg.chunkIndex : parseInt(msg.chunkIndex as any, 10) || 0;
@@ -750,7 +767,40 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     // Always update subtitle hook for UI state (both modes)
     subtitlesRef.current.setWordTimings(msg.sentenceIndex, msg.turnId, msg.timings, msg.expectedDurationMs);
   }, []);
-  
+
+  // Keep ref in sync so fireMicroAck can flush buffered chunks
+  handleAudioChunkRef.current = handleAudioChunk;
+
+  /**
+   * Fire a micro-ack clip immediately after the user stops speaking.
+   * Sets microAckPlayingRef while the clip plays, buffering any incoming
+   * main-response audio chunks. Flushes the buffer as soon as ack ends
+   * (or after a 700ms safety timeout).
+   */
+  const fireMicroAck = (transcript: string) => {
+    const clip = selectMicroAck(transcript);
+    if (!clip) return;
+
+    microAckPlayingRef.current = true;
+    setMicroAckPlaying(true);
+
+    const flush = () => {
+      if (microAckFlushTimerRef.current) {
+        clearTimeout(microAckFlushTimerRef.current);
+        microAckFlushTimerRef.current = null;
+      }
+      microAckPlayingRef.current = false;
+      setMicroAckPlaying(false);
+      const buffered = microAckMsgBufferRef.current.splice(0);
+      buffered.forEach(msg => handleAudioChunkRef.current?.(msg));
+    };
+
+    // Safety: flush after 700ms even if audio hasn't ended
+    microAckFlushTimerRef.current = setTimeout(flush, 700);
+
+    playMicroAck(clip).then(flush);
+  };
+
   /**
    * PROGRESSIVE STREAMING: Handle incremental word timing update
    * These arrive as words are timestamped during progressive TTS
@@ -1244,6 +1294,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     // Mark speech end for E2E latency tracking (speech_end → first_audio) — skip empty VAD pings
     if (!message.empty) {
       diagMarkSpeechEnd('vad');
+      fireMicroAck(message.transcript || '');
     }
     sessionConfigRef.current?.onVadUtteranceEnd?.(message.transcript || '', message.empty);
   }, []);
@@ -1418,6 +1469,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     
     // Update difficulty level for ACTFL-aware subtitle timing
     setDifficultyLevel(config.difficultyLevel);
+
+    // Pre-warm micro-ack clips in the background — fire-and-forget
+    preWarmMicroAcks(config.targetLanguage, config.tutorGender || 'female');
     
     // CRITICAL: Pre-warm AudioContext in user gesture context
     // This MUST happen during the click handler, not later when audio chunks arrive
@@ -1706,6 +1760,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     // Release audio playback - any buffered audio will now play
     playerRef.current?.releasePlayback();
     clientRef.current?.sendPttRelease();
+    // Fire micro-ack immediately — transcript not available yet, so use empty string
+    // (defaults to affirmative pool in selectMicroAck)
+    fireMicroAck('');
   }, []);
 
   const sendToggleIncognito = useCallback((enabled: boolean) => {
@@ -1898,5 +1955,6 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     sendTextInput,
     sendVoiceOverride,
     forceResetProcessing,
+    microAckPlaying,
   };
 }

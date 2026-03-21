@@ -1021,6 +1021,9 @@ export const curriculumDrillItems = pgTable("curriculum_drill_items", {
   // Optional hints and alternatives
   hints: text("hints").array(),               // Progressive hints
   acceptableAlternatives: text("acceptable_alternatives").array(), // Other correct answers
+  // Native-language translations for non-English learners
+  // e.g., { "fr": "Bonjour", "de": "Hallo" } — prompt field already contains English
+  translations: jsonb("translations").$type<Record<string, string>>(),
   // Metadata
   difficulty: integer("difficulty").default(1), // 1-5 difficulty rating
   tags: text("tags").array(),                 // e.g., ["numbers", "1-100", "tens"]

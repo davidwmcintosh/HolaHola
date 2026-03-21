@@ -2342,10 +2342,14 @@ export const DANIELA_FUNCTION_REGISTRY = registry;
 export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] =
   registry.map(entry => entry.declaration);
 
-export const FUNCTION_TO_COMMAND_MAP: Record<string, string> =
-  Object.fromEntries(
-    registry.map(entry => [entry.declaration.name!, entry.legacyType])
-  );
+/**
+ * Look up the legacyType for a function name.
+ * Returns `name.toUpperCase()` as fallback for unknown functions.
+ */
+export function lookupLegacyType(name: string): string {
+  const entry = registry.find(e => e.declaration.name === name);
+  return entry ? entry.legacyType : name.toUpperCase();
+}
 
 const responseBuildersByLegacyType = new Map<string, NonNullable<DanielaFunctionEntry['buildContinuationResponse']>>();
 for (const entry of registry) {

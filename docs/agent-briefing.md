@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, March 21, 2026 at 04:07 PM
+**Generated:** Saturday, March 21, 2026 at 04:50 PM
 
 ---
 
@@ -35,10 +35,7 @@
 
 ## Open Questions
 
-**[9/10]** When is HolaHola ready for its first non-beta student?
-*What would it take to call someone a student in the full sense — paying, progressing, genuinely served? Is it a curriculum quality threshold? A Daniela consistency bar? A tracking reliability milestone?*
-
-*Manage at /agent-space · Mark resolved via PATCH /api/agent-space/open-questions/:id*
+*No open questions right now.*
 
 ---
 
