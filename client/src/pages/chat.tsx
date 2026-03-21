@@ -62,11 +62,22 @@ export default function Chat() {
   const useDesktopWhiteboard = !isMobile && mode === "voice";
   
   const [loadedScenarioData, setLoadedScenarioData] = useState<any>(null);
-  const [studioImages, setStudioImages] = useState<Array<{ word: string; description: string; imageUrl: string; context?: string }>>([]);
+  const [studioImages, setStudioImages] = useState<Array<{ word: string; description: string; imageUrl: string; context?: string; slot?: 'scene' | 'context'; category?: string }>>([]);
   const [isImmersiveMode, setIsImmersiveMode] = useState(false);
   
   const whiteboardScenario = whiteboardItems.find(isScenarioItem)?.data as ScenarioItemData | undefined ?? null;
   const activeSceneCanvas = whiteboardItems.find(isSceneCanvasItem)?.data as SceneCanvasItemData | undefined ?? null;
+
+  useEffect(() => {
+    if (!activeSceneCanvas) return;
+    if (
+      activeSceneCanvas.canvasAction === 'open_scene' ||
+      activeSceneCanvas.canvasAction === 'add_prop'
+    ) {
+      setIsImmersiveMode(true);
+    }
+  }, [activeSceneCanvas]);
+
   const displayWhiteboardItems = whiteboardItems.filter(item => !isSceneCanvasItem(item));
   const activeScenario: ScenarioItemData | null = loadedScenarioData
     ? {
@@ -992,11 +1003,12 @@ export default function Chat() {
         mode="support"
       />
 
-      {/* Immersive fullscreen overlay — driven by Daniela's enter_immersive / exit_immersive */}
+      {/* Immersive fullscreen overlay — auto-enters on scene open/prop add, context images shown as chips */}
       <ImmersiveOverlay
         isActive={isImmersiveMode}
         sceneCanvas={activeSceneCanvas}
         displayWhiteboardItems={displayWhiteboardItems}
+        contextImages={studioImages.filter(img => img.slot === 'context' && img.imageUrl)}
         onExit={() => setIsImmersiveMode(false)}
       />
     </div>

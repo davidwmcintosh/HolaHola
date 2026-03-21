@@ -421,6 +421,12 @@ export class NativeFunctionCallHandler {
           : 'teach';
         const rawLabels = fn.args.labels as { word: string; translation?: string }[] | undefined;
         const labels = Array.isArray(rawLabels) && rawLabels.length > 0 ? rawLabels : undefined;
+        const rawSlot = fn.args.slot as string | undefined;
+        const slot: 'scene' | 'context' | undefined =
+          rawSlot === 'scene' ? 'scene'
+          : rawSlot === 'context' ? 'context'
+          : undefined;
+        const category = fn.args.category as string | undefined;
 
         if (!word && !scene) {
           console.warn(`[Native Function→ShowImage] Missing word or scene parameter`);
@@ -463,6 +469,8 @@ export class NativeFunctionCallHandler {
                   source: result.source,
                   labelMode: labelMode,
                   labels: labels,
+                  slot: slot,
+                  category: category,
                 },
               }],
             };

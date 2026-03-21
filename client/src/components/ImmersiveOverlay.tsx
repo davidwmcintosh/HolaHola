@@ -6,10 +6,18 @@ import { usePlaybackState } from "@/lib/playbackStateStore";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { SceneCanvasItemData, SceneCanvasRichContent, WhiteboardItem } from "@shared/whiteboard-types";
 
+interface ContextImageChip {
+  word: string;
+  description: string;
+  imageUrl: string;
+  category?: string;
+}
+
 interface ImmersiveOverlayProps {
   isActive: boolean;
   sceneCanvas: SceneCanvasItemData | null;
   displayWhiteboardItems?: WhiteboardItem[];
+  contextImages?: ContextImageChip[];
   onExit: () => void;
 }
 
@@ -229,7 +237,7 @@ function RichContentSheet({
 
 // ─── Main overlay ─────────────────────────────────────────────────────────────
 
-export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems, onExit }: ImmersiveOverlayProps) {
+export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems, contextImages, onExit }: ImmersiveOverlayProps) {
   const playbackState = usePlaybackState();
   const { difficulty } = useLanguage();
   const isSpeaking = playbackState === 'playing' || playbackState === 'buffering';
@@ -443,6 +451,34 @@ export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems
               )}
             </AnimatePresence>
           </div>
+
+          {/* Context image chips — bottom right corner */}
+          {contextImages && contextImages.length > 0 && (
+            <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-2 items-end">
+              {contextImages.map((img) => (
+                <motion.div
+                  key={img.category || img.word}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.3 }}
+                  className="relative rounded-md overflow-hidden shadow-lg border border-white/20"
+                  style={{ width: 80, height: 60 }}
+                  title={img.description || img.word}
+                >
+                  <img
+                    src={img.imageUrl}
+                    alt={img.description || img.word}
+                    className="w-full h-full object-cover"
+                    draggable={false}
+                  />
+                  <div className="absolute bottom-0 inset-x-0 bg-black/55 px-1 py-0.5">
+                    <span className="text-white text-[9px] font-medium leading-none truncate block">{img.word}</span>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
 
           {/* Exit button — top right */}
           <div className="absolute top-4 right-4 z-10">

@@ -1752,6 +1752,8 @@ Your function call tools are being loaded from your knowledge base.
   lines.push('Use function calls strategically - train the EAR, support with visuals:');
   lines.push('• New vocabulary → write() so students see spelling');
   lines.push('• Any vocabulary word (nouns, verbs, adjectives, colors) → show_image() — always, it checks the curated watercolor library by Spanish word first');
+  lines.push('• To set a scene (WHERE the action is) → show_image(slot="scene", scene="...") — large background image, replaces previous scene');
+  lines.push('• To add context (weather/time/mood) alongside a scene → show_image(slot="context", category="weather|time|emotion|calendar|event", scene="...") — small side strip, stacks by category');
   lines.push('• Pronunciation → phonetic() + play_audio() + word_emphasis()');
   lines.push('• Grammar patterns → grammar_table() for conjugation');
   lines.push('• Comprehension checks → drill() to confirm learning');

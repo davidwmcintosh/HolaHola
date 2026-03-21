@@ -81,6 +81,23 @@ The Team Room (`/team-room`) is an internal collaboration space with a 3-panel l
 - **Reconnect UX:** "Reconnecting..." shown for ALL WS drops (not just server-restart phase). Fast drops (attempts 1–3): generic message. Prolonged (attempt >3): server-restart message.
 - **TTS Failure Banner:** `ttsUnavailable` state in `useStreamingVoice.ts`; "Audio temporarily unavailable — text only" banner auto-clears after 8 s.
 
+## UX / Product Design Debt
+
+### /chat Layout Rethink (Recorded Mar 2026)
+The current `/chat` layout has two distinct modes that are not yet fully reconciled:
+
+**Studio pane (compact):** Small panel at the top of the left column. Good for ambient context during a lesson — not for teaching. Images here are supplementary props; Daniela uses them to set the mood or show vocabulary thumbnails.
+
+**Immersive overlay (fullscreen):** The real roleplay surface. The environment image fills the screen; scene props are positioned spatially. This is WHERE active teaching should happen — not the studio pane.
+
+**Current gaps:**
+- Daniela has to explicitly call `enter_immersive` to go fullscreen — now auto-triggered by `open_scene`/`add_prop` (fixed Mar 2026), but Daniela's prompt doesn't yet know she can rely on this.
+- Context images (weather, time, mood) live in the studio pane's left strip but the immersive overlay has no awareness of them. Context chips added to immersive (Mar 2026) — small thumbnails bottom-right corner.
+- There is no "return to studio" affordance after immersive — students just use the X button; there's no continuity of the studio state being restored visually.
+- The studio pane's background/scene slot and the immersive scene are different data: `studioImages[slot=scene]` vs `sceneCanvas.environmentImageUrl`. These should be unified or at least kept in sync so the studio pane previews what's in the immersive.
+
+**Recommended future direction:** Studio pane becomes a "director's view" — a miniature always-on window into the immersive scene. When Daniela opens a scene, the studio pane shows a thumbnail of the environment + props. Context chips appear there too. Clicking the studio pane expands to fullscreen immersive. This makes the transition feel natural rather than abrupt.
+
 ## External Dependencies
 - Stripe: Payment processing.
 - Replit Auth: OIDC authentication.

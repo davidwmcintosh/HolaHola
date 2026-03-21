@@ -351,6 +351,23 @@ USE show_image for:
 
 ⚠️ Do NOT use compose_visual_scene for vocabulary unless it's a preposition lesson — show_image is always the right choice for vocabulary.
 
+STUDIO ZONES — use 'slot' to place images precisely:
+• No slot (default): vocabulary/standalone images — replaces all current images on the whiteboard (most common)
+• slot="scene": large background scene that sets the environment for a roleplay or lesson context. Replaces only the previous scene image. Use when you want to show WHERE the action is happening (a market, a café, an airport).
+• slot="context": small contextual detail shown in a side strip alongside the main scene. Use for supporting details like weather, time of day, or mood. Always include 'category' so same-type context images replace each other instead of stacking.
+
+CONTEXT CATEGORIES (slot="context" only):
+• category="weather" — rainy, sunny, snowy, foggy, stormy skies
+• category="time" — morning light, afternoon, sunset, nighttime
+• category="emotion" — emotional tone, atmosphere, vibe
+• category="calendar" — day, month, season, holiday
+• category="event" — occasion, celebration, special context
+
+EXAMPLE — teaching at a busy Madrid market on a rainy Tuesday:
+  slot="scene", scene="A colorful open-air market in Madrid with vendors and shoppers"
+  slot="context", category="weather", scene="Heavy rain falling on a cobblestone street"
+  slot="context", category="calendar", scene="A calendar showing martes (Tuesday)"
+
 Include your spoken words in 'text'. Use label_mode to control what labels appear — you decide, the student cannot change this.`,
       parametersJsonSchema: {
         type: "object",
@@ -361,6 +378,16 @@ Include your spoken words in 'text'. Use label_mode to control what labels appea
           description: { type: "string", description: "Brief description to help disambiguate the image (e.g. 'a person running on a path')" },
           scene: { type: "string", description: "Rich scene description for generation when no library image exists — or when you want a custom illustration (e.g. 'a bustling Mexican open-air market at sunset with colorful stalls and fresh fruit'). The watercolor style is applied automatically." },
           context: { type: "string", description: "Optional teaching context" },
+          slot: {
+            type: "string",
+            enum: ["scene", "context"],
+            description: "Studio zone placement. 'scene' = large background area (sets the environment, replaces previous scene). 'context' = small side strip for supporting details (weather, time, mood). Omit for vocabulary images (default behavior).",
+          },
+          category: {
+            type: "string",
+            enum: ["weather", "time", "emotion", "calendar", "event"],
+            description: "Required when slot='context'. Groups context images — a new context image replaces only other images of the same category. weather=sky/rain/sun, time=time-of-day, emotion=mood/vibe, calendar=day/date/season, event=occasion/celebration.",
+          },
           label_mode: {
             type: "string",
             enum: ["teach", "target", "quiz"],
