@@ -279,7 +279,20 @@ export async function buildClassroomEnvironment(params: {
   tutorName: string;
   studentLearningSection?: string;
   technicalHealthNote?: string | null;
-  activeScenario?: { title: string; location: string; slug: string; propsCount?: number } | null;
+  activeScenario?: {
+    title: string;
+    location: string;
+    slug: string;
+    propsCount?: number;
+    levelGuide?: {
+      roleDescription?: string | null;
+      studentGoals?: string[] | null;
+      vocabularyFocus?: string[] | null;
+      grammarFocus?: string[] | null;
+      conversationStarters?: string[] | null;
+      complexityNotes?: string | null;
+    } | null;
+  } | null;
   currentLessonId?: string;
 }): Promise<string> {
   const {
@@ -461,8 +474,19 @@ Tool Rack: memory_lookup(query, domains) — recall student memories | take_note
     departmental: 'vocabulary categories',
     navigational: 'directions/wayfinding',
   };
+  const scenarioLevelGuideSection = activeScenario?.levelGuide
+    ? [
+        activeScenario.levelGuide.roleDescription ? `Your role: ${activeScenario.levelGuide.roleDescription}` : '',
+        activeScenario.levelGuide.studentGoals?.length ? `Student goals: ${activeScenario.levelGuide.studentGoals.join(' | ')}` : '',
+        activeScenario.levelGuide.vocabularyFocus?.length ? `Vocabulary to weave in: ${activeScenario.levelGuide.vocabularyFocus.join(', ')}` : '',
+        activeScenario.levelGuide.grammarFocus?.length ? `Grammar focus: ${activeScenario.levelGuide.grammarFocus.join(', ')}` : '',
+        activeScenario.levelGuide.conversationStarters?.length ? `Conversation starters: ${activeScenario.levelGuide.conversationStarters.slice(0, 4).join(' | ')}` : '',
+        activeScenario.levelGuide.complexityNotes ? `Teaching note: ${activeScenario.levelGuide.complexityNotes}` : '',
+      ].filter(Boolean).join('\n')
+    : '';
+
   const scenarioSection = activeScenario
-    ? `\nActive Scene: "${activeScenario.title}" at ${activeScenario.location} [${activeScenario.slug}]${activeScenario.propsCount ? ` — ${activeScenario.propsCount} props visible` : ''}${sceneZones && sceneZones.length > 0 ? `\nScene Zones: ${sceneZones.map((z) => `${z.display_name} [${ZONE_TYPE_LABELS[z.zone_type] || z.zone_type}]`).join(' | ')}` : ''}`
+    ? `\nActive Scene: "${activeScenario.title}" at ${activeScenario.location} [${activeScenario.slug}]${activeScenario.propsCount ? ` — ${activeScenario.propsCount} props visible` : ''}${sceneZones && sceneZones.length > 0 ? `\nScene Zones: ${sceneZones.map((z) => `${z.display_name} [${ZONE_TYPE_LABELS[z.zone_type] || z.zone_type}]`).join(' | ')}` : ''}${scenarioLevelGuideSection ? `\n${scenarioLevelGuideSection}` : ''}`
     : '';
 
   const modeExtras = [

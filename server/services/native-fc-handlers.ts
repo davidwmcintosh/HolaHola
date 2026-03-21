@@ -2164,13 +2164,16 @@ export class NativeFunctionCallHandler {
 
               let levelGuide = null;
               const studentLevel = session.studentActflLevel || 'novice_mid';
-              const [guide] = await sharedDb.select().from(scenarioLevelGuides)
-                .where(and(
-                  eq(scenarioLevelGuides.scenarioId, scenario.id),
-                  eq(scenarioLevelGuides.actflLevel, studentLevel)
-                ))
-                .limit(1);
-              levelGuide = guide || null;
+              const ACTFL_ORDER = ['novice_low', 'novice_mid', 'novice_high', 'intermediate_low', 'intermediate_mid', 'intermediate_high', 'advanced_low', 'advanced_mid', 'advanced_high', 'superior'];
+              const studentLevelIdx = ACTFL_ORDER.indexOf(studentLevel);
+              const allGuides = await sharedDb.select().from(scenarioLevelGuides)
+                .where(eq(scenarioLevelGuides.scenarioId, scenario.id));
+              let bestDist = Infinity;
+              for (const g of allGuides) {
+                const gIdx = ACTFL_ORDER.indexOf(g.actflLevel);
+                const dist = Math.abs(gIdx - (studentLevelIdx === -1 ? 1 : studentLevelIdx));
+                if (dist < bestDist) { bestDist = dist; levelGuide = g; }
+              }
 
               session.activeScenario = {
                 id: scenario.id,
