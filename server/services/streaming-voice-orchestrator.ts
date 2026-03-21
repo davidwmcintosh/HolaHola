@@ -68,6 +68,7 @@ import { buildFatContext, FAT_CONTEXT_ENABLED } from "./fat-context-service";
 import { ensureTrailingPunctuation } from './voice-text-utils';
 import { VoiceSpeedOption, voiceSpeedToRate } from './voice-speed-config';
 import type { StreamingSession, StreamingMetrics } from './streaming-session-types';
+import { calculateAdaptiveSpeedMultiplier, getAdaptiveSpeakingRate, trackSttConfidence, trackStruggle } from './adaptive-speed-control';
 
 export { ensureTrailingPunctuation } from './voice-text-utils';
 export type { VoiceSpeedOption };
@@ -873,116 +874,7 @@ function stripArchitectMessages(text: string): string {
 const SESSION_IDLE_TIMEOUT_MS = 120000; // 2 minutes of inactivity before cleanup
 const CREDIT_CHECK_INTERVAL_MS = 30000; // Check credit balance every 30 seconds during active sessions
 
-/**
- * Adaptive Speech Rate Configuration
- * Auto-adjusts Daniela's speaking speed based on student comprehension signals
- */
-const ADAPTIVE_SPEED_CONFIG = {
-  // STT confidence thresholds
-  LOW_CONFIDENCE_THRESHOLD: 0.7,    // Below this triggers slowdown consideration
-  VERY_LOW_CONFIDENCE_THRESHOLD: 0.5, // Below this forces significant slowdown
-  
-  // Struggle thresholds
-  STRUGGLE_SLOWDOWN_THRESHOLD: 3,   // After N struggles, start slowing down
-  STRUGGLE_MAX_EFFECT: 6,           // Cap slowdown effect at N struggles
-  
-  // Speed adjustment factors
-  MIN_SPEED_MULTIPLIER: 0.7,        // Never go below 70% of user's chosen speed
-  MAX_SPEED_MULTIPLIER: 1.0,        // Never exceed user's chosen speed
-  
-  // Rolling window for STT confidence
-  CONFIDENCE_WINDOW_SIZE: 5,        // Track last N transcripts
-};
-
-/**
- * Calculate adaptive speaking rate based on session signals
- * Returns a multiplier to apply to the user's chosen speed
- * 
- * @param session - Current streaming session with tracking data
- * @returns Multiplier (0.7 - 1.0) to apply to base speaking rate
- */
-export function calculateAdaptiveSpeedMultiplier(session: StreamingSession): number {
-  if (!session.adaptiveSpeedEnabled) {
-    return 1.0; // No adjustment if adaptive speed is disabled
-  }
-  
-  let multiplier = 1.0;
-  
-  // Factor 1: Recent STT confidence (if student is hard to understand, slow down)
-  if (session.recentSttConfidences.length > 0) {
-    const avgConfidence = session.recentSttConfidences.reduce((a, b) => a + b, 0) / session.recentSttConfidences.length;
-    
-    if (avgConfidence < ADAPTIVE_SPEED_CONFIG.VERY_LOW_CONFIDENCE_THRESHOLD) {
-      // Very low confidence: significant slowdown (0.8x)
-      multiplier = Math.min(multiplier, 0.8);
-    } else if (avgConfidence < ADAPTIVE_SPEED_CONFIG.LOW_CONFIDENCE_THRESHOLD) {
-      // Low confidence: moderate slowdown (0.9x)
-      multiplier = Math.min(multiplier, 0.9);
-    }
-  }
-  
-  // Factor 2: Session struggle count (if student is struggling, slow down)
-  if (session.sessionStruggleCount >= ADAPTIVE_SPEED_CONFIG.STRUGGLE_SLOWDOWN_THRESHOLD) {
-    // Calculate slowdown based on struggle count (capped)
-    const effectiveStruggles = Math.min(session.sessionStruggleCount, ADAPTIVE_SPEED_CONFIG.STRUGGLE_MAX_EFFECT);
-    const struggleEffect = (effectiveStruggles - ADAPTIVE_SPEED_CONFIG.STRUGGLE_SLOWDOWN_THRESHOLD + 1) * 0.05;
-    multiplier = Math.min(multiplier, 1.0 - struggleEffect);
-  }
-  
-  // Clamp to configured range
-  return Math.max(ADAPTIVE_SPEED_CONFIG.MIN_SPEED_MULTIPLIER, Math.min(ADAPTIVE_SPEED_CONFIG.MAX_SPEED_MULTIPLIER, multiplier));
-}
-
-/**
- * Get the effective speaking rate with adaptive adjustment
- * @param session - Current streaming session
- * @returns Final speaking rate to use for TTS
- */
-export function getAdaptiveSpeakingRate(session: StreamingSession): number {
-  const baseRate = voiceSpeedToRate(session.voiceSpeed);
-  const multiplier = calculateAdaptiveSpeedMultiplier(session);
-  const adaptiveRate = baseRate * multiplier;
-  
-  // Log when adaptive rate differs from base
-  if (multiplier < 1.0) {
-    console.log(`[Adaptive Speed] Slowing down: ${baseRate} → ${adaptiveRate.toFixed(2)} (${(multiplier * 100).toFixed(0)}% of user speed)`);
-  }
-  
-  // Clamp to Cartesia's valid range (0.6 - 1.5)
-  return Math.max(0.6, Math.min(1.5, adaptiveRate));
-}
-
-/**
- * Update session's STT confidence tracking
- * Call this after each transcript is received
- */
-export function trackSttConfidence(session: StreamingSession, confidence: number): void {
-  session.recentSttConfidences.push(confidence);
-  
-  // Keep only the most recent N confidences
-  while (session.recentSttConfidences.length > ADAPTIVE_SPEED_CONFIG.CONFIDENCE_WINDOW_SIZE) {
-    session.recentSttConfidences.shift();
-  }
-  
-  // Auto-enable adaptive speed when confidence drops below threshold
-  if (confidence < ADAPTIVE_SPEED_CONFIG.LOW_CONFIDENCE_THRESHOLD && !session.adaptiveSpeedEnabled) {
-    session.adaptiveSpeedEnabled = true;
-    console.log(`[Adaptive Speed] Auto-enabled due to low STT confidence (${(confidence * 100).toFixed(0)}%)`);
-  }
-}
-
-/**
- * Increment struggle count for adaptive speed tracking
- */
-export function trackStruggle(session: StreamingSession): void {
-  session.sessionStruggleCount++;
-  
-  // Auto-enable adaptive speed when struggles accumulate
-  if (session.sessionStruggleCount >= ADAPTIVE_SPEED_CONFIG.STRUGGLE_SLOWDOWN_THRESHOLD && !session.adaptiveSpeedEnabled) {
-    session.adaptiveSpeedEnabled = true;
-    console.log(`[Adaptive Speed] Auto-enabled due to struggle count (${session.sessionStruggleCount})`);
-  }
-}
+export { calculateAdaptiveSpeedMultiplier, getAdaptiveSpeakingRate, trackSttConfidence, trackStruggle } from './adaptive-speed-control';
 
 /**
  * Session state for a streaming voice connection
