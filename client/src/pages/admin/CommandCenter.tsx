@@ -4008,7 +4008,20 @@ function ImageLibraryTab() {
   const [showGenerateDialog, setShowGenerateDialog] = useState(false);
   const [generateConcept, setGenerateConcept] = useState("");
   const [generateStyle, setGenerateStyle] = useState("warm, friendly illustration, educational");
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const limit = viewMode === 'list' ? 25 : 20;
+
+  // Debounce: apply search 400ms after the user stops typing
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (searchQuery !== searchInput) {
+        setSearchQuery(searchInput);
+        setPage(0);
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
   const queryParams = new URLSearchParams({
     limit: String(limit),
@@ -4018,6 +4031,7 @@ function ImageLibraryTab() {
   });
   if (sourceFilter !== "all") queryParams.set("source", sourceFilter);
   if (imageReviewFilter !== "all") queryParams.set("reviewed", imageReviewFilter);
+  if (searchQuery.trim()) queryParams.set("search", searchQuery.trim());
   const queryUrl = `/api/admin/media?${queryParams.toString()}`;
 
   const { data, isLoading, refetch } = useQuery<{ files: MediaFile[]; total: number; newCount?: number; unreviewedCount?: number }>({
@@ -4026,7 +4040,7 @@ function ImageLibraryTab() {
 
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [page, sourceFilter, imageReviewFilter, viewMode, sortField, sortOrder]);
+  }, [page, sourceFilter, imageReviewFilter, viewMode, sortField, sortOrder, searchQuery]);
 
   useEffect(() => {
     setShowRefetchForm(false);
@@ -4278,6 +4292,27 @@ function ImageLibraryTab() {
                 </Button>
               </div>
               
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={e => setSearchInput(e.target.value)}
+                  placeholder="Search filename, title…"
+                  className="h-8 pl-7 pr-7 text-sm rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring w-52"
+                  data-testid="input-image-search"
+                />
+                {searchInput && (
+                  <button
+                    onClick={() => { setSearchInput(""); setSearchQuery(""); setPage(0); }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    data-testid="button-clear-search"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+
               <Select value={sourceFilter} onValueChange={(v) => { setSourceFilter(v); setPage(0); }}>
                 <SelectTrigger className="w-40 h-8" data-testid="select-source-filter">
                   <SelectValue placeholder="Filter by source" />

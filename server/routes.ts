@@ -17330,13 +17330,14 @@ Current conversation context:
   // Get all media files (admin/developer only)
   app.get("/api/admin/media", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const { source, limit, offset, sortBy, sortOrder, reviewed } = req.query;
+      const { source, limit, offset, sortBy, sortOrder, reviewed, search } = req.query;
       const validSortFields = ['createdAt', 'usageCount', 'fileSize', 'language'];
       const validSortOrders = ['asc', 'desc'];
       
       const result = await storage.getAllMediaFiles({
         source: source as string | undefined,
         reviewed: reviewed as string | undefined,
+        search: search ? (search as string).trim() : undefined,
         limit: limit ? parseInt(limit as string) : 50,
         offset: offset ? parseInt(offset as string) : 0,
         sortBy: validSortFields.includes(sortBy as string) ? sortBy as string : 'createdAt',
