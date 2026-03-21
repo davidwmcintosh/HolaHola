@@ -248,12 +248,30 @@ const stripeInitPromise = (async function initStripe() {
       console.error('Failed to seed reflection triggers:', error);
     }
     
+    // Tag curriculum lessons with canonical topic slugs (enables scenario-to-textbook bridge)
+    // Must run BEFORE the scenario topic seeder so the full topic set is available
+    try {
+      const { tagLessonTopics } = await import('./services/lesson-topic-tagger');
+      await tagLessonTopics();
+    } catch (error) {
+      console.error('Failed to tag lesson topics:', error);
+    }
+
     // Enrich scenario curriculum topic tags (auto-tagging pass)
+    // Runs AFTER lesson tagger so scenarios can reference the full lesson topic set
     try {
       const { seedScenarioTopics } = await import('./seed-scenario-topics');
       await seedScenarioTopics();
     } catch (error) {
       console.error('Failed to seed scenario topics:', error);
+    }
+
+    // Generate cover images for curriculum lessons that have topic tags but no image
+    try {
+      const { generateLessonImages } = await import('./services/lesson-image-generator');
+      await generateLessonImages();
+    } catch (error) {
+      console.error('Failed to generate lesson images:', error);
     }
 
     // Initialize procedural memory cache for tool knowledge

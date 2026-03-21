@@ -9843,6 +9843,7 @@ Return ONLY the ${targetLanguage} phrase:`;
             drillCount: drillItems.length,
             objectives: lesson.objectives || [],
             conversationTopic: lesson.conversationTopic,
+            imageUrl: lesson.imageUrl || null,
             drills: drillItems.slice(0, 12).map(item => ({
               id: item.id,
               itemType: item.itemType,
@@ -9971,6 +9972,7 @@ Return ONLY the ${targetLanguage} phrase:`;
           conversationPrompt: lesson.conversationPrompt,
           textbookRead: textbookReadMap.get(lesson.id) === true,
           danielaCovered: danielaCoveredMap.get(lesson.id) === 'completed',
+          imageUrl: lesson.imageUrl || null,
         };
       }));
       

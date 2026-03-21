@@ -50,6 +50,7 @@ interface Section {
   drillCount: number;
   objectives?: string[];
   conversationTopic?: string;
+  imageUrl?: string | null;
   drills?: DrillItem[];
 }
 
@@ -277,6 +278,16 @@ function VisualLessonCard({
       data-testid={`visual-lesson-card-${section.id}`}
     >
       <CardContent className="p-0">
+        {section.imageUrl && (
+          <div className="w-full h-36 overflow-hidden">
+            <img
+              src={section.imageUrl}
+              alt={section.name}
+              className="w-full h-full object-cover"
+              data-testid={`img-lesson-${section.id}`}
+            />
+          </div>
+        )}
         <div className="p-4 border-b bg-muted/30">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">

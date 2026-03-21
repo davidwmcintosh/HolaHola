@@ -5,10 +5,10 @@
  */
 
 import { getSharedDb } from './db';
-import { scenarios, curriculumLessons } from '../shared/schema';
-import { eq, isNull, or } from 'drizzle-orm';
+import { scenarios } from '../shared/schema';
+import { eq } from 'drizzle-orm';
 
-const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_MODEL = 'gemini-3-flash-preview';
 
 // Known mappings for common scenarios (fast path — no LLM needed)
 const KNOWN_TOPIC_MAPS: Record<string, string[]> = {
@@ -39,30 +39,17 @@ const KNOWN_TOPIC_MAPS: Record<string, string[]> = {
   'emergency': ['emergency-vocabulary', 'health-vocabulary', 'directions', 'numbers'],
 };
 
-async function getAvailableTopicSlugs(): Promise<string[]> {
-  const db = getSharedDb();
-  const rows = await db.select({ topics: curriculumLessons.requiredTopics }).from(curriculumLessons);
-  const slugSet = new Set<string>();
-  for (const row of rows) {
-    for (const slug of row.topics || []) {
-      slugSet.add(slug);
-    }
-  }
-  return [...slugSet].sort();
-}
-
 async function tagScenarioWithGemini(
   scenarioName: string,
   scenarioDescription: string,
   availableTopics: string[]
 ): Promise<string[]> {
   try {
-    const { GoogleGenerativeAI } = await import('@google/generative-ai');
+    const { GoogleGenAI } = await import('@google/genai');
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) return [];
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+    const genAI = new GoogleGenAI({ apiKey });
 
     const prompt = `You are a language curriculum expert. Given a language-learning scenario and a list of curriculum topic slugs, identify which topics are most relevant to this scenario.
 
@@ -75,13 +62,17 @@ ${availableTopics.join(', ')}
 Return ONLY a JSON array of 3-6 relevant topic slugs from the list above. No explanation.
 Example: ["greetings", "numbers", "food-vocabulary"]`;
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text().trim();
+    const response = await genAI.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    });
+
+    const text = (response.text || '').trim();
     const match = text.match(/\[[\s\S]*?\]/);
     if (!match) return [];
     const parsed = JSON.parse(match[0]);
     if (!Array.isArray(parsed)) return [];
-    // Filter to only valid slugs from our list
+    // Filter to only valid slugs from our canonical list
     const validSet = new Set(availableTopics);
     return parsed.filter((s: unknown) => typeof s === 'string' && validSet.has(s));
   } catch (err) {
@@ -114,9 +105,6 @@ export async function seedScenarioTopics(): Promise<void> {
 
     console.log(`[Scenario Topics] Tagging ${untagged.length} untagged scenarios...`);
 
-    // Get all available topic slugs from curriculum lessons
-    const availableTopics = await getAvailableTopicSlugs();
-
     let tagged = 0;
     let usedKnownMap = 0;
     let usedGemini = 0;
@@ -125,20 +113,23 @@ export async function seedScenarioTopics(): Promise<void> {
       let topics: string[] = [];
 
       // Try known map first (fast, no LLM cost)
+      // Use slugs directly without filtering against lesson DB —
+      // the lesson tagger ensures these slugs exist in lessons before the
+      // scenario seeder runs.
       const knownSlug = scenario.slug?.toLowerCase().replace(/\s+/g, '-');
       if (knownSlug && KNOWN_TOPIC_MAPS[knownSlug]) {
-        // Filter to only topics that actually exist in the DB
-        const validSet = new Set(availableTopics);
-        topics = KNOWN_TOPIC_MAPS[knownSlug].filter(t => validSet.has(t));
+        topics = KNOWN_TOPIC_MAPS[knownSlug];
         usedKnownMap++;
       }
 
       // Fall back to Gemini if not in known map or no matches found
-      if (topics.length === 0 && availableTopics.length > 0) {
+      if (topics.length === 0) {
+        // Pass all canonical topics so Gemini can assign any valid slug
+        const { CANONICAL_TOPICS } = await import('./services/lesson-topic-tagger');
         topics = await tagScenarioWithGemini(
           scenario.title || scenario.slug || '',
           scenario.description || '',
-          availableTopics.slice(0, 80) // limit to keep prompt manageable
+          CANONICAL_TOPICS
         );
         if (topics.length > 0) usedGemini++;
       }
