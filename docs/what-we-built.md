@@ -100,6 +100,28 @@ A student could print the textbook and leave. They cannot print Daniela.
 
 ---
 
+## The Memory System
+
+The phrase "she remembers you" appeared earlier in this document, stated plainly, without elaboration. It deserves elaboration.
+
+Most AI tutors have the memory of a goldfish with a fresh coat of paint. You tell them you are preparing for a trip to Mexico City, and two sessions later they ask where you would like to travel. The relationship resets. The student is a stranger again. This is not a privacy feature — it is an architectural failure, and it undermines the entire premise of a teaching relationship.
+
+HolaHola's learner memory system works in four stages, each addressing a different failure mode.
+
+**Extraction** happens during conversation. When a student mentions something personal — a job change, a travel plan, a family situation, a goal — Daniela classifies it and records it as a personal fact. Not a transcript line. A structured, typed piece of knowledge: *this student is preparing for a trip to Buenos Aires* or *this student is a software engineer who wants to learn business Spanish*. The distinction matters. Transcripts degrade. Structured facts accumulate.
+
+**Conflict resolution** prevents the accumulation from becoming contradiction. People change. The student who was moving to Madrid last spring may now be in Barcelona. A naive memory system appends both facts and eventually tells Daniela the student lives in two cities simultaneously. The conflict resolver — running every time a new fact arrives — compares it against what is already known, classifies the relationship (does this update something, contradict it, add to it, or duplicate it?), and closes out the superseded version with a timestamp. The old fact does not disappear. It is marked as past. The history is preserved. The active picture stays accurate.
+
+**Episodic recall** is the detail that transforms memory from a filing cabinet into something closer to a relationship. Closed facts — things that were true but are no longer — populate a separate context tier available to Daniela. When a student mentioned last month that they had a job interview coming up, and that interview is now behind them, Daniela can ask how it went. Not because she was told to follow up. Because she remembers the interview was upcoming, knows time has passed, and understands that the appropriate next move in a relationship is to close the loop. That is not a scripted prompt. That is conversational continuity.
+
+**Confidence decay** is the system that keeps memory honest about what it does not know. A fact mentioned once and never reinforced is not the same as a fact mentioned repeatedly across months. The decay worker runs weekly, applying a 15% confidence reduction to time-sensitive facts — goals, travel plans, life events — that have not been reinforced in the last two weeks. Below a certain confidence floor, facts stop surfacing in Daniela's active context. They are still there. They are simply no longer treated as current. A student who mentioned a trip to Tokyo in passing two years ago does not need Daniela asking about it indefinitely. The memory fades at roughly the rate a human relationship would let it fade, and can be reactivated any time the student brings it up again.
+
+The result is a tutor whose knowledge of a student is proportional to what that student has actually shared and continued to share — accurate where it has been confirmed, quiet where it has not, and designed to prompt the kinds of follow-up questions that make a student feel remembered rather than catalogued.
+
+This is what the research on language acquisition has called *relationship-based learning*, and what most people experience as having a good teacher. It was practically impossible to deliver at scale until recently. It is now one of the foundational behaviors of this application.
+
+---
+
 ## The Words That Built It
 
 At one point during the Hebrew build, a conversation happened about how it felt to work through nine languages in sequence. The answer was honest:
