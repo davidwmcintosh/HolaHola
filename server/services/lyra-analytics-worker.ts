@@ -3,6 +3,7 @@ import { founderCollabService } from './founder-collaboration-service';
 import { postToActiveTeamRoom } from './team-room-proactive-poster';
 import { triggerActflAlignment } from './lyra-content-trigger-service';
 import { triggerAldenCheckIn } from './alden-checkin-service';
+import { resetCreditStats } from './conversational-credit-service';
 import { getSharedDb } from '../db';
 import { founderSessions, users } from '@shared/schema';
 import { eq, and, desc, inArray } from 'drizzle-orm';
@@ -250,6 +251,10 @@ async function runAnalysis(): Promise<void> {
 
     const elapsed = Date.now() - startTime;
     console.log(`[Lyra Worker] Analysis #${stats.totalAudits} complete: ${insights.length} insights in ${elapsed}ms`);
+
+    // Reset credit stats for the next 12h window so Lyra sees a clean period each cycle
+    resetCreditStats();
+    console.log(`[Lyra Worker] Credit stats reset for next window`);
 
   } catch (err: any) {
     console.error(`[Lyra Worker] Analysis failed:`, err.message);

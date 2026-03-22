@@ -9,6 +9,46 @@ import { and, eq } from 'drizzle-orm';
  */
 export const pendingMasteryAcknowledgments = new Map<string, string[]>();
 
+/**
+ * Runtime stats for Lyra's credit sensitivity monitoring.
+ * Accumulates since last server start. Reset via resetCreditStats().
+ */
+export interface CreditRuntimeStats {
+  turnsProcessed: number;         // total conversation turns run through credit engine
+  wordsCredited: number;          // total individual word credits applied
+  masteredViaChat: number;        // words that crossed mastery threshold via conversation alone
+  highCreditTurns: number;        // turns where ≥5 words credited in one turn (flag for over-crediting)
+  correctionMarkerHits: number;   // times correction markers were detected (marker caught something)
+  skippedDueToCorrection: number; // words skipped because Daniela corrected them
+  sinceMs: number;                // epoch when tracking began
+}
+
+const _stats: CreditRuntimeStats = {
+  turnsProcessed: 0,
+  wordsCredited: 0,
+  masteredViaChat: 0,
+  highCreditTurns: 0,
+  correctionMarkerHits: 0,
+  skippedDueToCorrection: 0,
+  sinceMs: Date.now(),
+};
+
+export function getCreditRuntimeStats(): Readonly<CreditRuntimeStats> {
+  return { ..._stats };
+}
+
+export function resetCreditStats(): void {
+  Object.assign(_stats, {
+    turnsProcessed: 0,
+    wordsCredited: 0,
+    masteredViaChat: 0,
+    highCreditTurns: 0,
+    correctionMarkerHits: 0,
+    skippedDueToCorrection: 0,
+    sinceMs: Date.now(),
+  });
+}
+
 const CORRECTION_MARKERS = [
   'actually', 'you should say', 'the correct form is', 'should be', 'it should be',
   'try saying', 'instead of', 'corrección', 'se dice', 'la forma correcta',
@@ -64,10 +104,13 @@ export async function applyConversationalCredit(params: {
   const { userId, language, studentMessage, danielaResponse, storage } = params;
 
   try {
+    _stats.turnsProcessed++;
+
     const studentWords = extractWords(studentMessage);
     if (studentWords.length < 2) return;
 
     const corrected = detectCorrectedWords(danielaResponse);
+    if (corrected.size > 0) _stats.correctionMarkerHits++;
 
     const [userVocab, reviewItems] = await Promise.all([
       getSharedDb()
@@ -81,16 +124,24 @@ export async function applyConversationalCredit(params: {
     ]);
 
     const newlyMastered: string[] = [];
+    let turnCredits = 0;
 
     for (const vocab of userVocab) {
       const wordLower = vocab.word.toLowerCase();
-      if (studentWords.includes(wordLower) && !corrected.has(wordLower)) {
-        const result = await storage.updateVocabularyReview(vocab.id, true);
-        if (result?.newlyMastered) {
-          newlyMastered.push(vocab.word);
-          console.log(`[ConversationalCredit] Mastered via conversation: "${vocab.word}"`);
+      if (studentWords.includes(wordLower)) {
+        if (corrected.has(wordLower)) {
+          _stats.skippedDueToCorrection++;
         } else {
-          console.log(`[ConversationalCredit] Credited: "${vocab.word}" (interval: ${result?.interval ?? 0}d)`);
+          const result = await storage.updateVocabularyReview(vocab.id, true);
+          turnCredits++;
+          _stats.wordsCredited++;
+          if (result?.newlyMastered) {
+            newlyMastered.push(vocab.word);
+            _stats.masteredViaChat++;
+            console.log(`[ConversationalCredit] Mastered via conversation: "${vocab.word}"`);
+          } else {
+            console.log(`[ConversationalCredit] Credited: "${vocab.word}" (interval: ${result?.interval ?? 0}d)`);
+          }
         }
       }
     }
@@ -99,11 +150,19 @@ export async function applyConversationalCredit(params: {
       const itemWords = extractWords(item.targetText);
       const used = itemWords.some(w => studentWords.includes(w));
       const wasCorrected = itemWords.some(w => corrected.has(w));
-      if (used && !wasCorrected) {
-        await storage.recordReviewItemAttempt(item.id, true);
-        console.log(`[ConversationalCredit] Credited review item: "${item.targetText}"`);
+      if (used) {
+        if (wasCorrected) {
+          _stats.skippedDueToCorrection++;
+        } else {
+          await storage.recordReviewItemAttempt(item.id, true);
+          turnCredits++;
+          _stats.wordsCredited++;
+          console.log(`[ConversationalCredit] Credited review item: "${item.targetText}"`);
+        }
       }
     }
+
+    if (turnCredits >= 5) _stats.highCreditTurns++;
 
     if (newlyMastered.length > 0) {
       const existing = pendingMasteryAcknowledgments.get(userId) || [];

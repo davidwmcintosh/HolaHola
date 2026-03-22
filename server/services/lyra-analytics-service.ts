@@ -11,7 +11,7 @@ const anthropic = new Anthropic({
 });
 
 export interface LyraInsight {
-  category: 'content_quality' | 'content_freshness' | 'student_success' | 'onboarding' | 'coverage_gap' | 'textbook_engagement';
+  category: 'content_quality' | 'content_freshness' | 'student_success' | 'onboarding' | 'coverage_gap' | 'textbook_engagement' | 'conversational_credit';
   severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
   confidence: number;
   title: string;
@@ -1306,6 +1306,129 @@ ${insights.slice(0, 5).map(i => `- [${i.severity.toUpperCase()}] ${i.title}`).jo
 *Lyra — Learning Experience Analyst (AI summary unavailable)*`;
   }
 
+  /**
+   * Collects data for credit sensitivity monitoring.
+   * Examines recent mastery patterns to detect potential over-crediting.
+   */
+  async collectCreditSensitivityData(runtimeStats: import('./conversational-credit-service').CreditRuntimeStats): Promise<{
+    runtimeStats: import('./conversational-credit-service').CreditRuntimeStats;
+    avgCreditsPerTurn: number;
+    highCreditTurnRate: number; // % of turns with ≥5 credits (over-credit risk)
+    correctionSkipRate: number; // % of eligible words skipped due to correction markers
+    masteryVelocity: Array<{ userId: string; language: string; masteredLast24h: number }>; // unusually fast masterers
+  }> {
+    const db = getSharedDb();
+
+    const avgCreditsPerTurn = runtimeStats.turnsProcessed > 0
+      ? Math.round((runtimeStats.wordsCredited / runtimeStats.turnsProcessed) * 10) / 10
+      : 0;
+    const highCreditTurnRate = runtimeStats.turnsProcessed > 0
+      ? Math.round((runtimeStats.highCreditTurns / runtimeStats.turnsProcessed) * 1000) / 10
+      : 0;
+    const correctionSkipRate = runtimeStats.wordsCredited + runtimeStats.skippedDueToCorrection > 0
+      ? Math.round((runtimeStats.skippedDueToCorrection / (runtimeStats.wordsCredited + runtimeStats.skippedDueToCorrection)) * 1000) / 10
+      : 0;
+
+    // Flag users mastering unusually many words in the past 24h (may indicate over-crediting)
+    let masteryVelocity: Array<{ userId: string; language: string; masteredLast24h: number }> = [];
+    try {
+      const velocity = await db.execute(sql`
+        SELECT uri.user_id, uri.language, COUNT(*)::int AS mastered_last_24h
+        FROM user_review_items uri
+        WHERE uri.mastered = true
+          AND uri.created_at >= NOW() - INTERVAL '24 hours'
+        GROUP BY uri.user_id, uri.language
+        HAVING COUNT(*) >= 10
+        ORDER BY COUNT(*) DESC
+        LIMIT 20
+      `);
+      masteryVelocity = (velocity.rows || []).map((r: any) => ({
+        userId: r.user_id,
+        language: r.language,
+        masteredLast24h: parseInt(r.mastered_last_24h || '0'),
+      }));
+    } catch { /* non-critical */ }
+
+    return { runtimeStats, avgCreditsPerTurn, highCreditTurnRate, correctionSkipRate, masteryVelocity };
+  }
+
+  generateCreditInsights(data: Awaited<ReturnType<typeof this.collectCreditSensitivityData>>): LyraInsight[] {
+    const insights: LyraInsight[] = [];
+    const { runtimeStats, avgCreditsPerTurn, highCreditTurnRate, correctionSkipRate, masteryVelocity } = data;
+
+    // Not enough data yet — low traffic since last restart
+    if (runtimeStats.turnsProcessed < 10) {
+      insights.push({
+        category: 'conversational_credit',
+        severity: 'info',
+        confidence: 1.0,
+        title: `Conversational credit: ${runtimeStats.turnsProcessed} turns processed since last restart`,
+        description: `The credit engine has run on ${runtimeStats.turnsProcessed} turns, awarding ${runtimeStats.wordsCredited} word credits and marking ${runtimeStats.masteredViaChat} words as mastered via conversation. Not enough volume yet for sensitivity analysis.`,
+        data: runtimeStats,
+        recommendation: 'Continue monitoring as volume grows. Re-evaluate after 50+ turns.',
+        needsReview: false,
+      });
+      return insights;
+    }
+
+    // Healthy baseline report
+    insights.push({
+      category: 'conversational_credit',
+      severity: 'info',
+      confidence: 0.95,
+      title: `Conversational credit: ${runtimeStats.wordsCredited} credits across ${runtimeStats.turnsProcessed} turns (avg ${avgCreditsPerTurn}/turn)`,
+      description: `${runtimeStats.masteredViaChat} words reached mastery via conversation. Correction markers fired on ${runtimeStats.correctionMarkerHits} turns, blocking ${runtimeStats.skippedDueToCorrection} potential credits (${correctionSkipRate}% skip rate).`,
+      data: { ...runtimeStats, avgCreditsPerTurn, highCreditTurnRate, correctionSkipRate },
+      recommendation: 'Healthy credit flow. Keep an eye on high-credit turns and mastery velocity.',
+      needsReview: false,
+    });
+
+    // Over-crediting signal: more than 20% of turns have ≥5 credits
+    if (highCreditTurnRate > 20) {
+      insights.push({
+        category: 'conversational_credit',
+        severity: highCreditTurnRate > 40 ? 'high' : 'medium',
+        confidence: 0.80,
+        title: `${highCreditTurnRate}% of turns awarding 5+ credits — possible over-crediting`,
+        description: `When 5 or more vocabulary words are credited in a single turn, it typically means the student is writing rich target-language content OR the word-matching heuristic is too broad. High-credit turns: ${runtimeStats.highCreditTurns} of ${runtimeStats.turnsProcessed}.`,
+        data: { highCreditTurnRate, highCreditTurns: runtimeStats.highCreditTurns, turnsProcessed: runtimeStats.turnsProcessed },
+        recommendation: 'Sample a few high-credit turns manually. If students are writing short English messages but still getting credits, the token matching needs tightening.',
+        needsReview: true,
+      });
+    }
+
+    // Correction skip rate too low: markers may not be catching enough corrections
+    if (runtimeStats.turnsProcessed >= 20 && correctionSkipRate < 2 && runtimeStats.correctionMarkerHits < 3) {
+      insights.push({
+        category: 'conversational_credit',
+        severity: 'low',
+        confidence: 0.65,
+        title: `Low correction skip rate (${correctionSkipRate}%) — correction markers may be under-catching`,
+        description: `Only ${runtimeStats.correctionMarkerHits} turns triggered correction detection, blocking ${runtimeStats.skippedDueToCorrection} words. If Daniela is correcting students frequently but those corrections aren't being caught, wrong-usage words may be getting credited.`,
+        data: { correctionSkipRate, correctionMarkerHits: runtimeStats.correctionMarkerHits, skippedDueToCorrection: runtimeStats.skippedDueToCorrection },
+        recommendation: `Review recent Daniela responses for correction patterns not in the current marker list. Consider adding language-specific phrases (e.g. "En realidad...", "La conjugación correcta es...").`,
+        needsReview: false,
+      });
+    }
+
+    // Unusual mastery velocity — possible credit noise
+    if (masteryVelocity.length > 0) {
+      const top = masteryVelocity[0];
+      insights.push({
+        category: 'conversational_credit',
+        severity: masteryVelocity.length > 3 ? 'high' : 'medium',
+        confidence: 0.75,
+        title: `${masteryVelocity.length} user(s) mastered 10+ words in the last 24h — verify credit quality`,
+        description: `Unusually high mastery velocity may indicate genuine rapid learning OR that the credit heuristic is being too generous. Top: user ${top.userId.slice(0, 8)}... mastered ${top.masteredLast24h} ${top.language} items.`,
+        data: { masteryVelocity: masteryVelocity.slice(0, 5) },
+        recommendation: 'Spot-check conversation transcripts for these users. Genuine fluency looks like complex sentence usage; over-crediting looks like single-word appearances in English-dominant messages.',
+        needsReview: true,
+      });
+    }
+
+    return insights;
+  }
+
   async runFullAnalysis(): Promise<{ insights: LyraInsight[]; contentData: ContentAuditData; studentData: StudentSuccessData; onboardingData: OnboardingData; textbookData: TextbookEngagementData; componentCoverageData: ComponentCoverageData; curriculumAuditData: CurriculumAuditData }> {
     const startTime = Date.now();
     console.log('[Lyra] Starting full learning experience analysis...');
@@ -1362,6 +1485,16 @@ ${insights.slice(0, 5).map(i => `- [${i.severity.toUpperCase()}] ${i.title}`).jo
       console.error('[Lyra] Curriculum audit failed:', err.message);
     }
 
+    let creditData: Awaited<ReturnType<typeof this.collectCreditSensitivityData>> | null = null;
+    try {
+      const { getCreditRuntimeStats } = await import('./conversational-credit-service');
+      const runtimeStats = getCreditRuntimeStats();
+      creditData = await this.collectCreditSensitivityData(runtimeStats);
+      console.log(`[Lyra] Credit sensitivity: ${runtimeStats.turnsProcessed} turns, ${runtimeStats.wordsCredited} credits, ${runtimeStats.masteredViaChat} mastered via chat`);
+    } catch (err: any) {
+      console.error('[Lyra] Credit sensitivity check failed:', err.message);
+    }
+
     const insights: LyraInsight[] = [
       ...this.generateContentInsights(contentData),
       ...this.generateStudentInsights(studentData),
@@ -1369,6 +1502,7 @@ ${insights.slice(0, 5).map(i => `- [${i.severity.toUpperCase()}] ${i.title}`).jo
       ...this.generateTextbookInsights(textbookData),
       ...this.generateComponentCoverageInsights(componentCoverageData),
       ...this.generateCurriculumAuditInsights(curriculumAuditData),
+      ...(creditData ? this.generateCreditInsights(creditData) : []),
     ];
 
     insights.sort((a, b) => {
