@@ -99,6 +99,7 @@ function formatCompactReport(insights: LyraInsight[], severityCounts: Record<str
   const needsReview = insights.filter(i => i.needsReview).length;
 
   const topInsights = insights
+    .filter(i => i.category !== 'conversational_credit')
     .slice(0, 6)
     .map(i => {
       const flag = i.needsReview ? ' [needs review]' : '';
@@ -106,6 +107,9 @@ function formatCompactReport(insights: LyraInsight[], severityCounts: Record<str
       return `- [${i.severity.toUpperCase()}] ${i.title} (${conf} confidence)${flag}`;
     })
     .join('\n');
+
+  const creditInsights = insights.filter(i => i.category === 'conversational_credit');
+  const creditParagraph = creditInsights.length > 0 ? formatCreditParagraph(creditInsights) : '';
 
   return `**Lyra Learning Experience Analysis — ${insights.length} Insight(s)**
 
@@ -117,8 +121,37 @@ ${categoryList}
 
 Top insights:
 ${topInsights}
-
+${creditParagraph ? `\n${creditParagraph}` : ''}
 *Full analysis follows. Next sweep in ${AUDIT_INTERVAL_MS / (60 * 60 * 1000)}h.*`;
+}
+
+function formatCreditParagraph(creditInsights: LyraInsight[]): string {
+  const baseline = creditInsights.find(i => i.data?.turnsProcessed !== undefined);
+  if (!baseline) return '';
+
+  const d = baseline.data as Record<string, any>;
+  const turns = d.turnsProcessed ?? 0;
+  const credited = d.wordsCredited ?? 0;
+  const mastered = d.masteredViaChat ?? 0;
+  const avg = d.avgCreditsPerTurn ?? 0;
+  const skipRate = d.correctionSkipRate ?? 0;
+  const highRate = d.highCreditTurnRate ?? 0;
+
+  const flags = creditInsights
+    .filter(i => i.needsReview)
+    .map(i => i.title)
+    .join('; ');
+
+  const velocityInsight = creditInsights.find(i => i.data?.masteryVelocity && Array.isArray(i.data.masteryVelocity) && i.data.masteryVelocity.length > 0);
+  const velocityNote = velocityInsight
+    ? ` ${velocityInsight.data.masteryVelocity.length} user(s) flagged for unusually fast mastery velocity (10+ items/24h).`
+    : '';
+
+  const healthLabel = flags.length === 0 ? 'Healthy' : 'Attention needed';
+  const flagNote = flags.length > 0 ? ` Flags: ${flags}.` : '';
+
+  return `**Conversational Credit — ${healthLabel}**
+In this window: ${turns} turns processed, ${credited} word credits awarded (avg ${avg}/turn). Daniela's correction markers blocked ${skipRate}% of eligible credits. ${mastered} word(s) reached mastery threshold through conversation alone.${highRate > 20 ? ` ${highRate}% of turns awarded 5+ credits (over-credit risk).` : ''}${velocityNote}${flagNote}`;
 }
 
 async function runAnalysis(): Promise<void> {
@@ -222,6 +255,41 @@ async function runAnalysis(): Promise<void> {
         }
       } catch (err: any) {
         console.error(`[Lyra Worker] Content trigger failed:`, err.message);
+      }
+    }
+
+    // Direct Alden mastery-velocity alert — bypass Gemini check, always fires when users are flagged
+    const velocityInsight = insights.find(
+      i => i.category === 'conversational_credit' && i.data?.masteryVelocity && (i.data.masteryVelocity as any[]).length > 0
+    );
+    if (velocityInsight) {
+      try {
+        const velocity = velocityInsight.data.masteryVelocity as Array<{ userId: string; language: string; masteredLast24h: number }>;
+        const userLines = velocity.slice(0, 5).map(v =>
+          `  • ${v.userId.slice(0, 12)}... — ${v.masteredLast24h} ${v.language} items in 24h`
+        ).join('\n');
+        const aldenNote = `**Mastery velocity alert from Lyra (Analysis #${stats.totalAudits})**
+
+${velocity.length} user(s) mastered 10+ items in the last 24 hours via conversation. This may indicate genuine rapid learning or the credit heuristic being too generous. Please spot-check their recent transcripts.
+
+${userLines}
+
+Look for: rich target-language output vs. single-word appearances inside English-dominant messages. The credit marker list and token matching can be tightened if needed.
+
+*— Lyra, ${new Date().toISOString().split('T')[0]}*`;
+        await postToActiveTeamRoom({
+          participant: 'lyra',
+          briefSummary: `Mastery velocity flag: ${velocity.length} user(s) hit 10+ mastered items in 24h. Spot-check requested. Top user: ${velocity[0].userId.slice(0, 12)}... (${velocity[0].masteredLast24h} ${velocity[0].language} items).`,
+          source: 'Lyra Credit Monitor',
+        });
+        await founderCollabService.addMessage(sessionId, {
+          role: 'system',
+          content: aldenNote,
+          metadata: { type: 'lyra_mastery_velocity_alert', agent: 'lyra', velocityCount: velocity.length, auditNumber: stats.totalAudits },
+        });
+        console.log(`[Lyra Worker] Mastery velocity alert posted for ${velocity.length} user(s)`);
+      } catch (err: any) {
+        console.error(`[Lyra Worker] Mastery velocity alert error:`, err.message);
       }
     }
 

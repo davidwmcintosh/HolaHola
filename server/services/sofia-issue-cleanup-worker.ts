@@ -11,6 +11,22 @@ const SOFIA_SESSION_TITLE = 'Sofia Support Monitor';
 const HISTORICAL_AGE_DAYS = 30;
 const CLEANUP_DEDUP_MS = 3 * 24 * 60 * 60 * 1000;
 
+/**
+ * Issue types that are safe to auto-resolve without AI assessment when older than
+ * FAST_RESOLVE_AGE_DAYS days. These are known dev-environment artifacts or bugs
+ * that were fixed at the platform level.
+ */
+const FAST_RESOLVE_TYPES: Record<string, string> = {
+  no_audio: 'No-audio reports: the voice pipeline was rebuilt with Google Chirp 3 HD as primary TTS and Deepgram nova-3 for STT. Old no-audio reports are historical artifacts.',
+  double_audio: 'Double-audio was fixed via TTS deduplication guards. Old reports are resolved artifacts.',
+  connection: 'WebSocket stability was significantly improved with the unified WS handler. Old connection reports are historical artifacts.',
+  microphone: 'Microphone permission flow and guidance were improved in the UI. Old microphone reports are no longer actionable.',
+  runtime_fault: 'Runtime faults from the development environment are expected and non-actionable.',
+  'runtime_fault:gemini_api_error': 'Gemini API errors are transient and non-actionable after 14 days.',
+  audio_latency: 'Audio latency was addressed in the voice pipeline rebuild. Old latency reports are resolved.',
+};
+const FAST_RESOLVE_AGE_DAYS = 14;
+
 let cleanupInterval: ReturnType<typeof setInterval> | null = null;
 let lastCleanupTime: Date | null = null;
 let isRunning = false;
@@ -126,16 +142,16 @@ Be conservative — when in doubt, set resolvable=false. Only mark resolvable if
   return result.decisions || [];
 }
 
-async function resolveIssuesByType(issueType: string, reason: string): Promise<number> {
+async function resolveIssuesByType(issueType: string, reason: string, ageDays: number = HISTORICAL_AGE_DAYS): Promise<number> {
   const db = getUserDb();
-  const cutoffDate = new Date(Date.now() - HISTORICAL_AGE_DAYS * 24 * 60 * 60 * 1000);
+  const cutoffDate = new Date(Date.now() - ageDays * 24 * 60 * 60 * 1000);
 
   try {
     const result = await db
       .update(sofiaIssueReports)
       .set({
         status: 'resolved',
-        founderNotes: `[Sofia Auto-Resolved] ${reason} Resolved ${new Date().toISOString().split('T')[0]} after ${HISTORICAL_AGE_DAYS}+ days in queue.`,
+        founderNotes: `[Sofia Auto-Resolved] ${reason} Resolved ${new Date().toISOString().split('T')[0]} after ${ageDays}+ days in queue.`,
         reviewedAt: new Date(),
       })
       .where(and(
@@ -184,15 +200,41 @@ async function runCleanup(): Promise<void> {
     const oldPending = allPending.filter(r => new Date(r.createdAt) < cutoffDate);
     console.log(`[SofiaCleanup] Total pending: ${allPending.length}, older than ${HISTORICAL_AGE_DAYS}d: ${oldPending.length}`);
 
-    if (oldPending.length === 0) {
-      console.log(`[SofiaCleanup] No old issues to clean up`);
+    // --- Fast-resolve pre-pass: rule-based, no AI, runs on ALL pending ---
+    // Fires before the 30d-gate so recent accumulations of known-bad types are also cleared.
+    let fastResolvedTotal = 0;
+    const fastResolvedTypes: Array<{ type: string; count: number; reason: string }> = [];
+
+    for (const [issueType, reason] of Object.entries(FAST_RESOLVE_TYPES)) {
+      const eligibleCount = allPending.filter(r => (r.issueType || 'unknown') === issueType).length;
+      if (eligibleCount === 0) continue;
+
+      const resolved = await resolveIssuesByType(issueType, `[Fast-resolve] ${reason}`, FAST_RESOLVE_AGE_DAYS);
+      if (resolved > 0) {
+        fastResolvedTotal += resolved;
+        fastResolvedTypes.push({ type: issueType, count: resolved, reason });
+        console.log(`[SofiaCleanup] Fast-resolved ${resolved}x "${issueType}" (${FAST_RESOLVE_AGE_DAYS}d rule)`);
+      }
+    }
+
+    if (fastResolvedTotal > 0) {
+      console.log(`[SofiaCleanup] Fast-resolve cleared ${fastResolvedTotal} issues total`);
+    }
+    // ---
+
+    // Guard: only proceed to Gemini assessment if there's old backlog remaining
+    if (oldPending.length === 0 && fastResolvedTotal === 0) {
+      console.log(`[SofiaCleanup] No old issues and no fast-resolve candidates — queue is clean`);
       lastCleanupTime = new Date();
       return;
     }
 
+    // Build groupMap for Gemini assessment from the 30d+ slice, minus already fast-resolved types
+    const fastResolvedTypeSet = new Set(fastResolvedTypes.map(r => r.type));
     const groupMap = new Map<string, IssueGroup>();
     for (const r of oldPending) {
       const type = r.issueType || 'unknown';
+      if (fastResolvedTypeSet.has(type)) continue; // already handled
       if (!groupMap.has(type)) {
         groupMap.set(type, {
           issueType: type,
@@ -216,15 +258,17 @@ async function runCleanup(): Promise<void> {
 
     let decisions: CleanupDecision[] = [];
     try {
-      decisions = await assessIssueGroups(groups);
+      if (groups.length > 0) {
+        decisions = await assessIssueGroups(groups);
+      }
     } catch (err: any) {
       console.error(`[SofiaCleanup] Gemini assessment failed:`, err.message);
       lastCleanupTime = new Date();
       return;
     }
 
-    let totalResolved = 0;
-    const resolvedTypes: Array<{ type: string; count: number; reason: string }> = [];
+    let totalResolved = fastResolvedTotal;
+    const resolvedTypes: Array<{ type: string; count: number; reason: string }> = [...fastResolvedTypes];
     const retainedTypes: Array<{ type: string; count: number; reason: string }> = [];
 
     for (const decision of decisions) {
