@@ -16169,7 +16169,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     try {
       const { factType, studentId, language, limit = '100', offset = '0' } = req.query;
       
-      const conditions: any[] = [eq(learnerPersonalFacts.isActive, true)];
+      const conditions: any[] = [isNull(learnerPersonalFacts.validTo)];
       
       if (factType && factType !== 'all') {
         conditions.push(eq(learnerPersonalFacts.factType, factType));
@@ -16212,7 +16212,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         count: sql<number>`COUNT(*)::int`,
       })
         .from(learnerPersonalFacts)
-        .where(eq(learnerPersonalFacts.isActive, true))
+        .where(isNull(learnerPersonalFacts.validTo))
         .groupBy(learnerPersonalFacts.factType);
       
       res.json({
@@ -16234,7 +16234,11 @@ Return ONLY the ${targetLanguage} phrase:`;
       
       const updateData: any = { updatedAt: new Date() };
       if (fact !== undefined) updateData.fact = fact;
-      if (isActive !== undefined) updateData.isActive = isActive;
+      if (isActive !== undefined) {
+        updateData.isActive = isActive;
+        // Sync temporal validity window with isActive flag
+        updateData.validTo = isActive === false ? new Date() : null;
+      }
       
       const [updated] = await getSharedDb().update(learnerPersonalFacts)
         .set(updateData)
@@ -16258,7 +16262,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     try {
       const students = await getSharedDb().selectDistinct({ studentId: learnerPersonalFacts.studentId })
         .from(learnerPersonalFacts)
-        .where(eq(learnerPersonalFacts.isActive, true));
+        .where(isNull(learnerPersonalFacts.validTo));
       
       // Join with users to get names
       const studentIds = students.map(s => s.studentId);

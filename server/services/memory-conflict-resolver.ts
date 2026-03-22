@@ -175,7 +175,7 @@ export async function applyConflictResolution(
       if (decision.conflictingFactId) {
         await getSharedDb()
           .update(learnerPersonalFacts)
-          .set({ isActive: false, updatedAt: new Date() })
+          .set({ isActive: false, validTo: new Date(), updatedAt: new Date() })
           .where(eq(learnerPersonalFacts.id, decision.conflictingFactId));
         console.log(`[MemoryConflict] Superseded fact ${decision.conflictingFactId} — ${decision.reason}`);
       }
@@ -185,7 +185,7 @@ export async function applyConflictResolution(
       if (decision.conflictingFactId) {
         await getSharedDb()
           .update(learnerPersonalFacts)
-          .set({ isActive: false, updatedAt: new Date() })
+          .set({ isActive: false, validTo: new Date(), updatedAt: new Date() })
           .where(eq(learnerPersonalFacts.id, decision.conflictingFactId));
         console.log(`[MemoryConflict] Merged with fact ${decision.conflictingFactId} — ${decision.reason}`);
       }

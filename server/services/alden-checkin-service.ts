@@ -9,7 +9,7 @@
 import { db } from '../db';
 import { getSharedDb } from '../db';
 import { learnerPersonalFacts, editorInsights, founderSessions, users } from '@shared/schema';
-import { eq, and, inArray, desc, or } from 'drizzle-orm';
+import { eq, and, inArray, desc, or, isNull } from 'drizzle-orm';
 import { founderCollabService } from './founder-collaboration-service';
 import { postToActiveTeamRoom } from './team-room-proactive-poster';
 import { callGeminiWithSchema, GEMINI_MODELS } from '../gemini-utils';
@@ -56,7 +56,7 @@ async function loadFounderMemory(): Promise<{ facts: Array<{ factType: string | 
       .from(learnerPersonalFacts)
       .where(and(
         eq(learnerPersonalFacts.studentId, FOUNDER_ID),
-        eq(learnerPersonalFacts.isActive, true),
+        isNull(learnerPersonalFacts.validTo),
         inArray(learnerPersonalFacts.factType, RELEVANT_FACT_TYPES),
       ))
       .orderBy(desc(learnerPersonalFacts.mentionCount))

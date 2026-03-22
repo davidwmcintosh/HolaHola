@@ -74,7 +74,7 @@ export async function buildFatContext(
     .from(learnerPersonalFacts)
     .where(and(
       eq(learnerPersonalFacts.studentId, userId),
-      eq(learnerPersonalFacts.isActive, true),
+      isNull(learnerPersonalFacts.validTo),
     ))
     .orderBy(desc(learnerPersonalFacts.mentionCount))
     .limit(FAT_CONTEXT_LIMITS.MAX_PERSONAL_FACTS)),

@@ -65,7 +65,7 @@ import {
   // Wren insight types
   type WrenInsight,
 } from '@shared/schema';
-import { eq, inArray, sql, and, gte, desc } from 'drizzle-orm';
+import { eq, inArray, sql, and, gte, desc, isNull, isNotNull } from 'drizzle-orm';
 
 // ===== Student Memory Context Type =====
 export interface StudentMemoryContext {
@@ -96,6 +96,11 @@ export interface StudentSnapshotContext {
     fact: string;
     factType: string;
     daysAgo: number;
+  }[];
+  episodicHistory?: { // superseded facts — things that *were* true, for warm callbacks
+    fact: string;
+    factType: string;
+    closedDaysAgo: number; // when the fact was superseded
   }[];
   conversationHighlights?: { // memorable moments from recent conversations
     quote: string;
@@ -181,6 +186,19 @@ export function buildStudentSnapshotSection(
     }
   }
   
+  // Episodic history — facts that used to be true (for warm past-tense callbacks)
+  if (snapshot.episodicHistory && snapshot.episodicHistory.length > 0) {
+    lines.push('');
+    lines.push('HISTORICAL CONTEXT (things that were true recently — reference in past tense):');
+    lines.push('(e.g. "You mentioned you were preparing for X — how did that go?")');
+    for (const item of snapshot.episodicHistory.slice(0, 3)) {
+      const daysText = item.closedDaysAgo <= 7 ? 'last week' :
+                       item.closedDaysAgo <= 30 ? 'last month' :
+                       `~${Math.round(item.closedDaysAgo / 30)} months ago`;
+      lines.push(`  • [WAS TRUE ${daysText.toUpperCase()}] ${item.fact}`);
+    }
+  }
+
   // Conversation highlights - memorable moments from recent sessions
   if (snapshot.conversationHighlights && snapshot.conversationHighlights.length > 0) {
     lines.push('');
@@ -272,7 +290,7 @@ export async function getStudentSnapshotData(
       .where(
         and(
           eq(learnerPersonalFacts.studentId, studentId),
-          eq(learnerPersonalFacts.isActive, true)
+          isNull(learnerPersonalFacts.validTo)
         )
       )
       .orderBy(desc(learnerPersonalFacts.lastMentionedAt))
@@ -319,6 +337,37 @@ export async function getStudentSnapshotData(
       if (followUpCandidates.length > 0) {
         snapshot.personalFollowUps = followUpCandidates.slice(0, 5);
       }
+    }
+
+    // 3b. Episodic history — recently superseded facts (closed validity window)
+    // These are things that *were* true but got updated (e.g., old location, completed goals).
+    // Daniela can reference them in past tense for warm, continuous conversation.
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    const historicalFacts = await getSharedDb().select({
+      fact: learnerPersonalFacts.fact,
+      factType: learnerPersonalFacts.factType,
+      validTo: learnerPersonalFacts.validTo,
+    })
+      .from(learnerPersonalFacts)
+      .where(
+        and(
+          eq(learnerPersonalFacts.studentId, studentId),
+          isNotNull(learnerPersonalFacts.validTo),
+          gte(learnerPersonalFacts.validTo, ninetyDaysAgo)
+        )
+      )
+      .orderBy(desc(learnerPersonalFacts.validTo))
+      .limit(5);
+
+    if (historicalFacts.length > 0) {
+      const now = new Date();
+      snapshot.episodicHistory = historicalFacts.map(f => ({
+        fact: f.fact,
+        factType: f.factType,
+        closedDaysAgo: Math.floor(
+          (now.getTime() - new Date(f.validTo!).getTime()) / (1000 * 60 * 60 * 24)
+        ),
+      }));
     }
     
     // 4. Get conversation highlights - memorable quotes from recent sessions

@@ -12,7 +12,7 @@
 
 import { getSharedDb, getUserDb } from '../db';
 import { wrenInsights, type WrenInsight, type InsertWrenInsight } from '@shared/schema';
-import { eq, desc, sql, and, gte, lte, or, ilike } from 'drizzle-orm';
+import { eq, desc, sql, and, gte, lte, or, ilike, isNull } from 'drizzle-orm';
 import { storage } from '../storage';
 import { neuralNetworkSync } from './neural-network-sync';
 
@@ -657,7 +657,7 @@ export class WrenIntelligenceService {
         avgMentions: sql<number>`avg(${learnerPersonalFacts.mentionCount})`,
       })
       .from(learnerPersonalFacts)
-      .where(eq(learnerPersonalFacts.isActive, true))
+      .where(isNull(learnerPersonalFacts.validTo))
       .groupBy(learnerPersonalFacts.factType, learnerPersonalFacts.language);
       
       // 2. Aggregate struggle patterns by language

@@ -3628,7 +3628,15 @@ export const learnerPersonalFacts = pgTable("learner_personal_facts", {
   isActive: boolean("is_active").default(true),
   lastMentionedAt: timestamp("last_mentioned_at").defaultNow(),
   mentionCount: integer("mention_count").default(1),
-  
+
+  // Temporal validity — bi-temporal memory (Approach A)
+  // validTo IS NULL  = currently true
+  // validTo IS NOT NULL = this fact was true until that moment (superseded/merged)
+  // Enables: episodic recall ("you mentioned last fall..."), time-travel queries,
+  //          and natural history preservation without data loss.
+  validFrom: timestamp("valid_from").notNull().defaultNow(),
+  validTo: timestamp("valid_to"),   // NULL = currently true
+
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => [
@@ -3637,6 +3645,7 @@ export const learnerPersonalFacts = pgTable("learner_personal_facts", {
   index("idx_learner_personal_facts_relevant_date").on(table.relevantDate),
   index("idx_learner_personal_facts_active").on(table.isActive),
   index("idx_learner_personal_facts_hash").on(table.factHash),
+  index("idx_learner_personal_facts_current").on(table.studentId, table.validTo),
 ]);
 
 // Predicted Struggles - Pre-session predictions of what student may struggle with

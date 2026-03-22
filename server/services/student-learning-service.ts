@@ -30,7 +30,7 @@ import {
   type UserMotivationAlert,
   type LearnerPersonalFact,
 } from '@shared/schema';
-import { eq, and, desc, sql, gte, ilike, or, count, ne } from 'drizzle-orm';
+import { eq, and, desc, sql, gte, ilike, or, count, ne, isNull } from 'drizzle-orm';
 import { storage } from '../storage';
 import { neuralNetworkSync } from './neural-network-sync';
 import crypto from 'crypto';
@@ -445,7 +445,7 @@ export class StudentLearningService {
       .where(
         and(
           eq(learnerPersonalFacts.studentId, studentId),
-          eq(learnerPersonalFacts.isActive, true),
+          isNull(learnerPersonalFacts.validTo),
           or(
             eq(learnerPersonalFacts.language, language),
             sql`${learnerPersonalFacts.language} IS NULL`
@@ -2264,7 +2264,7 @@ export class StudentLearningService {
         and(
           eq(learnerPersonalFacts.studentId, input.studentId),
           eq(learnerPersonalFacts.factType, input.factType),
-          eq(learnerPersonalFacts.isActive, true)
+          isNull(learnerPersonalFacts.validTo)
         )
       );
     
@@ -2354,6 +2354,8 @@ export class StudentLearningService {
         mentionCount: 1,
         lastMentionedAt: new Date(),
         isActive: true,
+        validFrom: new Date(),
+        validTo: null,
       })
       .returning();
     
@@ -2414,7 +2416,7 @@ export class StudentLearningService {
   ): Promise<LearnerPersonalFact[]> {
     const conditions = [
       eq(learnerPersonalFacts.studentId, studentId),
-      eq(learnerPersonalFacts.isActive, true),
+      isNull(learnerPersonalFacts.validTo),
     ];
     
     if (language) {
@@ -2446,7 +2448,7 @@ export class StudentLearningService {
       .where(
         and(
           eq(learnerPersonalFacts.studentId, studentId),
-          eq(learnerPersonalFacts.isActive, true),
+          isNull(learnerPersonalFacts.validTo),
           gte(learnerPersonalFacts.relevantDate, now),
           sql`${learnerPersonalFacts.relevantDate} <= ${threeMonthsFromNow.toISOString()}`
         )
