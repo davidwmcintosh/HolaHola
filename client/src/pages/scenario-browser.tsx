@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, Briefcase, Plane, Users, AlertTriangle, Palette, ArrowLeft, Search, Play, BookOpen, ChevronDown, ChevronUp } from "lucide-react";
+import { MapPin, Briefcase, Plane, Users, AlertTriangle, Palette, ArrowLeft, Search, Play, BookOpen, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { Scenario } from "@shared/schema";
@@ -109,10 +109,12 @@ function ScenarioCard({
   scenario,
   onStart,
   language,
+  practiced,
 }: {
   scenario: Scenario;
   onStart: () => void;
   language: string;
+  practiced?: boolean;
 }) {
   const config = CATEGORY_CONFIG[scenario.category] || CATEGORY_CONFIG.daily;
   const CategoryIcon = config.icon;
@@ -120,14 +122,24 @@ function ScenarioCard({
 
   return (
     <Card className="flex flex-col hover-elevate transition-all duration-200 overflow-visible" data-testid={`card-scenario-${scenario.slug}`}>
-      {scenario.imageUrl && (
-        <div className="h-36 rounded-t-md overflow-hidden shrink-0">
+      {scenario.imageUrl ? (
+        <div className="relative h-36 rounded-t-md overflow-hidden shrink-0">
           <img
             src={scenario.imageUrl}
             alt={scenario.title}
             className="w-full h-full object-cover"
             data-testid={`img-scenario-cover-${scenario.slug}`}
           />
+          {practiced && (
+            <div className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm rounded-full px-2 py-0.5 flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400">
+              <CheckCircle2 className="w-3 h-3" />
+              Practiced
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="h-36 rounded-t-md bg-muted shrink-0 flex items-center justify-center">
+          <CategoryIcon className="w-8 h-8 text-muted-foreground opacity-40" />
         </div>
       )}
       <div className="p-4 flex-1 flex flex-col gap-3">
@@ -159,7 +171,7 @@ function ScenarioCard({
           data-testid={`button-start-scenario-${scenario.slug}`}
         >
           <Play className="w-3.5 h-3.5 mr-1.5" />
-          Start Scenario
+          {practiced ? "Practice again" : "Start Scenario"}
         </Button>
 
         <Button
@@ -218,6 +230,12 @@ export default function ScenarioBrowser() {
     },
   });
 
+  const { data: scenarioHistory = [] } = useQuery<{ scenarioId: string; completedAt: string | null }[]>({
+    queryKey: ["/api/user/scenario-history"],
+  });
+
+  const practicedIds = useMemo(() => new Set(scenarioHistory.map(h => h.scenarioId)), [scenarioHistory]);
+
   const filteredScenarios = useMemo(() => {
     let filtered = scenarios;
     if (selectedCategory) {
@@ -259,6 +277,12 @@ export default function ScenarioBrowser() {
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <h1 className="text-lg font-semibold" data-testid="text-page-title">Scenarios</h1>
+        {practicedIds.size > 0 && scenarios.length > 0 && (
+          <span className="text-xs text-muted-foreground flex items-center gap-1" data-testid="text-practiced-count">
+            <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+            {practicedIds.size}/{scenarios.length} practiced
+          </span>
+        )}
         <div className="flex-1" />
         <div className="relative w-full sm:w-64">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -330,6 +354,7 @@ export default function ScenarioBrowser() {
                 key={scenario.id}
                 scenario={scenario}
                 language={language}
+                practiced={practicedIds.has(scenario.id)}
                 onStart={() => handleStartScenario(scenario)}
               />
             ))}

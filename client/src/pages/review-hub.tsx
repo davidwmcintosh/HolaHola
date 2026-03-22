@@ -534,10 +534,39 @@ export default function ReviewHub() {
     },
   });
 
-  // Show up to 3 scenarios — prioritise those with cover images
-  const featuredScenarios = [...allScenarios]
-    .sort((a, b) => (b.imageUrl ? 1 : 0) - (a.imageUrl ? 1 : 0))
-    .slice(0, 3);
+  // Pick one scenario from each of 3 category groups for variety
+  // Shuffle within each group so the strip rotates naturally across page loads
+  const featuredScenarios = (() => {
+    const shuffle = <T,>(arr: T[]): T[] => {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    };
+    const groups = [
+      ['daily', 'travel'],
+      ['professional', 'social'],
+      ['cultural', 'emergency'],
+    ];
+    const picked: Scenario[] = [];
+    for (const cats of groups) {
+      const pool = allScenarios.filter(s => cats.includes(s.category));
+      const shuffled = shuffle(pool);
+      const pick = shuffled.find(s => s.imageUrl) || shuffled[0];
+      if (pick && !picked.find(p => p.id === pick.id)) picked.push(pick);
+    }
+    // Fill to 3 from remaining if a group was empty
+    if (picked.length < 3) {
+      const remaining = shuffle(allScenarios.filter(s => !picked.find(p => p.id === s.id)));
+      for (const s of remaining) {
+        if (picked.length >= 3) break;
+        picked.push(s);
+      }
+    }
+    return picked;
+  })();
 
   if (isLoading) {
     return (

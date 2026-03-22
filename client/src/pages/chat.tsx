@@ -62,6 +62,7 @@ export default function Chat() {
   const useDesktopWhiteboard = !isMobile && mode === "voice";
   
   const [loadedScenarioData, setLoadedScenarioData] = useState<any>(null);
+  const [scenarioHistoryId, setScenarioHistoryId] = useState<string | null>(null);
   const [studioImages, setStudioImages] = useState<Array<{ word: string; description: string; imageUrl: string; context?: string; slot?: 'scene' | 'context'; category?: string }>>([]);
   const [isImmersiveMode, setIsImmersiveMode] = useState(false);
   
@@ -718,8 +719,31 @@ export default function Chat() {
                   onWhiteboardItemsChange={setWhiteboardItems}
                   whiteboardCallbacksRef={whiteboardCallbacksRef}
                   useDesktopWhiteboard={useDesktopWhiteboard}
-                  onScenarioLoaded={setLoadedScenarioData}
-                  onScenarioEnded={() => { setLoadedScenarioData(null); setStudioImages([]); }}
+                  onScenarioLoaded={async (scenarioData: any) => {
+                    setLoadedScenarioData(scenarioData);
+                    if (scenarioData?.id) {
+                      try {
+                        const res = await apiRequest("POST", `/api/scenarios/${scenarioData.id}/start`, {
+                          conversationId: conversationId || undefined,
+                        });
+                        const data = await res.json();
+                        if (data.historyId) setScenarioHistoryId(data.historyId);
+                      } catch { /* non-critical */ }
+                    }
+                  }}
+                  onScenarioEnded={async () => {
+                    if (loadedScenarioData?.id && scenarioHistoryId) {
+                      try {
+                        await apiRequest("POST", `/api/scenarios/${loadedScenarioData.id}/complete`, {
+                          historyId: scenarioHistoryId,
+                        });
+                        queryClient.invalidateQueries({ queryKey: ['/api/user/scenario-history'] });
+                      } catch { /* non-critical */ }
+                    }
+                    setLoadedScenarioData(null);
+                    setScenarioHistoryId(null);
+                    setStudioImages([]);
+                  }}
                   onPropUpdate={(data) => {
                     setLoadedScenarioData((prev: any) => {
                       if (!prev?.props) return prev;
