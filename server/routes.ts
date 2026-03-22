@@ -90,6 +90,7 @@ import { passwordAuthService } from "./services/password-auth-service";
 import { emailService } from "./services/email-service";
 import { neuralNetworkSync } from "./services/neural-network-sync";
 import { passwordLoginSchema, passwordResetRequestSchema, setNewPasswordSchema, completeRegistrationSchema, createInvitationSchema } from "@shared/schema";
+import { userReviewItems, userDrillProgress } from "@shared/schema";
 import passport from "passport";
 import { generateConversationTitle, generateConversationContextSummary } from "./conversation-utils";
 import { extractTargetLanguageText, hasSignificantTargetLanguageContent } from "./text-utils";
@@ -7083,6 +7084,59 @@ Return ONLY the ${targetLanguage} phrase:`;
       }
       
       res.json(updatedWord);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== Mastery Stats =====
+
+  app.get("/api/mastery-stats", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getRequestUserId(req);
+      const { language } = req.query;
+
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+      const masteredVocabRows = await getSharedDb()
+        .select({ targetText: userReviewItems.targetText, itemType: userReviewItems.itemType, createdAt: userReviewItems.createdAt })
+        .from(userReviewItems)
+        .where(
+          and(
+            eq(userReviewItems.userId, userId),
+            eq(userReviewItems.mastered, true),
+            language ? eq(userReviewItems.language, language as string) : sql`true`
+          )
+        )
+        .orderBy(desc(userReviewItems.createdAt));
+
+      const [drillResult] = await getSharedDb()
+        .select({ count: sql<number>`count(*)::int` })
+        .from(userDrillProgress)
+        .where(and(eq(userDrillProgress.userId, userId), eq(userDrillProgress.mastered, true)));
+
+      const totalMasteredVocab = masteredVocabRows.length;
+      const totalMasteredDrills = Number(drillResult?.count ?? 0);
+      const totalMastered = totalMasteredVocab + totalMasteredDrills;
+
+      const recentlyMastered = masteredVocabRows
+        .filter(r => new Date(r.createdAt) >= sevenDaysAgo)
+        .slice(0, 5)
+        .map(r => ({ word: r.targetText, type: r.itemType }));
+
+      const MILESTONES = [
+        { count: 10, label: 'First 10' },
+        { count: 25, label: '25 Words' },
+        { count: 50, label: '50 Words' },
+        { count: 100, label: 'Century' },
+        { count: 250, label: '250 Words' },
+        { count: 500, label: '500 Words' },
+      ];
+
+      const milestones = MILESTONES.map(m => ({ ...m, achieved: totalMastered >= m.count }));
+      const nextMilestone = MILESTONES.find(m => m.count > totalMastered)?.count ?? null;
+
+      res.json({ totalMasteredVocab, totalMasteredDrills, totalMastered, recentlyMastered, milestones, nextMilestone });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

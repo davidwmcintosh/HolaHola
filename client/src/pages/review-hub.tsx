@@ -133,6 +133,15 @@ interface ReviewHubData {
   };
 }
 
+interface MasteryStats {
+  totalMasteredVocab: number;
+  totalMasteredDrills: number;
+  totalMastered: number;
+  recentlyMastered: { word: string; type: string }[];
+  milestones: { count: number; label: string; achieved: boolean }[];
+  nextMilestone: number | null;
+}
+
 const topicTypeColors = {
   subject: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
   grammar: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
@@ -537,6 +546,15 @@ export default function ReviewHub() {
       if (classId) params.set('classId', classId);
       const response = await fetch(`/api/scenarios/recommended?${params}`, { credentials: 'include' });
       if (!response.ok) return [];
+      return response.json();
+    },
+  });
+
+  const { data: masteryStats } = useQuery<MasteryStats>({
+    queryKey: ["/api/mastery-stats", lang],
+    queryFn: async () => {
+      const response = await fetch(`/api/mastery-stats?language=${lang}`, { credentials: 'include' });
+      if (!response.ok) return null;
       return response.json();
     },
   });
@@ -1037,6 +1055,78 @@ export default function ReviewHub() {
           </Card>
         );
       })()}
+
+      {/* Mastery Trophy Case — only shown once student has mastered at least one item */}
+      {masteryStats && masteryStats.totalMastered > 0 && (
+        <Card data-testid="section-mastery-trophy-case">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Trophy className="h-5 w-5 text-amber-500" />
+              Mastery
+            </CardTitle>
+            <CardDescription>
+              {masteryStats.totalMastered} item{masteryStats.totalMastered === 1 ? '' : 's'} locked in through spaced repetition
+              {masteryStats.nextMilestone && ` — ${masteryStats.nextMilestone - masteryStats.totalMastered} to go until ${masteryStats.nextMilestone}`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Milestone badges */}
+            <div className="flex flex-wrap gap-2" data-testid="mastery-milestones">
+              {masteryStats.milestones.map((m) => (
+                <div
+                  key={m.count}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    m.achieved
+                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
+                      : 'bg-muted/50 text-muted-foreground'
+                  }`}
+                  data-testid={`milestone-badge-${m.count}`}
+                >
+                  {m.achieved
+                    ? <CheckCircle2 className="h-3.5 w-3.5" />
+                    : <Circle className="h-3.5 w-3.5" />
+                  }
+                  {m.label}
+                </div>
+              ))}
+            </div>
+
+            {/* Recently mastered words */}
+            {masteryStats.recentlyMastered.length > 0 && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wide">This week</p>
+                <div className="flex flex-wrap gap-2">
+                  {masteryStats.recentlyMastered.map((item, i) => (
+                    <Badge
+                      key={i}
+                      variant="outline"
+                      className="text-xs bg-green-50 text-green-800 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800"
+                      data-testid={`recently-mastered-${i}`}
+                    >
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      {item.word}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Breakdown */}
+            <div className="flex gap-4 pt-1 text-sm text-muted-foreground">
+              {masteryStats.totalMasteredVocab > 0 && (
+                <span data-testid="mastery-vocab-count">
+                  {masteryStats.totalMasteredVocab} vocabulary
+                </span>
+              )}
+              {masteryStats.totalMasteredDrills > 0 && (
+                <span data-testid="mastery-drill-count">
+                  {masteryStats.totalMasteredDrills} drills
+                </span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Daniela's Learning Insights - Only show standalone card in linear view (mindmap has it built-in) */}
       {syllabusView !== 'mindmap' && (

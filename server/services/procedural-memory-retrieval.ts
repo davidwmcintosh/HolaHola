@@ -64,8 +64,11 @@ import {
   type CreativityTemplate,
   // Wren insight types
   type WrenInsight,
+  // Mastery tracking
+  userReviewItems,
+  userDrillProgress,
 } from '@shared/schema';
-import { eq, inArray, sql, and, gte, desc, isNull, isNotNull } from 'drizzle-orm';
+import { eq, inArray, sql, and, gte, lte, desc, isNull, isNotNull, count } from 'drizzle-orm';
 
 // ===== Student Memory Context Type =====
 export interface StudentMemoryContext {
@@ -107,6 +110,13 @@ export interface StudentSnapshotContext {
     context: string;
     daysAgo: number;
   }[];
+  masteryStats?: { // spaced-repetition mastery counts — feeds Daniela's verbal recognition
+    totalMasteredVocab: number;
+    totalMasteredDrills: number;
+    totalMastered: number;
+    recentlyMastered: string[]; // targetText of items mastered in last 7 days (max 3)
+    nextMilestone: number | null;
+  };
 }
 
 /**
@@ -127,7 +137,8 @@ export function buildStudentSnapshotSection(
   const hasData = snapshot.lastSession || snapshot.syllabusPosition || 
                   snapshot.streak || snapshot.recentWins?.length || 
                   snapshot.needsPractice?.length || snapshot.personalFollowUps?.length ||
-                  snapshot.conversationHighlights?.length;
+                  snapshot.conversationHighlights?.length ||
+                  (snapshot.masteryStats?.totalMastered ?? 0) > 0;
   
   if (!hasData) return '';
   
@@ -211,6 +222,21 @@ export function buildStudentSnapshotSection(
                        `${highlight.daysAgo} days ago`;
       lines.push(`  • "${highlight.quote}" — ${highlight.context} (${daysText})`);
     }
+  }
+
+  // Mastery stats — for Daniela to acknowledge progress verbally when the moment is right
+  if (snapshot.masteryStats && snapshot.masteryStats.totalMastered > 0) {
+    const { totalMastered, recentlyMastered, nextMilestone } = snapshot.masteryStats;
+    lines.push('');
+    lines.push('MASTERY PROGRESS:');
+    lines.push(`- ${totalMastered} word${totalMastered === 1 ? '' : 's'}/phrase${totalMastered === 1 ? '' : 's'} mastered through spaced repetition`);
+    if (recentlyMastered.length > 0) {
+      lines.push(`- Recently mastered (this week): ${recentlyMastered.map(w => `"${w}"`).join(', ')}`);
+    }
+    if (nextMilestone) {
+      lines.push(`- Approaching ${nextMilestone}-word milestone (${nextMilestone - totalMastered} to go)`);
+    }
+    lines.push('→ Acknowledge mastery briefly and warmly when the moment feels right. Be specific when you can — naming a recently mastered word or phrase feels most genuine.');
   }
   
   lines.push('');
@@ -444,6 +470,45 @@ export async function getStudentSnapshotData(
       }
     }
     
+    // 5. Mastery stats — feeds Daniela's verbal acknowledgment of student progress
+    const MASTERY_MILESTONES = [10, 25, 50, 100, 250, 500];
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    try {
+      const masteredVocabRows = await getSharedDb()
+        .select({ targetText: userReviewItems.targetText, createdAt: userReviewItems.createdAt })
+        .from(userReviewItems)
+        .where(
+          and(
+            eq(userReviewItems.userId, studentId),
+            eq(userReviewItems.mastered, true),
+            targetLanguage ? eq(userReviewItems.language, targetLanguage) : sql`true`
+          )
+        )
+        .orderBy(desc(userReviewItems.createdAt));
+
+      const [drillResult] = await getSharedDb()
+        .select({ count: sql<number>`count(*)::int` })
+        .from(userDrillProgress)
+        .where(and(eq(userDrillProgress.userId, studentId), eq(userDrillProgress.mastered, true)));
+
+      const totalMasteredVocab = masteredVocabRows.length;
+      const totalMasteredDrills = Number(drillResult?.count ?? 0);
+      const totalMastered = totalMasteredVocab + totalMasteredDrills;
+
+      if (totalMastered > 0) {
+        const recentlyMastered = masteredVocabRows
+          .filter(r => new Date(r.createdAt) >= sevenDaysAgo)
+          .slice(0, 3)
+          .map(r => r.targetText);
+
+        const nextMilestone = MASTERY_MILESTONES.find(m => m > totalMastered) ?? null;
+
+        snapshot.masteryStats = { totalMasteredVocab, totalMasteredDrills, totalMastered, recentlyMastered, nextMilestone };
+      }
+    } catch {
+      // Non-fatal — mastery stats are bonus context
+    }
+
   } catch (err: any) {
     console.error('[StudentSnapshot] Error fetching snapshot data:', err.message);
   }

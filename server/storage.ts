@@ -2120,10 +2120,12 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async updateVocabularyReview(id: string, isCorrect: boolean): Promise<VocabularyWord | undefined> {
+  async updateVocabularyReview(id: string, isCorrect: boolean): Promise<(VocabularyWord & { newlyMastered: boolean }) | undefined> {
     const result = await getSharedDb().select().from(vocabularyWords).where(eq(vocabularyWords.id, id));
     const word = result[0];
     if (!word) return undefined;
+
+    const wasMastered = (word.interval ?? 0) >= 21 && (word.correctCount ?? 0) >= 3;
 
     const currentState = {
       easeFactor: word.easeFactor,
@@ -2147,7 +2149,8 @@ export class DatabaseStorage implements IStorage {
       .where(eq(vocabularyWords.id, id))
       .returning();
 
-    return updated;
+    const isMastered = (updated.interval ?? 0) >= 21 && (updated.correctCount ?? 0) >= 3;
+    return { ...updated, newlyMastered: !wasMastered && isMastered };
   }
 
   async getDueVocabulary(language: string, userId: string, difficulty?: string, limit: number = 5): Promise<VocabularyWord[]> {

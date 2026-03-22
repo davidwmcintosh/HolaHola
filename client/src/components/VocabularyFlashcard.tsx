@@ -92,16 +92,24 @@ export function VocabularyFlashcard({ timeFilter = 'all' }: VocabularyFlashcardP
     mutationFn: async ({ id, isCorrect }: { id: string; isCorrect: boolean }) => {
       return await apiRequest("PATCH", `/api/vocabulary/${id}/review`, { isCorrect });
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (data: any, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/vocabulary/filtered"] });
       queryClient.invalidateQueries({ queryKey: ["/api/vocabulary"] });
-      
-      toast({
-        title: variables.isCorrect ? "Correct!" : "Keep practicing!",
-        description: variables.isCorrect 
-          ? "Great job! Your next review has been scheduled."
-          : "Don't worry, you'll see this card again soon.",
-      });
+      queryClient.invalidateQueries({ queryKey: ["/api/mastery-stats"] });
+
+      if (data?.newlyMastered) {
+        toast({
+          title: "Word mastered!",
+          description: `You've locked in "${vocabularyWords[currentIndex]?.word ?? 'this word'}" — your tutor will notice.`,
+        });
+      } else {
+        toast({
+          title: variables.isCorrect ? "Correct!" : "Keep practicing!",
+          description: variables.isCorrect
+            ? "Great job! Your next review has been scheduled."
+            : "Don't worry, you'll see this card again soon.",
+        });
+      }
     },
   });
 
