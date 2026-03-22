@@ -145,7 +145,7 @@ async function generateRepairPlan(
   const repairId = `repair-${Date.now()}`;
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-5',
+    model: 'claude-opus-4-6',
     max_tokens: 2048,
     messages: [{
       role: 'user',
