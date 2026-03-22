@@ -28823,8 +28823,9 @@ You have full access to your neural network knowledge.
     }
   });
 
-  // Scenarios recommended for the user based on their next upcoming curriculum lessons
-  // Returns up to 3 scenarios ranked by topic overlap with the next N incomplete lessons
+  // Scenarios recommended for the user based on their next upcoming curriculum lessons.
+  // Works for both class-enrolled students (uses syllabus progress) and self-directed
+  // learners (uses the language's curriculum path + scenario practice history as a proxy).
   app.get("/api/scenarios/recommended", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getRequestUserId(req);
@@ -28833,9 +28834,10 @@ You have full access to your neural network knowledge.
       const { classId, language } = req.query as { classId?: string; language?: string };
       const sharedDb = getSharedDb();
 
-      // Collect requiredTopics from the next 8 upcoming lessons in this class
       const upcomingTopics = new Set<string>();
+      let mode: 'class' | 'self-directed' = 'self-directed';
 
+      // ── Class-enrolled path ──────────────────────────────────────────────────
       if (classId) {
         const classRow = await sharedDb.select({ curriculumPathId: teacherClasses.curriculumPathId })
           .from(teacherClasses)
@@ -28844,6 +28846,7 @@ You have full access to your neural network knowledge.
 
         const curriculumPathId = classRow[0]?.curriculumPathId;
         if (curriculumPathId) {
+          mode = 'class';
           const [units, syllabusProgress] = await Promise.all([
             storage.getCurriculumUnits(curriculumPathId),
             storage.getSyllabusProgress(userId, classId),
@@ -28860,49 +28863,95 @@ You have full access to your neural network knowledge.
             const lessons = await storage.getCurriculumLessons(unit.id);
             for (const lesson of lessons) {
               if (!completedLessons.has(lesson.id)) {
-                for (const topic of lesson.requiredTopics ?? []) upcomingTopics.add(topic);
+                for (const t of lesson.requiredTopics ?? []) upcomingTopics.add(t);
                 if (lesson.conversationTopic) upcomingTopics.add(lesson.conversationTopic);
-                collected++;
-                if (collected >= 8) break outer;
+                if (++collected >= 8) break outer;
               }
             }
           }
         }
       }
 
-      // Fetch all active scenarios, optionally filtered by language
+      // ── Self-directed path ───────────────────────────────────────────────────
+      // Use the language's curriculum path and the user's scenario practice history
+      // to determine where they are in the curriculum and what comes next.
+      if (mode === 'self-directed' && language) {
+        const paths = await storage.getCurriculumPaths(language);
+        // Prefer Level 1 / beginner path; fall back to first available
+        const path = paths.find(p => /\b1\b/.test(p.name)) ?? paths[0];
+
+        if (path) {
+          // Collect curriculum topics from scenarios the user has already practiced
+          const practiced = await sharedDb.select({ scenarioId: userScenarioHistory.scenarioId })
+            .from(userScenarioHistory)
+            .where(eq(userScenarioHistory.userId, userId));
+
+          const practicedIds = new Set(practiced.map(p => p.scenarioId));
+
+          // Build set of topics already covered by practiced scenarios
+          const coveredTopics = new Set<string>();
+          if (practicedIds.size > 0) {
+            const allActiveScens = await sharedDb.select().from(scenarios)
+              .where(eq(scenarios.isActive, true));
+            for (const s of allActiveScens) {
+              if (practicedIds.has(s.id)) {
+                for (const t of s.curriculumTopics ?? []) coveredTopics.add(t);
+              }
+            }
+          }
+
+          // Walk the curriculum from the start; collect topics from lessons not yet covered
+          const units = await storage.getCurriculumUnits(path.id);
+          let collected = 0;
+          selfOuter: for (const unit of units) {
+            const lessons = await storage.getCurriculumLessons(unit.id);
+            for (const lesson of lessons) {
+              const lessonTopics = [
+                ...(lesson.requiredTopics ?? []),
+                ...(lesson.conversationTopic ? [lesson.conversationTopic] : []),
+              ];
+              // "Covered" = all of the lesson's topics are already in coveredTopics
+              const alreadyCovered = lessonTopics.length > 0 &&
+                lessonTopics.every(t => coveredTopics.has(t));
+              if (!alreadyCovered) {
+                for (const t of lessonTopics) upcomingTopics.add(t);
+                if (++collected >= 8) break selfOuter;
+              }
+            }
+          }
+        }
+      }
+
+      // ── Fetch & score scenarios ──────────────────────────────────────────────
       let allScenarios = await sharedDb.select().from(scenarios).where(eq(scenarios.isActive, true));
       if (language) allScenarios = allScenarios.filter(s => s.languages?.includes(language));
 
       if (upcomingTopics.size === 0) {
-        // No curriculum context — return a varied random selection
-        const shuffle = <T,>(arr: T[]) => arr.sort(() => Math.random() - 0.5);
-        return res.json(shuffle(allScenarios).slice(0, 3));
+        // No curriculum found — return a varied random selection as a last resort
+        return res.json(allScenarios.sort(() => Math.random() - 0.5).slice(0, 3));
       }
 
-      // Score each scenario by overlap count with upcomingTopics
       const scored = allScenarios.map(s => ({
         scenario: s,
         score: (s.curriculumTopics ?? []).filter(t => upcomingTopics.has(t)).length,
       }));
 
-      // Sort by score desc, then shuffle within equal-score tiers for variety
+      // Sort by score desc, shuffle within equal-score tiers for variety
       scored.sort((a, b) => b.score - a.score || Math.random() - 0.5);
 
-      // Prefer category variety in the top 3 — pick best from each group
+      // Pick one from each category group to keep the strip varied
       const groups = [['daily', 'travel'], ['professional', 'social'], ['cultural', 'emergency']];
       const picked: typeof scored = [];
       for (const cats of groups) {
         const best = scored.find(s => cats.includes(s.scenario.category) && !picked.includes(s));
         if (best) picked.push(best);
       }
-      // Fill to 3 from remaining if a group was empty
       for (const s of scored) {
         if (picked.length >= 3) break;
         if (!picked.includes(s)) picked.push(s);
       }
 
-      res.json(picked.slice(0, 3).map(p => ({ ...p.scenario, relevanceScore: p.score })));
+      res.json(picked.slice(0, 3).map(p => ({ ...p.scenario, relevanceScore: p.score, mode })));
     } catch (error: any) {
       console.error("[Scenarios] Recommended error:", error);
       res.status(500).json({ error: error.message });
