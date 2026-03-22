@@ -28823,6 +28823,92 @@ You have full access to your neural network knowledge.
     }
   });
 
+  // Scenarios recommended for the user based on their next upcoming curriculum lessons
+  // Returns up to 3 scenarios ranked by topic overlap with the next N incomplete lessons
+  app.get("/api/scenarios/recommended", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getRequestUserId(req);
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+
+      const { classId, language } = req.query as { classId?: string; language?: string };
+      const sharedDb = getSharedDb();
+
+      // Collect requiredTopics from the next 8 upcoming lessons in this class
+      const upcomingTopics = new Set<string>();
+
+      if (classId) {
+        const classRow = await sharedDb.select({ curriculumPathId: teacherClasses.curriculumPathId })
+          .from(teacherClasses)
+          .where(eq(teacherClasses.id, classId))
+          .limit(1);
+
+        const curriculumPathId = classRow[0]?.curriculumPathId;
+        if (curriculumPathId) {
+          const [units, syllabusProgress] = await Promise.all([
+            storage.getCurriculumUnits(curriculumPathId),
+            storage.getSyllabusProgress(userId, classId),
+          ]);
+
+          const completedLessons = new Set(
+            syllabusProgress
+              .filter(p => p.status === 'completed_early' || p.status === 'completed_assigned' || p.tutorVerified)
+              .map(p => p.lessonId)
+          );
+
+          let collected = 0;
+          outer: for (const unit of units) {
+            const lessons = await storage.getCurriculumLessons(unit.id);
+            for (const lesson of lessons) {
+              if (!completedLessons.has(lesson.id)) {
+                for (const topic of lesson.requiredTopics ?? []) upcomingTopics.add(topic);
+                if (lesson.conversationTopic) upcomingTopics.add(lesson.conversationTopic);
+                collected++;
+                if (collected >= 8) break outer;
+              }
+            }
+          }
+        }
+      }
+
+      // Fetch all active scenarios, optionally filtered by language
+      let allScenarios = await sharedDb.select().from(scenarios).where(eq(scenarios.isActive, true));
+      if (language) allScenarios = allScenarios.filter(s => s.languages?.includes(language));
+
+      if (upcomingTopics.size === 0) {
+        // No curriculum context — return a varied random selection
+        const shuffle = <T,>(arr: T[]) => arr.sort(() => Math.random() - 0.5);
+        return res.json(shuffle(allScenarios).slice(0, 3));
+      }
+
+      // Score each scenario by overlap count with upcomingTopics
+      const scored = allScenarios.map(s => ({
+        scenario: s,
+        score: (s.curriculumTopics ?? []).filter(t => upcomingTopics.has(t)).length,
+      }));
+
+      // Sort by score desc, then shuffle within equal-score tiers for variety
+      scored.sort((a, b) => b.score - a.score || Math.random() - 0.5);
+
+      // Prefer category variety in the top 3 — pick best from each group
+      const groups = [['daily', 'travel'], ['professional', 'social'], ['cultural', 'emergency']];
+      const picked: typeof scored = [];
+      for (const cats of groups) {
+        const best = scored.find(s => cats.includes(s.scenario.category) && !picked.includes(s));
+        if (best) picked.push(best);
+      }
+      // Fill to 3 from remaining if a group was empty
+      for (const s of scored) {
+        if (picked.length >= 3) break;
+        if (!picked.includes(s)) picked.push(s);
+      }
+
+      res.json(picked.slice(0, 3).map(p => ({ ...p.scenario, relevanceScore: p.score })));
+    } catch (error: any) {
+      console.error("[Scenarios] Recommended error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/scenarios/:idOrSlug", async (req, res) => {
     try {
       const { idOrSlug } = req.params;

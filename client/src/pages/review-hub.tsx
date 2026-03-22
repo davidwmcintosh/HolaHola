@@ -523,50 +523,62 @@ export default function ReviewHub() {
     enabled: language !== 'all',
   });
 
-  // Query scenarios for the practice strip
-  const { data: allScenarios = [] } = useQuery<Scenario[]>({
-    queryKey: ["/api/scenarios", language],
+  // When the user is in a class, fetch scenarios ranked by topic overlap with their next lessons.
+  // When self-directed, fall back to a curated random selection from different categories.
+  const classId = data?.nextLesson?.classId;
+  const lang = language === 'all' ? 'spanish' : language;
+
+  const { data: recommendedScenarios = [] } = useQuery<Scenario[]>({
+    queryKey: ["/api/scenarios/recommended", classId, lang],
+    enabled: !!classId,
     queryFn: async () => {
-      const lang = language === 'all' ? 'spanish' : language;
+      const params = new URLSearchParams({ language: lang });
+      if (classId) params.set('classId', classId);
+      const response = await fetch(`/api/scenarios/recommended?${params}`, { credentials: 'include' });
+      if (!response.ok) return [];
+      return response.json();
+    },
+  });
+
+  const { data: allScenarios = [] } = useQuery<Scenario[]>({
+    queryKey: ["/api/scenarios", lang],
+    enabled: !classId,
+    queryFn: async () => {
       const response = await fetch(`/api/scenarios?language=${encodeURIComponent(lang)}`, { credentials: 'include' });
       if (!response.ok) return [];
       return response.json();
     },
   });
 
-  // Pick one scenario from each of 3 category groups for variety
-  // Shuffle within each group so the strip rotates naturally across page loads
-  const featuredScenarios = (() => {
-    const shuffle = <T,>(arr: T[]): T[] => {
-      const a = [...arr];
-      for (let i = a.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [a[i], a[j]] = [a[j], a[i]];
-      }
-      return a;
-    };
-    const groups = [
-      ['daily', 'travel'],
-      ['professional', 'social'],
-      ['cultural', 'emergency'],
-    ];
-    const picked: Scenario[] = [];
-    for (const cats of groups) {
-      const pool = allScenarios.filter(s => cats.includes(s.category));
-      const shuffled = shuffle(pool);
-      const pick = shuffled.find(s => s.imageUrl) || shuffled[0];
-      if (pick && !picked.find(p => p.id === pick.id)) picked.push(pick);
-    }
-    // Fill to 3 from remaining if a group was empty
-    if (picked.length < 3) {
-      const remaining = shuffle(allScenarios.filter(s => !picked.find(p => p.id === s.id)));
-      for (const s of remaining) {
-        if (picked.length >= 3) break;
-        picked.push(s);
-      }
-    }
-    return picked;
-  })();
+  // Use recommended (curriculum-aligned) scenarios when in a class, varied random otherwise
+  const featuredScenarios: Scenario[] = classId
+    ? recommendedScenarios.slice(0, 3)
+    : (() => {
+        const shuffle = <T,>(arr: T[]): T[] => {
+          const a = [...arr];
+          for (let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [a[i], a[j]] = [a[j], a[i]];
+          }
+          return a;
+        };
+        const groups = [['daily', 'travel'], ['professional', 'social'], ['cultural', 'emergency']];
+        const picked: Scenario[] = [];
+        for (const cats of groups) {
+          const pool = allScenarios.filter(s => cats.includes(s.category));
+          const shuffled = shuffle(pool);
+          const pick = shuffled.find(s => s.imageUrl) || shuffled[0];
+          if (pick && !picked.find(p => p.id === pick.id)) picked.push(pick);
+        }
+        if (picked.length < 3) {
+          const remaining = shuffle(allScenarios.filter(s => !picked.find(p => p.id === s.id)));
+          for (const s of remaining) {
+            if (picked.length >= 3) break;
+            picked.push(s);
+          }
+        }
+        return picked;
+      })();
 
   if (isLoading) {
     return (
@@ -707,10 +719,17 @@ export default function ReviewHub() {
       {featuredScenarios.length > 0 && (
         <div data-testid="section-scenario-strip">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold flex items-center gap-2">
-              <Play className="h-4 w-4 text-primary" />
-              Practice Scenarios
-            </h2>
+            <div>
+              <h2 className="text-base font-semibold flex items-center gap-2">
+                <Play className="h-4 w-4 text-primary" />
+                Practice Scenarios
+              </h2>
+              {classId && (
+                <p className="text-xs text-muted-foreground mt-0.5 ml-6">
+                  Matched to your next lessons
+                </p>
+              )}
+            </div>
             <Link href="/scenarios">
               <Button variant="ghost" size="sm" className="text-xs gap-1" data-testid="button-view-all-scenarios">
                 View all
