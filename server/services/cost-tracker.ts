@@ -102,6 +102,11 @@ class CostTracker {
     };
   }
 
+  checkBudgetThreshold(thresholdUsd: number, hours = 24): { exceeded: boolean; totalCostUsd: number; thresholdUsd: number } {
+    const s = this.getSummary(hours);
+    return { exceeded: s.totalCostUsd >= thresholdUsd, totalCostUsd: s.totalCostUsd, thresholdUsd };
+  }
+
   formatForReport(hours = 12): string {
     const s = this.getSummary(hours);
     if (s.callCount === 0) return `No AI calls tracked in the last ${hours}h.`;

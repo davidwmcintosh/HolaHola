@@ -79,6 +79,16 @@ function buildTrendLine(prev: LyraSnapshot | null, current: { insightCount: numb
     parts.push(`AI cost: $${prev.costUsd.toFixed(4)} → $${current.costUsd.toFixed(4)} (${costSign}$${costDelta.toFixed(4)})`);
   }
 
+  // Category diff — surfaces new problem areas and resolved ones
+  if (prev.categoryCounts) {
+    const prevCats = Object.keys(prev.categoryCounts).filter(c => (prev.categoryCounts[c] || 0) > 0);
+    const currCats = Object.keys(current.categoryCounts).filter(c => (current.categoryCounts[c] || 0) > 0);
+    const newCats = currCats.filter(c => !prev.categoryCounts[c]);
+    const resolvedCats = prevCats.filter(c => !current.categoryCounts[c]);
+    if (newCats.length > 0) parts.push(`new: ${newCats.map(c => c.replace(/_/g, ' ')).join(', ')}`);
+    if (resolvedCats.length > 0) parts.push(`cleared: ${resolvedCats.map(c => c.replace(/_/g, ' ')).join(', ')}`);
+  }
+
   const prevAge = prev ? Math.round((Date.now() - new Date(prev.timestamp).getTime()) / (60 * 60 * 1000)) : null;
   const ageNote = prevAge !== null ? ` (prev sweep ~${prevAge}h ago)` : '';
 

@@ -25,6 +25,8 @@ import { costTracker } from "./cost-tracker";
 
 const CHECK_INTERVAL_MS = 2 * 60 * 60 * 1000;
 const COOLDOWN_MS = 6 * 60 * 60 * 1000;
+const HEALTH_SCORE_LOW_THRESHOLD = 70;
+const BUDGET_ALERT_USD = 5;
 
 // Rolling history — last 5 cycles used for trend comparison
 interface CycleMetric {
@@ -38,6 +40,16 @@ interface CycleMetric {
 }
 const MAX_CYCLE_HISTORY = 5;
 const cycleHistory: CycleMetric[] = [];
+
+// Health score consecutive drop tracking
+let consecutiveLowScoreCycles = 0;
+
+// Budget alert cooldown (fires at most once per 12h)
+let lastBudgetAlertTime: number | null = null;
+
+// Auto-repair proposal: rolling buffer of last 3 non-NOTHING alert messages
+const MAX_ALERT_HISTORY = 3;
+const recentAlertMessages: string[] = [];
 
 function pct(current: number, avg: number): string {
   if (avg === 0) return current > 0 ? '+∞%' : '—';
@@ -193,6 +205,44 @@ Respond with NOTHING or a message starting with INFO:, WARNING:, or ALERT:`,
     cycleHistory.push(currentMetric);
     if (cycleHistory.length > MAX_CYCLE_HISTORY) cycleHistory.shift();
 
+    // ── Always-on: health score consecutive drop tracking ───────────────────
+    if (currentMetric.healthScore < HEALTH_SCORE_LOW_THRESHOLD) {
+      consecutiveLowScoreCycles++;
+      console.log(`[AldenWatch] Health score ${currentMetric.healthScore} below ${HEALTH_SCORE_LOW_THRESHOLD} — consecutive: ${consecutiveLowScoreCycles}`);
+      if (consecutiveLowScoreCycles >= 2) {
+        const dbH = getUserDb();
+        await dbH.insert(aldenNotifications).values({
+          content: `Health score has been below ${HEALTH_SCORE_LOW_THRESHOLD} for ${consecutiveLowScoreCycles} consecutive watch cycles (current: ${currentMetric.healthScore}). This persistent degradation warrants investigation.`,
+          triggeredBy: 'alden-watch',
+          severity: 'alert',
+          read: false,
+        });
+        console.log(`[AldenWatch] Consecutive low-health alert fired (${consecutiveLowScoreCycles} cycles)`);
+      }
+    } else {
+      if (consecutiveLowScoreCycles > 0) console.log(`[AldenWatch] Health score recovered (${currentMetric.healthScore})`);
+      consecutiveLowScoreCycles = 0;
+    }
+
+    // ── Always-on: cost budget alert (24h window, 12h cooldown) ─────────────
+    const budget = costTracker.checkBudgetThreshold(BUDGET_ALERT_USD, 24);
+    if (budget.exceeded) {
+      const sinceLastBudgetAlert = lastBudgetAlertTime ? Date.now() - lastBudgetAlertTime : Infinity;
+      if (sinceLastBudgetAlert > 12 * 60 * 60 * 1000) {
+        console.log(`[AldenWatch] Budget exceeded: $${budget.totalCostUsd.toFixed(4)} in 24h`);
+        const dbB = getUserDb();
+        await dbB.insert(aldenNotifications).values({
+          content: `AI spend in the last 24h has reached $${budget.totalCostUsd.toFixed(4)}, crossing the $${budget.thresholdUsd} threshold. Review the cost breakdown in Lyra's next report.`,
+          triggeredBy: 'alden-watch',
+          severity: 'warning',
+          read: false,
+        });
+        lastBudgetAlertTime = Date.now();
+        console.log('[AldenWatch] Budget alert queued');
+      }
+    }
+
+    // ── Claude intelligence: conditional on having a real finding ────────────
     const text = (response.content[0] as any)?.text?.trim() || 'NOTHING';
     if (text === 'NOTHING' || text.startsWith('NOTHING')) {
       console.log('[AldenWatch] Check complete — no notification needed');
@@ -224,6 +274,18 @@ Respond with NOTHING or a message starting with INFO:, WARNING:, or ALERT:`,
 
     console.log(`[AldenWatch] Queued ${severity} notification: "${message.substring(0, 80)}..."`);
 
+    // Track alert messages for recurring-pattern detection
+    recentAlertMessages.push(message);
+    if (recentAlertMessages.length > MAX_ALERT_HISTORY) recentAlertMessages.shift();
+
+    // Auto-repair proposal: if the same class of issue has fired 3 cycles in a row,
+    // ask Claude to synthesise a fix proposal and post it to the Hive for Wren.
+    if (recentAlertMessages.length === MAX_ALERT_HISTORY) {
+      checkAndPostRepairProposal(client, recentAlertMessages).catch(err =>
+        console.warn('[AldenWatch] Repair proposal check failed:', err.message)
+      );
+    }
+
     // For WARNING or ALERT severity, attempt autonomous repair immediately.
     // Auto-repair runs its own eligibility + confidence gates — if the issue
     // isn't safely fixable it bails without touching anything.
@@ -241,8 +303,51 @@ Respond with NOTHING or a message starting with INFO:, WARNING:, or ALERT:`,
         console.warn('[AldenWatch] Auto-repair attempt threw:', err.message);
       });
     }
+
   } catch (err: any) {
     console.warn('[AldenWatch] Watch cycle failed:', err.message);
+  }
+}
+
+/**
+ * If the last MAX_ALERT_HISTORY watch-cycle alerts share a common pattern,
+ * Claude drafts a fix proposal and posts it to the Hive for Wren to action.
+ * Only fires once per pattern; clears after posting.
+ */
+async function checkAndPostRepairProposal(client: Anthropic, messages: string[]): Promise<void> {
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-5',
+    max_tokens: 400,
+    messages: [{
+      role: 'user',
+      content: `These are the last ${messages.length} watch-cycle alerts from the HoloHola system monitor:\n\n${messages.map((m, i) => `Alert ${i + 1}: ${m}`).join('\n\n')}\n\nDo these alerts share a recurring root cause? If yes, write a concise fix proposal (2-4 sentences) addressed to Wren that identifies the pattern and suggests a concrete action. If they are unrelated one-off events, respond with exactly: UNRELATED`,
+    }],
+  });
+
+  if (response.usage) {
+    costTracker.track('claude-sonnet-4-5', response.usage.input_tokens, response.usage.output_tokens, 'alden-repair-proposal');
+  }
+
+  const proposal = (response.content[0] as any)?.text?.trim() || 'UNRELATED';
+  if (proposal === 'UNRELATED' || proposal.startsWith('UNRELATED')) {
+    console.log('[AldenWatch] Repair proposal check: alerts are unrelated — no proposal needed');
+    return;
+  }
+
+  console.log('[AldenWatch] Recurring pattern detected — queuing repair proposal');
+  try {
+    const dbR = getUserDb();
+    await dbR.insert(aldenNotifications).values({
+      content: `[Recurring Pattern → Wren] The last ${messages.length} watch cycles flagged a common issue. Proposed fix: ${proposal}`,
+      triggeredBy: 'alden-watch',
+      severity: 'warning',
+      read: false,
+    });
+    // Clear the buffer so we don't fire the same proposal repeatedly
+    recentAlertMessages.length = 0;
+    console.log('[AldenWatch] Repair proposal queued and buffer cleared');
+  } catch (e: any) {
+    console.warn('[AldenWatch] Could not queue repair proposal:', e.message);
   }
 }
 

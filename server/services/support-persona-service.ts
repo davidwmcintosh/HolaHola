@@ -1399,11 +1399,71 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
         environment,
       });
       
+      // Predictive detection: 24h window for sustained low-level patterns
+      await this.runPredictiveCheck();
+
       this.lastCheckTime = now;
       console.log(`[Sofia Monitor] Check complete: ${allPending.length} pending, ${newSinceLastCheck} new`);
       
     } catch (error) {
       console.error('[Sofia Monitor] Error in monitoring check:', error);
+    }
+  }
+
+  /**
+   * Predictive detection: look for issue types accumulating over 24h
+   * even if they haven't hit the 1h cluster threshold yet.
+   * Fires a "sustained pattern" warning to the Express Lane.
+   */
+  private async runPredictiveCheck(): Promise<void> {
+    try {
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const recentReports24h = await getUserDb().select()
+        .from(sofiaIssueReports)
+        .where(and(
+          sql`${sofiaIssueReports.createdAt} > ${twentyFourHoursAgo}`,
+          eq(sofiaIssueReports.status, 'pending'),
+        ))
+        .orderBy(desc(sofiaIssueReports.createdAt));
+
+      const byType24h: Record<string, typeof recentReports24h> = {};
+      for (const r of recentReports24h) {
+        const t = r.issueType || 'unknown';
+        if (!byType24h[t]) byType24h[t] = [];
+        byType24h[t].push(r);
+      }
+
+      const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
+      const PREDICTIVE_THRESHOLD = 3;
+      const PREDICTIVE_COOLDOWN_MS = 4 * 60 * 60 * 1000; // 4h cooldown per type
+
+      for (const [issueType, reports] of Object.entries(byType24h)) {
+        if (reports.length < PREDICTIVE_THRESHOLD) continue;
+
+        // Check if the 1h alert already fired for this type (skip if so — not predictive)
+        const hourCooldownKey = `${issueType}-${environment}`;
+        const lastHourAlert = this.patternAlertCooldown.get(hourCooldownKey);
+        if (lastHourAlert && (Date.now() - lastHourAlert.getTime()) < 30 * 60 * 1000) continue;
+
+        // Check predictive cooldown
+        const predictKey = `predict-24h-${issueType}-${environment}`;
+        const lastPredict = this.patternAlertCooldown.get(predictKey);
+        if (lastPredict && (Date.now() - lastPredict.getTime()) < PREDICTIVE_COOLDOWN_MS) continue;
+
+        console.log(`[Sofia Monitor] Predictive: ${reports.length}x ${issueType} in 24h — elevated risk`);
+        await founderCollabService.emitSofiaPatternAlert({
+          patternType: 'cluster',
+          issueType,
+          count: reports.length,
+          timeWindowMinutes: 1440,
+          environment,
+          recentReportIds: reports.slice(0, 5).map(r => r.id),
+          recommendation: `Sustained ${reports.length} "${issueType}" reports in 24h — pre-flagging as elevated risk before it hits critical cluster threshold.`,
+        });
+        this.patternAlertCooldown.set(predictKey, new Date());
+      }
+    } catch (err: any) {
+      console.warn('[Sofia Monitor] Predictive check error:', err.message);
     }
   }
   
