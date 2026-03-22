@@ -264,14 +264,26 @@ Results are returned as an array, one entry per pattern, in the order requested.
   },
   {
     name: "browser_screenshot",
-    description: "Take a screenshot of any page in the running HolaHola app and get an AI analysis of what you see. Use this after making a UI change to verify it looks right, or to inspect something David describes. Specify a page path (e.g. '/alden', '/team-room', '/') and an optional question about what you're looking for.",
+    description: "Take a screenshot of any page — either inside the HolaHola app or an external URL — and get an AI visual analysis of what you see. Use for internal UI verification (layout, badges, broken elements) or external pages (Stripe dashboard, Anthropic status, Replit deploy page). Pass a path like '/alden' for internal pages, or a full URL like 'https://status.stripe.com' for external ones.",
     input_schema: {
       type: "object" as const,
       properties: {
-        page: { type: "string" as const, description: "Page path to visit, e.g. '/', '/alden', '/team-room', '/interactive-textbook'. Do not include the domain." },
-        question: { type: "string" as const, description: "What you want to know about the screenshot, e.g. 'Does the sidebar badge appear correctly?' or 'Is the layout broken?'" },
+        page: { type: "string" as const, description: "Internal path (e.g. '/alden', '/team-room') OR full external URL (e.g. 'https://status.stripe.com', 'https://status.anthropic.com')." },
+        question: { type: "string" as const, description: "What you want to know about the screenshot, e.g. 'Is Stripe reporting any incidents?' or 'Does the sidebar badge appear correctly?'" },
       },
       required: ["page"],
+    },
+  },
+  {
+    name: "fetch_web_page",
+    description: "Fetch the text content of any external web page — status pages, documentation, API references, news. Returns readable text, not a screenshot. Better than browser_screenshot when you need to read and reason about content (not just visually inspect it). Use for: checking https://status.stripe.com, https://status.anthropic.com, https://status.deepgram.com, reading docs, verifying a third-party API is down.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        url: { type: "string" as const, description: "Full URL to fetch, e.g. 'https://status.stripe.com' or 'https://docs.anthropic.com/claude/reference'." },
+        focus: { type: "string" as const, description: "Optional: what to look for or summarize from the page, e.g. 'any active incidents' or 'rate limit documentation'." },
+      },
+      required: ["url"],
     },
   },
   {
@@ -1437,7 +1449,10 @@ export async function executeAldenTool(
       case "browser_screenshot": {
         const { page, question = 'Describe what you see on this page. Note any visual issues, layout problems, or anything that looks out of place.' } = args;
         const { browseAndCapture, analyzeScreenshot } = await import('./playwright-browser-service');
-        const targetUrl = `http://localhost:5000${page.startsWith('/') ? page : '/' + page}`;
+        const isExternal = page.startsWith('http://') || page.startsWith('https://');
+        const targetUrl = isExternal
+          ? page
+          : `http://localhost:5000${page.startsWith('/') ? page : '/' + page}`;
 
         const browseResult = await browseAndCapture(targetUrl);
         const analysis = await analyzeScreenshot(browseResult.screenshotBase64, question);
@@ -1449,6 +1464,38 @@ export async function executeAldenTool(
             analysis,
             loadTimeMs: browseResult.loadTimeMs,
             message: analysis,
+          },
+        };
+      }
+
+      case "fetch_web_page": {
+        const { url, focus = 'Summarize the key content on this page.' } = args;
+        const { chromium } = await import('playwright');
+        let textContent = '';
+        try {
+          const browser = await chromium.launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process'],
+          });
+          const page = await browser.newPage();
+          await page.setUserAgent('Mozilla/5.0 (compatible; AldenBot/1.0)');
+          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+          await page.waitForTimeout(1500);
+          textContent = await page.evaluate(() => {
+            document.querySelectorAll('script, style, nav, footer, iframe').forEach(el => el.remove());
+            return document.body?.innerText?.replace(/\s+/g, ' ').trim().slice(0, 8000) || '';
+          });
+          await browser.close();
+        } catch (e: any) {
+          textContent = `[Could not fetch page: ${e.message}]`;
+        }
+
+        return {
+          data: {
+            url,
+            focus,
+            content: textContent,
+            message: `URL: ${url}\n\nFocus: ${focus}\n\nContent:\n${textContent}`,
           },
         };
       }
@@ -1592,4 +1639,4 @@ ${agentSection}`;
   }
 }
 
-console.log('[Alden Functions] Loaded — 28 tools ready (monitoring + code + shell + memory + notifications + browser + briefing + express-lane-search + agent-notes)');
+console.log('[Alden Functions] Loaded — 29 tools ready (monitoring + code + shell + memory + notifications + browser + web-fetch + briefing + express-lane-search + agent-notes)');
