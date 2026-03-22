@@ -277,6 +277,14 @@ const stripeInitPromise = (async function initStripe() {
       startScenarioImageWorker();
     }).catch(err => console.error('Failed to import scenario-image-generator:', err));
 
+    // Augment Level 3-5 curriculum paths with thematic topic units — one-shot background worker
+    // Adds Technology, Travel, Health (L3), Business, Science, Arts (L4), Finance, Media, Heritage (L5)
+    setTimeout(() => {
+      import('./services/curriculum-augmentor').then(({ startCurriculumAugmentor }) => {
+        startCurriculumAugmentor();
+      }).catch(err => console.error('Failed to import curriculum-augmentor:', err));
+    }, 15000); // 15s delay — let the server stabilize before generating content
+
     // Initialize procedural memory cache for tool knowledge
     try {
       console.log('Initializing procedural memory cache...');
