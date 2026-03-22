@@ -4,6 +4,7 @@ import { callGeminiWithSchema, GEMINI_MODELS } from '../gemini-utils';
 import Anthropic from '@anthropic-ai/sdk';
 import * as fs from 'fs';
 import * as path from 'path';
+import { costTracker } from './cost-tracker';
 
 const anthropic = new Anthropic({
   apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
@@ -11,7 +12,7 @@ const anthropic = new Anthropic({
 });
 
 export interface LyraInsight {
-  category: 'content_quality' | 'content_freshness' | 'student_success' | 'onboarding' | 'coverage_gap' | 'textbook_engagement' | 'conversational_credit';
+  category: 'content_quality' | 'content_freshness' | 'student_success' | 'onboarding' | 'coverage_gap' | 'textbook_engagement' | 'conversational_credit' | 'class_churn';
   severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
   confidence: number;
   title: string;
@@ -30,11 +31,22 @@ interface ContentAuditData {
   templatedContent: Array<{ language: string; templated_count: number; total_count: number; pct_templated: number }>;
 }
 
+interface ClassChurnEntry {
+  classId: string;
+  className: string;
+  language: string;
+  enrolledCount: number;
+  atRiskCount: number;
+  coolingOffCount: number;
+  neverActiveCount: number;
+}
+
 interface StudentSuccessData {
   lessonDropoff: Array<{ lessonId: string; lessonName: string; unitName: string; language: string; startedCount: number; completedCount: number; completionRate: number }>;
   drillStruggles: Array<{ drillItemId: string; prompt: string; targetText: string; language: string; avgScore: number; attemptCount: number; userCount: number }>;
   streakBreakers: Array<{ language: string; avgStreak: number; brokenStreaks: number; activeUsers: number }>;
   actflBottlenecks: Array<{ language: string; avgTasksCompleted: number; avgPronunciation: number; userCount: number }>;
+  classChurn: ClassChurnEntry[];
 }
 
 interface OnboardingData {
@@ -302,11 +314,69 @@ export class LyraAnalyticsService {
       ORDER BY avg_tasks_completed ASC
     `);
 
+    // Class churn: find classes where enrolled students have gone silent
+    let classChurnRows: any[] = [];
+    try {
+      const churnResult = await db.execute(sql`
+        WITH class_activity AS (
+          SELECT
+            ce.class_id,
+            ce.student_id,
+            GREATEST(
+              MAX(vs.ended_at),
+              MAX(c.created_at)
+            ) AS last_activity
+          FROM class_enrollments ce
+          LEFT JOIN voice_sessions vs
+            ON vs.user_id = ce.student_id AND vs.class_id = ce.class_id
+          LEFT JOIN conversations c
+            ON c.user_id = ce.student_id AND c.class_id = ce.class_id
+          WHERE ce.is_active = true
+          GROUP BY ce.class_id, ce.student_id
+        )
+        SELECT
+          tc.id                                        AS class_id,
+          tc.name                                      AS class_name,
+          tc.language,
+          COUNT(DISTINCT ca.student_id)                AS enrolled_count,
+          COUNT(DISTINCT CASE
+            WHEN ca.last_activity < NOW() - INTERVAL '7 days'
+             AND ca.last_activity >= NOW() - INTERVAL '30 days'
+            THEN ca.student_id END)                   AS at_risk_count,
+          COUNT(DISTINCT CASE
+            WHEN ca.last_activity < NOW() - INTERVAL '3 days'
+             AND ca.last_activity >= NOW() - INTERVAL '7 days'
+            THEN ca.student_id END)                   AS cooling_off_count,
+          COUNT(DISTINCT CASE
+            WHEN ca.last_activity IS NULL
+            THEN ca.student_id END)                   AS never_active_count
+        FROM teacher_classes tc
+        JOIN class_activity ca ON ca.class_id = tc.id
+        WHERE tc.is_active = true
+        GROUP BY tc.id, tc.name, tc.language
+        HAVING COUNT(DISTINCT ca.student_id) > 0
+        ORDER BY at_risk_count DESC
+        LIMIT 20
+      `);
+      classChurnRows = (churnResult.rows || []) as any[];
+    } catch (err: any) {
+      // Class tables may not exist on all environments — non-fatal
+    }
+
     return {
       lessonDropoff: (lessonDropoff.rows || []) as any[],
       drillStruggles: (drillStruggles.rows || []) as any[],
       streakBreakers: (streakBreakers.rows || []) as any[],
       actflBottlenecks: (actflBottlenecks.rows || []) as any[],
+      classChurn: classChurnRows.map(r => ({
+        classId: r.class_id,
+        className: r.class_name,
+        language: r.language,
+        enrolledCount: Number(r.enrolled_count),
+        atRiskCount: Number(r.at_risk_count),
+        coolingOffCount: Number(r.cooling_off_count),
+        neverActiveCount: Number(r.never_active_count),
+      })),
     };
   }
 
@@ -647,6 +717,58 @@ export class LyraAnalyticsService {
       });
     }
 
+    // Class churn signals
+    const atRiskClasses = (data.classChurn || []).filter(c => c.atRiskCount > 0);
+    const coolingOffClasses = (data.classChurn || []).filter(c => c.coolingOffCount > 0 && c.atRiskCount === 0);
+    const neverActiveClasses = (data.classChurn || []).filter(c => c.neverActiveCount > 0);
+
+    if (atRiskClasses.length > 0) {
+      const totalAtRisk = atRiskClasses.reduce((sum, c) => sum + c.atRiskCount, 0);
+      const totalEnrolled = atRiskClasses.reduce((sum, c) => sum + c.enrolledCount, 0);
+      const riskRate = totalEnrolled > 0 ? Math.round((totalAtRisk / totalEnrolled) * 100) : 0;
+      const classLines = atRiskClasses.slice(0, 3).map(c =>
+        `"${c.className}" (${c.language}): ${c.atRiskCount}/${c.enrolledCount} at risk`
+      ).join('; ');
+      insights.push({
+        category: 'class_churn',
+        severity: riskRate > 40 ? 'high' : 'medium',
+        confidence: 0.82,
+        title: `${totalAtRisk} student(s) at churn risk across ${atRiskClasses.length} class(es)`,
+        description: `${riskRate}% of enrolled students have been silent for 7+ days after prior activity. Classes: ${classLines}. Teachers may not be aware. Proactive intervention can prevent silent dropout.`,
+        data: { classes: atRiskClasses },
+        recommendation: `Notify class teachers that students have gone quiet. Daniela could send a re-engagement nudge or prompt the teacher to check in. A 7-day silence threshold is an early warning — easier to recover at this stage than at 30 days.`,
+        needsReview: atRiskClasses.length > 0,
+      });
+    }
+
+    if (coolingOffClasses.length > 0) {
+      const totalCooling = coolingOffClasses.reduce((sum, c) => sum + c.coolingOffCount, 0);
+      insights.push({
+        category: 'class_churn',
+        severity: 'low',
+        confidence: 0.70,
+        title: `${totalCooling} student(s) cooling off (3-7 day gap) in ${coolingOffClasses.length} class(es)`,
+        description: `These students haven't engaged in 3-7 days after being previously active — a leading indicator of churn. Classes: ${coolingOffClasses.slice(0, 3).map(c => `"${c.className}" (${c.coolingOffCount})`).join(', ')}.`,
+        data: { classes: coolingOffClasses },
+        recommendation: `Monitor these students. If they don't return within 4 more days they'll enter the at-risk window. A Daniela nudge at the cooling-off stage is cheapest and most effective.`,
+        needsReview: false,
+      });
+    }
+
+    if (neverActiveClasses.length > 0) {
+      const totalNever = neverActiveClasses.reduce((sum, c) => sum + c.neverActiveCount, 0);
+      insights.push({
+        category: 'class_churn',
+        severity: 'info',
+        confidence: 0.90,
+        title: `${totalNever} enrolled student(s) have never started a session`,
+        description: `Enrolled but never activated across ${neverActiveClasses.length} class(es). These may be onboarding drop-offs or test accounts. Classes: ${neverActiveClasses.slice(0, 3).map(c => `"${c.className}" (${c.neverActiveCount})`).join(', ')}.`,
+        data: { classes: neverActiveClasses },
+        recommendation: `Check if these are real students who need an activation nudge, or test accounts that should be excluded. The join code may have been shared but orientation not completed.`,
+        needsReview: false,
+      });
+    }
+
     return insights;
   }
 
@@ -911,6 +1033,10 @@ Write your analysis as Lyra. Sign off with your name. Keep it 4-6 paragraphs —
           }
         ],
       });
+
+      if (response.usage) {
+        costTracker.track('claude-sonnet-4-5', response.usage.input_tokens, response.usage.output_tokens, 'lyra-analysis');
+      }
 
       const textBlock = response.content.find(b => b.type === 'text');
       return textBlock?.text || 'Analysis unavailable.';
@@ -1434,7 +1560,7 @@ ${insights.slice(0, 5).map(i => `- [${i.severity.toUpperCase()}] ${i.title}`).jo
     console.log('[Lyra] Starting full learning experience analysis...');
 
     let contentData: ContentAuditData = { staleContent: [], emptyDescriptions: [], missingActflLevels: [], orphanedDrills: [], languageCoverage: [], templatedContent: [] };
-    let studentData: StudentSuccessData = { lessonDropoff: [], drillStruggles: [], streakBreakers: [], actflBottlenecks: [] };
+    let studentData: StudentSuccessData = { lessonDropoff: [], drillStruggles: [], streakBreakers: [], actflBottlenecks: [], classChurn: [] };
     let onboardingData: OnboardingData = { totalUsers: 0, usersWithConversation: 0, conversionRate: 0, avgDaysToFirstChat: 0, returnRate7d: 0, recentSignups: [] };
     let textbookData: TextbookEngagementData = { totalSections: 0, totalViewed: 0, totalCompleted: 0, uniqueUsers: 0, uniqueLessons: 0, totalLessons: 0, visualAssetCount: 0, userBreakdown: [], languageBreakdown: [], completionByType: [] };
     let componentCoverageData: ComponentCoverageData = { manifest: null, gaps: [], complete: [], lastUpdated: 'unknown' };

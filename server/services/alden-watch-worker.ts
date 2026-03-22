@@ -21,9 +21,46 @@ import {
   type MetricType,
 } from "./monitoring-service";
 import { attemptAutoRepair } from "./alden-auto-repair";
+import { costTracker } from "./cost-tracker";
 
-const CHECK_INTERVAL_MS = 2 * 60 * 60 * 1000; // every 2 hours
-const COOLDOWN_MS = 6 * 60 * 60 * 1000;        // don't notify more than once per 6 hours
+const CHECK_INTERVAL_MS = 2 * 60 * 60 * 1000;
+const COOLDOWN_MS = 6 * 60 * 60 * 1000;
+
+// Rolling history — last 5 cycles used for trend comparison
+interface CycleMetric {
+  timestamp: number;
+  activeStudents: number;
+  voiceSessionsToday: number;
+  newConversations24h: number;
+  issueCount: number;
+  heapUsedMB: number;
+  healthScore: number;
+}
+const MAX_CYCLE_HISTORY = 5;
+const cycleHistory: CycleMetric[] = [];
+
+function pct(current: number, avg: number): string {
+  if (avg === 0) return current > 0 ? '+∞%' : '—';
+  const delta = ((current - avg) / avg) * 100;
+  return (delta >= 0 ? '+' : '') + delta.toFixed(0) + '%';
+}
+
+function buildTrendBlock(current: CycleMetric, history: CycleMetric[]): Record<string, any> {
+  if (history.length === 0) return { note: 'First cycle — no baseline yet' };
+  const avg = (key: keyof CycleMetric) => {
+    const vals = history.map(h => h[key] as number);
+    return vals.reduce((a, b) => a + b, 0) / vals.length;
+  };
+  return {
+    cyclesInBaseline: history.length,
+    activeStudents:      `${current.activeStudents} (${pct(current.activeStudents, avg('activeStudents'))} vs avg)`,
+    voiceSessionsToday:  `${current.voiceSessionsToday} (${pct(current.voiceSessionsToday, avg('voiceSessionsToday'))} vs avg)`,
+    newConversations24h: `${current.newConversations24h} (${pct(current.newConversations24h, avg('newConversations24h'))} vs avg)`,
+    issueCount:          `${current.issueCount} (${pct(current.issueCount, avg('issueCount'))} vs avg)`,
+    heapUsedMB:          `${current.heapUsedMB.toFixed(0)} MB (${pct(current.heapUsedMB, avg('heapUsedMB'))} vs avg)`,
+    healthScore:         `${current.healthScore} (${pct(current.healthScore, avg('healthScore'))} vs avg)`,
+  };
+}
 
 async function getLastNotificationAge(): Promise<number> {
   try {
@@ -56,6 +93,18 @@ async function runWatchCycle() {
       executeAldenTool('get_pending_issues', {}),
       executeAldenTool('check_learning_metrics', {}),
     ]);
+
+    // Build current cycle metric for trend tracking
+    const currentMetric: CycleMetric = {
+      timestamp: Date.now(),
+      activeStudents:      learning.data?.activeStudents || 0,
+      voiceSessionsToday:  learning.data?.voiceSessionsToday || 0,
+      newConversations24h: learning.data?.newConversationsLast24h || 0,
+      issueCount:          issues.data?.issues?.length || 0,
+      heapUsedMB:          health.data?.memory?.heapUsedMB || 0,
+      healthScore:         health.data?.voiceHealth?.score || 0,
+    };
+    const trendBlock = buildTrendBlock(currentMetric, cycleHistory);
 
     // Capture monitoring snapshots
     await Promise.all([
@@ -95,6 +144,7 @@ async function runWatchCycle() {
       database: dbStats.data,
       issues: issues.data,
       learning: learning.data,
+      trends: trendBlock,
       anomalies: anomalies.map(a => ({
         metric: a.metric,
         severity: a.severity,
@@ -106,7 +156,7 @@ async function runWatchCycle() {
         confidence: p.confidence,
         findings: p.findings,
       })),
-    }, null, 2).substring(0, 5000);
+    }, null, 2).substring(0, 5500);
 
     // Ask Alden's intelligence if anything warrants a notification
     const client = new Anthropic({
@@ -134,6 +184,14 @@ Rules:
 Respond with NOTHING or a message starting with INFO:, WARNING:, or ALERT:`,
       }],
     });
+
+    if (response.usage) {
+      costTracker.track('claude-sonnet-4-5', response.usage.input_tokens, response.usage.output_tokens, 'alden-watch');
+    }
+
+    // Save this cycle to rolling history (capped at MAX_CYCLE_HISTORY)
+    cycleHistory.push(currentMetric);
+    if (cycleHistory.length > MAX_CYCLE_HISTORY) cycleHistory.shift();
 
     const text = (response.content[0] as any)?.text?.trim() || 'NOTHING';
     if (text === 'NOTHING' || text.startsWith('NOTHING')) {

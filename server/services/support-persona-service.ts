@@ -14,6 +14,7 @@
  */
 
 import { GoogleGenAI } from "@google/genai";
+import { costTracker } from './cost-tracker';
 import { db, getUserDb, getSharedDb } from "../db";
 import { 
   supportTickets,
@@ -269,6 +270,11 @@ class SupportPersonaService {
   }): Promise<void> {
     const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
     
+    // In development, runtime faults are expected artifacts — auto-resolve immediately
+    // to prevent them filling the pending queue. Track the suppression count for Lyra.
+    const isDev = environment === 'development';
+    if (isDev) costTracker.incrementDevAutoResolved();
+
     try {
       // Create an issue report for this runtime fault
       const [report] = await getUserDb().insert(sofiaIssueReports)
@@ -277,7 +283,9 @@ class SupportPersonaService {
           ticketId: params.ticketId,
           issueType: `runtime_fault:${params.errorType}`,
           userDescription: `[SOFIA RUNTIME FAULT] ${params.errorMessage}`,
-          sofiaAnalysis: `Error occurred in ${environment}. Code: ${params.errorCode || 'N/A'}. This is an automated fault report - Sofia's LLM subsystem encountered an error.`,
+          sofiaAnalysis: isDev
+            ? `[Auto-resolved] Development environment runtime fault — non-actionable. Code: ${params.errorCode || 'N/A'}.`
+            : `Error occurred in ${environment}. Code: ${params.errorCode || 'N/A'}. This is an automated fault report - Sofia's LLM subsystem encountered an error.`,
           diagnosticSnapshot: {
             errorType: params.errorType,
             errorMessage: params.errorMessage,
@@ -290,22 +298,24 @@ class SupportPersonaService {
           },
           clientTelemetry: params.context || null,
           environment,
-          status: 'pending',
-          syncStatus: 'pending_sync', // Mark for sync to dev environment
+          status: isDev ? 'resolved' : 'pending',
+          syncStatus: isDev ? 'synced' : 'pending_sync',
         })
         .returning();
       
-      console.log(`[Sofia] Runtime fault reported: ${params.errorType} (${report.id}) in ${environment}`);
+      console.log(`[Sofia] Runtime fault ${isDev ? 'auto-resolved (dev)' : 'reported'}: ${params.errorType} (${report.id}) in ${environment}`);
       
-      // Emit EXPRESS Lane alert for immediate founder visibility
-      founderCollabService.emitSofiaIssueAlert({
-        reportId: report.id,
-        issueType: `runtime_fault:${params.errorType}`,
-        userDescription: `[RUNTIME] ${params.errorMessage}`,
-        environment,
-        hasVoiceDiagnostics: false,
-        hasClientTelemetry: !!params.context,
-      }).catch(e => console.warn('[Sofia] Failed to emit fault alert:', e));
+      // Only emit EXPRESS Lane alert for production runtime faults
+      if (!isDev) {
+        founderCollabService.emitSofiaIssueAlert({
+          reportId: report.id,
+          issueType: `runtime_fault:${params.errorType}`,
+          userDescription: `[RUNTIME] ${params.errorMessage}`,
+          environment,
+          hasVoiceDiagnostics: false,
+          hasClientTelemetry: !!params.context,
+        }).catch(e => console.warn('[Sofia] Failed to emit fault alert:', e));
+      }
       
     } catch (e) {
       // Last resort - just log, don't throw

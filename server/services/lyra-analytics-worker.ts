@@ -4,12 +4,86 @@ import { postToActiveTeamRoom } from './team-room-proactive-poster';
 import { triggerActflAlignment } from './lyra-content-trigger-service';
 import { triggerAldenCheckIn } from './alden-checkin-service';
 import { resetCreditStats } from './conversational-credit-service';
+import { costTracker } from './cost-tracker';
 import { getSharedDb } from '../db';
 import { founderSessions, users } from '@shared/schema';
 import { eq, and, desc, inArray } from 'drizzle-orm';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const AUDIT_INTERVAL_MS = 12 * 60 * 60 * 1000;
 const LYRA_SESSION_TITLE = 'Lyra Learning Experience Analyst';
+const HISTORY_FILE = path.join(process.cwd(), '.local', 'lyra-history.json');
+const MAX_HISTORY_ENTRIES = 10;
+
+interface LyraSnapshot {
+  timestamp: string;
+  auditNumber: number;
+  insightCount: number;
+  severityCounts: Record<string, number>;
+  categoryCounts: Record<string, number>;
+  creditMastered: number;
+  creditTurns: number;
+  costUsd: number;
+  topTitles: string[];
+}
+
+function loadLyraHistory(): LyraSnapshot[] {
+  try {
+    const raw = fs.readFileSync(HISTORY_FILE, 'utf8');
+    return JSON.parse(raw) as LyraSnapshot[];
+  } catch {
+    return [];
+  }
+}
+
+function saveLyraSnapshot(snapshot: LyraSnapshot): void {
+  try {
+    const history = loadLyraHistory();
+    history.push(snapshot);
+    if (history.length > MAX_HISTORY_ENTRIES) history.splice(0, history.length - MAX_HISTORY_ENTRIES);
+    fs.mkdirSync(path.dirname(HISTORY_FILE), { recursive: true });
+    fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2), 'utf8');
+  } catch (err: any) {
+    console.warn('[Lyra Worker] Could not save history snapshot:', err.message);
+  }
+}
+
+function buildTrendLine(prev: LyraSnapshot | null, current: { insightCount: number; severityCounts: Record<string, number>; categoryCounts: Record<string, number>; creditMastered: number; costUsd: number }): string {
+  if (!prev) return '';
+
+  const parts: string[] = [];
+  const insightDelta = current.insightCount - prev.insightCount;
+  const insightSign = insightDelta >= 0 ? '+' : '';
+  parts.push(`Total insights: ${prev.insightCount} → ${current.insightCount} (${insightSign}${insightDelta})`);
+
+  const criticalDelta = (current.severityCounts.critical || 0) - (prev.severityCounts.critical || 0);
+  if (criticalDelta !== 0) {
+    const sign = criticalDelta > 0 ? '+' : '';
+    parts.push(`critical: ${sign}${criticalDelta}`);
+  }
+  const highDelta = (current.severityCounts.high || 0) - (prev.severityCounts.high || 0);
+  if (highDelta !== 0) {
+    const sign = highDelta > 0 ? '+' : '';
+    parts.push(`high: ${sign}${highDelta}`);
+  }
+
+  const masteredDelta = current.creditMastered - prev.creditMastered;
+  if (masteredDelta !== 0 || current.creditMastered > 0) {
+    parts.push(`mastery via chat: ${prev.creditMastered} → ${current.creditMastered}`);
+  }
+
+  const costDelta = current.costUsd - prev.costUsd;
+  if (prev.costUsd > 0) {
+    const costSign = costDelta >= 0 ? '+' : '';
+    parts.push(`AI cost: $${prev.costUsd.toFixed(4)} → $${current.costUsd.toFixed(4)} (${costSign}$${costDelta.toFixed(4)})`);
+  }
+
+  const prevAge = prev ? Math.round((Date.now() - new Date(prev.timestamp).getTime()) / (60 * 60 * 1000)) : null;
+  const ageNote = prevAge !== null ? ` (prev sweep ~${prevAge}h ago)` : '';
+
+  return `Since last sweep${ageNote}: ${parts.join(' | ')}`;
+}
 
 let auditInterval: ReturnType<typeof setInterval> | null = null;
 let isRunning = false;
@@ -85,9 +159,16 @@ function buildCategoryCounts(insights: LyraInsight[]): Record<string, number> {
   return counts;
 }
 
-function formatCompactReport(insights: LyraInsight[], severityCounts: Record<string, number>): string {
+function formatCompactReport(
+  insights: LyraInsight[],
+  severityCounts: Record<string, number>,
+  trendLine?: string,
+  costReport?: string,
+): string {
   if (insights.length === 0) {
-    return `**Lyra Learning Experience Sweep — All Clear**\n\nNo issues detected across content quality, student success, and onboarding metrics. Everything looks healthy.\n\n*Next analysis in ${AUDIT_INTERVAL_MS / (60 * 60 * 1000)}h*`;
+    const trend = trendLine ? `\n\n*${trendLine}*` : '';
+    const cost = costReport ? `\n\n${costReport}` : '';
+    return `**Lyra Learning Experience Sweep — All Clear**\n\nNo issues detected across content quality, student success, onboarding, and class engagement. Everything looks healthy.${trend}${cost}\n\n*Next analysis in ${AUDIT_INTERVAL_MS / (60 * 60 * 1000)}h*`;
   }
 
   const categoryCounts = buildCategoryCounts(insights);
@@ -111,6 +192,9 @@ function formatCompactReport(insights: LyraInsight[], severityCounts: Record<str
   const creditInsights = insights.filter(i => i.category === 'conversational_credit');
   const creditParagraph = creditInsights.length > 0 ? formatCreditParagraph(creditInsights) : '';
 
+  const trendSection = trendLine ? `\n*${trendLine}*\n` : '';
+  const costSection = costReport ? `\n${costReport}\n` : '';
+
   return `**Lyra Learning Experience Analysis — ${insights.length} Insight(s)**
 
 Severity: ${severityCounts.critical} critical, ${severityCounts.high} high, ${severityCounts.medium} medium, ${severityCounts.low} low, ${severityCounts.info} info
@@ -118,10 +202,10 @@ ${needsReview > 0 ? `Flagged for Daniela review: ${needsReview}` : ''}
 
 By category:
 ${categoryList}
-
+${trendSection}
 Top insights:
 ${topInsights}
-${creditParagraph ? `\n${creditParagraph}` : ''}
+${creditParagraph ? `\n${creditParagraph}` : ''}${costSection}
 *Full analysis follows. Next sweep in ${AUDIT_INTERVAL_MS / (60 * 60 * 1000)}h.*`;
 }
 
@@ -166,13 +250,38 @@ async function runAnalysis(): Promise<void> {
   try {
     console.log(`[Lyra Worker] Starting learning experience analysis #${stats.totalAudits + 1}...`);
 
+    // Load previous snapshot for trend comparison
+    const history = loadLyraHistory();
+    const prevSnapshot = history.length > 0 ? history[history.length - 1] : null;
+
     const { insights, contentData, studentData, onboardingData, textbookData } = await lyraAnalyticsService.runFullAnalysis();
     const severityCounts = buildSeverityCounts(insights);
+    const categoryCounts = buildCategoryCounts(insights);
 
     stats.totalAudits++;
     stats.lastAuditTime = new Date();
     stats.lastInsightCount = insights.length;
     stats.lastSeverityCounts = severityCounts;
+
+    // Cost summary for this 12h window
+    const costSummary = costTracker.getSummary(12);
+    const costReport = costTracker.formatForReport(12);
+
+    // Credit mastered count for snapshot
+    const creditInsight = insights.find(i => i.category === 'conversational_credit' && i.data?.masteredViaChat !== undefined);
+    const creditMastered = creditInsight ? (creditInsight.data.masteredViaChat as number) : 0;
+    const creditTurns = creditInsight ? (creditInsight.data.turnsProcessed as number) : 0;
+
+    // Build trend line from previous snapshot
+    const trendLine = buildTrendLine(prevSnapshot, {
+      insightCount: insights.length,
+      severityCounts,
+      categoryCounts,
+      creditMastered,
+      costUsd: costSummary.totalCostUsd,
+    });
+
+    if (trendLine) console.log(`[Lyra Worker] Trend: ${trendLine}`);
 
     let sessionId: string;
     try {
@@ -182,7 +291,7 @@ async function runAnalysis(): Promise<void> {
       return;
     }
 
-    const compactReport = formatCompactReport(insights, severityCounts);
+    const compactReport = formatCompactReport(insights, severityCounts, trendLine || undefined, costReport);
     await founderCollabService.addMessage(sessionId, {
       role: 'system',
       content: compactReport,
@@ -320,9 +429,24 @@ Look for: rich target-language output vs. single-word appearances inside English
     const elapsed = Date.now() - startTime;
     console.log(`[Lyra Worker] Analysis #${stats.totalAudits} complete: ${insights.length} insights in ${elapsed}ms`);
 
+    // Persist snapshot for next cycle's trend comparison
+    saveLyraSnapshot({
+      timestamp: new Date().toISOString(),
+      auditNumber: stats.totalAudits,
+      insightCount: insights.length,
+      severityCounts,
+      categoryCounts,
+      creditMastered,
+      creditTurns,
+      costUsd: costSummary.totalCostUsd,
+      topTitles: insights.slice(0, 3).map(i => i.title),
+    });
+    console.log(`[Lyra Worker] Snapshot saved (${insights.length} insights, $${costSummary.totalCostUsd.toFixed(4)} cost)`);
+
     // Reset credit stats for the next 12h window so Lyra sees a clean period each cycle
     resetCreditStats();
-    console.log(`[Lyra Worker] Credit stats reset for next window`);
+    costTracker.resetDevAutoResolvedCount();
+    console.log(`[Lyra Worker] Credit stats and cost counters reset for next window`);
 
   } catch (err: any) {
     console.error(`[Lyra Worker] Analysis failed:`, err.message);

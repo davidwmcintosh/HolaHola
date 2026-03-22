@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { costTracker } from "./services/cost-tracker";
 
 const gemini = new GoogleGenAI({
   apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || '',
@@ -40,7 +41,12 @@ export async function callGemini(
     model,
     contents: contents.length > 0 ? contents : [{ role: 'user', parts: [{ text: 'Hello' }] }]
   });
-  
+
+  try {
+    const usage = (response as any).usageMetadata;
+    if (usage) costTracker.track(model, usage.promptTokenCount || 0, usage.candidatesTokenCount || 0, 'gemini');
+  } catch {}
+
   return response.text || "";
 }
 
@@ -77,6 +83,11 @@ export async function callGeminiWithSchema<T = any>(
     },
   });
   
+  try {
+    const usage = (response as any).usageMetadata;
+    if (usage) costTracker.track(model, usage.promptTokenCount || 0, usage.candidatesTokenCount || 0, 'gemini-schema');
+  } catch {}
+
   const responseText = response.text || "{}";
   return JSON.parse(responseText) as T;
 }
