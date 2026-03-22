@@ -330,6 +330,14 @@ ${context.journeyContext}`);
     try {
       const snapshotData = await getStudentSnapshotData(userId, targetLanguage || 'spanish');
       if (!snapshotData) return null;
+
+      // Check for in-session mastery — words the student just mastered in this conversation
+      const { pendingMasteryAcknowledgments } = await import('./conversational-credit-service');
+      const sessionMastery = pendingMasteryAcknowledgments.get(userId);
+      if (sessionMastery && sessionMastery.length > 0) {
+        snapshotData.sessionMasteryJustNow = [...sessionMastery];
+        pendingMasteryAcknowledgments.delete(userId); // consume once
+      }
       
       return buildStudentSnapshotSection(
         'Student',

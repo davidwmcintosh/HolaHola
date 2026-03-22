@@ -117,6 +117,7 @@ export interface StudentSnapshotContext {
     recentlyMastered: string[]; // targetText of items mastered in last 7 days (max 3)
     nextMilestone: number | null;
   };
+  sessionMasteryJustNow?: string[]; // words mastered during THIS session (needs warm acknowledgment in next reply)
 }
 
 /**
@@ -134,7 +135,7 @@ export function buildStudentSnapshotSection(
   snapshot: StudentSnapshotContext
 ): string {
   // Check if we have any meaningful data
-  const hasData = snapshot.lastSession || snapshot.syllabusPosition || 
+  const hasData = snapshot.sessionMasteryJustNow?.length || snapshot.lastSession || snapshot.syllabusPosition || 
                   snapshot.streak || snapshot.recentWins?.length || 
                   snapshot.needsPractice?.length || snapshot.personalFollowUps?.length ||
                   snapshot.conversationHighlights?.length ||
@@ -151,6 +152,14 @@ export function buildStudentSnapshotSection(
   lines.push('');
   lines.push('Quick context for natural conversation continuity:');
   lines.push('');
+
+  // ⭐ In-session mastery — highest priority, top of snapshot
+  if (snapshot.sessionMasteryJustNow && snapshot.sessionMasteryJustNow.length > 0) {
+    lines.push('⭐ IN-SESSION MASTERY (act on this NOW):');
+    lines.push(`The student just locked in ${snapshot.sessionMasteryJustNow.map(w => `"${w}"`).join(', ')} through practice in this very session.`);
+    lines.push('Weave a warm, specific acknowledgment into your very next reply. Name the word. Make it feel like a genuine milestone — brief but real.');
+    lines.push('');
+  }
   
   // Last session
   if (snapshot.lastSession) {

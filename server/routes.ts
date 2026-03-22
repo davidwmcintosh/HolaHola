@@ -91,6 +91,7 @@ import { emailService } from "./services/email-service";
 import { neuralNetworkSync } from "./services/neural-network-sync";
 import { passwordLoginSchema, passwordResetRequestSchema, setNewPasswordSchema, completeRegistrationSchema, createInvitationSchema } from "@shared/schema";
 import { userReviewItems, userDrillProgress } from "@shared/schema";
+import { applyConversationalCredit, pendingMasteryAcknowledgments } from "./services/conversational-credit-service";
 import passport from "passport";
 import { generateConversationTitle, generateConversationContextSummary } from "./conversation-utils";
 import { extractTargetLanguageText, hasSignificantTargetLanguageContent } from "./text-utils";
@@ -4398,7 +4399,7 @@ Return a JSON array of suggestions with this format:
         }
         
         // Create minimal system prompt (skip vocabulary/conversation queries for speed)
-        const systemPrompt = createSystemPrompt(
+        let systemPrompt = createSystemPrompt(
           activeConversation.language,
           activeConversation.difficulty,
           userMessageCount,
@@ -4424,6 +4425,15 @@ Return a JSON array of suggestions with this format:
           tutorNameForPrompt, // Tutor name (Daniela or Agustin)
           tutorGenderForPrompt // Tutor gender for grammatical agreement
         );
+
+        // Inject in-session mastery acknowledgment (fast-path voice — check pending from previous turn)
+        const _voicePendingMastery = pendingMasteryAcknowledgments.get(userId);
+        if (_voicePendingMastery && _voicePendingMastery.length > 0) {
+          pendingMasteryAcknowledgments.delete(userId);
+          systemPrompt += `\n\n⭐ IN-SESSION MASTERY: The student just locked in ${_voicePendingMastery.map(w => `"${w}"`).join(', ')} through practice in this very session. Weave a warm, specific acknowledgment into your very next reply — name the word and make it feel like a genuine milestone moment.`;
+          console.log(`[VOICE FAST-PATH] Injecting mastery acknowledgment for: ${_voicePendingMastery.join(', ')}`);
+        }
+
         const model = 'gemini-3-flash-preview'; // Gemini 3 Flash preview
         
         const fetchTime = Date.now() - startTime;
@@ -4735,6 +4745,22 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
         });
         
         console.log(`[VOICE EMOTION] AI selected emotion: ${aiSelectedEmotion || 'friendly (default)'} for TTS`);
+
+        // Apply conversational credit (fire-and-forget) — advances SM-2 for words used correctly in voice chat
+        const _vcreditStudentMsg = messageData.content;
+        const _vcreditAiMsg = aiMessage.content;
+        const _vcreditLang = activeConversation.language;
+        const _vcreditConvId = conversationId;
+        setImmediate(() => {
+          applyConversationalCredit({
+            userId,
+            language: _vcreditLang,
+            studentMessage: _vcreditStudentMsg,
+            danielaResponse: _vcreditAiMsg,
+            conversationId: _vcreditConvId,
+            storage: { updateVocabularyReview: storage.updateVocabularyReview.bind(storage), recordReviewItemAttempt: storage.recordReviewItemAttempt.bind(storage) },
+          }).catch(() => {});
+        });
 
         // Queue comprehensive background enrichment (non-blocking)
         setImmediate(async () => {
@@ -5185,7 +5211,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
       // Create adaptive system prompt based on language, difficulty, and conversation progress
       // Use userMessageCount (already calculated above) instead of total message count
       // This ensures phases align with actual conversation turns
-      const systemPrompt = createSystemPrompt(
+      let systemPrompt = createSystemPrompt(
         updatedConversation.language,
         updatedConversation.difficulty,
         userMessageCount,
@@ -5216,6 +5242,15 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
         textTutorName, // Tutor name (Daniela or Agustin)
         textTutorGender // Tutor gender for grammatical agreement
       );
+
+      // Inject in-session mastery acknowledgment (words mastered in the previous turn of THIS session)
+      const _textPendingMastery = pendingMasteryAcknowledgments.get(userId);
+      if (_textPendingMastery && _textPendingMastery.length > 0) {
+        pendingMasteryAcknowledgments.delete(userId);
+        systemPrompt += `\n\n⭐ IN-SESSION MASTERY: The student just locked in ${_textPendingMastery.map(w => `"${w}"`).join(', ')} through practice in this very session. Weave a warm, specific acknowledgment into your very next reply — name the word and make it feel like a genuine milestone moment.`;
+        console.log(`[TEXT CHAT] Injecting mastery acknowledgment for: ${_textPendingMastery.join(', ')}`);
+      }
+
       const model = getModelForTier(user.subscriptionTier, user);
       
       // ========================================================================
@@ -5962,6 +5997,22 @@ ${memoryContext}
       // 3. Accumulate grammar examples over multiple conversations to build proper exercises
       //
       // For now, vocabulary extraction from conversations works well and provides value
+
+      // Apply conversational credit (fire-and-forget) — advances SM-2 for words used correctly in chat
+      const _creditStudentMsg = messageData.content;
+      const _creditAiMsg = aiMessage.content;
+      const _creditLang = updatedConversation.language;
+      const _creditConvId = conversationId;
+      setImmediate(() => {
+        applyConversationalCredit({
+          userId,
+          language: _creditLang,
+          studentMessage: _creditStudentMsg,
+          danielaResponse: _creditAiMsg,
+          conversationId: _creditConvId,
+          storage: { updateVocabularyReview: storage.updateVocabularyReview.bind(storage), recordReviewItemAttempt: storage.recordReviewItemAttempt.bind(storage) },
+        }).catch(() => {});
+      });
 
       res.json({ 
         userMessage, 
@@ -7110,19 +7161,32 @@ Return ONLY the ${targetLanguage} phrase:`;
         )
         .orderBy(desc(userReviewItems.createdAt));
 
-      const [drillResult] = await getSharedDb()
-        .select({ count: sql<number>`count(*)::int` })
+      const masteredDrillRows = await getSharedDb()
+        .select({
+          masteredAt: userDrillProgress.masteredAt,
+          lessonName: curriculumLessons.name,
+        })
         .from(userDrillProgress)
-        .where(and(eq(userDrillProgress.userId, userId), eq(userDrillProgress.mastered, true)));
+        .leftJoin(curriculumDrillItems, eq(userDrillProgress.drillItemId, curriculumDrillItems.id))
+        .leftJoin(curriculumLessons, eq(curriculumDrillItems.lessonId, curriculumLessons.id))
+        .where(and(eq(userDrillProgress.userId, userId), eq(userDrillProgress.mastered, true)))
+        .orderBy(desc(userDrillProgress.masteredAt));
 
       const totalMasteredVocab = masteredVocabRows.length;
-      const totalMasteredDrills = Number(drillResult?.count ?? 0);
+      const totalMasteredDrills = masteredDrillRows.length;
       const totalMastered = totalMasteredVocab + totalMasteredDrills;
 
-      const recentlyMastered = masteredVocabRows
+      const recentlyMasteredVocab = masteredVocabRows
         .filter(r => new Date(r.createdAt) >= sevenDaysAgo)
         .slice(0, 5)
-        .map(r => ({ word: r.targetText, type: r.itemType }));
+        .map(r => ({ word: r.targetText, type: r.itemType as string }));
+
+      const recentlyMasteredDrills = masteredDrillRows
+        .filter(r => r.masteredAt && new Date(r.masteredAt) >= sevenDaysAgo)
+        .slice(0, 3)
+        .map(r => ({ word: r.lessonName ?? 'Drill', type: 'drill' }));
+
+      const recentlyMastered = [...recentlyMasteredVocab, ...recentlyMasteredDrills].slice(0, 6);
 
       const MILESTONES = [
         { count: 10, label: 'First 10' },
