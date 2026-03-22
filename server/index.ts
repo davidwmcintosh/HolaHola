@@ -665,6 +665,12 @@ app.use((req, res, next) => {
       startSofiaCleanupWorker();
     }, 50000);
 
+    // +65s: Fact Confidence Decay Worker — weekly 15% decay on unreinforced time-sensitive facts
+    setTimeout(async () => {
+      const { startFactConfidenceDecayWorker } = await import('./services/fact-confidence-decay-worker');
+      startFactConfidenceDecayWorker();
+    }, 65000);
+
     // +60s: Diagnostic retention (daily cleanup, no rush)
     setTimeout(async () => {
       const DIAG_RETENTION_DAYS = 30;

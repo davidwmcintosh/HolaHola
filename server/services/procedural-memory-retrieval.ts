@@ -324,8 +324,10 @@ export async function getStudentSnapshotData(
         
         // Otherwise, include recent conversation-worthy facts
         // life_event, goal, travel, work, family are good for follow-up
+        // Confidence gate: skip faded facts (< 0.3) — decay worker handles these over time
         const followUpTypes = ['life_event', 'goal', 'travel', 'work', 'family', 'hobby'];
-        if (followUpTypes.includes(pf.factType) && daysAgo <= 14) {
+        const confidence = pf.confidenceScore ?? 0.8;
+        if (followUpTypes.includes(pf.factType) && daysAgo <= 14 && confidence >= 0.3) {
           followUpCandidates.push({
             fact: pf.fact,
             factType: pf.factType,
