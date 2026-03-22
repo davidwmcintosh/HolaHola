@@ -59,6 +59,8 @@ The Team Room (`/team-room`) is a collaboration space with a 3-panel layout, AI 
 
 Voice Infrastructure improvements include fixing audio reconnections, unifying the WS handler, enhancing STT resilience, and modularizing the orchestrator. The Alden Autonomous Repair System (`server/services/alden-auto-repair.ts`) is in place for automated issue resolution.
 
+The **Mem0-style Memory Conflict Resolver** (`server/services/memory-conflict-resolver.ts`) adds LLM-based conflict resolution to the learner personal facts system. The existing trigram-similarity deduplication handles near-duplicate fact text. The conflict resolver fires *after* that check, for stateful fact types (location, work, school, job_title, relationship_status, living_situation) and time-sensitive types (goal, travel, life_event). When a new fact doesn't match existing ones by text similarity but may still contradict them (e.g., "lives in Austin" vs. "lives in Dallas"), Claude Sonnet classifies the relationship as one of: `add` (genuinely new), `update` (new fact supersedes old — old deactivated), `merge` (combine both into one richer fact), or `skip` (semantic duplicate). Additive fact types (hobby, interest, family, preference, etc.) bypass the resolver entirely. The resolver is integrated into `StudentLearningService.savePersonalFact` via a dynamic import.
+
 ## External Dependencies
 - Stripe: Payment processing.
 - Replit Auth: OIDC authentication.

@@ -2302,6 +2302,37 @@ export class StudentLearningService {
       return updated;
     }
     
+    // ── Mem0-style conflict resolution ────────────────────────────────────────
+    // Trigram similarity found no duplicates, but the new fact may still
+    // CONTRADICT an existing one (e.g., "Austin" vs "Dallas" for location).
+    // For stateful and time-sensitive fact types, ask an LLM to classify
+    // the relationship and act accordingly (add/update/merge/skip).
+    const { needsConflictResolution, resolveMemoryConflict, applyConflictResolution } =
+      await import('./memory-conflict-resolver');
+
+    if (needsConflictResolution(input.factType) && existingFacts.length > 0) {
+      const candidates = existingFacts.map(f => ({
+        id: f.id,
+        fact: f.fact,
+        mentionCount: f.mentionCount,
+        lastMentionedAt: f.lastMentionedAt ? new Date(f.lastMentionedAt) : null,
+      }));
+
+      const decision = await resolveMemoryConflict(input.fact, input.factType, candidates);
+      const { shouldSave, resolvedFact } = await applyConflictResolution(decision);
+
+      if (!shouldSave) {
+        // Duplicate detected by LLM — return the existing fact rather than creating a new one
+        return existingFacts[0];
+      }
+
+      // Use merged text if provided, otherwise use original
+      if (resolvedFact) {
+        input = { ...input, fact: resolvedFact };
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+    
     // Create new fact - use passed confidence or default to 0.8
     const confidence = input.confidenceScore ?? 0.8;
     
