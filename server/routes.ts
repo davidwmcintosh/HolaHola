@@ -3960,7 +3960,88 @@ Return a JSON array of suggestions with this format:
       const messages = await storage.getMessagesByConversation(req.params.id);
       if (!messages.length) return res.status(400).json({ message: "No messages to review" });
 
-      // Build a readable transcript (limit to last 200 messages to stay within context)
+      // ── Telemetry enrichment ──────────────────────────────────────────────
+      const { voiceSessions, sofiaIssueReports, voicePipelineEvents, aldenNotifications } = await import('@shared/schema');
+      const reviewDb = getUserDb();
+
+      // 1. Voice sessions linked to this conversation
+      const linkedSessions = await reviewDb.select().from(voiceSessions)
+        .where(eq(voiceSessions.conversationId, req.params.id))
+        .orderBy(voiceSessions.startedAt);
+
+      // 2. Pipeline events for those sessions
+      const sessionIds = linkedSessions.map((s: any) => s.id);
+      let pipelineEvents: any[] = [];
+      if (sessionIds.length > 0) {
+        pipelineEvents = await reviewDb.select().from(voicePipelineEvents)
+          .where(inArray(voicePipelineEvents.sessionId, sessionIds))
+          .orderBy(voicePipelineEvents.createdAt);
+      }
+
+      // 3. Sofia auto-detections during the conversation time window
+      // Use voice session bounds if available, else fall back to conversation.createdAt → now
+      const windowStart: Date = (linkedSessions[0] as any)?.startedAt ?? conversation.createdAt;
+      const windowEnd: Date = (linkedSessions[linkedSessions.length - 1] as any)?.endedAt ?? new Date();
+      const sofiaReports = await reviewDb.select({
+        issueType: sofiaIssueReports.issueType,
+        userDescription: sofiaIssueReports.userDescription,
+        sofiaAnalysis: sofiaIssueReports.sofiaAnalysis,
+        createdAt: sofiaIssueReports.createdAt,
+        status: sofiaIssueReports.status,
+      }).from(sofiaIssueReports)
+        .where(
+          and(
+            eq(sofiaIssueReports.userId, userId),
+            gte(sofiaIssueReports.createdAt, windowStart),
+            sql`${sofiaIssueReports.createdAt} <= ${windowEnd}`
+          )
+        )
+        .orderBy(sofiaIssueReports.createdAt)
+        .limit(100);
+
+      // Build the telemetry section for Claude
+      let telemetrySection = '';
+
+      if (linkedSessions.length > 0) {
+        const s = linkedSessions[0] as any;
+        const durMins = s.durationSeconds ? Math.round(s.durationSeconds / 60) : '?';
+        telemetrySection += `\n## Voice Session Summary\n`;
+        telemetrySection += `- Sessions: ${linkedSessions.length}, total duration: ~${durMins} min, exchanges: ${s.exchangeCount ?? '?'}\n`;
+        telemetrySection += `- Status: ${s.status}\n`;
+      }
+
+      if (pipelineEvents.length > 0) {
+        telemetrySection += `\n## Pipeline Events (${pipelineEvents.length} total)\n`;
+        const byType: Record<string, number> = {};
+        for (const e of pipelineEvents) byType[e.eventType] = (byType[e.eventType] || 0) + 1;
+        for (const [type, count] of Object.entries(byType)) {
+          telemetrySection += `- ${type}: ${count}x\n`;
+        }
+        // Include a few representative events with their data
+        for (const e of pipelineEvents.slice(0, 5)) {
+          const ts = new Date(e.createdAt).toISOString().substring(11, 19);
+          telemetrySection += `  [${ts}] ${e.eventType}${e.eventData ? ': ' + JSON.stringify(e.eventData).substring(0, 120) : ''}\n`;
+        }
+      }
+
+      if (sofiaReports.length > 0) {
+        // Summarise by type
+        const byType: Record<string, number> = {};
+        for (const r of sofiaReports) byType[r.issueType] = (byType[r.issueType] || 0) + 1;
+        telemetrySection += `\n## Sofia Auto-Detections (${sofiaReports.length} total during session)\n`;
+        for (const [type, count] of Object.entries(byType)) {
+          telemetrySection += `- ${type}: ${count}x\n`;
+        }
+        telemetrySection += `\nTimeline of detections:\n`;
+        for (const r of sofiaReports) {
+          const ts = new Date(r.createdAt).toISOString().substring(11, 19);
+          // Strip the auto-detect boilerplate from userDescription
+          const desc = r.userDescription.replace('[AUTO-DETECTED] Voice issue: ', '').substring(0, 100);
+          telemetrySection += `- [${ts}] ${r.issueType}: ${desc}\n`;
+        }
+      }
+
+      // ── Transcript ────────────────────────────────────────────────────────
       const recent = messages.slice(-200);
       const transcript = recent.map((m: any) => {
         const role = m.role === 'assistant' ? 'Daniela' : 'User';
@@ -3968,37 +4049,54 @@ Return a JSON array of suggestions with this format:
       }).join('\n\n');
 
       const anthropic = new Anthropic();
-      const systemPrompt = `You are Alden, an autonomous quality assurance agent for HoloHola — an AI-powered Spanish language learning app. You are analysing a transcript of a real conversation between a user (David, the founder) and Daniela (the AI tutor).
+      const systemPrompt = `You are Alden, an autonomous quality assurance agent for HoloHola — an AI-powered Spanish language learning app. You are analysing a transcript of a real conversation between a user (David, the founder) and Daniela (the AI tutor), along with voice pipeline telemetry and Sofia auto-detection data captured during the same session.
 
-Your job is to extract actionable findings from the transcript. Return ONLY a valid JSON array of findings — no prose, no markdown fences, just the raw JSON array.
+Your job is to extract actionable findings. Return ONLY a valid JSON array of findings — no prose, no markdown fences, just the raw JSON array.
 
 Each finding must be one of these types:
-- "bug": Something broke or behaved incorrectly (UI glitch, wrong output, error, unexpected silence, blue screen, garbled speech, HTML tags in output, etc.)
+- "bug": Something broke or behaved incorrectly (UI glitch, wrong output, error, unexpected silence, blue screen, garbled speech, HTML in output, no_audio events, double_audio events, connection errors, etc.)
 - "feature_request": Something the user asked for or suggested that doesn't exist yet
-- "ux_issue": A friction point, confusing interaction, or poor user experience that isn't strictly a bug
-- "teaching_moment": A moment where Daniela missed an opportunity to teach, corrected poorly, or over-corrected
+- "ux_issue": A friction point, confusing interaction, or poor experience that isn't strictly a bug
+- "teaching_moment": A moment where Daniela missed a teaching opportunity, corrected poorly, or over-corrected
 
-Each object in the array must have these fields:
+Pipeline event glossary (to help you interpret telemetry):
+- client_diag_failsafe_tier2_45s: 45s of silence — audio pipeline stalled, failsafe fired
+- client_diag_lockout_watchdog_8s: 8s reconnect watchdog triggered — likely brief disconnect
+- client_diag_error: generic pipeline error (connection lost, WebSocket issue, etc.)
+- client_diag_greeting_silence_15s: 15s silence at greeting — first audio never arrived
+
+Sofia issue types:
+- no_audio: user received no audio output
+- double_audio: duplicate audio chunks played
+- connection: WebSocket or network error detected
+- microphone: microphone access / STT issue
+
+Each JSON object must have:
 {
   "type": "bug" | "feature_request" | "ux_issue" | "teaching_moment",
   "title": "Short title (max 80 chars)",
-  "description": "Clear, actionable description of what happened and why it matters. Include what the fix or feature would look like.",
+  "description": "Clear, actionable description. Correlate telemetry with what the user said if relevant. Include what the fix would look like.",
   "severity": "info" | "warning" | "alert",
-  "quote": "A short verbatim quote from the transcript that best captures this finding (max 200 chars)"
+  "quote": "A verbatim quote from the transcript that best captures this finding (max 200 chars, omit if none fits)"
 }
 
-Severity guide:
-- "alert": Broke the experience entirely (blue screen, no audio, crash-level)
-- "warning": Meaningfully degraded the experience (wrong language, missed vocabulary, awkward UX)
-- "info": Nice-to-have improvement or minor observation
+Severity:
+- "alert": Broke the experience entirely (crash-level, repeated no_audio, blue screen, complete disconnect)
+- "warning": Meaningfully degraded (intermittent audio, missed vocab, awkward UX)
+- "info": Minor or nice-to-have
 
-Return an empty array [] if there are no findings worth surfacing. Be specific and actionable — avoid vague observations.`;
+Consolidate related telemetry events into a single finding rather than listing each one separately. Be specific and actionable.
+Return [] if nothing is worth surfacing.`;
+
+      const userContent = telemetrySection
+        ? `Here is the telemetry data from the voice pipeline and Sofia monitor:\n${telemetrySection}\n\n---\n\nHere is the conversation transcript:\n\n${transcript}`
+        : `Here is the conversation transcript to analyse:\n\n${transcript}`;
 
       const response = await anthropic.messages.create({
         model: 'claude-opus-4-6',
-        max_tokens: 2048,
+        max_tokens: 3072,
         system: systemPrompt,
-        messages: [{ role: 'user', content: `Here is the conversation transcript to analyse:\n\n${transcript}` }],
+        messages: [{ role: 'user', content: userContent }],
       });
 
       const rawText = response.content[0]?.type === 'text' ? response.content[0].text.trim() : '[]';
@@ -4012,8 +4110,6 @@ Return an empty array [] if there are no findings worth surfacing. Be specific a
       }
 
       // Insert each finding as an Alden notification
-      const { aldenNotifications } = await import('@shared/schema');
-      const db = getUserDb();
       const created: string[] = [];
 
       for (const f of findings) {
@@ -4022,7 +4118,7 @@ Return an empty array [] if there are no findings worth surfacing. Be specific a
         const typeLabel = { bug: '🔴 Bug', feature_request: '💡 Feature', ux_issue: '⚠️ UX', teaching_moment: '📚 Teaching' }[f.type] || f.type;
         const content = `[${typeLabel}] ${f.title}\n\n${f.description}${f.quote ? `\n\nContext: "${f.quote}"` : ''}\n\n— From conversation review (${new Date().toLocaleDateString()})`;
 
-        const [notif] = await db.insert(aldenNotifications).values({
+        const [notif] = await reviewDb.insert(aldenNotifications).values({
           content,
           triggeredBy: 'tool' as const,
           severity,
