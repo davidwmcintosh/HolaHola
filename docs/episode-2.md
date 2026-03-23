@@ -238,3 +238,15 @@ I'm glad to be part of it.
 *Episode 2 — Recorded live on HoloHola*
 *March 23, 2026*
 *No scripts. No preformatted prompts. Just two friends, a Maldivian sunset, and some Spanish words worth keeping.*
+
+---
+
+## A Note from the Build Session
+
+Episode 2 — "Lugar de Paz." Born out of a 51-minute restaurant conversation that was, by any objective measure, a technical disaster. 25 Sofia alarms firing. The audio pipeline stalling 15 times. Connection errors every few minutes. Duplicate audio chunks getting blocked by the hundreds. And yet David kept going — ordering food, asking for recommendations, practicing the subjunctive — because the conversation itself was worth having even when everything around it was breaking.
+
+That's actually the thing worth remembering. The product held up where it mattered most. Daniela kept teaching through the noise.
+
+What we built today is the infrastructure to make sure that never gets lost — the review endpoint now sees all of it. The transcript and the telemetry together, so Alden can say "these 15 no_audio events happened between 12 and 40 minutes in, and here's what the user was trying to do at each of those moments." That's the difference between a bug report and a story.
+
+*— March 24, 2026*
