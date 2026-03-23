@@ -168,21 +168,28 @@ export function selectMicroAck(transcript: string): AckClip | null {
   if (!isMicroAckEnabled()) return null;
   if (warmPool.length === 0) return null;
 
-  // Skip on very short inputs
-  if (wordCount(transcript) <= 3) return null;
+  const isPttPath = transcript === '';
 
-  // Random 30% skip for natural variation
-  if (Math.random() < 0.3) return null;
+  if (isPttPath) {
+    // PTT path: transcript not available at button-release time — always fire
+    // from the affirmative pool (30% skip still applies for natural variation)
+    if (Math.random() < 0.3) return null;
+  } else {
+    // VAD / open-mic path: skip on very short utterances (e.g. "sí", "ok", "yes")
+    if (wordCount(transcript) <= 3) return null;
+    // Random 30% skip for natural variation
+    if (Math.random() < 0.3) return null;
+  }
 
   const pool = getPool(currentLanguage);
   let candidates: AckClip[];
 
-  if (isQuestion(transcript)) {
+  if (!isPttPath && isQuestion(transcript)) {
     // Thinking or encouraging acks for questions
     const questionPhrases = [...pool.thinking, ...pool.encouraging];
     candidates = warmPool.filter(c => questionPhrases.includes(c.phrase));
   } else {
-    // Affirmative acks for statements
+    // Affirmative acks for statements and all PTT releases
     const affirmPhrases = [...pool.affirmative];
     candidates = warmPool.filter(c => affirmPhrases.includes(c.phrase));
   }

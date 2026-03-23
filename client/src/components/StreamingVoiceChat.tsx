@@ -3571,7 +3571,7 @@ export function StreamingVoiceChat({
             size="sm"
             variant={microAckOn ? "default" : "ghost"}
             onClick={handleToggleMicroAck}
-            className="gap-1.5 opacity-70 hover:opacity-100"
+            className={`gap-1.5 transition-opacity ${microAckOn ? "opacity-100" : "opacity-40 hover:opacity-70"}`}
             data-testid="button-toggle-micro-ack"
             title={microAckOn ? "Quick ack: ON — Daniela responds instantly" : "Quick ack: OFF"}
           >
