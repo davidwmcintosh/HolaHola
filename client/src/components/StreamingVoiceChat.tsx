@@ -3572,6 +3572,17 @@ export function StreamingVoiceChat({
           )}
         </div>
       )}
+      {/* Active character indicator — shown when a secondary character is speaking */}
+      {useStreamingMode && streamingVoice.state.activeCharacter && (
+        <div
+          className="absolute top-3 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-3 py-1.5 rounded-md bg-card text-card-foreground text-xs border shadow-sm"
+          data-testid="status-active-character"
+        >
+          <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+          <span className="font-medium">{streamingVoice.state.activeCharacter.displayName}</span>
+          <span className="text-muted-foreground">{streamingVoice.state.activeCharacter.role}</span>
+        </div>
+      )}
       {/* Immersive Voice Chat with View Manager - Full Screen */}
       <div className="flex-1 min-h-0 overflow-hidden relative">
         <VoiceChatViewManager

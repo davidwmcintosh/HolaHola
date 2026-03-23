@@ -1,6 +1,7 @@
 import { sql, eq, and } from "drizzle-orm";
 import { ExtractedFunctionCall } from "./gemini-streaming";
 import type { StreamingSession } from "./streaming-voice-orchestrator";
+import { getCharacter } from "./character-registry";
 import { breakfastMenus, lunchMenus, menuTitleByLanguage } from '../data/language-menus-restaurant-mealtime';
 import { restaurantMenus } from '../data/language-menus-restaurant-festival';
 import { coffeeShopMenus } from '../data/language-menus-cafe-grocery';
@@ -186,6 +187,90 @@ export class NativeFunctionCallHandler {
         break;
       }
       
+      case 'SPEAK_AS': {
+        const characterId = fn.args.character as string | undefined;
+        const text = fn.args.text as string | undefined;
+        const roleOverride = fn.args.role as string | undefined;
+
+        if (!characterId) {
+          console.warn('[Native Function→SpeakAs] No character ID provided — ignoring');
+          break;
+        }
+
+        const character = getCharacter(session.targetLanguage || 'spanish', characterId);
+        if (!character) {
+          console.warn(`[Native Function→SpeakAs] Unknown character "${characterId}" for language "${session.targetLanguage}" — ignoring`);
+          break;
+        }
+
+        // Save the tutor's voice and provider before the first character switch
+        if (!session.activeCharacter) {
+          session._tutorVoiceBeforeCharacter = session.voiceId;
+          session._tutorTtsProviderBeforeCharacter = session.ttsProvider;
+        }
+
+        // Swap voice AND provider to the character's configuration
+        session.voiceId = character.voiceId;
+        session.ttsProvider = character.ttsProvider;
+        session.activeCharacter = {
+          id: character.id,
+          displayName: character.displayName,
+          role: roleOverride || character.role,
+          gender: character.gender,
+          voiceId: character.voiceId,
+          ttsProvider: character.ttsProvider,
+        };
+
+        // Route the character's text through TTS (same mechanism as VOICE_ADJUST)
+        if (text) {
+          session.functionCallText = text;
+        }
+
+        // Notify client of character change
+        this.sendMessage(session.ws, {
+          type: 'character_change',
+          character: {
+            id: character.id,
+            displayName: character.displayName,
+            role: session.activeCharacter.role,
+            gender: character.gender,
+          },
+          timestamp: Date.now(),
+        });
+
+        console.log(`[Native Function→SpeakAs] Character "${character.displayName}" (${character.id}) is now speaking. voiceId=${character.voiceId}`);
+        break;
+      }
+
+      case 'RESUME_TUTOR': {
+        const text = fn.args.text as string | undefined;
+
+        // Restore the tutor's original voice and provider
+        if (session._tutorVoiceBeforeCharacter) {
+          session.voiceId = session._tutorVoiceBeforeCharacter;
+          session._tutorVoiceBeforeCharacter = undefined;
+        }
+        if (session._tutorTtsProviderBeforeCharacter) {
+          session.ttsProvider = session._tutorTtsProviderBeforeCharacter;
+          session._tutorTtsProviderBeforeCharacter = undefined;
+        }
+        session.activeCharacter = null;
+
+        if (text && !session.functionCallText) {
+          session.functionCallText = text;
+        }
+
+        // Notify client: back to tutor
+        this.sendMessage(session.ws, {
+          type: 'character_change',
+          character: null,
+          timestamp: Date.now(),
+        });
+
+        console.log(`[Native Function→ResumeTutor] Returned to tutor voice. voiceId=${session.voiceId}`);
+        break;
+      }
+
       case 'WORD_EMPHASIS': {
         const word = fn.args.word as string;
         const style = fn.args.style as 'stress' | 'slow' | 'both';

@@ -1181,6 +1181,11 @@ export class StreamingVoiceClient {
           this.emit('textInputRequest', message as { type: string; prompt: string; timestamp: number });
           break;
 
+        case 'character_change':
+          console.log('[StreamingVoice] Character change:', message.character?.displayName ?? 'tutor resumed');
+          this.emit('characterChange', message as { type: string; character: { id: string; displayName: string; role: string; gender: 'male' | 'female' } | null; timestamp: number });
+          break;
+
         case 'scenario_loaded':
           console.log('[StreamingVoice] Scenario loaded:', message.scenario?.title);
           this.emit('scenarioLoaded', message);

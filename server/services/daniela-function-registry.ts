@@ -227,6 +227,91 @@ const registry: DanielaFunctionEntry[] = [
       '[Internal instruction: Voice reset. Do NOT mention this - continue naturally.]',
   },
   {
+    legacyType: 'SPEAK_AS',
+    declaration: {
+      name: "speak_as",
+      description: `Give voice to a secondary character in the scene — a friend, waiter, doctor, vendor, etc. The character speaks IN TARGET LANGUAGE. You write their dialogue; a different voice speaks it.
+
+HOW IT WORKS:
+1. Call speak_as with the character's ID and what they say in the 'text' field
+2. A different voice will speak that text immediately
+3. Call resume_tutor when you (Daniela) need to speak again — coaching, explaining, or continuing the lesson
+
+WHEN TO USE:
+• Multi-character roleplay: dinner with a waiter, shopping at a market, doctor's appointment
+• Two-person practice: simulate a conversation partner for the student
+• Any scene requiring voices other than yours
+
+AVAILABLE CHARACTERS:
+Spanish — male: "carlos" (friend), "el_mesero" (waiter), "el_doctor" (doctor), "el_vendedor" (vendor), "el_recepcionista" (receptionist)
+Spanish — female: "elena" (friend), "la_mesera" (waitress), "la_doctora" (doctor)
+French — male: "pierre" (friend), "le_serveur" (waiter)
+French — female: "marie" (friend)
+
+IMPORTANT RULES:
+• Characters ONLY speak target language — never English or the student's native language
+• Write natural, authentic dialogue — not overly formal or textbook-ish
+• Keep character lines concise (1–3 sentences) so the student can process and respond
+• Always call resume_tutor before you speak again as yourself
+• You can alternate: speak_as → student responds → speak_as → student responds → resume_tutor to coach
+
+EXAMPLE (restaurant scene):
+  speak_as(character="el_mesero", text="¡Buenas tardes! ¿Están listos para ordenar?")
+  [student responds]
+  speak_as(character="el_mesero", text="Excelente elección. ¿Y para beber?")
+  [student responds]
+  resume_tutor(text="¡Perfecto! Notice how he used 'Excelente elección' — a great phrase to know.")`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          character: {
+            type: "string",
+            enum: [
+              "carlos", "el_mesero", "el_doctor", "el_vendedor", "el_recepcionista",
+              "elena", "la_mesera", "la_doctora",
+              "pierre", "le_serveur", "marie",
+            ],
+            description: "Character ID to voice",
+          },
+          text: {
+            type: "string",
+            description: "What the character says (in the target language)",
+          },
+          role: {
+            type: "string",
+            description: "Optional role label override for UI display (e.g. 'El mesero de turno')",
+          },
+        },
+        required: ["character", "text"],
+      },
+    },
+    buildContinuationResponse: () =>
+      '[Internal instruction: Character speaking. Do NOT add your own text here — wait for the student to respond, then either speak_as again or call resume_tutor.]',
+  },
+  {
+    legacyType: 'RESUME_TUTOR',
+    declaration: {
+      name: "resume_tutor",
+      description: `Return to your own voice (Daniela) after a secondary character has spoken. Call this before any coaching, explaining, or continuing the lesson as yourself. Always include what you want to say in 'text'.
+
+USE AFTER: A character interaction is complete and you want to coach, praise, or continue teaching.
+
+Do NOT use this between character lines — only call it when YOU need to speak.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: {
+            type: "string",
+            description: "What you (Daniela) are saying — coaching, praise, explanation, or transition",
+          },
+        },
+        required: ["text"],
+      },
+    },
+    buildContinuationResponse: () =>
+      '[Internal instruction: Returned to tutor voice. Continue as yourself — coaching or advancing the lesson.]',
+  },
+  {
     legacyType: 'WORD_EMPHASIS',
     declaration: {
       name: "word_emphasis",

@@ -9,13 +9,13 @@ import { stripWhiteboardMarkup } from '@shared/whiteboard-types';
  * TTS Provider Interface
  * 
  * VOICE ARCHITECTURE:
- * - Daniela (main AI tutor, streaming voice chat): Deepgram Nova-3 (STT) → Gemini (LLM) → Cartesia Sonic-3 (TTS)
+ * - Daniela (main AI tutor, streaming voice chat): Deepgram Nova-3 (STT) → Gemini (LLM) → Google Chirp HD (TTS)
  * - Support/Assistant tutors: Google Cloud TTS
  * - OpenAI Realtime: Separate legacy proxy (realtime-proxy.ts), NOT used for Daniela
  * 
  * Providers:
- * - cartesia: Cartesia Sonic-3 (40ms latency, full SSML support, emotion tags) - PRIMARY for Daniela
- * - google: Google Cloud Chirp HD (500-1500ms latency, limited SSML) - For support/assistant tutors
+ * - google: Google Cloud Chirp 3 HD (PRIMARY — all tutors + secondary characters)
+ * - cartesia: Available for rollback via TTS_PRIMARY_PROVIDER=cartesia
  * - openai: OpenAI TTS (legacy, available if USER_OPENAI_API_KEY set)
  */
 export type TTSProvider = 'cartesia' | 'google' | 'openai';

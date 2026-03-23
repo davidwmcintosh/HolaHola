@@ -138,6 +138,17 @@ export interface StreamingSession {
   __greetingInProgress?: boolean;
   __greetingDelivered?: boolean;
   greetingTriggeredByOrchestrator?: boolean;
+  // Active secondary character (multi-character voice)
+  activeCharacter?: {
+    id: string;
+    displayName: string;
+    role: string;
+    gender: 'male' | 'female';
+    voiceId: string;
+    ttsProvider: 'cartesia' | 'elevenlabs' | 'google' | 'gemini';
+  } | null;
+  // Saved tutor voice before a character switch (restored on resume_tutor)
+  _tutorVoiceBeforeCharacter?: string;
   // Scenario immersion state
   activeScenario?: Record<string, any> | null;
   studentActflLevel?: string;

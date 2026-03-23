@@ -255,6 +255,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   
   // Track difficulty level for ACTFL-aware subtitle timing
   const [difficultyLevel, setDifficultyLevel] = useState<string>('beginner');
+
+  // Active secondary character (null = Daniela is speaking)
+  const [activeCharacter, setActiveCharacter] = useState<{ id: string; displayName: string; role: string; gender: 'male' | 'female' } | null>(null);
   
   // Helper to check if we can clear isProcessing
   // Note: Does NOT reset responseCompleteRef - that's done when new request starts
@@ -1407,6 +1410,10 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     console.log('[StreamingVoice] Immersive mode change:', message.active);
     sessionConfigRef.current?.onImmersiveModeChange?.(Boolean(message.active));
   }, []);
+
+  const handleCharacterChange = useCallback((message: { type: string; character: { id: string; displayName: string; role: string; gender: 'male' | 'female' } | null }) => {
+    setActiveCharacter(message.character);
+  }, []);
   
   /**
    * Handle tutor handoff - triggered after current tutor says goodbye
@@ -1563,6 +1570,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('scenarioEnded', handleScenarioEnded);
       clientRef.current.on('propUpdate', handlePropUpdate);
       clientRef.current.on('immersiveMode', handleImmersiveMode);
+      clientRef.current.on('characterChange', handleCharacterChange);
       
       // Keep screen alive on mobile during voice session
       acquireWakeLock();
@@ -1622,7 +1630,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded, handlePropUpdate, handleImmersiveMode]);
+  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded, handlePropUpdate, handleImmersiveMode, handleCharacterChange]);
   
   /**
    * Disconnect from streaming voice service
@@ -1663,6 +1671,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('scenarioEnded', handleScenarioEnded);
       clientRef.current.off('propUpdate', handlePropUpdate);
       clientRef.current.off('immersiveMode', handleImmersiveMode);
+      clientRef.current.off('characterChange', handleCharacterChange);
       clientRef.current.disconnect();
       clientRef.current = null;
     }
@@ -1968,6 +1977,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       sttSuggestPtt,     // True when repeated open-mic failures suggest switching to PTT
       currentText: subtitles.state.fullText,
       currentWordIndex: subtitles.state.currentWordIndex,
+      activeCharacter,   // Currently speaking secondary character (null = Daniela)
       visibleWordCount: subtitles.state.visibleWordCount,
       error,
       metrics,
