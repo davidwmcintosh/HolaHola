@@ -2465,7 +2465,7 @@ export const tutorParkingItems = pgTable("tutor_parking_items", {
 // Links the educational metric (how long they learned) with billing (what it cost)
 export const sessionCostSummary = pgTable("session_cost_summary", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tutorSessionId: varchar("tutor_session_id").notNull().references(() => tutorSessions.id),
+  tutorSessionId: varchar("tutor_session_id").references(() => tutorSessions.id), // nullable — written from voice session side
   voiceSessionId: varchar("voice_session_id").references(() => voiceSessions.id),
   userId: varchar("user_id").notNull().references(() => users.id),
   
@@ -2491,6 +2491,7 @@ export const sessionCostSummary = pgTable("session_cost_summary", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
   index("idx_cost_summary_tutor_session").on(table.tutorSessionId),
+  uniqueIndex("idx_cost_summary_voice_session").on(table.voiceSessionId),
   index("idx_cost_summary_user").on(table.userId),
   index("idx_cost_summary_class").on(table.classId),
 ]);

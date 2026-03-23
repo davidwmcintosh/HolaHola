@@ -769,30 +769,51 @@ Summary (2-3 sentences):`;
    */
   async endSession(conversationId: string, summary?: string, notes?: string): Promise<void> {
     const cached = sessionCache.get(conversationId);
-    if (!cached) return;
 
     try {
-      // Calculate deferred topics
-      const deferredTopics = cached.topics
-        .filter(t => t.status === 'pending' || t.status === 'partial')
-        .map(t => t.title);
+      const now = new Date();
 
-      // tutorSessions is a SHARED table - use getSharedDb()
-      await getSharedDb()
+      if (cached) {
+        // Calculate deferred topics from the cached (most recent) session
+        const deferredTopics = cached.topics
+          .filter(t => t.status === 'pending' || t.status === 'partial')
+          .map(t => t.title);
+
+        // tutorSessions is a SHARED table - use getSharedDb()
+        await getSharedDb()
+          .update(tutorSessions)
+          .set({
+            status: 'completed',
+            endedAt: now,
+            sessionSummary: summary,
+            tutorNotes: notes,
+            deferredTopicsJson: JSON.stringify(deferredTopics),
+            updatedAt: now,
+          })
+          .where(eq(tutorSessions.id, cached.session.id));
+
+        // Clear cache
+        sessionCache.delete(conversationId);
+      }
+
+      // Close ALL remaining active tutor sessions for this conversation that weren't
+      // in the cache (zombie sessions created by Sofia-triggered reconnections that
+      // were never the "current" session when the close handler fired).
+      const closedZombies = await getSharedDb()
         .update(tutorSessions)
-        .set({
-          status: 'completed',
-          endedAt: new Date(),
-          sessionSummary: summary,
-          tutorNotes: notes,
-          deferredTopicsJson: JSON.stringify(deferredTopics),
-          updatedAt: new Date(),
-        })
-        .where(eq(tutorSessions.id, cached.session.id));
+        .set({ status: 'completed', endedAt: now, updatedAt: now })
+        .where(
+          and(
+            eq(tutorSessions.conversationId, conversationId),
+            eq(tutorSessions.status, 'active')
+          )
+        )
+        .returning({ id: tutorSessions.id });
 
-      // Clear cache
-      sessionCache.delete(conversationId);
-      
+      if (closedZombies.length > 0) {
+        console.log(`[Compass] Closed ${closedZombies.length} zombie tutor session(s) for conversation ${conversationId}`);
+      }
+
       console.log(`[Compass] Session ended for conversation ${conversationId}`);
     } catch (error) {
       console.error('[Compass] Failed to end session:', error);

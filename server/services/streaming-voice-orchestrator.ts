@@ -8008,8 +8008,13 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
   endSession(sessionId: string): void {
     const session = this.sessions.get(sessionId);
     if (session) {
-      // SESSION ECONOMICS: Flush telemetry to voice_sessions before cleanup
-      if (session.dbSessionId && (session.telemetryTtsCharacters > 0 || session.telemetrySttSeconds > 0)) {
+      // SESSION ECONOMICS: Flush telemetry to voice_sessions before cleanup.
+      // Guard: fire whenever there were any exchanges — even when TTS chars are 0
+      // (e.g. reconnect sessions where the TTS dispatcher ran on a prior connection).
+      // The WS handler's armReconnectTimer will always do a final write 15s after the
+      // last disconnect with the fully-accumulated across-reconnect values, so writing
+      // a partial here is safe — it will be overwritten with the correct totals.
+      if (session.dbSessionId && (session.telemetryExchangeCount > 0 || session.telemetryTtsCharacters > 0 || session.telemetrySttSeconds > 0)) {
         const telemetryData = {
           ttsCharacters: Math.round(session.telemetryTtsCharacters),
           sttSeconds: Math.round(session.telemetrySttSeconds),

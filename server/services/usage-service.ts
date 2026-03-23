@@ -1,5 +1,5 @@
 import { db, getUserDb, getSharedDb } from "../db";
-import { voiceSessions, usageLedger, classEnrollments, users, hourPackages, classHourPackages, teacherClasses } from "@shared/schema";
+import { voiceSessions, usageLedger, classEnrollments, users, hourPackages, classHourPackages, teacherClasses, sessionCostSummary } from "@shared/schema";
 import { eq, and, sql, gt, isNull, or, desc, sum } from "drizzle-orm";
 import type { VoiceSession, UsageLedger, InsertVoiceSession, InsertUsageLedger } from "@shared/schema";
 import { storage } from "../storage";
@@ -496,6 +496,12 @@ export class UsageService {
     const ttsChars = updatedSession.ttsCharacters || 0;
     const sttSecs = updatedSession.sttSeconds || 0;
 
+    const CHARS_PER_SECOND = 15;
+    const ACTIVITY_MULTIPLIER = 3;
+    const MIN_BILLABLE_SECONDS = 120;
+
+    let creditsConsumed = 0; // seconds of credit actually deducted
+
     if (durationSeconds <= 0) {
       // No duration, nothing to charge
     } else if (exchangeCount === 0 && ttsChars === 0 && sttSecs === 0) {
@@ -504,10 +510,6 @@ export class UsageService {
       // UNIFIED PATH: Cross-check wall-clock against actual metered usage.
       // Sessions where TTS chars weren't recorded contribute 0 to the active estimate,
       // landing on the 120s floor — capping runaway wall-clock from idle/frozen sessions.
-      const CHARS_PER_SECOND = 15;
-      const ACTIVITY_MULTIPLIER = 3;
-      const MIN_BILLABLE_SECONDS = 120;
-
       const ttsDurationEstimate = Math.ceil(ttsChars / CHARS_PER_SECOND);
       const activeSpeakingSeconds = ttsDurationEstimate + sttSecs;
       const fairBillableSeconds = Math.max(activeSpeakingSeconds * ACTIVITY_MULTIPLIER, MIN_BILLABLE_SECONDS);
@@ -515,9 +517,41 @@ export class UsageService {
       if (durationSeconds > fairBillableSeconds && durationSeconds > 600) {
         console.log(`[UsageService] BILLING CAP: session ${sessionId} wall-clock=${durationSeconds}s, TTS=${ttsChars} chars (~${ttsDurationEstimate}s spoken), STT=${sttSecs}s, active=${activeSpeakingSeconds}s, fair cap=${fairBillableSeconds}s. Saved user ${durationSeconds - fairBillableSeconds}s`);
         await this.consumeCredits(session.userId, fairBillableSeconds, sessionId, session.classId || undefined);
+        creditsConsumed = fairBillableSeconds;
       } else {
         await this.consumeCredits(session.userId, durationSeconds, sessionId, session.classId || undefined);
+        creditsConsumed = durationSeconds;
       }
+    }
+
+    // Write session cost summary for audit trail and reporting.
+    // This is the single authoritative record per voice session of what was charged and why.
+    if (durationSeconds > 0) {
+      const creditsPerClockMinute = durationSeconds > 0
+        ? Math.round((creditsConsumed / (durationSeconds / 60)) * 100) / 100
+        : 0;
+      db.insert(sessionCostSummary).values({
+        voiceSessionId: sessionId,
+        userId: session.userId,
+        clockSeconds: durationSeconds,
+        creditsConsumed,
+        ttsCharacters: ttsChars,
+        sttSeconds: sttSecs,
+        creditsPerClockMinute,
+        classId: session.classId || null,
+        language: session.language || null,
+      }).onConflictDoUpdate({
+        target: sessionCostSummary.voiceSessionId,
+        set: {
+          clockSeconds: durationSeconds,
+          creditsConsumed,
+          ttsCharacters: ttsChars,
+          sttSeconds: sttSecs,
+          creditsPerClockMinute,
+        },
+      }).catch((err: Error) => {
+        console.warn(`[UsageService] Failed to write session_cost_summary for ${sessionId}:`, err.message);
+      });
     }
     
     // Update user streak and practice minutes (only count sessions with actual exchanges)
