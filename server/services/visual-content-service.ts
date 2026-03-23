@@ -35,16 +35,19 @@ const NO_TEXT_INSTRUCTION =
   'absolutely no text, no letters, no numbers, no words, no handwriting, no captions, ' +
   'no labels, no symbols, no glyphs, no typography, no writing of any kind anywhere in the image';
 
+// Vocabulary props: single object, white background, clean silhouette (children's book card feel)
 const PROP_STYLE =
   'soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, ' +
   'visible brushwork texture, object centred and prominent on a clean pure white background, ' +
   'no background elements, clear and recognisable silhouette, language learning educational quality, ' +
   NO_TEXT_INSTRUCTION;
 
+// Scene backgrounds: immersive environments, loose painterly watercolor — NOT architectural or sketch-like
 const SCENE_STYLE =
-  'soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, ' +
-  'visible brushwork texture, friendly expressive characters, immersive background environment, ' +
-  'language learning educational context, suitable for all ages, ' +
+  'loose impressionistic watercolor painting style, soft glowing washes of color, warm luminous light, ' +
+  'painterly brushstrokes with no hard ink outlines, dreamy soft-focus atmosphere, ' +
+  'vibrant yet gentle palette, immersive background scene, language learning educational context, ' +
+  'suitable for all ages, ' +
   NO_TEXT_INSTRUCTION;
 
 // Semantic tag categories for educational content
