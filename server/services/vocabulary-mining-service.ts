@@ -64,7 +64,7 @@ export async function mineVocabularyFromSession(
   const prompt = `${MINING_PROMPT(language)}\n\nConversation:\n${transcript}`;
 
   try {
-    const raw = await callGemini(prompt, { model: GEMINI_MODELS.FLASH, maxTokens: 1000, temperature: 0.2 });
+    const raw = await callGemini(GEMINI_MODELS.FLASH, [{ role: 'user', content: prompt }]);
     if (!raw) return { saved: 0 };
 
     // Parse JSON — find the JSON object in the response

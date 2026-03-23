@@ -16,6 +16,7 @@ export interface VocabImageRequest {
   language: string;
   description?: string;
   scene?: string;       // Rich generation prompt when no library image exists
+  translation?: string; // English meaning — used as generation hint for non-English words
   conversationId?: string;
   userId?: string;
 }
@@ -29,8 +30,10 @@ export interface VocabImageResult {
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-// Spanish articles and common filler words to strip before fallback lookup
+// Articles and common filler words to strip before fallback lookup (covers Spanish + French)
 const SPANISH_ARTICLES = new Set(['el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas', 'de', 'del', 'al']);
+const FRENCH_ARTICLES = new Set(['le', 'la', 'les', 'un', 'une', 'des', 'du', 'de', 'l']);
+const ALL_ARTICLES = new Set([...SPANISH_ARTICLES, ...FRENCH_ARTICLES]);
 
 function normalizeWord(word: string): string {
   return word
@@ -67,8 +70,8 @@ function getFallbackCacheKeys(word: string, language: string): string[] {
   const parts = normalized.split(' ').filter(Boolean);
 
   if (parts.length > 1) {
-    // 2. Strip leading/trailing articles
-    const stripped = parts.filter(p => !SPANISH_ARTICLES.has(p));
+    // 2. Strip leading/trailing articles (language-aware: Spanish + French covered)
+    const stripped = parts.filter(p => !ALL_ARTICLES.has(p));
     if (stripped.length > 0 && stripped.length < parts.length) {
       keys.push(`vocab_${language}_${stripped.join(' ')}`);
       // Also try each stripped component individually
@@ -79,7 +82,7 @@ function getFallbackCacheKeys(word: string, language: string): string[] {
 
     // 3. Each individual word component
     for (const part of parts) {
-      if (part.length > 2 && !SPANISH_ARTICLES.has(part)) {
+      if (part.length > 2 && !ALL_ARTICLES.has(part)) {
         const candidate = `vocab_${language}_${part}`;
         if (!keys.includes(candidate)) keys.push(candidate);
       }
@@ -113,7 +116,7 @@ function isSceneConcept(word: string, scene?: string): boolean {
 export async function resolveVocabularyImage(
   request: VocabImageRequest,
 ): Promise<VocabImageResult> {
-  const { word, language, description = word, scene, userId } = request;
+  const { word, language, description = word, scene, translation, userId } = request;
 
   // Primary cache key — exact match
   const primaryKey = generateCacheKey(word, language);
@@ -134,7 +137,7 @@ export async function resolveVocabularyImage(
   // ── 2. Generate with DALL-E 3 (watercolor style) ────────────────────────
   // Build a descriptive English concept for DALL-E even when only given a foreign word.
   // This dramatically improves output quality for abstract concepts and non-English words.
-  const conceptForGeneration = buildGenerationConcept(word, scene, description);
+  const conceptForGeneration = buildGenerationConcept(word, scene, description, translation, language);
   const generationType = isSceneConcept(word, scene) ? 'infographic' : 'image';
   console.log(`[VocabImage] Cache miss — generating (${generationType}) for: "${conceptForGeneration}"`);
 
@@ -176,22 +179,36 @@ export async function resolveVocabularyImage(
 /**
  * Build a descriptive English generation concept from the available parameters.
  * When only a foreign-language word is given, DALL-E can struggle. We use the scene
- * description when available, otherwise fall back to the description, otherwise the word.
- * We also strip leading articles since they contribute nothing to the visual.
+ * description when available, then the English translation if provided, then the
+ * description field, then finally the word itself (with articles stripped).
+ * Language context is added so DALL-E knows what language the word is from.
  */
-function buildGenerationConcept(word: string, scene?: string, description?: string): string {
+function buildGenerationConcept(word: string, scene?: string, description?: string, translation?: string, language?: string): string {
   // Prefer the explicit scene description — most informative for generation
   if (scene && scene.trim().length > 0) return scene.trim();
+
+  // Use English translation as the generation concept when available — avoids DALL-E
+  // misinterpreting foreign words (e.g. "paix" → apple instead of dove/peace symbol)
+  if (translation && translation.trim().length > 0 && translation.trim().toLowerCase() !== word.toLowerCase()) {
+    return translation.trim();
+  }
 
   // Use the description if it adds more context than the word alone
   if (description && description !== word && description.trim().length > 0) {
     return description.trim();
   }
 
-  // Strip Spanish articles for cleaner generation
+  // Strip articles for cleaner generation (covers Spanish + French)
   const normalized = normalizeWord(word);
-  const parts = normalized.split(' ').filter(p => !SPANISH_ARTICLES.has(p));
-  return parts.length > 0 ? parts.join(' ') : word;
+  const parts = normalized.split(' ').filter(p => !ALL_ARTICLES.has(p));
+  const cleanWord = parts.length > 0 ? parts.join(' ') : word;
+
+  // For non-Spanish languages, add a language hint so DALL-E knows what it means
+  if (language && language !== 'spanish' && cleanWord.length > 0) {
+    return `${cleanWord} (${language} word)`;
+  }
+
+  return cleanWord;
 }
 
 export async function resolveMultipleImages(

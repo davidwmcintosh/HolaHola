@@ -481,7 +481,7 @@ const CACHE_COMPATIBLE_MODELS = [
   'gemini-2.0-flash-001',
   'gemini-2.5-flash-001',
   'gemini-2.5-pro-001',
-  'gemini-3-flash-preview',  // Confirmed cache support (Dec 2025)
+  // gemini-3-flash-preview removed: returns INVALID_ENDPOINT for POST /cachedContents
 ];
 
 /**
@@ -503,24 +503,28 @@ function isCacheCompatibleModel(model: string): boolean {
 }
 
 /**
- * Get a cache-compatible version of a model
- * Returns the original model if compatible, or a fallback versioned model
- * Gemini 3 Flash Preview now supports caching (Dec 2025) - no downgrade needed
+ * Get a cache-compatible version of a model.
+ * For preview/alias models (e.g. gemini-2.5-flash-preview), returns the versioned
+ * stable equivalent so caching is possible.
+ * Returns null for models that have NO cache-compatible equivalent (e.g. gemini-3-flash-preview).
+ * 
+ * IMPORTANT: The returned model must match what is used in the actual generation call.
+ * A cache created with model X cannot be referenced by a call using model Y.
  */
-function getCacheCompatibleModel(model: string): string {
+function getCacheCompatibleModel(model: string): string | null {
   if (isCacheCompatibleModel(model)) {
     return model;
   }
   
-  // Gemini 3 Flash: Now in CACHE_COMPATIBLE_MODELS, so this is a fallback
-  // for any future Gemini 3 variant not yet listed
+  // Gemini 3 models: preview does NOT support cachedContents — no fallback possible
+  // (cannot use a gemini-2.5 cache in a gemini-3 call)
   if (model.includes('gemini-3')) {
-    return 'gemini-3-flash-preview';  // Use preview which supports caching
+    return null;
   }
   
-  // Map preview models to their versioned equivalents
+  // Map preview models to their versioned equivalents (same model family)
   if (model.includes('gemini-2.5')) {
-    return DEFAULT_CACHE_MODEL;  // Use 2.5 flash for caching
+    return DEFAULT_CACHE_MODEL;  // gemini-2.5-flash-preview → gemini-2.5-flash-001
   }
   if (model.includes('gemini-2.0')) {
     return 'gemini-2.0-flash-001';
@@ -611,8 +615,9 @@ export class GeminiStreamingService {
    * Get or create a context cache for the given system prompt
    * Returns the cache name if successful, null if caching not possible
    * 
-   * Note: Automatically maps to a cache-compatible model if the requested model
-   * doesn't support caching (e.g., gemini-3-flash-preview -> gemini-2.5-flash-001)
+   * Note: Preview models are mapped to their versioned equivalents for caching
+   * (e.g. gemini-2.5-flash-preview → gemini-2.5-flash-001). Models with no
+   * cache-compatible equivalent (e.g. gemini-3-flash-preview) return null immediately.
    */
   private async getOrCreateContextCache(
     systemPrompt: string,
@@ -620,6 +625,12 @@ export class GeminiStreamingService {
   ): Promise<string | null> {
     // Get a cache-compatible model (may differ from requested model)
     const cacheModel = getCacheCompatibleModel(requestedModel);
+    
+    // No cache-compatible equivalent — skip caching entirely
+    if (!cacheModel) {
+      return null;
+    }
+    
     const promptHash = hashString(systemPrompt);
     const cacheKey = `${cacheModel}:${promptHash}`;
     
@@ -876,7 +887,9 @@ export class GeminiStreamingService {
       } finally {
         sentenceQueueProcessing = false;
         if (sentenceQueueDone && sentenceQueue.length === 0 && sentenceQueueResolve) {
-          sentenceQueueResolve();
+          const resolveNow = sentenceQueueResolve;
+          sentenceQueueResolve = null;
+          resolveNow();
         }
       }
     };
@@ -897,7 +910,16 @@ export class GeminiStreamingService {
       }
       return new Promise<void>((resolve) => {
         sentenceQueueResolve = resolve;
-        // If queue isn't currently processing, kick it off
+        // Race condition guard: queue may have emptied and processing may have finished
+        // between setting sentenceQueueDone=true above and setting sentenceQueueResolve here.
+        // processSentenceQueue's finally block only resolves if sentenceQueueResolve is set,
+        // so we must re-check here and self-resolve if the queue is already done.
+        if (sentenceQueue.length === 0 && !sentenceQueueProcessing) {
+          sentenceQueueResolve = null;
+          resolve();
+          return;
+        }
+        // If queue isn't currently processing but has items, kick it off
         if (!sentenceQueueProcessing && sentenceQueue.length > 0) {
           processSentenceQueue();
         }
@@ -905,6 +927,7 @@ export class GeminiStreamingService {
         setTimeout(() => {
           if (sentenceQueueResolve === resolve) {
             console.warn(`[Gemini Streaming] Sentence queue drain timeout after 30s (${sentenceQueue.length} items remaining, processing=${sentenceQueueProcessing})`);
+            sentenceQueueResolve = null;
             resolve();
           }
         }, 30000);

@@ -533,6 +533,7 @@ export class NativeFunctionCallHandler {
               language: session.language || 'spanish',
               description: description || displayWord,
               scene,
+              translation: translation,
               conversationId: session.conversationId?.toString(),
               userId: session.userId?.toString(),
             });
