@@ -20275,6 +20275,85 @@ Current conversation context:
     }
   });
   
+  // Submit a session bug report — triggered by the "Flag Issue" button in the chat UI
+  app.post("/api/sessions/submit-report", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id || req.user?.claims?.sub;
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+      const { conversationId, streamingSessionId, userNote, language, tutorName } = req.body;
+
+      // Fetch the last 40 conversation messages for transcript
+      let transcript = '';
+      if (conversationId) {
+        try {
+          const msgs = await storage.getMessagesByConversation(conversationId);
+          const recent = msgs.slice(-40);
+          transcript = recent.map((m: any) => {
+            const role = m.role === 'assistant' ? (tutorName || 'Tutor') : 'Student';
+            const content = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+            return `[${role}]: ${content.substring(0, 400)}`;
+          }).join('\n');
+        } catch (e) {
+          transcript = '(Could not fetch transcript)';
+        }
+      }
+
+      // Fetch recent Sofia issue reports for this user (last 24h)
+      let recentIssues: string[] = [];
+      try {
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const issues = await getUserDb().select({
+          id: sofiaIssueReports.id,
+          issueType: sofiaIssueReports.issueType,
+          userDescription: sofiaIssueReports.userDescription,
+          status: sofiaIssueReports.status,
+          createdAt: sofiaIssueReports.createdAt,
+        }).from(sofiaIssueReports)
+          .where(gte(sofiaIssueReports.createdAt, oneDayAgo))
+          .orderBy(desc(sofiaIssueReports.createdAt))
+          .limit(10);
+        recentIssues = issues.map((r: any) => `  • [${r.issueType}] ${r.userDescription?.substring(0, 120) || 'no description'} (${r.status})`);
+      } catch (e) {
+        recentIssues = ['(Could not fetch Sofia issue reports)'];
+      }
+
+      const now = new Date().toLocaleString('en-US', { timeZone: 'America/New_York' });
+      const userDescription = [
+        `SESSION FLAG submitted ${now}`,
+        `Language: ${language || 'unknown'} | Tutor: ${tutorName || 'unknown'}`,
+        `Conversation ID: ${conversationId || 'none'}`,
+        `Streaming session ID: ${streamingSessionId || 'none'}`,
+        userNote ? `\nUSER NOTE: ${userNote}` : '',
+        recentIssues.length ? `\nSOFIA ISSUE REPORTS (last 24h):\n${recentIssues.join('\n')}` : '',
+        transcript ? `\nTRANSCRIPT (last 40 messages):\n${transcript}` : '',
+      ].filter(Boolean).join('\n');
+
+      const { supportPersonaService } = await import('./services/support-persona-service');
+      const result = await supportPersonaService.createIssueReport({
+        userId,
+        issueType: 'session_flag',
+        userDescription,
+        generateAnalysis: true,
+        mode: 'dev',
+        clientTelemetry: {
+          conversationId,
+          streamingSessionId,
+          language,
+          tutorName,
+          userNote,
+          flaggedAt: new Date().toISOString(),
+        },
+      });
+
+      console.log(`[SessionReport] Flag submitted by ${userId} for conversation ${conversationId}: report #${result.id}`);
+      res.json({ success: true, reportId: result.id });
+    } catch (error: any) {
+      console.error('[API] Error submitting session report:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Get pending Sofia issue reports for founder review
   app.get("/api/admin/sofia-issue-reports", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {

@@ -16,7 +16,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, Loader2, EyeOff, VolumeX, Zap } from "lucide-react";
+import { Mic, MicOff, Loader2, EyeOff, VolumeX, Zap, Flag } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { type Message, type User } from "@shared/schema";
@@ -279,6 +279,8 @@ export function StreamingVoiceChat({
   // Incognito mode: off-the-record voice sessions (Founder/Honesty mode only)
   const [isIncognito, setIsIncognito] = useState(false);
   const [microAckOn, setMicroAckOn] = useState(() => isMicroAckEnabled());
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const [reportSubmitted, setReportSubmitted] = useState(false);
   const isPttButtonHeldRef = useRef(false); // Synchronous ref for guards (state is async)
   const activeInputTypeRef = useRef<'mouse' | 'touch' | 'keyboard' | null>(null); // Track which input started recording
   const [isMicPreparing, setIsMicPreparing] = useState(false); // Show "Preparing mic..." before actual recording starts
@@ -2823,6 +2825,27 @@ export function StreamingVoiceChat({
     setMicroAckEnabled(newVal);
   };
 
+  const handleSubmitReport = async () => {
+    if (isSubmittingReport || reportSubmitted) return;
+    setIsSubmittingReport(true);
+    try {
+      const tutorName = tutorGender === 'male' ? tutorNames.male : tutorNames.female;
+      await apiRequest('POST', '/api/sessions/submit-report', {
+        conversationId,
+        streamingSessionId: streamingVoice.state.sessionId,
+        language,
+        tutorName,
+      });
+      setReportSubmitted(true);
+      toast({ title: 'Session flagged', description: 'The team has been notified and will review this session.' });
+      setTimeout(() => setReportSubmitted(false), 8000);
+    } catch (err: any) {
+      toast({ title: 'Could not submit report', description: err.message || 'Please try again.', variant: 'destructive' });
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
+
   const handleEndCall = () => {
     console.log('[END CALL] User requested to end voice session');
     
@@ -3528,12 +3551,25 @@ export function StreamingVoiceChat({
           </Button>
         </div>
       )}
-      {/* Micro-Ack Toggle — shown during active streaming sessions */}
+      {/* Top-right controls: Submit Report + Micro-Ack Toggle */}
       {useStreamingMode && streamingVoice.state.connectionState !== 'disconnected' && (
-        <div className="absolute top-3 right-3 z-50">
+        <div className="absolute top-3 right-3 z-50 flex items-center gap-1">
           <Button
             size="sm"
-            variant={microAckOn ? "outline" : "ghost"}
+            variant={reportSubmitted ? "default" : "ghost"}
+            onClick={handleSubmitReport}
+            disabled={isSubmittingReport || reportSubmitted}
+            className="gap-1.5 opacity-70 hover:opacity-100"
+            data-testid="button-submit-report"
+            title="Flag an issue with this session"
+          >
+            {isSubmittingReport
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              : <Flag className="w-3.5 h-3.5" />}
+          </Button>
+          <Button
+            size="sm"
+            variant={microAckOn ? "default" : "ghost"}
             onClick={handleToggleMicroAck}
             className="gap-1.5 opacity-70 hover:opacity-100"
             data-testid="button-toggle-micro-ack"
