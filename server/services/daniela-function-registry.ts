@@ -246,7 +246,7 @@ AVAILABLE CHARACTERS:
 Spanish — male: "carlos" (friend), "el_mesero" (waiter), "el_doctor" (doctor), "el_vendedor" (vendor), "el_recepcionista" (receptionist)
 Spanish — female: "elena" (friend), "la_mesera" (waitress), "la_doctora" (doctor)
 French — male: "pierre" (friend), "le_serveur" (waiter)
-French — female: "marie" (friend)
+French — female: "marie" (friend), "la_serveuse" (waitress)
 
 IMPORTANT RULES:
 • Characters ONLY speak target language — never English or the student's native language

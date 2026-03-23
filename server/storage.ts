@@ -5941,38 +5941,40 @@ export class DatabaseStorage implements IStorage {
 
     console.log('[Voice Seed] Seeding default tutor voices...');
 
-    // Default voices from Cartesia - includes both male and female for each language
+    // All main tutors now use Google Chirp 3 HD
+    // Female voices: Aoede, Kore, Leda, Zephyr
+    // Male voices:   Fenrir, Puck, Charon, Orus
     const defaultVoices: InsertTutorVoice[] = [
       // English
-      { language: 'english', gender: 'female', provider: 'cartesia', voiceId: '573e3144-a684-4e72-ac2b-9b2063a50b53', voiceName: 'Teacher Lady', languageCode: 'en' },
-      { language: 'english', gender: 'male', provider: 'cartesia', voiceId: '638efaaa-4d0c-442e-b701-3fae16aad012', voiceName: 'Friendly Australian Man', languageCode: 'en' },
-      // Spanish
-      { language: 'spanish', gender: 'female', provider: 'cartesia', voiceId: '5c5ad5e7-1020-476b-8b91-fdcbe9cc313c', voiceName: 'Mexican Woman', languageCode: 'es' },
-      { language: 'spanish', gender: 'male', provider: 'cartesia', voiceId: 'ee7ea9f8-c0c1-498c-9f64-1571fc4b6a32', voiceName: 'Spanish Male Narrator', languageCode: 'es' },
-      // French
-      { language: 'french', gender: 'female', provider: 'cartesia', voiceId: 'a249eaff-1e96-4d2c-b23b-12efa4f66f41', voiceName: 'French Conversational Lady', languageCode: 'fr' },
-      { language: 'french', gender: 'male', provider: 'cartesia', voiceId: 'ab7c61f5-3daa-47dd-a23b-4ac0aac5f5c3', voiceName: 'French Narrator Man', languageCode: 'fr' },
-      // German
-      { language: 'german', gender: 'female', provider: 'cartesia', voiceId: '3f4ade23-6eb4-4279-ab05-6a144947c4d5', voiceName: 'German Conversational Woman', languageCode: 'de' },
-      { language: 'german', gender: 'male', provider: 'cartesia', voiceId: 'fb26447f-308b-471e-8b00-8c6697283ca1', voiceName: 'German Narrator Man', languageCode: 'de' },
-      // Italian
-      { language: 'italian', gender: 'female', provider: 'cartesia', voiceId: '0e21713a-5e9a-428a-bed4-90d410b87f13', voiceName: 'Italian Narrator Woman', languageCode: 'it' },
-      { language: 'italian', gender: 'male', provider: 'cartesia', voiceId: 'b9de4a89-2257-424b-94c2-db18ba68c81a', voiceName: 'Italian Male', languageCode: 'it' },
-      // Portuguese
-      { language: 'portuguese', gender: 'female', provider: 'cartesia', voiceId: '700d1ee3-a641-4018-ba6e-899dcadc9e2b', voiceName: 'Pleasant Brazilian Lady', languageCode: 'pt' },
-      { language: 'portuguese', gender: 'male', provider: 'cartesia', voiceId: 'a3520a8f-226a-428d-9fcd-b0a4711a6829', voiceName: 'Brazilian Male', languageCode: 'pt' },
-      // Japanese
-      { language: 'japanese', gender: 'female', provider: 'cartesia', voiceId: '2b568345-1d48-4047-b25f-7baccf842eb0', voiceName: 'Japanese Woman Conversational', languageCode: 'ja' },
-      { language: 'japanese', gender: 'male', provider: 'cartesia', voiceId: '8f091740-3df1-4795-8bd9-dc62d88e5131', voiceName: 'Japanese Male Calm', languageCode: 'ja' },
-      // Mandarin Chinese
-      { language: 'mandarin chinese', gender: 'female', provider: 'cartesia', voiceId: 'b991c420-1ad1-401b-bee0-34a16f76aa71', voiceName: 'Chinese Woman Narrator', languageCode: 'zh' },
-      { language: 'mandarin chinese', gender: 'male', provider: 'cartesia', voiceId: '5619d38c-cf51-4d8e-9575-48f61a280413', voiceName: 'Chinese Commercial Man', languageCode: 'zh' },
-      // Korean
-      { language: 'korean', gender: 'female', provider: 'cartesia', voiceId: 'b5d7b5e0-c94d-47f8-8df5-b124cf8c8b8c', voiceName: 'Korean Woman', languageCode: 'ko' },
-      { language: 'korean', gender: 'male', provider: 'cartesia', voiceId: '63ff761f-c1e8-414b-b969-d1833d1c870c', voiceName: 'Korean Male', languageCode: 'ko' },
+      { language: 'english', gender: 'female', provider: 'google', voiceId: 'en-US-Chirp3-HD-Aoede', voiceName: 'Aoede', languageCode: 'en-US' },
+      { language: 'english', gender: 'male', provider: 'google', voiceId: 'en-US-Chirp3-HD-Charon', voiceName: 'Charon', languageCode: 'en-US' },
+      // Spanish — Daniela: Aoede, Agustin: Fenrir
+      { language: 'spanish', gender: 'female', provider: 'google', voiceId: 'es-US-Chirp3-HD-Aoede', voiceName: 'Aoede', languageCode: 'es-US' },
+      { language: 'spanish', gender: 'male', provider: 'google', voiceId: 'es-US-Chirp3-HD-Fenrir', voiceName: 'Fenrir', languageCode: 'es-US' },
+      // French — Juliette: Leda, Vincent: Orus
+      { language: 'french', gender: 'female', provider: 'google', voiceId: 'fr-FR-Chirp3-HD-Leda', voiceName: 'Leda', languageCode: 'fr-FR' },
+      { language: 'french', gender: 'male', provider: 'google', voiceId: 'fr-FR-Chirp3-HD-Orus', voiceName: 'Orus', languageCode: 'fr-FR' },
+      // German — Greta: Zephyr, Lukas: Puck
+      { language: 'german', gender: 'female', provider: 'google', voiceId: 'de-DE-Chirp3-HD-Zephyr', voiceName: 'Zephyr', languageCode: 'de-DE' },
+      { language: 'german', gender: 'male', provider: 'google', voiceId: 'de-DE-Chirp3-HD-Puck', voiceName: 'Puck', languageCode: 'de-DE' },
+      // Italian — Liv: Kore, Luca: Charon
+      { language: 'italian', gender: 'female', provider: 'google', voiceId: 'it-IT-Chirp3-HD-Kore', voiceName: 'Kore', languageCode: 'it-IT' },
+      { language: 'italian', gender: 'male', provider: 'google', voiceId: 'it-IT-Chirp3-HD-Charon', voiceName: 'Charon', languageCode: 'it-IT' },
+      // Portuguese — Isabel: Aoede, Camilo: Puck
+      { language: 'portuguese', gender: 'female', provider: 'google', voiceId: 'pt-BR-Chirp3-HD-Aoede', voiceName: 'Aoede', languageCode: 'pt-BR' },
+      { language: 'portuguese', gender: 'male', provider: 'google', voiceId: 'pt-BR-Chirp3-HD-Puck', voiceName: 'Puck', languageCode: 'pt-BR' },
+      // Japanese — Sayuri: Leda, Daisuke: Orus
+      { language: 'japanese', gender: 'female', provider: 'google', voiceId: 'ja-JP-Chirp3-HD-Leda', voiceName: 'Leda', languageCode: 'ja-JP' },
+      { language: 'japanese', gender: 'male', provider: 'google', voiceId: 'ja-JP-Chirp3-HD-Orus', voiceName: 'Orus', languageCode: 'ja-JP' },
+      // Mandarin Chinese — Hua: Kore, Tao: Fenrir
+      { language: 'mandarin chinese', gender: 'female', provider: 'google', voiceId: 'cmn-CN-Chirp3-HD-Kore', voiceName: 'Kore', languageCode: 'cmn-CN' },
+      { language: 'mandarin chinese', gender: 'male', provider: 'google', voiceId: 'cmn-CN-Chirp3-HD-Fenrir', voiceName: 'Fenrir', languageCode: 'cmn-CN' },
+      // Korean — Jihyun: Zephyr, Minho: Charon
+      { language: 'korean', gender: 'female', provider: 'google', voiceId: 'ko-KR-Chirp3-HD-Zephyr', voiceName: 'Zephyr', languageCode: 'ko-KR' },
+      { language: 'korean', gender: 'male', provider: 'google', voiceId: 'ko-KR-Chirp3-HD-Charon', voiceName: 'Charon', languageCode: 'ko-KR' },
       // Hebrew (hidden language - special unlock for founder's daughter)
-      { language: 'hebrew', gender: 'female', provider: 'cartesia', voiceId: '573e3144-a684-4e72-ac2b-9b2063a50b53', voiceName: 'Hebrew Woman', languageCode: 'he' },
-      { language: 'hebrew', gender: 'male', provider: 'cartesia', voiceId: '638efaaa-4d0c-442e-b701-3fae16aad012', voiceName: 'Hebrew Man', languageCode: 'he' },
+      { language: 'hebrew', gender: 'female', provider: 'google', voiceId: 'he-IL-Chirp3-HD-Aoede', voiceName: 'Aoede', languageCode: 'he-IL' },
+      { language: 'hebrew', gender: 'male', provider: 'google', voiceId: 'he-IL-Chirp3-HD-Puck', voiceName: 'Puck', languageCode: 'he-IL' },
     ];
 
     for (const voice of defaultVoices) {
@@ -5984,7 +5986,55 @@ export class DatabaseStorage implements IStorage {
     // Also seed Sofia's support voices if they don't exist
     await this.seedSupportVoices();
   }
-  
+
+  /**
+   * Migrate all main tutor voices to Google Chirp 3 HD.
+   * Runs at startup to update any lingering Cartesia/ElevenLabs records.
+   * Safe to call every boot — only updates records that differ.
+   */
+  async migrateTutorVoicesToGoogle(): Promise<void> {
+    // Full Google Chirp 3 HD mapping for every language (role = 'tutor', main voices)
+    const googleVoices: Array<{ language: string; gender: string; voiceId: string; voiceName: string; languageCode: string }> = [
+      { language: 'english',        gender: 'female', voiceId: 'en-US-Chirp3-HD-Aoede',   voiceName: 'Aoede',  languageCode: 'en-US' },
+      { language: 'english',        gender: 'male',   voiceId: 'en-US-Chirp3-HD-Charon',  voiceName: 'Charon', languageCode: 'en-US' },
+      { language: 'spanish',        gender: 'female', voiceId: 'es-US-Chirp3-HD-Aoede',   voiceName: 'Aoede',  languageCode: 'es-US' },
+      { language: 'spanish',        gender: 'male',   voiceId: 'es-US-Chirp3-HD-Fenrir',  voiceName: 'Fenrir', languageCode: 'es-US' },
+      { language: 'french',         gender: 'female', voiceId: 'fr-FR-Chirp3-HD-Leda',    voiceName: 'Leda',   languageCode: 'fr-FR' },
+      { language: 'french',         gender: 'male',   voiceId: 'fr-FR-Chirp3-HD-Orus',    voiceName: 'Orus',   languageCode: 'fr-FR' },
+      { language: 'german',         gender: 'female', voiceId: 'de-DE-Chirp3-HD-Zephyr',  voiceName: 'Zephyr', languageCode: 'de-DE' },
+      { language: 'german',         gender: 'male',   voiceId: 'de-DE-Chirp3-HD-Puck',    voiceName: 'Puck',   languageCode: 'de-DE' },
+      { language: 'italian',        gender: 'female', voiceId: 'it-IT-Chirp3-HD-Kore',    voiceName: 'Kore',   languageCode: 'it-IT' },
+      { language: 'italian',        gender: 'male',   voiceId: 'it-IT-Chirp3-HD-Charon',  voiceName: 'Charon', languageCode: 'it-IT' },
+      { language: 'portuguese',     gender: 'female', voiceId: 'pt-BR-Chirp3-HD-Aoede',   voiceName: 'Aoede',  languageCode: 'pt-BR' },
+      { language: 'portuguese',     gender: 'male',   voiceId: 'pt-BR-Chirp3-HD-Puck',    voiceName: 'Puck',   languageCode: 'pt-BR' },
+      { language: 'japanese',       gender: 'female', voiceId: 'ja-JP-Chirp3-HD-Leda',    voiceName: 'Leda',   languageCode: 'ja-JP' },
+      { language: 'japanese',       gender: 'male',   voiceId: 'ja-JP-Chirp3-HD-Orus',    voiceName: 'Orus',   languageCode: 'ja-JP' },
+      { language: 'mandarin chinese', gender: 'female', voiceId: 'cmn-CN-Chirp3-HD-Kore', voiceName: 'Kore',   languageCode: 'cmn-CN' },
+      { language: 'mandarin chinese', gender: 'male',   voiceId: 'cmn-CN-Chirp3-HD-Fenrir', voiceName: 'Fenrir', languageCode: 'cmn-CN' },
+      { language: 'korean',         gender: 'female', voiceId: 'ko-KR-Chirp3-HD-Zephyr',  voiceName: 'Zephyr', languageCode: 'ko-KR' },
+      { language: 'korean',         gender: 'male',   voiceId: 'ko-KR-Chirp3-HD-Charon',  voiceName: 'Charon', languageCode: 'ko-KR' },
+      { language: 'hebrew',         gender: 'female', voiceId: 'he-IL-Chirp3-HD-Aoede',   voiceName: 'Aoede',  languageCode: 'he-IL' },
+      { language: 'hebrew',         gender: 'male',   voiceId: 'he-IL-Chirp3-HD-Puck',    voiceName: 'Puck',   languageCode: 'he-IL' },
+    ];
+
+    let updated = 0;
+    for (const v of googleVoices) {
+      const result = await getSharedDb()
+        .update(tutorVoices)
+        .set({ provider: 'google', voiceId: v.voiceId, voiceName: v.voiceName, languageCode: v.languageCode, updatedAt: new Date() })
+        .where(
+          and(
+            eq(tutorVoices.language, v.language),
+            eq(tutorVoices.gender, v.gender),
+            eq(tutorVoices.role, 'tutor'),
+          )
+        )
+        .returning({ id: tutorVoices.id });
+      updated += result.length;
+    }
+    console.log(`[Voice Migration] ✓ Migrated ${updated} main tutor voice(s) to Google Chirp 3 HD`);
+  }
+
   /**
    * Seed Sofia's support agent voices (Google Chirp3 HD)
    * These voices are used for technical support conversations

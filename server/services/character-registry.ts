@@ -10,7 +10,16 @@ export interface CharacterDefinition {
   description: string;
 }
 
-// All secondary characters use Google Chirp 3 HD — same provider as the main tutors
+// ─────────────────────────────────────────────────────────────────────────────
+// SPANISH CHARACTERS
+//
+// Tutor voices (reserved — do NOT reuse):
+//   Daniela (female) → es-US-Chirp3-HD-Aoede
+//   Agustin (male)   → es-US-Chirp3-HD-Fenrir
+//
+// Available pool:  female: Kore, Leda, Zephyr
+//                  male:   Puck, Charon, Orus
+// ─────────────────────────────────────────────────────────────────────────────
 const SPANISH_CHARACTERS: CharacterDefinition[] = [
   {
     id: 'carlos',
@@ -18,7 +27,7 @@ const SPANISH_CHARACTERS: CharacterDefinition[] = [
     gender: 'male',
     role: 'friend',
     language: 'spanish',
-    voiceId: 'es-US-Chirp3-HD-Fenrir',
+    voiceId: 'es-US-Chirp3-HD-Puck',
     ttsProvider: 'google',
     languageCode: 'es-US',
     description: 'A friendly male Spanish speaker — works as a friend, classmate, or colleague',
@@ -29,7 +38,7 @@ const SPANISH_CHARACTERS: CharacterDefinition[] = [
     gender: 'male',
     role: 'waiter',
     language: 'spanish',
-    voiceId: 'es-US-Chirp3-HD-Fenrir',
+    voiceId: 'es-US-Chirp3-HD-Charon',
     ttsProvider: 'google',
     languageCode: 'es-US',
     description: 'A restaurant waiter',
@@ -40,7 +49,7 @@ const SPANISH_CHARACTERS: CharacterDefinition[] = [
     gender: 'male',
     role: 'doctor',
     language: 'spanish',
-    voiceId: 'es-US-Chirp3-HD-Fenrir',
+    voiceId: 'es-US-Chirp3-HD-Orus',
     ttsProvider: 'google',
     languageCode: 'es-US',
     description: 'A male doctor or medical professional',
@@ -51,7 +60,7 @@ const SPANISH_CHARACTERS: CharacterDefinition[] = [
     gender: 'male',
     role: 'vendor',
     language: 'spanish',
-    voiceId: 'es-US-Chirp3-HD-Fenrir',
+    voiceId: 'es-US-Chirp3-HD-Charon',
     ttsProvider: 'google',
     languageCode: 'es-US',
     description: 'A market or shop vendor',
@@ -62,7 +71,7 @@ const SPANISH_CHARACTERS: CharacterDefinition[] = [
     gender: 'male',
     role: 'receptionist',
     language: 'spanish',
-    voiceId: 'es-US-Chirp3-HD-Fenrir',
+    voiceId: 'es-US-Chirp3-HD-Puck',
     ttsProvider: 'google',
     languageCode: 'es-US',
     description: 'A hotel or office receptionist',
@@ -84,7 +93,7 @@ const SPANISH_CHARACTERS: CharacterDefinition[] = [
     gender: 'female',
     role: 'doctor',
     language: 'spanish',
-    voiceId: 'es-US-Chirp3-HD-Kore',
+    voiceId: 'es-US-Chirp3-HD-Zephyr',
     ttsProvider: 'google',
     languageCode: 'es-US',
     description: 'A female doctor or medical professional',
@@ -95,13 +104,23 @@ const SPANISH_CHARACTERS: CharacterDefinition[] = [
     gender: 'female',
     role: 'waitress',
     language: 'spanish',
-    voiceId: 'es-US-Chirp3-HD-Kore',
+    voiceId: 'es-US-Chirp3-HD-Leda',
     ttsProvider: 'google',
     languageCode: 'es-US',
     description: 'A restaurant waitress',
   },
 ];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// FRENCH CHARACTERS
+//
+// Tutor voices (reserved — do NOT reuse):
+//   Juliette (female) → fr-FR-Chirp3-HD-Leda
+//   Vincent  (male)   → fr-FR-Chirp3-HD-Orus
+//
+// Available pool:  female: Aoede, Kore, Zephyr
+//                  male:   Puck, Charon, Fenrir
+// ─────────────────────────────────────────────────────────────────────────────
 const FRENCH_CHARACTERS: CharacterDefinition[] = [
   {
     id: 'pierre',
@@ -109,7 +128,7 @@ const FRENCH_CHARACTERS: CharacterDefinition[] = [
     gender: 'male',
     role: 'friend',
     language: 'french',
-    voiceId: 'fr-FR-Chirp3-HD-Orus',
+    voiceId: 'fr-FR-Chirp3-HD-Puck',
     ttsProvider: 'google',
     languageCode: 'fr-FR',
     description: 'A friendly male French speaker',
@@ -120,7 +139,7 @@ const FRENCH_CHARACTERS: CharacterDefinition[] = [
     gender: 'male',
     role: 'waiter',
     language: 'french',
-    voiceId: 'fr-FR-Chirp3-HD-Orus',
+    voiceId: 'fr-FR-Chirp3-HD-Charon',
     ttsProvider: 'google',
     languageCode: 'fr-FR',
     description: 'A restaurant waiter',
@@ -131,10 +150,21 @@ const FRENCH_CHARACTERS: CharacterDefinition[] = [
     gender: 'female',
     role: 'friend',
     language: 'french',
-    voiceId: 'fr-FR-Chirp3-HD-Leda',
+    voiceId: 'fr-FR-Chirp3-HD-Kore',
     ttsProvider: 'google',
     languageCode: 'fr-FR',
     description: 'A friendly female French speaker',
+  },
+  {
+    id: 'la_serveuse',
+    displayName: 'La serveuse',
+    gender: 'female',
+    role: 'waitress',
+    language: 'french',
+    voiceId: 'fr-FR-Chirp3-HD-Zephyr',
+    ttsProvider: 'google',
+    languageCode: 'fr-FR',
+    description: 'A restaurant waitress',
   },
 ];
 

@@ -209,6 +209,14 @@ const stripeInitPromise = (async function initStripe() {
       console.error('Failed to seed assistant tutors:', error);
     }
     
+    // Migrate all main tutor voices to Google Chirp 3 HD (idempotent, safe every boot)
+    try {
+      const { storage: storageForVoiceMigration } = await import('./storage');
+      await storageForVoiceMigration.migrateTutorVoicesToGoogle();
+    } catch (error) {
+      console.error('Failed to migrate tutor voices to Google:', error);
+    }
+
     // Seed Pedagogical Persona Registry (teaching profiles for each tutor)
     try {
       console.log('Seeding tutor personas...');
