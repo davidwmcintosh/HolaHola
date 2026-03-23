@@ -319,7 +319,12 @@ export function cleanTextForDisplay(text: string): string {
   // Strip ACTION_TRIGGERS XML blocks (JSON command format - invisible to students)
   // Pattern: <ACTION_TRIGGERS>{"commands":[...]}</ACTION_TRIGGERS>
   text = text.replace(/<ACTION_TRIGGERS>[\s\S]*?<\/ACTION_TRIGGERS>/gi, '');
-  
+
+  // Strip any remaining HTML tags (LLM sometimes hallucinates <br>, <div>, <h3>, etc. in spoken text)
+  // Convert <br> variants to a space so words don't merge, then strip all other tags
+  text = text.replace(/<br\s*\/?>/gi, ' ');
+  text = text.replace(/<[^>]+>/g, '');
+
   // Strip internal notes/reasoning fragments that Gemini sometimes leaks
   // These are fragments of structured output that shouldn't be spoken
   // Patterns: reasoning="...", priority=\d+, confidence=\d+ (attribute format)

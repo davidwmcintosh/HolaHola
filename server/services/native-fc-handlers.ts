@@ -881,7 +881,8 @@ export class NativeFunctionCallHandler {
           }
           const propDisplayName = addLabel || (assetRow as any)?.display_name as string || addPropName;
           if (!session.sceneCanvas) {
-            session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [], clockTime: undefined };
+            console.warn('[Native Function→AddToScene] No active scene canvas — call open_scene first');
+            break;
           }
           const existingIdx = session.sceneCanvas.props.findIndex((p: any) => p.name === addPropName);
           const newProp: Record<string, any> = {
