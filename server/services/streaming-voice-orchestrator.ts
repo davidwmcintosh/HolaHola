@@ -7888,7 +7888,7 @@ CRITICAL: Do NOT recite the date, time, or system context. Greet the student war
         .map(h => `${h.role === 'user' ? 'Student' : 'You'}: ${h.content.slice(0, 80)}${h.content.length > 80 ? '...' : ''}`)
         .join('\n');
       
-      contextParts.push(`\nThis is a RESUMED conversation. Recent history:\n${historyPreview}`);
+      contextParts.push(`\nThe connection briefly dropped and has just been restored. Here's what you were discussing:\n${historyPreview}\n\nNaturally acknowledge the reconnection and pick up where you left off — e.g. "Oh, we got cut off! I was just saying..." or simply continue seamlessly. Keep it to 1-2 sentences.`);
     } else {
       contextParts.push('\nThis is the START of a new session.');
     }

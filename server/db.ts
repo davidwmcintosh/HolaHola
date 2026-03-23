@@ -50,12 +50,25 @@ function getDb() {
   if (!pool) {
     pool = new Pool({
       connectionString: DATABASE_URL,
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000,
+      max: 10,
+      idleTimeoutMillis: 120000,
+      connectionTimeoutMillis: 20000,
     });
     _db = drizzle({ client: pool, schema });
-    console.log("[DB] Database pool initialized (max: 20, idle: 30s, timeout: 5s)");
+    console.log("[DB] Database pool initialized (max: 10, idle: 2min, timeout: 20s)");
+
+    // Keepalive heartbeat — prevents Neon serverless compute from auto-suspending.
+    // Neon suspends after ~5min idle; a query every 3min keeps it warm and avoids
+    // the 5-20s cold-start penalty that was stacking into 38s+ connection timeouts.
+    const keepaliveInterval = setInterval(async () => {
+      if (!pool) return;
+      try {
+        await pool.query('SELECT 1');
+      } catch {
+        // Pool will reconnect automatically on next real query
+      }
+    }, 3 * 60 * 1000);
+    keepaliveInterval.unref(); // don't block process exit
   }
   return _db!;
 }
