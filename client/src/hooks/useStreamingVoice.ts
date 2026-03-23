@@ -227,6 +227,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   // 2. No pending audio chunks (pendingAudioCount = 0)
   // 3. Audio has actually started playing (or no audio was sent)
   const responseCompleteRef = useRef(false);
+  
+  // Track connection state in a ref so closures (failsafes, timeouts) can read it
+  const connectionStateRef = useRef<StreamingClientState>('disconnected');
   const pendingAudioCountRef = useRef(0);
   const setIsProcessingRef = useRef(setIsProcessing);
   setIsProcessingRef.current = setIsProcessing;
@@ -1121,12 +1124,26 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       }
     }, 20000);
     
-    // Tier 2 (45s): Catches stuck states where AudioContext is "running" but audio
-    // callbacks silently failed. Playback-aware: if audio is actively playing or
-    // buffering, defer to 90s instead of force-stopping.
+    // Tier 2 (45s, or 10s when WS is disconnected): Catches stuck states where
+    // AudioContext is "running" but audio callbacks silently failed.
+    // When the connection is already gone (WS dropped after response_complete),
+    // audio will never arrive — fire the fast path at 10s instead of 45s.
+    // Playback-aware: if audio is actively playing or buffering, defer to 90s.
     setTimeout(() => {
       if (turnCounterRef.current !== thisTurn) return;
       if (!responseCompleteRef.current) return;
+      // Fast path: WS disconnected, no audio received — clear immediately
+      const wsState = connectionStateRef.current;
+      if ((wsState === 'disconnected' || wsState === 'reconnecting') && !audioReceivedInTurnRef.current) {
+        console.log(`[StreamingVoice] Tier-2 fast path: WS ${wsState} + no audio — clearing stuck state early (turn=${thisTurn})`);
+        diagMarkFailsafe('tier2_45s', { ctxState: 'ws_disconnected', pending: pendingAudioCountRef.current });
+        reportDiagnostic('failsafe_tier2_45s', { failsafeTier: 'tier2_ws_drop' });
+        pendingAudioCountRef.current = 0;
+        audioReceivedInTurnRef.current = false;
+        setIsProcessingRef.current(false);
+        setGlobalPlaybackState('idle');
+        return;
+      }
       const player = playerRef.current;
       const ctxState = player?.getAudioContextState?.() || 'unknown';
       const currentPlayback = getGlobalPlaybackState();
@@ -1493,7 +1510,29 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current = getStreamingVoiceClient();
       
       // Set up callbacks
-      clientRef.current.on('stateChange', setConnectionState);
+      clientRef.current.on('stateChange', (state) => {
+        connectionStateRef.current = state;
+        setConnectionState(state);
+        // Fast recovery: if WS drops while we're waiting for audio that will never
+        // arrive (response_complete received but TTS chunks were in-flight over the
+        // now-dead socket), don't make the user wait 45s. Clear in 8s instead.
+        if ((state === 'reconnecting' || state === 'disconnected') &&
+            isProcessingRef.current &&
+            responseCompleteRef.current &&
+            !audioReceivedInTurnRef.current) {
+          const thisTurn = turnCounterRef.current;
+          console.log('[StreamingVoice] WS dropped while waiting for audio — scheduling 8s fast recovery');
+          setTimeout(() => {
+            if (turnCounterRef.current !== thisTurn) return;
+            if (!isProcessingRef.current) return;
+            console.log('[StreamingVoice] Fast recovery: clearing stuck processing state after WS drop');
+            pendingAudioCountRef.current = 0;
+            audioReceivedInTurnRef.current = false;
+            setIsProcessingRef.current(false);
+            setGlobalPlaybackState('idle');
+          }, 8000);
+        }
+      });
       clientRef.current.on('processing', handleProcessing);
       clientRef.current.on('processing_pending', handleProcessingPending);  // Immediate thinking signal
       clientRef.current.on('sentenceStart', handleSentenceStart);

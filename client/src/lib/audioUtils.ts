@@ -357,6 +357,14 @@ export class StreamingAudioPlayer {
   // the same audio chunk to be delivered twice (via sentence_ready + audio_chunk, or retransmission)
   private processedChunks: Set<string> = new Set();
   
+  // Time of the last successfully enqueued chunk (ms). Used as a fallback new-turn
+  // detector: if a new turn's s0_c* arrives more than 20s after the last chunk, we
+  // force-clear the dedup set even if progressiveFirstChunkStarted is still true.
+  // This guards against the race where a `processing` WS message was dropped during
+  // reconnect (so resetForNewTurn was never called), leaving stale keys that block
+  // the first chunk of the genuinely-new turn.
+  private lastChunkEnqueuedAt = 0;
+  
   // CONTENT-HASH DEDUP: Last-resort dedup that catches same audio content
   // regardless of chunk/sentence index. Hashes first+last 64 floats of PCM data.
   // Cleared on new turn. Catches: transport retransmissions, proxy duplicates,
@@ -824,14 +832,29 @@ export class StreamingAudioPlayer {
     // Updated (Jan 9): Now checks sentenceIndex only, NOT chunkIndex
     // This handles edge case where Cartesia sends empty marker at chunkIndex=0, 
     // then real audio at chunkIndex=1 - we still need to detect this as new turn
-    const isNewTurnStarting = sentenceIndex === 0 && !this.progressiveFirstChunkStarted;
+    //
+    // Time-based fallback (March 2026): If `processing` WS message was dropped during
+    // a reconnect, resetForNewTurn is never called and progressiveFirstChunkStarted
+    // stays true from the old turn. Guard against this by treating s0_c* arriving
+    // 20+ seconds after the last chunk as a guaranteed new-turn start — stale dedup
+    // keys from a prior turn would otherwise block the new turn's audio.
+    const timeSinceLastChunk = this.lastChunkEnqueuedAt ? (Date.now() - this.lastChunkEnqueuedAt) : Infinity;
+    const isNewTurnStarting = sentenceIndex === 0 && (
+      !this.progressiveFirstChunkStarted || timeSinceLastChunk > 20000
+    );
     
     // For new turn, clear the deduplication set BEFORE checking for duplicates
     // BUT don't set progressiveFirstChunkStarted yet - wait until we confirm this isn't an empty marker chunk
     if (isNewTurnStarting) {
-      console.log(`[AUDIO PLAYER] New turn detected - clearing deduplication state`);
+      if (timeSinceLastChunk > 20000 && this.progressiveFirstChunkStarted) {
+        console.log(`[AUDIO PLAYER] Time-based new-turn detected (${Math.round(timeSinceLastChunk / 1000)}s gap) - force-clearing stale dedup state`);
+      } else {
+        console.log(`[AUDIO PLAYER] New turn detected - clearing deduplication state`);
+      }
       this.processedChunks.clear();
       this.sentenceChunkCounters.clear();
+      // Also reset progressive state so the rest of the new-turn logic works normally
+      this.progressiveFirstChunkStarted = false;
     }
     
     // DEDUPLICATION: Skip chunks we've already processed
@@ -886,6 +909,11 @@ export class StreamingAudioPlayer {
       console.log(`[AUDIO PLAYER] DEDUP: Skipping duplicate chunk ${chunkKey}`);
       return;
     }
+    
+    // Update last-received timestamp now that this chunk has cleared dedup.
+    // Used by the time-based new-turn detection above.
+    this.lastChunkEnqueuedAt = Date.now();
+    
     // HOLD PLAYBACK: If held, buffer the chunk for later as a StreamingAudioChunk
     // NOTE: Held chunks are NOT added to dedup set - they'll be processed later
     if (this.playbackHeld) {
