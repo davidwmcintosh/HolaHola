@@ -728,7 +728,7 @@ export default function Chat() {
                 <p>
                   {reviewedConvId === conversationId
                     ? "Already reviewed this session — findings are in Alden's inbox"
-                    : "Analyse this conversation with AI — surfaces bugs, UX issues, and teaching moments"
+                    : "Analyse this conversation with AI — best used at the end of a session when there's more to review"
                   }
                 </p>
               </TooltipContent>
