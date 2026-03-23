@@ -7,7 +7,7 @@ import { DesktopChatLayout } from "@/components/DesktopChatLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { MessageSquare, Mic, Plus, GraduationCap, User, Phone, Heart, Sparkles, Radio, Wifi, WifiOff, Send, Loader2, ChevronRight, ChevronLeft, Brain, Code, Volume2, HelpCircle, FlaskConical } from "lucide-react";
+import { MessageSquare, Mic, Plus, GraduationCap, User, Phone, Heart, Sparkles, Radio, Wifi, WifiOff, Send, Loader2, ChevronRight, ChevronLeft, Brain, Code, Volume2, HelpCircle, FlaskConical, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFounderCollab } from "@/hooks/useFounderCollab";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -67,6 +67,7 @@ export default function Chat() {
   const [studioImages, setStudioImages] = useState<Array<{ word: string; description: string; imageUrl: string; context?: string; slot?: 'scene' | 'context'; category?: string }>>([]);
   const [isImmersiveMode, setIsImmersiveMode] = useState(false);
   const [isReviewing, setIsReviewing] = useState(false);
+  const [reviewedConvId, setReviewedConvId] = useState<string | null>(null);
   const { toast } = useToast();
   
   const whiteboardScenario = whiteboardItems.find(isScenarioItem)?.data as ScenarioItemData | undefined ?? null;
@@ -553,11 +554,12 @@ export default function Chat() {
   };
 
   const handleReview = useCallback(async () => {
-    if (!conversationId || isReviewing) return;
+    if (!conversationId || isReviewing || reviewedConvId === conversationId) return;
     setIsReviewing(true);
     try {
       const res = await apiRequest("POST", `/api/conversations/${conversationId}/review`, {});
       const data = await res.json();
+      setReviewedConvId(conversationId);
       if (data.findingCount === 0) {
         toast({ title: "Review complete", description: "No findings — conversation looks clean." });
       } else {
@@ -572,7 +574,7 @@ export default function Chat() {
     } finally {
       setIsReviewing(false);
     }
-  }, [conversationId, isReviewing, toast]);
+  }, [conversationId, isReviewing, reviewedConvId, toast]);
 
   // Handle voice mode click - check credits first
   const handleVoiceModeClick = useCallback(() => {
@@ -708,18 +710,27 @@ export default function Chat() {
                   variant="outline"
                   size="sm"
                   onClick={handleReview}
-                  disabled={isReviewing}
+                  disabled={isReviewing || reviewedConvId === conversationId}
                   data-testid="button-review-conversation"
                 >
                   {isReviewing
                     ? <Loader2 className="h-4 w-4 md:mr-2 animate-spin" />
-                    : <FlaskConical className="h-4 w-4 md:mr-2" />
+                    : reviewedConvId === conversationId
+                      ? <CheckCircle2 className="h-4 w-4 md:mr-2" />
+                      : <FlaskConical className="h-4 w-4 md:mr-2" />
                   }
-                  <span className="hidden md:inline">{isReviewing ? "Reviewing…" : "Review"}</span>
+                  <span className="hidden md:inline">
+                    {isReviewing ? "Reviewing…" : reviewedConvId === conversationId ? "Reviewed" : "Review"}
+                  </span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Send this conversation to Alden for QA review — surfaces bugs, feature requests, and teaching moments</p>
+                <p>
+                  {reviewedConvId === conversationId
+                    ? "Already reviewed this session — findings are in Alden's inbox"
+                    : "Analyse this conversation with AI — surfaces bugs, UX issues, and teaching moments"
+                  }
+                </p>
               </TooltipContent>
             </Tooltip>
           )}
