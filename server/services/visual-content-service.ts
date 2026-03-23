@@ -42,12 +42,11 @@ const PROP_STYLE =
   'no background elements, clear and recognisable silhouette, language learning educational quality, ' +
   NO_TEXT_INSTRUCTION;
 
-// Scene backgrounds: immersive environments, loose painterly watercolor — NOT architectural or sketch-like
+// Scene backgrounds: same children's book watercolor style as props but with full environment
 const SCENE_STYLE =
-  'loose impressionistic watercolor painting style, soft glowing washes of color, warm luminous light, ' +
-  'painterly brushstrokes with no hard ink outlines, dreamy soft-focus atmosphere, ' +
-  'vibrant yet gentle palette, immersive background scene, language learning educational context, ' +
-  'suitable for all ages, ' +
+  'soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, ' +
+  'visible brushwork texture, friendly expressive characters, immersive background environment, ' +
+  'language learning educational context, suitable for all ages, ' +
   NO_TEXT_INSTRUCTION;
 
 // Semantic tag categories for educational content
