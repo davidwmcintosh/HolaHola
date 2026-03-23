@@ -74,6 +74,7 @@ import {
 import { getTOCForSubject } from "./data/subject-tocs";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
 import OpenAI, { toFile } from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 import { setupUnifiedWebSocketHandler, getRecentTelemetryEvents, getPendingServerEmits } from "./unified-ws-handler";
 import {
   extractNameFromMessage,
@@ -3945,6 +3946,95 @@ Return a JSON array of suggestions with this format:
       }
       res.json({ success: true });
     } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // POST /api/conversations/:id/review — Alden QA: reads the transcript, surfaces bugs/features/moments
+  app.post("/api/conversations/:id/review", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getRequestUserId(req);
+      const conversation = await storage.getConversation(req.params.id, userId);
+      if (!conversation) return res.status(404).json({ message: "Conversation not found" });
+
+      const messages = await storage.getMessagesByConversation(req.params.id);
+      if (!messages.length) return res.status(400).json({ message: "No messages to review" });
+
+      // Build a readable transcript (limit to last 200 messages to stay within context)
+      const recent = messages.slice(-200);
+      const transcript = recent.map((m: any) => {
+        const role = m.role === 'assistant' ? 'Daniela' : 'User';
+        return `[${role}]: ${m.content}`;
+      }).join('\n\n');
+
+      const anthropic = new Anthropic();
+      const systemPrompt = `You are Alden, an autonomous quality assurance agent for HoloHola — an AI-powered Spanish language learning app. You are analysing a transcript of a real conversation between a user (David, the founder) and Daniela (the AI tutor).
+
+Your job is to extract actionable findings from the transcript. Return ONLY a valid JSON array of findings — no prose, no markdown fences, just the raw JSON array.
+
+Each finding must be one of these types:
+- "bug": Something broke or behaved incorrectly (UI glitch, wrong output, error, unexpected silence, blue screen, garbled speech, HTML tags in output, etc.)
+- "feature_request": Something the user asked for or suggested that doesn't exist yet
+- "ux_issue": A friction point, confusing interaction, or poor user experience that isn't strictly a bug
+- "teaching_moment": A moment where Daniela missed an opportunity to teach, corrected poorly, or over-corrected
+
+Each object in the array must have these fields:
+{
+  "type": "bug" | "feature_request" | "ux_issue" | "teaching_moment",
+  "title": "Short title (max 80 chars)",
+  "description": "Clear, actionable description of what happened and why it matters. Include what the fix or feature would look like.",
+  "severity": "info" | "warning" | "alert",
+  "quote": "A short verbatim quote from the transcript that best captures this finding (max 200 chars)"
+}
+
+Severity guide:
+- "alert": Broke the experience entirely (blue screen, no audio, crash-level)
+- "warning": Meaningfully degraded the experience (wrong language, missed vocabulary, awkward UX)
+- "info": Nice-to-have improvement or minor observation
+
+Return an empty array [] if there are no findings worth surfacing. Be specific and actionable — avoid vague observations.`;
+
+      const response = await anthropic.messages.create({
+        model: 'claude-opus-4-6',
+        max_tokens: 2048,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: `Here is the conversation transcript to analyse:\n\n${transcript}` }],
+      });
+
+      const rawText = response.content[0]?.type === 'text' ? response.content[0].text.trim() : '[]';
+      let findings: Array<{ type: string; title: string; description: string; severity: string; quote?: string }> = [];
+      try {
+        findings = JSON.parse(rawText);
+        if (!Array.isArray(findings)) findings = [];
+      } catch {
+        console.warn('[ConversationReview] Claude returned non-JSON — raw:', rawText.slice(0, 200));
+        findings = [];
+      }
+
+      // Insert each finding as an Alden notification
+      const { aldenNotifications } = await import('@shared/schema');
+      const db = getUserDb();
+      const created: string[] = [];
+
+      for (const f of findings) {
+        const severityMap: Record<string, string> = { alert: 'alert', warning: 'warning', info: 'info' };
+        const severity = (severityMap[f.severity] || 'info') as 'info' | 'warning' | 'alert';
+        const typeLabel = { bug: '🔴 Bug', feature_request: '💡 Feature', ux_issue: '⚠️ UX', teaching_moment: '📚 Teaching' }[f.type] || f.type;
+        const content = `[${typeLabel}] ${f.title}\n\n${f.description}${f.quote ? `\n\nContext: "${f.quote}"` : ''}\n\n— From conversation review (${new Date().toLocaleDateString()})`;
+
+        const [notif] = await db.insert(aldenNotifications).values({
+          content,
+          triggeredBy: 'tool' as const,
+          severity,
+          read: false,
+        }).returning({ id: aldenNotifications.id });
+        created.push(notif.id);
+      }
+
+      console.log(`[ConversationReview] Conversation ${req.params.id}: ${findings.length} findings → ${created.length} notifications`);
+      res.json({ success: true, findingCount: findings.length, findings });
+    } catch (error: any) {
+      console.error('[ConversationReview] Error:', error.message);
       res.status(500).json({ error: error.message });
     }
   });

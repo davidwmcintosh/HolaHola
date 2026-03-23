@@ -7,7 +7,8 @@ import { DesktopChatLayout } from "@/components/DesktopChatLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { MessageSquare, Mic, Plus, GraduationCap, User, Phone, Heart, Sparkles, Radio, Wifi, WifiOff, Send, Loader2, ChevronRight, ChevronLeft, Brain, Code, Volume2, HelpCircle } from "lucide-react";
+import { MessageSquare, Mic, Plus, GraduationCap, User, Phone, Heart, Sparkles, Radio, Wifi, WifiOff, Send, Loader2, ChevronRight, ChevronLeft, Brain, Code, Volume2, HelpCircle, FlaskConical } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { useFounderCollab } from "@/hooks/useFounderCollab";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
@@ -65,6 +66,8 @@ export default function Chat() {
   const [scenarioHistoryId, setScenarioHistoryId] = useState<string | null>(null);
   const [studioImages, setStudioImages] = useState<Array<{ word: string; description: string; imageUrl: string; context?: string; slot?: 'scene' | 'context'; category?: string }>>([]);
   const [isImmersiveMode, setIsImmersiveMode] = useState(false);
+  const [isReviewing, setIsReviewing] = useState(false);
+  const { toast } = useToast();
   
   const whiteboardScenario = whiteboardItems.find(isScenarioItem)?.data as ScenarioItemData | undefined ?? null;
   const activeSceneCanvas = whiteboardItems.find(isSceneCanvasItem)?.data as SceneCanvasItemData | undefined ?? null;
@@ -549,6 +552,28 @@ export default function Chat() {
     }, 400);
   };
 
+  const handleReview = useCallback(async () => {
+    if (!conversationId || isReviewing) return;
+    setIsReviewing(true);
+    try {
+      const res = await apiRequest("POST", `/api/conversations/${conversationId}/review`, {});
+      const data = await res.json();
+      if (data.findingCount === 0) {
+        toast({ title: "Review complete", description: "No findings — conversation looks clean." });
+      } else {
+        toast({
+          title: `Review complete — ${data.findingCount} finding${data.findingCount !== 1 ? 's' : ''} queued`,
+          description: "Alden has logged them to your inbox. Check the notification badge.",
+        });
+        queryClient.invalidateQueries({ queryKey: ['/api/alden/notifications/unread-count'] });
+      }
+    } catch (err: any) {
+      toast({ title: "Review failed", description: err.message || "Something went wrong.", variant: "destructive" });
+    } finally {
+      setIsReviewing(false);
+    }
+  }, [conversationId, isReviewing, toast]);
+
   // Handle voice mode click - check credits first
   const handleVoiceModeClick = useCallback(() => {
     if (isExhausted) {
@@ -676,6 +701,29 @@ export default function Chat() {
             />
           )}
           
+          {conversationId && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleReview}
+                  disabled={isReviewing}
+                  data-testid="button-review-conversation"
+                >
+                  {isReviewing
+                    ? <Loader2 className="h-4 w-4 md:mr-2 animate-spin" />
+                    : <FlaskConical className="h-4 w-4 md:mr-2" />
+                  }
+                  <span className="hidden md:inline">{isReviewing ? "Reviewing…" : "Review"}</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Send this conversation to Alden for QA review — surfaces bugs, feature requests, and teaching moments</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+
           <Button
             variant="outline"
             size="sm"
