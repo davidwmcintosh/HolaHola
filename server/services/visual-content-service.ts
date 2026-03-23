@@ -31,15 +31,21 @@ export interface VisualGenerationResult {
 }
 
 // Shared style — soft watercolor children's book illustration used across all generated assets
+const NO_TEXT_INSTRUCTION =
+  'absolutely no text, no letters, no numbers, no words, no handwriting, no captions, ' +
+  'no labels, no symbols, no glyphs, no typography, no writing of any kind anywhere in the image';
+
 const PROP_STYLE =
   'soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, ' +
   'visible brushwork texture, object centred and prominent on a clean pure white background, ' +
-  'no background elements, clear and recognisable silhouette, language learning educational quality';
+  'no background elements, clear and recognisable silhouette, language learning educational quality, ' +
+  NO_TEXT_INSTRUCTION;
 
 const SCENE_STYLE =
   'soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, ' +
-  'visible brushwork texture, friendly expressive characters, no visible text or labels on anything, ' +
-  'language learning educational context, suitable for all ages';
+  'visible brushwork texture, friendly expressive characters, immersive background environment, ' +
+  'language learning educational context, suitable for all ages, ' +
+  NO_TEXT_INSTRUCTION;
 
 // Semantic tag categories for educational content
 const EDUCATIONAL_TAG_CATEGORIES = [
@@ -62,8 +68,8 @@ async function generateWithDallE(
 
   const style = request.type === 'infographic' ? SCENE_STYLE : PROP_STYLE;
   const prompt = request.type === 'infographic'
-    ? `Educational scene illustrating: ${request.concept}. ${style}. ZERO TEXT ZERO WORDS ZERO LETTERS.`
-    : `${request.concept}. ${style}. ZERO TEXT ZERO WORDS ZERO LETTERS.`;
+    ? `Watercolor illustration of a scene: ${request.concept}. ${style}.`
+    : `Watercolor illustration of: ${request.concept}. ${style}.`;
 
   const response = await client.images.generate({
     model: 'dall-e-3',

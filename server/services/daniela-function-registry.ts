@@ -351,6 +351,17 @@ USE show_image for:
 
 ⚠️ Do NOT use compose_visual_scene for vocabulary unless it's a preposition lesson — show_image is always the right choice for vocabulary.
 
+IMPORTANT — always provide 'scene' for abstract concepts and non-visual words:
+The image library covers common concrete nouns and verbs. For abstract words (emotions, concepts, qualities) or words the library may not have, always include a 'scene' description in plain English so the image generator knows what to draw. Without it, the generator guesses and produces poor results.
+
+Examples of when 'scene' is REQUIRED:
+• word="gratitud", scene="a person with hands clasped together and a warm peaceful smile, soft golden light"
+• word="las olas", scene="ocean waves gently rolling onto a sunny sandy beach"
+• word="caliente", scene="a steaming hot cup of coffee and a warm glowing fireplace"
+• word="frío", scene="a snowflake and icy breath in cold winter air, frost on a window"
+• word="la libertad", scene="a bird flying free against an open blue sky"
+• word="el tiempo", scene="a sunny sky with clouds and wind, showing weather"
+
 STUDIO ZONES — use 'slot' to place images precisely:
 • No slot (default): vocabulary/standalone images — replaces all current images on the whiteboard (most common)
 • slot="scene": large background scene that sets the environment for a roleplay or lesson context. Replaces only the previous scene image. Use when you want to show WHERE the action is happening (a market, a café, an airport).
@@ -376,7 +387,7 @@ Include your spoken words in 'text'. Use label_mode to control what labels appea
           word: { type: "string", description: "The vocabulary word or short label (target language) — used for library lookup and as the displayed label. Always provide this." },
           translation: { type: "string", description: "Native language translation (e.g. English). Only shown when label_mode is 'teach'." },
           description: { type: "string", description: "Brief description to help disambiguate the image (e.g. 'a person running on a path')" },
-          scene: { type: "string", description: "Rich scene description for generation when no library image exists — or when you want a custom illustration (e.g. 'a bustling Mexican open-air market at sunset with colorful stalls and fresh fruit'). The watercolor style is applied automatically." },
+          scene: { type: "string", description: "English description of what to draw. REQUIRED for abstract words, emotions, states, and any word the library may not have. Without a scene, the generator guesses and often produces incorrect images. Always provide this for non-concrete words. Examples: 'ocean waves rolling onto a sunny beach', 'a person smiling with hands clasped in gratitude', 'a steaming hot cup of coffee'. The watercolor style is applied automatically — just describe the content." },
           context: { type: "string", description: "Optional teaching context" },
           slot: {
             type: "string",
