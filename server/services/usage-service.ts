@@ -435,13 +435,15 @@ export class UsageService {
       ...(updates.sttSeconds != null && { sttSeconds: Math.round(updates.sttSeconds) }),
       ...(updates.ttsCharacters != null && { ttsCharacters: Math.round(updates.ttsCharacters) }),
     };
+    // Guard: skip metric updates on completed sessions to prevent race writes
+    // that arrive after billing has already closed and read the final values.
     await db
       .update(voiceSessions)
       .set({
         ...sanitized,
         durationSeconds: sql`EXTRACT(EPOCH FROM (NOW() - ${voiceSessions.startedAt}))::integer`,
       })
-      .where(eq(voiceSessions.id, sessionId));
+      .where(and(eq(voiceSessions.id, sessionId), eq(voiceSessions.status, 'active')));
   }
   
   /**
@@ -468,6 +470,16 @@ export class UsageService {
       (endedAt.getTime() - new Date(session.startedAt).getTime()) / 1000
     );
     
+    // Snapshot balance BEFORE billing so we can record before/after in the cost summary.
+    // Read this before consuming credits — endSession is the only writer to the ledger here.
+    let creditBalanceBefore: number | null = null;
+    try {
+      const balanceBefore = await this.getBalance(session.userId);
+      creditBalanceBefore = balanceBefore.totalSeconds;
+    } catch (err: any) {
+      console.warn(`[UsageService] Could not read pre-billing balance for ${sessionId}:`, err.message);
+    }
+
     // Update session as completed
     const [updatedSession] = await db
       .update(voiceSessions)
@@ -478,7 +490,18 @@ export class UsageService {
       })
       .where(eq(voiceSessions.id, sessionId))
       .returning();
-    
+
+    // Re-read metrics from a fresh SELECT immediately after the status UPDATE.
+    // The UPDATE's RETURNING gives the state at UPDATE time, but a concurrent updateSessionMetrics
+    // call (e.g., from the orchestrator's fire-and-forget flush) may have landed on the same row
+    // before we ran the status UPDATE — the fresh SELECT catches that last commit.
+    // Note: updateSessionMetrics now guards against completed sessions so this is also the
+    // last safe read window before ghost writes are blocked.
+    const [freshRow] = await db
+      .select()
+      .from(voiceSessions)
+      .where(eq(voiceSessions.id, sessionId));
+
     // Record consumption in ledger (negative value)
     // Uses ACTUAL TRACKED METRICS (tts_characters, stt_seconds) as the single source of truth.
     // This prevents idle/frozen sessions from draining credits while ensuring healthy sessions
@@ -492,9 +515,9 @@ export class UsageService {
     // When TTS chars aren't tracked (e.g. session data gap), activeSpeakingSeconds = 0 and the
     // 120s floor applies — so any session with real exchanges is never charged 0, but also never
     // allowed to run uncapped on wall-clock alone.
-    const exchangeCount = updatedSession.exchangeCount || 0;
-    const ttsChars = updatedSession.ttsCharacters || 0;
-    const sttSecs = updatedSession.sttSeconds || 0;
+    const exchangeCount = freshRow?.exchangeCount ?? updatedSession.exchangeCount ?? 0;
+    const ttsChars = freshRow?.ttsCharacters ?? updatedSession.ttsCharacters ?? 0;
+    const sttSecs = freshRow?.sttSeconds ?? updatedSession.sttSeconds ?? 0;
 
     const CHARS_PER_SECOND = 15;
     const ACTIVITY_MULTIPLIER = 3;
@@ -530,6 +553,11 @@ export class UsageService {
       const creditsPerClockMinute = durationSeconds > 0
         ? Math.round((creditsConsumed / (durationSeconds / 60)) * 100) / 100
         : 0;
+      // creditBalanceBefore was read before consumeCredits ran;
+      // creditBalanceAfter = before - actual deduction (or re-read live if before wasn't captured).
+      const creditBalanceAfter = creditBalanceBefore != null
+        ? creditBalanceBefore - creditsConsumed
+        : null;
       db.insert(sessionCostSummary).values({
         voiceSessionId: sessionId,
         userId: session.userId,
@@ -538,6 +566,8 @@ export class UsageService {
         ttsCharacters: ttsChars,
         sttSeconds: sttSecs,
         creditsPerClockMinute,
+        creditBalanceBefore,
+        creditBalanceAfter,
         classId: session.classId || null,
         language: session.language || null,
       }).onConflictDoUpdate({
@@ -548,6 +578,8 @@ export class UsageService {
           ttsCharacters: ttsChars,
           sttSeconds: sttSecs,
           creditsPerClockMinute,
+          creditBalanceBefore,
+          creditBalanceAfter,
         },
       }).catch((err: Error) => {
         console.warn(`[UsageService] Failed to write session_cost_summary for ${sessionId}:`, err.message);
