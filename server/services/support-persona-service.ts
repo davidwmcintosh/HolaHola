@@ -1358,8 +1358,8 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
       await this.runMonitoringCheck();
     }, intervalMs);
     
-    // Run initial check after 30 seconds
-    setTimeout(() => this.runMonitoringCheck(), 30000);
+    // Delay initial check to 3 minutes — gives quota headroom for early voice sessions
+    setTimeout(() => this.runMonitoringCheck(), 3 * 60 * 1000);
   }
   
   /**
@@ -1620,6 +1620,9 @@ Use request_continuation to work across multiple phases if needed. This task was
     }
     
     // Check for clusters (3+ of same type in the time window)
+    // staggerIndex staggers AI-heavy calls (screenshot + Alden triage) so multiple
+    // patterns detected in one sweep don't all hit the AI APIs simultaneously.
+    let staggerIndex = 0;
     for (const [issueType, typeReports] of Object.entries(byType)) {
       const count = typeReports.length;
       
@@ -1660,21 +1663,29 @@ Use request_continuation to work across multiple phases if needed. This task was
         // Set cooldown
         this.patternAlertCooldown.set(cooldownKey, new Date());
 
-        // CAP-009: Visual verification — screenshot the likely affected page
-        import('./playwright-browser-service').then(({ sofiaIssueScreenshot }) => {
-          sofiaIssueScreenshot(issueType, count).catch(err =>
-            console.error(`[Sofia Monitor] Screenshot error for "${issueType}":`, err.message)
-          );
-        }).catch(() => {});
+        // Stagger AI-heavy work (screenshot + Alden triage) — 45s apart per pattern
+        // so multiple patterns in one sweep don't saturate the quota simultaneously.
+        const aiDelayMs = staggerIndex * 45_000;
+        const capturedIssueType = issueType;
+        const capturedTypeReports = typeReports;
+        const capturedRecommendation = recommendation;
 
-        // Route to Alden for autonomous triage and potential auto-fix.
-        // Alden investigates the codebase, patches if safe, notifies David if not.
-        // Fire-and-forget — pattern detection must not block on Alden's investigation.
-        this.escalateToAlden(issueType, typeReports, timeWindowMinutes, recommendation).catch(err =>
-          console.error(`[Sofia→Alden] Escalation error for "${issueType}":`, err.message)
-        );
-        
-        console.log(`[Sofia Monitor] Pattern alert: ${count}x ${issueType} → escalated to Alden`);
+        setTimeout(() => {
+          // CAP-009: Visual verification — screenshot the likely affected page
+          import('./playwright-browser-service').then(({ sofiaIssueScreenshot }) => {
+            sofiaIssueScreenshot(capturedIssueType, count).catch(err =>
+              console.error(`[Sofia Monitor] Screenshot error for "${capturedIssueType}":`, err.message)
+            );
+          }).catch(() => {});
+
+          // Route to Alden for autonomous triage and potential auto-fix.
+          this.escalateToAlden(capturedIssueType, capturedTypeReports, timeWindowMinutes, capturedRecommendation).catch(err =>
+            console.error(`[Sofia→Alden] Escalation error for "${capturedIssueType}":`, err.message)
+          );
+        }, aiDelayMs);
+
+        console.log(`[Sofia Monitor] Pattern alert: ${count}x ${issueType} → escalated to Alden (delay: ${aiDelayMs / 1000}s)`);
+        staggerIndex++;
       }
     }
   }

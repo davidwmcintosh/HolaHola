@@ -274,10 +274,12 @@ export function startVoiceHealthMonitor(): void {
   const HEALTH_CHECK_INTERVAL = 15 * 60 * 1000;
   const DAILY_SUMMARY_INTERVAL = 60 * 60 * 1000;
 
+  // Delay initial health check to avoid competing with other startup workers
+  // and to allow Gemini quota to be available for voice sessions from the start
   setTimeout(async () => {
     await backfillExistingData();
     await runHealthCheck();
-  }, 15000);
+  }, 4 * 60 * 1000); // 4 minutes after startup
 
   monitorInterval = setInterval(runHealthCheck, HEALTH_CHECK_INTERVAL);
 
