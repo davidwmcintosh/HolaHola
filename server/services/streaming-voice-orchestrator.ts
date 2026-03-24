@@ -6309,22 +6309,66 @@ Remember: David may reference things discussed in these recent text chats.
       const errorType = isGeminiError ? 'GEMINI_API_ERROR' : 'VOICE_PROCESSING_ERROR';
       const elapsedMs = Date.now() - startTime;
       
-      // GRACEFUL RECOVERY: For recoverable errors, speak a fallback so student isn't left in silence
-      const is429Error = error.message?.includes('429') || 
-                         error.message?.includes('RESOURCE_EXHAUSTED') ||
-                         error.message?.includes('Resource exhausted');
-      if (isJsonParseError || is429Error) {
-        const reason = is429Error ? '429 rate limit' : 'JSON parse error';
-        console.log(`[Gemini Recovery - OpenMic] ${reason} detected, providing spoken fallback`);
-        const fallbackText = is429Error 
-          ? "One moment, I'm having a little trouble connecting. Could you say that again?"
-          : "Sorry, I had a brief hiccup. What were you saying?";
+      // GRACEFUL RECOVERY: For rate limits, use Claude as fallback AI (separate quota)
+      const isRateLimit = error.message?.includes('RATELIMIT_EXCEEDED') ||
+                          error.message?.includes('Rate limit exceeded') ||
+                          error.message?.includes('429') ||
+                          error.message?.includes('RESOURCE_EXHAUSTED') ||
+                          error.message?.includes('Resource exhausted');
+      if (isRateLimit) {
+        console.warn('[Claude Fallback - OpenMic] Gemini rate limited — attempting Claude response');
         try {
-          await this.synthesizeSentenceToClient(session, fallbackText, 0, null, { force: true });
+          const Anthropic = (await import('@anthropic-ai/sdk')).default;
+          const claudeClient = new Anthropic({
+            apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
+            baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
+          });
+          const lang = session.targetLanguage || 'spanish';
+          const systemPrompt = `You are Daniela, a warm and encouraging ${lang} language tutor having a voice conversation. Respond naturally and conversationally to the student. Keep your response to 1-2 short sentences max — this is voice so be concise. Primarily use ${lang} with brief English support when helpful. Do NOT mention any technical issues. Just respond naturally.`;
+          const historyMessages = (session.conversationHistory || []).slice(-6).map((h: any) => ({
+            role: (h.role === 'model' ? 'assistant' : 'user') as 'assistant' | 'user',
+            content: h.content,
+          }));
+          const claudeResp = await claudeClient.messages.create({
+            model: 'claude-opus-4-6',
+            max_tokens: 120,
+            system: systemPrompt,
+            messages: [...historyMessages, { role: 'user' as const, content: transcript }],
+          });
+          const claudeText = claudeResp.content[0]?.type === 'text' ? claudeResp.content[0].text.trim() : '';
+          if (claudeText) {
+            console.log(`[Claude Fallback - OpenMic] Response: "${claudeText.substring(0, 100)}"`);
+            const sentences = this.splitIntoSentences(claudeText);
+            for (let i = 0; i < sentences.length; i++) {
+              await this.synthesizeSentenceToClient(session, sentences[i], i, null, { force: true });
+            }
+            metrics.sentenceCount = sentences.length;
+            fullText = claudeText;
+            session.conversationHistory.push({ role: 'model', content: claudeText });
+            console.log(`[Claude Fallback - OpenMic] Completing turn with ${sentences.length} sentence(s)`);
+            await this.completeOpenMicResponse(session, metrics, turnId, startTime, claudeText, transcript, confidence, responseCompleteSentOpenMic, { skipPersist: false, skipTutorSwitch: true });
+            return metrics;
+          }
+        } catch (claudeErr: any) {
+          console.error('[Claude Fallback - OpenMic] Claude also failed:', claudeErr.message);
+        }
+        // Claude failed — speak a brief language-appropriate apology
+        try {
+          const lang = session.targetLanguage || 'spanish';
+          const apologyText = lang === 'french' ? "Excuse-moi, essaie encore." : "Perdón, ¿puedes repetir eso?";
+          await this.synthesizeSentenceToClient(session, apologyText, 0, null, { force: true });
           metrics.sentenceCount = 1;
-          console.log(`[Gemini Recovery - OpenMic] Fallback response sent successfully`);
+          console.log('[Claude Fallback - OpenMic] Apology TTS sent');
         } catch (ttsError: any) {
-          console.error(`[Gemini Recovery - OpenMic] Fallback TTS failed:`, ttsError.message);
+          console.error('[Claude Fallback - OpenMic] Apology TTS also failed:', ttsError.message);
+        }
+      } else if (isJsonParseError) {
+        console.log('[Gemini Recovery - OpenMic] JSON parse error detected, providing spoken fallback');
+        try {
+          await this.synthesizeSentenceToClient(session, "Sorry, I had a brief hiccup. What were you saying?", 0, null, { force: true });
+          metrics.sentenceCount = 1;
+        } catch (ttsError: any) {
+          console.error('[Gemini Recovery - OpenMic] Fallback TTS failed:', ttsError.message);
         }
       }
       
