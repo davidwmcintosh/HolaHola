@@ -2463,4 +2463,70 @@ export class StreamingAudioPlayer {
     this.stopPrecisionTiming();
     this.stop();
   }
+
+  /**
+   * Nuclear reset: tear down the AudioContext and all progressive sources entirely.
+   * Called when failsafe_tier2_45s fires with AudioContext in "running" state but
+   * audio callbacks have silently stalled (AudioWorklet stuck state, common on Windows
+   * after a WebSocket reconnect mid-sentence).
+   *
+   * `stop()` alone only clears the state machine — it leaves the AudioContext and its
+   * worklet intact. This method closes the AudioContext completely so the next audio
+   * request triggers a fresh context + worklet from scratch.
+   */
+  resetAudioPipeline(): void {
+    console.warn('[AudioPlayer] resetAudioPipeline: tearing down AudioContext + worklet due to stuck-state recovery');
+
+    // 1. Stop all active progressive sources (best-effort)
+    for (const source of this.progressiveSources) {
+      try {
+        source.stop();
+        source.disconnect();
+      } catch (_) {}
+    }
+    this.progressiveSources = [];
+
+    // 2. Stop the PCM single-buffer source if active
+    if (this.currentPcmSource) {
+      try { this.currentPcmSource.stop(); } catch (_) {}
+      this.currentPcmSource = null;
+    }
+
+    // 3. Disconnect and close the AudioContext — this kills the AudioWorklet
+    if (this.masterGainNode) {
+      try { this.masterGainNode.disconnect(); } catch (_) {}
+      this.masterGainNode = null;
+    }
+    if (this.audioContext && this.audioContext.state !== 'closed') {
+      this.audioContext.close().catch(() => {});
+    }
+    this.audioContext = null;
+
+    // 4. Now do the normal stop() to clean up state machine, queue, and object URLs
+    // (don't double-stop progressive sources — already handled above)
+    this.stopPrecisionTiming();
+    if (this.chunkFallbackTimer) {
+      clearTimeout(this.chunkFallbackTimer);
+      this.chunkFallbackTimer = null;
+    }
+    this.hasChunkEnded = false;
+    if (this.currentAudio) {
+      this.currentAudio.pause();
+      this.currentAudio.src = '';
+      this.currentAudio = null;
+    }
+    this.progressiveSentenceIndex = -1;
+    this.progressiveChunks = [];
+    this.progressiveTotalDuration = 0;
+    this.progressiveFirstChunkStarted = false;
+    this.progressivePlaybackStartCtxTime = 0;
+    this.progressiveScheduledTime = 0;
+    this.queue = [];
+    this.isPlaying = false;
+    this.updatePendingCount(0);
+    this.cleanupUrls();
+    this.setState('idle');
+
+    console.log('[AudioPlayer] resetAudioPipeline: complete — fresh AudioContext will be created on next audio chunk');
+  }
 }

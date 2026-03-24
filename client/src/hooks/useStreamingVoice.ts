@@ -1183,7 +1183,11 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
           console.log('[StreamingVoice] Tier-2: AudioContext suspended — keeping queued audio alive (will play on user gesture)');
           player?.resumeAudioContext?.().catch(() => {});
         } else {
-          player?.stop?.();
+          // AudioContext is "running" but audio callbacks stalled (AudioWorklet stuck state).
+          // stop() alone leaves the broken pipe intact — use nuclear reset to close and
+          // recreate the AudioContext so the next turn starts with a fresh worklet.
+          console.warn('[StreamingVoice] Tier-2: AudioContext running but stalled — nuclear reset to clear stuck AudioWorklet');
+          player?.resetAudioPipeline?.();
         }
       }
     }, 45000);
