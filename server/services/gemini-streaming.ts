@@ -1067,7 +1067,7 @@ export class GeminiStreamingService {
           lastError = error;
           const status = error.status || error.code;
           const errorMessage = error.message || '';
-          const isRateLimit = status === 429 || errorMessage.includes('RESOURCE_EXHAUSTED') || errorMessage.includes('Too Many Requests');
+          const isRateLimit = status === 429 || errorMessage.includes('RESOURCE_EXHAUSTED') || errorMessage.includes('Too Many Requests') || errorMessage.includes('RATELIMIT_EXCEEDED') || errorMessage.includes('Rate limit exceeded');
           const isServerError = status >= 500 && status < 600;
           
           // Retry on rate limit (429) or server errors (5xx)

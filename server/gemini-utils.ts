@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { costTracker } from "./services/cost-tracker";
+import { acquireBackgroundSlot } from "./services/gemini-priority-gate";
 
 const gemini = new GoogleGenAI({
   apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || '',
@@ -18,6 +19,7 @@ export async function callGemini(
   model: string,
   messages: Array<{ role: string; content: string }>
 ): Promise<string> {
+  await acquireBackgroundSlot('callGemini');
   const systemMessage = messages.find(m => m.role === 'system')?.content || '';
   const conversationMessages = messages.filter(m => m.role !== 'system');
   
@@ -55,6 +57,7 @@ export async function callGeminiWithSchema<T = any>(
   messages: Array<{ role: string; content: string }>,
   schema: any
 ): Promise<T> {
+  await acquireBackgroundSlot('callGeminiWithSchema');
   const systemMessage = messages.find(m => m.role === 'system')?.content || '';
   const conversationMessages = messages.filter(m => m.role !== 'system');
   

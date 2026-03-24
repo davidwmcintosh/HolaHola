@@ -15,6 +15,7 @@
 
 import { GoogleGenAI } from "@google/genai";
 import { costTracker } from './cost-tracker';
+import { acquireBackgroundSlot } from './gemini-priority-gate';
 import { db, getUserDb, getSharedDb } from "../db";
 import { 
   supportTickets,
@@ -526,6 +527,7 @@ ${diagnosticsContext ? `\n(Technical context available for diagnosis)` : ''}
 Acknowledge their issue, provide helpful guidance, and let them know you're here to help.`;
     
     try {
+      await acquireBackgroundSlot('sofia-analysis');
       const response = await gemini.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: [{ role: 'user', parts: [{ text: params.userDescription }] }],

@@ -26,6 +26,7 @@ import { sql, eq, and, desc } from "drizzle-orm";
 import { getDeepgramLanguageCode, DeepgramIntelligence, DeepgramSentiment, DeepgramIntent, DeepgramEntity, DeepgramTopic, transcribeWithLiveAPI, TranscriptionResult } from "./deepgram-live-stt";
 import { analyzePronunciation, generateQuickCoaching, PronunciationCoaching } from "./live-pronunciation-coach";
 import { getGeminiStreamingService, SentenceChunk, ExtractedFunctionCall, ConversationHistoryEntry, PartialFunctionCall } from "./gemini-streaming";
+import { acquireVoiceSlot, releaseVoiceSlot } from "./gemini-priority-gate";
 import { getCartesiaStreamingService } from "./cartesia-streaming";
 import { getElevenLabsStreamingService } from "./elevenlabs-streaming";
 import { getGeminiTtsStreamingService } from "./gemini-tts-streaming";
@@ -4564,8 +4565,11 @@ Remember: David may reference things discussed in these recent text chats.
     };
     
     const responseCompleteSentOpenMic = { sent: false };
+    let turnId: number = 0;
+    let fullText = '';
     
     try {
+      acquireVoiceSlot();
       console.log(`[Streaming Orchestrator] Open mic transcript: "${transcript}" (${(confidence * 100).toFixed(0)}%)`);
       
       // SAFETY NET: Check for and fix duplicate patterns in the transcript itself
@@ -4615,7 +4619,7 @@ Remember: David may reference things discussed in these recent text chats.
       session.pendingWhiteboardUpdates = [];  // Clear stale pending updates from previous turn
       session.earlyTtsActive = undefined;
       session._ttsTurnCallCount = 0;  // DIAG: Reset TTS call counter for new turn
-      const turnId = session.currentTurnId;
+      turnId = session.currentTurnId;
       
       // Notify client that processing has started
       this.sendMessage(session.ws, {
@@ -4629,7 +4633,7 @@ Remember: David may reference things discussed in these recent text chats.
       const aiStart = Date.now();
       (metrics as any)._geminiStartTime = aiStart;
       let firstTokenReceived = false;
-      let fullText = '';
+      fullText = '';
       
       // DEDUPLICATION GUARD: Track seen sentences to prevent LLM repetition loops
       const seenSentences = new Set<string>();
@@ -6373,6 +6377,7 @@ Remember: David may reference things discussed in these recent text chats.
       
       return metrics;
     } finally {
+      releaseVoiceSlot();
       if (!responseCompleteSentOpenMic.sent) {
         console.error(`[OpenMic SAFETY NET] response_complete was NEVER sent for session ${sessionId} — forcing now`);
         await this.completeOpenMicResponse(session, metrics, turnId, startTime, '', transcript, confidence, responseCompleteSentOpenMic, { errorPath: true, skipPersist: true, skipTutorSwitch: true });
