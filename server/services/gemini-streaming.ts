@@ -860,6 +860,9 @@ export class GeminiStreamingService {
     // Stream timeout state (declared here so catch block can clean up)
     let streamTimeoutId: NodeJS.Timeout | null = null;
     
+    // Abort poll ID (declared here so catch block can clean up even if throw happens before streaming starts)
+    let abortPollId: NodeJS.Timeout | null = null;
+    
     // SENTENCE-LEVEL PIPELINING: Process TTS in order without blocking Gemini stream
     // Instead of `await onSentence(chunk)` which blocks token streaming while TTS runs,
     // we queue sentences and process them sequentially in the background.
@@ -1149,7 +1152,6 @@ export class GeminiStreamingService {
         }, timeoutMs);
       };
       
-      let abortPollId: NodeJS.Timeout | null = null;
       if (abortSignal) {
         abortPollId = setInterval(() => {
           if (abortSignal.aborted && !streamAborted) {
