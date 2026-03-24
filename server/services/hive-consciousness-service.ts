@@ -16,6 +16,7 @@ import { founderCollabWSBroker } from './founder-collab-ws-broker';
 import { founderCollabService, type FounderMessageInput } from './founder-collaboration-service';
 import { collaborationHubService } from './collaboration-hub-service';
 import { callGemini, GEMINI_MODELS } from '../gemini-utils';
+import { isVoiceActive } from './gemini-priority-gate';
 import { danielaMemoryService } from './daniela-memory-service';
 import { memoryInsightExtractionService } from './memory-insight-extraction-service';
 import { wrenIntelligenceService } from './wren-intelligence-service';
@@ -384,6 +385,11 @@ Respond with ONLY valid JSON (no markdown, no backticks):
   private async pollLocalMessages(): Promise<void> {
     if (!this.isListening) return;
     
+    // Skip this poll cycle entirely if a voice session is generating — preserve Gemini quota
+    if (isVoiceActive()) {
+      return;
+    }
+    
     try {
       // Use a wider window on first poll after startup (last 5 minutes)
       // This catches messages inserted while service was down
@@ -553,6 +559,11 @@ Respond with ONLY valid JSON (no markdown, no backticks):
    */
   private async pollCrossEnvironmentMessages(): Promise<void> {
     if (!this.isListening) return;
+    
+    // Skip this poll cycle entirely if a voice session is generating — preserve Gemini quota
+    if (isVoiceActive()) {
+      return;
+    }
     
     // Mutex: prevent concurrent polls
     if (this.isPolling) {

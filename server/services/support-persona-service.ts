@@ -15,7 +15,7 @@
 
 import { GoogleGenAI } from "@google/genai";
 import { costTracker } from './cost-tracker';
-import { acquireBackgroundSlot } from './gemini-priority-gate';
+import { acquireBackgroundSlot, isVoiceActive } from './gemini-priority-gate';
 import { db, getUserDb, getSharedDb } from "../db";
 import { 
   supportTickets,
@@ -208,28 +208,58 @@ class SupportPersonaService {
     const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
     
     // Generate Sofia's analysis if requested
+    // During an active voice session, defer the Gemini analysis call so it doesn't
+    // compete with the live conversation response. Detection + alerting still fire immediately.
     let sofiaAnalysis: string | undefined;
     if (params.generateAnalysis !== false) {
-      try {
-        sofiaAnalysis = await this.generateIssueAnalysis({
-          issueType: params.issueType,
-          userDescription: params.userDescription,
-          voiceDiagnostics: params.voiceDiagnostics,
-          deviceInfo: params.deviceInfo,
-          clientTelemetry: params.clientTelemetry,
-          mode: params.mode,
-          environment,
-        });
-        
-        // Update the report with the analysis
+      const runAnalysis = async () => {
+        try {
+          const analysis = await this.generateIssueAnalysis({
+            issueType: params.issueType,
+            userDescription: params.userDescription,
+            voiceDiagnostics: params.voiceDiagnostics,
+            deviceInfo: params.deviceInfo,
+            clientTelemetry: params.clientTelemetry,
+            mode: params.mode,
+            environment,
+          });
+          if (analysis) {
+            await getUserDb().update(sofiaIssueReports)
+              .set({ sofiaAnalysis: analysis })
+              .where(eq(sofiaIssueReports.id, report.id));
+            console.log(`[Sofia] Generated analysis for report ${report.id}`);
+          }
+        } catch (e) {
+          console.warn('[Sofia] Failed to generate analysis:', e);
+        }
+      };
+      if (isVoiceActive()) {
+        // Defer 35s — enough for the current voice turn to complete before calling Gemini
+        console.log(`[Sofia] Voice session active — deferring analysis for report ${report.id} by 35s`);
+        setTimeout(runAnalysis, 35_000);
+      } else {
+        sofiaAnalysis = await (async () => {
+          try {
+            return await this.generateIssueAnalysis({
+              issueType: params.issueType,
+              userDescription: params.userDescription,
+              voiceDiagnostics: params.voiceDiagnostics,
+              deviceInfo: params.deviceInfo,
+              clientTelemetry: params.clientTelemetry,
+              mode: params.mode,
+              environment,
+            });
+          } catch (e) {
+            console.warn('[Sofia] Failed to generate analysis:', e);
+            return undefined;
+          }
+        })();
         if (sofiaAnalysis) {
           await getUserDb().update(sofiaIssueReports)
             .set({ sofiaAnalysis })
             .where(eq(sofiaIssueReports.id, report.id));
           console.log(`[Sofia] Generated analysis for report ${report.id}`);
         }
-      } catch (e) {
-        console.warn('[Sofia] Failed to generate analysis:', e);
       }
     }
     
