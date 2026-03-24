@@ -1461,12 +1461,115 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
           recommendation: `Sustained ${reports.length} "${issueType}" reports in 24h — pre-flagging as elevated risk before it hits critical cluster threshold.`,
         });
         this.patternAlertCooldown.set(predictKey, new Date());
+
+        // Also escalate to Alden for investigation — sustained 24h pattern is worth triage
+        // even if it hasn't hit the 1h acute threshold yet.
+        this.escalateToAlden(
+          issueType,
+          reports,
+          1440,
+          `Sustained ${reports.length}x "${issueType}" in 24h — investigate before it clusters acutely.`
+        ).catch(err =>
+          console.error(`[Sofia→Alden] Predictive escalation error for "${issueType}":`, err.message)
+        );
       }
     } catch (err: any) {
       console.warn('[Sofia Monitor] Predictive check error:', err.message);
     }
   }
   
+  /**
+   * Hand off a detected issue cluster to Alden for triage and potential auto-fix.
+   * Alden investigates the codebase, attempts a targeted fix if it's safe to do so,
+   * and notifies David if it needs human eyes. The cluster is written to support_patterns
+   * immediately so it's tracked regardless of what Alden finds.
+   */
+  private async escalateToAlden(
+    issueType: string,
+    reports: typeof sofiaIssueReports.$inferSelect[],
+    timeWindowMinutes: number,
+    recommendation: string | undefined
+  ): Promise<void> {
+    const sharedDb = getSharedDb();
+    const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
+
+    // 1. Write to support_patterns immediately so the pattern is tracked
+    let patternId: string | null = null;
+    try {
+      const reportSummary = reports.slice(0, 5).map(r =>
+        `[${r.issueType}] ${r.userDescription?.substring(0, 120) || '(no description)'}`
+      ).join('\n');
+
+      const [pattern] = await sharedDb.insert(supportPatterns).values({
+        patternType: `cluster_${issueType}`,
+        description: `Sofia detected ${reports.length}x "${issueType}" in ${timeWindowMinutes}min (${environment}). Escalated to Alden.\n\nRecent reports:\n${reportSummary}`,
+        occurrenceCount: reports.length,
+        status: 'investigating',
+        developerNotes: `Alden investigation pending. Recommendation: ${recommendation || 'None'}`,
+      }).returning({ id: supportPatterns.id });
+      patternId = pattern?.id || null;
+      console.log(`[Sofia→Alden] Pattern recorded: ${patternId} (${issueType} ×${reports.length})`);
+    } catch (err: any) {
+      console.warn('[Sofia→Alden] Failed to write support_patterns:', err.message);
+    }
+
+    // 2. Build Alden's investigation prompt
+    const issueFileHints: Record<string, string> = {
+      no_audio: 'client/src/hooks/useStreamingVoice.ts (failsafe logic), client/src/lib/audioUtils.ts (StreamingAudioPlayer), server/services/streaming-voice-orchestrator.ts',
+      connection: 'client/src/services/streamingVoiceClient.ts (WebSocket reconnect), server/services/streaming-voice-orchestrator.ts, client/src/hooks/useStreamingVoice.ts',
+      double_audio: 'client/src/lib/audioUtils.ts (processedChunks dedup), client/src/hooks/useStreamingVoice.ts (audio_chunk handler)',
+      latency: 'server/services/streaming-voice-orchestrator.ts (TTS pipeline), server/services/native-fc-handlers.ts',
+      microphone: 'client/src/hooks/useStreamingVoice.ts (VAD / mic start), client/src/components/StreamingVoiceChat.tsx',
+    };
+    const fileHint = issueFileHints[issueType] || 'client/src/hooks/useStreamingVoice.ts, server/services/streaming-voice-orchestrator.ts';
+
+    const recentSummaries = reports.slice(0, 8).map((r, i) => {
+      const desc = r.userDescription?.substring(0, 200) || '(auto-detected, no description)';
+      const analysis = r.sofiaAnalysis?.substring(0, 150);
+      return `Report ${i + 1}: ${desc}${analysis ? `\nSofia analysis: ${analysis}` : ''}`;
+    }).join('\n\n');
+
+    const taskPrompt = `[AUTONOMOUS TRIAGE TASK from Sofia — do not wait for David to respond]
+
+Sofia has detected a recurring issue cluster that needs your attention:
+
+PATTERN: ${reports.length}x "${issueType}" events in the last ${timeWindowMinutes} minutes (${environment})
+PATTERN ID: ${patternId || 'untracked'}
+RECOMMENDATION: ${recommendation || 'Investigate root cause'}
+
+RELEVANT FILES TO START WITH:
+${fileHint}
+
+RECENT REPORTS:
+${recentSummaries}
+
+YOUR TASK:
+1. Use search_code and read_file to understand the current implementation of the affected area
+2. Determine if this is a code bug you can fix safely with a small targeted change
+3. If YES → use patch_file to apply the fix, then verify with "npx tsc --noEmit". Update the pattern status in support_patterns (id: ${patternId}) by patching developerNotes and status to 'fixed' or 'investigated'
+4. If NO (too complex, risky, or requires David's judgment) → use notify_david with a clear summary of what you found and why you're escalating. Update the pattern status to 'open' with your findings in developerNotes.
+
+GUARDRAILS for autonomous fixes:
+- Safe to fix: timeout values, logic conditions, missing null checks, off-by-one errors, wrong default values
+- Escalate to David: schema changes, billing logic, authentication, anything touching >3 files, architectural changes
+- When in doubt, escalate — a clear analysis is more valuable than a risky autonomous fix
+
+Use request_continuation to work across multiple phases if needed. This task was triggered automatically — treat it as your highest priority.`;
+
+    // 3. Fire-and-forget: invoke Alden with the task prompt
+    import('./alden-persona-service').then(({ generateAldenResponse }) => {
+      console.log(`[Sofia→Alden] Dispatching triage task for "${issueType}" cluster (${reports.length} reports)`);
+      return generateAldenResponse({
+        userMessage: taskPrompt,
+        founderName: 'David',
+      });
+    }).then(result => {
+      console.log(`[Sofia→Alden] Triage complete for "${issueType}". Tools used: ${result.toolsUsed.join(', ')}. Summary: ${result.response.substring(0, 200)}`);
+    }).catch(err => {
+      console.error(`[Sofia→Alden] Triage error for "${issueType}":`, err.message);
+    });
+  }
+
   /**
    * Detect patterns in issue reports and emit alerts
    */
@@ -1531,8 +1634,15 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
             console.error(`[Sofia Monitor] Screenshot error for "${issueType}":`, err.message)
           );
         }).catch(() => {});
+
+        // Route to Alden for autonomous triage and potential auto-fix.
+        // Alden investigates the codebase, patches if safe, notifies David if not.
+        // Fire-and-forget — pattern detection must not block on Alden's investigation.
+        this.escalateToAlden(issueType, typeReports, timeWindowMinutes, recommendation).catch(err =>
+          console.error(`[Sofia→Alden] Escalation error for "${issueType}":`, err.message)
+        );
         
-        console.log(`[Sofia Monitor] Pattern alert: ${count}x ${issueType}`);
+        console.log(`[Sofia Monitor] Pattern alert: ${count}x ${issueType} → escalated to Alden`);
       }
     }
   }
