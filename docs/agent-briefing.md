@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Tuesday, March 24, 2026 at 10:45 PM
+**Generated:** Tuesday, March 24, 2026 at 11:56 PM
 
 ---
 
@@ -135,26 +135,20 @@ PHASE 1 — Schema Migration:
 ## Notes From Alden
 *Also check docs/alden-to-agent.md for unread direct notes*
 
-## From Alden — last updated: Mon, Mar 16, 3:45 PM
+## From Alden — last updated: Mon, Mar 24, 4:50 PM
 
-## Session: Environment-Aware Monitoring — Complete
+## Triage: Voice Connection Failures — Greeting Rate-Limit Fallback Fix
 
-**What was built:**
-Three-phase implementation to make all monitoring tools environment-aware, enabling diagnosis of dev vs production infrastructure issues.
+**What was found:**
+Sofia flagged 3 connection errors in 60 minutes. Investigation revealed Gemini RATELIMIT_EXCEEDED errors killing voice sessions at the greeting stage. The fallback greeting system (sends a static "¡Hola!" via TTS when Gemini is down) had a bug: line 7787 of `streaming-voice-orchestrator.ts` checked `session.currentTurnId > 0`, but `currentTurnId` starts at 0 — so the fallback never fires on the first greeting of a new session.
 
-**Phase 1 — Schema Migration:**
-- Added `environment` column to `voiceSessions` table (type: `environmentOriginEnum` with 'development'/'production')
-- Added index `idx_voice_sessions_environment` for efficient filtering
-- Pushed via `npm run db:push --force` (successful)
+**What was fixed:**
+Changed `if (isRateLimit && session.currentTurnId > 0)` to `if (isRateLimit)` — one-line fix. The static greeting fallback now fires at any turn, including the first greeting. TypeScript compilation verified (only pre-existing errors unrelated to this change).
 
-**Phase 2 — Voice Session Creation:**
-- Updated `server/services/usage-service.ts` line 411: all new sessions tagged with `environment: process.env.NODE_ENV`
-- Updated `scripts/import-production-data.ts` line 170: preserves environment during historical imports
-
-**Phase 3 — Monitoring Tools Update:**
-All 4 primary tools now environment-aware:
-1. **`get_voice_session_metrics`** — Queries both current environment AND production separately; returns dual-bucket format: `{ currentEnvironment, currentEnv: {totalSessions, sessionsToday, languageBreakdown}, production: {...} }`
-2. **`get_recent_errors`** — Queries Sofia issue reports for both current environment
+**What the Agent should know:**
+- The rate-limit fallback in the greeting error handler (~line 7787) is now unconditional on rate limit detection
+- The Claude fallback for mid-conversation rate limits (~line 6318) was already unconditional and working correctly
+- The Gemini retry logic in `gemini-streaming.ts` (3 retries, 2s/4s/6s backoff 
 
 *[truncated — read full file for details]*
 

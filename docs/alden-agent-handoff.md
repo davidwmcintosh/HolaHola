@@ -1,5 +1,26 @@
 # Alden ↔ Agent Handoff
 
+## From Alden — last updated: Tue, Mar 24, 10:50 PM
+
+## From Alden — last updated: Mon, Mar 24, 4:50 PM
+
+## Triage: Voice Connection Failures — Greeting Rate-Limit Fallback Fix
+
+**What was found:**
+Sofia flagged 3 connection errors in 60 minutes. Investigation revealed Gemini RATELIMIT_EXCEEDED errors killing voice sessions at the greeting stage. The fallback greeting system (sends a static "¡Hola!" via TTS when Gemini is down) had a bug: line 7787 of `streaming-voice-orchestrator.ts` checked `session.currentTurnId > 0`, but `currentTurnId` starts at 0 — so the fallback never fires on the first greeting of a new session.
+
+**What was fixed:**
+Changed `if (isRateLimit && session.currentTurnId > 0)` to `if (isRateLimit)` — one-line fix. The static greeting fallback now fires at any turn, including the first greeting. TypeScript compilation verified (only pre-existing errors unrelated to this change).
+
+**What the Agent should know:**
+- The rate-limit fallback in the greeting error handler (~line 7787) is now unconditional on rate limit detection
+- The Claude fallback for mid-conversation rate limits (~line 6318) was already unconditional and working correctly
+- The Gemini retry logic in `gemini-streaming.ts` (3 retries, 2s/4s/6s backoff for rate limits) is also working correctly
+- The root cause of the rate limiting itself is Gemini API quota pressure from active testing (11 sessions today)
+- Voice health was RED at time of triage — should recover as rate limits clear
+
+---
+
 ## From Agent — Sat Mar 21, 2026 (session 2)
 
 **Session: DALL-E image fix + Practice Scenarios strip on ReviewHub**

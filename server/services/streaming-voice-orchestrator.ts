@@ -6803,7 +6803,7 @@ Remember: David may reference things discussed in these recent text chats.
         // DB-LEVEL DEDUP SAFETY NET: Check if this exact transcript was already saved recently
         // This catches edge cases where checkpoint state was cleared but message already exists
         try {
-          const existingMessages = await storage.getMessages(conversationId);
+          const existingMessages = await storage.getMessagesByConversation(conversationId);
           const recentUserMessages = existingMessages
             .filter(m => m.role === 'user')
             .slice(-3); // Check last 3 user messages
@@ -6843,7 +6843,7 @@ Remember: David may reference things discussed in these recent text chats.
       
       // DB-LEVEL DEDUP for AI responses: Check if this exact response was already saved recently
       try {
-        const existingMessages = await storage.getMessages(conversationId);
+        const existingMessages = await storage.getMessagesByConversation(conversationId);
         const recentAiMessages = existingMessages
           .filter(m => m.role === 'assistant')
           .slice(-3);
@@ -7784,7 +7784,7 @@ Remember: David may reference things discussed in these recent text chats.
                           error.message?.includes('429') ||
                           error.status === 429;
       
-      if (isRateLimit && session.currentTurnId > 0) {
+      if (isRateLimit) {
         console.warn(`[Streaming Greeting] Rate limited — sending static fallback greeting`);
         const fallbackGreetings: Record<string, string> = {
           spanish:    '¡Hola! ¿Listo para practicar?',
@@ -8063,7 +8063,7 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
     try {
       // Dedup check: don't save greeting if an identical one already exists
       try {
-        const existingMessages = await storage.getMessages(conversationId);
+        const existingMessages = await storage.getMessagesByConversation(conversationId);
         const recentAiMessages = existingMessages
           .filter(m => m.role === 'assistant')
           .slice(-2);
