@@ -7727,7 +7727,90 @@ Remember: David may reference things discussed in these recent text chats.
       session.__greetingInProgress = false;
       session.isGenerating = false;
       console.error(`[Streaming Greeting] Error:`, error.message);
-      this.sendError(session.ws, 'GREETING_ERROR', error.message, true);
+      
+      // RATE LIMIT FALLBACK: When Gemini is exhausted, send a short static greeting via TTS
+      // so Daniela always answers even during quota pressure. The session stays live and
+      // the student can still speak to trigger a real AI response.
+      const isRateLimit = error.message?.includes('RATELIMIT_EXCEEDED') || 
+                          error.message?.includes('Rate limit') ||
+                          error.message?.includes('429') ||
+                          error.status === 429;
+      
+      if (isRateLimit && session.currentTurnId > 0) {
+        console.warn(`[Streaming Greeting] Rate limited — sending static fallback greeting`);
+        const fallbackGreetings: Record<string, string> = {
+          spanish:    '¡Hola! ¿Listo para practicar?',
+          french:     'Bonjour ! Prêt à pratiquer ?',
+          english:    'Hello! Ready to practice?',
+          german:     'Hallo! Bereit zu üben?',
+          portuguese: 'Olá! Pronto para praticar?',
+          italian:    'Ciao! Pronto a praticare?',
+          mandarin:   '你好！准备好练习了吗？',
+          japanese:   'こんにちは！練習しましょうか？',
+          korean:     '안녕하세요! 연습할 준비가 됐나요?',
+        };
+        const lang = (session.targetLanguage || 'spanish').toLowerCase();
+        const fallbackText = fallbackGreetings[lang] || fallbackGreetings['spanish'];
+        const fallbackTurnId = session.currentTurnId;
+        
+        try {
+          // Send sentence_start so the client knows a sentence is coming
+          this.sendMessage(session.ws, {
+            type: 'sentence_start',
+            timestamp: Date.now(),
+            turnId: fallbackTurnId,
+            sentenceIndex: 0,
+            text: fallbackText,
+            hasTargetContent: true,
+            targetLanguageText: fallbackText,
+          } as any);
+          
+          // Synthesize via Google TTS and stream audio to client
+          await this.tts.streamSentenceAudio(
+            session,
+            { index: 0, text: fallbackText, isComplete: true, isFinal: true },
+            fallbackText,
+            metrics,
+            fallbackTurnId,
+          );
+          
+          // Mark as delivered and notify client
+          session.__greetingDelivered = true;
+          metrics.sentenceCount = 1;
+          metrics.totalLatencyMs = Date.now() - startTime;
+          
+          this.sendMessage(session.ws, {
+            type: 'response_complete',
+            timestamp: Date.now(),
+            turnId: fallbackTurnId,
+            totalSentences: 1,
+            totalDurationMs: metrics.totalLatencyMs,
+            fullText: fallbackText,
+            metrics: {
+              sttLatencyMs: 0,
+              aiFirstTokenMs: 0,
+              ttsFirstChunkMs: metrics.ttsFirstByteMs,
+              totalTtfbMs: metrics.ttsFirstByteMs,
+              sentenceCount: 1,
+            },
+          } as any);
+          
+          session.conversationHistory.push({ role: 'model', content: fallbackText });
+          this.startIdleTimeout(session);
+          
+          if (!session.isIncognito) {
+            this.persistGreetingMessage(session.conversationId, fallbackText).catch(() => {});
+          }
+          
+          console.log(`[Streaming Greeting] Fallback delivered: "${fallbackText}"`);
+        } catch (fallbackError: any) {
+          console.error(`[Streaming Greeting] Fallback TTS also failed:`, fallbackError.message);
+          this.sendError(session.ws, 'GREETING_ERROR', error.message, true);
+        }
+      } else {
+        this.sendError(session.ws, 'GREETING_ERROR', error.message, true);
+      }
+      
       return metrics;
     }
   }
