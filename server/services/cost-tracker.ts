@@ -14,7 +14,7 @@ interface ModelPricing {
 
 const PRICING: Record<string, ModelPricing> = {
   'gemini-3-flash-preview': { inputPerMillion: 0.075, outputPerMillion: 0.30,  label: 'Gemini Flash'   },
-  'gemini-3-pro-preview':   { inputPerMillion: 3.50,  outputPerMillion: 10.50, label: 'Gemini Pro'     },
+  'gemini-3-flash-preview':   { inputPerMillion: 3.50,  outputPerMillion: 10.50, label: 'Gemini Pro'     },
   'claude-sonnet-4-5':      { inputPerMillion: 3.00,  outputPerMillion: 15.00, label: 'Claude Sonnet'  },
   'claude-opus-4-6':        { inputPerMillion: 15.00, outputPerMillion: 75.00, label: 'Claude Opus'    },
   'gpt-4o':                 { inputPerMillion: 2.50,  outputPerMillion: 10.00, label: 'GPT-4o'         },

@@ -726,10 +726,10 @@ export async function generateAllSceneImages(
     console.log(`[PropRoom] Generating image for ${env.name} via Gemini Flash-Image...`);
     try {
       const { GoogleGenAI, Modality } = await import('@google/genai');
-      const geminiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
-      const baseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+      const geminiKey = process.env.GEMINI_API_KEY;
+      const baseUrl = undefined;
       if (!geminiKey) {
-        results.push({ name: env.name, success: false, error: 'AI_INTEGRATIONS_GEMINI_API_KEY not set' });
+        results.push({ name: env.name, success: false, error: 'GEMINI_API_KEY not set' });
         continue;
       }
       const genai = new GoogleGenAI({

@@ -145,11 +145,7 @@ import { brainHealthTelemetry } from "./services/brain-health-telemetry";
 // Gemini for text chat via Replit AI Integrations (no API key needed)
 // IMPORTANT: Must include httpOptions with baseUrl and empty apiVersion when using AI Integrations
 const gemini = new GoogleGenAI({
-  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || '',
-  httpOptions: {
-    apiVersion: "",
-    baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
-  },
+  apiKey: process.env.GEMINI_API_KEY || '',
 });
 
 // Deepgram for voice STT (Speech-to-Text)
@@ -11246,9 +11242,9 @@ Return ONLY the ${targetLanguage} phrase:`;
         // Generate translation via Gemini Flash
         let translation: string | null = null;
         try {
-          const genai = new GoogleGenAI({ apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || '' });
+          const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
           const result = await genai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-3-flash-preview',
             contents: [{
               role: 'user',
               parts: [{ text: `Translate this English text to ${nativeLang}. Return ONLY the translated text with no explanation, quotes, or extra formatting.\n\n"${item.prompt}"` }],
@@ -11366,9 +11362,9 @@ Return ONLY the ${targetLanguage} phrase:`;
 
             let translation: string | null = null;
             try {
-              const genai = new GoogleGenAI({ apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || '' });
+              const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
               const result = await genai.models.generateContent({
-                model: 'gemini-2.0-flash',
+                model: 'gemini-3-flash-preview',
                 contents: [{
                   role: 'user',
                   parts: [{ text: `Translate this English text to ${nativeLang}. Return ONLY the translated text with no explanation, quotes, or extra formatting.\n\n"${item.prompt}"` }],

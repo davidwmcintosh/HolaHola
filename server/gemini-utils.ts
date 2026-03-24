@@ -3,16 +3,12 @@ import { costTracker } from "./services/cost-tracker";
 import { acquireBackgroundSlot } from "./services/gemini-priority-gate";
 
 const gemini = new GoogleGenAI({
-  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || '',
-  httpOptions: {
-    apiVersion: "",
-    baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
-  },
+  apiKey: process.env.GEMINI_API_KEY || '',
 });
 
 export const GEMINI_MODELS = {
   FLASH: "gemini-3-flash-preview",
-  PRO: "gemini-3-pro-preview",
+  PRO: "gemini-2.5-pro",
 } as const;
 
 export async function callGemini(

@@ -101,7 +101,7 @@ SCHEMA CHANGES — DO THIS, NOT THAT:
 - If db:push hangs on an interactive prompt (it will ask about unique constraints), note the issue and report it — the table may still have been created correctly on earlier runs, or another approach may be needed
 
 EXTERNAL API PATTERNS:
-- Gemini (GoogleGenAI): the constructor requires httpOptions: { apiVersion: '', baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '' } — without this, calls fail silently
+- Gemini (GoogleGenAI): the constructor only needs apiKey: process.env.GEMINI_API_KEY || '' — no httpOptions or baseUrl needed (using direct Google API)
 - Model assignments: Alden chat = claude-sonnet-4-5, build/review = claude-opus-4-5, Team Room = gemini-2.5-flash
 - Guardian internal token: read process.env.GUARDIAN_TOKEN at runtime (e.g. via shell: echo $GUARDIAN_TOKEN) — do NOT hardcode it; used in x-guardian-token header for Guardian-protected endpoints
 

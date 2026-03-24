@@ -399,7 +399,7 @@ export interface StreamingGenerationConfig {
   systemPrompt: string;
   conversationHistory: Array<ConversationHistoryEntry>;
   userMessage: string;
-  model?: string;  // Default: gemini-3-flash-preview
+  model?: string;  // Default: gemini-2.5-flash
   temperature?: number;
   maxOutputTokens?: number;
   onSentence: OnSentenceCallback;
@@ -478,17 +478,16 @@ const CACHE_COMPATIBLE_MODELS = [
   'gemini-1.5-flash-002', 
   'gemini-1.5-pro-001',
   'gemini-1.5-pro-002',
-  'gemini-2.0-flash-001',
-  'gemini-2.5-flash-001',
-  'gemini-2.5-pro-001',
-  // gemini-3-flash-preview removed: returns INVALID_ENDPOINT for POST /cachedContents
+  'gemini-3-flash-preview',
+  'gemini-2.5-pro',
+  // Note: non-versioned names may not always support caching; graceful degradation handles failures
 ];
 
 /**
  * Default cache-compatible model for when caching is enabled
  * Used as fallback when the requested model doesn't support caching
  */
-const DEFAULT_CACHE_MODEL = 'gemini-2.5-flash-001';
+const DEFAULT_CACHE_MODEL = 'gemini-3-flash-preview';
 
 /**
  * Check if a model supports context caching
@@ -506,7 +505,7 @@ function isCacheCompatibleModel(model: string): boolean {
  * Get a cache-compatible version of a model.
  * For preview/alias models (e.g. gemini-2.5-flash-preview), returns the versioned
  * stable equivalent so caching is possible.
- * Returns null for models that have NO cache-compatible equivalent (e.g. gemini-3-flash-preview).
+ * Returns null for models that have NO cache-compatible equivalent (e.g. gemini-2.5-flash).
  * 
  * IMPORTANT: The returned model must match what is used in the actual generation call.
  * A cache created with model X cannot be referenced by a call using model Y.
@@ -524,10 +523,10 @@ function getCacheCompatibleModel(model: string): string | null {
   
   // Map preview models to their versioned equivalents (same model family)
   if (model.includes('gemini-2.5')) {
-    return DEFAULT_CACHE_MODEL;  // gemini-2.5-flash-preview → gemini-2.5-flash-001
+    return DEFAULT_CACHE_MODEL;  // gemini-2.5-flash → gemini-2.5-flash
   }
   if (model.includes('gemini-2.0')) {
-    return 'gemini-2.0-flash-001';
+    return DEFAULT_CACHE_MODEL;  // gemini-2.0 → fallback to gemini-2.5-flash
   }
   if (model.includes('gemini-1.5-pro')) {
     return 'gemini-1.5-pro-002';
@@ -586,13 +585,7 @@ export class GeminiStreamingService {
   
   constructor() {
     this.client = new GoogleGenAI({
-      apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || '',
-      httpOptions: {
-        apiVersion: "",
-        baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
-        // Extended timeout for complex AI responses (default is 60s which can timeout on long conversations)
-        timeout: 180000, // 3 minutes in milliseconds
-      },
+      apiKey: process.env.GEMINI_API_KEY || '',
     });
     // Using Gemini 3 Flash preview for latest capabilities
     this.defaultModel = 'gemini-3-flash-preview';
@@ -617,7 +610,7 @@ export class GeminiStreamingService {
    * 
    * Note: Preview models are mapped to their versioned equivalents for caching
    * (e.g. gemini-2.5-flash-preview → gemini-2.5-flash-001). Models with no
-   * cache-compatible equivalent (e.g. gemini-3-flash-preview) return null immediately.
+   * cache-compatible equivalent (e.g. gemini-2.5-flash) return null immediately.
    */
   private async getOrCreateContextCache(
     systemPrompt: string,

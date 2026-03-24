@@ -6320,8 +6320,7 @@ Remember: David may reference things discussed in these recent text chats.
         try {
           const Anthropic = (await import('@anthropic-ai/sdk')).default;
           const claudeClient = new Anthropic({
-            apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
-            baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
+            apiKey: process.env.ANTHROPIC_API_KEY,
           });
           const lang = session.targetLanguage || 'spanish';
           const systemPrompt = `You are Daniela, a warm and encouraging ${lang} language tutor having a voice conversation. Respond naturally and conversationally to the student. Keep your response to 1-2 short sentences max — this is voice so be concise. Primarily use ${lang} with brief English support when helpful. Do NOT mention any technical issues. Just respond naturally.`;

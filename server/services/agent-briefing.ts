@@ -90,7 +90,7 @@ function updateReplitMdMemoryBlock(
   }
 }
 
-const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY;
 
 /**
  * Get the last-modified time of the previously-written briefing file.

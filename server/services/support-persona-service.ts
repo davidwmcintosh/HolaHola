@@ -36,23 +36,19 @@ import { voiceSessions, messages } from "@shared/schema";
 import type { HealthTransition } from "./voice-health-monitor";
 
 // Initialize Gemini client (consistent with Daniela and Aris)
-// Uses fallback pattern: AI_INTEGRATIONS_GEMINI_API_KEY || GEMINI_API_KEY
+// Uses fallback pattern: GEMINI_API_KEY || GEMINI_API_KEY
 let geminiClient: GoogleGenAI | null = null;
 
 function getGeminiClient(): GoogleGenAI {
   if (geminiClient) return geminiClient;
   
-  const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     console.warn('[Sofia] No Gemini API key found - support responses will fail');
   }
   
   geminiClient = new GoogleGenAI({
     apiKey: apiKey || '',
-    httpOptions: {
-      apiVersion: "",
-      baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
-    },
   });
   return geminiClient;
 }
@@ -324,8 +320,8 @@ class SupportPersonaService {
             stackTrace: params.errorStack,
             timestamp: new Date().toISOString(),
             nodeEnv: process.env.NODE_ENV,
-            hasGeminiKey: !!(process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY),
-            hasGeminiBaseUrl: !!process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+            hasGeminiKey: !!(process.env.GEMINI_API_KEY),
+            hasGeminiBaseUrl: true,
           },
           clientTelemetry: params.context || null,
           environment,
@@ -519,7 +515,7 @@ class SupportPersonaService {
     mode?: 'user' | 'dev';
     environment: string;
   }): Promise<string | undefined> {
-    const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       console.warn('[Sofia] No Gemini API key - cannot generate analysis');
       return undefined;
@@ -900,7 +896,7 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
     try {
       const gemini = getGeminiClient();
       
-      const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+      const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
         console.error('[Sofia Helpline] CRITICAL: No Gemini API key available');
         return {
@@ -1753,7 +1749,7 @@ Use request_continuation to work across multiple phases if needed. This task was
     analysis: string;
     actions: Array<{ action: string; result: string; applied: boolean }>;
   }> {
-    const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       const fallback = `Context health ${transition.direction}: ${transition.previousStatus} → ${transition.newStatus}. Reasons: ${transition.reasons.join('; ')}`;
       return { analysis: fallback, actions: [] };
@@ -1883,7 +1879,7 @@ Investigate and take appropriate remediation actions.`;
     analysis: string;
     actions: Array<{ action: string; result: string; applied: boolean }>;
   }> {
-    const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       const fallback = `Voice health ${transition.direction}: ${transition.previousStatus} → ${transition.newStatus}. Reasons: ${transition.reasons.join('; ')}`;
       console.log(`[Sofia Agent] No API key — using fallback`);
@@ -2073,7 +2069,7 @@ Investigate this transition using your tools, take any appropriate remediation a
     analysis: string;
     actions: Array<{ action: string; result: string; applied: boolean }>;
   }> {
-    const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return {
         analysis: `Brain health ${transition.direction}: ${transition.previousStatus} → ${transition.newStatus}. ${transition.reasons.join('; ')}`,

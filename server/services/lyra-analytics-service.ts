@@ -7,8 +7,7 @@ import * as path from 'path';
 import { costTracker } from './cost-tracker';
 
 const anthropic = new Anthropic({
-  apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
+  apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
 export interface LyraInsight {

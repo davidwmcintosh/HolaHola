@@ -15,10 +15,9 @@ let _gemini: GoogleGenAI | null = null;
 function getGemini(): GoogleGenAI {
   if (_gemini) return _gemini;
   _gemini = new GoogleGenAI({
-    apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '',
+    apiKey: process.env.GEMINI_API_KEY || '',
     httpOptions: {
       apiVersion: '',
-      baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
     },
   });
   return _gemini;

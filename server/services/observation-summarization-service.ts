@@ -3,7 +3,7 @@ import { agentObservations, supportObservations, systemAlerts, synthesizedInsigh
 import { desc, and, gte, lte, sql, eq, isNull } from "drizzle-orm";
 import { GoogleGenAI } from "@google/genai";
 
-const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY;
 
 /**
  * v23: Observation Summarization Service

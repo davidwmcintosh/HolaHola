@@ -40,17 +40,13 @@ import { GoogleGenAI } from "@google/genai";
 let geminiClient: GoogleGenAI | null = null;
 function getGeminiClient(): GoogleGenAI {
   if (!geminiClient) {
-    const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      throw new Error('Gemini API key not configured (AI_INTEGRATIONS_GEMINI_API_KEY)');
+      throw new Error('Gemini API key not configured (GEMINI_API_KEY)');
     }
     // Must include httpOptions to match streaming service configuration
     geminiClient = new GoogleGenAI({
       apiKey,
-      httpOptions: {
-        apiVersion: "",
-        baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
-      },
     });
   }
   return geminiClient;

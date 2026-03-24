@@ -19,11 +19,7 @@ import { toInternalActflLevel } from "../actfl-utils";
 import type { Message } from "@shared/schema";
 
 const gemini = new GoogleGenAI({
-  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '',
-  httpOptions: {
-    apiVersion: "",
-    baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
-  }
+  apiKey: process.env.GEMINI_API_KEY || ''
 });
 
 export interface PlacementResult {

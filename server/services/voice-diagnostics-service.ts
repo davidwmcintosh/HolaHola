@@ -457,7 +457,7 @@ class VoiceDiagnosticsService {
   checkSecrets(): VoiceHealthCheck['secrets'] {
     return {
       deepgram: !!process.env.DEEPGRAM_API_KEY,
-      gemini: !!(process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY),
+      gemini: !!(process.env.GEMINI_API_KEY),
       cartesia: !!process.env.CARTESIA_API_KEY,
       googleTts: !!process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON,
     };
@@ -497,12 +497,12 @@ class VoiceDiagnosticsService {
   async testGemini(): Promise<{ status: 'ok' | 'error'; message: string; latencyMs?: number }> {
     const start = Date.now();
     try {
-      const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+      const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
         return { status: 'error', message: 'GEMINI_API_KEY not configured' };
       }
       
-      const baseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com';
+      const baseUrl = 'https://generativelanguage.googleapis.com';
       
       // Simple model list request to validate API key
       const response = await fetch(`${baseUrl}/v1beta/models?key=${apiKey}`);

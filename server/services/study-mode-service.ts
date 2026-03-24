@@ -70,10 +70,9 @@ let geminiClient: GoogleGenAI | null = null;
 function getGemini(): GoogleGenAI {
   if (geminiClient) return geminiClient;
   geminiClient = new GoogleGenAI({
-    apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '',
+    apiKey: process.env.GEMINI_API_KEY || '',
     httpOptions: {
       apiVersion: '',
-      baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
     },
   });
   return geminiClient;

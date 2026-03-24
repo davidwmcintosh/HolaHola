@@ -172,8 +172,7 @@ async function runWatchCycle() {
 
     // Ask Alden's intelligence if anything warrants a notification
     const client = new Anthropic({
-      apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || undefined,
+      apiKey: process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY,
     });
 
     const response = await client.messages.create({

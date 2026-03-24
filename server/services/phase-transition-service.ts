@@ -24,11 +24,7 @@ type HiveSnapshotType = typeof hiveSnapshotTypeEnum.enumValues[number];
 import { eq, desc, and, gte, inArray } from "drizzle-orm";
 
 const genAI = new GoogleGenAI({
-  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY || "",
-  httpOptions: {
-    apiVersion: "",
-    baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
-  },
+  apiKey: process.env.GEMINI_API_KEY || '',
 });
 
 export type TeachingPhase = 

@@ -68,8 +68,7 @@ let anthropicClient: Anthropic | null = null;
 function getClaude(): Anthropic {
   if (anthropicClient) return anthropicClient;
   anthropicClient = new Anthropic({
-    apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
-    baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
+    apiKey: process.env.ANTHROPIC_API_KEY,
   });
   return anthropicClient;
 }
@@ -78,10 +77,9 @@ let geminiClient: GoogleGenAI | null = null;
 function getGemini(): GoogleGenAI {
   if (geminiClient) return geminiClient;
   geminiClient = new GoogleGenAI({
-    apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '',
+    apiKey: process.env.GEMINI_API_KEY || '',
     httpOptions: {
       apiVersion: '',
-      baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
     },
   });
   return geminiClient;
