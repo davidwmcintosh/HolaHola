@@ -73,7 +73,7 @@ The **Mem0-style Memory Conflict Resolver** (`server/services/memory-conflict-re
 - ElevenLabs API: Alternative TTS provider (Flash v2.5).
 - Azure Speech Services: Pronunciation assessment.
 - Unsplash: Stock educational images.
-- Gemini Flash-Image: AI-generated contextual images.
+- DALL-E 3: AI-generated contextual images (all image generation paths unified on DALL-E 3 — lessons, scenarios, menu items, scene backgrounds, inline routes). Uses `USER_OPENAI_API_KEY || OPENAI_API_KEY`, direct API.
 - Perplexity API: Academic citation enrichment (`llama-3.1-sonar-large-128k-online`).
 - Wolfram Alpha LLM API: Scientific fact verification.
 - OpenStax: CC BY 4.0 licensed textbook content.

@@ -133,7 +133,7 @@ import {
   getCanDoStatementStats
 } from "./actfl-can-do-statements";
 import { toInternalActflLevel, toExternalActflLevel } from "./actfl-utils";
-import { GoogleGenAI, Modality } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@deepgram/sdk";
 import { validateOneUnitRule, countConceptualUnits } from "./phrase-detection";
 import { brainHealthTelemetry } from "./services/brain-health-telemetry";
@@ -477,46 +477,40 @@ async function callGeminiWithSchema(
 }
 
 /**
- * Generate image with Gemini Flash-Image
+ * Generate image with DALL-E 3
  * Returns a data URL (base64-encoded image)
- * 
- * Note: Uses Gemini 2.5 Flash-Image via Replit AI Integrations
  */
+function getDallEImageClient(): OpenAI {
+  const key = process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+  if (!key) throw new Error("OPENAI_API_KEY not set — cannot generate images");
+  return new OpenAI({ apiKey: key });
+}
+
 async function generateImageWithGemini(prompt: string): Promise<string> {
   try {
-    console.log('[GEMINI IMAGE] Generating image for prompt:', prompt.substring(0, 100) + '...');
-    
-    const response = await gemini.models.generateContent({
-      model: "gemini-2.5-flash-image",
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      config: {
-        responseModalities: [Modality.TEXT, Modality.IMAGE],
-      },
+    console.log('[DALLE IMAGE] Generating image for prompt:', prompt.substring(0, 100) + '...');
+
+    const client = getDallEImageClient();
+    const response = await client.images.generate({
+      model: 'dall-e-3',
+      prompt,
+      n: 1,
+      size: '1792x1024',
+      quality: 'standard',
+      response_format: 'url',
     });
 
-    console.log('[GEMINI IMAGE] Response received, candidates:', response.candidates?.length);
-    
-    const candidate = response.candidates?.[0];
-    if (!candidate?.content?.parts) {
-      console.error('[GEMINI IMAGE] No parts in response candidate');
-      throw new Error("No content parts in Gemini response");
-    }
-    
-    console.log('[GEMINI IMAGE] Parts count:', candidate.content.parts.length);
-    
-    const imagePart = candidate.content.parts.find((part: any) => part.inlineData);
-    
-    if (!imagePart?.inlineData?.data) {
-      console.error('[GEMINI IMAGE] No image data found. Parts:', candidate.content.parts.map((p: any) => Object.keys(p)));
-      throw new Error("No image data in Gemini response - check API configuration");
-    }
+    const imageUrl = response.data?.[0]?.url;
+    if (!imageUrl) throw new Error("No image URL in DALL-E response");
 
-    const mimeType = imagePart.inlineData.mimeType || "image/png";
-    const dataUrl = `data:${mimeType};base64,${imagePart.inlineData.data}`;
-    console.log('[GEMINI IMAGE] ✓ Successfully generated image, size:', imagePart.inlineData.data.length, 'bytes');
+    const fetchRes = await fetch(imageUrl);
+    if (!fetchRes.ok) throw new Error(`Failed to download image: ${fetchRes.status}`);
+    const buffer = Buffer.from(await fetchRes.arrayBuffer());
+    const dataUrl = `data:image/png;base64,${buffer.toString('base64')}`;
+    console.log('[DALLE IMAGE] ✓ Successfully generated image');
     return dataUrl;
   } catch (error) {
-    console.error('[GEMINI IMAGE] ✗ Error generating image:', error);
+    console.error('[DALLE IMAGE] ✗ Error generating image:', error);
     throw error;
   }
 }
@@ -589,7 +583,7 @@ export async function registerRoutes(app: Express): Promise<void> {
         return res.json({ url });
       }
 
-      // 3. Generate with Gemini Flash-Image
+      // 3. Generate with DALL-E 3
       const prompt = `Appetizing illustration of ${q}, warm watercolor style, soft natural tones, isolated on clean white background, artisan restaurant menu aesthetic, suitable for all ages`;
       let dataUrl: string;
       try {
@@ -5954,7 +5948,7 @@ ${memoryContext}
                   altText: item.alt || cachedImage.description || item.prompt
                 });
               } else {
-                // Cache miss - generate with Gemini Flash-Image
+                // Cache miss - generate with DALL-E 3
                 console.log('[CACHE MISS] Generating new AI image for prompt:', item.prompt.substring(0, 50) + '...');
                 const enhancedPrompt = `${item.prompt}. Educational illustration style, clear and engaging, suitable for language learning.`;
                 
@@ -6245,10 +6239,11 @@ ${memoryContext}
         sofiaDiagThrottle.set(sofiaDiagThrottleKey, now);
         const device = snapshot?.device || {};
         const audio = snapshot?.audio || {};
-        const sentences = snapshot?.sentences || {};
+        const sentenceTracking = snapshot?.sentenceTracking || {};
+        const hookState = snapshot?.hookState || {};
         const description = `[AUTO-DETECTED] Voice issue: ${trigger}. ` +
-          `Sentences expected=${sentences.expectedCount ?? '?'} received=${sentences.receivedCount ?? '?'}. ` +
-          `Audio playing=${audio.isPlaying ?? '?'}, context=${audio.audioContextState ?? '?'}. ` +
+          `Sentences expected=${sentenceTracking.expectedSentenceCount ?? '?'} received=${sentenceTracking.sentencesReceived ?? '?'}. ` +
+          `Audio playing=${audio.globalPlaybackState ?? '?'}, context=${audio.audioContextState ?? '?'}. ` +
           `Device: ${device.userAgent?.substring(0, 80) || 'unknown'}`;
 
         supportPersonaService.createIssueReport({
@@ -6260,9 +6255,11 @@ ${memoryContext}
             conversationId,
             ttsProvider: snapshot?.session?.ttsProvider,
             audioState: audio.audioContextState,
-            isPlaying: audio.isPlaying,
-            sentenceCount: sentences.expectedCount,
-            receivedSentences: sentences.receivedCount,
+            isPlaying: audio.globalPlaybackState,
+            sentenceCount: sentenceTracking.expectedSentenceCount,
+            receivedSentences: sentenceTracking.sentencesReceived,
+            isProcessing: hookState.isProcessing,
+            pendingAudioCount: hookState.pendingAudioCount,
             trigger,
           } as any,
           deviceInfo: {
@@ -8339,7 +8336,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
-  // Multimedia - Generate AI image with Gemini Flash-Image
+  // Multimedia - Generate AI image with DALL-E 3
   app.post("/api/media/generate-image", isAuthenticated, async (req: any, res) => {
     try {
       const { prompt, context } = req.body;
@@ -8353,7 +8350,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         ? `${prompt}. Educational illustration style, clear and engaging, suitable for language learning.`
         : prompt;
 
-      // Generate image with Gemini Flash-Image
+      // Generate image with DALL-E 3
       const imageUrl = await generateImageWithGemini(enhancedPrompt);
       
       if (!imageUrl) {

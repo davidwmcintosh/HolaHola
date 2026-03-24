@@ -12,9 +12,16 @@
 
 import sharp from 'sharp';
 import crypto from 'crypto';
+import OpenAI from 'openai';
 import { db } from '../db';
 import { sql } from 'drizzle-orm';
 import { uploadPublicBuffer } from './image-storage';
+
+function getDallEClient(): OpenAI | null {
+  const key = process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+  if (!key) return null;
+  return new OpenAI({ apiKey: key });
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -723,35 +730,33 @@ export async function generateAllSceneImages(
       ? `${customPrompt}. ${styleForEnv}`
       : `${env.display_name} scene for language learning: ${env.name.replace(/_/g, ' ')}. ${styleForEnv}`;
 
-    console.log(`[PropRoom] Generating image for ${env.name} via Gemini Flash-Image...`);
+    console.log(`[PropRoom] Generating image for ${env.name} via DALL-E 3...`);
     try {
-      const { GoogleGenAI, Modality } = await import('@google/genai');
-      const geminiKey = process.env.GEMINI_API_KEY;
-      const baseUrl = undefined;
-      if (!geminiKey) {
-        results.push({ name: env.name, success: false, error: 'GEMINI_API_KEY not set' });
-        continue;
-      }
-      const genai = new GoogleGenAI({
-        apiKey: geminiKey,
-        httpOptions: { apiVersion: '', baseUrl: baseUrl || '' },
-      });
-      const imgResponse = await genai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: { responseModalities: [Modality.TEXT, Modality.IMAGE] },
-      });
-
-      const candidate = imgResponse.candidates?.[0];
-      const imagePart = candidate?.content?.parts?.find((p: any) => p.inlineData);
-      if (!imagePart?.inlineData?.data) {
-        results.push({ name: env.name, success: false, error: 'No image data in Gemini response' });
+      const dallE = getDallEClient();
+      if (!dallE) {
+        results.push({ name: env.name, success: false, error: 'OPENAI_API_KEY not set' });
         continue;
       }
 
-      const buf = Buffer.from(imagePart.inlineData.data as string, 'base64');
+      const imgResponse = await dallE.images.generate({
+        model: 'dall-e-3',
+        prompt,
+        n: 1,
+        size: '1792x1024',
+        quality: 'standard',
+        response_format: 'url',
+      });
 
-      const { uploadPublicBuffer } = await import('./image-storage');
+      const imageUrl = imgResponse.data?.[0]?.url;
+      if (!imageUrl) {
+        results.push({ name: env.name, success: false, error: 'No image URL in DALL-E response' });
+        continue;
+      }
+
+      const fetchRes = await fetch(imageUrl);
+      if (!fetchRes.ok) throw new Error(`Failed to download image: ${fetchRes.status}`);
+      const buf = Buffer.from(await fetchRes.arrayBuffer());
+
       const permanentUrl = await uploadPublicBuffer(`scene-${env.name}-${Date.now()}.jpg`, buf, 'image/jpeg');
 
       await db.execute(sql`UPDATE visual_environments SET image_url = ${permanentUrl} WHERE id = ${env.id}`);
