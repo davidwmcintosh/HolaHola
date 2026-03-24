@@ -12,12 +12,7 @@
 const FEATURE_KEY = 'holahola_micro_ack';
 
 export function isMicroAckEnabled(): boolean {
-  try {
-    const val = localStorage.getItem(FEATURE_KEY);
-    return val !== 'off';
-  } catch {
-    return true;
-  }
+  return false;
 }
 
 export function setMicroAckEnabled(enabled: boolean): void {

@@ -16,7 +16,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, Loader2, EyeOff, VolumeX, Zap, Flag } from "lucide-react";
+import { Mic, MicOff, Loader2, EyeOff, VolumeX, Flag } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { type Message, type User } from "@shared/schema";
@@ -28,7 +28,6 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { VoiceChatViewManager } from "@/components/VoiceChatViewManager";
 import { useStreamingVoice } from "@/hooks/useStreamingVoice";
-import { isMicroAckEnabled, setMicroAckEnabled } from "@/services/microAckService";
 import { usePlaybackState, getGlobalPlaybackState, setGlobalPlaybackState } from "@/lib/playbackStateStore";
 import { useUser } from "@/lib/auth";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
@@ -278,7 +277,6 @@ export function StreamingVoiceChat({
   const [voiceOverride, setVoiceOverride] = useState<VoiceOverride | null>(null);
   // Incognito mode: off-the-record voice sessions (Founder/Honesty mode only)
   const [isIncognito, setIsIncognito] = useState(false);
-  const [microAckOn, setMicroAckOn] = useState(() => isMicroAckEnabled());
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const [reportSubmitted, setReportSubmitted] = useState(false);
   const isPttButtonHeldRef = useRef(false); // Synchronous ref for guards (state is async)
@@ -2819,12 +2817,6 @@ export function StreamingVoiceChat({
     streamingVoice.sendToggleIncognito(newState);
   };
 
-  const handleToggleMicroAck = () => {
-    const newVal = !microAckOn;
-    setMicroAckOn(newVal);
-    setMicroAckEnabled(newVal);
-  };
-
   const handleSubmitReport = async () => {
     if (isSubmittingReport || reportSubmitted) return;
     setIsSubmittingReport(true);
@@ -3566,16 +3558,6 @@ export function StreamingVoiceChat({
             {isSubmittingReport
               ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
               : <Flag className="w-3.5 h-3.5" />}
-          </Button>
-          <Button
-            size="sm"
-            variant={microAckOn ? "default" : "ghost"}
-            onClick={handleToggleMicroAck}
-            className={`gap-1.5 transition-opacity ${microAckOn ? "opacity-100" : "opacity-40 hover:opacity-70"}`}
-            data-testid="button-toggle-micro-ack"
-            title={microAckOn ? "Quick ack: ON — Daniela responds instantly" : "Quick ack: OFF"}
-          >
-            <Zap className="w-3.5 h-3.5" />
           </Button>
         </div>
       )}
