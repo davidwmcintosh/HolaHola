@@ -7246,8 +7246,8 @@ Return ONLY the ${targetLanguage} phrase:`;
           const result = await ttsService.synthesize({
             text: phrase,
             language,
-            voice: gender || 'female',
-            voiceId: voiceConfig?.voiceId,
+            voice: voiceConfig.name,     // Full Chirp 3 HD voice ID e.g. 'fr-FR-Chirp3-HD-Leda'
+            forceProvider: 'google',      // Must use Google TTS for Chirp 3 HD voices
             speakingRate: 0.95,
           });
           clips.push({

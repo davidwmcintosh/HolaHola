@@ -1,4 +1,4 @@
-import { useState, useRef, TouchEvent } from "react";
+import { useState, useRef, useEffect, TouchEvent } from "react";
 import { ImmersiveTutor } from "./ImmersiveTutor";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -114,6 +114,13 @@ export function VoiceChatViewManager({
   const [view, setView] = useState<"live" | "history">("live");
   const touchStartX = useRef<number>(0);
   const touchStartY = useRef<number>(0);
+  const historyScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (view === 'history' && historyScrollRef.current) {
+      historyScrollRef.current.scrollTop = historyScrollRef.current.scrollHeight;
+    }
+  }, [view, messages]);
 
   // Fetch conversation metadata (includes resume info) - Week 1 Feature
   const { data: conversationData } = useQuery<Conversation & { resumeMetadata?: { 
@@ -246,7 +253,7 @@ export function VoiceChatViewManager({
             </div>
           )
         ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 custom-scrollbar pt-16 pb-20">
+          <div ref={historyScrollRef} className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 custom-scrollbar pt-16 pb-20">
             <div className="space-y-3 md:space-y-4 max-w-4xl mx-auto">
               {/* Resume conversation indicator - Week 1 Feature */}
               {conversationData?.resumeMetadata?.isResuming && (
