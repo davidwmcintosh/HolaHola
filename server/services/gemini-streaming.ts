@@ -469,25 +469,27 @@ const CACHE_TTL_SECONDS = 55 * 60;
 const CACHE_FAILURE_TTL_MS = 10 * 60 * 1000;
 
 /**
- * Models known to support context caching
- * Includes versioned models (-001, -002) and preview models
- * Gemini 3 Flash Preview supports caching per Google documentation (Dec 2025)
+ * Models known to support context caching WITH tools in the same GenerateContent call.
+ * Gemini 3 and Gemini 2.5 Pro are excluded: they reject cachedContent + tools together
+ * (INVALID_ARGUMENT 400 — must embed tools inside the cache itself).
+ * Gemini 1.5 versioned models are the only confirmed safe caching targets.
  */
 const CACHE_COMPATIBLE_MODELS = [
   'gemini-1.5-flash-001',
   'gemini-1.5-flash-002', 
   'gemini-1.5-pro-001',
   'gemini-1.5-pro-002',
-  'gemini-3-flash-preview',
-  'gemini-2.5-pro',
-  // Note: non-versioned names may not always support caching; graceful degradation handles failures
+  // gemini-3-flash-preview: NOT listed here — it does NOT support cachedContent combined with
+  // tools/tool_config in the same GenerateContent call (API returns INVALID_ARGUMENT 400).
+  // The gemini-3 null-guard in getCacheCompatibleModel handles this correctly.
+  // gemini-2.5-pro: excluded for same reason (tools conflict with cachedContent at request time).
 ];
 
 /**
  * Default cache-compatible model for when caching is enabled
  * Used as fallback when the requested model doesn't support caching
  */
-const DEFAULT_CACHE_MODEL = 'gemini-3-flash-preview';
+const DEFAULT_CACHE_MODEL = 'gemini-2.5-flash';
 
 /**
  * Check if a model supports context caching
