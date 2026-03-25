@@ -1,36 +1,40 @@
 # Alden ↔ Agent Handoff
 
-## From Alden — last updated: Wed, Mar 25, 8:17 PM
+## From Alden — last updated: Wed, Mar 25, 10:15 PM
 
-## Triage Complete: Sofia Pattern 6e9309df — Connection Errors (Benign, Third Occurrence)
+## Triage Complete: Sofia Pattern 03637db5 — failsafe_tier2_45s (no_audio cluster)
 
-**Investigation Date:** March 25, 2026, 2:18 PM MDT
+**Investigation Date:** March 25, 2026, 4:16 PM MDT
 
-**Pattern Detected:** Sofia flagged 3x "connection" events in 24 hours as a recurring issue (pattern ID: 6e9309df-8fc3-49f6-b17f-4da560cb4519).
+**Pattern Detected:** Sofia flagged 5x "no_audio" events in 24 hours (pattern ID: 03637db5-ab35-4bcf-8dfa-cc93b97a3ca5), all `failsafe_tier2_45s` from development environment.
 
-**Root Cause:** IDENTICAL to patterns 002b29fa and 9dc13044 investigated earlier today. All 3 events from David (user 49847136) during development testing on March 24. Errors within ~2.6s of voice session start, caused by:
-- Gemini rate limit exceeded (confirmed in Sofia's analysis)
-- Connection timeouts during rapid session restarts
-- Server instance rotation (autoscale deployment)
+**Root Cause:** BENIGN TESTING NOISE, not a bug.
 
-**Why `context=unknown` Appears:**
-The diagnostic snapshot defaults `audioContextState` to `'unknown'` when errors fire before the audio timing loop initializes (< 3 seconds after connection). This is expected behavior for early connection failures, not a bug.
+The Tier-2 failsafe in `client/src/hooks/useStreamingVoice.ts` (lines 1135-1193) fires 45 seconds after `response_complete` when:
+1. Audio playback state is 'idle' (audio finished)
+2. User hasn't started a new turn
+3. AudioContext state is 'running'
 
-**Verdict:** Benign testing noise. No code fix required. Voice pipeline is healthy.
+**The design intent:** Clear stuck states where AudioContext reports "running" but audio callbacks silently failed (stuck AudioWorklet).
 
-**Observation — Pattern Frequency:** This is now the **third** identical connection error pattern within 24 hours, all with the same signature:
-- Single-user (David, development)
-- Early connection failures (< 3s after start)
-- `context=unknown` diagnostic
-- Mix of rate limits + connection timeouts
+**What actually happened:** Audio played correctly (diagnostic snapshots show "expected=4 received=4" and "expected=1 received=1"), but David paused >45 seconds before responding during dev testing. The timer expired while he was thinking — not because audio failed.
 
-The voice health monitor already has single-user dampening for `failsafe_tier2_45s` and rate thresholds (requires `users >= 2` for RED transitions). Connection errors could benefit from similar dampening — **but not urgent**. The current system correctly identifies these as isolated testing noise rather than platform-wide issues.
+**Evidence from diagnostics:**
+- All 5 events from user 49847136 (David) on March 24
+- Snapshots show: "Audio playing=idle, context=running"
+- Sentence counts match: expected=received (audio delivered successfully)
 
-**Sofia's Pattern Detection:** Working as designed — recurring events trigger investigation even when single-user. The pattern detection is catching legitimate clusters; the triage process correctly identifies them as benign.
+**Why No Fix:**
+The failsafe serves a genuine purpose — it recovers from real AudioWorklet stuck states that _do_ occur in production (AudioContext reports "running" but playback silently halts). False-positive rate is acceptable: 5 events in 24h from a single dev user. Adding "did audio play successfully" logic would complicate the recovery state machine for marginal benefit.
 
-**Action Taken:** Notified David via info notification. Pattern marked as investigated (not fixed — no code change needed).
+**Action Taken:**
+- Notified David via info-level notification
+- Documented pattern as benign testing noise
+- Pattern status: investigated (no code change)
 
-— Alden, March 25, 2026, 2:18 PM MDT
+**For the Agent:** If Sofia flags this pattern again, check diagnostic snapshots first. If `expected === received` and `audio === 'idle'`, it's normal user pause, not a pipeline failure.
+
+— Alden, March 25, 2026, 4:16 PM MDT
 
 ---
 
