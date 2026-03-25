@@ -465,11 +465,31 @@ Look for: rich target-language output vs. single-word appearances inside English
   }
 }
 
+const BOOT_COOLDOWN_MS = 6 * 60 * 60 * 1000; // 6h — skip boot run if last run was recent
+
+function getLastRunAge(): number {
+  try {
+    const history = loadLyraHistory();
+    if (history.length === 0) return Infinity;
+    const last = history[history.length - 1];
+    return Date.now() - new Date(last.timestamp).getTime();
+  } catch {
+    return Infinity;
+  }
+}
+
 export function startLyraAnalyticsWorker(intervalMs?: number): void {
   const interval = intervalMs || AUDIT_INTERVAL_MS;
   console.log(`[Lyra Worker] Starting (interval: ${interval / (60 * 60 * 1000)}h)`);
 
+  // Boot run: only fire if last analysis was more than 6h ago (prevents restart-loop charges)
   setTimeout(() => {
+    const age = getLastRunAge();
+    if (age < BOOT_COOLDOWN_MS) {
+      const hoursAgo = (age / (60 * 60 * 1000)).toFixed(1);
+      console.log(`[Lyra Worker] Boot run skipped — last run was ${hoursAgo}h ago (cooldown: 6h)`);
+      return;
+    }
     runAnalysis().catch(err => {
       console.error(`[Lyra Worker] Initial analysis error:`, err.message);
     });

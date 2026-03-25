@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, March 25, 2026 at 07:38 PM
+**Generated:** Wednesday, March 25, 2026 at 08:14 PM
 
 ---
 
@@ -135,14 +135,14 @@ PHASE 1 — Schema Migration:
 ## Notes From Alden
 *Also check docs/alden-to-agent.md for unread direct notes*
 
-## Triage Complete: Sofia Pattern 9dc13044 — Connection Errors (Benign)
+## Triage Complete: Sofia Pattern 002b29fa — Connection Errors (Benign)
 
-**Investigation Date:** March 25, 2026, 1:00 PM MDT
+**Investigation Date:** March 25, 2026, 1:40 PM MDT
 
-**Pattern Detected:** Sofia flagged 3x "connection" events in 24 hours as a recurring issue.
+**Pattern Detected:** Sofia flagged 3x "connection" events in 24 hours as a recurring issue (pattern ID: 002b29fa-2b98-4240-8e93-a7e166ca1187).
 
-**Root Cause:** All 3 events originated from David (user 49847136) during development testing. Errors occurred within ~2.6 seconds of voice session start, caused by:
-- Gemini rate limit exceeded (visible in error logs)
+**Root Cause:** All 3 events originated from David (user 49847136) during development testing on March 24. Errors occurred within ~2.6 seconds of voice session start, caused by:
+- Gemini rate limit exceeded (visible in Sofia's analysis and error logs)
 - Connection timeouts during rapid session restarts
 - Server instance rotation (autoscale deployment)
 
@@ -151,7 +151,7 @@ The diagnostic snapshot (`lockoutDiagnostics.ts` line 339) defaults `audioContex
 
 **Verdict:** Benign testing noise. No code fix required. Voice pipeline is healthy.
 
-**Observation:** Pattern detection correctly identified the cluster but didn't account for single-user testing scenarios. The voice health monitor already has single-user dampening for `failsafe_tier2_45s` and rate thresholds (requires `users >= 2` for RED transitions). Conne
+**Observation:** This is the second connection error pattern this week with identical signature (also pattern 9dc13044 earlier today). The voice health monitor already has single-user dampenin
 
 *[truncated — read full file for details]*
 

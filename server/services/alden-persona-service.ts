@@ -3,6 +3,7 @@ import { buildAldenSystemPrompt } from "../alden-system-prompt";
 import { ALDEN_TOOLS, executeAldenTool } from "./alden-functions";
 import { buildAldenWorkspaceContext } from "./alden-workspace-context";
 import { aldenActivity } from "./alden-activity-emitter";
+import { costTracker } from "./cost-tracker";
 
 let anthropicClient: Anthropic | null = null;
 
@@ -127,15 +128,20 @@ Note: Zone type '${s.zoneType}' means ${
 
     let aldenResponse: string | null = null;
     let pendingContinuation: ContinuationInfo | undefined;
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
 
     for (let round = 0; round < MAX_AGENT_ROUNDS; round++) {
       const result = await client.messages.create({
         model: 'claude-sonnet-4-5',
-        max_tokens: 8192,
+        max_tokens: 4096,
         system: systemPrompt,
         messages,
         tools: ALDEN_TOOLS,
       });
+
+      totalInputTokens += result.usage?.input_tokens ?? 0;
+      totalOutputTokens += result.usage?.output_tokens ?? 0;
 
       const textBlocks = result.content.filter(
         (block): block is Anthropic.TextBlock => block.type === 'text'
@@ -240,7 +246,8 @@ Note: Zone type '${s.zoneType}' means ${
       }
     }
 
-    console.log(`[Alden Chat] Response generated (${aldenResponse.length} chars, ${toolsUsed.length} tools used)`);
+    const callCostUsd = costTracker.track('claude-sonnet-4-5', totalInputTokens, totalOutputTokens, 'alden-chat');
+    console.log(`[Alden Chat] Response generated (${aldenResponse.length} chars, ${toolsUsed.length} tools used, ~$${callCostUsd.toFixed(4)} | ${(totalInputTokens/1000).toFixed(0)}k in / ${(totalOutputTokens/1000).toFixed(0)}k out)`);
 
     aldenActivity.push({ type: 'response_complete', timestamp: new Date().toISOString() });
 
