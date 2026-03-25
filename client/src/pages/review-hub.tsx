@@ -53,7 +53,7 @@ import { TutorShowcase, type TutorSelection } from "@/components/TutorShowcase";
 import { InteractiveTextbookCard } from "@/components/InteractiveTextbookCard";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { VocabularyWord, Conversation, CulturalTip, UserLesson, Topic, Scenario } from "@shared/schema";
+import type { VocabularyWord, Conversation, CulturalTip, UserLesson, Topic, Scenario, UserReviewItem } from "@shared/schema";
 import { Mic } from "lucide-react";
 
 // Types for drill recommendations
@@ -557,6 +557,18 @@ export default function ReviewHub() {
       if (!response.ok) return null;
       return response.json();
     },
+  });
+
+  const { data: conversationReviewItems } = useQuery<UserReviewItem[]>({
+    queryKey: ["/api/review-items", lang],
+    queryFn: async () => {
+      if (language === 'all') return [];
+      const response = await fetch(`/api/review-items?language=${lang}&limit=12`, { credentials: 'include' });
+      if (!response.ok) return [];
+      const data = await response.json();
+      return Array.isArray(data) ? data : (data.items ?? []);
+    },
+    enabled: language !== 'all',
   });
 
   if (isLoading) {
@@ -1132,6 +1144,87 @@ export default function ReviewHub() {
       {syllabusView !== 'mindmap' && (
         <DanielaLearningInsights language={language} userId={user?.id} />
       )}
+
+      {/* From Your Conversations */}
+      {conversationReviewItems && conversationReviewItems.length > 0 && (() => {
+        const now = Date.now();
+        const newItems = conversationReviewItems.filter(item => 
+          now - new Date(item.createdAt).getTime() < 48 * 60 * 60 * 1000
+        );
+        const displayItems = conversationReviewItems.slice(0, 5);
+
+        const itemTypeConfig: Record<string, { color: string; label: string }> = {
+          vocabulary: { color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300", label: "Word" },
+          phrase: { color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300", label: "Phrase" },
+          grammar: { color: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300", label: "Grammar" },
+          pronunciation: { color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300", label: "Sound" },
+        };
+
+        return (
+          <Card data-testid="section-from-conversations">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <MessageSquare className="h-5 w-5 text-primary" />
+                  From Your Conversations
+                  {newItems.length > 0 && (
+                    <Badge className="text-xs bg-primary/10 text-primary border-primary/20">
+                      {newItems.length} new
+                    </Badge>
+                  )}
+                </CardTitle>
+              </div>
+              <CardDescription>Vocabulary, phrases, and grammar from your recent chats</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {displayItems.map((item) => {
+                const typeConf = itemTypeConfig[item.itemType] ?? itemTypeConfig.vocabulary;
+                const isNew = now - new Date(item.createdAt).getTime() < 48 * 60 * 60 * 1000;
+                const masteryDot = item.mastered
+                  ? <span className="h-2 w-2 rounded-full bg-green-500 flex-shrink-0" title="Mastered" />
+                  : item.attempts > 0
+                    ? <span className="h-2 w-2 rounded-full bg-amber-400 flex-shrink-0" title="In progress" />
+                    : <span className="h-2 w-2 rounded-full bg-muted-foreground/40 flex-shrink-0" title="Not yet practiced" />;
+
+                return (
+                  <div
+                    key={item.id}
+                    className="flex items-start gap-3 p-3 rounded-lg bg-muted/40 hover-elevate"
+                    data-testid={`review-item-${item.id}`}
+                  >
+                    {masteryDot}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-sm">{item.targetText}</span>
+                        <Badge variant="outline" className={`text-xs ${typeConf.color}`}>
+                          {typeConf.label}
+                        </Badge>
+                        {isNew && (
+                          <Badge variant="outline" className="text-xs border-primary/30 text-primary">
+                            new
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">{item.prompt}</p>
+                      {item.context && (
+                        <p className="text-xs text-muted-foreground/70 italic mt-0.5 truncate">"{item.context}"</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="pt-1">
+                <Link href="/vocabulary">
+                  <Button variant="outline" className="w-full" data-testid="button-view-all-review-items">
+                    View all {conversationReviewItems.length} items
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Recommended Pronunciation Drills */}
       {drillRecommendations && drillRecommendations.length > 0 && (
