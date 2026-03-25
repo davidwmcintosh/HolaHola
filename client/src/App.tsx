@@ -70,6 +70,7 @@ const AdminNorthStar = lazyWithRetry(() => import("@/pages/admin/NorthStar"));
 const AdminDeveloperDashboard = lazyWithRetry(() => import("@/pages/admin/DeveloperDashboard"));
 const AdminBrainHealth = lazyWithRetry(() => import("@/pages/admin/BrainHealth"));
 const AdminSessionEconomics = lazyWithRetry(() => import("@/pages/admin/SessionEconomics"));
+const AdminAICostMonitor = lazyWithRetry(() => import("@/pages/admin/AICostMonitor"));
 const Lessons = lazyWithRetry(() => import("@/pages/lessons"));
 const ReviewHub = lazyWithRetry(() => import("@/pages/review-hub"));
 const ArisPractice = lazyWithRetry(() => import("@/pages/aris-practice"));
@@ -261,6 +262,7 @@ function Router() {
         <Route path="/admin/developer" component={AdminDeveloperDashboard} />
         <Route path="/admin/brain-health" component={AdminBrainHealth} />
         <Route path="/admin/session-economics" component={AdminSessionEconomics} />
+        <Route path="/admin/ai-costs" component={AdminAICostMonitor} />
         <Route path="/admin" component={CommandCenter} />
         
         <Route path="/settings" component={Settings} />

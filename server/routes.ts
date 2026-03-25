@@ -14225,6 +14225,29 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // GET /api/alden/cost-summary — live in-memory AI cost tracker data
+  app.get("/api/alden/cost-summary", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { costTracker } = await import('./services/cost-tracker');
+      const hours = Number(req.query.hours) || 24;
+      const summary = costTracker.getSummary(hours);
+      const lyraAge = await (async () => {
+        try {
+          const fs = await import('fs');
+          const path = await import('path');
+          const histFile = path.join(process.cwd(), '.local', 'lyra-history.json');
+          const hist = JSON.parse(fs.readFileSync(histFile, 'utf8'));
+          if (!hist.length) return null;
+          const last = hist[hist.length - 1];
+          return { timestamp: last.timestamp, ageMs: Date.now() - new Date(last.timestamp).getTime(), costUsd: last.costUsd };
+        } catch { return null; }
+      })();
+      res.json({ ...summary, lyraLastRun: lyraAge, retrievedAt: new Date().toISOString() });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/alden/synthesize", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
       const { text } = req.body;
