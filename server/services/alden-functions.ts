@@ -432,6 +432,32 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
       required: ["subject", "body"],
     },
   },
+  {
+    name: "get_ai_cost_report",
+    description: "Pull the unified HoloHola AI cost report. Combines in-memory Alden/Lyra/Wren costs with DB-backed student tutor session costs (Gemini tokens + TTS + STT). Returns both structured JSON and a pre-formatted text summary you can share directly. Use when David asks about costs, burn rate, or wants a system snapshot.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        hours: { type: "number" as const, description: "Lookback window in hours (default 24, max 168). Use 1 for last hour, 168 for last week." },
+        env: { type: "string" as const, description: "Environment filter: 'all' (default), 'production', or 'development'." },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "post_report_to_team_room",
+    description: "Generate the unified AI cost report and post it as a message to the active team room session. Use when David or the team wants to discuss costs — this surfaces the report directly in the Team Room for everyone to see and discuss.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        hours: { type: "number" as const, description: "Lookback window in hours (default 24, max 168)." },
+        env: { type: "string" as const, description: "Environment filter: 'all' (default), 'production', or 'development'." },
+        room_id: { type: "string" as const, description: "Team room session ID to post to. If omitted, uses the most recently active room." },
+        speaker: { type: "string" as const, description: "Who should the message appear as (default 'Alden')." },
+      },
+      required: [],
+    },
+  },
 ];
 
 export async function executeAldenTool(
@@ -1621,6 +1647,130 @@ ${agentSection}`;
         };
       }
 
+      case "get_ai_cost_report": {
+        const hours = Math.min(args.hours || 24, 168);
+        const env = args.env || 'all';
+
+        const { costTracker } = await import('./cost-tracker');
+        const aldenSummary = costTracker.getSummary(hours);
+        const aldenText = costTracker.formatForReport(hours);
+
+        const lyraLastRun = await (async () => {
+          try {
+            const histFile = path.join(process.cwd(), '.local', 'lyra-history.json');
+            const hist = JSON.parse(fs.readFileSync(histFile, 'utf8'));
+            if (!hist.length) return null;
+            const last = hist[hist.length - 1];
+            return { timestamp: last.timestamp, ageHours: +((Date.now() - new Date(last.timestamp).getTime()) / 3_600_000).toFixed(1), costUsd: last.costUsd };
+          } catch { return null; }
+        })();
+
+        const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+        const monDb = getMonitoringDb();
+        const conditions: any[] = [gte(voiceSessions.startedAt, since), eq(voiceSessions.isTestSession, false)];
+        if (env !== 'all') conditions.push(eq(voiceSessions.environment, env as any));
+
+        const rows = await monDb.select({
+          count: sql<number>`count(*)`,
+          totalDurationSec: sql<number>`coalesce(sum(duration_seconds), 0)`,
+          totalTtsChars: sql<number>`coalesce(sum(tts_characters), 0)`,
+          totalSttSec: sql<number>`coalesce(sum(stt_seconds), 0)`,
+          totalLlmIn: sql<number>`coalesce(sum(llm_input_tokens), 0)`,
+          totalLlmOut: sql<number>`coalesce(sum(llm_output_tokens), 0)`,
+          totalExchanges: sql<number>`coalesce(sum(exchange_count), 0)`,
+        }).from(voiceSessions).where(and(...conditions));
+
+        const r = rows[0] || {};
+        const sessions     = Number(r.count || 0);
+        const totalMinutes = +(Number(r.totalDurationSec || 0) / 60).toFixed(1);
+        const ttsChars     = Number(r.totalTtsChars || 0);
+        const sttSec       = Number(r.totalSttSec || 0);
+        const llmIn        = Number(r.totalLlmIn || 0);
+        const llmOut       = Number(r.totalLlmOut || 0);
+        const exchanges    = Number(r.totalExchanges || 0);
+        const tokenTracked = llmIn > 0;
+
+        const geminiCost   = tokenTracked ? (llmIn * 0.075 / 1_000_000) + (llmOut * 0.30 / 1_000_000) : exchanges * 0.0005;
+        const ttsCost      = (ttsChars / 1000) * 0.015;
+        const sttCost      = (sttSec / 60) * 0.0043;
+        const studentTotal = geminiCost + ttsCost + sttCost;
+        const aldenTotal   = aldenSummary.totalCostUsd;
+        const combined     = aldenTotal + studentTotal;
+
+        const fmt  = (n: number) => `$${n.toFixed(4)}`;
+        const fmtK = (n: number) => n > 0 ? `${(n / 1000).toFixed(1)}k` : '0';
+
+        const text = [
+          `=== HoloHola AI Cost Report (last ${hours}h${env !== 'all' ? `, ${env}` : ''}) ===`,
+          `Generated: ${new Date().toUTCString()}`,
+          ``,
+          `ALDEN STACK (in-memory — Alden / Lyra / Wren)`,
+          aldenSummary.callCount > 0 ? aldenText : `  No calls tracked in this window`,
+          lyraLastRun ? `  Lyra last run: ${lyraLastRun.ageHours}h ago (${fmt(lyraLastRun.costUsd || 0)})` : `  Lyra: unknown last run`,
+          `  Subtotal: ${fmt(aldenTotal)}`,
+          ``,
+          `STUDENT TUTOR SESSIONS (DB — Gemini + TTS + STT)`,
+          `  Sessions: ${sessions} | Minutes: ${totalMinutes}min | Exchanges: ${exchanges}`,
+          `  Gemini: ${tokenTracked ? `${fmtK(llmIn)} in / ${fmtK(llmOut)} out (real tokens)` : `${exchanges} exchanges (estimated)`} → ${fmt(geminiCost)}`,
+          `  Google TTS: ${fmtK(ttsChars)} chars → ${fmt(ttsCost)}`,
+          `  Deepgram STT: ${(sttSec / 60).toFixed(1)}min → ${fmt(sttCost)}`,
+          `  Subtotal: ${fmt(studentTotal)}`,
+          ``,
+          `COMBINED TOTAL: ${fmt(combined)}`,
+        ].join('\n');
+
+        return {
+          data: {
+            windowHours: hours,
+            env,
+            aldenStack: { totalCostUsd: aldenTotal, callCount: aldenSummary.callCount, byModel: aldenSummary.byModel, lyraLastRun },
+            studentTutor: { sessions, totalMinutes, exchanges, geminiInputTokens: llmIn, geminiOutputTokens: llmOut, geminiTokensTracked: tokenTracked, geminiCostUsd: geminiCost, ttsCostUsd: ttsCost, sttCostUsd: sttCost, totalCostUsd: studentTotal },
+            combined: { totalCostUsd: combined, aldenStackUsd: aldenTotal, studentTutorUsd: studentTotal },
+            text,
+          },
+        };
+      }
+
+      case "post_report_to_team_room": {
+        const hours   = Math.min(args.hours || 24, 168);
+        const env     = args.env || 'all';
+        const speaker = args.speaker || 'Alden';
+
+        // Re-use get_ai_cost_report logic inline to get the formatted text
+        const reportResult = await executeAldenTool('get_ai_cost_report', { hours, env });
+        const reportData   = reportResult.data as any;
+        const reportText   = reportData?.text as string;
+        if (!reportText) return { data: { error: 'Failed to generate cost report' } };
+
+        // Find the room to post to
+        const { storage: storageInstance } = await import('../storage');
+        let roomId = args.room_id as string | undefined;
+        if (!roomId) {
+          const rooms = await storageInstance.listTeamRooms(10);
+          const openRoom = rooms.find((r: any) => r.status === 'open' || r.status === 'active') || rooms[0];
+          if (!openRoom) return { data: { error: 'No active team room session found. Please open a Team Room session first, or pass a room_id.' } };
+          roomId = openRoom.id;
+        }
+
+        const message = await storageInstance.createRoomMessage({ roomId, speaker, content: reportText });
+
+        // Emit to team room WS
+        try {
+          const { emitNewMessage } = await import('./team-room-ws-broker');
+          emitNewMessage(roomId, message);
+        } catch { /* WS emit is best-effort */ }
+
+        return {
+          data: {
+            posted: true,
+            roomId,
+            speaker,
+            messageId: message.id,
+            reportSummary: `Combined total: $${(reportData?.combined?.totalCostUsd ?? 0).toFixed(4)} over last ${hours}h`,
+          },
+        };
+      }
+
       default:
         return { data: { error: `Unknown tool: ${toolName}` } };
     }
@@ -1630,4 +1780,4 @@ ${agentSection}`;
   }
 }
 
-console.log('[Alden Functions] Loaded — 29 tools ready (monitoring + code + shell + memory + notifications + browser + web-fetch + briefing + express-lane-search + agent-notes)');
+console.log('[Alden Functions] Loaded — 31 tools ready (monitoring + code + shell + memory + notifications + browser + web-fetch + briefing + express-lane-search + agent-notes + ai-cost-report)');

@@ -14247,6 +14247,127 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // GET /api/admin/ai-cost-report — unified AI cost report (in-memory + DB)
+  app.get("/api/admin/ai-cost-report", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const hours = Math.min(Number(req.query.hours) || 24, 168);
+      const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+      const env = (req.query.env as string) || 'all';
+      const envCondition = env === 'all' ? undefined : eq(voiceSessions.environment, env as any);
+
+      const { costTracker } = await import('./services/cost-tracker');
+      const aldenSummary = costTracker.getSummary(hours);
+      const aldenText = costTracker.formatForReport(hours);
+
+      // Lyra last run
+      const lyraLastRun = await (async () => {
+        try {
+          const fs = await import('fs');
+          const histFile = path.join(process.cwd(), '.local', 'lyra-history.json');
+          const hist = JSON.parse(fs.readFileSync(histFile, 'utf8'));
+          if (!hist.length) return null;
+          const last = hist[hist.length - 1];
+          return { timestamp: last.timestamp, ageHours: +((Date.now() - new Date(last.timestamp).getTime()) / 3_600_000).toFixed(1), costUsd: last.costUsd };
+        } catch { return null; }
+      })();
+
+      // DB: student session economics
+      const monDb = getMonitoringDb();
+      const conditions: any[] = [gte(voiceSessions.startedAt, since), eq(voiceSessions.isTestSession, false)];
+      if (envCondition) conditions.push(envCondition);
+
+      const sessionRows = await monDb.select({
+        count: sql<number>`count(*)`,
+        totalDurationSec: sql<number>`coalesce(sum(duration_seconds), 0)`,
+        totalTtsChars: sql<number>`coalesce(sum(tts_characters), 0)`,
+        totalSttSec: sql<number>`coalesce(sum(stt_seconds), 0)`,
+        totalLlmIn: sql<number>`coalesce(sum(llm_input_tokens), 0)`,
+        totalLlmOut: sql<number>`coalesce(sum(llm_output_tokens), 0)`,
+        totalExchanges: sql<number>`coalesce(sum(exchange_count), 0)`,
+      }).from(voiceSessions).where(and(...conditions));
+
+      const s = sessionRows[0] || {};
+      const sessions      = Number(s.count          || 0);
+      const totalMinutes  = +(Number(s.totalDurationSec || 0) / 60).toFixed(1);
+      const ttsChars      = Number(s.totalTtsChars   || 0);
+      const sttSec        = Number(s.totalSttSec     || 0);
+      const llmIn         = Number(s.totalLlmIn      || 0);
+      const llmOut        = Number(s.totalLlmOut     || 0);
+      const exchanges     = Number(s.totalExchanges  || 0);
+      const llmTokensTracked = llmIn > 0;
+
+      const geminiCost  = llmTokensTracked
+        ? (llmIn * 0.075 / 1_000_000) + (llmOut * 0.30 / 1_000_000)
+        : exchanges * 0.0005;
+      const ttsCost     = (ttsChars / 1000) * 0.015;
+      const sttCost     = (sttSec / 60) * 0.0043;
+      const studentTotal = geminiCost + ttsCost + sttCost;
+
+      const aldenTotal   = aldenSummary.totalCostUsd;
+      const combinedTotal = aldenTotal + studentTotal;
+
+      // Formatted text report
+      const fmt = (n: number) => `$${n.toFixed(4)}`;
+      const fmtK = (n: number) => n > 0 ? `${(n / 1000).toFixed(1)}k` : '0';
+      const lines = [
+        `=== HoloHola AI Cost Report (last ${hours}h${env !== 'all' ? `, ${env}` : ''}) ===`,
+        `Generated: ${new Date().toUTCString()}`,
+        ``,
+        `ALDEN STACK (in-memory — Alden / Lyra / Wren)`,
+        aldenSummary.callCount > 0 ? aldenText : `  No calls tracked in this window`,
+        lyraLastRun ? `  Lyra last run: ${lyraLastRun.ageHours}h ago (${fmt(lyraLastRun.costUsd || 0)})` : `  Lyra last run: unknown`,
+        `  Subtotal: ${fmt(aldenTotal)}`,
+        ``,
+        `STUDENT TUTOR SESSIONS (DB — Gemini + TTS + STT)`,
+        `  Sessions: ${sessions} | Minutes: ${totalMinutes}min | Exchanges: ${exchanges}`,
+        `  Gemini: ${llmTokensTracked ? `${fmtK(llmIn)} in / ${fmtK(llmOut)} out (real)` : `${exchanges} exchanges (estimate)`} → ${fmt(geminiCost)}`,
+        `  Google TTS: ${fmtK(ttsChars)} chars → ${fmt(ttsCost)}`,
+        `  Deepgram STT: ${(sttSec / 60).toFixed(1)}min → ${fmt(sttCost)}`,
+        `  Subtotal: ${fmt(studentTotal)}`,
+        ``,
+        `COMBINED TOTAL: ${fmt(combinedTotal)}`,
+        llmTokensTracked ? `  (Gemini tokens tracked from real usage)` : `  (Gemini cost estimated — no real tokens logged yet)`,
+      ].join('\n');
+
+      res.json({
+        generatedAt: new Date().toISOString(),
+        windowHours: hours,
+        env,
+        aldenStack: {
+          totalCostUsd: aldenTotal,
+          callCount: aldenSummary.callCount,
+          byModel: aldenSummary.byModel,
+          mostExpensiveModel: aldenSummary.mostExpensiveModel,
+          avgCostPerCall: aldenSummary.avgCostPerCall,
+          lyraLastRun,
+        },
+        studentTutor: {
+          sessions,
+          totalMinutes,
+          exchanges,
+          geminiInputTokens: llmIn,
+          geminiOutputTokens: llmOut,
+          geminiTokensTracked: llmTokensTracked,
+          geminiCostUsd: geminiCost,
+          ttsChars,
+          ttsCostUsd: ttsCost,
+          sttSeconds: sttSec,
+          sttCostUsd: sttCost,
+          totalCostUsd: studentTotal,
+        },
+        combined: {
+          totalCostUsd: combinedTotal,
+          aldenStackUsd: aldenTotal,
+          studentTutorUsd: studentTotal,
+        },
+        text: lines,
+      });
+    } catch (error: any) {
+      console.error('[AI Cost Report] Error:', error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // GET /api/alden/cost-summary — live in-memory AI cost tracker data
   app.get("/api/alden/cost-summary", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
