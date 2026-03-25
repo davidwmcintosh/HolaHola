@@ -434,7 +434,7 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "get_ai_cost_report",
-    description: "Pull the unified HoloHola AI cost report. Combines in-memory Alden/Lyra/Wren costs with DB-backed student tutor session costs (Gemini tokens + TTS + STT). Returns both structured JSON and a pre-formatted text summary you can share directly. Use when David asks about costs, burn rate, or wants a system snapshot.",
+    description: "Pull the Burn Report — the unified HoloHola AI cost summary. Combines in-memory Alden/Lyra/Wren costs with DB-backed student tutor session costs (Gemini tokens + TTS + STT). Returns both structured JSON and a pre-formatted text summary you can share directly. Use when David asks to 'run the burn report', asks about costs, burn rate, or wants a system snapshot.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -446,7 +446,7 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "post_report_to_team_room",
-    description: "Generate the unified AI cost report and post it as a message to the active team room session. Use when David or the team wants to discuss costs — this surfaces the report directly in the Team Room for everyone to see and discuss.",
+    description: "Generate the Burn Report and post it as a message to the active team room session. Use when David says 'post the burn report to the team room' or the team wants to discuss AI costs — this surfaces the full cost breakdown directly in the Team Room for everyone to see and discuss.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -1701,7 +1701,7 @@ ${agentSection}`;
         const fmtK = (n: number) => n > 0 ? `${(n / 1000).toFixed(1)}k` : '0';
 
         const text = [
-          `=== HoloHola AI Cost Report (last ${hours}h${env !== 'all' ? `, ${env}` : ''}) ===`,
+          `=== HoloHola Burn Report (last ${hours}h${env !== 'all' ? `, ${env}` : ''}) ===`,
           `Generated: ${new Date().toUTCString()}`,
           ``,
           `ALDEN STACK (in-memory — Alden / Lyra / Wren)`,

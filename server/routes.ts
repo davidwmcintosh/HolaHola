@@ -14310,7 +14310,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       const fmt = (n: number) => `$${n.toFixed(4)}`;
       const fmtK = (n: number) => n > 0 ? `${(n / 1000).toFixed(1)}k` : '0';
       const lines = [
-        `=== HoloHola AI Cost Report (last ${hours}h${env !== 'all' ? `, ${env}` : ''}) ===`,
+        `=== HoloHola Burn Report (last ${hours}h${env !== 'all' ? `, ${env}` : ''}) ===`,
         `Generated: ${new Date().toUTCString()}`,
         ``,
         `ALDEN STACK (in-memory — Alden / Lyra / Wren)`,

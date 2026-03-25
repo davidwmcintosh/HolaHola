@@ -1,40 +1,35 @@
 # Alden ↔ Agent Handoff
 
-## From Alden — last updated: Wed, Mar 25, 10:15 PM
+## From Alden — last updated: Wed, Mar 25, 11:44 PM
 
-## Triage Complete: Sofia Pattern 03637db5 — failsafe_tier2_45s (no_audio cluster)
+## Triage Complete: Sofia Pattern d7a6c15e — failsafe_tier2_45s (6th recurrence)
 
-**Investigation Date:** March 25, 2026, 4:16 PM MDT
+**Investigation Date:** March 25, 2026, 5:43 PM MDT
 
-**Pattern Detected:** Sofia flagged 5x "no_audio" events in 24 hours (pattern ID: 03637db5-ab35-4bcf-8dfa-cc93b97a3ca5), all `failsafe_tier2_45s` from development environment.
+**Pattern Detected:** Sofia flagged 4x "no_audio" events in 24 hours (pattern ID: d7a6c15e-143e-4be5-a393-a473b563adb8), all `failsafe_tier2_45s` from development environment.
 
-**Root Cause:** BENIGN TESTING NOISE, not a bug.
+**Root Cause:** BENIGN TESTING NOISE — same signature as five previous occurrences (patterns 03637db5, 002b29fa, 9dc13044, b2dd7806, 98c186d8).
 
-The Tier-2 failsafe in `client/src/hooks/useStreamingVoice.ts` (lines 1135-1193) fires 45 seconds after `response_complete` when:
-1. Audio playback state is 'idle' (audio finished)
-2. User hasn't started a new turn
-3. AudioContext state is 'running'
+The Tier-2 failsafe in `client/src/hooks/useStreamingVoice.ts` (lines 1135-1193) fires 45 seconds after `response_complete` when audio playback state is 'idle', user hasn't started a new turn, and AudioContext state is 'running'. **By design** — meant to clear stuck AudioWorklet states. But it also fires when audio completes successfully and the user pauses >45s before responding (normal dev testing behavior).
 
-**The design intent:** Clear stuck states where AudioContext reports "running" but audio callbacks silently failed (stuck AudioWorklet).
+**Evidence:**
+- All 4 events from user 49847136 (David) on March 24
+- Development environment, same conversation (8b14aa73-afd4-...)
+- Diagnostic snapshots show `expected=received` sentence counts (audio delivered successfully)
+- Audio state: `playing=idle, context=running` (audio finished normally, user paused)
 
-**What actually happened:** Audio played correctly (diagnostic snapshots show "expected=4 received=4" and "expected=1 received=1"), but David paused >45 seconds before responding during dev testing. The timer expired while he was thinking — not because audio failed.
+**Decision:** No code change needed. The failsafe serves a real purpose in production (recovers from genuine AudioWorklet stuck states). False-positive rate is acceptable (4 events/24h from single dev user during testing).
 
-**Evidence from diagnostics:**
-- All 5 events from user 49847136 (David) on March 24
-- Snapshots show: "Audio playing=idle, context=running"
-- Sentence counts match: expected=received (audio delivered successfully)
+**Actions Taken:**
+- Notified David via info-level notification (queued successfully)
+- Documented in Express Lane (post failed due to metadata format issue)
+- Pattern status: should be marked 'investigated' in `support_patterns` table (no direct DB write capability from Alden)
 
-**Why No Fix:**
-The failsafe serves a genuine purpose — it recovers from real AudioWorklet stuck states that _do_ occur in production (AudioContext reports "running" but playback silently halts). False-positive rate is acceptable: 5 events in 24h from a single dev user. Adding "did audio play successfully" logic would complicate the recovery state machine for marginal benefit.
+**Note for Agent:** If Sofia flags this pattern again (7th time), consider either:
+1. Adding pattern deduplication logic in Sofia's escalation — don't escalate identical signatures already triaged
+2. OR adding a `support_patterns` API endpoint so Alden can mark patterns as 'investigated' autonomously
 
-**Action Taken:**
-- Notified David via info-level notification
-- Documented pattern as benign testing noise
-- Pattern status: investigated (no code change)
-
-**For the Agent:** If Sofia flags this pattern again, check diagnostic snapshots first. If `expected === received` and `audio === 'idle'`, it's normal user pause, not a pipeline failure.
-
-— Alden, March 25, 2026, 4:16 PM MDT
+— Alden, March 25, 2026, 5:43 PM MDT
 
 ---
 
