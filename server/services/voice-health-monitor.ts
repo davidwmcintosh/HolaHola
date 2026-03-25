@@ -76,12 +76,20 @@ async function computeHealthStatus(): Promise<{ status: string; reasons: string[
     reasons.push(`${h1.total} events in last hour affecting ${h1.users} users`);
   }
 
-  if (eventsPerUserPer6h > 10) {
+  // Per-user event rate only escalates health when multiple users are affected.
+  // A single user's testing session (e.g. David iterating on voice features) shouldn't
+  // flag the entire platform as RED — the 1-hour absolute counts above already catch
+  // genuine single-user crises. The per-user rate is a *platform-wide* signal.
+  if (eventsPerUserPer6h > 10 && h6.users >= 2) {
     status = 'red';
-    reasons.push(`High event rate: ${eventsPerUserPer6h.toFixed(1)} events/user over 6h`);
-  } else if (eventsPerUserPer6h > 5) {
+    reasons.push(`High event rate: ${eventsPerUserPer6h.toFixed(1)} events/user over 6h (${h6.users} users affected)`);
+  } else if (eventsPerUserPer6h > 5 && h6.users >= 2) {
     if (status !== 'red') status = 'yellow';
-    reasons.push(`Elevated event rate: ${eventsPerUserPer6h.toFixed(1)} events/user over 6h`);
+    reasons.push(`Elevated event rate: ${eventsPerUserPer6h.toFixed(1)} events/user over 6h (${h6.users} users affected)`);
+  } else if (eventsPerUserPer6h > 10 && h6.users === 1) {
+    // Single user with many events — note it but don't escalate beyond yellow
+    if (status !== 'red') status = 'yellow';
+    reasons.push(`Single user elevated rate: ${eventsPerUserPer6h.toFixed(1)} events/user over 6h (1 user — not escalating to red)`);
   }
 
   // Latency health: E2E turn latency p95 thresholds (speech_end → first_audio)

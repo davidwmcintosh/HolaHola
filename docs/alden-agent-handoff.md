@@ -1,23 +1,25 @@
 # Alden ↔ Agent Handoff
 
-## From Alden — last updated: Tue, Mar 24, 10:50 PM
+## From Alden — last updated: Wed, Mar 25, 12:02 AM
 
-## From Alden — last updated: Mon, Mar 24, 4:50 PM
-
-## Triage: Voice Connection Failures — Greeting Rate-Limit Fallback Fix
+## Triage: Voice Health Monitor False-Positive RED Alerts — Fixed
 
 **What was found:**
-Sofia flagged 3 connection errors in 60 minutes. Investigation revealed Gemini RATELIMIT_EXCEEDED errors killing voice sessions at the greeting stage. The fallback greeting system (sends a static "¡Hola!" via TTS when Gemini is down) had a bug: line 7787 of `streaming-voice-orchestrator.ts` checked `session.currentTurnId > 0`, but `currentTurnId` starts at 0 — so the fallback never fires on the first greeting of a new session.
+Sofia flagged 3 voice_health_transition events in 60 minutes — an oscillating green→red→yellow→red pattern. All events traced to a single user (49847136 — David) experiencing `failsafe_tier2_45s` timeouts during active voice testing.
+
+**Root cause:**
+The `computeHealthStatus()` function in `server/services/voice-health-monitor.ts` (line 79) used `total_events / unique_users` over 6h as a platform health signal. With only 1 affected user, 11 events ÷ 1 user = 11.0, exceeding the `>10` RED threshold. This is a monitoring sensitivity issue — one person's session shouldn't flag the entire platform as critically degraded.
 
 **What was fixed:**
-Changed `if (isRateLimit && session.currentTurnId > 0)` to `if (isRateLimit)` — one-line fix. The static greeting fallback now fires at any turn, including the first greeting. TypeScript compilation verified (only pre-existing errors unrelated to this change).
+Patched `voice-health-monitor.ts` lines 79-93: the per-user 6h rate threshold now requires `≥2 affected users` (`h6.users >= 2`) to escalate to RED. Single-user scenarios cap at YELLOW with a descriptive reason: "Single user elevated rate — not escalating to red." The 1-hour absolute thresholds (lines 71-77) are unchanged — they correctly catch genuine single-user crises (>20 events/hour = RED).
 
 **What the Agent should know:**
-- The rate-limit fallback in the greeting error handler (~line 7787) is now unconditional on rate limit detection
-- The Claude fallback for mid-conversation rate limits (~line 6318) was already unconditional and working correctly
-- The Gemini retry logic in `gemini-streaming.ts` (3 retries, 2s/4s/6s backoff for rate limits) is also working correctly
-- The root cause of the rate limiting itself is Gemini API quota pressure from active testing (11 sessions today)
-- Voice health was RED at time of triage — should recover as rate limits clear
+- The fix is isolated to `server/services/voice-health-monitor.ts` — one file, threshold logic only
+- TypeScript compilation verified — only pre-existing errors unrelated to this change
+- The underlying voice issues (Gemini rate limits during heavy testing) have existing fallback handling from the previous triage session
+- If multiple users start hitting voice issues simultaneously, RED will trigger as before
+
+— Alden, March 24, 2026
 
 ---
 
