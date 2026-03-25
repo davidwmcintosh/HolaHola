@@ -22,6 +22,7 @@ import {
 } from "./monitoring-service";
 import { attemptAutoRepair } from "./alden-auto-repair";
 import { costTracker } from "./cost-tracker";
+import { writeEscalation } from "./alden-escalation-log";
 
 const CHECK_INTERVAL_MS = 2 * 60 * 60 * 1000;
 const COOLDOWN_MS = 6 * 60 * 60 * 1000;
@@ -361,6 +362,14 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
           console.log('[AldenWatch] Auto-repair initiated — guardian is monitoring');
         } else {
           console.log('[AldenWatch] Auto-repair ineligible — notification only');
+          // ALERT severity that auto-repair can't touch → escalate immediately to Agent
+          if (severity === 'alert') {
+            writeEscalation(
+              message,
+              'Auto-repair declined this issue as ineligible (likely infrastructure or architectural). Immediate Agent review recommended.',
+              'alert_ineligible',
+            );
+          }
         }
       }).catch(err => {
         console.warn('[AldenWatch] Auto-repair attempt threw:', err.message);
@@ -374,7 +383,9 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
 
 /**
  * If the last MAX_ALERT_HISTORY watch-cycle alerts share a common pattern,
- * Claude drafts a fix proposal and posts it to the Hive for Wren to action.
+ * Claude drafts a fix proposal and escalates it to the Replit Agent via
+ * .local/alden-escalations.md. Also surfaces a DB notification so David
+ * can see the issue was routed correctly.
  * Only fires once per pattern; clears after posting.
  */
 async function checkAndPostRepairProposal(client: Anthropic, messages: string[]): Promise<void> {
@@ -383,7 +394,7 @@ async function checkAndPostRepairProposal(client: Anthropic, messages: string[])
     max_tokens: 400,
     messages: [{
       role: 'user',
-      content: `These are the last ${messages.length} watch-cycle alerts from the HoloHola system monitor:\n\n${messages.map((m, i) => `Alert ${i + 1}: ${m}`).join('\n\n')}\n\nDo these alerts share a recurring root cause? If yes, write a concise fix proposal (2-4 sentences) addressed to Wren that identifies the pattern and suggests a concrete action. If they are unrelated one-off events, respond with exactly: UNRELATED`,
+      content: `These are the last ${messages.length} watch-cycle alerts from the HoloHola system monitor:\n\n${messages.map((m, i) => `Alert ${i + 1}: ${m}`).join('\n\n')}\n\nDo these alerts share a recurring root cause? If yes, write a concise diagnosis (2-4 sentences) for the Replit Agent that:\n1. Identifies the root cause pattern\n2. Explains why it cannot be auto-repaired\n3. Recommends a concrete action the Agent should take\nDo NOT address it to Wren. Write it as a clear briefing the Agent will read at session start.\nIf they are unrelated one-off events, respond with exactly: UNRELATED`,
     }],
   });
 
@@ -397,20 +408,25 @@ async function checkAndPostRepairProposal(client: Anthropic, messages: string[])
     return;
   }
 
-  console.log('[AldenWatch] Recurring pattern detected — queuing repair proposal');
+  console.log('[AldenWatch] Recurring pattern detected — escalating to Replit Agent');
+
+  // Write to the escalation log so the Agent sees it at session start
+  const issueSummary = messages[messages.length - 1] ?? messages[0];
+  writeEscalation(issueSummary, proposal, 'recurring_pattern');
+
   try {
     const dbR = getUserDb();
     await dbR.insert(aldenNotifications).values({
-      content: `[Recurring Pattern → Wren] The last ${messages.length} watch cycles flagged a common issue. Proposed fix: ${proposal}`,
+      content: `[Escalated → Replit Agent] The last ${messages.length} watch cycles flagged the same issue. Auto-repair could not fix it. The Replit Agent has been notified via .local/alden-escalations.md and will address it at next session.\n\nSummary: ${proposal}`,
       triggeredBy: 'alden-watch',
-      severity: 'warning',
+      severity: 'alert',
       read: false,
     });
     // Clear the buffer so we don't fire the same proposal repeatedly
     recentAlertMessages.length = 0;
-    console.log('[AldenWatch] Repair proposal queued and buffer cleared');
+    console.log('[AldenWatch] Escalation written and buffer cleared');
   } catch (e: any) {
-    console.warn('[AldenWatch] Could not queue repair proposal:', e.message);
+    console.warn('[AldenWatch] Could not queue escalation notification:', e.message);
   }
 }
 
