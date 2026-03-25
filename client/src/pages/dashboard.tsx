@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { WelcomeHero } from "@/components/WelcomeHero";
 import { LearningAlerts } from "@/components/LearningAlerts";
-import { SyllabusMindMap } from "@/components/SyllabusMindMap";
+// import { SyllabusMindMap } from "@/components/SyllabusMindMap";
 import { TutorShowcase, type TutorSelection } from "@/components/TutorShowcase";
 
 import { InteractiveTextbookCard } from "@/components/InteractiveTextbookCard";
@@ -63,14 +63,6 @@ export default function Dashboard() {
       
       {/* Learning Alerts */}
       <LearningAlerts language={displayLanguage} />
-      
-      {/* Brain Mind Map - Central Feature */}
-      <div className="w-full">
-        <SyllabusMindMap 
-          language={displayLanguage} 
-          mode="emergent" 
-        />
-      </div>
       
       {/* What's Next - Link to Review Hub */}
       <Link href="/review">
