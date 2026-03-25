@@ -207,7 +207,7 @@ async function generateDigestContent(snap: TeamSnapshot, digestNumber: number): 
   try {
     const claude = getClaude();
     const message = await claude.messages.create({
-      model: 'claude-opus-4-5',
+      model: 'claude-sonnet-4-5',
       max_tokens: 400,
       messages: [{ role: 'user', content: prompt }],
     });

@@ -4083,7 +4083,7 @@ Return [] if nothing is worth surfacing.`;
         : `Here is the conversation transcript to analyse:\n\n${transcript}`;
 
       const response = await anthropic.messages.create({
-        model: 'claude-opus-4-6',
+        model: 'claude-sonnet-4-5',
         max_tokens: 3072,
         system: systemPrompt,
         messages: [{ role: 'user', content: userContent }],

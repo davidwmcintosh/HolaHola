@@ -130,7 +130,7 @@ Note: Zone type '${s.zoneType}' means ${
 
     for (let round = 0; round < MAX_AGENT_ROUNDS; round++) {
       const result = await client.messages.create({
-        model: 'claude-opus-4-6',
+        model: 'claude-sonnet-4-5',
         max_tokens: 8192,
         system: systemPrompt,
         messages,
@@ -199,7 +199,7 @@ Note: Zone type '${s.zoneType}' means ${
       if (pendingContinuation) {
         // One more pass so Claude can write the phase-completion summary text
         const finalResult = await client.messages.create({
-          model: 'claude-opus-4-6',
+          model: 'claude-sonnet-4-5',
           max_tokens: 2048,
           system: systemPrompt,
           messages,
@@ -224,7 +224,7 @@ Note: Zone type '${s.zoneType}' means ${
           content: '[SYSTEM] You have reached the tool-use limit for this turn. Summarise what you have found and discovered so far, and clearly state what you still intend to do next turn.',
         });
         const wrapUp = await client.messages.create({
-          model: 'claude-opus-4-6',
+          model: 'claude-sonnet-4-5',
           max_tokens: 2048,
           system: systemPrompt,
           messages,

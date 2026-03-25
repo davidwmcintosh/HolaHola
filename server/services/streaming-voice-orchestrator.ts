@@ -6329,7 +6329,7 @@ Remember: David may reference things discussed in these recent text chats.
             content: h.content,
           }));
           const claudeResp = await claudeClient.messages.create({
-            model: 'claude-opus-4-6',
+            model: 'claude-3-haiku-20240307',
             max_tokens: 120,
             system: systemPrompt,
             messages: [...historyMessages, { role: 'user' as const, content: transcript }],
