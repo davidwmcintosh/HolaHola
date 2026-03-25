@@ -1173,7 +1173,9 @@ export default function ReviewHub() {
       {/* From Your Conversations */}
       {(() => {
         const now = Date.now();
-        const allItems = conversationReviewItems ?? [];
+        const allItems = Array.isArray(conversationReviewItems)
+          ? conversationReviewItems
+          : ((conversationReviewItems as any)?.items ?? []);
         const newItems = allItems.filter(item =>
           now - new Date(item.createdAt).getTime() < 48 * 60 * 60 * 1000
         );
