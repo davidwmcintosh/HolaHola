@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, March 25, 2026 at 06:57 PM
+**Generated:** Wednesday, March 25, 2026 at 07:38 PM
 
 ---
 
@@ -135,19 +135,23 @@ PHASE 1 — Schema Migration:
 ## Notes From Alden
 *Also check docs/alden-to-agent.md for unread direct notes*
 
-## Triage: Voice Health Monitor — Second Round of False-Positive Fixes
+## Triage Complete: Sofia Pattern 9dc13044 — Connection Errors (Benign)
 
-**What was found:**
-Sofia flagged 3 more voice_health_transition events oscillating green→red→yellow→red, same pattern as the March 24 triage. All events again from user 49847136 (David) testing voice features, hitting Gemini rate limits and connection errors.
+**Investigation Date:** March 25, 2026, 1:00 PM MDT
 
-**Root cause (this time):**
-My previous fix only protected the 6-hour per-user rate thresholds (lines 83-93) from single-user RED escalation. The 1-hour absolute thresholds (lines 71-76) were still unprotected: `h1.errors > 5` would trigger RED even with only 1 affected user. David's testing produced ~5-6 errors/hour from connection timeouts and Gemini rate limits, repeatedly crossing and uncrossing the threshold.
+**Pattern Detected:** Sofia flagged 3x "connection" events in 24 hours as a recurring issue.
 
-**What was fixed:**
-Patched `voice-health-monitor.ts` lines 71-84: the 1-hour RED threshold now requires `h6.users >= 2` for the standard thresholds (`h1.errors > 5 || h1.total > 20`). Added an extreme single-user escape hatch: `h1.errors > 20` still triggers RED regardless of user count (20+ errors in a single hour means something is genuinely broken). YELLOW thresholds unchanged.
+**Root Cause:** All 3 events originated from David (user 49847136) during development testing. Errors occurred within ~2.6 seconds of voice session start, caused by:
+- Gemini rate limit exceeded (visible in error logs)
+- Connection timeouts during rapid session restarts
+- Server instance rotation (autoscale deployment)
 
-**Complete threshold summary after both fixes:**
-- 1h RED: `(
+**Why Diagnostics Showed "context=unknown":**
+The diagnostic snapshot (`lockoutDiagnostics.ts` line 339) defaults `audioContextState` to `'unknown'` when errors fire before the audio timing loop initializes (< 3 seconds after connection). This is expected behavior for early connection failures.
+
+**Verdict:** Benign testing noise. No code fix required. Voice pipeline is healthy.
+
+**Observation:** Pattern detection correctly identified the cluster but didn't account for single-user testing scenarios. The voice health monitor already has single-user dampening for `failsafe_tier2_45s` and rate thresholds (requires `users >= 2` for RED transitions). Conne
 
 *[truncated — read full file for details]*
 
