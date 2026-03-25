@@ -1154,14 +1154,17 @@ export class StreamingAudioPlayer {
     // Start or restart the timing loop when needed
     // - For first REAL audio of first sentence of a turn: always start
     // - For first chunk of any sentence after loop was stopped: restart
+    // - BUG FIX (March 2026): Also start if isPlaying was just set to true but loop isn't running
+    //   This catches the case where isNewSentence set isPlaying=true but neither start condition triggered
     // CRITICAL: Use wasPlayingBeforeThisChunk, NOT this.isPlaying
     // because isPlaying gets set to true earlier in this function for new sentences
     // NOTE: isNewTurnStarting is computed BEFORE progressiveFirstChunkStarted is set
     // NOTE (Jan 9): Loop starts for first real audio regardless of chunkIndex, handling empty-first scenarios
     const shouldStartLoop = isNewTurnStarting;
     const shouldRestartLoop = !wasPlayingBeforeThisChunk && isFirstChunkForSentence;
+    const loopNotRunning = !this.rafId;
     
-    if (shouldStartLoop || shouldRestartLoop) {
+    if (shouldStartLoop || shouldRestartLoop || (this.isPlaying && loopNotRunning)) {
       this.playbackStartTime = performance.now();
       this.isPlaying = true;
       const ctxState = this.audioContext?.state;

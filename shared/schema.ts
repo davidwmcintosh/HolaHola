@@ -7315,6 +7315,7 @@ export const aldenNotifications = pgTable("alden_notifications", {
   triggeredBy: varchar("triggered_by").notNull().default('alden'), // 'alden-watch' | 'tool' | 'system'
   severity: varchar("severity").notNull().default('info'), // 'info' | 'warning' | 'alert'
   read: boolean("read").notNull().default(false),
+  fingerprint: varchar("fingerprint", { length: 100 }), // snake_case issue key for dedup (e.g. 'websocket_failure')
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

@@ -13,7 +13,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getUserDb } from "../db";
 import { aldenNotifications } from "@shared/schema";
 import { executeAldenTool } from "./alden-functions";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import {
   captureSnapshot,
   detectAnomalies,
@@ -90,6 +90,28 @@ async function getLastNotificationAge(): Promise<number> {
   }
 }
 
+/**
+ * Returns true if an unread notification with this fingerprint already exists.
+ * This prevents the same issue from being reported repeatedly until the user
+ * marks it as read, at which point it can re-fire if the issue recurs.
+ */
+async function hasDuplicateActiveIssue(fingerprint: string): Promise<boolean> {
+  try {
+    const db = getUserDb();
+    const existing = await db
+      .select({ id: aldenNotifications.id })
+      .from(aldenNotifications)
+      .where(and(
+        eq(aldenNotifications.fingerprint, fingerprint),
+        eq(aldenNotifications.read, false),
+      ))
+      .limit(1);
+    return existing.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 async function runWatchCycle() {
   try {
     // Respect cooldown — don't spam
@@ -98,12 +120,21 @@ async function runWatchCycle() {
       return;
     }
 
-    // Gather system state using existing tools
+    // Gather system state using existing tools — each is isolated so one failure
+    // doesn't poison the whole snapshot with a WebSocket/DB error narrative.
+    const safeCall = async (toolName: string, args: Record<string, any>) => {
+      try {
+        return await executeAldenTool(toolName, args);
+      } catch (e: any) {
+        console.warn(`[AldenWatch] Tool ${toolName} failed: ${e.message}`);
+        return { data: { error: `${toolName} unavailable: ${e.message}` } };
+      }
+    };
     const [health, dbStats, issues, learning] = await Promise.all([
-      executeAldenTool('get_system_health', {}),
-      executeAldenTool('get_database_stats', {}),
-      executeAldenTool('get_pending_issues', {}),
-      executeAldenTool('check_learning_metrics', {}),
+      safeCall('get_system_health', {}),
+      safeCall('get_database_stats', {}),
+      safeCall('get_pending_issues', {}),
+      safeCall('check_learning_metrics', {}),
     ]);
 
     // Build current cycle metric for trend tracking
@@ -177,7 +208,7 @@ async function runWatchCycle() {
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-5',
-      max_tokens: 256,
+      max_tokens: 300,
       messages: [{
         role: 'user',
         content: `You are Alden, the development steward of HolaHola. You just ran a routine system check with autonomous pattern detection and anomaly analysis. Review this snapshot and decide: is there anything genuinely worth notifying the founder (David) about?
@@ -190,9 +221,14 @@ Rules:
 - Don't notify for normal healthy states
 - Anomalies and pattern changes are provided — use them in your analysis
 - If there's nothing worth mentioning, respond with exactly: NOTHING
-- If something warrants attention, respond with a brief natural message (1-3 sentences) written as Alden speaking directly to David. Include the severity as the first word: INFO:, WARNING:, or ALERT:
+- If something warrants attention, respond in this exact format on ONE line:
+  SEVERITY:FINGERPRINT:Message written as Alden speaking directly to David (1-3 sentences)
+  Where SEVERITY is INFO, WARNING, or ALERT
+  Where FINGERPRINT is a short snake_case key identifying this issue type (e.g. db_connection_failure, low_engagement, high_latency, health_score_low, budget_exceeded, voice_pipeline_error)
 
-Respond with NOTHING or a message starting with INFO:, WARNING:, or ALERT:`,
+Example: WARNING:db_connection_failure:The database monitoring tools are failing to connect, which is preventing me from gathering accurate system metrics. This needs investigation.
+
+Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
       }],
     });
 
@@ -209,14 +245,21 @@ Respond with NOTHING or a message starting with INFO:, WARNING:, or ALERT:`,
       consecutiveLowScoreCycles++;
       console.log(`[AldenWatch] Health score ${currentMetric.healthScore} below ${HEALTH_SCORE_LOW_THRESHOLD} — consecutive: ${consecutiveLowScoreCycles}`);
       if (consecutiveLowScoreCycles >= 2) {
-        const dbH = getUserDb();
-        await dbH.insert(aldenNotifications).values({
-          content: `Health score has been below ${HEALTH_SCORE_LOW_THRESHOLD} for ${consecutiveLowScoreCycles} consecutive watch cycles (current: ${currentMetric.healthScore}). This persistent degradation warrants investigation.`,
-          triggeredBy: 'alden-watch',
-          severity: 'alert',
-          read: false,
-        });
-        console.log(`[AldenWatch] Consecutive low-health alert fired (${consecutiveLowScoreCycles} cycles)`);
+        const fp = 'health_score_persistent_low';
+        const isDup = await hasDuplicateActiveIssue(fp);
+        if (!isDup) {
+          const dbH = getUserDb();
+          await dbH.insert(aldenNotifications).values({
+            content: `Health score has been below ${HEALTH_SCORE_LOW_THRESHOLD} for ${consecutiveLowScoreCycles} consecutive watch cycles (current: ${currentMetric.healthScore}). This persistent degradation warrants investigation.`,
+            triggeredBy: 'alden-watch',
+            severity: 'alert',
+            read: false,
+            fingerprint: fp,
+          });
+          console.log(`[AldenWatch] Consecutive low-health alert fired (${consecutiveLowScoreCycles} cycles)`);
+        } else {
+          console.log(`[AldenWatch] Low-health alert suppressed — already reported and unread`);
+        }
       }
     } else {
       if (consecutiveLowScoreCycles > 0) console.log(`[AldenWatch] Health score recovered (${currentMetric.healthScore})`);
@@ -229,15 +272,22 @@ Respond with NOTHING or a message starting with INFO:, WARNING:, or ALERT:`,
       const sinceLastBudgetAlert = lastBudgetAlertTime ? Date.now() - lastBudgetAlertTime : Infinity;
       if (sinceLastBudgetAlert > 12 * 60 * 60 * 1000) {
         console.log(`[AldenWatch] Budget exceeded: $${budget.totalCostUsd.toFixed(4)} in 24h`);
-        const dbB = getUserDb();
-        await dbB.insert(aldenNotifications).values({
-          content: `AI spend in the last 24h has reached $${budget.totalCostUsd.toFixed(4)}, crossing the $${budget.thresholdUsd} threshold. Review the cost breakdown in Lyra's next report.`,
-          triggeredBy: 'alden-watch',
-          severity: 'warning',
-          read: false,
-        });
-        lastBudgetAlertTime = Date.now();
-        console.log('[AldenWatch] Budget alert queued');
+        const fp = 'budget_exceeded';
+        const isDup = await hasDuplicateActiveIssue(fp);
+        if (!isDup) {
+          const dbB = getUserDb();
+          await dbB.insert(aldenNotifications).values({
+            content: `AI spend in the last 24h has reached $${budget.totalCostUsd.toFixed(4)}, crossing the $${budget.thresholdUsd} threshold. Review the cost breakdown in Lyra's next report.`,
+            triggeredBy: 'alden-watch',
+            severity: 'warning',
+            read: false,
+            fingerprint: fp,
+          });
+          lastBudgetAlertTime = Date.now();
+          console.log('[AldenWatch] Budget alert queued');
+        } else {
+          console.log('[AldenWatch] Budget alert suppressed — already reported and unread');
+        }
       }
     }
 
@@ -248,18 +298,31 @@ Respond with NOTHING or a message starting with INFO:, WARNING:, or ALERT:`,
       return;
     }
 
-    // Parse severity and message
+    // Parse SEVERITY:FINGERPRINT:Message format
     let severity: 'info' | 'warning' | 'alert' = 'info';
+    let fingerprint: string | undefined;
     let message = text;
-    if (text.startsWith('WARNING:')) {
-      severity = 'warning';
-      message = text.replace(/^WARNING:\s*/, '');
-    } else if (text.startsWith('ALERT:')) {
-      severity = 'alert';
-      message = text.replace(/^ALERT:\s*/, '');
-    } else if (text.startsWith('INFO:')) {
-      severity = 'info';
-      message = text.replace(/^INFO:\s*/, '');
+
+    const parts = text.match(/^(INFO|WARNING|ALERT):([a-z0-9_]+):(.+)$/s);
+    if (parts) {
+      const sev = parts[1].toLowerCase();
+      severity = sev === 'warning' ? 'warning' : sev === 'alert' ? 'alert' : 'info';
+      fingerprint = parts[2];
+      message = parts[3].trim();
+    } else {
+      // Fallback: old-style parsing without fingerprint
+      if (text.startsWith('WARNING:')) { severity = 'warning'; message = text.replace(/^WARNING:\s*/, ''); }
+      else if (text.startsWith('ALERT:')) { severity = 'alert'; message = text.replace(/^ALERT:\s*/, ''); }
+      else if (text.startsWith('INFO:')) { message = text.replace(/^INFO:\s*/, ''); }
+    }
+
+    // Dedup: if an unread notification with the same fingerprint exists, skip
+    if (fingerprint) {
+      const isDup = await hasDuplicateActiveIssue(fingerprint);
+      if (isDup) {
+        console.log(`[AldenWatch] Suppressed duplicate (fingerprint: ${fingerprint}) — already unread`);
+        return;
+      }
     }
 
     // Write notification
@@ -269,9 +332,10 @@ Respond with NOTHING or a message starting with INFO:, WARNING:, or ALERT:`,
       triggeredBy: 'alden-watch',
       severity,
       read: false,
+      fingerprint,
     });
 
-    console.log(`[AldenWatch] Queued ${severity} notification: "${message.substring(0, 80)}..."`);
+    console.log(`[AldenWatch] Queued ${severity} notification [${fingerprint ?? 'no-fingerprint'}]: "${message.substring(0, 80)}..."`);
 
     // Track alert messages for recurring-pattern detection
     recentAlertMessages.push(message);
