@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { forceNewConversation } from "@/lib/queryClient";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { forceNewConversation, apiRequest, queryClient } from "@/lib/queryClient";
 import { useUser } from "@/lib/auth";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
@@ -42,6 +42,9 @@ import {
   Brain,
   List,
   History,
+  Eye,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { SyllabusTimeProgress } from "@/components/SyllabusTimeProgress";
@@ -480,6 +483,28 @@ export default function ReviewHub() {
   useEffect(() => {
     localStorage.setItem('syllabusViewMode', syllabusView);
   }, [syllabusView]);
+
+  // Conversation review interactive state
+  const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+
+  const attemptMutation = useMutation({
+    mutationFn: async ({ id, isCorrect }: { id: string; isCorrect: boolean }) => {
+      return apiRequest('POST', `/api/review-items/${id}/attempt`, { isCorrect });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/review-items'] });
+    },
+  });
+
+  const handleReveal = (id: string) => {
+    setRevealedIds(prev => new Set(prev).add(id));
+  };
+
+  const handleGrade = (id: string, isCorrect: boolean) => {
+    attemptMutation.mutate({ id, isCorrect });
+    setDismissedIds(prev => new Set(prev).add(id));
+  };
 
   // Close sidebar when arriving at the Review Hub (dashboard)
   useEffect(() => {
@@ -1146,12 +1171,15 @@ export default function ReviewHub() {
       )}
 
       {/* From Your Conversations */}
-      {conversationReviewItems && conversationReviewItems.length > 0 && (() => {
+      {(() => {
         const now = Date.now();
-        const newItems = conversationReviewItems.filter(item => 
+        const allItems = conversationReviewItems ?? [];
+        const newItems = allItems.filter(item =>
           now - new Date(item.createdAt).getTime() < 48 * 60 * 60 * 1000
         );
-        const displayItems = conversationReviewItems.slice(0, 5);
+        const displayItems = allItems
+          .filter(item => !dismissedIds.has(item.id))
+          .slice(0, 5);
 
         const itemTypeConfig: Record<string, { color: string; label: string }> = {
           vocabulary: { color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300", label: "Word" },
@@ -1177,50 +1205,95 @@ export default function ReviewHub() {
               <CardDescription>Vocabulary, phrases, and grammar from your recent chats</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
-              {displayItems.map((item) => {
-                const typeConf = itemTypeConfig[item.itemType] ?? itemTypeConfig.vocabulary;
-                const isNew = now - new Date(item.createdAt).getTime() < 48 * 60 * 60 * 1000;
-                const masteryDot = item.mastered
-                  ? <span className="h-2 w-2 rounded-full bg-green-500 flex-shrink-0" title="Mastered" />
-                  : item.attempts > 0
-                    ? <span className="h-2 w-2 rounded-full bg-amber-400 flex-shrink-0" title="In progress" />
-                    : <span className="h-2 w-2 rounded-full bg-muted-foreground/40 flex-shrink-0" title="Not yet practiced" />;
+              {displayItems.length === 0 ? (
+                <div className="py-6 text-center text-sm text-muted-foreground" data-testid="text-no-review-items">
+                  <MessageSquare className="h-8 w-8 mx-auto mb-2 text-muted-foreground/40" />
+                  <p>Items will appear here after your voice chats.</p>
+                  <p className="text-xs mt-1 text-muted-foreground/70">Start a conversation with {getTutorName(tutorGender, language)} to build your review list.</p>
+                </div>
+              ) : (
+                displayItems.map((item) => {
+                  const typeConf = itemTypeConfig[item.itemType] ?? itemTypeConfig.vocabulary;
+                  const isNew = now - new Date(item.createdAt).getTime() < 48 * 60 * 60 * 1000;
+                  const isRevealed = revealedIds.has(item.id);
 
-                return (
-                  <div
-                    key={item.id}
-                    className="flex items-start gap-3 p-3 rounded-lg bg-muted/40 hover-elevate"
-                    data-testid={`review-item-${item.id}`}
-                  >
-                    {masteryDot}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-sm">{item.targetText}</span>
-                        <Badge variant="outline" className={`text-xs ${typeConf.color}`}>
+                  return (
+                    <div
+                      key={item.id}
+                      className="rounded-md border p-3 space-y-2"
+                      data-testid={`review-item-${item.id}`}
+                    >
+                      <div className="flex items-start gap-2 flex-wrap">
+                        <Badge variant="outline" className={`text-xs shrink-0 ${typeConf.color}`}>
                           {typeConf.label}
                         </Badge>
                         {isNew && (
-                          <Badge variant="outline" className="text-xs border-primary/30 text-primary">
+                          <Badge variant="outline" className="text-xs border-primary/30 text-primary shrink-0">
                             new
                           </Badge>
                         )}
+                        {item.mastered && (
+                          <Badge variant="outline" className="text-xs border-green-400/50 text-green-600 dark:text-green-400 shrink-0">
+                            mastered
+                          </Badge>
+                        )}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">{item.prompt}</p>
+
+                      <p className="text-sm font-medium" data-testid={`text-review-prompt-${item.id}`}>
+                        {item.prompt}
+                      </p>
+
                       {item.context && (
-                        <p className="text-xs text-muted-foreground/70 italic mt-0.5 truncate">"{item.context}"</p>
+                        <p className="text-xs text-muted-foreground italic">"{item.context}"</p>
+                      )}
+
+                      {!isRevealed ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => handleReveal(item.id)}
+                          data-testid={`button-reveal-${item.id}`}
+                        >
+                          <Eye className="w-3.5 h-3.5 mr-1.5" />
+                          Show answer
+                        </Button>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="bg-primary/10 rounded-md px-3 py-2 text-center">
+                            <p className="text-sm font-semibold text-primary" data-testid={`text-review-answer-${item.id}`}>
+                              {item.targetText}
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1"
+                              onClick={() => handleGrade(item.id, false)}
+                              disabled={attemptMutation.isPending}
+                              data-testid={`button-wrong-${item.id}`}
+                            >
+                              <ThumbsDown className="w-3.5 h-3.5 mr-1.5" />
+                              Still learning
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="flex-1"
+                              onClick={() => handleGrade(item.id, true)}
+                              disabled={attemptMutation.isPending}
+                              data-testid={`button-correct-${item.id}`}
+                            >
+                              <ThumbsUp className="w-3.5 h-3.5 mr-1.5" />
+                              Got it
+                            </Button>
+                          </div>
+                        </div>
                       )}
                     </div>
-                  </div>
-                );
-              })}
-              <div className="pt-1">
-                <Link href="/vocabulary">
-                  <Button variant="outline" className="w-full" data-testid="button-view-all-review-items">
-                    View all {conversationReviewItems.length} items
-                    <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
-                </Link>
-              </div>
+                  );
+                })
+              )}
             </CardContent>
           </Card>
         );
