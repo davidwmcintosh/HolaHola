@@ -265,9 +265,9 @@ export async function tagLessonTopics(): Promise<void> {
         }
       }
 
-      // Small delay between batches to avoid rate limits
+      // Small yield between tagger batches
       if (i + BATCH < needsGemini.length) {
-        await new Promise(r => setTimeout(r, 800));
+        await new Promise(r => setTimeout(r, 50));
       }
     }
 

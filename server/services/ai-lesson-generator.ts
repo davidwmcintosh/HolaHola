@@ -439,8 +439,8 @@ export async function generateLessonsForGaps(
       errors.push(`${canDo.statement.substring(0, 30)}: ${result.error}`);
     }
 
-    // Rate limiting - wait between generations
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Small yield between generations
+    await new Promise(resolve => setTimeout(resolve, 50));
   }
 
   return { generated: draftIds.length, draftIds, errors };
@@ -540,14 +540,14 @@ export async function generateAllGapsAutomation(
           console.error(`[AI-LESSON] Error: ${err.message}`);
         }
         
-        // Rate limit between individual generations
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // Small yield between individual generations
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
       
-      // Longer delay between batches
+      // Brief pause between batches
       if (i + batchSize < gaps.length) {
-        console.log(`[AI-LESSON] Batch complete. Waiting ${delayBetweenBatches / 1000}s before next batch...`);
-        await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
+        console.log(`[AI-LESSON] Batch complete. Brief pause before next batch...`);
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
     

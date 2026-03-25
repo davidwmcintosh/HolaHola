@@ -342,7 +342,7 @@ export async function enrichCurriculumPath(pathId: string, jobId: string): Promi
 
     // Throttle only when a Gemini call was made (fast-path DB-only cases don't need throttle)
     if (usedGemini) {
-      await new Promise(r => setTimeout(r, 1200));
+      await new Promise(r => setTimeout(r, 50));
     }
   }
 
@@ -428,8 +428,8 @@ export async function bulkEnrichAllPaths(jobId: string): Promise<void> {
       bulk.processedLessons++;
       bulkEnrichJobs.set(jobId, { ...bulk });
 
-      // Throttle to respect Gemini rate limits
-      await new Promise(r => setTimeout(r, 1200));
+      // Small yield between bulk enrichment calls
+      await new Promise(r => setTimeout(r, 50));
     }
 
     bulk.completedPaths++;

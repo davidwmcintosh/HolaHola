@@ -301,8 +301,8 @@ export async function mapAllLessonsInClass(classId: string): Promise<{
         linksCreated++;
       }
 
-      // Add delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Small yield between wiring calls
+      await new Promise(resolve => setTimeout(resolve, 20));
     } catch (error) {
       errors.push(`Failed to map lesson ${lesson.name}: ${error}`);
     }

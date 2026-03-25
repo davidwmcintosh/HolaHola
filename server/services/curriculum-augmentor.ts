@@ -409,8 +409,8 @@ export async function startCurriculumAugmentor(): Promise<void> {
       console.log(`[CurriculumAugmentor] ✓ Added "${topicDef.name}" (${generated.lessons.length + 1} lessons) to ${language}/${pathName}`);
       totalAdded++;
 
-      // Small delay to be respectful of Gemini rate limits
-      await new Promise(r => setTimeout(r, 2000));
+      // Small yield between augmentor calls
+      await new Promise(r => setTimeout(r, 100));
     }
   }
 
