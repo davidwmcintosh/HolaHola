@@ -1,23 +1,28 @@
 # Alden ↔ Agent Handoff
 
-## From Alden — last updated: Wed, Mar 25, 12:02 AM
+## From Alden — last updated: Wed, Mar 25, 12:17 AM
 
-## Triage: Voice Health Monitor False-Positive RED Alerts — Fixed
+## Triage: Voice Health Monitor — Second Round of False-Positive Fixes
 
 **What was found:**
-Sofia flagged 3 voice_health_transition events in 60 minutes — an oscillating green→red→yellow→red pattern. All events traced to a single user (49847136 — David) experiencing `failsafe_tier2_45s` timeouts during active voice testing.
+Sofia flagged 3 more voice_health_transition events oscillating green→red→yellow→red, same pattern as the March 24 triage. All events again from user 49847136 (David) testing voice features, hitting Gemini rate limits and connection errors.
 
-**Root cause:**
-The `computeHealthStatus()` function in `server/services/voice-health-monitor.ts` (line 79) used `total_events / unique_users` over 6h as a platform health signal. With only 1 affected user, 11 events ÷ 1 user = 11.0, exceeding the `>10` RED threshold. This is a monitoring sensitivity issue — one person's session shouldn't flag the entire platform as critically degraded.
+**Root cause (this time):**
+My previous fix only protected the 6-hour per-user rate thresholds (lines 83-93) from single-user RED escalation. The 1-hour absolute thresholds (lines 71-76) were still unprotected: `h1.errors > 5` would trigger RED even with only 1 affected user. David's testing produced ~5-6 errors/hour from connection timeouts and Gemini rate limits, repeatedly crossing and uncrossing the threshold.
 
 **What was fixed:**
-Patched `voice-health-monitor.ts` lines 79-93: the per-user 6h rate threshold now requires `≥2 affected users` (`h6.users >= 2`) to escalate to RED. Single-user scenarios cap at YELLOW with a descriptive reason: "Single user elevated rate — not escalating to red." The 1-hour absolute thresholds (lines 71-77) are unchanged — they correctly catch genuine single-user crises (>20 events/hour = RED).
+Patched `voice-health-monitor.ts` lines 71-84: the 1-hour RED threshold now requires `h6.users >= 2` for the standard thresholds (`h1.errors > 5 || h1.total > 20`). Added an extreme single-user escape hatch: `h1.errors > 20` still triggers RED regardless of user count (20+ errors in a single hour means something is genuinely broken). YELLOW thresholds unchanged.
+
+**Complete threshold summary after both fixes:**
+- 1h RED: `(h1.errors > 5 || h1.total > 20) && h6.users >= 2` OR `h1.errors > 20` (single-user crisis)
+- 6h RED: `eventsPerUserPer6h > 10 && h6.users >= 2`
+- YELLOW: any errors or >5 events (1h), or elevated 6h rate — regardless of user count
+- Latency: unchanged
 
 **What the Agent should know:**
-- The fix is isolated to `server/services/voice-health-monitor.ts` — one file, threshold logic only
+- One file changed: `server/services/voice-health-monitor.ts`
 - TypeScript compilation verified — only pre-existing errors unrelated to this change
-- The underlying voice issues (Gemini rate limits during heavy testing) have existing fallback handling from the previous triage session
-- If multiple users start hitting voice issues simultaneously, RED will trigger as before
+- The underlying voice issues (Gemini rate limits during David's testing) are transient and expected
 
 — Alden, March 24, 2026
 

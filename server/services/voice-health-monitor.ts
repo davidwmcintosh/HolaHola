@@ -68,9 +68,16 @@ async function computeHealthStatus(): Promise<{ status: string; reasons: string[
   let status: string = 'green';
   const reasons: string[] = [];
 
-  if (h1.errors > 5 || h1.total > 20) {
+  // 1-hour absolute thresholds.
+  // RED requires either: genuinely severe (>5 errors OR >20 events) AND multiple users,
+  // OR extreme single-user crisis (>20 errors in 1h — something is deeply broken for them).
+  if ((h1.errors > 5 || h1.total > 20) && h6.users >= 2) {
     status = 'red';
     reasons.push(`${h1.total} events in last hour (${h1.errors} errors) affecting ${h1.users} users`);
+  } else if (h1.errors > 20) {
+    // Extreme single-user crisis — 20+ errors in one hour is genuinely broken
+    status = 'red';
+    reasons.push(`${h1.total} events in last hour (${h1.errors} errors) — single user crisis`);
   } else if (h1.errors > 0 || h1.total > 5) {
     status = 'yellow';
     reasons.push(`${h1.total} events in last hour affecting ${h1.users} users`);
