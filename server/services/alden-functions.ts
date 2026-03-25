@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { getSharedDb } from "../neon-db";
-import { getUserDb } from "../db";
+import { getUserDb, getMonitoringDb } from "../db";
 import { 
   voiceSessions, 
   sofiaIssueReports,
@@ -113,7 +113,7 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "run_full_systems_check",
-    description: "Run a complete systems diagnostic across ALL of Daniela's cognitive architecture. Returns a GO/CAUTION/NO-GO verdict with scores for all 6 brain health dimensions (Memory, Neural Retrieval, Neural Sync, Student Learning, Tool Orchestration, Context Injection), plus voice pipeline and TTS provider status. Use this when the founder asks 'how is the system running?' or wants a status report.",
+    description: "Full systems diagnostic. Returns GO/CAUTION/NO-GO verdict across 6 brain health dimensions, voice pipeline, and TTS status.",
     input_schema: {
       type: "object" as const,
       properties: {},
@@ -121,7 +121,7 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "run_shell",
-    description: "Run a whitelisted shell command in the project root. Use this to push schema changes to the database after editing shared/schema.ts, verify TypeScript compilation, or run a full build check. Only pre-approved commands are allowed — anything else is rejected. This makes you autonomous for the full build cycle without needing to involve David.",
+    description: "Run a whitelisted shell command. Approved: npm run db:push --force (schema sync), npx tsc --noEmit (type check), npm run build.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -177,31 +177,22 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "search_code",
-    description: "Search the codebase for any pattern — function names, variable names, imports, API routes, SQL queries, or any text. Returns matching lines with file paths and line numbers. Use context_lines to get surrounding code so you can skip a follow-up read_file call — set it to 15-25 when you need to understand the code around a match, not just find its location.",
+    description: "Search the codebase by regex. Returns matching lines with file/line numbers. Use context_lines (15-25) to read surrounding code and skip follow-up read_file calls.",
     input_schema: {
       type: "object" as const,
       properties: {
-        pattern: { type: "string" as const, description: "Search pattern (regex supported, e.g. 'generateAldenResponse', 'alden.*tool', '/api/voice')" },
-        directory: { type: "string" as const, description: "Sub-directory to restrict search to (optional, e.g. 'server/services', 'client/src')" },
-        file_glob: { type: "string" as const, description: "File extension filter (optional, e.g. '*.ts', '*.tsx', '*.json')" },
-        case_sensitive: { type: "boolean" as const, description: "Case-sensitive search (default false)" },
-        context_lines: { type: "number" as const, description: "Lines of context to show before and after each match (like grep -C). Use 15-25 when you need to read the code around a match — eliminates the need for a follow-up read_file in most cases." },
+        pattern: { type: "string" as const, description: "Search pattern (regex supported)" },
+        directory: { type: "string" as const, description: "Sub-directory to restrict search to (optional)" },
+        file_glob: { type: "string" as const, description: "File extension filter (optional, e.g. '*.ts')" },
+        case_sensitive: { type: "boolean" as const, description: "Case-sensitive (default false)" },
+        context_lines: { type: "number" as const, description: "Lines of surrounding context per match (use 15-25 to avoid follow-up read_file)" },
       },
       required: ["pattern"],
     },
   },
   {
     name: "search_multi",
-    description: `Run up to 6 code searches in a single tool call. Use this whenever you need to find multiple patterns, functions, or concepts at once — it replaces what would otherwise be 2-6 sequential search_code calls, saving you tool-call budget.
-
-WHEN TO USE:
-- After patching one file, you need to find 3+ other files that also need the same change
-- You want to understand how several related functions/variables are distributed across the codebase
-- You're doing an audit and need to collect all instances of several different patterns
-- Any time you'd naturally do back-to-back search_code calls
-
-Each search in the array is independent and supports the same options as search_code.
-Results are returned as an array, one entry per pattern, in the order requested.`,
+    description: "Run up to 6 code searches in one call instead of sequential search_code calls. Results returned as an array in order.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -454,7 +445,7 @@ export async function executeAldenTool(
         const currentEnv = process.env.NODE_ENV || 'development';
         const healthStatus = await computeHealthStatus();
         
-        const sharedDb = getSharedDb();
+        const sharedDb = getMonitoringDb();
         
         // Active sessions - no environment filter (session status is transient, not persisted)
         const [activeSessionCount] = await sharedDb.select({
@@ -483,8 +474,8 @@ export async function executeAldenTool(
       }
 
       case "get_database_stats": {
-        const sharedDb = getSharedDb();
-        const userDb = getUserDb();
+        const sharedDb = getMonitoringDb();
+        const userDb = getMonitoringDb();
 
         const [userCount] = await userDb.select({ count: sql<number>`count(*)` }).from(users);
         const [sessionCount] = await sharedDb.select({ count: sql<number>`count(*)` }).from(voiceSessions);
@@ -509,7 +500,7 @@ export async function executeAldenTool(
       }
 
       case "get_user_analytics": {
-        const userDb = getUserDb();
+        const userDb = getMonitoringDb();
 
         const [totalUsers] = await userDb.select({ count: sql<number>`count(*)` }).from(users);
         
@@ -550,7 +541,7 @@ export async function executeAldenTool(
       case "get_voice_session_metrics": {
         const days = Math.min(args.days || 7, 30);
         const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-        const sharedDb = getSharedDb();
+        const sharedDb = getMonitoringDb();
         const currentEnv = process.env.NODE_ENV as 'development' | 'production';
 
         // Current environment metrics
@@ -638,7 +629,7 @@ export async function executeAldenTool(
       case "get_recent_errors": {
         const hours = Math.min(args.hours || 24, 72);
         const since = new Date(Date.now() - hours * 60 * 60 * 1000);
-        const sharedDb = getSharedDb();
+        const sharedDb = getMonitoringDb();
         const currentEnv = process.env.NODE_ENV as 'development' | 'production';
 
         // Current environment errors
@@ -705,7 +696,7 @@ export async function executeAldenTool(
 
       case "get_sofia_report": {
         const limit = Math.min(args.limit || 5, 20);
-        const sharedDb = getSharedDb();
+        const sharedDb = getMonitoringDb();
 
         const digests = await sharedDb.select({
           id: sofiaIssueReports.id,
@@ -735,7 +726,7 @@ export async function executeAldenTool(
 
       case "search_editor_memories": {
         const { query, category } = args;
-        const sharedDb = getSharedDb();
+        const sharedDb = getMonitoringDb();
 
         let conditions = [
           sql`(${editorInsights.title} ILIKE ${'%' + query + '%'} OR ${editorInsights.content} ILIKE ${'%' + query + '%'})`,
@@ -962,7 +953,7 @@ export async function executeAldenTool(
 
         const healthStatus = await computeHealthStatus();
 
-        const sharedDb = getSharedDb();
+        const sharedDb = getMonitoringDb();
         const [activeSessionCount] = await sharedDb.select({
           count: sql<number>`count(*)`,
         }).from(voiceSessions)
@@ -1069,7 +1060,7 @@ export async function executeAldenTool(
 
       case "get_pending_issues": {
         const limit = Math.min(args.limit || 10, 20);
-        const sharedDb = getSharedDb();
+        const sharedDb = getMonitoringDb();
 
         const pending = await sharedDb
           .select({
@@ -1105,7 +1096,7 @@ export async function executeAldenTool(
       }
 
       case "check_learning_metrics": {
-        const sharedDb = getSharedDb();
+        const sharedDb = getMonitoringDb();
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);

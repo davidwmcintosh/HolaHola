@@ -1,5 +1,6 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
+import { Pool, neon, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
+import { drizzle as drizzleHttp } from 'drizzle-orm/neon-http';
 import ws from "ws";
 import { createRequire } from 'module';
 import path from 'path';
@@ -71,6 +72,19 @@ function getDb() {
     keepaliveInterval.unref(); // don't block process exit
   }
   return _db!;
+}
+
+// HTTP transport for read-only monitoring queries.
+// Unlike the WebSocket pool, neon() sends each query as a plain HTTPS request —
+// no persistent connection, no WebSocket, no connection pool exhaustion.
+// Use for SELECT-only calls; use getDb()/getUserDb() for writes.
+let _httpDb: ReturnType<typeof drizzleHttp<typeof schema>> | null = null;
+export function getMonitoringDb() {
+  if (!_httpDb) {
+    const httpSql = neon(DATABASE_URL!);
+    _httpDb = drizzleHttp(httpSql, { schema });
+  }
+  return _httpDb;
 }
 
 // Backwards compatibility - all point to same database now
