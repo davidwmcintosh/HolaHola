@@ -1497,6 +1497,8 @@ export const voiceSessions = pgTable("voice_sessions", {
   // Cost tracking (for internal analytics)
   ttsCharacters: integer("tts_characters").default(0), // Characters sent to TTS
   sttSeconds: integer("stt_seconds").default(0), // Seconds of STT processing
+  llmInputTokens: integer("llm_input_tokens").default(0), // Actual Gemini input tokens (from usageMetadata)
+  llmOutputTokens: integer("llm_output_tokens").default(0), // Actual Gemini output tokens (from usageMetadata)
   // Session metadata
   language: varchar("language"),
   status: voiceSessionStatusEnum("status").default("active"),

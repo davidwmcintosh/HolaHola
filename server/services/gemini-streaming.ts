@@ -418,6 +418,8 @@ export interface StreamingGenerationConfig {
   enableContextCaching?: boolean;  // Enable system prompt caching (90% cost reduction)
   // Early abort signal - allows caller to stop stream iteration when all needed content is received
   abortSignal?: { aborted: boolean };
+  // Token usage callback - called when stream completes with actual Gemini token counts
+  onTokenUsage?: (inputTokens: number, outputTokens: number) => void;
 }
 
 /**
@@ -429,6 +431,8 @@ export interface StreamingGenerationResult {
   totalTokens: number;
   durationMs: number;
   functionCallCount?: number;  // Number of native function calls processed
+  inputTokens?: number;   // Actual prompt token count from Gemini usageMetadata
+  outputTokens?: number;  // Actual completion token count from Gemini usageMetadata
 }
 
 /**
@@ -791,6 +795,8 @@ export class GeminiStreamingService {
       enableContextCaching = false,
       // Early abort
       abortSignal,
+      // Token usage callback
+      onTokenUsage,
     } = config;
     
     // Clean up expired caches periodically
@@ -1085,6 +1091,9 @@ export class GeminiStreamingService {
       let functionCallsProcessed = 0;
       let pendingFunctionCallPromise: Promise<void> | null = null;
       
+      // Track real token usage from Gemini usageMetadata (last chunk has final totals)
+      let lastUsageMetadata: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } | null = null;
+      
       // Track streaming partial function calls (Gemini 3)
       // Maps callIndex -> accumulated state as args stream in
       // Using index instead of name to handle repeated calls to same function
@@ -1187,6 +1196,11 @@ export class GeminiStreamingService {
         
         resetStreamTimeout();
         chunkCount++;
+        
+        // Capture usageMetadata - the last chunk with this field has the final totals
+        if ((chunk as any).usageMetadata) {
+          lastUsageMetadata = (chunk as any).usageMetadata;
+        }
         
         // Log TTFB on first chunk
         if (!firstChunkReceived) {
@@ -1517,14 +1531,24 @@ export class GeminiStreamingService {
       const functionCallLog = functionCallsProcessed > 0 ? `, ${functionCallsProcessed} function calls` : '';
       const timeoutLog = streamTimedOut ? ' [TIMED OUT]' : '';
       const finishReasonLog = lastFinishReason && lastFinishReason !== 'STOP' ? ` [${lastFinishReason}]` : '';
-      console.log(`[Gemini Streaming] Complete: ${sentenceIndex} sentences, ${fullText.length} chars${functionCallLog} in ${durationMs}ms${timeoutLog}${finishReasonLog}`);
+      const realInputTokens = lastUsageMetadata?.promptTokenCount ?? 0;
+      const realOutputTokens = lastUsageMetadata?.candidatesTokenCount ?? 0;
+      const tokenLog = realInputTokens > 0 ? ` [${realInputTokens}in/${realOutputTokens}out tokens]` : '';
+      console.log(`[Gemini Streaming] Complete: ${sentenceIndex} sentences, ${fullText.length} chars${functionCallLog} in ${durationMs}ms${timeoutLog}${finishReasonLog}${tokenLog}`);
+      
+      // Fire token usage callback if provided (for session-level cost tracking)
+      if (onTokenUsage && (realInputTokens > 0 || realOutputTokens > 0)) {
+        try { onTokenUsage(realInputTokens, realOutputTokens); } catch {}
+      }
       
       return {
         fullText,
         sentenceCount: sentenceIndex,
-        totalTokens: Math.ceil(fullText.length / 4), // Rough estimate
+        totalTokens: realInputTokens + realOutputTokens || Math.ceil(fullText.length / 4),
         durationMs,
         functionCallCount: functionCallsProcessed || undefined,
+        inputTokens: realInputTokens || undefined,
+        outputTokens: realOutputTokens || undefined,
       };
       
     } catch (error: any) {
@@ -1568,11 +1592,18 @@ export class GeminiStreamingService {
         await drainSentenceQueue();
         
         const durationMs = Date.now() - startTime;
+        const recoveryInputTokens = lastUsageMetadata?.promptTokenCount ?? 0;
+        const recoveryOutputTokens = lastUsageMetadata?.candidatesTokenCount ?? 0;
+        if (onTokenUsage && (recoveryInputTokens > 0 || recoveryOutputTokens > 0)) {
+          try { onTokenUsage(recoveryInputTokens, recoveryOutputTokens); } catch {}
+        }
         return {
           fullText,
           sentenceCount: sentenceIndex,
-          totalTokens: Math.ceil(fullText.length / 4),
+          totalTokens: recoveryInputTokens + recoveryOutputTokens || Math.ceil(fullText.length / 4),
           durationMs,
+          inputTokens: recoveryInputTokens || undefined,
+          outputTokens: recoveryOutputTokens || undefined,
         };
       }
       

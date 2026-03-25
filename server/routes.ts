@@ -2747,6 +2747,8 @@ export async function registerRoutes(app: Express): Promise<void> {
       const totalDurationSeconds = sessions.reduce((sum, s) => sum + (s.durationSeconds || 0), 0);
       const totalExchanges = sessions.reduce((sum, s) => sum + (s.exchangeCount || 0), 0);
       const totalTtsChars = sessions.reduce((sum, s) => sum + (s.ttsCharacters || 0), 0);
+      const totalLlmInputTok = sessions.reduce((sum, s) => sum + ((s as any).llmInputTokens || 0), 0);
+      const totalLlmOutputTok = sessions.reduce((sum, s) => sum + ((s as any).llmOutputTokens || 0), 0);
       
       const avgSessionDuration = totalSessions > 0 ? totalDurationSeconds / totalSessions : 0;
       const avgExchangesPerSession = totalSessions > 0 ? totalExchanges / totalSessions : 0;
@@ -2775,11 +2777,13 @@ export async function registerRoutes(app: Express): Promise<void> {
         byClass[classKey].exchanges += s.exchangeCount || 0;
       }
       
-      // Cost estimates (rough - based on typical API pricing)
+      // Cost estimates (real token pricing when tracked, else per-exchange fallback)
+      const _llmCostReal2 = (totalLlmInputTok * 0.075 / 1_000_000) + (totalLlmOutputTok * 0.30 / 1_000_000);
       const estimatedCosts = {
         deepgramStt: (totalDurationSeconds / 60) * 0.0043, // $0.0043/min for Nova-3
         cartesiaTts: (totalTtsChars / 1000) * 0.015, // $0.015 per 1K chars
-        geminiLlm: totalExchanges * 0.0001, // ~$0.0001 per exchange estimate
+        geminiLlm: totalLlmInputTok > 0 ? _llmCostReal2 : totalExchanges * 0.0005, // real or estimate
+        geminiLlmTokensTracked: totalLlmInputTok > 0,
         total: 0,
       };
       estimatedCosts.total = estimatedCosts.deepgramStt + estimatedCosts.cartesiaTts + estimatedCosts.geminiLlm;
@@ -13910,6 +13914,8 @@ Return ONLY the ${targetLanguage} phrase:`;
         tutorSpeakingSeconds: voiceSessions.tutorSpeakingSeconds,
         ttsCharacters: voiceSessions.ttsCharacters,
         sttSeconds: voiceSessions.sttSeconds,
+        llmInputTokens: voiceSessions.llmInputTokens,
+        llmOutputTokens: voiceSessions.llmOutputTokens,
         language: voiceSessions.language,
         status: voiceSessions.status,
         classId: voiceSessions.classId,
@@ -13935,6 +13941,8 @@ Return ONLY the ${targetLanguage} phrase:`;
         totalExchanges: sql<number>`COALESCE(SUM(${voiceSessions.exchangeCount}), 0)`,
         totalStudentSpeakingSeconds: sql<number>`COALESCE(SUM(${voiceSessions.studentSpeakingSeconds}), 0)`,
         totalTutorSpeakingSeconds: sql<number>`COALESCE(SUM(${voiceSessions.tutorSpeakingSeconds}), 0)`,
+        totalLlmInputTokens: sql<number>`COALESCE(SUM(${voiceSessions.llmInputTokens}), 0)`,
+        totalLlmOutputTokens: sql<number>`COALESCE(SUM(${voiceSessions.llmOutputTokens}), 0)`,
         avgDurationSeconds: sql<number>`COALESCE(AVG(${voiceSessions.durationSeconds}), 0)`,
         avgTtsCharacters: sql<number>`COALESCE(AVG(${voiceSessions.ttsCharacters}), 0)`,
         avgSttSeconds: sql<number>`COALESCE(AVG(${voiceSessions.sttSeconds}), 0)`,
@@ -13948,22 +13956,30 @@ Return ONLY the ${targetLanguage} phrase:`;
       // Cost estimates (approximate pricing)
       // Cartesia TTS: ~$0.015 per 1000 characters
       // Deepgram STT: ~$0.0043 per minute
-      // Gemini Flash: ~$0.075 per 1M input tokens, ~$0.30 per 1M output tokens
+      // Gemini Flash: $0.075 per 1M input tokens, $0.30 per 1M output tokens (real when tracked, estimate otherwise)
       const TTS_COST_PER_CHAR = 0.000015; // $0.015 / 1000
       const STT_COST_PER_SECOND = 0.0043 / 60; // $0.0043 per minute
-      const GEMINI_COST_ESTIMATE_PER_EXCHANGE = 0.0005; // ~500 tokens avg per exchange
+      const GEMINI_INPUT_COST_PER_TOKEN = 0.075 / 1_000_000;  // $0.075 per 1M input tokens
+      const GEMINI_OUTPUT_COST_PER_TOKEN = 0.30 / 1_000_000;  // $0.30 per 1M output tokens
+      const GEMINI_COST_ESTIMATE_PER_EXCHANGE = 0.0005; // fallback: ~500 tokens avg per exchange
       
       const totalTtsChars = Number(aggregates.totalTtsCharacters) || 0;
       const totalSttSecs = Number(aggregates.totalSttSeconds) || 0;
       const totalExchanges = Number(aggregates.totalExchanges) || 0;
+      const totalLlmInputTokens = Number(aggregates.totalLlmInputTokens) || 0;
+      const totalLlmOutputTokens = Number(aggregates.totalLlmOutputTokens) || 0;
+      
+      // Use real token counts if available (non-zero), otherwise fall back to per-exchange estimate
+      const llmCostReal = (totalLlmInputTokens * GEMINI_INPUT_COST_PER_TOKEN) + (totalLlmOutputTokens * GEMINI_OUTPUT_COST_PER_TOKEN);
+      const llmCostEstimate = totalExchanges * GEMINI_COST_ESTIMATE_PER_EXCHANGE;
+      const llmCost = totalLlmInputTokens > 0 ? llmCostReal : llmCostEstimate;
       
       const estimatedCosts = {
         tts: totalTtsChars * TTS_COST_PER_CHAR,
         stt: totalSttSecs * STT_COST_PER_SECOND,
-        llm: totalExchanges * GEMINI_COST_ESTIMATE_PER_EXCHANGE,
-        total: (totalTtsChars * TTS_COST_PER_CHAR) + 
-               (totalSttSecs * STT_COST_PER_SECOND) + 
-               (totalExchanges * GEMINI_COST_ESTIMATE_PER_EXCHANGE),
+        llm: llmCost,
+        llmTokensTracked: totalLlmInputTokens > 0, // True = real tokens used, False = estimate
+        total: (totalTtsChars * TTS_COST_PER_CHAR) + (totalSttSecs * STT_COST_PER_SECOND) + llmCost,
       };
       
       // Format sessions with cost estimates per session
@@ -13971,16 +13987,19 @@ Return ONLY the ${targetLanguage} phrase:`;
         const ttsChars = s.ttsCharacters || 0;
         const sttSecs = s.sttSeconds || 0;
         const exchanges = s.exchangeCount || 0;
+        const sessionInputTokens = s.llmInputTokens || 0;
+        const sessionOutputTokens = s.llmOutputTokens || 0;
+        const sessionLlmCostReal = (sessionInputTokens * GEMINI_INPUT_COST_PER_TOKEN) + (sessionOutputTokens * GEMINI_OUTPUT_COST_PER_TOKEN);
+        const sessionLlmCost = sessionInputTokens > 0 ? sessionLlmCostReal : exchanges * GEMINI_COST_ESTIMATE_PER_EXCHANGE;
         
         return {
           ...s,
           estimatedCost: {
             tts: ttsChars * TTS_COST_PER_CHAR,
             stt: sttSecs * STT_COST_PER_SECOND,
-            llm: exchanges * GEMINI_COST_ESTIMATE_PER_EXCHANGE,
-            total: (ttsChars * TTS_COST_PER_CHAR) + 
-                   (sttSecs * STT_COST_PER_SECOND) + 
-                   (exchanges * GEMINI_COST_ESTIMATE_PER_EXCHANGE),
+            llm: sessionLlmCost,
+            llmTokensTracked: sessionInputTokens > 0,
+            total: (ttsChars * TTS_COST_PER_CHAR) + (sttSecs * STT_COST_PER_SECOND) + sessionLlmCost,
           }
         };
       });
@@ -14002,12 +14021,15 @@ Return ONLY the ${targetLanguage} phrase:`;
           avgTtsCharacters: Math.round(Number(aggregates.avgTtsCharacters) || 0),
           avgSttSeconds: Math.round(Number(aggregates.avgSttSeconds) || 0),
           avgExchanges: Math.round((Number(aggregates.avgExchanges) || 0) * 10) / 10,
+          totalLlmInputTokens,
+          totalLlmOutputTokens,
         },
         estimatedCosts: {
           tts: Math.round(estimatedCosts.tts * 100) / 100,
           stt: Math.round(estimatedCosts.stt * 100) / 100,
-          llm: Math.round(estimatedCosts.llm * 100) / 100,
-          total: Math.round(estimatedCosts.total * 100) / 100,
+          llm: Math.round(estimatedCosts.llm * 10000) / 10000,
+          llmTokensTracked: estimatedCosts.llmTokensTracked,
+          total: Math.round(estimatedCosts.total * 10000) / 10000,
         },
         filters: {
           startDate: startDate || null,

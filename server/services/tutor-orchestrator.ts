@@ -956,6 +956,8 @@ export async function orchestrate(
 
       let responseText = result.text || "";
       const latencyMs = Date.now() - startTime;
+      const batchInputTokens = (result as any).usageMetadata?.promptTokenCount ?? 0;
+      const batchOutputTokens = (result as any).usageMetadata?.candidatesTokenCount ?? 0;
 
       // Scan for collaboration signals (also cleans response, marks surfaced feedback)
       responseText = await scanForCollaborationSignals(request, responseText, surfacedFeedbackIds);
@@ -978,7 +980,7 @@ export async function orchestrate(
           return {
             success: true,
             json,
-            metadata: { latencyMs },
+            metadata: { latencyMs, inputTokens: batchInputTokens || undefined, outputTokens: batchOutputTokens || undefined },
           };
         } catch (parseError) {
           // If JSON parsing fails, return as text
@@ -989,7 +991,7 @@ export async function orchestrate(
           return {
             success: true,
             text: responseText,
-            metadata: { latencyMs },
+            metadata: { latencyMs, inputTokens: batchInputTokens || undefined, outputTokens: batchOutputTokens || undefined },
           };
         }
       }
@@ -997,7 +999,7 @@ export async function orchestrate(
       return {
         success: true,
         text: responseText,
-        metadata: { latencyMs },
+        metadata: { latencyMs, inputTokens: batchInputTokens || undefined, outputTokens: batchOutputTokens || undefined },
       };
     }
 
@@ -1024,6 +1026,8 @@ export async function orchestrate(
 
     let responseText = result.text || "";
     const latencyMs = Date.now() - startTime;
+    const streamInputTokens = (result as any).usageMetadata?.promptTokenCount ?? 0;
+    const streamOutputTokens = (result as any).usageMetadata?.candidatesTokenCount ?? 0;
 
     // Scan for collaboration signals and emit to hub (also cleans response, marks surfaced feedback)
     responseText = await scanForCollaborationSignals(request, responseText, surfacedFeedbackIds);
@@ -1036,7 +1040,7 @@ export async function orchestrate(
     return {
       success: true,
       text: responseText,
-      metadata: { latencyMs },
+      metadata: { latencyMs, inputTokens: streamInputTokens || undefined, outputTokens: streamOutputTokens || undefined },
     };
   } catch (error: any) {
     console.error("[TutorOrchestrator] Error:", error);

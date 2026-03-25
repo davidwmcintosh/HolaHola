@@ -242,6 +242,8 @@ export interface StreamingSession {
   telemetryExchangeCount: number;
   telemetryStudentSpeakingMs: number;
   telemetryTutorSpeakingMs: number;
+  telemetryLlmInputTokens: number;   // Accumulated Gemini input tokens for this session
+  telemetryLlmOutputTokens: number;  // Accumulated Gemini output tokens for this session
 }
 
 /**

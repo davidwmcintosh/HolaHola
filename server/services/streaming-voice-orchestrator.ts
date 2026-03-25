@@ -703,6 +703,8 @@ export class StreamingVoiceOrchestrator {
       telemetryExchangeCount: 0,
       telemetryStudentSpeakingMs: 0,
       telemetryTutorSpeakingMs: 0,
+      telemetryLlmInputTokens: 0,
+      telemetryLlmOutputTokens: 0,
       // Deduplication: Track sent audio chunks to prevent double audio bug
       sentAudioChunks: new Set<string>(),
       // Content-based deduplication: Track audio hashes to catch TTS retries with new chunk IDs
@@ -2189,6 +2191,10 @@ Remember: David may reference things discussed in these recent text chats.
         enableContextCaching: true,
         streamFunctionCallArguments: true,
         abortSignal: streamAbortSignal,
+        onTokenUsage: (inputTok: number, outputTok: number) => {
+          session.telemetryLlmInputTokens += inputTok;
+          session.telemetryLlmOutputTokens += outputTok;
+        },
         onSentenceEnqueued: (chunk: SentenceChunk) => {
           if (effectiveTtsProvider !== 'gemini' || session.isInterrupted || streamAbortSignal.aborted) return;
           const cleaned = cleanTextForDisplay(chunk.text);
@@ -3518,6 +3524,10 @@ Remember: David may reference things discussed in these recent text chats.
               maxOutputTokens: (session.isRawHonestyMode || session.isFounderMode) ? 8192 : 4096,
               enableFunctionCalling: true,
               enableContextCaching: true,  // Use cached system prompt
+              onTokenUsage: (inputTok: number, outputTok: number) => {
+                session.telemetryLlmInputTokens += inputTok;
+                session.telemetryLlmOutputTokens += outputTok;
+              },
               onFunctionCall: async (newFunctionCalls: ExtractedFunctionCall[]) => {
                 // Handle any additional function calls in continuation
                 for (const fn of newFunctionCalls) {
@@ -4898,6 +4908,10 @@ Remember: David may reference things discussed in these recent text chats.
         enableContextCaching: true,
         streamFunctionCallArguments: true,
         abortSignal: streamAbortSignalOpenMic,
+        onTokenUsage: (inputTok: number, outputTok: number) => {
+          session.telemetryLlmInputTokens += inputTok;
+          session.telemetryLlmOutputTokens += outputTok;
+        },
         onSentenceEnqueued: (chunk: SentenceChunk) => {
           if (effectiveTtsProviderOM !== 'gemini' || session.isInterrupted || streamAbortSignalOpenMic.aborted) return;
           const cleaned = cleanTextForDisplay(chunk.text);
@@ -5938,6 +5952,10 @@ Remember: David may reference things discussed in these recent text chats.
               maxOutputTokens: (session.isRawHonestyMode || session.isFounderMode) ? 8192 : 4096,
               enableFunctionCalling: true,
               enableContextCaching: true,  // Use cached system prompt
+              onTokenUsage: (inputTok: number, outputTok: number) => {
+                session.telemetryLlmInputTokens += inputTok;
+                session.telemetryLlmOutputTokens += outputTok;
+              },
               onFunctionCall: async (newFCs: ExtractedFunctionCall[]) => {
                 for (const fn of newFCs) {
                   console.log(`[Multi-Step FC Continuation - OpenMic] Additional function: ${fn.name}`);
@@ -6165,6 +6183,10 @@ Remember: David may reference things discussed in these recent text chats.
                 maxOutputTokens: (session.isRawHonestyMode || session.isFounderMode) ? 8192 : 4096,
                 enableFunctionCalling: true,
                 enableContextCaching: true,
+                onTokenUsage: (inputTok: number, outputTok: number) => {
+                  session.telemetryLlmInputTokens += inputTok;
+                  session.telemetryLlmOutputTokens += outputTok;
+                },
                 onFunctionCall: async (newFCs: ExtractedFunctionCall[]) => {
                   for (const fn of newFCs) {
                     console.log(`[Multi-Step FC - OpenMic] Recursive function (depth ${recursiveDepth}): ${fn.name}`);
@@ -8152,9 +8174,12 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
           exchangeCount: session.telemetryExchangeCount,
           studentSpeakingSeconds: Math.round(session.telemetryStudentSpeakingMs / 1000),
           tutorSpeakingSeconds: Math.round(session.telemetryTutorSpeakingMs / 1000),
+          llmInputTokens: session.telemetryLlmInputTokens,
+          llmOutputTokens: session.telemetryLlmOutputTokens,
         };
         usageService.updateSessionMetrics(session.dbSessionId, telemetryData).then(() => {
-          console.log(`[Session Economics] ✓ Flushed telemetry for session ${session.dbSessionId}: ${telemetryData.ttsCharacters} TTS chars, ${telemetryData.sttSeconds}s STT, ${telemetryData.exchangeCount} exchanges`);
+          const tokenLog = telemetryData.llmInputTokens > 0 ? `, ${telemetryData.llmInputTokens}in/${telemetryData.llmOutputTokens}out LLM tokens` : '';
+          console.log(`[Session Economics] ✓ Flushed telemetry for session ${session.dbSessionId}: ${telemetryData.ttsCharacters} TTS chars, ${telemetryData.sttSeconds}s STT, ${telemetryData.exchangeCount} exchanges${tokenLog}`);
         }).catch((err: Error) => {
           console.warn(`[Session Economics] Failed to flush telemetry:`, err.message);
         });

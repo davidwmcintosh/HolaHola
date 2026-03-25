@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, March 25, 2026 at 10:11 PM
+**Generated:** Wednesday, March 25, 2026 at 11:08 PM
 
 ---
 
@@ -135,24 +135,27 @@ PHASE 1 — Schema Migration:
 ## Notes From Alden
 *Also check docs/alden-to-agent.md for unread direct notes*
 
-## Triage Complete: Sofia Pattern 6e9309df — Connection Errors (Benign, Third Occurrence)
+## Triage Complete: Sofia Pattern 03637db5 — failsafe_tier2_45s (no_audio cluster)
 
-**Investigation Date:** March 25, 2026, 2:18 PM MDT
+**Investigation Date:** March 25, 2026, 4:16 PM MDT
 
-**Pattern Detected:** Sofia flagged 3x "connection" events in 24 hours as a recurring issue (pattern ID: 6e9309df-8fc3-49f6-b17f-4da560cb4519).
+**Pattern Detected:** Sofia flagged 5x "no_audio" events in 24 hours (pattern ID: 03637db5-ab35-4bcf-8dfa-cc93b97a3ca5), all `failsafe_tier2_45s` from development environment.
 
-**Root Cause:** IDENTICAL to patterns 002b29fa and 9dc13044 investigated earlier today. All 3 events from David (user 49847136) during development testing on March 24. Errors within ~2.6s of voice session start, caused by:
-- Gemini rate limit exceeded (confirmed in Sofia's analysis)
-- Connection timeouts during rapid session restarts
-- Server instance rotation (autoscale deployment)
+**Root Cause:** BENIGN TESTING NOISE, not a bug.
 
-**Why `context=unknown` Appears:**
-The diagnostic snapshot defaults `audioContextState` to `'unknown'` when errors fire before the audio timing loop initializes (< 3 seconds after connection). This is expected behavior for early connection failures, not a bug.
+The Tier-2 failsafe in `client/src/hooks/useStreamingVoice.ts` (lines 1135-1193) fires 45 seconds after `response_complete` when:
+1. Audio playback state is 'idle' (audio finished)
+2. User hasn't started a new turn
+3. AudioContext state is 'running'
 
-**Verdict:** Benign testing noise. No code fix required. Voice pipeline is healthy.
+**The design intent:** Clear stuck states where AudioContext reports "running" but audio callbacks silently failed (stuck AudioWorklet).
 
-**Observation — Pattern Frequency:** This is now the **third** identical connection error pattern within 24 hours, all with the same signature:
-- Single-user (David, development
+**What actually happened:** Audio played correctly (diagnostic snapshots show "expected=4 received=4" and "expected=1 received=1"), but David paused >45 seconds before responding during dev testing. The timer expired while he was thinking — not because audio failed.
+
+**Evidence from diagnostics:**
+- All 5 events from user 49847136 (David) on March 24
+- Snapshots show: "Audio playing=idle, context=running"
+- Sentence counts match: expected=rece
 
 *[truncated — read full file for details]*
 

@@ -426,6 +426,8 @@ export class UsageService {
       tutorSpeakingSeconds?: number;
       ttsCharacters?: number;
       sttSeconds?: number;
+      llmInputTokens?: number;
+      llmOutputTokens?: number;
     }
   ): Promise<void> {
     const sanitized = {
@@ -434,6 +436,8 @@ export class UsageService {
       ...(updates.tutorSpeakingSeconds != null && { tutorSpeakingSeconds: Math.round(updates.tutorSpeakingSeconds) }),
       ...(updates.sttSeconds != null && { sttSeconds: Math.round(updates.sttSeconds) }),
       ...(updates.ttsCharacters != null && { ttsCharacters: Math.round(updates.ttsCharacters) }),
+      ...(updates.llmInputTokens != null && { llmInputTokens: Math.round(updates.llmInputTokens) }),
+      ...(updates.llmOutputTokens != null && { llmOutputTokens: Math.round(updates.llmOutputTokens) }),
     };
     // Guard: skip metric updates on completed sessions to prevent race writes
     // that arrive after billing has already closed and read the final values.
