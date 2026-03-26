@@ -11148,6 +11148,72 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ── Vocab Image Pre-seeding ──────────────────────────────────────────────
+
+  // Start vocab image seeding for a single language
+  app.post('/api/admin/vocab-images/seed', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { language } = req.body;
+      if (!language) return res.status(400).json({ error: 'language required' });
+      const jobId = `vocab-seed-${language}-${Date.now()}`;
+      const { seedVocabImages } = await import('./services/vocab-image-seed-service');
+      seedVocabImages(language, jobId).catch((e: any) =>
+        console.error('[VocabSeed] Fatal error:', e.message)
+      );
+      res.json({ jobId, message: `Vocab image seeding started for ${language}` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Seed vocab images for ALL languages
+  app.post('/api/admin/vocab-images/seed-all', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { languages } = req.body; // optional: array of language names to seed
+      const jobId = `vocab-seed-all-${Date.now()}`;
+      const { seedAllVocabImages } = await import('./services/vocab-image-seed-service');
+      seedAllVocabImages(jobId, languages).catch((e: any) =>
+        console.error('[BulkVocabSeed] Fatal error:', e.message)
+      );
+      res.json({ jobId, message: 'Bulk vocab image seeding started — poll /api/admin/vocab-images/seed-all-progress/:jobId' });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Poll single-language seed job
+  app.get('/api/admin/vocab-images/seed-progress/:jobId', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { jobId } = req.params;
+      const { vocabSeedJobs } = await import('./services/vocab-image-seed-service');
+      const job = vocabSeedJobs.get(jobId);
+      if (!job) return res.status(404).json({ error: 'Job not found' });
+      res.json(job);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Poll bulk seed-all job
+  app.get('/api/admin/vocab-images/seed-all-progress/:jobId', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { jobId } = req.params;
+      const { bulkVocabSeedJobs, vocabSeedJobs } = await import('./services/vocab-image-seed-service');
+      const bulk = bulkVocabSeedJobs.get(jobId);
+      if (!bulk) return res.status(404).json({ error: 'Job not found' });
+      // Attach per-language sub-job details
+      const subJobs: Record<string, any> = {};
+      for (const lang of bulk.languages) {
+        const subJobId = `${jobId}-${lang}`;
+        const sub = vocabSeedJobs.get(subJobId);
+        if (sub) subJobs[lang] = sub;
+      }
+      res.json({ ...bulk, subJobs });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Get seeding status for all paths in a language
   app.get('/api/admin/textbook/status', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {

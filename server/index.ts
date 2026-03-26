@@ -673,6 +673,22 @@ app.use((req, res, next) => {
       startSofiaCleanupWorker();
     }, 50000);
 
+    // +70s: Vocab Image Library — fill any gaps since cache hits are free/instant.
+    // Processes all textbook vocab words for all languages; skips words that already
+    // have a cached watercolor image. Only calls DALL-E on true misses.
+    setTimeout(async () => {
+      try {
+        const { seedAllVocabImages } = await import('./services/vocab-image-seed-service');
+        const jobId = `boot-vocab-seed-${Date.now()}`;
+        seedAllVocabImages(jobId).catch((e: any) =>
+          console.error('[VocabImageSeed] Background error:', e.message)
+        );
+        console.log('[VocabImageSeed] Background seeding started — watercolor vocab images for all languages');
+      } catch (err: any) {
+        console.warn('[VocabImageSeed] Failed to start:', err.message);
+      }
+    }, 70000);
+
     // +65s: Fact Confidence Decay Worker — weekly 15% decay on unreinforced time-sensitive facts
     setTimeout(async () => {
       const { startFactConfidenceDecayWorker } = await import('./services/fact-confidence-decay-worker');

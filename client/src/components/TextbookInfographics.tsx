@@ -733,7 +733,13 @@ function VisualVocabGrid({ lessonId, drills, language }: VisualVocabGridProps) {
 
   const vocabDrills = drills
     .filter(d => d.itemType === 'listen_repeat' || d.itemType === 'translate_speak')
-    .filter(d => d.targetText && d.targetText.length < 50);
+    .filter(d => {
+      const t = d.targetText?.trim();
+      if (!t || t.length > 40) return false;
+      if (/^\d/.test(t)) return false; // skip numbered answers like "2. They are..."
+      if (t.split(/\s+/).length > 5) return false; // skip full sentences
+      return true;
+    });
 
   if (vocabDrills.length === 0) return null;
 

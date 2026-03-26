@@ -1,8 +1,92 @@
 # Alden → Agent Notes
 
-*3 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
+*5 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
 
-Generated: 3/26/2026, 9:37:52 PM
+Generated: 3/26/2026, 9:57:18 PM
+
+---
+
+### Sofia Pattern 216f3330 — 12th Recurrence of Benign Connection Signature (Systematic Fix Needed)
+*Thu, Mar 26, 2026, 9:48 PM* (id: `21d4d1b5-f416-4fdc-b584-3002e4dd0b58`)
+*During: Autonomous Triage — Sofia Pattern 216f3330 (12th recurrence)*
+
+**Pattern ID:** 216f3330-131c-49f2-a824-c67a31c9c9b3 (12th occurrence of the same signature)
+
+**Previous pattern IDs (all identical signature):** 002b29fa, 9dc13044, b2dd7806, 98c186d8, 03637db5, d7a6c15e, ea1ea9c0, f4b571b7, 4398e1d9, d3bc388b, aa6d1d5d
+
+**Root cause (confirmed 12 times):** BENIGN TESTING NOISE. Not a bug.
+
+**The signature:**
+- Event type: "connection" 
+- Diagnostics: `expected=1 received=1` (audio delivered successfully)
+- Audio state: `playing=playing, context=running` (audio working normally)
+- Single Windows desktop user (typically David, user 49847136)
+- All events within 2-3 seconds of voice session start
+- `context=unknown` in diagnostics (expected — audio timing loop hasn't initialized its context yet at this early stage)
+
+**Why this keeps recurring:**
+Sofia's pattern detection system (`server/services/sofia-pattern-detector.ts`) doesn't have memory of previous pattern classifications. Every time this signature appears, it's treated as a new actionable pattern and triggers an autonomous triage task.
+
+**The actual problem to fix:**
+Sofia needs a pattern classification memory system so that when a pattern is classified as "benign testing noise" once, future occurrences of the same signature are either:
+1. Auto-marked as "known benign" and not escalated to autonomous triage, OR
+2. Escalated with context: "This pattern has been classified as benign 11 times previously"
+
+**Recommended approach:**
+Add a `pattern_classifications` table or extend `support_patterns` with a `classification` field (values: 'bug', 'benign', 'infrastructure', 'user_error', etc.) and a `classification_note` field. When Alden or the Agent completes a triage and determines the pattern is benign, write that classification. Sofia's pattern detector queries this before creating a new autonomous triage task.
+
+**Alternative approach (lighter weight):**
+Add a `benign_pattern_signatures` JSON file or table with known benign fingerprints. Sofia checks the signature hash before escalating. If it matches a known benign signature, skip the triage task entirely.
+
+**Why I'm routing to you instead of auto-fixing:**
+This requires either:
+1. Schema change (`support_patterns` or new table) — outside my autonomous fix guardrails
+2. Architectural change to Sofia's pattern detection flow — affects >3 files and needs careful design
+3. Decision on where pattern memory should live (DB vs filesystem vs in-memory)
+
+This is the right problem to solve systematically rather than continuing to triage the same signature manually every time it appears.
+
+— Alden, March 26, 2026, 3:47 PM
+
+---
+
+### Sofia Pattern Detection: Signature Deduplication Needed (11th Recurrence)
+*Thu, Mar 26, 2026, 9:40 PM* (id: `7939daba-12f9-4fef-922f-adff0318afd4`)
+*During: Autonomous Triage — Sofia Pattern aa6d1d5d (11th recurrence)*
+
+**Pattern ID:** aa6d1d5d-3103-405f-ba33-f2e9b405bb0e (11th recurrence of identical benign signature)
+
+**The Problem:**
+Sofia's pattern detection has escalated the SAME benign "connection" error signature **11 times** in the last 72 hours:
+- Previous pattern IDs: 002b29fa, 9dc13044, b2dd7806, 98c186d8, 03637db5, d7a6c15e, ea1ea9c0, f4b571b7, 4398e1d9, d3bc388b
+- All share identical signature: event type "connection", diagnostics show `expected=1 received=1` (audio delivered), `playing=playing, context=running` (session working normally)
+- All from single Windows desktop users during dev/prod testing
+- **Not a bug** — sessions work correctly, diagnostics prove audio delivery succeeded
+
+**Root Cause:**
+Sofia's pattern detector (`server/services/sofia-pattern-detector.ts` or similar) lacks signature-based deduplication. She creates a new `support_patterns` entry for each occurrence instead of recognizing it matches a previously-triaged pattern.
+
+**Recommended Fix:**
+Add signature matching to Sofia's pattern detection:
+
+1. **Compute signature hash** from event type + diagnostic fingerprint (e.g., `{ type, expected, received, audioState, context }`)
+2. **Check `support_patterns` table** for status='investigated'/'benign' matches where `signatureHash` matches AND `lastSeen > NOW() - INTERVAL '30 days'`
+3. **If match found:** Increment `occurrenceCount`, update `lastSeen`, skip escalation
+4. **Only escalate** genuinely new signatures (no match in last 30 days)
+
+**Why Auto-Repair Declined:**
+- Requires architectural changes to Sofia's pattern detection service (likely >3 files)
+- New hashing logic + schema changes (add `signatureHash` column to `support_patterns`)
+- Touches core detection logic — outside auto-repair guardrails
+
+**Files to Start With:**
+- Search for Sofia's pattern detector: `search_code("pattern.*detect", directory: "server/services")`
+- `support_patterns` table in `shared/schema.ts`
+- Likely integration point: wherever Sofia writes new entries to `support_patterns`
+
+**Priority:** Medium — not breaking sessions, but creating noise in triage queue and wasting investigation cycles.
+
+— Alden, March 26, 2026, 3:40 PM MDT
 
 ---
 
