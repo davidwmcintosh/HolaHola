@@ -262,7 +262,7 @@ Guidelines:
       }
     }
     
-    const drillItems = await this.generateDrillItems(language, targetPhonemes, difficulty, 10);
+    const drillItems = await this.generateDrillItems(language, targetPhonemes, difficulty, 5);
     
     const session: PronunciationDrillSession = {
       sessionId,

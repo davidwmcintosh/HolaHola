@@ -324,6 +324,34 @@ export default function PronunciationDrill() {
     );
   }
 
+  if (startSessionMutation.isPending) {
+    return (
+      <div className="container max-w-2xl mx-auto p-4 space-y-6">
+        <div className="text-center space-y-2">
+          <h1 className="text-3xl font-bold">Pronunciation Drill</h1>
+          <p className="text-muted-foreground">
+            Practice challenging sounds with focused repetition
+          </p>
+        </div>
+        <Card>
+          <CardContent className="py-16 text-center space-y-4">
+            <div className="flex justify-center">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            </div>
+            <div>
+              <CardTitle className="text-xl mb-2">Generating your drill...</CardTitle>
+              <CardDescription className="text-sm">
+                Crafting phrases tailored to your focus areas. This takes about 10 seconds.
+              </CardDescription>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (session && currentItem) {
     const progress = ((session.currentIndex) / session.totalItems) * 100;
     
@@ -576,10 +604,10 @@ export default function PronunciationDrill() {
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <Target className="h-5 w-5" />
-              {LANGUAGE_OPTIONS.find(l => l.value === selectedLanguage)?.label} Phoneme Challenges
+              {LANGUAGE_OPTIONS.find(l => l.value === selectedLanguage)?.label} Phoneme Reference
             </CardTitle>
             <CardDescription>
-              Common sounds that learners find challenging
+              Common sounds with difficulty scores — your session will target your personal weak spots from the list below
             </CardDescription>
           </CardHeader>
           <CardContent>
