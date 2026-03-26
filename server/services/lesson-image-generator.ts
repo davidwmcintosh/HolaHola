@@ -57,7 +57,11 @@ const PRIORITY_TOPICS = [
 ];
 
 const DALL_E_STYLE = `Warm editorial illustration style. Soft, inviting color palette with gentle gradients. 
-Diverse, friendly characters in natural poses. Clean composition with a clear focal point. 
+Diverse, friendly characters in natural poses — people of varied ethnicities and ages in contemporary, casual everyday clothing. 
+Characters wear modern, secular Western or international casual dress (jeans, shirts, jackets, dresses, blazers). 
+Do not include religious or faith-based clothing of any kind (no hijabs, headscarves, turbans, habits, yarmulkes, or other religious garments). 
+Do not default to cultural stereotypes or traditional ethnic dress. 
+Clean composition with a clear focal point. 
 No text, no words, no labels, no letters anywhere in the image. 
 Wide landscape format. Suitable as an educational app lesson card header.`;
 

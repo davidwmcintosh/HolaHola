@@ -16,7 +16,11 @@ import { isNull, eq } from 'drizzle-orm';
 import { uploadPublicBuffer } from './image-storage';
 
 const DALL_E_STYLE = `Warm editorial illustration style. Rich, inviting color palette with soft depth. 
-Diverse, friendly characters in natural, authentic poses. Cinematic but illustrated — not photographic. 
+Diverse, friendly characters in natural, authentic poses — people of varied ethnicities and ages in contemporary, casual everyday clothing appropriate to the setting. 
+Characters wear modern, secular Western or international casual dress (jeans, shirts, jackets, dresses, blazers). 
+Do not include religious or faith-based clothing of any kind (no hijabs, headscarves, turbans, habits, yarmulkes, or other religious garments). 
+Do not default to cultural stereotypes or traditional ethnic dress. 
+Cinematic but illustrated — not photographic. 
 No text, no words, no signs, no labels, no letters anywhere in the image. 
 Wide landscape format (16:9). Suitable as a scenario card cover image for a language-learning app.`;
 
