@@ -20,8 +20,9 @@ Diverse, friendly characters in natural, authentic poses — people of varied et
 Characters wear modern, secular Western or international casual dress (jeans, shirts, jackets, dresses, blazers). 
 Do not include religious or faith-based clothing of any kind (no hijabs, headscarves, turbans, habits, yarmulkes, or other religious garments). 
 Do not default to cultural stereotypes or traditional ethnic dress. 
+CRITICAL: Every character must be shown with their COMPLETE head, face, and upper body fully within the frame — no cropping of heads or faces at the top of the image. Keep all characters at medium-shot or wide-shot distance so heads are always visible. Never show a character cut off at the neck or shoulders. 
+CRITICAL: Absolutely zero text, letters, words, numbers, speech bubbles, captions, signs, labels, or written characters of any kind anywhere in the image. The image must be entirely text-free and symbol-free. 
 Cinematic but illustrated — not photographic. 
-No text, no words, no signs, no labels, no letters anywhere in the image. 
 Wide landscape format (16:9). Suitable as a scenario card cover image for a language-learning app.`;
 
 const CATEGORY_CONTEXT: Record<string, string> = {
