@@ -56,15 +56,10 @@ const PRIORITY_TOPICS = [
   'describing-symptoms', 'transportation', 'self-introduction', 'prices-money', 'quantities',
 ];
 
-const DALL_E_STYLE = `Warm editorial illustration style. Soft, inviting color palette with gentle gradients. 
-Diverse, friendly characters in natural poses — people of varied ethnicities and ages in contemporary, casual everyday clothing. 
-Characters wear modern, secular Western or international casual dress (jeans, shirts, jackets, dresses, blazers). 
-Do not include religious or faith-based clothing of any kind (no hijabs, headscarves, turbans, habits, yarmulkes, or other religious garments). 
-Do not default to cultural stereotypes or traditional ethnic dress. 
-CRITICAL: Every character must be shown with their COMPLETE head, face, and upper body fully within the frame — no cropping of heads or faces at the top of the image. Keep all characters at medium-shot or wide-shot distance so heads are always visible. Never show a character cut off at the neck or shoulders. 
-CRITICAL: Absolutely zero text, letters, words, numbers, speech bubbles, captions, signs, labels, or written characters of any kind anywhere in the image. The image must be entirely text-free and symbol-free. 
-Clean composition with a clear focal point. 
-Wide landscape format. Suitable as an educational app lesson card header.`;
+const DALL_E_STYLE = `Warm editorial illustration style. Soft, inviting color palette with gentle gradients. Clean composition with a clear focal point. Wide landscape format.
+Characters: racially diverse people with uncovered, freely styled hair. Every character wears only contemporary Western casual clothing — jeans, chinos, T-shirts, blouses, sweaters, blazers, sneakers. Every character's full head, face, and hair are clearly visible and fully within the frame. Characters shown at medium or wide distance so their entire head and upper body are well within the image boundaries — never cropped at the neck or shoulders.
+Pure illustration — the image contains absolutely no letters, numbers, words, text, typography, speech bubbles, signs, or written symbols of any kind anywhere. Zero text. No words. No captions.
+Suitable as an educational app lesson card header.`;
 
 function buildImagePrompt(lessonName: string, lessonType: string, topics: string[], language: string): string {
   const topicContext = topics.slice(0, 3).join(', ').replace(/-/g, ' ');
@@ -102,7 +97,7 @@ async function generateImageBuffer(prompt: string): Promise<{ buffer: Buffer; mi
       prompt,
       n: 1,
       size: '1792x1024',
-      quality: 'standard',
+      quality: 'hd',
       response_format: 'url',
     });
 

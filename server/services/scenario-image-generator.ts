@@ -15,15 +15,10 @@ import { scenarios } from '../../shared/schema';
 import { isNull, eq } from 'drizzle-orm';
 import { uploadPublicBuffer } from './image-storage';
 
-const DALL_E_STYLE = `Warm editorial illustration style. Rich, inviting color palette with soft depth. 
-Diverse, friendly characters in natural, authentic poses — people of varied ethnicities and ages in contemporary, casual everyday clothing appropriate to the setting. 
-Characters wear modern, secular Western or international casual dress (jeans, shirts, jackets, dresses, blazers). 
-Do not include religious or faith-based clothing of any kind (no hijabs, headscarves, turbans, habits, yarmulkes, or other religious garments). 
-Do not default to cultural stereotypes or traditional ethnic dress. 
-CRITICAL: Every character must be shown with their COMPLETE head, face, and upper body fully within the frame — no cropping of heads or faces at the top of the image. Keep all characters at medium-shot or wide-shot distance so heads are always visible. Never show a character cut off at the neck or shoulders. 
-CRITICAL: Absolutely zero text, letters, words, numbers, speech bubbles, captions, signs, labels, or written characters of any kind anywhere in the image. The image must be entirely text-free and symbol-free. 
-Cinematic but illustrated — not photographic. 
-Wide landscape format (16:9). Suitable as a scenario card cover image for a language-learning app.`;
+const DALL_E_STYLE = `Warm editorial illustration style. Rich, inviting color palette with soft depth. Cinematic but illustrated — not photographic. Wide landscape format (16:9).
+Characters: racially diverse group of people with uncovered hair. Every character wears only contemporary Western casual or business-casual clothing — jeans, chinos, T-shirts, blouses, sweaters, blazers, sneakers, loafers. Every character's full head, face, and hair are clearly visible and uncropped within the frame. All characters positioned at medium or wide distance from the viewer so their entire head and shoulders are well within the image boundaries.
+Pure illustration — the image contains absolutely no letters, numbers, words, text, typography, speech bubbles, signs, or written symbols of any kind anywhere. Zero text. No words.
+Suitable as a scenario card cover image for a language-learning app.`;
 
 const CATEGORY_CONTEXT: Record<string, string> = {
   social:       'lively social gathering or warm conversation between friends in an everyday setting',
@@ -61,7 +56,7 @@ async function generateImageBuffer(prompt: string): Promise<{ buffer: Buffer; mi
       prompt,
       n: 1,
       size: '1792x1024',
-      quality: 'standard',
+      quality: 'hd',
       response_format: 'url',
     });
 
