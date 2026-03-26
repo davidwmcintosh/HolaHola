@@ -234,28 +234,10 @@ class SupportPersonaService {
         console.log(`[Sofia] Voice session active — deferring analysis for report ${report.id} by 35s`);
         setTimeout(runAnalysis, 35_000);
       } else {
-        sofiaAnalysis = await (async () => {
-          try {
-            return await this.generateIssueAnalysis({
-              issueType: params.issueType,
-              userDescription: params.userDescription,
-              voiceDiagnostics: params.voiceDiagnostics,
-              deviceInfo: params.deviceInfo,
-              clientTelemetry: params.clientTelemetry,
-              mode: params.mode,
-              environment,
-            });
-          } catch (e) {
-            console.warn('[Sofia] Failed to generate analysis:', e);
-            return undefined;
-          }
-        })();
-        if (sofiaAnalysis) {
-          await getUserDb().update(sofiaIssueReports)
-            .set({ sofiaAnalysis })
-            .where(eq(sofiaIssueReports.id, report.id));
-          console.log(`[Sofia] Generated analysis for report ${report.id}`);
-        }
+        // Always defer — never block the HTTP response on a Gemini call.
+        // Flag-button submissions need to return immediately, especially on unstable connections.
+        console.log(`[Sofia] Deferring analysis for report ${report.id} (500ms background)`);
+        setTimeout(runAnalysis, 500);
       }
     }
     

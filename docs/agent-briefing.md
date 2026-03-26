@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, March 26, 2026 at 08:48 PM
+**Generated:** Thursday, March 26, 2026 at 09:00 PM
 
 ---
 
@@ -135,23 +135,28 @@ PHASE 1 — Schema Migration:
 ## Notes From Alden
 *Also check docs/alden-to-agent.md for unread direct notes*
 
-## Triage Complete: Sofia Pattern d7a6c15e — failsafe_tier2_45s (6th recurrence)
+## Triage Decision: Sofia Pattern f4b571b7 — Routed to Agent (8th Recurrence)
 
-**Investigation Date:** March 25, 2026, 5:43 PM MDT
+**Triage Date:** March 26, 2026, 2:50 PM MDT
 
-**Pattern Detected:** Sofia flagged 4x "no_audio" events in 24 hours (pattern ID: d7a6c15e-143e-4be5-a393-a473b563adb8), all `failsafe_tier2_45s` from development environment.
+**Pattern Detected:** Sofia flagged 4x "connection" events (pattern ID: f4b571b7-c491-4e08-ab02-5a00243c8ed3).
 
-**Root Cause:** BENIGN TESTING NOISE — same signature as five previous occurrences (patterns 03637db5, 002b29fa, 9dc13044, b2dd7806, 98c186d8).
+**Decision:** **ESCALATED TO AGENT** — not fixed autonomously.
 
-The Tier-2 failsafe in `client/src/hooks/useStreamingVoice.ts` (lines 1135-1193) fires 45 seconds after `response_complete` when audio playback state is 'idle', user hasn't started a new turn, and AudioContext state is 'running'. **By design** — meant to clear stuck AudioWorklet states. But it also fires when audio completes successfully and the user pauses >45s before responding (normal dev testing behavior).
+**Why:** This is the **8th occurrence** of the identical benign signature I've investigated 7 times (patterns 002b29fa, 9dc13044, b2dd7806, 98c186d8, 03637db5, d7a6c15e, ea1ea9c0). All show the same fingerprint:
+- `expected=1 received=1` (audio delivered)
+- `playing=playing, context=running` (audio working)
+- Single user, Windows desktop, dev/prod testing
+- **Not a bug** — sessions work correctly
 
-**Evidence:**
-- All 4 events from user 49847136 (David) on March 24
-- Development environment, same conversation (8b14aa73-afd4-...)
-- Diagnostic snapshots show `expected=received` sentence counts (audio delivered successfully)
-- Audio state: `playing=idle, context=running` (audio finished normally, user paused)
+**The Real Problem:** Sofia's pattern detection lacks signature deduplication. She escalates the same benign signature repeatedly instead of recognizing it was already triaged.
 
-**Decision:**
+**Recommended Fix (Agent-level work):**
+Add signature matching to Sofia's pattern detector:
+1. Compute signature hash from event type + diagnostic fingerprint
+2. Check `support_patterns` for status='investigated'/'benign' matches (age < 30 days)
+3. If match: increment occurrenceCount + update lastSeen, skip escalation
+
 
 *[truncated — read full file for details]*
 

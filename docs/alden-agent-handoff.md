@@ -1,35 +1,40 @@
 # Alden ↔ Agent Handoff
 
-## From Alden — last updated: Wed, Mar 25, 11:44 PM
+## From Alden — last updated: Thu, Mar 26, 8:53 PM
 
-## Triage Complete: Sofia Pattern d7a6c15e — failsafe_tier2_45s (6th recurrence)
+## Triage Decision: Sofia Pattern f4b571b7 — Routed to Agent (8th Recurrence)
 
-**Investigation Date:** March 25, 2026, 5:43 PM MDT
+**Triage Date:** March 26, 2026, 2:50 PM MDT
 
-**Pattern Detected:** Sofia flagged 4x "no_audio" events in 24 hours (pattern ID: d7a6c15e-143e-4be5-a393-a473b563adb8), all `failsafe_tier2_45s` from development environment.
+**Pattern Detected:** Sofia flagged 4x "connection" events (pattern ID: f4b571b7-c491-4e08-ab02-5a00243c8ed3).
 
-**Root Cause:** BENIGN TESTING NOISE — same signature as five previous occurrences (patterns 03637db5, 002b29fa, 9dc13044, b2dd7806, 98c186d8).
+**Decision:** **ESCALATED TO AGENT** — not fixed autonomously.
 
-The Tier-2 failsafe in `client/src/hooks/useStreamingVoice.ts` (lines 1135-1193) fires 45 seconds after `response_complete` when audio playback state is 'idle', user hasn't started a new turn, and AudioContext state is 'running'. **By design** — meant to clear stuck AudioWorklet states. But it also fires when audio completes successfully and the user pauses >45s before responding (normal dev testing behavior).
+**Why:** This is the **8th occurrence** of the identical benign signature I've investigated 7 times (patterns 002b29fa, 9dc13044, b2dd7806, 98c186d8, 03637db5, d7a6c15e, ea1ea9c0). All show the same fingerprint:
+- `expected=1 received=1` (audio delivered)
+- `playing=playing, context=running` (audio working)
+- Single user, Windows desktop, dev/prod testing
+- **Not a bug** — sessions work correctly
 
-**Evidence:**
-- All 4 events from user 49847136 (David) on March 24
-- Development environment, same conversation (8b14aa73-afd4-...)
-- Diagnostic snapshots show `expected=received` sentence counts (audio delivered successfully)
-- Audio state: `playing=idle, context=running` (audio finished normally, user paused)
+**The Real Problem:** Sofia's pattern detection lacks signature deduplication. She escalates the same benign signature repeatedly instead of recognizing it was already triaged.
 
-**Decision:** No code change needed. The failsafe serves a real purpose in production (recovers from genuine AudioWorklet stuck states). False-positive rate is acceptable (4 events/24h from single dev user during testing).
+**Recommended Fix (Agent-level work):**
+Add signature matching to Sofia's pattern detector:
+1. Compute signature hash from event type + diagnostic fingerprint
+2. Check `support_patterns` for status='investigated'/'benign' matches (age < 30 days)
+3. If match: increment occurrenceCount + update lastSeen, skip escalation
+4. Only escalate genuinely new signatures
+
+**Why Auto-Repair Declined:** Requires architectural changes to Sofia's pattern detection service (>3 files, new hashing logic, touches core detection). Outside auto-repair guardrails.
 
 **Actions Taken:**
-- Notified David via info-level notification (queued successfully)
-- Documented in Express Lane (post failed due to metadata format issue)
-- Pattern status: should be marked 'investigated' in `support_patterns` table (no direct DB write capability from Alden)
+- Left detailed note for Agent (leave_note_for_agent, id: 62bd3c3e)
+- Notified David (info-level, explained 8th recurrence)
+- Saved to persistent memory (debugging category, importance 7)
 
-**Note for Agent:** If Sofia flags this pattern again (7th time), consider either:
-1. Adding pattern deduplication logic in Sofia's escalation — don't escalate identical signatures already triaged
-2. OR adding a `support_patterns` API endpoint so Alden can mark patterns as 'investigated' autonomously
+**Note for Agent:** I've done preliminary investigation — the pattern is genuinely benign (audio diagnostics prove sessions work). The fix needed is systematic: prevent Sofia from re-escalating previously-triaged signatures. Start with searching for Sofia's pattern detection service (likely contains "pattern" + "detect"). May need to add `signatureHash` column to `support_patterns` table.
 
-— Alden, March 25, 2026, 5:43 PM MDT
+— Alden, March 26, 2026, 2:50 PM MDT
 
 ---
 

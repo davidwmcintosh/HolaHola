@@ -78,9 +78,14 @@ async function computeHealthStatus(): Promise<{ status: string; reasons: string[
     // Extreme single-user crisis — 20+ errors in one hour is genuinely broken
     status = 'red';
     reasons.push(`${h1.total} events in last hour (${h1.errors} errors) — single user crisis`);
-  } else if (h1.errors > 0 || h1.total > 5) {
+  } else if ((h1.errors > 0 || h1.total > 5) && h1.users >= 2) {
+    // YELLOW (multi): multiple users affected
     status = 'yellow';
     reasons.push(`${h1.total} events in last hour affecting ${h1.users} users`);
+  } else if (h1.errors > 5 && h1.users === 1) {
+    // YELLOW (single): single user with elevated errors (>5)
+    status = 'yellow';
+    reasons.push(`${h1.total} events in last hour (${h1.errors} errors) — single user elevated errors`);
   }
 
   // Per-user event rate only escalates health when multiple users are affected.

@@ -2824,7 +2824,6 @@ export function StreamingVoiceChat({
       const tutorName = tutorGender === 'male' ? tutorNames.male : tutorNames.female;
       await apiRequest('POST', '/api/sessions/submit-report', {
         conversationId,
-        streamingSessionId: streamingVoice.state.sessionId,
         language,
         tutorName,
       });
@@ -3544,7 +3543,7 @@ export function StreamingVoiceChat({
         </div>
       )}
       {/* Top-right controls: Submit Report + Micro-Ack Toggle */}
-      {useStreamingMode && streamingVoice.state.connectionState !== 'disconnected' && (
+      {useStreamingMode && (
         <div className="absolute top-3 right-3 z-50 flex items-center gap-1">
           <Button
             size="sm"

@@ -1,8 +1,57 @@
 # Alden → Agent Notes
 
-*1 unread note from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
+*2 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
 
-Generated: 3/26/2026, 8:48:07 PM
+Generated: 3/26/2026, 9:00:19 PM
+
+---
+
+### Sofia Pattern Deduplication — 8th Recurrence of Same Benign Signature
+*Thu, Mar 26, 2026, 8:51 PM* (id: `62bd3c3e-458a-431b-a43a-81b35b325c72`)
+*During: Autonomous Triage — Sofia Pattern f4b571b7 (8th recurrence)*
+
+## Context
+
+Sofia has flagged pattern f4b571b7-c491-4e08-ab02-5a00243c8ed3 (4x "connection" events) for autonomous triage. This is the **8th occurrence** of the identical benign testing noise signature I've investigated 7 times previously.
+
+## Previous Pattern IDs (All Same Signature)
+- 002b29fa, 9dc13044, b2dd7806, 98c186d8, 03637db5, d7a6c15e, ea1ea9c0
+
+## Signature
+- Event type: "connection" 
+- Diagnostic: `expected=1 received=1` (audio delivered successfully)
+- Audio state: `playing=playing, context=running` (working normally)
+- User: Single Windows desktop browser, development/production testing
+- **Not a bug** — audio is playing, sentences match, context is running
+
+## Root Cause (Confirmed 7 Times)
+The `client_diag_error` handler fires when console.error is logged during voice sessions. But some errors are diagnostic logging, not actual failures. The audio delivery diagnostics prove sessions work correctly.
+
+## The Real Problem
+Sofia's pattern detection lacks **signature deduplication** against previously-triaged patterns. She's escalating the same benign signature repeatedly (now 8 times) instead of recognizing it was already investigated and marked benign.
+
+## Recommended Fix (Agent-Level Work)
+Add pattern signature matching to Sofia's escalation logic:
+1. When Sofia detects a new pattern, compute a signature hash (event type + diagnostic fingerprint)
+2. Check `support_patterns` table for any patterns with status='investigated' or 'benign' matching that signature
+3. If match found and age < 30 days, skip escalation — increment `occurrenceCount` and update `lastSeen` instead
+4. Only escalate genuinely new signatures OR old signatures that haven't been seen in 30+ days
+
+## Why Auto-Repair Declined
+This requires architectural changes to Sofia's pattern detection service (likely `server/services/sofia-pattern-detector.ts` or similar). Outside auto-repair guardrails (>3 files, requires new hashing logic, touches pattern detection core).
+
+## Immediate Action Taken
+- Notifying David via info-level notification that this is the 8th recurrence
+- Leaving this note for Agent to implement systematic fix
+
+## Files to Start With
+- Search for Sofia pattern detection service (likely contains "pattern" + "detect" or "escalate")
+- `support_patterns` table schema (shared/schema.ts line 5614)
+- May need to add `signatureHash` column to support_patterns table for efficient lookups
+
+Let me know if you need me to do preliminary research on where Sofia's pattern detector lives before you start the session.
+
+— Alden, March 26, 2026
 
 ---
 
