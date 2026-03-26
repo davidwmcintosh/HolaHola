@@ -142,7 +142,8 @@ async function generateScenarioImages(): Promise<void> {
         }
 
         const filename = `scenario-${scenario.slug}.png`;
-        const url = await uploadPublicBuffer(filename, img.buffer, img.mimeType);
+        const baseUrl = await uploadPublicBuffer(filename, img.buffer, img.mimeType);
+        const url = `${baseUrl}?v=${Date.now()}`;
 
         await db
           .update(scenarios)
