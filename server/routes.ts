@@ -29415,9 +29415,10 @@ You have full access to your neural network knowledge.
     }
   });
 
-  // Scenarios recommended for the user based on their next upcoming curriculum lessons.
-  // Works for both class-enrolled students (uses syllabus progress) and self-directed
-  // learners (uses the language's curriculum path + scenario practice history as a proxy).
+  // Scenarios recommended for the user — uses the same lesson-by-lesson topic scoring
+  // as the textbook chapter endpoint, so the hub strip always matches the textbook order.
+  // Walks curriculum lessons in sequence; for each lesson finds its best-matching unpracticed
+  // scenario (identical logic to relatedScenario in /api/textbook/:language/chapter/:chapterId).
   app.get("/api/scenarios/recommended", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getRequestUserId(req);
@@ -29426,124 +29427,102 @@ You have full access to your neural network knowledge.
       const { classId, language } = req.query as { classId?: string; language?: string };
       const sharedDb = getSharedDb();
 
-      const upcomingTopics = new Set<string>();
+      // Scenarios already practiced — used to skip them so we always show what's next
+      const practiced = await sharedDb
+        .select({ scenarioId: userScenarioHistory.scenarioId })
+        .from(userScenarioHistory)
+        .where(eq(userScenarioHistory.userId, userId));
+      const practicedIds = new Set(practiced.map(p => p.scenarioId));
+
+      // All active scenarios for this language
+      let allActiveScenarios = await sharedDb.select().from(scenarios).where(eq(scenarios.isActive, true));
+      if (language) allActiveScenarios = allActiveScenarios.filter(s => s.languages?.includes(language));
+
+      let pathId: string | null = null;
+      let completedLessonIds = new Set<string>();
       let mode: 'class' | 'self-directed' = 'self-directed';
 
       // ── Class-enrolled path ──────────────────────────────────────────────────
       if (classId) {
-        const classRow = await sharedDb.select({ curriculumPathId: teacherClasses.curriculumPathId })
+        const classRow = await sharedDb
+          .select({ curriculumPathId: teacherClasses.curriculumPathId })
           .from(teacherClasses)
           .where(eq(teacherClasses.id, classId))
           .limit(1);
-
-        const curriculumPathId = classRow[0]?.curriculumPathId;
-        if (curriculumPathId) {
+        pathId = classRow[0]?.curriculumPathId ?? null;
+        if (pathId) {
           mode = 'class';
-          const [units, syllabusProgress] = await Promise.all([
-            storage.getCurriculumUnits(curriculumPathId),
-            storage.getSyllabusProgress(userId, classId),
-          ]);
-
-          const completedLessons = new Set(
-            syllabusProgress
+          const progressRecords = await storage.getSyllabusProgress(userId, classId);
+          completedLessonIds = new Set(
+            progressRecords
               .filter(p => p.status === 'completed_early' || p.status === 'completed_assigned' || p.tutorVerified)
               .map(p => p.lessonId)
           );
-
-          let collected = 0;
-          outer: for (const unit of units) {
-            const lessons = await storage.getCurriculumLessons(unit.id);
-            for (const lesson of lessons) {
-              if (!completedLessons.has(lesson.id)) {
-                for (const t of lesson.requiredTopics ?? []) upcomingTopics.add(t);
-                if (lesson.conversationTopic) upcomingTopics.add(lesson.conversationTopic);
-                if (++collected >= 8) break outer;
-              }
-            }
-          }
         }
       }
 
       // ── Self-directed path ───────────────────────────────────────────────────
-      // Use the language's curriculum path and the user's scenario practice history
-      // to determine where they are in the curriculum and what comes next.
-      if (mode === 'self-directed' && language) {
+      if (!pathId && language) {
         const paths = await storage.getCurriculumPaths(language);
         // Prefer Level 1 / beginner path; fall back to first available
         const path = paths.find(p => /\b1\b/.test(p.name)) ?? paths[0];
+        if (path) pathId = path.id;
+        // Self-directed students don't have syllabus progress records;
+        // instead we skip scenarios they've already practiced (practicedIds above).
+      }
 
-        if (path) {
-          // Collect curriculum topics from scenarios the user has already practiced
-          const practiced = await sharedDb.select({ scenarioId: userScenarioHistory.scenarioId })
-            .from(userScenarioHistory)
-            .where(eq(userScenarioHistory.userId, userId));
+      if (!pathId) {
+        // No curriculum found — varied random fallback
+        return res.json(allActiveScenarios.sort(() => Math.random() - 0.5).slice(0, 3).map(s => ({ ...s, mode })));
+      }
 
-          const practicedIds = new Set(practiced.map(p => p.scenarioId));
+      // ── Walk curriculum lesson-by-lesson, same scoring as textbook ───────────
+      // For each lesson (in curriculum order), find the best-matching scenario that
+      // hasn't been practiced yet. This mirrors the relatedScenario logic in the
+      // textbook chapter endpoint so hub and textbook always agree on what's next.
+      const picked: typeof allActiveScenarios = [];
+      const pickedIds = new Set<string>();
 
-          // Build set of topics already covered by practiced scenarios
-          const coveredTopics = new Set<string>();
-          if (practicedIds.size > 0) {
-            const allActiveScens = await sharedDb.select().from(scenarios)
-              .where(eq(scenarios.isActive, true));
-            for (const s of allActiveScens) {
-              if (practicedIds.has(s.id)) {
-                for (const t of s.curriculumTopics ?? []) coveredTopics.add(t);
-              }
-            }
-          }
+      const units = await storage.getCurriculumUnits(pathId);
+      outer: for (const unit of units) {
+        const lessons = await storage.getCurriculumLessons(unit.id);
+        for (const lesson of lessons) {
+          // Class students: skip lessons they've already completed
+          if (mode === 'class' && completedLessonIds.has(lesson.id)) continue;
 
-          // Walk the curriculum from the start; collect topics from lessons not yet covered
-          const units = await storage.getCurriculumUnits(path.id);
-          let collected = 0;
-          selfOuter: for (const unit of units) {
-            const lessons = await storage.getCurriculumLessons(unit.id);
-            for (const lesson of lessons) {
-              const lessonTopics = [
-                ...(lesson.requiredTopics ?? []),
-                ...(lesson.conversationTopic ? [lesson.conversationTopic] : []),
-              ];
-              // "Covered" = all of the lesson's topics are already in coveredTopics
-              const alreadyCovered = lessonTopics.length > 0 &&
-                lessonTopics.every(t => coveredTopics.has(t));
-              if (!alreadyCovered) {
-                for (const t of lessonTopics) upcomingTopics.add(t);
-                if (++collected >= 8) break selfOuter;
-              }
-            }
+          const lessonTopics = new Set(lesson.requiredTopics ?? []);
+          if (lessonTopics.size === 0) continue;
+
+          // Score every unpracticed, unpicked scenario against this lesson's topics
+          const best = allActiveScenarios
+            .filter(s => !practicedIds.has(s.id) && !pickedIds.has(s.id))
+            .map(s => ({
+              scenario: s,
+              score: (s.curriculumTopics ?? []).filter(t => lessonTopics.has(t)).length,
+            }))
+            .filter(s => s.score > 0)
+            .sort((a, b) => b.score - a.score)[0];
+
+          if (best) {
+            picked.push(best.scenario);
+            pickedIds.add(best.scenario.id);
+            if (picked.length >= 3) break outer;
           }
         }
       }
 
-      // ── Fetch & score scenarios ──────────────────────────────────────────────
-      let allScenarios = await sharedDb.select().from(scenarios).where(eq(scenarios.isActive, true));
-      if (language) allScenarios = allScenarios.filter(s => s.languages?.includes(language));
-
-      if (upcomingTopics.size === 0) {
-        // No curriculum found — return a varied random selection as a last resort
-        return res.json(allScenarios.sort(() => Math.random() - 0.5).slice(0, 3));
+      // Fallback: if the curriculum yielded fewer than 3, pad from unpracticed pool
+      if (picked.length < 3) {
+        for (const s of allActiveScenarios.sort(() => Math.random() - 0.5)) {
+          if (picked.length >= 3) break;
+          if (!practicedIds.has(s.id) && !pickedIds.has(s.id)) {
+            picked.push(s);
+            pickedIds.add(s.id);
+          }
+        }
       }
 
-      const scored = allScenarios.map(s => ({
-        scenario: s,
-        score: (s.curriculumTopics ?? []).filter(t => upcomingTopics.has(t)).length,
-      }));
-
-      // Sort by score desc, shuffle within equal-score tiers for variety
-      scored.sort((a, b) => b.score - a.score || Math.random() - 0.5);
-
-      // Pick one from each category group to keep the strip varied
-      const groups = [['daily', 'travel'], ['professional', 'social'], ['cultural', 'emergency']];
-      const picked: typeof scored = [];
-      for (const cats of groups) {
-        const best = scored.find(s => cats.includes(s.scenario.category) && !picked.includes(s));
-        if (best) picked.push(best);
-      }
-      for (const s of scored) {
-        if (picked.length >= 3) break;
-        if (!picked.includes(s)) picked.push(s);
-      }
-
-      res.json(picked.slice(0, 3).map(p => ({ ...p.scenario, relevanceScore: p.score, mode })));
+      res.json(picked.slice(0, 3).map(s => ({ ...s, mode })));
     } catch (error: any) {
       console.error("[Scenarios] Recommended error:", error);
       res.status(500).json({ error: error.message });
