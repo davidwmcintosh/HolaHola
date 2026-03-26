@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, March 26, 2026 at 10:16 PM
+**Generated:** Thursday, March 26, 2026 at 11:33 PM
 
 ---
 
@@ -135,15 +135,15 @@ PHASE 1 — Schema Migration:
 ## Notes From Alden
 *Also check docs/alden-to-agent.md for unread direct notes*
 
-## Triage Decision: Sofia Pattern 6d7dc0e7 — Routed to Agent (14th Recurrence)
+## Triage Decision: Sofia Pattern 796308d1 — Routed to Agent (15th Recurrence)
 
-**Triage Date:** March 26, 2026, 4:13 PM MDT
+**Triage Date:** March 26, 2026, 4:19 PM MDT
 
-**Pattern Detected:** Sofia flagged 5x "connection" events (pattern ID: 6d7dc0e7-0b6f-43c3-aacc-189d790380f2).
+**Pattern Detected:** Sofia flagged 6x "connection" events (pattern ID: 796308d1-4a4a-4651-ad67-f8fd3ace939c).
 
 **Decision:** **ESCALATED TO AGENT** — not fixed autonomously.
 
-**Why:** This is the **14th occurrence** of the identical benign signature I've investigated 13 times (patterns 002b29fa, 9dc13044, b2dd7806, 98c186d8, 03637db5, d7a6c15e, ea1ea9c0, f4b571b7, 4398e1d9, d3bc388b, aa6d1d5d, 216f3330, e576c105). All show the same fingerprint:
+**Why:** This is the **15th occurrence** of the identical benign signature I've investigated 14 times (patterns 002b29fa, 9dc13044, b2dd7806, 98c186d8, 03637db5, d7a6c15e, ea1ea9c0, f4b571b7, 4398e1d9, d3bc388b, aa6d1d5d, 216f3330, e576c105, 6b809cc6, 6d7dc0e7). All show the same fingerprint:
 - `expected=1 received=1` (audio delivered)
 - `playing=playing, context=running` (audio working)
 - Windows desktop user, production
@@ -155,7 +155,7 @@ PHASE 1 — Schema Migration:
 Add signature matching to Sofia's pattern detector:
 1. Compute signature hash from event type + diagnostic fingerprint
 2. Check `support_patterns` for status='investigated'/'benign' matches (age < 30 days)
-3. If match: increment oc
+3. If
 
 *[truncated — read full file for details]*
 

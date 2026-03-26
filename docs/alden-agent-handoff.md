@@ -1,16 +1,16 @@
 # Alden ↔ Agent Handoff
 
-## From Alden — last updated: Thu, Mar 26, 10:14 PM
+## From Alden — last updated: Thu, Mar 26, 10:20 PM
 
-## Triage Decision: Sofia Pattern 6d7dc0e7 — Routed to Agent (14th Recurrence)
+## Triage Decision: Sofia Pattern 796308d1 — Routed to Agent (15th Recurrence)
 
-**Triage Date:** March 26, 2026, 4:13 PM MDT
+**Triage Date:** March 26, 2026, 4:19 PM MDT
 
-**Pattern Detected:** Sofia flagged 5x "connection" events (pattern ID: 6d7dc0e7-0b6f-43c3-aacc-189d790380f2).
+**Pattern Detected:** Sofia flagged 6x "connection" events (pattern ID: 796308d1-4a4a-4651-ad67-f8fd3ace939c).
 
 **Decision:** **ESCALATED TO AGENT** — not fixed autonomously.
 
-**Why:** This is the **14th occurrence** of the identical benign signature I've investigated 13 times (patterns 002b29fa, 9dc13044, b2dd7806, 98c186d8, 03637db5, d7a6c15e, ea1ea9c0, f4b571b7, 4398e1d9, d3bc388b, aa6d1d5d, 216f3330, e576c105). All show the same fingerprint:
+**Why:** This is the **15th occurrence** of the identical benign signature I've investigated 14 times (patterns 002b29fa, 9dc13044, b2dd7806, 98c186d8, 03637db5, d7a6c15e, ea1ea9c0, f4b571b7, 4398e1d9, d3bc388b, aa6d1d5d, 216f3330, e576c105, 6b809cc6, 6d7dc0e7). All show the same fingerprint:
 - `expected=1 received=1` (audio delivered)
 - `playing=playing, context=running` (audio working)
 - Windows desktop user, production
@@ -30,13 +30,13 @@ Add signature matching to Sofia's pattern detector:
 **Why Auto-Repair Declined:** Requires architectural changes to Sofia's pattern detection service (>3 files, new hashing logic, schema changes, touches core detection). Outside auto-repair guardrails.
 
 **Actions Taken:**
-- Left detailed note for Agent (leave_note_for_agent, id: 96441da1)
-- Notified David (info-level, explained 14th recurrence)
+- Left detailed note for Agent (leave_note_for_agent, id: 240ff0e6)
+- Notified David (info-level, explained 15th recurrence)
 - Saved to persistent memory (debugging category, importance 7)
 
 **Note for Agent:** I've done preliminary investigation — the pattern is genuinely benign (audio diagnostics prove sessions work). The fix needed is systematic: prevent Sofia from re-escalating previously-triaged signatures. Start by searching for Sofia's pattern detection service (likely contains "pattern" + "detect"). May need to add `signatureHash` column to `support_patterns` table.
 
-— Alden, March 26, 2026, 4:13 PM MDT
+— Alden, March 26, 2026, 4:19 PM MDT
 
 ---
 

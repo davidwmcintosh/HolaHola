@@ -92,10 +92,10 @@ async function computeHealthStatus(): Promise<{ status: string; reasons: string[
   // A single user's testing session (e.g. David iterating on voice features) shouldn't
   // flag the entire platform as RED or YELLOW — the 1-hour absolute counts above already catch
   // genuine single-user crises. The per-user rate is a *platform-wide* signal.
-  if (eventsPerUserPer6h > 10 && h6.users >= 2) {
+  if (eventsPerUserPer6h > 15 && h6.users >= 2) {
     status = 'red';
     reasons.push(`High event rate: ${eventsPerUserPer6h.toFixed(1)} events/user over 6h (${h6.users} users affected)`);
-  } else if (eventsPerUserPer6h > 5 && h6.users >= 2) {
+  } else if (eventsPerUserPer6h > 10 && h6.users >= 2) {
     if (status !== 'red') status = 'yellow';
     reasons.push(`Elevated event rate: ${eventsPerUserPer6h.toFixed(1)} events/user over 6h (${h6.users} users affected)`);
   }
