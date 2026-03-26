@@ -14,11 +14,6 @@ import {
   Lock,
   Sparkles,
   GraduationCap,
-  MessageSquare,
-  Eye,
-  ThumbsUp,
-  ThumbsDown,
-  MapPin
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import {
@@ -211,151 +206,6 @@ function formatActflLevel(level: string): string {
     .join(' ');
 }
 
-interface ReviewItem {
-  id: string;
-  prompt: string;
-  targetText: string;
-  context?: string | null;
-  itemType: string;
-  scenarioSlug?: string | null;
-  attempts: number;
-  mastered: boolean;
-}
-
-function ConversationReviewSection() {
-  const { language } = useLanguage();
-  const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
-  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
-
-  const { data, isLoading } = useQuery<{ items: ReviewItem[] }>({
-    queryKey: ['/api/review-items', language],
-    queryFn: async () => {
-      const res = await fetch(`/api/review-items?language=${encodeURIComponent(language)}&limit=5`, { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to load review items');
-      return res.json();
-    },
-    staleTime: 30_000,
-  });
-
-  const attemptMutation = useMutation({
-    mutationFn: async ({ id, isCorrect }: { id: string; isCorrect: boolean }) => {
-      return apiRequest('POST', `/api/review-items/${id}/attempt`, { isCorrect });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/review-items', language] });
-    },
-  });
-
-  const handleReveal = (id: string) => {
-    setRevealedIds(prev => new Set(prev).add(id));
-  };
-
-  const handleGrade = (id: string, isCorrect: boolean) => {
-    attemptMutation.mutate({ id, isCorrect });
-    setDismissedIds(prev => new Set(prev).add(id));
-  };
-
-  if (isLoading) {
-    return (
-      <Card className="p-4 space-y-3" data-testid="card-conversation-review-loading">
-        <div className="flex items-center gap-2">
-          <MessageSquare className="h-4 w-4 text-muted-foreground" />
-          <Skeleton className="h-4 w-40" />
-        </div>
-        <Skeleton className="h-16 w-full" />
-      </Card>
-    );
-  }
-
-  const items = (data?.items || []).filter(item => !dismissedIds.has(item.id));
-  if (items.length === 0) return null;
-
-  return (
-    <Card className="p-4" data-testid="card-conversation-review">
-      <div className="flex items-center gap-2 mb-3">
-        <MessageSquare className="h-4 w-4 text-primary" />
-        <h3 className="font-semibold text-sm">From your conversations</h3>
-        <Badge variant="outline" className="text-xs ml-auto">{items.length} to review</Badge>
-      </div>
-
-      <div className="space-y-3">
-        {items.map(item => {
-          const isRevealed = revealedIds.has(item.id);
-          return (
-            <div
-              key={item.id}
-              className="rounded-md border p-3 space-y-2"
-              data-testid={`review-item-${item.id}`}
-            >
-              <div className="flex items-start gap-2 flex-wrap">
-                <Badge variant="outline" className="text-xs capitalize shrink-0">{item.itemType}</Badge>
-                {item.scenarioSlug && (
-                  <Badge variant="outline" className="text-xs shrink-0 flex items-center gap-1">
-                    <MapPin className="w-2.5 h-2.5" />
-                    {item.scenarioSlug.replace(/_/g, ' ')}
-                  </Badge>
-                )}
-              </div>
-
-              <p className="text-sm font-medium" data-testid={`text-review-prompt-${item.id}`}>
-                {item.prompt}
-              </p>
-
-              {item.context && (
-                <p className="text-xs text-muted-foreground italic">"{item.context}"</p>
-              )}
-
-              {!isRevealed ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => handleReveal(item.id)}
-                  data-testid={`button-reveal-${item.id}`}
-                >
-                  <Eye className="w-3.5 h-3.5 mr-1.5" />
-                  Show answer
-                </Button>
-              ) : (
-                <div className="space-y-2">
-                  <div className="bg-primary/10 rounded-md px-3 py-2 text-center">
-                    <p className="text-sm font-semibold text-primary" data-testid={`text-review-answer-${item.id}`}>
-                      {item.targetText}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => handleGrade(item.id, false)}
-                      disabled={attemptMutation.isPending}
-                      data-testid={`button-wrong-${item.id}`}
-                    >
-                      <ThumbsDown className="w-3.5 h-3.5 mr-1.5" />
-                      Still learning
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => handleGrade(item.id, true)}
-                      disabled={attemptMutation.isPending}
-                      data-testid={`button-correct-${item.id}`}
-                    >
-                      <ThumbsUp className="w-3.5 h-3.5 mr-1.5" />
-                      Got it
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </Card>
-  );
-}
-
 function ChapterListView({
   chapters,
   textbookData,
@@ -501,8 +351,6 @@ function ChapterListView({
         </Card>
       )}
       
-      <ConversationReviewSection />
-
       {error ? (
         <Card className="p-6 text-center">
           <p className="text-muted-foreground">
