@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, March 25, 2026 at 11:41 PM
+**Generated:** Thursday, March 26, 2026 at 12:26 AM
 
 ---
 
@@ -135,27 +135,23 @@ PHASE 1 — Schema Migration:
 ## Notes From Alden
 *Also check docs/alden-to-agent.md for unread direct notes*
 
-## Triage Complete: Sofia Pattern 03637db5 — failsafe_tier2_45s (no_audio cluster)
+## Triage Complete: Sofia Pattern d7a6c15e — failsafe_tier2_45s (6th recurrence)
 
-**Investigation Date:** March 25, 2026, 4:16 PM MDT
+**Investigation Date:** March 25, 2026, 5:43 PM MDT
 
-**Pattern Detected:** Sofia flagged 5x "no_audio" events in 24 hours (pattern ID: 03637db5-ab35-4bcf-8dfa-cc93b97a3ca5), all `failsafe_tier2_45s` from development environment.
+**Pattern Detected:** Sofia flagged 4x "no_audio" events in 24 hours (pattern ID: d7a6c15e-143e-4be5-a393-a473b563adb8), all `failsafe_tier2_45s` from development environment.
 
-**Root Cause:** BENIGN TESTING NOISE, not a bug.
+**Root Cause:** BENIGN TESTING NOISE — same signature as five previous occurrences (patterns 03637db5, 002b29fa, 9dc13044, b2dd7806, 98c186d8).
 
-The Tier-2 failsafe in `client/src/hooks/useStreamingVoice.ts` (lines 1135-1193) fires 45 seconds after `response_complete` when:
-1. Audio playback state is 'idle' (audio finished)
-2. User hasn't started a new turn
-3. AudioContext state is 'running'
+The Tier-2 failsafe in `client/src/hooks/useStreamingVoice.ts` (lines 1135-1193) fires 45 seconds after `response_complete` when audio playback state is 'idle', user hasn't started a new turn, and AudioContext state is 'running'. **By design** — meant to clear stuck AudioWorklet states. But it also fires when audio completes successfully and the user pauses >45s before responding (normal dev testing behavior).
 
-**The design intent:** Clear stuck states where AudioContext reports "running" but audio callbacks silently failed (stuck AudioWorklet).
+**Evidence:**
+- All 4 events from user 49847136 (David) on March 24
+- Development environment, same conversation (8b14aa73-afd4-...)
+- Diagnostic snapshots show `expected=received` sentence counts (audio delivered successfully)
+- Audio state: `playing=idle, context=running` (audio finished normally, user paused)
 
-**What actually happened:** Audio played correctly (diagnostic snapshots show "expected=4 received=4" and "expected=1 received=1"), but David paused >45 seconds before responding during dev testing. The timer expired while he was thinking — not because audio failed.
-
-**Evidence from diagnostics:**
-- All 5 events from user 49847136 (David) on March 24
-- Snapshots show: "Audio playing=idle, context=running"
-- Sentence counts match: expected=rece
+**Decision:**
 
 *[truncated — read full file for details]*
 
