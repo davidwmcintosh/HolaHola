@@ -35,7 +35,7 @@ const SCENE_OVERRIDES: Record<string, string> = {
 
   'business-lunch': `Upscale restaurant interior, midday. Two colleagues sit across from each other at a set table — a man in a blazer and open-collar shirt reviewing a menu, a woman in a smart blouse with a glass of water in front of her. White tablecloth, wine glasses, a small bread basket. Warm neutral restaurant tones. Professional but relaxed energy. ${DALL_E_STYLE}`,
 
-  'job-interview': `Modern company office interview room. A female interviewer in a blazer sits behind a tidy desk, clipboard in hand, smiling attentively. Across the desk sits a male job candidate in a collared shirt, slightly leaning forward. A potted plant in the corner, a window with soft daylight, and a clean whiteboard on the wall (completely blank). Calm, professional atmosphere. ${DALL_E_STYLE}`,
+  'job-interview': `Wide interior view of a modern company office interview room, filling the full frame wall to wall. The entire background is a warm grey painted wall stretching across the full width. On the left side of the room: a tall bookshelf with binders. On the right side: a large window with daylight. Center: a female interviewer with short dark hair (bare, uncovered head) in a navy blazer sits behind a wooden desk, clipboard in hand, smiling warmly. Across the desk, a male job candidate with short neat hair (bare, uncovered head) in a collared shirt leans forward attentively. A potted plant on the desk, a blank whiteboard on the back wall. The floor is visible at the bottom of the frame. ${DALL_E_STYLE}`,
 
   'networking-event': `A bright conference hall during a professional networking mixer. Two professionals stand face-to-face exchanging business cards — a woman in a blazer and a man in a button-down shirt, both with small name-badge lanyards. In the blurred background, a few indistinct figures and a banner with no text. Confident, friendly energy. ${DALL_E_STYLE}`,
 
@@ -49,7 +49,7 @@ const SCENE_OVERRIDES: Record<string, string> = {
 
   'airport-checkin': `An airport check-in counter, bright terminal lighting. A female traveler in jeans, a light jacket, and sneakers stands at the counter with a rolling suitcase, handing over her passport. A male airline agent in a uniform shirt stands behind the counter, smiling and typing on a keyboard. Clean, modern airport terminal. ${DALL_E_STYLE}`,
 
-  'hotel-checkin': `A stylish modern hotel lobby with marble floors and warm lighting. A male hotel receptionist in a dark suit jacket stands behind an elegant front desk, handing a key card to a female traveler in a casual blazer and jeans, who holds the handle of her wheeled suitcase. Both characters clearly visible from head to waist. ${DALL_E_STYLE}`,
+  'hotel-checkin': `Wide interior view of a stylish hotel lobby, filling the full frame corner to corner. The background is a warm beige wall spanning the full width, with a large decorative mirror on the left and a tall leafy plant on the right. The marble floor is visible at the bottom. Center: a male hotel receptionist with short neat dark hair (bare, uncovered head) in a dark suit jacket stands behind an elegant front desk. Across the desk, a female traveler with long straight chestnut hair completely loose and uncovered (NO scarf, NO hijab) wearing a casual blazer and jeans, holds a wheeled suitcase handle and receives a key card. ${DALL_E_STYLE}`,
 
   'taxi-ride': `Inside a yellow taxi cab, viewed from a slight side angle. A young woman with loose hair and casual clothes sits in the back seat, leaning toward a plastic partition to speak with the driver. The driver — a man in a casual shirt — is visible from behind and reflected in the rear-view mirror. Through the windows: a sunny city street. A glowing fare meter sits on the dashboard. ${DALL_E_STYLE}`,
 
@@ -73,7 +73,7 @@ const SCENE_OVERRIDES: Record<string, string> = {
 
   'taqueria': `A vibrant Mexican street taqueria. A male taquero in his 30s — white apron and backward baseball cap — stands at a sizzling flat-top grill loaded with carne asada, using a spatula. A small counter in front of him holds lime wedges, fresh cilantro, and small bowls of salsa verde and roja. A female customer leans on the counter smiling, ready to order. Rich warm colors: terracotta, avocado green, golden yellow. ${DALL_E_STYLE}`,
 
-  'the-bank': `A bright modern bank interior with a glass service counter. A male bank teller in a dark dress shirt and short hair sits behind the counter, smiling warmly. A female customer in a light blazer and jeans stands across from him, holding her phone out. Calm, professional atmosphere with clean lines. ${DALL_E_STYLE}`,
+  'the-bank': `Wide interior view of a bright modern bank branch, filling the full frame wall to wall. The background is a clean white wall stretching the full width, with a row of teller booths visible and a large potted plant on the left side. The polished floor is visible at the bottom of the frame. Center: a male bank teller with short natural hair (bare, uncovered head) in a dark dress shirt sits behind a glass service counter, smiling warmly. Across the counter stands a female customer with shoulder-length curly hair (bare, uncovered head) in a light blazer and jeans, holding her phone out. ${DALL_E_STYLE}`,
 
   // ── EMERGENCY ────────────────────────────────────────────────────────────────
 
