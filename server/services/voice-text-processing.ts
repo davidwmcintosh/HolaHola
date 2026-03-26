@@ -411,6 +411,13 @@ export function cleanTextForDisplay(text: string): string {
     cleaned = cleaned.replace(/\s*\([^()]*\)\s*/g, ' ');
   }
   
+  // Collapse letter-by-letter spellings back into words (e.g. "s-a-i-d" → "said").
+  // Gemini sometimes writes individual letters separated by hyphens for emphasis or pedagogical
+  // purposes (e.g. "as I s-a-i-d before") and TTS engines faithfully spell each letter aloud.
+  // Only matches when EVERY segment between hyphens is exactly one character (word boundaries)
+  // so real hyphenated words like "t-shirt", "co-op", "e-mail", "X-ray" are never touched.
+  cleaned = cleaned.replace(/\b([a-z](?:-[a-z])+)\b/gi, (match) => match.replace(/-/g, ''));
+
   // Convert ALL CAPS common words to lowercase to prevent TTS from spelling them out as acronyms.
   // Gemini uses caps for emphasis (e.g. "I will ASK you a question") but TTS engines interpret
   // short all-caps words as acronyms and spell each letter: "A-S-K".
