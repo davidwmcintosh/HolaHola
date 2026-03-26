@@ -530,67 +530,6 @@ export default function ReviewHub() {
         className="py-2"
       />
 
-      {/* Interactive Textbook */}
-      <InteractiveTextbookCard className="mt-2" />
-
-      {/* Practice Scenarios Strip */}
-      {featuredScenarios.length > 0 && (
-        <div data-testid="section-scenario-strip">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h2 className="text-base font-semibold flex items-center gap-2">
-                <Play className="h-4 w-4 text-primary" />
-                Practice Scenarios
-              </h2>
-              {featuredScenarios.length > 0 && (
-                <p className="text-xs text-muted-foreground mt-0.5 ml-6">
-                  {classId ? "Matched to your next lessons" : "Based on your curriculum progression"}
-                </p>
-              )}
-            </div>
-            <Link href="/scenarios">
-              <Button variant="ghost" size="sm" className="text-xs gap-1" data-testid="button-view-all-scenarios">
-                View all
-                <ChevronRight className="h-3 w-3" />
-              </Button>
-            </Link>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            {featuredScenarios.map((scenario) => (
-              <Link href={`/chat?scenario=${scenario.slug}`} key={scenario.id}>
-                <Card
-                  className="hover-elevate cursor-pointer overflow-hidden"
-                  data-testid={`card-featured-scenario-${scenario.slug}`}
-                >
-                  {scenario.imageUrl ? (
-                    <div className="h-24 overflow-hidden">
-                      <img
-                        src={scenario.imageUrl}
-                        alt={scenario.title}
-                        className="w-full h-full object-cover object-top"
-                        data-testid={`img-scenario-cover-${scenario.slug}`}
-                      />
-                    </div>
-                  ) : (
-                    <div className="h-24 bg-muted/60 flex items-center justify-center">
-                      <Play className="w-6 h-6 text-muted-foreground/50" />
-                    </div>
-                  )}
-                  <div className="p-2.5">
-                    <p className="text-xs font-medium leading-snug line-clamp-2" data-testid={`text-scenario-title-${scenario.slug}`}>
-                      {scenario.title}
-                    </p>
-                    {scenario.location && (
-                      <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{scenario.location}</p>
-                    )}
-                  </div>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Daily Plan Section */}
       <Card data-testid="section-daily-plan">
         <CardHeader className="pb-3">
@@ -778,6 +717,68 @@ export default function ReviewHub() {
 
         </CardContent>
       </Card>
+
+      {/* Interactive Textbook */}
+      <InteractiveTextbookCard className="mt-2" />
+
+      {/* Practice Scenarios Strip */}
+      {featuredScenarios.length > 0 && (
+        <div data-testid="section-scenario-strip">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="text-base font-semibold flex items-center gap-2">
+                <Play className="h-4 w-4 text-primary" />
+                Practice Scenarios
+              </h2>
+              {featuredScenarios.length > 0 && (
+                <p className="text-xs text-muted-foreground mt-0.5 ml-6">
+                  {classId ? "Matched to your next lessons" : "Based on your curriculum progression"}
+                </p>
+              )}
+            </div>
+            <Link href="/scenarios">
+              <Button variant="ghost" size="sm" className="text-xs gap-1" data-testid="button-view-all-scenarios">
+                View all
+                <ChevronRight className="h-3 w-3" />
+              </Button>
+            </Link>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {featuredScenarios.map((scenario) => (
+              <Link href={`/chat?scenario=${scenario.slug}`} key={scenario.id}>
+                <Card
+                  className="hover-elevate cursor-pointer overflow-hidden"
+                  data-testid={`card-featured-scenario-${scenario.slug}`}
+                >
+                  {scenario.imageUrl ? (
+                    <div className="h-24 overflow-hidden">
+                      <img
+                        src={scenario.imageUrl}
+                        alt={scenario.title}
+                        className="w-full h-full object-cover object-top"
+                        data-testid={`img-scenario-cover-${scenario.slug}`}
+                      />
+                    </div>
+                  ) : (
+                    <div className="h-24 bg-muted/60 flex items-center justify-center">
+                      <Play className="w-6 h-6 text-muted-foreground/50" />
+                    </div>
+                  )}
+                  <div className="p-2.5">
+                    <p className="text-xs font-medium leading-snug line-clamp-2" data-testid={`text-scenario-title-${scenario.slug}`}>
+                      {scenario.title}
+                    </p>
+                    {scenario.location && (
+                      <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{scenario.location}</p>
+                    )}
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
 
 
       {/* Mastery Trophy Case — only shown once student has mastered at least one item */}
