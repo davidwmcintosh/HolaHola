@@ -29,7 +29,27 @@ const CATEGORY_CONTEXT: Record<string, string> = {
   cultural:     'vibrant local cultural event, traditional festival, or authentic neighborhood scene',
 };
 
-function buildScenarioPrompt(title: string, description: string, location: string | null, category: string, topics: string[]): string {
+/**
+ * Per-scenario overrides for scenes where generic prompts produce poor results.
+ * These are complete scene descriptions that replace the auto-generated description.
+ */
+const SCENE_OVERRIDES: Record<string, string> = {
+  'the-bank': `Editorial illustration for a language-learning app scenario card. Scene: a bright modern bank interior with clean lines and a glass service counter. A male bank teller in his 30s — dark dress shirt, short natural hair, friendly smile — sits behind a sleek counter. Across from him stands a woman in her late 20s with curly shoulder-length hair, wearing a light blazer and jeans, holding her phone. Both characters are fully visible from head to waist, faces clearly shown. No head coverings or religious garments on any character. The atmosphere is calm and professional. ${DALL_E_STYLE}`,
+
+  'hotel-checkin': `Editorial illustration for a language-learning app scenario card. Scene: a stylish modern hotel lobby with marble flooring and warm lighting. A male hotel receptionist in his 30s — dark suit jacket, white shirt, short hair — stands behind an elegant front desk, handing over a key card. A female traveler in her late 20s — wearing a casual blazer, jeans, sneakers, with long straight hair loose over her shoulders — stands on the guest side of the desk, pulling a suitcase. Both characters fully visible from head to mid-body, faces clearly shown. No head coverings on either character. ${DALL_E_STYLE}`,
+
+  'dinner-with-friend': `Editorial illustration for a language-learning app scenario card. Scene: a warm, intimate bistro at evening. At a candlelit wooden table sit two close friends: a man in his early 30s (wearing an open-collar button-down shirt, short dark hair) and a woman in her early 30s (wearing a simple blouse, dark wavy hair down). They are clearly platonic friends — the man is laughing and gesturing with his fork, the woman is leaning back smiling. Wine glasses and shared appetisers on the table. Warm amber lighting. Both faces fully visible, both characters shown from head to mid-torso. No head coverings on either character. ${DALL_E_STYLE}`,
+
+  'pharmacy': `Editorial illustration for a language-learning app scenario card. Scene: a bright, clean modern pharmacy interior with white shelving units stocked with colourful product boxes. A female pharmacist in her 40s — white lab coat over a dark top, auburn hair pulled into a loose bun — stands behind the pharmacy counter handing a white paper bag to a male customer in his 30s wearing a grey hoodie and jeans, his short curly hair uncovered. The pharmacist is pointing to the label on the bag, explaining something helpfully. Both characters fully visible from head to waist, faces clearly shown. No head coverings on any character. ${DALL_E_STYLE}`,
+
+  'taqueria': `Editorial illustration for a language-learning app scenario card. Scene: a vibrant, colourful Mexican street taqueria. A male taquero in his 30s — white apron, plain cotton T-shirt underneath, a backward baseball cap — stands at a hot flat-top grill loaded with sizzling carne asada and al pastor, using a large spatula. Bright overhead bulb lights hang above the open-air counter. The foreground shows a counter spread with lime wedges, chopped white onion, fresh cilantro, and three small bowls of salsa verde, roja, and guacamole. A hand-painted chalkboard menu is visible in the background but contains NO text. Rich warm colours: terracotta red, avocado green, golden yellow. Festive and authentic street-food energy. ${DALL_E_STYLE}`,
+
+  'university-class': `Editorial illustration for a language-learning app scenario card. Scene: an inviting university lecture hall with tiered wooden seating and large windows letting in afternoon light. A male professor in his 50s — tweed blazer, round glasses, salt-and-pepper hair — stands at the front gesturing animatedly toward a large whiteboard (the whiteboard is blank — no text or drawings). In the foreground, three diverse students are visible: one young woman taking notes in a spiral notebook, one young man raising his hand, one young woman looking thoughtful. Warm, rich academic colour palette: mahogany wood tones, deep green chalkboard, golden afternoon sunlight. Intellectually energetic atmosphere. All characters fully visible, faces clearly shown, no head coverings. ${DALL_E_STYLE}`,
+};
+
+function buildScenarioPrompt(slug: string, title: string, description: string, location: string | null, category: string, topics: string[]): string {
+  if (SCENE_OVERRIDES[slug]) return SCENE_OVERRIDES[slug];
+
   const categoryCtx = CATEGORY_CONTEXT[category] || 'an engaging real-world situation';
   const topicHint = topics.slice(0, 3).map(t => t.replace(/-/g, ' ')).join(', ');
   const locationHint = location ? ` The specific setting is: ${location}.` : '';
@@ -106,6 +126,7 @@ async function generateScenarioImages(): Promise<void> {
     for (const scenario of pending) {
       try {
         const prompt = buildScenarioPrompt(
+          scenario.slug,
           scenario.title,
           scenario.description,
           scenario.location ?? null,
