@@ -14278,6 +14278,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
       const sessionRows = await monDb.select({
         count: sql<number>`count(*)`,
+        activeStudents: sql<number>`count(distinct user_id)`,
         totalDurationSec: sql<number>`coalesce(sum(duration_seconds), 0)`,
         totalTtsChars: sql<number>`coalesce(sum(tts_characters), 0)`,
         totalSttSec: sql<number>`coalesce(sum(stt_seconds), 0)`,
@@ -14287,28 +14288,48 @@ Return ONLY the ${targetLanguage} phrase:`;
       }).from(voiceSessions).where(and(...conditions));
 
       const s = sessionRows[0] || {};
-      const sessions      = Number(s.count          || 0);
-      const totalMinutes  = +(Number(s.totalDurationSec || 0) / 60).toFixed(1);
-      const ttsChars      = Number(s.totalTtsChars   || 0);
-      const sttSec        = Number(s.totalSttSec     || 0);
-      const llmIn         = Number(s.totalLlmIn      || 0);
-      const llmOut        = Number(s.totalLlmOut     || 0);
-      const exchanges     = Number(s.totalExchanges  || 0);
+      const sessions       = Number(s.count          || 0);
+      const activeStudents = Number(s.activeStudents  || 0);
+      const totalMinutes   = +(Number(s.totalDurationSec || 0) / 60).toFixed(1);
+      const ttsChars       = Number(s.totalTtsChars   || 0);
+      const sttSec         = Number(s.totalSttSec     || 0);
+      const llmIn          = Number(s.totalLlmIn      || 0);
+      const llmOut         = Number(s.totalLlmOut     || 0);
+      const exchanges      = Number(s.totalExchanges  || 0);
       const llmTokensTracked = llmIn > 0;
 
-      const geminiCost  = llmTokensTracked
+      const geminiCost   = llmTokensTracked
         ? (llmIn * 0.075 / 1_000_000) + (llmOut * 0.30 / 1_000_000)
         : exchanges * 0.0005;
-      const ttsCost     = (ttsChars / 1000) * 0.015;
-      const sttCost     = (sttSec / 60) * 0.0043;
+      const ttsCost      = (ttsChars / 1000) * 0.015;
+      const sttCost      = (sttSec / 60) * 0.0043;
       const studentTotal = geminiCost + ttsCost + sttCost;
 
-      const aldenTotal   = aldenSummary.totalCostUsd;
+      const aldenTotal    = aldenSummary.totalCostUsd;
       const combinedTotal = aldenTotal + studentTotal;
 
+      // Per-student economics
+      const costPerStudent = activeStudents > 0 ? studentTotal / activeStudents : null;
+      // Extrapolate window cost to monthly (30d) for pricing model
+      const windowToMonthFactor = (30 * 24) / hours;
+      const monthlyCostPerStudent = costPerStudent != null ? costPerStudent * windowToMonthFactor : null;
+
+      // Pricing model — margin at various price points
+      const pricePoints = [4.99, 9.99, 14.99, 19.99, 29.99];
+      const pricingModel = monthlyCostPerStudent != null
+        ? pricePoints.map(price => ({
+            price,
+            marginUsd: +(price - monthlyCostPerStudent).toFixed(4),
+            marginPct: +((price - monthlyCostPerStudent) / price * 100).toFixed(1),
+            breakEvenStudents: aldenTotal > 0 ? Math.ceil(aldenTotal * windowToMonthFactor / (price - monthlyCostPerStudent)) : null,
+          }))
+        : [];
+
       // Formatted text report
-      const fmt = (n: number) => `$${n.toFixed(4)}`;
+      const fmt  = (n: number) => `$${n.toFixed(4)}`;
+      const fmt2 = (n: number) => `$${n.toFixed(2)}`;
       const fmtK = (n: number) => n > 0 ? `${(n / 1000).toFixed(1)}k` : '0';
+      const windowNote = hours < 720 ? ` (extrapolated to 30d)` : '';
       const lines = [
         `=== HoloHola Burn Report (last ${hours}h${env !== 'all' ? `, ${env}` : ''}) ===`,
         `Generated: ${new Date().toUTCString()}`,
@@ -14319,14 +14340,31 @@ Return ONLY the ${targetLanguage} phrase:`;
         `  Subtotal: ${fmt(aldenTotal)}`,
         ``,
         `STUDENT TUTOR SESSIONS (DB — Gemini + TTS + STT)`,
-        `  Sessions: ${sessions} | Minutes: ${totalMinutes}min | Exchanges: ${exchanges}`,
-        `  Gemini: ${llmTokensTracked ? `${fmtK(llmIn)} in / ${fmtK(llmOut)} out (real)` : `${exchanges} exchanges (estimate)`} → ${fmt(geminiCost)}`,
+        `  Active students: ${activeStudents} | Sessions: ${sessions} | Minutes: ${totalMinutes}min`,
+        `  Gemini: ${llmTokensTracked ? `${fmtK(llmIn)} in / ${fmtK(llmOut)} out (real tokens)` : `${exchanges} exchanges (estimated)`} → ${fmt(geminiCost)}`,
         `  Google TTS: ${fmtK(ttsChars)} chars → ${fmt(ttsCost)}`,
         `  Deepgram STT: ${(sttSec / 60).toFixed(1)}min → ${fmt(sttCost)}`,
         `  Subtotal: ${fmt(studentTotal)}`,
         ``,
         `COMBINED TOTAL: ${fmt(combinedTotal)}`,
-        llmTokensTracked ? `  (Gemini tokens tracked from real usage)` : `  (Gemini cost estimated — no real tokens logged yet)`,
+        ``,
+        `COST PER STUDENT`,
+        costPerStudent != null
+          ? [
+              `  This window (${hours}h): ${fmt(costPerStudent)} / student`,
+              `  Monthly estimate${windowNote}: ${fmt2(monthlyCostPerStudent!)} / student`,
+            ].join('\n')
+          : `  No active students in this window`,
+        ``,
+        ...(pricingModel.length > 0 ? [
+          `PRICING MODEL (monthly, per student)`,
+          ...pricingModel.map(p =>
+            `  ${fmt2(p.price)}/mo → margin: ${fmt2(p.marginUsd)} (${p.marginPct}%)` +
+            (p.breakEvenStudents ? ` | infra break-even: ${p.breakEvenStudents} students` : '')
+          ),
+        ] : []),
+        ``,
+        llmTokensTracked ? `  (Gemini tokens from real usage)` : `  (Gemini cost estimated — no real tokens logged yet)`,
       ].join('\n');
 
       res.json({
@@ -14343,6 +14381,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         },
         studentTutor: {
           sessions,
+          activeStudents,
           totalMinutes,
           exchanges,
           geminiInputTokens: llmIn,
@@ -14355,6 +14394,13 @@ Return ONLY the ${targetLanguage} phrase:`;
           sttCostUsd: sttCost,
           totalCostUsd: studentTotal,
         },
+        perStudent: {
+          windowCostUsd: costPerStudent,
+          monthlyEstimateUsd: monthlyCostPerStudent,
+          windowHours: hours,
+          note: hours < 720 ? `Monthly estimate extrapolated from ${hours}h window` : 'Full month of data',
+        },
+        pricingModel,
         combined: {
           totalCostUsd: combinedTotal,
           aldenStackUsd: aldenTotal,
