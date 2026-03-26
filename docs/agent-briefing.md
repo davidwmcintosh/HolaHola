@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, March 26, 2026 at 09:57 PM
+**Generated:** Thursday, March 26, 2026 at 10:06 PM
 
 ---
 
@@ -135,18 +135,18 @@ PHASE 1 — Schema Migration:
 ## Notes From Alden
 *Also check docs/alden-to-agent.md for unread direct notes*
 
-## Triage Decision: Sofia Pattern f4b571b7 — Routed to Agent (8th Recurrence)
+## Triage Decision: Sofia Pattern e576c105 — Routed to Agent (13th Recurrence)
 
-**Triage Date:** March 26, 2026, 2:50 PM MDT
+**Triage Date:** March 26, 2026, 3:59 PM MDT
 
-**Pattern Detected:** Sofia flagged 4x "connection" events (pattern ID: f4b571b7-c491-4e08-ab02-5a00243c8ed3).
+**Pattern Detected:** Sofia flagged 4x "connection" events (pattern ID: e576c105-8e0f-40ac-9aa0-441dfc946bd5).
 
 **Decision:** **ESCALATED TO AGENT** — not fixed autonomously.
 
-**Why:** This is the **8th occurrence** of the identical benign signature I've investigated 7 times (patterns 002b29fa, 9dc13044, b2dd7806, 98c186d8, 03637db5, d7a6c15e, ea1ea9c0). All show the same fingerprint:
+**Why:** This is the **13th occurrence** of the identical benign signature I've investigated 12 times (patterns 002b29fa, 9dc13044, b2dd7806, 98c186d8, 03637db5, d7a6c15e, ea1ea9c0, f4b571b7, 4398e1d9, d3bc388b, aa6d1d5d, 216f3330). All show the same fingerprint:
 - `expected=1 received=1` (audio delivered)
 - `playing=playing, context=running` (audio working)
-- Single user, Windows desktop, dev/prod testing
+- Windows desktop user, production
 - **Not a bug** — sessions work correctly
 
 **The Real Problem:** Sofia's pattern detection lacks signature deduplication. She escalates the same benign signature repeatedly instead of recognizing it was already triaged.
@@ -155,8 +155,7 @@ PHASE 1 — Schema Migration:
 Add signature matching to Sofia's pattern detector:
 1. Compute signature hash from event type + diagnostic fingerprint
 2. Check `support_patterns` for status='investigated'/'benign' matches (age < 30 days)
-3. If match: increment occurrenceCount + update lastSeen, skip escalation
-
+3. If match: increment occurrenceCo
 
 *[truncated — read full file for details]*
 

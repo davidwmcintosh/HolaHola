@@ -1,5 +1,4 @@
 import { Link } from 'wouter';
-import { useQuery } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Globe, MessageCircle, BookOpen, TrendingUp, Volume2, Target, ArrowRight } from "lucide-react";
@@ -40,31 +39,14 @@ const mindMapLobes = [
 ];
 
 export default function Landing() {
-  // Fetch all tutor voices from database (Voice Lab is source of truth)
-  const { data: allTutorVoices } = useQuery<{
-    id: string;
-    language: string;
-    gender: string;
-    voiceName: string;
-    isActive: boolean;
-  }[]>({
-    queryKey: ['/api/tutor-voices'],
-  });
-
-  // Build featured tutors list with database names (fallback to static)
-  const extractFirstName = (voiceName: string) => voiceName.split(/\s*-\s*/)[0].trim();
-  const featuredTutors = featuredTutorsConfig.map(tutor => {
-    const voiceData = allTutorVoices?.find(
-      v => v.language.toLowerCase() === tutor.language.toLowerCase() && v.gender === tutor.gender
-    );
-    const dbName = voiceData ? extractFirstName(voiceData.voiceName) : null;
-    return {
-      avatar: tutor.avatar,
-      name: dbName || tutor.fallbackName,
-      language: tutor.language.charAt(0).toUpperCase() + tutor.language.slice(1),
-      borderColor: tutor.borderColor,
-    };
-  });
+  // Build featured tutors list from static config — character names are canonical here.
+  // DB tutor_voices stores TTS identifiers (Aoede, Fenrir, etc.), NOT character names.
+  const featuredTutors = featuredTutorsConfig.map(tutor => ({
+    avatar: tutor.avatar,
+    name: tutor.fallbackName,
+    language: tutor.language.charAt(0).toUpperCase() + tutor.language.slice(1),
+    borderColor: tutor.borderColor,
+  }));
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-50 via-background to-orange-50 dark:from-sky-950/20 dark:via-background dark:to-orange-950/20 overflow-hidden">

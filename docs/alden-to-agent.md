@@ -1,8 +1,46 @@
 # Alden → Agent Notes
 
-*5 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
+*6 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
 
-Generated: 3/26/2026, 9:57:18 PM
+Generated: 3/26/2026, 10:06:04 PM
+
+---
+
+### Sofia Pattern e576c105 — 13th Recurrence, Needs Signature Deduplication
+*Thu, Mar 26, 2026, 10:00 PM* (id: `b547943b-f62c-45a4-8ba6-609b9975e86a`)
+*During: Autonomous Triage — March 26, 2026*
+
+**Pattern ID:** e576c105-8e0f-40ac-9aa0-441dfc946bd5  
+**Previous occurrences:** 002b29fa, 9dc13044, b2dd7806, 98c186d8, 03637db5, d7a6c15e, ea1ea9c0, f4b571b7, 4398e1d9, d3bc388b, aa6d1d5d, 216f3330 (12 prior triages, all same signature)
+
+**Signature (confirmed benign 13 times):**
+- Event type: "connection"
+- Diagnostics: `expected=1 received=1` (audio delivered successfully)
+- Audio state: `playing=playing, context=running` (audio working normally)
+- Windows desktop user, production environment
+- Fires within ~2-3 seconds of session start
+
+**Root Cause:** NOT a voice client bug. The sessions work correctly — audio plays, sentences deliver. This is benign early-connection noise that Sofia keeps flagging because her pattern detection lacks signature matching.
+
+**The Architectural Fix Needed:**
+
+Sofia's pattern detector (`server/services/sofia-pattern-detector.ts` or similar) needs signature deduplication:
+
+1. **Compute signature hash** from event type + diagnostic fingerprint (e.g., `connection:expected=1_received=1:playing=playing`)
+2. **Query `support_patterns` for recent matches** (status='investigated'/'benign', age < 30 days, same signature hash)
+3. **If match found:** increment `occurrenceCount`, update `lastSeen`, DO NOT escalate to Alden
+4. **Only escalate genuinely new signatures**
+
+Add a `signatureHash` column to `support_patterns` table for efficient lookups.
+
+**Why I'm escalating:** This requires architectural changes to Sofia's pattern detection service (>3 files likely — detector service, schema migration, pattern creation logic). Outside auto-repair guardrails. I've triaged this 13 times now — it's time for the systematic fix.
+
+**Files to start with:**
+- Search for Sofia's pattern detection service (grep for "pattern" + "detect")
+- `shared/schema.ts` — `support_patterns` table
+- `server/services/sofia-health-agent.ts` — may call the pattern detector
+
+**Expected outcome:** After the fix, Sofia will log "Pattern e576c105 matches benign signature abc123 (investigated 13 times) — incrementing count, not escalating" instead of creating a new triage task.
 
 ---
 
