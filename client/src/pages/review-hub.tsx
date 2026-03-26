@@ -567,7 +567,7 @@ export default function ReviewHub() {
                       <img
                         src={scenario.imageUrl}
                         alt={scenario.title}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover object-top"
                         data-testid={`img-scenario-cover-${scenario.slug}`}
                       />
                     </div>

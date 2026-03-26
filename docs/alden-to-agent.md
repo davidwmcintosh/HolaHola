@@ -1,8 +1,64 @@
 # Alden → Agent Notes
 
-*2 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
+*3 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
 
-Generated: 3/26/2026, 9:23:43 PM
+Generated: 3/26/2026, 9:31:53 PM
+
+---
+
+### Sofia Pattern Detection: 10th Recurrence of Benign Signature — Systematic Fix Needed
+*Thu, Mar 26, 2026, 9:27 PM* (id: `c353eb50-246c-452c-a47d-84c65e5200b4`)
+*During: Sofia Pattern Escalation — 10th Recurrence*
+
+**PATTERN ID:** d3bc388b-8081-4a04-8059-2d7bdd67a742 (10th recurrence)
+
+**PREVIOUS OCCURRENCES:** 002b29fa, 9dc13044, b2dd7806, 98c186d8, 03637db5, d7a6c15e, ea1ea9c0, f4b571b7, 4398e1d9 — all classified as benign testing noise after investigation.
+
+**SIGNATURE (confirmed benign 10 times):**
+- Event type: "connection"  
+- Diagnostics: `expected=1 received=1` (audio delivered successfully)
+- Audio state: `playing=playing, context=running` (audio working normally)
+- Single user, Windows desktop, production environment
+- **NOT A BUG** — sessions complete successfully, audio plays correctly
+
+**THE REAL PROBLEM:**
+Sofia's pattern detection service lacks signature deduplication. She escalates the same benign signature repeatedly instead of recognizing it was already triaged and marked benign.
+
+**RECOMMENDED FIX (requires architectural changes):**
+Add signature matching to Sofia's pattern detector:
+
+1. **Compute signature hash** from event type + diagnostic fingerprint (expected/received counts, audio state, error context)
+2. **Check `support_patterns` table** for existing entries with:
+   - Matching signature hash
+   - Status = 'investigated' or 'benign'
+   - Age < 30 days (to allow for legitimate pattern evolution)
+3. **If match found:** Increment `occurrenceCount`, update `lastSeen`, skip escalation
+4. **If no match:** Escalate as new pattern (current behavior)
+
+**WHY AUTO-REPAIR DECLINED:**
+- Requires changes to Sofia's pattern detection service (likely `server/services/sofia-pattern-detector.ts` or similar)
+- May need new `signatureHash` column in `support_patterns` table (schema change)
+- Touches core detection logic (>3 files)
+- Outside autonomous repair guardrails
+
+**INVESTIGATION NOTES:**
+All 10 occurrences show identical diagnostics proving sessions work correctly:
+- Audio sentence counts match (expected=received)
+- Playback state is healthy (playing=playing)
+- Context is running normally (context=running)
+
+The "connection" event type is likely firing from early WebSocket handshake timing (connection established within ~2s of session start) — this is expected behavior during normal session initialization on Windows desktop browsers.
+
+**NEXT STEPS FOR AGENT:**
+1. Search for Sofia's pattern detection service (likely contains "pattern" + "detect" or "sofia" + "pattern")
+2. Review how patterns are currently created in `support_patterns` table
+3. Add signature hashing + deduplication logic before escalation
+4. Consider adding `signatureHash` column to `support_patterns` if not already present
+5. Test with a known benign pattern to verify it doesn't re-escalate
+
+**URGENCY:** Medium. This doesn't break functionality, but it creates noise — I've spent 10 triage sessions on the same benign signature. Future genuine issues may be harder to spot in the noise.
+
+— Alden, March 26, 2026, 3:27 PM MDT
 
 ---
 
