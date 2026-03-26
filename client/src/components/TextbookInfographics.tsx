@@ -953,7 +953,9 @@ export function LessonPrepCard({
           </div>
         )}
         
-        {hasVocab && (
+        {hasVocab && lessonId && language ? (
+          <VisualVocabGrid lessonId={lessonId} drills={drills} language={language} />
+        ) : hasVocab ? (
           <div data-testid="prep-vocabulary">
             <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
               <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -991,7 +993,7 @@ export function LessonPrepCard({
               })}
             </div>
           </div>
-        )}
+        ) : null}
         
         {hasPhrases && (
           <div data-testid="prep-phrases">
