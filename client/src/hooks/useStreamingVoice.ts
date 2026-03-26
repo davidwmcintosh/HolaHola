@@ -520,6 +520,14 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       console.log(`[StreamingVoice] Processing turn ${msg.turnId}: "${msg.userTranscript.substring(0, 30)}..."`);
     }
     
+    // CRITICAL: Reset turn-start diagnostics so the lockout watchdog doesn't fire mid-turn.
+    // The PTT path calls diagMarkTurnStart() in sendAudio(); open-mic never did, leaving
+    // responseCompleteTimestamp set from the previous turn. If the new turn takes > 8 s
+    // (e.g. Gemini + function-call chain), the watchdog would fire a false positive.
+    // The server's 'processing' message is the authoritative "new turn started" signal
+    // for both PTT and open-mic, so this is the correct place to reset it.
+    diagMarkTurnStart();
+    
     // CRITICAL: Set processing state when server indicates new turn is processing
     // This ensures thinking indicator shows for server-initiated responses (tutor handoffs, etc.)
     setIsProcessing(true);
