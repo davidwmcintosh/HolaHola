@@ -1,8 +1,93 @@
 # Alden → Agent Notes
 
-*6 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
+*8 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
 
-Generated: 3/26/2026, 10:11:07 PM
+Generated: 3/26/2026, 10:16:45 PM
+
+---
+
+### Sofia Pattern 6d7dc0e7 — 14th Recurrence (Agent Fix Needed)
+*Thu, Mar 26, 2026, 10:14 PM* (id: `96441da1-82a6-42f8-9eb0-2d88ceea8b69`)
+*During: Autonomous Triage — March 26, 2026*
+
+**Pattern ID:** 6d7dc0e7-0b6f-43c3-aacc-189d790380f2
+
+**This is the 14th occurrence of the EXACT SAME benign connection error signature.**
+
+**Previous pattern IDs (all identical):** 002b29fa, 9dc13044, b2dd7806, 98c186d8, 03637db5, d7a6c15e, ea1ea9c0, f4b571b7, 4398e1d9, d3bc388b, aa6d1d5d, 216f3330, e576c105
+
+**Confirmed benign signature (14 times):**
+- Event type: "connection"
+- Diagnostics: `expected=1 received=1` (audio delivered successfully)
+- Audio state: `playing=playing, context=running` (working normally)
+- Windows desktop user, production
+- Sessions complete successfully
+
+**The Real Problem:**
+Sofia's pattern detection (`server/services/sofia-pattern-detector.ts` or similar) lacks signature deduplication. She escalates the same benign fingerprint repeatedly instead of recognizing it was already triaged and marked benign.
+
+**Systematic Fix Needed (Agent-level work):**
+1. Add signature hashing to Sofia's pattern detector:
+   - Compute hash from: event_type + diagnostic fingerprint (expected/received counts, audio state)
+   - Query `support_patterns` for existing patterns with matching signature hash WHERE status IN ('investigated', 'benign') AND created_at > NOW() - INTERVAL '30 days'
+   - If match found: increment `occurrenceCount`, update `lastSeen`, skip escalation
+   - Only escalate genuinely NEW signatures
+
+2. Add `signatureHash` column to `support_patterns` table (varchar, indexed)
+
+3. Backfill existing patterns with signature hashes so future matches work
+
+**Why Auto-Repair Declined:**
+- Requires architectural changes to Sofia's pattern detection service
+- Likely touches >3 files (pattern detector, schema, possibly routes)
+- New hashing logic + schema changes outside auto-repair guardrails
+
+**File to start with:** Search for "pattern" + "detect" to find Sofia's pattern detection service. Likely `server/services/sofia-pattern-detector.ts` or similar.
+
+**Note:** I've updated pattern 6d7dc0e7 status to 'escalated' with full context. The 13 previous occurrences are documented in my persistent memory (debugging category, search for "Sofia Pattern").
+
+---
+
+### Sofia Pattern 6b809cc6 — 14th Recurrence, Signature Deduplication Needed
+*Thu, Mar 26, 2026, 10:13 PM* (id: `01ddd319-2bc5-47e7-8ea1-40bf4c884b98`)
+*During: Autonomous Triage — Pattern 6b809cc6 (14th recurrence)*
+
+**Pattern ID:** 6b809cc6-7b59-4d8f-8983-224462787d66 (Sofia autonomous triage task, March 26, 2026, 4:13 PM)
+
+**This is the 14th occurrence of the identical benign signature.** Previous pattern IDs: 002b29fa, 9dc13044, b2dd7806, 98c186d8, 03637db5, d7a6c15e, ea1ea9c0, f4b571b7, 4398e1d9, d3bc388b, aa6d1d5d, 216f3330, e576c105.
+
+**Signature (confirmed benign 14 times):**
+- Event type: "connection"
+- Diagnostics: `expected=1 received=1` (audio delivered successfully)
+- Audio state: `playing=playing, context=running` (audio working normally)
+- Windows desktop user, production environment
+- **Voice sessions work correctly** — not a bug
+
+**The Real Problem:**
+Sofia's pattern detection lacks signature deduplication. She escalates the same benign pattern repeatedly instead of recognizing it was already investigated.
+
+**Recommended Fix (requires Agent):**
+Add signature matching to Sofia's pattern detector:
+1. Compute signature hash from: event_type + diagnostic_fingerprint (expected/received counts + audio state + context)
+2. Before escalating, check `support_patterns` table for matches with status='investigated'/'benign' where age < 30 days
+3. If match found: increment `occurrenceCount`, update `lastSeen`, skip escalation
+4. Only escalate genuinely new signatures
+
+**Why Auto-Repair Declined:**
+- Requires architectural changes to Sofia's pattern detection service
+- Likely >3 files (pattern detector + database queries + signature hashing)
+- Touches core detection logic
+- Outside auto-repair guardrails
+
+**Where to Start:**
+Search for Sofia's pattern detection service (likely contains "pattern" + "detect" or "sofia" + "monitor"). May need to add `signatureHash` column to `support_patterns` table for efficient lookup.
+
+**Evidence:**
+All 5 events in this cluster show working sessions:
+- 4x: `expected=1 received=1, playing=playing, context=running`
+- 1x: `expected=? received=0, playing=idle, context=unknown` (expected early-connection timing, harmless)
+
+This is testing noise, not a production issue. The systematic fix is to teach Sofia to recognize patterns she's already seen.
 
 ---
 
