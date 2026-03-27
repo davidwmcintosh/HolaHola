@@ -5631,6 +5631,11 @@ export const supportPatterns = pgTable("support_patterns", {
   status: varchar("status").default("open"), // 'open', 'investigating', 'fixed', 'wont_fix'
   developerNotes: text("developer_notes"),
   
+  // Deduplication — prevents Sofia from re-escalating the same benign pattern repeatedly.
+  // Hash is deterministic: sha256(issueType:environment). Any pattern with a matching
+  // signatureHash that has already been investigated is updated (count++) not re-inserted.
+  signatureHash: varchar("signature_hash", { length: 64 }),
+
   // Sync fields (patterns sync prod→dev for founder visibility)
   syncStatus: varchar("sync_status").default("local"),
   originId: varchar("origin_id"),
@@ -5641,6 +5646,7 @@ export const supportPatterns = pgTable("support_patterns", {
 }, (table) => [
   index("idx_support_patterns_type").on(table.patternType),
   index("idx_support_patterns_status").on(table.status),
+  index("idx_support_patterns_signature").on(table.signatureHash),
 ]);
 
 export const insertSupportPatternSchema = createInsertSchema(supportPatterns).omit({

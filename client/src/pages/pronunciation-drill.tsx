@@ -345,7 +345,7 @@ export default function PronunciationDrill() {
     return (
       <div className="container max-w-2xl mx-auto p-4 space-y-6">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setLocation('/language-hub')} data-testid="button-back-to-hub-loading">
+          <Button variant="ghost" size="sm" onClick={() => setLocation('/')} data-testid="button-back-to-hub-loading">
             <ChevronLeft className="h-4 w-4 mr-1" />
             Language Hub
           </Button>
@@ -558,7 +558,7 @@ export default function PronunciationDrill() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setLocation('/language-hub')}
+          onClick={() => setLocation('/')}
           data-testid="button-back-to-hub"
         >
           <ChevronLeft className="h-4 w-4 mr-1" />

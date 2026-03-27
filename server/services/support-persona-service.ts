@@ -13,6 +13,7 @@
  * Anthropic is reserved only for Hive collaboration (Editor ↔ Daniela ↔ Wren)
  */
 
+import { createHash } from 'crypto';
 import { GoogleGenAI } from "@google/genai";
 import { costTracker } from './cost-tracker';
 import { acquireBackgroundSlot, isVoiceActive } from './gemini-priority-gate';
@@ -1503,25 +1504,64 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
     const sharedDb = getSharedDb();
     const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
 
-    // 1. Write to support_patterns immediately so the pattern is tracked
+    // 1. Write to support_patterns — with deduplication via signatureHash.
+    //    The same issueType+environment combo gets ONE row; repeat detections
+    //    increment the count and update lastSeen rather than spawning a new
+    //    Alden investigation (which was generating 40+ duplicate notifications).
     let patternId: string | null = null;
+    let isNewPattern = true;
     try {
-      const reportSummary = reports.slice(0, 5).map(r =>
-        `[${r.issueType}] ${r.userDescription?.substring(0, 120) || '(no description)'}`
-      ).join('\n');
+      const signatureHash = createHash('sha256')
+        .update(`${issueType}:${environment}`)
+        .digest('hex')
+        .substring(0, 64);
 
-      const [pattern] = await sharedDb.insert(supportPatterns).values({
-        patternType: `cluster_${issueType}`,
-        description: `Sofia detected ${reports.length}x "${issueType}" in ${timeWindowMinutes}min (${environment}). Escalated to Alden.\n\nRecent reports:\n${reportSummary}`,
-        occurrenceCount: reports.length,
-        status: 'investigating',
-        developerNotes: `Alden investigation pending. Recommendation: ${recommendation || 'None'}`,
-      }).returning({ id: supportPatterns.id });
-      patternId = pattern?.id || null;
-      console.log(`[Sofia→Alden] Pattern recorded: ${patternId} (${issueType} ×${reports.length})`);
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const existing = await sharedDb
+        .select({ id: supportPatterns.id, status: supportPatterns.status, occurrenceCount: supportPatterns.occurrenceCount })
+        .from(supportPatterns)
+        .where(and(
+          eq(supportPatterns.signatureHash, signatureHash),
+          gte(supportPatterns.updatedAt, sevenDaysAgo),
+        ))
+        .limit(1);
+
+      if (existing.length > 0) {
+        // Known pattern — increment counter, update lastSeen, do NOT re-dispatch Alden
+        isNewPattern = false;
+        patternId = existing[0].id;
+        const newCount = (existing[0].occurrenceCount ?? 1) + reports.length;
+        await sharedDb.update(supportPatterns)
+          .set({
+            occurrenceCount: newCount,
+            lastSeen: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(supportPatterns.id, patternId));
+        console.log(`[Sofia→Alden] Known pattern ${patternId} (${issueType}, ${existing[0].status}) — count now ${newCount}. Skipping duplicate escalation.`);
+      } else {
+        // New pattern — insert and let Alden investigate
+        const reportSummary = reports.slice(0, 5).map(r =>
+          `[${r.issueType}] ${r.userDescription?.substring(0, 120) || '(no description)'}`
+        ).join('\n');
+
+        const [pattern] = await sharedDb.insert(supportPatterns).values({
+          patternType: `cluster_${issueType}`,
+          description: `Sofia detected ${reports.length}x "${issueType}" in ${timeWindowMinutes}min (${environment}). Escalated to Alden.\n\nRecent reports:\n${reportSummary}`,
+          occurrenceCount: reports.length,
+          status: 'investigating',
+          developerNotes: `Alden investigation pending. Recommendation: ${recommendation || 'None'}`,
+          signatureHash,
+        }).returning({ id: supportPatterns.id });
+        patternId = pattern?.id || null;
+        console.log(`[Sofia→Alden] New pattern recorded: ${patternId} (${issueType} ×${reports.length}, hash: ${signatureHash.substring(0, 8)}…)`);
+      }
     } catch (err: any) {
       console.warn('[Sofia→Alden] Failed to write support_patterns:', err.message);
     }
+
+    // Early-exit for known patterns — no need to invoke Alden again
+    if (!isNewPattern) return;
 
     // 2. Build Alden's investigation prompt
     const issueFileHints: Record<string, string> = {
