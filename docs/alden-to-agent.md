@@ -1,8 +1,116 @@
 # Alden → Agent Notes
 
-*40 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
+*42 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
 
-Generated: 3/27/2026, 3:17:07 PM
+Generated: 3/27/2026, 3:59:55 PM
+
+---
+
+### URGENT: Sofia Pattern Deduplication — 41st Recurrence of Same Benign Signature
+*Fri, Mar 27, 2026, 3:55 PM* (id: `97607513-a815-4d89-8be2-d448ff54c032`)
+*During: Autonomous Triage — Sofia Pattern 970d5989 (41st Recurrence)*
+
+**Pattern ID:** 970d5989-10f6-4be2-b360-65858d21e244 (17x "connection" events, development, 24h window)
+
+**The Problem:**
+This is the **41st occurrence** of the identical benign signature I've investigated since March 25. All 40 prior patterns (002b29fa through 40057031) share the same fingerprint:
+
+- Event type: "connection"
+- Diagnostics: `expected=N received=N` (audio delivered successfully) OR `expected=? received=0` (early timing)
+- Audio state: `playing=playing, context=running` (working normally) OR `idle/unknown` (before audio starts)
+- Single Windows desktop user (typically David, user 49847136) in development
+- **Not a bug** — sessions work correctly, audio delivers
+
+**Root Cause:**
+Sofia's pattern detection service lacks **signature deduplication**. She creates a new `support_patterns` row for each occurrence instead of recognizing it was already triaged as benign.
+
+**The Fix Needed (Agent-level work):**
+
+1. **Add signature hashing** to Sofia's pattern detection service (likely `server/services/sofia-pattern-detector.ts` or similar — search for "pattern" + "detect"):
+   - Compute hash from: event type + diagnostic fingerprint (expected/received counts, audio state, context)
+   - Store as `signatureHash` in `support_patterns`
+
+2. **Schema change** (`shared/schema.ts`):
+   ```sql
+   ALTER TABLE support_patterns ADD COLUMN signature_hash VARCHAR(64);
+   CREATE INDEX idx_support_patterns_signature ON support_patterns(signature_hash);
+   ```
+
+3. **Deduplication logic** before creating new pattern:
+   - Check `support_patterns` WHERE `signatureHash = <computed>` AND `status IN ('investigated', 'benign', 'fixed')` AND `lastSeen > NOW() - INTERVAL '30 days'`
+   - If match found: increment `occurrenceCount`, update `lastSeen`, skip escalation
+   - Only escalate genuinely new signatures
+
+4. **Backfill existing patterns** with computed hashes (optional but recommended)
+
+**Why Auto-Repair Declined:**
+- Requires schema changes (new column + index)
+- Architectural changes to Sofia's detection service
+- Touches >3 files (schema, detector, possibly routes)
+- Outside autonomous repair guardrails
+
+**Impact:**
+I've triaged this same pattern 41 times in 48 hours. Each triage costs ~3-5 tool calls + memory writes. Sofia is burning through my watch budget on false escalations instead of surfacing genuinely new issues.
+
+**Actions Taken:**
+- Confirmed pattern 970d5989 is benign (audio diagnostics show sessions work)
+- Saved to memory (debugging category, importance 7)
+- Leaving this note for you
+- Will notify David (info-level) that this was routed to you
+
+**Recommended Starting Point:**
+Search codebase for Sofia's pattern detection service — likely contains "sofia" + "pattern" + "detect". May be `server/services/sofia-pattern-detector.ts` or similar. The detection logic is what needs the hash-and-check step added before creating new `support_patterns` rows.
+
+— Alden, March 27, 2026, 9:54 AM MDT
+
+---
+
+### URGENT: Sofia Pattern Deduplication — 41 Identical Escalations Since March 25
+*Fri, Mar 27, 2026, 3:19 PM* (id: `6caff559-5db8-4f3e-b7d3-66863e0a2324`)
+*During: Autonomous Triage — March 27, 2026*
+
+**Pattern ID (latest):** 40057031-4481-4dce-8770-2b3a84a7cc33
+
+**The Problem:**
+Sofia has escalated the EXACT SAME benign connection error signature 41 times since March 25 (patterns 002b29fa through 40057031). Every investigation confirms the same thing: audio delivered successfully, sessions work correctly, benign testing noise.
+
+**The signature (confirmed 41 times):**
+- Event type: "connection"
+- Diagnostics: `expected=1 received=1` (audio delivered) OR `expected=? received=0` (early connection timing)
+- Audio state: `playing=playing, context=running` OR `playing=idle, context=unknown`
+- Windows desktop user, development or production
+- **Not a bug** — the handler fires before diagnostics context is fully initialized
+
+**Root cause:**
+Sofia's pattern detection service lacks signature-based deduplication. It escalates every cluster of connection errors as a new pattern without checking if an identical signature was already investigated.
+
+**Recommended fix (Agent-level work):**
+1. Add `signatureHash` column to `support_patterns` table (varchar, indexed)
+2. Implement signature hashing in Sofia's pattern detector:
+   - Compute hash from: event type + diagnostic fingerprint (expected/received/context/audio state)
+   - Before escalating a new pattern, query `support_patterns` for matches with `status IN ('investigated', 'benign', 'fixed')` and `lastSeen > NOW() - 30 days`
+   - If match found: increment `occurrenceCount`, update `lastSeen`, skip escalation
+   - Only escalate genuinely new signatures
+3. Backfill existing patterns with hashes (optional but recommended for continuity)
+
+**Files to start with:**
+- Sofia's pattern detection service (search for "pattern" + "detect" or "cluster")
+- `support_patterns` table in schema.ts
+- Sofia's support service that writes to `support_patterns`
+
+**Why I escalated instead of fixing:**
+- Requires schema changes (outside auto-repair guardrails)
+- Touches Sofia's core pattern detection architecture (>3 files likely)
+- Needs careful design of the signature hashing algorithm
+- This is architectural work, not a small targeted patch
+
+**What I've done:**
+- Investigated all 41 patterns — confirmed all benign
+- Saved pattern signatures to my memory (debugging category)
+- Notified David (info-level) about the 41st recurrence
+- Left this note for you
+
+This is the highest-value fix you could do right now — it will eliminate ~95% of Sofia's false-positive escalations to me.
 
 ---
 
