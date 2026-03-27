@@ -1511,8 +1511,20 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
     let patternId: string | null = null;
     let isNewPattern = true;
     try {
+      // Build a diagnostic fingerprint from report details so that
+      // genuinely different failure modes (e.g. expected=0 vs expected=1)
+      // get separate hash rows rather than being silently merged.
+      const diagnosticFingerprint = reports.slice(0, 5).map(r => {
+        const desc = r.description || '';
+        const expectedMatch = desc.match(/expected=(\?|\d+)/);
+        const receivedMatch = desc.match(/received=(\d+)/);
+        const audioMatch = desc.match(/playing=(\w+)/);
+        const contextMatch = desc.match(/context=(\w+)/);
+        return `${expectedMatch?.[1] || '?'}:${receivedMatch?.[1] || '?'}:${audioMatch?.[1] || '?'}:${contextMatch?.[1] || '?'}`;
+      }).join('|');
+
       const signatureHash = createHash('sha256')
-        .update(`${issueType}:${environment}`)
+        .update(`${issueType}:${environment}:${diagnosticFingerprint}`)
         .digest('hex')
         .substring(0, 64);
 

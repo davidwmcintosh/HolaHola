@@ -164,7 +164,7 @@ export default function PronunciationDrill() {
         language: selectedLanguage,
         difficulty: selectedDifficulty,
       });
-      return res as unknown as DrillSession;
+      return res.json() as Promise<DrillSession>;
     },
     onSuccess: (data) => {
       setSession(data);
@@ -193,7 +193,7 @@ export default function PronunciationDrill() {
         transcribedSpeech: currentItem?.phrase || '',
         pronunciationScore: score,
       });
-      return res as unknown as SubmitResult;
+      return res.json() as Promise<SubmitResult>;
     },
     onSuccess: (data) => {
       setLastResult(data);
@@ -228,7 +228,7 @@ export default function PronunciationDrill() {
     mutationFn: async () => {
       if (!session) throw new Error("No active session");
       const res = await apiRequest("POST", `/api/pronunciation-drills/session/${session.sessionId}/end`);
-      return res as unknown as { summary: SessionSummary };
+      return res.json() as Promise<{ summary: SessionSummary }>;
     },
     onSuccess: (data) => {
       setSessionSummary(data.summary);

@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, March 27, 2026 at 04:16 PM
+**Generated:** Friday, March 27, 2026 at 04:24 PM
 
 ---
 
@@ -135,27 +135,30 @@ PHASE 1 — Schema Migration:
 ## Notes From Alden
 *Also check docs/alden-to-agent.md for unread direct notes*
 
-## Triage Decision: Sofia Pattern 796308d1 — Routed to Agent (15th Recurrence)
+## Autonomous Triage Complete — Pattern bfbb3395 (March 27, 2026, 10:19 AM)
 
-**Triage Date:** March 26, 2026, 4:19 PM MDT
+**Pattern:** Sofia flagged bfbb3395-0779-44d0-aa23-ad93b8de98c3 (17x "connection" events, development, 24h).
 
-**Pattern Detected:** Sofia flagged 6x "connection" events (pattern ID: 796308d1-4a4a-4651-ad67-f8fd3ace939c).
+**Decision:** **ESCALATED TO AGENT** (note ID: 96dc1fe7) — not fixed autonomously.
 
-**Decision:** **ESCALATED TO AGENT** — not fixed autonomously.
+**Why:** This is the **43rd occurrence** of the identical benign signature since March 25. Audio diagnostics prove sessions work (`expected=1 received=1, playing=playing, context=running`). This is testing noise, not a bug.
 
-**Why:** This is the **15th occurrence** of the identical benign signature I've investigated 14 times (patterns 002b29fa, 9dc13044, b2dd7806, 98c186d8, 03637db5, d7a6c15e, ea1ea9c0, f4b571b7, 4398e1d9, d3bc388b, aa6d1d5d, 216f3330, e576c105, 6b809cc6, 6d7dc0e7). All show the same fingerprint:
-- `expected=1 received=1` (audio delivered)
-- `playing=playing, context=running` (audio working)
-- Windows desktop user, production
-- **Not a bug** — sessions work correctly
+**Root Cause Identified:**
 
-**The Real Problem:** Sofia's pattern detection lacks signature deduplication. She escalates the same benign signature repeatedly instead of recognizing it was already triaged.
+Your signature deduplication (commit 7e1d1156, March 27) is working as designed, but the signature hash is **too coarse**:
+```typescript
+const signatureHash = createHash('sha256')
+  .update(`${issueType}:${environment}`)
+  .digest('hex');
+```
 
-**Recommended Fix (Agent-level work):**
-Add signature matching to Sofia's pattern detector:
-1. Compute signature hash from event type + diagnostic fingerprint
-2. Check `support_patterns` for status='investigated'/'benign' matches (age < 30 days)
-3. If
+This means ALL "connection" events in development get the same hash, regardless of diagnostic details. Sofia can't distinguish:
+- Benign: `expected=1 received=1, playing=playing, context=running` (already triaged 43x)
+- Genuine bug: `expected=5 received=0, playing=idle, context=error` (would be a new issue)
+
+**Fix Recommended:**
+
+Enrich the signature hash to include diagnostic fingerprint. Extract expected/received counts, audio
 
 *[truncated — read full file for details]*
 

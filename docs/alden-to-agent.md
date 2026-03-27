@@ -1,8 +1,85 @@
 # Alden → Agent Notes
 
-*43 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
+*44 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
 
-Generated: 3/27/2026, 4:16:55 PM
+Generated: 3/27/2026, 4:24:27 PM
+
+---
+
+### Sofia Pattern bfbb3395 — 43rd Recurrence, Signature Hash Too Coarse
+*Fri, Mar 27, 2026, 4:20 PM* (id: `96dc1fe7-0a86-4706-97fa-7f75c0357b22`)
+*During: Autonomous Triage — Pattern bfbb3395 (43rd recurrence)*
+
+**AUTONOMOUS TRIAGE (March 27, 2026, 10:19 AM):** Sofia flagged pattern bfbb3395-0779-44d0-aa23-ad93b8de98c3 (17x "connection" events in 24h, development).
+
+**Decision:** **ESCALATED TO AGENT** — not fixed autonomously.
+
+**Why:** This is the **43rd occurrence** of the identical benign signature I've investigated since March 25. All 42 prior patterns share the same fingerprint:
+- Event type: "connection"
+- Diagnostics: `expected=1 received=1` (audio delivered) OR `expected=? received=0` (early connection timing)
+- Audio state: `playing=playing, context=running` (working) OR `idle, context=unknown` (normal pre-session state)
+- Windows desktop user, development environment
+- **Not a bug** — sessions work correctly
+
+**The Real Problem:**
+
+You implemented signature deduplication in commit 7e1d1156 ("Improve system monitoring by deduplicating recurring benign alerts"). The code is working correctly (server/services/support-persona-service.ts lines 1514-1564) — it computes a signature hash, checks for existing patterns, and increments the counter.
+
+BUT the signature hash is **too coarse**:
+```typescript
+const signatureHash = createHash('sha256')
+  .update(`${issueType}:${environment}`)
+  .digest('hex')
+  .substring(0, 64);
+```
+
+This means ALL "connection" events in development get the same hash, regardless of diagnostic details. It can't distinguish between:
+- Benign testing noise: `expected=1 received=1, playing=playing, context=running` (audio delivered successfully)
+- Genuine connection bugs: different diagnostic pattern (e.g., `expected=5 received=0, playing=idle, context=error`)
+
+**The Fix Needed:**
+
+Enrich the signature hash to include diagnostic fingerprint:
+```typescript
+// Extract diagnostic pattern from reports
+const diagnosticFingerprint = reports.map(r => {
+  const desc = r.description || '';
+  const expectedMatch = desc.match(/expected=(\?|\d+)/);
+  const receivedMatch = desc.match(/received=(\d+)/);
+  const audioMatch = desc.match(/playing=(\w+)/);
+  const contextMatch = desc.match(/context=(\w+)/);
+  return `${expectedMatch?.[1] || '?'}:${receivedMatch?.[1] || '?'}:${audioMatch?.[1] || '?'}:${contextMatch?.[1] || '?'}`;
+}).join('|');
+
+const signatureHash = createHash('sha256')
+  .update(`${issueType}:${environment}:${diagnosticFingerprint}`)
+  .digest('hex')
+  .substring(0, 64);
+```
+
+This would distinguish:
+- `connection:development:1:1:playing:running` (benign — already triaged 42 times)
+- `connection:development:5:0:idle:error` (genuinely new issue)
+
+**Files to modify:**
+- `server/services/support-persona-service.ts` (lines 1514-1517) — enrich signature hash computation
+
+**Why Auto-Repair Declined:**
+- Changes the signature hash algorithm (affects all future pattern deduplication)
+- Risk: if the diagnostic extraction regex doesn't match, patterns might fail to deduplicate
+- Requires testing with various report formats
+- Outside autonomous repair guardrails
+
+**Impact:**
+I've triaged this signature 43 times in 48 hours. Each triage costs ~3-5 tool calls. Total waste: ~130-215 tool calls investigating the same benign signature repeatedly. This is blocking Sofia's ability to surface genuinely new issues.
+
+**Actions Taken:**
+- Confirmed pattern bfbb3395 matches the benign signature (audio diagnostics show sessions work)
+- Saved to memory (debugging category, importance 7)
+- Leaving this note for you
+- Will notify David (info-level) that this was routed to you
+
+— Alden, March 27, 2026, 10:19 AM MDT
 
 ---
 
