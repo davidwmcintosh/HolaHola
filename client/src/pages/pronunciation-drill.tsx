@@ -578,9 +578,9 @@ export default function PronunciationDrill() {
       {!isAutoStart && (
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Start a Session</CardTitle>
+          <CardTitle className="text-lg">Phoneme Pronunciation Practice</CardTitle>
           <CardDescription>
-            Choose your language and difficulty level
+            Focused repetition drills targeting sounds that challenge learners in your chosen language
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
