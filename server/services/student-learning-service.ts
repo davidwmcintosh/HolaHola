@@ -2952,13 +2952,22 @@ export class StudentLearningService {
     
     const timeline: DrillProgressEntry[] = [];
     
+    const phonemeLabel = (row: { description?: string | null; specificExamples?: string | null }): string => {
+      const extracted = this.extractPhonemeFromDescription(row.description || '');
+      if (extracted) return extracted;
+      const raw = (row.description && row.description !== 'Pronunciation challenge')
+        ? row.description
+        : (row.specificExamples || 'Pronunciation pattern');
+      return raw.length > 50 ? raw.slice(0, 50) + '…' : raw;
+    };
+
     // Add breakthrough entries
     for (const b of breakthroughs) {
-      const extractedPhoneme = this.extractPhonemeFromDescription(b.description || '');
-      if (phoneme && extractedPhoneme !== phoneme) continue;
+      const label = phonemeLabel(b);
+      if (phoneme && label !== phoneme) continue;
       
       timeline.push({
-        phoneme: extractedPhoneme || 'unknown',
+        phoneme: label,
         status: 'mastered',
         date: b.resolvedAt || b.updatedAt || new Date(),
         daysToMastery: b.timeToMasteryDays || 0,
@@ -2969,15 +2978,15 @@ export class StudentLearningService {
     
     // Add active struggle entries
     for (const a of activeStruggles) {
-      const extractedPhoneme = this.extractPhonemeFromDescription(a.description || '');
-      if (phoneme && extractedPhoneme !== phoneme) continue;
+      const label = phonemeLabel(a);
+      if (phoneme && label !== phoneme) continue;
       
       const daysSinceStart = a.createdAt 
         ? Math.round((Date.now() - new Date(a.createdAt).getTime()) / (1000 * 60 * 60 * 24))
         : 0;
       
       timeline.push({
-        phoneme: extractedPhoneme || 'unknown',
+        phoneme: label,
         status: 'in_progress',
         date: a.lastOccurredAt || a.createdAt || new Date(),
         daysInProgress: daysSinceStart,
