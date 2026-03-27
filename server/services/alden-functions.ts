@@ -790,15 +790,17 @@ export async function executeAldenTool(
 
       case "post_to_express_lane": {
         const { content, metadata } = args;
-        
-        await founderCollabService.addMessage({
+        const FOUNDER_ID = '49847136';
+        const session = await founderCollabService.getOrCreateActiveSession(FOUNDER_ID);
+
+        await founderCollabService.addMessage(session.id, {
           role: 'editor',
           content: `[Alden Chat] ${content}`,
           metadata: { source: 'alden-voice-chat', ...metadata },
         });
 
         return {
-          data: { posted: true, channel: 'express-lane' },
+          data: { posted: true, channel: 'express-lane', sessionId: session.id },
         };
       }
 

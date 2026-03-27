@@ -1361,6 +1361,26 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
       const lastCheck = this.lastCheckTime || new Date(Date.now() - 5 * 60 * 1000);
       const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
       
+      // Stale issue cleanup: auto-resolve old pending reports that will never be actioned.
+      // Development issues are ephemeral test noise; production issues get more time.
+      const staleDays = environment === 'production' ? 30 : 7;
+      const staleCutoff = new Date(Date.now() - staleDays * 24 * 60 * 60 * 1000);
+      const staleResult = await getSharedDb()
+        .update(sofiaIssueReports)
+        .set({
+          status: 'resolved',
+          founderNotes: `Auto-resolved: stale pending issue (>${staleDays}d old, no action taken)`,
+          reviewedAt: now,
+        })
+        .where(and(
+          eq(sofiaIssueReports.status, 'pending'),
+          sql`${sofiaIssueReports.createdAt} < ${staleCutoff}`,
+        ));
+      const staleResolved = (staleResult as any).rowCount ?? 0;
+      if (staleResolved > 0) {
+        console.log(`[Sofia Monitor] Auto-resolved ${staleResolved} stale pending issues (>${staleDays}d old)`);
+      }
+
       // Get all reports from the last hour for pattern detection
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
       const recentReports = await getUserDb().select()
