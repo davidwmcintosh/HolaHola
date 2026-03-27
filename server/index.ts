@@ -544,7 +544,30 @@ app.use((req, res, next) => {
     // DEFERRED STARTUP: Start heavy background workers AFTER server is listening
     // This ensures Cloud Run health checks pass quickly before workers initialize
     // Workers are STAGGERED to avoid simultaneous DB connection storms on boot
-    
+
+    // Immediate: Wire up persistent AI cost logging (fire-and-forget inserts to ai_cost_logs)
+    (async () => {
+      try {
+        const { getSharedDb } = await import('./neon-db');
+        const { aiCostLogs } = await import('../shared/schema');
+        const { setCostPersister } = await import('./services/cost-tracker');
+        const sharedDb = getSharedDb();
+        setCostPersister(async (entry) => {
+          await sharedDb.insert(aiCostLogs).values({
+            loggedAt: entry.timestamp,
+            model: entry.model,
+            inputTokens: entry.inputTokens,
+            outputTokens: entry.outputTokens,
+            costUsd: entry.costUsd,
+            context: entry.context ?? null,
+          });
+        });
+        console.log('[CostTracker] DB persister wired — AI cost logs will survive restarts.');
+      } catch (err: any) {
+        console.warn('[CostTracker] Failed to wire DB persister:', err?.message);
+      }
+    })();
+
     // Immediate: Hive Consciousness (lightweight event listener)
     hiveConsciousnessService.startListening();
     

@@ -4,6 +4,9 @@
  * Tracks approximate AI token costs across all LLM providers.
  * Maintains a rolling in-memory window and provides summary methods
  * for Lyra's reporting cycle.
+ *
+ * DB persistence is wired in via `setCostPersister()` called from
+ * server startup to avoid circular imports.
  */
 
 interface ModelPricing {
@@ -13,14 +16,25 @@ interface ModelPricing {
 }
 
 const PRICING: Record<string, ModelPricing> = {
-  'gemini-3-flash-preview':    { inputPerMillion: 0.075, outputPerMillion: 0.30,  label: 'Gemini Flash'   },
-  'gemini-2.5-pro':            { inputPerMillion: 3.50,  outputPerMillion: 10.50, label: 'Gemini Pro'     },
-  'claude-3-haiku-20240307':   { inputPerMillion: 0.25,  outputPerMillion: 1.25,  label: 'Claude Haiku'   },
-  'claude-sonnet-4-5':         { inputPerMillion: 3.00,  outputPerMillion: 15.00, label: 'Claude Sonnet'  },
-  'claude-opus-4-6':           { inputPerMillion: 15.00, outputPerMillion: 75.00, label: 'Claude Opus'    },
-  'gpt-4o':                    { inputPerMillion: 2.50,  outputPerMillion: 10.00, label: 'GPT-4o'         },
-  'gpt-4o-mini':               { inputPerMillion: 0.15,  outputPerMillion: 0.60,  label: 'GPT-4o Mini'   },
-  'gpt-4':                     { inputPerMillion: 30.00, outputPerMillion: 60.00, label: 'GPT-4'          },
+  // Gemini
+  'gemini-3-flash-preview':       { inputPerMillion: 0.075, outputPerMillion: 0.30,  label: 'Gemini Flash'       },
+  'gemini-2.5-pro':               { inputPerMillion: 3.50,  outputPerMillion: 10.50, label: 'Gemini Pro'         },
+  'gemini-2.0-flash':             { inputPerMillion: 0.10,  outputPerMillion: 0.40,  label: 'Gemini 2 Flash'     },
+  // Claude Haiku
+  'claude-3-haiku-20240307':      { inputPerMillion: 0.25,  outputPerMillion: 1.25,  label: 'Claude Haiku'       },
+  'claude-3-5-haiku-20241022':    { inputPerMillion: 0.80,  outputPerMillion: 4.00,  label: 'Claude Haiku 3.5'   },
+  // Claude Sonnet (all versions map to same pricing tier)
+  'claude-sonnet-4-5':            { inputPerMillion: 3.00,  outputPerMillion: 15.00, label: 'Claude Sonnet 4.5'  },
+  'claude-sonnet-4-20250514':     { inputPerMillion: 3.00,  outputPerMillion: 15.00, label: 'Claude Sonnet 4'    },
+  'claude-3-5-sonnet-20241022':   { inputPerMillion: 3.00,  outputPerMillion: 15.00, label: 'Claude Sonnet 3.5'  },
+  'claude-3-sonnet-20240229':     { inputPerMillion: 3.00,  outputPerMillion: 15.00, label: 'Claude Sonnet 3'    },
+  // Claude Opus
+  'claude-opus-4-6':              { inputPerMillion: 15.00, outputPerMillion: 75.00, label: 'Claude Opus 4.6'    },
+  'claude-3-opus-20240229':       { inputPerMillion: 15.00, outputPerMillion: 75.00, label: 'Claude Opus 3'      },
+  // OpenAI
+  'gpt-4o':                       { inputPerMillion: 2.50,  outputPerMillion: 10.00, label: 'GPT-4o'             },
+  'gpt-4o-mini':                  { inputPerMillion: 0.15,  outputPerMillion: 0.60,  label: 'GPT-4o Mini'        },
+  'gpt-4':                        { inputPerMillion: 30.00, outputPerMillion: 60.00, label: 'GPT-4'              },
 };
 
 interface CostEntry {
@@ -43,19 +57,39 @@ export interface CostSummary {
 
 const MAX_ENTRIES = 10_000;
 
+// Optional DB persister — set by server startup to avoid circular imports.
+type DbPersister = (entry: CostEntry) => Promise<void>;
+let dbPersister: DbPersister | null = null;
+
+export function setCostPersister(fn: DbPersister): void {
+  dbPersister = fn;
+}
+
 class CostTracker {
   private entries: CostEntry[] = [];
   private devAutoResolvedCount = 0;
 
   track(model: string, inputTokens: number, outputTokens: number, context?: string): number {
     const pricing = PRICING[model];
+    if (!pricing) {
+      console.warn(`[CostTracker] Unknown model "${model}" — cost will be $0. Add it to PRICING.`);
+    }
     const costUsd = pricing
       ? (inputTokens / 1_000_000) * pricing.inputPerMillion +
         (outputTokens / 1_000_000) * pricing.outputPerMillion
       : 0;
 
-    this.entries.push({ timestamp: Date.now(), model, inputTokens, outputTokens, costUsd, context });
+    const entry: CostEntry = { timestamp: Date.now(), model, inputTokens, outputTokens, costUsd, context };
+    this.entries.push(entry);
     if (this.entries.length > MAX_ENTRIES) this.entries = this.entries.slice(-MAX_ENTRIES);
+
+    // Persist to DB (fire-and-forget — never block a response on this)
+    if (dbPersister) {
+      dbPersister(entry).catch(err =>
+        console.warn('[CostTracker] DB persist failed:', err?.message || err)
+      );
+    }
+
     return costUsd;
   }
 

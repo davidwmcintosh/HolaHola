@@ -8723,3 +8723,14 @@ export const voiceGracePeriods = pgTable('voice_grace_periods', {
   userId: varchar('user_id').notNull(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
 });
+
+export const aiCostLogs = pgTable('ai_cost_logs', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  loggedAt: bigint('logged_at', { mode: 'number' }).notNull(),
+  model: varchar('model', { length: 100 }).notNull(),
+  inputTokens: integer('input_tokens').notNull().default(0),
+  outputTokens: integer('output_tokens').notNull().default(0),
+  costUsd: real('cost_usd').notNull().default(0),
+  context: varchar('context', { length: 255 }),
+  createdAt: timestamp('created_at').defaultNow(),
+});

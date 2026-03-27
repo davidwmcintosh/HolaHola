@@ -183,10 +183,29 @@ async function runWatchCycle() {
       analyzePatterns('error_rate', 7),
     ]);
 
+    // Summarise issues — send counts and top 3 by severity, not the full list.
+    // This prevents 165-item pending queues from dominating the 5500-char cap.
+    const issuesList: any[] = issues.data?.issues || [];
+    const issuesSummary = {
+      total: issuesList.length,
+      bySeverity: issuesList.reduce((acc: Record<string, number>, i: any) => {
+        const sev = i.severity || 'unknown';
+        acc[sev] = (acc[sev] || 0) + 1;
+        return acc;
+      }, {}),
+      top3: issuesList
+        .sort((a: any, b: any) => {
+          const order: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+          return (order[a.severity] ?? 9) - (order[b.severity] ?? 9);
+        })
+        .slice(0, 3)
+        .map((i: any) => ({ type: i.type, severity: i.severity, message: (i.message || '').substring(0, 120) })),
+    };
+
     const systemSnapshot = JSON.stringify({
       health: health.data,
       database: dbStats.data,
-      issues: issues.data,
+      issues: issuesSummary,
       learning: learning.data,
       trends: trendBlock,
       anomalies: anomalies.map(a => ({

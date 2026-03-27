@@ -14325,6 +14325,32 @@ Return ONLY the ${targetLanguage} phrase:`;
       const aldenSummary = costTracker.getSummary(hours);
       const aldenText = costTracker.formatForReport(hours);
 
+      // DB historical cost logs — fills the gap after restarts
+      const historicalFromDb = await (async () => {
+        try {
+          const { getSharedDb } = await import('./neon-db');
+          const { aiCostLogs } = await import('../shared/schema');
+          const dbRows = await getSharedDb()
+            .select()
+            .from(aiCostLogs)
+            .where(gte(aiCostLogs.loggedAt, since.getTime()))
+            .orderBy(aiCostLogs.loggedAt);
+          // Aggregate by model
+          const byModel: Record<string, { calls: number; inputTokens: number; outputTokens: number; costUsd: number }> = {};
+          let totalCostUsd = 0;
+          for (const row of dbRows) {
+            totalCostUsd += row.costUsd ?? 0;
+            const m = row.model;
+            if (!byModel[m]) byModel[m] = { calls: 0, inputTokens: 0, outputTokens: 0, costUsd: 0 };
+            byModel[m].calls++;
+            byModel[m].inputTokens += row.inputTokens ?? 0;
+            byModel[m].outputTokens += row.outputTokens ?? 0;
+            byModel[m].costUsd += row.costUsd ?? 0;
+          }
+          return { totalCostUsd, callCount: dbRows.length, byModel };
+        } catch { return null; }
+      })();
+
       // Lyra last run
       const lyraLastRun = await (async () => {
         try {
@@ -14400,10 +14426,13 @@ Return ONLY the ${targetLanguage} phrase:`;
         `=== HoloHola Burn Report (last ${hours}h${env !== 'all' ? `, ${env}` : ''}) ===`,
         `Generated: ${new Date().toUTCString()}`,
         ``,
-        `ALDEN STACK (in-memory — Alden / Lyra / Wren)`,
-        aldenSummary.callCount > 0 ? aldenText : `  No calls tracked in this window`,
+        `ALDEN STACK (in-memory — since last restart)`,
+        aldenSummary.callCount > 0 ? aldenText : `  No calls tracked in memory since last restart`,
         lyraLastRun ? `  Lyra last run: ${lyraLastRun.ageHours}h ago (${fmt(lyraLastRun.costUsd || 0)})` : `  Lyra last run: unknown`,
-        `  Subtotal: ${fmt(aldenTotal)}`,
+        `  In-memory subtotal: ${fmt(aldenTotal)}`,
+        historicalFromDb
+          ? `  DB history (${hours}h): ${historicalFromDb.callCount} call(s) → ${fmt(historicalFromDb.totalCostUsd)} (survives restarts)`
+          : `  DB history: unavailable`,
         ``,
         `STUDENT TUTOR SESSIONS (DB — Gemini + TTS + STT)`,
         `  Active students: ${activeStudents} | Sessions: ${sessions} | Minutes: ${totalMinutes}min`,
@@ -14438,11 +14467,14 @@ Return ONLY the ${targetLanguage} phrase:`;
         windowHours: hours,
         env,
         aldenStack: {
-          totalCostUsd: aldenTotal,
-          callCount: aldenSummary.callCount,
-          byModel: aldenSummary.byModel,
-          mostExpensiveModel: aldenSummary.mostExpensiveModel,
-          avgCostPerCall: aldenSummary.avgCostPerCall,
+          inMemory: {
+            totalCostUsd: aldenTotal,
+            callCount: aldenSummary.callCount,
+            byModel: aldenSummary.byModel,
+            mostExpensiveModel: aldenSummary.mostExpensiveModel,
+            avgCostPerCall: aldenSummary.avgCostPerCall,
+          },
+          dbHistory: historicalFromDb,
           lyraLastRun,
         },
         studentTutor: {
