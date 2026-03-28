@@ -268,34 +268,52 @@ Requirements:
   try {
     parsed = JSON.parse(jsonText);
   } catch (parseErr: any) {
-    // JSON parse failed — log enough context to diagnose, then retry with smaller scope.
+    // JSON parse failed — log enough context to diagnose.
     const snippet = jsonText.length > 1200
       ? `${jsonText.slice(0, 1000)} …[${jsonText.length - 1200} chars omitted]… ${jsonText.slice(-200)}`
       : jsonText;
     console.warn(`[TextbookSeed] Invalid JSON (finishReason=${finishReason}, parseErr="${parseErr.message}", len=${jsonText.length}) for "${lesson.name}":\n${snippet}`);
-    const shortPrompt = prompt.replace(
-      /- vocabularyList: 8-14 words.*\n/,
-      '- vocabularyList: 6-8 words, prioritise the required vocabulary listed above\n',
-    ).replace(
-      /- grammarExamples: 4-6 examples.*\n/,
-      '- grammarExamples: 3-4 examples showing the grammar focus\n',
-    ).replace(
-      /"introduction": "2-3 engaging paragraphs/,
-      '"introduction": "1-2 engaging paragraphs',
-    ).replace(
-      /"grammarExplanation": "Clear prose explanation.*?, 2-4 paragraphs"/,
-      '"grammarExplanation": "Clear prose explanation of the grammar concept(s) for this level, 1-2 paragraphs"',
-    );
-    const retry = await callGemini(shortPrompt);
-    if (!retry.text) {
-      throw new Error(`Gemini returned empty response on retry for lesson ${lessonId} (finishReason: ${retry.finishReason})`);
+
+    // ── Retry 1: ask Gemini to repair the broken JSON (fast, preserves content) ──
+    const repairPrompt = `The following JSON has a syntax error. Fix ONLY the JSON syntax — do not change any content values. Return only the corrected JSON with no other text, explanation, or markdown fences.\n\n${jsonText}`;
+    const repair = await callGemini(repairPrompt);
+    if (repair.text) {
+      const repairedJson = extractJson(repair.text);
+      try {
+        parsed = JSON.parse(repairedJson);
+        console.log(`[TextbookSeed] JSON repair succeeded for "${lesson.name}"`);
+      } catch {
+        parsed = null; // fall through to regenerate
+      }
     }
-    jsonText = extractJson(retry.text);
-    try {
-      parsed = JSON.parse(jsonText);
-    } catch (parseErr2: any) {
-      const snippet2 = jsonText.length > 500 ? `${jsonText.slice(0, 400)} …${jsonText.slice(-100)}` : jsonText;
-      throw new Error(`Gemini returned invalid JSON for lesson ${lessonId} (finishReason=${retry.finishReason}, parseErr="${parseErr2.message}"): ${snippet2}`);
+
+    // ── Retry 2: regenerate with reduced scope if repair also failed ──
+    if (!parsed) {
+      console.warn(`[TextbookSeed] JSON repair failed for "${lesson.name}" — regenerating with reduced scope`);
+      const shortPrompt = prompt.replace(
+        /- vocabularyList: 8-14 words.*\n/,
+        '- vocabularyList: 6-8 words, prioritise the required vocabulary listed above\n',
+      ).replace(
+        /- grammarExamples: 4-6 examples.*\n/,
+        '- grammarExamples: 3-4 examples showing the grammar focus\n',
+      ).replace(
+        /"introduction": "2-3 engaging paragraphs/,
+        '"introduction": "1-2 engaging paragraphs',
+      ).replace(
+        /"grammarExplanation": "Clear prose explanation.*?, 2-4 paragraphs"/,
+        '"grammarExplanation": "Clear prose explanation of the grammar concept(s) for this level, 1-2 paragraphs"',
+      );
+      const regen = await callGemini(shortPrompt);
+      if (!regen.text) {
+        throw new Error(`Gemini returned empty response on regenerate for lesson ${lessonId} (finishReason: ${regen.finishReason})`);
+      }
+      const regenJson = extractJson(regen.text);
+      try {
+        parsed = JSON.parse(regenJson);
+      } catch (parseErr2: any) {
+        const snippet2 = regenJson.length > 500 ? `${regenJson.slice(0, 400)} …${regenJson.slice(-100)}` : regenJson;
+        throw new Error(`Gemini returned invalid JSON for lesson ${lessonId} (finishReason=${regen.finishReason}, parseErr="${parseErr2.message}"): ${snippet2}`);
+      }
     }
   }
 
