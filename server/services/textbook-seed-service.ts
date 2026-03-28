@@ -99,7 +99,7 @@ export async function seedLesson(
 
     fetchTatoebaSentences(topic, language, 6),
 
-    fetchSeedAndImages(culturalTheme, 'history').then(r => r.content).catch(() => ''),
+    fetchSeedAndImages(culturalTheme, 'history').then(r => r.text).catch(() => ''),
 
     fetchWikivoyagePhrases(topic, language).catch(() => ''),
   ]);
@@ -187,7 +187,7 @@ Requirements:
     config:   {
       temperature:   0.4,
       maxOutputTokens: 6000,
-      thinkingConfig: { thinkingBudget: 0 },
+      thinkingConfig: { thinkingLevel: 'MINIMAL' } as any,
     },
   });
 
@@ -281,8 +281,10 @@ export async function seedCurriculumPath(
       const level = lesson.actfl_level || lesson.unit_actfl;
       await seedLesson(lesson.id, path.language, level);
     } catch (err: any) {
-      console.error(`[TextbookSeed] Error seeding lesson "${lesson.name}":`, err.message);
-      job.errors.push(`${lesson.name}: ${err.message}`);
+      const msg = typeof err?.message === 'string' ? err.message : String(err);
+      const detail = err?.cause ? ` [cause: ${err.cause}]` : err?.stack ? ` [at: ${err.stack?.split('\n')[1]?.trim()}]` : '';
+      console.error(`[TextbookSeed] Error seeding lesson "${lesson.name}": ${msg}${detail}`);
+      job.errors.push(`${lesson.name}: ${msg}`);
     }
 
     // Small delay to avoid hammering APIs

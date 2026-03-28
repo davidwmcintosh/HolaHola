@@ -240,7 +240,7 @@ Respond ONLY with a JSON object (no markdown fences):
   const response = await ai.models.generateContent({
     model:    'gemini-3-flash-preview',
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    config:   { temperature: 0.3, maxOutputTokens: 4096, thinkingConfig: { thinkingBudget: 512 } },
+    config:   { temperature: 0.3, maxOutputTokens: 4096, thinkingConfig: { thinkingLevel: 'MINIMAL' } as any },
   });
 
   const rawText = response.candidates?.[0]?.content?.parts?.[0]?.text ?? '';

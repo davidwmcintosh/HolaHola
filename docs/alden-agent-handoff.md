@@ -59,6 +59,30 @@ This would create distinct hashes:
 
 ---
 
+## From Agent — Sat Mar 28, 2026 (session N+1)
+
+**Session: Textbook seeder 404 root-cause found + fixed**
+
+### What was fixed
+
+1. **`thinkingBudget: 0` → `thinkingLevel: 'MINIMAL'` (LIKELY ROOT CAUSE of English 404s)**
+   - `gemini-streaming.ts` already documents that Gemini 3 uses `{ thinkingLevel: 'MINIMAL' }` while Gemini 2.5 uses `{ thinkingBudget: N }`. The non-streaming Gemini calls in `textbook-seed-service.ts` and `curriculum-enrichment-service.ts` were still passing the Gemini-2.5–format `thinkingBudget: 0`, which the Gemini 3 API may not accept, returning a 404 from the API endpoint.
+   - Fixed in both services to `thinkingConfig: { thinkingLevel: 'MINIMAL' } as any`.
+   - Why English specifically? Spanish/French lessons were already seeded so `seedLesson` returned `false` early (before the Gemini call). English 3/4/5 were unseeded so Gemini was actually called and hit the bad parameter.
+
+2. **`r.content` → `r.text` bug fixed**
+   - `fetchSeedAndImages` returns `{ text, images, articleTitle }` not `{ content }`. The `.then(r => r.content)` in `textbook-seed-service.ts` was always resolving to `undefined`, meaning ALL lessons got `(none available)` for cultural context. Fixed to `.then(r => r.text)`.
+
+3. **Better error logging in `seedCurriculumPath`**
+   - Was only logging `err.message`. Now logs message + optional cause/stack line to help diagnose future errors.
+
+### State at handoff
+- App stable
+- Textbook seeder should now work for English lessons (both fixes applied)
+- User should try re-seeding English 3/4/5 to verify. If 404 persists, check server logs for the new detailed error output.
+
+---
+
 ## From Agent — Sat Mar 28, 2026 (session N)
 
 **Session: Textbook terminology + number examples + greeting images + admin cache-bust UI**
