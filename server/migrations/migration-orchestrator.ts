@@ -167,12 +167,67 @@ const MIGRATIONS: Migration[] = [
       await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_system_alerts_active ON system_alerts(is_active)`);
     }
   },
-  // Add future migrations here with incrementing version numbers
-  // {
-  //   version: '002',
-  //   name: 'next-feature-tables',
-  //   up: async () => { ... }
-  // }
+  {
+    version: '002',
+    name: 'bust-greeting-image-cache-for-character-profiles',
+    up: async () => {
+      // Greeting and farewell image prompts were updated to embed consistent
+      // recurring character descriptions (Daniela+Marco for Spanish, Sophie+Pierre
+      // for French, Anna+Klaus for German, Giulia+Luca for Italian, Ana+João for
+      // Portuguese). Delete stale cached images so they regenerate with the new
+      // character-consistent prompts on next access.
+      //
+      // NOTE: This migration was applied in environments where it ran correctly,
+      // but a normalization gap was later identified. Migration 003 handles the
+      // complete bust using GREETINGS_CACHE_KEYS. This entry is preserved for
+      // idempotency tracking only — 003 is the definitive one.
+      console.log('[MIGRATIONS] 002: bust-greeting-image-cache-for-character-profiles (superseded by 003, no-op if 003 applied)');
+    },
+  },
+  {
+    version: '003',
+    name: 'bust-greeting-image-cache-complete',
+    up: async () => {
+      // Authoritative cache bust for greeting/farewell images updated with
+      // CHARACTER_PROFILES character descriptions.
+      //
+      // Uses bustVocabImageCache (which delegates to GREETINGS_CACHE_KEYS /
+      // toCacheKey normalization) so that:
+      //  1. Exact phrase keys are deleted (e.g. vocab_french_excusezmoi).
+      //  2. Fallback component-word keys for multi-word phrases are also deleted
+      //     (e.g. vocab_spanish_buenos + vocab_spanish_dias for "buenos dias"),
+      //     preventing stale individual-word cache hits from being served instead
+      //     of a freshly generated character-consistent phrase image.
+      const { GREETINGS_CACHE_KEYS, bustVocabImageCache } = await import('../services/vocab-image-seed-service');
+      const languages = ['spanish', 'french', 'german', 'italian', 'portuguese'];
+
+      // Verify media_files table exists before running deletes
+      const tableCheck = await db.execute(sql`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables
+          WHERE table_schema = 'public' AND table_name = 'media_files'
+        ) AS exists
+      `);
+      if (!tableCheck.rows?.[0]?.exists) {
+        console.log('[MIGRATIONS] 003: media_files table not found — skipping greeting cache bust');
+        return;
+      }
+
+      let totalDeleted = 0;
+      for (const lang of languages) {
+        const keys = GREETINGS_CACHE_KEYS[lang] ?? [];
+        if (keys.length > 0) {
+          try {
+            const deleted = await bustVocabImageCache(keys);
+            totalDeleted += deleted;
+          } catch (err: any) {
+            console.warn(`[MIGRATIONS] 003: Error busting cache for ${lang}:`, err.message);
+          }
+        }
+      }
+      console.log(`[MIGRATIONS] 003: Cleared ${totalDeleted} stale greeting image cache entries (including fallback component keys) across 5 languages`);
+    },
+  },
 ];
 
 export class MigrationOrchestrator {

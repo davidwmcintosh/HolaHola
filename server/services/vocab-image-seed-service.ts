@@ -18,6 +18,55 @@ import { curriculumDrillItems, mediaFiles } from '../../shared/schema';
 import { inArray, sql, eq, and, like } from 'drizzle-orm';
 import { resolveVocabularyImage } from './vocabulary-image-resolver';
 
+/**
+ * CHARACTER_PROFILES
+ *
+ * Named recurring characters used in greeting and farewell scene prompts.
+ * Each character has a precise physical description so DALL-E produces
+ * visually similar results across every prompt that embeds that description.
+ *
+ * HOW TO USE when writing a new scene prompt:
+ *   - Single-person scenes: embed the primary character (e.g. CHAR.ES.primary)
+ *   - Two-person scenes:    embed primary + secondary (e.g. CHAR.ES.primary + CHAR.ES.secondary)
+ *   - Assign one language's pair to any thematically linked group
+ *     (time-of-day greetings, farewells, etc.) and use that pair consistently
+ *     across every prompt in that group.
+ *
+ * Adding a new language / group:
+ *   1. Add an entry in CHARACTER_PROFILES below with a primary and secondary character.
+ *   2. Reference CHAR.<LANG>.primary / CHAR.<LANG>.secondary in each prompt.
+ *   3. Add the updated words to GREETINGS_WORDS so old cached images are busted.
+ */
+export const CHARACTER_PROFILES = {
+  /** Spanish — used for all Spanish greeting & farewell prompts */
+  ES: {
+    primary:   'Daniela, a 28-year-old Latina woman with long wavy dark-brown hair, warm medium-brown skin, and bright brown eyes, wearing a sky-blue short-sleeve blouse and dark jeans',
+    secondary: 'Marco, a 30-year-old Latino man with short curly black hair, light-olive skin, and friendly dark eyes, wearing a white button-up shirt and chinos',
+  },
+  /** French — used for all French greeting & farewell prompts */
+  FR: {
+    primary:   'Sophie, a 27-year-old French woman with chin-length auburn hair, fair skin, and green eyes, wearing a striped navy-and-white Breton top and light trousers',
+    secondary: 'Pierre, a 32-year-old French man with neat short brown hair, light skin, and blue eyes, wearing a burgundy crewneck sweater and dark trousers',
+  },
+  /** German — used for all German greeting & farewell prompts */
+  DE: {
+    primary:   'Anna, a 26-year-old German woman with straight blonde hair in a ponytail, fair skin, and blue-grey eyes, wearing a forest-green pullover and grey slim-fit trousers',
+    secondary: 'Klaus, a 34-year-old German man with short sandy-blond hair, fair skin, and hazel eyes, wearing a charcoal zip-up jacket and navy trousers',
+  },
+  /** Italian — used for all Italian greeting & farewell prompts */
+  IT: {
+    primary:   'Giulia, a 25-year-old Italian woman with long straight dark-brown hair, warm olive skin, and dark-brown eyes, wearing a terracotta linen blouse and white wide-leg trousers',
+    secondary: 'Luca, a 29-year-old Italian man with short dark wavy hair, medium-olive skin, and brown eyes, wearing a pale-yellow polo shirt and light chinos',
+  },
+  /** Portuguese — used for all Portuguese greeting & farewell prompts */
+  PT: {
+    primary:   'Ana, a 27-year-old Brazilian woman with long wavy dark hair, golden-brown skin, and warm brown eyes, wearing a coral short-sleeve top and dark cropped trousers',
+    secondary: 'João, a 31-year-old Brazilian man with short dark hair, medium-brown skin, and brown eyes, wearing a light-blue casual shirt and beige trousers',
+  },
+} as const;
+
+const CHAR = CHARACTER_PROFILES;
+
 // ── Scene overrides ────────────────────────────────────────────────────────
 // Words that DALL-E gets wrong when given just the word.
 // Numbers: generic images instead of clear numeral illustrations.
@@ -270,19 +319,20 @@ const SCENE_OVERRIDES: Record<string, string> = {
   '周日': 'A small watercolor weekly calendar with Sunday highlighted in pink, the Chinese characters 周日 written boldly',
 
   // ── Greetings & Farewells — Spanish ──────────────────────────────────────
-  'hola':               'A smiling child waving hello to a friend at a sunny school entrance, both in casual everyday clothes, bright cheerful watercolor illustration',
-  'buenos dias':        'A person in pajamas stretching with a big yawn and a happy smile beside a window showing a bright golden sunrise, warm morning light, watercolor illustration',
-  'buenas tardes':      'A sunny afternoon park scene, a person relaxing on a bench waving at a friend passing by, long golden shadows on the grass, cheerful watercolor illustration',
-  'buenas noches':      'A child in pajamas waving from a lit cozy bedroom window at a beautiful starry night sky with a glowing crescent moon, warm lamp light inside, watercolor illustration',
-  'adios':              'A person leaning out of a car window waving goodbye, another person in casual clothes on the sidewalk waving back cheerfully, colorful watercolor illustration',
-  'hasta luego':        'Two friends in casual everyday clothes at a sunny intersection, each heading a different direction, smiling and waving goodbye over their shoulder, watercolor illustration',
-  'hasta manana':       'A person waving goodbye at a garden gate at sunset, a simple circular calendar icon floating nearby with the next day circled, cheerful watercolor illustration',
-  'hasta pronto':       'Two friends in casual clothes hugging warmly at a front door, one waving goodbye, both smiling happily, bright watercolor illustration',
-  'mucho gusto':        'Two people in casual everyday Western clothes meeting for the first time, both extending a friendly handshake with warm open smiles, bright cheerful setting, watercolor illustration',
-  'encantado':          'A smiling young man in a casual shirt placing his hand on his chest and giving a small warm bow of greeting, cheerful watercolor illustration',
-  'encantada':          'A smiling young woman in a casual dress placing her hand on her chest and giving a small warm bow of greeting, cheerful watercolor illustration',
-  'como estas':         'A friendly person in casual clothes with raised eyebrows and an open questioning smile, arms slightly open in a welcoming gesture, watercolor illustration',
-  'como esta usted':    'A person in smart casual everyday attire making a polite open-hand gesture with a warm questioning expression, watercolor illustration',
+  // Characters: Daniela (primary) + Marco (secondary) — see CHARACTER_PROFILES.ES
+  'hola':               `${CHAR.ES.primary} waving hello with a big smile to ${CHAR.ES.secondary} at a sunny school entrance, both looking delighted, bright cheerful watercolor illustration`,
+  'buenos dias':        `${CHAR.ES.primary} in cozy pajamas stretching with a happy yawn beside a window showing a bright golden sunrise, warm morning light streaming in, watercolor illustration`,
+  'buenas tardes':      `${CHAR.ES.primary} relaxing on a park bench in the sunny afternoon, waving cheerfully to ${CHAR.ES.secondary} passing by, long golden shadows on the grass, watercolor illustration`,
+  'buenas noches':      `${CHAR.ES.primary} in cozy pajamas waving from a lit bedroom window at a beautiful starry night sky with a glowing crescent moon, warm lamp light inside, watercolor illustration`,
+  'adios':              `${CHAR.ES.primary} leaning out of a car window waving goodbye, ${CHAR.ES.secondary} standing on the sidewalk waving back cheerfully, colorful watercolor illustration`,
+  'hasta luego':        `${CHAR.ES.primary} and ${CHAR.ES.secondary} at a sunny intersection, each heading a different direction, smiling and waving goodbye over their shoulder, watercolor illustration`,
+  'hasta manana':       `${CHAR.ES.primary} waving goodbye at a garden gate at sunset, a simple circular calendar floating nearby with tomorrow circled, cheerful watercolor illustration`,
+  'hasta pronto':       `${CHAR.ES.primary} and ${CHAR.ES.secondary} hugging warmly at a front door, one waving goodbye, both smiling happily, bright watercolor illustration`,
+  'mucho gusto':        `${CHAR.ES.primary} and ${CHAR.ES.secondary} meeting for the first time, both extending a friendly handshake with warm open smiles, bright cheerful setting, watercolor illustration`,
+  'encantado':          `${CHAR.ES.secondary} placing his hand on his chest and giving a small warm bow of greeting with a delighted smile, cheerful watercolor illustration`,
+  'encantada':          `${CHAR.ES.primary} placing her hand on her chest and giving a small warm bow of greeting with a warm smile, cheerful watercolor illustration`,
+  'como estas':         `${CHAR.ES.primary} with raised eyebrows and an open questioning smile, arms slightly spread in a welcoming "how are you?" gesture, watercolor illustration`,
+  'como esta usted':    `${CHAR.ES.primary} in a smart-casual setting making a polite open-hand gesture with a warm questioning expression, watercolor illustration`,
   'bien':               SPLIT('bien', 'a cheerful person giving a big thumbs-up with a bright grin, sunny warm background', 'mal', 'a person with slumped shoulders, frowning face, and drooping posture, grey cool background'),
   'muy bien':           'A very happy person jumping with both thumbs up and a huge joyful smile, bright sunny background, watercolor illustration',
   'muy bien gracias':   'A happy person with a big thumbs-up and a warm grateful smile, pressing one hand to their heart appreciatively, bright sunny background, watercolor illustration',
@@ -298,59 +348,63 @@ const SCENE_OVERRIDES: Record<string, string> = {
   'lo siento':          'A person with a sorrowful apologetic expression placing hand on heart, watercolor',
 
   // ── Greetings & Farewells — French ────────────────────────────────────────
-  'bonjour':            'Two people greeting each other in the morning sunlight with a friendly wave, watercolor style',
-  'bonsoir':            'Two people exchanging evening greetings under a dusky sky, watercolor illustration',
-  'bonne nuit':         'A person waving goodnight under a starry sky with a crescent moon, watercolor',
-  'au revoir':          'A person smiling and waving goodbye at an open door, watercolor illustration',
-  'salut':              'Two friends giving a casual wave to each other, bright watercolor style',
-  'a bientot':          'Two friends cheerfully waving goodbye at a park entrance, both smiling warmly and gesturing to each other, sunny day, watercolor illustration',
-  'sil vous plait':     'A person making a polite request gesture with clasped hands, watercolor style',
-  'merci':              'A person bowing graciously with a thankful smile, warm watercolor illustration',
-  'merci beaucoup':     'A person bowing deeply with a very warm smile of gratitude, watercolor style',
-  'de rien':            'A person waving a welcoming "no problem" hand gesture, watercolor illustration',
-  'excusez-moi':        'A person gently raising a hand to get attention politely, watercolor style',
-  'pardon':             'A person with an apologetic expression placing hand on chest, watercolor illustration',
-  'enchante':           'A person extending a hand for a handshake with a delighted smile, watercolor style',
+  // Characters: Sophie (primary) + Pierre (secondary) — see CHARACTER_PROFILES.FR
+  'bonjour':            `${CHAR.FR.primary} and ${CHAR.FR.secondary} greeting each other in the sunny morning light with warm smiles and a friendly wave, watercolor illustration`,
+  'bonsoir':            `${CHAR.FR.primary} and ${CHAR.FR.secondary} exchanging warm evening greetings under a soft dusky sky, watercolor illustration`,
+  'bonne nuit':         `${CHAR.FR.primary} waving goodnight from a lit doorway under a starry sky with a crescent moon, watercolor illustration`,
+  'au revoir':          `${CHAR.FR.primary} smiling and waving goodbye at an open door as ${CHAR.FR.secondary} walks away, watercolor illustration`,
+  'salut':              `${CHAR.FR.primary} and ${CHAR.FR.secondary} exchanging a casual cheerful wave to each other, bright watercolor illustration`,
+  'a bientot':          `${CHAR.FR.primary} and ${CHAR.FR.secondary} cheerfully waving goodbye at a park entrance, both smiling warmly, sunny day, watercolor illustration`,
+  'sil vous plait':     `${CHAR.FR.primary} making a polite request gesture with clasped hands and a gentle expression, watercolor illustration`,
+  'merci':              `${CHAR.FR.primary} bowing graciously with a thankful smile, warm watercolor illustration`,
+  'merci beaucoup':     `${CHAR.FR.primary} bowing deeply with a very warm smile of deep gratitude, watercolor illustration`,
+  'de rien':            `${CHAR.FR.secondary} waving a relaxed "no problem" hand gesture with a friendly smile, watercolor illustration`,
+  'excusez-moi':        `${CHAR.FR.primary} gently raising a hand to get attention politely in a busy setting, watercolor illustration`,
+  'pardon':             `${CHAR.FR.primary} with an apologetic expression placing hand on chest, watercolor illustration`,
+  'enchante':           `${CHAR.FR.secondary} extending a hand for a handshake with a delighted smile on first meeting, watercolor illustration`,
 
   // ── Greetings & Farewells — German ────────────────────────────────────────
-  'guten morgen':       'A bright sunrise scene with a person waving good morning, watercolor illustration',
-  'guten tag':          'A cheerful daytime scene with two people greeting each other, watercolor style',
-  'guten abend':        'Two people greeting in the warm evening light, watercolor illustration',
-  'gute nacht':         'A person waving goodnight under a starry sky, watercolor style',
-  'auf wiedersehen':    'A person waving goodbye at an open door with a warm smile, watercolor illustration',
-  'tschuss':            'Two friends giving a casual wave goodbye, bright watercolor style',
-  'bitte':              'A person making a polite request gesture, watercolor illustration',
-  'danke':              'A person bowing with a grateful smile, warm watercolor style',
-  'danke schon':        'A person bowing deeply with a warm thankful smile, watercolor illustration',
-  'bitte schon':        'A person gesturing "you\'re welcome" with a kind smile, watercolor style',
-  'entschuldigung':     'A person raising a hand apologetically, watercolor illustration',
+  // Characters: Anna (primary) + Klaus (secondary) — see CHARACTER_PROFILES.DE
+  'guten morgen':       `${CHAR.DE.primary} waving good morning beside a bright sunrise window, warm golden light, watercolor illustration`,
+  'guten tag':          `${CHAR.DE.primary} and ${CHAR.DE.secondary} greeting each other cheerfully in bright daytime light, watercolor illustration`,
+  'guten abend':        `${CHAR.DE.primary} and ${CHAR.DE.secondary} greeting warmly in the soft warm evening light, watercolor illustration`,
+  'gute nacht':         `${CHAR.DE.primary} waving goodnight from a cozy doorway under a starry sky, watercolor illustration`,
+  'auf wiedersehen':    `${CHAR.DE.primary} waving goodbye at an open door with a warm smile as ${CHAR.DE.secondary} departs, watercolor illustration`,
+  'tschuss':            `${CHAR.DE.primary} and ${CHAR.DE.secondary} exchanging a casual cheerful wave goodbye, bright watercolor illustration`,
+  'bitte':              `${CHAR.DE.primary} making a polite request gesture with a gentle expression, watercolor illustration`,
+  'danke':              `${CHAR.DE.primary} bowing with a grateful smile, warm watercolor illustration`,
+  'danke schon':        `${CHAR.DE.primary} bowing deeply with a very warm thankful smile, watercolor illustration`,
+  'bitte schon':        `${CHAR.DE.secondary} gesturing "you're welcome" with a kind open-hand smile, watercolor illustration`,
+  'entschuldigung':     `${CHAR.DE.primary} raising a hand apologetically with a sheepish expression, watercolor illustration`,
 
   // ── Greetings & Farewells — Italian ──────────────────────────────────────
-  'ciao':               'Two friends waving hello and goodbye cheerfully, bright watercolor illustration',
-  'buongiorno':         'A cheerful morning scene with warm sunlight and a person waving, watercolor style',
-  'buonasera':          'Two people greeting warmly in the soft evening light, watercolor illustration',
-  'buonanotte':         'A person waving goodnight under a starry sky, watercolor style',
-  'arrivederci':        'A person waving goodbye at an open door with a friendly smile, watercolor illustration',
-  'prego':              'A person gesturing "you\'re welcome" or "please go ahead" with an open hand, watercolor',
-  'grazie':             'A person pressing hands together in a gracious thank-you bow, watercolor illustration',
-  'per favore':         'A person with hands clasped making a polite "please" request, watercolor style',
-  'mi chiamo':          'A person pointing to themselves and saying their name with a friendly smile, watercolor',
-  'come stai':          'A person making an open "how are you?" gesture with a warm expression, watercolor',
-  'come sta':           'A person in a slightly formal setting making a polite inquiry gesture, watercolor',
+  // Characters: Giulia (primary) + Luca (secondary) — see CHARACTER_PROFILES.IT
+  'ciao':               `${CHAR.IT.primary} and ${CHAR.IT.secondary} waving hello and goodbye cheerfully to each other, bright watercolor illustration`,
+  'buongiorno':         `${CHAR.IT.primary} waving good morning beside a sunny window with warm morning light streaming in, watercolor illustration`,
+  'buonasera':          `${CHAR.IT.primary} and ${CHAR.IT.secondary} greeting each other warmly in the soft golden evening light, watercolor illustration`,
+  'buonanotte':         `${CHAR.IT.primary} waving goodnight from a lit doorway under a beautiful starry sky, watercolor illustration`,
+  'arrivederci':        `${CHAR.IT.primary} waving goodbye at an open door with a friendly smile as ${CHAR.IT.secondary} departs, watercolor illustration`,
+  'prego':              `${CHAR.IT.secondary} gesturing "you're welcome" or "please go ahead" with an open gracious hand, watercolor illustration`,
+  'grazie':             `${CHAR.IT.primary} pressing hands together in a gracious thank-you bow with a warm smile, watercolor illustration`,
+  'per favore':         `${CHAR.IT.primary} with hands clasped making a polite "please" request with kind eyes, watercolor illustration`,
+  'mi chiamo':          `${CHAR.IT.primary} pointing to themselves and saying their name with a friendly confident smile, watercolor illustration`,
+  'come stai':          `${CHAR.IT.primary} making an open "how are you?" gesture with raised eyebrows and a warm expression, watercolor illustration`,
+  'come sta':           `${CHAR.IT.primary} in a slightly formal setting making a polite inquiry gesture to ${CHAR.IT.secondary}, watercolor illustration`,
 
   // ── Greetings & Farewells — Portuguese ───────────────────────────────────
-  'ola':                'Two people smiling and waving hello to each other, bright watercolor illustration',
-  'bom dia':            'A cheerful sunrise scene with golden light and a person waving good morning, watercolor',
-  'boa tarde':          'A warm afternoon scene with a person waving hello, soft watercolor illustration',
-  'boa noite':          'A calm night scene with a crescent moon and a person waving goodnight, watercolor',
-  'adeus':              'A person waving farewell at an open doorway with a warm smile, watercolor illustration',
-  'ate logo':           'Two friends parting with a cheerful "see you soon" wave, watercolor style',
-  'ate amanha':         'A calendar showing tomorrow with a cheerful sunrise, watercolor illustration',
-  'obrigado':           'A person bowing with a grateful smile, warm watercolor illustration',
-  'obrigada':           'A person bowing graciously with a warm thankful smile, watercolor style',
-  'de nada':            'A person waving a kind "you\'re welcome" hand gesture, watercolor illustration',
-  'com licenca':        'A person politely excusing themselves with a gentle gesture, watercolor style',
-  'desculpe':           'A person with an apologetic expression placing hand on heart, watercolor illustration',
+  // Characters: Ana (primary) + João (secondary) — see CHARACTER_PROFILES.PT
+  'ola':                `${CHAR.PT.primary} and ${CHAR.PT.secondary} smiling and waving hello to each other, bright watercolor illustration`,
+  'bom dia':            `${CHAR.PT.primary} waving good morning beside a cheerful sunrise window with golden light, watercolor illustration`,
+  'boa tarde':          `${CHAR.PT.primary} waving hello to ${CHAR.PT.secondary} in a warm sunny afternoon setting, soft watercolor illustration`,
+  'boa noite':          `${CHAR.PT.primary} waving goodnight from a lit doorway under a calm night sky with a crescent moon, watercolor illustration`,
+  'adeus':              `${CHAR.PT.primary} waving a heartfelt farewell at an open doorway as ${CHAR.PT.secondary} departs, watercolor illustration`,
+  'ate logo':           `${CHAR.PT.primary} and ${CHAR.PT.secondary} parting with a cheerful "see you soon" wave, watercolor illustration`,
+  'ate amanha':         `${CHAR.PT.primary} waving goodbye with a calendar icon floating nearby showing tomorrow circled, cheerful watercolor illustration`,
+  'obrigado':           `${CHAR.PT.secondary} bowing with a grateful smile and hands pressed together, warm watercolor illustration`,
+  'obrigada':           `${CHAR.PT.primary} bowing graciously with a warm thankful smile and hands pressed together, watercolor illustration`,
+  'de nada':            `${CHAR.PT.secondary} waving a relaxed kind "you're welcome" hand gesture with a friendly smile, watercolor illustration`,
+  'com licenca':        `${CHAR.PT.primary} politely excusing themselves with a gentle hand gesture in a busy setting, watercolor illustration`,
+  'desculpe':           `${CHAR.PT.primary} with an apologetic expression placing hand on heart, watercolor illustration`,
 
   // ── Adjective Pairs — Spanish ─────────────────────────────────────────────
   // Both words in each pair share the exact same SPLIT prompt so they render
