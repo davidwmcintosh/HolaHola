@@ -619,3 +619,27 @@ The seeder now calls `normalizeForOverride(word)` to look up the table and passe
 - **bathroom**: sink counter at cy=0.60; floor at cy=0.88
 
 **Next**: David should test prop placement in a park scenario (e.g., phone `on_floor`, backpack `foreground`). If any position is still off, fine-tune the cy/cx values for that specific environment+position — no background regeneration needed.
+
+### Completed: Cross-language shared concept image cache
+
+**Problem**: Every language generated its own DALL-E image for identical visual concepts — "tres"/"trois"/"drei"/"tre"/"três"/"三"/"삼"/"שלוש" all showing the numeral 3, but paying 10× the generation cost.
+
+**Design**: Words that are visually identical across languages now share a single cached image under a language-agnostic key (e.g. `concept_num_3`, `concept_color_red`, `concept_season_spring`).
+
+**Greetings intentionally excluded**: Greeting/farewell prompts embed CHARACTER_PROFILES characters (Daniela=Spanish, Sophie=French, etc.), so per-language generation is preserved for those.
+
+**What's shared** (all 9+ languages):
+- Numbers 0–100, 1000 — every numeral form across ES/FR/DE/IT/PT/JA/ZH/KO/HE
+- Colors — 11 colors across all languages
+- Seasons — 4 seasons across all languages
+- Weather — rain, snow, sun, wind, cloud, fog, storm, lightning, rainbow + adjective forms
+
+**Migration**: On first access to a concept word, the resolver checks:
+1. `concept_num_3` cache → hit? Done.
+2. Legacy `vocab_spanish_tres` → hit? Promotes to `concept_num_3`, done. (Zero-waste migration)
+3. Generate fresh → saves to `concept_num_3`.
+
+**normalizeWord() updated**: Now preserves CJK (\u3040-\u9FFF), Hangul (\uAC00-\uD7AF), Hebrew (\u0590-\u05FF), Arabic (\u0600-\u06FF), Cyrillic (\u0400-\u04FF) instead of stripping all non-ASCII. This fixes broken cache keys for Japanese/Korean/Hebrew/Mandarin vocab (they were normalizing to empty string before).
+
+**Files changed**:
+- `server/services/vocabulary-image-resolver.ts` — `CONCEPT_KEY_MAP` (800+ entries), updated `normalizeWord`, updated `resolveVocabularyImage`

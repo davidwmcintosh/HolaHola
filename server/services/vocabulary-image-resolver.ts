@@ -347,14 +347,244 @@ const CONCEPT_KEY_MAP: Record<string, string> = {
   'rectangle':     'concept_shape_rectangle', // FR
   'rechteck':      'concept_shape_rectangle', // DE
   'rettangolo':    'concept_shape_rectangle', // IT
+
+  // ══════════════════════════════════════════════════════════════════════
+  // ── Japanese (日本語) ─────────────────────────────────────────────────
+  // Kanji forms are shared with Mandarin where identical characters are used.
+  // ══════════════════════════════════════════════════════════════════════
+
+  // Numbers — kanji (also shared with Mandarin for the same characters)
+  '〇': 'concept_num_0', '零': 'concept_num_0',
+  '一': 'concept_num_1', '二': 'concept_num_2', '三': 'concept_num_3',
+  '四': 'concept_num_4', '五': 'concept_num_5', '六': 'concept_num_6',
+  '七': 'concept_num_7', '八': 'concept_num_8', '九': 'concept_num_9',
+  '十': 'concept_num_10', '十一': 'concept_num_11', '十二': 'concept_num_12',
+  '十三': 'concept_num_13', '十四': 'concept_num_14', '十五': 'concept_num_15',
+  '十六': 'concept_num_16', '十七': 'concept_num_17', '十八': 'concept_num_18',
+  '十九': 'concept_num_19', '二十': 'concept_num_20', '二十一': 'concept_num_21',
+  '三十': 'concept_num_30', '四十': 'concept_num_40', '五十': 'concept_num_50',
+  '六十': 'concept_num_60', '七十': 'concept_num_70', '八十': 'concept_num_80',
+  '九十': 'concept_num_90', '百': 'concept_num_100', '千': 'concept_num_1000',
+
+  // Numbers — hiragana/katakana phonetic forms
+  'ゼロ': 'concept_num_0', 'れい': 'concept_num_0',
+  'いち': 'concept_num_1', 'に': 'concept_num_2', 'さん': 'concept_num_3',
+  'し': 'concept_num_4', 'よん': 'concept_num_4',
+  'ご': 'concept_num_5', 'ろく': 'concept_num_6',
+  'なな': 'concept_num_7', 'しち': 'concept_num_7',
+  'はち': 'concept_num_8', 'きゅう': 'concept_num_9', 'く': 'concept_num_9',
+  'じゅう': 'concept_num_10', 'ひゃく': 'concept_num_100', 'せん': 'concept_num_1000',
+  'にじゅう': 'concept_num_20', 'さんじゅう': 'concept_num_30',
+
+  // Colors
+  '赤': 'concept_color_red', '赤色': 'concept_color_red',
+  '青': 'concept_color_blue', '青色': 'concept_color_blue',
+  '緑': 'concept_color_green', '緑色': 'concept_color_green',
+  '黄色': 'concept_color_yellow', '黄': 'concept_color_yellow',
+  '白': 'concept_color_white', '白色': 'concept_color_white',
+  '黒': 'concept_color_black', '黒色': 'concept_color_black',
+  'オレンジ': 'concept_color_orange', 'オレンジ色': 'concept_color_orange',
+  '橙色': 'concept_color_orange', '橙': 'concept_color_orange',
+  '紫': 'concept_color_purple', '紫色': 'concept_color_purple',
+  'ピンク': 'concept_color_pink', 'ピンク色': 'concept_color_pink', '桃色': 'concept_color_pink',
+  '茶色': 'concept_color_brown', '茶': 'concept_color_brown',
+  '灰色': 'concept_color_gray', '灰': 'concept_color_gray',
+
+  // Seasons
+  '春': 'concept_season_spring', 'はる': 'concept_season_spring',
+  '夏': 'concept_season_summer', 'なつ': 'concept_season_summer',
+  '秋': 'concept_season_fall',   'あき': 'concept_season_fall',
+  '冬': 'concept_season_winter', 'ふゆ': 'concept_season_winter',
+
+  // Weather
+  '晴れ': 'concept_weather_sunny', '晴': 'concept_weather_sunny',
+  '曇り': 'concept_weather_cloudy', '曇': 'concept_weather_cloudy',
+  '雨': 'concept_weather_rain', '雪': 'concept_weather_snow',
+  '太陽': 'concept_weather_sun', '風': 'concept_weather_wind',
+  '霧': 'concept_weather_fog',  '嵐': 'concept_weather_storm',
+  '雷': 'concept_weather_lightning', '虹': 'concept_weather_rainbow',
+  '雨天': 'concept_weather_rainy', '雪天': 'concept_weather_snowy',
+
+  // ══════════════════════════════════════════════════════════════════════
+  // ── Mandarin Chinese (普通话) — Simplified characters ─────────────────
+  // Many characters overlap with Japanese kanji above; only unique ones listed.
+  // ══════════════════════════════════════════════════════════════════════
+
+  // Numbers — simplified Chinese where different from Japanese kanji
+  '两': 'concept_num_2',   // liǎng — Mandarin variant of "2"
+  '二十一': 'concept_num_21', // Already covered by JP above
+  '一百': 'concept_num_100', '一千': 'concept_num_1000',
+
+  // Colors — simplified Chinese
+  '红': 'concept_color_red', '红色': 'concept_color_red',
+  '蓝': 'concept_color_blue', '蓝色': 'concept_color_blue',
+  '绿': 'concept_color_green', '绿色': 'concept_color_green',
+  // 黄/黄色, 白/白色, 黑/黑色, 紫/紫色, 灰色/灰 already covered by JP
+  '橙': 'concept_color_orange', '橙色': 'concept_color_orange',
+  '粉': 'concept_color_pink', '粉色': 'concept_color_pink', '粉红': 'concept_color_pink',
+  '棕': 'concept_color_brown', '棕色': 'concept_color_brown',
+  '咖啡色': 'concept_color_brown',
+
+  // Seasons — same kanji as Japanese (春夏秋冬) already covered above
+
+  // Weather — simplified Chinese
+  '晴天': 'concept_weather_sunny',
+  '多云': 'concept_weather_cloudy',
+  // 雨, 雪, 风, 雾, 雷, 虹 already covered by JP
+  '太阳': 'concept_weather_sun', '雾': 'concept_weather_fog',
+  '暴风雨': 'concept_weather_storm', '彩虹': 'concept_weather_rainbow',
+  '闪电': 'concept_weather_lightning',
+
+  // ══════════════════════════════════════════════════════════════════════
+  // ── Korean (한국어) ───────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════
+
+  // Numbers — Sino-Korean (한자어)
+  '영': 'concept_num_0', '공': 'concept_num_0',
+  '일': 'concept_num_1',
+  '이': 'concept_num_2',
+  '삼': 'concept_num_3',
+  '사': 'concept_num_4',
+  '오': 'concept_num_5',
+  '육': 'concept_num_6', '륙': 'concept_num_6',
+  '칠': 'concept_num_7',
+  '팔': 'concept_num_8',
+  '구': 'concept_num_9',
+  '십': 'concept_num_10',
+  '십일': 'concept_num_11', '십이': 'concept_num_12', '십삼': 'concept_num_13',
+  '십사': 'concept_num_14', '십오': 'concept_num_15', '십육': 'concept_num_16',
+  '십칠': 'concept_num_17', '십팔': 'concept_num_18', '십구': 'concept_num_19',
+  '이십': 'concept_num_20', '삼십': 'concept_num_30', '사십': 'concept_num_40',
+  '오십': 'concept_num_50', '육십': 'concept_num_60', '칠십': 'concept_num_70',
+  '팔십': 'concept_num_80', '구십': 'concept_num_90',
+  '백': 'concept_num_100', '천': 'concept_num_1000',
+
+  // Numbers — Native Korean (순우리말)
+  '하나': 'concept_num_1', '한': 'concept_num_1',
+  '둘': 'concept_num_2',  '두': 'concept_num_2',
+  '셋': 'concept_num_3',  '세': 'concept_num_3',
+  '넷': 'concept_num_4',  '네': 'concept_num_4',
+  '다섯': 'concept_num_5',
+  '여섯': 'concept_num_6',
+  '일곱': 'concept_num_7',
+  '여덟': 'concept_num_8',
+  '아홉': 'concept_num_9',
+  '열': 'concept_num_10',
+  '열하나': 'concept_num_11', '열둘': 'concept_num_12', '열셋': 'concept_num_13',
+  '열넷': 'concept_num_14', '열다섯': 'concept_num_15', '열여섯': 'concept_num_16',
+  '열일곱': 'concept_num_17', '열여덟': 'concept_num_18', '열아홉': 'concept_num_19',
+  '스물': 'concept_num_20', '서른': 'concept_num_30', '마흔': 'concept_num_40',
+  '쉰': 'concept_num_50', '예순': 'concept_num_60', '일흔': 'concept_num_70',
+  '여든': 'concept_num_80', '아흔': 'concept_num_90',
+
+  // Colors
+  '빨간색': 'concept_color_red',    '빨강': 'concept_color_red',
+  '파란색': 'concept_color_blue',   '파랑': 'concept_color_blue',
+  '초록색': 'concept_color_green',  '초록': 'concept_color_green', '녹색': 'concept_color_green',
+  '노란색': 'concept_color_yellow', '노랑': 'concept_color_yellow',
+  '흰색': 'concept_color_white',    '흰': 'concept_color_white', '하얀색': 'concept_color_white',
+  '검은색': 'concept_color_black',  '검정': 'concept_color_black',
+  '주황색': 'concept_color_orange', '주황': 'concept_color_orange',
+  '보라색': 'concept_color_purple', '보라': 'concept_color_purple',
+  '분홍색': 'concept_color_pink',   '분홍': 'concept_color_pink',
+  '갈색': 'concept_color_brown',    '갈': 'concept_color_brown',
+  '회색': 'concept_color_gray',     '회': 'concept_color_gray',
+
+  // Seasons
+  '봄': 'concept_season_spring',
+  '여름': 'concept_season_summer',
+  '가을': 'concept_season_fall',
+  '겨울': 'concept_season_winter',
+
+  // Weather
+  '맑음': 'concept_weather_sunny',  '화창한': 'concept_weather_sunny',
+  '흐림': 'concept_weather_cloudy', '구름': 'concept_weather_cloud',
+  '비': 'concept_weather_rain',     '눈': 'concept_weather_snow',
+  '태양': 'concept_weather_sun',    '해': 'concept_weather_sun',
+  '바람': 'concept_weather_wind',   '안개': 'concept_weather_fog',
+  '폭풍': 'concept_weather_storm',  '번개': 'concept_weather_lightning',
+  '무지개': 'concept_weather_rainbow',
+  '비가 오는': 'concept_weather_rainy', '눈이 오는': 'concept_weather_snowy',
+
+  // ══════════════════════════════════════════════════════════════════════
+  // ── Hebrew (עברית) ────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════
+
+  // Numbers (Hebrew has gendered forms — both mapped to the same concept)
+  'אפס': 'concept_num_0',
+  'אחד': 'concept_num_1',   'אחת': 'concept_num_1',
+  'שניים': 'concept_num_2', 'שתיים': 'concept_num_2',
+  'שלושה': 'concept_num_3', 'שלוש': 'concept_num_3',
+  'ארבעה': 'concept_num_4', 'ארבע': 'concept_num_4',
+  'חמישה': 'concept_num_5', 'חמש': 'concept_num_5',
+  'שישה': 'concept_num_6',  'שש': 'concept_num_6',
+  'שבעה': 'concept_num_7',  'שבע': 'concept_num_7',
+  'שמונה': 'concept_num_8',
+  'תשעה': 'concept_num_9',  'תשע': 'concept_num_9',
+  'עשרה': 'concept_num_10', 'עשר': 'concept_num_10',
+  'אחד עשר': 'concept_num_11',  'אחת עשרה': 'concept_num_11',
+  'שנים עשר': 'concept_num_12', 'שתים עשרה': 'concept_num_12',
+  'שלושה עשר': 'concept_num_13','שלוש עשרה': 'concept_num_13',
+  'ארבעה עשר': 'concept_num_14','ארבע עשרה': 'concept_num_14',
+  'חמישה עשר': 'concept_num_15','חמש עשרה': 'concept_num_15',
+  'שישה עשר': 'concept_num_16', 'שש עשרה': 'concept_num_16',
+  'שבעה עשר': 'concept_num_17', 'שבע עשרה': 'concept_num_17',
+  'שמונה עשר': 'concept_num_18',
+  'תשעה עשר': 'concept_num_19', 'תשע עשרה': 'concept_num_19',
+  'עשרים': 'concept_num_20',
+  'עשרים ואחד': 'concept_num_21',
+  'שלושים': 'concept_num_30', 'ארבעים': 'concept_num_40',
+  'חמישים': 'concept_num_50', 'שישים': 'concept_num_60',
+  'שבעים': 'concept_num_70', 'שמונים': 'concept_num_80',
+  'תשעים': 'concept_num_90',
+  'מאה': 'concept_num_100', 'אלף': 'concept_num_1000',
+
+  // Colors (masculine forms — feminine would need ה suffix but m. is most common standalone)
+  'אדום': 'concept_color_red',
+  'כחול': 'concept_color_blue',
+  'ירוק': 'concept_color_green',
+  'צהוב': 'concept_color_yellow',
+  'לבן': 'concept_color_white',
+  'שחור': 'concept_color_black',
+  'כתום': 'concept_color_orange',
+  'סגול': 'concept_color_purple',
+  'ורוד': 'concept_color_pink',
+  'חום': 'concept_color_brown',
+  'אפור': 'concept_color_gray',
+
+  // Seasons
+  'אביב': 'concept_season_spring',
+  'קיץ':  'concept_season_summer',
+  'סתיו': 'concept_season_fall',
+  'חורף': 'concept_season_winter',
+
+  // Weather
+  'שמשי': 'concept_weather_sunny',   'בהיר': 'concept_weather_sunny',
+  'מעונן': 'concept_weather_cloudy',
+  'גשם': 'concept_weather_rain',     'גשום': 'concept_weather_rainy',
+  'שלג': 'concept_weather_snow',     'מושלג': 'concept_weather_snowy',
+  'שמש': 'concept_weather_sun',
+  'רוח': 'concept_weather_wind',     'סוער': 'concept_weather_windy',
+  'ערפל': 'concept_weather_fog',
+  'סערה': 'concept_weather_storm',
+  'ברק': 'concept_weather_lightning',
+  'קשת': 'concept_weather_rainbow',
+  'קשת בענן': 'concept_weather_rainbow',
 };
 
 function normalizeWord(word: string): string {
   return word
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')  // strip accent marks
-    .replace(/[^a-z0-9\s]/g, '')     // strip punctuation (slashes, hyphens, etc.)
+    .replace(/[\u0300-\u036f]/g, '')  // strip combining diacritical marks (accents)
+    // Strip punctuation/symbols but preserve: a-z, 0-9, space, and non-Latin scripts:
+    //   \u3040-\u30FF  Hiragana + Katakana (Japanese)
+    //   \u3400-\u9FFF  CJK Unified Ideographs (Japanese kanji, Chinese hanzi)
+    //   \uAC00-\uD7AF  Korean Hangul syllables
+    //   \u0590-\u05FF  Hebrew
+    //   \u0600-\u06FF  Arabic
+    //   \u0400-\u04FF  Cyrillic (Russian)
+    .replace(/[^a-z0-9\u3040-\u30FF\u3400-\u9FFF\uAC00-\uD7AF\u0590-\u05FF\u0600-\u06FF\u0400-\u04FF\s]/g, '')
     .replace(/\s+/g, ' ')            // collapse multiple spaces to single space
     .trim();
 }
