@@ -11121,6 +11121,34 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Synchronous test-seed: seed ONE specific lesson and return the result/error immediately
+  app.post('/api/admin/textbook/test-seed-lesson', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { lessonId } = req.body;
+      if (!lessonId) return res.status(400).json({ error: 'lessonId required' });
+      const { seedLesson } = await import('./services/textbook-seed-service');
+      const db = getUserDb();
+      const row = await db.execute(sql`
+        SELECT cp.language, COALESCE(cl.actfl_level, cu.actfl_level) as actfl_level, cl.name
+        FROM curriculum_lessons cl
+        JOIN curriculum_units cu ON cu.id = cl.curriculum_unit_id
+        JOIN curriculum_paths cp ON cp.id = cu.curriculum_path_id
+        WHERE cl.id = ${lessonId}
+        LIMIT 1
+      `);
+      if (!row.rows.length) return res.status(404).json({ error: 'Lesson not found' });
+      const { language, actfl_level, name } = row.rows[0] as any;
+      try {
+        const wasNew = await seedLesson(lessonId, language, actfl_level);
+        res.json({ success: true, lessonId, name, language, wasNew });
+      } catch (seedErr: any) {
+        res.json({ success: false, lessonId, name, language, error: seedErr.message, stack: seedErr.stack });
+      }
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Bulk seed ALL paths (fire-and-forget; poll /api/admin/textbook/bulk-seed-progress/:jobId)
   app.post('/api/admin/textbook/seed-all', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {

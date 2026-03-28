@@ -44,12 +44,35 @@ function getGemini() {
   if (!gemini) {
     gemini = new GoogleGenAI({
       apiKey: process.env.GEMINI_API_KEY || '',
-      httpOptions: {
-        apiVersion: '',
-      },
     });
   }
   return gemini;
+}
+
+// ── Retry wrapper for Gemini rate-limit errors ─────────────────────────────
+
+async function generateWithRetry(
+  ai: GoogleGenAI,
+  params: Parameters<GoogleGenAI['models']['generateContent']>[0],
+  maxRetries = 3,
+): Promise<any> {
+  let lastErr: any;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await ai.models.generateContent(params) as any;
+    } catch (err: any) {
+      lastErr = err;
+      const msg: string = err?.message ?? String(err);
+      // Retry on rate-limit (429) or quota errors
+      const isRetryable = msg.includes('429') || msg.toLowerCase().includes('rate') ||
+                          msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('resource exhausted');
+      if (!isRetryable || attempt === maxRetries) break;
+      const delay = (attempt + 1) * 8000; // 8s, 16s, 24s back-off
+      console.warn(`[TextbookSeed] Gemini rate-limit on attempt ${attempt + 1}; retrying in ${delay / 1000}s…`);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  throw lastErr;
 }
 
 // ── Core: seed one lesson ──────────────────────────────────────────────────
@@ -181,17 +204,22 @@ Requirements:
 - ALL target-language text must be correct, natural ${language}`;
 
   const ai = getGemini();
-  const response = await ai.models.generateContent({
+  console.log(`[TextbookSeed] Calling Gemini for lesson "${lesson.name}" (${language}, ${level})`);
+  const response = await generateWithRetry(ai, {
     model:    'gemini-3-flash-preview',
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     config:   {
-      temperature:   0.4,
+      temperature:     0.4,
       maxOutputTokens: 6000,
-      thinkingConfig: { thinkingLevel: 'MINIMAL' } as any,
+      thinkingConfig:  { thinkingLevel: 'MINIMAL' } as any,
     },
   });
 
   const rawText = response.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+  if (!rawText) {
+    const finishReason = response.candidates?.[0]?.finishReason;
+    throw new Error(`Gemini returned empty response for lesson ${lessonId} (finishReason: ${finishReason ?? 'unknown'})`);
+  }
   const jsonText = rawText
     .replace(/^```json\s*/i, '')
     .replace(/^```\s*/i, '')

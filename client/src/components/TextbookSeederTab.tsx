@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, BookOpen, CheckCircle2, AlertTriangle, Play, ChevronDown, ChevronRight } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Loader2, BookOpen, CheckCircle2, AlertTriangle, Play, ChevronDown, ChevronRight, FlaskConical } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -44,6 +45,8 @@ export function TextbookSeederTab() {
   const [jobProgress, setJobProgress] = useState<Map<string, SeedProgress>>(new Map());
   const [expandedLang, setExpandedLang] = useState<string | null>("spanish");
   const pollRef = useRef<NodeJS.Timeout | null>(null);
+  const [testLessonId, setTestLessonId] = useState("");
+  const [testResult, setTestResult] = useState<any>(null);
 
   const { data, isLoading, refetch } = useQuery<{ paths: PathStatus[] }>({
     queryKey: ["/api/admin/textbook/status"],
@@ -86,6 +89,22 @@ export function TextbookSeederTab() {
       setActiveJobs(prev => new Map(prev).set(pathId, data.jobId));
     },
     onError: (e: any) => toast({ title: "Seed failed", description: e.message, variant: "destructive" }),
+  });
+
+  const testSeedMutation = useMutation({
+    mutationFn: async (lessonId: string) => {
+      const res = await apiRequest("POST", "/api/admin/textbook/test-seed-lesson", { lessonId });
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      setTestResult(data);
+      if (data.success) {
+        toast({ title: "Lesson seeded successfully", description: `${data.name} — wasNew: ${data.wasNew}` });
+      } else {
+        toast({ title: "Seed failed", description: data.error?.slice(0, 100), variant: "destructive" });
+      }
+    },
+    onError: (e: any) => toast({ title: "Request failed", description: e.message, variant: "destructive" }),
   });
 
   if (isLoading) {
@@ -198,9 +217,18 @@ export function TextbookSeederTab() {
                       )}
 
                       {progress?.status === "complete" && progress.errors.length > 0 && (
-                        <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                          <AlertTriangle className="h-3 w-3" />
-                          {progress.errors.length} lesson(s) had errors
+                        <div className="space-y-1">
+                          <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1 font-medium">
+                            <AlertTriangle className="h-3 w-3" />
+                            {progress.errors.length} lesson(s) had errors
+                          </div>
+                          <div className="bg-amber-50 dark:bg-amber-950/30 rounded-sm p-2 space-y-1 max-h-40 overflow-y-auto">
+                            {progress.errors.map((err, i) => (
+                              <div key={i} className="text-xs text-amber-800 dark:text-amber-300 font-mono break-all">
+                                {err}
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -215,6 +243,60 @@ export function TextbookSeederTab() {
       <p className="text-xs text-muted-foreground">
         Each seed job runs in the background. Lessons already seeded are skipped automatically — you can re-seed any path to refresh its content.
       </p>
+
+      {/* Diagnostic: test a single lesson synchronously */}
+      <Card>
+        <CardHeader className="py-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <FlaskConical className="h-4 w-4 text-muted-foreground" />
+            Test Single Lesson (diagnostic)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex gap-2">
+            <Input
+              value={testLessonId}
+              onChange={e => setTestLessonId(e.target.value)}
+              placeholder="Paste lesson UUID here…"
+              className="font-mono text-xs"
+              data-testid="input-test-lesson-id"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!testLessonId.trim() || testSeedMutation.isPending}
+              onClick={() => {
+                setTestResult(null);
+                testSeedMutation.mutate(testLessonId.trim());
+              }}
+              data-testid="button-test-seed-lesson"
+            >
+              {testSeedMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Seed"}
+            </Button>
+          </div>
+          {testResult && (
+            <div className={`rounded-sm p-2 text-xs font-mono ${testResult.success ? "bg-green-50 dark:bg-green-950/30 text-green-800 dark:text-green-300" : "bg-red-50 dark:bg-red-950/30 text-red-800 dark:text-red-300"}`}>
+              {testResult.success ? (
+                <span>OK — {testResult.name} ({testResult.language}) — wasNew: {String(testResult.wasNew)}</span>
+              ) : (
+                <div className="space-y-1">
+                  <div className="font-semibold">Error in: {testResult.name}</div>
+                  <div className="break-all">{testResult.error}</div>
+                  {testResult.stack && (
+                    <details className="mt-1">
+                      <summary className="cursor-pointer opacity-60">Stack trace</summary>
+                      <pre className="whitespace-pre-wrap text-xs mt-1 opacity-80">{testResult.stack}</pre>
+                    </details>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Seed a single lesson synchronously and see the exact error. Use a failing lesson UUID from the DB.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

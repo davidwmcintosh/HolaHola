@@ -61,9 +61,6 @@ function getGemini() {
   if (!gemini) {
     gemini = new GoogleGenAI({
       apiKey: process.env.GEMINI_API_KEY || '',
-      httpOptions: {
-        apiVersion: '',
-      },
     });
   }
   return gemini;

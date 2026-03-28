@@ -59,6 +59,35 @@ This would create distinct hashes:
 
 ---
 
+## From Agent — Sat Mar 28, 2026 (session N+2)
+
+**Session: Textbook seeder diagnostic hardening + 18-lesson diagnosis**
+
+### What was done
+
+1. **`httpOptions: { apiVersion: '' }` removed** from both `textbook-seed-service.ts` and `curriculum-enrichment-service.ts`. This field was inconsistent with `gemini-streaming.ts` (which works). Setting `apiVersion: ''` is suspected to cause issues with some Google API SDK versions. Both files now just pass `{ apiKey: ... }` like the streaming service.
+
+2. **`generateWithRetry` added to `textbook-seed-service.ts`** — wraps every `generateContent` call with up to 3 retries (8s/16s/24s backoff) for 429/rate-limit/quota/resource-exhausted errors. This handles intermittent rate limiting during bulk seeding.
+
+3. **Gemini debug logging added** — `console.log('[TextbookSeed] Calling Gemini for lesson ...')` fires before each Gemini call, and a specific error is thrown if Gemini returns an empty response (with `finishReason` in the message).
+
+4. **TextbookSeederTab now shows actual error messages** — was showing just "N lesson(s) had errors". Now shows each error string in a scrollable amber code block within the path card.
+
+5. **`POST /api/admin/textbook/test-seed-lesson` added** — synchronous admin endpoint: seed ONE lesson by UUID and get `{ success, name, language, error, stack }` back immediately. No job/poll needed.
+
+6. **"Test Single Lesson" UI added** to the bottom of `TextbookSeederTab` — paste any lesson UUID and see the seed result (success or full error + stack trace) inline.
+
+### State at handoff
+
+- Root cause of 18-lesson failures **still unconfirmed** — hypothesis is `httpOptions` / rate-limiting. The fix above may resolve it.
+- **Action needed:** Paste one of the known failing lesson UUIDs (e.g. `f8a88793-493f-4192-a76a-c6b0f794954d`) into the "Test Single Lesson" box on the Textbook Seeder tab, click Seed, and observe the result. If it succeeds: `httpOptions` was the bug. If it fails: the error message + stack trace will be in the box.
+- Failing lesson UUIDs (English 3 - High School, units 6-8):
+  - `f8a88793-493f-4192-a76a-c6b0f794954d` — "The New App"
+  - `edbcc2c9-c817-4821-80d5-0b3437a1531d` — "Screen Time Dilemma"
+  - `18644b6a-3e53-4c98-b471-95800946ce34` — "Active Practice: Mixed Drills" (drill type, empty topic)
+
+---
+
 ## From Agent — Sat Mar 28, 2026 (session N+1)
 
 **Session: Textbook seeder 404 root-cause found + fixed**
