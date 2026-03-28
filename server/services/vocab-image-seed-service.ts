@@ -270,21 +270,22 @@ const SCENE_OVERRIDES: Record<string, string> = {
   '周日': 'A small watercolor weekly calendar with Sunday highlighted in pink, the Chinese characters 周日 written boldly',
 
   // ── Greetings & Farewells — Spanish ──────────────────────────────────────
-  'hola':               'Two cheerful adults facing each other and waving hello with big smiles, bright flat illustration, warm colors',
-  'buenos dias':        'A bright golden sunrise with orange and yellow rays over the horizon, a smiling person waving good morning, cheerful flat illustration',
-  'buenas tardes':      'A warm sunny afternoon, the sun shining high and golden, a person outside waving hello in bright golden light, flat illustration',
-  'buenas noches':      'A clear night sky with a large glowing crescent moon and bright stars, a person standing in a doorway waving goodnight, soft flat illustration',
-  'adios':              'A person leaning out of a car window waving goodbye while another person waves back on the sidewalk, colorful flat illustration',
-  'hasta luego':        'Two friends at a crossroads each walking different directions, both looking back and waving, bright cheerful flat illustration',
-  'hasta manana':       'A person waving goodbye under a setting sun, with a calendar showing tomorrow circled, cheerful flat illustration',
-  'hasta pronto':       'Two friends hugging goodbye at a doorstep, one waving, both smiling warmly, flat illustration',
-  'mucho gusto':        'Two adults shaking hands warmly with bright smiles, a pleasure-to-meet-you moment, flat illustration',
-  'encantado':          'A man placing his hand on his chest and bowing his head slightly with a warm smile, formal greeting, flat illustration',
-  'encantada':          'A woman placing her hand on her chest and bowing her head slightly with a warm smile, formal greeting, flat illustration',
-  'como estas':         'A person opening their arms wide with raised eyebrows and a questioning smile, asking "how are you?", flat illustration',
-  'como esta usted':    'A person in neat attire with an open-hand gesture and polite questioning expression, formal greeting, flat illustration',
+  'hola':               'A smiling child waving hello to a friend at a sunny school entrance, both in casual everyday clothes, bright cheerful watercolor illustration',
+  'buenos dias':        'A person in pajamas stretching with a big yawn and a happy smile beside a window showing a bright golden sunrise, warm morning light, watercolor illustration',
+  'buenas tardes':      'A sunny afternoon park scene, a person relaxing on a bench waving at a friend passing by, long golden shadows on the grass, cheerful watercolor illustration',
+  'buenas noches':      'A child in pajamas waving from a lit cozy bedroom window at a beautiful starry night sky with a glowing crescent moon, warm lamp light inside, watercolor illustration',
+  'adios':              'A person leaning out of a car window waving goodbye, another person in casual clothes on the sidewalk waving back cheerfully, colorful watercolor illustration',
+  'hasta luego':        'Two friends in casual everyday clothes at a sunny intersection, each heading a different direction, smiling and waving goodbye over their shoulder, watercolor illustration',
+  'hasta manana':       'A person waving goodbye at a garden gate at sunset, a simple circular calendar icon floating nearby with the next day circled, cheerful watercolor illustration',
+  'hasta pronto':       'Two friends in casual clothes hugging warmly at a front door, one waving goodbye, both smiling happily, bright watercolor illustration',
+  'mucho gusto':        'Two people in casual everyday Western clothes meeting for the first time, both extending a friendly handshake with warm open smiles, bright cheerful setting, watercolor illustration',
+  'encantado':          'A smiling young man in a casual shirt placing his hand on his chest and giving a small warm bow of greeting, cheerful watercolor illustration',
+  'encantada':          'A smiling young woman in a casual dress placing her hand on her chest and giving a small warm bow of greeting, cheerful watercolor illustration',
+  'como estas':         'A friendly person in casual clothes with raised eyebrows and an open questioning smile, arms slightly open in a welcoming gesture, watercolor illustration',
+  'como esta usted':    'A person in smart casual everyday attire making a polite open-hand gesture with a warm questioning expression, watercolor illustration',
   'bien':               SPLIT('bien', 'a cheerful person giving a big thumbs-up with a bright grin, sunny warm background', 'mal', 'a person with slumped shoulders, frowning face, and drooping posture, grey cool background'),
-  'muy bien':           'A very happy dancing person with both thumbs up and a huge smile, bright energetic flat illustration',
+  'muy bien':           'A very happy person jumping with both thumbs up and a huge joyful smile, bright sunny background, watercolor illustration',
+  'muy bien gracias':   'A happy person with a big thumbs-up and a warm grateful smile, pressing one hand to their heart appreciatively, bright sunny background, watercolor illustration',
   'mal':                SPLIT('bien', 'a cheerful person giving a big thumbs-up with a bright grin, sunny warm background', 'mal', 'a person with slumped shoulders, frowning face, and drooping posture, grey cool background'),
   'mas o menos':        'A person tilting their open hand back and forth in a "so-so" gesture with a neutral shrug expression, flat illustration',
   'regular':            'A person with a flat neutral expression holding their hand out horizontally, gesturing "just okay", flat illustration',
@@ -302,7 +303,7 @@ const SCENE_OVERRIDES: Record<string, string> = {
   'bonne nuit':         'A person waving goodnight under a starry sky with a crescent moon, watercolor',
   'au revoir':          'A person smiling and waving goodbye at an open door, watercolor illustration',
   'salut':              'Two friends giving a casual wave to each other, bright watercolor style',
-  'a bientot':          'Two people parting cheerfully, "see you soon" in the air, watercolor illustration',
+  'a bientot':          'Two friends cheerfully waving goodbye at a park entrance, both smiling warmly and gesturing to each other, sunny day, watercolor illustration',
   'sil vous plait':     'A person making a polite request gesture with clasped hands, watercolor style',
   'merci':              'A person bowing graciously with a thankful smile, warm watercolor illustration',
   'merci beaucoup':     'A person bowing deeply with a very warm smile of gratitude, watercolor style',
@@ -477,10 +478,18 @@ const SCENE_OVERRIDES: Record<string, string> = {
 
 /**
  * Normalize a word for SCENE_OVERRIDES lookup:
- * lowercase + remove accent marks.
+ * lowercase + remove accent marks + strip punctuation (¿?¡!,;:).
+ * This lets "¿cómo estás?" match the key 'como estas', and
+ * "muy bien, gracias" match 'muy bien gracias', etc.
  */
 function normalizeForOverride(word: string): string {
-  return word.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  return word
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')   // strip accents
+    .replace(/[¿¡?!,;:]/g, '')         // strip common punctuation
+    .replace(/\s+/g, ' ')              // collapse spaces
+    .trim();
 }
 
 /**
@@ -591,7 +600,7 @@ const GREETINGS_WORDS: Record<string, string[]> = {
   spanish: [
     'hola','buenos días','buenas tardes','buenas noches','adiós','hasta luego',
     'hasta mañana','hasta pronto','mucho gusto','encantado','encantada',
-    '¿cómo estás?','¿cómo está usted?','bien','muy bien','mal','más o menos','regular',
+    '¿cómo estás?','¿cómo está usted?','bien','muy bien','muy bien, gracias','mal','más o menos','regular',
     'por favor','gracias','muchas gracias','de nada','perdón','disculpe','lo siento',
   ],
   french: [
