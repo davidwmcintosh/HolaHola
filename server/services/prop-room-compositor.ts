@@ -201,6 +201,56 @@ const ENV_POSITION_OVERRIDES: Record<string, Partial<Record<string, Partial<{ cx
     left:         { cy: 0.54, cx: 0.25 },
     right:        { cy: 0.54, cx: 0.75 },
   },
+  // ── Outdoor / wide-angle environments ──────────────────────────────────────
+  park: {
+    // Wide park scene — horizon roughly 35% from top; ground runs across the bottom half
+    center:       { cy: 0.72 },
+    left:         { cy: 0.74, cx: 0.22 },
+    right:        { cy: 0.74, cx: 0.78 },
+    foreground:   { cy: 0.86, scale: 0.30 },  // close to camera
+    background:   { cy: 0.40, scale: 0.10 },  // near horizon
+    on_floor:     { cy: 0.84, scale: 0.22 },
+    on_chair:     { cy: 0.68, scale: 0.14 },  // park bench seat
+    beside_table: { cy: 0.74, cx: 0.68, scale: 0.14 },  // picnic table area
+  },
+  city_street: {
+    // Street-level view — pavement in lower 35%, buildings behind
+    center:       { cy: 0.75 },
+    left:         { cy: 0.77, cx: 0.22 },
+    right:        { cy: 0.77, cx: 0.78 },
+    foreground:   { cy: 0.88, scale: 0.28 },
+    background:   { cy: 0.38, scale: 0.10 },  // near rooflines
+    on_floor:     { cy: 0.86, scale: 0.22 },
+  },
+  outdoor_market: {
+    // Market stalls — counter surfaces roughly halfway down the frame
+    center:       { cy: 0.65 },
+    left:         { cy: 0.67, cx: 0.22 },
+    right:        { cy: 0.67, cx: 0.78 },
+    foreground:   { cy: 0.84, scale: 0.28 },
+    background:   { cy: 0.38, scale: 0.10 },
+    on_floor:     { cy: 0.82, scale: 0.22 },
+    on_counter:   { cy: 0.58, scale: 0.12 },  // vendor counter / stall surface
+    beside_table: { cy: 0.68, cx: 0.70, scale: 0.14 },
+  },
+  grocery_store: {
+    // Store interior — shelving mid-frame; floor tiles at bottom
+    center:       { cy: 0.68 },
+    left:         { cy: 0.70, cx: 0.22 },
+    right:        { cy: 0.70, cx: 0.78 },
+    on_floor:     { cy: 0.84, scale: 0.24 },
+    on_counter:   { cy: 0.58, scale: 0.12 },  // checkout counter / deli counter
+    beside_table: { cy: 0.72, cx: 0.70, scale: 0.14 },
+  },
+  bathroom: {
+    // Bathroom — sink/counter in the mid-lower third; mirror behind
+    center:       { cy: 0.64 },
+    left:         { cy: 0.66, cx: 0.22 },
+    right:        { cy: 0.66, cx: 0.78 },
+    on_counter:   { cy: 0.60, scale: 0.13 },  // sink surround / shelf
+    under_counter:{ cy: 0.84, scale: 0.14 },  // cabinet below sink
+    on_floor:     { cy: 0.88, scale: 0.20 },
+  },
 };
 
 // Per-object-type scale multiplier applied on top of the position base scale.

@@ -11150,6 +11150,23 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   // ── Vocab Image Pre-seeding ──────────────────────────────────────────────
 
+  // Bust cache for number/day words and re-seed them with correct scene prompts
+  app.post('/api/admin/vocab-images/fix-numbers-days', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { language = 'spanish' } = req.body;
+      const { bustVocabImageCache, seedVocabImages, NUMBERS_DAYS_CACHE_KEYS } = await import('./services/vocab-image-seed-service');
+      const keys = NUMBERS_DAYS_CACHE_KEYS[language] ?? NUMBERS_DAYS_CACHE_KEYS['spanish'];
+      const deleted = await bustVocabImageCache(keys);
+      const jobId = `vocab-fix-numbers-${language}-${Date.now()}`;
+      seedVocabImages(language, jobId).catch((e: any) =>
+        console.error('[VocabFix] Fatal error:', e.message)
+      );
+      res.json({ deleted, jobId, message: `Busted ${deleted} stale number/day images and re-queued seed for ${language}` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Start vocab image seeding for a single language
   app.post('/api/admin/vocab-images/seed', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {

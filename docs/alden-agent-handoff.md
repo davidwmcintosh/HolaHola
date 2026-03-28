@@ -497,3 +497,38 @@ Sofia was "offline" for the same reason: her background worker was on an instanc
 - `ZONE_COMPATIBLE_PROPS` Set and the registry description are the two places that must stay in sync whenever a prop is promoted to zone-compatible.
 - The upload script `scripts/upload-props.ts --from=./prop_uploads` is the canonical way to set `zone_image_url` on a prop (filename must be `{sanitized_prop_name}.png`).
 - Background images are in `visual_environments.image_url`. Reupload via `scripts/upload-backgrounds.ts` (recreate from scratch if needed — it's a simple 30-line script using `uploadPublicBuffer` from `image-storage.ts`).
+
+---
+
+## Agent Session — March 28, 2026
+
+### Completed: Vocab image scene overrides for numbers + days
+
+**Problem**: Numbers (uno, dos…) and days of the week (lunes, martes…) were generating wrong or generic images because DALL-E had no clear visual concept for abstract words.
+
+**Fix**: Added `SCENE_OVERRIDES` lookup table in `server/services/vocab-image-seed-service.ts`:
+- Numbers 1-20 in Spanish + 1-12 in French → watercolor numeral illustrations ("A large numeral '3' in watercolor style, surrounded by three colorful dots")
+- Days of week in Spanish + French → watercolor calendar-strip illustrations with the day name highlighted in a distinct colour
+
+The seeder now calls `normalizeForOverride(word)` to look up the table and passes `scene: sceneOverride` to `resolveVocabularyImage()`. The resolver already had full support for explicit scene prompts — this just fills the gap for these abstract vocab words.
+
+**To regenerate stale images**: Call `POST /api/admin/vocab-images/fix-numbers-days` with `{ "language": "spanish" }` (or `"french"`). This will:
+1. Bust all cached images for the word set using the proper cache key format (`vocab_{lang}_{normalized}`)
+2. Kick off a re-seed which will regenerate with the correct scene prompts
+
+**Files changed**:
+- `server/services/vocab-image-seed-service.ts` — `SCENE_OVERRIDES`, `NUMBERS_DAYS_CACHE_KEYS`, `bustVocabImageCache()`, `toCacheKey()`
+- `server/routes.ts` — `POST /api/admin/vocab-images/fix-numbers-days` endpoint
+
+### Completed: Prop room position overrides for uncalibrated environments
+
+**Problem**: `bathroom`, `park`, `city_street`, `outdoor_market`, and `grocery_store` had valid position arrays in `ENV_VALID_POSITIONS` but **no entries in `ENV_POSITION_OVERRIDES`**, causing props to fall back to uncalibrated global `POSITION_MAP` values that were tuned for indoor table settings.
+
+**Fix**: Added `ENV_POSITION_OVERRIDES` entries for all five missing environments in `server/services/prop-room-compositor.ts`:
+- **park**: horizon at ~35% from top; foreground at cy=0.86, on_floor at cy=0.84
+- **city_street**: pavement in lower 35%; foreground at cy=0.88
+- **outdoor_market**: vendor counter at cy=0.58; foreground at cy=0.84
+- **grocery_store**: shelving mid-frame; floor at cy=0.84; counter at cy=0.58
+- **bathroom**: sink counter at cy=0.60; floor at cy=0.88
+
+**Next**: David should test prop placement in a park scenario (e.g., phone `on_floor`, backpack `foreground`). If any position is still off, fine-tune the cy/cx values for that specific environment+position — no background regeneration needed.
