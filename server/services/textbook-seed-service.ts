@@ -212,12 +212,14 @@ Requirements:
       model:    'gemini-3-flash-preview',
       contents: [{ role: 'user', parts: [{ text: overridePrompt ?? prompt }] }],
       config:   {
-        temperature:     0.4,
-        maxOutputTokens: 16384,
-        // Disable thinking entirely — this seeder doesn't need chain-of-thought,
-        // and thinking tokens count against maxOutputTokens, causing JSON truncation
-        // on longer lessons.
-        thinkingConfig:  { thinkingBudget: 0 } as any,
+        temperature:      0.4,
+        maxOutputTokens:  16384,
+        // Force syntactically valid JSON output — prevents unquoted values,
+        // trailing commas, and other common Gemini JSON formatting errors.
+        responseMimeType: 'application/json',
+        // Disable thinking entirely — thinking tokens count against
+        // maxOutputTokens and the seeder doesn't need chain-of-thought.
+        thinkingConfig:   { thinkingBudget: 0 } as any,
       },
     });
     // When Gemini thinking is active it puts the reasoning in parts[0] (with
