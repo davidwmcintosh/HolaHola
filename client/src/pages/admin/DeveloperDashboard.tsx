@@ -964,7 +964,7 @@ function VocabImagesPanel() {
   const [seedResult, setSeedResult] = useState<any>(null);
 
   const fixNumbersMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-numbers-days', { language }),
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-numbers-days', { language }).then(r => r.json()),
     onSuccess: (data: any) => {
       setFixNumbersResult(data);
       toast({ title: 'Numbers/Days cache busted', description: `Deleted ${data.deleted} stale images. Re-seeding in background.` });
@@ -973,7 +973,7 @@ function VocabImagesPanel() {
   });
 
   const fixGreetingsMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-greetings', { language }),
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-greetings', { language }).then(r => r.json()),
     onSuccess: (data: any) => {
       setFixGreetingsResult(data);
       toast({ title: 'Greetings cache busted', description: `Deleted ${data.deleted} stale images. Re-seeding in background.` });
@@ -982,7 +982,7 @@ function VocabImagesPanel() {
   });
 
   const seedMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/seed', { language }),
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/seed', { language }).then(r => r.json()),
     onSuccess: (data: any) => {
       setSeedResult(data);
       toast({ title: 'Seed started', description: `Job ${data.jobId} — seeding all ${language} vocab images in background.` });
