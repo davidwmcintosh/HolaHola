@@ -954,7 +954,7 @@ function NeonMigrationPanel() {
   );
 }
 
-const VOCAB_LANGUAGES = ['spanish', 'french', 'german', 'italian', 'portuguese'];
+const VOCAB_LANGUAGES = ['spanish', 'french', 'german', 'italian', 'portuguese', 'english', 'japanese', 'korean', 'mandarin'];
 
 function VocabImagesPanel() {
   const { toast } = useToast();

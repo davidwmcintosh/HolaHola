@@ -155,6 +155,36 @@ const SCENE_OVERRIDES: Record<string, string> = {
   '십':   NUM_CJK('10', '십', 'Korean hangul'),
   // Mandarin numbers — Chinese characters (shares kanji entries above with Japanese)
   // Days of week keys below also cover Mandarin since chars are the same
+  // English numbers
+  'zero':    NUM('0'),
+  'one':     NUM('1'),
+  'two':     NUM('2'),
+  'three':   NUM('3'),
+  'four':    NUM('4'),
+  'five':    NUM('5'),
+  // 'six' already covered by French above — same key, same prompt
+  'seven':   NUM('7'),
+  'eight':   NUM('8'),
+  'nine':    NUM('9'),
+  'ten':     NUM('10'),
+  'eleven':  NUM('11'),
+  'twelve':  NUM('12'),
+  'thirteen':  NUM('13'),
+  'fourteen':  NUM('14'),
+  'fifteen':   NUM('15'),
+  'sixteen':   NUM('16'),
+  'seventeen': NUM('17'),
+  'eighteen':  NUM('18'),
+  'nineteen':  NUM('19'),
+  'twenty':    NUM('20'),
+  // English days of the week
+  'monday':    'A small clean calendar card with Monday highlighted in blue, the word "MONDAY" printed in bold modern type',
+  'tuesday':   'A small clean calendar card with Tuesday highlighted in red, the word "TUESDAY" printed in bold modern type',
+  'wednesday': 'A small clean calendar card with Wednesday highlighted in green, the word "WEDNESDAY" printed in bold modern type',
+  'thursday':  'A small clean calendar card with Thursday highlighted in orange, the word "THURSDAY" printed in bold modern type',
+  'friday':    'A small clean calendar card with Friday highlighted in purple, the word "FRIDAY" printed in bold modern type',
+  'saturday':  'A small clean calendar card with Saturday highlighted in yellow, the word "SATURDAY" printed in bold modern type',
+  'sunday':    'A small clean calendar card with Sunday highlighted in pink, the word "SUNDAY" printed in bold modern type',
   // Spanish days of the week — calendar-style illustration
   'lunes':     'A small watercolor weekly calendar with Monday highlighted in blue, the word "LUNES" written boldly on it',
   'martes':    'A small watercolor weekly calendar with Tuesday highlighted in red, the word "MARTES" written boldly',
@@ -377,12 +407,23 @@ const NUMBERS_DAYS_WORDS: Record<string, string[]> = {
     'um','dois','três','quatro','cinco','seis','sete','oito','nove','dez','onze','doze',
     'segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado','domingo',
   ],
+  english: [
+    'zero','one','two','three','four','five','six','seven','eight','nine','ten',
+    'eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen','twenty',
+    'monday','tuesday','wednesday','thursday','friday','saturday','sunday',
+  ],
   // Japanese, Korean, Mandarin: CJK characters are stripped by the normalizer, so romaji/transliterated
   // forms are included here for any curriculum that uses them. CJK-script words are covered by
   // SCENE_OVERRIDES (which uses normalizeForOverride that preserves CJK) but can't be cache-busted
   // via toCacheKey (which strips CJK). That's acceptable — stale CJK images are rare.
   japanese: [
-    'ichi','ni','san','shi','go','roku','shichi','hachi','kyu','juu',
+    'ichi','ni','san','shi','yon','go','roku','shichi','nana','hachi','kyu','juu',
+  ],
+  korean: [
+    'il','i','sam','sa','o','yuk','chil','pal','gu','sip',
+  ],
+  mandarin: [
+    'yi','er','san','si','wu','liu','qi','ba','jiu','shi',
   ],
 };
 

@@ -6379,7 +6379,7 @@ function CrossEnvSyncSection() {
   );
 }
 
-const VOCAB_IMAGE_LANGUAGES = ['spanish', 'french', 'german', 'italian', 'portuguese'];
+const VOCAB_IMAGE_LANGUAGES = ['spanish', 'french', 'german', 'italian', 'portuguese', 'english', 'japanese', 'korean', 'mandarin'];
 
 function VocabImagesSection() {
   const { toast } = useToast();
