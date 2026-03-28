@@ -259,29 +259,29 @@ const SCENE_OVERRIDES: Record<string, string> = {
   '周日': 'A small watercolor weekly calendar with Sunday highlighted in pink, the Chinese characters 周日 written boldly',
 
   // ── Greetings & Farewells — Spanish ──────────────────────────────────────
-  'hola':               'Two people smiling and waving hello at each other, bright watercolor illustration',
-  'buenos dias':        'A cheerful sunrise scene with warm golden light and a person waving good morning, watercolor style',
-  'buenas tardes':      'A warm afternoon sun scene with a person waving hello, soft watercolor illustration',
-  'buenas noches':      'A calm night scene with a crescent moon and stars, a person waving goodnight, watercolor style',
-  'adios':              'A person smiling and waving goodbye at an open doorway, watercolor illustration',
-  'hasta luego':        'Two friends parting ways on a sunny street with a friendly wave, watercolor style',
-  'hasta manana':       'A calendar page showing tomorrow with a cheerful sun, watercolor illustration',
-  'hasta pronto':       'Two people waving, speech bubble showing "see you soon", watercolor style',
-  'mucho gusto':        'Two people shaking hands warmly with big smiles, watercolor illustration',
-  'encantado':          'A person bowing graciously with a warm smile, watercolor style',
-  'encantada':          'A person bowing graciously with a warm smile, watercolor style',
-  'como estas':         'A friendly person with raised eyebrows and open hands in a "how are you?" gesture, watercolor',
-  'como esta usted':    'A person in slightly formal attire gesturing politely "how are you?", watercolor style',
-  'bien':               'A smiling person giving a thumbs-up in bright sunshine, watercolor illustration',
-  'muy bien':           'A very happy person with two thumbs up, bright watercolor style',
-  'mal':                'A person with a downturned expression and drooping shoulders, watercolor illustration',
-  'mas o menos':        'A person rocking their hand side-to-side in a "so-so" gesture, watercolor style',
-  'regular':            'A person with a neutral expression and flat hand gesture meaning "so-so", watercolor',
-  'por favor':          'A person with hands clasped together making a polite request gesture, watercolor style',
-  'gracias':            'A person pressing hands together in a thankful bow, warm watercolor illustration',
-  'muchas gracias':     'A person bowing deeply with a big grateful smile, warm watercolor illustration',
-  'de nada':            'A person waving a hand warmly with a kind "you\'re welcome" smile, watercolor style',
-  'perdon':             'A person with a sheepish apologetic expression and raised hand, watercolor',
+  'hola':               'Two cheerful adults facing each other and waving hello with big smiles, bright flat illustration, warm colors',
+  'buenos dias':        'A bright golden sunrise with orange and yellow rays over the horizon, a smiling person waving good morning, cheerful flat illustration',
+  'buenas tardes':      'A warm sunny afternoon, the sun shining high and golden, a person outside waving hello in bright golden light, flat illustration',
+  'buenas noches':      'A clear night sky with a large glowing crescent moon and bright stars, a person standing in a doorway waving goodnight, soft flat illustration',
+  'adios':              'A person leaning out of a car window waving goodbye while another person waves back on the sidewalk, colorful flat illustration',
+  'hasta luego':        'Two friends at a crossroads each walking different directions, both looking back and waving, bright cheerful flat illustration',
+  'hasta manana':       'A person waving goodbye under a setting sun, with a calendar showing tomorrow circled, cheerful flat illustration',
+  'hasta pronto':       'Two friends hugging goodbye at a doorstep, one waving, both smiling warmly, flat illustration',
+  'mucho gusto':        'Two adults shaking hands warmly with bright smiles, a pleasure-to-meet-you moment, flat illustration',
+  'encantado':          'A man placing his hand on his chest and bowing his head slightly with a warm smile, formal greeting, flat illustration',
+  'encantada':          'A woman placing her hand on her chest and bowing her head slightly with a warm smile, formal greeting, flat illustration',
+  'como estas':         'A person opening their arms wide with raised eyebrows and a questioning smile, asking "how are you?", flat illustration',
+  'como esta usted':    'A person in neat attire with an open-hand gesture and polite questioning expression, formal greeting, flat illustration',
+  'bien':               'A cheerful person giving a big thumbs-up with a wide grin, bright sunny background, flat illustration',
+  'muy bien':           'A very happy dancing person with both thumbs up and a huge smile, bright energetic flat illustration',
+  'mal':                'A person with slumped shoulders, frowning face, and a drooping posture, feeling bad, flat illustration',
+  'mas o menos':        'A person tilting their open hand back and forth in a "so-so" gesture with a neutral shrug expression, flat illustration',
+  'regular':            'A person with a flat neutral expression holding their hand out horizontally, gesturing "just okay", flat illustration',
+  'por favor':          'A person with hands pressed together in a pleading please gesture, kind eyes, flat illustration',
+  'gracias':            'A person pressing both palms together in a grateful thank-you bow with a warm smile, flat illustration',
+  'muchas gracias':     'A person bowing deeply with both arms extended forward in deep gratitude, big smile, flat illustration',
+  'de nada':            'A person waving their hand with a relaxed "don\'t mention it" smile, cheerful flat illustration',
+  'perdon':             'A person with a sheepish expression raising one hand in an apologetic sorry gesture, flat illustration',
   'disculpe':           'A person excusing themselves politely with a gentle hand gesture, watercolor',
   'lo siento':          'A person with a sorrowful apologetic expression placing hand on heart, watercolor',
 
@@ -366,17 +366,35 @@ function toCacheKey(language: string, word: string): string {
 
 /**
  * Force-delete cached vocab images that match a list of exact cache keys.
- * Used to bust stale number/day images before re-seeding with correct prompts.
+ * Also busts fallback word-component keys for multi-word phrases, preventing
+ * stale individual-word images from being served after the exact key is deleted.
  */
 export async function bustVocabImageCache(cacheKeys: string[]): Promise<number> {
   if (cacheKeys.length === 0) return 0;
   const db = getSharedDb();
-  let deleted = 0;
+
+  // Build expanded set including fallback word-component keys for multi-word phrases.
+  // e.g. "vocab_spanish_buenas tardes" also busts "vocab_spanish_buenas" + "vocab_spanish_tardes"
+  const allKeys = new Set(cacheKeys);
   for (const key of cacheKeys) {
+    const match = key.match(/^vocab_([a-z]+)_(.+)$/);
+    if (match) {
+      const [, language, wordPart] = match;
+      const parts = wordPart.split(' ').filter(p => p.length > 2);
+      if (parts.length > 1) {
+        for (const part of parts) {
+          allKeys.add(`vocab_${language}_${part}`);
+        }
+      }
+    }
+  }
+
+  let deleted = 0;
+  for (const key of allKeys) {
     const result = await db.delete(mediaFiles).where(eq(mediaFiles.searchQuery, key));
     deleted += (result as any).rowCount ?? 0;
   }
-  console.log(`[VocabBust] Deleted ${deleted} cached images from ${cacheKeys.length} keys`);
+  console.log(`[VocabBust] Deleted ${deleted} cached images from ${allKeys.size} keys (${cacheKeys.length} primary + ${allKeys.size - cacheKeys.length} fallback components)`);
   return deleted;
 }
 
