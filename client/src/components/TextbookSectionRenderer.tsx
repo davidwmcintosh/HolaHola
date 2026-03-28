@@ -97,7 +97,8 @@ function DrillPreviewCard({ drills, onStartDrill }: {
     ? Math.round((masteredCount / drills.length) * 100) 
     : 0;
 
-  const previewItems = drills.slice(0, 4);
+  const PREVIEW_CAP = 12;
+  const previewItems = drills.slice(0, PREVIEW_CAP);
 
   return (
     <Card className="bg-muted/30 border-dashed">
@@ -136,9 +137,9 @@ function DrillPreviewCard({ drills, onStartDrill }: {
           ))}
         </div>
 
-        {drills.length > 4 && (
+        {drills.length > PREVIEW_CAP && (
           <p className="text-xs text-muted-foreground text-center mb-3">
-            +{drills.length - 4} more drills
+            +{drills.length - PREVIEW_CAP} more drills
           </p>
         )}
 

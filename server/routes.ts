@@ -10140,7 +10140,7 @@ Return ONLY the ${targetLanguage} phrase:`;
           
           return {
             id: lesson.id,
-            name: lesson.name,
+            name: lesson.name.replace(/^(Lesson|Section|Unit)\s+\d+:\s*/i, ''),
             description: lesson.description || '',
             lessonType: lesson.lessonType || 'lesson',
             estimatedMinutes: lesson.estimatedMinutes || 10,
@@ -10160,7 +10160,7 @@ Return ONLY the ${targetLanguage} phrase:`;
                 .sort((a, b) => b.score - a.score);
               return scored[0] ? { slug: scored[0].slug, title: scored[0].title } : null;
             })(),
-            drills: drillItems.slice(0, 12).map(item => ({
+            drills: drillItems.slice(0, 21).map(item => ({
               id: item.id,
               itemType: item.itemType,
               prompt: item.prompt,
@@ -10178,7 +10178,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         return {
           id: unit.id,
           number: index + 1,
-          title: unit.name,
+          title: unit.name.replace(/^(Unit|Chapter)\s+\d+:\s*/i, ''),
           description: unit.description || '',
           progress: 0, // Overview shows 0 for simplicity; detailed view shows actual
           isLocked,
@@ -10282,7 +10282,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         
         return {
           id: lesson.id,
-          name: lesson.name,
+          name: lesson.name.replace(/^(Lesson|Section|Unit)\s+\d+:\s*/i, ''),
           description: lesson.description,
           lessonType: lesson.lessonType,
           objectives: lesson.objectives,
@@ -10309,7 +10309,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       
       res.json({
         id: unit.id,
-        title: unit.name,
+        title: unit.name.replace(/^(Unit|Chapter)\s+\d+:\s*/i, ''),
         description: unit.description,
         culturalTheme: unit.culturalTheme,
         actflLevel: unit.actflLevel,
@@ -11162,6 +11162,22 @@ Return ONLY the ${targetLanguage} phrase:`;
         console.error('[VocabFix] Fatal error:', e.message)
       );
       res.json({ deleted, jobId, message: `Busted ${deleted} stale number/day images and re-queued seed for ${language}` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/admin/vocab-images/fix-greetings', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { language = 'spanish' } = req.body;
+      const { bustVocabImageCache, seedVocabImages, GREETINGS_CACHE_KEYS } = await import('./services/vocab-image-seed-service');
+      const keys = GREETINGS_CACHE_KEYS[language] ?? GREETINGS_CACHE_KEYS['spanish'];
+      const deleted = await bustVocabImageCache(keys);
+      const jobId = `vocab-fix-greetings-${language}-${Date.now()}`;
+      seedVocabImages(language, jobId).catch((e: any) =>
+        console.error('[VocabFix] Fatal error:', e.message)
+      );
+      res.json({ deleted, jobId, message: `Busted ${deleted} stale greeting images and re-queued seed for ${language}` });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

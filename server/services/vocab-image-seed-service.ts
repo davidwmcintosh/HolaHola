@@ -214,6 +214,88 @@ const SCENE_OVERRIDES: Record<string, string> = {
   '周五': 'A small watercolor weekly calendar with Friday highlighted in purple, the Chinese characters 周五 written boldly',
   '周六': 'A small watercolor weekly calendar with Saturday highlighted in yellow, the Chinese characters 周六 written boldly',
   '周日': 'A small watercolor weekly calendar with Sunday highlighted in pink, the Chinese characters 周日 written boldly',
+
+  // ── Greetings & Farewells — Spanish ──────────────────────────────────────
+  'hola':               'Two people smiling and waving hello at each other, bright watercolor illustration',
+  'buenos dias':        'A cheerful sunrise scene with warm golden light and a person waving good morning, watercolor style',
+  'buenas tardes':      'A warm afternoon sun scene with a person waving hello, soft watercolor illustration',
+  'buenas noches':      'A calm night scene with a crescent moon and stars, a person waving goodnight, watercolor style',
+  'adios':              'A person smiling and waving goodbye at an open doorway, watercolor illustration',
+  'hasta luego':        'Two friends parting ways on a sunny street with a friendly wave, watercolor style',
+  'hasta manana':       'A calendar page showing tomorrow with a cheerful sun, watercolor illustration',
+  'hasta pronto':       'Two people waving, speech bubble showing "see you soon", watercolor style',
+  'mucho gusto':        'Two people shaking hands warmly with big smiles, watercolor illustration',
+  'encantado':          'A person bowing graciously with a warm smile, watercolor style',
+  'encantada':          'A person bowing graciously with a warm smile, watercolor style',
+  'como estas':         'A friendly person with raised eyebrows and open hands in a "how are you?" gesture, watercolor',
+  'como esta usted':    'A person in slightly formal attire gesturing politely "how are you?", watercolor style',
+  'bien':               'A smiling person giving a thumbs-up in bright sunshine, watercolor illustration',
+  'muy bien':           'A very happy person with two thumbs up, bright watercolor style',
+  'mal':                'A person with a downturned expression and drooping shoulders, watercolor illustration',
+  'mas o menos':        'A person rocking their hand side-to-side in a "so-so" gesture, watercolor style',
+  'regular':            'A person with a neutral expression and flat hand gesture meaning "so-so", watercolor',
+  'por favor':          'A person with hands clasped together making a polite request gesture, watercolor style',
+  'gracias':            'A person pressing hands together in a thankful bow, warm watercolor illustration',
+  'muchas gracias':     'A person bowing deeply with a big grateful smile, warm watercolor illustration',
+  'de nada':            'A person waving a hand warmly with a kind "you\'re welcome" smile, watercolor style',
+  'perdon':             'A person with a sheepish apologetic expression and raised hand, watercolor',
+  'disculpe':           'A person excusing themselves politely with a gentle hand gesture, watercolor',
+  'lo siento':          'A person with a sorrowful apologetic expression placing hand on heart, watercolor',
+
+  // ── Greetings & Farewells — French ────────────────────────────────────────
+  'bonjour':            'Two people greeting each other in the morning sunlight with a friendly wave, watercolor style',
+  'bonsoir':            'Two people exchanging evening greetings under a dusky sky, watercolor illustration',
+  'bonne nuit':         'A person waving goodnight under a starry sky with a crescent moon, watercolor',
+  'au revoir':          'A person smiling and waving goodbye at an open door, watercolor illustration',
+  'salut':              'Two friends giving a casual wave to each other, bright watercolor style',
+  'a bientot':          'Two people parting cheerfully, "see you soon" in the air, watercolor illustration',
+  'sil vous plait':     'A person making a polite request gesture with clasped hands, watercolor style',
+  'merci':              'A person bowing graciously with a thankful smile, warm watercolor illustration',
+  'merci beaucoup':     'A person bowing deeply with a very warm smile of gratitude, watercolor style',
+  'de rien':            'A person waving a welcoming "no problem" hand gesture, watercolor illustration',
+  'excusez-moi':        'A person gently raising a hand to get attention politely, watercolor style',
+  'pardon':             'A person with an apologetic expression placing hand on chest, watercolor illustration',
+  'enchante':           'A person extending a hand for a handshake with a delighted smile, watercolor style',
+
+  // ── Greetings & Farewells — German ────────────────────────────────────────
+  'guten morgen':       'A bright sunrise scene with a person waving good morning, watercolor illustration',
+  'guten tag':          'A cheerful daytime scene with two people greeting each other, watercolor style',
+  'guten abend':        'Two people greeting in the warm evening light, watercolor illustration',
+  'gute nacht':         'A person waving goodnight under a starry sky, watercolor style',
+  'auf wiedersehen':    'A person waving goodbye at an open door with a warm smile, watercolor illustration',
+  'tschuss':            'Two friends giving a casual wave goodbye, bright watercolor style',
+  'bitte':              'A person making a polite request gesture, watercolor illustration',
+  'danke':              'A person bowing with a grateful smile, warm watercolor style',
+  'danke schon':        'A person bowing deeply with a warm thankful smile, watercolor illustration',
+  'bitte schon':        'A person gesturing "you\'re welcome" with a kind smile, watercolor style',
+  'entschuldigung':     'A person raising a hand apologetically, watercolor illustration',
+
+  // ── Greetings & Farewells — Italian ──────────────────────────────────────
+  'ciao':               'Two friends waving hello and goodbye cheerfully, bright watercolor illustration',
+  'buongiorno':         'A cheerful morning scene with warm sunlight and a person waving, watercolor style',
+  'buonasera':          'Two people greeting warmly in the soft evening light, watercolor illustration',
+  'buonanotte':         'A person waving goodnight under a starry sky, watercolor style',
+  'arrivederci':        'A person waving goodbye at an open door with a friendly smile, watercolor illustration',
+  'prego':              'A person gesturing "you\'re welcome" or "please go ahead" with an open hand, watercolor',
+  'grazie':             'A person pressing hands together in a gracious thank-you bow, watercolor illustration',
+  'per favore':         'A person with hands clasped making a polite "please" request, watercolor style',
+  'mi chiamo':          'A person pointing to themselves and saying their name with a friendly smile, watercolor',
+  'come stai':          'A person making an open "how are you?" gesture with a warm expression, watercolor',
+  'come sta':           'A person in a slightly formal setting making a polite inquiry gesture, watercolor',
+
+  // ── Greetings & Farewells — Portuguese ───────────────────────────────────
+  'ola':                'Two people smiling and waving hello to each other, bright watercolor illustration',
+  'bom dia':            'A cheerful sunrise scene with golden light and a person waving good morning, watercolor',
+  'boa tarde':          'A warm afternoon scene with a person waving hello, soft watercolor illustration',
+  'boa noite':          'A calm night scene with a crescent moon and a person waving goodnight, watercolor',
+  'adeus':              'A person waving farewell at an open doorway with a warm smile, watercolor illustration',
+  'ate logo':           'Two friends parting with a cheerful "see you soon" wave, watercolor style',
+  'ate amanha':         'A calendar showing tomorrow with a cheerful sunrise, watercolor illustration',
+  'obrigado':           'A person bowing with a grateful smile, warm watercolor illustration',
+  'obrigada':           'A person bowing graciously with a warm thankful smile, watercolor style',
+  'de nada':            'A person waving a kind "you\'re welcome" hand gesture, watercolor illustration',
+  'com licenca':        'A person politely excusing themselves with a gentle gesture, watercolor style',
+  'desculpe':           'A person with an apologetic expression placing hand on heart, watercolor illustration',
 };
 
 /**
@@ -293,6 +375,39 @@ const NUMBERS_DAYS_WORDS: Record<string, string[]> = {
 
 export const NUMBERS_DAYS_CACHE_KEYS: Record<string, string[]> = Object.fromEntries(
   Object.entries(NUMBERS_DAYS_WORDS).map(([lang, words]) => [
+    lang,
+    words.map(w => toCacheKey(lang, w)),
+  ])
+);
+
+// ── Greetings cache keys (per language) ────────────────────────────────────
+const GREETINGS_WORDS: Record<string, string[]> = {
+  spanish: [
+    'hola','buenos días','buenas tardes','buenas noches','adiós','hasta luego',
+    'hasta mañana','hasta pronto','mucho gusto','encantado','encantada',
+    '¿cómo estás?','¿cómo está usted?','bien','muy bien','mal','más o menos','regular',
+    'por favor','gracias','muchas gracias','de nada','perdón','disculpe','lo siento',
+  ],
+  french: [
+    'bonjour','bonsoir','bonne nuit','au revoir','salut','à bientôt',
+    's\'il vous plaît','merci','merci beaucoup','de rien','excusez-moi','pardon','enchanté',
+  ],
+  german: [
+    'guten Morgen','guten Tag','guten Abend','gute Nacht','auf Wiedersehen','tschüss',
+    'bitte','danke','danke schön','bitte schön','Entschuldigung',
+  ],
+  italian: [
+    'ciao','buongiorno','buonasera','buonanotte','arrivederci',
+    'prego','grazie','per favore','mi chiamo','come stai','come sta',
+  ],
+  portuguese: [
+    'olá','bom dia','boa tarde','boa noite','adeus','até logo','até amanhã',
+    'obrigado','obrigada','de nada','com licença','desculpe',
+  ],
+};
+
+export const GREETINGS_CACHE_KEYS: Record<string, string[]> = Object.fromEntries(
+  Object.entries(GREETINGS_WORDS).map(([lang, words]) => [
     lang,
     words.map(w => toCacheKey(lang, w)),
   ])

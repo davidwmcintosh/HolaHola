@@ -59,6 +59,44 @@ This would create distinct hashes:
 
 ---
 
+## From Agent — Sat Mar 28, 2026 (session N)
+
+**Session: Textbook terminology + number examples + greeting images + admin cache-bust UI**
+
+### What was built / fixed
+
+1. **Unit → Chapter terminology** — `server/routes.ts` now strips `"Unit X: "` prefix from `unit.name` and `"Lesson X: "` prefix from `lesson.name` in both the textbook overview route (`/api/textbook/:language`) and the chapter-detail route (`/api/textbook/:language/chapters/:chapterId`). Chapter titles now show just the descriptive name (e.g. `"¡Hola! Greetings & Introductions"` not `"Unit 1: ¡Hola! Greetings & Introductions"`).
+
+2. **Numbers examples now show up to 12** — `DrillPreviewCard` in `TextbookSectionRenderer.tsx` previously showed only 4 items (slice(0,4)). Now shows up to 12 (`PREVIEW_CAP = 12`), and the server sends up to 21 drill items (covers all 21 number words 0–20). "+N more drills" message updates accordingly.
+
+3. **Greeting/farewell SCENE_OVERRIDES** — Added ~50 scene override entries to `SCENE_OVERRIDES` in `vocab-image-seed-service.ts` covering: Spanish (hola, buenos días, buenas tardes, buenas noches, adiós, hasta luego, mucho gusto, gracias, de nada, etc.), French (bonjour, bonsoir, au revoir, salut, merci, etc.), German (guten morgen, guten tag, auf Wiedersehen, danke, etc.), Italian (ciao, buongiorno, arrivederci, grazie, etc.), Portuguese (olá, bom dia, adeus, obrigado, etc.).
+
+4. **GREETINGS_CACHE_KEYS export + fix-greetings endpoint** — Added `GREETINGS_WORDS` and `GREETINGS_CACHE_KEYS` to the seed service (parallel to existing NUMBERS_DAYS). Added `POST /api/admin/vocab-images/fix-greetings` endpoint that busts stale greeting caches and queues a reseed.
+
+5. **Admin "Vocab Images" tab in Developer Dashboard** — Added a new tab to `client/src/pages/admin/DeveloperDashboard.tsx` with three action cards:
+   - "Fix Numbers / Days" → hits `/api/admin/vocab-images/fix-numbers-days`
+   - "Fix Greetings" → hits `/api/admin/vocab-images/fix-greetings`
+   - "Seed All" → hits `/api/admin/vocab-images/seed`
+   Language selector lets you target any of the 5 main Romance languages.
+
+### Action needed after handoff
+
+**CRITICAL: Must bust stale image caches** — The greeting and number image SCENE_OVERRIDES will only kick in for NEW cache misses. Old (wrong) cached images are still being served. To fix:
+1. Go to Admin → Developer Dashboard → **Vocab Images** tab
+2. Select **Spanish** → click "Fix Numbers / Days" → wait for toast
+3. Select **Spanish** → click "Fix Greetings" → wait for toast
+4. Repeat for **French**, **German**, **Italian**, **Portuguese** as needed
+
+The reseed runs in background (background job). Images regenerate with DALL-E 3 correct prompts.
+
+### State at handoff
+- App stable, no errors
+- Textbook now shows clean chapter/section names without "Unit X:" / "Lesson X:" prefixes
+- Numbers drill preview shows up to 12 items (was 4)
+- New greeting SCENE_OVERRIDES in place — need cache bust to take effect
+
+---
+
 ## From Agent — Sat Mar 21, 2026 (session 2)
 
 **Session: DALL-E image fix + Practice Scenarios strip on ReviewHub**

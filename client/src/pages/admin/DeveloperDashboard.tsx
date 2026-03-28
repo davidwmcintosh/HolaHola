@@ -24,7 +24,9 @@ import {
   Globe,
   Database,
   CheckCircle,
-  XCircle
+  XCircle,
+  Image,
+  Trash2
 } from "lucide-react";
 
 interface AnalyticsData {
@@ -199,6 +201,7 @@ export default function DeveloperDashboard() {
               <TabsTrigger value="analytics" data-testid="tab-analytics">Usage Analytics</TabsTrigger>
               <TabsTrigger value="platform" data-testid="tab-platform">Platform Stats</TabsTrigger>
               <TabsTrigger value="neon" data-testid="tab-neon">Database Migration</TabsTrigger>
+              <TabsTrigger value="vocab-images" data-testid="tab-vocab-images">Vocab Images</TabsTrigger>
             </TabsList>
 
             {/* Testing Tools Tab */}
@@ -751,6 +754,11 @@ export default function DeveloperDashboard() {
             <TabsContent value="neon" className="space-y-6">
               <NeonMigrationPanel />
             </TabsContent>
+
+            {/* Vocab Images Tab */}
+            <TabsContent value="vocab-images" className="space-y-6">
+              <VocabImagesPanel />
+            </TabsContent>
           </Tabs>
         </div>
   );
@@ -940,6 +948,139 @@ function NeonMigrationPanel() {
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+const VOCAB_LANGUAGES = ['spanish', 'french', 'german', 'italian', 'portuguese'];
+
+function VocabImagesPanel() {
+  const { toast } = useToast();
+  const [language, setLanguage] = useState('spanish');
+  const [fixNumbersResult, setFixNumbersResult] = useState<any>(null);
+  const [fixGreetingsResult, setFixGreetingsResult] = useState<any>(null);
+  const [seedResult, setSeedResult] = useState<any>(null);
+
+  const fixNumbersMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-numbers-days', { language }),
+    onSuccess: (data: any) => {
+      setFixNumbersResult(data);
+      toast({ title: 'Numbers/Days cache busted', description: `Deleted ${data.deleted} stale images. Re-seeding in background.` });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const fixGreetingsMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-greetings', { language }),
+    onSuccess: (data: any) => {
+      setFixGreetingsResult(data);
+      toast({ title: 'Greetings cache busted', description: `Deleted ${data.deleted} stale images. Re-seeding in background.` });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const seedMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/seed', { language }),
+    onSuccess: (data: any) => {
+      setSeedResult(data);
+      toast({ title: 'Seed started', description: `Job ${data.jobId} — seeding all ${language} vocab images in background.` });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Image className="h-5 w-5" />
+            Vocab Image Cache Tools
+          </CardTitle>
+          <CardDescription>
+            Fix stale cached images, bust specific word categories, or reseed all vocab images for a language.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium w-20">Language</span>
+            <Select value={language} onValueChange={setLanguage}>
+              <SelectTrigger className="w-48" data-testid="select-vocab-language">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {VOCAB_LANGUAGES.map(l => (
+                  <SelectItem key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Card className="bg-muted/30">
+              <CardContent className="p-4 space-y-2">
+                <p className="text-sm font-medium">Numbers &amp; Days</p>
+                <p className="text-xs text-muted-foreground">Bust stale number/day-of-week images and reseed with correct numeral illustrations.</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => fixNumbersMutation.mutate()}
+                  disabled={fixNumbersMutation.isPending}
+                  className="w-full"
+                  data-testid="button-fix-numbers"
+                >
+                  {fixNumbersMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+                  Fix Numbers / Days
+                </Button>
+                {fixNumbersResult && (
+                  <p className="text-xs text-muted-foreground">Deleted {fixNumbersResult.deleted} cached entries. Job: {fixNumbersResult.jobId?.slice(-8)}</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="bg-muted/30">
+              <CardContent className="p-4 space-y-2">
+                <p className="text-sm font-medium">Greetings &amp; Farewells</p>
+                <p className="text-xs text-muted-foreground">Bust stale greeting/farewell images and reseed with scene-based illustrations.</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => fixGreetingsMutation.mutate()}
+                  disabled={fixGreetingsMutation.isPending}
+                  className="w-full"
+                  data-testid="button-fix-greetings"
+                >
+                  {fixGreetingsMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+                  Fix Greetings
+                </Button>
+                {fixGreetingsResult && (
+                  <p className="text-xs text-muted-foreground">Deleted {fixGreetingsResult.deleted} cached entries. Job: {fixGreetingsResult.jobId?.slice(-8)}</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="bg-muted/30">
+              <CardContent className="p-4 space-y-2">
+                <p className="text-sm font-medium">Full Reseed</p>
+                <p className="text-xs text-muted-foreground">Reseed all vocab images for the selected language (generates missing images only).</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => seedMutation.mutate()}
+                  disabled={seedMutation.isPending}
+                  className="w-full"
+                  data-testid="button-seed-vocab"
+                >
+                  {seedMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                  Seed All
+                </Button>
+                {seedResult && (
+                  <p className="text-xs text-muted-foreground">Job started: {seedResult.jobId?.slice(-8)}</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
