@@ -210,7 +210,7 @@ Requirements:
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     config:   {
       temperature:     0.4,
-      maxOutputTokens: 6000,
+      maxOutputTokens: 16384,
       thinkingConfig:  { thinkingLevel: 'MINIMAL' } as any,
     },
   });

@@ -79,12 +79,8 @@ This would create distinct hashes:
 
 ### State at handoff
 
-- Root cause of 18-lesson failures **still unconfirmed** — hypothesis is `httpOptions` / rate-limiting. The fix above may resolve it.
-- **Action needed:** Paste one of the known failing lesson UUIDs (e.g. `f8a88793-493f-4192-a76a-c6b0f794954d`) into the "Test Single Lesson" box on the Textbook Seeder tab, click Seed, and observe the result. If it succeeds: `httpOptions` was the bug. If it fails: the error message + stack trace will be in the box.
-- Failing lesson UUIDs (English 3 - High School, units 6-8):
-  - `f8a88793-493f-4192-a76a-c6b0f794954d` — "The New App"
-  - `edbcc2c9-c817-4821-80d5-0b3437a1531d` — "Screen Time Dilemma"
-  - `18644b6a-3e53-4c98-b471-95800946ce34` — "Active Practice: Mixed Drills" (drill type, empty topic)
+- **ROOT CAUSE CONFIRMED AND FIXED**: `maxOutputTokens: 6000` was too small. Gemini generated valid JSON but the response was truncated mid-sentence, making `JSON.parse` throw. English 3/4/5 and French 3/4/5 units 6-8 have longer lesson content (complex tech/travel/health vocabulary with embedded definitions + verb conjugations) that exceeds 6000 tokens. Fixed to `maxOutputTokens: 16384`.
+- **Action needed:** Re-seed English 3, 4, 5 and French 3, 4, 5 — all 18 failing lessons per path should now succeed.
 
 ---
 
