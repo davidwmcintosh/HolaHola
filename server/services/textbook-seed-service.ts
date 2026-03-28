@@ -205,32 +205,75 @@ Requirements:
 
   const ai = getGemini();
   console.log(`[TextbookSeed] Calling Gemini for lesson "${lesson.name}" (${language}, ${level})`);
-  const response = await generateWithRetry(ai, {
-    model:    'gemini-3-flash-preview',
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    config:   {
-      temperature:     0.4,
-      maxOutputTokens: 16384,
-      thinkingConfig:  { thinkingLevel: 'MINIMAL' } as any,
-    },
-  });
 
-  const rawText = response.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-  if (!rawText) {
-    const finishReason = response.candidates?.[0]?.finishReason;
-    throw new Error(`Gemini returned empty response for lesson ${lessonId} (finishReason: ${finishReason ?? 'unknown'})`);
+  // Helper: call Gemini and extract text + finishReason
+  async function callGemini(overridePrompt?: string): Promise<{ text: string; finishReason: string }> {
+    const response = await generateWithRetry(ai, {
+      model:    'gemini-3-flash-preview',
+      contents: [{ role: 'user', parts: [{ text: overridePrompt ?? prompt }] }],
+      config:   {
+        temperature:     0.4,
+        maxOutputTokens: 16384,
+        // Disable thinking entirely — this seeder doesn't need chain-of-thought,
+        // and thinking tokens count against maxOutputTokens, causing JSON truncation
+        // on longer lessons.
+        thinkingConfig:  { thinkingBudget: 0 } as any,
+      },
+    });
+    const text        = response.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+    const finishReason = String(response.candidates?.[0]?.finishReason ?? 'unknown');
+    return { text, finishReason };
   }
-  const jsonText = rawText
-    .replace(/^```json\s*/i, '')
-    .replace(/^```\s*/i, '')
-    .replace(/```$/i, '')
-    .trim();
 
+  function extractJson(raw: string): string {
+    return raw
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/```$/i, '')
+      .trim();
+  }
+
+  // First attempt
+  let { text: rawText, finishReason } = await callGemini();
+
+  if (!rawText) {
+    throw new Error(`Gemini returned empty response for lesson ${lessonId} (finishReason: ${finishReason})`);
+  }
+  if (finishReason === 'MAX_TOKENS') {
+    console.warn(`[TextbookSeed] MAX_TOKENS on first attempt for "${lesson.name}" — retrying with reduced scope`);
+  }
+
+  let jsonText = extractJson(rawText);
   let parsed: any;
+
   try {
     parsed = JSON.parse(jsonText);
   } catch {
-    throw new Error(`Gemini returned invalid JSON for lesson ${lessonId}: ${jsonText.slice(0, 200)}`);
+    // JSON parse failed — likely truncation. Retry once with a shorter output request.
+    console.warn(`[TextbookSeed] Invalid JSON (finishReason=${finishReason}) for "${lesson.name}" — retrying with reduced scope`);
+    const shortPrompt = prompt.replace(
+      /- vocabularyList: 8-14 words.*\n/,
+      '- vocabularyList: 6-8 words, prioritise the required vocabulary listed above\n',
+    ).replace(
+      /- grammarExamples: 4-6 examples.*\n/,
+      '- grammarExamples: 3-4 examples showing the grammar focus\n',
+    ).replace(
+      /"introduction": "2-3 engaging paragraphs/,
+      '"introduction": "1-2 engaging paragraphs',
+    ).replace(
+      /"grammarExplanation": "Clear prose explanation.*?, 2-4 paragraphs"/,
+      '"grammarExplanation": "Clear prose explanation of the grammar concept(s) for this level, 1-2 paragraphs"',
+    );
+    const retry = await callGemini(shortPrompt);
+    if (!retry.text) {
+      throw new Error(`Gemini returned empty response on retry for lesson ${lessonId} (finishReason: ${retry.finishReason})`);
+    }
+    jsonText = extractJson(retry.text);
+    try {
+      parsed = JSON.parse(jsonText);
+    } catch {
+      throw new Error(`Gemini returned invalid JSON for lesson ${lessonId} (finishReason=${retry.finishReason}): ${jsonText.slice(0, 200)}`);
+    }
   }
 
   // ── Store in DB ──
