@@ -45,6 +45,7 @@ export function TextbookSeederTab() {
   const [jobProgress, setJobProgress] = useState<Map<string, SeedProgress>>(new Map());
   const [expandedLang, setExpandedLang] = useState<string | null>("spanish");
   const pollRef = useRef<NodeJS.Timeout | null>(null);
+  const notifiedJobs = useRef<Set<string>>(new Set()); // jobIds that already fired a completion toast
   const [testLessonId, setTestLessonId] = useState("");
   const [testResult, setTestResult] = useState<any>(null);
 
@@ -65,7 +66,8 @@ export function TextbookSeederTab() {
             const prog: SeedProgress = await res.json();
             updates.set(pathId, prog);
             if (prog.status === "running") anyRunning = true;
-            if (prog.status === "complete") {
+            if (prog.status === "complete" && !notifiedJobs.current.has(jobId)) {
+              notifiedJobs.current.add(jobId);
               toast({ title: `"${prog.pathName}" seeded`, description: `${prog.total} lessons complete${prog.errors.length ? `, ${prog.errors.length} errors` : ""}` });
               refetch();
             }
