@@ -3055,7 +3055,7 @@ export const hiveSnapshots = pgTable("hive_snapshots", {
   language: varchar("language"), // Target language if relevant
   
   // Content
-  title: varchar("title", { length: 255 }).notNull(),
+  title: text("title").notNull(),
   content: text("content").notNull(), // The snapshot content/observation
   context: text("context"), // Additional context (what was happening)
   
