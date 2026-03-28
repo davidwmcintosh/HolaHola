@@ -643,3 +643,20 @@ The seeder now calls `normalizeForOverride(word)` to look up the table and passe
 
 **Files changed**:
 - `server/services/vocabulary-image-resolver.ts` — `CONCEPT_KEY_MAP` (800+ entries), updated `normalizeWord`, updated `resolveVocabularyImage`
+
+### Completed: Fix Stale + concept key bugs (March 28, 2026 session 2)
+
+**Bug 1 — Fix Stale didn't clear concept keys**: `bustVocabImageCache` only deleted `vocab_{lang}_*` keys. After the concept key migration, stale `concept_num_*` / `concept_color_*` / `concept_season_*` / `concept_weather_*` images survived a Fix Stale operation.
+
+**Fix**: Added `NUMBER_CONCEPT_KEYS` and `COLOR_SEASON_WEATHER_CONCEPT_KEYS` exports to `vocabulary-image-resolver.ts`. Updated `fix-numbers-days` route to also bust all `concept_num_*` keys, and `fix-adjectives` route to also bust all color/season/weather concept keys.
+
+**Bug 2 — On-demand generation poisoned concept keys with generic images**: When the resolver generated an image on a cache miss for a concept word (e.g. "dos"), it had no access to `SCENE_OVERRIDES`, so it used a generic DALL-E prompt instead of the correct numeral scene. The bad image was then permanently saved under `concept_num_2`.
+
+**Fix**: In the concept-key generation path of `resolveVocabularyImage`, added a `await import('./vocab-image-seed-service')` (dynamic, avoids circular dependency) to look up `SCENE_OVERRIDES[normalizeForOverride(word)]`. If a scene override exists, it's used for generation instead of the generic concept prompt.
+
+Also exported `SCENE_OVERRIDES` and `normalizeForOverride` from `vocab-image-seed-service.ts` (previously private `const`/`function`).
+
+**Files changed**:
+- `server/services/vocab-image-seed-service.ts` — `export const SCENE_OVERRIDES`, `export function normalizeForOverride`
+- `server/services/vocabulary-image-resolver.ts` — `NUMBER_CONCEPT_KEYS`, `COLOR_SEASON_WEATHER_CONCEPT_KEYS` exports; dynamic SCENE_OVERRIDES lookup in concept generation path
+- `server/routes.ts` — fix-numbers-days and fix-adjectives routes now bust concept keys in addition to language-specific keys

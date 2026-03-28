@@ -97,7 +97,7 @@ const SPLIT = (leftLabel: string, leftDesc: string, rightLabel: string, rightDes
   `RIGHT half (labeled "${rightLabel}" in small text at top): ${rightDesc}. ` +
   `Bright, bold flat design. No clutter, minimal background. Square format.`;
 
-const SCENE_OVERRIDES: Record<string, string> = {
+export const SCENE_OVERRIDES: Record<string, string> = {
   // Spanish numbers (0–20)
   'cero':       NUM('0'),
   'uno':        NUM('1'),
@@ -536,7 +536,7 @@ const SCENE_OVERRIDES: Record<string, string> = {
  * This lets "¿cómo estás?" match the key 'como estas', and
  * "muy bien, gracias" match 'muy bien gracias', etc.
  */
-function normalizeForOverride(word: string): string {
+export function normalizeForOverride(word: string): string {
   return word
     .toLowerCase()
     .normalize('NFD')

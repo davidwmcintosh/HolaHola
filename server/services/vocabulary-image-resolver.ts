@@ -572,6 +572,33 @@ const CONCEPT_KEY_MAP: Record<string, string> = {
   'קשת בענן': 'concept_weather_rainbow',
 };
 
+/**
+ * All concept cache keys for numbers (0–100, 1000).
+ * Exported so admin "Fix Numbers" routes can also bust these in addition to
+ * the language-specific `vocab_{lang}_{word}` keys.
+ */
+export const NUMBER_CONCEPT_KEYS: string[] = [
+  ...Array.from({ length: 22 }, (_, i) => `concept_num_${i}`),   // 0–21
+  'concept_num_30', 'concept_num_40', 'concept_num_50',
+  'concept_num_60', 'concept_num_70', 'concept_num_80',
+  'concept_num_90', 'concept_num_100', 'concept_num_1000',
+];
+
+/**
+ * All concept cache keys for colors, seasons, and weather.
+ * Exported so admin "Fix Adjectives" routes can also bust these.
+ */
+export const COLOR_SEASON_WEATHER_CONCEPT_KEYS: string[] = [
+  'concept_color_red', 'concept_color_blue', 'concept_color_green', 'concept_color_yellow',
+  'concept_color_orange', 'concept_color_purple', 'concept_color_pink', 'concept_color_brown',
+  'concept_color_black', 'concept_color_white', 'concept_color_gray',
+  'concept_season_spring', 'concept_season_summer', 'concept_season_fall', 'concept_season_winter',
+  'concept_weather_sun', 'concept_weather_sunny', 'concept_weather_cloud', 'concept_weather_cloudy',
+  'concept_weather_rain', 'concept_weather_rainy', 'concept_weather_snow', 'concept_weather_snowy',
+  'concept_weather_wind', 'concept_weather_windy', 'concept_weather_storm', 'concept_weather_stormy',
+  'concept_weather_fog', 'concept_weather_lightning', 'concept_weather_rainbow',
+];
+
 function normalizeWord(word: string): string {
   return word
     .toLowerCase()
@@ -705,9 +732,16 @@ export async function resolveVocabularyImage(
     }
 
     // ── 1c. Generate once, save under concept key for all languages ──────
-    const conceptForGeneration = buildGenerationConcept(word, scene, description, translation, language);
-    const generationType = isSceneConcept(word, scene) ? 'infographic' : 'image';
-    console.log(`[VocabImage] Concept cache miss — generating (${generationType}) for concept "${conceptKey}": "${conceptForGeneration}"`);
+    // Use SCENE_OVERRIDES via dynamic import (avoids circular dependency) so even
+    // on-demand cache-miss generation uses the correct educational illustration
+    // (e.g. the clean numeral prompt for number words) rather than a generic
+    // DALL-E interpretation that would permanently poison the concept key.
+    const { SCENE_OVERRIDES: sceneOverrides, normalizeForOverride } = await import('./vocab-image-seed-service');
+    const overrideKey = normalizeForOverride(word);
+    const sceneFromOverride = sceneOverrides[overrideKey] ?? scene;
+    const conceptForGeneration = buildGenerationConcept(word, sceneFromOverride, description, translation, language);
+    const generationType = isSceneConcept(word, sceneFromOverride) ? 'infographic' : 'image';
+    console.log(`[VocabImage] Concept cache miss — generating (${generationType}) for concept "${conceptKey}": "${conceptForGeneration.slice(0, 80)}..."`);
 
     try {
       const { generateVisual } = await import('./visual-content-service');

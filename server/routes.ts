@@ -11183,13 +11183,16 @@ Return ONLY the ${targetLanguage} phrase:`;
     try {
       const { language = 'spanish' } = req.body;
       const { bustVocabImageCache, seedVocabImages, NUMBERS_DAYS_CACHE_KEYS } = await import('./services/vocab-image-seed-service');
-      const keys = NUMBERS_DAYS_CACHE_KEYS[language] ?? NUMBERS_DAYS_CACHE_KEYS['spanish'];
-      const deleted = await bustVocabImageCache(keys);
+      const { NUMBER_CONCEPT_KEYS } = await import('./services/vocabulary-image-resolver');
+      const langKeys = NUMBERS_DAYS_CACHE_KEYS[language] ?? NUMBERS_DAYS_CACHE_KEYS['spanish'];
+      // Bust both language-specific keys AND shared concept keys so stale concept
+      // images don't survive a Fix Stale operation.
+      const deleted = await bustVocabImageCache([...langKeys, ...NUMBER_CONCEPT_KEYS]);
       const jobId = `vocab-fix-numbers-${language}-${Date.now()}`;
       seedVocabImages(language, jobId).catch((e: any) =>
         console.error('[VocabFix] Fatal error:', e.message)
       );
-      res.json({ deleted, jobId, message: `Busted ${deleted} stale number/day images and re-queued seed for ${language}` });
+      res.json({ deleted, jobId, message: `Busted ${deleted} stale number/day images (including concept keys) and re-queued seed for ${language}` });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -11215,13 +11218,15 @@ Return ONLY the ${targetLanguage} phrase:`;
     try {
       const { language = 'spanish' } = req.body;
       const { bustVocabImageCache, seedVocabImages, ADJECTIVE_PAIRS_CACHE_KEYS } = await import('./services/vocab-image-seed-service');
-      const keys = ADJECTIVE_PAIRS_CACHE_KEYS[language] ?? ADJECTIVE_PAIRS_CACHE_KEYS['spanish'];
-      const deleted = await bustVocabImageCache(keys);
+      const { COLOR_SEASON_WEATHER_CONCEPT_KEYS } = await import('./services/vocabulary-image-resolver');
+      const langKeys = ADJECTIVE_PAIRS_CACHE_KEYS[language] ?? ADJECTIVE_PAIRS_CACHE_KEYS['spanish'];
+      // Bust both language-specific keys AND shared concept keys for colors/seasons/weather.
+      const deleted = await bustVocabImageCache([...langKeys, ...COLOR_SEASON_WEATHER_CONCEPT_KEYS]);
       const jobId = `vocab-fix-adjectives-${language}-${Date.now()}`;
       seedVocabImages(language, jobId).catch((e: any) =>
         console.error('[VocabFix] Fatal error:', e.message)
       );
-      res.json({ deleted, jobId, message: `Busted ${deleted} stale adjective images and re-queued seed for ${language}` });
+      res.json({ deleted, jobId, message: `Busted ${deleted} stale adjective images (including concept keys) and re-queued seed for ${language}` });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
