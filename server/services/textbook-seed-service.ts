@@ -220,17 +220,34 @@ Requirements:
         thinkingConfig:  { thinkingBudget: 0 } as any,
       },
     });
-    const text        = response.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+    // When Gemini thinking is active it puts the reasoning in parts[0] (with
+    // thought:true) and the actual response in a later part. Concatenate only
+    // the non-thought parts so we never accidentally parse thinking monologue
+    // as JSON.
+    const parts: any[] = response.candidates?.[0]?.content?.parts ?? [];
+    const text = parts
+      .filter((p: any) => !p.thought)
+      .map((p: any) => p.text ?? '')
+      .join('');
     const finishReason = String(response.candidates?.[0]?.finishReason ?? 'unknown');
     return { text, finishReason };
   }
 
   function extractJson(raw: string): string {
-    return raw
+    let text = raw
       .replace(/^```json\s*/i, '')
       .replace(/^```\s*/i, '')
-      .replace(/```$/i, '')
+      .replace(/```\s*$/i, '')  // trailing ``` with any trailing whitespace
       .trim();
+
+    // If Gemini prefixed or suffixed the JSON with prose, extract just the
+    // outermost {...} block so stray text doesn't break JSON.parse.
+    const firstBrace = text.indexOf('{');
+    const lastBrace  = text.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      text = text.slice(firstBrace, lastBrace + 1);
+    }
+    return text;
   }
 
   // First attempt
@@ -248,9 +265,12 @@ Requirements:
 
   try {
     parsed = JSON.parse(jsonText);
-  } catch {
-    // JSON parse failed — likely truncation. Retry once with a shorter output request.
-    console.warn(`[TextbookSeed] Invalid JSON (finishReason=${finishReason}) for "${lesson.name}" — retrying with reduced scope`);
+  } catch (parseErr: any) {
+    // JSON parse failed — log enough context to diagnose, then retry with smaller scope.
+    const snippet = jsonText.length > 1200
+      ? `${jsonText.slice(0, 1000)} …[${jsonText.length - 1200} chars omitted]… ${jsonText.slice(-200)}`
+      : jsonText;
+    console.warn(`[TextbookSeed] Invalid JSON (finishReason=${finishReason}, parseErr="${parseErr.message}", len=${jsonText.length}) for "${lesson.name}":\n${snippet}`);
     const shortPrompt = prompt.replace(
       /- vocabularyList: 8-14 words.*\n/,
       '- vocabularyList: 6-8 words, prioritise the required vocabulary listed above\n',
@@ -271,8 +291,9 @@ Requirements:
     jsonText = extractJson(retry.text);
     try {
       parsed = JSON.parse(jsonText);
-    } catch {
-      throw new Error(`Gemini returned invalid JSON for lesson ${lessonId} (finishReason=${retry.finishReason}): ${jsonText.slice(0, 200)}`);
+    } catch (parseErr2: any) {
+      const snippet2 = jsonText.length > 500 ? `${jsonText.slice(0, 400)} …${jsonText.slice(-100)}` : jsonText;
+      throw new Error(`Gemini returned invalid JSON for lesson ${lessonId} (finishReason=${retry.finishReason}, parseErr="${parseErr2.message}"): ${snippet2}`);
     }
   }
 
