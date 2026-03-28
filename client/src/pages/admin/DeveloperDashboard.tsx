@@ -196,13 +196,15 @@ export default function DeveloperDashboard() {
           </div>
 
           <Tabs defaultValue="testing" className="space-y-6">
-            <TabsList>
-              <TabsTrigger value="testing" data-testid="tab-testing">Testing Tools</TabsTrigger>
-              <TabsTrigger value="analytics" data-testid="tab-analytics">Usage Analytics</TabsTrigger>
-              <TabsTrigger value="platform" data-testid="tab-platform">Platform Stats</TabsTrigger>
-              <TabsTrigger value="neon" data-testid="tab-neon">Database Migration</TabsTrigger>
-              <TabsTrigger value="vocab-images" data-testid="tab-vocab-images">Vocab Images</TabsTrigger>
-            </TabsList>
+            <div className="overflow-x-auto w-full">
+              <TabsList className="flex w-max">
+                <TabsTrigger value="testing" data-testid="tab-testing">Testing Tools</TabsTrigger>
+                <TabsTrigger value="analytics" data-testid="tab-analytics">Usage Analytics</TabsTrigger>
+                <TabsTrigger value="platform" data-testid="tab-platform">Platform Stats</TabsTrigger>
+                <TabsTrigger value="neon" data-testid="tab-neon">Database Migration</TabsTrigger>
+                <TabsTrigger value="vocab-images" data-testid="tab-vocab-images">Vocab Images</TabsTrigger>
+              </TabsList>
+            </div>
 
             {/* Testing Tools Tab */}
             <TabsContent value="testing" className="space-y-6">
