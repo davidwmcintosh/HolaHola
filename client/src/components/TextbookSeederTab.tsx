@@ -80,7 +80,7 @@ export function TextbookSeederTab() {
   const seedMutation = useMutation({
     mutationFn: async (pathId: string) => {
       const res = await apiRequest("POST", "/api/admin/textbook/seed", { pathId });
-      return res as { jobId: string };
+      return await res.json() as { jobId: string };
     },
     onSuccess: (data, pathId) => {
       setActiveJobs(prev => new Map(prev).set(pathId, data.jobId));
