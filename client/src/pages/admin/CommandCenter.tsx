@@ -6386,6 +6386,7 @@ function VocabImagesSection() {
   const [language, setLanguage] = useState('spanish');
   const [fixNumbersResult, setFixNumbersResult] = useState<any>(null);
   const [fixGreetingsResult, setFixGreetingsResult] = useState<any>(null);
+  const [fixAdjectivesResult, setFixAdjectivesResult] = useState<any>(null);
   const [seedResult, setSeedResult] = useState<any>(null);
 
   const fixNumbersMutation = useMutation({
@@ -6402,6 +6403,15 @@ function VocabImagesSection() {
     onSuccess: (data: any) => {
       setFixGreetingsResult(data);
       toast({ title: 'Greetings cache busted', description: `Deleted ${data.deleted} stale images. Re-seeding in background.` });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const fixAdjectivesMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-adjectives', { language }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setFixAdjectivesResult(data);
+      toast({ title: 'Adjective pairs cache busted', description: `Deleted ${data.deleted} stale images. Re-seeding with split-panel prompts.` });
     },
     onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
   });
@@ -6444,7 +6454,7 @@ function VocabImagesSection() {
               </Select>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <Card className="bg-muted/30">
                 <CardContent className="p-4 space-y-2">
                   <p className="text-sm font-medium">Numbers &amp; Days</p>
@@ -6483,6 +6493,27 @@ function VocabImagesSection() {
                   </Button>
                   {fixGreetingsResult && (
                     <p className="text-xs text-muted-foreground">Deleted {fixGreetingsResult.deleted} cached entries. Job: {fixGreetingsResult.jobId?.slice(-8)}</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="bg-muted/30">
+                <CardContent className="p-4 space-y-2">
+                  <p className="text-sm font-medium">Adjective Pairs</p>
+                  <p className="text-xs text-muted-foreground">Bust stale adjective images and reseed with split-panel contrast illustrations (bien/mal, grande/pequeño, etc.).</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => fixAdjectivesMutation.mutate()}
+                    disabled={fixAdjectivesMutation.isPending}
+                    className="w-full"
+                    data-testid="button-fix-adjectives-cmd"
+                  >
+                    {fixAdjectivesMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+                    Fix Adjectives
+                  </Button>
+                  {fixAdjectivesResult && (
+                    <p className="text-xs text-muted-foreground">Deleted {fixAdjectivesResult.deleted} cached entries. Job: {fixAdjectivesResult.jobId?.slice(-8)}</p>
                   )}
                 </CardContent>
               </Card>

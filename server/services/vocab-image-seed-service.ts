@@ -37,6 +37,17 @@ const NUM_CJK = (digit: string, char: string, label: string) =>
   `both centered together on a soft cream background. Deep navy blue thick strokes, clean and minimal. ` +
   `No animals, no people, no objects, no decorations. Educational flashcard style.`;
 
+/**
+ * Split-panel contrast illustration — shared by BOTH words in an antonym pair.
+ * Left panel shows the "positive/first" concept; right panel shows the "negative/second".
+ * Both members of the pair receive the SAME prompt so they always render identical images.
+ */
+const SPLIT = (leftLabel: string, leftDesc: string, rightLabel: string, rightDesc: string) =>
+  `A clean split-panel flat illustration divided by a bold vertical line down the center. ` +
+  `LEFT half (labeled "${leftLabel}" in small text at top): ${leftDesc}. ` +
+  `RIGHT half (labeled "${rightLabel}" in small text at top): ${rightDesc}. ` +
+  `Bright, bold flat design. No clutter, minimal background. Square format.`;
+
 const SCENE_OVERRIDES: Record<string, string> = {
   // Spanish numbers (0–20)
   'cero':       NUM('0'),
@@ -272,9 +283,9 @@ const SCENE_OVERRIDES: Record<string, string> = {
   'encantada':          'A woman placing her hand on her chest and bowing her head slightly with a warm smile, formal greeting, flat illustration',
   'como estas':         'A person opening their arms wide with raised eyebrows and a questioning smile, asking "how are you?", flat illustration',
   'como esta usted':    'A person in neat attire with an open-hand gesture and polite questioning expression, formal greeting, flat illustration',
-  'bien':               'A cheerful person giving a big thumbs-up with a wide grin, bright sunny background, flat illustration',
+  'bien':               SPLIT('bien', 'a cheerful person giving a big thumbs-up with a bright grin, sunny warm background', 'mal', 'a person with slumped shoulders, frowning face, and drooping posture, grey cool background'),
   'muy bien':           'A very happy dancing person with both thumbs up and a huge smile, bright energetic flat illustration',
-  'mal':                'A person with slumped shoulders, frowning face, and a drooping posture, feeling bad, flat illustration',
+  'mal':                SPLIT('bien', 'a cheerful person giving a big thumbs-up with a bright grin, sunny warm background', 'mal', 'a person with slumped shoulders, frowning face, and drooping posture, grey cool background'),
   'mas o menos':        'A person tilting their open hand back and forth in a "so-so" gesture with a neutral shrug expression, flat illustration',
   'regular':            'A person with a flat neutral expression holding their hand out horizontally, gesturing "just okay", flat illustration',
   'por favor':          'A person with hands pressed together in a pleading please gesture, kind eyes, flat illustration',
@@ -339,6 +350,129 @@ const SCENE_OVERRIDES: Record<string, string> = {
   'de nada':            'A person waving a kind "you\'re welcome" hand gesture, watercolor illustration',
   'com licenca':        'A person politely excusing themselves with a gentle gesture, watercolor style',
   'desculpe':           'A person with an apologetic expression placing hand on heart, watercolor illustration',
+
+  // ── Adjective Pairs — Spanish ─────────────────────────────────────────────
+  // Both words in each pair share the exact same SPLIT prompt so they render
+  // the same contrast image regardless of which word is looked up first.
+  'bueno':    SPLIT('bueno', 'a bright sunny day with a smiling happy face and a green checkmark', 'malo', 'a stormy grey sky with a frowning face and a red X'),
+  'malo':     SPLIT('bueno', 'a bright sunny day with a smiling happy face and a green checkmark', 'malo', 'a stormy grey sky with a frowning face and a red X'),
+  'grande':   SPLIT('grande', 'a large bold elephant filling the left panel', 'pequeño', 'a tiny mouse in the corner of the right panel'),
+  'pequeno':  SPLIT('grande', 'a large bold elephant filling the left panel', 'pequeño', 'a tiny mouse in the corner of the right panel'),
+  'caliente': SPLIT('caliente', 'a steaming red mug of hot liquid with rising heat waves', 'frío', 'an icy blue glass with visible frost and ice cubes'),
+  'frio':     SPLIT('caliente', 'a steaming red mug of hot liquid with rising heat waves', 'frío', 'an icy blue glass with visible frost and ice cubes'),
+  'feliz':    SPLIT('feliz', 'a person with a huge grin, bright eyes, and hands raised in joy, sunny background', 'triste', 'a person with tears rolling down their cheeks and a deep frown, blue background'),
+  'triste':   SPLIT('feliz', 'a person with a huge grin, bright eyes, and hands raised in joy, sunny background', 'triste', 'a person with tears rolling down their cheeks and a deep frown, blue background'),
+  'rapido':   SPLIT('rápido', 'a bright red sports car with motion-blur speed lines', 'lento', 'a slow green turtle plodding along'),
+  'lento':    SPLIT('rápido', 'a bright red sports car with motion-blur speed lines', 'lento', 'a slow green turtle plodding along'),
+  'alto':     SPLIT('alto', 'a very tall giraffe stretching up to the sky', 'bajo', 'a tiny low-to-the-ground dachshund'),
+  'bajo':     SPLIT('alto', 'a very tall giraffe stretching up to the sky', 'bajo', 'a tiny low-to-the-ground dachshund'),
+  'nuevo':    SPLIT('nuevo', 'a shiny brand-new smartphone still in its glossy box', 'viejo', 'an old battered telephone with worn edges and dust'),
+  'viejo':    SPLIT('nuevo', 'a shiny brand-new smartphone still in its glossy box', 'viejo', 'an old battered telephone with worn edges and dust'),
+  'facil':    SPLIT('fácil', 'a person breezing through a task with a relaxed smile, simple clean path ahead', 'difícil', 'a person struggling and sweating over a tangled pile of papers'),
+  'dificil':  SPLIT('fácil', 'a person breezing through a task with a relaxed smile, simple clean path ahead', 'difícil', 'a person struggling and sweating over a tangled pile of papers'),
+  'abierto':  SPLIT('abierto', 'a wide open bright door with sunlight streaming in', 'cerrado', 'a firmly shut door with a closed sign'),
+  'cerrado':  SPLIT('abierto', 'a wide open bright door with sunlight streaming in', 'cerrado', 'a firmly shut door with a closed sign'),
+  'limpio':   SPLIT('limpio', 'a sparkling clean white plate gleaming under bright light', 'sucio', 'a dirty muddy plate covered in smudges and mess'),
+  'sucio':    SPLIT('limpio', 'a sparkling clean white plate gleaming under bright light', 'sucio', 'a dirty muddy plate covered in smudges and mess'),
+  'bonito':   SPLIT('bonito', 'a vibrant bouquet of colorful blooming flowers', 'feo', 'a wilted brown dead flower drooping sadly'),
+  'feo':      SPLIT('bonito', 'a vibrant bouquet of colorful blooming flowers', 'feo', 'a wilted brown dead flower drooping sadly'),
+  'largo':    SPLIT('largo', 'a very long stretching snake winding across the panel', 'corto', 'a tiny stub of a pencil that is barely usable'),
+  'corto':    SPLIT('largo', 'a very long stretching snake winding across the panel', 'corto', 'a tiny stub of a pencil that is barely usable'),
+  'joven':    SPLIT('joven', 'a young energetic teenager running with a bright smile', 'viejo', 'an elderly person with grey hair walking slowly with a cane'),
+  'gordo':    SPLIT('gordo', 'a large round bouncy ball filling most of the panel', 'delgado', 'a slim thin pencil standing upright'),
+  'delgado':  SPLIT('gordo', 'a large round bouncy ball filling most of the panel', 'delgado', 'a slim thin pencil standing upright'),
+  'rico':     SPLIT('rico', 'an elegant set table with fancy dishes and sparkling cutlery', 'pobre', 'a bare empty table with nothing on it'),
+  'pobre':    SPLIT('rico', 'an elegant set table with fancy dishes and sparkling cutlery', 'pobre', 'a bare empty table with nothing on it'),
+  'caro':     SPLIT('caro', 'a glittering diamond ring with a high price tag attached', 'barato', 'a simple coin with a tiny price sticker'),
+  'barato':   SPLIT('caro', 'a glittering diamond ring with a high price tag attached', 'barato', 'a simple coin with a tiny price sticker'),
+  'fuerte':   SPLIT('fuerte', 'a muscular arm flexing with bold thick lines', 'debil', 'a thin weak arm barely able to lift a small weight'),
+  'debil':    SPLIT('fuerte', 'a muscular arm flexing with bold thick lines', 'debil', 'a thin weak arm barely able to lift a small weight'),
+  'lleno':    SPLIT('lleno', 'a completely full glass of water to the brim', 'vacio', 'a completely empty glass with nothing in it'),
+  'vacio':    SPLIT('lleno', 'a completely full glass of water to the brim', 'vacio', 'a completely empty glass with nothing in it'),
+  'oscuro':   SPLIT('oscuro', 'a very dark dim room lit only by a tiny candle', 'claro', 'a bright sunny well-lit room with big windows flooding light'),
+  'claro':    SPLIT('oscuro', 'a very dark dim room lit only by a tiny candle', 'claro', 'a bright sunny well-lit room with big windows flooding light'),
+
+  // ── Adjective Pairs — French ──────────────────────────────────────────────
+  'bon':        SPLIT('bon', 'a bright sunny day with a smiling happy face and a green checkmark', 'mauvais', 'a stormy grey sky with a frowning face and a red X'),
+  'mauvais':    SPLIT('bon', 'a bright sunny day with a smiling happy face and a green checkmark', 'mauvais', 'a stormy grey sky with a frowning face and a red X'),
+  'grand':      SPLIT('grand', 'a large bold elephant filling the left panel', 'petit', 'a tiny mouse in the corner of the right panel'),
+  'petit':      SPLIT('grand', 'a large bold elephant filling the left panel', 'petit', 'a tiny mouse in the corner of the right panel'),
+  'chaud':      SPLIT('chaud', 'a steaming red mug of hot liquid with rising heat waves', 'froid', 'an icy blue glass with visible frost and ice cubes'),
+  'froid':      SPLIT('chaud', 'a steaming red mug of hot liquid with rising heat waves', 'froid', 'an icy blue glass with visible frost and ice cubes'),
+  'heureux':    SPLIT('heureux', 'a person with a huge grin and hands raised in joy, sunny background', 'triste', 'a person with tears and a deep frown, blue background'),
+  'rapide':     SPLIT('rapide', 'a bright red sports car with motion-blur speed lines', 'lent', 'a slow green turtle plodding along'),
+  'lent':       SPLIT('rapide', 'a bright red sports car with motion-blur speed lines', 'lent', 'a slow green turtle plodding along'),
+  'nouveau':    SPLIT('nouveau', 'a shiny brand-new smartphone in its glossy box', 'vieux', 'an old battered telephone with worn edges'),
+  'vieux':      SPLIT('nouveau', 'a shiny brand-new smartphone in its glossy box', 'vieux', 'an old battered telephone with worn edges'),
+  'facile':     SPLIT('facile', 'a person breezing through a task with a relaxed smile', 'difficile', 'a person struggling over a tangled pile of papers'),
+  'difficile':  SPLIT('facile', 'a person breezing through a task with a relaxed smile', 'difficile', 'a person struggling over a tangled pile of papers'),
+  'ouvert':     SPLIT('ouvert', 'a wide open bright door with sunlight streaming in', 'ferme', 'a firmly shut door with a closed sign'),
+  'ferme':      SPLIT('ouvert', 'a wide open bright door with sunlight streaming in', 'ferme', 'a firmly shut door with a closed sign'),
+  'propre':     SPLIT('propre', 'a sparkling clean white plate gleaming under light', 'sale', 'a dirty muddy plate covered in smudges'),
+  'sale':       SPLIT('propre', 'a sparkling clean white plate gleaming under light', 'sale', 'a dirty muddy plate covered in smudges'),
+  'beau':       SPLIT('beau', 'a vibrant bouquet of colorful blooming flowers', 'laid', 'a wilted brown dead flower drooping sadly'),
+  'laid':       SPLIT('beau', 'a vibrant bouquet of colorful blooming flowers', 'laid', 'a wilted brown dead flower drooping sadly'),
+  'long':       SPLIT('long', 'a very long stretching snake winding across the panel', 'court', 'a tiny stub of pencil that is barely usable'),
+  'court':      SPLIT('long', 'a very long stretching snake winding across the panel', 'court', 'a tiny stub of pencil that is barely usable'),
+  'plein':      SPLIT('plein', 'a completely full glass of water to the brim', 'vide', 'a completely empty glass with nothing in it'),
+  'vide':       SPLIT('plein', 'a completely full glass of water to the brim', 'vide', 'a completely empty glass with nothing in it'),
+
+  // ── Adjective Pairs — German ──────────────────────────────────────────────
+  'gut':          SPLIT('gut', 'a bright sunny day with a smiling happy face and a green checkmark', 'schlecht', 'a stormy grey sky with a frowning face and a red X'),
+  'schlecht':     SPLIT('gut', 'a bright sunny day with a smiling happy face and a green checkmark', 'schlecht', 'a stormy grey sky with a frowning face and a red X'),
+  // groß/klein — ß is kept by normalizer (not a combining diacritic)
+  'groß':         SPLIT('groß', 'a large bold elephant filling the left panel', 'klein', 'a tiny mouse in the corner of the right panel'),
+  'klein':        SPLIT('groß', 'a large bold elephant filling the left panel', 'klein', 'a tiny mouse in the corner of the right panel'),
+  'heiß':         SPLIT('heiß', 'a steaming red mug of hot liquid with rising heat waves', 'kalt', 'an icy blue glass with frost and ice cubes'),
+  'kalt':         SPLIT('heiß', 'a steaming red mug of hot liquid with rising heat waves', 'kalt', 'an icy blue glass with frost and ice cubes'),
+  'glucklich':    SPLIT('glücklich', 'a person with a huge grin and hands raised in joy, sunny background', 'traurig', 'a person with tears and a deep frown, blue background'),
+  'traurig':      SPLIT('glücklich', 'a person with a huge grin and hands raised in joy, sunny background', 'traurig', 'a person with tears and a deep frown, blue background'),
+  'schnell':      SPLIT('schnell', 'a bright red sports car with motion-blur speed lines', 'langsam', 'a slow green turtle plodding along'),
+  'langsam':      SPLIT('schnell', 'a bright red sports car with motion-blur speed lines', 'langsam', 'a slow green turtle plodding along'),
+  'neu':          SPLIT('neu', 'a shiny brand-new smartphone in its glossy box', 'alt', 'an old battered telephone with worn edges'),
+  'alt':          SPLIT('neu', 'a shiny brand-new smartphone in its glossy box', 'alt', 'an old battered telephone with worn edges'),
+  'einfach':      SPLIT('einfach', 'a person breezing through a task with a relaxed smile', 'schwer', 'a person struggling over a tangled pile of papers'),
+  'schwer':       SPLIT('einfach', 'a person breezing through a task with a relaxed smile', 'schwer', 'a person struggling over a tangled pile of papers'),
+  'offen':        SPLIT('offen', 'a wide open bright door with sunlight streaming in', 'geschlossen', 'a firmly shut door with a closed sign'),
+  'geschlossen':  SPLIT('offen', 'a wide open bright door with sunlight streaming in', 'geschlossen', 'a firmly shut door with a closed sign'),
+  'sauber':       SPLIT('sauber', 'a sparkling clean white plate gleaming under light', 'schmutzig', 'a dirty muddy plate covered in smudges'),
+  'schmutzig':    SPLIT('sauber', 'a sparkling clean white plate gleaming under light', 'schmutzig', 'a dirty muddy plate covered in smudges'),
+  'voll':         SPLIT('voll', 'a completely full glass of water to the brim', 'leer', 'a completely empty glass with nothing in it'),
+  'leer':         SPLIT('voll', 'a completely full glass of water to the brim', 'leer', 'a completely empty glass with nothing in it'),
+
+  // ── Adjective Pairs — Italian ─────────────────────────────────────────────
+  'buono':       SPLIT('buono', 'a bright sunny day with a smiling happy face and a green checkmark', 'cattivo', 'a stormy grey sky with a frowning face and a red X'),
+  'cattivo':     SPLIT('buono', 'a bright sunny day with a smiling happy face and a green checkmark', 'cattivo', 'a stormy grey sky with a frowning face and a red X'),
+  'piccolo':     SPLIT('grande', 'a large bold elephant filling the left panel', 'piccolo', 'a tiny mouse in the corner of the right panel'),
+  'caldo':       SPLIT('caldo', 'a steaming red mug of hot liquid with rising heat waves', 'freddo', 'an icy blue glass with frost and ice cubes'),
+  'freddo':      SPLIT('caldo', 'a steaming red mug of hot liquid with rising heat waves', 'freddo', 'an icy blue glass with frost and ice cubes'),
+  'felice':      SPLIT('felice', 'a person with a huge grin and hands raised in joy, sunny background', 'triste', 'a person with tears and a deep frown, blue background'),
+  'veloce':      SPLIT('veloce', 'a bright red sports car with motion-blur speed lines', 'lento', 'a slow green turtle plodding along'),
+  'bello':       SPLIT('bello', 'a vibrant bouquet of colorful blooming flowers', 'brutto', 'a wilted brown dead flower drooping sadly'),
+  'brutto':      SPLIT('bello', 'a vibrant bouquet of colorful blooming flowers', 'brutto', 'a wilted brown dead flower drooping sadly'),
+  'aperto':      SPLIT('aperto', 'a wide open bright door with sunlight streaming in', 'chiuso', 'a firmly shut door with a closed sign'),
+  'chiuso':      SPLIT('aperto', 'a wide open bright door with sunlight streaming in', 'chiuso', 'a firmly shut door with a closed sign'),
+  'pulito':      SPLIT('pulito', 'a sparkling clean white plate gleaming under light', 'sporco', 'a dirty muddy plate covered in smudges'),
+  'sporco':      SPLIT('pulito', 'a sparkling clean white plate gleaming under light', 'sporco', 'a dirty muddy plate covered in smudges'),
+  'pieno':       SPLIT('pieno', 'a completely full glass of water to the brim', 'vuoto', 'a completely empty glass with nothing in it'),
+  'vuoto':       SPLIT('pieno', 'a completely full glass of water to the brim', 'vuoto', 'a completely empty glass with nothing in it'),
+
+  // ── Adjective Pairs — Portuguese ─────────────────────────────────────────
+  'bom':        SPLIT('bom', 'a bright sunny day with a smiling happy face and a green checkmark', 'mau', 'a stormy grey sky with a frowning face and a red X'),
+  'mau':        SPLIT('bom', 'a bright sunny day with a smiling happy face and a green checkmark', 'mau', 'a stormy grey sky with a frowning face and a red X'),
+  'ruim':       SPLIT('bom', 'a bright sunny day with a smiling happy face and a green checkmark', 'ruim', 'a stormy grey sky with a frowning face and a red X'),
+  // grande / pequeno (normalizes from pequeno — without ñ, Portuguese doesn't use ñ)
+  'quente':     SPLIT('quente', 'a steaming red mug of hot liquid with rising heat waves', 'frio', 'an icy blue glass with frost and ice cubes'),
+  // frio / feliz / triste / rapido / lento / facil / dificil all shared with Spanish entries above
+  'baixo':      SPLIT('alto', 'a very tall giraffe stretching up to the sky', 'baixo', 'a tiny low-to-the-ground dachshund'),
+  'novo':       SPLIT('novo', 'a shiny brand-new smartphone in its glossy box', 'velho', 'an old battered telephone with worn edges'),
+  'velho':      SPLIT('novo', 'a shiny brand-new smartphone in its glossy box', 'velho', 'an old battered telephone with worn edges'),
+  'aberto':     SPLIT('aberto', 'a wide open bright door with sunlight streaming in', 'fechado', 'a firmly shut door with a closed sign'),
+  'fechado':    SPLIT('aberto', 'a wide open bright door with sunlight streaming in', 'fechado', 'a firmly shut door with a closed sign'),
+  'limpo':      SPLIT('limpo', 'a sparkling clean white plate gleaming under light', 'sujo', 'a dirty muddy plate covered in smudges'),
+  'sujo':       SPLIT('limpo', 'a sparkling clean white plate gleaming under light', 'sujo', 'a dirty muddy plate covered in smudges'),
+  'cheio':      SPLIT('cheio', 'a completely full glass of water to the brim', 'vazio', 'a completely empty glass with nothing in it'),
+  'vazio':      SPLIT('cheio', 'a completely full glass of water to the brim', 'vazio', 'a completely empty glass with nothing in it'),
 };
 
 /**
@@ -480,6 +614,49 @@ const GREETINGS_WORDS: Record<string, string[]> = {
 
 export const GREETINGS_CACHE_KEYS: Record<string, string[]> = Object.fromEntries(
   Object.entries(GREETINGS_WORDS).map(([lang, words]) => [
+    lang,
+    words.map(w => toCacheKey(lang, w)),
+  ])
+);
+
+// ── Adjective pairs (antonym contrast images) ───────────────────────────────
+// Any word here that already has a stale cache entry will be busted by the
+// fix-adjectives admin endpoint and regenerated with the SPLIT panel prompt.
+const ADJECTIVE_PAIRS_WORDS: Record<string, string[]> = {
+  spanish: [
+    'bien','mal','bueno','malo','grande','pequeño','caliente','frío',
+    'feliz','triste','rápido','lento','alto','bajo','nuevo','viejo',
+    'fácil','difícil','abierto','cerrado','limpio','sucio',
+    'bonito','feo','largo','corto','joven','gordo','delgado',
+    'rico','pobre','caro','barato','fuerte','débil',
+    'lleno','vacío','oscuro','claro',
+  ],
+  french: [
+    'bon','mauvais','grand','petit','chaud','froid','heureux','triste',
+    'rapide','lent','nouveau','vieux','facile','difficile',
+    'ouvert','fermé','propre','sale','beau','laid','long','court',
+    'plein','vide',
+  ],
+  german: [
+    'gut','schlecht','groß','klein','heiß','kalt','glücklich','traurig',
+    'schnell','langsam','neu','alt','einfach','schwer',
+    'offen','geschlossen','sauber','schmutzig','voll','leer',
+  ],
+  italian: [
+    'buono','cattivo','grande','piccolo','caldo','freddo','felice','triste',
+    'veloce','lento','alto','basso','nuovo','vecchio','facile','difficile',
+    'aperto','chiuso','pulito','sporco','pieno','vuoto',
+    'bello','brutto',
+  ],
+  portuguese: [
+    'bom','mau','grande','pequeno','quente','frio','feliz','triste',
+    'rápido','lento','alto','baixo','novo','velho','fácil','difícil',
+    'aberto','fechado','limpo','sujo','cheio','vazio',
+  ],
+};
+
+export const ADJECTIVE_PAIRS_CACHE_KEYS: Record<string, string[]> = Object.fromEntries(
+  Object.entries(ADJECTIVE_PAIRS_WORDS).map(([lang, words]) => [
     lang,
     words.map(w => toCacheKey(lang, w)),
   ])

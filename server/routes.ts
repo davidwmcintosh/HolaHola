@@ -11183,6 +11183,22 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  app.post('/api/admin/vocab-images/fix-adjectives', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { language = 'spanish' } = req.body;
+      const { bustVocabImageCache, seedVocabImages, ADJECTIVE_PAIRS_CACHE_KEYS } = await import('./services/vocab-image-seed-service');
+      const keys = ADJECTIVE_PAIRS_CACHE_KEYS[language] ?? ADJECTIVE_PAIRS_CACHE_KEYS['spanish'];
+      const deleted = await bustVocabImageCache(keys);
+      const jobId = `vocab-fix-adjectives-${language}-${Date.now()}`;
+      seedVocabImages(language, jobId).catch((e: any) =>
+        console.error('[VocabFix] Fatal error:', e.message)
+      );
+      res.json({ deleted, jobId, message: `Busted ${deleted} stale adjective images and re-queued seed for ${language}` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Start vocab image seeding for a single language
   app.post('/api/admin/vocab-images/seed', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
