@@ -11214,6 +11214,28 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Targeted single-word fix — busts just one image and regenerates it immediately.
+  app.post('/api/admin/vocab-images/fix-word', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { language, word } = req.body;
+      if (!language || !word) return res.status(400).json({ error: 'language and word are required' });
+      const { bustVocabImageCache, toCacheKey, normalizeForOverride, SCENE_OVERRIDES } = await import('./services/vocab-image-seed-service');
+      const { resolveVocabularyImage } = await import('./services/vocabulary-image-resolver');
+      const cacheKey = toCacheKey(language, word.trim());
+      const deleted = await bustVocabImageCache([cacheKey]);
+      const sceneOverride = SCENE_OVERRIDES[normalizeForOverride(word.trim())];
+      const result = await resolveVocabularyImage({
+        word: word.trim(),
+        language,
+        description: word.trim(),
+        scene: sceneOverride,
+      });
+      res.json({ deleted, cacheKey, source: result.source, url: result.url, message: `Regenerated image for "${word}" (${language})` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post('/api/admin/vocab-images/fix-adjectives', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { language = 'spanish' } = req.body;

@@ -690,7 +690,7 @@ export function normalizeForOverride(word: string): string {
  * Normalize a word to its cache key form, matching the logic in vocabulary-image-resolver.ts.
  * Format: vocab_{language}_{normalizedWord}
  */
-function toCacheKey(language: string, word: string): string {
+export function toCacheKey(language: string, word: string): string {
   const normalized = word
     .toLowerCase()
     .normalize('NFD')
