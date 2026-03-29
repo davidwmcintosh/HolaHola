@@ -388,6 +388,8 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'excusez-moi':        `${CHAR.FR.primary} gently tapping a stranger on the shoulder with a polite "excusez-moi" expression, hand slightly raised, busy Parisian market setting behind them, watercolor illustration`,
   'pardon':             `${CHAR.FR.primary} with a sincere apologetic expression placing hand on chest, stepping aside politely in a narrow street, cheerful watercolor illustration`,
   'enchante':           `${CHAR.FR.secondary} extending his hand for a warm first-meeting handshake with a delighted smile, ${CHAR.FR.primary} reaching forward to meet it, bright cheerful setting, watercolor illustration`,
+  'comment allez-vous': `${CHAR.FR.primary} turning to ${CHAR.FR.secondary} on a sunny Parisian street with an open warm questioning expression and a polite smile, a subtle "comment allez-vous?" air to the gesture, bright watercolor illustration`,
+  'tres bien merci':    `${CHAR.FR.primary} pressing both palms together with a glowing warm smile and a happy nod, radiating genuine contentment, "très bien, merci" written in delicate script in the bright background, cheerful watercolor illustration`,
 
   // ── Greetings & Farewells — German ────────────────────────────────────────
   // Characters: Anna (primary) + Klaus (secondary) — see CHARACTER_PROFILES.DE
@@ -403,6 +405,10 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'danke schon':        `${CHAR.DE.primary} giving a warm grateful bow with both hands pressed together, beaming with sincere deep appreciation, cheerful bright background, watercolor illustration`,
   'bitte schon':        `${CHAR.DE.secondary} gesturing "bitte schön — you're welcome" with an open relaxed palm and a kind friendly smile, bright airy setting, watercolor illustration`,
   'entschuldigung':     `${CHAR.DE.primary} gently tapping a stranger on the shoulder with a polite apologetic expression, hand slightly raised to get attention, busy street setting, watercolor illustration`,
+  'bis spater':         `${CHAR.DE.primary} and ${CHAR.DE.secondary} parting cheerfully at a city corner, both waving "bis später" over their shoulders with warm smiles, bright afternoon light, watercolor illustration`,
+  'freut mich':         `${CHAR.DE.primary} and ${CHAR.DE.secondary} shaking hands warmly in a first meeting, both wearing delighted pleased-to-meet-you smiles, bright professional indoor setting, watercolor illustration`,
+  'wie geht es ihnen':  `${CHAR.DE.primary} in a polite formal posture facing ${CHAR.DE.secondary}, extending a courteous open-hand gesture with a respectful questioning smile, bright warm indoor setting, watercolor illustration`,
+  'mir geht es gut danke': `${CHAR.DE.primary} giving a cheerful thumbs-up with a bright content smile, radiating a warm "I'm doing well, thank you" expression, sunny background, watercolor illustration`,
 
   // ── Greetings & Farewells — Italian ──────────────────────────────────────
   // Characters: Giulia (primary) + Luca (secondary) — see CHARACTER_PROFILES.IT
@@ -417,6 +423,10 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'mi chiamo':          `${CHAR.IT.primary} pointing to herself confidently with a big friendly smile, a small speech bubble showing her name, bright cheerful watercolor illustration`,
   'come stai':          `${CHAR.IT.primary} walking toward ${CHAR.IT.secondary} on a sunny Italian street, spreading her arms open with a warm questioning "come stai?" expression, both smiling, watercolor illustration`,
   'come sta':           `${CHAR.IT.primary} in a formal setting making a respectful polite inquiry gesture to ${CHAR.IT.secondary}, a professional warm interior, watercolor illustration`,
+  'a domani':           `${CHAR.IT.primary} waving goodbye at a sun-dappled Italian garden gate at sunset, a cheerful circular calendar floating nearby with domani circled, warm golden light, watercolor illustration`,
+  'a presto':           `${CHAR.IT.primary} and ${CHAR.IT.secondary} parting at a café doorway, both turning to wave a warm "a presto" with bright hopeful smiles, sunny Italian street behind them, watercolor illustration`,
+  'piacere':            `${CHAR.IT.primary} and ${CHAR.IT.secondary} meeting for the first time in a bright sunny piazza, both extending a warm handshake with delighted "piacere — pleased to meet you" smiles, watercolor illustration`,
+  'sto bene grazie':    `${CHAR.IT.primary} giving a cheerful double thumbs-up with a radiant warm smile, the bright Italian countryside visible through a window behind, watercolor illustration`,
 
   // ── Greetings & Farewells — Portuguese ───────────────────────────────────
   // Characters: Ana (primary) + João (secondary) — see CHARACTER_PROFILES.PT
@@ -432,6 +442,11 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'de nada':            `${CHAR.PT.secondary} waving a relaxed "de nada — no worries" hand with a kind easygoing smile, bright cheerful setting, watercolor illustration`,
   'com licenca':        `${CHAR.PT.primary} politely excusing herself with a gentle hand gesture, stepping around others in a busy colourful market, watercolor illustration`,
   'desculpe':           `${CHAR.PT.primary} with a sincere apologetic expression placing hand on heart, stepping back with a sorry gesture, warm bright setting, watercolor illustration`,
+  'oi':                 `${CHAR.PT.primary} spotting ${CHAR.PT.secondary} across a bright tropical street and waving a casual cheerful "oi!" with a big friendly smile, colourful buildings behind them, bright watercolor illustration`,
+  'tchau':              `${CHAR.PT.primary} and ${CHAR.PT.secondary} parting with a casual wave and warm "tchau" smiles at a sunny bus stop, bright tropical setting, watercolor illustration`,
+  'como esta':          `${CHAR.PT.primary} in a warm polite posture facing ${CHAR.PT.secondary}, extending a courteous open-hand gesture with a respectful friendly questioning smile, bright setting, watercolor illustration`,
+  'estou bem obrigado': `${CHAR.PT.secondary} giving a cheerful thumbs-up with a warm content smile, radiating a happy "estou bem, obrigado" expression, bright sunny background, watercolor illustration`,
+  'prazer em conhece-lo': `${CHAR.PT.primary} and ${CHAR.PT.secondary} shaking hands warmly in a first meeting, both beaming with genuine "prazer em conhecê-lo" pleasure, bright cheerful setting, watercolor illustration`,
 
   // ── Greetings & Farewells — Japanese ─────────────────────────────────────
   // Characters: Yuki (primary) + Kenji (secondary) — see CHARACTER_PROFILES.JA
@@ -472,6 +487,9 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'hajimemashite':           `${CHAR.JA.primary} and ${CHAR.JA.secondary} bowing politely on first meeting, both smiling warmly, bright cheerful setting, watercolor illustration`,
   'yoroshiku onegaishimasu': `${CHAR.JA.primary} bowing respectfully with both hands at her sides and a warm open smile, formal greeting stance, watercolor illustration`,
   'ogenki desu ka':          `${CHAR.JA.primary} facing ${CHAR.JA.secondary} with a warm friendly "how are you?" expression, watercolor illustration`,
+  'お元気ですか':              `${CHAR.JA.primary} facing ${CHAR.JA.secondary} on a bright sunny Japanese street with a warm open polite questioning expression, both smiling, watercolor illustration`,
+  'また明日':                `${CHAR.JA.primary} waving goodbye at a school entrance at sunset, a cheerful calendar floating nearby with 明日 circled, warm golden light, watercolor illustration`,
+  '元気です ありがとう':       `${CHAR.JA.primary} giving a warm cheerful thumbs-up with a bright content smile and a slight bow of gratitude, sunny Japanese garden setting, watercolor illustration`,
 
   // ── Greetings & Farewells — Korean ───────────────────────────────────────
   // Characters: Ji-yeon (primary) + Min-jun (secondary) — see CHARACTER_PROFILES.KO
@@ -497,6 +515,13 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'mianhaeyo':               `${CHAR.KO.primary} with a sheepish apologetic expression placing hand on heart, watercolor illustration`,
   'gwaenchanayo':            `${CHAR.KO.secondary} waving a relaxed "it's okay" hand with a kind reassuring smile, watercolor illustration`,
   'cheonmaneyo':             `${CHAR.KO.secondary} waving a friendly "you're welcome" hand with an easygoing smile, watercolor illustration`,
+  '좋은 아침이에요':           `${CHAR.KO.primary} in cozy pajamas holding a warm cup of tea at a bright kitchen window, golden sunrise light streaming in, cheerful morning watercolor illustration`,
+  '잘 자요':                 `${CHAR.KO.primary} waving goodnight from a warmly lit apartment doorway under a starry sky, crescent moon visible, soft indoor light, watercolor illustration`,
+  '잘 지내요 감사합니다':      `${CHAR.KO.primary} giving a cheerful thumbs-up with a warm grateful smile and a gentle bow, bright sunny background, watercolor illustration`,
+  '어떻게 지내세요':           `${CHAR.KO.primary} facing ${CHAR.KO.secondary} on a bright Seoul street with a warm open polite "how are you?" questioning expression, both smiling, watercolor illustration`,
+  '내일 봐요':               `${CHAR.KO.primary} waving goodbye at a café doorway at sunset, a cheerful calendar with 내일 circled floating nearby, warm golden light, watercolor illustration`,
+  '또 만나요':               `${CHAR.KO.primary} and ${CHAR.KO.secondary} parting at a subway entrance, both turning to wave a warm "see you again" with bright smiles, urban Seoul setting, watercolor illustration`,
+  '만나서 반갑습니다':         `${CHAR.KO.primary} and ${CHAR.KO.secondary} bowing politely to each other in a first meeting, both smiling warmly with pleased-to-meet-you expressions, bright professional setting, watercolor illustration`,
 
   // ── Greetings & Farewells — Mandarin ─────────────────────────────────────
   // Characters: Mei (primary) + Wei (secondary) — see CHARACTER_PROFILES.ZH
@@ -524,6 +549,10 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'mei guan xi':             `${CHAR.ZH.secondary} waving a reassuring "it's fine" hand with a kind smile, watercolor illustration`,
   'ni hao ma':               `${CHAR.ZH.primary} facing ${CHAR.ZH.secondary} with a warm friendly "how are you?" expression, watercolor illustration`,
   'hen hao':                 `${CHAR.ZH.primary} giving a cheerful thumbs-up with a bright happy smile, warm background, watercolor illustration`,
+  '下午好':                  `${CHAR.ZH.primary} and ${CHAR.ZH.secondary} waving warm afternoon greetings to each other on a sunlit Chinese garden path, golden afternoon light, watercolor illustration`,
+  '回头见':                  `${CHAR.ZH.primary} parting with a warm wave and a bright hopeful smile at a tea shop doorway, a cheerful "see you soon" air, soft afternoon light, watercolor illustration`,
+  '我很好 谢谢':              `${CHAR.ZH.primary} giving a cheerful double thumbs-up with a broad warm smile and a slight grateful bow, bright sunny Chinese garden background, watercolor illustration`,
+  '明天见':                  `${CHAR.ZH.primary} waving goodbye at a garden gate at sunset, a cheerful round calendar with 明天 circled floating nearby, warm golden light, watercolor illustration`,
 
   // ── Greetings & Farewells — Hebrew ───────────────────────────────────────
   // Characters: Noa (primary) + Avi (secondary) — see CHARACTER_PROFILES.HE
@@ -577,6 +606,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'fine':               `${CHAR.EN.primary} giving a cheerful thumbs-up with a relaxed bright smile, warm sunny background, watercolor illustration`,
   'very well':          `${CHAR.EN.primary} spreading both arms wide open with a huge beaming smile of contentment, vibrant cheerful sunny background, watercolor illustration`,
   'not bad':            `${CHAR.EN.primary} tilting an open hand back and forth in a casual "not bad" gesture with a relaxed neutral-to-pleased smile, bright setting, watercolor illustration`,
+  "i'm fine thank you": `${CHAR.EN.primary} giving a warm thumbs-up with a bright grateful smile and a gentle nod, radiating a cheerful "I'm fine, thank you" energy, sunny background, watercolor illustration`,
 
   // ── Adjective Pairs — Spanish ─────────────────────────────────────────────
   // Both words in each pair share the exact same SPLIT prompt so they render
@@ -712,8 +742,9 @@ export function normalizeForOverride(word: string): string {
   return word
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')   // strip accents
-    .replace(/[¿¡?!,;:]/g, '')         // strip common punctuation
+    .replace(/[\u0300-\u036f]/g, '')   // strip Latin accents only
+    .normalize('NFC')                   // re-compose so CJK/Hangul/kana stays intact
+    .replace(/[¿¡?!,;:、，。]/g, '')    // strip common punctuation (including CJK variants)
     .replace(/\s+/g, ' ')              // collapse spaces
     .trim();
 }

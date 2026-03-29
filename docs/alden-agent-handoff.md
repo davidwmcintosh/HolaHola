@@ -1,31 +1,38 @@
 # Alden ↔ Agent Handoff
 
-## Session Summary — Sun, Mar 29, 2026
+## Session Summary — Sun, Mar 29, 2026 (latest)
 
 ### Completed this session
 
-**SCENE_OVERRIDES + CHARACTER_PROFILES for Japanese, Korean, Mandarin, Hebrew**
-- `CHARACTER_PROFILES` now covers all 9 languages: ES, FR, DE, IT, PT, JA, KO, ZH, HE.
-- `SCENE_OVERRIDES` now has greeting/farewell entries for JA, KO, ZH, HE using **both**:
-  - Native-script keys (こんにちは, 안녕하세요, 你好, שלום, etc.) — preserved by `normalizeForOverride`
-  - Romaji/pinyin/transliterated aliases (konnichiwa, annyeonghaseyo, ni hao, shalom, etc.)
-- `GREETINGS_WORDS` now includes transliterated forms for JA, KO, ZH, HE (cache-busting limited to romaji; CJK/Hebrew script stripped by `toCacheKey` — acceptable per pre-existing comment).
-- Hebrew added to `ALL_LANGUAGES`.
+**All 30 missing SCENE_OVERRIDES entries added** — SCENE_OVERRIDES audit is now complete.
+
+Added entries by language:
+- **English (1)**: `"i'm fine thank you"`
+- **French (2)**: `"comment allez-vous"`, `"tres bien merci"`
+- **German (4)**: `"bis spater"`, `"freut mich"`, `"wie geht es ihnen"`, `"mir geht es gut danke"`
+- **Italian (4)**: `"a domani"`, `"a presto"`, `"piacere"`, `"sto bene grazie"`
+- **Portuguese (5)**: `"oi"`, `"tchau"`, `"como esta"`, `"estou bem obrigado"`, `"prazer em conhece-lo"`
+- **Japanese (3)**: `"お元気ですか"`, `"また明日"`, `"元気です ありがとう"` (native-script keys)
+- **Korean (7)**: `"좋은 아침이에요"`, `"잘 자요"`, `"잘 지내요 감사합니다"`, `"어떻게 지내세요"`, `"내일 봐요"`, `"또 만나요"`, `"만나서 반갑습니다"`
+- **Mandarin (4)**: `"下午好"`, `"回头见"`, `"我很好 谢谢"`, `"明天见"`
+- **Spanish**: Already complete — "muy bien gracias" was in file with single-quotes (grep missed it).
+
+All entries use CHARACTER_PROFILES characters with culturally-specific prompts. Server restarts cleanly.
 
 ### ACTION REQUIRED — Run Fix Greetings in Admin Panel
 
-You must regenerate greeting images for all languages that were changed or newly added.
-Go to **Admin → Vocab Images → Fix Greetings** and run for each of:
+Regenerate greeting images to pick up the new SCENE_OVERRIDES. Go to **Admin → Vocab Images → Fix Greetings** and run for each of:
 
-1. **Spanish** (prompts overhauled last session — buenos días pajamas, como estás Marco fixes)
-2. **French** (enriched culturally-specific scenes last session)
-3. **German** (enriched scenes, hallo added last session)
-4. **Italian** (enriched scenes last session)
-5. **Portuguese** (Ana clothing fix last session)
-6. **Japanese** (NEW — Yuki/Kenji characters added this session)
-7. **Korean** (NEW — Ji-yeon/Min-jun characters added this session)
-8. **Mandarin** (NEW — Mei/Wei characters added this session)
-9. **Hebrew** (NEW — Noa/Avi characters added this session)
+1. **English** — new: "i'm fine thank you"
+2. **French** — new: "comment allez-vous", "très bien merci"
+3. **German** — new: "bis später", "freut mich", "wie geht es ihnen", "mir geht es gut danke"
+4. **Italian** — new: "a domani", "a presto", "piacere", "sto bene grazie"
+5. **Portuguese** — new: "oi", "tchau", "como está", "estou bem obrigado", "prazer em conhecê-lo"
+6. **Japanese** — new: "お元気ですか", "また明日", "元気です ありがとう"
+7. **Korean** — new: "좋은 아침이에요", "잘 자요", "잘 지내요 감사합니다", "어떻게 지내세요", "내일 봐요", "또 만나요", "만나서 반갑습니다"
+8. **Mandarin** — new: "下午好", "回头见", "我很好 谢谢", "明天见"
+9. **Hebrew** — from previous session (NEW language, still needs regeneration)
+10. **Spanish** — from previous session (prompts overhauled)
 
 The Fix Greetings endpoint is: `POST /api/admin/vocab-images/fix-greetings` with `{ language }`.
 
