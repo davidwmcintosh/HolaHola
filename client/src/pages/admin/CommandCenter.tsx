@@ -6470,7 +6470,7 @@ function VocabImagesSection() {
               <Card className="bg-muted/30">
                 <CardContent className="p-4 space-y-2">
                   <p className="text-sm font-medium">Numbers &amp; Days</p>
-                  <p className="text-xs text-muted-foreground">Bust stale number/day-of-week images and reseed with correct numeral illustrations.</p>
+                  <p className="text-xs text-muted-foreground">Bust stale number/day images. Numbers regenerate as crisp server-generated SVGs (no DALL-E); days use scene illustrations.</p>
                   <Button
                     size="sm"
                     variant="outline"

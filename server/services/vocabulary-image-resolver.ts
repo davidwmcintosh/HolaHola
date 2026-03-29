@@ -30,6 +30,24 @@ export interface VocabImageResult {
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
+/**
+ * Generate a clean, consistent SVG data URL for a number (0-99).
+ * Used instead of DALL-E for number concept images — no AI variance, instant, shared.
+ */
+function generateNumberSvgDataUrl(num: number): string {
+  const text = String(num);
+  const fontSize = text.length === 1 ? 340 : text.length === 2 ? 240 : 170;
+  const yOffset = text.length === 1 ? 330 : 340;
+  const bg = '#faf8f3';   // warm cream
+  const fg = '#1a2744';   // deep navy
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="${bg}" rx="28"/>
+  <text x="256" y="${yOffset}" font-size="${fontSize}" text-anchor="middle"
+    font-family="Georgia, 'Times New Roman', serif" fill="${fg}" font-weight="700">${text}</text>
+</svg>`;
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+}
+
 // Articles and common filler words to strip before fallback lookup (covers Spanish + French)
 const SPANISH_ARTICLES = new Set(['el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas', 'de', 'del', 'al']);
 const FRENCH_ARTICLES = new Set(['le', 'la', 'les', 'un', 'une', 'des', 'du', 'de', 'l']);
@@ -736,10 +754,38 @@ export async function resolveVocabularyImage(
     }
 
     // ── 1c. Generate once, save under concept key for all languages ──────
+
+    // ── Number concepts: generate a clean SVG instead of calling DALL-E ──────
+    // DALL-E produces inconsistent results for numerals. A server-generated SVG
+    // is perfectly consistent, instant, and shared across all languages.
+    if (conceptKey.startsWith('concept_num_')) {
+      const numStr = conceptKey.replace('concept_num_', '');
+      const num = parseInt(numStr, 10);
+      if (!isNaN(num)) {
+        const svgUrl = generateNumberSvgDataUrl(num);
+        console.log(`[VocabImage] Number concept "${conceptKey}" → SVG data URL (no DALL-E)`);
+        try {
+          await storage.cacheImage({
+            url: svgUrl,
+            filename: `vocab_concept_${conceptKey}.svg`,
+            mimeType: 'image/svg+xml',
+            mediaType: 'image',
+            imageSource: 'ai_generated',
+            searchQuery: conceptKey,
+            uploadedBy: userId ?? null,
+            title: conceptKey,
+            description: `Number ${num}`,
+            language: 'shared',
+            targetWord: conceptKey,
+          });
+        } catch (_) { /* cache save failure is non-fatal */ }
+        return { imageUrl: svgUrl, source: 'ai', word, description };
+      }
+    }
+
     // Use SCENE_OVERRIDES via dynamic import (avoids circular dependency) so even
     // on-demand cache-miss generation uses the correct educational illustration
-    // (e.g. the clean numeral prompt for number words) rather than a generic
-    // DALL-E interpretation that would permanently poison the concept key.
+    // rather than a generic DALL-E interpretation that would permanently poison the concept key.
     const { SCENE_OVERRIDES: sceneOverrides, normalizeForOverride } = await import('./vocab-image-seed-service');
     const overrideKey = normalizeForOverride(word);
     const sceneFromOverride = sceneOverrides[overrideKey] ?? scene;

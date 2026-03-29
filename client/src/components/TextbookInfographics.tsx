@@ -726,8 +726,8 @@ function VisualVocabGrid({ lessonId, drills, language }: VisualVocabGridProps) {
       if (!res.ok) throw new Error('Failed to fetch vocab images');
       return res.json();
     },
-    staleTime: 1000 * 60 * 30,
-    gcTime: 1000 * 60 * 60,
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 10,
     retry: 1,
   });
 

@@ -1,5 +1,28 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Sun, Mar 29, 2026 (session 4 — staleTime + SVG numbers)
+
+### Completed this session
+
+1. **Textbook staleTime reduced** (`TextbookInfographics.tsx` line 732) — was 30 min, now 2 min (`staleTime: 1000 * 60 * 2`). gcTime reduced from 60 min → 10 min. Admin fix-word changes now appear in the textbook within 2 minutes instead of 30.
+
+2. **SVG number images** — `server/services/vocabulary-image-resolver.ts` now intercepts any `concept_num_X` key before DALL-E is called. A clean server-generated SVG (cream background, deep navy numeral, Georgia serif, 512×512) is returned instantly and cached under the concept key. DALL-E is never called for numbers again. `generateNumberSvgDataUrl(num)` helper added at the top of the file.
+
+3. **Admin "Fix Numbers / Days" description updated** — The button description now mentions "Numbers regenerate as crisp server-generated SVGs (no DALL-E)". Flow: admin clicks button → old DALL-E concept keys busted → background re-seeder calls resolver for each word → numbers get SVG, days get DALL-E scene illustration.
+
+### ACTIVE TODOs (still pending)
+
+- Run Fix Numbers/Days (Spanish) in admin to replace the old DALL-E number images with SVGs.
+- Run Fix Greetings for **English, French, German, Italian, Portuguese** (to pick up updated SCENE_OVERRIDES for their greeting words and fix Portuguese "de nada").
+- Run Fix Greetings for **Spanish** (to regenerate the 11 courtesy-phrase images with Daniela).
+
+### Key files changed this session
+- `client/src/components/TextbookInfographics.tsx` — staleTime 30min → 2min, gcTime 60min → 10min
+- `server/services/vocabulary-image-resolver.ts` — added `generateNumberSvgDataUrl()`, added `concept_num_*` SVG intercept before DALL-E block
+- `client/src/pages/admin/CommandCenter.tsx` — updated Numbers & Days card description
+
+---
+
 ## Session Summary — Sun, Mar 29, 2026 (session 3 — wrong-character bug fixed)
 
 ### Completed this session
