@@ -261,7 +261,7 @@ export function VisualVocabCard({
 }: VisualVocabCardProps) {
   return (
     <div className={`rounded-lg overflow-hidden border ${className}`}>
-      <div className={`aspect-[4/3] ${backgroundColor} flex items-center justify-center`}>
+      <div className={`aspect-square ${backgroundColor} flex items-center justify-center`}>
         {imageUrl ? (
           <img src={imageUrl} alt={word} className="w-full h-full object-cover object-top" />
         ) : (
@@ -768,7 +768,7 @@ function VisualVocabGrid({ lessonId, drills, language }: VisualVocabGridProps) {
               className="rounded-md border bg-card overflow-hidden"
               data-testid={`visual-vocab-item-${i}`}
             >
-              <div className="relative aspect-[4/3] bg-muted/30 overflow-hidden">
+              <div className="relative aspect-square bg-muted/30 overflow-hidden">
                 {isLoading && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />

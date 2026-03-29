@@ -47,7 +47,7 @@ export function VocabImageCard({
         onClick={onClick ?? (() => setLightboxOpen(true))}
       >
         {/* Image area */}
-        <div className="relative aspect-[4/3] bg-muted overflow-hidden group">
+        <div className="relative aspect-square bg-muted overflow-hidden group">
           {isLoading ? (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="h-5 w-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />

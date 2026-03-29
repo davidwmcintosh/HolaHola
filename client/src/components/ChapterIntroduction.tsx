@@ -2105,7 +2105,7 @@ export function ChapterIntroduction({ chapterNumber, chapterTitle, language, cha
                     <img 
                       src={images[index]} 
                       alt={section.title}
-                      className="w-full h-48 md:h-full object-cover"
+                      className="w-full h-48 md:h-full object-cover object-top"
                       data-testid={`img-narrative-${index}`}
                     />
                   </div>

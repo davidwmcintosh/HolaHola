@@ -1,6 +1,26 @@
 # Alden ↔ Agent Handoff
 
-## Session Summary — Sun, Mar 29, 2026 (latest)
+## Session Summary — Sun, Mar 29, 2026 (session 2 — image cropping definitive fix)
+
+### Completed this session
+
+**Vocab image cropping — DEFINITIVELY FIXED** — Changed all vocab image containers from `aspect-[4/3]` to `aspect-square` in three components:
+- `TextbookInfographics.tsx` → `VisualVocabCard` (line 267) and `VisualVocabGrid` (line 774)
+- `VocabImageCard.tsx` → `VocabImageCard` (line 53)
+
+Root cause: DALL-E generates 1024×1024 (1:1) images. A `aspect-[4/3]` container forced 25% cropping. `object-top` (added by merged Task #1) helped anchor to top but still cropped the bottom. `aspect-square` eliminates cropping entirely.
+
+Also added `object-top` to `ChapterIntroduction.tsx` narrative banner images (line 2111).
+
+**Task #1 merged** ("Consistent recurring characters in images") — that task added `object-top` to VisualVocabCard and VocabImageCard, plus improved SCENE_STYLE framing guidance in visual-content-service.ts.
+
+### ACTION REQUIRED — Run Fix Greetings + Browser Refresh
+
+User must do a **hard refresh** (Ctrl+Shift+R) in the browser to get the new `aspect-square` CSS.
+
+Then regenerate greeting images for all 10 languages:
+
+## Session Summary — Sun, Mar 29, 2026 (session 1 — SCENE_OVERRIDES)
 
 ### Completed this session
 
