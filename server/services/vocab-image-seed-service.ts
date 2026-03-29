@@ -844,18 +844,20 @@ export const NUMBERS_DAYS_WORDS: Record<string, string[]> = {
     'eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen','twenty',
     'monday','tuesday','wednesday','thursday','friday','saturday','sunday',
   ],
-  // Japanese, Korean, Mandarin: CJK characters are stripped by the normalizer, so romaji/transliterated
-  // forms are included here for any curriculum that uses them. CJK-script words are covered by
-  // SCENE_OVERRIDES (which uses normalizeForOverride that preserves CJK) but can't be cache-busted
-  // via toCacheKey (which strips CJK). That's acceptable — stale CJK images are rare.
+  // Japanese, Korean, Mandarin: toCacheKey preserves CJK/Hangul/Hiragana scripts,
+  // so we use the actual script words to generate the correct cache keys to bust.
   japanese: [
-    'ichi','ni','san','shi','yon','go','roku','shichi','nana','hachi','kyu','juu',
+    'ゼロ','いち','に','さん','よん','ご','ろく','なな','はち','きゅう','じゅう',
+    'じゅういち','じゅうに','じゅうさん','じゅうよん','じゅうご',
+    'じゅうろく','じゅうなな','じゅうはち','じゅうきゅう','にじゅう',
   ],
   korean: [
-    'il','i','sam','sa','o','yuk','chil','pal','gu','sip',
+    '영','일','이','삼','사','오','육','칠','팔','구','십',
+    '십일','십이','십삼','십사','십오','십육','십칠','십팔','십구','이십',
   ],
   mandarin: [
-    'yi','er','san','si','wu','liu','qi','ba','jiu','shi',
+    '零','一','二','三','四','五','六','七','八','九','十',
+    '十一','十二','十三','十四','十五','十六','十七','十八','十九','二十',
   ],
 };
 

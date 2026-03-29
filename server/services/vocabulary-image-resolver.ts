@@ -209,6 +209,85 @@ const CONCEPT_KEY_MAP: Record<string, string> = {
   'mille':         'concept_num_1000',// FR/IT
   'tausend':       'concept_num_1000',// DE
 
+  // ── Korean numbers (Sino-Korean, 0-20) ──────────────────────────────
+  '영':            'concept_num_0',
+  '공':            'concept_num_0',   // alternate zero
+  '일':            'concept_num_1',
+  '이':            'concept_num_2',
+  '삼':            'concept_num_3',
+  '사':            'concept_num_4',
+  '오':            'concept_num_5',
+  '육':            'concept_num_6',
+  '칠':            'concept_num_7',
+  '팔':            'concept_num_8',
+  '구':            'concept_num_9',
+  '십':            'concept_num_10',
+  '십일':          'concept_num_11',
+  '십이':          'concept_num_12',
+  '십삼':          'concept_num_13',
+  '십사':          'concept_num_14',
+  '십오':          'concept_num_15',
+  '십육':          'concept_num_16',
+  '십칠':          'concept_num_17',
+  '십팔':          'concept_num_18',
+  '십구':          'concept_num_19',
+  '이십':          'concept_num_20',
+
+  // ── Japanese numbers (hiragana readings, 0-20) ───────────────────────
+  'ゼロ':          'concept_num_0',
+  'れい':          'concept_num_0',   // alternate zero
+  'いち':          'concept_num_1',
+  'に':            'concept_num_2',
+  'さん':          'concept_num_3',
+  'よん':          'concept_num_4',
+  'し':            'concept_num_4',   // alternate 4
+  'ご':            'concept_num_5',
+  'ろく':          'concept_num_6',
+  'なな':          'concept_num_7',
+  'しち':          'concept_num_7',   // alternate 7
+  'はち':          'concept_num_8',
+  'きゅう':        'concept_num_9',
+  'く':            'concept_num_9',   // alternate 9
+  'じゅう':        'concept_num_10',
+  'じゅういち':    'concept_num_11',
+  'じゅうに':      'concept_num_12',
+  'じゅうさん':    'concept_num_13',
+  'じゅうよん':    'concept_num_14',
+  'じゅうし':      'concept_num_14',  // alternate 14
+  'じゅうご':      'concept_num_15',
+  'じゅうろく':    'concept_num_16',
+  'じゅうなな':    'concept_num_17',
+  'じゅうしち':    'concept_num_17',  // alternate 17
+  'じゅうはち':    'concept_num_18',
+  'じゅうきゅう':  'concept_num_19',
+  'じゅうく':      'concept_num_19',  // alternate 19
+  'にじゅう':      'concept_num_20',
+
+  // ── Mandarin numbers (hanzi, 0-20) ───────────────────────────────────
+  '零':            'concept_num_0',
+  '一':            'concept_num_1',
+  '二':            'concept_num_2',
+  '三':            'concept_num_3',
+  '四':            'concept_num_4',
+  '五':            'concept_num_5',
+  '六':            'concept_num_6',
+  '七':            'concept_num_7',
+  '八':            'concept_num_8',
+  '九':            'concept_num_9',
+  '十':            'concept_num_10',
+  '十一':          'concept_num_11',
+  '十二':          'concept_num_12',
+  '十三':          'concept_num_13',
+  '十四':          'concept_num_14',
+  '十五':          'concept_num_15',
+  '十六':          'concept_num_16',
+  '十七':          'concept_num_17',
+  '十八':          'concept_num_18',
+  '十九':          'concept_num_19',
+  '二十':          'concept_num_20',
+  '百':            'concept_num_100',
+  '千':            'concept_num_1000',
+
   // ── Colors ──────────────────────────────────────────────────────────
   'rojo':          'concept_color_red',
   'rouge':         'concept_color_red',
@@ -809,28 +888,32 @@ export async function resolveVocabularyImage(
     // ── 1b. Migration: check legacy language-specific key and promote it ──
     // Images seeded before concept sharing existed are stored as vocab_{lang}_{word}.
     // If we find one, promote it to the shared concept key so all languages benefit.
-    const legacyKey = generateCacheKey(word, language);
-    const legacyCached = await storage.getCachedStockImage(legacyKey);
-    if (legacyCached?.url) {
-      console.log(`[VocabImage] Migrating legacy key "${legacyKey}" → concept key "${conceptKey}"`);
-      try {
-        await storage.cacheImage({
-          url: legacyCached.url,
-          filename: `vocab_concept_${conceptKey}_migrated.jpg`,
-          mimeType: 'image/jpeg',
-          mediaType: 'image',
-          imageSource: 'ai_generated',
-          searchQuery: conceptKey,
-          uploadedBy: null,
-          title: conceptKey,
-          description: description,
-          tags: ['vocabulary', 'ai_generated', 'shared_concept'],
-          language: 'shared',
-          targetWord: conceptKey,
-        });
-      } catch (_) { /* ignore migration save errors — image still returned */ }
-      await storage.incrementImageUsage(legacyCached.id);
-      return { imageUrl: legacyCached.url, source: 'cache', word, description };
+    // EXCEPTION: skip migration for number concepts — numbers use SVG (step 1c) and
+    // we must not promote stale DALL-E images into the shared concept cache.
+    if (!conceptKey.startsWith('concept_num_')) {
+      const legacyKey = generateCacheKey(word, language);
+      const legacyCached = await storage.getCachedStockImage(legacyKey);
+      if (legacyCached?.url) {
+        console.log(`[VocabImage] Migrating legacy key "${legacyKey}" → concept key "${conceptKey}"`);
+        try {
+          await storage.cacheImage({
+            url: legacyCached.url,
+            filename: `vocab_concept_${conceptKey}_migrated.jpg`,
+            mimeType: 'image/jpeg',
+            mediaType: 'image',
+            imageSource: 'ai_generated',
+            searchQuery: conceptKey,
+            uploadedBy: null,
+            title: conceptKey,
+            description: description,
+            tags: ['vocabulary', 'ai_generated', 'shared_concept'],
+            language: 'shared',
+            targetWord: conceptKey,
+          });
+        } catch (_) { /* ignore migration save errors — image still returned */ }
+        await storage.incrementImageUsage(legacyCached.id);
+        return { imageUrl: legacyCached.url, source: 'cache', word, description };
+      }
     }
 
     // ── 1c. Generate once, save under concept key for all languages ──────
