@@ -884,11 +884,25 @@ Use the same position names as add_to_scene (left, right, center, on_table, fork
       name: "set_clock",
       description: `Show an analog clock on the whiteboard set to a specific time.
 The clock is an SVG component — no image generation needed. The hands animate to the correct position.
-Call set_clock each time you introduce a new time expression:
-  "Son las tres" → set_clock("3:00")
-  "Son las tres y cuarto" → set_clock("3:15")
-  "Son las cuatro menos diez" → set_clock("3:50")
 
+USE THIS IN EVERY LANGUAGE whenever you introduce a time expression. Examples:
+  Spanish: "Son las tres" → set_clock("3:00")
+  Spanish: "Son las tres y cuarto" → set_clock("3:15")
+  Spanish: "Son las cuatro menos diez" → set_clock("3:50")
+  French: "Il est trois heures et demie" → set_clock("3:30")
+  German: "Es ist halb vier" → set_clock("3:30")
+  Italian: "Sono le tre e un quarto" → set_clock("3:15")
+  Portuguese: "São três horas e meia" → set_clock("3:30")
+  Mandarin: "三点一刻" → set_clock("3:15")
+  Mandarin: "两点半" → set_clock("2:30")
+  Mandarin: "现在几点？—— 一点" → set_clock("1:00")
+  Japanese: "三時十五分です" → set_clock("3:15")
+  Japanese: "八時半です" → set_clock("8:30")
+  Korean: "세 시 십오 분이에요" → set_clock("3:15")
+  Korean: "두 시 반이에요" → set_clock("2:30")
+  Hebrew: "השעה שלוש וחצי" → set_clock("3:30")
+
+The time parameter is always H:MM or HH:MM format regardless of language.
 If a scene canvas is already open (via open_scene), the clock appears as an overlay in the corner.
 If no scene is open, the clock is shown centered on its own.
 

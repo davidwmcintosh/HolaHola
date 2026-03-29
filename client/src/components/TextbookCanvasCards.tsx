@@ -626,6 +626,7 @@ const TIME_VOCAB_KO: TimeEntry[] = [
 ];
 
 const TIME_VOCAB_ZH: TimeEntry[] = [
+  { time: '12:00', label: '中午 — 十二点 (zhōngwǔ — shí\'èr diǎn)', english: 'It\'s noon' },
   { time: '1:00',  label: '一点 (yī diǎn) — Yī Diǎn',              english: 'It\'s one o\'clock' },
   { time: '2:30',  label: '两点半 (liǎng diǎn bàn) — Liǎng Diǎn Bàn', english: 'It\'s two-thirty' },
   { time: '3:15',  label: '三点一刻 (sān diǎn yí kè) — Sān Diǎn Yí Kè', english: 'It\'s quarter past three' },
@@ -699,6 +700,14 @@ const TIME_KEY_PATTERNS: Record<LangCode, [string, string][]> = {
     ['[#]点一刻', '+ 15 min — yí kè (quarter)'],
     ['[#]点半', '+ 30 min — bàn (half past)'],
     ['[#]点三刻', '+ 45 min — sān kè (three quarters)'],
+  ],
+  hebrew: [
+    ['כמה השעה?', 'What time is it?'],
+    ['השעה [#].', 'It\'s [#] o\'clock.'],
+    ['השעה [#] ו-[#] דקות.', 'It\'s [#]:[#].'],
+    ['וְרֶבַע — ve-reva\'', '+ 15 min — quarter past'],
+    ['וָחֵצִי — va-khetzi', '+ 30 min — half past'],
+    ['בְּלִי רֶבַע — bli reva\'', '- 15 min — quarter to'],
   ],
 };
 
@@ -796,7 +805,7 @@ export function TimeVocabCard({ language = 'spanish' }: { language?: LangCode })
   const vocab = language === 'french' ? TIME_VOCAB_FR : language === 'portuguese' ? TIME_VOCAB_PT : language === 'german' ? TIME_VOCAB_DE : language === 'italian' ? TIME_VOCAB_IT : language === 'japanese' ? TIME_VOCAB_JA : language === 'korean' ? TIME_VOCAB_KO : language === 'mandarin' ? TIME_VOCAB_ZH : language === 'hebrew' ? TIME_VOCAB_HE : TIME_VOCAB_ES;
   const patterns = TIME_KEY_PATTERNS[language] ?? TIME_KEY_PATTERNS.spanish;
   const dayParts = TIME_DAY_PARTS[language] ?? TIME_DAY_PARTS.spanish;
-  const sectionTitle = language === 'french' ? "L'Heure — Telling Time" : language === 'portuguese' ? 'As Horas — Telling Time' : language === 'german' ? 'Die Uhrzeit — Telling Time' : language === 'italian' ? "L'Ora — Telling Time" : language === 'japanese' ? '時計 — Telling Time' : language === 'korean' ? '시계 — Telling Time' : language === 'mandarin' ? 'Telling Time' : language === 'hebrew' ? 'שעון — Telling Time' : 'La Hora — Telling Time';
+  const sectionTitle = language === 'french' ? "L'Heure — Telling Time" : language === 'portuguese' ? 'As Horas — Telling Time' : language === 'german' ? 'Die Uhrzeit — Telling Time' : language === 'italian' ? "L'Ora — Telling Time" : language === 'japanese' ? '時計 — Telling Time' : language === 'korean' ? '시계 — Telling Time' : language === 'mandarin' ? '时钟 — Telling Time' : language === 'hebrew' ? 'שעון — Telling Time' : 'La Hora — Telling Time';
 
   const [activePattern, setActivePattern] = useState<string>('en-punto');
 
