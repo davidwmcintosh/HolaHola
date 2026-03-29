@@ -47,6 +47,8 @@ const SCENE_STYLE =
   'soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, ' +
   'visible brushwork texture, friendly expressive characters, immersive background environment, ' +
   'language learning educational context, suitable for all ages, ' +
+  'IMPORTANT FRAMING: characters must be composed with generous headroom — heads and faces must be fully visible and never cropped at the top of the frame, ' +
+  'position characters in the lower two-thirds of the canvas so the top quarter is clear sky or background, ' +
   NO_TEXT_INSTRUCTION;
 
 // Semantic tag categories for educational content
