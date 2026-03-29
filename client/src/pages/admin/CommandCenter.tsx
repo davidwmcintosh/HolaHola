@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, lazy, Suspense } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6379,7 +6379,7 @@ function CrossEnvSyncSection() {
   );
 }
 
-const VOCAB_IMAGE_LANGUAGES = ['spanish', 'french', 'german', 'italian', 'portuguese', 'english', 'japanese', 'korean', 'mandarin'];
+const VOCAB_IMAGE_LANGUAGES = ['spanish', 'french', 'german', 'italian', 'portuguese', 'english', 'japanese', 'korean', 'mandarin', 'hebrew'];
 
 function VocabImagesSection() {
   const { toast } = useToast();
@@ -6388,6 +6388,8 @@ function VocabImagesSection() {
   const [fixGreetingsResult, setFixGreetingsResult] = useState<any>(null);
   const [fixAdjectivesResult, setFixAdjectivesResult] = useState<any>(null);
   const [seedResult, setSeedResult] = useState<any>(null);
+  const [fixWordInput, setFixWordInput] = useState('');
+  const [fixWordResult, setFixWordResult] = useState<any>(null);
 
   const fixNumbersMutation = useMutation({
     mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-numbers-days', { language }).then(r => r.json()),
@@ -6421,6 +6423,15 @@ function VocabImagesSection() {
     onSuccess: (data: any) => {
       setSeedResult(data);
       toast({ title: 'Seed started', description: `Job ${data.jobId} — seeding all ${language} vocab images in background.` });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const fixWordMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-word', { language, word: fixWordInput.trim() }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setFixWordResult(data);
+      toast({ title: 'Image regenerated', description: data.message });
     },
     onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
   });
@@ -6539,6 +6550,45 @@ function VocabImagesSection() {
                 </CardContent>
               </Card>
             </div>
+
+            <Card className="bg-muted/30">
+              <CardContent className="p-4 space-y-3">
+                <div>
+                  <p className="text-sm font-medium">Fix Single Word</p>
+                  <p className="text-xs text-muted-foreground">Bust the cache for one specific word and regenerate its image immediately. Use the language selector above. Accepts any script (hola, こんにちは, שלום, etc.).</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={fixWordInput}
+                    onChange={e => { setFixWordInput(e.target.value); setFixWordResult(null); }}
+                    onKeyDown={e => { if (e.key === 'Enter' && fixWordInput.trim()) fixWordMutation.mutate(); }}
+                    placeholder="e.g. buenos días"
+                    className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    data-testid="input-fix-word-cmd"
+                    dir="auto"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => fixWordMutation.mutate()}
+                    disabled={fixWordMutation.isPending || !fixWordInput.trim()}
+                    data-testid="button-fix-word-cmd"
+                  >
+                    {fixWordMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                    Regenerate
+                  </Button>
+                </div>
+                {fixWordResult && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">{fixWordResult.message} — source: {fixWordResult.source}</p>
+                    {fixWordResult.url && (
+                      <img src={fixWordResult.url} alt={fixWordInput} className="h-24 rounded-md object-cover border" />
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </CardContent>
         </Card>
       </div>
