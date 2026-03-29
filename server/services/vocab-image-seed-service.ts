@@ -738,7 +738,7 @@ export async function bustVocabImageCache(cacheKeys: string[]): Promise<number> 
 // ── Numbers/Days cache keys (per language) ─────────────────────────────────
 // Generated using the same normalisation as vocabulary-image-resolver.ts.
 // Exported so the fix-numbers-days admin route can bust them before re-seeding.
-const NUMBERS_DAYS_WORDS: Record<string, string[]> = {
+export const NUMBERS_DAYS_WORDS: Record<string, string[]> = {
   spanish: [
     'cero','uno','dos','tres','cuatro','cinco','seis','siete','ocho','nueve','diez',
     'once','doce','trece','catorce','quince','dieciséis','diecisiete','dieciocho','diecinueve','veinte',
@@ -790,7 +790,7 @@ export const NUMBERS_DAYS_CACHE_KEYS: Record<string, string[]> = Object.fromEntr
 );
 
 // ── Greetings cache keys (per language) ────────────────────────────────────
-const GREETINGS_WORDS: Record<string, string[]> = {
+export const GREETINGS_WORDS: Record<string, string[]> = {
   spanish: [
     'hola','buenos días','buenas tardes','buenas noches','adiós','hasta luego',
     'hasta mañana','hasta pronto','mucho gusto','encantado','encantada',
@@ -812,6 +812,12 @@ const GREETINGS_WORDS: Record<string, string[]> = {
   portuguese: [
     'olá','bom dia','boa tarde','boa noite','adeus','até logo','até amanhã',
     'obrigado','obrigada','de nada','com licença','desculpe',
+  ],
+  english: [
+    'hello','hi','good morning','good afternoon','good evening','good night',
+    'goodbye','bye','see you later','see you soon','nice to meet you',
+    'please','thank you','thanks','you\'re welcome','excuse me','sorry','my pleasure',
+    'how are you','how are you doing','fine','very well','not bad',
   ],
   // CJK and Hebrew script is stripped by toCacheKey, so only romaji/transliterated
   // forms can be cache-busted via fix-greetings. Native-script words are covered by

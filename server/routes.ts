@@ -11182,17 +11182,27 @@ Return ONLY the ${targetLanguage} phrase:`;
   app.post('/api/admin/vocab-images/fix-numbers-days', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { language = 'spanish' } = req.body;
-      const { bustVocabImageCache, seedVocabImages, NUMBERS_DAYS_CACHE_KEYS } = await import('./services/vocab-image-seed-service');
-      const { NUMBER_CONCEPT_KEYS } = await import('./services/vocabulary-image-resolver');
+      const { bustVocabImageCache, NUMBERS_DAYS_CACHE_KEYS, NUMBERS_DAYS_WORDS, normalizeForOverride, SCENE_OVERRIDES } = await import('./services/vocab-image-seed-service');
+      const { NUMBER_CONCEPT_KEYS, resolveVocabularyImage } = await import('./services/vocabulary-image-resolver');
       const langKeys = NUMBERS_DAYS_CACHE_KEYS[language] ?? NUMBERS_DAYS_CACHE_KEYS['spanish'];
       // Bust both language-specific keys AND shared concept keys so stale concept
       // images don't survive a Fix Stale operation.
       const deleted = await bustVocabImageCache([...langKeys, ...NUMBER_CONCEPT_KEYS]);
       const jobId = `vocab-fix-numbers-${language}-${Date.now()}`;
-      seedVocabImages(language, jobId).catch((e: any) =>
-        console.error('[VocabFix] Fatal error:', e.message)
-      );
-      res.json({ deleted, jobId, message: `Busted ${deleted} stale number/day images (including concept keys) and re-queued seed for ${language}` });
+      // Regenerate directly — numbers/days may not be in the curriculum for all languages
+      const words: string[] = NUMBERS_DAYS_WORDS[language] ?? NUMBERS_DAYS_WORDS['spanish'] ?? [];
+      (async () => {
+        for (const word of words) {
+          try {
+            const sceneOverride = SCENE_OVERRIDES[normalizeForOverride(word)];
+            await resolveVocabularyImage({ word, language, description: word, scene: sceneOverride });
+          } catch (e: any) {
+            console.error(`[VocabFix] Failed to regenerate number/day "${word}" (${language}):`, e.message);
+          }
+        }
+        console.log(`[VocabFix] Finished regenerating ${words.length} ${language} numbers/days (job ${jobId})`);
+      })().catch((e: any) => console.error('[VocabFix] Fatal error:', e.message));
+      res.json({ deleted, jobId, message: `Busted ${deleted} stale number/day images (including concept keys). Regenerating ${words.length} words in background.` });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -11201,14 +11211,26 @@ Return ONLY the ${targetLanguage} phrase:`;
   app.post('/api/admin/vocab-images/fix-greetings', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { language = 'spanish' } = req.body;
-      const { bustVocabImageCache, seedVocabImages, GREETINGS_CACHE_KEYS } = await import('./services/vocab-image-seed-service');
-      const keys = GREETINGS_CACHE_KEYS[language] ?? GREETINGS_CACHE_KEYS['spanish'];
+      const { bustVocabImageCache, GREETINGS_CACHE_KEYS, GREETINGS_WORDS, normalizeForOverride, SCENE_OVERRIDES } = await import('./services/vocab-image-seed-service');
+      const { resolveVocabularyImage } = await import('./services/vocabulary-image-resolver');
+      const keys = GREETINGS_CACHE_KEYS[language] ?? [];
       const deleted = await bustVocabImageCache(keys);
       const jobId = `vocab-fix-greetings-${language}-${Date.now()}`;
-      seedVocabImages(language, jobId).catch((e: any) =>
-        console.error('[VocabFix] Fatal error:', e.message)
-      );
-      res.json({ deleted, jobId, message: `Busted ${deleted} stale greeting images and re-queued seed for ${language}` });
+      // Regenerate greeting words directly — they are not in the curriculum textbook
+      // so seedVocabImages would never process them.
+      const words: string[] = GREETINGS_WORDS[language] ?? GREETINGS_WORDS['spanish'] ?? [];
+      (async () => {
+        for (const word of words) {
+          try {
+            const sceneOverride = SCENE_OVERRIDES[normalizeForOverride(word)];
+            await resolveVocabularyImage({ word, language, description: word, scene: sceneOverride });
+          } catch (e: any) {
+            console.error(`[VocabFix] Failed to regenerate greeting "${word}" (${language}):`, e.message);
+          }
+        }
+        console.log(`[VocabFix] Finished regenerating ${words.length} ${language} greetings (job ${jobId})`);
+      })().catch((e: any) => console.error('[VocabFix] Fatal error:', e.message));
+      res.json({ deleted, jobId, message: `Busted ${deleted} stale greeting images. Regenerating ${words.length} words in background.` });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
