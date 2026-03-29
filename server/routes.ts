@@ -11222,7 +11222,12 @@ Return ONLY the ${targetLanguage} phrase:`;
       (async () => {
         for (const word of words) {
           try {
-            const sceneOverride = SCENE_OVERRIDES[normalizeForOverride(word)];
+            const overrideKey = normalizeForOverride(word);
+            // Try language-prefixed key first (e.g. 'spanish:de nada') to handle words shared
+            // across languages (e.g. "de nada" in both Spanish and Portuguese), then fall back
+            // to the plain key. This ensures each language gets its own named character.
+            const sceneOverride = SCENE_OVERRIDES[`${language}:${overrideKey}`]
+                                  ?? SCENE_OVERRIDES[overrideKey];
             await resolveVocabularyImage({ word, language, description: word, scene: sceneOverride });
           } catch (e: any) {
             console.error(`[VocabFix] Failed to regenerate greeting "${word}" (${language}):`, e.message);
@@ -11245,7 +11250,10 @@ Return ONLY the ${targetLanguage} phrase:`;
       const { resolveVocabularyImage } = await import('./services/vocabulary-image-resolver');
       const cacheKey = toCacheKey(language, word.trim());
       const deleted = await bustVocabImageCache([cacheKey]);
-      const sceneOverride = SCENE_OVERRIDES[normalizeForOverride(word.trim())];
+      const wordOverrideKey = normalizeForOverride(word.trim());
+      // Language-prefixed key wins over generic (e.g. 'spanish:de nada' beats 'de nada')
+      const sceneOverride = SCENE_OVERRIDES[`${language}:${wordOverrideKey}`]
+                            ?? SCENE_OVERRIDES[wordOverrideKey];
       const result = await resolveVocabularyImage({
         word: word.trim(),
         language,

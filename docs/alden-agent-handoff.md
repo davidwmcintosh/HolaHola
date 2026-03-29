@@ -1,5 +1,34 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Sun, Mar 29, 2026 (session 3 — wrong-character bug fixed)
+
+### Completed this session
+
+**Root cause of Spanish "muy bien, gracias" showing Asian man — FOUND AND FIXED**
+
+Two interrelated bugs:
+1. **Generic SCENE_OVERRIDES**: Spanish courtesy phrases (bien, muy bien, muy bien gracias, mas o menos, regular, por favor, gracias, muchas gracias, perdon, disculpe, lo siento) were using GENERIC "A person..." prompts. The French/Italian/Portuguese equivalents had character-specific prompts, but these Spanish ones were left generic — so DALL-E generated a random person (happened to be an Asian man).
+2. **Duplicate key bug**: "de nada" appeared TWICE in `SCENE_OVERRIDES` — once generically at line 370 (Spanish section) and once as CHAR.PT.secondary at line 442 (Portuguese section). In JavaScript, the LAST value wins, so Spanish Fix Greetings was using the PORTUGUESE character (João) for "de nada" — compounding the wrong-character issue.
+
+**Fixes applied in `server/services/vocab-image-seed-service.ts`:**
+- Updated all 11 Spanish courtesy-phrase SCENE_OVERRIDES to use `CHAR.ES.primary` (Daniela)
+- Changed the Spanish "de nada" override to language-prefixed key `'spanish:de nada'` using `CHAR.ES.secondary` (Marco)
+- Changed the Portuguese "de nada" override to `'portuguese:de nada'` using `CHAR.ES.secondary` (João) — eliminating the duplicate-key collision
+
+**Fixes applied in `server/routes.ts`:**
+- Updated fix-greetings route scene lookup to try `SCENE_OVERRIDES[\`${language}:${overrideKey}\`]` FIRST, then fall back to the plain key — enables language-prefixed overrides to work
+- Same change applied to the fix-word route
+
+### ACTION REQUIRED — Run Fix Greetings for Spanish
+
+The server has been restarted with the fixed prompts. Now go to **Admin → Vocab Images → Fix Greetings** and run for **Spanish** to regenerate the 11 courtesy-phrase images with Daniela (CHAR.ES.primary):
+- bien, muy bien, muy bien gracias, mas o menos, regular, por favor, gracias, muchas gracias, de nada, perdón, disculpe, lo siento
+
+After Spanish is done, also run Fix Greetings for the remaining Latin-script languages (still pending from previous session):
+- **English, French, German, Italian, Portuguese** (to pick up new SCENE_OVERRIDES for their new greeting words, and to fix de nada for Portuguese too)
+
+---
+
 ## Session Summary — Sun, Mar 29, 2026 (session 2 — image cropping definitive fix)
 
 ### Completed this session

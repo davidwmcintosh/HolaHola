@@ -359,18 +359,20 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'como estas':         `${CHAR.ES.primary} smiling warmly and gesturing openly toward ${CHAR.ES.secondary} who stands directly in front of her on a sunny sidewalk, both facing each other in friendly conversation, watercolor illustration`,
   'como esta usted':    `${CHAR.ES.primary} in a smart-casual setting extending a polite open-hand greeting gesture toward ${CHAR.ES.secondary}, a formal respectful exchange, warm indoor setting, watercolor illustration`,
   'bien':               SPLIT('bien', 'a cheerful person giving a big thumbs-up with a bright grin, sunny warm background', 'mal', 'a person with slumped shoulders, frowning face, and drooping posture, grey cool background'),
-  'muy bien':           'A very happy person jumping with both thumbs up and a huge joyful smile, bright sunny background, watercolor illustration',
-  'muy bien gracias':   'A happy person with a big thumbs-up and a warm grateful smile, pressing one hand to their heart appreciatively, bright sunny background, watercolor illustration',
+  'muy bien':           `${CHAR.ES.primary} jumping with both arms raised in a huge joyful smile and a double thumbs-up, bright sunny Spanish setting, watercolor illustration`,
+  'muy bien gracias':   `${CHAR.ES.primary} giving a warm thumbs-up with a bright grateful smile, pressing one hand to her heart in appreciation, sunny cheerful background, watercolor illustration`,
   'mal':                SPLIT('bien', 'a cheerful person giving a big thumbs-up with a bright grin, sunny warm background', 'mal', 'a person with slumped shoulders, frowning face, and drooping posture, grey cool background'),
-  'mas o menos':        'A person tilting their open hand back and forth in a "so-so" gesture with a neutral shrug expression, flat illustration',
-  'regular':            'A person with a flat neutral expression holding their hand out horizontally, gesturing "just okay", flat illustration',
-  'por favor':          'A person with hands pressed together in a pleading please gesture, kind eyes, flat illustration',
-  'gracias':            'A person pressing both palms together in a grateful thank-you bow with a warm smile, flat illustration',
-  'muchas gracias':     'A person bowing deeply with both arms extended forward in deep gratitude, big smile, flat illustration',
-  'de nada':            'A person waving their hand with a relaxed "don\'t mention it" smile, cheerful flat illustration',
-  'perdon':             'A person with a sheepish expression raising one hand in an apologetic sorry gesture, flat illustration',
-  'disculpe':           'A person excusing themselves politely with a gentle hand gesture, watercolor',
-  'lo siento':          'A person with a sorrowful apologetic expression placing hand on heart, watercolor',
+  'mas o menos':        `${CHAR.ES.primary} tilting her open hand back and forth in a relaxed "so-so" gesture with a neutral shrug and a small smile, bright sunny background, watercolor illustration`,
+  'regular':            `${CHAR.ES.primary} holding her hand out horizontally with a neutral "just okay" expression and a slight shrug, bright cheerful setting, watercolor illustration`,
+  'por favor':          `${CHAR.ES.primary} pressing her hands together in a gentle pleading "por favor" gesture with kind warm eyes, bright sunny setting, watercolor illustration`,
+  'gracias':            `${CHAR.ES.primary} pressing both palms together in a warm grateful thank-you bow with a big smile, bright cheerful background, watercolor illustration`,
+  'muchas gracias':     `${CHAR.ES.primary} bowing slightly with both arms extended forward in deep heartfelt gratitude and a beaming smile, bright sunny background, watercolor illustration`,
+  // NOTE: 'de nada' is language-prefixed — see 'spanish:de nada' below (and 'portuguese:de nada' in the Portuguese section).
+  'perdon':             `${CHAR.ES.primary} with a sheepish apologetic expression raising one hand in a gentle sorry gesture, soft warm background, watercolor illustration`,
+  'disculpe':           `${CHAR.ES.primary} excusing herself politely with a gentle raised hand gesture and a kind apologetic smile, warm setting, watercolor illustration`,
+  'lo siento':          `${CHAR.ES.primary} with a sorrowful sincere apologetic expression placing her hand over her heart, soft warm watercolor illustration`,
+  // Language-prefixed entry used by fix-greetings when language='spanish'
+  'spanish:de nada':    `${CHAR.ES.secondary} waving a relaxed "de nada — no problem" hand with a kind easygoing smile and a small chuckle, bright sunny background, watercolor illustration`,
 
   // ── Greetings & Farewells — French ────────────────────────────────────────
   // Characters: Sophie (primary) + Pierre (secondary) — see CHARACTER_PROFILES.FR
@@ -439,7 +441,8 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'ate amanha':         `${CHAR.PT.primary} waving goodbye at a garden gate at sunset, a cheerful circular calendar floating nearby with tomorrow circled, warm golden light, watercolor illustration`,
   'obrigado':           `${CHAR.PT.secondary} pressing both palms together with a genuine grateful smile and a warm nod of thanks, bright cheerful background, watercolor illustration`,
   'obrigada':           `${CHAR.PT.primary} pressing both palms together with a heartfelt warm smile and a slight bow of deep gratitude, bright background, watercolor illustration`,
-  'de nada':            `${CHAR.PT.secondary} waving a relaxed "de nada — no worries" hand with a kind easygoing smile, bright cheerful setting, watercolor illustration`,
+  // Language-prefixed to avoid collision with 'spanish:de nada' — used by fix-greetings when language='portuguese'
+  'portuguese:de nada': `${CHAR.PT.secondary} waving a relaxed "de nada — no worries" hand with a kind easygoing smile, bright cheerful setting, watercolor illustration`,
   'com licenca':        `${CHAR.PT.primary} politely excusing herself with a gentle hand gesture, stepping around others in a busy colourful market, watercolor illustration`,
   'desculpe':           `${CHAR.PT.primary} with a sincere apologetic expression placing hand on heart, stepping back with a sorry gesture, warm bright setting, watercolor illustration`,
   'oi':                 `${CHAR.PT.primary} spotting ${CHAR.PT.secondary} across a bright tropical street and waving a casual cheerful "oi!" with a big friendly smile, colourful buildings behind them, bright watercolor illustration`,
