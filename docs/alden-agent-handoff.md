@@ -16,9 +16,18 @@
 - Run Fix Greetings for **English, French, German, Italian, Portuguese** (to pick up updated SCENE_OVERRIDES for their greeting words and fix Portuguese "de nada").
 - Run Fix Greetings for **Spanish** (to regenerate the 11 courtesy-phrase images with Daniela).
 
+4. **Chapter cover images → DALL-E scene illustrations** — `ChapterIntroduction.tsx` no longer uses the stock photo `numbers_counting_blocks_education.jpg` for the numbers chapter banner. Instead it fetches from `GET /api/chapter-cover/:chapterType` (new route). The resolver uses a `chapter_cover_<type>` concept key, generates via DALL-E with a watercolor illustration prompt (no characters, classroom/abacus/number-tiles scene), and caches it — shared across all languages. Full pipeline:
+   - `server/services/vocabulary-image-resolver.ts` — added `CHAPTER_COVER_SCENES` dict + `resolveChapterCoverImage()` function
+   - `server/routes.ts` — added `GET /api/chapter-cover/:chapterType`
+   - `client/src/components/ChapterIntroduction.tsx` — removed `numbersBlocksImg` import; added `useQuery` (hoisted before early returns to respect hooks rules), shows `<Skeleton>` while loading
+
+   `DYNAMIC_COVER_TYPES` set controls which chapter types use the API vs static images. Currently: `numbers`, `greetings`, `family`, `daily` — but only `numbers` has had its static image removed. The others still fall back to their stock photos until the API image is generated and confirmed.
+
 ### Key files changed this session
 - `client/src/components/TextbookInfographics.tsx` — staleTime 30min → 2min, gcTime 60min → 10min
-- `server/services/vocabulary-image-resolver.ts` — added `generateNumberSvgDataUrl()`, added `concept_num_*` SVG intercept before DALL-E block
+- `server/services/vocabulary-image-resolver.ts` — added `generateNumberSvgDataUrl()`, added `concept_num_*` SVG intercept, added `CHAPTER_COVER_SCENES` + `resolveChapterCoverImage()`
+- `server/routes.ts` — added `GET /api/chapter-cover/:chapterType`
+- `client/src/components/ChapterIntroduction.tsx` — removed `numbersBlocksImg` import; added chapter cover API fetch; hoisted `useQuery` before early returns
 - `client/src/pages/admin/CommandCenter.tsx` — updated Numbers & Days card description
 
 ---

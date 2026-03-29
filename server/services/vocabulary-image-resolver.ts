@@ -617,6 +617,86 @@ export const COLOR_SEASON_WEATHER_CONCEPT_KEYS: string[] = [
   'concept_weather_fog', 'concept_weather_lightning', 'concept_weather_rainbow',
 ];
 
+// ── Chapter Cover Images ──────────────────────────────────────────────────────
+// Language-neutral concept keys for chapter banner illustrations.
+// Generated once via DALL-E, cached, and shared across all languages.
+//
+// These use the same watercolor illustrated style as vocabulary images so the
+// textbook feels visually cohesive.
+
+export const CHAPTER_COVER_SCENES: Record<string, string> = {
+  numbers: [
+    'Bright watercolor illustration: a cheerful classroom with colorful',
+    'number tiles (1, 2, 3, 4, 5, 6, 7, 8, 9, 10) pinned to a corkboard,',
+    'an abacus, chunky wooden number blocks and a ruler on a wooden desk,',
+    'warm morning light through a window, soft educational watercolor style,',
+    'inviting and playful, no characters, no text captions',
+  ].join(' '),
+  greetings: [
+    'Bright watercolor illustration: two friendly cartoon people waving hello',
+    'to each other across a sunny café table, speech bubble with a handshake',
+    'icon, warm welcoming atmosphere, soft flat educational watercolor style,',
+    'no text captions',
+  ].join(' '),
+  family: [
+    'Warm watercolor illustration: a multigenerational family gathered around',
+    'a round table sharing a meal, diverse faces, cozy home setting,',
+    'soft educational watercolor style, no text captions',
+  ].join(' '),
+  daily: [
+    'Bright watercolor illustration: a cheerful person going through a morning',
+    'routine — sunrise, coffee cup, briefcase, clock — soft illustrated icons',
+    'arranged in a circular flow, clean flat educational watercolor style,',
+    'no text captions',
+  ].join(' '),
+};
+
+/**
+ * Resolve (or generate) a chapter cover image for the given chapter type.
+ * Uses a language-neutral concept key shared across all languages.
+ * Returns the image URL from cache, or generates via DALL-E and caches it.
+ */
+export async function resolveChapterCoverImage(
+  chapterType: string,
+  userId?: string,
+): Promise<{ imageUrl: string; source: string }> {
+  const scene = CHAPTER_COVER_SCENES[chapterType];
+  if (!scene) {
+    return { imageUrl: '', source: 'none' };
+  }
+
+  const conceptKey = `chapter_cover_${chapterType}`;
+
+  // ── Check cache ──────────────────────────────────────────────────────────
+  const cached = await storage.findCachedImageBySearchQuery(conceptKey);
+  if (cached?.url) {
+    await storage.incrementImageUsage(cached.id);
+    return { imageUrl: cached.url, source: 'cache' };
+  }
+
+  // ── Generate via DALL-E ──────────────────────────────────────────────────
+  const { generateVisual } = await import('./visual-content-service');
+  const result = await generateVisual(scene, 'infographic');
+
+  try {
+    await storage.cacheImage({
+      url: result.imageUrl,
+      filename: `chapter_cover_${chapterType}.png`,
+      mimeType: 'image/png',
+      mediaType: 'image',
+      imageSource: 'ai_generated',
+      searchQuery: conceptKey,
+      uploadedBy: userId ?? null,
+      title: `Chapter cover: ${chapterType}`,
+      description: scene.slice(0, 200),
+      language: 'shared',
+      targetWord: conceptKey,
+    });
+  } catch (_) { /* non-fatal */ }
+
+  return { imageUrl: result.imageUrl, source: 'generated' };
+}
+
 function normalizeWord(word: string): string {
   return word
     .toLowerCase()

@@ -1,3 +1,5 @@
+import { useQuery } from "@tanstack/react-query";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, Globe, Users, BookOpen, Lightbulb } from "lucide-react";
@@ -220,7 +222,6 @@ import { languageChapterData } from "@/data/chapter-intro-content";
 
 import familyGatheringImg from "@assets/stock_images/family_gathering_aro_0f321ed1.jpg";
 import coffeeShopImg from "@assets/stock_images/coffee_shop_friends__69e794a8.jpg";
-import numbersBlocksImg from "@assets/stock_images/numbers_counting_blocks_education.jpg";
 import danielaTutorImg from "@assets/generated_images/daniela_tutor_welcome_illustration.png";
 
 interface ChapterIntroductionProps {
@@ -231,9 +232,12 @@ interface ChapterIntroductionProps {
   className?: string;
 }
 
+// Chapter types listed here use the /api/chapter-cover/:type endpoint (DALL-E watercolor scene)
+// instead of a static stock photo. Add a type here when you want an illustrated cover.
+const DYNAMIC_COVER_TYPES = new Set(['numbers', 'greetings', 'family', 'daily']);
+
 const chapterImages: Record<string, string[]> = {
   greetings: [coffeeShopImg],
-  numbers: [numbersBlocksImg],
   family: [familyGatheringImg],
   daily: [coffeeShopImg],
 };
@@ -2016,9 +2020,23 @@ export function ChapterIntroduction({ chapterNumber, chapterTitle, language, cha
   const langKey = normalizeLanguageKey(language);
   const langData = languageChapterData[langKey];
 
+  // Compute derived state before any early returns so hooks are always called in the same order.
+  const grammarType = chapterTitle ? classifyGrammarType(chapterTitle, langKey) : null;
+  const chapterType = chapterTypeProp || (chapterTitle ? classifyChapterType(chapterTitle) : null);
+  const isDynamic = chapterType ? DYNAMIC_COVER_TYPES.has(chapterType) : false;
+
+  // Hook must be called unconditionally — `enabled` guards the actual fetch.
+  const { data: coverData, isLoading: coverLoading } = useQuery<{ imageUrl: string; source: string }>({
+    queryKey: ['/api/chapter-cover', chapterType ?? ''],
+    queryFn: () => fetch(`/api/chapter-cover/${chapterType}`).then(r => r.json()),
+    enabled: isDynamic && !!chapterType,
+    staleTime: 1000 * 60 * 60 * 24,
+    gcTime: 1000 * 60 * 60 * 48,
+    retry: 1,
+  });
+
   if (!chapterTitle) return null;
 
-  const grammarType = classifyGrammarType(chapterTitle, langKey);
   if (grammarType) {
     return (
       <div className={className}>
@@ -2028,14 +2046,15 @@ export function ChapterIntroduction({ chapterNumber, chapterTitle, language, cha
   }
 
   if (!langData) return null;
-  
-  const chapterType = chapterTypeProp || classifyChapterType(chapterTitle);
   if (!chapterType) return null;
-  
+
   const content = langData.chapters[chapterType];
   if (!content) return null;
-  
-  const images = chapterImages[chapterType] || [];
+
+  const staticImages = chapterImages[chapterType] || [];
+  // For dynamic chapters the cover image comes from the API (index 0 only).
+  // Static images still back up any remaining narrative sections.
+  const images = staticImages;
 
   const renderInfographic = (type: string) => {
     switch (type) {
@@ -2094,16 +2113,33 @@ export function ChapterIntroduction({ chapterNumber, chapterTitle, language, cha
       </Card>
       
       {content.narrativeSections.map((section, index) => {
-        const hasVisual = images[index] || section.infographic;
-        
+        const dynamicImageUrl = (isDynamic && index === 0) ? coverData?.imageUrl : undefined;
+        const staticImageUrl = images[index];
+        const resolvedImageUrl = dynamicImageUrl || staticImageUrl;
+        const hasVisual = resolvedImageUrl || (isDynamic && index === 0 && coverLoading) || section.infographic;
+
         return (
           <Card key={index} className="overflow-hidden" data-testid={`card-narrative-section-${index}`}>
             <CardContent className="p-0">
               <div className={`flex flex-col ${index % 2 === 1 ? 'md:flex-row-reverse' : 'md:flex-row'}`}>
-                {images[index] && !section.infographic && (
+                {isDynamic && index === 0 && !section.infographic && (
                   <div className="md:w-2/5 flex-shrink-0">
-                    <img 
-                      src={images[index]} 
+                    {coverLoading ? (
+                      <Skeleton className="w-full h-48 md:h-64" data-testid={`img-narrative-${index}-skeleton`} />
+                    ) : resolvedImageUrl ? (
+                      <img
+                        src={resolvedImageUrl}
+                        alt={section.title}
+                        className="w-full h-48 md:h-full object-cover object-top"
+                        data-testid={`img-narrative-${index}`}
+                      />
+                    ) : null}
+                  </div>
+                )}
+                {!isDynamic && staticImageUrl && !section.infographic && (
+                  <div className="md:w-2/5 flex-shrink-0">
+                    <img
+                      src={staticImageUrl}
                       alt={section.title}
                       className="w-full h-48 md:h-full object-cover object-top"
                       data-testid={`img-narrative-${index}`}

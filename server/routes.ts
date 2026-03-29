@@ -10846,6 +10846,23 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ── Chapter Cover Images ──────────────────────────────────────────────────
+  // Returns a language-neutral DALL-E watercolor illustration for a chapter type.
+  // Generated once and cached under "chapter_cover_<type>" — shared across all languages.
+  app.get("/api/chapter-cover/:chapterType", isAuthenticated, async (req: any, res) => {
+    try {
+      const { chapterType } = req.params;
+      const { resolveChapterCoverImage } = await import('./services/vocabulary-image-resolver');
+      const result = await resolveChapterCoverImage(chapterType, req.user?.id);
+      if (!result.imageUrl) {
+        return res.status(404).json({ error: `No chapter cover defined for type: ${chapterType}` });
+      }
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/textbook/vocab-images/:lessonId", isAuthenticated, async (req: any, res) => {
     try {
       const { lessonId } = req.params;
