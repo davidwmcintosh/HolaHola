@@ -1,5 +1,36 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Sun, Mar 29, 2026
+
+### Completed this session
+
+**SCENE_OVERRIDES + CHARACTER_PROFILES for Japanese, Korean, Mandarin, Hebrew**
+- `CHARACTER_PROFILES` now covers all 9 languages: ES, FR, DE, IT, PT, JA, KO, ZH, HE.
+- `SCENE_OVERRIDES` now has greeting/farewell entries for JA, KO, ZH, HE using **both**:
+  - Native-script keys (こんにちは, 안녕하세요, 你好, שלום, etc.) — preserved by `normalizeForOverride`
+  - Romaji/pinyin/transliterated aliases (konnichiwa, annyeonghaseyo, ni hao, shalom, etc.)
+- `GREETINGS_WORDS` now includes transliterated forms for JA, KO, ZH, HE (cache-busting limited to romaji; CJK/Hebrew script stripped by `toCacheKey` — acceptable per pre-existing comment).
+- Hebrew added to `ALL_LANGUAGES`.
+
+### ACTION REQUIRED — Run Fix Greetings in Admin Panel
+
+You must regenerate greeting images for all languages that were changed or newly added.
+Go to **Admin → Vocab Images → Fix Greetings** and run for each of:
+
+1. **Spanish** (prompts overhauled last session — buenos días pajamas, como estás Marco fixes)
+2. **French** (enriched culturally-specific scenes last session)
+3. **German** (enriched scenes, hallo added last session)
+4. **Italian** (enriched scenes last session)
+5. **Portuguese** (Ana clothing fix last session)
+6. **Japanese** (NEW — Yuki/Kenji characters added this session)
+7. **Korean** (NEW — Ji-yeon/Min-jun characters added this session)
+8. **Mandarin** (NEW — Mei/Wei characters added this session)
+9. **Hebrew** (NEW — Noa/Avi characters added this session)
+
+The Fix Greetings endpoint is: `POST /api/admin/vocab-images/fix-greetings` with `{ language }`.
+
+---
+
 ## From Alden — last updated: Fri, Mar 27, 4:21 PM
 
 ## Autonomous Triage Complete — Pattern bfbb3395 (March 27, 2026, 10:19 AM)

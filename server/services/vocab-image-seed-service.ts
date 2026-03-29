@@ -63,6 +63,26 @@ export const CHARACTER_PROFILES = {
     primary:   'Ana, a 27-year-old Brazilian woman with long wavy dark hair, golden-brown skin, and warm brown eyes, wearing a coral short-sleeve fitted blouse tucked into dark tailored wide-leg trousers',
     secondary: 'João, a 31-year-old Brazilian man with short dark hair, medium-brown skin, and brown eyes, wearing a light-blue casual shirt and beige trousers',
   },
+  /** Japanese — used for all Japanese greeting & farewell prompts */
+  JA: {
+    primary:   'Yuki, a 25-year-old Japanese woman with straight shoulder-length black hair, light porcelain skin, and warm dark brown eyes, wearing a soft sage-green blouse and light grey wide-leg trousers',
+    secondary: 'Kenji, a 29-year-old Japanese man with short neat black hair, light skin, and dark brown eyes, wearing a navy blue casual button-up shirt and dark chinos',
+  },
+  /** Korean — used for all Korean greeting & farewell prompts */
+  KO: {
+    primary:   'Ji-yeon, a 24-year-old Korean woman with long straight black hair, fair skin, and dark brown eyes, wearing a soft pink oversized blouse and white wide-leg trousers',
+    secondary: 'Min-jun, a 28-year-old Korean man with neat short black hair, fair skin, and dark eyes, wearing a light grey crew-neck sweater and dark slim-fit trousers',
+  },
+  /** Mandarin/Chinese — used for all Mandarin greeting & farewell prompts */
+  ZH: {
+    primary:   'Mei, a 26-year-old Chinese woman with long sleek black hair, fair complexion, and warm brown eyes, wearing a teal short-sleeve silk blouse tucked into beige wide-leg trousers',
+    secondary: 'Wei, a 30-year-old Chinese man with short neat black hair, light skin, and dark brown eyes, wearing a white linen button-up shirt and navy trousers',
+  },
+  /** Hebrew — used for all Hebrew greeting & farewell prompts */
+  HE: {
+    primary:   'Noa, a 26-year-old Israeli woman with long wavy dark brown hair, light olive skin, and warm hazel eyes, wearing a mustard-yellow fitted blouse tucked into dark wide-leg trousers',
+    secondary: 'Avi, a 30-year-old Israeli man with short dark curly hair, medium olive skin, and dark eyes, wearing a sage-green button-up shirt and dark trousers',
+  },
 } as const;
 
 const CHAR = CHARACTER_PROFILES;
@@ -407,6 +427,125 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'com licenca':        `${CHAR.PT.primary} politely excusing herself with a gentle hand gesture, stepping around others in a busy colourful market, watercolor illustration`,
   'desculpe':           `${CHAR.PT.primary} with a sincere apologetic expression placing hand on heart, stepping back with a sorry gesture, warm bright setting, watercolor illustration`,
 
+  // ── Greetings & Farewells — Japanese ─────────────────────────────────────
+  // Characters: Yuki (primary) + Kenji (secondary) — see CHARACTER_PROFILES.JA
+  // Native-script keys are preserved by normalizeForOverride.
+  // Romaji aliases are also provided for curricula that romanize vocabulary.
+  'こんにちは':               `${CHAR.JA.primary} waving hello with a big smile to ${CHAR.JA.secondary} on a sunny Japanese shopping street, colourful shop signs and a torii gate visible behind them, bright cheerful watercolor illustration`,
+  'おはようございます':        `${CHAR.JA.primary} in cozy full-length pajamas holding a steaming mug of green tea at a bright kitchen window, golden sunrise light streaming through shoji screens, warm morning light, watercolor illustration`,
+  'おはよう':                `${CHAR.JA.primary} waving a cheerful casual good morning to ${CHAR.JA.secondary} at a neighbourhood convenience store entrance, early morning light, watercolor illustration`,
+  'こんばんは':               `${CHAR.JA.primary} and ${CHAR.JA.secondary} meeting at the entrance of a cozy izakaya at dusk, warm amber paper-lantern light spilling out, soft violet evening sky, watercolor illustration`,
+  'おやすみなさい':            `${CHAR.JA.primary} waving goodnight from a warmly lit doorway under a starry sky, soft paper lantern light glowing inside, watercolor illustration`,
+  'おやすみ':                `${CHAR.JA.primary} waving a casual goodnight at a lit bedroom doorway with a crescent moon visible outside the window, watercolor illustration`,
+  'さようなら':               `${CHAR.JA.primary} standing at an open doorway waving a heartfelt goodbye as ${CHAR.JA.secondary} walks away down a cherry-blossom-lined path, soft sunset light, watercolor illustration`,
+  'またね':                  `${CHAR.JA.primary} and ${CHAR.JA.secondary} parting cheerfully at a train station platform, both turning to wave "mata ne" with bright smiles, watercolor illustration`,
+  'じゃあね':                `${CHAR.JA.primary} and ${CHAR.JA.secondary} parting with a casual cheerful wave at a school gate, bright afternoon light, watercolor illustration`,
+  'ありがとうございます':       `${CHAR.JA.primary} pressing both palms together in a respectful forward bow of deep gratitude, warm bright setting, watercolor illustration`,
+  'ありがとう':               `${CHAR.JA.primary} pressing both palms together with a warm grateful smile and a slight bow of thanks, bright cheerful background, watercolor illustration`,
+  'すみません':               `${CHAR.JA.primary} bowing apologetically with a polite expression, hand raised to get attention in a busy Japanese street, watercolor illustration`,
+  'ごめんなさい':              `${CHAR.JA.primary} bowing deeply with a sincere apologetic expression and hands pressed together in a sorry gesture, watercolor illustration`,
+  'どういたしまして':          `${CHAR.JA.secondary} waving a relaxed "you're welcome" hand with a kind easygoing smile, bright airy setting, watercolor illustration`,
+  'はじめまして':              `${CHAR.JA.primary} and ${CHAR.JA.secondary} bowing politely to each other on first meeting, both smiling warmly, bright cheerful setting, watercolor illustration`,
+  'よろしくおねがいします':     `${CHAR.JA.primary} bowing respectfully with both hands at her sides and a warm open smile, formal greeting stance, watercolor illustration`,
+  'おげんきですか':            `${CHAR.JA.primary} facing ${CHAR.JA.secondary} with a warm open "how are you?" questioning expression, bright Japanese garden setting, watercolor illustration`,
+  // Romaji aliases
+  'konnichiwa':              `${CHAR.JA.primary} waving hello with a big smile to ${CHAR.JA.secondary} on a sunny Japanese shopping street, colourful shop signs behind them, bright watercolor illustration`,
+  'ohayou gozaimasu':        `${CHAR.JA.primary} in cozy full-length pajamas holding green tea at a bright kitchen window, golden sunrise through shoji screens, watercolor illustration`,
+  'ohayou':                  `${CHAR.JA.primary} waving a cheerful casual good morning at a convenience store entrance, early morning light, watercolor illustration`,
+  'konbanwa':                `${CHAR.JA.primary} and ${CHAR.JA.secondary} meeting at the entrance of a cozy izakaya at dusk, amber lantern light, watercolor illustration`,
+  'oyasumi nasai':            `${CHAR.JA.primary} waving goodnight from a warmly lit doorway under a starry sky, paper lantern light inside, watercolor illustration`,
+  'oyasumi':                 `${CHAR.JA.primary} waving casual goodnight at a lit bedroom doorway with a crescent moon outside, watercolor illustration`,
+  'sayounara':               `${CHAR.JA.primary} waving goodbye at an open doorway as ${CHAR.JA.secondary} walks away down a cherry-blossom path, watercolor illustration`,
+  'mata ne':                 `${CHAR.JA.primary} and ${CHAR.JA.secondary} parting at a train station, both turning to wave with bright smiles, watercolor illustration`,
+  'ja ne':                   `${CHAR.JA.primary} and ${CHAR.JA.secondary} parting with a casual wave at a school gate, bright afternoon, watercolor illustration`,
+  'arigatou gozaimasu':      `${CHAR.JA.primary} pressing both palms together in a respectful forward bow of deep gratitude, warm bright setting, watercolor illustration`,
+  'arigatou':                `${CHAR.JA.primary} pressing both palms together with a warm grateful smile and a slight bow, bright cheerful background, watercolor illustration`,
+  'sumimasen':               `${CHAR.JA.primary} bowing apologetically with a polite raised hand in a busy Japanese street, watercolor illustration`,
+  'gomennasai':              `${CHAR.JA.primary} bowing deeply with a sincere apologetic expression, hands pressed together, watercolor illustration`,
+  'dou itashimashite':       `${CHAR.JA.secondary} waving a relaxed "you're welcome" hand with a kind smile, bright airy setting, watercolor illustration`,
+  'hajimemashite':           `${CHAR.JA.primary} and ${CHAR.JA.secondary} bowing politely on first meeting, both smiling warmly, bright cheerful setting, watercolor illustration`,
+  'yoroshiku onegaishimasu': `${CHAR.JA.primary} bowing respectfully with both hands at her sides and a warm open smile, formal greeting stance, watercolor illustration`,
+  'ogenki desu ka':          `${CHAR.JA.primary} facing ${CHAR.JA.secondary} with a warm friendly "how are you?" expression, watercolor illustration`,
+
+  // ── Greetings & Farewells — Korean ───────────────────────────────────────
+  // Characters: Ji-yeon (primary) + Min-jun (secondary) — see CHARACTER_PROFILES.KO
+  '안녕하세요':               `${CHAR.KO.primary} waving hello with a warm smile to ${CHAR.KO.secondary} on a bright modern Seoul street, colourful café signs and hangeul lettering behind them, cheerful watercolor illustration`,
+  '안녕':                   `${CHAR.KO.primary} and ${CHAR.KO.secondary} exchanging a casual cheerful wave to each other, bright urban Korean setting, watercolor illustration`,
+  '안녕히 가세요':             `${CHAR.KO.primary} standing at an open doorway waving a respectful farewell as ${CHAR.KO.secondary} departs, warm indoor light, watercolor illustration`,
+  '안녕히 계세요':             `${CHAR.KO.secondary} at a doorway waving goodbye to ${CHAR.KO.primary} who is leaving, warm respectful farewell, watercolor illustration`,
+  '감사합니다':               `${CHAR.KO.primary} pressing both palms together with a respectful slight bow and a sincere grateful expression, bright warm background, watercolor illustration`,
+  '고맙습니다':               `${CHAR.KO.primary} pressing both palms together with a warm grateful smile and a slight bow, bright cheerful background, watercolor illustration`,
+  '고마워요':                `${CHAR.KO.primary} placing one hand on her heart with a warm appreciative smile toward ${CHAR.KO.secondary}, casual warm setting, watercolor illustration`,
+  '죄송합니다':               `${CHAR.KO.primary} bowing deeply with a sincere formal apologetic expression, hands at her sides, watercolor illustration`,
+  '미안해요':                `${CHAR.KO.primary} with a sheepish apologetic expression placing hand on heart, warm setting, watercolor illustration`,
+  '괜찮아요':                `${CHAR.KO.secondary} waving a relaxed "it's okay" hand with a kind reassuring smile, bright cheerful setting, watercolor illustration`,
+  '천만에요':                `${CHAR.KO.secondary} waving a friendly "you're welcome" hand with an easygoing smile, bright airy setting, watercolor illustration`,
+  // Romanized aliases
+  'annyeonghaseyo':          `${CHAR.KO.primary} waving hello with a warm smile to ${CHAR.KO.secondary} on a bright modern Seoul street, cheerful watercolor illustration`,
+  'annyeong':                `${CHAR.KO.primary} and ${CHAR.KO.secondary} exchanging a casual cheerful wave, bright urban setting, watercolor illustration`,
+  'annyeonghi gaseyo':       `${CHAR.KO.primary} waving a respectful farewell at an open doorway as ${CHAR.KO.secondary} departs, watercolor illustration`,
+  'annyeonghi gyeseyo':      `${CHAR.KO.secondary} waving goodbye to ${CHAR.KO.primary} who is leaving, warm respectful farewell, watercolor illustration`,
+  'gamsahamnida':            `${CHAR.KO.primary} pressing both palms together with a respectful bow and sincere grateful expression, bright warm background, watercolor illustration`,
+  'gomawoyo':                `${CHAR.KO.primary} placing one hand on her heart with a warm appreciative smile, casual warm setting, watercolor illustration`,
+  'joesonghamnida':          `${CHAR.KO.primary} bowing deeply with a sincere formal apologetic expression, watercolor illustration`,
+  'mianhaeyo':               `${CHAR.KO.primary} with a sheepish apologetic expression placing hand on heart, watercolor illustration`,
+  'gwaenchanayo':            `${CHAR.KO.secondary} waving a relaxed "it's okay" hand with a kind reassuring smile, watercolor illustration`,
+  'cheonmaneyo':             `${CHAR.KO.secondary} waving a friendly "you're welcome" hand with an easygoing smile, watercolor illustration`,
+
+  // ── Greetings & Farewells — Mandarin ─────────────────────────────────────
+  // Characters: Mei (primary) + Wei (secondary) — see CHARACTER_PROFILES.ZH
+  '你好':                   `${CHAR.ZH.primary} waving hello with a bright warm smile to ${CHAR.ZH.secondary} at a sunny Chinese tea garden, bamboo and stone paths visible behind them, cheerful watercolor illustration`,
+  '早上好':                  `${CHAR.ZH.primary} in cozy full-length pajamas holding a warm cup of tea at a bright kitchen window, golden sunrise light streaming in, warm morning light, watercolor illustration`,
+  '晚上好':                  `${CHAR.ZH.primary} and ${CHAR.ZH.secondary} exchanging warm evening greetings outside a warmly lit tea house at dusk, amber lantern light spilling out, soft violet sky, watercolor illustration`,
+  '晚安':                   `${CHAR.ZH.primary} waving goodnight from a warmly lit doorway under a crescent moon and stars, soft indoor lamp light, watercolor illustration`,
+  '再见':                   `${CHAR.ZH.primary} waving a warm goodbye at an open doorway as ${CHAR.ZH.secondary} walks away, soft golden afternoon light, watercolor illustration`,
+  '谢谢':                   `${CHAR.ZH.primary} pressing both palms together with a warm grateful smile and a slight bow of thanks, bright cheerful background, watercolor illustration`,
+  '谢谢你':                  `${CHAR.ZH.primary} pressing both palms together with a heartfelt smile directed at ${CHAR.ZH.secondary}, warm bright background, watercolor illustration`,
+  '不客气':                  `${CHAR.ZH.secondary} waving a relaxed "bù kèqì — no worries" hand with a kind easygoing smile, bright airy setting, watercolor illustration`,
+  '对不起':                  `${CHAR.ZH.primary} bowing slightly with a sincere apologetic expression and hand on heart, watercolor illustration`,
+  '没关系':                  `${CHAR.ZH.secondary} waving a reassuring "it's fine" hand with a kind smile, bright cheerful setting, watercolor illustration`,
+  '你好吗':                  `${CHAR.ZH.primary} facing ${CHAR.ZH.secondary} with a warm open "how are you?" gesture and a friendly questioning expression, bright Chinese garden setting, watercolor illustration`,
+  '很好':                   `${CHAR.ZH.primary} giving a big cheerful thumbs-up with a bright happy smile, vibrant warm background, watercolor illustration`,
+  // Pinyin aliases
+  'ni hao':                  `${CHAR.ZH.primary} waving hello with a bright warm smile to ${CHAR.ZH.secondary} at a sunny Chinese tea garden, cheerful watercolor illustration`,
+  'zao shang hao':           `${CHAR.ZH.primary} in cozy pajamas holding warm tea at a bright kitchen window, golden sunrise light, watercolor illustration`,
+  'wan shang hao':           `${CHAR.ZH.primary} and ${CHAR.ZH.secondary} exchanging warm evening greetings outside a tea house at dusk, watercolor illustration`,
+  'wan an':                  `${CHAR.ZH.primary} waving goodnight from a lit doorway under a crescent moon, watercolor illustration`,
+  'zai jian':                `${CHAR.ZH.primary} waving goodbye at an open doorway as ${CHAR.ZH.secondary} walks away, watercolor illustration`,
+  'xie xie':                 `${CHAR.ZH.primary} pressing both palms together with a warm grateful smile and slight bow, watercolor illustration`,
+  'bu ke qi':                `${CHAR.ZH.secondary} waving a relaxed "you're welcome" hand with a kind smile, watercolor illustration`,
+  'dui bu qi':               `${CHAR.ZH.primary} bowing slightly with a sincere apologetic expression and hand on heart, watercolor illustration`,
+  'mei guan xi':             `${CHAR.ZH.secondary} waving a reassuring "it's fine" hand with a kind smile, watercolor illustration`,
+  'ni hao ma':               `${CHAR.ZH.primary} facing ${CHAR.ZH.secondary} with a warm friendly "how are you?" expression, watercolor illustration`,
+  'hen hao':                 `${CHAR.ZH.primary} giving a cheerful thumbs-up with a bright happy smile, warm background, watercolor illustration`,
+
+  // ── Greetings & Farewells — Hebrew ───────────────────────────────────────
+  // Characters: Noa (primary) + Avi (secondary) — see CHARACTER_PROFILES.HE
+  // Hebrew script is preserved by normalizeForOverride.
+  'שלום':                   `${CHAR.HE.primary} waving shalom with a warm smile to ${CHAR.HE.secondary} at a sunny Jerusalem stone-arch market square, colourful stalls behind them, bright cheerful watercolor illustration`,
+  'בוקר טוב':               `${CHAR.HE.primary} in cozy full-length pajamas holding a steaming cup of coffee at a bright kitchen window, golden Mediterranean sunrise light streaming in, warm morning light, watercolor illustration`,
+  'ערב טוב':                `${CHAR.HE.primary} and ${CHAR.HE.secondary} exchanging warm evening greetings outside a warmly lit Israeli café at dusk, amber light spilling out, soft Mediterranean sky above, watercolor illustration`,
+  'לילה טוב':               `${CHAR.HE.primary} waving goodnight from a warmly lit doorway under a beautiful starry sky, soft indoor lamp light, watercolor illustration`,
+  'להתראות':                `${CHAR.HE.primary} waving a heartfelt farewell at an open doorway as ${CHAR.HE.secondary} walks away down a sun-dappled path, warm light, watercolor illustration`,
+  'תודה':                   `${CHAR.HE.primary} pressing both palms together with a warm grateful smile and a nod of thanks, bright cheerful background, watercolor illustration`,
+  'תודה רבה':               `${CHAR.HE.primary} holding both arms open in a heartfelt gesture of deep gratitude, beaming with a big warm appreciative smile, bright background, watercolor illustration`,
+  'בבקשה':                  `${CHAR.HE.primary} at a colourful market stall with hands clasped in a polite "bevakasha — please" request expression, warm market setting, watercolor illustration`,
+  'סליחה':                  `${CHAR.HE.primary} gently tapping a stranger on the shoulder with a polite apologetic expression, hand raised, busy market setting, watercolor illustration`,
+  'מה שלומך':               `${CHAR.HE.primary} facing ${CHAR.HE.secondary} with a warm open questioning smile, sunny outdoor stone-paved setting, watercolor illustration`,
+  'מצוין':                  `${CHAR.HE.primary} giving a cheerful thumbs-up with a bright happy smile, vibrant warm background, watercolor illustration`,
+  // Transliterated aliases
+  'shalom':                  `${CHAR.HE.primary} waving shalom with a warm smile to ${CHAR.HE.secondary} at a sunny Jerusalem market square, cheerful watercolor illustration`,
+  'boker tov':               `${CHAR.HE.primary} in cozy pajamas holding coffee at a bright kitchen window, Mediterranean sunrise light, watercolor illustration`,
+  'erev tov':                `${CHAR.HE.primary} and ${CHAR.HE.secondary} greeting warmly outside a warmly lit café at dusk, watercolor illustration`,
+  'layla tov':               `${CHAR.HE.primary} waving goodnight from a lit doorway under a starry sky, watercolor illustration`,
+  'lehitraot':               `${CHAR.HE.primary} waving a heartfelt farewell at an open doorway, warm light, watercolor illustration`,
+  'toda':                    `${CHAR.HE.primary} pressing both palms together with a warm grateful smile, watercolor illustration`,
+  'toda raba':               `${CHAR.HE.primary} holding arms open in a heartfelt gesture of deep gratitude, watercolor illustration`,
+  'bevakasha':               `${CHAR.HE.primary} at a market stall with hands clasped in a polite please-expression, colourful market setting, watercolor illustration`,
+  'slicha':                  `${CHAR.HE.primary} with a polite apologetic expression and a raised hand, excusing themselves, watercolor illustration`,
+  'ma shlomcha':             `${CHAR.HE.primary} facing ${CHAR.HE.secondary} with a warm friendly "how are you?" expression, watercolor illustration`,
+  'metzuyan':                `${CHAR.HE.primary} giving a cheerful thumbs-up with a bright happy smile, watercolor illustration`,
+
   // ── Adjective Pairs — Spanish ─────────────────────────────────────────────
   // Both words in each pair share the exact same SPLIT prompt so they render
   // the same contrast image regardless of which word is looked up first.
@@ -674,6 +813,27 @@ const GREETINGS_WORDS: Record<string, string[]> = {
     'olá','bom dia','boa tarde','boa noite','adeus','até logo','até amanhã',
     'obrigado','obrigada','de nada','com licença','desculpe',
   ],
+  // CJK and Hebrew script is stripped by toCacheKey, so only romaji/transliterated
+  // forms can be cache-busted via fix-greetings. Native-script words are covered by
+  // SCENE_OVERRIDES (normalizeForOverride preserves them) but won't appear here.
+  japanese: [
+    'konnichiwa','ohayou gozaimasu','ohayou','konbanwa','oyasumi nasai','oyasumi',
+    'sayounara','mata ne','ja ne','arigatou gozaimasu','arigatou',
+    'sumimasen','gomennasai','dou itashimashite','hajimemashite',
+    'yoroshiku onegaishimasu','ogenki desu ka',
+  ],
+  korean: [
+    'annyeonghaseyo','annyeong','annyeonghi gaseyo','annyeonghi gyeseyo',
+    'gamsahamnida','gomawoyo','joesonghamnida','mianhaeyo','gwaenchanayo','cheonmaneyo',
+  ],
+  mandarin: [
+    'ni hao','zao shang hao','wan shang hao','wan an','zai jian',
+    'xie xie','bu ke qi','dui bu qi','mei guan xi','ni hao ma','hen hao',
+  ],
+  hebrew: [
+    'shalom','boker tov','erev tov','layla tov','lehitraot',
+    'toda','toda raba','bevakasha','slicha','ma shlomcha','metzuyan',
+  ],
 };
 
 export const GREETINGS_CACHE_KEYS: Record<string, string[]> = Object.fromEntries(
@@ -879,7 +1039,7 @@ export interface BulkVocabSeedProgress {
 
 export const bulkVocabSeedJobs = new Map<string, BulkVocabSeedProgress>();
 
-const ALL_LANGUAGES = ['spanish', 'french', 'german', 'portuguese', 'italian', 'english', 'mandarin', 'japanese', 'korean'];
+const ALL_LANGUAGES = ['spanish', 'french', 'german', 'portuguese', 'italian', 'english', 'mandarin', 'japanese', 'korean', 'hebrew'];
 
 export async function seedAllVocabImages(jobId: string, languages?: string[]): Promise<void> {
   const langs = languages ?? ALL_LANGUAGES;
