@@ -492,7 +492,9 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'ogenki desu ka':          `${CHAR.JA.primary} facing ${CHAR.JA.secondary} with a warm friendly "how are you?" expression, watercolor illustration`,
   'お元気ですか':              `${CHAR.JA.primary} facing ${CHAR.JA.secondary} on a bright sunny Japanese street with a warm open polite questioning expression, both smiling, watercolor illustration`,
   'また明日':                `${CHAR.JA.primary} waving goodbye at a school entrance at sunset, a cheerful calendar floating nearby with 明日 circled, warm golden light, watercolor illustration`,
+  'mata ashita':             `${CHAR.JA.primary} waving goodbye at a school entrance at sunset with a bright warm smile, golden afternoon light, watercolor illustration`,
   '元気です ありがとう':       `${CHAR.JA.primary} giving a warm cheerful thumbs-up with a bright content smile and a slight bow of gratitude, sunny Japanese garden setting, watercolor illustration`,
+  'genki desu arigatou':     `${CHAR.JA.primary} giving a cheerful thumbs-up with a warm grateful smile and a gentle bow of thanks, bright sunny Japanese garden setting, watercolor illustration`,
 
   // ── Greetings & Farewells — Korean ───────────────────────────────────────
   // Characters: Ji-yeon (primary) + Min-jun (secondary) — see CHARACTER_PROFILES.KO
@@ -905,6 +907,7 @@ export const GREETINGS_WORDS: Record<string, string[]> = {
     'sayounara','mata ne','ja ne','arigatou gozaimasu','arigatou',
     'sumimasen','gomennasai','dou itashimashite','hajimemashite',
     'yoroshiku onegaishimasu','ogenki desu ka',
+    'mata ashita','genki desu arigatou',
   ],
   korean: [
     // Native script (primary keys in resolver)
