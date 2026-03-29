@@ -1006,6 +1006,7 @@ function VocabImagesPanel() {
     mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-word', { language, word: fixWordInput.trim() }).then(r => r.json()),
     onSuccess: (data: any) => {
       setFixWordResult(data);
+      queryClient.invalidateQueries({ queryKey: ['/api/textbook/vocab-images'] });
       toast({ title: 'Image regenerated', description: data.message });
     },
     onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),

@@ -778,7 +778,7 @@ function VisualVocabGrid({ lessonId, drills, language }: VisualVocabGridProps) {
                   <img
                     src={imgData.url}
                     alt={drill.targetText}
-                    className={`w-full h-full object-cover transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+                    className={`w-full h-full object-cover object-top transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
                     loading="lazy"
                     onLoad={() => setLoadedImages(prev => new Set(prev).add(drill.id))}
                     onError={() => setFailedImages(prev => new Set(prev).add(drill.id))}
