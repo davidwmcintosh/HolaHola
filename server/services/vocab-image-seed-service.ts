@@ -557,6 +557,9 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   '下午好':                  `${CHAR.ZH.primary} and ${CHAR.ZH.secondary} waving warm afternoon greetings to each other on a sunlit Chinese garden path, golden afternoon light, watercolor illustration`,
   '回头见':                  `${CHAR.ZH.primary} parting with a warm wave and a bright hopeful smile at a tea shop doorway, a cheerful "see you soon" air, soft afternoon light, watercolor illustration`,
   '我很好 谢谢':              `${CHAR.ZH.primary} giving a cheerful double thumbs-up with a broad warm smile and a slight grateful bow, bright sunny Chinese garden background, watercolor illustration`,
+  '我很好谢谢':               `${CHAR.ZH.primary} giving a cheerful double thumbs-up with a broad warm smile and a slight grateful bow, bright sunny Chinese garden background, watercolor illustration`,
+  'wo hen hao xie xie':      `${CHAR.ZH.primary} giving a cheerful double thumbs-up with a bright happy smile and a grateful bow, sunny Chinese garden background, watercolor illustration`,
+  'wo hen hao':              `${CHAR.ZH.primary} giving a cheerful thumbs-up with a bright happy smile, warm Chinese garden background, watercolor illustration`,
   '明天见':                  `${CHAR.ZH.primary} waving goodbye at a garden gate at sunset, a cheerful round calendar with 明天 circled floating nearby, warm golden light, watercolor illustration`,
 
   // ── Greetings & Farewells — Hebrew ───────────────────────────────────────
@@ -749,8 +752,8 @@ export function normalizeForOverride(word: string): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')   // strip Latin accents only
     .normalize('NFC')                   // re-compose so CJK/Hangul/kana stays intact
-    .replace(/[¿¡?!,;:、，。]/g, '')    // strip common punctuation (including CJK variants)
-    .replace(/\s+/g, ' ')              // collapse spaces
+    .replace(/[¿¡?!,;:、，。]/g, ' ')  // replace punctuation with space (preserves word boundaries)
+    .replace(/\s+/g, ' ')              // collapse multiple spaces to one
     .trim();
 }
 
@@ -923,10 +926,11 @@ export const GREETINGS_WORDS: Record<string, string[]> = {
     // Native script (primary keys in resolver)
     '你好','早上好','下午好','晚上好','晚安','再见',
     '谢谢','谢谢你','不客气','对不起','没关系','你好吗','很好',
-    '回头见','我很好 谢谢','明天见',
+    '回头见','我很好 谢谢','我很好谢谢','明天见',
     // Pinyin aliases
     'ni hao','zao shang hao','wan shang hao','wan an','zai jian',
     'xie xie','bu ke qi','dui bu qi','mei guan xi','ni hao ma','hen hao',
+    'wo hen hao xie xie','wo hen hao',
   ],
   hebrew: [
     // Native script (primary keys in resolver)
