@@ -792,9 +792,27 @@ export async function resolveVocabularyImage(
     }
   }
 
+  // ── 1b. If no scene was passed by the caller, look up SCENE_OVERRIDES automatically.
+  // On-demand generation (e.g. textbook viewing) doesn't pass a scene, so without this
+  // a cache miss would produce a generic random-person image from just the word text.
+  // The admin fix-greetings route already passes scene explicitly; this is the fallback
+  // so that ALL generation paths (on-demand and admin) use the same character scenes.
+  let effectiveScene = scene;
+  if (!effectiveScene) {
+    try {
+      const { SCENE_OVERRIDES, normalizeForOverride } = await import('./vocab-image-seed-service');
+      const overrideKey = normalizeForOverride(word);
+      effectiveScene = (SCENE_OVERRIDES as Record<string, string>)[`${language}:${overrideKey}`]
+                       ?? (SCENE_OVERRIDES as Record<string, string>)[overrideKey];
+      if (effectiveScene) {
+        console.log(`[VocabImage] Scene override auto-applied for "${word}" (${language})`);
+      }
+    } catch (_) { /* scene overrides unavailable — proceed with word-based generation */ }
+  }
+
   // ── 2. Generate with DALL-E 3 (watercolor style) ────────────────────────
-  const conceptForGeneration = buildGenerationConcept(word, scene, description, translation, language);
-  const generationType = isSceneConcept(word, scene) ? 'infographic' : 'image';
+  const conceptForGeneration = buildGenerationConcept(word, effectiveScene, description, translation, language);
+  const generationType = isSceneConcept(word, effectiveScene) ? 'infographic' : 'image';
   console.log(`[VocabImage] Cache miss — generating (${generationType}) for: "${conceptForGeneration}"`);
 
   try {
