@@ -11230,7 +11230,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         description: word.trim(),
         scene: sceneOverride,
       });
-      res.json({ deleted, cacheKey, source: result.source, url: result.url, message: `Regenerated image for "${word}" (${language})` });
+      res.json({ deleted, cacheKey, source: result.source, url: result.imageUrl, message: `Regenerated image for "${word}" (${language})` });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
