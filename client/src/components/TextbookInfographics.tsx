@@ -263,7 +263,7 @@ export function VisualVocabCard({
     <div className={`rounded-lg overflow-hidden border ${className}`}>
       <div className={`aspect-[4/3] ${backgroundColor} flex items-center justify-center`}>
         {imageUrl ? (
-          <img src={imageUrl} alt={word} className="w-full h-full object-cover" />
+          <img src={imageUrl} alt={word} className="w-full h-full object-cover object-top" />
         ) : (
           <span className="text-4xl font-bold text-primary/30">{word.charAt(0).toUpperCase()}</span>
         )}

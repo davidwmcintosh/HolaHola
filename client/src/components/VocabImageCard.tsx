@@ -57,7 +57,7 @@ export function VocabImageCard({
               <img
                 src={imageUrl}
                 alt={word}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover object-top"
                 data-testid={`img-vocab-${word}`}
               />
               <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">

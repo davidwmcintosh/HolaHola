@@ -6583,7 +6583,7 @@ function VocabImagesSection() {
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">{fixWordResult.message} — source: {fixWordResult.source}</p>
                     {fixWordResult.url && (
-                      <img src={fixWordResult.url} alt={fixWordInput} className="h-24 rounded-md object-cover border" />
+                      <img src={fixWordResult.url} alt={fixWordInput} className="w-full rounded-md object-contain border" />
                     )}
                   </div>
                 )}
