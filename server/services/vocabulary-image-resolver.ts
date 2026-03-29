@@ -604,7 +604,11 @@ function normalizeWord(word: string): string {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')  // strip combining diacritical marks (accents)
-    // Strip punctuation/symbols but preserve: a-z, 0-9, space, and non-Latin scripts:
+    // Replace CJK/Japanese/Arabic punctuation with a space so that word boundaries
+    // are preserved (e.g. "元気です、ありがとう" → "元気です ありがとう" not "元気ですありがとう").
+    // Latin punctuation (apostrophe, ¿, ¡, etc.) is stripped (replaced with '') below.
+    .replace(/[\u3001\u3002\uff0c\uff01\uff1f\uff1a\uff1b\u300c\u300d\u300e\u300f\u3008-\u3011\u30fb\u060c\u061b\u061f]/g, ' ')
+    // Strip remaining punctuation/symbols but preserve: a-z, 0-9, space, and non-Latin scripts:
     //   \u3040-\u30FF  Hiragana + Katakana (Japanese)
     //   \u3400-\u9FFF  CJK Unified Ideographs (Japanese kanji, Chinese hanzi)
     //   \uAC00-\uD7AF  Korean Hangul syllables
