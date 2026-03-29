@@ -757,8 +757,10 @@ export function toCacheKey(language: string, word: string): string {
   const normalized = word
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')  // strip Latin diacritics only
+    // Preserve CJK, Hangul, Hiragana/Katakana, Hebrew, Arabic, Cyrillic — matching
+    // the normalizeWord() function in vocabulary-image-resolver.ts so cache keys align.
+    .replace(/[^a-z0-9\u3040-\u30FF\u3400-\u9FFF\uAC00-\uD7AF\u0590-\u05FF\u0600-\u06FF\u0400-\u04FF\s]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
   return `vocab_${language}_${normalized}`;
@@ -863,43 +865,68 @@ export const GREETINGS_WORDS: Record<string, string[]> = {
   french: [
     'bonjour','bonsoir','bonne nuit','au revoir','salut','à bientôt','à demain',
     's\'il vous plaît','merci','merci beaucoup','de rien','excusez-moi','pardon','enchanté',
+    'comment allez-vous','très bien merci',
   ],
   german: [
     'Hallo','guten Morgen','guten Tag','guten Abend','gute Nacht','auf Wiedersehen','tschüss',
     'bitte','danke','danke schön','bitte schön','Entschuldigung',
+    'bis später','freut mich','wie geht es ihnen','mir geht es gut danke',
   ],
   italian: [
     'ciao','buongiorno','buonasera','buonanotte','arrivederci',
     'prego','grazie','per favore','mi chiamo','come stai','come sta',
+    'a domani','a presto','piacere','sto bene grazie',
   ],
   portuguese: [
-    'olá','bom dia','boa tarde','boa noite','adeus','até logo','até amanhã',
+    'olá','oi','bom dia','boa tarde','boa noite','adeus','até logo','até amanhã','tchau',
     'obrigado','obrigada','de nada','com licença','desculpe',
+    'como está','estou bem obrigado','prazer em conhecê-lo',
   ],
   english: [
     'hello','hi','good morning','good afternoon','good evening','good night',
     'goodbye','bye','see you later','see you soon','nice to meet you',
     'please','thank you','thanks','you\'re welcome','excuse me','sorry','my pleasure',
-    'how are you','how are you doing','fine','very well','not bad',
+    'how are you','how are you doing','fine','very well','not bad','i\'m fine thank you',
   ],
-  // CJK and Hebrew script is stripped by toCacheKey, so only romaji/transliterated
-  // forms can be cache-busted via fix-greetings. Native-script words are covered by
-  // SCENE_OVERRIDES (normalizeForOverride preserves them) but won't appear here.
+  // Both native-script and romaji/transliterated forms are included now that toCacheKey
+  // preserves CJK, Hangul, and Hebrew characters (matching vocabulary-image-resolver).
   japanese: [
+    // Native script (primary keys in resolver)
+    'こんにちは','おはようございます','おはよう','こんばんは','おやすみなさい','おやすみ',
+    'さようなら','またね','じゃあね','ありがとうございます','ありがとう',
+    'すみません','ごめんなさい','どういたしまして','はじめまして',
+    'よろしくおねがいします','おげんきですか',
+    'お元気ですか','また明日','元気です ありがとう',
+    // Romaji aliases
     'konnichiwa','ohayou gozaimasu','ohayou','konbanwa','oyasumi nasai','oyasumi',
     'sayounara','mata ne','ja ne','arigatou gozaimasu','arigatou',
     'sumimasen','gomennasai','dou itashimashite','hajimemashite',
     'yoroshiku onegaishimasu','ogenki desu ka',
   ],
   korean: [
+    // Native script (primary keys in resolver)
+    '안녕하세요','안녕','안녕히 가세요','안녕히 계세요',
+    '감사합니다','고맙습니다','고마워요','죄송합니다','미안해요','괜찮아요','천만에요',
+    '좋은 아침이에요','잘 자요','잘 지내요 감사합니다','어떻게 지내세요',
+    '내일 봐요','또 만나요','만나서 반갑습니다',
+    // Romanized aliases
     'annyeonghaseyo','annyeong','annyeonghi gaseyo','annyeonghi gyeseyo',
     'gamsahamnida','gomawoyo','joesonghamnida','mianhaeyo','gwaenchanayo','cheonmaneyo',
   ],
   mandarin: [
+    // Native script (primary keys in resolver)
+    '你好','早上好','下午好','晚上好','晚安','再见',
+    '谢谢','谢谢你','不客气','对不起','没关系','你好吗','很好',
+    '回头见','我很好 谢谢','明天见',
+    // Pinyin aliases
     'ni hao','zao shang hao','wan shang hao','wan an','zai jian',
     'xie xie','bu ke qi','dui bu qi','mei guan xi','ni hao ma','hen hao',
   ],
   hebrew: [
+    // Native script (primary keys in resolver)
+    'שלום','בוקר טוב','ערב טוב','לילה טוב','להתראות',
+    'תודה','תודה רבה','בבקשה','סליחה','מה שלומך',
+    // Transliterated aliases
     'shalom','boker tov','erev tov','layla tov','lehitraot',
     'toda','toda raba','bevakasha','slicha','ma shlomcha','metzuyan',
   ],
