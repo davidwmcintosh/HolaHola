@@ -668,7 +668,7 @@ export async function resolveChapterCoverImage(
   const conceptKey = `chapter_cover_${chapterType}`;
 
   // ── Check cache ──────────────────────────────────────────────────────────
-  const cached = await storage.findCachedImageBySearchQuery(conceptKey);
+  const cached = await storage.getCachedStockImage(conceptKey);
   if (cached?.url) {
     await storage.incrementImageUsage(cached.id);
     return { imageUrl: cached.url, source: 'cache' };
