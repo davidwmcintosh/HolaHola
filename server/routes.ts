@@ -29910,6 +29910,157 @@ You have full access to your neural network knowledge.
     }
   });
 
+  // ── Scenario Zones ─────────────────────────────────────────────────────────
+  app.get("/api/scenarios/:scenarioId/zones", async (req, res) => {
+    try {
+      const { scenarioZones } = await import('@shared/schema');
+      const sharedDb = getSharedDb();
+      const zones = await sharedDb.select().from(scenarioZones)
+        .where(and(eq(scenarioZones.scenarioId, req.params.scenarioId), eq(scenarioZones.isActive, true)))
+        .orderBy(scenarioZones.zoneOrder);
+      res.json({ zones });
+    } catch (error: any) {
+      console.error("[ScenarioZones] Get error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/admin/seed-scenario-zones", async (req, res) => {
+    try {
+      const { scenarios, scenarioZones } = await import('@shared/schema');
+      const sharedDb = getSharedDb();
+
+      const [taxiScenario] = await sharedDb.select({ id: scenarios.id })
+        .from(scenarios).where(eq(scenarios.slug, 'taxi-ride')).limit(1);
+      const [restaurantScenario] = await sharedDb.select({ id: scenarios.id })
+        .from(scenarios).where(eq(scenarios.slug, 'restaurant')).limit(1);
+
+      if (!taxiScenario) return res.status(404).json({ error: "taxi-ride scenario not found" });
+
+      // Clear existing zones for these scenarios
+      if (taxiScenario) await sharedDb.delete(scenarioZones).where(eq(scenarioZones.scenarioId, taxiScenario.id));
+      if (restaurantScenario) await sharedDb.delete(scenarioZones).where(eq(scenarioZones.scenarioId, restaurantScenario.id));
+
+      const taxiZones = [
+        {
+          scenarioId: taxiScenario.id,
+          zoneOrder: 0,
+          name: "Taxi Pickup",
+          description: "You are standing at a taxi stand or hailing a cab on the street. The taxi has just pulled up and the driver is waiting.",
+          taskDescription: "The student must successfully communicate their destination to the driver and get in the taxi. Completion: driver acknowledges the destination and the ride begins.",
+          imagePrompt: "A yellow taxi cab pulled up at a busy city street curb in daytime, passenger door open, city buildings in background, photorealistic, no text",
+          nextScenarioSlug: null,
+          isActive: true,
+        },
+        {
+          scenarioId: taxiScenario.id,
+          zoneOrder: 1,
+          name: "The Ride",
+          description: "You are inside the taxi, moving through city streets. The driver is making conversation while navigating through traffic.",
+          taskDescription: "The student must maintain small talk with the driver during the ride. Completion: a natural pause in conversation signals arrival — the driver announces you are approaching the destination.",
+          imagePrompt: "View from inside a taxi cab through the windshield, city streets and buildings passing by, driver silhouette visible, photorealistic, no text",
+          nextScenarioSlug: null,
+          isActive: true,
+        },
+        {
+          scenarioId: taxiScenario.id,
+          zoneOrder: 2,
+          name: "Paying & Arrival",
+          description: "The taxi has stopped at the destination. The driver is telling you the fare and waiting for payment.",
+          taskDescription: "The student must ask for or acknowledge the fare, pay (or indicate they'll pay), and say a proper goodbye. Completion: student has paid and said goodbye.",
+          imagePrompt: "View from inside a taxi cab stopped at destination, driver turning around with receipt or meter visible, street through windshield, photorealistic, no text",
+          nextScenarioSlug: restaurantScenario ? 'restaurant' : null,
+          isActive: true,
+        },
+      ];
+
+      const inserted: any[] = [];
+      for (const zone of taxiZones) {
+        const [row] = await sharedDb.insert(scenarioZones).values(zone).returning();
+        inserted.push(row);
+      }
+
+      if (restaurantScenario) {
+        const restaurantZones = [
+          {
+            scenarioId: restaurantScenario.id,
+            zoneOrder: 0,
+            name: "Arriving at the Restaurant",
+            description: "You have just arrived at the restaurant entrance. The host or maître d' is at the stand, checking reservations.",
+            taskDescription: "The student must greet the host and request a table (with or without a reservation). Completion: host confirms a table is available and leads you to it.",
+            imagePrompt: "Restaurant entrance foyer with host stand, menus visible, warm lighting, elegant but casual dining atmosphere, photorealistic, no people, no text",
+            nextScenarioSlug: null,
+            isActive: true,
+          },
+          {
+            scenarioId: restaurantScenario.id,
+            zoneOrder: 1,
+            name: "At the Table",
+            description: "You are seated at your table. The waiter has approached and is ready to take your order.",
+            taskDescription: "The student must successfully order food and drinks from the menu. Completion: student has ordered at least a main course and the waiter has confirmed the order.",
+            imagePrompt: "Intimate restaurant table set with white tablecloth, wine glasses, candle, menu on table, warm ambient lighting, photorealistic, no people, no text",
+            nextScenarioSlug: null,
+            isActive: true,
+          },
+          {
+            scenarioId: restaurantScenario.id,
+            zoneOrder: 2,
+            name: "Paying the Bill",
+            description: "The meal is over. The bill has been brought to the table and it is time to pay and leave.",
+            taskDescription: "The student must ask for the bill if not already present, handle the payment interaction, and say goodbye. Completion: student has paid and said their goodbyes.",
+            imagePrompt: "Restaurant table at end of meal, bill folder on table, empty plates cleared, warm cozy atmosphere, photorealistic, no people, no text",
+            nextScenarioSlug: null,
+            isActive: true,
+          },
+        ];
+        for (const zone of restaurantZones) {
+          const [row] = await sharedDb.insert(scenarioZones).values(zone).returning();
+          inserted.push(row);
+        }
+      }
+
+      res.json({ success: true, zonesCreated: inserted.length, zones: inserted.map(z => ({ id: z.id, name: z.name, scenarioId: z.scenarioId })) });
+    } catch (error: any) {
+      console.error("[ScenarioZones] Seed error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/admin/generate-zone-image/:zoneId", async (req, res) => {
+    try {
+      const { zoneId } = req.params;
+      const { scenarioZones } = await import('@shared/schema');
+      const sharedDb = getSharedDb();
+
+      const [zone] = await sharedDb.select().from(scenarioZones).where(eq(scenarioZones.id, zoneId)).limit(1);
+      if (!zone) return res.status(404).json({ error: "Zone not found" });
+      if (!zone.imagePrompt) return res.status(400).json({ error: "Zone has no imagePrompt" });
+
+      // Use DALL-E via the vocabulary image resolver pattern
+      const OpenAI = (await import('openai')).default;
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+      const response = await openai.images.generate({
+        model: "dall-e-3",
+        prompt: zone.imagePrompt,
+        n: 1,
+        size: "1792x1024",
+        quality: "standard",
+      });
+
+      const imageUrl = response.data[0]?.url;
+      if (!imageUrl) return res.status(500).json({ error: "No image URL returned from DALL-E" });
+
+      await sharedDb.update(scenarioZones).set({ imageUrl }).where(eq(scenarioZones.id, zoneId));
+
+      res.json({ success: true, imageUrl, zoneId, zoneName: zone.name });
+    } catch (error: any) {
+      console.error("[ScenarioZones] Generate image error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  // ─────────────────────────────────────────────────────────────────────────────
+
   app.get("/api/review-items", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getRequestUserId(req);

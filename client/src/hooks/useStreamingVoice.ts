@@ -105,6 +105,8 @@ export interface StreamingSessionConfig {
   onPropUpdate?: (data: { propTitle: string; updates: Array<{ label: string; value: string }>; updatedFields: Array<{ label: string; value: string }> }) => void;
   /** Called when Daniela enters or exits immersive fullscreen mode */
   onImmersiveModeChange?: (active: boolean) => void;
+  /** Called when the AI advances to the next scene zone within a scenario */
+  onSceneZoneAdvanced?: (data: { zoneIndex: number; zoneName: string | null; imageUrl: string | null; isChain?: boolean; nextScenarioSlug?: string | null; isComplete?: boolean }) => void;
 }
 
 /**
@@ -1404,6 +1406,17 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     sessionConfigRef.current?.onScenarioLoaded?.(message.scenario);
   }, []);
 
+  const handleZoneAdvanced = useCallback((message: any) => {
+    sessionConfigRef.current?.onSceneZoneAdvanced?.({
+      zoneIndex: message.zoneIndex,
+      zoneName: message.zoneName ?? null,
+      imageUrl: message.imageUrl ?? null,
+      isChain: message.isChain ?? false,
+      nextScenarioSlug: message.nextScenarioSlug ?? null,
+      isComplete: message.isComplete ?? false,
+    });
+  }, []);
+
   const handleScenarioEnded = useCallback((message: any) => {
     console.log('[StreamingVoice] Scenario ended:', message.scenarioSlug);
     sessionConfigRef.current?.onScenarioEnded?.({
@@ -1580,6 +1593,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('textInputRequest', handleTextInputRequest);  // Server text input request
       clientRef.current.on('scenarioLoaded', handleScenarioLoaded);
       clientRef.current.on('scenarioEnded', handleScenarioEnded);
+      clientRef.current.on('zoneAdvanced', handleZoneAdvanced);
       clientRef.current.on('propUpdate', handlePropUpdate);
       clientRef.current.on('immersiveMode', handleImmersiveMode);
       clientRef.current.on('characterChange', handleCharacterChange);
@@ -1642,7 +1656,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded, handlePropUpdate, handleImmersiveMode, handleCharacterChange]);
+  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded, handleZoneAdvanced, handlePropUpdate, handleImmersiveMode, handleCharacterChange]);
   
   /**
    * Disconnect from streaming voice service
@@ -1681,6 +1695,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('textInputRequest', handleTextInputRequest);  // Server text input request
       clientRef.current.off('scenarioLoaded', handleScenarioLoaded);
       clientRef.current.off('scenarioEnded', handleScenarioEnded);
+      clientRef.current.off('zoneAdvanced', handleZoneAdvanced);
       clientRef.current.off('propUpdate', handlePropUpdate);
       clientRef.current.off('immersiveMode', handleImmersiveMode);
       clientRef.current.off('characterChange', handleCharacterChange);

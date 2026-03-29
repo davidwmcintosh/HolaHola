@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Tv, ChevronLeft, ChevronRight, Sparkles, BookOpen, UtensilsCrossed, FileText, CreditCard, MapIcon, List, Receipt, ImageIcon, ZoomIn, Cloud, Clock, Smile, Calendar, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -410,6 +410,19 @@ function StudioImageGallery({ images }: { images: StudioImage[] }) {
 export function ScenarioPanel({ scenario, isCollapsed, onToggleCollapse, studioImages, sceneCanvas }: ScenarioPanelProps) {
   const { difficulty } = useLanguage();
   const [sceneLightbox, setSceneLightbox] = useState<{ url: string; label: string } | null>(null);
+  const [zoneImageFading, setZoneImageFading] = useState(false);
+  const prevImageUrlRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    const prevUrl = prevImageUrlRef.current;
+    if (scenario?.imageUrl && prevUrl && prevUrl !== scenario.imageUrl) {
+      setZoneImageFading(true);
+      const timer = setTimeout(() => setZoneImageFading(false), 400);
+      prevImageUrlRef.current = scenario.imageUrl;
+      return () => clearTimeout(timer);
+    }
+    prevImageUrlRef.current = scenario?.imageUrl;
+  }, [scenario?.imageUrl]);
 
   const hasCanvas = Boolean(sceneCanvas);
   const contextImages = (studioImages || []).filter(img => img.slot === 'context');
@@ -477,14 +490,27 @@ export function ScenarioPanel({ scenario, isCollapsed, onToggleCollapse, studioI
                 {!hasCanvas && scenario.imageUrl && (
                   <div
                     className="rounded-md overflow-hidden border cursor-zoom-in relative group"
-                    onClick={() => setSceneLightbox({ url: scenario.imageUrl!, label: scenario.location || scenario.title || '' })}
+                    onClick={() => setSceneLightbox({ url: scenario.imageUrl!, label: scenario.currentZoneName || scenario.location || scenario.title || '' })}
                   >
                     <img
                       src={scenario.imageUrl}
-                      alt={scenario.location}
-                      className="w-full h-40 object-cover"
+                      alt={scenario.currentZoneName || scenario.location}
+                      className={`w-full h-40 object-cover transition-opacity duration-300 ${zoneImageFading ? 'opacity-0' : 'opacity-100'}`}
                       data-testid="img-scenario-scene"
                     />
+                    {/* Zone name badge */}
+                    {scenario.currentZoneName && (
+                      <div className="absolute bottom-0 left-0 right-0 px-2 py-1 bg-black/50 backdrop-blur-sm">
+                        <span className="text-white text-xs font-medium" data-testid="text-scenario-zone-name">
+                          {scenario.currentZoneName}
+                        </span>
+                        {scenario.zones && scenario.zones.length > 1 && typeof scenario.currentZoneIndex === 'number' && (
+                          <span className="text-white/60 text-xs ml-1.5">
+                            {scenario.currentZoneIndex + 1}/{scenario.zones.length}
+                          </span>
+                        )}
+                      </div>
+                    )}
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
                       <ZoomIn className="h-7 w-7 text-white drop-shadow" />
                     </div>

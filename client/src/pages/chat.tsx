@@ -95,6 +95,9 @@ export default function Chat() {
         scenarioSlug: loadedScenarioData.slug,
         props: loadedScenarioData.props,
         levelGuide: loadedScenarioData.levelGuide,
+        zones: loadedScenarioData.zones,
+        currentZoneIndex: loadedScenarioData.currentZoneIndex,
+        currentZoneName: loadedScenarioData.currentZoneName,
       }
     : whiteboardScenario;
   
@@ -834,6 +837,22 @@ export default function Chat() {
                     return [img];
                   })}
                   onImmersiveModeChange={setIsImmersiveMode}
+                  onSceneZoneAdvanced={(data) => {
+                    if (data.isChain && data.nextScenarioSlug) {
+                      // Cross-scenario chain: keep conversation going, just note the transition
+                      console.log('[Chat] Zone chain → next scenario:', data.nextScenarioSlug);
+                    } else if (!data.isComplete) {
+                      // Advance zone image and name in-place
+                      setLoadedScenarioData((prev: any) => {
+                        if (!prev) return prev;
+                        const updated = { ...prev };
+                        if (data.imageUrl) updated.imageUrl = data.imageUrl;
+                        if (data.zoneName) updated.currentZoneName = data.zoneName;
+                        if (data.zoneIndex >= 0) updated.currentZoneIndex = data.zoneIndex;
+                        return updated;
+                      });
+                    }
+                  }}
                 />
             ) : (
               <ChatInterface 

@@ -8371,6 +8371,33 @@ export const insertUserScenarioHistorySchema = createInsertSchema(userScenarioHi
 export type InsertUserScenarioHistory = z.infer<typeof insertUserScenarioHistorySchema>;
 export type UserScenarioHistory = typeof userScenarioHistory.$inferSelect;
 
+// ── Scenario Zones ────────────────────────────────────────────────────────────
+// Each scenario can have multiple sequential zones (e.g. taxi: pickup → en-route → arrival).
+// The AI calls advance_scene() when the student completes the current zone's task.
+// The last zone can optionally chain to another scenario via nextScenarioSlug.
+export const scenarioZones = pgTable("scenario_zones", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  scenarioId: varchar("scenario_id").notNull().references(() => scenarios.id, { onDelete: "cascade" }),
+  zoneOrder: integer("zone_order").notNull().default(0),
+  name: varchar("name").notNull(),
+  description: text("description").notNull(),
+  taskDescription: text("task_description").notNull(),
+  imageUrl: text("image_url"),
+  imagePrompt: text("image_prompt"),
+  nextScenarioSlug: varchar("next_scenario_slug"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  scenarioZoneOrder: uniqueIndex("scenario_zone_order_idx").on(table.scenarioId, table.zoneOrder),
+}));
+
+export const insertScenarioZoneSchema = createInsertSchema(scenarioZones).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertScenarioZone = z.infer<typeof insertScenarioZoneSchema>;
+export type ScenarioZone = typeof scenarioZones.$inferSelect;
+
 // ===== Reading Modules =====
 
 export const readingModuleImageSchema = z.object({

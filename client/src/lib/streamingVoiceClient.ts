@@ -224,6 +224,8 @@ type StreamingEventType =
   | 'scenarioEnded'      // Active scenario ended
   | 'propUpdate'         // Scenario prop updated
   | 'immersiveMode'      // Enter/exit immersive fullscreen mode
+  | 'zoneAdvanced'       // Scenario zone advanced to next zone
+  | 'zoneImageReady'     // Lazy-generated zone image is now available
   | 'error';
 
 /**
@@ -1187,8 +1189,18 @@ export class StreamingVoiceClient {
           break;
 
         case 'scenario_loaded':
-          console.log('[StreamingVoice] Scenario loaded:', message.scenario?.title);
+          console.log('[StreamingVoice] Scenario loaded:', message.scenario?.title, message.scenario?.zones?.length ? `(${message.scenario.zones.length} zones)` : '');
           this.emit('scenarioLoaded', message);
+          break;
+
+        case 'scene_zone_advanced':
+          console.log('[StreamingVoice] Scene zone advanced → zone', message.zoneIndex, message.zoneName ?? '(complete)');
+          this.emit('zoneAdvanced', message);
+          break;
+
+        case 'scene_zone_image_ready':
+          console.log('[StreamingVoice] Zone image ready for zone', message.zoneId);
+          this.emit('zoneImageReady', message);
           break;
 
         case 'scenario_ended':

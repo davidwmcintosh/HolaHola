@@ -1886,8 +1886,72 @@ NEVER guess. NEVER roleplay searching. Actually call this function.`,
       if (activeScenario.props?.length > 0) {
         parts.push(`Props displayed to student: ${activeScenario.props.map((p: any) => p.title).join(', ')}.`);
       }
+      // Zone context — give Daniela the current zone's task and advance instructions
+      const zones: any[] = activeScenario.zones || [];
+      if (zones.length > 0) {
+        const zone0 = zones[0];
+        parts.push(`SCENE ZONE SYSTEM: This scenario has ${zones.length} sequential scene zone(s). You are currently in zone 1 of ${zones.length}: "${zone0.name}".`);
+        parts.push(`Current zone context: ${zone0.description}`);
+        parts.push(`Task to complete this zone: ${zone0.taskDescription}`);
+        parts.push(`When the student has clearly accomplished that task, call advance_scene() to move to the next scene. Only call it once per zone completion.`);
+        if (zones.length === 1) {
+          parts.push(`This is the only zone — advance_scene() ends the scenario when called.`);
+        }
+      }
       parts.push(`The student's spoken_text introduction has already been played. Now stay in character and begin the roleplay interaction. Do NOT repeat the introduction.`);
       return parts.join(' ');
+    },
+  },
+  {
+    legacyType: 'ADVANCE_SCENE',
+    declaration: {
+      name: "advance_scene",
+      description: `Advance to the next scene zone once the student has successfully completed the current zone's task.
+
+Use this when:
+- The student has clearly accomplished the goal for the current zone (paid the taxi driver, checked into the hotel, ordered successfully, etc.)
+- The conversation has reached a natural transition point to a new physical location or situation
+
+Do NOT use this if:
+- The task is still in progress or the student hasn't completed the goal yet
+- The conversation is still mid-exchange about the current zone's activity
+
+When you call this, the scene image on screen will transition to the next location. Your spoken_text should narrate the transition naturally as if time is passing ("Perfecto, gracias señor. Bueno, aquí estamos en el restaurante...").`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          spoken_text: {
+            type: "string",
+            description: "What Daniela says aloud as the scene transitions — should narrate the physical movement or passage of time between zones",
+          },
+        },
+        required: ["spoken_text"],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const activeScenario = (session as any).activeScenario;
+      const zones: any[] = activeScenario?.zones || [];
+      const newIndex: number = activeScenario?.currentZoneIndex ?? 0;
+      const newZone = zones[newIndex];
+      if (!newZone) {
+        if (activeScenario?.zones?.length > 0) {
+          const lastZone = zones[zones.length - 1];
+          if (lastZone?.nextScenarioSlug) {
+            return `All zones complete. The scene is transitioning to scenario "${lastZone.nextScenarioSlug}". Continue the conversation naturally as you arrive at the new location.`;
+          }
+          return `All zones complete — the scenario has concluded. Wrap up naturally and offer the student a brief recap or next suggestion.`;
+        }
+        return `Scene advanced. Continue the roleplay.`;
+      }
+      const remaining = zones.length - newIndex - 1;
+      return [
+        `Scene advanced to zone ${newIndex + 1} of ${zones.length}: "${newZone.name}".`,
+        `Context: ${newZone.description}`,
+        `New task: ${newZone.taskDescription}`,
+        remaining > 0
+          ? `${remaining} more zone(s) remain after this one. Call advance_scene() again when this zone's task is complete.`
+          : `This is the final zone. Call advance_scene() once the task is done to conclude the scenario.`,
+      ].join(' ');
     },
   },
   {

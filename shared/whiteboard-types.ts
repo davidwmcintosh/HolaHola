@@ -358,6 +358,13 @@ export interface PlayItemData {
  * - situation: What's happening (e.g., "ordering your first café con leche")
  * - mood: Optional atmosphere (e.g., "casual", "formal", "busy")
  */
+export interface ScenarioZoneInfo {
+  id: string;
+  zoneOrder: number;
+  name: string;
+  imageUrl?: string | null;
+}
+
 export interface ScenarioItemData {
   location: string;
   situation: string;
@@ -368,6 +375,9 @@ export interface ScenarioItemData {
   scenarioSlug?: string;
   props?: ScenarioLoadedProp[];
   levelGuide?: ScenarioLevelGuideData | null;
+  zones?: ScenarioZoneInfo[];
+  currentZoneIndex?: number;
+  currentZoneName?: string | null;
 }
 
 export interface ScenarioLoadedProp {

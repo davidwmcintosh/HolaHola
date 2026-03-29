@@ -1,5 +1,39 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Sun, Mar 29, 2026 (session 5 — multi-zone scenario system)
+
+### Completed this session
+
+**Multi-zone scenario system — FULLY IMPLEMENTED** — Scenarios can now advance through sequential zones (e.g. taxi: Pickup → The Ride → Paying) without breaking the conversation. The AI judges task completion and calls `advance_scene()` to trigger a zone transition. The last zone can chain to another scenario via `nextScenarioSlug`.
+
+**Backend (all done in previous session, confirmed this session):**
+1. `shared/schema.ts` — `scenarioZones` table added (id, scenarioId, zoneOrder, name, description, imageUrl, imagePrompt, teachingFocus, nextScenarioSlug); `insertScenarioZoneSchema` + `ScenarioZone` types exported.
+2. `server/services/daniela-function-registry.ts` — `advance_scene()` tool registered; `buildContinuationResponse` updated to include zone context (zone name, task, remaining count) so Daniela knows what she's facilitating in each zone.
+3. `server/services/native-fc-handlers.ts` — `LOAD_SCENARIO` now loads zones from DB, attaches to `session.activeScenario.zones`, uses zone 0's `imageUrl` as the initial scenario image. `ADVANCE_SCENE` case sends `scene_zone_advanced` WS message with `{zoneIndex, zoneName, imageUrl, isChain, nextScenarioSlug, isComplete}`.
+4. `server/routes.ts` — Three new routes: `GET /api/scenarios/:scenarioId/zones`, `POST /api/admin/seed-scenario-zones` (taxi 3 zones + restaurant 3 zones, taxi last zone chains to restaurant), `POST /api/admin/generate-zone-image/:zoneId` (lazy DALL-E for zone images).
+
+**Frontend (completed this session):**
+5. `client/src/lib/streamingVoiceClient.ts` — `scene_zone_advanced` WS message → `zoneAdvanced` event emitted.
+6. `client/src/hooks/useStreamingVoice.ts` — `handleZoneAdvanced` callback wired; `onSceneZoneAdvanced` in session config type; registered on `.on('zoneAdvanced', ...)` and cleaned up on disconnect.
+7. `client/src/components/StreamingVoiceChat.tsx` — `onSceneZoneAdvanced` prop accepted and forwarded in both initial connect and reconnect paths.
+8. `client/src/pages/chat.tsx` — `onSceneZoneAdvanced` handler updates `loadedScenarioData` with `{imageUrl, currentZoneName, currentZoneIndex}`; `activeScenario` derivation includes `zones`, `currentZoneIndex`, `currentZoneName`.
+9. `client/src/components/ScenarioPanel.tsx` — `zoneImageFading` state with `useRef` tracks previous imageUrl; `useEffect` triggers `opacity-0` → `opacity-100` CSS transition (300ms) when imageUrl changes. Zone name badge overlaid on bottom of scenario image (black/50 backdrop); shows `"Zone Name N/Total"` when multi-zone scenario is active.
+10. `shared/whiteboard-types.ts` — `ScenarioZoneInfo` interface + `zones?`, `currentZoneIndex?`, `currentZoneName?` fields on `ScenarioItemData`.
+
+### ACTIVE TODOs (still pending)
+
+- **Seed zone images**: Hit `POST /api/admin/seed-scenario-zones` to create the taxi + restaurant zone rows in DB; then `POST /api/admin/generate-zone-image/:zoneId` for each zone that needs a DALL-E image. Zone 0 image is used as the scenario's initial background image.
+- Run Fix Greetings for **English, French, German, Italian, Portuguese** (to pick up updated SCENE_OVERRIDES for their greeting words and fix Portuguese "de nada").
+- Run Fix Greetings for **Spanish** (to regenerate the 11 courtesy-phrase images with Daniela).
+- Run Fix Numbers/Days (Spanish) in admin to replace the old DALL-E number images with SVGs.
+
+### Key files changed this session
+- `client/src/pages/chat.tsx` — `onSceneZoneAdvanced` handler; `activeScenario` zones fields
+- `client/src/components/ScenarioPanel.tsx` — cross-fade zone image transition; zone name badge
+- `client/src/components/StreamingVoiceChat.tsx` — `onSceneZoneAdvanced` prop forwarded on reconnect
+
+---
+
 ## Session Summary — Sun, Mar 29, 2026 (session 4 — staleTime + SVG numbers)
 
 ### Completed this session

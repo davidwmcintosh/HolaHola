@@ -148,6 +148,7 @@ interface StreamingVoiceChatProps {
   onPropUpdate?: (data: { propTitle: string; updates: Array<{ label: string; value: string }>; updatedFields: Array<{ label: string; value: string }> }) => void;
   onStudioImage?: (image: { word: string; description: string; imageUrl: string; context?: string }) => void;
   onImmersiveModeChange?: (active: boolean) => void;
+  onSceneZoneAdvanced?: (data: { zoneIndex: number; zoneName: string | null; imageUrl: string | null; isChain?: boolean; nextScenarioSlug?: string | null; isComplete?: boolean }) => void;
   /** Override the language sent to the server without touching the user's stored language preference.
    *  Use this for subject pages (biology, history) so their subject identifier reaches the WS handler
    *  but does NOT bleed into the user's learning-language context. */
@@ -174,6 +175,7 @@ export function StreamingVoiceChat({
   onPropUpdate,
   onStudioImage,
   onImmersiveModeChange,
+  onSceneZoneAdvanced,
   targetLanguageOverride,
   homeRoute = '/chat',
 }: StreamingVoiceChatProps) {
@@ -982,6 +984,9 @@ export function StreamingVoiceChat({
           },
           onScenarioEnded: (data) => {
             onScenarioEnded?.(data);
+          },
+          onSceneZoneAdvanced: (data) => {
+            onSceneZoneAdvanced?.(data);
           },
           onPropUpdate: (data) => {
             onPropUpdate?.(data);
@@ -3027,6 +3032,9 @@ export function StreamingVoiceChat({
               },
               onScenarioEnded: (data) => {
                 onScenarioEnded?.(data);
+              },
+              onSceneZoneAdvanced: (data) => {
+                onSceneZoneAdvanced?.(data);
               },
               onPropUpdate: (data) => {
                 onPropUpdate?.(data);

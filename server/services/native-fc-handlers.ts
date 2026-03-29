@@ -2411,6 +2411,27 @@ export class NativeFunctionCallHandler {
                 }
               }
 
+              // ── Load scenario zones ──────────────────────────────────────────────
+              let zones: any[] = [];
+              try {
+                const { scenarioZones } = await import('@shared/schema');
+                zones = await sharedDb.select().from(scenarioZones)
+                  .where(and(eq(scenarioZones.scenarioId, scenario.id), eq(scenarioZones.isActive, true)))
+                  .orderBy(scenarioZones.zoneOrder);
+                if (zones.length > 0) {
+                  session.activeScenario!.zones = zones;
+                  session.activeScenario!.currentZoneIndex = 0;
+                  // Use zone 0's imageUrl if it has one (overrides prop-room fallback)
+                  if (zones[0].imageUrl) resolvedImageUrl = zones[0].imageUrl;
+                  console.log(`[LoadScenario] Loaded ${zones.length} zones for "${scenario.slug}", zone 0: "${zones[0].name}"`);
+                }
+              } catch (zoneErr) {
+                console.warn('[LoadScenario] Zone load failed (non-fatal):', (zoneErr as Error).message);
+              }
+              // ─────────────────────────────────────────────────────────────────────
+
+              const currentZone = zones.length > 0 ? zones[0] : null;
+
               this.sendMessage(session.ws, {
                 type: 'scenario_loaded',
                 timestamp: Date.now(),
@@ -2425,6 +2446,9 @@ export class NativeFunctionCallHandler {
                   imageUrl: resolvedImageUrl,
                   props: session.activeScenario.props,
                   levelGuide: session.activeScenario.levelGuide,
+                  zones: zones.map(z => ({ id: z.id, zoneOrder: z.zoneOrder, name: z.name, imageUrl: z.imageUrl })),
+                  currentZoneIndex: 0,
+                  currentZoneName: currentZone?.name ?? null,
                 },
               });
 
@@ -2460,6 +2484,75 @@ export class NativeFunctionCallHandler {
         if (spokenText && !session.functionCallText) {
           session.functionCallText = spokenText;
         }
+        break;
+      }
+
+      case 'ADVANCE_SCENE': {
+        const advanceSpokenText = fn.args.spoken_text as string | undefined;
+        if (advanceSpokenText && !session.functionCallText) {
+          session.functionCallText = advanceSpokenText;
+        }
+
+        const activeScenario = session.activeScenario as any;
+        if (!activeScenario) {
+          console.warn('[Native Function→AdvanceScene] No active scenario');
+          break;
+        }
+
+        const zones: any[] = activeScenario.zones || [];
+        if (zones.length === 0) {
+          console.log('[Native Function→AdvanceScene] No zones configured for this scenario — ignoring');
+          break;
+        }
+
+        const currentIndex: number = activeScenario.currentZoneIndex ?? 0;
+        const nextIndex = currentIndex + 1;
+
+        if (nextIndex >= zones.length) {
+          // All zones complete — check for chain to another scenario
+          const lastZone = zones[zones.length - 1];
+          if (lastZone.nextScenarioSlug) {
+            console.log(`[Native Function→AdvanceScene] Chain: "${activeScenario.slug}" → "${lastZone.nextScenarioSlug}"`);
+            this.sendMessage(session.ws, {
+              type: 'scene_zone_advanced',
+              timestamp: Date.now(),
+              zoneIndex: -1,
+              zoneName: null,
+              imageUrl: null,
+              isChain: true,
+              nextScenarioSlug: lastZone.nextScenarioSlug,
+            });
+          } else {
+            console.log('[Native Function→AdvanceScene] Final zone complete, no chain');
+            this.sendMessage(session.ws, {
+              type: 'scene_zone_advanced',
+              timestamp: Date.now(),
+              zoneIndex: -1,
+              zoneName: null,
+              imageUrl: null,
+              isComplete: true,
+            });
+          }
+          break;
+        }
+
+        activeScenario.currentZoneIndex = nextIndex;
+        const nextZone = zones[nextIndex];
+        const zoneImageUrl: string | null = nextZone.imageUrl || null;
+
+        console.log(`[Native Function→AdvanceScene] Zone ${currentIndex} → ${nextIndex}: "${nextZone.name}" (image: ${zoneImageUrl ? 'yes' : 'none'})`);
+
+        this.sendMessage(session.ws, {
+          type: 'scene_zone_advanced',
+          timestamp: Date.now(),
+          zoneIndex: nextIndex,
+          zoneName: nextZone.name,
+          imageUrl: zoneImageUrl,
+          description: nextZone.description,
+          taskDescription: nextZone.taskDescription,
+          isChain: false,
+          isComplete: false,
+        });
         break;
       }
 
