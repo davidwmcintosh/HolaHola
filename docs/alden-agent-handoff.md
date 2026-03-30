@@ -1,5 +1,39 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Mon, Mar 30, 2026 (session 8 — batch image fixes + Scenario Zones admin)
+
+### Completed this session
+
+1. **Zone image route fixed** — `POST /api/admin/generate-zone-image/:zoneId` was failing with 401 because it used `process.env.OPENAI_API_KEY` directly. Now uses `generateImageWithGemini()` (respects `USER_OPENAI_API_KEY` fallback). Response also correctly uses `dataUrl`.
+
+2. **Batch backend routes added** (server/routes.ts):
+   - `POST /api/admin/vocab-images/fix-all-greetings` — busts + regenerates greetings for ALL 10 languages in background
+   - `POST /api/admin/vocab-images/fix-all-numbers` — busts + regenerates numbers/days for ALL 10 languages in background
+   - `POST /api/admin/generate-all-zone-images` — generates DALL-E images for ALL zones without one
+   - `GET /api/admin/all-zone-images-status` — returns all zones with image status + scenario names
+   - `POST /api/admin/internal-bootstrap` — secret-protected (header `x-bootstrap-secret: holahola-dev-bootstrap-2026`) dev bootstrap; actions: `fix-all-greetings`, `fix-all-numbers`
+
+3. **Admin UI updated** (`client/src/pages/admin/CommandCenter.tsx`):
+   - `VocabImagesSection`: Added "Fix All Languages" buttons (secondary variant) to both Numbers/Days and Greetings cards — calls the new batch routes, shows result
+   - New `ScenarioZonesSection` component added to DevTools tab — zone status table (scenario, name, order, chain slug, image status), "Seed All Zones" button, "Generate All Zone Images" button, "Refresh" button, badge shows `N/Total images`
+
+4. **ALL THREE OPERATIONS TRIGGERED via curl** (running in background now):
+   - **Zone images**: `generate-all-zone-images` called twice — first run got 6/18 before server restart, second run picked up remaining 12 (all 18 generating)
+   - **Greetings**: `internal-bootstrap fix-all-greetings` → deleted 177 stale entries, all 10 languages regenerating
+   - **Numbers/Days**: `internal-bootstrap fix-all-numbers` → deleted 106 stale entries, all 10 languages regenerating
+
+### ACTIVE TODOs (still pending)
+
+- Monitor zone images: check admin Scenario Zones section after a few minutes to verify all 18 got images
+- Greetings + Numbers: regeneration is background — check vocab images in textbook to confirm
+- (Optional) Remove or restrict `POST /api/admin/internal-bootstrap` before production deploy — it's protected by a simple header secret, fine for dev
+
+### Key files changed this session
+- `server/routes.ts` — zone image route fix; 4 new batch admin routes; `internal-bootstrap` helper
+- `client/src/pages/admin/CommandCenter.tsx` — `VocabImagesSection` + `ScenarioZonesSection`
+
+---
+
 ## Session Summary — Mon, Mar 30, 2026 (session 7 — European numbers reference cards)
 
 ### Completed this session

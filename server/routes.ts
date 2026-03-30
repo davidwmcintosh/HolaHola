@@ -11258,6 +11258,199 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+
+  // ─── BATCH: Fix greetings for ALL languages at once ───────────────────────────
+  app.post('/api/admin/vocab-images/fix-all-greetings', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const allLangs = ['spanish', 'french', 'german', 'italian', 'portuguese', 'english', 'japanese', 'korean', 'mandarin', 'hebrew'];
+      const { bustVocabImageCache, GREETINGS_CACHE_KEYS, GREETINGS_WORDS, normalizeForOverride, SCENE_OVERRIDES } = await import('./services/vocab-image-seed-service');
+      const { resolveVocabularyImage } = await import('./services/vocabulary-image-resolver');
+      let totalDeleted = 0;
+      for (const lang of allLangs) {
+        const keys = GREETINGS_CACHE_KEYS[lang] ?? [];
+        totalDeleted += await bustVocabImageCache(keys);
+      }
+      const jobId = `vocab-fix-all-greetings-${Date.now()}`;
+      (async () => {
+        for (const lang of allLangs) {
+          const words: string[] = GREETINGS_WORDS[lang] ?? [];
+          for (const word of words) {
+            try {
+              const overrideKey = normalizeForOverride(word);
+              const sceneOverride = SCENE_OVERRIDES[`${lang}:${overrideKey}`] ?? SCENE_OVERRIDES[overrideKey];
+              await resolveVocabularyImage({ word, language: lang, description: word, scene: sceneOverride });
+            } catch (e: any) {
+              console.error(`[VocabFix] Failed greeting ${word} (${lang}):`, e.message);
+            }
+          }
+          console.log(`[VocabFix] Finished ${lang} greetings`);
+        }
+        console.log(`[VocabFix] ALL greetings done (job ${jobId})`);
+      })().catch((e: any) => console.error('[VocabFix] Fatal fix-all-greetings:', e.message));
+      res.json({ deleted: totalDeleted, jobId, message: `Busted ${totalDeleted} stale greeting images across all languages. Regenerating in background.` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ─── BATCH: Fix numbers/days for ALL languages at once ───────────────────────
+  app.post('/api/admin/vocab-images/fix-all-numbers', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const allLangs = ['spanish', 'french', 'german', 'italian', 'portuguese', 'english', 'japanese', 'korean', 'mandarin', 'hebrew'];
+      const { bustVocabImageCache, NUMBERS_DAYS_CACHE_KEYS, NUMBERS_DAYS_WORDS, normalizeForOverride, SCENE_OVERRIDES } = await import('./services/vocab-image-seed-service');
+      const { NUMBER_CONCEPT_KEYS, resolveVocabularyImage } = await import('./services/vocabulary-image-resolver');
+      let totalDeleted = 0;
+      for (const lang of allLangs) {
+        const keys = NUMBERS_DAYS_CACHE_KEYS[lang] ?? [];
+        totalDeleted += await bustVocabImageCache([...keys, ...NUMBER_CONCEPT_KEYS]);
+      }
+      const jobId = `vocab-fix-all-numbers-${Date.now()}`;
+      (async () => {
+        for (const lang of allLangs) {
+          const words: string[] = NUMBERS_DAYS_WORDS[lang] ?? [];
+          for (const word of words) {
+            try {
+              const overrideKey = normalizeForOverride(word);
+              const sceneOverride = SCENE_OVERRIDES[`${lang}:${overrideKey}`] ?? SCENE_OVERRIDES[overrideKey];
+              await resolveVocabularyImage({ word, language: lang, description: word, scene: sceneOverride });
+            } catch (e: any) {
+              console.error(`[VocabFix] Failed number/day ${word} (${lang}):`, e.message);
+            }
+          }
+          console.log(`[VocabFix] Finished ${lang} numbers/days`);
+        }
+        console.log(`[VocabFix] ALL numbers/days done (job ${jobId})`);
+      })().catch((e: any) => console.error('[VocabFix] Fatal fix-all-numbers:', e.message));
+      res.json({ deleted: totalDeleted, jobId, message: `Busted ${totalDeleted} stale number/day images across all languages. Regenerating in background.` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ─── BATCH: Generate images for ALL scenario zones that don't have one ────────
+  app.post('/api/admin/generate-all-zone-images', async (req, res) => {
+    try {
+      const { scenarioZones } = await import('@shared/schema');
+      const sharedDb = getSharedDb();
+      const zones = await sharedDb.select().from(scenarioZones).where(isNull(scenarioZones.imageUrl));
+      const jobId = `zone-images-all-${Date.now()}`;
+      (async () => {
+        for (const zone of zones) {
+          if (!zone.imagePrompt) { console.warn(`[ZoneImages] Zone ${zone.name} has no imagePrompt — skipping`); continue; }
+          try {
+            const dataUrl = await generateImageWithGemini(zone.imagePrompt);
+            await sharedDb.update(scenarioZones).set({ imageUrl: dataUrl }).where(eq(scenarioZones.id, zone.id));
+            console.log(`[ZoneImages] Generated image for ${zone.name}`);
+          } catch (e: any) {
+            console.error(`[ZoneImages] Failed for ${zone.name}:`, e.message);
+          }
+        }
+        console.log(`[ZoneImages] All ${zones.length} zone images done (job ${jobId})`);
+      })().catch((e: any) => console.error('[ZoneImages] Fatal:', e.message));
+      res.json({ total: zones.length, jobId, message: `Generating images for ${zones.length} zones in background.` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ─── GET: All zone image status for admin panel ───────────────────────────────
+  app.get('/api/admin/all-zone-images-status', async (req, res) => {
+    try {
+      const { scenarioZones, scenarios } = await import('@shared/schema');
+      const sharedDb = getSharedDb();
+      const zones = await sharedDb
+        .select({
+          id: scenarioZones.id,
+          name: scenarioZones.name,
+          zoneOrder: scenarioZones.zoneOrder,
+          imageUrl: scenarioZones.imageUrl,
+          imagePrompt: scenarioZones.imagePrompt,
+          scenarioId: scenarioZones.scenarioId,
+          nextScenarioSlug: scenarioZones.nextScenarioSlug,
+        })
+        .from(scenarioZones)
+        .orderBy(scenarioZones.scenarioId, scenarioZones.zoneOrder);
+      // Also get scenario names
+      const scenarioList = await sharedDb.select({ id: scenarios.id, title: scenarios.title }).from(scenarios);
+      const scenarioMap = Object.fromEntries(scenarioList.map(s => [s.id, s.title]));
+      const withNames = zones.map(z => ({ ...z, scenarioTitle: scenarioMap[z.scenarioId] || z.scenarioId }));
+      res.json({ zones: withNames, total: withNames.length, withImages: withNames.filter(z => z.imageUrl).length });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+
+  // ─── INTERNAL BOOTSTRAP (dev-only, secret-protected) ─────────────────────────
+  // Used by the agent to trigger mass fixes without needing a browser session.
+  app.post('/api/admin/internal-bootstrap', async (req: any, res) => {
+    const secret = req.headers['x-bootstrap-secret'];
+    if (secret !== 'holahola-dev-bootstrap-2026') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const { action } = req.body as { action: string };
+    try {
+      const { bustVocabImageCache, GREETINGS_CACHE_KEYS, GREETINGS_WORDS,
+              NUMBERS_DAYS_CACHE_KEYS, NUMBERS_DAYS_WORDS, normalizeForOverride, SCENE_OVERRIDES }
+        = await import('./services/vocab-image-seed-service');
+      const { resolveVocabularyImage, NUMBER_CONCEPT_KEYS }
+        = await import('./services/vocabulary-image-resolver');
+      const allLangs = ['spanish', 'french', 'german', 'italian', 'portuguese', 'english', 'japanese', 'korean', 'mandarin', 'hebrew'];
+
+      if (action === 'fix-all-greetings') {
+        let totalDeleted = 0;
+        for (const lang of allLangs) {
+          const keys = GREETINGS_CACHE_KEYS[lang] ?? [];
+          totalDeleted += await bustVocabImageCache(keys);
+        }
+        const jobId = `bootstrap-greetings-${Date.now()}`;
+        (async () => {
+          for (const lang of allLangs) {
+            const words: string[] = GREETINGS_WORDS[lang] ?? [];
+            for (const word of words) {
+              try {
+                const ok = normalizeForOverride(word);
+                const scene = SCENE_OVERRIDES[`${lang}:${ok}`] ?? SCENE_OVERRIDES[ok];
+                await resolveVocabularyImage({ word, language: lang, description: word, scene });
+              } catch (e: any) { console.error(`[Bootstrap] greeting ${word} (${lang}): ${e.message}`); }
+            }
+            console.log(`[Bootstrap] ${lang} greetings done`);
+          }
+          console.log(`[Bootstrap] ALL greetings complete (${jobId})`);
+        })().catch((e: any) => console.error('[Bootstrap] Fatal greetings:', e.message));
+        return res.json({ ok: true, jobId, deleted: totalDeleted, action });
+      }
+
+      if (action === 'fix-all-numbers') {
+        let totalDeleted = 0;
+        for (const lang of allLangs) {
+          const keys = NUMBERS_DAYS_CACHE_KEYS[lang] ?? [];
+          totalDeleted += await bustVocabImageCache([...keys, ...NUMBER_CONCEPT_KEYS]);
+        }
+        const jobId = `bootstrap-numbers-${Date.now()}`;
+        (async () => {
+          for (const lang of allLangs) {
+            const words: string[] = NUMBERS_DAYS_WORDS[lang] ?? [];
+            for (const word of words) {
+              try {
+                const ok = normalizeForOverride(word);
+                const scene = SCENE_OVERRIDES[`${lang}:${ok}`] ?? SCENE_OVERRIDES[ok];
+                await resolveVocabularyImage({ word, language: lang, description: word, scene });
+              } catch (e: any) { console.error(`[Bootstrap] number ${word} (${lang}): ${e.message}`); }
+            }
+            console.log(`[Bootstrap] ${lang} numbers/days done`);
+          }
+          console.log(`[Bootstrap] ALL numbers/days complete (${jobId})`);
+        })().catch((e: any) => console.error('[Bootstrap] Fatal numbers:', e.message));
+        return res.json({ ok: true, jobId, deleted: totalDeleted, action });
+      }
+
+      return res.status(400).json({ error: 'Unknown action' });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Targeted single-word fix — busts just one image and regenerates it immediately.
   app.post('/api/admin/vocab-images/fix-word', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {

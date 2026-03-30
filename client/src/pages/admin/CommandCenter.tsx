@@ -5860,6 +5860,8 @@ function DevToolsTab() {
       <CrossEnvSyncSection />
 
       <VocabImagesSection />
+
+      <ScenarioZonesSection />
     </div>
   );
 }
@@ -6386,6 +6388,8 @@ function VocabImagesSection() {
   const [language, setLanguage] = useState('spanish');
   const [fixNumbersResult, setFixNumbersResult] = useState<any>(null);
   const [fixGreetingsResult, setFixGreetingsResult] = useState<any>(null);
+  const [fixAllGreetingsResult, setFixAllGreetingsResult] = useState<any>(null);
+  const [fixAllNumbersResult, setFixAllNumbersResult] = useState<any>(null);
   const [fixAdjectivesResult, setFixAdjectivesResult] = useState<any>(null);
   const [seedResult, setSeedResult] = useState<any>(null);
   const [fixWordInput, setFixWordInput] = useState('');
@@ -6405,6 +6409,24 @@ function VocabImagesSection() {
     onSuccess: (data: any) => {
       setFixGreetingsResult(data);
       toast({ title: 'Greetings cache busted', description: `Deleted ${data.deleted} stale images. Re-seeding in background.` });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const fixAllGreetingsMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-all-greetings', {}).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setFixAllGreetingsResult(data);
+      toast({ title: 'All greetings cache busted', description: `Deleted ${data.deleted} stale images across all 10 languages. Re-seeding in background.` });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const fixAllNumbersMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-all-numbers', {}).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setFixAllNumbersResult(data);
+      toast({ title: 'All numbers cache busted', description: `Deleted ${data.deleted} stale images across all 10 languages. Re-seeding in background.` });
     },
     onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
   });
@@ -6475,15 +6497,29 @@ function VocabImagesSection() {
                     size="sm"
                     variant="outline"
                     onClick={() => fixNumbersMutation.mutate()}
-                    disabled={fixNumbersMutation.isPending}
+                    disabled={fixNumbersMutation.isPending || fixAllNumbersMutation.isPending}
                     className="w-full"
                     data-testid="button-fix-numbers-days"
                   >
                     {fixNumbersMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
                     Fix Numbers / Days
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => fixAllNumbersMutation.mutate()}
+                    disabled={fixAllNumbersMutation.isPending || fixNumbersMutation.isPending}
+                    className="w-full"
+                    data-testid="button-fix-all-numbers"
+                  >
+                    {fixAllNumbersMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                    Fix All Languages
+                  </Button>
                   {fixNumbersResult && (
                     <p className="text-xs text-muted-foreground">Deleted {fixNumbersResult.deleted} cached entries. Job: {fixNumbersResult.jobId?.slice(-8)}</p>
+                  )}
+                  {fixAllNumbersResult && (
+                    <p className="text-xs text-muted-foreground">All langs: deleted {fixAllNumbersResult.deleted} entries. Job: {fixAllNumbersResult.jobId?.slice(-8)}</p>
                   )}
                 </CardContent>
               </Card>
@@ -6496,15 +6532,29 @@ function VocabImagesSection() {
                     size="sm"
                     variant="outline"
                     onClick={() => fixGreetingsMutation.mutate()}
-                    disabled={fixGreetingsMutation.isPending}
+                    disabled={fixGreetingsMutation.isPending || fixAllGreetingsMutation.isPending}
                     className="w-full"
                     data-testid="button-fix-greetings-cmd"
                   >
                     {fixGreetingsMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
                     Fix Greetings
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => fixAllGreetingsMutation.mutate()}
+                    disabled={fixAllGreetingsMutation.isPending || fixGreetingsMutation.isPending}
+                    className="w-full"
+                    data-testid="button-fix-all-greetings"
+                  >
+                    {fixAllGreetingsMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                    Fix All Languages
+                  </Button>
                   {fixGreetingsResult && (
                     <p className="text-xs text-muted-foreground">Deleted {fixGreetingsResult.deleted} cached entries. Job: {fixGreetingsResult.jobId?.slice(-8)}</p>
+                  )}
+                  {fixAllGreetingsResult && (
+                    <p className="text-xs text-muted-foreground">All langs: deleted {fixAllGreetingsResult.deleted} entries. Job: {fixAllGreetingsResult.jobId?.slice(-8)}</p>
                   )}
                 </CardContent>
               </Card>
@@ -6590,6 +6640,134 @@ function VocabImagesSection() {
                 )}
               </CardContent>
             </Card>
+          </CardContent>
+        </Card>
+      </div>
+    </CollapsibleSection>
+  );
+}
+
+function ScenarioZonesSection() {
+  const { toast } = useToast();
+  const [genAllResult, setGenAllResult] = useState<any>(null);
+  const [seedResult, setSeedResult] = useState<any>(null);
+
+  const { data: zoneStatus, isLoading: zoneStatusLoading, refetch: refetchZones } = useQuery<{
+    zones: Array<{ id: string; name: string; zoneOrder: number; scenarioTitle: string; imageUrl: string | null; imagePrompt: string | null; nextScenarioSlug: string | null }>;
+    total: number;
+    withImages: number;
+  }>({
+    queryKey: ['/api/admin/all-zone-images-status'],
+    staleTime: 30000,
+  });
+
+  const genAllMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/generate-all-zone-images', {}).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setGenAllResult(data);
+      toast({ title: 'Zone image generation started', description: data.message });
+      setTimeout(() => refetchZones(), 5000);
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const seedMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/seed-scenario-zones', {}).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setSeedResult(data);
+      toast({ title: 'Zones seeded', description: `${data.zonesCreated ?? 0} new zones created.` });
+      refetchZones();
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const zones = zoneStatus?.zones ?? [];
+  const missing = zones.filter(z => !z.imageUrl).length;
+
+  return (
+    <CollapsibleSection
+      title="Scenario Zones"
+      icon={<Image className="h-5 w-5 text-primary" />}
+      defaultOpen={false}
+      badge={zoneStatus ? `${zoneStatus.withImages}/${zoneStatus.total} images` : undefined}
+    >
+      <div className="mt-4 space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Zone Images</CardTitle>
+            <CardDescription>
+              Generate DALL-E images for all scenario zones that don't have one yet. Each image depicts the zone environment.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => seedMutation.mutate()}
+                disabled={seedMutation.isPending}
+                data-testid="button-seed-zones"
+              >
+                {seedMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                Seed All Zones
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => genAllMutation.mutate()}
+                disabled={genAllMutation.isPending || missing === 0}
+                data-testid="button-generate-all-zone-images"
+              >
+                {genAllMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Image className="h-3 w-3 mr-1" />}
+                Generate All Zone Images {missing > 0 ? `(${missing} missing)` : '(all done)'}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => refetchZones()} data-testid="button-refresh-zones">
+                <RefreshCw className="h-3 w-3 mr-1" /> Refresh
+              </Button>
+            </div>
+
+            {seedResult && (
+              <p className="text-xs text-muted-foreground">{seedResult.zonesCreated ?? 0} zones seeded.</p>
+            )}
+            {genAllResult && (
+              <p className="text-xs text-muted-foreground">{genAllResult.message} Job: {genAllResult.jobId?.slice(-8)}</p>
+            )}
+
+            {zoneStatusLoading ? (
+              <div className="space-y-2">{[...Array(6)].map((_, i) => <Skeleton key={i} className="h-8" />)}</div>
+            ) : zones.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No zones found. Click "Seed All Zones" to create them.</p>
+            ) : (
+              <div className="rounded-md border overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium">Scenario</th>
+                      <th className="text-left px-3 py-2 font-medium">Zone</th>
+                      <th className="text-left px-3 py-2 font-medium">Order</th>
+                      <th className="text-left px-3 py-2 font-medium">Chain</th>
+                      <th className="text-left px-3 py-2 font-medium">Image</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {zones.map(zone => (
+                      <tr key={zone.id} className="hover-elevate">
+                        <td className="px-3 py-2 text-muted-foreground">{zone.scenarioTitle}</td>
+                        <td className="px-3 py-2 font-medium">{zone.name}</td>
+                        <td className="px-3 py-2 text-center">{zone.zoneOrder + 1}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{zone.nextScenarioSlug ?? '—'}</td>
+                        <td className="px-3 py-2">
+                          {zone.imageUrl ? (
+                            <span className="text-green-600 dark:text-green-400 font-medium">Done</span>
+                          ) : (
+                            <span className="text-amber-600 dark:text-amber-400">Missing</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
