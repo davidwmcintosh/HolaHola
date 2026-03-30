@@ -93,6 +93,19 @@ const ENV_VALID_POSITIONS: Record<string, string[]> = {
   outdoor_market: ['center','left','right','foreground','background','on_floor','on_counter','beside_table'],
   grocery_store:  ['center','left','right','on_floor','on_counter','beside_table'],
   doctor_office:  ['center','left','right','on_table','on_counter','on_chair','on_floor'],
+  pharmacy:       ['center','left','right','on_counter','beside_table','on_floor'],
+  bank:           ['center','left','right','foreground','background','on_counter','on_floor'],
+  networking_event:['center','left','right','foreground','background','on_table','beside_table','on_floor'],
+  // ── Venue sub-environments ──────────────────────────────────────────────────
+  cafe_exterior:       ['center','left','right','foreground','background','on_table','beside_table','on_chair','on_floor'],
+  cafe_counter:        ['center','left','right','foreground','background','on_table','under_table','beside_table','on_chair','on_floor','on_counter'],
+  cafe_table:          ['center','left','right','on_table','under_table','beside_table','on_chair','on_floor'],
+  restaurant_entrance: ['center','left','right','foreground','background','on_floor','on_counter','beside_table','on_chair'],
+  airport_checkin:     ['center','left','right','foreground','background','on_floor','on_chair'],
+  airport_security:    ['center','left','right','foreground','background','on_floor'],
+  airport_gate:        ['center','left','right','foreground','background','on_floor','on_chair'],
+  museum_entrance:     ['center','left','right','foreground','background','on_floor'],
+  museum_gallery:      ['center','left','right','foreground','background','on_floor','on_chair'],
   // ── Close-up zone environments ─────────────────────────────────────────────
   kitchen_counter: ['center','left','right','on_counter','under_counter','on_floor'],
   bedroom_closeup: ['center','left','right','beside_bed','on_table','on_chair','on_floor'],
@@ -742,10 +755,26 @@ const SCENE_PROMPTS: Record<string, string> = {
   chinese_teahouse:  'Traditional Chinese teahouse low tea table viewed from standing height looking slightly downward — a smooth dark rosewood gongfu tea table with a built-in drainage tray occupies the bottom 40% of the image, the near edge running across two-thirds of the way down the frame; below the table polished stone floor with bamboo mat is visible in the bottom 20%; in the upper half: a serene classical teahouse interior — bamboo screens and a sliding rice-paper window open to a misty Chinese garden courtyard with a stone lantern and pine tree, a wooden shelf displaying celadon tea jars and a Yixing clay teapot, hanging calligraphy scroll in ink brush, soft natural daylight filtering through bamboo; the table surface is completely empty and clear',
   israeli_cafe:      'Modern Tel Aviv coffee shop counter viewed from the customer side, looking slightly downward — a smooth white Caesarstone counter surface occupies the bottom 40% of the image, the counter edge running across two-thirds of the way down the frame; a thin strip of Jerusalem stone tile floor is visible at the very bottom; in the upper half: a contemporary Israeli café interior — an espresso machine gleaming on the left, jars of specialty single-origin coffee beans and a hand-grinder, a glass display case showing rugelach, bourekas and ka\'ak cookies, exposed limestone walls typical of Tel Aviv architecture, pendant Edison bulbs hanging from raw concrete ceiling, a chalkboard menu with Hebrew script, Israeli newspapers folded on the counter, a small potted olive branch; warm morning light filtering through large windows; the counter surface is completely empty and clear',
 
-  // ── Scenario-specific environments ────────────────────────────────────────
-  museum:           'Grand museum interior — soaring atrium with marble floors, a ticket booth with brochures, tall arched windows letting in soft natural light, large exhibition banners hanging from the ceiling, visitors strolling, a wide staircase leading to upper galleries in the background',
+  // ── Venue sub-environments ─────────────────────────────────────────────────
+  // Café family
+  cafe_exterior:    'Exterior of a charming neighbourhood café — warm wooden signage above a glass door, a small chalkboard menu on the pavement, two iron bistro tables with chairs on the sidewalk, potted plants flanking the entrance, warm light glowing inside through the window, morning sunlight, passing pedestrians on the street',
+  cafe_counter:     'Interior of a charming coffee shop — wooden counter with espresso machine, chalkboard menu, pastries in glass display case, warm hanging Edison lights, small café tables and chairs visible behind',
+  cafe_table:       'Interior of a cosy café from a seated perspective — a round wooden café table in the foreground with a smooth surface, warm hanging Edison bulbs above, a chalkboard menu on the brick wall, other patrons at nearby tables, soft afternoon light through large windows',
+  // Restaurant family
+  restaurant_entrance: 'Warm restaurant entrance foyer — a wooden hostess stand at the centre with a reservations book open on top, a candlelit dining room visible through a doorway behind, hanging pendant lights, a coat rack and potted plant flanking the entry, polished stone floor, elegant and inviting evening atmosphere',
+  restaurant_table_with_plate: 'Cozy bistro table with food — the warm wood bistro tabletop with white tablecloth occupies the bottom 40% of the image; a main course plate with colourful food is centred on the table; the table edge runs across two-thirds of the way down the frame; bistro chairs to either side; in the upper half: warm candlelit restaurant interior, other tables, brick wall, hanging Edison bulbs',
+  // Airport family
+  airport_checkin:  'A busy international airport terminal interior — long check-in counter staffed by airline agents, departure boards displaying destinations and gate numbers, travellers with luggage carts in queue, large windows overlooking planes on the tarmac',
+  airport_security: 'Airport security screening lane — a belt-conveyor X-ray machine with grey plastic trays stacked at one end, a uniformed security officer beside the scanner, overhead signage about liquids and electronics, a rope-line queuing corridor, bright overhead fluorescent lighting, a second lane visible to one side',
+  airport_gate:     'Modern airport departure gate lounge — rows of padded airport seats with armrests, a large floor-to-ceiling window overlooking aircraft and the tarmac, a gate desk with staff and a digital departure board overhead, travellers reading and looking at phones, a small café kiosk in the background',
+  // Museum family
+  museum_entrance:  'Grand museum entrance atrium — soaring ceilings with marble floors, a ticket booth with brochures fanned out on the counter, tall arched windows letting in soft natural light, large exhibition banners hanging from above, visitors strolling, a wide staircase leading to upper galleries in the background',
+  museum_gallery:   'Inside a museum exhibition gallery — polished hardwood floors, white painted walls displaying large framed artworks and sculptures on plinths, recessed track lighting highlighting each exhibit, a low bench in the centre of the room, small informational plaques beside each piece, a few visitors studying the works',
+  // Transport family
   taxi_interior:    'View from the back seat of a taxi cab — the driver visible in the front seat, a city street stretching ahead through the windshield, tall buildings and pedestrians on the pavement, the back of the front seats and the meter display in the foreground, afternoon daylight',
   hotel_room:       'Cozy hotel room with a neatly made queen bed, crisp white linens, a bedside table with a lamp, a writing desk near the window, curtains open to a city or garden view, a flat-screen television on the wall, welcoming and tidy',
+  // Legacy aliases — same image referenced by alternate name
+  museum:           'Grand museum interior — soaring atrium with marble floors, a ticket booth with brochures, tall arched windows letting in soft natural light, large exhibition banners hanging from the ceiling, visitors strolling, a wide staircase leading to upper galleries in the background',
 
   // ── Close-up zone environments (for preposition lessons) ──────────────────
   // Camera is much closer; the primary surface fills the lower frame so props

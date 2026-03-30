@@ -11468,11 +11468,26 @@ Return ONLY the ${targetLanguage} phrase:`;
       const db = getSharedDb();
       const { visualEnvironments, scenarioZones } = await import('@shared/schema');
 
-      // 1. Insert the 3 new visual_environment rows (ignore conflicts)
+      // 1. Upsert all visual_environment rows (ignore conflicts on existing)
       const newEnvs = [
-        { name: 'museum',        displayName: 'Museum',        description: 'Grand museum interior with marble floors, exhibition banners, and arched windows' },
-        { name: 'taxi_interior', displayName: 'Taxi Interior', description: 'View from the back seat of a taxi cab with city street through the windshield' },
-        { name: 'hotel_room',    displayName: 'Hotel Room',    description: 'Cozy hotel room with neatly made bed, writing desk, and city view' },
+        // Original 3
+        { name: 'museum',               displayName: 'Museum',                description: 'Grand museum interior with marble floors, exhibition banners, and arched windows' },
+        { name: 'taxi_interior',        displayName: 'Taxi Interior',         description: 'View from the back seat of a taxi cab with city street through the windshield' },
+        { name: 'hotel_room',           displayName: 'Hotel Room',            description: 'Cozy hotel room with neatly made bed, writing desk, and city view' },
+        // Café family
+        { name: 'cafe_exterior',        displayName: 'Café Exterior',         description: 'Outside a charming neighbourhood café — bistro tables on the pavement, warm light through windows' },
+        { name: 'cafe_counter',         displayName: 'Café Counter',          description: 'Inside a coffee shop at the order counter — espresso machine, pastries, chalkboard menu' },
+        { name: 'cafe_table',           displayName: 'Café Table',            description: 'Seated at a round café table — Edison bulbs above, other patrons nearby, afternoon light' },
+        // Restaurant family
+        { name: 'restaurant_entrance',       displayName: 'Restaurant Entrance',        description: 'Restaurant entrance foyer with hostess stand, coat rack, and dining room visible behind' },
+        { name: 'restaurant_table_with_plate', displayName: 'Restaurant Table with Food', description: 'Bistro table set with a plate of food — candlelit restaurant interior in the background' },
+        // Airport family
+        { name: 'airport_checkin',      displayName: 'Airport Check-in',      description: 'Airport check-in hall with airline counters, departure boards, and travellers with luggage' },
+        { name: 'airport_security',     displayName: 'Airport Security',      description: 'Security screening lane with X-ray machine, trays, and TSA officer' },
+        { name: 'airport_gate',         displayName: 'Airport Gate',          description: 'Departure gate lounge with padded seats, tarmac view, and gate desk' },
+        // Museum family
+        { name: 'museum_entrance',      displayName: 'Museum Entrance',       description: 'Grand museum entrance atrium — ticket booth, marble floors, arched windows, exhibition banners' },
+        { name: 'museum_gallery',       displayName: 'Museum Gallery',        description: 'Inside a museum exhibition gallery — artworks, sculptures, track lighting, and visitors' },
       ];
       for (const env of newEnvs) {
         await db.execute(sql`
@@ -11488,22 +11503,22 @@ Return ONLY the ${targetLanguage} phrase:`;
         { slug: 'hotel-checkin', order: 0, envName: 'hotel_lobby' },
         { slug: 'hotel-checkin', order: 1, envName: 'hotel_lobby' },
         { slug: 'hotel-checkin', order: 2, envName: 'hotel_room' },
-        // Airport Check-in
-        { slug: 'airport-checkin', order: 0, envName: 'airport' },
-        { slug: 'airport-checkin', order: 1, envName: 'airport' },
-        { slug: 'airport-checkin', order: 2, envName: 'airport' },
-        // Museum Visit
-        { slug: 'museum-visit', order: 0, envName: 'museum' },
-        { slug: 'museum-visit', order: 1, envName: 'museum' },
-        { slug: 'museum-visit', order: 2, envName: 'cafe' },
-        // The Restaurant
-        { slug: 'restaurant', order: 0, envName: 'restaurant_table' },
+        // Airport Check-in — granular stages
+        { slug: 'airport-checkin', order: 0, envName: 'airport_checkin' },
+        { slug: 'airport-checkin', order: 1, envName: 'airport_security' },
+        { slug: 'airport-checkin', order: 2, envName: 'airport_gate' },
+        // Museum Visit — granular stages
+        { slug: 'museum-visit', order: 0, envName: 'museum_entrance' },
+        { slug: 'museum-visit', order: 1, envName: 'museum_gallery' },
+        { slug: 'museum-visit', order: 2, envName: 'cafe_table' },
+        // The Restaurant — granular stages
+        { slug: 'restaurant', order: 0, envName: 'restaurant_entrance' },
         { slug: 'restaurant', order: 1, envName: 'restaurant_table' },
         { slug: 'restaurant', order: 2, envName: 'restaurant_table' },
-        // The Coffee Shop
-        { slug: 'coffee-shop', order: 0, envName: 'city_street' },
-        { slug: 'coffee-shop', order: 1, envName: 'cafe' },
-        { slug: 'coffee-shop', order: 2, envName: 'cafe' },
+        // The Coffee Shop — granular stages
+        { slug: 'coffee-shop', order: 0, envName: 'cafe_exterior' },
+        { slug: 'coffee-shop', order: 1, envName: 'cafe_counter' },
+        { slug: 'coffee-shop', order: 2, envName: 'cafe_table' },
         // The Taxi Ride
         { slug: 'taxi-ride', order: 0, envName: 'city_street' },
         { slug: 'taxi-ride', order: 1, envName: 'taxi_interior' },

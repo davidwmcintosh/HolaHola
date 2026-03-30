@@ -576,12 +576,25 @@ PREPOSITION → POSITION MAPPING:
             type: "string",
             description: "The base scene to use",
             enum: [
-              "cafe", "restaurant_table", "restaurant_table_with_plate",
-              "kitchen", "kitchen_counter", "grocery_store", "outdoor_market", "city_street", "park",
-              "living_room", "bedroom", "bedroom_closeup", "bathroom", "desk_closeup",
-              "airport", "hotel_lobby", "hotel_room", "taxi_interior",
-              "museum", "office", "classroom", "networking_event", "bank",
-              "doctor_office", "pharmacy",
+              // Café family
+              "cafe_exterior", "cafe_counter", "cafe_table",
+              // Restaurant family
+              "restaurant_entrance", "restaurant_table", "restaurant_table_with_plate",
+              // Hotel family
+              "hotel_lobby", "hotel_room",
+              // Airport family
+              "airport_checkin", "airport_security", "airport_gate",
+              // Museum family
+              "museum_entrance", "museum_gallery",
+              // Transport
+              "city_street", "taxi_interior",
+              // Home
+              "kitchen", "kitchen_counter", "living_room", "bedroom", "bedroom_closeup", "bathroom", "desk_closeup",
+              // Outdoor / shopping
+              "park", "outdoor_market", "grocery_store",
+              // Professional / institutional
+              "office", "classroom", "networking_event", "bank", "doctor_office", "pharmacy",
+              // Language-specific venues
               "taqueria", "french_brasserie", "japanese_izakaya", "german_biergarten",
               "italian_trattoria", "korean_bbq", "chinese_teahouse", "israeli_cafe",
             ],
@@ -689,20 +702,37 @@ Use the live canvas only when the SEQUENCE of changes is pedagogically meaningfu
           text: { type: "string", description: "What you're saying aloud as you open the scene." },
           environment: {
             type: "string",
-            description: `The background environment to load. Choose the one that best matches the physical location of the lesson:
-- Daily life: cafe, restaurant_table, restaurant_table_with_plate, kitchen, kitchen_counter, grocery_store, outdoor_market, city_street, park
-- Home: living_room, bedroom, bedroom_closeup, bathroom, desk_closeup
-- Travel: airport (check-in hall), hotel_lobby (reception/concierge), hotel_room (guest room), taxi_interior (backseat of a cab)
-- Cultural/professional: museum (grand atrium), office, classroom, networking_event, bank
-- Health: doctor_office, pharmacy
+            description: `The background environment to load. Choose the most specific sub-environment that matches the physical location:
+- Café: cafe_exterior (outside, street), cafe_counter (ordering at counter), cafe_table (seated inside)
+- Restaurant: restaurant_entrance (arriving, hostess stand), restaurant_table (seated), restaurant_table_with_plate (seated, food served)
+- Hotel: hotel_lobby (reception/concierge), hotel_room (guest room)
+- Airport: airport_checkin (check-in hall), airport_security (screening lane), airport_gate (departure lounge)
+- Museum: museum_entrance (atrium/ticket booth), museum_gallery (exhibition rooms)
+- Transport: city_street (street, flagging cab, arriving), taxi_interior (back seat of taxi)
+- Home: living_room, kitchen, kitchen_counter, bedroom, bedroom_closeup, bathroom, desk_closeup
+- Outdoor / shopping: park, outdoor_market, grocery_store
+- Professional: office, classroom, networking_event, bank, doctor_office, pharmacy
 - Language-specific venues: taqueria, french_brasserie, japanese_izakaya, german_biergarten, italian_trattoria, korean_bbq, chinese_teahouse, israeli_cafe`,
             enum: [
-              "cafe", "restaurant_table", "restaurant_table_with_plate",
-              "kitchen", "kitchen_counter", "grocery_store", "outdoor_market", "city_street", "park",
-              "living_room", "bedroom", "bedroom_closeup", "bathroom", "desk_closeup",
-              "airport", "hotel_lobby", "hotel_room", "taxi_interior",
-              "museum", "office", "classroom", "networking_event", "bank",
-              "doctor_office", "pharmacy",
+              // Café family
+              "cafe_exterior", "cafe_counter", "cafe_table",
+              // Restaurant family
+              "restaurant_entrance", "restaurant_table", "restaurant_table_with_plate",
+              // Hotel family
+              "hotel_lobby", "hotel_room",
+              // Airport family
+              "airport_checkin", "airport_security", "airport_gate",
+              // Museum family
+              "museum_entrance", "museum_gallery",
+              // Transport
+              "city_street", "taxi_interior",
+              // Home
+              "kitchen", "kitchen_counter", "living_room", "bedroom", "bedroom_closeup", "bathroom", "desk_closeup",
+              // Outdoor / shopping
+              "park", "outdoor_market", "grocery_store",
+              // Professional / institutional
+              "office", "classroom", "networking_event", "bank", "doctor_office", "pharmacy",
+              // Language-specific venues
               "taqueria", "french_brasserie", "japanese_izakaya", "german_biergarten",
               "italian_trattoria", "korean_bbq", "chinese_teahouse", "israeli_cafe",
             ],
