@@ -486,6 +486,19 @@ function getDallEImageClient(): OpenAI {
   return new OpenAI({ apiKey: key });
 }
 
+// Directives that conflict with the watercolor illustration style
+const CONFLICTING_STYLE_TERMS = /,?\s*(photorealistic|photo[-\s]?realistic|no\s+people|no\s+text|realistic|hyper[-\s]?realistic)/gi;
+
+/**
+ * Build a zone image prompt that matches the existing scene background style.
+ * Strips any conflicting directives from the stored prompt and appends SCENE_STYLE.
+ */
+async function buildZoneImagePrompt(rawPrompt: string): Promise<string> {
+  const { SCENE_STYLE } = await import('./services/prop-room-compositor');
+  const cleaned = rawPrompt.replace(CONFLICTING_STYLE_TERMS, '').replace(/,\s*$/, '').trim();
+  return `${cleaned}. ${SCENE_STYLE}`;
+}
+
 /**
  * Register a zone image in the media_files library for admin visibility.
  */
@@ -11372,7 +11385,8 @@ Return ONLY the ${targetLanguage} phrase:`;
         for (const zone of zones) {
           if (!zone.imagePrompt) { console.warn(`[ZoneImages] Zone ${zone.name} has no imagePrompt — skipping`); continue; }
           try {
-            const dataUrl = await generateImageWithGemini(zone.imagePrompt);
+            const styledPrompt = await buildZoneImagePrompt(zone.imagePrompt);
+            const dataUrl = await generateImageWithGemini(styledPrompt);
             await sharedDb.update(scenarioZones).set({ imageUrl: dataUrl }).where(eq(scenarioZones.id, zone.id));
             // Mirror in the Image Library
             const scenarioTitle = scenarioTitleMap[zone.scenarioId] ?? 'Scenario';

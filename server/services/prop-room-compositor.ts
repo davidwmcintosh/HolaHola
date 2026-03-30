@@ -680,7 +680,7 @@ export async function listVisualLibrary(): Promise<{ environments: any[]; assetC
 // Base scene image generation
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SCENE_STYLE = 'warm illustrated watercolor style, soft natural lighting, inviting and welcoming atmosphere, culturally diverse people, no visible text or signs or labels on objects, language learning educational context, suitable for all ages, wide establishing shot';
+export const SCENE_STYLE = 'warm illustrated watercolor style, soft natural lighting, inviting and welcoming atmosphere, culturally diverse people, no visible text or signs or labels on objects, language learning educational context, suitable for all ages, wide establishing shot';
 
 // Style for close-up zone environments — same illustrated watercolor feel but camera is much closer.
 // These environments exist specifically for preposition lessons where surface geometry matters.
