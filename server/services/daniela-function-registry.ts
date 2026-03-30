@@ -1951,7 +1951,7 @@ When you call this, the scene image on screen will transition to the next locati
         if (activeScenario?.zones?.length > 0) {
           const lastZone = zones[zones.length - 1];
           if (lastZone?.nextScenarioSlug) {
-            return `All zones complete. The scene is transitioning to scenario "${lastZone.nextScenarioSlug}". Continue the conversation naturally as you arrive at the new location.`;
+            return `All zones complete. NOW IMMEDIATELY call load_scenario("${lastZone.nextScenarioSlug}") — your spoken_text for load_scenario should narrate the transition (e.g. "¡Excelente! Aquí llegamos al museo..."). Do NOT continue the current scenario — call load_scenario now.`;
           }
           return `All zones complete — the scenario has concluded. Wrap up naturally and offer the student a brief recap or next suggestion.`;
         }

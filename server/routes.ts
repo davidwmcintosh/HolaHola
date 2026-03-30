@@ -30036,24 +30036,12 @@ You have full access to your neural network knowledge.
       if (!zone) return res.status(404).json({ error: "Zone not found" });
       if (!zone.imagePrompt) return res.status(400).json({ error: "Zone has no imagePrompt" });
 
-      // Use DALL-E via the vocabulary image resolver pattern
-      const OpenAI = (await import('openai')).default;
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      // Use the shared getDallEImageClient helper (respects USER_OPENAI_API_KEY fallback)
+      const dataUrl = await generateImageWithGemini(zone.imagePrompt);
 
-      const response = await openai.images.generate({
-        model: "dall-e-3",
-        prompt: zone.imagePrompt,
-        n: 1,
-        size: "1792x1024",
-        quality: "standard",
-      });
+      await sharedDb.update(scenarioZones).set({ imageUrl: dataUrl }).where(eq(scenarioZones.id, zoneId));
 
-      const imageUrl = response.data[0]?.url;
-      if (!imageUrl) return res.status(500).json({ error: "No image URL returned from DALL-E" });
-
-      await sharedDb.update(scenarioZones).set({ imageUrl }).where(eq(scenarioZones.id, zoneId));
-
-      res.json({ success: true, imageUrl, zoneId, zoneName: zone.name });
+      res.json({ success: true, imageUrl: dataUrl, zoneId, zoneName: zone.name });
     } catch (error: any) {
       console.error("[ScenarioZones] Generate image error:", error);
       res.status(500).json({ error: error.message });
