@@ -105,12 +105,18 @@ interface TextbookContent {
   actfl_level?: string;
 }
 
+const INLINE_SUPPRESS_TYPES = new Set([
+  'ja_numbers', 'ko_numbers', 'zh_numbers', 'he_numbers',
+  'es_numbers', 'fr_numbers', 'de_numbers', 'it_numbers', 'pt_numbers', 'en_numbers',
+]);
+
 function InlineLessonContent({ lessonId, lessonName, language }: {
   lessonId: string;
   lessonName: string;
   language: string;
 }) {
   const referenceType = classifyGrammarType(lessonName, language);
+  const inlineRefType = referenceType && INLINE_SUPPRESS_TYPES.has(referenceType) ? null : referenceType;
 
   const { data, isLoading } = useQuery<{ content: TextbookContent | null }>({
     queryKey: ["/api/textbook-content", lessonId],
@@ -121,8 +127,8 @@ function InlineLessonContent({ lessonId, lessonName, language }: {
 
   return (
     <div className="space-y-4 pt-1">
-      {referenceType && (
-        <GrammarChapterView type={referenceType} chapterNumber={0} language={language} />
+      {inlineRefType && (
+        <GrammarChapterView type={inlineRefType} chapterNumber={0} language={language} />
       )}
 
       {isLoading && (

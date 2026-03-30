@@ -29,7 +29,11 @@
 ### Key files changed this session
 - `client/src/components/TextbookNumbersCards.tsx` — **NEW FILE** — All 6 language numbers cards
 - `client/src/components/ChapterIntroduction.tsx` — Import, type union, classify functions, metadata, render blocks
-- `client/src/components/TextbookChapterView.tsx` — `LANG_SPECIFIC_NUMBER_TYPES` set expanded
+- `client/src/components/TextbookChapterView.tsx` — `LANG_SPECIFIC_NUMBER_TYPES` set expanded; `INLINE_SUPPRESS_TYPES` added to prevent duplicate inline card in `InlineLessonContent`
+
+### Duplicate reference card bug fix (same session)
+`InlineLessonContent` also calls `classifyGrammarType(lessonName, language)` — so "Practice Time: Numbers 0-20" (contains "numbers") was ALSO triggering `es_numbers` and showing the card inline inside each expanded lesson, producing a duplicate.
+Fix: Added `INLINE_SUPPRESS_TYPES` set (all 10 number types) at top of file. `InlineLessonContent` now nulls out the `inlineRefType` when it's in that set, so the reference card renders **only** at the chapter level via `ChapterIntroduction` — never again inline at lesson level for numbers chapters.
 
 ---
 
