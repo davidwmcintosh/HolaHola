@@ -591,9 +591,9 @@ PREPOSITION → POSITION MAPPING:
               // Home
               "kitchen", "kitchen_counter", "living_room", "bedroom", "bedroom_closeup", "bathroom", "desk_closeup",
               // Outdoor / shopping
-              "park", "outdoor_market", "grocery_store",
-              // Professional / institutional
-              "office", "classroom", "networking_event", "bank", "doctor_office", "pharmacy",
+              "park", "outdoor_market", "grocery_store", "clothing_store",
+              // Professional / institutional / cultural
+              "office", "classroom", "library", "networking_event", "bank", "doctor_office", "pharmacy",
               // Language-specific venues
               "taqueria", "french_brasserie", "japanese_izakaya", "german_biergarten",
               "italian_trattoria", "korean_bbq", "chinese_teahouse", "israeli_cafe",
@@ -710,8 +710,8 @@ Use the live canvas only when the SEQUENCE of changes is pedagogically meaningfu
 - Museum: museum_entrance (atrium/ticket booth), museum_gallery (exhibition rooms)
 - Transport: city_street (street, flagging cab, arriving), taxi_interior (back seat of taxi)
 - Home: living_room, kitchen, kitchen_counter, bedroom, bedroom_closeup, bathroom, desk_closeup
-- Outdoor / shopping: park, outdoor_market, grocery_store
-- Professional: office, classroom, networking_event, bank, doctor_office, pharmacy
+- Outdoor / shopping: park, outdoor_market, grocery_store, clothing_store (boutique with racks and fitting rooms)
+- Professional / cultural: office, classroom, library (public library with tall bookshelves), networking_event, bank, doctor_office, pharmacy
 - Language-specific venues: taqueria, french_brasserie, japanese_izakaya, german_biergarten, italian_trattoria, korean_bbq, chinese_teahouse, israeli_cafe`,
             enum: [
               // Café family
@@ -729,9 +729,9 @@ Use the live canvas only when the SEQUENCE of changes is pedagogically meaningfu
               // Home
               "kitchen", "kitchen_counter", "living_room", "bedroom", "bedroom_closeup", "bathroom", "desk_closeup",
               // Outdoor / shopping
-              "park", "outdoor_market", "grocery_store",
-              // Professional / institutional
-              "office", "classroom", "networking_event", "bank", "doctor_office", "pharmacy",
+              "park", "outdoor_market", "grocery_store", "clothing_store",
+              // Professional / institutional / cultural
+              "office", "classroom", "library", "networking_event", "bank", "doctor_office", "pharmacy",
               // Language-specific venues
               "taqueria", "french_brasserie", "japanese_izakaya", "german_biergarten",
               "italian_trattoria", "korean_bbq", "chinese_teahouse", "israeli_cafe",
