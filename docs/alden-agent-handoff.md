@@ -37,6 +37,8 @@
 - The `scenario_zones.imageUrl` and `imagePrompt` columns could eventually be dropped, but only after confirming no zones still rely on them
 - The `generate-scene-images` route is unprotected (no admin auth required) — should be secured before prod
 - The `seed-zone-environments` route is idempotent (uses `ON CONFLICT (name) DO NOTHING`) — safe to re-run
+- **TERMINOLOGY SETTLED**: User says "stages" not "zones" for `scenario_zones`. The UI now uses "stages" in user-facing labels. Internal variable names (`zone_count`, `showZonesOnly`) unchanged.
+- **Daniela function registry updated (same session)**: `open_scene` and `compose_visual_scene` environment enums now include all 34 environments (museum, taxi_interior, hotel_room, bank, pharmacy, networking_event, restaurant_table_with_plate added). `open_scene` environment description now has grouped categories with brief descriptions.
 
 ---
 

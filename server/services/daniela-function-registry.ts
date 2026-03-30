@@ -575,7 +575,16 @@ PREPOSITION → POSITION MAPPING:
           environment: {
             type: "string",
             description: "The base scene to use",
-            enum: ["cafe", "restaurant_table", "hotel_lobby", "kitchen", "living_room", "bedroom", "bathroom", "park", "airport", "city_street", "office", "classroom", "outdoor_market", "grocery_store", "doctor_office", "kitchen_counter", "bedroom_closeup", "desk_closeup", "taqueria", "french_brasserie", "japanese_izakaya", "german_biergarten", "italian_trattoria", "korean_bbq", "chinese_teahouse", "israeli_cafe"],
+            enum: [
+              "cafe", "restaurant_table", "restaurant_table_with_plate",
+              "kitchen", "kitchen_counter", "grocery_store", "outdoor_market", "city_street", "park",
+              "living_room", "bedroom", "bedroom_closeup", "bathroom", "desk_closeup",
+              "airport", "hotel_lobby", "hotel_room", "taxi_interior",
+              "museum", "office", "classroom", "networking_event", "bank",
+              "doctor_office", "pharmacy",
+              "taqueria", "french_brasserie", "japanese_izakaya", "german_biergarten",
+              "italian_trattoria", "korean_bbq", "chinese_teahouse", "israeli_cafe",
+            ],
           },
           objects: {
             type: "array",
@@ -680,8 +689,23 @@ Use the live canvas only when the SEQUENCE of changes is pedagogically meaningfu
           text: { type: "string", description: "What you're saying aloud as you open the scene." },
           environment: {
             type: "string",
-            description: "The background environment to load.",
-            enum: ["cafe", "restaurant_table", "hotel_lobby", "kitchen", "living_room", "bedroom", "bathroom", "park", "airport", "city_street", "office", "classroom", "outdoor_market", "grocery_store", "doctor_office", "kitchen_counter", "bedroom_closeup", "desk_closeup", "taqueria", "french_brasserie", "japanese_izakaya", "german_biergarten", "italian_trattoria", "korean_bbq", "chinese_teahouse", "israeli_cafe"],
+            description: `The background environment to load. Choose the one that best matches the physical location of the lesson:
+- Daily life: cafe, restaurant_table, restaurant_table_with_plate, kitchen, kitchen_counter, grocery_store, outdoor_market, city_street, park
+- Home: living_room, bedroom, bedroom_closeup, bathroom, desk_closeup
+- Travel: airport (check-in hall), hotel_lobby (reception/concierge), hotel_room (guest room), taxi_interior (backseat of a cab)
+- Cultural/professional: museum (grand atrium), office, classroom, networking_event, bank
+- Health: doctor_office, pharmacy
+- Language-specific venues: taqueria, french_brasserie, japanese_izakaya, german_biergarten, italian_trattoria, korean_bbq, chinese_teahouse, israeli_cafe`,
+            enum: [
+              "cafe", "restaurant_table", "restaurant_table_with_plate",
+              "kitchen", "kitchen_counter", "grocery_store", "outdoor_market", "city_street", "park",
+              "living_room", "bedroom", "bedroom_closeup", "bathroom", "desk_closeup",
+              "airport", "hotel_lobby", "hotel_room", "taxi_interior",
+              "museum", "office", "classroom", "networking_event", "bank",
+              "doctor_office", "pharmacy",
+              "taqueria", "french_brasserie", "japanese_izakaya", "german_biergarten",
+              "italian_trattoria", "korean_bbq", "chinese_teahouse", "israeli_cafe",
+            ],
           },
           label: { type: "string", description: "Optional short label shown as the scene title (e.g. 'En el restaurante')" },
         },
