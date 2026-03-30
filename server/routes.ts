@@ -11374,9 +11374,12 @@ Return ONLY the ${targetLanguage} phrase:`;
   // ─── BATCH: Generate images for ALL scenario zones that don't have one ────────
   app.post('/api/admin/generate-all-zone-images', async (req, res) => {
     try {
+      const force = req.body?.force === true;
       const { scenarioZones, scenarios } = await import('@shared/schema');
       const sharedDb = getSharedDb();
-      const zones = await sharedDb.select().from(scenarioZones).where(isNull(scenarioZones.imageUrl));
+      const zones = force
+        ? await sharedDb.select().from(scenarioZones)
+        : await sharedDb.select().from(scenarioZones).where(isNull(scenarioZones.imageUrl));
       // Build scenario title map for media library records
       const scenarioList = await sharedDb.select({ id: scenarios.id, title: scenarios.title }).from(scenarios);
       const scenarioTitleMap = Object.fromEntries(scenarioList.map((s: any) => [s.id, s.title]));
@@ -30310,8 +30313,9 @@ You have full access to your neural network knowledge.
       const [scenario] = await sharedDb.select({ title: scenarios.title }).from(scenarios).where(eq(scenarios.id, zone.scenarioId)).limit(1);
       const scenarioTitle = scenario?.title ?? 'Scenario';
 
-      // Use the shared getDallEImageClient helper (respects USER_OPENAI_API_KEY fallback)
-      const dataUrl = await generateImageWithGemini(zone.imagePrompt);
+      // Build prompt using the same watercolor illustration style as scene backgrounds
+      const styledPrompt = await buildZoneImagePrompt(zone.imagePrompt);
+      const dataUrl = await generateImageWithGemini(styledPrompt);
 
       await sharedDb.update(scenarioZones).set({ imageUrl: dataUrl }).where(eq(scenarioZones.id, zoneId));
       // Mirror in the Image Library so it appears alongside all other admin-managed media
