@@ -5014,7 +5014,7 @@ function SceneAndPropImageSections() {
             onClick={() => setShowZonesOnly(v => !v)}
             data-testid="button-scene-filter-zones"
           >
-            {showZonesOnly ? 'Showing scenario zones only' : `Show scenario zones only (${zoneCount})`}
+            {showZonesOnly ? 'Showing scenario stages only' : `Show scenario stages only (${zoneCount})`}
           </Button>
           <span className="text-xs text-muted-foreground">Click any image to preview. Hover for controls.</span>
         </div>
@@ -5041,11 +5041,11 @@ function SceneAndPropImageSections() {
                     loading="lazy"
                   />
                 </div>
-                {/* Zone count badge — top right */}
+                {/* Stage count badge — top right */}
                 {Number(img.zone_count) > 0 && (
                   <div className="absolute top-1 right-1">
                     <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-black/70 text-white border-0">
-                      {img.zone_count} {Number(img.zone_count) === 1 ? 'zone' : 'zones'}
+                      {img.zone_count} {Number(img.zone_count) === 1 ? 'stage' : 'stages'}
                     </Badge>
                   </div>
                 )}
