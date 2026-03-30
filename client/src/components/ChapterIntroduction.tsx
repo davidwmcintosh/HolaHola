@@ -133,6 +133,12 @@ import {
   ItTROVAREFamilyCard, ItPENSAREFamilyCard, resolveItFamilyCard,
 } from "./TextbookItalianWordFamilies";
 
+// ── European numbers cards (ES / FR / DE / IT / PT / EN) ─────────────────────
+import {
+  EsNumbersCard, FrNumbersCard, DeNumbersCard,
+  ItNumbersCard, PtNumbersCard, EnNumbersCard,
+} from "./TextbookNumbersCards";
+
 // ── Japanese ──────────────────────────────────────────────────────────────────
 import {
   JaHiraganaCard, JaKatakanaCard, JaKanjiBasicsCard,
@@ -270,6 +276,8 @@ type GrammarChapterType =
   | 'imperfect' | 'future' | 'conditional' | 'subjunctive' | 'commands'
   | 'gender_articles' | 'adjective_agreement' | 'object_pronouns'
   | 'negation_questions' | 'tu_usted'
+  // ── SPANISH numbers card ────────────────────────────────────────────────
+  | 'es_numbers'
   // ── SPANISH Section 4 — Preposition maps ────────────────────────────────
   | 'spatial_prep' | 'temporal_prep'
   // ── SPANISH Section 5 — Cultural infographics ───────────────────────────
@@ -284,6 +292,8 @@ type GrammarChapterType =
   // ── SPANISH Section 8 — Phonetic guides ─────────────────────────────────
   | 'vowel_purity' | 'rolled_r' | 'bv_sound' | 'silent_h'
   | 'j_sound' | 'nyen_sound' | 'lly_sound' | 'stress_accent' | 'linking_sounds'
+  // ── FRENCH numbers card ──────────────────────────────────────────────────
+  | 'fr_numbers'
   // ── FRENCH Section 3 — Grammar diagrams ─────────────────────────────────
   | 'fr_etre' | 'fr_avoir' | 'fr_aller' | 'fr_faire'
   | 'fr_er_verbs' | 'fr_ir_verbs' | 'fr_re_verbs'
@@ -304,6 +314,8 @@ type GrammarChapterType =
   | 'fr_nasal_vowels' | 'fr_french_r' | 'fr_liaison'
   | 'fr_u_sound' | 'fr_eu_sound' | 'fr_silent_consonants'
   | 'fr_written_accents' | 'fr_intonation' | 'fr_elision'
+  // ── PORTUGUESE numbers card ───────────────────────────────────────────────
+  | 'pt_numbers'
   // ── PORTUGUESE Section 3 — Grammar ──────────────────────────────────────
   | 'pt_ser_estar' | 'pt_ser_only' | 'pt_estar_only'
   | 'pt_ter' | 'pt_ir'
@@ -322,6 +334,8 @@ type GrammarChapterType =
   | 'pt_nasal_vowels' | 'pt_portuguese_r' | 'pt_lh_nh'
   | 'pt_vowel_reduction' | 'pt_ti_di' | 'pt_stress_accent'
   | 'pt_eu_vs_br' | 'pt_linking' | 'pt_intonation'
+  // ── GERMAN numbers card ──────────────────────────────────────────────────
+  | 'de_numbers'
   // ── GERMAN Section 3 — Grammar ───────────────────────────────────────────
   | 'de_sein' | 'de_haben' | 'de_werden'
   | 'de_regular_verbs' | 'de_modal_verbs' | 'de_reflexive'
@@ -340,6 +354,8 @@ type GrammarChapterType =
   | 'de_umlauts' | 'de_eszett' | 'de_german_r' | 'de_ch_sound'
   | 'de_long_short_vowels' | 'de_w_v_sound' | 'de_consonant_clusters'
   | 'de_word_stress' | 'de_diphthongs'
+  // ── ITALIAN numbers card ─────────────────────────────────────────────────
+  | 'it_numbers'
   // ── ITALIAN Section 3 — Grammar ──────────────────────────────────────────
   | 'it_essere' | 'it_avere' | 'it_stare' | 'it_regular_verbs'
   | 'it_modal_verbs' | 'it_reflexive'
@@ -425,10 +441,15 @@ type GrammarChapterType =
   // ── HEBREW Section 8 — Phonetics ─────────────────────────────────────────
   | 'he_alefbet_chart' | 'he_vowel_system' | 'he_gutturals'
   | 'he_shin_sin' | 'he_dagesh' | 'he_stress'
-  | 'he_modern_biblical' | 'he_vowel_reduction' | 'he_pronunciation_overview';
+  | 'he_modern_biblical' | 'he_vowel_reduction' | 'he_pronunciation_overview'
+  // ── ENGLISH numbers card ──────────────────────────────────────────────────
+  | 'en_numbers';
 
 function classifyFrenchGrammarType(title: string): GrammarChapterType | null {
   const lower = title.toLowerCase();
+
+  // ── Numbers ───────────────────────────────────────────────────────────────
+  if (lower.includes('number') || lower.includes('nombre') || lower.includes('les nombres') || lower.includes('les chiffres') || lower.includes('chiffre') || lower.includes('compter') || lower.includes('counting')) return 'fr_numbers';
 
   // ── Section 3 — French grammar ──────────────────────────────────────────
   if (lower.includes('être') && lower.includes('avoir') && (lower.includes('vs') || lower.includes('auxiliaire') || lower.includes('versus') || lower.includes(' et '))) return 'fr_passe_compose_avoir'; // PC context
@@ -507,6 +528,9 @@ function classifyFrenchGrammarType(title: string): GrammarChapterType | null {
 function classifyPortugueseGrammarType(title: string): GrammarChapterType | null {
   const lower = title.toLowerCase();
 
+  // ── Numbers ───────────────────────────────────────────────────────────────
+  if (lower.includes('number') || lower.includes('número') || lower.includes('os números') || lower.includes('os numeros') || lower.includes('numeros') || lower.includes('contar') || lower.includes('counting')) return 'pt_numbers';
+
   // ── Section 3 — Core verbs (most specific first) ─────────────────────────
   if ((lower.includes('ser') && lower.includes('estar')) || (lower.includes('ser vs') || lower.includes('ser e estar'))) return 'pt_ser_estar';
   if (lower === 'ser' || lower.includes('verbo ser') || (lower.startsWith('ser') && !lower.includes('estar'))) return 'pt_ser_only';
@@ -570,6 +594,9 @@ function classifyPortugueseGrammarType(title: string): GrammarChapterType | null
 function classifyGermanGrammarType(title: string): GrammarChapterType | null {
   const lower = title.toLowerCase();
 
+  // ── Numbers ───────────────────────────────────────────────────────────────
+  if (lower.includes('number') || lower.includes('zahlen') || lower.includes('die zahlen') || lower.includes('zählen') || lower.includes('counting') || lower.includes('numeral')) return 'de_numbers';
+
   // ── Core verbs ────────────────────────────────────────────────────────────
   if (lower === 'sein' || lower.includes('das verb sein') || lower.includes('verb sein') || (lower.startsWith('sein') && !lower.includes('haben') && !lower.includes('werden'))) return 'de_sein';
   if ((lower === 'haben' || lower.includes('das verb haben') || lower.includes('verb haben') || (lower.startsWith('haben') && !lower.includes('sein') && !lower.includes('werden'))) && !lower.includes('perfekt') && !lower.includes('partizip')) return 'de_haben';
@@ -630,6 +657,9 @@ function classifyGermanGrammarType(title: string): GrammarChapterType | null {
 
 function classifyItalianGrammarType(title: string): GrammarChapterType | null {
   const lower = title.toLowerCase();
+
+  // ── Numbers ───────────────────────────────────────────────────────────────
+  if (lower.includes('number') || lower.includes('numeri') || lower.includes('i numeri') || lower.includes('contare') || lower.includes('counting') || lower.includes('numeral')) return 'it_numbers';
 
   // ── Section 3 — Core verbs ────────────────────────────────────────────────
   if ((lower.includes('essere') && lower.includes('avere')) || (lower.includes('essere') && lower.includes('vs') && lower.includes('avere'))) return 'it_passato_prossimo';
@@ -911,6 +941,25 @@ function classifyHebrewGrammarType(title: string): GrammarChapterType | null {
   return null;
 }
 
+function classifyEnglishGrammarType(title: string): GrammarChapterType | null {
+  const lower = title.toLowerCase();
+
+  // ── Numbers ───────────────────────────────────────────────────────────────
+  if (lower.includes('number') || lower.includes('counting') || lower.includes('count to') || lower.includes('cardinal number') || lower.includes('numeral') || lower.includes('how to count')) return 'en_numbers';
+
+  // ── Shared canvas vocab types ──────────────────────────────────────────────
+  if (lower.includes('weather') || lower.includes('climate')) return 'weather_vocab';
+  if (lower.includes('emotion') || lower.includes('feeling') || lower.includes('mood')) return 'emotions_vocab';
+  if (lower.includes('telling time') || lower.includes('what time') || lower.includes('clock') || lower.includes("o'clock")) return 'telling_time';
+  if (lower.includes('days of the week') || lower.includes('months') || lower.includes('calendar') || lower.includes('days and months')) return 'days_week';
+  if (lower.includes('body part') || lower.includes('the body') || lower.includes('human body')) return 'body_parts';
+  if (lower.includes('face') || lower.includes('facial feature')) return 'face_parts';
+  if (lower.includes('hand') || lower.includes('finger')) return 'hand_parts';
+  if (lower.includes('temperature') || lower.includes('thermometer') || lower.includes('degrees')) return 'temperature_vocab';
+
+  return null;
+}
+
 export function classifyGrammarType(title: string, language = 'spanish'): GrammarChapterType | null {
   if (language === 'french') return classifyFrenchGrammarType(title);
   if (language === 'portuguese') return classifyPortugueseGrammarType(title);
@@ -920,8 +969,12 @@ export function classifyGrammarType(title: string, language = 'spanish'): Gramma
   if (language === 'korean') return classifyKoreanGrammarType(title);
   if (language === 'mandarin') return classifyMandarinGrammarType(title);
   if (language === 'hebrew') return classifyHebrewGrammarType(title);
+  if (language === 'english') return classifyEnglishGrammarType(title);
 
   const lower = title.toLowerCase();
+
+  // ── Numbers ───────────────────────────────────────────────────────────────
+  if (lower.includes('number') || lower.includes('número') || lower.includes('los números') || lower.includes('numeros') || lower.includes('los numeros') || lower.includes('counting')) return 'es_numbers';
 
   // ── Section 3 — existing 4 types (most specific first) ──────────────────
   if (lower.includes('ser') && (lower.includes('estar') || lower.includes('vs') || lower.includes(' y '))) return 'ser_estar';
@@ -1029,6 +1082,12 @@ const GRAMMAR_LABELS: Record<GrammarChapterType, { title: string; subtitle: stri
   object_pronouns: { title: 'Object Pronouns', subtitle: 'Direct and indirect object pronouns — placement and order' },
   negation_questions: { title: 'Sentence Structure Essentials', subtitle: 'Word order, negation, and question formation' },
   tu_usted: { title: 'Tú vs Usted', subtitle: 'Register guide — when to be informal vs. formal' },
+  es_numbers: { title: 'Los Números — Numbers', subtitle: '0–20 vocabulary + tens/hundreds/thousands patterns + compound number rules (veintiuno, treinta y dos…)' },
+  fr_numbers: { title: 'Les Nombres — Numbers', subtitle: '0–20 vocabulary + the unusual 70–99 system (soixante-dix, quatre-vingts, quatre-vingt-dix)' },
+  de_numbers: { title: 'Die Zahlen — Numbers', subtitle: '0–20 vocabulary + ones-before-tens compound rule (einundzwanzig = one-and-twenty)' },
+  it_numbers: { title: 'I Numeri — Numbers', subtitle: '0–20 vocabulary + elision rule (ventuno, ventitré) + tens/hundreds/thousands patterns' },
+  pt_numbers: { title: 'Os Números — Numbers', subtitle: '0–20 vocabulary + gender agreement (um/uma, dois/duas) + cem vs cento distinction' },
+  en_numbers: { title: 'Numbers — Counting in English', subtitle: '0–20 vocabulary + tens/hundreds/thousands + compound rules (twenty-one, thirty-five)' },
   // Section 4
   spatial_prep: { title: 'Spatial Prepositions', subtitle: 'Where things are — en, sobre, debajo de, delante de…' },
   temporal_prep: { title: 'Temporal Prepositions', subtitle: 'When things happen — antes de, después de, desde, hasta, hace…' },
@@ -1586,6 +1645,14 @@ export function GrammarChapterView({ type, chapterNumber, chapterTitle, language
       {type === 'object_pronouns' && <ObjectPronounChart />}
       {type === 'negation_questions' && <NegationQuestionsCard />}
       {type === 'tu_usted' && <TuUstedCard />}
+
+      {/* Numbers reference cards */}
+      {type === 'es_numbers' && <EsNumbersCard />}
+      {type === 'fr_numbers' && <FrNumbersCard />}
+      {type === 'de_numbers' && <DeNumbersCard />}
+      {type === 'it_numbers' && <ItNumbersCard />}
+      {type === 'pt_numbers' && <PtNumbersCard />}
+      {type === 'en_numbers' && <EnNumbersCard />}
 
       {/* Section 4 — Prepositions */}
       {type === 'spatial_prep' && <SpatialPrepositionMap />}

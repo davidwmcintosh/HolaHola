@@ -551,7 +551,10 @@ export function TextbookChapterView({
       <div className="grid gap-4">
         {(() => {
           const chapterRefType = classifyGrammarType(chapter.title, language);
-          const LANG_SPECIFIC_NUMBER_TYPES = new Set(['ja_numbers', 'ko_numbers', 'zh_numbers', 'he_numbers']);
+          const LANG_SPECIFIC_NUMBER_TYPES = new Set([
+            'ja_numbers', 'ko_numbers', 'zh_numbers', 'he_numbers',
+            'es_numbers', 'fr_numbers', 'de_numbers', 'it_numbers', 'pt_numbers', 'en_numbers',
+          ]);
           const suppressVocabGrid = LANG_SPECIFIC_NUMBER_TYPES.has(chapterRefType ?? '');
           return chapter.sections.map((section, index) => (
             <VisualLessonCard

@@ -1,5 +1,38 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Mon, Mar 30, 2026 (session 7 — European numbers reference cards)
+
+### Completed this session
+
+1. **European language numbers reference cards** — Created `TextbookNumbersCards.tsx` with 6 new language-specific numbers cards: `EsNumbersCard`, `FrNumbersCard`, `DeNumbersCard`, `ItNumbersCard`, `PtNumbersCard`, `EnNumbersCard`. Each shows:
+   - Compact 0–20 grid (number | native word)
+   - Tens table (20–90) with language-specific patterns
+   - Hundreds/thousands table with notes
+   - Language-specific NoteBox (e.g. French 70/80/90 system, German ones-before-tens, Italian elision rule, Portuguese gender agreement)
+
+2. **GrammarChapterType union expanded** — Added 6 new types: `'es_numbers' | 'fr_numbers' | 'de_numbers' | 'it_numbers' | 'pt_numbers' | 'en_numbers'`
+
+3. **classifyGrammarType updated** — Numbers detection added to:
+   - Spanish default branch: catches "number", "número", "los números", "counting"
+   - `classifyFrenchGrammarType`: catches "number", "nombre", "les nombres", "les chiffres", "compter"
+   - `classifyPortugueseGrammarType`: catches "number", "número", "os números", "numeros", "contar"
+   - `classifyGermanGrammarType`: catches "number", "zahlen", "die zahlen", "counting", "numeral"
+   - `classifyItalianGrammarType`: catches "number", "numeri", "i numeri", "contare", "counting"
+   - New `classifyEnglishGrammarType` function added with numbers + shared canvas vocab types; dispatched from `classifyGrammarType` when `language === 'english'`
+
+4. **GRAMMAR_LABELS updated** — All 6 new types have metadata entries in the main `GRAMMAR_LABELS` Record
+
+5. **GrammarChapterView render blocks added** — 6 render blocks: `{type === 'es_numbers' && <EsNumbersCard />}` etc.
+
+6. **suppressVocabGrid expanded** — `LANG_SPECIFIC_NUMBER_TYPES` in `TextbookChapterView.tsx` now includes all 10 number types (original 4 + new 6), suppressing the SVG image grid for ALL language numbers chapters
+
+### Key files changed this session
+- `client/src/components/TextbookNumbersCards.tsx` — **NEW FILE** — All 6 language numbers cards
+- `client/src/components/ChapterIntroduction.tsx` — Import, type union, classify functions, metadata, render blocks
+- `client/src/components/TextbookChapterView.tsx` — `LANG_SPECIFIC_NUMBER_TYPES` set expanded
+
+---
+
 ## Session Summary — Mon, Mar 30, 2026 (session 6 — textbook duplicate section fix)
 
 ### Completed this session
