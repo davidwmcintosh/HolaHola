@@ -766,13 +766,16 @@ export function toCacheKey(language: string, word: string): string {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')  // strip Latin diacritics only
+    // Re-compose so Hangul Jamo produced by NFD decomposition recombine into
+    // syllable blocks — otherwise Korean words normalize to empty string.
+    .normalize('NFC')
     // Replace CJK/Japanese/Arabic punctuation with a space to preserve word boundaries,
     // mirroring the normalizeWord() fix in vocabulary-image-resolver.ts so keys align.
     // e.g. "元気です、ありがとう" → "元気です ありがとう" (not "元気ですありがとう")
     .replace(/[\u3001\u3002\uff0c\uff01\uff1f\uff1a\uff1b\u300c\u300d\u300e\u300f\u3008-\u3011\u30fb\u060c\u061b\u061f]/g, ' ')
-    // Preserve CJK, Hangul, Hiragana/Katakana, Hebrew, Arabic, Cyrillic.
+    // Preserve CJK, Hangul syllables + Jamo, Hiragana/Katakana, Hebrew, Arabic, Cyrillic.
     // Strip remaining punctuation/symbols (Latin apostrophes, ¿, ¡, etc.)
-    .replace(/[^a-z0-9\u3040-\u30FF\u3400-\u9FFF\uAC00-\uD7AF\u0590-\u05FF\u0600-\u06FF\u0400-\u04FF\s]/g, '')
+    .replace(/[^a-z0-9\u3040-\u30FF\u3400-\u9FFF\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F\u0590-\u05FF\u0600-\u06FF\u0400-\u04FF\s]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
   return `vocab_${language}_${normalized}`;

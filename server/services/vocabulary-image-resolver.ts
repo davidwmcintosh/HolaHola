@@ -781,6 +781,11 @@ function normalizeWord(word: string): string {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')  // strip combining diacritical marks (accents)
+    // Re-compose after diacritic stripping so that Hangul Jamo (produced by NFD
+    // decomposition of Korean syllables) get re-combined back into syllable blocks.
+    // Without this, Korean words like "영" decompose to Jamo, the Jamo get stripped
+    // by the character-class filter below, and every Korean word becomes an empty key.
+    .normalize('NFC')
     // Replace CJK/Japanese/Arabic punctuation with a space so that word boundaries
     // are preserved (e.g. "元気です、ありがとう" → "元気です ありがとう" not "元気ですありがとう").
     // Latin punctuation (apostrophe, ¿, ¡, etc.) is stripped (replaced with '') below.
@@ -789,10 +794,12 @@ function normalizeWord(word: string): string {
     //   \u3040-\u30FF  Hiragana + Katakana (Japanese)
     //   \u3400-\u9FFF  CJK Unified Ideographs (Japanese kanji, Chinese hanzi)
     //   \uAC00-\uD7AF  Korean Hangul syllables
+    //   \u1100-\u11FF  Korean Hangul Jamo (safety net after NFC)
+    //   \u3130-\u318F  Korean Hangul Compatibility Jamo
     //   \u0590-\u05FF  Hebrew
     //   \u0600-\u06FF  Arabic
     //   \u0400-\u04FF  Cyrillic (Russian)
-    .replace(/[^a-z0-9\u3040-\u30FF\u3400-\u9FFF\uAC00-\uD7AF\u0590-\u05FF\u0600-\u06FF\u0400-\u04FF\s]/g, '')
+    .replace(/[^a-z0-9\u3040-\u30FF\u3400-\u9FFF\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F\u0590-\u05FF\u0600-\u06FF\u0400-\u04FF\s]/g, '')
     .replace(/\s+/g, ' ')            // collapse multiple spaces to single space
     .trim();
 }

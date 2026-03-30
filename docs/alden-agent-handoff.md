@@ -792,7 +792,7 @@ The seeder now calls `normalizeForOverride(word)` to look up the table and passe
 2. Legacy `vocab_spanish_tres` → hit? Promotes to `concept_num_3`, done. (Zero-waste migration)
 3. Generate fresh → saves to `concept_num_3`.
 
-**normalizeWord() updated**: Now preserves CJK (\u3040-\u9FFF), Hangul (\uAC00-\uD7AF), Hebrew (\u0590-\u05FF), Arabic (\u0600-\u06FF), Cyrillic (\u0400-\u04FF) instead of stripping all non-ASCII. This fixes broken cache keys for Japanese/Korean/Hebrew/Mandarin vocab (they were normalizing to empty string before).
+**normalizeWord() updated (March 30 fix)**: The original "fix" preserved Hangul/CJK in the character class, but missed a critical step: `.normalize('NFD')` decomposes Korean Hangul syllables into Jamo (U+1100-U+11FF), which fall outside the U+AC00-U+D7AF class and get stripped. Result: ALL Korean words (영, 일, 이, ...) normalized to empty string, key `vocab_korean_`, and every Korean word got the SAME cached image (egg painting). Fix: add `.normalize('NFC')` after the diacritic strip step to re-compose Jamo back into syllables. Also added Jamo ranges (U+1100-U+11FF, U+3130-U+318F) as a safety net. Both `vocabulary-image-resolver.ts::normalizeWord()` and `vocab-image-seed-service.ts::toCacheKey()` needed this fix. After this fix, run **"Fix Numbers/Days" for Korean** in admin to clear stale `vocab_korean_` entries and re-seed SVGs.
 
 **Files changed**:
 - `server/services/vocabulary-image-resolver.ts` — `CONCEPT_KEY_MAP` (800+ entries), updated `normalizeWord`, updated `resolveVocabularyImage`
