@@ -182,6 +182,7 @@ function VisualLessonCard({
   index,
   language,
   autoExpand,
+  suppressVocabGrid,
   onStartConversation,
   onStartDrill,
   onViewed,
@@ -191,6 +192,7 @@ function VisualLessonCard({
   index: number;
   language?: string;
   autoExpand?: boolean;
+  suppressVocabGrid?: boolean;
   onStartConversation: () => void;
   onStartDrill: () => void;
   onViewed: () => void;
@@ -346,6 +348,7 @@ function VisualLessonCard({
             lessonType={section.lessonType}
             language={language}
             lessonId={section.id}
+            suppressVocabGrid={suppressVocabGrid}
           />
           
           <div className="flex gap-2 flex-wrap sm:flex-nowrap">
@@ -546,22 +549,28 @@ export function TextbookChapterView({
       />
       
       <div className="grid gap-4">
-        {chapter.sections.map((section, index) => (
-          <VisualLessonCard
-            key={section.id}
-            section={{
-              ...section,
-              textbookRead: section.textbookRead || locallyReadIds.has(section.id),
-            }}
-            index={index}
-            autoExpand={true}
-            language={language}
-            onStartConversation={onStartConversation}
-            onStartDrill={() => onStartDrill(section.id)}
-            onViewed={() => handleSectionViewed(section.id)}
-            onMarkedRead={handleMarkedRead}
-          />
-        ))}
+        {(() => {
+          const chapterRefType = classifyGrammarType(chapter.title, language);
+          const LANG_SPECIFIC_NUMBER_TYPES = new Set(['ja_numbers', 'ko_numbers', 'zh_numbers', 'he_numbers']);
+          const suppressVocabGrid = LANG_SPECIFIC_NUMBER_TYPES.has(chapterRefType ?? '');
+          return chapter.sections.map((section, index) => (
+            <VisualLessonCard
+              key={section.id}
+              section={{
+                ...section,
+                textbookRead: section.textbookRead || locallyReadIds.has(section.id),
+              }}
+              index={index}
+              autoExpand={true}
+              language={language}
+              suppressVocabGrid={suppressVocabGrid}
+              onStartConversation={onStartConversation}
+              onStartDrill={() => onStartDrill(section.id)}
+              onViewed={() => handleSectionViewed(section.id)}
+              onMarkedRead={handleMarkedRead}
+            />
+          ));
+        })()}
       </div>
       
       {chapter.sections.length === 0 && (

@@ -1,5 +1,24 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Mon, Mar 30, 2026 (session 6 — textbook duplicate section fix)
+
+### Completed this session
+
+1. **Japanese numbers unit description** — Was in Japanese (unreadable to learner). Updated to English: "Master numbers 0–20 in Japanese. Learn to count, share phone numbers, and talk about prices."
+
+2. **Duplicate numbers section fix** — Japanese (also Korean, Mandarin, Hebrew) numbers chapters were showing BOTH:
+   - `ChapterIntroduction` → language-specific numbers reference card (`JaNumbersCard`, `KoNumbersCard`, etc.) — the rich kanji/character grid with building patterns
+   - `LessonPrepCard` → `VisualVocabGrid` inside each lesson card — inferior SVG number image grid
+   
+   Fix: In `TextbookChapterView`, compute `classifyGrammarType(chapter.title, language)`. When result is in `LANG_SPECIFIC_NUMBER_TYPES = {'ja_numbers', 'ko_numbers', 'zh_numbers', 'he_numbers'}`, set `suppressVocabGrid=true` on all `VisualLessonCard` → `LessonPrepCard`. The `LessonPrepCard` now accepts `suppressVocabGrid` prop and skips BOTH the image grid AND the text list vocab fallback when it's set. Languages without a language-specific numbers card (Spanish, French, etc.) are unaffected.
+
+### Key files changed this session
+- `client/src/components/TextbookInfographics.tsx` — `LessonPrepCard` accepts `suppressVocabGrid?: boolean`; vocabGrid and text-list fallback both suppressed when set
+- `client/src/components/TextbookChapterView.tsx` — computes `suppressVocabGrid` from chapter title + language; `VisualLessonCard` passes it to `LessonPrepCard`
+- DB: `curriculum_units.description` for "Unit 2: 数字 (Sūji) - Numbers & Counting" → English text
+
+---
+
 ## Session Summary — Sun, Mar 29, 2026 (session 5 — multi-zone scenario system)
 
 ### Completed this session
