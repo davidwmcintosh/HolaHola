@@ -2378,7 +2378,7 @@ export class NativeFunctionCallHandler {
                 'birthday-party':     'living_room',
                 'local-festival':     'outdoor_market',
                 // Cultural
-                'museum-visit':       'office',       // formal interior — best available
+                'museum-visit':       'museum',
                 'cooking-class':      'kitchen',
                 // Professional
                 'job-interview':      'office',
@@ -2418,12 +2418,31 @@ export class NativeFunctionCallHandler {
                 zones = await sharedDb.select().from(scenarioZones)
                   .where(and(eq(scenarioZones.scenarioId, scenario.id), eq(scenarioZones.isActive, true)))
                   .orderBy(scenarioZones.zoneOrder);
+
                 if (zones.length > 0) {
+                  // Pre-resolve images from visual_environments for zones that reference one.
+                  // A single query fetches all needed environments at once.
+                  const envNames = [...new Set(zones.map((z: any) => z.visualEnvironmentName).filter(Boolean))];
+                  let envImageMap: Record<string, string> = {};
+                  if (envNames.length > 0) {
+                    try {
+                      const envRows = await sharedDb.execute(
+                        sql`SELECT name, image_url FROM visual_environments WHERE name = ANY(${envNames}) AND image_url IS NOT NULL AND image_url != ''`
+                      );
+                      envImageMap = Object.fromEntries((envRows.rows as any[]).map(r => [r.name, r.image_url]));
+                    } catch (e) { /* non-fatal */ }
+                  }
+                  // Resolve each zone's effective image URL
+                  zones = zones.map((z: any) => ({
+                    ...z,
+                    imageUrl: (z.visualEnvironmentName && envImageMap[z.visualEnvironmentName]) || z.imageUrl || null,
+                  }));
+
                   session.activeScenario!.zones = zones;
                   session.activeScenario!.currentZoneIndex = 0;
-                  // Use zone 0's imageUrl if it has one (overrides prop-room fallback)
+                  // Zone 0 overrides the scenario-level resolved image
                   if (zones[0].imageUrl) resolvedImageUrl = zones[0].imageUrl;
-                  console.log(`[LoadScenario] Loaded ${zones.length} zones for "${scenario.slug}", zone 0: "${zones[0].name}"`);
+                  console.log(`[LoadScenario] Loaded ${zones.length} zones for "${scenario.slug}", zone 0: "${zones[0].name}" (env: ${zones[0].visualEnvironmentName ?? 'none'})`);
                 }
               } catch (zoneErr) {
                 console.warn('[LoadScenario] Zone load failed (non-fatal):', (zoneErr as Error).message);
@@ -2446,7 +2465,7 @@ export class NativeFunctionCallHandler {
                   imageUrl: resolvedImageUrl,
                   props: session.activeScenario.props,
                   levelGuide: session.activeScenario.levelGuide,
-                  zones: zones.map(z => ({ id: z.id, zoneOrder: z.zoneOrder, name: z.name, imageUrl: z.imageUrl })),
+                  zones: zones.map((z: any) => ({ id: z.id, zoneOrder: z.zoneOrder, name: z.name, imageUrl: z.imageUrl })),
                   currentZoneIndex: 0,
                   currentZoneName: currentZone?.name ?? null,
                 },

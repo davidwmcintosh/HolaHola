@@ -11460,6 +11460,91 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
 
+  // ─── SEED ZONE ENVIRONMENTS ──────────────────────────────────────────────────
+  // One-time migration: inserts the 3 new visual_environments rows and sets
+  // visual_environment_name on all existing scenario_zones.
+  app.post('/api/admin/seed-zone-environments', async (req: any, res) => {
+    try {
+      const db = getSharedDb();
+      const { visualEnvironments, scenarioZones } = await import('@shared/schema');
+
+      // 1. Insert the 3 new visual_environment rows (ignore conflicts)
+      const newEnvs = [
+        { name: 'museum',        displayName: 'Museum',        description: 'Grand museum interior with marble floors, exhibition banners, and arched windows' },
+        { name: 'taxi_interior', displayName: 'Taxi Interior', description: 'View from the back seat of a taxi cab with city street through the windshield' },
+        { name: 'hotel_room',    displayName: 'Hotel Room',    description: 'Cozy hotel room with neatly made bed, writing desk, and city view' },
+      ];
+      for (const env of newEnvs) {
+        await db.execute(sql`
+          INSERT INTO visual_environments (id, name, display_name, description, image_url, created_at)
+          VALUES (gen_random_uuid(), ${env.name}, ${env.displayName}, ${env.description}, '', NOW())
+          ON CONFLICT (name) DO NOTHING
+        `);
+      }
+
+      // 2. Bulk-update visual_environment_name on all scenario_zones by matching scenario slug + zone order
+      const zoneMappings: Array<{ slug: string; order: number; envName: string }> = [
+        // Hotel Check-in
+        { slug: 'hotel-checkin', order: 0, envName: 'hotel_lobby' },
+        { slug: 'hotel-checkin', order: 1, envName: 'hotel_lobby' },
+        { slug: 'hotel-checkin', order: 2, envName: 'hotel_room' },
+        // Airport Check-in
+        { slug: 'airport-checkin', order: 0, envName: 'airport' },
+        { slug: 'airport-checkin', order: 1, envName: 'airport' },
+        { slug: 'airport-checkin', order: 2, envName: 'airport' },
+        // Museum Visit
+        { slug: 'museum-visit', order: 0, envName: 'museum' },
+        { slug: 'museum-visit', order: 1, envName: 'museum' },
+        { slug: 'museum-visit', order: 2, envName: 'cafe' },
+        // The Restaurant
+        { slug: 'restaurant', order: 0, envName: 'restaurant_table' },
+        { slug: 'restaurant', order: 1, envName: 'restaurant_table' },
+        { slug: 'restaurant', order: 2, envName: 'restaurant_table' },
+        // The Coffee Shop
+        { slug: 'coffee-shop', order: 0, envName: 'city_street' },
+        { slug: 'coffee-shop', order: 1, envName: 'cafe' },
+        { slug: 'coffee-shop', order: 2, envName: 'cafe' },
+        // The Taxi Ride
+        { slug: 'taxi-ride', order: 0, envName: 'city_street' },
+        { slug: 'taxi-ride', order: 1, envName: 'taxi_interior' },
+        { slug: 'taxi-ride', order: 2, envName: 'city_street' },
+      ];
+
+      let updated = 0;
+      for (const m of zoneMappings) {
+        const result = await db.execute(sql`
+          UPDATE scenario_zones sz
+          SET    visual_environment_name = ${m.envName}
+          FROM   scenarios s
+          WHERE  sz.scenario_id = s.id
+            AND  s.slug = ${m.slug}
+            AND  sz.zone_order = ${m.order}
+        `);
+        updated += (result as any).rowCount ?? 0;
+      }
+
+      res.json({ ok: true, newEnvironments: newEnvs.map(e => e.name), zonesUpdated: updated });
+    } catch (err) {
+      console.error('[seed-zone-environments] error:', err);
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  // ─── GENERATE SCENE IMAGES (by name list) ───────────────────────────────────
+  // POST body: { names: string[], force?: boolean }
+  // Generates DALL-E images for specific visual_environments entries.
+  app.post('/api/admin/generate-scene-images', async (req, res) => {
+    try {
+      const { generateAllSceneImages } = await import('./services/prop-room-compositor');
+      const { names, force = false } = req.body as { names?: string[]; force?: boolean };
+      const results = await generateAllSceneImages({ only: names, force });
+      res.json({ ok: true, results });
+    } catch (err) {
+      console.error('[generate-scene-images] error:', err);
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
   // ─── INTERNAL BOOTSTRAP (dev-only, secret-protected) ─────────────────────────
   // Used by the agent to trigger mass fixes without needing a browser session.
   app.post('/api/admin/internal-bootstrap', async (req: any, res) => {

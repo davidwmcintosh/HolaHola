@@ -8384,6 +8384,9 @@ export const scenarioZones = pgTable("scenario_zones", {
   taskDescription: text("task_description").notNull(),
   imageUrl: text("image_url"),
   imagePrompt: text("image_prompt"),
+  // References a visual_environments.name entry — when set, advance_scene() pulls the
+  // background image from visual_environments instead of using the stored imageUrl.
+  visualEnvironmentName: varchar("visual_environment_name"),
   nextScenarioSlug: varchar("next_scenario_slug"),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),

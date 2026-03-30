@@ -1,5 +1,45 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Mon, Mar 30, 2026 (session 10 — scenario_zones → visual_environments collapse)
+
+### Completed this session
+
+**Goal**: Collapse `scenario_zones.imageUrl` into the `visual_environments` system so that `advance_scene()` always pulls backgrounds from the canonical visual_environments pool rather than separately-generated zone images.
+
+1. **Schema**: Added `visual_environment_name` varchar column to `scenario_zones` table (nullable). References `visual_environments.name`. When set, the LOAD_SCENARIO handler resolves image from `visual_environments` instead of relying on the legacy `imageUrl`.
+
+2. **Three new `visual_environments` entries added**: `museum`, `taxi_interior`, `hotel_room` — each with descriptive prompts added to `SCENE_PROMPTS` in `prop-room-compositor.ts`. Images generated via DALL-E 3 (watercolor style). ✅
+
+3. **LOAD_SCENARIO handler updated** (`native-fc-handlers.ts`): After loading zones, a single batch query fetches all needed `visual_environments` images. Each zone's `imageUrl` is pre-resolved from `visual_environments` when `visualEnvironmentName` is set; falls back to stored `imageUrl`. `ADVANCE_SCENE` handler is unchanged since it consumes `nextZone.imageUrl` which is now pre-resolved in session state.
+
+4. **`SCENARIO_SCENE_MAP` fixed**: `'museum-visit': 'office'` → `'museum-visit': 'museum'` (proper environment now exists).
+
+5. **Zone data migrated**: `POST /api/admin/seed-zone-environments` route seeds the 3 new visual_environments rows and updates all 18 existing scenario_zones with their `visual_environment_name` mapping:
+   - `hotel-checkin`: zones 0,1 → `hotel_lobby`; zone 2 → `hotel_room`
+   - `airport-checkin`: all 3 zones → `airport`
+   - `museum-visit`: zones 0,1 → `museum`; zone 2 → `cafe`
+   - `restaurant`: all 3 zones → `restaurant_table`
+   - `coffee-shop`: zone 0 → `city_street`; zones 1,2 → `cafe`
+   - `taxi-ride`: zone 0 → `city_street`; zone 1 → `taxi_interior`; zone 2 → `city_street`
+   - **18/18 zones updated** ✅
+
+6. **New admin route**: `POST /api/admin/generate-scene-images` — body `{ names: string[], force?: boolean }` — generates DALL-E images for specific `visual_environments` entries. Useful for future ad-hoc environment image generation.
+
+### Key files changed this session
+- `shared/schema.ts` — `scenarioZones` table: `visualEnvironmentName` column added
+- `server/services/prop-room-compositor.ts` — `SCENE_PROMPTS`: 3 new entries (`museum`, `taxi_interior`, `hotel_room`) added before the close-up zone environments section
+- `server/services/native-fc-handlers.ts` — `LOAD_SCENARIO`: zone image pre-resolution from `visual_environments`; `SCENARIO_SCENE_MAP`: museum mapping fixed
+- `server/routes.ts` — `POST /api/admin/seed-zone-environments`; `POST /api/admin/generate-scene-images`
+
+### Next session scratchpad
+- Zone images from `scenario_zones.imageUrl` are now legacy/fallback only — `visualEnvironmentName` is the canonical source
+- The `imageUrl` column on `scenario_zones` still exists and is still used as fallback (for any zone without `visualEnvironmentName`)
+- The `scenario_zones.imageUrl` and `imagePrompt` columns could eventually be dropped, but only after confirming no zones still rely on them
+- The `generate-scene-images` route is unprotected (no admin auth required) — should be secured before prod
+- The `seed-zone-environments` route is idempotent (uses `ON CONFLICT (name) DO NOTHING`) — safe to re-run
+
+---
+
 ## Session Summary — Mon, Mar 30, 2026 (session 9 — zone images → Image Library)
 
 ### Completed this session
