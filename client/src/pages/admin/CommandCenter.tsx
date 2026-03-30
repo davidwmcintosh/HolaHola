@@ -4938,7 +4938,8 @@ function ImageLibraryTab() {
 }
 
 function SceneAndPropImageSections() {
-  const { data: sceneData, isLoading: scenesLoading } = useQuery<{ images: Array<{ id: string; name: string; display_name: string; description: string | null; image_url: string }> }>({
+  type SceneImage = { id: string; name: string; display_name: string; description: string | null; image_url: string; zone_count: string | number };
+  const { data: sceneData, isLoading: scenesLoading, refetch: refetchScenes } = useQuery<{ images: SceneImage[] }>({
     queryKey: ['/api/admin/scene-images'],
   });
   const { data: propData, isLoading: propsLoading } = useQuery<{ images: Array<{ id: string; name: string; display_name: string; object_type: string; image_url: string; zone_image_url: string | null; tags: string[] | null }> }>({
@@ -4948,6 +4949,29 @@ function SceneAndPropImageSections() {
   const [sceneLightbox, setSceneLightbox] = useState<{ url: string; label: string } | null>(null);
   const [propLightbox, setPropLightbox] = useState<{ url: string; label: string } | null>(null);
   const [zonePropsDownloading, setZonePropsDownloading] = useState(false);
+  const [showZonesOnly, setShowZonesOnly] = useState(false);
+  const [regeneratingName, setRegeneratingName] = useState<string | null>(null);
+
+  const displayedScenes = showZonesOnly
+    ? (sceneData?.images ?? []).filter(img => Number(img.zone_count) > 0)
+    : (sceneData?.images ?? []);
+
+  async function regenerateScene(name: string) {
+    setRegeneratingName(name);
+    try {
+      const res = await fetch('/api/admin/generate-scene-images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ names: [name], force: true }),
+      });
+      if (!res.ok) throw new Error('Regeneration failed');
+      await refetchScenes();
+    } catch (err: any) {
+      alert(`Regeneration failed: ${err.message}`);
+    } finally {
+      setRegeneratingName(null);
+    }
+  }
 
   async function downloadZoneProps() {
     setZonePropsDownloading(true);
@@ -4973,6 +4997,8 @@ function SceneAndPropImageSections() {
     }
   }
 
+  const zoneCount = (sceneData?.images ?? []).filter(img => Number(img.zone_count) > 0).length;
+
   return (
     <>
       <CollapsibleSection
@@ -4981,37 +5007,74 @@ function SceneAndPropImageSections() {
         badge={sceneData?.images?.length?.toString()}
         defaultOpen={true}
       >
+        <div className="flex items-center gap-2 mt-3 flex-wrap">
+          <Button
+            variant={showZonesOnly ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setShowZonesOnly(v => !v)}
+            data-testid="button-scene-filter-zones"
+          >
+            {showZonesOnly ? 'Showing scenario zones only' : `Show scenario zones only (${zoneCount})`}
+          </Button>
+          <span className="text-xs text-muted-foreground">Click any image to preview. Hover for controls.</span>
+        </div>
         {scenesLoading ? (
           <div className="grid gap-3 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 mt-4">
             {[...Array(6)].map((_, i) => <Skeleton key={i} className="aspect-video rounded-md" />)}
           </div>
-        ) : sceneData?.images?.length ? (
+        ) : displayedScenes.length ? (
           <div className="grid gap-3 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 mt-4">
-            {sceneData.images.map(img => (
+            {displayedScenes.map(img => (
               <div
                 key={img.id}
-                className="relative group cursor-zoom-in overflow-hidden rounded-md border bg-muted"
-                onClick={() => setSceneLightbox({ url: img.image_url, label: img.display_name || img.name })}
+                className="relative group overflow-hidden rounded-md border bg-muted"
                 data-testid={`scene-img-${img.name}`}
               >
-                <img
-                  src={img.image_url}
-                  alt={img.display_name || img.name}
-                  className="w-full aspect-video object-cover"
-                  loading="lazy"
-                />
-                <div className="absolute inset-x-0 bottom-0 bg-black/60 px-1.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <p className="text-[11px] text-white truncate">{img.display_name || img.name}</p>
+                <div
+                  className="cursor-zoom-in"
+                  onClick={() => setSceneLightbox({ url: img.image_url, label: img.display_name || img.name })}
+                >
+                  <img
+                    src={img.image_url}
+                    alt={img.display_name || img.name}
+                    className="w-full aspect-video object-cover"
+                    loading="lazy"
+                  />
+                </div>
+                {/* Zone count badge — top right */}
+                {Number(img.zone_count) > 0 && (
+                  <div className="absolute top-1 right-1">
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-black/70 text-white border-0">
+                      {img.zone_count} {Number(img.zone_count) === 1 ? 'zone' : 'zones'}
+                    </Badge>
+                  </div>
+                )}
+                {/* Bottom bar: name + regenerate */}
+                <div className="absolute inset-x-0 bottom-0 bg-black/70 px-1.5 py-1 flex items-center justify-between gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <p className="text-[11px] text-white truncate flex-1 min-w-0">{img.display_name || img.name}</p>
+                  <button
+                    title="Regenerate image"
+                    className="flex-shrink-0 text-white/80 hover:text-white transition-colors"
+                    onClick={e => { e.stopPropagation(); regenerateScene(img.name); }}
+                    disabled={regeneratingName === img.name}
+                    data-testid={`button-regen-scene-${img.name}`}
+                  >
+                    {regeneratingName === img.name
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : <RefreshCw className="h-3.5 w-3.5" />
+                    }
+                  </button>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground mt-4">No scene backgrounds have been generated yet.</p>
+          <p className="text-sm text-muted-foreground mt-4">No scene backgrounds found.</p>
         )}
         {sceneLightbox && (
           <Dialog open onOpenChange={() => setSceneLightbox(null)}>
-            <DialogContent className="max-w-3xl p-0 overflow-hidden bg-black border-0">
+            <DialogContent className="max-w-3xl p-0 overflow-hidden bg-black border-0" aria-describedby={undefined}>
+              <DialogTitle className="sr-only">{sceneLightbox.label}</DialogTitle>
               <img src={sceneLightbox.url} alt={sceneLightbox.label} className="w-full h-auto max-h-[80vh] object-contain" />
               <p className="text-white/80 text-sm text-center px-4 py-2">{sceneLightbox.label}</p>
             </DialogContent>

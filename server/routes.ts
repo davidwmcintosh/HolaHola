@@ -18929,15 +18929,24 @@ Current conversation context:
     }
   });
 
-  // List scene background images (from visual_environments)
+  // List scene background images (from visual_environments) with zone usage counts
   app.get("/api/admin/scene-images", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res) => {
     try {
       const sharedDb = getSharedDb();
       const rows = await sharedDb.execute(sql`
-        SELECT id, name, display_name, description, image_url
-        FROM visual_environments
-        WHERE image_url IS NOT NULL AND image_url != ''
-        ORDER BY display_name ASC
+        SELECT
+          ve.id,
+          ve.name,
+          ve.display_name,
+          ve.description,
+          ve.image_url,
+          COUNT(sz.id) AS zone_count
+        FROM visual_environments ve
+        LEFT JOIN scenario_zones sz
+          ON sz.visual_environment_name = ve.name AND sz.is_active = true
+        WHERE ve.image_url IS NOT NULL AND ve.image_url != ''
+        GROUP BY ve.id, ve.name, ve.display_name, ve.description, ve.image_url
+        ORDER BY zone_count DESC, ve.display_name ASC
       `);
       res.json({ images: rows.rows });
     } catch (error: any) {
