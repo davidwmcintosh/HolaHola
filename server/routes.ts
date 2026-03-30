@@ -486,6 +486,37 @@ function getDallEImageClient(): OpenAI {
   return new OpenAI({ apiKey: key });
 }
 
+/**
+ * Register a zone image in the media_files library for admin visibility.
+ */
+async function saveZoneImageToMediaLibrary(
+  dataUrl: string,
+  zoneName: string,
+  scenarioTitle: string,
+  imagePrompt: string | null
+): Promise<void> {
+  try {
+    const base64Start = dataUrl.indexOf(',') + 1;
+    const fileSize = Math.floor(((dataUrl.length - base64Start) * 3) / 4);
+    await storage.createMediaFile({
+      uploadedBy: null,
+      mediaType: 'image',
+      url: dataUrl,
+      filename: `zone-${zoneName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`,
+      mimeType: 'image/png',
+      fileSize,
+      title: `${scenarioTitle} — ${zoneName}`,
+      description: imagePrompt ?? undefined,
+      tags: ['scenario-zone', scenarioTitle.toLowerCase(), zoneName.toLowerCase()],
+      imageSource: 'ai_generated',
+      targetWord: `zone:${zoneName}`,
+      isReviewed: false,
+    } as any);
+  } catch (e: any) {
+    console.warn(`[ZoneImages] Media library save failed for ${zoneName}: ${e.message}`);
+  }
+}
+
 async function generateImageWithGemini(prompt: string): Promise<string> {
   try {
     console.log('[DALLE IMAGE] Generating image for prompt:', prompt.substring(0, 100) + '...');
@@ -11330,9 +11361,12 @@ Return ONLY the ${targetLanguage} phrase:`;
   // ─── BATCH: Generate images for ALL scenario zones that don't have one ────────
   app.post('/api/admin/generate-all-zone-images', async (req, res) => {
     try {
-      const { scenarioZones } = await import('@shared/schema');
+      const { scenarioZones, scenarios } = await import('@shared/schema');
       const sharedDb = getSharedDb();
       const zones = await sharedDb.select().from(scenarioZones).where(isNull(scenarioZones.imageUrl));
+      // Build scenario title map for media library records
+      const scenarioList = await sharedDb.select({ id: scenarios.id, title: scenarios.title }).from(scenarios);
+      const scenarioTitleMap = Object.fromEntries(scenarioList.map((s: any) => [s.id, s.title]));
       const jobId = `zone-images-all-${Date.now()}`;
       (async () => {
         for (const zone of zones) {
@@ -11340,6 +11374,9 @@ Return ONLY the ${targetLanguage} phrase:`;
           try {
             const dataUrl = await generateImageWithGemini(zone.imagePrompt);
             await sharedDb.update(scenarioZones).set({ imageUrl: dataUrl }).where(eq(scenarioZones.id, zone.id));
+            // Mirror in the Image Library
+            const scenarioTitle = scenarioTitleMap[zone.scenarioId] ?? 'Scenario';
+            await saveZoneImageToMediaLibrary(dataUrl, zone.name, scenarioTitle, zone.imagePrompt);
             console.log(`[ZoneImages] Generated image for ${zone.name}`);
           } catch (e: any) {
             console.error(`[ZoneImages] Failed for ${zone.name}:`, e.message);
@@ -11348,6 +11385,31 @@ Return ONLY the ${targetLanguage} phrase:`;
         console.log(`[ZoneImages] All ${zones.length} zone images done (job ${jobId})`);
       })().catch((e: any) => console.error('[ZoneImages] Fatal:', e.message));
       res.json({ total: zones.length, jobId, message: `Generating images for ${zones.length} zones in background.` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ─── POST: Backfill existing zone images into the media library ───────────────
+  app.post('/api/admin/backfill-zone-images-to-media', async (req, res) => {
+    try {
+      const { scenarioZones, scenarios } = await import('@shared/schema');
+      const sharedDb = getSharedDb();
+      const zones = await sharedDb.select().from(scenarioZones).where(isNotNull(scenarioZones.imageUrl));
+      const scenarioList = await sharedDb.select({ id: scenarios.id, title: scenarios.title }).from(scenarios);
+      const scenarioTitleMap = Object.fromEntries(scenarioList.map((s: any) => [s.id, s.title]));
+      let saved = 0;
+      for (const zone of zones) {
+        if (!zone.imageUrl) continue;
+        try {
+          const scenarioTitle = scenarioTitleMap[zone.scenarioId] ?? 'Scenario';
+          await saveZoneImageToMediaLibrary(zone.imageUrl, zone.name, scenarioTitle, zone.imagePrompt);
+          saved++;
+        } catch (e: any) {
+          console.warn(`[BackfillZone] Skipped ${zone.name}: ${e.message}`);
+        }
+      }
+      res.json({ total: zones.length, saved, message: `Backfilled ${saved} of ${zones.length} zone images to media library.` });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -30229,10 +30291,17 @@ You have full access to your neural network knowledge.
       if (!zone) return res.status(404).json({ error: "Zone not found" });
       if (!zone.imagePrompt) return res.status(400).json({ error: "Zone has no imagePrompt" });
 
+      // Fetch scenario title for media library record
+      const { scenarios } = await import('@shared/schema');
+      const [scenario] = await sharedDb.select({ title: scenarios.title }).from(scenarios).where(eq(scenarios.id, zone.scenarioId)).limit(1);
+      const scenarioTitle = scenario?.title ?? 'Scenario';
+
       // Use the shared getDallEImageClient helper (respects USER_OPENAI_API_KEY fallback)
       const dataUrl = await generateImageWithGemini(zone.imagePrompt);
 
       await sharedDb.update(scenarioZones).set({ imageUrl: dataUrl }).where(eq(scenarioZones.id, zoneId));
+      // Mirror in the Image Library so it appears alongside all other admin-managed media
+      await saveZoneImageToMediaLibrary(dataUrl, zone.name, scenarioTitle, zone.imagePrompt);
 
       res.json({ success: true, imageUrl: dataUrl, zoneId, zoneName: zone.name });
     } catch (error: any) {

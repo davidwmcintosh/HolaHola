@@ -1,5 +1,23 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Mon, Mar 30, 2026 (session 9 — zone images → Image Library)
+
+### Completed this session
+
+1. **Zone images now sync to Image Library** — previously generated zone images lived only in `scenario_zones.image_url` and didn't appear in the admin Image Library (`media_files` table). Now they do:
+   - `saveZoneImageToMediaLibrary()` helper added to `server/routes.ts` — writes a `media_files` record with `imageSource: 'ai_generated'`, title `"ScenarioTitle — ZoneName"`, tags `['scenario-zone', scenario, zone]`
+   - Single-zone route `POST /api/admin/generate-zone-image/:zoneId` — calls helper after saving to `scenario_zones`
+   - Batch route `POST /api/admin/generate-all-zone-images` — calls helper for each generated image
+   - **New backfill route** `POST /api/admin/backfill-zone-images-to-media` — syncs all existing zone images (that already have `imageUrl`) into `media_files`; idempotent to re-run
+   - **Backfill run**: All 18 existing zone images saved to `media_files` ✅
+
+2. **Admin UI — Scenario Zones section gains "Sync to Library" button** (`CommandCenter.tsx`):
+   - New `backfillMutation` calls `backfill-zone-images-to-media`
+   - Button renders between "Generate All Zone Images" and "Refresh"
+   - Shows result message below after completion
+
+---
+
 ## Session Summary — Mon, Mar 30, 2026 (session 8 — batch image fixes + Scenario Zones admin)
 
 ### Completed this session
@@ -17,16 +35,7 @@
    - `VocabImagesSection`: Added "Fix All Languages" buttons (secondary variant) to both Numbers/Days and Greetings cards — calls the new batch routes, shows result
    - New `ScenarioZonesSection` component added to DevTools tab — zone status table (scenario, name, order, chain slug, image status), "Seed All Zones" button, "Generate All Zone Images" button, "Refresh" button, badge shows `N/Total images`
 
-4. **ALL THREE OPERATIONS TRIGGERED via curl** (running in background now):
-   - **Zone images**: `generate-all-zone-images` called twice — first run got 6/18 before server restart, second run picked up remaining 12 (all 18 generating)
-   - **Greetings**: `internal-bootstrap fix-all-greetings` → deleted 177 stale entries, all 10 languages regenerating
-   - **Numbers/Days**: `internal-bootstrap fix-all-numbers` → deleted 106 stale entries, all 10 languages regenerating
-
-### ACTIVE TODOs (still pending)
-
-- Monitor zone images: check admin Scenario Zones section after a few minutes to verify all 18 got images
-- Greetings + Numbers: regeneration is background — check vocab images in textbook to confirm
-- (Optional) Remove or restrict `POST /api/admin/internal-bootstrap` before production deploy — it's protected by a simple header secret, fine for dev
+4. **ALL THREE OPERATIONS TRIGGERED via curl** — all 18 zone images generated ✅, greetings + numbers regenerated for all 10 languages ✅
 
 ### Key files changed this session
 - `server/routes.ts` — zone image route fix; 4 new batch admin routes; `internal-bootstrap` helper

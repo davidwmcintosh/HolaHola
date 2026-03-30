@@ -6661,12 +6661,23 @@ function ScenarioZonesSection() {
     staleTime: 30000,
   });
 
+  const [backfillResult, setBackfillResult] = useState<any>(null);
+
   const genAllMutation = useMutation({
     mutationFn: () => apiRequest('POST', '/api/admin/generate-all-zone-images', {}).then(r => r.json()),
     onSuccess: (data: any) => {
       setGenAllResult(data);
       toast({ title: 'Zone image generation started', description: data.message });
       setTimeout(() => refetchZones(), 5000);
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const backfillMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/backfill-zone-images-to-media', {}).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setBackfillResult(data);
+      toast({ title: 'Media library synced', description: data.message });
     },
     onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
   });
@@ -6720,6 +6731,16 @@ function ScenarioZonesSection() {
                 {genAllMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Image className="h-3 w-3 mr-1" />}
                 Generate All Zone Images {missing > 0 ? `(${missing} missing)` : '(all done)'}
               </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => backfillMutation.mutate()}
+                disabled={backfillMutation.isPending}
+                data-testid="button-backfill-zone-images"
+              >
+                {backfillMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Image className="h-3 w-3 mr-1" />}
+                Sync to Library
+              </Button>
               <Button size="sm" variant="ghost" onClick={() => refetchZones()} data-testid="button-refresh-zones">
                 <RefreshCw className="h-3 w-3 mr-1" /> Refresh
               </Button>
@@ -6730,6 +6751,9 @@ function ScenarioZonesSection() {
             )}
             {genAllResult && (
               <p className="text-xs text-muted-foreground">{genAllResult.message} Job: {genAllResult.jobId?.slice(-8)}</p>
+            )}
+            {backfillResult && (
+              <p className="text-xs text-muted-foreground">{backfillResult.message}</p>
             )}
 
             {zoneStatusLoading ? (
