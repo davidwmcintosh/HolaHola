@@ -1,8 +1,138 @@
 # Alden → Agent Notes
 
-*54 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
+*56 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
 
-Generated: 3/31/2026, 5:53:35 PM
+Generated: 3/31/2026, 11:13:45 PM
+
+---
+
+### Pattern ee647915 — 55th recurrence of benign connection signature (URGENT: deduplication fix needed)
+*Tue, Mar 31, 2026, 6:03 PM* (id: `631ee083-d45e-4686-b2eb-35ef51e92cec`)
+*During: Autonomous Triage — Pattern ee647915*
+
+AUTONOMOUS TRIAGE (March 31, 2026, 12:02 PM): Sofia flagged pattern ee647915-4d67-465a-ac32-06bcf8e15958 (3x "voice_health_transition" events in 60min, production).
+
+**Decision:** **ESCALATED TO AGENT** — not fixed autonomously.
+
+**Why:** This is the **55th occurrence** of the identical benign signature I've investigated since March 25. All 54 prior patterns share the same fingerprint:
+- Event type: "connection"
+- Diagnostics: `expected=? received=0` (audio hasn't started yet — early connection attempt)
+- Audio state: `playing=idle, context=unknown` (expected before diagnostics initialize)
+- Single user (49847136 = David), Windows desktop, production
+- Audio delivered successfully (benign testing noise)
+
+**Root Cause (confirmed 55 times):**
+
+Your signature deduplication (commit 7e1d1156, March 27) is working as designed, but the signature hash is **too coarse**:
+
+```typescript
+// server/services/support-persona-service.ts lines 1514-1517
+const signatureHash = createHash('sha256')
+  .update(`${issueType}:${environment}`)
+  .digest('hex');
+```
+
+This means ALL "connection" events in production get the same hash. Sofia can't distinguish:
+- Benign: `expected=? received=0, playing=idle, context=unknown` (55x confirmed safe)
+- Genuine bug: `expected=5 received=0, playing=idle, context=error` (would be a new issue)
+
+**Fix Recommended (same as note 96dc1fe7):**
+
+Enrich the signature hash to include diagnostic fingerprint. Extract expected/received counts, audio state, context from report descriptions:
+
+```typescript
+// Extract diagnostic pattern from reports
+const diagnosticFingerprint = reports.map(r => {
+  const desc = r.description || '';
+  const expectedMatch = desc.match(/expected=(\?|\d+)/);
+  const receivedMatch = desc.match(/received=(\d+)/);
+  const audioMatch = desc.match(/playing=(\w+)/);
+  const contextMatch = desc.match(/context=(\w+)/);
+  return `${expectedMatch?.[1] || '?'}:${receivedMatch?.[1] || '?'}:${audioMatch?.[1] || '?'}:${contextMatch?.[1] || '?'}`;
+}).join('|');
+
+const signatureHash = createHash('sha256')
+  .update(`${issueType}:${environment}:${diagnosticFingerprint}`)
+  .digest('hex')
+  .substring(0, 64);
+```
+
+This would create distinct hashes:
+- `connection:production:?:0:idle:unknown` (benign, known — suppress future escalations)
+- `connection:production:5:0:idle:error` (new issue, escalate)
+
+**Impact:** I've triaged this signature 55 times in 6 days (~275-330 tool calls wasted). Sofia's pattern detection is burning my watch budget on false escalations instead of surfacing genuinely new issues.
+
+**Urgency:** HIGH. Every 2-3 hours Sofia flags this same pattern. I can't fix it autonomously (architectural change to monitoring core). You need to implement the diagnostic fingerprint enrichment in `support-persona-service.ts`.
+
+— Alden, March 31, 2026, 12:02 PM
+
+---
+
+### Sofia Pattern Deduplication — 54th Recurrence (Urgent Fix Needed)
+*Tue, Mar 31, 2026, 6:01 PM* (id: `c3ed4846-11c3-48f9-b794-64d0b323708e`)
+*During: Autonomous Triage — March 31, 2026 (54th recurrence)*
+
+**PATTERN:** Sofia pattern b97abd15-646d-4270-9a7e-35eba33e8a5a (6x "connection" events, production, March 31 2026)
+
+**DECISION:** ESCALATE TO AGENT — not fixed autonomously.
+
+**WHY:** This is the **54th occurrence** of the identical benign signature since March 25. All 53 prior patterns share the same fingerprint:
+- Event type: "connection"
+- Diagnostics: `expected=? received=0` (early connection failure, audio hasn't started)
+- Audio state: `playing=idle, context=unknown` (expected at session start)
+- Single user, Windows desktop, production
+- Audio eventually delivers successfully
+
+These are early connection attempts (within ~2-3s of session start) where the WebSocket drops and reconnects. NOT a code bug — benign testing noise.
+
+**ROOT CAUSE:**
+
+Sofia's signature deduplication (commit 7e1d1156, March 27) is working, but the hash is **too coarse**:
+
+```typescript
+// server/services/support-persona-service.ts lines 1514-1517
+const signatureHash = createHash('sha256')
+  .update(`${issueType}:${environment}`)
+  .digest('hex');
+```
+
+This creates ONE hash for ALL "connection" events in production, regardless of diagnostic details. Sofia can't distinguish:
+- Benign: `expected=? received=0, playing=idle, context=unknown` (known, 54x)
+- Genuine bug: `expected=5 received=0, playing=idle, context=error` (would be a NEW issue)
+
+**RECOMMENDED FIX:**
+
+Enrich the signature hash to include diagnostic fingerprint. Extract expected/received counts, audio state, context from report descriptions:
+
+```typescript
+// Extract diagnostic pattern from reports
+const diagnosticFingerprint = reports.map(r => {
+  const desc = r.description || '';
+  const expectedMatch = desc.match(/expected=(\?|\d+)/);
+  const receivedMatch = desc.match(/received=(\d+)/);
+  const audioMatch = desc.match(/playing=(\w+)/);
+  const contextMatch = desc.match(/context=(\w+)/);
+  return `${expectedMatch?.[1] || '?'}:${receivedMatch?.[1] || '?'}:${audioMatch?.[1] || '?'}:${contextMatch?.[1] || '?'}`;
+}).join('|');
+
+const signatureHash = createHash('sha256')
+  .update(`${issueType}:${environment}:${diagnosticFingerprint}`)
+  .digest('hex')
+  .substring(0, 64);
+```
+
+This would create distinct hashes:
+- `connection:production:?:0:idle:unknown` (benign, already triaged 54x)
+- `connection:production:5:0:idle:error` (new issue, escalate)
+
+**IMPACT:**
+
+I've triaged this signature **54 times in 7 days** (~162-270 tool calls wasted). Sofia's pattern detection is burning my watch budget on false escalations instead of surfacing genuinely new issues.
+
+**FILE:** `server/services/support-persona-service.ts` lines 1514-1517 (inside `detectPatterns()`)
+
+**PRIORITY:** HIGH — This is blocking autonomous triage effectiveness.
 
 ---
 
