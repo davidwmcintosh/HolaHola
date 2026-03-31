@@ -7,7 +7,7 @@ import { DesktopChatLayout } from "@/components/DesktopChatLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { MessageSquare, Mic, Plus, GraduationCap, User, Phone, Heart, Sparkles, Radio, Wifi, WifiOff, Send, Loader2, ChevronRight, ChevronLeft, Brain, Code, Volume2, HelpCircle, FlaskConical, CheckCircle2 } from "lucide-react";
+import { MessageSquare, Mic, Plus, GraduationCap, User, Phone, Heart, Sparkles, Radio, Wifi, WifiOff, Send, Loader2, ChevronRight, ChevronLeft, Brain, Code, Volume2, HelpCircle, FlaskConical, CheckCircle2, Maximize2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFounderCollab } from "@/hooks/useFounderCollab";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -1104,6 +1104,21 @@ export default function Chat() {
         priority={supportHandoffContext?.priority || 'normal'}
         mode="support"
       />
+
+      {/* Re-enter immersive button — shown when a scene is active but user has exited fullscreen */}
+      {activeSceneCanvas && !isImmersiveMode && (
+        <Button
+          size="sm"
+          variant="default"
+          onClick={() => setIsImmersiveMode(true)}
+          className="fixed bottom-24 right-4 z-50 gap-1.5 shadow-lg bg-black/70 hover:bg-black/90 text-white border border-white/20 backdrop-blur-sm"
+          data-testid="button-reenter-immersive"
+          aria-label="Re-enter fullscreen scene"
+        >
+          <Maximize2 className="w-3.5 h-3.5" />
+          <span>Fullscreen</span>
+        </Button>
+      )}
 
       {/* Immersive fullscreen overlay — auto-enters on scene open/prop add, context images shown as chips */}
       <ImmersiveOverlay

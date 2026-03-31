@@ -870,8 +870,14 @@ You're having a real conversation. Speak naturally, ALWAYS use **bold** for ${la
       ? buildSelfAffirmationSection(selfAffirmationNotes)
       : '';
     
+    // Language anchor — placed EARLY so it doesn't get buried under neural network content
+    const founderLanguageAnchor = language.toLowerCase() !== 'spanish'
+      ? `\n⚡ ACTIVE SESSION LANGUAGE: ${languageName}\nYou are in a ${languageName} session right now. Respond in ${languageName}. Do NOT default to Spanish greetings, filler words, or vocabulary — your neural network contains a lot of Spanish content, but this session is ${languageName}. Use Spanish only if ${name} explicitly asks.\n`
+      : `\n⚡ ACTIVE SESSION LANGUAGE: ${languageName}\nYou are in a ${languageName} session.\n`;
+
     return `${buildImmutablePersona(tutorName, tutorGender)}
 ${buildFounderModeContext(name)}
+${founderLanguageAnchor}
 ${selfAffirmationSection}
 ${founderModeBehavior}
 ${editorContextSection}
@@ -1434,12 +1440,15 @@ export function createStreamingVoicePrompt(
     const founderBehavior = buildFounderModeBehaviorSection();
     const languageName = languageMap[language] || language;
     const nativeLanguageName = nativeLanguageMap[nativeLanguage] || nativeLanguage;
+    const founderLangAnchor = language.toLowerCase() !== 'spanish'
+      ? `\n⚡ ACTIVE SESSION LANGUAGE: ${languageName} — respond in ${languageName}. Do NOT default to Spanish. Your neural network has Spanish content, but this session is ${languageName}.\n`
+      : '';
     
     // Include ACTION_TRIGGERS or FUNCTION CALLING section based on mode
     const commandSection = buildNativeFunctionCallingSection();
     
     return `You are ${tutorName}, a ${tutorGender} language tutor in FOUNDER MODE - speaking with your creator/developer.
-
+${founderLangAnchor}
 ${founderBehavior}
 
 VOICE CONVERSATION CONTEXT:

@@ -1,5 +1,30 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Mon, Mar 31, 2026 (session 14 — founder mode Spanish bleed + re-enter immersive button)
+
+### Completed this session
+
+1. **Founder mode Spanish bleed fix** (`server/system-prompt.ts`):
+   - Added `⚡ ACTIVE SESSION LANGUAGE` anchor **early** in both `createSystemPrompt` (founder mode branch) and `createStreamingVoicePrompt` (founder mode branch) — placed immediately after identity/founder context, BEFORE the neural network content loads
+   - Non-Spanish sessions get explicit block: "Do NOT default to Spanish... your neural network has Spanish content, but this session is ${languageName}"
+   - Previously the `LANGUAGE CONTEXT` block was only at the END of the prompt (after `fullNeuralNetwork`), so it was too late — Gemini was already saturated with Spanish from the neural network data
+   - Spanish sessions still work normally (no redundant warning)
+
+2. **Re-enter immersive "Fullscreen" button** (`client/src/pages/chat.tsx`):
+   - Floating button (bottom-right) appears when `activeSceneCanvas` is set but `isImmersiveMode === false`
+   - Dark glassy style: `bg-black/70 hover:bg-black/90 text-white border border-white/20 backdrop-blur-sm`
+   - `data-testid="button-reenter-immersive"`, `Maximize2` icon
+   - Note: This feature was already scaffolded from session 13 — the session 14 confirmation just verified the code landed correctly in the merged branch
+
+### Key files changed this session
+- `server/system-prompt.ts` — `createSystemPrompt` + `createStreamingVoicePrompt` founder mode paths now have language anchor early
+
+### Next session scratchpad
+- **Founder mode Spanish bleed** should now be resolved for EN/FR/DE/IT/PT/JP/KO/ZH — watch for edge cases where a user explicitly asks Cindy to "do some Spanish" (that should work fine since it's an explicit request)
+- The re-enter immersive button is cosmetically minimal; if a more prominent treatment is desired, the `chat.tsx` section at `button-reenter-immersive` is the place to update
+
+---
+
 ## Session Summary — Mon, Mar 31, 2026 (session 13 — elder characters + see-you-soon drill items)
 
 ### Completed this session

@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
-import { X, Mic, Volume2, Loader2, ChevronDown } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { X, Mic, MicOff, Radio, Volume2, Loader2, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { usePlaybackState } from "@/lib/playbackStateStore";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useVoiceInput } from "@/contexts/VoiceInputContext";
 import type { SceneCanvasItemData, SceneCanvasRichContent, WhiteboardItem } from "@shared/whiteboard-types";
 
 interface ContextImageChip {
@@ -292,8 +293,40 @@ export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems
   const { difficulty } = useLanguage();
   const isSpeaking = playbackState === 'playing' || playbackState === 'buffering';
   const isThinking = playbackState === 'thinking';
+  const voice = useVoiceInput();
 
   const [openSheet, setOpenSheet] = useState<SceneCanvasRichContent | null>(null);
+
+  // PTT pointer tracking for immersive mode (mirrors ImmersiveTutor pattern)
+  const isPointerRecordingRef = useRef<boolean>(false);
+  const pttPointerTypeRef = useRef<'touch' | 'mouse' | null>(null);
+
+  useEffect(() => {
+    if (!isActive || !voice || voice.inputMode !== 'push-to-talk') return;
+
+    const handleGlobalPointerUp = (e: PointerEvent) => {
+      if (isPointerRecordingRef.current) {
+        const pointerType = pttPointerTypeRef.current || 'mouse';
+        isPointerRecordingRef.current = false;
+        pttPointerTypeRef.current = null;
+        voice.onRecordingStop(pointerType as 'mouse' | 'touch');
+      }
+    };
+    const handleGlobalPointerCancel = (e: PointerEvent) => {
+      if (isPointerRecordingRef.current) {
+        isPointerRecordingRef.current = false;
+        pttPointerTypeRef.current = null;
+        voice.onRecordingStop('force');
+      }
+    };
+
+    window.addEventListener('pointerup', handleGlobalPointerUp);
+    window.addEventListener('pointercancel', handleGlobalPointerCancel);
+    return () => {
+      window.removeEventListener('pointerup', handleGlobalPointerUp);
+      window.removeEventListener('pointercancel', handleGlobalPointerCancel);
+    };
+  }, [isActive, voice?.inputMode]);
 
   useEffect(() => {
     if (isActive) {
@@ -532,6 +565,83 @@ export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems
                   </div>
                 </motion.div>
               ))}
+            </div>
+          )}
+
+          {/* Voice controls — bottom center */}
+          {voice && (
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2">
+              {/* Main mic button */}
+              {voice.inputMode === 'open-mic' ? (
+                <Button
+                  variant="default"
+                  size="icon"
+                  onClick={() => {
+                    if (voice.isRecording) {
+                      voice.onRecordingStop();
+                    } else {
+                      voice.onRecordingStart();
+                    }
+                  }}
+                  className={`h-14 w-14 rounded-full shadow-lg select-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 ${voice.isRecording ? 'bg-green-500 hover:bg-green-600' : 'bg-black/60 hover:bg-black/80 backdrop-blur-sm border border-white/20'}`}
+                  data-testid={voice.isRecording ? "button-immersive-open-mic-active" : "button-immersive-open-mic-idle"}
+                  aria-pressed={voice.isRecording}
+                  aria-label={voice.isRecording ? "Mic hot — tap to stop" : "Tap to start open mic"}
+                >
+                  {voice.isRecording ? (
+                    <Radio className="h-7 w-7 text-white" />
+                  ) : (
+                    <Mic className="h-7 w-7 text-white" />
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  variant={voice.isRecording ? "destructive" : "default"}
+                  size="icon"
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const pointerType = e.pointerType === 'touch' ? 'touch' : 'mouse';
+                    let justInterrupted = false;
+                    if ((voice.playbackState === 'playing' || voice.playbackState === 'buffering') && voice.onInterrupt) {
+                      voice.onInterrupt();
+                      justInterrupted = true;
+                    }
+                    if ((voice.isUsersTurn || justInterrupted) && !voice.isRecording && !voice.isMicPreparing && !isPointerRecordingRef.current) {
+                      isPointerRecordingRef.current = true;
+                      pttPointerTypeRef.current = pointerType;
+                      voice.onRecordingStart(pointerType);
+                    }
+                  }}
+                  onPointerUp={(e) => { e.preventDefault(); }}
+                  onPointerCancel={(e) => { e.preventDefault(); }}
+                  disabled={!voice.isUsersTurn && !voice.isRecording && voice.playbackState === 'idle'}
+                  className={`h-14 w-14 rounded-full shadow-lg select-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 ${voice.isMicPreparing ? 'animate-pulse' : ''} ${!voice.isRecording && voice.isMicPreparing ? '' : voice.isRecording ? '' : 'bg-black/60 hover:bg-black/80 backdrop-blur-sm border border-white/20'} ${!voice.isUsersTurn && !voice.isRecording && voice.playbackState === 'idle' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  style={{ touchAction: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
+                  data-testid={voice.isRecording ? "button-immersive-stop-recording" : "button-immersive-start-recording"}
+                  aria-pressed={voice.isRecording || voice.isMicPreparing}
+                  aria-label={voice.isMicPreparing ? "Preparing microphone…" : "Hold to speak"}
+                >
+                  {voice.isRecording ? (
+                    <MicOff className="h-7 w-7" />
+                  ) : voice.isMicPreparing ? (
+                    <Mic className="h-7 w-7 animate-pulse" />
+                  ) : (
+                    <Mic className="h-7 w-7 text-white" />
+                  )}
+                </Button>
+              )}
+              {/* Mode label + switcher */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => voice.setInputMode(voice.inputMode === 'push-to-talk' ? 'open-mic' : 'push-to-talk')}
+                  className="text-[10px] text-white/70 hover:text-white/90 transition-colors rounded-full bg-black/40 backdrop-blur-sm px-2 py-0.5 border border-white/10"
+                  data-testid="button-immersive-mode-toggle"
+                  aria-label={`Switch to ${voice.inputMode === 'push-to-talk' ? 'open mic' : 'push to talk'}`}
+                >
+                  {voice.inputMode === 'push-to-talk' ? 'Hold to speak · tap to switch' : 'Open mic · tap to switch'}
+                </button>
+              </div>
             </div>
           )}
 

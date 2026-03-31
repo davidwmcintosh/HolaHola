@@ -1,8 +1,143 @@
 # Alden → Agent Notes
 
-*52 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
+*54 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
 
-Generated: 3/31/2026, 5:38:35 PM
+Generated: 3/31/2026, 5:53:35 PM
+
+---
+
+### Sofia Pattern 28204f96 — 53rd Recurrence, Deduplication Fix Still Needed
+*Tue, Mar 31, 2026, 5:49 PM* (id: `4932a33e-4248-4c44-9786-142c1e480435`)
+*During: Autonomous Triage — Sofia Pattern 28204f96 (53rd recurrence)*
+
+AUTONOMOUS TRIAGE (March 31, 2026, 11:49 AM): Sofia flagged pattern 28204f96-e2a0-474d-ab01-b43b9df1b45e (4x "connection" events in 60min, production).
+
+**Decision:** **ESCALATED TO AGENT** — not fixed autonomously.
+
+**Why:** This is the **53rd occurrence** of the identical benign signature I've investigated since March 25. All 52 prior patterns share the same fingerprint:
+- Event type: "connection"
+- Diagnostics: `expected=? received=0` (early connection error before audio timing loop captures diagnostics)
+- Audio state: `playing=idle, context=unknown` (expected — error fires within 2-3s of session start, before audio begins)
+- Single user, production environment
+- All errors within 15-minute window = testing/debugging session
+
+**Signature Analysis:**
+Audio diagnostics prove this is NOT a mid-session failure:
+- `expected=?` means audio timing loop never started (no sentence count tracked yet)
+- `context=unknown` means diagnostics snapshot fired before audio state initialized
+- `playing=idle` means no audio was ever playing when error occurred
+
+Compare to a GENUINE bug signature (which would require escalation):
+- `expected=5 received=0` (audio lost mid-session)
+- `context=error` (audio failed during playback)
+- `playing=playing` → `playing=idle` transition (dropped audio)
+
+**Root Cause:**
+Your signature hash (commit 7e1d1156, March 27) is **too coarse**:
+```typescript
+// server/services/support-persona-service.ts lines 1514-1517
+const signatureHash = createHash('sha256')
+  .update(`${issueType}:${environment}`)
+  .digest('hex');
+```
+
+This means ALL "connection" events in production get the same hash, regardless of diagnostic details. Sofia can't distinguish benign early-connection drops from genuine mid-session failures.
+
+**Fix Recommended:**
+Enrich the signature hash to include diagnostic fingerprint. Extract expected/received counts, audio state, context from report descriptions:
+
+```typescript
+// Extract diagnostic pattern from reports
+const diagnosticFingerprint = reports.map(r => {
+  const desc = r.description || '';
+  const expectedMatch = desc.match(/expected=(\?|\d+)/);
+  const receivedMatch = desc.match(/received=(\d+)/);
+  const audioMatch = desc.match(/playing=(\w+)/);
+  const contextMatch = desc.match(/context=(\w+)/);
+  return `${expectedMatch?.[1] || '?'}:${receivedMatch?.[1] || '?'}:${audioMatch?.[1] || '?'}:${contextMatch?.[1] || '?'}`;
+}).join('|');
+
+const signatureHash = createHash('sha256')
+  .update(`${issueType}:${environment}:${diagnosticFingerprint}`)
+  .digest('hex')
+  .substring(0, 64);
+```
+
+This would create distinct hashes:
+- `connection:production:?:0:idle:unknown` (benign, known — this pattern)
+- `connection:production:5:0:idle:error` (new issue, genuine failure)
+
+**Impact:**
+I've triaged this signature **53 times in 6 days** (~265-371 tool calls wasted). Sofia's pattern detection is burning my watch budget on false escalations instead of surfacing genuinely new issues.
+
+**Pattern ID:** 28204f96-e2a0-474d-ab01-b43b9df1b45e
+
+I will NOT mark this pattern as "fixed" — it's not fixed, it's benign noise that keeps recurring because the deduplication system can't recognize it.
+
+— Alden
+
+---
+
+### Sofia Pattern Deduplication — 53 False Escalations Since March 25
+*Tue, Mar 31, 2026, 5:43 PM* (id: `aa0ea06e-cb69-4001-9bcc-22bbee179d15`)
+*During: Autonomous Triage — Pattern 38109e9d (53rd recurrence)*
+
+Pattern 38109e9d (just triaged) is the **53rd occurrence** of the identical benign connection error signature since March 25. All 53 share the same fingerprint:
+
+- Event type: "connection"
+- Diagnostics: `expected=? received=0` (early connection failure before audio loop starts)
+- Audio state: `playing=idle, context=unknown` (expected — error fires before diagnostic context established)
+- Single user testing in production
+
+**This is not a voice pipeline bug.** It's benign testing noise — connection drops within 2-3s of session start. Audio diagnostics prove sessions work normally when they don't drop.
+
+**Root Cause:**
+
+Your signature deduplication (commit 7e1d1156, March 27) is working as designed, but the signature hash is **too coarse**:
+
+```typescript
+// server/services/support-persona-service.ts lines 1514-1517
+const signatureHash = createHash('sha256')
+  .update(`${issueType}:${environment}`)
+  .digest('hex');
+```
+
+This means ALL "connection" events in production get the same hash, regardless of diagnostic details. Sofia can't distinguish:
+- Benign: `expected=? received=0, playing=idle, context=unknown` (53 times)
+- Genuine bug: `expected=5 received=0, playing=error, context=error` (would be new)
+
+**Fix Recommended:**
+
+Enrich the signature hash to include diagnostic fingerprint. Extract expected/received counts, audio state, context from report descriptions. Change lines 1514-1517:
+
+```typescript
+// Extract diagnostic pattern from reports
+const diagnosticFingerprint = reports.map(r => {
+  const desc = r.description || '';
+  const expectedMatch = desc.match(/expected=(\?|\d+)/);
+  const receivedMatch = desc.match(/received=(\d+)/);
+  const audioMatch = desc.match(/playing=(\w+)/);
+  const contextMatch = desc.match(/context=(\w+)/);
+  return `${expectedMatch?.[1] || '?'}:${receivedMatch?.[1] || '?'}:${audioMatch?.[1] || '?'}:${contextMatch?.[1] || '?'}`;
+}).join('|');
+
+const signatureHash = createHash('sha256')
+  .update(`${issueType}:${environment}:${diagnosticFingerprint}`)
+  .digest('hex')
+  .substring(0, 64);
+```
+
+This would create distinct hashes:
+- `connection:production:?:0:idle:unknown` → known benign (suppress after first occurrence)
+- `connection:production:5:0:error:error` → new issue (escalate)
+
+**Impact:**
+
+I've triaged this signature 53 times in 6 days (~265-318 tool calls wasted). Sofia's pattern detection is burning my watch budget on false escalations instead of surfacing genuinely new issues.
+
+I already documented this exact fix in note 96dc1fe7 on March 27. This is a follow-up to confirm the problem persists.
+
+— Alden
 
 ---
 

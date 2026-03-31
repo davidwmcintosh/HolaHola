@@ -33,6 +33,7 @@ import { useUser } from "@/lib/auth";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { useToast } from "@/hooks/use-toast";
 import { useWhiteboard } from "@/hooks/useWhiteboard";
+import { VoiceInputContext } from "@/contexts/VoiceInputContext";
 import { getTutorNames } from "@/lib/tutor-avatars";
 import { SupportAssistModal } from "@/components/SupportAssistModal";
 import { setRemediationCallback } from "@/lib/lockoutDiagnostics";
@@ -3533,7 +3534,25 @@ export function StreamingVoiceChat({
     }
   };
 
+  const voiceInputContextValue = {
+    inputMode,
+    setInputMode,
+    isRecording,
+    isMicPreparing,
+    isUsersTurn: (streamingVoice.state.connectionState === 'ready' || streamingVoice.state.connectionState === 'connected' || streamingVoice.state.connectionState === 'streaming') &&
+      !streamingVoice.state.isSwitchingTutor &&
+      (isPttButtonHeld || (!isProcessing && !streamingVoice.state.isProcessing && globalPlaybackState === 'idle') || (!!streamingVoice.state.error && !streamingVoice.state.isProcessing && globalPlaybackState === 'idle')),
+    playbackState: globalPlaybackState,
+    onRecordingStart: inputMode === 'open-mic' ? handleOpenMicTap : startPushToTalkRecording,
+    onRecordingStop: inputMode === 'open-mic' ? (() => {}) : stopPushToTalkRecording,
+    onInterrupt: () => {
+      streamingVoice.stop();
+      streamingVoice.sendInterrupt();
+    },
+  };
+
   return (
+    <VoiceInputContext.Provider value={voiceInputContextValue}>
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-background" data-testid="rest-voice-chat">
       {/* Incognito Mode Toggle - Founder/Honesty mode only */}
       {(isDeveloper || isAdmin) && (learningContext === 'founder-mode' || learningContext === 'honesty-mode') && streamingVoice.state.connectionState === 'connected' && (
@@ -3721,5 +3740,6 @@ export function StreamingVoiceChat({
         mode="support"
       />
     </div>
+    </VoiceInputContext.Provider>
   );
 }
