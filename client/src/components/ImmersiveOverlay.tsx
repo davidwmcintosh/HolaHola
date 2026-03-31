@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Mic, MicOff, Radio, Volume2, Loader2, ChevronDown } from "lucide-react";
+import { X, Mic, MicOff, Radio, Volume2, Loader2, ChevronDown, ArrowLeftRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { usePlaybackState } from "@/lib/playbackStateStore";
@@ -571,75 +571,97 @@ export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems
           {/* Voice controls — bottom center */}
           {voice && (
             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2">
-              {/* Main mic button */}
-              {voice.inputMode === 'open-mic' ? (
-                <Button
-                  variant="default"
-                  size="icon"
-                  onClick={() => {
-                    if (voice.isRecording) {
-                      voice.onRecordingStop();
-                    } else {
-                      voice.onRecordingStart();
-                    }
-                  }}
-                  className={`h-14 w-14 rounded-full shadow-lg select-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 ${voice.isRecording ? 'bg-green-500 hover:bg-green-600' : 'bg-black/60 hover:bg-black/80 backdrop-blur-sm border border-white/20'}`}
-                  data-testid={voice.isRecording ? "button-immersive-open-mic-active" : "button-immersive-open-mic-idle"}
-                  aria-pressed={voice.isRecording}
-                  aria-label={voice.isRecording ? "Mic hot — tap to stop" : "Tap to start open mic"}
-                >
-                  {voice.isRecording ? (
-                    <Radio className="h-7 w-7 text-white" />
-                  ) : (
-                    <Mic className="h-7 w-7 text-white" />
-                  )}
-                </Button>
-              ) : (
-                <Button
-                  variant={voice.isRecording ? "destructive" : "default"}
-                  size="icon"
-                  onPointerDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const pointerType = e.pointerType === 'touch' ? 'touch' : 'mouse';
-                    let justInterrupted = false;
-                    if ((voice.playbackState === 'playing' || voice.playbackState === 'buffering') && voice.onInterrupt) {
-                      voice.onInterrupt();
-                      justInterrupted = true;
-                    }
-                    if ((voice.isUsersTurn || justInterrupted) && !voice.isRecording && !voice.isMicPreparing && !isPointerRecordingRef.current) {
-                      isPointerRecordingRef.current = true;
-                      pttPointerTypeRef.current = pointerType;
-                      voice.onRecordingStart(pointerType);
-                    }
-                  }}
-                  onPointerUp={(e) => { e.preventDefault(); }}
-                  onPointerCancel={(e) => { e.preventDefault(); }}
-                  disabled={!voice.isUsersTurn && !voice.isRecording && voice.playbackState === 'idle'}
-                  className={`h-14 w-14 rounded-full shadow-lg select-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 ${voice.isMicPreparing ? 'animate-pulse' : ''} ${!voice.isRecording && voice.isMicPreparing ? '' : voice.isRecording ? '' : 'bg-black/60 hover:bg-black/80 backdrop-blur-sm border border-white/20'} ${!voice.isUsersTurn && !voice.isRecording && voice.playbackState === 'idle' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  style={{ touchAction: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
-                  data-testid={voice.isRecording ? "button-immersive-stop-recording" : "button-immersive-start-recording"}
-                  aria-pressed={voice.isRecording || voice.isMicPreparing}
-                  aria-label={voice.isMicPreparing ? "Preparing microphone…" : "Hold to speak"}
-                >
-                  {voice.isRecording ? (
-                    <MicOff className="h-7 w-7" />
-                  ) : voice.isMicPreparing ? (
-                    <Mic className="h-7 w-7 animate-pulse" />
-                  ) : (
-                    <Mic className="h-7 w-7 text-white" />
-                  )}
-                </Button>
-              )}
-              {/* Mode label + switcher */}
-              <div className="flex items-center gap-2">
+              {/* Pulse ring behind button when recording */}
+              <div className="relative flex items-center justify-center">
+                {voice.isRecording && (
+                  <span className="absolute inset-0 rounded-full animate-ping bg-green-400/30 pointer-events-none" />
+                )}
+
+                {/* Main mic button */}
+                {voice.inputMode === 'open-mic' ? (
+                  <Button
+                    variant="default"
+                    size="icon"
+                    onClick={() => {
+                      if (voice.isRecording) {
+                        voice.onRecordingStop();
+                      } else {
+                        voice.onRecordingStart();
+                      }
+                    }}
+                    className={`h-12 w-12 rounded-full shadow-md select-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 transition-all duration-200 ${
+                      voice.isRecording
+                        ? 'bg-green-500 scale-110 border border-green-300/40'
+                        : 'bg-black/30 backdrop-blur-sm border border-white/10 hover:bg-black/50'
+                    }`}
+                    data-testid={voice.isRecording ? "button-immersive-open-mic-active" : "button-immersive-open-mic-idle"}
+                    aria-pressed={voice.isRecording}
+                    aria-label={voice.isRecording ? "Mic hot — tap to stop" : "Tap to start open mic"}
+                  >
+                    {voice.isRecording ? (
+                      <Radio className="h-5 w-5 text-white" />
+                    ) : (
+                      <Mic className="h-5 w-5 text-white/80" />
+                    )}
+                  </Button>
+                ) : (
+                  <Button
+                    variant={voice.isRecording ? "destructive" : "default"}
+                    size="icon"
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const pointerType = e.pointerType === 'touch' ? 'touch' : 'mouse';
+                      let justInterrupted = false;
+                      if ((voice.playbackState === 'playing' || voice.playbackState === 'buffering') && voice.onInterrupt) {
+                        voice.onInterrupt();
+                        justInterrupted = true;
+                      }
+                      if ((voice.isUsersTurn || justInterrupted) && !voice.isRecording && !voice.isMicPreparing && !isPointerRecordingRef.current) {
+                        isPointerRecordingRef.current = true;
+                        pttPointerTypeRef.current = pointerType;
+                        voice.onRecordingStart(pointerType);
+                      }
+                    }}
+                    onPointerUp={(e) => { e.preventDefault(); }}
+                    onPointerCancel={(e) => { e.preventDefault(); }}
+                    disabled={!voice.isUsersTurn && !voice.isRecording && voice.playbackState === 'idle'}
+                    className={`h-12 w-12 rounded-full shadow-md select-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 transition-all duration-200 ${
+                      voice.isRecording
+                        ? 'scale-110'
+                        : voice.isMicPreparing
+                          ? 'bg-black/30 backdrop-blur-sm border border-white/10 animate-pulse'
+                          : 'bg-black/30 backdrop-blur-sm border border-white/10 hover:bg-black/50'
+                    } ${!voice.isUsersTurn && !voice.isRecording && voice.playbackState === 'idle' ? 'opacity-40 cursor-not-allowed' : ''}`}
+                    style={{ touchAction: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
+                    data-testid={voice.isRecording ? "button-immersive-stop-recording" : "button-immersive-start-recording"}
+                    aria-pressed={voice.isRecording || voice.isMicPreparing}
+                    aria-label={voice.isMicPreparing ? "Preparing microphone…" : "Hold to speak"}
+                  >
+                    {voice.isRecording ? (
+                      <MicOff className="h-5 w-5" />
+                    ) : voice.isMicPreparing ? (
+                      <Mic className="h-5 w-5 animate-pulse" />
+                    ) : (
+                      <Mic className="h-5 w-5 text-white/80" />
+                    )}
+                  </Button>
+                )}
+              </div>
+
+              {/* Instruction hint + mode toggle */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-white/55 tracking-wide select-none">
+                  {voice.inputMode === 'push-to-talk' ? 'Hold · ↵ Enter' : 'Tap to toggle'}
+                </span>
                 <button
                   onClick={() => voice.setInputMode(voice.inputMode === 'push-to-talk' ? 'open-mic' : 'push-to-talk')}
-                  className="text-[10px] text-white/70 hover:text-white/90 transition-colors rounded-full bg-black/40 backdrop-blur-sm px-2 py-0.5 border border-white/10"
+                  className="text-white/35 hover:text-white/70 transition-colors"
                   data-testid="button-immersive-mode-toggle"
                   aria-label={`Switch to ${voice.inputMode === 'push-to-talk' ? 'open mic' : 'push to talk'}`}
+                  title={`Switch to ${voice.inputMode === 'push-to-talk' ? 'open mic' : 'push to talk'}`}
                 >
-                  {voice.inputMode === 'push-to-talk' ? 'Hold to speak · tap to switch' : 'Open mic · tap to switch'}
+                  <ArrowLeftRight className="h-3 w-3" />
                 </button>
               </div>
             </div>
