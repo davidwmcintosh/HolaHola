@@ -34,6 +34,7 @@ import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { useToast } from "@/hooks/use-toast";
 import { useWhiteboard } from "@/hooks/useWhiteboard";
 import { VoiceInputContext } from "@/contexts/VoiceInputContext";
+import { setGlobalVoiceInput } from "@/lib/voiceInputStore";
 import { getTutorNames } from "@/lib/tutor-avatars";
 import { SupportAssistModal } from "@/components/SupportAssistModal";
 import { setRemediationCallback } from "@/lib/lockoutDiagnostics";
@@ -3534,14 +3535,16 @@ export function StreamingVoiceChat({
     }
   };
 
+  const isUsersTurnComputed = (streamingVoice.state.connectionState === 'ready' || streamingVoice.state.connectionState === 'connected' || streamingVoice.state.connectionState === 'streaming') &&
+    !streamingVoice.state.isSwitchingTutor &&
+    (isPttButtonHeld || (!isProcessing && !streamingVoice.state.isProcessing && globalPlaybackState === 'idle') || (!!streamingVoice.state.error && !streamingVoice.state.isProcessing && globalPlaybackState === 'idle'));
+
   const voiceInputContextValue = {
     inputMode,
     setInputMode,
     isRecording,
     isMicPreparing,
-    isUsersTurn: (streamingVoice.state.connectionState === 'ready' || streamingVoice.state.connectionState === 'connected' || streamingVoice.state.connectionState === 'streaming') &&
-      !streamingVoice.state.isSwitchingTutor &&
-      (isPttButtonHeld || (!isProcessing && !streamingVoice.state.isProcessing && globalPlaybackState === 'idle') || (!!streamingVoice.state.error && !streamingVoice.state.isProcessing && globalPlaybackState === 'idle')),
+    isUsersTurn: isUsersTurnComputed,
     playbackState: globalPlaybackState,
     onRecordingStart: inputMode === 'open-mic' ? handleOpenMicTap : startPushToTalkRecording,
     onRecordingStop: inputMode === 'open-mic' ? (() => {}) : stopPushToTalkRecording,
@@ -3550,6 +3553,24 @@ export function StreamingVoiceChat({
       streamingVoice.sendInterrupt();
     },
   };
+
+  // Sync voice input state to global store so ImmersiveOverlay (outside this Provider) can read it
+  useEffect(() => {
+    setGlobalVoiceInput({
+      inputMode,
+      setInputMode,
+      isRecording,
+      isMicPreparing,
+      isUsersTurn: isUsersTurnComputed,
+      playbackState: globalPlaybackState,
+      onRecordingStart: inputMode === 'open-mic' ? handleOpenMicTap : startPushToTalkRecording,
+      onRecordingStop: inputMode === 'open-mic' ? (() => {}) : stopPushToTalkRecording,
+      onInterrupt: () => {
+        streamingVoice.stop();
+        streamingVoice.sendInterrupt();
+      },
+    });
+  }, [inputMode, isRecording, isMicPreparing, isUsersTurnComputed, globalPlaybackState]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <VoiceInputContext.Provider value={voiceInputContextValue}>

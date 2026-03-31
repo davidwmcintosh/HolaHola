@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { usePlaybackState } from "@/lib/playbackStateStore";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useVoiceInput } from "@/contexts/VoiceInputContext";
+import { useGlobalVoiceInput } from "@/lib/voiceInputStore";
 import type { SceneCanvasItemData, SceneCanvasRichContent, WhiteboardItem } from "@shared/whiteboard-types";
 
 interface ContextImageChip {
@@ -293,7 +293,7 @@ export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems
   const { difficulty } = useLanguage();
   const isSpeaking = playbackState === 'playing' || playbackState === 'buffering';
   const isThinking = playbackState === 'thinking';
-  const voice = useVoiceInput();
+  const voice = useGlobalVoiceInput();
 
   const [openSheet, setOpenSheet] = useState<SceneCanvasRichContent | null>(null);
 
