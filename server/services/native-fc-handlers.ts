@@ -2363,13 +2363,14 @@ export class NativeFunctionCallHandler {
               // Map scenario slugs to Prop Room visual environment names
               const SCENARIO_SCENE_MAP: Record<string, string> = {
                 // Daily life
-                'coffee-shop':        'cafe',
+                'coffee-shop':        'cafe_exterior',
                 'grocery-store':      'grocery_store',
-                'restaurant':         'restaurant_table',
+                'restaurant':         'restaurant_entrance',
                 'neighborhood-walk':  'city_street',
                 'the-bank':           'bank',
+                'clothing-store':     'clothing_store',
                 // Travel
-                'airport-checkin':    'airport',
+                'airport-checkin':    'airport_checkin',
                 'hotel-checkin':      'hotel_lobby',
                 'taxi-ride':          'city_street',
                 // Social
@@ -2378,8 +2379,9 @@ export class NativeFunctionCallHandler {
                 'birthday-party':     'living_room',
                 'local-festival':     'outdoor_market',
                 // Cultural
-                'museum-visit':       'museum',
+                'museum-visit':       'museum_entrance',
                 'cooking-class':      'kitchen',
+                'the-library':        'library',
                 // Professional
                 'job-interview':      'office',
                 'office-meeting':     'office',

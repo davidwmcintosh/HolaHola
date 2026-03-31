@@ -11523,6 +11523,14 @@ Return ONLY the ${targetLanguage} phrase:`;
         { slug: 'taxi-ride', order: 0, envName: 'city_street' },
         { slug: 'taxi-ride', order: 1, envName: 'taxi_interior' },
         { slug: 'taxi-ride', order: 2, envName: 'city_street' },
+        // The Clothing Store
+        { slug: 'clothing-store', order: 0, envName: 'clothing_store' },
+        { slug: 'clothing-store', order: 1, envName: 'clothing_store' },
+        { slug: 'clothing-store', order: 2, envName: 'clothing_store' },
+        // The Library
+        { slug: 'the-library', order: 0, envName: 'library' },
+        { slug: 'the-library', order: 1, envName: 'library' },
+        { slug: 'the-library', order: 2, envName: 'library' },
       ];
 
       let updated = 0;
