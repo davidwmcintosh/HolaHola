@@ -11488,6 +11488,14 @@ Return ONLY the ${targetLanguage} phrase:`;
         // Museum family
         { name: 'museum_entrance',      displayName: 'Museum Entrance',       description: 'Grand museum entrance atrium — ticket booth, marble floors, arched windows, exhibition banners' },
         { name: 'museum_gallery',       displayName: 'Museum Gallery',        description: 'Inside a museum exhibition gallery — artworks, sculptures, track lighting, and visitors' },
+        // Clothing Store family
+        { name: 'clothing_store_floor',    displayName: 'Clothing Store — Floor',    description: 'Browsing area of a clothing boutique — hanging racks, folded display tables, full-length mirrors' },
+        { name: 'clothing_store_fitting',  displayName: 'Clothing Store — Fitting',  description: 'Fitting room corridor with curtained cubicles, padded bench, and garment hooks' },
+        { name: 'clothing_store_checkout', displayName: 'Clothing Store — Checkout', description: 'Checkout counter with card reader, shopping bags, and friendly staff' },
+        // Library family
+        { name: 'library_desk',     displayName: 'Library — Circulation Desk', description: 'Circulation desk with computer terminal, return slot, brochures, and staff' },
+        { name: 'library_stacks',   displayName: 'Library — Stacks',           description: 'Quiet aisle between tall bookshelves — colourful spines, book trolley, step stool' },
+        { name: 'library_checkout', displayName: 'Library — Checkout',         description: 'Self-service checkout area with scanner, returns slot, and bookmark display' },
       ];
       for (const env of newEnvs) {
         await db.execute(sql`
@@ -11524,13 +11532,13 @@ Return ONLY the ${targetLanguage} phrase:`;
         { slug: 'taxi-ride', order: 1, envName: 'taxi_interior' },
         { slug: 'taxi-ride', order: 2, envName: 'city_street' },
         // The Clothing Store
-        { slug: 'clothing-store', order: 0, envName: 'clothing_store' },
-        { slug: 'clothing-store', order: 1, envName: 'clothing_store' },
-        { slug: 'clothing-store', order: 2, envName: 'clothing_store' },
+        { slug: 'clothing-store', order: 0, envName: 'clothing_store_floor' },
+        { slug: 'clothing-store', order: 1, envName: 'clothing_store_fitting' },
+        { slug: 'clothing-store', order: 2, envName: 'clothing_store_checkout' },
         // The Library
-        { slug: 'the-library', order: 0, envName: 'library' },
-        { slug: 'the-library', order: 1, envName: 'library' },
-        { slug: 'the-library', order: 2, envName: 'library' },
+        { slug: 'the-library', order: 0, envName: 'library_desk' },
+        { slug: 'the-library', order: 1, envName: 'library_stacks' },
+        { slug: 'the-library', order: 2, envName: 'library_checkout' },
       ];
 
       let updated = 0;
@@ -11556,8 +11564,13 @@ Return ONLY the ${targetLanguage} phrase:`;
   // ─── GENERATE SCENE IMAGES (by name list) ───────────────────────────────────
   // POST body: { names: string[], force?: boolean }
   // Generates DALL-E images for specific visual_environments entries.
-  app.post('/api/admin/generate-scene-images', async (req, res) => {
+  app.post('/api/admin/generate-scene-images', isAuthenticated, async (req: any, res) => {
     try {
+      const userId = getRequestUserId(req);
+      const user = await storage.getUser(userId);
+      if (user?.role !== 'developer' && user?.role !== 'admin') {
+        return res.status(403).json({ error: 'Admin or developer access required' });
+      }
       const { generateAllSceneImages } = await import('./services/prop-room-compositor');
       const { names, force = false } = req.body as { names?: string[]; force?: boolean };
       const results = await generateAllSceneImages({ only: names, force });
@@ -11630,6 +11643,19 @@ Return ONLY the ${targetLanguage} phrase:`;
           console.log(`[Bootstrap] ALL numbers/days complete (${jobId})`);
         })().catch((e: any) => console.error('[Bootstrap] Fatal numbers:', e.message));
         return res.json({ ok: true, jobId, deleted: totalDeleted, action });
+      }
+
+      if (action === 'generate-scene-images') {
+        const { names, force = false } = req.body as { names?: string[]; force?: boolean };
+        const { generateAllSceneImages } = await import('./services/prop-room-compositor');
+        const jobId = `scene-images-${Date.now()}`;
+        (async () => {
+          try {
+            const results = await generateAllSceneImages({ only: names, force });
+            console.log(`[Bootstrap] Scene images complete (${jobId}):`, results);
+          } catch (e: any) { console.error('[Bootstrap] Fatal scene-images:', e.message); }
+        })();
+        return res.json({ ok: true, jobId, action, names: names ?? 'all' });
       }
 
       return res.status(400).json({ error: 'Unknown action' });

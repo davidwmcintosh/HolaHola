@@ -591,9 +591,12 @@ PREPOSITION → POSITION MAPPING:
               // Home
               "kitchen", "kitchen_counter", "living_room", "bedroom", "bedroom_closeup", "bathroom", "desk_closeup",
               // Outdoor / shopping
-              "park", "outdoor_market", "grocery_store", "clothing_store",
+              "park", "outdoor_market", "grocery_store",
+              "clothing_store", "clothing_store_floor", "clothing_store_fitting", "clothing_store_checkout",
               // Professional / institutional / cultural
-              "office", "classroom", "library", "networking_event", "bank", "doctor_office", "pharmacy",
+              "office", "classroom",
+              "library", "library_desk", "library_stacks", "library_checkout",
+              "networking_event", "bank", "doctor_office", "pharmacy",
               // Language-specific venues
               "taqueria", "french_brasserie", "japanese_izakaya", "german_biergarten",
               "italian_trattoria", "korean_bbq", "chinese_teahouse", "israeli_cafe",
@@ -710,8 +713,8 @@ Use the live canvas only when the SEQUENCE of changes is pedagogically meaningfu
 - Museum: museum_entrance (atrium/ticket booth), museum_gallery (exhibition rooms)
 - Transport: city_street (street, flagging cab, arriving), taxi_interior (back seat of taxi)
 - Home: living_room, kitchen, kitchen_counter, bedroom, bedroom_closeup, bathroom, desk_closeup
-- Outdoor / shopping: park, outdoor_market, grocery_store, clothing_store (boutique with racks and fitting rooms)
-- Professional / cultural: office, classroom, library (public library with tall bookshelves), networking_event, bank, doctor_office, pharmacy
+- Outdoor / shopping: park, outdoor_market, grocery_store, clothing_store (general boutique), clothing_store_floor (browsing racks), clothing_store_fitting (fitting rooms), clothing_store_checkout (checkout counter)
+- Professional / cultural: office, classroom, library (general), library_desk (circulation desk), library_stacks (among bookshelves), library_checkout (checkout/returns desk), networking_event, bank, doctor_office, pharmacy
 - Language-specific venues: taqueria, french_brasserie, japanese_izakaya, german_biergarten, italian_trattoria, korean_bbq, chinese_teahouse, israeli_cafe`,
             enum: [
               // Café family
@@ -729,9 +732,12 @@ Use the live canvas only when the SEQUENCE of changes is pedagogically meaningfu
               // Home
               "kitchen", "kitchen_counter", "living_room", "bedroom", "bedroom_closeup", "bathroom", "desk_closeup",
               // Outdoor / shopping
-              "park", "outdoor_market", "grocery_store", "clothing_store",
+              "park", "outdoor_market", "grocery_store",
+              "clothing_store", "clothing_store_floor", "clothing_store_fitting", "clothing_store_checkout",
               // Professional / institutional / cultural
-              "office", "classroom", "library", "networking_event", "bank", "doctor_office", "pharmacy",
+              "office", "classroom",
+              "library", "library_desk", "library_stacks", "library_checkout",
+              "networking_event", "bank", "doctor_office", "pharmacy",
               // Language-specific venues
               "taqueria", "french_brasserie", "japanese_izakaya", "german_biergarten",
               "italian_trattoria", "korean_bbq", "chinese_teahouse", "israeli_cafe",
