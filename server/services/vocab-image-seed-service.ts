@@ -48,21 +48,25 @@ export const CHARACTER_PROFILES = {
   FR: {
     primary:   'Sophie, a 27-year-old French woman with chin-length auburn hair, fair skin, and green eyes, wearing a striped navy-and-white Breton top and light trousers',
     secondary: 'Pierre, a 32-year-old French man with neat short brown hair, light skin, and blue eyes, wearing a burgundy crewneck sweater and dark trousers',
+    grandmere: 'Colette, Sophie\'s 66-year-old French grandmother with soft silver curly hair, warm fair skin, and kind blue-grey eyes, wearing a lavender cardigan over a floral blouse',
   },
   /** German — used for all German greeting & farewell prompts */
   DE: {
     primary:   'Anna, a 26-year-old German woman with straight blonde hair in a ponytail, fair skin, and blue-grey eyes, wearing a forest-green pullover and grey slim-fit trousers',
     secondary: 'Klaus, a 34-year-old German man with short sandy-blond hair, fair skin, and hazel eyes, wearing a charcoal zip-up jacket and navy trousers',
+    oma:       'Helga, Anna\'s 67-year-old German grandmother with short silver-white hair in a neat bun, fair skin, and warm grey eyes, wearing a cozy navy-blue cardigan and a floral blouse',
   },
   /** Italian — used for all Italian greeting & farewell prompts */
   IT: {
     primary:   'Giulia, a 25-year-old Italian woman with long straight dark-brown hair, warm olive skin, and dark-brown eyes, wearing a terracotta linen blouse and white wide-leg trousers',
     secondary: 'Luca, a 29-year-old Italian man with short dark wavy hair, medium-olive skin, and brown eyes, wearing a pale-yellow polo shirt and light chinos',
+    nonna:     'Carmela, Giulia\'s 65-year-old Italian grandmother with short silver hair, warm olive skin, and kind dark-brown eyes, wearing a cream-coloured knitted cardigan over a printed blouse',
   },
   /** Portuguese — used for all Portuguese greeting & farewell prompts */
   PT: {
     primary:   'Ana, a 27-year-old Brazilian woman with long wavy dark hair, golden-brown skin, and warm brown eyes, wearing a coral short-sleeve fitted blouse tucked into dark tailored wide-leg trousers',
     secondary: 'João, a 31-year-old Brazilian man with short dark hair, medium-brown skin, and brown eyes, wearing a light-blue casual shirt and beige trousers',
+    avo:       'Maria, Ana\'s 64-year-old Brazilian grandmother with short wavy silver hair, warm golden-brown skin, and kind brown eyes, wearing a vibrant floral blouse',
   },
   /** Japanese — used for all Japanese greeting & farewell prompts */
   JA: {
@@ -88,6 +92,7 @@ export const CHARACTER_PROFILES = {
   EN: {
     primary:   'Emma, a 27-year-old American woman with shoulder-length chestnut hair, light skin, and hazel eyes, wearing a navy blue cardigan and light jeans',
     secondary: 'Marcus, a 31-year-old American man with close-cropped dark hair, medium-brown skin, and warm dark eyes, wearing a light grey crew-neck sweater and dark jeans',
+    grandma:   'Dorothy, Emma\'s 65-year-old American grandmother with short silver-white curly hair, warm fair skin, and kind hazel eyes, wearing a soft periwinkle sweater and small pearl earrings',
   },
 } as const;
 
@@ -380,9 +385,9 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'bonjour':            `${CHAR.FR.primary} and ${CHAR.FR.secondary} greeting each other with warm smiles at a sunny Parisian café terrace in the morning, croissants and coffee on the table, bright cheerful watercolor illustration`,
   'bonsoir':            `${CHAR.FR.primary} and ${CHAR.FR.secondary} meeting at a warmly lit evening street café, exchanging friendly bonsoir greetings under soft streetlamp glow, dusky blue sky behind them, watercolor illustration`,
   'bonne nuit':         `${CHAR.FR.primary} waving goodnight from a warmly lit apartment doorway under a crescent moon and starry sky, soft interior lamp light, watercolor illustration`,
-  'au revoir':          `${CHAR.FR.primary} standing at an open doorway waving goodbye with a warm smile as ${CHAR.FR.secondary} walks away down a tree-lined path, soft afternoon light, watercolor illustration`,
+  'au revoir':          `${CHAR.FR.primary} waving goodbye at an open doorway with a warm smile, ${CHAR.FR.grandmere} standing on the front steps waving back warmly, soft afternoon light, watercolor illustration`,
   'salut':              `${CHAR.FR.primary} and ${CHAR.FR.secondary} spotting each other across a sunny park and waving hello with big casual smiles, green trees in the background, bright cheerful watercolor illustration`,
-  'a bientot':          `${CHAR.FR.primary} and ${CHAR.FR.secondary} parting at a park gate, both turning to wave "à bientôt" over their shoulders with warm smiles, sunny afternoon, watercolor illustration`,
+  'a bientot':          `${CHAR.FR.primary} giving ${CHAR.FR.grandmere} a warm farewell hug at a sunny French doorway, both smiling happily, bright cheerful watercolor illustration`,
   'a demain':           `${CHAR.FR.primary} waving goodbye at a garden gate at sunset, a cheerful circular calendar floating nearby with tomorrow circled, warm golden light, watercolor illustration`,
   'sil vous plait':     `${CHAR.FR.primary} at a café counter with hands clasped in a polite please-expression, a coffee cup on the counter, friendly exchange with the barista, warm cozy interior, watercolor illustration`,
   'merci':              `${CHAR.FR.primary} pressing both palms together with a genuine grateful smile and a small nod of thanks, bright cheerful background, watercolor illustration`,
@@ -401,14 +406,14 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'guten tag':          `${CHAR.DE.primary} and ${CHAR.DE.secondary} waving hello to each other on a sunny cobblestone pedestrian street, European shop fronts and flower boxes behind them, bright afternoon light, watercolor illustration`,
   'guten abend':        `${CHAR.DE.primary} and ${CHAR.DE.secondary} meeting at the entrance of a warmly-lit cozy restaurant at dusk, exchanging warm greetings, amber light spilling from the open door, soft violet evening sky above, watercolor illustration`,
   'gute nacht':         `${CHAR.DE.primary} waving goodnight from a cozy doorway under a starry sky, warm lamp light glowing inside, watercolor illustration`,
-  'auf wiedersehen':    `${CHAR.DE.primary} standing at an open front door waving goodbye with a warm smile, ${CHAR.DE.secondary} walking down a garden path waving back, soft sunset light, watercolor illustration`,
+  'auf wiedersehen':    `${CHAR.DE.primary} waving goodbye at an open front door with a warm smile, ${CHAR.DE.oma} standing on the garden path waving back warmly, soft sunset light, watercolor illustration`,
   'tschuss':            `${CHAR.DE.primary} and ${CHAR.DE.secondary} parting cheerfully at a bus stop, both turning and waving a casual cheerful goodbye to each other with big smiles, bright urban setting, watercolor illustration`,
   'bitte':              `${CHAR.DE.primary} at a bakery counter with hands clasped in a gentle polite please-expression, a fresh loaf on the counter, warm cozy interior with shelves of bread behind, watercolor illustration`,
   'danke':              `${CHAR.DE.primary} pressing both palms together with a heartfelt grateful smile and a warm nod of thanks, bright cheerful background, watercolor illustration`,
   'danke schon':        `${CHAR.DE.primary} giving a warm grateful bow with both hands pressed together, beaming with sincere deep appreciation, cheerful bright background, watercolor illustration`,
   'bitte schon':        `${CHAR.DE.secondary} gesturing "bitte schön — you're welcome" with an open relaxed palm and a kind friendly smile, bright airy setting, watercolor illustration`,
   'entschuldigung':     `${CHAR.DE.primary} gently tapping a stranger on the shoulder with a polite apologetic expression, hand slightly raised to get attention, busy street setting, watercolor illustration`,
-  'bis spater':         `${CHAR.DE.primary} and ${CHAR.DE.secondary} parting cheerfully at a city corner, both waving "bis später" over their shoulders with warm smiles, bright afternoon light, watercolor illustration`,
+  'bis spater':         `${CHAR.DE.primary} giving ${CHAR.DE.oma} a warm farewell hug at a cozy German front door, both smiling happily, bright cheerful watercolor illustration`,
   'freut mich':         `${CHAR.DE.primary} and ${CHAR.DE.secondary} shaking hands warmly in a first meeting, both wearing delighted pleased-to-meet-you smiles, bright professional indoor setting, watercolor illustration`,
   'wie geht es ihnen':  `${CHAR.DE.primary} in a polite formal posture facing ${CHAR.DE.secondary}, extending a courteous open-hand gesture with a respectful questioning smile, bright warm indoor setting, watercolor illustration`,
   'mir geht es gut danke': `${CHAR.DE.primary} giving a cheerful thumbs-up with a bright content smile, radiating a warm "I'm doing well, thank you" expression, sunny background, watercolor illustration`,
@@ -419,7 +424,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'buongiorno':         `${CHAR.IT.primary} waving good morning from a sunlit Italian courtyard balcony with flower pots, golden morning light streaming in, warm cheerful watercolor illustration`,
   'buonasera':          `${CHAR.IT.primary} and ${CHAR.IT.secondary} exchanging warm buonasera greetings at the entrance of a cozy trattoria, amber evening light spilling from the open door, watercolor illustration`,
   'buonanotte':         `${CHAR.IT.primary} waving goodnight from a warmly lit doorway under a beautiful starry Italian sky, warm lamp light glowing inside, watercolor illustration`,
-  'arrivederci':        `${CHAR.IT.primary} waving arrivederci at a sunny train platform with a warm smile, ${CHAR.IT.secondary} visible boarding a train in the background, cheerful watercolor illustration`,
+  'arrivederci':        `${CHAR.IT.primary} waving arrivederci with a warm smile at a sunny doorway, ${CHAR.IT.nonna} standing on the step waving back warmly, cheerful watercolor illustration`,
   'prego':              `${CHAR.IT.secondary} at a restaurant gesturing "prego — please, go ahead" with an open gracious welcoming hand and a warm smile, bright Italian dining setting, watercolor illustration`,
   'grazie':             `${CHAR.IT.primary} pressing both palms together with a warm grateful smile and a slight bow of thanks, bright sunny background, watercolor illustration`,
   'per favore':         `${CHAR.IT.primary} at a gelato shop counter with hands clasped making a polite "per favore" request with kind eyes, cheerful colourful setting, watercolor illustration`,
@@ -427,7 +432,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'come stai':          `${CHAR.IT.primary} walking toward ${CHAR.IT.secondary} on a sunny Italian street, spreading her arms open with a warm questioning "come stai?" expression, both smiling, watercolor illustration`,
   'come sta':           `${CHAR.IT.primary} in a formal setting making a respectful polite inquiry gesture to ${CHAR.IT.secondary}, a professional warm interior, watercolor illustration`,
   'a domani':           `${CHAR.IT.primary} waving goodbye at a sun-dappled Italian garden gate at sunset, a cheerful circular calendar floating nearby with domani circled, warm golden light, watercolor illustration`,
-  'a presto':           `${CHAR.IT.primary} and ${CHAR.IT.secondary} parting at a café doorway, both turning to wave a warm "a presto" with bright hopeful smiles, sunny Italian street behind them, watercolor illustration`,
+  'a presto':           `${CHAR.IT.primary} giving ${CHAR.IT.nonna} a warm farewell hug at a sun-drenched Italian doorway, both smiling warmly, bright cheerful watercolor illustration`,
   'piacere':            `${CHAR.IT.primary} and ${CHAR.IT.secondary} meeting for the first time in a bright sunny piazza, both extending a warm handshake with delighted "piacere — pleased to meet you" smiles, watercolor illustration`,
   'sto bene grazie':    `${CHAR.IT.primary} giving a cheerful double thumbs-up with a radiant warm smile, the bright Italian countryside visible through a window behind, watercolor illustration`,
 
@@ -437,8 +442,8 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'bom dia':            `${CHAR.PT.primary} in cozy full-length pajamas waving good morning at a bright kitchen window, golden sunrise light streaming in through the glass, warm cheerful watercolor illustration`,
   'boa tarde':          `${CHAR.PT.primary} relaxing on a park bench waving cheerfully to ${CHAR.PT.secondary} passing by in the warm sunny afternoon, long golden shadows on the path, watercolor illustration`,
   'boa noite':          `${CHAR.PT.primary} waving goodnight from a warmly lit doorway under a calm night sky with a crescent moon and stars, soft interior lamp light, watercolor illustration`,
-  'adeus':              `${CHAR.PT.primary} waving a heartfelt farewell at an open doorway as ${CHAR.PT.secondary} walks down a sun-dappled garden path waving back, soft warm light, watercolor illustration`,
-  'ate logo':           `${CHAR.PT.primary} and ${CHAR.PT.secondary} parting cheerfully at a bus stop, both turning to wave "até logo" with warm smiles, bright urban setting, watercolor illustration`,
+  'adeus':              `${CHAR.PT.primary} waving a heartfelt farewell at an open doorway with a warm smile, ${CHAR.PT.avo} standing on the garden path waving back warmly, soft warm light, watercolor illustration`,
+  'ate logo':           `${CHAR.PT.primary} giving ${CHAR.PT.avo} a warm farewell embrace at a garden gate, both smiling broadly, bright cheerful watercolor illustration`,
   'ate amanha':         `${CHAR.PT.primary} waving goodbye at a garden gate at sunset, a cheerful circular calendar floating nearby with tomorrow circled, warm golden light, watercolor illustration`,
   'obrigado':           `${CHAR.PT.secondary} pressing both palms together with a genuine grateful smile and a warm nod of thanks, bright cheerful background, watercolor illustration`,
   'obrigada':           `${CHAR.PT.primary} pressing both palms together with a heartfelt warm smile and a slight bow of deep gratitude, bright background, watercolor illustration`,
@@ -598,10 +603,10 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'good afternoon':     `${CHAR.EN.primary} and ${CHAR.EN.secondary} meeting up at a sunny outdoor café in the afternoon, both smiling and waving, golden afternoon light, watercolor illustration`,
   'good evening':       `${CHAR.EN.primary} and ${CHAR.EN.secondary} exchanging warm good evening greetings at the entrance of a cozy warmly lit restaurant at dusk, amber light spilling from the open door, watercolor illustration`,
   'good night':         `${CHAR.EN.primary} waving goodnight from a warmly lit doorway under a calm starry sky, a crescent moon visible, soft interior lamp light, watercolor illustration`,
-  'goodbye':            `${CHAR.EN.primary} waving a warm goodbye from an open doorway as ${CHAR.EN.secondary} walks away down a tree-lined path, soft afternoon light, watercolor illustration`,
+  'goodbye':            `${CHAR.EN.primary} waving a warm goodbye from an open doorway with a warm smile, ${CHAR.EN.grandma} standing on the porch waving back warmly, soft afternoon light, watercolor illustration`,
   'bye':                `${CHAR.EN.primary} and ${CHAR.EN.secondary} parting cheerfully at a bus stop, both turning to wave a casual bye with big smiles, bright urban setting, watercolor illustration`,
   'see you later':      `${CHAR.EN.primary} and ${CHAR.EN.secondary} parting at a park gate, both turning to wave "see you later" over their shoulders with warm smiles, sunny afternoon, watercolor illustration`,
-  'see you soon':       `${CHAR.EN.primary} waving goodbye at a street corner with a bright hopeful smile, a small speech bubble reading "see you soon!", cheerful watercolor illustration`,
+  'see you soon':       `${CHAR.EN.primary} giving ${CHAR.EN.grandma} a warm farewell hug at a sunny doorstep, both smiling happily, bright cheerful watercolor illustration`,
   'nice to meet you':   `${CHAR.EN.primary} and ${CHAR.EN.secondary} shaking hands warmly for the first time at a bright friendly setting, both smiling with a genuine pleased-to-meet-you expression, watercolor illustration`,
   'please':             `${CHAR.EN.primary} at a café counter with hands clasped in a polite please-expression, warm cozy interior, friendly exchange, watercolor illustration`,
   'thank you':          `${CHAR.EN.primary} pressing both palms together with a genuine grateful smile and a warm nod of thanks, bright cheerful background, watercolor illustration`,

@@ -107,11 +107,11 @@ export async function seedCurriculum() {
     {
       curriculumUnitId: spanish1Units[0].id,
       name: "Lesson 1: Greetings & Farewells",
-      description: "Learn basic greetings (Hola, Buenos días) and farewells (Adiós, Hasta luego)",
+      description: "Learn basic greetings (Hola, Buenos días) and farewells (Adiós, Hasta luego, Hasta pronto)",
       orderIndex: 1,
       lessonType: "conversation",
       actflLevel: "novice_low",
-      conversationTopic: "Greet someone and say goodbye in different contexts (morning, afternoon, formal/informal)",
+      conversationTopic: "Greet someone and say goodbye in different contexts (morning, afternoon, formal/informal) — including warm farewells like 'hasta pronto' (see you soon)",
       conversationPrompt: "You are a friendly Spanish speaker meeting a student for the first time. Practice basic greetings appropriate for different times of day. Keep responses simple and encourage repetition.",
       objectives: ["I can greet someone", "I can say goodbye", "I can ask how someone is"],
       estimatedMinutes: 30,
@@ -466,7 +466,7 @@ export async function seedCurriculum() {
     {
       curriculumUnitId: french1Units[0].id,
       name: "Lesson 1: Salutations - Greetings & Farewells",
-      description: "Learn basic greetings (Bonjour, Salut) and farewells (Au revoir, À bientôt)",
+      description: "Learn basic greetings (Bonjour, Salut) and farewells (Au revoir, À bientôt — see you soon)",
       orderIndex: 1,
       lessonType: "conversation",
       actflLevel: "novice_low",

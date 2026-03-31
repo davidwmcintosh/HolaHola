@@ -1140,7 +1140,7 @@ export async function refetchImage(request: {
   // Bust the cache so resolveVocabularyImage generates fresh
   try {
     const { bustVocabImageCache } = await import('./vocab-image-seed-service');
-    await bustVocabImageCache(primaryKey);
+    await bustVocabImageCache([primaryKey]);
   } catch (_) { /* non-fatal — image will still be regenerated */ }
 
   return resolveVocabularyImage({

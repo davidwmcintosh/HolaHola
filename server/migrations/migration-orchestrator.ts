@@ -228,6 +228,156 @@ const MIGRATIONS: Migration[] = [
       console.log(`[MIGRATIONS] 003: Cleared ${totalDeleted} stale greeting image cache entries (including fallback component keys) across 5 languages`);
     },
   },
+  {
+    version: '004',
+    name: 'elder-characters-english-cache-and-see-you-soon-drills',
+    up: async () => {
+      // ── Part A: Bust English greeting cache + elder-character farewell words ──
+      // Migration 003 busted ES/FR/DE/IT/PT but missed English entirely.
+      // Additionally, farewell words in FR/DE/IT/PT/EN now use grandmother/elder
+      // character prompts (grandmère Colette, Oma Helga, nonna Carmela, avó Maria,
+      // grandma Dorothy) matching the Spanish abuela Rosa pattern. Their cached
+      // images must be deleted so they regenerate with the new warm family scenes.
+      const { bustVocabImageCache, toCacheKey, GREETINGS_CACHE_KEYS } = await import('../services/vocab-image-seed-service');
+
+      const tableCheck = await db.execute(sql`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables
+          WHERE table_schema = 'public' AND table_name = 'media_files'
+        ) AS exists
+      `);
+
+      if (tableCheck.rows?.[0]?.exists) {
+        let totalDeleted = 0;
+
+        // A1: Bust ALL English greetings (absent from migration 003)
+        const englishKeys = GREETINGS_CACHE_KEYS['english'] ?? [];
+        if (englishKeys.length > 0) {
+          totalDeleted += await bustVocabImageCache(englishKeys);
+        }
+
+        // A2: Bust farewell words across other languages that now use elder characters
+        const elderFarewells: Record<string, string[]> = {
+          french:     ['au revoir', 'à bientôt'],
+          german:     ['auf Wiedersehen', 'bis später'],
+          italian:    ['arrivederci', 'a presto'],
+          portuguese: ['adeus', 'até logo'],
+        };
+        for (const [lang, words] of Object.entries(elderFarewells)) {
+          const keys = words.map((w: string) => toCacheKey(lang, w));
+          try {
+            totalDeleted += await bustVocabImageCache(keys);
+          } catch (err: any) {
+            console.warn(`[MIGRATIONS] 004: Error busting ${lang} farewell keys:`, err.message);
+          }
+        }
+
+        console.log(`[MIGRATIONS] 004: Cleared ${totalDeleted} stale image entries for English greetings + elder-character farewells`);
+      } else {
+        console.log('[MIGRATIONS] 004: media_files table not found — skipping cache bust');
+      }
+
+      // ── Part B: Add "see you soon" as curriculum drill items ──
+      // "hasta pronto" (ES), "à bientôt" (FR), "bis später" (DE), "a presto" (IT),
+      // "até logo" (PT), "see you soon" (EN) have scene overrides and cached images
+      // but are absent from curriculum_drill_items — so they never appear in the
+      // textbook Visual Vocabulary grid.
+      const lessonsCheck = await db.execute(sql`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables
+          WHERE table_schema = 'public' AND table_name = 'curriculum_lessons'
+        ) AS exists
+      `);
+      if (!lessonsCheck.rows?.[0]?.exists) {
+        console.log('[MIGRATIONS] 004: curriculum_lessons not found — skipping drill items');
+        return;
+      }
+
+      // [targetText, englishPrompt, targetLanguage]
+      const drillWords: Array<[string, string, string]> = [
+        ['hasta pronto', 'see you soon', 'spanish'],
+        ['à bientôt',    'see you soon', 'french'],
+        ['bis später',   'see you soon', 'german'],
+        ['a presto',     'see you soon', 'italian'],
+        ['até logo',     'see you soon', 'portuguese'],
+        ['see you soon', 'see you soon', 'english'],
+      ];
+
+      let drillItemsAdded = 0;
+
+      for (const [targetText, englishPrompt, targetLanguage] of drillWords) {
+        // Find the greetings lesson for this language
+        // Note: curriculum_paths uses "language" column (not "target_language")
+        const lessonResult = await db.execute(sql`
+          SELECT cl.id
+          FROM curriculum_lessons cl
+          JOIN curriculum_units cu ON cl.curriculum_unit_id = cu.id
+          JOIN curriculum_paths cp ON cu.curriculum_path_id = cp.id
+          WHERE cp.language = ${targetLanguage}
+            AND (
+              cl.name ILIKE '%Greetings%Farewells%'
+              OR cl.name ILIKE '%Salutations%'
+            )
+          ORDER BY cl.order_index ASC
+          LIMIT 1
+        `);
+
+        if (!lessonResult.rows || lessonResult.rows.length === 0) {
+          console.log(`[MIGRATIONS] 004: No greetings lesson found for ${targetLanguage} — skipping "${targetText}"`);
+          continue;
+        }
+
+        const lessonId = (lessonResult.rows[0] as any).id;
+
+        // Get next available order_index
+        const orderResult = await db.execute(sql`
+          SELECT COALESCE(MAX(order_index), 0) + 1 AS next_idx
+          FROM curriculum_drill_items
+          WHERE lesson_id = ${lessonId}
+        `);
+        let nextIndex = Number((orderResult.rows?.[0] as any)?.next_idx ?? 1);
+
+        // Insert listen_repeat if absent
+        const listenExists = await db.execute(sql`
+          SELECT 1 FROM curriculum_drill_items
+          WHERE lesson_id = ${lessonId}
+            AND target_text = ${targetText}
+            AND item_type = 'listen_repeat'
+          LIMIT 1
+        `);
+        if (!listenExists.rows || listenExists.rows.length === 0) {
+          await db.execute(sql`
+            INSERT INTO curriculum_drill_items
+              (id, lesson_id, item_type, order_index, prompt, target_text, target_language, difficulty, created_at, updated_at)
+            VALUES
+              (gen_random_uuid(), ${lessonId}, 'listen_repeat', ${nextIndex}, ${targetText}, ${targetText}, ${targetLanguage}, 1, NOW(), NOW())
+          `);
+          nextIndex++;
+          drillItemsAdded++;
+        }
+
+        // Insert translate_speak if absent
+        const translateExists = await db.execute(sql`
+          SELECT 1 FROM curriculum_drill_items
+          WHERE lesson_id = ${lessonId}
+            AND target_text = ${targetText}
+            AND item_type = 'translate_speak'
+          LIMIT 1
+        `);
+        if (!translateExists.rows || translateExists.rows.length === 0) {
+          await db.execute(sql`
+            INSERT INTO curriculum_drill_items
+              (id, lesson_id, item_type, order_index, prompt, target_text, target_language, difficulty, created_at, updated_at)
+            VALUES
+              (gen_random_uuid(), ${lessonId}, 'translate_speak', ${nextIndex}, ${englishPrompt}, ${targetText}, ${targetLanguage}, 1, NOW(), NOW())
+          `);
+          drillItemsAdded++;
+        }
+      }
+
+      console.log(`[MIGRATIONS] 004: Added ${drillItemsAdded} new drill items for "see you soon" words across languages`);
+    },
+  },
 ];
 
 export class MigrationOrchestrator {

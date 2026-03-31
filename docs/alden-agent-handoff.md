@@ -1,5 +1,45 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Mon, Mar 31, 2026 (session 13 — elder characters + see-you-soon drill items)
+
+### Completed this session
+
+1. **Grandmother/elder characters added to CHARACTER_PROFILES** (`server/services/vocab-image-seed-service.ts`):
+   - FR: `grandmere` — Colette, Sophie's 66-year-old French grandmother
+   - DE: `oma` — Helga, Anna's 67-year-old German grandmother
+   - IT: `nonna` — Carmela, Giulia's 65-year-old Italian grandmother
+   - PT: `avo` — Maria, Ana's 64-year-old Brazilian grandmother
+   - EN: `grandma` — Dorothy, Emma's 65-year-old American grandmother
+   - Matches the Spanish pattern (`abuela` Rosa) that made Spanish farewell images warm and family-oriented
+
+2. **Farewell SCENE_OVERRIDES updated** to use elder characters:
+   - French: `au revoir` → Sophie waves at doorway, Colette on steps; `à bientôt` → Sophie hugs Colette
+   - German: `auf Wiedersehen` → Anna waves, Oma Helga on path; `bis später` → Anna hugs Oma Helga
+   - Italian: `arrivederci` → Giulia waves at doorway, nonna Carmela on step; `a presto` → Giulia hugs nonna Carmela
+   - Portuguese: `adeus` → Ana waves, avó Maria on path; `até logo` → Ana hugs avó Maria
+   - English: `goodbye` → Emma waves, grandma Dorothy on porch; `see you soon` → Emma hugs grandma Dorothy
+
+3. **Migration #004 added and applied** (`server/migrations/migration-orchestrator.ts`):
+   - **Part A**: Busted English greeting image cache (22 images cleared) — fixes stale flat-icon "hello" image, regenerates with Emma + Marcus watercolor scene
+   - Busted FR/DE/IT/PT/EN farewell words that now use elder character prompts
+   - **Part B**: Added "hasta pronto" (ES), "à bientôt" (FR), "see you soon" (EN) as `listen_repeat` + `translate_speak` drill items to their greetings lessons — now appears in textbook Visual Vocabulary
+   - DE/IT/PT skipped (no matching greetings lesson in `curriculum_paths` — those use a separate drill-lesson seeder path)
+
+4. **curriculum-seed.ts updated**: Spanish Lesson 1 description + conversationTopic now include "hasta pronto"
+
+### Key files changed this session
+- `server/services/vocab-image-seed-service.ts` — CHARACTER_PROFILES (new elder characters), SCENE_OVERRIDES (farewell updates)
+- `server/migrations/migration-orchestrator.ts` — migration #004 added
+- `server/curriculum-seed.ts` — Spanish lesson 1 description updated
+
+### Next session scratchpad
+- **English "hello"** should regenerate automatically via startup seeder (+70s) — cache was cleared; new image will use Emma + Marcus watercolor scene
+- **FR/DE/IT/PT farewell images** were also cleared — they regenerate on-demand when textbook page is accessed; or run fix-all-greetings from admin to regenerate proactively
+- **DE/IT/PT "see you soon" drill items** not added (no curriculum_paths greetings lesson) — if needed, the drill-lesson seeder (which already seeds greetings for those languages) would need updating to include the "see you soon" equivalent words
+- **Admin**: After deployment, may want to run "Fix All Greetings" from Command Center → Vocab Images tab to regenerate all cleared farewell images with the new elder character prompts
+
+---
+
 ## Session Summary — Mon, Mar 31, 2026 (session 12 — sub-environments + route security)
 
 ### Completed this session
