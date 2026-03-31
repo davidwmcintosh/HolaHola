@@ -235,6 +235,56 @@ function RichContentSheet({
   );
 }
 
+// ─── Immersive whiteboard strip ───────────────────────────────────────────────
+
+function ImmersiveWhiteboardStrip({ items }: { items: WhiteboardItem[] }) {
+  const textItems = items.filter(
+    (item: any) => item.type === 'write' || item.type === 'phonetic' || item.type === 'compare'
+  );
+  const latest = textItems[textItems.length - 1] as any;
+
+  if (!latest) return null;
+
+  const lines: string[] = [];
+  if (latest.type === 'write' || latest.type === 'phonetic') {
+    const raw: string = latest.content ?? latest.data?.text ?? '';
+    raw.split('\n').filter(Boolean).forEach((l: string) => lines.push(l));
+  } else if (latest.type === 'compare' && Array.isArray(latest.data?.pairs)) {
+    latest.data.pairs.forEach((p: any) => {
+      if (p.target) lines.push(p.target);
+      if (p.native) lines.push(p.native);
+    });
+  }
+
+  if (!lines.length) return null;
+
+  return (
+    <motion.div
+      key={latest.id}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 20 }}
+      transition={{ duration: 0.35, ease: 'easeOut' }}
+      className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10 max-w-[min(90vw,640px)] w-max"
+      data-testid="immersive-whiteboard-strip"
+    >
+      <div
+        className="rounded-xl px-5 py-3 flex flex-col items-center gap-1 text-center"
+        style={{ background: 'rgba(0,0,0,0.62)', backdropFilter: 'blur(18px)', border: '1px solid rgba(255,255,255,0.12)' }}
+      >
+        {lines.map((line, i) => (
+          <span
+            key={i}
+            className={i === 0 ? 'text-white font-semibold text-xl leading-snug tracking-wide' : 'text-white/60 text-sm leading-snug'}
+          >
+            {line}
+          </span>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
 // ─── Main overlay ─────────────────────────────────────────────────────────────
 
 export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems, contextImages, onExit }: ImmersiveOverlayProps) {
@@ -374,6 +424,11 @@ export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems
               })}
             </AnimatePresence>
           </div>
+
+          {/* Whiteboard text strip — written words/phrases from Daniela */}
+          <AnimatePresence>
+            <ImmersiveWhiteboardStrip items={displayWhiteboardItems ?? []} />
+          </AnimatePresence>
 
           {/* Floating whiteboard image items */}
           {imageItems.length > 0 && (
