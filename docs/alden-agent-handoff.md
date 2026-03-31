@@ -1,5 +1,42 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Mon, Mar 31, 2026 (session 11 — new scenarios + immersive whiteboard fix)
+
+### Completed this session
+
+1. **Two new scenarios seeded to DB** (all 10 languages, `active = true`):
+   - **The Clothing Store** (`slug: clothing-store`, `category: daily`, `location: A clothing boutique`)
+     - Stage 0 — "Browsing the Floor" → `clothing_store`
+     - Stage 1 — "The Fitting Room" → `clothing_store`
+     - Stage 2 — "At the Checkout" → `clothing_store`
+   - **The Library** (`slug: the-library`, `category: cultural`, `location: A public library`)
+     - Stage 0 — "At the Circulation Desk" → `library`
+     - Stage 1 — "Browsing the Stacks" → `library`
+     - Stage 2 — "Checking Out" → `library`
+
+2. **`SCENARIO_SCENE_MAP` updated** (`server/services/native-fc-handlers.ts`):
+   - Added: `'clothing-store': 'clothing_store'`, `'the-library': 'library'`
+   - Updated stale entries: `coffee-shop` → `cafe_exterior`, `restaurant` → `restaurant_entrance`, `airport-checkin` → `airport_checkin`, `museum-visit` → `museum_entrance`
+
+3. **`seed-zone-environments` updated** (`server/routes.ts`): Added 6 new mappings (clothing-store zones 0/1/2 → `clothing_store`; the-library zones 0/1/2 → `library`). Safe to re-run.
+
+4. **Immersive whiteboard strip** (`client/src/components/ImmersiveOverlay.tsx`): The fullscreen immersive overlay (z-200) was completely hiding the WhiteboardPanel behind it — text writes, phonetics, and compare items sent to the board during a voice scenario were invisible to the student. Confirmed by reading Daniel McIntosh's (`danielwmcintosh@gmail.com`) March 26 Italian session logs (conv ID `19e34811`), where he explicitly reported being unable to see the whiteboard.
+   - Added `ImmersiveWhiteboardStrip` component: renders the latest `write`, `phonetic`, or `compare` item as a frosted-glass subtitle bar at the bottom-centre of the scene
+   - Animates in from below with `framer-motion`; line 1 is large white text, line 2+ is smaller grey secondary lines
+   - Image-type whiteboard items continue to float in the bottom-right corner (unchanged)
+
+### Key files changed this session
+- `server/services/native-fc-handlers.ts` — `SCENARIO_SCENE_MAP`: 2 new entries, 4 stale entries updated
+- `server/routes.ts` — `seed-zone-environments`: 6 new zone mappings for clothing-store + the-library
+- `client/src/components/ImmersiveOverlay.tsx` — `ImmersiveWhiteboardStrip` component added; rendered inside the overlay with `AnimatePresence`
+
+### Next session scratchpad
+- **Clothing store + library have a single background image each** (all 3 stages show the same image). Could add sub-environments like `clothing_store_floor` / `clothing_store_fitting` / `clothing_store_checkout` and `library_desk` / `library_stacks` / `library_checkout` for visual variety across stages — same pattern as `cafe_exterior` → `cafe_counter` → `cafe_table`.
+- **Immersive strip only shows the most recent item** — if Daniela writes multiple things in succession, only the last one is visible. A scrollable or stacked display could improve this, but keep it simple for now.
+- **`generate-scene-images` route still unprotected** (no admin auth) — should be secured before prod.
+
+---
+
 ## Session Summary — Mon, Mar 30, 2026 (session 10 — scenario_zones → visual_environments collapse)
 
 ### Completed this session
