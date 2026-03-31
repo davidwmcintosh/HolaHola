@@ -1121,3 +1121,69 @@ export async function prefetchVocabularyImage(
     console.error(`[VocabImage] Prefetch failed for "${word}":`, err.message);
   }
 }
+
+/**
+ * Refetch: bust the cache for a word and re-resolve a fresh image.
+ * Fixes the existing /api/admin/media/refetch route which imports this function.
+ */
+export async function refetchImage(request: {
+  word: string;
+  language: string;
+  preferredSource: 'stock' | 'ai';
+  customQuery?: string;
+  userId?: string | null;
+}): Promise<VocabImageResult> {
+  const { word, language, customQuery, userId } = request;
+  const effectiveWord = customQuery || word;
+  const primaryKey = generateCacheKey(effectiveWord, language);
+
+  // Bust the cache so resolveVocabularyImage generates fresh
+  try {
+    const { bustVocabImageCache } = await import('./vocab-image-seed-service');
+    await bustVocabImageCache(primaryKey);
+  } catch (_) { /* non-fatal — image will still be regenerated */ }
+
+  return resolveVocabularyImage({
+    word: effectiveWord,
+    language,
+    description: word,
+    userId: userId ?? undefined,
+  });
+}
+
+/**
+ * Preview-only refetch: generate a new image via DALL-E and archive it to
+ * permanent storage, but do NOT save a record to media_files.
+ * Returns the permanent URL so the admin can compare before committing.
+ */
+export async function previewRefetchImage(request: {
+  word: string;
+  language: string;
+  customQuery?: string;
+  userId?: string | null;
+}): Promise<{ previewUrl: string; source: string }> {
+  const { word, language, customQuery } = request;
+  const effectiveWord = customQuery || word;
+
+  // Auto-apply scene overrides so the preview matches what the real image would look like
+  let scene: string | undefined;
+  try {
+    const { SCENE_OVERRIDES, normalizeForOverride } = await import('./vocab-image-seed-service');
+    const overrideKey = normalizeForOverride(effectiveWord);
+    scene = (SCENE_OVERRIDES as Record<string, string>)[`${language}:${overrideKey}`]
+             ?? (SCENE_OVERRIDES as Record<string, string>)[overrideKey];
+  } catch (_) { /* no override — proceed with word-based generation */ }
+
+  const concept = buildGenerationConcept(effectiveWord, scene, effectiveWord, undefined, language);
+  const generationType = isSceneConcept(effectiveWord, scene) ? 'infographic' : 'image';
+
+  const { generateVisual } = await import('./visual-content-service');
+  const result = await generateVisual(concept, generationType);
+
+  // Archive to permanent storage so URL doesn't expire during review
+  const { archiveImageToPermanentStorage } = await import('./image-storage');
+  const filename = `vocab_preview_library_${Date.now()}.jpg`;
+  const permanentUrl = await archiveImageToPermanentStorage(result.imageUrl, filename);
+
+  return { previewUrl: permanentUrl, source: 'ai' };
+}

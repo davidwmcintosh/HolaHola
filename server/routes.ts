@@ -18977,6 +18977,65 @@ Current conversation context:
     }
   });
 
+  // Preview a replacement image without committing it to the library
+  app.post("/api/admin/media/preview-refetch", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const adminId = getRequestUserId(req)!;
+      const { word, language, customQuery } = req.body;
+      if (!word || !language) {
+        return res.status(400).json({ error: "word and language are required" });
+      }
+      const { previewRefetchImage } = await import('./services/vocabulary-image-resolver');
+      const result = await previewRefetchImage({ word, language, customQuery, userId: adminId });
+      res.json({ success: true, previewUrl: result.previewUrl, source: result.source });
+    } catch (error: any) {
+      console.error('[AdminMedia] preview-refetch error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Apply a previously previewed replacement — save to media_files and delete the old entry
+  app.post("/api/admin/media/apply-refetch-preview", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const adminId = getRequestUserId(req)!;
+      const { oldId, previewUrl, word, language, searchQuery, title } = req.body;
+      if (!previewUrl || !word || !language) {
+        return res.status(400).json({ error: "previewUrl, word, and language are required" });
+      }
+      const primaryKey = `vocab_${language}_${word.toLowerCase().replace(/\s+/g, '_')}`;
+      const newFile = await storage.cacheImage({
+        url: previewUrl,
+        filename: `vocab_ai_${primaryKey}_${Date.now()}.jpg`,
+        mimeType: 'image/jpeg',
+        mediaType: 'image',
+        imageSource: 'ai_generated',
+        searchQuery: searchQuery || primaryKey,
+        uploadedBy: adminId,
+        title: title || word,
+        description: word,
+        tags: ['vocabulary', 'ai_generated', language],
+        language,
+        targetWord: word,
+      });
+      if (oldId) {
+        try { await storage.deleteMediaFile(oldId); } catch (e: any) {
+          console.warn('[AdminMedia] Old entry cleanup skipped:', e.message);
+        }
+      }
+      await storage.logAdminAction({
+        actorId: adminId,
+        action: 'apply_preview_refetch',
+        targetType: 'media_file',
+        targetId: newFile.id,
+        details: { word, language, oldId, previewUrl },
+      });
+      res.json({ success: true, newId: newFile.id, imageUrl: previewUrl });
+    } catch (error: any) {
+      console.error('[AdminMedia] apply-refetch-preview error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/admin/media/generate-illustration", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const adminId = getRequestUserId(req)!;

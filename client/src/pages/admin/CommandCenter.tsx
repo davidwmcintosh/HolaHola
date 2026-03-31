@@ -4047,6 +4047,8 @@ function ImageLibraryTab() {
     setShowRefetchForm(false);
     setRefetchQuery("");
     setRefetchSource('stock');
+    setLibraryPreviewUrl(null);
+    setLibraryPreviewMeta(null);
   }, [selectedImage?.id]);
 
   const toggleSort = (field: SortField) => {
@@ -4120,6 +4122,8 @@ function ImageLibraryTab() {
   const [refetchSource, setRefetchSource] = useState<'stock' | 'ai'>('stock');
   const [refetchQuery, setRefetchQuery] = useState("");
   const [showRefetchForm, setShowRefetchForm] = useState(false);
+  const [libraryPreviewUrl, setLibraryPreviewUrl] = useState<string | null>(null);
+  const [libraryPreviewMeta, setLibraryPreviewMeta] = useState<{ word: string; language: string; searchQuery?: string; title?: string } | null>(null);
 
   const refetchImageMutation = useMutation({
     mutationFn: async ({ oldId, word, language, preferredSource, customQuery }: { oldId: string; word: string; language: string; preferredSource: 'stock' | 'ai'; customQuery?: string }) => {
@@ -4134,6 +4138,37 @@ function ImageLibraryTab() {
     },
     onError: (error: any) => {
       toast({ title: "Refetch failed", description: error.message || "Failed to fetch new image", variant: "destructive" });
+    },
+  });
+
+  const previewRefetchMutation = useMutation({
+    mutationFn: async ({ word, language, customQuery }: { word: string; language: string; customQuery?: string }) => {
+      return apiRequest("POST", "/api/admin/media/preview-refetch", { word, language, customQuery: customQuery || undefined }) as Promise<{ previewUrl: string; source: string }>;
+    },
+    onSuccess: (data, variables) => {
+      setLibraryPreviewUrl(data.previewUrl);
+      setLibraryPreviewMeta({ word: variables.word, language: variables.language, searchQuery: variables.customQuery });
+    },
+    onError: (error: any) => {
+      toast({ title: "Preview failed", description: error.message || "Failed to generate preview", variant: "destructive" });
+    },
+  });
+
+  const applyRefetchPreviewMutation = useMutation({
+    mutationFn: async ({ oldId, previewUrl, word, language, searchQuery, title }: { oldId?: string; previewUrl: string; word: string; language: string; searchQuery?: string; title?: string }) => {
+      return apiRequest("POST", "/api/admin/media/apply-refetch-preview", { oldId, previewUrl, word, language, searchQuery, title });
+    },
+    onSuccess: () => {
+      toast({ title: "Image applied successfully" });
+      refetch();
+      setSelectedImage(null);
+      setShowRefetchForm(false);
+      setRefetchQuery("");
+      setLibraryPreviewUrl(null);
+      setLibraryPreviewMeta(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Apply failed", description: error.message || "Failed to apply preview", variant: "destructive" });
     },
   });
 
@@ -4559,7 +4594,7 @@ function ImageLibraryTab() {
         </div>
       </CollapsibleSection>
 
-      <AlertDialog open={!!selectedImage} onOpenChange={(open) => { if (!open) { setSelectedImage(null); setShowRefetchForm(false); setRefetchQuery(""); } }}>
+      <AlertDialog open={!!selectedImage} onOpenChange={(open) => { if (!open) { setSelectedImage(null); setShowRefetchForm(false); setRefetchQuery(""); setLibraryPreviewUrl(null); setLibraryPreviewMeta(null); } }}>
         <AlertDialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
           <AlertDialogHeader className="flex-shrink-0">
             <AlertDialogTitle className="flex items-center gap-2">
@@ -4570,13 +4605,78 @@ function ImageLibraryTab() {
           
           {selectedImage && (
             <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-2">
-              <div className="max-h-48 relative bg-muted rounded-lg overflow-hidden flex items-center justify-center">
-                <img 
-                  src={selectedImage.url} 
-                  alt={selectedImage.title || selectedImage.filename}
-                  className="max-w-full max-h-48 object-contain"
-                />
-              </div>
+              {libraryPreviewUrl ? (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground text-center">Current</p>
+                      <div className="h-40 bg-muted rounded-lg overflow-hidden flex items-center justify-center">
+                        <img src={selectedImage.url} alt="Current" className="max-w-full max-h-40 object-contain" />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground text-center">Candidate</p>
+                      <div className="h-40 bg-muted rounded-lg overflow-hidden flex items-center justify-center">
+                        <img src={libraryPreviewUrl} alt="Candidate" className="max-w-full max-h-40 object-contain" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        if (!libraryPreviewMeta) return;
+                        applyRefetchPreviewMutation.mutate({
+                          oldId: selectedImage.id,
+                          previewUrl: libraryPreviewUrl,
+                          word: libraryPreviewMeta.word,
+                          language: libraryPreviewMeta.language,
+                          searchQuery: libraryPreviewMeta.searchQuery,
+                          title: selectedImage.title || libraryPreviewMeta.word,
+                        });
+                      }}
+                      disabled={applyRefetchPreviewMutation.isPending}
+                      data-testid="button-apply-library-preview"
+                    >
+                      {applyRefetchPreviewMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
+                      Apply
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        if (!libraryPreviewMeta) return;
+                        setLibraryPreviewUrl(null);
+                        previewRefetchMutation.mutate({
+                          word: libraryPreviewMeta.word,
+                          language: libraryPreviewMeta.language,
+                          customQuery: refetchQuery.trim() || undefined,
+                        });
+                      }}
+                      disabled={previewRefetchMutation.isPending}
+                      data-testid="button-retry-library-preview"
+                    >
+                      {previewRefetchMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => { setLibraryPreviewUrl(null); setLibraryPreviewMeta(null); }}
+                      data-testid="button-discard-library-preview"
+                    >
+                      Discard
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="max-h-48 relative bg-muted rounded-lg overflow-hidden flex items-center justify-center">
+                  <img 
+                    src={selectedImage.url} 
+                    alt={selectedImage.title || selectedImage.filename}
+                    className="max-w-full max-h-48 object-contain"
+                  />
+                </div>
+              )}
               
               <div className="grid grid-cols-2 gap-3 text-sm">
                 {(selectedImage.targetWord || selectedImage.searchQuery) && (
@@ -4658,62 +4758,46 @@ function ImageLibraryTab() {
             </div>
           )}
           
-          {showRefetchForm && selectedImage && (
+          {showRefetchForm && selectedImage && !libraryPreviewUrl && (
             <div className="border rounded-lg p-3 space-y-3 bg-muted/30" data-testid="refetch-form">
-              <p className="text-sm font-medium">Replace this image</p>
+              <p className="text-sm font-medium">Preview a replacement</p>
               <div className="space-y-2">
-                <label className="text-xs text-muted-foreground">Search query</label>
+                <label className="text-xs text-muted-foreground">Custom prompt (optional)</label>
                 <Input
                   value={refetchQuery}
                   onChange={(e) => setRefetchQuery(e.target.value)}
-                  placeholder="Enter search terms..."
+                  placeholder="Leave blank to use the word's scene description..."
                   data-testid="input-refetch-query"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      previewRefetchMutation.mutate({
+                        word: selectedImage.targetWord || selectedImage.searchQuery || '',
+                        language: selectedImage.language || 'spanish',
+                        customQuery: refetchQuery.trim() || undefined,
+                      });
+                    }
+                  }}
                 />
-              </div>
-              <div className="flex items-center gap-3">
-                <label className="text-xs text-muted-foreground">Source:</label>
-                <div className="flex gap-2">
-                  <Button
-                    variant={refetchSource === 'stock' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setRefetchSource('stock')}
-                    data-testid="button-source-stock"
-                  >
-                    <Image className="h-3 w-3 mr-1" />
-                    Stock Photo
-                  </Button>
-                  <Button
-                    variant={refetchSource === 'ai' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setRefetchSource('ai')}
-                    data-testid="button-source-ai"
-                  >
-                    <Sparkles className="h-3 w-3 mr-1" />
-                    AI Generated
-                  </Button>
-                </div>
               </div>
               <div className="flex gap-2">
                 <Button
                   size="sm"
                   onClick={() => {
-                    refetchImageMutation.mutate({
-                      oldId: selectedImage.id,
+                    previewRefetchMutation.mutate({
                       word: selectedImage.targetWord || selectedImage.searchQuery || '',
                       language: selectedImage.language || 'spanish',
-                      preferredSource: refetchSource,
                       customQuery: refetchQuery.trim() || undefined,
                     });
                   }}
-                  disabled={refetchImageMutation.isPending}
+                  disabled={previewRefetchMutation.isPending}
                   data-testid="button-refetch-submit"
                 >
-                  {refetchImageMutation.isPending ? (
+                  {previewRefetchMutation.isPending ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-1" />
                   ) : (
-                    <RefreshCw className="h-4 w-4 mr-1" />
+                    <Sparkles className="h-4 w-4 mr-1" />
                   )}
-                  {refetchImageMutation.isPending ? "Fetching..." : "Fetch New Image"}
+                  {previewRefetchMutation.isPending ? "Generating..." : "Preview"}
                 </Button>
                 <Button
                   variant="ghost"
@@ -4758,14 +4842,15 @@ function ImageLibraryTab() {
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    setRefetchQuery(selectedImage.searchQuery || selectedImage.targetWord || '');
-                    setRefetchSource('stock');
+                    setRefetchQuery('');
+                    setLibraryPreviewUrl(null);
+                    setLibraryPreviewMeta(null);
                     setShowRefetchForm(!showRefetchForm);
                   }}
                   data-testid="button-refetch-toggle"
                 >
-                  <RefreshCw className="h-4 w-4 mr-1" />
-                  Refetch
+                  <Sparkles className="h-4 w-4 mr-1" />
+                  Replace
                 </Button>
               )}
               <AlertDialog>
