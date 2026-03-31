@@ -346,7 +346,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   // ── Greetings & Farewells — Spanish ──────────────────────────────────────
   // Characters: Daniela (primary) + Marco (secondary) — see CHARACTER_PROFILES.ES
   'hola':               `${CHAR.ES.primary} waving hello with a big smile to ${CHAR.ES.secondary} at a sunny school entrance, both looking delighted, bright cheerful watercolor illustration`,
-  'buenos dias':        `${CHAR.ES.primary} in cozy full-length flannel pajamas with long sleeves, arms raised in a happy morning stretch beside a bright bedroom window at sunrise, fully covered neck to ankle, warm golden morning light streaming in, watercolor illustration`,
+  'buenos dias':        `${CHAR.ES.primary} in cozy long-sleeve flannel pajamas sitting on the edge of a neatly made bed, cradling a steaming mug of tea with both hands and beaming a warm buenos días smile at the viewer, bright sunrise window behind her, pajamas fully covering neck to ankle, arms low and occupied holding the mug, no raised arms, no bare skin, warm golden morning light, watercolor illustration`,
   'buenas tardes':      `${CHAR.ES.primary} relaxing on a park bench in the sunny afternoon, waving cheerfully to ${CHAR.ES.secondary} passing by, long golden shadows on the grass, watercolor illustration`,
   'buenas noches':      `${CHAR.ES.primary} in cozy pajamas waving from a lit bedroom window at a beautiful starry night sky with a glowing crescent moon, warm lamp light inside, watercolor illustration`,
   'adios':              `${CHAR.ES.primary} leaning out of a car window waving goodbye, ${CHAR.ES.secondary} standing on the sidewalk waving back cheerfully, colorful watercolor illustration`,
