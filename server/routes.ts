@@ -18993,13 +18993,30 @@ Current conversation context:
         FROM visual_environments ve
         LEFT JOIN scenario_zones sz
           ON sz.visual_environment_name = ve.name AND sz.is_active = true
-        WHERE ve.image_url IS NOT NULL AND ve.image_url != ''
         GROUP BY ve.id, ve.name, ve.display_name, ve.description, ve.image_url
         ORDER BY zone_count DESC, ve.display_name ASC
       `);
       res.json({ images: rows.rows });
     } catch (error: any) {
       console.error('Error fetching scene images:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Delete (clear) a scene background image — sets image_url to '' so it can be regenerated
+  app.delete("/api/admin/scene-images/:name", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { name } = req.params;
+      const sharedDb = getSharedDb();
+      const result = await sharedDb.execute(sql`
+        UPDATE visual_environments SET image_url = '' WHERE name = ${name}
+      `);
+      if ((result.rowCount ?? 0) === 0) {
+        return res.status(404).json({ error: 'Environment not found' });
+      }
+      res.json({ ok: true, name });
+    } catch (error: any) {
+      console.error('Error deleting scene image:', error);
       res.status(500).json({ error: error.message });
     }
   });

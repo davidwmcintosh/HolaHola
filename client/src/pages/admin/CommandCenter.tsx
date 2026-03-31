@@ -61,6 +61,7 @@ import {
   Tags,
   Pencil,
   Trash2,
+  ImageOff,
   Briefcase,
   Utensils,
   Zap,
@@ -4951,6 +4952,7 @@ function SceneAndPropImageSections() {
   const [zonePropsDownloading, setZonePropsDownloading] = useState(false);
   const [showZonesOnly, setShowZonesOnly] = useState(false);
   const [regeneratingName, setRegeneratingName] = useState<string | null>(null);
+  const [deletingName, setDeletingName] = useState<string | null>(null);
 
   const displayedScenes = showZonesOnly
     ? (sceneData?.images ?? []).filter(img => Number(img.zone_count) > 0)
@@ -4970,6 +4972,20 @@ function SceneAndPropImageSections() {
       alert(`Regeneration failed: ${err.message}`);
     } finally {
       setRegeneratingName(null);
+    }
+  }
+
+  async function deleteScene(name: string, label: string) {
+    if (!confirm(`Clear the image for "${label}"? The environment record stays, but the image slot will be empty until regenerated.`)) return;
+    setDeletingName(name);
+    try {
+      const res = await fetch(`/api/admin/scene-images/${encodeURIComponent(name)}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Delete failed');
+      await refetchScenes();
+    } catch (err: any) {
+      alert(`Delete failed: ${err.message}`);
+    } finally {
+      setDeletingName(null);
     }
   }
 
@@ -5016,7 +5032,7 @@ function SceneAndPropImageSections() {
           >
             {showZonesOnly ? 'Showing scenario stages only' : `Show scenario stages only (${zoneCount})`}
           </Button>
-          <span className="text-xs text-muted-foreground">Click any image to preview. Hover for controls.</span>
+          <span className="text-xs text-muted-foreground">Click any image to enlarge. Use the controls on each card to regenerate or clear.</span>
         </div>
         {scenesLoading ? (
           <div className="grid gap-3 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 mt-4">
@@ -5024,49 +5040,77 @@ function SceneAndPropImageSections() {
           </div>
         ) : displayedScenes.length ? (
           <div className="grid gap-3 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 mt-4">
-            {displayedScenes.map(img => (
-              <div
-                key={img.id}
-                className="relative group overflow-hidden rounded-md border bg-muted"
-                data-testid={`scene-img-${img.name}`}
-              >
+            {displayedScenes.map(img => {
+              const hasImage = !!img.image_url;
+              const label = img.display_name || img.name;
+              const isBusy = regeneratingName === img.name || deletingName === img.name;
+              return (
                 <div
-                  className="cursor-zoom-in"
-                  onClick={() => setSceneLightbox({ url: img.image_url, label: img.display_name || img.name })}
+                  key={img.id}
+                  className="relative overflow-hidden rounded-md border bg-muted"
+                  data-testid={`scene-img-${img.name}`}
                 >
-                  <img
-                    src={img.image_url}
-                    alt={img.display_name || img.name}
-                    className="w-full aspect-video object-cover"
-                    loading="lazy"
-                  />
-                </div>
-                {/* Stage count badge — top right */}
-                {Number(img.zone_count) > 0 && (
-                  <div className="absolute top-1 right-1">
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-black/70 text-white border-0">
-                      {img.zone_count} {Number(img.zone_count) === 1 ? 'stage' : 'stages'}
-                    </Badge>
+                  {hasImage ? (
+                    <div
+                      className="cursor-zoom-in"
+                      onClick={() => setSceneLightbox({ url: img.image_url, label })}
+                    >
+                      <img
+                        src={img.image_url}
+                        alt={label}
+                        className="w-full aspect-video object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-full aspect-video flex flex-col items-center justify-center gap-1 bg-muted/60">
+                      <ImageOff className="h-6 w-6 text-muted-foreground/50" />
+                      <p className="text-[10px] text-muted-foreground text-center px-2">No image</p>
+                    </div>
+                  )}
+                  {/* Stage count badge — top right */}
+                  {Number(img.zone_count) > 0 && (
+                    <div className="absolute top-1 right-1">
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-black/70 text-white border-0">
+                        {img.zone_count} {Number(img.zone_count) === 1 ? 'stage' : 'stages'}
+                      </Badge>
+                    </div>
+                  )}
+                  {/* Bottom bar: name + controls — always visible */}
+                  <div className="absolute inset-x-0 bottom-0 bg-black/75 px-1.5 py-1 flex items-center justify-between gap-1">
+                    <p className="text-[11px] text-white truncate flex-1 min-w-0">{label}</p>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        title={hasImage ? 'Regenerate (replace with new DALL-E image)' : 'Generate image'}
+                        className="text-white/80 hover:text-white transition-colors"
+                        onClick={e => { e.stopPropagation(); regenerateScene(img.name); }}
+                        disabled={isBusy}
+                        data-testid={`button-regen-scene-${img.name}`}
+                      >
+                        {regeneratingName === img.name
+                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          : <RefreshCw className="h-3.5 w-3.5" />
+                        }
+                      </button>
+                      {hasImage && (
+                        <button
+                          title="Clear image (keep environment slot, remove this photo)"
+                          className="text-white/60 hover:text-red-400 transition-colors"
+                          onClick={e => { e.stopPropagation(); deleteScene(img.name, label); }}
+                          disabled={isBusy}
+                          data-testid={`button-delete-scene-${img.name}`}
+                        >
+                          {deletingName === img.name
+                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            : <Trash2 className="h-3.5 w-3.5" />
+                          }
+                        </button>
+                      )}
+                    </div>
                   </div>
-                )}
-                {/* Bottom bar: name + regenerate */}
-                <div className="absolute inset-x-0 bottom-0 bg-black/70 px-1.5 py-1 flex items-center justify-between gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <p className="text-[11px] text-white truncate flex-1 min-w-0">{img.display_name || img.name}</p>
-                  <button
-                    title="Regenerate image"
-                    className="flex-shrink-0 text-white/80 hover:text-white transition-colors"
-                    onClick={e => { e.stopPropagation(); regenerateScene(img.name); }}
-                    disabled={regeneratingName === img.name}
-                    data-testid={`button-regen-scene-${img.name}`}
-                  >
-                    {regeneratingName === img.name
-                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      : <RefreshCw className="h-3.5 w-3.5" />
-                    }
-                  </button>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <p className="text-sm text-muted-foreground mt-4">No scene backgrounds found.</p>
