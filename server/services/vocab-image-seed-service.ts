@@ -42,6 +42,7 @@ export const CHARACTER_PROFILES = {
   ES: {
     primary:   'Daniela, a 28-year-old Latina woman with long wavy dark-brown hair, warm medium-brown skin, and bright brown eyes, wearing a sky-blue short-sleeve blouse and dark jeans',
     secondary: 'Marco, a 30-year-old Latino man with short curly black hair, light-olive skin, and friendly dark eyes, wearing a white button-up shirt and chinos',
+    abuela:    'Rosa, Daniela\'s 68-year-old Mexican grandmother with silver-streaked black hair in a neat bun, warm brown skin, kind dark eyes, and a floral embroidered blouse',
   },
   /** French — used for all French greeting & farewell prompts */
   FR: {
@@ -349,10 +350,10 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'buenos dias':        `${CHAR.ES.primary} standing outside a rustic farmhouse at sunrise, smiling and waving buenos días at the viewer while a rooster struts past her feet, golden dawn light over rolling hills in the background, cheerful wholesome watercolor illustration`,
   'buenas tardes':      `${CHAR.ES.primary} relaxing on a park bench in the sunny afternoon, waving cheerfully to ${CHAR.ES.secondary} passing by, long golden shadows on the grass, watercolor illustration`,
   'buenas noches':      `${CHAR.ES.primary} in cozy pajamas waving from a lit bedroom window at a beautiful starry night sky with a glowing crescent moon, warm lamp light inside, watercolor illustration`,
-  'adios':              `${CHAR.ES.primary} leaning out of a car window waving goodbye, ${CHAR.ES.secondary} standing on the sidewalk waving back cheerfully, colorful watercolor illustration`,
+  'adios':              `${CHAR.ES.primary} leaning out of a car window waving adiós, ${CHAR.ES.abuela} standing on the front porch of a cozy house waving back with a warm smile, colorful watercolor illustration`,
   'hasta luego':        `${CHAR.ES.primary} and ${CHAR.ES.secondary} at a sunny intersection, each heading a different direction, smiling and waving goodbye over their shoulder, watercolor illustration`,
   'hasta manana':       `${CHAR.ES.primary} waving cheerfully at the viewer while standing beside a plain blank monthly wall calendar with an empty white grid, bright neutral background, no text no numbers no writing no labels anywhere in the image, warm cheerful watercolor illustration`,
-  'hasta pronto':       `${CHAR.ES.primary} and ${CHAR.ES.secondary} hugging warmly at a front door, one waving goodbye, both smiling happily, bright watercolor illustration`,
+  'hasta pronto':       `${CHAR.ES.primary} giving ${CHAR.ES.abuela} a warm farewell hug at a cozy front door, both smiling happily, bright cheerful watercolor illustration`,
   'mucho gusto':        `${CHAR.ES.primary} and ${CHAR.ES.secondary} meeting for the first time, both extending a friendly handshake with warm open smiles, bright cheerful setting, watercolor illustration`,
   'encantado':          `${CHAR.ES.secondary} placing his hand on his chest and giving a small warm bow of greeting with a delighted smile, cheerful watercolor illustration`,
   'encantada':          `${CHAR.ES.primary} placing her hand on her chest and giving a small warm bow of greeting with a warm smile, cheerful watercolor illustration`,
