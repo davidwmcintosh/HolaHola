@@ -965,6 +965,7 @@ function VocabImagesPanel() {
   const [seedResult, setSeedResult] = useState<any>(null);
   const [fixWordInput, setFixWordInput] = useState('');
   const [fixWordResult, setFixWordResult] = useState<any>(null);
+  const [fixWordPreview, setFixWordPreview] = useState<{ currentUrl: string | null; previewUrl: string; previewKey: string; cacheKey: string; word: string; language: string } | null>(null);
 
   const fixNumbersMutation = useMutation({
     mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-numbers-days', { language }).then(r => r.json()),
@@ -1010,6 +1011,31 @@ function VocabImagesPanel() {
       toast({ title: 'Image regenerated', description: data.message });
     },
     onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const previewFixMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/preview-fix', { language, word: fixWordInput.trim() }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setFixWordPreview({ currentUrl: data.currentUrl, previewUrl: data.previewUrl, previewKey: data.previewKey, cacheKey: data.cacheKey, word: data.word, language: data.language });
+      toast({ title: 'Preview ready', description: data.message });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Preview failed', description: e.message }),
+  });
+
+  const applyPreviewMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/apply-preview', {
+      language: fixWordPreview!.language,
+      word: fixWordPreview!.word,
+      previewKey: fixWordPreview!.previewKey,
+      previewUrl: fixWordPreview!.previewUrl,
+    }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setFixWordPreview(null);
+      setFixWordResult(data);
+      queryClient.invalidateQueries({ queryKey: ['/api/textbook/vocab-images'] });
+      toast({ title: 'Image applied', description: data.message });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Apply failed', description: e.message }),
   });
 
   return (
@@ -1129,14 +1155,14 @@ function VocabImagesPanel() {
             <CardContent className="p-4 space-y-3">
               <div>
                 <p className="text-sm font-medium">Fix Single Word</p>
-                <p className="text-xs text-muted-foreground">Bust the cache for one specific word and regenerate its image immediately. Use the language selector above. Accepts any script (hola, こんにちは, שלום, etc.).</p>
+                <p className="text-xs text-muted-foreground">Generate a candidate image and preview it before applying. The original stays safe until you click Apply. Accepts any script (hola, こんにちは, שלום, etc.).</p>
               </div>
               <div className="flex items-center gap-2">
                 <input
                   type="text"
                   value={fixWordInput}
-                  onChange={e => { setFixWordInput(e.target.value); setFixWordResult(null); }}
-                  onKeyDown={e => { if (e.key === 'Enter' && fixWordInput.trim()) fixWordMutation.mutate(); }}
+                  onChange={e => { setFixWordInput(e.target.value); setFixWordResult(null); setFixWordPreview(null); }}
+                  onKeyDown={e => { if (e.key === 'Enter' && fixWordInput.trim()) previewFixMutation.mutate(); }}
                   placeholder="e.g. buenos días"
                   className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   data-testid="input-fix-word"
@@ -1145,17 +1171,67 @@ function VocabImagesPanel() {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => fixWordMutation.mutate()}
-                  disabled={fixWordMutation.isPending || !fixWordInput.trim()}
+                  onClick={() => previewFixMutation.mutate()}
+                  disabled={previewFixMutation.isPending || applyPreviewMutation.isPending || !fixWordInput.trim()}
                   data-testid="button-fix-word"
                 >
-                  {fixWordMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
-                  Regenerate
+                  {previewFixMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                  Preview
                 </Button>
               </div>
-              {fixWordResult && (
+
+              {fixWordPreview && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground text-center">Current</p>
+                      {fixWordPreview.currentUrl
+                        ? <img src={fixWordPreview.currentUrl} alt="current" className="w-full rounded-md object-contain border aspect-square" />
+                        : <div className="w-full aspect-square rounded-md border border-dashed flex items-center justify-center text-xs text-muted-foreground bg-muted/40">No image</div>
+                      }
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground text-center">Candidate</p>
+                      <img src={fixWordPreview.previewUrl} alt="candidate" className="w-full rounded-md object-contain border aspect-square" />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => applyPreviewMutation.mutate()}
+                      disabled={applyPreviewMutation.isPending}
+                      data-testid="button-apply-preview"
+                      className="flex-1"
+                    >
+                      {applyPreviewMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                      Apply
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => previewFixMutation.mutate()}
+                      disabled={previewFixMutation.isPending || applyPreviewMutation.isPending}
+                      data-testid="button-retry-preview"
+                    >
+                      {previewFixMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setFixWordPreview(null)}
+                      disabled={applyPreviewMutation.isPending}
+                      data-testid="button-discard-preview"
+                      className="flex-1"
+                    >
+                      Discard
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {fixWordResult && !fixWordPreview && (
                 <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">{fixWordResult.message} — source: {fixWordResult.source}</p>
+                  <p className="text-xs text-muted-foreground">{fixWordResult.message}</p>
                   {fixWordResult.url && (
                     <img src={fixWordResult.url} alt={fixWordInput} className="w-full rounded-md object-contain border" />
                   )}

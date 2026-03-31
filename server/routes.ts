@@ -11689,6 +11689,89 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Preview a new image for a word WITHOUT overwriting the original
+  app.post('/api/admin/vocab-images/preview-fix', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { language, word } = req.body;
+      if (!language || !word) return res.status(400).json({ error: 'language and word are required' });
+      const { bustVocabImageCache, toCacheKey, normalizeForOverride, SCENE_OVERRIDES } = await import('./services/vocab-image-seed-service');
+      const cacheKey = toCacheKey(language, word.trim());
+      const previewKey = `vocab_preview_${cacheKey.replace(/^vocab_/, '')}`;
+
+      // Capture current image URL without touching it
+      const current = await storage.getCachedStockImage(cacheKey);
+      const currentUrl = current?.url ?? null;
+
+      // Clear any stale preview from a previous attempt
+      await bustVocabImageCache([previewKey]);
+
+      // Build generation concept (same logic as fix-word + resolver)
+      const wordOverrideKey = normalizeForOverride(word.trim());
+      const sceneOverride = (SCENE_OVERRIDES as Record<string, string>)[`${language}:${wordOverrideKey}`]
+                            ?? (SCENE_OVERRIDES as Record<string, string>)[wordOverrideKey];
+      const concept = sceneOverride?.trim() || word.trim();
+      const generationType = sceneOverride ? 'infographic' : 'image';
+
+      // Generate fresh candidate image (bypasses cache — always new)
+      const { generateVisual } = await import('./services/visual-content-service');
+      const result = await generateVisual(concept, generationType);
+
+      // Store under preview key (temporary — not the real cache key)
+      await storage.cacheImage({
+        url: result.imageUrl,
+        filename: `vocab_preview_${cacheKey}_${Date.now()}.jpg`,
+        mimeType: 'image/jpeg',
+        mediaType: 'image',
+        imageSource: 'ai_generated',
+        searchQuery: previewKey,
+        uploadedBy: null,
+        title: `PREVIEW: ${word.trim()}`,
+        description: word.trim(),
+        tags: ['vocabulary', 'ai_generated', 'preview', language],
+        language,
+        targetWord: word.trim(),
+      });
+
+      res.json({ cacheKey, previewKey, currentUrl, previewUrl: result.imageUrl, word, language, message: `Preview generated for "${word}" (${language})` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Apply a previewed candidate image to the real cache key
+  app.post('/api/admin/vocab-images/apply-preview', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { language, word, previewKey, previewUrl } = req.body;
+      if (!language || !word || !previewKey || !previewUrl) return res.status(400).json({ error: 'language, word, previewKey, and previewUrl are required' });
+      const { bustVocabImageCache, toCacheKey } = await import('./services/vocab-image-seed-service');
+      const cacheKey = toCacheKey(language, word.trim());
+
+      // Replace the real cache entry with the candidate
+      await bustVocabImageCache([cacheKey]);
+      await storage.cacheImage({
+        url: previewUrl,
+        filename: `vocab_ai_${cacheKey}_applied_${Date.now()}.jpg`,
+        mimeType: 'image/jpeg',
+        mediaType: 'image',
+        imageSource: 'ai_generated',
+        searchQuery: cacheKey,
+        uploadedBy: null,
+        title: word.trim(),
+        description: word.trim(),
+        tags: ['vocabulary', 'ai_generated', language],
+        language,
+        targetWord: word.trim(),
+      });
+
+      // Clean up the temporary preview entry
+      await bustVocabImageCache([previewKey]);
+
+      res.json({ applied: true, url: previewUrl, cacheKey, message: `Applied preview image for "${word}" (${language})` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post('/api/admin/vocab-images/fix-adjectives', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { language = 'spanish' } = req.body;
