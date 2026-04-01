@@ -795,6 +795,1322 @@ const CONCEPT_KEY_MAP: Record<string, string> = {
   'ברק': 'concept_weather_lightning',
   'קשת': 'concept_weather_rainbow',
   'קשת בענן': 'concept_weather_rainbow',
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // ── Language-Neutral Shared Vocabulary ────────────────────────────────────
+  //
+  // These concept keys point to EXISTING Spanish cache entries (vocab_spanish_*)
+  // so images generated for Spanish are reused cross-language at zero extra cost.
+  //
+  // Strategy: map every language variant → vocab_spanish_{word}.
+  //   • If the Spanish entry already exists in DB → instant cache hit ✅
+  //   • If not yet seeded → first resolution (any language) generates it and
+  //     caches under the Spanish key; every subsequent language gets it free ✅
+  //
+  // Excluded: words with cross-language normalization conflicts (see inline notes).
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // ── Animals ───────────────────────────────────────────────────────────────
+  // dog
+  'chien':       'vocab_spanish_perro', // FR
+  'hund':        'vocab_spanish_perro', // DE
+  'cane':        'vocab_spanish_perro', // IT
+  'cachorro':    'vocab_spanish_perro', // PT
+  'dog':         'vocab_spanish_perro', // EN
+  'いぬ':         'vocab_spanish_perro', // JA (hiragana)
+  '犬':           'vocab_spanish_perro', // JA/ZH (kanji/hanzi)
+  '개':           'vocab_spanish_perro', // KO
+  '狗':           'vocab_spanish_perro', // ZH
+
+  // cat
+  'chat':        'vocab_spanish_gato', // FR
+  'katze':       'vocab_spanish_gato', // DE
+  'gatto':       'vocab_spanish_gato', // IT
+  'cat':         'vocab_spanish_gato', // EN
+  'ねこ':         'vocab_spanish_gato', // JA
+  '猫':           'vocab_spanish_gato', // JA/ZH
+  '고양이':        'vocab_spanish_gato', // KO
+
+  // bird
+  'oiseau':      'vocab_spanish_pajaro', // FR
+  'vogel':       'vocab_spanish_pajaro', // DE
+  'uccello':     'vocab_spanish_pajaro', // IT
+  'passaro':     'vocab_spanish_pajaro', // PT (pássaro)
+  'bird':        'vocab_spanish_pajaro', // EN
+  'とり':         'vocab_spanish_pajaro', // JA
+  '鳥':           'vocab_spanish_pajaro', // JA/ZH
+  '새':           'vocab_spanish_pajaro', // KO
+  '鸟':           'vocab_spanish_pajaro', // ZH (simplified)
+
+  // fish
+  'poisson':     'vocab_spanish_pez', // FR
+  'fisch':       'vocab_spanish_pez', // DE
+  'pesce':       'vocab_spanish_pez', // IT
+  'peixe':       'vocab_spanish_pez', // PT
+  'fish':        'vocab_spanish_pez', // EN
+  'さかな':        'vocab_spanish_pez', // JA
+  '魚':           'vocab_spanish_pez', // JA/ZH
+  '물고기':        'vocab_spanish_pez', // KO
+
+  // horse
+  'cheval':      'vocab_spanish_caballo', // FR
+  'pferd':       'vocab_spanish_caballo', // DE
+  'cavallo':     'vocab_spanish_caballo', // IT
+  'cavalo':      'vocab_spanish_caballo', // PT
+  'horse':       'vocab_spanish_caballo', // EN
+  'うま':         'vocab_spanish_caballo', // JA
+  '馬':           'vocab_spanish_caballo', // JA/ZH
+  '말':           'vocab_spanish_caballo', // KO
+  '马':           'vocab_spanish_caballo', // ZH
+
+  // cow
+  'vache':       'vocab_spanish_vaca', // FR
+  'kuh':         'vocab_spanish_vaca', // DE
+  'mucca':       'vocab_spanish_vaca', // IT
+  'cow':         'vocab_spanish_vaca', // EN
+  'うし':         'vocab_spanish_vaca', // JA
+  '牛':           'vocab_spanish_vaca', // JA/ZH
+  '소':           'vocab_spanish_vaca', // KO
+
+  // pig
+  'cochon':      'vocab_spanish_cerdo', // FR
+  'schwein':     'vocab_spanish_cerdo', // DE
+  'maiale':      'vocab_spanish_cerdo', // IT
+  'porco':       'vocab_spanish_cerdo', // PT
+  'pig':         'vocab_spanish_cerdo', // EN
+  'ぶた':         'vocab_spanish_cerdo', // JA
+  '豚':           'vocab_spanish_cerdo', // JA
+  '돼지':         'vocab_spanish_cerdo', // KO
+  '猪':           'vocab_spanish_cerdo', // ZH
+
+  // chicken (animal)
+  'poulet':      'vocab_spanish_pollo', // FR
+  'huhn':        'vocab_spanish_pollo', // DE
+  'frango':      'vocab_spanish_pollo', // PT
+  'chicken':     'vocab_spanish_pollo', // EN
+  'にわとり':       'vocab_spanish_pollo', // JA
+  '鶏':           'vocab_spanish_pollo', // JA
+  '닭':           'vocab_spanish_pollo', // KO
+  '鸡':           'vocab_spanish_pollo', // ZH
+  // Note: "pollo" is same in ES and IT → resolves to vocab_spanish_pollo naturally
+
+  // rabbit
+  'lapin':       'vocab_spanish_conejo', // FR
+  'kaninchen':   'vocab_spanish_conejo', // DE
+  'coniglio':    'vocab_spanish_conejo', // IT
+  'coelho':      'vocab_spanish_conejo', // PT
+  'rabbit':      'vocab_spanish_conejo', // EN
+  'うさぎ':        'vocab_spanish_conejo', // JA
+  '兎':           'vocab_spanish_conejo', // JA
+  '토끼':         'vocab_spanish_conejo', // KO
+  '兔子':         'vocab_spanish_conejo', // ZH
+
+  // ── Fruit & Food ──────────────────────────────────────────────────────────
+  // apple
+  'pomme':       'vocab_spanish_manzana', // FR
+  'apfel':       'vocab_spanish_manzana', // DE
+  'mela':        'vocab_spanish_manzana', // IT
+  'maca':        'vocab_spanish_manzana', // PT (maçã)
+  'apple':       'vocab_spanish_manzana', // EN
+  'りんご':        'vocab_spanish_manzana', // JA
+  '사과':         'vocab_spanish_manzana', // KO
+  '苹果':         'vocab_spanish_manzana', // ZH
+
+  // banana
+  'banane':      'vocab_spanish_platano', // FR/DE
+  'banana':      'vocab_spanish_platano', // IT/PT/EN
+  'バナナ':        'vocab_spanish_platano', // JA (katakana)
+  '바나나':        'vocab_spanish_platano', // KO
+  '香蕉':         'vocab_spanish_platano', // ZH
+
+  // strawberry
+  'fraise':      'vocab_spanish_fresa', // FR
+  'erdbeere':    'vocab_spanish_fresa', // DE
+  'fragola':     'vocab_spanish_fresa', // IT
+  'morango':     'vocab_spanish_fresa', // PT
+  'strawberry':  'vocab_spanish_fresa', // EN
+  'いちご':        'vocab_spanish_fresa', // JA
+  '딸기':         'vocab_spanish_fresa', // KO
+  '草莓':         'vocab_spanish_fresa', // ZH
+
+  // tomato
+  'pomodoro':    'vocab_spanish_tomate', // IT
+  'tomato':      'vocab_spanish_tomate', // EN
+  'トマト':        'vocab_spanish_tomate', // JA
+  '토마토':        'vocab_spanish_tomate', // KO
+  '西红柿':        'vocab_spanish_tomate', // ZH
+  '番茄':         'vocab_spanish_tomate', // ZH alt
+  // Note: "tomate" is same in ES, FR, DE, PT — all naturally share vocab_spanish_tomate
+
+  // carrot
+  'carotte':     'vocab_spanish_zanahoria', // FR
+  'karotte':     'vocab_spanish_zanahoria', // DE
+  'carota':      'vocab_spanish_zanahoria', // IT
+  'cenoura':     'vocab_spanish_zanahoria', // PT
+  'carrot':      'vocab_spanish_zanahoria', // EN
+  'にんじん':       'vocab_spanish_zanahoria', // JA
+  '당근':         'vocab_spanish_zanahoria', // KO
+  '胡萝卜':        'vocab_spanish_zanahoria', // ZH
+
+  // bread
+  'brot':        'vocab_spanish_pan', // DE
+  'pane':        'vocab_spanish_pan', // IT
+  'pao':         'vocab_spanish_pan', // PT (pão)
+  'bread':       'vocab_spanish_pan', // EN
+  'パン':          'vocab_spanish_pan', // JA
+  '빵':           'vocab_spanish_pan', // KO
+  '面包':         'vocab_spanish_pan', // ZH
+  // Note: "pain" (FR=bread) omitted — ambiguous with English "pain"
+  // Note: "pan" is same in ES → naturally vocab_spanish_pan
+
+  // milk
+  'lait':        'vocab_spanish_leche', // FR
+  'milch':       'vocab_spanish_leche', // DE
+  'latte':       'vocab_spanish_leche', // IT
+  'leite':       'vocab_spanish_leche', // PT
+  'milk':        'vocab_spanish_leche', // EN
+  'ぎゅうにゅう':     'vocab_spanish_leche', // JA
+  '牛乳':         'vocab_spanish_leche', // JA kanji
+  '우유':         'vocab_spanish_leche', // KO
+  '牛奶':         'vocab_spanish_leche', // ZH
+
+  // water
+  'eau':         'vocab_spanish_agua', // FR
+  'wasser':      'vocab_spanish_agua', // DE
+  'acqua':       'vocab_spanish_agua', // IT
+  'water':       'vocab_spanish_agua', // EN
+  'みず':         'vocab_spanish_agua', // JA
+  '水':           'vocab_spanish_agua', // JA/ZH shared
+  '물':           'vocab_spanish_agua', // KO
+  // Note: "agua" same in ES and PT
+
+  // egg
+  'oeuf':        'vocab_spanish_huevo', // FR
+  'ei':          'vocab_spanish_huevo', // DE
+  'uovo':        'vocab_spanish_huevo', // IT
+  'ovo':         'vocab_spanish_huevo', // PT
+  'egg':         'vocab_spanish_huevo', // EN
+  'たまご':        'vocab_spanish_huevo', // JA
+  '卵':           'vocab_spanish_huevo', // JA
+  '달걀':         'vocab_spanish_huevo', // KO
+  '鸡蛋':         'vocab_spanish_huevo', // ZH
+
+  // cheese
+  'fromage':     'vocab_spanish_queso', // FR
+  'kase':        'vocab_spanish_queso', // DE (Käse)
+  'formaggio':   'vocab_spanish_queso', // IT
+  'queijo':      'vocab_spanish_queso', // PT
+  'cheese':      'vocab_spanish_queso', // EN
+  'チーズ':        'vocab_spanish_queso', // JA
+  '치즈':         'vocab_spanish_queso', // KO
+  '奶酪':         'vocab_spanish_queso', // ZH
+
+  // grape
+  'raisin':      'vocab_spanish_uva', // FR
+  'traube':      'vocab_spanish_uva', // DE
+  'grape':       'vocab_spanish_uva', // EN
+  'ぶどう':        'vocab_spanish_uva', // JA
+  '포도':         'vocab_spanish_uva', // KO
+  '葡萄':         'vocab_spanish_uva', // ZH
+  // Note: "uva" same in ES, IT, PT
+
+  // orange (fruit) — using distinct key to avoid color swatch conflict
+  // FR/DE "orange" → color was excluded from color map due to fruit ambiguity; here we map to fruit
+  'orange':      'vocab_spanish_naranja_fruta', // FR/DE/EN — fruit image
+  'arancia':     'vocab_spanish_naranja_fruta', // IT
+  'オレンジ':       'vocab_spanish_naranja_fruta', // JA
+  '오렌지':        'vocab_spanish_naranja_fruta', // KO
+  '橙子':         'vocab_spanish_naranja_fruta', // ZH
+
+  // ── Classroom & Office Objects ─────────────────────────────────────────────
+  // table / desk (shared image)
+  'tisch':       'vocab_spanish_mesa', // DE
+  'tavolo':      'vocab_spanish_mesa', // IT
+  'テーブル':       'vocab_spanish_mesa', // JA
+  '테이블':        'vocab_spanish_mesa', // KO
+  '桌子':         'vocab_spanish_mesa', // ZH
+  'table':       'vocab_spanish_mesa', // EN/FR (same word after norm)
+  // Note: "mesa" same in ES and PT
+
+  // desk (escritorio)
+  'bureau':      'vocab_spanish_escritorio', // FR
+  'schreibtisch': 'vocab_spanish_escritorio', // DE
+  'scrivania':   'vocab_spanish_escritorio', // IT
+  'escrivaninha': 'vocab_spanish_escritorio', // PT
+  'desk':        'vocab_spanish_escritorio', // EN
+  'つくえ':        'vocab_spanish_escritorio', // JA
+  '机':           'vocab_spanish_escritorio', // JA/ZH
+  '책상':         'vocab_spanish_escritorio', // KO
+  '书桌':         'vocab_spanish_escritorio', // ZH
+
+  // chair
+  'chaise':      'vocab_spanish_silla', // FR
+  'stuhl':       'vocab_spanish_silla', // DE
+  'sedia':       'vocab_spanish_silla', // IT
+  'cadeira':     'vocab_spanish_silla', // PT
+  'chair':       'vocab_spanish_silla', // EN
+  'いす':         'vocab_spanish_silla', // JA
+  '椅子':         'vocab_spanish_silla', // JA/ZH
+  '의자':         'vocab_spanish_silla', // KO
+
+  // book
+  'livre':       'vocab_spanish_libro', // FR
+  'buch':        'vocab_spanish_libro', // DE
+  'livro':       'vocab_spanish_libro', // PT
+  'book':        'vocab_spanish_libro', // EN
+  'ほん':         'vocab_spanish_libro', // JA
+  '本':           'vocab_spanish_libro', // JA/ZH
+  '책':           'vocab_spanish_libro', // KO
+  '书':           'vocab_spanish_libro', // ZH
+  // Note: "libro" same in ES and IT
+
+  // pen (bolígrafo)
+  'stylo':       'vocab_spanish_boligrafo', // FR
+  'stift':       'vocab_spanish_boligrafo', // DE
+  'penna':       'vocab_spanish_boligrafo', // IT
+  'caneta':      'vocab_spanish_boligrafo', // PT
+  'pen':         'vocab_spanish_boligrafo', // EN
+  'ペン':          'vocab_spanish_boligrafo', // JA
+  '펜':           'vocab_spanish_boligrafo', // KO
+  '钢笔':         'vocab_spanish_boligrafo', // ZH
+
+  // pencil (lápiz)
+  'crayon':      'vocab_spanish_lapiz', // FR (crayon = pencil in French)
+  'bleistift':   'vocab_spanish_lapiz', // DE
+  'matita':      'vocab_spanish_lapiz', // IT
+  'lapis':       'vocab_spanish_lapiz', // PT (lápis)
+  'pencil':      'vocab_spanish_lapiz', // EN
+  'えんぴつ':       'vocab_spanish_lapiz', // JA
+  '연필':         'vocab_spanish_lapiz', // KO
+  '铅笔':         'vocab_spanish_lapiz', // ZH
+
+  // paper (papel)
+  'papier':      'vocab_spanish_papel', // FR/DE
+  'carta':       'vocab_spanish_papel', // IT
+  'paper':       'vocab_spanish_papel', // EN
+  'かみ':         'vocab_spanish_papel', // JA
+  '紙':           'vocab_spanish_papel', // JA/ZH
+  '종이':         'vocab_spanish_papel', // KO
+  '纸':           'vocab_spanish_papel', // ZH
+  // Note: "papel" same in ES and PT
+
+  // backpack (mochila)
+  'rucksack':    'vocab_spanish_mochila', // DE
+  'zaino':       'vocab_spanish_mochila', // IT
+  'backpack':    'vocab_spanish_mochila', // EN
+  'リュック':       'vocab_spanish_mochila', // JA
+  '배낭':         'vocab_spanish_mochila', // KO
+  '背包':         'vocab_spanish_mochila', // ZH
+  'sac a dos':   'vocab_spanish_mochila', // FR (sac à dos normalized)
+  // Note: "mochila" same in ES and PT
+
+  // computer (computadora / ordenador)
+  'ordinateur':  'vocab_spanish_computadora', // FR
+  'computer':    'vocab_spanish_computadora', // DE/IT/EN (same word)
+  'computador':  'vocab_spanish_computadora', // PT
+  'パソコン':       'vocab_spanish_computadora', // JA
+  '컴퓨터':        'vocab_spanish_computadora', // KO
+  '电脑':         'vocab_spanish_computadora', // ZH
+
+  // ── Clothing & Accessories ─────────────────────────────────────────────────
+  // shirt (camisa)
+  'chemise':     'vocab_spanish_camisa', // FR
+  'hemd':        'vocab_spanish_camisa', // DE
+  'camicia':     'vocab_spanish_camisa', // IT
+  'shirt':       'vocab_spanish_camisa', // EN
+  'シャツ':        'vocab_spanish_camisa', // JA
+  '셔츠':         'vocab_spanish_camisa', // KO
+  '衬衫':         'vocab_spanish_camisa', // ZH
+  // Note: "camisa" same in ES and PT
+
+  // pants / trousers (pantalones)
+  'pantalon':    'vocab_spanish_pantalones', // FR
+  'hose':        'vocab_spanish_pantalones', // DE
+  'pantaloni':   'vocab_spanish_pantalones', // IT
+  'calca':       'vocab_spanish_pantalones', // PT (calça)
+  'pants':       'vocab_spanish_pantalones', // EN
+  'trousers':    'vocab_spanish_pantalones', // EN alt
+  'ズボン':        'vocab_spanish_pantalones', // JA
+  '바지':         'vocab_spanish_pantalones', // KO
+  '裤子':         'vocab_spanish_pantalones', // ZH
+
+  // dress (vestido)
+  'robe':        'vocab_spanish_vestido', // FR
+  'kleid':       'vocab_spanish_vestido', // DE
+  'vestito':     'vocab_spanish_vestido', // IT
+  'dress':       'vocab_spanish_vestido', // EN
+  'ドレス':        'vocab_spanish_vestido', // JA
+  '드레스':        'vocab_spanish_vestido', // KO
+  '连衣裙':        'vocab_spanish_vestido', // ZH
+  // Note: "vestido" same in ES and PT
+
+  // shoes (zapatos)
+  'chaussures':  'vocab_spanish_zapatos', // FR
+  'schuhe':      'vocab_spanish_zapatos', // DE
+  'scarpe':      'vocab_spanish_zapatos', // IT
+  'sapatos':     'vocab_spanish_zapatos', // PT
+  'shoes':       'vocab_spanish_zapatos', // EN
+  'くつ':         'vocab_spanish_zapatos', // JA
+  '靴':           'vocab_spanish_zapatos', // JA
+  '신발':         'vocab_spanish_zapatos', // KO
+  '鞋子':         'vocab_spanish_zapatos', // ZH
+
+  // hat / cap (sombrero)
+  'chapeau':     'vocab_spanish_sombrero', // FR
+  'hut':         'vocab_spanish_sombrero', // DE
+  'cappello':    'vocab_spanish_sombrero', // IT
+  'chapeu':      'vocab_spanish_sombrero', // PT (chapéu)
+  'hat':         'vocab_spanish_sombrero', // EN
+  'ぼうし':        'vocab_spanish_sombrero', // JA
+  '帽子':         'vocab_spanish_sombrero', // JA/ZH shared
+  '모자':         'vocab_spanish_sombrero', // KO
+
+  // jacket (chaqueta)
+  'veste':       'vocab_spanish_chaqueta', // FR
+  'jacke':       'vocab_spanish_chaqueta', // DE
+  'giacca':      'vocab_spanish_chaqueta', // IT
+  'jaqueta':     'vocab_spanish_chaqueta', // PT
+  'jacket':      'vocab_spanish_chaqueta', // EN
+  'ジャケット':      'vocab_spanish_chaqueta', // JA
+  '자켓':         'vocab_spanish_chaqueta', // KO
+  '夹克':         'vocab_spanish_chaqueta', // ZH
+
+  // socks (calcetines)
+  'chaussettes': 'vocab_spanish_calcetines', // FR
+  'socken':      'vocab_spanish_calcetines', // DE
+  'calzini':     'vocab_spanish_calcetines', // IT
+  'meias':       'vocab_spanish_calcetines', // PT
+  'socks':       'vocab_spanish_calcetines', // EN
+  'くつした':       'vocab_spanish_calcetines', // JA
+  '靴下':         'vocab_spanish_calcetines', // JA
+  '양말':         'vocab_spanish_calcetines', // KO
+  '袜子':         'vocab_spanish_calcetines', // ZH
+
+  // ── Common Verbs / Activities ──────────────────────────────────────────────
+  // eat (comer)
+  'manger':      'vocab_spanish_comer', // FR
+  'essen':       'vocab_spanish_comer', // DE
+  'mangiare':    'vocab_spanish_comer', // IT
+  'eat':         'vocab_spanish_comer', // EN
+  'たべる':        'vocab_spanish_comer', // JA
+  '食べる':        'vocab_spanish_comer', // JA kanji
+  '먹다':         'vocab_spanish_comer', // KO
+  '吃':           'vocab_spanish_comer', // ZH
+  // Note: "comer" same in ES and PT
+
+  // sleep (dormir)
+  'schlafen':    'vocab_spanish_dormir', // DE
+  'dormire':     'vocab_spanish_dormir', // IT
+  'sleep':       'vocab_spanish_dormir', // EN
+  'ねる':         'vocab_spanish_dormir', // JA
+  '寝る':         'vocab_spanish_dormir', // JA
+  '자다':         'vocab_spanish_dormir', // KO
+  '睡觉':         'vocab_spanish_dormir', // ZH
+  // Note: "dormir" same in ES, FR, PT
+
+  // run (correr)
+  'courir':      'vocab_spanish_correr', // FR
+  'laufen':      'vocab_spanish_correr', // DE
+  'correre':     'vocab_spanish_correr', // IT
+  'run':         'vocab_spanish_correr', // EN
+  'はしる':        'vocab_spanish_correr', // JA
+  '走る':         'vocab_spanish_correr', // JA
+  '달리다':        'vocab_spanish_correr', // KO
+  '跑步':         'vocab_spanish_correr', // ZH
+  // Note: "correr" same in ES and PT
+
+  // speak / talk (hablar)
+  'parler':      'vocab_spanish_hablar', // FR
+  'sprechen':    'vocab_spanish_hablar', // DE
+  'parlare':     'vocab_spanish_hablar', // IT
+  'falar':       'vocab_spanish_hablar', // PT
+  'speak':       'vocab_spanish_hablar', // EN
+  'talk':        'vocab_spanish_hablar', // EN alt
+  'はなす':        'vocab_spanish_hablar', // JA
+  '話す':         'vocab_spanish_hablar', // JA
+  '말하다':        'vocab_spanish_hablar', // KO
+  '说话':         'vocab_spanish_hablar', // ZH
+
+  // listen (escuchar)
+  'ecouter':     'vocab_spanish_escuchar', // FR (écouter)
+  'horen':       'vocab_spanish_escuchar', // DE (hören)
+  'ascoltare':   'vocab_spanish_escuchar', // IT
+  'escutar':     'vocab_spanish_escuchar', // PT
+  'listen':      'vocab_spanish_escuchar', // EN
+  'きく':         'vocab_spanish_escuchar', // JA
+  '聞く':         'vocab_spanish_escuchar', // JA
+  '듣다':         'vocab_spanish_escuchar', // KO
+  '听':           'vocab_spanish_escuchar', // ZH
+
+  // write (escribir)
+  'ecrire':      'vocab_spanish_escribir', // FR (écrire)
+  'schreiben':   'vocab_spanish_escribir', // DE
+  'scrivere':    'vocab_spanish_escribir', // IT
+  'escrever':    'vocab_spanish_escribir', // PT
+  'write':       'vocab_spanish_escribir', // EN
+  'かく':         'vocab_spanish_escribir', // JA
+  '書く':         'vocab_spanish_escribir', // JA
+  '쓰다':         'vocab_spanish_escribir', // KO
+  '写字':         'vocab_spanish_escribir', // ZH
+
+  // read (leer)
+  'lire':        'vocab_spanish_leer', // FR
+  'lesen':       'vocab_spanish_leer', // DE
+  'leggere':     'vocab_spanish_leer', // IT
+  'ler':         'vocab_spanish_leer', // PT
+  'read':        'vocab_spanish_leer', // EN
+  'よむ':         'vocab_spanish_leer', // JA
+  '読む':         'vocab_spanish_leer', // JA
+  '읽다':         'vocab_spanish_leer', // KO
+  '看书':         'vocab_spanish_leer', // ZH
+  // Note: "leer" (DE) = "empty" — NOT added here to avoid conflict with ES "leer" = read
+
+  // dance (bailar)
+  'danser':      'vocab_spanish_bailar', // FR
+  'tanzen':      'vocab_spanish_bailar', // DE
+  'ballare':     'vocab_spanish_bailar', // IT
+  'dancar':      'vocab_spanish_bailar', // PT (dançar)
+  'dance':       'vocab_spanish_bailar', // EN
+  'おどる':        'vocab_spanish_bailar', // JA
+  '踊る':         'vocab_spanish_bailar', // JA
+  '춤추다':        'vocab_spanish_bailar', // KO
+  '跳舞':         'vocab_spanish_bailar', // ZH
+
+  // sing (cantar)
+  'chanter':     'vocab_spanish_cantar', // FR
+  'singen':      'vocab_spanish_cantar', // DE
+  'cantare':     'vocab_spanish_cantar', // IT
+  'sing':        'vocab_spanish_cantar', // EN
+  'うたう':        'vocab_spanish_cantar', // JA
+  '歌う':         'vocab_spanish_cantar', // JA
+  '노래하다':       'vocab_spanish_cantar', // KO
+  '唱歌':         'vocab_spanish_cantar', // ZH
+  // Note: "cantar" same in ES and PT
+
+  // swim (nadar)
+  'nager':       'vocab_spanish_nadar', // FR
+  'schwimmen':   'vocab_spanish_nadar', // DE
+  'nuotare':     'vocab_spanish_nadar', // IT
+  'swim':        'vocab_spanish_nadar', // EN
+  'およぐ':        'vocab_spanish_nadar', // JA
+  '泳ぐ':         'vocab_spanish_nadar', // JA
+  '수영하다':       'vocab_spanish_nadar', // KO
+  '游泳':         'vocab_spanish_nadar', // ZH
+  // Note: "nadar" same in ES and PT
+
+  // walk (caminar)
+  'marcher':     'vocab_spanish_caminar', // FR
+  'gehen':       'vocab_spanish_caminar', // DE
+  'camminare':   'vocab_spanish_caminar', // IT
+  'caminhar':    'vocab_spanish_caminar', // PT
+  'walk':        'vocab_spanish_caminar', // EN
+  'あるく':        'vocab_spanish_caminar', // JA
+  '歩く':         'vocab_spanish_caminar', // JA
+  '걷다':         'vocab_spanish_caminar', // KO
+  '走路':         'vocab_spanish_caminar', // ZH
+
+  // cook (cocinar)
+  'cuisiner':    'vocab_spanish_cocinar', // FR
+  'kochen':      'vocab_spanish_cocinar', // DE
+  'cucinare':    'vocab_spanish_cocinar', // IT
+  'cozinhar':    'vocab_spanish_cocinar', // PT
+  'cook':        'vocab_spanish_cocinar', // EN
+  'りょうりする':     'vocab_spanish_cocinar', // JA
+  '料理する':       'vocab_spanish_cocinar', // JA
+  '요리하다':       'vocab_spanish_cocinar', // KO
+  '做饭':         'vocab_spanish_cocinar', // ZH
+
+  // play (jugar)
+  'jouer':       'vocab_spanish_jugar', // FR
+  'spielen':     'vocab_spanish_jugar', // DE
+  'giocare':     'vocab_spanish_jugar', // IT
+  'jogar':       'vocab_spanish_jugar', // PT
+  'play':        'vocab_spanish_jugar', // EN
+  'あそぶ':        'vocab_spanish_jugar', // JA
+  '遊ぶ':         'vocab_spanish_jugar', // JA
+  '놀다':         'vocab_spanish_jugar', // KO
+  '玩':           'vocab_spanish_jugar', // ZH
+
+  // buy (comprar)
+  'acheter':     'vocab_spanish_comprar', // FR
+  'kaufen':      'vocab_spanish_comprar', // DE
+  'comprare':    'vocab_spanish_comprar', // IT
+  'buy':         'vocab_spanish_comprar', // EN
+  'かう':         'vocab_spanish_comprar', // JA
+  '買う':         'vocab_spanish_comprar', // JA
+  '사다':         'vocab_spanish_comprar', // KO
+  '买':           'vocab_spanish_comprar', // ZH
+  // Note: "comprar" same in ES and PT
+
+  // ── Body Parts (all point to shared body diagram) ─────────────────────────
+  // head (cabeza)
+  'tete':        'vocab_spanish_cabeza', // FR (tête)
+  'kopf':        'vocab_spanish_cabeza', // DE
+  'testa':       'vocab_spanish_cabeza', // IT
+  'cabeca':      'vocab_spanish_cabeza', // PT (cabeça)
+  'head':        'vocab_spanish_cabeza', // EN
+  'あたま':        'vocab_spanish_cabeza', // JA
+  '頭':           'vocab_spanish_cabeza', // JA/ZH
+  '머리':         'vocab_spanish_cabeza', // KO
+
+  // hand (mano)
+  'main':        'vocab_spanish_mano', // FR
+  'hand':        'vocab_spanish_mano', // DE/EN (same word)
+  'mao':         'vocab_spanish_mano', // PT (mão)
+  'て':           'vocab_spanish_mano', // JA
+  '手':           'vocab_spanish_mano', // JA/ZH
+  '손':           'vocab_spanish_mano', // KO
+  // Note: "mano" same in ES and IT
+
+  // foot (pie)
+  'pied':        'vocab_spanish_pie', // FR
+  'fus':         'vocab_spanish_pie', // DE (Fuß → fus after ß→s)
+  'piede':       'vocab_spanish_pie', // IT
+  'pe':          'vocab_spanish_pie', // PT (pé)
+  'foot':        'vocab_spanish_pie', // EN
+  'あし':         'vocab_spanish_pie', // JA
+  '足':           'vocab_spanish_pie', // JA/ZH
+  '발':           'vocab_spanish_pie', // KO
+  '脚':           'vocab_spanish_pie', // ZH
+
+  // arm (brazo)
+  'bras':        'vocab_spanish_brazo', // FR
+  'arm':         'vocab_spanish_brazo', // DE/EN (same word)
+  'braccio':     'vocab_spanish_brazo', // IT
+  'braco':       'vocab_spanish_brazo', // PT (braço)
+  'うで':         'vocab_spanish_brazo', // JA
+  '腕':           'vocab_spanish_brazo', // JA/ZH
+  '팔':           'vocab_spanish_brazo', // KO
+
+  // eye (ojo)
+  'oeil':        'vocab_spanish_ojo', // FR (œil)
+  'auge':        'vocab_spanish_ojo', // DE
+  'occhio':      'vocab_spanish_ojo', // IT
+  'olho':        'vocab_spanish_ojo', // PT
+  'eye':         'vocab_spanish_ojo', // EN
+  'め':           'vocab_spanish_ojo', // JA
+  '目':           'vocab_spanish_ojo', // JA/ZH
+  '눈':           'vocab_spanish_ojo', // KO
+  '眼睛':         'vocab_spanish_ojo', // ZH
+
+  // nose (nariz)
+  'nez':         'vocab_spanish_nariz', // FR
+  'nase':        'vocab_spanish_nariz', // DE
+  'naso':        'vocab_spanish_nariz', // IT
+  'nose':        'vocab_spanish_nariz', // EN
+  'はな':         'vocab_spanish_nariz', // JA
+  '鼻':           'vocab_spanish_nariz', // JA/ZH
+  '코':           'vocab_spanish_nariz', // KO
+  '鼻子':         'vocab_spanish_nariz', // ZH
+  // Note: "nariz" same in ES and PT
+
+  // mouth (boca)
+  'bouche':      'vocab_spanish_boca', // FR
+  'mund':        'vocab_spanish_boca', // DE
+  'bocca':       'vocab_spanish_boca', // IT
+  'mouth':       'vocab_spanish_boca', // EN
+  'くち':         'vocab_spanish_boca', // JA
+  '口':           'vocab_spanish_boca', // JA/ZH
+  '입':           'vocab_spanish_boca', // KO
+  '嘴':           'vocab_spanish_boca', // ZH
+  // Note: "boca" same in ES and PT
+
+  // leg (pierna)
+  'jambe':       'vocab_spanish_pierna', // FR
+  'bein':        'vocab_spanish_pierna', // DE
+  'gamba':       'vocab_spanish_pierna', // IT
+  'perna':       'vocab_spanish_pierna', // PT
+  'leg':         'vocab_spanish_pierna', // EN
+  'あし':         'vocab_spanish_pierna', // JA (same kana as foot; body diagram covers both)
+  '脚':           'vocab_spanish_pierna', // ZH
+  '다리':         'vocab_spanish_pierna', // KO
+
+  // ear (oreja)
+  'oreille':     'vocab_spanish_oreja', // FR
+  'ohr':         'vocab_spanish_oreja', // DE
+  'orecchio':    'vocab_spanish_oreja', // IT
+  'orelha':      'vocab_spanish_oreja', // PT
+  'ear':         'vocab_spanish_oreja', // EN
+  'みみ':         'vocab_spanish_oreja', // JA
+  '耳':           'vocab_spanish_oreja', // JA/ZH
+  '귀':           'vocab_spanish_oreja', // KO
+  '耳朵':         'vocab_spanish_oreja', // ZH
+
+  // shoulder (hombro)
+  'epaule':      'vocab_spanish_hombro', // FR (épaule)
+  'schulter':    'vocab_spanish_hombro', // DE
+  'spalla':      'vocab_spanish_hombro', // IT
+  'ombro':       'vocab_spanish_hombro', // PT
+  'shoulder':    'vocab_spanish_hombro', // EN
+  'かた':         'vocab_spanish_hombro', // JA
+  '肩':           'vocab_spanish_hombro', // JA/ZH
+  '어깨':         'vocab_spanish_hombro', // KO
+
+  // knee (rodilla)
+  'genou':       'vocab_spanish_rodilla', // FR
+  'knie':        'vocab_spanish_rodilla', // DE
+  'ginocchio':   'vocab_spanish_rodilla', // IT
+  'joelho':      'vocab_spanish_rodilla', // PT
+  'knee':        'vocab_spanish_rodilla', // EN
+  'ひざ':         'vocab_spanish_rodilla', // JA
+  '膝':           'vocab_spanish_rodilla', // JA
+  '무릎':         'vocab_spanish_rodilla', // KO
+  '膝盖':         'vocab_spanish_rodilla', // ZH
+
+  // back (espalda)
+  'rucken':      'vocab_spanish_espalda', // DE (Rücken)
+  'schiena':     'vocab_spanish_espalda', // IT
+  'costas':      'vocab_spanish_espalda', // PT
+  'back':        'vocab_spanish_espalda', // EN
+  'せなか':        'vocab_spanish_espalda', // JA
+  '背中':         'vocab_spanish_espalda', // JA
+  '등':           'vocab_spanish_espalda', // KO
+  '背部':         'vocab_spanish_espalda', // ZH
+  // Note: "dos" (FR=back) omitted — conflicts with concept_num_2
+
+  // stomach (estómago)
+  'ventre':      'vocab_spanish_estomago', // FR
+  'bauch':       'vocab_spanish_estomago', // DE
+  'stomaco':     'vocab_spanish_estomago', // IT
+  'barriga':     'vocab_spanish_estomago', // PT
+  'stomach':     'vocab_spanish_estomago', // EN
+  'おなか':        'vocab_spanish_estomago', // JA
+  'お腹':         'vocab_spanish_estomago', // JA
+  '배':           'vocab_spanish_estomago', // KO
+  '肚子':         'vocab_spanish_estomago', // ZH
+
+  // neck (cuello)
+  'cou':         'vocab_spanish_cuello', // FR
+  'hals':        'vocab_spanish_cuello', // DE
+  'collo':       'vocab_spanish_cuello', // IT
+  'pescoco':     'vocab_spanish_cuello', // PT (pescoço)
+  'neck':        'vocab_spanish_cuello', // EN
+  'くび':         'vocab_spanish_cuello', // JA
+  '首':           'vocab_spanish_cuello', // JA/ZH
+  '목':           'vocab_spanish_cuello', // KO
+  '脖子':         'vocab_spanish_cuello', // ZH
+
+  // heart (corazón)
+  'coeur':       'vocab_spanish_corazon', // FR
+  'herz':        'vocab_spanish_corazon', // DE
+  'cuore':       'vocab_spanish_corazon', // IT
+  'coracao':     'vocab_spanish_corazon', // PT (coração)
+  'heart':       'vocab_spanish_corazon', // EN
+  'こころ':        'vocab_spanish_corazon', // JA
+  '心':           'vocab_spanish_corazon', // JA/ZH
+  '심장':         'vocab_spanish_corazon', // KO
+  '心脏':         'vocab_spanish_corazon', // ZH
+
+  // ── Emotions ──────────────────────────────────────────────────────────────
+  // happy (feliz)
+  'heureux':     'vocab_spanish_feliz', // FR
+  'heureuse':    'vocab_spanish_feliz', // FR fem
+  'glucklich':   'vocab_spanish_feliz', // DE (glücklich)
+  'felice':      'vocab_spanish_feliz', // IT
+  'happy':       'vocab_spanish_feliz', // EN
+  'うれしい':       'vocab_spanish_feliz', // JA
+  '嬉しい':        'vocab_spanish_feliz', // JA
+  '행복하다':       'vocab_spanish_feliz', // KO
+  '快乐':         'vocab_spanish_feliz', // ZH
+  // Note: "feliz" same in ES and PT
+
+  // sad (triste)
+  'traurig':     'vocab_spanish_triste', // DE
+  'sad':         'vocab_spanish_triste', // EN
+  'かなしい':       'vocab_spanish_triste', // JA
+  '悲しい':        'vocab_spanish_triste', // JA
+  '슬프다':        'vocab_spanish_triste', // KO
+  '伤心':         'vocab_spanish_triste', // ZH
+  // Note: "triste" same in ES, FR, IT, PT — already seeded as alias to feliz/triste pair
+
+  // angry (enojado)
+  'fache':       'vocab_spanish_enojado', // FR (fâché)
+  'wutend':      'vocab_spanish_enojado', // DE (wütend)
+  'arrabbiato':  'vocab_spanish_enojado', // IT
+  'irritado':    'vocab_spanish_enojado', // PT
+  'angry':       'vocab_spanish_enojado', // EN
+  'おこっている':     'vocab_spanish_enojado', // JA
+  '怒っている':      'vocab_spanish_enojado', // JA
+  '화나다':        'vocab_spanish_enojado', // KO
+  '生气':         'vocab_spanish_enojado', // ZH
+
+  // surprised (sorprendido)
+  'surpris':     'vocab_spanish_sorprendido', // FR
+  'uberrascht':  'vocab_spanish_sorprendido', // DE (überrascht)
+  'sorpreso':    'vocab_spanish_sorprendido', // IT
+  'surpreso':    'vocab_spanish_sorprendido', // PT
+  'surprised':   'vocab_spanish_sorprendido', // EN
+  'おどろいた':      'vocab_spanish_sorprendido', // JA
+  '驚いた':        'vocab_spanish_sorprendido', // JA
+  '놀랐다':        'vocab_spanish_sorprendido', // KO
+  '惊讶':         'vocab_spanish_sorprendido', // ZH
+
+  // excited (emocionado)
+  'aufgeregt':   'vocab_spanish_emocionado', // DE
+  'emozionato':  'vocab_spanish_emocionado', // IT
+  'animado':     'vocab_spanish_emocionado', // PT
+  'excited':     'vocab_spanish_emocionado', // EN
+  'わくわくしている':   'vocab_spanish_emocionado', // JA
+  '신나다':        'vocab_spanish_emocionado', // KO
+  '兴奋':         'vocab_spanish_emocionado', // ZH
+  // Note: "excite" (FR excité) — omitted to avoid English "excite" ambiguity
+
+  // nervous (nervioso)
+  'nerveux':     'vocab_spanish_nervioso', // FR
+  'nervos':      'vocab_spanish_nervioso', // DE (nervös)
+  'nervous':     'vocab_spanish_nervioso', // EN
+  'きんちょうしている': 'vocab_spanish_nervioso', // JA
+  '긴장하다':       'vocab_spanish_nervioso', // KO
+  '紧张':         'vocab_spanish_nervioso', // ZH
+  // Note: "nervioso" same in ES, IT, PT
+
+  // bored (aburrido)
+  'ennuye':      'vocab_spanish_aburrido', // FR (ennuyé)
+  'gelangweilt': 'vocab_spanish_aburrido', // DE
+  'annoiato':    'vocab_spanish_aburrido', // IT
+  'entediado':   'vocab_spanish_aburrido', // PT
+  'bored':       'vocab_spanish_aburrido', // EN
+  'たいくつ':       'vocab_spanish_aburrido', // JA
+  '지루하다':       'vocab_spanish_aburrido', // KO
+  '无聊':         'vocab_spanish_aburrido', // ZH
+
+  // scared / afraid (asustado)
+  'apeure':      'vocab_spanish_asustado', // FR (apeuré)
+  'angstlich':   'vocab_spanish_asustado', // DE (ängstlich)
+  'spaventato':  'vocab_spanish_asustado', // IT
+  'assustado':   'vocab_spanish_asustado', // PT
+  'scared':      'vocab_spanish_asustado', // EN
+  'afraid':      'vocab_spanish_asustado', // EN alt
+  'こわい':        'vocab_spanish_asustado', // JA
+  '무섭다':        'vocab_spanish_asustado', // KO
+  '害怕':         'vocab_spanish_asustado', // ZH
+
+  // ── Language-Neutral Adjective Pairs ──────────────────────────────────────
+  // NOTE: Both words of each pair map to the same cache key — the pair image
+  // shows both concepts side-by-side, so either word retrieves the full image.
+
+  // near / close (cerca)
+  'pres':        'vocab_spanish_cerca', // FR (près)
+  'nah':         'vocab_spanish_cerca', // DE
+  'vicino':      'vocab_spanish_cerca', // IT
+  'perto':       'vocab_spanish_cerca', // PT
+  'near':        'vocab_spanish_cerca', // EN
+  'close':       'vocab_spanish_cerca', // EN alt
+  'ちかい':        'vocab_spanish_cerca', // JA
+  '近い':         'vocab_spanish_cerca', // JA
+  '가깝다':        'vocab_spanish_cerca', // KO
+  '近':           'vocab_spanish_cerca', // ZH
+
+  // far (lejos)
+  'loin':        'vocab_spanish_lejos', // FR
+  'weit':        'vocab_spanish_lejos', // DE
+  'lontano':     'vocab_spanish_lejos', // IT
+  'longe':       'vocab_spanish_lejos', // PT
+  'far':         'vocab_spanish_lejos', // EN
+  'とおい':        'vocab_spanish_lejos', // JA
+  '遠い':         'vocab_spanish_lejos', // JA
+  '멀다':         'vocab_spanish_lejos', // KO
+  '远':           'vocab_spanish_lejos', // ZH
+
+  // big / large (grande)
+  'grand':       'vocab_spanish_grande', // FR (also means tall)
+  'gross':       'vocab_spanish_grande', // DE (groß)
+  'big':         'vocab_spanish_grande', // EN
+  'large':       'vocab_spanish_grande', // EN alt
+  'おおきい':       'vocab_spanish_grande', // JA
+  '大きい':        'vocab_spanish_grande', // JA
+  '크다':         'vocab_spanish_grande', // KO
+  '大':           'vocab_spanish_grande', // ZH
+  // Note: "grande" same in ES, IT, PT
+
+  // small (pequeño)
+  'petit':       'vocab_spanish_pequeno', // FR
+  'klein':       'vocab_spanish_pequeno', // DE
+  'piccolo':     'vocab_spanish_pequeno', // IT
+  'pequeno':     'vocab_spanish_pequeno', // PT (pequeno = same after norm)
+  'small':       'vocab_spanish_pequeno', // EN
+  'little':      'vocab_spanish_pequeno', // EN alt
+  'ちいさい':       'vocab_spanish_pequeno', // JA
+  '小さい':        'vocab_spanish_pequeno', // JA
+  '작다':         'vocab_spanish_pequeno', // KO
+  '小':           'vocab_spanish_pequeno', // ZH
+
+  // hot (caliente)
+  'chaud':       'vocab_spanish_caliente', // FR
+  'heiss':       'vocab_spanish_caliente', // DE (heiß)
+  'warm':        'vocab_spanish_caliente', // EN/DE (warm → caliente image)
+  'caldo':       'vocab_spanish_caliente', // (conflict with ES "caldo"=broth — acceptable; food broth image far less common in curriculum)
+  'quente':      'vocab_spanish_caliente', // PT
+  'hot':         'vocab_spanish_caliente', // EN
+  'あつい':        'vocab_spanish_caliente', // JA
+  '熱い':         'vocab_spanish_caliente', // JA
+  '뜨겁다':        'vocab_spanish_caliente', // KO
+  '热':           'vocab_spanish_caliente', // ZH
+
+  // cold (frío)
+  'froid':       'vocab_spanish_frio', // FR
+  'kalt':        'vocab_spanish_frio', // DE
+  'freddo':      'vocab_spanish_frio', // IT
+  'cold':        'vocab_spanish_frio', // EN
+  'つめたい':       'vocab_spanish_frio', // JA
+  '冷たい':        'vocab_spanish_frio', // JA
+  '차갑다':        'vocab_spanish_frio', // KO
+  '冷':           'vocab_spanish_frio', // ZH
+  // Note: "frio" same in ES and PT
+
+  // clean (limpio)
+  'propre':      'vocab_spanish_limpio', // FR
+  'sauber':      'vocab_spanish_limpio', // DE
+  'pulito':      'vocab_spanish_limpio', // IT
+  'limpo':       'vocab_spanish_limpio', // PT
+  'clean':       'vocab_spanish_limpio', // EN
+  'きれい':        'vocab_spanish_limpio', // JA
+  '綺麗':         'vocab_spanish_limpio', // JA
+  '깨끗하다':       'vocab_spanish_limpio', // KO
+  '干净':         'vocab_spanish_limpio', // ZH
+
+  // dirty (sucio)
+  'schmutzig':   'vocab_spanish_sucio', // DE
+  'sporco':      'vocab_spanish_sucio', // IT
+  'sujo':        'vocab_spanish_sucio', // PT
+  'dirty':       'vocab_spanish_sucio', // EN
+  'きたない':       'vocab_spanish_sucio', // JA
+  '汚い':         'vocab_spanish_sucio', // JA
+  '더럽다':        'vocab_spanish_sucio', // KO
+  '脏':           'vocab_spanish_sucio', // ZH
+  // Note: "sale" (FR=dirty) omitted — conflicts with EN "sale" in commerce context
+
+  // soft (suave)
+  'doux':        'vocab_spanish_suave', // FR
+  'weich':       'vocab_spanish_suave', // DE
+  'morbido':     'vocab_spanish_suave', // IT
+  'soft':        'vocab_spanish_suave', // EN
+  'やわらかい':      'vocab_spanish_suave', // JA
+  '부드럽다':       'vocab_spanish_suave', // KO
+  '软':           'vocab_spanish_suave', // ZH
+  // Note: "suave" same in ES and PT
+
+  // hard (duro)
+  'dur':         'vocab_spanish_duro', // FR
+  'hart':        'vocab_spanish_duro', // DE
+  'hard':        'vocab_spanish_duro', // EN
+  'かたい':        'vocab_spanish_duro', // JA
+  '硬い':         'vocab_spanish_duro', // JA
+  '딱딱하다':       'vocab_spanish_duro', // KO
+  '硬':           'vocab_spanish_duro', // ZH
+  // Note: "duro" same in ES, IT, PT
+
+  // heavy (pesado)
+  'lourd':       'vocab_spanish_pesado', // FR
+  'schwer':      'vocab_spanish_pesado', // DE
+  'pesante':     'vocab_spanish_pesado', // IT
+  'heavy':       'vocab_spanish_pesado', // EN
+  'おもい':        'vocab_spanish_pesado', // JA
+  '重い':         'vocab_spanish_pesado', // JA
+  '무겁다':        'vocab_spanish_pesado', // KO
+  '重':           'vocab_spanish_pesado', // ZH
+  // Note: "pesado" same in ES and PT
+
+  // light / lightweight (ligero)
+  'leger':       'vocab_spanish_ligero', // FR (léger)
+  'leicht':      'vocab_spanish_ligero', // DE
+  'leggero':     'vocab_spanish_ligero', // IT
+  'leve':        'vocab_spanish_ligero', // PT
+  'light':       'vocab_spanish_ligero', // EN (lightweight sense; color sense is "claro")
+  'かるい':        'vocab_spanish_ligero', // JA
+  '軽い':         'vocab_spanish_ligero', // JA
+  '가볍다':        'vocab_spanish_ligero', // KO
+  '轻':           'vocab_spanish_ligero', // ZH
+
+  // loud / noisy (ruidoso)
+  'bruyant':     'vocab_spanish_ruidoso', // FR
+  'laut':        'vocab_spanish_ruidoso', // DE
+  'rumoroso':    'vocab_spanish_ruidoso', // IT
+  'barulhento':  'vocab_spanish_ruidoso', // PT
+  'loud':        'vocab_spanish_ruidoso', // EN
+  'noisy':       'vocab_spanish_ruidoso', // EN alt
+  'うるさい':       'vocab_spanish_ruidoso', // JA
+  '시끄럽다':       'vocab_spanish_ruidoso', // KO
+  '吵':           'vocab_spanish_ruidoso', // ZH
+
+  // quiet (tranquilo)
+  'silencieux':  'vocab_spanish_tranquilo', // FR
+  'leise':       'vocab_spanish_tranquilo', // DE
+  'silenzioso':  'vocab_spanish_tranquilo', // IT
+  'quieto':      'vocab_spanish_tranquilo', // PT
+  'quiet':       'vocab_spanish_tranquilo', // EN
+  'しずか':        'vocab_spanish_tranquilo', // JA
+  '静か':         'vocab_spanish_tranquilo', // JA
+  '조용하다':       'vocab_spanish_tranquilo', // KO
+  '安静':         'vocab_spanish_tranquilo', // ZH
+
+  // young (joven)
+  'jeune':       'vocab_spanish_joven', // FR
+  'jung':        'vocab_spanish_joven', // DE
+  'giovane':     'vocab_spanish_joven', // IT
+  'jovem':       'vocab_spanish_joven', // PT
+  'young':       'vocab_spanish_joven', // EN
+  'わかい':        'vocab_spanish_joven', // JA
+  '若い':         'vocab_spanish_joven', // JA
+  '젊다':         'vocab_spanish_joven', // KO
+  '年轻':         'vocab_spanish_joven', // ZH
+
+  // old / elderly (viejo)
+  'vieux':       'vocab_spanish_viejo', // FR
+  'alt':         'vocab_spanish_viejo', // DE
+  'vecchio':     'vocab_spanish_viejo', // IT
+  'velho':       'vocab_spanish_viejo', // PT
+  'old':         'vocab_spanish_viejo', // EN
+  'ふるい':        'vocab_spanish_viejo', // JA (old thing)
+  'としより':       'vocab_spanish_viejo', // JA (elderly)
+  '늙다':         'vocab_spanish_viejo', // KO
+  '老':           'vocab_spanish_viejo', // ZH
+
+  // fast / quick (rápido)
+  'rapide':      'vocab_spanish_rapido', // FR
+  'schnell':     'vocab_spanish_rapido', // DE
+  'veloce':      'vocab_spanish_rapido', // IT
+  'fast':        'vocab_spanish_rapido', // EN
+  'quick':       'vocab_spanish_rapido', // EN alt
+  'はやい':        'vocab_spanish_rapido', // JA
+  '速い':         'vocab_spanish_rapido', // JA
+  '빠르다':        'vocab_spanish_rapido', // KO
+  '快':           'vocab_spanish_rapido', // ZH
+  // Note: "rapido" same in ES and PT
+
+  // slow (lento)
+  'lent':        'vocab_spanish_lento', // FR
+  'langsam':     'vocab_spanish_lento', // DE
+  'slow':        'vocab_spanish_lento', // EN
+  'おそい':        'vocab_spanish_lento', // JA
+  '遅い':         'vocab_spanish_lento', // JA
+  '느리다':        'vocab_spanish_lento', // KO
+  '慢':           'vocab_spanish_lento', // ZH
+  // Note: "lento" same in ES, IT, PT
+
+  // open (abierto)
+  'ouvert':      'vocab_spanish_abierto', // FR
+  'offen':       'vocab_spanish_abierto', // DE
+  'aperto':      'vocab_spanish_abierto', // IT
+  'aberto':      'vocab_spanish_abierto', // PT
+  'open':        'vocab_spanish_abierto', // EN
+  'あいている':      'vocab_spanish_abierto', // JA
+  '開いている':      'vocab_spanish_abierto', // JA
+  '열다':         'vocab_spanish_abierto', // KO
+  '开':           'vocab_spanish_abierto', // ZH
+
+  // closed (cerrado)
+  'ferme':       'vocab_spanish_cerrado', // FR (fermé)
+  'geschlossen': 'vocab_spanish_cerrado', // DE
+  'chiuso':      'vocab_spanish_cerrado', // IT
+  'fechado':     'vocab_spanish_cerrado', // PT
+  'closed':      'vocab_spanish_cerrado', // EN
+  'しまっている':     'vocab_spanish_cerrado', // JA
+  '閉まっている':     'vocab_spanish_cerrado', // JA
+  '닫다':         'vocab_spanish_cerrado', // KO
+  '关':           'vocab_spanish_cerrado', // ZH
+
+  // full (lleno)
+  'plein':       'vocab_spanish_lleno', // FR
+  'voll':        'vocab_spanish_lleno', // DE
+  'pieno':       'vocab_spanish_lleno', // IT
+  'cheio':       'vocab_spanish_lleno', // PT
+  'full':        'vocab_spanish_lleno', // EN
+  'いっぱい':       'vocab_spanish_lleno', // JA
+  '가득하다':       'vocab_spanish_lleno', // KO
+  '满':           'vocab_spanish_lleno', // ZH
+
+  // empty (vacío)
+  'vide':        'vocab_spanish_vacio', // FR
+  'vuoto':       'vocab_spanish_vacio', // IT
+  'vazio':       'vocab_spanish_vacio', // PT
+  'empty':       'vocab_spanish_vacio', // EN
+  'からっぽ':       'vocab_spanish_vacio', // JA
+  '비다':         'vocab_spanish_vacio', // KO
+  '空':           'vocab_spanish_vacio', // ZH
+  // Note: "leer" (DE=empty) omitted — conflicts with ES "leer" = to read
+
+  // new (nuevo)
+  'nouveau':     'vocab_spanish_nuevo', // FR
+  'neu':         'vocab_spanish_nuevo', // DE
+  'nuovo':       'vocab_spanish_nuevo', // IT
+  'novo':        'vocab_spanish_nuevo', // PT
+  'new':         'vocab_spanish_nuevo', // EN
+  'あたらしい':      'vocab_spanish_nuevo', // JA
+  '新しい':        'vocab_spanish_nuevo', // JA
+  '새롭다':        'vocab_spanish_nuevo', // KO
+  '新':           'vocab_spanish_nuevo', // ZH
+
+  // tall (alto)
+  'hoch':        'vocab_spanish_alto', // DE (tall/high)
+  'tall':        'vocab_spanish_alto', // EN
+  'たかい':        'vocab_spanish_alto', // JA
+  '高い':         'vocab_spanish_alto', // JA
+  '키가 크다':      'vocab_spanish_alto', // KO
+  '高':           'vocab_spanish_alto', // ZH
+  // Note: "alto" same in ES, IT, PT; "grand" (FR=tall) already added as "big" — body height image covers both
+
+  // short / low (bajo)
+  'bas':         'vocab_spanish_bajo', // FR
+  'niedrig':     'vocab_spanish_bajo', // DE
+  'basso':       'vocab_spanish_bajo', // IT
+  'baixo':       'vocab_spanish_bajo', // PT
+  'short':       'vocab_spanish_bajo', // EN
+  'ひくい':        'vocab_spanish_bajo', // JA
+  '低い':         'vocab_spanish_bajo', // JA
+  '낮다':         'vocab_spanish_bajo', // KO
+  '低':           'vocab_spanish_bajo', // ZH
+
+  // dark (oscuro)
+  'sombre':      'vocab_spanish_oscuro', // FR
+  'dunkel':      'vocab_spanish_oscuro', // DE
+  'scuro':       'vocab_spanish_oscuro', // IT
+  'escuro':      'vocab_spanish_oscuro', // PT
+  'dark':        'vocab_spanish_oscuro', // EN
+  'くらい':        'vocab_spanish_oscuro', // JA
+  '暗い':         'vocab_spanish_oscuro', // JA
+  '어둡다':        'vocab_spanish_oscuro', // KO
+  '暗':           'vocab_spanish_oscuro', // ZH
+
+  // bright / light (claro)
+  'clair':       'vocab_spanish_claro', // FR
+  'hell':        'vocab_spanish_claro', // DE
+  'chiaro':      'vocab_spanish_claro', // IT
+  'bright':      'vocab_spanish_claro', // EN
+  'あかるい':       'vocab_spanish_claro', // JA
+  '明るい':        'vocab_spanish_claro', // JA
+  '밝다':         'vocab_spanish_claro', // KO
+  '亮':           'vocab_spanish_claro', // ZH
+  // Note: "claro" same in ES and PT
+
+  // good (bueno)
+  'bon':         'vocab_spanish_bueno', // FR
+  'gut':         'vocab_spanish_bueno', // DE
+  'buono':       'vocab_spanish_bueno', // IT
+  'bom':         'vocab_spanish_bueno', // PT
+  'good':        'vocab_spanish_bueno', // EN
+  'いい':          'vocab_spanish_bueno', // JA
+  'よい':          'vocab_spanish_bueno', // JA alt
+  '良い':          'vocab_spanish_bueno', // JA
+  '좋다':         'vocab_spanish_bueno', // KO
+  '好':           'vocab_spanish_bueno', // ZH
+
+  // bad (malo)
+  'mauvais':     'vocab_spanish_malo', // FR
+  'schlecht':    'vocab_spanish_malo', // DE
+  'cattivo':     'vocab_spanish_malo', // IT
+  'mau':         'vocab_spanish_malo', // PT
+  'bad':         'vocab_spanish_malo', // EN
+  'わるい':        'vocab_spanish_malo', // JA
+  '悪い':         'vocab_spanish_malo', // JA
+  '나쁘다':        'vocab_spanish_malo', // KO
+  '坏':           'vocab_spanish_malo', // ZH
+
+  // ── Common Places ─────────────────────────────────────────────────────────
+  // school (escuela)
+  'ecole':       'vocab_spanish_escuela', // FR (école)
+  'schule':      'vocab_spanish_escuela', // DE
+  'scuola':      'vocab_spanish_escuela', // IT
+  'escola':      'vocab_spanish_escuela', // PT
+  'school':      'vocab_spanish_escuela', // EN
+  'がっこう':       'vocab_spanish_escuela', // JA
+  '学校':         'vocab_spanish_escuela', // JA/ZH shared
+  '학교':         'vocab_spanish_escuela', // KO
+
+  // library (biblioteca)
+  'bibliotheque': 'vocab_spanish_biblioteca', // FR
+  'bibliothek':  'vocab_spanish_biblioteca', // DE
+  'library':     'vocab_spanish_biblioteca', // EN
+  'としょかん':      'vocab_spanish_biblioteca', // JA
+  '図書館':        'vocab_spanish_biblioteca', // JA
+  '도서관':        'vocab_spanish_biblioteca', // KO
+  '图书馆':        'vocab_spanish_biblioteca', // ZH
+  // Note: "biblioteca" same in ES, IT, PT
+
+  // hospital
+  'hopital':     'vocab_spanish_hospital', // FR (hôpital)
+  'krankenhaus': 'vocab_spanish_hospital', // DE
+  'ospedale':    'vocab_spanish_hospital', // IT
+  'びょういん':      'vocab_spanish_hospital', // JA
+  '病院':         'vocab_spanish_hospital', // JA/ZH
+  '병원':         'vocab_spanish_hospital', // KO
+  '医院':         'vocab_spanish_hospital', // ZH
+  // Note: "hospital" same in ES, PT, EN
+
+  // park (parque)
+  'parc':        'vocab_spanish_parque', // FR
+  'park':        'vocab_spanish_parque', // DE/EN
+  'parco':       'vocab_spanish_parque', // IT
+  'こうえん':       'vocab_spanish_parque', // JA
+  '公園':         'vocab_spanish_parque', // JA/ZH
+  '공원':         'vocab_spanish_parque', // KO
+  '公园':         'vocab_spanish_parque', // ZH
+  // Note: "parque" same in ES and PT
+
+  // restaurant (restaurante)
+  'ristorante':  'vocab_spanish_restaurante', // IT
+  'レストラン':      'vocab_spanish_restaurante', // JA
+  '레스토랑':       'vocab_spanish_restaurante', // KO
+  '餐厅':         'vocab_spanish_restaurante', // ZH
+  // Note: "restaurant" same in FR/DE/EN; "restaurante" same in ES/PT
+
+  // supermarket (supermercado)
+  'supermarche': 'vocab_spanish_supermercado', // FR (supermarché)
+  'supermarkt':  'vocab_spanish_supermercado', // DE
+  'supermercato': 'vocab_spanish_supermercado', // IT
+  'supermarket': 'vocab_spanish_supermercado', // EN
+  'スーパー':        'vocab_spanish_supermercado', // JA
+  '슈퍼마켓':       'vocab_spanish_supermercado', // KO
+  '超市':         'vocab_spanish_supermercado', // ZH
+  // Note: "supermercado" same in ES and PT
+
+  // hotel
+  'ホテル':        'vocab_spanish_hotel', // JA
+  '호텔':         'vocab_spanish_hotel', // KO
+  '酒店':         'vocab_spanish_hotel', // ZH
+  // Note: "hotel" same in ES, FR, DE, IT, PT, EN
+
+  // bank (banco)
+  'banque':      'vocab_spanish_banco', // FR
+  'banca':       'vocab_spanish_banco', // IT
+  'ぎんこう':       'vocab_spanish_banco', // JA
+  '銀行':         'vocab_spanish_banco', // JA/ZH
+  '은행':         'vocab_spanish_banco', // KO
+  '银行':         'vocab_spanish_banco', // ZH
+  // Note: "banco" same in ES and PT; "bank" (DE/EN) already hits Spanish path
+
+  // airport (aeropuerto)
+  'aeroport':    'vocab_spanish_aeropuerto', // FR
+  'flughafen':   'vocab_spanish_aeropuerto', // DE
+  'aeroporto':   'vocab_spanish_aeropuerto', // IT/PT
+  'airport':     'vocab_spanish_aeropuerto', // EN
+  'くうこう':       'vocab_spanish_aeropuerto', // JA
+  '空港':         'vocab_spanish_aeropuerto', // JA/ZH
+  '공항':         'vocab_spanish_aeropuerto', // KO
+  '机场':         'vocab_spanish_aeropuerto', // ZH
+
+  // store / shop (tienda)
+  'magasin':     'vocab_spanish_tienda', // FR
+  'laden':       'vocab_spanish_tienda', // DE
+  'negozio':     'vocab_spanish_tienda', // IT
+  'loja':        'vocab_spanish_tienda', // PT
+  'store':       'vocab_spanish_tienda', // EN
+  'shop':        'vocab_spanish_tienda', // EN alt
+  'みせ':         'vocab_spanish_tienda', // JA
+  '店':           'vocab_spanish_tienda', // JA/ZH
+  '가게':         'vocab_spanish_tienda', // KO
+  '商店':         'vocab_spanish_tienda', // ZH
+
+  // ── Family Members ─────────────────────────────────────────────────────────
+  // mother / mom (madre)
+  'mere':        'vocab_spanish_madre', // FR (mère)
+  'mutter':      'vocab_spanish_madre', // DE
+  'mother':      'vocab_spanish_madre', // EN
+  'mom':         'vocab_spanish_madre', // EN
+  'おかあさん':      'vocab_spanish_madre', // JA
+  '母':           'vocab_spanish_madre', // JA/ZH
+  '어머니':        'vocab_spanish_madre', // KO
+  '妈妈':         'vocab_spanish_madre', // ZH
+  // Note: "madre" same in ES, IT, PT
+
+  // father / dad (padre)
+  'pere':        'vocab_spanish_padre', // FR (père)
+  'vater':       'vocab_spanish_padre', // DE
+  'father':      'vocab_spanish_padre', // EN
+  'dad':         'vocab_spanish_padre', // EN
+  'おとうさん':      'vocab_spanish_padre', // JA
+  '父':           'vocab_spanish_padre', // JA/ZH
+  '아버지':        'vocab_spanish_padre', // KO
+  '爸爸':         'vocab_spanish_padre', // ZH
+  // Note: "padre" same in ES, IT, PT
+
+  // brother (hermano)
+  'frere':       'vocab_spanish_hermano', // FR (frère)
+  'bruder':      'vocab_spanish_hermano', // DE
+  'fratello':    'vocab_spanish_hermano', // IT
+  'irmao':       'vocab_spanish_hermano', // PT (irmão)
+  'brother':     'vocab_spanish_hermano', // EN
+  'おにいさん':      'vocab_spanish_hermano', // JA
+  '兄':           'vocab_spanish_hermano', // JA
+  '형':           'vocab_spanish_hermano', // KO
+  '哥哥':         'vocab_spanish_hermano', // ZH
+
+  // sister (hermana)
+  'soeur':       'vocab_spanish_hermana', // FR (sœur)
+  'schwester':   'vocab_spanish_hermana', // DE
+  'sorella':     'vocab_spanish_hermana', // IT
+  'irma':        'vocab_spanish_hermana', // PT (irmã)
+  'sister':      'vocab_spanish_hermana', // EN
+  'おねえさん':      'vocab_spanish_hermana', // JA
+  '姉':           'vocab_spanish_hermana', // JA
+  '언니':         'vocab_spanish_hermana', // KO
+  '姐姐':         'vocab_spanish_hermana', // ZH
+
+  // grandmother (abuela)
+  'grandmere':   'vocab_spanish_abuela', // FR (grand-mère)
+  'oma':         'vocab_spanish_abuela', // DE
+  'nonna':       'vocab_spanish_abuela', // IT
+  'avo':         'vocab_spanish_abuela', // PT (avó)
+  'grandmother': 'vocab_spanish_abuela', // EN
+  'grandma':     'vocab_spanish_abuela', // EN
+  'おばあさん':      'vocab_spanish_abuela', // JA
+  '祖母':         'vocab_spanish_abuela', // JA/ZH
+  '할머니':        'vocab_spanish_abuela', // KO
+  '奶奶':         'vocab_spanish_abuela', // ZH
+
+  // grandfather (abuelo)
+  'grandpere':   'vocab_spanish_abuelo', // FR (grand-père)
+  'opa':         'vocab_spanish_abuelo', // DE
+  'nonno':       'vocab_spanish_abuelo', // IT
+  'grandfather': 'vocab_spanish_abuelo', // EN
+  'grandpa':     'vocab_spanish_abuelo', // EN
+  'おじいさん':      'vocab_spanish_abuelo', // JA
+  '祖父':         'vocab_spanish_abuelo', // JA/ZH
+  '할아버지':       'vocab_spanish_abuelo', // KO
+  '爷爷':         'vocab_spanish_abuelo', // ZH
+
+  // child / kid (niño/niña — use niño as generic)
+  'enfant':      'vocab_spanish_nino', // FR
+  'kind':        'vocab_spanish_nino', // DE
+  'bambino':     'vocab_spanish_nino', // IT
+  'crianca':     'vocab_spanish_nino', // PT (criança)
+  'child':       'vocab_spanish_nino', // EN
+  'kid':         'vocab_spanish_nino', // EN
+  'こども':        'vocab_spanish_nino', // JA
+  '子供':         'vocab_spanish_nino', // JA/ZH
+  '아이':         'vocab_spanish_nino', // KO
+  '孩子':         'vocab_spanish_nino', // ZH
+
+  // baby (bebé)
+  'baby':        'vocab_spanish_bebe', // DE/EN
+  'あかちゃん':      'vocab_spanish_bebe', // JA
+  '赤ちゃん':       'vocab_spanish_bebe', // JA
+  '아기':         'vocab_spanish_bebe', // KO
+  '婴儿':         'vocab_spanish_bebe', // ZH
+  // Note: "bebe" same in ES, FR, IT, PT after normalization
+
+  // ── Classroom People ──────────────────────────────────────────────────────
+  // teacher (maestro/maestra — generic teacher image)
+  'professeur':  'vocab_spanish_maestro', // FR
+  'lehrer':      'vocab_spanish_maestro', // DE
+  'insegnante':  'vocab_spanish_maestro', // IT
+  'professor':   'vocab_spanish_maestro', // PT
+  'teacher':     'vocab_spanish_maestro', // EN
+  'せんせい':       'vocab_spanish_maestro', // JA
+  '先生':         'vocab_spanish_maestro', // JA/ZH
+  '선생님':        'vocab_spanish_maestro', // KO
+  '老师':         'vocab_spanish_maestro', // ZH
+
+  // student (estudiante)
+  'eleve':       'vocab_spanish_estudiante', // FR (élève)
+  'schuler':     'vocab_spanish_estudiante', // DE (Schüler)
+  'studente':    'vocab_spanish_estudiante', // IT
+  'estudante':   'vocab_spanish_estudiante', // PT
+  'student':     'vocab_spanish_estudiante', // EN
+  'pupil':       'vocab_spanish_estudiante', // EN alt
+  'がくせい':       'vocab_spanish_estudiante', // JA
+  '学生':         'vocab_spanish_estudiante', // JA/ZH
+  '학생':         'vocab_spanish_estudiante', // KO
 };
 
 /**

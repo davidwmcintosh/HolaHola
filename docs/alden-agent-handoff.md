@@ -1,5 +1,52 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Wed, Apr 1, 2026 (session 18f — cross-language image sharing via CONCEPT_KEY_MAP)
+
+### What was done
+
+#### Massive CONCEPT_KEY_MAP expansion (`vocabulary-image-resolver.ts`)
+
+Added ~700 new entries to `CONCEPT_KEY_MAP` covering ALL language-neutral vocabulary categories. The strategy: map every language variant (FR/DE/IT/PT/JA/KO/ZH/EN) → `vocab_spanish_{word}` so images generated for Spanish are reused at zero extra DALL-E cost for every other language.
+
+**How it works:**
+- If the Spanish DB entry already exists → instant cache hit for all 8 other languages ✅
+- If Spanish entry not yet generated → first resolution (any language) generates and caches under the Spanish key; every subsequent language gets it free ✅
+- Uses the same shared-concept lookup the color system already used (colors have used this pattern since the beginning; now extended to all vocabulary categories)
+
+**Categories added (each with 7-9 language variants):**
+1. **Animals**: dog, cat, bird, fish, horse, cow, pig, chicken, rabbit
+2. **Food/Fruit**: apple, banana, strawberry, tomato, carrot, bread, milk, water, egg, cheese, grape, orange (fruit)
+3. **Classroom & office objects**: table, desk, chair, book, pen, pencil, paper, backpack, computer
+4. **Clothing**: shirt, pants, dress, shoes, hat, jacket, socks
+5. **Common verbs**: eat, sleep, run, speak/talk, listen, write, read, dance, sing, swim, walk, cook, play, buy
+6. **Body parts**: head, hand, foot, arm, eye, nose, mouth, leg, ear, shoulder, knee, back, stomach, neck, heart (all already point to `vocab_body_diagram.png` for Spanish)
+7. **Emotions**: happy, sad, angry, surprised, excited, nervous, bored, scared
+8. **Adjective contrast pairs**: near/far, big/small, hot/cold, clean/dirty, soft/hard, heavy/light, loud/quiet, young/old, fast/slow, open/closed, full/empty, new, tall/short, dark/bright, good/bad
+9. **Common places**: school, library, hospital, park, restaurant, supermarket, hotel, bank, airport, store
+10. **Family**: mother, father, brother, sister, grandmother, grandfather, child, baby
+11. **Classroom people**: teacher, student
+
+**Conflict exclusions (inline notes in code):**
+- "leer" (DE=empty) excluded → conflicts with ES "leer" = to read
+- "caldo" (IT=hot) included with note → rare collision with ES "caldo"=broth
+- "sale" (FR=dirty) excluded → ambiguous with EN commerce context
+- "pain" (FR=bread) excluded → ambiguous with EN pain
+- "dos" (FR=back) excluded → conflicts with concept_num_2
+- "laranja" (PT=orange fruit) excluded → already maps to concept_color_orange
+
+#### Seeded two DB alias rows
+- `vocab_spanish_triste` → `vocab_adj_feliz_triste.png` (pair file EXISTS in DB)
+- `vocab_spanish_viejo` → `vocab_adj_joven_viejo_personas.png` (pair file EXISTS in DB)
+
+#### Image reuse audit summary
+- **~90% of all Spanish vocab** is already cached and serves from the library without DALL-E
+- **Colors, animals, food, clothing, activities, emotions, body parts**: 100% reusing curated files
+- **Adjective pairs (Novice Mid)**: cerca/lejos, suave/duro, pesado/ligero, ruidoso/tranquilo, feliz/triste, joven/viejo all hit curated pair images
+- **Gap — 15 Novice Low adj**: caliente, frio, bueno, malo, abierto, lleno, vacio, limpio, sucio, nuevo, bajo, rapido, lento, oscuro, claro — roadmap pair PNGs for these NOT in DB. Will generate fresh on first view using SCENE_OVERRIDE pair descriptions.
+- **Other languages**: The new CONCEPT_KEY_MAP entries mean French, German, Italian, etc. now reuse the Spanish library for the ~700 covered words instead of generating new images.
+
+---
+
 ## Session Summary — Wed, Apr 1, 2026 (session 18e — vocab grid smart filtering + dolor fix)
 
 ### What was done
