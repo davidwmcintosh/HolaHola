@@ -29,6 +29,7 @@ import {
   HandDiagramCanvas,
   WorldMapCanvas,
 } from "./SceneCanvas";
+import { TextAudioPlayButton } from "@/components/AudioPlayButton";
 
 // ─── Shared section header ────────────────────────────────────────────────────
 
@@ -276,10 +277,11 @@ export function WeatherVocabCard({ language = 'spanish' }: { language?: LangCode
           {vocab.map(({ condition, label, english }) => (
             <div
               key={condition}
-              className="flex flex-col items-center gap-1.5 p-3 rounded-md bg-muted/50 border border-border/50"
+              className="flex flex-col items-center gap-1 p-3 rounded-md bg-muted/50 border border-border/50"
             >
               <WeatherIcon condition={condition} size={52} />
               <span className="text-sm font-semibold text-center leading-tight">{label}</span>
+              <TextAudioPlayButton text={label} language={language} size="sm" variant="ghost" className="-mt-0.5" />
               <span className="text-[11px] text-muted-foreground text-center leading-tight">{english}</span>
             </div>
           ))}
@@ -289,7 +291,8 @@ export function WeatherVocabCard({ language = 'spanish' }: { language?: LangCode
           <SectionLabel>Key Expressions</SectionLabel>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 mt-1">
             {exprs.map(([phrase, en]) => (
-              <div key={phrase} className="flex gap-2 text-sm py-0.5">
+              <div key={phrase} className="flex items-center gap-1 text-sm py-0.5">
+                <TextAudioPlayButton text={phrase} language={language} size="sm" variant="ghost" className="shrink-0" />
                 <span className="font-medium shrink-0">{phrase}</span>
                 <span className="text-muted-foreground">— {en}</span>
               </div>
@@ -519,10 +522,11 @@ export function EmotionsVocabCard({ language = 'spanish' }: { language?: LangCod
           {vocab.map(({ emotion, label, english }) => (
             <div
               key={emotion}
-              className="flex flex-col items-center gap-1.5 p-2 rounded-md bg-muted/50 border border-border/50"
+              className="flex flex-col items-center gap-1 p-2 rounded-md bg-muted/50 border border-border/50"
             >
               <MiniEmotionFace emotion={emotion} size={54} />
               <span className="text-xs font-semibold text-center leading-tight">{label}</span>
+              <TextAudioPlayButton text={label} language={language} size="sm" variant="ghost" className="-mt-0.5" />
               <span className="text-[10px] text-muted-foreground text-center leading-tight">{english}</span>
             </div>
           ))}
@@ -532,7 +536,8 @@ export function EmotionsVocabCard({ language = 'spanish' }: { language?: LangCod
           <SectionLabel>Expressing Emotions</SectionLabel>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 mt-1">
             {exprs.map(([phrase, en]) => (
-              <div key={phrase} className="flex gap-2 text-sm py-0.5">
+              <div key={phrase} className="flex items-center gap-1 text-sm py-0.5">
+                <TextAudioPlayButton text={phrase} language={language} size="sm" variant="ghost" className="shrink-0" />
                 <span className="font-medium shrink-0">{phrase}</span>
                 <span className="text-muted-foreground">— {en}</span>
               </div>
@@ -830,12 +835,13 @@ export function TimeVocabCard({ language = 'spanish' }: { language?: LangCode })
           {vocab.map(({ time, label, english }) => (
             <div
               key={time}
-              className="flex flex-col items-center gap-2 p-3 rounded-md bg-muted/50 border border-border/50"
+              className="flex flex-col items-center gap-1 p-3 rounded-md bg-muted/50 border border-border/50"
             >
               <div className="w-14 h-14">
                 <AnalogClock time={time} />
               </div>
               <span className="text-xs font-semibold text-center leading-tight">{label}</span>
+              <TextAudioPlayButton text={label} language={language} size="sm" variant="ghost" className="-mt-0.5" />
               <span className="text-[10px] text-muted-foreground text-center leading-tight">{english}</span>
             </div>
           ))}
@@ -847,8 +853,9 @@ export function TimeVocabCard({ language = 'spanish' }: { language?: LangCode })
             <SectionLabel>Key Patterns</SectionLabel>
             <div className="space-y-1 mt-1">
               {patterns.map(([phrase, en]) => (
-                <div key={phrase} className="flex gap-2 text-sm">
-                  <span className="font-mono font-medium shrink-0 min-w-32">{phrase}</span>
+                <div key={phrase} className="flex items-center gap-1 text-sm">
+                  <TextAudioPlayButton text={phrase} language={language} size="sm" variant="ghost" className="shrink-0" />
+                  <span className="font-mono font-medium shrink-0">{phrase}</span>
                   <span className="text-muted-foreground">{en}</span>
                 </div>
               ))}
@@ -858,8 +865,9 @@ export function TimeVocabCard({ language = 'spanish' }: { language?: LangCode })
             <SectionLabel>Parts of the Day</SectionLabel>
             <div className="space-y-1 mt-1">
               {dayParts.map(([phrase, en]) => (
-                <div key={phrase} className="flex gap-2 text-sm">
-                  <span className="font-mono font-medium shrink-0 min-w-32">{phrase}</span>
+                <div key={phrase} className="flex items-center gap-1 text-sm">
+                  <TextAudioPlayButton text={phrase} language={language} size="sm" variant="ghost" className="shrink-0" />
+                  <span className="font-mono font-medium shrink-0">{phrase}</span>
                   <span className="text-muted-foreground">{en}</span>
                 </div>
               ))}
@@ -1229,8 +1237,9 @@ export function DaysOfWeekCard({ language = 'spanish' }: { language?: LangCode }
               <SectionLabel>{daysHeading}</SectionLabel>
               <div className="mt-1 rounded-md border border-border overflow-hidden">
                 {days.map((d, i) => (
-                  <div key={d.full} className={`flex items-center gap-3 px-3 py-1.5 text-sm ${i > 0 ? 'border-t border-border/60' : ''}`}>
+                  <div key={d.full} className={`flex items-center gap-2 px-3 py-1 text-sm ${i > 0 ? 'border-t border-border/60' : ''}`}>
                     <span className="w-6 text-center font-mono text-xs text-muted-foreground">{d.abbr}</span>
+                    <TextAudioPlayButton text={d.full} language={language} size="sm" variant="ghost" className="shrink-0" />
                     <span className="font-semibold flex-1">{d.full}</span>
                     <span className="text-muted-foreground">{d.en}</span>
                   </div>
@@ -1242,8 +1251,9 @@ export function DaysOfWeekCard({ language = 'spanish' }: { language?: LangCode }
               <SectionLabel>{monthsHeading}</SectionLabel>
               <div className="mt-1 grid grid-cols-2 gap-x-4">
                 {months.map((m, i) => (
-                  <div key={m.label} className={`flex justify-between text-sm py-0.5 ${i < 10 ? 'border-b border-border/40' : ''}`}>
-                    <span className="font-semibold">{m.label}</span>
+                  <div key={m.label} className={`flex items-center gap-1 text-sm py-0.5 ${i < 10 ? 'border-b border-border/40' : ''}`}>
+                    <TextAudioPlayButton text={m.label} language={language} size="sm" variant="ghost" className="shrink-0" />
+                    <span className="font-semibold flex-1">{m.label}</span>
                     <span className="text-muted-foreground">{m.en}</span>
                   </div>
                 ))}
@@ -1256,7 +1266,8 @@ export function DaysOfWeekCard({ language = 'spanish' }: { language?: LangCode }
           <SectionLabel>Useful Date Expressions</SectionLabel>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 mt-1">
             {exprs.map(([phrase, en]) => (
-              <div key={phrase} className="flex gap-2 text-sm py-0.5">
+              <div key={phrase} className="flex items-center gap-1 text-sm py-0.5">
+                <TextAudioPlayButton text={phrase} language={language} size="sm" variant="ghost" className="shrink-0" />
                 <span className="font-medium shrink-0">{phrase}</span>
                 <span className="text-muted-foreground">— {en}</span>
               </div>
@@ -1564,7 +1575,8 @@ export function BodyPartsCard({ language = 'spanish' }: { language?: LangCode })
             <SectionLabel>Vocabulary Reference</SectionLabel>
             <div className="mt-1 rounded-md border border-border overflow-hidden">
               {vocab.map((v, i) => (
-                <div key={v.key} className={`flex items-center gap-3 px-3 py-1.5 text-sm ${i > 0 ? 'border-t border-border/60' : ''}`}>
+                <div key={v.key} className={`flex items-center gap-2 px-3 py-1 text-sm ${i > 0 ? 'border-t border-border/60' : ''}`}>
+                  <TextAudioPlayButton text={v.label} language={language} size="sm" variant="ghost" className="shrink-0" />
                   <span className="font-semibold flex-1">{v.label}</span>
                   <span className="text-muted-foreground">{v.english}</span>
                 </div>
@@ -1577,7 +1589,8 @@ export function BodyPartsCard({ language = 'spanish' }: { language?: LangCode })
           <SectionLabel>Useful Phrases</SectionLabel>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 mt-1">
             {phrases.map(([phrase, en]) => (
-              <div key={phrase} className="flex gap-2 text-sm py-0.5">
+              <div key={phrase} className="flex items-center gap-1 text-sm py-0.5">
+                <TextAudioPlayButton text={phrase} language={language} size="sm" variant="ghost" className="shrink-0" />
                 <span className="font-medium shrink-0">{phrase}</span>
                 <span className="text-muted-foreground">— {en}</span>
               </div>
@@ -1844,7 +1857,8 @@ const FACE_VOCAB_HE: BodyEntry[] = [
             <SectionLabel>Vocabulary Reference</SectionLabel>
             <div className="mt-1 rounded-md border border-border overflow-hidden">
               {vocab.map((v, i) => (
-                <div key={v.key} className={`flex items-center gap-3 px-3 py-1.5 text-sm ${i > 0 ? 'border-t border-border/60' : ''}`}>
+                <div key={v.key} className={`flex items-center gap-2 px-3 py-1 text-sm ${i > 0 ? 'border-t border-border/60' : ''}`}>
+                  <TextAudioPlayButton text={v.label} language={language} size="sm" variant="ghost" className="shrink-0" />
                   <span className="font-semibold flex-1">{v.label}</span>
                   <span className="text-muted-foreground">{v.english}</span>
                 </div>
@@ -1857,7 +1871,8 @@ const FACE_VOCAB_HE: BodyEntry[] = [
           <SectionLabel>Descriptions</SectionLabel>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 mt-1">
             {descriptions.map(([phrase, en]) => (
-              <div key={phrase} className="flex gap-2 text-sm py-0.5">
+              <div key={phrase} className="flex items-center gap-1 text-sm py-0.5">
+                <TextAudioPlayButton text={phrase} language={language} size="sm" variant="ghost" className="shrink-0" />
                 <span className="font-medium shrink-0">{phrase}</span>
                 <span className="text-muted-foreground">— {en}</span>
               </div>
@@ -2093,7 +2108,8 @@ const HAND_VOCAB_HE: BodyEntry[] = [
               <SectionLabel>{fingerCountingLabel}</SectionLabel>
               <div className="space-y-1 mt-1">
                 {counting.map(([n, d]) => (
-                  <div key={n} className="flex gap-3 text-sm">
+                  <div key={n} className="flex items-center gap-1 text-sm">
+                    <TextAudioPlayButton text={n} language={language} size="sm" variant="ghost" className="shrink-0" />
                     <span className="font-semibold w-12">{n}</span>
                     <span className="text-muted-foreground">{d}</span>
                   </div>
@@ -2314,6 +2330,7 @@ const TEMP_VOCAB_HE: TempEntry[] = [
             >
               <ThermometerCanvas data={{ celsius, showFahrenheit: false }} />
               <span className="text-xs font-semibold text-center leading-tight mt-1">{label}</span>
+              <TextAudioPlayButton text={label} language={language} size="sm" variant="ghost" className="-mt-0.5" />
               <span className="text-[10px] text-muted-foreground text-center leading-tight">{english}</span>
               <span className="text-[10px] font-mono text-muted-foreground">{celsius}°C</span>
             </div>
@@ -2325,7 +2342,8 @@ const TEMP_VOCAB_HE: TempEntry[] = [
             <SectionLabel>{exprHeading}</SectionLabel>
             <div className="space-y-1 mt-1">
               {keyExprs.map(([phrase, en]) => (
-                <div key={phrase} className="flex gap-2 text-sm">
+                <div key={phrase} className="flex items-center gap-1 text-sm">
+                  <TextAudioPlayButton text={phrase} language={language} size="sm" variant="ghost" className="shrink-0" />
                   <span className="font-medium shrink-0">{phrase}</span>
                   <span className="text-muted-foreground">— {en}</span>
                 </div>

@@ -123,12 +123,14 @@ interface FormalInformalComparisonProps {
   title?: string;
   items: ComparisonItem[];
   className?: string;
+  language?: string;
 }
 
 export function FormalInformalComparison({ 
   title = "Formal vs. Informal", 
   items,
-  className = '' 
+  className = '',
+  language,
 }: FormalInformalComparisonProps) {
   return (
     <div className={`rounded-lg border bg-card p-4 ${className}`}>
@@ -148,10 +150,16 @@ export function FormalInformalComparison({
       <div className="space-y-2">
         {items.map((item, index) => (
           <div key={index} className="grid grid-cols-2 gap-2">
-            <div className="bg-primary/5 rounded-md p-2 text-center">
+            <div className="bg-primary/5 rounded-md p-2 flex items-center justify-center gap-1">
+              {language && (
+                <TextAudioPlayButton text={item.formal} language={language} size="sm" variant="ghost" className="shrink-0" />
+              )}
               <p className="font-medium text-sm">{item.formal}</p>
             </div>
-            <div className="bg-amber-500/5 rounded-md p-2 text-center">
+            <div className="bg-amber-500/5 rounded-md p-2 flex items-center justify-center gap-1">
+              {language && (
+                <TextAudioPlayButton text={item.informal} language={language} size="sm" variant="ghost" className="shrink-0" />
+              )}
               <p className="font-medium text-sm">{item.informal}</p>
             </div>
             {item.context && (
@@ -221,22 +229,35 @@ interface QuickPhraseGridProps {
   }[];
   columns?: 2 | 3;
   className?: string;
+  language?: string;
 }
 
 export function QuickPhraseGrid({ 
   phrases, 
   columns = 2,
-  className = '' 
+  className = '',
+  language,
 }: QuickPhraseGridProps) {
   return (
     <div className={`grid gap-2 ${columns === 3 ? 'grid-cols-3' : 'grid-cols-2'} ${className}`}>
       {phrases.map((item, index) => (
         <div 
           key={index} 
-          className="rounded-md border bg-card p-3 text-center hover-elevate cursor-pointer"
+          className="rounded-md border bg-card p-3 text-center hover-elevate"
           data-testid={`phrase-card-${index}`}
         >
-          <p className="font-semibold text-sm">{item.phrase}</p>
+          <div className="flex items-center justify-center gap-1 mb-0.5">
+            {language && (
+              <TextAudioPlayButton
+                text={item.phrase}
+                language={language}
+                size="sm"
+                variant="ghost"
+                className="shrink-0"
+              />
+            )}
+            <p className="font-semibold text-sm">{item.phrase}</p>
+          </div>
           <p className="text-xs text-muted-foreground">{item.meaning}</p>
         </div>
       ))}

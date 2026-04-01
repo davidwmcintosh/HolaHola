@@ -1,5 +1,42 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Wed, Apr 1, 2026 (session 18h — audio buttons added to all remaining textbook infographics)
+
+### What was done
+
+#### Audio buttons added to all grammar/infographic sections that had none
+
+**`TextbookInfographics.tsx` — `QuickPhraseGrid`:**
+- Added `language?: string` prop
+- Added `TextAudioPlayButton` inline with each phrase (left of phrase text)
+
+**`TextbookInfographics.tsx` — `FormalInformalComparison`:**
+- Added `language?: string` prop
+- Added `TextAudioPlayButton` in both the Formal and Informal cells for each row
+
+**`ChapterIntroduction.tsx` — `renderInfographic` function:**
+- Passed `language={langKey}` to both `QuickPhraseGrid` and `FormalInformalComparison` (previously language was not forwarded)
+
+**`TextbookCanvasCards.tsx` — all 6 vocab cards now have audio:**
+1. **`WeatherVocabCard`**: audio on each vocab cell label + Key Expressions list
+2. **`EmotionsVocabCard`**: audio on each emotion cell label + Expressing Emotions list
+3. **`TimeVocabCard`**: audio on each clock cell label + Key Patterns list + Parts of the Day list
+4. **`DaysOfWeekCard`**: audio on each day name row + each month name row + Useful Date Expressions list
+5. **`BodyPartsCard`**: audio on each vocabulary reference row + Useful Phrases list
+6. **`FacePartsCard`**: audio on each vocabulary reference row + Descriptions list
+7. **`HandPartsCard`**: audio on each vocabulary reference row + Finger Counting list
+8. **`ThermometerVocabCard`**: audio on each vocab cell label + key expressions list
+
+All audio buttons use `TextAudioPlayButton` from `AudioPlayButton.tsx` (calls `POST /api/tts/pronunciation`).
+
+### Pending
+- **15 Novice Low adjective pair images** — caliente, frio, bueno, malo, abierto, lleno, vacio, limpio, sucio, nuevo, bajo, rapido, lento, oscuro, claro still have no pair PNGs in DB
+- **Family tree "hotspot" feature** — interactive labels on the tree (future possibility)
+- **Grammar conjugation tables** in `GrammarChapterView` (TextbookGrammarCards.tsx) — these have conjugation cells (e.g., "yo hablo") with no audio yet. Next big audio gap.
+- **`SunArcGreetings` infographic** in `ChapterIntroduction.tsx` — morning/afternoon/evening greetings have no audio
+
+---
+
 ## Session Summary — Wed, Apr 1, 2026 (session 18g — emotion & family image polish)
 
 ### What was done

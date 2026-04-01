@@ -2146,6 +2146,7 @@ export function ChapterIntroduction({ chapterNumber, chapterTitle, language, cha
           <FormalInformalComparison
             className="w-full"
             items={langData.formalInformal}
+            language={langKey}
           />
         );
       case 'quickPhrases':
@@ -2153,6 +2154,7 @@ export function ChapterIntroduction({ chapterNumber, chapterTitle, language, cha
           <QuickPhraseGrid
             className="w-full"
             phrases={langData.quickPhrases}
+            language={langKey}
           />
         );
       default:
