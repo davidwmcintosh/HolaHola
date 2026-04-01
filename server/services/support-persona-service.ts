@@ -2302,6 +2302,21 @@ Investigate the degraded dimensions, take appropriate remediation actions, and p
         })
         .returning();
 
+      // When health recovers, retroactively resolve all prior actionable VHT records.
+      // Degradation events stay actionable until recovery — this keeps the queue clean.
+      if (transition.direction === 'recovered') {
+        const resolved = await getUserDb().update(sofiaIssueReports)
+          .set({ status: 'resolved', reviewedAt: new Date() })
+          .where(
+            and(
+              eq(sofiaIssueReports.issueType, 'voice_health_transition'),
+              eq(sofiaIssueReports.status, 'actionable'),
+              eq(sofiaIssueReports.environment, environment),
+            )
+          );
+        console.log(`[Sofia Agent] Health recovered — resolved prior actionable VHT records in ${environment}`);
+      }
+
       console.log(`[Sofia Agent] Digest recorded: ${report.id} (${transition.direction}, ${appliedActions.length} actions applied)`);
 
       await founderCollabService.emitSofiaIssueAlert({

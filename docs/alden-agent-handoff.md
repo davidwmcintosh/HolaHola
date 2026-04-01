@@ -1,21 +1,41 @@
 # Alden ↔ Agent Handoff
 
-## Session Summary — Wed, Apr 1, 2026 (session 15 — Sofia false-positive filter)
+## Session Summary — Wed, Apr 1, 2026 (session 15 — Sofia queue cleanup + false-positive filters)
 
 ### Completed this session
 
-1. **Sofia tier-2 false-positive guard** (`server/routes.ts`, route `POST /api/voice/client-diagnostic`):
-   - The `failsafe_tier2_45s` timer was filing Sofia `no_audio` reports whenever a user paused for 45+ seconds after audio finished — even when audio played perfectly
-   - Added a server-side check immediately before the Sofia report is created: if `sentenceTracking.allSentencesEnded === true` OR `sentencesEnded >= expectedSentenceCount > 0`, return early with `{ ok: true, falsePositive: true }` and skip the report
-   - Real failures (e.g. `received=0` while `expected>0`, or unknown-state `expected=?`) still create reports as before
-   - No client changes — the snapshot already carries all needed telemetry
+1. **Sofia tier-2 false-positive guard** (`server/routes.ts`):
+   - `failsafe_tier2_45s` was filing `no_audio` reports whenever a user paused for 45+ seconds after audio played correctly
+   - Gate: if `sentenceTracking.allSentencesEnded === true` OR `sentencesEnded >= expectedSentenceCount > 0` → skip report
+   - Real failures (received=0, expected>0, or unknown state) still get through
+
+2. **Connection `error` trigger false-positive guard** (`server/routes.ts`):
+   - WS reconnect loops from zombie/abandoned sessions were filing `connection` reports
+   - Gate: if `ws.wsMessageCount === 0` AND `hookState.responseCompleteReceived === false` AND `audio.audioContextState === 'unknown'` → skip report
+   - Real mid-session drops (wsMessageCount > 0, or audio was playing) still get through
+
+3. **Voice health transition auto-resolve** (`server/services/support-persona-service.ts`):
+   - When a `recovered` health transition fires, it now retroactively resolves all prior `actionable` VHT records for that environment
+   - Prevents permanent accumulation of unresolvable degradation records
+
+4. **Historical queue backlog cleanup** (one-time DB ops):
+   - Resolved 1,119 historical `voice_health_transition` records older than 3 days (Feb–Mar degradation artifacts)
+   - Resolved 30 reports from zombie session `0569def2` (wsMessageCount=0, no audio context)
+   - Queue went from ~1,200 cluttered records to ~38 meaningful ones
 
 ### Key files changed this session
-- `server/routes.ts` — false-positive guard at ~line 6290 in the client-diagnostic handler
+- `server/routes.ts` — two false-positive guards in the client-diagnostic handler (~line 6290)
+- `server/services/support-persona-service.ts` — VHT auto-resolve in `recordHealthDigest`
+
+### Current queue state (post-cleanup)
+- `connection` pending: 18 (March 26 sessions — audio was playing when WS dropped, legitimate review candidates)
+- `no_audio` pending: 7 (recent, being monitored)
+- `voice_health_transition` actionable: 10 (recent test noise, < 3 days old)
+- `double_audio` pending: 1 / `microphone` pending: 2
 
 ### Next session scratchpad
-- Migration #004 (elder characters + EN cache bust + drill items) is still pending — needs to be applied when DB migrations are next run
-- Verify tier-2 false-positive guard in production by watching Sofia reports for a few sessions
+- Migration #004 (elder characters + EN cache bust + drill items) is still pending
+- The 18 pending `connection` March 26 reports are worth a manual review — audio was actively playing when WS dropped, which suggests real connection instability on that day
 
 ---
 

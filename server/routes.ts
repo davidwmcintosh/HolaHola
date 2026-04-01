@@ -6302,6 +6302,22 @@ ${memoryContext}
         return res.json({ ok: true, falsePositive: true });
       }
 
+      // False-positive guard for 'error' trigger: zombie/stale sessions that never
+      // successfully connected. These fire WS reconnect loops from abandoned tabs or
+      // page reloads. A session with wsMessageCount=0 + no responseComplete + unknown
+      // AudioContext never had a real voice exchange — skip the connection report.
+      const wsSnap = snapshot?.ws || {};
+      const hookSnap = snapshot?.hookState || {};
+      const audioSnap = snapshot?.audio || {};
+      const isZombieSession = trigger === 'error' &&
+        (wsSnap.wsMessageCount === 0 || wsSnap.wsMessageCount == null) &&
+        hookSnap.responseCompleteReceived === false &&
+        (audioSnap.audioContextState === 'unknown' || audioSnap.audioContextState == null);
+      if (isZombieSession) {
+        console.log(`[VoiceDiag] error trigger false positive — zombie session (wsMessages=0, no responseComplete, ctx=unknown) — skipping Sofia report`);
+        return res.json({ ok: true, falsePositive: true });
+      }
+
       if (sofiaIssueType && (!lastSofiaReport || (now - lastSofiaReport) >= SOFIA_DIAG_COOLDOWN_MS)) {
         sofiaDiagThrottle.set(sofiaDiagThrottleKey, now);
         const device = snapshot?.device || {};
