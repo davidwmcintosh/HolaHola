@@ -88,7 +88,7 @@ export function WhiteboardPanel({
             </div>
             <p className="text-sm font-medium text-muted-foreground mb-1">Whiteboard is clear</p>
             <p className="text-xs text-muted-foreground max-w-[220px]">
-              Daniela will write vocabulary, grammar, and notes here as you learn
+              Your tutor will write vocabulary, grammar, and notes here as you learn
             </p>
           </div>
         )}

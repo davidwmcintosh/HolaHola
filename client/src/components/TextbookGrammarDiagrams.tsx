@@ -661,12 +661,21 @@ export function PretIrregularCard({ className = '' }: { className?: string }) {
           <tbody>
             {irregulars.map((row, i) => (
               <tr key={row.verb} className={i % 2 === 0 ? 'bg-muted/20' : ''}>
-                <td className="px-3 py-1.5 font-semibold text-purple-600 dark:text-purple-400">{row.verb}</td>
-                <td className="px-2 py-1.5 text-center font-medium">{row.yo}</td>
-                <td className="px-2 py-1.5 text-center">{row.tu}</td>
-                <td className="px-2 py-1.5 text-center">{row.el}</td>
-                <td className="px-2 py-1.5 text-center">{row.nos}</td>
-                <td className="px-2 py-1.5 text-center">{row.ellos}</td>
+                <td className="px-3 py-2 font-semibold text-purple-600 dark:text-purple-400">{row.verb}</td>
+                {[
+                  { form: row.yo, bold: true },
+                  { form: row.tu, bold: false },
+                  { form: row.el, bold: false },
+                  { form: row.nos, bold: false },
+                  { form: row.ellos, bold: false },
+                ].map(({ form, bold }) => (
+                  <td key={form} className="px-2 py-1 text-center">
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span className={bold ? 'font-medium' : ''}>{form}</span>
+                      <TextAudioPlayButton text={form} language="spanish" size="sm" variant="ghost" className="h-4 w-4 p-0 opacity-50 hover:opacity-100" />
+                    </div>
+                  </td>
+                ))}
               </tr>
             ))}
           </tbody>
@@ -760,11 +769,31 @@ export function CommandsCard({ className = '' }: { className?: string }) {
           <tbody>
             {data.map((row, i) => (
               <tr key={row.verb} className={i % 2 === 0 ? 'bg-muted/20' : ''}>
-                <td className="px-3 py-1.5 font-semibold text-foreground">{row.verb}</td>
-                <td className="px-3 py-1.5 text-center font-medium text-green-700 dark:text-green-400">{row.tu}</td>
-                <td className="px-3 py-1.5 text-center text-red-600 dark:text-red-400">{row.tuNeg}</td>
-                <td className="px-3 py-1.5 text-center">{row.ud}</td>
-                <td className="px-3 py-1.5 text-center">{row.uds}</td>
+                <td className="px-3 py-2 font-semibold text-foreground">{row.verb}</td>
+                <td className="px-2 py-1 text-center">
+                  <div className="flex flex-col items-center gap-0.5">
+                    <span className="font-medium text-green-700 dark:text-green-400">{row.tu}</span>
+                    <TextAudioPlayButton text={row.tu} language="spanish" size="sm" variant="ghost" className="h-4 w-4 p-0 opacity-50 hover:opacity-100" />
+                  </div>
+                </td>
+                <td className="px-2 py-1 text-center">
+                  <div className="flex flex-col items-center gap-0.5">
+                    <span className="text-red-600 dark:text-red-400">{row.tuNeg}</span>
+                    <TextAudioPlayButton text={row.tuNeg} language="spanish" size="sm" variant="ghost" className="h-4 w-4 p-0 opacity-50 hover:opacity-100" />
+                  </div>
+                </td>
+                <td className="px-2 py-1 text-center">
+                  <div className="flex flex-col items-center gap-0.5">
+                    <span>{row.ud}</span>
+                    <TextAudioPlayButton text={row.ud} language="spanish" size="sm" variant="ghost" className="h-4 w-4 p-0 opacity-50 hover:opacity-100" />
+                  </div>
+                </td>
+                <td className="px-2 py-1 text-center">
+                  <div className="flex flex-col items-center gap-0.5">
+                    <span>{row.uds}</span>
+                    <TextAudioPlayButton text={row.uds} language="spanish" size="sm" variant="ghost" className="h-4 w-4 p-0 opacity-50 hover:opacity-100" />
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>

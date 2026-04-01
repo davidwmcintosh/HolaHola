@@ -1,5 +1,51 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Wed, Apr 1, 2026 (session 18j — Daniela sweep, ACTFL gauge, multi-col table audio)
+
+### What was done
+
+#### 1. Hardcoded "Daniela" sweep — textbook components now use dynamic tutor name
+
+All visible "Daniela" references in student-facing textbook components replaced with `getTutorName(language, tutorGender)` from context:
+
+- **`ChapterRecap.tsx`**: "Practice with Daniela" button now reads `Practice with {tutorName}` — imports `useLanguage` + `getTutorName`
+- **`TextbookInfographics.tsx`** (`LessonPrepCard`): "{tutorName} will guide you. Just try to respond in {langDisplay}!" — added `useLanguage` + `getTutorName`
+- **`TextbookInfographics.tsx`** (`PreparationTips`): tip string "{tutorName} will guide you — just try to respond in {langDisplay}!"
+- **`WhiteboardPanel.tsx`**: "Your tutor will write vocabulary, grammar, and notes here as you learn"
+- **`TextbookWhiteboardBridge.tsx`**: "will appear on your tutor's whiteboard in your next voice session."
+- **`ChapterIntroduction.tsx`** subtitle strings: "Daniela uses" → "used in lessons" (5 canvas vocab card subtitles)
+
+Remaining intentional "Daniela" references:
+- `ExpressLanePane.tsx` — role-based message identification (`msg.role === 'daniela'`), not display text
+- `ImmersiveTutor.tsx` — already uses dynamic name with Daniela as fallback only (line 681)
+- `SyllabusMindMap.tsx` — SVG-internal IDs/gradients, not visible text
+- `ConferenceCall.tsx`, `CollaborationIndicator.tsx` — internal product branding in admin-facing tools
+
+#### 2. ACTFL gauge added to Language Hub
+
+- Added `<ActflFluencyDial compact />` between the momentum strip and TutorShowcase in `review-hub.tsx`
+- Always visible (even with no progress — shows "Start practicing to unlock assessment")
+- On first load, `GET /api/actfl-progress/spanish 200` confirmed live
+
+#### 3. Multi-column grammar tables — audio added
+
+**`PretIrregularCard`** (6 irregular verbs × 5 columns):
+- Each form cell converted to stacked layout: form text above, tiny audio button below
+- Used `{ form: row.yo, bold: true }` pattern to loop over all 5 columns per row cleanly
+
+**`CommandsCard`** (7 verbs × 4 form columns: tú+, tú−, Ud., Uds.):
+- Same stacked layout: form text above, tiny audio button below per cell
+- tú+ forms stay green, tú− forms stay red
+
+Audio button size: `h-4 w-4 p-0 opacity-50 hover:opacity-100` — very compact, doesn't widen columns significantly
+
+### Pending
+- **15 Novice Low adjective pair images** — caliente, frio, bueno, malo, abierto, lleno, vacio, limpio, sucio, nuevo, bajo, rapido, lento, oscuro, claro still have no pair PNGs in DB
+- **Family tree "hotspot" feature** — interactive labels on the tree (future possibility)
+- **`SaberConocerCard` example sentences** — inline Spanish examples have no audio (lower priority)
+
+---
+
 ## Session Summary — Wed, Apr 1, 2026 (session 18i — grammar audio sweep complete)
 
 ### What was done

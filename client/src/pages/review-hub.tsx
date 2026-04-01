@@ -510,6 +510,9 @@ export default function ReviewHub() {
         );
       })()}
 
+      {/* ACTFL Fluency Gauge */}
+      <ActflFluencyDial compact />
+
       {/* Tutor Showcase - Click the tutor to start a conversation */}
       <TutorShowcase 
         onTutorSelect={(selection) => {

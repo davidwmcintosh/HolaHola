@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { TextAudioPlayButton } from "@/components/AudioPlayButton";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { getTutorName } from "@/lib/tutor-avatars";
 
 interface SunArcGreetingsProps {
   className?: string;
@@ -588,10 +590,12 @@ export function PreparationTips({
 }: PreparationTipsProps) {
   const tips: string[] = [];
   const langDisplay = language ? language.charAt(0).toUpperCase() + language.slice(1) : 'the target language';
+  const { tutorGender } = useLanguage();
+  const prepTutorName = getTutorName(language, tutorGender);
   
   if (lessonType === 'conversation' && conversationTopic) {
     tips.push(`Think about your own experience with: ${conversationTopic}`);
-    tips.push(`Daniela will guide you \u2014 just try to respond in ${langDisplay}!`);
+    tips.push(`${prepTutorName} will guide you \u2014 just try to respond in ${langDisplay}!`);
   } else if (lessonType === 'drill') {
     tips.push("Practice saying each word out loud before starting");
     tips.push("Focus on pronunciation, not just understanding");
@@ -951,6 +955,8 @@ export function LessonPrepCard({
   suppressVocabGrid = false,
 }: LessonPrepCardProps) {
   const langDisplay = language ? language.charAt(0).toUpperCase() + language.slice(1) : 'the target language';
+  const { tutorGender } = useLanguage();
+  const tutorName = getTutorName(language, tutorGender);
   
   function cleanPromptToEnglish(prompt: string): string {
     return prompt
@@ -1068,7 +1074,7 @@ export function LessonPrepCard({
               </div>
             )}
             <p className="text-xs text-muted-foreground mt-2">
-              Daniela will guide you. Just try to respond in {langDisplay}!
+              {tutorName} will guide you. Just try to respond in {langDisplay}!
             </p>
           </div>
         )}

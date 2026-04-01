@@ -13,6 +13,8 @@ import {
   Zap,
   GraduationCap
 } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { getTutorName } from "@/lib/tutor-avatars";
 
 interface DrillItem {
   id: string;
@@ -158,6 +160,9 @@ export function ChapterRecap({
   onPracticeWithDaniela,
   onReviewFlashcards
 }: ChapterRecapProps) {
+  const { tutorGender } = useLanguage();
+  const tutorName = getTutorName(language, tutorGender);
+
   const achievement = getAchievementBadge(chapter.progress, chapter.sectionsCount, chapter.completedSections);
   const keyVocab = extractKeyVocabulary(chapter.sections);
   const keyPhrases = extractKeyPhrases(chapter.sections);
@@ -275,7 +280,7 @@ export function ChapterRecap({
               data-testid="button-practice-daniela-recap"
             >
               <MessageSquare className="h-4 w-4" />
-              Practice with Daniela
+              Practice with {tutorName}
             </Button>
             
             <Button 
