@@ -433,9 +433,10 @@ export default function ReviewHub() {
         </div>
       </div>
 
-      {/* Learning Momentum Strip — only shown once the user has started */}
-      {data && data.stats.totalConversations > 0 && (() => {
+      {/* Progress & Awards Strip — always visible once data loads */}
+      {data && (() => {
         const streakDays = data.stats.streakDays;
+        const hasStarted = data.stats.totalConversations > 0;
         const sessionsThisWeek = data.recentConversations.length;
         const lastConv = data.recentConversations[0];
 
@@ -452,7 +453,10 @@ export default function ReviewHub() {
 
         let nudgeText = '';
         let nudgeClass = 'text-muted-foreground';
-        if (streakDays > 0 && daysSinceLast === 0) {
+        if (!hasStarted) {
+          nudgeText = `Start your first conversation with ${currentTutorName}!`;
+          nudgeClass = 'text-primary font-medium';
+        } else if (streakDays > 0 && daysSinceLast === 0) {
           nudgeText = 'Keep it going!';
           nudgeClass = 'text-orange-600 dark:text-orange-400 font-medium';
         } else if (streakDays > 0 && daysSinceLast === 1) {
@@ -460,51 +464,90 @@ export default function ReviewHub() {
           nudgeClass = 'text-amber-600 dark:text-amber-400 font-medium';
         } else if (daysSinceLast !== null && daysSinceLast >= 2) {
           nudgeText = `${currentTutorName} misses you`;
+          nudgeClass = 'text-amber-600 dark:text-amber-400 font-medium';
         } else if (daysSinceLast === 0 && streakDays === 0) {
           nudgeText = 'Great start — come back tomorrow!';
         }
 
         return (
           <div
-            className="flex items-center gap-x-4 gap-y-1.5 px-3 py-2.5 rounded-lg bg-muted/40 flex-wrap"
+            className="rounded-lg border bg-muted/20 overflow-hidden"
             data-testid="momentum-strip"
           >
-            <div className="flex items-center gap-1.5">
-              <Flame className={`h-4 w-4 ${streakDays > 0 ? 'text-orange-500' : 'text-muted-foreground'}`} />
-              <span className={`text-sm font-medium ${streakDays > 0 ? '' : 'text-muted-foreground'}`}>
-                {streakDays > 0
-                  ? `${streakDays} day${streakDays === 1 ? '' : 's'}`
-                  : 'No streak yet'}
-              </span>
+            {/* Stats row */}
+            <div className="flex items-center gap-x-4 gap-y-1.5 px-3 py-2.5 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <Flame className={`h-4 w-4 ${streakDays > 0 ? 'text-orange-500' : 'text-muted-foreground'}`} />
+                <span className={`text-sm font-medium ${streakDays > 0 ? '' : 'text-muted-foreground'}`}>
+                  {streakDays > 0
+                    ? `${streakDays} day${streakDays === 1 ? '' : 's'}`
+                    : 'No streak yet'}
+                </span>
+              </div>
+              <span className="text-muted-foreground/30 hidden sm:block">·</span>
+              <div className="flex items-center gap-1.5">
+                <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  {sessionsThisWeek} {sessionsThisWeek === 1 ? 'session' : 'sessions'} this week
+                </span>
+              </div>
+              {lastSessionLabel && (
+                <>
+                  <span className="text-muted-foreground/30 hidden sm:block">·</span>
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span
+                      className={`text-sm ${
+                        daysSinceLast !== null && daysSinceLast >= 2
+                          ? 'text-amber-600 dark:text-amber-400'
+                          : 'text-muted-foreground'
+                      }`}
+                    >
+                      Last session: {lastSessionLabel}
+                    </span>
+                  </div>
+                </>
+              )}
+              {nudgeText && (
+                <span className={`text-xs italic ml-auto ${nudgeClass}`} data-testid="momentum-nudge">
+                  {nudgeText}
+                </span>
+              )}
             </div>
-            <span className="text-muted-foreground/30 hidden sm:block">·</span>
-            <div className="flex items-center gap-1.5">
-              <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">
-                {sessionsThisWeek} {sessionsThisWeek === 1 ? 'session' : 'sessions'} this week
-              </span>
-            </div>
-            {lastSessionLabel && (
-              <>
-                <span className="text-muted-foreground/30 hidden sm:block">·</span>
-                <div className="flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span
-                    className={`text-sm ${
-                      daysSinceLast !== null && daysSinceLast >= 2
-                        ? 'text-amber-600 dark:text-amber-400'
-                        : 'text-muted-foreground'
+
+            {/* Awards / milestone row — always visible */}
+            {masteryStats && (
+              <div className="flex items-center gap-2 px-3 py-2 border-t border-border/40 flex-wrap" data-testid="milestone-awards-row">
+                <Trophy className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                {masteryStats.milestones.map((m) => (
+                  <div
+                    key={m.count}
+                    className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${
+                      m.achieved
+                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
+                        : 'bg-muted/50 text-muted-foreground/60'
                     }`}
+                    data-testid={`milestone-badge-${m.count}`}
                   >
-                    Last session: {lastSessionLabel}
+                    {m.achieved
+                      ? <CheckCircle2 className="h-3 w-3" />
+                      : <Circle className="h-3 w-3" />
+                    }
+                    <span>{m.label}</span>
+                  </div>
+                ))}
+                {masteryStats.totalMastered > 0 && (
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    {masteryStats.totalMastered} mastered
+                    {masteryStats.nextMilestone && ` · ${masteryStats.nextMilestone - masteryStats.totalMastered} to go`}
                   </span>
-                </div>
-              </>
-            )}
-            {nudgeText && (
-              <span className={`text-xs italic ml-auto ${nudgeClass}`} data-testid="momentum-nudge">
-                {nudgeText}
-              </span>
+                )}
+                {masteryStats.totalMastered === 0 && (
+                  <span className="text-xs text-muted-foreground/50 ml-auto">
+                    Practice to earn your first trophy
+                  </span>
+                )}
+              </div>
             )}
           </div>
         );
@@ -780,13 +823,13 @@ export default function ReviewHub() {
         </div>
       )}
 
-      {/* Mastery Trophy Case — only shown once student has mastered at least one item */}
-      {masteryStats && masteryStats.totalMastered > 0 && (
+      {/* Mastery Detail — recently mastered words, shown once student has mastered at least one item */}
+      {masteryStats && masteryStats.totalMastered > 0 && masteryStats.recentlyMastered.length > 0 && (
         <Card data-testid="section-mastery-trophy-case">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
               <Trophy className="h-5 w-5 text-amber-500" />
-              Mastery
+              Mastered This Week
             </CardTitle>
             <CardDescription>
               {masteryStats.totalMastered} item{masteryStats.totalMastered === 1 ? '' : 's'} locked in through spaced repetition
@@ -794,58 +837,25 @@ export default function ReviewHub() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Milestone badges */}
-            <div className="flex flex-wrap gap-2" data-testid="mastery-milestones">
-              {masteryStats.milestones.map((m) => (
-                <div
-                  key={m.count}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    m.achieved
-                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
-                      : 'bg-muted/50 text-muted-foreground'
-                  }`}
-                  data-testid={`milestone-badge-${m.count}`}
+            <div className="flex flex-wrap gap-2">
+              {masteryStats.recentlyMastered.map((item, i) => (
+                <Badge
+                  key={i}
+                  variant="outline"
+                  className="text-xs bg-green-50 text-green-800 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800"
+                  data-testid={`recently-mastered-${i}`}
                 >
-                  {m.achieved
-                    ? <CheckCircle2 className="h-3.5 w-3.5" />
-                    : <Circle className="h-3.5 w-3.5" />
-                  }
-                  {m.label}
-                </div>
+                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                  {item.word}
+                </Badge>
               ))}
             </div>
-
-            {/* Recently mastered words */}
-            {masteryStats.recentlyMastered.length > 0 && (
-              <div>
-                <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wide">This week</p>
-                <div className="flex flex-wrap gap-2">
-                  {masteryStats.recentlyMastered.map((item, i) => (
-                    <Badge
-                      key={i}
-                      variant="outline"
-                      className="text-xs bg-green-50 text-green-800 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800"
-                      data-testid={`recently-mastered-${i}`}
-                    >
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                      {item.word}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Breakdown */}
-            <div className="flex gap-4 pt-1 text-sm text-muted-foreground">
+            <div className="flex gap-4 text-sm text-muted-foreground">
               {masteryStats.totalMasteredVocab > 0 && (
-                <span data-testid="mastery-vocab-count">
-                  {masteryStats.totalMasteredVocab} vocabulary
-                </span>
+                <span data-testid="mastery-vocab-count">{masteryStats.totalMasteredVocab} vocabulary</span>
               )}
               {masteryStats.totalMasteredDrills > 0 && (
-                <span data-testid="mastery-drill-count">
-                  {masteryStats.totalMasteredDrills} drills
-                </span>
+                <span data-testid="mastery-drill-count">{masteryStats.totalMasteredDrills} drills</span>
               )}
             </div>
           </CardContent>
