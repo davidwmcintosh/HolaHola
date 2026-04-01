@@ -715,7 +715,7 @@ interface VisualVocabGridProps {
   language: string;
 }
 
-function VisualVocabGrid({ lessonId, drills, language }: VisualVocabGridProps) {
+export function VisualVocabGrid({ lessonId, drills, language }: VisualVocabGridProps) {
   const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 

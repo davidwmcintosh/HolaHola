@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,14 +13,14 @@ import {
   BookOpen,
   Sparkles,
   CheckCircle2,
-  Play,
   Music2,
   ChevronDown,
   ChevronUp,
   BookMarked,
   Loader2,
+  Library,
 } from "lucide-react";
-import { LessonPrepCard } from "./TextbookInfographics";
+import { VisualVocabGrid } from "./TextbookInfographics";
 import { ChapterRecap } from "./ChapterRecap";
 import { ChapterIntroduction, classifyGrammarType, GrammarChapterView } from "./ChapterIntroduction";
 import { RhythmDrill } from "./RhythmDrill";
@@ -83,15 +82,15 @@ interface TextbookChapterViewProps {
 function getLessonTypeIcon(type: string) {
   switch (type) {
     case 'conversation':
-      return <MessageSquare className="h-4 w-4" />;
+      return <MessageSquare className="h-3.5 w-3.5" />;
     case 'drill':
-      return <Dumbbell className="h-4 w-4" />;
+      return <Dumbbell className="h-3.5 w-3.5" />;
     case 'vocabulary':
-      return <Book className="h-4 w-4" />;
+      return <Book className="h-3.5 w-3.5" />;
     case 'grammar':
-      return <GraduationCap className="h-4 w-4" />;
+      return <GraduationCap className="h-3.5 w-3.5" />;
     default:
-      return <BookOpen className="h-4 w-4" />;
+      return <BookOpen className="h-3.5 w-3.5" />;
   }
 }
 
@@ -183,14 +182,79 @@ function InlineLessonContent({ lessonId, lessonName, language }: {
   );
 }
 
-function VisualLessonCard({
+// ── Chapter-level vocab section ───────────────────────────────────────────────
+// Shows VisualVocabGrid for each section that has vocab drills, all unified
+// under a single "Chapter Vocabulary" header.
+
+const LANG_SPECIFIC_NUMBER_TYPES = new Set([
+  'ja_numbers', 'ko_numbers', 'zh_numbers', 'he_numbers',
+  'es_numbers', 'fr_numbers', 'de_numbers', 'it_numbers', 'pt_numbers', 'en_numbers',
+]);
+
+function ChapterVocabSection({
+  sections,
+  language,
+  chapterTitle,
+}: {
+  sections: Section[];
+  language: string;
+  chapterTitle: string;
+}) {
+  const chapterRefType = classifyGrammarType(chapterTitle, language);
+  const suppressAll = LANG_SPECIFIC_NUMBER_TYPES.has(chapterRefType ?? '');
+
+  if (suppressAll) return null;
+
+  const sectionsWithVocab = sections.filter(s => {
+    if (!s.drills || s.drills.length === 0) return false;
+    const vocabDrills = s.drills.filter(d =>
+      (d.itemType === 'translate_speak' || d.itemType === 'listen_repeat') &&
+      d.targetText && d.targetText.trim().split(/\s+/).length <= 5 &&
+      d.targetText.length <= 40 &&
+      !/^\d/.test(d.targetText.trim())
+    );
+    return vocabDrills.length > 0;
+  });
+
+  if (sectionsWithVocab.length === 0) return null;
+
+  return (
+    <div className="space-y-4" data-testid="chapter-vocab-section">
+      <div className="flex items-center gap-2 px-1">
+        <Library className="h-4 w-4 text-muted-foreground" />
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          Chapter Vocabulary
+        </h2>
+      </div>
+      <div className="rounded-lg border bg-card p-4 space-y-6">
+        {sectionsWithVocab.map(section => (
+          <div key={section.id}>
+            {sectionsWithVocab.length > 1 && (
+              <p className="text-xs font-medium text-muted-foreground mb-2 truncate">
+                {section.name}
+              </p>
+            )}
+            <VisualVocabGrid
+              lessonId={section.id}
+              drills={section.drills!}
+              language={language}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Compact lesson reference card ─────────────────────────────────────────────
+// Shows lesson name/type + study notes toggle + rhythm drill only.
+// No vocab grid (shown at chapter level), no per-lesson chat buttons.
+
+function CompactLessonCard({
   section,
   index,
   language,
   autoExpand,
-  suppressVocabGrid,
-  onStartConversation,
-  onStartDrill,
   onViewed,
   onMarkedRead,
 }: {
@@ -198,13 +262,9 @@ function VisualLessonCard({
   index: number;
   language?: string;
   autoExpand?: boolean;
-  suppressVocabGrid?: boolean;
-  onStartConversation: () => void;
-  onStartDrill: () => void;
   onViewed: () => void;
   onMarkedRead?: (id: string) => void;
 }) {
-  const [, setLocation] = useLocation();
   const viewedRef = useRef(false);
   const hasMarkedReadRef = useRef(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -226,7 +286,6 @@ function VisualLessonCard({
     },
   });
 
-  // Fire mark-read when auto-expanding (first section on chapter open)
   useEffect(() => {
     if (autoExpand && !hasMarkedReadRef.current) {
       hasMarkedReadRef.current = true;
@@ -249,8 +308,6 @@ function VisualLessonCard({
     section.hasDrills &&
     section.drills &&
     section.drills.length > 0;
-
-  const hasAltCTA = !!(section.relatedScenario || section.conversationTopic || (section.hasDrills && section.drillCount > 0) || isRhythmEligible);
 
   const rhythmItems = (section.drills ?? []).map(d => ({
     id: d.id,
@@ -283,184 +340,141 @@ function VisualLessonCard({
   }, [onViewed]);
 
   return (
-    <Card 
+    <Card
       ref={cardRef}
       className="overflow-hidden touch-manipulation"
-      data-testid={`visual-lesson-card-${section.id}`}
+      data-testid={`lesson-card-${section.id}`}
     >
       <CardContent className="p-0">
-        {section.imageUrl && (
-          <div className="w-full h-36 overflow-hidden">
-            <img
-              src={section.imageUrl}
-              alt={section.name}
-              className="w-full h-full object-cover"
-              data-testid={`img-lesson-${section.id}`}
-            />
-          </div>
-        )}
-        <div className="p-4 border-b bg-muted/30">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                section.isComplete 
-                  ? 'bg-green-500/20 text-green-600 dark:text-green-400' 
-                  : 'bg-primary/10 text-primary'
-              }`}>
-                {section.isComplete ? <CheckCircle2 className="h-4 w-4" /> : index + 1}
-              </div>
-              <div>
-                <h3 className="font-semibold text-sm">{section.name}</h3>
-                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                  <Badge variant="outline" className="text-xs">
-                    {section.lessonType}
+        {/* Compact header — two siblings: expand area + action buttons */}
+        <div className="flex items-center gap-2 p-4">
+          {/* Expand toggle (takes up most width) */}
+          <button
+            className="flex-1 text-left flex items-center gap-3 min-w-0 rounded-md"
+            onClick={handleToggleContent}
+            data-testid={`button-toggle-lesson-${section.id}`}
+          >
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+              section.isComplete
+                ? 'bg-green-500/20 text-green-600 dark:text-green-400'
+                : 'bg-primary/10 text-primary'
+            }`}>
+              {section.isComplete ? <CheckCircle2 className="h-3.5 w-3.5" /> : index + 1}
+            </div>
+            <div className="min-w-0">
+              <p className="font-medium text-sm truncate">{section.name}</p>
+              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                <Badge variant="outline" className="text-xs gap-1 py-0">
+                  {getLessonTypeIcon(section.lessonType)}
+                  {section.lessonType}
+                </Badge>
+                <span className="text-xs text-muted-foreground">{section.estimatedMinutes} min</span>
+                {section.textbookRead && (
+                  <Badge variant="secondary" className="text-xs gap-1 py-0" data-testid={`badge-read-${section.id}`}>
+                    <BookMarked className="h-3 w-3" />
+                    Read
                   </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {section.estimatedMinutes} min
-                  </span>
-                  {section.textbookRead && (
-                    <Badge variant="secondary" className="text-xs gap-1" data-testid={`badge-read-${section.id}`}>
-                      <BookMarked className="h-3 w-3" />
-                      Read
-                    </Badge>
-                  )}
-                  {section.danielaCovered && (
-                    <Badge className="text-xs gap-1 bg-primary/20 text-primary hover:bg-primary/20" data-testid={`badge-daniela-${section.id}`}>
-                      <Sparkles className="h-3 w-3" />
-                      Daniela covered
-                    </Badge>
-                  )}
-                </div>
+                )}
+                {section.danielaCovered && (
+                  <Badge className="text-xs gap-1 py-0 bg-primary/20 text-primary hover:bg-primary/20" data-testid={`badge-daniela-${section.id}`}>
+                    <Sparkles className="h-3 w-3" />
+                    Covered
+                  </Badge>
+                )}
               </div>
             </div>
-            {section.progress > 0 && section.progress < 100 && (
-              <div className="flex items-center gap-2">
-                <Progress value={section.progress} className="w-12 h-1.5" />
-                <span className="text-xs text-muted-foreground">{section.progress}%</span>
-              </div>
-            )}
-          </div>
-        </div>
-        
-        <div className="p-4 space-y-4">
-          {section.description && (
-            <p className="text-sm text-muted-foreground">{section.description}</p>
-          )}
-          
-          <LessonPrepCard
-            objectives={section.objectives}
-            drills={section.drills}
-            conversationTopic={section.conversationTopic}
-            lessonType={section.lessonType}
-            language={language}
-            lessonId={section.id}
-            suppressVocabGrid={suppressVocabGrid}
-          />
-          
-          <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-            <Button
-              variant={contentExpanded ? "secondary" : hasAltCTA ? "outline" : "default"}
-              size="sm"
-              className={`min-h-[44px] touch-manipulation${!hasAltCTA ? ' flex-1' : ''}`}
-              onClick={handleToggleContent}
-              data-testid={`button-read-lesson-${section.id}`}
-            >
-              <BookOpen className="h-4 w-4 mr-1" />
-              {contentExpanded ? "Hide Notes" : "Study Notes"}
-              {contentExpanded ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />}
-            </Button>
-            {section.relatedScenario ? (
+          </button>
+          {/* Action buttons — sibling to expand toggle, not nested */}
+          <div className="flex items-center gap-2 shrink-0">
+            {isRhythmEligible && !contentExpanded && (
               <Button
-                className="flex-1 min-h-[44px] touch-manipulation"
-                onClick={() => setLocation(`/chat?scenario=${section.relatedScenario!.slug}`)}
-                data-testid={`button-practice-scenario-${section.id}`}
-              >
-                <MessageSquare className="h-4 w-4 mr-2" />
-                Practice: {section.relatedScenario.title}
-              </Button>
-            ) : section.conversationTopic ? (
-              <Button 
-                className="flex-1 min-h-[44px] touch-manipulation" 
-                onClick={onStartConversation}
-                data-testid={`button-practice-daniela-${section.id}`}
-              >
-                <MessageSquare className="h-4 w-4 mr-2" />
-                Practice with Daniela
-              </Button>
-            ) : null}
-            {section.hasDrills && section.drillCount > 0 && !isRhythmEligible && (
-              <Button 
-                variant={(section.relatedScenario || section.conversationTopic) ? "outline" : "default"}
-                className={`min-h-[44px] touch-manipulation ${(section.relatedScenario || section.conversationTopic) ? "" : "flex-1"}`}
-                onClick={onStartDrill}
-                data-testid={`button-start-drill-${section.id}`}
-              >
-                <Dumbbell className="h-4 w-4 mr-2" />
-                {section.drillCount} Drills
-              </Button>
-            )}
-            {isRhythmEligible && (
-              <Button
-                variant={showRhythmDrill ? "default" : "outline"}
-                className="flex-1 min-h-[44px] touch-manipulation"
+                variant="outline"
+                size="sm"
+                className="h-8"
                 onClick={() => setShowRhythmDrill(prev => !prev)}
                 data-testid={`button-rhythm-drill-${section.id}`}
               >
-                <Music2 className="h-4 w-4 mr-2" />
-                Rhythm Practice
-                {showRhythmDrill
-                  ? <ChevronUp className="h-4 w-4 ml-2" />
-                  : <ChevronDown className="h-4 w-4 ml-2" />
-                }
+                <Music2 className="h-3.5 w-3.5 mr-1" />
+                Practice
               </Button>
             )}
-            {!section.relatedScenario && !section.conversationTopic && !section.hasDrills && (
-              <Button 
-                className="flex-1 min-h-[44px] touch-manipulation" 
-                variant="secondary"
-                onClick={onStartConversation}
-                data-testid={`button-start-lesson-${section.id}`}
-              >
-                <Play className="h-4 w-4 mr-2" />
-                Start Lesson
-              </Button>
+            <button
+              className="text-muted-foreground p-1 rounded-md hover-elevate"
+              onClick={handleToggleContent}
+              aria-label={contentExpanded ? "Collapse lesson" : "Expand lesson"}
+            >
+              {contentExpanded
+                ? <ChevronUp className="h-4 w-4" />
+                : <ChevronDown className="h-4 w-4" />
+              }
+            </button>
+          </div>
+        </div>
+
+        {/* Rhythm drill (shown outside expanded state) */}
+        {showRhythmDrill && isRhythmEligible && rhythmItems.length > 0 && !contentExpanded && (
+          <div className="border-t px-4 pb-4 pt-3" data-testid={`rhythm-drill-panel-${section.id}`}>
+            <RhythmDrill
+              title={section.name}
+              description="Listen to each item, then say it aloud when the mic appears."
+              items={rhythmItems}
+              language={language}
+              onComplete={(results) => {
+                const correct = results.filter(r => r.correct).length;
+                if (correct / results.length >= 0.7) setShowRhythmDrill(false);
+              }}
+            />
+          </div>
+        )}
+
+        {/* Study notes (expandable) */}
+        {contentExpanded && (
+          <div className="border-t px-4 pb-4 pt-3" data-testid={`study-notes-${section.id}`}>
+            <InlineLessonContent
+              lessonId={section.id}
+              lessonName={section.name}
+              language={language ?? "spanish"}
+            />
+            {isRhythmEligible && rhythmItems.length > 0 && (
+              <div className="mt-4 pt-4 border-t">
+                <Button
+                  variant={showRhythmDrill ? "default" : "outline"}
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setShowRhythmDrill(prev => !prev)}
+                  data-testid={`button-rhythm-expanded-${section.id}`}
+                >
+                  <Music2 className="h-3.5 w-3.5 mr-2" />
+                  Rhythm Practice
+                  {showRhythmDrill
+                    ? <ChevronUp className="h-3.5 w-3.5 ml-2" />
+                    : <ChevronDown className="h-3.5 w-3.5 ml-2" />
+                  }
+                </Button>
+                {showRhythmDrill && (
+                  <div className="mt-3" data-testid={`rhythm-drill-expanded-${section.id}`}>
+                    <RhythmDrill
+                      title={section.name}
+                      description="Listen to each item, then say it aloud when the mic appears."
+                      items={rhythmItems}
+                      language={language}
+                      onComplete={(results) => {
+                        const correct = results.filter(r => r.correct).length;
+                        if (correct / results.length >= 0.7) setShowRhythmDrill(false);
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
             )}
           </div>
-
-          {showRhythmDrill && isRhythmEligible && rhythmItems.length > 0 && (
-            <div className="pt-2" data-testid={`rhythm-drill-panel-${section.id}`}>
-              <RhythmDrill
-                title={section.name}
-                description={`Listen to each item, then say it aloud when the mic appears.`}
-                items={rhythmItems}
-                language={language}
-                onComplete={(results) => {
-                  const correct = results.filter(r => r.correct).length;
-                  if (correct / results.length >= 0.7) {
-                    setShowRhythmDrill(false);
-                  }
-                }}
-              />
-            </div>
-          )}
-
-          {contentExpanded && (
-            <div
-              className="border-t pt-4"
-              data-testid={`inline-lesson-content-${section.id}`}
-            >
-              <InlineLessonContent
-                lessonId={section.id}
-                lessonName={section.name}
-                language={language ?? "spanish"}
-              />
-            </div>
-          )}
-        </div>
+        )}
       </CardContent>
     </Card>
   );
 }
+
+// ── Main chapter view ─────────────────────────────────────────────────────────
 
 export function TextbookChapterView({
   chapter,
@@ -472,20 +486,18 @@ export function TextbookChapterView({
 }: TextbookChapterViewProps) {
   const completedCount = chapter.sections.filter(s => s.isComplete).length;
   const viewedSectionsRef = useRef<Set<string>>(new Set());
-  // Local read state for immediate badge updates without refetch
   const [locallyReadIds, setLocallyReadIds] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
 
   useEffect(() => {
     viewedSectionsRef.current = new Set();
   }, [chapter.id]);
-  
+
   const saveProgressMutation = useMutation({
-    mutationFn: async (data: { lessonId: string; viewed?: boolean; completed?: boolean; drillScore?: number }) => {
+    mutationFn: async (data: { lessonId: string; viewed?: boolean; completed?: boolean }) => {
       return apiRequest('POST', `/api/textbook/progress/${data.lessonId}`, {
         viewed: data.viewed,
         completed: data.completed,
-        drillScore: data.drillScore,
       });
     },
   });
@@ -499,23 +511,26 @@ export function TextbookChapterView({
 
   const handleMarkedRead = useCallback((lessonId: string) => {
     setLocallyReadIds(prev => new Set([...prev, lessonId]));
-    // Also refresh chapter-level data in the background
     queryClient.invalidateQueries({ queryKey: ['/api/textbook'] });
   }, [queryClient]);
-  
+
   const handleReviewFlashcards = () => {
-    if (onReviewFlashcards) {
-      onReviewFlashcards();
-    }
+    if (onReviewFlashcards) onReviewFlashcards();
   };
-  
+
+  // Total drills across all sections (for the chapter-level drill CTA)
+  const totalDrillCount = chapter.sections.reduce((acc, s) => acc + (s.drillCount || 0), 0);
+  const firstDrillSectionId = chapter.sections.find(s => s.hasDrills && s.drillCount > 0)?.id;
+
   return (
     <div className="space-y-6 w-full max-w-4xl mx-auto pb-12 touch-pan-y overscroll-contain">
+
+      {/* ── Sticky top bar ── */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-3 -mx-4 px-4 border-b supports-[backdrop-filter]:bg-background/80">
         <div className="flex items-center justify-between gap-4">
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={onBack}
             data-testid="button-back-to-chapters"
             className="gap-1 -ml-2"
@@ -531,7 +546,8 @@ export function TextbookChapterView({
           </div>
         </div>
       </div>
-      
+
+      {/* ── Chapter title ── */}
       <div className="text-center space-y-2">
         <Badge variant="outline" className="mb-2">
           Chapter {chapter.number}
@@ -545,53 +561,87 @@ export function TextbookChapterView({
           </p>
         )}
       </div>
-      
-      <ChapterIntroduction 
+
+      {/* ── Grammar / intro reference ── */}
+      <ChapterIntroduction
         chapterNumber={chapter.number}
         chapterTitle={chapter.title}
         language={language}
         chapterType={chapter.chapterType || undefined}
         className="mb-4"
       />
-      
-      <div className="grid gap-4">
-        {(() => {
-          const chapterRefType = classifyGrammarType(chapter.title, language);
-          const LANG_SPECIFIC_NUMBER_TYPES = new Set([
-            'ja_numbers', 'ko_numbers', 'zh_numbers', 'he_numbers',
-            'es_numbers', 'fr_numbers', 'de_numbers', 'it_numbers', 'pt_numbers', 'en_numbers',
-          ]);
-          const suppressVocabGrid = LANG_SPECIFIC_NUMBER_TYPES.has(chapterRefType ?? '');
-          return chapter.sections.map((section, index) => (
-            <VisualLessonCard
-              key={section.id}
-              section={{
-                ...section,
-                textbookRead: section.textbookRead || locallyReadIds.has(section.id),
-              }}
-              index={index}
-              autoExpand={true}
-              language={language}
-              suppressVocabGrid={suppressVocabGrid}
-              onStartConversation={onStartConversation}
-              onStartDrill={() => onStartDrill(section.id)}
-              onViewed={() => handleSectionViewed(section.id)}
-              onMarkedRead={handleMarkedRead}
-            />
-          ));
-        })()}
+
+      {/* ── Chapter-level vocab grid ── */}
+      {chapter.sections.length > 0 && (
+        <ChapterVocabSection
+          sections={chapter.sections}
+          language={language}
+          chapterTitle={chapter.title}
+        />
+      )}
+
+      {/* ── Primary CTA: Start Chat ── */}
+      <div className="space-y-2" data-testid="chapter-cta-section">
+        <Button
+          className="w-full min-h-[52px] text-base gap-2"
+          onClick={onStartConversation}
+          data-testid="button-start-chapter-chat"
+        >
+          <MessageSquare className="h-5 w-5" />
+          Chat about this chapter
+        </Button>
+        {firstDrillSectionId && totalDrillCount > 0 && (
+          <Button
+            variant="outline"
+            className="w-full min-h-[44px] gap-2"
+            onClick={() => onStartDrill(firstDrillSectionId)}
+            data-testid="button-start-chapter-drill"
+          >
+            <Dumbbell className="h-4 w-4" />
+            {totalDrillCount} Practice Activities
+          </Button>
+        )}
       </div>
-      
+
+      {/* ── Lesson reference accordion ── */}
+      {chapter.sections.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 px-1">
+            <BookOpen className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Lesson Reference
+            </h2>
+          </div>
+          <div className="space-y-2">
+            {chapter.sections.map((section, index) => (
+              <CompactLessonCard
+                key={section.id}
+                section={{
+                  ...section,
+                  textbookRead: section.textbookRead || locallyReadIds.has(section.id),
+                }}
+                index={index}
+                language={language}
+                autoExpand={false}
+                onViewed={() => handleSectionViewed(section.id)}
+                onMarkedRead={handleMarkedRead}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {chapter.sections.length === 0 && (
         <Card className="p-8 text-center bg-muted/30">
           <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="font-semibold mb-2">Lessons Coming Soon</h3>
           <p className="text-sm text-muted-foreground">
-            This chapter's visual lessons are being prepared. Check back soon!
+            This chapter's content is being prepared. Check back soon!
           </p>
         </Card>
       )}
-      
+
+      {/* ── Chapter recap ── */}
       {chapter.sections.length > 0 && (
         <ChapterRecap
           chapter={chapter}
@@ -600,7 +650,6 @@ export function TextbookChapterView({
           onReviewFlashcards={handleReviewFlashcards}
         />
       )}
-
     </div>
   );
 }

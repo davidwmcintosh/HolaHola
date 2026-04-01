@@ -39,13 +39,45 @@ mandarin:    191/201 lessons — 3,219 items ← seeded this session (+3,179 ite
 - `server/routes.ts` — Added `POST /api/admin/seed-vocab-drills` + status endpoint
 - `curriculum_drill_items` (DB) — +12,134 new `translate_speak` items for PT, JA, KO, ZH
 
-### Next work: Task #3 — TextbookChapterView redesign
-Redesign `TextbookChapterView.tsx` (608 lines) to:
-- Aggregate all lessons in a chapter into ONE scrollable view
-- Show vocab grid from ALL lessons combined
-- ONE chat button per chapter (not per lesson)
-- Flow: Textbook → Chat → Recap → Drills
-- Reference: `ChapterRecap.tsx` for chapter-level aggregation pattern
+### Task #3 — TextbookChapterView redesign (done this session)
+See session 18b summary below.
+
+---
+
+## Session Summary — Wed, Apr 1, 2026 (session 18b — Task #3: TextbookChapterView redesign)
+
+### What was done
+
+#### New chapter layout: one chat button, unified vocab, compact lesson accordion
+
+Redesigned `client/src/components/TextbookChapterView.tsx` (608 → 658 lines):
+
+**New layout order:**
+1. Sticky back button + progress bar (same)
+2. Chapter title + description + cultural theme (same)
+3. `ChapterIntroduction` grammar reference (same)
+4. **`ChapterVocabSection`** (new) — renders `VisualVocabGrid` for each section that has vocab drills, all under a "Chapter Vocabulary" heading. Images load per-lesson (each `VisualVocabGrid` uses its own `lessonId` for image lookup).
+5. **Primary CTAs** — `"Chat about this chapter"` button (`data-testid="button-start-chapter-chat"`) + optional `"X Practice Activities"` button (if chapter has drills)
+6. **"Lesson Reference" accordion** — compact `CompactLessonCard`s, one per section:
+   - Header: number circle + name + type badge + time + Read/Covered badges
+   - Clicking header or chevron toggles study notes (`InlineLessonContent`)
+   - Rhythm Practice button (for vocab/drill lessons) is a sibling button, not nested inside
+   - No per-lesson chat buttons
+7. `ChapterRecap` at bottom (same — still has its own "Practice with Daniela" button, which is intentional)
+
+**Removed from per-lesson cards:**
+- `LessonPrepCard` (vocab grid now at chapter level)
+- Per-lesson `conversationTopic`/`relatedScenario` chat buttons
+
+**Also exported:** `VisualVocabGrid` from `TextbookInfographics.tsx` (was private, now exported for use in `ChapterVocabSection`)
+
+**Bug fixed:** DOM nesting error (button-in-button) in compact lesson cards — expand toggle and rhythm drill button are now flat siblings, not nested.
+
+**E2e test confirmed:** chatButton: 1 ✓, vocabSection: 1 ✓, lessonCards: 6 ✓, lessonToggleButtons: 6 ✓
+
+### Files changed this session
+- `client/src/components/TextbookChapterView.tsx` — Full redesign: ChapterVocabSection + CompactLessonCard + single chat CTA
+- `client/src/components/TextbookInfographics.tsx` — Exported `VisualVocabGrid`
 
 ---
 
