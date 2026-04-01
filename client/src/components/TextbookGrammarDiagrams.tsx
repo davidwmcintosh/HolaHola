@@ -10,6 +10,8 @@
  *  D. Section 4 — Preposition maps (spatial SVG room, temporal timeline)
  */
 
+import { TextAudioPlayButton } from "@/components/AudioPlayButton";
+
 // ─── A. REUSABLE BASE ────────────────────────────────────────────────────────
 
 interface ConjRow {
@@ -34,7 +36,7 @@ function splitForm(form: string, stemEnd?: number): [string, string] {
   return [form.slice(0, stemEnd), form.slice(stemEnd)];
 }
 
-function VerbConjugationTable({ data, compact = false }: { data: VerbTableData; compact?: boolean }) {
+function VerbConjugationTable({ data, compact = false, language = 'spanish' }: { data: VerbTableData; compact?: boolean; language?: string }) {
   const accent = data.accentColor ?? 'text-indigo-600 dark:text-indigo-400';
   const endingColor = 'text-blue-600 dark:text-blue-400';
   return (
@@ -53,10 +55,15 @@ function VerbConjugationTable({ data, compact = false }: { data: VerbTableData; 
             return (
               <tr key={i} className={i % 2 === 0 ? 'bg-muted/30' : ''}>
                 <td className="px-3 py-1.5 font-medium text-muted-foreground w-28">{pronoun}</td>
-                <td className="px-3 py-1.5 font-semibold">
-                  {stem && <span>{stem}</span>}
-                  {ending && <span className={endingColor}>{ending}</span>}
-                  {!stem && !ending && <span>{form}</span>}
+                <td className="px-3 py-1.5">
+                  <div className="flex items-center gap-1">
+                    <span className="font-semibold">
+                      {stem && <span>{stem}</span>}
+                      {ending && <span className={endingColor}>{ending}</span>}
+                      {!stem && !ending && <span>{form}</span>}
+                    </span>
+                    <TextAudioPlayButton text={form} language={language} size="sm" variant="ghost" className="shrink-0 opacity-60 hover:opacity-100" />
+                  </div>
                 </td>
               </tr>
             );
@@ -410,7 +417,8 @@ export function TenerCard({ className = '' }: { className?: string }) {
             ['tener … años', 'to be … years old'],
             ['tener que + inf.', 'to have to (do sth.)'],
           ].map(([sp, en]) => (
-            <div key={sp} className="flex gap-1.5">
+            <div key={sp} className="flex items-center gap-1.5">
+              <TextAudioPlayButton text={sp} language="spanish" size="sm" variant="ghost" className="shrink-0 opacity-60 hover:opacity-100 -ml-1" />
               <span className="font-medium text-foreground">{sp}</span>
               <span className="text-muted-foreground">— {en}</span>
             </div>
@@ -445,7 +453,10 @@ export function StemChangeCard({ className = '' }: { className?: string }) {
             <div key={change} className="p-3">
               <p className="text-xs font-bold text-amber-600 dark:text-amber-400 mb-1">{change}</p>
               <p className="text-xs text-muted-foreground mb-1">{verbs}</p>
-              <p className="text-xs font-medium text-foreground">{ex}</p>
+              <div className="flex items-center gap-1">
+                <p className="text-xs font-medium text-foreground">{ex}</p>
+                <TextAudioPlayButton text={ex} language="spanish" size="sm" variant="ghost" className="shrink-0 opacity-60 hover:opacity-100" />
+              </div>
             </div>
           ))}
         </div>
@@ -507,9 +518,10 @@ export function GoVerbsCard({ className = '' }: { className?: string }) {
             ['decir', 'digo', 'to say'],
             ['oír', 'oigo', 'to hear'],
           ].map(([verb, yo, en]) => (
-            <div key={verb} className="flex gap-1.5">
+            <div key={verb} className="flex items-center gap-1.5">
               <span className="font-medium text-foreground w-12">{verb}</span>
               <span className="text-blue-600 dark:text-blue-400 font-semibold w-14">{yo}</span>
+              <TextAudioPlayButton text={yo} language="spanish" size="sm" variant="ghost" className="shrink-0 opacity-60 hover:opacity-100 -mx-1" />
               <span className="text-muted-foreground">{en}</span>
             </div>
           ))}
@@ -571,9 +583,10 @@ export function ReflexiveVerbCard({ className = '' }: { className?: string }) {
           <p className="text-xs font-semibold mb-2 text-muted-foreground">Reflexive pronouns</p>
           <div className="space-y-1 text-xs">
             {[['yo', 'me'], ['tú', 'te'], ['él/ella', 'se'], ['nosotros', 'nos'], ['vosotros', 'os'], ['ellos', 'se']].map(([p, r]) => (
-              <div key={p} className="flex gap-2">
+              <div key={p} className="flex items-center gap-2">
                 <span className="w-16 text-muted-foreground">{p}</span>
                 <span className="font-bold text-pink-600 dark:text-pink-400">{r}</span>
+                <TextAudioPlayButton text={`${r} ${p}`} language="spanish" size="sm" variant="ghost" className="shrink-0 opacity-60 hover:opacity-100" />
               </div>
             ))}
           </div>
@@ -582,9 +595,10 @@ export function ReflexiveVerbCard({ className = '' }: { className?: string }) {
           <p className="text-xs font-semibold mb-2 text-muted-foreground">ducharse — to shower</p>
           <div className="space-y-1 text-xs mb-3">
             {[['yo', 'me ducho'], ['tú', 'te duchas'], ['él', 'se ducha'], ['nosotros', 'nos duchamos'], ['ellos', 'se duchan']].map(([p, f]) => (
-              <div key={p} className="flex gap-2">
+              <div key={p} className="flex items-center gap-2">
                 <span className="w-16 text-muted-foreground">{p}</span>
                 <span className="font-medium">{f}</span>
+                <TextAudioPlayButton text={f} language="spanish" size="sm" variant="ghost" className="shrink-0 opacity-60 hover:opacity-100" />
               </div>
             ))}
           </div>

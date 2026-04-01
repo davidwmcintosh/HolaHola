@@ -16,6 +16,8 @@
  *    DeQuestionsCard, DePronounsCard
  */
 
+import { TextAudioPlayButton } from "@/components/AudioPlayButton";
+
 // ─── SHARED COMPONENTS ────────────────────────────────────────────────────────
 
 interface ConjRow { pronoun: string; form: string; stemEnd?: number; }
@@ -29,7 +31,7 @@ function splitForm(form: string, stemEnd?: number): [string, string] {
   return [form.slice(0, stemEnd), form.slice(stemEnd)];
 }
 
-function VerbConjugationTable({ data }: { data: VerbTableData }) {
+function VerbConjugationTable({ data, language = 'german' }: { data: VerbTableData; language?: string }) {
   const accent = data.accentColor ?? 'text-red-600 dark:text-red-400';
   return (
     <div className="rounded-lg border bg-card overflow-hidden">
@@ -44,10 +46,15 @@ function VerbConjugationTable({ data }: { data: VerbTableData }) {
             return (
               <tr key={i} className={i % 2 === 0 ? 'bg-muted/30' : ''}>
                 <td className="px-3 py-1.5 font-medium text-muted-foreground w-28">{pronoun}</td>
-                <td className="px-3 py-1.5 font-semibold">
-                  {stem && <span>{stem}</span>}
-                  {ending && <span className="text-red-600 dark:text-red-400">{ending}</span>}
-                  {!stem && !ending && <span>{form}</span>}
+                <td className="px-3 py-1.5">
+                  <div className="flex items-center gap-1">
+                    <span className="font-semibold">
+                      {stem && <span>{stem}</span>}
+                      {ending && <span className="text-red-600 dark:text-red-400">{ending}</span>}
+                      {!stem && !ending && <span>{form}</span>}
+                    </span>
+                    <TextAudioPlayButton text={form} language={language} size="sm" variant="ghost" className="shrink-0 opacity-60 hover:opacity-100" />
+                  </div>
                 </td>
               </tr>
             );

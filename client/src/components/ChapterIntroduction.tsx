@@ -2139,6 +2139,7 @@ export function ChapterIntroduction({ chapterNumber, chapterTitle, language, cha
             morning={langData.greetings.morning}
             afternoon={langData.greetings.afternoon}
             evening={langData.greetings.evening}
+            language={langKey}
           />
         );
       case 'formalInformal':

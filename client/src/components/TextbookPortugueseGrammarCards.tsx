@@ -28,14 +28,16 @@
  */
 
 import { Card, CardContent } from "@/components/ui/card";
+import { TextAudioPlayButton } from "@/components/AudioPlayButton";
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">{children}</p>;
 }
 
-function ConjugationTable({ title, rows }: {
+function ConjugationTable({ title, rows, language = 'portuguese' }: {
   title: string;
   rows: { pronoun: string; form: string; note?: string }[];
+  language?: string;
 }) {
   return (
     <div>
@@ -45,6 +47,7 @@ function ConjugationTable({ title, rows }: {
           <div key={r.pronoun} className={`flex items-center gap-3 px-3 py-1.5 text-sm ${i > 0 ? 'border-t border-border/60' : ''}`}>
             <span className="w-28 text-muted-foreground shrink-0">{r.pronoun}</span>
             <span className="font-semibold flex-1">{r.form}</span>
+            <TextAudioPlayButton text={r.form} language={language} size="sm" variant="ghost" className="shrink-0 opacity-60 hover:opacity-100" />
             {r.note && <span className="text-[11px] text-muted-foreground">{r.note}</span>}
           </div>
         ))}

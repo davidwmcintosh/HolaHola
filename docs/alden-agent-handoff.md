@@ -1,5 +1,62 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Wed, Apr 1, 2026 (session 18i — grammar audio sweep complete)
+
+### What was done
+
+#### Grammar conjugation tables — ALL languages now have audio
+
+**`VerbConjugationTable` in `TextbookGrammarDiagrams.tsx` (Spanish):**
+- Added `language?: string` prop (default `'spanish'`)
+- Added `TextAudioPlayButton` next to the conjugated form in every row
+- Added import for `TextAudioPlayButton` at file top
+- This covers ALL 30+ Spanish grammar cards at once (ArVerbs, Er, Ir, Ser, Estar, Tener, Ir, StemChange, GoVerbs, PretRegular, PretIrregular, Imperfect, Future, Conditional, Subjunctive, Commands, etc.)
+
+**`VerbConjugationTable` in `TextbookFrenchGrammarCards.tsx` (French):**
+- Same pattern, `language = 'french'` by default — covers all 24 French grammar cards
+
+**`VerbConjugationTable` in `TextbookGermanGrammarCards.tsx` (German):**
+- Same pattern, `language = 'german'` by default — covers all 22 German grammar cards
+
+**`VerbConjugationTable` in `TextbookItalianGrammarCards.tsx` (Italian):**
+- Same pattern, `language = 'italian'` by default — covers all 22 Italian grammar cards
+
+**`ConjugationTable` in `TextbookPortugueseGrammarCards.tsx` (Portuguese):**
+- Same pattern, `language = 'portuguese'` by default
+
+#### Individual expression list audio (Spanish)
+
+**`TenerCard` expressions:**
+- Audio button added to each of the 8 "tener expressions" (tener hambre, tener sed, etc.)
+
+**`GoVerbsCard` -go verb grid:**
+- Audio button added to the yo form column for each of 8 -go verbs (hago, pongo, etc.)
+
+**`StemChangeCard` examples:**
+- Audio button on each of the 3 stem-change example pairs (quiero / queremos, etc.)
+
+**`ReflexiveVerbCard`:**
+- Audio button on each reflexive pronoun row (me, te, se, nos, os, se)
+- Audio button on each ducharse conjugation row (me ducho, te duchas, etc.)
+
+#### SunArcGreetings infographic
+
+**`TextbookInfographics.tsx` — `SunArcGreetings`:**
+- Added `language?: string` prop to interface and function
+- Added a `grid grid-cols-3` row of three `TextAudioPlayButton`s below the SVG, aligned to morning (left) / afternoon (center) / evening (right)
+
+**`ChapterIntroduction.tsx` — `renderInfographic`:**
+- Now passes `language={langKey}` to `<SunArcGreetings>` (was missing before)
+
+### Pending
+- **15 Novice Low adjective pair images** — caliente, frio, bueno, malo, abierto, lleno, vacio, limpio, sucio, nuevo, bajo, rapido, lento, oscuro, claro still have no pair PNGs in DB
+- **Family tree "hotspot" feature** — interactive labels on the tree (future possibility)
+- **`SaberConocerCard` example sentences** — inline Spanish examples in `<ul><li>` items have no audio (lower priority)
+- **`PretIrregularCard` multi-column table** — 5-column format makes per-cell audio awkward; skip or restructure
+- **`CommandsCard` multi-column table** — same consideration; 5 columns make per-cell audio complex
+
+---
+
 ## Session Summary — Wed, Apr 1, 2026 (session 18h — audio buttons added to all remaining textbook infographics)
 
 ### What was done

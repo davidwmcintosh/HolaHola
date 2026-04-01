@@ -7,9 +7,10 @@ interface SunArcGreetingsProps {
   morning?: string;
   afternoon?: string;
   evening?: string;
+  language?: string;
 }
 
-export function SunArcGreetings({ className = '', morning = 'Buenos días', afternoon = 'Buenas tardes', evening = 'Buenas noches' }: SunArcGreetingsProps) {
+export function SunArcGreetings({ className = '', morning = 'Buenos días', afternoon = 'Buenas tardes', evening = 'Buenas noches', language = 'spanish' }: SunArcGreetingsProps) {
   return (
     <div className={`relative w-full ${className}`}>
       <svg 
@@ -109,6 +110,17 @@ export function SunArcGreetings({ className = '', morning = 'Buenos días', afte
           </text>
         </g>
       </svg>
+      <div className="grid grid-cols-3 mt-0.5 px-1">
+        <div className="flex justify-start">
+          <TextAudioPlayButton text={morning} language={language} size="sm" variant="ghost" />
+        </div>
+        <div className="flex justify-center">
+          <TextAudioPlayButton text={afternoon} language={language} size="sm" variant="ghost" />
+        </div>
+        <div className="flex justify-end">
+          <TextAudioPlayButton text={evening} language={language} size="sm" variant="ghost" />
+        </div>
+      </div>
     </div>
   );
 }
