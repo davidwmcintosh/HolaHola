@@ -1512,16 +1512,16 @@ const CONCEPT_KEY_MAP: Record<string, string> = {
   '嬉しい':        'vocab_spanish_feliz', // JA
   '행복하다':       'vocab_spanish_feliz', // KO
   '快乐':         'vocab_spanish_feliz', // ZH
-  // Note: "feliz" same in ES and PT
+  'feliz':       'vocab_spanish_feliz', // ES/PT — same word, share one cache key
 
   // sad (triste)
+  'triste':      'vocab_spanish_triste', // ES/FR/IT/PT — same word, share one cache key
   'traurig':     'vocab_spanish_triste', // DE
   'sad':         'vocab_spanish_triste', // EN
   'かなしい':       'vocab_spanish_triste', // JA
   '悲しい':        'vocab_spanish_triste', // JA
   '슬프다':        'vocab_spanish_triste', // KO
   '伤心':         'vocab_spanish_triste', // ZH
-  // Note: "triste" same in ES, FR, IT, PT — already seeded as alias to feliz/triste pair
 
   // angry (enojado)
   'fache':       'vocab_spanish_enojado', // FR (fâché)

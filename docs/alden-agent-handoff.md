@@ -1,5 +1,38 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Wed, Apr 1, 2026 (session 18g — emotion & family image polish)
+
+### What was done
+
+#### Emotions: replaced dated emoji-style images with fresh watercolor-person illustrations
+- Added a new `// ── Emotions ──` section to `SCENE_OVERRIDES` in `vocab-image-seed-service.ts` with standalone watercolor-person descriptions for every emotion:
+  - **feliz/triste** — changed from SPLIT pair (showing both faces) to individual standalone illustrations
+  - Added: enojado/a, enfadado, molesto, nervioso/a, ansioso, sorprendido/a, asombrado, aburrido/a, aburrimiento, asustado/a, atemorizado, cansado/a, agotado, avergonzado/a, vergüenza, emocionado/a, entusiasmado, orgulloso/a, alegre
+  - Cross-language synonyms: heureux/heureuse, en colere, nerveux, surpris, fatigue, ennuye, effraye, excite (FR); glucklich, traurig, wutend, uberrascht, mude, gelangweilt, angstlich, aufgeregt (DE)
+- Deleted all 17 old `vocab_emo_*.png` cache entries from DB (emoji faces) → they'll regenerate on next access using the new descriptions
+- Deleted stale `vocab_spanish_feliz` April 1 AI entry and `vocab_spanish_triste` pair image → will regenerate as standalone happy/sad
+- Deleted stale `vocab_spanish_orgulloso` April 1 AI entry → will regenerate as "proud person standing tall"
+- Deleted `vocab_spanish_alegre` pair image alias → will regenerate as standalone happy
+
+#### Family: consolidated ALL family words to single family tree image
+- **Strategy**: one image (the family tree) for all family members. User specifically likes this tree and prefers consistency over per-member images.
+- Redirected (UPDATE) to `vocab_people_familia.png`: abuela, abuelo, tio, tia, primo, prima, nino, nina, familia_extendida, bebe
+- Already pointed to familia.png: madre, padre, hermano, hermana, familia ✅
+- Inserted: hijo, hija → `vocab_people_familia.png` (4+4 duplicate AI rows from March 26 were deleted first)
+- Deleted all duplicates: hijo×4, hija×4, padres×2, rogue abuelos AI image (11 rows total)
+
+#### CONCEPT_KEY_MAP updates (`vocabulary-image-resolver.ts`)
+- Added `'feliz': 'vocab_spanish_feliz'` → routes ES/PT "feliz" to shared key (previously PT would get separate `vocab_portuguese_feliz`)
+- Added `'triste': 'vocab_spanish_triste'` → routes ES/FR/IT/PT "triste" (same word) to shared key
+
+### Pending
+- **15 Novice Low adjective pair images** — caliente, frio, bueno, malo, abierto, lleno, vacio, limpio, sucio, nuevo, bajo, rapido, lento, oscuro, claro still have no pair PNGs in DB; SCENE_OVERRIDE descriptions will guide generation on first view
+- **Emotion images will generate on first access** — no pre-seeding done; images generate on demand with new watercolor-person descriptions
+- **Family tree "hotspot" feature** — user floated idea of interactive labels on the tree (highlighting specific family members); noted as future possibility, not implemented
+- **`aburridoa` and `cansadoa`** gendered form AI images from April 1 still cached — minor clutter, not impactful
+
+---
+
 ## Session Summary — Wed, Apr 1, 2026 (session 18f — cross-language image sharing via CONCEPT_KEY_MAP)
 
 ### What was done
