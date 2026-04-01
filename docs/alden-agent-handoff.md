@@ -1,5 +1,50 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Wed, Apr 1, 2026 (session 17 — hasta pronto duplicates + hello/hi image fix)
+
+### Issues fixed
+
+#### 1. "hasta pronto" duplicate in visual vocab grid (and siblings in FR/EN)
+
+**Root cause**: Migration #004 Part B added both a `listen_repeat` (prompt=target_text, no English shown) AND a `translate_speak` (prompt=English translation) for farewell words. Both items passed the visual vocab filter (`prompt !== targetText` fails for listen_repeat because prompt=targetText=foreign word). This caused two cards for the same word.
+
+**Fix**: Deleted the three duplicate `listen_repeat` items:
+- `82732656` — Spanish "hasta pronto" listen_repeat
+- `770dcc0c` — French "à bientôt" listen_repeat
+- `45bdb19c` — English "see you soon" listen_repeat
+
+The `translate_speak` siblings remain (they correctly show the English translation).
+
+#### 2. "hello" and "hi" images replaced with bad images
+
+**Root cause chain** (4 steps):
+1. Migration #004 Part A busted ALL English greetings cache (`bustVocabImageCache(englishKeys)`) to force elder-character regeneration
+2. English greeting lesson drill #1 has `target_text = "'Hello'"` (with literal apostrophes from the original lesson data)
+3. `normalizeForOverride("'Hello'")` returned `'hello'` (apostrophes NOT stripped — only `¿¡?!,;:` were stripped, NOT `'`)
+4. Scene override lookup for `SCENE_OVERRIDES["'hello'"]` failed (key is `hello` without quotes) → DALL-E fell back to using the full drill description prompt as the image concept → bad image generated and cached
+
+**Fixes**:
+1. **`normalizeForOverride` bug fixed** (`server/services/vocab-image-seed-service.ts`): Added `.replace(/^['"''""\s]+|['"''""\s]+$/g, '')` step to strip leading/trailing quotation marks (handles `'Hello'`, `"Goodbye"`, smart quotes) while leaving mid-word apostrophes intact (French/Italian contractions)
+2. **English greeting drill target_text cleaned** (`curriculum_drill_items` table):
+   - `00f0319b`: `'Hello'` → `Hello`
+   - `4b1fbe34`: `"'Goodbye', then 'Bye'"` → `Goodbye`
+3. **Bad cached images deleted** from `media_files`:
+   - `vocab_english_hello` (generated April 1 with wrong concept)
+   - `vocab_english_hi` (generated March 31 — may have been bad)
+   → Images regenerate correctly on next English greeting lesson textbook load, now using the proper Emma+Marcus character scenes from SCENE_OVERRIDES
+
+### Files changed this session
+- `server/services/vocab-image-seed-service.ts` — Fixed `normalizeForOverride()` to strip surrounding quotation marks
+- `curriculum_drill_items` (DB) — Cleaned `'Hello'` → `Hello` and `"'Goodbye', then 'Bye'"` → `Goodbye` for English greeting lesson
+- `curriculum_drill_items` (DB) — Deleted 3 duplicate listen_repeat items (ES/FR/EN greeting farewells)
+- `media_files` (DB) — Deleted 2 bad cached images for `vocab_english_hello` and `vocab_english_hi`
+
+### Still pending from previous sessions
+- Three Sofia false-positive filters + VHT queue cleanup (from session 15, unchanged)
+- Migration #004 elder characters + drill items: partially complete. The `see you soon` translate_speak items were added correctly. The bad `listen_repeat` siblings were deleted this session. Consider whether German/Italian/Portuguese farewell lesson drills need the same translate_speak treatment (check if `bis später`, `a presto`, `até logo` have translate_speak items with correct English prompt).
+
+---
+
 ## Session Summary — Wed, Apr 1, 2026 (session 16 — Proactive WS reconnect / proxy 5-min timeout fix)
 
 ### Root cause confirmed — Replit proxy 5-minute WebSocket hard kill

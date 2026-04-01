@@ -759,6 +759,11 @@ export function normalizeForOverride(word: string): string {
     .replace(/[\u0300-\u036f]/g, '')   // strip Latin accents only
     .normalize('NFC')                   // re-compose so CJK/Hangul/kana stays intact
     .replace(/[¿¡?!,;:、，。]/g, ' ')  // replace punctuation with space (preserves word boundaries)
+    // Strip leading/trailing quotation marks that act as wrappers around a word/phrase
+    // (e.g. drill target_text "'Hello'" → "hello", not "'hello'").
+    // Single-char apostrophes mid-word (French/Italian contractions) are left intact
+    // because they are stripped later only at the boundaries via trim-like anchors.
+    .replace(/^['"''""\s]+|['"''""\s]+$/g, '')
     .replace(/\s+/g, ' ')              // collapse multiple spaces to one
     .trim();
 }
