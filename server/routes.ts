@@ -6283,6 +6283,25 @@ ${memoryContext}
       const now = Date.now();
       const lastSofiaReport = sofiaDiagThrottle.get(sofiaDiagThrottleKey);
       const SOFIA_DIAG_COOLDOWN_MS = 60_000;
+
+      // False-positive guard for failsafe_tier2_45s: if all expected sentences ended
+      // normally, the timer fired because the user simply paused for 45s after audio
+      // finished — there was no actual audio failure. Skip the Sofia report.
+      const sentenceTrackingFP = snapshot?.sentenceTracking || {};
+      const isTier2FalsePositive = trigger === 'failsafe_tier2_45s' && (
+        sentenceTrackingFP.allSentencesEnded === true ||
+        (
+          sentenceTrackingFP.expectedSentenceCount != null &&
+          sentenceTrackingFP.expectedSentenceCount > 0 &&
+          sentenceTrackingFP.sentencesEnded != null &&
+          sentenceTrackingFP.sentencesEnded >= sentenceTrackingFP.expectedSentenceCount
+        )
+      );
+      if (isTier2FalsePositive) {
+        console.log(`[VoiceDiag] failsafe_tier2_45s false positive — audio completed normally (allEnded=${sentenceTrackingFP.allSentencesEnded}, expected=${sentenceTrackingFP.expectedSentenceCount}, ended=${sentenceTrackingFP.sentencesEnded}) — skipping Sofia report`);
+        return res.json({ ok: true, falsePositive: true });
+      }
+
       if (sofiaIssueType && (!lastSofiaReport || (now - lastSofiaReport) >= SOFIA_DIAG_COOLDOWN_MS)) {
         sofiaDiagThrottle.set(sofiaDiagThrottleKey, now);
         const device = snapshot?.device || {};

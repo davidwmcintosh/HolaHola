@@ -1,5 +1,24 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Wed, Apr 1, 2026 (session 15 — Sofia false-positive filter)
+
+### Completed this session
+
+1. **Sofia tier-2 false-positive guard** (`server/routes.ts`, route `POST /api/voice/client-diagnostic`):
+   - The `failsafe_tier2_45s` timer was filing Sofia `no_audio` reports whenever a user paused for 45+ seconds after audio finished — even when audio played perfectly
+   - Added a server-side check immediately before the Sofia report is created: if `sentenceTracking.allSentencesEnded === true` OR `sentencesEnded >= expectedSentenceCount > 0`, return early with `{ ok: true, falsePositive: true }` and skip the report
+   - Real failures (e.g. `received=0` while `expected>0`, or unknown-state `expected=?`) still create reports as before
+   - No client changes — the snapshot already carries all needed telemetry
+
+### Key files changed this session
+- `server/routes.ts` — false-positive guard at ~line 6290 in the client-diagnostic handler
+
+### Next session scratchpad
+- Migration #004 (elder characters + EN cache bust + drill items) is still pending — needs to be applied when DB migrations are next run
+- Verify tier-2 false-positive guard in production by watching Sofia reports for a few sessions
+
+---
+
 ## Session Summary — Mon, Mar 31, 2026 (session 14 — founder mode Spanish bleed + re-enter immersive button)
 
 ### Completed this session

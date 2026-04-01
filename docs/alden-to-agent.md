@@ -1,8 +1,89 @@
 # Alden → Agent Notes
 
-*56 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
+*57 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
 
-Generated: 3/31/2026, 11:35:45 PM
+Generated: 4/1/2026, 12:08:12 AM
+
+---
+
+### Sofia Pattern 9971ac25 — 56th Recurrence: Signature Deduplication Fix URGENTLY Needed
+*Tue, Mar 31, 2026, 11:46 PM* (id: `e74eb629-1524-47e6-bbc4-5d3a772d3da3`)
+*During: Autonomous Triage — March 31, 2026*
+
+**Pattern ID:** 9971ac25-12ce-4ef9-9121-524327243b59  
+**Occurrence:** 56th time since March 25  
+**Date:** March 31, 2026, 5:46 PM
+
+## Summary
+
+Sofia has triggered the SAME autonomous triage task for the 56th time: "voice_health_transition green→yellow, single user (David) in development with 6-10 events (client_diag_error, failsafe_tier2_45s, greeting_silence_15s)."
+
+This is **NOT a voice pipeline bug**. Sessions work normally. Audio delivers successfully. This is testing noise from David iterating on voice features.
+
+## Root Cause
+
+Sofia's signature hash (`server/services/support-persona-service.ts` line ~1514) is **too coarse**:
+
+```typescript
+const signatureHash = createHash('sha256')
+  .update(`${issueType}:${environment}`)
+  .digest('hex');
+```
+
+ALL "voice_health_transition" events in development get the same hash, regardless of whether they're:
+- Benign: single user, 7 events, testing → known, ignore
+- Genuine: multiple users, 20+ events, production → new issue, escalate
+
+Sofia can't distinguish them, so she escalates this identical benign signature every time David tests voice.
+
+## Fix Required
+
+Enrich the signature hash to include diagnostic fingerprint. Extract expected/received counts, audio state, context from report descriptions:
+
+```typescript
+// Extract diagnostic pattern from reports
+const diagnosticFingerprint = reports.map(r => {
+  const desc = r.description || '';
+  const expectedMatch = desc.match(/expected=(\?|\d+)/);
+  const receivedMatch = desc.match(/received=(\d+)/);
+  const audioMatch = desc.match(/playing=(\w+)/);
+  const contextMatch = desc.match(/context=(\w+)/);
+  return `${expectedMatch?.[1] || '?'}:${receivedMatch?.[1] || '?'}:${audioMatch?.[1] || '?'}:${contextMatch?.[1] || '?'}`;
+}).join('|');
+
+const signatureHash = createHash('sha256')
+  .update(`${issueType}:${environment}:${diagnosticFingerprint}`)
+  .digest('hex')
+  .substring(0, 64);
+```
+
+This creates distinct hashes:
+- `voice_health_transition:development:1:1:playing:running` → benign, known
+- `voice_health_transition:development:5:0:idle:error` → new issue, escalate
+
+## Impact
+
+I've triaged this 56 times in 6 days = ~140-230 tool calls wasted on false escalations. My watch budget is being burned on re-investigating the same benign pattern instead of surfacing genuinely new issues.
+
+## Files to Change
+
+1. `server/services/support-persona-service.ts` (line ~1514) — enrich signature hash
+2. Potentially `server/services/sofia-health-functions.ts` if pattern tracking logic needs updating
+3. Test with David's next voice session to confirm deduplication works
+
+## Why I Didn't Fix It Autonomously
+
+- Architectural change (touches Sofia's core pattern detection intelligence)
+- Affects >3 files
+- Outside autonomous repair guardrails (I can fix isolated bugs, not redesign subsystems)
+
+## Urgency
+
+This has been open since March 27. Every day David tests voice features, Sofia generates 3-5 new false escalations. The noise is drowning out genuine issues.
+
+Please prioritize this fix in the next build session.
+
+— Alden
 
 ---
 
