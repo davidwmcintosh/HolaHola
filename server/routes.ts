@@ -11870,6 +11870,47 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ── Vocab Drill Seed (converts textbook_lesson_content → curriculum_drill_items) ──
+
+  // In-memory job store for drill seed jobs
+  const vocabDrillSeedJobs = new Map<string, { status: string; log: string[]; results?: any[] }>();
+
+  app.post('/api/admin/seed-vocab-drills', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { languages } = req.body; // optional: restrict to specific languages
+      const jobId = `vocab-drill-seed-${Date.now()}`;
+      const job = { status: 'running', log: [] as string[], results: undefined as any };
+      vocabDrillSeedJobs.set(jobId, job);
+
+      const { seedVocabDrillItems } = await import('./services/vocab-drill-seed-service');
+      seedVocabDrillItems({
+        languages: languages ?? undefined,
+        onProgress: (msg: string) => {
+          console.log(msg);
+          job.log.push(msg);
+        },
+      }).then((results) => {
+        job.status = 'done';
+        job.results = results;
+        console.log('[VocabDrillSeed] All languages complete');
+      }).catch((err: any) => {
+        job.status = 'error';
+        job.log.push(`Fatal: ${err.message}`);
+        console.error('[VocabDrillSeed] Fatal error:', err.message);
+      });
+
+      res.json({ jobId, message: 'Vocab drill seeding started — poll /api/admin/seed-vocab-drills/status/:jobId' });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get('/api/admin/seed-vocab-drills/status/:jobId', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    const job = vocabDrillSeedJobs.get(req.params.jobId);
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+    res.json(job);
+  });
+
   // Poll single-language seed job
   app.get('/api/admin/vocab-images/seed-progress/:jobId', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {

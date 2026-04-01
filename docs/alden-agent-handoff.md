@@ -1,5 +1,54 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Wed, Apr 1, 2026 (session 18 — Task #2: vocab drill seeding for all languages)
+
+### What was done
+
+#### Task #2: Seed vocab/phrase drill items
+
+Created `server/services/vocab-drill-seed-service.ts` with `seedVocabDrillItems()`:
+- Reads `vocabulary_list` + `key_phrases_for_chat` from `textbook_lesson_content`
+- Creates `translate_speak` drill items: `target_text = foreign word/phrase`, `prompt = English translation`
+- Tags items with `['vocab', 'seeded', partOfSpeech]` or `['phrase', 'seeded']`
+- Deduplicates against existing `translate_speak` items (skips if >= 5 already exist)
+- Skips "Active Practice", "AI-Generated Practice", "Mixed Drills" lessons (already have drills)
+
+Added admin endpoint `POST /api/admin/seed-vocab-drills` (requires admin role) with job polling via `GET /api/admin/seed-vocab-drills/status/:jobId`.
+
+Also created `server/scripts/run-seed-vocab-drills.ts` for one-shot CLI execution.
+
+#### Seeding results
+
+Ran seeding for all languages that needed it. Final state — lessons with `translate_speak` items:
+```
+english:     184/194 lessons — 3,106 items (already done from prior sessions)
+french:      194/204 lessons — 3,230 items (already done)
+german:      179/189 lessons — 2,955 items (already done)
+italian:     181/191 lessons — 2,985 items (already done)
+spanish:     216/224 lessons — 3,735 items (already done)
+portuguese:  200/210 lessons — 3,314 items ← seeded this session (+3,047 items)
+japanese:    178/188 lessons — 2,981 items ← seeded this session (+2,963 items)
+korean:      178/188 lessons — 2,965 items ← seeded this session (+2,945 items)
+mandarin:    191/201 lessons — 3,219 items ← seeded this session (+3,179 items)
+```
+~95% lesson coverage across all 9 languages. Missing ~5% = AI-practice lessons (already curated) + 1-2 lessons with no textbook prose.
+
+### Files changed this session
+- `server/services/vocab-drill-seed-service.ts` — NEW: seeding service
+- `server/scripts/run-seed-vocab-drills.ts` — NEW: CLI seed runner
+- `server/routes.ts` — Added `POST /api/admin/seed-vocab-drills` + status endpoint
+- `curriculum_drill_items` (DB) — +12,134 new `translate_speak` items for PT, JA, KO, ZH
+
+### Next work: Task #3 — TextbookChapterView redesign
+Redesign `TextbookChapterView.tsx` (608 lines) to:
+- Aggregate all lessons in a chapter into ONE scrollable view
+- Show vocab grid from ALL lessons combined
+- ONE chat button per chapter (not per lesson)
+- Flow: Textbook → Chat → Recap → Drills
+- Reference: `ChapterRecap.tsx` for chapter-level aggregation pattern
+
+---
+
 ## Session Summary — Wed, Apr 1, 2026 (session 17 — hasta pronto duplicates + hello/hi image fix)
 
 ### Issues fixed
