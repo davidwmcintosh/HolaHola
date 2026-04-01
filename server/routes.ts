@@ -11870,6 +11870,85 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ── Bulk bust + reseed: wipe all AI-generated vocab images for given languages, then regenerate ──
+
+  const bustReseedJobs = new Map<string, { status: string; busted: number; languages: string[]; log: string[] }>();
+
+  app.post('/api/admin/vocab-images/bust-and-reseed', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { languages, dryRun = false } = req.body as { languages?: string[]; dryRun?: boolean };
+
+      const ALL_LANGUAGES = ['spanish','french','german','italian','portuguese','japanese','korean','mandarin','english'];
+      const targetLangs: string[] = (languages && languages.length > 0) ? languages : ALL_LANGUAGES;
+
+      // Count AI-generated vocab images for these languages (dry-run or pre-report)
+      const db = getSharedDb();
+      const countRows = await db.execute(
+        sql`SELECT language, COUNT(*)::int AS cnt
+            FROM media_files
+            WHERE language = ANY(${sql.raw(`ARRAY[${targetLangs.map(l => `'${l}'`).join(',')}]`)})
+              AND image_source = 'ai_generated'
+              AND search_query LIKE 'vocab_%'
+            GROUP BY language
+            ORDER BY language`
+      );
+      const counts = (countRows as any).rows ?? countRows;
+      const totalCount = counts.reduce((sum: number, r: any) => sum + (r.cnt ?? 0), 0);
+
+      if (dryRun) {
+        return res.json({ dryRun: true, languages: targetLangs, breakdown: counts, total: totalCount });
+      }
+
+      // Fire off the bust + reseed in the background
+      const jobId = `bust-reseed-${Date.now()}`;
+      const job = { status: 'running', busted: 0, languages: targetLangs, log: [] as string[] };
+      bustReseedJobs.set(jobId, job);
+
+      (async () => {
+        try {
+          job.log.push(`Starting bust for ${targetLangs.join(', ')} — ${totalCount} AI-generated images`);
+
+          // Delete AI-generated vocab images for these languages
+          const delResult = await db.execute(
+            sql`DELETE FROM media_files
+                WHERE language = ANY(${sql.raw(`ARRAY[${targetLangs.map(l => `'${l}'`).join(',')}]`)})
+                  AND image_source = 'ai_generated'
+                  AND search_query LIKE 'vocab_%'`
+          );
+          const deleted = (delResult as any).rowCount ?? 0;
+          job.busted = deleted;
+          job.log.push(`Busted ${deleted} cached images — starting reseed`);
+
+          // Kick off seedVocabImages for each language sequentially
+          const { seedVocabImages } = await import('./services/vocab-image-seed-service');
+          for (const lang of targetLangs) {
+            const subJobId = `vocab-seed-${lang}-${Date.now()}`;
+            job.log.push(`Seeding ${lang}…`);
+            await seedVocabImages(lang, subJobId);
+            job.log.push(`✓ ${lang} complete`);
+          }
+
+          job.status = 'complete';
+          job.log.push('All languages reseeded');
+        } catch (err: any) {
+          job.status = 'error';
+          job.log.push(`Error: ${err.message}`);
+          console.error('[BustReseed] Fatal:', err.message);
+        }
+      })();
+
+      res.json({ jobId, dryRun: false, languages: targetLangs, willBust: totalCount, message: `Poll /api/admin/vocab-images/bust-and-reseed/${jobId}` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get('/api/admin/vocab-images/bust-and-reseed/:jobId', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    const job = bustReseedJobs.get(req.params.jobId);
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+    res.json(job);
+  });
+
   // ── Vocab Drill Seed (converts textbook_lesson_content → curriculum_drill_items) ──
 
   // In-memory job store for drill seed jobs

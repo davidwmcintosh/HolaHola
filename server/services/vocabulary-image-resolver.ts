@@ -48,6 +48,109 @@ function generateNumberSvgDataUrl(num: number): string {
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
 }
 
+/**
+ * Generate a clean typographic SVG "flashcard" for function/grammar words.
+ * These words (que, como, de, desde, pero, y, o, si, …) have no visual concept
+ * so a DALL-E scene would be nonsensical.  Instead we show the foreign word
+ * prominently with its English gloss below, in the same warm-cream style as
+ * the number cards.
+ */
+function generateFunctionWordSvg(word: string, translation: string): string {
+  const bg = '#faf8f3';       // warm cream
+  const fg = '#1a2744';       // deep navy
+  const subtle = '#5a6a8a';   // muted blue-grey for the translation
+
+  // Escape XML special chars
+  const escapeXml = (s: string) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  const wordText = escapeXml(word);
+  const translationText = escapeXml(translation);
+
+  // Scale the word font size based on character count
+  const wordLen = word.length;
+  const wordFontSize = wordLen <= 4 ? 210 : wordLen <= 8 ? 160 : wordLen <= 12 ? 120 : 90;
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="${bg}" rx="28"/>
+  <text x="256" y="240" font-size="${wordFontSize}" text-anchor="middle"
+    font-family="Georgia, 'Times New Roman', serif" fill="${fg}" font-weight="700"
+    font-style="italic">${wordText}</text>
+  <line x1="128" y1="276" x2="384" y2="276" stroke="${subtle}" stroke-width="1.5" opacity="0.4"/>
+  <text x="256" y="320" font-size="52" text-anchor="middle"
+    font-family="Georgia, 'Times New Roman', serif" fill="${subtle}"
+    font-weight="400">${translationText}</text>
+</svg>`;
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+}
+
+// ── Function / grammar word detection ─────────────────────────────────────────
+//
+// These English words have no standalone visual concept — DALL-E generates
+// confusing or nonsensical results for them.  We detect them via their
+// English translation and render a typographic SVG flashcard instead.
+//
+// Covers: prepositions, conjunctions, relative/interrogative pronouns,
+// modal auxiliaries, and common short adverbs/particles.
+const ENGLISH_FUNCTION_WORDS = new Set([
+  // Prepositions
+  'of','in','to','for','with','on','at','from','by','as','into','through','during',
+  'before','after','above','below','between','under','since','until','unless',
+  'within','along','following','across','behind','beyond','plus','except',
+  'up','down','out','off','over','near','among','around','without','about',
+  'against','per','via','versus','amid','despite','towards','toward','upon',
+  'concerning','regarding',
+  // Spanish / French / German / Italian / Portuguese common prepositions (by translation)
+  'desde','desde / since','desde / from',
+  // Conjunctions
+  'and','but','or','nor','so','yet','both','either','neither','whether',
+  'because','although','though','even though','if','unless','until','while',
+  'whereas','whenever','wherever','since','after','before','once','as','than',
+  'that','which','who','whom','whose','where','when','how','why','what',
+  // Relative / interrogative particles
+  'like','as if','as though','such as','so that','in order to','in order that',
+  // Articles and determiners (when the whole concept is just one of these)
+  'the','a','an','this','that','these','those','some','any','each','every',
+  'all','both','few','more','most','other','another','such','what','rather',
+  // Modal / auxiliary concepts
+  'can','could','may','might','shall','should','will','would','must','ought',
+  'need','dare','used to',
+  // Short adverbs / particles
+  'not','no','yes','so','too','also','just','only','even','still','already',
+  'always','never','sometimes','often','soon','now','then','here','there',
+  'very','quite','rather','almost','perhaps','maybe','really','well',
+  // Common short compound translations that are still function-word concepts
+  'of the','in the','to the','from the','by the','at the','for the',
+  'of a','in a','to a','with a','on a','by a',
+]);
+
+/**
+ * Returns true when the English concept for a word maps to a grammar/function
+ * word with no standalone visual representation.
+ *
+ * We check the concept (translation) rather than the foreign word itself so
+ * this works across all 9 languages automatically.
+ */
+function isFunctionWord(concept: string): boolean {
+  const lower = concept.toLowerCase().trim()
+    // Normalise separators like "since / from" → "since/from"
+    .replace(/\s*\/\s*/g, '/');
+
+  // Direct match in our set
+  if (ENGLISH_FUNCTION_WORDS.has(lower)) return true;
+
+  // Check each slash-separated variant: "since/from" → check "since" and "from"
+  const parts = lower.split('/').map(p => p.trim()).filter(Boolean);
+  if (parts.length > 1 && parts.every(p => ENGLISH_FUNCTION_WORDS.has(p))) return true;
+
+  // Very short single word (≤3 chars) that only contains lowercase letters —
+  // catches words like "ya", "ne", "も", "に" etc. that slip through other checks.
+  // We skip CJK characters since single CJK characters are content words with images.
+  if (lower.length <= 3 && /^[a-z]+$/.test(lower)) return true;
+
+  return false;
+}
+
 // Articles and common filler words to strip before fallback lookup (covers Spanish + French)
 const SPANISH_ARTICLES = new Set(['el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas', 'de', 'del', 'al']);
 const FRENCH_ARTICLES = new Set(['le', 'la', 'les', 'un', 'une', 'des', 'du', 'de', 'l']);
@@ -1053,6 +1156,36 @@ export async function resolveVocabularyImage(
         console.log(`[VocabImage] Scene override auto-applied for "${word}" (${language})`);
       }
     } catch (_) { /* scene overrides unavailable — proceed with word-based generation */ }
+  }
+
+  // ── 1c. Function/grammar word check ─────────────────────────────────────
+  // Words like "que", "como", "de", "desde", "pero", "y", "si" have no visual
+  // concept — DALL-E generates nonsensical images for them.  Detect via English
+  // translation and return a typographic SVG flashcard instead (instant, no credit use).
+  {
+    const conceptForCheck = buildGenerationConcept(word, effectiveScene, description, translation, language);
+    if (!effectiveScene && isFunctionWord(conceptForCheck)) {
+      const displayTranslation = (translation || description || word).slice(0, 40);
+      const svgUrl = generateFunctionWordSvg(word, displayTranslation);
+      console.log(`[VocabImage] Function word detected for "${word}" (${language}) — returning SVG card`);
+      try {
+        await storage.cacheImage({
+          url: svgUrl,
+          filename: `vocab_fw_${primaryKey}.svg`,
+          mimeType: 'image/svg+xml',
+          mediaType: 'image',
+          imageSource: 'ai_generated',
+          searchQuery: primaryKey,
+          uploadedBy: userId ?? null,
+          title: word,
+          description: displayTranslation,
+          tags: ['vocabulary', 'function_word', language ?? 'unknown'],
+          language: language ?? 'unknown',
+          targetWord: word,
+        });
+      } catch (_) { /* cache save failure is non-fatal */ }
+      return { imageUrl: svgUrl, source: 'ai', word, description: displayTranslation };
+    }
   }
 
   // ── 2. Generate with DALL-E 3 (watercolor style) ────────────────────────
