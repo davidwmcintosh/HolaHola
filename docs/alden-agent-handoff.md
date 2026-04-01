@@ -1,5 +1,32 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Wed, Apr 1, 2026 (session 18d — image library Watch Live + Bust & Reseed UI)
+
+### What was done
+
+#### Image Library: "Watch Live" auto-refresh toggle
+
+Added `watchMode` state + `refetchInterval: 8000` to the `ImageLibraryTab` query in `CommandCenter.tsx`.
+- When enabled: auto-refreshes the image grid every 8 seconds AND switches sort to newest-first + page 0
+- Button shows a pulsing green dot + "Watching" when active, reverts to "Watch Live" when off
+- Lets admin watch images appear in real-time as the background seeder generates them
+
+#### CommandCenter VocabImagesSection: "Bust & Reseed (Character Fix)" card
+
+Added a 5th card to the 4-card grid in `VocabImagesSection` (changed `xl:grid-cols-4` → `xl:grid-cols-5`):
+- Calls `POST /api/admin/vocab-images/bust-and-reseed` with `{ language, dryRun: false }`
+- Deletes ALL cached images for selected language and starts background reseed with character injection
+- Orange-tinted border distinguishes it as a destructive action
+- Shows deleted count and job ID after triggering
+
+#### Why: 212 PT/JA/KO/ZH images were bulk-deleted from DB (session 18c) to fix character injection
+The bust-and-reseed endpoint was already added in session 18c. These UI additions make it accessible from the admin panel without needing curl.
+
+### Files changed this session (session 18d)
+- `client/src/pages/admin/CommandCenter.tsx` — `watchMode` state + `refetchInterval` on ImageLibraryTab query, "Watch Live" toolbar button, `bustReseedMutation` + new 5th card in VocabImagesSection grid
+
+---
+
 ## Session Summary — Wed, Apr 1, 2026 (session 18 — Task #2: vocab drill seeding for all languages)
 
 ### What was done

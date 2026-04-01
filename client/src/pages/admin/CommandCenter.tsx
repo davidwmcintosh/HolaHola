@@ -4035,8 +4035,11 @@ function ImageLibraryTab() {
   if (searchQuery.trim()) queryParams.set("search", searchQuery.trim());
   const queryUrl = `/api/admin/media?${queryParams.toString()}`;
 
+  const [watchMode, setWatchMode] = useState(false);
+
   const { data, isLoading, refetch } = useQuery<{ files: MediaFile[]; total: number; newCount?: number; unreviewedCount?: number }>({
     queryKey: [queryUrl],
+    refetchInterval: watchMode ? 8000 : false,
   });
 
   useEffect(() => {
@@ -4371,6 +4374,29 @@ function ImageLibraryTab() {
                   <SelectItem value="reviewed">Reviewed</SelectItem>
                 </SelectContent>
               </Select>
+
+              <Button
+                variant={watchMode ? "default" : "outline"}
+                size="sm"
+                className="h-8 gap-1.5 shrink-0"
+                onClick={() => {
+                  const next = !watchMode;
+                  setWatchMode(next);
+                  if (next) {
+                    setSortField('createdAt');
+                    setSortOrder('desc');
+                    setPage(0);
+                  }
+                }}
+                data-testid="button-watch-mode"
+                title={watchMode ? "Stop auto-refresh (every 8s)" : "Watch live — auto-refresh every 8s, newest first"}
+              >
+                {watchMode ? (
+                  <><span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" /></span> Watching</>
+                ) : (
+                  <><RefreshCw className="h-3.5 w-3.5" /> Watch Live</>
+                )}
+              </Button>
             </div>
           </div>
 
@@ -6642,6 +6668,16 @@ function VocabImagesSection() {
     onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
   });
 
+  const [bustReseedResult, setBustReseedResult] = useState<any>(null);
+  const bustReseedMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/bust-and-reseed', { language, dryRun: false }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setBustReseedResult(data);
+      toast({ title: 'Bust & Reseed started', description: `Deleted ${data.deleted} stale images for ${language}. Job ${data.jobId?.slice(-8)} regenerating with character injection.` });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
   const fixWordMutation = useMutation({
     mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-word', { language, word: fixWordInput.trim() }).then(r => r.json()),
     onSuccess: (data: any) => {
@@ -6706,7 +6742,7 @@ function VocabImagesSection() {
               </Select>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
               <Card className="bg-muted/30">
                 <CardContent className="p-4 space-y-2">
                   <p className="text-sm font-medium">Numbers &amp; Days</p>
@@ -6815,6 +6851,27 @@ function VocabImagesSection() {
                   </Button>
                   {seedResult && (
                     <p className="text-xs text-muted-foreground">Job started: {seedResult.jobId?.slice(-8)}</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="bg-muted/30 border-orange-200 dark:border-orange-900">
+                <CardContent className="p-4 space-y-2">
+                  <p className="text-sm font-medium">Bust &amp; Reseed (Character Fix)</p>
+                  <p className="text-xs text-muted-foreground">Delete ALL cached images for selected language and regenerate with character injection. Use after updating character profiles or prompt logic.</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => bustReseedMutation.mutate()}
+                    disabled={bustReseedMutation.isPending}
+                    className="w-full"
+                    data-testid="button-bust-reseed-cmd"
+                  >
+                    {bustReseedMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+                    Bust &amp; Reseed
+                  </Button>
+                  {bustReseedResult && (
+                    <p className="text-xs text-muted-foreground">Deleted {bustReseedResult.deleted} images. Job: {bustReseedResult.jobId?.slice(-8)}</p>
                   )}
                 </CardContent>
               </Card>
