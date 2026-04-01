@@ -735,6 +735,26 @@ const ABSTRACT_TRANSLATIONS = new Set([
   'provided that', 'as long as', 'in case', 'so long as', 'as soon as',
 ]);
 
+// Single abstract English nouns that don't produce useful vocab images
+const ABSTRACT_SINGLE_NOUNS = new Set([
+  'leadership', 'democracy', 'ideology', 'nationalism', 'globalization',
+  'capitalism', 'socialism', 'communism', 'imperialism', 'colonialism',
+  'consciousness', 'existence', 'reality', 'knowledge', 'understanding',
+  'intelligence', 'wisdom', 'truth', 'morality', 'ethics', 'justice',
+  'freedom', 'liberty', 'equality', 'solidarity', 'humanity',
+  'identity', 'personality', 'mentality', 'philosophy', 'theory',
+  'policy', 'politics', 'economy', 'society', 'culture',
+  'heritage', 'civilization', 'modernization', 'progress',
+  'development', 'achievement', 'influence', 'importance', 'significance',
+  'relationship', 'communication', 'collaboration', 'cooperation',
+  'motivation', 'creativity', 'imagination', 'inspiration', 'innovation',
+  'sustainability', 'responsibility', 'accountability', 'transparency',
+  'diversity', 'inclusion', 'discrimination', 'prejudice', 'tolerance',
+  'perception', 'emotion', 'thought', 'attitude', 'behavior', 'tendency',
+  'strategy', 'method', 'technique', 'process', 'procedure', 'approach',
+  'phenomenon', 'concept', 'notion', 'principle', 'tradition', 'convention',
+]);
+
 // English word prefixes that almost always yield confusing abstract images
 const ABSTRACT_PREFIXES = [
   'the development', 'the impact', 'the context', 'the process',
@@ -762,6 +782,9 @@ function isVisuallyMeaningful(targetText: string, prompt: string | undefined, it
 
   // Exact match to known discourse/connector words
   if (ABSTRACT_TRANSLATIONS.has(eng)) return false;
+
+  // Single abstract nouns (leadership, democracy, ideology, etc.)
+  if (eng.split(/\s+/).length === 1 && ABSTRACT_SINGLE_NOUNS.has(eng)) return false;
 
   // Starts with an abstract-noun pattern
   if (ABSTRACT_PREFIXES.some(p => eng.startsWith(p))) return false;

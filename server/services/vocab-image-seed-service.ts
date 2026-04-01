@@ -745,6 +745,16 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'cheio':      SPLIT('cheio', 'a completely full glass of water to the brim', 'vazio', 'a completely empty glass with nothing in it'),
   'vazio':      SPLIT('cheio', 'a completely full glass of water to the brim', 'vazio', 'a completely empty glass with nothing in it'),
 
+  // ── Food items — force still-life framing so DALL-E doesn't add a person ──
+  'legumbres':       'a colorful close-up arrangement of mixed legumes — kidney beans, brown lentils, chickpeas, and black beans — in small rustic clay bowls on a wooden table, soft warm watercolor food illustration, no people',
+  'las legumbres':   'a colorful close-up arrangement of mixed legumes — kidney beans, brown lentils, chickpeas, and black beans — in small rustic clay bowls on a wooden table, soft warm watercolor food illustration, no people',
+  'verduras':        'a fresh colorful arrangement of vegetables — broccoli, carrots, peppers, and tomatoes — on a wooden table, soft warm watercolor food illustration, no people',
+  'las verduras':    'a fresh colorful arrangement of vegetables — broccoli, carrots, peppers, and tomatoes — on a wooden table, soft warm watercolor food illustration, no people',
+  'frutas':          'a colorful basket overflowing with fresh fruits — apples, oranges, bananas, and strawberries — soft warm watercolor food illustration, no people',
+  'las frutas':      'a colorful basket overflowing with fresh fruits — apples, oranges, bananas, and strawberries — soft warm watercolor food illustration, no people',
+  'mariscos':        'a rustic seafood platter with shrimp, mussels, and clams arranged on crushed ice, soft watercolor illustration, no people',
+  'los mariscos':    'a rustic seafood platter with shrimp, mussels, and clams arranged on crushed ice, soft watercolor illustration, no people',
+
   // ── Health & Body — avoid literal/graphic AI interpretations ──────────────
   // "dolor" / "el dolor" → mild relatable discomfort, NOT a dramatic heart or wound
   'dolor':           'a young woman sitting down, gently pressing her fingertips to her temple with a mild wince, soft warm watercolor, no blood or wounds',
@@ -1122,6 +1132,14 @@ export async function seedVocabImages(language: string, jobId: string): Promise<
             // Extract English translation from prompt (strips "Say X in Spanish. Context: ..." patterns)
             const translation = cleanPromptToEnglish(prompt, word);
 
+            // Skip abstract concepts that would be filtered out in the student view anyway —
+            // this prevents wasteful DALL-E generation for discourse markers, abstract nouns, etc.
+            if (!isWordSeedable(word, translation)) {
+              progress.skipped++;
+              progress.processed++;
+              return;
+            }
+
             // Check for a hand-crafted scene override (numbers, days, etc.)
             const sceneOverride = SCENE_OVERRIDES[normalizeForOverride(word)];
 
@@ -1223,6 +1241,79 @@ export async function seedAllVocabImages(jobId: string, languages?: string[]): P
 }
 
 // ── Prompt cleaner ─────────────────────────────────────────────────────────
+
+// ── Abstract-concept filter ────────────────────────────────────────────────
+// Mirrors the frontend isVisuallyMeaningful() filter. If a word would be
+// hidden in the student view anyway, skip generating an image for it — this
+// saves DALL-E credits and keeps the queue lean.
+
+const SEED_SKIP_TRANSLATIONS = new Set([
+  // Discourse markers / connectors
+  'however', 'although', 'therefore', 'moreover', 'furthermore', 'meanwhile',
+  'consequently', 'nonetheless', 'nevertheless', 'whereas', 'despite', 'thus',
+  'hence', 'accordingly', 'subsequently', 'conversely', 'alternatively',
+  'in addition', 'on the other hand', 'in contrast', 'as a result',
+  'for example', 'for instance', 'in other words', 'in conclusion',
+  'to summarize', 'in summary', 'first of all', 'in my opinion',
+  'it is important', 'it is necessary', 'there is', 'there are',
+  'to have to', 'to be able to', 'one must', 'one can',
+  'it seems', 'i think', 'in order to', 'so that', 'in fact',
+  'on the contrary', 'in spite of', 'even though', 'as well as',
+  'not only', 'both', 'neither', 'either', 'whether', 'on condition that',
+  'provided that', 'as long as', 'in case', 'so long as', 'as soon as',
+  // Abstract single nouns — yield generic or confusing images
+  'leadership', 'democracy', 'ideology', 'nationalism', 'globalization',
+  'capitalism', 'socialism', 'communism', 'imperialism', 'colonialism',
+  'consciousness', 'existence', 'reality', 'knowledge', 'understanding',
+  'intelligence', 'wisdom', 'truth', 'morality', 'ethics', 'justice',
+  'freedom', 'liberty', 'equality', 'solidarity', 'humanity',
+  'identity', 'personality', 'mentality', 'philosophy', 'theory',
+  'policy', 'politics', 'economy', 'society', 'culture',
+  'heritage', 'civilization', 'modernization', 'progress',
+  'development', 'achievement', 'influence', 'importance', 'significance',
+  'relationship', 'communication', 'collaboration', 'cooperation',
+  'motivation', 'creativity', 'imagination', 'inspiration', 'innovation',
+  'sustainability', 'responsibility', 'accountability', 'transparency',
+  'diversity', 'inclusion', 'discrimination', 'prejudice', 'tolerance',
+  'consciousness', 'perception', 'emotion', 'feeling', 'thought',
+  'attitude', 'behavior', 'tendency', 'tendency', 'approach',
+  'strategy', 'method', 'technique', 'process', 'procedure',
+  'phenomenon', 'concept', 'idea', 'notion', 'principle',
+  'tradition', 'convention', 'institution', 'organization', 'structure',
+]);
+
+const SEED_SKIP_PREFIXES = [
+  'the development', 'the impact', 'the context', 'the process',
+  'the relationship', 'the influence', 'the importance', 'the significance',
+  'the establishment', 'the implementation', 'the achievement',
+  'the concept of', 'the phenomenon', 'the situation', 'the consequences',
+];
+
+/**
+ * Returns true if this word should have a vocab image generated.
+ * Words with SCENE_OVERRIDES are always seedable (curated = always generate).
+ * Words whose English translation signals an abstract concept are skipped.
+ */
+function isWordSeedable(word: string, engTranslation: string): boolean {
+  // Always seed if there's a hand-crafted SCENE_OVERRIDE — these are curated
+  if (SCENE_OVERRIDES[normalizeForOverride(word)]) return true;
+
+  const eng = engTranslation.toLowerCase().trim();
+
+  // No meaningful translation (listen_repeat / same as word) → seed it
+  if (!eng || eng === word.toLowerCase().trim()) return true;
+
+  // 4+ English words = almost certainly an abstract multi-part phrase
+  if (eng.split(/\s+/).length >= 4) return false;
+
+  // Known discourse markers / abstract single nouns
+  if (SEED_SKIP_TRANSLATIONS.has(eng)) return false;
+
+  // Abstract-noun prefix patterns
+  if (SEED_SKIP_PREFIXES.some(p => eng.startsWith(p))) return false;
+
+  return true;
+}
 
 function cleanPromptToEnglish(prompt: string, word: string): string {
   if (!prompt) return word;

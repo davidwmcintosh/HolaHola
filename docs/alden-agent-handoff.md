@@ -34,11 +34,35 @@ The two bad "bloody heart" images for `el dolor` (created 2026-04-01 ~20:08) wer
 
 Changed watch mode from `refetchInterval: 8000` to a `watchNonce` state that increments every 8 seconds via `setInterval`. The nonce is appended as `&_ts={nonce}` to the query URL, making each poll a unique URL that bypasses browser 304 caching. New images from the background seeder now appear reliably at the top within ~8 seconds.
 
+#### legumbres SCENE_OVERRIDE + deletion
+
+"legumbres" was generating a picture of a girl (DALL-E personalizing the watercolor). New SCENE_OVERRIDE added: colorful clay bowls of mixed legumes, no people. Also added overrides for verduras, frutas, mariscos. Cached legumbres image deleted from DB — will regenerate next seeder pass.
+
+Also added a `// ── Food items` section to SCENE_OVERRIDES with "no people" directives to prevent DALL-E from inserting characters into still-life food images.
+
+#### liderazgo (leadership) deleted — abstract concept skip
+
+"liderazgo" / "el liderazgo" cached images deleted from DB. "Leadership" is now in `SEED_SKIP_TRANSLATIONS` in the seed service and `ABSTRACT_SINGLE_NOUNS` in the frontend — will be skipped on the next seeder pass and filtered from the student view.
+
+#### Seed service abstract filter (`isWordSeedable()`)
+
+Added `SEED_SKIP_TRANSLATIONS` (~50 entries: discourse markers + abstract nouns: leadership, democracy, ideology, philosophy, consciousness, etc.) and `SEED_SKIP_PREFIXES` (~14 entries) to `vocab-image-seed-service.ts`. New `isWordSeedable(word, engTranslation)` function checks both, with a SCENE_OVERRIDE bypass. Called in the main seeder batch loop right after `cleanPromptToEnglish` — saves significant DALL-E credits for the remaining ~15,800 ungenerated images.
+
+#### ABSTRACT_SINGLE_NOUNS in frontend filter
+
+Added `ABSTRACT_SINGLE_NOUNS` set (~35 entries) to `TextbookInfographics.tsx` to catch single abstract nouns (leadership, democracy, identity, creativity, etc.) that escape the 4-word rule. Checked in `isVisuallyMeaningful()` after the discourse-marker check.
+
+#### Image count landscape (as of session 18e)
+- ~18,277 total unique word candidates across 9 languages
+- ~2,478 AI-generated images done (mostly Spanish ~2,002, plus ~476 spread across FR/DE/EN/IT/shared)
+- Japanese, Mandarin, Korean, Portuguese: ~0 images (seeder hasn't reached them after boot restart)
+- With the new `isWordSeedable()` filter, probably 20-35% of words will be skipped as abstract — reducing the remaining generation work from ~15,800 down to ~10,000-12,000
+
 ### Files changed this session (session 18e)
-- `client/src/components/TextbookInfographics.tsx` — `isVisuallyMeaningful()`, `ABSTRACT_TRANSLATIONS`, `ABSTRACT_PREFIXES`, `MAX_VISUAL_PER_SECTION`, added to `vocabDrills` filter pipeline
-- `server/services/vocab-image-seed-service.ts` — Health & Body `SCENE_OVERRIDES` section (~15 entries)
+- `client/src/components/TextbookInfographics.tsx` — `isVisuallyMeaningful()`, `ABSTRACT_TRANSLATIONS`, `ABSTRACT_PREFIXES`, `ABSTRACT_SINGLE_NOUNS`, `MAX_VISUAL_PER_SECTION`, filter pipeline
+- `server/services/vocab-image-seed-service.ts` — Health & Body SCENE_OVERRIDES, Food items SCENE_OVERRIDES, `SEED_SKIP_TRANSLATIONS`, `SEED_SKIP_PREFIXES`, `isWordSeedable()`, wired into seeder loop
 - `client/src/pages/admin/CommandCenter.tsx` — `watchNonce` state + `setInterval` effect, nonce-based URL busting
-- `media_files` (DB) — Deleted 2 bad "el dolor" images (generated with bloody heart)
+- `media_files` (DB) — Deleted: 2 bad "el dolor" images, 1 legumbres (girl showing), 2 liderazgo (abstract concept)
 
 ---
 
