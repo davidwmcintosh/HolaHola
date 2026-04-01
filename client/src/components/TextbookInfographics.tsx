@@ -715,6 +715,60 @@ interface VisualVocabGridProps {
   language: string;
 }
 
+// Max image cards shown per lesson section — keeps the grid scannable, not overwhelming
+const MAX_VISUAL_PER_SECTION = 10;
+
+// English translations that signal a discourse marker, connector, or abstract phrase.
+// These don't have one clear picture — skip them.
+const ABSTRACT_TRANSLATIONS = new Set([
+  'however', 'although', 'therefore', 'moreover', 'furthermore', 'meanwhile',
+  'consequently', 'nonetheless', 'nevertheless', 'whereas', 'despite', 'thus',
+  'hence', 'accordingly', 'subsequently', 'conversely', 'alternatively',
+  'in addition', 'on the other hand', 'in contrast', 'as a result',
+  'for example', 'for instance', 'in other words', 'in conclusion',
+  'to summarize', 'in summary', 'first of all', 'in my opinion',
+  'it is important', 'it is necessary', 'there is', 'there are',
+  'to have to', 'to be able to', 'one must', 'one can',
+  'it seems', 'i think', 'in order to', 'so that', 'in fact',
+  'on the contrary', 'in spite of', 'even though', 'as well as',
+  'not only', 'both', 'neither', 'either', 'whether', 'on condition that',
+  'provided that', 'as long as', 'in case', 'so long as', 'as soon as',
+]);
+
+// English word prefixes that almost always yield confusing abstract images
+const ABSTRACT_PREFIXES = [
+  'the development', 'the impact', 'the context', 'the process',
+  'the relationship', 'the influence', 'the importance', 'the significance',
+  'the establishment', 'the implementation', 'the achievement',
+  'the concept of', 'the phenomenon', 'the situation', 'the consequences',
+];
+
+/**
+ * Returns true if a vocab item is visually concrete enough to show an image card.
+ * Greetings, numbers, and time words (listen_repeat) always pass.
+ * For translate_speak items we check the English translation for signals of abstraction.
+ */
+function isVisuallyMeaningful(targetText: string, prompt: string | undefined, itemType: string): boolean {
+  // listen_repeat = curated items (greetings, days, numbers) — always show
+  if (itemType === 'listen_repeat') return true;
+
+  const eng = (prompt ?? '').toLowerCase().trim();
+
+  // No English translation available — allow it through
+  if (!eng || eng === targetText.toLowerCase().trim()) return true;
+
+  // 4+ English words = almost certainly an abstract or multi-part phrase
+  if (eng.split(/\s+/).length >= 4) return false;
+
+  // Exact match to known discourse/connector words
+  if (ABSTRACT_TRANSLATIONS.has(eng)) return false;
+
+  // Starts with an abstract-noun pattern
+  if (ABSTRACT_PREFIXES.some(p => eng.startsWith(p))) return false;
+
+  return true;
+}
+
 export function VisualVocabGrid({ lessonId, drills, language }: VisualVocabGridProps) {
   const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
@@ -739,7 +793,9 @@ export function VisualVocabGrid({ lessonId, drills, language }: VisualVocabGridP
       if (/^\d/.test(t)) return false; // skip numbered answers like "2. They are..."
       if (t.split(/\s+/).length > 5) return false; // skip full sentences
       return true;
-    });
+    })
+    .filter(d => isVisuallyMeaningful(d.targetText, d.prompt, d.itemType))
+    .slice(0, MAX_VISUAL_PER_SECTION);
 
   if (vocabDrills.length === 0) return null;
 

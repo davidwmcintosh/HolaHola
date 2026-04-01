@@ -1,5 +1,47 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Wed, Apr 1, 2026 (session 18e — vocab grid smart filtering + dolor fix)
+
+### What was done
+
+#### Vocab grid smart filtering + density cap (`TextbookInfographics.tsx`)
+
+Added `isVisuallyMeaningful()` function and `MAX_VISUAL_PER_SECTION = 10` constant to `VisualVocabGrid`:
+- **`ABSTRACT_TRANSLATIONS` set** (~30 entries): exact English translations that signal a discourse marker/connector — "however", "therefore", "in addition", "on the other hand", "to have to", "there is", etc. — these get filtered out of the image grid.
+- **`ABSTRACT_PREFIXES` list** (~13 entries): English phrase prefixes that signal abstract nouns — "the development", "the impact", "the context", "the relationship", etc.
+- **4-word rule**: if the English translation is 4+ words, filtered out (almost always an abstract or multi-part phrase that yields a confusing image).
+- **`listen_repeat` items always pass** — these are curated greetings/numbers/days that already look great.
+- **Density cap**: `.slice(0, 10)` after filtering — max 10 image cards per lesson section.
+
+This leaves the grid showing only concrete nouns, common verbs, simple adjectives, and the specially curated greetings/numbers/time words — exactly what benefits from visual reinforcement.
+
+#### SCENE_OVERRIDE — health/body words (`vocab-image-seed-service.ts`)
+
+Added a new `// ── Health & Body` section to `SCENE_OVERRIDES` to prevent graphic/literal AI interpretations of abstract health concepts. Includes:
+- `'dolor'` / `'el dolor'` → woman gently pressing fingertips to temple (mild wince, NO blood/wounds)
+- `'fiebre'` / `'la fiebre'` → person in bed with thermometer
+- `'enfermo'` / `'enferma'` → person in pajamas in armchair with blanket
+- `'el resfriado'` → person blowing nose with scarf
+- `'la gripe'` → person in bed with tissues and warm mug
+- `'la tos'` → person covering mouth while coughing
+- Medical professionals: `'el médico'`, `'la enfermera'`, `'el hospital'`, `'la farmacia'`
+
+#### el dolor images deleted + queued for regeneration
+
+The two bad "bloody heart" images for `el dolor` (created 2026-04-01 ~20:08) were deleted from `media_files`. On next server boot (+70s seeder pass), "el dolor" will be regenerated using the new mild scene override.
+
+#### Watch Live 304 bypass (`CommandCenter.tsx`)
+
+Changed watch mode from `refetchInterval: 8000` to a `watchNonce` state that increments every 8 seconds via `setInterval`. The nonce is appended as `&_ts={nonce}` to the query URL, making each poll a unique URL that bypasses browser 304 caching. New images from the background seeder now appear reliably at the top within ~8 seconds.
+
+### Files changed this session (session 18e)
+- `client/src/components/TextbookInfographics.tsx` — `isVisuallyMeaningful()`, `ABSTRACT_TRANSLATIONS`, `ABSTRACT_PREFIXES`, `MAX_VISUAL_PER_SECTION`, added to `vocabDrills` filter pipeline
+- `server/services/vocab-image-seed-service.ts` — Health & Body `SCENE_OVERRIDES` section (~15 entries)
+- `client/src/pages/admin/CommandCenter.tsx` — `watchNonce` state + `setInterval` effect, nonce-based URL busting
+- `media_files` (DB) — Deleted 2 bad "el dolor" images (generated with bloody heart)
+
+---
+
 ## Session Summary — Wed, Apr 1, 2026 (session 18d — image library Watch Live + Bust & Reseed UI)
 
 ### What was done

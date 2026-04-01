@@ -744,6 +744,25 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'sujo':       SPLIT('limpo', 'a sparkling clean white plate gleaming under light', 'sujo', 'a dirty muddy plate covered in smudges'),
   'cheio':      SPLIT('cheio', 'a completely full glass of water to the brim', 'vazio', 'a completely empty glass with nothing in it'),
   'vazio':      SPLIT('cheio', 'a completely full glass of water to the brim', 'vazio', 'a completely empty glass with nothing in it'),
+
+  // ── Health & Body — avoid literal/graphic AI interpretations ──────────────
+  // "dolor" / "el dolor" → mild relatable discomfort, NOT a dramatic heart or wound
+  'dolor':           'a young woman sitting down, gently pressing her fingertips to her temple with a mild wince, soft warm watercolor, no blood or wounds',
+  'el dolor':        'a young woman sitting down, gently pressing her fingertips to her temple with a mild wince, soft warm watercolor, no blood or wounds',
+  'pain':            'a person gently holding their shoulder with a slightly pained expression, soft watercolor illustration, mild and relatable',
+  'duele':           'a person gently rubbing their knee with a slight frown, soft warm watercolor illustration',
+  'me duele':        'a person gently holding their head with a slight uncomfortable expression, soft warm watercolor illustration',
+  'fiebre':          'a person lying in bed with a warm blanket pulled up, holding a thermometer, soft warm watercolor',
+  'la fiebre':       'a person lying in bed with a warm blanket pulled up, holding a thermometer, soft warm watercolor',
+  'enfermo':         'a person in pajamas sitting in an armchair wrapped in a blanket looking unwell, soft watercolor illustration',
+  'enferma':         'a person in pajamas sitting in an armchair wrapped in a blanket looking unwell, soft watercolor illustration',
+  'el resfriado':    'a person wrapped in a cozy scarf blowing their nose with a tissue, warm soft watercolor',
+  'la gripe':        'a person in bed with a box of tissues nearby and a warm mug, soft watercolor illustration',
+  'la tos':          'a person covering their mouth while coughing, wearing a scarf, soft warm watercolor',
+  'el médico':       'a friendly doctor in a white coat holding a clipboard with a warm smile, soft watercolor illustration',
+  'la enfermera':    'a kind nurse in scrubs holding a clipboard with a gentle expression, soft watercolor illustration',
+  'el hospital':     'a clean bright hospital building with a red cross sign, soft watercolor illustration',
+  'la farmacia':     'a bright pharmacy storefront with colorful medicine boxes visible through the window, soft watercolor illustration',
 };
 
 /**

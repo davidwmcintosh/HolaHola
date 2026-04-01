@@ -4036,10 +4036,20 @@ function ImageLibraryTab() {
   const queryUrl = `/api/admin/media?${queryParams.toString()}`;
 
   const [watchMode, setWatchMode] = useState(false);
+  const [watchNonce, setWatchNonce] = useState(0);
+
+  // Increment nonce every 8s while watching — changes queryKey so each fetch is a fresh URL,
+  // bypassing browser 304 caching that would otherwise hide new images.
+  useEffect(() => {
+    if (!watchMode) return;
+    const id = setInterval(() => setWatchNonce(n => n + 1), 8000);
+    return () => clearInterval(id);
+  }, [watchMode]);
+
+  const watchedQueryUrl = watchMode ? `${queryUrl}&_ts=${watchNonce}` : queryUrl;
 
   const { data, isLoading, refetch } = useQuery<{ files: MediaFile[]; total: number; newCount?: number; unreviewedCount?: number }>({
-    queryKey: [queryUrl],
-    refetchInterval: watchMode ? 8000 : false,
+    queryKey: [watchedQueryUrl],
   });
 
   useEffect(() => {
