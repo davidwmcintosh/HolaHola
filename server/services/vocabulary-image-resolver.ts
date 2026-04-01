@@ -53,6 +53,31 @@ const SPANISH_ARTICLES = new Set(['el', 'la', 'los', 'las', 'un', 'una', 'unos',
 const FRENCH_ARTICLES = new Set(['le', 'la', 'les', 'un', 'une', 'des', 'du', 'de', 'l']);
 const ALL_ARTICLES = new Set([...SPANISH_ARTICLES, ...FRENCH_ARTICLES]);
 
+// ── Language character intros ──────────────────────────────────────────────────
+//
+// When a vocab word has no SCENE_OVERRIDES entry and the concept looks like an
+// action or phrase (verb, multi-word expression), we embed the language's named
+// primary character so DALL-E produces a character-consistent scene rather than
+// a random anonymous person.
+//
+// For isolated object nouns (house, dog, book), no character is needed — the
+// watercolor prop style alone produces consistent results across all languages.
+//
+// These descriptions mirror CHARACTER_PROFILES in vocab-image-seed-service.ts.
+// Kept here to avoid a circular import (resolver → seed service already uses
+// dynamic import for SCENE_OVERRIDES; a static import would create a cycle).
+const LANGUAGE_CHARACTER_INTROS: Record<string, string> = {
+  spanish:    'Daniela, a 26-year-old Colombian woman with long dark brown curly hair, warm olive skin, and dark expressive brown eyes, wearing a coral-red scoop-neck top,',
+  french:     'Sophie, a 28-year-old French woman with shoulder-length chestnut hair, light skin, and bright hazel eyes, wearing a navy linen blouse,',
+  german:     'Lena, a 27-year-old German woman with medium-length honey-blonde hair, fair skin, and pale blue-grey eyes, wearing a sage green fitted top,',
+  italian:    'Giulia, a 25-year-old Italian woman with long dark wavy hair, light olive skin, and warm brown eyes, wearing a terracotta fitted blouse,',
+  portuguese: 'Ana, a 27-year-old Brazilian woman with long wavy dark hair, golden-brown skin, and warm brown eyes, wearing a coral short-sleeve fitted blouse tucked into dark tailored wide-leg trousers,',
+  japanese:   'Yuki, a 25-year-old Japanese woman with straight shoulder-length black hair, light porcelain skin, and warm dark brown eyes, wearing a soft sage-green blouse and light grey wide-leg trousers,',
+  korean:     'Ji-yeon, a 24-year-old Korean woman with long straight dark brown hair, fair skin, and warm dark eyes, wearing a sky-blue fitted blouse and tailored ivory trousers,',
+  mandarin:   'Mei, a 26-year-old Chinese woman with a neat black bob, light skin, and warm dark eyes, wearing a soft rose-pink blouse and dark wide-leg trousers,',
+  english:    'Emma, a 27-year-old American woman with shoulder-length chestnut hair, light skin, and hazel eyes, wearing a navy blue cardigan and light jeans,',
+};
+
 // ── Shared concept image cache ────────────────────────────────────────────────
 //
 // Words that refer to the SAME visual concept across all languages share a single
@@ -1031,8 +1056,13 @@ export async function resolveVocabularyImage(
   }
 
   // ── 2. Generate with DALL-E 3 (watercolor style) ────────────────────────
-  const conceptForGeneration = buildGenerationConcept(word, effectiveScene, description, translation, language);
-  const generationType = isSceneConcept(word, effectiveScene) ? 'infographic' : 'image';
+  // Inject the language's named character for action/phrase concepts so DALL-E
+  // produces a character-consistent scene rather than an anonymous person.
+  // Object nouns (house, dog, book) are not affected — looksLikeActionOrPhrase()
+  // returns false for those, so they remain clean prop images.
+  const characterIntro = language ? LANGUAGE_CHARACTER_INTROS[language] : undefined;
+  const conceptForGeneration = buildGenerationConcept(word, effectiveScene, description, translation, language, characterIntro);
+  const generationType = isSceneConcept(word, conceptForGeneration) ? 'infographic' : 'image';
   console.log(`[VocabImage] Cache miss — generating (${generationType}) for: "${conceptForGeneration}"`);
 
   try {
@@ -1070,38 +1100,79 @@ export async function resolveVocabularyImage(
 }
 
 /**
+ * Returns true when a resolved concept string looks like a human action, verb,
+ * or multi-word phrase — i.e. something that would naturally involve a person in
+ * the generated image, so character injection makes sense.
+ *
+ * Returns false for single concrete nouns ("house", "dog", "book") and abstract
+ * colour/number words — those are best rendered as clean prop images.
+ */
+function looksLikeActionOrPhrase(concept: string): boolean {
+  const lower = concept.toLowerCase().trim();
+  // Infinitive verbs: "to eat", "to speak", "to go shopping", …
+  if (lower.startsWith('to ')) return true;
+  // Participles / gerunds: "eating", "speaking", "going to the market"
+  if (lower.match(/^[a-z]+ing\b/)) return true;
+  // Phrases of 3+ words that are not pure article+noun combos
+  const words = lower.split(/\s+/);
+  if (words.length >= 3) return true;
+  return false;
+}
+
+/**
  * Build a descriptive English generation concept from the available parameters.
  * When only a foreign-language word is given, DALL-E can struggle. We use the scene
  * description when available, then the English translation if provided, then the
  * description field, then finally the word itself (with articles stripped).
  * Language context is added so DALL-E knows what language the word is from.
+ *
+ * When `characterIntro` is provided and the concept looks like an action/phrase,
+ * the character is embedded so DALL-E generates a character-consistent scene
+ * rather than an anonymous person.  This is only applied to language-specific
+ * (non-shared-concept) words.
  */
-function buildGenerationConcept(word: string, scene?: string, description?: string, translation?: string, language?: string): string {
+function buildGenerationConcept(
+  word: string,
+  scene?: string,
+  description?: string,
+  translation?: string,
+  language?: string,
+  characterIntro?: string,
+): string {
   // Prefer the explicit scene description — most informative for generation
   if (scene && scene.trim().length > 0) return scene.trim();
+
+  // Derive the core concept from the translation, description, or the word itself
+  let concept = '';
 
   // Use English translation as the generation concept when available — avoids DALL-E
   // misinterpreting foreign words (e.g. "paix" → apple instead of dove/peace symbol)
   if (translation && translation.trim().length > 0 && translation.trim().toLowerCase() !== word.toLowerCase()) {
-    return translation.trim();
+    concept = translation.trim();
+  } else if (description && description !== word && description.trim().length > 0) {
+    // Use the description if it adds more context than the word alone
+    concept = description.trim();
+  } else {
+    // Strip articles for cleaner generation (covers Spanish + French)
+    const normalized = normalizeWord(word);
+    const parts = normalized.split(' ').filter(p => !ALL_ARTICLES.has(p));
+    const cleanWord = parts.length > 0 ? parts.join(' ') : word;
+
+    // For non-Spanish languages, add a language hint so DALL-E knows what it means
+    concept = (language && language !== 'spanish' && cleanWord.length > 0)
+      ? `${cleanWord} (${language} word)`
+      : cleanWord;
   }
 
-  // Use the description if it adds more context than the word alone
-  if (description && description !== word && description.trim().length > 0) {
-    return description.trim();
+  // ── Character injection for actions and phrases ─────────────────────────────
+  // If this concept describes an action or multi-word phrase and we have a named
+  // character for the language, build a scene description so DALL-E uses that
+  // character consistently instead of generating a random anonymous person.
+  if (characterIntro && concept && looksLikeActionOrPhrase(concept)) {
+    return `${characterIntro} ${concept}, in a natural everyday setting`;
   }
 
-  // Strip articles for cleaner generation (covers Spanish + French)
-  const normalized = normalizeWord(word);
-  const parts = normalized.split(' ').filter(p => !ALL_ARTICLES.has(p));
-  const cleanWord = parts.length > 0 ? parts.join(' ') : word;
-
-  // For non-Spanish languages, add a language hint so DALL-E knows what it means
-  if (language && language !== 'spanish' && cleanWord.length > 0) {
-    return `${cleanWord} (${language} word)`;
-  }
-
-  return cleanWord;
+  return concept;
 }
 
 export async function resolveMultipleImages(
@@ -1174,8 +1245,9 @@ export async function previewRefetchImage(request: {
              ?? (SCENE_OVERRIDES as Record<string, string>)[overrideKey];
   } catch (_) { /* no override — proceed with word-based generation */ }
 
-  const concept = buildGenerationConcept(effectiveWord, scene, effectiveWord, undefined, language);
-  const generationType = isSceneConcept(effectiveWord, scene) ? 'infographic' : 'image';
+  const characterIntroPreview = language ? LANGUAGE_CHARACTER_INTROS[language] : undefined;
+  const concept = buildGenerationConcept(effectiveWord, scene, effectiveWord, undefined, language, characterIntroPreview);
+  const generationType = isSceneConcept(effectiveWord, concept) ? 'infographic' : 'image';
 
   const { generateVisual } = await import('./visual-content-service');
   const result = await generateVisual(concept, generationType);

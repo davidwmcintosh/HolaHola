@@ -75,9 +75,38 @@ Redesigned `client/src/components/TextbookChapterView.tsx` (608 → 658 lines):
 
 **E2e test confirmed:** chatButton: 1 ✓, vocabSection: 1 ✓, lessonCards: 6 ✓, lessonToggleButtons: 6 ✓
 
-### Files changed this session
+### Files changed this session (Task #3)
 - `client/src/components/TextbookChapterView.tsx` — Full redesign: ChapterVocabSection + CompactLessonCard + single chat CTA
 - `client/src/components/TextbookInfographics.tsx` — Exported `VisualVocabGrid`
+
+---
+
+## Session Summary — Wed, Apr 1, 2026 (session 18c — scalable character injection for vocab images)
+
+### Problem
+Newly seeded vocab items (from `vocab-drill-seed-service.ts`) generated random anonymous-person images for verbs and phrases (e.g., "to eat" → random person eating, no style/character match). The watercolor style WAS already enforced globally via `visual-content-service.ts`. Only character consistency was missing.
+
+### Solution: LANGUAGE_CHARACTER_INTROS injection (no manual scripting required)
+
+Modified `server/services/vocabulary-image-resolver.ts`:
+1. Added `LANGUAGE_CHARACTER_INTROS` map (lines ~72–82) — compact character descriptions for all 9 languages (Daniela/Spanish, Sophie/French, Lena/German, Giulia/Italian, Ana/Portuguese, Yuki/Japanese, Ji-yeon/Korean, Mei/Mandarin, Emma/English)
+2. Added `looksLikeActionOrPhrase(concept)` helper — returns true for "to X" infinitives, "Xing" gerunds, or 3+ word phrases
+3. Modified `buildGenerationConcept()` to accept `characterIntro?: string` — injects the character for action/phrase concepts: `"Ana, a 27-year-old Brazilian woman..., eating lunch at a café, in a natural everyday setting"`
+4. Updated the language-specific fallback generation call site to pass `LANGUAGE_CHARACTER_INTROS[language]` as `characterIntro`
+5. Updated `previewRefetchImage()` similarly so admin preview matches production
+6. Shared concept keys (colors, seasons, numbers) are NOT affected — those stay character-neutral across all languages
+
+### What gets character injection going forward:
+- Verb/infinitives: "to eat", "to speak", "to go shopping", etc. → named character doing the action
+- Gerunds: "eating", "speaking", etc.
+- Multi-word phrases (3+ words)
+- NOT: single nouns (house, dog, book) — those remain clean watercolor prop images, which is correct
+
+### Already-cached bad images
+Images generated before this fix are cached in `media_files`. They'll keep serving from cache until refetched. To fix them, use the admin image refetch tool, OR wait for users to encounter them and refetch manually. A bulk-bust script could be written if needed.
+
+### Files changed this session (session 18c)
+- `server/services/vocabulary-image-resolver.ts` — `LANGUAGE_CHARACTER_INTROS` map, `looksLikeActionOrPhrase()`, `buildGenerationConcept()` character injection, both call sites updated
 
 ---
 
