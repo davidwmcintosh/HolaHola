@@ -1373,7 +1373,16 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
 
     sessionConfigRef.current?.onReconnected?.();
   }, [subtitles]);
-  
+
+  /**
+   * Proactive 4.5-minute WS cycle — fired before Replit's proxy kills the connection at 5min.
+   * Logs a diagnostic event so we can distinguish intentional cycles from real drops.
+   */
+  const handleProactiveReconnect = useCallback((_message: { timestamp: number; state: string }) => {
+    console.log('[StreamingVoice] Proactive WS cycle initiated — logging diagnostic event');
+    diagEvent('proactive_reconnect', { state: _message.state });
+  }, []);
+
   /**
    * Handle subtitle mode change from server (tutor [SUBTITLE on/off/target] command)
    */
@@ -1587,6 +1596,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('openMicSessionClosed', handleOpenMicSessionClosed);  // Open mic session ended
       clientRef.current.on('openMicSilenceLoop', handleOpenMicSilenceLoop);  // Open mic silence loop detection
       clientRef.current.on('reconnected', handleReconnected);  // Successful reconnection after drop
+      clientRef.current.on('proactive_reconnect', handleProactiveReconnect);  // Intentional 4.5-min WS cycle
       clientRef.current.on('tutorHandoff', handleTutorHandoff);  // Voice-initiated tutor switch
       clientRef.current.on('subtitleModeChange', handleSubtitleModeChange);  // Server subtitle mode command
       clientRef.current.on('customOverlay', handleCustomOverlay);  // Server custom overlay command
@@ -1690,6 +1700,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('interimTranscript', handleInterimTranscript);  // Open mic interim
       clientRef.current.off('openMicSilenceLoop', handleOpenMicSilenceLoop);  // Open mic silence loop
       clientRef.current.off('reconnected', handleReconnected);  // Successful reconnection
+      clientRef.current.off('proactive_reconnect', handleProactiveReconnect);  // Intentional 4.5-min WS cycle
       clientRef.current.off('subtitleModeChange', handleSubtitleModeChange);  // Server subtitle mode command
       clientRef.current.off('customOverlay', handleCustomOverlay);  // Server custom overlay command
       clientRef.current.off('textInputRequest', handleTextInputRequest);  // Server text input request

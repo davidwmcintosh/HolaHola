@@ -1,5 +1,68 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Wed, Apr 1, 2026 (session 16 — Proactive WS reconnect / proxy 5-min timeout fix)
+
+### Root cause confirmed — Replit proxy 5-minute WebSocket hard kill
+
+**Problem**: Production users in sessions longer than 5 minutes were experiencing a sudden 10–30 second audio gap every 5 minutes. The gap happened mid-sentence (audio chunk 53, 54, 55... then cut). Two confirmed affected users on March 26: `016e8e6a` (Spanish) and `02e18b64` (Italian), covering multiple sessions.
+
+**Forensic evidence** (from `voice_pipeline_events` timeline analysis):
+- WS drops occurred at exactly **301–302 seconds** after each WebSocket connection opened
+- Pattern was identical in both zombie sessions (precision: 301974ms / 302064ms / 302008ms / 302024ms) and active sessions
+- Drops occurred DURING active speech/audio (not during idle periods) — ruling out idle timeout
+- After each drop, client reconnected but received "Session not ready for streaming" errors for 10–30s while orchestrator re-initialized
+- Sessions ultimately survived all drops; users completed their sessions
+
+**Why `pingInterval: 30000` didn't help**: The 30-second Socket.IO ping prevented idle timeouts, but this is a **hard connection lifetime limit** at the Replit proxy layer — the proxy kills the WebSocket connection after exactly 5 minutes regardless of activity. No amount of keepalive pings can prevent a hard duration limit.
+
+**Impact per normal session**: A 30-minute lesson unit = 5–6 forced mid-sentence cuts at minutes 5, 10, 15, 20, 25, 30. Every power user hits this.
+
+### Fix implemented (April 1, 2026)
+
+**Proactive 4.5-minute WebSocket cycle** — `client/src/lib/streamingVoiceClient.ts`
+
+When a WebSocket connection is successfully established, a 270-second (4.5-minute) timer starts. At 270s — 30 seconds before the proxy's hard 5-minute kill — the client intentionally disconnects and reconnects. The reconnect uses the existing `handleDisconnect` path with `isReconnect: true`, which:
+1. Reconnects the socket (200ms delay)
+2. Re-initializes the server-side streaming session
+3. Restores open-mic mode if active
+4. Emits `reconnected` event to UI
+
+The proactive reconnect is **transparent to the user** — the gap is ~200–500ms instead of 10–30s. The timer resets after each successful reconnect, so sessions of any length get clean cycles every 4.5 minutes.
+
+**Key constants**:
+```ts
+private readonly PROACTIVE_RECONNECT_MS = 270000;  // 4.5 min
+```
+
+**New event type**: `proactive_reconnect` is emitted before the intentional disconnect so the diagnostic timeline marks it. The Sofia VHT false-positive guard skips any error reports that have a `proactive_reconnect` event within 30 seconds in their timeline.
+
+### Monitoring
+
+To distinguish proactive cycles from real proxy kills after this fix:
+- `proactive_reconnect` entries in diagnostic timelines = healthy, expected
+- `ws_error: "Connection lost"` entries in timelines that do NOT follow a `proactive_reconnect` = real drop, needs investigation
+- The 9 March 26 connection reports in Sofia's 15-genuine-keeper queue remain as historical reference; going forward these should not recur
+
+**SQL to monitor**:
+```sql
+-- Count proactive cycles vs real drops per day
+SELECT 
+  DATE(created_at) as date,
+  COUNT(*) FILTER (WHERE event_data->>'trigger' = 'proactive_reconnect') as proactive_cycles,
+  COUNT(*) FILTER (WHERE event_type = 'client_diag_error') as real_errors
+FROM voice_pipeline_events
+WHERE created_at > NOW() - INTERVAL '7 days'
+  AND event_type LIKE 'client_diag_%'
+GROUP BY date ORDER BY date DESC;
+```
+
+### Files changed
+- `client/src/lib/streamingVoiceClient.ts` — Added `PROACTIVE_RECONNECT_MS` constant, `proactiveReconnectTimer` field, `startProactiveReconnect()`, `stopProactiveReconnect()` methods. `stopHeartbeat()` now also stops the proactive timer. `completeConnection()` now calls `startProactiveReconnect()`. New `proactive_reconnect` event type added to `StreamingEventType` union.
+- `client/src/hooks/useStreamingVoice.ts` — Added `handleProactiveReconnect` handler that logs `diagEvent('proactive_reconnect')`. Registered and cleaned up alongside other event listeners.
+- `server/routes.ts` — Added 4th Sofia VHT false-positive guard: if diagnostic timeline contains a `proactive_reconnect` event within 30s of report time, skip Sofia filing.
+
+---
+
 ## Session Summary — Wed, Apr 1, 2026 (session 15 — Sofia queue cleanup + false-positive filters)
 
 ### Completed this session

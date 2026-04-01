@@ -6318,6 +6318,20 @@ ${memoryContext}
         return res.json({ ok: true, falsePositive: true });
       }
 
+      // False-positive guard for proactive 4.5-min WS cycle:
+      // When the client intentionally cycles the WebSocket before Replit's proxy 5-min hard kill,
+      // the diagnostic timeline will contain a 'proactive_reconnect' entry within the last 30s.
+      // These are expected, healthy reconnects — do not report to Sofia.
+      const timeline: Array<{ t: number; event: string }> = snapshot?.timeline || [];
+      const thirtySecondsAgo = now - 30_000;
+      const hasRecentProactiveReconnect = timeline.some(
+        (e) => e.event === 'proactive_reconnect' && e.t >= thirtySecondsAgo
+      );
+      if (hasRecentProactiveReconnect) {
+        console.log(`[VoiceDiag] ${trigger} false positive — proactive WS cycle in timeline (expected 4.5-min reconnect) — skipping Sofia report`);
+        return res.json({ ok: true, falsePositive: true, reason: 'proactive_reconnect' });
+      }
+
       if (sofiaIssueType && (!lastSofiaReport || (now - lastSofiaReport) >= SOFIA_DIAG_COOLDOWN_MS)) {
         sofiaDiagThrottle.set(sofiaDiagThrottleKey, now);
         const device = snapshot?.device || {};
