@@ -185,13 +185,16 @@ function InlineLessonContent({ lessonId, lessonName, language }: {
 // ── Chapter-level vocab section ───────────────────────────────────────────────
 // Shows VisualVocabGrid for each section that has vocab drills, all unified
 // under a single "Chapter Vocabulary" header.
-// Chapters classified as pure number types are suppressed here — the numbers
-// grid (ChapterIntroduction) and clock SVGs (per-section grammar view) handle
-// those chapters visually instead.
+// Chapters whose grammar type already has a dedicated reference card
+// (numbers grid, family tree, clock SVGs, etc.) suppress DALL-E vocab images
+// here — the ChapterIntroduction / per-section grammar view handle them.
 
-const LANG_SPECIFIC_NUMBER_TYPES = new Set([
+const SUPPRESS_CHAPTER_VOCAB_TYPES = new Set([
+  // Numbers — all languages (handled by numbers grid)
   'ja_numbers', 'ko_numbers', 'zh_numbers', 'he_numbers',
   'es_numbers', 'fr_numbers', 'de_numbers', 'it_numbers', 'pt_numbers', 'en_numbers',
+  // Family vocabulary — all languages (handled by family tree grid)
+  'family_tree',
 ]);
 
 function ChapterVocabSection({
@@ -204,7 +207,7 @@ function ChapterVocabSection({
   chapterTitle: string;
 }) {
   const chapterRefType = classifyGrammarType(chapterTitle, language);
-  const suppressAll = LANG_SPECIFIC_NUMBER_TYPES.has(chapterRefType ?? '');
+  const suppressAll = SUPPRESS_CHAPTER_VOCAB_TYPES.has(chapterRefType ?? '');
   if (suppressAll) return null;
 
   const sectionsWithVocab = sections.filter(s => {
@@ -582,12 +585,20 @@ export function TextbookChapterView({
         />
       )}
 
-      {/* ── Per-section grammar intros (e.g. La Hora clock grid inside a numbers chapter) ── */}
+      {/* ── Per-section visual vocab cards (e.g. La Hora clock grid inside a numbers chapter) ── */}
+      {/* Only renders visual-vocab reference types — grammar diagram types are excluded intentionally */}
       {(() => {
+        const VISUAL_VOCAB_TYPES = new Set([
+          'telling_time', 'days_week', 'weather_vocab', 'emotions_vocab',
+          'body_parts', 'face_parts', 'hand_parts', 'temperature_vocab',
+          'greeting_etiquette', 'hispanic_food', 'gesture_awareness',
+          'world_map', 'festival_calendar', 'dialect_map', 'currency_ref',
+          'country_dot_map',
+        ]);
         const chapterType = classifyGrammarType(chapter.title, language);
         return chapter.sections
           .map(s => ({ s, type: classifyGrammarType(s.name, language) }))
-          .filter(({ type }) => type && type !== chapterType)
+          .filter(({ type }) => type && VISUAL_VOCAB_TYPES.has(type) && type !== chapterType)
           .map(({ s, type }) => (
             <GrammarChapterView
               key={s.id}
