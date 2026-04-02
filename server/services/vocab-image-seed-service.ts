@@ -1366,6 +1366,41 @@ const SEED_SKIP_TRANSLATIONS = new Set([
   'strategy', 'method', 'technique', 'process', 'procedure',
   'phenomenon', 'concept', 'idea', 'notion', 'principle',
   'tradition', 'convention', 'institution', 'organization', 'structure',
+  // Government / civic
+  'government', 'legislation', 'regulation', 'administration', 'constitution',
+  'parliament', 'senate', 'judiciary', 'bureaucracy',
+  // Social issues
+  'violence', 'inequality', 'poverty', 'unemployment', 'corruption',
+  'exploitation', 'oppression', 'segregation', 'alienation',
+  'dehumanization', 'marginalization', 'radicalization',
+  // Environmental
+  'pollution', 'deforestation', 'emissions', 'carbon', 'climate',
+  'biodiversity', 'conservation', 'depletion', 'contamination',
+  // Economy / business
+  'inflation', 'recession', 'privatization', 'nationalization', 'taxation',
+  'investment', 'revenue', 'profit', 'deficit', 'surplus',
+  // Language / education
+  'grammar', 'vocabulary', 'fluency', 'proficiency', 'linguistics',
+  'literature', 'rhetoric', 'narrative', 'discourse', 'curriculum',
+  // History / culture abstract
+  'colonization', 'decolonization', 'industrialization',
+  'globalization', 'westernization', 'gentrification',
+  'assimilation', 'acculturation', 'syncretism',
+  // General advanced abstract
+  'hypothesis', 'paradox', 'contradiction', 'ambiguity', 'complexity',
+  'relevance', 'coherence', 'validity', 'credibility', 'legitimacy',
+  'autonomy', 'sovereignty', 'hierarchy', 'patriarchy', 'matriarchy',
+  'hegemony', 'subjectivity', 'objectivity', 'relativity',
+  'culinary', 'gastronomy', 'cuisine',
+  // Verbs-as-gerunds (when translation is gerund form, not an action scene)
+  'elucidate', 'to elucidate', 'clarify', 'elaborate', 'facilitate',
+  'to facilitate', 'negotiate', 'to negotiate', 'mediate', 'to mediate',
+  'coordinate', 'to coordinate', 'implement', 'to implement',
+  // Relational / abstract nouns from connector drills
+  'aspect', 'dimension', 'factor', 'variable', 'criterion', 'criteria',
+  'parameter', 'element', 'component', 'framework', 'paradigm',
+  'context', 'perspective', 'interpretation', 'analysis', 'synthesis',
+  'evaluation', 'conclusion', 'hypothesis', 'assumption', 'implication',
 ]);
 
 const SEED_SKIP_PREFIXES = [
@@ -1373,6 +1408,28 @@ const SEED_SKIP_PREFIXES = [
   'the relationship', 'the influence', 'the importance', 'the significance',
   'the establishment', 'the implementation', 'the achievement',
   'the concept of', 'the phenomenon', 'the situation', 'the consequences',
+];
+
+// English word suffixes that almost always signal abstract nouns — DALL-E can't
+// produce a meaningful single object for these, so skip them to save DALL-E credits.
+// ONLY include long/unambiguous suffixes to avoid false positives like:
+//   -tion → "station", "portion"   -ment → "apartment"   -ance → "ambulance"
+//   -ence → "fence"   -ship → "ship"   -dom → "kingdom"
+const ABSTRACT_SUFFIXES = [
+  'ization',   // globalization, dehumanization, modernization
+  'isation',   // modernisation, globalisation
+  'ism',       // nationalism, capitalism, colonialism (min-length guards "ism" itself)
+  'ology',     // psychology, biology, archaeology
+  'ography',   // photography, cartography, filmography
+];
+
+// 2-word English phrases where the first word signals an abstract topic
+const ABSTRACT_TWO_WORD_PREFIXES = [
+  'carbon ', 'social ', 'cultural ', 'political ', 'economic ', 'historical ',
+  'global ', 'environmental ', 'sustainable ', 'digital ', 'national ',
+  'human ', 'mass ', 'public ', 'civil ', 'critical ', 'emotional ',
+  'mental ', 'physical ', 'personal ', 'professional ', 'academic ',
+  'urban ', 'rural ', 'ethical ', 'moral ', 'intellectual ',
 ];
 
 /**
@@ -1384,7 +1441,13 @@ function isWordSeedable(word: string, engTranslation: string): boolean {
   // Always seed if there's a hand-crafted SCENE_OVERRIDE — these are curated
   if (SCENE_OVERRIDES[normalizeForOverride(word)]) return true;
 
-  const eng = engTranslation.toLowerCase().trim();
+  // Strip punctuation (mirrors frontend isVisuallyMeaningful fix)
+  const eng = engTranslation.toLowerCase().trim()
+    .replace(/\.\.\./g, ' ')
+    .replace(/['''`]/g, '')
+    .replace(/[.,!?;:"¡¿…]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
   // No meaningful translation (listen_repeat / same as word) → seed it
   if (!eng || eng === word.toLowerCase().trim()) return true;
@@ -1392,11 +1455,33 @@ function isWordSeedable(word: string, engTranslation: string): boolean {
   // 4+ English words = almost certainly an abstract multi-part phrase
   if (eng.split(/\s+/).length >= 4) return false;
 
+  // 3-word phrases that are abstract topic descriptions
+  if (eng.split(/\s+/).length === 3) {
+    // "X Y Z" patterns — most 3-word English translations are either noun phrases
+    // ("the big house") which are fine, or topic descriptions ("carbon tax policy")
+    // which are not. Skip if first word is a known abstract signal.
+    const firstWord = eng.split(' ')[0];
+    if (['the', 'a', 'an'].includes(firstWord)) {
+      // "the X of Y" or "a X of Y" — likely abstract
+      if (eng.includes(' of ')) return false;
+    }
+  }
+
   // Known discourse markers / abstract single nouns
   if (SEED_SKIP_TRANSLATIONS.has(eng)) return false;
 
   // Abstract-noun prefix patterns
   if (SEED_SKIP_PREFIXES.some(p => eng.startsWith(p))) return false;
+
+  // Abstract two-word prefix patterns
+  if (ABSTRACT_TWO_WORD_PREFIXES.some(p => eng.startsWith(p))) return false;
+
+  // Single word ending in abstract-noun suffix — unlikely to produce a clear image
+  const words = eng.split(/\s+/);
+  if (words.length === 1) {
+    const w = words[0];
+    if (ABSTRACT_SUFFIXES.some(s => w.endsWith(s) && w.length > s.length + 2)) return false;
+  }
 
   return true;
 }
