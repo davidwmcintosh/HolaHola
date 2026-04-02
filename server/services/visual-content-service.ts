@@ -37,16 +37,16 @@ const NO_TEXT_INSTRUCTION =
 
 // Vocabulary props: single object, white background, clean silhouette (children's book card feel)
 const PROP_STYLE =
-  'vibrant colorful digital cartoon illustration style, anime-inspired character art, clean bold ink outlines, ' +
-  'warm saturated color palette, cel-shaded with smooth gradients, object centred and prominent on a clean pure white background, ' +
-  'no background elements, clear and recognisable silhouette, language learning educational quality, ' +
+  'vibrant colorful children\'s educational cartoon illustration style, Disney-inspired friendly character art, clean bold ink outlines, ' +
+  'warm saturated color palette, smooth cel-shading, object centred and prominent on a clean pure white background, ' +
+  'no background elements, clear and recognisable silhouette, wholesome family-friendly educational quality, ' +
   NO_TEXT_INSTRUCTION;
 
-// Scene backgrounds: same vibrant cartoon style as props but with full illustrated environment
+// Scene backgrounds: same wholesome cartoon style as props but with full illustrated environment
 const SCENE_STYLE =
-  'vibrant colorful digital cartoon illustration style, anime-inspired character art, clean bold ink outlines, ' +
-  'warm saturated color palette, cel-shaded with smooth gradients, expressive stylized characters with large bright eyes, ' +
-  'detailed colorful illustrated backgrounds, language learning educational context, suitable for all ages, ' +
+  'vibrant colorful children\'s educational cartoon illustration style, Disney-inspired friendly character art, clean bold ink outlines, ' +
+  'warm saturated color palette, smooth cel-shading, expressive wholesome characters with bright friendly eyes, ' +
+  'detailed colorful illustrated backgrounds, wholesome family-friendly language learning content, suitable for all ages, ' +
   'IMPORTANT FRAMING: characters must be composed with generous headroom — heads and faces must be fully visible and never cropped at the top of the frame, ' +
   'position characters in the lower two-thirds of the canvas so the top quarter is clear sky or background, ' +
   NO_TEXT_INSTRUCTION;

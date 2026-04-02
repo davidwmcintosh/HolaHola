@@ -42,7 +42,7 @@ export const CHARACTER_PROFILES = {
   ES: {
     primary:   'Daniela, a 28-year-old Latina woman with long wavy dark-brown hair, warm medium-brown skin, and bright brown eyes, wearing a sky-blue short-sleeve collared button-up shirt and dark jeans',
     secondary: 'Marco, a 30-year-old Latino man with short curly black hair, light-olive skin, and friendly dark eyes, wearing a white button-up shirt and chinos',
-    abuela:    'Rosa, Daniela\'s 68-year-old Mexican grandmother with silver-streaked black hair in a neat bun, warm brown skin, kind dark eyes, and a floral embroidered blouse',
+    abuela:    'Rosa, a warm 68-year-old Mexican grandmother with short curly silver-white hair, warm brown skin, kind dark eyes behind gold-rimmed glasses, and a white blouse with colorful floral embroidery',
   },
   /** French — used for all French greeting & farewell prompts */
   FR: {
