@@ -508,6 +508,7 @@ export function ActflMiniGauge() {
   });
   
   const levelInfo = getLevelInfo(progress?.currentActflLevel);
+  const continuousScore = calculateContinuousScore(progress?.currentActflLevel, progress);
   
   if (isLoading) {
     return <Skeleton className="h-8 w-20 rounded-full" />;
@@ -525,13 +526,13 @@ export function ActflMiniGauge() {
             <TrendingUp className="h-3 w-3" />
             <span className="font-semibold">{levelInfo.shortLabel}</span>
             <span className="text-muted-foreground">•</span>
-            <span>{levelInfo.score}</span>
+            <span>{continuousScore}</span>
           </Badge>
         </span>
       </TooltipTrigger>
       <TooltipContent>
         <p>ACTFL Level: {levelInfo.label}</p>
-        <p className="text-xs text-muted-foreground">Fluency Score: {levelInfo.score}/100</p>
+        <p className="text-xs text-muted-foreground">Fluency Score: {continuousScore}/100</p>
       </TooltipContent>
     </Tooltip>
   );
