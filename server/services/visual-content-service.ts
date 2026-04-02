@@ -100,44 +100,11 @@ async function generateWithGptImage(
 
   let b64: string | undefined;
 
-  // ── Anchor-seeded edit (scene images with a known-good reference) ──────────
-  if (isScene && request.anchorImageUrl) {
-    try {
-      // Anchor URLs stored in the DB are often relative paths (/api/media/ai-image/...).
-      // fetch() requires an absolute URL, so prepend the local server base when needed.
-      const anchorUrl = request.anchorImageUrl.startsWith('/')
-        ? `http://localhost:5000${request.anchorImageUrl}`
-        : request.anchorImageUrl;
-      const anchorRes = await fetch(anchorUrl);
-      if (anchorRes.ok) {
-        const anchorBuf = Buffer.from(await anchorRes.arrayBuffer());
-        const anchorFile = await toFile(anchorBuf, 'anchor.jpg', { type: 'image/jpeg' });
-
-        // When anchor is present, let the image do the heavy lifting on style.
-        // Keep the text prompt minimal — just the scene content + critical no-text rule.
-        const anchoredPrompt =
-          `Create a new illustration in exactly the same art style, character designs, color palette, ` +
-          `and lighting as the reference image. New scene: ${request.concept}. ` +
-          NO_TEXT_INSTRUCTION;
-
-        console.log('[VisualContent] Using anchor-seeded gpt-image-1 edit');
-        const editResponse = await (client.images as any).edit({
-          model: 'gpt-image-1',
-          image: anchorFile,
-          prompt: anchoredPrompt,
-          n: 1,
-          size: '1024x1024',
-        });
-        b64 = editResponse.data?.[0]?.b64_json ?? undefined;
-      } else {
-        console.warn(`[VisualContent] Anchor fetch returned ${anchorRes.status}, falling back to text-only`);
-      }
-    } catch (anchorErr: any) {
-      console.warn('[VisualContent] Anchor-seeded edit failed, falling back to text-only:', anchorErr.message);
-    }
-  }
-
-  // ── Text-only gpt-image-1 (props, or when anchor fetch/edit failed) ────────
+  // ── gpt-image-1 text-only generation ─────────────────────────────────────
+  // images.edit treats the anchor as the BASE canvas to modify, which forces the
+  // model to keep the anchor's composition (e.g. "two young people from Hola")
+  // and can never introduce characters not present in that source image.
+  // Text-only gpt-image-1 with the correct style description is more reliable.
   if (!b64) {
     console.log('[VisualContent] Using text-only gpt-image-1 generate');
     const genResponse = await (client.images as any).generate({

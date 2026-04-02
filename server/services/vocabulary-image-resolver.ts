@@ -3025,7 +3025,11 @@ export function buildGenerationConcept(
     //         e.g. "warmly pressing a hand to their chest..." → inject character.
     // The seeder architecture doc calls these "CULTURALLY NEUTRAL" vs "CULTURALLY DRIVEN".
     const isPropDescription = /^(a |an |the )/i.test(concept);
-    const alreadyHasCharacter = /^(a |an )?(person|woman|man|boy|girl|child)\b/i.test(concept);
+    // Also skip injection for concepts that open with an explicit count or "ONLY" keyword —
+    // e.g. "ONLY TWO people: ...", "Two women face each other..." — these are fully self-described scenes.
+    const alreadyHasCharacter =
+      /^(a |an )?(person|people|woman|man|boy|girl|child)\b/i.test(concept) ||
+      /^(only |two |three )/i.test(concept);
     // Also skip injection when the scene already contains the character's own name
     // anywhere in its first 120 characters — covers both "Daniela, a 28-year-old..."
     // openings AND "Two people: Daniela... and Rosa..." constructions.
