@@ -7,6 +7,7 @@
  */
 
 import OpenAI, { toFile } from 'openai';
+import sharp from 'sharp';
 import { uploadPublicBuffer } from './image-storage';
 
 export interface VisualGenerationRequest {
@@ -99,20 +100,75 @@ async function generateWithGptImage(
 
   const isScene = request.type === 'infographic';
   const style = isScene ? SCENE_STYLE : PROP_STYLE;
-  const basePrompt = isScene
-    ? `Watercolor illustration of a scene: ${request.concept}. ${style}.`
-    : `Watercolor illustration of: ${request.concept}. ${style}.`;
 
   let b64: string | undefined;
 
-  // ── gpt-image-1 text-only generation ─────────────────────────────────────
-  // images.edit treats the anchor as the BASE canvas to modify, which forces the
-  // model to keep the anchor's composition (e.g. "two young people from Hola")
-  // and can never introduce characters not present in that source image.
-  // Text-only gpt-image-1 with the correct style description is more reliable.
+  // ── images.edit with fully-transparent mask (style-transfer mode) ─────────
+  // When an anchor image is provided, we use images.edit with a 100%-transparent
+  // mask so the model regenerates the ENTIRE canvas in the anchor's visual style.
+  //
+  // Why this works:
+  //   - The anchor (e.g. Hola image) feeds gpt-image-1 the character design,
+  //     colour palette, and illustration style as a visual reference.
+  //   - A fully transparent mask (all alpha=0) tells the model to regenerate
+  //     every pixel — so no composition from the anchor bleeds through.
+  //   - The prompt drives the new scene; the anchor drives the style.
+  //
+  // This is different from what we tried before (partial mask or no mask),
+  // which locked the anchor's composition into the output.
+  if (isScene && request.anchorImageUrl) {
+    try {
+      console.log('[VisualContent] Fetching anchor image for style reference...');
+      const anchorRes = await fetch(request.anchorImageUrl);
+      if (!anchorRes.ok) throw new Error(`Anchor fetch failed: ${anchorRes.status}`);
+
+      const anchorRaw = Buffer.from(await anchorRes.arrayBuffer());
+
+      // Convert anchor to 1024x1024 RGBA PNG — images.edit requires PNG
+      const anchorPng = await sharp(anchorRaw)
+        .resize(1024, 1024, { fit: 'cover', position: 'centre' })
+        .ensureAlpha()
+        .png()
+        .toBuffer();
+
+      // Fully-transparent mask: alpha=0 everywhere = regenerate everything
+      const maskPng = await sharp({
+        create: { width: 1024, height: 1024, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+      }).png().toBuffer();
+
+      // Prompt: scene content only — style is carried by the visual anchor
+      const anchoredPrompt =
+        `In the exact same art style as the reference image — same illustration technique, ` +
+        `same character design, same warm colour palette, same level of detail — ` +
+        `draw a new scene: ${request.concept}. ` +
+        `IMPORTANT: characters should look distinctly different ages when called for (young vs elderly). ` +
+        `Generous headroom — heads and faces must be fully visible, never cropped. ` +
+        `No text, no letters, no words anywhere in the image.`;
+
+      console.log('[VisualContent] images.edit (full-transparent mask) prompt:', anchoredPrompt.substring(0, 160));
+
+      const editResponse = await (client.images as any).edit({
+        image: await toFile(anchorPng, 'anchor.png', { type: 'image/png' }),
+        mask:  await toFile(maskPng,  'mask.png',   { type: 'image/png' }),
+        model: 'gpt-image-1',
+        prompt: anchoredPrompt,
+        n: 1,
+        size: '1024x1024',
+        quality: 'high',
+      });
+      b64 = editResponse.data?.[0]?.b64_json ?? undefined;
+      if (b64) console.log('[VisualContent] images.edit style-transfer succeeded');
+    } catch (err) {
+      console.warn('[VisualContent] images.edit style-transfer failed, falling back to text-only:', err);
+    }
+  }
+
+  // ── Text-only fallback ────────────────────────────────────────────────────
   if (!b64) {
-    console.log('[VisualContent] Using text-only gpt-image-1 generate');
-    console.log('[VisualContent] Full prompt (first 200 chars):', basePrompt.substring(0, 200));
+    const basePrompt = isScene
+      ? `Illustration of a scene: ${request.concept}. ${style}.`
+      : `Illustration of: ${request.concept}. ${style}.`;
+    console.log('[VisualContent] text-only generate, prompt:', basePrompt.substring(0, 200));
     const genResponse = await (client.images as any).generate({
       model: 'gpt-image-1',
       prompt: basePrompt,
