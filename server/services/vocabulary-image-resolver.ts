@@ -177,8 +177,8 @@ const ALL_ARTICLES = new Set([...SPANISH_ARTICLES, ...FRENCH_ARTICLES]);
 // These descriptions mirror CHARACTER_PROFILES in vocab-image-seed-service.ts.
 // Kept here to avoid a circular import (resolver → seed service already uses
 // dynamic import for SCENE_OVERRIDES; a static import would create a cycle).
-const LANGUAGE_CHARACTER_INTROS: Record<string, string> = {
-  spanish:    'Daniela, a 26-year-old Colombian woman with long dark brown curly hair, warm olive skin, and dark expressive brown eyes, wearing a coral-red scoop-neck top,',
+export const LANGUAGE_CHARACTER_INTROS: Record<string, string> = {
+  spanish:    'Daniela, a 28-year-old Latina woman with long wavy dark-brown hair, warm medium-brown skin, and bright brown eyes, wearing a sky-blue short-sleeve blouse and dark jeans,',
   french:     'Sophie, a 28-year-old French woman with shoulder-length chestnut hair, light skin, and bright hazel eyes, wearing a navy linen blouse,',
   german:     'Lena, a 27-year-old German woman with medium-length honey-blonde hair, fair skin, and pale blue-grey eyes, wearing a sage green fitted top,',
   italian:    'Giulia, a 25-year-old Italian woman with long dark wavy hair, light olive skin, and warm brown eyes, wearing a terracotta fitted blouse,',
@@ -2615,7 +2615,7 @@ function getFallbackCacheKeys(word: string, language: string): string[] {
  * Used to pick the right DALL-E style: scene concepts → SCENE_STYLE (environment),
  * object concepts → PROP_STYLE (single object on white background).
  */
-function isSceneConcept(word: string, scene?: string): boolean {
+export function isSceneConcept(word: string, scene?: string): boolean {
   // If a scene description was explicitly provided and is long, treat as scene
   if (scene && scene.split(' ').length >= 6) return true;
 
@@ -2921,7 +2921,7 @@ function looksLikeActionOrPhrase(concept: string): boolean {
  * rather than an anonymous person.  This is only applied to language-specific
  * (non-shared-concept) words.
  */
-function buildGenerationConcept(
+export function buildGenerationConcept(
   word: string,
   scene?: string,
   description?: string,
