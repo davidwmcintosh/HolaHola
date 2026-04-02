@@ -2975,11 +2975,12 @@ export function buildGenerationConcept(
     // The seeder architecture doc calls these "CULTURALLY NEUTRAL" vs "CULTURALLY DRIVEN".
     const isPropDescription = /^(a |an |the )/i.test(concept);
     const alreadyHasCharacter = /^(a |an )?(person|woman|man|boy|girl|child)\b/i.test(concept);
-    // Also skip injection when the scene already opens with the character's own name
-    // (e.g. scene overrides that embed ${CHAR.ES.primary} verbatim).
+    // Also skip injection when the scene already contains the character's own name
+    // anywhere in its first 120 characters — covers both "Daniela, a 28-year-old..."
+    // openings AND "Two people: Daniela... and Rosa..." constructions.
     // Extract first token of the intro as the character name: "Daniela, a 28-..." → "Daniela"
     const charName = characterIntro.split(/[\s,]/)[0];
-    const alreadyHasNamedCharacter = charName.length > 0 && concept.startsWith(charName);
+    const alreadyHasNamedCharacter = charName.length > 0 && concept.slice(0, 120).includes(charName);
     if (!isPropDescription && !alreadyHasCharacter && !alreadyHasNamedCharacter) {
       return `${characterIntro} ${concept}, in a natural everyday setting`;
     }
