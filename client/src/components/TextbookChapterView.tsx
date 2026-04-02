@@ -185,18 +185,28 @@ function InlineLessonContent({ lessonId, lessonName, language }: {
 // ── Chapter-level vocab section ───────────────────────────────────────────────
 // Shows VisualVocabGrid for each section that has vocab drills, all unified
 // under a single "Chapter Vocabulary" header.
-// Note: number_dictation drills are already excluded by the per-drill itemType
-// filter below, so no chapter-level suppression is needed.
+// Chapters classified as pure number types are suppressed here — the numbers
+// grid (ChapterIntroduction) and clock SVGs (per-section grammar view) handle
+// those chapters visually instead.
+
+const LANG_SPECIFIC_NUMBER_TYPES = new Set([
+  'ja_numbers', 'ko_numbers', 'zh_numbers', 'he_numbers',
+  'es_numbers', 'fr_numbers', 'de_numbers', 'it_numbers', 'pt_numbers', 'en_numbers',
+]);
 
 function ChapterVocabSection({
   sections,
   language,
-  chapterTitle: _chapterTitle,
+  chapterTitle,
 }: {
   sections: Section[];
   language: string;
   chapterTitle: string;
 }) {
+  const chapterRefType = classifyGrammarType(chapterTitle, language);
+  const suppressAll = LANG_SPECIFIC_NUMBER_TYPES.has(chapterRefType ?? '');
+  if (suppressAll) return null;
+
   const sectionsWithVocab = sections.filter(s => {
     if (!s.drills || s.drills.length === 0) return false;
     const vocabDrills = s.drills.filter(d =>
@@ -571,6 +581,23 @@ export function TextbookChapterView({
           chapterTitle={chapter.title}
         />
       )}
+
+      {/* ── Per-section grammar intros (e.g. La Hora clock grid inside a numbers chapter) ── */}
+      {(() => {
+        const chapterType = classifyGrammarType(chapter.title, language);
+        return chapter.sections
+          .map(s => ({ s, type: classifyGrammarType(s.name, language) }))
+          .filter(({ type }) => type && type !== chapterType)
+          .map(({ s, type }) => (
+            <GrammarChapterView
+              key={s.id}
+              type={type!}
+              chapterNumber={chapter.number}
+              chapterTitle={s.name}
+              language={language}
+            />
+          ));
+      })()}
 
       {/* ── Primary CTA: Start Chat ── */}
       <div className="space-y-2" data-testid="chapter-cta-section">
