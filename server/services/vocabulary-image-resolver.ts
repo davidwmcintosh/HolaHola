@@ -2111,6 +2111,276 @@ const CONCEPT_KEY_MAP: Record<string, string> = {
   'がくせい':       'vocab_spanish_estudiante', // JA
   '学生':         'vocab_spanish_estudiante', // JA/ZH
   '학생':         'vocab_spanish_estudiante', // KO
+
+  // ── Transportation ──────────────────────────────────────────────────────────
+  // car (carro) — EN/DE "auto", IT "auto" same word → routes naturally; only unique forms mapped here
+  'voiture':     'vocab_spanish_carro', // FR
+  'macchina':    'vocab_spanish_carro', // IT
+  'wagen':       'vocab_spanish_carro', // DE (der Wagen = car)
+  'car':         'vocab_spanish_carro', // EN
+  'くるま':        'vocab_spanish_carro', // JA
+  '車':           'vocab_spanish_carro', // JA/ZH
+  '자동차':        'vocab_spanish_carro', // KO
+  '汽车':         'vocab_spanish_carro', // ZH
+  // Note: "carro" same in ES and PT; "auto" same in DE/IT/ES resolves naturally
+
+  // bus (autobús)
+  'onibus':      'vocab_spanish_autobus', // PT (ônibus → onibus after accent strip)
+  'バス':          'vocab_spanish_autobus', // JA
+  '버스':         'vocab_spanish_autobus', // KO
+  '公共汽车':       'vocab_spanish_autobus', // ZH
+  '公交车':        'vocab_spanish_autobus', // ZH alt
+  // Note: "bus" same in EN/FR/DE/IT after norm → resolves naturally
+
+  // train (tren)
+  'train':       'vocab_spanish_tren', // FR/EN (same word in both)
+  'zug':         'vocab_spanish_tren', // DE
+  'treno':       'vocab_spanish_tren', // IT
+  'trem':        'vocab_spanish_tren', // PT (trem = train in BR Portuguese)
+  'comboio':     'vocab_spanish_tren', // PT alt (comboio = train in European Portuguese)
+  'でんしゃ':       'vocab_spanish_tren', // JA
+  '電車':         'vocab_spanish_tren', // JA
+  '기차':         'vocab_spanish_tren', // KO
+  '火车':         'vocab_spanish_tren', // ZH
+
+  // airplane (avión)
+  // Note: "avion" norm same in FR and ES — routes naturally to vocab_spanish_avion
+  'flugzeug':    'vocab_spanish_avion', // DE
+  'aereo':       'vocab_spanish_avion', // IT (short form)
+  'aviao':       'vocab_spanish_avion', // PT (avião → aviao)
+  'airplane':    'vocab_spanish_avion', // EN
+  'plane':       'vocab_spanish_avion', // EN alt
+  'ひこうき':       'vocab_spanish_avion', // JA
+  '飛行機':        'vocab_spanish_avion', // JA
+  '비행기':        'vocab_spanish_avion', // KO
+  '飞机':         'vocab_spanish_avion', // ZH
+
+  // bicycle (bicicleta)
+  'velo':        'vocab_spanish_bicicleta', // FR (vélo)
+  'fahrrad':     'vocab_spanish_bicicleta', // DE
+  'bicicletta':  'vocab_spanish_bicicleta', // IT
+  'bicycle':     'vocab_spanish_bicicleta', // EN
+  'bike':        'vocab_spanish_bicicleta', // EN alt
+  'じてんしゃ':      'vocab_spanish_bicicleta', // JA
+  '自転車':        'vocab_spanish_bicicleta', // JA
+  '자전거':        'vocab_spanish_bicicleta', // KO
+  '自行车':        'vocab_spanish_bicicleta', // ZH
+  // Note: "bicicleta" same in ES and PT
+
+  // boat / ship (barco)
+  'bateau':      'vocab_spanish_barco', // FR
+  'boot':        'vocab_spanish_barco', // DE
+  'barca':       'vocab_spanish_barco', // IT
+  'boat':        'vocab_spanish_barco', // EN
+  'ship':        'vocab_spanish_barco', // EN alt
+  'ふね':         'vocab_spanish_barco', // JA
+  '船':           'vocab_spanish_barco', // JA/ZH shared
+  '배':           'vocab_spanish_barco', // KO
+  // Note: "barco" same in ES and PT
+
+  // subway / metro (metro)
+  'ubahn':       'vocab_spanish_metro', // DE (U-Bahn → ubahn after norm)
+  'metropolitana': 'vocab_spanish_metro', // IT
+  'subway':      'vocab_spanish_metro', // EN
+  'underground': 'vocab_spanish_metro', // EN alt
+  'ちかてつ':       'vocab_spanish_metro', // JA
+  '地下鉄':        'vocab_spanish_metro', // JA
+  '지하철':        'vocab_spanish_metro', // KO
+  '地铁':         'vocab_spanish_metro', // ZH
+  // Note: "metro" same in ES, FR, IT, PT after norm
+
+  // ── Home & Rooms ─────────────────────────────────────────────────────────────
+  // house (casa)
+  'maison':      'vocab_spanish_casa', // FR
+  'haus':        'vocab_spanish_casa', // DE
+  'house':       'vocab_spanish_casa', // EN
+  'home':        'vocab_spanish_casa', // EN alt
+  'いえ':          'vocab_spanish_casa', // JA
+  '家':           'vocab_spanish_casa', // JA/ZH
+  '집':           'vocab_spanish_casa', // KO
+  '房子':         'vocab_spanish_casa', // ZH
+  // Note: "casa" same in ES, IT, PT
+
+  // bedroom (dormitorio)
+  'chambre':     'vocab_spanish_dormitorio', // FR
+  'schlafzimmer': 'vocab_spanish_dormitorio', // DE
+  'camera':      'vocab_spanish_dormitorio', // IT (camera da letto → camera)
+  'quarto':      'vocab_spanish_dormitorio', // PT
+  'bedroom':     'vocab_spanish_dormitorio', // EN
+  'しんしつ':       'vocab_spanish_dormitorio', // JA
+  '寝室':         'vocab_spanish_dormitorio', // JA
+  '침실':         'vocab_spanish_dormitorio', // KO
+  '卧室':         'vocab_spanish_dormitorio', // ZH
+
+  // kitchen (cocina)
+  'cuisine':     'vocab_spanish_cocina', // FR
+  'kuche':       'vocab_spanish_cocina', // DE (Küche → kuche)
+  'cozinha':     'vocab_spanish_cocina', // PT
+  'kitchen':     'vocab_spanish_cocina', // EN
+  'だいどころ':      'vocab_spanish_cocina', // JA
+  '台所':         'vocab_spanish_cocina', // JA
+  '부엌':         'vocab_spanish_cocina', // KO
+  '厨房':         'vocab_spanish_cocina', // ZH
+  // Note: "cucina" (IT) same as "cocina" after norm → routes naturally
+
+  // bathroom (baño)
+  'badezimmer':  'vocab_spanish_bano', // DE
+  'bagno':       'vocab_spanish_bano', // IT
+  'banheiro':    'vocab_spanish_bano', // PT (BR)
+  'casa de banho': 'vocab_spanish_bano', // PT alt (European)
+  'bathroom':    'vocab_spanish_bano', // EN
+  'toilet':      'vocab_spanish_bano', // EN alt (common usage)
+  'バスルーム':      'vocab_spanish_bano', // JA
+  'おふろ':        'vocab_spanish_bano', // JA alt
+  '욕실':         'vocab_spanish_bano', // KO
+  '浴室':         'vocab_spanish_bano', // ZH
+  '卫生间':        'vocab_spanish_bano', // ZH alt
+  // Note: "salle de bain" (FR) normalizes to "salle de bain" — multi-word; map the short form:
+  'salle de bain': 'vocab_spanish_bano', // FR
+
+  // living room (salón)
+  'wohnzimmer':  'vocab_spanish_salon', // DE
+  'salotto':     'vocab_spanish_salon', // IT
+  'sala de estar': 'vocab_spanish_salon', // PT
+  'living room': 'vocab_spanish_salon', // EN
+  'リビング':       'vocab_spanish_salon', // JA
+  '거실':         'vocab_spanish_salon', // KO
+  '客厅':         'vocab_spanish_salon', // ZH
+  // Note: "salon" same in FR and ES after norm → routes naturally
+
+  // door (puerta)
+  'porte':       'vocab_spanish_puerta', // FR
+  'tur':         'vocab_spanish_puerta', // DE (Tür → tur)
+  'porta':       'vocab_spanish_puerta', // IT/PT (same word)
+  'door':        'vocab_spanish_puerta', // EN
+  'ドア':          'vocab_spanish_puerta', // JA
+  '문':           'vocab_spanish_puerta', // KO
+  '门':           'vocab_spanish_puerta', // ZH
+
+  // window (ventana)
+  'fenetre':     'vocab_spanish_ventana', // FR (fenêtre → fenetre)
+  'fenster':     'vocab_spanish_ventana', // DE
+  'finestra':    'vocab_spanish_ventana', // IT
+  'janela':      'vocab_spanish_ventana', // PT
+  'window':      'vocab_spanish_ventana', // EN
+  'まど':          'vocab_spanish_ventana', // JA
+  '窓':           'vocab_spanish_ventana', // JA
+  '창문':         'vocab_spanish_ventana', // KO
+  '窗户':         'vocab_spanish_ventana', // ZH
+
+  // garden (jardín)
+  'jardin':      'vocab_spanish_jardin', // FR/ES (same after norm → routes naturally)
+  'garten':      'vocab_spanish_jardin', // DE
+  'giardino':    'vocab_spanish_jardin', // IT
+  'jardim':      'vocab_spanish_jardin', // PT
+  'garden':      'vocab_spanish_jardin', // EN
+  'にわ':          'vocab_spanish_jardin', // JA
+  '庭':           'vocab_spanish_jardin', // JA
+  '정원':         'vocab_spanish_jardin', // KO
+  '花园':         'vocab_spanish_jardin', // ZH
+
+  // bed (cama)
+  'lit':         'vocab_spanish_cama', // FR
+  'bett':        'vocab_spanish_cama', // DE
+  'letto':       'vocab_spanish_cama', // IT
+  'bed':         'vocab_spanish_cama', // EN
+  'ベッド':        'vocab_spanish_cama', // JA
+  '침대':         'vocab_spanish_cama', // KO
+  '床':           'vocab_spanish_cama', // ZH
+  // Note: "cama" same in ES and PT
+
+  // ── More Clothing ─────────────────────────────────────────────────────────────
+  // coat / overcoat (abrigo)
+  'manteau':     'vocab_spanish_abrigo', // FR
+  'mantel':      'vocab_spanish_abrigo', // DE (Mantel)
+  'cappotto':    'vocab_spanish_abrigo', // IT
+  'casaco':      'vocab_spanish_abrigo', // PT
+  'coat':        'vocab_spanish_abrigo', // EN
+  'overcoat':    'vocab_spanish_abrigo', // EN alt
+  'コート':        'vocab_spanish_abrigo', // JA
+  '코트':         'vocab_spanish_abrigo', // KO
+  '大衣':         'vocab_spanish_abrigo', // ZH
+
+  // skirt (falda)
+  'jupe':        'vocab_spanish_falda', // FR
+  'rock':        'vocab_spanish_falda', // DE (der Rock = skirt in German)
+  'gonna':       'vocab_spanish_falda', // IT
+  'saia':        'vocab_spanish_falda', // PT
+  'skirt':       'vocab_spanish_falda', // EN
+  'スカート':       'vocab_spanish_falda', // JA
+  '치마':         'vocab_spanish_falda', // KO
+  '裙子':         'vocab_spanish_falda', // ZH
+
+  // ── Health & Medical ─────────────────────────────────────────────────────────
+  // doctor (médico)
+  'medecin':     'vocab_spanish_medico', // FR (médecin)
+  'arzt':        'vocab_spanish_medico', // DE
+  'doctor':      'vocab_spanish_medico', // EN
+  'physician':   'vocab_spanish_medico', // EN alt
+  'いしゃ':        'vocab_spanish_medico', // JA
+  '医者':         'vocab_spanish_medico', // JA
+  '의사':         'vocab_spanish_medico', // KO
+  '医生':         'vocab_spanish_medico', // ZH
+  // Note: "medico" same in IT and ES; "médico" same in PT
+
+  // nurse (enfermera)
+  'infirmiere':  'vocab_spanish_enfermera', // FR (infirmière)
+  'krankenschwester': 'vocab_spanish_enfermera', // DE
+  'infermiera':  'vocab_spanish_enfermera', // IT
+  'enfermeira':  'vocab_spanish_enfermera', // PT
+  'nurse':       'vocab_spanish_enfermera', // EN
+  'かんごし':       'vocab_spanish_enfermera', // JA
+  '看護師':        'vocab_spanish_enfermera', // JA
+  '간호사':        'vocab_spanish_enfermera', // KO
+  '护士':         'vocab_spanish_enfermera', // ZH
+
+  // medicine / pill (pastilla)
+  'medicament':  'vocab_spanish_pastilla', // FR (médicament)
+  'medikament':  'vocab_spanish_pastilla', // DE
+  'farmaco':     'vocab_spanish_pastilla', // IT
+  'remedio':     'vocab_spanish_pastilla', // PT
+  'medicine':    'vocab_spanish_pastilla', // EN
+  'pill':        'vocab_spanish_pastilla', // EN alt
+  'tablet':      'vocab_spanish_pastilla', // EN alt
+  'くすり':        'vocab_spanish_pastilla', // JA
+  '薬':           'vocab_spanish_pastilla', // JA
+  '약':           'vocab_spanish_pastilla', // KO
+  '药':           'vocab_spanish_pastilla', // ZH
+
+  // ── Sports ───────────────────────────────────────────────────────────────────
+  // soccer / football (fútbol)
+  'football':    'vocab_spanish_futbol', // FR/DE/EN-British
+  'fussball':    'vocab_spanish_futbol', // DE (Fußball → fussball)
+  'calcio':      'vocab_spanish_futbol', // IT
+  'futebol':     'vocab_spanish_futbol', // PT
+  'soccer':      'vocab_spanish_futbol', // EN-American
+  'サッカー':       'vocab_spanish_futbol', // JA
+  '축구':         'vocab_spanish_futbol', // KO
+  '足球':         'vocab_spanish_futbol', // ZH
+
+  // basketball (baloncesto)
+  'basketball':  'vocab_spanish_baloncesto', // EN/DE (same word)
+  'basket':      'vocab_spanish_baloncesto', // FR/IT (short form)
+  'pallacanestro': 'vocab_spanish_baloncesto', // IT formal
+  'basquete':    'vocab_spanish_baloncesto', // PT
+  'バスケットボール': 'vocab_spanish_baloncesto', // JA
+  'バスケ':        'vocab_spanish_baloncesto', // JA short
+  '농구':         'vocab_spanish_baloncesto', // KO
+  '篮球':         'vocab_spanish_baloncesto', // ZH
+
+  // tennis (tenis)
+  // Note: "tennis" same in EN/FR/DE/IT; "tenis" same in ES/PT — routes naturally
+  'テニス':        'vocab_spanish_tenis', // JA
+  '테니스':        'vocab_spanish_tenis', // KO
+  '网球':         'vocab_spanish_tenis', // ZH
+
+  // sports (deporte) — general
+  'sport':       'vocab_spanish_deporte', // FR/DE/IT/EN (same word after norm)
+  'sports':      'vocab_spanish_deporte', // EN plural
+  'esporte':     'vocab_spanish_deporte', // PT
+  'スポーツ':       'vocab_spanish_deporte', // JA
+  '스포츠':        'vocab_spanish_deporte', // KO
+  '运动':         'vocab_spanish_deporte', // ZH
 };
 
 /**
