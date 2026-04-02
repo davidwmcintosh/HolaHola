@@ -119,7 +119,14 @@ async function generateWithGptImage(
   if (isScene && request.anchorImageUrl) {
     try {
       console.log('[VisualContent] Fetching anchor image for style reference...');
-      const anchorRes = await fetch(request.anchorImageUrl);
+      // anchorImageUrl may be a relative path (/api/media/...) — server-side fetch
+      // requires an absolute URL, so prefix with localhost when needed.
+      let anchorUrl = request.anchorImageUrl;
+      if (anchorUrl.startsWith('/')) {
+        const port = process.env.PORT || '5000';
+        anchorUrl = `http://localhost:${port}${anchorUrl}`;
+      }
+      const anchorRes = await fetch(anchorUrl);
       if (!anchorRes.ok) throw new Error(`Anchor fetch failed: ${anchorRes.status}`);
 
       const anchorRaw = Buffer.from(await anchorRes.arrayBuffer());
