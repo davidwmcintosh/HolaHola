@@ -773,8 +773,18 @@ const ABSTRACT_TRANSLATIONS = new Set([
   'i was', 'i will', 'i can', 'i do', 'i go', 'i have', 'is it', 'is this', 'is that',
   'to be', 'to have', 'to do', 'to go', 'to say', 'to see', 'to know', 'to get',
   'am i', 'are you', 'is he', 'is she',
-  // Classroom management phrases too short to be caught by 4-word rule
-  'i understand', 'i don\'t understand', 'excuse me', 'never mind',
+  // Classroom management / meta-communication phrases
+  'i understand', 'i dont understand', "i don't understand", 'i do not understand',
+  'excuse me', 'never mind', 'pardon me',
+  // "Slower / more slowly" — common classroom instruction, no clear image
+  'slower', 'slower please', 'more slowly', 'more slowly please',
+  'speak slower', 'speak more slowly', 'go slower', 'talk slower',
+  // "What does X mean?" — meta-linguistic question words
+  'what does mean', 'what does it mean', 'what does that mean', 'what does this mean',
+  'what mean', 'how do you say', 'how do i say', 'how do we say',
+  // Repetition requests
+  'please repeat', 'can you repeat', 'repeat please', 'say it again', 'one more time',
+  'again please', 'repeat that',
   // Discourse markers / connectors
   'however', 'although', 'therefore', 'moreover', 'furthermore', 'meanwhile',
   'consequently', 'nonetheless', 'nevertheless', 'whereas', 'despite', 'thus',
@@ -827,7 +837,14 @@ function isVisuallyMeaningful(targetText: string, prompt: string | undefined, it
   // listen_repeat = curated items (greetings, days, numbers) — always show
   if (itemType === 'listen_repeat') return true;
 
-  const eng = (prompt ?? '').toLowerCase().trim();
+  // Strip terminal/internal punctuation and ellipsis so "I don't understand."
+  // correctly matches "i don't understand" in ABSTRACT_TRANSLATIONS.
+  const eng = (prompt ?? '').toLowerCase().trim()
+    .replace(/\.\.\./g, ' ')             // ellipsis → space ("does..." → "does")
+    .replace(/['''`]/g, '')              // remove apostrophes: "don't" → "dont"
+    .replace(/[.,!?;:"¡¿…]+/g, ' ')     // other punctuation → space
+    .replace(/\s+/g, ' ')
+    .trim();
 
   // No English translation available — allow it through
   if (!eng || eng === targetText.toLowerCase().trim()) return true;
@@ -863,19 +880,50 @@ export function VisualVocabGrid({ lessonId, drills, language }: VisualVocabGridP
     retry: 1,
   });
 
+  // Normalize a targetText for dedup comparison — strips punctuation & accents
+  function dedupKey(t: string) {
+    return t.toLowerCase().replace(/[¿¡!?,;:.…]/g, '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  }
+
+  const seenVisual = new Set<string>();
   const vocabDrills = drills
     .filter(d => d.itemType === 'listen_repeat' || d.itemType === 'translate_speak')
     .filter(d => {
       const t = d.targetText?.trim();
       if (!t || t.length > 40) return false;
-      if (/^\d/.test(t)) return false; // skip numbered answers like "2. They are..."
-      if (t.split(/\s+/).length > 5) return false; // skip full sentences
+      if (/^\d/.test(t)) return false;
+      if (t.split(/\s+/).length > 5) return false;
+      const k = dedupKey(t);
+      if (seenVisual.has(k)) return false;
+      seenVisual.add(k);
       return true;
     })
     .filter(d => isVisuallyMeaningful(d.targetText, d.prompt, d.itemType))
     .slice(0, MAX_VISUAL_PER_SECTION);
 
-  if (vocabDrills.length === 0) return null;
+  // Text-only grid: translate_speak items filtered OUT of the image grid
+  // (function/grammar words that are better as a plain word list)
+  const seenText = new Set<string>();
+  const textOnlyDrills = drills
+    .filter(d => d.itemType === 'translate_speak')
+    .filter(d => {
+      const t = d.targetText?.trim();
+      if (!t || t.length > 50) return false;
+      if (/^\d/.test(t)) return false;
+      if (t.split(/\s+/).length > 6) return false;
+      return true;
+    })
+    .filter(d => !isVisuallyMeaningful(d.targetText, d.prompt, d.itemType))
+    .filter(d => {
+      if (!d.prompt || d.prompt === d.targetText) return false;
+      const k = dedupKey(d.targetText ?? '');
+      if (seenText.has(k)) return false;
+      seenText.add(k);
+      return true;
+    })
+    .slice(0, 18);
+
+  if (vocabDrills.length === 0 && textOnlyDrills.length === 0) return null;
 
   const images = data?.images || {};
 
@@ -947,6 +995,37 @@ export function VisualVocabGrid({ lessonId, drills, language }: VisualVocabGridP
           );
         })}
       </div>
+      {textOnlyDrills.length > 0 && (
+        <div className="mt-3">
+          <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 6h16M4 12h16M4 18h10"/>
+            </svg>
+            Vocabulary
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+            {textOnlyDrills.map((drill, i) => (
+              <div
+                key={drill.id || `text-${i}`}
+                className="rounded-md bg-muted/40 px-2.5 py-2 flex items-center gap-1.5"
+                data-testid={`text-vocab-item-${i}`}
+              >
+                <TextAudioPlayButton
+                  text={drill.targetText}
+                  language={language}
+                  size="sm"
+                  variant="ghost"
+                  className="shrink-0"
+                />
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm truncate">{drill.targetText}</p>
+                  <p className="text-xs text-muted-foreground truncate">{drill.prompt}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

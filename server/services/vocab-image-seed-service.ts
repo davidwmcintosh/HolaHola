@@ -810,8 +810,8 @@ export const SCENE_OVERRIDES: Record<string, string> = {
 
   // ── Classroom phrases & intro language — Chapter 1 essentials ───────────────
   // "me llamo" → person warmly introducing themselves
-  'me llamo':                  'a friendly person smiling and pressing one hand lightly to their chest in a self-introduction gesture, warm and welcoming expression, soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, no text no words',
-  'me llamo...':               'a friendly person smiling and pressing one hand lightly to their chest in a self-introduction gesture, warm and welcoming expression, soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, no text no words',
+  'me llamo':                  'a decorative name badge with a floral border and a blank name field, attached to a colorful lanyard, friendly star and heart decorations around the badge, soft watercolor children\'s book illustration style, warm gentle colors, no text no letters no words',
+  'me llamo...':               'a decorative name badge with a floral border and a blank name field, attached to a colorful lanyard, friendly star and heart decorations around the badge, soft watercolor children\'s book illustration style, warm gentle colors, no text no letters no words',
   // "desayunar" / "yo desayuno" → morning breakfast scene
   'desayunar':                 'cozy breakfast table scene with a bowl of cereal, toast, orange juice glass, and a small plant, morning sunlight streaming in through a window, no people, soft watercolor children\'s book illustration style, warm gentle colors, no text no words',
   'el desayuno':               'cozy breakfast table scene with a bowl of cereal, toast, orange juice glass, and a small plant, morning sunlight streaming in through a window, no people, soft watercolor children\'s book illustration style, warm gentle colors, no text no words',
