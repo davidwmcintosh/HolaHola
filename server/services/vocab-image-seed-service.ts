@@ -1173,6 +1173,29 @@ async function fetchTextbookVocab(
 // ── Main seeder ────────────────────────────────────────────────────────────
 
 export async function seedVocabImages(language: string, jobId: string): Promise<void> {
+  // Non-Spanish languages route through CONCEPT_KEY_MAP to existing Spanish anchor
+  // images — the resolver handles that transparently during live sessions.
+  // Seeding them would only generate language-specific DALL-E junk.
+  // Spanish is the ONLY language we generate new images for during bulk seeding.
+  if (language !== 'spanish') {
+    console.log(`[VocabSeed] Skipping image generation for "${language}" — non-Spanish languages use Spanish anchors via CONCEPT_KEY_MAP`);
+    const progress: VocabSeedProgress = {
+      language,
+      status: 'complete',
+      total: 0,
+      processed: 0,
+      cached: 0,
+      generated: 0,
+      skipped: 0,
+      errors: [],
+      currentWord: '',
+      startedAt: new Date().toISOString(),
+      finishedAt: new Date().toISOString(),
+    };
+    vocabSeedJobs.set(jobId, progress);
+    return;
+  }
+
   const progress: VocabSeedProgress = {
     language,
     status: 'running',
