@@ -11763,6 +11763,9 @@ Return ONLY the ${targetLanguage} phrase:`;
       const characterIntro = language ? LANGUAGE_CHARACTER_INTROS[language] : undefined;
       const fullConcept = buildGenerationConcept(word.trim(), sceneOverride, word.trim(), undefined, language, characterIntro);
       const generationType = isSceneConcept(word.trim(), fullConcept) ? 'infographic' : 'image';
+      console.log(`[PreviewFix] word="${word}" overrideKey="${wordOverrideKey}" sceneOverride=${sceneOverride ? JSON.stringify(sceneOverride.substring(0,80)) : 'NONE'} generationType=${generationType}`);
+      console.log(`[PreviewFix] fullConcept="${fullConcept.substring(0,120)}"`);
+
 
       // Resolve anchor image for scene previews (same logic as normal generation)
       let anchorImageUrl: string | undefined;

@@ -107,6 +107,7 @@ async function generateWithGptImage(
   // Text-only gpt-image-1 with the correct style description is more reliable.
   if (!b64) {
     console.log('[VisualContent] Using text-only gpt-image-1 generate');
+    console.log('[VisualContent] Full prompt (first 200 chars):', basePrompt.substring(0, 200));
     const genResponse = await (client.images as any).generate({
       model: 'gpt-image-1',
       prompt: basePrompt,
