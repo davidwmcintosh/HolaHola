@@ -185,26 +185,18 @@ function InlineLessonContent({ lessonId, lessonName, language }: {
 // ── Chapter-level vocab section ───────────────────────────────────────────────
 // Shows VisualVocabGrid for each section that has vocab drills, all unified
 // under a single "Chapter Vocabulary" header.
-
-const LANG_SPECIFIC_NUMBER_TYPES = new Set([
-  'ja_numbers', 'ko_numbers', 'zh_numbers', 'he_numbers',
-  'es_numbers', 'fr_numbers', 'de_numbers', 'it_numbers', 'pt_numbers', 'en_numbers',
-]);
+// Note: number_dictation drills are already excluded by the per-drill itemType
+// filter below, so no chapter-level suppression is needed.
 
 function ChapterVocabSection({
   sections,
   language,
-  chapterTitle,
+  chapterTitle: _chapterTitle,
 }: {
   sections: Section[];
   language: string;
   chapterTitle: string;
 }) {
-  const chapterRefType = classifyGrammarType(chapterTitle, language);
-  const suppressAll = LANG_SPECIFIC_NUMBER_TYPES.has(chapterRefType ?? '');
-
-  if (suppressAll) return null;
-
   const sectionsWithVocab = sections.filter(s => {
     if (!s.drills || s.drills.length === 0) return false;
     const vocabDrills = s.drills.filter(d =>
