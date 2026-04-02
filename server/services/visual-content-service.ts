@@ -113,11 +113,12 @@ async function generateWithGptImage(
         const anchorBuf = Buffer.from(await anchorRes.arrayBuffer());
         const anchorFile = await toFile(anchorBuf, 'anchor.jpg', { type: 'image/jpeg' });
 
+        // When anchor is present, let the image do the heavy lifting on style.
+        // Keep the text prompt minimal — just the scene content + critical no-text rule.
         const anchoredPrompt =
-          `Using the art style, color palette, character visual designs, and lighting from the reference image as a precise guide, ` +
-          `create a new scene: ${request.concept}. ` +
-          `Match the illustration style exactly — same painterly brushwork, same character proportions, same warm golden lighting and color palette. ` +
-          `${style}.`;
+          `Create a new illustration in exactly the same art style, character designs, color palette, ` +
+          `and lighting as the reference image. New scene: ${request.concept}. ` +
+          NO_TEXT_INSTRUCTION;
 
         console.log('[VisualContent] Using anchor-seeded gpt-image-1 edit');
         const editResponse = await (client.images as any).edit({

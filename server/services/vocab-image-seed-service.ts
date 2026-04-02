@@ -388,7 +388,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'encantado':          `${CHAR.ES.secondary} placing his hand on his chest and giving a small warm bow of greeting with a delighted smile`,
   'encantada':          `${CHAR.ES.primary} placing her hand on her chest and giving a small warm bow of greeting with a warm smile`,
   'como estas':         `${CHAR.ES.primary} smiling warmly and gesturing openly toward ${CHAR.ES.secondary} who stands directly in front of her on a sunny sidewalk, both facing each other in friendly conversation`,
-  'como esta':          `Two people on a sunny sidewalk: ${CHAR.ES.primary} extending a polite open-hand greeting, and beside her ${CHAR.ES.abuela} smiling back with gentle warmth — a respectful exchange between a young woman and an elderly grandmother`,
+  'como esta':          `a young Latina woman in a blue shirt warmly greeting an elderly silver-haired grandmother on a sunny sidewalk, the grandmother wearing a floral blouse and glasses, smiling back with gentle warmth — two people, clearly different generations`,
   'como esta usted':    `${CHAR.ES.primary} in a smart-casual setting extending a polite open-hand greeting gesture toward ${CHAR.ES.secondary}, a formal respectful exchange, warm indoor setting`,
   'bien':               SPLIT('bien', 'a cheerful person giving a big thumbs-up with a bright grin, sunny warm background', 'mal', 'a person with slumped shoulders, frowning face, and drooping posture, grey cool background'),
   'estoy bien':         SPLIT('bien', `${CHAR.ES.primary} giving a big thumbs-up with a beaming grin under a bright sun`, 'mal', `${CHAR.ES.primary} with slumped shoulders, a downcast frown, and a rain cloud overhead, grey cool background`),
