@@ -1220,6 +1220,10 @@ export async function seedVocabImages(language: string, jobId: string): Promise<
               description: word,
               translation: translation !== word ? translation : undefined,
               scene: sceneOverride,
+              // Non-Spanish languages must resolve via CONCEPT_KEY_MAP to existing
+              // Spanish anchors — block DALL-E so a missing map entry never creates
+              // language-specific junk images during bulk seeding.
+              seederMode: true,
             });
 
             if (result.source === 'cache') {

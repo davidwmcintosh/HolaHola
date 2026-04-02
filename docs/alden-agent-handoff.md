@@ -1,5 +1,35 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Thu, Apr 2, 2026 (session 20 — seeder guard + CONCEPT_KEY_MAP gap-fill + sports images fixed)
+
+### What was done
+
+#### 1. Sports anchor images marked reviewed + human-readable titles
+Three sports images that were seeded with `is_reviewed=false` were updated via SQL:
+- `Basketball (baloncesto)` — `vocab_spanish_baloncesto`, reviewed=true
+- `Tennis (tenis)` — `vocab_spanish_tenis`, reviewed=true
+- `Sports / Sport (deporte)` — `vocab_spanish_deporte`, reviewed=true
+Now visible in the admin library under all filter states.
+
+#### 2. `generate-sports-anchors.ts` fixed for future use
+The script now inserts new anchor images with `is_reviewed=true` and human-readable `title`/`description` fields from the start (instead of the raw cache key as the title).
+
+#### 3. CONCEPT_KEY_MAP expanded — directions + lawyer
+New entries added to `server/services/vocabulary-image-resolver.ts`:
+- **Directions** — left/right in all 9 languages → `vocab_spanish_izquierda` / `vocab_spanish_derecha` (both anchors already existed with 12–19 uses each)
+- **Lawyer** — avocat/Anwalt/avvocato/advogado etc. in all 9 languages → `vocab_spanish_abogado` (anchor already existed)
+
+#### 4. Runaway seeder guard implemented
+**Root cause of the April 2 junk-image problem**: `seedAllVocabImages` was seeding all 9 languages; for non-Spanish words that weren't in CONCEPT_KEY_MAP, the resolver fell through to DALL-E and generated language-specific images (FR/DE/PT/IT/etc junk).
+
+**Fix applied in two files**:
+- `server/services/vocabulary-image-resolver.ts`: added `seederMode?: boolean` to `VocabImageRequest`. When `seederMode=true` AND language is not Spanish, DALL-E generation is skipped at BOTH generation points (concept-key path and language-specific path) — returns placeholder instead.
+- `server/services/vocab-image-seed-service.ts`: `seedVocabImages` now passes `seederMode: true` to every `resolveVocabularyImage` call.
+
+**Effect**: Seeding French, German, Portuguese, Italian, Japanese, Korean, Mandarin, Hebrew now ONLY produces cache hits (routing to Spanish anchors via CONCEPT_KEY_MAP) or silently skips (no DALL-E, no new images). On-demand generation during live student sessions is unaffected — `seederMode` is only set by the seeder.
+
+---
+
 ## Session Summary — Thu, Apr 2, 2026 (session 19b — vocabulary image library audit & cleanup)
 
 ### What was done

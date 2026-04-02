@@ -19,6 +19,14 @@ export interface VocabImageRequest {
   translation?: string; // English meaning — used as generation hint for non-English words
   conversationId?: string;
   userId?: string;
+  /**
+   * When true (set by the batch seeder), DALL-E generation is blocked for any
+   * language other than Spanish.  All non-Spanish words should resolve via
+   * CONCEPT_KEY_MAP to an existing Spanish anchor — if they miss the map,
+   * they get a placeholder rather than generating a language-specific image.
+   * This prevents runaway generation of FR/DE/PT/etc images during bulk seeds.
+   */
+  seederMode?: boolean;
 }
 
 export interface VocabImageResult {
@@ -2381,6 +2389,43 @@ const CONCEPT_KEY_MAP: Record<string, string> = {
   'スポーツ':       'vocab_spanish_deporte', // JA
   '스포츠':        'vocab_spanish_deporte', // KO
   '运动':         'vocab_spanish_deporte', // ZH
+
+  // ── Directions ────────────────────────────────────────────────────────────────
+  // left (izquierda) — anchor exists in DB
+  'left':        'vocab_spanish_izquierda', // EN
+  'gauche':      'vocab_spanish_izquierda', // FR
+  'links':       'vocab_spanish_izquierda', // DE
+  'sinistra':    'vocab_spanish_izquierda', // IT
+  'esquerda':    'vocab_spanish_izquierda', // PT
+  'ひだり':        'vocab_spanish_izquierda', // JA
+  '左':           'vocab_spanish_izquierda', // JA/ZH
+  '왼쪽':         'vocab_spanish_izquierda', // KO
+  '左边':         'vocab_spanish_izquierda', // ZH
+
+  // right (derecha) — anchor exists in DB
+  'right':       'vocab_spanish_derecha', // EN
+  'droite':      'vocab_spanish_derecha', // FR
+  'rechts':      'vocab_spanish_derecha', // DE
+  'destra':      'vocab_spanish_derecha', // IT
+  'direita':     'vocab_spanish_derecha', // PT
+  'みぎ':          'vocab_spanish_derecha', // JA
+  '右':           'vocab_spanish_derecha', // JA/ZH
+  '오른쪽':        'vocab_spanish_derecha', // KO
+  '右边':         'vocab_spanish_derecha', // ZH
+
+  // ── Professions (additional) ───────────────────────────────────────────────────
+  // lawyer (abogado) — anchor exists in DB
+  'lawyer':      'vocab_spanish_abogado', // EN
+  'attorney':    'vocab_spanish_abogado', // EN alt
+  'avocat':      'vocab_spanish_abogado', // FR
+  'anwalt':      'vocab_spanish_abogado', // DE (Anwalt)
+  'rechtsanwalt':'vocab_spanish_abogado', // DE formal
+  'avvocato':    'vocab_spanish_abogado', // IT
+  'advogado':    'vocab_spanish_abogado', // PT
+  'べんごし':       'vocab_spanish_abogado', // JA
+  '弁護士':        'vocab_spanish_abogado', // JA
+  '변호사':        'vocab_spanish_abogado', // KO
+  '律师':         'vocab_spanish_abogado', // ZH
 };
 
 /**
@@ -2589,7 +2634,7 @@ function isSceneConcept(word: string, scene?: string): boolean {
 export async function resolveVocabularyImage(
   request: VocabImageRequest,
 ): Promise<VocabImageResult> {
-  const { word, language, description = word, scene, translation, userId } = request;
+  const { word, language, description = word, scene, translation, userId, seederMode } = request;
 
   // Check if this word maps to a shared cross-language concept key
   const normalizedForConcept = normalizeWord(word);
@@ -2665,6 +2710,15 @@ export async function resolveVocabularyImage(
         } catch (_) { /* cache save failure is non-fatal */ }
         return { imageUrl: svgUrl, source: 'ai', word, description };
       }
+    }
+
+    // Seeder-mode guard: non-Spanish languages should ONLY hit existing Spanish anchors
+    // via CONCEPT_KEY_MAP — if we reach here it means the concept anchor hasn't been
+    // generated yet.  In seeder-mode we skip generation and return a placeholder so
+    // we don't accidentally create non-Spanish images under shared concept keys.
+    if (seederMode && language !== 'spanish') {
+      console.log(`[VocabImage] Seeder mode — skipping concept generation for "${word}" (${language}), anchor not yet seeded`);
+      return { imageUrl: getPlaceholderUrl(word), source: 'placeholder', word, description };
     }
 
     // Use SCENE_OVERRIDES via dynamic import (avoids circular dependency) so even
@@ -2772,6 +2826,16 @@ export async function resolveVocabularyImage(
       } catch (_) { /* cache save failure is non-fatal */ }
       return { imageUrl: svgUrl, source: 'ai', word, description: displayTranslation };
     }
+  }
+
+  // ── Seeder-mode guard ─────────────────────────────────────────────────────
+  // Non-Spanish languages should always resolve to a Spanish anchor via
+  // CONCEPT_KEY_MAP.  If we reach this point during a batch seed it means
+  // the word has no map entry — generating a language-specific image here
+  // would create exactly the runaway FR/DE/PT junk-image problem.  Skip.
+  if (seederMode && language !== 'spanish') {
+    console.log(`[VocabImage] Seeder mode — skipping DALL-E for "${word}" (${language}), no CONCEPT_KEY_MAP entry`);
+    return { imageUrl: getPlaceholderUrl(word), source: 'placeholder', word, description };
   }
 
   // ── 2. Generate with DALL-E 3 (watercolor style) ────────────────────────

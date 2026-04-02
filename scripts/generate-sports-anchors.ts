@@ -119,9 +119,14 @@ async function main() {
       await db.execute(sql`UPDATE media_files SET url = ${url}, image_source = 'ai_generated' WHERE search_query = ${entry.cacheKey}`);
       console.log(`  ↻ Updated existing row: ${entry.cacheKey}`);
     } else {
+      const humanTitle = entry.cacheKey === 'vocab_spanish_baloncesto' ? 'Basketball (baloncesto)'
+                       : entry.cacheKey === 'vocab_spanish_tenis'       ? 'Tennis (tenis)'
+                       : entry.cacheKey === 'vocab_spanish_deporte'     ? 'Sports / Sport (deporte)'
+                       : entry.cacheKey;
+      const humanDesc = `Vocabulary anchor image for ${humanTitle} — shared across all 9 languages`;
       await db.execute(sql`
-        INSERT INTO media_files (id, media_type, url, filename, mime_type, title, description, tags, language, image_source, search_query, target_word, is_reviewed, usage_count)
-        VALUES (gen_random_uuid(), 'image', ${url}, ${entry.destFilename}, 'image/png', ${entry.cacheKey}, ${entry.cacheKey}, ${tagsLiteral}, 'spanish', 'ai_generated', ${entry.cacheKey}, ${entry.cacheKey}, false, 0)
+        INSERT INTO media_files (id, media_type, url, filename, mime_type, title, description, tags, language, image_source, search_query, target_word, is_reviewed, reviewed_at, usage_count)
+        VALUES (gen_random_uuid(), 'image', ${url}, ${entry.destFilename}, 'image/png', ${humanTitle}, ${humanDesc}, ${tagsLiteral}, 'spanish', 'ai_generated', ${entry.cacheKey}, ${entry.cacheKey}, true, NOW(), 0)
       `);
       console.log(`  ✓ Seeded: ${entry.cacheKey}`);
     }
