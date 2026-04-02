@@ -1,10 +1,12 @@
 /**
  * Visual Content Generation Service
- * Integrates with Gemini Imagen for style-consistent educational visuals.
- * All images use the same watercolor illustrated style as the prop zone assets.
+ * Uses gpt-image-1 for style-consistent educational visuals.
+ * Scene images (characters) can be seeded with a per-language anchor image
+ * so the model can reference actual character faces/style — solving the
+ * "wrong character / style drift" problem that plagued DALL-E 3 text-only prompts.
  */
 
-import OpenAI from 'openai';
+import OpenAI, { toFile } from 'openai';
 import { uploadPublicBuffer } from './image-storage';
 
 export interface VisualGenerationRequest {
@@ -14,6 +16,13 @@ export interface VisualGenerationRequest {
   style?: string;
   targetLanguage?: string;
   educationalContext?: string;
+  /**
+   * Optional URL of an existing high-quality image that establishes the art style
+   * and character design for this generation.  When present (and type is
+   * 'infographic'), the service calls images.edit so gpt-image-1 can reference
+   * the visual style directly.  Falls back to text-only if the fetch fails.
+   */
+  anchorImageUrl?: string;
 }
 
 export interface VisualGenerationResult {
@@ -30,7 +39,6 @@ export interface VisualGenerationResult {
   };
 }
 
-// Shared style — soft watercolor children's book illustration used across all generated assets
 const NO_TEXT_INSTRUCTION =
   'absolutely no text, no letters, no numbers, no words, no handwriting, no captions, ' +
   'no labels, no symbols, no glyphs, no typography, no writing of any kind anywhere in the image';
@@ -64,34 +72,78 @@ function getDallEClient(): OpenAI | null {
   return new OpenAI({ apiKey: key });
 }
 
-async function generateWithDallE(
+/**
+ * Generate an image using gpt-image-1.
+ *
+ * For scene images (type='infographic') with an anchorImageUrl, calls
+ * images.edit so the model can reference the existing character/style.
+ * For all other cases (props, or when no anchor is available) uses
+ * images.generate with gpt-image-1 which follows character-description
+ * prompts far more accurately than DALL-E 3.
+ *
+ * gpt-image-1 always returns b64_json — no response_format needed.
+ */
+async function generateWithGptImage(
   request: VisualGenerationRequest,
 ): Promise<{ imageUrl: string }> {
   const client = getDallEClient();
   if (!client) throw new Error('OPENAI_API_KEY not set');
 
-  const style = request.type === 'infographic' ? SCENE_STYLE : PROP_STYLE;
-  const prompt = request.type === 'infographic'
+  const isScene = request.type === 'infographic';
+  const style = isScene ? SCENE_STYLE : PROP_STYLE;
+  const basePrompt = isScene
     ? `Digital cartoon illustration of a scene: ${request.concept}. ${style}.`
     : `Digital cartoon illustration of: ${request.concept}. ${style}.`;
 
-  const response = await client.images.generate({
-    model: 'dall-e-3',
-    prompt,
-    n: 1,
-    size: '1024x1024',
-    quality: 'standard',
-    response_format: 'url',
-  });
+  let b64: string | undefined;
 
-  const imageUrl = response.data?.[0]?.url;
-  if (!imageUrl) throw new Error('DALL-E returned no image URL');
+  // ── Anchor-seeded edit (scene images with a known-good reference) ──────────
+  if (isScene && request.anchorImageUrl) {
+    try {
+      const anchorRes = await fetch(request.anchorImageUrl);
+      if (anchorRes.ok) {
+        const anchorBuf = Buffer.from(await anchorRes.arrayBuffer());
+        const anchorFile = await toFile(anchorBuf, 'anchor.jpg', { type: 'image/jpeg' });
 
-  // Download the image from the temporary URL
-  const fetchRes = await fetch(imageUrl);
-  if (!fetchRes.ok) throw new Error(`Failed to download generated image: ${fetchRes.status}`);
-  const buf = Buffer.from(await fetchRes.arrayBuffer());
+        const anchoredPrompt =
+          `Using the art style, color palette, and character visual designs from the reference image as a precise guide, ` +
+          `create a new scene: ${request.concept}. ` +
+          `Match the illustration style exactly — same line weight, same character proportions, same warm color palette. ` +
+          `${style}.`;
 
+        console.log('[VisualContent] Using anchor-seeded gpt-image-1 edit');
+        const editResponse = await (client.images as any).edit({
+          model: 'gpt-image-1',
+          image: anchorFile,
+          prompt: anchoredPrompt,
+          n: 1,
+          size: '1024x1024',
+        });
+        b64 = editResponse.data?.[0]?.b64_json ?? undefined;
+      } else {
+        console.warn(`[VisualContent] Anchor fetch returned ${anchorRes.status}, falling back to text-only`);
+      }
+    } catch (anchorErr: any) {
+      console.warn('[VisualContent] Anchor-seeded edit failed, falling back to text-only:', anchorErr.message);
+    }
+  }
+
+  // ── Text-only gpt-image-1 (props, or when anchor fetch/edit failed) ────────
+  if (!b64) {
+    console.log('[VisualContent] Using text-only gpt-image-1 generate');
+    const genResponse = await (client.images as any).generate({
+      model: 'gpt-image-1',
+      prompt: basePrompt,
+      n: 1,
+      size: '1024x1024',
+      quality: 'high',
+    });
+    b64 = genResponse.data?.[0]?.b64_json ?? undefined;
+  }
+
+  if (!b64) throw new Error('gpt-image-1 returned no image data');
+
+  const buf = Buffer.from(b64, 'base64');
   const filename = `visual-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
   const url = await uploadPublicBuffer(filename, buf, 'image/jpeg');
   return { imageUrl: url };
@@ -134,25 +186,29 @@ function generateAccessibilityDescription(concept: string, type: string, data?: 
 }
 
 /**
- * Main function for Daniela and other AI participants to generate visuals.
- * Uses Gemini Imagen for style-consistent watercolor illustrated images.
+ * Main function to generate educational visuals.
+ *
+ * @param anchorImageUrl  Optional URL of a reference image that establishes the
+ *                        art style and character design.  Pass the URL of an
+ *                        existing "known-good" textbook image for the language.
  */
 export async function generateVisual(
   concept: string,
   type: 'image' | 'infographic',
   data?: Record<string, unknown>,
   style?: string,
+  anchorImageUrl?: string,
 ): Promise<VisualGenerationResult> {
-  const request: VisualGenerationRequest = { concept, type, data, style };
+  const request: VisualGenerationRequest = { concept, type, data, style, anchorImageUrl };
   let imageUrl: string;
   let provider: string;
 
   try {
-    const result = await generateWithDallE(request);
+    const result = await generateWithGptImage(request);
     imageUrl = result.imageUrl;
-    provider = 'dall-e-3';
+    provider = anchorImageUrl ? 'gpt-image-1-anchored' : 'gpt-image-1';
   } catch (error) {
-    console.warn('[VisualContent] DALL-E generation failed, falling back to placeholder:', error);
+    console.warn('[VisualContent] gpt-image-1 generation failed, falling back to placeholder:', error);
     imageUrl = generatePlaceholderImage(request).imageUrl;
     provider = 'placeholder';
   }
@@ -166,11 +222,11 @@ export async function generateVisual(
     altText,
     semanticTags,
     accessibilityDescription,
-    conceptAlignment: provider === 'placeholder' ? 0.5 : 0.88,
+    conceptAlignment: provider === 'placeholder' ? 0.5 : 0.92,
     metadata: {
       provider,
       generatedAt: new Date().toISOString(),
-      dimensions: type === 'infographic' ? { width: 1792, height: 1024 } : { width: 1024, height: 1024 },
+      dimensions: type === 'infographic' ? { width: 1024, height: 1024 } : { width: 1024, height: 1024 },
     },
   };
 }
@@ -186,7 +242,7 @@ export async function generateVisualBatch(
   for (let i = 0; i < requests.length; i += batchSize) {
     const batch = requests.slice(i, i + batchSize);
     const batchResults = await Promise.all(
-      batch.map(req => generateVisual(req.concept, req.type, req.data, req.style)),
+      batch.map(req => generateVisual(req.concept, req.type, req.data, req.style, req.anchorImageUrl)),
     );
     results.push(...batchResults);
   }

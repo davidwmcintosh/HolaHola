@@ -11759,14 +11759,24 @@ Return ONLY the ${targetLanguage} phrase:`;
       const wordOverrideKey = normalizeForOverride(word.trim());
       const sceneOverride = (SCENE_OVERRIDES as Record<string, string>)[`${language}:${wordOverrideKey}`]
                             ?? (SCENE_OVERRIDES as Record<string, string>)[wordOverrideKey];
-      const { buildGenerationConcept, isSceneConcept, LANGUAGE_CHARACTER_INTROS } = await import('./services/vocabulary-image-resolver');
+      const { buildGenerationConcept, isSceneConcept, LANGUAGE_CHARACTER_INTROS, LANGUAGE_ANCHOR_CACHE_KEYS } = await import('./services/vocabulary-image-resolver');
       const characterIntro = language ? LANGUAGE_CHARACTER_INTROS[language] : undefined;
       const fullConcept = buildGenerationConcept(word.trim(), sceneOverride, word.trim(), undefined, language, characterIntro);
       const generationType = isSceneConcept(word.trim(), fullConcept) ? 'infographic' : 'image';
 
+      // Resolve anchor image for scene previews (same logic as normal generation)
+      let anchorImageUrl: string | undefined;
+      if (generationType === 'infographic' && language) {
+        const anchorKey = LANGUAGE_ANCHOR_CACHE_KEYS[language];
+        if (anchorKey) {
+          const anchorRecord = await storage.getCachedStockImage(anchorKey);
+          if (anchorRecord?.url) anchorImageUrl = anchorRecord.url;
+        }
+      }
+
       // Generate fresh candidate image (bypasses cache — always new)
       const { generateVisual } = await import('./services/visual-content-service');
-      const result = await generateVisual(fullConcept, generationType);
+      const result = await generateVisual(fullConcept, generationType, undefined, undefined, anchorImageUrl);
 
       // Store under preview key (temporary — not the real cache key)
       await storage.cacheImage({

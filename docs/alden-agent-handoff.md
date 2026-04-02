@@ -1,5 +1,62 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Thu, Apr 2, 2026 (session 22 — gpt-image-1 anchor seeding system + art style overhaul)
+
+### What was done
+
+#### 1. Switched image generation engine: DALL-E 3 → gpt-image-1 with per-language anchor seeding
+
+**Problem**: DALL-E 3 (text-only) consistently drifts on character appearance — generates wrong ages, wrong faces, wrong style. Every new image generation is a lottery. Even with extremely detailed prompts, DALL-E 3 had strong biases toward young attractive characters regardless of "68-year-old grandmother" in the prompt.
+
+**Solution**: `gpt-image-1` with anchor image seeding.
+- For **scene/character images** (`type='infographic'`): system looks up a per-language "anchor" image from the cache (e.g. `vocab_spanish_hola` for Spanish), then calls `images.edit` with that reference image + the text prompt. The model sees the actual character face and art style — not just a description.
+- For **prop images** (`type='image'`): uses `images.generate` with `gpt-image-1` (no anchor needed — object props don't need character consistency).
+- **Fallback**: if the anchor key isn't in the cache or the fetch fails, automatically falls back to text-only `gpt-image-1` (still much better than DALL-E 3 at following prompts).
+
+**Files changed:**
+- `server/services/visual-content-service.ts` — complete rewrite of `generateWithDallE` → `generateWithGptImage`; `generateVisual` now accepts `anchorImageUrl?: string`; uses `toFile` from `openai` to pass anchor as File object to `images.edit`
+- `server/services/vocabulary-image-resolver.ts` — added `LANGUAGE_ANCHOR_CACHE_KEYS` map (one per language); generation call now resolves anchor URL via `storage.getCachedStockImage(anchorKey)` and passes it to `generateVisual`
+- `server/routes.ts` (preview-fix endpoint) — also resolves and passes anchor URL so preview generations match production
+
+#### 2. Art style fixed: "anime-inspired" → "Disney-inspired friendly character art"
+
+"anime-inspired" was causing DALL-E/gpt-image-1 to generate mature/sexualized characters. Changed both `SCENE_STYLE` and `PROP_STYLE` to use "Disney-inspired friendly character art, wholesome family-friendly". All future generations will be wholesome regardless of model.
+
+#### 3. Abuela description fixed: removed possessive "Daniela's"
+
+`CHARACTER_PROFILES.ES.abuela` previously said "Rosa, Daniela's 68-year-old Mexican grandmother..." — the "Daniela's" possessive caused DALL-E/gpt-image-1 to re-invoke Daniela as a third character. Fixed to: "Rosa, a warm 68-year-old Mexican grandmother with short curly silver-white hair, warm brown skin, kind dark eyes behind gold-rimmed glasses, and a white blouse with colorful floral embroidery". Affects all scene overrides that use `${CHAR.ES.abuela}`.
+
+#### 4. buildGenerationConcept injection guard broadened
+
+The `alreadyHasNamedCharacter` check that prevents double-injection now scans the first 120 chars of the concept (was: `startsWith` only). Covers "Two people on a sunny sidewalk: Daniela..." structures.
+
+#### 5. `como esta` scene restructured with explicit two-person framing
+
+`'Two people on a sunny sidewalk: ${CHAR.ES.primary} extending a polite open-hand greeting, and beside her ${CHAR.ES.abuela} smiling back with gentle warmth — a respectful exchange between a young woman and an elderly grandmother'`
+
+### LANGUAGE_ANCHOR_CACHE_KEYS (per language, lives in vocabulary-image-resolver.ts)
+```
+spanish:    'vocab_spanish_hola'
+french:     'vocab_french_bonjour'
+german:     'vocab_german_hallo'
+italian:    'vocab_italian_ciao'
+portuguese: 'vocab_portuguese_ola'
+japanese:   'vocab_japanese_konnichiwa'
+korean:     'vocab_korean_annyeonghaseyo'
+mandarin:   'vocab_mandarin_nihao'
+hebrew:     'vocab_hebrew_shalom'
+english:    'vocab_english_hello'
+```
+To update an anchor, change the cache key in this map to the key of a better image. The anchor must already be in the DB; if not, system gracefully falls back to text-only gpt-image-1.
+
+### State at end of session
+- gpt-image-1 pipeline: ✓ implemented, server running
+- como esta preview: needs retesting with new anchor system
+- Anchor for Spanish: `vocab_spanish_hola` — confirm it's in the DB before first preview attempt
+- toFile availability: ✓ confirmed (typeof function)
+
+---
+
 ## Session Summary — Thu, Apr 2, 2026 (session 21 — buildGenerationConcept character-injection bug fixed + me llamo/horchata/cuánto cuesta SCENE_OVERRIDES)
 
 ### What was done

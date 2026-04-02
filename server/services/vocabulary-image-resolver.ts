@@ -190,6 +190,35 @@ export const LANGUAGE_CHARACTER_INTROS: Record<string, string> = {
   english:    'Emma, a 27-year-old American woman with shoulder-length chestnut hair, light skin, and hazel eyes, wearing a navy blue cardigan and light jeans,',
 };
 
+// ── Per-language anchor image keys ────────────────────────────────────────────
+//
+// When generating a NEW scene image (type=infographic / character scene), the
+// resolver looks up this anchor key in the shared image cache and passes the
+// resulting URL to generateVisual.  The generation service then calls
+// gpt-image-1 images.edit with that reference image so the model can see the
+// actual character face, art style, and color palette — rather than relying on
+// text description alone.
+//
+// The anchor should be a "canonical" image that clearly shows the language's
+// primary character in the correct illustration style.  It must already exist in
+// the cached_stock_images table before any generation runs.  If the key is not
+// in the cache, the system gracefully falls back to text-only gpt-image-1.
+//
+// Best anchors: greeting/farewell images (show the character prominently in the
+// correct style).  Update these keys whenever a better anchor image is approved.
+export const LANGUAGE_ANCHOR_CACHE_KEYS: Record<string, string> = {
+  spanish:    'vocab_spanish_hola',
+  french:     'vocab_french_bonjour',
+  german:     'vocab_german_hallo',
+  italian:    'vocab_italian_ciao',
+  portuguese: 'vocab_portuguese_ola',
+  japanese:   'vocab_japanese_konnichiwa',
+  korean:     'vocab_korean_annyeonghaseyo',
+  mandarin:   'vocab_mandarin_nihao',
+  hebrew:     'vocab_hebrew_shalom',
+  english:    'vocab_english_hello',
+};
+
 // ── Shared concept image cache ────────────────────────────────────────────────
 //
 // Words that refer to the SAME visual concept across all languages share a single
@@ -2846,19 +2875,41 @@ export async function resolveVocabularyImage(
     return { imageUrl: getPlaceholderUrl(word), source: 'placeholder', word, description };
   }
 
-  // ── 2. Generate with DALL-E 3 (watercolor style) ────────────────────────
-  // Inject the language's named character for action/phrase concepts so DALL-E
-  // produces a character-consistent scene rather than an anonymous person.
+  // ── 2. Generate with gpt-image-1 ─────────────────────────────────────────
+  // Inject the language's named character for action/phrase concepts so the
+  // model produces a character-consistent scene rather than an anonymous person.
   // Object nouns (house, dog, book) are not affected — looksLikeActionOrPhrase()
   // returns false for those, so they remain clean prop images.
   const characterIntro = language ? LANGUAGE_CHARACTER_INTROS[language] : undefined;
   const conceptForGeneration = buildGenerationConcept(word, effectiveScene, description, translation, language, characterIntro);
   const generationType = isSceneConcept(word, conceptForGeneration) ? 'infographic' : 'image';
-  console.log(`[VocabImage] Cache miss — generating (${generationType}) for: "${conceptForGeneration}"`);
+
+  // Resolve anchor image URL for scene generations — gives gpt-image-1 a visual
+  // reference for the character's face and illustration style.  Only applied to
+  // scene/character images; prop images don't need character consistency.
+  let anchorImageUrl: string | undefined;
+  if (generationType === 'infographic' && language) {
+    const anchorKey = LANGUAGE_ANCHOR_CACHE_KEYS[language];
+    if (anchorKey) {
+      try {
+        const anchorRecord = await storage.getCachedStockImage(anchorKey);
+        if (anchorRecord?.url) {
+          anchorImageUrl = anchorRecord.url;
+          console.log(`[VocabImage] Anchor resolved: ${anchorKey} → ${anchorImageUrl.slice(0, 60)}…`);
+        } else {
+          console.log(`[VocabImage] Anchor key "${anchorKey}" not in cache — will use text-only generation`);
+        }
+      } catch (anchorLookupErr: any) {
+        console.warn('[VocabImage] Anchor lookup failed:', anchorLookupErr.message);
+      }
+    }
+  }
+
+  console.log(`[VocabImage] Cache miss — generating (${generationType}${anchorImageUrl ? ', anchored' : ''}) for: "${conceptForGeneration}"`);
 
   try {
     const { generateVisual } = await import('./visual-content-service');
-    const result = await generateVisual(conceptForGeneration, generationType);
+    const result = await generateVisual(conceptForGeneration, generationType, undefined, undefined, anchorImageUrl);
 
     try {
       await storage.cacheImage({
