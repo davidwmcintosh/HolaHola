@@ -11761,7 +11761,19 @@ Return ONLY the ${targetLanguage} phrase:`;
                             ?? (SCENE_OVERRIDES as Record<string, string>)[wordOverrideKey];
       const { buildGenerationConcept, isSceneConcept, LANGUAGE_CHARACTER_INTROS, LANGUAGE_ANCHOR_CACHE_KEYS } = await import('./services/vocabulary-image-resolver');
       const characterIntro = language ? LANGUAGE_CHARACTER_INTROS[language] : undefined;
-      const fullConcept = buildGenerationConcept(word.trim(), sceneOverride, word.trim(), undefined, language, characterIntro);
+      const baseConcept = buildGenerationConcept(word.trim(), sceneOverride, word.trim(), undefined, language, characterIntro);
+
+      // Add a random compositional modifier so each "Generate" click produces a
+      // genuinely different framing — prevents near-identical re-renders.
+      const COMPOSITION_VARIANTS = [
+        'medium shot, characters facing each other at a slight angle',
+        'slightly wider establishing shot showing more background',
+        'three-quarter view from a slightly lower angle',
+        'close-medium shot emphasising the characters\' faces and upper bodies',
+        'natural candid framing as if photographed mid-conversation',
+      ];
+      const variant = COMPOSITION_VARIANTS[Math.floor(Math.random() * COMPOSITION_VARIANTS.length)];
+      const fullConcept = `${baseConcept}. Composition: ${variant}.`;
       const generationType = isSceneConcept(word.trim(), fullConcept) ? 'infographic' : 'image';
       console.log(`[PreviewFix] word="${word}" overrideKey="${wordOverrideKey}" sceneOverride=${sceneOverride ? JSON.stringify(sceneOverride.substring(0,80)) : 'NONE'} generationType=${generationType}`);
       console.log(`[PreviewFix] fullConcept="${fullConcept.substring(0,120)}"`);

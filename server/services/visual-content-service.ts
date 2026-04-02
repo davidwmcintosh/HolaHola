@@ -51,17 +51,17 @@ const PROP_STYLE =
   'wholesome family-friendly educational quality, ' +
   NO_TEXT_INSTRUCTION;
 
-// Scene images: semi-realistic digital illustration matching existing textbook art.
-// Style target: premium editorial illustration (Babbel/Rosetta Stone quality) —
-//   realistic proportions, clean outlines, slightly stylized but NOT cartoony or anime.
-//   Sits between a graphic novel and a high-quality textbook illustration.
+// Scene images: warm watercolor illustration matching existing textbook art.
+// Style target: warm watercolor with clean character outlines — soft textured
+//   washes for shading, naturalistic skin tones, realistic body proportions.
+//   NOT cartoony, NOT anime, NOT photorealistic.
 const SCENE_STYLE =
-  'warm semi-realistic digital illustration for language learning — ' +
-  'professional editorial illustration quality like a premium language app (Babbel/Rosetta Stone), ' +
-  'characters have realistic body proportions and natural facial features — NOT exaggerated, NOT cartoony, NOT anime, NO oversized eyes, ' +
-  'clean smooth outlines, soft cel-shading with warm golden light, illustrated backgrounds with architectural or nature detail, ' +
-  'slightly stylized but grounded in realism — the style sits between a detailed graphic novel and a high-quality textbook illustration, ' +
-  'wholesome family-friendly educational content, ' +
+  'warm watercolor illustration for language learning — ' +
+  'soft watercolor shading with clean outlines, naturalistic skin tones, realistic body proportions, ' +
+  'characters look like real people rendered in watercolor — natural facial features, normal-sized eyes, ' +
+  'NOT cartoony, NOT anime, NOT exaggerated expressions, NOT Disney-style — ' +
+  'warm golden ambient light, illustrated architectural or outdoor background with soft watercolor washes, ' +
+  'the style matches professional language-learning textbook art: grounded, warm, human, ' +
   'IMPORTANT: characters should look distinctly different ages when the scene calls for it (young adult vs elderly), ' +
   'IMPORTANT FRAMING: generous headroom — heads fully visible, never cropped at top of frame, ' +
   'position characters in lower two-thirds of canvas so top quarter shows sky or background, ' +
@@ -100,8 +100,8 @@ async function generateWithGptImage(
   const isScene = request.type === 'infographic';
   const style = isScene ? SCENE_STYLE : PROP_STYLE;
   const basePrompt = isScene
-    ? `Painterly educational illustration of a scene: ${request.concept}. ${style}.`
-    : `Painterly educational illustration of: ${request.concept}. ${style}.`;
+    ? `Watercolor illustration of a scene: ${request.concept}. ${style}.`
+    : `Watercolor illustration of: ${request.concept}. ${style}.`;
 
   let b64: string | undefined;
 
