@@ -388,7 +388,8 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'encantado':          `${CHAR.ES.secondary} placing his hand on his chest and giving a small warm bow of greeting with a delighted smile`,
   'encantada':          `${CHAR.ES.primary} placing her hand on her chest and giving a small warm bow of greeting with a warm smile`,
   'como estas':         `${CHAR.ES.primary} smiling warmly and gesturing openly toward ${CHAR.ES.secondary} who stands directly in front of her on a sunny sidewalk, both facing each other in friendly conversation`,
-  'como esta':          `ONLY TWO people: a young Latina woman in her mid-20s in a blue shirt on the left, and on the right a clearly elderly Mexican grandmother in her late 60s — the grandmother is visibly short and stout with completely white hair, a deeply wrinkled face, and reading glasses perched on her nose, wearing a bright floral embroidered blouse, the two women face each other warmly on a sunny sidewalk, the grandmother noticeably much shorter and older than the young woman`,
+  // NOTE: 'como esta' is language-prefixed because Portuguese shares the same bare key.
+  'spanish:como esta':  `ONLY TWO people: a young Latina woman in her mid-20s in a blue shirt on the left, and on the right a clearly elderly Mexican grandmother in her late 60s — the grandmother is visibly short and stout with completely white hair, a deeply wrinkled face, and reading glasses perched on her nose, wearing a bright floral embroidered blouse, the two women face each other warmly on a sunny sidewalk, the grandmother noticeably much shorter and older than the young woman`,
   'como esta usted':    `${CHAR.ES.primary} in a smart-casual setting extending a polite open-hand greeting gesture toward ${CHAR.ES.secondary}, a formal respectful exchange, warm indoor setting`,
   'bien':               SPLIT('bien', 'a cheerful person giving a big thumbs-up with a bright grin, sunny warm background', 'mal', 'a person with slumped shoulders, frowning face, and drooping posture, grey cool background'),
   'estoy bien':         SPLIT('bien', `${CHAR.ES.primary} giving a big thumbs-up with a beaming grin under a bright sun`, 'mal', `${CHAR.ES.primary} with slumped shoulders, a downcast frown, and a rain cloud overhead, grey cool background`),
@@ -481,7 +482,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'desculpe':           `${CHAR.PT.primary} with a sincere apologetic expression placing hand on heart, stepping back with a sorry gesture, warm bright setting`,
   'oi':                 `${CHAR.PT.primary} spotting ${CHAR.PT.secondary} across a bright tropical street and waving a casual cheerful "oi!" with a big friendly smile, colourful buildings behind them`,
   'tchau':              `${CHAR.PT.primary} and ${CHAR.PT.secondary} parting with a casual wave and warm "tchau" smiles at a sunny bus stop, bright tropical setting`,
-  'como esta':          `${CHAR.PT.primary} in a warm polite posture facing ${CHAR.PT.secondary}, extending a courteous open-hand gesture with a respectful friendly questioning smile, bright setting`,
+  'portuguese:como esta': `${CHAR.PT.primary} in a warm polite posture facing ${CHAR.PT.secondary}, extending a courteous open-hand gesture with a respectful friendly questioning smile, bright setting`,
   'estou bem obrigado': `${CHAR.PT.secondary} giving a cheerful thumbs-up with a warm content smile, radiating a happy "estou bem, obrigado" expression, bright sunny background`,
   'prazer em conhece-lo': `${CHAR.PT.primary} and ${CHAR.PT.secondary} shaking hands warmly in a first meeting, both beaming with genuine "prazer em conhecê-lo" pleasure, bright cheerful setting`,
 
@@ -1300,8 +1301,11 @@ export async function seedVocabImages(language: string, jobId: string): Promise<
               return;
             }
 
-            // Check for a hand-crafted scene override (numbers, days, etc.)
-            const sceneOverride = SCENE_OVERRIDES[normalizeForOverride(word)];
+            // Check for a hand-crafted scene override — prefer language-prefixed key
+            // (e.g. 'spanish:como esta') so languages sharing bare keys don't collide.
+            const normalizedWord = normalizeForOverride(word);
+            const sceneOverride = SCENE_OVERRIDES[`${language}:${normalizedWord}`]
+                                ?? SCENE_OVERRIDES[normalizedWord];
 
             const result = await resolveVocabularyImage({
               word,
