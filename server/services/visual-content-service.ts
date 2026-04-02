@@ -51,15 +51,17 @@ const PROP_STYLE =
   'wholesome family-friendly educational quality, ' +
   NO_TEXT_INSTRUCTION;
 
-// Scene images: warm DIGITAL ILLUSTRATION matching existing textbook art.
-// Style target: Disney/DreamWorks animated feature film concept art —
-//   smooth clean character outlines, stylized expressive faces, NOT photorealistic, NOT oil painting.
+// Scene images: semi-realistic digital illustration matching existing textbook art.
+// Style target: premium editorial illustration (Babbel/Rosetta Stone quality) —
+//   realistic proportions, clean outlines, slightly stylized but NOT cartoony or anime.
+//   Sits between a graphic novel and a high-quality textbook illustration.
 const SCENE_STYLE =
-  'warm digital illustration for language learning, ' +
-  'semi-realistic stylized characters with smooth clean outlines and large expressive eyes, ' +
-  'soft warm color palette with golden light, flat-to-soft shading with gentle depth — NOT oil painting, NOT photorealistic, ' +
-  'character design quality similar to modern animated feature films (Disney/DreamWorks), ' +
-  'illustrated background with architectural or nature detail, wholesome family-friendly educational content, ' +
+  'warm semi-realistic digital illustration for language learning — ' +
+  'professional editorial illustration quality like a premium language app (Babbel/Rosetta Stone), ' +
+  'characters have realistic body proportions and natural facial features — NOT exaggerated, NOT cartoony, NOT anime, NO oversized eyes, ' +
+  'clean smooth outlines, soft cel-shading with warm golden light, illustrated backgrounds with architectural or nature detail, ' +
+  'slightly stylized but grounded in realism — the style sits between a detailed graphic novel and a high-quality textbook illustration, ' +
+  'wholesome family-friendly educational content, ' +
   'IMPORTANT: characters should look distinctly different ages when the scene calls for it (young adult vs elderly), ' +
   'IMPORTANT FRAMING: generous headroom — heads fully visible, never cropped at top of frame, ' +
   'position characters in lower two-thirds of canvas so top quarter shows sky or background, ' +
