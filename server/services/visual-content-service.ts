@@ -43,18 +43,21 @@ const NO_TEXT_INSTRUCTION =
   'absolutely no text, no letters, no numbers, no words, no handwriting, no captions, ' +
   'no labels, no symbols, no glyphs, no typography, no writing of any kind anywhere in the image';
 
-// Vocabulary props: single object, white background, clean silhouette (children's book card feel)
+// Vocabulary props: single object, white background, clean silhouette
 const PROP_STYLE =
-  'vibrant colorful children\'s educational cartoon illustration style, Disney-inspired friendly character art, clean bold ink outlines, ' +
-  'warm saturated color palette, smooth cel-shading, object centred and prominent on a clean pure white background, ' +
-  'no background elements, clear and recognisable silhouette, wholesome family-friendly educational quality, ' +
+  'warm painterly digital illustration, soft natural lighting, slightly stylized friendly characters, ' +
+  'rich warm color palette with golden tones, semi-realistic proportions, textured brushwork with depth, ' +
+  'object centred and prominent on a clean pure white background, clear recognisable silhouette, ' +
+  'wholesome family-friendly educational quality, ' +
   NO_TEXT_INSTRUCTION;
 
-// Scene backgrounds: same wholesome cartoon style as props but with full illustrated environment
+// Scene images: warm painterly style matching existing textbook illustrations
+// (semi-realistic, painterly brushwork, warm light — NOT flat vector cartoon)
 const SCENE_STYLE =
-  'vibrant colorful children\'s educational cartoon illustration style, Disney-inspired friendly character art, clean bold ink outlines, ' +
-  'warm saturated color palette, smooth cel-shading, expressive wholesome characters with bright friendly eyes, ' +
-  'detailed colorful illustrated backgrounds, wholesome family-friendly language learning content, suitable for all ages, ' +
+  'warm painterly digital illustration style, soft natural golden lighting, slightly stylized expressive characters, ' +
+  'rich warm color palette, semi-realistic proportions, textured brushwork with depth and atmosphere, ' +
+  'detailed illustrated backgrounds with warmth and mood, wholesome family-friendly language learning content, ' +
+  'IMPORTANT: characters should look distinctly different ages when the scene calls for it (young adult vs elderly), ' +
   'IMPORTANT FRAMING: characters must be composed with generous headroom — heads and faces must be fully visible and never cropped at the top of the frame, ' +
   'position characters in the lower two-thirds of the canvas so the top quarter is clear sky or background, ' +
   NO_TEXT_INSTRUCTION;
@@ -92,23 +95,28 @@ async function generateWithGptImage(
   const isScene = request.type === 'infographic';
   const style = isScene ? SCENE_STYLE : PROP_STYLE;
   const basePrompt = isScene
-    ? `Digital cartoon illustration of a scene: ${request.concept}. ${style}.`
-    : `Digital cartoon illustration of: ${request.concept}. ${style}.`;
+    ? `Painterly educational illustration of a scene: ${request.concept}. ${style}.`
+    : `Painterly educational illustration of: ${request.concept}. ${style}.`;
 
   let b64: string | undefined;
 
   // ── Anchor-seeded edit (scene images with a known-good reference) ──────────
   if (isScene && request.anchorImageUrl) {
     try {
-      const anchorRes = await fetch(request.anchorImageUrl);
+      // Anchor URLs stored in the DB are often relative paths (/api/media/ai-image/...).
+      // fetch() requires an absolute URL, so prepend the local server base when needed.
+      const anchorUrl = request.anchorImageUrl.startsWith('/')
+        ? `http://localhost:5000${request.anchorImageUrl}`
+        : request.anchorImageUrl;
+      const anchorRes = await fetch(anchorUrl);
       if (anchorRes.ok) {
         const anchorBuf = Buffer.from(await anchorRes.arrayBuffer());
         const anchorFile = await toFile(anchorBuf, 'anchor.jpg', { type: 'image/jpeg' });
 
         const anchoredPrompt =
-          `Using the art style, color palette, and character visual designs from the reference image as a precise guide, ` +
+          `Using the art style, color palette, character visual designs, and lighting from the reference image as a precise guide, ` +
           `create a new scene: ${request.concept}. ` +
-          `Match the illustration style exactly — same line weight, same character proportions, same warm color palette. ` +
+          `Match the illustration style exactly — same painterly brushwork, same character proportions, same warm golden lighting and color palette. ` +
           `${style}.`;
 
         console.log('[VisualContent] Using anchor-seeded gpt-image-1 edit');
