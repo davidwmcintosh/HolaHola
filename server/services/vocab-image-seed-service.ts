@@ -128,6 +128,31 @@ const SPLIT = (leftLabel: string, leftDesc: string, rightLabel: string, rightDes
   `RIGHT half (labeled "${rightLabel}" in small text at top): ${rightDesc}. ` +
   `Bright, bold flat design. No clutter, minimal background. Square format.`;
 
+// ────────────────────────────────────────────────────────────────────────────
+// VOCAB IMAGE ARCHITECTURE — TWO CATEGORIES:
+//
+// ── 1. CULTURALLY NEUTRAL (shared across all languages) ──────────────────
+//    Concrete objects, numbers, colors, shapes — concepts with one universal
+//    visual meaning regardless of culture or speaker.
+//    → Stored under language-independent "concept_*" keys via CONCEPT_KEY_MAP
+//      in vocabulary-image-resolver.ts; all languages share the SAME anchor image
+//    → Prompt: static PROP description (PROP_STYLE, no character needed)
+//    Example: the number 2 → "concept_num_2" is reused in ES, IT, FR, DE, etc.
+//
+// ── 2. CULTURALLY DRIVEN (character-specific, one image per language) ────
+//    Actions, greetings, introductions, situational dialogue — concepts where
+//    the LANGUAGE'S CHARACTER and cultural framing matter.
+//    → NOT in CONCEPT_KEY_MAP — each language auto-generates on first request
+//    → SCENE_OVERRIDES entries for these MUST be ACTION descriptions (gerunds,
+//      verb phrases, situational descriptions).  NEVER embed a specific
+//      character name — the character is auto-prepended from
+//      LANGUAGE_CHARACTER_INTROS in vocabulary-image-resolver.ts
+//    → Result: Spanish gets Daniela, Italian gets Giulia, French gets Sophie, etc.
+//
+//    GOOD override: "warmly pressing a hand to their chest while introducing themselves"
+//    BAD  override: "Daniela pressing a hand to her chest..."  ← locks to Spanish only!
+// ────────────────────────────────────────────────────────────────────────────
+
 export const SCENE_OVERRIDES: Record<string, string> = {
   // Spanish numbers (0–20)
   'cero':       NUM('0'),
@@ -808,10 +833,36 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'mariscos':        'a rustic seafood platter with shrimp, mussels, and clams arranged on crushed ice, soft watercolor illustration, no people',
   'los mariscos':    'a rustic seafood platter with shrimp, mussels, and clams arranged on crushed ice, soft watercolor illustration, no people',
 
-  // ── Classroom phrases & intro language — Chapter 1 essentials ───────────────
-  // "me llamo" → person warmly introducing themselves
-  'me llamo':                  'a decorative name badge with a floral border and a blank name field, attached to a colorful lanyard, friendly star and heart decorations around the badge, soft watercolor children\'s book illustration style, warm gentle colors, no text no letters no words',
-  'me llamo...':               'a decorative name badge with a floral border and a blank name field, attached to a colorful lanyard, friendly star and heart decorations around the badge, soft watercolor children\'s book illustration style, warm gentle colors, no text no letters no words',
+  // ── Self-introduction phrases — CULTURALLY DRIVEN (one image per language) ─
+  // These are CHARACTER ACTION overrides.  Do NOT embed a character name here —
+  // LANGUAGE_CHARACTER_INTROS in vocabulary-image-resolver.ts prepends the
+  // language's character automatically (Daniela for ES, Giulia for IT, etc.).
+  // Equivalent phrases across all 9 languages share the SAME action description
+  // so every student sees their language's character introducing themselves.
+  //
+  // Spanish
+  'me llamo':                  'warmly pressing a hand to their chest and pointing to themselves with a confident friendly smile, making a self-introduction gesture',
+  'me llamo...':               'warmly pressing a hand to their chest and pointing to themselves with a confident friendly smile, making a self-introduction gesture',
+  'me llamo your name':        'warmly pressing a hand to their chest and pointing to themselves with a confident friendly smile, making a self-introduction gesture',
+  // Italian
+  'mi chiamo':                 'warmly pressing a hand to their chest and pointing to themselves with a confident friendly smile, making a self-introduction gesture',
+  // French
+  'je mappelle':               'warmly pressing a hand to their chest and pointing to themselves with a confident friendly smile, making a self-introduction gesture',
+  'je m appelle':              'warmly pressing a hand to their chest and pointing to themselves with a confident friendly smile, making a self-introduction gesture',
+  // German
+  'ich heisse':                'warmly pressing a hand to their chest and pointing to themselves with a confident friendly smile, making a self-introduction gesture',
+  'ich bin':                   'warmly pressing a hand to their chest and pointing to themselves with a confident friendly smile, making a self-introduction gesture',
+  // Portuguese
+  'me chamo':                  'warmly pressing a hand to their chest and pointing to themselves with a confident friendly smile, making a self-introduction gesture',
+  'meu nome e':                'warmly pressing a hand to their chest and pointing to themselves with a confident friendly smile, making a self-introduction gesture',
+  // English
+  'my name is':                'warmly pressing a hand to their chest and pointing to themselves with a confident friendly smile, making a self-introduction gesture',
+  // Japanese
+  'watashi no namae wa':       'warmly pressing a hand to their chest and pointing to themselves with a confident friendly smile, making a self-introduction gesture',
+  // Korean
+  'je ireumeun':               'warmly pressing a hand to their chest and pointing to themselves with a confident friendly smile, making a self-introduction gesture',
+  // Mandarin
+  'wode mingzi shi':           'warmly pressing a hand to their chest and pointing to themselves with a confident friendly smile, making a self-introduction gesture',
   // "desayunar" / "yo desayuno" → morning breakfast scene
   'desayunar':                 'cozy breakfast table scene with a bowl of cereal, toast, orange juice glass, and a small plant, morning sunlight streaming in through a window, no people, soft watercolor children\'s book illustration style, warm gentle colors, no text no words',
   'el desayuno':               'cozy breakfast table scene with a bowl of cereal, toast, orange juice glass, and a small plant, morning sunlight streaming in through a window, no people, soft watercolor children\'s book illustration style, warm gentle colors, no text no words',
@@ -844,6 +895,18 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'la enfermera':    'a kind nurse in scrubs holding a clipboard with a gentle expression, soft watercolor illustration',
   'el hospital':     'a clean bright hospital building with a red cross sign, soft watercolor illustration',
   'la farmacia':     'a bright pharmacy storefront with colorful medicine boxes visible through the window, soft watercolor illustration',
+
+  // ── Ordering & shopping — CULTURALLY DRIVEN ────────────────────────────
+  // Character-action overrides — character auto-injected per language.
+  // "¿Cuánto cuesta?" — asking the price at a market
+  'cuanto cuesta':   'pointing inquisitively at a handcrafted item on a colorful outdoor market stall with a curious expression, vibrant produce and goods visible in the background',
+  // Drinks ordering
+  // NOTE: "una cerveza" replaced with "una horchata" — a culturally authentic
+  // non-alcoholic rice-milk drink served at Mexican and Latin American markets.
+  // Update curriculum drill items to "una horchata, por favor" when revising lessons.
+  'una cerveza por favor':  'a tall sweating glass of creamy pale horchata with ice cubes and a cinnamon stick resting on the rim, small bowl of ground cinnamon and a few grains of rice beside it, warm adobe-toned cantina table, soft watercolor children\'s book illustration style, no people, no text',
+  'una horchata por favor': 'a tall sweating glass of creamy pale horchata with ice cubes and a cinnamon stick resting on the rim, small bowl of ground cinnamon and a few grains of rice beside it, warm adobe-toned cantina table, soft watercolor children\'s book illustration style, no people, no text',
+  'horchata':               'a tall sweating glass of creamy pale horchata with ice cubes and a cinnamon stick resting on the rim, small bowl of ground cinnamon beside it, warm adobe-toned cantina table, soft watercolor children\'s book illustration style, no people, no text',
 };
 
 /**

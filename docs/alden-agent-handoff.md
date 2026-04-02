@@ -1,5 +1,73 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Thu, Apr 2, 2026 (session 21 — buildGenerationConcept character-injection bug fixed + me llamo/horchata/cuánto cuesta SCENE_OVERRIDES)
+
+### What was done
+
+#### 1. Root-cause bug fixed: `buildGenerationConcept` bypassed character injection for SCENE_OVERRIDES
+
+**Bug**: `buildGenerationConcept` had an early-return on line 2933:
+```javascript
+if (scene && scene.trim().length > 0) return scene.trim();  // ← BUG: bypassed character injection
+```
+This meant ANY word with a SCENE_OVERRIDE was generated WITHOUT Daniela/Giulia/Sophie/etc. — producing anonymous-person or prop images where character-specific scenes were expected.
+
+**Fix applied in `vocabulary-image-resolver.ts`** (line ~2938):
+- Removed the early return; now ALL scene descriptions flow through the character injection gate.
+- Added `isPropDescription = /^(a |an |the )/i.test(concept)` guard so PROP still-life descriptions (starting with "a/an/the + noun") skip character injection.
+- Result: action-description SCENE_OVERRIDES ("warmly pressing a hand to their chest...") correctly inject Daniela for Spanish, Giulia for Italian, etc.
+- Confirmed by log: `generating (infographic) for: "Daniela, a 26-year-old Colombian woman with long dark brown curly hair... warmly pressing a hand to their chest and pointing to themselves..."`
+
+#### 2. PROP vs ACTION SCENE_OVERRIDE rule formalized
+
+**Architecture rule**: The `isPropDescription` guard means SCENE_OVERRIDES now self-select into two categories based on their first word:
+- **Starts with "a/an/the"** → PROP description → no character injection (horchata glass, fruit basket, etc.)
+- **Starts with gerund / adverb+gerund / verb** → ACTION description → character auto-injected (me llamo, cuanto cuesta, etc.)
+
+This aligns with the CULTURALLY NEUTRAL vs CULTURALLY DRIVEN architecture already documented in `SCENE_OVERRIDES` header comment.
+
+#### 3. `me llamo` SCENE_OVERRIDE replaced — lanyard → character action
+
+**Old** (static prop — wrong for a phrase, bypassed character injection anyway due to the bug):
+```
+'a decorative name badge with a floral border...'
+```
+**New** (character action — Daniela points to herself):
+```
+'warmly pressing a hand to their chest and pointing to themselves with a confident friendly smile, making a self-introduction gesture'
+```
+- Old image deleted from DB; new Daniela image generated and confirmed in logs.
+- Same action description added for cross-language "my name is" equivalents in all 9 languages (`mi chiamo`, `je mappelle`, `ich heisse`, `me chamo`, `my name is`, `watashi no namae wa`, `je ireumeun`, `wode mingzi shi`). Each will get their language's character on first on-demand request.
+
+#### 4. `una cerveza por favor` → horchata
+
+- SCENE_OVERRIDE updated to show a tall glass of horchata with ice, cinnamon stick, and adobe-toned table background (NO people — starts with "a" so prop path applies correctly).
+- Also added `una horchata por favor` and standalone `horchata` keys.
+- Old cerveza DB image deleted; horchata will generate on next lesson browse or seeder arrival at `U`.
+- **Note**: curriculum drill text still says "cerveza" — update to "horchata" as a separate curriculum task when desired.
+
+#### 5. `cuánto cuesta` SCENE_OVERRIDE added + DB duplicates cleaned
+
+- New override: `'pointing inquisitively at a handcrafted item on a colorful outdoor market stall with a curious expression, vibrant produce and goods visible in the background'`
+- This starts with "pointing" (gerund) → ACTION path → Daniela injected.
+- All 3 stale DB entries deleted (`vocab_spanish_cuanto_cuesta` underscore key + 2 AI images from March 26).
+- Word is not in vocabulary_items so seeder won't generate it; will be created on first lesson browse.
+
+#### 6. Architecture documentation added to SCENE_OVERRIDES header
+
+Large comment block at top of `SCENE_OVERRIDES` in `vocab-image-seed-service.ts` formally documents:
+- CULTURALLY NEUTRAL (concept_* shared keys — CONCEPT_KEY_MAP)
+- CULTURALLY DRIVEN (one-per-language — ACTION descriptions, no character names)
+- The PROP vs ACTION naming convention that now drives character injection behavior
+
+### State at end of session
+- `me llamo` image: ✓ Daniela pressing hand to chest (confirmed in log)
+- `cuánto cuesta`: awaiting on-demand generation (no curriculum vocab item)
+- `una cerveza`/horchata: awaiting on-demand generation (still seeder todo for `U` words)
+- `buildGenerationConcept` bug: ✓ fixed — all future SCENE_OVERRIDES with action descriptions will auto-inject the language's character
+
+---
+
 ## Session Summary — Thu, Apr 2, 2026 (session 20 — seeder guard + CONCEPT_KEY_MAP gap-fill + sports images fixed)
 
 ### What was done

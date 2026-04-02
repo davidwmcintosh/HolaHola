@@ -2929,15 +2929,19 @@ function buildGenerationConcept(
   language?: string,
   characterIntro?: string,
 ): string {
-  // Prefer the explicit scene description — most informative for generation
-  if (scene && scene.trim().length > 0) return scene.trim();
-
-  // Derive the core concept from the translation, description, or the word itself
+  // Derive the core concept from the scene override, translation, description, or word itself
   let concept = '';
 
-  // Use English translation as the generation concept when available — avoids DALL-E
-  // misinterpreting foreign words (e.g. "paix" → apple instead of dove/peace symbol)
-  if (translation && translation.trim().length > 0 && translation.trim().toLowerCase() !== word.toLowerCase()) {
+  if (scene && scene.trim().length > 0) {
+    // Scene override is the most informative starting point.
+    // If it describes an ACTION (multi-word / gerund phrase) we still run it through
+    // character injection below so the language's named character is included.
+    // Only static prop descriptions (e.g. "a red apple on a wooden table") bypass
+    // character injection — those will also fail looksLikeActionOrPhrase.
+    concept = scene.trim();
+  } else if (translation && translation.trim().length > 0 && translation.trim().toLowerCase() !== word.toLowerCase()) {
+    // Use English translation as the generation concept when available — avoids DALL-E
+    // misinterpreting foreign words (e.g. "paix" → apple instead of dove/peace symbol)
     concept = translation.trim();
   } else if (description && description !== word && description.trim().length > 0) {
     // Use the description if it adds more context than the word alone
@@ -2958,8 +2962,21 @@ function buildGenerationConcept(
   // If this concept describes an action or multi-word phrase and we have a named
   // character for the language, build a scene description so DALL-E uses that
   // character consistently instead of generating a random anonymous person.
+  // NOTE: Static prop descriptions (e.g. "a tall glass of horchata with ice...") 
+  // that are intentionally character-free will also return true from looksLikeActionOrPhrase
+  // (many words), so those should be phrased as PROP descriptions and tested carefully.
   if (characterIntro && concept && looksLikeActionOrPhrase(concept)) {
-    return `${characterIntro} ${concept}, in a natural everyday setting`;
+    // Only inject a character if the scene is a CHARACTER ACTION, not a PROP/still-life:
+    //   PROP: starts with "a ", "an ", "the " → it's a noun phrase describing an object.
+    //         e.g. "a tall glass of horchata with ice..." → NO character injection.
+    //   ACTION: starts with a gerund, adverb+gerund, or other verb form
+    //         e.g. "warmly pressing a hand to their chest..." → inject character.
+    // The seeder architecture doc calls these "CULTURALLY NEUTRAL" vs "CULTURALLY DRIVEN".
+    const isPropDescription = /^(a |an |the )/i.test(concept);
+    const alreadyHasCharacter = /^(a |an )?(person|woman|man|boy|girl|child)\b/i.test(concept);
+    if (!isPropDescription && !alreadyHasCharacter) {
+      return `${characterIntro} ${concept}, in a natural everyday setting`;
+    }
   }
 
   return concept;
