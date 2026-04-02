@@ -174,18 +174,19 @@ const ALL_ARTICLES = new Set([...SPANISH_ARTICLES, ...FRENCH_ARTICLES]);
 // For isolated object nouns (house, dog, book), no character is needed — the
 // watercolor prop style alone produces consistent results across all languages.
 //
-// These descriptions mirror CHARACTER_PROFILES in vocab-image-seed-service.ts.
-// Kept here to avoid a circular import (resolver → seed service already uses
-// dynamic import for SCENE_OVERRIDES; a static import would create a cycle).
+// Must stay in sync with CHARACTER_PROFILES.primary in vocab-image-seed-service.ts.
+// Kept here (rather than imported) to avoid a circular import — the resolver
+// already uses a dynamic import for SCENE_OVERRIDES from the seed service.
 export const LANGUAGE_CHARACTER_INTROS: Record<string, string> = {
   spanish:    'Daniela, a 28-year-old Latina woman with long wavy dark-brown hair, warm medium-brown skin, and bright brown eyes, wearing a sky-blue short-sleeve blouse and dark jeans,',
-  french:     'Sophie, a 28-year-old French woman with shoulder-length chestnut hair, light skin, and bright hazel eyes, wearing a navy linen blouse,',
-  german:     'Lena, a 27-year-old German woman with medium-length honey-blonde hair, fair skin, and pale blue-grey eyes, wearing a sage green fitted top,',
-  italian:    'Giulia, a 25-year-old Italian woman with long dark wavy hair, light olive skin, and warm brown eyes, wearing a terracotta fitted blouse,',
+  french:     'Sophie, a 27-year-old French woman with chin-length auburn hair, fair skin, and green eyes, wearing a striped navy-and-white Breton top and light trousers,',
+  german:     'Anna, a 26-year-old German woman with straight blonde hair in a ponytail, fair skin, and blue-grey eyes, wearing a forest-green pullover and grey slim-fit trousers,',
+  italian:    'Giulia, a 25-year-old Italian woman with long straight dark-brown hair, warm olive skin, and dark-brown eyes, wearing a terracotta linen blouse and white wide-leg trousers,',
   portuguese: 'Ana, a 27-year-old Brazilian woman with long wavy dark hair, golden-brown skin, and warm brown eyes, wearing a coral short-sleeve fitted blouse tucked into dark tailored wide-leg trousers,',
   japanese:   'Yuki, a 25-year-old Japanese woman with straight shoulder-length black hair, light porcelain skin, and warm dark brown eyes, wearing a soft sage-green blouse and light grey wide-leg trousers,',
-  korean:     'Ji-yeon, a 24-year-old Korean woman with long straight dark brown hair, fair skin, and warm dark eyes, wearing a sky-blue fitted blouse and tailored ivory trousers,',
-  mandarin:   'Mei, a 26-year-old Chinese woman with a neat black bob, light skin, and warm dark eyes, wearing a soft rose-pink blouse and dark wide-leg trousers,',
+  korean:     'Ji-yeon, a 24-year-old Korean woman with long straight black hair, fair skin, and dark brown eyes, wearing a soft pink oversized blouse and white wide-leg trousers,',
+  mandarin:   'Mei, a 26-year-old Chinese woman with long sleek black hair, fair complexion, and warm brown eyes, wearing a teal short-sleeve silk blouse tucked into beige wide-leg trousers,',
+  hebrew:     'Noa, a 26-year-old Israeli woman with long wavy dark brown hair, light olive skin, and warm hazel eyes, wearing a mustard-yellow fitted blouse tucked into dark wide-leg trousers,',
   english:    'Emma, a 27-year-old American woman with shoulder-length chestnut hair, light skin, and hazel eyes, wearing a navy blue cardigan and light jeans,',
 };
 
