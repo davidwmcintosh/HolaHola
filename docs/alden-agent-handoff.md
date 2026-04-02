@@ -1,5 +1,59 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Thu, Apr 2, 2026 (session 19b — vocabulary image library audit & cleanup)
+
+### What was done
+
+#### 1. Full vocabulary image library audit completed
+
+Performed a complete audit of the `media_files` table to understand what images exist, what serves the full 9-language curriculum via CONCEPT_KEY_MAP, and what is junk from the April 1–2 batch seeder runs.
+
+**Key finding**: The CONCEPT_KEY_MAP in `vocabulary-image-resolver.ts` is already extremely comprehensive — it covers numbers, colors, shapes, seasons, weather, 7+ animals, classroom items, 7 clothing types, 14 verbs, 13 body parts, 8 emotions, 15+ adjective pairs, 10 places, 10+ family members. All 9 languages route to existing Spanish anchor images with high usage counts.
+
+**Protected phrase images** (all created in March, high usage, untouched by deletion):
+`por favor` (53 uses), `gracias` (239 uses), `de nada` (96 uses), `buenas noches` (345 uses), `buenas tardes` (344 uses), `buen provecho` (342 uses), `adios` (317 uses), `mucho gusto` (251 uses), `buenos dias` (224 uses), `cuanto cuesta` (216 uses), `bien` (206 uses), `hasta luego` (190 uses), `como estas` (186 uses), `la cuenta` (43 uses)
+
+#### 2. CONCEPT_KEY_MAP expanded with ~200 new entries
+
+New cross-language mappings added to `server/services/vocabulary-image-resolver.ts` (after line 2117), covering:
+- **Transportation** (8 concepts): car, bus, train, airplane, bicycle, boat, subway — all 9 languages now route to existing Spanish anchor images (`vocab_spanish_carro`, `vocab_spanish_autobus`, `vocab_spanish_tren`, `vocab_spanish_avion`, `vocab_spanish_bicicleta`, `vocab_spanish_barco`, `vocab_spanish_metro`)
+- **House/Rooms** (9 concepts): house, bedroom, kitchen, bathroom, living room, door, window, garden, bed — all 9 languages mapped (`vocab_spanish_casa`, `vocab_spanish_dormitorio`, `vocab_spanish_cocina`, `vocab_spanish_bano`, `vocab_spanish_salon`, `vocab_spanish_puerta`, `vocab_spanish_ventana`, `vocab_spanish_jardin`, `vocab_spanish_cama`)
+- **More Clothing** (2 concepts): coat (`vocab_spanish_abrigo`), skirt (`vocab_spanish_falda`)
+- **Health** (3 concepts): doctor (`vocab_spanish_medico`), nurse (`vocab_spanish_enfermera`), medicine/pill (`vocab_spanish_pastilla`)
+- **Sports** (4 concepts): soccer (`vocab_spanish_futbol`), basketball (`vocab_spanish_baloncesto`), tennis (`vocab_spanish_tenis`), sports-general (`vocab_spanish_deporte`)
+
+**Note**: All Spanish anchor images for these categories already existed in the DB from the March 18-19 seeder — the additions just provide the cross-language routing.
+
+#### 3. Pre-generated 3 missing Spanish sports anchor images
+
+`scripts/generate-sports-anchors.ts` created and run to generate:
+- `vocab_spanish_baloncesto` → `vocab_sports_baloncesto.png` (basketball)
+- `vocab_spanish_tenis` → `vocab_sports_tenis.png` (tennis)
+- `vocab_spanish_deporte` → `vocab_sports_deporte.png` (general sports)
+
+All 3 seeded in media_files with `language='spanish'`, `image_source='ai_generated'`.
+
+#### 4. Surgical deletion of ~5,597 junk images
+
+Deleted 3 batches:
+- **4,735** — all April 2 French/German/Portuguese/shared batch seeder images
+- **67** — April 2 Spanish seeder images (sparing the 3 new sports anchors)
+- **795** — April 1 abstract multi-word Spanish phrases ("ansiedad existencial soterrada", "a diferencia de x en y", etc.)
+
+**Final library state**:
+- `vocab_spanish_*` remaining: **1,345** (clean, curated)
+- High-value anchors (>100 uses): **326** images, 88,806 total uses
+- `concept_*` images (numbers/colors/seasons/weather): **47** (untouched)
+- Protected courtesy phrases: **18** rows, all intact
+- Zero French/German/Portuguese junk remaining from April batch
+
+### Pending / future work
+- The April 1 single-word Spanish images (640 created that day) were NOT deleted — they are real vocabulary words (aburrido, alto, animado, etc.) that ARE or will be referenced by CONCEPT_KEY_MAP. They have 0 uses now but images are real.
+- Consider regenerating `vocab_spanish_futbol` (created April 1 by seeder, 12 uses) — quality may vary vs. the hand-crafted images.
+- The script `scripts/generate-sports-anchors.ts` is available for generating additional missing anchors using the same pattern.
+
+---
+
 ## Session Summary — Thu, Apr 2, 2026 (session 19a — Chapter 1 vocab/image fixes)
 
 ### What was done
