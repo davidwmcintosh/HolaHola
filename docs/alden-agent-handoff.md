@@ -44,7 +44,7 @@ This aligns with the CULTURALLY NEUTRAL vs CULTURALLY DRIVEN architecture alread
 - SCENE_OVERRIDE updated to show a tall glass of horchata with ice, cinnamon stick, and adobe-toned table background (NO people — starts with "a" so prop path applies correctly).
 - Also added `una horchata por favor` and standalone `horchata` keys.
 - Old cerveza DB image deleted; horchata will generate on next lesson browse or seeder arrival at `U`.
-- **Note**: curriculum drill text still says "cerveza" — update to "horchata" as a separate curriculum task when desired.
+- Curriculum drill item `adcd93b3-c071-40a0-afca-db646d3f7907` updated: prompt now says "A horchata, please", target text "Una horchata, por favor.", hint updated to "Horchata is a sweet rice-milk drink".
 
 #### 5. `cuánto cuesta` SCENE_OVERRIDE added + DB duplicates cleaned
 
