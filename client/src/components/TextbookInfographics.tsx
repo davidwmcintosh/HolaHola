@@ -752,8 +752,9 @@ interface VisualVocabGridProps {
   language: string;
 }
 
-// Max image cards shown per lesson section — keeps the grid scannable, not overwhelming
-const MAX_VISUAL_PER_SECTION = 10;
+// Max image cards shown per lesson section — 15 ensures both listen_repeat AND
+// key translate_speak items (like ¿cómo está?) get slots, not just the first 10 items.
+const MAX_VISUAL_PER_SECTION = 15;
 
 // English translations that signal a discourse marker, connector, or abstract phrase.
 // These don't have one clear picture — skip them.
@@ -849,8 +850,12 @@ function isVisuallyMeaningful(targetText: string, prompt: string | undefined, it
   // No English translation available — allow it through
   if (!eng || eng === targetText.toLowerCase().trim()) return true;
 
+  // Strip parenthetical register annotations like "(formal)", "(informal)", "(polite)" before
+  // counting words — they are usage hints, not part of the core translation.
+  const engCore = eng.replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim();
+
   // 4+ English words = almost certainly an abstract or multi-part phrase
-  if (eng.split(/\s+/).length >= 4) return false;
+  if (engCore.split(/\s+/).length >= 4) return false;
 
   // Exact match to known discourse/connector words
   if (ABSTRACT_TRANSLATIONS.has(eng)) return false;
