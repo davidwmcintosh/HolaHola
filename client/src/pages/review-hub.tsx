@@ -5,7 +5,7 @@ import { useUser } from "@/lib/auth";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { LearningContextFilter } from "@/components/LearningContextFilter";
-import { ActflFluencyDial } from "@/components/ActflFluencyDial";
+import { ActflMiniGauge } from "@/components/ActflFluencyDial";
 import { useSidebar } from "@/components/ui/sidebar";
 import { Link, useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -536,25 +536,24 @@ export default function ReviewHub() {
                     <span>{m.label}</span>
                   </div>
                 ))}
-                {masteryStats.totalMastered > 0 && (
-                  <span className="text-xs text-muted-foreground ml-auto">
-                    {masteryStats.totalMastered} mastered
-                    {masteryStats.nextMilestone && ` · ${masteryStats.nextMilestone - masteryStats.totalMastered} to go`}
-                  </span>
-                )}
-                {masteryStats.totalMastered === 0 && (
-                  <span className="text-xs text-muted-foreground/50 ml-auto">
-                    Practice to earn your first trophy
-                  </span>
-                )}
+                <div className="ml-auto flex items-center gap-3 shrink-0">
+                  {masteryStats.totalMastered > 0 ? (
+                    <span className="text-xs text-muted-foreground">
+                      {masteryStats.totalMastered} mastered
+                      {masteryStats.nextMilestone && ` · ${masteryStats.nextMilestone - masteryStats.totalMastered} to go`}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground/50 hidden sm:inline">
+                      Practice to earn your first trophy
+                    </span>
+                  )}
+                  <ActflMiniGauge />
+                </div>
               </div>
             )}
           </div>
         );
       })()}
-
-      {/* ACTFL Fluency Gauge */}
-      <ActflFluencyDial compact />
 
       {/* Tutor Showcase - Click the tutor to start a conversation */}
       <TutorShowcase 

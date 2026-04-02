@@ -516,17 +516,18 @@ export function ActflMiniGauge() {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Badge 
-          variant="outline" 
-          className="gap-1.5 cursor-help px-3"
-          style={{ borderColor: levelInfo.color, color: levelInfo.color }}
-          data-testid="badge-actfl-mini"
-        >
-          <TrendingUp className="h-3 w-3" />
-          <span className="font-semibold">{levelInfo.shortLabel}</span>
-          <span className="text-muted-foreground">•</span>
-          <span>{levelInfo.score}</span>
-        </Badge>
+        <span className="cursor-help" data-testid="badge-actfl-mini">
+          <Badge 
+            variant="outline" 
+            className="gap-1.5 px-3 pointer-events-none"
+            style={{ borderColor: levelInfo.color, color: levelInfo.color }}
+          >
+            <TrendingUp className="h-3 w-3" />
+            <span className="font-semibold">{levelInfo.shortLabel}</span>
+            <span className="text-muted-foreground">•</span>
+            <span>{levelInfo.score}</span>
+          </Badge>
+        </span>
       </TooltipTrigger>
       <TooltipContent>
         <p>ACTFL Level: {levelInfo.label}</p>
