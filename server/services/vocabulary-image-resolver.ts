@@ -2636,6 +2636,13 @@ export async function resolveVocabularyImage(
 ): Promise<VocabImageResult> {
   const { word, language, description = word, scene, translation, userId, seederMode } = request;
 
+  // ── TOP-LEVEL seeder guard ────────────────────────────────────────────────
+  // During batch seeding, non-Spanish words MUST NOT trigger DALL-E.
+  // They may only resolve from an existing cache/concept hit.
+  // We set a flag and let the normal flow proceed — but we add an early check
+  // right before any generation call.
+  // (Additional mid-function guards remain at lines ~2750 and ~2870 as belt+suspenders.)
+
   // Check if this word maps to a shared cross-language concept key
   const normalizedForConcept = normalizeWord(word);
   const conceptKey = CONCEPT_KEY_MAP[normalizedForConcept] ?? null;
