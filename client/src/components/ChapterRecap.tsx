@@ -116,12 +116,10 @@ function extractKeyVocabulary(sections: Section[]): { word: string; translation:
           translation: drill.prompt || ''
         });
       }
-      if (vocab.length >= 8) break;
     }
-    if (vocab.length >= 8) break;
   }
   
-  return vocab;
+  return vocab.slice(0, 40);
 }
 
 function extractKeyPhrases(sections: Section[]): string[] {
@@ -139,12 +137,10 @@ function extractKeyPhrases(sections: Section[]): string[] {
         seen.add(drill.targetText.toLowerCase());
         phrases.push(drill.targetText);
       }
-      if (phrases.length >= 4) break;
     }
-    if (phrases.length >= 4) break;
   }
   
-  return phrases;
+  return phrases.slice(0, 10);
 }
 
 function extractConversationTopics(sections: Section[]): string[] {

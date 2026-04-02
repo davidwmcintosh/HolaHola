@@ -808,6 +808,24 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'mariscos':        'a rustic seafood platter with shrimp, mussels, and clams arranged on crushed ice, soft watercolor illustration, no people',
   'los mariscos':    'a rustic seafood platter with shrimp, mussels, and clams arranged on crushed ice, soft watercolor illustration, no people',
 
+  // ── Classroom phrases & intro language — Chapter 1 essentials ───────────────
+  // "me llamo" → person warmly introducing themselves
+  'me llamo':                  'a friendly person smiling and pressing one hand lightly to their chest in a self-introduction gesture, warm and welcoming expression, soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, no text no words',
+  'me llamo...':               'a friendly person smiling and pressing one hand lightly to their chest in a self-introduction gesture, warm and welcoming expression, soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, no text no words',
+  // "desayunar" / "yo desayuno" → morning breakfast scene
+  'desayunar':                 'cozy breakfast table scene with a bowl of cereal, toast, orange juice glass, and a small plant, morning sunlight streaming in through a window, no people, soft watercolor children\'s book illustration style, warm gentle colors, no text no words',
+  'el desayuno':               'cozy breakfast table scene with a bowl of cereal, toast, orange juice glass, and a small plant, morning sunlight streaming in through a window, no people, soft watercolor children\'s book illustration style, warm gentle colors, no text no words',
+  'yo desayuno':               'cozy breakfast table scene with a bowl of cereal, toast, orange juice glass, and a small plant, morning sunlight streaming in through a window, no people, soft watercolor children\'s book illustration style, warm gentle colors, no text no words',
+  'desayuno':                  'cozy breakfast table scene with a bowl of cereal, toast, orange juice glass, and a small plant, morning sunlight streaming in through a window, no people, soft watercolor children\'s book illustration style, warm gentle colors, no text no words',
+  // "más despacio, por favor" → gentle slow-down gesture
+  'mas despacio por favor':    'a person calmly holding up one open palm in a gentle "slow down" gesture, patient and kind expression, soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, no text no words',
+  'mas despacio':              'a person calmly holding up one open palm in a gentle "slow down" gesture, patient and kind expression, soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, no text no words',
+  // "no entiendo" → friendly puzzled shrug
+  'no entiendo':               'a young student with a gentle puzzled expression, head tilted slightly, soft question mark doodle floating nearby, friendly and relatable, soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, no text no words',
+  'no comprendo':              'a young student with a gentle puzzled expression, head tilted slightly, soft question mark doodle floating nearby, friendly and relatable, soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, no text no words',
+  // "¿qué significa?" / "¿cómo se dice?" — already 4-word filtered on frontend, but give them decent images if they slip through
+  'que significa':             'a person pointing at a word on a chalkboard with a curious expression, thought bubble with a question mark, soft watercolor children\'s book illustration style, no text in image no words',
+  'como se dice':              'two friends having a friendly conversation, one pointing to their mouth while speaking, the other listening attentively, soft watercolor children\'s book illustration style, no text no words',
   // ── Health & Body — avoid literal/graphic AI interpretations ──────────────
   // "dolor" / "el dolor" → mild relatable discomfort, NOT a dramatic heart or wound
   'dolor':           'a young woman sitting down, gently pressing her fingertips to her temple with a mild wince, soft warm watercolor, no blood or wounds',
@@ -1301,6 +1319,21 @@ export async function seedAllVocabImages(jobId: string, languages?: string[]): P
 // saves DALL-E credits and keeps the queue lean.
 
 const SEED_SKIP_TRANSLATIONS = new Set([
+  // Personal pronouns — no visual concept
+  'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them',
+  'you (formal)', 'you (informal)', 'i / me', 'you / your',
+  // Question words — abstract/relational, nothing to show
+  'what', 'where', 'who', 'how', 'when', 'why', 'which', 'whose', 'whom',
+  // Yes / no / basic particles
+  'yes', 'no', 'ok', 'okay',
+  // Articles / determiners alone
+  'a', 'an', 'the',
+  // Short copula / grammar phrases (2–3 words)
+  'i am', 'you are', 'he is', 'she is', 'it is', 'we are', 'they are',
+  'i was', 'i will', 'i can', 'i do', 'i go', 'i have', 'is it', 'is this', 'is that',
+  'to be', 'to have', 'to do', 'to go', 'to say', 'to see', 'to know', 'to get',
+  // Classroom management too short for 4-word filter
+  'i understand', 'excuse me', 'never mind',
   // Discourse markers / connectors
   'however', 'although', 'therefore', 'moreover', 'furthermore', 'meanwhile',
   'consequently', 'nonetheless', 'nevertheless', 'whereas', 'despite', 'thus',

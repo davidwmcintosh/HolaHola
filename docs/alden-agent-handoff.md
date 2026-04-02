@@ -1,5 +1,61 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Thu, Apr 2, 2026 (session 19a — Chapter 1 vocab/image fixes)
+
+### What was done
+
+#### 1. Chapter Recap vocab cap removed
+`extractKeyVocabulary` in `ChapterRecap.tsx` previously hard-capped at 8 words AND broke out of the outer loop after the first section that hit 8 — so sections 2+ of a chapter were completely ignored.
+- Now iterates ALL sections without early breaks → collects from every section → `slice(0, 40)` at end
+- Same fix for `extractKeyPhrases`: no more early break, `slice(0, 10)` at end
+
+#### 2. Visual vocab grid: pronouns + question words now filtered
+`ABSTRACT_TRANSLATIONS` in `TextbookInfographics.tsx` expanded with:
+- **Personal pronouns**: i, you, he, she, it, we, they, me, him, her, us, them + formal/informal variants
+- **Question words**: what, where, who, how, when, why, which, whose, whom (+ with "?")
+- **Yes / no / ok**
+- **Articles alone**: a, an, the
+- **Short copula phrases**: "i am", "you are", "he is" etc. (2-3 words, pass the old 4-word rule)
+- **Short copula verbs**: "to be", "to have", "to do", "to go" etc.
+- **Classroom phrases**: "i understand", "excuse me", "never mind"
+
+#### 3. Backend seed filter mirrors frontend filter
+`SEED_SKIP_TRANSLATIONS` in `vocab-image-seed-service.ts` updated with all the same additions — prevents DALL-E credit waste generating images for words that will never be shown.
+
+#### 4. SCENE_OVERRIDEs for useful Chapter 1 phrases
+New entries added to `SCENE_OVERRIDES` in `vocab-image-seed-service.ts`:
+- `'me llamo'` → person pressing hand to chest, self-introduction gesture
+- `'me llamo...'` → same
+- `'desayunar'` / `'el desayuno'` / `'desayuno'` / `'yo desayuno'` → cozy breakfast table, morning light
+- `'mas despacio por favor'` / `'mas despacio'` → gentle "slow down" open palm gesture
+- `'no entiendo'` / `'no comprendo'` → student with puzzled expression + question mark doodle
+- `'que significa'` / `'como se dice'` → classroom conversation scenes
+
+#### 5. DB cleanup — 9 bad cached images deleted
+Deleted stale/wrong entries so they regenerate with proper SCENE_OVERRIDE descriptions:
+- `vocab_spanish_me llamo` — was a random AI person image
+- `vocab_spanish_mas despacio por favor` — was a random AI image
+- `vocab_spanish_no entiendo` — was a random AI image
+- `vocab_spanish_desayunar` — was aliased to daily routine chart (wrong)
+- `vocab_spanish_desayuno` — was an Unsplash photo (inconsistent style)
+- `vocab_spanish_yo` → now filtered from display + will be skipped on reseed
+- `vocab_spanish_tu` → same
+- `vocab_spanish_usted` → same
+- `vocab_spanish_soy` → same
+
+### Pending
+- Same as session 18j (15 Novice Low adjective pair images, SaberConocerCard audio)
+- `vocab_spanish_me llamo`, `vocab_spanish_desayunar`, `vocab_spanish_mas despacio por favor`, `vocab_spanish_no entiendo` will regenerate on first next access using new SCENE_OVERRIDEs
+
+---
+
+## Session Summary — Thu, Apr 2, 2026 (session 18k — ACTFL mini gauge score fix)
+
+### What was done
+- `ActflMiniGauge` was showing `levelInfo.score` (the static baseline for Novice Low = **0**) instead of `calculateContinuousScore()` which factors in practice hours, messages, grammar/vocab scores within the level. Two-line fix — now matches exactly what the mind map shows (~5–7 for an active learner).
+
+---
+
 ## Session Summary — Wed, Apr 1, 2026 (session 18j — Daniela sweep, ACTFL gauge, multi-col table audio)
 
 ### What was done

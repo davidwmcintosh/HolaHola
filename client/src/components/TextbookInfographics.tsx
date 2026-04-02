@@ -758,6 +758,24 @@ const MAX_VISUAL_PER_SECTION = 10;
 // English translations that signal a discourse marker, connector, or abstract phrase.
 // These don't have one clear picture — skip them.
 const ABSTRACT_TRANSLATIONS = new Set([
+  // Personal pronouns — grammatical role, no visual concept
+  'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them',
+  'you (formal)', 'you (informal)', 'i / me', 'you / your',
+  // Question words — relational/grammatical, nothing meaningful to show
+  'what', 'where', 'who', 'how', 'when', 'why', 'which', 'whose', 'whom',
+  'what?', 'where?', 'who?', 'how?', 'when?', 'why?',
+  // Yes / no / basic particles
+  'yes', 'no', 'ok', 'okay', 'yes / no',
+  // Articles and bare determiners alone
+  'a', 'an', 'the',
+  // Short copula / grammar phrases (2–3 words, grammatical not concrete)
+  'i am', 'you are', 'he is', 'she is', 'it is', 'we are', 'they are',
+  'i was', 'i will', 'i can', 'i do', 'i go', 'i have', 'is it', 'is this', 'is that',
+  'to be', 'to have', 'to do', 'to go', 'to say', 'to see', 'to know', 'to get',
+  'am i', 'are you', 'is he', 'is she',
+  // Classroom management phrases too short to be caught by 4-word rule
+  'i understand', 'i don\'t understand', 'excuse me', 'never mind',
+  // Discourse markers / connectors
   'however', 'although', 'therefore', 'moreover', 'furthermore', 'meanwhile',
   'consequently', 'nonetheless', 'nevertheless', 'whereas', 'despite', 'thus',
   'hence', 'accordingly', 'subsequently', 'conversely', 'alternatively',
