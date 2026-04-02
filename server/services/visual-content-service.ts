@@ -51,15 +51,18 @@ const PROP_STYLE =
   'wholesome family-friendly educational quality, ' +
   NO_TEXT_INSTRUCTION;
 
-// Scene images: warm painterly style matching existing textbook illustrations
-// (semi-realistic, painterly brushwork, warm light — NOT flat vector cartoon)
+// Scene images: warm DIGITAL ILLUSTRATION matching existing textbook art.
+// Style target: Disney/DreamWorks animated feature film concept art —
+//   smooth clean character outlines, stylized expressive faces, NOT photorealistic, NOT oil painting.
 const SCENE_STYLE =
-  'warm painterly digital illustration style, soft natural golden lighting, slightly stylized expressive characters, ' +
-  'rich warm color palette, semi-realistic proportions, textured brushwork with depth and atmosphere, ' +
-  'detailed illustrated backgrounds with warmth and mood, wholesome family-friendly language learning content, ' +
+  'warm digital illustration for language learning, ' +
+  'semi-realistic stylized characters with smooth clean outlines and large expressive eyes, ' +
+  'soft warm color palette with golden light, flat-to-soft shading with gentle depth — NOT oil painting, NOT photorealistic, ' +
+  'character design quality similar to modern animated feature films (Disney/DreamWorks), ' +
+  'illustrated background with architectural or nature detail, wholesome family-friendly educational content, ' +
   'IMPORTANT: characters should look distinctly different ages when the scene calls for it (young adult vs elderly), ' +
-  'IMPORTANT FRAMING: characters must be composed with generous headroom — heads and faces must be fully visible and never cropped at the top of the frame, ' +
-  'position characters in the lower two-thirds of the canvas so the top quarter is clear sky or background, ' +
+  'IMPORTANT FRAMING: generous headroom — heads fully visible, never cropped at top of frame, ' +
+  'position characters in lower two-thirds of canvas so top quarter shows sky or background, ' +
   NO_TEXT_INSTRUCTION;
 
 // Semantic tag categories for educational content
