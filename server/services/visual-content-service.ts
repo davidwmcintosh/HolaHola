@@ -37,16 +37,16 @@ const NO_TEXT_INSTRUCTION =
 
 // Vocabulary props: single object, white background, clean silhouette (children's book card feel)
 const PROP_STYLE =
-  'soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, ' +
-  'visible brushwork texture, object centred and prominent on a clean pure white background, ' +
+  'vibrant colorful digital cartoon illustration style, anime-inspired character art, clean bold ink outlines, ' +
+  'warm saturated color palette, cel-shaded with smooth gradients, object centred and prominent on a clean pure white background, ' +
   'no background elements, clear and recognisable silhouette, language learning educational quality, ' +
   NO_TEXT_INSTRUCTION;
 
-// Scene backgrounds: same children's book watercolor style as props but with full environment
+// Scene backgrounds: same vibrant cartoon style as props but with full illustrated environment
 const SCENE_STYLE =
-  'soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, ' +
-  'visible brushwork texture, friendly expressive characters, immersive background environment, ' +
-  'language learning educational context, suitable for all ages, ' +
+  'vibrant colorful digital cartoon illustration style, anime-inspired character art, clean bold ink outlines, ' +
+  'warm saturated color palette, cel-shaded with smooth gradients, expressive stylized characters with large bright eyes, ' +
+  'detailed colorful illustrated backgrounds, language learning educational context, suitable for all ages, ' +
   'IMPORTANT FRAMING: characters must be composed with generous headroom — heads and faces must be fully visible and never cropped at the top of the frame, ' +
   'position characters in the lower two-thirds of the canvas so the top quarter is clear sky or background, ' +
   NO_TEXT_INSTRUCTION;
@@ -72,8 +72,8 @@ async function generateWithDallE(
 
   const style = request.type === 'infographic' ? SCENE_STYLE : PROP_STYLE;
   const prompt = request.type === 'infographic'
-    ? `Watercolor illustration of a scene: ${request.concept}. ${style}.`
-    : `Watercolor illustration of: ${request.concept}. ${style}.`;
+    ? `Digital cartoon illustration of a scene: ${request.concept}. ${style}.`
+    : `Digital cartoon illustration of: ${request.concept}. ${style}.`;
 
   const response = await client.images.generate({
     model: 'dall-e-3',
