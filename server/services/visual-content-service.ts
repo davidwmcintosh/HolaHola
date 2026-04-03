@@ -52,17 +52,18 @@ const PROP_STYLE =
   'wholesome family-friendly educational quality, ' +
   NO_TEXT_INSTRUCTION;
 
-// Scene images: warm watercolor illustration matching existing textbook art.
-// Style target: warm watercolor with clean character outlines — soft textured
-//   washes for shading, naturalistic skin tones, realistic body proportions.
-//   NOT cartoony, NOT anime, NOT photorealistic.
+// Scene images: clean digital cartoon illustration matching the HoloHola reference art.
+// Style target: smooth gradient cel-shading, crisp outlines, slightly anime-influenced
+//   character design, vivid warm palette — identical to the existing "hola" anchor image.
+//   NOT watercolor, NOT oil painting, NOT photorealistic, NOT heavy anime.
 const SCENE_STYLE =
-  'warm watercolor illustration for language learning — ' +
-  'soft watercolor shading with clean outlines, naturalistic skin tones, realistic body proportions, ' +
-  'characters look like real people rendered in watercolor — natural facial features, normal-sized eyes, ' +
-  'NOT cartoony, NOT anime, NOT exaggerated expressions, NOT Disney-style — ' +
-  'warm golden ambient light, illustrated architectural or outdoor background with soft watercolor washes, ' +
-  'the style matches professional language-learning textbook art: grounded, warm, human, ' +
+  'clean digital cartoon illustration for a language learning app — ' +
+  'smooth gradient cel-shading with crisp clean outlines, slightly stylized characters ' +
+  'with warm natural skin tones and expressive (but not extreme) eyes, ' +
+  'vivid warm colour palette with bright highlights and soft drop-shadows, ' +
+  'professional 2D character art quality similar to a modern animated series or webtoon — ' +
+  'NOT watercolour, NOT watercolor wash, NOT oil paint, NOT photorealistic, NOT pencil sketch — ' +
+  'warm golden ambient light, illustrated architectural or outdoor background, ' +
   'IMPORTANT: characters should look distinctly different ages when the scene calls for it (young adult vs elderly), ' +
   'IMPORTANT FRAMING: generous headroom — heads fully visible, never cropped at top of frame, ' +
   'position characters in lower two-thirds of canvas so top quarter shows sky or background, ' +
@@ -143,13 +144,18 @@ async function generateWithGptImage(
         create: { width: 1024, height: 1024, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
       }).png().toBuffer();
 
-      // Prompt: scene content only — style is carried by the visual anchor
+      // Prompt: use explicit style description PLUS reinforce via visual anchor.
+      // Saying only "same art style as the reference" lets the model drift toward
+      // watercolor; explicit style keywords + the anchor together lock the style.
       const anchoredPrompt =
-        `In the exact same art style as the reference image — same illustration technique, ` +
-        `same character design, same warm colour palette, same level of detail — ` +
-        `draw a new scene: ${request.concept}. ` +
-        `IMPORTANT: characters should look distinctly different ages when called for (young vs elderly). ` +
-        `Generous headroom — heads and faces must be fully visible, never cropped. ` +
+        `Clean digital cartoon illustration in the same style as the reference image — ` +
+        `smooth gradient cel-shading with crisp clean outlines, slightly stylized characters ` +
+        `with warm natural skin tones, vivid warm colour palette, ` +
+        `professional 2D character art quality similar to a modern animated series — ` +
+        `NOT watercolour, NOT photorealistic, NOT oil paint. ` +
+        `Draw a new scene: ${request.concept}. ` +
+        `IMPORTANT: characters should look distinctly different ages when called for (young adult vs clearly elderly). ` +
+        `Generous headroom — heads and faces must be fully visible, never cropped at top of frame. ` +
         `No text, no letters, no words anywhere in the image.`;
 
       console.log('[VisualContent] images.edit (full-transparent mask) prompt:', anchoredPrompt.substring(0, 160));
