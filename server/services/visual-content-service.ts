@@ -55,22 +55,22 @@ const PROP_STYLE =
   'wholesome family-friendly educational quality, ' +
   NO_TEXT_INSTRUCTION;
 
-// Scene images: warm Disney-style illustrated cartoon with watercolor-wash backgrounds.
-// This is the style of the existing HoloHola images — large expressive eyes, smooth
-// cel-shading, watercolor-influenced backgrounds, warm golden palette.
-// Generated with DALL-E 3 (hd) which naturally produces this blend.
+// Scene images: warm illustrated art that naturally ranges from soft watercolor-wash
+// to vibrant Disney-style cel-shaded cartoon depending on the scene's mood.
+// Both ends of this spectrum are on-brand; characters (Daniela, Marco, Rosa, etc.)
+// stay consistent via CHARACTER_PROFILES while rendering style breathes naturally.
+// Generated with DALL-E 3 (hd).
 const SCENE_STYLE =
-  'warm illustrated cartoon in the style of a Disney animated film — ' +
-  'slightly stylized characters with large expressive dark eyes, smooth cel-shading ' +
-  'with soft gradient transitions and warm skin tones with subtle blush, ' +
-  'warm watercolor-wash backgrounds with soft colour bleeding and illustrated architectural detail, ' +
-  'vivid warm golden ambient lighting, professional educational illustration quality ' +
-  'similar to a language learning app like Babbel or Duolingo, ' +
+  'warm illustrated art for a language learning app — stylistically free to range from ' +
+  'soft delicate watercolor-wash all the way to vibrant Disney-style cel-shaded cartoon, ' +
+  'natural artistic interpretation per scene; slightly stylized characters with large expressive ' +
+  'dark eyes and warm skin tones; warm golden ambient lighting; ' +
+  'professional educational illustration quality; ' +
   'IMPORTANT CONTENT: wholesome, appropriate for all ages, strictly platonic interactions — ' +
   'NO romantic, flirtatious, or sexual subtext; characters maintain comfortable friendly personal space; ' +
-  'IMPORTANT: characters should look distinctly different ages when the scene calls for it (young adult vs clearly elderly), ' +
-  'IMPORTANT FRAMING: generous headroom — heads fully visible, never cropped at top of frame, ' +
-  'position characters in lower two-thirds of canvas so top quarter shows sky or background, ' +
+  'IMPORTANT: characters should look distinctly different ages when the scene calls for it (young adult vs clearly elderly); ' +
+  'IMPORTANT FRAMING: generous headroom — heads fully visible, never cropped at top of frame; ' +
+  'position characters in lower two-thirds of canvas so top quarter shows sky or background; ' +
   NO_TEXT_INSTRUCTION;
 
 // Semantic tag categories for educational content
