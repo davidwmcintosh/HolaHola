@@ -45,7 +45,9 @@ export interface VisualGenerationResult {
 
 const NO_TEXT_INSTRUCTION =
   'absolutely no text, no letters, no numbers, no words, no handwriting, no captions, ' +
-  'no labels, no symbols, no glyphs, no typography, no writing of any kind anywhere in the image';
+  'no labels, no symbols, no glyphs, no typography, no writing of any kind anywhere in the image — ' +
+  'NO speech bubbles, NO dialogue bubbles, NO thought bubbles, NO comic-book panels, NO caption boxes — ' +
+  'the image must be a pure illustration with zero readable or decorative text elements';
 
 // Vocabulary props: single object, white background, clean silhouette
 const PROP_STYLE =

@@ -143,8 +143,9 @@ const thankYou = (primary: string): string =>
   `${primary} pressing both palms together with a heartfelt warm smile and a gentle nod of gratitude, bright cheerful background`;
 
 // youreWelcome: relaxed open-palm wave — casual, warm, unpretentious.
+// NO quoted phrases — DALL-E 3 renders quoted text as speech bubbles.
 const youreWelcome = (secondary: string): string =>
-  `${secondary} alone, waving a relaxed open-palm "you're welcome" hand with a kind easygoing smile, bright airy setting — solo portrait, no other people`;
+  `${secondary} alone, lifting one hand in a warm relaxed open-palm wave with a kind easygoing smile and a modest shrug of dismissal, warm sunny background with soft painted light — solo portrait, no other people`;
 
 // goodNight: character in pajamas waving from a warmly lit window or doorway, night sky behind.
 // Cultural setting passed in so each language feels authentic.
@@ -158,22 +159,25 @@ const goodNight = (primary: string, setting: string): string =>
 //
 // canYouRepeat: right index finger making a small encouraging circular "one
 //   more time" motion — the universal "could you say that again?" gesture.
+// NO quoted phrases — DALL-E 3 renders quoted text as speech bubbles.
 const canYouRepeat = (primary: string): string =>
   `${primary} in a bright airy classroom, right index finger raised and making a small` +
-  ` encouraging circular "one more time" motion in the air, warm patient expression` +
-  ` asking for repetition, a small chalkboard or whiteboard softly visible behind`;
+  ` gentle circular motion in the air, eyebrows raised in a warm patient polite request,` +
+  ` a small chalkboard or whiteboard softly visible behind`;
 
 // speakSlowly: both open palms pressing gently downward and apart, the
 //   universal "take it slow / slower please" calming gesture.
+// NO quoted phrases — DALL-E 3 renders quoted text as speech bubbles.
 const speakSlowly = (primary: string): string =>
   `${primary} gently pressing both open palms downward and apart in a slow calm` +
-  ` "please slow down" gesture, patient encouraging expression, bright classroom setting`;
+  ` measured calming gesture, patient encouraging expression, bright classroom setting`;
 
 // iDontUnderstand: puzzled face, head slightly tilted, one hand raised open
 //   in a gentle questioning gesture — universal confusion signal.
+// NO quoted phrases — DALL-E 3 renders quoted text as speech bubbles.
 const iDontUnderstand = (primary: string): string =>
   `${primary} with a puzzled confused expression and head slightly tilted, one hand` +
-  ` raised open in a gentle "I don't understand" questioning gesture, soft warm` +
+  ` raised open in a gentle puzzled questioning gesture, soft warm` +
   ` classroom light, a chalkboard or desk visible in the background`;
 
 // howDoYouSay: pointing at a word on a chalkboard or open book with a curious
@@ -454,7 +458,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'estoy mal':          SPLIT('bien', `${CHAR.ES.primary} giving a big thumbs-up with a beaming grin under a bright sun`, 'mal', `${CHAR.ES.primary} with slumped shoulders, a downcast frown, and a rain cloud overhead, grey cool background`),
   'mas o menos':        `${CHAR.ES.primary} tilting her open hand back and forth in a relaxed "so-so" gesture with a neutral shrug and a small smile, bright sunny background`,
   'regular':            `${CHAR.ES.primary} holding her hand out horizontally with a neutral "just okay" expression and a slight shrug, bright cheerful setting`,
-  'por favor':          `${CHAR.ES.primary} pressing her hands together in a gentle pleading "por favor" gesture with kind warm eyes, bright sunny setting`,
+  'por favor':          `${CHAR.ES.primary} pressing her hands together in a gentle pleading prayer-hands gesture with kind warm eyes, bright sunny setting`,
   'gracias':            thankYou(CHAR.ES.primary),
   'muchas gracias':     `${CHAR.ES.primary} bowing slightly with both arms extended forward in deep heartfelt gratitude and a beaming smile, bright sunny background`,
   // NOTE: 'de nada' is language-prefixed — see 'spanish:de nada' below (and 'portuguese:de nada' in the Portuguese section).
@@ -477,11 +481,11 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'merci':              thankYou(CHAR.FR.primary),
   'merci beaucoup':     `${CHAR.FR.primary} holding both arms open in a warm heartfelt gesture of deep gratitude, beaming with a big delighted smile, bright cheerful background`,
   'de rien':            youreWelcome(CHAR.FR.secondary),
-  'excusez-moi':        `${CHAR.FR.primary} gently tapping a stranger on the shoulder with a polite "excusez-moi" expression, hand slightly raised, busy Parisian market setting behind them`,
+  'excusez-moi':        `${CHAR.FR.primary} gently tapping a stranger on the shoulder with a polite apologetic excuse-me expression and a friendly nod, hand slightly raised, busy Parisian market setting behind them`,
   'pardon':             `${CHAR.FR.primary} with a sincere apologetic expression placing hand on chest, stepping aside politely in a narrow street`,
   'enchante':           `${CHAR.FR.secondary} extending his hand for a warm first-meeting handshake with a delighted smile, ${CHAR.FR.primary} reaching forward to meet it, bright cheerful setting`,
   'comment allez-vous': howAreYou(CHAR.FR.primary, CHAR.FR.secondary, 'a sunny Parisian boulevard'),
-  'tres bien merci':    `${CHAR.FR.primary} pressing both palms together with a glowing warm smile and a happy nod, radiating genuine contentment, "très bien, merci" written in delicate script in the bright background`,
+  'tres bien merci':    `${CHAR.FR.primary} pressing both palms together with a glowing warm smile and a happy nod, radiating genuine bright contentment, warm sun-lit background`,
 
   // ── Greetings & Farewells — German ────────────────────────────────────────
   // Characters: Anna (primary) + Klaus (secondary) — see CHARACTER_PROFILES.DE
@@ -500,8 +504,8 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'bis spater':         `${CHAR.DE.primary} giving ${CHAR.DE.oma} a warm farewell hug at a cozy German front door, both smiling happily`,
   'freut mich':         `${CHAR.DE.primary} and ${CHAR.DE.secondary} shaking hands warmly in a first meeting, both wearing delighted pleased-to-meet-you smiles, bright professional indoor setting`,
   'wie geht es ihnen':  howAreYou(CHAR.DE.primary, CHAR.DE.secondary, 'a bright German town square or park'),
-  'mir geht es gut danke': `${CHAR.DE.primary} giving a cheerful thumbs-up with a bright content smile, radiating a warm "I'm doing well, thank you" expression, sunny background`,
-  'wiederholen':           `${CHAR.DE.primary} as a language teacher in a bright airy classroom, right index finger raised and making a small encouraging circular "one more time" motion in the air, warm patient expression, a small chalkboard and a single attentive student visible behind her`,
+  'mir geht es gut danke': `${CHAR.DE.primary} giving a cheerful thumbs-up with a bright content smile, radiating a warm well-being grateful expression, sunny background`,
+  'wiederholen':           `${CHAR.DE.primary} as a language teacher in a bright airy classroom, right index finger raised and making a small encouraging circular motion in the air, warm patient expression, a small chalkboard and a single attentive student visible behind her`,
 
   // ── Greetings & Farewells — Italian ──────────────────────────────────────
   // Characters: Giulia (primary) + Luca (secondary) — see CHARACTER_PROFILES.IT
@@ -510,15 +514,15 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'buonasera':          `${CHAR.IT.primary} and ${CHAR.IT.secondary} exchanging warm buonasera greetings at the entrance of a cozy trattoria, amber evening light spilling from the open door`,
   'buonanotte':         goodNight(CHAR.IT.primary, 'a warmly lit Italian piazza with cobblestones and terracotta rooftops'),
   'arrivederci':        `${CHAR.IT.primary} waving arrivederci with a warm smile at a sunny doorway, ${CHAR.IT.nonna} standing on the step waving back warmly`,
-  'prego':              `${CHAR.IT.secondary} at a restaurant gesturing "prego — please, go ahead" with an open gracious welcoming hand and a warm smile, bright Italian dining setting`,
+  'prego':              `${CHAR.IT.secondary} at a restaurant gesturing graciously with an open welcoming hand and a warm smile, bright Italian dining setting`,
   'grazie':             thankYou(CHAR.IT.primary),
-  'per favore':         `${CHAR.IT.primary} at a gelato shop counter with hands clasped making a polite "per favore" request with kind eyes, cheerful colourful setting`,
-  'mi chiamo':          `${CHAR.IT.primary} pointing to herself confidently with a big friendly smile, a small speech bubble showing her name`,
+  'per favore':         `${CHAR.IT.primary} at a gelato shop counter with hands clasped making a polite sincere request with kind eyes, cheerful colourful setting`,
+  'mi chiamo':          `${CHAR.IT.primary} pointing to herself confidently with a big friendly self-introduction smile, bright cheerful setting`,
   'come stai':          howAreYou(CHAR.IT.primary, CHAR.IT.secondary, 'a sunny Italian piazza or cobblestone street'),
   'come sta':           howAreYou(CHAR.IT.primary, CHAR.IT.secondary, 'a warm Italian indoor or outdoor setting'),
   'a domani':           `${CHAR.IT.primary} waving goodbye at a sun-dappled Italian garden gate at sunset, a cheerful circular calendar floating nearby with domani circled, warm golden light`,
   'a presto':           `${CHAR.IT.primary} giving ${CHAR.IT.nonna} a warm farewell hug at a sun-drenched Italian doorway, both smiling warmly`,
-  'piacere':            `${CHAR.IT.primary} and ${CHAR.IT.secondary} meeting for the first time in a bright sunny piazza, both extending a warm handshake with delighted "piacere — pleased to meet you" smiles`,
+  'piacere':            `${CHAR.IT.primary} and ${CHAR.IT.secondary} meeting for the first time in a bright sunny piazza, both extending a warm handshake with delighted pleased-to-meet-you smiles`,
   'sto bene grazie':    `${CHAR.IT.primary} giving a cheerful double thumbs-up with a radiant warm smile, the bright Italian countryside visible through a window behind`,
 
   // ── Greetings & Farewells — Portuguese ───────────────────────────────────
@@ -536,11 +540,11 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'portuguese:de nada': youreWelcome(CHAR.PT.secondary),
   'com licenca':        `${CHAR.PT.primary} politely excusing herself with a gentle hand gesture, stepping around others in a busy colourful market`,
   'desculpe':           `${CHAR.PT.primary} with a sincere apologetic expression placing hand on heart, stepping back with a sorry gesture, warm bright setting`,
-  'oi':                 `${CHAR.PT.primary} spotting ${CHAR.PT.secondary} across a bright tropical street and waving a casual cheerful "oi!" with a big friendly smile, colourful buildings behind them`,
-  'tchau':              `${CHAR.PT.primary} and ${CHAR.PT.secondary} parting with a casual wave and warm "tchau" smiles at a sunny bus stop, bright tropical setting`,
+  'oi':                 `${CHAR.PT.primary} spotting ${CHAR.PT.secondary} across a bright tropical street and waving a casual cheerful hello with a big friendly smile, colourful buildings behind them`,
+  'tchau':              `${CHAR.PT.primary} and ${CHAR.PT.secondary} parting with a casual wave and warm fond farewell smiles at a sunny bus stop, bright tropical setting`,
   'portuguese:como esta': howAreYou(CHAR.PT.primary, CHAR.PT.secondary, 'a bright Brazilian street or outdoor square'),
-  'estou bem obrigado': `${CHAR.PT.secondary} giving a cheerful thumbs-up with a warm content smile, radiating a happy "estou bem, obrigado" expression, bright sunny background`,
-  'prazer em conhece-lo': `${CHAR.PT.primary} and ${CHAR.PT.secondary} shaking hands warmly in a first meeting, both beaming with genuine "prazer em conhecê-lo" pleasure, bright cheerful setting`,
+  'estou bem obrigado': `${CHAR.PT.secondary} giving a cheerful thumbs-up with a warm content smile, radiating a happy grateful well-being expression, bright sunny background`,
+  'prazer em conhece-lo': `${CHAR.PT.primary} and ${CHAR.PT.secondary} shaking hands warmly in a first meeting, both beaming with genuine pleased-to-meet-you expressions, bright cheerful setting`,
 
   // ── Greetings & Farewells — Japanese ─────────────────────────────────────
   // Characters: Yuki (primary) + Kenji (secondary) — see CHARACTER_PROFILES.JA
@@ -553,7 +557,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'おやすみなさい':            goodNight(CHAR.JA.primary, 'a quiet Japanese neighbourhood with glowing paper lanterns'),
   'おやすみ':                `${CHAR.JA.primary} in cozy pajamas waving a casual goodnight at a lit bedroom doorway with a crescent moon visible outside the window`,
   'さようなら':               `${CHAR.JA.primary} standing at an open doorway waving a heartfelt goodbye as ${CHAR.JA.secondary} walks away down a cherry-blossom-lined path, soft sunset light`,
-  'またね':                  `${CHAR.JA.primary} and ${CHAR.JA.secondary} parting cheerfully at a train station platform, both turning to wave "mata ne" with bright smiles`,
+  'またね':                  `${CHAR.JA.primary} and ${CHAR.JA.secondary} parting cheerfully at a train station platform, both turning to wave a cheerful fond farewell with bright smiles`,
   'じゃあね':                `${CHAR.JA.primary} and ${CHAR.JA.secondary} parting with a casual cheerful wave at a school gate, bright afternoon light`,
   'ありがとうございます':       `${CHAR.JA.primary} pressing both palms together in a respectful forward bow of deep gratitude, warm bright setting`,
   'ありがとう':               `${CHAR.JA.primary} pressing both palms together with a warm grateful smile and a slight bow of thanks, bright cheerful background`,
@@ -598,7 +602,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   '고마워요':                `${CHAR.KO.primary} placing one hand on her heart with a warm appreciative smile toward ${CHAR.KO.secondary}, casual warm setting`,
   '죄송합니다':               `${CHAR.KO.primary} bowing deeply with a sincere formal apologetic expression, hands at her sides`,
   '미안해요':                `${CHAR.KO.primary} with a sheepish apologetic expression placing hand on heart, warm setting`,
-  '괜찮아요':                `${CHAR.KO.secondary} waving a relaxed "it's okay" hand with a kind reassuring smile, bright cheerful setting`,
+  '괜찮아요':                `${CHAR.KO.secondary} waving a relaxed reassuring open palm with a kind smile, bright cheerful setting`,
   '천만에요':                youreWelcome(CHAR.KO.secondary),
   // Romanized aliases
   'annyeonghaseyo':          `${CHAR.KO.primary} waving hello with a warm smile to ${CHAR.KO.secondary} on a bright modern Seoul street`,
@@ -609,14 +613,14 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'gomawoyo':                `${CHAR.KO.primary} placing one hand on her heart with a warm appreciative smile, casual warm setting`,
   'joesonghamnida':          `${CHAR.KO.primary} bowing deeply with a sincere formal apologetic expression`,
   'mianhaeyo':               `${CHAR.KO.primary} with a sheepish apologetic expression placing hand on heart`,
-  'gwaenchanayo':            `${CHAR.KO.secondary} waving a relaxed "it's okay" hand with a kind reassuring smile`,
+  'gwaenchanayo':            `${CHAR.KO.secondary} waving a relaxed reassuring open palm with a kind smile`,
   'cheonmaneyo':             youreWelcome(CHAR.KO.secondary),
   '좋은 아침이에요':           `${CHAR.KO.primary} in cozy pajamas holding a warm cup of tea at a bright kitchen window, golden sunrise light streaming in`,
   '잘 자요':                 goodNight(CHAR.KO.primary, 'a Seoul apartment district with city lights below'),
   '잘 지내요 감사합니다':      `${CHAR.KO.primary} giving a cheerful thumbs-up with a warm grateful smile and a gentle bow, bright sunny background`,
   '어떻게 지내세요':           howAreYou(CHAR.KO.primary, CHAR.KO.secondary, 'a bright Seoul street or plaza'),
   '내일 봐요':               `${CHAR.KO.primary} waving goodbye at a café doorway at sunset, a cheerful calendar with 내일 circled floating nearby, warm golden light`,
-  '또 만나요':               `${CHAR.KO.primary} and ${CHAR.KO.secondary} parting at a subway entrance, both turning to wave a warm "see you again" with bright smiles, urban Seoul setting`,
+  '또 만나요':               `${CHAR.KO.primary} and ${CHAR.KO.secondary} parting at a subway entrance, both turning to wave a warm fond farewell with bright smiles, urban Seoul setting`,
   '만나서 반갑습니다':         `${CHAR.KO.primary} and ${CHAR.KO.secondary} bowing politely to each other in a first meeting, both smiling warmly with pleased-to-meet-you expressions, bright professional setting`,
 
   // ── Greetings & Farewells — Mandarin ─────────────────────────────────────
@@ -630,7 +634,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   '谢谢你':                  `${CHAR.ZH.primary} pressing both palms together with a heartfelt smile directed at ${CHAR.ZH.secondary}, warm bright background`,
   '不客气':                  youreWelcome(CHAR.ZH.secondary),
   '对不起':                  `${CHAR.ZH.primary} bowing slightly with a sincere apologetic expression and hand on heart`,
-  '没关系':                  `${CHAR.ZH.secondary} waving a reassuring "it's fine" hand with a kind smile, bright cheerful setting`,
+  '没关系':                  `${CHAR.ZH.secondary} waving a reassuring open palm with a kind smile, bright cheerful setting`,
   '你好吗':                  howAreYou(CHAR.ZH.primary, CHAR.ZH.secondary, 'a bright Chinese garden or street'),
   '很好':                   `${CHAR.ZH.primary} giving a big cheerful thumbs-up with a bright happy smile, vibrant warm background`,
   // Pinyin aliases
@@ -642,11 +646,11 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'xie xie':                 `${CHAR.ZH.primary} pressing both palms together with a warm grateful smile and slight bow`,
   'bu ke qi':                youreWelcome(CHAR.ZH.secondary),
   'dui bu qi':               `${CHAR.ZH.primary} bowing slightly with a sincere apologetic expression and hand on heart`,
-  'mei guan xi':             `${CHAR.ZH.secondary} waving a reassuring "it's fine" hand with a kind smile`,
+  'mei guan xi':             `${CHAR.ZH.secondary} waving a reassuring open palm with a kind smile`,
   'ni hao ma':               howAreYou(CHAR.ZH.primary, CHAR.ZH.secondary, 'a bright Chinese street or park'),
   'hen hao':                 `${CHAR.ZH.primary} giving a cheerful thumbs-up with a bright happy smile, warm background`,
   '下午好':                  `${CHAR.ZH.primary} and ${CHAR.ZH.secondary} waving warm afternoon greetings to each other on a sunlit Chinese garden path, golden afternoon light`,
-  '回头见':                  `${CHAR.ZH.primary} parting with a warm wave and a bright hopeful smile at a tea shop doorway, a cheerful "see you soon" air, soft afternoon light`,
+  '回头见':                  `${CHAR.ZH.primary} parting with a warm wave and a bright hopeful smile at a tea shop doorway, a cheerful fond parting air, soft afternoon light`,
   '我很好 谢谢':              `${CHAR.ZH.primary} giving a cheerful double thumbs-up with a broad warm smile and a slight grateful bow, bright sunny Chinese garden background`,
   '我很好谢谢':               `${CHAR.ZH.primary} giving a cheerful double thumbs-up with a broad warm smile and a slight grateful bow, bright sunny Chinese garden background`,
   'wo hen hao xie xie':      `${CHAR.ZH.primary} giving a cheerful double thumbs-up with a bright happy smile and a grateful bow, sunny Chinese garden background`,
@@ -690,22 +694,22 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'good night':         goodNight(CHAR.EN.primary, 'a quiet suburban American street with porch lights glowing'),
   'goodbye':            `${CHAR.EN.primary} waving a warm goodbye from an open doorway with a warm smile, ${CHAR.EN.grandma} standing on the porch waving back warmly, soft afternoon light`,
   'bye':                `${CHAR.EN.primary} and ${CHAR.EN.secondary} parting cheerfully at a bus stop, both turning to wave a casual bye with big smiles, bright urban setting`,
-  'see you later':      `${CHAR.EN.primary} and ${CHAR.EN.secondary} parting at a park gate, both turning to wave "see you later" over their shoulders with warm smiles, sunny afternoon`,
+  'see you later':      `${CHAR.EN.primary} and ${CHAR.EN.secondary} parting at a park gate, both turning to wave a cheerful fond farewell over their shoulders with warm smiles, sunny afternoon`,
   'see you soon':       `${CHAR.EN.primary} giving ${CHAR.EN.grandma} a warm farewell hug at a sunny doorstep, both smiling happily`,
   'nice to meet you':   `${CHAR.EN.primary} and ${CHAR.EN.secondary} shaking hands warmly for the first time at a bright friendly setting, both smiling with a genuine pleased-to-meet-you expression`,
   'please':             `${CHAR.EN.primary} at a café counter with hands clasped in a polite please-expression, warm cozy interior, friendly exchange`,
   'thank you':          thankYou(CHAR.EN.primary),
   'thanks':             `${CHAR.EN.primary} giving a casual wave of appreciation with a relaxed friendly smile, bright airy setting`,
   "you're welcome":     youreWelcome(CHAR.EN.secondary),
-  'excuse me':          `${CHAR.EN.primary} gently tapping a stranger on the shoulder with a polite "excuse me" expression, hand slightly raised, busy street market setting`,
+  'excuse me':          `${CHAR.EN.primary} gently tapping a stranger on the shoulder with a polite apologetic expression and a friendly nod, hand slightly raised, busy street market setting`,
   'sorry':              `${CHAR.EN.primary} with a sincere apologetic expression placing hand on chest, a warm sorry gesture, bright setting`,
-  'my pleasure':        `${CHAR.EN.secondary} gesturing "my pleasure" with an open gracious welcoming hand and a warm delighted smile, bright airy setting`,
+  'my pleasure':        `${CHAR.EN.secondary} gesturing with an open gracious welcoming hand and a warm delighted smile, bright airy setting`,
   'how are you':        howAreYou(CHAR.EN.primary, CHAR.EN.secondary, 'a sunny American sidewalk or park'),
   'how are you doing':  howAreYou(CHAR.EN.primary, CHAR.EN.secondary, 'a friendly outdoor café or sunny plaza'),
   'fine':               `${CHAR.EN.primary} giving a cheerful thumbs-up with a relaxed bright smile, warm sunny background`,
   'very well':          `${CHAR.EN.primary} spreading both arms wide open with a huge beaming smile of contentment, vibrant cheerful sunny background`,
-  'not bad':            `${CHAR.EN.primary} tilting an open hand back and forth in a casual "not bad" gesture with a relaxed neutral-to-pleased smile, bright setting`,
-  "i'm fine thank you": `${CHAR.EN.primary} giving a warm thumbs-up with a bright grateful smile and a gentle nod, radiating a cheerful "I'm fine, thank you" energy, sunny background`,
+  'not bad':            `${CHAR.EN.primary} tilting an open hand back and forth in a casual so-so hand-tilt gesture with a relaxed neutral-to-pleased smile, bright setting`,
+  "i'm fine thank you": `${CHAR.EN.primary} giving a warm thumbs-up with a bright grateful smile and a gentle nod, radiating a cheerful bright well-being energy, sunny background`,
 
   // ── Classroom Survival Phrases — All Languages ────────────────────────────
   // Policy: phrases get an image if and only if they have a UNIVERSALLY
@@ -1109,8 +1113,8 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'yo desayuno':               'cozy breakfast table scene with a bowl of cereal, toast, orange juice glass, and a small plant, morning sunlight streaming in through a window, no people, soft watercolor children\'s book illustration style, warm gentle colors, no text no words',
   'desayuno':                  'cozy breakfast table scene with a bowl of cereal, toast, orange juice glass, and a small plant, morning sunlight streaming in through a window, no people, soft watercolor children\'s book illustration style, warm gentle colors, no text no words',
   // "más despacio, por favor" → gentle slow-down gesture
-  'mas despacio por favor':    'a person calmly holding up one open palm in a gentle "slow down" gesture, patient and kind expression, soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, no text no words',
-  'mas despacio':              'a person calmly holding up one open palm in a gentle "slow down" gesture, patient and kind expression, soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, no text no words',
+  'mas despacio por favor':    'a person calmly holding up one open palm in a slow calming gesture, patient and kind expression, soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, no text no words',
+  'mas despacio':              'a person calmly holding up one open palm in a slow calming gesture, patient and kind expression, soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, no text no words',
   // "no entiendo" → friendly puzzled shrug
   'no entiendo':               'a young student with a gentle puzzled expression, head tilted slightly, soft question mark doodle floating nearby, friendly and relatable, soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, no text no words',
   'no comprendo':              'a young student with a gentle puzzled expression, head tilted slightly, soft question mark doodle floating nearby, friendly and relatable, soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, no text no words',

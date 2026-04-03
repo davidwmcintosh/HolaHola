@@ -1967,3 +1967,43 @@ Also exported `SCENE_OVERRIDES` and `normalizeForOverride` from `vocab-image-see
 - `server/services/vocab-image-seed-service.ts` — `export const SCENE_OVERRIDES`, `export function normalizeForOverride`
 - `server/services/vocabulary-image-resolver.ts` — `NUMBER_CONCEPT_KEYS`, `COLOR_SEASON_WEATHER_CONCEPT_KEYS` exports; dynamic SCENE_OVERRIDES lookup in concept generation path
 - `server/routes.ts` — fix-numbers-days and fix-adjectives routes now bust concept keys in addition to language-specific keys
+
+---
+
+## Session 24 Summary (April 3, 2026)
+
+### Issues Fixed: Two-person bug + speech bubble generation
+
+**Bug 1 — Double character injection for secondary-character scenes** (`vocabulary-image-resolver.ts`)
+
+Root cause: `alreadyHasNamedCharacter` guard in `buildGenerationConcept` only checked if the PRIMARY character's name (e.g., "Daniela" for Spanish) appeared in the first 120 chars of the concept. When a SCENE_OVERRIDE explicitly used `${CHAR.XX.secondary}` (e.g. Marco for Spanish), the guard returned false → primary character (Daniela) was injected on top → two people in the generated image.
+
+Fix: Replaced the single-name check with `ALL_KNOWN_CHARACTER_NAMES` — a flat list of all 20+ character first names (10 primary + 10 secondary + family members: Rosa, Nonna, Oma, Avó). The guard now checks if ANY of those names appear in the first 150 chars of the concept.
+
+**Bug 2 — Speech bubbles generated from quoted verbal phrases** (`vocab-image-seed-service.ts`, `visual-content-service.ts`)
+
+Root cause: DALL-E 3 treats quoted phrases in concept strings as verbal content to display as speech bubbles. The `NO_TEXT_INSTRUCTION` in SCENE_STYLE did not explicitly mention speech bubbles, so DALL-E 3 was rendering them as illustration elements (not "text").
+
+Fix: 
+1. Added "NO speech bubbles, NO dialogue bubbles, NO thought bubbles, NO comic-book panels, NO caption boxes" to `NO_TEXT_INSTRUCTION` in `visual-content-service.ts`.
+2. Removed ALL quoted verbal phrases from scene concept strings across all 9 languages. Key changes:
+   - `youreWelcome()` template: removed `"you're welcome"` → gesture described physically
+   - `canYouRepeat()`: removed `"one more time"`
+   - `speakSlowly()`: removed `"please slow down"`
+   - `iDontUnderstand()`: removed `"I don't understand"`
+   - 20+ individual SCENE_OVERRIDES (FR `excusez-moi`, FR `tres bien merci` had script request, DE `wiederholen`, DE `mir geht es gut danke`, IT `prego`/`per favore`/`piacere`/`mi chiamo`, PT `oi`/`tchau`/`estou bem obrigado`/`prazer em conhece-lo`, JA `またね`, KO `괜찮아요`/`또 만나요`, ZH `没关系`/`回头见`, EN `see you later`/`excuse me`/`my pleasure`/`not bad`/`i'm fine thank you`)
+
+**Bug 3 — `spanish:de nada` inconsistency** (`vocab-image-seed-service.ts`)
+
+Changed `spanish:de nada` from a custom string to `youreWelcome(CHAR.ES.secondary)` — consistent with `portuguese:de nada`, `de rien` (FR), `bitte schön` (DE), etc.
+
+**`youreWelcome()` template updated** (for all languages):
+- Was: `${secondary} waving a relaxed open-palm "you're welcome" hand...`
+- Now: `${secondary} alone, lifting one hand in a warm relaxed open-palm wave with a kind easygoing smile and a modest shrug of dismissal, warm sunny background with soft painted light — solo portrait, no other people`
+
+**Rule established**: Never use quoted verbal phrases (e.g. `"de nada"`, `"mata ne"`, `"you're welcome"`) in SCENE_OVERRIDE concept strings. Describe the gesture/emotion physically only. DALL-E 3 will render quoted phrases as speech bubbles.
+
+**Files changed**:
+- `server/services/vocabulary-image-resolver.ts` — `ALL_KNOWN_CHARACTER_NAMES` list; `alreadyHasNamedCharacter` now checks all 20+ names
+- `server/services/vocab-image-seed-service.ts` — `youreWelcome`/`canYouRepeat`/`speakSlowly`/`iDontUnderstand` templates; `spanish:de nada` → template; 20+ individual override strings across all 9 languages
+- `server/services/visual-content-service.ts` — `NO_TEXT_INSTRUCTION` strengthened with explicit speech bubble prohibition
