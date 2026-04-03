@@ -376,7 +376,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
 
   // ── Greetings & Farewells — Spanish ──────────────────────────────────────
   // Characters: Daniela (primary) + Marco (secondary) — see CHARACTER_PROFILES.ES
-  'hola':               `${CHAR.ES.primary} waving hello with a big smile to ${CHAR.ES.secondary} at a sunny school entrance, both looking delighted`,
+  'hola':               `${CHAR.ES.primary} waving hello with a big cheerful smile to ${CHAR.ES.secondary} at a sunny school entrance, both standing a few feet apart, friendly classmate greeting, wholesome platonic interaction`,
   'buenos dias':        `${CHAR.ES.primary} standing outside a rustic farmhouse at sunrise, smiling and waving buenos días at the viewer while a rooster struts past her feet, golden dawn light over rolling hills in the background`,
   'buenas tardes':      `${CHAR.ES.primary} relaxing on a park bench in the sunny afternoon, waving cheerfully to ${CHAR.ES.secondary} passing by, long golden shadows on the grass`,
   'buenas noches':      `${CHAR.ES.primary} in cozy pajamas waving from a lit bedroom window at a beautiful starry night sky with a glowing crescent moon, warm lamp light inside`,
@@ -389,7 +389,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'encantada':          `${CHAR.ES.primary} placing her hand on her chest and giving a small warm bow of greeting with a warm smile`,
   'como estas':         `${CHAR.ES.primary} smiling warmly and gesturing openly toward ${CHAR.ES.secondary} who stands directly in front of her on a sunny sidewalk, both facing each other in friendly conversation`,
   // NOTE: 'como esta' is language-prefixed because Portuguese shares the same bare key.
-  'spanish:como esta':  `ONLY TWO people: a young Latina woman in her mid-20s in a blue shirt on the left, and on the right a clearly elderly Mexican grandmother in her late 60s — the grandmother is visibly short and stout with completely white hair, a deeply wrinkled face, and reading glasses perched on her nose, wearing a bright floral embroidered blouse, the two women face each other warmly on a sunny sidewalk, the grandmother noticeably much shorter and older than the young woman`,
+  'spanish:como esta':  `${CHAR.ES.primary} and ${CHAR.ES.abuela} facing each other warmly on a sunny sidewalk or courtyard, grandmother visibly shorter and much older, granddaughter asking a caring formal question with a warm smile, wholesome intergenerational exchange`,
   'como esta usted':    `${CHAR.ES.primary} in a smart-casual setting extending a polite open-hand greeting gesture toward ${CHAR.ES.secondary}, a formal respectful exchange, warm indoor setting`,
   'bien':               SPLIT('bien', 'a cheerful person giving a big thumbs-up with a bright grin, sunny warm background', 'mal', 'a person with slumped shoulders, frowning face, and drooping posture, grey cool background'),
   'estoy bien':         SPLIT('bien', `${CHAR.ES.primary} giving a big thumbs-up with a beaming grin under a bright sun`, 'mal', `${CHAR.ES.primary} with slumped shoulders, a downcast frown, and a rain cloud overhead, grey cool background`),

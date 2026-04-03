@@ -65,7 +65,9 @@ const SCENE_STYLE =
   'with soft gradient transitions and warm skin tones with subtle blush, ' +
   'warm watercolor-wash backgrounds with soft colour bleeding and illustrated architectural detail, ' +
   'vivid warm golden ambient lighting, professional educational illustration quality ' +
-  'similar to a language learning app like Babbel or Duolingo, wholesome family-friendly, ' +
+  'similar to a language learning app like Babbel or Duolingo, ' +
+  'IMPORTANT CONTENT: wholesome, appropriate for all ages, strictly platonic interactions — ' +
+  'NO romantic, flirtatious, or sexual subtext; characters maintain comfortable friendly personal space; ' +
   'IMPORTANT: characters should look distinctly different ages when the scene calls for it (young adult vs clearly elderly), ' +
   'IMPORTANT FRAMING: generous headroom — heads fully visible, never cropped at top of frame, ' +
   'position characters in lower two-thirds of canvas so top quarter shows sky or background, ' +
