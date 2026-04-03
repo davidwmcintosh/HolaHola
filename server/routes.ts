@@ -11386,6 +11386,69 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ─── Fix classroom survival phrases for ONE language ─────────────────────────
+  app.post('/api/admin/vocab-images/fix-classroom', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { language = 'spanish' } = req.body;
+      const { bustVocabImageCache, CLASSROOM_SURVIVAL_CACHE_KEYS, CLASSROOM_SURVIVAL_WORDS, normalizeForOverride, SCENE_OVERRIDES } = await import('./services/vocab-image-seed-service');
+      const { resolveVocabularyImage } = await import('./services/vocabulary-image-resolver');
+      const keys = CLASSROOM_SURVIVAL_CACHE_KEYS[language] ?? [];
+      const deleted = await bustVocabImageCache(keys);
+      const jobId = `vocab-fix-classroom-${language}-${Date.now()}`;
+      const words: string[] = CLASSROOM_SURVIVAL_WORDS[language] ?? [];
+      (async () => {
+        for (const word of words) {
+          try {
+            const overrideKey = normalizeForOverride(word);
+            const sceneOverride = SCENE_OVERRIDES[`${language}:${overrideKey}`]
+                                  ?? SCENE_OVERRIDES[overrideKey];
+            await resolveVocabularyImage({ word, language, description: word, scene: sceneOverride });
+          } catch (e: any) {
+            console.error(`[VocabFix] Failed to regenerate classroom phrase "${word}" (${language}):`, e.message);
+          }
+        }
+        console.log(`[VocabFix] Finished regenerating ${words.length} ${language} classroom survival phrases (job ${jobId})`);
+      })().catch((e: any) => console.error('[VocabFix] Fatal fix-classroom:', e.message));
+      res.json({ deleted, jobId, message: `Busted ${deleted} stale classroom phrase images. Regenerating ${words.length} words in background.` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ─── Fix classroom survival phrases for ALL languages ────────────────────────
+  app.post('/api/admin/vocab-images/fix-all-classroom', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const allLangs = ['spanish', 'french', 'german', 'italian', 'portuguese', 'english', 'japanese', 'korean', 'mandarin'];
+      const { bustVocabImageCache, CLASSROOM_SURVIVAL_CACHE_KEYS, CLASSROOM_SURVIVAL_WORDS, normalizeForOverride, SCENE_OVERRIDES } = await import('./services/vocab-image-seed-service');
+      const { resolveVocabularyImage } = await import('./services/vocabulary-image-resolver');
+      let totalDeleted = 0;
+      for (const lang of allLangs) {
+        const keys = CLASSROOM_SURVIVAL_CACHE_KEYS[lang] ?? [];
+        totalDeleted += await bustVocabImageCache(keys);
+      }
+      const jobId = `vocab-fix-all-classroom-${Date.now()}`;
+      (async () => {
+        for (const lang of allLangs) {
+          const words: string[] = CLASSROOM_SURVIVAL_WORDS[lang] ?? [];
+          for (const word of words) {
+            try {
+              const overrideKey = normalizeForOverride(word);
+              const sceneOverride = SCENE_OVERRIDES[`${lang}:${overrideKey}`] ?? SCENE_OVERRIDES[overrideKey];
+              await resolveVocabularyImage({ word, language: lang, description: word, scene: sceneOverride });
+            } catch (e: any) {
+              console.error(`[VocabFix] Failed classroom phrase ${word} (${lang}):`, e.message);
+            }
+          }
+          console.log(`[VocabFix] Finished ${lang} classroom phrases`);
+        }
+        console.log(`[VocabFix] ALL classroom survival phrases done (job ${jobId})`);
+      })().catch((e: any) => console.error('[VocabFix] Fatal fix-all-classroom:', e.message));
+      res.json({ deleted: totalDeleted, jobId, message: `Busted ${totalDeleted} stale classroom phrase images across all languages. Regenerating in background.` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ─── BATCH: Fix numbers/days for ALL languages at once ───────────────────────
   app.post('/api/admin/vocab-images/fix-all-numbers', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {

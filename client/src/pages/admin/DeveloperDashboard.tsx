@@ -961,6 +961,7 @@ function VocabImagesPanel() {
   const [language, setLanguage] = useState('spanish');
   const [fixNumbersResult, setFixNumbersResult] = useState<any>(null);
   const [fixGreetingsResult, setFixGreetingsResult] = useState<any>(null);
+  const [fixClassroomResult, setFixClassroomResult] = useState<any>(null);
   const [fixAdjectivesResult, setFixAdjectivesResult] = useState<any>(null);
   const [seedResult, setSeedResult] = useState<any>(null);
   const [fixWordInput, setFixWordInput] = useState('');
@@ -981,6 +982,15 @@ function VocabImagesPanel() {
     onSuccess: (data: any) => {
       setFixGreetingsResult(data);
       toast({ title: 'Greetings cache busted', description: `Deleted ${data.deleted} stale images. Re-seeding in background.` });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const fixClassroomMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-classroom', { language }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setFixClassroomResult(data);
+      toast({ title: 'Classroom phrases cache busted', description: `Deleted ${data.deleted} stale images. Re-seeding in background.` });
     },
     onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
   });
@@ -1104,6 +1114,27 @@ function VocabImagesPanel() {
                 </Button>
                 {fixGreetingsResult && (
                   <p className="text-xs text-muted-foreground">Deleted {fixGreetingsResult.deleted} cached entries. Job: {fixGreetingsResult.jobId?.slice(-8)}</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="bg-muted/30">
+              <CardContent className="p-4 space-y-2">
+                <p className="text-sm font-medium">Classroom Survival Phrases</p>
+                <p className="text-xs text-muted-foreground">Bust stale classroom phrase images and reseed with character-scene illustrations (repeat, speak slowly, don't understand, how do you say).</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => fixClassroomMutation.mutate()}
+                  disabled={fixClassroomMutation.isPending}
+                  className="w-full"
+                  data-testid="button-fix-classroom"
+                >
+                  {fixClassroomMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+                  Fix Classroom Phrases
+                </Button>
+                {fixClassroomResult && (
+                  <p className="text-xs text-muted-foreground">Deleted {fixClassroomResult.deleted} cached entries. Job: {fixClassroomResult.jobId?.slice(-8)}</p>
                 )}
               </CardContent>
             </Card>

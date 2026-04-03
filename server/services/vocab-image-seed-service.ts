@@ -1376,6 +1376,29 @@ export const GREETINGS_CACHE_KEYS: Record<string, string[]> = Object.fromEntries
   ])
 );
 
+// ── Classroom survival phrases ───────────────────────────────────────────────
+// These are the canonical (non-alias) forms of the classroom survival phrases
+// that have SCENE_OVERRIDES entries.  Used by the fix-classroom admin endpoint
+// to bust stale pre-override cache entries and regenerate with character scenes.
+export const CLASSROOM_SURVIVAL_WORDS: Record<string, string[]> = {
+  spanish:    ['¿Puedes repetir?', 'Repita, por favor.', 'Más despacio, por favor.', 'No entiendo.', '¿Cómo se dice...?', '¿Qué significa...?'],
+  french:     ["Répétez, s'il vous plaît.", "Parlez plus lentement, s'il vous plaît.", 'Je ne comprends pas.', 'Comment dit-on...?'],
+  german:     ['Bitte wiederholen Sie.', 'Ich verstehe nicht.', 'Bitte langsam.', 'Wie sagt man das?'],
+  italian:    ['Ripeti, per favore.', 'Più lentamente, per favore.', 'Non capisco.', 'Come si dice...?'],
+  portuguese: ['Pode repetir, por favor?', 'Mais devagar, por favor.', 'Não entendo.'],
+  japanese:   ['もう一度お願いします', 'ゆっくり話してください', 'わかりません'],
+  korean:     ['다시 말씀해주세요.', '천천히 말씀해주세요.', '이해가 안 돼요.'],
+  mandarin:   ['请再说一遍', '请说慢一点', '我没听懂', '怎么说'],
+  english:    ['Can you repeat, please?', 'Can you speak slowly, please?', "I don't understand.", 'How do you say...?'],
+};
+
+export const CLASSROOM_SURVIVAL_CACHE_KEYS: Record<string, string[]> = Object.fromEntries(
+  Object.entries(CLASSROOM_SURVIVAL_WORDS).map(([lang, words]) => [
+    lang,
+    words.map(w => toCacheKey(lang, w)),
+  ])
+);
+
 // ── Adjective pairs (antonym contrast images) ───────────────────────────────
 // Any word here that already has a stale cache entry will be busted by the
 // fix-adjectives admin endpoint and regenerated with the SPLIT panel prompt.
