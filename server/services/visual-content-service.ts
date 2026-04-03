@@ -56,9 +56,8 @@ const PROP_STYLE =
   NO_TEXT_INSTRUCTION;
 
 // Scene images: warm illustrated art that naturally ranges from soft watercolor-wash
-// to vibrant Disney-style cel-shaded cartoon depending on the scene's mood.
-// Both ends of this spectrum are on-brand; characters (Daniela, Marco, Rosa, etc.)
-// stay consistent via CHARACTER_PROFILES while rendering style breathes naturally.
+// to vibrant editorial illustration depending on the scene's mood.
+// Characters (Daniela, Marco, Rosa, etc.) stay consistent via CHARACTER_PROFILES.
 // Generated with DALL-E 3 (hd).
 const SCENE_STYLE =
   'warm watercolor illustration in the style of a children\'s book or editorial illustration — ' +
@@ -67,12 +66,28 @@ const SCENE_STYLE =
   'that integrates naturally with the painted world around them — NOT flat cel-shading, NOT clean digital fills; ' +
   'the overall feel is warm, hand-crafted, and inviting, like a high-quality picture book or language textbook illustration; ' +
   'warm golden ambient light throughout; soft paper-like warmth to the colour palette; ' +
+  'COMPOSITIONAL FREEDOM: interpret the scene with fresh, spontaneous framing — vary camera distance, angle, ' +
+  'character gestures, and poses; avoid repeating the same two-people-facing-each-other stock composition; ' +
   'IMPORTANT CONTENT: wholesome, appropriate for all ages, strictly platonic interactions — ' +
   'NO romantic, flirtatious, or sexual subtext; characters maintain comfortable friendly personal space; ' +
   'IMPORTANT: characters should look distinctly different ages when the scene calls for it (young adult vs clearly elderly); ' +
   'IMPORTANT FRAMING: generous headroom — heads fully visible, never cropped at top of frame; ' +
   'position characters in lower two-thirds of canvas so top quarter shows sky or background; ' +
   NO_TEXT_INSTRUCTION;
+
+// Rotating compositional cues injected per-generation to prevent DALL-E 3 from
+// defaulting to the same two-people-facing-each-other stock pose every time.
+// Each call picks one at random so successive Previews look genuinely different.
+const COMPOSITION_VARIANTS = [
+  'Frame as a candid mid-shot with natural body language.',
+  'Use a slightly wider shot that shows more of the environment.',
+  'Try a closer framing that emphasises facial expressions.',
+  'Show the characters from a slight three-quarter angle.',
+  'Use a warm background with depth-of-field bokeh effect.',
+  'Frame one character slightly behind the other for natural depth.',
+  'Give one character an animated gesture or expressive hand movement.',
+  'Show the characters in a natural walking or moving pose.',
+];
 
 // Semantic tag categories for educational content
 const EDUCATIONAL_TAG_CATEGORIES = [
@@ -110,7 +125,8 @@ async function generateSceneWithDallE3(
   request: VisualGenerationRequest,
   client: OpenAI,
 ): Promise<string> {
-  const prompt = `Illustrated cartoon scene: ${request.concept}. ${SCENE_STYLE}.`;
+  const compositionHint = COMPOSITION_VARIANTS[Math.floor(Math.random() * COMPOSITION_VARIANTS.length)];
+  const prompt = `Illustrated scene: ${request.concept}. ${compositionHint} ${SCENE_STYLE}.`;
   console.log('[VisualContent] DALL-E 3 (hd) scene prompt:', prompt.substring(0, 200));
 
   const genResponse = await client.images.generate({
