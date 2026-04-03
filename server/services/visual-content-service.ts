@@ -63,7 +63,8 @@ const SCENE_STYLE =
   'warm watercolor illustration in the style of a children\'s book or editorial illustration — ' +
   'backgrounds are atmospheric painted washes with visible soft brushwork, layered colour washes, and gentle depth; ' +
   'human figures are hand-illustrated with friendly expressive faces, large warm eyes, and soft painterly shading ' +
-  'that integrates naturally with the painted world around them — NOT flat cel-shading, NOT clean digital fills; ' +
+  'that integrates naturally with the painted world around them; ' +
+  'NOT photorealistic, NOT flat cel-shading, NOT clean digital fills, NOT 3D render; ' +
   'the overall feel is warm, hand-crafted, and inviting, like a high-quality picture book or language textbook illustration; ' +
   'warm golden ambient light throughout; soft paper-like warmth to the colour palette; ' +
   'COMPOSITIONAL FREEDOM: interpret the scene with fresh, spontaneous framing — vary camera distance, angle, ' +
@@ -77,16 +78,16 @@ const SCENE_STYLE =
 
 // Rotating compositional cues injected per-generation to prevent DALL-E 3 from
 // defaulting to the same two-people-facing-each-other stock pose every time.
-// Each call picks one at random so successive Previews look genuinely different.
+// Keep language illustrated/gestural only — NO photographic terms (bokeh, etc.)
 const COMPOSITION_VARIANTS = [
-  'Frame as a candid mid-shot with natural body language.',
-  'Use a slightly wider shot that shows more of the environment.',
-  'Try a closer framing that emphasises facial expressions.',
-  'Show the characters from a slight three-quarter angle.',
-  'Use a warm background with depth-of-field bokeh effect.',
-  'Frame one character slightly behind the other for natural depth.',
-  'Give one character an animated gesture or expressive hand movement.',
-  'Show the characters in a natural walking or moving pose.',
+  'One character extends an open palm forward in a warm greeting gesture.',
+  'One character raises a hand in a cheerful wave.',
+  'One character tilts their head with a curious questioning expression.',
+  'Wide illustrated shot showing full figures with the setting visible around them.',
+  'Closer framing on faces and upper bodies, expressive reactions visible.',
+  'Characters at a slight angle, one a half-step ahead of the other.',
+  'One character gestures openly with both hands in an expressive shrug or welcome.',
+  'Characters shown side-by-side looking slightly toward each other.',
 ];
 
 // Semantic tag categories for educational content
