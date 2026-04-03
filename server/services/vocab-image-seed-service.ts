@@ -128,6 +128,19 @@ const SPLIT = (leftLabel: string, leftDesc: string, rightLabel: string, rightDes
   `RIGHT half (labeled "${rightLabel}" in small text at top): ${rightDesc}. ` +
   `Bright, bold flat design. No clutter, minimal background. Square format.`;
 
+// Shared scene concept for "how are you?" — same visual scene across all languages.
+// Only the characters (from CHARACTER_PROFILES) and cultural setting change.
+// Informal: two people pausing to greet each other warmly.
+// Formal: same but with a slightly more courteous, composed posture.
+const howAreYou = (primary: string, secondary: string, setting: string): string =>
+  `${primary} and ${secondary} pausing to greet each other in ${setting}, ` +
+  `${primary} smiling warmly toward ${secondary} with an open friendly questioning gesture, ` +
+  `both facing each other with cheerful warm expressions`;
+
+const howAreYouFormal = (primary: string, secondary: string, setting: string): string =>
+  `${primary} greeting ${secondary} with a polite formal air in ${setting}, ` +
+  `${primary} extending a courteous open-hand gesture with a respectful warm smile`;
+
 // ────────────────────────────────────────────────────────────────────────────
 // VOCAB IMAGE ARCHITECTURE — TWO CATEGORIES:
 //
@@ -387,10 +400,10 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'mucho gusto':        `${CHAR.ES.primary} and ${CHAR.ES.secondary} meeting for the first time, both extending a friendly handshake with warm open smiles, bright cheerful setting`,
   'encantado':          `${CHAR.ES.secondary} placing his hand on his chest and giving a small warm bow of greeting with a delighted smile`,
   'encantada':          `${CHAR.ES.primary} placing her hand on her chest and giving a small warm bow of greeting with a warm smile`,
-  'como estas':         `${CHAR.ES.primary} smiling warmly and gesturing openly toward ${CHAR.ES.secondary} who stands directly in front of her on a sunny sidewalk, both facing each other in friendly conversation`,
+  'como estas':         howAreYou(CHAR.ES.primary, CHAR.ES.secondary, 'a sunny Spanish plaza'),
   // NOTE: 'como esta' is language-prefixed because Portuguese shares the same bare key.
   'spanish:como esta':  `${CHAR.ES.primary} and ${CHAR.ES.abuela} facing each other warmly on a sunny sidewalk or courtyard, grandmother visibly shorter and much older, granddaughter asking a caring formal question with a warm smile, wholesome intergenerational exchange`,
-  'como esta usted':    `${CHAR.ES.primary} in a smart-casual setting extending a polite open-hand greeting gesture toward ${CHAR.ES.secondary}, a formal respectful exchange, warm indoor setting`,
+  'como esta usted':    howAreYouFormal(CHAR.ES.primary, CHAR.ES.secondary, 'a smart-casual indoor or outdoor Spanish setting'),
   'bien':               SPLIT('bien', 'a cheerful person giving a big thumbs-up with a bright grin, sunny warm background', 'mal', 'a person with slumped shoulders, frowning face, and drooping posture, grey cool background'),
   'estoy bien':         SPLIT('bien', `${CHAR.ES.primary} giving a big thumbs-up with a beaming grin under a bright sun`, 'mal', `${CHAR.ES.primary} with slumped shoulders, a downcast frown, and a rain cloud overhead, grey cool background`),
   'muy bien':           `${CHAR.ES.primary} jumping with both arms raised in a huge joyful smile and a double thumbs-up, bright sunny Spanish setting`,
@@ -425,7 +438,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'excusez-moi':        `${CHAR.FR.primary} gently tapping a stranger on the shoulder with a polite "excusez-moi" expression, hand slightly raised, busy Parisian market setting behind them`,
   'pardon':             `${CHAR.FR.primary} with a sincere apologetic expression placing hand on chest, stepping aside politely in a narrow street`,
   'enchante':           `${CHAR.FR.secondary} extending his hand for a warm first-meeting handshake with a delighted smile, ${CHAR.FR.primary} reaching forward to meet it, bright cheerful setting`,
-  'comment allez-vous': `${CHAR.FR.primary} turning to ${CHAR.FR.secondary} on a sunny Parisian street with an open warm questioning expression and a polite smile, a subtle "comment allez-vous?" air to the gesture`,
+  'comment allez-vous': howAreYou(CHAR.FR.primary, CHAR.FR.secondary, 'a sunny Parisian boulevard'),
   'tres bien merci':    `${CHAR.FR.primary} pressing both palms together with a glowing warm smile and a happy nod, radiating genuine contentment, "très bien, merci" written in delicate script in the bright background`,
 
   // ── Greetings & Farewells — German ────────────────────────────────────────
@@ -444,7 +457,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'entschuldigung':     `${CHAR.DE.primary} gently tapping a stranger on the shoulder with a polite apologetic expression, hand slightly raised to get attention, busy street setting`,
   'bis spater':         `${CHAR.DE.primary} giving ${CHAR.DE.oma} a warm farewell hug at a cozy German front door, both smiling happily`,
   'freut mich':         `${CHAR.DE.primary} and ${CHAR.DE.secondary} shaking hands warmly in a first meeting, both wearing delighted pleased-to-meet-you smiles, bright professional indoor setting`,
-  'wie geht es ihnen':  `${CHAR.DE.primary} in a polite formal posture facing ${CHAR.DE.secondary}, extending a courteous open-hand gesture with a respectful questioning smile, bright warm indoor setting`,
+  'wie geht es ihnen':  howAreYou(CHAR.DE.primary, CHAR.DE.secondary, 'a bright German town square or park'),
   'mir geht es gut danke': `${CHAR.DE.primary} giving a cheerful thumbs-up with a bright content smile, radiating a warm "I'm doing well, thank you" expression, sunny background`,
 
   // ── Greetings & Farewells — Italian ──────────────────────────────────────
@@ -458,8 +471,8 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'grazie':             `${CHAR.IT.primary} pressing both palms together with a warm grateful smile and a slight bow of thanks, bright sunny background`,
   'per favore':         `${CHAR.IT.primary} at a gelato shop counter with hands clasped making a polite "per favore" request with kind eyes, cheerful colourful setting`,
   'mi chiamo':          `${CHAR.IT.primary} pointing to herself confidently with a big friendly smile, a small speech bubble showing her name`,
-  'come stai':          `${CHAR.IT.primary} walking toward ${CHAR.IT.secondary} on a sunny Italian street, spreading her arms open with a warm questioning "come stai?" expression, both smiling`,
-  'come sta':           `${CHAR.IT.primary} in a formal setting making a respectful polite inquiry gesture to ${CHAR.IT.secondary}, a professional warm interior`,
+  'come stai':          howAreYou(CHAR.IT.primary, CHAR.IT.secondary, 'a sunny Italian piazza or cobblestone street'),
+  'come sta':           howAreYouFormal(CHAR.IT.primary, CHAR.IT.secondary, 'a warm Italian indoor or outdoor setting'),
   'a domani':           `${CHAR.IT.primary} waving goodbye at a sun-dappled Italian garden gate at sunset, a cheerful circular calendar floating nearby with domani circled, warm golden light`,
   'a presto':           `${CHAR.IT.primary} giving ${CHAR.IT.nonna} a warm farewell hug at a sun-drenched Italian doorway, both smiling warmly`,
   'piacere':            `${CHAR.IT.primary} and ${CHAR.IT.secondary} meeting for the first time in a bright sunny piazza, both extending a warm handshake with delighted "piacere — pleased to meet you" smiles`,
@@ -482,7 +495,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'desculpe':           `${CHAR.PT.primary} with a sincere apologetic expression placing hand on heart, stepping back with a sorry gesture, warm bright setting`,
   'oi':                 `${CHAR.PT.primary} spotting ${CHAR.PT.secondary} across a bright tropical street and waving a casual cheerful "oi!" with a big friendly smile, colourful buildings behind them`,
   'tchau':              `${CHAR.PT.primary} and ${CHAR.PT.secondary} parting with a casual wave and warm "tchau" smiles at a sunny bus stop, bright tropical setting`,
-  'portuguese:como esta': `${CHAR.PT.primary} in a warm polite posture facing ${CHAR.PT.secondary}, extending a courteous open-hand gesture with a respectful friendly questioning smile, bright setting`,
+  'portuguese:como esta': howAreYou(CHAR.PT.primary, CHAR.PT.secondary, 'a bright Brazilian street or outdoor square'),
   'estou bem obrigado': `${CHAR.PT.secondary} giving a cheerful thumbs-up with a warm content smile, radiating a happy "estou bem, obrigado" expression, bright sunny background`,
   'prazer em conhece-lo': `${CHAR.PT.primary} and ${CHAR.PT.secondary} shaking hands warmly in a first meeting, both beaming with genuine "prazer em conhecê-lo" pleasure, bright cheerful setting`,
 
@@ -506,7 +519,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'どういたしまして':          `${CHAR.JA.secondary} waving a relaxed "you're welcome" hand with a kind easygoing smile, bright airy setting`,
   'はじめまして':              `${CHAR.JA.primary} and ${CHAR.JA.secondary} bowing politely to each other on first meeting, both smiling warmly, bright cheerful setting`,
   'よろしくおねがいします':     `${CHAR.JA.primary} bowing respectfully with both hands at her sides and a warm open smile, formal greeting stance`,
-  'おげんきですか':            `${CHAR.JA.primary} facing ${CHAR.JA.secondary} with a warm open "how are you?" questioning expression, bright Japanese garden setting`,
+  'おげんきですか':            howAreYou(CHAR.JA.primary, CHAR.JA.secondary, 'a bright Japanese garden path or street'),
   // Romaji aliases
   'konnichiwa':              `${CHAR.JA.primary} waving hello with a big smile to ${CHAR.JA.secondary} on a sunny Japanese shopping street, colourful shop signs behind them`,
   'ohayou gozaimasu':        `${CHAR.JA.primary} in cozy full-length pajamas holding green tea at a bright kitchen window, golden sunrise through shoji screens`,
@@ -524,8 +537,8 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'dou itashimashite':       `${CHAR.JA.secondary} waving a relaxed "you're welcome" hand with a kind smile, bright airy setting`,
   'hajimemashite':           `${CHAR.JA.primary} and ${CHAR.JA.secondary} bowing politely on first meeting, both smiling warmly, bright cheerful setting`,
   'yoroshiku onegaishimasu': `${CHAR.JA.primary} bowing respectfully with both hands at her sides and a warm open smile, formal greeting stance`,
-  'ogenki desu ka':          `${CHAR.JA.primary} facing ${CHAR.JA.secondary} with a warm friendly "how are you?" expression`,
-  'お元気ですか':              `${CHAR.JA.primary} facing ${CHAR.JA.secondary} on a bright sunny Japanese street with a warm open polite questioning expression, both smiling`,
+  'ogenki desu ka':          howAreYou(CHAR.JA.primary, CHAR.JA.secondary, 'a bright Japanese street or garden'),
+  'お元気ですか':              howAreYou(CHAR.JA.primary, CHAR.JA.secondary, 'a bright sunny Japanese street'),
   'また明日':                `${CHAR.JA.primary} waving goodbye at a school entrance at sunset, a cheerful calendar floating nearby with 明日 circled, warm golden light`,
   'mata ashita':             `${CHAR.JA.primary} waving goodbye at a school entrance at sunset with a bright warm smile, golden afternoon light`,
   '元気です ありがとう':       `${CHAR.JA.primary} giving a warm cheerful thumbs-up with a bright content smile and a slight bow of gratitude, sunny Japanese garden setting`,
@@ -558,7 +571,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   '좋은 아침이에요':           `${CHAR.KO.primary} in cozy pajamas holding a warm cup of tea at a bright kitchen window, golden sunrise light streaming in`,
   '잘 자요':                 `${CHAR.KO.primary} waving goodnight from a warmly lit apartment doorway under a starry sky, crescent moon visible, soft indoor light`,
   '잘 지내요 감사합니다':      `${CHAR.KO.primary} giving a cheerful thumbs-up with a warm grateful smile and a gentle bow, bright sunny background`,
-  '어떻게 지내세요':           `${CHAR.KO.primary} facing ${CHAR.KO.secondary} on a bright Seoul street with a warm open polite "how are you?" questioning expression, both smiling`,
+  '어떻게 지내세요':           howAreYou(CHAR.KO.primary, CHAR.KO.secondary, 'a bright Seoul street or plaza'),
   '내일 봐요':               `${CHAR.KO.primary} waving goodbye at a café doorway at sunset, a cheerful calendar with 내일 circled floating nearby, warm golden light`,
   '또 만나요':               `${CHAR.KO.primary} and ${CHAR.KO.secondary} parting at a subway entrance, both turning to wave a warm "see you again" with bright smiles, urban Seoul setting`,
   '만나서 반갑습니다':         `${CHAR.KO.primary} and ${CHAR.KO.secondary} bowing politely to each other in a first meeting, both smiling warmly with pleased-to-meet-you expressions, bright professional setting`,
@@ -575,7 +588,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   '不客气':                  `${CHAR.ZH.secondary} waving a relaxed "bù kèqì — no worries" hand with a kind easygoing smile, bright airy setting`,
   '对不起':                  `${CHAR.ZH.primary} bowing slightly with a sincere apologetic expression and hand on heart`,
   '没关系':                  `${CHAR.ZH.secondary} waving a reassuring "it's fine" hand with a kind smile, bright cheerful setting`,
-  '你好吗':                  `${CHAR.ZH.primary} facing ${CHAR.ZH.secondary} with a warm open "how are you?" gesture and a friendly questioning expression, bright Chinese garden setting`,
+  '你好吗':                  howAreYou(CHAR.ZH.primary, CHAR.ZH.secondary, 'a bright Chinese garden or street'),
   '很好':                   `${CHAR.ZH.primary} giving a big cheerful thumbs-up with a bright happy smile, vibrant warm background`,
   // Pinyin aliases
   'ni hao':                  `${CHAR.ZH.primary} waving hello with a bright warm smile to ${CHAR.ZH.secondary} at a sunny Chinese tea garden`,
@@ -587,7 +600,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'bu ke qi':                `${CHAR.ZH.secondary} waving a relaxed "you're welcome" hand with a kind smile`,
   'dui bu qi':               `${CHAR.ZH.primary} bowing slightly with a sincere apologetic expression and hand on heart`,
   'mei guan xi':             `${CHAR.ZH.secondary} waving a reassuring "it's fine" hand with a kind smile`,
-  'ni hao ma':               `${CHAR.ZH.primary} facing ${CHAR.ZH.secondary} with a warm friendly "how are you?" expression`,
+  'ni hao ma':               howAreYou(CHAR.ZH.primary, CHAR.ZH.secondary, 'a bright Chinese street or park'),
   'hen hao':                 `${CHAR.ZH.primary} giving a cheerful thumbs-up with a bright happy smile, warm background`,
   '下午好':                  `${CHAR.ZH.primary} and ${CHAR.ZH.secondary} waving warm afternoon greetings to each other on a sunlit Chinese garden path, golden afternoon light`,
   '回头见':                  `${CHAR.ZH.primary} parting with a warm wave and a bright hopeful smile at a tea shop doorway, a cheerful "see you soon" air, soft afternoon light`,
@@ -621,7 +634,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'toda raba':               `${CHAR.HE.primary} holding arms open in a heartfelt gesture of deep gratitude`,
   'bevakasha':               `${CHAR.HE.primary} at a market stall with hands clasped in a polite please-expression, colourful market setting`,
   'slicha':                  `${CHAR.HE.primary} with a polite apologetic expression and a raised hand, excusing themselves`,
-  'ma shlomcha':             `${CHAR.HE.primary} facing ${CHAR.HE.secondary} with a warm friendly "how are you?" expression`,
+  'ma shlomcha':             howAreYou(CHAR.HE.primary, CHAR.HE.secondary, 'a bright Israeli street or plaza'),
   'metzuyan':                `${CHAR.HE.primary} giving a cheerful thumbs-up with a bright happy smile`,
 
   // ── Greetings & Farewells — English ──────────────────────────────────────
@@ -644,8 +657,8 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'excuse me':          `${CHAR.EN.primary} gently tapping a stranger on the shoulder with a polite "excuse me" expression, hand slightly raised, busy street market setting`,
   'sorry':              `${CHAR.EN.primary} with a sincere apologetic expression placing hand on chest, a warm sorry gesture, bright setting`,
   'my pleasure':        `${CHAR.EN.secondary} gesturing "my pleasure" with an open gracious welcoming hand and a warm delighted smile, bright airy setting`,
-  'how are you':        `${CHAR.EN.primary} walking toward ${CHAR.EN.secondary} on a sunny street, spreading arms open with a warm questioning "how are you?" smile, both smiling`,
-  'how are you doing':  `${CHAR.EN.primary} and ${CHAR.EN.secondary} chatting at a friendly outdoor café, ${CHAR.EN.primary} leaning forward with a warm inquisitive "how are you doing?" expression`,
+  'how are you':        howAreYou(CHAR.EN.primary, CHAR.EN.secondary, 'a sunny American sidewalk or park'),
+  'how are you doing':  howAreYou(CHAR.EN.primary, CHAR.EN.secondary, 'a friendly outdoor café or sunny plaza'),
   'fine':               `${CHAR.EN.primary} giving a cheerful thumbs-up with a relaxed bright smile, warm sunny background`,
   'very well':          `${CHAR.EN.primary} spreading both arms wide open with a huge beaming smile of contentment, vibrant cheerful sunny background`,
   'not bad':            `${CHAR.EN.primary} tilting an open hand back and forth in a casual "not bad" gesture with a relaxed neutral-to-pleased smile, bright setting`,
