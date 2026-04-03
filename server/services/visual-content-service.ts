@@ -1,13 +1,16 @@
 /**
  * Visual Content Generation Service
- * Uses gpt-image-1 for style-consistent educational visuals.
- * Scene images (characters) can be seeded with a per-language anchor image
- * so the model can reference actual character faces/style — solving the
- * "wrong character / style drift" problem that plagued DALL-E 3 text-only prompts.
+ *
+ * Scene images (type='infographic'): DALL-E 3 HD
+ *   Naturally produces the warm Disney-style illustrated cartoon with watercolor-wash
+ *   backgrounds that matches the HoloHola aesthetic.
+ *
+ * Prop images (type='image'): gpt-image-1
+ *   Better at isolating a single object against a clean white background without
+ *   adding unwanted context — cleaner results for vocabulary prop cards.
  */
 
-import OpenAI, { toFile } from 'openai';
-import sharp from 'sharp';
+import OpenAI from 'openai';
 import { uploadPublicBuffer } from './image-storage';
 
 export interface VisualGenerationRequest {
@@ -52,19 +55,18 @@ const PROP_STYLE =
   'wholesome family-friendly educational quality, ' +
   NO_TEXT_INSTRUCTION;
 
-// Scene images: clean digital cartoon illustration matching the HoloHola reference art.
-// Style target: smooth gradient cel-shading, crisp outlines, slightly anime-influenced
-//   character design, vivid warm palette — identical to the existing "hola" anchor image.
-//   NOT watercolor, NOT oil painting, NOT photorealistic, NOT heavy anime.
+// Scene images: warm Disney-style illustrated cartoon with watercolor-wash backgrounds.
+// This is the style of the existing HoloHola images — large expressive eyes, smooth
+// cel-shading, watercolor-influenced backgrounds, warm golden palette.
+// Generated with DALL-E 3 (hd) which naturally produces this blend.
 const SCENE_STYLE =
-  'clean digital cartoon illustration for a language learning app — ' +
-  'smooth gradient cel-shading with crisp clean outlines, slightly stylized characters ' +
-  'with warm natural skin tones and expressive (but not extreme) eyes, ' +
-  'vivid warm colour palette with bright highlights and soft drop-shadows, ' +
-  'professional 2D character art quality similar to a modern animated series or webtoon — ' +
-  'NOT watercolour, NOT watercolor wash, NOT oil paint, NOT photorealistic, NOT pencil sketch — ' +
-  'warm golden ambient light, illustrated architectural or outdoor background, ' +
-  'IMPORTANT: characters should look distinctly different ages when the scene calls for it (young adult vs elderly), ' +
+  'warm illustrated cartoon in the style of a Disney animated film — ' +
+  'slightly stylized characters with large expressive dark eyes, smooth cel-shading ' +
+  'with soft gradient transitions and warm skin tones with subtle blush, ' +
+  'warm watercolor-wash backgrounds with soft colour bleeding and illustrated architectural detail, ' +
+  'vivid warm golden ambient lighting, professional educational illustration quality ' +
+  'similar to a language learning app like Babbel or Duolingo, wholesome family-friendly, ' +
+  'IMPORTANT: characters should look distinctly different ages when the scene calls for it (young adult vs clearly elderly), ' +
   'IMPORTANT FRAMING: generous headroom — heads fully visible, never cropped at top of frame, ' +
   'position characters in lower two-thirds of canvas so top quarter shows sky or background, ' +
   NO_TEXT_INSTRUCTION;
@@ -93,106 +95,75 @@ function getDallEClient(): OpenAI | null {
  *
  * gpt-image-1 always returns b64_json — no response_format needed.
  */
-async function generateWithGptImage(
+/**
+ * Generate a SCENE image (type='infographic') using DALL-E 3.
+ *
+ * DALL-E 3 naturally produces the warm Disney-style illustrated cartoon with
+ * watercolor-wash backgrounds that matches the existing HoloHola aesthetic.
+ * gpt-image-1 consistently drifts to either flat digital cartoon or heavy
+ * watercolor — neither matching the original character art.
+ */
+async function generateSceneWithDallE3(
+  request: VisualGenerationRequest,
+  client: OpenAI,
+): Promise<string> {
+  const prompt = `Illustrated cartoon scene: ${request.concept}. ${SCENE_STYLE}.`;
+  console.log('[VisualContent] DALL-E 3 (hd) scene prompt:', prompt.substring(0, 200));
+
+  const genResponse = await client.images.generate({
+    model: 'dall-e-3',
+    prompt,
+    n: 1,
+    size: '1024x1024',
+    quality: 'hd',
+    response_format: 'b64_json',
+  });
+
+  const b64 = genResponse.data?.[0]?.b64_json;
+  if (!b64) throw new Error('DALL-E 3 returned no image data');
+  return b64;
+}
+
+/**
+ * Generate a PROP image (type='image') using gpt-image-1.
+ *
+ * gpt-image-1 is better than DALL-E 3 at isolating a single object against a
+ * clean white background without adding unwanted context or scenery.
+ */
+async function generatePropWithGptImage(
+  request: VisualGenerationRequest,
+  client: OpenAI,
+): Promise<string> {
+  const prompt = `Illustration of: ${request.concept}. ${PROP_STYLE}.`;
+  console.log('[VisualContent] gpt-image-1 prop prompt:', prompt.substring(0, 200));
+
+  const genResponse = await (client.images as any).generate({
+    model: 'gpt-image-1',
+    prompt,
+    n: 1,
+    size: '1024x1024',
+    quality: 'high',
+  });
+
+  const b64 = genResponse.data?.[0]?.b64_json;
+  if (!b64) throw new Error('gpt-image-1 returned no image data');
+  return b64;
+}
+
+async function generateWithModel(
   request: VisualGenerationRequest,
 ): Promise<{ imageUrl: string }> {
   const client = getDallEClient();
   if (!client) throw new Error('OPENAI_API_KEY not set');
 
   const isScene = request.type === 'infographic';
-  const style = isScene ? SCENE_STYLE : PROP_STYLE;
+  let b64: string;
 
-  let b64: string | undefined;
-
-  // ── images.edit with fully-transparent mask (style-transfer mode) ─────────
-  // When an anchor image is provided, we use images.edit with a 100%-transparent
-  // mask so the model regenerates the ENTIRE canvas in the anchor's visual style.
-  //
-  // Why this works:
-  //   - The anchor (e.g. Hola image) feeds gpt-image-1 the character design,
-  //     colour palette, and illustration style as a visual reference.
-  //   - A fully transparent mask (all alpha=0) tells the model to regenerate
-  //     every pixel — so no composition from the anchor bleeds through.
-  //   - The prompt drives the new scene; the anchor drives the style.
-  //
-  // This is different from what we tried before (partial mask or no mask),
-  // which locked the anchor's composition into the output.
-  if (isScene && request.anchorImageUrl) {
-    try {
-      console.log('[VisualContent] Fetching anchor image for style reference...');
-      // anchorImageUrl may be a relative path (/api/media/...) — server-side fetch
-      // requires an absolute URL, so prefix with localhost when needed.
-      let anchorUrl = request.anchorImageUrl;
-      if (anchorUrl.startsWith('/')) {
-        const port = process.env.PORT || '5000';
-        anchorUrl = `http://localhost:${port}${anchorUrl}`;
-      }
-      const anchorRes = await fetch(anchorUrl);
-      if (!anchorRes.ok) throw new Error(`Anchor fetch failed: ${anchorRes.status}`);
-
-      const anchorRaw = Buffer.from(await anchorRes.arrayBuffer());
-
-      // Convert anchor to 1024x1024 RGBA PNG — images.edit requires PNG
-      const anchorPng = await sharp(anchorRaw)
-        .resize(1024, 1024, { fit: 'cover', position: 'centre' })
-        .ensureAlpha()
-        .png()
-        .toBuffer();
-
-      // Fully-transparent mask: alpha=0 everywhere = regenerate everything
-      const maskPng = await sharp({
-        create: { width: 1024, height: 1024, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
-      }).png().toBuffer();
-
-      // Prompt: use explicit style description PLUS reinforce via visual anchor.
-      // Saying only "same art style as the reference" lets the model drift toward
-      // watercolor; explicit style keywords + the anchor together lock the style.
-      const anchoredPrompt =
-        `Clean digital cartoon illustration in the same style as the reference image — ` +
-        `smooth gradient cel-shading with crisp clean outlines, slightly stylized characters ` +
-        `with warm natural skin tones, vivid warm colour palette, ` +
-        `professional 2D character art quality similar to a modern animated series — ` +
-        `NOT watercolour, NOT photorealistic, NOT oil paint. ` +
-        `Draw a new scene: ${request.concept}. ` +
-        `IMPORTANT: characters should look distinctly different ages when called for (young adult vs clearly elderly). ` +
-        `Generous headroom — heads and faces must be fully visible, never cropped at top of frame. ` +
-        `No text, no letters, no words anywhere in the image.`;
-
-      console.log('[VisualContent] images.edit (full-transparent mask) prompt:', anchoredPrompt.substring(0, 160));
-
-      const editResponse = await (client.images as any).edit({
-        image: await toFile(anchorPng, 'anchor.png', { type: 'image/png' }),
-        mask:  await toFile(maskPng,  'mask.png',   { type: 'image/png' }),
-        model: 'gpt-image-1',
-        prompt: anchoredPrompt,
-        n: 1,
-        size: '1024x1024',
-        quality: 'high',
-      });
-      b64 = editResponse.data?.[0]?.b64_json ?? undefined;
-      if (b64) console.log('[VisualContent] images.edit style-transfer succeeded');
-    } catch (err) {
-      console.warn('[VisualContent] images.edit style-transfer failed, falling back to text-only:', err);
-    }
+  if (isScene) {
+    b64 = await generateSceneWithDallE3(request, client);
+  } else {
+    b64 = await generatePropWithGptImage(request, client);
   }
-
-  // ── Text-only fallback ────────────────────────────────────────────────────
-  if (!b64) {
-    const basePrompt = isScene
-      ? `Illustration of a scene: ${request.concept}. ${style}.`
-      : `Illustration of: ${request.concept}. ${style}.`;
-    console.log('[VisualContent] text-only generate, prompt:', basePrompt.substring(0, 200));
-    const genResponse = await (client.images as any).generate({
-      model: 'gpt-image-1',
-      prompt: basePrompt,
-      n: 1,
-      size: '1024x1024',
-      quality: 'high',
-    });
-    b64 = genResponse.data?.[0]?.b64_json ?? undefined;
-  }
-
-  if (!b64) throw new Error('gpt-image-1 returned no image data');
 
   const buf = Buffer.from(b64, 'base64');
   const filename = `visual-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
@@ -255,11 +226,11 @@ export async function generateVisual(
   let provider: string;
 
   try {
-    const result = await generateWithGptImage(request);
+    const result = await generateWithModel(request);
     imageUrl = result.imageUrl;
-    provider = anchorImageUrl ? 'gpt-image-1-anchored' : 'gpt-image-1';
+    provider = type === 'infographic' ? 'dall-e-3' : 'gpt-image-1';
   } catch (error) {
-    console.warn('[VisualContent] gpt-image-1 generation failed, falling back to placeholder:', error);
+    console.warn('[VisualContent] image generation failed, falling back to placeholder:', error);
     imageUrl = generatePlaceholderImage(request).imageUrl;
     provider = 'placeholder';
   }
