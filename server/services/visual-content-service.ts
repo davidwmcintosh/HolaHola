@@ -60,15 +60,12 @@ const PROP_STYLE =
 // Characters (Daniela, Marco, Rosa, etc.) stay consistent via CHARACTER_PROFILES.
 // Generated with DALL-E 3 (hd).
 const SCENE_STYLE =
-  'traditional hand-painted watercolor illustration on textured paper — ' +
-  'the entire image is painted with watercolor technique: translucent layered colour washes, ' +
-  'visible soft brushwork and paper grain showing through lighter areas, ' +
-  'wet-on-wet edge softness where paint bleeds and blooms slightly; ' +
-  'human figures are drawn with loose expressive ink sketch lines and coloured with the same soft watercolor washes ' +
-  'as the background — figures and surroundings share the same painterly quality, NOT sharp digital outlines; ' +
-  'large warm expressive eyes, warm skin tones painted with watercolor wash, subtle wet brush blush; ' +
-  'overall palette is warm and luminous — golden ambers, soft blues, muted greens, warm creams; ' +
-  'the painting has visible watercolor paper texture throughout; ' +
+  'pen-and-watercolor-wash illustration in the style of a charming children\'s book or editorial picture book — ' +
+  'loose expressive ink lines define the figures; soft muted watercolor washes fill in colour with gentle bleed at edges; ' +
+  'figures and their surroundings share the same loose painterly quality — characters are NOT sharply rendered or smoothly shaded; ' +
+  'skin and clothing painted with the same soft open washes as the background, not polished or airbrushed; ' +
+  'warm muted palette: dusty blues, sage greens, warm creams, soft terracottas; ' +
+  'soft flat diffuse ambient light — NO dramatic rim lighting, NO cinematic backlighting, NO spotlight glow effects; ' +
   'NOT photorealistic, NOT flat cel-shading, NOT clean digital fills, NOT 3D render, NOT vector art; ' +
   'COMPOSITIONAL FREEDOM: interpret the scene with fresh, spontaneous framing — vary camera distance, angle, ' +
   'character gestures, and poses; avoid repeating the same two-people-facing-each-other stock composition; ' +
