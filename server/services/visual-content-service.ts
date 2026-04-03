@@ -61,11 +61,12 @@ const PROP_STYLE =
 // stay consistent via CHARACTER_PROFILES while rendering style breathes naturally.
 // Generated with DALL-E 3 (hd).
 const SCENE_STYLE =
-  'warm illustrated art for a language learning app — stylistically free to range from ' +
-  'soft delicate watercolor-wash all the way to vibrant Disney-style cel-shaded cartoon, ' +
-  'natural artistic interpretation per scene; slightly stylized characters with large expressive ' +
-  'dark eyes and warm skin tones; warm golden ambient lighting; ' +
-  'professional educational illustration quality; ' +
+  'warm watercolor-and-ink illustration for a language learning app — ' +
+  'painterly washes of warm colour with soft bleeding edges form the backgrounds and atmosphere; ' +
+  'characters are friendly illustrated cartoons with large expressive eyes, smooth shading, and warm skin tones ' +
+  'rendered within that watercolor world; the blend of painted backgrounds and illustrated characters can shift ' +
+  'toward softer and quieter or more vivid and expressive depending on the scene\'s mood; ' +
+  'warm golden ambient light; hand-crafted professional educational illustration feel; ' +
   'IMPORTANT CONTENT: wholesome, appropriate for all ages, strictly platonic interactions — ' +
   'NO romantic, flirtatious, or sexual subtext; characters maintain comfortable friendly personal space; ' +
   'IMPORTANT: characters should look distinctly different ages when the scene calls for it (young adult vs clearly elderly); ' +
