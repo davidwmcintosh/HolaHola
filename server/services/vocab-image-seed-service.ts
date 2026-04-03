@@ -137,9 +137,20 @@ const howAreYou = (primary: string, secondary: string, setting: string): string 
   `${primary} smiling warmly toward ${secondary} with an open friendly questioning gesture, ` +
   `both facing each other with cheerful warm expressions`;
 
-const howAreYouFormal = (primary: string, secondary: string, setting: string): string =>
-  `${primary} greeting ${secondary} with a polite formal air in ${setting}, ` +
-  `${primary} extending a courteous open-hand gesture with a respectful warm smile`;
+// thankYou: pressing palms together is universally understood as grateful appreciation.
+// Characters' cultural identity (bow, nod, posture) naturally comes through via their profile.
+const thankYou = (primary: string): string =>
+  `${primary} pressing both palms together with a heartfelt warm smile and a gentle nod of gratitude, bright cheerful background`;
+
+// youreWelcome: relaxed open-palm wave — casual, warm, unpretentious.
+const youreWelcome = (secondary: string): string =>
+  `${secondary} waving a relaxed open-palm "you're welcome" hand with a kind easygoing smile, bright airy setting`;
+
+// goodNight: character in pajamas waving from a warmly lit window or doorway, night sky behind.
+// Cultural setting passed in so each language feels authentic.
+const goodNight = (primary: string, setting: string): string =>
+  `${primary} in cozy pajamas waving goodnight from a warmly lit window or doorway, ` +
+  `a crescent moon and starry sky visible over ${setting}, soft warm lamp light inside`;
 
 // ────────────────────────────────────────────────────────────────────────────
 // VOCAB IMAGE ARCHITECTURE — TWO CATEGORIES:
@@ -392,7 +403,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'hola':               `${CHAR.ES.primary} waving hello with a big cheerful smile to ${CHAR.ES.secondary} at a sunny school entrance, both standing a few feet apart, friendly classmate greeting, wholesome platonic interaction`,
   'buenos dias':        `${CHAR.ES.primary} standing outside a rustic farmhouse at sunrise, smiling and waving buenos días at the viewer while a rooster struts past her feet, golden dawn light over rolling hills in the background`,
   'buenas tardes':      `${CHAR.ES.primary} relaxing on a park bench in the sunny afternoon, waving cheerfully to ${CHAR.ES.secondary} passing by, long golden shadows on the grass`,
-  'buenas noches':      `${CHAR.ES.primary} in cozy pajamas waving from a lit bedroom window at a beautiful starry night sky with a glowing crescent moon, warm lamp light inside`,
+  'buenas noches':      goodNight(CHAR.ES.primary, 'the Spanish neighborhood'),
   'adios':              `${CHAR.ES.primary} leaning out of a car window waving adiós, ${CHAR.ES.abuela} standing on the front porch of a cozy house waving back with a warm smile`,
   'hasta luego':        `${CHAR.ES.primary} and ${CHAR.ES.secondary} at a sunny intersection, each heading a different direction, smiling and waving goodbye over their shoulder`,
   'hasta manana':       `${CHAR.ES.primary} waving goodbye to ${CHAR.ES.abuela} outside a cozy house, a plain blank monthly wall calendar with an empty white grid visible on the wall behind them, no text no numbers no writing no labels anywhere in the image`,
@@ -403,7 +414,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'como estas':         howAreYou(CHAR.ES.primary, CHAR.ES.secondary, 'a sunny Spanish plaza'),
   // NOTE: 'como esta' is language-prefixed because Portuguese shares the same bare key.
   'spanish:como esta':  `${CHAR.ES.primary} and ${CHAR.ES.abuela} facing each other warmly on a sunny sidewalk or courtyard, grandmother visibly shorter and much older, granddaughter asking a caring formal question with a warm smile, wholesome intergenerational exchange`,
-  'como esta usted':    howAreYouFormal(CHAR.ES.primary, CHAR.ES.secondary, 'a smart-casual indoor or outdoor Spanish setting'),
+  'como esta usted':    howAreYou(CHAR.ES.primary, CHAR.ES.secondary, 'a smart-casual Spanish indoor or outdoor setting'),
   'bien':               SPLIT('bien', 'a cheerful person giving a big thumbs-up with a bright grin, sunny warm background', 'mal', 'a person with slumped shoulders, frowning face, and drooping posture, grey cool background'),
   'estoy bien':         SPLIT('bien', `${CHAR.ES.primary} giving a big thumbs-up with a beaming grin under a bright sun`, 'mal', `${CHAR.ES.primary} with slumped shoulders, a downcast frown, and a rain cloud overhead, grey cool background`),
   'muy bien':           `${CHAR.ES.primary} jumping with both arms raised in a huge joyful smile and a double thumbs-up, bright sunny Spanish setting`,
@@ -413,7 +424,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'mas o menos':        `${CHAR.ES.primary} tilting her open hand back and forth in a relaxed "so-so" gesture with a neutral shrug and a small smile, bright sunny background`,
   'regular':            `${CHAR.ES.primary} holding her hand out horizontally with a neutral "just okay" expression and a slight shrug, bright cheerful setting`,
   'por favor':          `${CHAR.ES.primary} pressing her hands together in a gentle pleading "por favor" gesture with kind warm eyes, bright sunny setting`,
-  'gracias':            `${CHAR.ES.primary} pressing both palms together in a warm grateful thank-you bow with a big smile, bright cheerful background`,
+  'gracias':            thankYou(CHAR.ES.primary),
   'muchas gracias':     `${CHAR.ES.primary} bowing slightly with both arms extended forward in deep heartfelt gratitude and a beaming smile, bright sunny background`,
   // NOTE: 'de nada' is language-prefixed — see 'spanish:de nada' below (and 'portuguese:de nada' in the Portuguese section).
   'perdon':             `${CHAR.ES.primary} with a sheepish apologetic expression raising one hand in a gentle sorry gesture, soft warm background`,
@@ -472,7 +483,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'per favore':         `${CHAR.IT.primary} at a gelato shop counter with hands clasped making a polite "per favore" request with kind eyes, cheerful colourful setting`,
   'mi chiamo':          `${CHAR.IT.primary} pointing to herself confidently with a big friendly smile, a small speech bubble showing her name`,
   'come stai':          howAreYou(CHAR.IT.primary, CHAR.IT.secondary, 'a sunny Italian piazza or cobblestone street'),
-  'come sta':           howAreYouFormal(CHAR.IT.primary, CHAR.IT.secondary, 'a warm Italian indoor or outdoor setting'),
+  'come sta':           howAreYou(CHAR.IT.primary, CHAR.IT.secondary, 'a warm Italian indoor or outdoor setting'),
   'a domani':           `${CHAR.IT.primary} waving goodbye at a sun-dappled Italian garden gate at sunset, a cheerful circular calendar floating nearby with domani circled, warm golden light`,
   'a presto':           `${CHAR.IT.primary} giving ${CHAR.IT.nonna} a warm farewell hug at a sun-drenched Italian doorway, both smiling warmly`,
   'piacere':            `${CHAR.IT.primary} and ${CHAR.IT.secondary} meeting for the first time in a bright sunny piazza, both extending a warm handshake with delighted "piacere — pleased to meet you" smiles`,
