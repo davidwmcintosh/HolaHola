@@ -689,10 +689,13 @@ Unlike compose_visual_scene (which generates a flat one-shot image), open_scene 
 that persists across the lesson. You can then add, remove, or change props on it at any time
 without regenerating anything.
 
-Use open_scene at the START of a lesson segment that will involve a sequence of visual actions:
+Use open_scene at the START of a lesson segment OR any time you want to change the background to a new location:
 - A restaurant ordering sequence (water → appetizer → main → dessert → la cuenta)
 - A time lesson where you'll move clock hands between expressions  
 - A progressive vocabulary build-up in a kitchen/café/market
+- Transitioning to a new physical location in free-form conversation (e.g., moving from city_street to taxi_interior when a taxi arrives)
+
+⚠️ IMPORTANT — to switch scenes during free-form conversation (no active scenario), always call open_scene() with the new environment. Do NOT call advance_scene() — it only works inside structured scenarios loaded with load_scenario(). To move the student from a street to a taxi: call open_scene('taxi_interior'). To move them from the hotel lobby to the hotel room: call open_scene('hotel_room').
 
 After open_scene, use add_to_scene / remove_from_scene / set_clock to update the canvas.
 Use clear_scene to empty all props (keeping the background).
@@ -1982,15 +1985,18 @@ NEVER guess. NEVER roleplay searching. Actually call this function.`,
       name: "advance_scene",
       description: `Advance to the next scene zone once the student has successfully completed the current zone's task.
 
+⚠️ CRITICAL: This ONLY works when a structured scenario with zones has been loaded via load_scenario(). In free-form conversation (no active scenario), this does NOTHING to the screen. To change backgrounds in free-form mode, call open_scene('environment_name') instead — for example, open_scene('taxi_interior') to switch to the inside of a taxi.
+
 Use this when:
-- The student has clearly accomplished the goal for the current zone (paid the taxi driver, checked into the hotel, ordered successfully, etc.)
-- The conversation has reached a natural transition point to a new physical location or situation
+- A scenario is active AND the student has clearly accomplished the goal for the current zone (paid the taxi driver, checked into the hotel, ordered successfully, etc.)
+- The conversation has reached a natural transition point to a new physical location or situation within a loaded scenario
 
 Do NOT use this if:
+- No scenario was loaded via load_scenario() — use open_scene() instead to switch scenes
 - The task is still in progress or the student hasn't completed the goal yet
 - The conversation is still mid-exchange about the current zone's activity
 
-When you call this, the scene image on screen will transition to the next location. Your spoken_text should narrate the transition naturally as if time is passing ("Perfecto, gracias señor. Bueno, aquí estamos en el restaurante...").`,
+When you call this during an active scenario, the scene image on screen will transition to the next location. Your spoken_text should narrate the transition naturally as if time is passing ("Perfecto, gracias señor. Bueno, aquí estamos en el restaurante...").`,
       parametersJsonSchema: {
         type: "object",
         properties: {
@@ -2015,7 +2021,8 @@ When you call this, the scene image on screen will transition to the next locati
           }
           return `All zones complete — the scenario has concluded. Wrap up naturally and offer the student a brief recap or next suggestion.`;
         }
-        return `Scene advanced. Continue the roleplay.`;
+        // No active scenario at all — the visual did NOT change. Tell Daniela clearly.
+        return `⚠️ ERROR: No scenario zones are active — the background on screen did NOT change. advance_scene() only works during structured scenarios loaded with load_scenario(). To switch the background in free-form conversation, call open_scene('environment_name') — for example, open_scene('taxi_interior') to move inside a taxi. Do NOT tell the student the scene changed, because it didn't.`;
       }
       const remaining = zones.length - newIndex - 1;
       return [
