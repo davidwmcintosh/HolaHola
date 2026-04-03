@@ -470,6 +470,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'freut mich':         `${CHAR.DE.primary} and ${CHAR.DE.secondary} shaking hands warmly in a first meeting, both wearing delighted pleased-to-meet-you smiles, bright professional indoor setting`,
   'wie geht es ihnen':  howAreYou(CHAR.DE.primary, CHAR.DE.secondary, 'a bright German town square or park'),
   'mir geht es gut danke': `${CHAR.DE.primary} giving a cheerful thumbs-up with a bright content smile, radiating a warm "I'm doing well, thank you" expression, sunny background`,
+  'wiederholen':           `${CHAR.DE.primary} as a language teacher in a bright airy classroom, right index finger raised and making a small encouraging circular "one more time" motion in the air, warm patient expression, a small chalkboard and a single attentive student visible behind her`,
 
   // ── Greetings & Farewells — Italian ──────────────────────────────────────
   // Characters: Giulia (primary) + Luca (secondary) — see CHARACTER_PROFILES.IT
