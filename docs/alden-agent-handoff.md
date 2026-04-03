@@ -1,5 +1,66 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Fri, Apr 3, 2026 (session 23 — classroom survival SCENE_OVERRIDES + greeting template sweep)
+
+### What was done
+
+#### 1. Classroom survival phrases SCENE_OVERRIDES — all 9 languages complete
+
+Four new template functions added to `vocab-image-seed-service.ts` (after `goodNight`, ~line 154):
+- `canYouRepeat(primary)` — circular finger gesture "one more time"
+- `speakSlowly(primary)` — palms pressing slowly downward
+- `iDontUnderstand(primary)` — puzzled head tilt + open hand
+- `howDoYouSay(primary)` — pointing at a chalkboard
+
+A new `// Classroom Survival Phrases` section added to `SCENE_OVERRIDES` (~line 710) covering all 9 languages (ES / FR / DE / IT / PT / JA / KO / ZH / EN) with:
+- Both canonical spellings and normalized-key aliases (with-period and without-period where ASCII `.` survives normalization)
+- Native-script keys + romanized/transliterated aliases for JA, KO, ZH, HE
+- French mid-word apostrophe forms (e.g. `"repetez s'il vous plait"`) with double-quote delimiters
+- German standalone `wiederholen` kept as its own custom override; `bitte wiederholen sie` and `kannst du das wiederholen` added separately
+
+**Normalizer key contract reminder** (critical for any future SCENE_OVERRIDES entries):
+- ASCII `.` is **preserved** in the normalized key (both with-period and without-period aliases needed)
+- `? , ¿ ¡ !` → space (collapsed); trailing space stripped
+- Mid-string `'` preserved
+- CJK / Hangul / Hiragana / Hebrew / Katakana: untouched
+
+#### 2. `thankYou` / `youreWelcome` / `goodNight` template sweep — all remaining languages
+
+Previously these templates existed in the code but were only used for Spanish (`buenas noches` → `goodNight`, `gracias` → `thankYou`). All remaining languages now use the template functions consistently — including both native-script entries and romanized/transliterated aliases.
+
+**`thankYou(primary)`** applied to:
+- `merci` (FR), `danke` (DE), `grazie` (IT), `obrigado` / `obrigada` (PT), `תודה` / `toda` (HE), `thank you` (EN)
+
+**`youreWelcome(secondary)`** applied to:
+- `de rien` (FR), `bitte schon` (DE), `portuguese:de nada` (PT), `どういたしまして` / `dou itashimashite` (JA), `천만에요` / `cheonmaneyo` (KO), `不客气` / `bu ke qi` (ZH), `you're welcome` (EN)
+
+**`goodNight(primary, setting)`** applied to all languages with culturally specific settings:
+- `bonne nuit` — "a charming Parisian street with gas lamp glow"
+- `gute nacht` — "a cozy German neighbourhood with half-timbered houses"
+- `buonanotte` — "a warmly lit Italian piazza with cobblestones and terracotta rooftops"
+- `boa noite` — "a colourful Brazilian street with tropical night air"
+- `おやすみなさい` / `oyasumi nasai` — "a quiet Japanese neighbourhood with glowing paper lanterns"
+- `おやすみ` / `oyasumi` — casual variant, pajamas added inline
+- `잘 자요` — "a Seoul apartment district with city lights below"
+- `晚安` / `wan an` — "a peaceful Chinese hutong laneway with warm lantern light"
+- `לילה טוב` / `layla tov` — "a Jerusalem stone-lined street with warm lantern glow"
+- `good night` — "a quiet suburban American street with porch lights glowing"
+
+Key effect: ALL goodnight images now specify **pajamas** (the template includes "in cozy pajamas") and a culturally specific location. Existing cached images are unaffected until an admin runs fix-greetings per language.
+
+### State at end of session
+- All 4 classroom survival templates: ✓ implemented and in SCENE_OVERRIDES for all 9 languages
+- thankYou / youreWelcome / goodNight template sweep: ✓ complete for all 9 languages
+- Server: ✓ running healthy, no TypeScript errors
+- Existing cached images for greeting phrases: unchanged (will regenerate only after admin fix-greetings)
+
+### Next priorities (from visual-asset-roadmap.md + previous backlogs)
+- 15 Novice Low adjective pair images still missing: caliente, frío, bueno, malo, abierto, lleno, vacío, limpio, sucio, nuevo, bajo, rápido, lento, oscuro, claro — no pair PNGs in DB
+- `cuánto cuesta`, `una horchata por favor` — await on-demand generation (no seeder coverage)
+- SaberConocerCard example sentence audio (low priority)
+
+---
+
 ## Session Summary — Thu, Apr 2, 2026 (session 22 — gpt-image-1 anchor seeding system + art style overhaul)
 
 ### What was done
