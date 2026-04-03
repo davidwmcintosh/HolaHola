@@ -60,13 +60,16 @@ const PROP_STYLE =
 // Characters (Daniela, Marco, Rosa, etc.) stay consistent via CHARACTER_PROFILES.
 // Generated with DALL-E 3 (hd).
 const SCENE_STYLE =
-  'warm watercolor illustration in the style of a children\'s book or editorial illustration — ' +
-  'backgrounds are atmospheric painted washes with visible soft brushwork, layered colour washes, and gentle depth; ' +
-  'human figures are hand-illustrated with friendly expressive faces, large warm eyes, and soft painterly shading ' +
-  'that integrates naturally with the painted world around them; ' +
-  'NOT photorealistic, NOT flat cel-shading, NOT clean digital fills, NOT 3D render; ' +
-  'the overall feel is warm, hand-crafted, and inviting, like a high-quality picture book or language textbook illustration; ' +
-  'warm golden ambient light throughout; soft paper-like warmth to the colour palette; ' +
+  'traditional hand-painted watercolor illustration on textured paper — ' +
+  'the entire image is painted with watercolor technique: translucent layered colour washes, ' +
+  'visible soft brushwork and paper grain showing through lighter areas, ' +
+  'wet-on-wet edge softness where paint bleeds and blooms slightly; ' +
+  'human figures are drawn with loose expressive ink sketch lines and coloured with the same soft watercolor washes ' +
+  'as the background — figures and surroundings share the same painterly quality, NOT sharp digital outlines; ' +
+  'large warm expressive eyes, warm skin tones painted with watercolor wash, subtle wet brush blush; ' +
+  'overall palette is warm and luminous — golden ambers, soft blues, muted greens, warm creams; ' +
+  'the painting has visible watercolor paper texture throughout; ' +
+  'NOT photorealistic, NOT flat cel-shading, NOT clean digital fills, NOT 3D render, NOT vector art; ' +
   'COMPOSITIONAL FREEDOM: interpret the scene with fresh, spontaneous framing — vary camera distance, angle, ' +
   'character gestures, and poses; avoid repeating the same two-people-facing-each-other stock composition; ' +
   'IMPORTANT CONTENT: wholesome, appropriate for all ages, strictly platonic interactions — ' +
