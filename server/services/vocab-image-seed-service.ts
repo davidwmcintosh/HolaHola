@@ -144,7 +144,7 @@ const thankYou = (primary: string): string =>
 
 // youreWelcome: relaxed open-palm wave — casual, warm, unpretentious.
 const youreWelcome = (secondary: string): string =>
-  `${secondary} waving a relaxed open-palm "you're welcome" hand with a kind easygoing smile, bright airy setting`;
+  `${secondary} alone, waving a relaxed open-palm "you're welcome" hand with a kind easygoing smile, bright airy setting — solo portrait, no other people`;
 
 // goodNight: character in pajamas waving from a warmly lit window or doorway, night sky behind.
 // Cultural setting passed in so each language feels authentic.
@@ -462,7 +462,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'disculpe':           `${CHAR.ES.primary} excusing herself politely with a gentle raised hand gesture and a kind apologetic smile, warm setting`,
   'lo siento':          `${CHAR.ES.primary} with a sorrowful sincere apologetic expression placing her hand over her heart`,
   // Language-prefixed entry used by fix-greetings when language='spanish'
-  'spanish:de nada':    `${CHAR.ES.secondary} waving a relaxed "de nada — no problem" hand with a kind easygoing smile and a small chuckle, bright sunny background`,
+  'spanish:de nada':    youreWelcome(CHAR.ES.secondary),
 
   // ── Greetings & Farewells — French ────────────────────────────────────────
   // Characters: Sophie (primary) + Pierre (secondary) — see CHARACTER_PROFILES.FR

@@ -3030,12 +3030,23 @@ export function buildGenerationConcept(
     const alreadyHasCharacter =
       /^(a |an )?(person|people|woman|man|boy|girl|child)\b/i.test(concept) ||
       /^(only |two |three )/i.test(concept);
-    // Also skip injection when the scene already contains the character's own name
-    // anywhere in its first 120 characters — covers both "Daniela, a 28-year-old..."
-    // openings AND "Two people: Daniela... and Rosa..." constructions.
-    // Extract first token of the intro as the character name: "Daniela, a 28-..." → "Daniela"
-    const charName = characterIntro.split(/[\s,]/)[0];
-    const alreadyHasNamedCharacter = charName.length > 0 && concept.slice(0, 120).includes(charName);
+    // Also skip injection when the scene already contains ANY known character name
+    // in its first 150 characters.  This covers:
+    //   — "Daniela, a 28-year-old..." (primary character)
+    //   — "Marco, a 30-year-old..." (secondary character used in SCENE_OVERRIDES like 'de nada')
+    //   — "Two people: Daniela... and Rosa..." two-person constructions
+    // Without this broader check, scenes using CHAR.XX.secondary still have the primary
+    // character injected on top → two people in the output.
+    const ALL_KNOWN_CHARACTER_NAMES = [
+      // Primary characters — one per language
+      'Daniela', 'Sophie', 'Anna', 'Giulia', 'Ana', 'Yuki', 'Ji-yeon', 'Mei', 'Noa', 'Emma',
+      // Secondary characters — one per language
+      'Marco', 'Pierre', 'Klaus', 'Luca', 'João', 'Kenji', 'Min-jun', 'Wei', 'Avi', 'Marcus',
+      // Family / supporting characters
+      'Rosa', 'Nonna', 'Oma', 'Avó',
+    ];
+    const alreadyHasNamedCharacter =
+      ALL_KNOWN_CHARACTER_NAMES.some(name => concept.slice(0, 150).includes(name));
     if (!isPropDescription && !alreadyHasCharacter && !alreadyHasNamedCharacter) {
       return `${characterIntro} ${concept}, in a natural everyday setting`;
     }
