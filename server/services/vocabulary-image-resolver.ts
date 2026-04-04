@@ -1225,11 +1225,22 @@ const CONCEPT_KEY_MAP: Record<string, string> = {
   '袜子':         'vocab_spanish_calcetines', // ZH
 
   // ── Common Verbs / Activities ──────────────────────────────────────────────
-  // eat (comer)
-  'manger':      'vocab_spanish_comer', // FR
-  'essen':       'vocab_spanish_comer', // DE
-  'mangiare':    'vocab_spanish_comer', // IT
+  // eat (comer) — conjugated FR/DE/IT/ES forms included
+  'manger':      'vocab_spanish_comer', // FR infinitive
+  'mange':       'vocab_spanish_comer', // FR je/il/elle mange
+  'manges':      'vocab_spanish_comer', // FR tu manges
+  'mangeons':    'vocab_spanish_comer', // FR nous mangeons
+  'mangez':      'vocab_spanish_comer', // FR vous mangez
+  'mangent':     'vocab_spanish_comer', // FR ils mangent
+  'essen':       'vocab_spanish_comer', // DE infinitive
+  'esse':        'vocab_spanish_comer', // DE ich esse
+  'isst':        'vocab_spanish_comer', // DE er/sie/es isst
+  'mangiare':    'vocab_spanish_comer', // IT infinitive
+  'mangio':      'vocab_spanish_comer', // IT io mangio
+  'mangia':      'vocab_spanish_comer', // IT lui/lei mangia
   'eat':         'vocab_spanish_comer', // EN
+  'eats':        'vocab_spanish_comer', // EN he/she eats
+  // Note: "como" omitted (also Spanish "how"); "come" omitted (English "to come" collision)
   'たべる':        'vocab_spanish_comer', // JA
   '食べる':        'vocab_spanish_comer', // JA kanji
   '먹다':         'vocab_spanish_comer', // KO
@@ -1380,12 +1391,25 @@ const CONCEPT_KEY_MAP: Record<string, string> = {
   '买':           'vocab_spanish_comprar', // ZH
   // Note: "comprar" same in ES and PT
 
-  // study (estudiar)
-  'etudier':     'vocab_spanish_estudiar', // FR (étudier)
-  'studieren':   'vocab_spanish_estudiar', // DE
-  'studiare':    'vocab_spanish_estudiar', // IT
-  'estudar':     'vocab_spanish_estudiar', // PT
+  // study (estudiar) — conjugated FR/DE/IT/ES forms also included
+  'etudier':     'vocab_spanish_estudiar', // FR infinitive (étudier)
+  'etudie':      'vocab_spanish_estudiar', // FR je/il/elle étudie (also j'étudie stripped)
+  'etudies':     'vocab_spanish_estudiar', // FR tu étudies
+  'etudions':    'vocab_spanish_estudiar', // FR nous étudions
+  'etudiez':     'vocab_spanish_estudiar', // FR vous étudiez
+  'etudient':    'vocab_spanish_estudiar', // FR ils étudient
+  'studieren':   'vocab_spanish_estudiar', // DE infinitive
+  'studiere':    'vocab_spanish_estudiar', // DE ich studiere
+  'studierst':   'vocab_spanish_estudiar', // DE du studierst
+  'studiert':    'vocab_spanish_estudiar', // DE er/sie/es studiert
+  'studiare':    'vocab_spanish_estudiar', // IT infinitive
+  'studio':      'vocab_spanish_estudiar', // IT io studio
+  'studia':      'vocab_spanish_estudiar', // IT lui/lei studia
+  'estudar':     'vocab_spanish_estudiar', // PT infinitive
   'study':       'vocab_spanish_estudiar', // EN
+  'studies':     'vocab_spanish_estudiar', // EN he/she studies
+  'estudio':     'vocab_spanish_estudiar', // ES yo estudio
+  'estudia':     'vocab_spanish_estudiar', // ES él/ella estudia
   'benkyo suru': 'vocab_spanish_estudiar', // JA (勉強する romanised)
   'benkyosuru':  'vocab_spanish_estudiar', // JA alt
   '勉強する':     'vocab_spanish_estudiar', // JA kanji
@@ -1393,64 +1417,103 @@ const CONCEPT_KEY_MAP: Record<string, string> = {
   '공부하다':     'vocab_spanish_estudiar', // KO
   '学习':        'vocab_spanish_estudiar', // ZH
 
-  // watch / look at (mirar)
-  'regarder':    'vocab_spanish_mirar', // FR
-  'schauen':     'vocab_spanish_mirar', // DE
-  'anschauen':   'vocab_spanish_mirar', // DE alt
-  'guardare':    'vocab_spanish_mirar', // IT
-  'assistir':    'vocab_spanish_mirar', // PT (assistir a TV = watch TV)
+  // watch / look at (mirar) — conjugated FR/DE/IT/ES forms also included
+  'regarder':    'vocab_spanish_mirar', // FR infinitive
+  'regarde':     'vocab_spanish_mirar', // FR je/il/elle (je regarde, il regarde)
+  'regardes':    'vocab_spanish_mirar', // FR tu
+  'regardons':   'vocab_spanish_mirar', // FR nous
+  'regardez':    'vocab_spanish_mirar', // FR vous
+  'regardent':   'vocab_spanish_mirar', // FR ils/elles
+  'schauen':     'vocab_spanish_mirar', // DE infinitive
+  'schaue':      'vocab_spanish_mirar', // DE ich schaue
+  'schaust':     'vocab_spanish_mirar', // DE du schaust
+  'schaut':      'vocab_spanish_mirar', // DE er/sie/es schaut
+  'anschauen':   'vocab_spanish_mirar', // DE infinitive alt
+  'guardare':    'vocab_spanish_mirar', // IT infinitive
+  'guardo':      'vocab_spanish_mirar', // IT io guardo
+  'guarda':      'vocab_spanish_mirar', // IT lui/lei guarda
+  'assistir':    'vocab_spanish_mirar', // PT infinitive
   'watch':       'vocab_spanish_mirar', // EN
+  'look':        'vocab_spanish_mirar', // EN alt (look at)
+  'miro':        'vocab_spanish_mirar', // ES yo miro
+  'mira':        'vocab_spanish_mirar', // ES él/ella mira
   'みる':        'vocab_spanish_mirar', // JA
   '見る':        'vocab_spanish_mirar', // JA kanji
   '보다':        'vocab_spanish_mirar', // KO
   '看':          'vocab_spanish_mirar', // ZH
 
-  // work (trabajar)
-  'travailler':  'vocab_spanish_trabajar', // FR
-  'arbeiten':    'vocab_spanish_trabajar', // DE
-  'lavorare':    'vocab_spanish_trabajar', // IT
-  'trabalhar':   'vocab_spanish_trabajar', // PT
+  // work (trabajar) — conjugated FR/DE/IT/ES forms also included
+  'travailler':  'vocab_spanish_trabajar', // FR infinitive
+  'travaille':   'vocab_spanish_trabajar', // FR je/il/elle travaille
+  'travailles':  'vocab_spanish_trabajar', // FR tu travailles
+  'travaillons': 'vocab_spanish_trabajar', // FR nous travaillons
+  'travaillez':  'vocab_spanish_trabajar', // FR vous travaillez
+  'travaillent': 'vocab_spanish_trabajar', // FR ils travaillent
+  'arbeiten':    'vocab_spanish_trabajar', // DE infinitive
+  'arbeite':     'vocab_spanish_trabajar', // DE ich arbeite
+  'arbeitest':   'vocab_spanish_trabajar', // DE du arbeitest
+  'arbeitet':    'vocab_spanish_trabajar', // DE er/sie/es arbeitet
+  'lavorare':    'vocab_spanish_trabajar', // IT infinitive
+  'lavoro':      'vocab_spanish_trabajar', // IT io lavoro
+  'lavora':      'vocab_spanish_trabajar', // IT lui/lei lavora
+  'trabalhar':   'vocab_spanish_trabajar', // PT infinitive
   'work':        'vocab_spanish_trabajar', // EN
+  'works':       'vocab_spanish_trabajar', // EN he/she works
+  'trabajo':     'vocab_spanish_trabajar', // ES yo trabajo
+  'trabaja':     'vocab_spanish_trabajar', // ES él/ella trabaja
   'はたらく':     'vocab_spanish_trabajar', // JA
   '働く':        'vocab_spanish_trabajar', // JA kanji
   '일하다':      'vocab_spanish_trabajar', // KO
   '工作':        'vocab_spanish_trabajar', // ZH
 
   // get up / wake up (levantarse)
-  'se lever':       'vocab_spanish_levantarse', // FR
+  // Note: reflexive sentence forms ("je me lève") have 3 tokens after pronoun strip
+  // so they fall through cleanly — only bare infinitives and non-reflexive forms match here.
+  // Separable verb stems (stehe, steht, wache) are omitted to avoid collision with stehen/wachen.
+  'se lever':       'vocab_spanish_levantarse', // FR infinitive (se lever)
+  'lever':          'vocab_spanish_levantarse', // FR bare infinitive (after se stripped)
+  'leve':           'vocab_spanish_levantarse', // FR lève → leve (diacritic stripped)
   'se reveiller':   'vocab_spanish_levantarse', // FR (se réveiller — alt)
-  'aufstehen':      'vocab_spanish_levantarse', // DE
-  'aufwachen':      'vocab_spanish_levantarse', // DE (wake up)
-  'alzarsi':        'vocab_spanish_levantarse', // IT
-  'svegliarsi':     'vocab_spanish_levantarse', // IT (wake up)
-  'levantar-se':    'vocab_spanish_levantarse', // PT
+  'aufstehen':      'vocab_spanish_levantarse', // DE infinitive
+  'aufwachen':      'vocab_spanish_levantarse', // DE (wake up infinitive)
+  'alzarsi':        'vocab_spanish_levantarse', // IT infinitive
+  'svegliarsi':     'vocab_spanish_levantarse', // IT infinitive (wake up)
+  'levantarse':     'vocab_spanish_levantarse', // PT/ES normalised (levantar-se → levantarse)
   'se levantar':    'vocab_spanish_levantarse', // PT alt
   'acordar':        'vocab_spanish_levantarse', // PT (wake up)
   'get up':         'vocab_spanish_levantarse', // EN
   'wake up':        'vocab_spanish_levantarse', // EN alt
+  'gets up':        'vocab_spanish_levantarse', // EN he/she gets up
+  'me levanto':     'vocab_spanish_levantarse', // ES yo me levanto (normalised: me levanto)
   'おきる':         'vocab_spanish_levantarse', // JA
   '起きる':         'vocab_spanish_levantarse', // JA kanji
   '일어나다':        'vocab_spanish_levantarse', // KO
   '起床':           'vocab_spanish_levantarse', // ZH
 
   // go to bed (acostarse)
-  'se coucher':     'vocab_spanish_acostarse', // FR
+  'se coucher':     'vocab_spanish_acostarse', // FR infinitive
+  'couche':         'vocab_spanish_acostarse', // FR je me couche stem
   'schlafen gehen': 'vocab_spanish_acostarse', // DE
   'ins bett gehen': 'vocab_spanish_acostarse', // DE alt
   'andare a letto': 'vocab_spanish_acostarse', // IT
   'coricarsi':      'vocab_spanish_acostarse', // IT alt
-  'deitar-se':      'vocab_spanish_acostarse', // PT
+  'deitarse':       'vocab_spanish_acostarse', // PT (deitar-se → deitarse after normalizeWord)
+  'deitar':         'vocab_spanish_acostarse', // PT bare verb
   'ir dormir':      'vocab_spanish_acostarse', // PT alt
   'go to bed':      'vocab_spanish_acostarse', // EN
-  'ねる':           'vocab_spanish_acostarse', // JA (寝る — same as dormir; context differs but shared is fine)
+  'goes to bed':    'vocab_spanish_acostarse', // EN he/she
+  'ねる':           'vocab_spanish_acostarse', // JA (寝る)
   '자다':          'vocab_spanish_acostarse', // KO
 
   // get dressed (vestirse)
-  's habiller':     'vocab_spanish_vestirse', // FR (s'habiller normalised)
-  'habiller':       'vocab_spanish_vestirse', // FR bare form
-  'sich anziehen':  'vocab_spanish_vestirse', // DE
-  'vestirsi':       'vocab_spanish_vestirse', // IT
-  'vestir-se':      'vocab_spanish_vestirse', // PT
+  // "s'habiller" → normalizeWord → "shabiller" (apostrophe removed, no space)
+  // stripPronounPrefix pre-processes apostrophes to spaces, so "je m'habille" → "je m habille" → 3 tokens → falls through
+  'shabiller':      'vocab_spanish_vestirse', // FR s'habiller normalised (apostrophe removed)
+  'habiller':       'vocab_spanish_vestirse', // FR bare infinitive
+  'habille':        'vocab_spanish_vestirse', // FR je/il m'habille → habille after strip
+  'sich anziehen':  'vocab_spanish_vestirse', // DE (sich anziehen normalised: sich anziehen)
+  'vestirsi':       'vocab_spanish_vestirse', // IT infinitive
+  'vestirse':       'vocab_spanish_vestirse', // ES/PT (vestir-se → vestirse after normalizeWord)
   'get dressed':    'vocab_spanish_vestirse', // EN
   '着る':           'vocab_spanish_vestirse', // JA
   '옷을 입다':      'vocab_spanish_vestirse', // KO
@@ -2768,22 +2831,25 @@ export async function resolveVocabularyImage(
   };
 
   function stripPronounPrefix(raw: string, lang: string): string | null {
-    const norm = normalizeWord(raw);
+    // Pre-process: replace apostrophe variants with a space BEFORE normalizing.
+    // normalizeWord() removes apostrophes without inserting a space, so
+    //   "j'étudie"  → normalizeWord → "jetudie"  (wrong — can't split on pronouns)
+    //   "j' étudie" → normalizeWord → "j etudie" (correct — splits cleanly)
+    // Doing this replacement here gives correct 2-token behaviour for elided forms.
+    const withSpaceApostrophes = raw
+      .replace(/[\u2019\u2018\u0060\u00B4']/g, " ") // curly/smart apostrophes → space
+      .replace(/'/g, " ");                            // straight apostrophe → space
+    const norm = normalizeWord(withSpaceApostrophes);
     const pronouns = CONJUGATION_PRONOUNS[lang] ?? [];
 
-    // Two-token form: "je mange" → check if first token is a pronoun
-    const tokens = norm.split(' ');
+    // Two-token form: "je mange" / "j etudie" (from j'étudie) → check if first token is a pronoun
+    const tokens = norm.split(' ').filter(Boolean);
     if (tokens.length === 2 && pronouns.includes(tokens[0])) {
       return tokens[1];
     }
 
-    // French elided form: "j'étudie" → normalises to "j etudie" (apostrophe stripped → space)
-    // The apostrophe becomes '' (stripped) so "j'étudie" → "j etudie" — handled by two-token check above.
-    // But "j'aime" with a smart apostrophe (') also normalises the same way.
-    // The two-token check already handles this since 'j' is in the pronoun list.
-
-    // Sentence ending in a period: "Je mange." → normalised → "je mange " → trim handles it.
-    // normalizeWord already trims, so "je mange." → "je mange" (period stripped) → two tokens ✓
+    // Sentence ending in a period: "Je mange." → normalised → "je mange" (period stripped) → two tokens ✓
+    // (normalizeWord already strips punctuation and trims)
 
     return null;
   }
