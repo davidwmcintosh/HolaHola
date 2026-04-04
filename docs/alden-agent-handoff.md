@@ -49,17 +49,27 @@ and uses that prompt for DALL-E generation. This lets French `boire` → canonic
 #### 3. Admin audit endpoint (`GET /api/admin/vocab-audit`)
 Located in `server/routes.ts` (after `/api/admin/vocab-images/seed-all-progress`).
 
+Queries actual lesson `required_vocabulary` from `curriculum_lessons` (joined with units and paths).
+Classifies each word through all four routing tiers.
+
 **Query params:**
-- `language=es` — filter to a single language code
-- `unit=greetings` — filter to a single unit theme (or unit number 1-27)
-- `tier=shared` — filter to a specific imageTier
+- `language=es` or `language=spanish` — both short codes and full names supported
+- `status=unrouted` — filter to a specific routing status
+
+**Classification logic:**
+```
+canonical      → lookupCanonicalConcept(word, lang) returns a sharedConceptKey
+shared_concept → CONCEPT_KEY_MAP[normalizeWord(word)] returns a conceptKey
+scene_override → SCENE_OVERRIDES[normalizeForOverride(word)] is defined
+unrouted       → none of the above match
+```
 
 **Response shape:**
 ```json
 {
-  "summary": { "totalConcepts": 3150, "sharedCached": 1200, "sharedMissing": 450, ... },
-  "filters": { "language": "all", "unit": "all", "tier": "all" },
-  "byUnit": { "unit1_greetings": [{ "unitNumber": 1, "theme": "greetings", "conceptKey": "hello", "language": "french", "word": "bonjour", "tier": "scene_override", "sharedConceptKey": null, "cached": false }] }
+  "summary": { "total": 450, "routed": 380, "unrouted": 70, "coveragePercent": 84 },
+  "byLanguage": [{ "language": "spanish", "total": 80, "routed": 75, "unrouted": 5, "coveragePercent": 94 }],
+  "byUnit": { "spanish__Unit 1: Greetings": { "language": "spanish", "unitName": "...", "lessons": [...] } }
 }
 ```
 
@@ -115,16 +125,17 @@ Word → resolver
 
 ### State at end of session
 - `server/data/canonical-vocabulary.ts`: created — 27 unit themes × 9 languages, ~350+ ConceptEntry objects ✓
-- `server/services/vocabulary-image-resolver.ts`: Step 0 canonical lookup wired; anchor fallback for SCENE_OVERRIDE on cache miss ✓
+- `server/services/vocabulary-image-resolver.ts`: Step 0 canonical lookup wired; CONCEPT_KEY_MAP and normalizeWord now exported; anchor fallback for SCENE_OVERRIDE on cache miss ✓
 - `server/services/vocab-image-seed-service.ts`: ~60+ new Spanish anchor SCENE_OVERRIDEs ✓
-- `server/routes.ts`: `GET /api/admin/vocab-audit` endpoint added ✓
+- `server/routes.ts`: `GET /api/admin/vocab-audit` endpoint added (queries actual DB lesson vocabulary) ✓
+- `client/src/pages/admin/CommandCenter.tsx`: Vocab Audit tab added to Content group with filters, coverage chart, and per-unit word breakdown ✓
 - `docs/alden-agent-handoff.md`: updated ✓
 
 ### Next priorities
-- Run `/api/admin/vocab-audit?tier=shared&language=spanish` to see coverage report
-- Use `/api/admin/vocab-images/seed` to generate missing images for the new anchor concepts
-- Add more CONCEPT_KEY_MAP clusters for the new canonical verbs (beber/drink cluster, ir/go cluster, etc.)
-- Advanced: wire canonical registry into the seeding batch job so it can auto-seed all missing shared images
+- Run the Vocab Audit tab (CommandCenter → Content → Vocab Audit) to see live coverage report
+- Use `/api/admin/vocab-images/seed` to generate missing images for new anchor concepts (beber, ir, etc.)
+- Add CONCEPT_KEY_MAP clusters for the new canonical verbs (beber/drink, ir/go, venir/come, etc.)
+- Seed-all to populate the DALL-E images for all new shared concept keys in the canonical registry
 
 ---
 

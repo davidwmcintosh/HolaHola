@@ -12115,96 +12115,166 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // ─── Canonical vocabulary registry audit ──────────────────────────────────
-  // GET /api/admin/vocab-audit?language=es&unit=3&tier=shared
-  // Returns an overview of every concept in the canonical registry, with DB cache
-  // status, routing tier, and any missing images so admins can identify gaps.
+  // GET /api/admin/vocab-audit?language=spanish&status=unrouted
+  // Queries actual lesson required_vocabulary from DB, classifies each word
+  // through the four-tier routing pipeline, and reports routing completeness.
   app.get('/api/admin/vocab-audit', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const { CANONICAL_UNITS } = await import('./data/canonical-vocabulary');
+      const { lookupCanonicalConcept, CANONICAL_UNITS } = await import('./data/canonical-vocabulary');
+      const { CONCEPT_KEY_MAP, normalizeWord } = await import('./services/vocabulary-image-resolver');
+      const { SCENE_OVERRIDES, normalizeForOverride } = await import('./services/vocab-image-seed-service');
       const { getUserDb } = await import('./db');
       const { sql: rawSql } = await import('drizzle-orm');
       const db = getUserDb();
 
-      // Load all cached concept keys from the DB in one query for O(1) lookup
-      const cachedRows = await db.execute(rawSql`
-        SELECT search_query FROM stock_images
-        WHERE search_query LIKE 'vocab_%' AND url IS NOT NULL AND url != ''
-      `);
-      const cachedKeys = new Set<string>((cachedRows.rows as any[]).map((r: any) => r.search_query as string));
+      // Language code → canonical name mapping
+      const LANG_CODE_MAP: Record<string, string> = {
+        en: 'english', english: 'english',
+        fr: 'french',  french: 'french',
+        de: 'german',  german: 'german',
+        it: 'italian', italian: 'italian',
+        pt: 'portuguese', portuguese: 'portuguese',
+        es: 'spanish', spanish: 'spanish',
+        ja: 'japanese', japanese: 'japanese',
+        ko: 'korean',  korean: 'korean',
+        zh: 'mandarin', mandarin: 'mandarin',
+        cn: 'mandarin',
+      };
 
-      // Filter params
-      const langFilter  = (req.query.language as string | undefined)?.toLowerCase();
-      const unitFilter  = req.query.unit as string | undefined;
-      const tierFilter  = req.query.tier as string | undefined;
+      // Filter params — accept both short codes and full names
+      const rawLang = (req.query.language as string | undefined)?.toLowerCase().trim();
+      const langFilter = rawLang ? (LANG_CODE_MAP[rawLang] ?? rawLang) : undefined;
+      const statusFilter = req.query.status as string | undefined; // canonical|shared_concept|scene_override|unrouted
 
-      // Build the audit rows — CANONICAL_UNITS is Record<UnitTheme, ConceptEntry[]>
-      const results: Record<string, any[]> = {};
-      let totalConcepts = 0;
-      let sharedCached = 0;
-      let sharedMissing = 0;
-      let svgCount = 0;
-      let sceneOverrideCount = 0;
-      let noneCount = 0;
+      /** Classify a single word through the four-tier routing chain */
+      function classifyWord(word: string, canonLang: string): { status: string; key: string | null } {
+        // Tier 0: canonical registry
+        const canonicalKey = lookupCanonicalConcept(word, canonLang as any);
+        if (canonicalKey) return { status: 'canonical', key: canonicalKey };
 
-      let unitNumber = 0;
-      for (const [theme, concepts] of Object.entries(CANONICAL_UNITS)) {
-        unitNumber++;
-        if (unitFilter && theme !== unitFilter && String(unitNumber) !== unitFilter) continue;
+        // Tier 1: CONCEPT_KEY_MAP (shared concept map)
+        const norm = normalizeWord(word);
+        const conceptKey = (CONCEPT_KEY_MAP as Record<string, string>)[norm] ?? null;
+        if (conceptKey) return { status: 'shared_concept', key: conceptKey };
 
-        for (const concept of concepts) {
-          const tier = concept.imageTier;
-          if (tierFilter && tier !== tierFilter) continue;
+        // Tier 2: SCENE_OVERRIDES (character scene)
+        const overrideKey = normalizeForOverride(word);
+        if ((SCENE_OVERRIDES as Record<string, string>)[overrideKey]) {
+          return { status: 'scene_override', key: null };
+        }
 
-          // Collect languages to audit
-          const langEntries = Object.entries(concept.words) as [string, string][];
-          const filteredLangs = langFilter
-            ? langEntries.filter(([lang]) => lang === langFilter)
-            : langEntries;
+        return { status: 'unrouted', key: null };
+      }
 
-          for (const [lang, word] of filteredLangs) {
-            totalConcepts++;
-            const sharedKey = concept.sharedConceptKey ?? null;
-            const cached    = sharedKey ? cachedKeys.has(sharedKey) : false;
+      // Fetch all lessons with their required_vocabulary, joined with unit and path for context
+      // langFilter is already sanitized against LANG_CODE_MAP (only known-safe values)
+      const lessonRows = langFilter
+        ? await db.execute(rawSql`
+            SELECT
+              cl.id          AS lesson_id,
+              cl.name        AS lesson_name,
+              cl.required_vocabulary,
+              cu.id          AS unit_id,
+              cu.name        AS unit_name,
+              cu.chapter_type,
+              cp.language    AS path_language
+            FROM curriculum_lessons cl
+            JOIN curriculum_units cu  ON cu.id = cl.curriculum_unit_id
+            JOIN curriculum_paths cp  ON cp.id = cu.curriculum_path_id
+            WHERE cl.required_vocabulary IS NOT NULL
+              AND array_length(cl.required_vocabulary, 1) > 0
+              AND LOWER(cp.language) = ${langFilter}
+            ORDER BY cp.language, cu.order_index, cl.order_index
+          `)
+        : await db.execute(rawSql`
+            SELECT
+              cl.id          AS lesson_id,
+              cl.name        AS lesson_name,
+              cl.required_vocabulary,
+              cu.id          AS unit_id,
+              cu.name        AS unit_name,
+              cu.chapter_type,
+              cp.language    AS path_language
+            FROM curriculum_lessons cl
+            JOIN curriculum_units cu  ON cu.id = cl.curriculum_unit_id
+            JOIN curriculum_paths cp  ON cp.id = cu.curriculum_path_id
+            WHERE cl.required_vocabulary IS NOT NULL
+              AND array_length(cl.required_vocabulary, 1) > 0
+            ORDER BY cp.language, cu.order_index, cl.order_index
+          `);
 
-            if (tier === 'svg')                svgCount++;
-            else if (tier === 'scene_override') sceneOverrideCount++;
-            else if (tier === 'none')           noneCount++;
-            else if (tier === 'shared') {
-              if (cached) sharedCached++;
-              else        sharedMissing++;
-            }
+      // Aggregate stats
+      const byUnit: Record<string, any> = {};
+      let total = 0, routed = 0, unrouted = 0;
+      const byLanguage: Record<string, { total: number; routed: number }> = {};
 
-            const unitKey = `unit${unitNumber}_${theme}`;
-            if (!results[unitKey]) results[unitKey] = [];
-            results[unitKey].push({
-              unitNumber,
-              theme,
-              conceptKey: concept.conceptKey,
-              englishGloss: concept.englishGloss,
-              language: lang,
-              word,
-              tier,
-              sharedConceptKey: sharedKey,
-              cached,
-            });
+      for (const row of lessonRows.rows as any[]) {
+        const words: string[] = Array.isArray(row.required_vocabulary) ? row.required_vocabulary : [];
+        if (!words.length) continue;
+
+        const rawPathLang = (row.path_language as string)?.toLowerCase() ?? '';
+        const canonLang = LANG_CODE_MAP[rawPathLang] ?? rawPathLang;
+        const unitKey   = `${canonLang}__${row.unit_name as string}`;
+
+        if (!byUnit[unitKey]) {
+          byUnit[unitKey] = {
+            language: canonLang,
+            unitId: row.unit_id,
+            unitName: row.unit_name,
+            chapterType: row.chapter_type,
+            lessons: [],
+          };
+        }
+        if (!byLanguage[canonLang]) byLanguage[canonLang] = { total: 0, routed: 0 };
+
+        const lessonItems: any[] = [];
+        for (const word of words) {
+          const { status, key } = classifyWord(word, canonLang);
+          if (!statusFilter || status === statusFilter) {
+            lessonItems.push({ word, status, key });
+          }
+          total++;
+          byLanguage[canonLang].total++;
+          if (status !== 'unrouted') {
+            routed++;
+            byLanguage[canonLang].routed++;
+          } else {
+            unrouted++;
           }
         }
+
+        if (lessonItems.length > 0) {
+          byUnit[unitKey].lessons.push({
+            lessonId: row.lesson_id,
+            lessonName: row.lesson_name,
+            items: lessonItems,
+          });
+        }
+      }
+
+      // Also pull the canonical registry catalogue for reference (not DB-dependent)
+      const registryCatalog: Record<string, number> = {};
+      for (const [theme, concepts] of Object.entries(CANONICAL_UNITS)) {
+        registryCatalog[theme] = concepts.length;
       }
 
       res.json({
         summary: {
-          totalConcepts,
-          sharedCached,
-          sharedMissing,
-          svgCount,
-          sceneOverrideCount,
-          noneCount,
-          coveragePercent: totalConcepts > 0
-            ? Math.round((sharedCached / totalConcepts) * 100)
-            : 0,
+          total,
+          routed,
+          unrouted,
+          coveragePercent: total > 0 ? Math.round((routed / total) * 100) : 0,
         },
-        filters: { language: langFilter ?? 'all', unit: unitFilter ?? 'all', tier: tierFilter ?? 'all' },
-        byUnit: results,
+        byLanguage: Object.entries(byLanguage).map(([lang, s]) => ({
+          language: lang,
+          total: s.total,
+          routed: s.routed,
+          unrouted: s.total - s.routed,
+          coveragePercent: s.total > 0 ? Math.round((s.routed / s.total) * 100) : 0,
+        })),
+        filters: { language: langFilter ?? 'all', status: statusFilter ?? 'all' },
+        byUnit,
+        registryCatalog,
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });

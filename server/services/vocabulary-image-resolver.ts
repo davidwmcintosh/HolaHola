@@ -233,7 +233,7 @@ export const LANGUAGE_ANCHOR_CACHE_KEYS: Record<string, string> = {
 // Keys below use normalizeWord() output: lowercase, accents stripped,
 // non-alphanumeric-non-space stripped, spaces collapsed.
 
-const CONCEPT_KEY_MAP: Record<string, string> = {
+export const CONCEPT_KEY_MAP: Record<string, string> = {
   // ── Numbers ─────────────────────────────────────────────────────────
   'cero':          'concept_num_0',
   'zero':          'concept_num_0',  // FR/IT/PT/DE
@@ -2735,7 +2735,7 @@ export async function resolveChapterCoverImage(
   return { imageUrl: result.imageUrl, source: 'generated' };
 }
 
-function normalizeWord(word: string): string {
+export function normalizeWord(word: string): string {
   return word
     .toLowerCase()
     .normalize('NFD')

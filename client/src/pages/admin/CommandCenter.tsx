@@ -1612,6 +1612,7 @@ export default function CommandCenter() {
         { id: "lesson-drafts", label: "Lessons", icon: Sparkles, roles: ['admin', 'developer'] },
         { id: "fluency-coverage", label: "Fluency", icon: Target, roles: ['admin', 'developer'] },
         { id: "images", label: "Images", icon: Image, roles: ['admin', 'developer'] },
+        { id: "vocab-audit", label: "Vocab Audit", icon: LayoutGrid, roles: ['admin', 'developer'] },
         { id: "menu-gen", label: "Menu Gen", icon: Utensils, roles: ['admin', 'developer'] },
         { id: "curriculum-enrichment", label: "Curriculum", icon: DatabaseZap, roles: ['admin', 'developer'] },
         { id: "textbook-seeder", label: "Textbook", icon: BookOpen, roles: ['admin', 'developer'] },
@@ -1765,6 +1766,10 @@ export default function CommandCenter() {
 
           <TabsContent value="images" className="space-y-4">
             <ImageLibraryTab />
+          </TabsContent>
+
+          <TabsContent value="vocab-audit" className="space-y-4">
+            <VocabAuditTab />
           </TabsContent>
 
           <TabsContent value="menu-gen" className="space-y-4">
@@ -7295,6 +7300,221 @@ function AuditTab() {
           </div>
         )}
       </CollapsibleSection>
+    </div>
+  );
+}
+
+// ===== Vocab Audit Tab =====
+type VocabAuditStatus = 'canonical' | 'shared_concept' | 'scene_override' | 'unrouted';
+
+interface VocabAuditItem {
+  word: string;
+  status: VocabAuditStatus;
+  key: string | null;
+}
+
+interface VocabAuditLesson {
+  lessonId: string;
+  lessonName: string;
+  items: VocabAuditItem[];
+}
+
+interface VocabAuditUnit {
+  language: string;
+  unitId: string;
+  unitName: string;
+  chapterType: string | null;
+  lessons: VocabAuditLesson[];
+}
+
+interface VocabAuditResponse {
+  summary: { total: number; routed: number; unrouted: number; coveragePercent: number };
+  byLanguage: { language: string; total: number; routed: number; unrouted: number; coveragePercent: number }[];
+  filters: { language: string; status: string };
+  byUnit: Record<string, VocabAuditUnit>;
+  registryCatalog: Record<string, number>;
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  canonical:      'text-green-700 dark:text-green-400',
+  shared_concept: 'text-blue-700 dark:text-blue-400',
+  scene_override: 'text-purple-700 dark:text-purple-400',
+  unrouted:       'text-red-700 dark:text-red-400',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  canonical:      'Canonical',
+  shared_concept: 'Concept Map',
+  scene_override: 'Scene Override',
+  unrouted:       'Unrouted',
+};
+
+function VocabAuditTab() {
+  const [language, setLanguage] = useState('all');
+  const [status, setStatus]     = useState('all');
+
+  const { data, isLoading, refetch } = useQuery<VocabAuditResponse>({
+    queryKey: ['/api/admin/vocab-audit', { language, status }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (language !== 'all') params.set('language', language);
+      if (status !== 'all')   params.set('status', status);
+      const res = await fetch(`/api/admin/vocab-audit?${params}`);
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+
+  const units = data ? Object.entries(data.byUnit) : [];
+
+  return (
+    <div className="space-y-4">
+      {/* Filters */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
+          <div>
+            <CardTitle className="text-base">Vocabulary Routing Audit</CardTitle>
+            <CardDescription>
+              Checks each lesson's required vocabulary against the four-tier image routing pipeline.
+            </CardDescription>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <Select value={language} onValueChange={setLanguage}>
+              <SelectTrigger className="w-36" data-testid="select-vocab-audit-language">
+                <SelectValue placeholder="Language" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Languages</SelectItem>
+                <SelectItem value="spanish">Spanish</SelectItem>
+                <SelectItem value="french">French</SelectItem>
+                <SelectItem value="german">German</SelectItem>
+                <SelectItem value="italian">Italian</SelectItem>
+                <SelectItem value="portuguese">Portuguese</SelectItem>
+                <SelectItem value="japanese">Japanese</SelectItem>
+                <SelectItem value="korean">Korean</SelectItem>
+                <SelectItem value="mandarin">Mandarin</SelectItem>
+                <SelectItem value="english">English</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger className="w-40" data-testid="select-vocab-audit-status">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="canonical">Canonical</SelectItem>
+                <SelectItem value="shared_concept">Concept Map</SelectItem>
+                <SelectItem value="scene_override">Scene Override</SelectItem>
+                <SelectItem value="unrouted">Unrouted</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button size="default" variant="outline" onClick={() => refetch()} data-testid="button-vocab-audit-refresh">
+              Refresh
+            </Button>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Summary */}
+      {data && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            { label: 'Total Words', value: data.summary.total, color: '' },
+            { label: 'Routed', value: data.summary.routed, color: 'text-green-700 dark:text-green-400' },
+            { label: 'Unrouted', value: data.summary.unrouted, color: 'text-red-700 dark:text-red-400' },
+            { label: 'Coverage', value: `${data.summary.coveragePercent}%`, color: data.summary.coveragePercent >= 80 ? 'text-green-700 dark:text-green-400' : 'text-yellow-700 dark:text-yellow-400' },
+          ].map(({ label, value, color }) => (
+            <Card key={label}>
+              <CardContent className="p-4">
+                <div className="text-xs text-muted-foreground mb-1">{label}</div>
+                <div className={`text-2xl font-bold ${color}`} data-testid={`text-vocab-audit-${label.toLowerCase().replace(' ', '-')}`}>{value}</div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Per-language coverage */}
+      {data?.byLanguage && data.byLanguage.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium">Coverage by Language</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y">
+              {data.byLanguage.map((lang) => (
+                <div key={lang.language} className="flex items-center gap-3 px-4 py-2 flex-wrap" data-testid={`row-lang-${lang.language}`}>
+                  <div className="w-28 text-sm font-medium capitalize">{lang.language}</div>
+                  <div className="flex-1 min-w-24">
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-green-500"
+                        style={{ width: `${lang.coveragePercent}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="text-sm text-muted-foreground w-20 text-right">
+                    {lang.routed}/{lang.total} ({lang.coveragePercent}%)
+                  </div>
+                  {lang.unrouted > 0 && (
+                    <Badge variant="destructive" className="text-xs">{lang.unrouted} unrouted</Badge>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Loading */}
+      {isLoading && (
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 w-full" />)}
+        </div>
+      )}
+
+      {/* Results by unit */}
+      {!isLoading && units.length === 0 && (
+        <Card>
+          <CardContent className="p-6 text-center text-muted-foreground text-sm">
+            No lessons with required_vocabulary found for the selected filters.
+          </CardContent>
+        </Card>
+      )}
+
+      {!isLoading && units.map(([unitKey, unit]) => (
+        <Card key={unitKey} data-testid={`card-vocab-unit-${unitKey}`}>
+          <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2 flex-wrap">
+            <div>
+              <CardTitle className="text-sm font-medium capitalize">{unit.unitName}</CardTitle>
+              <CardDescription className="text-xs capitalize">{unit.language} {unit.chapterType ? `· ${unit.chapterType}` : ''}</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            {unit.lessons.map((lesson) => (
+              <div key={lesson.lessonId} className="border-t px-4 py-3">
+                <div className="text-xs font-medium text-muted-foreground mb-2">{lesson.lessonName}</div>
+                <div className="flex flex-wrap gap-1">
+                  {lesson.items.map((item, idx) => (
+                    <span
+                      key={`${item.word}-${idx}`}
+                      title={item.key ?? item.status}
+                      className={`text-xs px-2 py-0.5 rounded-md bg-muted ${STATUS_COLORS[item.status] ?? ''}`}
+                      data-testid={`badge-vocab-word-${item.word}`}
+                    >
+                      {item.word}
+                      {item.status === 'unrouted' && (
+                        <span className="ml-1 font-bold">!</span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }
