@@ -1,5 +1,67 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Sat, Apr 4, 2026 (session 26 — Cross-language core vocabulary SCENE_OVERRIDES)
+
+### What was done
+
+#### 1. Italian collision-fix entries added to Italian section (~line 542)
+- `italian:no` — Giulia head-shake + palm-out (prevents collision with Spanish bare `no`)
+- `italian:si` — Giulia nodding + thumbs-up (prevents collision with Spanish bare `si`)
+
+#### 2. Portuguese `você` language-prefixed override added (~line 562)
+- `portuguese:voce` — Ana pointing at viewer
+- Language-prefixed because bare `voce` would collide with Italian "voce" (= voice)
+
+#### 3. English language-prefixed vocabulary overrides added (~line 735)
+Six entries using Emma (`CHAR.EN.primary`) — bypass `ENGLISH_FUNCTION_WORDS` auto-SVG:
+- `english:no` — head-shake + palm-out stop
+- `english:yes` — nod + thumbs-up
+- `english:you` — pointing at viewer
+- `english:this` — pointing at nearby object
+- `english:what is this` — puzzled at wrapped object
+- `english:where is it` — searching palms-up look
+
+#### 4. Cross-language core vocabulary — bare key section added (~line 742)
+Comprehensive bare-key section. Action descriptions (3+ words, no character name) auto-inject
+the language's primary character via `LANGUAGE_CHARACTER_INTROS`. Bare keys serve all languages
+that don't have a more-specific language-prefixed entry (e.g. `spanish:no` wins for Spanish;
+bare `non` serves French; bare `nein` serves German; etc.).
+
+**NEGATION** (head-shake + palm-out): `non`, `nein`, `nao`, `いいえ`, `아니요`, `不`
+
+**AFFIRMATION** (nod + thumbs-up): `oui`, `ja`, `sim`, `はい`, `네`, `对`
+
+**YOU / INFORMAL 2nd PERSON** (pointing at viewer):
+`tu` (FR/IT/PT — `spanish:tu` wins for ES), `du`, `vous`, `あなた`, `당신`, `너`, `你`
+
+**THIS / DEMONSTRATIVE** (pointing at object):
+`ca` (ça→ca), `ceci`, `das`, `questo`, `questa`, `isto`, `isso`, `これ`, `이것`, `这个`
+
+**WHAT IS THIS?** (puzzled at wrapped object):
+`qu'est-ce que c'est`, `was ist das`, `cos'e questo`, `cos'e`, `o que e isso`,
+`これは何ですか`, `이게 뭐예요`, `这是什么`
+
+**WHERE IS IT?** (searching palms-up):
+`ou est`, `wo ist`, `dove e`, `onde esta`, `どこですか`, `어디에 있어요`, `在哪里`
+
+#### Architecture reminder
+- **Bare key + action description (3+ words)** → `looksLikeActionOrPhrase` = TRUE → character auto-prepended from `LANGUAGE_CHARACTER_INTROS`. No character name needed in the description.
+- **Language-prefixed key** (e.g. `italian:no`) → use `${CHAR.IT.primary}` explicitly. Only needed for collision prevention.
+- **`ENGLISH_FUNCTION_WORDS`** auto-SVG check is bypassed whenever a `SCENE_OVERRIDE` exists for that key.
+
+### State at end of session
+- All cross-language core vocabulary overrides: ✓ added
+- Server: ✓ compiling cleanly, no TypeScript errors
+- No fix-word runs needed yet — these are new overrides for future image generation
+
+### Next priorities
+- Run fix-word for Spanish: `No`, `Sí`, `Tú`, `Usted`, `Esto`, `¿Qué es esto?`, `¿Dónde está?`
+- Run fix-word for Italian: `No` (italian), `Sì` (italian)
+- Test bare-key overrides for French/German/Portuguese by triggering vocabulary image resolution
+- See visual-asset-roadmap.md for remaining work
+
+---
+
 ## Session Summary — Sat, Apr 4, 2026 (session 25 — ClassroomFix destructive loop resolved; all 35 classroom survival phrases now cached)
 
 ### What was done

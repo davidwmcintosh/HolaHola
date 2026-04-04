@@ -538,6 +538,9 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'a presto':           `${CHAR.IT.primary} giving ${CHAR.IT.nonna} a warm farewell hug at a sun-drenched Italian doorway, both smiling warmly`,
   'piacere':            `${CHAR.IT.primary} and ${CHAR.IT.secondary} meeting for the first time in a bright sunny piazza, both extending a warm handshake with delighted pleased-to-meet-you smiles`,
   'sto bene grazie':    `${CHAR.IT.primary} giving a cheerful double thumbs-up with a radiant warm smile, the bright Italian countryside visible through a window behind`,
+  // Language-prefixed Italian vocabulary — prevent collision with Spanish bare 'no'/'si'.
+  'italian:no':         `${CHAR.IT.primary} firmly shaking her head from side to side with her right hand raised, palm facing outward in a clear definitive stop gesture, warm neutral background`,
+  'italian:si':         `${CHAR.IT.primary} nodding her head with a bright enthusiastic smile, one thumb pointing confidently upward in an affirmative gesture, warm sunny background`,
 
   // ── Greetings & Farewells — Portuguese ───────────────────────────────────
   // Characters: Ana (primary) + João (secondary) — see CHARACTER_PROFILES.PT
@@ -552,6 +555,8 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'obrigada':           thankYou(CHAR.PT.primary),
   // Language-prefixed to avoid collision with 'spanish:de nada' — used by fix-greetings when language='portuguese'
   'portuguese:de nada': youreWelcome(CHAR.PT.secondary),
+  // Language-prefixed: 'você' → 'voce' collides with Italian 'voce' (= voice). Must be prefixed.
+  'portuguese:voce':    `${CHAR.PT.primary} extending one arm with her index finger pointing warmly and directly toward the viewer, with an open friendly smile, casual everyday background`,
   'com licenca':        `${CHAR.PT.primary} politely excusing herself with a gentle hand gesture, stepping around others in a busy colourful market`,
   'desculpe':           `${CHAR.PT.primary} with a sincere apologetic expression placing hand on heart, stepping back with a sorry gesture, warm bright setting`,
   'oi':                 `${CHAR.PT.primary} spotting ${CHAR.PT.secondary} across a bright tropical street and waving a casual cheerful hello with a big friendly smile, colourful buildings behind them`,
@@ -724,6 +729,90 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'very well':          `${CHAR.EN.primary} spreading both arms wide open with a huge beaming smile of contentment, vibrant cheerful sunny background`,
   'not bad':            `${CHAR.EN.primary} tilting an open hand back and forth in a casual so-so hand-tilt gesture with a relaxed neutral-to-pleased smile, bright setting`,
   "i'm fine thank you": `${CHAR.EN.primary} giving a warm thumbs-up with a bright grateful smile and a gentle nod, radiating a cheerful bright well-being energy, sunny background`,
+  // Language-prefixed English vocabulary — "no/yes/you/this" are in ENGLISH_FUNCTION_WORDS,
+  // so without a language-prefixed override they auto-convert to SVG cards.
+  // English flashcards for non-native learners benefit from character images.
+  'english:no':          `${CHAR.EN.primary} firmly shaking her head from side to side with her right hand raised, palm facing outward in a clear definitive stop gesture, warm neutral background`,
+  'english:yes':         `${CHAR.EN.primary} nodding her head with a bright enthusiastic smile, one thumb pointing confidently upward in an affirmative gesture, warm sunny background`,
+  'english:you':         `${CHAR.EN.primary} extending one arm with her index finger pointing warmly and directly toward the viewer, with an open friendly smile, casual everyday background`,
+  'english:this':        `${CHAR.EN.primary} leaning forward slightly and pointing at a small everyday object resting on a nearby table with a curious explanatory expression, head tilted slightly, bright warm indoor setting`,
+  'english:what is this': `${CHAR.EN.primary} crouching slightly toward an unusual unfamiliar wrapped object on a table, pointing at it with her index finger and tilting her head in a puzzled inquisitive expression, eyebrows raised in genuine wonder`,
+  'english:where is it':  `${CHAR.EN.primary} standing with both hands slightly out and palms upward, turning her head left and right with a searching expression, as if looking for something that has gone missing, neutral everyday indoor setting`,
+
+  // ── Cross-language core vocabulary — bare keys (character auto-injected per language) ──
+  // These bare keys serve as fallbacks for languages without a more-specific language-prefixed
+  // entry.  The action description (3+ words, NO character name) triggers auto-injection of
+  // the language's primary character from LANGUAGE_CHARACTER_INTROS (Sophie for French,
+  // Anna for German, Giulia for Italian, Ana for Portuguese, Yuki for Japanese, etc.).
+  //
+  // Priority: 'spanish:no' wins for Spanish; bare 'non' serves French only.
+  //           'spanish:tu' wins for Spanish; bare 'tu' serves French/Italian/Portuguese.
+  //
+  // SPEECH BUBBLE RULE: no quoted speech — physical gestures and expressions only.
+  // STYLE: pen-and-watercolor-wash, children's book quality (enforced by SCENE_STYLE).
+
+  // ── NEGATION — head shake + palm-out stop gesture ─────────────────────────
+  'non':    'firmly shaking head from side to side with right hand raised, palm facing outward in a clear definitive stop gesture, warm neutral background',
+  'nein':   'firmly shaking head from side to side with right hand raised, palm facing outward in a clear definitive stop gesture, warm neutral background',
+  'nao':    'firmly shaking head from side to side with right hand raised, palm facing outward in a clear definitive stop gesture, warm neutral background',
+  'いいえ': 'firmly shaking head from side to side with right hand raised, palm facing outward in a clear definitive stop gesture, warm neutral background',
+  '아니요': 'firmly shaking head from side to side with right hand raised, palm facing outward in a clear definitive stop gesture, warm neutral background',
+  '不':     'firmly shaking head from side to side with right hand raised, palm facing outward in a clear definitive stop gesture, warm neutral background',
+
+  // ── AFFIRMATION — nod + thumbs-up ────────────────────────────────────────
+  'oui':  'nodding head with a bright enthusiastic smile, one thumb pointing confidently upward in an affirmative gesture, warm sunny background',
+  'ja':   'nodding head with a bright enthusiastic smile, one thumb pointing confidently upward in an affirmative gesture, warm sunny background',
+  'sim':  'nodding head with a bright enthusiastic smile, one thumb pointing confidently upward in an affirmative gesture, warm sunny background',
+  'はい': 'nodding head with a bright enthusiastic smile, one thumb pointing confidently upward in an affirmative gesture, warm sunny background',
+  '네':   'nodding head with a bright enthusiastic smile, one thumb pointing confidently upward in an affirmative gesture, warm sunny background',
+  '对':   'nodding head with a bright enthusiastic smile, one thumb pointing confidently upward in an affirmative gesture, warm sunny background',
+
+  // ── YOU / INFORMAL SECOND PERSON — pointing at viewer ────────────────────
+  // NOTE: 'spanish:tu' wins for Spanish. Bare 'tu' serves French/Italian/Portuguese.
+  'tu':    'extending one arm with index finger pointing warmly and directly toward the viewer, with an open friendly smile, casual everyday background',
+  'du':    'extending one arm with index finger pointing warmly and directly toward the viewer, with an open friendly smile, casual everyday background',
+  'vous':  'making a respectful open-handed gesture directed warmly toward the viewer, with a polite formal smile, bright indoor setting',
+  'あなた': 'extending one arm with index finger pointing warmly and directly toward the viewer, with an open friendly smile, casual everyday background',
+  '당신':  'extending one arm with index finger pointing warmly and directly toward the viewer, with an open friendly smile, casual everyday background',
+  '너':    'extending one arm with index finger pointing warmly and directly toward the viewer, with an open friendly smile, casual everyday background',
+  '你':    'extending one arm with index finger pointing warmly and directly toward the viewer, with an open friendly smile, casual everyday background',
+
+  // ── THIS / DEMONSTRATIVE — pointing at a nearby object ───────────────────
+  // NOTE: 'spanish:esto' wins for Spanish — these bare keys serve other languages.
+  // NOTE: 'ca' (ça→ca), 'das', 'ceci', 'cette' are caught by the ≤3-char function-word
+  // rule at runtime WITHOUT an override — adding the override here bypasses that and
+  // gives learners a concrete character+object image instead of a plain SVG card.
+  'ca':      'leaning forward slightly and pointing at a small everyday object resting on a nearby table with a curious explanatory expression, head tilted slightly, bright warm indoor setting',
+  'ceci':    'leaning forward slightly and pointing at a small everyday object resting on a nearby table with a curious explanatory expression, head tilted slightly, bright warm indoor setting',
+  'das':     'leaning forward slightly and pointing at a small everyday object resting on a nearby table with a curious explanatory expression, head tilted slightly, bright warm indoor setting',
+  'questo':  'leaning forward slightly and pointing at a small everyday object resting on a nearby table with a curious explanatory expression, head tilted slightly, bright warm indoor setting',
+  'questa':  'leaning forward slightly and pointing at a small everyday object resting on a nearby table with a curious explanatory expression, head tilted slightly, bright warm indoor setting',
+  'isto':    'leaning forward slightly and pointing at a small everyday object resting on a nearby table with a curious explanatory expression, head tilted slightly, bright warm indoor setting',
+  'isso':    'leaning forward slightly and pointing at a small everyday object resting on a nearby table with a curious explanatory expression, head tilted slightly, bright warm indoor setting',
+  'これ':    'leaning forward slightly and pointing at a small everyday object resting on a nearby table with a curious explanatory expression, head tilted slightly, bright warm indoor setting',
+  '이것':    'leaning forward slightly and pointing at a small everyday object resting on a nearby table with a curious explanatory expression, head tilted slightly, bright warm indoor setting',
+  '这个':    'leaning forward slightly and pointing at a small everyday object resting on a nearby table with a curious explanatory expression, head tilted slightly, bright warm indoor setting',
+
+  // ── WHAT IS THIS? — puzzled at an unfamiliar object ──────────────────────
+  // NOTE: 'spanish:que es esto' wins for Spanish.
+  "qu'est-ce que c'est": 'crouching slightly toward an unusual unfamiliar wrapped object on a table, pointing at it with index finger and tilting head in a puzzled inquisitive expression, eyebrows raised in genuine wonder',
+  'was ist das':          'crouching slightly toward an unusual unfamiliar wrapped object on a table, pointing at it with index finger and tilting head in a puzzled inquisitive expression, eyebrows raised in genuine wonder',
+  "cos'e questo":         'crouching slightly toward an unusual unfamiliar wrapped object on a table, pointing at it with index finger and tilting head in a puzzled inquisitive expression, eyebrows raised in genuine wonder',
+  "cos'e":                'crouching slightly toward an unusual unfamiliar wrapped object on a table, pointing at it with index finger and tilting head in a puzzled inquisitive expression, eyebrows raised in genuine wonder',
+  'o que e isso':         'crouching slightly toward an unusual unfamiliar wrapped object on a table, pointing at it with index finger and tilting head in a puzzled inquisitive expression, eyebrows raised in genuine wonder',
+  'これは何ですか':       'crouching slightly toward an unusual unfamiliar wrapped object on a table, pointing at it with index finger and tilting head in a puzzled inquisitive expression, eyebrows raised in genuine wonder',
+  '이게 뭐예요':          'crouching slightly toward an unusual unfamiliar wrapped object on a table, pointing at it with index finger and tilting head in a puzzled inquisitive expression, eyebrows raised in genuine wonder',
+  '这是什么':             'crouching slightly toward an unusual unfamiliar wrapped object on a table, pointing at it with index finger and tilting head in a puzzled inquisitive expression, eyebrows raised in genuine wonder',
+
+  // ── WHERE IS IT? — looking around / searching ────────────────────────────
+  // NOTE: 'spanish:donde esta' wins for Spanish.
+  'ou est':         'standing with both hands slightly out and palms upward, turning head left and right with a searching expression, as if looking for something that has gone missing, neutral everyday indoor setting',
+  'wo ist':         'standing with both hands slightly out and palms upward, turning head left and right with a searching expression, as if looking for something that has gone missing, neutral everyday indoor setting',
+  'dove e':         'standing with both hands slightly out and palms upward, turning head left and right with a searching expression, as if looking for something that has gone missing, neutral everyday indoor setting',
+  'onde esta':      'standing with both hands slightly out and palms upward, turning head left and right with a searching expression, as if looking for something that has gone missing, neutral everyday indoor setting',
+  'どこですか':      'standing with both hands slightly out and palms upward, turning head left and right with a searching expression, as if looking for something that has gone missing, neutral everyday indoor setting',
+  '어디에 있어요':   'standing with both hands slightly out and palms upward, turning head left and right with a searching expression, as if looking for something that has gone missing, neutral everyday indoor setting',
+  '在哪里':          'standing with both hands slightly out and palms upward, turning head left and right with a searching expression, as if looking for something that has gone missing, neutral everyday indoor setting',
 
   // ── Classroom Survival Phrases — All Languages ────────────────────────────
   // Policy: phrases get an image if and only if they have a UNIVERSALLY
