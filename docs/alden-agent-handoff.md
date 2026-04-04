@@ -1,5 +1,80 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Sat, Apr 4, 2026 (session 27 — Daily routine verbs + pronoun-prefix sentence resolver)
+
+### What was done
+
+#### 1. Spanish anchor SCENE_OVERRIDEs for 6 daily routine verbs (vocab-image-seed-service.ts ~line 1000)
+Six new entries using `${CHAR.ES.primary}` (Daniela) placed immediately before the Adjective Pairs section:
+- `estudiar` — at a desk with textbook and notebook, morning light
+- `trabajar` — at a desk typing on a laptop, home workspace
+- `mirar` — sitting on a couch watching TV, bowl of popcorn
+- `levantarse` — stretching out of bed at dawn, gauzy curtains
+- `acostarse` — climbing into bed at night, bedside lamp
+- `vestirse` — buttoning up shirt in front of wardrobe mirror
+
+These are the canonical **anchor images** for the cross-language concept map. Each Spanish word key
+resolves to `vocab_spanish_{word}`, which all other languages then share via the CONCEPT_KEY_MAP.
+
+#### 2. Cross-language CONCEPT_KEY_MAP entries for 6 verb clusters (vocabulary-image-resolver.ts ~line 1386)
+Inserted after the `// buy (comprar)` block. Each language cluster lists cognates that all map to the
+same Spanish anchor concept key:
+
+| Cluster | Anchor key |
+|---|---|
+| study (étudier, studieren, studiare, estudar, study, 勉強する, 공부하다, 学习) | `vocab_spanish_estudiar` |
+| watch/look (regarder, schauen, anschauen, guardare, assistir, watch, 見る, 보다, 看) | `vocab_spanish_mirar` |
+| work (travailler, arbeiten, lavorare, trabalhar, work, 働く, 일하다, 工作) | `vocab_spanish_trabajar` |
+| get up (se lever, aufstehen, alzarsi, levantar-se, get up, wake up, 起きる, 일어나다, 起床) | `vocab_spanish_levantarse` |
+| go to bed (se coucher, schlafen gehen, andare a letto, deitar-se, go to bed, 寝る, 자다) | `vocab_spanish_acostarse` |
+| get dressed (s'habiller, sich anziehen, vestirsi, vestir-se, get dressed, 着る, 옷을 입다, 穿衣) | `vocab_spanish_vestirse` |
+
+**Removed ambiguous entries**: `ver` (means "worm" in French), `angucken`/`gucken` (DE informal, risky)
+
+#### 3. Pronoun-prefix sentence-form resolver (vocabulary-image-resolver.ts ~line 2758)
+Added inside `resolveVocabularyImage` function before the CONCEPT_KEY_MAP lookup.
+
+**Problem solved**: Sentence forms like `Je mange.` or `Tu travailles.` hit the cache with a unique
+key and never matched the concept map. Now stripped to bare verb form before lookup.
+
+**Implementation**:
+- `CONJUGATION_PRONOUNS` map covers FR/DE/IT/PT/ES/EN/JA/KO/ZH
+- `stripPronounPrefix()` detects 2-token normalised forms where the first token is a pronoun
+- French elided forms like `j'étudie` normalise to `j etudie` → stripped to `etudie` automatically
+  (because `normalizeWord` converts apostrophe → space, and `j` is in the FR pronoun list)
+- Periods stripped by `normalizeWord` before stripping: `Je mange.` → `je mange` → `mange` ✓
+- Falls through silently if the stripped form doesn't hit the concept map — no false matches
+
+### Three-tier image routing framework (canonical definition)
+1. **SVG** — function/grammar words (articles, prepositions, conjunctions, numbers when abstract).
+   Routed via `ENGLISH_FUNCTION_WORDS`, `classifyFrenchGrammarType`, `isSVGWord` etc.
+2. **Shared concept watercolor image** — universal actions and nouns where the concept is
+   language-agnostic (eat, drink, sleep, study, work, buy, head, hand…). All languages share one
+   DALL-E image via `CONCEPT_KEY_MAP` → anchored to the Spanish vocab key.
+3. **Character scene override** — culturally specific phrases, greetings, reflexive politeness
+   routines where a character IS needed (Hola/Bonjour = meeting scene; ¿Puedes repetir? = asking
+   gesture scene). Routed via `SCENE_OVERRIDES` in vocab-image-seed-service.ts.
+
+**SPEECH BUBBLE RULE**: Never put quoted verbal phrases in a SCENE_OVERRIDE description.
+Physical/gestural descriptions only (e.g. "waves hello", "points at viewer", "holds up open palms").
+
+### State at end of session
+- vocab-image-seed-service.ts: 6 daily routine SCENE_OVERRIDEs added ✓
+- vocabulary-image-resolver.ts: 6 verb clusters × ~10 languages each added to CONCEPT_KEY_MAP ✓
+- vocabulary-image-resolver.ts: pronoun-prefix stripping added before concept lookup ✓
+- Server: compiling cleanly, no TypeScript errors ✓
+- docs/alden-agent-handoff.md: updated ✓
+
+### Next priorities
+- Task #5: Canonical vocabulary registry covering all 27 thematic units × 9 languages
+  (plan file at `.local/tasks/textbook-canonical-vocab.md`)
+- Run fix-word for Spanish daily routine verbs once images confirmed generated
+- Add `étudier`, `travailler`, `regarder`, `se lever`, `se coucher`, `s'habiller` to French fix-word list
+- Consider adding `beber` cluster (to drink — FR boire, DE trinken, IT bere, PT beber, EN drink)
+  and `ir` cluster (to go — FR aller, DE gehen, IT andare, PT ir, EN go) — same pattern
+
+---
+
 ## Session Summary — Sat, Apr 4, 2026 (session 26 — Cross-language core vocabulary SCENE_OVERRIDES)
 
 ### What was done

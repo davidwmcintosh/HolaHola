@@ -994,6 +994,21 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'slowly':                         speakSlowly(CHAR.EN.primary),
   'understand':                     iDontUnderstand(CHAR.EN.primary),
 
+  // ── Daily Routine Verbs — Spanish (shared anchor images for all 9 languages) ─
+  // These serve as the canonical anchor in the cross-language concept map:
+  //   etudier/studieren/study/... → vocab_spanish_estudiar
+  //   trabajar/travailler/work/... → vocab_spanish_trabajar
+  //   mirar/regarder/watch/...  → vocab_spanish_mirar
+  //   levantarse/se lever/get up/... → vocab_spanish_levantarse
+  //   acostarse/se coucher/go to bed/... → vocab_spanish_acostarse
+  //   vestirse/s habiller/get dressed/... → vocab_spanish_vestirse
+  'estudiar':      `${CHAR.ES.primary} sitting at a wooden desk with an open textbook and notebook, pencil in hand, concentrating quietly — soft warm morning window light, a small plant on the corner of the desk`,
+  'trabajar':      `${CHAR.ES.primary} at a tidy desk typing on a laptop with papers and a coffee mug beside her, calm focused expression, bright airy home workspace`,
+  'mirar':         `${CHAR.ES.primary} sitting on a couch watching television, relaxed attentive expression, warm evening lamp light, a bowl of popcorn on her lap`,
+  'levantarse':    `${CHAR.ES.primary} stretching both arms above her head and stepping out of bed at dawn, sleepy but smiling, soft morning light through gauzy curtains`,
+  'acostarse':     `${CHAR.ES.primary} climbing into a cosy bed, pulling a soft blanket up, eyes heavy and sleepy, warm bedside lamp glowing, peaceful quiet bedroom at night`,
+  'vestirse':      `${CHAR.ES.primary} buttoning up her sky-blue shirt in front of a wardrobe mirror with a relaxed morning smile, a tidy bedroom in the background`,
+
   // ── Adjective Pairs — Spanish ─────────────────────────────────────────────
   // Both words in each pair share the exact same SPLIT prompt so they render
   // the same contrast image regardless of which word is looked up first.

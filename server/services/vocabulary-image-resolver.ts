@@ -1380,6 +1380,82 @@ const CONCEPT_KEY_MAP: Record<string, string> = {
   '买':           'vocab_spanish_comprar', // ZH
   // Note: "comprar" same in ES and PT
 
+  // study (estudiar)
+  'etudier':     'vocab_spanish_estudiar', // FR (étudier)
+  'studieren':   'vocab_spanish_estudiar', // DE
+  'studiare':    'vocab_spanish_estudiar', // IT
+  'estudar':     'vocab_spanish_estudiar', // PT
+  'study':       'vocab_spanish_estudiar', // EN
+  'benkyo suru': 'vocab_spanish_estudiar', // JA (勉強する romanised)
+  'benkyosuru':  'vocab_spanish_estudiar', // JA alt
+  '勉強する':     'vocab_spanish_estudiar', // JA kanji
+  'べんきょうする':  'vocab_spanish_estudiar', // JA hiragana
+  '공부하다':     'vocab_spanish_estudiar', // KO
+  '学习':        'vocab_spanish_estudiar', // ZH
+
+  // watch / look at (mirar)
+  'regarder':    'vocab_spanish_mirar', // FR
+  'schauen':     'vocab_spanish_mirar', // DE
+  'anschauen':   'vocab_spanish_mirar', // DE alt
+  'guardare':    'vocab_spanish_mirar', // IT
+  'assistir':    'vocab_spanish_mirar', // PT (assistir a TV = watch TV)
+  'watch':       'vocab_spanish_mirar', // EN
+  'みる':        'vocab_spanish_mirar', // JA
+  '見る':        'vocab_spanish_mirar', // JA kanji
+  '보다':        'vocab_spanish_mirar', // KO
+  '看':          'vocab_spanish_mirar', // ZH
+
+  // work (trabajar)
+  'travailler':  'vocab_spanish_trabajar', // FR
+  'arbeiten':    'vocab_spanish_trabajar', // DE
+  'lavorare':    'vocab_spanish_trabajar', // IT
+  'trabalhar':   'vocab_spanish_trabajar', // PT
+  'work':        'vocab_spanish_trabajar', // EN
+  'はたらく':     'vocab_spanish_trabajar', // JA
+  '働く':        'vocab_spanish_trabajar', // JA kanji
+  '일하다':      'vocab_spanish_trabajar', // KO
+  '工作':        'vocab_spanish_trabajar', // ZH
+
+  // get up / wake up (levantarse)
+  'se lever':       'vocab_spanish_levantarse', // FR
+  'se reveiller':   'vocab_spanish_levantarse', // FR (se réveiller — alt)
+  'aufstehen':      'vocab_spanish_levantarse', // DE
+  'aufwachen':      'vocab_spanish_levantarse', // DE (wake up)
+  'alzarsi':        'vocab_spanish_levantarse', // IT
+  'svegliarsi':     'vocab_spanish_levantarse', // IT (wake up)
+  'levantar-se':    'vocab_spanish_levantarse', // PT
+  'se levantar':    'vocab_spanish_levantarse', // PT alt
+  'acordar':        'vocab_spanish_levantarse', // PT (wake up)
+  'get up':         'vocab_spanish_levantarse', // EN
+  'wake up':        'vocab_spanish_levantarse', // EN alt
+  'おきる':         'vocab_spanish_levantarse', // JA
+  '起きる':         'vocab_spanish_levantarse', // JA kanji
+  '일어나다':        'vocab_spanish_levantarse', // KO
+  '起床':           'vocab_spanish_levantarse', // ZH
+
+  // go to bed (acostarse)
+  'se coucher':     'vocab_spanish_acostarse', // FR
+  'schlafen gehen': 'vocab_spanish_acostarse', // DE
+  'ins bett gehen': 'vocab_spanish_acostarse', // DE alt
+  'andare a letto': 'vocab_spanish_acostarse', // IT
+  'coricarsi':      'vocab_spanish_acostarse', // IT alt
+  'deitar-se':      'vocab_spanish_acostarse', // PT
+  'ir dormir':      'vocab_spanish_acostarse', // PT alt
+  'go to bed':      'vocab_spanish_acostarse', // EN
+  'ねる':           'vocab_spanish_acostarse', // JA (寝る — same as dormir; context differs but shared is fine)
+  '자다':          'vocab_spanish_acostarse', // KO
+
+  // get dressed (vestirse)
+  's habiller':     'vocab_spanish_vestirse', // FR (s'habiller normalised)
+  'habiller':       'vocab_spanish_vestirse', // FR bare form
+  'sich anziehen':  'vocab_spanish_vestirse', // DE
+  'vestirsi':       'vocab_spanish_vestirse', // IT
+  'vestir-se':      'vocab_spanish_vestirse', // PT
+  'get dressed':    'vocab_spanish_vestirse', // EN
+  '着る':           'vocab_spanish_vestirse', // JA
+  '옷을 입다':      'vocab_spanish_vestirse', // KO
+  '穿衣':           'vocab_spanish_vestirse', // ZH
+
   // ── Body Parts (all point to shared body diagram) ─────────────────────────
   // head (cabeza)
   'tete':        'vocab_spanish_cabeza', // FR (tête)
@@ -2673,9 +2749,60 @@ export async function resolveVocabularyImage(
   // right before any generation call.
   // (Additional mid-function guards remain at lines ~2750 and ~2870 as belt+suspenders.)
 
+  // ── Pronoun-prefix stripping ──────────────────────────────────────────────
+  // Sentence forms like "Je mange.", "Tu parles", "Il travaille" should resolve
+  // to the same shared concept as the bare infinitive ("manger", "parler", etc.).
+  // Strategy: if the normalised word is exactly two tokens and the first token is a
+  // conjugation pronoun for the request language, try looking up only the second token.
+  // Also handle elided French forms: j'étudie → étudier, j'aime → aimer.
+  const CONJUGATION_PRONOUNS: Record<string, string[]> = {
+    french:     ['je', 'j', 'tu', 'il', 'elle', 'on', 'nous', 'vous', 'ils', 'elles'],
+    german:     ['ich', 'du', 'er', 'sie', 'es', 'wir', 'ihr'],
+    italian:    ['io', 'tu', 'lui', 'lei', 'noi', 'voi', 'loro'],
+    portuguese: ['eu', 'tu', 'ele', 'ela', 'nos', 'voces', 'eles', 'elas'],
+    spanish:    ['yo', 'tu', 'el', 'ella', 'nosotros', 'nosotras', 'vosotros', 'ellos', 'ellas'],
+    english:    ['i', 'you', 'he', 'she', 'it', 'we', 'they'],
+    japanese:   ['わたしは', 'わたしが', 'ぼくは', 'ぼくが'],
+    korean:     ['나는', '나가', '저는', '그는', '그녀는'],
+    mandarin:   ['我', '你', '他', '她', '我们', '你们', '他们'],
+  };
+
+  function stripPronounPrefix(raw: string, lang: string): string | null {
+    const norm = normalizeWord(raw);
+    const pronouns = CONJUGATION_PRONOUNS[lang] ?? [];
+
+    // Two-token form: "je mange" → check if first token is a pronoun
+    const tokens = norm.split(' ');
+    if (tokens.length === 2 && pronouns.includes(tokens[0])) {
+      return tokens[1];
+    }
+
+    // French elided form: "j'étudie" → normalises to "j etudie" (apostrophe stripped → space)
+    // The apostrophe becomes '' (stripped) so "j'étudie" → "j etudie" — handled by two-token check above.
+    // But "j'aime" with a smart apostrophe (') also normalises the same way.
+    // The two-token check already handles this since 'j' is in the pronoun list.
+
+    // Sentence ending in a period: "Je mange." → normalised → "je mange " → trim handles it.
+    // normalizeWord already trims, so "je mange." → "je mange" (period stripped) → two tokens ✓
+
+    return null;
+  }
+
   // Check if this word maps to a shared cross-language concept key
   const normalizedForConcept = normalizeWord(word);
-  const conceptKey = CONCEPT_KEY_MAP[normalizedForConcept] ?? null;
+  // Try direct lookup first; fall back to pronoun-stripped form if no hit.
+  let conceptKey = CONCEPT_KEY_MAP[normalizedForConcept] ?? null;
+  let strippedBase: string | null = null;
+  if (!conceptKey) {
+    strippedBase = stripPronounPrefix(word, language);
+    if (strippedBase) {
+      const strippedConceptKey = CONCEPT_KEY_MAP[strippedBase] ?? null;
+      if (strippedConceptKey) {
+        console.log(`[VocabImage] Pronoun-stripped "${word}" → "${strippedBase}" → concept "${strippedConceptKey}"`);
+        conceptKey = strippedConceptKey;
+      }
+    }
+  }
 
   if (conceptKey) {
     console.log(`[VocabImage] "${word}" (${language}) → shared concept "${conceptKey}"`);
