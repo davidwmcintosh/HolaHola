@@ -471,6 +471,17 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   // Language-prefixed entry used by fix-greetings when language='spanish'
   'spanish:de nada':    youreWelcome(CHAR.ES.secondary),
 
+  // ── Spanish core vocabulary — yes/no/pronouns/demonstratives/question phrases ──
+  // All language-prefixed to prevent collisions with cognate forms in other Romance languages.
+  // SPEECH BUBBLE RULE: no quoted speech — physical gestures and expressions only.
+  'spanish:no':         `${CHAR.ES.primary} firmly shaking her head from side to side with her right hand raised, palm facing outward in a clear definitive stop gesture, warm neutral background`,
+  'spanish:si':         `${CHAR.ES.primary} nodding her head with a bright enthusiastic smile, one thumb pointing confidently upward in an affirmative gesture, warm sunny background`,
+  'spanish:tu':         `${CHAR.ES.primary} extending one arm with her index finger pointing warmly and directly toward the viewer, with an open friendly smile, casual everyday background`,
+  'spanish:usted':      `${CHAR.ES.primary} making a respectful open-handed sweeping gesture toward ${CHAR.ES.abuela} standing nearby, inclining her head slightly in deference, formal indoor setting`,
+  'spanish:esto':       `${CHAR.ES.primary} leaning forward slightly and pointing at a small everyday object resting on a nearby table — such as a book or mug — with a curious explanatory expression, head tilted slightly, bright warm indoor setting`,
+  'spanish:que es esto': `${CHAR.ES.primary} crouching slightly toward an unusual unfamiliar wrapped object on a table, pointing at it with her index finger and tilting her head in a puzzled inquisitive expression, eyebrows raised in genuine wonder`,
+  'spanish:donde esta':  `${CHAR.ES.primary} standing with both hands slightly out and palms upward, turning her head left and right with a searching expression, as if looking for something that has gone missing, neutral everyday indoor setting`,
+
   // ── Greetings & Farewells — French ────────────────────────────────────────
   // Characters: Sophie (primary) + Pierre (secondary) — see CHARACTER_PROFILES.FR
   'bonjour':            `${CHAR.FR.primary} and ${CHAR.FR.secondary} greeting each other with warm smiles at a sunny Parisian café terrace in the morning, croissants and coffee on the table`,
