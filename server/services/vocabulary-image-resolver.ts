@@ -2891,7 +2891,11 @@ export async function resolveVocabularyImage(
   // key — no need for the word to also appear in CONCEPT_KEY_MAP.
   let conceptKey: string | null =
     lookupCanonicalConcept(word, language as CanonicalLanguage) ?? null;
+  // Track whether the concept key came from the canonical registry so the
+  // enforcement guard below can prevent generic auto-generation for these words.
+  let isCanonicalKey = false;
   if (conceptKey) {
+    isCanonicalKey = true;
     console.log(`[VocabImage] Canonical registry: "${word}" (${language}) → "${conceptKey}"`);
   }
 
@@ -2914,6 +2918,7 @@ export async function resolveVocabularyImage(
         if (!conceptKey) {
           conceptKey = lookupCanonicalConcept(strippedBase, language as CanonicalLanguage) ?? null;
           if (conceptKey) {
+            isCanonicalKey = true;
             console.log(`[VocabImage] Canonical registry (stripped) "${strippedBase}" (${language}) → "${conceptKey}"`);
           }
         }
@@ -3020,6 +3025,18 @@ export async function resolveVocabularyImage(
         console.log(`[VocabImage] Using anchor SCENE_OVERRIDE "${anchorWord}" for concept "${conceptKey}" (input: "${word}")`);
       }
     }
+
+    // ── Canonical enforcement: prevent generic auto-generation ─────────────
+    // If the concept key came from the canonical registry but has no SCENE_OVERRIDE
+    // prompt to guide generation, do NOT fall through to generic DALL-E output.
+    // Return a placeholder so the key is never poisoned with an off-concept image.
+    // The admin seeder should provide a SCENE_OVERRIDE for any canonical concept
+    // before it can receive an AI-generated image.
+    if (!sceneFromOverride && isCanonicalKey) {
+      console.log(`[VocabImage] Canonical word "${word}" → concept "${conceptKey}" has no SCENE_OVERRIDE — returning placeholder (seed required)`);
+      return { imageUrl: getPlaceholderUrl(word), source: 'placeholder', word, description };
+    }
+
     sceneFromOverride = sceneFromOverride ?? scene;
     const conceptForGeneration = buildGenerationConcept(word, sceneFromOverride, description, translation, language);
     const generationType = isSceneConcept(word, sceneFromOverride) ? 'infographic' : 'image';

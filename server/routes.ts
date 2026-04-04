@@ -12128,7 +12128,8 @@ Return ONLY the ${targetLanguage} phrase:`;
       const db = getUserDb();
 
       // Language code → canonical name mapping
-      const LANG_CODE_MAP: Record<string, string> = {
+      type CanonicalLang = 'english'|'french'|'german'|'italian'|'portuguese'|'spanish'|'japanese'|'korean'|'mandarin';
+      const LANG_CODE_MAP: Record<string, CanonicalLang> = {
         en: 'english', english: 'english',
         fr: 'french',  french: 'french',
         de: 'german',  german: 'german',
@@ -12141,15 +12142,20 @@ Return ONLY the ${targetLanguage} phrase:`;
         cn: 'mandarin',
       };
 
+      function toCanonicalLang(raw: string): CanonicalLang | null {
+        return LANG_CODE_MAP[raw.toLowerCase().trim()] ?? null;
+      }
+
       // Filter params — accept both short codes and full names
       const rawLang = (req.query.language as string | undefined)?.toLowerCase().trim();
-      const langFilter = rawLang ? (LANG_CODE_MAP[rawLang] ?? rawLang) : undefined;
+      const langFilter = rawLang ? toCanonicalLang(rawLang) : undefined;
       const statusFilter = req.query.status as string | undefined; // canonical|shared_concept|scene_override|unrouted
+      const unitFilter   = (req.query.unit as string | undefined)?.toLowerCase().trim();
 
       /** Classify a single word through the four-tier routing chain */
-      function classifyWord(word: string, canonLang: string): { status: string; key: string | null } {
+      function classifyWord(word: string, canonLang: CanonicalLang): { status: string; key: string | null } {
         // Tier 0: canonical registry
-        const canonicalKey = lookupCanonicalConcept(word, canonLang as any);
+        const canonicalKey = lookupCanonicalConcept(word, canonLang);
         if (canonicalKey) return { status: 'canonical', key: canonicalKey };
 
         // Tier 1: CONCEPT_KEY_MAP (shared concept map)
@@ -12212,9 +12218,15 @@ Return ONLY the ${targetLanguage} phrase:`;
         const words: string[] = Array.isArray(row.required_vocabulary) ? row.required_vocabulary : [];
         if (!words.length) continue;
 
-        const rawPathLang = (row.path_language as string)?.toLowerCase() ?? '';
-        const canonLang = LANG_CODE_MAP[rawPathLang] ?? rawPathLang;
-        const unitKey   = `${canonLang}__${row.unit_name as string}`;
+        const rawPathLang = (row.path_language as string)?.toLowerCase().trim() ?? '';
+        const canonLang: CanonicalLang | null = LANG_CODE_MAP[rawPathLang] ?? null;
+        if (!canonLang) continue; // skip rows with unrecognised language
+
+        // Apply unit filter if provided (case-insensitive partial match on unit name)
+        const unitNameLower = (row.unit_name as string)?.toLowerCase() ?? '';
+        if (unitFilter && !unitNameLower.includes(unitFilter)) continue;
+
+        const unitKey = `${canonLang}__${row.unit_name as string}`;
 
         if (!byUnit[unitKey]) {
           byUnit[unitKey] = {
@@ -12230,9 +12242,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         const lessonItems: any[] = [];
         for (const word of words) {
           const { status, key } = classifyWord(word, canonLang);
-          if (!statusFilter || status === statusFilter) {
-            lessonItems.push({ word, status, key });
-          }
+          // Always count totals; only show items matching statusFilter (if set)
           total++;
           byLanguage[canonLang].total++;
           if (status !== 'unrouted') {
@@ -12240,6 +12250,9 @@ Return ONLY the ${targetLanguage} phrase:`;
             byLanguage[canonLang].routed++;
           } else {
             unrouted++;
+          }
+          if (!statusFilter || status === statusFilter) {
+            lessonItems.push({ word, status, key });
           }
         }
 
@@ -12272,7 +12285,7 @@ Return ONLY the ${targetLanguage} phrase:`;
           unrouted: s.total - s.routed,
           coveragePercent: s.total > 0 ? Math.round((s.routed / s.total) * 100) : 0,
         })),
-        filters: { language: langFilter ?? 'all', status: statusFilter ?? 'all' },
+        filters: { language: langFilter ?? 'all', unit: unitFilter ?? 'all', status: statusFilter ?? 'all' },
         byUnit,
         registryCatalog,
       });

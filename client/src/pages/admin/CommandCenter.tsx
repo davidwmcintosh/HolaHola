@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
@@ -7352,13 +7353,28 @@ const STATUS_LABELS: Record<string, string> = {
 function VocabAuditTab() {
   const [language, setLanguage] = useState('all');
   const [status, setStatus]     = useState('all');
+  const [unitSearch, setUnitSearch] = useState('');
+
+  // Debounce unit search so we don't hammer the API on every keystroke
+  const [debouncedUnit, setDebouncedUnit] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedUnit(unitSearch.trim().toLowerCase()), 400);
+    return () => clearTimeout(t);
+  }, [unitSearch]);
+
+  // Dialog state for "Add to Shared Concept" workflow
+  const [addConceptOpen, setAddConceptOpen] = useState(false);
+  const [addConceptWord, setAddConceptWord] = useState('');
+  const [addConceptLang, setAddConceptLang] = useState('');
+  const [suggestedKey, setSuggestedKey] = useState('');
 
   const { data, isLoading, refetch } = useQuery<VocabAuditResponse>({
-    queryKey: ['/api/admin/vocab-audit', { language, status }],
+    queryKey: ['/api/admin/vocab-audit', { language, status, unit: debouncedUnit }],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (language !== 'all') params.set('language', language);
-      if (status !== 'all')   params.set('status', status);
+      if (language !== 'all')     params.set('language', language);
+      if (status !== 'all')       params.set('status', status);
+      if (debouncedUnit)          params.set('unit', debouncedUnit);
       const res = await fetch(`/api/admin/vocab-audit?${params}`);
       if (!res.ok) throw new Error(await res.text());
       return res.json();
@@ -7367,6 +7383,15 @@ function VocabAuditTab() {
   });
 
   const units = data ? Object.entries(data.byUnit) : [];
+
+  function openAddConcept(word: string, lang: string) {
+    setAddConceptWord(word);
+    setAddConceptLang(lang);
+    // Auto-suggest a concept key based on the word
+    const cleaned = word.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().replace(/\s+/g, '_');
+    setSuggestedKey(`vocab_${lang.toLowerCase()}_${cleaned}`);
+    setAddConceptOpen(true);
+  }
 
   return (
     <div className="space-y-4">
@@ -7409,6 +7434,14 @@ function VocabAuditTab() {
                 <SelectItem value="unrouted">Unrouted</SelectItem>
               </SelectContent>
             </Select>
+            <input
+              type="text"
+              placeholder="Filter by unit..."
+              value={unitSearch}
+              onChange={(e) => setUnitSearch(e.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring w-36"
+              data-testid="input-vocab-audit-unit"
+            />
             <Button size="default" variant="outline" onClick={() => refetch()} data-testid="button-vocab-audit-refresh">
               Refresh
             </Button>
@@ -7492,20 +7525,21 @@ function VocabAuditTab() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            {unit.lessons.map((lesson) => (
+            {unit.lessons.map((lesson: any) => (
               <div key={lesson.lessonId} className="border-t px-4 py-3">
                 <div className="text-xs font-medium text-muted-foreground mb-2">{lesson.lessonName}</div>
                 <div className="flex flex-wrap gap-1">
-                  {lesson.items.map((item, idx) => (
+                  {lesson.items.map((item: any, idx: number) => (
                     <span
                       key={`${item.word}-${idx}`}
                       title={item.key ?? item.status}
-                      className={`text-xs px-2 py-0.5 rounded-md bg-muted ${STATUS_COLORS[item.status] ?? ''}`}
+                      className={`text-xs px-2 py-0.5 rounded-md bg-muted ${STATUS_COLORS[item.status] ?? ''} ${item.status === 'unrouted' ? 'cursor-pointer' : ''}`}
                       data-testid={`badge-vocab-word-${item.word}`}
+                      onClick={item.status === 'unrouted' ? () => openAddConcept(item.word, unit.language) : undefined}
                     >
                       {item.word}
                       {item.status === 'unrouted' && (
-                        <span className="ml-1 font-bold">!</span>
+                        <span className="ml-1 font-bold" title="Click to add to shared concept">+</span>
                       )}
                     </span>
                   ))}
@@ -7515,6 +7549,51 @@ function VocabAuditTab() {
           </CardContent>
         </Card>
       ))}
+
+      {/* Add to Shared Concept dialog */}
+      <Dialog open={addConceptOpen} onOpenChange={setAddConceptOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add to Shared Concept</DialogTitle>
+            <DialogDescription>
+              Copy the entry below and add it to the canonical vocabulary registry or SCENE_OVERRIDES in the codebase.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="text-sm text-muted-foreground">
+              Word: <span className="font-semibold text-foreground">{addConceptWord}</span>
+              &nbsp;·&nbsp; Language: <span className="font-semibold text-foreground capitalize">{addConceptLang}</span>
+            </div>
+            <div className="rounded-md bg-muted p-3 font-mono text-xs break-all" data-testid="text-add-concept-key">
+              {`// In server/data/canonical-vocabulary.ts:`}<br />
+              {`// Add "${addConceptWord}" to the ${addConceptLang} entry for the matching unit theme.`}<br />
+              <br />
+              {`// Or add a SCENE_OVERRIDE entry in vocab-image-seed-service.ts:`}<br />
+              {`'${addConceptWord}': 'A watercolor illustration of ...',`}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Suggested concept key: <code className="bg-muted px-1 rounded">{suggestedKey}</code>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              size="default"
+              variant="outline"
+              onClick={() => {
+                navigator.clipboard?.writeText(
+                  `'${addConceptWord}': 'A watercolor illustration of ...',\n// Suggested key: ${suggestedKey}`
+                );
+              }}
+              data-testid="button-copy-concept-entry"
+            >
+              Copy Entry
+            </Button>
+            <Button size="default" onClick={() => setAddConceptOpen(false)} data-testid="button-close-concept-dialog">
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
