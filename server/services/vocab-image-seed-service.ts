@@ -449,6 +449,9 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'como estas':         howAreYou(CHAR.ES.primary, CHAR.ES.secondary, 'a sunny Spanish plaza'),
   // NOTE: 'como esta' is language-prefixed because Portuguese shares the same bare key.
   'spanish:como esta':  `${CHAR.ES.primary} and ${CHAR.ES.abuela} facing each other warmly on a sunny sidewalk or courtyard, grandmother visibly shorter and much older, granddaughter asking a caring formal question with a warm smile, wholesome intergenerational exchange`,
+  // NOTE: 'spanish:como' is language-prefixed — bare 'como' would collide with Portuguese 'como'.
+  // Covers standalone "¿Cómo?" (= "How?" / "What?") — classic questioning gesture.
+  'spanish:como':       `${CHAR.ES.primary} with both hands raised and palms facing upward in a wondering inquisitive shrug, eyebrows raised and head tilted to one side in a curious questioning expression, natural everyday outdoor setting`,
   'como esta usted':    howAreYou(CHAR.ES.primary, CHAR.ES.secondary, 'a smart-casual Spanish indoor or outdoor setting'),
   'bien':               SPLIT('bien', 'a cheerful person giving a big thumbs-up with a bright grin, sunny warm background', 'mal', 'a person with slumped shoulders, frowning face, and drooping posture, grey cool background'),
   'estoy bien':         SPLIT('bien', `${CHAR.ES.primary} giving a big thumbs-up with a beaming grin under a bright sun`, 'mal', `${CHAR.ES.primary} with slumped shoulders, a downcast frown, and a rain cloud overhead, grey cool background`),
