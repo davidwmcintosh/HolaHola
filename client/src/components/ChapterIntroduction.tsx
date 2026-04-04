@@ -502,7 +502,7 @@ function classifyFrenchGrammarType(title: string): GrammarChapterType | null {
   // ── Section 7 — Canvas vocab (shared with /chat) — same SVG, French labels ──
   if (lower.includes('weather') || lower.includes('météo') || lower.includes('la météo') || lower.includes('le temps')) return 'weather_vocab';
   if (lower.includes('emotion') || lower.includes('émotion') || lower.includes('les émotions') || lower.includes('feeling') || lower.includes('sentiments')) return 'emotions_vocab';
-  if (lower.includes('time') || lower.includes("l'heure") || lower.includes('la montre') || lower.includes('telling time') || lower.includes('quelle heure')) return 'telling_time';
+  if (lower.includes("l'heure") || lower.includes('la montre') || lower.includes('telling time') || lower.includes('quelle heure') || lower.includes('dire l\'heure') || lower.includes("l'heure — dire") || lower.includes('analog clock') && lower.includes('french')) return 'telling_time';
   if (lower.includes('days') || lower.includes('week') || lower.includes('month') || lower.includes('jours') || lower.includes('mois') || lower.includes('calendrier') || lower.includes('la semaine')) return 'days_week';
   if (lower.includes('body part') || lower.includes('le corps') || lower.includes('corps humain') || lower.includes('body vocab')) return 'body_parts';
   if (lower.includes('face') || lower.includes('le visage') || lower.includes('facial feature')) return 'face_parts';
