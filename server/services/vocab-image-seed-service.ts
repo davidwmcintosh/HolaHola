@@ -1008,6 +1008,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'levantarse':    `${CHAR.ES.primary} stretching both arms above her head and stepping out of bed at dawn, sleepy but smiling, soft morning light through gauzy curtains`,
   'acostarse':     `${CHAR.ES.primary} climbing into a cosy bed, pulling a soft blanket up, eyes heavy and sleepy, warm bedside lamp glowing, peaceful quiet bedroom at night`,
   'vestirse':      `${CHAR.ES.primary} buttoning up her sky-blue shirt in front of a wardrobe mirror with a relaxed morning smile, a tidy bedroom in the background`,
+  'hablar':        `${CHAR.ES.primary} chatting warmly with a friend outdoors, both smiling in mid-conversation, gesturing naturally, a sunny cobblestone street in the background`,
 
   // ── Adjective Pairs — Spanish ─────────────────────────────────────────────
   // Both words in each pair share the exact same SPLIT prompt so they render

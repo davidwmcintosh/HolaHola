@@ -1519,6 +1519,36 @@ const CONCEPT_KEY_MAP: Record<string, string> = {
   '옷을 입다':      'vocab_spanish_vestirse', // KO
   '穿衣':           'vocab_spanish_vestirse', // ZH
 
+  // speak / talk (hablar) — conjugated FR/DE/IT/PT/ES/EN forms included
+  // "Tu parles." → strip tu → parles → vocab_spanish_hablar ✓
+  'parler':      'vocab_spanish_hablar', // FR infinitive
+  'parle':       'vocab_spanish_hablar', // FR je/il/elle parle
+  'parles':      'vocab_spanish_hablar', // FR tu parles
+  'parlons':     'vocab_spanish_hablar', // FR nous parlons
+  'parlez':      'vocab_spanish_hablar', // FR vous parlez
+  'parlent':     'vocab_spanish_hablar', // FR ils parlent
+  'sprechen':    'vocab_spanish_hablar', // DE infinitive
+  'spreche':     'vocab_spanish_hablar', // DE ich spreche
+  'sprichst':    'vocab_spanish_hablar', // DE du sprichst
+  'spricht':     'vocab_spanish_hablar', // DE er/sie/es spricht
+  'parlare':     'vocab_spanish_hablar', // IT infinitive
+  'parlo':       'vocab_spanish_hablar', // IT io parlo
+  'parla':       'vocab_spanish_hablar', // IT lui/lei parla
+  'parlano':     'vocab_spanish_hablar', // IT loro parlano
+  'falar':       'vocab_spanish_hablar', // PT infinitive
+  'falo':        'vocab_spanish_hablar', // PT eu falo
+  'fala':        'vocab_spanish_hablar', // PT ele/ela fala
+  'speak':       'vocab_spanish_hablar', // EN
+  'speaks':      'vocab_spanish_hablar', // EN he/she speaks
+  'talk':        'vocab_spanish_hablar', // EN alt
+  'talks':       'vocab_spanish_hablar', // EN he/she talks
+  'hablo':       'vocab_spanish_hablar', // ES yo hablo
+  'habla':       'vocab_spanish_hablar', // ES él/ella habla
+  'はなす':       'vocab_spanish_hablar', // JA
+  '話す':        'vocab_spanish_hablar', // JA kanji
+  '말하다':       'vocab_spanish_hablar', // KO
+  '说话':        'vocab_spanish_hablar', // ZH
+
   // ── Body Parts (all point to shared body diagram) ─────────────────────────
   // head (cabeza)
   'tete':        'vocab_spanish_cabeza', // FR (tête)
