@@ -12151,6 +12151,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       const langFilter = rawLang ? toCanonicalLang(rawLang) : undefined;
       const statusFilter = req.query.status as string | undefined; // canonical|shared_concept|scene_override|unrouted
       const unitFilter   = (req.query.unit as string | undefined)?.toLowerCase().trim();
+      const levelFilter  = (req.query.level as string | undefined)?.toLowerCase().trim(); // e.g. novice_low, intermediate, advanced
 
       /** Classify a single word through the four-tier routing chain */
       function classifyWord(word: string, canonLang: CanonicalLang): { status: string; key: string | null } {
@@ -12174,40 +12175,27 @@ Return ONLY the ${targetLanguage} phrase:`;
 
       // Fetch all lessons with their required_vocabulary, joined with unit and path for context
       // langFilter is already sanitized against LANG_CODE_MAP (only known-safe values)
-      const lessonRows = langFilter
-        ? await db.execute(rawSql`
-            SELECT
-              cl.id          AS lesson_id,
-              cl.name        AS lesson_name,
-              cl.required_vocabulary,
-              cu.id          AS unit_id,
-              cu.name        AS unit_name,
-              cu.chapter_type,
-              cp.language    AS path_language
-            FROM curriculum_lessons cl
-            JOIN curriculum_units cu  ON cu.id = cl.curriculum_unit_id
-            JOIN curriculum_paths cp  ON cp.id = cu.curriculum_path_id
-            WHERE cl.required_vocabulary IS NOT NULL
-              AND array_length(cl.required_vocabulary, 1) > 0
-              AND LOWER(cp.language) = ${langFilter}
-            ORDER BY cp.language, cu.order_index, cl.order_index
-          `)
-        : await db.execute(rawSql`
-            SELECT
-              cl.id          AS lesson_id,
-              cl.name        AS lesson_name,
-              cl.required_vocabulary,
-              cu.id          AS unit_id,
-              cu.name        AS unit_name,
-              cu.chapter_type,
-              cp.language    AS path_language
-            FROM curriculum_lessons cl
-            JOIN curriculum_units cu  ON cu.id = cl.curriculum_unit_id
-            JOIN curriculum_paths cp  ON cp.id = cu.curriculum_path_id
-            WHERE cl.required_vocabulary IS NOT NULL
-              AND array_length(cl.required_vocabulary, 1) > 0
-            ORDER BY cp.language, cu.order_index, cl.order_index
-          `);
+
+      const lessonRows = await db.execute(rawSql`
+        SELECT
+          cl.id           AS lesson_id,
+          cl.name         AS lesson_name,
+          cl.required_vocabulary,
+          cu.id           AS unit_id,
+          cu.name         AS unit_name,
+          cu.chapter_type,
+          cp.language     AS path_language,
+          cp.start_level  AS path_start_level,
+          cp.end_level    AS path_end_level
+        FROM curriculum_lessons cl
+        JOIN curriculum_units cu ON cu.id = cl.curriculum_unit_id
+        JOIN curriculum_paths cp ON cp.id = cu.curriculum_path_id
+        WHERE cl.required_vocabulary IS NOT NULL
+          AND array_length(cl.required_vocabulary, 1) > 0
+          ${langFilter  ? rawSql`AND LOWER(cp.language)    = ${langFilter}`  : rawSql``}
+          ${levelFilter ? rawSql`AND (LOWER(cp.start_level) = ${levelFilter} OR LOWER(cp.end_level) = ${levelFilter})` : rawSql``}
+        ORDER BY cp.language, cu.order_index, cl.order_index
+      `);
 
       // Aggregate stats
       const byUnit: Record<string, any> = {};
@@ -12285,13 +12273,37 @@ Return ONLY the ${targetLanguage} phrase:`;
           unrouted: s.total - s.routed,
           coveragePercent: s.total > 0 ? Math.round((s.routed / s.total) * 100) : 0,
         })),
-        filters: { language: langFilter ?? 'all', unit: unitFilter ?? 'all', status: statusFilter ?? 'all' },
+        filters: { language: langFilter ?? 'all', level: levelFilter ?? 'all', unit: unitFilter ?? 'all', status: statusFilter ?? 'all' },
         byUnit,
         registryCatalog,
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
+  });
+
+  // POST /api/admin/vocab-add-concept — log an admin suggestion to add an unrouted word
+  // to the canonical registry or CONCEPT_KEY_MAP.  Persisted in-memory (survives restart
+  // only until the server restarts — the admin is expected to also update the source files).
+  const vocabConceptSuggestions: Array<{ word: string; language: string; suggestedKey: string; note: string; addedAt: string }> = [];
+  app.post('/api/admin/vocab-add-concept', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { word, language, suggestedKey, note } = req.body ?? {};
+      if (!word || !language || !suggestedKey) {
+        return res.status(400).json({ error: 'word, language, and suggestedKey are required' });
+      }
+      const entry = { word: String(word), language: String(language), suggestedKey: String(suggestedKey), note: String(note ?? ''), addedAt: new Date().toISOString() };
+      vocabConceptSuggestions.push(entry);
+      console.log(`[VocabAudit] Admin added concept suggestion: "${word}" (${language}) → "${suggestedKey}"`);
+      res.json({ success: true, entry, totalSuggestions: vocabConceptSuggestions.length });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // GET /api/admin/vocab-add-concept — retrieve all pending concept suggestions
+  app.get('/api/admin/vocab-concept-suggestions', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res) => {
+    res.json({ suggestions: vocabConceptSuggestions });
   });
 
   // Get seeding status for all paths in a language

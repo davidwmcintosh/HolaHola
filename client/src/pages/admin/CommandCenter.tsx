@@ -7351,7 +7351,9 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 function VocabAuditTab() {
+  const { toast } = useToast();
   const [language, setLanguage] = useState('all');
+  const [level, setLevel]       = useState('all');
   const [status, setStatus]     = useState('all');
   const [unitSearch, setUnitSearch] = useState('');
 
@@ -7366,13 +7368,15 @@ function VocabAuditTab() {
   const [addConceptOpen, setAddConceptOpen] = useState(false);
   const [addConceptWord, setAddConceptWord] = useState('');
   const [addConceptLang, setAddConceptLang] = useState('');
+  const [addConceptNote, setAddConceptNote] = useState('');
   const [suggestedKey, setSuggestedKey] = useState('');
 
   const { data, isLoading, refetch } = useQuery<VocabAuditResponse>({
-    queryKey: ['/api/admin/vocab-audit', { language, status, unit: debouncedUnit }],
+    queryKey: ['/api/admin/vocab-audit', { language, level, status, unit: debouncedUnit }],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (language !== 'all')     params.set('language', language);
+      if (level !== 'all')        params.set('level', level);
       if (status !== 'all')       params.set('status', status);
       if (debouncedUnit)          params.set('unit', debouncedUnit);
       const res = await fetch(`/api/admin/vocab-audit?${params}`);
@@ -7382,11 +7386,28 @@ function VocabAuditTab() {
     staleTime: 60_000,
   });
 
+  const addConceptMutation = useMutation({
+    mutationFn: async (payload: { word: string; language: string; suggestedKey: string; note: string }) => {
+      const res = await apiRequest('POST', '/api/admin/vocab-add-concept', payload);
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    onSuccess: (result) => {
+      toast({ title: 'Suggestion saved', description: `"${result.entry.word}" queued (${result.totalSuggestions} total). Update the source files to make it permanent.` });
+      setAddConceptOpen(false);
+      setAddConceptNote('');
+    },
+    onError: (err: any) => {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    },
+  });
+
   const units = data ? Object.entries(data.byUnit) : [];
 
   function openAddConcept(word: string, lang: string) {
     setAddConceptWord(word);
     setAddConceptLang(lang);
+    setAddConceptNote('');
     // Auto-suggest a concept key based on the word
     const cleaned = word.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().replace(/\s+/g, '_');
     setSuggestedKey(`vocab_${lang.toLowerCase()}_${cleaned}`);
@@ -7420,6 +7441,22 @@ function VocabAuditTab() {
                 <SelectItem value="korean">Korean</SelectItem>
                 <SelectItem value="mandarin">Mandarin</SelectItem>
                 <SelectItem value="english">English</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={level} onValueChange={setLevel}>
+              <SelectTrigger className="w-40" data-testid="select-vocab-audit-level">
+                <SelectValue placeholder="Level" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Levels</SelectItem>
+                <SelectItem value="novice_low">Novice Low</SelectItem>
+                <SelectItem value="novice_mid">Novice Mid</SelectItem>
+                <SelectItem value="novice_high">Novice High</SelectItem>
+                <SelectItem value="intermediate_low">Intermediate Low</SelectItem>
+                <SelectItem value="intermediate_mid">Intermediate Mid</SelectItem>
+                <SelectItem value="intermediate_high">Intermediate High</SelectItem>
+                <SelectItem value="advanced_low">Advanced Low</SelectItem>
+                <SelectItem value="advanced_mid">Advanced Mid</SelectItem>
               </SelectContent>
             </Select>
             <Select value={status} onValueChange={setStatus}>
@@ -7556,7 +7593,7 @@ function VocabAuditTab() {
           <DialogHeader>
             <DialogTitle>Add to Shared Concept</DialogTitle>
             <DialogDescription>
-              Copy the entry below and add it to the canonical vocabulary registry or SCENE_OVERRIDES in the codebase.
+              Queue this word as a concept suggestion. The suggestion is saved server-side so you can batch-update the canonical registry source files later.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
@@ -7564,15 +7601,29 @@ function VocabAuditTab() {
               Word: <span className="font-semibold text-foreground">{addConceptWord}</span>
               &nbsp;·&nbsp; Language: <span className="font-semibold text-foreground capitalize">{addConceptLang}</span>
             </div>
-            <div className="rounded-md bg-muted p-3 font-mono text-xs break-all" data-testid="text-add-concept-key">
-              {`// In server/data/canonical-vocabulary.ts:`}<br />
-              {`// Add "${addConceptWord}" to the ${addConceptLang} entry for the matching unit theme.`}<br />
-              <br />
-              {`// Or add a SCENE_OVERRIDE entry in vocab-image-seed-service.ts:`}<br />
-              {`'${addConceptWord}': 'A watercolor illustration of ...',`}
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Suggested concept key</label>
+              <input
+                type="text"
+                value={suggestedKey}
+                onChange={(e) => setSuggestedKey(e.target.value)}
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-ring"
+                data-testid="input-suggested-key"
+              />
             </div>
-            <div className="text-xs text-muted-foreground">
-              Suggested concept key: <code className="bg-muted px-1 rounded">{suggestedKey}</code>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Note (optional — e.g. suggested SCENE_OVERRIDE prompt)</label>
+              <Textarea
+                value={addConceptNote}
+                onChange={(e) => setAddConceptNote(e.target.value)}
+                placeholder="A watercolor illustration of ..."
+                className="resize-none text-sm"
+                rows={3}
+                data-testid="textarea-concept-note"
+              />
+            </div>
+            <div className="rounded-md bg-muted p-3 font-mono text-xs break-all" data-testid="text-add-concept-key">
+              {`'${addConceptWord}': '${addConceptNote || 'A watercolor illustration of ...'}',`}
             </div>
           </div>
           <DialogFooter>
@@ -7581,15 +7632,20 @@ function VocabAuditTab() {
               variant="outline"
               onClick={() => {
                 navigator.clipboard?.writeText(
-                  `'${addConceptWord}': 'A watercolor illustration of ...',\n// Suggested key: ${suggestedKey}`
+                  `'${addConceptWord}': '${addConceptNote || 'A watercolor illustration of ...'}',\n// Suggested key: ${suggestedKey}`
                 );
               }}
               data-testid="button-copy-concept-entry"
             >
-              Copy Entry
+              Copy
             </Button>
-            <Button size="default" onClick={() => setAddConceptOpen(false)} data-testid="button-close-concept-dialog">
-              Close
+            <Button
+              size="default"
+              onClick={() => addConceptMutation.mutate({ word: addConceptWord, language: addConceptLang, suggestedKey, note: addConceptNote })}
+              disabled={addConceptMutation.isPending}
+              data-testid="button-save-concept-suggestion"
+            >
+              {addConceptMutation.isPending ? 'Saving...' : 'Save Suggestion'}
             </Button>
           </DialogFooter>
         </DialogContent>
