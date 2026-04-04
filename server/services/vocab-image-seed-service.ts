@@ -1010,6 +1010,148 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'vestirse':      `${CHAR.ES.primary} buttoning up her sky-blue shirt in front of a wardrobe mirror with a relaxed morning smile, a tidy bedroom in the background`,
   'hablar':        `${CHAR.ES.primary} chatting warmly with a friend outdoors, both smiling in mid-conversation, gesturing naturally, a sunny cobblestone street in the background`,
 
+  // ── More Action Verbs — Spanish anchors for canonical registry ────────────
+  'beber':         `${CHAR.ES.primary} lifting a clear glass of water to her lips with both hands, enjoying a refreshing sip, warm kitchen background with soft daylight`,
+  'ir':            `${CHAR.ES.primary} walking briskly toward a sunny doorway, one hand on the door handle, light bag over her shoulder, purposeful cheerful expression`,
+  'venir':         `${CHAR.ES.primary} stepping through an open doorway into a bright room with a warm smile, arms slightly open in a welcoming arrival gesture`,
+  'escuchar':      `${CHAR.ES.primary} cupping one hand gently around her ear and tilting her head with an attentive focused expression, a soft warm background`,
+  'leer':          `${CHAR.ES.primary} sitting in a comfortable chair holding an open book, eyes moving along the page with quiet concentration, warm reading lamp beside her`,
+  'escribir':      `${CHAR.ES.primary} bent over a notebook at a desk writing carefully with a pen, a look of focus on her face, warm desk lamp illuminating the page`,
+  'jugar':         `${CHAR.ES.primary} laughing and tossing a brightly coloured ball outdoors on a sunny afternoon, caught mid-throw with an energetic joyful pose`,
+  'bailar':        `${CHAR.ES.primary} dancing with arms raised and feet mid-step in a bright airy room, a joyful carefree expression, sunlight streaming through a window`,
+  'cantar':        `${CHAR.ES.primary} singing with eyes slightly closed and a joyful expression, one hand raised gently, warm stage or living-room light behind her`,
+  'nadar':         `${CHAR.ES.primary} swimming in a clear outdoor pool, arms mid-stroke, smiling as she glides through the water, bright summer light and blue sky above`,
+  'cocinar':       `${CHAR.ES.primary} stirring a pot on the stove with a wooden spoon, a colourful apron on, surrounded by fresh vegetables on the counter, warm homey kitchen`,
+  'pintar':        `${CHAR.ES.primary} standing at an easel with a paintbrush in hand, adding a stroke to a colorful canvas, paint-dabbed smock on, bright art studio light`,
+  'despertarse':   `${CHAR.ES.primary} stretching with a sleepy smile as early morning sunlight streams through the curtains, hair tousled, still in bed but just waking`,
+  'ducharse':      `${CHAR.ES.primary} wrapped in a fluffy white towel after a shower, hair slightly damp, reaching for a neatly folded fresh towel in a bright bathroom`,
+  'dormir':        `${CHAR.ES.primary} sleeping peacefully in a cosy bed, eyes closed and face relaxed, soft moonlight through the curtain, everything calm and quiet`,
+  'correr':        `${CHAR.ES.primary} running along a sunny park path, arms pumping and ponytail flying, energetic happy expression, green trees in the background`,
+  'caminar':       `${CHAR.ES.primary} strolling down a sun-dappled cobblestone street, relaxed and unhurried, a light bag over her shoulder, pleasant afternoon light`,
+  'comprar':       `${CHAR.ES.primary} at a market stall handing coins to a vendor, a small basket of fresh produce in her other arm, friendly exchange, bright outdoor market`,
+  'vender':        `${CHAR.ES.primary} standing behind a colourful market stall, handing a wrapped item to a customer with a warm smile, baskets of goods displayed around her`,
+
+  // ── People & Family — Spanish anchors ────────────────────────────────────
+  'madre':         `A warm watercolor portrait: a loving middle-aged Latina mother with dark wavy hair, warm brown skin, and kind dark eyes — dressed in a comfortable floral blouse, arms gently open in a welcoming embrace, soft home interior background`,
+  'padre':         `A warm watercolor portrait: a kind middle-aged Latino father with short dark hair, warm brown skin, and a gentle smile — wearing a casual collared shirt, standing with an open and reassuring posture, soft home interior background`,
+  'hermano':       `A cheerful watercolor portrait: a teenage Latino boy with short dark hair, warm brown skin, and a bright smile — wearing a casual T-shirt, standing in a relaxed friendly pose, sunny outdoor background`,
+  'hermana':       `A cheerful watercolor portrait: a teenage Latina girl with long dark hair, warm brown skin, and a big smile — wearing a colourful blouse, standing in a relaxed friendly pose, sunny outdoor background`,
+  'abuela':        `${CHAR.ES.abuela} standing in a warm kitchen doorway with a gentle welcoming smile, arms slightly open, soft warm home interior with plants and family photos behind her`,
+  'abuelo':        `A warm watercolor portrait: an elderly Latino grandfather with silver hair, warm brown skin, and kind eyes — wearing a neat light-coloured shirt, sitting comfortably in a cosy armchair with a warm smile`,
+  'amigo':         `${CHAR.ES.primary} and ${CHAR.ES.secondary} walking side by side with big smiles, in casual relaxed clothing, clearly close friends, sunny park backdrop`,
+  'maestra':       `A warm watercolor scene: a composed woman teacher at the front of a bright classroom, writing on the chalkboard with coloured chalk while students look on attentively, neat professional outfit, warm classroom light`,
+  'estudiante':    `A watercolor scene: a focused young student sitting at a desk in a bright classroom, open textbook in front, pencil in hand, a curious attentive expression, warm classroom light streaming through a window`,
+  'bebe':          `A gentle watercolor scene: a chubby happy baby sitting on a soft blanket, looking up with bright curious eyes, chubby cheeks and a toothless grin, warm soft pastel nursery background`,
+  'familia':       `A warm watercolor scene: a multigenerational Latin family gathered together — grandparents, parents, and children — around a round table sharing a meal, joyful smiling faces, cozy home setting with warm light`,
+  'hombre':        `A simple watercolor illustration: a friendly adult man in casual everyday clothes standing in a relaxed open posture with a natural warm smile, neutral soft background`,
+  'mujer':         `A simple watercolor illustration: a friendly adult woman in casual everyday clothes standing in a relaxed open posture with a natural warm smile, neutral soft background`,
+  'nino':          `A cheerful watercolor illustration: a small energetic boy with a big smile, wearing a striped shirt and shorts, playing outdoors in a sunny garden`,
+  'nina':          `A cheerful watercolor illustration: a small energetic girl with a big smile, wearing a colourful dress, playing outdoors in a sunny garden`,
+
+  // ── School Objects — Spanish anchors ─────────────────────────────────────
+  'libro':         `A watercolor still life: a single open textbook lying flat on a wooden desk, pages filled with neat diagrams and text, soft warm study light, no characters`,
+  'lapiz':         `A watercolor still life: two sharpened yellow pencils with dark tips lying side by side on a clean white sheet of paper, soft daylight`,
+  'boligrafo':     `A watercolor still life: a sleek blue ballpoint pen lying on an open notebook, ink cap off, ready to write, soft desk light`,
+  'mochila':       `A watercolor still life: a purple fabric backpack with multiple pockets sitting upright on a school floor, slightly open to show coloured pencils peeking out, bright school hallway light`,
+  'escritorio':    `A watercolor still life: a tidy wooden school desk with a textbook and pencil case on top, clean simple classroom background`,
+  'silla':         `A watercolor still life: a classic wooden school chair with a slatted back, sitting neatly in a bright classroom, soft warm light`,
+  'aula':          `A wide watercolor scene: a bright cheerful elementary school classroom with rows of desks, a chalkboard covered in colourful writing, posters on the walls, warm morning light through large windows, no characters`,
+  'escuela':       `A watercolor exterior scene: a sunny two-storey school building with colourful doors and windows, children's drawings on the bulletin board by the entrance, a blue sky and green trees behind it, no characters`,
+  'ventana':       `A watercolor still life: a clean white-framed window looking out onto a sunny courtyard with green trees and blue sky, warm interior light on the sill, a small potted plant on the sill`,
+
+  // ── Food & Drink — Spanish anchors ───────────────────────────────────────
+  'pan':           `A watercolor still life: a rustic round loaf of crusty bread resting on a wooden cutting board, one slice cut, warm amber kitchen light, no characters`,
+  'leche':         `A watercolor still life: a tall clear glass of cold white milk with small bubbles at the top, a light ceramic jug beside it, clean bright background`,
+  'agua':          `A watercolor still life: a clear glass filled with fresh cool water, a few air bubbles rising, a slice of lemon on the rim, bright crisp background`,
+  'arroz':         `A watercolor still life: a white ceramic bowl heaped with steaming white rice, a pair of chopsticks resting alongside, warm gentle light`,
+  'cafe':          `A watercolor still life: a white ceramic cup of dark espresso with a gentle swirl of steam, a small saucer and a single sugar cube beside it, warm café counter light`,
+  'te':            `A watercolor still life: a glass teapot with amber tea inside and a matching cup on a saucer, a dried tea-flower blooming inside, soft warm light`,
+  'platano':       `A watercolor still life: a small bunch of ripe yellow bananas resting on a wooden bowl, bright kitchen light, no characters`,
+  'huevo':         `A watercolor still life: two brown eggs in a small ceramic bowl, soft morning light casting gentle shadows on the counter`,
+  'pescado':       `A watercolor still life: a whole cooked fish on a white oval plate with a wedge of lemon and fresh herbs, bright table setting, no characters`,
+  'restaurante':   `A watercolor exterior scene: a warm inviting restaurant façade with a striped awning, potted plants by the door, menu board in the window, evening glow from the interior lights, no characters`,
+
+  // ── Time of Day — Spanish anchors ─────────────────────────────────────────
+  'manana':        `A watercolor landscape: a peaceful sunrise scene with soft golden light breaking over rolling hills, a rooster silhouetted on a fence post, dew on grass blades, pastel sky in shades of orange and pink`,
+  'tarde':         `A watercolor landscape: a golden afternoon scene with long warm shadows stretching across a city plaza, people enjoying the sun on benches, a deep blue sky above`,
+  'noche':         `A watercolor landscape: a quiet night scene with a full moon casting silver light over a calm neighbourhood, stars scattered across a deep blue sky, warm glowing windows in the houses below`,
+
+  // ── Clothing — Spanish anchors ────────────────────────────────────────────
+  'camisa':        `A watercolor still life: a neatly folded light-blue cotton shirt laid flat, with the collar and button placket clearly visible, clean bright surface, no characters`,
+  'pantalon':      `A watercolor still life: a pair of clean dark-blue trousers laid flat on a light surface, the crease running neatly down each leg, bright studio light`,
+  'falda':         `A watercolor still life: a flowing floral skirt draped over a simple hanger, colourful and bright, white studio background`,
+  'zapato':        `A watercolor still life: a pair of clean white canvas sneakers sitting side by side on a wooden floor, laces neatly tied, warm soft light`,
+  'vestido':       `A watercolor still life: a simple elegant sundress with a subtle floral print hanging on a wooden hanger, light airy fabric, bright soft background`,
+  'sombrero':      `A watercolor still life: a classic wide-brimmed straw hat resting at a slight angle on a plain white surface, warm golden light, no characters`,
+  'abrigo':        `A watercolor still life: a neat camel-coloured wool coat on a wooden hanger, double-breasted with large buttons, clean bright background`,
+  'calcetin':      `A watercolor still life: a colourful striped pair of socks rolled together in a tidy ball on a white surface, soft daylight`,
+  'bolso':         `A watercolor still life: a stylish tan leather shoulder bag with a simple clasp and strap, sitting upright on a wooden surface, warm light`,
+  'precio':        `A watercolor illustration: a simple price-tag label with a bold number on it hanging from a clothing item, bright clear background — showing the concept of cost or price`,
+  'musica':        `A watercolor still life: a vintage acoustic guitar leaning against a wall beside a music stand with an open sheet of music, warm golden light`,
+  'deporte':       `A watercolor still life: a collection of colourful sports items — a football, a tennis racket, and running shoes — arranged on a light wooden floor, bright daylight`,
+  'juego':         `A watercolor still life: a cheerful set of board-game pieces — colourful pawns, dice, and cards — spread across a wooden table, warm friendly light`,
+
+  // ── City & Community — Spanish anchors ───────────────────────────────────
+  'hospital':      `A watercolor exterior: a clean white hospital building with a large red cross above the entrance, a few potted trees by the doors, clear blue sky, no characters`,
+  'banco':         `A watercolor exterior: a classic stone-faced bank building with tall columns, a discreet sign above glass revolving doors, tidy street outside, no characters`,
+  'supermercado':  `A watercolor exterior: a bright modern supermarket with large glass doors and a colourful display of fresh produce just inside the entrance, sunny day outside`,
+  'parque':        `A watercolor landscape: a sunny urban park with a winding path, green lawns, flower beds in bloom, a duck pond, and a blue sky with fluffy clouds`,
+  'biblioteca':    `A watercolor interior: a cosy library reading room with tall wooden bookshelves lined with colourful spines, a reading table with an open book, warm lamp light`,
+  'farmacia':      `A watercolor exterior: a small pharmacy storefront with a green cross sign illuminated above the entrance, a neat window display of health products, bright clean street`,
+  'calle':         `A watercolor scene: a charming cobblestone pedestrian street with colourful shopfronts, window boxes overflowing with flowers, warm afternoon sun, no characters`,
+  'casa':          `A watercolor exterior: a welcoming two-storey house with a red-tile roof, a small front garden with flowering plants, a wooden front door ajar, warm afternoon light`,
+  'ciudad':        `A watercolor skyline: a colourful city with varied buildings ranging from small shops to taller modern structures, a blue sky above, streets below with trees, no characters`,
+
+  // ── Transport — Spanish anchors ───────────────────────────────────────────
+  'avion':         `A watercolor scene: a large commercial airplane gliding through a bright blue sky with a few fluffy clouds, viewed from slightly below, clean bright setting`,
+  'tren':          `A watercolor scene: a modern passenger train arriving at a sunny station platform, sleek body with clean lines, a few travellers visible on the platform, bright daylight`,
+  'autobus':       `A watercolor scene: a bright yellow city bus with rounded corners and large windows at a bus stop on a sunny street, clean cheerful colours`,
+  'coche':         `A watercolor scene: a compact bright-red family car parked on a clean street, reflecting sunlight off its polished roof, a tree and houses visible behind it`,
+  'bicicleta':     `A watercolor scene: a classic upright bicycle with a wicker basket on the front, leaning against a sunny stone wall with flowers around it`,
+  'barco':         `A watercolor scene: a sailboat with a white sail on calm blue water, gentle waves, clear sky and a distant shoreline, peaceful and sunny`,
+  'aeropuerto':    `A watercolor interior: a bright airy airport departure hall with large windows, departure boards, and colourful seating areas, planes visible through the glass`,
+  'estacion':      `A watercolor interior: a grand train station hall with high arched ceilings, daylight streaming through tall windows, a departure board, and benches on the platform`,
+  'billete':       `A watercolor still life: a colourful train or bus ticket lying on a plain surface, the simple design showing a seat number and destination, no specific text readable`,
+  'maleta':        `A watercolor still life: a classic hard-shell rolling suitcase in deep blue with silver clasps, standing upright with a handle extended, clean bright background`,
+  'pasaporte':     `A watercolor still life: an open dark-blue passport lying on a white surface showing the photo page and a colourful entry stamp, no personal details visible`,
+  'hotel':         `A watercolor exterior: a charming four-storey hotel with warm yellow façade, flower boxes at every window, a neat awning above the glass entrance, warm evening light`,
+
+  // ── Health — Spanish anchors ──────────────────────────────────────────────
+  'enfermo':       `${CHAR.ES.primary} wrapped in a cosy blanket on a sofa with a slight frown and flushed cheeks, a box of tissues on the table beside her and a hot cup of tea in her hands, muted warm indoor light`,
+  'sano':          `${CHAR.ES.primary} outdoors in bright sunlight with a wide healthy smile, standing tall in casual athletic clothes, arms relaxed, radiating wellness and energy`,
+  'fiebre':        `A gentle watercolor illustration: a thermometer showing a high temperature resting on a white pillow beside a glass of water, warm amber room light, no characters`,
+  'dolor de cabeza': `A gentle watercolor illustration: a person gently pressing their fingertips to their temples with closed eyes and a slight wince, suggesting a headache, soft muted background`,
+  'medico':        `A watercolor scene: a warm professional doctor in a white coat with a stethoscope around their neck, a caring expression, seated behind a tidy consulting desk`,
+  'medicina':      `A watercolor still life: a small glass medicine bottle with a dropper and a blister pack of tablets on a white surface, clean clinical light`,
+
+  // ── Nature & Environment — Spanish anchors ────────────────────────────────
+  'arbol':         `A watercolor illustration: a large mature oak tree in full summer leaf, standing alone on a gentle hill, blue sky and soft white clouds behind it, lush green grass below`,
+  'flor':          `A watercolor still life: a single blooming sunflower in a small white ceramic vase, warm yellow petals and a dark centre, bright window light behind it`,
+  'mar':           `A watercolor seascape: calm ocean water stretching to the horizon, gentle waves, a pale blue sky with a few wispy clouds, warm golden light`,
+  'montana':       `A watercolor landscape: a majestic mountain range with snow-capped peaks under a clear blue sky, pine trees on the slopes below, peaceful and grand`,
+
+  // ── Technology — Spanish anchors ─────────────────────────────────────────
+  'telefono':      `A watercolor still life: a modern smartphone face-up on a light wood surface, screen showing a simple colourful home screen, soft ambient light`,
+  'computadora':   `A watercolor still life: an open laptop on a clean desk, screen glowing with a colourful minimal interface, a notepad and pen beside it, soft desk light`,
+  'internet':      `A watercolor illustration: glowing arcs of light connecting several small devices — phone, tablet, laptop — on a clean light background, suggesting wireless connectivity`,
+  'mensaje':       `A watercolor illustration: a simple speech-bubble icon with three dots inside floating above a phone screen, clean flat style, pastel colour palette`,
+  'video':         `A watercolor still life: a tablet displaying a cheerful play-button icon on a paused colourful video thumbnail, sitting on a wooden table, soft daylight`,
+
+  // ── Arts — Spanish anchors ────────────────────────────────────────────────
+  'cuadro':        `A watercolor still life: a framed oil painting hanging on a white gallery wall, depicting a colourful abstract landscape, soft even gallery lighting`,
+  'escultura':     `A watercolor illustration: a classic marble bust sculpture on a pedestal in a bright museum gallery, clean minimal background, warm spotlight above`,
+  'novela':        `A watercolor still life: a thick hardcover novel lying open on a cloth-covered table, a bookmark tucked between the pages, warm reading-lamp light`,
+  'poema':         `A watercolor illustration: a handwritten poem on cream-coloured paper, a quill pen resting alongside it, scattered ink blots, warm candlelight glow`,
+  'teatro':        `A watercolor exterior: a grand theatre façade with ornate arches, bright marquee lights, and a red carpet at the entrance, evening light and soft star-studded sky`,
+  'museo':         `A watercolor interior: a wide museum gallery hall with tall ceilings, large paintings on pale walls, clean even lighting, a few benches in the centre, no characters`,
+
+  // ── Finance — Spanish anchors ─────────────────────────────────────────────
+  'dinero':        `A watercolor still life: a small tidy stack of colourful banknotes with a few coins scattered beside it on a plain wooden surface, warm gentle light`,
+
+  // ── Science — Spanish anchors ─────────────────────────────────────────────
+  'experimento':   `A watercolor scene: a laboratory bench with two glass beakers bubbling with colourful liquids, safety goggles resting beside them, bright clean laboratory light, no characters`,
+  'robot':         `A watercolor illustration: a friendly humanoid robot with rounded edges and glowing blue eyes, waving one hand in greeting, clean white studio background, no text`,
+
   // ── Adjective Pairs — Spanish ─────────────────────────────────────────────
   // Both words in each pair share the exact same SPLIT prompt so they render
   // the same contrast image regardless of which word is looked up first.

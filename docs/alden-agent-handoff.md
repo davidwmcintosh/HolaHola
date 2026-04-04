@@ -1,5 +1,133 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Sat, Apr 4, 2026 (session 28 — Canonical vocabulary registry + admin audit endpoint)
+
+### What was done
+
+#### 1. Canonical vocabulary registry created (`server/data/canonical-vocabulary.ts`)
+All 27 thematic units × 9 languages defined as a static registry.
+
+**Key exports:**
+- `CANONICAL_UNITS` — `Record<UnitTheme, ConceptEntry[]>` for all 27 themes
+- `CANONICAL_LOOKUP` — precomputed `Map<"lang:word", sharedConceptKey>` (O(1) lookup, built at import time)
+- `lookupCanonicalConcept(word, language)` — returns `sharedConceptKey | null`
+- `getAllConcepts()` — flat list of all ConceptEntry objects for audit/report endpoints
+
+**ConceptEntry shape:**
+```ts
+interface ConceptEntry {
+  conceptKey: string;         // internal stable key e.g. "study"
+  englishGloss: string;       // human label e.g. "to study"
+  imageTier: 'shared' | 'scene_override' | 'svg' | 'none';
+  sharedConceptKey?: string;  // e.g. "vocab_spanish_estudiar" (shared-tier only)
+  words: Partial<Record<Language, string>>;
+  notes?: string;
+}
+```
+
+**27 unit themes (in order):**
+greetings, family, school, hobbies, food, numbers_time, daily_routines, shopping, city,
+travel_transport, identity, health, technology, environment, past_tense, global_challenges,
+arts, history, future_plans, travel_extended, science, cultural_perspectives, exam_prep,
+cultural_heritage, media_journalism, finance, advanced_skills
+
+#### 2. Four-tier image routing (vocabulary-image-resolver.ts)
+The resolver now follows this exact order on every word:
+
+| Tier | Step | Mechanism | Description |
+|------|------|-----------|-------------|
+| **Canonical** | Step 0 | `lookupCanonicalConcept()` | O(1) Map lookup in the registry; also tries stripped form (reflexive prefix) |
+| **Concept map** | Step 1 | `CONCEPT_KEY_MAP` | Legacy cross-language map; tries stripped pronoun form; also tries canonical on stripped |
+| **Character scene** | Step 2 | `SCENE_OVERRIDES` | Language-specific character scenes (greetings, classroom phrases, reflexive verbs) |
+| **SVG/grammar** | Step 3 | `isSVGWord()`, grammar classifiers | Articles, prepositions, numbers etc. |
+
+**Anchor fallback**: On concept cache miss, if `conceptKey` starts with `vocab_spanish_`, the
+resolver extracts the anchor word (replacing `_` → space), looks it up in `SCENE_OVERRIDES`,
+and uses that prompt for DALL-E generation. This lets French `boire` → canonical →
+`vocab_spanish_beber` → `SCENE_OVERRIDES["beber"]` without needing a French-specific override.
+
+#### 3. Admin audit endpoint (`GET /api/admin/vocab-audit`)
+Located in `server/routes.ts` (after `/api/admin/vocab-images/seed-all-progress`).
+
+**Query params:**
+- `language=es` — filter to a single language code
+- `unit=greetings` — filter to a single unit theme (or unit number 1-27)
+- `tier=shared` — filter to a specific imageTier
+
+**Response shape:**
+```json
+{
+  "summary": { "totalConcepts": 3150, "sharedCached": 1200, "sharedMissing": 450, ... },
+  "filters": { "language": "all", "unit": "all", "tier": "all" },
+  "byUnit": { "unit1_greetings": [{ "unitNumber": 1, "theme": "greetings", "conceptKey": "hello", "language": "french", "word": "bonjour", "tier": "scene_override", "sharedConceptKey": null, "cached": false }] }
+}
+```
+
+#### 4. New Spanish anchor SCENE_OVERRIDEs (~60+ entries, vocab-image-seed-service.ts ~line 1016)
+Added immediately after the daily routine verbs section, before the Adjective Pairs section.
+All use `${CHAR.ES.primary}` (Daniela) for action verbs; still-life/landscape for objects:
+
+**Action verbs:** beber, ir, venir, escuchar, leer, escribir, jugar, bailar, cantar, nadar,
+cocinar, pintar, despertarse, ducharse, dormir, correr, caminar, comprar, vender
+
+**People / family:** madre, padre, hermano, hermana, abuela, abuelo, amigo, maestra,
+estudiante, bebe, familia, hombre, mujer, nino, nina
+
+**School objects:** libro, lapiz, boligrafo, mochila, escritorio, silla, aula, escuela, ventana
+
+**Food & drink:** pan, leche, agua, arroz, cafe, te, platano, huevo, pescado, restaurante
+
+**Time of day:** manana (morning), tarde (afternoon), noche (night)
+
+**Clothing:** camisa, pantalon, falda, zapato, vestido, sombrero, abrigo, calcetin, bolso,
+precio, musica, deporte, juego
+
+**City / community:** hospital, banco, supermercado, parque, biblioteca, farmacia, calle,
+casa, ciudad
+
+**Transport:** avion, tren, autobus, coche, bicicleta, barco, aeropuerto, estacion, billete,
+maleta, pasaporte, hotel
+
+**Health:** enfermo, sano, fiebre, dolor de cabeza, medico, medicina
+
+**Nature:** arbol, flor, mar, montana
+
+**Technology:** telefono, computadora, internet, mensaje, video
+
+**Arts:** cuadro, escultura, novela, poema, teatro, museo
+
+**Finance:** dinero
+
+**Science:** experimento, robot
+
+### Four-tier routing architecture summary (canonical definition)
+```
+Word → resolver
+  ├── Step 0: lookupCanonicalConcept(word, lang)        [O(1) Map; 27 units × 9 languages]
+  │     └─ on hit: go to concept cache path (Step 1a/1b)
+  ├── Step 1: CONCEPT_KEY_MAP[normalizeWord(word)]      [legacy cross-language map]
+  │     ├─ also tries pronoun-stripped form
+  │     └─ also tries canonical on stripped form
+  ├── Step 2: SCENE_OVERRIDES[normalizeForOverride(word)]  [character scenes]
+  │     └─ on concept cache miss: anchor word SCENE_OVERRIDE extracted from conceptKey
+  └── Step 3: isSVGWord / grammar classifiers            [SVG placeholder]
+```
+
+### State at end of session
+- `server/data/canonical-vocabulary.ts`: created — 27 unit themes × 9 languages, ~350+ ConceptEntry objects ✓
+- `server/services/vocabulary-image-resolver.ts`: Step 0 canonical lookup wired; anchor fallback for SCENE_OVERRIDE on cache miss ✓
+- `server/services/vocab-image-seed-service.ts`: ~60+ new Spanish anchor SCENE_OVERRIDEs ✓
+- `server/routes.ts`: `GET /api/admin/vocab-audit` endpoint added ✓
+- `docs/alden-agent-handoff.md`: updated ✓
+
+### Next priorities
+- Run `/api/admin/vocab-audit?tier=shared&language=spanish` to see coverage report
+- Use `/api/admin/vocab-images/seed` to generate missing images for the new anchor concepts
+- Add more CONCEPT_KEY_MAP clusters for the new canonical verbs (beber/drink cluster, ir/go cluster, etc.)
+- Advanced: wire canonical registry into the seeding batch job so it can auto-seed all missing shared images
+
+---
+
 ## Session Summary — Sat, Apr 4, 2026 (session 27 — Daily routine verbs + pronoun-prefix sentence resolver)
 
 ### What was done

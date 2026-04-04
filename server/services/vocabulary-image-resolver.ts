@@ -10,6 +10,7 @@
  */
 
 import { storage } from '../storage';
+import { lookupCanonicalConcept, type Language as CanonicalLanguage } from '../data/canonical-vocabulary';
 
 export interface VocabImageRequest {
   word: string;
@@ -2884,18 +2885,38 @@ export async function resolveVocabularyImage(
     return null;
   }
 
+  // ── Step 0: Canonical vocabulary registry (guaranteed routing) ──────────
+  // Check the canonical registry FIRST so that any word defined in the
+  // 27-unit canonical vocabulary immediately resolves to its shared concept
+  // key — no need for the word to also appear in CONCEPT_KEY_MAP.
+  let conceptKey: string | null =
+    lookupCanonicalConcept(word, language as CanonicalLanguage) ?? null;
+  if (conceptKey) {
+    console.log(`[VocabImage] Canonical registry: "${word}" (${language}) → "${conceptKey}"`);
+  }
+
+  // ── Step 1: Check CONCEPT_KEY_MAP (existing cross-language map) ──────────
   // Check if this word maps to a shared cross-language concept key
   const normalizedForConcept = normalizeWord(word);
-  // Try direct lookup first; fall back to pronoun-stripped form if no hit.
-  let conceptKey = CONCEPT_KEY_MAP[normalizedForConcept] ?? null;
   let strippedBase: string | null = null;
   if (!conceptKey) {
-    strippedBase = stripPronounPrefix(word, language);
-    if (strippedBase) {
-      const strippedConceptKey = CONCEPT_KEY_MAP[strippedBase] ?? null;
-      if (strippedConceptKey) {
-        console.log(`[VocabImage] Pronoun-stripped "${word}" → "${strippedBase}" → concept "${strippedConceptKey}"`);
-        conceptKey = strippedConceptKey;
+    // Try direct lookup first; fall back to pronoun-stripped form if no hit.
+    conceptKey = CONCEPT_KEY_MAP[normalizedForConcept] ?? null;
+    if (!conceptKey) {
+      strippedBase = stripPronounPrefix(word, language);
+      if (strippedBase) {
+        const strippedConceptKey = CONCEPT_KEY_MAP[strippedBase] ?? null;
+        if (strippedConceptKey) {
+          console.log(`[VocabImage] Pronoun-stripped "${word}" → "${strippedBase}" → concept "${strippedConceptKey}"`);
+          conceptKey = strippedConceptKey;
+        }
+        // Also try the canonical registry on the stripped form
+        if (!conceptKey) {
+          conceptKey = lookupCanonicalConcept(strippedBase, language as CanonicalLanguage) ?? null;
+          if (conceptKey) {
+            console.log(`[VocabImage] Canonical registry (stripped) "${strippedBase}" (${language}) → "${conceptKey}"`);
+          }
+        }
       }
     }
   }
@@ -2986,7 +3007,20 @@ export async function resolveVocabularyImage(
     // rather than a generic DALL-E interpretation that would permanently poison the concept key.
     const { SCENE_OVERRIDES: sceneOverrides, normalizeForOverride } = await import('./vocab-image-seed-service');
     const overrideKey = normalizeForOverride(word);
-    const sceneFromOverride = sceneOverrides[overrideKey] ?? scene;
+    // First try the raw word override; if not found, try the anchor word extracted
+    // from the concept key (e.g. conceptKey="vocab_spanish_beber" → anchorWord="beber").
+    // This lets French "boire" → canonical → vocab_spanish_beber → SCENE_OVERRIDES["beber"].
+    let sceneFromOverride = sceneOverrides[overrideKey];
+    if (!sceneFromOverride && conceptKey.startsWith('vocab_spanish_')) {
+      // Convert underscores back to spaces so multi-word keys match:
+      // vocab_spanish_dolor_de_cabeza → "dolor de cabeza" → SCENE_OVERRIDE key match
+      const anchorWord = conceptKey.replace('vocab_spanish_', '').replace(/_/g, ' ');
+      sceneFromOverride = sceneOverrides[normalizeForOverride(anchorWord)];
+      if (sceneFromOverride) {
+        console.log(`[VocabImage] Using anchor SCENE_OVERRIDE "${anchorWord}" for concept "${conceptKey}" (input: "${word}")`);
+      }
+    }
+    sceneFromOverride = sceneFromOverride ?? scene;
     const conceptForGeneration = buildGenerationConcept(word, sceneFromOverride, description, translation, language);
     const generationType = isSceneConcept(word, sceneFromOverride) ? 'infographic' : 'image';
     console.log(`[VocabImage] Concept cache miss — generating (${generationType}) for concept "${conceptKey}": "${conceptForGeneration.slice(0, 80)}..."`);

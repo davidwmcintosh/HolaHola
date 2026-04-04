@@ -12114,6 +12114,103 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ─── Canonical vocabulary registry audit ──────────────────────────────────
+  // GET /api/admin/vocab-audit?language=es&unit=3&tier=shared
+  // Returns an overview of every concept in the canonical registry, with DB cache
+  // status, routing tier, and any missing images so admins can identify gaps.
+  app.get('/api/admin/vocab-audit', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { CANONICAL_UNITS } = await import('./data/canonical-vocabulary');
+      const { getUserDb } = await import('./db');
+      const { sql: rawSql } = await import('drizzle-orm');
+      const db = getUserDb();
+
+      // Load all cached concept keys from the DB in one query for O(1) lookup
+      const cachedRows = await db.execute(rawSql`
+        SELECT search_query FROM stock_images
+        WHERE search_query LIKE 'vocab_%' AND url IS NOT NULL AND url != ''
+      `);
+      const cachedKeys = new Set<string>((cachedRows.rows as any[]).map((r: any) => r.search_query as string));
+
+      // Filter params
+      const langFilter  = (req.query.language as string | undefined)?.toLowerCase();
+      const unitFilter  = req.query.unit as string | undefined;
+      const tierFilter  = req.query.tier as string | undefined;
+
+      // Build the audit rows — CANONICAL_UNITS is Record<UnitTheme, ConceptEntry[]>
+      const results: Record<string, any[]> = {};
+      let totalConcepts = 0;
+      let sharedCached = 0;
+      let sharedMissing = 0;
+      let svgCount = 0;
+      let sceneOverrideCount = 0;
+      let noneCount = 0;
+
+      let unitNumber = 0;
+      for (const [theme, concepts] of Object.entries(CANONICAL_UNITS)) {
+        unitNumber++;
+        if (unitFilter && theme !== unitFilter && String(unitNumber) !== unitFilter) continue;
+
+        for (const concept of concepts) {
+          const tier = concept.imageTier;
+          if (tierFilter && tier !== tierFilter) continue;
+
+          // Collect languages to audit
+          const langEntries = Object.entries(concept.words) as [string, string][];
+          const filteredLangs = langFilter
+            ? langEntries.filter(([lang]) => lang === langFilter)
+            : langEntries;
+
+          for (const [lang, word] of filteredLangs) {
+            totalConcepts++;
+            const sharedKey = concept.sharedConceptKey ?? null;
+            const cached    = sharedKey ? cachedKeys.has(sharedKey) : false;
+
+            if (tier === 'svg')                svgCount++;
+            else if (tier === 'scene_override') sceneOverrideCount++;
+            else if (tier === 'none')           noneCount++;
+            else if (tier === 'shared') {
+              if (cached) sharedCached++;
+              else        sharedMissing++;
+            }
+
+            const unitKey = `unit${unitNumber}_${theme}`;
+            if (!results[unitKey]) results[unitKey] = [];
+            results[unitKey].push({
+              unitNumber,
+              theme,
+              conceptKey: concept.conceptKey,
+              englishGloss: concept.englishGloss,
+              language: lang,
+              word,
+              tier,
+              sharedConceptKey: sharedKey,
+              cached,
+            });
+          }
+        }
+      }
+
+      res.json({
+        summary: {
+          totalConcepts,
+          sharedCached,
+          sharedMissing,
+          svgCount,
+          sceneOverrideCount,
+          noneCount,
+          coveragePercent: totalConcepts > 0
+            ? Math.round((sharedCached / totalConcepts) * 100)
+            : 0,
+        },
+        filters: { language: langFilter ?? 'all', unit: unitFilter ?? 'all', tier: tierFilter ?? 'all' },
+        byUnit: results,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Get seeding status for all paths in a language
   app.get('/api/admin/textbook/status', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
