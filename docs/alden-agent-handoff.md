@@ -1,5 +1,35 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Sat, Apr 4, 2026 (session 25 — ClassroomFix destructive loop resolved; all 35 classroom survival phrases now cached)
+
+### What was done
+
+#### ClassroomFix destructive loop eliminated — additive-only, then removed
+
+The ClassroomFix in `server/index.ts` was running a `bustVocabImageCache` step at the top of every startup cycle. Since the server was restarting every 5–10 minutes (tsx hot-reload from file writes), each restart deleted all freshly-generated classroom images from the DB and restarted from scratch — wasting API credits and never converging.
+
+**Fix applied (two steps):**
+
+1. **Removed the bust loop.** Changed ClassroomFix to additive-only: check each phrase via `resolveVocabularyImage`, log `✓` only on generation, increment `skipped` on `source === 'cache'`. Final message is `"All classroom survival phrases already cached — nothing to do."` when all 35 are cached, or `"COMPLETE — generated N, skipped M"` when new images were needed.
+
+2. **Confirmed all 35 phrases cached** — once the `"nothing to do"` log line appeared (session ~00:17 UTC Apr 4), **the entire ClassroomFix setTimeout block was removed from `server/index.ts`** (per the critical TODO from session 24). The block is gone; no further action needed.
+
+**DB confirmation (35 entries in `media_files.search_query`):**
+- Spanish 6/6 ✓, French 4/4 ✓, German 4/4 ✓, Italian 4/4 ✓
+- Portuguese 3/3 ✓, English 4/4 ✓, Japanese 3/3 ✓, Korean 3/3 ✓, Mandarin 4/4 ✓
+
+(Counts match `CLASSROOM_SURVIVAL_WORDS` — Spanish is 6, all others are 3–4 phrases per language)
+
+### State at end of session
+- ClassroomFix: ✓ COMPLETE and removed from `server/index.ts`
+- All 35 classroom survival phrase images: ✓ cached in DB
+- Server: ✓ running cleanly (no ClassroomFix block)
+
+### Next priorities
+- See visual-asset-roadmap.md for remaining work
+
+---
+
 ## Session Summary — Fri, Apr 3, 2026 (session 23 — classroom survival SCENE_OVERRIDES + greeting template sweep)
 
 ### What was done
