@@ -141,19 +141,16 @@ These rules govern every image generation and routing decision going forward. Th
 
 ### Rule 1 — Shared vs. Language-Specific Images
 
-**Default: shared.** An image is only language-specific if the visual content itself would look meaningfully different in that language's cultural context. Character appearance alone is not a sufficient reason.
+**The dividing line is simple: does the image contain people?**
 
 | Content type | Policy | Rationale |
 |---|---|---|
-| Inanimate objects (pen, chair, book, car) | **Shared** | A pen is a pen in every country |
+| Inanimate objects (pen, chair, book, car, food items) | **Shared** | A pen is a pen in every country |
 | Animals, plants, nature | **Shared** | Universally recognizable |
-| Abstract actions without people (a running silhouette, a sleeping figure) | **Shared** | The action is the concept, not the person |
-| Food and drink that is genuinely culture-specific | **Language-specific** | A croissant is French; onigiri is Japanese |
-| Settings and architecture that carry cultural meaning | **Language-specific** | A Parisian café terrace is not a generic café |
-| Greetings and social gestures where the gesture itself differs | **Language-specific** | A bow ≠ a handshake ≠ la bise |
-| People in neutral scenes (eating, sleeping, working generically) | **Shared** | The activity is universal; the character's ethnicity is not the lesson |
+| Any image containing people (greetings, actions, professions, daily life) | **Language-specific** | Characters should reflect the culture being learned |
+| Culture-specific objects that only exist in one culture | **Language-specific** | A croissant, an onigiri, a baguette |
 
-**The test:** Would a French student seeing this image think "that looks Spanish"? If yes — and if the Spanish-ness is irrelevant to the vocabulary being taught — make the image neutral or language-specific, not Spanish-defaulting.
+**Why this rule:** Students should see characters that look like native speakers of the language they are learning. A French student should see Juliette saying "Bonjour," not Daniela. The rule is easy to apply — if there's a person in the frame, it belongs to that language.
 
 ### Rule 2 — The Spanish Baseline Problem
 
@@ -163,18 +160,28 @@ Spanish was chosen as the image baseline for pragmatic reasons (first language b
 
 **Short-term stance:** Accept the inconsistency. Students see only one language and are unlikely to notice.
 
-### Rule 3 — Images vs. Grammar Tables for Verb Forms
+### Rule 3 — Images vs. Grammar Tables, and Noun/Verb Pairing
 
 **Do not generate a separate image for each conjugated verb form.** This creates duplicate images, wastes DALL-E budget, and teaches nothing that a table cannot teach better.
 
 | Vocabulary type | Correct visual treatment |
 |---|---|
-| Infinitive verb (comer, dormir, hablar) | One image of the action (shared) |
+| Infinitive verb (comer, dormir, hablar) | One image of the action |
 | Conjugated form (yo como, je mange, ich esse) | Conjugation table — not a separate image |
 | Verb paradigm (AR/ER/IR endings) | Grammar diagram / conjugation table |
 | Phrase or sentence starter (Me gusta..., J'aimerais...) | No image needed — pattern card or dialog example |
 
-This cuts image count significantly for every language. The existing duplicate pairs (e.g. "to eat" + "I eat" showing the same image twice) should be collapsed to a single infinitive image + a conjugation table.
+**Noun + Verb pairing:** Where a noun and its related verb are clearly the same concept, use a single image for both and register it under both keys. Do not generate two images.
+
+Examples:
+- `desayuno` (breakfast) and `desayunar` (to eat breakfast) → one image, two keys
+- `cena` (dinner) and `cenar` (to have dinner) → one image, two keys
+- `almuerzo` (lunch) and `almorzar` (to have lunch) → one image, two keys
+- `baño` (bath/bathroom) and `bañarse` (to bathe) → same image works for both
+
+**The test:** If you can look at the image and it would correctly illustrate both the noun and the verb without ambiguity, register both keys to the same image. Only generate a second image when the noun and the action are visually distinct.
+
+The existing duplicate pairs (e.g. "to eat" + "I eat" showing the same image twice) should be collapsed to a single infinitive image + a conjugation table.
 
 ### Rule 4 — When No Image Is Better Than a Wrong Image
 
