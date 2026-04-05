@@ -1,5 +1,47 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Sun, Apr 5, 2026 (session 31 — Chapter reorder + stale drill fix)
+
+### What was done
+
+#### 1. Chapter reorder: Birthdays & Dates moved from position 9 → 7
+- Numbers 0–20 (5) → Telling Time (6) → **Birthdays & Dates (7)** → Family Members (8) → Describing People (9)
+- Previously: Birthdays & Dates was separated from its numeric/time prerequisites by Family and Describing People
+- Script: `server/scripts/reorder-chapters.ts` — swapped order_index values for 3 chapters via temp values to avoid unique constraint collision
+
+#### 2. Stale drill content fixed for 2 Spanish 1 lessons
+- Root cause: `curriculum_drill_items` seeded before restructuring — drill content reflected old mega-unit context, not lesson's current `required_vocabulary`
+- **Scan method:** `server/scripts/find-stale-drills.ts` — compared drill items vs vocab roots from `required_vocabulary`; threshold: >50% mismatch
+- **Only 2 lessons affected** (out of 43): Ch1 "AI-Generated Practice: Active Production" and Ch20 "New Words: Colors & Sizes"
+- **Root of mismatch:** Both had `textbook_lesson_content.vocabulary_list` already correct, but `curriculum_drill_items` were pre-populated from stale data
+- **Fix script:** `server/scripts/fix-stale-drills.ts` — deleted `translate_speak`/`fill_blank` item types for those 2 lessons, then re-inserted from `textbook_lesson_content.vocabulary_list`
+- Result: Ch1 now shows greetings vocab (hola, adiós, buenos días...); Ch20 shows colors (rojo, azul, verde...)
+
+#### 3. Hobbies vs Food order — left as-is
+- Current order: Hobbies (14-16) → Food (17-19) is correct pedagogically
+- Hobbies flows directly from -AR verb conjugation chapter (jugar, practicar, tocar all -ar verbs)
+- Food/restaurant ordering patterns require more conversational base and land better after hobbies
+
+### What still needs to happen (next session priorities)
+
+#### HIGH — Add chapter intro content for the 14 new Spanish chapter types
+See session 30 notes. New types need `chapter-intro-content.ts` content.
+
+#### HIGH — Run same audit + restructure for Spanish 2–5
+Same methodology: audit → design doc → migration script → execute.
+
+#### MEDIUM — Run stale drill scan after Spanish 2–5 restructuring
+When moving lessons during restructuring, always run `find-stale-drills.ts` afterward to catch any curriculum_drill_items that reference old content.
+
+#### LOW — Stock images for new chapter types (food, travel, city, weather, etc.)
+
+### Scratchpad carry-forward
+- **Stale drill pattern:** After any lesson restructuring, run `find-stale-drills.ts` + `fix-stale-drills.ts`
+- **seed_service skip rule:** `vocab-drill-seed-service` skips lessons with 5+ `translate_speak` items — must DELETE stale items first before reseeding
+- **DB RULE:** Use Pool directly with `NEON_SHARED_DATABASE_URL` for scripts
+
+---
+
 ## Session Summary — Sun, Apr 5, 2026 (session 30 — Spanish 1 full curriculum restructuring)
 
 ### What was done
