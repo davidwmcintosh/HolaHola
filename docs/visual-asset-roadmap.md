@@ -134,6 +134,60 @@ Both live in this roadmap. Neither is a substitute for the other.
 
 ---
 
+## Content Policy
+**Decided: April 4, 2026**
+
+These rules govern every image generation and routing decision going forward. They exist to balance educational quality, maintenance cost, and cross-language consistency.
+
+### Rule 1 — Shared vs. Language-Specific Images
+
+**Default: shared.** An image is only language-specific if the visual content itself would look meaningfully different in that language's cultural context. Character appearance alone is not a sufficient reason.
+
+| Content type | Policy | Rationale |
+|---|---|---|
+| Inanimate objects (pen, chair, book, car) | **Shared** | A pen is a pen in every country |
+| Animals, plants, nature | **Shared** | Universally recognizable |
+| Abstract actions without people (a running silhouette, a sleeping figure) | **Shared** | The action is the concept, not the person |
+| Food and drink that is genuinely culture-specific | **Language-specific** | A croissant is French; onigiri is Japanese |
+| Settings and architecture that carry cultural meaning | **Language-specific** | A Parisian café terrace is not a generic café |
+| Greetings and social gestures where the gesture itself differs | **Language-specific** | A bow ≠ a handshake ≠ la bise |
+| People in neutral scenes (eating, sleeping, working generically) | **Shared** | The activity is universal; the character's ethnicity is not the lesson |
+
+**The test:** Would a French student seeing this image think "that looks Spanish"? If yes — and if the Spanish-ness is irrelevant to the vocabulary being taught — make the image neutral or language-specific, not Spanish-defaulting.
+
+### Rule 2 — The Spanish Baseline Problem
+
+Spanish was chosen as the image baseline for pragmatic reasons (first language built), not design ones. This means all shared images currently feature Spanish-coded characters (Daniela, Marco). For students of other languages, the result is a predominantly Spanish-looking library with one or two language-specific images mixed in — which is mildly inconsistent but not educationally harmful.
+
+**Long-term goal:** Shared images should be regenerated to be character-neutral (objects, hands, silhouettes, non-ethnically-coded figures) so the shared library doesn't read as Spanish. This is a non-urgent one-time re-generation task, not a blocker for current development.
+
+**Short-term stance:** Accept the inconsistency. Students see only one language and are unlikely to notice.
+
+### Rule 3 — Images vs. Grammar Tables for Verb Forms
+
+**Do not generate a separate image for each conjugated verb form.** This creates duplicate images, wastes DALL-E budget, and teaches nothing that a table cannot teach better.
+
+| Vocabulary type | Correct visual treatment |
+|---|---|
+| Infinitive verb (comer, dormir, hablar) | One image of the action (shared) |
+| Conjugated form (yo como, je mange, ich esse) | Conjugation table — not a separate image |
+| Verb paradigm (AR/ER/IR endings) | Grammar diagram / conjugation table |
+| Phrase or sentence starter (Me gusta..., J'aimerais...) | No image needed — pattern card or dialog example |
+
+This cuts image count significantly for every language. The existing duplicate pairs (e.g. "to eat" + "I eat" showing the same image twice) should be collapsed to a single infinitive image + a conjugation table.
+
+### Rule 4 — When No Image Is Better Than a Wrong Image
+
+A placeholder is preferable to a misleading image. Specific situations where skipping the image is the right choice:
+- The word is abstract (justice, freedom, democracy)
+- The word is a grammatical function word (the, is, but, of)
+- The word's meaning is best shown through a conjugation table, timeline, or diagram
+- The word is a culturally-specific phrase where no image would capture the nuance
+
+The SVG/grammar classifier in the resolver already handles some of this. When in doubt, route to a grammar component rather than generating a generic DALL-E fallback.
+
+---
+
 ## Section 1 — Core Vocabulary Images (by ACTFL Level)
 
 Format: illustrated watercolor style, same as the current prop library.
