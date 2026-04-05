@@ -240,16 +240,28 @@ interface ChapterIntroductionProps {
 
 // Chapter types listed here use the /api/chapter-cover/:type endpoint (DALL-E watercolor scene)
 // instead of a static stock photo. Add a type here when you want an illustrated cover.
-const DYNAMIC_COVER_TYPES = new Set(['numbers', 'greetings', 'family', 'daily']);
+const DYNAMIC_COVER_TYPES = new Set(['numbers', 'greetings', 'family', 'daily', 'classroom']);
 
 const chapterImages: Record<string, string[]> = {
   greetings: [coffeeShopImg],
   family: [familyGatheringImg],
   daily: [coffeeShopImg],
+  classroom: [coffeeShopImg],
 };
 
 function classifyChapterType(title: string): string | null {
   const lower = title.toLowerCase();
+  // Classroom survival — check before greetings to avoid 'introduction' collision
+  if (
+    lower.includes('classroom') || lower.includes('survival') ||
+    lower.includes('en la clase') || lower.includes('en clase') ||
+    lower.includes('im unterricht') || lower.includes('in classe') ||
+    lower.includes('na aula') || lower.includes('en cours') ||
+    lower.includes('교실') || lower.includes('クラス') || lower.includes('课堂') || lower.includes('כיתה') ||
+    (lower.includes('class') && (lower.includes('expression') || lower.includes('phrase') || lower.includes('survival')))
+  ) {
+    return 'classroom';
+  }
   if (lower.includes('greet') || lower.includes('hello') || lower.includes('introduction') || lower.includes('bonjour') || lower.includes('hallo') || lower.includes('ciao') || lower.includes('saluti') || lower.includes('はじめまして') || lower.includes('hajimemashite') || lower.includes('안녕하세요') || lower.includes('annyeong') || lower.includes('olá') || lower.includes('saudaç') || lower.includes('你好') || lower.includes('nǐ hǎo') || lower.includes('שלום') || lower.includes('¡hola')) {
     return 'greetings';
   }

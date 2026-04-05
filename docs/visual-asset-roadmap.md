@@ -193,6 +193,36 @@ A placeholder is preferable to a misleading image. Specific situations where ski
 
 The SVG/grammar classifier in the resolver already handles some of this. When in doubt, route to a grammar component rather than generating a generic DALL-E fallback.
 
+### Rule 5 — Prompt Templating (Character Substitution) for Language-Specific Images
+
+**Decided: April 5, 2026**
+
+Spanish SCENE_OVERRIDE prompts in `vocab-image-seed-service.ts` are written as **templates**, not one-off prompts. Instead of hardcoding "a young Spanish woman with dark hair," they reference `CHAR.ES.primary` — a named character profile object. Each language has its own profile:
+
+| Key | Character | Description |
+|-----|-----------|-------------|
+| `CHAR.ES` | Daniela / Marco | Spanish-coded characters (dark hair, Mediterranean features) |
+| `CHAR.FR` | Juliette / Antoine | French-coded characters (lighter features, Parisian styling) |
+| `CHAR.DE` | Anna / Stefan | German-coded characters |
+| `CHAR.IT` | Giulia / Luca | Italian-coded characters |
+| `CHAR.PT` | Sofia / Rafael | Brazilian Portuguese-coded characters |
+| `CHAR.JA` | Yuki / Kenji | Japanese-coded characters |
+| `CHAR.KO` | Soo-Jin / Ji-Ho | Korean-coded characters |
+| `CHAR.ZH` | Mei / Wei | Mandarin Chinese-coded characters |
+| `CHAR.HE` | Noa / Eitan | Israeli Hebrew-coded characters |
+
+**How it works:** To generate a language-specific version of a Spanish scene image, swap `CHAR.ES.primary` → `CHAR.FR.primary` in the prompt text. Everything else (scene description, watercolor style, pen wash technique, scene layout, SCENE_STYLE lock) stays identical. The only change is the character reference.
+
+**This is called:** Character-substitution prompt templating (similar to "persona swap" in AI image generation literature; related concepts: image prompt templating, character-consistent generation).
+
+**Coverage audit needed:** Before running generation for non-Spanish languages, a full audit must determine:
+1. How many language-specific scene images currently exist for each of the 8 non-Spanish languages
+2. Which Spanish SCENE_OVERRIDE prompts are fully templateable (person in scene → swap character)
+3. Which prompts require scene-level changes beyond character swap (e.g., a Spanish plaza background may need to become a Japanese street scene)
+4. Estimated DALL-E budget for the full non-Spanish generation run
+
+**Audit status:** ⬜ Not started — estimated ~200-300 new images across all 8 non-Spanish languages for scenes that currently have Spanish characters only.
+
 ---
 
 ## Section 1 — Core Vocabulary Images (by ACTFL Level)

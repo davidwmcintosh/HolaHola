@@ -142,6 +142,30 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
           title: "El Paseo",
           content: "In many Spanish-speaking towns, the evening 'paseo' (stroll) is a cherished daily ritual. Families and friends walk through plazas and main streets, greeting neighbors, stopping for conversation, and enjoying the cool evening air. It's social life at its most organic and beautiful."
         }
+      },
+      classroom: {
+        welcomeText: "The classroom is your launchpad. In this chapter, you'll learn the phrases that make every lesson more effective — asking your teacher to slow down, saying a word again, checking your understanding, and asking how to say something new. These phrases aren't just classroom tools; they're the habits of a great language learner.",
+        narrativeSections: [
+          {
+            title: "Ask, Don't Guess",
+            content: "The most important habit in language learning is asking when you don't understand. '¿Puede repetir?' (Can you repeat?), '¿Más despacio, por favor?' (More slowly, please), and '¿Cómo se dice...?' (How do you say...?) are your three most powerful tools. Using them shows confidence, not weakness.",
+            tip: "Spanish teachers love engaged students. Raising your hand and asking '¿Puedo ir al baño?' (May I use the bathroom?) in Spanish instead of English earns real respect."
+          },
+          {
+            title: "Common Classroom Commands",
+            content: "Your teacher will use certain phrases constantly: 'Escuchen' (Listen), 'Repitan' (Repeat), 'Abran el libro' (Open the book), 'En parejas' (In pairs), 'Silencio' (Quiet). Recognizing these automatically puts you one step ahead in every lesson.",
+            tip: "When your teacher says '¿Entienden?' (Do you understand?), it's fine to say 'Más o menos' (More or less) — that honesty helps them teach you better."
+          },
+          {
+            title: "Checking and Confirming",
+            content: "'¿Es correcto?' (Is that correct?), '¿Qué significa...?' (What does ... mean?), and 'No entiendo' (I don't understand) round out your survival kit. Pair these with '¿Puedo ver un ejemplo?' (Can I see an example?) and you'll never be stuck for long.",
+            tip: "If you forget a word mid-sentence, '¿Cómo se llama esto?' (What is this called?) with a pointing gesture will always get you unstuck."
+          }
+        ],
+        culturalSpotlight: {
+          title: "El Respeto en el Aula",
+          content: "In Spanish-speaking educational cultures, respect for the teacher is expressed actively — students say 'Buenos días, profesor/a' when class begins, stand or sit attentively, and address their teacher formally as 'usted'. This formality isn't distance; it's the cultural way of showing that learning is taken seriously. As a language student, adopting these habits signals genuine engagement."
+        }
       }
     }
   },
@@ -250,6 +274,30 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "L'Ap\u00e9ro",
           content: "The 'ap\u00e9ritif' or 'ap\u00e9ro' is a beloved French daily ritual \u2014 a pre-dinner drink with light snacks shared among friends or family. Usually happening around 7 PM, it's a time to unwind, catch up, and transition from work to leisure. It's less about the drink and more about the moment of togetherness."
+        }
+      },
+      classroom: {
+        welcomeText: "Bienvenue en classe ! The French classroom comes with its own vocabulary — and knowing it makes you a more confident, independent learner. This chapter covers what to say when you're lost, how to ask for clarification politely, and the expressions that will carry you through every French lesson.",
+        narrativeSections: [
+          {
+            title: "Ask with Confidence",
+            content: "'Pouvez-vous répéter ?' (Can you repeat?), 'Plus lentement, s'il vous plaît' (More slowly, please), and 'Comment dit-on ... ?' (How do you say ... ?) are essential tools. French teachers appreciate students who ask — it's a sign of genuine engagement, not confusion.",
+            tip: "Use 'Excusez-moi' before asking a question in class — it's the polite way to get your teacher's attention without interrupting."
+          },
+          {
+            title: "Understanding Instructions",
+            content: "Your teacher will give instructions like 'Écoutez' (Listen), 'Répétez' (Repeat), 'Lisez' (Read), 'Écrivez' (Write), 'Ouvrez votre livre' (Open your book), 'En groupes' (In groups). Recognizing these automatically keeps you from falling behind.",
+            tip: "'Je ne comprends pas' (I don't understand) is not an admission of failure — in French culture, precision and honesty are respected."
+          },
+          {
+            title: "Checking Your Work",
+            content: "'C'est correct ?' (Is that correct?), 'Que signifie ... ?' (What does ... mean?), 'Je ne suis pas sûr(e)' (I'm not sure), and 'Pouvez-vous expliquer ?' (Can you explain?) close the gap between confusion and clarity.",
+            tip: "If you've made an error, try 'Je me suis trompé(e)' (I made a mistake) — owning your errors gracefully is considered mature and admirable."
+          }
+        ],
+        culturalSpotlight: {
+          title: "Le Respect en Classe",
+          content: "French classroom culture prizes intellectual rigor and respectful debate. Students address teachers as 'Monsieur' or 'Madame', and raising a hand before speaking is expected. At the same time, French education encourages questioning — a student who challenges an idea thoughtfully is respected. As a language learner, engaging seriously with the material is the best compliment you can pay a French teacher."
         }
       }
     }
@@ -360,6 +408,30 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
           title: "Die Abendbrot-Tradition",
           content: "Germans have a unique daily tradition called 'Abendbrot' (evening bread) \u2014 a simple cold supper of bread, cheese, cold cuts, and pickles eaten in the early evening. Unlike many cultures that make dinner the biggest meal, Germans keep it light and cozy, often eaten together as a family around 6 PM."
         }
+      },
+      classroom: {
+        welcomeText: "Willkommen im Unterricht! The German classroom is structured and efficient — and so is its classroom language. This chapter gives you the phrases to navigate every lesson confidently, ask exactly what you need, and understand your teacher's instructions without hesitation.",
+        narrativeSections: [
+          {
+            title: "Fragen Stellen — Ask Clearly",
+            content: "'Können Sie das wiederholen?' (Can you repeat that?), 'Langsamer bitte' (More slowly please), and 'Wie sagt man ... auf Deutsch?' (How do you say ... in German?) are your essential tools. German teachers respect directness — asking precisely is better than guessing and getting it wrong.",
+            tip: "In German classrooms, raise your hand and say 'Entschuldigung' (Excuse me) before asking — it shows proper classroom etiquette."
+          },
+          {
+            title: "Anweisungen Verstehen — Understanding Instructions",
+            content: "Learn to recognize: 'Hören Sie zu' (Listen), 'Wiederholen Sie' (Repeat), 'Lesen Sie' (Read), 'Schreiben Sie' (Write), 'Öffnen Sie das Buch' (Open the book), 'Zu zweit' (In pairs). Responding promptly to these instructions marks you as an attentive student.",
+            tip: "Germans value precision. If your teacher asks 'Haben Sie das verstanden?' (Did you understand?), a clear 'Ja, danke' or 'Nein, leider nicht' (No, unfortunately not) is always better than a vague nod."
+          },
+          {
+            title: "Richtig oder Falsch? — Checking Your Understanding",
+            content: "'Ist das richtig?' (Is that correct?), 'Was bedeutet ... ?' (What does ... mean?), 'Ich verstehe nicht' (I don't understand), and 'Können Sie ein Beispiel geben?' (Can you give an example?) complete your classroom toolkit.",
+            tip: "If you make a mistake, say 'Das war falsch, oder?' (That was wrong, wasn't it?) — Germans appreciate the self-awareness and it often leads to a helpful correction."
+          }
+        ],
+        culturalSpotlight: {
+          title: "Pünktlichkeit im Unterricht",
+          content: "In German culture, punctuality is a deeply held value — arriving on time to class is considered the bare minimum of respect. Being even a few minutes early shows professionalism. If you are late, a quiet 'Entschuldigung, ich komme zu spät' (Excuse me, I'm late) acknowledges the disruption and shows self-awareness. This cultural value of Pünktlichkeit (punctuality) extends to all areas of German professional and social life."
+        }
       }
     }
   },
@@ -468,6 +540,30 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "Il Caff\u00e8 al Bar",
           content: "The Italian 'caff\u00e8 al bar' ritual is a daily cornerstone: stepping into a local bar, ordering an espresso at the counter, drinking it in three sips while chatting with the barista, and heading out. It takes five minutes but sets the rhythm for the entire day. It's not just coffee \u2014 it's a moment of connection."
+        }
+      },
+      classroom: {
+        welcomeText: "Benvenuti in classe! Italian classroom language blends structure with warmth. This chapter teaches you how to ask for help gracefully, navigate your teacher's instructions, and express yourself when words escape you — all in Italian.",
+        narrativeSections: [
+          {
+            title: "Chiedere con Garbo — Asking Gracefully",
+            content: "'Può ripetere?' (Can you repeat?), 'Più lentamente, per favore' (More slowly, please), and 'Come si dice...?' (How do you say...?) are your most-used classroom phrases. Italians appreciate graciousness — adding 'per favore' and 'grazie' makes every request land well.",
+            tip: "'Per cortesia' is a slightly more formal version of 'per favore' — either works in class, but 'per cortesia' signals real politeness."
+          },
+          {
+            title: "Capire le Istruzioni — Understanding Instructions",
+            content: "Recognize these teacher commands: 'Ascoltate' (Listen), 'Ripetete' (Repeat), 'Leggete' (Read), 'Scrivete' (Write), 'Aprite il libro' (Open the book), 'A coppie' (In pairs). The sooner you internalize these, the more you can follow along naturally.",
+            tip: "If your teacher says 'Tutti insieme!' (All together!), they're asking the whole class to respond at once. It's a call to participate, not a cue to stay silent."
+          },
+          {
+            title: "Verificare la Comprensione — Checking Understanding",
+            content: "'È corretto?' (Is that correct?), 'Cosa significa...?' (What does... mean?), 'Non capisco' (I don't understand), and 'Può fare un esempio?' (Can you give an example?) will rescue you from any moment of confusion.",
+            tip: "'Ho capito!' (I got it!) is the satisfying phrase to use when something clicks — Italian teachers genuinely enjoy hearing it."
+          }
+        ],
+        culturalSpotlight: {
+          title: "La Bella Figura in Aula",
+          content: "In Italian culture, 'fare bella figura' — making a good impression — matters everywhere, including the classroom. Arriving prepared, speaking clearly, and showing genuine interest in the subject are all forms of bella figura. Even when you make mistakes (and you will!), recovering with a smile and trying again is considered graceful and admirable. Italian teachers remember the students who try hard, not just the ones who get everything right."
         }
       }
     }
@@ -578,6 +674,30 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
           title: "\u3044\u305f\u3060\u304d\u307e\u3059 (Itadakimasu)",
           content: "Before every meal in Japan, people say '\u3044\u305f\u3060\u304d\u307e\u3059' (I humbly receive), a phrase expressing gratitude to everyone involved in bringing food to the table \u2014 from farmers to cooks. After eating, '\u3054\u3061\u305d\u3046\u3055\u307e\u3067\u3057\u305f' (gochis\u014dsama deshita) thanks the preparer. These daily rituals turn every meal into a moment of mindfulness."
         }
+      },
+      classroom: {
+        welcomeText: "授業へようこそ！ (Welcome to class!) The Japanese classroom has its own rich set of phrases and rituals. This chapter teaches you how to navigate lessons respectfully, ask for clarification without awkwardness, and use the expressions that signal you're a thoughtful, engaged learner.",
+        narrativeSections: [
+          {
+            title: "質問の仕方 — How to Ask",
+            content: "'もう一度言っていただけますか？' (Could you say that one more time?) and 'ゆっくり話してください' (Please speak slowly) are your most important phrases. Japanese culture values not imposing on others, so these requests are phrased as humble requests rather than demands.",
+            tip: "'〜はどういう意味ですか？' (What does ... mean?) is the polite way to ask for a word's meaning — always say it with rising intonation and a slight nod."
+          },
+          {
+            title: "授業の指示 — Classroom Instructions",
+            content: "Learn to recognize: '聞いてください' (Please listen), '繰り返してください' (Please repeat), '読んでください' (Please read), '書いてください' (Please write), '本を開いてください' (Please open your book), 'ペアで' (In pairs). These instruction patterns follow Japanese grammar consistently.",
+            tip: "In Japan, students often bow slightly when the teacher enters — a small 'よろしくお願いします' (yoroshiku onegaishimasu) at the start of class sets the right tone of mutual respect."
+          },
+          {
+            title: "理解を確認する — Confirming Understanding",
+            content: "'わかりました' (I understand), 'まだわかりません' (I still don't understand), '正しいですか？' (Is that correct?), and '例を見せていただけますか？' (Could you show me an example?) are all phrased in the polite -masu form appropriate for classroom Japanese.",
+            tip: "Silence is not awkward in Japanese classrooms — taking a moment to think before answering is considered respectful, not hesitant."
+          }
+        ],
+        culturalSpotlight: {
+          title: "起立・礼・着席 (Stand — Bow — Sit)",
+          content: "Traditional Japanese classrooms begin and end with a ritual: the class monitor calls '起立' (rise), everyone stands; '礼' (bow), everyone bows to the teacher; '着席' (sit), everyone sits. This brief ceremony establishes mutual respect between teacher and students before a single lesson word is spoken. Even in modern and language school settings, traces of this formality remain — and understanding it gives you genuine cultural insight."
+        }
       }
     }
   },
@@ -686,6 +806,30 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "\ubc25 \uba39\uc5c8\uc5b4\uc694? (Bap meogeosseoyo?)",
           content: "A uniquely Korean daily greeting is '\ubc25 \uba39\uc5c8\uc5b4\uc694?' (Have you eaten?). It's not actually about food \u2014 it's a way of showing you care about someone's wellbeing, rooted in a time when food was scarce. This phrase perfectly captures the warmth of Korean interpersonal culture."
+        }
+      },
+      classroom: {
+        welcomeText: "수업에 오신 것을 환영합니다! The Korean classroom is a place of structure, respect, and real encouragement. This chapter equips you with the phrases to ask questions politely, keep up with your teacher's instructions, and show that you're a dedicated learner.",
+        narrativeSections: [
+          {
+            title: "질문하기 — Asking Questions",
+            content: "'다시 말씀해 주시겠어요?' (Could you say that again?), '천천히 말씀해 주세요' (Please speak slowly), and '...은/는 한국어로 어떻게 말해요?' (How do you say ... in Korean?) are your core classroom phrases. Korean classroom culture is respectful but warm — asking questions shows you care about learning.",
+            tip: "Add '선생님' (teacher) before your question — '선생님, 다시 말씀해 주시겠어요?' — it sounds more natural and respectful."
+          },
+          {
+            title: "수업 지시 이해하기 — Understanding Instructions",
+            content: "Recognize: '들으세요' (Listen), '따라 하세요' (Repeat after me), '읽으세요' (Read), '쓰세요' (Write), '책을 펴세요' (Open your book), '둘이서' (In pairs). These commands use the formal imperative ending -세요, which is standard in Korean classrooms.",
+            tip: "When the teacher says '다 같이!' (All together!), the class answers as one. Don't be shy — joining in is a sign of confidence, not showing off."
+          },
+          {
+            title: "이해 확인하기 — Checking Understanding",
+            content: "'맞아요?' (Is that right?), '무슨 뜻이에요?' (What does that mean?), '이해가 안 돼요' (I don't understand), and '예를 들어 주세요' (Please give an example) form the complete toolkit for navigating any confusing moment in class.",
+            tip: "'잘 모르겠어요' (I'm not sure) is gentler than a flat 'I don't know' and is considered a mature, honest response in Korean classroom settings."
+          }
+        ],
+        culturalSpotlight: {
+          title: "선생님께 대한 존경 (Respect for Teachers)",
+          content: "In Korean culture, teachers hold a position of profound respect — rooted in Confucian values that place educators just below parents in the hierarchy of respect. Students rise when a teacher enters the room, address them formally, and express gratitude at the end of class. This respect isn't blind obedience — it's a recognition that the teacher is giving something genuinely valuable. As a language student, reflecting this respect (even informally) creates a warmer, more connected learning environment."
         }
       }
     }
@@ -796,6 +940,30 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
           title: "\u559d\u8336 (H\u0113 Ch\u00e1) \u2014 Tea Culture",
           content: "Tea drinking is the daily heartbeat of Chinese culture. From the formal '\u529f\u592b\u8336' (g\u014dngfu ch\u00e1) ceremony to a simple thermos of hot tea carried everywhere, tea is how Chinese people start their day, welcome guests, seal deals, and share quiet moments. Offering someone tea is offering them warmth and respect."
         }
+      },
+      classroom: {
+        welcomeText: "欢迎来到课堂！(Huānyíng lái dào kètáng — Welcome to class!) The Mandarin classroom comes with its own set of essential phrases. This chapter teaches you how to ask for help, follow your teacher's instructions, and navigate confusion — all in Chinese.",
+        narrativeSections: [
+          {
+            title: "提问 — How to Ask",
+            content: "'请再说一遍' (Qǐng zài shuō yībiàn — Please say it again), '请说慢一点' (Qǐng shuō màn yīdiǎn — Please speak more slowly), and '...用中文怎么说？' (... yòng Zhōngwén zěnme shuō — How do you say ... in Chinese?) are your most valuable classroom tools. Chinese teachers appreciate students who ask clearly rather than sitting in silent confusion.",
+            tip: "Begin any question with '老师' (lǎoshī — teacher) — it's like saying 'Excuse me, teacher' and is the natural way to address an instructor before speaking."
+          },
+          {
+            title: "课堂指令 — Classroom Instructions",
+            content: "Learn to recognize: '请听' (Please listen), '请跟我说' (Repeat after me), '请读' (Please read), '请写' (Please write), '请翻开书' (Please open your book), '两人一组' (In pairs). Mandarin instruction verbs are short, clear, and consistent.",
+            tip: "'明白了吗？' (Míngbai le ma? — Do you understand?) is a common teacher check-in. A confident '明白了' (I understand) or honest '还不太明白' (Not quite yet) are both perfectly appropriate responses."
+          },
+          {
+            title: "确认理解 — Checking Understanding",
+            content: "'这样对吗？' (Zhèyàng duì ma — Is this correct?), '...是什么意思？' (... shì shénme yìsi — What does ... mean?), '我不明白' (Wǒ bù míngbai — I don't understand), and '能举个例子吗？' (Néng jǔ gè lìzi ma — Can you give an example?) are all standard classroom phrases.",
+            tip: "'哦，我懂了！' (Ò, wǒ dǒng le — Oh, I get it!) is a natural, enthusiastic way to express a moment of understanding — Chinese teachers genuinely appreciate hearing it."
+          }
+        ],
+        culturalSpotlight: {
+          title: "尊师重道 (Zūn Shī Zhòng Dào)",
+          content: "The Chinese concept of '尊师重道' (respecting teachers and valuing learning) is one of the oldest educational traditions, rooted in Confucian philosophy. A teacher is seen not just as an instructor but as a moral guide — someone worthy of deep respect. In modern Chinese classrooms, students stand when a teacher enters, address teachers formally, and express gratitude. As a Mandarin learner, understanding this cultural backdrop helps you engage with teachers and native speakers in a more meaningful, connected way."
+        }
       }
     }
   },
@@ -904,6 +1072,30 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "O Cafezinho",
           content: "The Brazilian 'cafezinho' (little coffee) ritual is a cornerstone of daily life. Strong, sweet, and served in tiny cups, cafezinho is offered to every guest, at every meeting, and at every opportunity. Refusing a cafezinho can even be considered impolite! It's less about caffeine and more about the warmth of sharing a moment together."
+        }
+      },
+      classroom: {
+        welcomeText: "Bem-vindos à aula! The Portuguese classroom — whether in Brazil or Portugal — has its own warm, engaging character. This chapter gives you the tools to participate fully: asking for clarification, following instructions, and showing your teacher you're genuinely engaged.",
+        narrativeSections: [
+          {
+            title: "Como Pedir Ajuda — How to Ask for Help",
+            content: "'Pode repetir, por favor?' (Can you repeat, please?), 'Mais devagar, por favor' (More slowly, please), and 'Como se diz...?' (How do you say...?) are your core classroom phrases. Brazilian and European Portuguese share these, though pronunciation differs slightly.",
+            tip: "In Brazil, 'por favor' and 'por gentileza' are both common — the latter sounds a bit more formal and is often used in classrooms. In Portugal, 'se faz favor' is frequently heard."
+          },
+          {
+            title: "Entendendo as Instruções — Understanding Instructions",
+            content: "Your teacher will use: 'Ouçam' (Listen), 'Repitam' (Repeat), 'Leiam' (Read), 'Escrevam' (Write), 'Abram o livro' (Open the book), 'Em duplas' (In pairs). These command forms use the third-person plural imperative, standard for classroom Portuguese.",
+            tip: "Brazilian classrooms often feel more conversational than formal — your teacher may say 'Tá bom?' (Is that okay?) or 'Entenderam?' (Did everyone understand?) with genuine warmth."
+          },
+          {
+            title: "Verificando a Compreensão — Checking Understanding",
+            content: "'Está correto?' (Is that correct?), 'O que significa...?' (What does ... mean?), 'Não entendi' (I didn't understand), and 'Pode dar um exemplo?' (Can you give an example?) complete your toolkit for navigating any lesson.",
+            tip: "'Consegui!' (I got it!) or 'Entendi!' (I understood!) are natural, enthusiastic responses when something clicks — using them shows engagement and makes the class more energetic."
+          }
+        ],
+        culturalSpotlight: {
+          title: "Jeitinho Brasileiro na Sala de Aula",
+          content: "The 'jeitinho brasileiro' — the Brazilian way of finding a creative solution to any situation — extends to the classroom. Brazilian students tend to be expressive, participative, and relationship-oriented. A Brazilian language class often feels like a conversation among people who genuinely want each other to succeed. In Portugal, classrooms are somewhat more formal, but the underlying warmth and hospitality ('hospitalidade') remain. Either way, showing enthusiasm for the language is always the right move."
         }
       }
     }
@@ -1014,6 +1206,30 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
           title: "The Tea Break (UK) & Coffee Run (US)",
           content: "In Britain, the daily 'tea break' is sacred \u2014 offices pause for a cuppa and a biscuit, and offering to 'put the kettle on' is an act of kindness. In America, the 'coffee run' serves a similar social function, with colleagues bonding over complicated Starbucks orders. Both rituals turn a simple beverage into a moment of daily connection."
         }
+      },
+      classroom: {
+        welcomeText: "Welcome to class! As an English language learner, navigating the classroom is itself a language skill. This chapter gives you the phrases to ask for help clearly, understand your teacher's instructions, and build the habits of a confident, engaged language learner.",
+        narrativeSections: [
+          {
+            title: "Asking When You Don't Know",
+            content: "'Could you repeat that, please?', 'Could you speak more slowly?', and 'How do you say ... in English?' are the three most useful phrases in any English classroom. English-speaking teachers are generally very encouraging of questions — asking is a sign of engagement, not weakness.",
+            tip: "Saying 'I'm sorry, I didn't catch that' sounds more natural than 'I don't understand' in most English-speaking classrooms — it's polite and specific."
+          },
+          {
+            title: "Following Instructions",
+            content: "Common classroom instructions include: 'Listen carefully', 'Repeat after me', 'Read the passage', 'Write it down', 'Open your books to page...', 'Work in pairs'. Being able to respond to these immediately makes every lesson more productive.",
+            tip: "'Could you write that on the board?' is a very natural request — English teachers often respond well to students who take the initiative to ask."
+          },
+          {
+            title: "Checking Your Understanding",
+            content: "'Is that right?', 'What does ... mean?', 'I'm not sure I understand', and 'Could you give an example?' are clear, polite ways to check your understanding. Don't wait until you're completely lost — these phrases work best used early.",
+            tip: "'So, just to check — do you mean...?' is a great phrase for confirming your interpretation of something. It shows you're thinking actively, not just nodding along."
+          }
+        ],
+        culturalSpotlight: {
+          title: "The Open Classroom Culture",
+          content: "English-language classrooms — particularly in the US, UK, Canada, and Australia — tend to prize participation, questioning, and creative thinking. There's no shame in being wrong; in fact, 'making mistakes is part of learning' is something English teachers say (and mean) constantly. Contributions are encouraged, debates are welcomed, and students who ask thoughtful questions are considered the most engaged in the room. This culture of open participation can feel quite different from more formal educational traditions — but embracing it will accelerate your learning enormously."
+        }
       }
     }
   },
@@ -1122,6 +1338,30 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "\u05d4\u05e7\u05e4\u05d4 \u05d5\u05e2\u05d5\u05d2\u05d4 (HaKafe Ve'Uga)",
           content: "Israelis are passionate about their coffee culture. The daily ritual of '\u05e7\u05e4\u05d4 \u05d5\u05e2\u05d5\u05d2\u05d4' (coffee and cake) is a social anchor \u2014 whether it's Turkish coffee at a traditional caf\u00e9, iced coffee on Tel Aviv's beach promenade, or 'hafuch' (a latte) at a neighborhood spot. For Israelis, coffee isn't a beverage \u2014 it's a reason to connect."
+        }
+      },
+      classroom: {
+        welcomeText: "ברוכים הבאים לכיתה! (Bruchim HaBaim LaKita — Welcome to class!) Hebrew classroom language has a directness and warmth that reflects Israeli culture. This chapter teaches you how to ask questions confidently, follow your teacher's instructions, and navigate the classroom in Hebrew.",
+        narrativeSections: [
+          {
+            title: "לשאול בביטחון — Asking with Confidence",
+            content: "'תוכל לחזור על זה?' (Tuchal lachazor al ze? — Can you repeat that?), 'יותר לאט, בבקשה' (Yoter le'at, bevakasha — More slowly, please), and '...איך אומרים בעברית?' (Eich omrim be'ivrit ... — How do you say ... in Hebrew?) are your most essential classroom phrases.",
+            tip: "Israelis are direct and informal by nature — your teacher will likely appreciate 'לא הבנתי' (Lo hevanti — I didn't understand) said plainly, without over-apologizing."
+          },
+          {
+            title: "הבנת הוראות — Understanding Instructions",
+            content: "Listen for: 'תקשיבו' (Listen), 'חזרו אחריי' (Repeat after me), 'קראו' (Read), 'כתבו' (Write), 'פתחו את הספר' (Open the book), 'בזוגות' (In pairs). Hebrew instruction verbs are direct and easy to recognize once you've heard them a few times.",
+            tip: "Hebrew verbs change form based on gender — your teacher may say 'כתוב' to a male student and 'כתבי' to a female student. Don't be surprised when instructions sound slightly different!"
+          },
+          {
+            title: "בדיקת הבנה — Checking Understanding",
+            content: "'זה נכון?' (Ze nachon? — Is that correct?), 'מה המשמעות של...?' (Ma haMashmaút shel ... — What is the meaning of ...?), 'אני לא מבין/מבינה' (Ani lo mevin/mevina — I don't understand), and 'אפשר דוגמה?' (Efshar dugma? — Could I have an example?) complete your toolkit.",
+            tip: "'הבנתי!' (Hevanti — I got it!) is the natural, satisfying phrase to use when something clicks. Hebrew learners find that small moments of success, celebrated aloud, build real confidence."
+          }
+        ],
+        culturalSpotlight: {
+          title: "ישירות ישראלית (Israeli Directness)",
+          content: "Israeli classroom culture is famously direct and informal — students call teachers by first name, debate ideas openly, and aren't shy about expressing confusion. This cultural trait, known as 'dugriut' (directness), means there's no social penalty for asking a question bluntly or disagreeing respectfully. For learners accustomed to more hierarchical classroom cultures, this can feel refreshingly open. Embrace it: in an Israeli Hebrew classroom, the student who asks the most questions is usually the one who learns the fastest."
         }
       }
     }

@@ -1,5 +1,68 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Sun, Apr 5, 2026 (session 29 — Classroom chapter type + prompt templating policy)
+
+### What was done
+
+#### 1. 'classroom' chapter type added to ChapterIntroduction.tsx
+- `DYNAMIC_COVER_TYPES` updated: now includes `'classroom'` (uses DALL-E watercolor cover)
+- `chapterImages` updated: `classroom` maps to `coffeeShopImg` (placeholder; will need dedicated classroom-scene cover later)
+- `classifyChapterType()` updated: 'classroom' check added **before** 'greetings' check to avoid false-positive collisions with chapter titles containing "introduction"
+- Classroom match conditions: `classroom`, `survival`, `en la clase`, `en clase`, `im unterricht`, `in classe`, `na aula`, `en cours`, `교실`, `クラス`, `课堂`, `כיתה`, plus compound `class + expression/phrase/survival`
+
+#### 2. 'classroom' chapter intro content added for all 10 language sections
+`client/src/data/chapter-intro-content.ts` — added `classroom:` key inside `chapters` for all 10 languages: **spanish, french, german, italian, japanese, korean, mandarin, portuguese, english, hebrew**
+
+Each classroom section includes:
+- `welcomeText` — language-specific intro to navigating the classroom
+- 3 `narrativeSections`: (1) how to ask/request clarification, (2) understanding teacher instructions, (3) checking understanding and confirming
+- `culturalSpotlight` — culturally grounded note on classroom culture specific to each language:
+  - ES: *El Respeto en el Aula* (formal usted address, teacher greeting ritual)
+  - FR: *Le Respect en Classe* (intellectual rigor, hand-raise culture)
+  - DE: *Pünktlichkeit im Unterricht* (punctuality as respect)
+  - IT: *La Bella Figura in Aula* (fare bella figura, graceful error recovery)
+  - JA: *起立・礼・着席* (stand-bow-sit classroom ceremony)
+  - KO: *선생님께 대한 존경* (Confucian respect for teachers)
+  - ZH: *尊师重道* (zūn shī zhòng dào — Confucian teacher respect tradition)
+  - PT: *Jeitinho Brasileiro na Sala de Aula* (participative Brazilian culture vs. formal PT)
+  - EN: *The Open Classroom Culture* (mistakes as learning, open participation)
+  - HE: *ישירות ישראלית* (dugriut — Israeli directness, first-name teacher culture)
+
+#### 3. Rule 5 added to docs/visual-asset-roadmap.md
+**Rule 5 — Prompt Templating (Character Substitution) for Language-Specific Images** documents:
+- The CHAR.ES / CHAR.FR / CHAR.DE / etc. character profile system already in `vocab-image-seed-service.ts`
+- The technique name: "character-substitution prompt templating" (aka persona swap)
+- Full table of all 9 language character profiles
+- How-to: swap `CHAR.ES.primary` → `CHAR.FR.primary` in any SCENE_OVERRIDE prompt
+- Coverage audit status: ⬜ Not started — estimated ~200-300 images across 8 non-Spanish languages
+- Notes on which prompts need scene-level changes beyond character swap
+
+### What still needs to happen (next session priorities)
+
+#### HIGH — DB curriculum unit split (makes classroom chapter actually appear as separate chapter)
+The 'classroom' chapter type now exists in code but **Unit 1 in the DB still bundles all 4 lesson themes together**. To make Classroom Survival appear as its own chapter in the textbook:
+1. Create new curriculum units: "Classroom Survival", "Numbers 0-20", "My Typical Day"
+2. Move lessons from Unit 1 into the appropriate new units
+3. Each new unit will then map to a separate chapter in the textbook UI
+4. Write a migration script in `server/scripts/` (similar to `update-spanish-syllabus.ts`) but be careful about existing student progress data
+
+**Content targets per new chapter (Option A — flat chapters):**
+- Each chapter: 10-15 vocab words + 5-8 phrases + 1-2 grammar concepts
+- Classroom Survival: asking for clarification, classroom commands, bathroom/help phrases
+- Numbers: 0-20 cardinal, ordinal basics, phone/price usage
+- My Typical Day: daily schedule verbs, time expressions, days of week
+
+#### MEDIUM — Prompt templating coverage audit
+Run audit to determine:
+- How many non-Spanish scene images currently exist
+- Which SCENE_OVERRIDE prompts are character-swap-only vs. scene-change-required
+- Estimated DALL-E budget for the full generation run
+
+#### LOW — Classroom chapter DALL-E cover image
+The classroom chapter cover currently uses `coffeeShopImg` as placeholder. Add a dedicated classroom scene (`/api/chapter-cover/classroom`) with an appropriate pen-and-watercolor-wash prompt.
+
+---
+
 ## Session Summary — Sat, Apr 4, 2026 (session 28 — Canonical vocabulary registry + admin audit endpoint)
 
 ### What was done
