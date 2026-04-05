@@ -1,5 +1,52 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Sun, Apr 5, 2026 (session 33 — Static Active Production + Formal/Informal examples)
+
+### What was done
+
+#### 1. All 3 "AI-Generated Practice: Active Production" lessons converted to static curated content
+
+**Scope:** These 3 lessons existed across Spanish 1 / 2 / 4 Ch1 — all named "AI-Generated Practice: Active Production", all with stale or mismatched AI-generated drill items.
+
+| Course | Chapter | Old item count | Problem | Renamed to |
+|--------|---------|---------------|---------|------------|
+| Spanish 1 | Greetings | 6 | Arbitrary items (bare "me llamo", "por favor") | **Speaking Practice: Introductions** |
+| Spanish 2 | Daily Routines | 48 | Office/work/report context for a daily routines chapter | **Speaking Practice: Daily Routines** |
+| Spanish 4 | Global Challenges | 48 | Greetings/introductions content for a global issues chapter | **Speaking Practice: Global Issues** |
+
+**Static curated items (6 per lesson):**
+- **Sp1**: Me llamo [Your Name]. / ¿Cómo te llamas? / Mucho gusto. / Estoy bien, gracias. / ¿Y tú? / ¡Hasta luego!
+- **Sp2**: Me despierto a las seis. / ¿A qué hora te despiertas? / Primero me ducho, luego desayuno. / ¿Cuál es tu rutina por la mañana? / Me acuesto tarde los fines de semana. / ¿Tienes una rutina fija cada día?
+- **Sp4**: El cambio climático es un desafío global. / Debemos proteger el medio ambiente. / La pobreza es un problema que necesitamos resolver. / ¿Cómo podemos reducir la contaminación? / La desigualdad afecta a millones de personas. / Es importante desarrollar soluciones sostenibles.
+
+All items are `translate_speak` type, ordered 1–6. Script: `/tmp/fix-active-production.ts` (deleted after use).
+
+**Note:** Spanish 3 Ch1 has NO "AI-Generated Practice: Active Production" lesson — it has "Active Practice: Mixed Drills" (L50) which is a different pattern and was not touched.
+
+#### 2. Formal vs. Informal sections enhanced with concrete examples (ES, FR, DE, IT)
+
+**Type added to `chapter-intro-content.ts`:**
+```typescript
+export interface FormalInformalExample {
+  label: string;
+  formal: string;
+  informal: string;
+}
+```
+Field added to `ChapterIntroContent.narrativeSections`: `examples?: FormalInformalExample[]`
+
+**Examples added to all 4 greetings chapters:**
+- Spanish: usted vs tú — ¿Cómo está usted? vs ¿Cómo estás?, Buenos días señora vs ¡Hola!, etc.
+- French: vous vs tu — Comment allez-vous? vs Ça va?, Au revoir Monsieur vs À plus!
+- German: Sie vs du — Wie geht es Ihnen? vs Wie geht's?, Auf Wiedersehen vs Tschüss!
+- Italian: Lei vs tu — Come sta, signor Rossi? vs Come stai?, Arrivederci vs A presto!
+
+**Rendering in `ChapterIntroduction.tsx`:** After the tip block, a two-column comparison grid renders each formal/informal pair with a small context label (e.g., "How are you?") above each cell. Uses `bg-muted/40` for formal column, `bg-muted/10` for informal column. Test IDs: `examples-section-{i}`, `example-row-{i}-{j}`.
+
+### What still needs to happen (next session priorities)
+
+---
+
 ## Session Summary — Sun, Apr 5, 2026 (session 32 — Section swap, Active Production dedup, Recap enrichment)
 
 ### What was done

@@ -2407,6 +2407,28 @@ export function ChapterIntroduction({ chapterNumber, chapterTitle, language, cha
                       </p>
                     </div>
                   )}
+                  {section.examples && section.examples.length > 0 && (
+                    <div className="mt-4" data-testid={`examples-section-${index}`}>
+                      <div className="grid grid-cols-2 gap-2 mb-1 px-1">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Formal</span>
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Informal</span>
+                      </div>
+                      <div className="space-y-2">
+                        {section.examples.map((ex, exIdx) => (
+                          <div key={exIdx} className="grid grid-cols-2 gap-2" data-testid={`example-row-${index}-${exIdx}`}>
+                            <div className="bg-muted/40 border border-border/40 rounded-md px-3 py-2 text-sm">
+                              <span className="text-xs text-muted-foreground block mb-0.5">{ex.label}</span>
+                              <span className="font-medium">{ex.formal}</span>
+                            </div>
+                            <div className="bg-muted/10 border border-border/30 rounded-md px-3 py-2 text-sm">
+                              <span className="text-xs text-muted-foreground block mb-0.5">{ex.label}</span>
+                              <span className="font-medium">{ex.informal}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>
