@@ -164,6 +164,7 @@ export function ChapterRecap({
   const keyPhrases = extractKeyPhrases(chapter.sections);
   const conversationTopics = extractConversationTopics(chapter.sections);
   const isComplete = chapter.progress === 100;
+  const notStarted = chapter.progress === 0 && chapter.completedSections === 0;
   
   const totalDrills = chapter.sections.reduce((acc, s) => acc + (s.drillCount || 0), 0);
   const completedLessons = chapter.sections.filter(s => s.isComplete).length;
@@ -191,7 +192,29 @@ export function ChapterRecap({
         </div>
         
         <div className="p-4 space-y-5">
-          {achievement && (
+          {(chapter.actflLevel || chapter.culturalTheme) && (
+            <div className="flex flex-wrap gap-1.5">
+              {chapter.actflLevel && (
+                <Badge variant="secondary" className="text-xs">
+                  {chapter.actflLevel.replace(/_/g, ' ')}
+                </Badge>
+              )}
+              {chapter.culturalTheme && (
+                <Badge variant="outline" className="text-xs">
+                  {chapter.culturalTheme}
+                </Badge>
+              )}
+            </div>
+          )}
+
+          {notStarted && chapter.description && (
+            <div className="bg-muted/40 rounded-lg p-3" data-testid="chapter-preview">
+              <p className="text-xs font-medium text-muted-foreground mb-1">What You'll Learn</p>
+              <p className="text-sm text-foreground/80 leading-relaxed">{chapter.description}</p>
+            </div>
+          )}
+
+          {achievement && !notStarted && (
             <div 
               className={`flex items-center gap-3 p-3 rounded-lg border ${achievement.color}`}
               data-testid="achievement-badge"
@@ -223,7 +246,7 @@ export function ChapterRecap({
                 Key Vocabulary
               </p>
               <div className="grid grid-cols-2 gap-1.5">
-                {keyVocab.slice(0, 6).map((item, i) => (
+                {keyVocab.slice(0, 10).map((item, i) => (
                   <div 
                     key={i} 
                     className="bg-muted/50 rounded-md px-2 py-1.5 text-xs"
@@ -242,7 +265,7 @@ export function ChapterRecap({
             <div data-testid="key-phrases-summary">
               <p className="text-xs font-medium text-muted-foreground mb-2">Key Phrases</p>
               <div className="space-y-1">
-                {keyPhrases.slice(0, 3).map((phrase, i) => (
+                {keyPhrases.slice(0, 5).map((phrase, i) => (
                   <div 
                     key={i} 
                     className="bg-muted/50 rounded-md px-3 py-2 text-sm italic"

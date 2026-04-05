@@ -59,15 +59,15 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         welcomeText: "Welcome to your Spanish journey! In this chapter, you'll learn the essential building blocks of Spanish conversation \u2014 greetings, introductions, and the art of making a great first impression. Spanish-speaking cultures treasure warmth and personal connection, and it all starts with how you say hello.",
         narrativeSections: [
           {
-            title: "The Art of Greeting",
-            content: "In Spanish-speaking cultures, greetings are more than just words \u2014 they're a warm embrace of connection. Unlike quick 'hi and bye' exchanges, Spanish greetings often come with genuine warmth: a kiss on the cheek among friends, a firm handshake in business, and always eye contact.",
-            infographic: 'sunArcGreetings',
-            tip: "In most Latin American countries, a single kiss on the cheek is common. In Spain, it's usually two!"
-          },
-          {
             title: "Time Matters",
             content: "Spanish has different greetings for different times of day. 'Buenos d\u00edas' greets the morning sun, 'Buenas tardes' welcomes the afternoon, and 'Buenas noches' embraces the evening. Pay attention to when the sun moves across the sky!",
+            infographic: 'sunArcGreetings',
             tip: "The switch from 'Buenos d\u00edas' to 'Buenas tardes' typically happens around lunchtime, which in Spain can be as late as 2 PM."
+          },
+          {
+            title: "The Art of Greeting",
+            content: "In Spanish-speaking cultures, greetings are more than just words \u2014 they're a warm embrace of connection. Unlike quick 'hi and bye' exchanges, Spanish greetings often come with genuine warmth: a kiss on the cheek among friends, a firm handshake in business, and always eye contact.",
+            tip: "In most Latin American countries, a single kiss on the cheek is common. In Spain, it's usually two!"
           },
           {
             title: "Formal vs. Informal",
@@ -192,15 +192,15 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         welcomeText: "Bienvenue to the world of French! French is the language of diplomacy, art, and elegance, and it all begins with how you greet someone. In this chapter, you'll discover how the French use greetings to set the tone for every interaction.",
         narrativeSections: [
           {
-            title: "The Art of Greeting",
-            content: "In France, greetings are a matter of etiquette and respect. Walking into a shop without saying 'Bonjour' is considered rude. The French take time to acknowledge every person they encounter, whether it's a baker, a colleague, or a stranger on the street. This small gesture carries enormous social weight.",
-            infographic: 'sunArcGreetings',
-            tip: "Always say 'Bonjour' when entering a shop in France \u2014 skipping it is one of the most common faux pas visitors make!"
-          },
-          {
             title: "Time Matters",
             content: "'Bonjour' carries you through the day until early evening. When the sun begins to set, switch to 'Bonsoir'. The transition usually happens around 6 PM, though it can vary. 'Bonne nuit' is reserved specifically for bedtime \u2014 it's a farewell, not a greeting.",
+            infographic: 'sunArcGreetings',
             tip: "There's no separate 'Good afternoon' in daily French speech \u2014 'Bonjour' covers both morning and afternoon."
+          },
+          {
+            title: "The Art of Greeting",
+            content: "In France, greetings are a matter of etiquette and respect. Walking into a shop without saying 'Bonjour' is considered rude. The French take time to acknowledge every person they encounter, whether it's a baker, a colleague, or a stranger on the street. This small gesture carries enormous social weight.",
+            tip: "Always say 'Bonjour' when entering a shop in France \u2014 skipping it is one of the most common faux pas visitors make!"
           },
           {
             title: "Formal vs. Informal",
@@ -325,15 +325,15 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         welcomeText: "Willkommen to German! Germany, Austria, and Switzerland each bring their own flavor to the language, but they all share a deep appreciation for proper greetings. In this chapter, you'll learn how to greet people with confidence across all German-speaking cultures.",
         narrativeSections: [
           {
-            title: "The Art of Greeting",
-            content: "Germans value directness and sincerity in their greetings. A firm handshake and direct eye contact are standard when meeting someone. In Bavaria, you might hear 'Gr\u00fc\u00df Gott' instead of 'Hallo', while in northern Germany, 'Moin' covers all times of day. Each region adds its own character.",
-            infographic: 'sunArcGreetings',
-            tip: "'Moin' is used in northern Germany for any time of day \u2014 morning, noon, or night. It's one of the friendliest greetings you'll hear!"
-          },
-          {
             title: "Time Matters",
             content: "'Guten Morgen' starts your day, 'Guten Tag' carries you through the afternoon, and 'Guten Abend' welcomes the evening. Germans are punctual people, and their greetings reflect this awareness of time. 'Gute Nacht' is only for bedtime.",
+            infographic: 'sunArcGreetings',
             tip: "The shift from 'Guten Morgen' to 'Guten Tag' happens around noon \u2014 Germans take their meal times seriously!"
+          },
+          {
+            title: "The Art of Greeting",
+            content: "Germans value directness and sincerity in their greetings. A firm handshake and direct eye contact are standard when meeting someone. In Bavaria, you might hear 'Gr\u00fc\u00df Gott' instead of 'Hallo', while in northern Germany, 'Moin' covers all times of day. Each region adds its own character.",
+            tip: "'Moin' is used in northern Germany for any time of day \u2014 morning, noon, or night. It's one of the friendliest greetings you'll hear!"
           },
           {
             title: "Formal vs. Informal",
@@ -458,15 +458,15 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         welcomeText: "Benvenuto to Italian! Italy's culture is built on passion, beauty, and human connection \u2014 and it all starts with a warm greeting. In this chapter, you'll learn the graceful art of Italian greetings that open doors to la dolce vita.",
         narrativeSections: [
           {
-            title: "The Art of Greeting",
-            content: "Italians greet with enthusiasm and warmth. A hearty 'Ciao!' among friends, a respectful 'Buongiorno' to shopkeepers, and expressive hand gestures that bring words to life. In Italy, greeting someone properly shows you care about the relationship, no matter how brief the encounter.",
-            infographic: 'sunArcGreetings',
-            tip: "'Ciao' is both hello and goodbye \u2014 but only use it with people you know well! For strangers, stick with 'Buongiorno' or 'Buonasera'."
-          },
-          {
             title: "Time Matters",
             content: "'Buongiorno' brightens the morning, 'Buon pomeriggio' covers the afternoon (though many Italians simply continue with 'Buongiorno' until late afternoon), and 'Buonasera' arrives with the evening. The transition often happens later in Italy than in other countries \u2014 Italian days stretch long.",
+            infographic: 'sunArcGreetings',
             tip: "In southern Italy, the shift to 'Buonasera' can happen as late as 5 or 6 PM, reflecting the later dinner schedule."
+          },
+          {
+            title: "The Art of Greeting",
+            content: "Italians greet with enthusiasm and warmth. A hearty 'Ciao!' among friends, a respectful 'Buongiorno' to shopkeepers, and expressive hand gestures that bring words to life. In Italy, greeting someone properly shows you care about the relationship, no matter how brief the encounter.",
+            tip: "'Ciao' is both hello and goodbye \u2014 but only use it with people you know well! For strangers, stick with 'Buongiorno' or 'Buonasera'."
           },
           {
             title: "Formal vs. Informal",

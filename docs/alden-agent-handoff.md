@@ -1,5 +1,30 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Sun, Apr 5, 2026 (session 32 — Section swap, Active Production dedup, Recap enrichment)
+
+### What was done
+
+#### 1. Greetings chapter section order fixed (ES, FR, DE, IT)
+- In `chapter-intro-content.ts`, swapped "The Art of Greeting" and "Time Matters" in all 4 language greetings chapters
+- "Time Matters" now comes FIRST (with `infographic: 'sunArcGreetings'` — the sun arc belongs there, showing time-of-day greetings)
+- "The Art of Greeting" follows (text + cultural tip, no infographic)
+- "Formal vs. Informal" remains third in all languages
+
+#### 2. Active Production lesson drill dedup (Ch1 Spanish 1)
+- **8 stale `matching` items deleted**: These were food/restaurant vocab (Pollo, Pescado, Tenedor, Restaurante, etc.) — never caught by the translate_speak fix in session 31
+- **10 duplicate `translate_speak` items deleted**: Words already in "Practice Time: Greetings & Farewells" (hola, adiós, buenos días, buenas tardes, buenas noches, ¿Cómo estás?, Estoy bien, mucho gusto, gracias, de nada)
+- Active Production now has 6 unique phrase-level items: `¿Y tú?`, `me llamo`, `¿Cómo te llamas?`, `por favor`, `Me llamo [Your Name].`, `Estoy bien, gracias. ¿Y tú?`
+
+#### 3. ChapterRecap.tsx enriched
+- Vocab items shown: 6 → 10
+- Phrases shown: 3 → 5
+- Added ACTFL level and cultural theme badges in header area
+- For unstarted chapters (progress=0): shows "What You'll Learn" with `chapter.description` instead of empty achievement slot
+
+### What still needs to happen (next session priorities)
+
+---
+
 ## Session Summary — Sun, Apr 5, 2026 (session 31 — Chapter reorder + stale drill fix)
 
 ### What was done
