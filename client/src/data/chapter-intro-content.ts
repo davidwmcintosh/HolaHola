@@ -21,6 +21,19 @@ export interface FormalInformalExample {
   informal: string;
 }
 
+export interface ConversationPanel {
+  speaker: string;
+  text: string;
+  translation: string;
+  note?: string;
+}
+
+export interface ConversationStrip {
+  title: string;
+  context: string;
+  panels: ConversationPanel[];
+}
+
 export interface ChapterIntroContent {
   welcomeText: string;
   narrativeSections: {
@@ -30,6 +43,7 @@ export interface ChapterIntroContent {
     infographic?: 'sunArcGreetings' | 'formalInformal' | 'quickPhrases';
     examples?: FormalInformalExample[];
   }[];
+  conversationStrips?: ConversationStrip[];
   culturalSpotlight?: {
     title: string;
     content: string;
@@ -71,11 +85,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             infographic: 'sunArcGreetings',
             tip: "The switch from 'Buenos d\u00edas' to 'Buenas tardes' typically happens around lunchtime, which in Spain can be as late as 2 PM."
           },
-          {
-            title: "The Art of Greeting",
-            content: "In Spanish-speaking cultures, greetings are more than just words \u2014 they're a warm embrace of connection. Unlike quick 'hi and bye' exchanges, Spanish greetings often come with genuine warmth: a kiss on the cheek among friends, a firm handshake in business, and always eye contact.",
-            tip: "In most Latin American countries, a single kiss on the cheek is common. In Spain, it's usually two!"
-          },
+
           {
             title: "Formal vs. Informal",
             content: "Spanish distinguishes between formal and informal speech through 'usted' and 't\u00fa'. Think of 'usted' as the respectful distance you'd keep with your boss or an elder, while 't\u00fa' is the comfortable closeness of friends and family.",
@@ -89,10 +99,45 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             ]
           }
         ],
-        culturalSpotlight: {
-          title: "La Sobremesa",
-          content: "One of the most beautiful Spanish traditions is 'sobremesa' \u2014 the time spent lingering at the table after a meal, just talking and enjoying company. This is where real conversations happen, where bonds are strengthened. No rushing, no checking phones \u2014 just connection."
-        }
+        conversationStrips: [
+          {
+            title: "A Casual Hello",
+            context: "Two classmates bump into each other between classes",
+            panels: [
+              { speaker: "Marco", text: "\u00a1Hola!", translation: "Hi!" },
+              { speaker: "Rosa", text: "\u00a1Hola! \u00bfC\u00f3mo est\u00e1s?", translation: "Hi! How are you?" },
+              { speaker: "Marco", text: "\u00a1Muy bien, gracias! \u00bfY t\u00fa?", translation: "Very well, thanks! And you?" },
+              { speaker: "Rosa", text: "\u00a1Bien! \u00a1Hasta luego!", translation: "Good! See you later!" }
+            ]
+          },
+          {
+            title: "Nice to Meet You",
+            context: "Two students introduce themselves on the first day of class",
+            panels: [
+              { speaker: "Marco", text: "Hola, me llamo Marco.", translation: "Hi, my name is Marco." },
+              { speaker: "Rosa", text: "Mucho gusto, Marco. Soy Rosa.", translation: "Nice to meet you, Marco. I'm Rosa." },
+              { speaker: "Marco", text: "El gusto es m\u00edo.", translation: "The pleasure is mine." }
+            ]
+          },
+          {
+            title: "Morning, Afternoon, Evening",
+            context: "Greetings shift with the time of day",
+            panels: [
+              { speaker: "Marco", text: "\u00a1Buenos d\u00edas!", translation: "Good morning!" },
+              { speaker: "Marco", text: "\u00a1Buenas tardes!", translation: "Good afternoon!" },
+              { speaker: "Marco", text: "\u00a1Buenas noches!", translation: "Good evening!" }
+            ]
+          },
+          {
+            title: "At School \u2014 The Formal Register",
+            context: "Marco greets his teacher using 'usted'; his teacher replies with 't\u00fa'",
+            panels: [
+              { speaker: "Marco", text: "Buenos d\u00edas, se\u00f1or Vargas. \u00bfC\u00f3mo est\u00e1 usted?", translation: "Good morning, Mr. Vargas. How are you?", note: "Student uses 'usted' for respect" },
+              { speaker: "Vargas", text: "Muy bien, gracias. \u00bfY t\u00fa, Marco?", translation: "Very well, thanks. And you, Marco?", note: "Teacher uses 't\u00fa' for students" },
+              { speaker: "Marco", text: "Bien, gracias, se\u00f1or.", translation: "Fine, thank you, sir." }
+            ]
+          }
+        ]
       },
       numbers: {
         welcomeText: "Numbers are the universal language! In this chapter, you'll master counting in Spanish from zero to a million. Whether you're shopping, telling time, or sharing your phone number, numbers will become second nature.",

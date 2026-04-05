@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Globe, Users, BookOpen, Lightbulb } from "lucide-react";
+import { Sparkles, Globe, Users, BookOpen, Lightbulb, MessageSquare, ChevronRight } from "lucide-react";
 import { SunArcGreetings, FormalInformalComparison, QuickPhraseGrid, SerEstarCard, PretImperfectCard, PorParaCard, FalseCognatesGrid } from "./TextbookInfographics";
 import {
   ArVerbsCard, ErVerbsCard, IrVerbsCard,
@@ -2436,6 +2436,56 @@ export function ChapterIntroduction({ chapterNumber, chapterTitle, language, cha
         );
       })}
       
+      {content.conversationStrips && content.conversationStrips.length > 0 && (() => {
+        const SPEAKER_COLORS = ['bg-blue-500', 'bg-rose-500', 'bg-emerald-600', 'bg-amber-600', 'bg-violet-500'];
+        return (
+          <div className="space-y-4" data-testid="section-conversation-strips">
+            <div className="flex items-center gap-2 px-1">
+              <MessageSquare className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">In Conversation</h3>
+            </div>
+            {content.conversationStrips!.map((strip, sIdx) => {
+              const uniqueSpeakers = [...new Set(strip.panels.map(p => p.speaker))];
+              const colorMap = new Map(uniqueSpeakers.map((s, i) => [s, SPEAKER_COLORS[i % SPEAKER_COLORS.length]]));
+              return (
+                <Card key={sIdx} data-testid={`card-strip-${sIdx}`}>
+                  <CardContent className="p-4">
+                    <div className="mb-3">
+                      <h4 className="font-semibold text-sm">{strip.title}</h4>
+                      <p className="text-xs text-muted-foreground italic mt-0.5">{strip.context}</p>
+                    </div>
+                    <div className="flex items-stretch gap-2 overflow-x-auto pb-1 flex-wrap sm:flex-nowrap" data-testid={`strip-panels-${sIdx}`}>
+                      {strip.panels.flatMap((panel, pIdx) => [
+                        <div key={`p-${pIdx}`} className="flex-shrink-0 w-[140px] sm:w-[155px] border border-border/50 rounded-md p-3 flex flex-col gap-2 bg-background" data-testid={`panel-${sIdx}-${pIdx}`}>
+                          <div className="flex items-center gap-1.5">
+                            <div className={`w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 ${colorMap.get(panel.speaker) || 'bg-gray-500'}`}>
+                              {panel.speaker[0].toUpperCase()}
+                            </div>
+                            <span className="text-[11px] text-muted-foreground font-medium truncate">{panel.speaker}</span>
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold leading-snug">{panel.text}</p>
+                            <p className="text-xs text-muted-foreground italic mt-1">{panel.translation}</p>
+                            {panel.note && (
+                              <p className="text-[10px] text-primary/70 mt-1.5 leading-tight">{panel.note}</p>
+                            )}
+                          </div>
+                        </div>,
+                        pIdx < strip.panels.length - 1 ? (
+                          <div key={`a-${pIdx}`} className="flex items-center flex-shrink-0 self-center text-muted-foreground/30">
+                            <ChevronRight className="h-4 w-4" />
+                          </div>
+                        ) : null
+                      ])}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        );
+      })()}
+
       {content.culturalSpotlight && (
         <Card className="overflow-hidden border-purple-500/20 bg-gradient-to-br from-purple-500/5 to-transparent" data-testid="card-cultural-spotlight">
           <CardContent className="p-4 md:p-6">

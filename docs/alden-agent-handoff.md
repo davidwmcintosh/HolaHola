@@ -43,6 +43,32 @@ Field added to `ChapterIntroContent.narrativeSections`: `examples?: FormalInform
 
 **Rendering in `ChapterIntroduction.tsx`:** After the tip block, a two-column comparison grid renders each formal/informal pair with a small context label (e.g., "How are you?") above each cell. Uses `bg-muted/40` for formal column, `bg-muted/10` for informal column. Test IDs: `examples-section-{i}`, `example-row-{i}-{j}`.
 
+#### 3. Conversation Strip system — "In Conversation" section
+
+**New types in `chapter-intro-content.ts`:**
+```typescript
+ConversationPanel { speaker, text, translation, note? }
+ConversationStrip { title, context, panels: ConversationPanel[] }
+ChapterIntroContent.conversationStrips?: ConversationStrip[]
+```
+
+**Spanish greetings data restructured:**
+- Removed "The Art of Greeting" narrative section (strips show this more effectively)
+- Removed `culturalSpotlight` (La Sobremesa — not relevant to greetings vocab)
+- Added 4 conversation strips:
+  1. "A Casual Hello" — 4 panels: ¡Hola! → ¡Hola! ¿Cómo estás? → ¡Muy bien! ¿Y tú? → ¡Bien! ¡Hasta luego!
+  2. "Nice to Meet You" — 3 panels: me llamo / mucho gusto / el gusto es mío
+  3. "Morning, Afternoon, Evening" — 3 panels: buenos días / buenas tardes / buenas noches
+  4. "At School — The Formal Register" — 3 panels: usted/¿cómo está usted? + teacher replies with tú; shows the register asymmetry
+
+**Rendering in `ChapterIntroduction.tsx`:** After narrative sections, before cultural spotlight. Each strip is a Card with title + italic context label, then a horizontal scrollable panel row. Each panel: 20px colored circle (deterministic per speaker across the strip), speaker name, target text, italic translation, optional small note (for grammar callouts). ChevronRight arrows between panels. Color palette: blue/rose/emerald/amber/violet (by order of first appearance). Test IDs: `section-conversation-strips`, `card-strip-{i}`, `strip-panels-{i}`, `panel-{i}-{j}`.
+
+**What needs to happen next for strips:**
+- French, German, Italian greetings chapters need `conversationStrips` data written
+- Other chapter types (numbers, family, classroom etc.) need strips designed for their vocabulary
+- Grammar strips (e.g., "Reflexive Verbs in Action" for daily routines) can be added similarly
+- Image panels: once layout is validated, DALL-E 3 can generate pen-and-watercolor panel art
+
 ### What still needs to happen (next session priorities)
 
 ---
