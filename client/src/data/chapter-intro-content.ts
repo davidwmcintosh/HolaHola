@@ -102,39 +102,31 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         conversationStrips: [
           {
             title: "A Casual Hello",
-            context: "Two classmates bump into each other between classes",
+            context: "Marco runs into his tutor Daniela between classes",
             panels: [
-              { speaker: "Marco", text: "\u00a1Hola!", translation: "Hi!" },
-              { speaker: "Rosa", text: "\u00a1Hola! \u00bfC\u00f3mo est\u00e1s?", translation: "Hi! How are you?" },
+              { speaker: "Marco", text: "\u00a1Hola, Daniela!", translation: "Hi, Daniela!" },
+              { speaker: "Daniela", text: "\u00a1Hola, Marco! \u00bfC\u00f3mo est\u00e1s?", translation: "Hi, Marco! How are you?" },
               { speaker: "Marco", text: "\u00a1Muy bien, gracias! \u00bfY t\u00fa?", translation: "Very well, thanks! And you?" },
-              { speaker: "Rosa", text: "\u00a1Bien! \u00a1Hasta luego!", translation: "Good! See you later!" }
+              { speaker: "Daniela", text: "\u00a1Bien! \u00a1Hasta luego!", translation: "Good! See you later!" }
             ]
           },
           {
             title: "Nice to Meet You",
-            context: "Two students introduce themselves on the first day of class",
+            context: "Marco introduces himself to Daniela on the first day",
             panels: [
               { speaker: "Marco", text: "Hola, me llamo Marco.", translation: "Hi, my name is Marco." },
-              { speaker: "Rosa", text: "Mucho gusto, Marco. Soy Rosa.", translation: "Nice to meet you, Marco. I'm Rosa." },
+              { speaker: "Daniela", text: "Mucho gusto, Marco. Soy Daniela.", translation: "Nice to meet you, Marco. I'm Daniela." },
               { speaker: "Marco", text: "El gusto es m\u00edo.", translation: "The pleasure is mine." }
             ]
           },
+
           {
-            title: "Morning, Afternoon, Evening",
-            context: "Greetings shift with the time of day",
+            title: "With Grandma \u2014 The Formal Register",
+            context: "Marco visits Rosa, his grandmother, always addressing her with 'usted'",
             panels: [
-              { speaker: "Marco", text: "\u00a1Buenos d\u00edas!", translation: "Good morning!" },
-              { speaker: "Marco", text: "\u00a1Buenas tardes!", translation: "Good afternoon!" },
-              { speaker: "Marco", text: "\u00a1Buenas noches!", translation: "Good evening!" }
-            ]
-          },
-          {
-            title: "At School \u2014 The Formal Register",
-            context: "Marco greets his teacher using 'usted'; his teacher replies with 't\u00fa'",
-            panels: [
-              { speaker: "Marco", text: "Buenos d\u00edas, se\u00f1or Vargas. \u00bfC\u00f3mo est\u00e1 usted?", translation: "Good morning, Mr. Vargas. How are you?", note: "Student uses 'usted' for respect" },
-              { speaker: "Vargas", text: "Muy bien, gracias. \u00bfY t\u00fa, Marco?", translation: "Very well, thanks. And you, Marco?", note: "Teacher uses 't\u00fa' for students" },
-              { speaker: "Marco", text: "Bien, gracias, se\u00f1or.", translation: "Fine, thank you, sir." }
+              { speaker: "Marco", text: "Buenos d\u00edas, abuela. \u00bfC\u00f3mo est\u00e1 usted?", translation: "Good morning, Grandma. How are you?", note: "Marco uses 'usted' — respect for elders" },
+              { speaker: "Rosa", text: "Muy bien, gracias, Marco. \u00bfY t\u00fa?", translation: "Very well, thanks, Marco. And you?", note: "Grandma uses 't\u00fa' back — she's the elder" },
+              { speaker: "Marco", text: "Bien, gracias, abuela.", translation: "Fine, thank you, Grandma." }
             ]
           }
         ]
