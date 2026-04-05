@@ -1,5 +1,60 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Sun, Apr 5, 2026 (session 30 — Spanish 1 full curriculum restructuring)
+
+### What was done
+
+#### 1. Full deep audit of all 9 Spanish 1 units
+- Script: `server/scripts/spanish1-full-audit.ts` — pulls lesson-level vocab + grammar for all units
+- **Key finding:** "22 grammar items" in Chapter 1 = 4 real concepts duplicated ~5× across lessons; same pattern across all 9 units
+- **Grammar categorization reform adopted:** Only count structural grammar (conjugation, pronoun systems, agreement, negation, tense). Fixed expressions and question-word lists are not counted as grammar.
+- Full audit saved to `/tmp/spanish1-audit-full.txt`
+
+#### 2. Complete restructuring design document written
+- File: `docs/curriculum-restructure-spanish1.md`
+- Design spec: 9 mega-units → 27 focused chapters
+- Each chapter: 10–14 vocab, 4–6 phrases, 1–3 real grammar concepts
+- Lesson-to-chapter mapping, new chapter types, grammar targets, content gap flags — all specified
+- New chapter type classifiers needed: documented in spec
+
+#### 3. Spanish 1 restructuring migration executed (LIVE IN DB)
+- Script: `server/scripts/restructure-spanish1.ts` — idempotent, transactional, verified
+- Pre-migration check: `server/scripts/pre-migration-check.ts` — all 43 lesson IDs verified before run
+- Result: **27 new curriculum_units created**, all 43 lessons moved, 9 old mega-units archived
+- Chapter types assigned: greetings, introductions, classroom, daily, numbers, time, family, descriptions, school, grammar_ar_verbs, food, grammar_stem_changers, clothing, shopping, literacy, city, travel, weather, hobbies
+- Vocab/grammar arrays updated for 26 of 27 chapters (content augmented simultaneously during reorg)
+- Zero orphaned lessons confirmed
+
+#### 4. ChapterIntroduction.tsx updated for new chapter types
+- `DYNAMIC_COVER_TYPES` now includes all 19 chapter types
+- `classifyChapterType()` expanded with match strings for all new types (introductions, time, descriptions, food, clothing, shopping, hobbies, city, travel, weather, school, grammar_ar_verbs, grammar_stem_changers, literacy)
+- `chapterImages` updated to map all new types to appropriate stock images
+- New `numbersImg` import added from `numbers_counting_blocks_education.jpg`
+- **Note:** New chapter types render null intro (graceful) until `chapter-intro-content.ts` is populated for them — this is intentional
+
+### What still needs to happen (next session priorities)
+
+#### HIGH — Add chapter intro content for the 14 new Spanish chapter types
+The 14 new chapter types (introductions, time, descriptions, food, clothing, shopping, hobbies, city, travel, weather, school, grammar_ar_verbs, grammar_stem_changers, literacy) have no content in `chapter-intro-content.ts` yet. The component gracefully returns null for these until content is added. Same content needed for all 10 languages eventually but start with Spanish.
+
+#### HIGH — Run same audit + restructure for Spanish 2–5
+Same methodology: audit → design doc → migration script → execute. Spanish 2 alone has a health chapter with 177 vocab. Total estimated scope: 37 existing chapters → ~90–110 after splits across all levels.
+
+#### MEDIUM — Visual asset audit for new chapters
+New vocabulary items were added during restructuring (tío/tía/primo, medianoche, septiembre–diciembre, hace viento, pagar, beber, etc.) — need to audit which new vocab items lack images in the visual asset pipeline.
+
+#### LOW — Stock images for new chapter types
+Currently all non-family new types map to coffeeShopImg as a placeholder. Should commission or find appropriate stock/generated covers for food, clothing, travel, city, weather, etc.
+
+### Scratchpad carry-forward
+- **DB RULE:** `getMonitoringDb()` = HTTP read-only. `getSharedDb()`/`getUserDb()` = WebSocket pool. Use Pool directly with `NEON_SHARED_DATABASE_URL` for scripts.
+- **API Key:** `USER_OPENAI_API_KEY` for DALL-E 3. Do NOT use `AI_INTEGRATIONS_*`.
+- **SCENE_STYLE locked:** pen-and-watercolor-wash. No quoted speech in prompts.
+- **Spanish 1 path ID:** `60769ffc-6dcd-417e-add5-0ac612377da8`
+- **Grammar tier system:** Tier 1 = structural (counts), Tier 2 = phrase patterns (vocabulary), Tier 3 = fixed expressions (vocabulary). Only Tier 1 counts as grammar.
+
+---
+
 ## Session Summary — Sun, Apr 5, 2026 (session 29 — Classroom chapter type + prompt templating policy)
 
 ### What was done

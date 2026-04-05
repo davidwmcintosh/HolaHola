@@ -228,6 +228,7 @@ import { languageChapterData } from "@/data/chapter-intro-content";
 
 import familyGatheringImg from "@assets/stock_images/family_gathering_aro_0f321ed1.jpg";
 import coffeeShopImg from "@assets/stock_images/coffee_shop_friends__69e794a8.jpg";
+import numbersImg from "@assets/stock_images/numbers_counting_blocks_education.jpg";
 import danielaTutorImg from "@assets/generated_images/daniela_tutor_welcome_illustration.png";
 
 interface ChapterIntroductionProps {
@@ -240,18 +241,39 @@ interface ChapterIntroductionProps {
 
 // Chapter types listed here use the /api/chapter-cover/:type endpoint (DALL-E watercolor scene)
 // instead of a static stock photo. Add a type here when you want an illustrated cover.
-const DYNAMIC_COVER_TYPES = new Set(['numbers', 'greetings', 'family', 'daily', 'classroom']);
+const DYNAMIC_COVER_TYPES = new Set([
+  'numbers', 'greetings', 'family', 'daily', 'classroom',
+  'introductions', 'time', 'descriptions', 'grammar_ar_verbs',
+  'food', 'grammar_stem_changers', 'clothing', 'shopping',
+  'literacy', 'city', 'travel', 'weather', 'hobbies', 'school',
+]);
 
 const chapterImages: Record<string, string[]> = {
-  greetings: [coffeeShopImg],
-  family: [familyGatheringImg],
-  daily: [coffeeShopImg],
-  classroom: [coffeeShopImg],
+  greetings:           [coffeeShopImg],
+  introductions:       [coffeeShopImg],
+  family:              [familyGatheringImg],
+  descriptions:        [familyGatheringImg],
+  daily:               [coffeeShopImg],
+  classroom:           [coffeeShopImg],
+  school:              [coffeeShopImg],
+  numbers:             [numbersImg],
+  time:                [numbersImg],
+  food:                [coffeeShopImg],
+  shopping:            [coffeeShopImg],
+  clothing:            [coffeeShopImg],
+  travel:              [coffeeShopImg],
+  weather:             [coffeeShopImg],
+  hobbies:             [coffeeShopImg],
+  city:                [coffeeShopImg],
+  literacy:            [coffeeShopImg],
+  grammar_ar_verbs:    [coffeeShopImg],
+  grammar_stem_changers: [coffeeShopImg],
 };
 
 function classifyChapterType(title: string): string | null {
   const lower = title.toLowerCase();
-  // Classroom survival — check before greetings to avoid 'introduction' collision
+
+  // Classroom survival — check before greetings to avoid collision
   if (
     lower.includes('classroom') || lower.includes('survival') ||
     lower.includes('en la clase') || lower.includes('en clase') ||
@@ -262,18 +284,147 @@ function classifyChapterType(title: string): string | null {
   ) {
     return 'classroom';
   }
-  if (lower.includes('greet') || lower.includes('hello') || lower.includes('introduction') || lower.includes('bonjour') || lower.includes('hallo') || lower.includes('ciao') || lower.includes('saluti') || lower.includes('はじめまして') || lower.includes('hajimemashite') || lower.includes('안녕하세요') || lower.includes('annyeong') || lower.includes('olá') || lower.includes('saudaç') || lower.includes('你好') || lower.includes('nǐ hǎo') || lower.includes('שלום') || lower.includes('¡hola')) {
+
+  // Greetings & farewells
+  if (lower.includes('greet') || lower.includes('farewell') || lower.includes('hello') || lower.includes('bonjour') ||
+      lower.includes('hallo') || lower.includes('ciao') || lower.includes('saluti') || lower.includes('はじめまして') ||
+      lower.includes('안녕하세요') || lower.includes('olá') || lower.includes('saudaç') || lower.includes('你好') ||
+      lower.includes('שלום') || lower.includes('¡hola') || lower.includes('hola y adiós') || lower.includes('adiós')) {
     return 'greetings';
   }
-  if (lower.includes('family') || lower.includes('familia') || lower.includes('famille') || lower.includes('meine familie') || lower.includes('famiglia') || lower.includes('família') || lower.includes('家族') || lower.includes('가족') || lower.includes('משפחה')) {
+
+  // Meeting people / introductions (check after greetings)
+  if (lower.includes('meeting people') || lower.includes('meet people') || lower.includes('mucho gusto') ||
+      lower.includes('nice to meet') || lower.includes('introductions') || lower.includes('introduce yourself') ||
+      lower.includes('conocer') || lower.includes('présenter') || lower.includes('vorstellen')) {
+    return 'introductions';
+  }
+
+  // Family members
+  if (lower.includes('family') || lower.includes('familia') || lower.includes('famille') ||
+      lower.includes('meine familie') || lower.includes('famiglia') || lower.includes('família') ||
+      lower.includes('家族') || lower.includes('가족') || lower.includes('משפחה') ||
+      lower.includes('family member') || lower.includes('miembros de la familia')) {
     return 'family';
   }
-  if (lower.includes('number') || lower.includes('número') || lower.includes('nombres') || lower.includes('zahlen') || lower.includes('numeri') || lower.includes('数字') || lower.includes('숫자') || lower.includes('sūji') || lower.includes('shùzì') || lower.includes('sutja') || lower.includes('números')) {
+
+  // Describing people / appearance
+  if (lower.includes('describing people') || lower.includes('describe people') ||
+      lower.includes('adjective agreement') || lower.includes('appearances') ||
+      lower.includes('¿cómo es?') || lower.includes('como es') || lower.includes('beschreiben') ||
+      lower.includes('beschreibung') || lower.includes('descrizioni')) {
+    return 'descriptions';
+  }
+
+  // Numbers (check before time to avoid "number of hours" collision)
+  if (lower.includes('number') || lower.includes('número') || lower.includes('0–20') ||
+      lower.includes('0-20') || lower.includes('1-20') || lower.includes('nombres') ||
+      lower.includes('zahlen') || lower.includes('numeri') || lower.includes('数字') ||
+      lower.includes('숫자') || lower.includes('números') || lower.includes('counting') ||
+      lower.includes('birthdays') || lower.includes('cumpleaños') || lower.includes('fechas') || lower.includes('dates')) {
     return 'numbers';
   }
-  if (lower.includes('review') || lower.includes('routine') || lower.includes('daily') || lower.includes('quotidien') || lower.includes('alltag') || lower.includes('quotidiana') || lower.includes('rotina') || lower.includes('毎日') || lower.includes('일상') || lower.includes('日常')) {
+
+  // Telling time
+  if (lower.includes('telling time') || lower.includes('what time') || lower.includes('la hora') ||
+      lower.includes('l\'heure') || lower.includes('die uhrzeit') || lower.includes('l\'ora') ||
+      lower.includes('a hora') || lower.includes('时间') || lower.includes('시간') ||
+      lower.includes('time') && lower.includes('tell')) {
+    return 'time';
+  }
+
+  // Weather
+  if (lower.includes('weather') || lower.includes('el tiempo') || lower.includes('météo') ||
+      lower.includes('das wetter') || lower.includes('il tempo') || lower.includes('o tempo') ||
+      lower.includes('天気') || lower.includes('날씨') || lower.includes('天气') || lower.includes('מזג אוויר')) {
+    return 'weather';
+  }
+
+  // Food & dining
+  if (lower.includes('food') || lower.includes('comida') || lower.includes('nourriture') ||
+      lower.includes('essen') || lower.includes('cibo') || lower.includes('comida') ||
+      lower.includes('restaurant') || lower.includes('restaurante') || lower.includes('dining') ||
+      lower.includes('cuisine') || lower.includes('食べ物') || lower.includes('음식') ||
+      lower.includes('食物') || lower.includes('אוכל') || lower.includes('at the restaurant') ||
+      lower.includes('drinks') || lower.includes('bebidas')) {
+    return 'food';
+  }
+
+  // Clothing & fashion
+  if (lower.includes('clothing') || lower.includes('clothes') || lower.includes('ropa') ||
+      lower.includes('vêtements') || lower.includes('kleidung') || lower.includes('vestiti') ||
+      lower.includes('roupa') || lower.includes('服') || lower.includes('옷') ||
+      lower.includes('בגדים') || lower.includes('colors') || lower.includes('colores') ||
+      lower.includes('colors & sizes')) {
+    return 'clothing';
+  }
+
+  // Shopping
+  if (lower.includes('shopping') || lower.includes('compras') || lower.includes('achats') ||
+      lower.includes('einkaufen') || lower.includes('comprare') || lower.includes('compras') ||
+      lower.includes('at the store') || lower.includes('market') || lower.includes('mercado') ||
+      lower.includes('tienda') || lower.includes('kaufen')) {
+    return 'shopping';
+  }
+
+  // Hobbies & sports
+  if (lower.includes('hobbies') || lower.includes('pasatiempos') || lower.includes('loisirs') ||
+      lower.includes('freizeit') || lower.includes('hobby') || lower.includes('sports') ||
+      lower.includes('deporte') || lower.includes('sport') || lower.includes('weekend') ||
+      lower.includes('fin de semana') || lower.includes('abilities') || lower.includes('趣味')) {
+    return 'hobbies';
+  }
+
+  // City & community
+  if (lower.includes('city') || lower.includes('ciudad') || lower.includes('ville') ||
+      lower.includes('stadt') || lower.includes('città') || lower.includes('places in town') ||
+      lower.includes('community') || lower.includes('getting around') || lower.includes('directions') ||
+      lower.includes('lugares') || lower.includes('por la ciudad') || lower.includes('navigat')) {
+    return 'city';
+  }
+
+  // Travel
+  if (lower.includes('travel') || lower.includes('vacation') || lower.includes('viajes') ||
+      lower.includes('voyage') || lower.includes('reisen') || lower.includes('viaggio') ||
+      lower.includes('vacaciones') || lower.includes('hotel') || lower.includes('at the hotel') ||
+      lower.includes('旅行') || lower.includes('여행') || lower.includes('נסיעה')) {
+    return 'travel';
+  }
+
+  // School subjects & life
+  if (lower.includes('school') || lower.includes('escuela') || lower.includes('école') ||
+      lower.includes('schule') || lower.includes('scuola') || lower.includes('escola') ||
+      lower.includes('学校') || lower.includes('학교') || lower.includes('supplies') ||
+      lower.includes('subjects') || lower.includes('materias') || lower.includes('útiles')) {
+    return 'school';
+  }
+
+  // Grammar chapters
+  if (lower.includes('-ar verb') || lower.includes('ar verbs') || lower.includes('ar verb conjugation') ||
+      lower.includes('verbos -ar') || lower.includes('verbos ar') || lower.includes('regular -ar')) {
+    return 'grammar_ar_verbs';
+  }
+  if (lower.includes('stem-changing') || lower.includes('stem changing') || lower.includes('cambio de raíz') ||
+      lower.includes('cambio de raiz') || lower.includes('radical changing') || lower.includes('verbos con cambio')) {
+    return 'grammar_stem_changers';
+  }
+
+  // Reading & writing / literacy
+  if (lower.includes('reading') || lower.includes('writing') || lower.includes('leer') ||
+      lower.includes('escribir') || lower.includes('literacy') || lower.includes('texts') ||
+      lower.includes('textos') || lower.includes('notes') || lower.includes('messages') ||
+      lower.includes('mensajes') || lower.includes('descifrando') || lower.includes('entendiendo')) {
+    return 'literacy';
+  }
+
+  // Daily routine / activities
+  if (lower.includes('review') || lower.includes('routine') || lower.includes('daily') ||
+      lower.includes('quotidien') || lower.includes('alltag') || lower.includes('quotidiana') ||
+      lower.includes('rotina') || lower.includes('毎日') || lower.includes('일상') ||
+      lower.includes('日常') || lower.includes('activities') || lower.includes('actividades')) {
     return 'daily';
   }
+
   return null;
 }
 
