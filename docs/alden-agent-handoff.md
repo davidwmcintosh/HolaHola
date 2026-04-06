@@ -23,12 +23,12 @@
 - **Before**: `storage.getCollaborationEventsToAgent('daniela', ...)` — fetches Spanish collab context even in Cindy/English sessions
 - **After**: `const agentName = session.tutorName?.toLowerCase() || 'daniela'` — uses actual session tutor name
 
-#### 4. Incognito button — connectionState gate removed
+#### 4. Incognito button — connectionState check broadened to all active states
 
 `client/src/components/StreamingVoiceChat.tsx` line 3583:
-- **Before**: `... && streamingVoice.state.connectionState === 'connected'` — button invisible when Cindy's connection hasn't reached 'connected' yet
-- **After**: Gate removed; button now visible whenever `(isDeveloper || isAdmin) && (learningContext === 'founder-mode' || 'honesty-mode')`
-- NOTE: Session 37 documented this fix in the handoff doc but did NOT apply it to the code; session 38 actually applied it.
+- **Root cause**: `connectionState === 'connected'` is a TRANSIENT state (~0ms) — it fires when the socket opens, then immediately transitions to `'ready'` once `session_started` is received, then `'processing'`, then `'streaming'`. The button was invisible for the entire active session.
+- **Fix**: Check against all active session states: `['connected', 'ready', 'processing', 'streaming', 'reconnecting'].includes(connectionState)` — button is still gated on a live session (won't show before connection), but now stays visible while tutor is responding/speaking.
+- NOTE: Session 37 documented "removing the gate" in the handoff doc; session 38 correctly narrowed the fix to broadening the state check instead of removing the gate entirely.
 
 ---
 
