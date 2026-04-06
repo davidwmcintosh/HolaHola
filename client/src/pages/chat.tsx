@@ -23,6 +23,7 @@ import { ImmersiveOverlay } from "@/components/ImmersiveOverlay";
 import type { WhiteboardItem, ScenarioItemData, SceneCanvasItemData } from "@shared/whiteboard-types";
 import { isScenarioItem, isSceneCanvasItem } from "@shared/whiteboard-types";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useUser } from "@/lib/auth";
 
 export default function Chat() {
   const search = useSearch();
@@ -30,6 +31,7 @@ export default function Chat() {
   const [mode, setMode] = useState<"text" | "voice">("voice");
   const { language, difficulty, userName } = useLanguage();
   const { learningContext, getSelectedClassName } = useLearningFilter();
+  const { isDeveloper, isAdmin } = useUser();
   const { setOpen, setOpenMobile } = useSidebar();
   const [conversationId, setConversationId] = useState<string | null>(() => {
     // Don't restore if user explicitly wants a new conversation
@@ -706,7 +708,7 @@ export default function Chat() {
             />
           )}
           
-          {conversationId && (
+          {conversationId && (isDeveloper || isAdmin) && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

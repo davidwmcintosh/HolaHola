@@ -25,6 +25,7 @@ export interface ConversationPanel {
   speaker: string;
   gender?: 'male' | 'female';
   text: string;
+  romanization?: string;
   translation: string;
   note?: string;
   image?: string;
@@ -748,28 +749,28 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             title: "\u6c17\u8efd\u306a\u6319\u62f6\u3064",
             context: "\u5927\u8f14\u304c\u5c0f\u767e\u5408\u306b\u6388\u696d\u524d\u306b\u4f1a\u3046",
             panels: [
-              { speaker: "\u5927\u8f14", gender: "male", text: "\u3084\u3042\u3001\u5c0f\u767e\u5408\uff01", translation: "Hey, Sayuri!" },
-              { speaker: "\u5c0f\u767e\u5408", gender: "female", text: "\u3042\u3001\u5927\u8f14\uff01\u5143\u6c17\uff1f", translation: "Oh, Daisuke! Are you okay?" },
-              { speaker: "\u5927\u8f14", gender: "male", text: "\u5143\u6c17\u3060\u3088\uff01\u541b\u306f\uff1f", translation: "Yeah, I'm good! And you?" },
-              { speaker: "\u5c0f\u767e\u5408", gender: "female", text: "\u79c1\u3082\u5143\u6c17\uff01\u3058\u3083\u3042\u306d\uff01", translation: "Me too! See you!" }
+              { speaker: "\u5927\u8f14", gender: "male", text: "\u3084\u3042\u3001\u5c0f\u767e\u5408\uff01", romanization: "Y\u0101, Sayuri!", translation: "Hey, Sayuri!" },
+              { speaker: "\u5c0f\u767e\u5408", gender: "female", text: "\u3042\u3001\u5927\u8f14\uff01\u5143\u6c17\uff1f", romanization: "A, Daisuke! Genki?", translation: "Oh, Daisuke! Are you okay?" },
+              { speaker: "\u5927\u8f14", gender: "male", text: "\u5143\u6c17\u3060\u3088\uff01\u541b\u306f\uff1f", romanization: "Genki da yo! Kimi wa?", translation: "Yeah, I'm good! And you?" },
+              { speaker: "\u5c0f\u767e\u5408", gender: "female", text: "\u79c1\u3082\u5143\u6c17\uff01\u3058\u3083\u3042\u306d\uff01", romanization: "Watashi mo genki! J\u0101 ne!", translation: "Me too! See you!" }
             ]
           },
           {
             title: "\u306f\u3058\u3081\u307e\u3057\u3066",
             context: "\u5927\u8f14\u304c\u5c0f\u767e\u5408\u306b\u81ea\u5df1\u7d39\u4ecb\u3059\u308b",
             panels: [
-              { speaker: "\u5927\u8f14", gender: "male", text: "\u306f\u3058\u3081\u307e\u3057\u3066\u3002\u5927\u8f14\u3068\u3044\u3044\u307e\u3059\u3002", translation: "Nice to meet you. My name is Daisuke." },
-              { speaker: "\u5c0f\u767e\u5408", gender: "female", text: "\u306f\u3058\u3081\u307e\u3057\u3066\u3002\u5c0f\u767e\u5408\u3067\u3059\u3002\u3088\u308d\u3057\u304f\u304a\u9858\u3044\u3057\u307e\u3059\u3002", translation: "Nice to meet you. I'm Sayuri. I'm in your care." },
-              { speaker: "\u5927\u8f14", gender: "male", text: "\u3053\u3061\u3089\u3053\u305d\u3001\u3088\u308d\u3057\u304f\u304a\u9858\u3044\u3057\u307e\u3059\u3002", translation: "Likewise, I'm in your care." }
+              { speaker: "\u5927\u8f14", gender: "male", text: "\u306f\u3058\u3081\u307e\u3057\u3066\u3002\u5927\u8f14\u3068\u3044\u3044\u307e\u3059\u3002", romanization: "Hajimemashite. Daisuke to iimasu.", translation: "Nice to meet you. My name is Daisuke." },
+              { speaker: "\u5c0f\u767e\u5408", gender: "female", text: "\u306f\u3058\u3081\u307e\u3057\u3066\u3002\u5c0f\u767e\u5408\u3067\u3059\u3002\u3088\u308d\u3057\u304f\u304a\u9858\u3044\u3057\u307e\u3059\u3002", romanization: "Hajimemashite. Sayuri desu. Yoroshiku onegaishimasu.", translation: "Nice to meet you. I'm Sayuri. I'm in your care." },
+              { speaker: "\u5927\u8f14", gender: "male", text: "\u3053\u3061\u3089\u3053\u305d\u3001\u3088\u308d\u3057\u304f\u304a\u9858\u3044\u3057\u307e\u3059\u3002", romanization: "Kochira koso, yoroshiku onegaishimasu.", translation: "Likewise, I'm in your care." }
             ]
           },
           {
             title: "\u5148\u751f\u3078\u306e\u6319\u62f6\u3064 \u2014 \u4e01\u5be7\u8a9e",
             context: "\u5927\u8f14\u304c\u7530\u4e2d\u5148\u751f\u3092\u4e01\u5be7\u8a9e\u3067\u6319\u62f6\u3064\u3059\u308b",
             panels: [
-              { speaker: "\u5927\u8f14", gender: "male", text: "\u5148\u751f\u3001\u304a\u306f\u3088\u3046\u3054\u3056\u3044\u307e\u3059\u3002", translation: "Good morning, Sensei.", note: "Using the polite -gozaimasu form for a teacher" },
-              { speaker: "\u7530\u4e2d\u5148\u751f", gender: "male", text: "\u304a\u306f\u3088\u3046\u3001\u5927\u8f14\u304f\u3093\u3002", translation: "Good morning, Daisuke.", note: "Teacher uses casual form — appropriate asymmetry" },
-              { speaker: "\u5927\u8f14", gender: "male", text: "\u3088\u308d\u3057\u304f\u304a\u9858\u3044\u3044\u305f\u3057\u307e\u3059\u3002", translation: "I'm in your care.", note: "-itashimasu makes it even more respectful" }
+              { speaker: "\u5927\u8f14", gender: "male", text: "\u5148\u751f\u3001\u304a\u306f\u3088\u3046\u3054\u3056\u3044\u307e\u3059\u3002", romanization: "Sensei, ohay\u014d gozaimasu.", translation: "Good morning, Sensei.", note: "Using the polite -gozaimasu form for a teacher" },
+              { speaker: "\u7530\u4e2d\u5148\u751f", gender: "male", text: "\u304a\u306f\u3088\u3046\u3001\u5927\u8f14\u304f\u3093\u3002", romanization: "Ohay\u014d, Daisuke-kun.", translation: "Good morning, Daisuke.", note: "Teacher uses casual form — appropriate asymmetry" },
+              { speaker: "\u5927\u8f14", gender: "male", text: "\u3088\u308d\u3057\u304f\u304a\u9858\u3044\u3044\u305f\u3057\u307e\u3059\u3002", romanization: "Yoroshiku onegai itashimasu.", translation: "I'm in your care.", note: "-itashimasu makes it even more respectful" }
             ]
           }
         ],
@@ -911,28 +912,28 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             title: "\ud3b8\ud55c \uc778\uc0ac",
             context: "\ubbfc\ud638\uac00 \ubcf5\ub3c4\uc5d0\uc11c \uc9c0\ud604\uc744 \ub9cc\ub098\ub2e4",
             panels: [
-              { speaker: "\ubbfc\ud638", gender: "male", text: "\uc9c0\ud604\uc544, \uc548\ub155!", translation: "Jihyun, hi!" },
-              { speaker: "\uc9c0\ud604", gender: "female", text: "\uc5b4, \ubbfc\ud638\uc57c! \uc798 \uc9c0\ub0b4?", translation: "Oh, Minho! Are you doing well?" },
-              { speaker: "\ubbfc\ud638", gender: "male", text: "\uc751, \uc798 \uc9c0\ub0b4. \ub108\ub294?", translation: "Yeah, doing well. And you?" },
-              { speaker: "\uc9c0\ud604", gender: "female", text: "\ub098\ub3c4 \uc798 \uc9c0\ub0b4! \ub098\uc911\uc5d0 \ubd10!", translation: "I'm doing well too! See you later!" }
+              { speaker: "\ubbfc\ud638", gender: "male", text: "\uc9c0\ud604\uc544, \uc548\ub155!", romanization: "Jihyun-a, annyeong!", translation: "Jihyun, hi!" },
+              { speaker: "\uc9c0\ud604", gender: "female", text: "\uc5b4, \ubbfc\ud638\uc57c! \uc798 \uc9c0\ub0b4?", romanization: "Eo, Minhoya! Jal jinae?", translation: "Oh, Minho! Are you doing well?" },
+              { speaker: "\ubbfc\ud638", gender: "male", text: "\uc751, \uc798 \uc9c0\ub0b4. \ub108\ub294?", romanization: "Eung, jal jinae. Neoneun?", translation: "Yeah, doing well. And you?" },
+              { speaker: "\uc9c0\ud604", gender: "female", text: "\ub098\ub3c4 \uc798 \uc9c0\ub0b4! \ub098\uc911\uc5d0 \ubd10!", romanization: "Nado jal jinae! Najunge bwa!", translation: "I'm doing well too! See you later!" }
             ]
           },
           {
             title: "\ub9cc\ub098\uc11c \ubc18\uac00\uc6cc\uc694",
             context: "\ubbfc\ud638\uac00 \uc9c0\ud604\uc5d0\uac8c \uc2a4\uc2a4\ub85c \uc18c\uac1c\ud55c\ub2e4",
             panels: [
-              { speaker: "\ubbfc\ud638", gender: "male", text: "\uc548\ub155\ud558\uc138\uc694. \uc800\ub294 \ubbfc\ud638\uc608\uc694.", translation: "Hello. I'm Minho." },
-              { speaker: "\uc9c0\ud604", gender: "female", text: "\uc548\ub155\ud558\uc138\uc694, \ubbfc\ud638 \uc528. \uc800\ub294 \uc9c0\ud604\uc774\uc5d0\uc694.", translation: "Hello, Minho. I'm Jihyun." },
-              { speaker: "\ubbfc\ud638", gender: "male", text: "\ub9cc\ub098\uc11c \ubc18\uac00\uc6cc\uc694, \uc9c0\ud604 \uc528.", translation: "Nice to meet you, Jihyun." }
+              { speaker: "\ubbfc\ud638", gender: "male", text: "\uc548\ub155\ud558\uc138\uc694. \uc800\ub294 \ubbfc\ud638\uc608\uc694.", romanization: "Annyeonghaseyo. Jeoneun Minhoeyeyo.", translation: "Hello. I'm Minho." },
+              { speaker: "\uc9c0\ud604", gender: "female", text: "\uc548\ub155\ud558\uc138\uc694, \ubbfc\ud638 \uc528. \uc800\ub294 \uc9c0\ud604\uc774\uc5d0\uc694.", romanization: "Annyeonghaseyo, Minho ssi. Jeoneun Jihyonieyo.", translation: "Hello, Minho. I'm Jihyun." },
+              { speaker: "\ubbfc\ud638", gender: "male", text: "\ub9cc\ub098\uc11c \ubc18\uac00\uc6cc\uc694, \uc9c0\ud604 \uc528.", romanization: "Mannaseo bangawoyo, Jihyun ssi.", translation: "Nice to meet you, Jihyun." }
             ]
           },
           {
             title: "\ud560\uba38\ub2c8\uaed8 \u2014 \uc874\ub313\ub9d0",
             context: "\ubbfc\ud638\uac00 \ud560\uba38\ub2c8\ub97c \uacf5\uc2dd\uccb4\ub85c \uc778\uc0ac\ub4dc\ub9b0\ub2e4",
             panels: [
-              { speaker: "\ubbfc\ud638", gender: "male", text: "\uc548\ub155\ud788 \uacc4\uc168\uc5b4\uc694, \ud560\uba38\ub2c8?", translation: "Have you been well, Grandma?", note: "\ubbfc\ud638\ub294 \ucc9c\uc5b4\uc6c3\uc5b4\ub978\uaed8 \ud569\uc1fc\uccb4(\uacf5\uc2dd \uacbd\uc5b4)\ub97c \uc4f4\ub2e4" },
-              { speaker: "\ud560\uba38\ub2c8", gender: "female", text: "\uadf8\ub798, \ubbfc\ud638\uc57c. \uc798 \uc9c0\ub0b4\uc73c\uc5c8\ub2c8?", translation: "Yes, Minho. Have you been well?", note: "\ud560\uba38\ub2c8\ub294 \ud574\uccb4(\ub9e4\uc6b0 \uce5c\uadfc\ud55c)\ub97c \uc4f4\ub2e4 \u2014 \uc5b4\ub978\uc758 \ud2b9\uad8c" },
-              { speaker: "\ubbfc\ud638", gender: "male", text: "\ub124, \ub355\ubd84\uc5d0 \uc798 \uc9c0\ub0b4\uc5b4\uc694.", translation: "Yes, I've been well, thanks to you." }
+              { speaker: "\ubbfc\ud638", gender: "male", text: "\uc548\ub155\ud788 \uacc4\uc168\uc5b4\uc694, \ud560\uba38\ub2c8?", romanization: "Annyeonghi gyeosseosseoyo, halmeoni?", translation: "Have you been well, Grandma?", note: "\ubbfc\ud638\ub294 \ucc9c\uc5b4\uc6c3\uc5b4\ub978\uaed8 \ud569\uc1fc\uccb4(\uacf5\uc2dd \uacbd\uc5b4)\ub97c \uc4f4\ub2e4" },
+              { speaker: "\ud560\uba38\ub2c8", gender: "female", text: "\uadf8\ub798, \ubbfc\ud638\uc57c. \uc798 \uc9c0\ub0b4\uc73c\uc5c8\ub2c8?", romanization: "Geurae, Minhoya. Jal jinaesseni?", translation: "Yes, Minho. Have you been well?", note: "\ud560\uba38\ub2c8\ub294 \ud574\uccb4(\ub9e4\uc6b0 \uce5c\uadfc\ud55c)\ub97c \uc4f4\ub2e4 \u2014 \uc5b4\ub978\uc758 \ud2b9\uad8c" },
+              { speaker: "\ubbfc\ud638", gender: "male", text: "\ub124, \ub355\ubd84\uc5d0 \uc798 \uc9c0\ub0b4\uc5b4\uc694.", romanization: "Ne, deokbune jal jinaesseoyo.", translation: "Yes, I've been well, thanks to you." }
             ]
           }
         ],
@@ -1074,28 +1075,28 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             title: "\u65e5\u5e38\u95ee\u5019",
             context: "\u6d9b\u5728\u8bfe\u524d\u9047\u5230\u534e",
             panels: [
-              { speaker: "\u6d9b", gender: "male", text: "\u55e8\uff0c\u534e\uff01", translation: "Hey, Hua!" },
-              { speaker: "\u534e", gender: "female", text: "\u54e6\uff0c\u6d9b\uff01\u4f60\u597d\u5417\uff1f", translation: "Oh, Tao! How are you?" },
-              { speaker: "\u6d9b", gender: "male", text: "\u6211\u5f88\u597d\uff0c\u8c22\u8c22\uff01\u4f60\u5462\uff1f", translation: "I'm great, thanks! And you?" },
-              { speaker: "\u534e", gender: "female", text: "\u6211\u4e5f\u5f88\u597d\uff01\u5f85\u4f1a\u89c1\uff01", translation: "I'm good too! See you later!" }
+              { speaker: "\u6d9b", gender: "male", text: "\u55e8\uff0c\u534e\uff01", romanization: "H\u0101i, Hu\u00e1!", translation: "Hey, Hua!" },
+              { speaker: "\u534e", gender: "female", text: "\u54e6\uff0c\u6d9b\uff01\u4f60\u597d\u5417\uff1f", romanization: "\u00d3, T\u0101o! N\u01d0 h\u01ceo ma?", translation: "Oh, Tao! How are you?" },
+              { speaker: "\u6d9b", gender: "male", text: "\u6211\u5f88\u597d\uff0c\u8c22\u8c22\uff01\u4f60\u5462\uff1f", romanization: "W\u01d2 h\u011bn h\u01ceo, xi\u00e8xie! N\u01d0 ne?", translation: "I'm great, thanks! And you?" },
+              { speaker: "\u534e", gender: "female", text: "\u6211\u4e5f\u5f88\u597d\uff01\u5f85\u4f1a\u89c1\uff01", romanization: "W\u01d2 y\u011b h\u011bn h\u01ceo! D\u00e0i hu\u00ec ji\u00e0n!", translation: "I'm good too! See you later!" }
             ]
           },
           {
             title: "\u521d\u6b21\u89c1\u9762",
             context: "\u6d9b\u7b2c\u4e00\u6b21\u5411\u534e\u4ecb\u7ecd\u81ea\u5df1",
             panels: [
-              { speaker: "\u6d9b", gender: "male", text: "\u4f60\u597d\uff0c\u6211\u53eb\u6d9b\u3002", translation: "Hello, my name is Tao." },
-              { speaker: "\u534e", gender: "female", text: "\u4f60\u597d\uff0c\u6d9b\u3002\u6211\u662f\u534e\u3002\u8ba4\u8bc6\u4f60\u5f88\u9ad8\u5174\u3002", translation: "Hello, Tao. I'm Hua. Nice to meet you." },
-              { speaker: "\u6d9b", gender: "male", text: "\u8ba4\u8bc6\u4f60\u6211\u4e5f\u5f88\u9ad8\u5174\u3002", translation: "Nice to meet you too." }
+              { speaker: "\u6d9b", gender: "male", text: "\u4f60\u597d\uff0c\u6211\u53eb\u6d9b\u3002", romanization: "N\u01d0 h\u01ceo, w\u01d2 ji\u00e0o T\u0101o.", translation: "Hello, my name is Tao." },
+              { speaker: "\u534e", gender: "female", text: "\u4f60\u597d\uff0c\u6d9b\u3002\u6211\u662f\u534e\u3002\u8ba4\u8bc6\u4f60\u5f88\u9ad8\u5174\u3002", romanization: "N\u01d0 h\u01ceo, T\u0101o. W\u01d2 sh\u00ec Hu\u00e1. R\u00e8nshi n\u01d0 h\u011bn g\u0101ox\u00ecng.", translation: "Hello, Tao. I'm Hua. Nice to meet you." },
+              { speaker: "\u6d9b", gender: "male", text: "\u8ba4\u8bc6\u4f60\u6211\u4e5f\u5f88\u9ad8\u5174\u3002", romanization: "R\u00e8nshi n\u01d0 w\u01d2 y\u011b h\u011bn g\u0101ox\u00ecng.", translation: "Nice to meet you too." }
             ]
           },
           {
             title: "\u5c0a\u656c\u5e08\u9577 \u2014 \u6b63\u5f0f\u95ee\u5019",
             context: "\u6d9b\u7528\u60a8\u5411\u5f20\u8001\u5e08\u6b63\u5f0f\u95ee\u5019",
             panels: [
-              { speaker: "\u6d9b", gender: "male", text: "\u60a8\u597d\uff0c\u5f20\u8001\u5e08\u3002", translation: "Hello, Mr. Zhang.", note: "\u6d9b\u7528\u201c\u60a8\u201d\u2014\u2014\u5c0a\u656c\u5f0f\u79f0\u547c" },
-              { speaker: "\u5f20\u8001\u5e08", gender: "male", text: "\u4f60\u597d\uff0c\u6d9b\u540c\u5b66\u3002", translation: "Hello, student Tao.", note: "\u8001\u5e08\u7528\u201c\u4f60\u201d\u2014\u2014\u5bf9\u5b66\u751f\u9002\u5f53" },
-              { speaker: "\u6d9b", gender: "male", text: "\u8001\u5e08\u597d\uff01", translation: "Hello, Teacher!" }
+              { speaker: "\u6d9b", gender: "male", text: "\u60a8\u597d\uff0c\u5f20\u8001\u5e08\u3002", romanization: "N\u00edn h\u01ceo, Zh\u0101ng l\u01ceo sh\u012b.", translation: "Hello, Mr. Zhang.", note: "\u6d9b\u7528\u201c\u60a8\u201d\u2014\u2014\u5c0a\u656c\u5f0f\u79f0\u547c" },
+              { speaker: "\u5f20\u8001\u5e08", gender: "male", text: "\u4f60\u597d\uff0c\u6d9b\u540c\u5b66\u3002", romanization: "N\u01d0 h\u01ceo, T\u0101o t\u00f3ngxu\u00e9.", translation: "Hello, student Tao.", note: "\u8001\u5e08\u7528\u201c\u4f60\u201d\u2014\u2014\u5bf9\u5b66\u751f\u9002\u5f53" },
+              { speaker: "\u6d9b", gender: "male", text: "\u8001\u5e08\u597d\uff01", romanization: "L\u01ceo sh\u012b h\u01ceo!", translation: "Hello, Teacher!" }
             ]
           }
         ],
@@ -1563,28 +1564,28 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             title: "\u05e9\u05dc\u05d5\u05dd \u05e4\u05e9\u05d5\u05d8",
             context: "\u05e0\u05d5\u05e2\u05dd \u05e4\u05d5\u05d2\u05e9 \u05d0\u05ea \u05d9\u05e2\u05dc \u05d1\u05e9\u05db\u05d5\u05e0\u05d4",
             panels: [
-              { speaker: "\u05e0\u05d5\u05e2\u05dd", gender: "male", text: "\u05e9\u05dc\u05d5\u05dd, \u05d9\u05e2\u05dc!", translation: "Hello, Yael!" },
-              { speaker: "\u05d9\u05e2\u05dc", gender: "female", text: "\u05e9\u05dc\u05d5\u05dd, \u05e0\u05d5\u05e2\u05dd! \u05de\u05d4 \u05e0\u05e9\u05de\u05e2?", translation: "Hello, Noam! What's up?" },
-              { speaker: "\u05e0\u05d5\u05e2\u05dd", gender: "male", text: "\u05d4\u05db\u05dc \u05d8\u05d5\u05d1, \u05ea\u05d5\u05d3\u05d4! \u05d5\u05d0\u05ea?", translation: "Everything's good, thanks! And you?" },
-              { speaker: "\u05d9\u05e2\u05dc", gender: "female", text: "\u05d2\u05dd \u05d0\u05e0\u05d9 \u05d1\u05e1\u05d3\u05e8! \u05dc\u05d4\u05ea\u05e8\u05d0\u05d5\u05ea!", translation: "I'm fine too! See you!" }
+              { speaker: "\u05e0\u05d5\u05e2\u05dd", gender: "male", text: "\u05e9\u05dc\u05d5\u05dd, \u05d9\u05e2\u05dc!", romanization: "Shalom, Yael!", translation: "Hello, Yael!" },
+              { speaker: "\u05d9\u05e2\u05dc", gender: "female", text: "\u05e9\u05dc\u05d5\u05dd, \u05e0\u05d5\u05e2\u05dd! \u05de\u05d4 \u05e0\u05e9\u05de\u05e2?", romanization: "Shalom, Noam! Ma nishma?", translation: "Hello, Noam! What's up?" },
+              { speaker: "\u05e0\u05d5\u05e2\u05dd", gender: "male", text: "\u05d4\u05db\u05dc \u05d8\u05d5\u05d1, \u05ea\u05d5\u05d3\u05d4! \u05d5\u05d0\u05ea?", romanization: "Hakol tov, toda! Ve'at?", translation: "Everything's good, thanks! And you?" },
+              { speaker: "\u05d9\u05e2\u05dc", gender: "female", text: "\u05d2\u05dd \u05d0\u05e0\u05d9 \u05d1\u05e1\u05d3\u05e8! \u05dc\u05d4\u05ea\u05e8\u05d0\u05d5\u05ea!", romanization: "Gam ani beseder! Lehitraot!", translation: "I'm fine too! See you!" }
             ]
           },
           {
             title: "\u05e0\u05e2\u05d9\u05dd \u05dc\u05d4\u05db\u05d9\u05e8",
             context: "\u05e0\u05d5\u05e2\u05dd \u05de\u05ea\u05e0\u05d9\u05d4 \u05dc\u05d9\u05e2\u05dc \u05d1\u05e4\u05e2\u05dd \u05d4\u05e8\u05d0\u05e9\u05d5\u05e0\u05d4",
             panels: [
-              { speaker: "\u05e0\u05d5\u05e2\u05dd", gender: "male", text: "\u05e9\u05dc\u05d5\u05dd, \u05e7\u05d5\u05e8\u05d0\u05d9\u05dd \u05dc\u05d9 \u05e0\u05d5\u05e2\u05dd.", translation: "Hello, my name is Noam." },
-              { speaker: "\u05d9\u05e2\u05dc", gender: "female", text: "\u05e0\u05e2\u05d9\u05dd \u05de\u05d0\u05d5\u05d3, \u05e0\u05d5\u05e2\u05dd. \u05d0\u05e0\u05d9 \u05d9\u05e2\u05dc.", translation: "Very pleased to meet you, Noam. I'm Yael." },
-              { speaker: "\u05e0\u05d5\u05e2\u05dd", gender: "male", text: "\u05e0\u05e2\u05d9\u05dd \u05de\u05d0\u05d5\u05d3, \u05d9\u05e2\u05dc.", translation: "Very pleased to meet you, Yael." }
+              { speaker: "\u05e0\u05d5\u05e2\u05dd", gender: "male", text: "\u05e9\u05dc\u05d5\u05dd, \u05e7\u05d5\u05e8\u05d0\u05d9\u05dd \u05dc\u05d9 \u05e0\u05d5\u05e2\u05dd.", romanization: "Shalom, kor'im li Noam.", translation: "Hello, my name is Noam." },
+              { speaker: "\u05d9\u05e2\u05dc", gender: "female", text: "\u05e0\u05e2\u05d9\u05dd \u05de\u05d0\u05d5\u05d3, \u05e0\u05d5\u05e2\u05dd. \u05d0\u05e0\u05d9 \u05d9\u05e2\u05dc.", romanization: "Na'im me'od, Noam. Ani Yael.", translation: "Very pleased to meet you, Noam. I'm Yael." },
+              { speaker: "\u05e0\u05d5\u05e2\u05dd", gender: "male", text: "\u05e0\u05e2\u05d9\u05dd \u05de\u05d0\u05d5\u05d3, \u05d9\u05e2\u05dc.", romanization: "Na'im me'od, Yael.", translation: "Very pleased to meet you, Yael." }
             ]
           },
           {
             title: "\u05db\u05d1\u05d5\u05d3 \u05dc\u05e1\u05d1\u05ea\u05d0",
             context: "\u05e0\u05d5\u05e2\u05dd \u05de\u05d1\u05e7\u05e8 \u05d0\u05ea \u05e1\u05d1\u05ea\u05d0 \u05e9\u05dc\u05d5 \u05d1\u05d7\u05d9\u05d1\u05d4",
             panels: [
-              { speaker: "\u05e0\u05d5\u05e2\u05dd", gender: "male", text: "\u05e9\u05dc\u05d5\u05dd, \u05e1\u05d1\u05ea\u05d0! \u05de\u05d4 \u05e9\u05dc\u05d5\u05de\u05da?", translation: "Hello, Grandma! How are you?", note: "\u05d1\u05e2\u05d1\u05e8\u05d9\u05ea \u05d0\u05d9\u05df \u05db\u05d9\u05e0\u05d5\u05d9 \u05db\u05d1\u05d5\u05d3 \u05de\u05d9\u05d5\u05d7\u05d3 \u2014 \u05d4\u05db\u05d1\u05d5\u05d3 \u05d1\u05d0 \u05d1\u05d7\u05d5\u05dd \u05d5\u05d1\u05de\u05d9\u05dc\u05d9\u05dd \u05e2\u05e6\u05de\u05df" },
-              { speaker: "\u05e1\u05d1\u05ea\u05d0", gender: "female", text: "\u05e9\u05dc\u05d5\u05dd, \u05e0\u05d5\u05e2\u05de\u05d9\u05e7\u05d9! \u05d0\u05e0\u05d9 \u05d1\u05e1\u05d3\u05e8 \u05d2\u05de\u05d5\u05e8, \u05ea\u05d5\u05d3\u05d4.", translation: "Hello, my dear Noam! I'm perfectly fine, thanks.", note: "\u05d4\u05e1\u05d1\u05ea\u05d0 \u05de\u05d1\u05d8\u05d0\u05ea \u05d7\u05d9\u05d1\u05d4 \u05d1\u05de\u05d9\u05dc\u05d9\u05dd \u05d7\u05de\u05d9\u05dd" },
-              { speaker: "\u05e0\u05d5\u05e2\u05dd", gender: "male", text: "\u05e9\u05de\u05d7\u05ea\u05d9 \u05dc\u05e9\u05de\u05d5\u05e2, \u05e1\u05d1\u05ea\u05d0.", translation: "I'm glad to hear that, Grandma." }
+              { speaker: "\u05e0\u05d5\u05e2\u05dd", gender: "male", text: "\u05e9\u05dc\u05d5\u05dd, \u05e1\u05d1\u05ea\u05d0! \u05de\u05d4 \u05e9\u05dc\u05d5\u05de\u05da?", romanization: "Shalom, savta! Ma shlomech?", translation: "Hello, Grandma! How are you?", note: "\u05d1\u05e2\u05d1\u05e8\u05d9\u05ea \u05d0\u05d9\u05df \u05db\u05d9\u05e0\u05d5\u05d9 \u05db\u05d1\u05d5\u05d3 \u05de\u05d9\u05d5\u05d7\u05d3 \u2014 \u05d4\u05db\u05d1\u05d5\u05d3 \u05d1\u05d0 \u05d1\u05d7\u05d5\u05dd \u05d5\u05d1\u05de\u05d9\u05dc\u05d9\u05dd \u05e2\u05e6\u05de\u05df" },
+              { speaker: "\u05e1\u05d1\u05ea\u05d0", gender: "female", text: "\u05e9\u05dc\u05d5\u05dd, \u05e0\u05d5\u05e2\u05de\u05d9\u05e7\u05d9! \u05d0\u05e0\u05d9 \u05d1\u05e1\u05d3\u05e8 \u05d2\u05de\u05d5\u05e8, \u05ea\u05d5\u05d3\u05d4.", romanization: "Shalom, Noa'miki! Ani beseder gamur, toda.", translation: "Hello, my dear Noam! I'm perfectly fine, thanks.", note: "\u05d4\u05e1\u05d1\u05ea\u05d0 \u05de\u05d1\u05d8\u05d0\u05ea \u05d7\u05d9\u05d1\u05d4 \u05d1\u05de\u05d9\u05dc\u05d9\u05dd \u05d7\u05de\u05d9\u05dd" },
+              { speaker: "\u05e0\u05d5\u05e2\u05dd", gender: "male", text: "\u05e9\u05de\u05d7\u05ea\u05d9 \u05dc\u05e9\u05de\u05d5\u05e2, \u05e1\u05d1\u05ea\u05d0.", romanization: "Samachti lishmo'a, savta.", translation: "I'm glad to hear that, Grandma." }
             ]
           }
         ],

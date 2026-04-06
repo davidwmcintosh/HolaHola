@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import { useUser } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
@@ -2479,9 +2480,14 @@ export function ConversationStripsSection({
   chapterType?: string;
   className?: string;
 }) {
+  const { user } = useUser();
+  const nativeLanguage = (user?.nativeLanguage ?? 'english').toLowerCase();
+  const needsTranslation = nativeLanguage !== 'english';
+
   const [playingStripIdx, setPlayingStripIdx] = useState<number | null>(null);
   const [activePanelIdx, setActivePanelIdx] = useState<number | null>(null);
   const [loadingStripIdx, setLoadingStripIdx] = useState<number | null>(null);
+  const [dynamicTranslations, setDynamicTranslations] = useState<Record<string, string>>({});
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const stopRef = useRef(false);
 
@@ -2495,6 +2501,33 @@ export function ConversationStripsSection({
     setActivePanelIdx(null);
     setLoadingStripIdx(null);
   }, []);
+
+  useEffect(() => {
+    if (!needsTranslation || !chapterType) return;
+    const langKey = language as keyof typeof languageChapterData;
+    const langData = languageChapterData[langKey];
+    if (!langData) return;
+    const chapters = langData.chapters as Record<string, { conversationStrips?: Array<{ panels: Array<{ translation: string }> }> }>;
+    const content = chapters[chapterType];
+    if (!content?.conversationStrips?.length) return;
+
+    const allEnglishTexts = content.conversationStrips
+      .flatMap(s => s.panels)
+      .map(p => p.translation)
+      .filter((t, i, arr) => Boolean(t) && !t.startsWith('(') && arr.indexOf(t) === i);
+
+    if (allEnglishTexts.length === 0) return;
+
+    apiRequest('POST', '/api/strip-translation', {
+      texts: allEnglishTexts,
+      targetLanguage: nativeLanguage,
+    })
+      .then(r => r.json())
+      .then((data: { translations: Record<string, string> }) => {
+        if (data?.translations) setDynamicTranslations(data.translations);
+      })
+      .catch(() => {});
+  }, [language, chapterType, nativeLanguage, needsTranslation]);
 
   const playStrip = useCallback(async (
     panels: Array<{ speaker: string; gender?: 'male' | 'female'; text: string }>,
@@ -2629,7 +2662,14 @@ export function ConversationStripsSection({
                       </div>
                       <div className="flex-1">
                         <p className="text-sm font-semibold leading-snug">{panel.text}</p>
-                        <p className="text-xs text-muted-foreground italic mt-1">{panel.translation}</p>
+                        {panel.romanization && (
+                          <p className="text-[11px] text-muted-foreground/70 italic mt-0.5 leading-snug">{panel.romanization}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground italic mt-1">
+                          {needsTranslation && dynamicTranslations[panel.translation]
+                            ? dynamicTranslations[panel.translation]
+                            : panel.translation}
+                        </p>
                         {panel.note && (
                           <p className="text-[10px] text-primary/70 mt-1.5 leading-tight">{panel.note}</p>
                         )}

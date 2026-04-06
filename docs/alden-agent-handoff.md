@@ -1,5 +1,51 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Mon, Apr 6, 2026 (session 37 — Romanization + Dynamic Translation + UI fixes)
+
+### What was done
+
+#### 1. Romanization added to all non-Latin-script conversation strips
+
+`ConversationPanel` now has an optional `romanization?: string` field. Romanized text has been added to all panels in:
+- **Japanese** (ひらがな/カタカナ → Romaji): all 3 strips, all 10 panels
+- **Korean** (한글 → Romanization): all 3 strips, all 10 panels  
+- **Mandarin** (汉字 → Pīnyīn): all 3 strips, all 10 panels
+- **Hebrew** (עברית → Transliteration): all 3 strips, all 10 panels
+
+Rendered in `ChapterIntroduction.tsx` between the target text and translation, as small italic muted text (`text-[11px] text-muted-foreground/70 italic`).
+
+#### 2. Dynamic native-language translation endpoint built (`/api/strip-translation`)
+
+- **Endpoint:** `POST /api/strip-translation` (authenticated)
+- **Request:** `{ texts: string[], targetLanguage: string }`
+- **Response:** `{ translations: Record<string, string> }`
+- **Cache:** In-memory Map keyed by `(targetLanguage)::(text)` — never re-translates the same phrase for the same language pair
+- **Model:** `gpt-4o-mini` with `json_object` response format
+- **Location:** `server/routes.ts` ~line 1812
+
+#### 3. ConversationStripsSection wired to fetch dynamic translations
+
+- `useUser()` added to `ConversationStripsSection` in `ChapterIntroduction.tsx`
+- `nativeLanguage` resolved from `user.nativeLanguage` (default: `'english'`)
+- When `nativeLanguage !== 'english'`: batches all unique strip translation texts → `POST /api/strip-translation` on mount
+- Stores results in `dynamicTranslations` state; renders dynamic translation when available, falls back to static English `panel.translation`
+- Translation skips lines starting with `(` (English usage notes like `(informal hello)`)
+
+#### 4. Chat Review button now admin/developer only
+
+`client/src/pages/chat.tsx`:
+- `useUser` imported from `@/lib/auth`
+- `const { isDeveloper, isAdmin } = useUser()` called at component level
+- Review button (`data-testid="button-review-conversation"`) now conditionally rendered: `{conversationId && (isDeveloper || isAdmin) && (...)}`
+
+#### 5. Incognito button no longer requires active voice connection
+
+`client/src/components/StreamingVoiceChat.tsx`:
+- Removed `&& streamingVoice.state.connectionState === 'connected'` gate
+- Incognito toggle now visible whenever `(isDeveloper || isAdmin) && (learningContext === 'founder-mode' || 'honesty-mode')`
+
+---
+
 ## Session Summary — Mon, Apr 6, 2026 (session 36 — All tutor names corrected + native-language translation discussion)
 
 ### What was done
@@ -23,18 +69,7 @@ All placeholder character names in `client/src/data/chapter-intro-content.ts` re
 
 Contexts updated accordingly (e.g. "Noam meets Yael in the neighborhood", "Tao meets Hua before class").
 
-#### 2. Native-language translation architecture — DISCUSSED, NOT YET IMPLEMENTED
-
-**Problem:** The `translation` field on every `ConversationPanel` is currently hardcoded English. For a student whose native language is Italian learning English, the strip shows "(informal hello)" in English — which doesn't help them. The translation should be in the student's native language.
-
-**User's native language** is stored as `user.nativeLanguage` in the DB (schema line 108) and is available via the auth context on the frontend.
-
-**Approaches ranked by implementation complexity:**
-1. **Dynamic generation (best long-term):** Add a lightweight `/api/strip-translation` endpoint that takes `(text, targetLang)` and returns a cached translation in the student's native language. Cache key = `(text, nativeLang)`. One-time cost per phrase per language pair. Uses existing OpenAI/Google AI infra.
-2. **Pre-store map (clean, expensive data):** Add `translations?: Partial<Record<Language, string>>` to `ConversationPanel` type; pre-fill for all 10×10 pairs. Very verbose but zero runtime cost.
-3. **English with label (minimal, honest):** Show `translation` as-is but add a label "(English)" and a tooltip "Translation in your native language coming soon." Requires zero data changes.
-
-**NEXT AGENT:** Discuss with user which approach to build. Option 1 (dynamic endpoint) is recommended — it's forward-compatible, reuses existing AI billing, and lets us cache at the panel level so it's only ever generated once per pair.
+#### 2. Native-language translation architecture — DISCUSSED, IMPLEMENTED in session 37
 
 ---
 

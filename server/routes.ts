@@ -1806,6 +1806,54 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
+  // ── Strip Translation Endpoint ────────────────────────────────────────────
+  // Translates an array of English conversation-strip lines into the user's native language.
+  // Results are cached in-memory by (text, targetLanguage) to avoid repeat API calls.
+  const stripTranslationCache = new Map<string, string>();
+
+  app.post('/api/strip-translation', isAuthenticated, async (req: any, res) => {
+    try {
+      const { texts, targetLanguage } = req.body as { texts: string[]; targetLanguage: string };
+      if (!Array.isArray(texts) || !targetLanguage) {
+        return res.status(400).json({ message: 'texts[] and targetLanguage are required' });
+      }
+
+      const cacheKey = (t: string) => `${targetLanguage}::${t}`;
+      const translations: Record<string, string> = {};
+      const toTranslate: string[] = [];
+
+      for (const text of texts) {
+        const cached = stripTranslationCache.get(cacheKey(text));
+        if (cached) {
+          translations[text] = cached;
+        } else {
+          toTranslate.push(text);
+        }
+      }
+
+      if (toTranslate.length > 0) {
+        const prompt = `Translate each of the following short English phrases into ${targetLanguage}. Return ONLY a JSON object where each key is the original English phrase and each value is its translation. Do not add any commentary or extra text.\n\n${JSON.stringify(toTranslate)}`;
+        const response = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          response_format: { type: 'json_object' },
+          temperature: 0.2,
+        });
+        const raw = response.choices[0]?.message?.content ?? '{}';
+        const parsed = JSON.parse(raw) as Record<string, string>;
+        for (const [orig, trans] of Object.entries(parsed)) {
+          stripTranslationCache.set(cacheKey(orig), trans);
+          translations[orig] = trans;
+        }
+      }
+
+      res.json({ translations });
+    } catch (error: any) {
+      console.error('[strip-translation] Error:', error);
+      res.status(500).json({ message: 'Translation failed', translations: {} });
+    }
+  });
+
   // Create a new best practice
   app.post('/api/memory/best-practices', isAuthenticated, async (req: any, res) => {
     try {
