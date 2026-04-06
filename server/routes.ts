@@ -11023,9 +11023,10 @@ Return ONLY the ${targetLanguage} phrase:`;
       }
 
       const { resolveVocabularyImage } = await import('./services/vocabulary-image-resolver');
+      const { getVocabSpeakerGender } = await import('./services/vocab-image-seed-service');
 
       const concurrency = 3;
-      const images: Record<string, { url: string; source: string }> = {};
+      const images: Record<string, { url: string; source: string; speakerGender: 'male' | 'female' }> = {};
       
       for (let i = 0; i < vocabItems.length; i += concurrency) {
         const batch = vocabItems.slice(i, i + concurrency);
@@ -11037,17 +11038,18 @@ Return ONLY the ${targetLanguage} phrase:`;
                 language: language as string,
                 description: item.prompt || item.targetText,
               });
-              return { id: item.id, url: result.imageUrl, source: result.source };
+              const speakerGender = getVocabSpeakerGender(item.targetText, language as string);
+              return { id: item.id, url: result.imageUrl, source: result.source, speakerGender };
             } catch (err: any) {
               console.error(`[VocabImages] Failed for "${item.targetText}":`, err.message);
-              return { id: item.id, url: null, source: 'error' };
+              return { id: item.id, url: null, source: 'error', speakerGender: 'female' as const };
             }
           })
         );
         
         for (const r of results) {
           if (r.url) {
-            images[r.id] = { url: r.url, source: r.source };
+            images[r.id] = { url: r.url, source: r.source, speakerGender: r.speakerGender };
           }
         }
       }

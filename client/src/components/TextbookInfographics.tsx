@@ -873,7 +873,7 @@ export function VisualVocabGrid({ lessonId, drills, language }: VisualVocabGridP
   const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
-  const { data, isLoading } = useQuery<{ images: Record<string, { url: string; source: string }> }>({
+  const { data, isLoading } = useQuery<{ images: Record<string, { url: string; source: string; speakerGender?: 'male' | 'female' }> }>({
     queryKey: ['/api/textbook/vocab-images', lessonId, language],
     queryFn: async () => {
       const res = await fetch(`/api/textbook/vocab-images/${lessonId}?language=${language}`);
@@ -985,6 +985,7 @@ export function VisualVocabGrid({ lessonId, drills, language }: VisualVocabGridP
                 <TextAudioPlayButton
                   text={drill.targetText}
                   language={language}
+                  gender={imgData?.speakerGender}
                   size="sm"
                   variant="ghost"
                   className="shrink-0"
