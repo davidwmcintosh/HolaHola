@@ -426,6 +426,7 @@ export class OpenMicSession {
   private isSuppressed = false;
   private lastFinalSegment = '';  // Deduplication: Track last final segment to prevent duplicates
   private emptySpeechFinalTimeout: NodeJS.Timeout | null = null;
+  private lingeringSpeechTimeout: NodeJS.Timeout | null = null;  // Safety net: force utterance end if speech_final never arrives
   private consecutiveEmptyCount = 0;
   private suppressionEndedAt = 0;
   private lastSuccessfulTranscriptAt = 0;
@@ -555,10 +556,14 @@ export class OpenMicSession {
         this.connection.on(LiveTranscriptionEvents.UtteranceEnd, () => {
           console.log(`[OpenMic] Utterance end - transcript: "${this.currentTranscript}"`);
           
-          // Clear the safety timeout since real UtteranceEnd arrived
+          // Clear all pending safety timeouts since real UtteranceEnd arrived
           if (this.emptySpeechFinalTimeout) {
             clearTimeout(this.emptySpeechFinalTimeout);
             this.emptySpeechFinalTimeout = null;
+          }
+          if (this.lingeringSpeechTimeout) {
+            clearTimeout(this.lingeringSpeechTimeout);
+            this.lingeringSpeechTimeout = null;
           }
 
           // DOUBLE-FIRE GUARD: If we already handled an empty utterance immediately
@@ -783,6 +788,26 @@ export class OpenMicSession {
                   clearTimeout(this.emptySpeechFinalTimeout);
                   this.emptySpeechFinalTimeout = null;
                 }
+                
+                // LINGERING TRANSCRIPT SAFETY NET: With `multi` language model, background noise
+                // at ~-66dB keeps Deepgram's VAD active, preventing speech_final from ever firing
+                // for real speech. Without this timer, the transcript accumulates but is never
+                // submitted — Cindy never responds. If speech_final doesn't arrive within 3s
+                // after a real final transcript, force-submit via utterance end.
+                if (!this.isSuppressed) {
+                  if (this.lingeringSpeechTimeout) clearTimeout(this.lingeringSpeechTimeout);
+                  this.lingeringSpeechTimeout = setTimeout(() => {
+                    this.lingeringSpeechTimeout = null;
+                    if (this.isSuppressed || !this.currentTranscript.trim()) return;
+                    console.log(`[OpenMic] LINGERING SAFETY: speech_final never arrived — forcing utterance end for: "${this.currentTranscript}"`);
+                    this.events.onUtteranceEnd?.(this.currentTranscript.trim(), this.currentConfidence, Object.keys(this.currentIntelligence).length > 0 ? this.currentIntelligence : undefined);
+                    this.currentTranscript = '';
+                    this.currentConfidence = 0;
+                    this.currentIntelligence = {};
+                    this.lastFinalSegment = '';
+                    this.bestInterimForSegment = '';
+                  }, 3000);
+                }
                 // CRITICAL: Also notify PTT handler of accumulated transcript
                 // This ensures PTT mode sees the full accumulated text, not just interim fragments
                 this.events.onInterimTranscript?.(this.currentTranscript);
@@ -823,6 +848,11 @@ export class OpenMicSession {
           // This gives users more time to pause and think without being cut off
           if (data.speech_final) {
             console.log(`[OpenMic] Speech final detected (NOT auto-submitting - waiting for UtteranceEnd)`);
+            // Cancel lingering safety — speech_final arrived, UtteranceEnd will handle submission
+            if (this.lingeringSpeechTimeout) {
+              clearTimeout(this.lingeringSpeechTimeout);
+              this.lingeringSpeechTimeout = null;
+            }
             
             // EARLY THINKING SIGNAL: Notify client immediately that user has finished a phrase
             // This fires ~1.4s before UtteranceEnd, allowing the UI to show "thinking" sooner
@@ -1007,6 +1037,10 @@ export class OpenMicSession {
     if (this.emptySpeechFinalTimeout) {
       clearTimeout(this.emptySpeechFinalTimeout);
       this.emptySpeechFinalTimeout = null;
+    }
+    if (this.lingeringSpeechTimeout) {
+      clearTimeout(this.lingeringSpeechTimeout);
+      this.lingeringSpeechTimeout = null;
     }
     
     if (this.connection) {
