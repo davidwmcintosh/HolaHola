@@ -26,6 +26,7 @@ export interface ConversationPanel {
   text: string;
   translation: string;
   note?: string;
+  image?: string;
 }
 
 export interface ConversationStrip {
@@ -98,29 +99,28 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             title: "A Casual Hello",
             context: "Marco runs into his tutor Daniela between classes",
             panels: [
-              { speaker: "Marco", text: "\u00a1Hola, Daniela!", translation: "Hi, Daniela!" },
-              { speaker: "Daniela", text: "\u00a1Hola, Marco! \u00bfC\u00f3mo est\u00e1s?", translation: "Hi, Marco! How are you?" },
-              { speaker: "Marco", text: "\u00a1Muy bien, gracias! \u00bfY t\u00fa?", translation: "Very well, thanks! And you?" },
-              { speaker: "Daniela", text: "\u00a1Bien! \u00a1Hasta luego!", translation: "Good! See you later!" }
+              { speaker: "Marco", text: "\u00a1Hola, Daniela!", translation: "Hi, Daniela!", image: "/strips/panel-0-0.png" },
+              { speaker: "Daniela", text: "\u00a1Hola, Marco! \u00bfC\u00f3mo est\u00e1s?", translation: "Hi, Marco! How are you?", image: "/strips/panel-0-1.png" },
+              { speaker: "Marco", text: "\u00a1Muy bien, gracias! \u00bfY t\u00fa?", translation: "Very well, thanks! And you?", image: "/strips/panel-0-2.png" },
+              { speaker: "Daniela", text: "\u00a1Bien! \u00a1Hasta luego!", translation: "Good! See you later!", image: "/strips/panel-0-3.png" }
             ]
           },
           {
             title: "Nice to Meet You",
             context: "Marco introduces himself to Daniela on the first day",
             panels: [
-              { speaker: "Marco", text: "Hola, me llamo Marco.", translation: "Hi, my name is Marco." },
-              { speaker: "Daniela", text: "Mucho gusto, Marco. Soy Daniela.", translation: "Nice to meet you, Marco. I'm Daniela." },
-              { speaker: "Marco", text: "El gusto es m\u00edo.", translation: "The pleasure is mine." }
+              { speaker: "Marco", text: "Hola, me llamo Marco.", translation: "Hi, my name is Marco.", image: "/strips/panel-1-0.png" },
+              { speaker: "Daniela", text: "Mucho gusto, Marco. Soy Daniela.", translation: "Nice to meet you, Marco. I'm Daniela.", image: "/strips/panel-1-1.png" },
+              { speaker: "Marco", text: "El gusto es m\u00edo.", translation: "The pleasure is mine.", image: "/strips/panel-1-2.png" }
             ]
           },
-
           {
             title: "With Grandma \u2014 The Formal Register",
             context: "Marco visits Rosa, his grandmother, always addressing her with 'usted'",
             panels: [
-              { speaker: "Marco", text: "Buenos d\u00edas, abuela. \u00bfC\u00f3mo est\u00e1 usted?", translation: "Good morning, Grandma. How are you?", note: "Marco uses 'usted' — respect for elders" },
-              { speaker: "Rosa", text: "Muy bien, gracias, Marco. \u00bfY t\u00fa?", translation: "Very well, thanks, Marco. And you?", note: "Grandma uses 't\u00fa' back — she's the elder" },
-              { speaker: "Marco", text: "Bien, gracias, abuela.", translation: "Fine, thank you, Grandma." }
+              { speaker: "Marco", text: "Buenos d\u00edas, abuela. \u00bfC\u00f3mo est\u00e1 usted?", translation: "Good morning, Grandma. How are you?", note: "Marco uses 'usted' — respect for elders", image: "/strips/panel-2-0.png" },
+              { speaker: "Rosa", text: "Muy bien, gracias, Marco. \u00bfY t\u00fa?", translation: "Very well, thanks, Marco. And you?", note: "Grandma uses 't\u00fa' back — she's the elder", image: "/strips/panel-2-1.png" },
+              { speaker: "Marco", text: "Bien, gracias, abuela.", translation: "Fine, thank you, Grandma.", image: "/strips/panel-2-2.png" }
             ]
           }
         ]

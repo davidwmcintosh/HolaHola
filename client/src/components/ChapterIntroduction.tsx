@@ -2503,21 +2503,30 @@ export function ConversationStripsSection({
                 <h4 className="font-semibold text-sm">{strip.title}</h4>
                 <p className="text-xs text-muted-foreground italic mt-0.5">{strip.context}</p>
               </div>
-              <div className="flex items-stretch gap-2 overflow-x-auto pb-1 flex-wrap sm:flex-nowrap" data-testid={`strip-panels-${sIdx}`}>
+              <div className="flex items-stretch gap-2 overflow-x-auto pb-1" data-testid={`strip-panels-${sIdx}`}>
                 {strip.panels.flatMap((panel, pIdx) => [
-                  <div key={`p-${pIdx}`} className="flex-shrink-0 w-[140px] sm:w-[155px] border border-border/50 rounded-md p-3 flex flex-col gap-2 bg-background" data-testid={`panel-${sIdx}-${pIdx}`}>
-                    <div className="flex items-center gap-1.5">
-                      <div className={`w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 ${colorMap.get(panel.speaker) || 'bg-gray-500'}`}>
-                        {panel.speaker[0].toUpperCase()}
+                  <div key={`p-${pIdx}`} className="flex-shrink-0 w-[160px] border border-border/50 rounded-md flex flex-col bg-background overflow-hidden" data-testid={`panel-${sIdx}-${pIdx}`}>
+                    {panel.image && (
+                      <img
+                        src={panel.image}
+                        alt={`${panel.speaker} — ${panel.text}`}
+                        className="w-full h-36 object-cover object-top"
+                      />
+                    )}
+                    <div className="px-2.5 pt-2 pb-2.5 flex flex-col gap-1.5 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <div className={`w-4 h-4 rounded-full flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0 ${colorMap.get(panel.speaker) || 'bg-gray-500'}`}>
+                          {panel.speaker[0].toUpperCase()}
+                        </div>
+                        <span className="text-[11px] text-muted-foreground font-medium truncate">{panel.speaker}</span>
                       </div>
-                      <span className="text-[11px] text-muted-foreground font-medium truncate">{panel.speaker}</span>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold leading-snug">{panel.text}</p>
-                      <p className="text-xs text-muted-foreground italic mt-1">{panel.translation}</p>
-                      {panel.note && (
-                        <p className="text-[10px] text-primary/70 mt-1.5 leading-tight">{panel.note}</p>
-                      )}
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold leading-snug">{panel.text}</p>
+                        <p className="text-xs text-muted-foreground italic mt-1">{panel.translation}</p>
+                        {panel.note && (
+                          <p className="text-[10px] text-primary/70 mt-1.5 leading-tight">{panel.note}</p>
+                        )}
+                      </div>
                     </div>
                   </div>,
                   pIdx < strip.panels.length - 1 ? (

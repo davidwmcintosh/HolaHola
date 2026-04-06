@@ -1,0 +1,62 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "6DfwcDb6F9DVojCmGFfCH"
+uri = "file://client/public/strips/panel-0-0.png"
+type = "image"
+title = "Marco waving hello"
+
+[[generated]]
+id = "6KE5czQs8qrnyXkJGEGQo"
+uri = "file://client/public/strips/panel-0-1.png"
+type = "image"
+title = "Daniela happy greeting"
+
+[[generated]]
+id = "2dtXVUr8rFUz3E8g6mFo0"
+uri = "file://client/public/strips/panel-0-2.png"
+type = "image"
+title = "Marco thumbs up"
+
+[[generated]]
+id = "ptm-iZxpOCDGYXOFe95Bv"
+uri = "file://client/public/strips/panel-0-3.png"
+type = "image"
+title = "Daniela waving goodbye"
+
+[[generated]]
+id = "YxAVgHDGr_sKNKjExNtSh"
+uri = "file://client/public/strips/panel-1-0.png"
+type = "image"
+title = "Marco introducing himself"
+
+[[generated]]
+id = "cqM_IgmbhHBsloj9EoMAS"
+uri = "file://client/public/strips/panel-1-1.png"
+type = "image"
+title = "Daniela nice to meet you"
+
+[[generated]]
+id = "ymD6QS0vmjCDXeRlTooTW"
+uri = "file://client/public/strips/panel-1-2.png"
+type = "image"
+title = "Marco pleased expression"
+
+[[generated]]
+id = "pXJUfIwTZgeTzmDkmOUVm"
+uri = "file://client/public/strips/panel-2-0.png"
+type = "image"
+title = "Marco formal greeting grandma"
+
+[[generated]]
+id = "xpoqvFaMdLSC_rPE2IYaR"
+uri = "file://client/public/strips/panel-2-1.png"
+type = "image"
+title = "Rosa grandma welcoming"
+
+[[generated]]
+id = "L0NY3MicOyxwppWkEHbhN"
+uri = "file://client/public/strips/panel-2-2.png"
+type = "image"
+title = "Marco smiling at grandma"
