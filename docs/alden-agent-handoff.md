@@ -1,5 +1,43 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Mon, Apr 6, 2026 (session 36 — All tutor names corrected + native-language translation discussion)
+
+### What was done
+
+#### 1. All 10 language conversation strips now use correct tutor names
+
+All placeholder character names in `client/src/data/chapter-intro-content.ts` replaced with actual seeded tutor names:
+
+| Language | Female tutor (in strips) | Male tutor (in strips) | Formal 3rd character |
+|----------|--------------------------|------------------------|----------------------|
+| Spanish | Daniela | Agustín | (already correct) |
+| French | Juliette | Vincent | M. Dupont |
+| German | Greta | Lukas | Oma |
+| Italian | Liv | Luca | Nonna Rosa |
+| Japanese | 小百合 (Sayuri) | 大輔 (Daisuke) | 田中先生 |
+| Korean | 지현 (Jihyun) | 민호 (Minho) | 할머니 |
+| Mandarin | 华 (Hua) | 涛 (Tao) | 张老师 |
+| Portuguese | Isabel | Camilo | Sr. Oliveira |
+| English | Cindy | Blake | Mr. Thompson |
+| Hebrew | יעל (Yael) | נועם (Noam) | סבתא |
+
+Contexts updated accordingly (e.g. "Noam meets Yael in the neighborhood", "Tao meets Hua before class").
+
+#### 2. Native-language translation architecture — DISCUSSED, NOT YET IMPLEMENTED
+
+**Problem:** The `translation` field on every `ConversationPanel` is currently hardcoded English. For a student whose native language is Italian learning English, the strip shows "(informal hello)" in English — which doesn't help them. The translation should be in the student's native language.
+
+**User's native language** is stored as `user.nativeLanguage` in the DB (schema line 108) and is available via the auth context on the frontend.
+
+**Approaches ranked by implementation complexity:**
+1. **Dynamic generation (best long-term):** Add a lightweight `/api/strip-translation` endpoint that takes `(text, targetLang)` and returns a cached translation in the student's native language. Cache key = `(text, nativeLang)`. One-time cost per phrase per language pair. Uses existing OpenAI/Google AI infra.
+2. **Pre-store map (clean, expensive data):** Add `translations?: Partial<Record<Language, string>>` to `ConversationPanel` type; pre-fill for all 10×10 pairs. Very verbose but zero runtime cost.
+3. **English with label (minimal, honest):** Show `translation` as-is but add a label "(English)" and a tooltip "Translation in your native language coming soon." Requires zero data changes.
+
+**NEXT AGENT:** Discuss with user which approach to build. Option 1 (dynamic endpoint) is recommended — it's forward-compatible, reuses existing AI billing, and lets us cache at the panel level so it's only ever generated once per pair.
+
+---
+
 ## Session Summary — Mon, Apr 6, 2026 (session 35 — Multi-Language Conversation Strips + Tutor Voice Fix)
 
 ### What was done
@@ -42,12 +80,12 @@ All remaining languages received 3 conversation strips each for their `greetings
 
 | Language | Characters | Strips |
 |----------|-----------|--------|
-| Japanese | 健二 (m) + 雪 (f); 田中先生 (m formal) | 気軽な挨拶, はじめまして, 先生への挨拶 |
-| Korean | 민준 (m) + 수연 (f); 할머니 (f formal) | 편한 인사, 만나서 반가워요, 할머니께 |
-| Mandarin | 伟 (m) + 琳 (f); 张老师 (m formal) | 日常问候, 初次见面, 尊敬师长 |
-| Portuguese | Carlos (m) + Sofia (f); Sr. Oliveira (m formal) | Cumprimento Casual, Muito Prazer, Na Empresa |
-| English | Alex (m) + Emma (f); Mr. Thompson (m formal) | A Casual Hello, Nice to Meet You, A Formal Introduction |
-| Hebrew | דניאל (m) + מיה (f); סבתא (f family) | שלום פשוט, נעים להכיר, כבוד לסבתא |
+| Japanese | 大輔/Daisuke (m) + 小百合/Sayuri (f); 田中先生 (m formal) | 気軽な挨拶, はじめまして, 先生への挨拶 |
+| Korean | 민호/Minho (m) + 지현/Jihyun (f); 할머니 (f formal) | 편한 인사, 만나서 반가워요, 할머니께 |
+| Mandarin | 涛/Tao (m) + 华/Hua (f); 张老师 (m formal) | 日常问候, 初次见面, 尊敬师长 |
+| Portuguese | Camilo (m) + Isabel (f); Sr. Oliveira (m formal) | Cumprimento Casual, Muito Prazer, Na Empresa |
+| English | Blake (m) + Cindy (f); Mr. Thompson (m formal) | A Casual Hello, Nice to Meet You, A Formal Introduction |
+| Hebrew | נועם/Noam (m) + יעל/Yael (f); סבתא (f family) | שלום פשוט, נעים להכיר, כבוד לסבתא |
 
 **Note on English strips:** Since the target text IS the language, `translation` fields are used for parenthetical usage notes (e.g. "(casual: How are you?)" "(mirroring the formal register is always safe)") instead of a native-language translation.
 
