@@ -36,11 +36,27 @@ All strip panels have explicit `gender: 'male' | 'female'` fields so the sequent
 - Sequential audio player with Play/Stop button, 450ms pause between speakers, active panel ring highlight.
 - `ConversationPanel` type has `gender?: 'male' | 'female'`.
 
+#### 3. Conversation strips completed for ALL 10 languages (session 35 continued)
+
+All remaining languages received 3 conversation strips each for their `greetings` chapter. Audio-only (no `image` field). All panels carry `gender: 'male' | 'female'`.
+
+| Language | Characters | Strips |
+|----------|-----------|--------|
+| Japanese | 健二 (m) + 雪 (f); 田中先生 (m formal) | 気軽な挨拶, はじめまして, 先生への挨拶 |
+| Korean | 민준 (m) + 수연 (f); 할머니 (f formal) | 편한 인사, 만나서 반가워요, 할머니께 |
+| Mandarin | 伟 (m) + 琳 (f); 张老师 (m formal) | 日常问候, 初次见面, 尊敬师长 |
+| Portuguese | Carlos (m) + Sofia (f); Sr. Oliveira (m formal) | Cumprimento Casual, Muito Prazer, Na Empresa |
+| English | Alex (m) + Emma (f); Mr. Thompson (m formal) | A Casual Hello, Nice to Meet You, A Formal Introduction |
+| Hebrew | דניאל (m) + מיה (f); סבתא (f family) | שלום פשוט, נעים להכיר, כבוד לסבתא |
+
+**Note on English strips:** Since the target text IS the language, `translation` fields are used for parenthetical usage notes (e.g. "(casual: How are you?)" "(mirroring the formal register is always safe)") instead of a native-language translation.
+
+**Note on Hebrew strips:** Hebrew has no formal pronoun like usted/vous/Sie. The formal register strip shows warmth through vocabulary and terms of endearment rather than pronoun switch.
+
 ### NEXT TASK / OPEN ITEMS
 - **Character image/voice mismatch (known issue):** Some vocab images show a male character but audio uses female tutor voice (or vice versa). Happens when the image was generated with one tutorGender but user has switched. No immediate fix — documented.
 - **Spanish strip images:** 10 panel images still in `client/public/strips/`. Decision pending on whether to keep or remove; they show for Spanish but not for other languages.
-- **Portuguese conversation strips:** Not yet added — same audio-only pattern as FR/DE/IT.
-- **Other languages (Japanese, Korean, Mandarin, Hebrew, Portuguese):** No greetings `conversationStrips` yet.
+- **All 10 languages have conversation strips:** Feature complete for greetings chapter.
 
 ---
 

@@ -743,6 +743,36 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             tip: "Start with polite '\u3067\u3059/\u307e\u3059' forms in every new situation. Japanese speakers will appreciate your effort and may invite you to speak more casually!"
           }
         ],
+        conversationStrips: [
+          {
+            title: "\u6c17\u8efd\u306a\u6319\u62f6\u3064",
+            context: "\u5065\u4e8c\u304c\u96ea\u306b\u6388\u696d\u524d\u306b\u4f1a\u3046",
+            panels: [
+              { speaker: "\u5065\u4e8c", gender: "male", text: "\u3084\u3042\u3001\u96ea\uff01", translation: "Hey, Yuki!" },
+              { speaker: "\u96ea", gender: "female", text: "\u3042\u3001\u5065\u4e8c\uff01\u5143\u6c17\uff1f", translation: "Oh, Kenji! Are you okay?" },
+              { speaker: "\u5065\u4e8c", gender: "male", text: "\u5143\u6c17\u3060\u3088\uff01\u541b\u306f\uff1f", translation: "Yeah, I'm good! And you?" },
+              { speaker: "\u96ea", gender: "female", text: "\u79c1\u3082\u5143\u6c17\uff01\u3058\u3083\u3042\u306d\uff01", translation: "Me too! See you!" }
+            ]
+          },
+          {
+            title: "\u306f\u3058\u3081\u307e\u3057\u3066",
+            context: "\u5065\u4e8c\u304c\u96ea\u306b\u81ea\u5df1\u7d39\u4ecb\u3059\u308b",
+            panels: [
+              { speaker: "\u5065\u4e8c", gender: "male", text: "\u306f\u3058\u3081\u307e\u3057\u3066\u3002\u5065\u4e8c\u3068\u3044\u3044\u307e\u3059\u3002", translation: "Nice to meet you. My name is Kenji." },
+              { speaker: "\u96ea", gender: "female", text: "\u306f\u3058\u3081\u307e\u3057\u3066\u3002\u96ea\u3067\u3059\u3002\u3088\u308d\u3057\u304f\u304a\u9858\u3044\u3057\u307e\u3059\u3002", translation: "Nice to meet you. I'm Yuki. I'm in your care." },
+              { speaker: "\u5065\u4e8c", gender: "male", text: "\u3053\u3061\u3089\u3053\u305d\u3001\u3088\u308d\u3057\u304f\u304a\u9858\u3044\u3057\u307e\u3059\u3002", translation: "Likewise, I'm in your care." }
+            ]
+          },
+          {
+            title: "\u5148\u751f\u3078\u306e\u6319\u62f6\u3064 \u2014 \u4e01\u5be7\u8a9e",
+            context: "\u5065\u4e8c\u304c\u7530\u4e2d\u5148\u751f\u3092\u4e01\u5be7\u8a9e\u3067\u6319\u62f6\u3064\u3059\u308b",
+            panels: [
+              { speaker: "\u5065\u4e8c", gender: "male", text: "\u5148\u751f\u3001\u304a\u306f\u3088\u3046\u3054\u3056\u3044\u307e\u3059\u3002", translation: "Good morning, Sensei.", note: "Using the polite -gozaimasu form for a teacher" },
+              { speaker: "\u7530\u4e2d\u5148\u751f", gender: "male", text: "\u304a\u306f\u3088\u3046\u3001\u5065\u4e8c\u304f\u3093\u3002", translation: "Good morning, Kenji.", note: "Teacher uses casual form — appropriate asymmetry" },
+              { speaker: "\u5065\u4e8c", gender: "male", text: "\u3088\u308d\u3057\u304f\u304a\u9858\u3044\u3044\u305f\u3057\u307e\u3059\u3002", translation: "I'm in your care.", note: "-itashimasu makes it even more respectful" }
+            ]
+          }
+        ],
         culturalSpotlight: {
           title: "\u304a\u8f9e\u5100 (Ojigi) \u2014 The Bow",
           content: "Bowing is the Japanese greeting par excellence. It communicates respect, gratitude, apology, and greeting all at once. There are three main types: the 15-degree 'eshaku' (casual), the 30-degree 'keirei' (respectful), and the 45-degree 'saikeirei' (deep respect). Mastering the bow is mastering Japanese social language."
@@ -874,6 +904,36 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             content: "Korean has seven speech levels, but the most important distinction is between polite formal ('\u2014\uc2b5\ub2c8\ub2e4'), polite informal ('\u2014\uc694'), and casual ('\u2014\uc544/\uc5b4'). Age and social status determine which level you use. Using casual speech with an elder is a serious social misstep.",
             infographic: 'formalInformal',
             tip: "Always use polite speech ('\u2014\uc694' endings) when meeting someone new. It's the safest default until you know the social dynamics."
+          }
+        ],
+        conversationStrips: [
+          {
+            title: "\ud3b8\ud55c \uc778\uc0ac",
+            context: "\ubbfc\uc900\uc774 \ubcf5\ub3c4\uc5d0\uc11c \uc218\uc5f0\uc744 \ub9cc\ub098\ub2e4",
+            panels: [
+              { speaker: "\ubbfc\uc900", gender: "male", text: "\uc218\uc5f0\uc544, \uc548\ub155!", translation: "Sooyeon, hi!" },
+              { speaker: "\uc218\uc5f0", gender: "female", text: "\uc5b4, \ubbfc\uc900\uc544! \uc798 \uc9c0\ub0b4?", translation: "Oh, Minjun! Are you doing well?" },
+              { speaker: "\ubbfc\uc900", gender: "male", text: "\uc751, \uc798 \uc9c0\ub0b4. \ub108\ub294?", translation: "Yeah, doing well. And you?" },
+              { speaker: "\uc218\uc5f0", gender: "female", text: "\ub098\ub3c4 \uc798 \uc9c0\ub0b4! \ub098\uc911\uc5d0 \ubd10!", translation: "I'm doing well too! See you later!" }
+            ]
+          },
+          {
+            title: "\ub9cc\ub098\uc11c \ubc18\uac00\uc6cc\uc694",
+            context: "\ubbfc\uc900\uc774 \uc218\uc5f0\uc5d0\uac8c \uc2a4\uc2a4\ub85c \uc18c\uac1c\ud55c\ub2e4",
+            panels: [
+              { speaker: "\ubbfc\uc900", gender: "male", text: "\uc548\ub155\ud558\uc138\uc694. \uc800\ub294 \ubbfc\uc900\uc774\uc5d0\uc694.", translation: "Hello. I'm Minjun." },
+              { speaker: "\uc218\uc5f0", gender: "female", text: "\uc548\ub155\ud558\uc138\uc694, \ubbfc\uc900 \uc528. \uc800\ub294 \uc218\uc5f0\uc774\uc5d0\uc694.", translation: "Hello, Minjun. I'm Sooyeon." },
+              { speaker: "\ubbfc\uc900", gender: "male", text: "\ub9cc\ub098\uc11c \ubc18\uac00\uc6cc\uc694, \uc218\uc5f0 \uc528.", translation: "Nice to meet you, Sooyeon." }
+            ]
+          },
+          {
+            title: "\ud560\uba38\ub2c8\uaed8 \u2014 \uc874\ub313\ub9d0",
+            context: "\ubbfc\uc900\uc774 \ud560\uba38\ub2c8\ub97c \uacf5\uc2dd\uccb4\ub85c \uc778\uc0ac\ub4dc\ub9b0\ub2e4",
+            panels: [
+              { speaker: "\ubbfc\uc900", gender: "male", text: "\uc548\ub155\ud788 \uacc4\uc168\uc5b4\uc694, \ud560\uba38\ub2c8?", translation: "Have you been well, Grandma?", note: "\ubbfc\uc900\uc740 \ucc9c\uc5b4\uc6c3\uc5b4\ub978\uaed8 \ud569\uc1fc\uccb4(\uacf5\uc2dd \uacbd\uc5b4)\ub97c \uc4f4\ub2e4" },
+              { speaker: "\ud560\uba38\ub2c8", gender: "female", text: "\uadf8\ub798, \ubbfc\uc900\uc544. \uc798 \uc9c0\ub0b4\uc73c\uc5c8\ub2c8?", translation: "Yes, Minjun. Have you been well?", note: "\ud560\uba38\ub2c8\ub294 \ud574\uccb4(\ub9e4\uc6b0 \uce5c\uadfc\ud55c)\ub97c \uc4f4\ub2e4 \u2014 \uc5b4\ub978\uc758 \ud2b9\uad8c" },
+              { speaker: "\ubbfc\uc900", gender: "male", text: "\ub124, \ub355\ubd84\uc5d0 \uc798 \uc9c0\ub0b4\uc5b4\uc694.", translation: "Yes, I've been well, thanks to you." }
+            ]
           }
         ],
         culturalSpotlight: {
@@ -1009,6 +1069,36 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             tip: "Chinese politeness relies heavily on titles. Address people as '\u8001\u5e08' (l\u01ceo sh\u012b \u2014 teacher), '\u5148\u751f' (xi\u0101n sheng \u2014 Mr.), or '\u5973\u58eb' (n\u01da sh\u00ec \u2014 Ms.) to show respect."
           }
         ],
+        conversationStrips: [
+          {
+            title: "\u65e5\u5e38\u95ee\u5019",
+            context: "\u4f1f\u5728\u8bfe\u524d\u9047\u5230\u7433",
+            panels: [
+              { speaker: "\u4f1f", gender: "male", text: "\u55e8\uff0c\u7433\uff01", translation: "Hey, Lin!" },
+              { speaker: "\u7433", gender: "female", text: "\u54e6\uff0c\u4f1f\uff01\u4f60\u597d\u5417\uff1f", translation: "Oh, Wei! How are you?" },
+              { speaker: "\u4f1f", gender: "male", text: "\u6211\u5f88\u597d\uff0c\u8c22\u8c22\uff01\u4f60\u5462\uff1f", translation: "I'm great, thanks! And you?" },
+              { speaker: "\u7433", gender: "female", text: "\u6211\u4e5f\u5f88\u597d\uff01\u5f85\u4f1a\u89c1\uff01", translation: "I'm good too! See you later!" }
+            ]
+          },
+          {
+            title: "\u521d\u6b21\u89c1\u9762",
+            context: "\u4f1f\u7b2c\u4e00\u6b21\u5411\u7433\u4ecb\u7ecd\u81ea\u5df1",
+            panels: [
+              { speaker: "\u4f1f", gender: "male", text: "\u4f60\u597d\uff0c\u6211\u53eb\u4f1f\u3002", translation: "Hello, my name is Wei." },
+              { speaker: "\u7433", gender: "female", text: "\u4f60\u597d\uff0c\u4f1f\u3002\u6211\u662f\u7433\u3002\u8ba4\u8bc6\u4f60\u5f88\u9ad8\u5174\u3002", translation: "Hello, Wei. I'm Lin. Nice to meet you." },
+              { speaker: "\u4f1f", gender: "male", text: "\u8ba4\u8bc6\u4f60\u6211\u4e5f\u5f88\u9ad8\u5174\u3002", translation: "Nice to meet you too." }
+            ]
+          },
+          {
+            title: "\u5c0a\u656c\u5e08\u9577 \u2014 \u6b63\u5f0f\u95ee\u5019",
+            context: "\u4f1f\u7528\u60a8\u5411\u5f20\u8001\u5e08\u6b63\u5f0f\u95ee\u5019",
+            panels: [
+              { speaker: "\u4f1f", gender: "male", text: "\u60a8\u597d\uff0c\u5f20\u8001\u5e08\u3002", translation: "Hello, Mr. Zhang.", note: "\u4f1f\u7528\u201c\u60a8\u201d\u2014\u2014\u5c0a\u656c\u5f0f\u79f0\u547c" },
+              { speaker: "\u5f20\u8001\u5e08", gender: "male", text: "\u4f60\u597d\uff0c\u4f1f\u540c\u5b66\u3002", translation: "Hello, student Wei.", note: "\u8001\u5e08\u7528\u201c\u4f60\u201d\u2014\u2014\u5bf9\u5b66\u751f\u9002\u5f53" },
+              { speaker: "\u4f1f", gender: "male", text: "\u8001\u5e08\u597d\uff01", translation: "Hello, Teacher!" }
+            ]
+          }
+        ],
         culturalSpotlight: {
           title: "\u62f1\u624b (G\u01d2ng Sh\u01d2u) \u2014 The Clasped Hands",
           content: "The traditional Chinese greeting '\u62f1\u624b' involves clasping one's hands together (left over right) and raising them slightly while bowing. Though less common in daily life today, it's still used during Chinese New Year and formal ceremonies. It represents respect and peace \u2014 the covered fist symbolizing restraint and goodwill."
@@ -1140,6 +1230,36 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             content: "Portuguese uses 'voc\u00ea' (informal) and 'o senhor/a senhora' (formal) to distinguish between casual and respectful address. In Brazil, 'voc\u00ea' is widely used even in semi-formal settings, while Portugal retains more formal distinctions with 'tu' for friends and 'voc\u00ea' for acquaintances.",
             infographic: 'formalInformal',
             tip: "Brazilian Portuguese is generally less formal than European Portuguese \u2014 but always use 'o senhor/a senhora' with elderly people."
+          }
+        ],
+        conversationStrips: [
+          {
+            title: "Um Cumprimento Casual",
+            context: "Carlos encontra Sofia antes da aula",
+            panels: [
+              { speaker: "Carlos", gender: "male", text: "Oi, Sofia!", translation: "Hi, Sofia!" },
+              { speaker: "Sofia", gender: "female", text: "Oi, Carlos! Tudo bem?", translation: "Hi, Carlos! All good?" },
+              { speaker: "Carlos", gender: "male", text: "Tudo \u00f3timo, obrigado! E voc\u00ea?", translation: "Everything's great, thanks! And you?" },
+              { speaker: "Sofia", gender: "female", text: "Tudo bem! At\u00e9 logo!", translation: "All good! See you later!" }
+            ]
+          },
+          {
+            title: "Muito Prazer",
+            context: "Carlos se apresenta para Sofia no primeiro dia",
+            panels: [
+              { speaker: "Carlos", gender: "male", text: "Ol\u00e1, me chamo Carlos.", translation: "Hello, my name is Carlos." },
+              { speaker: "Sofia", gender: "female", text: "Muito prazer, Carlos. Eu sou a Sofia.", translation: "Nice to meet you, Carlos. I'm Sofia." },
+              { speaker: "Carlos", gender: "male", text: "O prazer \u00e9 meu, Sofia.", translation: "The pleasure is mine, Sofia." }
+            ]
+          },
+          {
+            title: "Na Empresa \u2014 Registro Formal",
+            context: "Carlos cumprimenta o Sr. Oliveira numa reuni\u00e3o de trabalho",
+            panels: [
+              { speaker: "Carlos", gender: "male", text: "Bom dia, senhor Oliveira. Me chamo Carlos Silva.", translation: "Good morning, Mr. Oliveira. My name is Carlos Silva.", note: "Carlos uses 'senhor' — the formal register" },
+              { speaker: "Sr. Oliveira", gender: "male", text: "Bom dia, senhor Silva. \u00c9 um prazer conhec\u00ea-lo.", translation: "Good morning, Mr. Silva. It's a pleasure to meet you.", note: "Mutual 'senhor' — standard in Brazilian professional settings" },
+              { speaker: "Carlos", gender: "male", text: "O prazer \u00e9 meu, senhor Oliveira.", translation: "The pleasure is mine, Mr. Oliveira." }
+            ]
           }
         ],
         culturalSpotlight: {
@@ -1275,6 +1395,36 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             tip: "English speakers often use indirect language for politeness: 'Would you mind...?' and 'I was wondering if...' soften requests beautifully."
           }
         ],
+        conversationStrips: [
+          {
+            title: "A Casual Hello",
+            context: "Alex runs into Emma between classes",
+            panels: [
+              { speaker: "Alex", gender: "male", text: "Hey, Emma!", translation: "(informal hello)" },
+              { speaker: "Emma", gender: "female", text: "Hey, Alex! How's it going?", translation: "(casual: How are you?)" },
+              { speaker: "Alex", gender: "male", text: "Pretty good, thanks! You?", translation: "(short for: And how are you?)" },
+              { speaker: "Emma", gender: "female", text: "Great! See you later!", translation: "(friendly goodbye)" }
+            ]
+          },
+          {
+            title: "Nice to Meet You",
+            context: "Alex introduces himself to Emma on the first day",
+            panels: [
+              { speaker: "Alex", gender: "male", text: "Hi, I'm Alex.", translation: "(casual introduction)" },
+              { speaker: "Emma", gender: "female", text: "Nice to meet you, Alex. I'm Emma.", translation: "(friendly response)" },
+              { speaker: "Alex", gender: "male", text: "Nice to meet you too, Emma.", translation: "(echoing the phrase — very natural)" }
+            ]
+          },
+          {
+            title: "A Formal Introduction",
+            context: "Alex meets Mr. Thompson at a job interview",
+            panels: [
+              { speaker: "Alex", gender: "male", text: "Good morning. I'm Alex Collins.", translation: "(formal: full name, time-specific greeting)", note: "Use full name in formal situations" },
+              { speaker: "Mr. Thompson", gender: "male", text: "Good morning, Alex. Pleased to meet you. I'm Mr. Thompson.", translation: "(formal response — 'Pleased to meet you' over 'Nice to meet you')", note: "'Pleased to meet you' is more formal than 'Nice to meet you'" },
+              { speaker: "Alex", gender: "male", text: "Pleased to meet you, Mr. Thompson.", translation: "(mirroring the formal register is always safe)" }
+            ]
+          }
+        ],
         culturalSpotlight: {
           title: "Small Talk",
           content: "The art of 'small talk' is central to English-speaking cultures. Talking about weather, weekend plans, or sports with strangers isn't meaningless \u2014 it's how trust is built. Mastering light, friendly conversation about everyday topics is one of the most valuable English skills you can develop."
@@ -1406,6 +1556,36 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             content: "Modern Hebrew is remarkably informal compared to many languages. There's no equivalent of 'vous' or 'usted' \u2014 everyone uses '\u05d0\u05ea\u05d4' (ata, masculine) or '\u05d0\u05ea' (at, feminine) for 'you'. Formality is expressed through word choice and tone rather than pronouns.",
             infographic: 'formalInformal',
             tip: "Hebrew verbs and adjectives change based on the gender of the person you're addressing \u2014 this is one of the first things to master!"
+          }
+        ],
+        conversationStrips: [
+          {
+            title: "\u05e9\u05dc\u05d5\u05dd \u05e4\u05e9\u05d5\u05d8",
+            context: "\u05d3\u05e0\u05d9\u05d0\u05dc \u05e4\u05d5\u05d2\u05e9 \u05d0\u05ea \u05de\u05d9\u05d4 \u05d1\u05e9\u05db\u05d5\u05e0\u05d4",
+            panels: [
+              { speaker: "\u05d3\u05e0\u05d9\u05d0\u05dc", gender: "male", text: "\u05e9\u05dc\u05d5\u05dd, \u05de\u05d9\u05d4!", translation: "Hello, Maya!" },
+              { speaker: "\u05de\u05d9\u05d4", gender: "female", text: "\u05e9\u05dc\u05d5\u05dd, \u05d3\u05e0\u05d9\u05d0\u05dc! \u05de\u05d4 \u05e0\u05e9\u05de\u05e2?", translation: "Hello, Daniel! What's up?" },
+              { speaker: "\u05d3\u05e0\u05d9\u05d0\u05dc", gender: "male", text: "\u05d4\u05db\u05dc \u05d8\u05d5\u05d1, \u05ea\u05d5\u05d3\u05d4! \u05d5\u05d0\u05ea?", translation: "Everything's good, thanks! And you?" },
+              { speaker: "\u05de\u05d9\u05d4", gender: "female", text: "\u05d2\u05dd \u05d0\u05e0\u05d9 \u05d1\u05e1\u05d3\u05e8! \u05dc\u05d4\u05ea\u05e8\u05d0\u05d5\u05ea!", translation: "I'm fine too! See you!" }
+            ]
+          },
+          {
+            title: "\u05e0\u05e2\u05d9\u05dd \u05dc\u05d4\u05db\u05d9\u05e8",
+            context: "\u05d3\u05e0\u05d9\u05d0\u05dc \u05de\u05ea\u05e0\u05d9\u05d4 \u05dc\u05de\u05d9\u05d4 \u05d1\u05e4\u05e2\u05dd \u05d4\u05e8\u05d0\u05e9\u05d5\u05e0\u05d4",
+            panels: [
+              { speaker: "\u05d3\u05e0\u05d9\u05d0\u05dc", gender: "male", text: "\u05e9\u05dc\u05d5\u05dd, \u05e7\u05d5\u05e8\u05d0\u05d9\u05dd \u05dc\u05d9 \u05d3\u05e0\u05d9\u05d0\u05dc.", translation: "Hello, my name is Daniel." },
+              { speaker: "\u05de\u05d9\u05d4", gender: "female", text: "\u05e0\u05e2\u05d9\u05dd \u05de\u05d0\u05d5\u05d3, \u05d3\u05e0\u05d9\u05d0\u05dc. \u05d0\u05e0\u05d9 \u05de\u05d9\u05d4.", translation: "Very pleased to meet you, Daniel. I'm Maya." },
+              { speaker: "\u05d3\u05e0\u05d9\u05d0\u05dc", gender: "male", text: "\u05e0\u05e2\u05d9\u05dd \u05de\u05d0\u05d5\u05d3, \u05de\u05d9\u05d4.", translation: "Very pleased to meet you, Maya." }
+            ]
+          },
+          {
+            title: "\u05db\u05d1\u05d5\u05d3 \u05dc\u05e1\u05d1\u05ea\u05d0",
+            context: "\u05d3\u05e0\u05d9\u05d0\u05dc \u05de\u05d1\u05e7\u05e8 \u05d0\u05ea \u05e1\u05d1\u05ea\u05d0 \u05e9\u05dc\u05d5 \u05d1\u05d7\u05d9\u05d1\u05d4",
+            panels: [
+              { speaker: "\u05d3\u05e0\u05d9\u05d0\u05dc", gender: "male", text: "\u05e9\u05dc\u05d5\u05dd, \u05e1\u05d1\u05ea\u05d0! \u05de\u05d4 \u05e9\u05dc\u05d5\u05de\u05da?", translation: "Hello, Grandma! How are you?", note: "\u05d1\u05e2\u05d1\u05e8\u05d9\u05ea \u05d0\u05d9\u05df \u05db\u05d9\u05e0\u05d5\u05d9 \u05db\u05d1\u05d5\u05d3 \u05de\u05d9\u05d5\u05d7\u05d3 \u2014 \u05d4\u05db\u05d1\u05d5\u05d3 \u05d1\u05d0 \u05d1\u05d7\u05d5\u05dd \u05d5\u05d1\u05de\u05d9\u05dc\u05d9\u05dd \u05e2\u05e6\u05de\u05df" },
+              { speaker: "\u05e1\u05d1\u05ea\u05d0", gender: "female", text: "\u05e9\u05dc\u05d5\u05dd, \u05d3\u05e0\u05d9\u05d0\u05dc\u05d9\u05e7\u05d9! \u05d0\u05e0\u05d9 \u05d1\u05e1\u05d3\u05e8 \u05d2\u05de\u05d5\u05e8, \u05ea\u05d5\u05d3\u05d4.", translation: "Hello, my dear Daniel! I'm perfectly fine, thanks.", note: "\u05d4\u05e1\u05d1\u05ea\u05d0 \u05de\u05d1\u05d8\u05d0\u05ea \u05d7\u05d9\u05d1\u05d4 \u05d1\u05de\u05d9\u05dc\u05d9\u05dd \u05d7\u05de\u05d9\u05dd" },
+              { speaker: "\u05d3\u05e0\u05d9\u05d0\u05dc", gender: "male", text: "\u05e9\u05de\u05d7\u05ea\u05d9 \u05dc\u05e9\u05de\u05d5\u05e2, \u05e1\u05d1\u05ea\u05d0.", translation: "I'm glad to hear that, Grandma." }
+            ]
           }
         ],
         culturalSpotlight: {
