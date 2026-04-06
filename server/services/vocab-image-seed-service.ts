@@ -1437,6 +1437,38 @@ export function normalizeForOverride(word: string): string {
 }
 
 /**
+ * Determine the gender of the character depicted in the vocab image for a given word+language.
+ *
+ * Approach: look up the SCENE_OVERRIDE prompt for the word, then check whether it contains
+ * the primary character's name (female) or only the secondary character's name (male).
+ * This lets the TTS play the correct voice to match the character shown in the image.
+ *
+ * Returns 'male' when the secondary character is the sole speaker in the scene (e.g. "de nada"
+ * in Spanish uses Marco, not Daniela). Returns 'female' in all other cases.
+ */
+export function getVocabSpeakerGender(word: string, language: string): 'male' | 'female' {
+  const langKey = language.toLowerCase();
+  const profileKey = langKey.toUpperCase() as keyof typeof CHARACTER_PROFILES;
+  const profile = CHARACTER_PROFILES[profileKey];
+  if (!profile) return 'female';
+
+  const normalizedWord = normalizeForOverride(word);
+  const langPrefixedKey = `${langKey}:${normalizedWord}`;
+  const prompt = SCENE_OVERRIDES[langPrefixedKey] ?? SCENE_OVERRIDES[normalizedWord];
+  if (!prompt) return 'female';
+
+  const primaryName   = profile.primary.split(',')[0];   // e.g. "Daniela" for ES
+  const secondaryName = profile.secondary.split(',')[0]; // e.g. "Marco" for ES
+
+  const hasPrimary   = prompt.includes(primaryName);
+  const hasSecondary = prompt.includes(secondaryName);
+
+  // Solo secondary scene (e.g. "de nada" → Marco alone) → male voice
+  if (hasSecondary && !hasPrimary) return 'male';
+  return 'female';
+}
+
+/**
  * Normalize a word to its cache key form, matching the logic in vocabulary-image-resolver.ts.
  * Format: vocab_{language}_{normalizedWord}
  */
