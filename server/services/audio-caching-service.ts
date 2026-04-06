@@ -161,10 +161,13 @@ export async function getCachedPronunciationAudio(
   language: string,
   gender: AssistantVoiceGender = 'female',
   speed: AudioSpeed = 'normal',
-  options: Partial<GenerateOptions> = {}
+  options: Partial<GenerateOptions> = {},
+  voiceOverride?: string
 ): Promise<CachedAudio> {
+  // Use the override voice (actual tutor voice from DB e.g. Aeode/Orus) when provided,
+  // otherwise fall back to the hardcoded Neural2 assistant voice.
   const voiceConfig = getAssistantVoice(language, gender);
-  const voiceId = voiceConfig.name;
+  const voiceId = voiceOverride ?? voiceConfig.name;
   
   const cacheKey: CacheKey = {
     text: text.trim(),
@@ -193,7 +196,10 @@ export async function getCachedPronunciationAudio(
   const result = await ttsService.synthesize({
     text,
     language,
-    voice: voiceConfig.name,
+    voice: voiceOverride ?? voiceConfig.name,
+    // Use forceProvider: 'google' when a Chirp3-HD override is present so the
+    // real tutor voice (Aeode / Orus) is used instead of the Neural2 fallback.
+    ...(voiceOverride ? { forceProvider: 'google' as const } : {}),
     speakingRate,
   });
   

@@ -13193,6 +13193,19 @@ Return ONLY the ${targetLanguage} phrase:`;
       const { text, language, gender } = parseResult.data;
       const voiceGender = (gender ?? user?.tutorGender ?? 'female') as 'female' | 'male';
       
+      // Look up the actual configured tutor voice (Aeode/Orus from DB) so that
+      // pronunciation audio matches what students hear in /chat.
+      let tutorVoiceOverride: string | undefined;
+      try {
+        const tutorVoice = await storage.getTutorVoice(language, voiceGender);
+        if (tutorVoice?.voiceId) {
+          tutorVoiceOverride = tutorVoice.voiceId;
+          console.log(`[Pronunciation] Using tutor voice: ${tutorVoice.voiceName} (${tutorVoiceOverride})`);
+        }
+      } catch (voiceErr: any) {
+        console.warn(`[Pronunciation] Could not fetch tutor voice for ${language}/${voiceGender}, using Neural2 fallback`);
+      }
+      
       // Use database-backed audio caching for persistent storage
       const { getCachedPronunciationAudio } = await import('./services/audio-caching-service');
       const result = await getCachedPronunciationAudio(
@@ -13200,7 +13213,8 @@ Return ONLY the ${targetLanguage} phrase:`;
         language,
         voiceGender,
         'normal',
-        { contentType: 'pronunciation' }
+        { contentType: 'pronunciation' },
+        tutorVoiceOverride
       );
       
       res.json({

@@ -254,6 +254,36 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             tip: "In professional settings, always use 'vous' unless explicitly invited to switch. Some colleagues work together for years without switching!"
           }
         ],
+        conversationStrips: [
+          {
+            title: "Une Salutation Informelle",
+            context: "Vincent croise Juliette entre les cours",
+            panels: [
+              { speaker: "Vincent", gender: "male", text: "Salut, Juliette !", translation: "Hey, Juliette!" },
+              { speaker: "Juliette", gender: "female", text: "Salut, Vincent ! Comment \u00e7a va ?", translation: "Hey, Vincent! How's it going?" },
+              { speaker: "Vincent", gender: "male", text: "Tr\u00e8s bien, merci ! Et toi ?", translation: "Very well, thanks! And you?" },
+              { speaker: "Juliette", gender: "female", text: "Bien ! \u00c0 tout \u00e0 l'heure !", translation: "Good! See you later!" }
+            ]
+          },
+          {
+            title: "Enchanté",
+            context: "Vincent se présente à Juliette le premier jour",
+            panels: [
+              { speaker: "Vincent", gender: "male", text: "Bonjour, je m'appelle Vincent.", translation: "Hello, my name is Vincent." },
+              { speaker: "Juliette", gender: "female", text: "Enchant\u00e9e, Vincent. Moi, c'est Juliette.", translation: "Pleased to meet you, Vincent. I'm Juliette." },
+              { speaker: "Vincent", gender: "male", text: "Enchant\u00e9, Juliette.", translation: "Pleased to meet you, Juliette." }
+            ]
+          },
+          {
+            title: "Au Bureau \u2014 Le Registre Formel",
+            context: "Vincent rencontre M. Dupont lors d\u2019une r\u00e9union — le 'vous' est de rigueur",
+            panels: [
+              { speaker: "Vincent", gender: "male", text: "Bonjour, monsieur. Je m'appelle Vincent Moreau.", translation: "Good morning, sir. My name is Vincent Moreau.", note: "Vincent uses 'vous' — the formal register" },
+              { speaker: "M. Dupont", gender: "male", text: "Bonjour, monsieur Moreau. Enchanté. Je suis Dupont.", translation: "Good morning, Mr. Moreau. Pleased to meet you. I'm Dupont.", note: "Both use 'vous' as professional equals" },
+              { speaker: "Vincent", gender: "male", text: "Ravi de vous rencontrer, monsieur Dupont.", translation: "Delighted to meet you, Mr. Dupont." }
+            ]
+          }
+        ],
         culturalSpotlight: {
           title: "La Bise",
           content: "The French 'bise' \u2014 cheek kisses as greeting \u2014 is one of France's most iconic customs. The number of kisses varies by region: two in Paris, three in Provence, sometimes four in the north. It's an art form that signals warmth, familiarity, and belonging."
@@ -387,6 +417,36 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             tip: "In modern German workplaces, many companies use 'du' among all employees \u2014 but always wait for the offer!"
           }
         ],
+        conversationStrips: [
+          {
+            title: "Eine Lockere Begr\u00fc\u00dfung",
+            context: "Lukas begegnet Greta im Schulflur",
+            panels: [
+              { speaker: "Lukas", gender: "male", text: "Hallo, Greta!", translation: "Hey, Greta!" },
+              { speaker: "Greta", gender: "female", text: "Hallo, Lukas! Wie geht's?", translation: "Hey, Lukas! How's it going?" },
+              { speaker: "Lukas", gender: "male", text: "Gut, danke! Und dir?", translation: "Good, thanks! And you?" },
+              { speaker: "Greta", gender: "female", text: "Gut! Tsch\u00fcss!", translation: "Good! Bye!" }
+            ]
+          },
+          {
+            title: "Sch\u00f6n, dich kennenzulernen",
+            context: "Lukas stellt sich Greta am ersten Tag vor",
+            panels: [
+              { speaker: "Lukas", gender: "male", text: "Hallo, ich hei\u00dfe Lukas.", translation: "Hello, my name is Lukas." },
+              { speaker: "Greta", gender: "female", text: "Freut mich, Lukas. Ich bin Greta.", translation: "Nice to meet you, Lukas. I'm Greta." },
+              { speaker: "Lukas", gender: "male", text: "Freut mich auch, Greta.", translation: "Nice to meet you too, Greta." }
+            ]
+          },
+          {
+            title: "Bei Oma \u2014 Der Formelle Ton",
+            context: "Lukas besucht seine Gro\u00dfmutter \u2014 er spricht sie immer mit \u2018Sie\u2019 an",
+            panels: [
+              { speaker: "Lukas", gender: "male", text: "Guten Morgen, Oma. Wie geht es Ihnen?", translation: "Good morning, Grandma. How are you?", note: "Lukas uses 'Sie' — showing respect for elders" },
+              { speaker: "Oma", gender: "female", text: "Gut, danke, Lukas. Und dir?", translation: "Fine, thank you, Lukas. And you?", note: "Grandma uses 'du' back — she is the elder" },
+              { speaker: "Lukas", gender: "male", text: "Danke, Oma. Gut.", translation: "Thank you, Grandma. Fine." }
+            ]
+          }
+        ],
         culturalSpotlight: {
           title: "Der Handschlag",
           content: "The German handshake is brief, firm, and accompanied by direct eye contact. Unlike cultures with cheek kisses, Germans keep a respectful physical distance with acquaintances. This straightforward greeting reflects the German values of honesty, reliability, and mutual respect."
@@ -518,6 +578,36 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             content: "Italian uses 'Lei' for formal address and 'tu' for informal. 'Lei' (literally 'she') is used with strangers, elders, and in professional settings. The shift from 'Lei' to 'tu' (called 'dare del tu') is an invitation to closer friendship.",
             infographic: 'formalInformal',
             tip: "'Lei' is always capitalized in writing when used as formal 'you' \u2014 this distinguishes it from 'lei' meaning 'she'."
+          }
+        ],
+        conversationStrips: [
+          {
+            title: "Un Saluto Informale",
+            context: "Luca incontra Olivia tra le lezioni",
+            panels: [
+              { speaker: "Luca", gender: "male", text: "Ciao, Olivia!", translation: "Hey, Olivia!" },
+              { speaker: "Olivia", gender: "female", text: "Ciao, Luca! Come stai?", translation: "Hey, Luca! How are you?" },
+              { speaker: "Luca", gender: "male", text: "Molto bene, grazie! E tu?", translation: "Very well, thanks! And you?" },
+              { speaker: "Olivia", gender: "female", text: "Bene! A dopo!", translation: "Good! See you later!" }
+            ]
+          },
+          {
+            title: "Piacere di conoscerti",
+            context: "Luca si presenta a Olivia il primo giorno",
+            panels: [
+              { speaker: "Luca", gender: "male", text: "Ciao, mi chiamo Luca.", translation: "Hi, my name is Luca." },
+              { speaker: "Olivia", gender: "female", text: "Piacere, Luca. Sono Olivia.", translation: "Pleased to meet you, Luca. I'm Olivia." },
+              { speaker: "Luca", gender: "male", text: "Il piacere \u00e8 mio.", translation: "The pleasure is mine." }
+            ]
+          },
+          {
+            title: "Dalla Nonna \u2014 Il Registro Formale",
+            context: "Luca visita Nonna Rosa \u2014 usa sempre 'Lei' per rispetto",
+            panels: [
+              { speaker: "Luca", gender: "male", text: "Buongiorno, nonna. Come sta?", translation: "Good morning, Grandma. How are you?", note: "Luca uses 'Lei' — the formal register" },
+              { speaker: "Nonna Rosa", gender: "female", text: "Molto bene, grazie, Luca. E tu?", translation: "Very well, thanks, Luca. And you?", note: "Grandma uses 'tu' back — she is the elder" },
+              { speaker: "Luca", gender: "male", text: "Bene, grazie, nonna.", translation: "Fine, thank you, Grandma." }
+            ]
           }
         ],
         culturalSpotlight: {

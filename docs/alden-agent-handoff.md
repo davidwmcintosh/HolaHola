@@ -1,28 +1,46 @@
 # Alden ↔ Agent Handoff
 
-## Session Summary — Mon, Apr 6, 2026 (session 34 — Conversation Strip Audio Player)
+## Session Summary — Mon, Apr 6, 2026 (session 35 — Multi-Language Conversation Strips + Tutor Voice Fix)
 
 ### What was done
 
-#### 1. Conversation Strip sequential audio player
+#### 1. Pronunciation audio now uses actual tutor voices (Aeode / Orus)
+**`server/routes.ts` pronunciation endpoint** (previously IN PROGRESS, now DONE):  
+Before generating audio, the endpoint now calls `storage.getTutorVoice(language, voiceGender)` to retrieve the DB tutor voice (e.g. `es-US-Chirp3-HD-Aoede`). That `voiceId` is passed as `voiceOverride` (6th arg) to `getCachedPronunciationAudio`. This means all vocab card audio (VisualVocabGrid), infographic audio, strip sequential player, and any `TextAudioPlayButton` now use the exact Chirp3 HD voices that students hear in chat — Aeode (female) or Orus (male).
 
-Added a "▶ Play" / "■ Stop" button to each strip card in `ConversationStripsSection`. Clicking plays all panels in order using gender-appropriate voices (Agustín = male, Daniela/Rosa = female), with a 450ms pause between speakers. The active panel is highlighted with a primary ring during playback. Audio is cached server-side so first play generates TTS; all subsequent plays are instant.
+**`server/services/audio-caching-service.ts`** was updated in the previous session to accept `voiceOverride` (6th arg) and pass it to `synthesizeWithGoogle` with `forceProvider:'google'`.
 
-**Backend change:** `POST /api/tts/pronunciation` now accepts an optional `gender: 'male' | 'female'` param that overrides the user's `tutorGender` setting. Cache key already distinguished male/female so this was safe to add.
+#### 2. Conversation strips added for French, German, and Italian greetings
 
-**Character decision: Marco → Agustín.** The male character in the Spanish greetings strips was renamed from Marco to Agustín (the app's existing male tutor voice). Rationale: familiarity/consistency beats variety — students who tutor with Agustín will recognize his voice in the strips, reinforcing the HoloHola character universe. Agustín and Daniela are now the primary characters in all conversation strips.
+Audio-only strips (no `image` field) — panels display: speaker color dot, speaker name, target text, translation, optional grammar note.
 
-#### 2. ConversationPanel type updated
-Added `gender?: 'male' | 'female'` field. All Spanish strip panels wired with explicit genders.
+**French** (`french.chapters.greetings.conversationStrips`):
+1. "Une Salutation Informelle" — Vincent (m) + Juliette (f), casual
+2. "Enchanté" — Vincent (m) + Juliette (f), introduction
+3. "Au Bureau — Le Registre Formel" — Vincent (m) + M. Dupont (m), formal office meeting
 
-#### 3. ChapterIntroduction.tsx — new imports
-Added `useState`, `useRef`, `useCallback`, `useEffect` from react; `Button` from shadcn; `Play`, `Square`, `Loader2` from lucide-react; `apiRequest` from @lib/queryClient.
+**German** (`german.chapters.greetings.conversationStrips`):
+1. "Eine Lockere Begrüßung" — Lukas (m) + Greta (f), casual
+2. "Schön, dich kennenzulernen" — Lukas (m) + Greta (f), introduction
+3. "Bei Oma — Der Formelle Ton" — Lukas (m) + Oma (f), Sie/du contrast
 
-### NEXT TASK
-- Add `conversationStrips` data for French, German, and Italian greetings chapters in `chapter-intro-content.ts`
-- Characters: FR → Agustín + Léa (and M. Dupont for formal strip), DE → Agustín + Lena, IT → Agustín + Sofia
-- No images needed for new strips — audio-only approach is the chosen direction going forward
-- Images on existing Spanish strips: still present but under review; decision pending on whether to remove them
+**Italian** (`italian.chapters.greetings.conversationStrips`):
+1. "Un Saluto Informale" — Luca (m) + Olivia (f), casual
+2. "Piacere di conoscerti" — Luca (m) + Olivia (f), introduction
+3. "Dalla Nonna — Il Registro Formale" — Luca (m) + Nonna Rosa (f), Lei/tu contrast
+
+All strip panels have explicit `gender: 'male' | 'female'` fields so the sequential player selects the correct tutor voice automatically.
+
+### Previous session (34 — still relevant)
+- Spanish strips: Agustín/Daniela/Rosa with images in /strips/. Images still present.
+- Sequential audio player with Play/Stop button, 450ms pause between speakers, active panel ring highlight.
+- `ConversationPanel` type has `gender?: 'male' | 'female'`.
+
+### NEXT TASK / OPEN ITEMS
+- **Character image/voice mismatch (known issue):** Some vocab images show a male character but audio uses female tutor voice (or vice versa). Happens when the image was generated with one tutorGender but user has switched. No immediate fix — documented.
+- **Spanish strip images:** 10 panel images still in `client/public/strips/`. Decision pending on whether to keep or remove; they show for Spanish but not for other languages.
+- **Portuguese conversation strips:** Not yet added — same audio-only pattern as FR/DE/IT.
+- **Other languages (Japanese, Korean, Mandarin, Hebrew, Portuguese):** No greetings `conversationStrips` yet.
 
 ---
 
