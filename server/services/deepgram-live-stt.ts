@@ -482,14 +482,15 @@ export class OpenMicSession {
       };
       
       try {
-        // MULTI-LANGUAGE: Always use 'multi' for bilingual detection
-        // Students naturally mix native + target language during lessons
-        // Better to get 85% accurate bilingual transcript than miss English entirely
+        // LANGUAGE SELECTION: Use 'multi' for non-English target languages (students mix with English),
+        // but use the specific language code for English sessions — 'multi' returns empty transcripts
+        // when the student is speaking only English (no bilingual context for Deepgram to work with).
         // CRITICAL: nova-3 is FORCED here because nova-2 + 'multi' returns empty transcripts
         // This overrides DEEPGRAM_MODEL env var for open-mic mode specifically
-        const languageCode = 'multi';
-        const openMicModel = 'nova-3';  // Always nova-3 for open-mic - multi-language requires it
-        console.log(`[OpenMic] Creating Deepgram live connection (model: ${openMicModel} [forced for multi-lang], language: ${languageCode}, target: ${this.language}, intelligence: ${DEEPGRAM_INTELLIGENCE_ENABLED})`);
+        const isEnglishSession = this.language === 'english' || this.language === 'en';
+        const languageCode = isEnglishSession ? 'en' : 'multi';
+        const openMicModel = 'nova-3';  // Always nova-3 for open-mic
+        console.log(`[OpenMic] Creating Deepgram live connection (model: ${openMicModel}, language: ${languageCode}, target: ${this.language}, intelligence: ${DEEPGRAM_INTELLIGENCE_ENABLED})`);
         
         const connectionOptions: any = {
           model: openMicModel,  // nova-3 is required for reliable multi-language streaming
