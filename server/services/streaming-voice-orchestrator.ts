@@ -6345,7 +6345,8 @@ Remember: David may reference things discussed in these recent text chats.
             apiKey: process.env.ANTHROPIC_API_KEY,
           });
           const lang = session.targetLanguage || 'spanish';
-          const systemPrompt = `You are Daniela, a warm and encouraging ${lang} language tutor having a voice conversation. Respond naturally and conversationally to the student. Keep your response to 1-2 short sentences max — this is voice so be concise. Primarily use ${lang} with brief English support when helpful. Do NOT mention any technical issues. Just respond naturally.`;
+          const tutorPersonaName = session.tutorName || 'Daniela';
+          const systemPrompt = `You are ${tutorPersonaName}, a warm and encouraging ${lang} language tutor having a voice conversation. Respond naturally and conversationally to the student. Keep your response to 1-2 short sentences max — this is voice so be concise. Speak ${lang} ONLY — do not switch to Spanish or any other language unless the target language IS Spanish. Do NOT mention any technical issues. Just respond naturally.`;
           const historyMessages = (session.conversationHistory || []).slice(-6).map((h: any) => ({
             role: (h.role === 'model' ? 'assistant' : 'user') as 'assistant' | 'user',
             content: h.content,
@@ -7264,7 +7265,8 @@ Remember: David may reference things discussed in these recent text chats.
       let colleagueFeedback: { agent: string; subject: string; summary: string }[] = [];
       try {
         const collabFetchStart = Date.now();
-        const recentCollab = await storage.getCollaborationEventsToAgent('daniela', String(session.userId), 10);
+        const agentName = session.tutorName?.toLowerCase() || 'daniela';
+        const recentCollab = await storage.getCollaborationEventsToAgent(agentName, String(session.userId), 10);
         // Include feedback, delegation_complete, and status_update events from colleagues
         const feedbackTypes = ['feedback', 'delegation_complete', 'status_update'];
         colleagueFeedback = recentCollab

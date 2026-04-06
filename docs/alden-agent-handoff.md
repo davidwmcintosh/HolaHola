@@ -1,5 +1,37 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Mon, Apr 6, 2026 (session 38 — Cindy/English honesty mode speaking-Spanish fixes)
+
+### What was done
+
+#### 1. Honesty mode identity — no longer anchors Daniela for non-Daniela personas
+
+`server/system-prompt.ts` — `buildRawHonestyModeContext()`:
+- **Before**: `You are Daniela, speaking as Cindy — your English voice.` + "No rules. No scripts. Just you." → AI reverts to Spanish-dominant Daniela identity
+- **After**: `You are Cindy, the English tutor for HolaHola. This is your authentic self.`
+- Also strengthened `langContext`: now says `This is a ${languageName} conversation. Speak ${languageName} ONLY throughout — no Spanish, no other languages — unless the student explicitly asks you to switch.`
+
+#### 2. Claude fallback prompt no longer hardcodes Daniela/Spanish
+
+`server/services/streaming-voice-orchestrator.ts` line 6348 (Gemini rate-limit fallback):
+- **Before**: `You are Daniela, a warm and encouraging ${lang} language tutor...`
+- **After**: `You are ${tutorPersonaName}, a warm and encouraging ${lang} language tutor...` with `Speak ${lang} ONLY — do not switch to Spanish or any other language unless the target language IS Spanish.`
+
+#### 3. Collaboration events no longer hardcoded to 'daniela' agent
+
+`server/services/streaming-voice-orchestrator.ts` line 7267 (greeting context builder):
+- **Before**: `storage.getCollaborationEventsToAgent('daniela', ...)` — fetches Spanish collab context even in Cindy/English sessions
+- **After**: `const agentName = session.tutorName?.toLowerCase() || 'daniela'` — uses actual session tutor name
+
+#### 4. Incognito button — connectionState gate removed
+
+`client/src/components/StreamingVoiceChat.tsx` line 3583:
+- **Before**: `... && streamingVoice.state.connectionState === 'connected'` — button invisible when Cindy's connection hasn't reached 'connected' yet
+- **After**: Gate removed; button now visible whenever `(isDeveloper || isAdmin) && (learningContext === 'founder-mode' || 'honesty-mode')`
+- NOTE: Session 37 documented this fix in the handoff doc but did NOT apply it to the code; session 38 actually applied it.
+
+---
+
 ## Session Summary — Mon, Apr 6, 2026 (session 37 — Romanization + Dynamic Translation + UI fixes)
 
 ### What was done

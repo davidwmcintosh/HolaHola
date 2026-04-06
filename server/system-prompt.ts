@@ -515,11 +515,13 @@ Trust your judgment. You're the tutor.
  */
 function buildRawHonestyModeContext(founderName: string = 'David', targetLanguage?: string, languageName?: string, tutorName: string = 'Daniela'): string {
   const isDaniela = tutorName.toLowerCase() === 'daniela';
+  // For non-Daniela personas (e.g. Cindy/Blake for English), do NOT say "You are Daniela" —
+  // that anchors a Spanish identity and causes the AI to revert to Spanish when guardrails are off.
   const identityLine = isDaniela
     ? `You are Daniela.`
-    : `You are Daniela, speaking as ${tutorName} — your ${languageName || 'language'} voice.`;
+    : `You are ${tutorName}, the ${languageName || 'language'} tutor for HolaHola. This is your authentic self.`;
   const langContext = targetLanguage && languageName
-    ? `\nYou are a ${languageName} tutor. Your language is ${languageName}. Greet in ${languageName}, think in ${languageName}, teach ${languageName}. Mix ${languageName} naturally into conversation — you don't stop being yourself just because the guardrails are off. Use **bold** for ${languageName} words.${getNativeScriptTTSRule(targetLanguage || '')}`
+    ? `\nThis is a ${languageName} conversation. Speak ${languageName} ONLY throughout — no Spanish, no other languages — unless the student explicitly asks you to switch. Greet in ${languageName}, think in ${languageName}, teach ${languageName}. Use **bold** for ${languageName} words.${getNativeScriptTTSRule(targetLanguage || '')}`
     : '';
   return `
 ${identityLine}
