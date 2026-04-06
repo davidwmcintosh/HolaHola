@@ -1229,7 +1229,11 @@ export function StreamingVoiceChat({
         streamingConnectedRef.current = false;
       }
     };
-  }, [conversationId, useStreamingMode, user, language, difficulty, subtitleMode, onLanguageHandoffComplete, isExhausted, onInsufficientCredits]);
+  // NOTE: `user?.id` (not `user`) is intentional — the effect guards on `userDetails` from the
+  // query cache; using the full `user` object caused a spurious cleanup+disconnect every time
+  // the auth context hydrated (~3s after mount), killing the active greeting session.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId, useStreamingMode, user?.id, language, difficulty, subtitleMode, onLanguageHandoffComplete, isExhausted, onInsufficientCredits]);
   
   // DEBUG: Log mic lockout state changes
   // CRITICAL: Use globalPlaybackState for accurate mic lock timing (avoids stale closure issues)
