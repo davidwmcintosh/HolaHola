@@ -90,13 +90,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             title: "Formal vs. Informal",
             content: "Spanish distinguishes between formal and informal speech through 'usted' and 't\u00fa'. Think of 'usted' as the respectful distance you'd keep with your boss or an elder, while 't\u00fa' is the comfortable closeness of friends and family.",
             infographic: 'formalInformal',
-            tip: "When in doubt, start formal! It's always better to be too polite than too casual.",
-            examples: [
-              { label: "How are you?", formal: "\u00bfC\u00f3mo est\u00e1 usted?", informal: "\u00bfC\u00f3mo est\u00e1s?" },
-              { label: "Nice to meet you", formal: "Mucho gusto, se\u00f1or Garc\u00eda.", informal: "\u00a1Mucho gusto!" },
-              { label: "Good morning", formal: "Buenos d\u00edas, se\u00f1ora.", informal: "\u00a1Hola!" },
-              { label: "Goodbye", formal: "Hasta luego, se\u00f1ora.", informal: "\u00a1Chao!" }
-            ]
+            tip: "When in doubt, start formal! It's always better to be too polite than too casual."
           }
         ],
         conversationStrips: [
@@ -256,13 +250,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             title: "Formal vs. Informal",
             content: "French has a clear distinction between 'vous' (formal/plural) and 'tu' (informal/singular). Using 'tu' with someone you've just met can feel presumptuous, while 'vous' shows respect. The moment someone invites you to 'se tutoyer' (use tu) is a social milestone.",
             infographic: 'formalInformal',
-            tip: "In professional settings, always use 'vous' unless explicitly invited to switch. Some colleagues work together for years without switching!",
-            examples: [
-              { label: "How are you?", formal: "Comment allez-vous?", informal: "\u00c7a va?" },
-              { label: "Nice to meet you", formal: "Enchant\u00e9(e) de faire votre connaissance.", informal: "Ravi(e) de te conna\u00eetre!" },
-              { label: "Good morning", formal: "Bonjour, Madame.", informal: "Salut!" },
-              { label: "Goodbye", formal: "Au revoir, Monsieur.", informal: "\u00c0 plus!" }
-            ]
+            tip: "In professional settings, always use 'vous' unless explicitly invited to switch. Some colleagues work together for years without switching!"
           }
         ],
         culturalSpotlight: {
@@ -395,13 +383,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             title: "Formal vs. Informal",
             content: "German has a clear formal/informal distinction with 'Sie' (formal you) and 'du' (informal you). Using 'du' prematurely can be awkward, while 'Sie' shows professionalism. The ritual of offering the 'Du' (called 'Duzen') is a meaningful social moment.",
             infographic: 'formalInformal',
-            tip: "In modern German workplaces, many companies use 'du' among all employees \u2014 but always wait for the offer!",
-            examples: [
-              { label: "How are you?", formal: "Wie geht es Ihnen?", informal: "Wie geht's?" },
-              { label: "Nice to meet you", formal: "Sehr erfreut, Sie kennenzulernen.", informal: "Sch\u00f6n, dich kennenzulernen!" },
-              { label: "Good morning", formal: "Guten Morgen, Herr M\u00fcller.", informal: "Morgen!" },
-              { label: "Goodbye", formal: "Auf Wiedersehen.", informal: "Tsch\u00fcss!" }
-            ]
+            tip: "In modern German workplaces, many companies use 'du' among all employees \u2014 but always wait for the offer!"
           }
         ],
         culturalSpotlight: {
@@ -534,13 +516,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             title: "Formal vs. Informal",
             content: "Italian uses 'Lei' for formal address and 'tu' for informal. 'Lei' (literally 'she') is used with strangers, elders, and in professional settings. The shift from 'Lei' to 'tu' (called 'dare del tu') is an invitation to closer friendship.",
             infographic: 'formalInformal',
-            tip: "'Lei' is always capitalized in writing when used as formal 'you' \u2014 this distinguishes it from 'lei' meaning 'she'.",
-            examples: [
-              { label: "How are you?", formal: "Come sta, signor Rossi?", informal: "Come stai?" },
-              { label: "Nice to meet you", formal: "Piacere di conoscerLa.", informal: "Piacere di conoscerti!" },
-              { label: "Good morning", formal: "Buongiorno, Signora.", informal: "Ciao!" },
-              { label: "Goodbye", formal: "Arrivederci.", informal: "A presto!" }
-            ]
+            tip: "'Lei' is always capitalized in writing when used as formal 'you' \u2014 this distinguishes it from 'lei' meaning 'she'."
           }
         ],
         culturalSpotlight: {

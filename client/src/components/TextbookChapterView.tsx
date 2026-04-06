@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { VisualVocabGrid } from "./TextbookInfographics";
 import { ChapterRecap } from "./ChapterRecap";
-import { ChapterIntroduction, classifyGrammarType, GrammarChapterView } from "./ChapterIntroduction";
+import { ChapterIntroduction, classifyGrammarType, GrammarChapterView, ConversationStripsSection } from "./ChapterIntroduction";
 import { RhythmDrill } from "./RhythmDrill";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -584,6 +584,12 @@ export function TextbookChapterView({
           chapterTitle={chapter.title}
         />
       )}
+
+      {/* ── Conversation strips — after vocab so phrases land in context ── */}
+      <ConversationStripsSection
+        language={language}
+        chapterType={chapter.chapterType || undefined}
+      />
 
       {/* ── Per-section visual vocab cards (e.g. La Hora clock grid inside a numbers chapter) ── */}
       {/* Only renders visual-vocab reference types — grammar diagram types are excluded intentionally */}
