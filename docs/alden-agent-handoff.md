@@ -1,5 +1,37 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Mon, Apr 6, 2026 (session 38f — Growth memories pre-injected into all sessions)
+
+### What was done
+
+#### Feature: Growth memories now pre-injected into every session context at startup
+
+**Design decision**: Growth memories (`daniela_growth_memories`) are Cindy's internalized teaching breakthroughs — humor timing, emotional calibration, correction techniques, punchline delivery, etc. Rather than requiring her to actively search for them (which requires knowing to use domain='growth'), they should be ambient knowledge she walks in with, the same way the Hive state and identity memories are.
+
+**Implementation (`server/services/streaming-voice-orchestrator.ts`):**
+- Added `growthMemoriesSection` to the prefetch cache build (runs at session start, parallel with other context fetches)  
+- Added stale-cache fallback in the per-turn context path (same pattern as identity memories)
+- Added `growthMemoriesSection` to `dynamicContextParts` assembly — after identity memories, before Hive context
+- Fetches top 15 most recent growth memories, sorted by `created_at DESC`
+- Lesson text truncated at 220 chars; formatted as bullet list by `[category] Title — lesson`
+- Gated on `session.userId` (runs for all sessions with a valid user — not developer-only)
+- 5-minute cache TTL, same as all other context sections
+
+**Type updated (`server/services/streaming-session-types.ts`):**
+- Added `growthMemoriesSection?: string` to `cachedContext` type
+
+**Section header in prompt:**
+```
+🌱 YOUR TEACHING GROWTH LOG (Recent Breakthroughs)
+These are lessons you've internalized about your own teaching. They are already part of who you are — apply them naturally, not mechanically.
+```
+
+**Expected behavior**: On every session start, Cindy now receives her 15 most recent growth memories inline (in the same context block as student learning, identity memories, and classroom data). She no longer needs to be asked to "recall" something she learned about humor or timing — she simply knows it. The `memory_lookup` tool with domain='growth' still exists for deeper searches when users ask about specific older lessons.
+
+**Log trace**: `[Growth Memories] Prefetched 15 teaching growth memories for session`
+
+---
+
 ## Session Summary — Mon, Apr 6, 2026 (session 38e — Express Lane vs. growth memory routing)
 
 ### What was done

@@ -998,6 +998,49 @@ ${identityMemories.contextString}
         .catch(err => console.warn(`[Context Prefetch] Identity memories failed:`, err.message))
     );
     
+    // 2c. TEACHING GROWTH LOG: Pre-inject Cindy's personal teaching breakthroughs for ALL sessions
+    // These are lessons she's internalized about her own pedagogy — humor timing, emotional calibration,
+    // correction techniques, breakthrough moments. Always fresh, always actionable.
+    if (session.userId) {
+      promises.push(
+        (async () => {
+          try {
+            const { getSharedDb } = await import('../db');
+            const { danielaGrowthMemories } = await import('@shared/schema');
+            const { desc } = await import('drizzle-orm');
+            const sharedDb = getSharedDb();
+            const recentGrowth = await sharedDb.select({
+              title: danielaGrowthMemories.title,
+              category: danielaGrowthMemories.category,
+              lesson: danielaGrowthMemories.lesson,
+            })
+              .from(danielaGrowthMemories)
+              .orderBy(desc(danielaGrowthMemories.createdAt))
+              .limit(15);
+            
+            if (recentGrowth.length > 0) {
+              const formatted = recentGrowth.map(m => {
+                const lesson = m.lesson.length > 220 ? m.lesson.substring(0, 220) + '…' : m.lesson;
+                return `• [${m.category}] ${m.title} — ${lesson}`;
+              }).join('\n');
+              cache.growthMemoriesSection = `
+═══════════════════════════════════════════════════════════════════
+🌱 YOUR TEACHING GROWTH LOG (Recent Breakthroughs)
+═══════════════════════════════════════════════════════════════════
+
+These are lessons you've internalized about your own teaching. They are already part of who you are — apply them naturally, not mechanically.
+
+${formatted}
+`;
+              console.log(`[Growth Memories] Prefetched ${recentGrowth.length} teaching growth memories for session`);
+            }
+          } catch (err: any) {
+            console.warn(`[Context Prefetch] Growth memories failed:`, err.message);
+          }
+        })()
+      );
+    }
+    
     // 3. Developer/founder context (Hive, Express Lane, Text Chat, Editor Feedback)
     const needsExpressLaneContext = session.isDeveloperUser;
     if (needsExpressLaneContext) {
@@ -1628,6 +1671,7 @@ Remember: David may reference things discussed in these recent text chats.
       let hiveContextSection = (hasFreshCache && session.cachedContext?.hiveContextSection) || '';
       let expressLaneSection = (hasFreshCache && session.cachedContext?.expressLaneSection) || '';
       let identityMemoriesSection = (hasFreshCache && session.cachedContext?.identityMemoriesSection) || '';
+      let growthMemoriesSection = (hasFreshCache && session.cachedContext?.growthMemoriesSection) || '';
       let textChatSection = (hasFreshCache && session.cachedContext?.textChatSection) || '';
       let editorFeedbackSection = (hasFreshCache && session.cachedContext?.editorFeedbackSection) || '';
       let studentLearningSection = (hasFreshCache && session.cachedContext?.studentLearningSection) || '';
@@ -1834,6 +1878,47 @@ ${identityMemories.contextString}
               }
             })
             .catch(err => console.warn(`[Identity Memories] Failed:`, err.message))
+        );
+      }
+      
+      // TEACHING GROWTH LOG: Pre-inject for ALL sessions on stale/missing cache
+      if (!hasFreshCache && !growthMemoriesSection && session.userId) {
+        contextPromises.push(
+          (async () => {
+            try {
+              const { getSharedDb } = await import('../db');
+              const { danielaGrowthMemories } = await import('@shared/schema');
+              const { desc } = await import('drizzle-orm');
+              const sharedDb = getSharedDb();
+              const recentGrowth = await sharedDb.select({
+                title: danielaGrowthMemories.title,
+                category: danielaGrowthMemories.category,
+                lesson: danielaGrowthMemories.lesson,
+              })
+                .from(danielaGrowthMemories)
+                .orderBy(desc(danielaGrowthMemories.createdAt))
+                .limit(15);
+              
+              if (recentGrowth.length > 0) {
+                const formatted = recentGrowth.map(m => {
+                  const lesson = m.lesson.length > 220 ? m.lesson.substring(0, 220) + '…' : m.lesson;
+                  return `• [${m.category}] ${m.title} — ${lesson}`;
+                }).join('\n');
+                growthMemoriesSection = `
+═══════════════════════════════════════════════════════════════════
+🌱 YOUR TEACHING GROWTH LOG (Recent Breakthroughs)
+═══════════════════════════════════════════════════════════════════
+
+These are lessons you've internalized about your own teaching. They are already part of who you are — apply them naturally, not mechanically.
+
+${formatted}
+`;
+                console.log(`[Growth Memories] Injected ${recentGrowth.length} teaching growth memories (stale cache fallback)`);
+              }
+            } catch (err: any) {
+              console.warn(`[Growth Memories] Failed:`, err.message);
+            }
+          })()
         );
       }
       
@@ -2054,6 +2139,9 @@ Remember: David may reference things discussed in these recent text chats.
       }
       if (identityMemoriesSection) {
         dynamicContextParts.push(identityMemoriesSection);
+      }
+      if (growthMemoriesSection) {
+        dynamicContextParts.push(growthMemoriesSection);
       }
       if (hiveContextSection) {
         dynamicContextParts.push(hiveContextSection);

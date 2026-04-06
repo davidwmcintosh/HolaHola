@@ -229,6 +229,7 @@ export interface StreamingSession {
     textChatSection?: string;
     editorFeedbackSection?: string;
     editorFeedbackIds?: string[];
+    growthMemoriesSection?: string;  // Cindy's personal teaching growth log — pre-injected for all sessions
     fatContextProfile?: string;
     fatContextVocabulary?: string;
     fatContextConversations?: string;
