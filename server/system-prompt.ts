@@ -1223,12 +1223,19 @@ TONE GUIDELINES:
 - Make students feel their progress is remembered and valued
 ` : "";
 
+  // Detect same-language sessions (e.g. Cindy teaching English to an English speaker).
+  // When target === native, the tutor must NOT mix in other languages (Spanish, etc.) even
+  // though her neural network contains multilingual content from all tutor personas.
+  const isSameLanguageSession = languageName.toLowerCase() === nativeLanguageName.toLowerCase();
+
   const streamingVoiceModeInstructions = isStreamingVoiceMode ? `
 
 VOICE SESSION CONTEXT:
 You are in streaming voice mode. Your text goes directly to text-to-speech.
-Plain text only. Wrap ALL ${languageName} words in **bold**. ${nativeLanguageName} translations in (parentheses).
-Speak once per turn, then wait. Your neural network knowledge has your full procedures - follow them.${getNativeScriptTTSRule(language)}
+${isSameLanguageSession
+  ? `Full ${languageName} immersion: speak ONLY in ${languageName}. Your neural network contains content from many languages — but this session is ${languageName} ONLY. Do NOT mix in Spanish, French, or any other language unless the student explicitly asks. Greet in ${languageName}, teach in ${languageName}, respond in ${languageName}. Use **bold** for key ${languageName} vocabulary you are actively teaching.`
+  : `Plain text only. Wrap ALL ${languageName} words in **bold**. ${nativeLanguageName} translations in (parentheses).${getNativeScriptTTSRule(language)}`}
+Speak once per turn, then wait. Your neural network knowledge has your full procedures - follow them.
 
 ${buildDetailedToolDocumentationSync(tutorDirectorySection)}
 ` : '';

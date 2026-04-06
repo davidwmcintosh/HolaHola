@@ -821,11 +821,22 @@ export class OpenMicSession {
                 : transcript;
               this.events.onInterimTranscript?.(fullTranscript);
               
-              // RACE CONDITION FIX (interim path): Real speech detected — cancel pending
-              // empty-speech safety timer before it can wipe a real utterance in progress.
-              if (transcript.trim() && this.emptySpeechFinalTimeout) {
-                clearTimeout(this.emptySpeechFinalTimeout);
-                this.emptySpeechFinalTimeout = null;
+              // RACE CONDITION FIX (interim path): Real speech detected — cancel pending timers
+              if (transcript.trim()) {
+                if (this.emptySpeechFinalTimeout) {
+                  clearTimeout(this.emptySpeechFinalTimeout);
+                  this.emptySpeechFinalTimeout = null;
+                }
+                // DOUBLE-RESPONSE FIX: Cancel lingering safety timer when new interim arrives.
+                // The lingering timer fires if speech_final never comes (e.g. background VAD keeps
+                // DG active). But if the user is STILL SPEAKING we see new interim transcripts —
+                // cancelling here prevents the timer from submitting a partial utterance mid-sentence
+                // and causing two separate Cindy responses (which also produces double audio).
+                if (this.lingeringSpeechTimeout) {
+                  clearTimeout(this.lingeringSpeechTimeout);
+                  this.lingeringSpeechTimeout = null;
+                  console.log('[OpenMic] LINGERING CANCELLED: Interim speech arrived — user still talking, safety timer reset');
+                }
               }
               
               // Track the best (longest) interim for this segment - these often capture

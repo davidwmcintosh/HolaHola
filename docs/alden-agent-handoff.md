@@ -1,5 +1,47 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Mon, Apr 6, 2026 (session 38d — double audio / Spanish leak in Cindy standard sessions)
+
+### What was done
+
+#### Bug 1: Double audio / double Cindy response (lingering timer fires mid-sentence)
+
+**Root cause confirmed from logs** (line 1568 of Start_application log):
+`[OpenMic] LINGERING SAFETY: speech_final never arrived — forcing utterance end for: "Well, in our last session, I actually asked you to look through the express lane to see if"`
+
+The user was mid-sentence ("...to see if [you could find the joke session]"). A 3-second `lingeringSpeechTimeout` started when `is_final=true, speech_final=false` fired for the first segment. While the user continued speaking, NEW INTERIM transcripts were arriving — but the lingering timer was only cancelled on `speech_final` or `UtteranceEnd`, NOT on interim transcripts. So the 3-second timer fired mid-utterance, submitted the partial transcript, Cindy responded to the partial, then the remainder of the utterance came in as a second input — causing TWO Cindy responses and double audio.
+
+**Fix applied (`server/services/deepgram-live-stt.ts`):**
+In the interim transcript handler (is_final=false path), added `lingeringSpeechTimeout` cancellation alongside the existing `emptySpeechFinalTimeout` cancellation. Now, whenever new interim speech arrives (meaning the user is actively talking), the lingering safety timer is cancelled and reset. The timer only fires during ACTUAL pauses (no new speech for 3s after an is_final without speech_final).
+
+Log message: `[OpenMic] LINGERING CANCELLED: Interim speech arrived — user still talking, safety timer reset`
+
+**Note**: The lingering timer is still reset when the next `is_final` fires (line 798-800). So the flow is:
+- is_final → lingering timer starts (3s)
+- new interim arrives → lingering timer CANCELLED (new fix)
+- next is_final → lingering timer starts again (refreshed)
+This ensures the timer only fires when speech genuinely stops without speech_final.
+
+#### Bug 2: Spanish words leaking into Cindy's English standard-mode sessions
+
+**Root cause**: The `streamingVoiceModeInstructions` string (injected into the system prompt for ALL non-founder/non-honesty sessions) said:
+`"Plain text only. Wrap ALL English words in **bold**. English translations in (parentheses)."`
+
+This is semantically meaningless for an English session (every word is English, and "English translations in parentheses" makes no sense), and — critically — it provided NO instruction telling Cindy NOT to use Spanish. Cindy's neural network contains extensive multilingual content from all tutor personas. Without an explicit language boundary, the model would occasionally slip into Spanish filler phrases ("No te preocupes", "código") when prompted by context from the Express Lane or memory.
+
+Honesty mode and founder mode both had this guard (added in session 38):
+- Honesty mode (line 770): "do NOT greet or mix in other languages like Spanish unless specifically asked"  
+- Founder mode (line 900): "Do NOT default to Spanish greetings or vocabulary"
+
+But standard sessions (the self-directed, open_exploration, guided, and all other modes) were missing it.
+
+**Fix applied (`server/system-prompt.ts`):**
+Added `isSameLanguageSession` check before `streamingVoiceModeInstructions` (line 1229). When `languageName === nativeLanguageName` (e.g., English teaching English):
+- **New instruction**: "Full English immersion: speak ONLY in English. Your neural network contains content from many languages — but this session is English ONLY. Do NOT mix in Spanish, French, or any other language unless the student explicitly asks."
+- For non-same-language sessions (e.g., Spanish teaching English speakers): unchanged behavior (bold target language words, native translations in parentheses).
+
+---
+
 ## Session Summary — Mon, Apr 6, 2026 (session 38b — Open Mic 20-second delay fix)
 
 ### What was done
