@@ -21,14 +21,13 @@
 - **Fix**: After any real `is_final` segment with text, a 3-second `lingeringSpeechTimeout` starts. If `speech_final` or `UtteranceEnd` arrives first, timer is cancelled (normal path). If neither arrives in 3s, the accumulated transcript is force-submitted via `onUtteranceEnd`. Timer also cleared in `close()`.
 - Log message: `[OpenMic] LINGERING SAFETY: speech_final never arrived — forcing utterance end for: "..."`
 
-**Fix 3 — English sessions now use `en` instead of `multi` (session 38c):**
-- **Root cause**: `nova-3 + multi` fails to return non-empty transcripts for English speech, even when audio arrives at real levels (-27.6dB, max: 6797 amplitude). The `multi` model is designed for bilingual mixing but is unreliable for English-only speech.
-- **Fix**: English target-language sessions now use `language: 'en'`. All other sessions keep `language: 'multi'` for bilingual detection.
-- **Reasoning**: A student in an English session IS speaking English. Using `en` provides reliable STT. Non-English sessions (Spanish, French, etc.) still need `multi` because students genuinely mix their native language mid-sentence.
-- **Prior reversal was wrong**: This was reverted in session 38b due to concern about Italian students studying English needing bilingual mixing — but `multi` failing completely for English is worse than `en` missing occasional Italian words.
+**Fix 3 — `onSpeechFinal` wired up to send `processing_pending` (session 38c):**
+- **Root cause**: Open Mic had NO early "thinking" signal. For PTT, `processing_pending` fires immediately on button release. For Open Mic, there was nothing until AI processing completed — meaning the UI stayed in "listening" state for `1400ms (UtteranceEnd delay) + AI latency (1-3s)` after the user finished speaking.
+- **Fix**: `onSpeechFinal` is now wired in `openMicEvents` in `unified-ws-handler.ts`. When Deepgram fires `speech_final=true` with real text, the server immediately sends `processing_pending` to the client, which triggers the "thinking" avatar state right when the user stops speaking — not seconds later.
+- **Language**: `multi` is kept for ALL sessions (reverted brief `en` change for English). Log analysis confirmed `multi` DOES transcribe English correctly ("Do you remember our session last last night?", "Are are you listening?", "Hello. Hello." — all transcribed successfully with `multi`). The perceived delays were the missing `onSpeechFinal` early signal, not a model failure.
 
-#### Earlier in session 38b: investigated wrong direction (reverted, then re-reverted)
-- Momentarily changed English sessions to use `language: 'en'` → reverted (wrongly) → then permanently re-applied in 38c based on log evidence that `multi` returns empty transcripts for English speech.
+#### Earlier in session 38c: wrong direction — English `en` vs `multi` (ABANDONED)
+- Momentarily changed English sessions to `language: 'en'` based on incorrect interpretation of log gaps as model failures. Reverted per user request — `multi` was working for English all along. The real issue was missing `onSpeechFinal` wiring.
 
 ---
 

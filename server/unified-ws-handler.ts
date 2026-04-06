@@ -1778,6 +1778,20 @@ ${buildNativeFunctionCallingSection()}`;
                   console.warn('[OpenMic] WebSocket not open, cannot send vad_speech_started');
                 }
               },
+              onSpeechFinal: (transcript: string) => {
+                // IMMEDIATE THINKING SIGNAL: mirrors PTT's processing_pending behavior.
+                // speech_final fires the moment the user stops speaking (before UtteranceEnd
+                // adds the 1400ms pause + AI latency). Sending processing_pending here gives
+                // the user instant visual feedback that Cindy heard them.
+                if (ws.readyState === WS_OPEN) {
+                  console.log(`[OpenMic] speech_final with text — sending processing_pending early signal`);
+                  ws.send(JSON.stringify({
+                    type: 'processing_pending',
+                    timestamp: Date.now(),
+                    transcript,
+                  }));
+                }
+              },
               onUtteranceEnd: async (transcript, confidence) => {
                 console.log(`[OpenMic] VAD: Utterance end - "${transcript}" (${(confidence * 100).toFixed(0)}%)`);
                 

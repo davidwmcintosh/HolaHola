@@ -484,17 +484,14 @@ export class OpenMicSession {
       };
       
       try {
-        // LANGUAGE SELECTION: Use 'en' for English sessions, 'multi' for all others.
-        // 'multi' (nova-3) is required for bilingual detection in non-English sessions
-        // (e.g. a Spanish student mixes English and Spanish mid-sentence).
-        // CRITICAL: nova-3 + 'multi' FAILS for English — returns empty transcripts even
-        // for clearly audible speech. English sessions must use 'en' for reliable STT.
-        // An English-session student IS speaking English; 'en' is the correct transcription model.
-        // Nova-2 + 'multi' also returns empty transcripts — nova-3 is mandatory for multi sessions.
-        const isEnglishSession = this.language === 'english';
-        const languageCode = isEnglishSession ? 'en' : 'multi';
-        const openMicModel = 'nova-3';  // Always nova-3 for open-mic - multi-language requires it for non-English
-        console.log(`[OpenMic] Creating Deepgram live connection (model: ${openMicModel}, language: ${languageCode} [${isEnglishSession ? 'en-only' : 'multi-bilingual'}], target: ${this.language}, intelligence: ${DEEPGRAM_INTELLIGENCE_ENABLED})`);
+        // MULTI-LANGUAGE: Always use 'multi' for bilingual detection across ALL sessions.
+        // Students naturally mix native + target language (e.g. a Japanese student studying
+        // English will mix Japanese and English mid-sentence — 'multi' catches both).
+        // CRITICAL: nova-3 is FORCED here because nova-2 + 'multi' returns empty transcripts.
+        // This overrides DEEPGRAM_MODEL env var for open-mic mode specifically.
+        const languageCode = 'multi';
+        const openMicModel = 'nova-3';  // Always nova-3 for open-mic - multi-language requires it
+        console.log(`[OpenMic] Creating Deepgram live connection (model: ${openMicModel} [forced for multi-lang], language: ${languageCode}, target: ${this.language}, intelligence: ${DEEPGRAM_INTELLIGENCE_ENABLED})`);
         
         const connectionOptions: any = {
           model: openMicModel,  // nova-3 is required for reliable multi-language streaming
