@@ -8,14 +8,23 @@
 
 **Root cause**: Deepgram's `multi` language model fires `speech_final=true` with `text=""` on background noise bursts at ~-66dB every ~10 seconds. Each empty `speech_final` started a 2-second safety timer waiting for `utterance_end` (which never arrives for empty speech). With 2-3 of these stacking before real speech, users saw 20+ second delays before Cindy started thinking.
 
-**Fix (`server/services/deepgram-live-stt.ts`)**:
-- **Before**: Empty `speech_final` → `setTimeout(onUtteranceEnd('[EMPTY_TRANSCRIPT]'), 2000)` — 2-second wait
-- **After**: Empty `speech_final` → immediately calls `onUtteranceEnd('[EMPTY_TRANSCRIPT]')` with no delay. The false positive is cleared in milliseconds instead of 2 seconds.
-- Added `emptyUtteranceHandledAt` timestamp guard so the `UtteranceEnd` event arriving 1.4s later doesn't double-fire.
-- Note: The `multi` language model is kept for all sessions (including English) because Italian students studying English etc. need bilingual detection.
+**Two fixes applied (`server/services/deepgram-live-stt.ts`)**:
 
-#### Earlier in session 38: investigated wrong direction (empty transcript via `multi` → `en` for English)
-- Momentarily changed English sessions to use `language: 'en'` instead of `multi` — **reverted**. Users can be any native language studying English, `multi` is correct for all sessions.
+**Fix 1 — Empty speech_final no longer burns 2 seconds:**
+- **Before**: Empty `speech_final` → `setTimeout(onUtteranceEnd('[EMPTY_TRANSCRIPT]'), 2000)` — 2-second wait per false positive
+- **After**: Empty `speech_final` → immediately calls `onUtteranceEnd('[EMPTY_TRANSCRIPT]')` with no delay
+- Added `emptyUtteranceHandledAt` timestamp guard so `UtteranceEnd` arriving 1.4s later doesn't double-fire
+- Reduced false-positive penalty from ~2s to ~0ms per noise burst
+
+**Fix 2 — Lingering transcript safety net (Cindy not responding at all):**
+- **Root cause**: Background noise at -66dB kept Deepgram's VAD continuously "active", preventing `speech_final` from ever firing for real speech. Transcript accumulated correctly in `is_final` events but was never submitted — Cindy never responded.
+- **Fix**: After any real `is_final` segment with text, a 3-second `lingeringSpeechTimeout` starts. If `speech_final` or `UtteranceEnd` arrives first, timer is cancelled (normal path). If neither arrives in 3s, the accumulated transcript is force-submitted via `onUtteranceEnd`. Timer also cleared in `close()`.
+- Log message: `[OpenMic] LINGERING SAFETY: speech_final never arrived — forcing utterance end for: "..."`
+
+**Note on `multi` language**: Kept for all sessions including English — an Italian student studying English needs bilingual detection. Momentarily changed to `en` for English sessions — reverted.
+
+#### Earlier in session 38b: investigated wrong direction
+- Momentarily changed English sessions to use `language: 'en'` instead of `multi` — **reverted**. `multi` is correct for all sessions.
 
 ---
 
