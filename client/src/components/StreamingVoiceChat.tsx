@@ -3576,7 +3576,7 @@ export function StreamingVoiceChat({
     <VoiceInputContext.Provider value={voiceInputContextValue}>
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-background" data-testid="rest-voice-chat">
       {/* Incognito Mode Toggle - Founder/Honesty mode only */}
-      {(isDeveloper || isAdmin) && (learningContext === 'founder-mode' || learningContext === 'honesty-mode') && (
+      {(isDeveloper || isAdmin) && (learningContext === 'founder-mode' || learningContext === 'honesty-mode') && streamingVoice.state.connectionState === 'connected' && (
         <div className="absolute top-3 left-3 z-50">
           <Button
             size="sm"
