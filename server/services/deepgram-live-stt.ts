@@ -429,6 +429,7 @@ export class OpenMicSession {
   private consecutiveEmptyCount = 0;
   private suppressionEndedAt = 0;
   private lastSuccessfulTranscriptAt = 0;
+  private emptyUtteranceHandledAt = 0;  // Guard against double-firing when UtteranceEnd arrives after immediate empty handling
   
   constructor(language: string, events: OpenMicEvents, keyterms?: string[]) {
     this.language = language;
@@ -482,15 +483,14 @@ export class OpenMicSession {
       };
       
       try {
-        // LANGUAGE SELECTION: Use 'multi' for non-English target languages (students mix with English),
-        // but use the specific language code for English sessions — 'multi' returns empty transcripts
-        // when the student is speaking only English (no bilingual context for Deepgram to work with).
+        // MULTI-LANGUAGE: Always use 'multi' for bilingual detection
+        // Students naturally mix native + target language during lessons (e.g. Italian student
+        // studying English will mix Italian and English — 'multi' is required for all languages)
         // CRITICAL: nova-3 is FORCED here because nova-2 + 'multi' returns empty transcripts
         // This overrides DEEPGRAM_MODEL env var for open-mic mode specifically
-        const isEnglishSession = this.language === 'english' || this.language === 'en';
-        const languageCode = isEnglishSession ? 'en' : 'multi';
-        const openMicModel = 'nova-3';  // Always nova-3 for open-mic
-        console.log(`[OpenMic] Creating Deepgram live connection (model: ${openMicModel}, language: ${languageCode}, target: ${this.language}, intelligence: ${DEEPGRAM_INTELLIGENCE_ENABLED})`);
+        const languageCode = 'multi';
+        const openMicModel = 'nova-3';  // Always nova-3 for open-mic - multi-language requires it
+        console.log(`[OpenMic] Creating Deepgram live connection (model: ${openMicModel} [forced for multi-lang], language: ${languageCode}, target: ${this.language}, intelligence: ${DEEPGRAM_INTELLIGENCE_ENABLED})`);
         
         const connectionOptions: any = {
           model: openMicModel,  // nova-3 is required for reliable multi-language streaming
@@ -560,6 +560,16 @@ export class OpenMicSession {
             clearTimeout(this.emptySpeechFinalTimeout);
             this.emptySpeechFinalTimeout = null;
           }
+
+          // DOUBLE-FIRE GUARD: If we already handled an empty utterance immediately
+          // (from speech_final handler), skip this UtteranceEnd to avoid double-firing.
+          // The UtteranceEnd arrives ~1.4s after the empty speech_final we already handled.
+          if (this.emptyUtteranceHandledAt > 0 && Date.now() - this.emptyUtteranceHandledAt < 3000) {
+            console.log('[OpenMic] UtteranceEnd skipped — already handled as empty speech_final');
+            this.emptyUtteranceHandledAt = 0;
+            return;
+          }
+          this.emptyUtteranceHandledAt = 0;
           
           // ECHO SUPPRESSION: Don't process utterance end while TTS is playing
           if (this.isSuppressed) {
@@ -821,22 +831,24 @@ export class OpenMicSession {
               this.events.onSpeechFinal?.(accumulatedSoFar);
             }
             
-            // SAFETY: When speech_final fires with empty transcript, Deepgram may never
-            // send UtteranceEnd (no real utterance to end). Set a fallback timeout to
-            // prevent the user from being stuck in limbo forever.
+            // IMMEDIATE RESET: When speech_final fires with empty transcript, Deepgram
+            // detected a noise burst but couldn't transcribe it. Don't wait 2 seconds —
+            // fire utterance end immediately so the user isn't stuck waiting for nothing.
+            // With `multi` language, Deepgram's VAD fires on background noise at ~-66dB
+            // every few seconds, and each 2s wait stacks up to a 20+ second delay.
             if (!this.currentTranscript.trim() && !transcript.trim()) {
               if (this.emptySpeechFinalTimeout) clearTimeout(this.emptySpeechFinalTimeout);
-              this.emptySpeechFinalTimeout = setTimeout(() => {
-                this.emptySpeechFinalTimeout = null;
-                if (this.isSuppressed) return;
-                console.log('[OpenMic] SAFETY: UtteranceEnd never arrived after empty speech_final - forcing utterance end');
+              this.emptySpeechFinalTimeout = null;
+              if (!this.isSuppressed) {
+                console.log('[OpenMic] Empty speech_final — immediately resetting (no wait for UtteranceEnd)');
+                this.emptyUtteranceHandledAt = Date.now();
                 this.events.onUtteranceEnd?.('[EMPTY_TRANSCRIPT]', 0);
                 this.currentTranscript = '';
                 this.currentConfidence = 0;
                 this.currentIntelligence = {};
                 this.lastFinalSegment = '';
                 this.bestInterimForSegment = '';
-              }, 2000);
+              }
             }
           }
         });

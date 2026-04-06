@@ -1,5 +1,24 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Mon, Apr 6, 2026 (session 38b — Open Mic 20-second delay fix)
+
+### What was done
+
+#### Open Mic: empty `speech_final` was burning 2 seconds per false positive → 20+ second delay
+
+**Root cause**: Deepgram's `multi` language model fires `speech_final=true` with `text=""` on background noise bursts at ~-66dB every ~10 seconds. Each empty `speech_final` started a 2-second safety timer waiting for `utterance_end` (which never arrives for empty speech). With 2-3 of these stacking before real speech, users saw 20+ second delays before Cindy started thinking.
+
+**Fix (`server/services/deepgram-live-stt.ts`)**:
+- **Before**: Empty `speech_final` → `setTimeout(onUtteranceEnd('[EMPTY_TRANSCRIPT]'), 2000)` — 2-second wait
+- **After**: Empty `speech_final` → immediately calls `onUtteranceEnd('[EMPTY_TRANSCRIPT]')` with no delay. The false positive is cleared in milliseconds instead of 2 seconds.
+- Added `emptyUtteranceHandledAt` timestamp guard so the `UtteranceEnd` event arriving 1.4s later doesn't double-fire.
+- Note: The `multi` language model is kept for all sessions (including English) because Italian students studying English etc. need bilingual detection.
+
+#### Earlier in session 38: investigated wrong direction (empty transcript via `multi` → `en` for English)
+- Momentarily changed English sessions to use `language: 'en'` instead of `multi` — **reverted**. Users can be any native language studying English, `multi` is correct for all sessions.
+
+---
+
 ## Session Summary — Mon, Apr 6, 2026 (session 38 — Cindy/English honesty mode speaking-Spanish fixes)
 
 ### What was done
