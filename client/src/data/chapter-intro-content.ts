@@ -23,6 +23,7 @@ export interface FormalInformalExample {
 
 export interface ConversationPanel {
   speaker: string;
+  gender?: 'male' | 'female';
   text: string;
   translation: string;
   note?: string;
@@ -97,30 +98,30 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         conversationStrips: [
           {
             title: "A Casual Hello",
-            context: "Marco runs into his tutor Daniela between classes",
+            context: "Agustín runs into Daniela between classes",
             panels: [
-              { speaker: "Marco", text: "\u00a1Hola, Daniela!", translation: "Hi, Daniela!", image: "/strips/panel-0-0.png" },
-              { speaker: "Daniela", text: "\u00a1Hola, Marco! \u00bfC\u00f3mo est\u00e1s?", translation: "Hi, Marco! How are you?", image: "/strips/panel-0-1.png" },
-              { speaker: "Marco", text: "\u00a1Muy bien, gracias! \u00bfY t\u00fa?", translation: "Very well, thanks! And you?", image: "/strips/panel-0-2.png" },
-              { speaker: "Daniela", text: "\u00a1Bien! \u00a1Hasta luego!", translation: "Good! See you later!", image: "/strips/panel-0-3.png" }
+              { speaker: "Agustín", gender: "male", text: "\u00a1Hola, Daniela!", translation: "Hi, Daniela!", image: "/strips/panel-0-0.png" },
+              { speaker: "Daniela", gender: "female", text: "\u00a1Hola, Agust\u00edn! \u00bfC\u00f3mo est\u00e1s?", translation: "Hi, Agustín! How are you?", image: "/strips/panel-0-1.png" },
+              { speaker: "Agustín", gender: "male", text: "\u00a1Muy bien, gracias! \u00bfY t\u00fa?", translation: "Very well, thanks! And you?", image: "/strips/panel-0-2.png" },
+              { speaker: "Daniela", gender: "female", text: "\u00a1Bien! \u00a1Hasta luego!", translation: "Good! See you later!", image: "/strips/panel-0-3.png" }
             ]
           },
           {
             title: "Nice to Meet You",
-            context: "Marco introduces himself to Daniela on the first day",
+            context: "Agustín introduces himself to Daniela on the first day",
             panels: [
-              { speaker: "Marco", text: "Hola, me llamo Marco.", translation: "Hi, my name is Marco.", image: "/strips/panel-1-0.png" },
-              { speaker: "Daniela", text: "Mucho gusto, Marco. Soy Daniela.", translation: "Nice to meet you, Marco. I'm Daniela.", image: "/strips/panel-1-1.png" },
-              { speaker: "Marco", text: "El gusto es m\u00edo.", translation: "The pleasure is mine.", image: "/strips/panel-1-2.png" }
+              { speaker: "Agustín", gender: "male", text: "Hola, me llamo Agust\u00edn.", translation: "Hi, my name is Agustín.", image: "/strips/panel-1-0.png" },
+              { speaker: "Daniela", gender: "female", text: "Mucho gusto, Agust\u00edn. Soy Daniela.", translation: "Nice to meet you, Agustín. I'm Daniela.", image: "/strips/panel-1-1.png" },
+              { speaker: "Agustín", gender: "male", text: "El gusto es m\u00edo.", translation: "The pleasure is mine.", image: "/strips/panel-1-2.png" }
             ]
           },
           {
             title: "With Grandma \u2014 The Formal Register",
-            context: "Marco visits Rosa, his grandmother, always addressing her with 'usted'",
+            context: "Agustín visits Rosa, his grandmother, always addressing her with 'usted'",
             panels: [
-              { speaker: "Marco", text: "Buenos d\u00edas, abuela. \u00bfC\u00f3mo est\u00e1 usted?", translation: "Good morning, Grandma. How are you?", note: "Marco uses 'usted' — respect for elders", image: "/strips/panel-2-0.png" },
-              { speaker: "Rosa", text: "Muy bien, gracias, Marco. \u00bfY t\u00fa?", translation: "Very well, thanks, Marco. And you?", note: "Grandma uses 't\u00fa' back — she's the elder", image: "/strips/panel-2-1.png" },
-              { speaker: "Marco", text: "Bien, gracias, abuela.", translation: "Fine, thank you, Grandma.", image: "/strips/panel-2-2.png" }
+              { speaker: "Agustín", gender: "male", text: "Buenos d\u00edas, abuela. \u00bfC\u00f3mo est\u00e1 usted?", translation: "Good morning, Grandma. How are you?", note: "Agustín uses 'usted' — respect for elders", image: "/strips/panel-2-0.png" },
+              { speaker: "Rosa", gender: "female", text: "Muy bien, gracias, Agust\u00edn. \u00bfY t\u00fa?", translation: "Very well, thanks, Agustín. And you?", note: "Grandma uses 't\u00fa' back — she's the elder", image: "/strips/panel-2-1.png" },
+              { speaker: "Agustín", gender: "male", text: "Bien, gracias, abuela.", translation: "Fine, thank you, Grandma.", image: "/strips/panel-2-2.png" }
             ]
           }
         ]

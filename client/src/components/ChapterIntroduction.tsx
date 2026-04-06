@@ -1,8 +1,11 @@
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Globe, Users, BookOpen, Lightbulb, MessageSquare, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Sparkles, Globe, Users, BookOpen, Lightbulb, MessageSquare, ChevronRight, Play, Square, Loader2 } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 import { SunArcGreetings, FormalInformalComparison, QuickPhraseGrid, SerEstarCard, PretImperfectCard, PorParaCard, FalseCognatesGrid } from "./TextbookInfographics";
 import {
   ArVerbsCard, ErVerbsCard, IrVerbsCard,
@@ -2476,6 +2479,77 @@ export function ConversationStripsSection({
   chapterType?: string;
   className?: string;
 }) {
+  const [playingStripIdx, setPlayingStripIdx] = useState<number | null>(null);
+  const [activePanelIdx, setActivePanelIdx] = useState<number | null>(null);
+  const [loadingStripIdx, setLoadingStripIdx] = useState<number | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const stopRef = useRef(false);
+
+  const stopPlayback = useCallback(() => {
+    stopRef.current = true;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setPlayingStripIdx(null);
+    setActivePanelIdx(null);
+    setLoadingStripIdx(null);
+  }, []);
+
+  const playStrip = useCallback(async (
+    panels: Array<{ speaker: string; gender?: 'male' | 'female'; text: string }>,
+    stripIdx: number
+  ) => {
+    stopRef.current = false;
+    setLoadingStripIdx(stripIdx);
+    setPlayingStripIdx(null);
+    setActivePanelIdx(null);
+
+    for (let pIdx = 0; pIdx < panels.length; pIdx++) {
+      if (stopRef.current) break;
+      const panel = panels[pIdx];
+      setActivePanelIdx(pIdx);
+      if (pIdx === 0) {
+        setLoadingStripIdx(null);
+        setPlayingStripIdx(stripIdx);
+      }
+      try {
+        const response = await apiRequest('POST', '/api/tts/pronunciation', {
+          text: panel.text,
+          language,
+          gender: panel.gender ?? 'female',
+        });
+        if (stopRef.current) break;
+        const data = await response.json();
+        await new Promise<void>((resolve) => {
+          if (stopRef.current) { resolve(); return; }
+          const audio = new Audio(data.audioUrl);
+          audioRef.current = audio;
+          audio.onended = () => resolve();
+          audio.onerror = () => resolve();
+          audio.play().catch(() => resolve());
+        });
+      } catch {
+        // soft fail — continue to next panel
+      }
+      if (!stopRef.current && pIdx < panels.length - 1) {
+        await new Promise(r => setTimeout(r, 450));
+      }
+    }
+
+    if (!stopRef.current) {
+      setPlayingStripIdx(null);
+      setActivePanelIdx(null);
+    }
+  }, [language]);
+
+  useEffect(() => {
+    return () => {
+      stopRef.current = true;
+      if (audioRef.current) audioRef.current.pause();
+    };
+  }, []);
+
   if (!chapterType) return null;
 
   const langKey = language as keyof typeof languageChapterData;
@@ -2496,16 +2570,49 @@ export function ConversationStripsSection({
       {content.conversationStrips.map((strip, sIdx) => {
         const uniqueSpeakers = [...new Set(strip.panels.map(p => p.speaker))];
         const colorMap = new Map(uniqueSpeakers.map((s, i) => [s, SPEAKER_COLORS[i % SPEAKER_COLORS.length]]));
+        const isThisStripLoading = loadingStripIdx === sIdx;
+        const isThisStripPlaying = playingStripIdx === sIdx;
+        const isAnyStripActive = playingStripIdx !== null || loadingStripIdx !== null;
+
         return (
           <Card key={sIdx} data-testid={`card-strip-${sIdx}`}>
             <CardContent className="p-4">
-              <div className="mb-3">
-                <h4 className="font-semibold text-sm">{strip.title}</h4>
-                <p className="text-xs text-muted-foreground italic mt-0.5">{strip.context}</p>
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="min-w-0">
+                  <h4 className="font-semibold text-sm">{strip.title}</h4>
+                  <p className="text-xs text-muted-foreground italic mt-0.5">{strip.context}</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant={isThisStripPlaying ? "default" : "outline"}
+                  className="flex-shrink-0 gap-1.5"
+                  disabled={isAnyStripActive && !isThisStripPlaying && !isThisStripLoading}
+                  onClick={() => isThisStripPlaying ? stopPlayback() : playStrip(strip.panels, sIdx)}
+                  data-testid={`button-play-strip-${sIdx}`}
+                >
+                  {isThisStripLoading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : isThisStripPlaying ? (
+                    <Square className="h-3.5 w-3.5 fill-current" />
+                  ) : (
+                    <Play className="h-3.5 w-3.5 fill-current" />
+                  )}
+                  <span>
+                    {isThisStripLoading ? "Loading…" : isThisStripPlaying ? "Stop" : "Play"}
+                  </span>
+                </Button>
               </div>
               <div className="flex items-stretch gap-2 overflow-x-auto pb-1" data-testid={`strip-panels-${sIdx}`}>
                 {strip.panels.flatMap((panel, pIdx) => [
-                  <div key={`p-${pIdx}`} className="flex-shrink-0 w-[160px] border border-border/50 rounded-md flex flex-col bg-background overflow-hidden" data-testid={`panel-${sIdx}-${pIdx}`}>
+                  <div
+                    key={`p-${pIdx}`}
+                    className={`flex-shrink-0 w-[160px] border rounded-md flex flex-col bg-background overflow-hidden transition-all duration-300 ${
+                      isThisStripPlaying && activePanelIdx === pIdx
+                        ? 'border-primary ring-2 ring-primary/20 shadow-sm'
+                        : 'border-border/50'
+                    }`}
+                    data-testid={`panel-${sIdx}-${pIdx}`}
+                  >
                     {panel.image && (
                       <img
                         src={panel.image}

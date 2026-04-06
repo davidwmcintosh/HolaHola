@@ -1,5 +1,31 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Mon, Apr 6, 2026 (session 34 — Conversation Strip Audio Player)
+
+### What was done
+
+#### 1. Conversation Strip sequential audio player
+
+Added a "▶ Play" / "■ Stop" button to each strip card in `ConversationStripsSection`. Clicking plays all panels in order using gender-appropriate voices (Agustín = male, Daniela/Rosa = female), with a 450ms pause between speakers. The active panel is highlighted with a primary ring during playback. Audio is cached server-side so first play generates TTS; all subsequent plays are instant.
+
+**Backend change:** `POST /api/tts/pronunciation` now accepts an optional `gender: 'male' | 'female'` param that overrides the user's `tutorGender` setting. Cache key already distinguished male/female so this was safe to add.
+
+**Character decision: Marco → Agustín.** The male character in the Spanish greetings strips was renamed from Marco to Agustín (the app's existing male tutor voice). Rationale: familiarity/consistency beats variety — students who tutor with Agustín will recognize his voice in the strips, reinforcing the HoloHola character universe. Agustín and Daniela are now the primary characters in all conversation strips.
+
+#### 2. ConversationPanel type updated
+Added `gender?: 'male' | 'female'` field. All Spanish strip panels wired with explicit genders.
+
+#### 3. ChapterIntroduction.tsx — new imports
+Added `useState`, `useRef`, `useCallback`, `useEffect` from react; `Button` from shadcn; `Play`, `Square`, `Loader2` from lucide-react; `apiRequest` from @lib/queryClient.
+
+### NEXT TASK
+- Add `conversationStrips` data for French, German, and Italian greetings chapters in `chapter-intro-content.ts`
+- Characters: FR → Agustín + Léa (and M. Dupont for formal strip), DE → Agustín + Lena, IT → Agustín + Sofia
+- No images needed for new strips — audio-only approach is the chosen direction going forward
+- Images on existing Spanish strips: still present but under review; decision pending on whether to remove them
+
+---
+
 ## Session Summary — Sun, Apr 5, 2026 (session 33 — Static Active Production + Formal/Informal examples)
 
 ### What was done

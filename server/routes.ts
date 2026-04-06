@@ -13177,6 +13177,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   const pronunciationRequestSchema = z.object({
     text: z.string().min(1).max(500),
     language: z.string().min(2).max(10),
+    gender: z.enum(['male', 'female']).optional(),
   });
 
   app.post("/api/tts/pronunciation", isAuthenticated, async (req: any, res) => {
@@ -13189,8 +13190,8 @@ Return ONLY the ${targetLanguage} phrase:`;
         return res.status(400).json({ error: parseResult.error.errors[0]?.message || "Invalid request" });
       }
       
-      const { text, language } = parseResult.data;
-      const voiceGender = (user?.tutorGender || 'female') as 'female' | 'male';
+      const { text, language, gender } = parseResult.data;
+      const voiceGender = (gender ?? user?.tutorGender ?? 'female') as 'female' | 'male';
       
       // Use database-backed audio caching for persistent storage
       const { getCachedPronunciationAudio } = await import('./services/audio-caching-service');
