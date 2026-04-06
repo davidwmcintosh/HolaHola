@@ -2643,12 +2643,13 @@ Remember: David may reference things discussed in these recent text chats.
                       : [];
                     
                     // Separate student domains, teaching domains, and syllabus domain
+                    // 'growth' = daniela_growth_memories (joke sessions, timing lessons, etc.)
                     const studentDomains = ['person', 'motivation', 'insight', 'struggle', 'session', 'progress'];
-                    const teachingDomains = ['idiom', 'cultural', 'procedure', 'principle', 'error-pattern', 'situational-pattern', 'subtlety-cue', 'emotional-pattern', 'creativity-template'];
+                    const teachingDomains = ['idiom', 'cultural', 'procedure', 'principle', 'error-pattern', 'situational-pattern', 'subtlety-cue', 'emotional-pattern', 'creativity-template', 'growth'];
                     const syllabusDomains = ['syllabus'];
                     
                     const requestedStudentDomains = rawDomains.filter(d => studentDomains.includes(d)) as ('person' | 'motivation' | 'insight' | 'struggle' | 'session' | 'progress')[];
-                    const requestedTeachingDomains = rawDomains.filter(d => teachingDomains.includes(d)) as ('idiom' | 'cultural' | 'procedure' | 'principle' | 'error-pattern' | 'situational-pattern' | 'subtlety-cue' | 'emotional-pattern' | 'creativity-template')[];
+                    const requestedTeachingDomains = rawDomains.filter(d => teachingDomains.includes(d)) as ('idiom' | 'cultural' | 'procedure' | 'principle' | 'error-pattern' | 'situational-pattern' | 'subtlety-cue' | 'emotional-pattern' | 'creativity-template' | 'growth')[];
                     const requestedSyllabusDomains = rawDomains.filter(d => syllabusDomains.includes(d));
                     
                     // If no specific domains requested, search all domains
@@ -5342,11 +5343,11 @@ Remember: David may reference things discussed in these recent text chats.
                     : [];
                   
                   const studentDomains = ['person', 'motivation', 'insight', 'struggle', 'session', 'progress'];
-                  const teachingDomains = ['idiom', 'cultural', 'procedure', 'principle', 'error-pattern', 'situational-pattern', 'subtlety-cue', 'emotional-pattern', 'creativity-template'];
+                  const teachingDomains = ['idiom', 'cultural', 'procedure', 'principle', 'error-pattern', 'situational-pattern', 'subtlety-cue', 'emotional-pattern', 'creativity-template', 'growth'];
                   const syllabusDomains = ['syllabus'];
                   
                   const requestedStudentDomains = rawDomains.filter(d => studentDomains.includes(d)) as ('person' | 'motivation' | 'insight' | 'struggle' | 'session' | 'progress')[];
-                  const requestedTeachingDomains = rawDomains.filter(d => teachingDomains.includes(d)) as ('idiom' | 'cultural' | 'procedure' | 'principle' | 'error-pattern' | 'situational-pattern' | 'subtlety-cue' | 'emotional-pattern' | 'creativity-template')[];
+                  const requestedTeachingDomains = rawDomains.filter(d => teachingDomains.includes(d)) as ('idiom' | 'cultural' | 'procedure' | 'principle' | 'error-pattern' | 'situational-pattern' | 'subtlety-cue' | 'emotional-pattern' | 'creativity-template' | 'growth')[];
                   const requestedSyllabusDomains = rawDomains.filter(d => syllabusDomains.includes(d));
                   
                   const searchStudentMemory = requestedStudentDomains.length > 0 || rawDomains.length === 0;

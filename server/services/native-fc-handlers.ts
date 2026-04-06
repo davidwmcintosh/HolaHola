@@ -1814,8 +1814,8 @@ export class NativeFunctionCallHandler {
         const sessionIdParam = fn.args.sessionId as string | undefined;
         const limit = (fn.args.limit as number) || 20;
         
-        if (!session.isFounderMode && !session.isRawHonestyMode) {
-          console.log(`[Native Function→ExpressLaneLookup] Rejected - not in Founder/Honesty mode`);
+        if (!session.isFounderMode && !session.isRawHonestyMode && !session.isDeveloperUser) {
+          console.log(`[Native Function→ExpressLaneLookup] Rejected - not in Founder/Honesty/Developer mode`);
           break;
         }
         
@@ -1834,8 +1834,8 @@ export class NativeFunctionCallHandler {
         const imageQuery = fn.args.imageQuery as string | undefined;
         const reason = fn.args.reason as string | undefined;
         
-        if (!session.isFounderMode && !session.isRawHonestyMode) {
-          console.log(`[Native Function→RecallImage] Rejected - not in Founder/Honesty mode`);
+        if (!session.isFounderMode && !session.isRawHonestyMode && !session.isDeveloperUser) {
+          console.log(`[Native Function→RecallImage] Rejected - not in Founder/Honesty/Developer mode`);
           break;
         }
         
