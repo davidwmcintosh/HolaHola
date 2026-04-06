@@ -21,10 +21,14 @@
 - **Fix**: After any real `is_final` segment with text, a 3-second `lingeringSpeechTimeout` starts. If `speech_final` or `UtteranceEnd` arrives first, timer is cancelled (normal path). If neither arrives in 3s, the accumulated transcript is force-submitted via `onUtteranceEnd`. Timer also cleared in `close()`.
 - Log message: `[OpenMic] LINGERING SAFETY: speech_final never arrived — forcing utterance end for: "..."`
 
-**Note on `multi` language**: Kept for all sessions including English — an Italian student studying English needs bilingual detection. Momentarily changed to `en` for English sessions — reverted.
+**Fix 3 — English sessions now use `en` instead of `multi` (session 38c):**
+- **Root cause**: `nova-3 + multi` fails to return non-empty transcripts for English speech, even when audio arrives at real levels (-27.6dB, max: 6797 amplitude). The `multi` model is designed for bilingual mixing but is unreliable for English-only speech.
+- **Fix**: English target-language sessions now use `language: 'en'`. All other sessions keep `language: 'multi'` for bilingual detection.
+- **Reasoning**: A student in an English session IS speaking English. Using `en` provides reliable STT. Non-English sessions (Spanish, French, etc.) still need `multi` because students genuinely mix their native language mid-sentence.
+- **Prior reversal was wrong**: This was reverted in session 38b due to concern about Italian students studying English needing bilingual mixing — but `multi` failing completely for English is worse than `en` missing occasional Italian words.
 
-#### Earlier in session 38b: investigated wrong direction
-- Momentarily changed English sessions to use `language: 'en'` instead of `multi` — **reverted**. `multi` is correct for all sessions.
+#### Earlier in session 38b: investigated wrong direction (reverted, then re-reverted)
+- Momentarily changed English sessions to use `language: 'en'` → reverted (wrongly) → then permanently re-applied in 38c based on log evidence that `multi` returns empty transcripts for English speech.
 
 ---
 
