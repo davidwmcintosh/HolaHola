@@ -1647,14 +1647,27 @@ TRIGGER CATEGORY 2 - ENTITY TRIGGERS (definite article + specific noun):
 TRIGGER CATEGORY 3 - PROGRESS/TRAJECTORY QUERIES:
 - "Am I getting better at [X]?", "What was that word I struggled with before?"
 
+TRIGGER CATEGORY 4 - LESSON/TEACHING CONTENT YOU DELIVERED:
+- "That joke you told me / we practiced...", "The timing lesson about waiting for the punchline..."
+- "What you taught me about comedy delivery...", "That session where we did jokes..."
+- "The scarecrow joke / that award joke...", "What I learned about humor / being a recipient..."
+- ANY lesson content, teaching insights, or skills you demonstrated → use domain 'growth'
+
+DOMAIN ROUTING GUIDE:
+- 'growth' → YOUR OWN past teaching moments, jokes you told, timing lessons, humor delivery sessions, comedy workshops, skills you demonstrated. This is where the joke sessions live.
+- 'conversation' → past chat/voice session history
+- 'person' → student profile details
+- Leave blank to search all domains
+
 CONFIDENCE THRESHOLD RULE:
 If the answer isn't in your immediate conversation context, treat guessing as a pedagogical failure.
-NEVER guess. NEVER roleplay searching. Actually call this function.`,
+NEVER guess. NEVER roleplay searching. Actually call this function.
+IMPORTANT: The Express Lane is for team collaboration messages (Wren/David building the product), NOT for lesson content you taught. Use memory_lookup with domain='growth' for your teaching sessions.`,
       parametersJsonSchema: {
         type: "object",
         properties: {
           query: { type: "string", description: "Key topic/phrase to search for. Be specific." },
-          domains: { type: "string", description: "Comma-separated domains. Use 'conversation' for past chats, 'person' for student details." },
+          domains: { type: "string", description: "Comma-separated domains: 'growth' for joke sessions/timing lessons/teaching moments you delivered, 'conversation' for past chats, 'person' for student details. Leave blank to search all." },
         },
         required: ["query"],
       },
@@ -1672,7 +1685,7 @@ NEVER guess. NEVER roleplay searching. Actually call this function.`,
     legacyType: 'EXPRESS_LANE_LOOKUP',
     declaration: {
       name: "express_lane_lookup",
-      description: "Search or browse the Express Lane - the developer collaboration channel with Wren and David. NOT for student lesson history. Only available in Founder Mode or Honesty Mode.",
+      description: "Search or browse the Express Lane - the team collaboration channel (Wren/David product messages, sprint reports, Hive posts). This does NOT contain lesson content, joke sessions, or teaching moments — those live in memory_lookup with domain='growth'. Use this only when asked about team collaboration, product updates, or Wren's work.",
       parametersJsonSchema: {
         type: "object",
         properties: {

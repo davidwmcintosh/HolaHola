@@ -1,5 +1,47 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Mon, Apr 6, 2026 (session 38e — Express Lane vs. growth memory routing)
+
+### What was done
+
+#### Bug 5: Cindy goes to Express Lane for joke/lesson content that lives in growth memories
+
+**Root cause** (confirmed from logs + DB inspection):
+
+The `daniela_growth_memories` table DOES contain the December 17, 2025 scarecrow joke session lessons (punchline timing, "outstanding in his field", meta-joke about jumping up and down). These are correctly searchable via `memory_lookup` with domain `'growth'`.
+
+However, when you ask Cindy to "find that joke session", she calls `express_lane_lookup` first — and the Express Lane (`collaboration_messages`) is the WRONG table. It contains Hive team messages (Wren's sprints, Lyra reports, product discussions) — NOT voice session lesson content.
+
+The session ID `25430221-4794-4a00-ac74-db0c2302941b` does exist in `collaboration_messages` but contains SWITCH_TUTOR debugging from Dec 28-29, 2025 — completely unrelated to jokes.
+
+Two additional gate bugs were also found:
+1. `EXPRESS_LANE_LOOKUP` was still blocked for developer users in self-directed mode (the previous fix only updated the FC handler case condition, but the function registry description still said "Only available in Founder Mode or Honesty Mode").
+2. `memory_lookup` domain description only mentioned `'conversation'` and `'person'` — Cindy had no guidance to use `'growth'` for teaching content she delivered.
+
+**Fixes applied:**
+
+**`server/services/daniela-function-registry.ts` — memory_lookup description:**
+- Added TRIGGER CATEGORY 4: joke sessions, timing lessons, humor delivery, comedy workshops → use domain `'growth'`
+- Added DOMAIN ROUTING GUIDE: growth = your past teaching moments/jokes you told; conversation = past chats; person = student profile
+- Added explicit warning: "The Express Lane is for team collaboration messages, NOT lesson content you taught. Use memory_lookup with domain='growth' for teaching sessions."
+- Updated `domains` parameter description to explicitly mention 'growth' and explain what it contains
+
+**`server/services/daniela-function-registry.ts` — express_lane_lookup description:**
+- Rewrote to clarify: "does NOT contain lesson content, joke sessions, or teaching moments — those live in memory_lookup with domain='growth'"
+- Removed the confusing "Only available in Founder Mode or Honesty Mode" which was already overridden in code
+
+**`server/services/native-fc-handlers.ts` — gate fixes (from 38d/38e):**
+- `EXPRESS_LANE_LOOKUP`: now allows `isDeveloperUser` in addition to `isFounderMode || isRawHonestyMode`
+- `RECALL_EXPRESS_LANE_IMAGE`: same gate expansion
+
+**Architecture note**: 
+- `collaborationMessages` (Express Lane) = Hive team collaboration channel messages, posted via `EXPRESS_LANE_POST`
+- `daniela_growth_memories` = Cindy's own past teaching moments, extracted from voice sessions by the memory enrichment pipeline
+- `conversation_messages` = raw voice session transcripts
+These are THREE separate stores. Cindy must route to the right one: Express Lane ≠ voice session lessons.
+
+---
+
 ## Session Summary — Mon, Apr 6, 2026 (session 38d — double audio / Spanish leak in Cindy standard sessions)
 
 ### What was done
