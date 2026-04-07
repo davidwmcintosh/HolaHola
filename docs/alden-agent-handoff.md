@@ -1,5 +1,40 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Tue, Apr 7, 2026 (session 38h — Task #7: Growth memory outcome tracking)
+
+### What was done
+
+#### Feature: `what_worked` notes now automatically credit growth memories
+
+**Root problem solved**: `timesApplied` and `successRate` on `daniela_growth_memories` were always zero — the third leg of the composite scoring formula `(consolidatedFromCount * 3 + importance * 2 + timesApplied)` was permanently inert.
+
+**New service**: `server/services/growth-memory-outcome-service.ts`
+- Called async (fire-and-forget) from `TAKE_NOTE` handler whenever `noteType === 'what_worked'`
+- Fetches top 50 active, non-superseded growth memories ordered by composite score
+- Sends note content + memory list to Gemini Flash for semantic matching
+- Returns: `{ memoryId, confidence, hasResonance }` or null if no confident match
+
+**`#resonance` tag**: If note body contains `#resonance`, confidence threshold is bypassed — any match is treated as high-confidence. This surfaces Cindy's strongest wins without requiring a >= 0.7 semantic score.
+
+**Credit logic** (applied to matched memory):
+- Always: `timesApplied += 1`, `lastAppliedAt = now()`
+- High confidence (confidence >= 0.7 OR hasResonance): also updates `successRate` as running weighted average
+  - `newRate = (oldRate * oldTimesApplied + 1.0) / newTimesApplied` (what_worked is always a positive signal)
+- Low confidence: increments `timesApplied` only — records apply event without corrupting quality signal
+
+**Hook location**: `server/services/native-fc-handlers.ts` — TAKE_NOTE case (line ~1769). The outcome tracking call is chained inside the `.then()` of `storage.insertDanielaNote()`, so it only fires after the note is confirmed saved.
+
+**No latency impact**: Fully async, errors caught and logged internally, never surfaces to Cindy.
+
+**Log traces to watch**:
+- `[GrowthOutcome] Matched to memory <id> (confidence: 0.85, #resonance) — ...`
+- `[GrowthOutcome] ✓ Credited memory <id>: timesApplied=N, successRate=95.0%`
+- `[GrowthOutcome] No match found (confidence: 0.3) — ...`
+
+**Composite scoring formula is now fully live** — all three legs will accumulate real data as Cindy uses the system.
+
+---
+
 ## Session Summary — Tue, Apr 7, 2026 (session 38g — Composite scoring + daniela_notes pre-injection)
 
 ### What was done

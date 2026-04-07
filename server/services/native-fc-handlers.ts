@@ -14,6 +14,7 @@ import { hiveCollaborationService, BeaconType } from "./hive-collaboration-servi
 import { collaborationHubService } from "./collaboration-hub-service";
 import { founderCollabService } from "./founder-collaboration-service";
 import { journeyMemoryService } from "./journey-memory-service";
+import { growthMemoryOutcomeService } from "./growth-memory-outcome-service";
 import { storage } from "../storage";
 import { getSharedDb } from "../db";
 import { WhiteboardItem, WordMapItem, isWordMapItem, SelfSurgeryItemData } from "@shared/whiteboard-types";
@@ -1761,6 +1762,13 @@ export class NativeFunctionCallHandler {
             tags,
           }).then(noteId => {
             console.log(`[Native Function→TakeNote] ✓ Saved note ${noteId}`);
+            
+            // Fire-and-forget: match what_worked notes to growth memories
+            if (noteType === 'what_worked') {
+              growthMemoryOutcomeService.processWhatWorkedNote(content).catch(err => {
+                console.warn(`[Native Function→TakeNote] Outcome tracking error:`, err.message);
+              });
+            }
           }).catch(err => {
             console.error(`[Native Function→TakeNote] Error:`, err.message);
           });
