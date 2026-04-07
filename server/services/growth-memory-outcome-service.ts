@@ -9,6 +9,8 @@
  * - `#resonance` tag in note body = high-confidence override (no threshold required)
  * - Confidence >= 0.7 (or #resonance) = increment timesApplied + update successRate
  * - Confidence < 0.7 (no #resonance) = increment timesApplied only (don't corrupt quality signal)
+ * - All updates are atomic SQL expressions (no read-then-write race under concurrency)
+ * - Gemini memoryId is validated against candidate set before any DB write
  * - All errors caught and logged — never surfaces to Cindy
  */
 
@@ -28,15 +30,23 @@ interface OutcomeMatch {
   hasResonance: boolean;
 }
 
+interface MemoryCandidate {
+  id: string;
+  title: string;
+  category: string | null;
+  lesson: string;
+}
+
 /**
  * Match a what_worked note to a growth memory using Gemini semantic analysis.
+ * Validates the returned memoryId against the candidate set before returning.
  * Returns the best match or null if no confident match found.
  */
 async function matchNoteToMemory(noteContent: string): Promise<OutcomeMatch | null> {
   const hasResonance = noteContent.toLowerCase().includes(RESONANCE_TAG);
 
   // Fetch top active, non-superseded growth memories by composite score
-  const memories = await getSharedDb()
+  const memories: MemoryCandidate[] = await getSharedDb()
     .select({
       id: danielaGrowthMemories.id,
       title: danielaGrowthMemories.title,
@@ -55,6 +65,9 @@ async function matchNoteToMemory(noteContent: string): Promise<OutcomeMatch | nu
     console.log('[GrowthOutcome] No active memories to match against');
     return null;
   }
+
+  // Build candidate ID set for validation of Gemini output
+  const candidateIds = new Set(memories.map(m => m.id));
 
   const memorySummaries = memories.map(m => ({
     id: m.id,
@@ -90,6 +103,7 @@ Rules:
 - If the note is too vague to match to any specific memory, return confidence <= 0.4
 - If no memory relates at all, return { "memoryId": null, "confidence": 0.0, "reasoning": "No match" }
 - Only return ONE match — the single best one
+- You MUST use one of the exact IDs provided in the list above
 - confidence >= 0.7 means you're confident this is the right memory`;
 
   try {
@@ -100,16 +114,25 @@ Rules:
     const clean = response.replace(/```json\n?|\n?```/g, '').trim();
     const parsed = JSON.parse(clean) as { memoryId: string | null; confidence: number; reasoning: string };
 
-    if (!parsed.memoryId || parsed.confidence <= 0) {
-      console.log(`[GrowthOutcome] No match found (confidence: ${parsed.confidence}) — ${parsed.reasoning}`);
+    // Clamp confidence to valid range
+    const confidence = Math.max(0, Math.min(1, parsed.confidence ?? 0));
+
+    if (!parsed.memoryId || confidence <= 0) {
+      console.log(`[GrowthOutcome] No match found (confidence: ${confidence}) — ${parsed.reasoning}`);
       return null;
     }
 
-    console.log(`[GrowthOutcome] Matched to memory ${parsed.memoryId} (confidence: ${parsed.confidence}${hasResonance ? ', #resonance' : ''}) — ${parsed.reasoning}`);
+    // Validate returned ID against the candidates we actually sent
+    if (!candidateIds.has(parsed.memoryId)) {
+      console.warn(`[GrowthOutcome] Gemini returned unknown memoryId "${parsed.memoryId}" — discarding to prevent hallucinated credit`);
+      return null;
+    }
+
+    console.log(`[GrowthOutcome] Matched to memory ${parsed.memoryId} (confidence: ${confidence}${hasResonance ? ', #resonance' : ''}) — ${parsed.reasoning}`);
 
     return {
       memoryId: parsed.memoryId,
-      confidence: parsed.confidence,
+      confidence,
       hasResonance,
     };
   } catch (err: any) {
@@ -119,52 +142,49 @@ Rules:
 }
 
 /**
- * Update a growth memory's timesApplied and successRate after a confirmed win.
- * - Always increments timesApplied + sets lastAppliedAt
- * - Only updates successRate if isHighConfidence (confidence >= 0.7 or #resonance)
+ * Atomically credit a growth memory after a confirmed win.
+ *
+ * Uses SQL expressions in a single UPDATE so concurrent calls cannot
+ * overwrite each other or distort the running average.
+ *
+ * - Always: times_applied = times_applied + 1, last_applied_at = now()
+ * - High confidence only: success_rate = running weighted average (each what_worked = 1.0 win)
  */
 async function creditMemory(memoryId: string, isHighConfidence: boolean): Promise<void> {
-  const [current] = await getSharedDb()
-    .select({
-      timesApplied: danielaGrowthMemories.timesApplied,
-      successRate: danielaGrowthMemories.successRate,
-    })
-    .from(danielaGrowthMemories)
-    .where(eq(danielaGrowthMemories.id, memoryId))
-    .limit(1);
-
-  if (!current) {
-    console.warn(`[GrowthOutcome] Memory ${memoryId} not found for crediting`);
-    return;
-  }
-
-  const currentTimesApplied = current.timesApplied ?? 0;
-  const newTimesApplied = currentTimesApplied + 1;
-
-  const updates: Record<string, any> = {
-    timesApplied: newTimesApplied,
-    lastAppliedAt: new Date(),
-    updatedAt: new Date(),
-  };
+  const now = new Date();
 
   if (isHighConfidence) {
-    // Running weighted average: this is always a positive outcome (1.0)
-    // newRate = (oldRate * oldCount + 1.0) / newCount
-    const currentRate = current.successRate ?? 0;
-    const newSuccessRate = currentTimesApplied === 0
-      ? 1.0
-      : (currentRate * currentTimesApplied + 1.0) / newTimesApplied;
+    // Atomic weighted-average update — no prior SELECT needed.
+    // Formula: newRate = (COALESCE(success_rate,0) * times_applied + 1.0) / (times_applied + 1)
+    // LEAST clamps to 1.0 ceiling.
+    await getSharedDb()
+      .update(danielaGrowthMemories)
+      .set({
+        timesApplied: sql`${danielaGrowthMemories.timesApplied} + 1`,
+        lastAppliedAt: now,
+        updatedAt: now,
+        successRate: sql`LEAST(
+          (COALESCE(${danielaGrowthMemories.successRate}, 0) * ${danielaGrowthMemories.timesApplied} + 1.0)
+          / (${danielaGrowthMemories.timesApplied} + 1),
+          1.0
+        )`,
+      })
+      .where(eq(danielaGrowthMemories.id, memoryId));
 
-    updates.successRate = Math.min(newSuccessRate, 1.0);
-    console.log(`[GrowthOutcome] ✓ Credited memory ${memoryId}: timesApplied=${newTimesApplied}, successRate=${(updates.successRate * 100).toFixed(1)}%`);
+    console.log(`[GrowthOutcome] ✓ Credited memory ${memoryId}: timesApplied++, successRate updated (high-confidence)`);
   } else {
-    console.log(`[GrowthOutcome] ✓ Credited memory ${memoryId}: timesApplied=${newTimesApplied} (low-confidence, successRate unchanged)`);
-  }
+    // Low-confidence: increment timesApplied only, leave successRate untouched
+    await getSharedDb()
+      .update(danielaGrowthMemories)
+      .set({
+        timesApplied: sql`${danielaGrowthMemories.timesApplied} + 1`,
+        lastAppliedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(danielaGrowthMemories.id, memoryId));
 
-  await getSharedDb()
-    .update(danielaGrowthMemories)
-    .set(updates)
-    .where(eq(danielaGrowthMemories.id, memoryId));
+    console.log(`[GrowthOutcome] ✓ Credited memory ${memoryId}: timesApplied++ (low-confidence, successRate unchanged)`);
+  }
 }
 
 /**
