@@ -11027,7 +11027,16 @@ Return ONLY the ${targetLanguage} phrase:`;
 
       const concurrency = 3;
       const images: Record<string, { url: string; source: string; speakerGender: 'male' | 'female' }> = {};
+      const romanizations: Record<string, string> = {};
       
+      const { getRomanization } = await import('./services/romanization-utils');
+
+      // Pre-compute romanizations for all vocab items
+      for (const item of vocabItems) {
+        const r = getRomanization(item.targetText, language as string);
+        if (r) romanizations[item.id] = r;
+      }
+
       for (let i = 0; i < vocabItems.length; i += concurrency) {
         const batch = vocabItems.slice(i, i + concurrency);
         const results = await Promise.all(
@@ -11054,7 +11063,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         }
       }
 
-      res.json({ images });
+      res.json({ images, romanizations });
     } catch (error: any) {
       console.error('Error resolving vocab images:', error);
       res.status(500).json({ error: error.message });

@@ -19,6 +19,28 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## Session Summary — Tue, Apr 7, 2026 (session 38n — Textbook romanization wiring complete)
+
+### What was done
+
+#### Textbook vocab card romanization — COMPLETE
+
+All three textbook infographic components now render romanization for Japanese (Hepburn romaji), Korean (Revised Romanization), and Hebrew (Latin transliteration) automatically. Mandarin still returns null (needs pinyin dictionary).
+
+**Files changed:**
+- `shared/romanization-utils.ts` — NEW: copied from `server/services/` to `shared/` so client can import it directly (pure TS, no Node deps)
+- `server/services/romanization-utils.ts` — now re-exports from `shared/romanization-utils`
+- `server/routes.ts` — `/api/textbook/vocab-images/:lessonId` now pre-computes and returns a `romanizations: Record<string, string>` map for ALL vocab drill items (not just those with images), computed before the image fetch loop
+- `client/src/components/TextbookInfographics.tsx`:
+  - Added `import { getRomanization } from "@shared/romanization-utils"`
+  - `VisualVocabGrid`: updated query type, extracts `romanizations` from response, shows italic romanization between script text and translation in both image cards and text-only vocab items
+  - `FormalInformalComparison`: calls `getRomanization` client-side for formal/informal text; shows romanization under each cell
+  - `SunArcGreetings`: pre-computes romanizations for morning/afternoon/evening greetings; displays under each audio play button
+
+**Architecture note:** romanizations are returned from the API for vocab grid items (server-side, pre-computed for all drill items at lessonId), and computed client-side for components like FormalInformalComparison and SunArcGreetings where AI-generated strings don't have drill IDs.
+
+---
+
 ## Session Summary — Tue, Apr 7, 2026 (session 38m — Hebrew curriculum + Latin-script romanization)
 
 ### What was done

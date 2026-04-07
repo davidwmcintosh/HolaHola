@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { TextAudioPlayButton } from "@/components/AudioPlayButton";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getTutorName } from "@/lib/tutor-avatars";
+import { getRomanization } from "@shared/romanization-utils";
 
 interface SunArcGreetingsProps {
   className?: string;
@@ -13,6 +14,9 @@ interface SunArcGreetingsProps {
 }
 
 export function SunArcGreetings({ className = '', morning = 'Buenos días', afternoon = 'Buenas tardes', evening = 'Buenas noches', language = 'spanish' }: SunArcGreetingsProps) {
+  const morningRoma = getRomanization(morning, language);
+  const afternoonRoma = getRomanization(afternoon, language);
+  const eveningRoma = getRomanization(evening, language);
   return (
     <div className={`relative w-full ${className}`}>
       <svg 
@@ -113,14 +117,17 @@ export function SunArcGreetings({ className = '', morning = 'Buenos días', afte
         </g>
       </svg>
       <div className="grid grid-cols-3 mt-0.5 px-1">
-        <div className="flex justify-start">
+        <div className="flex flex-col items-start">
           <TextAudioPlayButton text={morning} language={language} size="sm" variant="ghost" />
+          {morningRoma && <p className="text-xs text-muted-foreground/70 italic pl-1">{morningRoma}</p>}
         </div>
-        <div className="flex justify-center">
+        <div className="flex flex-col items-center">
           <TextAudioPlayButton text={afternoon} language={language} size="sm" variant="ghost" />
+          {afternoonRoma && <p className="text-xs text-muted-foreground/70 italic">{afternoonRoma}</p>}
         </div>
-        <div className="flex justify-end">
+        <div className="flex flex-col items-end">
           <TextAudioPlayButton text={evening} language={language} size="sm" variant="ghost" />
+          {eveningRoma && <p className="text-xs text-muted-foreground/70 italic pr-1">{eveningRoma}</p>}
         </div>
       </div>
     </div>
@@ -162,27 +169,37 @@ export function FormalInformalComparison({
         </div>
       </div>
       <div className="space-y-2">
-        {items.map((item, index) => (
-          <div key={index} className="grid grid-cols-2 gap-2">
-            <div className="bg-primary/5 rounded-md p-2 flex items-center justify-center gap-1">
-              {language && (
-                <TextAudioPlayButton text={item.formal} language={language} size="sm" variant="ghost" className="shrink-0" />
+        {items.map((item, index) => {
+          const formalRoma = language ? getRomanization(item.formal, language) : null;
+          const informalRoma = language ? getRomanization(item.informal, language) : null;
+          return (
+            <div key={index} className="grid grid-cols-2 gap-2">
+              <div className="bg-primary/5 rounded-md p-2 flex items-center justify-center gap-1">
+                {language && (
+                  <TextAudioPlayButton text={item.formal} language={language} size="sm" variant="ghost" className="shrink-0" />
+                )}
+                <div className="text-center">
+                  <p className="font-medium text-sm">{item.formal}</p>
+                  {formalRoma && <p className="text-xs text-muted-foreground/70 italic">{formalRoma}</p>}
+                </div>
+              </div>
+              <div className="bg-amber-500/5 rounded-md p-2 flex items-center justify-center gap-1">
+                {language && (
+                  <TextAudioPlayButton text={item.informal} language={language} size="sm" variant="ghost" className="shrink-0" />
+                )}
+                <div className="text-center">
+                  <p className="font-medium text-sm">{item.informal}</p>
+                  {informalRoma && <p className="text-xs text-muted-foreground/70 italic">{informalRoma}</p>}
+                </div>
+              </div>
+              {item.context && (
+                <p className="col-span-2 text-xs text-muted-foreground text-center -mt-1">
+                  {item.context}
+                </p>
               )}
-              <p className="font-medium text-sm">{item.formal}</p>
             </div>
-            <div className="bg-amber-500/5 rounded-md p-2 flex items-center justify-center gap-1">
-              {language && (
-                <TextAudioPlayButton text={item.informal} language={language} size="sm" variant="ghost" className="shrink-0" />
-              )}
-              <p className="font-medium text-sm">{item.informal}</p>
-            </div>
-            {item.context && (
-              <p className="col-span-2 text-xs text-muted-foreground text-center -mt-1">
-                {item.context}
-              </p>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -873,7 +890,7 @@ export function VisualVocabGrid({ lessonId, drills, language }: VisualVocabGridP
   const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
-  const { data, isLoading } = useQuery<{ images: Record<string, { url: string; source: string; speakerGender?: 'male' | 'female' }> }>({
+  const { data, isLoading } = useQuery<{ images: Record<string, { url: string; source: string; speakerGender?: 'male' | 'female' }>; romanizations?: Record<string, string> }>({
     queryKey: ['/api/textbook/vocab-images', lessonId, language],
     queryFn: async () => {
       const res = await fetch(`/api/textbook/vocab-images/${lessonId}?language=${language}`);
@@ -931,6 +948,7 @@ export function VisualVocabGrid({ lessonId, drills, language }: VisualVocabGridP
   if (vocabDrills.length === 0 && textOnlyDrills.length === 0) return null;
 
   const images = data?.images || {};
+  const romanizations = data?.romanizations || {};
 
   return (
     <div data-testid="visual-vocab-grid">
@@ -992,6 +1010,9 @@ export function VisualVocabGrid({ lessonId, drills, language }: VisualVocabGridP
                 />
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-sm truncate">{drill.targetText}</p>
+                  {romanizations[drill.id] && (
+                    <p className="text-xs text-muted-foreground/70 italic truncate">{romanizations[drill.id]}</p>
+                  )}
                   {hasTranslation && (
                     <p className="text-xs text-muted-foreground truncate">{drill.prompt}</p>
                   )}
@@ -1025,6 +1046,9 @@ export function VisualVocabGrid({ lessonId, drills, language }: VisualVocabGridP
                 />
                 <div className="min-w-0">
                   <p className="font-semibold text-sm truncate">{drill.targetText}</p>
+                  {romanizations[drill.id] && (
+                    <p className="text-xs text-muted-foreground/70 italic truncate">{romanizations[drill.id]}</p>
+                  )}
                   <p className="text-xs text-muted-foreground truncate">{drill.prompt}</p>
                 </div>
               </div>
