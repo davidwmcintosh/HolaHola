@@ -1023,6 +1023,7 @@ ${identityMemories.contextString}
               .limit(12);
             
             // Top 5 high-signal personal notes (what_worked, what_didnt_work, teaching_rhythm, language_insight, idea_to_try)
+            // Primary sort: timesReferenced (most-referenced notes surface first), tiebreaker: recency
             const topNotes = await sharedDb.select({
               title: danielaNotes.title,
               content: danielaNotes.content,
@@ -1033,7 +1034,7 @@ ${identityMemories.contextString}
                 eq(danielaNotes.isActive, true),
                 inArray(danielaNotes.noteType, ['what_worked', 'what_didnt_work', 'teaching_rhythm', 'language_insight', 'idea_to_try'] as any[])
               ))
-              .orderBy(desc(danielaNotes.createdAt))
+              .orderBy(desc(danielaNotes.timesReferenced), desc(danielaNotes.createdAt))
               .limit(5);
             
             const parts: string[] = [];
@@ -1937,6 +1938,7 @@ ${identityMemories.contextString}
                 .limit(12);
               
               // Top 5 high-signal notes (what_worked, what_didnt_work, teaching_rhythm, language_insight, idea_to_try)
+              // Primary sort: timesReferenced (most-referenced notes surface first), tiebreaker: recency
               const topNotes = await sharedDb.select({
                 title: danielaNotes.title,
                 content: danielaNotes.content,
@@ -1947,7 +1949,7 @@ ${identityMemories.contextString}
                   eq(danielaNotes.isActive, true),
                   inArray(danielaNotes.noteType, ['what_worked', 'what_didnt_work', 'teaching_rhythm', 'language_insight', 'idea_to_try'] as any[])
                 ))
-                .orderBy(desc(danielaNotes.createdAt))
+                .orderBy(desc(danielaNotes.timesReferenced), desc(danielaNotes.createdAt))
                 .limit(5);
               
               const parts: string[] = [];

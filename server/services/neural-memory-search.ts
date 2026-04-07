@@ -57,7 +57,7 @@ import {
   type ToolKnowledge,
   type DanielaNote,
 } from '@shared/schema';
-import { eq, sql, desc, and, or, ilike, gte, isNull } from 'drizzle-orm';
+import { eq, sql, desc, and, or, ilike, gte, isNull, inArray } from 'drizzle-orm';
 
 /**
  * Tutor name to language mapping
@@ -1519,7 +1519,7 @@ export async function searchTeachingKnowledge(
         
         const notes = await getSharedDb().select().from(danielaNotes)
           .where(whereClause)
-          .orderBy(desc(danielaNotes.createdAt))
+          .orderBy(desc(danielaNotes.timesReferenced), desc(danielaNotes.createdAt))
           .limit(15);
         
         for (const note of notes) {
@@ -1536,6 +1536,19 @@ export async function searchTeachingKnowledge(
             language: note.language || null,
             source: 'daniela_notes',
           });
+        }
+        
+        // Async fire-and-forget: increment timesReferenced + lastReferencedAt for each returned note
+        if (notes.length > 0) {
+          const noteIds = notes.map(n => n.id);
+          getSharedDb()
+            .update(danielaNotes)
+            .set({
+              timesReferenced: sql`${danielaNotes.timesReferenced} + 1`,
+              lastReferencedAt: sql`now()`,
+            })
+            .where(inArray(danielaNotes.id, noteIds))
+            .catch(err => console.warn('[NeuralSearch] Failed to increment note timesReferenced:', err.message));
         }
       } catch (err: any) {
         console.error('[NeuralMemory] Error searching personal notes:', err.message);
