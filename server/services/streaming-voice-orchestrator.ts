@@ -1061,8 +1061,8 @@ ${identityMemories.contextString}
             if (resonanceShelf.length > 0) {
               const formattedShelf = resonanceShelf.map(m => {
                 const lesson = m.lesson.length > 180 ? m.lesson.substring(0, 180) + '…' : m.lesson;
-                const pct = m.successRate != null ? ` ${Math.round(m.successRate * 100)}% success rate` : '';
-                return `• [${m.category}] ${m.title} — applied ${m.timesApplied}×,${pct} — ${lesson}`;
+                const pct = m.successRate != null ? `, ${Math.round(m.successRate * 100)}% success rate` : '';
+                return `• [${m.category}] ${m.title} — applied ${m.timesApplied}×${pct} — ${lesson}`;
               }).join('\n');
               parts.push(`**Resonance Shelf** (techniques you've applied and confirmed work — lean into these):\n${formattedShelf}`);
             }
@@ -2004,8 +2004,8 @@ ${identityMemories.contextString}
               if (resonanceShelf.length > 0) {
                 const formattedShelf = resonanceShelf.map(m => {
                   const lesson = m.lesson.length > 180 ? m.lesson.substring(0, 180) + '…' : m.lesson;
-                  const pct = m.successRate != null ? ` ${Math.round(m.successRate * 100)}% success rate` : '';
-                  return `• [${m.category}] ${m.title} — applied ${m.timesApplied}×,${pct} — ${lesson}`;
+                  const pct = m.successRate != null ? `, ${Math.round(m.successRate * 100)}% success rate` : '';
+                  return `• [${m.category}] ${m.title} — applied ${m.timesApplied}×${pct} — ${lesson}`;
                 }).join('\n');
                 parts.push(`**Resonance Shelf** (techniques you've applied and confirmed work — lean into these):\n${formattedShelf}`);
               }
