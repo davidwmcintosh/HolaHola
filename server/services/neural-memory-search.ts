@@ -322,7 +322,7 @@ export async function searchMemory(
               ilike(learningMotivations.details, searchPattern)
             )
           ))
-          .orderBy(desc(learningMotivations.createdAt))
+          .orderBy(sql`CASE ${learningMotivations.priority} WHEN 'primary' THEN 1 WHEN 'secondary' THEN 2 WHEN 'nice_to_have' THEN 3 ELSE 4 END`, desc(learningMotivations.createdAt))
           .limit(5);
         
         for (const mot of motivations) {

@@ -452,7 +452,7 @@ export class StudentLearningService {
           )
         )
       )
-      .orderBy(desc(learnerPersonalFacts.lastMentionedAt));
+      .orderBy(desc(learnerPersonalFacts.mentionCount), desc(learnerPersonalFacts.lastMentionedAt));
     
     // Aggregate effective strategies across all struggles
     const effectiveStrategies = new Set<string>();
@@ -2432,7 +2432,7 @@ export class StudentLearningService {
       .select()
       .from(learnerPersonalFacts)
       .where(and(...conditions))
-      .orderBy(desc(learnerPersonalFacts.lastMentionedAt));
+      .orderBy(desc(learnerPersonalFacts.mentionCount), desc(learnerPersonalFacts.lastMentionedAt));
   }
   
   /**
