@@ -1446,10 +1446,16 @@ export function normalizeForOverride(word: string): string {
  * Returns 'male' when the secondary character is the sole speaker in the scene (e.g. "de nada"
  * in Spanish uses Marco, not Daniela). Returns 'female' in all other cases.
  */
+const LANG_TO_PROFILE_KEY: Record<string, keyof typeof CHARACTER_PROFILES> = {
+  'spanish': 'ES', 'french': 'FR', 'german': 'DE', 'italian': 'IT',
+  'portuguese': 'PT', 'japanese': 'JA', 'korean': 'KO',
+  'mandarin chinese': 'ZH', 'hebrew': 'HE', 'english': 'EN',
+};
+
 export function getVocabSpeakerGender(word: string, language: string): 'male' | 'female' {
   const langKey = language.toLowerCase();
-  const profileKey = langKey.toUpperCase() as keyof typeof CHARACTER_PROFILES;
-  const profile = CHARACTER_PROFILES[profileKey];
+  const profileKey = LANG_TO_PROFILE_KEY[langKey];
+  const profile = profileKey ? CHARACTER_PROFILES[profileKey] : undefined;
   if (!profile) return 'female';
 
   const normalizedWord = normalizeForOverride(word);

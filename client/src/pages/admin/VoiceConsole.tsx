@@ -92,54 +92,68 @@ interface GoogleVoiceOption {
   gender: 'male' | 'female';
 }
 
+// Persona names for each voice speaker + language combination.
+// Female voices: Aoede, Leda, Kore, Zephyr
+// Male voices:   Puck, Orus, Fenrir, Charon
 const DEFAULT_TUTOR_NAMES: Record<string, Record<string, string>> = {
   'Aoede': {
     'english': 'Cindy', 'spanish': 'Daniela', 'french': 'Juliette',
-    'italian': 'Liv', 'japanese': 'Sayuri', 'mandarin chinese': 'Hua',
-    'korean': 'Jihyun', 'german': 'Aoede', 'portuguese': 'Aoede', 'hebrew': 'Yael',
+    'italian': 'Olivia', 'japanese': 'Sayuri', 'mandarin chinese': 'Hua',
+    'korean': 'Jihyun', 'german': 'Greta', 'portuguese': 'Isabel', 'hebrew': 'Yael',
   },
   'Puck': {
-    'spanish': 'Agustin', 'french': 'Vincent', 'portuguese': 'Camilo',
-    'korean': 'Minho', 'english': 'Puck', 'german': 'Puck',
-    'italian': 'Puck', 'japanese': 'Puck', 'mandarin chinese': 'Puck', 'hebrew': 'Puck',
+    'spanish': 'Agustín', 'french': 'Vincent', 'portuguese': 'Camilo',
+    'korean': 'Minho', 'english': 'Blake', 'german': 'Lukas',
+    'italian': 'Luca', 'japanese': 'Daisuke', 'mandarin chinese': 'Tao', 'hebrew': 'Noam',
   },
   'Orus': {
     'english': 'Blake', 'italian': 'Luca', 'german': 'Lukas',
-    'mandarin chinese': 'Tao', 'spanish': 'Orus', 'french': 'Orus',
-    'portuguese': 'Orus', 'japanese': 'Orus', 'korean': 'Orus', 'hebrew': 'Orus',
+    'mandarin chinese': 'Tao', 'spanish': 'Agustín', 'french': 'Vincent',
+    'portuguese': 'Camilo', 'japanese': 'Daisuke', 'korean': 'Minho', 'hebrew': 'Noam',
   },
   'Leda': {
-    'german': 'Greta', 'portuguese': 'Isabel',
-    'english': 'Leda', 'spanish': 'Leda', 'french': 'Leda',
-    'italian': 'Leda', 'japanese': 'Leda', 'mandarin chinese': 'Leda',
-    'korean': 'Leda', 'hebrew': 'Leda',
+    'english': 'Cindy', 'spanish': 'Daniela', 'french': 'Juliette',
+    'german': 'Greta', 'portuguese': 'Isabel', 'italian': 'Olivia',
+    'japanese': 'Sayuri', 'mandarin chinese': 'Hua', 'korean': 'Jihyun', 'hebrew': 'Yael',
   },
   'Fenrir': {
-    'japanese': 'Daisuke', 'english': 'Augustine',
-    'spanish': 'Fenrir', 'french': 'Fenrir', 'german': 'Fenrir',
-    'italian': 'Fenrir', 'portuguese': 'Fenrir', 'mandarin chinese': 'Fenrir',
-    'korean': 'Fenrir', 'hebrew': 'Fenrir',
+    'japanese': 'Daisuke', 'english': 'Blake', 'spanish': 'Agustín',
+    'french': 'Vincent', 'german': 'Lukas', 'italian': 'Luca',
+    'portuguese': 'Camilo', 'mandarin chinese': 'Tao', 'korean': 'Minho', 'hebrew': 'Noam',
   },
   'Kore': {
-    'english': 'Kore', 'spanish': 'Kore', 'french': 'Kore',
-    'german': 'Kore', 'italian': 'Kore', 'portuguese': 'Kore',
-    'japanese': 'Kore', 'mandarin chinese': 'Kore', 'korean': 'Kore', 'hebrew': 'Kore',
+    'english': 'Cindy', 'spanish': 'Daniela', 'french': 'Juliette',
+    'german': 'Greta', 'italian': 'Olivia', 'portuguese': 'Isabel',
+    'japanese': 'Sayuri', 'mandarin chinese': 'Hua', 'korean': 'Jihyun', 'hebrew': 'Yael',
   },
   'Charon': {
-    'english': 'Charon', 'spanish': 'Charon', 'french': 'Charon',
-    'german': 'Charon', 'italian': 'Charon', 'portuguese': 'Charon',
-    'japanese': 'Charon', 'mandarin chinese': 'Charon', 'korean': 'Charon', 'hebrew': 'Charon',
+    'english': 'Blake', 'spanish': 'Agustín', 'french': 'Vincent',
+    'german': 'Lukas', 'italian': 'Luca', 'portuguese': 'Camilo',
+    'japanese': 'Daisuke', 'mandarin chinese': 'Tao', 'korean': 'Minho', 'hebrew': 'Noam',
   },
   'Zephyr': {
-    'english': 'Zephyr', 'spanish': 'Zephyr', 'french': 'Zephyr',
-    'german': 'Zephyr', 'italian': 'Zephyr', 'portuguese': 'Zephyr',
-    'japanese': 'Zephyr', 'mandarin chinese': 'Zephyr', 'korean': 'Zephyr', 'hebrew': 'Zephyr',
+    'english': 'Cindy', 'spanish': 'Daniela', 'french': 'Juliette',
+    'german': 'Greta', 'italian': 'Olivia', 'portuguese': 'Isabel',
+    'japanese': 'Sayuri', 'mandarin chinese': 'Hua', 'korean': 'Jihyun', 'hebrew': 'Yael',
   },
 };
+
+// Raw Gemini/Chirp speaker names — any voiceName matching these is a technical placeholder
+const RAW_VOICE_NAMES = new Set(Object.keys(DEFAULT_TUTOR_NAMES));
 
 function getDefaultTutorName(voiceId: string, language: string): string {
   const baseVoice = voiceId.includes('-') ? voiceId.split('-').pop() || voiceId : voiceId;
   return DEFAULT_TUTOR_NAMES[baseVoice]?.[language] || baseVoice;
+}
+
+// Returns a human-readable persona name for display. If the stored voiceName is a raw
+// technical voice name (e.g. "Aoede", "Orus"), resolve it to the proper persona name.
+function resolveDisplayName(voice: { voiceName: string; voiceId: string; language: string }): string {
+  if (!RAW_VOICE_NAMES.has(voice.voiceName)) return voice.voiceName;
+  const baseVoice = voice.voiceId.includes('-') ? voice.voiceId.split('-').pop() || voice.voiceId : voice.voiceId;
+  const resolved = DEFAULT_TUTOR_NAMES[voice.voiceName]?.[voice.language]
+    ?? DEFAULT_TUTOR_NAMES[baseVoice]?.[voice.language];
+  return resolved || voice.voiceName;
 }
 
 const SUPPORTED_LANGUAGES = [
@@ -614,6 +628,10 @@ export function VoiceConsoleContent() {
       // Existing Google voice with full Chirp name → extract bare speaker for dropdown
       const match = voice.voiceId.match(/Chirp3-HD-(\w+)$/);
       if (match) mappedVoiceId = match[1];
+    }
+    // Auto-resolve raw voice names (e.g. "Aoede", "Orus") to proper persona names
+    if (RAW_VOICE_NAMES.has(mappedVoiceName)) {
+      mappedVoiceName = resolveDisplayName({ voiceName: mappedVoiceName, voiceId: mappedVoiceId, language: voice.language }) || mappedVoiceName;
     }
     setFormData({
       language: voice.language,
@@ -1332,7 +1350,7 @@ export function VoiceConsoleContent() {
                             <div className="flex items-center gap-3 flex-1 min-w-0">
                               <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                               <span className="text-sm capitalize w-14 flex-shrink-0">{gender}</span>
-                              <span className="font-medium text-sm truncate">{voice.voiceName}</span>
+                              <span className="font-medium text-sm truncate">{resolveDisplayName(voice)}</span>
                               <span className="text-xs text-muted-foreground truncate">({voice.voiceId})</span>
                               <Badge variant="outline" className="text-xs flex-shrink-0">
                                 {voice.speakingRate === 0.7 ? 'Slow' : 
@@ -1718,7 +1736,7 @@ function AssistantVoiceCard() {
                             <User className="h-4 w-4" />
                           </div>
                           <div>
-                            <div className="font-medium text-sm">{voice.voiceName}</div>
+                            <div className="font-medium text-sm">{resolveDisplayName(voice)}</div>
                             <div className="text-xs text-muted-foreground capitalize">
                               {voice.gender} · {voice.languageCode} · {voice.speakingRate}x
                             </div>
@@ -2208,7 +2226,7 @@ function SofiaVoiceCard() {
                             <User className="h-4 w-4" />
                           </div>
                           <div>
-                            <div className="font-medium text-sm">{voice.voiceName}</div>
+                            <div className="font-medium text-sm">{resolveDisplayName(voice)}</div>
                             <div className="text-xs text-muted-foreground capitalize">
                               {voice.gender} · {voice.languageCode} · {voice.speakingRate}x
                             </div>

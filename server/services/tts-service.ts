@@ -1609,7 +1609,10 @@ export class TTSService {
         const languageCode = voiceParts.length >= 2 ? `${voiceParts[0]}-${voiceParts[1]}` : 'en-US';
         voiceConfig = { name: voiceOverride, languageCode };
       } else if (!voiceOverride.includes('-')) {
-        const langCode = 'en-US';
+        // Bare Gemini speaker name (e.g. 'Aoede') — derive the correct language code
+        // from the actual target language instead of hardcoding 'en-US'.
+        const langConfig = GOOGLE_VOICE_MAP[selectedLanguage] || GOOGLE_VOICE_MAP['english'];
+        const langCode = langConfig.languageCode;
         voiceConfig = { name: `${langCode}-Chirp3-HD-${voiceOverride}`, languageCode: langCode };
       } else {
         const voiceParts = voiceOverride.split('-');

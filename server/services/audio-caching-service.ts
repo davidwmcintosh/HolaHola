@@ -168,11 +168,19 @@ export async function getCachedPronunciationAudio(
   // otherwise fall back to the hardcoded Neural2 assistant voice.
   const voiceConfig = getAssistantVoice(language, gender);
   const voiceId = voiceOverride ?? voiceConfig.name;
+
+  // For bare Gemini speaker names (e.g. "Aoede", "Orus" — no hyphens), the resolved
+  // Chirp3-HD voice name includes the language code (e.g. "es-US-Chirp3-HD-Aoede").
+  // Embed the language into the cache voiceId so Spanish/French/etc entries never
+  // collide with old English entries that used the same bare name.
+  const cacheVoiceId = (voiceOverride && !voiceOverride.includes('-'))
+    ? `${language.toLowerCase()}:${voiceOverride}`
+    : voiceId;
   
   const cacheKey: CacheKey = {
     text: text.trim(),
     language: language.toLowerCase(),
-    voiceId,
+    voiceId: cacheVoiceId,
     speed,
   };
   
