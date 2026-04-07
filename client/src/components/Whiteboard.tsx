@@ -272,6 +272,11 @@ const ImageItemDisplay = ({ item, index }: ImageItemDisplayProps) => {
             <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
               {data.word}
             </span>
+            {data.latinScript && (
+              <span className="text-[12px] font-medium text-emerald-600/80 dark:text-emerald-400/80 italic">
+                {data.latinScript}
+              </span>
+            )}
             {showTranslation && (
               <span className="text-[11px] text-emerald-600/70 dark:text-emerald-400/70">
                 {data.translation}
@@ -323,10 +328,15 @@ const ImageItemDisplay = ({ item, index }: ImageItemDisplayProps) => {
               className="flex flex-col leading-tight px-2 py-1 rounded-md bg-emerald-500/15 border border-emerald-500/20"
               data-testid={`chip-vocab-${label.word}`}
             >
-              {/* teach mode: show target word (bold) + native translation */}
+              {/* teach mode: show target word (bold) + latin script + native translation */}
               {labelMode === 'teach' && (
                 <span className="text-[12px] font-bold text-emerald-700 dark:text-emerald-300">
                   {label.word}
+                </span>
+              )}
+              {labelMode === 'teach' && label.latinScript && (
+                <span className="text-[10px] italic text-emerald-600/80 dark:text-emerald-400/80">
+                  {label.latinScript}
                 </span>
               )}
               {/* teach + target modes: show native translation */}

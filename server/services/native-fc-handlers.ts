@@ -497,6 +497,7 @@ export class NativeFunctionCallHandler {
         const text = fn.args.text as string | undefined;
         const word = (fn.args.word as string | undefined) || '';
         const translation = fn.args.translation as string | undefined;
+        const latinScript = fn.args.latin_script as string | undefined;
         const description = fn.args.description as string | undefined;
         const scene = fn.args.scene as string | undefined;
         const context = fn.args.context as string | undefined;
@@ -505,8 +506,10 @@ export class NativeFunctionCallHandler {
           rawLabelMode === 'quiz' ? 'quiz'
           : rawLabelMode === 'target' ? 'target'
           : 'teach';
-        const rawLabels = fn.args.labels as { word: string; translation?: string }[] | undefined;
-        const labels = Array.isArray(rawLabels) && rawLabels.length > 0 ? rawLabels : undefined;
+        const rawLabels = fn.args.labels as { word: string; translation?: string; latin_script?: string }[] | undefined;
+        const labels = Array.isArray(rawLabels) && rawLabels.length > 0
+          ? rawLabels.map(l => ({ word: l.word, translation: l.translation, latinScript: l.latin_script }))
+          : undefined;
         const rawSlot = fn.args.slot as string | undefined;
         const slot: 'scene' | 'context' | undefined =
           rawSlot === 'scene' ? 'scene'
@@ -550,6 +553,7 @@ export class NativeFunctionCallHandler {
                 data: {
                   word: result.word,
                   translation: translation,
+                  latinScript: latinScript,
                   description: result.description,
                   imageUrl: result.imageUrl,
                   context: context,

@@ -19,6 +19,63 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## Session Summary — Tue, Apr 7, 2026 (session 38m — Hebrew curriculum + Latin-script romanization)
+
+### What was done
+
+#### 1. Hebrew curriculum path seeded — Hebrew 1 Complete Beginner
+
+Created the full Hebrew 1 curriculum structure using Drizzle ORM typed insert:
+
+- **Path:** "Hebrew 1 — Complete Beginner" (ID: `79d4324b-1691-42b5-b095-964f869f7d94`)
+  - Language: `hebrew` | Published: `true` | Level: novice_low → novice_high | 45 hours
+- **15 units / 30 lessons** created and published
+- **Curriculum enricher** picked up all 30 lessons automatically on boot (`[CurriculumEnrich] Boot-resume: 30 unenriched lessons found`) and began filling in `textbook_lesson_content` AI-generated content (introduction, grammar, vocabulary, cultural notes, key phrases)
+- Unit names are deliberately crafted to trigger `classifyHebrewGrammarType()` — Hebrew grammar card components render automatically for each unit
+
+| Unit | chapter_type | Grammar card rendered |
+|------|-------------|----------------------|
+| The Hebrew Alphabet — Alef-Bet | `he_alefbet` | `HeAlefBetCard` |
+| Vowel Points — Niqqud in Hebrew | `he_niqqud` | `HeNiqqudCard` |
+| Subject Pronouns in Hebrew | `he_pronouns` | `HePronounsCard` |
+| Gender in Hebrew Grammar | `he_gender` | `HeGenderCard` |
+| Numbers in Hebrew | `he_numbers` | `HeNumbersCard` |
+| Present Tense Verbs in Hebrew | `he_present` | `HePresentCard` |
+| The Definite Article in Hebrew | `he_article` | `HeArticleCard` |
+| Past Tense in Hebrew | `he_past` | `HePastCard` |
+| Israeli Holidays | `he_holidays` | `IsraeliHolidayCalendarCard` |
+| Israeli Food and Culture | `he_food_guide` | `IsraeliFoodGuideCard` |
+| The Hebrew-Speaking World | `he_world_map` | `HebrewophoneWorldMapCard` |
+
+- Seed script deleted after use (per convention).
+
+#### 2. Latin-script romanization on vocab cards
+
+Added three-line display format (script / romanization / translation) for non-Latin script languages on the vocabulary image card (whiteboard).
+
+**Files changed:**
+- `shared/whiteboard-types.ts` — Added `latinScript?: string` to `ImageItemData` and `labels[]`; added `latin` / `romanization` key parsing in `parseImageContent()`
+- `client/src/components/Whiteboard.tsx` — `ImageItemDisplay` now renders `latinScript` in italic between the script word and translation; multi-label chips also show `latinScript`
+- `server/services/native-fc-handlers.ts` — `SHOW_IMAGE` handler now extracts `fn.args.latin_script` and passes it to the whiteboard update; label objects are transformed from `latin_script` (snake_case) to `latinScript` (camelCase)
+- `server/services/daniela-function-registry.ts` — `show_image` function description and JSON schema now include `latin_script` parameter documented as REQUIRED for Korean/Mandarin/Japanese/Hebrew with specific romanization style guidance
+
+**How it works:** Daniela calls `show_image(word="안녕하세요", translation="hello", latin_script="annyeonghaseyo")` and the whiteboard card shows:
+```
+안녕하세요        ← bold (target script)
+annyeonghaseyo   ← italic (latin_script)
+hello            ← muted (translation)
+```
+
+#### 3. Character greeting image seed restarted
+
+Background seed (`seed-character-greetings.ts`) was killed by a workflow restart. Restarted in background (`PID 2390`). Check `/tmp/char-greeting-seed.log` for progress. The seed covers ~83 Korean/Mandarin/Hebrew/French/Japanese greeting images.
+
+#### 4. Corrupted Hebrew media_files entries
+
+Already cleaned from prior session — confirmed 7 deleted entries (`vocab_hebrew_lunes` through `vocab_hebrew_domingo`).
+
+---
+
 ## Session Summary — Tue, Apr 7, 2026 (session 38l — Plans #4 and #5 confirmed complete)
 
 ### What was done

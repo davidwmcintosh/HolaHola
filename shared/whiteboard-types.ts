@@ -145,6 +145,15 @@ export interface FalseFriendOption {
 export interface ImageItemData {
   word: string;
   translation?: string;
+  /**
+   * Latin-script romanization for non-Latin scripts.
+   * Korean: Revised Romanization (e.g. "annyeonghaseyo")
+   * Mandarin: Pinyin with tone marks (e.g. "nǐ hǎo")
+   * Japanese: Romaji (e.g. "konnichiwa")
+   * Hebrew: Transliteration (e.g. "shalom")
+   * Displayed between the script word and the translation (three-line format).
+   */
+  latinScript?: string;
   description: string;
   imageUrl?: string;
   isLoading?: boolean;
@@ -158,7 +167,7 @@ export interface ImageItemData {
    *   'target' → translation chip only  (student produces the target word)
    *   'quiz'   → no chips               (student produces all words)
    */
-  labels?: { word: string; translation?: string }[];
+  labels?: { word: string; translation?: string; latinScript?: string }[];
   /**
    * Studio pane slot — controls which zone this image occupies.
    *   'scene'   → main scene area (replaces any previous scene image)
@@ -1260,6 +1269,7 @@ function parseImageContent(content: string): ImageItemData {
     const [, key, val] = match;
     if (key === 'slot' && (val === 'scene' || val === 'context')) result.slot = val as 'scene' | 'context';
     if (key === 'category') result.category = val;
+    if (key === 'latin' || key === 'romanization') result.latinScript = val;
   }
   return result;
 }

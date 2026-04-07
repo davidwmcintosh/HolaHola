@@ -464,13 +464,16 @@ EXAMPLE — teaching at a busy Madrid market on a rainy Tuesday:
   slot="context", category="weather", scene="Heavy rain falling on a cobblestone street"
   slot="context", category="calendar", scene="A calendar showing martes (Tuesday)"
 
-Include your spoken words in 'text'. Use label_mode to control what labels appear — you decide, the student cannot change this.`,
+Include your spoken words in 'text'. Use label_mode to control what labels appear — you decide, the student cannot change this.
+
+NON-LATIN SCRIPT LANGUAGES (Korean, Japanese, Mandarin, Hebrew): Always include 'latin_script' with the romanization so students can read and remember the word. This creates a 3-line display: script / romanization / translation. Examples: Korean 안녕하세요 → latin_script="annyeonghaseyo". Mandarin 你好 → latin_script="nǐ hǎo". Japanese こんにちは → latin_script="konnichiwa". Hebrew שלום → latin_script="shalom".`,
       parametersJsonSchema: {
         type: "object",
         properties: {
           text: { type: "string", description: "What you're saying about the image" },
           word: { type: "string", description: "The vocabulary word or short label (target language) — used for library lookup and as the displayed label. Always provide this." },
           translation: { type: "string", description: "Native language translation (e.g. English). Only shown when label_mode is 'teach'." },
+          latin_script: { type: "string", description: "Latin-script romanization — REQUIRED for non-Latin scripts (Korean, Mandarin, Japanese, Hebrew). Displayed between the script word and the translation. Korean: Revised Romanization (e.g. 'annyeonghaseyo'). Mandarin: Pinyin with tone marks (e.g. 'nǐ hǎo'). Japanese: Romaji (e.g. 'konnichiwa'). Hebrew: transliteration (e.g. 'shalom')." },
           description: { type: "string", description: "Brief description to help disambiguate the image (e.g. 'a person running on a path')" },
           scene: { type: "string", description: "English description of what to draw. REQUIRED for abstract words, emotions, states, and any word the library may not have. Without a scene, the generator guesses and often produces incorrect images. Always provide this for non-concrete words. Examples: 'ocean waves rolling onto a sunny beach', 'a person smiling with hands clasped in gratitude', 'a steaming hot cup of coffee'. The watercolor style is applied automatically — just describe the content." },
           context: { type: "string", description: "Optional teaching context" },
@@ -491,12 +494,13 @@ Include your spoken words in 'text'. Use label_mode to control what labels appea
           },
           labels: {
             type: "array",
-            description: "Use when one image covers multiple vocabulary words (e.g. a family photo for madre/padre/hermano). Each entry has a 'word' (target language) and optional 'translation'. label_mode controls visibility across all chips.",
+            description: "Use when one image covers multiple vocabulary words (e.g. a family photo for madre/padre/hermano). Each entry has a 'word' (target language) and optional 'translation' and 'latin_script'. label_mode controls visibility across all chips.",
             items: {
               type: "object",
               properties: {
-                word: { type: "string", description: "Target language word (e.g. 'madre')" },
+                word: { type: "string", description: "Target language word (e.g. 'madre' or '어머니')" },
                 translation: { type: "string", description: "Native language translation (e.g. 'mother')" },
+                latin_script: { type: "string", description: "Romanization for non-Latin scripts (e.g. 'eomeooni' for Korean 어머니)" },
               },
               required: ["word"],
             },

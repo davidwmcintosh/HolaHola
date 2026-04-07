@@ -213,10 +213,10 @@ export const LANGUAGE_ANCHOR_CACHE_KEYS: Record<string, string> = {
   german:     'vocab_german_hallo',
   italian:    'vocab_italian_ciao',
   portuguese: 'vocab_portuguese_ola',
-  japanese:   'vocab_japanese_konnichiwa',
-  korean:     'vocab_korean_annyeonghaseyo',
-  mandarin:   'vocab_mandarin_nihao',
-  hebrew:     'vocab_hebrew_shalom',
+  japanese:   'vocab_japanese_こんにちは',
+  korean:     'vocab_korean_안녕하세요',
+  mandarin:   'vocab_mandarin_你好',
+  hebrew:     'vocab_hebrew_שלום',
   english:    'vocab_english_hello',
 };
 
