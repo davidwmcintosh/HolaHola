@@ -1007,7 +1007,7 @@ ${identityMemories.contextString}
           try {
             const { getSharedDb } = await import('../db');
             const { danielaGrowthMemories, danielaNotes } = await import('@shared/schema');
-            const { desc, eq, and, isNull, inArray, sql: rawSql } = await import('drizzle-orm');
+            const { desc, eq, and, isNull, inArray, gte, sql: rawSql } = await import('drizzle-orm');
             const sharedDb = getSharedDb();
             
             // Top 12 most important/reinforced growth memories using composite score
@@ -1037,7 +1037,35 @@ ${identityMemories.contextString}
               .orderBy(desc(danielaNotes.timesReferenced), desc(danielaNotes.createdAt))
               .limit(5);
             
+            // Resonance Shelf: top 5 memories with confirmed apply-event outcomes (timesApplied >= 1)
+            // Sorted by composite outcome score: successRate * timesApplied (quality × volume)
+            const resonanceShelf = await sharedDb.select({
+              title: danielaGrowthMemories.title,
+              category: danielaGrowthMemories.category,
+              lesson: danielaGrowthMemories.lesson,
+              timesApplied: danielaGrowthMemories.timesApplied,
+              successRate: danielaGrowthMemories.successRate,
+              consolidatedFromCount: danielaGrowthMemories.consolidatedFromCount,
+            })
+              .from(danielaGrowthMemories)
+              .where(and(
+                eq(danielaGrowthMemories.isActive, true),
+                isNull(danielaGrowthMemories.supersededBy),
+                gte(danielaGrowthMemories.timesApplied, 1),
+              ))
+              .orderBy(rawSql`COALESCE(${danielaGrowthMemories.successRate}, 0) * ${danielaGrowthMemories.timesApplied} DESC`)
+              .limit(5);
+            
             const parts: string[] = [];
+            
+            if (resonanceShelf.length > 0) {
+              const formattedShelf = resonanceShelf.map(m => {
+                const lesson = m.lesson.length > 180 ? m.lesson.substring(0, 180) + '…' : m.lesson;
+                const pct = m.successRate != null ? ` ${Math.round(m.successRate * 100)}% success rate` : '';
+                return `• [${m.category}] ${m.title} — applied ${m.timesApplied}×,${pct} — ${lesson}`;
+              }).join('\n');
+              parts.push(`**Resonance Shelf** (techniques you've applied and confirmed work — lean into these):\n${formattedShelf}`);
+            }
             
             if (topGrowth.length > 0) {
               const formattedGrowth = topGrowth.map(m => {
@@ -1066,7 +1094,7 @@ These are lessons you've internalized and observations you've recorded. They are
 
 ${parts.join('\n\n')}
 `;
-              console.log(`[Growth Memories] Prefetched ${topGrowth.length} growth memories + ${topNotes.length} notes for session`);
+              console.log(`[Growth Memories] Prefetched ${resonanceShelf.length} resonance + ${topGrowth.length} growth memories + ${topNotes.length} notes for session`);
             }
           } catch (err: any) {
             console.warn(`[Context Prefetch] Growth memories failed:`, err.message);
@@ -1922,7 +1950,7 @@ ${identityMemories.contextString}
             try {
               const { getSharedDb } = await import('../db');
               const { danielaGrowthMemories, danielaNotes } = await import('@shared/schema');
-              const { desc, eq, and, isNull, inArray, sql: rawSql } = await import('drizzle-orm');
+              const { desc, eq, and, isNull, inArray, gte, sql: rawSql } = await import('drizzle-orm');
               const sharedDb = getSharedDb();
               
               // Top 12 by composite score: consolidated_from_count (reinforcement) + importance + times_applied
@@ -1952,7 +1980,35 @@ ${identityMemories.contextString}
                 .orderBy(desc(danielaNotes.timesReferenced), desc(danielaNotes.createdAt))
                 .limit(5);
               
+              // Resonance Shelf: top 5 memories with confirmed apply-event outcomes (timesApplied >= 1)
+              // Sorted by composite outcome score: successRate * timesApplied (quality × volume)
+              const resonanceShelf = await sharedDb.select({
+                title: danielaGrowthMemories.title,
+                category: danielaGrowthMemories.category,
+                lesson: danielaGrowthMemories.lesson,
+                timesApplied: danielaGrowthMemories.timesApplied,
+                successRate: danielaGrowthMemories.successRate,
+                consolidatedFromCount: danielaGrowthMemories.consolidatedFromCount,
+              })
+                .from(danielaGrowthMemories)
+                .where(and(
+                  eq(danielaGrowthMemories.isActive, true),
+                  isNull(danielaGrowthMemories.supersededBy),
+                  gte(danielaGrowthMemories.timesApplied, 1),
+                ))
+                .orderBy(rawSql`COALESCE(${danielaGrowthMemories.successRate}, 0) * ${danielaGrowthMemories.timesApplied} DESC`)
+                .limit(5);
+              
               const parts: string[] = [];
+              
+              if (resonanceShelf.length > 0) {
+                const formattedShelf = resonanceShelf.map(m => {
+                  const lesson = m.lesson.length > 180 ? m.lesson.substring(0, 180) + '…' : m.lesson;
+                  const pct = m.successRate != null ? ` ${Math.round(m.successRate * 100)}% success rate` : '';
+                  return `• [${m.category}] ${m.title} — applied ${m.timesApplied}×,${pct} — ${lesson}`;
+                }).join('\n');
+                parts.push(`**Resonance Shelf** (techniques you've applied and confirmed work — lean into these):\n${formattedShelf}`);
+              }
               
               if (topGrowth.length > 0) {
                 const formattedGrowth = topGrowth.map(m => {
@@ -1981,7 +2037,7 @@ These are lessons you've internalized and observations you've recorded. They are
 
 ${parts.join('\n\n')}
 `;
-                console.log(`[Growth Memories] Injected ${topGrowth.length} growth memories + ${topNotes.length} notes (stale cache fallback)`);
+                console.log(`[Growth Memories] Injected ${resonanceShelf.length} resonance + ${topGrowth.length} growth memories + ${topNotes.length} notes (stale cache fallback)`);
               }
             } catch (err: any) {
               console.warn(`[Growth Memories] Failed:`, err.message);

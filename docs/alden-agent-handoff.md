@@ -1,5 +1,39 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Tue, Apr 7, 2026 (session 38i — Task #8: Resonance Shelf in Daniela's context)
+
+### What was done
+
+#### Feature: Resonance Shelf pre-injected into Daniela's teaching context
+
+**Clarification from Cindy**: The Resonance Shelf belongs in Daniela's classroom context injection (not the admin command center as originally specced in the task). It surfaces her highest-performing proven techniques directly in her session awareness.
+
+**Where added**: `server/services/streaming-voice-orchestrator.ts` — both the prefetch block (~line 1043) and the stale cache fallback block (~line 1986). The Resonance Shelf query is parallel to the existing topGrowth and topNotes queries.
+
+**Query**:
+- Filters: `isActive = true AND supersededBy IS NULL AND timesApplied >= 1`
+- Sort: `COALESCE(successRate, 0) * timesApplied DESC` (quality × volume composite)
+- Limit: top 5
+- Fields: title, category, lesson, timesApplied, successRate, consolidatedFromCount
+
+**Format in context** (rendered FIRST in the teaching growth log, before "Most Internalized"):
+```
+**Resonance Shelf** (techniques you've applied and confirmed work — lean into these):
+• [teaching_technique] Title — applied 7×, 86% success rate — lesson text...
+```
+
+**Conditional display**: Section only appears when `resonanceShelf.length > 0` — no section injected when no outcome data exists yet (gracefully absent until Task #7 accumulates data).
+
+**Order in teaching growth log**: Resonance Shelf → Most Internalized Teaching Lessons → Personal Notebook
+
+**Log traces**:
+- `[Growth Memories] Prefetched N resonance + 12 growth memories + 5 notes for session`
+- `[Growth Memories] Injected N resonance + 12 growth memories + 5 notes (stale cache fallback)`
+
+**Deviation from task spec**: Task #8 originally specced an admin UI tab in the command center. Cindy clarified the Resonance Shelf is for Daniela's context, not for admin review. No admin tab was built.
+
+---
+
 ## Session Summary — Tue, Apr 7, 2026 (session 38h — Task #7: Growth memory outcome tracking)
 
 ### What was done
