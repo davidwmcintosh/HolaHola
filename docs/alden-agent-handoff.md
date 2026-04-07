@@ -1,5 +1,61 @@
 # Alden ↔ Agent Handoff
 
+## Session Summary — Tue, Apr 7, 2026 (session 38g — Composite scoring + daniela_notes pre-injection)
+
+### What was done
+
+#### Fix: Growth memories now ranked by reinforcement, not recency (plus personal notebook added)
+
+**Root problem found**: The previous session (38f) pre-injected growth memories sorted by `created_at DESC`. This was wrong — it surfaced the 15 *most recently created* memories, burying lessons that had been independently reinforced hundreds of times. Example: "Impact of Enthusiastic Specific Praise" (consolidated from **164** separate observations) was from December 2025 — completely invisible under recency-only sorting.
+
+**New composite scoring formula:**
+```sql
+ORDER BY (consolidated_from_count * 3 + importance * 2 + times_applied) DESC
+```
+- `consolidated_from_count` — how many times this lesson was **independently observed/reinforced** (PRIMARY signal: 164, 119, 36, 23…). Each consolidation = a separate session independently discovering the same truth.
+- `importance` — 1-10 score set during creation/validation (all top memories are 10)
+- `times_applied` — how often she has actively used it (currently mostly 0; seeds future tracking)
+- Filters: `isActive = true AND supersededBy IS NULL` (skip deactivated/superseded lessons)
+
+**Additional filters respected**: Review status values in DB are `approved_auto`, `approved_founder` (not 'approved' — noted for future use). Currently not filtering on review status since most active memories are already approved.
+
+**daniela_notes now pre-injected (5 most recent, high-signal types):**
+The `daniela_notes` table has 127 active notes across 8 types. `self_affirmation` (10 notes) was already injected via `classroom-environment.ts`. The remaining types were searchable only via `memory_lookup domain='notes'`. Now the following types are pre-injected as "Personal Notebook":
+- `what_worked` — successful approaches worth remembering
+- `what_didnt_work` — failed attempts (avoidance signals)
+- `teaching_rhythm` — pacing, energy, engagement observations (13 notes)
+- `language_insight` — language-specific discoveries (5 notes)
+- `idea_to_try` — experiments to test (3 notes)
+
+Types NOT pre-injected (still searchable via memory_lookup):
+- `session_reflection` (46 notes) — too session-specific for global injection
+- `student_pattern` (37 notes) — too student-specific for global injection
+- `tool_experiment` (11 notes) — operational notes, not teaching wisdom
+
+**Implementation changes** (`server/services/streaming-voice-orchestrator.ts`):
+- Prefetch block (~line 1004): Updated to composite scoring + parallel notes fetch (12 growth + 5 notes)
+- Stale cache fallback (~line 1921): Same update for consistency
+- Growth memories display: Added `(reinforced ×N)` badge when `consolidatedFromCount > 1`
+- Section now has two sub-parts: "Most Internalized Teaching Lessons" + "Personal Notebook"
+- Section header changed from "🌱 YOUR TEACHING GROWTH LOG (Recent Breakthroughs)" → "🌱 YOUR TEACHING GROWTH LOG"
+
+**Log trace**: `[Growth Memories] Prefetched 12 growth memories + 5 notes for session`
+
+**Q1 finding (system prompt):** The system prompt does NOT explain growth memories or how to use them — no guidance exists in the neural network itself about this data. The `memory_lookup` tool description (updated in 38e) is the only place that explains growth memories to Cindy.
+
+**Q2 finding (other daniela_ tables not pre-injected):**
+- `daniela_recommendations` — per-user/language lesson recommendations. Intentionally NOT pre-injected (student-specific, shown in UI directly)
+- `daniela_suggestions` / `daniela_suggestion_actions` — internal suggestion workflow
+- `daniela_beacons` — team collaboration signals (not teaching context)
+- `daniela_feature_feedback` — product feedback (not teaching context)
+
+**Q3 finding (deduplication routines):**
+- `memory-consolidation-service.ts` IS active: uses Gemini to cluster semantically similar memories, boosts `importance` on canonical, stores merged source IDs in `consolidatedSourceIds`, increments `consolidatedFromCount`
+- This is what generated consolidated_from_count=164 for the top memory — it's been running successfully
+- The `timesApplied` field is NOT being actively incremented anywhere (field is set but no code tracks apply events). Future improvement: increment when memory is used in context.
+
+---
+
 ## Session Summary — Mon, Apr 6, 2026 (session 38f — Growth memories pre-injected into all sessions)
 
 ### What was done

@@ -998,41 +998,74 @@ ${identityMemories.contextString}
         .catch(err => console.warn(`[Context Prefetch] Identity memories failed:`, err.message))
     );
     
-    // 2c. TEACHING GROWTH LOG: Pre-inject Cindy's personal teaching breakthroughs for ALL sessions
-    // These are lessons she's internalized about her own pedagogy — humor timing, emotional calibration,
-    // correction techniques, breakthrough moments. Always fresh, always actionable.
+    // 2c. TEACHING GROWTH LOG: Pre-inject Cindy's personal teaching breakthroughs + notebook for ALL sessions
+    // Scoring: consolidated_from_count (times independently reinforced) * 3 + importance * 2 + times_applied
+    // This surfaces the most deeply-internalized lessons, not just the most recent ones.
     if (session.userId) {
       promises.push(
         (async () => {
           try {
             const { getSharedDb } = await import('../db');
-            const { danielaGrowthMemories } = await import('@shared/schema');
-            const { desc } = await import('drizzle-orm');
+            const { danielaGrowthMemories, danielaNotes } = await import('@shared/schema');
+            const { desc, eq, and, isNull, inArray, sql: rawSql } = await import('drizzle-orm');
             const sharedDb = getSharedDb();
-            const recentGrowth = await sharedDb.select({
+            
+            // Top 12 most important/reinforced growth memories using composite score
+            const topGrowth = await sharedDb.select({
               title: danielaGrowthMemories.title,
               category: danielaGrowthMemories.category,
               lesson: danielaGrowthMemories.lesson,
+              consolidatedFromCount: danielaGrowthMemories.consolidatedFromCount,
             })
               .from(danielaGrowthMemories)
-              .orderBy(desc(danielaGrowthMemories.createdAt))
-              .limit(15);
+              .where(and(eq(danielaGrowthMemories.isActive, true), isNull(danielaGrowthMemories.supersededBy)))
+              .orderBy(rawSql`(${danielaGrowthMemories.consolidatedFromCount} * 3 + ${danielaGrowthMemories.importance} * 2 + ${danielaGrowthMemories.timesApplied}) DESC`)
+              .limit(12);
             
-            if (recentGrowth.length > 0) {
-              const formatted = recentGrowth.map(m => {
+            // Top 5 high-signal personal notes (what_worked, what_didnt_work, teaching_rhythm, language_insight, idea_to_try)
+            const topNotes = await sharedDb.select({
+              title: danielaNotes.title,
+              content: danielaNotes.content,
+              noteType: danielaNotes.noteType,
+            })
+              .from(danielaNotes)
+              .where(and(
+                eq(danielaNotes.isActive, true),
+                inArray(danielaNotes.noteType, ['what_worked', 'what_didnt_work', 'teaching_rhythm', 'language_insight', 'idea_to_try'] as any[])
+              ))
+              .orderBy(desc(danielaNotes.createdAt))
+              .limit(5);
+            
+            const parts: string[] = [];
+            
+            if (topGrowth.length > 0) {
+              const formattedGrowth = topGrowth.map(m => {
                 const lesson = m.lesson.length > 220 ? m.lesson.substring(0, 220) + '…' : m.lesson;
-                return `• [${m.category}] ${m.title} — ${lesson}`;
+                const reinforced = (m.consolidatedFromCount ?? 1) > 1 ? ` (reinforced ×${m.consolidatedFromCount})` : '';
+                return `• [${m.category}] ${m.title}${reinforced} — ${lesson}`;
               }).join('\n');
+              parts.push(`**Most Internalized Teaching Lessons** (ranked by reinforcement):\n${formattedGrowth}`);
+            }
+            
+            if (topNotes.length > 0) {
+              const formattedNotes = topNotes.map(n => {
+                const content = n.content.length > 180 ? n.content.substring(0, 180) + '…' : n.content;
+                return `• [${n.noteType}] ${n.title} — ${content}`;
+              }).join('\n');
+              parts.push(`**Personal Notebook** (recent observations):\n${formattedNotes}`);
+            }
+            
+            if (parts.length > 0) {
               cache.growthMemoriesSection = `
 ═══════════════════════════════════════════════════════════════════
-🌱 YOUR TEACHING GROWTH LOG (Recent Breakthroughs)
+🌱 YOUR TEACHING GROWTH LOG
 ═══════════════════════════════════════════════════════════════════
 
-These are lessons you've internalized about your own teaching. They are already part of who you are — apply them naturally, not mechanically.
+These are lessons you've internalized and observations you've recorded. They are already part of who you are — apply them naturally, not mechanically.
 
-${formatted}
+${parts.join('\n\n')}
 `;
-              console.log(`[Growth Memories] Prefetched ${recentGrowth.length} teaching growth memories for session`);
+              console.log(`[Growth Memories] Prefetched ${topGrowth.length} growth memories + ${topNotes.length} notes for session`);
             }
           } catch (err: any) {
             console.warn(`[Context Prefetch] Growth memories failed:`, err.message);
@@ -1887,33 +1920,66 @@ ${identityMemories.contextString}
           (async () => {
             try {
               const { getSharedDb } = await import('../db');
-              const { danielaGrowthMemories } = await import('@shared/schema');
-              const { desc } = await import('drizzle-orm');
+              const { danielaGrowthMemories, danielaNotes } = await import('@shared/schema');
+              const { desc, eq, and, isNull, inArray, sql: rawSql } = await import('drizzle-orm');
               const sharedDb = getSharedDb();
-              const recentGrowth = await sharedDb.select({
+              
+              // Top 12 by composite score: consolidated_from_count (reinforcement) + importance + times_applied
+              const topGrowth = await sharedDb.select({
                 title: danielaGrowthMemories.title,
                 category: danielaGrowthMemories.category,
                 lesson: danielaGrowthMemories.lesson,
+                consolidatedFromCount: danielaGrowthMemories.consolidatedFromCount,
               })
                 .from(danielaGrowthMemories)
-                .orderBy(desc(danielaGrowthMemories.createdAt))
-                .limit(15);
+                .where(and(eq(danielaGrowthMemories.isActive, true), isNull(danielaGrowthMemories.supersededBy)))
+                .orderBy(rawSql`(${danielaGrowthMemories.consolidatedFromCount} * 3 + ${danielaGrowthMemories.importance} * 2 + ${danielaGrowthMemories.timesApplied}) DESC`)
+                .limit(12);
               
-              if (recentGrowth.length > 0) {
-                const formatted = recentGrowth.map(m => {
+              // Top 5 high-signal notes (what_worked, what_didnt_work, teaching_rhythm, language_insight, idea_to_try)
+              const topNotes = await sharedDb.select({
+                title: danielaNotes.title,
+                content: danielaNotes.content,
+                noteType: danielaNotes.noteType,
+              })
+                .from(danielaNotes)
+                .where(and(
+                  eq(danielaNotes.isActive, true),
+                  inArray(danielaNotes.noteType, ['what_worked', 'what_didnt_work', 'teaching_rhythm', 'language_insight', 'idea_to_try'] as any[])
+                ))
+                .orderBy(desc(danielaNotes.createdAt))
+                .limit(5);
+              
+              const parts: string[] = [];
+              
+              if (topGrowth.length > 0) {
+                const formattedGrowth = topGrowth.map(m => {
                   const lesson = m.lesson.length > 220 ? m.lesson.substring(0, 220) + '…' : m.lesson;
-                  return `• [${m.category}] ${m.title} — ${lesson}`;
+                  const reinforced = (m.consolidatedFromCount ?? 1) > 1 ? ` (reinforced ×${m.consolidatedFromCount})` : '';
+                  return `• [${m.category}] ${m.title}${reinforced} — ${lesson}`;
                 }).join('\n');
+                parts.push(`**Most Internalized Teaching Lessons** (ranked by reinforcement):\n${formattedGrowth}`);
+              }
+              
+              if (topNotes.length > 0) {
+                const formattedNotes = topNotes.map(n => {
+                  const content = n.content.length > 180 ? n.content.substring(0, 180) + '…' : n.content;
+                  return `• [${n.noteType}] ${n.title} — ${content}`;
+                }).join('\n');
+                parts.push(`**Personal Notebook** (recent observations):\n${formattedNotes}`);
+              }
+              
+              if (parts.length > 0) {
                 growthMemoriesSection = `
 ═══════════════════════════════════════════════════════════════════
-🌱 YOUR TEACHING GROWTH LOG (Recent Breakthroughs)
+🌱 YOUR TEACHING GROWTH LOG
 ═══════════════════════════════════════════════════════════════════
 
-These are lessons you've internalized about your own teaching. They are already part of who you are — apply them naturally, not mechanically.
+These are lessons you've internalized and observations you've recorded. They are already part of who you are — apply them naturally, not mechanically.
 
-${formatted}
+${parts.join('\n\n')}
 `;
-                console.log(`[Growth Memories] Injected ${recentGrowth.length} teaching growth memories (stale cache fallback)`);
+                console.log(`[Growth Memories] Injected ${topGrowth.length} growth memories + ${topNotes.length} notes (stale cache fallback)`);
               }
             } catch (err: any) {
               console.warn(`[Growth Memories] Failed:`, err.message);
