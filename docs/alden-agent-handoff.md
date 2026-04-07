@@ -19,6 +19,35 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## Session Summary — Tue, Apr 7, 2026 (session 38l — Plans #4 and #5 confirmed complete)
+
+### What was done
+
+#### Audit: Plans #4 and #5 status confirmed
+
+User asked to begin implementation of Plans #4 (Textbook Image Consistency) and #5 (Canonical Vocabulary Registry). Full audit of the codebase showed **both plans are already complete** from a prior session.
+
+**What was found / confirmed:**
+
+| Deliverable | Status | Location |
+|-------------|--------|---------|
+| 4 missing verb clusters in CONCEPT_KEY_MAP (étudier, travailler, regarder, se lever + all cross-language forms) | ✅ Done | `vocabulary-image-resolver.ts` ~line 1395–1492 |
+| Sentence-form normalizer (`stripPronounPrefix`) | ✅ Done | `vocabulary-image-resolver.ts` ~line 2864 |
+| Normalizer hooked as Step 0 in resolution pipeline | ✅ Done | `vocabulary-image-resolver.ts` ~line 2904–2930 |
+| `lookupCanonicalConcept()` called before CONCEPT_KEY_MAP | ✅ Done | `vocabulary-image-resolver.ts` Step 0 |
+| SCENE_OVERRIDEs for estudiar, trabajar, mirar, levantarse | ✅ Done | `vocab-image-seed-service.ts` ~line 1005–1008 |
+| Spanish anchor images seeded (estudiar, trabajar, mirar, levantarse) | ✅ Already cached — confirmed via seed script run | All 4 resolved from cache with correct watercolor style |
+| `server/data/canonical-vocabulary.ts` | ✅ Done | 2,560 lines, 7+ thematic units |
+| Admin vocab audit endpoint | ✅ Done | `server/routes.ts` ~line 12171: `GET /api/admin/vocab-audit` |
+
+**Action taken:** Ran targeted seed script confirming all 4 anchor images resolve correctly (source=cache). Deleted seed script after confirmation.
+
+**Roadmap updated:** `docs/visual-asset-roadmap.md` Section 12 status updated from "pending" to "✅ complete" for both plans.
+
+**What remains:** The cultural character image audit — the question of how many tier-3 (SCENE_OVERRIDE) concepts need Juliette/Yuki/Mei versions instead of Daniela. This is still `⬜ not started` and correctly documented as blocked until the canonical registry confirms the full list of tier-3 concepts.
+
+---
+
 ## Session Summary — Tue, Apr 7, 2026 (session 38k — Visual asset roadmap: Plans #4/#5 + character audit)
 
 ### What was done

@@ -1356,7 +1356,7 @@ Test with one scene first before rolling out to all 9:
 ## Section 12 — Image Routing Architecture & Coverage Audit
 
 **Added:** April 7, 2026
-**Status:** Plans #4 + #5 pending; Cultural character audit ⬜ not started
+**Status:** Plans #4 + #5 ✅ complete (confirmed April 7, 2026); Cultural character audit ⬜ not started
 
 This section captures the routing infrastructure that determines *which image a word gets* — a problem separate from whether the image itself exists. Plans #4 and #5 live here, as does the cultural character image audit that Rule 5 flagged.
 
@@ -1376,7 +1376,9 @@ If a word doesn't match tier 1 or 2, it gets a tier 3 SCENE_OVERRIDE — never r
 
 ---
 
-### Plan #4 — Textbook Image Consistency: Shared Concept Expansion + Sentence Resolver
+### Plan #4 — Textbook Image Consistency: Shared Concept Expansion + Sentence Resolver ✅
+
+**Confirmed complete April 7, 2026.** All deliverables were implemented in a prior session.
 
 **Problem being fixed:** Three routing failures currently exist in the French textbook (and likely in all non-Spanish textbooks):
 
@@ -1392,9 +1394,11 @@ If a word doesn't match tier 1 or 2, it gets a tier 3 SCENE_OVERRIDE — never r
 
 ---
 
-### Plan #5 — Canonical Vocabulary Registry — All Chapters, All Languages
+### Plan #5 — Canonical Vocabulary Registry — All Chapters, All Languages ✅
 
-**Problem being fixed:** Gaps in the shared concept map are discovered reactively — a student sees a bad image, then we patch it. There is no authoritative forward-looking list of what images every chapter in every language needs.
+**Confirmed complete April 7, 2026.** `server/data/canonical-vocabulary.ts` exists (2,560 lines, 7+ thematic units covering greetings, family, school, food, numbers/time, daily routines, travel/transport). `lookupCanonicalConcept()` is called as Step 0 in the resolution pipeline. Admin audit endpoint live at `GET /api/admin/vocab-audit`.
+
+**Problem it solved:** Gaps in the shared concept map are discovered reactively — a student sees a bad image, then we patch it. There is no authoritative forward-looking list of what images every chapter in every language needs.
 
 **Deliverables:**
 - New file `server/data/canonical-vocabulary.ts` — master registry of ~400 concepts covering every lesson and every language, each mapped to its tier and its image key
