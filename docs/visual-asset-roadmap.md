@@ -2,7 +2,7 @@
 ## HolaHola — Pre-Generated Visual Library
 
 **Created:** March 15, 2026  
-**Last updated:** March 20, 2026  
+**Last updated:** April 7, 2026  
 **Referenced by:** `docs/curriculum-strategy.md` (Section 8)  
 **Component coverage manifest:** `docs/textbook-component-coverage.json` (machine-readable, Lyra-monitored)  
 **Status column key:** ⬜ Planned | 🔄 Generating | ✅ In Library
@@ -1350,4 +1350,96 @@ Test with one scene first before rolling out to all 9:
 - Scene-specific position and scale stored as metadata per visual environment (or hardcoded per scene name initially for the pilot)
 - No new avatar images needed unless we later want scene-specific costume variants (e.g. Daniela in a taqueria apron)
 - Costume variants (Option 1-hybrid) could be a future phase if the overlay approach proves compelling
+
+---
+
+## Section 12 — Image Routing Architecture & Coverage Audit
+
+**Added:** April 7, 2026
+**Status:** Plans #4 + #5 pending; Cultural character audit ⬜ not started
+
+This section captures the routing infrastructure that determines *which image a word gets* — a problem separate from whether the image itself exists. Plans #4 and #5 live here, as does the cultural character image audit that Rule 5 flagged.
+
+---
+
+### The Three-Tier Framework
+
+Every vocabulary word in every lesson must resolve to exactly one of these three tiers. Raw unguided auto-generation is never acceptable — it produces stylistically inconsistent images and wastes DALL-E budget.
+
+| Tier | When to use | Image source | Examples |
+|------|-------------|--------------|---------|
+| **1 — SVG / canvas component** | Function word, numeral, grammar concept, or anything better shown as a diagram | React/SVG component — no DALL-E | `je`, `le`, `3`, `AR verbs`, preterite timeline |
+| **2 — Shared concept image** | Universal action or noun whose visual meaning is culturally identical everywhere | One watercolor image shared by all 9 languages | `manger/comer/eat`, `étudier/estudiar/study`, `dormir/sleep` |
+| **3 — Character SCENE_OVERRIDE** | Culturally specific greeting, gesture, or phrase where character identity and scene setting matter | Language-specific DALL-E image using character-substitution prompt template | `bonjour`, `salut`, `buenos días`, `こんにちは` |
+
+If a word doesn't match tier 1 or 2, it gets a tier 3 SCENE_OVERRIDE — never raw unguided generation.
+
+---
+
+### Plan #4 — Textbook Image Consistency: Shared Concept Expansion + Sentence Resolver
+
+**Problem being fixed:** Three routing failures currently exist in the French textbook (and likely in all non-Spanish textbooks):
+
+1. **Missing shared concept entries** — `étudier`, `se lever`, `travailler`, `regarder` have no entry in `vocabulary-image-resolver.ts`. They fall through to raw DALL-E and produce photo-realistic images that clash with the watercolor library.
+2. **Sentence-form blindspot** — `Je mange`, `Tu parles`, `Il travaille` are stored and looked up as-is. The pronoun prefix means they never match `manger`, `parler`, `travailler` in the shared concept map, so each generates a fresh image from scratch.
+3. **Missing Spanish anchor images** — the shared map points to `vocab_spanish_trabajar` etc., which may not yet exist in the DB.
+
+**Deliverables:**
+- Add 4 missing verb clusters to `vocabulary-image-resolver.ts` (étudier → `vocab_spanish_estudiar`, regarder → `vocab_spanish_mirar`, travailler → `vocab_spanish_trabajar`, se lever → `vocab_spanish_levantarse`)
+- Sentence-form normalizer as the first step in the resolution pipeline (strips subject pronouns and leading reflexive particles before lookup)
+- Seed missing Spanish anchor images via SCENE_OVERRIDEs in `vocab-image-seed-service.ts`
+- Admin vocab audit endpoint: `GET /api/admin/vocab-audit?language=french&level=novice_low` returns routed vs. unrouted breakdown per word per lesson
+
+---
+
+### Plan #5 — Canonical Vocabulary Registry — All Chapters, All Languages
+
+**Problem being fixed:** Gaps in the shared concept map are discovered reactively — a student sees a bad image, then we patch it. There is no authoritative forward-looking list of what images every chapter in every language needs.
+
+**Deliverables:**
+- New file `server/data/canonical-vocabulary.ts` — master registry of ~400 concepts covering every lesson and every language, each mapped to its tier and its image key
+- `lookupCanonicalConcept()` called as the first resolution step (before the existing shared concept map)
+- The admin audit endpoint (from Plan #4) runs against this registry to show coverage status per language/level combination
+- When a future agent asks "what images are required for Unit 3 School Life in German?" the answer lives in this file
+
+**Dependency:** Plan #5 is the superset — Plan #4's fixes become the first entries in the canonical registry. Plan #4 can ship first as a targeted patch; Plan #5 is the full systematic version that makes the patch unnecessary going forward.
+
+**Files:**
+- `server/data/canonical-vocabulary.ts` — new
+- `server/services/vocabulary-image-resolver.ts` — add `lookupCanonicalConcept()` as first pipeline step
+- `server/routes.ts` — add `/api/admin/vocab-audit` endpoint
+- `server/services/vocab-image-seed-service.ts` — SCENE_OVERRIDEs for missing Spanish anchors
+- `docs/alden-agent-handoff.md` — architecture section update
+
+---
+
+### Cultural Character Image Audit (Rule 5 follow-on)
+
+**Status:** ⬜ Not started
+**Depends on:** Plan #5 canonical registry completing first
+
+The canonical registry (Plan #5) will identify all tier-3 (SCENE_OVERRIDE) concepts. Currently every tier-3 image uses Spanish characters — Daniela and Marco. A French student seeing `bonjour` should see Juliette, not Daniela. The audit determines how many new images that actually means, and what generating them costs.
+
+**The audit answers four questions:**
+
+1. How many tier-3 concepts exist per language (current rough estimate: ~100 concepts × 8 non-Spanish languages = ~800 image slots)
+2. Which are **pure character swaps** — same scene, just swap `CHAR.ES.primary → CHAR.FR.primary` — these can be batch-generated efficiently since only the character description changes
+3. Which require **scene-level rewrites** — a Spanish plaza background is wrong for a French street scene even with a French-looking character; these need prompt authoring before generation
+4. What the DALL-E budget looks like broken out by language priority
+
+**Character profile map (for prompt templating):**
+
+| Key | Characters | Cultural coding |
+|-----|-----------|----------------|
+| `CHAR.ES` | Daniela / Marco | Spanish/Latin American |
+| `CHAR.FR` | Juliette / Antoine | French, Parisian styling |
+| `CHAR.DE` | Anna / Stefan | German |
+| `CHAR.IT` | Giulia / Luca | Italian |
+| `CHAR.PT` | Sofia / Rafael | Brazilian Portuguese |
+| `CHAR.JA` | Yuki / Kenji | Japanese |
+| `CHAR.KO` | Soo-Jin / Ji-Ho | Korean |
+| `CHAR.ZH` | Mei / Wei | Mandarin Chinese |
+| `CHAR.HE` | Noa / Eitan | Israeli Hebrew |
+
+**Recommended sequencing:** Complete Plan #5 (canonical registry) first so the audit runs against an authoritative list. Do not start generating language-specific character images until the registry tells us exactly which ones are needed — otherwise we risk generating images for concepts that will later be reclassified to tier 2 (shared) and can be served by the existing Spanish image anyway.
 

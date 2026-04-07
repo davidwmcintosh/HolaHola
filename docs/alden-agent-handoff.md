@@ -19,6 +19,32 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## Session Summary — Tue, Apr 7, 2026 (session 38k — Visual asset roadmap: Plans #4/#5 + character audit)
+
+### What was done
+
+#### Documentation: Visual Asset Roadmap Section 12 added
+
+User asked to roll Plans #4 (Textbook Image Consistency) and #5 (Canonical Vocabulary Registry) into the visual asset roadmap, and to clarify where the cultural character image audit stands.
+
+**Section 12 added to `docs/visual-asset-roadmap.md`**, covering:
+
+1. **Three-Tier Framework** — formally documents the routing rule that was previously implied across multiple sections:
+   - Tier 1: SVG/canvas component (function words, numerals, grammar)
+   - Tier 2: Shared concept image (universal concepts, one image for all 9 languages)
+   - Tier 3: Character SCENE_OVERRIDE (culturally specific greetings/phrases)
+   - Rule: raw unguided DALL-E generation is never acceptable
+
+2. **Plan #4 summary** — the targeted fix: 4 missing verb clusters in the shared concept map, sentence-form normalizer (strips `Je`/`Tu`/`Il` prefix before lookup), missing Spanish anchor image seeds, admin vocab audit endpoint
+
+3. **Plan #5 summary** — the systematic version: `server/data/canonical-vocabulary.ts` (~400 concepts), `lookupCanonicalConcept()` as first pipeline step, admin audit endpoint runs against the full registry. Plan #4 ships first as a targeted patch; Plan #5 supersedes it.
+
+4. **Cultural character image audit** — formally linked to Rule 5 (character substitution templating). Status ⬜ not started. Depends on Plan #5 completing first so the audit runs against an authoritative tier-3 concept list. The audit answers: how many pure character swaps vs. scene-level rewrites, and what the DALL-E budget looks like broken out by language priority.
+
+**No code changes — documentation only.**
+
+---
+
 ## Session Summary — Tue, Apr 7, 2026 (session 38j — Prop rotation/z-index + Tool Rack audit)
 
 ### What was done
