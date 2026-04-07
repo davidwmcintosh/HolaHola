@@ -1,5 +1,42 @@
 # Alden ↔ Agent Handoff
 
+---
+## ⚑ STANDING RULE — Tool Rack Sync (added session 38j)
+
+When any new Daniela function is added to `server/services/daniela-function-registry.ts`,
+the Tool Rack line in `server/services/classroom-environment.ts` (~line 481) **must also be updated**
+in the same session. These two files are a pair — the function registry says *how* to call a tool,
+the Tool Rack gives Daniela ambient awareness that the tool *exists*. A function without a Tool Rack
+entry will be underused because Daniela won't think to reach for it.
+
+Keep Tool Rack entries concise (keyword/signature + one-line trigger context). Do not duplicate
+the full docs from the function registry — just enough for Daniela to think "oh, this is the right
+moment for that tool."
+
+Audit completed session 38j: nine Phase 2 SVG tools (set_clock, set_calendar, set_body_part,
+set_face_part, set_hand_part, set_emotion, set_weather, set_thermometer, highlight_country) and
+move_in_scene were all missing from the Tool Rack since their March 17 build. Now fixed.
+
+---
+
+## Session Summary — Tue, Apr 7, 2026 (session 38j — Prop rotation/z-index + Tool Rack audit)
+
+### What was done
+
+#### Feature: `rotate`, `flipH`, `z` added to scene canvas props
+
+- `shared/whiteboard-types.ts` — `SceneCanvasProp` now has `rotate?` (degrees), `flipH?` (boolean), `z?` (1–10)
+- `client/src/components/SceneCanvas.tsx` — `PropLayer` applies CSS `rotate()` + `scaleX(-1)` for flip + `zIndex`
+- `server/services/native-fc-handlers.ts` — `ADD_TO_SCENE` reads `rotate`, `flip_h`, `z` from fn.args; clamps to valid ranges
+- `server/services/daniela-function-registry.ts` — `add_to_scene` tool declaration exposes all three params with teaching examples (knife lying horizontal = rotate:90, fork on napkin = napkin z:3 + fork z:7) + SPATIAL PREPOSITION DEMO WORKFLOW section
+
+#### Fix: Tool Rack gap — open_scene, move_in_scene, nine SVG panels all missing
+
+- `server/services/classroom-environment.ts` Tool Rack updated with: open_scene/add_to_scene/move_in_scene (spatial canvas); set_clock/set_calendar; set_body_part/set_face_part/set_hand_part; set_emotion; set_weather/set_thermometer; highlight_country
+- Ship note posted to Express Lane for Tasks #7 and #8
+
+---
+
 ## Session Summary — Tue, Apr 7, 2026 (session 38i — Task #8: Resonance Shelf in Daniela's context)
 
 ### What was done
