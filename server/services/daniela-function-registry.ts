@@ -831,7 +831,23 @@ POSITIONING — each prop must use a DIFFERENT position. The positions form a la
     on_table | on_counter | beside_table | in_hand | on_chair
 
 The system auto-repositions if two props would overlap, but specifying correct positions explicitly always looks best.
-If a prop is already on the canvas, calling add_to_scene again replaces it in place.`,
+If a prop is already on the canvas, calling add_to_scene again replaces it in place (updated position/rotate/z takes effect immediately).
+
+ORIENTATION & LAYERING — for spatial preposition lessons:
+  rotate: rotate the prop image (degrees, clockwise). Ideal for utensils:
+    knife lying horizontal → rotate: 90
+    fork pointing left     → rotate: 270 + flip_h: true
+    napkin folded diagonal → rotate: 45
+  flip_h: mirror the prop left-to-right (useful for asymmetric utensils).
+  z: stacking order 1–10. Use to demonstrate encima de / debajo de:
+    napkin (z:3) with fork placed ON it (z:7) → fork visually overlaps napkin.
+    Tablecloth or plate first (z:2), then items on top (z:6+).
+
+SPATIAL PREPOSITION DEMO WORKFLOW:
+  1. Place two props at nearby positions (e.g. napkin_spot + fork_spot)
+  2. Re-add the "on top" prop with a higher z to show encima/debajo visually
+  3. Call add_to_scene again with a new position to MOVE an existing prop — 
+     say "¡Mira — el cuchillo está a la DERECHA del tenedor!" as you reposition it`,
       parametersJsonSchema: {
         type: "object",
         properties: {
@@ -865,6 +881,28 @@ If a prop is already on the canvas, calling add_to_scene again replaces it in pl
           },
           label: { type: "string", description: "Target-language label shown under the prop (e.g. 'el vaso'). Defaults to the prop name." },
           native_label: { type: "string", description: "Student's native-language label shown below the target label (e.g. 'glass' for an English speaker). Include both so students see target + native simultaneously." },
+          rotate: {
+            type: "number",
+            description: `Clockwise rotation in degrees (0–359). Use to orient props for spatial vocabulary:
+  • 90  = lying on its right side (knife pointing right — 'a la derecha')
+  • 270 = lying on its left side (knife pointing left — 'a la izquierda')
+  • 45  = diagonal (e.g. napkin folded at an angle)
+  • 0   = upright (default — best for cups, glasses, plates)
+Omit or set to 0 for upright props. Especially useful for utensils demonstrating direction/position.`,
+          },
+          flip_h: {
+            type: "boolean",
+            description: "Mirror the prop horizontally. Combine with rotate to flip a knife so it faces left instead of right, or to show a spoon's bowl facing the other direction. Default false.",
+          },
+          z: {
+            type: "number",
+            description: `Stacking layer 1–10 (higher = appears in front of other props). Default is 5.
+Use to demonstrate spatial prepositions:
+  • encima de (on top of): give the prop a higher z than what it rests on
+  • debajo de (under/beneath): give the prop a lower z than what covers it
+  • Example: napkin z=3, fork z=6 → fork appears ON the napkin
+Keep most props at 5. Only set z explicitly when teaching encima/debajo.`,
+          },
         },
         required: ["prop_name", "position"],
       },
@@ -872,7 +910,15 @@ If a prop is already on the canvas, calling add_to_scene again replaces it in pl
     buildContinuationResponse: ({ fc }) => {
       const prop = fc.args.prop_name as string || 'prop';
       const pos = fc.args.position as string || 'position';
-      return `Added ${prop} at ${pos} on the live canvas. Continue the lesson — the prop is now visible to the student.`;
+      const rotate = fc.args.rotate as number | undefined;
+      const flipH = fc.args.flip_h as boolean | undefined;
+      const z = fc.args.z as number | undefined;
+      const extras = [
+        rotate ? `rotated ${rotate}°` : '',
+        flipH ? 'flipped' : '',
+        z && z !== 5 ? `z=${z}` : '',
+      ].filter(Boolean).join(', ');
+      return `Added ${prop} at ${pos} on the live canvas${extras ? ` (${extras})` : ''}. Continue the lesson — the prop is now visible to the student.`;
     },
   },
 

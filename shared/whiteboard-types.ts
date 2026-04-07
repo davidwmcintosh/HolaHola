@@ -841,6 +841,9 @@ export interface SceneCanvasProp {
   cy: number;           // 0..1 vertical center
   scale: number;        // 0..1 size relative to canvas width
   imageUrl: string;     // zone_image_url (transparent PNG)
+  rotate?: number;      // clockwise rotation in degrees (0-359); default 0
+  flipH?: boolean;      // mirror the image horizontally; default false
+  z?: number;           // stacking order 1-10 (higher = in front); default 5
   richContent?: SceneCanvasRichContent; // optional tap-to-open content (menu, bill)
 }
 

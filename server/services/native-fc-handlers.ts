@@ -871,6 +871,9 @@ export class NativeFunctionCallHandler {
         const addLabel = fn.args.label as string | undefined;
         const addNativeLabel = fn.args.native_label as string | undefined;
         const addText = fn.args.text as string | undefined;
+        const addRotate = fn.args.rotate as number | undefined;
+        const addFlipH = fn.args.flip_h as boolean | undefined;
+        const addZ = fn.args.z as number | undefined;
         if (addText && !session.functionCallText) session.functionCallText = addText;
         if (!addPropName) {
           console.warn('[Native Function→AddToScene] Missing prop_name — skipping');
@@ -982,6 +985,9 @@ export class NativeFunctionCallHandler {
             imageUrl: propImageUrl,
           };
           if (addNativeLabel) newProp.nativeLabel = addNativeLabel;
+          if (addRotate !== undefined) newProp.rotate = Math.max(0, Math.min(359, Math.round(addRotate)));
+          if (addFlipH) newProp.flipH = true;
+          if (addZ !== undefined) newProp.z = Math.max(1, Math.min(10, Math.round(addZ)));
           if (existingIdx >= 0) {
             session.sceneCanvas.props[existingIdx] = newProp;
           } else {

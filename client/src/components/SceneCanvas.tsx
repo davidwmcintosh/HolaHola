@@ -95,6 +95,11 @@ function formatTime12h(time: string): string {
 // ─── Prop layer ────────────────────────────────────────────────────────────────
 
 function PropLayer({ prop }: { prop: SceneCanvasProp }) {
+  const rotate = prop.rotate ?? 0;
+  const flipH = prop.flipH ? "scaleX(-1)" : "";
+  const transform = `translate(-50%, -50%) rotate(${rotate}deg) ${flipH}`.trim();
+  const zIndex = prop.z ?? 5;
+
   return (
     <motion.div
       key={prop.name}
@@ -107,7 +112,8 @@ function PropLayer({ prop }: { prop: SceneCanvasProp }) {
         left: `${prop.cx * 100}%`,
         top: `${prop.cy * 100}%`,
         width: `${prop.scale * 100}%`,
-        transform: "translate(-50%, -50%)",
+        transform,
+        zIndex,
         pointerEvents: "none",
       }}
     >
