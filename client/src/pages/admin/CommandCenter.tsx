@@ -567,24 +567,33 @@ function MemoryMigrationTab() {
                           {memory.metadata?.language && (
                             <Badge variant="outline" className="text-xs">{memory.metadata.language}</Badge>
                           )}
+                          {memory.consolidatedFromCount != null && memory.consolidatedFromCount > 1 && (
+                            <Badge variant="secondary" className="text-xs">
+                              {memory.consolidatedFromCount} merged
+                            </Badge>
+                          )}
                         </div>
                         <h4 className="font-medium">{memory.title}</h4>
                         <p className="text-sm text-muted-foreground mt-1">{memory.lesson}</p>
+                        {memory.successRate != null && (
+                          <div className="mt-2 space-y-0.5" data-testid={`resonance-rate-${memory.id}`}>
+                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                              <span>Success rate</span>
+                              <span>{Math.round(memory.successRate * 100)}%</span>
+                            </div>
+                            <div className="h-1.5 bg-muted rounded-full overflow-hidden w-full max-w-xs">
+                              <div
+                                className="h-full rounded-full bg-green-500 transition-all duration-500"
+                                style={{ width: `${Math.round(memory.successRate * 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0 text-right">
                         <div className="text-sm font-semibold text-primary" data-testid={`resonance-times-${memory.id}`}>
                           {memory.timesApplied ?? 0}× applied
                         </div>
-                        {memory.successRate != null && (
-                          <div className="text-xs text-muted-foreground" data-testid={`resonance-rate-${memory.id}`}>
-                            {Math.round(memory.successRate * 100)}% success
-                          </div>
-                        )}
-                        {memory.consolidatedFromCount != null && memory.consolidatedFromCount > 1 && (
-                          <div className="text-xs text-muted-foreground">
-                            merged from {memory.consolidatedFromCount}
-                          </div>
-                        )}
                         {memory.lastAppliedAt && (
                           <div className="text-xs text-muted-foreground" data-testid={`resonance-last-${memory.id}`}>
                             last: {new Date(memory.lastAppliedAt).toLocaleDateString()}
@@ -603,8 +612,9 @@ function MemoryMigrationTab() {
                 <Sparkles className="h-10 w-10 text-muted-foreground/40 mx-auto" />
                 <p className="font-medium text-muted-foreground">No resonance data yet</p>
                 <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                  The Resonance Shelf fills automatically as Daniela applies approved memories in sessions
-                  and outcomes are tracked. Keep using the app — this shelf reflects real teaching wins.
+                  This shelf fills as Daniela applies approved memories in live sessions and
+                  records <strong>what_worked</strong> notes confirming their effect. Keep using
+                  the app — every confirmed teaching win surfaces here, ranked by outcome quality.
                 </p>
               </div>
             )
