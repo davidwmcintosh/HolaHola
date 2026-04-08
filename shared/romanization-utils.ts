@@ -3,6 +3,52 @@
  * No external dependencies — pure lookup tables and algorithms.
  */
 
+// ─── Japanese: Common kanji / compound readings (N5-N4 textbook vocabulary) ─
+// Longer compounds listed first so the greedy matcher picks the best reading.
+const KANJI_MAP: Record<string, string> = {
+  // 3-char compounds
+  '大丈夫': 'daijōbu', '食べ物': 'tabemono', '飲み物': 'nomimono',
+  '乗り物': 'norimono', '生き物': 'ikimono',
+  // 2-char compounds (N5 core — unambiguous in textbook context)
+  '元気': 'genki', '名前': 'namae', '日本': 'nihon', '今日': 'kyō',
+  '明日': 'ashita', '昨日': 'kinō', '友達': 'tomodachi', '学生': 'gakusei',
+  '先生': 'sensei', '大学': 'daigaku', '学校': 'gakkō', '会社': 'kaisha',
+  '仕事': 'shigoto', '時間': 'jikan', '電話': 'denwa', '家族': 'kazoku',
+  '兄弟': 'kyōdai', '姉妹': 'shimai', '子供': 'kodomo', '毎日': 'mainichi',
+  '毎朝': 'maiasa', '毎晩': 'maiban', '本当': 'hontō', '一緒': 'issho',
+  '好き': 'suki', '嫌い': 'kirai', '上手': 'jōzu', '下手': 'heta',
+  'お金': 'okane', '言葉': 'kotoba', '日本語': 'nihongo', '英語': 'eigo',
+  '天気': 'tenki', '今年': 'kotoshi', '来年': 'rainen', '去年': 'kyonen',
+  '来週': 'raishū', '先週': 'senshū', '今週': 'konshū', '来月': 'raigetsu',
+  '先月': 'sengetsu', '今月': 'kongetsu', '午前': 'gozen', '午後': 'gogo',
+  '何時': 'nanji', '何分': 'nanpun', '何曜': 'nanyō', '月曜': 'getsuyō',
+  '火曜': 'kayō', '水曜': 'suiyō', '木曜': 'mokuyō', '金曜': 'kin-yō',
+  '土曜': 'doyō', '日曜': 'nichiyō', '新聞': 'shinbun', '雑誌': 'zasshi',
+  '映画': 'eiga', '音楽': 'ongaku', '料理': 'ryōri', '旅行': 'ryokō',
+  '勉強': 'benkyō', '練習': 'renshū', '宿題': 'shukudai', '試験': 'shiken',
+  '病院': 'byōin', '銀行': 'ginkō', '郵便': 'yūbin', '図書': 'tosho',
+  '食事': 'shokuji', '朝食': 'chōshoku', '昼食': 'chūshoku', '夕食': 'yūshoku',
+  '朝ご飯': 'asagohan', '昼ご飯': 'hirugohan', '晩ご飯': 'bangohan',
+  // Single kanji (used only when no compound matches — pick the most common reading)
+  '私': 'watashi', '僕': 'boku', '俺': 'ore', '君': 'kimi', '彼': 'kare',
+  '彼女': 'kanojo', '今': 'ima', '誰': 'dare', '何': 'nani', '時': 'toki',
+  '人': 'hito', '日': 'nichi', '本': 'hon', '山': 'yama', '川': 'kawa',
+  '木': 'ki', '水': 'mizu', '金': 'kin', '土': 'tsuchi', '中': 'naka',
+  '上': 'ue', '下': 'shita', '右': 'migi', '左': 'hidari', '前': 'mae',
+  '後': 'ato', '間': 'aida', '外': 'soto', '内': 'uchi', '家': 'ie',
+  '店': 'mise', '駅': 'eki', '道': 'michi', '車': 'kuruma', '手': 'te',
+  '目': 'me', '耳': 'mimi', '口': 'kuchi', '鼻': 'hana', '顔': 'kao',
+  '頭': 'atama', '心': 'kokoro', '気': 'ki', '名': 'na', '語': 'go',
+  '年': 'nen', '月': 'tsuki', '週': 'shū', '朝': 'asa', '晩': 'ban',
+  '昼': 'hiru', '夜': 'yoru', '午': 'go', '分': 'fun', '秒': 'byō',
+  '円': 'en', '万': 'man', '百': 'hyaku', '千': 'sen',
+  '大': 'ō', '小': 'ko', '高': 'taka', '低': 'hikui',
+  '新': 'shin', '古': 'furu', '長': 'naga', '短': 'mijika',
+  '食': 'shoku', '飲': 'in', '帰': 'kaeri',
+  '見': 'mi', '書': 'ka', '読': 'yo', '話': 'hanashi',
+  '思': 'omo', '知': 'shi',
+};
+
 // ─── Japanese: Hiragana / Katakana → Hepburn Romaji ────────────────────────
 
 const HIRAGANA_MAP: Record<string, string> = {
@@ -50,15 +96,41 @@ for (const [hira, roma] of Object.entries(HIRAGANA_MAP)) {
   KATAKANA_MAP[kata] = roma;
 }
 
+// Kanji codepoint range check
+function isKanji(c: string): boolean {
+  const cp = c.codePointAt(0)!;
+  return (cp >= 0x4E00 && cp <= 0x9FFF) || (cp >= 0x3400 && cp <= 0x4DBF);
+}
+
 function convertJapanese(text: string): string {
-  // Try digraphs first (2-char combos), then single chars
   let result = '';
   let i = 0;
   const chars = [...text]; // spread handles multi-codepoint chars
+
   while (i < chars.length) {
+    // ── 1. Kanji compound lookup (greedy longest-match: 3 → 2 → 1 chars) ──
+    if (isKanji(chars[i]) || (chars[i] === 'お' && i + 1 < chars.length && isKanji(chars[i + 1]))) {
+      // Also allow honorific お + kanji compound to be caught by the map
+      // (e.g. "お金" is in KANJI_MAP as a 2-char entry)
+      let matched = false;
+      for (let len = 3; len >= 1; len--) {
+        const seg = chars.slice(i, i + len).join('');
+        if (KANJI_MAP[seg] !== undefined) {
+          // Add a separating space if the previous result character is a letter
+          if (result.length > 0 && /[a-zāīūēōĀĪŪĒŌ]$/i.test(result)) result += ' ';
+          result += KANJI_MAP[seg];
+          i += len;
+          matched = true;
+          break;
+        }
+      }
+      if (matched) continue;
+    }
+
+    // ── 2. Kana digraph (2-char hiragana/katakana combos) ──
     const twoChar = chars.slice(i, i + 2).join('');
     const oneChar = chars[i];
-    
+
     if (twoChar.length === 2 && (HIRAGANA_MAP[twoChar] !== undefined || KATAKANA_MAP[twoChar] !== undefined)) {
       result += HIRAGANA_MAP[twoChar] ?? KATAKANA_MAP[twoChar] ?? twoChar;
       i += 2;
@@ -85,7 +157,7 @@ function convertJapanese(text: string): string {
       }
       i++;
     } else {
-      // Non-kana character (kanji, punctuation, ASCII) — pass through
+      // Non-kana, non-kanji character (punctuation, ASCII, unknown) — pass through
       result += oneChar;
       i++;
     }
