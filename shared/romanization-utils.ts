@@ -224,9 +224,175 @@ function convertHebrew(text: string): string {
   return result.replace(/\s+/g, ' ').replace(/'{2,}/g, "'").trim();
 }
 
-// ─── Mandarin: Pinyin lookup for common characters ──────────────────────────
-// Mandarin cannot be romanized algorithmically from characters alone (tone-dependent).
-// This stub returns null for Mandarin; romanization must come from AI-generated data.
+// ─── Mandarin: Pinyin lookup (HSK 1-2 + common textbook vocabulary) ─────────
+// Greedy longest-match: try 4-char → 3-char → 2-char → 1-char compounds first.
+// Uses standard Hànyǔ Pīnyīn with tone diacritics.
+
+const PINYIN_MAP: Record<string, string> = {
+  // ── 4-char compounds ────────────────────────────────────────────────────
+  '不好意思': 'bù hǎo yì si', '对不起来': 'duì bù qǐ lái',
+  '你好吗？': 'nǐ hǎo ma?', '您好吗？': 'nín hǎo ma?',
+  // ── 3-char compounds ────────────────────────────────────────────────────
+  '对不起': 'duì bù qǐ', '没关系': 'méi guān xi',
+  '怎么样': 'zěn me yàng', '为什么': 'wèi shén me',
+  '早上好': 'zǎo shang hǎo', '下午好': 'xià wǔ hǎo', '晚上好': 'wǎn shang hǎo',
+  '你们好': 'nǐ men hǎo', '大家好': 'dà jiā hǎo',
+  '谢谢你': 'xiè xie nǐ', '不客气': 'bù kè qi',
+  '没问题': 'méi wèn tí', '好的吗': 'hǎo de ma',
+  '哪个国': 'nǎ ge guó', '多少钱': 'duō shao qián',
+  '我是说': 'wǒ shì shuō', '什么时': 'shén me shí',
+  '在哪里': 'zài nǎ lǐ', '在哪儿': 'zài nǎ r',
+  '怎么办': 'zěn me bàn', '怎么说': 'zěn me shuō',
+  '打扰一': 'dǎ rǎo yī', '打扰了': 'dǎ rǎo le',
+  '星期一': 'xīng qī yī', '星期二': 'xīng qī èr', '星期三': 'xīng qī sān',
+  '星期四': 'xīng qī sì', '星期五': 'xīng qī wǔ', '星期六': 'xīng qī liù',
+  '星期日': 'xīng qī rì', '星期天': 'xīng qī tiān',
+  '老师好': 'lǎo shī hǎo',
+  // ── 2-char compounds ────────────────────────────────────────────────────
+  // Greetings & politeness
+  '你好': 'nǐ hǎo', '您好': 'nín hǎo', '再见': 'zài jiàn',
+  '谢谢': 'xiè xie', '不谢': 'bù xiè', '客气': 'kè qi',
+  '幸会': 'xìng huì', '打扰': 'dǎ rǎo', '请问': 'qǐng wèn',
+  '认识': 'rèn shi', '高兴': 'gāo xìng', '欢迎': 'huān yíng',
+  '没有': 'méi yǒu', '好的': 'hǎo de', '可以': 'kě yǐ',
+  '没事': 'méi shì', '好吗': 'hǎo ma', '是的': 'shì de',
+  // Pronouns & common nouns
+  '我们': 'wǒ men', '你们': 'nǐ men', '他们': 'tā men', '她们': 'tā men',
+  '名字': 'míng zi', '老师': 'lǎo shī', '朋友': 'péng you',
+  '同学': 'tóng xué', '学生': 'xué sheng', '先生': 'xiān sheng',
+  '女士': 'nǚ shì', '小姐': 'xiǎo jiě', '父母': 'fù mǔ',
+  '爸爸': 'bà ba', '妈妈': 'mā ma', '哥哥': 'gē ge', '姐姐': 'jiě jie',
+  '弟弟': 'dì di', '妹妹': 'mèi mei', '孩子': 'hái zi',
+  '丈夫': 'zhàng fu', '妻子': 'qī zi', '家人': 'jiā rén',
+  // Time words
+  '今天': 'jīn tiān', '明天': 'míng tiān', '昨天': 'zuó tiān',
+  '现在': 'xiàn zài', '今年': 'jīn nián', '明年': 'míng nián', '去年': 'qù nián',
+  '上午': 'shàng wǔ', '下午': 'xià wǔ', '早上': 'zǎo shang', '晚上': 'wǎn shang',
+  '中午': 'zhōng wǔ', '早饭': 'zǎo fàn', '午饭': 'wǔ fàn', '晚饭': 'wǎn fàn',
+  '星期': 'xīng qī', '周末': 'zhōu mò', '假期': 'jià qī',
+  '时间': 'shí jiān', '小时': 'xiǎo shí', '分钟': 'fēn zhōng',
+  // Numbers  
+  '一二': 'yī èr', '十一': 'shí yī', '十二': 'shí èr', '二十': 'èr shí',
+  '百元': 'bǎi yuán', '多少': 'duō shao', '一点': 'yī diǎn',
+  // Places & directions
+  '中国': 'Zhōng guó', '北京': 'Běi jīng', '上海': 'Shàng hǎi',
+  '美国': 'Měi guó', '英国': 'Yīng guó', '日本': 'Rì běn',
+  '学校': 'xué xiào', '图书': 'tú shū', '医院': 'yī yuàn',
+  '餐厅': 'cān tīng', '商店': 'shāng diàn', '银行': 'yín háng',
+  '公司': 'gōng sī', '家里': 'jiā lǐ', '左边': 'zuǒ biān', '右边': 'yòu biān',
+  '前面': 'qián miàn', '后面': 'hòu miàn', '里面': 'lǐ miàn', '外面': 'wài miàn',
+  // Common verbs & adjectives
+  '喜欢': 'xǐ huān', '知道': 'zhī dào', '觉得': 'jué de',
+  '听说': 'tīng shuō', '告诉': 'gào su', '帮助': 'bāng zhù',
+  '学习': 'xué xí', '工作': 'gōng zuò', '休息': 'xiū xi',
+  '吃饭': 'chī fàn', '喝水': 'hē shuǐ', '睡觉': 'shuì jiào',
+  '漂亮': 'piào liang', '好看': 'hǎo kàn', '难看': 'nán kàn',
+  '高兴': 'gāo xìng', '开心': 'kāi xīn', '难过': 'nán guò',
+  '便宜': 'pián yi', '贵的': 'guì de', '大的': 'dà de', '小的': 'xiǎo de',
+  '热的': 'rè de', '冷的': 'lěng de', '快一': 'kuài yī', '慢一': 'màn yī',
+  // Food
+  '水果': 'shuǐ guǒ', '蔬菜': 'shū cài', '米饭': 'mǐ fàn',
+  '面条': 'miàn tiáo', '包子': 'bāo zi', '饺子': 'jiǎo zi',
+  '茶水': 'chá shuǐ', '牛奶': 'niú nǎi', '咖啡': 'kā fēi',
+  // ── Single characters ───────────────────────────────────────────────────
+  // Personal pronouns
+  '我': 'wǒ', '你': 'nǐ', '您': 'nín', '他': 'tā', '她': 'tā', '它': 'tā',
+  // Common verbs
+  '是': 'shì', '有': 'yǒu', '在': 'zài', '去': 'qù', '来': 'lái',
+  '说': 'shuō', '叫': 'jiào', '看': 'kàn', '听': 'tīng', '写': 'xiě',
+  '读': 'dú', '学': 'xué', '吃': 'chī', '喝': 'hē', '买': 'mǎi',
+  '卖': 'mài', '做': 'zuò', '走': 'zǒu', '跑': 'pǎo', '坐': 'zuò',
+  '开': 'kāi', '关': 'guān', '打': 'dǎ', '要': 'yào', '想': 'xiǎng',
+  '知': 'zhī', '会': 'huì', '能': 'néng', '可': 'kě', '让': 'ràng',
+  // Common nouns
+  '人': 'rén', '家': 'jiā', '书': 'shū', '车': 'chē', '钱': 'qián',
+  '水': 'shuǐ', '饭': 'fàn', '茶': 'chá', '酒': 'jiǔ', '肉': 'ròu',
+  '鱼': 'yú', '鸡': 'jī', '牛': 'niú', '猪': 'zhū', '狗': 'gǒu',
+  '猫': 'māo', '花': 'huā', '树': 'shù', '山': 'shān', '河': 'hé',
+  '国': 'guó', '城': 'chéng', '路': 'lù', '门': 'mén', '房': 'fáng',
+  // Question words
+  '什': 'shén', '么': 'me', '哪': 'nǎ', '谁': 'shéi', '哪': 'nǎ',
+  '怎': 'zěn', '几': 'jǐ',
+  // Adjectives
+  '好': 'hǎo', '大': 'dà', '小': 'xiǎo', '多': 'duō', '少': 'shǎo',
+  '新': 'xīn', '旧': 'jiù', '长': 'cháng', '短': 'duǎn', '高': 'gāo',
+  '低': 'dī', '热': 'rè', '冷': 'lěng', '快': 'kuài', '慢': 'màn',
+  '早': 'zǎo', '晚': 'wǎn', '远': 'yuǎn', '近': 'jìn', '美': 'měi',
+  '对': 'duì', '错': 'cuò', '难': 'nán', '易': 'yì', '忙': 'máng',
+  '累': 'lèi', '渴': 'kě', '饿': 'è', '贵': 'guì', '便': 'pián',
+  // Numbers 1-10 & 100
+  '一': 'yī', '二': 'èr', '三': 'sān', '四': 'sì', '五': 'wǔ',
+  '六': 'liù', '七': 'qī', '八': 'bā', '九': 'jiǔ', '十': 'shí',
+  '百': 'bǎi', '千': 'qiān', '万': 'wàn', '零': 'líng',
+  // Time units
+  '年': 'nián', '月': 'yuè', '日': 'rì', '天': 'tiān', '时': 'shí',
+  '分': 'fēn', '秒': 'miǎo', '周': 'zhōu', '号': 'hào',
+  // Particles & grammar
+  '的': 'de', '了': 'le', '吗': 'ma', '呢': 'ne', '吧': 'ba',
+  '也': 'yě', '都': 'dōu', '还': 'hái', '又': 'yòu', '再': 'zài',
+  '很': 'hěn', '太': 'tài', '真': 'zhēn', '最': 'zuì', '非': 'fēi',
+  '不': 'bù', '没': 'méi', '和': 'hé', '或': 'huò', '因': 'yīn',
+  '但': 'dàn', '如': 'rú', '就': 'jiù', '才': 'cái', '只': 'zhǐ',
+  '已': 'yǐ', '经': 'jīng', '过': 'guò', '着': 'zhe', '得': 'de',
+  '地': 'de', '被': 'bèi', '把': 'bǎ', '从': 'cóng', '向': 'xiàng',
+  '为': 'wèi', '以': 'yǐ', '于': 'yú', '而': 'ér', '与': 'yǔ',
+  // Directions & positions
+  '上': 'shàng', '下': 'xià', '左': 'zuǒ', '右': 'yòu',
+  '前': 'qián', '后': 'hòu', '里': 'lǐ', '外': 'wài', '中': 'zhōng',
+  // Classifiers (measure words)
+  '个': 'gè', '只': 'zhī', '本': 'běn', '张': 'zhāng', '条': 'tiáo',
+  '块': 'kuài', '瓶': 'píng', '杯': 'bēi', '碗': 'wǎn', '盘': 'pán',
+  // Additional common characters
+  '请': 'qǐng', '谢': 'xiè', '关': 'guān', '系': 'xi', '问': 'wèn',
+  '意': 'yì', '思': 'si', '身': 'shēn', '体': 'tǐ', '名': 'míng',
+  '字': 'zì', '语': 'yǔ', '话': 'huà', '文': 'wén', '字': 'zì',
+  '幸': 'xìng', '见': 'jiàn', '朋': 'péng', '友': 'you', '同': 'tóng',
+  '学': 'xué', '生': 'shēng', '师': 'shī', '校': 'xiào', '院': 'yuàn',
+  '店': 'diàn', '行': 'xíng', '司': 'sī', '公': 'gōng', '室': 'shì',
+  '间': 'jiān', '号': 'hào', '层': 'céng', '楼': 'lóu', '街': 'jiē',
+  '吃': 'chī', '住': 'zhù', '用': 'yòng', '玩': 'wán', '说': 'shuō',
+  '唱': 'chàng', '跳': 'tiào', '画': 'huà', '拍': 'pāi', '找': 'zhǎo',
+};
+
+// Chinese codepoint range check
+function isChineseChar(c: string): boolean {
+  const cp = c.codePointAt(0)!;
+  return (cp >= 0x4E00 && cp <= 0x9FFF) || (cp >= 0x3400 && cp <= 0x4DBF) ||
+         (cp >= 0x20000 && cp <= 0x2A6DF);
+}
+
+function convertMandarin(text: string): string {
+  const chars = [...text];
+  let result = '';
+  let i = 0;
+  while (i < chars.length) {
+    if (!isChineseChar(chars[i])) {
+      // Punctuation, Latin, spaces — pass through
+      result += chars[i];
+      i++;
+      continue;
+    }
+    // Greedy longest-match: 4 → 3 → 2 → 1 chars
+    let matched = false;
+    for (let len = 4; len >= 1; len--) {
+      const seg = chars.slice(i, i + len).join('');
+      const reading = PINYIN_MAP[seg];
+      if (reading !== undefined) {
+        if (result.length > 0 && !/[\s]$/.test(result)) result += ' ';
+        result += reading;
+        i += len;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      // Unknown character — pass through as-is so caller can detect it
+      result += chars[i];
+      i++;
+    }
+  }
+  return result.replace(/\s+/g, ' ').trim();
+}
 
 // ─── Public API ─────────────────────────────────────────────────────────────
 
@@ -263,8 +429,14 @@ export function getRomanization(text: string, language: string): string | null {
         const result = convertHebrew(text);
         return result !== text ? result : null;
       }
-      case 'mandarin':
-        return null; // needs pinyin dictionary
+      case 'mandarin': {
+        const result = convertMandarin(text);
+        // If result still contains Chinese characters, we couldn't convert everything.
+        // Return partial pinyin only if we converted at least something meaningful.
+        const hasUnknownChinese = /[\u4e00-\u9fff\u3400-\u4dbf]/.test(result);
+        if (hasUnknownChinese && result === text) return null; // nothing converted
+        return result !== text ? result : null;
+      }
       default:
         return null;
     }
