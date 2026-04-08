@@ -620,27 +620,48 @@ export class StreamingVoiceClient {
   }
 
   /**
-   * Schedule a proactive reconnect at 4.5 minutes after connection established.
+   * Schedule a proactive reconnect targeting 4.5 minutes after connection established.
    * Replit's proxy kills WebSocket connections at exactly 5 minutes regardless of
-   * activity. By reconnecting 30 seconds early, we choose a quiet moment between
-   * turns instead of being cut mid-sentence by the proxy.
+   * activity. We aim to reconnect between turns (when state is 'ready'), polling
+   * every 500ms if a turn is in-flight. An absolute deadline at 4min 55s ensures
+   * we still beat the proxy's hard kill even if a very long turn is active.
    */
   private startProactiveReconnect(): void {
     this.stopProactiveReconnect();
-    this.proactiveReconnectTimer = setTimeout(() => {
+    // Absolute deadline: we MUST reconnect by 4min 55s to beat Replit proxy's 5-min hard kill.
+    // We target 4.5min (270s) but defer if a turn is in-flight, retrying every 500ms.
+    const ABSOLUTE_DEADLINE_MS = 295000; // 4min 55s
+    const scheduledAt = Date.now();
+
+    const attemptReconnect = () => {
       this.proactiveReconnectTimer = null;
       if (!this.socket?.connected || this.intentionalDisconnect) return;
-      // Only fire if a real session is active (not just a warm-up connection)
       if (!this.lastSessionConfig) return;
+
+      const elapsed = Date.now() - scheduledAt;
+      const isPastDeadline = elapsed >= ABSOLUTE_DEADLINE_MS;
+
+      // Defer if mid-turn (state === 'processing') UNLESS we've hit the absolute deadline.
+      // This prevents cutting audio mid-sentence while still guaranteeing we reconnect
+      // before Replit's proxy enforces its 5-minute hard kill.
+      if (this.state === 'processing' && !isPastDeadline) {
+        console.log(
+          `[StreamingVoice] Proactive reconnect deferred — turn in-flight (state=${this.state}), will retry in 500ms`
+        );
+        this.proactiveReconnectTimer = setTimeout(attemptReconnect, 500);
+        return;
+      }
+
       console.log(
-        '[StreamingVoice] Proactive reconnect — 4.5min reached, cycling WS before proxy 5-min hard kill. State:',
-        this.state
+        '[StreamingVoice] Proactive reconnect — cycling WS before proxy 5-min hard kill. State:',
+        this.state,
+        `(elapsed=${Math.round(elapsed / 1000)}s, pastDeadline=${isPastDeadline})`
       );
-      // Emit event so hook can log a diagnostic telemetry entry for monitoring
       this.emit('proactive_reconnect', { timestamp: Date.now(), state: this.state });
-      // Disconnect without marking as intentional — handleDisconnect will auto-reconnect at 200ms
       this.socket.disconnect();
-    }, this.PROACTIVE_RECONNECT_MS);
+    };
+
+    this.proactiveReconnectTimer = setTimeout(attemptReconnect, this.PROACTIVE_RECONNECT_MS);
   }
 
   /**
