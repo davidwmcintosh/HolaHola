@@ -204,6 +204,10 @@ interface GrowthMemory {
   validated: boolean;
   reviewStatus: string;
   createdAt: string;
+  timesApplied?: number;
+  successRate?: number | null;
+  lastAppliedAt?: string | null;
+  consolidatedFromCount?: number | null;
   metadata?: {
     migrationType?: string;
     originalDate?: string;
@@ -216,6 +220,7 @@ function MemoryMigrationTab() {
   const { toast } = useToast();
   const [isRunning, setIsRunning] = useState(false);
   const [reviewFilter, setReviewFilter] = useState<string>("pending");
+  const [mainView, setMainView] = useState<'queue' | 'resonance'>('queue');
 
   const { data: status, isLoading: statusLoading, refetch: refetchStatus } = useQuery<MigrationStatus>({
     queryKey: ["/api/admin/memory-migration/status"],
@@ -224,6 +229,12 @@ function MemoryMigrationTab() {
 
   const { data: memoriesData, isLoading: memoriesLoading, refetch: refetchMemories } = useQuery<{ memories: GrowthMemory[]; total: number }>({
     queryKey: [`/api/admin/growth-memories?reviewStatus=${reviewFilter}&migrationType=historical`],
+    enabled: mainView === 'queue',
+  });
+
+  const { data: resonanceData, isLoading: resonanceLoading } = useQuery<{ memories: GrowthMemory[]; total: number }>({
+    queryKey: ['/api/admin/growth-memories?view=resonance'],
+    enabled: mainView === 'resonance',
   });
 
   const runBatchMutation = useMutation({
@@ -467,44 +478,137 @@ function MemoryMigrationTab() {
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <CardTitle>Memory Review Queue</CardTitle>
+              <CardTitle>
+                {mainView === 'resonance' ? 'Resonance Shelf' : 'Memory Review Queue'}
+              </CardTitle>
               <CardDescription>
-                Review and approve memories before they're committed to Daniela's neural network
+                {mainView === 'resonance'
+                  ? 'Teaching techniques Daniela has applied and confirmed — ranked by outcome quality × volume'
+                  : 'Review and approve memories before they\'re committed to Daniela\'s neural network'}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              {reviewFilter === 'pending' && memoriesData?.memories?.length > 0 && (
+              <div className="flex rounded-md border overflow-hidden" data-testid="view-mode-toggle">
                 <Button
-                  variant="outline"
                   size="sm"
-                  onClick={() => batchApproveMutation.mutate()}
-                  disabled={batchApproveMutation.isPending}
-                  data-testid="button-batch-approve"
+                  variant={mainView === 'queue' ? 'default' : 'ghost'}
+                  className="rounded-none border-0"
+                  onClick={() => setMainView('queue')}
+                  data-testid="button-view-queue"
                 >
-                  {batchApproveMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                  )}
-                  Approve All ({memoriesData?.memories?.length})
+                  Review Queue
                 </Button>
+                <Button
+                  size="sm"
+                  variant={mainView === 'resonance' ? 'default' : 'ghost'}
+                  className="rounded-none border-0 border-l"
+                  onClick={() => setMainView('resonance')}
+                  data-testid="button-view-resonance"
+                >
+                  <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                  Resonance Shelf
+                </Button>
+              </div>
+              {mainView === 'queue' && (
+                <>
+                  {reviewFilter === 'pending' && memoriesData?.memories?.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => batchApproveMutation.mutate()}
+                      disabled={batchApproveMutation.isPending}
+                      data-testid="button-batch-approve"
+                    >
+                      {batchApproveMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                      )}
+                      Approve All ({memoriesData?.memories?.length})
+                    </Button>
+                  )}
+                  <Select value={reviewFilter} onValueChange={setReviewFilter}>
+                    <SelectTrigger className="w-40" data-testid="select-review-filter">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                      <SelectItem value="all">All</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </>
               )}
-              <Select value={reviewFilter} onValueChange={setReviewFilter}>
-                <SelectTrigger className="w-40" data-testid="select-review-filter">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                  <SelectItem value="all">All</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          {memoriesLoading ? (
+          {mainView === 'resonance' ? (
+            resonanceLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-20 w-full" />
+              </div>
+            ) : resonanceData?.memories?.length ? (
+              <div className="space-y-3" data-testid="resonance-shelf-list">
+                {resonanceData.memories.map((memory, idx) => (
+                  <div
+                    key={memory.id}
+                    className="p-4 border rounded-lg space-y-2"
+                    data-testid={`resonance-card-${memory.id}`}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <span className="text-xs font-mono text-muted-foreground">#{idx + 1}</span>
+                          <Badge variant="outline">{memory.category}</Badge>
+                          {memory.metadata?.language && (
+                            <Badge variant="outline" className="text-xs">{memory.metadata.language}</Badge>
+                          )}
+                        </div>
+                        <h4 className="font-medium">{memory.title}</h4>
+                        <p className="text-sm text-muted-foreground mt-1">{memory.lesson}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0 text-right">
+                        <div className="text-sm font-semibold text-primary" data-testid={`resonance-times-${memory.id}`}>
+                          {memory.timesApplied ?? 0}× applied
+                        </div>
+                        {memory.successRate != null && (
+                          <div className="text-xs text-muted-foreground" data-testid={`resonance-rate-${memory.id}`}>
+                            {Math.round(memory.successRate * 100)}% success
+                          </div>
+                        )}
+                        {memory.consolidatedFromCount != null && memory.consolidatedFromCount > 1 && (
+                          <div className="text-xs text-muted-foreground">
+                            merged from {memory.consolidatedFromCount}
+                          </div>
+                        )}
+                        {memory.lastAppliedAt && (
+                          <div className="text-xs text-muted-foreground" data-testid={`resonance-last-${memory.id}`}>
+                            last: {new Date(memory.lastAppliedAt).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <div className="text-sm text-muted-foreground text-center mt-4">
+                  {resonanceData.total} techniques with confirmed outcomes
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-10 space-y-3" data-testid="resonance-empty-state">
+                <Sparkles className="h-10 w-10 text-muted-foreground/40 mx-auto" />
+                <p className="font-medium text-muted-foreground">No resonance data yet</p>
+                <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                  The Resonance Shelf fills automatically as Daniela applies approved memories in sessions
+                  and outcomes are tracked. Keep using the app — this shelf reflects real teaching wins.
+                </p>
+              </div>
+            )
+          ) : memoriesLoading ? (
             <div className="space-y-2">
               <Skeleton className="h-20 w-full" />
               <Skeleton className="h-20 w-full" />

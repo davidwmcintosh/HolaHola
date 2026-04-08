@@ -17797,8 +17797,26 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get growth memories for review (Founder Only)
   app.get("/api/admin/growth-memories", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
-      const { reviewStatus, migrationType, limit = '50' } = req.query;
-      
+      const { reviewStatus, migrationType, limit = '50', view } = req.query;
+
+      // Resonance Shelf view: memories that have confirmed apply-event outcomes
+      if (view === 'resonance') {
+        const resonanceLimit = parseInt(limit as string) || 50;
+        const memories = await getSharedDb()
+          .select()
+          .from(danielaGrowthMemories)
+          .where(gte(danielaGrowthMemories.timesApplied, 1))
+          .orderBy(sql`COALESCE(${danielaGrowthMemories.successRate}, 0) * ${danielaGrowthMemories.timesApplied} DESC`)
+          .limit(resonanceLimit);
+
+        const countResult = await getSharedDb()
+          .select({ count: sql<number>`COUNT(*)::int` })
+          .from(danielaGrowthMemories)
+          .where(gte(danielaGrowthMemories.timesApplied, 1));
+
+        return res.json({ memories, total: countResult[0]?.count || 0 });
+      }
+
       let query = getSharedDb().select().from(danielaGrowthMemories);
       
       const conditions: any[] = [];
