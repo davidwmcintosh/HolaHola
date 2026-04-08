@@ -526,7 +526,7 @@ export function ActflMiniGauge() {
             <TrendingUp className="h-3 w-3" />
             <span className="font-semibold">{levelInfo.shortLabel}</span>
             <span className="text-muted-foreground">•</span>
-            <span>{continuousScore}</span>
+            <span>{continuousScore}<span className="opacity-50 text-[10px]">/100</span></span>
           </Badge>
         </span>
       </TooltipTrigger>

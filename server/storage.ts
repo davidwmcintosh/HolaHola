@@ -5426,6 +5426,7 @@ export class DatabaseStorage implements IStorage {
       totalVocabulary: number;
       dueCount: number;
       streakDays: number;
+      lastConversationDate: Date | null;
     };
   }> {
     const now = new Date();
@@ -5463,6 +5464,7 @@ export class DatabaseStorage implements IStorage {
       dueCountResult,
       allTopics,
       enrollments,
+      lastConvResult,
     ] = await Promise.all([
       db.select().from(vocabularyWords)
         .where(buildAndConditions(
@@ -5509,6 +5511,11 @@ export class DatabaseStorage implements IStorage {
       this.getTopics(),
 
       this.getStudentEnrollments(userId).catch(() => [] as any[]),
+
+      db.select({ createdAt: conversations.createdAt }).from(conversations)
+        .where(buildAndConditions(eq(conversations.userId, userId), convLangFilter, convClassFilter))
+        .orderBy(desc(conversations.createdAt))
+        .limit(1),
     ]);
 
     const [conversationTopicResults, streakResult, tipsResult, activeLessonsResult] = await Promise.all([
@@ -5811,7 +5818,8 @@ export class DatabaseStorage implements IStorage {
         totalConversations: Number(totalConvsResult[0]?.count || 0),
         totalVocabulary: Number(totalVocabResult[0]?.count || 0),
         dueCount: Number(dueCountResult[0]?.count || 0),
-        streakDays
+        streakDays,
+        lastConversationDate: lastConvResult[0]?.createdAt ?? null
       }
     };
   }

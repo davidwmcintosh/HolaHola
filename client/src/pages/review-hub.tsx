@@ -126,6 +126,7 @@ interface ReviewHubData {
     totalVocabulary: number;
     dueCount: number;
     streakDays: number;
+    lastConversationDate: string | null;
   };
 }
 
@@ -438,13 +439,15 @@ export default function ReviewHub() {
         const streakDays = data.stats.streakDays;
         const hasStarted = data.stats.totalConversations > 0;
         const sessionsThisWeek = data.recentConversations.length;
-        const lastConv = data.recentConversations[0];
+
+        // Use all-time last conversation date (not filtered to last 7 days)
+        const lastConvDateRaw = data.stats.lastConversationDate ?? data.recentConversations[0]?.createdAt;
 
         let daysSinceLast: number | null = null;
         let lastSessionLabel = '';
-        if (lastConv?.createdAt) {
+        if (lastConvDateRaw) {
           daysSinceLast = Math.floor(
-            (Date.now() - new Date(lastConv.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+            (Date.now() - new Date(lastConvDateRaw).getTime()) / (1000 * 60 * 60 * 24)
           );
           if (daysSinceLast === 0) lastSessionLabel = 'Today';
           else if (daysSinceLast === 1) lastSessionLabel = 'Yesterday';
