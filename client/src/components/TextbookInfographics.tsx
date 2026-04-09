@@ -4,6 +4,9 @@ import { TextAudioPlayButton } from "@/components/AudioPlayButton";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getTutorName } from "@/lib/tutor-avatars";
 import { getRomanization } from "@shared/romanization-utils";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Repeat2 } from "lucide-react";
 
 interface SunArcGreetingsProps {
   className?: string;
@@ -1576,6 +1579,118 @@ export function LessonNarrative({
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Sentence Frame Grid ───────────────────────────────────────────────────────
+// Inspired by Margarita Madrigal's "See It and Say It in Spanish" (1962).
+// Displays a single structural sentence frame (e.g. "Tengo que ir al ___")
+// alongside a grid of vocabulary fillers — each card shows the full completed
+// sentence so the learner internalises both the frame and the word at once.
+
+export interface SentenceFrameItem {
+  filler: string;
+  fullSentence: string;
+  translation: string;
+}
+
+export interface SentenceFrame {
+  frame: string;
+  frameTranslation: string;
+  items: SentenceFrameItem[];
+}
+
+interface SentenceFrameGridProps {
+  frames: SentenceFrame[];
+  language: string;
+  className?: string;
+}
+
+function highlightFiller(sentence: string, filler: string) {
+  const idx = sentence.toLowerCase().indexOf(filler.toLowerCase());
+  if (idx === -1) {
+    return <span>{sentence}</span>;
+  }
+  return (
+    <>
+      {sentence.slice(0, idx)}
+      <span className="text-primary font-bold">{sentence.slice(idx, idx + filler.length)}</span>
+      {sentence.slice(idx + filler.length)}
+    </>
+  );
+}
+
+function renderFrameTemplate(frame: string) {
+  const parts = frame.split('___');
+  if (parts.length === 1) return <span>{frame}</span>;
+  return (
+    <>
+      {parts.map((part, i) => (
+        <span key={i}>
+          {part}
+          {i < parts.length - 1 && (
+            <span className="inline-block px-2 mx-1 rounded-md bg-primary/15 text-primary border border-primary/30 text-base font-bold tracking-wider">
+              ___
+            </span>
+          )}
+        </span>
+      ))}
+    </>
+  );
+}
+
+export function SentenceFrameGrid({ frames, language, className = '' }: SentenceFrameGridProps) {
+  if (!frames || frames.length === 0) return null;
+
+  return (
+    <div className={`space-y-8 ${className}`} data-testid="sentence-frame-grid">
+      {frames.map((frame, frameIdx) => (
+        <div key={frameIdx} className="space-y-3">
+          <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent" data-testid={`sentence-frame-header-${frameIdx}`}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Repeat2 className="h-3.5 w-3.5 text-primary" />
+                <Badge variant="outline" className="text-xs border-primary/30 text-primary">
+                  Pattern Drill
+                </Badge>
+              </div>
+              <div className="text-lg font-semibold tracking-wide">
+                {renderFrameTemplate(frame.frame)}
+              </div>
+              <p className="text-sm text-muted-foreground mt-1 italic">{frame.frameTranslation}</p>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {frame.items.map((item, itemIdx) => (
+              <Card
+                key={itemIdx}
+                className="overflow-hidden hover-elevate"
+                data-testid={`sentence-frame-card-${frameIdx}-${itemIdx}`}
+              >
+                <CardContent className="p-3 flex flex-col gap-2 h-full">
+                  <div className="text-xl font-bold text-primary leading-tight" data-testid={`text-filler-${frameIdx}-${itemIdx}`}>
+                    {item.filler}
+                  </div>
+                  <p className="text-sm font-medium leading-snug flex-1" data-testid={`text-full-sentence-${frameIdx}-${itemIdx}`}>
+                    {highlightFiller(item.fullSentence, item.filler)}
+                  </p>
+                  <p className="text-xs text-muted-foreground" data-testid={`text-translation-${frameIdx}-${itemIdx}`}>
+                    {item.translation}
+                  </p>
+                  <TextAudioPlayButton
+                    text={item.fullSentence}
+                    language={language}
+                    size="sm"
+                    data-testid={`button-play-sentence-${frameIdx}-${itemIdx}`}
+                  />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

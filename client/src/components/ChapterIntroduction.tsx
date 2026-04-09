@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Globe, Users, BookOpen, Lightbulb, MessageSquare, ChevronRight, Play, Square, Loader2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import { SunArcGreetings, FormalInformalComparison, QuickPhraseGrid, SerEstarCard, PretImperfectCard, PorParaCard, FalseCognatesGrid } from "./TextbookInfographics";
+import { SunArcGreetings, FormalInformalComparison, QuickPhraseGrid, SerEstarCard, PretImperfectCard, PorParaCard, FalseCognatesGrid, SentenceFrameGrid } from "./TextbookInfographics";
 import {
   ArVerbsCard, ErVerbsCard, IrVerbsCard,
   SerCard, EstarCard, TenerCard, IrCard,
@@ -2461,6 +2461,17 @@ export function ChapterIntroduction({ chapterNumber, chapterTitle, language, cha
         </Card>
       )}
       
+      {content.sentenceFrames && content.sentenceFrames.length > 0 && (
+        <Card className="overflow-hidden" data-testid="card-sentence-frames">
+          <CardContent className="p-4 md:p-6">
+            <SentenceFrameGrid
+              frames={content.sentenceFrames}
+              language={langKey}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex items-center gap-2 text-sm text-muted-foreground justify-center">
         <Users className="h-4 w-4" />
         <span>Now let's explore the lessons below and start practicing!</span>

@@ -21,6 +21,18 @@ export interface FormalInformalExample {
   informal: string;
 }
 
+export interface SentenceFrameItem {
+  filler: string;
+  fullSentence: string;
+  translation: string;
+}
+
+export interface SentenceFrame {
+  frame: string;
+  frameTranslation: string;
+  items: SentenceFrameItem[];
+}
+
 export interface ConversationPanel {
   speaker: string;
   gender?: 'male' | 'female';
@@ -51,6 +63,7 @@ export interface ChapterIntroContent {
     title: string;
     content: string;
   };
+  sentenceFrames?: SentenceFrame[];
 }
 
 export interface LanguageChapterData {
@@ -125,6 +138,34 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
               { speaker: "Agustín", gender: "male", text: "Bien, gracias, abuela.", translation: "Fine, thank you, Grandma.", image: "/strips/panel-2-2.png" }
             ]
           }
+        ],
+        sentenceFrames: [
+          {
+            frame: "Hoy estoy ___.",
+            frameTranslation: "Today I am ___.",
+            items: [
+              { filler: "bien", fullSentence: "Hoy estoy bien.", translation: "Today I am well." },
+              { filler: "mal", fullSentence: "Hoy estoy mal.", translation: "Today I am not well." },
+              { filler: "cansado", fullSentence: "Hoy estoy cansado.", translation: "Today I am tired." },
+              { filler: "feliz", fullSentence: "Hoy estoy feliz.", translation: "Today I am happy." },
+              { filler: "ocupado", fullSentence: "Hoy estoy ocupado.", translation: "Today I am busy." },
+              { filler: "enfermo", fullSentence: "Hoy estoy enfermo.", translation: "Today I am sick." },
+              { filler: "triste", fullSentence: "Hoy estoy triste.", translation: "Today I am sad." },
+              { filler: "nervioso", fullSentence: "Hoy estoy nervioso.", translation: "Today I am nervous." },
+            ]
+          },
+          {
+            frame: "Tengo que ir al ___.",
+            frameTranslation: "I have to go to the ___.",
+            items: [
+              { filler: "banco", fullSentence: "Tengo que ir al banco.", translation: "I have to go to the bank." },
+              { filler: "parque", fullSentence: "Tengo que ir al parque.", translation: "I have to go to the park." },
+              { filler: "restaurante", fullSentence: "Tengo que ir al restaurante.", translation: "I have to go to the restaurant." },
+              { filler: "hospital", fullSentence: "Tengo que ir al hospital.", translation: "I have to go to the hospital." },
+              { filler: "supermercado", fullSentence: "Tengo que ir al supermercado.", translation: "I have to go to the supermarket." },
+              { filler: "baño", fullSentence: "Tengo que ir al baño.", translation: "I have to go to the bathroom." },
+            ]
+          }
         ]
       },
       numbers: {
@@ -162,7 +203,33 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "Los Apellidos",
           content: "Spanish naming conventions are unique \u2014 most people carry two last names: their father's surname followed by their mother's. This tradition honors both sides of the family and helps trace lineage. So 'Garc\u00eda L\u00f3pez' tells a story of two families joined together."
-        }
+        },
+        sentenceFrames: [
+          {
+            frame: "Ella es mi ___.",
+            frameTranslation: "She is my ___.",
+            items: [
+              { filler: "madre", fullSentence: "Ella es mi madre.", translation: "She is my mother." },
+              { filler: "abuela", fullSentence: "Ella es mi abuela.", translation: "She is my grandmother." },
+              { filler: "hermana", fullSentence: "Ella es mi hermana.", translation: "She is my sister." },
+              { filler: "tía", fullSentence: "Ella es mi tía.", translation: "She is my aunt." },
+              { filler: "prima", fullSentence: "Ella es mi prima.", translation: "She is my cousin." },
+              { filler: "amiga", fullSentence: "Ella es mi amiga.", translation: "She is my friend." },
+            ]
+          },
+          {
+            frame: "Él es mi ___.",
+            frameTranslation: "He is my ___.",
+            items: [
+              { filler: "padre", fullSentence: "Él es mi padre.", translation: "He is my father." },
+              { filler: "abuelo", fullSentence: "Él es mi abuelo.", translation: "He is my grandfather." },
+              { filler: "hermano", fullSentence: "Él es mi hermano.", translation: "He is my brother." },
+              { filler: "tío", fullSentence: "Él es mi tío.", translation: "He is my uncle." },
+              { filler: "primo", fullSentence: "Él es mi primo.", translation: "He is my cousin." },
+              { filler: "amigo", fullSentence: "Él es mi amigo.", translation: "He is my friend." },
+            ]
+          }
+        ]
       },
       daily: {
         welcomeText: "Let's refresh what you know and build your daily vocabulary! This chapter reviews essential Spanish basics and introduces simple phrases for everyday life. Perfect for warming up or solidifying your foundation.",

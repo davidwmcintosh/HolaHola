@@ -1417,6 +1417,91 @@ If a word doesn't match tier 1 or 2, it gets a tier 3 SCENE_OVERRIDE — never r
 
 ---
 
+## Madrigal Method Analysis — "See It and Say It in Spanish" (1962)
+
+**Analyzed:** April 9, 2026  
+**Source:** Margarita Madrigal, *See It and Say It in Spanish*, New American Library, 1962.  
+**Book access:** Available for digital borrowing at archive.org (search "Madrigal See It Say It Spanish"); paperback ~$8 on Amazon. No free full-text HTML version exists — copyright renewal keeps it protected until ~2057.
+
+### What The Book Does (Core Pedagogy)
+
+Madrigal's method rests on one insight: **grammar disappears when the frame never changes**. Every structural pattern is introduced once, demonstrated with multiple vocabulary fillers in the same page-spread, and never named as a grammar rule. The student internalises the frame through visual repetition and picture anchoring, not through explanation.
+
+Six teachable patterns from the pages analysed:
+
+1. **Pattern Repetition (Sentence Frame + Visual Fillers)**  
+   One frame, 6-12 pictures, complete sentence shown under each image. Eg. *Va a tomar un ___* + taxi, tren, avión, autobús, café, sopa. The verb structure becomes automatic muscle memory; the student focuses on vocabulary.
+
+2. **Full Q&A Pairs Under Images**  
+   Each vocab card carries a model question and answer below the image: *¿Qué es el apio? El apio es una verdura.* Forces complete sentence production, not just word recognition. Meaningfully different from our current VisualVocabGrid which shows word + translation only.
+
+3. **Minimal Conjugation Grid (4-cell, not 6)**  
+   Madrigal's AR verb table is 4 cells: **yo → o**, **nosotros → amos**, **él/ella/usted → a**, **ellos/ustedes → an**. She deliberately omits the full 6-pronoun table at entry level. Learners encounter the pattern in context rather than as a paradigm to memorise.
+
+4. **Gender Agreement Side-by-Side (estar expressions)**  
+   A full page of *estar* adjective expressions shown as masculine/feminine pairs in two columns (contento/contenta, cansado/cansada, enfermo/enferma…). Visually establishes gender agreement as a natural word-pair, not as a rule to memorise.
+
+5. **Verb-Object Drilling (same verb, many objects)**  
+   The *tomar* pages group everything you can "take" — taxi, tren, avión, autobús, café, sopa, medicina — under a single verb frame. Vocabulary is organised by the verb it appears with, not just by topic category.
+
+6. **Embedded Grammar Observations (post-example discovery)**  
+   After showing a set of preterite examples, Madrigal adds a callout box: *"Notice that all the verbs in the questions end in ó. All the verbs in the answers end in é."* Rules are observed from data, never pre-stated. This is a different pedagogy from our current Grammar Diagrams (which state the rule first).
+
+---
+
+### Gap Analysis — What HoloHola Has vs. What's Missing
+
+| Madrigal Pattern | HoloHola Status | Gap |
+|---|---|---|
+| Pattern Repetition / Sentence Frame Grid | **⬜ Built April 9, 2026** (see below) | None — now shipped |
+| Full Q&A pairs under vocab images | **⬜ Not built** | VisualVocabGrid only shows word + translation; no Q&A production frame |
+| Minimal 4-cell conjugation grid | **Partial** — VerbConjugationTable shows all 6 pronouns | Entry-level view could simplify to 4-cell for Novice Low |
+| Gender agreement side-by-side | **Partial** — FormalInformalComparison handles Tú/Usted; no gender-pair adjective grid | No dedicated estar/adjective gender-pair component |
+| Verb-object drilling | **Partial** — QuickPhraseGrid groups phrases by topic | No explicit verb-anchor grouping (all items that go with "tomar", etc.) |
+| Embedded grammar observations (post-example discovery) | **Not built** | NarrativeSections exist but rules always precede examples; no discovery callout box |
+
+---
+
+### Sentence Frame Grid — Built April 9, 2026
+
+**Component:** `SentenceFrameGrid` in `client/src/components/TextbookInfographics.tsx`  
+**Data type:** `SentenceFrame[]` on `ChapterIntroContent.sentenceFrames` in `chapter-intro-content.ts`  
+**Rendering:** After `culturalSpotlight` in `ChapterIntroduction.tsx`, inside a Card wrapper.
+
+**Design:** Frame template shown as a header card with `___` highlighted in primary color. Below: responsive 2-4 column grid of filler cards — each shows the vocabulary word in large primary text, the full completed sentence with the filler word bolded, the English translation, and a TextAudioPlayButton. Hover-elevate on cards.
+
+**Spanish data added (April 9, 2026):**
+
+*Greetings chapter:*
+- "Hoy estoy ___." × 8 emotional states (bien, mal, cansado, feliz, ocupado, enfermo, triste, nervioso)
+- "Tengo que ir al ___." × 6 places (banco, parque, restaurante, hospital, supermercado, baño)
+
+*Family chapter:*
+- "Ella es mi ___." × 6 female relatives (madre, abuela, hermana, tía, prima, amiga)
+- "Él es mi ___." × 6 male relatives (padre, abuelo, hermano, tío, primo, amigo)
+
+**Extending to other chapters:** Add `sentenceFrames: [...]` to any chapter in `languageChapterData[language].chapters[chapterType]`. No code changes needed — the renderer is data-driven.
+
+**Extending to other languages:** The component accepts `language` prop and passes it to `TextAudioPlayButton` for native-accent TTS. Add sentence frame data to the equivalent chapter in `languageChapterData['french']`, `languageChapterData['german']`, etc. — same interface, same renderer.
+
+---
+
+### Remaining Madrigal-Inspired Ideas (Future Plans)
+
+**Plan M1 — Q&A Production Mode for VisualVocabGrid**  
+Add an optional `qaMode` prop to `VisualVocabGrid`. When true, each vocab card shows a model Q&A pair below the image: *"¿Qué es la zanahoria? La zanahoria es una verdura."* This teaches complete sentence production rather than word recognition. No new component needed — extend the existing card.
+
+**Plan M2 — Gender Agreement Pair Grid**  
+A new `GenderAgreementGrid` component. Shows estar adjectives as masculine/feminine pairs in two columns. Frame: "Estoy ___o / Estoy ___a." Entries: cansado/cansada, feliz/feliz (invariable — good teaching moment), enfermo/enferma, etc. Spanish-only initially.
+
+**Plan M3 — Post-Example Discovery Callout**  
+Extend `NarrativeSection` with a new `discoveryNote` field (distinct from `tip`). Rendered as a slightly different card — cool blue instead of amber — with copy like "Notice: …" rather than "Tip: …". Encourages learners to observe patterns from the examples they just saw rather than receiving rules first.
+
+**Plan M4 — Verb-Anchor Phrase Grouping**  
+Extend `QuickPhraseGrid` or add a `VerbObjectGrid` component. Data is grouped by anchor verb (tomar, ir, querer, tener que…) rather than topic. Each group shows the verb prominently and lists all vocabulary items that collocate with it — same pedagogical power as Madrigal's *tomar* pages.
+
+---
+
 ### Cultural Character Image Audit (Rule 5 follow-on)
 
 **Status:** ⬜ Not started
