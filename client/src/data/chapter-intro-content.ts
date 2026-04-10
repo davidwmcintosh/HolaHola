@@ -408,7 +408,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "El Paseo",
           content: "In many Spanish-speaking towns, the evening 'paseo' (stroll) is a cherished daily ritual. Families and friends walk through plazas and main streets, greeting neighbors, stopping for conversation, and enjoying the cool evening air. It's social life at its most organic and beautiful."
-        }
+        },
+        vocabQA: [
+          { question: "¿Cómo estás hoy?", answer: "Estoy bien, gracias.", answerTranslation: "I'm well, thank you." },
+          { question: "¿Qué hora es?", answer: "Son las diez de la mañana.", answerTranslation: "It is ten in the morning." },
+          { question: "¿Qué día es hoy?", answer: "Hoy es lunes.", answerTranslation: "Today is Monday." },
+          { question: "¿Qué haces por la mañana?", answer: "Me despierto a las siete.", answerTranslation: "I wake up at seven." },
+          { question: "¿Tienes tiempo?", answer: "Sí, tengo un momento.", answerTranslation: "Yes, I have a moment." }
+        ],
+        verbGroups: [
+          {
+            verb: "hacer",
+            verbTranslation: "to do / to make (daily activities)",
+            examples: [
+              { object: "ejercicio", fullPhrase: "Hago ejercicio por la mañana.", translation: "I exercise in the morning." },
+              { object: "el desayuno", fullPhrase: "Hago el desayuno.", translation: "I make breakfast." },
+              { object: "la tarea", fullPhrase: "Hago la tarea.", translation: "I do my homework." },
+              { object: "una caminata", fullPhrase: "Hacemos una caminata.", translation: "We go for a walk." },
+              { object: "planes", fullPhrase: "¿Qué haces hoy?", translation: "What are you doing today?" }
+            ]
+          }
+        ]
       },
       classroom: {
         welcomeText: "The classroom is your launchpad. In this chapter, you'll learn the phrases that make every lesson more effective — asking your teacher to slow down, saying a word again, checking your understanding, and asking how to say something new. These phrases aren't just classroom tools; they're the habits of a great language learner.",
@@ -432,7 +452,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "El Respeto en el Aula",
           content: "In Spanish-speaking educational cultures, respect for the teacher is expressed actively — students say 'Buenos días, profesor/a' when class begins, stand or sit attentively, and address their teacher formally as 'usted'. This formality isn't distance; it's the cultural way of showing that learning is taken seriously. As a language student, adopting these habits signals genuine engagement."
-        }
+        },
+        vocabQA: [
+          { question: "\u00bfPuede repetir, por favor?", answer: "Claro, con mucho gusto.", answerTranslation: "Of course, with pleasure." },
+          { question: "\u00bfC\u00f3mo se dice 'hello' en espa\u00f1ol?", answer: "Se dice 'hola'.", answerTranslation: "You say 'hola'." },
+          { question: "\u00bfEnt\u00edende usted?", answer: "No entiendo todav\u00eda.", answerTranslation: "I don't understand yet." },
+          { question: "\u00bfEs correcto?", answer: "S\u00ed, es correcto.", answerTranslation: "Yes, it's correct." },
+          { question: "\u00bfQu\u00e9 significa esta palabra?", answer: "Significa 'ma\u00f1ana'.", answerTranslation: "It means 'tomorrow'." }
+        ],
+        verbGroups: [
+          {
+            verb: "entender",
+            verbTranslation: "to understand (core classroom verb \u2014 \u00bfEntiendes? is what every teacher asks)",
+            examples: [
+              { object: "la pregunta", fullPhrase: "Entiendo la pregunta.", translation: "I understand the question." },
+              { object: "un poco", fullPhrase: "Entiendo un poco.", translation: "I understand a little." },
+              { object: "nada", fullPhrase: "No entiendo nada.", translation: "I don't understand anything." },
+              { object: "ya", fullPhrase: "\u00a1Ya entiendo!", translation: "Now I understand!" },
+              { object: "todo", fullPhrase: "\u00bfLo entiendes todo?", translation: "Do you understand everything?" }
+            ]
+          }
+        ]
       }
     }
   },
@@ -670,7 +710,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "L'Ap\u00e9ro",
           content: "The 'ap\u00e9ritif' or 'ap\u00e9ro' is a beloved French daily ritual \u2014 a pre-dinner drink with light snacks shared among friends or family. Usually happening around 7 PM, it's a time to unwind, catch up, and transition from work to leisure. It's less about the drink and more about the moment of togetherness."
-        }
+        },
+        vocabQA: [
+          { question: "Comment allez-vous aujourd'hui ?", answer: "Je vais tr\u00e8s bien, merci.", answerTranslation: "I'm very well, thank you." },
+          { question: "Quelle heure est-il ?", answer: "Il est dix heures du matin.", answerTranslation: "It is ten in the morning." },
+          { question: "Quel jour sommes-nous ?", answer: "C'est lundi aujourd'hui.", answerTranslation: "Today is Monday." },
+          { question: "Qu'est-ce que vous faites le matin ?", answer: "Je me l\u00e8ve \u00e0 sept heures.", answerTranslation: "I get up at seven." },
+          { question: "Avez-vous le temps ?", answer: "Oui, j'ai un moment.", answerTranslation: "Yes, I have a moment." }
+        ],
+        verbGroups: [
+          {
+            verb: "faire",
+            verbTranslation: "to do / to make (daily activities)",
+            examples: [
+              { object: "du sport", fullPhrase: "Je fais du sport le matin.", translation: "I exercise in the morning." },
+              { object: "la cuisine", fullPhrase: "Elle fait la cuisine.", translation: "She cooks." },
+              { object: "les courses", fullPhrase: "Tu fais les courses ?", translation: "Are you doing the shopping?" },
+              { object: "les devoirs", fullPhrase: "Il fait ses devoirs.", translation: "He does his homework." },
+              { object: "une promenade", fullPhrase: "Nous faisons une promenade.", translation: "We go for a walk." }
+            ]
+          }
+        ]
       },
       classroom: {
         welcomeText: "Bienvenue en classe ! The French classroom comes with its own vocabulary — and knowing it makes you a more confident, independent learner. This chapter covers what to say when you're lost, how to ask for clarification politely, and the expressions that will carry you through every French lesson.",
@@ -694,7 +754,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "Le Respect en Classe",
           content: "French classroom culture prizes intellectual rigor and respectful debate. Students address teachers as 'Monsieur' or 'Madame', and raising a hand before speaking is expected. At the same time, French education encourages questioning — a student who challenges an idea thoughtfully is respected. As a language learner, engaging seriously with the material is the best compliment you can pay a French teacher."
-        }
+        },
+        vocabQA: [
+          { question: "Pouvez-vous r\u00e9p\u00e9ter, s'il vous pla\u00eet ?", answer: "Bien s\u00fbr, avec plaisir.", answerTranslation: "Of course, with pleasure." },
+          { question: "Comment dit-on 'hello' en fran\u00e7ais ?", answer: "On dit 'bonjour'.", answerTranslation: "We say 'bonjour'." },
+          { question: "Comprenez-vous ?", answer: "Je ne comprends pas encore.", answerTranslation: "I don't understand yet." },
+          { question: "C'est correct ?", answer: "Oui, c'est correct.", answerTranslation: "Yes, it's correct." },
+          { question: "Que signifie ce mot ?", answer: "Ca signifie 'demain'.", answerTranslation: "It means 'tomorrow'." }
+        ],
+        verbGroups: [
+          {
+            verb: "comprendre",
+            verbTranslation: "to understand (from Latin comprehendere; note the irregular \u2014 je comprends, nous comprenons)",
+            examples: [
+              { object: "la question", fullPhrase: "Je comprends la question.", translation: "I understand the question." },
+              { object: "un peu", fullPhrase: "Je comprends un peu.", translation: "I understand a little." },
+              { object: "rien", fullPhrase: "Je ne comprends rien.", translation: "I don't understand anything." },
+              { object: "maintenant", fullPhrase: "Ah, je comprends maintenant !", translation: "Ah, now I understand!" },
+              { object: "bien", fullPhrase: "Tu comprends bien ?", translation: "Do you understand well?" }
+            ]
+          }
+        ]
       }
     }
   },
@@ -938,7 +1018,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "Die Abendbrot-Tradition",
           content: "Germans have a unique daily tradition called 'Abendbrot' (evening bread) \u2014 a simple cold supper of bread, cheese, cold cuts, and pickles eaten in the early evening. Unlike many cultures that make dinner the biggest meal, Germans keep it light and cozy, often eaten together as a family around 6 PM."
-        }
+        },
+        vocabQA: [
+          { question: "Wie geht es Ihnen heute?", answer: "Es geht mir gut, danke.", answerTranslation: "I'm doing well, thank you." },
+          { question: "Wie sp\u00e4t ist es?", answer: "Es ist zehn Uhr morgens.", answerTranslation: "It is ten in the morning." },
+          { question: "Welcher Tag ist heute?", answer: "Heute ist Montag.", answerTranslation: "Today is Monday." },
+          { question: "Was machen Sie morgens?", answer: "Ich stehe um sieben Uhr auf.", answerTranslation: "I get up at seven o'clock." },
+          { question: "Haben Sie Zeit?", answer: "Ja, ich habe einen Moment Zeit.", answerTranslation: "Yes, I have a moment." }
+        ],
+        verbGroups: [
+          {
+            verb: "machen",
+            verbTranslation: "to do / to make (daily activities)",
+            examples: [
+              { object: "Sport", fullPhrase: "Ich mache morgens Sport.", translation: "I exercise in the morning." },
+              { object: "das Fr\u00fchst\u00fcck", fullPhrase: "Sie macht das Fr\u00fchst\u00fcck.", translation: "She makes breakfast." },
+              { object: "die Hausaufgaben", fullPhrase: "Er macht seine Hausaufgaben.", translation: "He does his homework." },
+              { object: "einen Spaziergang", fullPhrase: "Wir machen einen Spaziergang.", translation: "We go for a walk." },
+              { object: "das", fullPhrase: "Was machst du heute?", translation: "What are you doing today?" }
+            ]
+          }
+        ]
       },
       classroom: {
         welcomeText: "Willkommen im Unterricht! The German classroom is structured and efficient — and so is its classroom language. This chapter gives you the phrases to navigate every lesson confidently, ask exactly what you need, and understand your teacher's instructions without hesitation.",
@@ -962,7 +1062,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "Pünktlichkeit im Unterricht",
           content: "In German culture, punctuality is a deeply held value — arriving on time to class is considered the bare minimum of respect. Being even a few minutes early shows professionalism. If you are late, a quiet 'Entschuldigung, ich komme zu spät' (Excuse me, I'm late) acknowledges the disruption and shows self-awareness. This cultural value of Pünktlichkeit (punctuality) extends to all areas of German professional and social life."
-        }
+        },
+        vocabQA: [
+          { question: "K\u00f6nnen Sie das bitte wiederholen?", answer: "Nat\u00fcrlich, gerne.", answerTranslation: "Of course, with pleasure." },
+          { question: "Wie sagt man 'hello' auf Deutsch?", answer: "Man sagt 'Hallo'.", answerTranslation: "You say 'Hallo'." },
+          { question: "Verstehen Sie?", answer: "Ich verstehe noch nicht.", answerTranslation: "I don't understand yet." },
+          { question: "Ist das richtig?", answer: "Ja, das ist richtig.", answerTranslation: "Yes, that's correct." },
+          { question: "Was bedeutet dieses Wort?", answer: "Es bedeutet 'morgen'.", answerTranslation: "It means 'tomorrow'." }
+        ],
+        verbGroups: [
+          {
+            verb: "verstehen",
+            verbTranslation: "to understand (separable-prefix free; stem: verste- \u2014 ich verstehe, du verstehst)",
+            examples: [
+              { object: "die Frage", fullPhrase: "Ich verstehe die Frage.", translation: "I understand the question." },
+              { object: "ein bisschen", fullPhrase: "Ich verstehe ein bisschen.", translation: "I understand a little." },
+              { object: "nichts", fullPhrase: "Ich verstehe nichts.", translation: "I don't understand anything." },
+              { object: "jetzt", fullPhrase: "Jetzt verstehe ich!", translation: "Now I understand!" },
+              { object: "alles", fullPhrase: "Verstehst du alles?", translation: "Do you understand everything?" }
+            ]
+          }
+        ]
       }
     }
   },
@@ -1201,7 +1321,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "Il Caff\u00e8 al Bar",
           content: "The Italian 'caff\u00e8 al bar' ritual is a daily cornerstone: stepping into a local bar, ordering an espresso at the counter, drinking it in three sips while chatting with the barista, and heading out. It takes five minutes but sets the rhythm for the entire day. It's not just coffee \u2014 it's a moment of connection."
-        }
+        },
+        vocabQA: [
+          { question: "Come sta oggi?", answer: "Sto benissimo, grazie.", answerTranslation: "I'm very well, thank you." },
+          { question: "Che ore sono?", answer: "Sono le dieci di mattina.", answerTranslation: "It is ten in the morning." },
+          { question: "Che giorno \u00e8 oggi?", answer: "Oggi \u00e8 luned\u00ec.", answerTranslation: "Today is Monday." },
+          { question: "Cosa fa di mattina?", answer: "Mi sveglio alle sette.", answerTranslation: "I wake up at seven." },
+          { question: "Ha tempo?", answer: "S\u00ec, ho un momento.", answerTranslation: "Yes, I have a moment." }
+        ],
+        verbGroups: [
+          {
+            verb: "fare",
+            verbTranslation: "to do / to make (daily activities)",
+            examples: [
+              { object: "colazione", fullPhrase: "Faccio colazione alle sette.", translation: "I have breakfast at seven." },
+              { object: "sport", fullPhrase: "Lui fa sport la mattina.", translation: "He exercises in the morning." },
+              { object: "la spesa", fullPhrase: "Lei fa la spesa.", translation: "She does the shopping." },
+              { object: "i compiti", fullPhrase: "Fai i compiti?", translation: "Are you doing your homework?" },
+              { object: "una passeggiata", fullPhrase: "Facciamo una passeggiata.", translation: "We go for a walk." }
+            ]
+          }
+        ]
       },
       classroom: {
         welcomeText: "Benvenuti in classe! Italian classroom language blends structure with warmth. This chapter teaches you how to ask for help gracefully, navigate your teacher's instructions, and express yourself when words escape you — all in Italian.",
@@ -1225,7 +1365,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "La Bella Figura in Aula",
           content: "In Italian culture, 'fare bella figura' — making a good impression — matters everywhere, including the classroom. Arriving prepared, speaking clearly, and showing genuine interest in the subject are all forms of bella figura. Even when you make mistakes (and you will!), recovering with a smile and trying again is considered graceful and admirable. Italian teachers remember the students who try hard, not just the ones who get everything right."
-        }
+        },
+        vocabQA: [
+          { question: "Pu\u00f2 ripetere, per favore?", answer: "Certo, con piacere.", answerTranslation: "Of course, with pleasure." },
+          { question: "Come si dice 'hello' in italiano?", answer: "Si dice 'ciao'.", answerTranslation: "You say 'ciao'." },
+          { question: "Capisce?", answer: "Non capisco ancora.", answerTranslation: "I don't understand yet." },
+          { question: "\u00c8 corretto?", answer: "S\u00ec, \u00e8 corretto.", answerTranslation: "Yes, it's correct." },
+          { question: "Cosa significa questa parola?", answer: "Significa 'domani'.", answerTranslation: "It means 'tomorrow'." }
+        ],
+        verbGroups: [
+          {
+            verb: "capire",
+            verbTranslation: "to understand (isc-verb \u2014 capisco, capisci, capisce, capiamo, capite, capiscono)",
+            examples: [
+              { object: "la domanda", fullPhrase: "Capisco la domanda.", translation: "I understand the question." },
+              { object: "un po'", fullPhrase: "Capisco un po'.", translation: "I understand a little." },
+              { object: "niente", fullPhrase: "Non capisco niente.", translation: "I don't understand anything." },
+              { object: "adesso", fullPhrase: "Ah, adesso capisco!", translation: "Ah, now I understand!" },
+              { object: "tutto", fullPhrase: "Capisci tutto?", translation: "Do you understand everything?" }
+            ]
+          }
+        ]
       }
     }
   },
@@ -1446,7 +1606,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "\u3044\u305f\u3060\u304d\u307e\u3059 (Itadakimasu)",
           content: "Before every meal in Japan, people say '\u3044\u305f\u3060\u304d\u307e\u3059' (I humbly receive), a phrase expressing gratitude to everyone involved in bringing food to the table \u2014 from farmers to cooks. After eating, '\u3054\u3061\u305d\u3046\u3055\u307e\u3067\u3057\u305f' (gochis\u014dsama deshita) thanks the preparer. These daily rituals turn every meal into a moment of mindfulness."
-        }
+        },
+        vocabQA: [
+          { question: "\u4eca\u65e5\u306f\u304a\u5143\u6c17\u3067\u3059\u304b\uff1f", answer: "\u306f\u3044\u3001\u5143\u6c17\u3067\u3059\u3002\u3042\u308a\u304c\u3068\u3046\u3054\u3056\u3044\u307e\u3059\u3002", answerTranslation: "Yes, I'm well. Thank you." },
+          { question: "\u4eca\u4f55\u6642\u3067\u3059\u304b\uff1f", answer: "\u5348\u524d\u5341\u6642\u3067\u3059\u3002", answerTranslation: "It is ten in the morning." },
+          { question: "\u4eca\u65e5\u306f\u4f55\u66dc\u65e5\u3067\u3059\u304b\uff1f", answer: "\u4eca\u65e5\u306f\u6708\u66dc\u65e5\u3067\u3059\u3002", answerTranslation: "Today is Monday." },
+          { question: "\u6bce\u671d\u3001\u4f55\u3092\u3057\u307e\u3059\u304b\uff1f", answer: "\u4e03\u6642\u306b\u8d77\u304d\u307e\u3059\u3002", answerTranslation: "I wake up at seven." },
+          { question: "\u4eca\u3001\u6642\u9593\u304c\u3042\u308a\u307e\u3059\u304b\uff1f", answer: "\u306f\u3044\u3001\u5c11\u3057\u6642\u9593\u304c\u3042\u308a\u307e\u3059\u3002", answerTranslation: "Yes, I have a little time." }
+        ],
+        verbGroups: [
+          {
+            verb: "\u3057\u307e\u3059",
+            verbTranslation: "shimasu \u2014 to do (versatile verb for daily activities)",
+            examples: [
+              { object: "\u52c9\u5f37", fullPhrase: "\u65e5\u672c\u8a9e\u3092\u52c9\u5f37\u3057\u307e\u3059\u3002", translation: "I study Japanese." },
+              { object: "\u904b\u52d5", fullPhrase: "\u6bce\u671d\u3001\u904b\u52d5\u3057\u307e\u3059\u3002", translation: "I exercise every morning." },
+              { object: "\u8cb7\u3044\u7269", fullPhrase: "\u9031\u672b\u306b\u8cb7\u3044\u7269\u3092\u3057\u307e\u3059\u3002", translation: "I shop on weekends." },
+              { object: "\u6599\u7406", fullPhrase: "\u5bc4\u306b\u6599\u7406\u3092\u3057\u307e\u3059\u3002", translation: "I cook for dinner." },
+              { object: "\u4ed5\u4e8b", fullPhrase: "\u5f7c\u306f\u6bce\u65e5\u4ed5\u4e8b\u3092\u3057\u307e\u3059\u3002", translation: "He works every day." }
+            ]
+          }
+        ]
       },
       classroom: {
         welcomeText: "授業へようこそ！ (Welcome to class!) The Japanese classroom has its own rich set of phrases and rituals. This chapter teaches you how to navigate lessons respectfully, ask for clarification without awkwardness, and use the expressions that signal you're a thoughtful, engaged learner.",
@@ -1470,7 +1650,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "起立・礼・着席 (Stand — Bow — Sit)",
           content: "Traditional Japanese classrooms begin and end with a ritual: the class monitor calls '起立' (rise), everyone stands; '礼' (bow), everyone bows to the teacher; '着席' (sit), everyone sits. This brief ceremony establishes mutual respect between teacher and students before a single lesson word is spoken. Even in modern and language school settings, traces of this formality remain — and understanding it gives you genuine cultural insight."
-        }
+        },
+        vocabQA: [
+          { question: "\u3082\u3046\u4e00\u5ea6\u8a00\u3063\u3066\u3044\u305f\u3060\u3051\u307e\u3059\u304b\uff1f", answer: "\u306f\u3044\u3001\u3082\u3061\u308d\u3093\u3067\u3059\u3002", answerTranslation: "Yes, of course." },
+          { question: "\u300chello\u300d\u306f\u65e5\u672c\u8a9e\u3067\u4f55\u3068\u8a00\u3044\u307e\u3059\u304b\uff1f", answer: "\u300c\u3053\u3093\u306b\u3061\u306f\u300d\u3068\u8a00\u3044\u307e\u3059\u3002", answerTranslation: "We say 'konnichiwa'." },
+          { question: "\u308f\u304b\u308a\u307e\u3059\u304b\uff1f", answer: "\u307e\u3060\u308f\u304b\u308a\u307e\u305b\u3093\u3002", answerTranslation: "I don't understand yet." },
+          { question: "\u3053\u308c\u306f\u6b63\u3057\u3044\u3067\u3059\u304b\uff1f", answer: "\u306f\u3044\u3001\u6b63\u3057\u3044\u3067\u3059\u3002", answerTranslation: "Yes, it's correct." },
+          { question: "\u3053\u306e\u8a00\u8449\u306e\u610f\u5473\u306f\u4f55\u3067\u3059\u304b\uff1f", answer: "\u300c\u660e\u65e5\u300d\u3068\u3044\u3046\u610f\u5473\u3067\u3059\u3002", answerTranslation: "It means 'tomorrow'." }
+        ],
+        verbGroups: [
+          {
+            verb: "\u308f\u304b\u308a\u307e\u3059",
+            verbTranslation: "wakarimasu \u2014 to understand (polite; plain: wakaru; root: waka-)",
+            examples: [
+              { object: "\u8cea\u554f", fullPhrase: "\u8cea\u554f\u304c\u308f\u304b\u308a\u307e\u3059\u3002", translation: "I understand the question." },
+              { object: "\u5c11\u3057", fullPhrase: "\u5c11\u3057\u308f\u304b\u308a\u307e\u3059\u3002", translation: "I understand a little." },
+              { object: "\u308f\u304b\u308a\u307e\u305b\u3093", fullPhrase: "\u308f\u304b\u308a\u307e\u305b\u3093\u3002", translation: "I don't understand." },
+              { object: "\u308f\u304b\u308a\u307e\u3057\u305f", fullPhrase: "\u3042\u3001\u308f\u304b\u308a\u307e\u3057\u305f\uff01", translation: "Ah, now I understand!" },
+              { object: "\u5168\u90e8", fullPhrase: "\u5168\u90e8\u308f\u304b\u308a\u307e\u3059\u304b\uff1f", translation: "Do you understand everything?" }
+            ]
+          }
+        ]
       }
     }
   },
@@ -1691,7 +1891,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "\ubc25 \uba39\uc5c8\uc5b4\uc694? (Bap meogeosseoyo?)",
           content: "A uniquely Korean daily greeting is '\ubc25 \uba39\uc5c8\uc5b4\uc694?' (Have you eaten?). It's not actually about food \u2014 it's a way of showing you care about someone's wellbeing, rooted in a time when food was scarce. This phrase perfectly captures the warmth of Korean interpersonal culture."
-        }
+        },
+        vocabQA: [
+          { question: "\uc624\ub298 \uc5b4\ub5bb\uac8c \uc9c0\ub0b4\uc138\uc694?", answer: "\uc798 \uc9c0\ub0b4\uc694, \uac10\uc0ac\ud569\ub2c8\ub2e4.", answerTranslation: "I'm well, thank you." },
+          { question: "\uc9c0\uae08 \uba87 \uc2dc\uc608\uc694?", answer: "\uc624\uc804 \uc5f4 \uc2dc\uc608\uc694.", answerTranslation: "It is ten in the morning." },
+          { question: "\uc624\ub298 \ubb34\uc2a8 \uc694\uc77c\uc774\uc5d0\uc694?", answer: "\uc624\ub298\uc740 \uc6d4\uc694\uc77c\uc774\uc5d0\uc694.", answerTranslation: "Today is Monday." },
+          { question: "\uc544\uce68\uc5d0 \ubcf4\ud1b5 \ubba8 \ud574\uc694?", answer: "\uc77c\uacf1 \uc2dc\uc5d0 \uc77c\uc5b4\ub098\uc694.", answerTranslation: "I get up at seven." },
+          { question: "\uc9c0\uae08 \uc2dc\uac04 \uc788\uc5b4\uc694?", answer: "\ub124, \uc7a0\uae04 \uc788\uc5b4\uc694.", answerTranslation: "Yes, I have a moment." }
+        ],
+        verbGroups: [
+          {
+            verb: "\ud574\uc694",
+            verbTranslation: "haeyo \u2014 to do (polite form of \ud558\ub2e4; used for most daily activities)",
+            examples: [
+              { object: "\uacf5\ubd80", fullPhrase: "\ud55c\uad6d\uc5b4 \uacf5\ubd80\ub97c \ud574\uc694.", translation: "I study Korean." },
+              { object: "\uc6b4\ub3d9", fullPhrase: "\uc544\uce68\uc5d0 \uc6b4\ub3d9\uc744 \ud574\uc694.", translation: "I exercise in the morning." },
+              { object: "\uc694\ub9ac", fullPhrase: "\uc800\ub141\uc5d0 \uc694\ub9ac\ub97c \ud574\uc694.", translation: "I cook in the evening." },
+              { object: "\uc228\uc81c", fullPhrase: "\uc228\uc81c\ub97c \ud574\uc694.", translation: "I do my homework." },
+              { object: "\uc1fc\ud551", fullPhrase: "\uc8fc\ub9d0\uc5d0 \uc1fc\ud551\uc744 \ud574\uc694.", translation: "I shop on weekends." }
+            ]
+          }
+        ]
       },
       classroom: {
         welcomeText: "수업에 오신 것을 환영합니다! The Korean classroom is a place of structure, respect, and real encouragement. This chapter equips you with the phrases to ask questions politely, keep up with your teacher's instructions, and show that you're a dedicated learner.",
@@ -1715,7 +1935,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "선생님께 대한 존경 (Respect for Teachers)",
           content: "In Korean culture, teachers hold a position of profound respect — rooted in Confucian values that place educators just below parents in the hierarchy of respect. Students rise when a teacher enters the room, address them formally, and express gratitude at the end of class. This respect isn't blind obedience — it's a recognition that the teacher is giving something genuinely valuable. As a language student, reflecting this respect (even informally) creates a warmer, more connected learning environment."
-        }
+        },
+        vocabQA: [
+          { question: "\ub2e4\uc2dc \ud55c \ubc88 \ub9d0\uc300\ud574 \uc8fc\uc2dc\uaca0\uc5b4\uc694?", answer: "\ub124, \ubb3c\ub860\uc774\uc8e0.", answerTranslation: "Yes, of course." },
+          { question: "'hello'\ub97c \ud55c\uad6d\uc5b4\ub85c \uc5b4\ub5bb\uac8c \ub9d0\ud574\uc694?", answer: "'\uc548\ub155\ud558\uc138\uc694'\ub77c\uace0 \ud569\ub2c8\ub2e4.", answerTranslation: "We say 'annyeonghaseyo'." },
+          { question: "\uc774\ud574\ud558\uc138\uc694?", answer: "\uc544\uc9c1 \uc774\ud574\ud558\uc9c0 \ubabb\ud574\uc694.", answerTranslation: "I don't understand yet." },
+          { question: "\uc774\uac8c \ub9de\uc544\uc694?", answer: "\ub124, \ub9de\uc544\uc694.", answerTranslation: "Yes, it's correct." },
+          { question: "\uc774 \ub2e8\uc5b4\uac00 \ubb34\uc2a8 \ub73b\uc774\uc5d0\uc694?", answer: "'\ub0b4\uc77c'\uc774\ub77c\ub294 \ub73b\uc774\uc5d0\uc694.", answerTranslation: "It means 'tomorrow'." }
+        ],
+        verbGroups: [
+          {
+            verb: "\uc774\ud574\ud558\ub2e4",
+            verbTranslation: "ihaehada \u2014 to understand (formal polite: \uc774\ud574\ud569\ub2c8\ub2e4; casual polite: \uc774\ud574\ud574\uc694)",
+            examples: [
+              { object: "\uc9c8\ubb38", fullPhrase: "\uc9c8\ubb38\uc744 \uc774\ud574\ud574\uc694.", translation: "I understand the question." },
+              { object: "\uc870\uae08", fullPhrase: "\uc870\uae08 \uc774\ud574\ud574\uc694.", translation: "I understand a little." },
+              { object: "\ubabb \ud574\uc694", fullPhrase: "\uc774\ud574\ud558\uc9c0 \ubabb\ud574\uc694.", translation: "I don't understand." },
+              { object: "\uc774\uc81c", fullPhrase: "\uc544, \uc774\uc81c \uc774\ud574\ud574\uc694!", translation: "Ah, now I understand!" },
+              { object: "\ub2e4", fullPhrase: "\ub2e4 \uc774\ud574\ud574\uc694?", translation: "Do you understand everything?" }
+            ]
+          }
+        ]
       }
     }
   },
@@ -1934,7 +2174,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "\u559d\u8336 (H\u0113 Ch\u00e1) \u2014 Tea Culture",
           content: "Tea drinking is the daily heartbeat of Chinese culture. From the formal '\u529f\u592b\u8336' (g\u014dngfu ch\u00e1) ceremony to a simple thermos of hot tea carried everywhere, tea is how Chinese people start their day, welcome guests, seal deals, and share quiet moments. Offering someone tea is offering them warmth and respect."
-        }
+        },
+        vocabQA: [
+          { question: "\u4f60\u4eca\u5929\u597d\u5417\uff1f", answer: "\u6211\u5f88\u597d\uff0c\u8c22\u8c22\u3002", answerTranslation: "I'm very well, thank you." },
+          { question: "\u73b0\u5728\u51e0\u70b9\uff1f", answer: "\u73b0\u5728\u4e0a\u5348\u5341\u70b9\u3002", answerTranslation: "It is ten in the morning." },
+          { question: "\u4eca\u5929\u662f\u661f\u671f\u51e0\uff1f", answer: "\u4eca\u5929\u662f\u661f\u671f\u4e00\u3002", answerTranslation: "Today is Monday." },
+          { question: "\u4f60\u65e9\u4e0a\u4e00\u822c\u505a\u4ec0\u4e48\uff1f", answer: "\u6211\u4e03\u70b9\u8d77\u5e8a\u3002", answerTranslation: "I get up at seven." },
+          { question: "\u4f60\u73b0\u5728\u6709\u65f6\u95f4\u5417\uff1f", answer: "\u6709\uff0c\u6211\u6709\u4e00\u70b9\u65f6\u95f4\u3002", answerTranslation: "Yes, I have a little time." }
+        ],
+        verbGroups: [
+          {
+            verb: "\u505a",
+            verbTranslation: "zu\u00f2 \u2014 to do / to make (daily activities)",
+            examples: [
+              { object: "\u4f5c\u4e1a", fullPhrase: "\u6211\u505a\u4f5c\u4e1a\u3002", translation: "I do my homework." },
+              { object: "\u996d", fullPhrase: "\u5979\u505a\u996d\u3002", translation: "She cooks (makes a meal)." },
+              { object: "\u8fd0\u52a8", fullPhrase: "\u4ed6\u6bcf\u5929\u65e9\u4e0a\u505a\u8fd0\u52a8\u3002", translation: "He exercises every morning." },
+              { object: "\u4ec0\u4e48", fullPhrase: "\u4f60\u5728\u505a\u4ec0\u4e48\uff1f", translation: "What are you doing?" },
+              { object: "\u51b3\u5b9a", fullPhrase: "\u6211\u4eec\u505a\u4e86\u4e00\u4e2a\u51b3\u5b9a\u3002", translation: "We made a decision." }
+            ]
+          }
+        ]
       },
       classroom: {
         welcomeText: "欢迎来到课堂！(Huānyíng lái dào kètáng — Welcome to class!) The Mandarin classroom comes with its own set of essential phrases. This chapter teaches you how to ask for help, follow your teacher's instructions, and navigate confusion — all in Chinese.",
@@ -1958,7 +2218,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "尊师重道 (Zūn Shī Zhòng Dào)",
           content: "The Chinese concept of '尊师重道' (respecting teachers and valuing learning) is one of the oldest educational traditions, rooted in Confucian philosophy. A teacher is seen not just as an instructor but as a moral guide — someone worthy of deep respect. In modern Chinese classrooms, students stand when a teacher enters, address teachers formally, and express gratitude. As a Mandarin learner, understanding this cultural backdrop helps you engage with teachers and native speakers in a more meaningful, connected way."
-        }
+        },
+        vocabQA: [
+          { question: "\u80fd\u518d\u8bf4\u4e00\u904d\u5417\uff1f", answer: "\u5f53\u7136\uff0c\u6ca1\u95ee\u9898\u3002", answerTranslation: "Of course, no problem." },
+          { question: "'hello'\u7528\u666e\u901a\u8bdd\u600e\u4e48\u8bf4\uff1f", answer: "\u8bf4'\u4f60\u597d'\u3002", answerTranslation: "You say 'n\u01d0 h\u01ceo'." },
+          { question: "\u660e\u767d\u5417\uff1f", answer: "\u6211\u8fd8\u4e0d\u660e\u767d\u3002", answerTranslation: "I don't understand yet." },
+          { question: "\u8fd9\u6837\u5bf9\u5417\uff1f", answer: "\u5bf9\uff0c\u8fd9\u6837\u5bf9\u3002", answerTranslation: "Yes, that's correct." },
+          { question: "\u8fd9\u4e2a\u5b57\u662f\u4ec0\u4e48\u610f\u601d\uff1f", answer: "\u610f\u601d\u662f'\u660e\u5929'\u3002", answerTranslation: "It means 'tomorrow'." }
+        ],
+        verbGroups: [
+          {
+            verb: "\u660e\u767d",
+            verbTranslation: "m\u00edngbai \u2014 to understand (adj/verb; \u6211\u660e\u767d\u4e86 = I understand now; tone: m\u00edng2 b\u00e1i2)",
+            examples: [
+              { object: "\u95ee\u9898", fullPhrase: "\u6211\u660e\u767d\u8fd9\u4e2a\u95ee\u9898\u3002", translation: "I understand this question." },
+              { object: "\u4e00\u70b9\u70b9", fullPhrase: "\u6211\u660e\u767d\u4e00\u70b9\u70b9\u3002", translation: "I understand a little." },
+              { object: "\u4e0d\u660e\u767d", fullPhrase: "\u6211\u4e0d\u660e\u767d\u3002", translation: "I don't understand." },
+              { object: "\u4e86", fullPhrase: "\u554a\uff0c\u6211\u660e\u767d\u4e86\uff01", translation: "Ah, I understand now!" },
+              { object: "\u5168\u90e8", fullPhrase: "\u4f60\u5168\u90e8\u660e\u767d\u5417\uff1f", translation: "Do you understand everything?" }
+            ]
+          }
+        ]
       }
     }
   },
@@ -2177,7 +2457,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "O Cafezinho",
           content: "The Brazilian 'cafezinho' (little coffee) ritual is a cornerstone of daily life. Strong, sweet, and served in tiny cups, cafezinho is offered to every guest, at every meeting, and at every opportunity. Refusing a cafezinho can even be considered impolite! It's less about caffeine and more about the warmth of sharing a moment together."
-        }
+        },
+        vocabQA: [
+          { question: "Como est\u00e1 hoje?", answer: "Estou muito bem, obrigado/a.", answerTranslation: "I'm very well, thank you." },
+          { question: "Que horas s\u00e3o?", answer: "S\u00e3o dez horas da manh\u00e3.", answerTranslation: "It is ten in the morning." },
+          { question: "Que dia \u00e9 hoje?", answer: "Hoje \u00e9 segunda-feira.", answerTranslation: "Today is Monday." },
+          { question: "O que faz de manh\u00e3?", answer: "Acordo \u00e0s sete horas.", answerTranslation: "I wake up at seven." },
+          { question: "Tem tempo?", answer: "Sim, tenho um momento.", answerTranslation: "Yes, I have a moment." }
+        ],
+        verbGroups: [
+          {
+            verb: "fazer",
+            verbTranslation: "to do / to make (daily activities)",
+            examples: [
+              { object: "exerc\u00edcio", fullPhrase: "Ele faz exerc\u00edcio de manh\u00e3.", translation: "He exercises in the morning." },
+              { object: "o jantar", fullPhrase: "Ela faz o jantar.", translation: "She makes dinner." },
+              { object: "as compras", fullPhrase: "Eu fa\u00e7o as compras no fim de semana.", translation: "I do the shopping on the weekend." },
+              { object: "a li\u00e7\u00e3o de casa", fullPhrase: "Voc\u00ea faz a li\u00e7\u00e3o de casa?", translation: "Do you do your homework?" },
+              { object: "uma caminhada", fullPhrase: "N\u00f3s fazemos uma caminhada.", translation: "We go for a walk." }
+            ]
+          }
+        ]
       },
       classroom: {
         welcomeText: "Bem-vindos à aula! The Portuguese classroom — whether in Brazil or Portugal — has its own warm, engaging character. This chapter gives you the tools to participate fully: asking for clarification, following instructions, and showing your teacher you're genuinely engaged.",
@@ -2201,7 +2501,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "Jeitinho Brasileiro na Sala de Aula",
           content: "The 'jeitinho brasileiro' — the Brazilian way of finding a creative solution to any situation — extends to the classroom. Brazilian students tend to be expressive, participative, and relationship-oriented. A Brazilian language class often feels like a conversation among people who genuinely want each other to succeed. In Portugal, classrooms are somewhat more formal, but the underlying warmth and hospitality ('hospitalidade') remain. Either way, showing enthusiasm for the language is always the right move."
-        }
+        },
+        vocabQA: [
+          { question: "Pode repetir, por favor?", answer: "Claro, com prazer.", answerTranslation: "Of course, with pleasure." },
+          { question: "Como se diz 'hello' em portugu\u00eas?", answer: "Diz-se 'ol\u00e1'.", answerTranslation: "You say 'ol\u00e1'." },
+          { question: "Entende?", answer: "Ainda n\u00e3o entendo.", answerTranslation: "I don't understand yet." },
+          { question: "Est\u00e1 correto?", answer: "Sim, est\u00e1 correto.", answerTranslation: "Yes, it's correct." },
+          { question: "O que significa esta palavra?", answer: "Significa 'amanh\u00e3'.", answerTranslation: "It means 'tomorrow'." }
+        ],
+        verbGroups: [
+          {
+            verb: "entender",
+            verbTranslation: "to understand (eu entendo, voc\u00ea entende, n\u00f3s entendemos \u2014 regular -er verb)",
+            examples: [
+              { object: "a pergunta", fullPhrase: "Eu entendo a pergunta.", translation: "I understand the question." },
+              { object: "um pouco", fullPhrase: "Entendo um pouco.", translation: "I understand a little." },
+              { object: "nada", fullPhrase: "N\u00e3o entendo nada.", translation: "I don't understand anything." },
+              { object: "agora", fullPhrase: "Ah, agora entendo!", translation: "Ah, now I understand!" },
+              { object: "tudo", fullPhrase: "Voc\u00ea entende tudo?", translation: "Do you understand everything?" }
+            ]
+          }
+        ]
       }
     }
   },
@@ -2403,7 +2723,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "The Tea Break (UK) & Coffee Run (US)",
           content: "In Britain, the daily 'tea break' is sacred \u2014 offices pause for a cuppa and a biscuit, and offering to 'put the kettle on' is an act of kindness. In America, the 'coffee run' serves a similar social function, with colleagues bonding over complicated Starbucks orders. Both rituals turn a simple beverage into a moment of daily connection."
-        }
+        },
+        vocabQA: [
+          { question: "How are you today?", answer: "I'm doing well, thank you.", answerTranslation: "Standard polite response." },
+          { question: "What time is it?", answer: "It's ten o'clock in the morning.", answerTranslation: "Telling the time." },
+          { question: "What day is today?", answer: "Today is Monday.", answerTranslation: "The day of the week." },
+          { question: "What do you usually do in the morning?", answer: "I wake up at seven and have coffee.", answerTranslation: "Describing a morning routine." },
+          { question: "Do you have time?", answer: "Yes, I have a minute.", answerTranslation: "Saying you're available." }
+        ],
+        verbGroups: [
+          {
+            verb: "to do",
+            verbTranslation: "to do (the all-purpose verb for activities, tasks, and chores)",
+            examples: [
+              { object: "my homework", fullPhrase: "I do my homework in the evening.", translation: "Tasks are 'done', not 'made'." },
+              { object: "exercise", fullPhrase: "She does yoga every morning.", translation: "Physical activities use 'do'." },
+              { object: "the laundry", fullPhrase: "He does the laundry on Sundays.", translation: "Household chores use 'do'." },
+              { object: "the shopping", fullPhrase: "We do the shopping on Saturdays.", translation: "Errands use 'do'." },
+              { object: "my best", fullPhrase: "I always do my best.", translation: "Effort expressions use 'do'." }
+            ]
+          }
+        ]
       },
       classroom: {
         welcomeText: "Welcome to class! As an English language learner, navigating the classroom is itself a language skill. This chapter gives you the phrases to ask for help clearly, understand your teacher's instructions, and build the habits of a confident, engaged language learner.",
@@ -2427,7 +2767,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "The Open Classroom Culture",
           content: "English-language classrooms — particularly in the US, UK, Canada, and Australia — tend to prize participation, questioning, and creative thinking. There's no shame in being wrong; in fact, 'making mistakes is part of learning' is something English teachers say (and mean) constantly. Contributions are encouraged, debates are welcomed, and students who ask thoughtful questions are considered the most engaged in the room. This culture of open participation can feel quite different from more formal educational traditions — but embracing it will accelerate your learning enormously."
-        }
+        },
+        vocabQA: [
+          { question: "Could you repeat that, please?", answer: "Of course, no problem!", answerTranslation: "" },
+          { question: "How do you say 'bonjour' in English?", answer: "You say 'good morning' or 'hello'.", answerTranslation: "" },
+          { question: "Do you understand?", answer: "Not quite yet.", answerTranslation: "" },
+          { question: "Is that correct?", answer: "Yes, that's right!", answerTranslation: "" },
+          { question: "What does this word mean?", answer: "It means 'tomorrow'.", answerTranslation: "" }
+        ],
+        verbGroups: [
+          {
+            verb: "to understand",
+            verbTranslation: "core classroom verb (I understand / do you understand? / I don't understand)",
+            examples: [
+              { object: "the question", fullPhrase: "I understand the question.", translation: "" },
+              { object: "a little", fullPhrase: "I understand a little.", translation: "" },
+              { object: "nothing", fullPhrase: "I don't understand anything.", translation: "" },
+              { object: "now", fullPhrase: "Oh, now I understand!", translation: "" },
+              { object: "everything", fullPhrase: "Do you understand everything?", translation: "" }
+            ]
+          }
+        ]
       }
     }
   },
@@ -2662,7 +3022,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "\u05d4\u05e7\u05e4\u05d4 \u05d5\u05e2\u05d5\u05d2\u05d4 (HaKafe Ve'Uga)",
           content: "Israelis are passionate about their coffee culture. The daily ritual of '\u05e7\u05e4\u05d4 \u05d5\u05e2\u05d5\u05d2\u05d4' (coffee and cake) is a social anchor \u2014 whether it's Turkish coffee at a traditional caf\u00e9, iced coffee on Tel Aviv's beach promenade, or 'hafuch' (a latte) at a neighborhood spot. For Israelis, coffee isn't a beverage \u2014 it's a reason to connect."
-        }
+        },
+        vocabQA: [
+          { question: "\u05de\u05d4 \u05e9\u05dc\u05d5\u05de\u05da \u05d4\u05d9\u05d5\u05dd?", answer: "\u05d0\u05e0\u05d9 \u05d1\u05e1\u05d3\u05e8, \u05ea\u05d5\u05d3\u05d4.", answerTranslation: "I'm fine, thank you." },
+          { question: "\u05de\u05d4 \u05d4\u05e9\u05e2\u05d4 \u05e2\u05db\u05e9\u05d9\u05d5?", answer: "\u05e2\u05e9\u05e8 \u05d1\u05d1\u05d5\u05e7\u05e8.", answerTranslation: "It's ten in the morning." },
+          { question: "\u05de\u05d4 \u05d4\u05d9\u05d5\u05dd?", answer: "\u05d4\u05d9\u05d5\u05dd \u05d9\u05d5\u05dd \u05e9\u05e0\u05d9.", answerTranslation: "Today is Monday." },
+          { question: "\u05de\u05d4 \u05d0\u05ea\u05d4 \u05e2\u05d5\u05e9\u05d4 \u05d1\u05d1\u05d5\u05e7\u05e8?", answer: "\u05d0\u05e0\u05d9 \u05e7\u05dd \u05d1\u05e9\u05d1\u05e2.", answerTranslation: "I get up at seven." },
+          { question: "\u05d9\u05e9 \u05dc\u05da \u05d6\u05de\u05df?", answer: "\u05db\u05df, \u05d9\u05e9 \u05dc\u05d9 \u05e8\u05d2\u05e2.", answerTranslation: "Yes, I have a moment." }
+        ],
+        verbGroups: [
+          {
+            verb: "\u05dc\u05e2\u05e9\u05d5\u05ea",
+            verbTranslation: "la'asot \u2014 to do (daily activities; root: \u05e2-\u05e9-\u05d4)",
+            examples: [
+              { object: "\u05e9\u05d9\u05e2\u05d5\u05e8\u05d9\u05dd", fullPhrase: "\u05d0\u05e0\u05d9 \u05e2\u05d5\u05e9\u05d4 \u05e9\u05d9\u05e2\u05d5\u05e8\u05d9\u05dd \u05d1\u05e2\u05e8\u05d1.", translation: "I do homework in the evening." },
+              { object: "\u05e1\u05e4\u05d5\u05e8\u05d8", fullPhrase: "\u05d4\u05d9\u05d0 \u05e2\u05d5\u05e9\u05d4 \u05e1\u05e4\u05d5\u05e8\u05d8 \u05d1\u05d1\u05d5\u05e7\u05e8.", translation: "She exercises in the morning." },
+              { object: "\u05e7\u05e0\u05d9\u05d5\u05ea", fullPhrase: "\u05d0\u05e0\u05d7\u05e0\u05d5 \u05e2\u05d5\u05e9\u05d9\u05dd \u05e7\u05e0\u05d9\u05d5\u05ea \u05d1\u05e1\u05d5\u05e3 \u05e9\u05d1\u05d5\u05e2.", translation: "We do shopping on the weekend." },
+              { object: "\u05d0\u05e8\u05d5\u05d7\u05ea \u05d1\u05d5\u05e7\u05e8", fullPhrase: "\u05d4\u05d5\u05d0 \u05e2\u05d5\u05e9\u05d4 \u05d0\u05e8\u05d5\u05d7\u05ea \u05d1\u05d5\u05e7\u05e8.", translation: "He makes breakfast." },
+              { object: "\u05ea\u05d5\u05db\u05e0\u05d9\u05d5\u05ea", fullPhrase: "\u05d0\u05ea\u05d4 \u05e2\u05d5\u05e9\u05d4 \u05ea\u05d5\u05db\u05e0\u05d9\u05d5\u05ea?", translation: "Are you making plans?" }
+            ]
+          }
+        ]
       },
       classroom: {
         welcomeText: "ברוכים הבאים לכיתה! (Bruchim HaBaim LaKita — Welcome to class!) Hebrew classroom language has a directness and warmth that reflects Israeli culture. This chapter teaches you how to ask questions confidently, follow your teacher's instructions, and navigate the classroom in Hebrew.",
@@ -2686,7 +3066,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "ישירות ישראלית (Israeli Directness)",
           content: "Israeli classroom culture is famously direct and informal — students call teachers by first name, debate ideas openly, and aren't shy about expressing confusion. This cultural trait, known as 'dugriut' (directness), means there's no social penalty for asking a question bluntly or disagreeing respectfully. For learners accustomed to more hierarchical classroom cultures, this can feel refreshingly open. Embrace it: in an Israeli Hebrew classroom, the student who asks the most questions is usually the one who learns the fastest."
-        }
+        },
+        vocabQA: [
+          { question: "\u05ea\u05d5\u05db\u05dc \u05dc\u05d7\u05d6\u05d5\u05e8 \u05e2\u05dc \u05d6\u05d4, \u05d1\u05d1\u05e7\u05e9\u05d4?", answer: "\u05db\u05df, \u05d1\u05d5\u05d3\u05d0\u05d9.", answerTranslation: "Yes, of course." },
+          { question: "\u05d0\u05d9\u05da \u05d0\u05d5\u05de\u05e8\u05d9\u05dd 'hello' \u05d1\u05e2\u05d1\u05e8\u05d9\u05ea?", answer: "\u05d0\u05d5\u05de\u05e8\u05d9\u05dd '\u05e9\u05dc\u05d5\u05dd'\u05d5\u05d0 '\u05d4\u05d9\u05d9'.", answerTranslation: "We say 'shalom' or 'hey'." },
+          { question: "\u05d0\u05ea\u05d4 \u05de\u05d1\u05d9\u05df?", answer: "\u05e2\u05d3\u05d9\u05d9\u05df \u05dc\u05d0 \u05d4\u05d1\u05e0\u05ea\u05d9.", answerTranslation: "I don't understand yet." },
+          { question: "\u05d6\u05d4 \u05e0\u05db\u05d5\u05df?", answer: "\u05db\u05df, \u05d6\u05d4 \u05e0\u05db\u05d5\u05df.", answerTranslation: "Yes, that's correct." },
+          { question: "\u05de\u05d4 \u05d4\u05de\u05e9\u05de\u05e2\u05d5\u05ea \u05e9\u05dc \u05d4\u05de\u05d9\u05dc\u05d4 \u05d4\u05d6\u05d0\u05ea?", answer: "\u05d4\u05de\u05e9\u05de\u05e2\u05d5\u05ea \u05e9\u05dc\u05d4 \u05d4\u05d9\u05d0 '\u05de\u05d7\u05e8'.", answerTranslation: "Its meaning is 'tomorrow'." }
+        ],
+        verbGroups: [
+          {
+            verb: "\u05dc\u05d4\u05d1\u05d9\u05df",
+            verbTranslation: "lehavin \u2014 to understand (root: \u05d1-\u05d9-\u05df; ani mevin/mevina; atem mevinim)",
+            examples: [
+              { object: "\u05d0\u05ea \u05d4\u05e9\u05d0\u05dc\u05d4", fullPhrase: "\u05d0\u05e0\u05d9 \u05de\u05d1\u05d9\u05df \u05d0\u05ea \u05d4\u05e9\u05d0\u05dc\u05d4.", translation: "I understand the question." },
+              { object: "\u05e7\u05e6\u05ea", fullPhrase: "\u05d0\u05e0\u05d9 \u05de\u05d1\u05d9\u05df \u05e7\u05e6\u05ea.", translation: "I understand a little." },
+              { object: "\u05dc\u05d0 \u05de\u05d1\u05d9\u05df", fullPhrase: "\u05d0\u05e0\u05d9 \u05dc\u05d0 \u05de\u05d1\u05d9\u05df.", translation: "I don't understand." },
+              { object: "\u05e2\u05db\u05e9\u05d9\u05d5", fullPhrase: "\u05d0\u05d4\u05f2, \u05e2\u05db\u05e9\u05d9\u05d5 \u05d0\u05e0\u05d9 \u05de\u05d1\u05d9\u05df!", translation: "Ah, now I understand!" },
+              { object: "\u05d4\u05db\u05dc", fullPhrase: "\u05d0\u05ea\u05d4 \u05de\u05d1\u05d9\u05df \u05d0\u05ea \u05d4\u05db\u05dc?", translation: "Do you understand everything?" }
+            ]
+          }
+        ]
       }
     }
   }

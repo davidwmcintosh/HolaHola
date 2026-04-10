@@ -3495,3 +3495,58 @@ Changed `spanish:de nada` from a custom string to `youreWelcome(CHAR.ES.secondar
 - `server/services/vocabulary-image-resolver.ts` — `ALL_KNOWN_CHARACTER_NAMES` list; `alreadyHasNamedCharacter` now checks all 20+ names
 - `server/services/vocab-image-seed-service.ts` — `youreWelcome`/`canYouRepeat`/`speakSlowly`/`iDontUnderstand` templates; `spanish:de nada` → template; 20+ individual override strings across all 9 languages
 - `server/services/visual-content-service.ts` — `NO_TEXT_INSTRUCTION` strengthened with explicit speech bubble prohibition
+
+---
+
+## Session 46 — Daily + Classroom M1/M4 for all 10 languages
+
+**Date:** April 10, 2026
+
+### What was done
+
+**Daily chapter M1 (vocabQA) + M4 (verbGroups) — all 10 languages COMPLETE**
+
+Seeded 5 Q&A pairs and one verbGroup for the daily chapter of each language. Anchor verb: "to do/make."
+
+| Language | vocabQA topics | Anchor verb |
+|---|---|---|
+| Spanish | good/time/day/morning-routine/free-time | hacer |
+| French | ça va/heure/jour/matin/disponible | faire |
+| German | geht's/Uhrzeit/Tag/Morgen/frei | machen |
+| Italian | come stai/ora/giorno/mattina/libero | fare |
+| Japanese | 調子/時間/曜日/朝のルーティン/暇 | します |
+| Korean | 어때요/시간/요일/아침일과/시간있어요 | 해요 |
+| Mandarin | 怎么样/几点/星期几/早上/有空吗 | 做 |
+| Portuguese | como vai/horas/dia/manhã/disponível | fazer |
+| English | how are you/time/day/morning/free | to do |
+| Hebrew | שלומך/שעה/יום/בוקר/זמן פנוי | לעשות |
+
+**Classroom chapter M1 (vocabQA) + M4 (verbGroups) — all 10 languages COMPLETE**
+
+Seeded 5 Q&A pairs and one verbGroup for the classroom chapter of each language. Anchor verb: "to understand." Q&A pattern: can-you-repeat / how-do-you-say-X / do-you-understand / is-this-correct / what-does-this-word-mean.
+
+| Language | Anchor verb | Key form taught |
+|---|---|---|
+| Spanish | entender | Entiendo / No entiendo / ¿Entiendes? |
+| French | comprendre | Je comprends / Je ne comprends rien |
+| German | verstehen | Ich verstehe / Jetzt verstehe ich! |
+| Italian | capire (isc-verb) | Capisco / Non capisco niente |
+| Japanese | わかります (wakarimasu) | わかります / わかりません / わかりました |
+| Korean | 이해하다 | 이해해요 / 이해하지 못해요 / 이제 이해해요 |
+| Mandarin | 明白 (míngbai) | 我明白 / 我不明白 / 我明白了 |
+| Portuguese | entender | Entendo / Não entendo nada |
+| English | to understand | I understand / I don't understand / Now I understand |
+| Hebrew | להבין (lehavin) | אני מבין / אני לא מבין / עכשיו אני מבין |
+
+**Docs updated:** `visual-asset-roadmap.md` M1 status table extended (numbers/daily/classroom all 10 languages). Both docs current through session 46.
+
+### What's next
+
+- **M2 (GenderAgreementGrid):** numbers/daily chapter gender pairs for FR/PT/IT/HE/ES (pending)
+- **M3 (discoveryNotes):** still only seeded for Spanish greetings — 9 other languages × multiple chapters pending
+- **M6 (CognateRecognitionGrid):** EN cognate strategy (Cindy/Blake — international loanwords: café, taxi, hotel, radio) — data not yet seeded for classroom/daily/numbers EN chapters
+- **Image seeding:** classroom vocab imagery pipeline not started; daily imagery partially seeded via canonical registry
+
+### Files changed this session
+
+- `client/src/data/chapter-intro-content.ts` — vocabQA + verbGroups added to daily and classroom for all 10 languages (lines ~650–3095)

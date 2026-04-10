@@ -1605,14 +1605,14 @@ See Plan M5 below.
 
 | Plan | Component | Component built? | Data scope |
 |------|-----------|:---:|---|
-| M1 | VocabQAGrid | ✅ | ✅ All 10 languages — greetings + family + numbers chapters |
+| M1 | VocabQAGrid | ✅ | ✅ All 10 languages — greetings + family + numbers + daily + classroom chapters |
 | M2 | GenderAgreementGrid | ✅ | ✅ FR/PT/IT/HE/ES greetings + family; DE/JA/KO/ZH/EN intentionally empty |
 | M3 | discoveryNote callout | ✅ | ✅ All 10 languages — greetings formal-informal section (session 45) |
-| M4 | VerbAnchorGrid | ✅ | ✅ All 10 languages — greetings + family + numbers chapters |
+| M4 | VerbAnchorGrid | ✅ | ✅ All 10 languages — greetings + family + numbers + daily + classroom chapters |
 | M5 | SentenceFrameGrid images | ✅ | ✅ Complete — session 43 |
 | M6 | CognateRecognitionGrid | ✅ | ✅ FR/IT/DE/ES greetings; ✅ PT/JA/KO/ZH/HE greetings (session 42); ⬜ EN |
 
-**Next data work:** daily chapter M1/M4 data for all 10 languages; EN cognate strategy (M6, Cindy/Blake context); classroom chapter M1/M4 data.
+**Next data work (post-session-46):** M2 gender pairs for numbers/daily chapters (FR/PT/IT/HE/ES); M3 discoveryNotes for non-Spanish languages (all chapters); M6 EN cognate data for Cindy/Blake (classroom/daily/numbers); image seeding pipeline for classroom vocabulary.
 
 ---
 
@@ -1649,7 +1649,11 @@ Built `VocabQAGrid` component in `TextbookInfographics.tsx`. Sky-blue accent, "f
 | English | 5 | Do you have brothers or sisters? / Where do your parents live? |
 | Hebrew | 5 | יש לך אחים או אחיות? / איפה גרים ההורים שלך? |
 
-*Data pending:* numbers/daily chapters all languages.
+*Data seeded — numbers chapter (session 43–44):* vocabQA (age/cost/time/counting/phone) + verbGroups for all 10 languages. Anchor verbs: tener/avoir/avere/ter (age), sein (DE), あります/います (JA), 이에요/예요 (KO), 有 (ZH), to be (EN), יש/אין (HE).
+
+*Data seeded — daily chapter (session 46):* vocabQA (time/day/greeting/routine/availability) + verbGroups (anchor: "to do/make") for all 10 languages. ES: hacer, FR: faire, DE: machen, IT: fare, JA: します, KO: 이해하다/해요, ZH: 做, PT: fazer, EN: to do, HE: לעשות.
+
+*Data seeded — classroom chapter (session 46):* vocabQA (repeat/how-do-you-say/understand/correct/meaning) + verbGroups (anchor: "to understand") for all 10 languages. ES: entender, FR: comprendre, DE: verstehen, IT: capire, JA: わかります, KO: 이해하다, ZH: 明白, PT: entender, EN: to understand, HE: להבין.
 
 ---
 
