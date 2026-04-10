@@ -1618,6 +1618,14 @@ The implication for HoloHola: the bar for SentenceFrameGrid images is *concept c
 
 **The one failure mode to avoid:** an image that is ambiguous at a glance. If "cansado" (tired) produced an image that could mean "bored" or "sad" instead, the drill misfires. This is an authoring and generation prompt problem, not a rendering quality problem. Choose concepts that have unambiguous visual representations. When in doubt, test by showing the image without the word and asking whether the meaning is immediate.
 
+**Scanned pages as prompt fodder (noted April 10, 2026):**
+
+David is scanning pages from the physical book. The scans are not being used to copy the images directly (copyright, and our watercolor style is better suited to HoloHola anyway). They are being used as a reference for *which moment in a concept is worth illustrating*.
+
+This is a more useful kind of visual reference than a stock image library. Warhol's choices reveal the image that makes a word unambiguous — not the object itself, but the action or relationship that carries the meaning. A picture of a car is just a car. A picture of someone stepping out of a car at an airport tells you *viajar* (to travel) without a single word.
+
+When generating images for M5 sentence frame fillers: look at the scanned page for the corresponding concept first. Use Warhol's chosen moment as the starting point for the AI generation prompt. The goal is not to match his style but to match his instinct about *what to show*.
+
 **Plan M6 — Cognate Recognition Opener ("You Already Speak Spanish")**
 
 Madrigal's preface opens with the observation that thousands of English words are identical or near-identical to Spanish: *doctor, hotel, natural, formal, television, hospital, animal, central, circular, accent, popular, tropical, musical, cultural, mental, social, total, normal, final, legal, local, moral, original, principal, general, personal…*
