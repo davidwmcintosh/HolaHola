@@ -1486,6 +1486,46 @@ Six teachable patterns from the pages analysed:
 
 ---
 
+### Known Design Constraints (Noted April 9, 2026)
+
+Three issues were identified immediately after shipping the first data set. These are guardrails for all future sentence frame authoring.
+
+**Constraint 1 — Vocabulary must match the chapter it lives in**
+
+The first draft placed "banco, parque, restaurante, hospital, supermercado" in the *Greetings* chapter under a "Tengo que ir al ___" frame. Those words are not in the greetings lesson — students have never seen them. This violates the Madrigal principle: the frame drills the structure, the fillers reinforce vocabulary the student *already knows from that chapter*.
+
+Rule: every filler word in a `SentenceFrame` must be a word that appears in the lesson or chapter it is attached to. When authoring new frames, cross-reference the chapter's `conversationStrips` panels and its `quickPhrases` list to confirm the vocabulary is already present.
+
+Corrected greetings data (April 9, 2026):
+- Frame 1: "¡___, amigo!" — Hola, Buenos días, Buenas tardes, Buenas noches, Adiós, Hasta luego ✓ (all greetings-chapter words)
+- Frame 2: "Estoy ___." — bien, muy bien, más o menos, mal, cansado, feliz ✓ (all ¿Cómo estás? responses from that chapter)
+
+**Constraint 2 — Frame complexity must match ACTFL level**
+
+"Tengo que ir al ___" (I have to go to the ___) is a *tener que* + infinitive construction — Novice High / Intermediate Low territory. It is not appropriate for a Level 1 / Novice Low chapter.
+
+The simpler equivalent is "Voy a ___" (I'm going to ___) — *ir a* + destination is a single high-frequency pattern introduced in the very first lessons of most Spanish courses, and is the construction Madrigal herself uses on the transportation pages.
+
+Rule of thumb for frame complexity by level:
+- Novice Low / early Novice Mid: simple subject + verb ("Estoy ___", "Es mi ___", "¡___, amigo!")
+- Late Novice Mid / Novice High: *ir a*, *tener*, *querer* + noun ("Voy a ___", "Tengo ___")
+- Intermediate Low+: modal constructions, subjunctive cues ("Tengo que ___", "Quiero que ___")
+
+**Constraint 3 — Images are fundamental, not optional (currently missing)**
+
+Madrigal's method works because each filler card has a *picture* — the student maps directly from image to Spanish without routing through English. The current `SentenceFrameGrid` renders text-only cards, which means students are still reading an English translation to understand the filler word. This weakens the core mechanism.
+
+This is a known gap. The component has an `imageKey` field stub on `SentenceFrameItem` (interface defined, not yet rendered). Before this component can be considered complete, every filler item needs:
+1. A `imageKey` field populated with a value from the canonical vocabulary registry
+2. The card to render the vocab image above the sentence (using the same object-storage URL pattern as `VisualVocabGrid`)
+3. A fallback to large styled text if no image is available
+
+Priority: **high** — without images, the Madrigal drill degrades to a phrase list, which we already have in `QuickPhraseGrid`. The visual anchoring is what makes it pedagogically distinct.
+
+See Plan M5 below.
+
+---
+
 ### Remaining Madrigal-Inspired Ideas (Future Plans)
 
 **Plan M1 — Q&A Production Mode for VisualVocabGrid**  
@@ -1499,6 +1539,18 @@ Extend `NarrativeSection` with a new `discoveryNote` field (distinct from `tip`)
 
 **Plan M4 — Verb-Anchor Phrase Grouping**  
 Extend `QuickPhraseGrid` or add a `VerbObjectGrid` component. Data is grouped by anchor verb (tomar, ir, querer, tener que…) rather than topic. Each group shows the verb prominently and lists all vocabulary items that collocate with it — same pedagogical power as Madrigal's *tomar* pages.
+
+**Plan M5 — Image Integration for SentenceFrameGrid (HIGH PRIORITY)**  
+The current `SentenceFrameGrid` is text-only. Madrigal's method is fundamentally image-driven — each filler card should show a picture so the student maps directly from image to Spanish without routing through English. Without images the drill degrades to a phrase list, which `QuickPhraseGrid` already provides.
+
+Add an optional `imageKey?: string` field to `SentenceFrameItem` (already in the interface spec). When present, the card renders the vocab image from object storage at the top using the same URL pattern as `VisualVocabGrid`. Fallback: large styled filler text if no image is available.
+
+Implementation steps:
+1. Populate `imageKey` on each filler item using keys from the canonical vocabulary registry (`server/data/canonical-vocabulary.ts`) — e.g. greetings states map to existing emotion portrait images (`vocab_adj_feliz`, etc.), family members map to `vocab_people_familia` variants
+2. In `SentenceFrameGrid` card: fetch the image URL from `/api/visual-assets/by-key/:key` (or construct from object storage path directly if a helper exists), render above the sentence in a fixed-height image container
+3. Prioritise chapters where the vocab already has images seeded (greetings states have emotion portraits; family members have family portraits)
+
+Authoring note: for the greetings "¡___, amigo!" frame, images would show time-of-day scenes (sunrise = Buenos días, afternoon sun = Buenas tardes, etc.) — these do not yet exist and would need to be generated.
 
 ---
 

@@ -141,29 +141,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         ],
         sentenceFrames: [
           {
-            frame: "Hoy estoy ___.",
-            frameTranslation: "Today I am ___.",
+            frame: "¡___, amigo!",
+            frameTranslation: "___!, friend!",
             items: [
-              { filler: "bien", fullSentence: "Hoy estoy bien.", translation: "Today I am well." },
-              { filler: "mal", fullSentence: "Hoy estoy mal.", translation: "Today I am not well." },
-              { filler: "cansado", fullSentence: "Hoy estoy cansado.", translation: "Today I am tired." },
-              { filler: "feliz", fullSentence: "Hoy estoy feliz.", translation: "Today I am happy." },
-              { filler: "ocupado", fullSentence: "Hoy estoy ocupado.", translation: "Today I am busy." },
-              { filler: "enfermo", fullSentence: "Hoy estoy enfermo.", translation: "Today I am sick." },
-              { filler: "triste", fullSentence: "Hoy estoy triste.", translation: "Today I am sad." },
-              { filler: "nervioso", fullSentence: "Hoy estoy nervioso.", translation: "Today I am nervous." },
+              { filler: "Hola", fullSentence: "¡Hola, amigo!", translation: "Hello, friend!" },
+              { filler: "Buenos días", fullSentence: "¡Buenos días, amigo!", translation: "Good morning, friend!" },
+              { filler: "Buenas tardes", fullSentence: "¡Buenas tardes, amigo!", translation: "Good afternoon, friend!" },
+              { filler: "Buenas noches", fullSentence: "¡Buenas noches, amigo!", translation: "Good evening, friend!" },
+              { filler: "Adiós", fullSentence: "¡Adiós, amigo!", translation: "Goodbye, friend!" },
+              { filler: "Hasta luego", fullSentence: "¡Hasta luego, amigo!", translation: "See you later, friend!" },
             ]
           },
           {
-            frame: "Tengo que ir al ___.",
-            frameTranslation: "I have to go to the ___.",
+            frame: "Estoy ___.",
+            frameTranslation: "I am ___.",
             items: [
-              { filler: "banco", fullSentence: "Tengo que ir al banco.", translation: "I have to go to the bank." },
-              { filler: "parque", fullSentence: "Tengo que ir al parque.", translation: "I have to go to the park." },
-              { filler: "restaurante", fullSentence: "Tengo que ir al restaurante.", translation: "I have to go to the restaurant." },
-              { filler: "hospital", fullSentence: "Tengo que ir al hospital.", translation: "I have to go to the hospital." },
-              { filler: "supermercado", fullSentence: "Tengo que ir al supermercado.", translation: "I have to go to the supermarket." },
-              { filler: "baño", fullSentence: "Tengo que ir al baño.", translation: "I have to go to the bathroom." },
+              { filler: "bien", fullSentence: "Estoy bien.", translation: "I am well." },
+              { filler: "muy bien", fullSentence: "Estoy muy bien.", translation: "I am very well." },
+              { filler: "más o menos", fullSentence: "Estoy más o menos.", translation: "I am so-so." },
+              { filler: "mal", fullSentence: "Estoy mal.", translation: "I am not well." },
+              { filler: "cansado", fullSentence: "Estoy cansado.", translation: "I am tired." },
+              { filler: "feliz", fullSentence: "Estoy feliz.", translation: "I am happy." },
             ]
           }
         ]
