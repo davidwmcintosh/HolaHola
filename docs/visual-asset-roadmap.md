@@ -1481,6 +1481,18 @@ Every Daniela session is structured around this. She asks; the student answers. 
 
 ---
 
+**Zero bloviation — a content authoring principle (noted April 10, 2026)**
+
+The book has almost no prose that does not directly serve the student. No academic preamble, no lengthy explanations of why the method works, no throat-clearing. Every sentence either teaches vocabulary, demonstrates a pattern, or builds confidence. Anything that does none of those three things is cut.
+
+This is the model for HoloHola's chapter content. The risk in our narrative sections and welcome text is drift toward explanation-for-its-own-sake — writing that sounds educational without doing anything educational. The Madrigal test: read a sentence and ask which of the three jobs it is doing. If the answer is none, remove it.
+
+Authoring rule: **every sentence in a chapter narrative must teach, demonstrate, or encourage — never all three at once, never none.**
+
+The practical implication for HoloHola content: cultural spotlights, narrative section tips, and welcome text are the highest-risk areas for bloviation because they are prose rather than structured data. They should be reviewed against this standard. A tip that explains grammar in prose when a Grammar Diagram already shows it is redundant. A welcome text that describes what the student is about to learn instead of making them feel capable of learning it has the wrong job.
+
+---
+
 ### What The Book Does (Core Pedagogy)
 
 Madrigal's method rests on one insight: **grammar disappears when the frame never changes**. Every structural pattern is introduced once, demonstrated with multiple vocabulary fillers in the same page-spread, and never named as a grammar rule. The student internalises the frame through visual repetition and picture anchoring, not through explanation.
