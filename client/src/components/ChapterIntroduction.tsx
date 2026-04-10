@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Globe, Users, BookOpen, Lightbulb, MessageSquare, ChevronRight, Play, Square, Loader2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import { SunArcGreetings, FormalInformalComparison, QuickPhraseGrid, SerEstarCard, PretImperfectCard, PorParaCard, FalseCognatesGrid, SentenceFrameGrid, CognateRecognitionGrid } from "./TextbookInfographics";
+import { SunArcGreetings, FormalInformalComparison, QuickPhraseGrid, SerEstarCard, PretImperfectCard, PorParaCard, FalseCognatesGrid, SentenceFrameGrid, CognateRecognitionGrid, VocabQAGrid, GenderAgreementGrid, VerbAnchorGrid } from "./TextbookInfographics";
 import {
   ArVerbsCard, ErVerbsCard, IrVerbsCard,
   SerCard, EstarCard, TenerCard, IrCard,
@@ -2422,6 +2422,14 @@ export function ChapterIntroduction({ chapterNumber, chapterTitle, language, cha
                       </p>
                     </div>
                   )}
+                  {section.discoveryNote && (
+                    <div className="bg-sky-500/10 rounded-lg p-3 border border-sky-500/20 mt-3" data-testid={`discovery-note-${index}`}>
+                      <p className="text-sm text-sky-700 dark:text-sky-300 flex items-start gap-2">
+                        <BookOpen className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                        <span><span className="font-semibold">Notice: </span>{section.discoveryNote}</span>
+                      </p>
+                    </div>
+                  )}
                   {section.examples && section.examples.length > 0 && (
                     <div className="mt-4" data-testid={`examples-section-${index}`}>
                       <div className="grid grid-cols-2 gap-2 mb-1 px-1">
@@ -2477,6 +2485,39 @@ export function ChapterIntroduction({ chapterNumber, chapterTitle, language, cha
           <CardContent className="p-4 md:p-6">
             <SentenceFrameGrid
               frames={content.sentenceFrames}
+              language={langKey}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {content.genderPairs && content.genderPairs.length > 0 && (
+        <Card className="overflow-hidden border-violet-500/20 bg-gradient-to-br from-violet-500/5 to-transparent" data-testid="card-gender-pairs">
+          <CardContent className="p-4 md:p-6">
+            <GenderAgreementGrid
+              pairs={content.genderPairs}
+              language={langKey}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {content.vocabQA && content.vocabQA.length > 0 && (
+        <Card className="overflow-hidden border-sky-500/20 bg-gradient-to-br from-sky-500/5 to-transparent" data-testid="card-vocab-qa">
+          <CardContent className="p-4 md:p-6">
+            <VocabQAGrid
+              items={content.vocabQA}
+              language={langKey}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {content.verbGroups && content.verbGroups.length > 0 && (
+        <Card className="overflow-hidden" data-testid="card-verb-groups">
+          <CardContent className="p-4 md:p-6">
+            <VerbAnchorGrid
+              groups={content.verbGroups}
               language={langKey}
             />
           </CardContent>

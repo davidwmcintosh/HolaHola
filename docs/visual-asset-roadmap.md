@@ -1597,19 +1597,19 @@ See Plan M5 below.
 
 ---
 
-### Remaining Madrigal-Inspired Ideas (Future Plans)
+### Madrigal-Inspired Components — Status (updated April 10, 2026)
 
-**Plan M1 — Q&A Production Mode for VisualVocabGrid**  
-Add an optional `qaMode` prop to `VisualVocabGrid`. When true, each vocab card shows a model Q&A pair below the image: *"¿Qué es la zanahoria? La zanahoria es una verdura."* This teaches complete sentence production rather than word recognition. No new component needed — extend the existing card.
+**Plan M1 — VocabQAGrid ✅ COMPLETE (session 40)**
+Built `VocabQAGrid` component in `TextbookInfographics.tsx`. Standalone exported component (not a `VisualVocabGrid` prop). Sky-blue accent, "full sentences" badge. Each card shows: question (italic/muted), answer (bold, play button), translation (below divider). Seeded for Spanish greetings (6 Q&A pairs) and family (5 Q&A pairs). Wired in `ChapterIntroduction.tsx`.
 
-**Plan M2 — Gender Agreement Pair Grid**  
-A new `GenderAgreementGrid` component. Shows estar adjectives as masculine/feminine pairs in two columns. Frame: "Estoy ___o / Estoy ___a." Entries: cansado/cansada, feliz/feliz (invariable — good teaching moment), enfermo/enferma, etc. Spanish-only initially.
+**Plan M2 — GenderAgreementGrid ✅ COMPLETE (session 40)**
+Built `GenderAgreementGrid` component. Two-column masculine/feminine table with configurable frame text (default: "Él está ___." / "Ella está ___."). Violet accent. Translation key row at bottom. Seeded for Spanish greetings (6 estar adjective pairs) and family (5 family-term pairs with custom frames "Él es mi ___ / Ella es mi ___"). Wired in `ChapterIntroduction.tsx`.
 
-**Plan M3 — Post-Example Discovery Callout**  
-Extend `NarrativeSection` with a new `discoveryNote` field (distinct from `tip`). Rendered as a slightly different card — cool blue instead of amber — with copy like "Notice: …" rather than "Tip: …". Encourages learners to observe patterns from the examples they just saw rather than receiving rules first.
+**Plan M3 — discoveryNote callout ✅ COMPLETE (session 40)**
+Added `discoveryNote?: string` to `NarrativeSection` in `ChapterIntroContent`. Rendered as sky-blue callout with BookOpen icon and "Notice:" prefix — distinct from amber `tip` callout. Seeded for Spanish greetings "Formal vs. Informal" section. Wired in `ChapterIntroduction.tsx`.
 
-**Plan M4 — Verb-Anchor Phrase Grouping**  
-Extend `QuickPhraseGrid` or add a `VerbObjectGrid` component. Data is grouped by anchor verb (tomar, ir, querer, tener que…) rather than topic. Each group shows the verb prominently and lists all vocabulary items that collocate with it — same pedagogical power as Madrigal's *tomar* pages.
+**Plan M4 — VerbAnchorGrid ✅ COMPLETE (session 40)**
+Built `VerbAnchorGrid` component. Verb anchor card (large primary text + Repeat2 icon + "Verb Anchor" badge) + grid of example tiles (object word large/primary, full phrase small/secondary, translation muted, play button). Supports multiple verb groups per chapter. Seeded for Spanish greetings (estar, 6 examples) and family (ser, 6 examples). Wired in `ChapterIntroduction.tsx`.
 
 **Plan M5 — Image Integration for SentenceFrameGrid (HIGH PRIORITY)**  
 The current `SentenceFrameGrid` is text-only. Madrigal's method is fundamentally image-driven — each filler card should show a picture so the student maps directly from image to Spanish without routing through English. Without images the drill degrades to a phrase list, which `QuickPhraseGrid` already provides.

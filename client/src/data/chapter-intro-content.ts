@@ -24,6 +24,7 @@ export interface FormalInformalExample {
 export interface CognateEntry {
   english: string;
   spanish: string;
+  target?: string;
   category: string;
   isFalseCognate?: boolean;
   falseCognateNote?: string;
@@ -57,12 +58,38 @@ export interface ConversationStrip {
   panels: ConversationPanel[];
 }
 
+export interface VocabQAItem {
+  word: string;
+  translation: string;
+  question: string;
+  answer: string;
+}
+
+export interface GenderPair {
+  masculine: string;
+  feminine: string;
+  translation: string;
+}
+
+export interface VerbExample {
+  object: string;
+  fullPhrase: string;
+  translation: string;
+}
+
+export interface VerbGroup {
+  verb: string;
+  verbTranslation: string;
+  examples: VerbExample[];
+}
+
 export interface ChapterIntroContent {
   welcomeText: string;
   narrativeSections: {
     title: string;
     content: string;
     tip?: string;
+    discoveryNote?: string;
     infographic?: 'sunArcGreetings' | 'formalInformal' | 'quickPhrases';
     examples?: FormalInformalExample[];
   }[];
@@ -73,6 +100,9 @@ export interface ChapterIntroContent {
   };
   cognateOpener?: CognateEntry[];
   sentenceFrames?: SentenceFrame[];
+  genderPairs?: GenderPair[];
+  vocabQA?: VocabQAItem[];
+  verbGroups?: VerbGroup[];
 }
 
 export interface LanguageChapterData {
@@ -102,7 +132,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
     ],
     chapters: {
       greetings: {
-        welcomeText: "Welcome to your Spanish journey! In this chapter, you'll learn the essential building blocks of Spanish conversation \u2014 greetings, introductions, and the art of making a great first impression. Spanish-speaking cultures treasure warmth and personal connection, and it all starts with how you say hello.",
+        welcomeText: "In this chapter you'll learn three time-of-day greetings (buenos días, buenas tardes, buenas noches), the formal and informal 'you' (usted / tú), and how to introduce yourself. By the end, you'll be able to open and close a real conversation in Spanish.",
         narrativeSections: [
           {
             title: "Time Matters",
@@ -113,9 +143,10 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
 
           {
             title: "Formal vs. Informal",
-            content: "Spanish distinguishes between formal and informal speech through 'usted' and 't\u00fa'. Think of 'usted' as the respectful distance you'd keep with your boss or an elder, while 't\u00fa' is the comfortable closeness of friends and family.",
+            content: "Spanish has two words for 'you': 'usted' for people you respect or don't know well, and 't\u00fa' for friends and family. The verb ending changes slightly depending on which you use.",
             infographic: 'formalInformal',
-            tip: "When in doubt, start formal! It's always better to be too polite than too casual."
+            tip: "When in doubt, start formal. It's easier to move toward casual than to walk back a misstep.",
+            discoveryNote: "usted uses the same verb ending as \u00e9l and ella. '\u00bfC\u00f3mo est\u00e1 usted?' and '\u00bfC\u00f3mo est\u00e1 ella?' share the same form. Spanish builds formality through pronoun choice, not verb endings."
           }
         ],
         conversationStrips: [
@@ -208,10 +239,40 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
               { filler: "feliz", fullSentence: "Estoy feliz.", translation: "I am happy." },
             ]
           }
+        ],
+        genderPairs: [
+          { masculine: "contento", feminine: "contenta", translation: "happy / content" },
+          { masculine: "cansado", feminine: "cansada", translation: "tired" },
+          { masculine: "ocupado", feminine: "ocupada", translation: "busy" },
+          { masculine: "enfermo", feminine: "enferma", translation: "sick" },
+          { masculine: "nervioso", feminine: "nerviosa", translation: "nervous" },
+          { masculine: "emocionado", feminine: "emocionada", translation: "excited" }
+        ],
+        vocabQA: [
+          { word: "llamarse", translation: "to be called", question: "\u00bfC\u00f3mo te llamas?", answer: "Me llamo [tu nombre]." },
+          { word: "estar bien", translation: "to be well", question: "\u00bfC\u00f3mo est\u00e1s?", answer: "Estoy bien, gracias. \u00bfY t\u00fa?" },
+          { word: "mucho gusto", translation: "nice to meet you", question: "Mucho gusto.", answer: "Igualmente." },
+          { word: "de d\u00f3nde", translation: "from where", question: "\u00bfDe d\u00f3nde eres?", answer: "Soy de [ciudad]." },
+          { word: "usted", translation: "formal you", question: "\u00bfC\u00f3mo est\u00e1 usted?", answer: "Muy bien, gracias." },
+          { word: "qu\u00e9 tal", translation: "what's up / how are things", question: "\u00bfQu\u00e9 tal?", answer: "Todo bien, \u00bfy t\u00fa?" }
+        ],
+        verbGroups: [
+          {
+            verb: "estar",
+            verbTranslation: "to be (condition or state)",
+            examples: [
+              { object: "bien", fullPhrase: "Estoy bien.", translation: "I am well." },
+              { object: "cansado", fullPhrase: "Estoy cansado.", translation: "I am tired." },
+              { object: "feliz", fullPhrase: "Estoy feliz.", translation: "I am happy." },
+              { object: "ocupado", fullPhrase: "Estoy ocupado.", translation: "I am busy." },
+              { object: "mal", fullPhrase: "Estoy mal.", translation: "I am not well." },
+              { object: "nervioso", fullPhrase: "Estoy nervioso.", translation: "I am nervous." }
+            ]
+          }
         ]
       },
       numbers: {
-        welcomeText: "Numbers are the universal language! In this chapter, you'll master counting in Spanish from zero to a million. Whether you're shopping, telling time, or sharing your phone number, numbers will become second nature.",
+        welcomeText: "Spanish numbers follow a predictable pattern: learn uno through diez, and the rules for veinte, treinta, and cien unlock everything else. This chapter covers cero to un millón — including telling time and sharing your phone number.",
         narrativeSections: [
           {
             title: "Counting Basics",
@@ -269,6 +330,34 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
               { filler: "tío", fullSentence: "Él es mi tío.", translation: "He is my uncle." },
               { filler: "primo", fullSentence: "Él es mi primo.", translation: "He is my cousin." },
               { filler: "amigo", fullSentence: "Él es mi amigo.", translation: "He is my friend." },
+            ]
+          }
+        ],
+        genderPairs: [
+          { masculine: "padre", feminine: "madre", translation: "father / mother" },
+          { masculine: "hermano", feminine: "hermana", translation: "brother / sister" },
+          { masculine: "abuelo", feminine: "abuela", translation: "grandfather / grandmother" },
+          { masculine: "tío", feminine: "tía", translation: "uncle / aunt" },
+          { masculine: "primo", feminine: "prima", translation: "cousin (male) / cousin (female)" }
+        ],
+        vocabQA: [
+          { word: "madre", translation: "mother", question: "¿Quién es ella?", answer: "Ella es mi madre." },
+          { word: "padre", translation: "father", question: "¿Quién es él?", answer: "Él es mi padre." },
+          { word: "hermanos", translation: "siblings", question: "¿Tienes hermanos?", answer: "Sí, tengo un hermano y una hermana." },
+          { word: "se llama", translation: "her/his name is", question: "¿Cómo se llama tu madre?", answer: "Mi madre se llama [nombre]." },
+          { word: "familia", translation: "family", question: "¿Tienes familia aquí?", answer: "Sí, mi familia vive aquí." }
+        ],
+        verbGroups: [
+          {
+            verb: "ser",
+            verbTranslation: "to be (identity or relationship)",
+            examples: [
+              { object: "mi padre", fullPhrase: "Él es mi padre.", translation: "He is my father." },
+              { object: "mi madre", fullPhrase: "Ella es mi madre.", translation: "She is my mother." },
+              { object: "mi hermano", fullPhrase: "Él es mi hermano.", translation: "He is my brother." },
+              { object: "mi hermana", fullPhrase: "Ella es mi hermana.", translation: "She is my sister." },
+              { object: "mi abuelo", fullPhrase: "Él es mi abuelo.", translation: "He is my grandfather." },
+              { object: "mi tía", fullPhrase: "Ella es mi tía.", translation: "She is my aunt." }
             ]
           }
         ]
@@ -397,7 +486,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "La Bise",
           content: "The French 'bise' \u2014 cheek kisses as greeting \u2014 is one of France's most iconic customs. The number of kisses varies by region: two in Paris, three in Provence, sometimes four in the north. It's an art form that signals warmth, familiarity, and belonging."
-        }
+        },
+        cognateOpener: [
+          { english: "hotel", target: "hôtel", spanish: "", category: "identical" },
+          { english: "taxi", target: "taxi", spanish: "", category: "identical" },
+          { english: "restaurant", target: "restaurant", spanish: "", category: "identical" },
+          { english: "concert", target: "concert", spanish: "", category: "identical" },
+          { english: "sport", target: "sport", spanish: "", category: "identical" },
+          { english: "possible", target: "possible", spanish: "", category: "near-identical" },
+          { english: "important", target: "important", spanish: "", category: "near-identical" },
+          { english: "excellent", target: "excellent", spanish: "", category: "near-identical" },
+          { english: "original", target: "original", spanish: "", category: "near-identical" },
+          { english: "nation", target: "nation", spanish: "", category: "-tion \u2192 -tion (same!)" },
+          { english: "attention", target: "attention", spanish: "", category: "-tion \u2192 -tion (same!)" },
+          { english: "information", target: "information", spanish: "", category: "-tion \u2192 -tion (same!)" },
+          { english: "artist", target: "artiste", spanish: "", category: "-ist \u2192 -iste" },
+          { english: "tourist", target: "touriste", spanish: "", category: "-ist \u2192 -iste" },
+          { english: "optimist", target: "optimiste", spanish: "", category: "-ist \u2192 -iste" },
+          { english: "actual", target: "actuel", spanish: "", category: "false-friend", isFalseCognate: true, falseCognateNote: "actuel = current, not actual" },
+          { english: "sensible", target: "sensible", spanish: "", category: "false-friend", isFalseCognate: true, falseCognateNote: "sensible = sensitive, not sensible" },
+          { english: "to rest", target: "rester", spanish: "", category: "false-friend", isFalseCognate: true, falseCognateNote: "rester = to stay/remain, not to rest" }
+        ]
       },
       numbers: {
         welcomeText: "French numbers have a unique charm and a few surprises! From the elegant simplicity of 'un, deux, trois' to the mathematical logic of 'quatre-vingts' (four-twenties for 80), this chapter will guide you through the French counting system.",
@@ -560,7 +669,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "Der Handschlag",
           content: "The German handshake is brief, firm, and accompanied by direct eye contact. Unlike cultures with cheek kisses, Germans keep a respectful physical distance with acquaintances. This straightforward greeting reflects the German values of honesty, reliability, and mutual respect."
-        }
+        },
+        cognateOpener: [
+          { english: "hotel", target: "Hotel", spanish: "", category: "identical" },
+          { english: "sport", target: "Sport", spanish: "", category: "identical" },
+          { english: "tennis", target: "Tennis", spanish: "", category: "identical" },
+          { english: "internet", target: "Internet", spanish: "", category: "identical" },
+          { english: "computer", target: "Computer", spanish: "", category: "identical" },
+          { english: "moment", target: "Moment", spanish: "", category: "near-identical" },
+          { english: "telephone", target: "Telefon", spanish: "", category: "near-identical" },
+          { english: "music", target: "Musik", spanish: "", category: "near-identical" },
+          { english: "problem", target: "Problem", spanish: "", category: "near-identical" },
+          { english: "nation", target: "Nation", spanish: "", category: "-tion → -tion (same!)" },
+          { english: "action", target: "Aktion", spanish: "", category: "-tion → -tion (same!)" },
+          { english: "information", target: "Information", spanish: "", category: "-tion → -tion (same!)" },
+          { english: "artist", target: "Artist", spanish: "", category: "-ist → -ist (same!)" },
+          { english: "tourist", target: "Tourist", spanish: "", category: "-ist → -ist (same!)" },
+          { english: "optimist", target: "Optimist", spanish: "", category: "-ist → -ist (same!)" },
+          { english: "actual", target: "aktuell", spanish: "", category: "false-friend", isFalseCognate: true, falseCognateNote: "aktuell = current, not actual" },
+          { english: "sympathetic", target: "sympathisch", spanish: "", category: "false-friend", isFalseCognate: true, falseCognateNote: "sympathisch = nice/likable, not sympathetic" },
+          { english: "sensible", target: "sensibel", spanish: "", category: "false-friend", isFalseCognate: true, falseCognateNote: "sensibel = sensitive, not sensible" }
+        ]
       },
       numbers: {
         welcomeText: "German numbers have their own logic and a few quirks that make them fascinating to learn. Once you understand the pattern of saying the ones digit before the tens, you'll be counting like a native in no time!",
@@ -723,7 +852,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "La Passeggiata",
           content: "Every evening, Italians take part in 'la passeggiata' \u2014 a leisurely stroll through town. It's not exercise; it's a social ritual. Families, couples, and friends walk together, stopping to greet neighbors, admire shop windows, and enjoy gelato. It's the heartbeat of Italian community life."
-        }
+        },
+        cognateOpener: [
+          { english: "hotel", target: "hotel", spanish: "", category: "identical" },
+          { english: "pizza", target: "pizza", spanish: "", category: "identical" },
+          { english: "radio", target: "radio", spanish: "", category: "identical" },
+          { english: "studio", target: "studio", spanish: "", category: "identical" },
+          { english: "taxi", target: "taxi", spanish: "", category: "identical" },
+          { english: "important", target: "importante", spanish: "", category: "near-identical" },
+          { english: "natural", target: "naturale", spanish: "", category: "near-identical" },
+          { english: "original", target: "originale", spanish: "", category: "near-identical" },
+          { english: "musical", target: "musicale", spanish: "", category: "near-identical" },
+          { english: "attention", target: "attenzione", spanish: "", category: "-tion → -zione" },
+          { english: "nation", target: "nazione", spanish: "", category: "-tion → -zione" },
+          { english: "information", target: "informazione", spanish: "", category: "-tion → -zione" },
+          { english: "artist", target: "artista", spanish: "", category: "-ist → -ista" },
+          { english: "tourist", target: "turista", spanish: "", category: "-ist → -ista" },
+          { english: "optimist", target: "ottimista", spanish: "", category: "-ist → -ista" },
+          { english: "camera", target: "camera", spanish: "", category: "false-friend", isFalseCognate: true, falseCognateNote: "camera = room, not camera" },
+          { english: "sensible", target: "sensibile", spanish: "", category: "false-friend", isFalseCognate: true, falseCognateNote: "sensibile = sensitive, not sensible" },
+          { english: "actually", target: "attualmente", spanish: "", category: "false-friend", isFalseCognate: true, falseCognateNote: "attualmente = currently, not actually" }
+        ]
       },
       numbers: {
         welcomeText: "Italian numbers are melodious and follow beautiful patterns. In this chapter, you'll learn to count in Italian \u2014 from ordering 'due espresso' to reading prices at a Roman market. Numbers in Italian sound like music!",

@@ -6,7 +6,7 @@ import { getTutorName } from "@/lib/tutor-avatars";
 import { getRomanization } from "@shared/romanization-utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Repeat2, Lightbulb, AlertTriangle } from "lucide-react";
+import { Repeat2, Lightbulb, AlertTriangle, Users, Zap } from "lucide-react";
 
 interface SunArcGreetingsProps {
   className?: string;
@@ -1701,14 +1701,14 @@ export function CognateRecognitionGrid({ cognates, language = 'spanish', classNa
                 data-testid={`cognate-card-${category}-${i}`}
               >
                 <CardContent className="p-3 flex flex-col gap-1.5">
-                  <div className="text-lg font-bold text-primary leading-tight" data-testid={`text-spanish-${i}`}>
-                    {entry.spanish}
+                  <div className="text-lg font-bold text-primary leading-tight" data-testid={`text-target-${i}`}>
+                    {entry.target ?? entry.spanish}
                   </div>
                   <div className="text-xs text-muted-foreground" data-testid={`text-english-${i}`}>
                     {entry.english}
                   </div>
                   <TextAudioPlayButton
-                    text={entry.spanish}
+                    text={entry.target ?? entry.spanish}
                     language={language}
                     size="sm"
                     data-testid={`button-play-cognate-${i}`}
@@ -1737,7 +1737,7 @@ export function CognateRecognitionGrid({ cognates, language = 'spanish', classNa
               >
                 <CardContent className="p-3 flex flex-col gap-1.5">
                   <div className="text-base font-bold text-amber-700 dark:text-amber-300 leading-tight">
-                    {entry.spanish}
+                    {entry.target ?? entry.spanish}
                   </div>
                   <div className="text-xs text-muted-foreground line-through">
                     {entry.english}
@@ -1748,7 +1748,7 @@ export function CognateRecognitionGrid({ cognates, language = 'spanish', classNa
                     </div>
                   )}
                   <TextAudioPlayButton
-                    text={entry.spanish}
+                    text={entry.target ?? entry.spanish}
                     language={language}
                     size="sm"
                     data-testid={`button-play-false-cognate-${i}`}
@@ -1808,6 +1808,185 @@ export function SentenceFrameGrid({ frames, language, className = '' }: Sentence
                     size="sm"
                     data-testid={`button-play-sentence-${frameIdx}-${itemIdx}`}
                   />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Vocab Q&A Grid (M1) ───────────────────────────────────────────────────────
+
+interface VocabQAItem {
+  word: string;
+  translation: string;
+  question: string;
+  answer: string;
+}
+
+interface VocabQAGridProps {
+  items: VocabQAItem[];
+  language?: string;
+  className?: string;
+}
+
+export function VocabQAGrid({ items, language = 'spanish', className = '' }: VocabQAGridProps) {
+  if (!items || items.length === 0) return null;
+  return (
+    <div className={`space-y-3 ${className}`} data-testid="vocab-qa-grid">
+      <div className="flex items-center gap-2">
+        <Zap className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+        <h3 className="font-semibold text-base">Production Drill</h3>
+        <Badge variant="outline" className="text-xs border-sky-500/30 text-sky-600 dark:text-sky-400">
+          full sentences
+        </Badge>
+      </div>
+      <p className="text-sm text-muted-foreground">Practice answering in complete sentences, not just single words.</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {items.map((item, i) => (
+          <Card key={i} className="hover-elevate" data-testid={`qa-card-${i}`}>
+            <CardContent className="p-4 space-y-2">
+              <div className="text-xs text-muted-foreground italic" data-testid={`text-question-${i}`}>
+                {item.question}
+              </div>
+              <div className="flex items-start justify-between gap-2">
+                <div className="font-semibold text-sm leading-snug flex-1" data-testid={`text-answer-${i}`}>
+                  {item.answer}
+                </div>
+                <TextAudioPlayButton text={item.answer} language={language} size="sm" data-testid={`button-play-qa-${i}`} />
+              </div>
+              <div className="text-xs text-muted-foreground border-t pt-2 mt-1" data-testid={`text-qa-translation-${i}`}>
+                {item.translation}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Gender Agreement Grid (M2) ────────────────────────────────────────────────
+
+interface GenderPair {
+  masculine: string;
+  feminine: string;
+  translation: string;
+}
+
+interface GenderAgreementGridProps {
+  pairs: GenderPair[];
+  masculineFrame?: string;
+  feminineFrame?: string;
+  language?: string;
+  className?: string;
+}
+
+export function GenderAgreementGrid({
+  pairs,
+  masculineFrame = 'Él está ___.',
+  feminineFrame = 'Ella está ___.',
+  language = 'spanish',
+  className = '',
+}: GenderAgreementGridProps) {
+  if (!pairs || pairs.length === 0) return null;
+  return (
+    <div className={`space-y-3 ${className}`} data-testid="gender-agreement-grid">
+      <div className="flex items-center gap-2">
+        <Users className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+        <h3 className="font-semibold text-base">Gender Agreement</h3>
+        <Badge variant="outline" className="text-xs border-violet-500/30 text-violet-600 dark:text-violet-400">
+          masculine / feminine
+        </Badge>
+      </div>
+      <p className="text-sm text-muted-foreground">Spanish adjectives change their ending to match the person they describe.</p>
+      <div className="grid grid-cols-2 gap-px bg-border rounded-lg overflow-hidden border">
+        <div className="bg-card px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+          {masculineFrame}
+        </div>
+        <div className="bg-card px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+          {feminineFrame}
+        </div>
+        {pairs.map((pair, i) => (
+          <>
+            <div key={`m-${i}`} className="bg-card px-3 py-2.5 flex items-center justify-between gap-2 border-t" data-testid={`gender-masc-${i}`}>
+              <span className="font-semibold text-sm">{pair.masculine}</span>
+              <TextAudioPlayButton text={pair.masculine} language={language} size="sm" data-testid={`button-play-masc-${i}`} />
+            </div>
+            <div key={`f-${i}`} className="bg-muted/20 px-3 py-2.5 flex items-center justify-between gap-2 border-t" data-testid={`gender-fem-${i}`}>
+              <span className="font-semibold text-sm">{pair.feminine}</span>
+              <TextAudioPlayButton text={pair.feminine} language={language} size="sm" data-testid={`button-play-fem-${i}`} />
+            </div>
+          </>
+        ))}
+        <div className="bg-card/50 px-3 py-1.5 col-span-2 border-t">
+          <div className="flex flex-wrap gap-x-4 gap-y-0.5">
+            {pairs.map((pair, i) => (
+              <span key={i} className="text-xs text-muted-foreground">
+                {pair.masculine} / {pair.feminine} = {pair.translation}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Verb Anchor Grid (M4) ─────────────────────────────────────────────────────
+
+interface VerbExample {
+  object: string;
+  fullPhrase: string;
+  translation: string;
+}
+
+interface VerbGroup {
+  verb: string;
+  verbTranslation: string;
+  examples: VerbExample[];
+}
+
+interface VerbAnchorGridProps {
+  groups: VerbGroup[];
+  language?: string;
+  className?: string;
+}
+
+export function VerbAnchorGrid({ groups, language = 'spanish', className = '' }: VerbAnchorGridProps) {
+  if (!groups || groups.length === 0) return null;
+  return (
+    <div className={`space-y-6 ${className}`} data-testid="verb-anchor-grid">
+      {groups.map((group, gi) => (
+        <div key={gi} className="space-y-3" data-testid={`verb-group-${gi}`}>
+          <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <Repeat2 className="h-3.5 w-3.5 text-primary" />
+                  <Badge variant="outline" className="text-xs border-primary/30 text-primary">Verb Anchor</Badge>
+                </div>
+                <div className="text-2xl font-bold text-primary" data-testid={`text-verb-${gi}`}>{group.verb}</div>
+                <div className="text-sm text-muted-foreground italic">{group.verbTranslation}</div>
+              </div>
+              <TextAudioPlayButton text={group.verb} language={language} size="sm" data-testid={`button-play-verb-${gi}`} />
+            </CardContent>
+          </Card>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {group.examples.map((ex, ei) => (
+              <Card key={ei} className="hover-elevate" data-testid={`verb-example-${gi}-${ei}`}>
+                <CardContent className="p-3 flex flex-col gap-1.5">
+                  <div className="text-base font-bold text-primary leading-tight" data-testid={`text-object-${gi}-${ei}`}>
+                    {ex.object}
+                  </div>
+                  <div className="text-xs font-medium leading-snug text-foreground/80" data-testid={`text-full-phrase-${gi}-${ei}`}>
+                    {ex.fullPhrase}
+                  </div>
+                  <div className="text-xs text-muted-foreground">{ex.translation}</div>
+                  <TextAudioPlayButton text={ex.fullPhrase} language={language} size="sm" data-testid={`button-play-example-${gi}-${ei}`} />
                 </CardContent>
               </Card>
             ))}

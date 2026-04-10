@@ -19,6 +19,43 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## Session Summary — Thu, Apr 10, 2026 (session 40 — M1–M4 build + bloviation audit + cognate expansion)
+
+### What was done
+
+1. **T001 — Data types confirmed complete** (from prior session): `VocabQAItem`, `GenderPair`, `VerbExample`, `VerbGroup`, `discoveryNote` all on `ChapterIntroContent`. `CognateEntry` updated to add `target?: string` for multilingual cognate support.
+
+2. **T002 — Three new infographic components built** in `TextbookInfographics.tsx`:
+   - **M1 `VocabQAGrid`** — dialogue production drill. Shows Q&A pairs in complete sentences, not just single words. Sky-blue accent, "full sentences" badge, play buttons on answers.
+   - **M2 `GenderAgreementGrid`** — two-column masculine/feminine table. Customizable frame text (e.g. "Él está ___." / "Ella está ___."). Violet accent. Translation key row below the grid.
+   - **M4 `VerbAnchorGrid`** — verb anchor card (large, primary, repeat icon) + object tile grid (object word large, full phrase medium, translation small, play button). Groups support multiple verbs per chapter.
+
+3. **T003 — Wired into ChapterIntroduction.tsx**: imported all three + `discoveryNote` callout (sky-blue, BookOpen icon, "Notice:" prefix) after tip inside narrativeSections loop. Render order: sentenceFrames → genderPairs → vocabQA → verbGroups.
+
+4. **T004 — Spanish chapter data seeded**:
+   - **Greetings**: 6 genderPairs (contento/a, cansado/a, ocupado/a, enfermo/a, nervioso/a, emocionado/a), 6 vocabQA pairs (¿Cómo te llamas? / Mucho gusto / ¿Qué tal? etc.), `estar` verbGroup (6 examples), `discoveryNote` on Formal/Informal section explaining usted shares verb ending with él/ella.
+   - **Family**: 5 genderPairs (padre/madre, hermano/hermana, abuelo/abuela, tío/tía, primo/prima) with custom frames "Él es mi ___ / Ella es mi ___", 5 vocabQA pairs (¿Quién es ella? etc.), `ser` verbGroup (6 family examples).
+
+5. **T005 — Bloviation audit**:
+   - **Greetings welcomeText**: old fluffy copy removed. Replaced with: "In this chapter you'll learn three time-of-day greetings (buenos días, buenas tardes, buenas noches), the formal and informal 'you' (usted / tú), and how to introduce yourself. By the end, you'll be able to open and close a real conversation in Spanish." — passes 3-job test: teaches vocab, demonstrates pattern, builds confidence.
+   - **Numbers welcomeText**: "Spanish numbers follow a predictable pattern: learn uno through diez, and the rules for veinte, treinta, and cien unlock everything else. This chapter covers cero to un millón — including telling time and sharing your phone number."
+   - Family welcomeText preserved — already tight and passes the 3-job test.
+
+6. **T006 — Cognate expansion**: `CognateEntry.target?: string` added (multilingual field; `spanish` kept for backward compat, component updated to `entry.target ?? entry.spanish`). Three new language cognate sets seeded:
+   - **French**: 18 cognates (hotel/hôtel, taxi, restaurant, concert, sport, possible, important, excellent, nation, attention, information, artiste, touriste, optimiste) + 3 false friends (actuel/sensible/rester).
+   - **Italian**: 18 cognates (hotel, pizza, radio, studio, importante, naturale, originale, attenzione, nazione, informazione, artista, turista, ottimista) + 3 false friends (camera=room, sensibile, attualmente).
+   - **German**: 18 cognates (Hotel, Sport, Tennis, Internet, Computer, Moment, Telefon, Musik, Problem, Nation, Aktion, Information, Artist, Tourist, Optimist) + 3 false friends (aktuell, sympathisch, sensibel).
+   - Portuguese skipped — no `chapters` key in its data structure; needs its own data scaffold before cognates can be seeded.
+
+### Pending / next session
+
+- **Plan M5** (images in SentenceFrameGrid) — still HIGH PRIORITY, not started
+- **Portuguese chapter scaffold** — add `chapters: {}` structure with greetings/family/numbers before cognate expansion can be seeded
+- **French/Italian/German family chapter data** — M1/M2/M4 only seeded for Spanish so far
+- Madrigal image scanning — David still has more pages
+
+---
+
 ## Session Summary — Thu, Apr 10, 2026 (session 39 — Madrigal preface analysis + Plan M6)
 
 ### What was done
