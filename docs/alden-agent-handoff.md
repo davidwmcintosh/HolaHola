@@ -19,6 +19,59 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## Session Summary — Thu, Apr 10, 2026 (session 42 — family chapter M1/M2/M4 + greetings M6 expansion)
+
+### What was done
+
+1. **`genderFrame` interface field added** to `ChapterIntroContent` in `chapter-intro-content.ts`:
+   - `genderFrame?: { masculine: string; feminine: string }` — allows any chapter to override the default language-level gender frame
+   - Critical because family chapters use "C'est mon ___." / "C'est ma ___." (French) not "Il est ___." which is the greetings default
+   - `ChapterIntroduction.tsx` updated: `masculineFrame={content.genderFrame?.masculine ?? langFrames[langKey]}`
+
+2. **Family chapter M1 (vocabQA) seeded for all 9 non-Spanish languages** — 5 QA pairs each, covering siblings/who-is-this/name-question/how-many-people/where-do-parents-live:
+   - French, German, Italian, Japanese, Korean, Mandarin, Portuguese, English, Hebrew
+
+3. **Family chapter M4 (verbGroups) seeded for all 9 non-Spanish languages** — key verbs: être/sein/essere/です/이에요/是/ser/to be/zero-copula:
+   - Japanese: uchi/soto register note (父 vs. お父さん)
+   - Korean: consonant/vowel copula rule in family context
+   - Mandarin: birth-order precision note (哥哥/弟弟/姐姐/妹妹 — no single "sibling" word)
+   - Hebrew: הוא אבא שלי zero-copula + שלי (of me/mine) explained
+
+4. **Family chapter M2 (genderFrame + genderPairs) seeded for FR/IT/PT/HE/ES** — noun pairs (père/mère not adjectives) with chapter-specific frames:
+   - Spanish: "Él es mi ___." / "Ella es mi ___." (was missing genderFrame override — now fixed)
+   - French: "C'est mon ___." / "C'est ma ___."
+   - Italian: "Lui è mio ___." / "Lei è mia ___."
+   - Portuguese: "Ele é meu ___." / "Ela é minha ___."
+   - Hebrew: "הוא ___ שלי." / "היא ___ שלי."
+   - DE/JA/KO/ZH/EN: correctly have no genderPairs (no grammatical gender agreement)
+
+5. **Greetings M6 cognateOpener seeded for PT/JA/KO/ZH/HE** (5 languages — all remaining except EN):
+   - Portuguese: 18 cognates (hotel/táxi/restaurante/possível/excelente…) + 3 false friends (polvo/borracha/pretender)
+   - Japanese: 17 katakana loan-words + 2 false friends (マンション≠mansion, スマート≠smart/clever)
+   - Korean: 17 konglish loan-words + 2 culture notes (핸드폰=cell phone, 아이쇼핑=window shopping)
+   - Mandarin: 15 phonetic loans (咖啡/巧克力/沙发/比萨/汉堡…) + 0 false friends (phonetic loans differ structurally)
+   - Hebrew: 16 international loans (טלפון/טלוויזיה/קפה/פיצה/בנק/ספורט…) + 0 false friends
+   - English: still pending (cognate strategy for L2 English differs fundamentally — not seeded)
+
+6. **One TypeScript typo fixed**: `\u01co` → `\u01ceok` in Mandarin `巧克力` romanization (qiǎokèlì)
+
+### Files changed
+- `client/src/data/chapter-intro-content.ts` — interface + 15 data insertions (2 scripts)
+- `client/src/components/ChapterIntroduction.tsx` — genderFrame prop override
+- `docs/visual-asset-roadmap.md` — M1/M2/M4 family + M6 cognate status updated
+- `docs/alden-agent-handoff.md` — this entry
+
+### Status after this session
+
+| Chapter | M1 vocabQA | M2 genderPairs | M4 verbGroups | M6 cognates |
+|---|---|---|---|---|
+| Greetings | ✅ all 10 | ✅ gender-langs | ✅ all 10 | ✅ 9/10 (EN pending) |
+| Family | ✅ all 10 | ✅ gender-langs | ✅ all 10 | — |
+| Numbers | ⬜ | ⬜ | ⬜ | — |
+| Daily | ⬜ | ⬜ | ⬜ | — |
+
+---
+
 ## Session Summary — Thu, Apr 10, 2026 (session 41 — M1/M2/M4 all-language greetings seed)
 
 ### What was done

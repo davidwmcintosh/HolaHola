@@ -100,6 +100,7 @@ export interface ChapterIntroContent {
   };
   cognateOpener?: CognateEntry[];
   sentenceFrames?: SentenceFrame[];
+  genderFrame?: { masculine: string; feminine: string };
   genderPairs?: GenderPair[];
   vocabQA?: VocabQAItem[];
   verbGroups?: VerbGroup[];
@@ -333,6 +334,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             ]
           }
         ],
+        genderFrame: { masculine: "Él es mi ___.", feminine: "Ella es mi ___." },
         genderPairs: [
           { masculine: "padre", feminine: "madre", translation: "father / mother" },
           { masculine: "hermano", feminine: "hermana", translation: "brother / sister" },
@@ -573,7 +575,35 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "Le D\u00e9jeuner du Dimanche",
           content: "The Sunday family lunch is sacred in French culture. Multiple generations gather around a table for a meal that can last three to four hours, with multiple courses, wine, cheese, and lively conversation. It's where family recipes are passed down and stories are shared across generations."
-        }
+        },
+        genderFrame: { masculine: "C'est mon ___.", feminine: "C'est ma ___." },
+        genderPairs: [
+          { masculine: "mon p\u00e8re",       feminine: "ma m\u00e8re",        translation: "my father / my mother"           },
+          { masculine: "mon fr\u00e8re",      feminine: "ma s\u0153ur",        translation: "my brother / my sister"          },
+          { masculine: "mon grand-p\u00e8re", feminine: "ma grand-m\u00e8re",  translation: "my grandfather / my grandmother" },
+          { masculine: "mon oncle",       feminine: "ma tante",        translation: "my uncle / my aunt"              },
+          { masculine: "mon cousin",      feminine: "ma cousine",      translation: "my (male) / my (female) cousin"  }
+        ],
+        vocabQA: [
+          { question: "Vous avez des fr\u00e8res et s\u0153urs\u00a0?",     answer: "Oui, j\u2019ai un fr\u00e8re et une s\u0153ur.", word: "fr\u00e8res et s\u0153urs", translation: "brothers and sisters" },
+          { question: "Qui est-ce\u00a0?",                             answer: "C\u2019est mon p\u00e8re.",                   word: "qui est-ce",           translation: "who is this?"          },
+          { question: "Comment s\u2019appelle votre m\u00e8re\u00a0?",       answer: "Elle s\u2019appelle Marie.",                  word: "s\u2019appelle",              translation: "is named"              },
+          { question: "Combien de personnes dans votre famille\u00a0?", answer: "Nous sommes cinq dans ma famille.",          word: "combien",              translation: "how many"              },
+          { question: "Vos parents habitent o\u00f9\u00a0?",                  answer: "Mes parents habitent \u00e0 Paris.",           word: "habitent",             translation: "live / reside"         }
+        ],
+        verbGroups: [
+          {
+            verb: "\u00eatre",
+            verbTranslation: "to be (identity)",
+            examples: [
+              { object: "mon p\u00e8re",    fullPhrase: "C\u2019est mon p\u00e8re.",    translation: "This is my father."       },
+              { object: "ma m\u00e8re",     fullPhrase: "C\u2019est ma m\u00e8re.",     translation: "This is my mother."       },
+              { object: "mon fr\u00e8re",   fullPhrase: "C\u2019est mon fr\u00e8re.",   translation: "This is my brother."      },
+              { object: "ma s\u0153ur",     fullPhrase: "C\u2019est ma s\u0153ur.",     translation: "This is my sister."       },
+              { object: "mes parents", fullPhrase: "Ce sont mes parents.", translation: "These are my parents." }
+            ]
+          }
+        ]
       },
       daily: {
         welcomeText: "Everyday French is filled with graceful expressions and polite formulas. This chapter builds your daily vocabulary so you can navigate French life with confidence, from morning greetings to evening farewells.",
@@ -742,6 +772,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
               { object: "glücklich",  fullPhrase: "Ich bin glücklich.", translation: "I am happy." }
             ]
           }
+        ],
+        cognateOpener: [
+          { native: "hotel",          english: "hotel",                              category: "place"         },
+          { native: "t\u00e1xi",          english: "taxi",                               category: "transport"     },
+          { native: "restaurante",   english: "restaurant",                         category: "food"          },
+          { native: "poss\u00edvel",       english: "possible",                           category: "concept"       },
+          { native: "importante",    english: "important",                          category: "concept"       },
+          { native: "excelente",     english: "excellent",                          category: "concept"       },
+          { native: "natural",       english: "natural",                            category: "concept"       },
+          { native: "social",        english: "social",                             category: "concept"       },
+          { native: "nacional",      english: "national",                           category: "concept"       },
+          { native: "animal",        english: "animal",                             category: "concept"       },
+          { native: "digital",       english: "digital",                            category: "concept"       },
+          { native: "hospital",      english: "hospital",                           category: "place"         },
+          { native: "central",       english: "central",                            category: "concept"       },
+          { native: "tropical",      english: "tropical",                           category: "concept"       },
+          { native: "total",         english: "total",                              category: "concept"       },
+          { native: "musical",       english: "musical",                            category: "concept"       },
+          { native: "polvo",         english: "octopus \u2014 not \u201cpowder\u201d",          category: "false-friend"  },
+          { native: "borracha",      english: "rubber / drunk (f.) \u2014 not simply \u201cdrunk\u201d", category: "false-friend"  },
+          { native: "pretender",     english: "to intend \u2014 not \u201cto pretend\u201d",    category: "false-friend"  }
         ]
       },
       numbers: {
@@ -779,7 +830,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "Der Sonntagskuchen",
           content: "In German families, Sunday afternoon 'Kaffee und Kuchen' (coffee and cake) is a beloved tradition. Families gather around the table for homemade cake \u2014 often Schwarzw\u00e4lder Kirschtorte or Apfelstrudel \u2014 with strong coffee. It's a weekly ritual that keeps family bonds strong across generations."
-        }
+        },
+        vocabQA: [
+          { question: "Haben Sie Geschwister?",                            answer: "Ja, ich habe einen Bruder und eine Schwester.", word: "Geschwister",  translation: "siblings"      },
+          { question: "Wer ist das?",                                      answer: "Das ist mein Vater.",                          word: "wer ist das",  translation: "who is this?"  },
+          { question: "Wie hei\u00dft Ihre Mutter?",                           answer: "Sie hei\u00dft Maria.",                           word: "hei\u00dft",        translation: "is named"      },
+          { question: "Wie viele Personen sind in Ihrer Familie?",         answer: "Wir sind f\u00fcnf in meiner Familie.",            word: "wie viele",    translation: "how many"      },
+          { question: "Wo wohnen Ihre Eltern?",                            answer: "Meine Eltern wohnen in Berlin.",               word: "wohnen",       translation: "live / reside" }
+        ],
+        verbGroups: [
+          {
+            verb: "sein",
+            verbTranslation: "to be (identity)",
+            examples: [
+              { object: "mein Vater",    fullPhrase: "Das ist mein Vater.",    translation: "This is my father."  },
+              { object: "meine Mutter",  fullPhrase: "Das ist meine Mutter.",  translation: "This is my mother."  },
+              { object: "mein Bruder",   fullPhrase: "Das ist mein Bruder.",   translation: "This is my brother." },
+              { object: "meine Schwester", fullPhrase: "Das ist meine Schwester.", translation: "This is my sister."  },
+              { object: "meine Familie", fullPhrase: "Das ist meine Familie.", translation: "This is my family."  }
+            ]
+          }
+        ]
       },
       daily: {
         welcomeText: "German daily life runs on efficiency and courtesy. This chapter equips you with the essential vocabulary for navigating everyday situations, from morning routines to evening exchanges in German-speaking countries.",
@@ -993,7 +1064,35 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "La Domenica in Famiglia",
           content: "Sunday lunch with the whole family is a sacred Italian tradition. 'Nonna' prepares a multi-course feast \u2014 antipasto, primo, secondo, contorno, and dolce \u2014 and three generations gather around one table. These weekly reunions keep Italian families connected across distances and decades."
-        }
+        },
+        genderFrame: { masculine: "Lui \u00e8 mio ___.", feminine: "Lei \u00e8 mia ___." },
+        genderPairs: [
+          { masculine: "mio padre",   feminine: "mia madre",   translation: "my father / my mother"           },
+          { masculine: "mio fratello", feminine: "mia sorella", translation: "my brother / my sister"          },
+          { masculine: "mio nonno",   feminine: "mia nonna",   translation: "my grandfather / my grandmother" },
+          { masculine: "mio zio",     feminine: "mia zia",     translation: "my uncle / my aunt"              },
+          { masculine: "mio cugino",  feminine: "mia cugina",  translation: "my (male) / my (female) cousin"  }
+        ],
+        vocabQA: [
+          { question: "Hai fratelli o sorelle?",                         answer: "S\u00ec, ho un fratello e una sorella.",       word: "fratelli o sorelle", translation: "brothers or sisters" },
+          { question: "Chi \u00e8 questo?",                                  answer: "\u00c8 mio padre.",                             word: "chi \u00e8",              translation: "who is this?"         },
+          { question: "Come si chiama tua madre?",                       answer: "Si chiama Maria.",                           word: "si chiama",          translation: "is named"             },
+          { question: "Quante persone ci sono nella tua famiglia?",      answer: "Siamo cinque nella mia famiglia.",           word: "quante",             translation: "how many"             },
+          { question: "Dove abitano i tuoi genitori?",                   answer: "I miei genitori abitano a Roma.",            word: "abitano",            translation: "live / reside"        }
+        ],
+        verbGroups: [
+          {
+            verb: "essere",
+            verbTranslation: "to be (identity)",
+            examples: [
+              { object: "mio padre",   fullPhrase: "\u00c8 mio padre.",   translation: "He is my father."       },
+              { object: "mia madre",   fullPhrase: "\u00c8 mia madre.",   translation: "She is my mother."      },
+              { object: "mio fratello", fullPhrase: "\u00c8 mio fratello.", translation: "He is my brother."    },
+              { object: "mia sorella", fullPhrase: "\u00c8 mia sorella.", translation: "She is my sister."      },
+              { object: "mio nonno",   fullPhrase: "\u00c8 mio nonno.",   translation: "He is my grandfather."  }
+            ]
+          }
+        ]
       },
       daily: {
         welcomeText: "Italian daily life is infused with warmth, beauty, and rich tradition. This chapter introduces the essential words and phrases you'll use every day as you navigate life the Italian way \u2014 'piano piano' (little by little).",
@@ -1140,6 +1239,25 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
               { object: "先生 (sensei)",        fullPhrase: "先生です。",       translation: "I am a teacher." }
             ]
           }
+        ],
+        cognateOpener: [
+          { native: "\u30db\u30c6\u30eb (hoteru)",          english: "hotel",                                        category: "place"         },
+          { native: "\u30bf\u30af\u30b7\u30fc (takush\u012b)",        english: "taxi",                                         category: "transport"     },
+          { native: "\u30ec\u30b9\u30c8\u30e9\u30f3 (resutoran)",    english: "restaurant",                                   category: "food"          },
+          { native: "\u30b3\u30fc\u30d2\u30fc (k\u014dh\u012b)",          english: "coffee",                                       category: "food"          },
+          { native: "\u30c6\u30ec\u30d3 (terebi)",          english: "television",                                   category: "technology"    },
+          { native: "\u30d0\u30b9 (basu)",              english: "bus",                                          category: "transport"     },
+          { native: "\u30b9\u30dd\u30fc\u30c4 (sup\u014dtsu)",       english: "sports",                                       category: "concept"       },
+          { native: "\u30a4\u30f3\u30bf\u30fc\u30cd\u30c3\u30c8 (int\u0101netto)", english: "internet",                                     category: "technology"    },
+          { native: "\u30ab\u30e1\u30e9 (kamera)",         english: "camera",                                       category: "technology"    },
+          { native: "\u30d4\u30a2\u30ce (piano)",          english: "piano",                                        category: "concept"       },
+          { native: "\u30ae\u30bf\u30fc (git\u0101)",            english: "guitar",                                       category: "concept"       },
+          { native: "\u30a2\u30a4\u30b9\u30af\u30ea\u30fc\u30e0 (aisukur\u012bmu)", english: "ice cream",                                    category: "food"          },
+          { native: "\u30c1\u30e7\u30b3\u30ec\u30fc\u30c8 (chokore\u0113to)", english: "chocolate",                                    category: "food"          },
+          { native: "\u30cb\u30e5\u30fc\u30b9 (ny\u016bsu)",         english: "news",                                         category: "concept"       },
+          { native: "\u30d1\u30fc\u30c6\u30a3\u30fc (p\u0101t\u012b)",       english: "party",                                        category: "concept"       },
+          { native: "\u30de\u30f3\u30b7\u30e7\u30f3 (manshon)",      english: "apartment / condo \u2014 not \u201cmansion\u201d",  category: "false-friend"  },
+          { native: "\u30b9\u30de\u30fc\u30c8 (sum\u0101to)",        english: "slim / stylish \u2014 not \u201csmart / clever\u201d", category: "false-friend"  }
         ]
       },
       numbers: {
@@ -1177,7 +1295,28 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "\u304a\u76c6 (Obon)",
           content: "Obon is a Japanese Buddhist tradition held in August where families reunite to honor their ancestors. Family members travel home from across the country, visit ancestral graves, and celebrate with Bon Odori dances. It's Japan's most important family reunion event and one of the few times the entire nation pauses together."
-        }
+        },
+        vocabQA: [
+          { question: "\u5144\u5f1f\u59c9\u59b9\u306f\u3044\u307e\u3059\u304b\uff1f",             answer: "\u306f\u3044\u3001\u5144\u304c\u4e00\u4eba\u3044\u307e\u3059\u3002",          word: "\u5144\u5f1f\u59c9\u59b9 (ky\u014ddai)",      translation: "siblings"              },
+          { question: "\u3053\u308c\u306f\u3060\u308c\u3067\u3059\u304b\uff1f",                    answer: "\u79c1\u306e\u7236\u3067\u3059\u3002",                         word: "\u3060\u308c\u3067\u3059\u304b (dare desu ka)", translation: "who is this?"          },
+          { question: "\u304a\u7236\u3055\u3093\u306e\u304a\u540d\u524d\u306f\uff1f",             answer: "\u7236\u306e\u540d\u524d\u306f\u7530\u4e2d\u3067\u3059\u3002",            word: "\u304a\u7236\u3055\u3093 (ot\u014dsan)",       translation: "your father (polite)"  },
+          { question: "\u3054\u5bb6\u65cf\u306f\u4f55\u4eba\u3067\u3059\u304b\uff1f",             answer: "\u5bb6\u65cf\u306f\u4e94\u4eba\u3067\u3059\u3002",                  word: "\u4f55\u4eba (nannin)",               translation: "how many people?"      },
+          { question: "\u3054\u4e21\u89aa\u306f\u3069\u3053\u306b\u304a\u4f4f\u307e\u3044\u3067\u3059\u304b\uff1f", answer: "\u4e21\u89aa\u306f\u6771\u4eac\u306b\u4f4f\u3093\u3067\u3044\u307e\u3059\u3002", word: "\u3054\u4e21\u89aa (go-ry\u014dshin)",       translation: "your parents (polite)" }
+        ],
+        verbGroups: [
+          {
+            verb: "\u3067\u3059 (desu)",
+            verbTranslation: "to be (identity, polite)",
+            verbHint: "Japanese family vocabulary has two registers: humble uchi forms for your own family (chichi \u7236 = my father) and polite soto forms for others\u2019 families (ot\u014dsan \u304a\u7236\u3055\u3093 = your father). This chapter uses the humble set.",
+            examples: [
+              { object: "\u7236 (chichi)",  fullPhrase: "\u7236\u3067\u3059\u3002",  translation: "He is my father."       },
+              { object: "\u6bcd (haha)",    fullPhrase: "\u6bcd\u3067\u3059\u3002",  translation: "She is my mother."      },
+              { object: "\u5144 (ani)",     fullPhrase: "\u5144\u3067\u3059\u3002",  translation: "He is my older brother." },
+              { object: "\u59c9 (ane)",     fullPhrase: "\u59c9\u3067\u3059\u3002",  translation: "She is my older sister." },
+              { object: "\u7956\u7236 (sofu)", fullPhrase: "\u7956\u7236\u3067\u3059\u3002", translation: "He is my grandfather."  }
+            ]
+          }
+        ]
       },
       daily: {
         welcomeText: "Japanese daily life is a beautiful blend of ancient tradition and modern efficiency. This chapter gives you the essential vocabulary to navigate a day in Japan, from morning greetings to convenience store interactions.",
@@ -1324,6 +1463,25 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
               { object: "친구 (chingu)",            fullPhrase: "친구예요.", translation: "I am a friend." }
             ]
           }
+        ],
+        cognateOpener: [
+          { native: "\ud638\ud154 (hotel)",            english: "hotel",                                          category: "place"         },
+          { native: "\ud0dd\uc2dc (taxi)",             english: "taxi",                                           category: "transport"     },
+          { native: "\ub808\uc2a4\ud1a0\ub791 (restaurant)", english: "restaurant",                                     category: "food"          },
+          { native: "\ucee4\ud53c (coffee)",            english: "coffee",                                         category: "food"          },
+          { native: "\ud154\ub808\ube44\uc804 (television)", english: "television",                                     category: "technology"    },
+          { native: "\ubc84\uc2a4 (bus)",               english: "bus",                                            category: "transport"     },
+          { native: "\uc2a4\ud3ec\uce20 (sports)",         english: "sports",                                         category: "concept"       },
+          { native: "\uc778\ud130\ub137 (internet)",       english: "internet",                                       category: "technology"    },
+          { native: "\uce74\uba54\ub77c (camera)",         english: "camera",                                         category: "technology"    },
+          { native: "\ud53c\uc544\ub178 (piano)",          english: "piano",                                          category: "concept"       },
+          { native: "\uae30\ud0c0 (guitar)",            english: "guitar",                                         category: "concept"       },
+          { native: "\uc544\uc774\uc2a4\ud06c\ub9bc (ice cream)", english: "ice cream",                                      category: "food"          },
+          { native: "\ucd08\ucf5c\ub9bf (chocolate)",     english: "chocolate",                                      category: "food"          },
+          { native: "\uc18c\ud30c (sofa)",              english: "sofa",                                           category: "concept"       },
+          { native: "\ud30c\ud2f0 (party)",             english: "party",                                          category: "concept"       },
+          { native: "\ud578\ub4dc\ud3f0 (handphone)",    english: "cell phone \u2014 \u201chandphone\u201d is not standard English", category: "false-friend"  },
+          { native: "\uc544\uc774\ucfe0\ud551 (eye shopping)", english: "window shopping \u2014 not standard English",   category: "false-friend"  }
         ]
       },
       numbers: {
@@ -1361,7 +1519,28 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "\ucd94\uc11d (Chuseok)",
           content: "Chuseok, the Korean harvest festival, is the most important family gathering of the year. Families travel across the country to reunite at their ancestral homes, prepare traditional songpyeon (rice cakes) together, and perform ancestral rites called '\ucc28\ub840' (charye). It's a time when the entire nation pauses to honor family bonds."
-        }
+        },
+        vocabQA: [
+          { question: "\ud615\uc81c\uc790\ub9e4\uac00 \uc788\uc5b4\uc694?",       answer: "\ub124, \uc624\ube60 \ud55c \uba85\uc774 \uc788\uc5b4\uc694.",    word: "\ud615\uc81c\uc790\ub9e4 (hyeongje jamae)", translation: "brothers and sisters" },
+          { question: "\uc774 \ubd84\uc740 \ub204\uad6c\uc608\uc694?",         answer: "\uc81c \uc544\ubc84\uc9c0\uc608\uc694.",                     word: "\ub204\uad6c\uc608\uc694 (nugu yeyo)",    translation: "who is this?"         },
+          { question: "\uc5b4\uba38\ub2c8 \uc131\ud568\uc774 \uc5b4\ub5bb\uac8c \ub418\uc138\uc694?", answer: "\uc5b4\uba38\ub2c8 \uc131\ud568\uc740 \uae40\uc601\ud76c\uc608\uc694.", word: "\uc131\ud568 (seongham)",          translation: "honorific name"       },
+          { question: "\uac00\uc871\uc774 \uba87 \uba85\uc774\uc5d0\uc694?",      answer: "\uac00\uc871\uc774 \ub2e4\uc12f \uba85\uc774\uc5d0\uc694.",       word: "\uba87 \uba85 (myeot myeong)",       translation: "how many people?"     },
+          { question: "\ubd80\ubaa8\ub2d8\uc740 \uc5b4\ub514\uc5d0 \uc0ac\uc138\uc694?",   answer: "\ubd80\ubaa8\ub2d8\uc740 \uc11c\uc6b8\uc5d0 \uc0ac\uc138\uc694.",     word: "\ubd80\ubaa8\ub2d8 (bumonnim)",      translation: "parents (honorific)"  }
+        ],
+        verbGroups: [
+          {
+            verb: "\uc774\uc5d0\uc694 / \uc608\uc694",
+            verbTranslation: "to be (identity, polite)",
+            verbHint: "Use \uc774\uc5d0\uc694 after a consonant-ending noun and \uc608\uc694 after a vowel-ending noun. \uc544\ubc84\uc9c0\uc608\uc694 (vowel) \u2022 \ud559\uc0dd\uc774\uc5d0\uc694 (consonant).",
+            examples: [
+              { object: "\uc544\ubc84\uc9c0 (abeoji)",  fullPhrase: "\uc544\ubc84\uc9c0\uc608\uc694.",  translation: "He is my father."                        },
+              { object: "\uc5b4\uba38\ub2c8 (eomeoni)", fullPhrase: "\uc5b4\uba38\ub2c8\uc608\uc694.", translation: "She is my mother."                       },
+              { object: "\uc624\ube60 (oppa)",       fullPhrase: "\uc624\ube60\uc608\uc694.",       translation: "He is my older brother. (female speaker)" },
+              { object: "\uc5b8\ub2c8 (eonni)",      fullPhrase: "\uc5b8\ub2c8\uc608\uc694.",      translation: "She is my older sister. (female speaker)" },
+              { object: "\ud560\uc544\ubc84\uc9c0 (harabeoji)", fullPhrase: "\ud560\uc544\ubc84\uc9c0\uc608\uc694.", translation: "He is my grandfather." }
+            ]
+          }
+        ]
       },
       daily: {
         welcomeText: "Korean daily life blends ancient courtesy with modern energy. This chapter equips you with the essential words and phrases for navigating everyday situations, from bustling Seoul streets to friendly neighborhood interactions.",
@@ -1508,6 +1687,23 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
               { object: "朋友 (péngyǒu)", fullPhrase: "我是你的朋友。", translation: "I am your friend." }
             ]
           }
+        ],
+        cognateOpener: [
+          { native: "\u548c\u5496\u5561 (k\u0101f\u0113i)",       english: "coffee",                                       category: "food"          },
+          { native: "\u5de7\u514b\u529b (qi\u01ceok\u00e8l\u00ec)",    english: "chocolate",                                    category: "food"          },
+          { native: "\u6c99\u53d1 (sh\u0101f\u0101)",          english: "sofa",                                         category: "concept"       },
+          { native: "\u6bd4\u8428 (b\u01d0s\u00e0)",          english: "pizza",                                        category: "food"          },
+          { native: "\u6c49\u5821 (h\u00e0nb\u01ceo)",        english: "hamburger",                                    category: "food"          },
+          { native: "\u6c99\u62c9 (sh\u0101l\u0101)",         english: "salad",                                        category: "food"          },
+          { native: "\u5409\u4ed6 (j\u00edt\u0101)",          english: "guitar",                                       category: "concept"       },
+          { native: "\u5e7b\u9ed8 (y\u014dm\u00f2)",         english: "humor",                                        category: "concept"       },
+          { native: "\u6d6a\u6f2b (l\u00e0ngm\u00e0n)",      english: "romantic",                                     category: "concept"       },
+          { native: "\u9a6c\u62c9\u677e (m\u01cel\u0101s\u014dng)", english: "marathon",                                     category: "concept"       },
+          { native: "\u82ad\u8d77 (b\u0101l\u011bi)",         english: "ballet",                                       category: "concept"       },
+          { native: "\u6251\u514b (p\u016bk\u00e8)",          english: "poker",                                        category: "concept"       },
+          { native: "\u5766\u514b (t\u01cenk\u00e8)",         english: "tank (military)",                              category: "concept"       },
+          { native: "\u903b\u8f91 (lu\u00f3j\u00ed)",         english: "logic",                                        category: "concept"       },
+          { native: "\u5965\u6797\u5339\u514b (\u00e0ol\u00eenp\u01d0k\u00e8)", english: "Olympic",                                      category: "concept"       }
         ]
       },
       numbers: {
@@ -1545,7 +1741,28 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "\u5b5d (Xi\u00e0o) \u2014 Filial Piety",
           content: "'\u5b5d' (xi\u00e0o \u2014 filial piety) is one of the most important values in Chinese culture. It encompasses respect, care, and devotion to one's parents and elders. Adult children are expected to care for aging parents, and this value is so central that it's literally built into the Chinese character itself \u2014 '\u5b50' (child) beneath '\u8001' (elder)."
-        }
+        },
+        vocabQA: [
+          { question: "\u4f60\u6709\u5144\u5f1f\u59d0\u59b9\u5417\uff1f",         answer: "\u6709\uff0c\u6211\u6709\u4e00\u4e2a\u54e5\u54e5\u548c\u4e00\u4e2a\u59b9\u59b9\u3002",   word: "\u5144\u5f1f\u59d0\u59b9 (xi\u014dngd\u00ec ji\u011bm\u00e8i)", translation: "brothers and sisters" },
+          { question: "\u8fd9\u662f\u8c01\uff1f",                       answer: "\u8fd9\u662f\u6211\u7238\u7238\u3002",                    word: "\u8c01 (sh\u00e9i)",                          translation: "who?"                 },
+          { question: "\u4f60\u5988\u5988\u53eb\u4ec0\u4e48\u540d\u5b57\uff1f",    answer: "\u6211\u5988\u5988\u53eb\u674e\u660e\u3002",              word: "\u53eb (ji\u00e0o)",                          translation: "is named / called"    },
+          { question: "\u4f60\u5bb6\u6709\u51e0\u4e2a\u4eba\uff1f",          answer: "\u6211\u5bb6\u6709\u4e94\u4e2a\u4eba\u3002",                 word: "\u51e0\u4e2a\u4eba (j\u01d0ge r\u00e9n)",          translation: "how many people?"     },
+          { question: "\u4f60\u7236\u6bcd\u4f4f\u5728\u54ea\u91cc\uff1f",      answer: "\u6211\u7236\u6bcd\u4f4f\u5728\u5317\u4eac\u3002",             word: "\u4f4f (zh\u00f9)",                           translation: "live / reside"        }
+        ],
+        verbGroups: [
+          {
+            verb: "\u662f (sh\u00ec)",
+            verbTranslation: "to be (identity)",
+            verbHint: "Mandarin family terms are birth-order precise: \u54e5\u54e5 (g\u0113ge) = older brother, \u5f1f\u5f1f (d\u00ecdi) = younger brother, \u59d0\u59d0 (ji\u011bji\u011b) = older sister, \u59b9\u59b9 (m\u00e8imei) = younger sister. There is no single word for \u201csibling.\u201d",
+            examples: [
+              { object: "\u6211\u7238\u7238 (w\u01d2 b\u00e0ba)",   fullPhrase: "\u4ed6\u662f\u6211\u7238\u7238\u3002",  translation: "He is my father."           },
+              { object: "\u6211\u5988\u5988 (w\u01d2 m\u0101ma)",   fullPhrase: "\u5979\u662f\u6211\u5988\u5988\u3002",  translation: "She is my mother."          },
+              { object: "\u6211\u54e5\u54e5 (w\u01d2 g\u0113ge)",   fullPhrase: "\u4ed6\u662f\u6211\u54e5\u54e5\u3002",  translation: "He is my older brother."    },
+              { object: "\u6211\u59b9\u59b9 (w\u01d2 m\u00e8imei)", fullPhrase: "\u5979\u662f\u6211\u59b9\u59b9\u3002",  translation: "She is my younger sister."  },
+              { object: "\u6211\u7237\u7237 (w\u01d2 y\u00e9ye)",   fullPhrase: "\u4ed6\u662f\u6211\u7237\u7237\u3002",  translation: "He is my grandfather."      }
+            ]
+          }
+        ]
       },
       daily: {
         welcomeText: "Daily life in Chinese-speaking cultures is filled with tradition and modern vibrancy. This chapter gives you the essential vocabulary to navigate a day in China, from morning tai chi greetings to evening tea conversations.",
@@ -1739,7 +1956,35 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "O Churrasco em Fam\u00edlia",
           content: "The Brazilian family 'churrasco' (barbecue) is a sacred Sunday tradition. Extended families gather for hours around the grill, with grandparents, cousins, and neighbors all welcome. The 'churrasqueiro' (grill master) holds a place of honor, and the event is as much about storytelling and laughter as it is about the perfectly seasoned picanha."
-        }
+        },
+        genderFrame: { masculine: "Ele \u00e9 meu ___.", feminine: "Ela \u00e9 minha ___." },
+        genderPairs: [
+          { masculine: "meu pai",    feminine: "minha m\u00e3e",   translation: "my father / my mother"           },
+          { masculine: "meu irm\u00e3o", feminine: "minha irm\u00e3", translation: "my brother / my sister"          },
+          { masculine: "meu av\u00f4",   feminine: "minha av\u00f3",  translation: "my grandfather / my grandmother" },
+          { masculine: "meu tio",    feminine: "minha tia",   translation: "my uncle / my aunt"              },
+          { masculine: "meu primo",  feminine: "minha prima", translation: "my (male) / my (female) cousin"  }
+        ],
+        vocabQA: [
+          { question: "Voc\u00ea tem irm\u00e3os ou irm\u00e3s?",           answer: "Sim, tenho um irm\u00e3o e uma irm\u00e3.",    word: "irm\u00e3os",    translation: "brothers / siblings" },
+          { question: "Quem \u00e9 esse?",                        answer: "\u00c9 meu pai.",                             word: "quem \u00e9",    translation: "who is this?"        },
+          { question: "Como se chama sua m\u00e3e?",              answer: "Ela se chama Maria.",                    word: "se chama",  translation: "is named"            },
+          { question: "Quantas pessoas tem na sua fam\u00edlia?", answer: "Somos cinco na fam\u00edlia.",               word: "quantas",   translation: "how many"            },
+          { question: "Onde moram seus pais?",              answer: "Meus pais moram em Lisboa.",            word: "moram",     translation: "live / reside"       }
+        ],
+        verbGroups: [
+          {
+            verb: "ser",
+            verbTranslation: "to be (permanent identity)",
+            examples: [
+              { object: "meu pai",    fullPhrase: "Ele \u00e9 meu pai.",    translation: "He is my father."       },
+              { object: "minha m\u00e3e",   fullPhrase: "Ela \u00e9 minha m\u00e3e.",   translation: "She is my mother."      },
+              { object: "meu irm\u00e3o",  fullPhrase: "Ele \u00e9 meu irm\u00e3o.",  translation: "He is my brother."      },
+              { object: "minha irm\u00e3", fullPhrase: "Ela \u00e9 minha irm\u00e3.", translation: "She is my sister."      },
+              { object: "meu av\u00f4",    fullPhrase: "Ele \u00e9 meu av\u00f4.",    translation: "He is my grandfather."  }
+            ]
+          }
+        ]
       },
       daily: {
         welcomeText: "Daily life in Portuguese-speaking cultures is vibrant, social, and full of warmth. This chapter gives you the essential vocabulary to navigate everyday situations with the easygoing charm that defines the Lusophone world.",
@@ -1924,7 +2169,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "Thanksgiving Gathering",
           content: "In the United States, Thanksgiving is the quintessential family gathering. On the fourth Thursday of November, families come together from across the country to share a meal of turkey, stuffing, and pie. It's a time for gratitude, storytelling, and reconnecting \u2014 often the only time extended families are all in one place."
-        }
+        },
+        vocabQA: [
+          { question: "Do you have brothers or sisters?",        answer: "Yes, I have one brother and one sister.", word: "siblings",        translation: "brothers and sisters"       },
+          { question: "Who is this?",                            answer: "This is my father.",                      word: "this is",         translation: "introducing a person"       },
+          { question: "What is your mother's name?",             answer: "Her name is Sarah.",                      word: "her name is",     translation: "introducing others by name" },
+          { question: "How many people are in your family?",     answer: "There are five of us.",                   word: "there are",       translation: "counting family members"    },
+          { question: "Where do your parents live?",             answer: "My parents live in Chicago.",             word: "live in",         translation: "giving a location"          }
+        ],
+        verbGroups: [
+          {
+            verb: "to be",
+            verbTranslation: "identity",
+            examples: [
+              { object: "my father",      fullPhrase: "He is my father.",       translation: "basic family introduction"   },
+              { object: "my mother",      fullPhrase: "She is my mother.",      translation: "basic family introduction"   },
+              { object: "my brother",     fullPhrase: "He is my brother.",      translation: "basic family introduction"   },
+              { object: "my sister",      fullPhrase: "She is my sister.",      translation: "basic family introduction"   },
+              { object: "my grandparents", fullPhrase: "They are my grandparents.", translation: "plural family introduction" }
+            ]
+          }
+        ]
       },
       daily: {
         welcomeText: "Everyday English is filled with idioms, shortcuts, and polite formulas that might surprise you. This chapter builds your daily vocabulary so you can navigate English-speaking life with confidence and natural ease.",
@@ -2078,6 +2343,24 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
               { object: "עייף (ayef)", fullPhrase: "אני עייף.", translation: "I [am] tired. (m.)" }
             ]
           }
+        ],
+        cognateOpener: [
+          { native: "\u05d8\u05dc\u05e4\u05d5\u05df (telefon)",      english: "telephone",                                    category: "technology"    },
+          { native: "\u05d8\u05dc\u05d5\u05d5\u05d9\u05d6\u05d9\u05d4 (televizya)",  english: "television",                                   category: "technology"    },
+          { native: "\u05e7\u05e4\u05d4 (kafe)",           english: "coffee / caf\u00e9",                              category: "food"          },
+          { native: "\u05e4\u05d9\u05e6\u05d4 (pitza)",         english: "pizza",                                        category: "food"          },
+          { native: "\u05e1\u05dc\u05d8 (salat)",           english: "salad",                                        category: "food"          },
+          { native: "\u05d1\u05e0\u05e7 (bank)",            english: "bank",                                         category: "place"         },
+          { native: "\u05d0\u05d5\u05d8\u05d5\u05d1\u05d5\u05e1 (otobus)",      english: "bus",                                          category: "transport"     },
+          { native: "\u05e1\u05e4\u05d5\u05e8\u05d8 (sport)",         english: "sport",                                        category: "concept"       },
+          { native: "\u05de\u05d5\u05d6\u05d9\u05e7\u05d4 (muzika)",      english: "music",                                        category: "concept"       },
+          { native: "\u05e7\u05d5\u05de\u05e4\u05d9\u05d5\u05d8\u05e8 (kompiutor)",  english: "computer",                                     category: "technology"    },
+          { native: "\u05d0\u05d9\u05e0\u05d8\u05e8\u05e0\u05d8 (internet)",   english: "internet",                                     category: "technology"    },
+          { native: "\u05e9\u05d5\u05e7\u05d5\u05dc\u05d3 (shokolad)",   english: "chocolate",                                    category: "food"          },
+          { native: "\u05d2\u05d9\u05d8\u05e8\u05d4 (gitara)",       english: "guitar",                                       category: "concept"       },
+          { native: "\u05e4\u05e1\u05d8\u05d4 (pasta)",          english: "pasta",                                        category: "food"          },
+          { native: "\u05e4\u05d9\u05d0\u05e0\u05d5 (pyano)",         english: "piano",                                        category: "concept"       },
+          { native: "\u05e8\u05d3\u05d9\u05d5 (radyo)",           english: "radio",                                        category: "technology"    }
         ]
       },
       numbers: {
@@ -2115,7 +2398,36 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "\u05d0\u05e8\u05d5\u05d7\u05ea \u05e9\u05d1\u05ea (Aruchat Shabbat)",
           content: "The Friday night Shabbat dinner is the most important family meal of the week in Israeli culture. Multiple generations gather around a table set with candles, challah bread, and wine. Blessings are said, stories are shared, and the week's stress melts away. Whether religious or secular, this weekly family reunion is a pillar of Israeli life."
-        }
+        },
+        genderFrame: { masculine: "\u05d4\u05d5\u05d0 ___ \u05e9\u05dc\u05d9.", feminine: "\u05d4\u05d9\u05d0 ___ \u05e9\u05dc\u05d9." },
+        genderPairs: [
+          { masculine: "\u05d0\u05d1\u05d0 \u05e9\u05dc\u05d9",       feminine: "\u05d0\u05de\u05d0 \u05e9\u05dc\u05d9",      translation: "my father / my mother"           },
+          { masculine: "\u05d0\u05d7 \u05e9\u05dc\u05d9",        feminine: "\u05d0\u05d7\u05d5\u05ea \u05e9\u05dc\u05d9",    translation: "my brother / my sister"          },
+          { masculine: "\u05e1\u05d1\u05d0 \u05e9\u05dc\u05d9",       feminine: "\u05e1\u05d1\u05ea\u05d0 \u05e9\u05dc\u05d9",    translation: "my grandfather / my grandmother" },
+          { masculine: "\u05d3\u05d5\u05d3 \u05e9\u05dc\u05d9",       feminine: "\u05d3\u05d5\u05d3\u05d4 \u05e9\u05dc\u05d9",    translation: "my uncle / my aunt"              },
+          { masculine: "\u05d1\u05df \u05d3\u05d5\u05d3 \u05e9\u05dc\u05d9",  feminine: "\u05d1\u05ea \u05d3\u05d5\u05d3 \u05e9\u05dc\u05d9", translation: "my (male) / my (female) cousin"  }
+        ],
+        vocabQA: [
+          { question: "\u05d9\u05e9 \u05dc\u05da \u05d0\u05d7\u05d9\u05dd \u05d0\u05d5 \u05d0\u05d7\u05d9\u05d5\u05ea?",    answer: "\u05db\u05df, \u05d9\u05e9 \u05dc\u05d9 \u05d0\u05d7 \u05d5\u05d0\u05d7\u05d5\u05ea.",         word: "\u05d0\u05d7\u05d9\u05dd (akhim)",     translation: "brothers / siblings" },
+          { question: "\u05de\u05d9 \u05d6\u05d4?",                              answer: "\u05d6\u05d4 \u05d0\u05d1\u05d0 \u05e9\u05dc\u05d9.",                word: "\u05de\u05d9 \u05d6\u05d4 (mi ze)",   translation: "who is this?"        },
+          { question: "\u05de\u05d4 \u05e9\u05dd \u05d0\u05de\u05d0 \u05e9\u05dc\u05da?",         answer: "\u05e9\u05dd \u05d0\u05de\u05d0 \u05e9\u05dc\u05d9 \u05de\u05e8\u05d9\u05dd.",          word: "\u05e9\u05dd (shem)",         translation: "name"                },
+          { question: "\u05db\u05de\u05d4 \u05d0\u05e0\u05e9\u05d9\u05dd \u05d1\u05de\u05e9\u05e4\u05d7\u05d4 \u05e9\u05dc\u05da?", answer: "\u05d0\u05e0\u05d7\u05e0\u05d5 \u05d7\u05de\u05d9\u05e9\u05d4 \u05d1\u05de\u05e9\u05e4\u05d7\u05d4.",   word: "\u05db\u05de\u05d4 (kama)",     translation: "how many?"           },
+          { question: "\u05d0\u05d9\u05e4\u05d4 \u05d2\u05e8\u05d9\u05dd \u05d4\u05d4\u05d5\u05e8\u05d9\u05dd \u05e9\u05dc\u05da?",  answer: "\u05d4\u05d4\u05d5\u05e8\u05d9\u05dd \u05e9\u05dc\u05d9 \u05d2\u05e8\u05d9\u05dd \u05d1\u05ea\u05dc \u05d0\u05d1\u05d9\u05d1.", word: "\u05d2\u05e8\u05d9\u05dd (garim)",    translation: "live / reside"       }
+        ],
+        verbGroups: [
+          {
+            verb: "\u2014 (zero copula)",
+            verbTranslation: "to be (present tense \u2014 no verb written)",
+            verbHint: "Hebrew present-tense \u201cto be\u201d is silent \u2014 subject and predicate stand side by side. \u05d6\u05d4 \u05d0\u05d1\u05d0 \u05e9\u05dc\u05d9 means \u201cThis is my father\u201d with no verb at all.",
+            examples: [
+              { object: "\u05d0\u05d1\u05d0 \u05e9\u05dc\u05d9 (aba sheli)",    fullPhrase: "\u05d4\u05d5\u05d0 \u05d0\u05d1\u05d0 \u05e9\u05dc\u05d9.",   translation: "He is my father."       },
+              { object: "\u05d0\u05de\u05d0 \u05e9\u05dc\u05d9 (ima sheli)",    fullPhrase: "\u05d4\u05d9\u05d0 \u05d0\u05de\u05d0 \u05e9\u05dc\u05d9.",   translation: "She is my mother."      },
+              { object: "\u05d0\u05d7 \u05e9\u05dc\u05d9 (akh sheli)",      fullPhrase: "\u05d4\u05d5\u05d0 \u05d0\u05d7 \u05e9\u05dc\u05d9.",    translation: "He is my brother."      },
+              { object: "\u05d0\u05d7\u05d5\u05ea \u05e9\u05dc\u05d9 (akhot sheli)", fullPhrase: "\u05d4\u05d9\u05d0 \u05d0\u05d7\u05d5\u05ea \u05e9\u05dc\u05d9.", translation: "She is my sister."    },
+              { object: "\u05e1\u05d1\u05d0 \u05e9\u05dc\u05d9 (saba sheli)",   fullPhrase: "\u05d4\u05d5\u05d0 \u05e1\u05d1\u05d0 \u05e9\u05dc\u05d9.",  translation: "He is my grandfather."  }
+            ]
+          }
+        ]
       },
       daily: {
         welcomeText: "Israeli daily life is vibrant, informal, and full of unique expressions. This chapter gives you the essential vocabulary to navigate a day in Israel, from market haggling to coffee shop conversations \u2014 all with the characteristic Israeli directness and warmth.",

@@ -1597,7 +1597,7 @@ See Plan M5 below.
 
 ---
 
-### Madrigal-Inspired Components — Status (updated April 10, 2026)
+### Madrigal-Inspired Components — Status (updated April 10, 2026 session 42)
 
 ---
 
@@ -1605,14 +1605,14 @@ See Plan M5 below.
 
 | Plan | Component | Component built? | Data scope |
 |------|-----------|:---:|---|
-| M1 | VocabQAGrid | ✅ | ✅ All 10 languages — greetings chapter |
-| M2 | GenderAgreementGrid | ✅ | ✅ FR/PT/IT/HE/ES greetings; ⬜ DE/JA/KO/ZH/EN (no grammatical gender) |
+| M1 | VocabQAGrid | ✅ | ✅ All 10 languages — greetings + family chapters |
+| M2 | GenderAgreementGrid | ✅ | ✅ FR/PT/IT/HE/ES greetings + family; DE/JA/KO/ZH/EN intentionally empty |
 | M3 | discoveryNote callout | ✅ | ✅ Spanish greetings only; ⬜ other 9 languages |
-| M4 | VerbAnchorGrid | ✅ | ✅ All 10 languages — greetings chapter |
+| M4 | VerbAnchorGrid | ✅ | ✅ All 10 languages — greetings + family chapters |
 | M5 | SentenceFrameGrid images | ⬜ | ⬜ Not started (HIGH PRIORITY) |
-| M6 | CognateRecognitionGrid | ✅ | ✅ FR/IT/DE/ES; ⬜ PT/JA/KO/ZH/HE/EN |
+| M6 | CognateRecognitionGrid | ✅ | ✅ FR/IT/DE/ES greetings; ✅ PT/JA/KO/ZH/HE greetings (session 42); ⬜ EN |
 
-**Next data work:** family chapter M1/M2/M4 for all 9 non-Spanish languages; discoveryNotes per language; cognate expansion for PT/JA/KO/ZH/HE/EN.
+**Next data work:** discoveryNotes for 9 non-Spanish languages; M5 image rendering; numbers/daily chapter data for all languages; EN cognate strategy (Cindy/Blake context).
 
 ---
 
@@ -1635,13 +1635,27 @@ Built `VocabQAGrid` component in `TextbookInfographics.tsx`. Sky-blue accent, "f
 | Hebrew | 5 | מה שמך? / מה נשמע? |
 | English | 5 | What's your name? / How are you? |
 
-*Data pending:* family chapter for all non-Spanish languages; numbers/daily chapters all languages.
+*Data seeded — family chapter (session 42):*
+
+| Language | Q&A pairs | Key question |
+|---|---|---|
+| French | 5 | Vous avez des frères et sœurs ? / Vos parents habitent où ? |
+| German | 5 | Haben Sie Geschwister? / Wo wohnen Ihre Eltern? |
+| Italian | 5 | Hai fratelli o sorelle? / Dove abitano i tuoi genitori? |
+| Japanese | 5 | 兄弟姉妹はいますか？ / ご両親はどこにお住まいですか？ |
+| Korean | 5 | 형제자매가 있어요? / 부모님은 어디에 사세요? |
+| Mandarin | 5 | 你有兄弟姐妹吗？ / 你父母住在哪里？ |
+| Portuguese | 5 | Você tem irmãos ou irmãs? / Onde moram seus pais? |
+| English | 5 | Do you have brothers or sisters? / Where do your parents live? |
+| Hebrew | 5 | יש לך אחים או אחיות? / איפה גרים ההורים שלך? |
+
+*Data pending:* numbers/daily chapters all languages.
 
 ---
 
 **Plan M2 — GenderAgreementGrid ✅ COMPLETE**
 
-Built `GenderAgreementGrid` component. Two-column masculine/feminine table with **language-specific frame text** (session 41: ChapterIntroduction.tsx updated to pass per-language frames). Violet accent. Translation key row at bottom. Wired in `ChapterIntroduction.tsx`. Languages without grammatical gender (DE/JA/KO/ZH/EN) simply have no `genderPairs` data — component renders nothing for them.
+Built `GenderAgreementGrid` component. Two-column masculine/feminine table with **language-specific frame text** (session 41: ChapterIntroduction.tsx updated to pass per-language frames via inline record). Session 42 added `genderFrame?: { masculine; feminine }` field to `ChapterIntroContent` interface so each chapter can override the default language frame — critical for family chapters where the frame is "C'est mon ___." not "Il est ___." Violet accent. Translation key row at bottom. Wired in `ChapterIntroduction.tsx`.
 
 *Data seeded — greetings chapter:*
 
@@ -1658,7 +1672,17 @@ Built `GenderAgreementGrid` component. Two-column masculine/feminine table with 
 | Mandarin | — | No grammatical gender |
 | English | — | No grammatical gender |
 
-*Data pending:* family chapter gender pairs for ES/FR/PT/IT/HE.
+*Data seeded — family chapter (session 42):* genderFrame + genderPairs for FR/IT/PT/HE/ES (noun pairs, not adjectives — mon père/ma mère etc.); no genderPairs for DE/JA/KO/ZH/EN.
+
+| Language | Family pairs | Frame used |
+|---|---|---|
+| Spanish | 5 | "Él es mi ___." / "Ella es mi ___." |
+| French | 5 | "C'est mon ___." / "C'est ma ___." |
+| Italian | 5 | "Lui è mio ___." / "Lei è mia ___." |
+| Portuguese | 5 | "Ele é meu ___." / "Ela é minha ___." |
+| Hebrew | 5 | "הוא ___ שלי." / "היא ___ שלי." |
+
+*Data pending:* numbers/daily chapter gender pairs; discoveryNotes.
 
 ---
 
@@ -1691,7 +1715,21 @@ Built `VerbAnchorGrid` component. Verb anchor card (large primary text + Repeat2
 | Hebrew | להיות (zero copula) | "In Hebrew present tense, 'to be' disappears entirely" (zero-copula discovery) |
 | English | to be | "Every greetings answer in English uses 'to be'" |
 
-*Data pending:* family chapter verb groups for all non-Spanish languages.
+*Data seeded — family chapter (session 42):*
+
+| Language | Verb | Key pedagogical note |
+|---|---|---|
+| French | être | C'est mon père / Ce sont mes parents — singular vs. plural "c'est" |
+| German | sein | Das ist mein Vater — mein/meine articles show up here |
+| Italian | essere | È mio padre / È mia madre — possessives without article (unlike French) |
+| Japanese | です (desu) | 父です vs. お父さんです — uchi/soto register distinction |
+| Korean | 이에요/예요 | 아버지예요 (vowel) vs. 학생이에요 (consonant) rule in family context |
+| Mandarin | 是 (shì) | Birth-order precision: 哥哥/弟弟/姐姐/妹妹 — no single word for sibling |
+| Portuguese | ser | Ele é meu pai / Ela é minha mãe — ser for identity (not estar) |
+| English | to be | He is / She is / They are — plural grandparents example |
+| Hebrew | — (zero copula) | הוא אבא שלי — present-tense identity; שלי = "of me/mine" |
+
+*Data pending:* numbers/daily chapter verb groups for all languages.
 
 ---
 
@@ -1740,11 +1778,11 @@ Madrigal's preface opens by showing how many English words the student already o
 | French | 18 (hôtel, taxi, restaurant, concert, possible, important, excellent…) | 3 (actuel, sensible, rester) | ✅ |
 | Italian | 18 (hotel, pizza, radio, studio, importante, naturale, originale…) | 3 (camera, sensibile, attualmente) | ✅ |
 | German | 18 (Hotel, Sport, Tennis, Internet, Computer, Moment, Telefon…) | 3 (aktuell, sympathisch, sensibel) | ✅ |
-| Portuguese | — | — | ⬜ Pending |
-| Japanese | — | — | ⬜ Pending (katakana loan-words — different cognate type) |
-| Korean | — | — | ⬜ Pending (konglish loan-words) |
-| Mandarin | — | — | ⬜ Pending (fewer direct cognates; can highlight international loan-words) |
-| Hebrew | — | — | ⬜ Pending |
+| Portuguese | 18 (hotel, táxi, restaurante, possível, importante, excelente, natural…) | 3 (polvo, borracha, pretender) | ✅ session 42 |
+| Japanese | 17 (katakana: ホテル, タクシー, レストラン, コーヒー, テレビ, バス, スポーツ…) | 2 (マンション≠mansion, スマート≠smart) | ✅ session 42 |
+| Korean | 17 (konglish: 호텔, 택시, 레스토랑, 커피, 텔레비전, 버스, 스포츠…) | 2 (핸드폰=cell phone, 아이쇼핑=window shopping) | ✅ session 42 |
+| Mandarin | 15 (phonetic loans: 咖啡, 巧克力, 沙发, 比萨, 汉堡, 吉他, 幽默, 浪漫…) | 0 (no convenient false-friend category) | ✅ session 42 |
+| Hebrew | 16 (international loans: טלפון, טלוויזיה, קפה, פיצה, בנק, ספורט, מוזיקה…) | 0 | ✅ session 42 |
 | English | — | — | ⬜ Pending (English-as-L2 cognate strategy differs; Cindy/Blake context) |
 
 *Note on non-Romance languages:* Japanese/Korean "cognates" are actually phonetic loans (katakana/konglish) rather than structural cognates — the component can still be used but the educational framing must change from "same spelling" to "same sound." This is a design decision to make when authoring the data.
