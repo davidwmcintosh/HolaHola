@@ -3550,3 +3550,20 @@ Seeded 5 Q&A pairs and one verbGroup for the classroom chapter of each language.
 ### Files changed this session
 
 - `client/src/data/chapter-intro-content.ts` — vocabQA + verbGroups added to daily and classroom for all 10 languages (lines ~650–3095)
+
+---
+
+## Session 46 Addendum — Paused, awaiting book scan
+
+**Date:** April 10, 2026
+
+David is scanning the physical copy of *See It and Say It in Spanish* by Margarita Madrigal (expected ~week of April 14, 2026). All Spanish-specific textbook data (M1 vocabQA, M4 verbGroups, M5 sentence frame fillers) was seeded from our own pedagogical design — not from the actual book. Once scans arrive:
+
+1. **Do a review pass on all Spanish chapter data** (greetings, family, numbers, daily, classroom) to align vocabulary choices, sentence patterns, and sequencing with what Madrigal actually chose.
+2. **M5 sentence frame image prompts** — use the Warhol illustrations in the scan as the starting point for *which moment to depict*, not which style to copy.
+
+**Work that does NOT need to wait for the scan:**
+- M2 gender pairs for numbers/daily chapters (FR/PT/IT/HE/ES)
+- M3 discoveryNotes for non-Spanish languages (all chapters)
+- M6 EN cognate strategy (Cindy/Blake — café, taxi, hotel, radio etc.)
+- Image seeding pipeline for classroom vocabulary

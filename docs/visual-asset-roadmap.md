@@ -1612,7 +1612,20 @@ See Plan M5 below.
 | M5 | SentenceFrameGrid images | ✅ | ✅ Complete — session 43 |
 | M6 | CognateRecognitionGrid | ✅ | ✅ FR/IT/DE/ES greetings; ✅ PT/JA/KO/ZH/HE greetings (session 42); ⬜ EN |
 
-**Next data work (post-session-46):** M2 gender pairs for numbers/daily chapters (FR/PT/IT/HE/ES); M3 discoveryNotes for non-Spanish languages (all chapters); M6 EN cognate data for Cindy/Blake (classroom/daily/numbers); image seeding pipeline for classroom vocabulary.
+**⏸ PAUSED — awaiting Madrigal book scan (expected ~week of April 14, 2026)**
+
+Spanish chapter data (M1/M4 vocabQA + verbGroups) was seeded in the Madrigal spirit but from our own design — not from the actual book. Once the physical scan arrives, Spanish chapters should be reviewed and refined against the real vocabulary lists, sentence frames, and sequencing that Margarita Madrigal chose.
+
+**Non-Spanish work that can proceed independently of the scan:**
+- M2 gender pairs for numbers/daily chapters (FR/PT/IT/HE/ES)
+- M3 discoveryNotes for non-Spanish languages (all chapters)
+- M6 EN cognate data for Cindy/Blake (classroom/daily/numbers — international loanwords: café, taxi, hotel, radio)
+- Image seeding pipeline for classroom vocabulary
+
+**Spanish-specific work to hold until after scan:**
+- Review/replace Spanish M1 vocabQA pairs to match the book's actual vocabulary choices
+- Review/replace Spanish M4 verbGroup examples to match the book's sentence patterns
+- M5 sentence frame fillers — use Warhol's chosen visual moments as the image prompt starting point (see line ~1773 for context)
 
 ---
 
