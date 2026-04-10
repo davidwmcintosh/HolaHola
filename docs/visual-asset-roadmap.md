@@ -1423,6 +1423,64 @@ If a word doesn't match tier 1 or 2, it gets a tier 3 SCENE_OVERRIDE — never r
 **Source:** Margarita Madrigal, *See It and Say It in Spanish*, New American Library, 1962.  
 **Book access:** Available for digital borrowing at archive.org (search "Madrigal See It Say It Spanish"); paperback ~$8 on Amazon. No free full-text HTML version exists — copyright renewal keeps it protected until ~2057.
 
+### The Preface — Philosophical Alignment with HoloHola
+
+**Analyzed:** April 10, 2026 (from physical copy photographed by David)
+
+The preface of *See It and Say It in Spanish* reads almost like a product spec for HoloHola. Every major design decision in the book maps to a design decision already present in the app. The most striking overlap is that Madrigal articulated both the problem (grammar-rule frustration) and the solution (stealth acquisition through familiar patterns) in 1962, six decades before the research gave it a name.
+
+---
+
+**"Before he has gone very far, before he is even aware of it, he will be speaking Spanish."**
+
+This is HoloHola's entire premise in one sentence. Daniela doesn't lecture — she talks. The student doesn't notice structure being taught because the structure arrives wrapped in a conversation they wanted to have. Grammar emerges from use. The student only discovers what they've learned when they look back.
+
+---
+
+**"The approach here is progressive. From the very beginning, the student is on familiar ground."**
+
+Madrigal's first move is cognate recognition — showing English speakers how many Spanish words they already own. This is both a pedagogical tool and a psychological one: it dismantles the belief that Spanish is foreign before the student has read a single lesson. HoloHola's ACTFL Novice Low chapters implicitly rely on this but have never made it explicit. See Plan M6.
+
+---
+
+**"Anyone who has tried to learn by the laborious route of memorizing complex grammar rules, and has had to struggle with the numerous exceptions to these rules, will be pleasantly surprised..."**
+
+This is the reason Daniela never opens a session by conjugating verbs. Grammar Diagrams exist in HoloHola as reference material the student reaches for when curious — they are never the primary instruction. Madrigal and HoloHola share the same pedagogy: grammar is a map you consult after you've already explored the territory on foot.
+
+---
+
+**"The method here followed makes the student WANT to learn."**
+
+The Resonance Shelf tracks exactly this. When a particular conversational hook, cultural story, or vocabulary frame landed well for a specific student, Daniela remembers it and returns to that register. Making the student want to learn is not a side effect — it is the product.
+
+---
+
+**"The small drawings are there to make studying easier. With their help you can avoid doing difficult exercises and frustrating drills."**
+
+This is Plan M5. Madrigal explicitly positioned her illustrations as a replacement for drills, not a supplement to them. A Sentence Frame Grid with no images is not Madrigal's method — it is the drill she was trying to eliminate. The visual anchoring is the mechanism.
+
+---
+
+**"You don't necessarily have to start with the first lesson. You can start wherever you wish. You can shift back and forth among the lessons; you can go on to a new lesson when you feel ready for it; you can study several lessons simultaneously, and you can keep on reviewing what you have learned, at your own convenience."**
+
+This is the non-linear navigation principle that David has advocated for in HoloHola since the beginning. A well-structured lesson should work as the first lesson for a beginner *and* as a reference drill for an intermediate student returning to a chapter they thought they knew. Every chapter is a self-contained module, not a step in a locked sequence.
+
+HoloHola already supports this architecturally — the ACTFL gauge shows level but doesn't lock chapter access. The chapter introduction, vocab grid, grammar diagram, conversation strips, and sentence frames are all independently useful at different stages. The principle should be documented as a first-class authoring rule: **design every lesson to stand alone**.
+
+---
+
+**"The most important aim of this book is to provide you with a book that will 'help you to help your students' master Spanish."**
+
+Madrigal framed the teacher as a facilitator who uses the book as a tool, not a lecturer who delivers the content. In HoloHola this maps precisely: Daniela is the tool. The student directs the conversation. The tutor adapts.
+
+---
+
+**"The lessons are so presented that they can be easily adapted for dialogue teaching. You ask the questions and the student will be able to answer them."**
+
+Every Daniela session is structured around this. She asks; the student answers. When the student is confident enough to ask questions back, that is a measurable breakthrough — it appears in the conversation context and the ACTFL scoring as a shift toward Novice High.
+
+---
+
 ### What The Book Does (Core Pedagogy)
 
 Madrigal's method rests on one insight: **grammar disappears when the frame never changes**. Every structural pattern is introduced once, demonstrated with multiple vocabulary fillers in the same page-spread, and never named as a grammar rule. The student internalises the frame through visual repetition and picture anchoring, not through explanation.
@@ -1551,6 +1609,32 @@ Implementation steps:
 3. Prioritise chapters where the vocab already has images seeded (greetings states have emotion portraits; family members have family portraits)
 
 Authoring note: for the greetings "¡___, amigo!" frame, images would show time-of-day scenes (sunrise = Buenos días, afternoon sun = Buenas tardes, etc.) — these do not yet exist and would need to be generated.
+
+**Plan M6 — Cognate Recognition Opener ("You Already Speak Spanish")**
+
+Madrigal's preface opens with the observation that thousands of English words are identical or near-identical to Spanish: *doctor, hotel, natural, formal, television, hospital, animal, central, circular, accent, popular, tropical, musical, cultural, mental, social, total, normal, final, legal, local, moral, original, principal, general, personal…*
+
+This is simultaneously a pedagogical move and a psychological one. Before the student has studied a single word, they discover they already own several hundred Spanish words. The belief that "Spanish is foreign" is dismantled on page one.
+
+HoloHola has no equivalent. The greetings chapter starts with *Hola* — which is good — but it never shows the student the full cognate landscape or gives them the recognition moment Madrigal designed as her entry point.
+
+**Proposed component: `CognateRecognitionGrid`**
+
+A chapter zero component (or greetings chapter opener, before `VisualVocabGrid`) that shows a grid of English–Spanish cognate pairs the student already knows. Each card shows the English word and the Spanish word — both so similar the student cannot help but recognise them. No translation needed. The message is implicit: you are not starting from zero.
+
+Design details:
+- Tiled grid of word-pair cards (English word small/secondary → Spanish word large/primary)
+- Category groupings: professions (doctor, actor, director), places (hotel, hospital, aeropuerto), concepts (animal, natural, social, formal, total, final, normal, legal, moral)
+- Optional: a header callout — "You already know over 1,000 Spanish words" — in Daniela's voice, delivered as an audio clip
+- False cognate warning could be woven in as a small "watch out" card for one or two notorious false friends (embarazada ≠ embarrassed), keeping Daniela's honesty intact
+
+**Non-linear navigation alignment:**
+
+This component serves a student at any level. A Novice Low student meets it first and feels the confidence rush. An intermediate student returning to the greetings chapter after months away skims it and is reminded of the foundation. A heritage speaker sees words they knew but never saw written. Because each lesson is designed to stand alone, this card works wherever the student encounters it.
+
+**Where it lives in the data:**
+
+New optional field `cognateOpener?: CognateEntry[]` on `ChapterIntroContent`. Each `CognateEntry`: `{ english: string; spanish: string; category: string }`. No images needed for initial version (the cognate similarity is the visual hook) — though a phase two could add category illustration images.
 
 ---
 

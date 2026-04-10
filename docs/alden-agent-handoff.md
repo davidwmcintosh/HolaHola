@@ -19,6 +19,27 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## Session Summary — Thu, Apr 10, 2026 (session 39 — Madrigal preface analysis + Plan M6)
+
+### What was done
+
+1. **SentenceFrameGrid data fixes** — corrected the greetings chapter data. Removed "Tengo que ir al ___" (wrong vocabulary, wrong level). Replaced with "¡___, amigo!" × actual greeting words and "Estoy ___." × ¿Cómo estás? responses. Both now satisfy Constraint 1 (chapter vocab only) and Constraint 2 (Novice Low complexity).
+
+2. **Preface analysis** — David photographed both pages of the Madrigal preface and shared them. Full quote-by-quote analysis added to `docs/visual-asset-roadmap.md` under "The Preface — Philosophical Alignment with HoloHola". Eight key quotes mapped to specific HoloHola features.
+
+3. **Non-linear navigation principle documented** — Madrigal's preface explicitly says students should be able to start any lesson, jump around freely, and study multiple lessons simultaneously. David confirmed this has been his design intent for HoloHola since day one. Documented as a first-class authoring rule: *design every lesson to stand alone*.
+
+4. **Plan M6 — Cognate Recognition Opener** added to roadmap. Component proposed: `CognateRecognitionGrid`. A chapter zero / greetings opener that shows English speakers the hundreds of Spanish words they already own (doctor, hotel, natural, formal, television, hospital, animal…). Pedagogical goal: dismantle the "Spanish is foreign" belief before the first lesson. Data: new optional `cognateOpener?: CognateEntry[]` field on `ChapterIntroContent`.
+
+### Pending / next session
+
+- Plan M5 (image integration in SentenceFrameGrid) remains high priority — unchanged
+- Plan M6 (CognateRecognitionGrid) awaiting go-ahead to build
+- Plans M1–M4 in queue
+- Cognate opener: David is enthusiastic; likely next build session starts here
+
+---
+
 ## Session Summary — Tue, Apr 7, 2026 (session 38n — Textbook romanization wiring complete)
 
 ### What was done
