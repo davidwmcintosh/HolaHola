@@ -21,6 +21,14 @@ export interface FormalInformalExample {
   informal: string;
 }
 
+export interface CognateEntry {
+  english: string;
+  spanish: string;
+  category: string;
+  isFalseCognate?: boolean;
+  falseCognateNote?: string;
+}
+
 export interface SentenceFrameItem {
   filler: string;
   fullSentence: string;
@@ -63,6 +71,7 @@ export interface ChapterIntroContent {
     title: string;
     content: string;
   };
+  cognateOpener?: CognateEntry[];
   sentenceFrames?: SentenceFrame[];
 }
 
@@ -138,6 +147,41 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
               { speaker: "Agustín", gender: "male", text: "Bien, gracias, abuela.", translation: "Fine, thank you, Grandma.", image: "/strips/panel-2-2.png" }
             ]
           }
+        ],
+        cognateOpener: [
+          { english: "actor", spanish: "actor", category: "Identical in both languages" },
+          { english: "doctor", spanish: "doctor", category: "Identical in both languages" },
+          { english: "director", spanish: "director", category: "Identical in both languages" },
+          { english: "hotel", spanish: "hotel", category: "Identical in both languages" },
+          { english: "animal", spanish: "animal", category: "Identical in both languages" },
+          { english: "color", spanish: "color", category: "Identical in both languages" },
+          { english: "error", spanish: "error", category: "Identical in both languages" },
+          { english: "motor", spanish: "motor", category: "Identical in both languages" },
+          { english: "natural", spanish: "natural", category: "Nearly the same" },
+          { english: "formal", spanish: "formal", category: "Nearly the same" },
+          { english: "social", spanish: "social", category: "Nearly the same" },
+          { english: "normal", spanish: "normal", category: "Nearly the same" },
+          { english: "total", spanish: "total", category: "Nearly the same" },
+          { english: "tropical", spanish: "tropical", category: "Nearly the same" },
+          { english: "musical", spanish: "musical", category: "Nearly the same" },
+          { english: "cultural", spanish: "cultural", category: "Nearly the same" },
+          { english: "personal", spanish: "personal", category: "Nearly the same" },
+          { english: "original", spanish: "original", category: "Nearly the same" },
+          { english: "nation", spanish: "nación", category: "-tion → -ción" },
+          { english: "conversation", spanish: "conversación", category: "-tion → -ción" },
+          { english: "information", spanish: "información", category: "-tion → -ción" },
+          { english: "vacation", spanish: "vacación", category: "-tion → -ción" },
+          { english: "emotion", spanish: "emoción", category: "-tion → -ción" },
+          { english: "tradition", spanish: "tradición", category: "-tion → -ción" },
+          { english: "invitation", spanish: "invitación", category: "-tion → -ción" },
+          { english: "artist", spanish: "artista", category: "-ist → -ista" },
+          { english: "tourist", spanish: "turista", category: "-ist → -ista" },
+          { english: "dentist", spanish: "dentista", category: "-ist → -ista" },
+          { english: "pianist", spanish: "pianista", category: "-ist → -ista" },
+          { english: "specialist", spanish: "especialista", category: "-ist → -ista" },
+          { english: "embarrassed", spanish: "embarazada", category: "False friends", isFalseCognate: true, falseCognateNote: "actually means: pregnant" },
+          { english: "constipated", spanish: "constipado", category: "False friends", isFalseCognate: true, falseCognateNote: "actually means: having a cold" },
+          { english: "library", spanish: "librería", category: "False friends", isFalseCognate: true, falseCognateNote: "actually means: bookstore" },
         ],
         sentenceFrames: [
           {

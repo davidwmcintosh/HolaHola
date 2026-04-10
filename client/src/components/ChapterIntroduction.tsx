@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Globe, Users, BookOpen, Lightbulb, MessageSquare, ChevronRight, Play, Square, Loader2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import { SunArcGreetings, FormalInformalComparison, QuickPhraseGrid, SerEstarCard, PretImperfectCard, PorParaCard, FalseCognatesGrid, SentenceFrameGrid } from "./TextbookInfographics";
+import { SunArcGreetings, FormalInformalComparison, QuickPhraseGrid, SerEstarCard, PretImperfectCard, PorParaCard, FalseCognatesGrid, SentenceFrameGrid, CognateRecognitionGrid } from "./TextbookInfographics";
 import {
   ArVerbsCard, ErVerbsCard, IrVerbsCard,
   SerCard, EstarCard, TenerCard, IrCard,
@@ -2356,6 +2356,17 @@ export function ChapterIntroduction({ chapterNumber, chapterTitle, language, cha
         </CardContent>
       </Card>
       
+      {content.cognateOpener && content.cognateOpener.length > 0 && (
+        <Card className="overflow-hidden border-emerald-500/20 bg-gradient-to-br from-emerald-500/5 to-transparent" data-testid="card-cognate-opener">
+          <CardContent className="p-4 md:p-6">
+            <CognateRecognitionGrid
+              cognates={content.cognateOpener}
+              language={langKey}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {content.narrativeSections.map((section, index) => {
         const dynamicImageUrl = (isDynamic && index === 0) ? coverData?.imageUrl : undefined;
         const staticImageUrl = images[index];

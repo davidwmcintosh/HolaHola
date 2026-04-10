@@ -6,7 +6,7 @@ import { getTutorName } from "@/lib/tutor-avatars";
 import { getRomanization } from "@shared/romanization-utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Repeat2 } from "lucide-react";
+import { Repeat2, Lightbulb, AlertTriangle } from "lucide-react";
 
 interface SunArcGreetingsProps {
   className?: string;
@@ -1637,6 +1637,129 @@ function renderFrameTemplate(frame: string) {
         </span>
       ))}
     </>
+  );
+}
+
+// ── Cognate Recognition Grid ─────────────────────────────────────────────────
+
+interface CognateEntry {
+  english: string;
+  spanish: string;
+  category: string;
+  isFalseCognate?: boolean;
+  falseCognateNote?: string;
+}
+
+interface CognateRecognitionGridProps {
+  cognates: CognateEntry[];
+  language?: string;
+  className?: string;
+}
+
+export function CognateRecognitionGrid({ cognates, language = 'spanish', className = '' }: CognateRecognitionGridProps) {
+  if (!cognates || cognates.length === 0) return null;
+
+  const trueCognates = cognates.filter(c => !c.isFalseCognate);
+  const falseCognates = cognates.filter(c => c.isFalseCognate);
+
+  const grouped = trueCognates.reduce<Record<string, CognateEntry[]>>((acc, entry) => {
+    if (!acc[entry.category]) acc[entry.category] = [];
+    acc[entry.category].push(entry);
+    return acc;
+  }, {});
+
+  const categoryOrder = ['Identical in both languages', 'Nearly the same', '-tion → -ción', '-ist → -ista'];
+  const sortedCategories = [
+    ...categoryOrder.filter(c => grouped[c]),
+    ...Object.keys(grouped).filter(c => !categoryOrder.includes(c)),
+  ];
+
+  return (
+    <div className={`space-y-5 ${className}`} data-testid="cognate-recognition-grid">
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <Lightbulb className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+          <h3 className="font-semibold text-base" data-testid="text-cognate-headline">
+            You already speak some Spanish
+          </h3>
+        </div>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          English and Spanish share thousands of words from their common Latin roots. Many are identical or near-identical. You are not starting from zero.
+        </p>
+      </div>
+
+      {sortedCategories.map(category => (
+        <div key={category} className="space-y-2" data-testid={`cognate-group-${category}`}>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            {category}
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+            {grouped[category].map((entry, i) => (
+              <Card
+                key={i}
+                className="hover-elevate"
+                data-testid={`cognate-card-${category}-${i}`}
+              >
+                <CardContent className="p-3 flex flex-col gap-1.5">
+                  <div className="text-lg font-bold text-primary leading-tight" data-testid={`text-spanish-${i}`}>
+                    {entry.spanish}
+                  </div>
+                  <div className="text-xs text-muted-foreground" data-testid={`text-english-${i}`}>
+                    {entry.english}
+                  </div>
+                  <TextAudioPlayButton
+                    text={entry.spanish}
+                    language={language}
+                    size="sm"
+                    data-testid={`button-play-cognate-${i}`}
+                  />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {falseCognates.length > 0 && (
+        <div className="space-y-2" data-testid="false-cognates-section">
+          <div className="flex items-center gap-1.5">
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+            <p className="text-xs font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+              Watch out — false friends
+            </p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+            {falseCognates.map((entry, i) => (
+              <Card
+                key={i}
+                className="border-amber-500/25 bg-amber-500/5"
+                data-testid={`false-cognate-card-${i}`}
+              >
+                <CardContent className="p-3 flex flex-col gap-1.5">
+                  <div className="text-base font-bold text-amber-700 dark:text-amber-300 leading-tight">
+                    {entry.spanish}
+                  </div>
+                  <div className="text-xs text-muted-foreground line-through">
+                    {entry.english}
+                  </div>
+                  {entry.falseCognateNote && (
+                    <div className="text-xs text-amber-700 dark:text-amber-300 font-medium">
+                      {entry.falseCognateNote}
+                    </div>
+                  )}
+                  <TextAudioPlayButton
+                    text={entry.spanish}
+                    language={language}
+                    size="sm"
+                    data-testid={`button-play-false-cognate-${i}`}
+                  />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

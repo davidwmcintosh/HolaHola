@@ -31,12 +31,15 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 4. **Plan M6 — Cognate Recognition Opener** added to roadmap. Component proposed: `CognateRecognitionGrid`. A chapter zero / greetings opener that shows English speakers the hundreds of Spanish words they already own (doctor, hotel, natural, formal, television, hospital, animal…). Pedagogical goal: dismantle the "Spanish is foreign" belief before the first lesson. Data: new optional `cognateOpener?: CognateEntry[]` field on `ChapterIntroContent`.
 
+### Built this session (continued)
+
+5. **Plan M6 — CognateRecognitionGrid BUILT** — `CognateRecognitionGrid` component in `TextbookInfographics.tsx`. Renders after welcome card, before narrative sections. Category-grouped tile grid (Identical / Nearly the same / -tion→-ción / -ist→-ista) + amber "false friends" warning section (embarazada, constipado, librería). Each tile: Spanish word large+primary, English word small+muted, TextAudioPlayButton for pronunciation. Spanish greetings chapter seeded with 32 cognates (29 true + 3 false friends). Data field: `cognateOpener?: CognateEntry[]` on `ChapterIntroContent`.
+
 ### Pending / next session
 
-- Plan M5 (image integration in SentenceFrameGrid) remains high priority — unchanged
-- Plan M6 (CognateRecognitionGrid) awaiting go-ahead to build
+- Plan M5 (image integration in SentenceFrameGrid) — high priority, next
 - Plans M1–M4 in queue
-- Cognate opener: David is enthusiastic; likely next build session starts here
+- David is scanning more pages from the book — more Madrigal patterns incoming; watch for next session handoff
 
 ---
 
