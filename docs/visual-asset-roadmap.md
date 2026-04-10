@@ -2,7 +2,7 @@
 ## HolaHola — Pre-Generated Visual Library
 
 **Created:** March 15, 2026  
-**Last updated:** April 7, 2026  
+**Last updated:** April 10, 2026  
 **Referenced by:** `docs/curriculum-strategy.md` (Section 8)  
 **Component coverage manifest:** `docs/textbook-component-coverage.json` (machine-readable, Lyra-monitored)  
 **Status column key:** ⬜ Planned | 🔄 Generating | ✅ In Library
@@ -1599,19 +1599,104 @@ See Plan M5 below.
 
 ### Madrigal-Inspired Components — Status (updated April 10, 2026)
 
-**Plan M1 — VocabQAGrid ✅ COMPLETE (session 40)**
-Built `VocabQAGrid` component in `TextbookInfographics.tsx`. Standalone exported component (not a `VisualVocabGrid` prop). Sky-blue accent, "full sentences" badge. Each card shows: question (italic/muted), answer (bold, play button), translation (below divider). Seeded for Spanish greetings (6 Q&A pairs) and family (5 Q&A pairs). Wired in `ChapterIntroduction.tsx`.
+---
 
-**Plan M2 — GenderAgreementGrid ✅ COMPLETE (session 40)**
-Built `GenderAgreementGrid` component. Two-column masculine/feminine table with configurable frame text (default: "Él está ___." / "Ella está ___."). Violet accent. Translation key row at bottom. Seeded for Spanish greetings (6 estar adjective pairs) and family (5 family-term pairs with custom frames "Él es mi ___ / Ella es mi ___"). Wired in `ChapterIntroduction.tsx`.
+#### Quick status summary
 
-**Plan M3 — discoveryNote callout ✅ COMPLETE (session 40)**
-Added `discoveryNote?: string` to `NarrativeSection` in `ChapterIntroContent`. Rendered as sky-blue callout with BookOpen icon and "Notice:" prefix — distinct from amber `tip` callout. Seeded for Spanish greetings "Formal vs. Informal" section. Wired in `ChapterIntroduction.tsx`.
+| Plan | Component | Component built? | Data scope |
+|------|-----------|:---:|---|
+| M1 | VocabQAGrid | ✅ | ✅ All 10 languages — greetings chapter |
+| M2 | GenderAgreementGrid | ✅ | ✅ FR/PT/IT/HE/ES greetings; ⬜ DE/JA/KO/ZH/EN (no grammatical gender) |
+| M3 | discoveryNote callout | ✅ | ✅ Spanish greetings only; ⬜ other 9 languages |
+| M4 | VerbAnchorGrid | ✅ | ✅ All 10 languages — greetings chapter |
+| M5 | SentenceFrameGrid images | ⬜ | ⬜ Not started (HIGH PRIORITY) |
+| M6 | CognateRecognitionGrid | ✅ | ✅ FR/IT/DE/ES; ⬜ PT/JA/KO/ZH/HE/EN |
 
-**Plan M4 — VerbAnchorGrid ✅ COMPLETE (session 40)**
-Built `VerbAnchorGrid` component. Verb anchor card (large primary text + Repeat2 icon + "Verb Anchor" badge) + grid of example tiles (object word large/primary, full phrase small/secondary, translation muted, play button). Supports multiple verb groups per chapter. Seeded for Spanish greetings (estar, 6 examples) and family (ser, 6 examples). Wired in `ChapterIntroduction.tsx`.
+**Next data work:** family chapter M1/M2/M4 for all 9 non-Spanish languages; discoveryNotes per language; cognate expansion for PT/JA/KO/ZH/HE/EN.
 
-**Plan M5 — Image Integration for SentenceFrameGrid (HIGH PRIORITY)**  
+---
+
+**Plan M1 — VocabQAGrid ✅ COMPLETE**
+
+Built `VocabQAGrid` component in `TextbookInfographics.tsx`. Sky-blue accent, "full sentences" badge. Each card shows: question (italic/muted), answer (bold, play button), translation (below divider). Wired in `ChapterIntroduction.tsx`.
+
+*Data seeded — greetings chapter:*
+
+| Language | Q&A pairs | Key question |
+|---|---|---|
+| Spanish | 6 | ¿Cómo te llamas? / Mucho gusto / ¿Qué tal? |
+| French | 6 | Comment vous appelez-vous? / Comment ça va? |
+| Portuguese | 6 | Como se chama? / Tudo bem? |
+| German | 6 | Wie heißen Sie? / Wie geht es Ihnen? |
+| Italian | 6 | Come si chiama? / Come stai? |
+| Japanese | 5 | はじめまして / お元気ですか？ |
+| Korean | 5 | 이름이 뭐예요? / 어떻게 지내세요? |
+| Mandarin | 5 | 你叫什么名字？ / 很高兴认识你。 |
+| Hebrew | 5 | מה שמך? / מה נשמע? |
+| English | 5 | What's your name? / How are you? |
+
+*Data pending:* family chapter for all non-Spanish languages; numbers/daily chapters all languages.
+
+---
+
+**Plan M2 — GenderAgreementGrid ✅ COMPLETE**
+
+Built `GenderAgreementGrid` component. Two-column masculine/feminine table with **language-specific frame text** (session 41: ChapterIntroduction.tsx updated to pass per-language frames). Violet accent. Translation key row at bottom. Wired in `ChapterIntroduction.tsx`. Languages without grammatical gender (DE/JA/KO/ZH/EN) simply have no `genderPairs` data — component renders nothing for them.
+
+*Data seeded — greetings chapter:*
+
+| Language | Pairs | Notable teaching point |
+|---|---|---|
+| Spanish | 6 | estar adj: contento/a, cansado/a, ocupado/a, enfermo/a, nervioso/a, emocionado/a |
+| French | 5 | être adj: joyeux/joyeuse, fatigué/fatiguée, occupé/occupée, **malade×2** (invariable!), nerveux/nerveuse |
+| Portuguese | 6 | estar adj: **contente×2**, cansado/a, ocupado/a, **doente×2** (both invariable — contrast with Spanish) |
+| Italian | 6 | essere adj: contento/a, stanco/a, occupato/a, malato/a, nervoso/a, emozionato/a |
+| Hebrew | 5 | שמח/שמחה, עייף/עייפה, עסוק/עסוקה, **חולה×2** (invariable!), עצבני/עצבנית |
+| German | — | Predicate adjectives don't inflect after *sein* — skip, no data needed |
+| Japanese | — | No grammatical gender |
+| Korean | — | No grammatical gender |
+| Mandarin | — | No grammatical gender |
+| English | — | No grammatical gender |
+
+*Data pending:* family chapter gender pairs for ES/FR/PT/IT/HE.
+
+---
+
+**Plan M3 — discoveryNote callout ✅ COMPONENT COMPLETE / ⬜ DATA PARTIAL**
+
+Added `discoveryNote?: string` to `NarrativeSection` in `ChapterIntroContent`. Rendered as sky-blue callout with BookOpen icon and "Notice:" prefix — distinct from amber `tip` callout. Wired in `ChapterIntroduction.tsx`.
+
+*Data seeded:* Spanish greetings only — "Notice: usted shares its verb ending with él and ella…"
+
+*Data pending:* discoveryNotes for all 9 non-Spanish languages (requires reading each language's narrative sections to find the right attachment point).
+
+---
+
+**Plan M4 — VerbAnchorGrid ✅ COMPLETE**
+
+Built `VerbAnchorGrid` component. Verb anchor card (large primary text + Repeat2 icon + "Verb Anchor" badge) + grid of example tiles (object word large/primary, full phrase small/secondary, translation muted, play button). Supports multiple verb groups per chapter. Wired in `ChapterIntroduction.tsx`.
+
+*Data seeded — greetings chapter:*
+
+| Language | Verb | verbHint highlight |
+|---|---|---|
+| Spanish | estar | "estar captures a temporary state — how something IS right now" |
+| French | être | "être links you to descriptions — Madrigal calls this the identity bridge" |
+| Portuguese | estar | "estar captures how something is right now — feelings, health, situations in flux" |
+| German | sein | "sein links you to descriptions and identities — just as ser does in Spanish" |
+| Italian | stare | "Italian uses stare, not essere, for how you feel" (key Madrigal distinction) |
+| Japanese | です (desu) | "です ends nearly every polite Japanese sentence — the politeness seal" |
+| Korean | 이에요/예요 | "이에요 follows consonants; 예요 follows vowels — covers half of all Korean introductions" |
+| Mandarin | 是 (shì) | "是 links two equal things — I = student. For qualities, Chinese uses a different structure" |
+| Hebrew | להיות (zero copula) | "In Hebrew present tense, 'to be' disappears entirely" (zero-copula discovery) |
+| English | to be | "Every greetings answer in English uses 'to be'" |
+
+*Data pending:* family chapter verb groups for all non-Spanish languages.
+
+---
+
+**Plan M5 — Image Integration for SentenceFrameGrid ⬜ NOT STARTED (HIGH PRIORITY)**
+
 The current `SentenceFrameGrid` is text-only. Madrigal's method is fundamentally image-driven — each filler card should show a picture so the student maps directly from image to Spanish without routing through English. Without images the drill degrades to a phrase list, which `QuickPhraseGrid` already provides.
 
 Add an optional `imageKey?: string` field to `SentenceFrameItem` (already in the interface spec). When present, the card renders the vocab image from object storage at the top using the same URL pattern as `VisualVocabGrid`. Fallback: large styled filler text if no image is available.
@@ -1639,31 +1724,32 @@ This is a more useful kind of visual reference than a stock image library. Warho
 
 When generating images for M5 sentence frame fillers: look at the scanned page for the corresponding concept first. Use Warhol's chosen moment as the starting point for the AI generation prompt. The goal is not to match his style but to match his instinct about *what to show*.
 
-**Plan M6 — Cognate Recognition Opener ("You Already Speak Spanish")**
+**Plan M6 — CognateRecognitionGrid ✅ COMPONENT COMPLETE / ⬜ DATA PARTIAL**
 
-Madrigal's preface opens with the observation that thousands of English words are identical or near-identical to Spanish: *doctor, hotel, natural, formal, television, hospital, animal, central, circular, accent, popular, tropical, musical, cultural, mental, social, total, normal, final, legal, local, moral, original, principal, general, personal…*
+Madrigal's preface opens by showing how many English words the student already owns in Spanish — this is both a pedagogical move and a psychological one. The student's belief that "Spanish is foreign" is dismantled before lesson one.
 
-This is simultaneously a pedagogical move and a psychological one. Before the student has studied a single word, they discover they already own several hundred Spanish words. The belief that "Spanish is foreign" is dismantled on page one.
+**Component:** `CognateRecognitionGrid` built in `TextbookInfographics.tsx` (session 40). Tiled grid of word-pair cards — English small/secondary → target-language large/primary. Category-grouped. Supports a `target?: string` field on each entry so any language can supply its own word instead of `spanish`. Component reads `entry.target ?? entry.spanish` for multi-language support. False friends rendered with distinct red "false friend" badge and `falseCognateNote` tooltip.
 
-HoloHola has no equivalent. The greetings chapter starts with *Hola* — which is good — but it never shows the student the full cognate landscape or gives them the recognition moment Madrigal designed as her entry point.
+**Optional field:** `cognateOpener?: CognateEntry[]` on `ChapterIntroContent`. Each `CognateEntry`: `{ english, spanish?, target?, category, isFalseCognate?, falseCognateNote? }`.
 
-**Proposed component: `CognateRecognitionGrid`**
+**Data seeded — greetings chapter:**
 
-A chapter zero component (or greetings chapter opener, before `VisualVocabGrid`) that shows a grid of English–Spanish cognate pairs the student already knows. Each card shows the English word and the Spanish word — both so similar the student cannot help but recognise them. No translation needed. The message is implicit: you are not starting from zero.
+| Language | Cognates | False friends | Status |
+|---|---|---|---|
+| Spanish | 18 (hotel, taxi, restaurant, sport, possible, important, excellent…) | 3 (embarazada, librería, actual) | ✅ |
+| French | 18 (hôtel, taxi, restaurant, concert, possible, important, excellent…) | 3 (actuel, sensible, rester) | ✅ |
+| Italian | 18 (hotel, pizza, radio, studio, importante, naturale, originale…) | 3 (camera, sensibile, attualmente) | ✅ |
+| German | 18 (Hotel, Sport, Tennis, Internet, Computer, Moment, Telefon…) | 3 (aktuell, sympathisch, sensibel) | ✅ |
+| Portuguese | — | — | ⬜ Pending |
+| Japanese | — | — | ⬜ Pending (katakana loan-words — different cognate type) |
+| Korean | — | — | ⬜ Pending (konglish loan-words) |
+| Mandarin | — | — | ⬜ Pending (fewer direct cognates; can highlight international loan-words) |
+| Hebrew | — | — | ⬜ Pending |
+| English | — | — | ⬜ Pending (English-as-L2 cognate strategy differs; Cindy/Blake context) |
 
-Design details:
-- Tiled grid of word-pair cards (English word small/secondary → Spanish word large/primary)
-- Category groupings: professions (doctor, actor, director), places (hotel, hospital, aeropuerto), concepts (animal, natural, social, formal, total, final, normal, legal, moral)
-- Optional: a header callout — "You already know over 1,000 Spanish words" — in Daniela's voice, delivered as an audio clip
-- False cognate warning could be woven in as a small "watch out" card for one or two notorious false friends (embarazada ≠ embarrassed), keeping Daniela's honesty intact
+*Note on non-Romance languages:* Japanese/Korean "cognates" are actually phonetic loans (katakana/konglish) rather than structural cognates — the component can still be used but the educational framing must change from "same spelling" to "same sound." This is a design decision to make when authoring the data.
 
-**Non-linear navigation alignment:**
-
-This component serves a student at any level. A Novice Low student meets it first and feels the confidence rush. An intermediate student returning to the greetings chapter after months away skims it and is reminded of the foundation. A heritage speaker sees words they knew but never saw written. Because each lesson is designed to stand alone, this card works wherever the student encounters it.
-
-**Where it lives in the data:**
-
-New optional field `cognateOpener?: CognateEntry[]` on `ChapterIntroContent`. Each `CognateEntry`: `{ english: string; spanish: string; category: string }`. No images needed for initial version (the cognate similarity is the visual hook) — though a phase two could add category illustration images.
+**Non-linear navigation alignment:** Because each lesson is designed to stand alone, this card works at any ACTFL level — a Novice Low student gets the confidence rush, an intermediate student returning to the chapter gets a foundation reminder.
 
 ---
 
