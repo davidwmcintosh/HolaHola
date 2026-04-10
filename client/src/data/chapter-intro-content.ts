@@ -34,6 +34,7 @@ export interface SentenceFrameItem {
   filler: string;
   fullSentence: string;
   translation: string;
+  imageKey?: string;
 }
 
 export interface SentenceFrame {
@@ -220,24 +221,24 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             frame: "¡___, amigo!",
             frameTranslation: "___!, friend!",
             items: [
-              { filler: "Hola", fullSentence: "¡Hola, amigo!", translation: "Hello, friend!" },
-              { filler: "Buenos días", fullSentence: "¡Buenos días, amigo!", translation: "Good morning, friend!" },
-              { filler: "Buenas tardes", fullSentence: "¡Buenas tardes, amigo!", translation: "Good afternoon, friend!" },
-              { filler: "Buenas noches", fullSentence: "¡Buenas noches, amigo!", translation: "Good evening, friend!" },
-              { filler: "Adiós", fullSentence: "¡Adiós, amigo!", translation: "Goodbye, friend!" },
-              { filler: "Hasta luego", fullSentence: "¡Hasta luego, amigo!", translation: "See you later, friend!" },
+              { filler: "Hola", fullSentence: "¡Hola, amigo!", translation: "Hello, friend!", imageKey: "vocab_spanish_hola" },
+              { filler: "Buenos días", fullSentence: "¡Buenos días, amigo!", translation: "Good morning, friend!", imageKey: "vocab_spanish_buenos dias" },
+              { filler: "Buenas tardes", fullSentence: "¡Buenas tardes, amigo!", translation: "Good afternoon, friend!", imageKey: "vocab_spanish_buenas tardes" },
+              { filler: "Buenas noches", fullSentence: "¡Buenas noches, amigo!", translation: "Good evening, friend!", imageKey: "vocab_spanish_buenas noches" },
+              { filler: "Adiós", fullSentence: "¡Adiós, amigo!", translation: "Goodbye, friend!", imageKey: "vocab_spanish_adios" },
+              { filler: "Hasta luego", fullSentence: "¡Hasta luego, amigo!", translation: "See you later, friend!", imageKey: "vocab_spanish_hasta luego" },
             ]
           },
           {
             frame: "Estoy ___.",
             frameTranslation: "I am ___.",
             items: [
-              { filler: "bien", fullSentence: "Estoy bien.", translation: "I am well." },
-              { filler: "muy bien", fullSentence: "Estoy muy bien.", translation: "I am very well." },
-              { filler: "más o menos", fullSentence: "Estoy más o menos.", translation: "I am so-so." },
-              { filler: "mal", fullSentence: "Estoy mal.", translation: "I am not well." },
-              { filler: "cansado", fullSentence: "Estoy cansado.", translation: "I am tired." },
-              { filler: "feliz", fullSentence: "Estoy feliz.", translation: "I am happy." },
+              { filler: "bien", fullSentence: "Estoy bien.", translation: "I am well.", imageKey: "vocab_spanish_bien" },
+              { filler: "muy bien", fullSentence: "Estoy muy bien.", translation: "I am very well.", imageKey: "vocab_spanish_muy bien" },
+              { filler: "más o menos", fullSentence: "Estoy más o menos.", translation: "I am so-so.", imageKey: "vocab_spanish_mas o menos" },
+              { filler: "mal", fullSentence: "Estoy mal.", translation: "I am not well.", imageKey: "vocab_spanish_mal" },
+              { filler: "cansado", fullSentence: "Estoy cansado.", translation: "I am tired.", imageKey: "vocab_spanish_cansado" },
+              { filler: "feliz", fullSentence: "Estoy feliz.", translation: "I am happy.", imageKey: "vocab_spanish_feliz" },
             ]
           }
         ],
@@ -289,10 +290,30 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "El Regateo (Bargaining)",
           content: "In many Spanish-speaking countries, bargaining is an art form, especially in markets and small shops. Knowing your numbers well gives you confidence to negotiate prices. Start by asking '\u00bfMe puede hacer un descuento?' (Can you give me a discount?) and see where the conversation goes!"
-        }
+        },
+        vocabQA: [
+          { question: "\u00bfCu\u00e1ntos a\u00f1os tienes?", answer: "Tengo veinticinco a\u00f1os.", answerTranslation: "I am twenty-five years old." },
+          { question: "\u00bfCu\u00e1nto cuesta?", answer: "Cuesta diez euros.", answerTranslation: "It costs ten euros." },
+          { question: "\u00bfQu\u00e9 hora es?", answer: "Son las tres.", answerTranslation: "It is three o'clock." },
+          { question: "\u00bfCu\u00e1ntas personas hay?", answer: "Hay cinco personas.", answerTranslation: "There are five people." },
+          { question: "\u00bfCu\u00e1l es tu n\u00famero de tel\u00e9fono?", answer: "Mi n\u00famero es el 55-12-34.", answerTranslation: "My number is 55-12-34." }
+        ],
+        verbGroups: [
+          {
+            verb: "tener",
+            verbTranslation: "to have (age, possessions)",
+            examples: [
+              { object: "veinte a\u00f1os", fullPhrase: "Tengo veinte a\u00f1os.", translation: "I am twenty years old." },
+              { object: "hambre", fullPhrase: "Tengo hambre.", translation: "I am hungry." },
+              { object: "dinero", fullPhrase: "Tengo dinero.", translation: "I have money." },
+              { object: "tiempo", fullPhrase: "No tengo tiempo.", translation: "I don't have time." },
+              { object: "una pregunta", fullPhrase: "Tengo una pregunta.", translation: "I have a question." }
+            ]
+          }
+        ]
       },
       family: {
-        welcomeText: "Family is at the heart of Spanish-speaking culture. In this chapter, you'll learn to talk about your loved ones and understand the beautiful, sometimes complex, family structures that define Latin identity.",
+        welcomeText: "Spanish has a specific word for every family relationship. In this chapter, you'll learn madre, padre, hermanos, abuelos, tíos, and primos — plus the verb ser, which anchors every introduction.",
         narrativeSections: [
           {
             title: "Family Structure",
@@ -313,24 +334,24 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             frame: "Ella es mi ___.",
             frameTranslation: "She is my ___.",
             items: [
-              { filler: "madre", fullSentence: "Ella es mi madre.", translation: "She is my mother." },
-              { filler: "abuela", fullSentence: "Ella es mi abuela.", translation: "She is my grandmother." },
-              { filler: "hermana", fullSentence: "Ella es mi hermana.", translation: "She is my sister." },
-              { filler: "tía", fullSentence: "Ella es mi tía.", translation: "She is my aunt." },
-              { filler: "prima", fullSentence: "Ella es mi prima.", translation: "She is my cousin." },
-              { filler: "amiga", fullSentence: "Ella es mi amiga.", translation: "She is my friend." },
+              { filler: "madre", fullSentence: "Ella es mi madre.", translation: "She is my mother.", imageKey: "vocab_spanish_madre" },
+              { filler: "abuela", fullSentence: "Ella es mi abuela.", translation: "She is my grandmother.", imageKey: "vocab_spanish_abuela" },
+              { filler: "hermana", fullSentence: "Ella es mi hermana.", translation: "She is my sister.", imageKey: "vocab_spanish_hermana" },
+              { filler: "tía", fullSentence: "Ella es mi tía.", translation: "She is my aunt.", imageKey: "vocab_spanish_tia" },
+              { filler: "prima", fullSentence: "Ella es mi prima.", translation: "She is my cousin.", imageKey: "vocab_spanish_prima" },
+              { filler: "amiga", fullSentence: "Ella es mi amiga.", translation: "She is my friend.", imageKey: "vocab_spanish_amiga" },
             ]
           },
           {
             frame: "Él es mi ___.",
             frameTranslation: "He is my ___.",
             items: [
-              { filler: "padre", fullSentence: "Él es mi padre.", translation: "He is my father." },
-              { filler: "abuelo", fullSentence: "Él es mi abuelo.", translation: "He is my grandfather." },
-              { filler: "hermano", fullSentence: "Él es mi hermano.", translation: "He is my brother." },
-              { filler: "tío", fullSentence: "Él es mi tío.", translation: "He is my uncle." },
-              { filler: "primo", fullSentence: "Él es mi primo.", translation: "He is my cousin." },
-              { filler: "amigo", fullSentence: "Él es mi amigo.", translation: "He is my friend." },
+              { filler: "padre", fullSentence: "Él es mi padre.", translation: "He is my father.", imageKey: "vocab_spanish_padre" },
+              { filler: "abuelo", fullSentence: "Él es mi abuelo.", translation: "He is my grandfather.", imageKey: "vocab_spanish_abuelo" },
+              { filler: "hermano", fullSentence: "Él es mi hermano.", translation: "He is my brother.", imageKey: "vocab_spanish_hermano" },
+              { filler: "tío", fullSentence: "Él es mi tío.", translation: "He is my uncle.", imageKey: "vocab_spanish_tio" },
+              { filler: "primo", fullSentence: "Él es mi primo.", translation: "He is my cousin.", imageKey: "vocab_spanish_primo" },
+              { filler: "amigo", fullSentence: "Él es mi amigo.", translation: "He is my friend.", imageKey: "vocab_spanish_amigo" },
             ]
           }
         ],
@@ -365,7 +386,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         ]
       },
       daily: {
-        welcomeText: "Let's refresh what you know and build your daily vocabulary! This chapter reviews essential Spanish basics and introduces simple phrases for everyday life. Perfect for warming up or solidifying your foundation.",
+        welcomeText: "This chapter pulls together the most-used Spanish phrases in one place: time-of-day greetings, courtesy words, and the daily vocabulary that shows up in almost every conversation.",
         narrativeSections: [
           {
             title: "Greetings Throughout the Day",
@@ -435,7 +456,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
     ],
     chapters: {
       greetings: {
-        welcomeText: "Bienvenue to the world of French! French is the language of diplomacy, art, and elegance, and it all begins with how you greet someone. In this chapter, you'll discover how the French use greetings to set the tone for every interaction.",
+        welcomeText: "In this chapter you'll learn Bonjour (morning through afternoon), Bonsoir (evening), how tu and vous split formal from informal, and the introductions that open every French conversation.",
         narrativeSections: [
           {
             title: "Time Matters",
@@ -452,7 +473,8 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             title: "Formal vs. Informal",
             content: "French has a clear distinction between 'vous' (formal/plural) and 'tu' (informal/singular). Using 'tu' with someone you've just met can feel presumptuous, while 'vous' shows respect. The moment someone invites you to 'se tutoyer' (use tu) is a social milestone.",
             infographic: 'formalInformal',
-            tip: "In professional settings, always use 'vous' unless explicitly invited to switch. Some colleagues work together for years without switching!"
+            tip: "In professional settings, always use 'vous' unless explicitly invited to switch. Some colleagues work together for years without switching!",
+            discoveryNote: "vous uses the same verb endings as ils and elles. 'Comment allez-vous ?' (How are you — formal) and 'Comment vont-ils ?' (How are they going?) share the same conjugation root. Like Spanish usted, French builds formality through pronoun choice, not verb endings."
           }
         ],
         conversationStrips: [
@@ -541,7 +563,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         ]
       },
       numbers: {
-        welcomeText: "French numbers have a unique charm and a few surprises! From the elegant simplicity of 'un, deux, trois' to the mathematical logic of 'quatre-vingts' (four-twenties for 80), this chapter will guide you through the French counting system.",
+        welcomeText: "French numbers work simply from 1 to 69, then turn mathematical: 70 is soixante-dix (sixty-ten), 80 is quatre-vingts (four-twenties). This chapter covers the full system — including how to read prices and give a phone number.",
         narrativeSections: [
           {
             title: "Counting Basics",
@@ -557,7 +579,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "Le Chiffre 13",
           content: "In France, the number 13 has a complicated reputation. While some consider it unlucky (many buildings skip the 13th floor), others see it as a lucky number \u2014 the French national lottery specifically promotes Friday the 13th draws as extra-lucky events, and ticket sales soar on those dates!"
-        }
+        },
+        vocabQA: [
+          { question: "Quel \u00e2ge avez-vous ?", answer: "J'ai vingt-cinq ans.", answerTranslation: "I am twenty-five years old." },
+          { question: "Combien \u00e7a co\u00fbte ?", answer: "\u00c7a co\u00fbte dix euros.", answerTranslation: "It costs ten euros." },
+          { question: "Quelle heure est-il ?", answer: "Il est trois heures.", answerTranslation: "It is three o'clock." },
+          { question: "Combien de personnes y a-t-il ?", answer: "Il y a cinq personnes.", answerTranslation: "There are five people." },
+          { question: "Quel est ton num\u00e9ro de t\u00e9l\u00e9phone ?", answer: "Mon num\u00e9ro, c'est le 06-12-34-56.", answerTranslation: "My number is 06-12-34-56." }
+        ],
+        verbGroups: [
+          {
+            verb: "avoir",
+            verbTranslation: "to have (age, possessions)",
+            examples: [
+              { object: "vingt ans", fullPhrase: "J'ai vingt ans.", translation: "I am twenty years old." },
+              { object: "faim", fullPhrase: "J'ai faim.", translation: "I am hungry." },
+              { object: "de l'argent", fullPhrase: "J'ai de l'argent.", translation: "I have money." },
+              { object: "le temps", fullPhrase: "Je n'ai pas le temps.", translation: "I don't have time." },
+              { object: "une question", fullPhrase: "J'ai une question.", translation: "I have a question." }
+            ]
+          }
+        ]
       },
       family: {
         welcomeText: "French family life blends tradition with modern values. In this chapter, you'll learn the vocabulary to describe your family and understand how French culture views the bonds between generations, from the formal address of grandparents to playful sibling nicknames.",
@@ -676,7 +718,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
     ],
     chapters: {
       greetings: {
-        welcomeText: "Willkommen to German! Germany, Austria, and Switzerland each bring their own flavor to the language, but they all share a deep appreciation for proper greetings. In this chapter, you'll learn how to greet people with confidence across all German-speaking cultures.",
+        welcomeText: "German has a greeting for every time of day: Guten Morgen, Guten Tag, Guten Abend. In this chapter, you'll also learn when to use Sie vs. du — and regional variants like Grüß Gott and Moin.",
         narrativeSections: [
           {
             title: "Time Matters",
@@ -693,7 +735,8 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             title: "Formal vs. Informal",
             content: "German has a clear formal/informal distinction with 'Sie' (formal you) and 'du' (informal you). Using 'du' prematurely can be awkward, while 'Sie' shows professionalism. The ritual of offering the 'Du' (called 'Duzen') is a meaningful social moment.",
             infographic: 'formalInformal',
-            tip: "In modern German workplaces, many companies use 'du' among all employees \u2014 but always wait for the offer!"
+            tip: "In modern German workplaces, many companies use 'du' among all employees \u2014 but always wait for the offer!",
+            discoveryNote: "German capitalizes the formal Sie to separate it from sie (she) and sie (they) — three words, one pronunciation, three meanings. In writing, the capital letter is the only visual cue. Spoken aloud, context does all the work."
           }
         ],
         conversationStrips: [
@@ -796,7 +839,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         ]
       },
       numbers: {
-        welcomeText: "German numbers have their own logic and a few quirks that make them fascinating to learn. Once you understand the pattern of saying the ones digit before the tens, you'll be counting like a native in no time!",
+        welcomeText: "German reverses the ones and tens: 25 is fünfundzwanzig — five-and-twenty. This chapter covers 1 through 1,000, plus how Germans write numbers differently than English speakers.",
         narrativeSections: [
           {
             title: "Counting Basics",
@@ -812,7 +855,27 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "Schnapszahl",
           content: "Germans have a special love for repeating numbers like 11:11. Called 'Schnapszahlen' (schnapps numbers), these are considered moments worth celebrating \u2014 you might catch a German smiling at the clock at 22:22. On November 11th at 11:11 AM, the Carnival season officially begins across Germany!"
-        }
+        },
+        vocabQA: [
+          { question: "Wie alt bist du?", answer: "Ich bin f\u00fcnfundzwanzig Jahre alt.", answerTranslation: "I am twenty-five years old." },
+          { question: "Was kostet das?", answer: "Das kostet zehn Euro.", answerTranslation: "That costs ten euros." },
+          { question: "Wie sp\u00e4t ist es?", answer: "Es ist drei Uhr.", answerTranslation: "It is three o'clock." },
+          { question: "Wie viele Leute sind da?", answer: "Da sind f\u00fcnf Leute.", answerTranslation: "There are five people." },
+          { question: "Wie ist deine Telefonnummer?", answer: "Meine Nummer ist 030 12 34 56.", answerTranslation: "My number is 030 12 34 56." }
+        ],
+        verbGroups: [
+          {
+            verb: "sein",
+            verbTranslation: "to be (German uses sein for age — unlike Romance languages that use 'have')",
+            examples: [
+              { object: "zwanzig Jahre alt", fullPhrase: "Ich bin zwanzig Jahre alt.", translation: "I am twenty years old." },
+              { object: "m\u00fcde", fullPhrase: "Ich bin m\u00fcde.", translation: "I am tired." },
+              { object: "drei\u00dfig", fullPhrase: "Sie ist drei\u00dfig.", translation: "She is thirty." },
+              { object: "f\u00fcnfzig", fullPhrase: "Er ist f\u00fcnfzig.", translation: "He is fifty." },
+              { object: "jung", fullPhrase: "Wir sind jung.", translation: "We are young." }
+            ]
+          }
+        ]
       },
       family: {
         welcomeText: "German family vocabulary reflects a culture that values both tradition and modern flexibility. In this chapter, you'll learn the words for family members and discover how family life is structured in German-speaking countries.",
@@ -923,7 +986,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
     ],
     chapters: {
       greetings: {
-        welcomeText: "Benvenuto to Italian! Italy's culture is built on passion, beauty, and human connection \u2014 and it all starts with a warm greeting. In this chapter, you'll learn the graceful art of Italian greetings that open doors to la dolce vita.",
+        welcomeText: "Italian greetings cover more ground than English. In this chapter, you'll learn Buongiorno, Buonasera, and Ciao — when each is appropriate — plus how Lei and tu divide formal from informal, and the phrases for meeting someone for the first time.",
         narrativeSections: [
           {
             title: "Time Matters",
@@ -940,7 +1003,8 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             title: "Formal vs. Informal",
             content: "Italian uses 'Lei' for formal address and 'tu' for informal. 'Lei' (literally 'she') is used with strangers, elders, and in professional settings. The shift from 'Lei' to 'tu' (called 'dare del tu') is an invitation to closer friendship.",
             infographic: 'formalInformal',
-            tip: "'Lei' is always capitalized in writing when used as formal 'you' \u2014 this distinguishes it from 'lei' meaning 'she'."
+            tip: "'Lei' is always capitalized in writing when used as formal 'you' \u2014 this distinguishes it from 'lei' meaning 'she'.",
+            discoveryNote: "Italian Lei (formal you) uses the same verb form as lei (she). 'Come sta Lei?' (formal — How are you?) and 'Come sta lei?' (How is she?) are identical except for the capital letter. Italian borrowed a third-person pronoun to signal deference — you speak to someone important as if speaking about them."
           }
         ],
         conversationStrips: [
@@ -1030,7 +1094,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         ]
       },
       numbers: {
-        welcomeText: "Italian numbers are melodious and follow beautiful patterns. In this chapter, you'll learn to count in Italian \u2014 from ordering 'due espresso' to reading prices at a Roman market. Numbers in Italian sound like music!",
+        welcomeText: "Italian numbers follow regular patterns once you know 1–10. In this chapter, you'll learn to count to 1,000, read restaurant prices, and understand why ventuno and ventotto drop their final vowel.",
         narrativeSections: [
           {
             title: "Counting Basics",
@@ -1046,10 +1110,30 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "Il Numero 17",
           content: "While much of the world considers 13 unlucky, in Italy the unlucky number is 17. The Roman numeral XVII can be rearranged to spell 'VIXI' (Latin for 'I have lived' \u2014 meaning 'I am dead'). Some Italian buildings skip the 17th floor, and Alitalia planes once had no row 17!"
-        }
+        },
+        vocabQA: [
+          { question: "Quanti anni hai?", answer: "Ho venticinque anni.", answerTranslation: "I am twenty-five years old." },
+          { question: "Quanto costa?", answer: "Costa dieci euro.", answerTranslation: "It costs ten euros." },
+          { question: "Che ore sono?", answer: "Sono le tre.", answerTranslation: "It is three o'clock." },
+          { question: "Quante persone ci sono?", answer: "Ci sono cinque persone.", answerTranslation: "There are five people." },
+          { question: "Qual \u00e8 il tuo numero di telefono?", answer: "Il mio numero \u00e8 06-12-34-56.", answerTranslation: "My number is 06-12-34-56." }
+        ],
+        verbGroups: [
+          {
+            verb: "avere",
+            verbTranslation: "to have (age, possessions)",
+            examples: [
+              { object: "vent'anni", fullPhrase: "Ho vent'anni.", translation: "I am twenty years old." },
+              { object: "fame", fullPhrase: "Ho fame.", translation: "I am hungry." },
+              { object: "soldi", fullPhrase: "Ho soldi.", translation: "I have money." },
+              { object: "fretta", fullPhrase: "Ho fretta.", translation: "I'm in a hurry." },
+              { object: "una domanda", fullPhrase: "Ho una domanda.", translation: "I have a question." }
+            ]
+          }
+        ]
       },
       family: {
-        welcomeText: "Family \u2014 'la famiglia' \u2014 is the cornerstone of Italian culture. In this chapter, you'll learn to describe your family relationships in Italian and discover why Italian family bonds are legendary around the world.",
+        welcomeText: "In this chapter, you'll learn the Italian words for immediate and extended family — padre, madre, fratello, sorella, nonni, and more — plus the verb essere for introducing them.",
         narrativeSections: [
           {
             title: "Family Structure",
@@ -1095,7 +1179,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         ]
       },
       daily: {
-        welcomeText: "Italian daily life is infused with warmth, beauty, and rich tradition. This chapter introduces the essential words and phrases you'll use every day as you navigate life the Italian way \u2014 'piano piano' (little by little).",
+        welcomeText: "This chapter covers the Italian words and phrases you'll use every day: time expressions, courtesy words, and the vocabulary for navigating shops, public transport, and daily routines.",
         narrativeSections: [
           {
             title: "Greetings Throughout the Day",
@@ -1165,7 +1249,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
     ],
     chapters: {
       greetings: {
-        welcomeText: "Welcome to Japanese! Japan's culture places extraordinary value on politeness, respect, and social harmony. Learning Japanese greetings is your first step into a world where every word carries layers of meaning and consideration for others.",
+        welcomeText: "Japanese greetings depend on time of day and relationship. In this chapter, you'll learn Ohayou gozaimasu, Konnichiwa, and Konbanwa — plus Hajimemashite for first meetings — and how the keigo (politeness level) system shapes every greeting.",
         narrativeSections: [
           {
             title: "The Art of Greeting",
@@ -1182,7 +1266,8 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             title: "Formal vs. Informal",
             content: "Japanese has elaborate levels of formality called 'keigo'. The polite '\u3067\u3059/\u307e\u3059' (desu/masu) forms are used with anyone outside your inner circle. Casual speech drops these endings entirely. Choosing the right level is crucial to social harmony in Japan.",
             infographic: 'formalInformal',
-            tip: "Start with polite '\u3067\u3059/\u307e\u3059' forms in every new situation. Japanese speakers will appreciate your effort and may invite you to speak more casually!"
+            tip: "Start with polite '\u3067\u3059/\u307e\u3059' forms in every new situation. Japanese speakers will appreciate your effort and may invite you to speak more casually!",
+            discoveryNote: "Japanese formality lives in the verb ending, not in the pronoun. Spanish changes the pronoun (tú → usted) to shift formality. Japanese changes the verb suffix: 食べる (taberu — eat, casual) becomes 食べます (tabemasu — eat, polite). Every verb in the sentence carries the respect level, not just the greeting."
           }
         ],
         conversationStrips: [
@@ -1277,10 +1362,30 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "\u56db (Shi) \u2014 The Number Four",
           content: "In Japan, the number 4 is considered unlucky because 'shi' (\u56db) sounds identical to the word for death (\u6b7b). Many hospitals skip room number 4, some buildings omit the 4th floor, and gifts should never come in sets of four. The alternative reading 'yon' is preferred in most contexts to avoid the association."
-        }
+        },
+        vocabQA: [
+          { question: "\u4f55\u6642\u3067\u3059\u304b\uff1f", answer: "\u4e09\u6642\u3067\u3059\u3002", answerTranslation: "It is three o'clock." },
+          { question: "\u3044\u304f\u3089\u3067\u3059\u304b\uff1f", answer: "\u5341\u30e6\u30fc\u30ed\u3067\u3059\u3002", answerTranslation: "It is ten euros." },
+          { question: "\u4f55\u6b73\u3067\u3059\u304b\uff1f", answer: "\u4e8c\u5341\u4e94\u6b73\u3067\u3059\u3002", answerTranslation: "I am twenty-five years old." },
+          { question: "\u4f55\u4eba\u3044\u307e\u3059\u304b\uff1f", answer: "\u4e94\u4eba\u3044\u307e\u3059\u3002", answerTranslation: "There are five people." },
+          { question: "\u96fb\u8a71\u756a\u53f7\u306f\u4f55\u756a\u3067\u3059\u304b\uff1f", answer: "090-1234-5678\u3067\u3059\u3002", answerTranslation: "My number is 090-1234-5678." }
+        ],
+        verbGroups: [
+          {
+            verb: "\u3042\u308a\u307e\u3059 / \u3044\u307e\u3059",
+            verbTranslation: "to exist / there is — \u3042\u308a\u307e\u3059 for objects; \u3044\u307e\u3059 for living things",
+            examples: [
+              { object: "\u30ea\u30f3\u30b4\u304c\u4e09\u3064", fullPhrase: "\u30ea\u30f3\u30b4\u304c\u4e09\u3064\u3042\u308a\u307e\u3059\u3002", translation: "There are three apples." },
+              { object: "\u4e94\u4eba", fullPhrase: "\u4e94\u4eba\u3044\u307e\u3059\u3002", translation: "There are five people." },
+              { object: "\u304a\u91d1\u304c", fullPhrase: "\u304a\u91d1\u304c\u3042\u308a\u307e\u3059\u3002", translation: "There is money." },
+              { object: "\u554f\u984c\u304c", fullPhrase: "\u554f\u984c\u304c\u3042\u308a\u307e\u305b\u3093\u3002", translation: "There is no problem." },
+              { object: "\u72ac\u304c\u4e8c\u5339", fullPhrase: "\u72ac\u304c\u4e8c\u5339\u3044\u307e\u3059\u3002", translation: "There are two dogs." }
+            ]
+          }
+        ]
       },
       family: {
-        welcomeText: "Japanese family vocabulary reveals a culture of deep respect for hierarchy and harmony. In this chapter, you'll learn how Japanese families are structured and discover the beautiful system of humble and honorific terms used for family members.",
+        welcomeText: "Japanese uses different words depending on whether you're talking about your own family or someone else's. In this chapter, you'll learn both sets — haha vs. okaasan, chichi vs. otousan — and the verb desu for introductions.",
         narrativeSections: [
           {
             title: "Family Structure",
@@ -1319,7 +1424,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         ]
       },
       daily: {
-        welcomeText: "Japanese daily life is a beautiful blend of ancient tradition and modern efficiency. This chapter gives you the essential vocabulary to navigate a day in Japan, from morning greetings to convenience store interactions.",
+        welcomeText: "This chapter gives you the Japanese words and phrases for daily routines: time expressions, common courtesy phrases, and what to say at a konbini, restaurant, or train station.",
         narrativeSections: [
           {
             title: "Greetings Throughout the Day",
@@ -1389,7 +1494,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
     ],
     chapters: {
       greetings: {
-        welcomeText: "Welcome to Korean! Korean culture is rooted in deep respect for relationships and social harmony. Learning how to greet people properly is the gateway to understanding Korea's rich traditions and warm hospitality \u2014 the concept of '\uc815' (jeong), or deep emotional bonds.",
+        welcomeText: "Korean greetings shift based on respect level. In this chapter, you'll learn 안녕하세요 (Annyeonghaseyo) and 안녕 (Annyeong), plus the honorific system, how to bow, and how to introduce yourself in formal and informal settings.",
         narrativeSections: [
           {
             title: "The Art of Greeting",
@@ -1406,7 +1511,8 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             title: "Formal vs. Informal",
             content: "Korean has seven speech levels, but the most important distinction is between polite formal ('\u2014\uc2b5\ub2c8\ub2e4'), polite informal ('\u2014\uc694'), and casual ('\u2014\uc544/\uc5b4'). Age and social status determine which level you use. Using casual speech with an elder is a serious social misstep.",
             infographic: 'formalInformal',
-            tip: "Always use polite speech ('\u2014\uc694' endings) when meeting someone new. It's the safest default until you know the social dynamics."
+            tip: "Always use polite speech ('\u2014\uc694' endings) when meeting someone new. It's the safest default until you know the social dynamics.",
+            discoveryNote: "Korean honorifics don't just affect one pronoun — they change the ending of every verb in a conversation. 가세요 (gaseyo — please go, polite) vs. 가 (ga — go, casual). Once you switch speech levels with someone, that level becomes the tone for the whole relationship."
           }
         ],
         conversationStrips: [
@@ -1501,10 +1607,30 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "\uc0ac (\u56db) \u2014 The Number Four",
           content: "Like in other East Asian cultures, the number 4 (\uc0ac, sa) is considered unlucky in Korea because it sounds like the word for death (\u6b7b). Many Korean buildings label the 4th floor as 'F' instead, and gifts in sets of four are avoided. Conversely, the number 8 is considered lucky as it represents prosperity."
-        }
+        },
+        vocabQA: [
+          { question: "\uba87 \uc2dc\uc608\uc694?", answer: "\uc138 \uc2dc\uc608\uc694.", answerTranslation: "It is three o'clock." },
+          { question: "\uc5bc\ub9c8\uc608\uc694?", answer: "\ub9cc \uc6d0\uc774\uc5d0\uc694.", answerTranslation: "It is 10,000 won." },
+          { question: "\uba87 \uc0b4\uc774\uc5d0\uc694?", answer: "\uc2a4\ubb3c\ub2e4\uc37f \uc0b4\uc774\uc5d0\uc694.", answerTranslation: "I am twenty-five years old." },
+          { question: "\uba87 \uba85\uc774\uc5d0\uc694?", answer: "\ub2e4\uc12f \uba85\uc774\uc5d0\uc694.", answerTranslation: "There are five people." },
+          { question: "\uc804\ud654\ubc88\ud638\uac00 \ubf50\uc608\uc694?", answer: "010-1234-5678\uc774\uc5d0\uc694.", answerTranslation: "My number is 010-1234-5678." }
+        ],
+        verbGroups: [
+          {
+            verb: "\uc774\uc5d0\uc694 / \uc608\uc694",
+            verbTranslation: "to be (identity, quantity) — \uc774\uc5d0\uc694 after consonant, \uc608\uc694 after vowel",
+            examples: [
+              { object: "\uc138 \uc2dc", fullPhrase: "\uc138 \uc2dc\uc608\uc694.", translation: "It is three o'clock." },
+              { object: "\ub9cc \uc6d0", fullPhrase: "\ub9cc \uc6d0\uc774\uc5d0\uc694.", translation: "It is 10,000 won." },
+              { object: "\ub2e4\uc12f \uba85", fullPhrase: "\ub2e4\uc12f \uba85\uc774\uc5d0\uc694.", translation: "There are five people." },
+              { object: "\uc2a4\ubb3c\ub2e4\uc37f \uc0b4", fullPhrase: "\uc2a4\ubb3c\ub2e4\uc37f \uc0b4\uc774\uc5d0\uc694.", translation: "I am twenty-five years old." },
+              { object: "\uc81c \ubc88\ud638", fullPhrase: "\uc81c \ubc88\ud638\uc608\uc694.", translation: "It's my number." }
+            ]
+          }
+        ]
       },
       family: {
-        welcomeText: "Korean family vocabulary is rich with terms that reflect the culture's deep respect for age and relationship hierarchy. In this chapter, you'll learn how Korean families are structured and why family terms are some of the most important words in the language.",
+        welcomeText: "Korean has a different word for every family role, and the terms change depending on your gender and who you're addressing. In this chapter, you'll learn the core family vocabulary and the verb 이에요/예요 for introductions.",
         narrativeSections: [
           {
             title: "Family Structure",
@@ -1543,7 +1669,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         ]
       },
       daily: {
-        welcomeText: "Korean daily life blends ancient courtesy with modern energy. This chapter equips you with the essential words and phrases for navigating everyday situations, from bustling Seoul streets to friendly neighborhood interactions.",
+        welcomeText: "This chapter covers the Korean words and phrases you'll use every day: greetings by time of day, essential courtesy words, and vocabulary for shops, cafés, and everyday routines.",
         narrativeSections: [
           {
             title: "Greetings Throughout the Day",
@@ -1613,7 +1739,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
     ],
     chapters: {
       greetings: {
-        welcomeText: "Welcome to Mandarin Chinese! With over a billion speakers, Mandarin connects you to one of the world's oldest and richest civilizations. Chinese greetings reflect values of harmony, respect, and community \u2014 learn them well and you'll open countless doors.",
+        welcomeText: "Mandarin greetings are simpler than they look. In this chapter, you'll learn 你好 (Nǐ hǎo), 早上好 (Zǎoshang hǎo), 再见 (Zàijiàn), and how to introduce yourself — plus the four tones that make all the difference in pronunciation.",
         narrativeSections: [
           {
             title: "The Art of Greeting",
@@ -1630,7 +1756,8 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             title: "Formal vs. Informal",
             content: "Chinese formality is shown through word choice rather than verb conjugation. '\u60a8' (n\u00edn) is the respectful 'you', used with elders, teachers, and in business. '\u4f60' (n\u01d0) is casual. Adding '\u8bf7' (q\u01d0ng \u2014 please) before requests elevates politeness instantly.",
             infographic: 'formalInformal',
-            tip: "Chinese politeness relies heavily on titles. Address people as '\u8001\u5e08' (l\u01ceo sh\u012b \u2014 teacher), '\u5148\u751f' (xi\u0101n sheng \u2014 Mr.), or '\u5973\u58eb' (n\u01da sh\u00ec \u2014 Ms.) to show respect."
+            tip: "Chinese politeness relies heavily on titles. Address people as '\u8001\u5e08' (l\u01ceo sh\u012b \u2014 teacher), '\u5148\u751f' (xi\u0101n sheng \u2014 Mr.), or '\u5973\u58eb' (n\u01da sh\u00ec \u2014 Ms.) to show respect.",
+            discoveryNote: "Mandarin's formal pronoun \u60a8 (n\u00edn) is built from the characters \u4f60 (n\u01d0 \u2014 casual you) with \u5fc3 (x\u012bn \u2014 heart) written beneath it. One extra stroke signals that you are speaking with care. Chinese encodes deference into the shape of the character itself rather than into verb endings — respect is written, not conjugated."
           }
         ],
         conversationStrips: [
@@ -1723,10 +1850,30 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "\u516b (\u0042\u0101) \u2014 The Lucky Number Eight",
           content: "The number 8 (\u516b, b\u0101) is the luckiest number in Chinese culture because it sounds like '\u53d1' (f\u0101), meaning prosperity or wealth. The Beijing Olympics started on 08/08/2008 at 8:08 PM. Phone numbers and license plates with multiple 8s sell for premium prices. Meanwhile, 4 (\u56db, s\u00ec) is avoided because it sounds like death (\u6b7b, s\u01d0)."
-        }
+        },
+        vocabQA: [
+          { question: "\u51e0\u70b9\u4e86\uff1f", answer: "\u4e09\u70b9\u4e86\u3002", answerTranslation: "It is three o'clock." },
+          { question: "\u591a\u5c11\u9322\uff1f", answer: "\u5341\u5757\u9322\u3002", answerTranslation: "Ten yuan." },
+          { question: "\u4f60\u51e0\u5c81\uff1f", answer: "\u6211\u4e8c\u5341\u4e94\u5c81\u3002", answerTranslation: "I am twenty-five years old." },
+          { question: "\u6709\u51e0\u4e2a\u4eba\uff1f", answer: "\u6709\u4e94\u4e2a\u4eba\u3002", answerTranslation: "There are five people." },
+          { question: "\u4f60\u7684\u7535\u8bdd\u53f7\u7801\u662f\u591a\u5c11\uff1f", answer: "\u6211\u7684\u53f7\u7801\u662f139-1234-5678\u3002", answerTranslation: "My number is 139-1234-5678." }
+        ],
+        verbGroups: [
+          {
+            verb: "\u6709 (y\u01d2u)",
+            verbTranslation: "to have / there is — negated: \u6ca1\u6709 (m\u00e9iy\u01d2u — don't have / there isn't)",
+            examples: [
+              { object: "\u4e94\u4e2a\u82f9\u679c", fullPhrase: "\u6709\u4e94\u4e2a\u82f9\u679c\u3002", translation: "There are five apples." },
+              { object: "\u4e24\u4e2a\u54e5\u54e5", fullPhrase: "\u6211\u6709\u4e24\u4e2a\u54e5\u54e5\u3002", translation: "I have two older brothers." },
+              { object: "\u95ee\u9898", fullPhrase: "\u6ca1\u6709\u95ee\u9898\u3002", translation: "No problem." },
+              { object: "\u9322", fullPhrase: "\u6211\u6709\u9322\u3002", translation: "I have money." },
+              { object: "\u6642\u9593", fullPhrase: "\u6211\u6ca1\u6709\u6642\u9593\u3002", translation: "I don't have time." }
+            ]
+          }
+        ]
       },
       family: {
-        welcomeText: "Family is the foundation of Chinese culture, and the Chinese language has one of the most detailed family vocabulary systems in the world. In this chapter, you'll discover terms that distinguish between paternal and maternal relatives with remarkable precision.",
+        welcomeText: "Mandarin distinguishes paternal and maternal relatives with separate words: bàba and māma, but different terms for both sets of grandparents and uncles. In this chapter, you'll learn the core family vocabulary and the structure used to introduce family members.",
         narrativeSections: [
           {
             title: "Family Structure",
@@ -1765,7 +1912,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         ]
       },
       daily: {
-        welcomeText: "Daily life in Chinese-speaking cultures is filled with tradition and modern vibrancy. This chapter gives you the essential vocabulary to navigate a day in China, from morning tai chi greetings to evening tea conversations.",
+        welcomeText: "This chapter covers the Mandarin words and phrases for daily life: time expressions, courtesy words, and vocabulary for shops, restaurants, and everyday routines.",
         narrativeSections: [
           {
             title: "Greetings Throughout the Day",
@@ -1835,7 +1982,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
     ],
     chapters: {
       greetings: {
-        welcomeText: "Bem-vindo to Portuguese! Spoken across Brazil, Portugal, and several African nations, Portuguese is a language of warmth, rhythm, and saudade. This chapter introduces you to greetings that reflect the sunny disposition and deep hospitality of Portuguese-speaking cultures.",
+        welcomeText: "In this chapter, you'll learn the core Portuguese greetings — Bom dia, Boa tarde, Boa noite — how tu and você split formal from informal, and the phrases for introducing yourself in Brazilian and European contexts.",
         narrativeSections: [
           {
             title: "The Art of Greeting",
@@ -1852,7 +1999,8 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             title: "Formal vs. Informal",
             content: "Portuguese uses 'voc\u00ea' (informal) and 'o senhor/a senhora' (formal) to distinguish between casual and respectful address. In Brazil, 'voc\u00ea' is widely used even in semi-formal settings, while Portugal retains more formal distinctions with 'tu' for friends and 'voc\u00ea' for acquaintances.",
             infographic: 'formalInformal',
-            tip: "Brazilian Portuguese is generally less formal than European Portuguese \u2014 but always use 'o senhor/a senhora' with elderly people."
+            tip: "Brazilian Portuguese is generally less formal than European Portuguese \u2014 but always use 'o senhor/a senhora' with elderly people.",
+            discoveryNote: "Portuguese voc\u00ea takes the same verb endings as ele (he) and ela (she). 'Voc\u00ea fala' (you speak) and 'Ela fala' (she speaks) conjugate identically. The same pattern appears in Spanish usted and Italian Lei \u2014 Romance languages repeatedly repurposed third-person pronouns to signal deference, turning 'speaking about someone' into 'speaking respectfully to them'."
           }
         ],
         conversationStrips: [
@@ -1922,7 +2070,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         ]
       },
       numbers: {
-        welcomeText: "Portuguese numbers have a melodic quality that makes them a joy to learn. This chapter takes you through the counting system used across Brazil, Portugal, and beyond \u2014 from ordering a\u00e7a\u00ed bowls to navigating bustling markets.",
+        welcomeText: "Portuguese numbers have one key difference from Spanish: feminine forms for 1 and 2 (uma, duas). This chapter covers 1 to 1,000, plus how numbers appear in prices, phone numbers, and bus schedules.",
         narrativeSections: [
           {
             title: "Counting Basics",
@@ -1938,10 +2086,30 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "O Jogo do Bicho",
           content: "Brazil's famous 'Jogo do Bicho' (Animal Game) is a popular number-based lottery where each group of numbers is associated with an animal. Dreams are interpreted through animals and their corresponding numbers. Dreaming of a cat? Bet on number 14! This unique blend of numbers, animals, and superstition is deeply woven into Brazilian popular culture."
-        }
+        },
+        vocabQA: [
+          { question: "Quantos anos voc\u00ea tem?", answer: "Tenho vinte e cinco anos.", answerTranslation: "I am twenty-five years old." },
+          { question: "Quanto custa?", answer: "Custa dez reais.", answerTranslation: "It costs ten reais." },
+          { question: "Que horas s\u00e3o?", answer: "S\u00e3o tr\u00eas horas.", answerTranslation: "It is three o'clock." },
+          { question: "Quantas pessoas h\u00e1?", answer: "H\u00e1 cinco pessoas.", answerTranslation: "There are five people." },
+          { question: "Qual \u00e9 o seu n\u00famero de telefone?", answer: "O meu n\u00famero \u00e9 11 98765-4321.", answerTranslation: "My number is 11 98765-4321." }
+        ],
+        verbGroups: [
+          {
+            verb: "ter",
+            verbTranslation: "to have (age, possessions)",
+            examples: [
+              { object: "vinte anos", fullPhrase: "Tenho vinte anos.", translation: "I am twenty years old." },
+              { object: "fome", fullPhrase: "Tenho fome.", translation: "I am hungry." },
+              { object: "dinheiro", fullPhrase: "Tenho dinheiro.", translation: "I have money." },
+              { object: "tempo", fullPhrase: "N\u00e3o tenho tempo.", translation: "I don't have time." },
+              { object: "uma pergunta", fullPhrase: "Tenho uma pergunta.", translation: "I have a question." }
+            ]
+          }
+        ]
       },
       family: {
-        welcomeText: "Family \u2014 'fam\u00edlia' \u2014 is the heart and soul of Portuguese-speaking cultures. Whether in Brazil's sprawling family gatherings or Portugal's multi-generational homes, family bonds define daily life. This chapter explores the vocabulary of these cherished relationships.",
+        welcomeText: "In this chapter, you'll learn the Portuguese words for immediate and extended family — mãe, pai, irmão, irmã, avó, tio — plus the verb ser for introducing them, and a few places where Brazilian and European Portuguese differ.",
         narrativeSections: [
           {
             title: "Family Structure",
@@ -1987,7 +2155,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         ]
       },
       daily: {
-        welcomeText: "Daily life in Portuguese-speaking cultures is vibrant, social, and full of warmth. This chapter gives you the essential vocabulary to navigate everyday situations with the easygoing charm that defines the Lusophone world.",
+        welcomeText: "This chapter covers the Portuguese vocabulary you'll use every day: time expressions, courtesy words, and the phrases for shops, cafés, and common daily routines in Brazil and Portugal.",
         narrativeSections: [
           {
             title: "Greetings Throughout the Day",
@@ -2057,7 +2225,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
     ],
     chapters: {
       greetings: {
-        welcomeText: "Welcome to English! As the world's most widely spoken second language, English connects cultures across every continent. In this chapter, you'll master the greetings that unlock conversations from London to Los Angeles, Sydney to Singapore.",
+        welcomeText: "In this chapter, you'll learn the greetings English speakers actually use — from Hello and Good morning to Hey and What's up — which are formal, which are casual, and how to introduce yourself confidently in any English-speaking context.",
         narrativeSections: [
           {
             title: "The Art of Greeting",
@@ -2074,7 +2242,8 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             title: "Formal vs. Informal",
             content: "English doesn't have formal 'you' like many languages, but formality shows through word choice and tone. 'Could you possibly...' is more formal than 'Can you...', and 'How do you do?' is far more formal than 'What's up?'. Context is everything.",
             infographic: 'formalInformal',
-            tip: "English speakers often use indirect language for politeness: 'Would you mind...?' and 'I was wondering if...' soften requests beautifully."
+            tip: "English speakers often use indirect language for politeness: 'Would you mind...?' and 'I was wondering if...' soften requests beautifully.",
+            discoveryNote: "English used to have a formal/informal split: 'thou' was the intimate form (like French tu), 'you' was the respectful plural (like French vous). By the 17th century, 'you' absorbed both roles completely. The distinction vanished so thoroughly that English now compensates with vocabulary and indirection — 'Could you possibly...?' doing the work that a single pronoun does in French, Spanish, or German."
           }
         ],
         conversationStrips: [
@@ -2151,10 +2320,30 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "Lucky Number Seven",
           content: "In English-speaking cultures, 7 is widely considered the luckiest number. From 'lucky sevens' in slot machines to the seven wonders of the world, this number carries special significance. Meanwhile, 13 is considered unlucky \u2014 so much so that many buildings skip the 13th floor entirely, a phenomenon called 'triskaidekaphobia'."
-        }
+        },
+        vocabQA: [
+          { question: "How old are you?", answer: "I am twenty-five years old.", answerTranslation: "Twenty-five." },
+          { question: "How much does it cost?", answer: "It costs ten dollars.", answerTranslation: "Ten dollars." },
+          { question: "What time is it?", answer: "It is three o'clock.", answerTranslation: "Three o'clock." },
+          { question: "How many people are there?", answer: "There are five people.", answerTranslation: "Five." },
+          { question: "What is your phone number?", answer: "My number is 555-1234.", answerTranslation: "Five-five-five, one-two-three-four." }
+        ],
+        verbGroups: [
+          {
+            verb: "to be",
+            verbTranslation: "to be (age, time, quantities)",
+            examples: [
+              { object: "twenty years old", fullPhrase: "I am twenty years old.", translation: "I am twenty years old." },
+              { object: "three o'clock", fullPhrase: "It is three o'clock.", translation: "It is three o'clock." },
+              { object: "five people", fullPhrase: "There are five people.", translation: "There are five people." },
+              { object: "ten dollars", fullPhrase: "That is ten dollars.", translation: "That is ten dollars." },
+              { object: "half past two", fullPhrase: "It is half past two.", translation: "It is 2:30." }
+            ]
+          }
+        ]
       },
       family: {
-        welcomeText: "English family vocabulary reflects the diverse family structures found across the English-speaking world. In this chapter, you'll learn terms for every family member and discover how family concepts vary from culture to culture within the Anglophone world.",
+        welcomeText: "English family vocabulary is compact: one word, 'aunt', covers both parents' sisters. In this chapter, you'll learn the core terms — parents, siblings, grandparents, and in-laws — and how English handles extended family relationships.",
         narrativeSections: [
           {
             title: "Family Structure",
@@ -2192,7 +2381,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         ]
       },
       daily: {
-        welcomeText: "Everyday English is filled with idioms, shortcuts, and polite formulas that might surprise you. This chapter builds your daily vocabulary so you can navigate English-speaking life with confidence and natural ease.",
+        welcomeText: "This chapter covers the English words and phrases learners use most: courtesy expressions, asking for help, telling time, and the everyday vocabulary for shops, transportation, and common situations.",
         narrativeSections: [
           {
             title: "Greetings Throughout the Day",
@@ -2262,7 +2451,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
     ],
     chapters: {
       greetings: {
-        welcomeText: "Welcome to Hebrew! One of the oldest languages in the world, Hebrew was revived as a modern spoken language in the 20th century \u2014 a linguistic miracle. Israeli greetings reflect a culture that blends ancient traditions with a direct, warm, modern spirit.",
+        welcomeText: "In this chapter, you'll learn the Hebrew greetings used every day — שלום (Shalom) for hello and goodbye, בוקר טוב (Boker Tov) for good morning, ערב טוב (Erev Tov) for good evening — plus the formal and informal ways to address someone.",
         narrativeSections: [
           {
             title: "The Art of Greeting",
@@ -2279,7 +2468,8 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             title: "Formal vs. Informal",
             content: "Modern Hebrew is remarkably informal compared to many languages. There's no equivalent of 'vous' or 'usted' \u2014 everyone uses '\u05d0\u05ea\u05d4' (ata, masculine) or '\u05d0\u05ea' (at, feminine) for 'you'. Formality is expressed through word choice and tone rather than pronouns.",
             infographic: 'formalInformal',
-            tip: "Hebrew verbs and adjectives change based on the gender of the person you're addressing \u2014 this is one of the first things to master!"
+            tip: "Hebrew verbs and adjectives change based on the gender of the person you're addressing \u2014 this is one of the first things to master!",
+            discoveryNote: "Hebrew skipped the formal-pronoun system entirely \u2014 there's no vous, usted, or Sie. Instead, every Hebrew verb and adjective changes based on the gender of the person being addressed: '\u05d0\u05ea\u05d4 \u05de\u05d3\u05d1\u05e8' (ata medaber \u2014 you speak, m.) vs. '\u05d0\u05ea \u05de\u05d3\u05d1\u05e8\u05ea' (at medaberet \u2014 you speak, f.). Hebrew encodes who you're talking TO in the verb itself, not what level of respect you're showing them."
           }
         ],
         conversationStrips: [
@@ -2364,7 +2554,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         ]
       },
       numbers: {
-        welcomeText: "Hebrew numbers carry thousands of years of history \u2014 each letter of the Hebrew alphabet has a numerical value. This chapter introduces the modern Hebrew counting system while connecting you to the ancient tradition of gematria and numerical meaning.",
+        welcomeText: "Hebrew numbers have gendered forms — you use different words depending on whether you're counting masculine or feminine nouns. This chapter covers 1 to 1,000 in modern Hebrew, including which form to use and how numbers appear in dates and prices.",
         narrativeSections: [
           {
             title: "Counting Basics",
@@ -2380,10 +2570,30 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "\u05d2\u05d9\u05de\u05d8\u05e8\u05d9\u05d4 (Gematria)",
           content: "Hebrew has an ancient tradition called 'gematria' where each letter has a numerical value (\u05d0=1, \u05d1=2, \u05d2=3...). Words with the same numerical value are considered mystically connected. The number 18 is especially significant because it spells '\u05d7\u05d9' (chai \u2014 life), making it the luckiest number in Jewish culture. Gifts are often given in multiples of 18."
-        }
+        },
+        vocabQA: [
+          { question: "\u05d1\u05df/\u05d1\u05ea \u05db\u05de\u05d4 \u05d0\u05ea\u05d4/\u05d0\u05ea?", answer: "\u05d0\u05e0\u05d9 \u05d1\u05df/\u05d1\u05ea \u05e2\u05e9\u05e8\u05d9\u05dd \u05d5\u05d7\u05de\u05e9.", answerTranslation: "I am twenty-five years old." },
+          { question: "\u05db\u05de\u05d4 \u05d6\u05d4 \u05e2\u05d5\u05dc\u05d4?", answer: "\u05d6\u05d4 \u05e2\u05d5\u05dc\u05d4 \u05e2\u05e9\u05e8\u05d4 \u05e9\u05e7\u05dc\u05d9\u05dd.", answerTranslation: "It costs ten shekels." },
+          { question: "\u05de\u05d4 \u05d4\u05e9\u05e2\u05d4?", answer: "\u05d4\u05e9\u05e2\u05d4 \u05e9\u05dc\u05d5\u05e9.", answerTranslation: "It is three o'clock." },
+          { question: "\u05db\u05de\u05d4 \u05d0\u05e0\u05e9\u05d9\u05dd \u05d9\u05e9?", answer: "\u05d9\u05e9 \u05d7\u05de\u05d9\u05e9\u05d4 \u05d0\u05e0\u05e9\u05d9\u05dd.", answerTranslation: "There are five people." },
+          { question: "\u05de\u05d4 \u05de\u05e1\u05e4\u05e8 \u05d4\u05d8\u05dc\u05e4\u05d5\u05df \u05e9\u05dc\u05da?", answer: "\u05d4\u05de\u05e1\u05e4\u05e8 \u05e9\u05dc\u05d9 \u05d4\u05d5\u05d0 050-123-4567.", answerTranslation: "My number is 050-123-4567." }
+        ],
+        verbGroups: [
+          {
+            verb: "\u05d9\u05e9 / \u05d0\u05d9\u05df",
+            verbTranslation: "there is / there isn't — also used for possession (yesh li = I have)",
+            examples: [
+              { object: "\u05d7\u05de\u05d9\u05e9\u05d4 \u05ea\u05e4\u05d5\u05d7\u05d9\u05dd", fullPhrase: "\u05d9\u05e9 \u05d7\u05de\u05d9\u05e9\u05d4 \u05ea\u05e4\u05d5\u05d7\u05d9\u05dd.", translation: "There are five apples." },
+              { object: "\u05dc\u05d9 \u05d0\u05d7", fullPhrase: "\u05d9\u05e9 \u05dc\u05d9 \u05d0\u05d7.", translation: "I have a brother." },
+              { object: "\u05d1\u05e2\u05d9\u05d4", fullPhrase: "\u05d0\u05d9\u05df \u05d1\u05e2\u05d9\u05d4.", translation: "There is no problem." },
+              { object: "\u05dc\u05d9 \u05db\u05e1\u05e3", fullPhrase: "\u05d9\u05e9 \u05dc\u05d9 \u05db\u05e1\u05e3.", translation: "I have money." },
+              { object: "\u05dc\u05d9 \u05d6\u05de\u05df", fullPhrase: "\u05d0\u05d9\u05df \u05dc\u05d9 \u05d6\u05de\u05df.", translation: "I don't have time." }
+            ]
+          }
+        ]
       },
       family: {
-        welcomeText: "Family \u2014 '\u05de\u05e9\u05e4\u05d7\u05d4' (mishpacha) \u2014 is the bedrock of Israeli and Jewish culture. In this chapter, you'll learn the Hebrew vocabulary for family relationships and discover how deeply family values are woven into everyday life in Israel.",
+        welcomeText: "In this chapter, you'll learn the Hebrew words for immediate and extended family — אבא (aba), אמא (ima), אח (ach), אחות (achot), סבא (saba), סבתא (savta) — plus the expressions used to introduce and talk about family members.",
         narrativeSections: [
           {
             title: "Family Structure",
@@ -2430,7 +2640,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         ]
       },
       daily: {
-        welcomeText: "Israeli daily life is vibrant, informal, and full of unique expressions. This chapter gives you the essential vocabulary to navigate a day in Israel, from market haggling to coffee shop conversations \u2014 all with the characteristic Israeli directness and warmth.",
+        welcomeText: "This chapter covers the Hebrew vocabulary for everyday life: greetings by time of day, courtesy words, and the expressions you'll hear and use at Israeli markets, coffee shops, and workplaces.",
         narrativeSections: [
           {
             title: "Greetings Throughout the Day",

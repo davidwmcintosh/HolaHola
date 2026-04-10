@@ -70,6 +70,7 @@ import {
   userScenarioHistory,
   insertScenarioSchema,
   subjectSyllabi,
+  mediaFiles,
 } from "@shared/schema";
 import { getTOCForSubject } from "./data/subject-tocs";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
@@ -8589,8 +8590,8 @@ Return ONLY the ${targetLanguage} phrase:`;
   app.get("/api/media/my-uploads", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getRequestUserId(req);
-      const mediaFiles = await storage.getUserMediaFiles(userId);
-      res.json(mediaFiles);
+      const userMediaFiles = await storage.getUserMediaFiles(userId);
+      res.json(userMediaFiles);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -11066,6 +11067,34 @@ Return ONLY the ${targetLanguage} phrase:`;
       res.json({ images, romanizations });
     } catch (error: any) {
       console.error('Error resolving vocab images:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Batch lookup vocab images by explicit cache key(s) — used by SentenceFrameGrid (M5).
+  // GET /api/textbook/vocab-images-by-keys?keys=vocab_spanish_feliz,vocab_spanish_cansado
+  app.get("/api/textbook/vocab-images-by-keys", isAuthenticated, async (req: any, res) => {
+    try {
+      const raw = req.query.keys as string | undefined;
+      if (!raw || raw.trim() === '') return res.json({ images: {} });
+      const keys = raw.split(',').map((k: string) => k.trim()).filter(Boolean).slice(0, 40);
+      if (keys.length === 0) return res.json({ images: {} });
+
+      const sharedDb = getSharedDb();
+      const rows = await sharedDb
+        .select({ searchQuery: mediaFiles.searchQuery, url: mediaFiles.url, imageSource: mediaFiles.imageSource })
+        .from(mediaFiles)
+        .where(inArray(mediaFiles.searchQuery, keys));
+
+      const images: Record<string, { url: string; source: string }> = {};
+      for (const row of rows) {
+        if (row.searchQuery && row.url && !images[row.searchQuery]) {
+          images[row.searchQuery] = { url: row.url, source: row.imageSource ?? 'cached' };
+        }
+      }
+      res.json({ images });
+    } catch (error: any) {
+      console.error('[VocabImagesByKeys]', error.message);
       res.status(500).json({ error: error.message });
     }
   });

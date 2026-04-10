@@ -19,6 +19,167 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## Session Summary — Thu, Apr 10, 2026 (session 45 — M3 complete + numbers chapter M1/M4 for all 10 languages)
+
+### What was done
+
+**M3 discoveryNotes — 4 remaining languages completed (PT, ZH, EN, HE)**
+- PT: você takes the same third-person verb ending as ele/ela — the same pattern as Spanish usted and Italian Lei; Romance languages repeatedly borrowed third-person pronouns to signal deference
+- ZH: 您 (nín, formal you) is the character 你 (nǐ, casual you) with 心 (xīn, heart) beneath it — Chinese encodes deference into the shape of the character, not verb endings
+- EN: English once had thou (informal) / you (formal plural); by the 17th century "you" absorbed both roles; English now compensates with vocabulary and indirection instead of a dedicated pronoun
+- HE: Hebrew skipped the formal-pronoun system — no vous, usted, or Sie; instead every verb and adjective changes based on the gender of the person being addressed (ata medaber vs. at medaberet)
+- M3 is now **complete for all 10 languages**
+
+**Numbers chapter M1/M4 data — all 10 languages seeded**
+- Added `vocabQA` (5 Q&A pairs) and `verbGroups` (1 anchor verb with 5 examples) to every language's numbers chapter
+- The anchor verb choice was pedagogically driven:
+  - ES/FR/IT/PT: "to have" (tener/avoir/avere/ter) — age expressed with "have" in Romance languages
+  - DE: "sein" (to be) — German uses "sein" for age (Ich bin 25 Jahre alt), not "haben" — explicit cross-language contrast built into the verbTranslation
+  - JA: あります/います (arimasu/imasu) — existence verb pair, animate vs. inanimate distinction
+  - KO: 이에요/예요 (to be) — consonant/vowel split explained in verbTranslation
+  - ZH: 有 (yǒu, to have/exist) — negated 没有 (méiyǒu) also taught in examples
+  - EN: "to be" — age, time, and quantities ("There are five people")
+  - HE: יש/אין (yesh/ein, there is/there isn't) — also covers possession via "yesh li" (I have)
+- The vocabQA covers: age, cost, time, counting people, phone number — the five real contexts where numbers appear in chapter 1
+
+### Files changed
+- `client/src/data/chapter-intro-content.ts` — 4 discoveryNotes added (PT/ZH/EN/HE); vocabQA + verbGroups added to numbers chapters for all 10 languages
+- `docs/visual-asset-roadmap.md` — M1/M3/M4 status updated; next data work updated
+- `docs/alden-agent-handoff.md` — this entry
+
+### Status after this session
+
+| Component | Status |
+|---|---|
+| M1 VocabQAGrid | ✅ all 10 languages, greetings + family + numbers |
+| M2 GenderAgreementGrid | ✅ gender-langs only, greetings + family |
+| M3 discoveryNote | ✅ ALL 10 languages, greetings formal-informal section |
+| M4 VerbAnchorGrid | ✅ all 10 languages, greetings + family + numbers |
+| M5 SentenceFrameGrid images | ✅ component + API + ES greetings/family data |
+| M6 CognateRecognitionGrid | ✅ 9/10 languages greetings / ⬜ EN pending |
+| Bloviation audit | ✅ all 10 languages, all welcome texts |
+
+### Next session candidates
+1. **Daily chapter M1/M4 data** (vocabQA + verbGroups) for all 10 languages — next most impactful
+2. **Classroom chapter M1/M4 data** for all 10 languages — after daily
+3. **EN cognate strategy (M6)** — design decision: English as L2 has no single dominant L1 (learner could be French speaker, Spanish speaker, etc.); likely needs per-native-language cognate lists or "universal international vocabulary" approach (café, taxi, hotel, radio, etc.)
+4. **M2 GenderAgreementGrid for numbers/daily chapters** (ES/FR/IT/PT/HE) — numbers chapter has masculine/feminine vocabulary (uno/una, etc.)
+
+---
+
+## Session Summary — Thu, Apr 10, 2026 (session 44 — bloviation audit + M3 discoveryNotes expansion)
+
+### What was done
+
+**Bug fix: `mediaFiles` schema import**
+- `mediaFiles` was missing from the static `@shared/schema` import in `server/routes.ts`, causing the new `/api/textbook/vocab-images-by-keys` endpoint to fail at runtime. Added to the import; renamed local variable `userMediaFiles` at `/api/media/my-uploads` to resolve shadowing.
+
+**T005 — Bloviation audit: 24 welcome texts rewritten across all 10 languages**
+- Applied the 3-job test: each sentence must TEACH (concrete fact/rule), DEMONSTRATE (show a pattern), or ENCOURAGE (specific actionable nudge). Pure sentiment/tourism-brochure text fails.
+- All 24 failing welcome texts were rewritten to lead with concrete chapter content — specific words, grammar rules, or outcomes the student will leave with.
+- Examples of what changed:
+  - Italian greetings: "passion, beauty, and human connection...doors to la dolce vita" → "Italian greetings cover more ground than English. You'll learn Buongiorno, Buonasera, and Ciao — when each is appropriate — plus how Lei and tu divide formal from informal..."
+  - Mandarin greetings: "With over a billion speakers...connects cultures across every continent" → "Mandarin greetings are simpler than they look. You'll learn 你好, 早上好, 再见, and how to introduce yourself — plus the four tones..."
+  - Spanish daily: "Let's refresh! Perfect for warming up or solidifying your foundation." → "This chapter pulls together the most-used Spanish phrases in one place: time-of-day greetings, courtesy words, and the daily vocabulary that shows up in almost every conversation."
+- Languages audited: ES, FR, DE, IT, JA, KO, ZH, PT, EN, HE — greetings, family, numbers, daily chapters
+
+**M3 discoveryNotes expansion — 5 new languages seeded**
+- Added discoveryNotes to the "Formal vs. Informal" section of greetings chapters for FR, DE, IT, JA, KO
+- Each note surfaces a grammar insight in the Madrigal discovery tradition:
+  - FR: vous uses the same verb endings as ils/elles — formality through pronoun, not verb
+  - DE: Sie (formal) vs. sie (she) vs. sie (they) — three meanings, one pronunciation, capital letter is the only visual cue
+  - IT: Lei (formal you) uses third-person conjugation — "you speak to someone important as if speaking about them"
+  - JA: Formality lives in the verb suffix (masu/desu), not the pronoun — every verb carries the respect level
+  - KO: Honorifics affect every verb in the conversation, not just the greeting word
+
+### Files changed
+- `server/routes.ts` — `mediaFiles` added to schema import; `userMediaFiles` rename at my-uploads endpoint
+- `client/src/data/chapter-intro-content.ts` — 24 welcome texts rewritten; 5 new discoveryNotes added (FR/DE/IT/JA/KO formal-informal sections)
+- `docs/visual-asset-roadmap.md` — M3 status updated to 6/10 languages; bloviation audit noted; next data work updated
+- `docs/alden-agent-handoff.md` — this entry
+
+### Status after this session
+
+| Component | Status |
+|---|---|
+| M1 VocabQAGrid | ✅ all 10 languages, greetings + family |
+| M2 GenderAgreementGrid | ✅ gender-langs only, greetings + family |
+| M3 discoveryNote | ✅ ES/FR/DE/IT/JA/KO greetings / ⬜ PT/ZH/HE/EN pending |
+| M4 VerbAnchorGrid | ✅ all 10 languages, greetings + family |
+| M5 SentenceFrameGrid images | ✅ component + API + ES greetings/family data |
+| M6 CognateRecognitionGrid | ✅ 9/10 languages greetings / ⬜ EN pending |
+| Bloviation audit | ✅ all 10 languages, all welcome texts rewritten |
+
+### Next session candidates
+1. **M3 discoveryNotes** for PT/ZH/HE/EN greetings formal-informal sections (4 remaining)
+2. **Numbers chapter data** (M1/M4 for all 10 languages) — entirely unstarted
+3. **Daily routine chapter data** (M1/M4 for all 10 languages) — entirely unstarted
+4. **EN cognate strategy** (M6) — design decision: L2 English learners have varied native languages; likely needs a language-specific cognate list per native language, or a "universal near-cognates" approach
+
+---
+
+## Session Summary — Thu, Apr 10, 2026 (session 43 — M5 image integration for SentenceFrameGrid)
+
+### What was done
+
+**M5 — SentenceFrameGrid image rendering — COMPLETE**
+
+This was the highest-priority open item. Madrigal's method requires pictures in the filler cards so students map directly from image → target word without routing through English translation. Without images, the drill is a phrase list, which QuickPhraseGrid already provides.
+
+1. **`imageKey?: string` added to `SentenceFrameItem` interface** in both:
+   - `client/src/data/chapter-intro-content.ts` (data layer)
+   - `client/src/components/TextbookInfographics.tsx` (component layer)
+
+2. **New API endpoint**: `GET /api/textbook/vocab-images-by-keys?keys=key1,key2,...`
+   - In `server/routes.ts` after the existing vocab-images route
+   - Queries `media_files` WHERE `search_query IN (keys)` — same table/cache as all other vocab images
+   - Returns `{ images: { [key]: { url, source } } }`
+   - Cap 40 keys/request; uses already-imported `mediaFiles` schema table + `inArray` from drizzle-orm
+   - Fixed: `mediaFiles` added to static `@shared/schema` import; local variable shadow at `/api/media/my-uploads` renamed to `userMediaFiles`
+
+3. **`SentenceFrameGrid` component updated** in `TextbookInfographics.tsx`:
+   - Collects all unique imageKeys across all frame items (one Set sweep)
+   - Issues one `useQuery` batch call to the new endpoint (staleTime 5 min, gcTime 15 min)
+   - Each card: if `imageKey` present → renders `h-24` image container at top of card
+     - While loading: `animate-pulse` skeleton
+     - Image found: `object-cover` photo  
+     - Image absent from DB: large first-letter initial (muted primary, graceful fallback)
+   - Filler text font size reduced slightly (`text-base` vs `text-xl`) when image slot is present, to keep card proportion
+
+4. **Spanish greetings data updated** — all 12 filler items now carry imageKey:
+   - `vocab_spanish_hola`, `vocab_spanish_buenos dias`, `vocab_spanish_buenas tardes`, `vocab_spanish_buenas noches`, `vocab_spanish_adios`, `vocab_spanish_hasta luego`
+   - `vocab_spanish_bien`, `vocab_spanish_muy bien`, `vocab_spanish_mas o menos`, `vocab_spanish_mal`, `vocab_spanish_cansado`, `vocab_spanish_feliz`
+
+5. **Spanish family data updated** — all 12 filler items now carry imageKey:
+   - `vocab_spanish_madre`, `vocab_spanish_abuela`, `vocab_spanish_hermana`, `vocab_spanish_tia`, `vocab_spanish_prima`, `vocab_spanish_amiga`
+   - `vocab_spanish_padre`, `vocab_spanish_abuelo`, `vocab_spanish_hermano`, `vocab_spanish_tio`, `vocab_spanish_primo`, `vocab_spanish_amigo`
+
+### Files changed
+- `server/routes.ts` — new `/api/textbook/vocab-images-by-keys` endpoint; `mediaFiles` added to schema import; `userMediaFiles` local rename
+- `client/src/data/chapter-intro-content.ts` — `imageKey` added to `SentenceFrameItem` interface; 24 filler items updated
+- `client/src/components/TextbookInfographics.tsx` — `imageKey` added to component interface; `SentenceFrameGrid` rewritten with image fetching + rendering
+- `docs/visual-asset-roadmap.md` — M5 marked complete; implementation details added
+- `docs/alden-agent-handoff.md` — this entry
+
+### Status after this session
+
+| Madrigal component | Status |
+|---|---|
+| M1 VocabQAGrid | ✅ all 10 languages, greetings + family |
+| M2 GenderAgreementGrid | ✅ gender-langs only, greetings + family |
+| M3 discoveryNote | ✅ component / ⬜ 9 non-ES languages pending |
+| M4 VerbAnchorGrid | ✅ all 10 languages, greetings + family |
+| M5 SentenceFrameGrid images | ✅ component + API + ES greetings/family data |
+| M6 CognateRecognitionGrid | ✅ 9/10 languages greetings / ⬜ EN pending |
+
+### Next session candidates
+1. **discoveryNotes** for 9 non-Spanish languages (M3 data) — requires reading existing narrativeSections per language to find insert anchor
+2. **Numbers chapter data** (M1/M4 for all 10 languages) — entirely unstarted
+3. **Daily routine chapter data** (M1/M4 for all 10 languages) — entirely unstarted
+4. **EN cognate strategy** (M6) — design decision needed: L2 English learners have different native-language backgrounds
+
+---
+
 ## Session Summary — Thu, Apr 10, 2026 (session 42 — family chapter M1/M2/M4 + greetings M6 expansion)
 
 ### What was done

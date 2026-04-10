@@ -1593,6 +1593,7 @@ export interface SentenceFrameItem {
   filler: string;
   fullSentence: string;
   translation: string;
+  imageKey?: string;
 }
 
 export interface SentenceFrame {
@@ -1766,6 +1767,27 @@ export function CognateRecognitionGrid({ cognates, language = 'spanish', classNa
 export function SentenceFrameGrid({ frames, language, className = '' }: SentenceFrameGridProps) {
   if (!frames || frames.length === 0) return null;
 
+  // Collect all unique imageKeys across all frames
+  const allImageKeys = Array.from(
+    new Set(frames.flatMap(f => f.items.map(i => i.imageKey).filter(Boolean) as string[]))
+  );
+
+  const { data: imageData, isLoading: imagesLoading } = useQuery<{ images: Record<string, { url: string; source: string }> }>({
+    queryKey: ['/api/textbook/vocab-images-by-keys', allImageKeys.sort().join(',')],
+    queryFn: async () => {
+      if (allImageKeys.length === 0) return { images: {} };
+      const res = await fetch(`/api/textbook/vocab-images-by-keys?keys=${allImageKeys.join(',')}`);
+      if (!res.ok) throw new Error('Failed to fetch sentence frame images');
+      return res.json();
+    },
+    enabled: allImageKeys.length > 0,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 15,
+    retry: 1,
+  });
+
+  const resolvedImages = imageData?.images ?? {};
+
   return (
     <div className={`space-y-8 ${className}`} data-testid="sentence-frame-grid">
       {frames.map((frame, frameIdx) => (
@@ -1786,31 +1808,58 @@ export function SentenceFrameGrid({ frames, language, className = '' }: Sentence
           </Card>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {frame.items.map((item, itemIdx) => (
-              <Card
-                key={itemIdx}
-                className="overflow-hidden hover-elevate"
-                data-testid={`sentence-frame-card-${frameIdx}-${itemIdx}`}
-              >
-                <CardContent className="p-3 flex flex-col gap-2 h-full">
-                  <div className="text-xl font-bold text-primary leading-tight" data-testid={`text-filler-${frameIdx}-${itemIdx}`}>
-                    {item.filler}
-                  </div>
-                  <p className="text-sm font-medium leading-snug flex-1" data-testid={`text-full-sentence-${frameIdx}-${itemIdx}`}>
-                    {highlightFiller(item.fullSentence, item.filler)}
-                  </p>
-                  <p className="text-xs text-muted-foreground" data-testid={`text-translation-${frameIdx}-${itemIdx}`}>
-                    {item.translation}
-                  </p>
-                  <TextAudioPlayButton
-                    text={item.fullSentence}
-                    language={language}
-                    size="sm"
-                    data-testid={`button-play-sentence-${frameIdx}-${itemIdx}`}
-                  />
-                </CardContent>
-              </Card>
-            ))}
+            {frame.items.map((item, itemIdx) => {
+              const imgRecord = item.imageKey ? resolvedImages[item.imageKey] : undefined;
+              const imgUrl = imgRecord?.url;
+              const showImageSlot = !!item.imageKey;
+
+              return (
+                <Card
+                  key={itemIdx}
+                  className="overflow-hidden hover-elevate"
+                  data-testid={`sentence-frame-card-${frameIdx}-${itemIdx}`}
+                >
+                  {showImageSlot && (
+                    <div className="relative w-full h-24 bg-muted/30 overflow-hidden" data-testid={`img-frame-${frameIdx}-${itemIdx}`}>
+                      {imagesLoading ? (
+                        <div className="absolute inset-0 bg-muted/40 animate-pulse" />
+                      ) : imgUrl ? (
+                        <img
+                          src={imgUrl}
+                          alt={item.filler}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-3xl font-bold text-primary/20 select-none">{item.filler.charAt(0).toUpperCase()}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <CardContent className="p-3 flex flex-col gap-2 h-full">
+                    <div
+                      className={showImageSlot ? "text-base font-bold text-primary leading-tight" : "text-xl font-bold text-primary leading-tight"}
+                      data-testid={`text-filler-${frameIdx}-${itemIdx}`}
+                    >
+                      {item.filler}
+                    </div>
+                    <p className="text-sm font-medium leading-snug flex-1" data-testid={`text-full-sentence-${frameIdx}-${itemIdx}`}>
+                      {highlightFiller(item.fullSentence, item.filler)}
+                    </p>
+                    <p className="text-xs text-muted-foreground" data-testid={`text-translation-${frameIdx}-${itemIdx}`}>
+                      {item.translation}
+                    </p>
+                    <TextAudioPlayButton
+                      text={item.fullSentence}
+                      language={language}
+                      size="sm"
+                      data-testid={`button-play-sentence-${frameIdx}-${itemIdx}`}
+                    />
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </div>
       ))}

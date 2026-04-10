@@ -1605,14 +1605,14 @@ See Plan M5 below.
 
 | Plan | Component | Component built? | Data scope |
 |------|-----------|:---:|---|
-| M1 | VocabQAGrid | ✅ | ✅ All 10 languages — greetings + family chapters |
+| M1 | VocabQAGrid | ✅ | ✅ All 10 languages — greetings + family + numbers chapters |
 | M2 | GenderAgreementGrid | ✅ | ✅ FR/PT/IT/HE/ES greetings + family; DE/JA/KO/ZH/EN intentionally empty |
-| M3 | discoveryNote callout | ✅ | ✅ Spanish greetings only; ⬜ other 9 languages |
-| M4 | VerbAnchorGrid | ✅ | ✅ All 10 languages — greetings + family chapters |
-| M5 | SentenceFrameGrid images | ⬜ | ⬜ Not started (HIGH PRIORITY) |
+| M3 | discoveryNote callout | ✅ | ✅ All 10 languages — greetings formal-informal section (session 45) |
+| M4 | VerbAnchorGrid | ✅ | ✅ All 10 languages — greetings + family + numbers chapters |
+| M5 | SentenceFrameGrid images | ✅ | ✅ Complete — session 43 |
 | M6 | CognateRecognitionGrid | ✅ | ✅ FR/IT/DE/ES greetings; ✅ PT/JA/KO/ZH/HE greetings (session 42); ⬜ EN |
 
-**Next data work:** discoveryNotes for 9 non-Spanish languages; M5 image rendering; numbers/daily chapter data for all languages; EN cognate strategy (Cindy/Blake context).
+**Next data work:** daily chapter M1/M4 data for all 10 languages; EN cognate strategy (M6, Cindy/Blake context); classroom chapter M1/M4 data.
 
 ---
 
@@ -1733,16 +1733,26 @@ Built `VerbAnchorGrid` component. Verb anchor card (large primary text + Repeat2
 
 ---
 
-**Plan M5 — Image Integration for SentenceFrameGrid ⬜ NOT STARTED (HIGH PRIORITY)**
+**Plan M5 — Image Integration for SentenceFrameGrid ✅ COMPLETE (session 43)**
 
 The current `SentenceFrameGrid` is text-only. Madrigal's method is fundamentally image-driven — each filler card should show a picture so the student maps directly from image to Spanish without routing through English. Without images the drill degrades to a phrase list, which `QuickPhraseGrid` already provides.
 
 Add an optional `imageKey?: string` field to `SentenceFrameItem` (already in the interface spec). When present, the card renders the vocab image from object storage at the top using the same URL pattern as `VisualVocabGrid`. Fallback: large styled filler text if no image is available.
 
-Implementation steps:
-1. Populate `imageKey` on each filler item using keys from the canonical vocabulary registry (`server/data/canonical-vocabulary.ts`) — e.g. greetings states map to existing emotion portrait images (`vocab_adj_feliz`, etc.), family members map to `vocab_people_familia` variants
-2. In `SentenceFrameGrid` card: fetch the image URL from `/api/visual-assets/by-key/:key` (or construct from object storage path directly if a helper exists), render above the sentence in a fixed-height image container
-3. Prioritise chapters where the vocab already has images seeded (greetings states have emotion portraits; family members have family portraits)
+**Implementation complete (session 43):**
+
+1. **`imageKey?: string` field added** to `SentenceFrameItem` interface in both `chapter-intro-content.ts` and `TextbookInfographics.tsx`
+2. **`GET /api/textbook/vocab-images-by-keys?keys=...`** — new batch endpoint added to `server/routes.ts`. Queries `media_files` WHERE `search_query IN (keys)` using the static `mediaFiles` schema import + `inArray` from drizzle-orm. Returns `{ images: { [key]: { url, source } } }`. Cap: 40 keys per request.
+3. **`SentenceFrameGrid` updated** — collects all unique imageKeys across all frames, issues a single batch query, renders a `h-24` image container at the top of each card (animate-pulse skeleton while loading; first-letter initial if key has no image in DB). Filler text font size scales down slightly when image slot is present to maintain card proportion.
+4. **Spanish greetings data updated** — all 12 filler items now carry `imageKey`:
+   - Frame 1 ("¡___, amigo!"): hola/buenos dias/buenas tardes/buenas noches/adios/hasta luego → images confirmed in DB from GREETINGS_WORDS seed
+   - Frame 2 ("Estoy ___."): bien/muy bien/mas o menos/mal/cansado/feliz → cansado + feliz confirmed in DB; others have graceful fallback
+5. **Spanish family data updated** — all 12 filler items now carry `imageKey`:
+   - Frame 1 ("Ella es mi ___."): madre/abuela/hermana/tia/prima/amiga → madre + hermana confirmed in DB
+   - Frame 2 ("Él es mi ___."): padre/abuelo/hermano/tio/primo/amigo → padre + hermano confirmed in DB
+6. `mediaFiles` added to static `@shared/schema` import in routes.ts; shadowing local variable at `/api/media/my-uploads` renamed to `userMediaFiles`
+
+**Fallback contract:** when an `imageKey` has no match in `media_files`, the component shows the first letter of the filler word (large, muted primary) in the image slot — the card degrades gracefully and remains fully functional.
 
 Authoring note: for the greetings "¡___, amigo!" frame, images would show time-of-day scenes (sunrise = Buenos días, afternoon sun = Buenas tardes, etc.) — these do not yet exist and would need to be generated.
 
