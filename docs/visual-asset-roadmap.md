@@ -1610,6 +1610,14 @@ Implementation steps:
 
 Authoring note: for the greetings "¡___, amigo!" frame, images would show time-of-day scenes (sunrise = Buenos días, afternoon sun = Buenas tardes, etc.) — these do not yet exist and would need to be generated.
 
+**Image quality principle (noted April 10, 2026):**
+
+Madrigal's book illustrations were drawn by Andy Warhol, working as a commercial illustrator before his Pop Art career. He was technically capable of far more sophisticated work and chose simple line drawings deliberately. The pedagogical reason is clear in retrospect: a realistic image competes with the language. The student's eye starts reading the picture instead of the word. A simple outline of a telephone says "telephone" and immediately gets out of the way.
+
+The implication for HoloHola: the bar for SentenceFrameGrid images is *concept clarity*, not *visual quality*. A student needs to look at the card and know what the filler word means in under one second — then their attention returns to the sentence frame structure, which is the point of the drill. Our AI-generated watercolor images already meet this bar; the abstracted style removes detail that would distract.
+
+**The one failure mode to avoid:** an image that is ambiguous at a glance. If "cansado" (tired) produced an image that could mean "bored" or "sad" instead, the drill misfires. This is an authoring and generation prompt problem, not a rendering quality problem. Choose concepts that have unambiguous visual representations. When in doubt, test by showing the image without the word and asking whether the meaning is immediate.
+
 **Plan M6 — Cognate Recognition Opener ("You Already Speak Spanish")**
 
 Madrigal's preface opens with the observation that thousands of English words are identical or near-identical to Spanish: *doctor, hotel, natural, formal, television, hospital, animal, central, circular, accent, popular, tropical, musical, cultural, mental, social, total, normal, final, legal, local, moral, original, principal, general, personal…*
