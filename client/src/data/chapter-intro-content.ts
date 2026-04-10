@@ -506,6 +506,36 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
           { english: "actual", target: "actuel", spanish: "", category: "false-friend", isFalseCognate: true, falseCognateNote: "actuel = current, not actual" },
           { english: "sensible", target: "sensible", spanish: "", category: "false-friend", isFalseCognate: true, falseCognateNote: "sensible = sensitive, not sensible" },
           { english: "to rest", target: "rester", spanish: "", category: "false-friend", isFalseCognate: true, falseCognateNote: "rester = to stay/remain, not to rest" }
+        ],
+        genderPairs: [
+          { masculine: "joyeux",   feminine: "joyeuse",   translation: "joyful / happy" },
+          { masculine: "fatigué", feminine: "fatiguée", translation: "tired" },
+          { masculine: "occupé",  feminine: "occupée",  translation: "busy" },
+          { masculine: "malade",   feminine: "malade",    translation: "sick — same form for both!" },
+          { masculine: "nerveux",  feminine: "nerveuse",  translation: "nervous" }
+        ],
+        vocabQA: [
+          { question: "Comment vous appelez-vous ?", answer: "Je m’appelle [nom].", word: "appeler", translation: "to call oneself (formal)" },
+          { question: "Comment allez-vous ?", answer: "Je vais très bien, merci. Et vous ?", word: "allez-vous", translation: "how are you? (formal)" },
+          { question: "Comment tu t’appelles ?", answer: "Je m’appelle [nom].", word: "t’appelles", translation: "you call yourself (informal)" },
+          { question: "Comment ça va ?", answer: "Ça va bien, merci.", word: "ça va", translation: "it goes / how’s it going?" },
+          { question: "Enchanté(e).", answer: "Enchanté(e). / Ravi(e) de vous rencontrer.", word: "enchanté", translation: "delighted / pleased to meet you" },
+          { question: "D’où venez-vous ?", answer: "Je viens de [ville].", word: "venez", translation: "you come (from)" }
+        ],
+        verbGroups: [
+          {
+            verb: "être",
+            verbTranslation: "to be (state or condition)",
+            verbHint: "In French, être links you to descriptions — Madrigal calls this the identity bridge.",
+            examples: [
+              { object: "bien",         fullPhrase: "Je suis bien.",        translation: "I am well." },
+              { object: "fatigué(e)", fullPhrase: "Je suis fatigué.", translation: "I am tired." },
+              { object: "content(e)",   fullPhrase: "Je suis content.",    translation: "I am happy." },
+              { object: "occupé(e)",  fullPhrase: "Je suis occupé.", translation: "I am busy." },
+              { object: "malade",       fullPhrase: "Je suis malade.",     translation: "I am sick." },
+              { object: "nerveux",      fullPhrase: "Je suis nerveux.",    translation: "I am nervous." }
+            ]
+          }
         ]
       },
       numbers: {
@@ -689,6 +719,29 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
           { english: "actual", target: "aktuell", spanish: "", category: "false-friend", isFalseCognate: true, falseCognateNote: "aktuell = current, not actual" },
           { english: "sympathetic", target: "sympathisch", spanish: "", category: "false-friend", isFalseCognate: true, falseCognateNote: "sympathisch = nice/likable, not sympathetic" },
           { english: "sensible", target: "sensibel", spanish: "", category: "false-friend", isFalseCognate: true, falseCognateNote: "sensibel = sensitive, not sensible" }
+        ],
+        vocabQA: [
+          { question: "Wie heißen Sie?", answer: "Ich heiße [Name].", word: "heiße", translation: "I am called (formal)" },
+          { question: "Wie heißt du?", answer: "Ich heiße [Name].", word: "heißt", translation: "you are called (informal)" },
+          { question: "Wie geht es Ihnen?", answer: "Es geht mir gut, danke. Und Ihnen?", word: "geht es", translation: "how does it go? (formal)" },
+          { question: "Wie geht’s?", answer: "Gut, danke. Und dir?", word: "geht’s", translation: "how’s it going? (informal)" },
+          { question: "Sehr erfreut.", answer: "Ganz meinerseits.", word: "erfreut", translation: "delighted / pleased to meet you" },
+          { question: "Woher kommen Sie?", answer: "Ich komme aus [Stadt].", word: "komme", translation: "I come (from)" }
+        ],
+        verbGroups: [
+          {
+            verb: "sein",
+            verbTranslation: "to be (state or identity)",
+            verbHint: "Sein links you to descriptions and identities — just as ser does in Spanish.",
+            examples: [
+              { object: "gut",          fullPhrase: "Es geht mir gut.",    translation: "I am doing well." },
+              { object: "müde",       fullPhrase: "Ich bin müde.",     translation: "I am tired." },
+              { object: "beschäftigt", fullPhrase: "Ich bin beschäftigt.", translation: "I am busy." },
+              { object: "krank",        fullPhrase: "Ich bin krank.",      translation: "I am sick." },
+              { object: "nervös",     fullPhrase: "Ich bin nervös.",   translation: "I am nervous." },
+              { object: "glücklich",  fullPhrase: "Ich bin glücklich.", translation: "I am happy." }
+            ]
+          }
         ]
       },
       numbers: {
@@ -872,6 +925,37 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
           { english: "camera", target: "camera", spanish: "", category: "false-friend", isFalseCognate: true, falseCognateNote: "camera = room, not camera" },
           { english: "sensible", target: "sensibile", spanish: "", category: "false-friend", isFalseCognate: true, falseCognateNote: "sensibile = sensitive, not sensible" },
           { english: "actually", target: "attualmente", spanish: "", category: "false-friend", isFalseCognate: true, falseCognateNote: "attualmente = currently, not actually" }
+        ],
+        genderPairs: [
+          { masculine: "contento",    feminine: "contenta",    translation: "happy" },
+          { masculine: "stanco",      feminine: "stanca",      translation: "tired" },
+          { masculine: "occupato",    feminine: "occupata",    translation: "busy" },
+          { masculine: "malato",      feminine: "malata",      translation: "sick" },
+          { masculine: "nervoso",     feminine: "nervosa",     translation: "nervous" },
+          { masculine: "emozionato",  feminine: "emozionata",  translation: "excited" }
+        ],
+        vocabQA: [
+          { question: "Come si chiama?", answer: "Mi chiamo [nome].", word: "chiamo", translation: "I call myself (formal)" },
+          { question: "Come ti chiami?", answer: "Mi chiamo [nome].", word: "chiami", translation: "you call yourself (informal)" },
+          { question: "Come sta?", answer: "Sto bene, grazie. E lei?", word: "sta", translation: "you are doing (formal)" },
+          { question: "Come stai?", answer: "Sto bene, grazie. E tu?", word: "stai", translation: "you are doing (informal)" },
+          { question: "Piacere.", answer: "Piacere mio.", word: "piacere", translation: "pleasure / nice to meet you" },
+          { question: "Di dove sei?", answer: "Sono di [città].", word: "sei", translation: "you are (from)" }
+        ],
+        verbGroups: [
+          {
+            verb: "stare",
+            verbTranslation: "to be (how one is doing right now)",
+            verbHint: "Italian uses stare, not essere, for how you feel. This is the most important greeting verb.",
+            examples: [
+              { object: "bene",           fullPhrase: "Sto bene.",           translation: "I am well." },
+              { object: "male",           fullPhrase: "Sto male.",           translation: "I am not well." },
+              { object: "così così", fullPhrase: "Sto così così.", translation: "I am so-so." },
+              { object: "benissimo",      fullPhrase: "Sto benissimo.",      translation: "I am doing great." },
+              { object: "abbastanza bene", fullPhrase: "Sto abbastanza bene.", translation: "I am doing pretty well." },
+              { object: "stanco(a)",      fullPhrase: "Sono stanco.",        translation: "I am tired." }
+            ]
+          }
         ]
       },
       numbers: {
@@ -1035,7 +1119,28 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "\u304a\u8f9e\u5100 (Ojigi) \u2014 The Bow",
           content: "Bowing is the Japanese greeting par excellence. It communicates respect, gratitude, apology, and greeting all at once. There are three main types: the 15-degree 'eshaku' (casual), the 30-degree 'keirei' (respectful), and the 45-degree 'saikeirei' (deep respect). Mastering the bow is mastering Japanese social language."
-        }
+        },
+        vocabQA: [
+          { question: "はじめまして。", answer: "どうぞよろしく。", word: "はじめまして", translation: "Nice to meet you (Hajimemashite)" },
+          { question: "お元気ですか？", answer: "元気です、ありがとう。", word: "お元気", translation: "Are you well? (Ogenki desu ka?)" },
+          { question: "お名前は？", answer: "私の名前は[名前]です。", word: "お名前", translation: "Your name? (Onamae wa?)" },
+          { question: "どちらからいらっしゃいましたか？", answer: "[国]からきました。", word: "どちらから", translation: "Where are you from? (Dochira kara?)" },
+          { question: "よろしくおねがいします。", answer: "こちらこそ、よろしくおねがいします。", word: "よろしく", translation: "Please treat me kindly (Yoroshiku)" }
+        ],
+        verbGroups: [
+          {
+            verb: "です (desu)",
+            verbTranslation: "am / is / are (polite)",
+            verbHint: "です ends nearly every polite Japanese sentence — think of it as the politeness seal on everything you say.",
+            examples: [
+              { object: "元気 (genki)",        fullPhrase: "元気です。",        translation: "I am fine." },
+              { object: "学生 (gakusei)",       fullPhrase: "学生です。",       translation: "I am a student." },
+              { object: "日本人 (nihonjin)", fullPhrase: "日本人です。", translation: "I am Japanese." },
+              { object: "アメリカ人 (amerikajin)", fullPhrase: "アメリカ人です。", translation: "I am American." },
+              { object: "先生 (sensei)",        fullPhrase: "先生です。",       translation: "I am a teacher." }
+            ]
+          }
+        ]
       },
       numbers: {
         welcomeText: "Japanese has two number systems \u2014 native Japanese and Sino-Japanese \u2014 making it a fascinating study. This chapter introduces both systems and helps you understand when to use each, from counting objects to reading prices.",
@@ -1198,7 +1303,28 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "\uc874\ub313\ub9d0 (Jondaenmal) \u2014 Honorific Speech",
           content: "Korean honorific speech reflects the deep Confucian values in Korean society. The first questions Koreans often ask new acquaintances are about age and social position \u2014 not to judge, but to know which speech level to use. This system creates a framework of mutual respect that permeates every interaction."
-        }
+        },
+        vocabQA: [
+          { question: "이름이 나월요?", answer: "제 이름은 [이름]이에요.", word: "이름", translation: "Name (informal polite — Ireumi mwoyeyo?)" },
+          { question: "어떻게 지내세요?", answer: "잘 지내요, 감사합니다.", word: "지내세요", translation: "How are you getting along? (formal)" },
+          { question: "만나서 반갑습니다.", answer: "저도 반갑습니다.", word: "반갑습니다", translation: "Nice to meet you (Mannaseo bangapseumnida)" },
+          { question: "어디서 오셨어요?", answer: "[나라]에서 왕어요.", word: "오셨어요", translation: "Where are you from? (honorific)" },
+          { question: "성함이 어떻게 되세요?", answer: "제 이름은 [이름]입니다.", word: "성함", translation: "Your name? (honorific formal)" }
+        ],
+        verbGroups: [
+          {
+            verb: "이에요 / 예요",
+            verbTranslation: "am / is / are (informal polite copula)",
+            verbHint: "이에요 follows consonants; 예요 follows vowels. This small rule covers half of all Korean introductions.",
+            examples: [
+              { object: "학생 (haksaeng)",         fullPhrase: "학생이에요.", translation: "I am a student." },
+              { object: "선생님 (seonsaengnim)", fullPhrase: "선생님이에요.", translation: "I am a teacher." },
+              { object: "한국 사람 (hanguk saram)", fullPhrase: "한국 사람이에요.", translation: "I am Korean." },
+              { object: "미국 사람 (miguk saram)", fullPhrase: "미국 사람이에요.", translation: "I am American." },
+              { object: "친구 (chingu)",            fullPhrase: "친구예요.", translation: "I am a friend." }
+            ]
+          }
+        ]
       },
       numbers: {
         welcomeText: "Korean has two complete number systems \u2014 native Korean and Sino-Korean \u2014 each used in different contexts. This chapter guides you through both systems so you can confidently count, shop, and tell time in Korean.",
@@ -1361,7 +1487,28 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "\u62f1\u624b (G\u01d2ng Sh\u01d2u) \u2014 The Clasped Hands",
           content: "The traditional Chinese greeting '\u62f1\u624b' involves clasping one's hands together (left over right) and raising them slightly while bowing. Though less common in daily life today, it's still used during Chinese New Year and formal ceremonies. It represents respect and peace \u2014 the covered fist symbolizing restraint and goodwill."
-        }
+        },
+        vocabQA: [
+          { question: "你叫什么名字？", answer: "我叫[名字]。", word: "叫 (jiào)", translation: "to be called" },
+          { question: "你好吗？", answer: "我很好，谢谢。你呢？", word: "好 (hǎo)", translation: "good / well" },
+          { question: "很高兴认识你。", answer: "我也是。", word: "高兴 (gāoxìng)", translation: "happy / pleased to meet you" },
+          { question: "你从哪里来？", answer: "我从[城市]来。", word: "从 (cóng)", translation: "from" },
+          { question: "您贵姓？", answer: "我姓[姓]。", word: "贵姓 (guìxìng)", translation: "your honorable surname?" }
+        ],
+        verbGroups: [
+          {
+            verb: "是 (shì)",
+            verbTranslation: "am / is / are (equational)",
+            verbHint: "是 links two equal things — I = student. For qualities like ‘I am tall,’ Chinese uses a different structure.",
+            examples: [
+              { object: "学生 (xuésheng)",    fullPhrase: "我是学生。",      translation: "I am a student." },
+              { object: "老师 (lǎshī)",   fullPhrase: "我是老师。",      translation: "I am a teacher." },
+              { object: "美国人 (měguórén)", fullPhrase: "我是美国人。", translation: "I am American." },
+              { object: "中国人 (zhōngguórén)", fullPhrase: "我是中国人。", translation: "I am Chinese." },
+              { object: "朋友 (péngyǒu)", fullPhrase: "我是你的朋友。", translation: "I am your friend." }
+            ]
+          }
+        ]
       },
       numbers: {
         welcomeText: "Chinese numbers are beautifully logical \u2014 once you learn 1-10, you can build any number! This chapter introduces the Chinese counting system, one of the most straightforward in the world, along with the cultural significance numbers carry in Chinese life.",
@@ -1524,7 +1671,38 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "Abra\u00e7o Brasileiro",
           content: "The Brazilian 'abra\u00e7o' (hug) is legendary. Brazilians embrace warmly and genuinely, even with people they've just met. This physical warmth extends to back-patting, arm-touching during conversation, and standing close while talking. It reflects 'calor humano' (human warmth) \u2014 the Brazilian belief that connection requires closeness."
-        }
+        },
+        genderPairs: [
+          { masculine: "contente",   feminine: "contente",   translation: "happy — same form for both!" },
+          { masculine: "cansado",    feminine: "cansada",    translation: "tired" },
+          { masculine: "ocupado",    feminine: "ocupada",    translation: "busy" },
+          { masculine: "doente",     feminine: "doente",     translation: "sick — same form for both!" },
+          { masculine: "nervoso",    feminine: "nervosa",    translation: "nervous" },
+          { masculine: "animado",    feminine: "animada",    translation: "excited" }
+        ],
+        vocabQA: [
+          { question: "Como se chama?", answer: "Chamo-me [nome].", word: "chamo-me", translation: "I call myself (European)" },
+          { question: "Como você se chama?", answer: "Meu nome é [nome].", word: "nome", translation: "name (Brazilian)" },
+          { question: "Como vai?", answer: "Vai bem, obrigado(a). E você?", word: "vai", translation: "goes / how is it going?" },
+          { question: "Muito prazer.", answer: "O prazer é meu.", word: "prazer", translation: "pleasure / nice to meet you" },
+          { question: "De onde você é?", answer: "Sou de [cidade].", word: "sou", translation: "I am (ser)" },
+          { question: "Tudo bem?", answer: "Tudo bem, obrigado(a)!", word: "tudo", translation: "everything / all good?" }
+        ],
+        verbGroups: [
+          {
+            verb: "estar",
+            verbTranslation: "to be (condition or temporary state)",
+            verbHint: "Estar captures how something is right now — feelings, health, and situations in flux.",
+            examples: [
+              { object: "bem",         fullPhrase: "Estou bem.",     translation: "I am well." },
+              { object: "cansado(a)",  fullPhrase: "Estou cansado.", translation: "I am tired." },
+              { object: "ótimo(a)", fullPhrase: "Estou ótimo.", translation: "I am great." },
+              { object: "mal",         fullPhrase: "Estou mal.",     translation: "I am not well." },
+              { object: "ocupado(a)",  fullPhrase: "Estou ocupado.", translation: "I am busy." },
+              { object: "feliz",       fullPhrase: "Estou feliz.",   translation: "I am happy." }
+            ]
+          }
+        ]
       },
       numbers: {
         welcomeText: "Portuguese numbers have a melodic quality that makes them a joy to learn. This chapter takes you through the counting system used across Brazil, Portugal, and beyond \u2014 from ordering a\u00e7a\u00ed bowls to navigating bustling markets.",
@@ -1687,7 +1865,29 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "Small Talk",
           content: "The art of 'small talk' is central to English-speaking cultures. Talking about weather, weekend plans, or sports with strangers isn't meaningless \u2014 it's how trust is built. Mastering light, friendly conversation about everyday topics is one of the most valuable English skills you can develop."
-        }
+        },
+        vocabQA: [
+          { question: "What’s your name?", answer: "My name is [name]. / I’m [name].", word: "name", translation: "two natural ways to introduce yourself" },
+          { question: "How are you?", answer: "I’m doing well, thank you. And you?", word: "well", translation: "the most common polite response" },
+          { question: "It’s nice to meet you.", answer: "Nice to meet you too. / The pleasure is mine.", word: "pleasure", translation: "a slightly more formal reply" },
+          { question: "Where are you from?", answer: "I’m from [city / country].", word: "from", translation: "use ‘from,’ not ‘of’" },
+          { question: "How do you do?", answer: "How do you do? / Very well, thank you.", word: "do you do", translation: "the formal British-style greeting" }
+        ],
+        verbGroups: [
+          {
+            verb: "to be",
+            verbTranslation: "am / is / are (state or condition)",
+            verbHint: "Every greetings answer in English uses ‘to be.’ Master it first — it unlocks nearly every introductory sentence.",
+            examples: [
+              { object: "well",  fullPhrase: "I am well.",            translation: "formal polite response" },
+              { object: "tired", fullPhrase: "I am tired.",           translation: "I need rest." },
+              { object: "happy", fullPhrase: "I am happy.",           translation: "I feel good." },
+              { object: "busy",  fullPhrase: "I am busy.",            translation: "I have a lot to do." },
+              { object: "fine",  fullPhrase: "I’m fine, thank you.", translation: "common casual response" },
+              { object: "great", fullPhrase: "I’m doing great!",  translation: "enthusiastic response" }
+            ]
+          }
+        ]
       },
       numbers: {
         welcomeText: "English numbers are used worldwide in science, business, and technology. This chapter covers the English counting system, from basic digits to the quirky rules that make numbers like 'thirteen' and 'fifty' a bit tricky for learners.",
@@ -1850,7 +2050,35 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         culturalSpotlight: {
           title: "\u05e9\u05d1\u05ea \u05e9\u05dc\u05d5\u05dd (Shabbat Shalom)",
           content: "Every Friday evening, Israelis greet each other with '\u05e9\u05d1\u05ea \u05e9\u05dc\u05d5\u05dd' (Shabbat Shalom) as the Sabbath begins. Whether religious or secular, most Israelis mark Shabbat with a family dinner, candle lighting, and special challah bread. It's a weekly pause button that brings families and communities together in a shared rhythm of rest."
-        }
+        },
+        genderPairs: [
+          { masculine: "שמח",   feminine: "שמחה",   translation: "happy" },
+          { masculine: "עייף",   feminine: "עייפה",   translation: "tired" },
+          { masculine: "עסוק",   feminine: "עסוקה",   translation: "busy" },
+          { masculine: "חולה",   feminine: "חולה",   translation: "sick — same form for both!" },
+          { masculine: "עצבני", feminine: "עצבנית", translation: "nervous" }
+        ],
+        vocabQA: [
+          { question: "מה שמך？", answer: "שמי [שם]ע.", word: "שמך", translation: "Your name? (Ma shimkha?)" },
+          { question: "מה שלומך？", answer: "בסדר, תודה. ואתה？", word: "שלום", translation: "How are you? (Ma shlomkha?)" },
+          { question: "נעים מאוד.", answer: "גם לי.", word: "נעים", translation: "Pleasant / Nice to meet you (Na’im me’od)" },
+          { question: "מאיפה אתה？", answer: "אני מ[עיר].", word: "מאיפה", translation: "Where are you from? (Me’eifo atah?)" },
+          { question: "מה נשמע？", answer: "הכל טוב, תודה.", word: "נשמע", translation: "What’s up? (Ma nishma?)" }
+        ],
+        verbGroups: [
+          {
+            verb: "להיות (lihyot)",
+            verbTranslation: "to be — vanishes in present tense",
+            verbHint: "In Hebrew present tense, ‘to be’ disappears entirely. Subject and predicate stand side by side with no verb between them.",
+            examples: [
+              { object: "בסדר (beseder)", fullPhrase: "אני בסדר.", translation: "I [am] fine." },
+              { object: "שמח (sameakh)", fullPhrase: "אני שמח.", translation: "I [am] happy. (m.)" },
+              { object: "ישראלי (yisraeli)", fullPhrase: "אני ישראלי.", translation: "I [am] Israeli. (m.)" },
+              { object: "טוב (tov)", fullPhrase: "אני טוב.", translation: "I [am] good. (m.)" },
+              { object: "עייף (ayef)", fullPhrase: "אני עייף.", translation: "I [am] tired. (m.)" }
+            ]
+          }
+        ]
       },
       numbers: {
         welcomeText: "Hebrew numbers carry thousands of years of history \u2014 each letter of the Hebrew alphabet has a numerical value. This chapter introduces the modern Hebrew counting system while connecting you to the ancient tradition of gematria and numerical meaning.",

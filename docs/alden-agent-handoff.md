@@ -19,6 +19,47 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## Session Summary — Thu, Apr 10, 2026 (session 41 — M1/M2/M4 all-language greetings seed)
+
+### What was done
+
+1. **ChapterIntroduction.tsx** — updated `GenderAgreementGrid` render to pass language-specific `masculineFrame` / `feminineFrame` props via an inline record keyed on `langKey`. Spanish: "Él está ___." / "Ella está ___.", French: "Il est ___." / "Elle est ___.", Italian: "Lui è ___." / "Lei è ___.", Portuguese: "Ele está ___." / "Ela está ___.", Hebrew: "הוא ___." / "היא ___." Languages without grammatical gender (German, Japanese, Korean, Mandarin, English) do not receive genderPairs, so the component renders nothing for them — correct behavior.
+
+2. **All 9 remaining language greetings chapters seeded** in `chapter-intro-content.ts` — single Node.js insertion script, one pass, all anchored to unique text at each chapter's end:
+
+   | Language | genderPairs | vocabQA | verbGroups | Key verb |
+   |---|---|---|---|---|
+   | French | ✅ (joyeux/joyeuse, fatigué/fatiguée, occupé/occupée, malade×2, nerveux/nerveuse) | 6 pairs | être | être |
+   | Portuguese | ✅ (contente×2, cansado/a, ocupado/a, doente×2, nervoso/a, animado/a) | 6 pairs | estar | estar |
+   | German | — (predicate adjectives don't inflect; skipped) | 6 pairs | sein | sein |
+   | Italian | ✅ (contento/a, stanco/a, occupato/a, malato/a, nervoso/a, emozionato/a) | 6 pairs | stare | stare |
+   | Japanese | — | 5 pairs | です (desu) | です |
+   | Korean | — | 5 pairs | 이에요/예요 | copula |
+   | Mandarin | — | 5 pairs | 是 (shì) | 是 |
+   | Hebrew | ✅ (שמח/שמחה, עייף/עייפה, עסוק/עסוקה, חולה×2, עצבני/עצבנית) | 5 pairs | להיות (zero copula) | zero-copula |
+   | English | — | 5 pairs | to be | to be |
+
+3. **Pedagogical notes seeded per language**:
+   - French verbHint: "être links you to descriptions — Madrigal calls this the identity bridge."
+   - Italian verbHint: "Italian uses stare, not essere, for how you feel. This is the most important greeting verb." (Madrigal distinction)
+   - Hebrew verbHint: "In Hebrew present tense, 'to be' disappears entirely. Subject and predicate stand side by side with no verb between them." (zero-copula discovery moment)
+   - Mandarin verbHint: "是 links two equal things — I = student. For qualities like 'I am tall,' Chinese uses a different structure." (是 vs adjective predicate)
+   - Korean verbHint: "이에요 follows consonants; 예요 follows vowels. This small rule covers half of all Korean introductions."
+   - Portuguese genderPairs teach that *contente* and *doente* are invariable (same for masc/fem) — surface-level contrast with Spanish.
+
+4. **File ordering note**: The data file sections appear in this order: spanish → french → german → italian → japanese → korean → mandarin → portuguese → english → hebrew. (Not alphabetical — know this for future insertions.)
+
+### Pending / next session
+
+- **M5** (images in SentenceFrameGrid) — still the highest priority, not started
+- **Family chapter M1/M2/M4 data** — only Spanish family chapter has data; all other languages need family data next
+- **discoveryNotes** — not added to non-Spanish languages yet (needs narrative section reading per language)
+- **Cognate expansion** — Portuguese/Japanese/Korean/Mandarin/Hebrew/English greetings chapters still lack cognateOpener blocks; only French/Italian/German have them
+- **Numbers and daily chapter data** — all languages need these chapters seeded too
+- Madrigal image scanning — David still has more pages
+
+---
+
 ## Session Summary — Thu, Apr 10, 2026 (session 40 — M1–M4 build + bloviation audit + cognate expansion)
 
 ### What was done

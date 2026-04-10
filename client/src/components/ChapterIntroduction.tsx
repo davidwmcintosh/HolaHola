@@ -2497,6 +2497,20 @@ export function ChapterIntroduction({ chapterNumber, chapterTitle, language, cha
             <GenderAgreementGrid
               pairs={content.genderPairs}
               language={langKey}
+              masculineFrame={{
+                spanish:    'Él está ___.',
+                french:     'Il est ___.',
+                italian:    'Lui è ___.',
+                portuguese: 'Ele está ___.',
+                hebrew:     'הוא ___.',
+              }[langKey] ?? 'He is ___.'}
+              feminineFrame={{
+                spanish:    'Ella está ___.',
+                french:     'Elle est ___.',
+                italian:    'Lei è ___.',
+                portuguese: 'Ela está ___.',
+                hebrew:     'היא ___.',
+              }[langKey] ?? 'She is ___.'}
             />
           </CardContent>
         </Card>
