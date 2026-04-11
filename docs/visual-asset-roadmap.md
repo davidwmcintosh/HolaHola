@@ -1631,31 +1631,108 @@ Spanish chapter data (M1/M4 vocabQA + verbGroups) was seeded in the Madrigal spi
 
 ### Pre-Scan Reference Images (13 pages photographed April 9, 2026)
 
-All 13 images are in `attached_assets/`. These are phone-camera shots of the physical book — readable but not suitable as final scan quality. The Monday scan will be the master reference.
+All 13 images are in `attached_assets/`. Phone-camera shots — readable but not scan quality. The Monday scanner output will be the master reference. **Use these only for format/structure understanding, not pixel-level detail.**
 
-| File | Page | Content | Key pedagogical insight |
-|---|---|---|---|
-| `1_1775836704664.jpg` | Preface | Madrigal's method philosophy — one lesson per page, familiar words first, progressive | "the student is on familiar ground from the very beginning" |
-| `new_1775836710104.jpg` | Intro (cont.) | "The small drawings are there to make studying easier" — teacher/student notes, traveler word list mention | Each lesson = one page; can be studied in any order or simultaneously |
-| `20260409_110822_1775755866475.jpg` | p. 40 | **tomar — transportation**: taxi, train, airplane, bus — Q&A drill | "¿Va a tomar un taxi? Sí, voy a tomar un taxi." — image → verb → sentence |
-| `20260409_110831_1775755866474.jpg` | p. 41 | **tomar — food & drink**: café, ensalada, sopa, pollo, chocolate, apio | Same drill format as p.40; introduces "tomar" as multi-use verb (eat/drink/take) |
-| `20260409_110915_1775755866474.jpg` | p. 58 | **ir a — destinations (al)**: park, cinema, theater, concert | "Quiero ir al parque" — introduces a+el contraction; 6 destination images |
-| `20260409_110925_1775755866473.jpg` | p. 59 | **querer ir a — destinations (a la)**: fiesta, playa, tienda, casa | Introduces "queremos ir" (we want to go); same image-then-drill structure |
-| `20260409_111001_1775755866472.jpg` | p. 52 | **tener que ir — obligation**: post office, bank, restaurant, office | "Tengo que ir al correo." Bold hand-drawn scenes per destination |
-| `20260409_111054_1775755866472.jpg` | p. 25 | **¿Qué es? — vegetables**: celery, carrot, lettuce, tomato | "El apio es una verdura." + introduces color: "¿Es rojo el tomate?" |
-| `20260409_111123_1775755866471.jpg` | p. 142 | **hacer — past tense**: tennis, TV, gardening, lemonade | "¿Qué hizo esta mañana? Jugué tenis." — hice/vi/jugué/trabajé |
-| `20260409_111308_1775755866475.jpg` | Appendix | **List of Regular -AR Verbs** with conjugation grid (o/a/amos/an) | hablar, comprar, estudiar, nadar, cantar, bailar, viajar, trabajar, tomar, llevar... |
-| `20260409_111355_1775755866476.jpg` | p. 122 | **-AR past tense (yo/él)**: studying, swimming, paying, buying | "¿Estudió hoy? Sí, estudié hoy." Grammar note on ó (he) vs. é (I) endings |
-| `20260409_111420_1775755866476.jpg` | p. 112 | **voy a — near future**: speaking, dancing, studying, singing | "Voy a hablar español en la clase." Grammar note: infinitive ends in -r |
-| `20260409_111437_1775755866476.jpg` | p. 81 | **Everyday Expressions — estar adjectives**: full two-column list | contento/a, cansado/a, ocupado/a, enfermo/a, listo/a, solo/a, enojado/a, furioso/a, aburrido/a, enamorado/a — **direct source for our M2 greetings gender pairs** |
+---
 
-**What these pages tell us about Madrigal's design philosophy:**
-- Every lesson = one concept, one page, four illustrated Q&A pairs
-- Images always come first — you see the object/action before you read the word
-- Questions are always in the usted (he/she/you-formal) form; answers shift to yo (I)
-- Grammar is never explained upfront — it's demonstrated through repetition, then a brief "Notice" note at the bottom
-- Vocabulary is real-world and immediately useful (transport, food, places, daily actions)
-- The verb anchor for each lesson is introduced at the top as an infinitive pair (Spanish + English), then immediately used in context
+#### THE FORMAT SYSTEM — How a Madrigal Page Is Built
+
+Every drill page in the book is built from the same 4-zone layout. This consistency is itself pedagogical — the student's brain never has to figure out how to use the page.
+
+**ZONE 1 — The Vocabulary Header (top ~15% of page)**
+- Two-column block of vocabulary pairs, left and right sides of the page
+- Format: `Spanish word/phrase, English translation` — Spanish in **bold**, English in regular weight
+- These are the raw inputs — introduced as bare pairs before appearing in any sentence
+- Always includes the verb infinitive + the key conjugated forms that will appear in the drill
+- Example: `tomar, to take / ¿va a tomar? are you going to take / voy a tomar, I'm going to take` (left) and `una ensalada, a salad / chocolate, chocolate (drink)` (right)
+- Small body type — roughly 9-10pt equivalent. No decoration, no box, just aligned pairs.
+
+**ZONE 2 — The Illustrated Drill Grid (middle 60-70% of page)**
+- A 2×2 grid of cells (occasionally 2×3 for pages with more vocabulary)
+- Each cell = **image on top, text below** — always in that order, never reversed
+- The image takes roughly 40-55% of each cell's height; the text takes the rest
+- **Illustration style:** pure black ink line drawings on cream/off-white page — no fill, no shading, no color, no background. Objects drawn in 3/4 perspective, simplified but instantly recognizable. People have simple rounded heads, minimal facial features, expressive body language. The style is mid-century American illustration — not cartoonish but not realistic. Think Saul Steinberg without the irony.
+- **Image subject matter:** each cell shows ONE object or ONE action — nothing compositionally complex. A taxi. A woman diving into water. A man at a desk. Never a scene with multiple focal points.
+- **Two drill formats appear (sometimes mixed on the same page):**
+  - *Q&A format:* Question in bold → Answer in bold, directly below. Two lines. "¿Va a tomar un taxi? / Sí, voy a tomar un taxi." The question uses usted/él/ella; the answer shifts to yo/nosotros.
+  - *Statement format:* One sentence in bold below the image. "Quiero ir al parque." No question. Used when the page is building production vocabulary, not testing recognition.
+- Equal white space between all four cells — the grid breathes
+
+**ZONE 3 — The Text Extension Block (bottom ~15-20%, no illustrations)**
+- Smaller type, no bold (or lighter bold than Zone 2)
+- Lists additional examples using the same verb/structure — without images
+- The student is expected to visualize these from memory
+- Two sub-formats appear here:
+  - *Additional vocabulary list:* "Tengo que ir al hotel. / Tengo que ir al hospital. / Tengo que ir al club."
+  - *Conjugation expansion:* Shows other persons: "Queremos ir a la fiesta. / Queremos ir a la playa. / Van a tomar. / Vamos a tomar."
+
+**ZONE 4 — The Grammar Notice (very bottom, appears on ~40% of pages)**
+- Set in smaller, lighter type — often italics or a slightly smaller size
+- Always begins with "Notice that..." — never "The rule is..." or "Remember..."
+- Points at a pattern the student just saw demonstrated — never states it before the demonstration
+- One or two sentences maximum
+- Followed by a single practice question in both languages: "¿Va a hablar español? *Are you going to speak Spanish?*"
+- Example: "Notice that all the verbs in the questions above end in ó. All the verbs in the answers end in é."
+- Example: "Notice that the TO form of the verbs above ends in r."
+
+**TYPOGRAPHY RULES (observed consistently across all pages):**
+- **Bold = Spanish target language.** All Spanish — always bold, without exception
+- Regular weight = English translation. The visual contrast does all the work — no color, no highlighting needed
+- Sentence case throughout. No ALL CAPS headings anywhere in the lesson pages
+- Page number bottom center, same small body type as Zone 3
+- No rules, no borders, no background tints, no icons on lesson pages — the white space is the design
+
+---
+
+#### Image-by-Image Reference
+
+| File | Page | Zone 1 header | Zone 2 grid format | Zone 3/4 |
+|---|---|---|---|---|
+| `1_1775836704664.jpg` | Preface | — | Dense prose, no images | Madrigal's method: progressive, familiar-first, one page per lesson. "The student is on familiar ground from the very beginning." |
+| `new_1775836710104.jpg` | Intro (cont.) | — | Dense prose | "The small drawings are there to make studying easier." Each lesson = self-contained; can study in any order. For teacher: adapt for dialogue teaching, Q+A format. |
+| `20260409_110822_1775755866475.jpg` | p. 40 | `tomar, to take / ¿va a tomar? / voy a tomar` (left); `una ensalada, a salad` etc. (right) | **Q&A format, 2×2:** taxi / train / airplane / bus. Question usted form, answer yo form. Images = side-profile line drawings of each vehicle | Zone 3: "Vamos a tomar, we are going to take / Van a tomar, they are going to take" — nosotros/ellos expansion, no images |
+| `20260409_110831_1775755866474.jpg` | p. 41 | Note in prose: "In Spanish you do not say 'I'm going to have soup.' You say 'Voy a tomar sopa.'" | **Q&A format, 2×2:** coffee jug / ensalada / sopa bowl / celery. Same usted/yo pattern | Zone 4 at left margin: reminder note in prose (unusual placement — note runs vertically along left side) |
+| `20260409_110915_1775755866474.jpg` | p. 58 | `ir, to go / quiero ir, I want to go` (left); `a, to / al, to the / al despacho, to the office` (right) | **Statement format, 2×2 + partial 3rd row:** park / cinema / theater / concert. Each image has single bold sentence below. No Q&A — production mode. | Zone 3: "Quiero ir al restaurante. / Quiero ir al hotel. / Quiero ir a México. / Quiero ir a París." then Q&A: "¿Quiere ir al parque? / ¿Quiere ir al teatro?" etc. |
+| `20260409_110925_1775755866473.jpg` | p. 59 | `¿quiere ir? do you want to go / quiero ir, I want to go` (left); `a la fiesta, to the party / a la tienda, to the store / a la playa, to the beach` (right) | **Q&A format, 2×2:** fiesta (people dancing) / playa (diver) / tienda (display case) / casa (open book). usted Q, yo answer. **Bold italic on answer "Sí,"** then regular bold for the rest | Zone 3: "queremos ir" conjugation: "Queremos ir a la fiesta. / Queremos ir a la playa. / Queremos ir a la tienda. / Queremos ir a la casa." |
+| `20260409_111001_1775755866472.jpg` | p. 52 | `tengo que ir, I have to go / al correo, to the post office` (left); `al, to the / al despacho, to the office` (right) | **Statement format, 2×2:** post office building / bank window / waiter walking / man at desk. Each gets one large bold sentence. **No Q&A on this page — pure production.** Images are larger than other pages — occupy more vertical space per cell | Zone 3: "Tengo que ir al hotel. / Tengo que ir al hospital. / Tengo que ir al club." then Q&A in both languages: "¿Tiene que ir? *Do you have to go?* / ¿Tiene que ir al correo?" |
+| `20260409_111054_1775755866472.jpg` | p. 25 | `¿Qué es? What is?` centered at top. `una verdura, a vegetable / la zanahoria, the carrot` (left); `apio, celery / lechuga, lettuce` (right) | **Q&A format, 2×2:** celery / carrot / lettuce / tomato. Pure object illustrations — no person, no context. Question: "¿Qué es el apio?" Answer: "El apio es una verdura." Simple two-line exchange | Zone 3+4: "rojo, red" introduced as new vocabulary. Then: "¿Es rojo el tomate? Sí, el tomate es rojo." — a new mini-drill at bottom with no image, testing color adjective |
+| `20260409_111123_1775755866471.jpg` | p. 142 | `jugué, I played / vi, I saw / trabajé, I worked / el jardín, the garden` (right column top). `¿Qué hizo? What did you do?` as question stem | **Q&A format, 2×2 — rotated 90° in photo:** tennis player / golfer / TV / garden/bed. Question uses hizo (he/she/did); answer uses jugué/vi/trabajé. Page also shows hacer conjugation box (hice/hizo/hicimos/hicieron) — a rare embedded table | Zone 3: "Hice limonada. / Hice mucho trabajo. / Hice la cama." etc. Full list of yo+hacer sentences without images |
+| `20260409_111308_1775755866475.jpg` | Appendix | Centered heading: **LIST OF REGULAR "AR" VERBS** | **Conjugation grid** (the only 2D table format in all pages seen): `I | o | amos | we` / `you,he,she,it | a | an | you(pl)/they` — a 2×2 labeled grid showing stem+ending. Below: two-column verb list in alpha order, all bold Spanish + regular English | No Zone 4. Pure reference page — no drill, no images, no grammar note. |
+| `20260409_111355_1775755866476.jpg` | p. 122 | `¿estudió? did you study? / ¿compró? did you buy?` etc. (left); `estudié, I studied / compré, I bought / pagué, I paid / nadé, I swam / una bata, a bathrobe` (right) | **Q&A format, 2×2:** man at desk studying / check/bill / swimmer underwater / coat hanging on rack. Pattern: usted Q (ó ending) / yo answer (é ending) — the visual contrast of ó vs é is the whole lesson | Zone 4: "Notice that all the verbs in the questions above end in ó. All the verbs in the answers end in é. In the past tense, AR verbs end in é when you speak of yourself, and ó when you speak of anyone else (singular)." — then: "Roberto nadó hoy. *Robert swam today.*" |
+| `20260409_111420_1775755866476.jpg` | p. 112 | `voy a, I'm going (to) / estudiar, to study / hablar, to speak / en la clase, in the class / en la fiesta, at the party` (left); `cantar, to sing / comprar, to buy / bailar, to dance / español, Spanish` (right) | **Statement format, 2×2:** professor at lectern / dancers at party / students at desks / singer. Each gets one sentence: "Voy a hablar español en la clase." No Q&A — the page builds the voy a + infinitive construction through pure exposure | Zone 4: "Notice that the TO form of the verbs above ends in r. Examples: estudiar, TO study; hablar, TO speak; cantar, TO sing; comprar, TO buy." then: "¿Va a hablar español? *Are you going to speak Spanish?*" |
+| `20260409_111437_1775755866476.jpg` | p. 81 | Centered heading: **EVERYDAY EXPRESSIONS** | **No images. Two-column text table**, no grid lines. Left = masculine forms, right = feminine forms. Bold Spanish on each line, regular English below. 10 pairs: contento/a, cansado/a, ocupado/a, enfermo/a, listo/a, solo/a, enojado/a, furioso/a, aburrido/a, enamorado/a | Zone 3: Additional estar expressions without gender distinction: "Está bien / mejor / mal / peor / con Roberto / triste / cómodo." Then: "Estamos contentos. / Están cansados. / Estoy contento. (man) / Estoy contenta. (woman)" — **the only page in these 13 with no illustrations at all** |
+
+---
+
+#### What HoloHola Must Replicate — The HOW
+
+**Image cells:**
+- Image always above text, never beside it
+- Image = one subject, isolated, no background clutter
+- Line illustration style (our watercolor variant should preserve the isolation and clarity — one subject, white/transparent background, no scene)
+- Cell size consistent across the grid — equal breathing room between all four
+
+**Text in drill cells:**
+- Question bold, answer bold — two lines, nothing else
+- No "Q:" or "A:" labels — the ¿? marks and "Sí," do all the work
+- For statement-mode cells: one sentence, bold, full stop — nothing else
+
+**The vocabulary header:**
+- Always precedes the drill — raw pairs first, drill second
+- Spanish bold + English regular, same line
+- The verb always appears in at least two forms in the header: infinitive + first-person "I" form
+
+**The grammar notice:**
+- Bottom of card/page, smaller, lighter
+- "Notice that..." — never "The rule is..."
+- Only appears after the student has seen the pattern demonstrated four times
+- One or two sentences max
+- Followed by one practice prompt
+
+**What NOT to carry over:**
+- The extension text block (Zone 3) — our digital format lets us go deeper via interaction, not text lists
+- The two-column gender table format (p. 81) — we replaced this with our M2 GenderAgreementGrid which is functionally equivalent but more scannable
+- The appendix verb list — our VerbAnchorGrid replaces this with contextual examples rather than a bare list
 
 ---
 
