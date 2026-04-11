@@ -1919,6 +1919,57 @@ The minimum viable conjugation principle (only yo and él/ella at first, not all
 
 ---
 
+#### Concept 3 — The Pattern-Pounding Principle (David, April 11, 2026)
+
+This is the insight that connects both exercises and explains why they work.
+
+**The core mechanism:**
+
+Traditional language teaching asks the student to memorize one verb across five or six conjugations:
+
+> hablo / hablas / habla / hablamos / hablan
+
+That is five separate facts attached to one word. The student has to hold the verb, the person, and the ending all simultaneously. It's fragile — if one element slips, the whole thing fails.
+
+Madrigal's approach inverts this. Instead of drilling one verb in many forms, you drill **one form across many verbs**:
+
+> Yo como. Yo nado. Yo corro. Yo compro. Yo estudio. Yo trabajo. Yo hablo. Yo tomo.
+
+The student is not memorizing a conjugation table. They are having the **yo ending pounded into them** through dozens of encounters — each of which also happens to teach them a new verb. Two things are being reinforced simultaneously, but neither is being memorized as an isolated fact. The pattern (yo → -o for AR, -o for ER/IR) becomes automatic before the student has consciously registered that it exists.
+
+The same mechanism operates in the past tense, the progressive, the future:
+- Present: *como, nado, corro* → the -o is pounded in
+- Past: *comí, nadé, corrí* → the -í is pounded in
+- Future: *voy a comer, voy a nadar, voy a correr* → the *voy a* frame is pounded in
+
+Each new verb the student learns is not a new piece of grammar to master — it is a new repetition of the same ending they've already been internalizing. The grammar load is fixed; only the vocabulary expands.
+
+**Why the sentence-forming table works:**
+
+The permutation table gives the student 512+ sentence combinations from a single page. The mathematical insight from the previous section (8×8×8) understates the pedagogical power. The real power is that every one of those 512 sentences pounds in the same construction — *¿Va a + verb + object + person?* — while incidentally introducing new vocabulary. The student is not drilling grammar. They are drilling vocabulary. The grammar is a byproduct of the repetition.
+
+As each new word the student learns gets inserted into the same cognitive frame, the frame strengthens. The student doesn't learn "va a comprar" and "va a estudiar" as two separate phrases. They learn that *va a* is a slot, and anything that fits in a verb slot can go there. The grammar becomes a pattern-matching system rather than a lookup table.
+
+**Why the cover-and-check verb list works:**
+
+The five-step procedure hammers the same two endings (-í for yo, -ió for él) across 25+ verbs in a single sitting. By the time the student has covered and derived asistir → asistí / asistió, and then batir → batí / batisfió, and confundir → confundí / confundió, and repeated this for 22 more verbs — those endings are not memorized. They are *installed*. The student stopped consciously thinking about the ending after the fifth or sixth verb. The procedure runs automatically.
+
+**What this means for HoloHola:**
+
+The acquisition unit is **one grammatical pattern across many vocabulary items**, not **one vocabulary item across many grammatical forms**.
+
+This has direct implications for how Daniela drills and how chapter content is structured:
+
+1. **Daniela should drill by conjugation form, not by verb paradigm.** When introducing past tense, she doesn't conjugate one verb completely. She takes the student through ten verbs in yo-past: "¿Estudiaste? Sí, estudié. ¿Comiste? Sí, comí. ¿Nadaste? Sí, nadé." The -é ending is pounded in by the tenth exchange. The student has learned ten verbs and one conjugation, simultaneously, without ever looking at a table.
+
+2. **The VerbAnchorGrid (M4) should show the anchor verb alongside several others in the same form.** Currently it shows one verb with examples. The pattern-pounding principle says: show the yo form of the anchor verb, then immediately show five other verbs in the same form. The anchor is the entry point; the cluster reinforces the pattern.
+
+3. **The sentence-forming table is the native format for Daniela's oral drills.** She keeps the frame constant (*¿Va a...?*) and rotates the vocabulary. The student answers by inserting different words into the same slot. By the fifth rotation, the frame is automatic. By the fifteenth, the student is generating new combinations without prompting.
+
+4. **Every new vocabulary word a student learns is a free repetition of every grammar pattern they've already absorbed.** This is the real return on investment of Madrigal's method — the student's vocabulary and grammar reinforce each other rather than competing for cognitive load. HoloHola should be designed so that new vocabulary is always introduced inside a known frame, never as an isolated word to be memorized.
+
+---
+
 #### The Two-Book Relationship — What It Tells Us About Sequencing
 
 | | *See It and Say It in Spanish* | *Madrigal's Magic Key to Spanish* |
