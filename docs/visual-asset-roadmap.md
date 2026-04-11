@@ -1970,6 +1970,57 @@ This has direct implications for how Daniela drills and how chapter content is s
 
 ---
 
+#### Concept 4 — Compartmentalization and the Unlock Effect (David, April 11, 2026)
+
+This is the compounding consequence of the Pattern-Pounding Principle. It explains why the method accelerates rather than plateaus.
+
+**Compartmentalization:**
+
+When you pound the yo form across thirty verbs, you are not building a list of thirty facts. You are building one compartment — a single cognitive container labeled "yo" — that holds thirty vocabulary items, all already conjugated. The ending is not a property of each verb; it is a property of the compartment. The student doesn't think "como ends in -o." They think "the yo compartment sounds like this."
+
+Every new verb added to the compartment costs less than the one before it, because the student isn't learning a new ending — they're placing a new word into a container whose shape they already know.
+
+**The Unlock:**
+
+When Daniela then says — after the yo compartment has thirty verbs in it — *"just change the -o to -as"* for tú, something remarkable happens. The student is not learning thirty new verb forms. They are applying one transformation to an entire compartment they already own.
+
+The tú compartment doesn't cost thirty units of learning. It costs **one**: the ending change. All thirty verbs come with it, instantly, as a group. The previous repetition on yo is not abandoned — it is **unlocked in a new form**.
+
+The same unlock happens for él/ella (-a), nosotros (-amos), and ellos (-an). Each costs only one ending change. Each unlocks the full reservoir that pounding has been building since the beginning.
+
+**The sentence-forming table becomes permanently reusable:**
+
+The same four-column table — the same verbs, the same objects, the same frame — works for every person:
+- Section A with *¿Va a...?* → unlock with *¿Vas a...?* → same 512 permutations, new person
+- Section B with *María va a...* → unlock with *Yo voy a...* → same vocabulary, different ending
+
+The student never needs a new table. They need a new key. Each key unlocks all previous work.
+
+**The compounding return:**
+
+This is the reason the method accelerates rather than plateaus. In a traditional course, learning tú costs exactly as much as learning yo — you start over with a new paradigm row. In Madrigal's method:
+
+- Week 1: pound yo. Install 20 verbs in one compartment.
+- Week 2: unlock tú. 20 verbs arrive free. Install 5 more in both compartments simultaneously.
+- Week 3: unlock él. 25 verbs arrive free. Install 5 more in all three compartments simultaneously.
+- Week 6: unlock nosotros. Now 40 verbs in four compartments, each new verb added goes into all four automatically.
+
+By week 6, each new vocabulary word the student learns is **simultaneously a repetition of four different conjugation patterns**. The grammar load per new word approaches zero. Only the vocabulary cost remains.
+
+**What this means for HoloHola:**
+
+1. **Daniela introduces persons as unlocks, not new lessons.** The framing matters: "You already know all of these in yo. Here's one change that lets you use all of them with tú." Not "today we learn the tú form." She is handing the student a key to a room they've already furnished.
+
+2. **The sequence is fixed by this logic.** You cannot unlock a compartment before building it. The person order matters: pound yo first, then unlock tú, then él, then nosotros, then ellos. This is not arbitrary — it reflects how the compounding effect works. Skipping yo to start with nosotros means there's nothing to unlock.
+
+3. **Grammar Diagrams should be reframed as unlock events.** Instead of presenting the full 6-row paradigm as a table to read, they should present one transformation: "You know yo. Here is the key to tú." Then show only the two rows being connected — yo and tú — not all six. The others become their own unlock events when the student is ready.
+
+4. **Each chapter chapter's VerbAnchorGrid (M4) is building a compartment.** The anchor verb is the one the student encounters most. The cluster of examples in the same form are the other verbs going into the same compartment. The M4 grid is not a vocabulary list — it is a compartment display.
+
+5. **The unlock effect applies across tenses as well as persons.** Once the student has the yo present compartment (como, nado, corro), Daniela can unlock past: "just change -o to -é." Thirty present-tense verbs become thirty past-tense verbs for the cost of one transformation. Then progressive: "add estoy + the verb with -ando." Same thirty verbs, new tense, one cost.
+
+---
+
 #### The Two-Book Relationship — What It Tells Us About Sequencing
 
 | | *See It and Say It in Spanish* | *Madrigal's Magic Key to Spanish* |
