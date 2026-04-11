@@ -1629,6 +1629,36 @@ Spanish chapter data (M1/M4 vocabQA + verbGroups) was seeded in the Madrigal spi
 
 ---
 
+### Pre-Scan Reference Images (13 pages photographed April 9, 2026)
+
+All 13 images are in `attached_assets/`. These are phone-camera shots of the physical book — readable but not suitable as final scan quality. The Monday scan will be the master reference.
+
+| File | Page | Content | Key pedagogical insight |
+|---|---|---|---|
+| `1_1775836704664.jpg` | Preface | Madrigal's method philosophy — one lesson per page, familiar words first, progressive | "the student is on familiar ground from the very beginning" |
+| `new_1775836710104.jpg` | Intro (cont.) | "The small drawings are there to make studying easier" — teacher/student notes, traveler word list mention | Each lesson = one page; can be studied in any order or simultaneously |
+| `20260409_110822_1775755866475.jpg` | p. 40 | **tomar — transportation**: taxi, train, airplane, bus — Q&A drill | "¿Va a tomar un taxi? Sí, voy a tomar un taxi." — image → verb → sentence |
+| `20260409_110831_1775755866474.jpg` | p. 41 | **tomar — food & drink**: café, ensalada, sopa, pollo, chocolate, apio | Same drill format as p.40; introduces "tomar" as multi-use verb (eat/drink/take) |
+| `20260409_110915_1775755866474.jpg` | p. 58 | **ir a — destinations (al)**: park, cinema, theater, concert | "Quiero ir al parque" — introduces a+el contraction; 6 destination images |
+| `20260409_110925_1775755866473.jpg` | p. 59 | **querer ir a — destinations (a la)**: fiesta, playa, tienda, casa | Introduces "queremos ir" (we want to go); same image-then-drill structure |
+| `20260409_111001_1775755866472.jpg` | p. 52 | **tener que ir — obligation**: post office, bank, restaurant, office | "Tengo que ir al correo." Bold hand-drawn scenes per destination |
+| `20260409_111054_1775755866472.jpg` | p. 25 | **¿Qué es? — vegetables**: celery, carrot, lettuce, tomato | "El apio es una verdura." + introduces color: "¿Es rojo el tomate?" |
+| `20260409_111123_1775755866471.jpg` | p. 142 | **hacer — past tense**: tennis, TV, gardening, lemonade | "¿Qué hizo esta mañana? Jugué tenis." — hice/vi/jugué/trabajé |
+| `20260409_111308_1775755866475.jpg` | Appendix | **List of Regular -AR Verbs** with conjugation grid (o/a/amos/an) | hablar, comprar, estudiar, nadar, cantar, bailar, viajar, trabajar, tomar, llevar... |
+| `20260409_111355_1775755866476.jpg` | p. 122 | **-AR past tense (yo/él)**: studying, swimming, paying, buying | "¿Estudió hoy? Sí, estudié hoy." Grammar note on ó (he) vs. é (I) endings |
+| `20260409_111420_1775755866476.jpg` | p. 112 | **voy a — near future**: speaking, dancing, studying, singing | "Voy a hablar español en la clase." Grammar note: infinitive ends in -r |
+| `20260409_111437_1775755866476.jpg` | p. 81 | **Everyday Expressions — estar adjectives**: full two-column list | contento/a, cansado/a, ocupado/a, enfermo/a, listo/a, solo/a, enojado/a, furioso/a, aburrido/a, enamorado/a — **direct source for our M2 greetings gender pairs** |
+
+**What these pages tell us about Madrigal's design philosophy:**
+- Every lesson = one concept, one page, four illustrated Q&A pairs
+- Images always come first — you see the object/action before you read the word
+- Questions are always in the usted (he/she/you-formal) form; answers shift to yo (I)
+- Grammar is never explained upfront — it's demonstrated through repetition, then a brief "Notice" note at the bottom
+- Vocabulary is real-world and immediately useful (transport, food, places, daily actions)
+- The verb anchor for each lesson is introduced at the top as an infinitive pair (Spanish + English), then immediately used in context
+
+---
+
 **Plan M1 — VocabQAGrid ✅ COMPLETE**
 
 Built `VocabQAGrid` component in `TextbookInfographics.tsx`. Sky-blue accent, "full sentences" badge. Each card shows: question (italic/muted), answer (bold, play button), translation (below divider). Wired in `ChapterIntroduction.tsx`.
