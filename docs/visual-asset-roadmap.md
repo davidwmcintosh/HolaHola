@@ -1836,6 +1836,108 @@ Every drill page in the book is built from the same 4-zone layout. This consiste
 
 ---
 
+### The Second Book — *Madrigal's Magic Key to Spanish*
+
+**Photographed:** April 11, 2026  
+**Files:** `attached_assets/1000012139_1775925912342.jpg` (p. 90), `attached_assets/1000012140_1775925912343.jpg` (verb list page)  
+**Book:** *Madrigal's Magic Key to Spanish*, by Margarita Madrigal. A companion/sequel to *See It and Say It in Spanish*.
+
+The two books represent different positions in the same learning arc. *See It and Say It* is conversation-first — the student speaks naturally before understanding why. *Magic Key* makes the structure explicit, using exercises and tables — but still through practice and self-discovery, never rule-recitation. Together they are the full pedagogy: first you feel the language, then you understand it.
+
+HoloHola follows the same arc: Daniela's conversational sessions come first; Grammar Diagrams exist as the thing the student reaches for when they're ready to understand what they've already been doing.
+
+---
+
+#### Concept 1 — The Sentence-Forming Table (p. 90)
+
+**What the page shows:**
+
+A 4-column combination grid appearing under the heading **SENTENCE-FORMING EXERCISES**. The instruction: *"Combine the words below in different ways to form as many sentences as you can. Just be sure to use words from each of the columns in every sentence you form."*
+
+Section A (question form):
+- Col 1: `¿ / Va a` (fixed frame — question opener)
+- Col 2: 8 verbs (comprar, trabajar, tomar, hablar, estacionar, estudiar, preparar, instalar)
+- Col 3: 8 objects/contexts (una casa, mañana, la cena, por teléfono, el auto, la lección, el radio, un taxi)
+- Col 4: 8 people (Roberto?, María?, Carlos?, Alicia?, el doctor?, su mamá?, su papá?, Marta?)
+
+Section B (statement form):
+- Col 1: 8 subjects (María, Carlos, Alicia, Marta, Roberto, El doctor, Mi mamá, Mi papá)
+- Col 2: `va a` (fixed frame — the construction being drilled)
+- Col 3: 9 verbs (exportar, importar, recitar, votar, copiar, visitar, aceptar, trabajar, tomar)
+- Col 4: 8 objects (café, perfume, un poema, mañana, la lección, al paciente, la invitación, esta tarde, la cena, un taxi)
+
+**The mathematical insight:**
+
+Section A alone generates 8×8×8 = **512 unique valid questions** from one page. Section B generates 8×9×8 = **576 unique statements**. The student has over a thousand sentences available from a single page layout — without memorizing a single one. They are *generating* language, not recalling it.
+
+**What this reveals about Madrigal's method:**
+
+This is not drill-and-kill repetition. It is **combinatorial fluency practice** — the student internalizes that language is compositional. The same verb goes with different objects. The same object goes with different verbs. The frame (¿Va a...? / Subject + va a) holds constant while everything else rotates. The student stops thinking of sentences as units to memorize and starts thinking of them as things they can assemble from parts they own.
+
+This is a fundamentally more powerful tool than our current M5 SentenceFrameGrid, which shows a fixed frame with one swappable column. Madrigal's version has **three or four swappable columns simultaneously**.
+
+**What this means for HoloHola:**
+
+Our M5 SentenceFrameGrid was designed as a single-slot fill-in structure — one fixed frame, one vocabulary column. The Magic Key shows us the extended version: multiple columns, each independently swappable, the student choosing freely from any combination. Daniela can implement this directly — she gives the frame, then asks the student to fill specific slots: "Tell me who. Now tell me what they're going to do. Now tell me what they're going to take." The student builds the sentence part by part, then Daniela responds to the full sentence they produced.
+
+The translation exercise at the bottom adds the production layer: the student is given English sentences and must write Spanish using the column words as scaffolding. Daniela's equivalent: she says the English, the student produces the Spanish, she confirms. The columns are internalized support, not displayed scaffolding.
+
+---
+
+#### Concept 2 — The Cover-and-Check Method (verb list page)
+
+**What the page shows:**
+
+Five-step numbered procedure before a verb conjugation list:
+1. Cover up the two right-hand columns
+2. Remove "er" or "ir" from the infinitive in the left-hand column
+3. Add "í" for "I"
+4. Add "ió" for anybody else (third man)
+5. Check your columns with those below
+
+Then a three-column **VERB LIST**: INFINITIVES (bold italic Spanish + regular English) | I (yo past tense) | YOU, HE, SHE (él/usted past tense)
+
+25+ ER/IR verbs: asistir/asistí/asistió, batir/batí/batió, confundir/confundí/confundió, etc.
+
+**What this reveals about Madrigal's method:**
+
+Three separate but related innovations on a single page:
+
+**Innovation A — Algorithm over rule.** She does not say "the past tense of ER and IR verbs is formed by removing the infinitive ending and adding -í (yo) or -ió (él)." She gives a *numbered procedure*: cover, remove, add, add, check. A recipe, not a fact. The student follows steps, not memorizes a statement. The result is the same but the cognitive path is entirely different — procedural memory vs. declarative memory. Procedural memory is more durable.
+
+**Innovation B — Active recall before confirmation.** The student is explicitly instructed to cover the answer columns and generate the form themselves before looking. This is self-testing built into a static page. Every cognitive science study of the last 30 years confirms that active generation beats passive reading by a factor of 2–3x for retention. Madrigal built this into a 1960 paperback without any of that research available to her.
+
+**Innovation C — Minimum viable conjugation table.** She shows only two forms: I (yo) and he/she/you (él/ella/usted). Not the full 6-pronoun paradigm. This is the same deliberate choice she made in *See It and Say It* — beginners need I and he/she. The other forms can be derived once the pattern is clear. She never shows students more grammar than they need right now.
+
+**What this means for HoloHola:**
+
+The cover-and-check method is native to Daniela. She gives the infinitive. She waits. The student produces the conjugated form. She confirms or corrects. The student didn't read the answer — they generated it. This is already what Daniela does conversationally; the Magic Key confirms it's the right mechanism.
+
+The algorithm framing (numbered steps) is something HoloHola has partially implemented in Grammar Diagrams but has not fully committed to. Grammar Diagrams currently show the pattern as a table. The Magic Key shows that a numbered procedure is more effective — it tells the student what to *do*, not just what the form *is*. This is worth applying to how Grammar Diagrams are written, not just structured.
+
+The minimum viable conjugation principle (only yo and él/ella at first, not all six) should inform how VerbAnchorGrid presents verb information — show the two most useful forms prominently, defer the rest.
+
+---
+
+#### The Two-Book Relationship — What It Tells Us About Sequencing
+
+| | *See It and Say It in Spanish* | *Madrigal's Magic Key to Spanish* |
+|---|---|---|
+| Primary mode | Implicit acquisition through conversation | Explicit pattern recognition through exercise |
+| Grammar explanation | None — grammar is demonstrated, never named | Named, but reached through procedure not rule |
+| Drill type | Image-anchored Q&A (one slot, one question) | Combinatorial table (multi-slot, student-generated) |
+| Self-testing | None built in — student imagines the answer | Cover-and-check explicitly built into page design |
+| Intended student | Complete beginner — speaks before understanding | Student who speaks fluently and wants to understand why |
+
+This is the arc that HoloHola naturally creates:
+1. Student enters → Daniela converses → patterns are absorbed implicitly (= *See It and Say It* mode)
+2. Student gains confidence → reaches for Grammar Diagrams → wants to understand the system (= *Magic Key* mode)
+3. Grammar Diagrams exist as reference, not instruction — you go there when you're curious, not when you arrive
+
+The danger to avoid: treating Grammar Diagrams as onboarding. They are the *Magic Key* — earned, not given. Daniela should lead with conversation and let the student discover grammar is available when they want it.
+
+---
+
 **Plan M1 — VocabQAGrid ✅ COMPLETE**
 
 Built `VocabQAGrid` component in `TextbookInfographics.tsx`. Sky-blue accent, "full sentences" badge. Each card shows: question (italic/muted), answer (bold, play button), translation (below divider). Wired in `ChapterIntroduction.tsx`.

@@ -3603,3 +3603,14 @@ The 13 pre-scan reference images (pp. 25, 40, 41, 52, 58, 59, 81, 112, 122, 142 
 The scan exists to understand what she was trying to achieve, so we can achieve the same things better with tools she didn't have. We borrow her **method** (image-first, Q&A drill rhythm, pattern-before-label, cognate confidence, sentence frame architecture, grammar as reference). We **transcend** her medium (Daniela speaks and listens, we adapt to the individual student, we offer feedback, we can show hundreds of vocabulary items not four, we can use color and context in images).
 
 Full version: `docs/visual-asset-roadmap.md`, section "The Adaptation Philosophy — What We Borrow, What We Transcend"
+
+### Magic Key to Spanish — second Madrigal book (April 11, 2026)
+
+David photographed two pages from Madrigal's second book, *Madrigal's Magic Key to Spanish*. Two concepts documented:
+
+**Concept 1 — The Sentence-Forming Table (p. 90):** A 4-column combination grid (frame + swappable verb + swappable object + swappable person) that generates 512+ unique sentences from one page. This is combinatorial fluency practice — the student generates language rather than recalling memorized phrases. More powerful than our current M5 single-slot SentenceFrameGrid. Implication: M5 should evolve toward multi-slot frames where Daniela asks the student to fill multiple columns, building the full sentence piece by piece.
+
+**Concept 2 — Cover-and-Check + Algorithm Conjugation (verb list page):** Numbered 5-step procedure for past tense (cover columns → remove -er/-ir → add -í → add -ió → check). Active recall built into a static page — student generates before seeing the answer. Confirms Daniela's wait-for-student conversational model is the right mechanism. Also argues Grammar Diagrams should present a numbered procedure ("do this, then this") rather than just a pattern table ("here is how it looks").
+
+Files: `attached_assets/1000012139_1775925912342.jpg`, `attached_assets/1000012140_1775925912343.jpg`  
+Full analysis: `docs/visual-asset-roadmap.md`, section "The Second Book — Madrigal's Magic Key to Spanish"
