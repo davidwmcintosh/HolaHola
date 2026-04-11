@@ -2021,6 +2021,67 @@ By week 6, each new vocabulary word the student learns is **simultaneously a rep
 
 ---
 
+#### Concept 5 — The Assessment Shift: Permutation as Proof (David, April 11, 2026)
+
+This redefines what Daniela is listening for in every conversation. It is not what most language tools measure.
+
+**The wrong metric:**
+
+> "Did the student conjugate *comer* correctly?"
+
+This is the metric used by grammar checkers, conjugation quizzes, and most language apps. It is not wrong — correct conjugation matters — but it is measuring the wrong thing. A student can memorize "como" and get it right every time without having installed the yo compartment at all. They just memorized one word.
+
+**The right metric:**
+
+> "Is the yo form of AR/ER verbs stable across all contexts?"
+
+Stability means:
+- The yo ending holds when the **verb changes** (como → nado → corro — does the -o stay automatic?)
+- The yo ending holds after **negation appears** (como → no como — does the -o survive "no"?)
+- The yo ending holds when **distraction is introduced** (a new subject is mentioned, then Daniela returns to yo — does the student track person correctly?)
+- The yo ending holds when **vocabulary is unfamiliar** (a new verb is introduced in the infinitive — can the student produce the yo form without being taught it explicitly?)
+
+The last one is the gold standard. If a student hears "bailar, to dance" for the first time and immediately says "bailo" when asked how they would say "I dance" — the compartment is installed. They didn't memorize "bailo." They derived it. The compartment is working.
+
+**Permutation is the proof:**
+
+A student who can permutate freely proves installation. A student who answers correctly once proves nothing. The distinction:
+
+- *Correct once*: Student says "como" when asked "how do you say I eat?" — could be memorized.
+- *Permutates*: Student says "como, nado, corro, compro, estudio" fluidly across a conversation without hesitation on each new verb — the compartment is installed.
+- *Survives load*: Student says "no nado" correctly after just saying "como" — the yo form held through negation.
+- *Derives new forms*: Student hears "bailar" and produces "bailo" — the compartment is generative, not just a list.
+
+The sentence-forming table (Concept 1) is specifically designed to test permutation under controlled conditions. But Daniela does it conversationally — she varies the verb across a dozen natural exchanges and watches whether the ending stays automatic or requires visible effort each time.
+
+**What Daniela is actually listening for:**
+
+Daniela is not a grammar checker. She is a **pattern stability detector**. In every exchange involving a conjugated verb, she is running a silent diagnostic:
+
+1. **Did the ending hold under this new verb?** — If yes, the compartment may be installed. If the student pauses noticeably or produces the infinitive instead, the compartment is still fragile.
+2. **Did the ending hold through polarity change?** — Affirmative to negative is a classic disruption point. "I eat" → "I don't eat." Students who have only memorized the affirmative often lose the ending when "no" appears.
+3. **Did the ending hold when the conversation moved away and returned?** — If Daniela talks about something else for several exchanges and then returns to yo, does the student still produce the right ending without effort?
+4. **Can the student fill multiple slots simultaneously?** — In the sentence-forming table, can they produce subject + va a + verb + object without breaking form on any column? Simultaneous slot-filling proves that the frame is automatic, not constructed one piece at a time.
+
+**How this changes Daniela's conversational strategy:**
+
+When Daniela detects **wobble** (the ending drops or reverts to infinitive when the verb changes), she does not correct and move on. She returns to pounding. She cycles the same person form through several more verbs before introducing anything new. She is building the compartment back up to stability before loading it with new vocabulary.
+
+When Daniela detects **stability** (the ending holds under load, across verbs, through negation), that is the signal to introduce the unlock. She presents the new person form as a transformation of something the student already owns solidly — not as a new lesson, but as a key.
+
+When Daniela detects **derivation** (the student produces a correct form for a verb they've never seen conjugated), that is the signal that the compartment is fully operational. She can now accelerate — new vocabulary costs almost nothing, and unlocking new persons will happen quickly.
+
+**The metric is reusability, not accuracy:**
+
+A student who gets every conjugation right in a quiz may have memorized thirty individual forms. A student who can permutate across thirty verbs in yo and derive the form for a thirty-first verb they've never seen — that student has learned Spanish. The quiz cannot distinguish between them. Daniela's conversational pattern detection can.
+
+This is the core assessment philosophy for HoloHola. It must flow into:
+- Daniela's system prompt: she knows what she is listening for and why
+- The conversation scoring model: permutation events and derivation events are higher-signal than single correct responses
+- The ACTFL gauge advancement: a student who demonstrates permutation in yo form has cleared a real threshold, not just answered a question correctly
+
+---
+
 #### The Two-Book Relationship — What It Tells Us About Sequencing
 
 | | *See It and Say It in Spanish* | *Madrigal's Magic Key to Spanish* |
