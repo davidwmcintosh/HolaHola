@@ -3604,6 +3604,8 @@ The scan exists to understand what she was trying to achieve, so we can achieve 
 
 Full version: `docs/visual-asset-roadmap.md`, section "The Adaptation Philosophy — What We Borrow, What We Transcend"
 
+**Critical clarification (April 11, 2026):** Madrigal's vocabulary choices are a reference, not a specification. (1) She wrote in 1962, pre-ACTFL — her sequencing was never mapped to can-do statements. Our ACTFL alignment is our own design decision. (2) Her book is deliberately mechanical — no greetings section at all, because "¿Qué es el apio?" is a good drill but not a conversation anyone wants to have. Real language has personality, cultural weight, humor, social risk. Our scenarios, Daniela's character, and the cultural spotlights are not decoration — they are where the method becomes a language rather than a grammar exercise. The scan informs vocabulary choices; it does not override ACTFL alignment or scenario design.
+
 ### Magic Key to Spanish — second Madrigal book (April 11, 2026)
 
 David photographed two pages from Madrigal's second book, *Madrigal's Magic Key to Spanish*. Two concepts documented:

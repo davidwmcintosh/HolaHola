@@ -1460,6 +1460,14 @@ HoloHola removes every one of those constraints. Daniela speaks. She listens. Sh
 
 The scan will help us understand the parts we're borrowing more precisely — especially the vocabulary sequencing decisions (what she chose to teach first and why) and the sentence frame patterns (which verb constructions recur most, which she used as anchor frames). Everything we have built stands. The scan makes the borrowed parts better.
 
+**What the scan is NOT:**
+
+Madrigal's vocabulary choices are a reference, not a specification. Two reasons we do not simply copy her content:
+
+1. **ACTFL alignment is our design decision, not hers.** She wrote in 1962, thirteen years before ACTFL published its first proficiency guidelines. Her sequencing reflects intuition and experience — both excellent — but it was never mapped to "can-do statements" or Novice Low/Mid/High benchmarks. Our chapters were designed around ACTFL. Madrigal's content will inform our vocabulary choices; ACTFL governs our proficiency claims.
+
+2. **Her book is deliberately mechanical — and that's a gap, not a feature.** The robotic quality is a strength for pattern-pounding and compartmentalization. But real language is not a robotic application of grammar rules. It has personality, cultural weight, humor, emotion, social risk. "¿Qué es el apio?" is a fine drill. It is not a conversation anyone has ever wanted to have. There is reportedly no greetings section in "See It and Say It" at all — which means the first thing any real human exchange requires (hello, nice to meet you, how are you actually doing) is something Madrigal never addressed. Our scenarios exist precisely because language lives in human interaction, not in vocabulary columns. Daniela's personality, the cultural spotlights, the conversation scenarios — these are not decoration on top of the method. They are where the method becomes a language rather than a grammar exercise.
+
 ---
 
 ### Book Structure — What the TOC Actually Tells Us
