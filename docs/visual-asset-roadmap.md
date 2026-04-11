@@ -1424,6 +1424,44 @@ If a word doesn't match tier 1 or 2, it gets a tier 3 SCENE_OVERRIDE — never r
 **Book access:** Available for digital borrowing at archive.org (search "Madrigal See It Say It Spanish"); paperback ~$8 on Amazon. No free full-text HTML version exists — copyright renewal keeps it protected until ~2057.  
 **Agent characterization (session preceding April 9, 2026):** "ruthlessly minimalist" — coined by the agent who first analyzed the book's structure and recognized its deliberate economy of means. David noted this characterization on April 11, 2026 as worth preserving in the record.
 
+### The Adaptation Philosophy — What We Borrow, What We Transcend
+
+**Established:** April 11, 2026
+
+HoloHola is not a digital replica of Madrigal's book. Everything we have built and are building is legitimate — the chapters, the structure, the AI tutor, the conversation model. None of that needs to be reconsidered against the book. The book is a study in what a skilled teacher was able to achieve with the most constrained possible medium: black ink on a small paperback page, no audio, no interactivity, no personalization, no feedback loop.
+
+The scan project exists for one reason: **to understand what Madrigal was trying to achieve, so we can achieve the same things better with tools she didn't have.**
+
+Her constraints were severe:
+- No audio — she had to build pronunciation confidence through cognates and pattern repetition alone
+- No interactivity — she had to design pages that would "ask the question" and pause for the student to answer, in their own head
+- No personalization — every student got the same 191 lessons in the same order
+- No feedback — she never knew if the student answered correctly; she could only design the page to make errors obvious by comparison
+
+HoloHola removes every one of those constraints. Daniela speaks. She listens. She adapts to what the student already knows. She remembers what landed and what didn't. She asks the same question ten different ways if needed. She gives the student the Warhol-style illustration of a taxi and then immediately lets them practice the word in a real conversation.
+
+**What we borrow from Madrigal:**
+- The image-first principle — see the object before reading the word
+- The Q&A drill rhythm — question in one person, answer shifts to another, no metalanguage
+- Pattern before label — demonstrate the structure through repetition, name it briefly afterward
+- Cognate confidence as an entry point — you already own more of this language than you think
+- Ruthless minimalism — every element must teach, demonstrate, or encourage; nothing else earns its space
+- The Sentence Frame architecture — a fixed frame with swappable vocabulary items is the core drill unit
+- Grammar as a back-of-the-book resource, not a front-door welcome
+
+**What we transcend:**
+- Audio — Daniela says the word; the student hears it before they read it, not after
+- Live Q&A — Daniela actually asks and waits for a real answer, not an imagined one
+- Adaptive sequencing — we do not have to teach everything in the same order to every student
+- Chapter organization — we group by theme (which Madrigal couldn't do continuously) so students can navigate to what they need
+- Images with color, motion, and cultural context — Warhol used black line drawings because that was what the medium allowed; we are not similarly constrained
+- Infinite fillers — Madrigal could put four vocabulary items per page; we can present hundreds
+- Feedback — the student knows if they got it right
+
+The scan will help us understand the parts we're borrowing more precisely — especially the vocabulary sequencing decisions (what she chose to teach first and why) and the sentence frame patterns (which verb constructions recur most, which she used as anchor frames). Everything we have built stands. The scan makes the borrowed parts better.
+
+---
+
 ### Book Structure — What the TOC Actually Tells Us
 
 **Photographed:** April 11, 2026. File: `attached_assets/TOC_1775924828059.jpg`

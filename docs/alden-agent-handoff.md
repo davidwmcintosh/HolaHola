@@ -3591,7 +3591,15 @@ The 13 pre-scan reference images (pp. 25, 40, 41, 52, 58, 59, 81, 112, 122, 142 
 - The distinction between Q&A drill format (recognition) and Statement format (production)
 - Illustration style spec (one subject, no background, pure black line, mid-century)
 - The Grammar Notice format ("Notice that..." always after demonstration, never before)
-- Per-image breakdown: Zone 1 header content, Zone 2 grid format, Zone 3/4 presence
+- Per-image benchmark: Zone 1 header content, Zone 2 grid format, Zone 3/4 presence
 - "What HoloHola Must Replicate" and "What NOT to carry over" sections
 
 **Image count now: 14** (13 from April 9 + TOC from April 11). All referenced in roadmap.
+
+### Adaptation philosophy (established April 11, 2026)
+
+**Nothing we have built needs to be reconsidered against the book.** The chapters, structure, AI tutor, and conversation model are all legitimate. Madrigal worked under severe constraints — no audio, no interactivity, no personalization, no feedback. HoloHola removes every one of those constraints.
+
+The scan exists to understand what she was trying to achieve, so we can achieve the same things better with tools she didn't have. We borrow her **method** (image-first, Q&A drill rhythm, pattern-before-label, cognate confidence, sentence frame architecture, grammar as reference). We **transcend** her medium (Daniela speaks and listens, we adapt to the individual student, we offer feedback, we can show hundreds of vocabulary items not four, we can use color and context in images).
+
+Full version: `docs/visual-asset-roadmap.md`, section "The Adaptation Philosophy — What We Borrow, What We Transcend"
