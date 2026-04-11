@@ -1424,6 +1424,68 @@ If a word doesn't match tier 1 or 2, it gets a tier 3 SCENE_OVERRIDE — never r
 **Book access:** Available for digital borrowing at archive.org (search "Madrigal See It Say It Spanish"); paperback ~$8 on Amazon. No free full-text HTML version exists — copyright renewal keeps it protected until ~2057.  
 **Agent characterization (session preceding April 9, 2026):** "ruthlessly minimalist" — coined by the agent who first analyzed the book's structure and recognized its deliberate economy of means. David noted this characterization on April 11, 2026 as worth preserving in the record.
 
+### Book Structure — What the TOC Actually Tells Us
+
+**Photographed:** April 11, 2026. File: `attached_assets/TOC_1775924828059.jpg`
+
+The table of contents of *See It and Say It in Spanish* is one of the most important structural facts about the book, and it fundamentally shapes how HoloHola should adapt Madrigal's method.
+
+---
+
+**The actual structure of the book:**
+
+| Section | Pages | Description |
+|---|---|---|
+| Pronunciation Guide | 8 | One page — phonetic key, nothing more |
+| **Conversation Lessons** | **9–199** | **191 pages. No chapter titles. No theme labels. No subdivisions.** |
+| Traveler's Handy Word Guide | 203–215 | 10 thematic reference lists (see below) |
+| Grammar Section | 217–233 | AR / ER / IR verb tables, all tenses |
+| Spanish-English Vocabulary | 233–252 | Alphabetical glossary |
+| Index | 253+ | |
+
+**The Traveler's Handy Word Guide sections (pp. 203–215):**
+1. In the Restaurant (p. 203)
+2. In the Hotel (p. 208)
+3. In the Stores and Shops (p. 209)
+4. The Numbers (p. 210)
+5. The Days of the Week (p. 211)
+6. The Months of the Year (p. 211)
+7. The Seasons (p. 212)
+8. Members of the Family (p. 213)
+9. The Colors (p. 214)
+10. Parts of the Body (p. 215)
+
+---
+
+**What this means:**
+
+Madrigal did not organize her book by theme. Pages 9–199 are a single uninterrupted flow of progressive lessons with no chapter breaks, no unit labels, no "Week 1: Greetings" headers. The vocabulary accumulates. Each lesson assumes everything before it. The sequence is Madrigal's pedagogical decision — she chose what comes first, what comes next, and why. The themes emerge from the order of introduction, not the other way around.
+
+**HoloHola's 5-chapter structure (greetings / family / numbers / daily / classroom) is entirely our own design.** It is not derived from Madrigal's sequencing. We extracted thematic clusters from her continuous lesson flow and organized them the way a digital app requires: discrete, navigable, self-contained units.
+
+This is the right call — an app cannot be a 191-page scroll — but it means we are adapting her METHOD, not her SEQUENCE.
+
+The distinction matters for the scan:
+- We cannot expect the book to have a "greetings section" at page 9 and a "family section" at page 45. The content is woven together progressively.
+- When we scan, we will be mining a continuous text for vocabulary clusters that belong to our thematic chapters, then extracting those and applying Madrigal's FORMAT (4-zone layout, image-first, Q&A drill, grammar notice) to our content.
+- The vocabulary choices and sentence frames on the pages we find are her decisions about what a beginner needs first — those are worth respecting. But the chapter groupings are ours.
+
+**The Traveler's Handy Word Guide (pp. 203–215) is the closest structural analog to what HoloHola does.** It groups vocabulary thematically (restaurant, hotel, family, numbers, colors) in short reference lists — the same organizational logic as our chapters. However it uses bare lists with no images and no drill structure, so it is a reference section, not a teaching section. Our chapter intros combine both: thematic grouping (from the Handy Guide's organizational logic) + drill format (from the Conversation Lessons' teaching method).
+
+**The Grammar Section (pp. 217–233) maps to our Grammar Diagrams.** It is deliberately placed at the back — after 191 pages of encountering these patterns in context. You are not supposed to read it first. In HoloHola, Grammar Diagrams live behind a tap, not at the start of a lesson. This is the same decision.
+
+---
+
+**Practical implications for the scan (arriving ~April 14):**
+
+1. **Do not look for chapter headers** — there are none. Instead, scan for when our target vocabulary first appears in the lesson sequence, and what page it's on.
+2. **Track page numbers as rough difficulty indicators** — earlier pages = earlier in Madrigal's intended introduction sequence = simpler vocabulary.
+3. **The Traveler's Handy Word Guide sections** (pp. 203–215) are worth scanning completely — they are the thematic reference clusters closest to our chapter structure and contain the canonical vocabulary lists for family, numbers, restaurant, hotel topics.
+4. **Family vocabulary** specifically is on p. 213 — one page. Numbers on p. 210. These are Madrigal's choices for the minimal vocabulary set for each topic.
+5. **For the Conversation Lessons (pp. 9–199)**, scan looking for when our theme words first appear — the Q&A page structure around them will give us the sentence frames, the verb forms, and the image subjects Madrigal chose for each concept.
+
+---
+
 ### The Preface — Philosophical Alignment with HoloHola
 
 **Analyzed:** April 10, 2026 (from physical copy photographed by David)

@@ -3567,3 +3567,31 @@ David is scanning the physical copy of *See It and Say It in Spanish* by Margari
 - M3 discoveryNotes for non-Spanish languages (all chapters)
 - M6 EN cognate strategy (Cindy/Blake — café, taxi, hotel, radio etc.)
 - Image seeding pipeline for classroom vocabulary
+
+---
+
+## Session 47 Addendum — TOC structural analysis + format documentation
+
+**Date:** April 11, 2026
+
+### Critical structural insight: the book has no chapters
+
+David photographed the Table of Contents (`attached_assets/TOC_1775924828059.jpg`). Key finding: the book is NOT organized by theme. Pages 9–199 are one continuous section titled "Conversation Lessons" with no chapter breaks, no unit titles, no thematic subdivisions. The themes we work with (greetings, family, numbers, daily, classroom) emerge from the vocabulary sequence — they are NOT labeled sections in the book.
+
+**What this means for HoloHola:** We are adapting Madrigal's METHOD (4-zone page format, image-first drilling, pattern-before-label grammar) but NOT her SEQUENCE. Our 5 chapters are our own organizational design. This is the right call for a digital app — but it must be understood clearly going into the scan.
+
+**The Traveler's Handy Word Guide (pp. 203–215)** is the closest structural analog to our chapters — 10 thematically grouped vocabulary lists. This section should be scanned in full as it represents Madrigal's own thematic vocabulary selection for family (p.213), numbers (p.210), restaurant, hotel, colors, body.
+
+**Full analysis** → `docs/visual-asset-roadmap.md`, section "Book Structure — What the TOC Actually Tells Us"
+
+### Format documentation completed (session 47)
+
+The 13 pre-scan reference images (pp. 25, 40, 41, 52, 58, 59, 81, 112, 122, 142 + preface + appendix + TOC) now have full HOW documentation in the roadmap — not just content summaries but:
+- The 4-zone layout system with exact proportions and typographic rules
+- The distinction between Q&A drill format (recognition) and Statement format (production)
+- Illustration style spec (one subject, no background, pure black line, mid-century)
+- The Grammar Notice format ("Notice that..." always after demonstration, never before)
+- Per-image breakdown: Zone 1 header content, Zone 2 grid format, Zone 3/4 presence
+- "What HoloHola Must Replicate" and "What NOT to carry over" sections
+
+**Image count now: 14** (13 from April 9 + TOC from April 11). All referenced in roadmap.
