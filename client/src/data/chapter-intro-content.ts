@@ -60,8 +60,9 @@ export interface ConversationStrip {
 }
 
 export interface VocabQAItem {
-  word: string;
-  translation: string;
+  word?: string;
+  translation?: string;
+  answerTranslation?: string;
   question: string;
   answer: string;
 }
@@ -278,12 +279,12 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         narrativeSections: [
           {
             title: "Counting Basics",
-            content: "Spanish numbers follow patterns that make them easier to learn than you might think. Start with uno, dos, tres and build from there. The first fifteen numbers are unique, but after that, predictable patterns emerge that will help you count to infinity!",
+            content: "Uno through quince each have a distinct form — learn them individually. From dieciséis onward, numbers combine: diez + seis, diez + siete, diez + ocho. Veinte, treinta, and cuarenta follow the same add-and-combine pattern: veintiuno, treinta y dos, cuarenta y cinco.",
             tip: "Notice that 'uno' becomes 'un' before masculine nouns: 'un libro' (one book), but stays 'una' for feminine: 'una mesa' (one table)."
           },
           {
             title: "Numbers in Daily Life",
-            content: "From asking '\u00bfCu\u00e1nto cuesta?' (How much does it cost?) to giving your phone number digit by digit, numbers appear everywhere. Practice by counting everyday objects, reading prices, or doing simple math problems in Spanish.",
+            content: "Numbers anchor three everyday exchanges: prices (\u00bfCu\u00e1nto cuesta? \u2014 Cuesta quince euros), ages (\u00bfCu\u00e1ntos a\u00f1os tienes? \u2014 Tengo veintid\u00f3s a\u00f1os), and time (\u00bfQu\u00e9 hora es? \u2014 Son las tres). These three questions open dozens of real conversations.",
             tip: "When giving phone numbers in Spanish, people often say digits in pairs: 55-12-34 instead of 5-5-1-2-3-4."
           }
         ],
@@ -317,12 +318,12 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         narrativeSections: [
           {
             title: "Family Structure",
-            content: "In Spanish-speaking cultures, 'family' often extends far beyond the nuclear unit. Cousins might be as close as siblings, and 't\u00edos' (aunts and uncles) play significant roles in raising children. The vocabulary reflects this richness with specific terms for every relationship.",
+            content: "In Spanish-speaking cultures, 'family' often extends far beyond the nuclear unit. Cousins might be as close as siblings, and 't\u00edos' (aunts and uncles) play significant roles in raising children.",
             tip: "Many Spanish speakers use 't\u00edo/t\u00eda' affectionately for close friends too \u2014 it's like calling someone 'dude' or 'hon'!"
           },
           {
             title: "Extended Family",
-            content: "Spanish has specific words for family relationships that English groups together. 'Suegra' is mother-in-law, 'cu\u00f1ado' is brother-in-law, and 'compadre' describes a special bond between godparents and parents. These terms reflect how deeply family ties weave into daily life."
+            content: "Spanish has specific words for family relationships that English groups together. 'Suegra' is mother-in-law, 'cu\u00f1ado' is brother-in-law, and 'compadre' names the bond between a godparent and the child’s parents — a relationship important enough in Spanish culture to have earned its own word."
           }
         ],
         culturalSpotlight: {

@@ -1,6 +1,6 @@
 import { db } from "../db";
-import { learnerPersonalFacts, learningMilestones, productConfig, users, northStarPrinciples, danielaNotes } from "@shared/schema";
-import { eq, and, desc, sql, asc, isNull } from "drizzle-orm";
+import { learnerPersonalFacts, learningMilestones, productConfig, users, northStarPrinciples, danielaNotes, compartmentInstallation } from "@shared/schema";
+import { eq, and, desc, sql, asc, isNull, ne } from "drizzle-orm";
 import { phaseTransitionService } from "./phase-transition-service";
 
 const DANIELA_PHOTO_CONFIG_KEY = "daniela_classroom_photo";

@@ -3694,3 +3694,58 @@ No build work this session. Next session priorities (unchanged from session 46 a
 4. **Post-scan:** review all Spanish chapter data against actual Madrigal content; seed M5 image prompts from Warhol illustration choices
 
 Full architecture discussion documented in roadmap: `docs/visual-asset-roadmap.md`, section "Daniela Future Architecture — Brain/Hands/Session Separation"
+
+---
+
+## Session 49 — April 12, 2026
+
+### What happened
+
+Session plan T001–T007 reviewed at start. T001 (types), T002 (components), T003 (wiring), T004 (Spanish M1-M4 seed), and T006 (FR/DE/IT/PT cognateOpener) were all already complete from prior sessions. Work this session focused on T005 (bloviation audit) plus a field-alignment bug found during review.
+
+### Bloviation audit — T005 ✅
+
+Applied 3-job test (teach / demonstrate / encourage) to Spanish greetings, numbers, and family chapter content and tips. Greetings was already clean. Numbers and family had identifiable failures:
+
+**Numbers "Counting Basics"** — replaced:
+> "Spanish numbers follow patterns that make them easier to learn than you might think. Start with uno, dos, tres and build from there. The first fifteen numbers are unique, but after that, predictable patterns emerge that will help you count to infinity!"
+
+with:
+> "Uno through quince each have a distinct form — learn them individually. From dieciséis onward, numbers combine: diez + seis, diez + siete, diez + ocho. Veinte, treinta, and cuarenta follow the same add-and-combine pattern: veintiuno, treinta y dos, cuarenta y cinco."
+
+**Numbers "Numbers in Daily Life"** — replaced generic "practice everywhere" advice with three specific exchanges that demonstrate the vocabulary in use.
+
+**Family "Family Structure"** — removed: "The vocabulary reflects this richness with specific terms for every relationship." (circular; restates the section's obvious purpose).
+
+**Family "Extended Family"** — replaced: "These terms reflect how deeply family ties weave into daily life." (vague filler) with a demonstrative explanation of why *compadre* has its own word.
+
+### VocabQAItem field alignment ✅
+
+Discovered that `VocabQAItem` interface required `word: string` and `translation: string` but 150+ items across all languages and chapters use `answerTranslation` instead (with no `word`/`translation`). The `VocabQAGrid` component was rendering `item.translation` in the card footer, leaving those 150+ cards with empty footers.
+
+**Fix:**
+- Made `word` and `translation` optional in `VocabQAItem`
+- Added optional `answerTranslation?: string`
+- Updated `VocabQAGrid` to render `item.translation || item.answerTranslation` (suppressed when neither is present)
+
+This accommodates two valid usage patterns: word-anchored cards (greetings, family — have a vocabulary word + its meaning) and exchange-anchored cards (numbers, daily, most other languages — have a question/answer pair + the answer's English translation).
+
+### Files changed this session
+- `client/src/data/chapter-intro-content.ts` — `VocabQAItem` interface updated; bloviation removed from Spanish numbers (2 sections) and family (2 sections)
+- `client/src/components/TextbookInfographics.tsx` — `VocabQAGrid` updated to render `translation || answerTranslation`
+- `docs/alden-agent-handoff.md` — this entry
+
+### Status of session plan tasks
+- T001: ✅ DONE (prior session)
+- T002: ✅ DONE (prior session)
+- T003: ✅ DONE (prior session)
+- T004: ✅ DONE (prior session — Spanish greetings + family have vocabQA, genderPairs, verbGroups, discoveryNotes)
+- T005: ✅ DONE this session
+- T006: ✅ DONE (prior session — FR, DE, IT, PT, JP, KO, ZH, PT, HE all have cognateOpener in greetings)
+- T007: ✅ DONE this session
+
+### Remaining open work (unchanged from Session 48 scratchpad)
+- Compartment → Daniela wiring (Gap 2): classroom environment injection + `record_pattern_signal` function + orchestrator handler + Tool Rack entry + system prompt principles
+- Book scan pending (~April 14): will unlock M5 image prompt seeding and M2/M3/M6 expansion from Madrigal source material
+- M2 gender pairs for non-Spanish chapters where missing (does not need scan)
+- M3 discoveryNotes for non-Spanish chapters where missing (does not need scan)

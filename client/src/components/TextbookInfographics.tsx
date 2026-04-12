@@ -1907,9 +1907,11 @@ export function VocabQAGrid({ items, language = 'spanish', className = '' }: Voc
                 </div>
                 <TextAudioPlayButton text={item.answer} language={language} size="sm" data-testid={`button-play-qa-${i}`} />
               </div>
-              <div className="text-xs text-muted-foreground border-t pt-2 mt-1" data-testid={`text-qa-translation-${i}`}>
-                {item.translation}
-              </div>
+              {(item.translation || item.answerTranslation) && (
+                <div className="text-xs text-muted-foreground border-t pt-2 mt-1" data-testid={`text-qa-translation-${i}`}>
+                  {item.translation || item.answerTranslation}
+                </div>
+              )}
             </CardContent>
           </Card>
         ))}
