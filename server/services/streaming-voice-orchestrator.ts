@@ -2658,6 +2658,49 @@ Remember: David may reference things discussed in these recent text chats.
                   }
                   break;
                 }
+                case 'RECORD_PATTERN_SIGNAL': {
+                  const patternKey = cmd.params.patternKey as string;
+                  const eventType = cmd.params.eventType as string;
+                  if (patternKey && eventType) {
+                    const userId = String(session.userId);
+                    const language = (session.targetLanguage as string) || 'spanish';
+                    const verbContext = cmd.params.verbContext as string | undefined;
+                    const studentUtterance = cmd.params.studentUtterance as string | undefined;
+                    const notes = cmd.params.notes as string | undefined;
+                    const conversationId = (session.conversationId as string) || undefined;
+                    ;(async () => {
+                      try {
+                        const current = await storage.getCompartment(userId, language, patternKey);
+                        const now = new Date();
+                        const poundingCount = (current?.poundingCount ?? 0) + (eventType === 'pounding' ? 1 : 0);
+                        const wobbleCount = (current?.wobbleCount ?? 0) + (eventType === 'wobble' ? 1 : 0);
+                        const derivationCount = (current?.derivationCount ?? 0) + (eventType === 'derivation' ? 1 : 0);
+                        let newStatus: 'unstarted' | 'pounding' | 'wobbling' | 'stable' | 'generative' = current?.status ?? 'unstarted';
+                        if (eventType === 'pounding' && newStatus === 'unstarted') newStatus = 'pounding';
+                        if (eventType === 'wobble') newStatus = 'wobbling';
+                        if (eventType === 'stability') newStatus = 'stable';
+                        if (eventType === 'derivation') newStatus = 'generative';
+                        await storage.upsertCompartment({
+                          userId, language, patternKey, status: newStatus,
+                          poundingCount, wobbleCount, derivationCount,
+                          lastDrilledAt: now,
+                          lastWobbledAt: eventType === 'wobble' ? now : (current?.lastWobbledAt ?? undefined),
+                          stabilizedAt: eventType === 'stability' ? now : (current?.stabilizedAt ?? undefined),
+                          generativeAt: eventType === 'derivation' ? now : (current?.generativeAt ?? undefined),
+                        });
+                        await storage.logCompartmentEvent({
+                          userId, language, patternKey,
+                          eventType: eventType as 'pounding' | 'wobble' | 'stability' | 'derivation' | 'unlock' | 'review',
+                          verbContext, studentUtterance, sessionId: conversationId, notes,
+                        });
+                        console.log(`[PatternSignal] ${patternKey} → ${eventType}${verbContext ? ` (${verbContext})` : ''} via ${cmd.source}`);
+                      } catch (err: any) {
+                        console.error(`[PatternSignal] Error:`, err.message);
+                      }
+                    })();
+                  }
+                  break;
+                }
                 case 'CHECK_STUDENT_CREDITS': {
                   console.log(`[CommandParser→CheckCredits] Credit check via ${cmd.source} format (delegating to native handler)`);
                   break;
@@ -5302,6 +5345,49 @@ Remember: David may reference things discussed in these recent text chats.
                 const status = cmd.params.status as string;
                 if (topic && status) {
                   this.enrichment.processSyllabusProgress(session, { topic, status: status as any, evidence: (cmd.params.evidence as string) || 'Observed' }).catch(err => console.error(`[CommandParser→SyllabusProgress - OpenMic] Error:`, err));
+                }
+                break;
+              }
+              case 'RECORD_PATTERN_SIGNAL': {
+                const patternKey = cmd.params.patternKey as string;
+                const eventType = cmd.params.eventType as string;
+                if (patternKey && eventType) {
+                  const userId = String(session.userId);
+                  const language = (session.targetLanguage as string) || 'spanish';
+                  const verbContext = cmd.params.verbContext as string | undefined;
+                  const studentUtterance = cmd.params.studentUtterance as string | undefined;
+                  const notes = cmd.params.notes as string | undefined;
+                  const conversationId = (session.conversationId as string) || undefined;
+                  ;(async () => {
+                    try {
+                      const current = await storage.getCompartment(userId, language, patternKey);
+                      const now = new Date();
+                      const poundingCount = (current?.poundingCount ?? 0) + (eventType === 'pounding' ? 1 : 0);
+                      const wobbleCount = (current?.wobbleCount ?? 0) + (eventType === 'wobble' ? 1 : 0);
+                      const derivationCount = (current?.derivationCount ?? 0) + (eventType === 'derivation' ? 1 : 0);
+                      let newStatus: 'unstarted' | 'pounding' | 'wobbling' | 'stable' | 'generative' = current?.status ?? 'unstarted';
+                      if (eventType === 'pounding' && newStatus === 'unstarted') newStatus = 'pounding';
+                      if (eventType === 'wobble') newStatus = 'wobbling';
+                      if (eventType === 'stability') newStatus = 'stable';
+                      if (eventType === 'derivation') newStatus = 'generative';
+                      await storage.upsertCompartment({
+                        userId, language, patternKey, status: newStatus,
+                        poundingCount, wobbleCount, derivationCount,
+                        lastDrilledAt: now,
+                        lastWobbledAt: eventType === 'wobble' ? now : (current?.lastWobbledAt ?? undefined),
+                        stabilizedAt: eventType === 'stability' ? now : (current?.stabilizedAt ?? undefined),
+                        generativeAt: eventType === 'derivation' ? now : (current?.generativeAt ?? undefined),
+                      });
+                      await storage.logCompartmentEvent({
+                        userId, language, patternKey,
+                        eventType: eventType as 'pounding' | 'wobble' | 'stability' | 'derivation' | 'unlock' | 'review',
+                        verbContext, studentUtterance, sessionId: conversationId, notes,
+                      });
+                      console.log(`[PatternSignal - OpenMic] ${patternKey} → ${eventType}${verbContext ? ` (${verbContext})` : ''}`);
+                    } catch (err: any) {
+                      console.error(`[PatternSignal - OpenMic] Error:`, err.message);
+                    }
+                  })();
                 }
                 break;
               }

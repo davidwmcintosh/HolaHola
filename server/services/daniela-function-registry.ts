@@ -2634,6 +2634,52 @@ DO NOT call this for every exchange — only when a full lesson's worth of mater
       return `Could not mark lesson "${lessonId}" as covered — it may not exist or the student may not be enrolled. Continue the conversation normally.`;
     },
   },
+
+  // === COMPARTMENT TRACKING ===
+  {
+    legacyType: 'RECORD_PATTERN_SIGNAL',
+    declaration: {
+      name: "record_pattern_signal",
+      description: `Record a grammatical pattern signal you just observed in the student's speech.
+
+Call this when you detect any of the following during natural conversation:
+- wobble: student dropped the ending when you swapped to a new verb (e.g. said "yo come" instead of "yo como")
+- stability: ending held correctly when you introduced a new verb — the form is landing
+- derivation: student produced the correct form for a verb you have never drilled together — the compartment is generative
+- pounding: you are actively drilling one pattern across multiple verbs in this turn (call once per verb drilled)
+
+patternKey format: subject-verbEnding-tense — e.g. "yo-AR-present", "tú-ER-present", "él-IR-present", "nosotros-AR-present"
+
+This is how the system learns what this student has installed. Call it whenever you witness a real signal — not for every exchange, only when a meaningful observation occurs.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          patternKey: {
+            type: "string",
+            description: "The grammatical pattern observed — use subject-verbEnding-tense format (e.g. 'yo-AR-present', 'tú-ER-present', 'él-IR-present')"
+          },
+          eventType: {
+            type: "string",
+            enum: ["wobble", "stability", "derivation", "pounding"],
+            description: "wobble = ending dropped on new verb | stability = ending held on new verb | derivation = correct unseen form | pounding = active drill of this form"
+          },
+          verbContext: {
+            type: "string",
+            description: "The specific verb in play when the signal occurred (e.g. 'bailar', 'comer', 'escribir')"
+          },
+          studentUtterance: {
+            type: "string",
+            description: "Exactly what the student said — the raw utterance that produced this signal"
+          },
+          notes: {
+            type: "string",
+            description: "Optional brief observation (e.g. 'second wobble on tener this session', 'confident and fast')"
+          },
+        },
+        required: ["patternKey", "eventType"],
+      },
+    },
+  },
 ];
 
 

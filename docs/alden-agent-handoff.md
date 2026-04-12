@@ -3744,8 +3744,52 @@ This accommodates two valid usage patterns: word-anchored cards (greetings, fami
 - T006: ✅ DONE (prior session — FR, DE, IT, PT, JP, KO, ZH, PT, HE all have cognateOpener in greetings)
 - T007: ✅ DONE this session
 
-### Remaining open work (unchanged from Session 48 scratchpad)
-- Compartment → Daniela wiring (Gap 2): classroom environment injection + `record_pattern_signal` function + orchestrator handler + Tool Rack entry + system prompt principles
+### Remaining open work (closed this session — see Session 50)
+- Compartment → Daniela wiring (Gap 2): ✅ COMPLETED Session 50
 - Book scan pending (~April 14): will unlock M5 image prompt seeding and M2/M3/M6 expansion from Madrigal source material
 - M2 gender pairs for non-Spanish chapters where missing (does not need scan)
 - M3 discoveryNotes for non-Spanish chapters where missing (does not need scan)
+
+---
+
+## Session 50 — April 12, 2026 — Gap 2 complete: compartment tracking wired to Daniela
+
+### What was done
+
+**Gap 2 is now fully wired.** Daniela can observe grammatical pattern installation in real time and log it to the database. Every session Daniela runs, the system now:
+
+1. Loads the learner's compartment map from the database (up to 40 active patterns)
+2. Injects a **Pattern Compass** section into the classroom environment — pedagogical principles + the live pattern map
+3. Exposes **`record_pattern_signal`** on the Tool Rack so Daniela can call it whenever she observes a real signal
+
+### Files changed
+
+**`server/services/classroom-environment.ts`**
+- Added 10th item to Promise.all: `compartmentInstallation` query (userId + language + status ≠ unstarted, ordered by lastDrilledAt, limit 40)
+- Destructured result as `compartmentRows` alongside the existing 9
+- Added `compartmentMapStr = formatCompartmentMap(compartmentRows || [])` (function was added Session 49)
+- Added `patternCompassSection` string variable: explains four signal types (wobble/stability/derivation/pounding) and patternKey naming convention, then prints the live Pattern Map
+- Injected `${patternCompassSection}` into the environment string (before `${betaTesterSection}`)
+- Added `record_pattern_signal` to the Tool Rack description with full parameter list
+
+**`server/services/daniela-function-registry.ts`**
+- Added `RECORD_PATTERN_SIGNAL` entry at end of registry (no `buildContinuationResponse` — fire-and-forget write)
+- Declaration describes all four event types, patternKey format, and when to call it
+
+**`server/services/streaming-voice-orchestrator.ts`**
+- Added `RECORD_PATTERN_SIGNAL` case in **Block 1** (standard command parser, after `SYLLABUS_PROGRESS`, ~line 2664)
+- Added `RECORD_PATTERN_SIGNAL` case in **Block 2** (OpenMic handler block, after `SYLLABUS_PROGRESS`, ~line 5354)
+- Both blocks: read current compartment, recompute counts + status, `upsertCompartment()` + `logCompartmentEvent()`, all fire-and-forget in an async IIFE
+
+### Status logic in handler (both blocks)
+- `pounding` → increment poundingCount; if status was `unstarted` → `pounding`
+- `wobble` → increment wobbleCount; status → `wobbling`
+- `stability` → status → `stable`; set stabilizedAt
+- `derivation` → increment derivationCount; status → `generative`; set generativeAt
+- `lastDrilledAt` always set to now on any signal
+
+### Open work
+- Book scan (~April 14): unlocks M5 image prompts + M2/M3/M6 expansion from Madrigal
+- M2 gender pairs for non-Spanish chapters where missing
+- M3 discoveryNotes for non-Spanish chapters where missing
+- Compartment unlock logic (when student proves a pattern in open conversation without any drill → `unlock` event) — needs UX decision before wiring

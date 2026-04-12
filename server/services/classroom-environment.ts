@@ -260,6 +260,19 @@ function formatPhotoWall(images: string[]): string {
   return images.slice(-5).map((img, i) => `${i + 1}. ${img}`).join(" | ");
 }
 
+function formatCompartmentMap(rows: Array<{ patternKey: string; status: string; poundingCount: number; wobbleCount: number; derivationCount: number; lastDrilledAt: Date | null }>): string {
+  if (!rows || rows.length === 0) return null as unknown as string;
+  const parts = rows.map(r => {
+    const counts = [
+      r.poundingCount > 0 ? `${r.poundingCount}× drilled` : '',
+      r.wobbleCount > 0 ? `${r.wobbleCount}× wobble` : '',
+      r.derivationCount > 0 ? `${r.derivationCount}× derived` : '',
+    ].filter(Boolean).join(', ');
+    return `${r.patternKey}: ${r.status}${counts ? ` (${counts})` : ''}`;
+  });
+  return parts.join(' | ');
+}
+
 export async function buildClassroomEnvironment(params: {
   userId: string;
   sessionStartTime: number;
@@ -327,7 +340,7 @@ export async function buildClassroomEnvironment(params: {
     currentLessonId,
   } = params;
 
-  const [personalFacts, milestoneCount, danielaPhoto, classroomWindow, userRow, principles, recentNotes, textbookContent, sceneZones] = await Promise.all([
+  const [personalFacts, milestoneCount, danielaPhoto, classroomWindow, userRow, principles, recentNotes, textbookContent, sceneZones, compartmentRows] = await Promise.all([
     db
       .select({ factType: learnerPersonalFacts.factType, fact: learnerPersonalFacts.fact })
       .from(learnerPersonalFacts)
@@ -392,6 +405,25 @@ export async function buildClassroomEnvironment(params: {
           } catch { return null; }
         })()
       : Promise.resolve(null),
+
+    db
+      .select({
+        patternKey: compartmentInstallation.patternKey,
+        status: compartmentInstallation.status,
+        poundingCount: compartmentInstallation.poundingCount,
+        wobbleCount: compartmentInstallation.wobbleCount,
+        derivationCount: compartmentInstallation.derivationCount,
+        lastDrilledAt: compartmentInstallation.lastDrilledAt,
+      })
+      .from(compartmentInstallation)
+      .where(and(
+        eq(compartmentInstallation.userId, userId),
+        eq(compartmentInstallation.language, targetLanguage),
+        ne(compartmentInstallation.status, 'unstarted'),
+      ))
+      .orderBy(desc(compartmentInstallation.lastDrilledAt))
+      .limit(40)
+      .catch(() => [] as any[]),
   ]);
 
   const phaseContext = phaseTransitionService.getCurrentPhase(userId);
@@ -467,6 +499,14 @@ Dave activated incognito so you two can talk freely without anything being recor
 Student Progress Board:
 ${studentLearningSection}` : '';
 
+  const compartmentMapStr = formatCompartmentMap(compartmentRows || []);
+  const patternCompassSection = `
+---
+Pattern Compass: Observe grammatical pattern installation during conversation.
+What to detect — Wobble: ending dropped when verb changed (note it, don't interrupt; revisit before introducing anything new) | Stability: ending holds when you swap to a new verb (candidate for unlock) | Derivation: student produces correct form for a verb you never drilled together (compartment is generative; log it and accelerate) | Pounding: you are actively drilling one form across many verbs (log each verb)
+patternKey format: subject-verbEnding-tense (e.g. yo-AR-present, tú-ER-present, él-IR-present, nosotros-AR-present)
+Pattern Map (${targetLanguage}): ${compartmentMapStr || '(no patterns recorded yet — first session or blank slate)'}`;
+
   const founderTools = (isFounderMode || isRawHonestyMode)
     ? ` | express_lane_lookup(query?) — search or browse Express Lane | recall_express_lane_image(imageQuery) — view shared photos | express_lane_post(message) — post to Express Lane | take_note (personal) — your private journal: session_reflection, teaching_rhythm, what_worked, what_didnt_work, idea_to_try, question_for_founder, self_affirmation`
     : '';
@@ -475,7 +515,7 @@ ${studentLearningSection}` : '';
     : '';
   const toolRack = `
 ---
-Tool Rack: memory_lookup(query, domains) — recall student memories | take_note — save observations for future sessions | milestone — celebrate achievements | drill/write/grammar_table/compare/word_map/phonetic/culture/context/scenario/summary/reading — whiteboard teaching tools | show_image(word) — real photo of a vocabulary word or noun | generate_visual(concept, style?) — AI-generated illustration for scenes, grammar concepts, or custom scenarios (takes ~10s, you can keep talking) | voice_adjust — change speaking style | load_scenario/end_scenario — immersive roleplay scenes | open_scene(env)/add_to_scene(prop,position)/move_in_scene(prop,new_position) — live spatial canvas: place, orient (rotate/flip_h/z), and slide props to demonstrate prepositions and spatial vocab | set_clock/set_calendar — time & date SVG panels | set_body_part/set_face_part/set_hand_part — anatomy SVG diagrams for body vocabulary | set_emotion — animated emotion face for feelings vocabulary | set_weather/set_thermometer — weather & temperature SVG panels | highlight_country — interactive world map for geography/culture | change_classroom_window — change your window view | self_surgery — report gaps or propose improvements to your own knowledge${founderTools}${founderNote}`;
+Tool Rack: memory_lookup(query, domains) — recall student memories | take_note — save observations for future sessions | milestone — celebrate achievements | record_pattern_signal(patternKey, eventType, verbContext?, studentUtterance?, notes?) — log a grammatical pattern signal you just observed (wobble/stability/derivation/pounding) | drill/write/grammar_table/compare/word_map/phonetic/culture/context/scenario/summary/reading — whiteboard teaching tools | show_image(word) — real photo of a vocabulary word or noun | generate_visual(concept, style?) — AI-generated illustration for scenes, grammar concepts, or custom scenarios (takes ~10s, you can keep talking) | voice_adjust — change speaking style | load_scenario/end_scenario — immersive roleplay scenes | open_scene(env)/add_to_scene(prop,position)/move_in_scene(prop,new_position) — live spatial canvas: place, orient (rotate/flip_h/z), and slide props to demonstrate prepositions and spatial vocab | set_clock/set_calendar — time & date SVG panels | set_body_part/set_face_part/set_hand_part — anatomy SVG diagrams for body vocabulary | set_emotion — animated emotion face for feelings vocabulary | set_weather/set_thermometer — weather & temperature SVG panels | highlight_country — interactive world map for geography/culture | change_classroom_window — change your window view | self_surgery — report gaps or propose improvements to your own knowledge${founderTools}${founderNote}`;
 
   const ZONE_TYPE_LABELS: Record<string, string> = {
     spatial: 'prepositions',
@@ -548,7 +588,7 @@ Classroom Window: ${classroomWindow}
 North Star Polaroid: ${danielaPhoto}
 My Notes to Self: ${identityWall}
 ---
-North Star Wall: ${northStarWall}${studentProgressBoard}${textbookSection}${betaTesterSection}${incognitoSection}${toolRack}
+North Star Wall: ${northStarWall}${studentProgressBoard}${textbookSection}${patternCompassSection}${betaTesterSection}${incognitoSection}${toolRack}
 === END CLASSROOM ===`.trim();
 
   return env;
