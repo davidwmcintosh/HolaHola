@@ -3793,3 +3793,26 @@ This accommodates two valid usage patterns: word-anchored cards (greetings, fami
 - M2 gender pairs for non-Spanish chapters where missing
 - M3 discoveryNotes for non-Spanish chapters where missing
 - Compartment unlock logic (when student proves a pattern in open conversation without any drill → `unlock` event) — needs UX decision before wiring
+
+---
+
+### Kudos system — current shortcomings + proposed direction (DEFERRED to post-scan)
+
+**Current system — word trophies:**
+Word trophies fire at accumulation milestones (10 words, 20 words, etc.). The student knows the next trophy is coming before they earn it. The trophy says "you were exposed to X words" but not which words or what capability they now have. Every trophy is the same shape — just a bigger number. These are participation ribbons dressed as achievements.
+
+**Shortcoming summary:**
+- Predictable cadence removes surprise and meaning
+- "X words learned" conflates exposure with retention
+- Tells the student nothing about what they can now *do*
+- All identical shape — no trophy feels distinct or earned
+
+**Compartment unlock trophies — the better model:**
+A compartment fires an `unlock` event when Daniela observes the student producing a correct grammatical form for a verb that was never drilled together. That is demonstrated generative competence — the student owns the pattern. An unlock trophy can be specific: *"You unlocked yo-AR-present — you can now build this ending for any verb you meet."* It fires at a real moment Daniela witnessed, not at an arbitrary count.
+
+**Proposed direction — hybrid kudos track:**
+- **Word trophies** stay as early-stage soft encouragement (bridge the gap before any patterns are installed — first 1–2 sessions). Renamed or reframed to be honest about what they are: recognition milestones, not achievement badges.
+- **Compartment unlock trophies** become the primary achievement layer — named, specific to the pattern, timestamped to the session it happened in.
+
+**Why deferred:**
+The right trophy design depends on understanding the full compartment map — what patterns exist, how they sequence, what "installed" actually looks like across a learner's arc from sessions 1–50. Designing the kudos system before the Madrigal scan build-out means guessing at the shape of progress. Post-scan, the compartment structure will be clear enough to design milestones that actually mean something.
