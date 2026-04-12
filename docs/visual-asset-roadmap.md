@@ -2405,6 +2405,115 @@ Madrigal's preface opens by showing how many English words the student already o
 
 ---
 
+## Daniela Future Architecture — Brain/Hands/Session Separation
+
+**Established:** April 12, 2026  
+**Source:** Anthropic Engineering Blog — "Scaling Managed Agents: Decoupling the brain from the hands" (Lance Martin, Gabe Cemaj, Michael Cohen). Article saved at `attached_assets/Pasted-Skip-to-main-contentSkip-to-footer-Engineering-at-Anthr_1776010078392.txt`
+
+This section documents where HoloHola's architecture should evolve, based on the Managed Agents pattern. Nothing here is built yet — this is the target architecture as we understand it today.
+
+---
+
+### The Brain/Hands/Session Framework Applied to HoloHola
+
+The article identifies three components that should be decoupled into stable interfaces:
+
+**Session** → the durable record of everything that happened, queryable selectively, living outside any individual Claude call.  
+**Brain (harness)** → the reasoning and decision layer. Stateless; can fail and restart without losing session state because state lives in the session.  
+**Hands (sandbox/tools)** → the execution layer. Each tool is `execute(name, input) → string`. The brain doesn't know or care what the hands are made of.
+
+**For HoloHola:**
+
+| Managed Agents concept | HoloHola equivalent |
+|---|---|
+| Session log | Student session state: compartment installation map, wobble events, Resonance Shelf, ACTFL position, pounding history |
+| Brain (harness) | Daniela — the pedagogy reasoning layer |
+| Hands (tools) | M1–M6 components, image pipeline, pronunciation model, ACTFL gauge, scoring model, sentence frame generator |
+| `getEvents()` | Daniela queries the student's compartment state to decide: pound / unlock / improv |
+| `execute(name, input) → string` | Every Daniela tool call: generate vocab grid, retrieve image, evaluate pronunciation, update ACTFL |
+
+---
+
+### The Stale Harness Problem
+
+Harnesses encode assumptions about what the current model can't do on its own. Those assumptions go stale as models improve.
+
+**Article example:** Claude Sonnet 4.5 exhibited context anxiety — wrapping up tasks prematurely as context limit approached. The harness added automatic context resets. When the same harness ran on Claude Opus 4.5, the behavior was gone. The resets had become dead weight.
+
+**Applied to Daniela's system prompt:** Daniela's instructions are her harness. Instructions written to compensate for known model weaknesses become constraints on a more capable model. Instructions like "after every answer, explicitly check whether the student is ready to continue" may become unnecessary as models develop better natural pacing. Instructions like "do not attempt more than two vocabulary items in one exchange" encode assumptions that better models won't need.
+
+**Design principle going forward:** Write Daniela's instructions around stable pedagogical goals, not model-compensating rules.
+- **Stable goal (good):** "The unit of teaching is one grammatical pattern across many verbs, not one verb across many forms."
+- **Model-compensating rule (goes stale):** "After each third response, summarize what the student has learned so far." — this may be compensating for context that a better model handles naturally.
+
+Every instruction in Daniela's system prompt should be audited: *Is this a pedagogical principle that would be true regardless of which model runs it? Or is this compensating for something the current model struggles with?* The first category is durable. The second is dead weight waiting to happen.
+
+---
+
+### What Should Live Outside Daniela's Context Window
+
+Currently all student state lives inside Daniela's context window. This is the "pet" problem — one context fill-up away from losing everything. The session state that should be externalized:
+
+**Compartment installation map** — per-pattern status: `unstarted | pounding | wobbling | stable | generative`
+- Examples: `yo-AR-present: stable`, `tú-AR-present: pounding`, `él-AR-present: unstarted`
+- This is what Daniela uses to decide mode. It doesn't currently exist as a data structure.
+
+**Pounding history** — which verbs have been drilled, in which form, how many times, last wobble timestamp
+
+**Resonance Shelf** — vocabulary and phrases that had strong positive responses (student lit up, asked to hear it again, used it spontaneously). Already named in multiple sessions; not yet persisted outside the conversation.
+
+**ACTFL position** — current level + trajectory (improving / plateauing / regressing per component)
+
+**Wobble log** — timestamped record of every pattern instability event. Daniela should be able to query "has the yo form wobbled in the last 10 minutes?" without needing that data in her active context.
+
+**Session metadata** — total session time, mode distribution (pounding vs. improv minutes), most recent unlock event
+
+When this state lives in durable external storage, Daniela can run long sessions without context pressure, a session can resume after interruption without losing diagnostic history, and multiple session events can be aggregated over time to identify slow-developing weaknesses the student doesn't know they have.
+
+---
+
+### Daniela's Three Modes (not yet implemented)
+
+The seven pedagogical concepts describe two Daniela modes; the full picture is three:
+
+**Pounding mode**
+- Triggered by: wobble detected, new compartment being built, student explicitly requests drilling
+- Behavior: drill one grammatical pattern across many vocabulary items; correct form precisely; do not let inaccurate forms pass; rotate verbs not persons; detect stability before exiting
+- Exit condition: stability across at least 3 unseen verbs (derivation achieved); OR student fatigue signal
+
+**Unlock mode**
+- Triggered by: stability confirmed in one person; next person in sequence not yet introduced
+- Behavior: frame the new person as "you already own this — just change the ending"; demonstrate the transformation on 2–3 verbs from the existing compartment; let the student apply it before adding new vocabulary
+- Duration: brief — unlock is a moment, not a session; transitions directly to pounding for the new person
+- Key framing: "the key to tú costs one change and opens everything you already built"
+
+**Improv mode**
+- Triggered by: multiple compartments confirmed stable; student begins generating novel combinations; student takes conversational initiative
+- Behavior: respond to meaning not form; keep the conversation alive; let errors pass unless they create communication failure; treat what the student produces as data, not as a test
+- What Daniela listens for in improv: creative pressure reveals which compartments are genuinely solid vs. fragile — richer diagnostic than pounding alone
+- Exit condition: wobble appears under creative pressure → return to targeted pounding for that compartment only
+
+**Mode is not binary.** A session can open in improv (student is warmed up, wants to talk), dip into pounding when a wobble appears, hit a brief unlock moment, and return to improv — all in one conversation.
+
+---
+
+### Multi-Model Routing (future target)
+
+Once brain/hands separation is clean, Daniela as orchestrator can route different tasks to the most appropriate model. This is the "many brains, many hands" principle from the article.
+
+| Task | Appropriate model profile |
+|---|---|
+| Pattern stability detection | Small, fast, structured-output — runs continuously, classifies wobble/stable/generative |
+| Improv conversation | Best available model — needs contextual richness, cultural awareness, nuanced response |
+| Pronunciation evaluation | Audio-specialized model |
+| Sentence frame generation | Structured-output optimized |
+| Image key resolution | Retrieval, not generation — cached DB query |
+| ACTFL gauge update | Structured-output + rules-based threshold logic |
+
+No routing exists today. Everything goes through one Claude call. As the component count grows, the routing benefit grows proportionally — Daniela's core reasoning stays focused on pedagogy while specialized tools handle execution at the right cost/capability tradeoff.
+
+---
+
 ### Cultural Character Image Audit (Rule 5 follow-on)
 
 **Status:** ⬜ Not started

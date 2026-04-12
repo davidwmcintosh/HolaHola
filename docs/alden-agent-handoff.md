@@ -3626,3 +3626,65 @@ David photographed two pages from Madrigal's second book, *Madrigal's Magic Key 
 
 Files: `attached_assets/1000012139_1775925912342.jpg`, `attached_assets/1000012140_1775925912343.jpg`  
 Full analysis: `docs/visual-asset-roadmap.md`, section "The Second Book — Madrigal's Magic Key to Spanish"
+
+---
+
+## Session 48 — Sun, Apr 12, 2026 — Managed Agents architecture + seven-concept inventory
+
+**Date:** April 12, 2026  
+**Type:** Documentation-only. No code changes. No data seeded.  
+**Status:** Still paused pending book scan (~April 14).
+
+---
+
+### Anthropic Managed Agents article — "Scaling Managed Agents: Decoupling the brain from the hands"
+
+David shared the full article text from the Anthropic Engineering Blog (authors: Lance Martin, Gabe Cemaj, Michael Cohen). The article describes the architectural evolution of Anthropic's Managed Agents hosted service. Full article saved at: `attached_assets/Pasted-Skip-to-main-contentSkip-to-footer-Engineering-at-Anthr_1776010078392.txt`
+
+**Core architectural move:** Separate three previously coupled components into independent interfaces:
+- **Session** — the append-only event log of everything that happened. Lives outside both the harness and the sandbox. Queryable via `getEvents()` for selective context retrieval.
+- **Harness** (the brain) — the loop that calls Claude and routes tool calls. Stateless; can crash and reboot via `wake(sessionId)` + `getSession(id)` without losing session state.
+- **Sandbox** (the hands) — the execution environment where Claude acts. Called via `execute(name, input) → string`. If it dies, it's cattle — a new one is provisioned with `provision({resources})` and the session picks up where it left off.
+
+**The "stale harness" insight** — most relevant for Daniela's future:  
+Harnesses encode assumptions about what the model can't do on its own. Those assumptions go stale as models improve. Example from the article: Claude Sonnet 4.5 exhibited "context anxiety" (wrapping up tasks prematurely as context limit approached), so the harness added context resets. Same harness on Claude Opus 4.5 — the behavior was gone. The resets became dead weight. **The lesson:** a harness designed around model limitations becomes a constraint on a more capable model. Design around stable interfaces, not current model behaviors.
+
+**Applied to Daniela:** Daniela's system prompt is currently her harness. It encodes assumptions about what she can and can't do — some of which will be wrong for the next Claude version. The more her instructions are written around stable pedagogical goals (what to achieve) rather than model-compensating rules (how to avoid known failures), the longer they stay useful. Instructions like "don't rush through patterns" may become dead weight when a more capable model naturally paces itself.
+
+**Many brains, many hands — the multi-model routing implication:**  
+The article notes that once the harness is decoupled from the execution environment, brains can be pointed at different models without the architecture going stale. For HoloHola this matters:
+- Pattern stability detection (is the yo form installed?) is a tight classification task → suitable for a smaller, faster model running continuously
+- Nuanced improv conversation → needs the best available model for contextual richness
+- Pronunciation feedback → audio-specialized model
+- Structured output generation (sentence frames, vocab grids) → structured-output optimized model  
+If the brain/hands separation is clean, Daniela as orchestrator can route each task to the right model and benefit from model improvements without architecture rewrites.
+
+---
+
+### Four architectural gaps identified this session
+
+These gaps exist in HoloHola now and have implications for Daniela's real effectiveness:
+
+**Gap 1 — Compartment state has no data structure.**  
+We have described compartments conceptually across seven pedagogical concepts. There is no schema for "this student has the yo-AR-present compartment installed at stability level X." The ACTFL gauge tracks overall proficiency level. The Resonance Shelf tracks what landed emotionally. Neither tracks whether a specific grammatical pattern is installed, wobbling, or generative. This is the data Daniela needs to decide: pound / unlock / improv. It doesn't exist in the data model yet.
+
+**Gap 2 — Daniela has no mode awareness.**  
+Pounding mode, improv mode, unlock mode are documented in the seven concepts and in the roadmap. They are not in Daniela's system prompt or actual behavior. She has one mode: conversational tutor. The mode-switching logic (wobble detected → return to pounding; stability detected → unlock; derivation detected → accelerate; sufficient compartment count → unlock improv) lives in documentation, not in her instructions.
+
+**Gap 3 — Student state lives entirely inside Daniela's context window.**  
+Wobble history, compartment installation status, Resonance Shelf items, ACTFL position — all of this lives in conversational context. This is the "pet" problem the Managed Agents article identifies. As the context window fills in a long session, Daniela makes irreversible decisions about what to summarize or discard. Those decisions may drop exactly the diagnostic data she needs to steer the session. The longer a student stays with HoloHola, the more fragile this becomes. The fix is an external session log — durable storage Daniela can query selectively — but that infrastructure doesn't exist yet.
+
+**Gap 4 — No multi-model routing.**  
+Everything routes through one Claude call. As described above, pattern stability detection, improv conversation, pronunciation, and structured output generation have different compute profiles. No routing exists for any of this today.
+
+---
+
+### Session plan — immediate next steps (pending scan)
+
+No build work this session. Next session priorities (unchanged from session 46 addendum):
+1. **M2 gender pairs** — numbers/daily chapters for FR/PT/IT/HE/ES (does not need scan)
+2. **M3 discoveryNotes** — for non-Spanish chapters where missing (does not need scan)
+3. **M6 EN cognate strategy** — Cindy/Blake context: universal near-cognates (café, taxi, hotel, radio) + per-native-language lists (design decision first)
+4. **Post-scan:** review all Spanish chapter data against actual Madrigal content; seed M5 image prompts from Warhol illustration choices
+
+Full architecture discussion documented in roadmap: `docs/visual-asset-roadmap.md`, section "Daniela Future Architecture — Brain/Hands/Session Separation"
