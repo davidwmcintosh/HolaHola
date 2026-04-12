@@ -32188,5 +32188,90 @@ Under 250 words. Write as yourself.`;
     }
   });
 
+  // ===== Compartment Installation API =====
+  // Daniela uses these to read and write pattern installation state per student.
+  // GET  /api/compartments/:language          — full compartment map for current user
+  // GET  /api/compartments/:language/:key     — single compartment
+  // PUT  /api/compartments/:language/:key     — upsert compartment state
+  // POST /api/compartments/:language/:key/events — append a signal event
+
+  app.get("/api/compartments/:language", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const { language } = req.params;
+      const map = await storage.getCompartmentMap(userId, language);
+      res.json(map);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/compartments/:language/:patternKey", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const { language, patternKey } = req.params;
+      const compartment = await storage.getCompartment(userId, language, patternKey);
+      if (!compartment) return res.status(404).json({ error: "Compartment not found" });
+      res.json(compartment);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.put("/api/compartments/:language/:patternKey", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const { language, patternKey } = req.params;
+      const compartment = await storage.upsertCompartment({
+        userId,
+        language,
+        patternKey,
+        ...req.body,
+      });
+      res.json(compartment);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/compartments/:language/:patternKey/events", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const { language, patternKey } = req.params;
+      const { eventType, verbContext, studentUtterance, sessionId, notes } = req.body;
+      if (!eventType) return res.status(400).json({ error: "eventType required" });
+      const event = await storage.logCompartmentEvent({
+        userId,
+        language,
+        patternKey,
+        eventType,
+        verbContext,
+        studentUtterance,
+        sessionId,
+        notes,
+      });
+      res.status(201).json(event);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/compartments/:language/:patternKey/events", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const { language, patternKey } = req.params;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const events = await storage.getCompartmentEvents(userId, language, patternKey, limit);
+      res.json(events);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
     // This ensures WS upgrade handler runs BEFORE Express/Vite middleware interferes
 }

@@ -8770,3 +8770,83 @@ export const aiCostLogs = pgTable('ai_cost_logs', {
   context: varchar('context', { length: 255 }),
   createdAt: timestamp('created_at').defaultNow(),
 });
+
+// ===== Compartment Installation Tracking =====
+// Implements the Madrigal method: one grammatical pattern across many verbs.
+// A compartment is a specific pattern slot (e.g. "yo-AR-present") that a student
+// either has installed (stable, generative) or doesn't yet (unstarted, pounding, wobbling).
+// This is the external session state that should live outside Daniela's context window.
+
+// Status of a single grammatical pattern for a single student
+export const compartmentStatusEnum = pgEnum('compartment_status', [
+  'unstarted',   // Pattern not yet introduced
+  'pounding',    // Pattern being drilled — not yet stable
+  'wobbling',    // Was partially stable; wobble detected — return to pounding
+  'stable',      // Ending holds under verb rotation — ready to unlock the next person
+  'generative',  // Student produced correct form for an unseen verb — compartment is operational
+]);
+
+// Type of signal Daniela detected during a conversation
+export const compartmentEventTypeEnum = pgEnum('compartment_event_type', [
+  'pounding',    // Correct response during active drilling (drill repetition)
+  'wobble',      // Ending dropped when verb changed — pattern not yet solid
+  'stability',   // Ending held correctly when a new/unseen verb was introduced
+  'derivation',  // Student produced the correct form for a verb never drilled — generative proof
+  'unlock',      // Daniela introduced the next grammatical person using this compartment as the key
+  'review',      // Compartment reviewed after a gap in practice
+]);
+
+// One row per student × language × pattern — the current installation state
+export const compartmentInstallation = pgTable('compartment_installation', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  language: varchar('language', { length: 30 }).notNull(),   // "spanish", "french", etc.
+  patternKey: varchar('pattern_key', { length: 100 }).notNull(), // "yo-AR-present", "tú-ER-present"
+  // Current status
+  status: compartmentStatusEnum('status').notNull().default('unstarted'),
+  // Event counters
+  poundingCount: integer('pounding_count').notNull().default(0),
+  wobbleCount: integer('wobble_count').notNull().default(0),
+  derivationCount: integer('derivation_count').notNull().default(0),
+  // Key timestamps
+  lastWobbledAt: timestamp('last_wobbled_at'),
+  stabilizedAt: timestamp('stabilized_at'),   // When first reached 'stable'
+  generativeAt: timestamp('generative_at'),   // When first reached 'generative'
+  lastDrilledAt: timestamp('last_drilled_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('idx_compartment_user_lang_pattern').on(table.userId, table.language, table.patternKey),
+  index('idx_compartment_user_lang').on(table.userId, table.language),
+  index('idx_compartment_status').on(table.status),
+]);
+
+export const insertCompartmentInstallationSchema = createInsertSchema(compartmentInstallation).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCompartmentInstallation = z.infer<typeof insertCompartmentInstallationSchema>;
+export type CompartmentInstallation = typeof compartmentInstallation.$inferSelect;
+
+// Append-only event log — Daniela writes one event per signal detected
+// This is the session log for pattern-level tracking; never deleted or mutated
+export const compartmentEvents = pgTable('compartment_events', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  language: varchar('language', { length: 30 }).notNull(),
+  patternKey: varchar('pattern_key', { length: 100 }).notNull(),
+  eventType: compartmentEventTypeEnum('event_type').notNull(),
+  // Context that produced this signal
+  verbContext: varchar('verb_context', { length: 100 }), // which verb was in play (e.g. "bailar")
+  studentUtterance: text('student_utterance'),           // what the student actually said
+  sessionId: varchar('session_id'),                      // conversation ID
+  // Optional Daniela note
+  notes: text('notes'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  index('idx_compartment_events_user_lang').on(table.userId, table.language),
+  index('idx_compartment_events_pattern').on(table.userId, table.language, table.patternKey),
+  index('idx_compartment_events_session').on(table.sessionId),
+  index('idx_compartment_events_type').on(table.eventType),
+]);
+
+export const insertCompartmentEventSchema = createInsertSchema(compartmentEvents).omit({ id: true, createdAt: true });
+export type InsertCompartmentEvent = z.infer<typeof insertCompartmentEventSchema>;
+export type CompartmentEvent = typeof compartmentEvents.$inferSelect;

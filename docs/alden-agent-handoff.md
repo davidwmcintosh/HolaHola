@@ -3632,8 +3632,14 @@ Full analysis: `docs/visual-asset-roadmap.md`, section "The Second Book — Madr
 ## Session 48 — Sun, Apr 12, 2026 — Managed Agents architecture + seven-concept inventory
 
 **Date:** April 12, 2026  
-**Type:** Documentation-only. No code changes. No data seeded.  
-**Status:** Still paused pending book scan (~April 14).
+**Type:** Documentation + Schema/API build. No curriculum data seeded. Scan still pending (~April 14).
+
+### Files changed this session
+- `shared/schema.ts` — two new enums (`compartmentStatusEnum`, `compartmentEventTypeEnum`) + two new tables (`compartmentInstallation`, `compartmentEvents`) + insert schemas + types
+- `server/storage.ts` — 6 new IStorage methods + DatabaseStorage implementation: `getCompartmentMap`, `getCompartment`, `upsertCompartment`, `updateCompartmentStatus`, `logCompartmentEvent`, `getCompartmentEvents`
+- `server/routes.ts` — 5 new API endpoints: `GET /api/compartments/:language`, `GET /api/compartments/:language/:patternKey`, `PUT /api/compartments/:language/:patternKey`, `POST /api/compartments/:language/:patternKey/events`, `GET /api/compartments/:language/:patternKey/events`
+- `docs/alden-agent-handoff.md` — this session entry
+- `docs/visual-asset-roadmap.md` — new "Daniela Future Architecture" section (brain/hands/session mapping, stale harness principle, three-mode spec, external session state inventory, multi-model routing table)
 
 ---
 
@@ -3665,8 +3671,8 @@ If the brain/hands separation is clean, Daniela as orchestrator can route each t
 
 These gaps exist in HoloHola now and have implications for Daniela's real effectiveness:
 
-**Gap 1 — Compartment state has no data structure.**  
-We have described compartments conceptually across seven pedagogical concepts. There is no schema for "this student has the yo-AR-present compartment installed at stability level X." The ACTFL gauge tracks overall proficiency level. The Resonance Shelf tracks what landed emotionally. Neither tracks whether a specific grammatical pattern is installed, wobbling, or generative. This is the data Daniela needs to decide: pound / unlock / improv. It doesn't exist in the data model yet.
+**Gap 1 — Compartment state — ✅ SCHEMA + API BUILT this session (April 12, 2026)**  
+`compartment_installation` table: one row per student × language × patternKey; status enum (unstarted / pounding / wobbling / stable / generative); poundingCount, wobbleCount, derivationCount; key timestamps (lastWobbledAt, stabilizedAt, generativeAt, lastDrilledAt). `compartment_events` table: append-only event log per signal detected (pounding / wobble / stability / derivation / unlock / review); verbContext + studentUtterance for each event. Five API endpoints live. Six storage methods in IStorage. **What's still missing:** Daniela's system prompt does not instruct her to use these endpoints. The gap between "schema exists" and "Daniela reads and writes it during sessions" is Gap 2 + the next build session.
 
 **Gap 2 — Daniela has no mode awareness.**  
 Pounding mode, improv mode, unlock mode are documented in the seven concepts and in the roadmap. They are not in Daniela's system prompt or actual behavior. She has one mode: conversational tutor. The mode-switching logic (wobble detected → return to pounding; stability detected → unlock; derivation detected → accelerate; sufficient compartment count → unlock improv) lives in documentation, not in her instructions.

@@ -265,6 +265,12 @@ import {
   agentActivityLogs,
   type AgentActivityLog,
   type InsertAgentActivityLog,
+  compartmentInstallation,
+  compartmentEvents,
+  type CompartmentInstallation,
+  type InsertCompartmentInstallation,
+  type CompartmentEvent,
+  type InsertCompartmentEvent,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -1033,6 +1039,14 @@ export interface IStorage {
   createRoomSessionSummary(data: InsertRoomSessionSummary): Promise<RoomSessionSummary>;
   getRoomSessionSummaries(roomId: string, limit?: number): Promise<RoomSessionSummary[]>;
   getLatestSummaryByTopic(topic: string): Promise<RoomSessionSummary | undefined>;
+
+  // Compartment installation tracking (Madrigal method — pattern stability per student)
+  getCompartmentMap(userId: string, language: string): Promise<CompartmentInstallation[]>;
+  getCompartment(userId: string, language: string, patternKey: string): Promise<CompartmentInstallation | undefined>;
+  upsertCompartment(data: InsertCompartmentInstallation): Promise<CompartmentInstallation>;
+  updateCompartmentStatus(userId: string, language: string, patternKey: string, updates: Partial<InsertCompartmentInstallation>): Promise<CompartmentInstallation | undefined>;
+  logCompartmentEvent(data: InsertCompartmentEvent): Promise<CompartmentEvent>;
+  getCompartmentEvents(userId: string, language: string, patternKey: string, limit?: number): Promise<CompartmentEvent[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -8299,6 +8313,81 @@ export class DatabaseStorage implements IStorage {
   async getAgentActivityLogs(limit = 20): Promise<AgentActivityLog[]> {
     return db.select().from(agentActivityLogs)
       .orderBy(desc(agentActivityLogs.createdAt))
+      .limit(limit);
+  }
+
+  // ===== Compartment Installation =====
+
+  async getCompartmentMap(userId: string, language: string): Promise<CompartmentInstallation[]> {
+    return db.select().from(compartmentInstallation)
+      .where(and(
+        eq(compartmentInstallation.userId, userId),
+        eq(compartmentInstallation.language, language)
+      ))
+      .orderBy(asc(compartmentInstallation.patternKey));
+  }
+
+  async getCompartment(userId: string, language: string, patternKey: string): Promise<CompartmentInstallation | undefined> {
+    const [row] = await db.select().from(compartmentInstallation)
+      .where(and(
+        eq(compartmentInstallation.userId, userId),
+        eq(compartmentInstallation.language, language),
+        eq(compartmentInstallation.patternKey, patternKey)
+      ));
+    return row;
+  }
+
+  async upsertCompartment(data: InsertCompartmentInstallation): Promise<CompartmentInstallation> {
+    const [row] = await db.insert(compartmentInstallation)
+      .values(data)
+      .onConflictDoUpdate({
+        target: [compartmentInstallation.userId, compartmentInstallation.language, compartmentInstallation.patternKey],
+        set: {
+          status: data.status,
+          poundingCount: data.poundingCount,
+          wobbleCount: data.wobbleCount,
+          derivationCount: data.derivationCount,
+          lastWobbledAt: data.lastWobbledAt,
+          stabilizedAt: data.stabilizedAt,
+          generativeAt: data.generativeAt,
+          lastDrilledAt: data.lastDrilledAt,
+          updatedAt: sql`now()`,
+        },
+      })
+      .returning();
+    return row;
+  }
+
+  async updateCompartmentStatus(
+    userId: string,
+    language: string,
+    patternKey: string,
+    updates: Partial<InsertCompartmentInstallation>
+  ): Promise<CompartmentInstallation | undefined> {
+    const [row] = await db.update(compartmentInstallation)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(
+        eq(compartmentInstallation.userId, userId),
+        eq(compartmentInstallation.language, language),
+        eq(compartmentInstallation.patternKey, patternKey)
+      ))
+      .returning();
+    return row;
+  }
+
+  async logCompartmentEvent(data: InsertCompartmentEvent): Promise<CompartmentEvent> {
+    const [event] = await db.insert(compartmentEvents).values(data).returning();
+    return event;
+  }
+
+  async getCompartmentEvents(userId: string, language: string, patternKey: string, limit = 50): Promise<CompartmentEvent[]> {
+    return db.select().from(compartmentEvents)
+      .where(and(
+        eq(compartmentEvents.userId, userId),
+        eq(compartmentEvents.language, language),
+        eq(compartmentEvents.patternKey, patternKey)
+      ))
+      .orderBy(desc(compartmentEvents.createdAt))
       .limit(limit);
   }
 }
