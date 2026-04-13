@@ -201,6 +201,7 @@ import { constrainEmotion, TutorPersonality, CartesiaEmotion, getTTSService, get
 import { extractTargetLanguageText, extractTargetLanguageWithMapping, hasSignificantTargetLanguageContent, detectTextLanguageForTTS } from "../text-utils";
 import { segmentByLanguage, segmentsToCartesiaChunks, logSegmentation, extractBoldMarkedWords } from "./language-segmenter";
 import { storage } from "../storage";
+import { costTracker } from "./cost-tracker";
 import { generateConversationTitle } from "../conversation-utils";
 import { validateOneUnitRule, UnitValidationResult } from "../phrase-detection";
 import { assessAdvancementReadiness, formatLevel } from "../actfl-advancement";
@@ -8481,6 +8482,19 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
         usageService.updateSessionMetrics(session.dbSessionId, telemetryData).then(() => {
           const tokenLog = telemetryData.llmInputTokens > 0 ? `, ${telemetryData.llmInputTokens}in/${telemetryData.llmOutputTokens}out LLM tokens` : '';
           console.log(`[Session Economics] ✓ Flushed telemetry for session ${session.dbSessionId}: ${telemetryData.ttsCharacters} TTS chars, ${telemetryData.sttSeconds}s STT, ${telemetryData.exchangeCount} exchanges${tokenLog}`);
+
+          // Log TTS and STT costs to ai_cost_logs for burn reporting.
+          // Rates: Google Chirp 3 HD ~$30/million chars (verify against invoice);
+          //        Deepgram Nova-3 $0.0059/minute streaming.
+          const ttsProvider = session.ttsProvider || 'google';
+          const ttsCostUsd = (telemetryData.ttsCharacters / 1_000_000) * 30;
+          const sttCostUsd = (telemetryData.sttSeconds / 60) * 0.0059;
+          if (telemetryData.ttsCharacters > 0) {
+            costTracker.trackRaw(`${ttsProvider}-tts`, ttsCostUsd, 'tts-session', telemetryData.ttsCharacters, 0);
+          }
+          if (telemetryData.sttSeconds > 0) {
+            costTracker.trackRaw('deepgram-nova3', sttCostUsd, 'stt-session', 0, telemetryData.sttSeconds);
+          }
         }).catch((err: Error) => {
           console.warn(`[Session Economics] Failed to flush telemetry:`, err.message);
         });

@@ -63,7 +63,10 @@ export class TtsDispatcher {
     turnId?: number
   ): Promise<void> {
     const { text: originalText, index } = chunk;
-    
+
+    // SESSION ECONOMICS: Track characters sent to TTS (non-progressive path)
+    session.telemetryTtsCharacters += (displayText || '').length;
+
     if (session.isAssistantActive) {
       await this.streamSentenceAudioWithGoogle(session, chunk, displayText, metrics, turnId);
       return;

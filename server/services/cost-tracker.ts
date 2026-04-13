@@ -93,6 +93,22 @@ class CostTracker {
     return costUsd;
   }
 
+  /**
+   * Track a raw cost that isn't token-based (TTS characters, STT seconds, etc.).
+   * inputUnits and outputUnits are stored as-is for reporting — not used for cost calculation.
+   * costUsd is the pre-computed dollar amount.
+   */
+  trackRaw(model: string, costUsd: number, context?: string, inputUnits = 0, outputUnits = 0): void {
+    const entry: CostEntry = { timestamp: Date.now(), model, inputTokens: inputUnits, outputTokens: outputUnits, costUsd, context };
+    this.entries.push(entry);
+    if (this.entries.length > MAX_ENTRIES) this.entries = this.entries.slice(-MAX_ENTRIES);
+    if (dbPersister) {
+      dbPersister(entry).catch(err =>
+        console.warn('[CostTracker] DB persist failed (raw):', err?.message || err)
+      );
+    }
+  }
+
   incrementDevAutoResolved() {
     this.devAutoResolvedCount++;
   }
