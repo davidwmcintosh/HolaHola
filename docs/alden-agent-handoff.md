@@ -3816,3 +3816,33 @@ A compartment fires an `unlock` event when Daniela observes the student producin
 
 **Why deferred:**
 The right trophy design depends on understanding the full compartment map — what patterns exist, how they sequence, what "installed" actually looks like across a learner's arc from sessions 1–50. Designing the kudos system before the Madrigal scan build-out means guessing at the shape of progress. Post-scan, the compartment structure will be clear enough to design milestones that actually mean something.
+
+## Session 51 — April 13, 2026
+
+### Cost tracking + billing verification
+- Confirmed TTS character tracking covers all three dispatcher paths (non-progressive at line 68, progressive at line 394, pre-generated at line 743) — no double-counting
+- Confirmed `streamSentenceAudioWithGoogle` is never called directly from orchestrator — only via dispatcher entry points
+- `trackRaw()` added to CostTracker — accepts pre-computed costUsd, writes to same DB persister as token-based entries
+- TTS and STT costs now written to `ai_cost_logs` at session flush: google-tts ($30/M chars estimate — verify against invoice) and deepgram-nova3 ($0.0059/min)
+- Student billing confirmed end-to-end: credits in `usage_ledger`, deducted at session end via `activeSpeakingSeconds = (tts_chars/15) + stt_seconds`, `fairBillableSeconds = max(activeSpeakingSeconds × 3, 120)`, class allocation drawn first then purchased hours as overflow
+
+### Session plan T001–T007 status
+- T001 (types): **Already complete** — VocabQAItem, GenderPair, VerbGroup, discoveryNote all in chapter-intro-content.ts
+- T002 (components): **Already complete** — VocabQAGrid, GenderAgreementGrid, VerbAnchorGrid exported from TextbookInfographics.tsx
+- T003 (wiring): **Already complete** — all three grids + discoveryNote callout wired in ChapterIntroduction.tsx
+- T004 (Spanish data): **Already complete** — greetings (vocabQA, genderPairs, verbGroups/estar, discoveryNote), family (vocabQA, genderPairs, verbGroups/ser), numbers (vocabQA, verbGroups/tener), daily (vocabQA, verbGroups/hacer)
+- T005 (bloviation audit): **DONE this session** — greetings "Time Matters" content tightened (removed "Pay attention when the sun moves across the sky!"); family "Extended Family" section got a discoveryNote about masculine plural default rule
+- T006 (cognate expansion): **Already complete** — French, German, Italian, Portuguese all have cognateOpener arrays seeded with `target` or `native` field
+- T007 (documentation): **DONE this session** (this entry)
+
+### Files changed this session
+- `server/services/cost-tracker.ts` — `trackRaw()` method added
+- `server/services/tts-dispatcher.ts` — TTS char tracking on non-progressive path (line 68)
+- `server/services/streaming-voice-orchestrator.ts` — costTracker imported, TTS+STT trackRaw calls at flush
+- `client/src/data/chapter-intro-content.ts` — greetings "Time Matters" content tightened; family "Extended Family" discoveryNote added
+
+### Open work (unchanged from Session 50)
+- Book scan (~April 14): unlocks M5 image prompts + M2/M3/M6 expansion from Madrigal
+- Verify Google Chirp 3 HD TTS rate against actual invoice (currently estimated at $30/M chars)
+- Compartment unlock logic (UX decision pending)
+- Kudos system redesign (deferred to post-scan)

@@ -139,7 +139,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         narrativeSections: [
           {
             title: "Time Matters",
-            content: "Spanish has different greetings for different times of day. 'Buenos d\u00edas' greets the morning sun, 'Buenas tardes' welcomes the afternoon, and 'Buenas noches' embraces the evening. Pay attention to when the sun moves across the sky!",
+            content: "Spanish has different greetings for different times of day. 'Buenos d\u00edas' for morning, 'Buenas tardes' for afternoon, and 'Buenas noches' for evening. Use the wrong one and native speakers won't misunderstand — but they will notice.",
             infographic: 'sunArcGreetings',
             tip: "The switch from 'Buenos d\u00edas' to 'Buenas tardes' typically happens around lunchtime, which in Spain can be as late as 2 PM."
           },
@@ -323,7 +323,8 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
           },
           {
             title: "Extended Family",
-            content: "Spanish has specific words for family relationships that English groups together. 'Suegra' is mother-in-law, 'cu\u00f1ado' is brother-in-law, and 'compadre' names the bond between a godparent and the child’s parents — a relationship important enough in Spanish culture to have earned its own word."
+            content: "Spanish has specific words for family relationships that English groups together. 'Suegra' is mother-in-law, 'cu\u00f1ado' is brother-in-law, and 'compadre' names the bond between a godparent and the child’s parents — a relationship important enough in Spanish culture to have earned its own word.",
+            discoveryNote: "When a group includes even one male, Spanish uses the masculine plural for the whole group. A room of ten sisters plus one brother becomes 'mis hermanos' — not 'mis hermanas'. Knowing this prevents real confusion the first time someone uses a masculine plural for a group you expected to be all-female."
           }
         ],
         culturalSpotlight: {
