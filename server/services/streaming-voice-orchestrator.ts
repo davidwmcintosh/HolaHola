@@ -8484,7 +8484,7 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
           console.log(`[Session Economics] ✓ Flushed telemetry for session ${session.dbSessionId}: ${telemetryData.ttsCharacters} TTS chars, ${telemetryData.sttSeconds}s STT, ${telemetryData.exchangeCount} exchanges${tokenLog}`);
 
           // Log TTS and STT costs to ai_cost_logs for burn reporting.
-          // Rates: Google Chirp 3 HD ~$30/million chars (verify against invoice);
+          // Rates: Google Chirp 3 HD $30/million chars (confirmed: $0.00003/char);
           //        Deepgram Nova-3 $0.0059/minute streaming.
           const ttsProvider = session.ttsProvider || 'google';
           const ttsCostUsd = (telemetryData.ttsCharacters / 1_000_000) * 30;

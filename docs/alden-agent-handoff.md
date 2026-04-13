@@ -3823,7 +3823,7 @@ The right trophy design depends on understanding the full compartment map — wh
 - Confirmed TTS character tracking covers all three dispatcher paths (non-progressive at line 68, progressive at line 394, pre-generated at line 743) — no double-counting
 - Confirmed `streamSentenceAudioWithGoogle` is never called directly from orchestrator — only via dispatcher entry points
 - `trackRaw()` added to CostTracker — accepts pre-computed costUsd, writes to same DB persister as token-based entries
-- TTS and STT costs now written to `ai_cost_logs` at session flush: google-tts ($30/M chars estimate — verify against invoice) and deepgram-nova3 ($0.0059/min)
+- TTS and STT costs now written to `ai_cost_logs` at session flush: google-tts ($30/M chars — confirmed $0.00003/char from Google pricing page) and deepgram-nova3 ($0.0059/min)
 - Student billing confirmed end-to-end: credits in `usage_ledger`, deducted at session end via `activeSpeakingSeconds = (tts_chars/15) + stt_seconds`, `fairBillableSeconds = max(activeSpeakingSeconds × 3, 120)`, class allocation drawn first then purchased hours as overflow
 
 ### Session plan T001–T007 status
@@ -3843,6 +3843,6 @@ The right trophy design depends on understanding the full compartment map — wh
 
 ### Open work (unchanged from Session 50)
 - Book scan (~April 14): unlocks M5 image prompts + M2/M3/M6 expansion from Madrigal
-- Verify Google Chirp 3 HD TTS rate against actual invoice (currently estimated at $30/M chars)
+- ~~Verify Google Chirp 3 HD TTS rate~~ — confirmed $0.00003/char = $30/M chars (Apr 13, 2026)
 - Compartment unlock logic (UX decision pending)
 - Kudos system redesign (deferred to post-scan)
