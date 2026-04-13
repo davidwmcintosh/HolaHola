@@ -3847,3 +3847,58 @@ The right trophy design depends on understanding the full compartment map — wh
 - **FREE TIER NOTE**: First 1M chars/month are free. Actual monthly TTS bill = max(0, (totalMonthlyChars − 1M)) × $0.00003. Per-session cost entries in ai_cost_logs use the marginal rate and will overstate cost for sessions that fall within the free tier. Burn report TTS figures should be interpreted as upper-bound estimates until total monthly chars exceed 1M.
 - Compartment unlock logic (UX decision pending)
 - Kudos system redesign (deferred to post-scan)
+
+---
+
+## Session 52 — Mon, Apr 14, 2026 — Burn report multi-window redesign
+
+### What was done
+
+**Burn report redesigned for three side-by-side time windows (Last 7d / Last 14d / All-time)**
+
+The `get_ai_cost_report` handler in `server/services/alden-functions.ts` was fully rewritten.
+
+**Old design**: Single configurable window (`hours` param, default 24h) queried in-memory `costTracker` for Alden costs. Did not survive restarts. No trend visibility.
+
+**New design**: Three parallel DB queries on `ai_cost_logs` (which does survive restarts) for 7d, 14d, and all-time. The report now shows:
+
+- A formatted table with each model as a row and all three windows as columns
+- `TOTAL` row + `Days in window` row beneath the table
+- `DAILY RUN RATE` block: $/day and 30-day projection for each window, clearly labeled which is the "current run rate"
+- `VOICE SESSIONS` block (hourly window — unchanged): non-test sessions, token counts, TTS/STT with corrected rates
+- `PRICING MODEL` block: uses 7d Alden run rate as break-even basis (most accurate post-fix signal)
+
+**Live data as of Apr 14 (from DB preview)**:
+
+```
+Model                     Last 7d     Last 14d    All-time
+──────────────────────────────────────────────────────────────
+claude-sonnet-4-5         $2.1401     $26.0092    $30.6441
+gemini-3-flash-preview    $0.0710     $0.2029     $0.2572
+──────────────────────────────────────────────────────────────
+TOTAL                     $2.2112     $26.2121    $30.9012
+Days in window            7           14          17.2
+
+DAILY RUN RATE
+  Last 7d:   $0.32/day  →  ~$9.48/month  ← current run rate
+  Last 14d:  $1.87/day  →  ~$56.17/month
+  All-time:  $1.80/day  →  ~$53.91/month  (includes pre-fix anomalies)
+```
+
+The 7d vs 14d split shows the post-April-8 optimization effect clearly: the 14d window is polluted by the pre-fix high-spend period, while 7d captures only the clean post-fix baseline.
+
+**Rate corrections in voice session section**:
+- TTS: now uses marginal rate with 1M free-tier offset (`max(0, ttsChars - 1_000_000) / 1_000_000 * 30`)
+- STT: corrected to $0.0059/min (was $0.0043/min)
+
+**`aiCostLogs` added to schema imports** in `alden-functions.ts` (was missing despite being used in `server/index.ts` cost persister).
+
+### Files changed this session
+- `server/services/alden-functions.ts` — `aiCostLogs` added to imports; `get_ai_cost_report` case block fully rewritten (lines 1656–1775)
+
+### Open work
+- Book scan (~April 14): unlocks M5 image prompts + M2/M3/M6 Madrigal expansion
+- Compartment unlock logic (UX decision pending)
+- Kudos system redesign (deferred to post-scan)
+- Medical Spanish vertical (HoloHola) — next after book scan
+- Interview Coach (separate app) — lower priority

@@ -8,6 +8,7 @@ import {
   aldenNotifications,
   users,
   conversations,
+  aiCostLogs,
 } from "@shared/schema";
 import { sql, desc, eq, and, gte, isNull, inArray } from "drizzle-orm";
 import { computeHealthStatus } from "./voice-health-monitor";
@@ -1653,10 +1654,65 @@ ${agentSection}`;
         const hours = Math.min(args.hours || 24, 168);
         const env = args.env || 'all';
 
-        const { costTracker } = await import('./cost-tracker');
-        const aldenSummary = costTracker.getSummary(hours);
-        const aldenText = costTracker.formatForReport(hours);
+        // ── DB-backed multi-window cost summary ──────────────────────────────
+        // Pull ai_cost_logs for three windows: 7d, 14d, and all-time.
+        // This survives restarts and captures the true historical picture.
+        const sharedDb = getSharedDb();
+        const now = Date.now();
+        const since7d  = new Date(now - 7  * 24 * 3_600_000);
+        const since14d = new Date(now - 14 * 24 * 3_600_000);
 
+        // Query all three windows in parallel
+        const [logs7d, logs14d, logsAll] = await Promise.all([
+          sharedDb.select({
+            model: aiCostLogs.model,
+            cost: sql<number>`coalesce(sum(cost_usd), 0)`,
+            calls: sql<number>`count(*)`,
+          }).from(aiCostLogs).where(gte(aiCostLogs.createdAt, since7d)).groupBy(aiCostLogs.model),
+          sharedDb.select({
+            model: aiCostLogs.model,
+            cost: sql<number>`coalesce(sum(cost_usd), 0)`,
+            calls: sql<number>`count(*)`,
+          }).from(aiCostLogs).where(gte(aiCostLogs.createdAt, since14d)).groupBy(aiCostLogs.model),
+          sharedDb.select({
+            model: aiCostLogs.model,
+            cost: sql<number>`coalesce(sum(cost_usd), 0)`,
+            calls: sql<number>`count(*)`,
+            earliest: sql<string>`min(created_at)`,
+          }).from(aiCostLogs).groupBy(aiCostLogs.model),
+        ]);
+
+        // Helper: index rows by model
+        const idx = (rows: { model: string; cost: number }[]) => {
+          const m: Record<string, number> = {};
+          for (const r of rows) m[r.model] = Number(r.cost);
+          return m;
+        };
+        const by7d  = idx(logs7d);
+        const by14d = idx(logs14d);
+        const byAll = idx(logsAll);
+
+        // All unique model names across all windows
+        const allModels = [...new Set([
+          ...Object.keys(by7d), ...Object.keys(by14d), ...Object.keys(byAll)
+        ])].sort((a, b) => (byAll[b] || 0) - (byAll[a] || 0)); // sort by all-time cost desc
+
+        const total7d  = Object.values(by7d ).reduce((s, v) => s + v, 0);
+        const total14d = Object.values(by14d).reduce((s, v) => s + v, 0);
+        const totalAll = Object.values(byAll).reduce((s, v) => s + v, 0);
+
+        // Earliest log timestamp → actual all-time days
+        const earliestTs = logsAll.reduce((min, r) => {
+          const t = r.earliest ? new Date(r.earliest).getTime() : now;
+          return t < min ? t : min;
+        }, now);
+        const allTimeDays = Math.max(1, (now - earliestTs) / 86_400_000);
+
+        const rate7d  = total7d  / 7;
+        const rate14d = total14d / 14;
+        const rateAll = totalAll / allTimeDays;
+
+        // Lyra last run (supplementary)
         const lyraLastRun = await (async () => {
           try {
             const histFile = path.join(process.cwd(), '.local', 'lyra-history.json');
@@ -1667,7 +1723,8 @@ ${agentSection}`;
           } catch { return null; }
         })();
 
-        const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+        // ── Voice sessions (current window — hourly) ──────────────────────────
+        const since = new Date(now - hours * 3_600_000);
         const monDb = getMonitoringDb();
         const conditions: any[] = [gte(voiceSessions.startedAt, since), eq(voiceSessions.isTestSession, false)];
         if (env !== 'all') conditions.push(eq(voiceSessions.environment, env as any));
@@ -1695,74 +1752,93 @@ ${agentSection}`;
         const tokenTracked   = llmIn > 0;
 
         const geminiCost   = tokenTracked ? (llmIn * 0.075 / 1_000_000) + (llmOut * 0.30 / 1_000_000) : exchanges * 0.0005;
-        const ttsCost      = (ttsChars / 1000) * 0.015;
-        const sttCost      = (sttSec / 60) * 0.0043;
+        // TTS: first 1M chars/month free, then $30/M. Use marginal rate here (will overstate during free tier).
+        const ttsCost      = (Math.max(0, ttsChars - 1_000_000) / 1_000_000) * 30;
+        const sttCost      = (sttSec / 60) * 0.0059;
         const studentTotal = geminiCost + ttsCost + sttCost;
-        const aldenTotal   = aldenSummary.totalCostUsd;
-        const combined     = aldenTotal + studentTotal;
 
-        // Per-student economics
+        // Per-student economics — use 7d daily rate as current run rate basis
         const costPerStudent = activeStudents > 0 ? studentTotal / activeStudents : null;
-        const windowToMonthFactor = (30 * 24) / hours;
-        const monthlyCostPerStudent = costPerStudent != null ? costPerStudent * windowToMonthFactor : null;
+        // Alden run rate: use 7d (most accurate post-fix signal)
+        const aldenMonthly7d = rate7d * 30;
 
         // Pricing model
         const pricePoints = [4.99, 9.99, 14.99, 19.99, 29.99];
-        const pricingModel = monthlyCostPerStudent != null
+        const pricingModel = costPerStudent != null
           ? pricePoints.map(price => ({
               price,
-              marginUsd: +(price - monthlyCostPerStudent).toFixed(4),
-              marginPct: +((price - monthlyCostPerStudent) / price * 100).toFixed(1),
-              breakEvenStudents: aldenTotal > 0 ? Math.ceil(aldenTotal * windowToMonthFactor / (price - monthlyCostPerStudent)) : null,
+              marginUsd: +(price - costPerStudent).toFixed(4),
+              marginPct: +((price - costPerStudent) / price * 100).toFixed(1),
+              breakEvenStudents: aldenMonthly7d > 0 ? Math.ceil(aldenMonthly7d / Math.max(0.001, price - costPerStudent)) : null,
             }))
           : [];
 
+        // ── Format ────────────────────────────────────────────────────────────
         const fmt  = (n: number) => `$${n.toFixed(4)}`;
         const fmt2 = (n: number) => `$${n.toFixed(2)}`;
         const fmtK = (n: number) => n > 0 ? `${(n / 1000).toFixed(1)}k` : '0';
-        const windowNote = hours < 720 ? ` (extrapolated to 30d)` : '';
+
+        // Table: model rows, 3 columns
+        const COL = 26;
+        const pad = (s: string, w: number) => s.padEnd(w);
+        const header  = `${pad('Model', COL)}Last 7d     Last 14d    All-time`;
+        const divider = '─'.repeat(COL + 36);
+        const modelRows = allModels.map(m => {
+          const label = m.length > COL - 2 ? m.slice(0, COL - 2) : m;
+          const c7  = fmt(by7d[m]  || 0);
+          const c14 = fmt(by14d[m] || 0);
+          const ca  = fmt(byAll[m] || 0);
+          return `${pad(label, COL)}${c7.padEnd(12)}${c14.padEnd(12)}${ca}`;
+        });
+        const totalRow = `${pad('TOTAL', COL)}${fmt(total7d).padEnd(12)}${fmt(total14d).padEnd(12)}${fmt(totalAll)}`;
+        const daysRow  = `${pad('Days in window', COL)}${'7'.padEnd(12)}${'14'.padEnd(12)}${allTimeDays.toFixed(1)}`;
 
         const text = [
-          `=== HoloHola Burn Report (last ${hours}h${env !== 'all' ? `, ${env}` : ''}) ===`,
+          `=== HoloHola Burn Report ===`,
           `Generated: ${new Date().toUTCString()}`,
           ``,
-          `ALDEN STACK (in-memory — Alden / Lyra / Wren)`,
-          aldenSummary.callCount > 0 ? aldenText : `  No calls tracked in this window`,
+          `AI COST LOGS (from DB — all environments)`,
+          header,
+          divider,
+          ...modelRows,
+          divider,
+          totalRow,
+          daysRow,
+          ``,
+          `DAILY RUN RATE`,
+          `  Last 7d:   ${fmt2(rate7d)}/day  →  ~${fmt2(rate7d * 30)}/month  ← current run rate`,
+          `  Last 14d:  ${fmt2(rate14d)}/day  →  ~${fmt2(rate14d * 30)}/month`,
+          `  All-time:  ${fmt2(rateAll)}/day  →  ~${fmt2(rateAll * 30)}/month  (includes pre-fix anomalies)`,
           lyraLastRun ? `  Lyra last run: ${lyraLastRun.ageHours}h ago (${fmt(lyraLastRun.costUsd || 0)})` : `  Lyra: unknown last run`,
-          `  Subtotal: ${fmt(aldenTotal)}`,
           ``,
-          `STUDENT TUTOR SESSIONS (DB — Gemini + TTS + STT)`,
-          `  Active students: ${activeStudents} | Sessions: ${sessions} | Minutes: ${totalMinutes}min`,
+          `VOICE SESSIONS (last ${hours}h window — non-test only${env !== 'all' ? `, ${env}` : ''})`,
+          `  Sessions: ${sessions} | Students: ${activeStudents} | Minutes: ${totalMinutes}min`,
           `  Gemini: ${tokenTracked ? `${fmtK(llmIn)} in / ${fmtK(llmOut)} out (real tokens)` : `${exchanges} exchanges (estimated)`} → ${fmt(geminiCost)}`,
-          `  Google TTS: ${fmtK(ttsChars)} chars → ${fmt(ttsCost)}`,
+          `  Google TTS: ${fmtK(ttsChars)} chars → ${fmt(ttsCost)}  (marginal rate; 1M chars/month free)`,
           `  Deepgram STT: ${(sttSec / 60).toFixed(1)}min → ${fmt(sttCost)}`,
-          `  Subtotal: ${fmt(studentTotal)}`,
-          ``,
-          `COMBINED TOTAL: ${fmt(combined)}`,
-          ``,
-          `COST PER STUDENT`,
-          costPerStudent != null
-            ? `  Window (${hours}h): ${fmt(costPerStudent)} | Monthly estimate${windowNote}: ${fmt2(monthlyCostPerStudent!)}`
-            : `  No active students in this window`,
+          `  Student subtotal: ${fmt(studentTotal)}`,
           ``,
           ...(pricingModel.length > 0 ? [
-            `PRICING MODEL (monthly, per student)`,
+            `PRICING MODEL (monthly, per student — infra break-even uses 7d Alden run rate)`,
             ...pricingModel.map(p =>
               `  ${fmt2(p.price)}/mo → margin: ${fmt2(p.marginUsd)} (${p.marginPct}%)` +
-              (p.breakEvenStudents ? ` | infra break-even: ${p.breakEvenStudents} students` : '')
+              (p.breakEvenStudents ? ` | break-even: ${p.breakEvenStudents} students` : '')
             ),
-          ] : []),
+          ] : [`PRICING MODEL: No active students in this window`]),
         ].join('\n');
 
         return {
           data: {
             windowHours: hours,
             env,
-            aldenStack: { totalCostUsd: aldenTotal, callCount: aldenSummary.callCount, byModel: aldenSummary.byModel, lyraLastRun },
-            studentTutor: { sessions, activeStudents, totalMinutes, exchanges, geminiInputTokens: llmIn, geminiOutputTokens: llmOut, geminiTokensTracked: tokenTracked, geminiCostUsd: geminiCost, ttsCostUsd: ttsCost, sttCostUsd: sttCost, totalCostUsd: studentTotal },
-            perStudent: { windowCostUsd: costPerStudent, monthlyEstimateUsd: monthlyCostPerStudent, windowHours: hours },
+            costByWindow: {
+              last7d:  { totalCostUsd: total7d,  dailyRate: rate7d,  monthlyProjection: rate7d  * 30, byModel: by7d  },
+              last14d: { totalCostUsd: total14d, dailyRate: rate14d, monthlyProjection: rate14d * 30, byModel: by14d },
+              allTime: { totalCostUsd: totalAll, dailyRate: rateAll, monthlyProjection: rateAll * 30, byModel: byAll, days: allTimeDays },
+            },
+            voiceSessions: { sessions, activeStudents, totalMinutes, exchanges, geminiInputTokens: llmIn, geminiOutputTokens: llmOut, geminiTokensTracked: tokenTracked, geminiCostUsd: geminiCost, ttsCostUsd: ttsCost, sttCostUsd: sttCost, totalCostUsd: studentTotal },
+            lyraLastRun,
             pricingModel,
-            combined: { totalCostUsd: combined, aldenStackUsd: aldenTotal, studentTutorUsd: studentTotal },
             text,
           },
         };
