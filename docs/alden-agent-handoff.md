@@ -3844,5 +3844,6 @@ The right trophy design depends on understanding the full compartment map — wh
 ### Open work (unchanged from Session 50)
 - Book scan (~April 14): unlocks M5 image prompts + M2/M3/M6 expansion from Madrigal
 - ~~Verify Google Chirp 3 HD TTS rate~~ — confirmed $0.00003/char = $30/M chars (Apr 13, 2026)
+- **FREE TIER NOTE**: First 1M chars/month are free. Actual monthly TTS bill = max(0, (totalMonthlyChars − 1M)) × $0.00003. Per-session cost entries in ai_cost_logs use the marginal rate and will overstate cost for sessions that fall within the free tier. Burn report TTS figures should be interpreted as upper-bound estimates until total monthly chars exceed 1M.
 - Compartment unlock logic (UX decision pending)
 - Kudos system redesign (deferred to post-scan)
