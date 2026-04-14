@@ -75,12 +75,37 @@ Each row = one spread (two book pages). Columns show: what was taught, drawings 
 | 41 | ¿Va a tomar ___? | ensalada, café, sopa, apio | foods with voy a tomar |
 | 42 | ¿Va a ___? | bailar, nadar, cantar, pescar | leisure verbs + infinitive |
 | 43 | Everyday Expressions | (one man drawing) | Buenos días/tardes/noches; ¿Cómo está usted?; Gracias; De nada; Perdón; Con mucho gusto |
-| 44–61 | *(unsampled — ~9 more spreads)* | | |
-| 62–63 | Exercise: quiero comprar/ir | chocolates, camisa, corbata, playa, cine, concierto, casa | quiero + infinitive; te/lo/la quiero |
+| 44–45 | ¿Tiene ___? | gato, canario, perro, caballo | tener: tiene/tengo/tenemos/tienen |
+| 46–47 | ¿Tiene un ___? / Tengo un ___ | gato, perro, loro, tortuga | Possession questions + answers |
+| 48–49 | ¿Tiene un gorila en casa? / ¡Eso es ridículo! | gorila, toro, elefante, hipopótamo | Humor pivot — first page with zero English below sentences |
+| 50–51 | Tengo que ___. | ir, comprar, tomar, trabajar | tener que + infinitive (obligation) |
+| 52–53 | No tengo tiempo / Tengo hambre | (one-man drawing) | Everyday Expressions #2: hambre/sed/frío/calor/razón + tener idioms |
+| 54–55 | ¿Quiere ___? / Quiero ___ | chocolate, café, sopa, agua | querer: quiero/quiere/queremos/quieren |
+| 56–57 | ¿Quiere ir al ___? / Quiero ir al ___ | teatro, cine, club, playa | querer + ir + a (desire + movement) |
+| 58–59 | Te quiero / Lo quiero / La quiero | (person + object drawings) | quiero = I want AND I love — context determines meaning |
+| 60–61 | Exercise: quiero comprar/ir | chocolates, camisa, corbata, playa, cine, concierto, casa | Review: quiero + infinitive |
+| 62–63 | *(exercise page — drawings only)* | | |
 | 64–65 | *(unsampled)* | | |
 | 66 | el ___ es bonito / Los ___ son bonitos | caballo/caballos, libro/libros, plátano, rábano | Singular → Plural: -o → -os |
 | 67 | la ___ es bonita/deliciosa / Las ___ son bonitas | manzana/manzanas, mariposa, pera, rosa | Singular → Plural: -a → -as |
-| 68–121 | *(unsampled — ~27 spreads)* | | |
+| 68–69 | el doctor / los doctores | doctor/actores, aviador/aviadores, tractor/tractores | Plural of -or words: add -es (no accent change) |
+| 70–71 | Es muy ___ | valiente, interesante, inteligente, elegante | Everyday Expressions #3: ser + adjectives; muy amplified |
+| 72–73 | *(unsampled)* | | |
+| 74–75 | ¿Dónde está ___? / Está en ___ | papá/despacho, mamá/casa, teatro/cine/banco | estar introduced: location; -or cognates sidebar |
+| 76–77 | ¿Dónde está el ___? | lavamanos, tina, jabón, toalla | Bathroom vocabulary; estar + rooms |
+| 78–79 | La mesa está en el ___. | comedor: mesa/silla/mantel/servilleta; sala: sofá/sillón/televisión/teléfono | Rooms: dining room + living room |
+| 80–81 | La estufa está en la cocina. | estufa, olla, cafetera, refrigerador | Kitchen vocabulary; Everyday Expressions #4: estar + emotions |
+| 82–83 | *(unsampled)* | | |
+| 84–85 | ¿Puede ir al ___? / Puedo ir | baile, ballet, concierto | poder: puedo/puede/podemos/pueden; can/be able to |
+| 86–87 | ¿Hay ___? / Sí, hay ___ | sopa, crema, mantequilla, dinero | hay: there is/there are; existential |
+| 88–89 | ¿Hay gorilas en la clase? ¡Ay no! | gorilas/mulas en la clase | Humor page #2 — hay with absurd existentials; confirms zero English |
+| 90–91 | Hay ___ en el hotel. | turistas, piscina, peluquero; zapatería/panadería/carnicería/joyería | hay + shops + hotel vocabulary |
+| 92–93 | *(unsampled)* | | |
+| 94–95 | Me gusta la ___. / Le gusta el ___ | sopa, limonada, pollo, pescado, campo, música | me gusta introduced: inverse verb structure; "I like THE soup" rule |
+| 96–97 | Me gustan los ___. / No me gusta ___ | espárragos, huevos, espinacas, frijoles; pescar/nadar/bailar | me gustan (plural); no me gusta + infinitive |
+| 98–99 | ¿Le gustaría ir al ___? / Me gustaría ir | parque, teatro, cine, campo | me gustaría (polite: I would like); me encanta: I love |
+| 100–101 | Me encantan las ___. / Me encantaría ir al ___ | cerezas, aceitunas, cebollas, fresas; cine/campo/museo/centro/playa | me encantan (plural); me encantaría (I would love to) |
+| 102–121 | *(unsampled)* | | |
 | 122–123 | ¿Estudió/nadó/pagó hoy? | estudiar, nadar, pagar la cuenta, comprar bata; lancha, casa | AR preterite: 3rd person -ó endings; alquilar conjugation |
 | 124–125 | *(unsampled)* | | |
 | 126–127 | ¿Tomó el desayuno/almuerzo/la cena? | té, café, jugo de naranja, huevos fritos, pan tostado | Meals vocabulary; tomamos (plural) |
@@ -254,6 +279,68 @@ Each row = one spread (two book pages). Columns show: what was taught, drawings 
 
 ---
 
+## Complete Verb / Structure Sequence (full book)
+
+The order Madrigal teaches structures follows communicative phases, not grammar categories. Each verb is introduced because students now NEED it to say the next thing.
+
+### Phase 1 — Survival Foundations (pp. 9–43)
+| Book pp. | Structure | Communicative Need |
+|---|---|---|
+| 9–12 | **ir** (voy/va/vamos/van) | "Where are you going?" — spatial orientation |
+| 14–19 | **ser** (es) + articles el/la | "What is it?" — descriptions, gender |
+| 16–19 | Gender rules | Grammar pause — essential before continuing |
+| 28–31 | **tomar** (preterite) | "I had coffee / I took a taxi" — meals + transport |
+| 32–33 | **comprar** (preterite) | "I bought / I need to buy" — shopping |
+| 36–42 | **ir + a + infinitive** | "I'm going to buy/dance" — near future |
+| 43 | Everyday Expressions #1 | Buenos días/tardes/noches; gracias/perdón |
+
+### Phase 2 — Ownership, Need, and Desire (pp. 44–62)
+| Book pp. | Structure | Communicative Need |
+|---|---|---|
+| 44–47 | **tener** (tengo/tiene/tenemos/tienen) | "Do you have...?" — possession |
+| 48–49 | tener (humor) | Absurd animals — reinforcement through surprise |
+| 50–51 | **tener que** + infinitive | "I have to go" — obligation |
+| 52–53 | Everyday Expressions #2 | Tener idioms: hambre/sed/frío/calor/razón |
+| 54–59 | **querer** (quiero/quiere) | "I want / I love" — desire AND emotion (context-determined) |
+
+### Phase 3 — Description, Plurality, and Location (pp. 64–83)
+| Book pp. | Structure | Communicative Need |
+|---|---|---|
+| 66–67 | Plural rules (-o → -os, -a → -as) | Grammar pause — must handle groups |
+| 68–69 | Plural of -or words (-or → -ores) | Cognate words: actor/actores |
+| 70–71 | Everyday Expressions #3 | **ser + adjective**: Es muy valiente/inteligente |
+| 74–77 | **estar** (location: ¿dónde?) | "Where is it?" — navigation + finding things |
+| 78–80 | estar + rooms | Household rooms + objects |
+| 80–81 | Everyday Expressions #4 | **estar + emotions**: contento/cansado/listo/enojado |
+
+### Phase 4 — Ability, Existence, and Preference (pp. 84–101)
+| Book pp. | Structure | Communicative Need |
+|---|---|---|
+| 84–85 | **poder** (puedo/puede) | "Can you come?" — ability + invitations |
+| 86–91 | **hay** | "Is there any...?" — existence, shopping checks |
+| 94–97 | **me gusta / me gustan** | "I like..." — inverse verb structure (leap!) |
+| 98–99 | **me gustaría** | "I would like..." — polite desire, social register |
+| 99–101 | **me encanta / me encantaría** | "I love / I would love to..." — emotional intensity |
+
+---
+
+## The English-Fade Pattern
+
+Madrigal systematically removes English scaffolding as the book progresses. This is the "see it and say it" method made visible:
+
+| Book pages | English presence | What replaces it |
+|---|---|---|
+| pp. 9–20 | Every sentence has English equivalent | Both languages shown explicitly |
+| pp. 21–45 | English in headers + new vocab only | Drawings carry Q&A meaning |
+| pp. 46–75 | English only on first example per structure | Subsequent examples: drawing only |
+| pp. 84–101 | Near-zero English | Even first examples rely on drawings |
+
+**The pivot point:** pp. 48–49 (gorila/toro/elefante). Absurd animal scenarios provide the humor that compensates for removed English scaffolding. Students laugh → they remember → they don't need the translation.
+
+**HoloHola design implication:** VocabQA items should NOT show English by default. The image IS the translation. English appears only on tap/demand. This honors Madrigal's core method.
+
+---
+
 ## Pedagogical Mapping to HoloHola Components
 
 ### M1 — VocabQA Grid
@@ -382,19 +469,17 @@ Full restaurant vocabulary from appendix pp. 203–207 (~40 items).
 
 ---
 
-## Unsampled Sections (Need Cataloguing)
-
-The following page ranges were not read in this session. Each needs a page-by-page pass:
+## Unsampled Sections (Still Need Cataloguing)
 
 | Range | PDF pages | Estimated content |
 |---|---|---|
 | Book pp. 20–27 | PDF 10–13 | Colors? More adjectives? Early numbers? |
-| Book pp. 44–61 | PDF 22–30 | ~9 lesson spreads — unknown |
 | Book pp. 64–65 | PDF 32 | Between querer exercise and plural lesson |
-| Book pp. 68–121 | PDF 33–60 | ~27 lesson spreads — largest uncharted block |
+| Book pp. 72–73, 82–83, 92–93 | PDF 36, 41, 46 | Gaps within pp. 68–101 block |
+| Book pp. 102–121 | PDF 51–60 | 10 uncharted spreads — likely more estar/poder/hay practice |
 | Book pp. 124–125 | PDF 62 | Between alquilar and breakfast meals |
-| Book pp. 128–177 | PDF 64–88 | ~25 lesson spreads — includes body, emotions? |
-| Book pp. 180–181, 184–187, 190–193, 196–199 | PDF 90–98 | Late grammar — advanced tenses |
+| Book pp. 128–177 | PDF 64–88 | ~25 spreads — body parts, more tenses, advanced structures |
+| Book pp. 180–181, 184–187, 190–193, 196–199 | PDF 90–98 | Late grammar — present progressive, perfect, indirect objects |
 | Appendix pp. 210–211 (Numbers, Days, Months) | App 6 | Reference lists |
 | Appendix pp. 214–215 (Colors, Body) | App 8 | Illustrated lists |
 | Appendix grammar tables | App 9–17 | Full verb conjugation — M6 source |
@@ -410,6 +495,13 @@ The following page ranges were not read in this session. Each needs a page-by-pa
 | Apr 14, 2026 | Full read pass: main book sampled | pp. 8–43, 62–67, 122–127, 178–183, 188–195 |
 | Apr 14, 2026 | Appendix sampled | Appendix pp. 201, 204–209, 212–213 |
 | Apr 14, 2026 | Roadmap document created | This file |
-| *Next session* | Read unsampled blocks | pp. 20–27, 44–61, 68–121, 128–177 |
+| Apr 14, 2026 (S54) | Full read of previously unsampled sections | pp. 44–103 (tener/tener que/querer/estar/poder/hay/me gusta/me gustaría/me encanta) |
+| Apr 14, 2026 (S54) | Complete verb sequence mapped (Phase 1–4) | Added to this file |
+| Apr 14, 2026 (S54) | English-fade pattern confirmed and documented | Added to this file |
+| Apr 14, 2026 (S54) | T001–T003: types + components + wiring confirmed done | chapter-intro-content.ts, TextbookInfographics.tsx, ChapterIntroduction.tsx |
+| Apr 14, 2026 (S54+55) | T004: Spanish greetings vocabQA → Madrigal p.43 sources; tener idioms (p.53) added to numbers verbGroups | chapter-intro-content.ts |
+| Apr 14, 2026 (S54+55) | T005: Bloviation audit — greetings + family welcomeText revised | chapter-intro-content.ts |
+| Apr 14, 2026 (S54+55) | T006: Portuguese cognateOpener bug fixed (native → target field); expanded to 20 entries | chapter-intro-content.ts |
+| *Next session* | Read remaining unsampled blocks | pp. 20–27, 64–65, 102–121, 128–177 |
+| *Next session* | Seed M1–M4 data for estar/poder/hay/me gusta phases | chapter-intro-content.ts |
 | *Next session* | Read full appendix grammar tables | App pp. 217–232 |
-| *Next session* | Seed M1/M2/M3/M4 data from confirmed content | chapter-intro-content.ts |

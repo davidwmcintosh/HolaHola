@@ -135,7 +135,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
     ],
     chapters: {
       greetings: {
-        welcomeText: "In this chapter you'll learn three time-of-day greetings (buenos días, buenas tardes, buenas noches), the formal and informal 'you' (usted / tú), and how to introduce yourself. By the end, you'll be able to open and close a real conversation in Spanish.",
+        welcomeText: "Spanish greetings change with the clock — buenos días before noon, buenas tardes through the afternoon, buenas noches at night. Then one fork: usted for anyone you respect or don't know, tú for friends and family. Those two rules open any conversation in Spanish.",
         narrativeSections: [
           {
             title: "Time Matters",
@@ -252,12 +252,14 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
           { masculine: "emocionado", feminine: "emocionada", translation: "excited" }
         ],
         vocabQA: [
-          { word: "llamarse", translation: "to be called", question: "\u00bfC\u00f3mo te llamas?", answer: "Me llamo [tu nombre]." },
-          { word: "estar bien", translation: "to be well", question: "\u00bfC\u00f3mo est\u00e1s?", answer: "Estoy bien, gracias. \u00bfY t\u00fa?" },
-          { word: "mucho gusto", translation: "nice to meet you", question: "Mucho gusto.", answer: "Igualmente." },
-          { word: "de d\u00f3nde", translation: "from where", question: "\u00bfDe d\u00f3nde eres?", answer: "Soy de [ciudad]." },
-          { word: "usted", translation: "formal you", question: "\u00bfC\u00f3mo est\u00e1 usted?", answer: "Muy bien, gracias." },
-          { word: "qu\u00e9 tal", translation: "what's up / how are things", question: "\u00bfQu\u00e9 tal?", answer: "Todo bien, \u00bfy t\u00fa?" }
+          { word: "buenos d\u00edas", translation: "good morning", question: "\u00bfC\u00f3mo saluda por la ma\u00f1ana?", answer: "Buenos d\u00edas, se\u00f1or.", answerTranslation: "Good morning, sir." },
+          { word: "buenas tardes", translation: "good afternoon", question: "\u00bfC\u00f3mo saluda por la tarde?", answer: "Buenas tardes, se\u00f1ora.", answerTranslation: "Good afternoon, ma'am." },
+          { word: "buenas noches", translation: "good evening / good night", question: "\u00bfC\u00f3mo saluda al llegar de noche?", answer: "Buenas noches.", answerTranslation: "Good evening." },
+          { word: "\u00bfC\u00f3mo est\u00e1 usted?", translation: "How are you? (formal)", question: "\u00bfC\u00f3mo est\u00e1 usted?", answer: "Muy bien, gracias. \u00bfY usted?", answerTranslation: "Very well, thank you. And you?" },
+          { word: "gracias / de nada", translation: "thank you / you're welcome", question: "Muchas gracias.", answer: "De nada.", answerTranslation: "You're welcome." },
+          { word: "perd\u00f3n", translation: "pardon me / excuse me", question: "\u00bfC\u00f3mo pide perd\u00f3n?", answer: "Perd\u00f3n, se\u00f1or.", answerTranslation: "Pardon me, sir." },
+          { word: "me llamo", translation: "my name is (lit. I call myself)", question: "\u00bfC\u00f3mo se llama usted?", answer: "Me llamo [nombre].", answerTranslation: "My name is [name]." },
+          { word: "con mucho gusto", translation: "with great pleasure", question: "Mucho gusto en conocerle.", answer: "Con mucho gusto.", answerTranslation: "With great pleasure." }
         ],
         verbGroups: [
           {
@@ -302,19 +304,22 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
         verbGroups: [
           {
             verb: "tener",
-            verbTranslation: "to have (age, possessions)",
+            verbTranslation: "to have — also expresses states English says with 'to be'",
+            verbHint: "Spanish says Tengo hambre (I have hunger) where English says 'I am hungry'. The verb tener carries both possession and physical/emotional state.",
             examples: [
               { object: "veinte a\u00f1os", fullPhrase: "Tengo veinte a\u00f1os.", translation: "I am twenty years old." },
-              { object: "hambre", fullPhrase: "Tengo hambre.", translation: "I am hungry." },
-              { object: "dinero", fullPhrase: "Tengo dinero.", translation: "I have money." },
-              { object: "tiempo", fullPhrase: "No tengo tiempo.", translation: "I don't have time." },
-              { object: "una pregunta", fullPhrase: "Tengo una pregunta.", translation: "I have a question." }
+              { object: "hambre", fullPhrase: "Tengo hambre.", translation: "I'm hungry. (lit. I have hunger)" },
+              { object: "sed", fullPhrase: "Tengo sed.", translation: "I'm thirsty. (lit. I have thirst)" },
+              { object: "fr\u00edo", fullPhrase: "Tengo fr\u00edo.", translation: "I'm cold. (lit. I have cold)" },
+              { object: "calor", fullPhrase: "Tengo calor.", translation: "I'm warm. (lit. I have heat)" },
+              { object: "raz\u00f3n", fullPhrase: "Tiene raz\u00f3n.", translation: "You are right. (lit. You have reason)" },
+              { object: "tiempo", fullPhrase: "No tengo tiempo.", translation: "I don't have time." }
             ]
           }
         ]
       },
       family: {
-        welcomeText: "Spanish has a specific word for every family relationship. In this chapter, you'll learn madre, padre, hermanos, abuelos, tíos, and primos — plus the verb ser, which anchors every introduction.",
+        welcomeText: "The -o/-a pair runs through all of Spanish family vocabulary: padre/madre, hermano/hermana, tío/tía, abuelo/abuela. Learn one word from each pair and the other comes free. That pattern — masculine -o, feminine -a — will carry you across hundreds of Spanish words.",
         narrativeSections: [
           {
             title: "Family Structure",
@@ -899,25 +904,26 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
           }
         ],
         cognateOpener: [
-          { native: "hotel",          english: "hotel",                              category: "place"         },
-          { native: "t\u00e1xi",          english: "taxi",                               category: "transport"     },
-          { native: "restaurante",   english: "restaurant",                         category: "food"          },
-          { native: "poss\u00edvel",       english: "possible",                           category: "concept"       },
-          { native: "importante",    english: "important",                          category: "concept"       },
-          { native: "excelente",     english: "excellent",                          category: "concept"       },
-          { native: "natural",       english: "natural",                            category: "concept"       },
-          { native: "social",        english: "social",                             category: "concept"       },
-          { native: "nacional",      english: "national",                           category: "concept"       },
-          { native: "animal",        english: "animal",                             category: "concept"       },
-          { native: "digital",       english: "digital",                            category: "concept"       },
-          { native: "hospital",      english: "hospital",                           category: "place"         },
-          { native: "central",       english: "central",                            category: "concept"       },
-          { native: "tropical",      english: "tropical",                           category: "concept"       },
-          { native: "total",         english: "total",                              category: "concept"       },
-          { native: "musical",       english: "musical",                            category: "concept"       },
-          { native: "polvo",         english: "octopus \u2014 not \u201cpowder\u201d",          category: "false-friend"  },
-          { native: "borracha",      english: "rubber / drunk (f.) \u2014 not simply \u201cdrunk\u201d", category: "false-friend"  },
-          { native: "pretender",     english: "to intend \u2014 not \u201cto pretend\u201d",    category: "false-friend"  }
+          { english: "hotel",        target: "hotel",        spanish: "", category: "Identical in both languages" },
+          { english: "taxi",         target: "t\u00e1xi",        spanish: "", category: "Identical in both languages" },
+          { english: "actor",        target: "ator",         spanish: "", category: "Identical in both languages" },
+          { english: "doctor",       target: "doutor",       spanish: "", category: "Near-identical" },
+          { english: "director",     target: "diretor",      spanish: "", category: "Near-identical" },
+          { english: "color",        target: "cor",          spanish: "", category: "Near-identical" },
+          { english: "animal",       target: "animal",       spanish: "", category: "Identical in both languages" },
+          { english: "hospital",     target: "hospital",     spanish: "", category: "Identical in both languages" },
+          { english: "natural",      target: "natural",      spanish: "", category: "Identical in both languages" },
+          { english: "social",       target: "social",       spanish: "", category: "Identical in both languages" },
+          { english: "tropical",     target: "tropical",     spanish: "", category: "Identical in both languages" },
+          { english: "musical",      target: "musical",      spanish: "", category: "Identical in both languages" },
+          { english: "nation",       target: "na\u00e7\u00e3o",       spanish: "", category: "-tion \u2192 -\u00e7\u00e3o" },
+          { english: "conversation", target: "conversa\u00e7\u00e3o", spanish: "", category: "-tion \u2192 -\u00e7\u00e3o" },
+          { english: "information",  target: "informa\u00e7\u00e3o",  spanish: "", category: "-tion \u2192 -\u00e7\u00e3o" },
+          { english: "artist",       target: "artista",      spanish: "", category: "-ist \u2192 -ista" },
+          { english: "tourist",      target: "turista",      spanish: "", category: "-ist \u2192 -ista" },
+          { english: "powder",       target: "polvo",        spanish: "", category: "False friends", isFalseCognate: true, falseCognateNote: "polvo means octopus in Portuguese" },
+          { english: "to pretend",   target: "pretender",    spanish: "", category: "False friends", isFalseCognate: true, falseCognateNote: "pretender means to intend or to claim" },
+          { english: "constipated",  target: "constipado",   spanish: "", category: "False friends", isFalseCognate: true, falseCognateNote: "constipado means having a cold" }
         ]
       },
       numbers: {

@@ -3947,3 +3947,69 @@ Contains:
 4. Seed M2 gender pairs from confirmed pp. 16–19 content
 5. Seed M3 cognate grid from confirmed lesson text
 6. Generate Phase 1 images (hotel, banco, restaurante, cine, greetings scene)
+
+---
+
+## Session 55 — Apr 14, 2026
+
+### Objective
+Execute T001–T007: build M1–M4 data components, bloviation audit, cognate expansion.
+
+### T001–T003 status on arrival
+All three were already complete from prior sessions:
+- `VocabQAItem`, `GenderPair`, `VerbGroup` types exist in `chapter-intro-content.ts`
+- `VocabQAGrid`, `GenderAgreementGrid`, `VerbAnchorGrid` all exported from `TextbookInfographics.tsx`
+- All three wired in `ChapterIntroduction.tsx` at lines ~2494–2540
+- `discoveryNote` rendering already in narrativeSections loop
+
+### T004 — Spanish chapter data improvements
+**Greetings vocabQA** replaced with Madrigal p.43 sources:
+- Now covers: buenos días/tardes/noches, ¿Cómo está usted?, gracias/de nada, perdón, me llamo, con mucho gusto
+- Each item has `word` + `translation` + `question` + `answer` + `answerTranslation`
+
+**Numbers verbGroups tener** expanded with full Madrigal p.53 idioms:
+- Added: sed (thirsty), frío (cold), calor (warm), razón (right/lit. have reason)
+- Added `verbHint` explaining the key insight: tener carries states English expresses with "to be"
+
+### T005 — Bloviation audit
+**Spanish greetings welcomeText** — removed table-of-contents phrasing:
+> BEFORE: "In this chapter you'll learn three time-of-day greetings..."
+> AFTER: "Spanish greetings change with the clock — buenos días before noon..."
+
+**Spanish family welcomeText** — replaced with pattern-reveal hook:
+> BEFORE: "Spanish has a specific word for every family relationship..."
+> AFTER: "The -o/-a pair runs through all of Spanish family vocabulary: padre/madre..."
+
+### T006 — Cognate expansion
+**Portuguese cognateOpener bug fixed:** entries used non-existent `native` field instead of `target`. Silent display failure — Portuguese word never rendered in CognateRecognitionGrid. Fixed and expanded to 20 entries with proper interface alignment:
+- Regular cognates now use `{ english, target, spanish, category }`
+- False friends now use `{ isFalseCognate: true, falseCognateNote }` correctly
+- Added: -or words (ator/doutor/diretor), -al words, -ção pattern, 3 false friends (polvo/pretender/constipado)
+
+French, German, Italian cognateOpeners were already correct and populated — no changes needed.
+
+### T007 — Roadmap + handoff
+`docs/see-it-and-say-it-roadmap.md` updated with:
+1. **Complete verb sequence (Phase 1–4)** — full table from ir through me encantaría
+2. **The English-Fade Pattern** — four-stage table with pivot point analysis
+3. **Lesson map filled in** for pp. 44–101 (tener, querer, plural rules, estar, poder, hay, me gusta/gustaría/encanta)
+4. **Session log** updated with S54+S55 entries
+5. **Unsampled sections** narrowed — previously listed "68–121" now broken into confirmed content (68–101) and remaining gap (102–121)
+
+### Key architecture insight this session
+The "English-fade" pattern is the core design insight for VocabQA UX:
+- Madrigal removes English scaffolding gradually as drawings become sufficient translations
+- VocabQA items should NOT show English by default — image IS the translation
+- English visible only on tap/demand
+- This is the "see it and say it" method encoded as UI behavior
+
+### Files changed this session
+- `client/src/data/chapter-intro-content.ts` — greetings welcomeText, family welcomeText, greetings vocabQA (Madrigal p.43 sources), numbers verbGroups tener (p.53 idioms), Portuguese cognateOpener (bug fix + expansion)
+- `docs/see-it-and-say-it-roadmap.md` — complete verb sequence, English-fade pattern, pp. 44–101 lesson map, session log, unsampled sections updated
+
+### Next session priorities
+1. Read remaining unsampled blocks: pp. 20–27, 64–65, 102–121, 128–177
+2. Read appendix grammar tables (pp. 217–232) for M6 verb compartment data  
+3. Seed M1–M4 data for estar/poder/hay/me gusta phases in chapter-intro-content.ts
+4. Consider adding a `verbHint` field to all existing verbGroups (the tener example proved this adds real value)
+5. Run bloviation audit on remaining language chapters (currently only Spanish done)
