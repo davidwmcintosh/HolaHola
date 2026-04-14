@@ -4013,3 +4013,179 @@ The "English-fade" pattern is the core design insight for VocabQA UX:
 3. Seed M1–M4 data for estar/poder/hay/me gusta phases in chapter-intro-content.ts
 4. Consider adding a `verbHint` field to all existing verbGroups (the tener example proved this adds real value)
 5. Run bloviation audit on remaining language chapters (currently only Spanish done)
+
+---
+
+## Session 56 — Apr 14, 2026
+
+### Goal
+Complete full read of all remaining unsampled "See It and Say It" sections before seeding new data or building new components.
+
+### Context on arrival
+S55 ended mid-read at pp. 120–139. All T001–T007 tasks were complete. Two test scan PDFs had been uploaded by user (1 and 2 pages — confirmed these are test shots from user's scanner, NOT Magic Keys content). Magic Keys is NOT uploaded yet.
+
+### What was read this session
+
+**pp. 20–27 — ¿Qué es? category system (MAJOR FIND)**
+- 4 semantic categories for ser-based classification: `un animal`, `una fruta`, `una flor`, `una verdura`
+- Animals: vaca, caballo, gato, perro, mula, tigre, leónFruits: pera, naranja, manzana, piña
+- Flowers: rosa, tulipán, geranio, clavel — "una flor linda" introduces adjective linda
+- Vegetables: apio, zanahoria, lechuga, tomate
+- p. 25: **rojo** = first color adjective in the entire book — "¿Es rojo el tomate? Sí, el tomate es rojo."
+- This is a DISTINCT use of ser (classification, not description) — never flagged in earlier sessions
+
+**pp. 64–65 — Plurals (confirmed)**
+- -o → -os (el sombrero → los sombreros, el libro → los libros)
+- -a → -as (la rosa → las rosas, la casa → las casas)
+- el/los and la/las confirmed
+
+**pp. 72–73, 82–83, 92–93 — Exercise/consolidation pages (no new structures)**
+
+**pp. 102–119 — Modal consolidation block (CRITICAL)**
+- pp. 100–101: me encantan (plural) + me encantaría ir confirmed
+- pp. 118–119: **THE MASTER INFINITIVE PAGE** — all modal constructions shown together explicitly:
+  - Left column: voy a / va a / tengo que / tiene que / quiero / quiere / puedo / no puedo / me gusta / me gustaría / me encanta / **debo** (NEW — I should/ought to)
+  - Right column verb list: vender, leer, escribir, ir, comprender, recibir, estudiar, trabajar, caminar, hablar, comprar, dejar
+  - Explicit grammar note: "The TO form of Spanish verbs ends in ar, er or ir. This is the infinitive."
+  - "You can make up a great number of sentences combining the words in the two columns above."
+  - `debo` is the 10th+ modal construction — I should/ought to/must
+
+**pp. 124–125 — Dejar preterite (new verb)**
+- dejé / dejó / dejamos / dejaron
+- ¿Dónde dejó la valija? → Dejé la valija en el hotel
+- Vocabulary: valija (suitcase), guantes (gloves), pasaporte (passport), pipa (pipe), llave (key), portafolio (briefcase)
+
+**pp. 128–131 — Plural preterite (alquilamos/alquilaron, dejamos/dejaron, tomamos/tomaron)**
+- First spread to show BOTH "we" and "they" responses side by side
+- Breakfast items in preterite: jugo de naranja, pan tostado, huevos fritos, para el desayuno
+
+**pp. 132–133 — ER/IR Preterite (already in roadmap, now confirmed with explicit grammar note)**
+- recibí/recibió, escribí/escribió, vendí/vendió, vi/vió
+- Key grammar note (p. 132): "ER and IR verbs end in -í when you speak of yourself, -ió when you speak of anyone else (singular)"
+
+**pp. 134–135 — Ver + circus scenes (LOS NIÑOS — first plural subject)**
+- vi/vió + paintings, statues, suit, hat
+- ¿Qué vieron los niños en el circo? → first appearance of THIRD PERSON PLURAL subject + preterite
+- Circus vocabulary: circo, payaso (clown), mono (monkey); chistoso (funny) as new adjective
+- Pattern: ¿Es chistoso el payaso? Sí, el payaso es muy chistoso.
+
+**pp. 150–151 — Traer + Decir + ERA (MAJOR FIND)**
+- traer: traje / trajo / trajimos / trajeron
+- decir: dije / dijo / dijimos / dijeron
+- Indirect object `le`: "¿Qué le trajo?" → "Le traje un libro" / "Le traje un disco"
+- **ERA = FIRST IMPERFECT TENSE IN THE BOOK** — appears in reported speech: "Le dije que era interesante / terrible / excelente / imposible / formidable"
+- Madrigal doesn't label it "imperfect" — students absorb `era` = "was/it was" from context
+- Tableware vocabulary introduced: cuchara, cuchillo, plato, mantel, servilleta, jarra, vaso
+- limpio / limpia (clean) and sucio / sucia (dirty) as adjective pair
+
+**pp. 152–153 — Voy al + days of week (scheduling context)**
+- Voy al teatro el jueves / al concierto el viernes / a la iglesia el domingo / al despacho el lunes / a la biblioteca
+- Days of week appear in action context — not a grammar drill
+
+**pp. 160–161 — AR Verb Compendium (38-verb list + conjugation table)**
+- Full present tense table: compro / compra / compramos / compran
+- 38 common AR verbs: hablar, comprar, estudiar, nadar, cantar, bailar, viajar, trabajar, preparar, invitar, visitar, dejar, saludar, estacionar, usar, llamar, mirar, esperar, ayudar, preguntar, cambiar, ganar, mandar, lavar, planchar, alquilar, caminar, votar, importar, exportar, entrar, fumar, tomar, llevar, regresar, contestar
+- Grammar stress note: "Present tense verbs receive stress on the next-to-last syllable: COM-pro, COM-pra, com-PRA-mos, COM-pran"
+
+**pp. 162–163 — Everyday Expressions #5 (MAJOR FIND)**
+- ¿A qué hora? → a las dos / cinco / ocho / nueve (time-telling)
+- Event vocabulary: la fiesta, el concierto, el cine, la cita (appointment)
+- Frequency: Una vez / Dos veces / Unas veces / Muchas veces / De vez en cuando / Otra vez / Tal vez / Esta vez / Esa vez / Todo
+- Status phrases: Es todo / Nada / Sin / Siempre / Nunca / Necesito / ¿Qué necesita? / Está bien / Con permiso / Depende / Ya / Seguro / No importa / Lo siento / Creo que sí / Creo que no / Espero que sí
+- `Necesito` (I need) — new verb appearing here for first time
+- `Espero que sí` — a teaser for the subjunctive (Espero que + subjunctive) that will be formally taught at pp. 198–199
+
+**pp. 164–167 — ER/IR Verbs Present Tense + Conjugation Tables**
+- leer: leo (I read), lee (you/he/she read) — ¿Lee usted el periódico en la clase?
+- escribir: escribo (I write) — con lápiz / con pluma / a máquina
+- vivir: vivo (I live) — ¿Dónde vive? → Vivo en Nueva York
+- comprender: comprendo — ¿Comprende usted la conversación?
+- aprender: aprendo español en la clase
+- vender: vendo — ¿Vende usted autos? Ay no, no vendo autos.
+- Grammar note: "In questions, you can use or drop the word usted — both forms heard in ordinary conversation"
+- Full ER verb table: vendo/vende/vendemos/venden
+- Full IR verb table: vivo/vive/vivimos/viven
+
+**pp. 176–177 — Weather**
+- hace frío / hace calor / hace fresco / hace viento
+- Seasons in context: en el invierno / en la primavera / en el verano / en el otoño
+- Months: septiembre, octubre, noviembre, diciembre
+- "En diciembre hay nieve" — hay for weather phenomena
+- ¿Está lloviendo? → present progressive for weather (preview of pp. 182–183)
+
+**pp. 178–179 — México composition (culminating reading passage)**
+- First extended reading passage in the book
+- Full past tense narrative: fui (I went), llegué (I arrived), caminé (I walked), vi (I saw), hablé español, compré regalos
+- New vocabulary: un país lindo, montañas altas, valles inmensos, ciudades maravillosas, avenidas anchas, fuentes iluminadas, parques grandes, iglesias antiguas, museos extraordinarios, edificios modernos, tiempo colonial, arquitectos mexicanos
+- Cultural content: Ciudad de México, avenidas anchas, fuentes iluminadas
+
+**pp. 182–183 — Present Progressive confirmed and expanded**
+- ¿Está tocando el violín? No, no estoy tocando el violín.
+- ¿Está patinando? No, no estoy patinando. ¿Está nadando?
+- Full paradigm: estoy nadando / está nadando / estamos nadando / están nadando
+- "The English ending ING is ANDO for AR verbs in Spanish. Learn: ING = ANDO"
+- Examples: estudiando, hablando, cantando, comprando
+
+**pp. 198–199 — Commands + Subjunctive (Appendix)**
+- Commands: escriba (write), oiga (listen!), traigamelo (bring it to me), venga acá (come here), hágalo (do it), dígame (tell me)
+- GA irregular command forms: oiga/traiga/venga/haga/diga
+- Subjunctive: Espero que venga a la fiesta / Espero que me escriba / Quiero que lo haga / Quiero que lo traiga / Quiero que lo conteste
+- Grammar notes: "Pronouns go BEFORE the subjunctive" / "Pronouns are added ON TO the command"
+
+**Appendix — Colors, Body Parts, Family, Conjugation Tables**
+- Colors (p. 214): blanco, negro, rojo, colorado, color café, pardo, azul, verde, gris, amarillo, morado, rosado
+- Body parts (p. 215): complete head-to-toe list (head, upper body, lower body — ~35 items)
+- Family (pp. 212–213): full extended family vocabulary confirmed (22 masc/fem pairs)
+- Grammar tables (pp. 217–232): ALL tenses for AR/ER/IR — Present, Preterite, Imperfect, Future, Conditional, Present Perfect, Past Perfect, Present Progressive, Past Progressive, Subjunctive — the M6 master reference
+- Common ER verbs: Aprender, Barrer, Beber, Comer...
+- Common IR verbs: recibir, resistir, subir, sufrir, vivir, permitir, persuadir, aplaudir
+
+### Critical architectural insights from full-book read
+
+**1. Five Everyday Expressions pages are the pedagogical pivots**
+EE #1 (p.43) → EE #2 (p.53) → EE #3 (pp.70–71) → EE #4 (pp.80–81) → EE #5 (pp.162–163). These are the "practical fluency checkpoints" — each one consolidates spoken-use language beyond the grammar drills. They should map to HoloHola's warmup/cooldown moments.
+
+**2. ¿Qué es? is a DISTINCT ser use case — never flagged before**
+pp. 20–25 introduce ser for CATEGORIZATION, not description. The sentences are `El tomate ES una verdura` (not "the tomato is red") — they place the noun into a category. The 4 categories (animal/fruta/flor/verdura) form a natural M1 chapter. This is a completely seeded slot in our curriculum that didn't exist before this read.
+
+**3. debo = the 10th modal construction**
+Appeared only on the master infinitive page (p. 118–119) alongside ir a/tener que/querer/poder/me gusta/me gustaría/me encanta. "I should/ought to/must" — softer than tener que. The M4 VerbAnchorGrid for the modals chapter should include this.
+
+**4. ERA is the first imperfect — it enters as reported speech, not as a tense lesson**
+`Le dije que era interesante` (p. 151) — Madrigal doesn't say "now we will learn the imperfect." The word `era` (was/it was) just appears in context, and students absorb it. This is important for HoloHola's progression: when we introduce imperfect as a formal tense, it should feel like a label being put on something they've been using for chapters.
+
+**5. The México composition (pp. 178–179) is the first proof students can read real Spanish**
+All past tense forms (fui, llegué, caminé, vi, hablé, compré) used in natural prose. This is the moment the book demonstrates fluency payoff. HoloHola should have an equivalent "read this real paragraph" moment in later chapters.
+
+**6. ER/IR present tense comes LATE (pp. 164–167) — after extensive preterite practice**
+Most Spanish courses teach present → past. Madrigal teaches AR present → AR/ER/IR preterite → ER/IR present. Students can say "I received a gift" before they can say "I receive gifts." Communicative function takes priority over tense order.
+
+**7. "Usted can be dropped in questions" (p. 165) — major register note**
+This is the first explicit permission to use informal register. "In questions, you can use or drop usted — you hear both in ordinary conversation." Daniela should probably model this once students hit the ER/IR chapter.
+
+**8. Appendix is the M6 master reference — full tense system**
+The grammar section (pp. 217–232) has every tense for every verb class. This is where HoloHola's M6 Compartment grids get their data. AR/ER/IR each have: Present, Preterite, Imperfect, Future, Conditional, Present Perfect, Past Perfect, Present Progressive, Past Progressive, Subjunctive.
+
+### What was NOT done this session
+- No code changes — this was a pure book analysis session
+- Magic Keys not uploaded — still blocked on that
+- New data (¿Qué es?, debo, dejar, rojo, EE #5) seeded into chapter-intro-content.ts — PENDING
+
+### Current scratchpad state (updated)
+
+**PAUSE ON DATA SEEDING**: Both books must be fully read before seeding further. "See It and Say It" is now FULLY READ. Waiting for Magic Keys upload.
+
+**Magic Keys status**: User has the physical book. Test scans uploaded Apr 14 (2-page and 1-page test shots only — not actual book content). Book needs to be scanned and uploaded.
+
+**Data waiting to be seeded (after Magic Keys analysis)**:
+- ¿Qué es? category system (animal/fruta/flor/verdura) — new M1 chapter content
+- rojo as first color + adjective linda + chistoso + limpio/sucio
+- debo as 10th modal in numbers chapter verbGroups
+- dejar preterite — verb conjugation
+- Everyday Expressions #5 expressions (¿A qué hora?, frequency, status phrases, Necesito)
+- ERA as first imperfect — note for verb progression docs
+- ER/IR present conjugation data for future chapters
+
+### Files changed this session
+- `docs/see-it-and-say-it-roadmap.md` — complete rewrite with all 9 phases, all 5 EE pages, full lesson map (no more unsampled rows), complete vocabulary inventories, appendix fully catalogued
+
