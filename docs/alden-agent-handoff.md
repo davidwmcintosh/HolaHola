@@ -3897,8 +3897,53 @@ The 7d vs 14d split shows the post-April-8 optimization effect clearly: the 14d 
 - `server/services/alden-functions.ts` — `aiCostLogs` added to imports; `get_ai_cost_report` case block fully rewritten (lines 1656–1775)
 
 ### Open work
-- Book scan (~April 14): unlocks M5 image prompts + M2/M3/M6 Madrigal expansion
+- ~~Book scan (~April 14)~~ — **COMPLETE. See `docs/see-it-and-say-it-roadmap.md`**
 - Compartment unlock logic (UX decision pending)
-- Kudos system redesign (deferred to post-scan)
-- Medical Spanish vertical (HoloHola) — next after book scan
+- Kudos system redesign (deferred)
+- Medical Spanish vertical (HoloHola) — next after content seeding
 - Interview Coach (separate app) — lower priority
+
+---
+
+## Session 53 — Mon, Apr 14, 2026 — Book scan received; visual assets roadmap created
+
+### What was done
+
+**Book:** *See It and Say It in Spanish* by Margarita Madrigal (Berkley/Penguin, 1962/2023).
+Two PDF files received: main text (98 PDF pages, ~196 book pages) and appendix (29 PDF pages).
+
+**Method:** Extracted pages as images via `pdftoppm`, read visually page by page.
+
+**Pages sampled:** Book pp. 8–43, 62–67, 122–127, 178–195 (main). Appendix pp. 201, 204–209, 212–213.
+
+**Roadmap document created:** `docs/see-it-and-say-it-roadmap.md`
+
+Contains:
+- Full book structure table (lesson pages, appendix sections, grammar tables)
+- Lesson-by-lesson content map (all sampled spreads with drawings confirmed)
+- Complete visual asset inventory by category (places, transport, food, clothing, objects, animals, activities, adjectives)
+- Pedagogical mapping: each asset category → M1/M2/M3/M4/M5/M6 component
+- Image generation queue prioritized by chapter (Ch.1 greetings → Ch.2 family → Ch.3 numbers → M2 gender pairs → verb scenes → restaurant vocab)
+- Unsampled page ranges flagged for next session (~55 book pages unread)
+
+**Key findings:**
+- **M1 (VocabQA):** The book's core lesson format is exactly M1 — drawing + sentence + Q&A. ~380 drawing/sentence pairs across 96 lesson spreads.
+- **M2 (GenderAgreement):** Pages 16–19 are the canonical source. Three explicit rules: -o words = el/un, -a words = la/una, adjectives match. 8+8 confirmed pairs.
+- **M3 (Cognates):** Preface explicitly names this as the method. 17+ cognates confirmed from lesson text: hotel, restaurante, banco, chocolate, salmón, violeta, sardina, acordeón, teléfono, etc.
+- **M4 (VerbAnchor):** Every lesson page bottom = conjugation table. Verb progression: ir → ser → tomar → comprar → querer → alquilar → estar+-ando → haber+-ado/ido.
+- **M6 (Compartments):** Appendix pp. 217–232 = full AR/ER/IR conjugation tables for ALL tenses — this is the M6 master reference.
+- **Drawing style:** Bold simple black-and-white line art, single subject, white background. This is the aesthetic target for HoloHola AI image generation.
+- **Everyday Expressions (p. 43):** Buenos días/tardes/noches señor/señorita/señora; ¿Cómo está usted?; Bien gracias; ¿Y usted?; Gracias; De nada; Perdón; Con mucho gusto — direct source for Chapter 1 greetings M1 content.
+- **Family (appendix p. 213):** 22 family members in matched masculine/feminine pairs — direct source for Chapter 2 family M1+M2 content.
+- **Seasons (appendix p. 212):** 4-panel tree drawing showing primavera/verano/otoño/invierno — perfect M5 scene image.
+
+### Files changed this session
+- `docs/see-it-and-say-it-roadmap.md` — created (visual assets roadmap, ~300 lines)
+
+### Next session priorities
+1. Read unsampled blocks (book pp. 20–27, 44–61, 68–121, 128–177) to complete the lesson map
+2. Read appendix grammar tables (pp. 217–232) for M6 verb compartment data
+3. Seed M1 vocabQA items for Chapter 1 (greetings) from confirmed p. 43 content
+4. Seed M2 gender pairs from confirmed pp. 16–19 content
+5. Seed M3 cognate grid from confirmed lesson text
+6. Generate Phase 1 images (hotel, banco, restaurante, cine, greetings scene)
