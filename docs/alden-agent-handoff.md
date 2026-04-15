@@ -4453,3 +4453,97 @@ Place: banco ("BANK" English)
 3. **D-grade regen** — use the Fix Single Word tool in Vocab Images tab OR new regen-key endpoint directly for `vocab_weather_forecast_card`, `vocab_num_hundreds`, `vocab_num_phone`
 4. **C-grade batch** — 23 images; consider adding them to the audit panel too
 5. **Magic Keys to Spanish** — upload when available
+
+---
+
+## Session S62 — Tue, Apr 15, 2026 (Multi-character voice handoffs activated)
+
+### What was done
+
+**Multi-character voice system made live:**
+- `getCharacterListDescription()` imported from `character-registry.ts` into `classroom-environment.ts`
+- Injected into Tool Rack (the system prompt section Daniela reads every session) — Daniela now sees `speak_as(character, text)` and `resume_tutor(text)` tools with the full Spanish roster listed
+- Function definitions for `speak_as` and `resume_tutor` already existed in `daniela-function-registry.ts`; native handler logic already existed in `native-fc-handlers.ts`
+- Activation was purely a matter of injecting the character list into Daniela's system context so she knew the tools were available and which characters existed
+
+**Spanish roster now live (8 characters):**
+- `carlos` — adult male (Google en-US-Chirp3-HD-Puck)
+- `el_mesero` — restaurant waiter male (Google es-US-Chirp3-HD-Puck)
+- `el_doctor` — male doctor (Google es-US-Chirp3-HD-Puck)
+- `el_vendedor` — male shopkeeper (Google es-US-Chirp3-HD-Puck)
+- `el_recepcionista` — male hotel receptionist (Google es-US-Chirp3-HD-Puck)
+- `elena` — adult female (Google es-US-Chirp3-HD-Aoede)
+- `la_doctora` — female doctor (Google es-US-Chirp3-HD-Aoede)
+- `la_mesera` — female waitress (Google es-US-Chirp3-HD-Aoede)
+
+**Competitive analysis updated:**
+- `docs/competitive-talkpals.md` row for "different voices per scenario character" updated to reflect activation
+
+### Status at end of S62
+- Multi-character system: LIVE ✅
+- speak_as / resume_tutor: available to Daniela in every session
+- S62 handoff entry: not written during session (written retroactively in S63)
+
+### Files changed in S62
+- `server/services/classroom-environment.ts` — `getCharacterListDescription` import added; Tool Rack injection added
+- `docs/competitive-talkpals.md` — multi-character row updated
+
+### Notes
+- **Two-file rule for new Daniela functions:** Any new function added to Daniela must be added to BOTH `daniela-function-registry.ts` (function definition) AND the Tool Rack in `classroom-environment.ts` (system prompt injection). The S62 activation was completing this pair for speak_as/resume_tutor, which had definitions but no Tool Rack presence.
+
+---
+
+## Session S63 — Tue, Apr 15, 2026 (Magic Key to Spanish: full audit + two-book synthesis)
+
+### What was done
+
+**Magic Key to Spanish — full text extracted and read:**
+- PDF on disk: `attached_assets/madrigals_magic_key_to_spanish_20260415_0001_1776285811018.pdf`
+- Extracted with pdftotext → `/tmp/magic_key.txt` (97MB PDF → 11,018 lines of text)
+- All 45 lessons catalogued
+- Key structural features confirmed through actual text, not paraphrase
+
+**Major findings (see Part I.F in visual-asset-roadmap.md for full analysis):**
+1. **Publication order confirmed:** Magic Key (1953) came BEFORE See It and Say It (1963) — Madrigal spent a decade fixing what was missing from Magic Key
+2. **Three-column sentence generator is the primary format of the entire book** — appears in every one of the 45 lessons, not a single chapter feature
+3. **Column 1 mixes tenses from Lesson 11 onward** — past preterite and *ir a* future in the same column, no labeling, by design
+4. **Tú confirmed at Lesson 45 of 45** — the final lesson, framed as "add -s to the third-person form," not a new conjugation system. Preterite and command are the only exceptions (noted explicitly)
+5. **Cognate system is 11 conversion rules × 200–400 words each** — not "tables in every chapter" but the entire pedagogical spine. Lessons 1–2 unlock 1,000–2,000+ words
+6. **Present tense introduced at Lesson 22 of 45** — entire first half of the book is preterite + *ir a* future
+7. **Preconjugated forms throughout** — not a page 40 feature; the entire book presents "I form / anyone-else form / question form" before any conjugation table
+8. **Teaching philosophy articulated in Madrigal's own words** — multiple extended passages extracted verbatim
+
+**7 Daniela teaching notes identified — ready to seed:**
+These are verbatim or near-verbatim from Magic Key, ready to load into `danielaNotes` via admin panel:
+1. "Never let a word lie fallow. Use it the minute you learn it."
+2. "Large concepts, not small lists. One pattern gives 200 words forever."
+3. "Invention beats memorization. A form you create is yours permanently."
+4. "When a cognate appears, celebrate it: 'You already knew that word.'"
+5. "Delayed tú is intentional. Build usted fluency first; tú arrives as +s."
+6. "In Spanish, people are always 'in' places, never 'at' places."
+7. "Subject pronouns drop constantly. 'Hablas' is complete."
+
+**Two-book synthesis analysis written (Part I.G):**
+- Publication order analysis and what it means for HoloHola's position
+- Head-to-head comparison table across 11 dimensions
+- 5 things HoloHola has that neither book can provide
+- 5-phase synthesis architecture (mass unlock → visual anchor → generate → scene → tú milestone)
+- 4 design tensions documented (not resolved — gathering mode)
+
+**Status at end of S63:**
+- Part I.F: COMPLETE ✅ — full audit with confirmed findings from actual text
+- Part I.G: COMPLETE ✅ — synthesis analysis written, gathering mode
+- 7 Daniela tips: DOCUMENTED ✅ — ready to seed next session
+- Design decisions: DEFERRED — still in gathering mode per founder direction
+- F-grade image regen: STILL PENDING (7 images, `/admin/developer` → Image Audit tab)
+- S62/S63 handoff entries: NOW WRITTEN ✅
+
+### Files changed in S63
+- `docs/visual-asset-roadmap.md` — Part I.F completely rewritten with full audit findings; Part I.G added (two-book synthesis); change log rows updated throughout
+
+### Next recommended tasks
+1. **Seed 7 Daniela tips** — admin panel → Daniela Notes → add each of the 7 tips from Part I.F
+2. **Run F-grade image regen** — `/admin/developer` → Image Audit tab → Regenerate each of the 7 F-grade images
+3. **Audit Spanish chapters for premature tú** — check greetings and daily chapters for tú forms; shift to usted; flag tú as a later milestone
+4. **Review SentenceFrameGrid** — does it expose genuine three-column pick, or fixed sentences with highlighted slots? Magic Key's standard is the former
+5. **Continue gathering mode** — founder reviewing more source material before design decisions
