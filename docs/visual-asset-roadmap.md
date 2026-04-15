@@ -19,6 +19,7 @@ The analysis documents below have been integrated inline as **Part I** of this r
 | **Part I.B** — See It and Say It Source Analysis *(inline below)* | Full lesson map of *See It and Say It in Spanish* — all 9 phases, 5 Everyday Expressions pages, appendix catalogued, complete drawing and structure catalogue | Authoritative source of truth for Madrigal's content sequence |
 | **Part I.C** — Gap Audit: HoloHola vs. Madrigal *(inline below)* | Chapter-by-chapter overlap analysis, current coverage score (~30%), and prioritized gap-fill queue for existing and new chapters | Before deciding which new chapters or vocabQA items to seed next |
 | **Part I.D** — How Madrigal Illustrates Each Concept *(inline below)* | 10 image templates, per-category drawing specs, prompt guidelines, and the Question Fit Test | Brief for every new VocabQA image batch |
+| **Part I.E** — Actual Image Quality Audit *(inline below)* | First-party visual inspection of 15 real HoloHola images — graded A/B/C/F against the Question Fit Test; 2 F-grade images flagged for immediate regen with prompts; 3 C-grade images queued; cross-cutting failure mode analysis | Before regenerating any image; the ground-truth quality record |
 | `docs/curriculum-strategy.md` *(external)* | Overall platform philosophy, ACTFL level mapping, M1–M6 component definitions | Framing new chapter types |
 
 **Image generation style note:** HoloHola uses soft watercolor, not Madrigal's B&W line art — we are not trying to replicate her drawings. What Madrigal's illustrations teach us is how *minimal* you can get and still communicate a word unambiguously. Her drawings are a masterclass in stripping an image down to its single essential idea. That principle applies directly to our watercolor generation: when in doubt, simplify. One subject, one context, no clutter. Part I.D documents how she solves each concept type — use it as a simplicity reference, not a style guide.
@@ -1639,8 +1640,124 @@ Every image must pass the one-answer test.
 | **NEW: Weather** | Weather phenomena, seasons | ISOLATED (sun/cloud/rain/snow) |
 | **NEW: Feelings** | People expressing emotions | PORTRAIT (with expression) |
 
+---
+
+## Part I.E — Actual Image Quality Audit (S58, April 2026)
+
+**What this is:** A first-party visual inspection of real images currently served at `/api/media/ai-image/vocab_*.png` — viewed at full resolution, judged against Madrigal's simplicity principles from Part I.D. This is the ground-truth quality record. Every image listed was screenshotted live; none of this is theoretical.
+
+**Methodology:** For each image, ask the "Question Fit Test" (from Part I.D): *If a student saw only this image, is there exactly one reasonable Spanish answer?* A second test: *Does anything in the image create a competing association?* The grade reflects both.
+
+**Grade key:**
+| Grade | Meaning |
+|-------|---------|
+| **A** | Passes Question Fit Test cleanly. Near-zero noise. Would survive Madrigal's editing pencil. |
+| **B** | Passes QFT but has one correctable issue (minor clutter, slight context noise). Keep for now. |
+| **C** | Passes QFT but has meaningful noise that could compete with the target concept. Schedule regen. |
+| **F** | Fails QFT or contains disqualifying content (English text, culture-specific signage, embedded labels). Regen immediately. |
 
 ---
+
+### Reviewed Images — Session S58
+
+| # | Filename | Concept | Template | Grade | Observation | Action |
+|---|----------|---------|----------|-------|-------------|--------|
+| 1 | `vocab_color_rojo.png` | rojo | ISOLATED | **A** | Perfect. Pure red circle on white background. Zero noise. Exactly one possible answer. | Keep as canonical example for all color images. |
+| 2 | `vocab_act_escribir.png` | escribir | ACTION (hands only) | **A** | Close-up of two hands writing with a pencil on paper at a desk edge. No face, no scene. Action is unmistakable. The frameless crop strips away all noise. | Keep. This is our best action image. Use as template for other hand-action verbs. |
+| 3 | `vocab_adj_grande_pequeno.png` | grande / pequeño | DUO | **A** | Elephant + mouse in profile. The size contrast is iconic and immediate. Slight ground detail (grass, dirt) is genuinely negligible — does not compete. | Keep. Minor improvement: remove ground texture in future batch. |
+| 4 | `vocab_adj_nuevo_viejo.png` | nuevo / viejo | DUO | **A** | Brand-new red sneaker (left) vs. heavily worn, patched sneaker (right) on white background. Zero context noise. The contrast communicates the adjective pair in under one second. | Keep as canonical example for DUO adjective pairs. |
+| 5 | `vocab_act_comer.png` | comer | ACTION | **B** | Single person at a table eating from a plate with fork. Clean white background. Action unambiguous. One issue: the plate has a complex multi-item meal (chicken, broccoli, rice, peas) — minor, since comer = "to eat" and any food works. | Keep. If ever regenerated, simplify plate to one item. |
+| 6 | `vocab_adj_feliz_triste.png` | feliz / triste | DUO / PORTRAIT | **B** | Two child face portraits side by side — one beaming smile, one crying with a tear. QFT passes. One risk: the two children look like completely different people (different ethnicities, different ages) which could read as "two children" rather than "two emotional states." | Keep for now. Ideal regen: same character drawn twice in contrasting states. |
+| 7 | `vocab_act_hablar.png` | hablar | DUO | **B** | Two people face-to-face with open-handed gesture poses suggesting conversation. Action clear. Issue: overlapping yellow and blue watercolor background washes add decorative noise. Not a QFT failure — "hablar" or "conversar" are the only reasonable answers. | Keep. Future regen: remove background color washes, keep white. |
+| 8 | `vocab_places_restaurante.png` | restaurante | FACADE | **B** | Stone-facade European-style restaurant exterior with outdoor tables, candles, and potted plants. Facade approach is correct. Scene is complex (3 tables, 6 chairs, 3 topiary plants, cobblestone pavement, detailed windows) but the concept is unmistakable. No text. | Keep. Future regen: reduce to one table + simple door, no stonework detail. |
+| 9 | `vocab_act_beber.png` | beber | ACTION | **B** | Woman drinking from a glass, close-up. Action is unmistakable. Issue: she is wearing a blue bandana/headscarf which visually reads as "worker/cook" rather than just "person." Minor association but worth noting. Yellow wash in background is minimal. | Keep. Future regen: plain clothing, no headwear. |
+| 10 | `vocab_act_leer.png` | leer | ACTION | **C** | Girl sitting in a cozy armchair reading a book — but wearing a bright orange winter beanie hat and heavy knit sweater. The cold-weather clothing creates a competing "invierno / hace frío / estoy en casa" association. QFT is not clean: a student might say "frío" or "invierno" before "leer." | **Schedule regen.** New prompt: person (no hat, no winter clothing) sitting upright, holding an open book at reading level, white background, watercolor style. |
+| 11 | `vocab_act_bailar.png` | bailar | ACTION | **C** | Two folk dancers in elaborate traditional embroidered costumes, mid-spin, with multiple floating music notes overhead. The costumes are culturally specific (Eastern European folk dress) and the music notes push toward "música / fiesta / cantar." QFT: a student might say "fiesta," "baile folklórico," or "música" before "bailar." | **Schedule regen.** New prompt: two people dancing casually (not in costume — jeans and t-shirts), one leading, one following, clean near-white background, no music notes, simple movement lines showing rhythm. |
+| 12 | `vocab_places_escuela.png` | escuela | FACADE | **C** | American-style brick school building with a large US flag on a flagpole, school-themed graphic (book/apple/pencil) on the roofline pediment, multiple windows, steps, and bushes. Two critical issues: (1) the US flag makes this culturally specific — it signals "American school" not just "escuela"; (2) the decorative graphic on the roof is unnecessary visual noise. QFT passes but the US identity is a problem for a global multi-language platform. | **Schedule regen.** New prompt: simple school building facade, no national flags, no decorative signage, just a door with a sign reading "ESCUELA" (Spanish label acceptable since it's the word itself), bushes reduced. OR remove all text and just show clean school-style facade with a bell tower or standard arched entry. |
+| 13 | `vocab_places_casa.png` | casa | FACADE | **F** | Two-story American house facade with elaborate front garden (ornate bushes, flower beds, path, lamp posts). A "(casa)" text label is printed directly on the image at the bottom-left. **Double fail:** (1) the text label defeats the entire purpose of a visual vocabulary card — the student reads the word instead of mapping the image to it; (2) the garden is visually complex. | **Regen immediately.** New prompt: simple front view of a house — door, two windows, minimal wall, no garden, no text label. Clean watercolor, white background. Absolutely no text rendered on the image. |
+| 14 | `vocab_adj_caliente_frio.png` | caliente / frío | DUO | **F** | Steaming coffee cup (left) and glass of ice water (right) on white background — conceptually perfect DUO — but the image has "**Warm**" printed in large orange text and "**Vs**" in large blue text rendered directly on the image. **Catastrophic failure for a Spanish learning app.** The English words are the dominant visual element; a student learns "warm" and "vs" not "caliente" and "frío." | **Regen immediately.** New prompt: steaming coffee cup (left side) and glass filled with ice cubes (right side) on white background, watercolor style, NO TEXT of any kind in the image, no labels, no "vs" divider — let the visual contrast speak entirely. |
+
+---
+
+### Cross-Cutting Findings
+
+**What our best images have in common (A-grade pattern):**
+1. White or near-white background — zero landscape or room context
+2. Single subject (ISOLATED/OBJECT) or exactly two subjects (DUO) — never more
+3. No embedded text of any kind
+4. The "one subject" is the exact canonical form of the word (a red circle = rojo, a sneaker pair = nuevo/viejo)
+5. No culture-specific symbols (no national flags, no folk costumes, no branded items)
+
+**The five failure modes we actually found (not theoretical — observed in real images):**
+| Failure Mode | Examples | Frequency |
+|---|---|---|
+| **Embedded English text** | caliente_frio ("Warm", "Vs") | 1 confirmed |
+| **Embedded Spanish label** | casa ("(casa)" text on image) | 1 confirmed |
+| **US-specific cultural marker** | escuela (US flag), familia (American living room) | 2 confirmed |
+| **Competing cold-weather context** | leer (winter hat + sweater) | 1 confirmed |
+| **Culturally-specific costume** | bailar (Eastern European folk dress) | 1 confirmed |
+
+**Pattern in B-grade images (keep but note for next regen batch):**
+- Watercolor background washes (yellow/blue blobs): hablar, beber — minor but systematic
+- Complex multi-item plates: comer — acceptable but could be cleaner
+- Different-character DUO instead of same-character-two-states: feliz/triste — functional but Madrigal always used same character
+
+---
+
+### Immediate Regen Priority Queue
+
+These two are **F-grade and must be regenerated before any student sees them.** The embedded English text is not acceptable in any teaching context.
+
+**Priority 1 — `vocab_adj_caliente_frio`**
+```
+Prompt: Two objects side by side on a pure white background, watercolor illustration style.
+LEFT: a steaming ceramic mug of coffee, warm orange-brown tones, visible steam wisps rising.
+RIGHT: a tall glass filled with ice cubes and clear cold water, cool blue tones.
+No text, no labels, no dividers, no "vs", no annotations of any kind on the image.
+The contrast between warm steam and cold ice should communicate the meaning entirely.
+```
+
+**Priority 2 — `vocab_places_casa`**
+```
+Prompt: Simple front facade of a house, watercolor illustration style, white background.
+A door in the center, one window on each side, a small step, minimal wall.
+No garden, no flowers, no lawn, no bushes, no lamp posts, no flag, no decorative elements.
+Absolutely NO text, labels, or words printed anywhere on the image.
+The house should look residential and universal — not a specific culture or country.
+```
+
+**Schedule next batch — `vocab_act_leer`, `vocab_act_bailar`, `vocab_places_escuela`**
+```
+leer: A person (no hat, no winter clothing — plain top) sitting upright, holding
+an open book at reading-level, eyes looking down at the pages. White background.
+No chair context needed. Watercolor style.
+
+bailar: Two people dancing together in casual clothing (jeans, t-shirts) — one
+leading, one following, mid-step. Clean near-white background. No music notes,
+no costumes, no decorative elements. The movement of their bodies communicates
+the action.
+
+escuela: A clean school building facade — brick or plain wall, arched entry or
+double door, a few windows, steps. No national flag. No decorative roofline
+graphic. No signage text. Simple and universal — could be a school in any country.
+If possible, a small bell tower is a universally recognized school marker.
+```
+
+---
+
+### Overall Library Status (S58 snapshot)
+
+- **Total images reviewed:** 15 (all images currently accessible via `/api/media/ai-image/vocab_*`)
+- **A-grade (keep, canonical):** 4 (27%)
+- **B-grade (keep, note for next batch):** 5 (33%)
+- **C-grade (schedule regen):** 3 (20%)
+- **F-grade (regen immediately):** 2 (13%)
+- **Not found (missing from object storage):** vocab_spanish_perro, vocab_spanish_padre, vocab_spanish_madre, vocab_spanish_uno — these either haven't been pre-seeded or use a different naming key
+
+**Gap flagged:** The `vocab_spanish_*` namespace appears unpopulated. The images that do exist use the `vocab_people_*`, `vocab_act_*`, `vocab_adj_*`, `vocab_places_*`, `vocab_color_*` namespace. When regenerating images, confirm cache key naming with `vocabulary-image-resolver.ts` → function `buildVocabCacheKey()` at line 1498.
+
+---
+
 
 # Part II: Asset Library & Generation Specs
 

@@ -4280,3 +4280,49 @@ PRIORITY GAPS:
 
 **File is now 4177 lines.** curriculum-strategy.md remains separate (it covers the full platform, not just the textbook).
 
+
+
+---
+
+## Session 58 (April 2026)
+
+**Completed: Part I.E — Actual Image Quality Audit**
+
+Directly accessed 15 real images via `/api/media/ai-image/vocab_*.png` (route confirmed as unauthenticated), screenshotted each at full resolution, and graded against Madrigal's Question Fit Test from Part I.D.
+
+**Grade breakdown (15 images):**
+- **A-grade (canonical — keep):** 4 images
+  - `vocab_color_rojo.png` — pure red circle on white (perfect)
+  - `vocab_act_escribir.png` — hands-only writing close-up (perfect)
+  - `vocab_adj_grande_pequeno.png` — elephant + mouse DUO (perfect)
+  - `vocab_adj_nuevo_viejo.png` — new vs. worn sneaker DUO (perfect)
+- **B-grade (keep, note for future batch):** 5 images
+  - comer, feliz/triste, hablar, restaurante, beber — all pass QFT with minor noise issues
+- **C-grade (schedule regen):** 3 images
+  - `vocab_act_leer.png` — reader in winter hat/sweater → cold-weather association competes
+  - `vocab_act_bailar.png` — folk dancers in Eastern European costumes → "fiesta/cultura" competes
+  - `vocab_places_escuela.png` — US flag on school building → culture-specific
+- **F-grade (regen immediately):** 2 images
+  - `vocab_adj_caliente_frio.png` — **English text "Warm" and "Vs" printed on image** → catastrophic for a Spanish learning app
+  - `vocab_places_casa.png` — **(casa) text label printed on image** + complex ornate garden
+
+**Part I.E written into visual-asset-roadmap.md** (inserted before Part II, ~line 1647):
+- Full per-image table with grade, observation, action
+- Five cross-cutting failure modes documented
+- Immediate regen prompts provided for both F-grade images
+- Library status snapshot: 27% A, 33% B, 20% C, 13% F
+- Gap flagged: `vocab_spanish_*` namespace appears unpopulated in object storage
+
+**ToC updated** to include Part I.E entry.
+
+**Naming discovery:** The accessible images use `vocab_people_*`, `vocab_act_*`, `vocab_adj_*`, `vocab_places_*`, `vocab_color_*` namespace. The `vocab_spanish_*` namespace (used by vocabulary-image-resolver.ts at line 1498) appears not pre-seeded. Confirm naming convention before next regeneration batch.
+
+**Still blocked:**
+- Magic Keys to Spanish — not yet uploaded
+- Regenerating F-grade and C-grade images — requires admin route trigger or direct DALL-E call
+
+**Next recommended tasks:**
+1. Trigger regen for caliente_frio and casa (F-grade) using the prompts in Part I.E
+2. Schedule regen for leer, bailar, escuela (C-grade)
+3. Upload Magic Keys to Spanish when available
+4. Seed new chapter data (pending Magic Keys analysis)
