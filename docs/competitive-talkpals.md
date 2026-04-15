@@ -675,7 +675,7 @@ This is a well-executed conversion funnel. The personalization is largely theatr
 | Business and Education institutional tracks | Yes ("For Business", "For Education" nav) | No | Separate B2B sales channel |
 | Vocabulary images in Word Mode / drills | No (text only) | Yes (DALL-E painted scenes) | Visual encoding is our instructional medium, not theirs |
 | Visual presence inside conversation sessions | No (white text-chat, no avatar in scenarios) | Yes (Daniela animated, classroom scene) | Their visuals are entry candy; ours are the lesson environment |
-| Different voices per scenario character | Yes (male cab driver voice etc.) | No (Daniela only) | Character audio without visual avatar |
+| Different voices per scenario character | Yes (male cab driver voice etc.) | Yes — activated S62 | speak_as(character) switches to distinct Google voice; resume_tutor returns to Daniela |
 | Cinematic illustrations on entry/selection screens | Yes | No (menu-driven) | Motivational entry; disappears once inside the lesson |
 
 ---

@@ -2,6 +2,7 @@ import { db } from "../db";
 import { learnerPersonalFacts, learningMilestones, productConfig, users, northStarPrinciples, danielaNotes, compartmentInstallation } from "@shared/schema";
 import { eq, and, desc, sql, asc, isNull, ne } from "drizzle-orm";
 import { phaseTransitionService } from "./phase-transition-service";
+import { getCharacterListDescription } from "./character-registry";
 
 const DANIELA_PHOTO_CONFIG_KEY = "daniela_classroom_photo";
 const DANIELA_WINDOW_CONFIG_KEY = "daniela_classroom_window";
@@ -513,9 +514,15 @@ Pattern Map (${targetLanguage}): ${compartmentMapStr || '(no patterns recorded y
   const founderNote = (isFounderMode || isRawHonestyMode)
     ? `\nTool Rack Note: If unsure about something referenced, search before guessing.`
     : '';
+
+  const characterRoster = getCharacterListDescription(targetLanguage);
+  const characterTools = characterRoster
+    ? ` | speak_as(character, text) — give voice to a secondary character using their own distinct voice; the character speaks the target language while you stay silent | resume_tutor(text) — return to your own voice after a character has spoken; always call this before coaching or continuing as yourself\nSecondary Characters Available (${targetLanguage}):\n${characterRoster}`
+    : '';
+
   const toolRack = `
 ---
-Tool Rack: memory_lookup(query, domains) — recall student memories | take_note — save observations for future sessions | milestone — celebrate achievements | record_pattern_signal(patternKey, eventType, verbContext?, studentUtterance?, notes?) — log a grammatical pattern signal you just observed (wobble/stability/derivation/pounding) | drill/write/grammar_table/compare/word_map/phonetic/culture/context/scenario/summary/reading — whiteboard teaching tools | show_image(word) — real photo of a vocabulary word or noun | generate_visual(concept, style?) — AI-generated illustration for scenes, grammar concepts, or custom scenarios (takes ~10s, you can keep talking) | voice_adjust — change speaking style | load_scenario/end_scenario — immersive roleplay scenes | open_scene(env)/add_to_scene(prop,position)/move_in_scene(prop,new_position) — live spatial canvas: place, orient (rotate/flip_h/z), and slide props to demonstrate prepositions and spatial vocab | set_clock/set_calendar — time & date SVG panels | set_body_part/set_face_part/set_hand_part — anatomy SVG diagrams for body vocabulary | set_emotion — animated emotion face for feelings vocabulary | set_weather/set_thermometer — weather & temperature SVG panels | highlight_country — interactive world map for geography/culture | change_classroom_window — change your window view | self_surgery — report gaps or propose improvements to your own knowledge${founderTools}${founderNote}`;
+Tool Rack: memory_lookup(query, domains) — recall student memories | take_note — save observations for future sessions | milestone — celebrate achievements | record_pattern_signal(patternKey, eventType, verbContext?, studentUtterance?, notes?) — log a grammatical pattern signal you just observed (wobble/stability/derivation/pounding) | drill/write/grammar_table/compare/word_map/phonetic/culture/context/scenario/summary/reading — whiteboard teaching tools | show_image(word) — real photo of a vocabulary word or noun | generate_visual(concept, style?) — AI-generated illustration for scenes, grammar concepts, or custom scenarios (takes ~10s, you can keep talking) | voice_adjust — change speaking style | load_scenario/end_scenario — immersive roleplay scenes | open_scene(env)/add_to_scene(prop,position)/move_in_scene(prop,new_position) — live spatial canvas: place, orient (rotate/flip_h/z), and slide props to demonstrate prepositions and spatial vocab | set_clock/set_calendar — time & date SVG panels | set_body_part/set_face_part/set_hand_part — anatomy SVG diagrams for body vocabulary | set_emotion — animated emotion face for feelings vocabulary | set_weather/set_thermometer — weather & temperature SVG panels | highlight_country — interactive world map for geography/culture | change_classroom_window — change your window view | self_surgery — report gaps or propose improvements to your own knowledge${characterTools}${founderTools}${founderNote}`;
 
   const ZONE_TYPE_LABELS: Record<string, string> = {
     spatial: 'prepositions',
