@@ -494,6 +494,125 @@ Standalone Modes (same modes, accessible independently)
 
 ---
 
+### OBS-11 — Onboarding Sequence: 13 Steps, Conversion-Optimized
+*Source: 1_–13_ screenshots*
+
+**This also answers Open Question 7 — they have a mobile app.** The first screen is a phone mockup splash, and the pricing page references an App Store rating. TalkPals is mobile-first (or at minimum, mobile-parity).
+
+**The full 13-step sequence:**
+
+| Step | Screen | Purpose |
+|---|---|---|
+| 1 | Splash: "The fun and effective way to learn a language with AI" — phone mockup, Get started / Log in | Brand impression, entry gate |
+| 2 | Which language do you want to learn? — 16-language flag grid | Core product selection |
+| 3 | How old are you? — 18-24, 25-34, 35-44, 45-54, 55+ | Demographics / segmentation |
+| 4 | Social proof: "5 million+ people already use Talkpal!" — 4.7/5 App Store, 20k+ 5-star reviews, press logos | Trust / purchase anxiety reduction |
+| 5 | What is your primary reason for learning Spanish? — Academy, University, Travel, Job/Career, Immigration | Intent segmentation |
+| 6 | Interstitial: "Great! Let's get you started!" — rocket illustration | Momentum / celebration beat |
+| 7 | What is your Spanish level? — A1, A2, B1-B2, C1-C2. Subtext: *"We will personalize conversations based on your language level."* | Level capture + personalization promise |
+| 8 | Marketing chart: "Reach your learning goals faster!" — TalkPal curve vs. "Other methods" over 6 weeks | Efficacy claim / pre-purchase persuasion |
+| 9 | What are you looking to achieve? — Learn basics, Improve speaking, Become fluent, Not sure | Goal capture |
+| 10 | What's your learning style? — Speaking/conversation, Reading, No specific style | Modality preference |
+| 11 | Choose translation language — searchable list (English, Spanish European, Spanish Latin American, French, German...) | Localization |
+| 12 | How often do you want to practice? — 5 / 15 / 30 / 60 minutes a day, Other | Commitment / streak setup |
+| 13 | "Your personalized plan is ready!" — 1200+ new words, 10+ AI modes, 300+ unique experiences, 80+ real-life scenarios | Payoff / pre-paywall excitement |
+
+**Conversion architecture observations:**
+
+*Social proof at step 4, not step 1:*
+- They delay the social proof until after the user has already committed to a language and age group. By the time the press logos appear, the user has invested 3 steps and is more likely to continue. Classic foot-in-the-door placement.
+
+*The marketing chart at step 8:*
+- The "TalkPal vs. other methods" growth curve is unsourced and generic — it would look the same for any app. But its placement directly after the level question (step 7) connects it emotionally to the user's specific situation: *you, at your level, can grow faster with us.* The "Your level" marker on the chart is the key detail.
+
+*The "personalized plan" payoff at step 13:*
+- "Your personalized plan is ready!" sounds specific but delivers marketing numbers: 1200+ new words, 10+ AI modes, 300+ unique experiences, 80+ real-life scenarios. These are the same for every user regardless of what they answered in steps 3–12. This is personalization theater — the framing is personal, the content is not.
+- The contrast with the level question (step 7) is stark: *"We will personalize conversations based on your language level"* is the promise; a static stat card is the delivery.
+
+*Data they collect but apparently don't use:*
+- Age (step 3) — no visible effect on content or UI
+- Reason for learning (step 5) — not reflected in course recommendations
+- Learning style (step 10) — speaking vs. reading preference not reflected in the mode they're recommended first
+- Practice frequency (step 12) — presumably sets a daily goal, but nothing else
+- Level (step 7) — stated purpose is to personalize conversations; OBS-10 shows this does not fully happen in open conversational modes
+
+*What the sequence actually does:*
+- Steps 1–3: qualify the user
+- Step 4: reduce purchase anxiety before the paywall
+- Steps 5–12: collect data that makes the user feel seen, and generates the illusion of personalization at step 13
+- Step 13: deliver excitement before hitting the paywall
+
+This is a well-executed conversion funnel. The personalization is largely theatrical but emotionally effective.
+
+**HoloHola comparison:**
+- We currently have no onboarding sequence. A new user lands in the app without context about what it is, why it works, or where to start.
+- The social proof interstitial (step 4) is worth noting: they don't start with press logos — they build context first, then show credibility markers.
+- The level question with CEFR labels (step 7) is both UX-useful (sets difficulty expectations) and conversion-useful (makes the user feel the product is serious). We could add this.
+- The practice frequency question (step 12) sets a stated commitment — even if the app doesn't enforce it, the act of choosing 15 or 30 minutes a day increases the likelihood the user returns. It's a micro-commitment device.
+- The "personalized plan ready" screen (step 13) is pure conversion craft — make the user feel the product was built for them before showing the price. We could do this honestly by actually showing content relevant to their answers (e.g., "Based on your interest in travel, Daniela will start you in Unit 2: Asking for directions").
+
+---
+
+### OBS-12 — Pricing: Freemium with Aggressive Annual Commitment Incentive
+*Source: pricing_1776272985832.png*
+
+**Plan structure:**
+
+| Plan | Monthly cost | Annual total | Free trial |
+|---|---|---|---|
+| Basic (Free) | $0 | — | No trial needed |
+| Premium 1 Month | $14.99/mo | $179.88 | 14 days free |
+| Premium 12 Months | $7.49/mo | $89.99 | 14 days free |
+| Premium 24 Months | $4.68/mo | $112.49 | 14 days free |
+
+**Free plan limitations (features shown but struck through):**
+- Basic chat only
+- 10 minute daily limit
+- Personalized learning — crossed out
+- Detailed progress tracking — crossed out
+- Pronunciation assessment tool — crossed out
+
+**What Premium unlocks:**
+- Unlimited practice with all AI modes
+- Personalized learning
+- Detailed progress tracking
+- Pronunciation assessment tool
+- AI daily feedback
+
+**Pricing observations:**
+
+*The 10-minute daily cap is the key free-to-paid conversion lever:*
+- 10 minutes is enough to experience the product and feel its value, but not enough to use it meaningfully for language learning. The cap is frustrating in exactly the right way — it appears at the moment of engagement, not before it.
+- This is more sophisticated than paywalling content behind a lock icon. You can use it; you just can't use it enough.
+
+*The 14-day free trial on all paid plans removes purchase anxiety effectively:*
+- "No payment today. Cancel anytime" appears below every paid CTA. This is a no-friction trial — no credit card required framing.
+
+*The 24-month plan at $112.49 is unusual:*
+- Most SaaS products offer annual; offering 24-month at a larger discount creates a "gold standard" anchor that makes the 12-month plan feel more reasonable by comparison.
+- The 50% savings badge on 12 months and 69% badge on 24 months are relative to the monthly price — which is itself high at $14.99. The 12-month effective rate ($7.49/mo) is more competitive with Duolingo Plus ($6.99/mo) and Babbel ($8.99/mo).
+
+*"Personalized learning" and "Detailed progress tracking" are premium-only:*
+- They list these as features on the free plan but strike them through. This is doing double work: it tells the user what they're missing AND implies the free plan is a degraded experience, not a different product.
+- Interesting given OBS-09: they don't appear to actually do vocabulary knowledge modeling or personalization in any deep sense. Listing "Personalized learning" as a premium feature may mean "your level affects the starting course" rather than "we know what words you know."
+
+*"AI daily feedback" is premium-only and unexplained:*
+- Not shown anywhere in the product audit. Worth noting — it may be a push notification or email summarizing session performance. Or it may not exist in a meaningful form.
+
+**Scale signals:**
+- 5 million+ users (step 4 of onboarding)
+- 4.7/5 App Store rating with 20,000+ 5-star reviews
+- Mentioned in: Google Scholar, MSN, The Hacker News, Frankfurter Allgemeine, El País, ResearchGate
+- "For Business" and "For Education" nav links — indicating B2B/institutional sales tracks alongside consumer
+
+**HoloHola comparison:**
+- We don't have a pricing page yet.
+- $14.99/month consumer pricing for an AI language tutor is the current market reference point for a premium experience. Positioning above or below this will signal quality tier.
+- The 10-minute cap as a free conversion lever is worth studying. Our equivalent might be capping the number of Daniela turns per session, or limiting chapter access, or limiting the number of vocab drills.
+- The institutional tracks ("For Business", "For Education") are significant. A Spanish-learning app with Madrigal's pedagogical rigor has a much stronger case to educational institutions than a conversation app does. This is a channel they have opened; we could enter it with stronger credentials.
+
+---
+
 ## Running Feature Inventory
 
 | Feature | TalkPals | HoloHola | Notes |
@@ -546,6 +665,14 @@ Standalone Modes (same modes, accessible independently)
 | Debate Mode (argue for/against fixed topics) | Yes | No | C1+ content; no level gate; advanced-only in practice |
 | Level-aware AI output in conversational modes | No (appears flat across levels) | Partially (chapter context in prompt) | Their CEFR labels are cosmetic in open modes; ours worth auditing |
 | Prerequisite gates before advanced modes | No (Debate accessible from day 1) | No | Both products allow beginners to self-select into advanced content |
+| Mobile app (iOS) | Yes (4.7/5, 20k+ reviews) | No | Mobile-first vs. web-only |
+| 13-step onboarding with level capture | Yes | No | Level promise made but partially unkept in open modes |
+| Social proof mid-funnel (not upfront) | Yes (step 4 of 13) | No | Foot-in-the-door placement before trust markers |
+| Practice frequency commitment in onboarding | Yes | No | Micro-commitment device; increases return likelihood |
+| Freemium with 10-min/day cap | Yes | No (TBD) | Frustrating in exactly the right way |
+| 14-day free trial on all paid plans | Yes | No | "No payment today. Cancel anytime" reduces purchase anxiety |
+| Pricing: monthly / annual / 24-month | $14.99 / $7.49 / $4.68 per month | TBD | 24-month plan unusual; anchors the annual option |
+| Business and Education institutional tracks | Yes ("For Business", "For Education" nav) | No | Separate B2B sales channel |
 
 ---
 
@@ -557,8 +684,8 @@ Standalone Modes (same modes, accessible independently)
 4. ~~What is "Photo" mode?~~ **Answered — OBS-07.** Real photo → student describes in Spanish (text or voice) → dual feedback: contextual (accuracy) + grammatical (errors) + optional "Advanced feedback" deep dive. Has its own unit/star curriculum.
 5. ~~How does their course/curriculum structure compare to our chapter system?~~ **Answered — OBS-08.** Courses are sequences of reusable modes (Word → Sentence → Dialogue/Roleplay) organized by CEFR level. Exercise type 3 adapts by level: Dialogue for beginners, Roleplays for advanced. Modes are atomic; courses are the sequencing layer.
 6. ~~What does their progress tracking look like in detail?~~ **Answered — OBS-09.** Completion-based only (exercise done, stars filled, progress bars). No vocabulary knowledge modeling, no spaced repetition, no adaptive difficulty. Trade-off: no backlog anxiety, no personalization.
-7. Is there a mobile app, or web-only?
-8. What are the pricing tiers after the free trial?
+7. ~~Is there a mobile app, or web-only?~~ **Answered — OBS-11.** Yes — mobile app with 4.7/5 App Store rating and 20k+ 5-star reviews. Mobile-first product; web is secondary.
+8. ~~What are the pricing tiers after the free trial?~~ **Answered — OBS-12.** Free (10 min/day cap) · Premium 1 Month $14.99 · Premium 12 Months $7.49/mo ($89.99) · Premium 24 Months $4.68/mo ($112.49). All paid plans: 14-day free trial, no payment today.
 
 ---
 
