@@ -26,7 +26,9 @@ import {
   CheckCircle,
   XCircle,
   Image,
-  Trash2
+  Trash2,
+  ShieldAlert,
+  RotateCcw,
 } from "lucide-react";
 
 interface AnalyticsData {
@@ -203,6 +205,10 @@ export default function DeveloperDashboard() {
                 <TabsTrigger value="platform" data-testid="tab-platform">Platform Stats</TabsTrigger>
                 <TabsTrigger value="neon" data-testid="tab-neon">Database Migration</TabsTrigger>
                 <TabsTrigger value="vocab-images" data-testid="tab-vocab-images">Vocab Images</TabsTrigger>
+                <TabsTrigger value="image-audit" data-testid="tab-image-audit">
+                  <ShieldAlert className="h-3.5 w-3.5 mr-1 text-destructive" />
+                  Image Audit
+                </TabsTrigger>
               </TabsList>
             </div>
 
@@ -761,6 +767,11 @@ export default function DeveloperDashboard() {
             <TabsContent value="vocab-images" className="space-y-6">
               <VocabImagesPanel />
             </TabsContent>
+
+            {/* Image Audit Tab */}
+            <TabsContent value="image-audit" className="space-y-6">
+              <ImageAuditPanel />
+            </TabsContent>
           </Tabs>
         </div>
   );
@@ -955,6 +966,183 @@ function NeonMigrationPanel() {
 }
 
 const VOCAB_LANGUAGES = ['spanish', 'french', 'german', 'italian', 'portuguese', 'english', 'japanese', 'korean', 'mandarin', 'hebrew'];
+
+// ── Image Audit Panel ──────────────────────────────────────────────────────
+
+const F_GRADE_IMAGES = [
+  {
+    conceptKey: 'vocab_adj_caliente_frio',
+    label: 'caliente / frío',
+    reason: '"Warm" + "Vs" English text printed on image',
+    prompt: 'Two objects side by side on a pure white background, watercolor illustration style. LEFT side: a steaming ceramic coffee mug, warm orange-brown tones, visible white steam wisps curling upward. RIGHT side: a tall glass filled to the brim with ice cubes and cold clear water, cool blue tones. Absolutely no text, no labels, no word "Warm", no word "Cold", no "vs", no dividers, no annotations anywhere in the image. The visual contrast between hot steam and cold ice communicates the meaning entirely.',
+  },
+  {
+    conceptKey: 'vocab_places_casa',
+    label: 'casa (house)',
+    reason: '"(casa)" Spanish label text printed on image',
+    prompt: 'Simple two-storey residential house facade, watercolor illustration style, plain white background. A front door centered in the wall, one window on each side, a small front step, a simple roof. Minimal plain wall. No garden, no flowers, no bushes, no lamp posts, no fence, no gate, no decorative elements of any kind. Absolutely no text, no labels, no words anywhere on the image. Universal residential house appearance with warm colours.',
+  },
+  {
+    conceptKey: 'vocab_color_blanco',
+    label: 'blanco (white)',
+    reason: '"WHITE" English label baked into image',
+    prompt: 'A single large fluffy white cloud floating against a soft pale blue sky background, watercolor illustration style. The cloud is the main subject — bright crisp white, full rounded cumulus cloud shape. Clean and simple composition. Absolutely no text, no labels, no word "WHITE", no word "blanco", no words anywhere on the image.',
+  },
+  {
+    conceptKey: 'vocab_place_farmacia',
+    label: 'farmacia (pharmacy)',
+    reason: '"PHARMACY" printed twice in English on signage',
+    prompt: 'Simple pharmacy storefront exterior, watercolor illustration style, bright clean white background. A large glowing bright green cross sign mounted prominently above a simple door — the universally recognized pharmacy symbol worldwide. Clean plain facade, a neat door, one small window beside it. No English text "PHARMACY", no Spanish text "FARMACIA", no words of any kind anywhere on the image. The green cross alone clearly identifies this as a pharmacy.',
+  },
+  {
+    conceptKey: 'vocab_emo_nervioso',
+    label: 'nervioso (nervous)',
+    reason: '"stess" [sic] English text + undressed figure',
+    prompt: 'A single person in casual everyday clothing — a plain t-shirt and jeans — showing clear signs of nervousness and anxiety. Wide worried eyes, raised shoulders, a small bead of sweat on the forehead, hands clasped together. The person is fully clothed in modest casual wear. White or very light background. Soft watercolor illustration style. No text, no labels, no words anywhere in the image.',
+  },
+  {
+    conceptKey: 'vocab_weather_temperature_scale',
+    label: 'temperature scale',
+    reason: '"CELSIUS" and "FAHRENHEIT" English headers baked in',
+    prompt: 'A single large thermometer illustration, watercolor style, white background. The glass tube of the thermometer is filled with a smooth colour gradient: deep cool blue at the bottom bulb, transitioning through green in the middle, to warm red-orange at the very top. A small simple snowflake icon near the bottom of the thermometer. A small bright sun icon near the top of the thermometer. Nothing else in the image. No text, no numbers, no "Celsius", no "Fahrenheit", no degree markers, no labels of any kind anywhere in the image.',
+  },
+  {
+    conceptKey: 'vocab_time_dias_semana',
+    label: 'días de la semana (days of week)',
+    reason: '"MONDAY", "WEDNESDAY", "SATURDAY" English day names baked in',
+    prompt: 'A clean 7-column weekly calendar grid, watercolor illustration style, white background. Each column contains exactly one simple pictographic icon and nothing else — no words, no abbreviations, no letters, no numbers. The icons represent the seven days symbolically using universally understood pictograms only: a bright sun, a crescent moon, a flame, a water droplet, a hammer, a music note, and a five-pointed star — one per column in a neat horizontal row. No text whatsoever. No day names in any language. No numbers. Just 7 simple icons arranged in a neat grid.',
+  },
+] as const;
+
+type AuditState = {
+  generating: boolean;
+  newTs: number | null;
+  error: string | null;
+};
+
+function ImageAuditPanel() {
+  const { toast } = useToast();
+  const [states, setStates] = useState<Record<string, AuditState>>(() =>
+    Object.fromEntries(F_GRADE_IMAGES.map(img => [img.conceptKey, { generating: false, newTs: null, error: null }]))
+  );
+
+  const regenerate = async (conceptKey: string, prompt: string) => {
+    setStates(prev => ({ ...prev, [conceptKey]: { generating: true, newTs: null, error: null } }));
+    try {
+      const res = await apiRequest('POST', '/api/admin/vocab-images/regen-key', { conceptKey, prompt });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Generation failed');
+      setStates(prev => ({ ...prev, [conceptKey]: { generating: false, newTs: Date.now(), error: null } }));
+      toast({ title: 'Image regenerated', description: `${conceptKey}.png replaced successfully` });
+    } catch (e: any) {
+      setStates(prev => ({ ...prev, [conceptKey]: { generating: false, newTs: null, error: e.message } }));
+      toast({ variant: 'destructive', title: 'Regeneration failed', description: e.message });
+    }
+  };
+
+  const doneCount = Object.values(states).filter(s => s.newTs !== null).length;
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldAlert className="h-5 w-5 text-destructive" />
+            F-Grade Image Regen Queue
+          </CardTitle>
+          <CardDescription>
+            7 images failed the Question Fit Test — each contains English text labels baked in by DALL-E.
+            Click Regenerate on each card to generate a replacement using the corrected prompt.
+            DALL-E takes ~20–30 seconds per image. The new image overwrites the old one in GCS immediately.
+            {doneCount > 0 && (
+              <span className="ml-2 font-medium text-green-600 dark:text-green-400">
+                {doneCount}/7 replaced this session.
+              </span>
+            )}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {F_GRADE_IMAGES.map(img => {
+              const s = states[img.conceptKey];
+              const currentSrc = `/api/media/ai-image/${img.conceptKey}.png`;
+              const newSrc = s.newTs ? `/api/media/ai-image/${img.conceptKey}.png?t=${s.newTs}` : null;
+
+              return (
+                <Card key={img.conceptKey} className="flex flex-col" data-testid={`card-audit-${img.conceptKey}`}>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between gap-2 flex-wrap">
+                      <CardTitle className="text-sm font-semibold">{img.label}</CardTitle>
+                      {s.newTs
+                        ? <Badge className="bg-green-600 text-white text-xs no-default-active-elevate">Replaced</Badge>
+                        : <Badge variant="destructive" className="text-xs no-default-active-elevate">F-Grade</Badge>
+                      }
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-snug">{img.reason}</p>
+                  </CardHeader>
+                  <CardContent className="flex-1 flex flex-col gap-3 pb-4">
+                    <div className={`grid gap-2 ${newSrc ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                      <div className="space-y-1">
+                        <p className="text-xs text-center text-muted-foreground">{newSrc ? 'Before' : 'Current'}</p>
+                        <img
+                          src={currentSrc}
+                          alt={`current ${img.label}`}
+                          className="w-full aspect-square object-contain rounded-md border bg-muted/20"
+                          data-testid={`img-current-${img.conceptKey}`}
+                        />
+                      </div>
+                      {newSrc && (
+                        <div className="space-y-1">
+                          <p className="text-xs text-center text-muted-foreground font-medium text-green-600 dark:text-green-400">After</p>
+                          <img
+                            src={newSrc}
+                            alt={`new ${img.label}`}
+                            className="w-full aspect-square object-contain rounded-md border border-green-500/40 bg-muted/20"
+                            data-testid={`img-new-${img.conceptKey}`}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {s.error && (
+                      <p className="text-xs text-destructive bg-destructive/10 rounded px-2 py-1">{s.error}</p>
+                    )}
+
+                    <Button
+                      size="sm"
+                      variant={s.newTs ? 'outline' : 'default'}
+                      className="w-full mt-auto"
+                      disabled={s.generating}
+                      onClick={() => regenerate(img.conceptKey, img.prompt)}
+                      data-testid={`button-regen-${img.conceptKey}`}
+                    >
+                      {s.generating ? (
+                        <>
+                          <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
+                          Generating (~25s)…
+                        </>
+                      ) : s.newTs ? (
+                        <>
+                          <RotateCcw className="h-3 w-3 mr-1.5" />
+                          Regenerate Again
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="h-3 w-3 mr-1.5" />
+                          Regenerate
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 function VocabImagesPanel() {
   const { toast } = useToast();

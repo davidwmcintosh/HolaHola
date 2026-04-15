@@ -4405,3 +4405,51 @@ Place: banco ("BANK" English)
 3. Regen 23 C-grade images in next generation batch
 4. Upload Magic Keys to Spanish when available → unlock new chapter data seeding
 5. Continue M1–M6 component audit across 10 languages × 5 chapters (not started yet)
+
+---
+
+## Session S61 — Tue, Apr 15, 2026 (Image Audit regen infrastructure built)
+
+### What was done
+
+**Clarified image generation stack:**
+- `generateImageWithGemini()` in routes.ts is **misleadingly named** — it actually calls DALL-E 3 via the OpenAI client (`model: 'dall-e-3'`, 1792×1024)
+- Gemini is conversation-only (Daniela's dialogue); DALL-E 3 is 100% of image generation
+- This explains the English-text baking problem: DALL-E 3 renders text when concepts suggest it (calendars, thermometers, signs) unless "Absolutely no text" is stated very explicitly
+
+**New backend endpoint built:**
+- `POST /api/admin/vocab-images/regen-key` added to routes.ts (line ~11415)
+- Takes `{ conceptKey, prompt }` — validates conceptKey starts with `vocab_`, calls DALL-E 3 via `generateImageWithGemini()`, converts to Buffer, calls `uploadPublicBuffer()` to overwrite GCS file directly
+- Protected: `isAuthenticated` + `requireRole('admin')`
+- Returns `{ url, conceptKey, message }` on success
+
+**New "Image Audit" tab built in Developer Dashboard:**
+- Added `ShieldAlert` + `RotateCcw` icon imports
+- Added `F_GRADE_IMAGES` const array — all 7 F-grade images with `conceptKey`, `label`, `failure reason`, and corrected `prompt` (each prompt includes "Absolutely no text" language tailored to that image)
+- Added `ImageAuditPanel` component:
+  - Per-image state: `{ generating, newTs, error }`
+  - Shows current image (left) vs new image (right, cache-busted with `?t=timestamp`) after regen
+  - "F-Grade" badge becomes "Replaced" badge (green) after successful generation
+  - Progress counter: "N/7 replaced this session"
+  - Prompts include corrected "no text" instructions and guardrails for each specific failure mode
+- Added "Image Audit" tab trigger with ShieldAlert icon to TabsList in DeveloperDashboard
+- Added `<TabsContent value="image-audit">` with `<ImageAuditPanel />`
+
+### Status at end of session
+- **Backend regen route**: DONE ✅ — `POST /api/admin/vocab-images/regen-key`
+- **ImageAuditPanel UI**: DONE ✅ — tab visible in Developer Dashboard
+- **Actual F-grade regen**: NOT YET RUN — user can now click Regenerate on each of the 7 cards to generate replacements (each takes ~25s)
+- **D-grade regen**: PENDING — prompts documented in visual-asset-roadmap.md; same endpoint can be used manually
+- **C-grade regen**: PENDING
+- **Magic Keys to Spanish**: BLOCKED (not yet uploaded)
+
+### Files changed this session
+- `server/routes.ts` — added `POST /api/admin/vocab-images/regen-key` (line ~11415)
+- `client/src/pages/admin/DeveloperDashboard.tsx` — `ImageAuditPanel` component, `F_GRADE_IMAGES` const, new "Image Audit" tab trigger + content, new icon imports
+
+### Next recommended tasks
+1. **Run the Image Audit tab** — go to `/admin/developer` → Image Audit tab → click Regenerate on each of the 7 F-grade cards
+2. **Review new images** — before/after shown inline; if a result still has text, click Regenerate Again (DALL-E 3 is non-deterministic, retry usually fixes it)
+3. **D-grade regen** — use the Fix Single Word tool in Vocab Images tab OR new regen-key endpoint directly for `vocab_weather_forecast_card`, `vocab_num_hundreds`, `vocab_num_phone`
+4. **C-grade batch** — 23 images; consider adding them to the audit panel too
+5. **Magic Keys to Spanish** — upload when available

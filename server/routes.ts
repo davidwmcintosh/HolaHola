@@ -11406,6 +11406,44 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  /**
+   * Regenerate a specific concept-key image by exact GCS filename.
+   * Takes a conceptKey (e.g. "vocab_weather_temperature_scale") and a custom
+   * DALL-E prompt, generates a new image, and overwrites the existing GCS file.
+   * Used by the Image Audit panel in the Developer Dashboard.
+   */
+  app.post('/api/admin/vocab-images/regen-key', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { conceptKey, prompt } = req.body;
+      if (!conceptKey || typeof conceptKey !== 'string') return res.status(400).json({ error: 'conceptKey is required' });
+      if (!prompt || typeof prompt !== 'string') return res.status(400).json({ error: 'prompt is required' });
+
+      // Sanitise: only allow safe vocab_ concept key filenames
+      const safeKey = conceptKey.replace(/[^a-z0-9_]/g, '');
+      if (!safeKey.startsWith('vocab_')) return res.status(400).json({ error: 'conceptKey must start with vocab_' });
+
+      console.log(`[RegenKey] Generating replacement for ${safeKey}.png`);
+      const dataUrl = await generateImageWithGemini(prompt);
+      if (!dataUrl) return res.status(500).json({ error: 'Image generation failed — no data returned' });
+
+      const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, '');
+      const buffer = Buffer.from(base64, 'base64');
+
+      const { uploadPublicBuffer } = await import('./services/image-storage');
+      await uploadPublicBuffer(`${safeKey}.png`, buffer, 'image/png');
+
+      console.log(`[RegenKey] ✓ Replaced ${safeKey}.png in GCS`);
+      res.json({
+        url: `/api/media/ai-image/${safeKey}.png`,
+        conceptKey: safeKey,
+        message: `Regenerated ${safeKey}.png successfully`,
+      });
+    } catch (error: any) {
+      console.error('[RegenKey] Error:', error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post('/api/admin/vocab-images/fix-greetings', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { language = 'spanish' } = req.body;
