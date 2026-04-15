@@ -4189,3 +4189,46 @@ The grammar section (pp. 217–232) has every tense for every verb class. This i
 ### Files changed this session
 - `docs/see-it-and-say-it-roadmap.md` — complete rewrite with all 9 phases, all 5 EE pages, full lesson map (no more unsampled rows), complete vocabulary inventories, appendix fully catalogued
 
+
+
+---
+
+## Session 57
+
+**Date:** Apr 15, 2026  
+**Focus:** Image analysis + gap/overlap audit (both fully complete)  
+**Output files:**
+- `docs/image-analysis-madrigal.md` — complete visual grammar of how Madrigal illustrates every concept type (10 templates, full concept-type breakdown, HoloHola prompt guidelines)
+- `docs/gap-audit-holahola-vs-madrigal.md` — chapter-by-chapter overlap/gap analysis with priority queue
+
+**Key findings:**
+
+IMAGE ANALYSIS:
+- Identified 10 image templates covering every concept type in Madrigal: FACADE (buildings), PROFILE (vehicles/animals), PLATED (food), ISOLATED (produce/categories), HANGER (clothing), ACTION (verbs), PORTRAIT (people), OBJECT (household), DUO (social), PAIR (comparisons)
+- The universal rule: NOUN + MINIMUM CANONICAL CONTEXT. Never a scene when an object suffices.
+- "Question Fit Test": every image must have exactly one reasonable Spanish answer
+- Drew out specific drawing specs for 50+ vocabulary items across all concept types
+
+GAP AUDIT — Overall score: 33/110 (~30% of Madrigal coverage)
+- Greetings: 9/10 — near-perfect match with EE #1
+- Numbers/tener: 8/10 — tener idioms strong; hay and costar missing
+- Family: 5/10 — 5 of 11 pairs; personal-a absent; 6 family pairs needed
+- Daily: 4/10 — EE #5 mostly missing (Lo siento/Necesito/frecuency words)
+- Classroom: 7/10 — good HoloHola original; poder should be added
+- Places/ir: 0/10 — completely absent (Madrigal's FIRST structure)
+- Preferences (me gusta/gustaría/encanta): 0/10 — no chapter home
+- Home/rooms (estar + locations): 0/10 — no chapter home
+- Categories (¿Qué es?): 0/10 — no chapter home
+- Colors/adjectives: 0/10 — no chapter home
+- Grammar beyond present tense: 0/10 — nothing past present
+
+PRIORITY GAPS:
+1. Expand daily chapter: Lo siento/Necesito/Creo que sí + frequency words (una vez/muchas veces/de vez en cuando) + ¿A qué hora?
+2. Expand family: 6 missing pairs (esposo/esposa, hijo/hija, cuñado, suegro, nieto, sobrino) + quiero = I love + personal-a
+3. Expand greetings: full EE #4 emotion list (listo/solo/enojado/furioso/aburrido/enamorado/triste/cómodo + gender note)
+4. NEW chapter: places (ir + 10 buildings)
+5. NEW chapter: preferences (me gusta/gustaría/encanta)
+6. NEW chapter: home (estar + rooms + furniture)
+
+**Still blocked:** Magic Keys to Spanish — scanner test shots only, not book content
+
