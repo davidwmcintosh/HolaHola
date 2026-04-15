@@ -976,8 +976,7 @@ All previously unsampled sections have been read. No remaining gaps.
 | Apr 14, 2026 (S56) | **COMPLETE BOOK READ** — all remaining unsampled sections | pp. 20–27 (¿Qué es? categories + rojo); pp. 64–65 (plurals confirmed); pp. 72–73, 82–83, 92–93 (exercise pages); pp. 102–119 (modal consolidation + debo); pp. 124–125 (dejar preterite); pp. 128–155 (alquilar plural; ER/IR preterite; ver + circo; traer/decir irregulars; ERA first imperfect; limpio/sucio); pp. 152–169 (days of week; AR compendium 38 verbs; EE #5; ER/IR present tables); pp. 170–183 (weather; México composition; present progressive); pp. 184–199 (present perfect; indirect objects; commands; subjunctive); full appendix (colors, body parts, family, full conjugation tables) |
 | Apr 14, 2026 (S56) | Phases 5–9 added to roadmap verb sequence | All tenses now charted: preterite ER/IR, era imperfect, present progressive, perfect, commands, subjunctive |
 | Apr 14, 2026 (S56) | 5 Everyday Expressions pages fully catalogued | EE #1–#5 with complete expression lists |
-| Apr 15, 2026 (S63) | Magic Key to Spanish — partial scan reviewed | 6 innovations audited; see Part I.F (delayed tú, preconjugated lists, column grids, cognate chapters, chapter tips) |
-| *PENDING* | Magic Key to Spanish — full scan | Complete tip extraction + full column grid catalogue; upload remaining pages to unlock |
+| Apr 15, 2026 (S63) | Magic Key to Spanish — FULL scan read (97MB PDF, 11,018 lines extracted) | Complete; see Part I.F — all 45 lessons catalogued, 7 Daniela tips identified, tú delay confirmed (Lesson 45 of 45), column format confirmed as primary practice mode throughout |
 | *Next session (after both books read)* | Seed new M1–M4 data | ¿Qué es? categories, debo modal, dejar, rojo color, EE #5 expressions |
 
 
@@ -1985,142 +1984,225 @@ These images pass the Question Fit Test but have meaningful noise or artifacts. 
 
 ---
 
-## Part I.F — Magic Key to Spanish: Audit & Design Implications
+## Part I.F — Magic Key to Spanish: Full Audit & Design Implications
 
-**Source:** Margarita Madrigal, *Magic Key to Spanish* (partial scan uploaded by founder, April 2026)
-**Status:** Partial — initial observations from founder review. Full analysis pending complete scan.
+**Source:** Margarita Madrigal, *Magic Key to Spanish* (full scan uploaded by founder, April 2026)
+**Status:** COMPLETE — full text extracted and read. 45 lessons catalogued.
 **Session:** S63 (April 15, 2026)
+**File on disk:** `attached_assets/madrigals_magic_key_to_spanish_20260415_0001_1776285811018.pdf`
 
-This section documents the structural innovations in *Magic Key to Spanish* that differ meaningfully from *See It and Say It* — and what each one means for HoloHola's pedagogical design.
+This section contains the authoritative analysis of *Magic Key to Spanish* based on the complete extracted text. This is a fundamentally different book from *See It and Say It* — not a companion, but an alternate entry method. Understanding the difference is essential for HoloHola's pedagogy design.
 
 ---
 
-### Innovation 1 — Combine Columns to Form Sentences
+### What Kind of Book This Is
 
-**What the book does:** Instead of a Q&A-per-item layout, Magic Key presents sentence building as a grid: two or three columns side by side, where the student picks one item from each column to build a grammatically correct sentence. Pages 35, 78, and others use this format throughout.
+*Magic Key to Spanish* (45 lessons) is structured around a single foundational insight: **English speakers already know thousands of Spanish words — they just don't know they know them.** The "magic key" is a system of suffix conversion rules. Change "-tion" to "-ción," "-ous" to "-oso," "-ty" to "-dad," "-ist" to "-ista," "-al" stays "-al," "-ry" to "-rio," "-ive" to "-ivo," and so on — 11+ conversion categories, each with hundreds of confirmed Spanish words, all taught in the first two lessons.
 
-**Why it works:** This is a generation exercise disguised as a reading exercise. The student doesn't repeat a sentence — they construct one. The format makes it physically obvious that Spanish sentences have discrete "slots" that can be swapped independently. A student who does 5–10 combinations from one grid has practiced more sentence variations than a page of fixed Q&A could produce.
+Lessons 1 and 2 alone give a student access to 1,000+ Spanish words they can pronounce and use immediately — without memorizing a single item. By Lesson 3, they're already building sentences with this vocabulary.
 
-**HoloHola equivalent:** The `SentenceFrameGrid` component does this. The critical insight is that the column format is the right mental model for how sentences work — not fill-in-the-blank, not recitation, but slot-swapping. Daniela should reference this frame: "Think of the sentence as three columns — you pick one from each."
+This is the opposite of *See It and Say It*'s approach. Madrigal's first book teaches through image-anchored Q&A and builds vocabulary from pictures. *Magic Key* teaches through pattern recognition and builds vocabulary from English. Both arrive at conversation — they start from different directions.
+
+**HoloHola implication:** Our `CognateRecognitionGrid` is built for the *See It and Say It* style (small, topic-specific cognate tables). *Magic Key* calls for something larger — a systematic conversion-rule module that teaches the 11 patterns explicitly, with a generator exercise. This would be a separate chapter intro component or even its own chapter type.
+
+---
+
+### The Three-Column Sentence-Forming Exercise — The Core Format
+
+This is not one feature among many — it is the **primary practice format of the entire 45-lesson book.** Every single lesson contains at least one "SENTENCE-FORMING EXERCISE" with three columns. The structure is always:
+
+- **Column 1:** Verb forms, always showing: question form / affirmative / negative (e.g., *¿Tomó usted? / Tomé / No tomé*)
+- **Column 2:** Direct objects and nouns (*café, rosbif, una ensalada, sopa, un sándwich, biftec, un taxi, el tren*)
+- **Column 3:** Time and place adverbs (*esta mañana, esta tarde, anoche, en el restaurante, en el hotel, en el club*)
+
+The instructions are always the same: "Combine the words below in different ways to form as many sentences as you can. Just be sure to use words from each of the three columns in every sentence you form."
+
+**Why this format is extraordinary:** Three columns with 5 verbs × 10 nouns × 8 locations = 400 unique grammatical sentences from a single exercise. The student is a sentence generator, not a sentence repeater. The format also makes the structure of Spanish sentences visible as a physical layout — three swappable slots. Students internalize sentence structure as a spatial mental model, not a grammatical rule.
+
+**Confirmed across the book:** Lessons 1, 3, 4, 5, 8, 11, 14, 16 (and every other lesson) all contain this exact exercise. It is the book's backbone.
 
 **Design action items:**
-- Audit existing `SentenceFrameGrid` data to confirm it's structured as genuine column-pick (not just phrase lists)
-- Add a visual "column" rendering mode to the grid where each slot is clearly a choosable bucket — different column background shading or bracket notation
-- Daniela teaching note: *"I'm going to give you three columns. You pick one word or phrase from each column and put them together. Every combination you make is a real sentence."*
+- Audit existing `SentenceFrameGrid` data — does it expose three genuinely independent swappable columns, or is it presenting fixed sentences with highlighted slots? The distinction matters enormously
+- If `SentenceFrameGrid` doesn't offer this, consider a dedicated "sentence generator" drill mode for Daniela where she presents the three columns and asks the student to construct any valid combination
+- Daniela teaching note: *"Think of Spanish sentences as three columns. You pick one from each and they snap together. Every combination you make is a complete, correct sentence. Let's try it."*
 
 ---
 
-### Innovation 2 — Preconjugated Verb Lists (pg 40)
+### Column 1 Mixes Tenses — By Design, Throughout the Book
 
-**What the book does:** Rather than presenting a conjugation table (which requires students to understand the abstract table structure and then reconstruct forms), Magic Key presents lists of verbs that are already conjugated — ready to drop into a sentence frame. E.g., a list of "yo" forms: *voy, tengo, quiero, puedo, hablo* — each paired with its meaning, each ready to speak immediately.
+**Confirmed in the actual text:** By Lesson 11, Column 1 of the sentence-forming exercise reads:
 
-**Why it works:** Conjugation tables teach a system. Preconjugated lists teach phrases. For a new learner, the phrase-first approach means zero cognitive overhead: they don't have to derive the form, they just use it. Once 10 "yo" forms are automatic, the -o pattern clicks without having been drilled as an abstract rule.
+> *¿Va a...? / Voy a... / Va a...*
 
-**HoloHola equivalent:** The `verbGroups` structure inside `SentenceFrameGrid` pre-selects which conjugated form is used. But we may not be surfacing preconjugated lists as *lists* — a dedicated "These are all the ways to say 'I ___'" panel has real value as a standalone VocabQA set.
+That's "going to" — the future-intention construction — mixed with preterite forms in the same exercise. By Lesson 16:
+
+> *¿Leyó usted? / Leí / Va a leer / Voy a leer / El periodista escribió...*
+
+Column 1 is freely mixing simple past (leyó, leí), third-person past (escribió), and future-going-to (va a leer, voy a leer) in a single grid. The student picks any verb form from Column 1 without being told which tense it is — they're just building sentences. Tense classification is entirely invisible.
+
+**Why this is pedagogically radical:** Traditional language textbooks quarantine tenses because the table-filling approach to grammar requires it. If you're filling in a conjugation table, you can only work one tense at a time. But if you're picking from a sentence-generating column, the tense is just another slot-choice. Madrigal's format makes tense-mixing natural and non-alarming.
+
+**HoloHola implication:** Once a student has encountered preterite and "going to" future (which we introduce in the daily chapter), the `SentenceFrameGrid` should offer mixed-tense columns as a natural consolidation exercise. This is not advanced — it's how Madrigal structures Lesson 11.
 
 **Design action items:**
-- Add a `PreconjugatedVerbGrid` component (or a `verbGroups` mode in the existing grid) that shows a column of ready-to-use forms: *voy / tengo / quiero / puedo / hablo / como / vivo* — each with its English meaning
-- This is also an excellent standalone review tool: "Here are all the 'yo' forms you know. Can you say what each one means?"
-- Seed Spanish greetings, family, and daily chapters with preconjugated-list VocabQA items using the existing format before building new infrastructure
+- Add a `tenseMode: "single" | "mixed"` field to `SentenceFrameGrid` items
+- First mixed-tense grid should appear as soon as a student knows both preterite past and *ir a* future (approximately the second or third chapter in current HoloHola structure)
+- The mixed grid should not label the tenses — just use them. Let Daniela mention the tense casually if the student asks
 
 ---
 
-### Innovation 3 — Multi-Tense Columns Within a Single Grid
+### Preconjugated Forms — The Entire Book Works This Way
 
-**What the book does:** A single "Column 1" in a sentence-building grid can contain forms from multiple tenses: *voy a, van a, viste, hecho* — mixing future-intention (ir a + infinitive), past completed (preterite), and perfect (hecho). The student doesn't know they're mixing tenses — they're just building sentences.
+**The user noticed this on page 40. It's not a feature of one page — it's the structural spine of every lesson.** Throughout all 45 lessons, Madrigal never presents a conjugation table until the student has seen every form pre-cooked in context first. The standard lesson pattern for introducing a new verb is:
 
-**Why this is remarkable:** Traditional language textbooks quarantine tenses. "Unit 1: present. Unit 2: preterite." This mirrors how grammar is analyzed — not how language is used. In real Spanish conversation, a single exchange can zip through three tenses without pause. Magic Key's columns mirror real usage: the tense is subordinate to the communicative need.
+> *TOMÉ — I took / NO TOMÉ — I didn't take / ¿TOMÓ USTED? — Did you take?*
 
-**HoloHola implication:** This unlocks a more advanced `SentenceFrameGrid` mode where the columns aren't constrained to a single tense. This is appropriate once a student has encountered multiple tenses — it's a consolidation and naturalization exercise, not a new introduction.
+That's it. Three pre-conjugated forms, displayed with their English meanings, immediately followed by a conversation that uses all three. The student never fills in a blank — they see the form, then use it.
 
-**Design action items:**
-- Tag `SentenceFrameGrid` items with a `tenseMode: "single" | "mixed"` field
-- Mixed-tense grids should appear in chapters that revisit earlier material (the consolidation chapters we haven't built yet)
-- Daniela teaching note for mixed-tense grids: *"You'll notice Column 1 has some past-tense forms and some future ones — that's intentional. Real conversations do that. Pick any combination that makes sense and say it."*
+The "NOUNS CONVERTED INTO VERBS" exercise in Lesson 8 extends this — it gives students hundreds of "-ación" nouns and shows them that removing "-ación" and adding "-é" (for I) or "-ó" (for anyone else) creates any Spanish AR verb in the past tense. This is a preconjugated generator, not a table.
 
----
+**The rule as Madrigal states it:** "Add 'é' for me. Add 'ó' for anybody else." — "Anybody else" is the most efficient pronoun instruction ever written. One rule covers él, ella, usted, third-person singular — no pronoun distinctions needed until much later.
 
-### Innovation 4 — Tú Delayed Until the End of the Book
-
-**What the book does:** Magic Key introduces *usted* (formal "you") and the third-person forms (*él, ella, ellos*) early and builds on them extensively. The familiar second-person *tú* form — with its distinctive verb endings (*-as, -es, -is*) — is not introduced until late in the book.
-
-**Founder's question: What do you think about this?**
-
-This is a deliberate and defensible pedagogical choice, and I think it's *brilliant*. Here's why:
-
-**The standard problem:** Most textbooks (and language apps) introduce *tú* in lesson 1 because it's "the informal you" — seemingly basic. But *tú* verb endings are the outlier in Spanish conjugation. While *yo hablo → él habla → nosotros hablamos → ellos hablan* follows a predictable vowel-reduction pattern, *tú hablas* breaks it by adding an -s that appears nowhere else in AR verbs at the singular level. For a new learner who hasn't internalized the base pattern yet, -s is just more noise.
-
-**Magic Key's insight:** Build solid instincts around *yo / él / ella / usted / nosotros / ellos* first. Once those are automatic — once *habla, hablan, hablamos* are in the body — the *-s* on *tú* forms feels like a tiny cosmetic tag, not a core learning event. It's two seconds of exposure, not a whole unit.
-
-**The additional cultural argument:** In most Latin American Spanish contexts, *usted* is used far more broadly than in Spain — it covers everything from a stranger to an elder to a respected peer. A learner who can handle *usted* fluently is already functional in the contexts where most learners need Spanish (travel, business, new acquaintances). *Tú* is a social upgrade — the move from formal to intimate — which is exactly how it should feel when it arrives.
-
-**HoloHola implication:** Our current Spanish content should audit whether we introduce *tú* too early. Specifically: does the greetings chapter lead with *tú* forms? If so, consider reordering so *usted* forms dominate the early chapters and *tú* arrives as a "you're ready for this now" milestone. Daniela should frame the moment *tú* is introduced as a social relationship upgrade: *"Now that you know how to talk about people and yourself, let me introduce the form you use when you're talking to a friend — alguien de confianza."*
-
-**Recommendation:** Adopt the delayed-tú approach. Audit the Spanish greetings and daily-life chapters for premature tú usage and shift those drills to usted. Add *tú* as its own milestone event, not a passive vocabulary item.
+**HoloHola implication:** Our chapter seed data should present new verbs exactly as Madrigal does — the "I" form, the "anyone else" form, and the question form — before any conjugation table appears. The `verbGroups` structure in `SentenceFrameGrid` already does this, but the framing in Daniela's instruction and the UI should emphasize the pre-built forms, not the slots in a table.
 
 ---
 
-### Innovation 5 — Cognate Tables in Every Chapter
+### Tú — Introduced in Lesson 45, the Very Last Lesson
 
-**What the book does:** Magic Key doesn't limit cognates to a single opener. Each chapter contains a cognate table relevant to that chapter's topic. If the chapter is about travel, the cognate table has travel-domain cognates. If the chapter is about food, food cognates. The student gets a localized "you already know more than you think" win at every chapter boundary.
+**This is even more extreme than the founder expected.** The book has 45 lessons. *Tú* is introduced in Lesson 45, the final lesson, under the heading "THE INTIMATE FORM OF ADDRESS."
 
-**Founder's question: How can we use this?**
+Here is the exact framing Madrigal uses:
 
-Several ways — from quick wins to structural changes:
+> *"In Spanish there is an intimate form of address that is used with members of your family and close friends. In this case the pronoun 'usted' (you) becomes 'tú' (thou) and the verbs change their endings."*
+> 
+> *"In order to change verbs into the intimate form, ADD THE LETTER 'S' TO THE SINGULAR THIRD MAN IN ALL TENSES (except the preterite and the command)."*
 
-**A. Chapter-level CognateRecognitionGrid (quick win)**
-Each HoloHola chapter already has a `cognateOpener` component. Confirm this is populated for every chapter and every language, with topic-specific cognates (not generic ones). If the chapter is `daily`, the cognates should be daily-life words: *café → café, hotel → hotel, restaurante → restaurant, taxi → taxi, menú → menu*. Not abstract: *nación, administración, doctor* — those belong in a different chapter.
+That's the entire instruction. After 44 lessons of building automatic fluency with *usted* forms, the student is told: to speak intimately, just add -s to the form you already know.
 
-**B. Mid-chapter cognate sidebar (structural change)**
-Magic Key apparently places cognate tables inside the chapter body, not just at the top. We could add a `cognateRefresh` component type — a small mid-chapter panel that says: "Before we continue — here are 6 words from this topic that you already know from English." This breaks up the lesson and resets confidence right when difficulty is rising.
+- *usted habla* → *tú hablas*
+- *usted hablará* → *tú hablarás*
+- *usted vendía* → *tú vendías*
+- *usted ha hablado* → *tú has hablado*
 
-**C. Daniela's cognate radar (teaching behavior)**
-Daniela should be primed to flag cognates the moment they appear in conversation. Not every one — that would be exhausting — but high-value moments where the student is struggling: *"That word, 'nervioso' — look familiar? Nervous. Same root. You know more Spanish than you think."* This is a morale move. Add it to Daniela's North Star Principles or teaching notes.
+**Why this is pedagogically extraordinary:**
 
-**D. Cross-language cognate leverage (longer term)**
-A student who learned Spanish cognates from Magic Key gets a second win if they later try French: *hôtel, restaurant, café, taxi, menu* — identical. Our 10-language platform is the only context where cognate tables compound across languages. Daniela could note this explicitly when a student who learned Spanish tries French: *"You'll notice these French words look familiar — they're cognates to the Spanish you already know."*
+1. The student already knows every conjugated form they'll ever need for *tú* — it's just -s on top
+2. *Tú* is framed as a social and relationship event, not a grammar category: "intimate form" used "with members of your family and close friends"
+3. By framing *usted* as the default and *tú* as the intimate upgrade, Madrigal implicitly encodes the social register — formal is unmarked, intimate is the modification
+4. The preterite and command are the only irregulars (and they're noted explicitly): preterite uses "-aste" (tomaste vs. tomó) instead of -s
 
-**Immediate action:** Review the existing cognate data in `chapter-intro-content.ts` and confirm every Spanish chapter has a topic-specific cognate table. Add any that are missing or generic.
+**Madrigal's note on subject pronouns:** The book explicitly states: "Remember that subject pronouns are very frequently dropped in Spanish. 'Tú' is dropped more often than not because the ending of the verb makes it clear who the subject is." — Meaning in practice: once you know *hablas*, you can drop *tú* and just say *hablas*, and nothing is lost.
+
+**HoloHola recommendation:** Adopt the delayed-tú approach immediately. Specific actions:
+- Audit Spanish greetings and daily chapters — any tú drills should be shifted to usted
+- Daniela introduces tú as a milestone moment, framed as a social/relationship upgrade: *"You've been speaking with usted — the respectful form. Now let me show you what happens when you're talking to someone close. It's one small change."*
+- When tú is introduced, Daniela should note the -s rule and demonstrate it with verbs the student already knows: *"You know 'habla' — add s and you get 'hablas.' Same for every verb you know. That's the intimate form."*
+- Daniela teaching tip (for danielaNotes): *"Delayed tú is intentional. By the time tú arrives, it's a tiny addition to forms the student already owns. This is far less alarming than presenting a full tú conjugation chart on lesson 1."*
 
 ---
 
-### Innovation 6 — Chapter Tips as Teaching Distillations
+### The Cognate System — Much Larger Than "Tables in Every Chapter"
 
-**What the book does:** Each chapter contains at least one practical teaching tip — a concise, memorable insight about how Spanish works or how to learn it better. These tips read like they come from a teacher who has watched hundreds of students make the same mistakes and has figured out exactly what to say to prevent them.
+**What the founder observed (cognate tables in every chapter) is true — but the scale is far larger.** In *Magic Key*, cognates aren't a chapter feature — they ARE the chapter. The first two lessons establish 11 conversion categories, each with hundreds of confirmed words:
 
-**Examples (paraphrased from partial scan):**
-- On ser vs. estar: "Ser is a permanent state; estar captures a moment"
-- On gender: "Almost all words ending in -ción, -sión, -dad, -tad, -tud, -umbre are feminine — learn the ending, learn the gender"
-- On pronunciation: "The j in Spanish is the same sound as the strong English h — say 'hotel' with a harder h and you're halfway there"
-- On building vocabulary: "Every new verb you learn in infinitive form gives you 6 conjugations for free — you're always learning in batches"
+| Category | Rule | Examples (just a sample) |
+|---|---|---|
+| I | Words ending in "-or" are usually identical | doctor, conductor, actor, motor, humor, inspector, vapor, senator |
+| II | Words ending in "-al" are usually identical | hospital, animal, capital, canal, central, dental, federal, general |
+| III | Words ending in "-ant/-ent" → add "e" | importante, elegante, urgente, competente, paciente |
+| IV | Words ending in "-ble" are usually identical | probable, possible, adorable, admirable, considerable, flexible |
+| V | Words ending in "-ic/-ical" → "-ico" | democrático, romántico, diplomático, fanático, fantástico |
+| VI | Words ending in "-ist" → "-ista" | dentista, pianista, turista, capitalista, naturalista |
+| VII | Words ending in "-ous" → "-oso" | famoso, delicioso, curioso, nervioso, furioso, generoso |
+| VIII | Words ending in "-tion/-sion" → "-ción/-sión" | invitación, conversación, preparación, combinación, nación |
+| IX | Words ending in "-ty" → "-dad" | capacidad, comunidad, electricidad, publicidad, velocidad |
+| X | Words ending in "-ry" → "-rio" | canario, diccionario, aniversario, itinerario, laboratorio |
+| XI | Words ending in "-em/-am" → "-ema/-ama" | problema, programa, poema, sistema, telegrama |
 
-**Founder's instinct: Seed these into Daniela so she looks like a genius tutor.**
+Plus additional patterns: "-ph" → "-f" (telephone → teléfono), "-th" → "-t" (cathedral → catedral), double consonants → single (commission → comisión), "-tion" always → "-ción".
 
-This is exactly right. The mechanism already exists:
+**The total vocabulary unlocked by Lessons 1–2: conservatively 2,000+ words the student can now say in Spanish.** The lesson-2 list of "-ción" words alone runs to 400+ entries.
 
-**The channel:** `danielaNotes` table → injected into Daniela's classroom as "My Notes to Self." Daniela already reads from this in every session. Any teaching insight loaded here becomes part of her active knowledge that she can deploy when the right moment arrives.
+**What "cognate tables in every chapter" actually means:** Each lesson introduces one or two new conversion categories, giving the student hundreds of new words for free before the conversational content begins. This isn't a warmup — it's the primary content delivery method. The conversation exercises that follow use these cognate words directly.
 
-**The process:**
-1. As the user reads Magic Key chapters, extract each tip as a one-sentence principle
-2. Add it to the `danielaNotes` table via the admin panel (or via a seed script)
-3. The tip becomes part of Daniela's identity — she won't repeat it robotically, but when a student wobbles on ser/estar or struggles with a gender agreement, it will surface naturally
+**HoloHola design implications:**
+- Our current `cognateOpener` shows 8–12 cognates at chapter start. That's the right idea at the wrong scale. For a dedicated cognate module (if we build one), the experience should unlock 50–200 words through one conversion rule — the *number* is the point. The student should feel abundance, not introduction
+- The conversion rules themselves should be teachable by Daniela in conversation: *"Every English word ending in '-tion' becomes '-ción' in Spanish. Say 'conversación.' 'Invitación.' 'Imaginación.' You just got a hundred words for free."*
+- Daniela teaching tip (for danielaNotes): *"When a cognate appears in conversation, celebrate it explicitly: 'You already knew that word — you just didn't know you knew it.' This reframes every cognate from new information to recovered prior knowledge. Different emotional response."*
 
-**Additional channel for high-value tips:** North Star Principles. If a tip is so universally useful that it should shape every teaching moment — not just appear occasionally — it belongs in the `northStarPrinciples` table where it ranks with Daniela's core pedagogy commitments.
+---
 
-**Session action:** Once the full scan is available, extract all chapter tips and queue them for import. A full Magic Key tip set loaded into Daniela's notes would meaningfully upgrade her specificity — she'd move from "general language tutor" to "tutor who has internalized Madrigal's specific insights." That's a major differentiator against TalkPals.
+### Chapter Tips — Madrigal's Pedagogical Philosophy in Her Own Words
+
+These are verbatim or near-verbatim from the text. Every one of these is a candidate for Daniela's teaching notes or North Star Principles.
+
+**On learning method:**
+> *"Never let a word lie fallow in your mind. The minute you have learned it, try to use it. The mental process of using the word makes it stay with you."*
+
+> *"The best way to learn Spanish is through large concepts and ideas, not through memorizing little isolated words. One idea well established in your mind will give you two hundred verbs forever. And every time you use one of these two hundred verbs you become more automatic in the use of the other hundred and ninety-nine."*
+
+> *"Memorizing is dull and ineffectual. When you learn twenty verbs by rote you are apt to forget most of them and be bored by all of them. You are annoyed by the fact that you have to sit down and toil over them, and they become your enemies. But when you invent a verb it is your creation; you have made it, and you will always like it."*
+
+**On grammar in context:**
+> *"Notice that you don't say 'at the club.' In Spanish you must never say you are 'at' places. You are always 'in' places, such as 'in the airport, in the club,' etc."*
+
+> *"Remember that subject pronouns are very frequently dropped in Spanish. 'Tú' is dropped more often than not because the ending of the verb makes it clear who the subject is. You can either say, 'Tú hablas muy bien' or simply 'Hablas muy bien.'"*
+
+> *"The intimate form has an archaic English equivalent (thou, thee, thine), but it has not been used here since it is not used in present-day speech."* [Note: This frames tú as the more modern of the two, which is counterintuitive from an English-speaker perspective — useful for defusing formality anxiety.]
+
+**On Spanish culture/etymology:**
+> The etymology of "fortuna" — wealth and good luck are the same word in Latin and Spanish because Romans believed wealth could only come from Fortuna, the goddess of chance. *"Por fortuna" = fortunately; "afortunado" = fortunate.* [This is a model for how Daniela should embed etymology into conversation — not as a lesson interruption but as a tiny story that makes the word unforgettable.]
+
+**On what "anybody else" means:**
+> *"Don't forget that the third man form stands for everybody (¡regular!) in the world except yourself."*
+> [The parenthetical "¡regular!" is Madrigal humor — treating "regular" as an exclamation in Spanish. This tone belongs in Daniela's voice.]
+
+**Seeding these into Daniela:**
+All of these belong in `danielaNotes` as teaching principles. The three "on learning method" quotes are especially valuable — they articulate Madrigal's philosophy and give Daniela a way to explain *why* the lesson is structured the way it is:
+- When a student struggles with memorization: *"Don't try to memorize. Invent. Every verb you create from a pattern is yours permanently — you made it."*
+- When a student wants a full conjugation table before they're ready: *"One pattern, hundreds of verbs, forever. That's how we build — big concepts, not small lists."*
+
+---
+
+### NEW FINDING: Present Tense Is Introduced at Lesson 22 (of 45)
+
+**This was not in the founder's initial observations — but it's the most structurally surprising finding.** The first 21 lessons teach exclusively in the preterite (past) tense using *usted* forms. There is no "I speak" — only "I spoke," "Did you take?," "I took," "I'm going to take." Present tense ("hablar" → "hablo/habla") doesn't appear until Lesson 22.
+
+This is even more radical than *See It and Say It*'s sequencing. Madrigal's reasoning appears to be:
+1. The preterite "-é/-ó" system is simpler to introduce first (just two endings, no stem changes)
+2. Students can have complete, functional conversations in the past tense — travel, what you did, what you ate, who you visited
+3. "Going to" future (*ir a* + infinitive) covers future needs — no future conjugation required
+4. By the time present tense arrives in Lesson 22, the student already has 21 lessons of Spanish fluency. Present tense arrives as one more tool, not the foundational challenge
+
+**HoloHola implication:** Our Spanish chapter structure currently teaches present tense early (greetings: "soy, eres, es"). That's the right call for a conversational AI tutor where students want to describe themselves right now — not report on yesterday. However, Daniela should be aware of this sequencing insight and can reference it explicitly when introducing new tenses: *"Notice you're learning past tense first — that's intentional. You'll use 'I visited' and 'I ordered' in real stories before you need 'I visit' every day."*
 
 ---
 
 ### Part I.F Summary: What Magic Key Changes About Our Roadmap
 
-| Observation | Current HoloHola State | Recommended Change | Priority |
+| Finding | Current HoloHola State | Recommended Change | Priority |
 |---|---|---|---|
-| Column-format sentence building | SentenceFrameGrid exists | Add visual "column" rendering mode; reinforce the slot-swapping mental model | 🟠 Medium |
-| Preconjugated verb lists | verbGroups provides this implicitly | Add explicit PreconjugatedVerbGrid (or mode) as a standalone review panel | 🟡 Low (infrastructure) |
-| Multi-tense columns | Single-tense grids only | Add mixed-tense flag; use in consolidation chapters | 🟡 Low (needs consolidation chapters first) |
-| Delayed tú | tú likely appears in greetings | Audit Spanish chapters; shift early tú drills to usted; introduce tú as a milestone | 🔴 High |
-| Cognate tables per chapter | cognateOpener at chapter start only | Confirm topic-specific cognates in every chapter; consider mid-chapter cognate sidebar | 🟠 Medium |
-| Chapter tips → Daniela | Some tips in northStarPrinciples | Full tip extraction once scan is complete; load into danielaNotes | 🔴 High (waiting on full scan) |
+| Three-column sentence generator is the core format | SentenceFrameGrid exists but structure unclear | Audit whether SentenceFrameGrid exposes genuine column-pick; add sentence generator drill mode | 🔴 High |
+| Multi-tense columns from Lesson 11 onward | Single-tense grids only | Add tenseMode flag; offer mixed-tense grids from chapter 2 onward | 🟠 Medium |
+| Preconjugated forms throughout (not just pg 40) | verbGroups does this implicitly | Surface preconjugated forms explicitly in UI; seed "yo/él" form pairs in every chapter | 🟠 Medium |
+| Tú is Lesson 45 of 45 — add-s rule | tú likely appears in greetings | Audit and delay tú; introduce as social milestone with add-s framing | 🔴 High |
+| Cognate system = 11 conversion rules × 200+ words each | cognateOpener with 8–12 words | Build conversion-rule module; Daniela should teach rules conversationally | 🟠 Medium (new component) |
+| Chapter tips — philosophy quotes ready for Daniela | Some tips in northStarPrinciples | Seed 6+ Madrigal tips into danielaNotes immediately | 🔴 High (can do now) |
+| Present tense at Lesson 22 — sequencing rationale | Present tense early | No change needed — keep present early for conversational AI. Add Daniela note acknowledging the choice | 🟡 Low |
+
+---
+
+### Daniela Notes to Seed Now (from this audit)
+
+These are ready to load into `danielaNotes` immediately — no additional scan needed:
+
+1. *"Never let a word lie fallow. The minute a student learns a word, get them to use it. The mental process of using it makes it permanent."* (teaching rhythm)
+2. *"Large concepts, not small lists. One pattern well-established gives the student two hundred words forever."* (teaching philosophy)
+3. *"Invention beats memorization. When a student creates a form from a pattern, it's theirs. When they memorize it, it's borrowed."* (teaching philosophy)
+4. *"When a cognate appears, celebrate it explicitly: 'You already knew that word — you just didn't know you knew it.' Reframe cognates as recovered prior knowledge."* (what_worked)
+5. *"Delayed tú is intentional. By the time tú arrives, it's a +s on forms the student already owns. Don't rush it — build usted fluency first."* (teaching philosophy)
+6. *"In Spanish, people are always 'in' places, never 'at' places. 'In the restaurant, in the club, in the airport' — never at."* (idea_to_try — surface this when students make the error)
+7. *"Subject pronouns drop constantly in Spanish. 'Hablas' is complete. 'Tú hablas' is emphatic. Teach drop-first, emphasize second."* (teaching rhythm)
 
 ---
 
@@ -2128,8 +2210,12 @@ This is exactly right. The mechanism already exists:
 
 | Date | Action | Status |
 |---|---|---|
-| Apr 15, 2026 (S63) | Partial Magic Key scan reviewed by founder | 6 structural innovations identified and audited |
-| *PENDING* | Full Magic Key scan upload | Will unlock: complete tip extraction, full column grid catalogue, all chapter cognate sets |
+| Apr 15, 2026 (S63) | Full Magic Key text extracted (97MB PDF → pdftotext → 11,018 lines) | Complete |
+| Apr 15, 2026 (S63) | All 45 lessons catalogued; key innovations documented | Complete |
+| Apr 15, 2026 (S63) | 7 Daniela teaching notes identified and queued for danielaNotes | Ready to seed |
+| Next session | Seed 7 tips into danielaNotes via admin panel | In queue |
+| Next session | Audit Spanish chapters for premature tú usage | In queue |
+| Next session | Review SentenceFrameGrid implementation against Magic Key column-generator standard | In queue |
 
 ---
 
