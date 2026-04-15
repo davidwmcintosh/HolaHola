@@ -281,6 +281,61 @@ This is a deliberate, explicit progression from maximum scaffolding to maximum a
 
 ---
 
+### OBS-07 — Photo Mode: Describe-a-Photo with Dual Feedback Layers
+*Source: photo_mode_1776270335582.png, describe_1776270431803.png, result_1776270445795.png, more_feedback_1776270453633.png*
+
+**Mode description (their own words):** *"Describe a photo and receive contextual and grammatical feedback."*
+
+**Structured curriculum within the mode:**
+- Photo Mode is not a random drill — it has its own internal unit/progress system.
+- The entry screen shows a progress bar (0% on a new account) and two visible units, each with 12 photos in a 6×2 grid.
+- Each photo slot is represented by a star icon. Blue/active stars = Unit 1 (unlocked). Gray stars = Unit 2 (locked until Unit 1 is complete).
+- This is a full standalone curriculum within one mode — not just a shuffle of random photos.
+
+**The exercise loop:**
+1. A real photograph is shown (not AI-generated — appears to be stock photography) with the prompt "Describe what you see."
+2. Student can respond via text (Aa input field) OR voice (microphone button) — their choice.
+3. After submitting, the result screen appears.
+
+**The result screen (two distinct feedback types):**
+
+*Feedback type 1 — Contextual feedback (white card):*
+- Evaluates the accuracy and richness of the description relative to the photo.
+- Praises what was correctly identified and suggests what else could be added.
+- Example: *"That's a great start! You've accurately identified the main subject of the photo, which is the girl in her bed. To make your description even more vivid, you could add details about what she's doing and the overall mood of the scene..."*
+- Written in English, paragraph form, encouraging tone.
+
+*Feedback type 2 — Grammatical feedback (orange card, below the fold):*
+- Isolates the specific grammar error in the student's sentence.
+- Short, precise rule statement: *"The personal 'a' is required before a direct object referring to a person."*
+- Below it: an **"Advanced feedback"** button (✦ icon) that provides a deeper AI-generated explanation of the rule.
+
+**Score display:**
+- "50/100 — Overall score" with a yellow rocket/star icon (not the emoji face scale used in Sentence Mode).
+- Different icon system for different modes — they haven't fully unified their score language across the product.
+
+**User's UX note — discoverability issue:**
+- The grammatical feedback card sits *below the fold* — the student has to scroll down past the score and contextual feedback to find it.
+- A student who doesn't think to scroll will only see their score and the contextual paragraph, and miss the most precise grammar correction entirely.
+- The "Advanced feedback" button is also below the fold, behind a scroll and a tap. The richest feedback requires the most navigation.
+
+**Impressions:**
+- Separating contextual feedback (did you capture the image accurately?) from grammatical feedback (did you say it correctly in Spanish?) is genuinely thoughtful. These are two completely different things, and most apps conflate them or give only one.
+- Using real photographs instead of AI illustrations is a smart differentiation for this mode — it grounds the language in the real observable world. Any person looking at the photo would describe it similarly, removing cultural or style ambiguity.
+- Text OR voice input is a good accessibility decision — students who aren't comfortable with speaking can still participate.
+- The internal unit/star progression system within Photo Mode is sophisticated — it means there's a completable curriculum here, not just an endless random drill.
+- The below-the-fold discovery issue is a real UX failure though. Their best feedback (the grammar rule + advanced explanation) is the hardest to find.
+- The "Advanced feedback" button pattern (trigger deeper AI explanation on demand) is consistent with how they handle corrections elsewhere — it's an on-demand depth system, not forced onto every student.
+
+**HoloHola comparison:**
+- We don't have a photo description mode. This is a genuine gap in our drill repertoire.
+- The pedagogical value is real: spontaneous language production in response to a visual prompt, with two-dimensional feedback (contextual + grammatical). It's harder than a scripted drill and more constrained than free chat.
+- The dual feedback model (contextual vs. grammatical) is worth adopting as a general pattern — these are different errors requiring different explanations.
+- Our vocab images already exist and could seed a describe-the-image drill — though our images are concept illustrations rather than real photographs.
+- The "Advanced feedback" on-demand depth button is a pattern we could apply in Daniela interactions: a brief correction first, then "explain more" available without forcing it on everyone.
+
+---
+
 ## Running Feature Inventory
 
 | Feature | TalkPals | HoloHola | Notes |
@@ -315,6 +370,11 @@ This is a deliberate, explicit progression from maximum scaffolding to maximum a
 | Scripted dialogue mode (sentence shown → read) | Yes | No | Explicit scaffold for beginners |
 | Difficulty ladder (scripted → free production) | Yes (named modes) | Implicit | Ours exists in fragments; theirs is explicit and navigable |
 | Scenario-specific tutor persona | Yes ("Taxi driver" etc.) | No (always Daniela) | Immersion vs. tutor identity |
+| Photo description drill | Yes (text or voice) | No | Real photos; free production with dual feedback |
+| Dual feedback: contextual + grammatical | Yes | No | Separate cards for "did you describe it right?" vs. "was your Spanish correct?" |
+| On-demand deep grammar explanation | Yes ("Advanced feedback" button) | No | Depth on request, not forced |
+| Standalone curriculum within a mode (units/stars) | Yes (Photo Mode has its own 2-unit progression) | N/A | Mode-within-a-mode progression |
+| Consistent score language across modes | No (emoji scale vs. rocket icon) | TBD | Minor internal inconsistency on their side |
 
 ---
 
@@ -323,7 +383,7 @@ This is a deliberate, explicit progression from maximum scaffolding to maximum a
 1. ~~How does their "Call" mode work?~~ **Answered — OBS-04**
 2. ~~What do "Roleplays" and "Characters" look like?~~ **Answered — OBS-06.** Dialogue = scripted with sentence hints; Roleplay = same scenarios, free production. Characters = TBD.
 3. What does the "Debates" mode entail?
-4. What is "Photo" mode — image description prompt?
+4. ~~What is "Photo" mode?~~ **Answered — OBS-07.** Real photo → student describes in Spanish (text or voice) → dual feedback: contextual (accuracy) + grammatical (errors) + optional "Advanced feedback" deep dive. Has its own unit/star curriculum.
 5. How does their course/curriculum structure compare to our chapter system?
 6. What does their progress tracking look like in detail?
 7. Is there a mobile app, or web-only?
