@@ -1,0 +1,181 @@
+# TalkPals — Competitive Analysis
+*Running document. Updated as we review the product. All observations are first-hand from the founder's free trial, April 2026.*
+
+---
+
+## Overview
+
+TalkPals is an AI-powered language conversation app. Their core positioning is AI-driven conversation practice across multiple drill formats ("Modes"), plus a guided course system. No animated avatar — the tutor is represented by a small profile photo and a name. The interface is heavily text-chat-inspired with audio layered on top.
+
+Screenshots are stored in `attached_assets/` for reference.
+
+---
+
+## Observation Log
+
+---
+
+### OBS-01 — Conversation Interface: Text-Chat + Audio Hybrid
+*Source: overall_1776267154356.png, chat_correction_1776267154358.png, input_bar_for_sound_recording_1776267201104.png*
+
+**What they do:**
+- No animated avatar. The tutor (e.g. "Emma") has a small profile photo in the top-left corner and a name. That's it.
+- The conversation renders as a classic text-chat thread — gray bubbles for the tutor, blue/purple bubbles for the student.
+- Each student bubble gets one of two status icons:
+  - Green checkmark = pronunciation/grammar accepted
+  - Orange circle = something to review
+- Each tutor bubble gets a Replay (↻) and Translate (⇌) icon.
+- Helper prompts at the bottom of the thread: "Another question" and "Suggest answer" — scaffolding buttons that reduce friction when the student is stuck.
+- Input area: plain text field (Aa) + a microphone button at the bottom right.
+
+**Audio recording bar (Word Mode, but same pattern everywhere):**
+- Tap microphone once → recording starts. The input field transforms into a full-width waveform bar.
+- The bar shows: Pause icon | animated waveform | elapsed time (e.g. 0:03) | Send arrow.
+- A trash can icon to the left deletes the recording.
+- Tap Send (or Pause then Send) to submit.
+- No ambiguity about state. The waveform is clearly visual feedback that recording is active.
+
+**Inline correction panel:**
+- When a student message has an orange dot, clicking it slides open a right-side panel showing:
+  - "Your message" — exactly what was said/typed
+  - "Corrected message" — the grammatically corrected version
+  - "Explanation" — a yellow/orange card with a clear English explanation of the grammar rule
+  - "Advanced feedback" button below
+- The correction is non-interruptive — the conversation keeps flowing; the feedback panel is a drawer you open when you want it.
+
+**Impressions:**
+- Turn clarity is excellent. The empty input bar signals "your turn." No confusion.
+- The inline correction-on-demand model is smart — it doesn't break conversational flow by interrupting with corrections mid-chat.
+- The "Suggest answer" scaffold is a good learner safety net.
+- The audio bar UX is among the cleanest we've seen in this category.
+
+**HoloHola comparison:**
+- Daniela as an animated avatar is a meaningful differentiator — personality, warmth, visual immersion.
+- Our turn-taking UX and audio recording state deserve scrutiny against this standard.
+- Our correction/feedback mechanism during conversation is worth auditing.
+
+---
+
+### OBS-02 — Homepage as Mode Selector / Self-Directed Hub
+*Source: home_page_1776267543236.png*
+
+**What they do:**
+- The homepage IS the product for self-directed learners. No marketing — you land on a dashboard.
+- Left sidebar navigation: Home, Learn, Courses, Explore, Progress, Account.
+- The main content area is a vertical list of "Modes" — each is a card with a title, one-line description, topic tags (#Writing, #Speaking, etc.), and an illustration.
+- Modes visible: Chat, Sentence Mode, Word Mode (more below the fold: Dialogue, Call, Roleplays, Characters, Debates, Photo).
+- Right column: "Explore Courses" CTA card (prominent, dark blue), current level indicator (Level 2, progress bar toward Level 3), streak stats (Ongoing: 1 day, Longest: 1 day).
+- Modes tagged "Beginner" with a small badge.
+
+**Key insight — Modes are Drills:**
+Despite being called "Modes," most of them are structured drills with a clear loop:
+1. Intro card (image + description + Start button)
+2. The drill itself (audio-first interaction)
+3. Score or feedback
+4. Next item or retry
+
+This is closer to HoloHola's drill architecture than it might initially appear. The naming is just more consumer-friendly ("Sentence Mode" vs "Pronunciation Drill").
+
+**Auto-play on load:**
+When a mode/drill screen loads, the tutor audio plays automatically — you immediately hear the sentence or prompt. You don't need to press a play button to begin. This creates immediate engagement and reduces decision friction.
+
+**Impressions:**
+- The mode-as-homepage approach is very clean. Everything is one tap away.
+- The "Beginner" badge system implies progressive unlocking — modes become available as you level up.
+- The right-column dashboard info (level + streak) gives just enough gamification without cluttering the main content.
+
+**HoloHola comparison:**
+- Our homepage / entry experience is worth revisiting with this benchmark in mind.
+- Auto-play on drill load is a low-lift, high-impact UX pattern we should adopt.
+- The streak display is simple but effective — we have streaks, are they prominent enough?
+
+---
+
+### OBS-03 — Sentence Mode: Drill Flow
+*Source: sentence_mode_opener_1776268276854.png, sentence_mode_1776268284615.png, score_1776268315683.png, build_1776268321303.png*
+
+**What they do — the full loop:**
+
+**Step 0: Intro Card**
+- Before the drill begins, a full-screen intro card:
+  - Scene title (e.g. "Asking for directions")
+  - One-sentence description ("Build a solid foundation of your language skills by learning basics.")
+  - A large AI-generated scene illustration (photo-realistic street scene with two people)
+  - A wide "Start" button
+- This sets context and gives the learner a mental frame before they encounter any language.
+
+**Step 1: Read Aloud**
+- Progress indicator: "1 / 10" with a thin progress bar across the top.
+- A card shows the target sentence: *¿Cómo llego a la plaza principal desde aquí?*
+- Below: "Read out loud:" label, then the sentence in large text.
+- Below that: "Replay" and "Explain" buttons (Replay = hear it again; Explain = get a grammar note).
+- Below the card: "Translation: How do I get to the main square from here?"
+- Bottom: large circular microphone button + "Skip" link below it.
+- A flag icon (report/flag) is in the top-right corner of the sentence card.
+- The sentence audio plays automatically when the step loads.
+
+**Step 2: Pronunciation Score**
+- After speaking, a score screen:
+  - "Pronunciation score" header
+  - "Overall score 100/100" in bold
+  - A 5-face emoji scale (red frown → orange frown → neutral → green smile → dark green big smile) with a color bar beneath that fills to indicate score
+  - The target sentence shown again below (in green text) with its English translation
+  - Two buttons: "Next" (filled blue) and "Retry" (outlined)
+
+**Step 3: Build the Sentence**
+- Same progress indicator (still 1/10).
+- A word-bank area at the top: some words are already placed in the answer area (¿Cómo llego a la) — the drill is progressive/scaffolded, not a blank slate.
+- Below: remaining word tiles to tap and arrange (principal, [blank], [blank], aquí?, desde, [blank], plaza).
+- Some tiles are already "ghosted" (placed), others are available.
+- "Replay" and "Translate" buttons.
+- Large "Check" button at the bottom.
+
+**Impressions:**
+- The 3-step loop per sentence is elegant: hear/read → speak → build. Covers input, output, and production in one sentence.
+- Scaffolded word-bank (partially pre-filled) reduces cognitive load vs. a fully blank build.
+- The emoji score scale is immediately readable — even without reading the number, you know where you stand.
+- Auto-play at step entry is doing real work: you never have to "start" anything, the drill just begins.
+- 10 sentences per session is a clean, bounded scope — learners know the end is in sight.
+
+**HoloHola comparison:**
+- Our sentence/phrase drills exist but the flow may not be this tight or this well-sequenced.
+- The intro card (scene image + description) before each drill is a pattern worth adopting — it primes the learner.
+- The emoji pronunciation score is simpler and more emotionally readable than a raw percentage.
+- Scaffolded word-bank (partial pre-fill) vs. full blank — worth reviewing our build-a-sentence implementation.
+
+---
+
+## Running Feature Inventory
+
+| Feature | TalkPals | HoloHola | Notes |
+|---|---|---|---|
+| Animated avatar/tutor | No (photo only) | Yes (Daniela) | HoloHola differentiator |
+| Text-chat conversation UI | Yes | No | TalkPals advantage for turn clarity |
+| Inline grammar correction (on demand) | Yes | TBD | Non-interruptive feedback model |
+| Audio recording bar with waveform | Yes (excellent) | TBD | UX benchmark |
+| Push-to-toggle recording (start/stop) | Yes | TBD | Worth auditing ours |
+| Auto-play on drill load | Yes | No | High-impact, low-lift improvement |
+| Sentence drill (read → score → build) | Yes | TBD | 3-step loop is clean |
+| Pronunciation score with emoji scale | Yes | TBD | More readable than raw % |
+| Intro card before each drill | Yes | No | Good context-setting pattern |
+| Word-bank (scaffolded, partial pre-fill) | Yes | TBD | Reduces cognitive load |
+| Progress bar within session (1/10) | Yes | TBD | Clear bounded scope |
+| Streak display on homepage | Yes | Yes | Are ours prominent enough? |
+| Level system | Yes (Level 2→3) | TBD | |
+| Guided courses | Yes ("Explore Courses") | Yes (chapters) | |
+| Multiple drill modes | Yes (9 modes) | Yes | |
+| Suggest answer / scaffold button | Yes | No | |
+| Scene-setting illustration before drill | Yes | Limited | |
+
+---
+
+## Open Questions to Revisit
+
+1. How does their "Call" mode work? Is it a free-form unstructured conversation?
+2. What do "Roleplays" and "Characters" look like — are these scenario-based like HoloHola's classroom?
+3. What does the "Debates" mode entail?
+4. What is "Photo" mode — image description prompt?
+5. How does their course/curriculum structure compare to our chapter system?
+6. What does their progress tracking look like in detail?
+7. Is there a mobile app, or web-only?
+8. What are the pricing tiers after the free trial?
