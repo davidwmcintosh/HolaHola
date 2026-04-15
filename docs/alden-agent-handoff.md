@@ -4232,3 +4232,29 @@ PRIORITY GAPS:
 
 **Still blocked:** Magic Keys to Spanish — scanner test shots only, not book content
 
+
+---
+
+## Session 57 (continued)
+
+**Additions within same session:**
+- Created `docs/madrigal-critique-and-improvements.md` — 15 documented Madrigal limitations with HoloHola solutions, organized as: "What We Keep" table + "What We Improve" section (each with root cause, problem, and HoloHola fix)
+- Added this doc to the reference table in `docs/visual-asset-roadmap.md`
+
+**Key improvements documented:**
+1. Dialogue colors: all Q&A in B&W single ink → HoloHola: two-color Q&A, color-coded conversation bubbles [HIGH]
+2. Ambiguous drawings: olives (p.100), sardine, match, button, celery vs. asparagus → AI-generated with distinguishing features + Question Fit Test [HIGH]
+3. No color in color lessons → full-color swatches + canonical colored objects [HIGH]
+4. Ser vs. estar never side-by-side contrasted → comparison grid [MEDIUM]
+5. Modal page is wall of text → clusters by meaning (obligation/desire/ability/movement/pleasure) [MEDIUM]
+6. Practice instructions are generic ("Practique") → Daniela varies dynamically [ALREADY SOLVED]
+7. No self-assessment → tap-to-reveal + Daniela tracks errors [ALREADY SOLVED]
+8. Fixed 4-item density → variable VocabQA grids [MEDIUM]
+9. Preterite-before-present unexplained → discoveryNote explaining pedagogical rationale [MEDIUM]
+10. EE phrases not linked to grammar → tagged to source grammar lesson [MEDIUM]
+11. Weather disconnected from places → same chapter cluster [LOW — new chapters anyway]
+12. Gender agreement not visually tracked → consistent color/position in GenderGrid [MEDIUM]
+13. Verb lists alphabetical not frequency → sort by frequency; badge top-10 [LOW]
+14. No pronunciation guide beyond page 1 → Daniela audio on every word [ALREADY SOLVED]
+15. Spanish-only → 10-language platform [ALREADY SOLVED]
+
