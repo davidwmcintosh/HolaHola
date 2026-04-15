@@ -1015,32 +1015,52 @@ const F_GRADE_IMAGES = [
 ] as const;
 
 type AuditState = {
-  generating: boolean;
-  newTs: number | null;
+  previewing: boolean;
+  applying: boolean;
+  previewDataUrl: string | null;
+  appliedTs: number | null;
   error: string | null;
 };
 
 function ImageAuditPanel() {
   const { toast } = useToast();
   const [states, setStates] = useState<Record<string, AuditState>>(() =>
-    Object.fromEntries(F_GRADE_IMAGES.map(img => [img.conceptKey, { generating: false, newTs: null, error: null }]))
+    Object.fromEntries(F_GRADE_IMAGES.map(img => [img.conceptKey, { previewing: false, applying: false, previewDataUrl: null, appliedTs: null, error: null }]))
   );
 
-  const regenerate = async (conceptKey: string, prompt: string) => {
-    setStates(prev => ({ ...prev, [conceptKey]: { generating: true, newTs: null, error: null } }));
+  const patch = (key: string, update: Partial<AuditState>) =>
+    setStates(prev => ({ ...prev, [key]: { ...prev[key], ...update } }));
+
+  const generatePreview = async (conceptKey: string, prompt: string) => {
+    patch(conceptKey, { previewing: true, previewDataUrl: null, error: null });
     try {
-      const res = await apiRequest('POST', '/api/admin/vocab-images/regen-key', { conceptKey, prompt });
+      const res = await apiRequest('POST', '/api/admin/vocab-images/regen-preview-key', { conceptKey, prompt });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Generation failed');
-      setStates(prev => ({ ...prev, [conceptKey]: { generating: false, newTs: Date.now(), error: null } }));
-      toast({ title: 'Image regenerated', description: `${conceptKey}.png replaced successfully` });
+      patch(conceptKey, { previewing: false, previewDataUrl: data.previewDataUrl });
     } catch (e: any) {
-      setStates(prev => ({ ...prev, [conceptKey]: { generating: false, newTs: null, error: e.message } }));
-      toast({ variant: 'destructive', title: 'Regeneration failed', description: e.message });
+      patch(conceptKey, { previewing: false, error: e.message });
+      toast({ variant: 'destructive', title: 'Preview failed', description: e.message });
     }
   };
 
-  const doneCount = Object.values(states).filter(s => s.newTs !== null).length;
+  const applyPreview = async (conceptKey: string) => {
+    patch(conceptKey, { applying: true, error: null });
+    try {
+      const res = await apiRequest('POST', '/api/admin/vocab-images/regen-apply-key', { conceptKey });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Apply failed');
+      patch(conceptKey, { applying: false, previewDataUrl: null, appliedTs: Date.now() });
+      toast({ title: 'Applied', description: `${conceptKey}.png replaced in GCS` });
+    } catch (e: any) {
+      patch(conceptKey, { applying: false, error: e.message });
+      toast({ variant: 'destructive', title: 'Apply failed', description: e.message });
+    }
+  };
+
+  const discard = (conceptKey: string) => patch(conceptKey, { previewDataUrl: null, error: null });
+
+  const appliedCount = Object.values(states).filter(s => s.appliedTs !== null).length;
 
   return (
     <div className="space-y-6">
@@ -1051,12 +1071,12 @@ function ImageAuditPanel() {
             F-Grade Image Regen Queue
           </CardTitle>
           <CardDescription>
-            7 images failed the Question Fit Test — each contains English text labels baked in by DALL-E.
-            Click Regenerate on each card to generate a replacement using the corrected prompt.
-            DALL-E takes ~20–30 seconds per image. The new image overwrites the old one in GCS immediately.
-            {doneCount > 0 && (
+            7 images failed the visual quality audit — each contains English text labels baked in by DALL-E.
+            Click <strong>Generate Preview</strong> to see a candidate (~25s), then <strong>Apply</strong> to write it to GCS,
+            or <strong>Retry</strong> for a different attempt. Nothing overwrites until you click Apply.
+            {appliedCount > 0 && (
               <span className="ml-2 font-medium text-green-600 dark:text-green-400">
-                {doneCount}/7 replaced this session.
+                {appliedCount}/7 applied this session.
               </span>
             )}
           </CardDescription>
@@ -1065,40 +1085,48 @@ function ImageAuditPanel() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {F_GRADE_IMAGES.map(img => {
               const s = states[img.conceptKey];
-              const currentSrc = `/api/media/ai-image/${img.conceptKey}.png`;
-              const newSrc = s.newTs ? `/api/media/ai-image/${img.conceptKey}.png?t=${s.newTs}` : null;
+              const currentSrc = s.appliedTs
+                ? `/api/media/ai-image/${img.conceptKey}.png?t=${s.appliedTs}`
+                : `/api/media/ai-image/${img.conceptKey}.png`;
+              const hasPreview = !!s.previewDataUrl;
 
               return (
                 <Card key={img.conceptKey} className="flex flex-col" data-testid={`card-audit-${img.conceptKey}`}>
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between gap-2 flex-wrap">
                       <CardTitle className="text-sm font-semibold">{img.label}</CardTitle>
-                      {s.newTs
-                        ? <Badge className="bg-green-600 text-white text-xs no-default-active-elevate">Replaced</Badge>
-                        : <Badge variant="destructive" className="text-xs no-default-active-elevate">F-Grade</Badge>
+                      {s.appliedTs
+                        ? <Badge className="bg-green-600 text-white text-xs no-default-active-elevate">Applied</Badge>
+                        : hasPreview
+                          ? <Badge variant="outline" className="text-xs no-default-active-elevate">Preview Ready</Badge>
+                          : <Badge variant="destructive" className="text-xs no-default-active-elevate">F-Grade</Badge>
                       }
                     </div>
                     <p className="text-xs text-muted-foreground leading-snug">{img.reason}</p>
                   </CardHeader>
+
                   <CardContent className="flex-1 flex flex-col gap-3 pb-4">
-                    <div className={`grid gap-2 ${newSrc ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                    {/* Image comparison area */}
+                    <div className={`grid gap-2 ${hasPreview ? 'grid-cols-2' : 'grid-cols-1'}`}>
                       <div className="space-y-1">
-                        <p className="text-xs text-center text-muted-foreground">{newSrc ? 'Before' : 'Current'}</p>
+                        <p className="text-xs text-center text-muted-foreground">
+                          {hasPreview ? 'Current' : s.appliedTs ? 'Applied' : 'Current'}
+                        </p>
                         <img
                           src={currentSrc}
                           alt={`current ${img.label}`}
-                          className="w-full aspect-square object-contain rounded-md border bg-muted/20"
+                          className="w-full aspect-video object-contain rounded-md border bg-muted/20"
                           data-testid={`img-current-${img.conceptKey}`}
                         />
                       </div>
-                      {newSrc && (
+                      {hasPreview && (
                         <div className="space-y-1">
-                          <p className="text-xs text-center text-muted-foreground font-medium text-green-600 dark:text-green-400">After</p>
+                          <p className="text-xs text-center font-medium text-amber-600 dark:text-amber-400">Candidate</p>
                           <img
-                            src={newSrc}
-                            alt={`new ${img.label}`}
-                            className="w-full aspect-square object-contain rounded-md border border-green-500/40 bg-muted/20"
-                            data-testid={`img-new-${img.conceptKey}`}
+                            src={s.previewDataUrl!}
+                            alt={`candidate ${img.label}`}
+                            className="w-full aspect-video object-contain rounded-md border border-amber-400/50 bg-muted/20"
+                            data-testid={`img-preview-${img.conceptKey}`}
                           />
                         </div>
                       )}
@@ -1108,31 +1136,67 @@ function ImageAuditPanel() {
                       <p className="text-xs text-destructive bg-destructive/10 rounded px-2 py-1">{s.error}</p>
                     )}
 
-                    <Button
-                      size="sm"
-                      variant={s.newTs ? 'outline' : 'default'}
-                      className="w-full mt-auto"
-                      disabled={s.generating}
-                      onClick={() => regenerate(img.conceptKey, img.prompt)}
-                      data-testid={`button-regen-${img.conceptKey}`}
-                    >
-                      {s.generating ? (
-                        <>
-                          <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
-                          Generating (~25s)…
-                        </>
-                      ) : s.newTs ? (
-                        <>
-                          <RotateCcw className="h-3 w-3 mr-1.5" />
-                          Regenerate Again
-                        </>
-                      ) : (
-                        <>
-                          <RefreshCw className="h-3 w-3 mr-1.5" />
-                          Regenerate
-                        </>
-                      )}
-                    </Button>
+                    {/* Action buttons */}
+                    {hasPreview ? (
+                      <div className="flex gap-2 mt-auto">
+                        <Button
+                          size="sm"
+                          className="flex-1"
+                          disabled={s.applying}
+                          onClick={() => applyPreview(img.conceptKey)}
+                          data-testid={`button-apply-${img.conceptKey}`}
+                        >
+                          {s.applying ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <CheckCircle className="h-3 w-3 mr-1.5" />}
+                          Apply
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          disabled={s.applying || s.previewing}
+                          onClick={() => generatePreview(img.conceptKey, img.prompt)}
+                          data-testid={`button-retry-${img.conceptKey}`}
+                          title="Generate another candidate"
+                        >
+                          {s.previewing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="flex-1"
+                          disabled={s.applying}
+                          onClick={() => discard(img.conceptKey)}
+                          data-testid={`button-discard-${img.conceptKey}`}
+                        >
+                          Discard
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant={s.appliedTs ? 'outline' : 'default'}
+                        className="w-full mt-auto"
+                        disabled={s.previewing}
+                        onClick={() => generatePreview(img.conceptKey, img.prompt)}
+                        data-testid={`button-preview-${img.conceptKey}`}
+                      >
+                        {s.previewing ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
+                            Generating (~25s)…
+                          </>
+                        ) : s.appliedTs ? (
+                          <>
+                            <RotateCcw className="h-3 w-3 mr-1.5" />
+                            Generate Another
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="h-3 w-3 mr-1.5" />
+                            Generate Preview
+                          </>
+                        )}
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
               );

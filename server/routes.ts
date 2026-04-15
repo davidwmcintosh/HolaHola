@@ -11407,24 +11407,49 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   /**
-   * Regenerate a specific concept-key image by exact GCS filename.
-   * Takes a conceptKey (e.g. "vocab_weather_temperature_scale") and a custom
-   * DALL-E prompt, generates a new image, and overwrites the existing GCS file.
-   * Used by the Image Audit panel in the Developer Dashboard.
+   * Image Audit — two-step preview/apply flow for concept-key images.
+   *
+   * Step 1: POST /api/admin/vocab-images/regen-preview-key
+   *   Generates a DALL-E 3 candidate and stores it server-side (in auditPreviewStore).
+   *   Returns the data URL for display — nothing is written to GCS yet.
+   *
+   * Step 2: POST /api/admin/vocab-images/regen-apply-key
+   *   Takes the approved data URL from the store and writes it to GCS, replacing the
+   *   existing file. Clears the preview from memory.
    */
-  app.post('/api/admin/vocab-images/regen-key', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  const auditPreviewStore = new Map<string, string>(); // conceptKey → data URL
+
+  app.post('/api/admin/vocab-images/regen-preview-key', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { conceptKey, prompt } = req.body;
       if (!conceptKey || typeof conceptKey !== 'string') return res.status(400).json({ error: 'conceptKey is required' });
       if (!prompt || typeof prompt !== 'string') return res.status(400).json({ error: 'prompt is required' });
 
-      // Sanitise: only allow safe vocab_ concept key filenames
       const safeKey = conceptKey.replace(/[^a-z0-9_]/g, '');
       if (!safeKey.startsWith('vocab_')) return res.status(400).json({ error: 'conceptKey must start with vocab_' });
 
-      console.log(`[RegenKey] Generating replacement for ${safeKey}.png`);
+      console.log(`[AuditPreview] Generating candidate for ${safeKey}.png`);
       const dataUrl = await generateImageWithGemini(prompt);
       if (!dataUrl) return res.status(500).json({ error: 'Image generation failed — no data returned' });
+
+      // Hold in memory — nothing touches GCS yet
+      auditPreviewStore.set(safeKey, dataUrl);
+      console.log(`[AuditPreview] ✓ Candidate ready for ${safeKey} (${Math.round(dataUrl.length / 1024)}KB)`);
+      res.json({ conceptKey: safeKey, previewDataUrl: dataUrl });
+    } catch (error: any) {
+      console.error('[AuditPreview] Error:', error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/admin/vocab-images/regen-apply-key', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { conceptKey } = req.body;
+      if (!conceptKey || typeof conceptKey !== 'string') return res.status(400).json({ error: 'conceptKey is required' });
+
+      const safeKey = conceptKey.replace(/[^a-z0-9_]/g, '');
+      const dataUrl = auditPreviewStore.get(safeKey);
+      if (!dataUrl) return res.status(404).json({ error: `No pending preview for ${safeKey} — generate a preview first` });
 
       const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, '');
       const buffer = Buffer.from(base64, 'base64');
@@ -11432,14 +11457,11 @@ Return ONLY the ${targetLanguage} phrase:`;
       const { uploadPublicBuffer } = await import('./services/image-storage');
       await uploadPublicBuffer(`${safeKey}.png`, buffer, 'image/png');
 
-      console.log(`[RegenKey] ✓ Replaced ${safeKey}.png in GCS`);
-      res.json({
-        url: `/api/media/ai-image/${safeKey}.png`,
-        conceptKey: safeKey,
-        message: `Regenerated ${safeKey}.png successfully`,
-      });
+      auditPreviewStore.delete(safeKey);
+      console.log(`[AuditApply] ✓ Applied preview → ${safeKey}.png in GCS`);
+      res.json({ url: `/api/media/ai-image/${safeKey}.png`, conceptKey: safeKey, message: `Applied — ${safeKey}.png replaced in GCS` });
     } catch (error: any) {
-      console.error('[RegenKey] Error:', error.message);
+      console.error('[AuditApply] Error:', error.message);
       res.status(500).json({ error: error.message });
     }
   });
