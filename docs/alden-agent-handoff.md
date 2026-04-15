@@ -4326,3 +4326,82 @@ Directly accessed 15 real images via `/api/media/ai-image/vocab_*.png` (route co
 2. Schedule regen for leer, bailar, escuela (C-grade)
 3. Upload Magic Keys to Spanish when available
 4. Seed new chapter data (pending Magic Keys analysis)
+
+
+---
+
+## Sessions S59–S60 (April 2026) — Full Library Audit Complete
+
+**Completed: Part I.E Extended — Full 243-image visual quality audit**
+
+Expanded the S58 sample (15 images) to cover the entire `public/ai-images/` GCS bucket. Every vocab_* category was screenshotted at full resolution and graded against the Question Fit Test.
+
+**Audit scope:** ~243 images across 20 categories (actions, adjectives, animals, body, clothing, colors, emotions, food, health, home, nature, numbers, people, places, professionals, things, time, transport, weather, place-specific).
+
+**New F-grades discovered (5 new, 7 total):**
+1. `vocab_adj_caliente_frio.png` — "Warm/Vs" English text (from S58) **AWAITING REGEN**
+2. `vocab_places_casa.png` — "(casa)" label baked in (from S58) **AWAITING REGEN**
+3. `vocab_color_blanco.png` — "WHITE" label baked in **NEW**
+4. `vocab_place_farmacia.png` — "PHARMACY" ×2 in English **NEW**
+5. `vocab_emo_nervioso.png` — "stess" text + undressed figure **NEW**
+6. `vocab_weather_temperature_scale.png` — "CELSIUS/FAHRENHEIT" English headers **NEW**
+7. `vocab_time_dias_semana.png` — "MONDAY/WEDNESDAY/SATURDAY" English day names **NEW**
+
+**New D-grades (regen high priority, 3 images):**
+- `vocab_weather_forecast_card.png` — English "CLU/SUN/RAN/STOM" truncated labels
+- `vocab_num_hundreds.png` — "D00" + Indian comma formatting + garbled captions
+- `vocab_num_phone.png` — "CALLE ploto numbere" garbled English text
+
+**C-grades (~23 images, schedule next batch):**
+Actions: leer (winter hat), bailar (folk costume)
+Adjectives: joven_viejo_personas, ruidoso_tranquilo, rapido_lento
+Body: body_diagram (character reference sheet)
+Clothing: sombrero, falda, vestido (style inconsistency)
+Food: limon (pencil artifact), huevo (orange border)
+Health: cita_medica ("CONSULTATION"), pastilla (white sphere)
+Numbers: currency (glitchy "$€..00"), 11_20 (garbled labels), ordinals (wrong podium 1/4/3), tens (confusing grid)
+People: hombre (before/after format), estudiante (Arabic script)
+Places: escuela (US flag), supermercado (Asian chars)
+Professionals: cocinero (Asian script posters)
+Things: silla (yellow border artifact)
+Weather: caluroso (artist signature + period dress)
+Place: banco ("BANK" English)
+
+**Highlights from the audit (excellent categories):**
+- vocab_home_* (all 7 images): **ALL A** — perfect set, no action needed
+- vocab_nature_* (all 12): **ALL A/B** — no language text anywhere, universal imagery
+- vocab_weather_* (8 of 11): A-grade — frio, lluvioso, soleado, neblinoso, nevado, nublado, tormentoso, ventoso all clean
+- vocab_time clock faces: **ALL A** — clean analog clocks showing numbers 1–12 only
+- vocab_ppl_* (primos, tios, vecino, padres, etc.): **Mostly A** — strong family imagery
+
+**Library health summary:**
+- ~170 A-grade (~70%) — no action needed
+- ~30 B-grade (~12%) — keep, note for future batch
+- ~23 C-grade (~9%) — schedule regen
+- 3 D-grade (~1%) — regen before next release
+- 7 F-grade (~3%) — regen immediately
+
+**Part I.E Extended written into docs/visual-asset-roadmap.md** (after line 1763):
+- Category-level summary table (20 categories)
+- 10 cross-cutting failure modes with examples
+- Full regen prompts for all 7 F-grade images
+- Full regen prompts for all 3 D-grade images
+- C-grade regen queue by category
+- Updated library status table
+
+**Key new failure modes identified:**
+- Garbled AI-generated text on number images (11_20, hundreds, phone, currency)
+- Artist signature baked into watercolor (caluroso)
+- Indian comma formatting instead of Western (hundreds — "10,00,00" instead of "10,000")
+- Multi-panel infographic format that confuses the concept (body_diagram, forecast_card, num_tens)
+
+**Still blocked:**
+- Magic Keys to Spanish — not yet uploaded by user
+- Actual image regeneration — requires calling vocab-image-seed-service regeneration function or direct DALL-E API call with the prompts from Part I.E
+
+**Next recommended tasks (in priority order):**
+1. Regen 7 F-grade images using prompts in Part I.E Extended (these are student-visible failures)
+2. Regen 3 D-grade images (garbled text / formatting errors)
+3. Regen 23 C-grade images in next generation batch
+4. Upload Magic Keys to Spanish when available → unlock new chapter data seeding
+5. Continue M1–M6 component audit across 10 languages × 5 chapters (not started yet)

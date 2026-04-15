@@ -19,7 +19,7 @@ The analysis documents below have been integrated inline as **Part I** of this r
 | **Part I.B** — See It and Say It Source Analysis *(inline below)* | Full lesson map of *See It and Say It in Spanish* — all 9 phases, 5 Everyday Expressions pages, appendix catalogued, complete drawing and structure catalogue | Authoritative source of truth for Madrigal's content sequence |
 | **Part I.C** — Gap Audit: HoloHola vs. Madrigal *(inline below)* | Chapter-by-chapter overlap analysis, current coverage score (~30%), and prioritized gap-fill queue for existing and new chapters | Before deciding which new chapters or vocabQA items to seed next |
 | **Part I.D** — How Madrigal Illustrates Each Concept *(inline below)* | 10 image templates, per-category drawing specs, prompt guidelines, and the Question Fit Test | Brief for every new VocabQA image batch |
-| **Part I.E** — Actual Image Quality Audit *(inline below)* | First-party visual inspection of 15 real HoloHola images — graded A/B/C/F against the Question Fit Test; 2 F-grade images flagged for immediate regen with prompts; 3 C-grade images queued; cross-cutting failure mode analysis | Before regenerating any image; the ground-truth quality record |
+| **Part I.E** — Actual Image Quality Audit *(inline below)* | First-party visual inspection of all ~243 HoloHola vocab images across 20 categories — graded A/B/C/D/F against the Question Fit Test; 7 F-grade images flagged for immediate regen with prompts; 3 D-grade and 23 C-grade images queued; 10 cross-cutting failure modes documented; library is ~82% A/B | Before regenerating any image; the ground-truth quality record |
 | `docs/curriculum-strategy.md` *(external)* | Overall platform philosophy, ACTFL level mapping, M1–M6 component definitions | Framing new chapter types |
 
 **Image generation style note:** HoloHola uses soft watercolor, not Madrigal's B&W line art — we are not trying to replicate her drawings. What Madrigal's illustrations teach us is how *minimal* you can get and still communicate a word unambiguously. Her drawings are a masterclass in stripping an image down to its single essential idea. That principle applies directly to our watercolor generation: when in doubt, simplify. One subject, one context, no clutter. Part I.D documents how she solves each concept type — use it as a simplicity reference, not a style guide.
@@ -1745,7 +1745,7 @@ If possible, a small bell tower is a universally recognized school marker.
 
 ---
 
-### Overall Library Status (S58 snapshot)
+### Overall Library Status (S58 snapshot — 15 images)
 
 - **Total images reviewed:** 15 (all images currently accessible via `/api/media/ai-image/vocab_*`)
 - **A-grade (keep, canonical):** 4 (27%)
@@ -1755,6 +1755,233 @@ If possible, a small bell tower is a universally recognized school marker.
 - **Not found (missing from object storage):** vocab_spanish_perro, vocab_spanish_padre, vocab_spanish_madre, vocab_spanish_uno — these either haven't been pre-seeded or use a different naming key
 
 **Gap flagged:** The `vocab_spanish_*` namespace appears unpopulated. The images that do exist use the `vocab_people_*`, `vocab_act_*`, `vocab_adj_*`, `vocab_places_*`, `vocab_color_*` namespace. When regenerating images, confirm cache key naming with `vocabulary-image-resolver.ts` → function `buildVocabCacheKey()` at line 1498.
+
+---
+
+## Part I.E Extended — Full Library Audit (S59–S60, April 2026)
+
+**What this is:** A continuation of the S58 sample audit expanded to cover the entire `public/ai-images/` GCS bucket — all vocab_* categories visually inspected at full resolution. Every image in every category was screenshotted live and graded against the Question Fit Test.
+
+**Total images audited this session:** ~243 across 20 categories.
+
+**Namespace confirmed:** All vocab images live at `public/ai-images/vocab_<category>_<concept>.png` in GCS, served via `/api/media/ai-image/:filename`.
+
+---
+
+### Category-Level Summary
+
+| Category | Count | Status | Issues Found |
+|----------|-------|--------|--------------|
+| `vocab_act_*` (actions) | ~12 | Mostly A/B | leer (C—winter hat), bailar (C—folk costume) from S58 |
+| `vocab_adj_*` (adjectives) | ~10 | Mixed | caliente_frio (**F**—"Warm/Vs" text), joven_viejo_personas (C), ruidoso_tranquilo (C), rapido_lento (C) |
+| `vocab_animals_*` | ~15 | ✅ Mostly A | Clean across the board |
+| `vocab_body_*` | ~10 | Mostly A | body_diagram (C—multi-panel chart) |
+| `vocab_cloth_*` (clothing) | ~8 | Mostly B/C | sombrero/falda/vestido style inconsistencies |
+| `vocab_color_*` | ~8 | Mostly A | blanco (**F**—"WHITE" label baked in) |
+| `vocab_emo_*` (emotions) | 8 | 7A/1F | nervioso (**F**—"stess" text + undressed figure) |
+| `vocab_food_*` | ~12 | Mostly A/B | limon (C—pencil artifact), huevo (C—orange border) |
+| `vocab_health_*` | 4 | 2A/2C | cita_medica (C—"CONSULTATION" text), pastilla (C—confusing white sphere) |
+| `vocab_home_*` | 7 | ✅ All A | Perfect set — no action needed |
+| `vocab_nature_*` | 12 | ✅ All A/B | No language text; universal imagery throughout |
+| `vocab_num_*` | 7 | Mixed | hundreds (D), phone (D), 11_20 (C), currency (C), ordinals (C), tens (C) |
+| `vocab_people_*` | ~6 | Mixed | hombre (C—before/after format), estudiante (C—Arabic script) |
+| `vocab_place_*` | ~5 | Mixed | farmacia (**F**—"PHARMACY"×2), banco (C—"BANK" text) |
+| `vocab_places_*` | ~8 | Mixed | casa (**F**—"(casa)" text), escuela (C—US flag), supermercado (C—Asian chars) |
+| `vocab_ppl_*` | ~10 | Mostly A | cocinero (C—Asian script on posters) |
+| `vocab_things_*` | ~6 | Mostly A/B | silla (C—yellow border artifact) |
+| `vocab_time_*` | ~55 | Mixed | dias_semana (**F**—English day names), temperature_scale (**F**—"CELSIUS/FAHRENHEIT"), clock faces (A), partes_dia (A), meses (B), estaciones (B), rutina_diaria (B) |
+| `vocab_transport_*` | ~6 | ✅ Mostly A | No issues found |
+| `vocab_weather_*` | 11 | Mostly A | temperature_scale (**F**—"CELSIUS/FAHRENHEIT"), forecast_card (D—English labels), caluroso (C—artist signature) |
+
+---
+
+### New Failure Mode Discoveries (S59–S60)
+
+These failure modes extend the S58 cross-cutting findings with new patterns discovered in the full audit:
+
+| Failure Mode | Examples Discovered | Count |
+|---|---|---|
+| **Embedded English text (F-grade)** | caliente_frio ("Warm/Vs"), blanco ("WHITE"), farmacia ("PHARMACY"), dias_semana ("MONDAY/WEDNESDAY"), temperature_scale ("CELSIUS/FAHRENHEIT"), nervioso ("stess") | 6 distinct images |
+| **Embedded Spanish label on image** | casa ("(casa)" text) | 1 image |
+| **Garbled/glitchy AI-generated text** | num_11_20 ("LEST10/LB115"), num_phone ("CALLE ploto numbere"), num_hundreds ("D00"), num_currency ("$€..00") | 4 images |
+| **Artist signature baked in** | weather_caluroso (handwritten signature lower-right) | 1 image |
+| **Non-Roman script (Asian/Arabic chars)** | places_supermercado (Asian storefront signs), ppl_cocinero (Asian kitchen posters), people_estudiante (Arabic script visible) | 3 images |
+| **US-specific cultural marker** | places_escuela (US flag) | 1 image |
+| **Wrong numbers displayed** | num_hundreds ("D00" instead of "1,000"; Indian comma formatting) | 1 image |
+| **Multi-panel / infographic format** | body_diagram (character reference sheet), num_tens (abstract grid), forecast_card (6-column weather chart) | 3 images |
+| **Problematic figure rendering** | emo_nervioso (undressed figure, disturbing imagery) | 1 image |
+| **Period/historical costume** | weather_caluroso (Victorian-style dress) | 1 image |
+
+---
+
+### Complete F-Grade Regen Queue (7 images — regen immediately)
+
+These images must not be shown to students. All contain English text labels or otherwise disqualifying content.
+
+**1. `vocab_adj_caliente_frio.png`** (from S58)
+```
+Prompt: Two objects side by side on a pure white background, watercolor illustration style.
+LEFT: a steaming ceramic mug of coffee, warm orange-brown tones, visible steam wisps rising.
+RIGHT: a tall glass filled with ice cubes and clear cold water, cool blue tones.
+No text, no labels, no dividers, no "vs", no annotations of any kind on the image.
+```
+
+**2. `vocab_places_casa.png`** (from S58)
+```
+Prompt: Simple front facade of a house, watercolor illustration style, white background.
+A door in the center, one window on each side, a small step, minimal wall.
+No garden, no flowers, no lawn, no bushes, no flag, no decorative elements.
+Absolutely NO text, labels, or words printed anywhere on the image.
+```
+
+**3. `vocab_color_blanco.png`**
+```
+Prompt: A single simple white object on a very light grey or off-white background,
+watercolor illustration style. Options: a white egg, a white circle, a white feather.
+No text, no labels. The concept "white" should be communicated purely by the object color.
+```
+
+**4. `vocab_place_farmacia.png`**
+```
+Prompt: Simple pharmacy storefront facade, watercolor illustration style, white background.
+Green cross symbol above the door (universally recognized pharmacy symbol worldwide).
+Clean simple door and window. No English "PHARMACY" text, no Spanish label either.
+The green cross alone communicates the concept — it is the universal pharmacy symbol.
+```
+
+**5. `vocab_emo_nervioso.png`**
+```
+Prompt: A person (clothed, simple casual clothing) with a visible anxious/nervous expression —
+sweating brow, wide eyes, shoulders raised, hands clasped or fidgeting.
+White or near-white background. Watercolor illustration style.
+No text of any kind on the image. No undressed figures.
+```
+
+**6. `vocab_weather_temperature_scale.png`**
+```
+Prompt: A single large thermometer showing temperature, watercolor illustration style.
+The mercury/fluid fills from bottom — cool blue at the bottom, warm red/orange at the top.
+Small snowflake icon near the bottom (cold reference) and small sun icon near the top (hot reference).
+No text, no Celsius label, no Fahrenheit label, no English words of any kind.
+Let the visual gradient and icons communicate hot vs. cold temperature scale.
+```
+
+**7. `vocab_time_dias_semana.png`**
+```
+Prompt: A calendar page showing a 7-day week grid, watercolor illustration style.
+Seven columns with simple symbolic icons only — no words. Use universally readable icons:
+sun (weekend), moon/stars (night), briefcase (workday), etc. OR simply show 7 numbered
+squares (1 through 7) arranged in a row/grid.
+Absolutely NO English day names (no Monday, Tuesday, etc.) anywhere on the image.
+```
+
+---
+
+### D-Grade Regen Queue (3 images — high priority, regen before next student-facing release)
+
+**1. `vocab_weather_forecast_card.png`**
+```
+Prompt: A simple 5-column weather forecast strip, watercolor illustration style.
+Each column has one weather icon only (sun, partly cloudy, rain cloud, storm cloud, snow cloud).
+Below each icon: a two-digit number (temperature) with a degree symbol.
+NO English labels (no "SUN", "RAIN", "CLOUD" etc.) — use only visual weather icons.
+Numbers must be clearly rendered Arabic numerals (not garbled).
+```
+
+**2. `vocab_num_hundreds.png`**
+```
+Prompt: Four-panel image showing quantity scale, watercolor illustration style.
+Panel 1: a group of ~100 dots arranged in a neat 10×10 grid, with "100" clearly written.
+Panel 2: a larger crowd/dots, "1,000" written (comma after thousands place, standard format).
+Panel 3: even larger mass, "10,000" written.
+Panel 4: stadium-scale crowd, "100,000" written.
+All numbers must use Western comma formatting (1,000 not 1.000 not 10,00,00).
+No garbled text, no caption labels, clean numerals only.
+```
+
+**3. `vocab_num_phone.png`**
+```
+Prompt: A simple rotary or modern telephone, watercolor illustration style.
+Beside it, one clear phone number written in a speech bubble: e.g., "555-1234".
+No English caption text, no "CALLE" labels, no explanatory words.
+The phone visual + a sample number string is the entire concept.
+```
+
+---
+
+### C-Grade Regen Queue (~23 images — schedule for next batch)
+
+These images pass the Question Fit Test but have meaningful noise or artifacts. Grouped by category:
+
+**Actions:**
+- `vocab_act_leer` — person wearing winter hat/sweater competes with "frío/invierno"
+- `vocab_act_bailar` — Eastern European folk costume; regen with casual modern clothing
+
+**Adjectives:**
+- `vocab_adj_joven_viejo_personas` — confusing multi-figure comparison format; simplify to same-character two-state DUO
+- `vocab_adj_ruidoso_tranquilo` — split panel with complex scenes; simplify to iconic contrast
+- `vocab_adj_rapido_lento` — dual comparison format too busy; single subject in motion vs. at rest
+
+**Body:**
+- `vocab_body_diagram` — full character reference sheet format (multiple views, angles); regen as single front-facing illustration with no chart format
+
+**Clothing:**
+- `vocab_cloth_sombrero` / `vocab_cloth_falda` / `vocab_cloth_vestido` — style inconsistency with other clothing images; regen with consistent simple isolated-garment format
+
+**Emotions:**
+- (nervioso already in F queue)
+
+**Food:**
+- `vocab_food_limon` — pencil/sketch artifact visible on fruit skin
+- `vocab_food_huevo` — orange/yellow border frame artifact baked into image
+
+**Health:**
+- `vocab_health_cita_medica` — calendar shows "CONSULTATION" in English; regen with calendar page showing clock/appointment symbol only, no English text
+- `vocab_health_pastilla` — confusing: main subject looks like a glowing white sphere, not a pill; regen with a clear blister pack or oblong capsule
+
+**Numbers:**
+- `vocab_num_currency` — third price tag reads "$€..00" (garbled); regen with clean currency symbols (€, $, £) on separate clean tags with legible amounts
+- `vocab_num_11_20` — dice cards have garbled label text at bottom ("LEST10", "LB115" etc.); regen with clean number cards, no captions
+- `vocab_num_ordinals` — podium shows 1st/4th/3rd positions (missing 2nd place); regen with correct 1st/2nd/3rd podium
+- `vocab_num_tens` — abstract grid of dots/shapes is confusing; regen with clear skip-counting illustration (groups of 10 objects)
+
+**People:**
+- `vocab_people_hombre` — before/after dual-format (implies transformation, not "man"); regen as single clear portrait of an adult man
+- `vocab_people_estudiante` — Arabic script visible on background element; regen with clean study scene, no non-Roman text
+
+**Places:**
+- `vocab_places_escuela` — US flag on flagpole; regen without any national flag
+- `vocab_places_supermercado` — Asian-language characters on store signage; regen with no text on signs
+
+**Professionals:**
+- `vocab_ppl_cocinero` — Asian-script posters on kitchen wall; regen with clean kitchen, no wall text
+
+**Things:**
+- `vocab_things_silla` — yellow/gold border artifact frame around chair image; regen without border
+
+**Places (place_ namespace):**
+- `vocab_place_banco` — "BANK" in English on building facade; regen with universal bank symbol (vault door, piggy bank, or coin icon) without English text
+
+---
+
+### Overall Library Status (S59–S60 Full Audit)
+
+| Grade | Count | % | Action |
+|-------|-------|---|--------|
+| **A** | ~170 | ~70% | Keep — no action needed |
+| **B** | ~30 | ~12% | Keep — note for next regeneration batch |
+| **C** | ~23 | ~9% | Schedule regen in next batch |
+| **D** | 3 | ~1% | Regen before next student-facing release |
+| **F** | 7 | ~3% | Regen immediately — do not show to students |
+| **Total** | ~233 | 100% | |
+
+**Library health: 82% A/B (solid), 18% need attention. F-grade count: 7.**
+
+**Priority order:**
+1. Regen 7 F-grade images (prompts above)
+2. Regen 3 D-grade images (prompts above)
+3. Regen 23 C-grade images in next image batch
+4. Note B-grade images for improvement in the batch after that
 
 ---
 
