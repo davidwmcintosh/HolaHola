@@ -233,6 +233,54 @@ The three-dot menu in the top-right of Chat/Call Mode contains exactly four opti
 
 ---
 
+### OBS-06 — Dialogue Mode + Roleplay Mode: Scaffold Ladder via Scenarios
+*Source: dialogue_scenarios_1776269667410.png, dialogue_mode_1776269678396.png*
+
+**Scenario selection grid:**
+- Both Dialogue and Roleplay modes open with a 2-column grid of scenario cards.
+- Each card: full-bleed cinematic AI-generated illustration (photo-realistic, not watercolor) + scene title in white text overlay + "Basics" difficulty badge in the bottom-left corner.
+- Visible scenarios: Ordering a taxi, Booking a hotel, At a supermarket, Buying clothes. More below the fold.
+- The image style is atmospheric and immersive — warm evening lighting, real-world settings, people doing recognisable activities.
+
+**Dialogue Mode — scripted conversation with sentence prompts:**
+- The format is a text-chat thread (same as Chat Mode), but the tutor character is scenario-specific — not Emma. In the taxi scenario, the tutor is labelled "Taxi driver" with an appropriate profile photo.
+- The scripted dialogue unfolds in turns. The tutor speaks, then the student is shown the next line they need to say.
+- The prompt appears as a distinct, slightly elevated gray card: *"It's your turn, read it out loud: Voy al aeropuerto, por favor."*
+- The student reads the exact sentence shown, taps the microphone, and records it.
+- Skip button below the microphone for the current line.
+- Right panel: same "Get feedback on messages" panel with the four icons (checkmark, orange, translate, person).
+
+**Roleplay Mode — same scenarios, no sentence hint:**
+- Identical scenario grid as Dialogue Mode.
+- When inside the scenario, the student does NOT receive the next sentence. They must decide what to say themselves.
+- This is functionally equivalent to HoloHola's classroom mode — a scenario context with free-form conversation.
+
+**The difficulty ladder this creates:**
+
+| Mode | Scaffolding | Student autonomy |
+|---|---|---|
+| Sentence Mode | Full sentence shown + read aloud | None — pure repetition |
+| Dialogue Mode | Next line shown + read aloud | None — scripted |
+| Roleplay Mode | Scenario given, no sentence hint | Full — student chooses |
+| Chat Mode | No scenario, fully open | Maximum |
+
+This is a deliberate, explicit progression from maximum scaffolding to maximum autonomy. Each rung builds on the previous one.
+
+**Impressions:**
+- Naming the tutor "Taxi driver" instead of "Emma" in scenario modes is a subtle but smart immersion choice. The student is in the scenario, not in a tutoring session with a named person.
+- The photo-realistic cinematic scene illustrations are doing real motivational work. They make each scenario feel like an actual place you might be, not an abstract exercise.
+- The scripted dialogue approach (Dialogue Mode) fills a gap that both HoloHola and pure chat apps tend to skip: the student who doesn't yet know enough to produce free conversation, but needs more than isolated vocabulary drills.
+- The explicit Dialogue → Roleplay ladder is pedagogically thoughtful. Scripted output builds the pattern in memory; free output then retrieves it without the scaffold.
+
+**HoloHola comparison:**
+- HoloHola's classroom scenarios are closest to Roleplay Mode — scenario given, free conversation.
+- We don't have a Dialogue Mode equivalent. A scripted dialogue drill (tutor speaks → student sees their line → student speaks it) is a gap, especially for absolute beginners who aren't yet ready for free production.
+- Our scenario entry also doesn't have the cinematic scenario-card grid. Ours is more menu-driven. The image-first grid is more emotionally inviting.
+- The difficulty ladder concept (scripted → partially scaffolded → free) is one we have in fragments but not as a clearly named, navigable system.
+- Scenario-specific tutor character ("Taxi driver") is worth considering — Daniela could "play a role" in a scenario rather than always being Daniela the tutor.
+
+---
+
 ## Running Feature Inventory
 
 | Feature | TalkPals | HoloHola | Notes |
@@ -263,13 +311,17 @@ The three-dot menu in the top-right of Chat/Call Mode contains exactly four opti
 | Explicit "Start new chat" action | Yes (in ⋮ menu) | TBD | Reset is deliberate, not automatic |
 | Tutor switching in-session | Yes ("Change AI tutor") | Limited (Daniela/Cindy) | |
 | ⋮ menu for session-level actions | Yes (4 items, clean) | TBD | Well-scoped: session mgmt only, utilities stay in main controls |
+| Scenario-card grid (image-first selection) | Yes (cinematic, photo-realistic) | No | Immersive entry point vs. menu-driven |
+| Scripted dialogue mode (sentence shown → read) | Yes | No | Explicit scaffold for beginners |
+| Difficulty ladder (scripted → free production) | Yes (named modes) | Implicit | Ours exists in fragments; theirs is explicit and navigable |
+| Scenario-specific tutor persona | Yes ("Taxi driver" etc.) | No (always Daniela) | Immersion vs. tutor identity |
 
 ---
 
 ## Open Questions to Revisit
 
 1. ~~How does their "Call" mode work?~~ **Answered — OBS-04**
-2. What do "Roleplays" and "Characters" look like — are these scenario-based like HoloHola's classroom?
+2. ~~What do "Roleplays" and "Characters" look like?~~ **Answered — OBS-06.** Dialogue = scripted with sentence hints; Roleplay = same scenarios, free production. Characters = TBD.
 3. What does the "Debates" mode entail?
 4. What is "Photo" mode — image description prompt?
 5. How does their course/curriculum structure compare to our chapter system?
