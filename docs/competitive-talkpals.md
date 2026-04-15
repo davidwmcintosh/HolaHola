@@ -513,3 +513,63 @@ Standalone Modes (same modes, accessible independently)
 6. ~~What does their progress tracking look like in detail?~~ **Answered — OBS-09.** Completion-based only (exercise done, stars filled, progress bars). No vocabulary knowledge modeling, no spaced repetition, no adaptive difficulty. Trade-off: no backlog anxiety, no personalization.
 7. Is there a mobile app, or web-only?
 8. What are the pricing tiers after the free trial?
+
+---
+
+## Strategic Summary
+*Written after completing the product audit, April 2026.*
+
+### What TalkPals is
+
+TalkPals is a well-executed, well-designed AI language learning app. The UI is polished and fluid. The mode variety is genuine — each mode feels purposefully designed, not bolted on. The real-time conversation capability (Call Mode with live transcription, inline translate) is a real achievement that most competitors haven't matched. The cinematic AI illustrations are doing motivational work. The course architecture (modes as atoms, courses as sequences) is architecturally elegant.
+
+Among AI language apps currently available, it is near the top. It deserves to be taken seriously.
+
+### What TalkPals is not
+
+TalkPals is not a pedagogically rigorous language instruction product. It is a **conversation facilitation and pronunciation drill platform** with a course-shaped wrapper.
+
+The distinction matters enormously.
+
+A single taxi scenario — however well-rendered, however accurately evaluated by the AI — may or may not expose the student to the verb tenses they need. Whether "voy al aeropuerto" appears in that conversation is a function of what the AI generates, not of a deliberate pedagogical decision that this form must be encountered, recognized, and produced. The student may complete 20 taxi scenarios and still not have a reliable mental model of the *ir + a + infinitive* construction.
+
+Madrigal's method works differently. A single lesson drills *voy*, *vas*, *va*, *vamos*, *van* across 10 verbs in one sitting — not because you happened to say "I'm going somewhere" in a scenario, but because the lesson is *built* to pound the yo form until it is automatic. Then it builds mix-and-match permutations: *voy a comer*, *vas a vivir*, *va a escribir* — hundreds of valid sentences from a small number of components, all reinforcing the same pattern through productive variation. That is grammatically rigorous instruction. It is not the same thing as an engaging AI conversation.
+
+### The two approaches are not in competition — they are complementary
+
+TalkPals' strength (natural conversation, fluency pressure, real communicative practice) is exactly what a grammar-first student needs *after* drilling the pattern. Madrigal's strength (systematic pattern exposure, high repetition density, productive variation) is exactly what a conversation-first student is missing when they plateau.
+
+HoloHola's opportunity is to be the product that does both in sequence, in the same environment, with the same tutor:
+
+1. **Daniela introduces the pattern** (Madrigal-style: visual anchors, yo/tú/él repetition, mix-and-match drills)
+2. **Daniela drills the pattern** (pronunciation, sentence-by-sentence, scripted dialogue)
+3. **Daniela uses the pattern in scenario conversation** (free production, the TalkPals strength)
+
+The student never has to leave the classroom. The progression is pedagogically deliberate, not scenario-dependent.
+
+### What we should borrow from TalkPals
+
+| Feature | Why borrow it |
+|---|---|
+| Dual feedback (contextual + grammatical) | Two distinct error types need distinct explanations |
+| "Advanced feedback" on-demand depth | Brief correction first; depth available without forcing it |
+| Image-first scenario entry grid | Emotionally inviting; motivates entry into the lesson |
+| Explicit difficulty ladder (named, navigable) | Students should see the progression they're on |
+| Scripted dialogue mode (sentence shown → read aloud) | Bridges pattern drill → free conversation for beginners |
+| Session resume by default | Continuity model feels like a tutoring relationship |
+| Conversational SRS (our design, their problem to solve) | Spaced repetition without surfacing backlog debt |
+
+### What we should not borrow
+
+| Feature | Why not |
+|---|---|
+| Scenario-only curriculum (no grammar sequencing) | Verb tenses appear by accident, not by design |
+| Fixed curriculum with no knowledge modeling | They don't know what you know; we do |
+| Completion-only progress (no proficiency tracking) | Stars filling up is not the same as knowing Spanish |
+| AI fascination as pedagogy | The AI is the delivery mechanism, not the method |
+
+### The Madrigal advantage in one sentence
+
+Pound repetitions of a grammatical form across many verbs, then generate productive permutations — this is how patterns become automatic. No amount of scenario conversation produces this. One well-designed Madrigal-style lesson can do in 20 minutes what 20 taxi scenarios cannot.
+
+That is HoloHola's pedagogical moat, and it should be treated as such.
