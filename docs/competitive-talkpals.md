@@ -451,6 +451,49 @@ Standalone Modes (same modes, accessible independently)
 
 ---
 
+### OBS-10 — Debate Mode and the Level Awareness Problem
+*Source: debate_mode_1776272130398.png, for_against_1776272192402.png, chat_1776272356390.png*
+
+**Debate Mode entry — same image-first card grid:**
+- Fixed topic list (not open-ended). Visible: Impact of social media, Necessity of education, Animal testing, Artificial intelligence, more below fold.
+- Their own description: *"With the Debate mode you can argue for or against interesting and intriguing topics. Enhance your language skills as you defend your arguments against all-knowing AI."*
+- Each topic has a cinematic AI illustration — same visual system as Dialogue/Roleplay entry screens.
+
+**Topic selection → side selection:**
+- After tapping a topic, a detail card appears with the topic title, a 2-sentence brief framing both sides, and two buttons: **"Argue for"** / **"Argue against"**.
+- Student commits to a position before the conversation starts. The AI will argue the opposite.
+
+**Inside the debate — what the AI produces:**
+- Same chat UI (Emma, bubbles, replay/translate icons, Suggest answer button).
+- Emma's opening salvo for "Argue for AI" — student said "Okay, listo, empezamos":
+
+  *"hoy es si la inteligencia artificial beneficia a la sociedad aumentando la eficiencia y los avances, o si, por el contrario, podría causar pérdidas de empleo y problemas de privacidad. Yo, Emma, estoy aquí para defender la postura de que la inteligencia artificial presenta más riesgos que beneficios, ¡así que prepárate!"*
+
+  Then immediately:
+
+  *"¡Genial, David! Me alegra mucho tu entusiasmo. Para empezar, ¿qué piensas tú sobre la inteligencia artificial? ¿Crees que esos avances de los que tanto se habla realmente compensan los peligros que puede traer?"*
+
+- This is unambiguously B2+ Spanish: complex conditional structures (*podría causar*), rhetorical vocabulary (*por el contrario*, *compensan los peligros*), abstract argument framing, native-speaker fluency and pace.
+- The student who typed "Okay, listo, empezamos" is clearly not a native speaker — and yet they were dropped directly into this without any difficulty calibration.
+
+**The level awareness problem — applies across the whole product:**
+- The student's observation is that level unawareness is not isolated to Debate Mode — it appears throughout the app.
+- The courses are CEFR-labeled (A1.1, A2.1, B1.1), but once you're inside a mode the AI conversation does not appear to adapt complexity to where you are in the curriculum.
+- An A1.1 student doing their first Roleplay or Chat session gets the same AI response depth as a B2 student.
+- The structured exercises (Word Mode, Sentence Mode) have fixed content that is inherently level-appropriate. But the open-ended conversational modes (Chat, Roleplay, Debate) appear to generate at the AI's natural level, not the student's.
+
+**Why this is a fundamental issue:**
+- Debate Mode is explicitly advanced content — arguing abstract positions in Spanish requires C1 vocabulary and complex sentence structure. Placing it in the mode hub alongside Word Mode for beginners, with no prerequisite gate, guarantees that beginners who try it will be lost.
+- More broadly: CEFR labels on courses create an expectation of level-appropriate AI behavior. If Emma speaks at B2 regardless of the course you're on, the CEFR labels are cosmetic.
+- "Suggest answer" appearing in Debate Mode is an acknowledgment that the student may not know what to say — but it doesn't solve the vocabulary and grammar gap if the AI's *questions* are already beyond comprehension.
+
+**HoloHola comparison:**
+- Daniela's system prompt already includes chapter context and student level. This means Daniela has the *capacity* to adapt — whether she's actually adapting her lexical complexity and grammatical complexity by level is worth auditing explicitly.
+- We should be able to say: a student in Chapter 1 gets Daniela speaking with present tense, high-frequency vocabulary, short sentences. A student in Chapter 8 gets more complex syntax. If we can't say that today, it's worth making it explicit in Daniela's prompt.
+- Debate Mode as a concept is genuinely appealing for advanced students — arguing a position in Spanish requires real productive language skill. But it is categorically not for beginners and should be gated accordingly.
+
+---
+
 ## Running Feature Inventory
 
 | Feature | TalkPals | HoloHola | Notes |
@@ -500,6 +543,9 @@ Standalone Modes (same modes, accessible independently)
 | Adaptive difficulty based on individual performance | No (fixed curriculum sequence) | Potential | Their curriculum is fixed; ours could personalize |
 | ACTFL / CEFR proficiency tracking at word level | No | No | Neither product does this yet |
 | Session goal completion (XP / time-based) | Yes | TBD | Clean completion signal; low anxiety |
+| Debate Mode (argue for/against fixed topics) | Yes | No | C1+ content; no level gate; advanced-only in practice |
+| Level-aware AI output in conversational modes | No (appears flat across levels) | Partially (chapter context in prompt) | Their CEFR labels are cosmetic in open modes; ours worth auditing |
+| Prerequisite gates before advanced modes | No (Debate accessible from day 1) | No | Both products allow beginners to self-select into advanced content |
 
 ---
 
@@ -507,7 +553,7 @@ Standalone Modes (same modes, accessible independently)
 
 1. ~~How does their "Call" mode work?~~ **Answered — OBS-04**
 2. ~~What do "Roleplays" and "Characters" look like?~~ **Answered — OBS-06.** Dialogue = scripted with sentence hints; Roleplay = same scenarios, free production. Characters = TBD.
-3. What does the "Debates" mode entail?
+3. ~~What does the "Debates" mode entail?~~ **Answered — OBS-10.** Fixed topic list → choose for/against → free conversation with Emma arguing the opposite. No level gate; AI speaks at B2+ regardless of student level. Level awareness problem extends across all conversational modes.
 4. ~~What is "Photo" mode?~~ **Answered — OBS-07.** Real photo → student describes in Spanish (text or voice) → dual feedback: contextual (accuracy) + grammatical (errors) + optional "Advanced feedback" deep dive. Has its own unit/star curriculum.
 5. ~~How does their course/curriculum structure compare to our chapter system?~~ **Answered — OBS-08.** Courses are sequences of reusable modes (Word → Sentence → Dialogue/Roleplay) organized by CEFR level. Exercise type 3 adapts by level: Dialogue for beginners, Roleplays for advanced. Modes are atomic; courses are the sequencing layer.
 6. ~~What does their progress tracking look like in detail?~~ **Answered — OBS-09.** Completion-based only (exercise done, stars filled, progress bars). No vocabulary knowledge modeling, no spaced repetition, no adaptive difficulty. Trade-off: no backlog anxiety, no personalization.
@@ -567,6 +613,7 @@ The student never has to leave the classroom. The progression is pedagogically d
 | Fixed curriculum with no knowledge modeling | They don't know what you know; we do |
 | Completion-only progress (no proficiency tracking) | Stars filling up is not the same as knowing Spanish |
 | AI fascination as pedagogy | The AI is the delivery mechanism, not the method |
+| Flat AI complexity in conversational modes | CEFR labels on courses mean nothing if Emma speaks B2+ to an A1 student |
 
 ### The Madrigal advantage in one sentence
 
