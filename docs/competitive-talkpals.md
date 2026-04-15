@@ -336,6 +336,73 @@ This is a deliberate, explicit progression from maximum scaffolding to maximum a
 
 ---
 
+### OBS-08 — Curriculum Architecture: Modes as Atomic Drills, Courses as Sequences
+*Source: sentence_mode_1776270859770.png, courses_1776270987301.png, beginner_1776270993928.png, advanced_1776270999320.png*
+
+**Sentence Mode has its own topic-based syllabus:**
+- Sentence Mode is not a random shuffle of sentences. It has a full unit/topic progression:
+  - Unit 1 — "Making introductions": Introducing yourself → Introducing someone else → Formal introductions
+  - Unit 2 — "In the city": Using public transport → ...
+- Each topic is represented by a circular thumbnail image and a descriptive title.
+- This means the content layer (what sentences you practice) is structured by communicative function, not by grammar rule or vocabulary category.
+- Progress bar at 0% indicates this is a separate progression from the Courses section.
+
+**Courses section — CEFR-aligned level tracks:**
+- Visible courses: Absolute beginner 1 (A1.1), Absolute beginner 2 (A1.2), Beginner 1 (A2.1), Beginner 2 (A2.2), Intermediate 1 (B1.1), Intermediate 2 (B1.2), with Advanced 2 also visible.
+- Each course card has a cinematic AI illustration, a level badge (A1.1, A2.1, B1.1 etc.), and a short description.
+- The CEFR labelling signals that TalkPals maps to a known external standard — important for self-directed learners who know the framework.
+
+**Inside a course — the architecture revealed (Absolute beginner 2):**
+- Course = Units → Exercises. A unit has a topic title ("Basic question words", "Common adjectives").
+- Each unit is a sequence of exercises labelled by mode:
+  - Exercise 1: **Word Mode**
+  - Exercise 2: **Sentence Mode**
+  - Exercise 3: **Dialogue Mode**
+- The course is not new content. It is a curated sequence of the existing standalone modes applied to a topic.
+- The modes are the atomic exercise type. The course is the sequencing and pacing layer on top.
+
+**Advanced 2 course — same structure, different mode mix:**
+- Unit 1 — "The psychology of motivation": Exercise 1 → Word Mode, Exercise 2 → Sentence Mode, Exercise 3 → **Roleplays**
+- Unit 2 — "Social media and influence": Exercise 1 → Word Mode ...
+- The mode selected for Exercise 3 changes with level: beginners get Dialogue Mode (scripted, scaffolded); advanced students get Roleplays (free production, unscripted).
+- This is the difficulty ladder (OBS-06) applied structurally at the curriculum level — not just as optional modes you can navigate to manually, but as what the course *assigns* to you based on your level.
+
+**The architecture in one diagram:**
+
+```
+Courses
+  └── Level (A1.1, A1.2, A2.1 ... C2)
+        └── Unit (topic: "Making introductions")
+              └── Exercise 1 → Word Mode (vocabulary)
+              └── Exercise 2 → Sentence Mode (pronunciation drill)
+              └── Exercise 3 → Dialogue Mode (beginner) or Roleplays (advanced)
+
+Standalone Modes (same modes, accessible independently)
+  ├── Word Mode (own unit/star curriculum)
+  ├── Sentence Mode (own topic-based curriculum)
+  ├── Photo Mode (own unit/star curriculum)
+  ├── Dialogue Mode (own scenario-card curriculum)
+  ├── Roleplay Mode (same scenario cards as Dialogue)
+  ├── Chat Mode (no curriculum, freeform)
+  └── Call Mode (no curriculum, freeform)
+```
+
+**Impressions:**
+- The insight here is elegant: build modular drill types first, then compose them into a curriculum. The modes are reusable across both standalone practice and structured courses. No content is duplicated — a "Basic question words" exercise in the course just launches Word Mode filtered to that topic.
+- The standalone mode curricula (Sentence Mode's topic list, Photo Mode's unit/star grid) serve dual purpose: they are the standalone exploration path AND the content library the course draws from.
+- The CEFR labelling is a strong credibility signal. Duolingo doesn't use CEFR labels at all; showing A1.1–C2 tells a self-directed adult learner that TalkPals maps to a recognized framework.
+- Naming units by communicative function ("Making introductions", "The psychology of motivation") rather than grammar category ("Present tense verbs") is a much more learner-facing way to organize content. You know *why* you're doing the unit.
+- The Exercise 3 mode change (Dialogue for beginners, Roleplays for advanced) is the difficulty ladder implemented invisibly — the curriculum adapts what exercise type it assigns to you based on level, without asking the student to consciously navigate modes.
+
+**HoloHola comparison and direct relevance:**
+- This is almost exactly what HoloHola's interactive textbook vision was trying to accomplish: a structured chapter-based syllabus with drills (our vocab drills, classroom conversations) embedded at each step.
+- The key difference is TalkPals built the drill modes first as fully standalone, polished products, and *then* layered the course sequencing on top. The modes exist independently; the course just sequences them.
+- HoloHola's current state: we have the classroom conversation mode (≈ their Roleplay Mode) and the vocab drill (≈ their Word Mode, loosely). We don't have Sentence Mode (pronunciation read-aloud), Dialogue Mode (scripted turn-taking), or Photo Mode.
+- Our "chapters" concept maps to their "courses" concept. Our chapters already have an outline/syllabus structure — what we're missing is the drill types to embed into each chapter node.
+- The book icon (open book) visible next to each unit header in their courses suggests a vocabulary list or reading resource attached per unit — a reference artifact alongside the exercises, not just drills.
+
+---
+
 ## Running Feature Inventory
 
 | Feature | TalkPals | HoloHola | Notes |
@@ -375,6 +442,11 @@ This is a deliberate, explicit progression from maximum scaffolding to maximum a
 | On-demand deep grammar explanation | Yes ("Advanced feedback" button) | No | Depth on request, not forced |
 | Standalone curriculum within a mode (units/stars) | Yes (Photo Mode has its own 2-unit progression) | N/A | Mode-within-a-mode progression |
 | Consistent score language across modes | No (emoji scale vs. rocket icon) | TBD | Minor internal inconsistency on their side |
+| Topic-structured Sentence Mode syllabus | Yes (by communicative function) | No (vocab categories) | "Making introductions" vs. "adjectives by color" |
+| CEFR-aligned course levels | Yes (A1.1 → C2) | No | Maps to recognized external standard |
+| Courses = sequences of reusable modes | Yes | Partial (chapters + drills) | Modes are atomic; courses sequence them |
+| Level-adaptive exercise type in courses | Yes (Dialogue for beginners, Roleplays for advanced) | No | Difficulty ladder applied by curriculum, not by user choice |
+| Book/vocab reference icon per unit | Yes (open book icon) | TBD | Suggests a reading artifact alongside drills |
 
 ---
 
@@ -384,7 +456,7 @@ This is a deliberate, explicit progression from maximum scaffolding to maximum a
 2. ~~What do "Roleplays" and "Characters" look like?~~ **Answered — OBS-06.** Dialogue = scripted with sentence hints; Roleplay = same scenarios, free production. Characters = TBD.
 3. What does the "Debates" mode entail?
 4. ~~What is "Photo" mode?~~ **Answered — OBS-07.** Real photo → student describes in Spanish (text or voice) → dual feedback: contextual (accuracy) + grammatical (errors) + optional "Advanced feedback" deep dive. Has its own unit/star curriculum.
-5. How does their course/curriculum structure compare to our chapter system?
+5. ~~How does their course/curriculum structure compare to our chapter system?~~ **Answered — OBS-08.** Courses are sequences of reusable modes (Word → Sentence → Dialogue/Roleplay) organized by CEFR level. Exercise type 3 adapts by level: Dialogue for beginners, Roleplays for advanced. Modes are atomic; courses are the sequencing layer.
 6. What does their progress tracking look like in detail?
 7. Is there a mobile app, or web-only?
 8. What are the pricing tiers after the free trial?
