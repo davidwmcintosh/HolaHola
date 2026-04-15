@@ -2,10 +2,25 @@
 ## HolaHola — Pre-Generated Visual Library
 
 **Created:** March 15, 2026  
-**Last updated:** April 10, 2026  
+**Last updated:** April 15, 2026  
 **Referenced by:** `docs/curriculum-strategy.md` (Section 8)  
 **Component coverage manifest:** `docs/textbook-component-coverage.json` (machine-readable, Lyra-monitored)  
 **Status column key:** ⬜ Planned | 🔄 Generating | ✅ In Library
+
+---
+
+## Pedagogy & Image Generation Reference Documents
+
+These documents inform what to generate, how to generate it, and what gaps remain in the curriculum. Read these before planning new image batches or new chapters.
+
+| Document | Purpose | Key Output |
+|---|---|---|
+| `docs/image-analysis-madrigal.md` | How Madrigal illustrates every concept type — 10 image templates, per-category drawing specs, prompt guidelines, and the "Question Fit Test" | Use this as the brief for any new VocabQA image batch |
+| `docs/gap-audit-holahola-vs-madrigal.md` | Chapter-by-chapter overlap/gap analysis: what HoloHola covers (~30% of Madrigal), what is missing, and a prioritized fill queue | Use this to decide which new chapters and vocabQA items to seed next |
+| `docs/see-it-and-say-it-roadmap.md` | Full lesson map of *See It and Say It in Spanish* — all 9 phases, all 5 Everyday Expressions pages, appendix catalogued, zero unsampled gaps | Use this as the authoritative source of truth for Madrigal's content sequence |
+| `docs/curriculum-strategy.md` | Overall curriculum philosophy, ACTFL level mapping, M1–M6 component definitions | Use this for framing new chapter types |
+
+**Image generation style note:** The Madrigal-derived image style (bold B&W line art, single subject, white background) described in `docs/image-analysis-madrigal.md` is the ASPIRATION for VocabQA card images. The current HoloHola image library uses a soft watercolor children's book style (see Canonical Style below). These serve different use cases — the watercolor style is for Daniela's live teaching and the prop room; the Madrigal-style line art is the target for textbook VocabQA cards. Both can coexist.
 
 This document is the master list of every visual asset we intend to pre-create for the platform. Assets fall into eight categories. The goal is not to be exhaustive on day one — it's to be deliberate: the right visuals for the words and concepts students absolutely must learn, generated ahead of time so Daniela can surface them instantly.
 
