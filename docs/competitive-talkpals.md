@@ -673,6 +673,10 @@ This is a well-executed conversion funnel. The personalization is largely theatr
 | 14-day free trial on all paid plans | Yes | No | "No payment today. Cancel anytime" reduces purchase anxiety |
 | Pricing: monthly / annual / 24-month | $14.99 / $7.49 / $4.68 per month | TBD | 24-month plan unusual; anchors the annual option |
 | Business and Education institutional tracks | Yes ("For Business", "For Education" nav) | No | Separate B2B sales channel |
+| Vocabulary images in Word Mode / drills | No (text only) | Yes (DALL-E painted scenes) | Visual encoding is our instructional medium, not theirs |
+| Visual presence inside conversation sessions | No (white text-chat, no avatar in scenarios) | Yes (Daniela animated, classroom scene) | Their visuals are entry candy; ours are the lesson environment |
+| Different voices per scenario character | Yes (male cab driver voice etc.) | No (Daniela only) | Character audio without visual avatar |
+| Cinematic illustrations on entry/selection screens | Yes | No (menu-driven) | Motivational entry; disappears once inside the lesson |
 
 ---
 
@@ -741,6 +745,18 @@ The student never has to leave the classroom. The progression is pedagogically d
 | Completion-only progress (no proficiency tracking) | Stars filling up is not the same as knowing Spanish |
 | AI fascination as pedagogy | The AI is the delivery mechanism, not the method |
 | Flat AI complexity in conversational modes | CEFR labels on courses mean nothing if Emma speaks B2+ to an A1 student |
+
+### The visual asset gap — a HoloHola differentiator that doesn't appear in any feature table
+
+After a complete audit of TalkPals, one absence is striking: **there are no vocabulary images anywhere in the product.** Not in Word Mode, not in Sentence Mode, not in Dialogue or Roleplay scenarios.
+
+The scenarios themselves have no visual assets inside the conversation. The cinematic AI illustrations exist only on the entry/selection screens (scenario card grids, course cards) — once you tap into the conversation, the screen is a white text-chat thread. The taxi scenario doesn't show a taxi. The hotel scenario doesn't show a hotel lobby. The tutor has no avatar image in scenario modes — only a name label and a generic profile photo in some modes, and nothing at all in others. They do use different AI voices (a male voice that fits a cab driver character), but it is purely auditory. There is no visual presence.
+
+This means TalkPals' visual investment is entirely in the **entry UX** — the cinematic illustrations do motivational work getting you to tap into a lesson, then disappear entirely once you're inside it.
+
+HoloHola's visual investment is the inverse: **inside the lesson** is where our visuals live. Daniela is animated and present throughout. The classroom scene is the environment for the entire session. Vocab images appear at the moment the word is introduced. The DALL-E illustrations are not entry candy — they are the instructional medium.
+
+This is a genuine, non-trivial differentiator. Madrigal's "See It and Say It" method is explicitly visual — the image anchors the word in memory before the word is spoken. TalkPals has no mechanism for this. Their Word Mode presumably shows the word in text; our vocab drill shows a painted scene that encodes the meaning visually. These are different things, and the research on visual encoding in second language acquisition supports ours.
 
 ### The Madrigal advantage in one sentence
 
