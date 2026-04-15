@@ -4258,3 +4258,25 @@ PRIORITY GAPS:
 14. No pronunciation guide beyond page 1 → Daniela audio on every word [ALREADY SOLVED]
 15. Spanish-only → 10-language platform [ALREADY SOLVED]
 
+
+---
+
+## Session 57 (continued — doc consolidation)
+
+**Merged four analysis docs into visual-asset-roadmap.md:**
+- `docs/image-analysis-madrigal.md` → Part I.D (deleted source)
+- `docs/gap-audit-holahola-vs-madrigal.md` → Part I.C (deleted source)
+- `docs/madrigal-critique-and-improvements.md` → Part I.A (deleted source)
+- `docs/see-it-and-say-it-roadmap.md` → Part I.B (deleted source)
+
+**visual-asset-roadmap.md is now the single reference for all textbook decisions.** New structure:
+- Part I: Pedagogy Foundation (lines 35–~1645)
+  - I.A: Where HoloHola Improves on Madrigal
+  - I.B: See It and Say It Source Analysis
+  - I.C: Gap Audit: HoloHola vs. Madrigal
+  - I.D: How Madrigal Illustrates Each Concept
+- Part II: Asset Library & Generation Specs (lines ~1645 onwards — unchanged from before)
+  - 9-Language Matrix, Platform Status, Philosophy, Content Policy, all image sections
+
+**File is now 4177 lines.** curriculum-strategy.md remains separate (it covers the full platform, not just the textbook).
+

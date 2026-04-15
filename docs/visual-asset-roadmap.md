@@ -1,8 +1,8 @@
 # Visual Asset Roadmap
-## HolaHola — Pre-Generated Visual Library
+## HoloHola — Interactive Textbook Design Playbook & Visual Library
 
 **Created:** March 15, 2026  
-**Last updated:** April 15, 2026  
+**Last updated:** April 15, 2026 — Part I pedagogy foundation integrated inline  
 **Referenced by:** `docs/curriculum-strategy.md` (Section 8)  
 **Component coverage manifest:** `docs/textbook-component-coverage.json` (machine-readable, Lyra-monitored)  
 **Status column key:** ⬜ Planned | 🔄 Generating | ✅ In Library
@@ -11,23 +11,1638 @@
 
 ## Pedagogy & Image Generation Reference Documents
 
-These documents inform what to generate, how to generate it, and what gaps remain in the curriculum. Read these before planning new image batches or new chapters.
+The analysis documents below have been integrated inline as **Part I** of this roadmap (scroll down or jump via the links). Read Part I before planning any new chapters, VocabQA items, or image batches.
 
-| Document | Purpose | Key Output |
+| Section | Content | When to Use |
 |---|---|---|
-| `docs/image-analysis-madrigal.md` | How Madrigal illustrates every concept type — 10 image templates, per-category drawing specs, prompt guidelines, and the "Question Fit Test" | Use this as the brief for any new VocabQA image batch |
-| `docs/gap-audit-holahola-vs-madrigal.md` | Chapter-by-chapter overlap/gap analysis: what HoloHola covers (~30% of Madrigal), what is missing, and a prioritized fill queue | Use this to decide which new chapters and vocabQA items to seed next |
-| `docs/see-it-and-say-it-roadmap.md` | Full lesson map of *See It and Say It in Spanish* — all 9 phases, all 5 Everyday Expressions pages, appendix catalogued, zero unsampled gaps | Use this as the authoritative source of truth for Madrigal's content sequence |
-| `docs/madrigal-critique-and-improvements.md` | What we love, what we're keeping, and what HoloHola improves — 15 specific Madrigal limitations with HoloHola solutions, including ambiguous drawings, mono-color dialogues, missing ser/estar contrast, and more | Use this when designing new VocabQA cards, conversation strips, or chapter components |
-| `docs/curriculum-strategy.md` | Overall curriculum philosophy, ACTFL level mapping, M1–M6 component definitions | Use this for framing new chapter types |
+| **Part I.A** — Where HoloHola Improves on Madrigal *(inline below)* | What we keep from Madrigal, and 15 specific limitations with HoloHola solutions — ambiguous drawings, mono-color dialogue, missing ser/estar contrast, generic practice instructions, and more | Before designing any new chapter component or VocabQA card |
+| **Part I.B** — See It and Say It Source Analysis *(inline below)* | Full lesson map of *See It and Say It in Spanish* — all 9 phases, 5 Everyday Expressions pages, appendix catalogued, complete drawing and structure catalogue | Authoritative source of truth for Madrigal's content sequence |
+| **Part I.C** — Gap Audit: HoloHola vs. Madrigal *(inline below)* | Chapter-by-chapter overlap analysis, current coverage score (~30%), and prioritized gap-fill queue for existing and new chapters | Before deciding which new chapters or vocabQA items to seed next |
+| **Part I.D** — How Madrigal Illustrates Each Concept *(inline below)* | 10 image templates, per-category drawing specs, prompt guidelines, and the Question Fit Test | Brief for every new VocabQA image batch |
+| `docs/curriculum-strategy.md` *(external)* | Overall platform philosophy, ACTFL level mapping, M1–M6 component definitions | Framing new chapter types |
 
-**Image generation style note:** The Madrigal-derived image style (bold B&W line art, single subject, white background) described in `docs/image-analysis-madrigal.md` is the ASPIRATION for VocabQA card images. The current HoloHola image library uses a soft watercolor children's book style (see Canonical Style below). These serve different use cases — the watercolor style is for Daniela's live teaching and the prop room; the Madrigal-style line art is the target for textbook VocabQA cards. Both can coexist.
+**Image generation style note:** The Madrigal-derived image style (bold B&W line art, single subject, white background) documented in Part I.D below is the ASPIRATION for VocabQA card images. The current HoloHola image library uses a soft watercolor children's book style (see Canonical Style below). These serve different use cases — the watercolor style is for Daniela's live teaching and the prop room; the Madrigal-style line art is the target for textbook VocabQA cards. Both can coexist.
 
 This document is the master list of every visual asset we intend to pre-create for the platform. Assets fall into eight categories. The goal is not to be exhaustive on day one — it's to be deliberate: the right visuals for the words and concepts students absolutely must learn, generated ahead of time so Daniela can surface them instantly.
 
 Visual assets live in the `visual_assets` table. Grammar/infographic SVGs are generated as React components per language (see 9-Language Matrix below). Prop room backgrounds live in `visual_environments`.
 
 ---
+
+# Part I: Pedagogy Foundation
+
+> Read this section before planning new chapters, VocabQA items, or image batches. It contains the source material analysis, gap audit, image generation guide, and improvement principles that shape every textbook decision.
+
+---
+
+## Part I.A — Where HoloHola Improves on Madrigal
+
+
+**Document purpose:** Catalogue every structural, visual, and pedagogical limitation of *See It and Say It in Spanish* so that HoloHola can do the same things better — keeping what's brilliant while solving what a printed B&W book could never fix.
+
+---
+
+## What We Are Keeping (Madrigal's Genius)
+
+Before the critique: a clear record of what to preserve, because copying the good stuff is as important as fixing the bad.
+
+| Madrigal Feature | Why It Works | HoloHola Equivalent |
+|---|---|---|
+| Q&A format (question top, answer bottom) | Forces self-testing before reading the answer | VocabQA card with tap-to-reveal answer |
+| Cognate opener ("You already know Spanish") | Removes anxiety before a word of grammar appears | CognateOpener M3 grid at chapter start |
+| Infinitive introduced before conjugation | The root verb is the anchor; endings are just clothing | verbGroups always name the infinitive first |
+| Communicative-need ordering (not tense order) | Students can have real conversations before finishing Unit 1 | Chapter sequence follows the same logic |
+| 4-item teaching batch per page | Enough to lock in a pattern; not so much it overwhelms | VocabQA default: 4–6 items |
+| Gender-pair teaching (-o/-a together) | Learn one, get the other free | GenderAgreementGrid always shows both |
+| EE (Everyday Expressions) survival inserts | Practical phrases arrive exactly when students need them most | discoveryNotes and narrative tips throughout |
+| Personal-a shown before it's named | Grammar is absorbed before the rule is labeled | Same approach: show in examples first |
+| era slips in through reported speech | Imperfect is felt before it's defined | Same approach for HoloHola preterite intro |
+| Appendix as a full reference | Students can look up any structure from any lesson | Future: searchable reference section |
+
+---
+
+## What We Are Improving
+
+### 1. Dialogue Colors — The Single Biggest Readability Failure
+
+**What Madrigal does:** Every Q&A pair is printed in the same black ink. The question and answer look visually identical. When Madrigal writes a back-and-forth dialogue (e.g., pp. 162–163, EE #5), it's a wall of same-weight text.
+
+**The problem:** You cannot glance at a page and see "this is a conversation." Both voices look the same. Students who scan before reading — which is nearly everyone — get no structural signal that this is interactive.
+
+**What HoloHola does:** Every VocabQA card uses two distinct visual channels for question and answer:
+- Question text: one color/weight (e.g., muted secondary)
+- Answer text: distinct color/weight (e.g., primary, slightly bolder)
+- Conversation strips: each speaker gets a bubble color, and the strip is designed as a comic panel, not a text block
+- The two-color rule should extend to ALL Q&A items, not just conversation strips
+
+**Impact:** A student can instantly tell what to attempt vs. what to verify. The visual encoding replaces the "cover with your hand" instruction.
+
+---
+
+### 2. Ambiguous Drawings — The Olive Problem and Others
+
+**What Madrigal does:** Drawings are hand-drawn B&W line art. The quality varies, and some subjects are inherently hard to make recognizable in a small B&W format.
+
+**Known ambiguous drawings observed:**
+
+| Page | Subject | Problem |
+|---|---|---|
+| p. 100 | Las aceitunas (olives) | Small oval shapes; could be any small round food — grapes, peas, capers |
+| p. ~95 | La sardina | Any small fish in profile looks like a sardine; no distinguishing feature |
+| p. ~30 | El fósforo (match) | Thin stick with small flame at top; easy to read as a candle |
+| p. ~25 | El botón (button) | Small circular object; could be a coin, a pill, a dot |
+| Various | Celery vs. asparagus | Both: long stalks with leafy top. Same drawing could serve either |
+| Various | Different building types | Bank, hotel, theater facades can look similar when simplified to outlines |
+| Appendix | Several flowers | Clavel (carnation) vs. geranio vs. violeta — all look like generic flower-blob |
+
+**What HoloHola does:**
+- AI-generated images can include distinguishing features that pen-and-ink at textbook scale cannot (texture, distinctive color even in muted tones, characteristic shape details)
+- For inherently ambiguous items: pair the image with a very tight art brief that forces the key distinguishing feature
+  - Olives: show them in an OLIVE JAR or with a distinctive elongated shape and pit cavity
+  - Sardines: show the characteristic silver-blue coloring or show them in a TIN
+  - Match: show it LIT with a flame that is clearly separate from a candle (the match stick and red tip are key)
+  - Button: show it WITH THREAD HOLES, which no coin or pill has
+- The "Question Fit Test" from `docs/image-analysis-madrigal.md` applies here: if the drawing could have two reasonable answers, it fails and must be redone
+
+---
+
+### 3. No Color in the Color Lessons — A Structural Impossibility
+
+**What Madrigal does:** Lists colors in the appendix, introduces rojo via a tomato drawing (p. 25) — but the tomato is just a black circle with a stem. The book cannot show color.
+
+**The problem:** Students learning "rojo" from a B&W tomato drawing don't actually see red. The concept of the color is entirely dependent on their prior knowledge of tomatoes. For a learner who didn't grow up associating tomatoes with red, this teaches nothing.
+
+**What HoloHola does:**
+- Full-color swatches for every color word — the color IS the image
+- Color-coded vocabulary across all chapters — masculine words can have a subtle warm tone in their card background, feminine a cool tone (design decision: could visually reinforce gender without making it heavy-handed)
+- The CANONICAL object for each color shown in actual color (red tomato, blue sky, green leaf, yellow sun)
+
+---
+
+### 4. Ser vs. Estar — Shown But Never Contrasted
+
+**What Madrigal does:** Introduces ser (p. 15) and estar (pp. 74–81) in separate chapters, weeks of learning apart. The contrast is embedded in examples but never explicitly side-by-side.
+
+**The problem:** This is the #1 confusion point for English speakers learning Spanish. Madrigal relies on students inferring the rule from accumulated examples, which works for some and fails others entirely.
+
+**What HoloHola does:**
+- A dedicated "Ser vs. Estar" comparison VerbAnchorGrid or narrative section that appears at the point when both have been introduced
+- The contrast is shown with IDENTICAL SUBJECTS showing both verbs:
+  - "El café es colombiano" (origin — ser) vs. "El café está caliente" (state — estar)
+  - "Ella es estudiante" (identity — ser) vs. "Ella está nerviosa" (feeling — estar)
+- The visual split (two columns) makes the distinction spatially obvious, not just textually noted
+
+---
+
+### 5. The Infinitive/Modal Page Is a Wall of Text
+
+**What Madrigal does:** Pages 118–119 present ALL 10 modals + a large shared infinitive verb list as a dense text-only chart. It's the most information-dense spread in the book.
+
+**The problem:** There is no visual grouping. A student looking at the modal list sees: ir a / tener que / querer / poder / me gusta / me gustaría / me encanta / me encantaría / debo — all with equal weight, no clustering by meaning category.
+
+**What HoloHola does:**
+- Group modals by MEANING CLUSTER with visual separation:
+  - **Obligation:** tener que ("have to"), deber ("should"), necesitar ("need to")
+  - **Desire:** querer ("want to"), me gustaría ("would like to"), me encantaría ("would love to")
+  - **Ability:** poder ("can/be able to")
+  - **Movement:** ir a ("going to")
+  - **Pleasure:** me gusta ("like to"), me encanta ("love to")
+- Each cluster gets a consistent icon or color in the VerbAnchorGrid
+- The shared infinitive list becomes a searchable reference, not a printed wall
+
+---
+
+### 6. Practice Instructions Are Generic
+
+**What Madrigal does:** At the end of most lesson pages: "Practique" or "Practice this pattern with a partner." No scaffolding on HOW.
+
+**The problem:** Students studying alone (the primary use case for a self-study book) are given nothing to work with. Students studying with a partner get no guidance on roles, order, or variation.
+
+**What HoloHola does:**
+- Every VocabQA item is already interactive — Daniela asks, student answers, Daniela responds
+- Conversation strips give explicit role context (who is saying what, in what setting)
+- The AI tutor can dynamically vary the practice ("Now try it in the negative" / "Now ask ME the same question") — something a printed page could never do
+
+---
+
+### 7. No Visual Signal for Self-Assessment
+
+**What Madrigal does:** Self-testing is entirely dependent on the student covering answers with a piece of paper or their hand. There's no built-in check. No "if you got this wrong, here's why."
+
+**The problem:** Students who peek, guess correctly by accident, or just read without testing still feel like they "did the lesson." The format does not prevent passive reading.
+
+**What HoloHola does:**
+- VocabQA answers hidden by default; revealed only on tap
+- Daniela tracks which items required multiple reveals or produced wrong first-attempts
+- The system can flag items that need review and surface them in the next session
+- No equivalent of "correct by accident" — if Daniela asks the question verbally, the student has to say the answer
+
+---
+
+### 8. Fixed Density (4 Items Always)
+
+**What Madrigal does:** Every lesson page has exactly 4 Q&A items. Always 4.
+
+**The problem:** Some vocabulary clusters are more important or more confusing than others. The preposition list (p. 73), for example, has 12 items crammed into a space designed for 4. The color list has 12 colors in the appendix with no drawings at all.
+
+**What HoloHola does:**
+- VocabQA grids can be 2, 4, 6, or 8 items depending on the concept
+- High-frequency, high-confusion items get more practice slots (estar emotion states = 11 items, deserves more than 4)
+- Lower-priority vocabulary can be presented in a reference-only list without the full Q&A treatment
+
+---
+
+### 9. Preterite Before Present — The Order Is Defensible But Unexplained
+
+**What Madrigal does:** AR preterite (tomé, compré) appears at Phase 5 (pp. 120–131), BEFORE ER/IR present is taught (pp. 164–167). This means a student can say "I bought" before they can say "I eat."
+
+**The problem:** The order is pedagogically justified — past tense often carries higher communicative need in storytelling — but it's never explained. Students who arrive with prior Spanish training, or who have a mental model of "present before past," feel genuinely disoriented.
+
+**What HoloHola does:**
+- Explain the pedagogical choice in a discoveryNote when preterite is introduced: "You're learning past tense before present — on purpose. You'll use 'I bought' and 'I ate' in real stories before you need 'I buy' and 'I eat' in their full present-tense forms."
+- Show both tenses for a verb when present is finally introduced ("You already know compré — now here's the present: compro")
+
+---
+
+### 10. The EE Pages Aren't Anchored to Grammar
+
+**What Madrigal does:** Everyday Expressions pages appear at natural pauses in the grammar sequence (pp. 43, 53, 71, 80–81, 162–163). But there's no explicit connection between the EE phrases and the grammar structures around them.
+
+**The problem:** Students may treat EE pages as "extra" or "bonus" material rather than the practical payoff of the grammar they just learned. "Lo siento" and "Con permiso" appear with no note that they use the same structure as the verbs just taught.
+
+**What HoloHola does:**
+- Each EE expression in vocabQA is tagged with the grammar lesson it comes from
+- discoveryNotes connect each survival phrase to its underlying structure: "'Necesito' is just the verb 'necesitar' in first person — same ending as all the AR verbs you've been practicing"
+
+---
+
+### 11. Weather Is Disconnected from Places and Movement
+
+**What Madrigal does:** Weather expressions (pp. 176–177) appear late in Phase 8, disconnected from the places/movement chapter that opened the whole book (pp. 9–12).
+
+**The problem:** Real communication combines these: "Voy al parque cuando hace buen tiempo." But the book teaches them 170 pages apart, and never shows them together.
+
+**What HoloHola does:**
+- Weather vocabulary introduced in the same chapter as places (or as a second half of a places chapter)
+- VocabQA items naturally combine: "¿Por qué vas al parque? → Porque hace buen tiempo."
+- The sentence frames grid shows weather + movement together
+
+---
+
+### 12. Gender Agreement Is Taught But Never Visually Tracked
+
+**What Madrigal does:** Introduces -o/-a gender agreement early and applies it throughout. But every page still looks exactly the same — there's no visual reinforcement of "this word is feminine, this is masculine" beyond the text itself.
+
+**The problem:** After 100 pages, students who are pattern-learners can do gender agreement intuitively. Students who are rule-learners are still consciously thinking "wait, is this -o or -a?" The book never builds a habit.
+
+**What HoloHola does:**
+- GenderAgreementGrid always shows both forms side by side with consistent visual pairing
+- Masculine/feminine color-coding as a design decision (subtle, not heavy-handed) — e.g., masculine column always on the left with a consistent background, feminine always on the right
+- The gendered ending (the -o or -a) can be visually highlighted in a different weight/color within the word: "content**o**" vs. "content**a**"
+
+---
+
+### 13. AR Compendium (pp. 160–161) Is Alphabetical, Not Frequency-Ordered
+
+**What Madrigal does:** The 38 AR verbs on the compendium pages are listed in alphabetical order.
+
+**The problem:** Alphabetical order puts "acompañar" and "aconsejar" at the top — both relatively rare verbs — while "hablar" (most common AR verb) is buried midway through. A student who uses the compendium as a study guide is spending time on low-frequency verbs.
+
+**What HoloHola does:**
+- Sort by frequency when displaying verb lists, not alphabetically
+- Flag the top 10 most commonly used verbs in any list with a visual marker
+- The VerbAnchorGrid can be sorted by the teacher (Daniela) based on what a student has used or needs
+
+---
+
+### 14. No Pronunciation Guide
+
+**What Madrigal does:** Pages 9–10 give a brief pronunciation key at the opening, then never returns to it. The book assumes students can extrapolate pronunciation from the phonetic guide indefinitely.
+
+**The problem:** Students who learned Spanish phonetically from Madrigal often have systematic pronunciation errors they're unaware of — particularly with rr, the distinction between c/z in Spain vs. Latin America, and the silent h. Without audio, there's no correction mechanism.
+
+**What HoloHola does:**
+- Every VocabQA item is spoken by Daniela (native-speed audio)
+- Daniela can slow down, repeat, and flag common mispronunciations ("The 'j' in 'jefe' sounds like a strong H — not like English J")
+- The phonetic guide is embedded in each word card, not just on page 1
+
+---
+
+### 15. The Book Is Spanish-Only
+
+**What Madrigal does:** Teaches Spanish from English. Full stop.
+
+**The problem:** A student who completes Madrigal has excellent Spanish foundations but no transferable system for learning French, Italian, Portuguese, German, or any other language.
+
+**What HoloHola does:**
+- The same M1–M6 chapter structure covers 10 languages with parallel content
+- Cognate patterns cross-reference: a student who learned Spanish can see how French/Italian/Portuguese cognates overlap
+- The grammar insight in one language (AR/-ER/-IR verb classes) explicitly maps to similar systems in other languages where relevant
+
+---
+
+## Summary: The Improvement Matrix
+
+| Limitation | Root Cause | HoloHola Solution | Priority |
+|---|---|---|---|
+| Dialogue colors — all one color | B&W print constraint | Two-color Q&A, color-coded conversation bubbles | 🔴 High |
+| Ambiguous drawings (olives, sardine, match) | Small B&W format | AI-generated images with distinguishing features; Question Fit Test | 🔴 High |
+| No color in color lessons | Print constraint | Full-color swatches + colored canonical objects | 🔴 High |
+| Ser vs. estar never contrasted | Linear structure | Side-by-side comparison grid at introduction of second verb | 🟠 Medium |
+| Modal page is a wall of text | Page limit | Modal clusters by meaning category | 🟠 Medium |
+| Practice is generic ("Practique") | No digital interactivity | Daniela asks dynamically; variation built in | 🟡 Already solved |
+| No self-assessment feedback | Print constraint | Tap-to-reveal; Daniela tracks errors | 🟡 Already solved |
+| Fixed 4-item density | Page format | Variable VocabQA grid density | 🟠 Medium |
+| Preterite-before-present unexplained | Author choice | discoveryNote explaining the pedagogical reason | 🟠 Medium |
+| EE phrases unanchored to grammar | Linear print structure | Tag each phrase to its source grammar lesson | 🟠 Medium |
+| Weather disconnected from places | Chapter ordering | Weather in same chapter cluster as places | 🟡 Low — new chapters anyway |
+| Gender agreement not visually tracked | B&W text | Consistent color/position pairing in GenderGrid | 🟠 Medium |
+| Verb lists alphabetical not frequency | Alphabetical convention | Sort by frequency; badge top-10 | 🟡 Low |
+| No pronunciation guide beyond page 1 | Print constraint | Daniela audio on every word; phonetic card | 🟡 Already solved |
+| Spanish-only | Author scope | 10-language parallel platform | 🟡 Already solved |
+
+
+---
+
+## Part I.B — See It and Say It: Source Material Analysis
+
+
+**Source:** Margarita Madrigal, *See It and Say It in Spanish* (Berkley/Penguin Random House, 1962; mass-market edition 2023). ISBN 9780451168375.
+
+**Files on disk:**
+- `attached_assets/see_it_and_say_it_1776200550664.pdf` — main text, 98 PDF pages → book pages 1–199 (2 per spread)
+- `attached_assets/Appendix_See_it_and_say_it_spanish_1776200527397.pdf` — appendix, 29 PDF pages → book pages 201–253+
+
+**Read status: COMPLETE.** All pages sampled as of Apr 14, 2026 (S56). See session log at the bottom.
+
+---
+
+## Drawing Style
+
+Every lesson page contains 4 drawings: bold, simple black-and-white line art, clearly legible at small size. Each drawing is paired with a complete Spanish sentence using the lesson's target structure.
+
+**For AI image generation:** Target this aesthetic — clean line art, no shading, minimal detail, single subject centred on white background. The Madrigal drawing is the gold standard for the HoloHola VocabQA grid images.
+
+---
+
+## Book Structure
+
+| Section | Book Pages | PDF Pages | Content |
+|---|---|---|---|
+| Preface + suggestions | 1–7 | 1 | Methodology notes |
+| Pronunciation Guide | 8 | 3 | Letter-by-letter guide |
+| Conversation Lessons | 9–199 | 3–98 | 96 lesson spreads (~4 drawings each) |
+| **APPENDIX** | | | |
+| I. In the Restaurant | 203–207 | App 2–4 | ~40 food/drink words + drawings |
+| II. In the Hotel | 208 | App 5 | ~25 hotel words |
+| III. In the Stores and Shops | 209 | App 5 | ~15 shop types |
+| IV. The Numbers | 210 | App 6 | 1–1000 |
+| V. Days of the Week | 211 | App 6 | lunes–domingo |
+| VI. Months of the Year | 211 | App 6 | enero–diciembre |
+| VII. The Seasons | 212 | App 7 | 4 trees drawn |
+| VIII. Members of the Family | 213 | App 7 | 22 family members (masc + fem pairs) |
+| IX. The Colors | 214 | App 8 | 12 colors |
+| X. Parts of the Body | 215 | App 8 | Full head-to-toe list |
+| Grammar: AR verbs | 217–222 | App 9–11 | Full conjugation tables all tenses |
+| Grammar: ER verbs | 223–227 | App 12–14 | Full conjugation tables all tenses |
+| Grammar: IR verbs | 228–232 | App 15–17 | Full conjugation tables all tenses |
+| Spanish-English Vocabulary | 233–252 | App 18–27 | Alphabetical glossary |
+| Index | 253+ | App 28–29 | |
+
+---
+
+## Complete Conversation Lesson Map
+
+Each row = one spread (two book pages). All "(unsampled)" entries have now been read and filled in.
+
+| Book pp. | Key Phrase / Structure | Drawings Confirmed | Grammar Note |
+|---|---|---|---|
+| 9 | voy al ___ | hotel, banco, garage, restaurante | ir: voy/va/vamos/van |
+| 10–11 | no voy / vamos al ___ | club, teatro, cine, parque | negation; vamos = "let's go" |
+| 12–13 | ¿Va al ___? Sí, voy al ___ | banco, teatro, parque, cine | ¿Va? question form + exercise |
+| 14–15 | el ___ es grande | tren, avión, auto, parque | es = ser; el (masculine); ser introduced |
+| 15 | — | — | Ser: soy/es/somos/son |
+| 16 | el ___ no es grande | sombrero, libro, disco, vaso | Words ending -o are masculine: el |
+| 17 | la ___ (no) es grande | casa, montaña, pera, rosa | Words ending -a are feminine: la |
+| 18 | el ___ es chiquito | vaso, sombrero, canario, pollo | -o adjectives with -o nouns: el/un |
+| 19 | la ___ es chiquita | rosa, taza, violeta, sardina | -a adjectives with -a nouns: la/una |
+| 20–21 | **¿Qué es? — un animal / una fruta** | vaca/caballo (animals), pera/naranja/manzana/piña (fruits) | ser for CATEGORY classification — new use of ser distinct from description |
+| 22–23 | **¿Qué es? — una flor / una verdura** | tulipán/geranio/clavel/rosa (flowers), apio/zanahoria/lechuga/tomate (vegetables) | "una flor linda" — adjective linda introduced |
+| 24–25 | **¿Es rojo el tomate?** | tomate, rosa, tulipán, verduras | **rojo = first color adjective** (p.25); also shows color as ser+adjective |
+| 26–27 | Exercise: ¿Qué es? | gato, tomate, rosa, pera, manzana, tulipán, lechuga, perro | Consolidation — 4 category answers |
+| 28 | ___ por favor | rosbif, la cuenta, vaso de agua, azúcar | Restaurant ordering phrases |
+| 29 | ¿Tomó un ___? Sí, tomé un ___ | taxi, avión, tren, autobús | Tomar: tomé/tomó/tomamos/tomaron (preterite) |
+| 30 | ¿Tomó ___? | sopa, café, chocolate, té | Tomar for eating/drinking |
+| 31 | Tomé ___ para la cena | pollo, salmón, espárragos, café | para la cena phrase |
+| 32 | ¿Compró ___? | blusa, periódico, automóvil, sombrero | Comprar: compré/compró/compramos/compraron |
+| 33 | Compré ___ para la cena | pollo, apio, tomates, lechuga | esta noche phrase |
+| 34–35 | Exercise + answers | — | Review: tomar + comprar + para la cena |
+| 36 | Voy a comprar ___ | blusa, falda, corbata, bufanda | ir + a + infinitive (near future) |
+| 37 | ¿Va a comprar ___? | sombrero, vestido, suéter, traje | Va/Vamos/Van a comprar |
+| 38 | ___ esta mañana | sombrero, blusa, corbata | esta mañana phrase |
+| 39 | ¿Van al ___? | hotel, garage, cine, mercado | van (3rd plural ir) |
+| 40 | ¿Va a tomar un ___? | taxi, tren, autobús, avión | voy a tomar |
+| 41 | ¿Va a tomar ___? | ensalada, café, sopa, apio | foods with voy a tomar |
+| 42 | ¿Va a ___? | bailar, nadar, cantar, pescar | leisure verbs + infinitive |
+| 43 | **Everyday Expressions #1** | (one man drawing) | Buenos días/tardes/noches; ¿Cómo está usted?; Gracias; De nada; Perdón; Con mucho gusto |
+| 44–45 | ¿Tiene ___? | gato, canario, perro, caballo | tener: tiene/tengo/tenemos/tienen |
+| 46–47 | ¿Tiene un ___? / Tengo un ___ | gato, perro, loro, tortuga | Possession questions + answers |
+| 48–49 | ¿Tiene un gorila en casa? / ¡Eso es ridículo! | gorila, toro, elefante, hipopótamo | Humor pivot — first page with zero English below sentences |
+| 50–51 | Tengo que ___. | ir, comprar, tomar, trabajar | tener que + infinitive (obligation) |
+| 52–53 | No tengo tiempo / Tengo hambre | (one-man drawing) | **Everyday Expressions #2**: hambre/sed/frío/calor/razón + tener idioms |
+| 54–55 | ¿Quiere ___? / Quiero ___ | chocolate, café, sopa, agua | querer: quiero/quiere/queremos/quieren |
+| 56–57 | ¿Quiere ir al ___? / Quiero ir al ___ | teatro, cine, club, playa | querer + ir + a (desire + movement) |
+| 58–59 | Te quiero / Lo quiero / La quiero | (person + object drawings) | quiero = I want AND I love — context determines; "Quiero a Roberto" personal a |
+| 60–61 | Exercise: quiero comprar/ir | chocolates, camisa, corbata, playa, cine, concierto, casa | Review: quiero + infinitive |
+| 62–63 | Exercise page (drawings only) | — | |
+| 64–65 | **Plural rules: -os / -as** | sombrero/sombreros, rosa/rosas, libro/libros, casa/casas, caballo/caballos | -o → -os (el/los); -a → -as (la/las) |
+| 66 | el ___ es bonito / Los ___ son bonitos | caballo/caballos, libro/libros, plátano, rábano | Singular → Plural: -o → -os |
+| 67 | la ___ es bonita/deliciosa / Las ___ son bonitas | manzana/manzanas, mariposa, pera, rosa | Singular → Plural: -a → -as; adjectives: bonito/delicioso |
+| 68–69 | el doctor / los doctores | doctor/actores, aviador/aviadores, tractor/tractores | Plural of -or words: add -es (no accent change) |
+| 70–71 | Es muy ___ | valiente, interesante, inteligente, elegante | **Everyday Expressions #3**: ser + adjectives; muy amplified |
+| 72–73 | *(exercise / review — plurals + ser)* | — | Consolidation page |
+| 74–75 | ¿Dónde está ___? / Está en ___ | papá/despacho, mamá/casa, teatro/cine/banco | estar introduced: location; -or cognates sidebar |
+| 76–77 | ¿Dónde está el ___? | lavamanos, tina, jabón, toalla | Bathroom vocabulary; estar + rooms |
+| 78–79 | La mesa está en el ___. | comedor: mesa/silla/mantel/servilleta; sala: sofá/sillón/televisión/teléfono | Rooms: dining room + living room |
+| 80–81 | La estufa está en la cocina. | estufa, olla, cafetera, refrigerador | Kitchen vocabulary; **Everyday Expressions #4**: estar + emotions (full list) |
+| 82–83 | Exercise: ¿Dónde está? | tina/baño, toalla/baño, jabón/baño, sofá/sala, sillón/sala, estufa/cocina | Consolidation — 3 rooms |
+| 84–85 | ¿Puede ir al ___? / Puedo ir | baile, ballet, concierto | poder: puedo/puede/podemos/pueden; can/be able to |
+| 86–87 | ¿Hay ___? / Sí, hay ___ | sopa, crema, mantequilla, dinero | hay: there is/there are; existential |
+| 88–89 | ¿Hay gorilas en la clase? ¡Ay no! | gorilas/mulas en la clase | Humor page #2 — hay with absurd existentials |
+| 90–91 | Hay ___ en el hotel. | turistas, piscina, peluquero; zapatería/panadería/carnicería/joyería | hay + shops + hotel vocabulary |
+| 92–93 | *(exercise / review — hay)* | — | Consolidation page |
+| 94–95 | Me gusta la ___. / Le gusta el ___ | sopa, limonada, pollo, pescado, campo, música | me gusta introduced: inverse verb structure; "I like THE soup" rule |
+| 96–97 | Me gustan los ___. / No me gusta ___ | espárragos, huevos, espinacas, frijoles; pescar/nadar/bailar | me gustan (plural); no me gusta + infinitive |
+| 98–99 | ¿Le gustaría ir al ___? / Me gustaría ir | parque, teatro, cine, campo | me gustaría (polite: I would like); me encanta: I love |
+| 100–101 | Me encantan las ___. / Me encantaría ir al ___ | cerezas, aceitunas, cebollas, fresas; cine/campo/museo/centro/playa | me encantan (plural); me encantaría (I would love to) |
+| 102–103 | Exercise: me gusta/gustan | pollo, leche, pescado, espárragos, huevos, nadar, bailar, cine | Consolidation |
+| 104–105 | Translate to Spanish (me gusta, me encanta) | — | leche/huevos/parque/salmón/México |
+| 106–117 | *(exercise + extension pages — me gusta/gustaría/encanta)* | — | |
+| 118–119 | **THE INFINITIVE MASTER PAGE** | — | ALL modal constructions together: voy a / va a / tengo que / tiene que / quiero / quiere / puedo / no puedo / me gusta / me gustaría / me encanta / **debo** (new!) + right-column infinitive list: vender/leer/escribir/ir/comprender/recibir/estudiar/trabajar/caminar/hablar/comprar/dejar — "The TO form ends in ar, er or ir — this is the infinitive" |
+| 120–121 | Exercise: voy a vender/leer/escribir/recibir | casa, lancha, boletos, libro, periódico, revista, carta, tarjeta postal | Covers all 3 infinitive endings |
+| 122–123 | ¿Estudió/nadó/pagó hoy? | estudiar, nadar, pagar la cuenta, comprar bata; lancha, casa | AR preterite: 3rd person -ó endings; alquilar conjugation |
+| 124–125 | **Dejar (to leave behind)** | valija/hotel, guantes/teatro, portafolio/banco, llave/mesa | dejé/dejó/dejamos/dejaron; new vocabulary: valija, guantes, pasaporte, pipa, llave |
+| 126–127 | ¿Tomó el desayuno/almuerzo/la cena? | té, café, jugo de naranja, huevos fritos, pan tostado | Meals vocabulary; tomamos (plural) |
+| 128–129 | ¿Alquilaron una ___? / Alquilamos | lancha, casa, autobús | alquilar plural (alquilamos/alquilaron); also dejamos/dejaron review |
+| 130–131 | Exercise: alquilar + dejar + tomar | lancha/casa, autobús/auto, guantes, perro, jugo de naranja, pan tostado, huevos fritos | Both "we" and "they" forms side by side |
+| 132–133 | **ER/IR Preterite — 1st + 3rd person** | paquete, carta, programa de televisión, lancha | recibí/recibió; escribí/escribió; vendí/vendió; vi/vió — "ER and IR verbs end in í (self) and ió (anyone else)" |
+| 134–135 | **Ver preterite + circus** | estatua, pintura, traje nuevo, sombrero nuevo; payaso, elefante en circo | vi/vió; LOS NIÑOS vieron — first PLURAL SUBJECT (3rd person plural); chistoso = funny; circo/payaso/mono |
+| 136–137 | Exercise: vi/vió | traje, sombrero, paquete, carta, caja de chocolates, botella de perfume, billetera, portafolio | para mi cumpleaños / para la Navidad |
+| 138–139 | Exercise answers: ER/IR preterite | — | |
+| 140–149 | *(exercise/extension — preterite review)* | — | |
+| 150–151 | **Traer + Decir (irregular preterites) + first IMPERFECT** | libro, disco; cuchara/plato/servilleta/mantel/jarra/vaso/cuchillo | traer: traje/trajo/trajimos/trajeron; decir: dije/dijo/dijimos/dijeron; **indirect object le**: "Le traje un libro" / "Le dije que era interesante" — **ERA = first imperfect** (used in reported speech only: era interesante/terrible/excelente/imposible/formidable); limpio/sucio adjectives + tableware vocabulary |
+| 152–153 | **Voy al ___ + days of week** | teatro/jueves, concierto/viernes, iglesia/domingo, despacho/lunes, biblioteca | Scheduling: el jueves/viernes/domingo/lunes/martes — days in action context |
+| 154–159 | *(exercise/extension — preterite + scheduling)* | — | |
+| 160–161 | **AR Verb Compendium — Present Tense** | (one example drawing) | Full compro/compra/compramos/compran table + 38-verb list: hablar, comprar, estudiar, nadar, cantar, bailar, viajar, trabajar, preparar, invitar, visitar, dejar, saludar, estacionar, usar, llamar, mirar, esperar, ayudar, preguntar, cambiar, ganar, mandar, lavar, planchar, alquilar, caminar, votar, importar, exportar, entrar, fumar, tomar, llevar, regresar, contestar |
+| 162–163 | **Everyday Expressions #5: ¿A qué hora? + frequency + status** | fiesta/5 o'clock, concierto/8, cine/9, cita/8 | ¿A qué hora? → a las dos/cinco/ocho/nueve; frequency: Una vez / Dos veces / Unas veces / Muchas veces / De vez en cuando / Otra vez / Tal vez; status: Es todo / Nada / Sin / Siempre / Nunca / Necesito / Está bien / Con permiso / Depende / Ya / Seguro / No importa / Lo siento / Creo que sí/no / Espero que sí |
+| 164–165 | **ER/IR Verbs Present Tense in context** | periódico/no; libro/sí; lápiz/sí; máquina/sí; español; Nueva York | leer: leo/lee; escribir: escribo/escribe; vivir: vivo/vive; comprender: comprendo; aprender: aprendo; vender: vendo — "You can drop usted in questions" |
+| 166–167 | **ER and IR conjugation tables** | — | ER: vendo/vende/vendemos/venden; IR: vivo/vive/vivimos/viven — The complete present tense tables for both classes |
+| 168–177 | *(extension — ER/IR verb practice)* | — | |
+| 176–177 | **Weather: hace frío/calor/fresco/viento** | winter cold, October fresh, September fresh, summer hot; nieve en diciembre, lloviendo | hace frío/calor/fresco/viento; Seasons: en el invierno/la primavera/el verano/el otoño; months: septiembre/octubre/noviembre/diciembre; ¿Está lloviendo? — present progressive for weather |
+| 178–179 | **México composition** (culminating reading) | montañas altas, fuentes iluminadas | Extended reading passage in PAST tense: fui (I went), llegué (I arrived), caminé, vi, hablé español, compré regalos; vocabulary: un país lindo, avenidas anchas, parques grandes, iglesias antiguas, museos extraordinarios, tiempo colonial |
+| 180–181 | *(extension reading)* | — | |
+| 182–183 | **estar + -ando (Present Progressive)** | tocando violín, tocando acordeón, nadando, patinando | ING = ANDO for AR verbs; estoy/está/estamos/están + -ando; estudiando, hablando, cantando, comprando |
+| 184–187 | *(extension — present progressive)* | — | |
+| 188–189 | ¿Ha comprado/vendido ___? | bicicleta, casa, auto, lancha | haber + -ado/-ido (present perfect); -ar → -ado, -er/-ir → -ido |
+| 190–193 | *(extension — present perfect)* | — | |
+| 194–195 | ¿Le mandó/trajo ___? | paquete, paraguas, disco, libro | Indirect object pronouns; me lo / se lo |
+| 196–197 | *(extension)* | — | |
+| 198–199 | **Commands + Subjunctive** | — | Commands: escriba / oiga / traigamelo / venga acá / hágalo / dígame — GA irregular commands; Subjunctive: Espero que venga a la fiesta / Espero que me escriba / Quiero que lo haga / Quiero que lo traiga — "Pronouns go BEFORE the subjunctive; pronouns attach TO commands" |
+
+---
+
+## The Five Everyday Expressions Pages
+
+Madrigal inserts 5 "Everyday Expressions" spreads as pedagogical pivots — each consolidates spoken-use structures beyond the lesson grammar. These are the most important single pages for conversational fluency.
+
+| Page | Theme | Key expressions |
+|---|---|---|
+| p. 43 — EE #1 | Greetings | Buenos días/tardes/noches; ¿Cómo está usted? Bien, gracias; De nada; Perdón; Con mucho gusto |
+| p. 53 — EE #2 | Tener idioms | tengo hambre/sed/frío/calor/razón/sueño/miedo/prisa |
+| pp. 70–71 — EE #3 | Ser + adjectives | Es muy valiente/interesante/inteligente/elegante/horrible/magnífico/espléndido |
+| pp. 80–81 — EE #4 | Estar + emotions/states | contento/a, cansado/a, ocupado/a, enfermo/a, listo/a, solo/a, enojado/a, furioso/a, aburrido/a, enamorado/a, triste, cómodo; bien/mejor/mal/peor; estamos/están/estoy — first person requires gender match: estoy contento (man) / estoy contenta (woman) |
+| pp. 162–163 — EE #5 | Time + frequency + status | ¿A qué hora? / Una vez / Muchas veces / De vez en cuando / Siempre / Nunca / Necesito / Lo siento / Con permiso / Creo que sí/no / Espero que sí |
+
+---
+
+## Complete Verb / Structure Sequence (full book)
+
+The order Madrigal teaches structures follows communicative phases, not grammar categories. Each verb is introduced because students now NEED it to say the next thing.
+
+### Phase 1 — Survival Foundations (pp. 9–43)
+| Book pp. | Structure | Communicative Need |
+|---|---|---|
+| 9–12 | **ir** (voy/va/vamos/van) | "Where are you going?" — spatial orientation |
+| 14–19 | **ser** (es) + articles el/la | "What is it?" — descriptions, gender |
+| 16–19 | Gender rules | Grammar pause — essential before continuing |
+| 20–25 | **¿Qué es? → Es un animal / una fruta / una flor / una verdura** | ser for CLASSIFICATION (new use) — not description but category assignment |
+| 24–25 | **rojo** + linda | First color adjective; first "pretty/lovely" adjective |
+| 28–31 | **tomar** (preterite) | "I had coffee / I took a taxi" — meals + transport |
+| 32–33 | **comprar** (preterite) | "I bought / I need to buy" — shopping |
+| 36–42 | **ir + a + infinitive** | "I'm going to buy/dance" — near future |
+| 43 | Everyday Expressions #1 | Buenos días/tardes/noches; gracias/perdón |
+
+### Phase 2 — Ownership, Need, and Desire (pp. 44–62)
+| Book pp. | Structure | Communicative Need |
+|---|---|---|
+| 44–47 | **tener** (tengo/tiene/tenemos/tienen) | "Do you have...?" — possession |
+| 48–49 | tener (humor) | Absurd animals — reinforcement through surprise |
+| 50–51 | **tener que** + infinitive | "I have to go" — obligation |
+| 52–53 | Everyday Expressions #2 | Tener idioms: hambre/sed/frío/calor/razón |
+| 54–59 | **querer** (quiero/quiere) + personal a | "I want / I love" — desire AND emotion; "Quiero a Roberto" |
+
+### Phase 3 — Description, Plurality, and Location (pp. 64–83)
+| Book pp. | Structure | Communicative Need |
+|---|---|---|
+| 64–67 | Plural rules (-o → -os, -a → -as); bonito/delicioso | Grammar pause — must handle groups |
+| 68–69 | Plural of -or words (-or → -ores) | Cognate words: actor/actores |
+| 70–71 | Everyday Expressions #3 | **ser + adjective**: Es muy valiente/inteligente |
+| 74–77 | **estar** (location: ¿dónde?) | "Where is it?" — navigation + finding things |
+| 78–80 | estar + rooms | Household rooms + objects |
+| 80–81 | Everyday Expressions #4 | **estar + emotions**: contento/cansado/listo/enojado (full 11-item list + estoy gender note) |
+
+### Phase 4 — Ability, Existence, and Preference (pp. 84–119)
+| Book pp. | Structure | Communicative Need |
+|---|---|---|
+| 84–85 | **poder** (puedo/puede) | "Can you come?" — ability + invitations |
+| 86–91 | **hay** | "Is there any...?" — existence, shopping checks |
+| 94–97 | **me gusta / me gustan** | "I like..." — inverse verb structure (leap!) |
+| 98–99 | **me gustaría** | "I would like..." — polite desire, social register |
+| 99–101 | **me encanta / me encantaría / me encantan** | "I love / I would love to..." — emotional intensity |
+| 118–119 | **THE MASTER INFINITIVE PAGE** | ALL 10+ modals consolidated: ir a / tener que / querer / poder / me gusta / me gustaría / me encanta / **debo** (new) — with shared infinitive list vender/leer/escribir/ir/comprender/recibir/estudiar/trabajar/caminar/hablar/comprar/dejar |
+
+### Phase 5 — Past Tense I: AR Verbs (pp. 120–131)
+| Book pp. | Structure | Communicative Need |
+|---|---|---|
+| 120–123 | AR preterite review: estudió/nadó/pagó/alquiló | "What did you do yesterday?" — completed action |
+| 124–125 | **dejar** (dejé/dejó/dejamos/dejaron) | "Where did you leave it?" — losing/placing things |
+| 126–127 | **Meals in preterite**: tomó/tomamos el desayuno | "What did you have for breakfast?" |
+| 128–131 | **Plural AR preterite**: alquilamos/alquilaron; dejamos/dejaron; tomamos/tomaron | "We rented / They rented" — third party narration begins |
+
+### Phase 6 — Past Tense II: ER/IR Verbs (pp. 132–155)
+| Book pp. | Structure | Communicative Need |
+|---|---|---|
+| 132–133 | **ER/IR preterite**: recibí/recibió; escribí/escribió; vendí/vendió; vi/vió | New tense class — different endings: -í / -ió |
+| 134–135 | **Ver + plural subjects**: Los niños vieron | First use of 3rd person PLURAL subject + preterite |
+| 134–135 | circus vocabulary | circo, payaso (clown), mono (monkey), chistoso (funny) |
+| 150–151 | **Traer** (traje/trajo/trajimos/trajeron) | "I brought you a book" — irregular preterite |
+| 150–151 | **Decir** (dije/dijo/dijimos/dijeron) | "I told you it was..." — irregular preterite |
+| 150–151 | **Indirect object le** + **era (first imperfect)** | "Le traje un disco" / "Le dije que era interesante" — era used naturally in reported speech |
+| 150–151 | Clean/dirty: **limpio/sucio** | Table setting vocabulary: cuchara, plato, mantel, servilleta, jarra, cuchillo |
+
+### Phase 7 — Present System Expansion (pp. 152–169)
+| Book pp. | Structure | Communicative Need |
+|---|---|---|
+| 152–153 | **Days of week in scheduling** | "I'm going to the theater on Thursday" — voy al + día |
+| 160–161 | **AR Verb Compendium** | Grammar pause — 38 common AR verbs + full present table (compro/compra/compramos/compran) |
+| 162–163 | Everyday Expressions #5 | ¿A qué hora? + frequency expressions + status phrases (Necesito / Lo siento / Con permiso) |
+| 164–167 | **ER/IR verbs present tense** + conjugation tables | leer/leo, escribir/escribo, vivir/vivo, comprender/comprendo, aprender/aprendo, vender/vendo — "Usted can be dropped in questions" |
+
+### Phase 8 — Weather, Reading, Progressive (pp. 170–183)
+| Book pp. | Structure | Communicative Need |
+|---|---|---|
+| 176–177 | **Weather**: hace frío/calor/fresco/viento | "What's the weather like?" — seasons + months |
+| 176–177 | ¿Está lloviendo? | Present progressive for weather — preview of next structure |
+| 178–179 | **México composition** | Culminating reading passage: past tense narrative (fui, llegué, caminé, vi, hablé, compré) |
+| 182–183 | **estar + -ando** (present progressive) | "ING = ANDO" — estoy/está/estamos/están + -ando |
+
+### Phase 9 — Advanced Structures (pp. 184–199, Appendix)
+| Book pp. | Structure | Communicative Need |
+|---|---|---|
+| 188–189 | **Present perfect**: he/ha + -ado/-ido | "Have you bought...?" — recent past |
+| 194–195 | **Indirect objects**: me lo / se lo | "Send it to me / I'll bring it to you" |
+| 198–199 | **Commands** (GA irregulars) | oiga / traigamelo / venga acá / hágalo / dígame / escriba |
+| 198–199 | **Subjunctive**: Espero que / Quiero que | "I hope you'll come" — "I want you to do it" |
+
+---
+
+## The English-Fade Pattern
+
+Madrigal systematically removes English scaffolding as the book progresses. This is the "see it and say it" method made visible:
+
+| Book pages | English presence | What replaces it |
+|---|---|---|
+| pp. 9–20 | Every sentence has English equivalent | Both languages shown explicitly |
+| pp. 21–45 | English in headers + new vocab only | Drawings carry Q&A meaning |
+| pp. 46–75 | English only on first example per structure | Subsequent examples: drawing only |
+| pp. 84–101 | Near-zero English | Even first examples rely on drawings |
+
+**The pivot point:** pp. 48–49 (gorila/toro/elefante). Absurd animal scenarios provide the humor that compensates for removed English scaffolding. Students laugh → they remember → they don't need the translation.
+
+**HoloHola design implication:** VocabQA items should NOT show English by default. The image IS the translation. English appears only on tap/demand. This honors Madrigal's core method.
+
+---
+
+## Pedagogical Mapping to HoloHola Components
+
+### M1 — VocabQA Grid
+The book's core lesson format IS M1: see the drawing, say the word, answer the question. Every drawing + sentence pair maps directly to a VocabQA item.
+
+**Priority for Chapter 1 (Greetings):**
+- Buenos días / buenas tardes / buenas noches (p. 43)
+- ¿Cómo está usted? / Bien, gracias / De nada / Perdón (p. 43)
+- Voy al hotel / banco / restaurante / garage (pp. 9–11)
+
+**Priority for Chapter 2 (Family):**
+- Family member vocabulary from appendix p. 213 (all 22 items)
+
+**Priority for Chapter 3 (Numbers):**
+- Numbers vocabulary from appendix p. 210
+
+**NEW — Chapter for ¿Qué es? (Categories):**
+- 4 category system: un animal / una fruta / una flor / una verdura
+- Animals: vaca, caballo, gato, perro, mula, tigre, león
+- Fruits: pera, naranja, manzana, piña
+- Flowers: rosa, tulipán, geranio, clavel
+- Vegetables: apio, zanahoria, lechuga, tomate
+- First color: rojo (pp. 24–25) — "¿Es rojo el tomate? Sí, el tomate es rojo."
+
+### M2 — GenderAgreement Grid
+Pages 16–19 are the canonical M2 source. Madrigal teaches gender via three explicit rules:
+1. Words ending in **-o** are masculine → take **el / un**
+2. Words ending in **-a** are feminine → take **la / una**
+3. Adjectives match: chiquito with -o words, chiquita with -a words
+
+**Confirmed gender pairs (masculine / feminine same concept):**
+- el sombrero / la bufanda (clothing)
+- el vaso / la taza (containers)
+- el canario / la sardina (animals)
+- el plátano / la rosa (produce/nature)
+- el libro / la violeta
+
+**M2 seeding from this book:**
+- 8 masculine items with drawings (pp. 16, 18)
+- 8 feminine items with drawings (pp. 17, 19)
+- Rule note: "Words ending in -o take el/un; words ending in -a take la/una"
+
+### M3 — Cognate Recognition
+The preface explicitly states the method: "thousands of words in Spanish are similar to or identical to their English equivalents."
+
+Madrigal cognates confirmed from lesson text:
+- hotel → hotel
+- restaurante → restaurant
+- banco → bank
+- garage → garage
+- teatro → theater
+- chocolate → chocolate
+- salmón → salmon
+- automóvil → automobile
+- suéter → sweater
+- violeta → violet
+- sardina → sardine
+- tomate → tomato
+- espárragos → asparagus
+- ensalada → salad
+- acordeón → accordion
+- teléfono → telephone
+- periódico → periodic(al)
+
+**→ These form the M3 cognate grid for Spanish ch. 1.**
+
+### M4 — VerbAnchor Grid
+Every lesson page bottom has the current verb's conjugation table. The verb progression:
+
+| Verb | Page | Tense | Pattern |
+|---|---|---|---|
+| ir (to go) | 9–11 | Present | voy / va / vamos / van |
+| ser (to be) | 15 | Present | soy / es / somos / son |
+| tomar (to take/have) | 29 | Preterite | tomé / tomó / tomamos / tomaron |
+| comprar (to buy) | 32–33 | Preterite | compré / compró / compramos / compraron |
+| tener (to have) | 44–47 | Present | tengo / tiene / tenemos / tienen |
+| querer (to want/love) | ~54 | Present | quiero / quiere / queremos / quieren |
+| estar (to be) | 74–75 | Present | estoy / está / estamos / están |
+| poder (can/be able) | 84–85 | Present | puedo / puede / podemos / pueden |
+| alquilar (to rent) | 123 | Preterite | alquilé / alquiló / alquilamos / alquilaron |
+| dejar (to leave) | 124–125 | Preterite | dejé / dejó / dejamos / dejaron |
+| recibir/escribir/vender | 132–133 | Preterite | ER/IR: -í / -ió / -imos / -ieron |
+| ver (to see) | 134–135 | Preterite | vi / vió / vimos / vieron |
+| traer (to bring) | 150–151 | Preterite | traje / trajo / trajimos / trajeron |
+| decir (to say) | 150–151 | Preterite | dije / dijo / dijimos / dijeron |
+| leer/escribir/vivir | 164–167 | Present | leo/leo / escribo/escribe / vivo/vive |
+| estar + -ando | 183 | Progressive | estoy / está / estamos / están + -ando |
+| haber + -ado/-ido | 189 | Perfect | he / ha / hemos / han + past participle |
+
+**Key grammar meta-notes from the book:**
+- p. 29: "AR verbs end in -é when you speak of yourself, -ó when speaking of anyone else (singular)"
+- p. 132: "ER and IR verbs end in -í (self) and -ió (anyone else singular)" in the past
+- p. 165: "In questions, you can use or drop the word usted — both forms heard in ordinary conversation"
+- p. 167: ING = ANDO (for AR verbs)
+- p. 150: **era** = first imperfect, introduced in reported speech ("Le dije que era interesante") — not labeled "imperfect" yet, just absorbed naturally
+
+### M5 — Scene Image (Visual Context)
+The book's drawings ARE the scenes. Each drawing is a standalone visual that anchors the sentence.
+
+For our AI image generation system: these are the exact prompts. E.g.:
+- `"Simple line drawing, Hotel Ritz facade with doorman in uniform standing at entrance, bold black lines, white background, Madrigal textbook style"`
+
+### M6 — Compartment (Verb + Tense Matrix)
+The Grammar Section (appendix pp. 217–232) has complete conjugation tables for ALL tenses across AR/ER/IR verbs — this is the M6 master reference.
+
+**AR verb table covers (pp. 217–222):** Present, Preterite, Imperfect, Future, Conditional, Subjunctive, Present Perfect, Past Perfect, Present Progressive, Past Progressive, Commands
+**ER verb table covers (pp. 223–227):** Same structure + common ER verb list
+**IR verb table covers (pp. 228–232):** Same structure + common IR verb list (recibir, resistir, subir, sufrir, vivir, permitir, persuadir, aplaudir)
+
+---
+
+## Color Reference (Appendix p. 214)
+
+| Spanish | English |
+|---|---|
+| blanco | white |
+| negro | black |
+| rojo | red |
+| colorado | red (alternate) |
+| color café | brown |
+| pardo | brown (alternate) |
+| azul | blue |
+| verde | green |
+| gris | grey |
+| amarillo | yellow |
+| morado | purple |
+| rosado | pink |
+
+**First introduced in lessons:** rojo (p. 25) — "¿Es rojo el tomate? Sí, el tomate es rojo."
+
+---
+
+## Parts of the Body (Appendix p. 215)
+
+**Head:** la cabeza, la cara, la nariz, las orejas, la boca, la barba, las mejillas, la frente, las pestañas, las cejas, los párpados, los dientes, la lengua, el pelo, el bigote, el cuello, la garganta
+
+**Upper body:** los hombros, los brazos, los codos, las muñecas, las manos, los dedos, las uñas, la espalda, el estómago, el pecho, la cintura, las caderas
+
+**Lower body:** las piernas, las rodillas, los tobillos, los pies, los dedos de los pies
+
+---
+
+## Complete Visual Asset Inventory (by topic)
+
+### Places / Locations
+| Spanish | English | Drawings seen in book |
+|---|---|---|
+| el hotel | the hotel | ✓ (Hotel Ritz facade, doorman) |
+| el banco | the bank | ✓ (barred door, street scene) |
+| el garage | the garage | ✓ (sign + pump) |
+| el restaurante | the restaurant | ✓ (street facade) |
+| el club | the club | ✓ (Men's Club door) |
+| el teatro | the theater | ✓ (stage curtains) |
+| el cine | the movie theater | ✓ (Spring Love marquee) |
+| el parque | the park | ✓ (bench + trees) |
+| el mercado | the market | ✓ (Fruits shop awning) |
+| la casa | the house | ✓ (simple house with chimney) |
+| la playa | the beach | (from exercise text) |
+| el concierto | the concert | (from exercise text) |
+| la biblioteca | the library | (from pp. 152) |
+| el despacho / la oficina | the office | (from pp. 152) |
+
+### Transportation
+| Spanish | English | Drawings seen |
+|---|---|---|
+| el taxi | the taxi | ✓ (car with TAXI sign) |
+| el avión | the airplane | ✓ (side view) |
+| el tren | the train | ✓ (streamlined train) |
+| el autobús | the bus | ✓ (side view) |
+| el auto / el automóvil | the car | ✓ (sports car) |
+| la lancha | the boat | ✓ (motorboat) |
+| la bicicleta | the bicycle | ✓ (from exercise text) |
+
+### Food & Drink (main lessons)
+| Spanish | English | Drawings seen |
+|---|---|---|
+| la sopa | soup | ✓ (steaming bowl) |
+| el café | coffee | ✓ (coffee pot) |
+| el chocolate | hot chocolate | ✓ (mug with steam) |
+| el té | tea | ✓ (teapot) |
+| la ensalada | salad | ✓ (bowl) |
+| el pollo | chicken | ✓ (whole roast chicken) |
+| el salmón | salmon | ✓ (fish on platter) |
+| los espárragos | asparagus | ✓ (bunch) |
+| el apio | celery | ✓ (stalk) |
+| los tomates | tomatoes | ✓ (two tomatoes) |
+| la lechuga | lettuce | ✓ (head of lettuce) |
+| el rosbif | roast beef | ✓ (on plate) |
+| la cuenta | the check/bill | ✓ (handwritten check) |
+| el azúcar | sugar | ✓ (sugar bowl) |
+| un vaso de agua | glass of water | ✓ (glass) |
+| el bistec | beefsteak | (text only) |
+| el sandwich | sandwich | (text only) |
+| huevos fritos | fried eggs | ✓ (frying pan) |
+| pan tostado | toast | ✓ (toaster) |
+| jugo de naranja | orange juice | ✓ (glass + orange) |
+
+### Fruits (¿Qué es? — pp. 20–21)
+| Spanish | English |
+|---|---|
+| la pera | pear |
+| la naranja | orange |
+| la manzana | apple |
+| la piña | pineapple |
+
+### Flowers (¿Qué es? — pp. 22–23)
+| Spanish | English |
+|---|---|
+| la rosa | rose |
+| el tulipán | tulip |
+| el geranio | geranium |
+| el clavel | carnation |
+
+### Vegetables (¿Qué es? — pp. 22–23)
+| Spanish | English |
+|---|---|
+| el apio | celery |
+| la zanahoria | carrot |
+| la lechuga | lettuce |
+| el tomate | tomato |
+
+### Animals (¿Qué es? — pp. 20–21 + earlier)
+| Spanish | English |
+|---|---|
+| el gato | cat |
+| el perro | dog |
+| el caballo | horse |
+| la vaca | cow |
+| la mula | mule |
+| el tigre | tiger |
+| el león | lion |
+| el canario | canary |
+| el loro | parrot |
+| la tortuga | turtle |
+| el gorila | gorilla |
+| el toro | bull |
+| el elefante | elephant |
+| el hipopótamo | hippopotamus |
+| la mariposa | butterfly |
+
+### Circus Animals (pp. 134–135)
+| Spanish | English |
+|---|---|
+| el payaso | clown |
+| el mono | monkey |
+| el elefante | elephant |
+| el circo | circus |
+
+### Clothing
+| Spanish | English | Drawings seen |
+|---|---|---|
+| la blusa | blouse | ✓ (on hanger) |
+| la falda | skirt | ✓ (on hanger) |
+| la corbata | tie | ✓ |
+| la bufanda | scarf | ✓ |
+| el sombrero | hat | ✓ (wide brim) |
+| el vestido | dress | ✓ (on hanger) |
+| el suéter | sweater | ✓ (knit sweater) |
+| el traje | suit | ✓ (jacket + pants) |
+| la camisa | shirt | (exercise text) |
+| una bata | bathrobe | ✓ (hanging robe) |
+
+### Household / Rooms
+| Spanish | English |
+|---|---|
+| **Sala** | living room |
+| el sofá | sofa |
+| el sillón | armchair |
+| la televisión | television |
+| el teléfono | telephone |
+| **Comedor** | dining room |
+| la mesa | table |
+| la silla | chair |
+| el mantel | tablecloth |
+| la servilleta | napkin |
+| **Cocina** | kitchen |
+| la estufa | stove |
+| la olla | pot |
+| la cafetera | coffee maker |
+| el refrigerador | refrigerator |
+| **Baño** | bathroom |
+| el lavamanos | sink |
+| la tina | bathtub |
+| el jabón | soap |
+| la toalla | towel |
+| **Tableware** (pp. 150–151) | |
+| la cuchara | spoon |
+| el cuchillo | knife |
+| el vaso | glass |
+| el plato | plate |
+| la jarra | pitcher |
+
+### Adjectives Taught Through Contrast
+| Spanish | English | Contrast pair |
+|---|---|---|
+| grande | big | el/la ___ es grande |
+| chiquito / chiquita | little | masculine vs feminine page |
+| bonito / bonita | pretty | singular vs plural pages |
+| delicioso / deliciosa | delicious | singular vs plural pages |
+| rojo | red | first color (p. 25) — ser + color |
+| linda | lovely | "una flor linda" (p. 23) |
+| chistoso | funny | "el payaso es muy chistoso" (p. 135) |
+| limpio / limpia | clean | tableware context (p. 151) |
+| sucio / sucia | dirty | tableware context (p. 151) |
+
+### Seasons (appendix p. 212)
+| Spanish | English |
+|---|---|
+| la primavera | spring |
+| el verano | summer |
+| el otoño | fall |
+| el invierno | winter |
+
+### Family Members (appendix p. 213)
+| Masculine | Feminine |
+|---|---|
+| mi padre | mi madre |
+| mi hermano | mi hermana |
+| mi abuelo | mi abuela |
+| mi primo | mi prima |
+| mi suegro | mi suegra |
+| mi tío | mi tía |
+| mi cuñado | mi cuñada |
+| mi nieto | mi nieta |
+| mi sobrino | mi sobrina |
+| mi hijo | mi hija |
+| mi esposo | mi esposa |
+| mis padres | mis parientes |
+
+---
+
+## Image Generation Queue (Priority Order)
+
+### Phase 1 — Chapter 1 (Greetings) [IMMEDIATE]
+| Concept | Spanish sentence | Notes |
+|---|---|---|
+| Buenos días (morning greeting) | Buenos días, señor. | Man tipping hat, morning light |
+| Buenas tardes (afternoon) | Buenas tardes, señora. | |
+| Buenas noches (evening) | Buenas noches. | |
+| ¿Cómo está usted? | ¿Cómo está usted? Bien, gracias. | Two people greeting |
+| Voy al hotel | Voy al hotel. | Hotel facade |
+| Voy al banco | Voy al banco. | Bank building |
+| Voy al restaurante | Voy al restaurante. | Restaurant exterior |
+| Voy al cine | Voy al cine. | Movie theater marquee |
+
+### Phase 2 — Chapter 2 (Family) [HIGH]
+| Concept | Notes |
+|---|---|
+| mi padre / mi madre | Classic parent pair |
+| mi hermano / mi hermana | Sibling pair |
+| mi abuelo / mi abuela | Grandparent pair |
+| mi hijo / mi hija | Child pair |
+| mis padres | Both parents together |
+| mi familia | Full family scene |
+
+### Phase 3 — ¿Qué es? Categories [HIGH — new]
+| Concept | Notes |
+|---|---|
+| El gato es un animal | Cat with category label |
+| La pera es una fruta | Pear with category label |
+| La rosa es una flor | Rose with category label |
+| El tomate es una verdura | Tomato with category label |
+| ¿Es rojo el tomate? Sí, es rojo. | Tomato with rojo label (first color) |
+
+### Phase 4 — Chapter 3 (Numbers) [HIGH]
+Numbers 1–10 illustrated with objects, then 11–20, then tens up to 100.
+
+### Phase 5 — Gender Agreement (M2 deep content) [MEDIUM]
+The 8+8 el/la contrast pairs from pp. 16–19.
+
+### Phase 6 — Verb scenes (M4 illustrations) [MEDIUM]
+Actions for each verb chapter: ir (going), tomar (eating/drinking), comprar (shopping), querer (wanting).
+
+### Phase 7 — Food & Restaurant [MEDIUM]
+Full restaurant vocabulary from appendix pp. 203–207 (~40 items).
+
+---
+
+## Status: FULL BOOK COVERAGE COMPLETE
+
+All previously unsampled sections have been read. No remaining gaps.
+
+---
+
+## Session Log
+
+| Date | Action | Pages covered |
+|---|---|---|
+| Apr 14, 2026 | Initial scan received; orientation confirmed | Preface, ToC |
+| Apr 14, 2026 | Full read pass: main book sampled | pp. 8–43, 62–67, 122–127, 178–183, 188–195 |
+| Apr 14, 2026 | Appendix sampled | Appendix pp. 201, 204–209, 212–213 |
+| Apr 14, 2026 | Roadmap document created | This file |
+| Apr 14, 2026 (S54) | Full read of previously unsampled sections | pp. 44–103 (tener/tener que/querer/estar/poder/hay/me gusta/me gustaría/me encanta) |
+| Apr 14, 2026 (S54) | Complete verb sequence mapped (Phase 1–4) | Added to this file |
+| Apr 14, 2026 (S54) | English-fade pattern confirmed and documented | Added to this file |
+| Apr 14, 2026 (S54+55) | T001–T003: types + components + wiring confirmed done | chapter-intro-content.ts, TextbookInfographics.tsx, ChapterIntroduction.tsx |
+| Apr 14, 2026 (S54+55) | T004: Spanish greetings vocabQA → Madrigal p.43 sources; tener idioms (p.53) added to numbers verbGroups | chapter-intro-content.ts |
+| Apr 14, 2026 (S54+55) | T005: Bloviation audit — greetings + family welcomeText revised | chapter-intro-content.ts |
+| Apr 14, 2026 (S54+55) | T006: Portuguese cognateOpener bug fixed (native → target field); expanded to 20 entries | chapter-intro-content.ts |
+| Apr 14, 2026 (S56) | **COMPLETE BOOK READ** — all remaining unsampled sections | pp. 20–27 (¿Qué es? categories + rojo); pp. 64–65 (plurals confirmed); pp. 72–73, 82–83, 92–93 (exercise pages); pp. 102–119 (modal consolidation + debo); pp. 124–125 (dejar preterite); pp. 128–155 (alquilar plural; ER/IR preterite; ver + circo; traer/decir irregulars; ERA first imperfect; limpio/sucio); pp. 152–169 (days of week; AR compendium 38 verbs; EE #5; ER/IR present tables); pp. 170–183 (weather; México composition; present progressive); pp. 184–199 (present perfect; indirect objects; commands; subjunctive); full appendix (colors, body parts, family, full conjugation tables) |
+| Apr 14, 2026 (S56) | Phases 5–9 added to roadmap verb sequence | All tenses now charted: preterite ER/IR, era imperfect, present progressive, perfect, commands, subjunctive |
+| Apr 14, 2026 (S56) | 5 Everyday Expressions pages fully catalogued | EE #1–#5 with complete expression lists |
+| *BLOCKED* | Magic Keys to Spanish | Waiting for user to upload scan |
+| *Next session (after upload)* | Read Madrigal's Magic Keys to Spanish | Full analysis |
+| *Next session (after both books read)* | Seed new M1–M4 data | ¿Qué es? categories, debo modal, dejar, rojo color, EE #5 expressions |
+
+
+---
+
+## Part I.C — Gap Audit: HoloHola vs. Madrigal
+
+
+**Date:** Apr 14, 2026 (Session 56)  
+**HoloHola current state:** 10 languages × 5 chapters = 50 chapters total  
+**Languages:** Spanish, French, German, Italian, Japanese, Korean, Mandarin, Portuguese, English, Hebrew  
+**Chapters per language:** greetings, numbers, family, daily, classroom  
+**Madrigal source:** 9 Phases (pp. 9–199) + appendix
+
+---
+
+## Summary Verdict
+
+HoloHola's existing 5-chapter structure covers **two of Madrigal's five Everyday Expressions pivots** (EE #1 in greetings, EE #2 in numbers) and **one appendix section** (family vocabulary). The remaining **seven phases of the Madrigal method** — places, categories, ser/estar as structural verbs, modal constructions, preterite, present system expansion, weather, and progressive — have no chapter home in HoloHola yet.
+
+The gap is not a failure of quality but of scope: HoloHola currently covers the "orientation layer" (who I am, how I count, who my family is). Madrigal's method continues from there into the "doing layer" (where I go, what I want, what I did) and beyond.
+
+---
+
+## Chapter-by-Chapter Overlap Analysis
+
+### Chapter 1: Greetings
+
+**HoloHola has:**
+- vocabQA (8 items): buenos días/tardes/noches, ¿Cómo está usted?, gracias/de nada, perdón, me llamo, con mucho gusto
+- verbGroups: `estar` (estoy bien/cansado/feliz/ocupado/mal/nervioso)
+- genderPairs: 6 emotion adjectives (contento/cansada, cansado/cansada, etc.)
+- cognateOpener: 17 Spanish cognates
+- Conversation strips: 3 strips (casual hello, nice to meet you, with grandma)
+
+**Madrigal EE #1 covers (p. 43):**
+- Buenos días / Buenas tardes / Buenas noches
+- ¿Cómo está usted? / Bien, gracias / ¿Y usted?
+- Gracias / De nada
+- Perdón
+- Con mucho gusto
+- Me llamo ___
+
+**Match quality: ✅ STRONG** — vocabQA items map almost exactly to EE #1. This is the closest alignment in the entire textbook.
+
+**Gaps in HoloHola greetings:**
+- ❌ `ir` (voy al hotel/banco/restaurante) — Madrigal's very FIRST structure (p. 9). No chapter home.
+- ❌ `ser` (soy / es / somos / son) — introduced at p. 15. Present in conversation strips but not as a verbGroup
+- ❌ EE #4 content incomplete: genderPairs have 6 emotion adjectives but Madrigal's full EE #4 list (pp. 80–81) has 11+ states: contento, cansado, ocupado, enfermo, listo, solo, enojado, furioso, aburrido, enamorado, triste, cómodo + bien/mejor/mal/peor + estamos/están/estoy
+- ❌ `estoy` gender agreement note absent ("estoy contento" when a man says it vs. "estoy contenta" when a woman says it)
+- ❌ `usted` can be dropped in questions — the register note from p. 165 not present anywhere
+
+---
+
+### Chapter 2: Numbers
+
+**HoloHola has:**
+- vocabQA (5 items): ¿Cuántos años tienes?, ¿Cuánto cuesta?, ¿Qué hora es?, ¿Cuántas personas hay?, phone number
+- verbGroups: `tener` with full idiom set (hambre/sed/frío/calor/razón/tiempo) + verbHint
+- Narrative: counting basics, numbers in daily life
+- Cultural spotlight: El Regateo (bargaining)
+
+**Madrigal EE #2 covers (p. 53):**
+- Tengo hambre / sed / frío / calor / razón / sueño / miedo / prisa
+- No tengo tiempo
+
+**Match quality: ✅ STRONG** — verbGroups tener closely follows EE #2. The idiom set is well covered.
+
+**Gaps in HoloHola numbers:**
+- ❌ `hay` (there is / there are) — introduced at p. 86, never appears in any HoloHola chapter
+- ❌ Son las tres / Es la una — time-telling with ser, not just as vocabQA but as a verbGroup concept
+- ❌ `¿Cuánto cuesta?` → Cuesta ___ (tener-based price response missing — ¿Cuánto cuesta? is in vocabQA but the verb `costar` is absent as a verbGroup)
+- ❌ Number-triggered gender agreement (un libro / una mesa) — the tip exists but not shown as a systematic pattern
+
+---
+
+### Chapter 3: Family
+
+**HoloHola has:**
+- genderPairs (5): padre/madre, hermano/hermana, abuelo/abuela, tío/tía, primo/prima
+- vocabQA (5 items): madre, padre, hermanos, se llama, familia
+- verbGroups: `ser` (Él es mi padre, Ella es mi madre...)
+- Sentence frames: "Él es mi ___" / "Ella es mi ___"
+- Conversation strips: 3 strips (meeting family, family tree, at dinner)
+- Cultural spotlight: La familia extendida
+
+**Madrigal appendix covers (p. 213):**
+- 11 masculine/feminine pairs: padre/madre, hermano/hermana, abuelo/abuela, primo/prima, suegro/suegra, tío/tía, cuñado/cuñada, nieto/nieta, sobrino/sobrina, hijo/hija, esposo/esposa
+- mis padres / mis parientes
+
+**Match quality: ⚠️ PARTIAL** — 5 of 11 family pairs present. Missing half the extended family.
+
+**Gaps in HoloHola family:**
+- ❌ esposo/esposa (husband/wife) — absent
+- ❌ hijo/hija (son/daughter) — absent
+- ❌ cuñado/cuñada (brother-in-law/sister-in-law) — absent
+- ❌ suegro/suegra (father/mother-in-law) — absent
+- ❌ nieto/nieta (grandson/granddaughter) — absent
+- ❌ sobrino/sobrina (nephew/niece) — absent
+- ❌ mis padres / mis parientes — absent
+- ❌ `querer` + personal a — "Quiero a mi mamá" (I love my mom) introduced at p. 58–59 in family context; the personal-a rule is completely absent from HoloHola
+- ❌ Family vocabulary in the context of querer (love) vs. querer (want) disambiguation
+
+---
+
+### Chapter 4: Daily
+
+**HoloHola has:**
+- vocabQA (5 items): ¿Cómo estás?, ¿Qué hora es?, ¿Qué día es hoy?, ¿Qué haces por la mañana?, ¿Tienes tiempo?
+- verbGroups: `hacer` (hago ejercicio, hago el desayuno, hago la tarea, hacemos una caminata)
+- Narrative: greetings throughout the day, essential courtesy, simple daily words
+- Cultural spotlight: El Paseo
+
+**Madrigal EE #5 covers (pp. 162–163):**
+- ¿A qué hora? → a las dos / cinco / ocho / nueve
+- Una vez / Dos veces / Unas veces / Muchas veces / De vez en cuando / Otra vez / Tal vez
+- Es todo / Nada / Sin / Siempre / Nunca / Necesito / ¿Qué necesita?
+- Está bien / Con permiso / Depende / Ya / Seguro / No importa / Lo siento
+- Creo que sí / Creo que no / Espero que sí
+
+**Match quality: ⚠️ WEAK** — daily chapter has ¿Qué hora es? but missing the full EE #5 practical vocabulary.
+
+**Gaps in HoloHola daily:**
+- ❌ ¿A qué hora? as a dedicated time-asking structure (separate from ¿Qué hora es?)
+- ❌ Frequency expressions — completely absent: una vez, muchas veces, de vez en cuando, siempre, nunca, otra vez, tal vez
+- ❌ Lo siento (I'm sorry) — absent
+- ❌ Con permiso (excuse me) — in greetings chapter
+- ❌ Necesito / ¿Qué necesita? (I need) — completely absent, no chapter home
+- ❌ No importa / Ya / Seguro / Depende — absent
+- ❌ Creo que sí / Creo que no / Espero que sí — absent
+- ❌ hacer weather: hace frío / calor / fresco / viento — absent from all chapters
+- ❌ Seasons (la primavera / el verano / el otoño / el invierno) — absent
+- ❌ ¿Qué día es hoy? is present but the DAYS OF THE WEEK (lunes–domingo) are not in any verbGroup/vocabQA
+
+---
+
+### Chapter 5: Classroom
+
+**HoloHola has:**
+- vocabQA (5 items): ¿Puede repetir?, ¿Cómo se dice?, No entiendo, ¿Es correcto?, ¿Qué significa?
+- verbGroups: `entender` (entiendo/entiendo un poco/no entiendo nada/¡Ya entiendo!/¿Lo entiendes todo?)
+- Narrative: ask don't guess, checking and confirming
+- Cultural spotlight: El Respeto en el Aula
+
+**Madrigal coverage:**
+Madrigal has no dedicated classroom chapter. Classroom language appears incidentally in lesson instructions.
+
+**Match quality: ➕ HOLAHOLA ORIGINAL** — entirely HoloHola-created content, not from Madrigal.
+
+**Notes:**
+- This is the right chapter to ADD: poder (¿Puedo...? — can I...?) as a classroom permission verb
+- Also fits: ¿Puede repetir? → already in vocabQA, but poder as a verbGroup is absent from all chapters
+
+---
+
+## Entire Madrigal Phases With No HoloHola Chapter Home
+
+These are structures, vocabulary sets, and concepts that appear in Madrigal but have no corresponding chapter in HoloHola at all. Each represents a potential new chapter or a deep expansion of an existing chapter.
+
+### Phase 1 Additions: ir + places + ¿Qué es?
+
+| Madrigal Content | Pages | Possible HoloHola Chapter |
+|---|---|---|
+| ir (voy/va/vamos/van) | pp. 9–12 | NEW: Places chapter |
+| Places vocabulary: hotel/banco/teatro/cine/restaurante/garage/parque/mercado | pp. 9–12, 90–91 | NEW: Places chapter |
+| ¿Qué es? — un animal / una fruta / una flor / una verdura | pp. 20–25 | NEW: Categories chapter |
+| 4-category vocabulary (7 animals, 4 fruits, 4 flowers, 4 vegetables) | pp. 20–25 | NEW: Categories chapter |
+| rojo (first color) + linda / chistoso / limpio / sucio | pp. 24–25, 135, 151 | NEW: Colors/Adjectives chapter |
+| grande / chiquito — size comparison | pp. 14–19 | NEW: Adjectives chapter |
+| ser (soy/es/somos/son) as a verbGroup | p. 15 | Expand greetings or NEW: Descriptions chapter |
+
+---
+
+### Phase 2 Additions: querer + personal a
+
+| Madrigal Content | Pages | Possible HoloHola Chapter |
+|---|---|---|
+| querer (quiero/quiere/queremos/quieren) | pp. 54–61 | Expand family or NEW: Desires chapter |
+| quiero = both "I want" and "I love" — context determines meaning | pp. 58–59 | Expand family |
+| Personal-a rule: "Quiero a Roberto" / "Quiero a mi mamá" | pp. 58–59 | Expand family |
+| tener que + infinitive (I have to ___) | pp. 50–51 | Expand daily or NEW: Obligations chapter |
+
+---
+
+### Phase 3 Additions: plurals + estar structure
+
+| Madrigal Content | Pages | Possible HoloHola Chapter |
+|---|---|---|
+| Plural rules (-o→-os, -a→-as, -or→-ores) | pp. 64–69 | Expand numbers or NEW: Grammar chapter |
+| bonito / bonita / delicioso / deliciosa | pp. 66–67 | NEW: Adjectives chapter |
+| estar + ¿Dónde está? | pp. 74–77 | NEW: Home/Places chapter |
+| Rooms vocabulary: sala/comedor/cocina/baño | pp. 74–83 | NEW: Home chapter |
+| Furniture: sofá/sillón/mesa/estufa/refrigerador/tina/toalla/jabón | pp. 74–83 | NEW: Home chapter |
+| EE #3: ser + adjectives (valiente/inteligente/elegante) | pp. 70–71 | Expand daily or NEW: Descriptions chapter |
+| EE #4: estar + emotions (full 11-item list) | pp. 80–81 | Expand greetings verbGroups |
+
+---
+
+### Phase 4 Additions: ability, existence, preference
+
+| Madrigal Content | Pages | Possible HoloHola Chapter |
+|---|---|---|
+| poder (puedo/puede/podemos/pueden) | pp. 84–85 | Expand classroom or NEW: Activities chapter |
+| hay (there is / there are) | pp. 86–91 | Expand numbers or NEW: Exploration chapter |
+| me gusta / me gustan | pp. 94–97 | NEW: Preferences chapter |
+| me gustaría | pp. 98–99 | NEW: Preferences chapter |
+| me encanta / me encantaría / me encantan | pp. 100–101 | NEW: Preferences chapter |
+| "I like THE cheese" rule — article required with me gusta | pp. 98–99 | NEW: Preferences chapter |
+| debo (I should / ought to) | pp. 118–119 | NEW: Obligations chapter |
+| Master infinitive page: all 10 modals + shared verb list | pp. 118–119 | NEW: Modals chapter or chapte-ending consolidation |
+
+---
+
+### Phases 5–9: Grammar Structures (No Chapter Home)
+
+| Madrigal Content | Pages | Notes |
+|---|---|---|
+| AR preterite (tomé/compré/estudiaste/nadó) | pp. 29–33, 120–131 | Entirely absent from HoloHola |
+| ER/IR preterite (recibí/escribí/vi) | pp. 132–139 | Entirely absent |
+| dejar, alquilar preterite | pp. 122–131 | Entirely absent |
+| traer/decir irregular preterites | pp. 150–151 | Entirely absent |
+| Indirect object le | pp. 150–151 | Entirely absent |
+| era (first imperfect — reported speech) | pp. 150–151 | Entirely absent |
+| AR verb compendium (38 verbs present) | pp. 160–161 | Entirely absent |
+| ER/IR present conjugation tables | pp. 164–167 | Entirely absent |
+| Weather expressions: hace frío/calor/fresco/viento | pp. 176–177 | Entirely absent |
+| Seasons + months | pp. 176–177, App 212 | Entirely absent |
+| Present progressive: estar + -ando | pp. 182–183 | Entirely absent |
+| Present perfect: haber + -ado/-ido | pp. 188–189 | Entirely absent |
+| Commands: escriba/oiga/venga/hágalo/dígame | pp. 198–199 | Entirely absent |
+| Subjunctive: Espero que / Quiero que | pp. 198–199 | Entirely absent |
+
+---
+
+## What HoloHola Has That Madrigal Doesn't
+
+These are genuine HoloHola originals — pedagogical features Madrigal doesn't cover:
+
+| HoloHola Feature | Why It's Not in Madrigal |
+|---|---|
+| Classroom language chapter | Madrigal assumes a traditional classroom; no meta-language for managing learning |
+| Cultural spotlights | Madrigal is pure language instruction, no cultural commentary |
+| Conversation strips (comic panel dialogues) | Madrigal uses short Q&A pairs, not multi-turn dialogues |
+| Formal/informal comparison tables | Madrigal covers formal (usted) early but doesn't compare registers side-by-side |
+| discoveryNotes (pedagogical "aha" callouts) | Madrigal embeds grammar notes inline, doesn't highlight them |
+| Multi-language parallel coverage | Madrigal is Spanish only |
+| 10-language cognate system | Madrigal has a cognate chapter but only for English→Spanish |
+| `verbHint` field explaining the insight | Madrigal's grammar notes are briefer |
+
+---
+
+## Priority Gap-Filling Roadmap
+
+Based on how often Madrigal returns to each structure and how foundational it is for conversation:
+
+### Priority 1 — Immediate (filling holes in existing chapters)
+
+| Gap | Target Chapter | What to Add |
+|---|---|---|
+| EE #4 full emotion list | greetings verbGroups | listo, solo, enojado, furioso, aburrido, enamorado, triste, cómodo; + estamos/están/estoy + gender agreement note |
+| Lo siento / Necesito / Creo que sí | daily vocabQA | 3 new vocabQA items directly from EE #5 |
+| Frequency: una vez / muchas veces / de vez en cuando | daily narrativeSections | New narrative section "How Often?" |
+| Family: expand to 11 pairs | family genderPairs | esposo/esposa, hijo/hija, cuñado/cuñada, suegro/suegra, nieto/nieta, sobrino/sobrina |
+| quiero = I love + personal a | family narrativeSections | discoveryNote on querer; new vocabQA item |
+| ¿A qué hora? as structure | daily vocabQA | Separate from ¿Qué hora es? — asking about events |
+
+### Priority 2 — High (new chapters that fill the biggest gaps)
+
+| New Chapter | Madrigal Source | Core Structures |
+|---|---|---|
+| **places** | Phase 1, pp. 9–12 | ir (voy/va/vamos/van) + 10 place vocabulary + ¿A dónde vas? |
+| **preferences** | Phase 4, pp. 94–101 | me gusta/gustan + me gustaría + me encanta/encantan + "I like THE ___" rule |
+| **home** | Phase 3, pp. 74–83 | estar + ¿Dónde está? + rooms + furniture vocabulary |
+
+### Priority 3 — Medium (enriching existing chapters)
+
+| Enhancement | Target Chapter | Madrigal Source |
+|---|---|---|
+| hay verbGroup | numbers | pp. 86–91: Hay ___ en el hotel; Hay cinco personas |
+| poder verbGroup | classroom | pp. 84–85: ¿Puedo ir? Puedo estudiar |
+| ser + adjectives expansion | daily | EE #3 (pp.70–71): Es muy valiente/inteligente |
+| Days of week in context | daily | pp. 152–153: Voy al teatro el jueves |
+| Colors: rojo + 11 more | new adjectives chapter | p. 25 + appendix p. 214 |
+| Weather: hace frío/calor | daily | pp. 176–177 |
+
+### Priority 4 — Later (grammar chapters, post-Magic Keys analysis)
+
+| New Chapter | Madrigal Source | Core Structures |
+|---|---|---|
+| **categories** | Phase 1, pp. 20–25 | ¿Qué es? + ser for classification + 4 category vocabulary sets |
+| **activities** | Phase 1–4, throughout | tener que + querer + poder + me gustaría + infinitives |
+| **past** | Phases 5–6, pp. 120–155 | AR/ER/IR preterite |
+| **present progressive** | Phase 8, pp. 182–183 | estar + -ando; ING = ANDO |
+
+---
+
+## The Magic Keys Wildcard
+
+All of the above is based solely on "See It and Say It." Madrigal's *Magic Keys to Spanish* is a companion method book focused specifically on pattern recognition — cognates, word-endings, building vocabulary systematically. It likely covers:
+
+- How to recognize thousands of Spanish words from English instantly
+- Systematic cognate pattern rules (-tion → -ción, -al → -al, -ous → -oso)
+- Vocabulary-building strategies
+
+Once analyzed, Magic Keys will primarily affect:
+- M3 (CognateRecognitionGrid) — will likely double or triple the cognate data
+- The cognateOpener arrays across all 10 languages
+- Potentially add a "Word Patterns" chapter type for Romance languages
+
+The gap audit here is **Spanish-specific and only accounts for "See It and Say It."** The Magic Keys analysis will add a second layer, especially for French, Italian, Portuguese, and German which share heavy cognate patterns with Spanish.
+
+---
+
+## Overall Score
+
+| Dimension | Score | Notes |
+|---|---|---|
+| Greetings coverage | 9/10 | Near-perfect match with EE #1 |
+| Numbers/tener coverage | 8/10 | Tener idioms strong; hay and costar missing |
+| Family coverage | 5/10 | 5 of 11 pairs; personal-a absent |
+| Daily/phrases coverage | 4/10 | EE #5 mostly missing |
+| Classroom coverage | 7/10 | Good HoloHola original; poder should be added |
+| Places/movement | 0/10 | ir chapter completely absent |
+| Preferences (gusta) | 0/10 | me gusta chapter completely absent |
+| Home/rooms | 0/10 | estar + locations chapter absent |
+| Categories | 0/10 | ¿Qué es? chapter absent |
+| Colors/Adjectives | 0/10 | No colors chapter |
+| Grammar structures (tenses) | 0/10 | Nothing past present tense |
+| **TOTAL** | **33/110** | ~30% of Madrigal's method coverage |
+
+
+---
+
+## Part I.D — How Madrigal Illustrates Each Concept
+
+
+**Source:** Full read of *See It and Say It in Spanish* (pp. 9–199 + appendix).  
+**Purpose:** Guide for HoloHola AI image generation — reverse-engineer Madrigal's visual grammar.
+
+---
+
+## The Core Formula
+
+Every Madrigal drawing follows one rule:
+
+> **NOUN + MINIMUM CANONICAL CONTEXT = clean, instantly-readable line drawing**
+
+"Minimum canonical context" means the least amount of surroundings needed for the drawing to be unambiguous. A coffee drawing is a coffee *pot* (not a cup, not a plantation, not a cafe), because a pot is the one image you point to when you say "café."
+
+The drawings are not decorative. They are **functional translations** — the image IS the English meaning. No English word is needed below a drawing once a student has learned to trust the picture.
+
+---
+
+## Universal Style Rules
+
+1. **Single focal subject** — one thing, centred, fills ~70% of the frame
+2. **Bold black outline, no fill** — line weight 3–5px equivalent, no shading, no crosshatching
+3. **White background, no ground plane** — objects float in space unless location is the lesson
+4. **Side or 3/4 view** — maximum silhouette recognition
+5. **Human figures are simple but expressive** — dot eyes, arc mouth, stick-and-block bodies; no detail
+6. **No text inside images** — labels live in the caption, never inside the drawing
+7. **Size conveys importance, not realism** — the KEY subject is drawn largest
+
+---
+
+## Concept-Type Breakdown
+
+### 1. Places / Buildings
+**Rule:** Show the FACADE as you'd approach it on foot. Never the interior.  
+**Formula:** Architectural exterior + ONE identifying mark (sign, doorman, window detail)
+
+| Concept | Drawing Description | Identifying Mark |
+|---|---|---|
+| el hotel | Multi-storey facade, arched entrance | Doorman in uniform at door; HOTEL sign or implied marquee |
+| el banco | Heavy stone facade, barred or arched window | Security bars on window; classical architecture |
+| el garage | Simple building facade + fuel pump or sign | Gasoline pump visible at side |
+| el restaurante | Storefront facade with awning | Awning over door, maybe small tables in window |
+| el teatro | Classical building with columns or arch | TEATRO / THEATRE above entrance, possibly ticket window |
+| el cine | Building front with large marquee | Marquee with a film title ("Spring Love", any title) |
+| el parque | Open scene with bench + trees | Park bench, one or two trees in background |
+| el mercado | Open-air stall facade | Hanging produce, simple awning, FRUITS/MERCADO sign |
+| la iglesia | Church exterior | Steeple or cross on roof |
+| el despacho/oficina | Office building exterior or door | OFFICE door nameplate or building facade |
+| la biblioteca | Classical building | BIBLIOTECA sign or columns suggesting institution |
+
+**HoloHola prompt template:**  
+`"Bold black line drawing, white background, [PLACE] exterior facade viewed from the street, simple Madrigal textbook style, no shading, minimal detail"`
+
+---
+
+### 2. Transportation
+**Rule:** Side profile, full vehicle visible, nothing in background.  
+**Formula:** Vehicle silhouette, perfectly readable
+
+| Concept | Drawing Description |
+|---|---|
+| el taxi | Car with TAXI sign on roof, side profile |
+| el avión | Classic airplane side profile, tail and wings clear |
+| el tren | Streamlined locomotive side view, wheels visible |
+| el autobús | Full bus side view, windows along the side |
+| el auto / automóvil | Sports car side view, streamlined |
+| la lancha | Motorboat hull side view, bow + wake lines |
+| la bicicleta | Bicycle side view, both wheels visible |
+
+---
+
+### 3. Food (Plated and Served)
+**Rule:** Food appears AS SERVED — on a plate, in a bowl, in its vessel. Never raw, never being prepared.  
+**Why:** The question is "¿Tomó sopa?" — the student imagines the bowl in front of them.
+
+| Concept | Drawing Description |
+|---|---|
+| la sopa | Steaming bowl (3 steam lines above) with a spoon resting on the rim |
+| el café | Coffee POT (not a cup) — tall café pot with handle and spout |
+| el té | Teapot — round pot with spout and lid, possibly a teacup beside it |
+| el chocolate | Mug with steam rising, rounded handle |
+| el pollo | Whole roast chicken on a serving plate, legs visible |
+| el salmón | Whole fish on an oval serving platter, garnished with lemon |
+| el rosbif | Large roast beef on a carving plate |
+| el bistec | Beefsteak on a plate |
+| el sandwich | Stacked sandwich on a plate |
+| la sopa | Steaming bowl |
+| los espárragos | Bundle of asparagus tied together |
+| el apio | Single celery stalk with leaves |
+| la lechuga | Round head of lettuce |
+| los tomates | Two tomatoes together |
+| huevos fritos | Frying pan with two eggs, yolks visible |
+| pan tostado | A toaster with toast popping up |
+| jugo de naranja | Tall glass with an orange half beside it |
+| la cuenta | Folded paper check/bill, possibly with a pen |
+| el azúcar | Sugar bowl with lid and spoon |
+| un vaso de agua | Tall clear glass |
+
+**HoloHola prompt template:**  
+`"Bold line drawing, [FOOD ITEM] served/plated, viewed from slight angle, steam/garnish as appropriate, white background, Madrigal textbook style"`
+
+---
+
+### 4. Fruits and Vegetables (¿Qué es? section, pp. 20–25)
+**Rule:** The ITEM ALONE, isolated, no plate or context. The question is "what IS this?" — the identity is the whole point.
+
+| Concept | Drawing Description |
+|---|---|
+| la pera | Classic pear shape with short stem |
+| la naranja | Round orange with small leaves at stem |
+| la manzana | Apple with curved stem and one leaf |
+| la piña | Pineapple with diamond-pattern skin and crown of leaves |
+| la zanahoria | Carrot, tapering root with feathery leafy top |
+| el tomate | Round tomato with small calyx at top |
+| la lechuga | Leafy head of lettuce, leaves slightly open |
+| el apio | Stalk of celery with leaves at top |
+| la rosa | Rose with one or two leaves on stem |
+| el tulipán | Tulip, single bloom on straight stem |
+| el geranio | Geranium, cluster of small blooms |
+| el clavel | Carnation, frilly bloom on stem |
+
+**Key difference from food drawings:** These float alone. No plate, no bowl. They are vocabulary items being classified.
+
+---
+
+### 5. Animals
+**Rule:** Side profile portrait — the animal at rest or in characteristic pose. Never in action.
+
+| Concept | Drawing Description |
+|---|---|
+| el gato | Sitting cat in side profile, tail curled |
+| el canario | Small bird perched on a branch, facing right |
+| el pollo (live) | Live chicken standing, beak and tail visible |
+| el caballo | Horse standing in profile, tail and mane visible |
+| el perro | Dog standing in profile |
+| la mariposa | Butterfly with wings fully spread |
+| la sardina | Small fish in profile |
+| la vaca | Cow in profile, udder implied |
+| el tigre | Tiger in profile, stripes clearly shown |
+| el león | Lion in profile, mane visible |
+| la mula | Mule in profile |
+| el gorila | Gorilla in characteristic knuckle-walk or sitting pose |
+| el toro | Bull in profile, horns clearly shown |
+| el elefante | Elephant in profile, trunk and tusks clear |
+| el hipopótamo | Hippo in profile, wide body, small ears |
+| el payaso | Clown in full costume, exaggerated outfit |
+| el mono | Monkey in characteristic pose |
+
+---
+
+### 6. Clothing
+**Rule:** Items shown on HANGERS or being WORN. On-hanger = the object is the focus. Being-worn = when you need to show fit/style.
+
+| Concept | Drawing Description |
+|---|---|
+| la blusa | Blouse on a clothes hanger, collar and sleeves visible |
+| la falda | Skirt on a hanger, A-line or pencil shape |
+| la corbata | Tie lying flat or hanging, distinctive pointed end |
+| la bufanda | Scarf draped or loosely folded |
+| el sombrero | Wide-brimmed hat in 3/4 view from above |
+| el vestido | Dress on a hanger |
+| el suéter | Knit sweater on hanger, ribbing visible |
+| el traje | Suit jacket + trousers on hanger |
+| la camisa | Shirt on hanger, collar open |
+| la bata | Bathrobe hanging on a hook, sash tied |
+
+---
+
+### 7. Actions / Activities
+**Rule:** Person at THE MOMENT of action. The action is unambiguous from the pose alone.  
+**Formula:** Simplified human figure (stick-ish, but expressive) in recognizable action pose.
+
+| Concept | Drawing Description |
+|---|---|
+| bailar | Person mid-dance step — one leg lifted, one arm extended, weight shifted |
+| nadar | Person horizontal in swimming position, arms stretched forward, head up |
+| cantar | Person standing, mouth open, musical notes floating from mouth |
+| pescar | Person standing on a dock/pier, fishing rod angled over water, line visible |
+| tocar el piano | Person seated at grand piano, hands on keys (piano in side profile) |
+| tocar la guitarra | Person seated, acoustic guitar held, strumming hand visible |
+| tocar el acordeón | Person standing, accordion held with both hands, keys visible |
+| tocar el violín | Person with violin under chin, bow raised |
+| patinar | Person in ice-skating stride, one leg extended behind |
+| nadar | Person horizontal, arms and legs in swim position |
+| estudiar | Person seated at a desk, book open in front, possibly pencil in hand |
+| hablar por teléfono | Person holding receiver to ear (rotary phone visible) |
+
+**Distinguishing feature:** Musical-instrument drawings ALWAYS show BOTH the person AND the instrument. The person is necessary to show that it's an activity, not just the object.
+
+---
+
+### 8. Household Items / Rooms
+**Rule:** Objects shown in their rooms with MINIMAL room context — just enough to understand placement.
+
+**Living room (sala):**
+- el sofá: Sofa with simple floor line suggesting room
+- el sillón: Upholstered armchair
+- la televisión: CRT television on a stand (period-appropriate to Madrigal)
+- el teléfono: Rotary telephone on a surface
+
+**Dining room (comedor):**
+- la mesa: Four-legged table, slight perspective
+- la silla: Simple chair, side view
+- el mantel: Table shown with cloth draped over it
+- la servilleta: Folded napkin on a plate or surface
+
+**Kitchen (cocina):**
+- la estufa: Gas/electric range with visible burners, knobs on front
+- la olla: Round pot with handles and lid
+- la cafetera: Electric coffee percolator or stovetop pot
+- el refrigerador: Upright refrigerator, handle on door
+
+**Bathroom (baño):**
+- la tina: Bathtub, classic shape
+- el lavamanos: Pedestal sink with faucets
+- el jabón: Bar of soap (slightly rounded rectangular block)
+- la toalla: Towel folded or hanging on a ring
+
+**Tableware (pp. 150–151):**
+- la cuchara: Tablespoon, classic shape
+- el cuchillo: Knife with blade and handle
+- el vaso: Tall drinking glass
+- el plato: Circular plate, top-down view
+- la jarra: Pitcher with handle and spout
+- la servilleta: Folded cloth napkin
+
+---
+
+### 9. Social Situations / Greetings
+**Rule:** TWO people in interaction, both shown in simplified form.
+
+| Concept | Drawing Description |
+|---|---|
+| Buenos días | Man tipping hat to a woman; morning light implied by context |
+| ¿Cómo está usted? | Two people facing each other, one slightly bowing or extending hand |
+| Mucho gusto | Handshake between two people |
+| Con mucho gusto | Same as above, or one person nodding with a slight bow |
+
+---
+
+### 10. Abstract / Relational Concepts
+
+**Size (grande vs. chiquito):**
+- Draw THE SAME SUBJECT in two different sizes, side by side, or show clearly large vs. clearly small objects
+- El tren es grande → full-size locomotive
+- El botón es chiquito → tiny button, possibly with a finger for scale
+
+**Colors (rojo, azul, verde, etc.):**
+- Show the CANONICAL COLORED OBJECT for that color
+- rojo → tomate (round red tomato)
+- azul → cielo / agua (wave or sky line)
+- verde → hoja / hierba (leaf or grass)
+- amarillo → sol (simple sun)
+- blanco → nieve / nube (snow or cloud)
+- negro → noche (dark sky or silhouette)
+- rosado → flor rosa (pink flower, probably rose)
+- morado → uva (bunch of grapes)
+
+**Gender (masculine/feminine adjective agreement):**
+- Draw the masculine version next to the feminine version
+- OR draw the object with the article/ending visually highlighted
+
+**There is/are (hay):**
+- Draw what EXISTS — the subject of hay statements
+- ¿Hay sopa? → bowl of soup (the thing that exists)
+- Hay turistas en el hotel → simplified group of people with luggage
+
+---
+
+## Patterns for HoloHola's Image System
+
+### The 10 Image Templates
+
+Based on Madrigal's visual grammar, every HoloHola VocabQA image should fit one of these 10 templates:
+
+| Template | When to Use | Key Rule |
+|---|---|---|
+| **FACADE** | Any place/building | Front view, one identifying sign |
+| **PROFILE** | Any vehicle or animal | Side view, full silhouette |
+| **PLATED** | Any cooked/served food | On dish, steam if hot |
+| **ISOLATED** | Any raw produce or classifiable item | Floating alone, no context |
+| **HANGER** | Any clothing | On wire hanger |
+| **ACTION** | Any verb/activity | Person mid-motion |
+| **PORTRAIT** | Any person role (padre, maestro) | Simple human figure, facing viewer |
+| **OBJECT** | Any household/small item | 3/4 view, white background |
+| **DUO** | Any social interaction | Two figures facing each other |
+| **PAIR** | Any comparison or M/F pair | Two versions side-by-side |
+
+### Consistent Don'ts
+
+- **Never show a scene** when a single object will do
+- **Never add props** unless the prop IS the lesson (e.g., fishing rod = the proof you're fishing)
+- **Never use color** in the drawing itself (HoloHola may add color — but the Madrigal-style base is always B&W line)
+- **Never put text** inside the drawing
+- **Never show action** for noun vocabulary (a dog is standing still; a person dancing is mid-dance)
+
+### The "Question Fit" Test
+
+Before generating any image, ask: "If a student sees only this image and the Spanish word/sentence, is there exactly ONE reasonable answer?"
+
+- ✅ Soup bowl → sopa ← unambiguous
+- ✅ Man at hotel door → el hotel ← unambiguous  
+- ❌ Person at table → ambiguous (eating? sitting? working?)
+- ❌ Kitchen scene → ambiguous (stove? refrigerator? kitchen in general?)
+
+Every image must pass the one-answer test.
+
+---
+
+## Concept-Type Map for HoloHola Chapters
+
+| HoloHola Chapter | Concept Types Needed | Templates |
+|---|---|---|
+| Greetings | Social interactions; time-of-day signals | DUO, PORTRAIT |
+| Numbers | Objects in groups; price tags; clocks | OBJECT, PAIR |
+| Family | People in relationship context | PORTRAIT, DUO |
+| Daily | Actions, places, time expressions | ACTION, FACADE, OBJECT |
+| Classroom | People interacting with learning materials | DUO, ACTION, OBJECT |
+| **NEW: Places** | Building facades, directions | FACADE |
+| **NEW: ¿Qué es?** | Raw produce, animals, flowers | ISOLATED, PROFILE |
+| **NEW: Colors** | Canonical colored objects | ISOLATED |
+| **NEW: Clothing** | Garments on hangers | HANGER |
+| **NEW: Home/Rooms** | Furniture in rooms | OBJECT |
+| **NEW: Food** | Plated dishes and drinks | PLATED |
+| **NEW: Weather** | Weather phenomena, seasons | ISOLATED (sun/cloud/rain/snow) |
+| **NEW: Feelings** | People expressing emotions | PORTRAIT (with expression) |
+
+
+---
+
+# Part II: Asset Library & Generation Specs
 
 ## 9-Language Textbook Component Coverage Matrix
 
