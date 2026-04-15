@@ -145,12 +145,59 @@ When a mode/drill screen loads, the tutor audio plays automatically — you imme
 
 ---
 
+### OBS-04 — Call Mode: Audio Conversation with Live Feedback Panel
+*Source: chat_input_1776268852689.png, translate_button_1776268907328.png*
+
+**What they do:**
+- Call Mode is free-form audio conversation — functionally equivalent to HoloHola's Daniela voice chat.
+- The avatar (Emma) is a static 2D illustrated character. She does not animate, lip-sync, or gesture.
+- **Thinking state**: when the AI is processing, a blue spinning arc/circle rotates around the avatar's portrait. Simple, clear, unambiguous.
+- Call duration is displayed below the avatar name (e.g. "00:48", "02:43").
+
+**Bottom control bar (4 buttons):**
+1. Person icon — unclear function (possibly switch tutor or go to profile)
+2. **Translate icon (⇌)** — on-demand translation of the last tutor utterance (see below)
+3. Replay icon (↻) — replay the last thing the tutor said
+4. Microphone (blue) — tap to speak
+
+**Right-side live feedback panel:**
+- When the user finishes speaking, their speech is transcribed and shown in the right panel immediately:
+  - "Your voice message" label
+  - Transcribed text (e.g. "Muy bien, Emma, gracias.")
+  - A feedback card below — green for correct ("Good job / Your message looks good!"), orange/red for corrections
+- The green checkmark appears in the upper right of the main area when the message is accepted
+- This all happens while the tutor is composing her response — the panel is non-blocking
+
+**Translate button (⇌) — the standout feature here:**
+- Pressing the translate icon opens the right panel with:
+  - The tutor's last utterance in Spanish (labeled "Spanish (European)")
+  - The English translation below (labeled "English")
+- Example: *¡Estupendo, David! Eso es un trabajo excelente para empezar. ¿Qué te gusta leer?* → "Great, David! That's an excellent start. What do you like to read?"
+- This is on-demand, one-tap, available at any moment during the call.
+
+**Impressions:**
+- The translate button is the most practically useful feature in this mode. During a real voice conversation, you often miss a word or phrase and want to check — being able to tap one button and see the Spanish text + English translation without leaving the call is genuinely valuable.
+- The live transcription of the user's own speech in the side panel (with score) is excellent real-time feedback. The student can see exactly what was heard, know whether it was understood correctly, and see a quality signal — all while the conversation continues.
+- The static avatar + spinner approach is honest and functional. It sets no false expectations about lip-sync or animation.
+
+**HoloHola comparison:**
+- Daniela is a major differentiator: animated, expressive, lip-synced, personality-rich. TalkPals's static avatar with a spinning circle is clearly inferior in warmth and engagement.
+- However, **the translate-on-demand button is a real gap for us**. If a student misses what Daniela said, their options are: ask her to repeat it, ask her to write it out, or navigate to the chat history. None of these are as frictionless as a single tap.
+- Our live transcription of student speech is also less visible. Students may not know what was heard. Surfacing this during the call — even a small transcription line — would build confidence.
+- The "Thinking" spinner is simpler than Daniela's animation state, but both communicate the same thing.
+
+**Potential improvements for HoloHola:**
+1. **Persistent translate button during Daniela calls** — one tap shows Daniela's last utterance in Spanish + English, inline, without navigating away.
+2. **Live student speech transcription** — show the student what was captured immediately after they speak, possibly with a quick confidence indicator (green/yellow/red).
+
+---
+
 ## Running Feature Inventory
 
 | Feature | TalkPals | HoloHola | Notes |
 |---|---|---|---|
-| Animated avatar/tutor | No (photo only) | Yes (Daniela) | HoloHola differentiator |
-| Text-chat conversation UI | Yes | No | TalkPals advantage for turn clarity |
+| Animated avatar/tutor | No (static 2D portrait) | Yes (Daniela, animated) | Strong HoloHola differentiator |
+| Text-chat conversation UI | Yes | No | Clean turn-taking |
 | Inline grammar correction (on demand) | Yes | TBD | Non-interruptive feedback model |
 | Audio recording bar with waveform | Yes (excellent) | TBD | UX benchmark |
 | Push-to-toggle recording (start/stop) | Yes | TBD | Worth auditing ours |
@@ -166,12 +213,16 @@ When a mode/drill screen loads, the tutor audio plays automatically — you imme
 | Multiple drill modes | Yes (9 modes) | Yes | |
 | Suggest answer / scaffold button | Yes | No | |
 | Scene-setting illustration before drill | Yes | Limited | |
+| Live transcript of user speech during call | Yes (with score) | Partial (history view) | They surface it inline; ours requires navigation |
+| One-tap translate of tutor's last utterance | Yes (⇌ button) | No | Discoverability gap on our side |
+| "Thinking" state indicator during call | Yes (spinning arc) | Yes (animation) | Different approach, both communicate waiting |
+| Inline call feedback panel | Yes (right-side drawer) | No | Score + verdict card appears while call continues |
 
 ---
 
 ## Open Questions to Revisit
 
-1. How does their "Call" mode work? Is it a free-form unstructured conversation?
+1. ~~How does their "Call" mode work?~~ **Answered — OBS-04**
 2. What do "Roleplays" and "Characters" look like — are these scenario-based like HoloHola's classroom?
 3. What does the "Debates" mode entail?
 4. What is "Photo" mode — image description prompt?
