@@ -192,6 +192,47 @@ When a mode/drill screen loads, the tutor audio plays automatically — you imme
 
 ---
 
+### OBS-05 — Audio Bar Consistency + Session Continuity + The ⋮ Menu
+*Source: audio_bar_1776269150126.png, chat_options_1776269634112.png*
+
+**Audio bar — consistent across all modes:**
+- The same blue waveform recording bar (trash | pause | waveform | timer | send) appears in every mode — Chat, Call Mode, Sentence Mode, Word Mode — wherever the student needs to record audio.
+- This is confirmed in the Call Mode screenshot: same component, same design, no mode-specific variation.
+- Consistency removes the re-learning cost. Once you know how to record in one mode, you know everywhere.
+
+**Session continuity — resume by default, new session by explicit choice:**
+- When you return to a Chat or Call Mode you were previously in, it resumes the exact conversation where you left off. The history is right there.
+- Starting fresh is an explicit action: the student has to open the ⋮ menu and tap "Start a new chat."
+- This is the opposite of many apps that auto-reset each visit. Their model favors depth and continuity — the same ongoing relationship with Emma, building over time.
+- Downside: students who want a fresh topic may not discover the "Start a new chat" option easily.
+
+**The ⋮ menu — 4 items, well-scoped:**
+The three-dot menu in the top-right of Chat/Call Mode contains exactly four options:
+
+| Menu item | Subtext | Notes |
+|---|---|---|
+| Start a new chat | "End the current chat and start a new one." | Explicit reset |
+| See chat history | "You can view and manage your previous conversations." | Archive access |
+| Change AI tutor | "You can pick a different personal AI tutor." | Tutor switching |
+| Settings | "Manage your chat settings." | Config |
+
+- The menu is an icon-labelled modal sheet, not a dropdown. Clean, readable.
+- "Change AI tutor" confirms they support multiple tutor personas (not just Emma). This is tutor personalisation at the session level.
+- Notice what's NOT in this menu: the translate, replay, and person buttons are in the main controls, not hidden here. The menu is reserved for session-level actions, not in-call utilities.
+
+**Impressions:**
+- The consistent audio bar across all modes is a design decision that took discipline. It means one component, one interaction pattern, deployed everywhere audio is needed. The UX benefit is real.
+- The resume-by-default conversation model reflects a product philosophy: language learning is a relationship, not a series of isolated sessions. You're talking to Emma, not spinning up a new AI each time.
+- The four-item ⋮ menu is a good example of deliberate scope control. Not everything ends up there — just session-management actions.
+
+**HoloHola comparison:**
+- Our audio recording UI may differ between classroom voice mode and other contexts — worth auditing for consistency.
+- We currently auto-start fresh sessions. The resume-by-default model is worth considering for Daniela — returning to the same conversation thread where you left off could feel more like an ongoing tutoring relationship.
+- The "Change AI tutor" option is interesting. We have Daniela + Cindy — but is switching between them easy and discoverable?
+- Our classroom controls menu: worth auditing how many items are in it and whether the grouping logic is as clean.
+
+---
+
 ## Running Feature Inventory
 
 | Feature | TalkPals | HoloHola | Notes |
@@ -217,6 +258,11 @@ When a mode/drill screen loads, the tutor audio plays automatically — you imme
 | One-tap translate of tutor's last utterance | Yes (⇌ button) | No | Discoverability gap on our side |
 | "Thinking" state indicator during call | Yes (spinning arc) | Yes (animation) | Different approach, both communicate waiting |
 | Inline call feedback panel | Yes (right-side drawer) | No | Score + verdict card appears while call continues |
+| Consistent audio recording bar across all modes | Yes | TBD | One component everywhere — reduces re-learning |
+| Session resume by default (not auto-reset) | Yes | No (fresh each time) | Continuity model vs. episodic model |
+| Explicit "Start new chat" action | Yes (in ⋮ menu) | TBD | Reset is deliberate, not automatic |
+| Tutor switching in-session | Yes ("Change AI tutor") | Limited (Daniela/Cindy) | |
+| ⋮ menu for session-level actions | Yes (4 items, clean) | TBD | Well-scoped: session mgmt only, utilities stay in main controls |
 
 ---
 
