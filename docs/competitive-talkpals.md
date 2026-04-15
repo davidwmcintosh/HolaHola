@@ -403,6 +403,54 @@ Standalone Modes (same modes, accessible independently)
 
 ---
 
+### OBS-09 — Progress Tracking and Learner Modeling: Goal-Based vs. Knowledge-Based
+*Source: user observation after extended session*
+
+**What TalkPals appears to track (session-level goals):**
+- They set a daily/session goal (XP, minutes, or similar) and completion is declared when you hit it.
+- Mode-level progress bars exist (0% in Photo Mode, Sentence Mode, etc.) and star grids fill in as you complete exercises.
+- Course-level progress bars exist per course (0% on Absolute beginner 2, etc.).
+- All of this is completion-based: have you done the exercise? Yes/No.
+
+**What TalkPals does NOT appear to track (learner-level knowledge modeling):**
+- No persistent record of which words/phrases an individual student has mastered vs. is still uncertain about.
+- No ACTFL or CEFR proficiency tracking at the word/phrase level.
+- No "you got this wrong three times" memory that surfaces the same item again later.
+- No spaced repetition or vocabulary debt queue.
+- No adaptive difficulty that adjusts based on individual performance history.
+
+**The two-edged sword of vocabulary tracking (user's observation):**
+
+*The upside:*
+- Tracking which words a student has encountered and how well they know them is genuinely valuable. Knowing "David has seen 'farmacia' 4 times and got it right 3/4" enables adaptive review, personalized quizzes, and a real answer to "how much Spanish do I know?"
+- A growing vocabulary list is motivating to look at — you can see progress in concrete terms.
+
+*The downside:*
+- If review obligations accumulate faster than the student completes them, the queue becomes a source of anxiety rather than motivation.
+- Duolingo's streak system and Anki's "X cards due" both have this failure mode. A student who misses a week comes back to a backlog that feels punishing.
+- The student who *wants* to come back but sees "135 flashcards due" may decide not to.
+
+**TalkPals' implicit choice:**
+- By not tracking vocabulary debt, they eliminate the backlog anxiety problem entirely. Every session feels clean — you show up, you do today's goal, you're done.
+- The cost is that they can't adaptively teach you. They don't know what you know. Their curriculum is a fixed sequence, not a personalized one.
+- This is a deliberate or accidental trade: **low anxiety, low personalization** vs. HoloHola's potential **higher personalization, higher anxiety risk**.
+
+**The design problem this creates for HoloHola:**
+- We track words. That's correct and valuable. The design challenge is managing the *obligation* the tracking creates.
+- Options for managing vocabulary debt without eliminating tracking:
+  1. **Soft due dates, not hard counts** — "You have some words ready to review" rather than a specific number that can feel overwhelming.
+  2. **Decay, not accumulation** — words don't "pile up" to review; they silently drift back toward unfamiliar, and Daniela simply uses them more frequently in conversation without announcing it.
+  3. **Conversational SRS** — rather than a separate flashcard review mode, spaced repetition happens inside Daniela's conversation naturally ("Let's use 'farmacia' in a sentence today").
+  4. **Cap the visible queue** — never show more than N words as "up for review." The rest wait silently. This bounds the anxiety.
+  5. **Session-start summary, not a debt bill** — instead of "135 words due," open with "Today Daniela is going to work on 5 words with you." Same data, very different feeling.
+
+**HoloHola comparison:**
+- We already track vocabulary encounters, which puts us ahead of TalkPals for personalization potential.
+- The question is not whether to track — it's how to surface that tracking to the student without creating obligation debt.
+- The conversational SRS approach (option 3 above) would be a genuine differentiator: spaced repetition that feels like natural conversation with Daniela, not a flashcard deck.
+
+---
+
 ## Running Feature Inventory
 
 | Feature | TalkPals | HoloHola | Notes |
@@ -447,6 +495,11 @@ Standalone Modes (same modes, accessible independently)
 | Courses = sequences of reusable modes | Yes | Partial (chapters + drills) | Modes are atomic; courses sequence them |
 | Level-adaptive exercise type in courses | Yes (Dialogue for beginners, Roleplays for advanced) | No | Difficulty ladder applied by curriculum, not by user choice |
 | Book/vocab reference icon per unit | Yes (open book icon) | TBD | Suggests a reading artifact alongside drills |
+| Learner-level vocabulary knowledge modeling | No | Yes (word encounters tracked) | We know what you know; they don't |
+| Spaced repetition / vocabulary debt queue | No | Yes (creates backlog anxiety risk) | Their choice: no anxiety, no personalization |
+| Adaptive difficulty based on individual performance | No (fixed curriculum sequence) | Potential | Their curriculum is fixed; ours could personalize |
+| ACTFL / CEFR proficiency tracking at word level | No | No | Neither product does this yet |
+| Session goal completion (XP / time-based) | Yes | TBD | Clean completion signal; low anxiety |
 
 ---
 
@@ -457,6 +510,6 @@ Standalone Modes (same modes, accessible independently)
 3. What does the "Debates" mode entail?
 4. ~~What is "Photo" mode?~~ **Answered — OBS-07.** Real photo → student describes in Spanish (text or voice) → dual feedback: contextual (accuracy) + grammatical (errors) + optional "Advanced feedback" deep dive. Has its own unit/star curriculum.
 5. ~~How does their course/curriculum structure compare to our chapter system?~~ **Answered — OBS-08.** Courses are sequences of reusable modes (Word → Sentence → Dialogue/Roleplay) organized by CEFR level. Exercise type 3 adapts by level: Dialogue for beginners, Roleplays for advanced. Modes are atomic; courses are the sequencing layer.
-6. What does their progress tracking look like in detail?
+6. ~~What does their progress tracking look like in detail?~~ **Answered — OBS-09.** Completion-based only (exercise done, stars filled, progress bars). No vocabulary knowledge modeling, no spaced repetition, no adaptive difficulty. Trade-off: no backlog anxiety, no personalization.
 7. Is there a mobile app, or web-only?
 8. What are the pricing tiers after the free trial?
