@@ -2730,6 +2730,126 @@ The same philosophy that governs TTS vendor selection governs STT: **we use the 
 ---
 
 
+## Part I.K — The Interactive Textbook Architecture (S65, April 2026)
+
+*Emerged from: discussion of smart drills, Madrigal's phrase-first pedagogy, and the observation that drill decks are inherently static and degrade over time.*
+
+---
+
+### The Core Insight
+
+Madrigal's books were already designed to minimize explanation — every page has a picture, a phrase, and an instruction so short it barely needs reading. But that minimal text still creates cognitive overhead: **the student has to figure out what the page wants them to do.** Daniela eliminates that entirely.
+
+When a student opens a textbook page with Daniela present, Daniela speaks the instruction. She explains the rule. She names the picture. She walks the student through the verb table. The student's job is to respond — not to decode.
+
+**The page goes from a thing you read and interpret to a thing you react to.**
+
+This shifts the fundamental model:
+
+| Old model | Interactive Textbook model |
+|---|---|
+| Student reads page, guesses what to practice | Daniela leads the student through the page |
+| Drills are a separate system | The page IS the practice |
+| STT only in tutor sessions | STT available wherever Daniela is present — including on a textbook page |
+| Student needs to understand what the page is teaching | Daniela narrates the concept; student just has to do the thing |
+
+---
+
+### How Each Page Element Becomes Interactive
+
+**Vocabulary images (See It and Say It style)**
+- Daniela names the concept ("This is *la farmacia* — the pharmacy") 
+- Daniela asks the student to repeat it
+- STT captures the student's pronunciation
+- Daniela reacts: reinforces, corrects, moves to next image
+- Mastery tracked per image, per lesson — not as a separate flashcard deck
+
+**Phrase lists**
+- Daniela reads the phrase naturally at native speed, then slowly
+- Daniela covers the text (or students are prompted to close their eyes) and asks the student to say it back
+- The page effectively becomes a call-and-response drill without leaving the book
+
+**Verb tables (Magic Key style)**
+- Daniela walks the paradigm aloud: *"tengo, tienes, tiene, tenemos, tienen"*
+- Then runs a column drill verbally: "Your turn — say the *yo* form of tener"
+- The table is visible on screen; Daniela's voice is the driver, not the written instructions
+
+**Cultural notes and grammar rules**
+- Madrigal's text is brief by design; Daniela expands it verbally
+- "Madrigal tells you this in two sentences — let me give you the full picture"
+- The written rule becomes an anchor; Daniela provides the meaning
+
+---
+
+### Who Initiates
+
+**Daniela initiates.** Always.
+
+When a student opens a page, Daniela is already explaining it. There is no "Practice Mode" button. There is no "Start Drill" toggle. The audio-on state is the practice state. The student's choice is whether to have audio on at all — and if they do, they are in a Daniela-led session for that page.
+
+This is why Madrigal's minimal text actually becomes *more* minimal in HoloHola: Daniela takes over the explanatory role entirely. The text becomes a reference; the voice is the teacher.
+
+---
+
+### The "Conversation Overflow" Tangent Queue — The Only Remaining Drill Use Case
+
+When a conversation goes off-curriculum — the student's job, a hobby, a trip, a news story — new vocabulary surfaces that isn't in any textbook page. This content needs somewhere to live.
+
+This is the **only** remaining legitimate use case for a standalone drill structure, and it should be explicitly narrow:
+
+- **Short-lived:** items expire in 7–14 days unless actively practiced
+- **Daniela-curated:** Daniela parks items here via `close_session()` with `assigned_drills`, not an automated system
+- **Small:** this is a temporary buffer, not a growing deck. If it gets large, something has gone wrong
+- **Phrase-based, not word-based:** following Madrigal's principle, tangent items are stored as phrases in context ("*Trabajo en una oficina* — I work in an office") not naked vocabulary ("oficina = office")
+- **Retires automatically** when Daniela confirms the item is absorbed in a subsequent session — she can explicitly close it or it expires
+
+**Design test for any item in the tangent queue:** Would Daniela teach this the same way if it appeared in the textbook? If yes, it should eventually become a textbook page. The queue is for items that are too personal or situational to generalize.
+
+---
+
+### What This Means for the Existing Drill System
+
+The `arisDrillAssignments` and `arisDrillResults` tables, the `close_session()` homework fields, and the drill status surfacing in the greeting prompt — **none of this is wrong**. These are the right primitives for the tangent queue use case.
+
+What changes is the priority and scope:
+
+| Use case | Where it lives |
+|---|---|
+| Textbook vocabulary practice | Interactive textbook pages (STT + Daniela-led) |
+| Textbook phrase and grammar drilling | Interactive textbook pages (Daniela calls and student responds) |
+| Verb paradigm drilling | Interactive textbook pages (Daniela walks the table) |
+| Conversation tangent vocabulary | Tangent queue (short-lived, phrase-based, Daniela-curated) |
+| Daniela-assigned custom practice | `close_session(assigned_drills)` → surfaces in next greeting |
+
+The implication: **building more drill types is deprioritized.** The roadmap for new drill categories has effectively been replaced by the roadmap for interactive textbook pages. A student who has worked through Chapter 3 of See It and Say It with Daniela present has done more meaningful practice than a student who has completed a hundred flashcard decks.
+
+---
+
+### Open Architecture Questions
+
+These need answers before implementation begins:
+
+1. **How does Daniela know what page the student is on?** The most natural answer: the student navigates to a textbook page and that page emits a "context load" event that Daniela receives — similar to how `start_lesson()` works today but initiated from the page rather than from Daniela. The page is the trigger; Daniela is the responder.
+
+2. **Does the student need to explicitly start a Daniela session, or does audio just turn on?** The cleanest UX: audio is persistent across the whole app. If the student has a voice session open, Daniela is aware of the current page at all times. The student navigates; Daniela follows.
+
+3. **How is mastery tracked at the page level?** Proposal: a `lessonPageMastery` record keyed to (userId, lessonId, pageId) with fields for `practiceCount`, `lastPracticed`, `masteryScore`. Daniela writes to this after each page session via a tool call (similar to `close_session()`).
+
+4. **What happens when the student navigates away mid-page?** Daniela acknowledges it ("we can pick up here next time") and the partial session state is preserved.
+
+5. **Tangent queue retirement:** When does an item expire without Daniela explicitly closing it? Proposal: 14 days of no practice + no explicit close → auto-retire. Daniela surfaces "you have 3 items in your tangent queue from last week — want to run through them quickly?" at the next session open.
+
+---
+
+### Session Log
+
+| Date | Action | Status |
+|---|---|---|
+| Apr 16, 2026 (S65) | Interactive textbook architecture defined; decision that Daniela initiates and leads through every page; drill system scoped to tangent queue only | Documented |
+
+---
+
+
 # Part II: Asset Library & Generation Specs
 
 ## 9-Language Textbook Component Coverage Matrix
