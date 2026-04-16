@@ -4588,9 +4588,23 @@ These are verbatim or near-verbatim from Magic Key, ready to load into `danielaN
 - `docs/visual-asset-roadmap.md` — Part I.H added (Gemini 2.5 TTS multi-speaker watch item)
 - `docs/alden-agent-handoff.md` — S64 entry
 
+### Additional finding added in same session (S64 continued)
+
+**Rate limit constraint documented — and reframed:**
+- HoloHola already has Gemini 2.5 TTS set up in the codebase but hasn't activated it due to low RPD/concurrency limits
+- Founder observation: all Gemini TTS models carry the same low concurrency, even newer ones — suggests deliberate product tier boundary, not temporary rollout gap
+- Analysis: Google has two competing TTS products (Gemini TTS vs. Chirp3-HD/Google Cloud TTS). Chirp3-HD is the production-scale monetized product; Gemini TTS rate limits likely protect Chirp3-HD's paid tier from cannibalization
+- Path to higher Gemini TTS concurrency = enterprise contract negotiation, not waiting for organic limit increases
+- **Hybrid architecture proposed:** Chirp3-HD for Daniela's real-time continuous voice (high volume), Gemini TTS multi-speaker for pre-scripted scene preambles (low volume, high quality, seamless transitions)
+- This resolves Tension D from the morning's note — no full migration required, Gemini TTS is additive on top of Chirp3-HD
+
+### Files changed in S64
+- `docs/visual-asset-roadmap.md` — Part I.H added (Gemini 2.5 TTS multi-speaker); Rate Limit section added to Part I.H with hybrid architecture table and example scene flow
+- `docs/alden-agent-handoff.md` — S64 entry
+
 ### Next recommended tasks
 1. **Verify version name** — confirm "Gemini 2.5 TTS" is the correct product name from the official announcement
-2. **Get API access** — obtain Gemini 2.5 TTS access; run sample 6-line Spanish restaurant dialogue
-3. **Voice quality comparison** — compare to Chirp3-HD on same Spanish text; evaluate naturalness, accent, consistency
+2. **Prototype hybrid approach** — use existing Gemini TTS integration to generate one pre-scripted 4-line restaurant scene (Daniela + el_mesero) as a multi-speaker call; compare to speak_as equivalent
+3. **Voice quality comparison** — evaluate Gemini TTS naturalness, accent, voice consistency vs. Chirp3-HD on same Spanish text
 4. **Language coverage check** — does multi-speaker quality hold for Spanish, French, Portuguese, German, Italian, Japanese?
 5. **Continue gathering mode** — other source material or announcements to document before design decisions

@@ -2428,6 +2428,45 @@ The current speak_as system is working. It's live. Chirp3-HD voices are good. Th
 
 ---
 
+### The Rate Limit Problem — And Why It May Be Structural, Not Temporary
+
+**Context from founder (S64):** HoloHola already has the Gemini 2.5 TTS integration set up in the codebase. It hasn't been activated because the concurrency limits (requests per day / RPD) are too low for production use. The founder observed that all Gemini TTS models — including newer ones — carry the same low concurrency constraints, which seems counterintuitive if these are simply rollout limitations that would eventually be raised.
+
+**The likely explanation: Google has two competing TTS products.**
+
+Chirp3-HD (Google Cloud TTS) is a mature, separately monetized, production-scale TTS product — explicitly designed for high-concurrency real-time voice generation at scale. This is the right tier for what HoloHola does today: streaming Daniela's voice continuously through a live tutoring session, potentially across many concurrent users.
+
+Gemini TTS is a newer model with better voice quality and features like multi-speaker — but it sits in the Gemini API ecosystem rather than Google Cloud TTS. If Google raised Gemini TTS concurrency to match Chirp3-HD, it would directly cannibalize Chirp3-HD's paid production tier. There is a clear financial incentive for Google to keep Gemini TTS rate-limited as a "premium quality, lower volume" tier while Chirp3-HD remains the "production scale, your SLA, your cost center" tier.
+
+This pattern is consistent with how Google has handled similar product overlaps (e.g., Gemini chat vs. Vertex AI, BigQuery vs. Firestore — different tiers for different scale/price points with deliberate feature gaps to force segmentation).
+
+**What this means for HoloHola:**
+
+The Gemini TTS rate limits are probably not a temporary rollout constraint that will quietly go away. They're more likely a deliberate product tier boundary. The path to higher Gemini TTS concurrency is almost certainly through a paid enterprise contract negotiation — not through waiting for limits to be raised organically.
+
+**A hybrid architecture emerges naturally from this constraint:**
+
+| Use case | Right product | Reason |
+|---|---|---|
+| Daniela's real-time voice (continuous, session-long) | Chirp3-HD | High concurrency needed; this is the dominant volume |
+| Pre-scripted scene dialogues (Daniela + characters, one shot per scene) | Gemini TTS multi-speaker | Low concurrency fine; one call per scene entry; quality and seamlessness matter more than volume |
+| Character one-off lines within speak_as (real-time, emergent) | Chirp3-HD | Low latency required; must work on demand |
+
+This hybrid approach doesn't require choosing between the two products. It uses each for what it does best: Chirp3-HD for the high-volume, low-latency real-time voice; Gemini TTS multi-speaker for the low-volume, high-quality scene preamble that sets the context before a live interaction begins.
+
+**Example scene flow under hybrid architecture:**
+1. Daniela (Chirp3-HD, real-time) introduces the scene: *"Estás en el restaurante. Escucha."*
+2. Gemini TTS multi-speaker (pre-scripted, single call) plays a 4-line opening exchange between el_mesero and a brief customer — sets the scene atmosphere with seamless voice transitions
+3. Daniela (Chirp3-HD, real-time) re-enters: *"Ahora es tu turno. ¿Qué quieres ordenar?"*
+4. Student speaks (live)
+5. Daniela (Chirp3-HD) responds dynamically to what was said
+
+The seam between Gemini TTS and Chirp3-HD only appears at step 3 — Daniela resuming from a pre-scripted scene into real-time. This is a natural "scene ends, you act" moment that doesn't feel mechanical.
+
+**This makes Tension D (migration cost) much smaller.** The hybrid approach doesn't replace Chirp3-HD — it adds Gemini TTS multi-speaker as a pre-scripted scene layer on top of the existing architecture. Lower risk, lower cost, preserves the current system.
+
+---
+
 ### Recommended Next Steps (When Ready to Evaluate)
 
 1. **Get API access** — obtain Gemini 2.5 TTS access and run a test with a sample 6-line restaurant dialogue using Daniela + el_mesero voice slots in Spanish
