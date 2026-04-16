@@ -4608,3 +4608,11 @@ These are verbatim or near-verbatim from Magic Key, ready to load into `danielaN
 3. **Voice quality comparison** — evaluate Gemini TTS naturalness, accent, voice consistency vs. Chirp3-HD on same Spanish text
 4. **Language coverage check** — does multi-speaker quality hold for Spanish, French, Portuguese, German, Italian, Japanese?
 5. **Continue gathering mode** — other source material or announcements to document before design decisions
+
+**Strategic position identified and documented (Part I.I):**
+- HoloHola as the reference implementation for multi-speaker TTS — not a customer, a validation platform
+- Language learning identified as the highest-signal use case for multi-speaker TTS (students are the most demanding audio audience that exists for a consumer app)
+- Leverage structure documented: shipping a compelling scene inverts the power relationship with TTS vendors
+- Vendor-agnostic design principle becomes negotiating leverage — vendors compete to be the one HoloHola endorses
+- The competitive forcing function: HoloHola shipping first accelerates Google's rate limit decision and every other vendor's production-readiness timetable
+- Quality bar for "reference implementation" standard documented (character distinctness, seamless transitions, visible pedagogical value, scene feel)
