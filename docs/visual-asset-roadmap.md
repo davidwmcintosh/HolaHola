@@ -2577,6 +2577,159 @@ This is achievable. The Magic Key three-column sentence generator + See It and S
 ---
 
 
+## Part I.J — STT Architecture: The Turn-End Problem & Roadmap
+
+**Session:** S64 (April 16, 2026)
+**Status:** GATHERING MODE — problem diagnosed, fix scoped, migration path documented
+**Origin:** Founder observation that the open mic cuts off nervous students before they finish a sentence
+
+---
+
+### How the Current STT Pipeline Works
+
+**Provider:** Deepgram nova-3 (forced — nova-2 returns empty transcripts in multi-language mode)
+**File:** `server/services/deepgram-live-stt.ts`
+**Philosophy:** Platform-agnostic. Deepgram is the best available STT at production-scale concurrency today. When a better option meets the same bar, we switch.
+
+The pipeline is:
+
+```
+Student speaks
+    ↓
+Deepgram nova-3 (streaming, VAD enabled)
+    ↓
+speech_final event (300ms endpointing — internal segmentation only)
+    ↓  [NOT submitted to LLM — see note below]
+UtteranceEnd event (2500ms silence → actual submission trigger)
+    ↓
+onUtteranceEnd callback → orchestrator → Gemini LLM → Daniela responds
+```
+
+**An important fix already in place:** We do NOT submit on `speech_final`. The comment in the code reads verbatim: *"NOTE: We do NOT auto-submit on speech_final anymore — speech_final fires too quickly and cuts users off mid-sentence. Instead, we rely solely on UtteranceEnd which respects utterance_end_ms."* This was a meaningful improvement — we already moved away from the 300ms hair-trigger.
+
+**What `UtteranceEnd` actually is:** Deepgram fires this event after 2.5 seconds of continuous silence from the last detected speech activity. It is purely acoustic. It does not evaluate whether the sentence is linguistically complete.
+
+---
+
+### The Remaining Problem
+
+`UtteranceEnd` at 2500ms is a significant improvement over `speech_final` at 300ms — but it still has no understanding of sentence completeness. The scenario:
+
+> Student: *"I'm going to go to the..."* [2.5 seconds of nervous silence while searching for the word]  
+> Deepgram: `UtteranceEnd` fires  
+> Orchestrator: submits "I'm going to go to the" to Daniela  
+> Daniela: responds to an incomplete thought  
+> Student: the word they were reaching for is now gone
+
+A human conversation partner in this position would not interpret 2.5 seconds of silence as "they're done." They would read the syntactic structure — "to the..." — and know something is coming. They would wait.
+
+Additional cases:
+- *"Give me a second to think"* — student has explicitly asked for time; should suppress cutoff for a meaningful extension
+- *"Espera, um..."* — same in Spanish
+- *"Because..."* — trailing conjunction, sentence clearly not over
+- *"Un..."* / *"La..."* / *"El..."* — trailing article, object word coming
+
+---
+
+### The Fix: Linguistic Completeness Check at UtteranceEnd
+
+**Estimated effort:** One afternoon. The change is localized to one handler in `deepgram-live-stt.ts` and requires no new infrastructure.
+
+**Where the change goes:** In the `UtteranceEnd` event handler (around line 606 in `deepgram-live-stt.ts`), before calling `this.events.onUtteranceEnd?.(...)`, run a completeness check on the accumulated transcript. If the transcript is syntactically incomplete, suppress the emit and extend the silence window.
+
+**Completeness check logic (no LLM needed — pure string analysis):**
+
+```typescript
+function isLikelySentenceComplete(transcript: string): boolean {
+  const t = transcript.trim().toLowerCase();
+  // Trailing articles
+  if (/\b(the|a|an|el|la|los|las|un|una|unos|unas|le|les|du|de|des)$/.test(t)) return false;
+  // Trailing prepositions
+  if (/\b(to|of|in|at|on|for|with|by|from|about|into|through|en|de|a|con|por|para|sobre|entre|sin|bajo|tras)$/.test(t)) return false;
+  // Trailing conjunctions
+  if (/\b(and|but|or|because|although|while|when|if|that|which|who|where|que|pero|porque|aunque|cuando|si|como|y|o|ni|sino)$/.test(t)) return false;
+  // Explicit thinking requests (extend generously)
+  if (/\b(give me a second|let me think|wait|hold on|espera|un momento|dame un segundo|déjame pensar)/.test(t)) return false;
+  // Trailing incomplete verb constructions
+  if (/\b(going to|want to|need to|have to|voy a|quiero|necesito|tengo que|puedo)$/.test(t)) return false;
+  return true;
+}
+```
+
+**Behavior when incomplete:**
+1. Suppress the `onUtteranceEnd` emit
+2. Set an extended timeout (configurable — suggested 3–4 additional seconds) before forcing submission regardless
+3. Clear the extended timeout if Deepgram fires another `SpeechStarted` (student resumed speaking — they found the word)
+4. Log: `[OpenMic] Sentence appears incomplete ("${transcript}") — extending window +3s`
+
+**For the explicit "give me a second" case:** Can be even simpler — a keyword match at `speech_final` time that sets a `studentRequestedPause` flag which delays any submission for a configurable period (suggested: 8–10 seconds, with a "still waiting" visual indicator on the client).
+
+**Why not use the LLM for this decision?** The LLM is the right conceptual answer — it understands that "I'm going to go to the" is incomplete far better than any regex. But putting the LLM in the turn-end hot path adds 200–500ms of latency before every single exchange, making all conversations feel slightly sluggish even when the student is genuinely done. String analysis is microseconds. It catches the most common cases (trailing articles, prepositions, conjunctions) at zero cost. For the edge cases it misses, the cost is a slightly early cutoff — the same failure mode as today, just less frequent.
+
+The truly elegant long-term solution is a streaming model that evaluates linguistic completeness in real time as words arrive — which is what Gemini Live's native audio mode does internally. That's the migration goal.
+
+---
+
+### STT Platform Roadmap — Vendor-Agnostic Principle
+
+The same philosophy that governs TTS vendor selection governs STT: **we use the best available that meets our concurrency and quality requirements, regardless of vendor.** We are not Google customers. We are not Deepgram customers. We are quality and scale customers.
+
+**Current STT:** Deepgram nova-3
+- Production-scale concurrency: ✅
+- Multi-language support with `multi` language code: ✅
+- Streaming with VAD and UtteranceEnd: ✅
+- Linguistic turn-end intelligence: ❌ (acoustic only)
+- Cost at scale: acceptable
+
+**Desired STT: Gemini Live (native audio streaming)**
+- Existing code path: ✅ — `server/services/gemini-live-tts.ts` and `server/services/gemini-tts-streaming.ts` already exist; the Gemini integration infrastructure is in place. STT-specific routing would be a new service, not a new integration.
+- Native linguistic turn-end: ✅ — Gemini's multimodal streaming model sees both audio and partial transcript and can evaluate completeness in real time without a separate LLM call
+- Production-scale concurrency: ❌ — same rate limit constraint as Gemini TTS (see Part I.H). This is the primary blocker.
+- Cost model: TBD pending production concurrency availability
+
+**What triggers migration:**
+- Gemini Live STT concurrency reaches production-viable RPD for HoloHola's session volume
+- OR: another provider (AssemblyAI, Whisper streaming, Speechmatics) ships linguistically-aware turn detection at production scale
+- Either triggers evaluation: side-by-side quality test on Spanish + 8 other target languages, latency measurement under load, turn-end accuracy comparison
+
+**What stays constant regardless of provider:**
+- The `onUtteranceEnd` / `onTranscript` callback interface — the orchestrator is provider-agnostic by design
+- The multi-language requirement (currently solved by nova-3 `multi` mode — any replacement must match this)
+- The echo suppression requirement (TTS audio must not trigger false STT submissions)
+
+**Other providers on the watch list:**
+- **AssemblyAI Universal-2** — real-time streaming with sentence-end detection; worth evaluating for the linguistic completeness problem specifically
+- **Whisper streaming (via Groq or equivalent)** — extremely fast, but currently no VAD or turn-end logic; would require the same linguistic completeness layer we're building for Deepgram
+- **Speechmatics** — strong multi-language support; less widely evaluated in our context
+
+---
+
+### Implementation Priority
+
+| Item | Effort | Impact | Priority |
+|---|---|---|---|
+| Linguistic completeness check at UtteranceEnd | ~4 hours | Eliminates most cut-off-mid-sentence events | 🔴 High |
+| "Give me a second" explicit pause extension | ~1 hour | Prevents the most frustrating cutoff case | 🔴 High |
+| Client-side "thinking" indicator during extended pause | ~2 hours | Reassures student that the system is waiting | 🟠 Medium |
+| Gemini Live STT evaluation (when concurrency allows) | 1–2 days | Native linguistic turn-end; eliminates heuristic layer | 🟡 When available |
+| AssemblyAI Universal-2 STT evaluation | ~1 day | May solve linguistic completeness sooner than Gemini | 🟡 Low (watch) |
+
+---
+
+### Change Log Entry
+
+| Date | Action | Status |
+|---|---|---|
+| Apr 16, 2026 (S64) | Turn-end problem diagnosed; UtteranceEnd identified as submission trigger (not speech_final) | Documented |
+| Apr 16, 2026 (S64) | Linguistic completeness fix scoped — ~4 hours, localized to deepgram-live-stt.ts | Ready to build |
+| Apr 16, 2026 (S64) | Gemini Live STT desire and existing code path documented | Gathering mode |
+| Apr 16, 2026 (S64) | Platform-agnostic STT philosophy documented | Principle established |
+| *Next build session* | Implement linguistic completeness check at UtteranceEnd | In queue |
+| *Next build session* | Implement "give me a second" pause extension | In queue |
+
+---
+
+
 # Part II: Asset Library & Generation Specs
 
 ## 9-Language Textbook Component Coverage Matrix
