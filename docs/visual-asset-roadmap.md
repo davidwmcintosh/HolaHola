@@ -2337,6 +2337,119 @@ Magic Key delays tú until the student is fully fluent with usted. But HoloHola'
 ---
 
 
+## Part I.H — Technology Watch: Gemini 2.5 TTS Multi-Speaker
+
+**Session:** S64 (April 16, 2026)
+**Status:** GATHERING MODE — announcement reviewed, no implementation decision made
+**Source:** Founder flagged Google announcement for Gemini 2.5 TTS (founder referenced as "Gemini 3.1 TTS" — version name to be confirmed against official release notes)
+
+---
+
+### What the Announcement Is
+
+Google's Gemini 2.5 TTS includes a **native multi-speaker mode** where a single API call can generate a full multi-character audio output. Rather than making separate TTS requests per speaker and stitching them together, the model receives a structured dialogue (speaker labels + text segments) and returns a single continuous audio stream with distinct, consistent voices per character — handled entirely within the model.
+
+This is meaningfully different from our current approach and from standard "voice cloning" TTS products. The key word is **native** — the voice transitions are part of the generation, not a post-processing seam.
+
+---
+
+### Current HoloHola Architecture (What We Have Now)
+
+Our existing multi-character voice system (`character-registry.ts` + `speak_as` / `resume_tutor` function calls) works like this:
+
+**Current flow per character exchange:**
+1. Daniela decides to hand off to a character — calls `speak_as(el_mesero, "¿Qué desea usted?")`
+2. Server receives the function call, looks up `el_mesero` in character registry, gets their Google Chirp3-HD voice ID
+3. Sends text to Google Cloud TTS with that voice ID → audio buffer returned
+4. Audio streamed to client
+5. Daniela then calls `resume_tutor("Ahora, ¿cómo respondería usted?")` to switch back
+6. Server switches back to Daniela's voice ID → new audio buffer → streamed to client
+
+**What this means in practice:**
+- Each voice switch is a separate TTS API round-trip
+- There is a small gap between each speaker (the time of the round-trip and client re-buffering)
+- Daniela must explicitly decide when to hand off and when to reclaim — two function calls per exchange
+- A full 4-line dialogue (Daniela → el_mesero → Daniela → el_mesero) requires 4 separate TTS calls
+- The voices are high-quality (Chirp3-HD), consistent within a session, and working well — but the transitions have seams
+
+**What works well about the current system:**
+- Voice quality is excellent (Chirp3-HD voices are expressive and clear)
+- Character identity is stable (same voice ID per character every time)
+- Daniela has explicit control over when to hand off
+- The function-call model integrates cleanly with our existing native FC handler pipeline
+- Spanish, French, and other language rosters are already built and working
+
+---
+
+### What Gemini 2.5 Multi-Speaker TTS Would Change
+
+**Proposed new flow for a multi-character dialogue segment:**
+1. Daniela generates a full dialogue script in her response (e.g., a 6-line restaurant exchange)
+2. Instead of `speak_as` function calls, Daniela marks the script with speaker labels: `[DANIELA]`, `[EL_MESERO]`, `[ESTUDIANTE_PROMPT]`
+3. A single Gemini 2.5 TTS call receives the labeled script and returns one continuous audio stream with voice transitions baked in
+4. Client receives and plays the stream — no gaps, no round-trips between lines
+
+**What this would unlock:**
+- **Seamless voice transitions** — the audio is continuous; the model handles the voice shift internally. This is the difference between a dubbed TV show and a live conversation
+- **Dramatically fewer API calls** — a 6-line dialogue goes from 6 TTS requests to 1
+- **Richer scene performance** — currently Daniela and el_mesero can't interrupt each other, overlap, or have quick back-and-forth exchanges without noticeable pause. Native multi-speaker makes natural conversation rhythm possible
+- **Better emotional consistency** — when the model generates voices for a scene holistically, prosody (pacing, stress, intonation) can be matched to the dialogue arc, not just the isolated line
+
+**What would not change:**
+- Daniela's identity and teaching role are unchanged — she still controls the pedagogy
+- The Magic Key sentence-generator format could still be spoken as a three-way exchange (Daniela introduces, el_mesero provides the scenario, student responds)
+- Character roster (el_mesero, la_doctora, carlos, etc.) still exists — just mapped to Gemini voice slots rather than Chirp3-HD voice IDs
+
+---
+
+### How This Fits the Synthesis Architecture (Part I.G)
+
+The synthesis architecture in Part I.G describes Phase 4 as **Scene Practice**: the student is placed in a real situation — a restaurant, a pharmacy, an airport — and must communicate with characters who respond naturally. Phase 4 depends on multi-character dialogue feeling *real* rather than assembled.
+
+The current speak_as system gets us to Phase 4 — but the seams between voice switches remind the student they're in a drill, not a conversation. Native multi-speaker TTS is the technical precondition for Phase 4 feeling genuinely immersive.
+
+Madrigal's "use it now" mandate — *never let a word lie fallow* — is most powerfully enforced in a scene where the student has to use the word to advance the conversation. That requires the scene to feel compelling enough that the student actually wants to advance it. Voice quality and continuity are not decoration — they are part of what makes the scene worth being in.
+
+---
+
+### Design Tensions This Introduces (Gathering Mode — Not Resolved)
+
+**Tension A: Gemini TTS voices vs. Chirp3-HD voices**
+Our current Chirp3-HD voices (Google Cloud TTS) are very high quality and production-stable. Gemini 2.5 TTS voices may be different in character. We'd need to evaluate: do they match or exceed Chirp3-HD quality? Are they consistent across multiple calls (character voice stability)? What language coverage do they have (Spanish, French, Portuguese, etc.)?
+
+**Tension B: Structured script vs. emergent function calls**
+The current speak_as architecture is emergent — Daniela decides in real time whether and when to hand off to a character. A multi-speaker TTS approach may require Daniela to generate a full dialogue script in advance and submit it as a single structured call. This changes the conversational model: Daniela is authoring a scene, not improvising one. Both modes have value; they're different experiences.
+
+**Tension C: Student participation within the multi-speaker stream**
+Multi-speaker TTS can voice Daniela and el_mesero. It cannot voice the student — the student speaks live. The interaction architecture needs to be: Daniela+characters generate their audio as a multi-speaker stream → pause → student speaks → Daniela+characters respond. This is a natural turn-taking model, but it requires careful design of where the pauses land and how Daniela prompts the student's turn.
+
+**Tension D: Migration cost vs. current system quality**
+The current speak_as system is working. It's live. Chirp3-HD voices are good. The question is whether the improvement from native multi-speaker TTS is worth a significant architectural change. This is a quality-vs-cost tradeoff that can't be evaluated without hearing Gemini 2.5 TTS output on our actual Spanish dialogue scripts.
+
+---
+
+### Recommended Next Steps (When Ready to Evaluate)
+
+1. **Get API access** — obtain Gemini 2.5 TTS access and run a test with a sample 6-line restaurant dialogue using Daniela + el_mesero voice slots in Spanish
+2. **Compare audio quality** — side-by-side with equivalent Chirp3-HD output: naturalness, expressiveness, accent quality, transition smoothness
+3. **Evaluate voice consistency** — call the same 6-line script 5 times; are the voices stable and recognizable across calls? (Character identity depends on this)
+4. **Check language coverage** — test Spanish (primary), French, Portuguese, German, Italian, Japanese — does multi-speaker quality hold across all our target languages?
+5. **Prototype a scene** — if quality and consistency check out, prototype the Phase 4 restaurant scenario with native multi-speaker TTS. Compare student experience to current speak_as version
+6. **Migration decision** — if prototype is clearly better, design the migration path: can speak_as function calls be retained as a fallback? Can both systems coexist per-scenario?
+
+---
+
+### Change Log Entry
+
+| Date | Action | Status |
+|---|---|---|
+| Apr 16, 2026 (S64) | Gemini 2.5 TTS multi-speaker documented | Gathering mode — no implementation decision |
+| *Pending* | API access + quality evaluation | Blocked on access |
+| *Pending* | Side-by-side comparison with Chirp3-HD | Blocked on access |
+
+---
+
+
 # Part II: Asset Library & Generation Specs
 
 ## 9-Language Textbook Component Coverage Matrix

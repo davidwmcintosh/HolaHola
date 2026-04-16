@@ -4547,3 +4547,50 @@ These are verbatim or near-verbatim from Magic Key, ready to load into `danielaN
 3. **Audit Spanish chapters for premature tú** — check greetings and daily chapters for tú forms; shift to usted; flag tú as a later milestone
 4. **Review SentenceFrameGrid** — does it expose genuine three-column pick, or fixed sentences with highlighted slots? Magic Key's standard is the former
 5. **Continue gathering mode** — founder reviewing more source material before design decisions
+
+---
+
+## Session S64 — Thu, Apr 16, 2026 (Gemini 2.5 TTS multi-speaker watch item)
+
+### What was done
+
+**Technology watch item documented:**
+- Founder flagged Google's Gemini 2.5 TTS announcement (referenced as "Gemini 3.1 TTS" — version name to confirm against official release)
+- Native multi-speaker TTS feature noted as highly relevant to HoloHola's scenario system
+- Full analysis written to Part I.H in visual-asset-roadmap.md
+
+**Key insight:** Gemini 2.5 TTS multi-speaker would allow an entire multi-character dialogue (Daniela + el_mesero + prompts to student) to be generated as a single continuous audio stream with no gaps between voice switches — compared to current architecture which makes one TTS API call per speaker per line.
+
+**Current architecture documented in Part I.H:**
+- speak_as / resume_tutor function calls → separate Chirp3-HD TTS request per speaker
+- 4-line dialogue = 4 separate API round-trips, 4 audio buffers, audible seam at each transition
+- Works and sounds good; transitions have gaps
+
+**What multi-speaker TTS would unlock:**
+- Seamless voice transitions (model handles internally)
+- Fewer API calls (6-line scene = 1 call instead of 6)
+- Natural conversational rhythm (currently impossible between characters)
+- Potentially better prosody consistency across a scene
+
+**4 design tensions documented (not resolved — gathering mode):**
+1. Gemini TTS voice quality vs. Chirp3-HD — needs side-by-side evaluation
+2. Structured script model vs. emergent function-call model — different authoring paradigms
+3. Student participation within the stream — turn-taking design needed
+4. Migration cost vs. current system quality — can't assess without API access
+
+### Status at end of S64
+- Part I.H: WRITTEN ✅ — Technology Watch section in roadmap
+- Implementation decision: DEFERRED — gathering mode, needs API access + quality evaluation
+- Evaluation criteria documented: voice quality, voice consistency, language coverage, scene prototype
+- S64 handoff entry: WRITTEN ✅
+
+### Files changed in S64
+- `docs/visual-asset-roadmap.md` — Part I.H added (Gemini 2.5 TTS multi-speaker watch item)
+- `docs/alden-agent-handoff.md` — S64 entry
+
+### Next recommended tasks
+1. **Verify version name** — confirm "Gemini 2.5 TTS" is the correct product name from the official announcement
+2. **Get API access** — obtain Gemini 2.5 TTS access; run sample 6-line Spanish restaurant dialogue
+3. **Voice quality comparison** — compare to Chirp3-HD on same Spanish text; evaluate naturalness, accent, consistency
+4. **Language coverage check** — does multi-speaker quality hold for Spanish, French, Portuguese, German, Italian, Japanese?
+5. **Continue gathering mode** — other source material or announcements to document before design decisions
