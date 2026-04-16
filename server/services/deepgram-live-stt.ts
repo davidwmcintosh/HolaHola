@@ -385,6 +385,38 @@ export function getDeepgramLanguageCode(language: string): string {
 }
 
 /**
+ * Checks whether a transcript appears to be a linguistically complete sentence.
+ * Used at UtteranceEnd to decide whether to extend the silence window rather than
+ * cutting the student off mid-thought (e.g. "I'm going to go to the..." needs more time).
+ *
+ * Covers English, Spanish, French, Portuguese, German trailing words.
+ * Conservative by design — only blocks submission for clear incomplete signals.
+ * False negatives (missing an incomplete sentence) are less harmful than false
+ * positives (stalling after a genuinely complete sentence).
+ */
+function isLikelySentenceComplete(transcript: string): boolean {
+  const t = transcript.trim().toLowerCase();
+  if (!t) return true;
+
+  // Explicit pause requests — student has asked for more time
+  if (/\b(give me a second|let me think|hold on a|un momento|dame un segundo|espera un|d[eé]jame pensar)/.test(t)) return false;
+
+  // Trailing articles — nothing complete ends with "the", "el", "la", "un", etc.
+  if (/\b(the|el|la|los|las|un|una|unos|unas|le|les|une?|du|des|um|uma|der|die|das|eine?)$/.test(t)) return false;
+
+  // Trailing prepositions
+  if (/\b(to|of|in|at|on|for|with|by|from|into|en|de|con|por|para|sobre|sin|hacia|dans|sur|par|avec|em|com|até)$/.test(t)) return false;
+
+  // Trailing coordinating conjunctions
+  if (/\b(and|but|or|because|although|y|pero|porque|aunque|mas|et|mais|ou|und|aber|oder|weil)$/.test(t)) return false;
+
+  // Trailing incomplete verb constructions
+  if (/\b(going to|want to|need to|have to|trying to|voy a|vamos a|quiero|tengo que|vou|quero|preciso)$/.test(t)) return false;
+
+  return true;
+}
+
+/**
  * Open Mic Streaming Session
  * 
  * Continuous audio streaming with VAD events for natural conversation flow.
@@ -427,6 +459,7 @@ export class OpenMicSession {
   private lastFinalSegment = '';  // Deduplication: Track last final segment to prevent duplicates
   private emptySpeechFinalTimeout: NodeJS.Timeout | null = null;
   private lingeringSpeechTimeout: NodeJS.Timeout | null = null;  // Safety net: force utterance end if speech_final never arrives
+  private incompleteExtensionTimeout: NodeJS.Timeout | null = null;  // Extended window when sentence appears incomplete
   private consecutiveEmptyCount = 0;
   private suppressionEndedAt = 0;
   private lastSuccessfulTranscriptAt = 0;
@@ -452,6 +485,10 @@ export class OpenMicSession {
         this.currentIntelligence = {};
         this.lastFinalSegment = '';
         this.bestInterimForSegment = '';
+        if (this.incompleteExtensionTimeout) {
+          clearTimeout(this.incompleteExtensionTimeout);
+          this.incompleteExtensionTimeout = null;
+        }
       } else {
         this.suppressionEndedAt = Date.now();
         this.consecutiveEmptyCount = 0;
@@ -543,6 +580,15 @@ export class OpenMicSession {
           console.log('[OpenMic] Speech started (VAD)');
           // If we get a SpeechStarted event, connection is definitely open
           resolveOnce();
+
+          // INCOMPLETE EXTENSION CANCEL: Student resumed speaking — cancel the extended window.
+          // Their new words will naturally append to currentTranscript (not reset yet) and
+          // the next UtteranceEnd will re-evaluate completeness with the longer transcript.
+          if (this.incompleteExtensionTimeout) {
+            clearTimeout(this.incompleteExtensionTimeout);
+            this.incompleteExtensionTimeout = null;
+            console.log('[OpenMic] Extension cancelled — student resumed speaking');
+          }
           
           // ECHO SUPPRESSION: Don't emit VAD events while TTS is playing
           // Browser echo cancellation isn't perfect, Deepgram picks up TTS output
@@ -602,6 +648,31 @@ export class OpenMicSession {
             this.lastSuccessfulTranscriptAt = Date.now();
           }
           
+          // LINGUISTIC COMPLETENESS CHECK: If the transcript ends with a trailing article,
+          // preposition, conjunction, or incomplete verb construction, the student almost
+          // certainly has more to say. Extend the silence window by 3s rather than cutting
+          // them off. When student speaks again, SpeechStarted cancels this timer so their
+          // new words naturally append to currentTranscript before the next UtteranceEnd fires.
+          // Only applies to non-empty transcripts — empty transcripts always go through as EMPTY.
+          if (this.currentTranscript.trim() && !isLikelySentenceComplete(this.currentTranscript.trim())) {
+            console.log(`[OpenMic] INCOMPLETE SENTENCE: "${this.currentTranscript.trim()}" — extending silence window +3s`);
+            this.lastFinalSegment = '';  // Allow new speech to accumulate without dedup block
+            if (this.incompleteExtensionTimeout) clearTimeout(this.incompleteExtensionTimeout);
+            this.incompleteExtensionTimeout = setTimeout(() => {
+              this.incompleteExtensionTimeout = null;
+              if (this.isSuppressed || !this.currentTranscript.trim()) return;
+              console.log(`[OpenMic] Extension fired — submitting: "${this.currentTranscript.trim()}"`);
+              const extIntel = Object.keys(this.currentIntelligence).length > 0 ? this.currentIntelligence : undefined;
+              this.events.onUtteranceEnd?.(this.currentTranscript.trim(), this.currentConfidence, extIntel);
+              this.currentTranscript = '';
+              this.currentConfidence = 0;
+              this.currentIntelligence = {};
+              this.lastFinalSegment = '';
+              this.bestInterimForSegment = '';
+            }, 3000);
+            return;  // Don't emit yet — wait for more speech or the extension timeout
+          }
+
           const intel = Object.keys(this.currentIntelligence).length > 0 ? this.currentIntelligence : undefined;
           this.events.onUtteranceEnd?.(this.currentTranscript.trim() || '[EMPTY_TRANSCRIPT]', this.currentConfidence, intel);
           
@@ -1052,6 +1123,10 @@ export class OpenMicSession {
     if (this.lingeringSpeechTimeout) {
       clearTimeout(this.lingeringSpeechTimeout);
       this.lingeringSpeechTimeout = null;
+    }
+    if (this.incompleteExtensionTimeout) {
+      clearTimeout(this.incompleteExtensionTimeout);
+      this.incompleteExtensionTimeout = null;
     }
     
     if (this.connection) {
