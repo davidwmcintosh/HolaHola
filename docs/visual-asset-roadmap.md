@@ -5263,3 +5263,27 @@ The canonical registry (Plan #5) will identify all tier-3 (SCENE_OVERRIDE) conce
 
 **Recommended sequencing:** Complete Plan #5 (canonical registry) first so the audit runs against an authoritative list. Do not start generating language-specific character images until the registry tells us exactly which ones are needed — otherwise we risk generating images for concepts that will later be reclassified to tier 2 (shared) and can be served by the existing Spanish image anyway.
 
+---
+
+## Guiding Principle: Daniela Can Do Everything HoloHola Can Do
+
+**Established:** Session 65, April 2026
+
+Every HoloHola capability that can be expressed through language must be callable by Daniela from inside a tutoring session. This is not a feature request — it is the architectural contract that makes her a tutor rather than a chatbot.
+
+**What this means in practice:**
+- If HoloHola has a verb drill, Daniela can assign it verbally and record the result
+- If HoloHola has a cognate rule (e.g. -ción/-tion), Daniela can explain it and show the list on the whiteboard
+- If HoloHola has a vocabulary category, Daniela can call it up with `show_image()` or build a whiteboard
+- If HoloHola can close a session and write notes, Daniela can trigger that herself (`close_session()`)
+
+**Why this matters for visual assets:**
+Every image, every whiteboard component, every scene prop we create should be designed with the assumption that Daniela will invoke it mid-conversation. That means:
+- Alt text and concept labels must be machine-readable (Daniela passes `word` to `show_image()`)
+- Scene props must have stable key names (Daniela calls `add_to_scene(prop, position)`)
+- New image categories must be registered in the vocab image map so Daniela can call them
+
+**The test:** Before shipping any new HoloHola feature, ask: "Can Daniela use this from a conversation?" If the answer is no, the feature is incomplete.
+
+This principle was established after observing that drill assignment (Phase 1 of session-close architecture) required Daniela to have explicit visibility into `arisDrillAssignments` — a capability gap that was invisible until we looked for it. The `close_session()` function (Session 65) is the first example of a capability built specifically to give Daniela parity with the platform UI.
+

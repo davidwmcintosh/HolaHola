@@ -1,4 +1,5 @@
 import { sql, eq, and } from "drizzle-orm";
+import { tutorSessions, hiveSnapshots } from "@shared/schema";
 import { ExtractedFunctionCall } from "./gemini-streaming";
 import type { StreamingSession } from "./streaming-voice-orchestrator";
 import { getCharacter } from "./character-registry";
@@ -1786,6 +1787,94 @@ export class NativeFunctionCallHandler {
         break;
       }
       
+      case 'CLOSE_SESSION': {
+        if (session.isIncognito) {
+          console.log(`[Native Function→CloseSession] INCOGNITO - skipping persistence`);
+          break;
+        }
+        const writtenSummary = fn.args.written_summary as string | undefined;
+        const reminders = fn.args.reminders as string | undefined;
+        const assignedDrills = fn.args.assigned_drills as string | undefined;
+        const closeTutorNotes = fn.args.tutor_notes as string | undefined;
+
+        if (!writtenSummary) {
+          console.warn(`[Native Function→CloseSession] No written_summary provided — skipping`);
+          break;
+        }
+
+        const conversationId = session.conversationId;
+        const userId = session.userId ? String(session.userId) : null;
+        const language = session.targetLanguage || 'spanish';
+
+        // Build rich session summary (carries forward to next session's lastSessionSummary)
+        const richSummary = [
+          writtenSummary,
+          reminders ? `\nKey reminders: ${reminders}` : '',
+          assignedDrills ? `\nAssigned for next time: ${assignedDrills}` : '',
+        ].filter(Boolean).join('');
+
+        console.log(`[Native Function→CloseSession] Closing session for conversation ${String(conversationId || '').substring(0, 8)}... — userId ${userId?.substring(0, 8) || 'anon'}`);
+
+        const db = getSharedDb();
+
+        // 1) Update active tutor session with summary + notes
+        if (conversationId) {
+          db.update(tutorSessions)
+            .set({
+              status: 'completed',
+              endedAt: new Date(),
+              sessionSummary: richSummary,
+              tutorNotes: closeTutorNotes || null,
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(tutorSessions.conversationId, conversationId),
+                eq(tutorSessions.status, 'active')
+              )
+            )
+            .then(() => console.log(`[Native Function→CloseSession] ✓ Tutor session closed`))
+            .catch((err: Error) => console.error(`[Native Function→CloseSession] DB update error:`, err.message));
+        }
+
+        // 2) Write rich hiveSnapshot — carries drill assignments into greeting prompt next session
+        if (userId) {
+          db.insert(hiveSnapshots).values({
+            userId,
+            language,
+            snapshotType: 'session_summary',
+            title: `Session wrap-up — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+            importance: 7,
+            context: JSON.stringify({
+              type: 'session_close',
+              writtenSummary,
+              reminders: reminders || null,
+              assignedDrills: assignedDrills || null,
+              tutorNotes: closeTutorNotes || null,
+              conversationId: conversationId || null,
+              closedAt: new Date().toISOString(),
+            }),
+            content: richSummary,
+            createdAt: new Date(),
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          })
+          .then(() => console.log(`[Native Function→CloseSession] ✓ HiveSnapshot written (session_summary)`))
+          .catch((err: Error) => console.error(`[Native Function→CloseSession] Snapshot error:`, err.message));
+        }
+
+        // 3) Emit beacon for founder visibility
+        if (session.hiveChannelId) {
+          hiveCollaborationService.emitBeacon({
+            channelId: session.hiveChannelId,
+            tutorTurn: `[CLOSE_SESSION]\n${writtenSummary}${assignedDrills ? `\n\nAssigned: ${assignedDrills}` : ''}`,
+            beaconType: 'take_note' as BeaconType,
+            beaconReason: `Daniela closed the session`,
+          }).catch((err: Error) => console.error(`[Native Function→CloseSession] Beacon error:`, err.message));
+        }
+
+        break;
+      }
+
       case 'MILESTONE': {
         if (session.isIncognito) {
           console.log(`[Native Function→Milestone] INCOGNITO - skipping milestone persistence`);

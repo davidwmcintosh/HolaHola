@@ -2380,6 +2380,24 @@ prop_title must exactly match the prop's title as shown in the Studio panel (e.g
     },
   },
 
+  {
+    legacyType: 'CLOSE_SESSION',
+    declaration: {
+      name: "close_session",
+      description: "Wrap up the session and save everything in one move. Call this when the conversation is naturally winding down — after you have spoken your closing words. Writes the session summary to the student's hub, saves your private teaching notes for next time, and records any assigned practice. METADATA ONLY — speak your closing words naturally before calling this function.",
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          written_summary: { type: "string", description: "What was covered this session — written for the student's hub page. 2–4 sentences. Mention specific vocabulary, grammar points, or topics practised." },
+          reminders: { type: "string", description: "Key things for the student to remember before next session: grammar tips, vocabulary, common mistakes to avoid. Optional." },
+          assigned_drills: { type: "string", description: "Specific practice to do before next session: drills, exercises, or real-world practice tasks. Optional — omit if no assignment." },
+          tutor_notes: { type: "string", description: "Your private teaching notes for next session — what the student struggled with, what worked well, what to revisit. The student never sees this." },
+        },
+        required: ["written_summary"],
+      },
+    },
+  },
+
   // === CURRICULUM NAVIGATION ===
   {
     legacyType: 'BROWSE_SYLLABUS',

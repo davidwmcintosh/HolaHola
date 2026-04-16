@@ -244,6 +244,8 @@ import {
   conversations,
   arisDrillAssignments,
   arisDrillResults,
+  tutorSessions,
+  hiveSnapshots,
 } from "@shared/schema";
 
 /**
@@ -2546,7 +2548,7 @@ Remember: David may reference things discussed in these recent text chats.
             session.currentTurnFunctionCalls = [];
           }
           
-          const METADATA_ONLY_FC_NAMES = new Set(['voice_adjust', 'voice_reset', 'word_emphasis', 'subtitle', 'show_overlay', 'hide_overlay', 'hold_overlay', 'take_note', 'milestone']);
+          const METADATA_ONLY_FC_NAMES = new Set(['voice_adjust', 'voice_reset', 'word_emphasis', 'subtitle', 'show_overlay', 'hide_overlay', 'hold_overlay', 'take_note', 'milestone', 'close_session']);
           const allMetadataOnly = functionCalls.every(fc => METADATA_ONLY_FC_NAMES.has(fc.name));
           const hasTextArg = functionCalls.some(fc => fc.args?.text && String(fc.args.text).trim().length > 0);
           
@@ -2926,6 +2928,44 @@ Remember: David may reference things discussed in these recent text chats.
                     }).catch(err => {
                       console.error(`[CommandParser→TakeNote] Error:`, err.message);
                     });
+                  }
+                  break;
+                }
+                case 'CLOSE_SESSION': {
+                  if (session.isIncognito) {
+                    console.log(`[CommandParser→CloseSession] INCOGNITO - skipping`);
+                    break;
+                  }
+                  const csWrittenSummary = cmd.params.written_summary as string | undefined;
+                  const csReminders = cmd.params.reminders as string | undefined;
+                  const csAssignedDrills = cmd.params.assigned_drills as string | undefined;
+                  const csTutorNotes = cmd.params.tutor_notes as string | undefined;
+                  if (csWrittenSummary) {
+                    const csConversationId = session.conversationId;
+                    const csUserId = session.userId ? String(session.userId) : null;
+                    const csLang = session.targetLanguage || 'spanish';
+                    const csRichSummary = [
+                      csWrittenSummary,
+                      csReminders ? `\nKey reminders: ${csReminders}` : '',
+                      csAssignedDrills ? `\nAssigned for next time: ${csAssignedDrills}` : '',
+                    ].filter(Boolean).join('');
+                    console.log(`[CommandParser→CloseSession] Writing session close`);
+                    if (csConversationId) {
+                      getSharedDb().update(tutorSessions)
+                        .set({ status: 'completed', endedAt: new Date(), sessionSummary: csRichSummary, tutorNotes: csTutorNotes || null, updatedAt: new Date() })
+                        .where(and(eq(tutorSessions.conversationId, csConversationId), eq(tutorSessions.status, 'active')))
+                        .catch((err: Error) => console.error(`[CommandParser→CloseSession] DB error:`, err.message));
+                    }
+                    if (csUserId) {
+                      getSharedDb().insert(hiveSnapshots).values({
+                        userId: csUserId, language: csLang, snapshotType: 'session_summary',
+                        title: `Session wrap-up — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+                        importance: 7,
+                        context: JSON.stringify({ type: 'session_close', writtenSummary: csWrittenSummary, reminders: csReminders || null, assignedDrills: csAssignedDrills || null, closedAt: new Date().toISOString() }),
+                        content: csRichSummary, createdAt: new Date(),
+                        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                      }).catch((err: Error) => console.error(`[CommandParser→CloseSession] Snapshot error:`, err.message));
+                    }
                   }
                   break;
                 }
@@ -3776,7 +3816,7 @@ Remember: David may reference things discussed in these recent text chats.
       // This sends function results back to Gemini and gets actual spoken text
       // OPTIMIZATION: Exclude metadata-only functions from needing continuation
       // These are speech annotations, not actions requiring a response - they work in a single call
-      const METADATA_ONLY_FUNCTIONS = new Set(['VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS', 'SUBTITLE', 'SHOW', 'HIDE', 'HOLD', 'TAKE_NOTE', 'MILESTONE']);
+      const METADATA_ONLY_FUNCTIONS = new Set(['VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS', 'SUBTITLE', 'SHOW', 'HIDE', 'HOLD', 'TAKE_NOTE', 'MILESTONE', 'CLOSE_SESSION']);
       const functionsNeedingContinuation = functionCallsCopy.filter(
         fc => !METADATA_ONLY_FUNCTIONS.has(fc.legacyType || '')
       );
@@ -5290,7 +5330,7 @@ Remember: David may reference things discussed in these recent text chats.
             session.currentTurnFunctionCalls = [];
           }
           
-          const METADATA_ONLY_FC_NAMES = new Set(['voice_adjust', 'voice_reset', 'word_emphasis', 'subtitle', 'show_overlay', 'hide_overlay', 'hold_overlay', 'take_note', 'milestone']);
+          const METADATA_ONLY_FC_NAMES = new Set(['voice_adjust', 'voice_reset', 'word_emphasis', 'subtitle', 'show_overlay', 'hide_overlay', 'hold_overlay', 'take_note', 'milestone', 'close_session']);
           const allMetadataOnly = functionCalls.every(fc => METADATA_ONLY_FC_NAMES.has(fc.name));
           const hasTextArg = functionCalls.some(fc => fc.args?.text && String(fc.args.text).trim().length > 0);
           
@@ -5673,6 +5713,44 @@ Remember: David may reference things discussed in these recent text chats.
                   }).catch(err => {
                     console.error(`[CommandParser→TakeNote - OpenMic] Error:`, err.message);
                   });
+                }
+                break;
+              }
+              case 'CLOSE_SESSION': {
+                if (session.isIncognito) {
+                  console.log(`[CommandParser→CloseSession - OpenMic] INCOGNITO - skipping`);
+                  break;
+                }
+                const csomWrittenSummary = cmd.params.written_summary as string | undefined;
+                const csomReminders = cmd.params.reminders as string | undefined;
+                const csomAssignedDrills = cmd.params.assigned_drills as string | undefined;
+                const csomTutorNotes = cmd.params.tutor_notes as string | undefined;
+                if (csomWrittenSummary) {
+                  const csomConvId = session.conversationId;
+                  const csomUserId = session.userId ? String(session.userId) : null;
+                  const csomLang = session.targetLanguage || 'spanish';
+                  const csomRichSummary = [
+                    csomWrittenSummary,
+                    csomReminders ? `\nKey reminders: ${csomReminders}` : '',
+                    csomAssignedDrills ? `\nAssigned for next time: ${csomAssignedDrills}` : '',
+                  ].filter(Boolean).join('');
+                  console.log(`[CommandParser→CloseSession - OpenMic] Writing session close`);
+                  if (csomConvId) {
+                    getSharedDb().update(tutorSessions)
+                      .set({ status: 'completed', endedAt: new Date(), sessionSummary: csomRichSummary, tutorNotes: csomTutorNotes || null, updatedAt: new Date() })
+                      .where(and(eq(tutorSessions.conversationId, csomConvId), eq(tutorSessions.status, 'active')))
+                      .catch((err: Error) => console.error(`[CommandParser→CloseSession - OpenMic] DB error:`, err.message));
+                  }
+                  if (csomUserId) {
+                    getSharedDb().insert(hiveSnapshots).values({
+                      userId: csomUserId, language: csomLang, snapshotType: 'session_summary',
+                      title: `Session wrap-up — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+                      importance: 7,
+                      context: JSON.stringify({ type: 'session_close', writtenSummary: csomWrittenSummary, reminders: csomReminders || null, assignedDrills: csomAssignedDrills || null, closedAt: new Date().toISOString() }),
+                      content: csomRichSummary, createdAt: new Date(),
+                      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                    }).catch((err: Error) => console.error(`[CommandParser→CloseSession - OpenMic] Snapshot error:`, err.message));
+                  }
                 }
                 break;
               }
@@ -6189,7 +6267,7 @@ Remember: David may reference things discussed in these recent text chats.
       // If Gemini called functions but produced no text, continue the conversation
       // OPTIMIZATION: Exclude metadata-only functions from needing continuation
       // These are speech annotations, not actions requiring a response - they work in a single call
-      const METADATA_ONLY_FUNCTIONS_OPENMIC = new Set(['VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS', 'SUBTITLE', 'SHOW', 'HIDE', 'HOLD', 'TAKE_NOTE', 'MILESTONE']);
+      const METADATA_ONLY_FUNCTIONS_OPENMIC = new Set(['VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS', 'SUBTITLE', 'SHOW', 'HIDE', 'HOLD', 'TAKE_NOTE', 'MILESTONE', 'CLOSE_SESSION']);
       const functionsNeedingContinuationOpenMic = functionCallsCopyOpenMic.filter(
         fc => !METADATA_ONLY_FUNCTIONS_OPENMIC.has(fc.legacyType || '')
       );
