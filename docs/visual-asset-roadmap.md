@@ -2825,17 +2825,19 @@ The implication: **building more drill types is deprioritized.** The roadmap for
 
 ---
 
-### Open Architecture Questions
+### Open Architecture Questions (Narrowing as the Textbook Becomes Interactive)
 
-These need answers before implementation begins:
+**Key principle added S65:** *Observable behavior replaces inferred behavior.* This was the insight that narrows most of these questions.
 
-1. **How does Daniela know what page the student is on?** The most natural answer: the student navigates to a textbook page and that page emits a "context load" event that Daniela receives — similar to how `start_lesson()` works today but initiated from the page rather than from Daniela. The page is the trigger; Daniela is the responder.
+The harder version of the architecture problem is: "Daniela needs to know what the student has done between sessions — how do we track that?" The answer changes completely when the textbook is interactive. If the student pushes a button, we know they pushed the button. If they submitted audio, we know they submitted audio. Daniela doesn't need to ask "did you practice?" — the event log already answers it. The inference problem shrinks toward zero as the textbook becomes more interactive. **This is not a coincidence: it is the payoff of the interactive textbook architecture.**
+
+1. **How does Daniela know what page the student is on?** *(Closing rapidly)* In a passive textbook, this required a deliberate "context load" event. In an interactive textbook, the student's button presses and audio submissions already identify exactly which page and which element they were working on. The page doesn't need to announce itself — the interaction events are the location signal. When Daniela opens the next session, the event log tells her exactly where the student left off.
 
 2. **Does the student need to explicitly start a Daniela session, or does audio just turn on?** The cleanest UX: audio is persistent across the whole app. If the student has a voice session open, Daniela is aware of the current page at all times. The student navigates; Daniela follows.
 
-3. **How is mastery tracked at the page level?** Proposal: a `lessonPageMastery` record keyed to (userId, lessonId, pageId) with fields for `practiceCount`, `lastPracticed`, `masteryScore`. Daniela writes to this after each page session via a tool call (similar to `close_session()`).
+3. **How is mastery tracked at the page level?** *(Substantially answered by observable behavior)* Mastery is not a score we calculate from conversation signals — it is a direct count of observable interaction events. N successful audio submissions for a given page element = practiced. M sessions on that page over T days without errors = mastered. A `lessonPageEvents` log keyed to (userId, lessonId, elementId) replaces the need for a separate `lessonPageMastery` table — mastery is derived from the event log, not stored separately. Daniela reads this without needing to write to it.
 
-4. **What happens when the student navigates away mid-page?** Daniela acknowledges it ("we can pick up here next time") and the partial session state is preserved.
+4. **What happens when the student navigates away mid-page?** Daniela acknowledges it ("we can pick up here next time") and the partial session state is preserved. The event log already knows exactly how far they got.
 
 5. **Tangent queue retirement:** When does an item expire without Daniela explicitly closing it? Proposal: 14 days of no practice + no explicit close → auto-retire. Daniela surfaces "you have 3 items in your tangent queue from last week — want to run through them quickly?" at the next session open.
 
@@ -2846,6 +2848,7 @@ These need answers before implementation begins:
 | Date | Action | Status |
 |---|---|---|
 | Apr 16, 2026 (S65) | Interactive textbook architecture defined; decision that Daniela initiates and leads through every page; drill system scoped to tangent queue only | Documented |
+| Apr 16, 2026 (S65) | "Observable behavior replaces inferred behavior" principle added — interactive textbook event log answers what Daniela previously had to ask; Q1 and Q3 marked as closing; `lessonPageEvents` log proposed instead of a scored mastery table | Documented |
 
 ---
 
