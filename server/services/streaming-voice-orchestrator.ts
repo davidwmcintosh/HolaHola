@@ -242,6 +242,8 @@ import {
   neuralNetworkTelemetry,
   messages,
   conversations,
+  arisDrillAssignments,
+  arisDrillResults,
 } from "@shared/schema";
 
 /**
@@ -300,6 +302,91 @@ function validateTutorTransfer(
     allowed: false,
     reason: `Cross-language transfers are not yet available. To practice ${normalizedTarget}, please start a new ${normalizedTarget} conversation from the language hub.`
   };
+}
+
+/**
+ * Fetch recent drill assignment status for a student so Daniela can open each session
+ * knowing exactly what was assigned, whether it was done, and how it went.
+ *
+ * Returns a formatted string ready to inject into the session context block, or null
+ * if there are no recent drill assignments.
+ *
+ * Looks back 14 days for pending/active drills and 30 days for completed results.
+ * Daniela principle: she never asks "did you do the drill?" — she already knows.
+ */
+async function fetchRecentDrillStatus(userId: string): Promise<string | null> {
+  try {
+    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo  = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    // Fetch recent drill assignments (pending/active within 14 days, or any with a result)
+    const assignments = await db
+      .select()
+      .from(arisDrillAssignments)
+      .where(
+        and(
+          eq(arisDrillAssignments.userId, userId),
+        )
+      )
+      .orderBy(desc(arisDrillAssignments.assignedAt))
+      .limit(10);
+
+    if (!assignments.length) return null;
+
+    // Filter to recent-enough ones
+    const recent = assignments.filter(a =>
+      a.assignedAt && new Date(a.assignedAt) >= fourteenDaysAgo
+    );
+    if (!recent.length) return null;
+
+    // Fetch results for these assignments
+    const assignmentIds = recent.map(a => a.id);
+    const results = await db
+      .select()
+      .from(arisDrillResults)
+      .where(
+        and(
+          eq(arisDrillResults.userId, userId),
+        )
+      )
+      .orderBy(desc(arisDrillResults.createdAt))
+      .limit(20);
+
+    // Build a lookup: assignmentId → latest result
+    const resultByAssignment = new Map<string, typeof results[0]>();
+    for (const r of results) {
+      if (assignmentIds.includes(r.assignmentId) && !resultByAssignment.has(r.assignmentId)) {
+        resultByAssignment.set(r.assignmentId, r);
+      }
+    }
+
+    const lines: string[] = [];
+    for (const assignment of recent.slice(0, 5)) {
+      const focus = assignment.drillContent?.focusArea || assignment.drillType || 'practice';
+      const difficulty = assignment.drillContent?.difficulty || '';
+      const result = resultByAssignment.get(assignment.id);
+
+      if (result) {
+        const pct = Math.round(result.accuracyRate * 100);
+        const completion = Math.round(result.completionRate * 100);
+        const struggles = result.struggles?.length ? ` Struggles: ${result.struggles.slice(0, 2).join(', ')}.` : '';
+        const strengths = result.strengths?.length ? ` Strengths: ${result.strengths.slice(0, 1).join(', ')}.` : '';
+        lines.push(`- "${focus}" drill: COMPLETED (${pct}% accuracy, ${completion}% finished).${strengths}${struggles}`);
+      } else if (assignment.lifecycleState === 'active' || assignment.status === 'pending') {
+        const daysSince = Math.floor((Date.now() - new Date(assignment.assignedAt!).getTime()) / (1000 * 60 * 60 * 24));
+        const sinceStr = daysSince === 0 ? 'assigned today' : daysSince === 1 ? 'assigned yesterday' : `assigned ${daysSince} days ago`;
+        lines.push(`- "${focus}" drill: NOT YET ATTEMPTED (${sinceStr}${difficulty ? ', ' + difficulty : ''}).`);
+      } else if (assignment.lifecycleState === 'skipped') {
+        lines.push(`- "${focus}" drill: SKIPPED.`);
+      }
+    }
+
+    if (!lines.length) return null;
+    return lines.join('\n');
+  } catch (err) {
+    console.warn('[DrillStatus] Failed to fetch drill status:', err);
+    return null;
+  }
 }
 
 /**
@@ -7625,6 +7712,18 @@ Remember: David may reference things discussed in these recent text chats.
       }
       
       greetingTimings.totalDbQueries = Date.now() - timingStart;
+
+      // Fetch drill status so Daniela knows — without asking — what was assigned and whether it was done.
+      // "Daniela principle: she never asks 'did you do the drill?' — she already knows."
+      let recentDrillStatus: string | null = null;
+      try {
+        recentDrillStatus = await fetchRecentDrillStatus(String(session.userId));
+        if (recentDrillStatus) {
+          console.log(`[Streaming Greeting] Drill status loaded for context (${recentDrillStatus.split('\n').length} drills)`);
+        }
+      } catch (drillErr: any) {
+        console.log(`[Streaming Greeting] Could not fetch drill status: ${drillErr.message}`);
+      }
       
       // Build greeting prompt with full context
       // DEBUG: Log context being passed to greeting prompt
@@ -7643,6 +7742,7 @@ Remember: David may reference things discussed in these recent text chats.
         connectionsCount: connectionsAboutStudent.length,
         colleagueFeedbackCount: colleagueFeedback.length,
         todaysEarlierChatsCount: todaysEarlierChats.length,
+        hasDrillStatus: !!recentDrillStatus,
       });
       
       const promptBuildStart = Date.now();
@@ -7656,7 +7756,8 @@ Remember: David may reference things discussed in these recent text chats.
         isResumed,
         connectionsAboutStudent,
         colleagueFeedback,
-        todaysEarlierChats
+        todaysEarlierChats,
+        recentDrillStatus
       );
       
       // Inject scenario context if the student navigated here from the scenario browser
@@ -8204,7 +8305,8 @@ Remember: David may reference things discussed in these recent text chats.
     isResumed?: boolean,
     connectionsAboutStudent?: { mentioner: string; relationship: string; context: string }[],
     colleagueFeedback?: { agent: string; subject: string; summary: string }[],
-    todaysEarlierChats?: { role: string; content: string; language: string }[]
+    todaysEarlierChats?: { role: string; content: string; language: string }[],
+    recentDrillStatus?: string | null
   ): string {
     // RAW HONESTY MODE: Minimal prompting for authentic conversation exploration
     // Skip all the normal tutor context and let Daniela respond authentically
@@ -8258,6 +8360,16 @@ CRITICAL: Do NOT recite the date, time, or system context. Greet the student war
     if (session.lastSessionSummary) {
       contextParts.push(`\n*** LAST SESSION MEMORY ***`);
       contextParts.push(`${session.lastSessionSummary}`);
+    }
+
+    // DRILL STATUS — Daniela never asks "did you do the drill?" — she already knows.
+    // This surfaces what was assigned, whether the student attempted it, and how it went.
+    // Use this to open with: "I see you haven't tried the R drill yet — let's do it now."
+    // Or: "Nice work on the R drill — 72% accuracy. Let's push that higher today."
+    if (recentDrillStatus) {
+      contextParts.push(`\n*** ASSIGNED DRILLS STATUS ***`);
+      contextParts.push(`You can see your student's drill history. Use this to follow up naturally — never ask if they did the drill, you already know. If pending, offer to do it now. If completed, acknowledge the result and build on it.`);
+      contextParts.push(recentDrillStatus);
     }
     
     // TODAY'S EARLIER CHATS - What you talked about earlier today
