@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { synthesizeSpeech } from "@/lib/restVoiceApi";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -76,14 +77,17 @@ function getLangTag(language?: string): string {
   return LANG_TAGS[(language ?? "spanish").toLowerCase()] ?? "es-MX";
 }
 
-function speakText(text: string, langTag: string) {
-  if (!window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const utt = new SpeechSynthesisUtterance(text);
-  utt.lang = langTag;
-  utt.rate = 0.82;
-  window.speechSynthesis.speak(utt);
-}
+const LANG_TO_API: Record<string, string> = {
+  spanish: "spanish",
+  french: "french",
+  portuguese: "portuguese",
+  italian: "italian",
+  german: "german",
+  mandarin: "mandarin",
+  japanese: "japanese",
+  korean: "korean",
+  arabic: "arabic",
+};
 
 const POS_GRADIENTS: Record<string, string> = {
   noun: "from-blue-500/25 to-blue-600/10",
@@ -143,6 +147,7 @@ function VocabCard({
   step,
   langTag,
   imageUrl,
+  isTtsLoading,
   onListen,
   onStartSpeaking,
   onDoneSpeaking,
@@ -154,6 +159,7 @@ function VocabCard({
   step: VocabStep;
   langTag: string;
   imageUrl?: string;
+  isTtsLoading?: boolean;
   onListen: () => void;
   onStartSpeaking: () => void;
   onDoneSpeaking: () => void;
@@ -190,9 +196,13 @@ function VocabCard({
             variant="outline"
             className="w-full"
             onClick={onListen}
+            disabled={isTtsLoading}
             data-testid="button-sisl-listen"
           >
-            <Volume2 className="h-4 w-4 mr-2" />
+            {isTtsLoading
+              ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              : <Volume2 className="h-4 w-4 mr-2" />
+            }
             Listen
           </Button>
           <Button
@@ -275,6 +285,7 @@ function PhraseCard({
   total,
   step,
   langTag,
+  isTtsLoading,
   onListen,
   onStartSpeaking,
   onDoneSpeaking,
@@ -285,6 +296,7 @@ function PhraseCard({
   total: number;
   step: VocabStep;
   langTag: string;
+  isTtsLoading?: boolean;
   onListen: () => void;
   onStartSpeaking: () => void;
   onDoneSpeaking: () => void;
@@ -313,9 +325,13 @@ function PhraseCard({
             variant="outline"
             className="w-full"
             onClick={onListen}
+            disabled={isTtsLoading}
             data-testid={`button-phrase-listen-${index}`}
           >
-            <Volume2 className="h-4 w-4 mr-2" />
+            {isTtsLoading
+              ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              : <Volume2 className="h-4 w-4 mr-2" />
+            }
             Listen
           </Button>
           <Button
@@ -465,6 +481,42 @@ export function SeeItSayItLoop({
   const [phraseIndex, setPhraseIndex] = useState(0);
   const [phraseStep, setPhraseStep] = useState<VocabStep>("present");
   const [masteredIds, setMasteredIds] = useState<Set<number>>(new Set());
+  const [ttsLoading, setTtsLoading] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const speakWithTTS = useCallback(async (text: string) => {
+    if (ttsLoading) return;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setTtsLoading(true);
+    try {
+      const result = await synthesizeSpeech(text, language ?? "spanish");
+      const url = URL.createObjectURL(result.audioBlob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = () => { URL.revokeObjectURL(url); audioRef.current = null; };
+      audio.onerror = () => { URL.revokeObjectURL(url); audioRef.current = null; };
+      await audio.play();
+    } catch {
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+        const utt = new SpeechSynthesisUtterance(text);
+        utt.lang = langTag;
+        utt.rate = 0.82;
+        window.speechSynthesis.speak(utt);
+      }
+    } finally {
+      setTtsLoading(false);
+    }
+  }, [ttsLoading, language, langTag]);
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    };
+  }, []);
 
   const currentVocab = vocabList[vocabIndex];
   const currentPhrase = phrases[phraseIndex];
@@ -570,10 +622,11 @@ export function SeeItSayItLoop({
           item={currentVocab}
           step={vocabStep}
           langTag={langTag}
-          imageUrl={imageMap[currentVocab.word]}
+          imageUrl={imageMap[currentVocab.word]?.url}
+          isTtsLoading={ttsLoading}
           onListen={() => {
             const phrase = currentVocab.exampleSentences?.[0]?.target ?? currentVocab.word;
-            speakText(phrase, langTag);
+            speakWithTTS(phrase);
           }}
           onStartSpeaking={() => setVocabStep("speaking")}
           onDoneSpeaking={() => setVocabStep("eval")}
@@ -602,7 +655,8 @@ export function SeeItSayItLoop({
           total={phrases.length}
           step={phraseStep}
           langTag={langTag}
-          onListen={() => speakText(currentPhrase.phrase, langTag)}
+          isTtsLoading={ttsLoading}
+          onListen={() => speakWithTTS(currentPhrase.phrase)}
           onStartSpeaking={() => setPhraseStep("speaking")}
           onDoneSpeaking={() => setPhraseStep("eval")}
           onNext={advancePhrase}
