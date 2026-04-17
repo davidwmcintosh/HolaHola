@@ -31,6 +31,7 @@ The analysis documents below have been integrated inline as **Part I** of this r
 | **Part I.N** — GLOSS as a Reference Architecture *(inline below)* | GLOSS content taxonomy (4 competencies × 10 topics × 2 modalities); lesson format documented from downloaded package (bilingual dialogue + bilingual audio); licensing status (original text likely public domain; images/audio need individual evaluation); GLOSS as comprehensible input pipeline feeding HoloHola's output practice | Before designing content organization, competency tracking, or input/output session sequencing |
 | **Part I.O** — The DLI Campus: Physical Immersion Environments *(inline below)* | DLI physically builds restaurant, café, train station sets with native-speaker actors on Monterey campus; GLOSS digital tools are pre-work, campus does the immersion; HoloHola SceneCanvas is the digital equivalent; competitive positioning reframed from "quiz app" to "campus in your pocket" | Before designing scene environments, scenario conversations, or marketing copy |
 | **Part I.P** — The Affective Filter: Why Cold Immersion Fails Most Learners *(inline below)* | Krashen's Affective Filter Hypothesis; commitment/circumstance dichotomy (ambassador's kids vs. casual learners); Calibrated Immersion model — Spanish always the medium, English sometimes the scaffold; whiteboard as precision scaffolding surface; calibration spectrum Spanish 1 → Spanish 5; Daniela's gentle hand is not a concession but the product design decision that determines whether broader-market students reach Spanish 3 | Definitive statement of how Daniela modulates immersion intensity — read before designing any student-facing difficulty controls, scaffolding features, or Daniela behavior for beginner/anxious/child learners |
+| **Part I.Q** — Prompt Philosophy: Principles Over Scripts *(inline below)* | Daniela is built on internalized philosophy, not decision trees; if-then prompt failure mode documented (brittle, grows without bound, conflicts); right model: who she is + what she believes + what she knows + what she values; practical test for any prompt addition | Read before writing or modifying any Daniela system prompt content — this is the governing philosophy for all prompt design decisions |
 | `docs/curriculum-strategy.md` *(external)* | Overall platform philosophy, ACTFL level mapping, M1–M6 component definitions | Framing new chapter types |
 
 **Image generation style note:** HoloHola uses soft watercolor, not Madrigal's B&W line art — we are not trying to replicate her drawings. What Madrigal's illustrations teach us is how *minimal* you can get and still communicate a word unambiguously. Her drawings are a masterclass in stripping an image down to its single essential idea. That principle applies directly to our watercolor generation: when in doubt, simplify. One subject, one context, no clutter. Part I.D documents how she solves each concept type — use it as a simplicity reference, not a style guide.
@@ -3612,6 +3613,82 @@ None of these students will tolerate cold immersion. All of them can acquire lan
 | Apr 17, 2026 (S66) | Madrigal as confirmation: her books are not cold immersion — English explains, Spanish practices; same model as Daniela's calibrated approach | Documented |
 | Apr 17, 2026 (S66) | Market positioning: DLI serves pre-committed professionals; HoloHola serves everyone else; Daniela's gentle hand is what makes the broader market reachable | Documented |
 | Apr 17, 2026 (S66) | Two-kind English taxonomy documented: Instructional English (precision scaffold, sparing) vs. Emotional English (greetings, celebrations, "you got this" — freely available, not instruction); "the rule is not no English; the rule is no English-as-instruction except when necessary" | Documented |
+
+---
+
+# Part I.Q — Prompt Philosophy: Principles Over Scripts (S66, April 2026)
+
+*Source: Direct conclusion from the Calibrated Immersion model and the full body of pedagogical research in Parts I.A–I.P.*
+
+---
+
+## The Core Position
+
+All of the research and principles documented in Parts I.A through I.P — Madrigal's pedagogy, ACTFL levels, the compartment system, the cognate hierarchy, the affective filter, calibrated immersion, two-kind English — exist to give Daniela a coherent identity and a sound philosophy. They are not a rulebook. They are not a script.
+
+**The goal is a tutor who has internalized a philosophy, not a tutor who is following instructions.**
+
+A tutor following a script does what the script says, even when the moment calls for something different. A tutor who has internalized a philosophy reads the room, trusts her judgment, and responds to what is actually happening. The second tutor is better in every situation where the script didn't anticipate the moment — which is most situations.
+
+---
+
+## The Failure Mode: The If-Then Prompt
+
+The failure mode looks like this:
+
+> *"If the student makes 3 errors in a row, switch to English and explain the underlying rule. If the student hasn't practiced in 7 days, open with a review session. If the student asks about grammar, explain in English first, then demonstrate in Spanish. If the student seems frustrated, reduce difficulty by 1 level. After every 5 correct responses, give a congratulations message."*
+
+This is a decision tree. It is brittle. It fires on surface signals and misses context. It treats every frustrated student the same way, every 5-correct-response streak the same way. It cannot notice that *this particular student* needs a firm push more than a celebration right now, or that *this particular 3-error sequence* is productive struggle rather than distress.
+
+More importantly: a prompt built this way grows without bound. Every edge case discovered in testing generates another rule. The system becomes unmaintainable. The prompt becomes a bureaucracy. And Daniela becomes worse, not better, as it grows — because the rules start to conflict, and she can no longer reason about the right thing to do.
+
+---
+
+## The Right Model: Character and Judgment
+
+The right prompt gives Daniela:
+
+1. **Who she is** — a warm, skilled, patient Spanish tutor who genuinely cares whether her students succeed
+2. **What she believes** — immersion as the primary method; scaffolding as a precision tool; the relationship as the foundation that makes everything else work
+3. **What she knows** — the student's history, current level, recent patterns, open struggles
+4. **What she values** — confident imperfection over frozen perfectionism; progress over correctness; the student keeping going over the student getting it exactly right
+
+Given these four things, Daniela can decide what to do in any moment without being told. She doesn't need a rule for 3-errors-in-a-row because she already knows that her job is to keep the affective filter low while pushing the student forward, and she can read whether this particular sequence of errors calls for a gentle pivot or a warm challenge.
+
+---
+
+## What "Principles Over Scripts" Means in Practice
+
+| Scripted approach | Principled approach |
+|---|---|
+| "If frustrated, reduce difficulty" | Daniela knows the affective filter; she reads frustration and decides whether to ease, hold, or gently push based on this student, this moment |
+| "Congratulate every 5 correct answers" | Daniela celebrates genuinely when something deserves celebration; she doesn't fire a congratulations on a timer |
+| "Use English to explain grammar rules" | Daniela knows Instructional English is a precision tool; she reaches for it when the student genuinely needs it, not on a schedule |
+| "After 7 days of absence, open with review" | Daniela knows the student's history; she decides whether to review, restart, or just get back into it based on what she knows about this person |
+| "At level 1, use 20% English" | Daniela knows the calibration spectrum; she uses her judgment about this student's filter in this moment — not a percentage |
+
+---
+
+## The Implication for Prompt Writing
+
+The prompt that goes into Daniela is not a procedure manual. It is closer to a character brief — the kind of document an actor uses to inhabit a role. It describes who Daniela is, what she cares about, what she knows, and how she thinks. Then it trusts her to act.
+
+**Write less, trust more.** The more precisely we have defined the philosophy — and Parts I.A through I.P have done that work — the less we need to specify individual behaviors. Daniela has enough principle to reason her way to the right behavior in situations we never anticipated.
+
+The practical test for any proposed prompt addition:
+- *Is this teaching Daniela something about who she is or what she values?* → It belongs in the prompt.
+- *Is this telling Daniela what to do in a specific situation?* → It probably doesn't. Trust the philosophy instead.
+
+---
+
+### Session Log
+
+| Date | Action | Status |
+|---|---|---|
+| Apr 17, 2026 (S66) | Prompt philosophy documented: principles over scripts; character and judgment over decision trees | Documented |
+| Apr 17, 2026 (S66) | If-then failure mode documented: brittle, grows without bound, misses context, conflicts over time | Documented |
+| Apr 17, 2026 (S66) | Right model documented: who she is + what she believes + what she knows + what she values = sufficient for judgment in any unanticipated moment | Documented |
+| Apr 17, 2026 (S66) | Practical test for prompt additions: does it teach who she is (belongs) or tell her what to do in a specific situation (probably doesn't) | Documented |
 
 ---
 
