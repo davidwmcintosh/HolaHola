@@ -1875,6 +1875,103 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'RECORD_PATTERN_SIGNAL': {
+        if (session.isIncognito) {
+          console.log(`[Native Function→RecordPatternSignal] INCOGNITO - skipping`);
+          break;
+        }
+        const patternKey = fn.args.patternKey as string | undefined;
+        const eventType = fn.args.eventType as 'wobble' | 'stability' | 'derivation' | 'pounding' | undefined;
+        const verbContext = fn.args.verbContext as string | undefined;
+        const studentUtterance = fn.args.studentUtterance as string | undefined;
+        const patternNotes = fn.args.notes as string | undefined;
+
+        if (!patternKey || !eventType) {
+          console.warn(`[Native Function→RecordPatternSignal] Missing required args — patternKey="${patternKey}", eventType="${eventType}"`);
+          break;
+        }
+
+        const userId = session.userId ? String(session.userId) : null;
+        const language = session.targetLanguage || 'spanish';
+        const sessionId = session.conversationId || undefined;
+
+        if (!userId) {
+          console.warn(`[Native Function→RecordPatternSignal] No userId on session — skipping`);
+          break;
+        }
+
+        console.log(`[Native Function→RecordPatternSignal] ${eventType.toUpperCase()} — ${patternKey}${verbContext ? ` (verb: ${verbContext})` : ''}`);
+
+        // Fire and forget — don't block the conversation
+        (async () => {
+          try {
+            // 1) Log the raw event record
+            await storage.logCompartmentEvent({
+              userId,
+              language,
+              patternKey,
+              eventType,
+              verbContext: verbContext || null,
+              studentUtterance: studentUtterance || null,
+              sessionId: sessionId || null,
+              notes: patternNotes || null,
+            });
+
+            // 2) Fetch existing compartment (or null if first encounter)
+            const existing = await storage.getCompartment(userId, language, patternKey);
+
+            // 3) Compute status + counter updates based on event type
+            const now = new Date();
+            const statusMap: Record<typeof eventType, string> = {
+              pounding:   (existing?.status && existing.status !== 'unstarted') ? existing.status : 'pounding',
+              wobble:     'wobbling',
+              stability:  'stable',
+              derivation: 'generative',
+            };
+            const updates: Record<string, any> = {
+              status: statusMap[eventType],
+              lastDrilledAt: now,
+            };
+            if (eventType === 'pounding') {
+              updates.poundingCount = (existing?.poundingCount ?? 0) + 1;
+            } else if (eventType === 'wobble') {
+              updates.wobbleCount = (existing?.wobbleCount ?? 0) + 1;
+              updates.lastWobbledAt = now;
+            } else if (eventType === 'stability') {
+              updates.stabilizedAt = now;
+            } else if (eventType === 'derivation') {
+              updates.derivationCount = (existing?.derivationCount ?? 0) + 1;
+              updates.generativeAt = now;
+            }
+
+            // 4) Update existing or create first record
+            if (existing) {
+              await storage.updateCompartmentStatus(userId, language, patternKey, updates);
+              console.log(`[Native Function→RecordPatternSignal] ✓ Compartment updated — ${patternKey} → ${updates.status}`);
+            } else {
+              await storage.upsertCompartment({
+                userId,
+                language,
+                patternKey,
+                status: updates.status as any,
+                poundingCount:  updates.poundingCount  ?? 0,
+                wobbleCount:    updates.wobbleCount    ?? 0,
+                derivationCount: updates.derivationCount ?? 0,
+                lastWobbledAt:  updates.lastWobbledAt  ?? null,
+                stabilizedAt:   updates.stabilizedAt   ?? null,
+                generativeAt:   updates.generativeAt   ?? null,
+                lastDrilledAt:  now,
+              });
+              console.log(`[Native Function→RecordPatternSignal] ✓ New compartment created — ${patternKey} (${updates.status})`);
+            }
+          } catch (err: any) {
+            console.error(`[Native Function→RecordPatternSignal] Error:`, err.message);
+          }
+        })();
+
+        break;
+      }
+
       case 'MILESTONE': {
         if (session.isIncognito) {
           console.log(`[Native Function→Milestone] INCOGNITO - skipping milestone persistence`);
