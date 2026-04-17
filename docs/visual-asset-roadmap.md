@@ -29,6 +29,7 @@ The analysis documents below have been integrated inline as **Part I** of this r
 | **Part I.L** — The 20 Reminder Cards: Madrigal's Skeleton Key *(inline below)* | All 20 cards catalogued by type and lesson; two-type taxonomy (cognate pattern cards vs. substitution drill grids); Spanish 1 compartment sequence derived from card order; HoloHola design recommendations | Before designing Spanish 1 compartment sequence or the Cognate Key feature |
 | **Part I.M** — The Cognate Trap: Why Image Anchoring Is the Primary Pedagogy *(inline below)* | Three-tier cognate hierarchy (direct / pattern / false friends); why pattern cognates install L1-mediated memory traces that are counterproductive for production fluency; image anchoring as the universally applicable primary pedagogy; what Daniela must never do; what Magic Key contributes beyond cognates | Definitive statement of HoloHola's vocabulary learning philosophy — read before designing any new vocabulary feature |
 | **Part I.N** — GLOSS as a Reference Architecture *(inline below)* | GLOSS content taxonomy (4 competencies × 10 topics × 2 modalities); lesson format documented from downloaded package (bilingual dialogue + bilingual audio); licensing status (original text likely public domain; images/audio need individual evaluation); GLOSS as comprehensible input pipeline feeding HoloHola's output practice | Before designing content organization, competency tracking, or input/output session sequencing |
+| **Part I.O** — The DLI Campus: Physical Immersion Environments *(inline below)* | DLI physically builds restaurant, café, train station sets with native-speaker actors on Monterey campus; GLOSS digital tools are pre-work, campus does the immersion; HoloHola SceneCanvas is the digital equivalent; competitive positioning reframed from "quiz app" to "campus in your pocket" | Before designing scene environments, scenario conversations, or marketing copy |
 | `docs/curriculum-strategy.md` *(external)* | Overall platform philosophy, ACTFL level mapping, M1–M6 component definitions | Framing new chapter types |
 
 **Image generation style note:** HoloHola uses soft watercolor, not Madrigal's B&W line art — we are not trying to replicate her drawings. What Madrigal's illustrations teach us is how *minimal* you can get and still communicate a word unambiguously. Her drawings are a masterclass in stripping an image down to its single essential idea. That principle applies directly to our watercolor generation: when in doubt, simplify. One subject, one context, no clutter. Part I.D documents how she solves each concept type — use it as a simplicity reference, not a style guide.
@@ -3354,6 +3355,85 @@ All of that is Daniela.
 | Apr 17, 2026 (S66) | ODA (Online Diagnostic Assessment, oda.dliflc.edu) noted as separate DLI proficiency assessment tool, distinct from GLOSS and DLAB | Documented |
 | Apr 17, 2026 (S66) | Six-principle alignment table documented: Context, Immersion, Natural language, Ear training, Real-world language, Real-world scenarios — GLOSS and HoloHola built on identical philosophy | Documented |
 | Apr 17, 2026 (S66) | Business opportunity documented: GLOSS = spectacular content, clunky 2000s-era technology; HoloHola = same philosophy + Daniela (adaptive, voice, memory, real-time); "what the DLI would build if they started GLOSS from scratch today" | Documented |
+
+---
+
+# Part I.O — The DLI Campus: Physical Immersion Environments
+
+## Why GLOSS's Technology Was Never a Problem (For Them)
+
+The DLI can operate GLOSS on 2000s-era technology without it being a failure — because GLOSS was never meant to carry the immersive load. The campus carries that load.
+
+The DLI physically builds real-world environments on their Monterey campus for exactly this purpose. Documented examples include:
+
+- A **restaurant** — students are seated, menus are in the target language, staff are native-speaker actors
+- A **café** — casual conversation, ordering, small talk
+- A **train station** — ticketing, directions, time pressure, unfamiliar vocabulary under stress
+
+Students walk into these spaces and are immersed completely. The actors do not slow down. They do not translate. They do not break character. The student must function in the environment using only the language they have.
+
+This is the DLI's actual delivery mechanism for spoken immersion. GLOSS handles pre-work — vocabulary, reading, listening comprehension, written output. The campus handles the moment a human being has to open their mouth in a real situation and produce language without a script.
+
+GLOSS doesn't need to be interactive because the campus is interactive. The campus doesn't need to scale because it serves a fixed enrollment. Each half of the system is designed to rely on the other.
+
+---
+
+## The HoloHola Parallel: Digital Immersion Environments
+
+HoloHola's `SceneCanvas` was designed before this DLI campus parallel was articulated — and it maps to it exactly.
+
+| DLI Physical Campus | HoloHola SceneCanvas |
+|---|---|
+| Restaurant set with native-speaker actors | Restaurant scene with Daniela as host/server |
+| Café set | Café scene |
+| Train station set | Train station scene |
+| Market stall | Market / shopping scene |
+| Native-speaker actors who do not break character | Daniela, who speaks only Spanish and does not translate |
+| Student must produce language to advance | Student must speak to continue the conversation |
+| Real objects, menus, signs in the target language | Visual props, labels, environmental text in Spanish |
+| Fixed enrollment — campus can't scale | One phone, anywhere in the world |
+
+The DLI gets away with clunky digital tools because physical sets exist. HoloHola provides the physical sets digitally, to anyone.
+
+---
+
+## What This Changes About HoloHola's Positioning
+
+The standard competitive framing is: HoloHola vs. Duolingo/Babbel/Rosetta Stone. But this is the wrong comparison.
+
+The correct comparison is: **HoloHola vs. an institution that physically builds restaurants and train stations for language training.**
+
+The DLI does something that no app has ever done — not because they had better software, but because they had buildings, actors, and a residential campus. The spoken immersion experience they provide is the gold standard not because of their digital tools but because of the physical simulation they run alongside them.
+
+HoloHola is the first attempt to replicate that physical simulation experience in software. Not a quiz app. Not a flashcard app. Not a grammar explainer. A simulation — of a place, a situation, a conversation partner who doesn't speak your language.
+
+| What the DLI Builds | What HoloHola Builds |
+|---|---|
+| Physical environments (sets, props, actors) | Digital environments (scenes, props, Daniela) |
+| Enrolled students (military/government) | Any learner, anywhere |
+| Fixed locations, fixed hours | Phone, any time, any place |
+| Actor performance | AI that adapts, remembers, and pushes back |
+| No memory between sessions | Persistent learner model (compartments, milestones) |
+
+---
+
+## The Sentence That Captures It
+
+The DLI's immersion method is the most effective proven approach to language acquisition in the United States. It requires a residential campus, a physical production budget, and a waiting list.
+
+**HoloHola puts that campus in your pocket.**
+
+---
+
+### Session Log
+
+| Date | Action | Status |
+|---|---|---|
+| Apr 17, 2026 (S66) | DLI physical campus environments documented: restaurant, café, train station — native-speaker actors, full immersion, no translation | Documented |
+| Apr 17, 2026 (S66) | Reason GLOSS digital tools don't need to be cutting-edge documented: campus carries the immersion load; GLOSS is pre-work | Documented |
+| Apr 17, 2026 (S66) | HoloHola SceneCanvas mapped to DLI physical sets (parallel table): same environments, same no-translation constraint, digital vs. physical delivery | Documented |
+| Apr 17, 2026 (S66) | Competitive positioning reframed: HoloHola vs. residential campus immersion (DLI standard), not vs. quiz apps | Documented |
+| Apr 17, 2026 (S66) | Core positioning statement: "The DLI's immersion method is the most effective proven approach to language acquisition in the US. It requires a residential campus. HoloHola puts that campus in your pocket." | Documented |
 
 ---
 
