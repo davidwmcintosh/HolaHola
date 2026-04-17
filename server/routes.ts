@@ -11116,6 +11116,56 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Resolve vocabulary images from textbook_lesson_content.vocabulary_list
+  // Returns { images: { [word]: { url: string; source: string } } }
+  app.get('/api/textbook-content/:lessonId/vocab-images', isAuthenticated, async (req: any, res) => {
+    try {
+      const { lessonId } = req.params;
+      const { language } = req.query as { language?: string };
+      if (!language) return res.status(400).json({ error: 'language query param required' });
+
+      const { getUserDb } = await import('./db');
+      const { sql: drizzleSql } = await import('drizzle-orm');
+      const db = getUserDb();
+      const row = await db.execute(
+        drizzleSql`SELECT vocabulary_list FROM textbook_lesson_content WHERE lesson_id = ${lessonId} LIMIT 1`
+      );
+      if (row.rows.length === 0) return res.json({ images: {} });
+
+      const vocabList = (row.rows[0].vocabulary_list ?? []) as Array<{ word: string; translation?: string }>;
+      if (vocabList.length === 0) return res.json({ images: {} });
+
+      const { resolveVocabularyImage } = await import('./services/vocabulary-image-resolver');
+      const images: Record<string, { url: string; source: string }> = {};
+      const concurrency = 3;
+
+      for (let i = 0; i < vocabList.length; i += concurrency) {
+        const batch = vocabList.slice(i, i + concurrency);
+        const results = await Promise.all(
+          batch.map(async (item) => {
+            try {
+              const result = await resolveVocabularyImage({
+                word: item.word,
+                language,
+                description: item.translation ?? item.word,
+              });
+              return { word: item.word, url: result.imageUrl, source: result.source };
+            } catch {
+              return { word: item.word, url: null, source: 'error' };
+            }
+          })
+        );
+        for (const r of results) {
+          if (r.url) images[r.word] = { url: r.url, source: r.source };
+        }
+      }
+
+      res.json({ images });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Trigger seed job for a curriculum path (admin only)
 
   // ── Curriculum Enrichment Routes ──────────────────────────────────────────

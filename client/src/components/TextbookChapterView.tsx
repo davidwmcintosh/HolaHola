@@ -19,11 +19,13 @@ import {
   BookMarked,
   Loader2,
   Library,
+  Eye,
 } from "lucide-react";
 import { VisualVocabGrid } from "./TextbookInfographics";
 import { ChapterRecap } from "./ChapterRecap";
 import { ChapterIntroduction, classifyGrammarType, GrammarChapterView, ConversationStripsSection } from "./ChapterIntroduction";
 import { RhythmDrill } from "./RhythmDrill";
+import { SeeItSayItLoop } from "./SeeItSayItLoop";
 import { apiRequest } from "@/lib/queryClient";
 
 interface DrillItem {
@@ -274,6 +276,7 @@ function CompactLessonCard({
   const hasMarkedReadRef = useRef(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const [showRhythmDrill, setShowRhythmDrill] = useState(false);
+  const [showSeeItSayIt, setShowSeeItSayIt] = useState(false);
   const [contentExpanded, setContentExpanded] = useState(autoExpand ?? false);
   const queryClient = useQueryClient();
 
@@ -313,6 +316,9 @@ function CompactLessonCard({
     section.hasDrills &&
     section.drills &&
     section.drills.length > 0;
+
+  const isSeeItSayItEligible =
+    section.lessonType === 'vocabulary' || section.lessonType === 'drill';
 
   const rhythmItems = (section.drills ?? []).map(d => ({
     id: d.id,
@@ -391,16 +397,19 @@ function CompactLessonCard({
           </button>
           {/* Action buttons — sibling to expand toggle, not nested */}
           <div className="flex items-center gap-2 shrink-0">
-            {isRhythmEligible && !contentExpanded && (
+            {isSeeItSayItEligible && !contentExpanded && (
               <Button
-                variant="outline"
+                variant={showSeeItSayIt ? "default" : "outline"}
                 size="sm"
                 className="h-8"
-                onClick={() => setShowRhythmDrill(prev => !prev)}
-                data-testid={`button-rhythm-drill-${section.id}`}
+                onClick={() => {
+                  setShowSeeItSayIt(prev => !prev);
+                  setShowRhythmDrill(false);
+                }}
+                data-testid={`button-see-it-say-it-${section.id}`}
               >
-                <Music2 className="h-3.5 w-3.5 mr-1" />
-                Practice
+                <Eye className="h-3.5 w-3.5 mr-1" />
+                See It, Say It
               </Button>
             )}
             <button
@@ -416,18 +425,14 @@ function CompactLessonCard({
           </div>
         </div>
 
-        {/* Rhythm drill (shown outside expanded state) */}
-        {showRhythmDrill && isRhythmEligible && rhythmItems.length > 0 && !contentExpanded && (
-          <div className="border-t px-4 pb-4 pt-3" data-testid={`rhythm-drill-panel-${section.id}`}>
-            <RhythmDrill
-              title={section.name}
-              description="Listen to each item, then say it aloud when the mic appears."
-              items={rhythmItems}
+        {/* See It, Say It panel (primary vocabulary loop) */}
+        {showSeeItSayIt && isSeeItSayItEligible && !contentExpanded && (
+          <div className="border-t px-4 pb-4 pt-3" data-testid={`sisl-panel-${section.id}`}>
+            <SeeItSayItLoop
+              lessonId={section.id}
               language={language}
-              onComplete={(results) => {
-                const correct = results.filter(r => r.correct).length;
-                if (correct / results.length >= 0.7) setShowRhythmDrill(false);
-              }}
+              lessonName={section.name}
+              onComplete={() => setShowSeeItSayIt(false)}
             />
           </div>
         )}
@@ -440,35 +445,68 @@ function CompactLessonCard({
               lessonName={section.name}
               language={language ?? "spanish"}
             />
-            {isRhythmEligible && rhythmItems.length > 0 && (
-              <div className="mt-4 pt-4 border-t">
+            {isSeeItSayItEligible && (
+              <div className="mt-4 pt-4 border-t space-y-2">
                 <Button
-                  variant={showRhythmDrill ? "default" : "outline"}
+                  variant={showSeeItSayIt ? "default" : "outline"}
                   size="sm"
                   className="w-full"
-                  onClick={() => setShowRhythmDrill(prev => !prev)}
-                  data-testid={`button-rhythm-expanded-${section.id}`}
+                  onClick={() => {
+                    setShowSeeItSayIt(prev => !prev);
+                    setShowRhythmDrill(false);
+                  }}
+                  data-testid={`button-sisl-expanded-${section.id}`}
                 >
-                  <Music2 className="h-3.5 w-3.5 mr-2" />
-                  Rhythm Practice
-                  {showRhythmDrill
+                  <Eye className="h-3.5 w-3.5 mr-2" />
+                  See It, Say It
+                  {showSeeItSayIt
                     ? <ChevronUp className="h-3.5 w-3.5 ml-2" />
                     : <ChevronDown className="h-3.5 w-3.5 ml-2" />
                   }
                 </Button>
-                {showRhythmDrill && (
-                  <div className="mt-3" data-testid={`rhythm-drill-expanded-${section.id}`}>
-                    <RhythmDrill
-                      title={section.name}
-                      description="Listen to each item, then say it aloud when the mic appears."
-                      items={rhythmItems}
+                {showSeeItSayIt && (
+                  <div className="mt-2" data-testid={`sisl-expanded-${section.id}`}>
+                    <SeeItSayItLoop
+                      lessonId={section.id}
                       language={language}
-                      onComplete={(results) => {
-                        const correct = results.filter(r => r.correct).length;
-                        if (correct / results.length >= 0.7) setShowRhythmDrill(false);
-                      }}
+                      lessonName={section.name}
                     />
                   </div>
+                )}
+                {isRhythmEligible && rhythmItems.length > 0 && (
+                  <>
+                    <Button
+                      variant={showRhythmDrill ? "secondary" : "ghost"}
+                      size="sm"
+                      className="w-full text-muted-foreground"
+                      onClick={() => {
+                        setShowRhythmDrill(prev => !prev);
+                        setShowSeeItSayIt(false);
+                      }}
+                      data-testid={`button-rhythm-expanded-${section.id}`}
+                    >
+                      <Music2 className="h-3.5 w-3.5 mr-2" />
+                      Quick Review
+                      {showRhythmDrill
+                        ? <ChevronUp className="h-3.5 w-3.5 ml-2" />
+                        : <ChevronDown className="h-3.5 w-3.5 ml-2" />
+                      }
+                    </Button>
+                    {showRhythmDrill && (
+                      <div className="mt-2" data-testid={`rhythm-drill-expanded-${section.id}`}>
+                        <RhythmDrill
+                          title={section.name}
+                          description="Listen to each item, then say it aloud when the mic appears."
+                          items={rhythmItems}
+                          language={language}
+                          onComplete={(results) => {
+                            const correct = results.filter(r => r.correct).length;
+                            if (correct / results.length >= 0.7) setShowRhythmDrill(false);
+                          }}
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
