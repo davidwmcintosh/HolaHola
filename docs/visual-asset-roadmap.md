@@ -3065,11 +3065,17 @@ But even for English speakers, the hack has an expiration date. It is most usefu
 
 ### Contextual Inference: The Skill That Actually Matters
 
-The Defense Language Institute — which trains military linguists to professional-grade fluency in some of the world's hardest languages — uses an aptitude test called GLOSS before admitting students to any language program. One of the test's core components evaluates how a candidate responds to a language they have never seen before: Can they infer anything about the grammar? The word order? The meaning of a word from its surroundings?
+The Defense Language Institute Foreign Language Center (DLIFLC) trains military linguists to professional-grade fluency in some of the world's hardest languages. Before enrolling any student in a language program, they administer the **DLAB — Defense Language Aptitude Battery** — a test that evaluates a candidate's ability to infer grammatical structure and meaning from a completely invented language they have never encountered. The test is not measuring vocabulary, not measuring prior language exposure, not measuring English grammar knowledge. It measures raw pattern-inference ability: given a system you know nothing about, what can you extract?
 
 Their finding: **the ability to infer from context is the single strongest predictor of language acquisition ability.**
 
-This has a direct implication for the cognate debate. A skilled reader who encounters "ambulancia" in a Spanish newspaper article about an emergency is not running a pattern-matching rule. They are doing something more fundamental: gathering context, forming a hypothesis, confirming or updating it. That process works in any language, for any learner background. It is the same process the DLI tests for.
+The DLIFLC also maintains **GLOSS — Global Language Online Support System** ([gloss.dliflc.edu](https://gloss.dliflc.edu)), a publicly accessible library of authentic language content in 40+ languages including Arabic, Mandarin, Korean, Dari, Pashto, Farsi, and many others. GLOSS is built around real-world materials — news clips, authentic documents, real scenarios — organized by level, topic, modality, and competence. Two things about GLOSS are directly relevant to the cognate debate:
+
+1. **The language list is itself an argument against cognate-based pedagogy.** DLI's priority languages — Arabic, Mandarin, Dari, Pashto, Korean — have essentially zero English cognate overlap. The entire GLOSS content architecture works without cognates, because it has to. The lesson model is built around context-rich authentic material, not pattern rules.
+
+2. **GLOSS teaches through immersion in context, not through translation shortcuts.** This is consistent with the DLAB's core finding: the student who can extract meaning from unfamiliar context is the student who acquires language fastest.
+
+This has a direct implication for the cognate debate. A skilled reader who encounters "ambulancia" in a Spanish newspaper article about a car accident is not running a pattern-matching rule. They are doing something more fundamental: gathering context, forming a hypothesis, confirming or updating it. That process works whether you speak English, Korean, or Arabic. It is the same process the DLAB tests for.
 
 Pattern cognates, at their best, produce the same output as contextual inference — a reasonable guess at the word's meaning — but through a mechanically different route. The pattern-cognate route:
 - Requires knowing English well enough to recognize the root
@@ -3081,7 +3087,7 @@ The contextual inference route:
 - Works in any language pair
 - Works for any learner background
 - Strengthens with practice — it is a generalizable metacognitive skill
-- Is what the DLI identifies as the fundamental differentiator between fast and slow learners
+- Is what the DLAB identifies as the fundamental differentiator between fast and slow learners
 
 **The pattern cognate rules are not a reading comprehension strategy. They are a substitute for a reading comprehension strategy — and an inferior one.**
 
@@ -3145,7 +3151,8 @@ The parts that do not carry forward:
 |---|---|---|
 | Apr 17, 2026 (S66) | Three-tier cognate hierarchy established: direct cognates (free vocabulary, no L1 mediation) vs. pattern cognates (shortcut substituting for contextual inference) vs. image anchoring (primary pedagogy, universally applicable) | Documented |
 | Apr 17, 2026 (S66) | Pattern cognates re-evaluated: not a valid reading-comprehension strategy either — contextual inference produces the same output through a more portable and generalizeable route | Documented |
-| Apr 17, 2026 (S66) | DLI GLOSS aptitude test documented: contextual inference is the #1 predictor of language acquisition ability; pattern rule reliance is a shortcut that atrophies this skill | Documented |
+| Apr 17, 2026 (S66) | DLAB (Defense Language Aptitude Battery) documented as DLI's pre-enrollment aptitude test — measures raw contextual inference ability on an invented language; contextual inference is the #1 predictor of language acquisition ability; pattern rule reliance is a shortcut that atrophies this skill | Documented |
+| Apr 17, 2026 (S66) | GLOSS (Global Language Online Support System, gloss.dliflc.edu) clarified: it is a 40+ language authentic-content lesson library, not an aptitude test; its language portfolio (Arabic, Mandarin, Dari, Pashto, Korean) is itself an argument against cognate-based pedagogy — DLI's system must work without cognates because most of its target languages have no English overlap | Documented |
 | Apr 17, 2026 (S66) | Revised HoloHola pedagogy hierarchy: image anchoring primary; direct cognates as bonus awareness; pattern cognates stripped entirely from teaching method — Daniela models contextual inference instead | Documented |
 | Apr 17, 2026 (S66) | Daniela reading instruction implication: when student encounters unfamiliar word, Daniela asks "what do you think it means from context?" — never "does it look like an English word?" | Documented |
 | Apr 17, 2026 (S66) | Magic Key's lasting contribution scoped: substitution drill format and grammar sequence carry forward; pattern cognate rules as teaching method do not | Documented |
