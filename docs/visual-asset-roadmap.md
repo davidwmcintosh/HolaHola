@@ -27,6 +27,7 @@ The analysis documents below have been integrated inline as **Part I** of this r
 | **Part I.J** — STT Architecture: Turn-End Problem *(inline below)* | The turn-end detection challenge, current approach, roadmap for improvement | Before making any STT pipeline changes |
 | **Part I.K** — Interactive Textbook Architecture *(inline below)* | Daniela leads every page; drill system scoped to tangent queue only; observable behavior replaces inferred behavior; Daniela as Fluency Judge | Before implementing any new textbook or drill feature |
 | **Part I.L** — The 20 Reminder Cards: Madrigal's Skeleton Key *(inline below)* | All 20 cards catalogued by type and lesson; two-type taxonomy (cognate pattern cards vs. substitution drill grids); Spanish 1 compartment sequence derived from card order; HoloHola design recommendations | Before designing Spanish 1 compartment sequence or the Cognate Key feature |
+| **Part I.M** — The Cognate Trap: Why Image Anchoring Is the Primary Pedagogy *(inline below)* | Three-tier cognate hierarchy (direct / pattern / false friends); why pattern cognates install L1-mediated memory traces that are counterproductive for production fluency; image anchoring as the universally applicable primary pedagogy; what Daniela must never do; what Magic Key contributes beyond cognates | Definitive statement of HoloHola's vocabulary learning philosophy — read before designing any new vocabulary feature |
 | `docs/curriculum-strategy.md` *(external)* | Overall platform philosophy, ACTFL level mapping, M1–M6 component definitions | Framing new chapter types |
 
 **Image generation style note:** HoloHola uses soft watercolor, not Madrigal's B&W line art — we are not trying to replicate her drawings. What Madrigal's illustrations teach us is how *minimal* you can get and still communicate a word unambiguously. Her drawings are a masterclass in stripping an image down to its single essential idea. That principle applies directly to our watercolor generation: when in doubt, simplify. One subject, one context, no clutter. Part I.D documents how she solves each concept type — use it as a simplicity reference, not a style guide.
@@ -3007,6 +3008,117 @@ Notably, the cards contain no correction instruction — no right/wrong marks, n
 | Apr 17, 2026 (S66) | Two-type taxonomy established: cognate pattern cards (1–2) vs. substitution drill grids (3–20) | Documented |
 | Apr 17, 2026 (S66) | Spanish 1 compartment map derived from card sequence — 18 compartments, in Madrigal's intended order | Documented |
 | Apr 17, 2026 (S66) | Recommendation: Cards 1–2 → permanent Cognate Key feature; Cards 3–20 → Spanish 1 compartment sequence for Daniela's pounding drills | Documented |
+
+---
+
+## Part I.M — The Cognate Trap: Why Image Anchoring Is the Primary Pedagogy (S66, April 2026)
+
+*Emerged from: final comparison between Magic Key to Spanish and See It and Say It in Spanish — what the two books actually do differently at the cognitive level.*
+
+---
+
+### The Core Distinction
+
+The two Madrigal books are organized around fundamentally different central ideas:
+
+- **Magic Key to Spanish** — organized around **cognates**. The central mechanic is recognizing an English word, applying a spelling rule, and arriving at a Spanish word. The student's native language is always in the chain.
+- **See It and Say It in Spanish** — organized around **images**. The central mechanic is seeing a picture and associating it directly with a Spanish word. No native language involved.
+
+This is not a minor formatting difference. It is a different theory of how vocabulary should be learned.
+
+---
+
+### The Three-Tier Cognate Hierarchy
+
+Cognates are not all the same, and conflating them obscures the real problem:
+
+**Tier 1 — Direct cognates** (actor/actor, doctor/doctor, animal/animal)
+
+These are genuinely free vocabulary. The Spanish word is identical or near-identical to the English word. When a student hears "el doctor," there is no transformation step — they just recognize it. The concept is already in their vocabulary; Spanish attaches to it directly. This is useful, costs nothing, and does not create L1-mediated memory traces.
+
+**Tier 2 — Pattern cognates** (ambulance/ambulancia, conversation/conversación, delicious/delicioso)
+
+These require a multi-step operation:
+1. Encounter the Spanish word
+2. Recognize the English pattern root
+3. Apply the transformation rule
+4. Arrive at the English word
+5. Know what that means
+
+This is a **decoding operation**, not a vocabulary acquisition event. The student is practicing the rule, not learning the Spanish word. Critically, they are installing a memory trace that permanently routes through English: every future access to "conversación" goes through "conversation → apply TION rule." That is not fluency. That is a lookup table.
+
+**Tier 3 — False friends** (embarazada/embarrassed, sensible/sensato)
+
+The flip side of pattern cognates — the same routing mechanism, but it misfires. Not directly relevant here, but illustrates why L1 routing is a risk, not just an inconvenience.
+
+---
+
+### The Portability Problem Compounds the Cognitive Problem
+
+Pattern cognates are an English-speaker's hack. A Korean speaker, an Arabic speaker, a Mandarin speaker — they get nothing from the TION→CIÓN rule. The hack is not portable across learner backgrounds.
+
+But even for English speakers, the hack has an expiration date. It is most useful at the very beginning, when the student has no Spanish vocabulary at all and needs to feel like they know something. As the student advances, the L1 routing it installs becomes a liability. Fluent speakers do not think "conversation → conversación" — they just think "conversación." The rule-based shortcut has to be unlearned, or more precisely, overwritten by direct access. The image-based approach builds direct access from lesson one and never has to be unlearned.
+
+---
+
+### What Image Anchoring Does Differently
+
+When a student sees a picture of a flower and hears "flor," the connection being formed is:
+
+**visual concept of flower → flor**
+
+There is no English word "flower" in that chain. The student who grew up in Seoul, Jakarta, or Cairo has the same concept of a flower as the student who grew up in Chicago. The image is universal. The Spanish label attaches to the concept, not to an English translation.
+
+This is the same kind of vocabulary representation that a native Spanish-speaking child builds. They do not know "flower" first. They know the concept, and they know "flor." That direct concept-to-word link is the architecture of fluent thinking. It cannot be achieved through pattern cognates. It can be achieved through image anchoring from the start.
+
+See It and Say It's pedagogical organization — every new concept introduced through an image — is not stylistic. It is a commitment to building the right long-term cognitive architecture.
+
+---
+
+### The Refined Hierarchy for HoloHola
+
+| Category | Value | How HoloHola Uses It |
+|---|---|---|
+| **Direct cognates** | Genuinely free vocabulary — concept already known, Spanish attaches directly | Daniela surfaces these as "bonus awareness" — "you already know this one" — without making them a teaching method |
+| **Pattern cognates (Madrigal's 8 rules)** | Useful as a reading-comprehension decoder for English speakers; not a vocabulary learning strategy | Available as a reference tool for English-speaking students; never presented as the primary way to learn a word; Daniela does not teach vocabulary through pattern rules |
+| **Image anchoring** | Builds direct concept-to-Spanish links; universally applicable; creates the same cognitive architecture as native acquisition | The primary vocabulary teaching method across all learner backgrounds and all languages HoloHola teaches |
+
+---
+
+### Implication for Daniela's Teaching Style
+
+Daniela should never teach a word by prompting the student to recall its English equivalent. She teaches from the concept — which is what the image already establishes.
+
+- **Wrong**: "Conversación is like 'conversation' in English — just change the ending."
+- **Right**: Daniela points to the image, or describes the scene, and names it in Spanish. If the student recognizes the word from English, that's fine — she doesn't need to suppress it. But she doesn't use it as the teaching anchor.
+
+The distinction matters most in production (speaking and writing). In reading comprehension, an English speaker who recognizes "conversación" as a pattern cognate of "conversation" has done something useful. But in production — trying to say or write a word — the pattern-cognate route requires an awkward reverse journey: think of the English word, apply the rule in reverse, produce the Spanish. Fluent speakers do not do this. They just produce the word. The image-anchored student gets to that direct production faster because they never installed the indirect route.
+
+---
+
+### A Note on Magic Key's Lasting Contribution
+
+Dismissing the pattern cognates does not dismiss Magic Key to Spanish. The book's lasting contribution to HoloHola is its **substitution drill format** — the 3-column sentence generator on each reminder card (Cards 3–20). That format has nothing to do with cognates. It is a grammar pounding tool that works regardless of the student's native language and builds precisely the kind of pattern internalization that See It and Say It's phrase-first approach also promotes.
+
+The parts of Magic Key that matter for HoloHola:
+- The substitution drill grid format → Daniela's pounding architecture
+- The direct cognates scattered through the vocabulary → surfaced by Daniela as bonuses
+- The grammar sequence (preterite before present, near future early, irregular verbs last) → the Spanish 1 compartment order
+
+The parts that do not carry forward:
+- The pattern cognate rules as a teaching method
+- Any exercise or instruction that routes through the student's native language
+
+---
+
+### Session Log
+
+| Date | Action | Status |
+|---|---|---|
+| Apr 17, 2026 (S66) | Three-tier cognate hierarchy established: direct cognates (free vocabulary, no L1 mediation) vs. pattern cognates (reading decoder, not a production strategy) vs. image anchoring (primary pedagogy, universally applicable) | Documented |
+| Apr 17, 2026 (S66) | Revised HoloHola pedagogy hierarchy: image anchoring primary; direct cognates as bonus awareness; pattern cognates stripped from teaching method but available as reference | Documented |
+| Apr 17, 2026 (S66) | Daniela teaching style implication: never teach a word by invoking its English root; teach from the concept, which the image already establishes | Documented |
+| Apr 17, 2026 (S66) | Magic Key's lasting contribution scoped: substitution drill format and grammar sequence carry forward; pattern cognate rules as teaching method do not | Documented |
 
 ---
 
