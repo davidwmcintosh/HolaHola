@@ -3230,19 +3230,44 @@ The lesson text is a natural conversation between two named women — Karina and
 
 The vocabulary this lesson teaches (through context, not list): apartamento, casa, cuartos, recámara, sala, cocina, comedor, cuarto de huéspedes — plus furniture (cama, almohadas, escritorio, sofá-cama, muebles) and descriptive adjectives (pequeña, grande, cómoda, colorida, eficiente, abierta). This maps exactly to the housing/furniture chapter in Madrigal's See It and Say It.
 
-**The lesson is passive input only.** The student reads and listens. No production required. This is consistent with GLOSS's modality scope (Listening + Reading only) and with comprehensible input theory: you absorb the vocabulary and structure through exposure, then practice production elsewhere.
+The text lesson (dialogue format) is primarily receptive. But video-based GLOSS lessons follow a richer 5-activity model.
 
 ---
 
-### Input vs. Output: GLOSS and HoloHola Are Complementary, Not Competing
+### The GLOSS 5-Activity Scaffolded Structure (Video Lessons)
 
-GLOSS provides **comprehensible input** — curated, authentic, level-appropriate reading and listening material. The student absorbs language through exposure without the pressure of production.
+The lesson viewer for a video-based GLOSS lesson ("Pronósticos desde Santiago" — Weather Forecasts from Santiago, Environment topic) reveals a more complete pedagogical architecture than the downloadable ZIP suggests:
 
-HoloHola provides **guided output practice** — Daniela drives production through conversation, drills, and real-time feedback. The student must retrieve and use language under the gentle pressure of a real interaction.
+| Activity | Description | Modality |
+|---|---|---|
+| **1. Vocabulary** | Develop vocabulary related to the topic | Receptive |
+| **2. First forecast** | Apply new vocabulary to discern essential information from the first video | Receptive |
+| **3. Three forecasts** | Provide key information from three separate video forecasts | Processing |
+| **4. Transcription** | Review key words by completing a partial transcription | Processing |
+| **5. Production** | Apply knowledge of vocabulary and structure by *creating a weather forecast* | **Productive** |
+| **Quiz** | Comprehension and vocabulary check | Receptive |
 
-These are not competing approaches. They are the two halves of a complete language acquisition cycle, as established by Krashen's input hypothesis and later refined by Merrill Swain's output hypothesis: you need both comprehensible input (to acquire the forms) and pushed output (to notice gaps and develop fluency).
+This is a classic Input → Processing → Output (I-P-O) instructional design. Activities 1–2 provide comprehensible input. Activities 3–4 require the student to process and extract information. Activity 5 demands production: the student creates their own output using the vocabulary and structures encountered in the video.
 
-**The strategic implication:** GLOSS content could serve directly as the input pipeline that feeds HoloHola sessions. A student reads or listens to a GLOSS dialogue on "where do you live" — then Daniela picks up the conversation: "Now let me ask you the same questions Karina asked Margarita." The GLOSS lesson primes the vocabulary; Daniela drives the production. The gap between input and output closes in a single session.
+**Correction to earlier characterization:** GLOSS is not purely passive input. At least for video-based lessons, it scaffolds all the way to written production. What it does *not* do is spoken conversation practice — Activity 5 ("create a weather forecast") is a writing or structured composition task, not a live interaction. Spoken, spontaneous, adaptive output practice remains Daniela's exclusive territory.
+
+The Flickr/Jose Hernandez credit on the lesson image confirms directly that lesson cover photos are third-party copyrighted — consistent with DLIFLC's stated policy.
+
+---
+
+### Input, Processing, Output: GLOSS and HoloHola Across the Full Cycle
+
+The full language acquisition cycle requires three stages:
+
+| Stage | GLOSS Role | HoloHola Role |
+|---|---|---|
+| **Comprehensible Input** | Primary — authentic video/audio/text at level | Supplementary — Daniela narrates, describes, tells stories |
+| **Processing** | Primary — transcription, information extraction, structured tasks | Supplementary — pattern signals, compartment pounding |
+| **Spoken Output** | Absent — GLOSS has no speaking tasks | **Primary** — Daniela drives spoken conversation, real-time feedback |
+
+GLOSS covers Input and Processing comprehensively for reading and listening. HoloHola's unique contribution is the spoken output stage — the adaptive, live, judgment-capable human-equivalent interaction that no static lesson system can replicate. These systems are not competing. A student who completes the GLOSS weather forecast lesson and then has a Daniela session where she asks "what's the weather like where you are this week, tell me like a weather reporter" — that student has run the full I-P-O cycle in one session.
+
+**The strategic implication:** GLOSS content is a natural input pipeline feeding HoloHola sessions. A student reads/watches the GLOSS lesson on "where do you live" → Daniela picks up the conversation: "Now tell me about *your* home, the same way Margarita described hers." The GLOSS lesson primes vocabulary and structure; Daniela drives the production. The gap between input and output closes in a single session flow.
 
 ---
 
@@ -3287,7 +3312,10 @@ GLOSS does not attempt to drive production. This is a gap, and it is HoloHola's 
 | Apr 17, 2026 (S66) | GLOSS lesson format documented: bilingual dialogue (named characters), .docx + .pdf + .mp3 + alt .mp3, passive input only | Documented |
 | Apr 17, 2026 (S66) | GLOSS competency taxonomy (Lexical, Structural, Discourse, Sociocultural) and topic taxonomy (10 domains) documented | Documented |
 | Apr 17, 2026 (S66) | Licensing status: original text likely public domain (17 U.S.C. § 105); images and audio require individual evaluation | Documented |
-| Apr 17, 2026 (S66) | Strategic positioning: GLOSS = comprehensible input; HoloHola = guided output practice; complementary not competing; GLOSS dialogues as source material proposal | Documented |
+| Apr 17, 2026 (S66) | GLOSS 5-activity video lesson structure documented from "Pronósticos desde Santiago" (sp_env215): Vocabulary → First forecast → Three forecasts → Partial transcription → Create own forecast; I-P-O model confirmed; GLOSS reaches written production at Activity 5 but has no spoken output | Documented |
+| Apr 17, 2026 (S66) | Earlier "passive input only" characterization corrected: GLOSS video lessons scaffold to written production; spoken spontaneous output remains HoloHola's exclusive territory | Documented |
+| Apr 17, 2026 (S66) | Flickr/Jose Hernandez image credit visible on lesson viewer confirms third-party image copyright directly; validates licensing concern documented above | Documented |
+| Apr 17, 2026 (S66) | Strategic positioning refined: GLOSS covers Input + Processing; HoloHola covers Spoken Output; three-stage table (Comprehensible Input / Processing / Spoken Output) documents the complementary roles | Documented |
 | Apr 17, 2026 (S66) | ODA (Online Diagnostic Assessment, oda.dliflc.edu) noted as separate DLI proficiency assessment tool, distinct from GLOSS and DLAB | Documented |
 
 ---
