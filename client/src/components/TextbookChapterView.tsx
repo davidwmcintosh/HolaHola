@@ -536,6 +536,12 @@ export function TextbookChapterView({
   const totalDrillCount = chapter.sections.reduce((acc, s) => acc + (s.drillCount || 0), 0);
   const firstDrillSectionId = chapter.sections.find(s => s.hasDrills && s.drillCount > 0)?.id;
 
+  // Chapter-level See It, Say It — uses first vocab/drill section
+  const firstSislSection = chapter.sections.find(
+    s => s.lessonType === 'vocabulary' || s.lessonType === 'drill'
+  );
+  const [showChapterSisl, setShowChapterSisl] = useState(false);
+
   return (
     <div className="space-y-6 w-full max-w-4xl mx-auto pb-12 touch-pan-y overscroll-contain">
 
@@ -625,8 +631,29 @@ export function TextbookChapterView({
           ));
       })()}
 
-      {/* ── Primary CTA: Start Chat ── */}
+      {/* ── Primary CTA: Start Chat + See It Say It ── */}
       <div className="space-y-2" data-testid="chapter-cta-section">
+        {firstSislSection && (
+          <Button
+            variant={showChapterSisl ? "default" : "outline"}
+            className="w-full min-h-[52px] text-base gap-2"
+            onClick={() => setShowChapterSisl(prev => !prev)}
+            data-testid="button-chapter-see-it-say-it"
+          >
+            <Eye className="h-5 w-5" />
+            {showChapterSisl ? "Close" : "See It, Say It — vocabulary practice"}
+          </Button>
+        )}
+        {showChapterSisl && firstSislSection && (
+          <div className="rounded-lg border bg-card p-4" data-testid="sisl-chapter-panel">
+            <SeeItSayItLoop
+              lessonId={firstSislSection.id}
+              language={language}
+              lessonName={firstSislSection.name}
+              onComplete={() => setShowChapterSisl(false)}
+            />
+          </div>
+        )}
         <Button
           className="w-full min-h-[52px] text-base gap-2"
           onClick={onStartConversation}
