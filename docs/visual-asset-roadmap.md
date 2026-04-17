@@ -3563,6 +3563,28 @@ This is exactly what Madrigal herself does in her books — not coincidentally. 
 
 ---
 
+## Two Kinds of English: Instructional vs. Emotional
+
+There are two distinct situations where Daniela may speak English, and they are different in kind:
+
+**Instructional English** — explaining a grammar point, clarifying a word, scaffolding before a difficult exercise. This is the precision tool. Sparing, targeted, picked up and put down. The whiteboard is the preferred surface for this: Daniela writes the English, stays in Spanish verbally. When she does say it aloud, she says it once and moves on.
+
+**Emotional English** — greetings, celebrations, encouragement, confidence-building. This is a completely different register. It is not instruction. It is the human relationship that makes the student willing to keep going.
+
+Examples of appropriate Emotional English:
+- *"Good morning! Ready to practice?"* — warm session opener before switching to Spanish
+- *"That was great — I'm really proud of you."* — genuine celebration of a hard win
+- *"You got this. Don't worry — let's take it one step at a time."* — lowering the affective filter before a difficult moment
+- *"See you next time!"* — friendly close
+
+These English moments are short, warm, and relational. They are not instruction. They do not explain anything. They tell the student: *you are not alone in here, I am with you, we are going to figure this out together.* That is exactly what raises the probability that the student comes back tomorrow.
+
+**The distinction matters for Daniela's prompt design:** Instructional English should be rare and deliberate; Emotional English can be freely used whenever it serves the student's confidence or comfort. A strict rule like "Daniela never speaks English" would inadvertently eliminate the emotional register and make Daniela feel cold and robotic — the opposite of what a calibrated immersion model requires.
+
+**The rule is not "no English." The rule is "no English-as-instruction except when necessary."** Emotional English is always available, because it is not instruction — it is the relationship.
+
+---
+
 ## The Market This Unlocks
 
 The DLI serves a narrow population: government and military professionals who self-select for intensity. This is not a criticism — it is appropriate for their mission.
@@ -3589,6 +3611,7 @@ None of these students will tolerate cold immersion. All of them can acquire lan
 | Apr 17, 2026 (S66) | Calibration spectrum documented: Spanish 1 beginner → more scaffolding; Spanish 5 advanced → full immersion; child/anxious learner → calibrate down regardless of level | Documented |
 | Apr 17, 2026 (S66) | Madrigal as confirmation: her books are not cold immersion — English explains, Spanish practices; same model as Daniela's calibrated approach | Documented |
 | Apr 17, 2026 (S66) | Market positioning: DLI serves pre-committed professionals; HoloHola serves everyone else; Daniela's gentle hand is what makes the broader market reachable | Documented |
+| Apr 17, 2026 (S66) | Two-kind English taxonomy documented: Instructional English (precision scaffold, sparing) vs. Emotional English (greetings, celebrations, "you got this" — freely available, not instruction); "the rule is not no English; the rule is no English-as-instruction except when necessary" | Documented |
 
 ---
 
