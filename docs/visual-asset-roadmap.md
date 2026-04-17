@@ -20,6 +20,13 @@ The analysis documents below have been integrated inline as **Part I** of this r
 | **Part I.C** — Gap Audit: HoloHola vs. Madrigal *(inline below)* | Chapter-by-chapter overlap analysis, current coverage score (~30%), and prioritized gap-fill queue for existing and new chapters | Before deciding which new chapters or vocabQA items to seed next |
 | **Part I.D** — How Madrigal Illustrates Each Concept *(inline below)* | 10 image templates, per-category drawing specs, prompt guidelines, and the Question Fit Test | Brief for every new VocabQA image batch |
 | **Part I.E** — Actual Image Quality Audit *(inline below)* | First-party visual inspection of all ~243 HoloHola vocab images across 20 categories — graded A/B/C/D/F against the Question Fit Test; 7 F-grade images flagged for immediate regen with prompts; 3 D-grade and 23 C-grade images queued; 10 cross-cutting failure modes documented; library is ~82% A/B | Before regenerating any image; the ground-truth quality record |
+| **Part I.F** — Magic Key to Spanish: Full Audit *(inline below)* | Full lesson map of Magic Key to Spanish — cognate categories, verb introduction sequence, practice format analysis, design implications | Companion to I.B; use together when planning curriculum sequence |
+| **Part I.G** — Two-Book Synthesis *(inline below)* | What HoloHola must become when both books are fully integrated — the unified pedagogy that emerges from See It and Say It + Magic Key | Before scoping new curriculum phases |
+| **Part I.H** — Technology Watch: Gemini 2.5 TTS *(inline below)* | Multi-speaker TTS capabilities, dialogue rendering analysis, HoloHola implications | Before planning voice/audio architecture changes |
+| **Part I.I** — Strategic Position *(inline below)* | HoloHola as the reference implementation for multi-speaker TTS in education | For positioning and competitive differentiation |
+| **Part I.J** — STT Architecture: Turn-End Problem *(inline below)* | The turn-end detection challenge, current approach, roadmap for improvement | Before making any STT pipeline changes |
+| **Part I.K** — Interactive Textbook Architecture *(inline below)* | Daniela leads every page; drill system scoped to tangent queue only; observable behavior replaces inferred behavior; Daniela as Fluency Judge | Before implementing any new textbook or drill feature |
+| **Part I.L** — The 20 Reminder Cards: Madrigal's Skeleton Key *(inline below)* | All 20 cards catalogued by type and lesson; two-type taxonomy (cognate pattern cards vs. substitution drill grids); Spanish 1 compartment sequence derived from card order; HoloHola design recommendations | Before designing Spanish 1 compartment sequence or the Cognate Key feature |
 | `docs/curriculum-strategy.md` *(external)* | Overall platform philosophy, ACTFL level mapping, M1–M6 component definitions | Framing new chapter types |
 
 **Image generation style note:** HoloHola uses soft watercolor, not Madrigal's B&W line art — we are not trying to replicate her drawings. What Madrigal's illustrations teach us is how *minimal* you can get and still communicate a word unambiguously. Her drawings are a masterclass in stripping an image down to its single essential idea. That principle applies directly to our watercolor generation: when in doubt, simplify. One subject, one context, no clutter. Part I.D documents how she solves each concept type — use it as a simplicity reference, not a style guide.
@@ -2877,6 +2884,129 @@ The combination of these three streams — pattern signals, milestone observatio
 | Apr 16, 2026 (S65) | Interactive textbook architecture defined; decision that Daniela initiates and leads through every page; drill system scoped to tangent queue only | Documented |
 | Apr 16, 2026 (S65) | "Observable behavior replaces inferred behavior" principle added — interactive textbook event log answers what Daniela previously had to ask; Q1 and Q3 marked as closing; `lessonPageEvents` log proposed instead of a scored mastery table | Documented |
 | Apr 16, 2026 (S65) | "Daniela as Fluency Judge" section added — confident imperfection as the target behavior; three signal streams (pattern signals, milestone observations, ACTFL alignment) coalesce into a real fluency metric that no drill system can replicate | Documented |
+
+---
+
+## Part I.L — The 20 Reminder Cards: Madrigal's Skeleton Key (S66, April 2026)
+
+*Source: Scanned pages from Magic Key to Spanish, all 20 Reminder Cards extracted and catalogued.*
+
+---
+
+### Why These Cards Matter
+
+Across 400+ pages of Magic Key to Spanish, Madrigal places exactly 20 reminder cards — one every 15–20 pages on average. The scarcity is intentional and meaningful. Madrigal only breaks her narrative flow to say "copy this onto a card" when the content meets two criteria simultaneously: *it is too important to read once and forget* and *it is portable enough to fit on an index card*.
+
+**These cards are not supplementary material. They are the skeleton of the curriculum.**
+
+They fall into exactly two types, and the types serve completely different functions:
+
+---
+
+### Type 1 — Cognate Pattern Cards (Cards 1–2)
+
+These appear only at the very start of the book. They contain Madrigal's "magic key" — the ~8 spelling transformation rules that unlock thousands of free Spanish words with no memorization required.
+
+| Card | Lesson | Patterns |
+|---|---|---|
+| **Card 1** | 1 | OR → identical (el doctor, el actor) · AL → identical (el animal, personal) · BLE → identical (el cable, probable) · IC → ICO (el Atlántico, eléctrico) · ENT/ANT → ENTE/ANTE (el presidente, excelente, el restaurante, importante) |
+| **Card 2** | 2 | IST → ISTA (el dentista, el pianista) · OUS → OSO (delicioso, famoso) · TION/SION → CIÓN/SIÓN (la invitación, la conversación, la nación, la acción, la discusión) |
+
+Madrigal says: *"Throughout your study of Spanish carry these cards as reminders. Glance at them once in a while and you will progress twice as fast as you would without them."*
+
+These cards are not lesson-specific. She wants students to carry them the entire time they are learning Spanish. They are intended as **permanent companions**, not one-time reading.
+
+---
+
+### Type 2 — Substitution Drill Grids (Cards 3–20)
+
+Every remaining card follows the same format: a 3-column table that functions as a **sentence generator**, not a memorization aid.
+
+| Column 1 | Column 2 | Column 3 |
+|---|---|---|
+| Grammatical frame (pronoun + conjugated verb) | Object vocabulary | Time / Place adverbials |
+| ¿Tomó usted? / No tomé / Tomé | café, la cena, sopa, una aspirina... | esta mañana, esta tarde, anoche, en el club... |
+
+Three columns × 5–6 items each = 75–100+ valid, real Spanish sentences from one card. The student is not memorizing sentences — they are internalizing the **grammatical frame** while the vocabulary rotates freely. This is the exact mechanical model of compartment pounding.
+
+One new card appears each time Madrigal introduces a new conjugation form. The full sequence:
+
+| Card | Lesson | Grammar Structure | Verb(s) Introduced |
+|---|---|---|---|
+| **Card 3** | 4 | Preterite yo/usted | tomar |
+| **Card 4** | 5 | Preterite yo/usted | invitar |
+| **Card 5** | 7 | Preterite yo/usted | hablar |
+| **Card 6** | 9 | Present estar (location + condition) | estar (¿Dónde está? / ¿Cómo está?) |
+| **Card 7** | 10 | Preterite yo/usted with question words | comprar (¿Qué? / ¿Dónde? / ¿Cuándo?) |
+| **Card 8** | 11 | Near future ir a + infinitive (yo/usted) | ir a + comprar, visitar, estudiar... |
+| **Card 9** | 12 | Near future all persons (yo/usted/nosotros/ellos) | ir a (expanded) |
+| **Card 10** | 14 | Preterite yo/usted — ER/IR verbs | recibir, escribir |
+| **Card 11** | 15 | Preterite yo/usted + near future | ver |
+| **Card 12** | 16 | Preterite yo/usted + near future | leer |
+| **Card 13** | 18 | Preterite plural (ustedes/nosotros/ellos) | comprar, recibir |
+| **Card 14** | 21 | Present progressive all persons | -ando/-iendo (Estoy/Está/Estamos/Están) |
+| **Card 15** | 22 | Present tense yo/usted — AR verbs | hablar, trabajar, estudiar |
+| **Card 16** | 23 | Present tense yo/usted — ER/IR verbs | vivir, escribir |
+| **Card 17** | 25 | Irregular preterite — tener/estar | tuve/tuvo, estuve/estuvo |
+| **Card 18** | 26 | Irregular preterite — hacer/venir | hice/hizo, vine/vino |
+| **Card 19** | 27 | Irregular preterite — ir (all persons) | fui/fue/fuimos/fueron + a (place or activity) |
+| **Card 20** | 27+ | Present perfect all persons | he/ha/hemos/han + past participle (AR → -ado, ER/IR → -ido) |
+
+---
+
+### What the Card Sequence Tells Us
+
+The order of cards 3–20 is the **definitive Spanish 1 grammar sequence** in Madrigal's pedagogy:
+
+1. Preterite arrives first (lessons 4–7), well before present tense (lessons 22–23). This is deliberate — students can have real past-tense conversations before they've formally studied the present. Madrigal teaches what is *immediately useful*, not what is *logically prior*.
+
+2. The preterite is introduced through regular AR verbs, then expanded to ER/IR, then to question words, then to plural forms, then finally to irregular verbs — four separate cards across twenty lessons. She never overloads a single lesson with the full paradigm.
+
+3. Near future (ir a + infinitive) is introduced immediately after the first preterite verbs, because past + near future gives students an almost complete ability to describe their lives. Two tenses, portable, functional.
+
+4. Present tense appears in lessons 22–23 — after preterite and progressive are already established. This is counterintuitive by traditional textbook standards and almost certainly right.
+
+5. Present perfect comes last (lesson 27+), after all other structures are stable.
+
+---
+
+### What This Means for HoloHola
+
+**Cards 1–2: Build the Cognate Key as a permanent feature**
+
+These are not onboarding content. They are permanent companions that students should be able to access at any time. HoloHola should surface these the moment a student starts Spanish — not as a one-time slideshow, but as a reference they can pull up mid-conversation. Daniela can reference them: *"Remember the TION rule — if it ends in -tion in English, try -ción in Spanish."*
+
+Future feature: students add their own words to each category. Madrigal explicitly instructs this: *"Try to make up your own words in each category aside from those listed."* A live, growing, student-owned cognate list is the natural digital extension of this.
+
+**Cards 3–20: The Spanish 1 compartment map**
+
+Each Type 2 card marks exactly one compartment introduction. The card sequence is the compartment sequence. The 18 cards (3–20) map to 18 distinct grammar compartments for Spanish 1:
+
+- Each card's grammatical frame = the compartment pattern key (e.g., `yo-AR-preterite`)
+- Each card's object column = the pounding vocabulary for that compartment
+- The lesson number = when Daniela should introduce this compartment (not before)
+- The card format (3 columns) = the template for Daniela's substitution drill
+
+The implication: Daniela does not need to invent drill content for Spanish 1. Madrigal already wrote it. The 18 substitution grids, translated into Daniela's pounding format, are the Spanish 1 drill curriculum.
+
+**The substitution grid is Daniela's drill format, exactly**
+
+The card format — frame + object + time/place — is structurally identical to what Daniela does when she pounds a compartment. She picks a verb frame, rotates the object, changes the time or place, listens for the ending. This is not coincidental: Madrigal invented the optimal format for this kind of oral drill, and Daniela is the natural successor.
+
+**Correction timing principle (reaffirmed by the cards)**
+
+Notably, the cards contain no correction instruction — no right/wrong marks, no expected answers. Students are instructed to glance at the card, generate sentences, and move on. This reinforces the principle that Madrigal's method is production-based, not verification-based. Daniela's correction should follow the same rule: she does not interrupt fluent production to verify accuracy. She corrects at natural pauses or during deliberate teaching moments — never mid-utterance.
+
+---
+
+### Session Log
+
+| Date | Action | Status |
+|---|---|---|
+| Apr 17, 2026 (S66) | All 20 reminder cards extracted and catalogued from Magic Key to Spanish scans | Documented |
+| Apr 17, 2026 (S66) | Two-type taxonomy established: cognate pattern cards (1–2) vs. substitution drill grids (3–20) | Documented |
+| Apr 17, 2026 (S66) | Spanish 1 compartment map derived from card sequence — 18 compartments, in Madrigal's intended order | Documented |
+| Apr 17, 2026 (S66) | Recommendation: Cards 1–2 → permanent Cognate Key feature; Cards 3–20 → Spanish 1 compartment sequence for Daniela's pounding drills | Documented |
 
 ---
 
