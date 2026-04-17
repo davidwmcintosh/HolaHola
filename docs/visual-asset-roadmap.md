@@ -2843,12 +2843,40 @@ The harder version of the architecture problem is: "Daniela needs to know what t
 
 ---
 
+### Daniela as Fluency Judge: The Metric That Matters Most
+
+The interactive textbook produces two kinds of data:
+
+- **Mechanical data** — the event log. Did they practice? How many times? Which elements? This is objective and cheap to collect.
+- **Fluency data** — Daniela's judgment. Are they *communicating*? Is their confidence growing? Are they reaching for the language even when unsure of the grammar?
+
+These are not interchangeable. A student who practiced every phrase on page 7 five times may still freeze when asked a spontaneous question. A student who got every conjugation wrong in a drill may be speaking naturally and confidently in conversation. **The event log tells you what the student did. Daniela tells you who they're becoming.**
+
+**The target behavior: confident imperfection.** Fluency is not error-free speech. It is the willingness and ability to communicate even when you're not certain you're grammatically correct. A student who confidently says *"Ayer yo fue al mercado"* (wrong preterite) is demonstrating more real-world fluency than a student who freezes trying to recall the correct form. Daniela recognizes this. A grammar quiz does not.
+
+**How Daniela's judgment accumulates into a real metric:**
+
+Three distinct signal streams coalesce over time:
+
+1. **Real-time pattern signals** — `record_pattern_signal()` captures grammatical observations as they happen: wobble (consistent error on a pattern), stability (pattern is solidifying), derivation (student is applying a rule to new words), pounding (student has clearly internalized it). These are micro-signals logged by Daniela mid-conversation, not from a quiz.
+
+2. **Session-level milestone observations** — `milestone()` captures breakthrough moments: first spontaneous use of the subjunctive, first time a student maintained conversation for 5 minutes without reverting to English, first confident use of a tense they previously avoided. These are qualitative and cannot be scored by an event log.
+
+3. **ACTFL-aligned holistic assessment** — Daniela's gestalt read across sessions maps to real proficiency standards. "This student is moving from Novice-High to Intermediate-Low" is a judgment that requires listening across many interactions and noticing the *absence* of hesitation, not just the presence of correct forms. Daniela can make this call. No drill system can.
+
+The combination of these three streams — pattern signals, milestone observations, ACTFL alignment — is richer than any test-based system. More importantly, it is the kind of assessment a skilled human tutor naturally produces, which is why no drill-based competitor can replicate it. TalkPal can score a flashcard deck. It cannot notice that a student hesitated less this week than last week, or that they're starting to trust themselves in conversation.
+
+**The design implication:** Daniela's assessment is not a feature we build. It is the natural output of what she already does. The job is to make sure her signals are being captured (`record_pattern_signal`, `milestone`, session notes in `close_session(tutor_notes)`), and that they surface correctly in the next session's greeting prompt so they compound over time rather than being lost.
+
+---
+
 ### Session Log
 
 | Date | Action | Status |
 |---|---|---|
 | Apr 16, 2026 (S65) | Interactive textbook architecture defined; decision that Daniela initiates and leads through every page; drill system scoped to tangent queue only | Documented |
 | Apr 16, 2026 (S65) | "Observable behavior replaces inferred behavior" principle added — interactive textbook event log answers what Daniela previously had to ask; Q1 and Q3 marked as closing; `lessonPageEvents` log proposed instead of a scored mastery table | Documented |
+| Apr 16, 2026 (S65) | "Daniela as Fluency Judge" section added — confident imperfection as the target behavior; three signal streams (pattern signals, milestone observations, ACTFL alignment) coalesce into a real fluency metric that no drill system can replicate | Documented |
 
 ---
 
