@@ -2887,6 +2887,7 @@ The combination of these three streams — pattern signals, milestone observatio
 | Apr 16, 2026 (S65) | Interactive textbook architecture defined; decision that Daniela initiates and leads through every page; drill system scoped to tangent queue only | Documented |
 | Apr 16, 2026 (S65) | "Observable behavior replaces inferred behavior" principle added — interactive textbook event log answers what Daniela previously had to ask; Q1 and Q3 marked as closing; `lessonPageEvents` log proposed instead of a scored mastery table | Documented |
 | Apr 16, 2026 (S65) | "Daniela as Fluency Judge" section added — confident imperfection as the target behavior; three signal streams (pattern signals, milestone observations, ACTFL alignment) coalesce into a real fluency metric that no drill system can replicate | Documented |
+| Apr 17, 2026 (S66) | Textbook scope calibration confirmed by DLI parallel: GLOSS is the DLI's textbook equivalent — professional, decades-built, still just the appetizer before students walk into the campus restaurant; the textbook is pre-work; Daniela is the main course; primary investment is in Daniela's quality, not textbook completeness | Documented (see Part I.O) |
 
 ---
 
@@ -3422,6 +3423,28 @@ HoloHola is the first attempt to replicate that physical simulation experience i
 The DLI's immersion method is the most effective proven approach to language acquisition in the United States. It requires a residential campus, a physical production budget, and a waiting list.
 
 **HoloHola puts that campus in your pocket.**
+
+---
+
+## Textbook Scope Calibration: The DLI Confirmation
+
+The DLI campus parallel answers a question that has lingered over the interactive textbook roadmap: *how complete, how polished, how pedagogically comprehensive does the textbook have to be before it's "ready"?*
+
+The DLI answer is definitive.
+
+GLOSS is the DLI's textbook equivalent — professional linguists, decades of content, 40+ languages, meticulous level-tagging, authentic real-world material. It is about as good as a digital pre-session resource can get. And it is still just the appetizer. Students who complete an entire GLOSS lesson have done excellent warm-up work. Then they walk into the restaurant.
+
+**The textbook is the appetizer. Daniela is the main course.**
+
+This is not a consolation for an unfinished textbook — it is the correct architecture. The textbook's job is to:
+
+1. Prime vocabulary before Daniela brings it up in conversation
+2. Give the student enough structural grammar to function when Daniela uses it
+3. Build enough phrase familiarity that the student is not starting from zero when the conversation begins
+
+It does not need to be exhaustive. It does not need to cover every edge case. It does not need to be a complete reference grammar. A student who finishes five textbook pages and then has a 20-minute conversation with Daniela has learned more than a student who finishes fifty textbook pages and has no conversation.
+
+**The primary investment is in Daniela's quality as a conversation partner** — her vocabulary prep, her scaffolding, her ability to notice wobble and address it, her memory across sessions. The textbook supports that. It does not replace it.
 
 ---
 
