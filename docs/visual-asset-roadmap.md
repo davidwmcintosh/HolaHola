@@ -32,6 +32,7 @@ The analysis documents below have been integrated inline as **Part I** of this r
 | **Part I.O** — The DLI Campus: Physical Immersion Environments *(inline below)* | DLI physically builds restaurant, café, train station sets with native-speaker actors on Monterey campus; GLOSS digital tools are pre-work, campus does the immersion; HoloHola SceneCanvas is the digital equivalent; competitive positioning reframed from "quiz app" to "campus in your pocket" | Before designing scene environments, scenario conversations, or marketing copy |
 | **Part I.P** — The Affective Filter: Why Cold Immersion Fails Most Learners *(inline below)* | Krashen's Affective Filter Hypothesis; commitment/circumstance dichotomy (ambassador's kids vs. casual learners); Calibrated Immersion model — Spanish always the medium, English sometimes the scaffold; whiteboard as precision scaffolding surface; calibration spectrum Spanish 1 → Spanish 5; Daniela's gentle hand is not a concession but the product design decision that determines whether broader-market students reach Spanish 3 | Definitive statement of how Daniela modulates immersion intensity — read before designing any student-facing difficulty controls, scaffolding features, or Daniela behavior for beginner/anxious/child learners |
 | **Part I.Q** — Prompt Philosophy: Principles Over Scripts *(inline below)* | Daniela is built on internalized philosophy, not decision trees; if-then prompt failure mode documented (brittle, grows without bound, conflicts); right model: who she is + what she believes + what she knows + what she values; practical test for any prompt addition | Read before writing or modifying any Daniela system prompt content — this is the governing philosophy for all prompt design decisions |
+| **Part I.R** — The Textbook Data Model and Build Sequence *(inline below)* | Live database audit: 27 active units with correct Madrigal vocabulary data; 32,927 drill items — 28,433 are word-level translation cards (wrong format); architectural decision: layer, don't replace (vocabulary_list for See It and Say It loop, key_phrases_for_chat for substitution drill, curriculum_drill_items demoted to supplementary review); 8-step See It and Say It micro-sequence specified; 5-step build sequence | Read before building any vocabulary presentation, drill component, or Daniela lesson context injection |
 | `docs/curriculum-strategy.md` *(external)* | Overall platform philosophy, ACTFL level mapping, M1–M6 component definitions | Framing new chapter types |
 
 **Image generation style note:** HoloHola uses soft watercolor, not Madrigal's B&W line art — we are not trying to replicate her drawings. What Madrigal's illustrations teach us is how *minimal* you can get and still communicate a word unambiguously. Her drawings are a masterclass in stripping an image down to its single essential idea. That principle applies directly to our watercolor generation: when in doubt, simplify. One subject, one context, no clutter. Part I.D documents how she solves each concept type — use it as a simplicity reference, not a style guide.
@@ -3689,6 +3690,169 @@ The practical test for any proposed prompt addition:
 | Apr 17, 2026 (S66) | If-then failure mode documented: brittle, grows without bound, misses context, conflicts over time | Documented |
 | Apr 17, 2026 (S66) | Right model documented: who she is + what she believes + what she knows + what she values = sufficient for judgment in any unanticipated moment | Documented |
 | Apr 17, 2026 (S66) | Practical test for prompt additions: does it teach who she is (belongs) or tell her what to do in a specific situation (probably doesn't) | Documented |
+
+---
+
+# Part I.R — The Textbook Data Model and Build Sequence (S66, April 2026)
+
+*Source: Live database audit of curriculum_drill_items (32,927 items), textbook_lesson_content, and curriculum_units (units 1–27 active; units 1001–1009 archived empty shells).*
+
+---
+
+## What the Audit Found
+
+### Units
+
+| Range | Status | Content |
+|---|---|---|
+| Units 1–27 (Spanish 1) | Active | Full lesson content in `textbook_lesson_content` — vocabulary lists with example sentences, grammar explanations, key phrases |
+| Units 28–36 (order_index 1001–1009) | [ARCHIVED] | Empty shells — 0 lessons, 0 drills. Listed as archived in UI. No data loss risk. |
+
+### Drill Items (curriculum_drill_items)
+
+| Type | Count | What it shows | Madrigal verdict |
+|---|---|---|---|
+| `translate_speak` | 28,433 | English word → student says Spanish word | Wrong: word-level, no phrase, no image |
+| `fill_blank` | 2,749 | Sentence with a gap | Acceptable for review |
+| `listen_repeat` | 782 | Hear isolated word, repeat it | Wrong: no image, no phrase context |
+| `matching` | 261 | Match pairs | Acceptable for review |
+| `number_dictation` | 702 | Dictation drill for numbers | Fine for numbers chapter |
+| **Images** | **0** | None | Every vocabulary item needs one |
+| **Column structure** | **0** | None | Core to substitution drills |
+
+The `translate_speak` items are fundamentally the wrong data structure for Madrigal's method. They store a word in isolation and ask the student to translate it. Madrigal never teaches a word in isolation — always in a phrase, always with visual anchor.
+
+### What Already Exists and Is Correct
+
+`textbook_lesson_content.vocabulary_list` for Unit 1 already contains:
+```
+{ word: "Hola", translation: "Hello", exampleSentences: [{ target: "Hola, ¿cómo estás?", translation: "Hello, how are you?" }] }
+{ word: "Buenos días", translation: "Good morning", exampleSentences: [{ target: "Buenos días, Señorita.", translation: "Good morning, Miss." }] }
+```
+
+This is Madrigal's format. Word + phrase in context. The data is right. The presentation is wrong.
+
+---
+
+## The Architectural Decision: Layer, Don't Replace
+
+Patching `curriculum_drill_items` would require migrating 32,927 items into a format they were never designed for. That's replacement disguised as a fix.
+
+The right architecture has three layers:
+
+**Layer 1 — See It and Say It loop (primary vocabulary presentation)**
+Data source: `textbook_lesson_content.vocabulary_list`
+No new table needed. New presentation component only.
+
+Sequence for each vocabulary item:
+1. Image appears (visual anchor)
+2. Daniela names the word in its example phrase ("Hola, ¿cómo estás?")
+3. Student repeats (STT captures)
+4. Daniela reacts and moves to next item
+
+**Layer 2 — Substitution drill (pattern production)**
+Data source: `textbook_lesson_content.key_phrases_for_chat`
+No new table needed. Frame + column choices derived from vocabulary items.
+
+Example from Unit 1:
+- Frame: "Estoy ___"
+- Column: [bien / muy bien / más o menos / mal / terrible]
+- Student picks or says one → produces a complete sentence
+- Each column choice has an image
+
+**Layer 3 — Quick review drills (supplementary)**
+Data source: `curriculum_drill_items` — keep as-is
+`fill_blank`, `matching`, `number_dictation` are fine for their purpose.
+`translate_speak` and `listen_repeat` are demoted from primary to review-only.
+
+---
+
+## The See It and Say It Loop: Micro-Sequence Specification
+
+This is the atomic unit of every Daniela vocabulary session. It applies to every word in the lesson's vocabulary list.
+
+| Step | What happens | Who acts |
+|---|---|---|
+| 1. Image | Image appears for the word (visual anchor) | System renders image |
+| 2. Daniela names it | "Esto es *la farmacia* — say it with me" | Daniela speaks |
+| 3. Student speaks | Student says the word (STT) | Student |
+| 4. Daniela reacts | Reinforces or corrects; moves to phrase | Daniela |
+| 5. Phrase model | Daniela says the example phrase naturally: "Hola, ¿cómo estás?" | Daniela speaks |
+| 6. Student produces | Student says the phrase (STT) | Student |
+| 7. Daniela reacts | Celebrates, corrects, notes pattern signal | Daniela |
+| 8. Next item | Loop to next vocabulary word | System |
+
+This loop is repeatable, teachable, and observable. Every word in the vocabulary list gets exactly this treatment. Mastery is tracked by completion count and Daniela's pattern signal judgment, not by a quiz score.
+
+---
+
+## The Substitution Drill: Micro-Sequence Specification
+
+Applied to frames from `key_phrases_for_chat` + related vocabulary. This is Madrigal's 3-column table, made interactive.
+
+| Step | What happens |
+|---|---|
+| 1. Frame displayed | "Estoy ___" shown on whiteboard with image |
+| 2. Column choices shown | [bien / muy bien / más o menos / mal] each with image |
+| 3. Daniela models | "Estoy bien." (reads one column choice as example) |
+| 4. Student picks and produces | Student says "Estoy muy bien" (any valid column choice) |
+| 5. Daniela reacts | Confirms, asks for another: "Try another one — ¿cómo estás?" |
+| 6. Student varies | Student cycles through column choices |
+| 7. New frame | Next frame from key_phrases_for_chat |
+
+The student generates sentences; they are not repeating a fixed answer. This is production, not recitation.
+
+---
+
+## What Daniela Reads from the Textbook
+
+When Daniela opens a session on a given lesson, she receives:
+
+```
+CURRENT LESSON: Unit 1 — Greetings & Farewells
+VOCABULARY LIST:
+  - Hola → "Hola, ¿cómo estás?"
+  - Buenos días → "Buenos días, Señorita."
+  - Buenas tardes → "Buenas tardes, Señor."
+  [... 11 more items ...]
+KEY PHRASES FOR TODAY:
+  - "¿Cómo estás?" (ask about wellbeing, informal)
+  - "Estoy bien, gracias." (respond positively)
+  [... 4 more ...]
+GRAMMAR POINT: Formal vs. informal address (usted vs. tú)
+STUDENT STATUS: 3 vocabulary items practiced last session; "Buenas noches" marked wobble
+```
+
+Daniela uses this as her session map. She decides the order. She decides when to move to the substitution frame. She decides when the student has done enough on one word and should move to the next. The data gives her the material; the philosophy gives her the judgment.
+
+---
+
+## Build Sequence
+
+| Step | What to build | Data source | Outcome |
+|---|---|---|---|
+| 1 | See It and Say It presentation component | `vocabulary_list` in `textbook_lesson_content` | Student can work through lesson vocabulary with image + phrase + speak |
+| 2 | Image generation for vocabulary items | Visual asset pipeline (existing) | Every `vocabulary_list` item gets an image |
+| 3 | Substitution drill component | `key_phrases_for_chat` + vocabulary column choices | Student produces sentences from frames |
+| 4 | Daniela lesson context injection | `textbook_lesson_content` fields → greeting prompt | Daniela knows the lesson vocabulary and grammar going into the session |
+| 5 | Lesson progress tracking | `lessonPageEvents` log | Daniela can see which vocabulary items the student has practiced |
+
+Each step is independently shippable. Step 1 delivers value immediately — students can work through vocabulary correctly even before Daniela reads the data.
+
+---
+
+### Session Log
+
+| Date | Action | Status |
+|---|---|---|
+| Apr 17, 2026 (S66) | Live database audit: 36 units (27 active + 9 archived empty shells); archived units have 0 lessons | Documented |
+| Apr 17, 2026 (S66) | Drill format audit: 32,927 items — 28,433 translate_speak (word-level, no phrase, no image); 0 images across all items | Documented |
+| Apr 17, 2026 (S66) | Vocabulary data in textbook_lesson_content confirmed Madrigal-correct: word + example phrase already present | Documented |
+| Apr 17, 2026 (S66) | Architectural decision: three-layer model — See It and Say It loop (vocabulary_list), substitution drill (key_phrases_for_chat), quick review (curriculum_drill_items demoted) | Documented |
+| Apr 17, 2026 (S66) | See It and Say It micro-sequence specified: 8-step loop per vocabulary item | Documented |
+| Apr 17, 2026 (S66) | Substitution drill micro-sequence specified: frame + column choices → student generates sentences | Documented |
+| Apr 17, 2026 (S66) | Daniela lesson context injection documented: vocabulary list + key phrases + grammar point + student wobble status → session map | Documented |
+| Apr 17, 2026 (S66) | 5-step build sequence documented: presentation component → images → substitution drill → Daniela context → progress tracking | Documented |
 
 ---
 
