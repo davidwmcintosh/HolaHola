@@ -11,10 +11,8 @@ import {
   CheckCircle2,
   XCircle,
   RotateCcw,
-  ArrowRight,
   Loader2,
   BookOpen,
-  Star,
 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -30,7 +28,6 @@ interface VocabItem {
   partOfSpeech: string;
   gender?: string;
   exampleSentences: ExampleSentence[];
-  conjugations?: Record<string, string>;
 }
 
 interface KeyPhrase {
@@ -56,8 +53,7 @@ interface SeeItSayItLoopProps {
   onComplete?: () => void;
 }
 
-type Phase = "vocab" | "phrases" | "complete";
-type VocabStep = "present" | "speaking" | "eval";
+type CardState = "idle" | "speaking" | "eval" | "mastered" | "needs-work";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -77,371 +73,249 @@ function getLangTag(language?: string): string {
   return LANG_TAGS[(language ?? "spanish").toLowerCase()] ?? "es-MX";
 }
 
-const LANG_TO_API: Record<string, string> = {
-  spanish: "spanish",
-  french: "french",
-  portuguese: "portuguese",
-  italian: "italian",
-  german: "german",
-  mandarin: "mandarin",
-  japanese: "japanese",
-  korean: "korean",
-  arabic: "arabic",
-};
+// ── CompactVocabCard — one item in the page grid ──────────────────────────────
 
-const POS_GRADIENTS: Record<string, string> = {
-  noun: "from-blue-500/25 to-blue-600/10",
-  verb: "from-emerald-500/25 to-emerald-600/10",
-  "verb phrase": "from-emerald-500/25 to-emerald-600/10",
-  adjective: "from-orange-500/25 to-orange-600/10",
-  adverb: "from-violet-500/25 to-violet-600/10",
-  interjection: "from-amber-500/25 to-amber-600/10",
-  phrase: "from-rose-500/25 to-rose-600/10",
-  preposition: "from-teal-500/25 to-teal-600/10",
-};
-
-function getPosGradient(pos: string): string {
-  const key = pos.toLowerCase();
-  return POS_GRADIENTS[key] ?? "from-primary/20 to-primary/5";
-}
-
-// ── ImageArt — shows real image or styled placeholder ────────────────────────
-
-function ImageArt({ item, imageUrl }: { item: VocabItem; imageUrl?: string }) {
-  const gradient = getPosGradient(item.partOfSpeech);
-
-  if (imageUrl) {
-    return (
-      <div className="w-full aspect-[4/3] rounded-md overflow-hidden bg-muted/30">
-        <img
-          src={imageUrl}
-          alt={item.word}
-          className="w-full h-full object-cover"
-          loading="lazy"
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className={`w-full aspect-[4/3] rounded-md bg-gradient-to-br ${gradient} flex flex-col items-center justify-center gap-2 select-none`}
-      aria-hidden
-    >
-      <span className="text-5xl font-bold tracking-tight text-foreground/80">
-        {item.word}
-      </span>
-      {item.gender && (
-        <span className="text-sm text-muted-foreground font-medium uppercase tracking-widest">
-          {item.gender === "m" ? "masc." : "fem."}
-        </span>
-      )}
-    </div>
-  );
-}
-
-// ── VocabCard — one item in the See It Say It loop ───────────────────────────
-
-function VocabCard({
+function CompactVocabCard({
   item,
-  step,
-  langTag,
   imageUrl,
-  isTtsLoading,
+  cardState,
+  ttsLoading,
   onListen,
-  onStartSpeaking,
-  onDoneSpeaking,
+  onSpeak,
+  onDone,
   onGotIt,
   onNeedsWork,
-  onRetry,
 }: {
   item: VocabItem;
-  step: VocabStep;
-  langTag: string;
   imageUrl?: string;
-  isTtsLoading?: boolean;
+  cardState: CardState;
+  ttsLoading: boolean;
   onListen: () => void;
-  onStartSpeaking: () => void;
-  onDoneSpeaking: () => void;
+  onSpeak: () => void;
+  onDone: () => void;
   onGotIt: () => void;
   onNeedsWork: () => void;
-  onRetry: () => void;
 }) {
+  const isMastered = cardState === "mastered";
+  const isNeedsWork = cardState === "needs-work";
   const phrase = item.exampleSentences?.[0];
 
   return (
-    <div className="space-y-4">
-      <ImageArt item={item} imageUrl={imageUrl} />
-
-      <div className="space-y-1">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-2xl font-semibold text-foreground">{item.word}</span>
-          <Badge variant="outline" className="text-xs">
-            {item.partOfSpeech}
-          </Badge>
-        </div>
-        <p className="text-sm text-muted-foreground">{item.translation}</p>
+    <div
+      className={`rounded-md border bg-card flex flex-col overflow-hidden transition-colors ${
+        isMastered
+          ? "border-green-500/40 bg-green-500/5 dark:bg-green-500/10"
+          : isNeedsWork
+          ? "border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/10"
+          : ""
+      }`}
+      data-testid={`vocab-card-${item.word}`}
+    >
+      {/* Image */}
+      <div className="relative w-full aspect-square bg-muted/30 overflow-hidden">
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={item.word}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <span className="text-4xl font-bold text-muted-foreground/20 select-none">
+              {item.word[0]?.toUpperCase()}
+            </span>
+          </div>
+        )}
+        {isMastered && (
+          <div className="absolute top-1.5 right-1.5 bg-green-500 rounded-full p-0.5 shadow-sm">
+            <CheckCircle2 className="h-3 w-3 text-white" />
+          </div>
+        )}
+        {isNeedsWork && (
+          <div className="absolute top-1.5 right-1.5 bg-amber-500 rounded-full p-0.5 shadow-sm">
+            <RotateCcw className="h-3 w-3 text-white" />
+          </div>
+        )}
       </div>
 
-      {phrase && (
-        <div className="rounded-md bg-muted/50 px-4 py-3 space-y-1">
-          <p className="text-base font-medium text-foreground">{phrase.target}</p>
-          <p className="text-sm text-muted-foreground">{phrase.translation}</p>
-        </div>
-      )}
-
-      {step === "present" && (
-        <div className="flex flex-col gap-2">
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={onListen}
-            disabled={isTtsLoading}
-            data-testid="button-sisl-listen"
-          >
-            {isTtsLoading
-              ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              : <Volume2 className="h-4 w-4 mr-2" />
-            }
-            Listen
-          </Button>
-          <Button
-            className="w-full"
-            onClick={onStartSpeaking}
-            data-testid="button-sisl-speak"
-          >
-            <Mic className="h-4 w-4 mr-2" />
-            Say it
-          </Button>
-        </div>
-      )}
-
-      {step === "speaking" && (
-        <div className="flex flex-col items-center gap-3">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+      {/* Text */}
+      <div className="px-2 pt-2 pb-1 flex flex-col gap-0.5">
+        <div className="flex items-baseline gap-1.5 flex-wrap">
+          <span className="font-semibold text-sm leading-tight">{item.word}</span>
+          {item.gender && (
+            <span className="text-[10px] text-muted-foreground">
+              {item.gender === "m" ? "masc." : "fem."}
             </span>
-            Listening…
-          </div>
-          <Button
-            variant="destructive"
-            className="w-full max-w-xs"
-            onClick={onDoneSpeaking}
-            data-testid="button-sisl-done"
-          >
-            <MicOff className="h-4 w-4 mr-2" />
-            Done
-          </Button>
+          )}
         </div>
-      )}
-
-      {step === "eval" && (
-        <div className="flex flex-col gap-3">
-          <p className="text-sm text-center text-muted-foreground">
-            How did you do?
+        <p className="text-xs text-muted-foreground leading-tight">{item.translation}</p>
+        {phrase && (
+          <p className="text-[11px] text-foreground/60 italic leading-snug mt-0.5">
+            {phrase.target}
           </p>
-          <div className="flex gap-2">
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="px-2 pb-2 pt-1 mt-auto">
+        {(cardState === "idle" || cardState === "mastered" || cardState === "needs-work") && (
+          <div className="flex gap-1">
             <Button
+              size="icon"
+              variant="ghost"
+              className="flex-1"
+              onClick={onListen}
+              disabled={ttsLoading}
+              data-testid={`button-listen-${item.word}`}
+            >
+              {ttsLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Volume2 className="h-4 w-4" />
+              )}
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="flex-1"
+              onClick={onSpeak}
+              data-testid={`button-speak-${item.word}`}
+            >
+              <Mic className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+
+        {cardState === "speaking" && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+              </span>
+              Listening…
+            </div>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="w-full"
+              onClick={onDone}
+              data-testid={`button-done-${item.word}`}
+            >
+              <MicOff className="h-3 w-3 mr-1.5" />
+              Done
+            </Button>
+          </div>
+        )}
+
+        {cardState === "eval" && (
+          <div className="flex gap-1">
+            <Button
+              size="sm"
               variant="outline"
               className="flex-1"
               onClick={onNeedsWork}
-              data-testid="button-sisl-needs-work"
+              data-testid={`button-needs-work-${item.word}`}
             >
-              <XCircle className="h-4 w-4 mr-1.5 text-destructive" />
-              Needs work
+              <XCircle className="h-3 w-3 mr-1 text-destructive" />
+              Again
             </Button>
             <Button
+              size="sm"
               className="flex-1"
               onClick={onGotIt}
-              data-testid="button-sisl-got-it"
+              data-testid={`button-got-it-${item.word}`}
             >
-              <CheckCircle2 className="h-4 w-4 mr-1.5" />
+              <CheckCircle2 className="h-3 w-3 mr-1" />
               Got it
             </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground"
-            onClick={onRetry}
-            data-testid="button-sisl-retry"
-          >
-            <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
-            Say again
-          </Button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
 
-// ── PhraseCard — key phrase for conversation ─────────────────────────────────
+// ── PhraseRow — compact phrase with listen/speak ──────────────────────────────
 
-function PhraseCard({
+function PhraseRow({
   phrase,
   index,
-  total,
-  step,
-  langTag,
-  isTtsLoading,
+  ttsLoading,
+  phraseState,
   onListen,
-  onStartSpeaking,
-  onDoneSpeaking,
-  onNext,
+  onSpeak,
+  onDone,
 }: {
   phrase: KeyPhrase;
   index: number;
-  total: number;
-  step: VocabStep;
-  langTag: string;
-  isTtsLoading?: boolean;
+  ttsLoading: boolean;
+  phraseState: CardState;
   onListen: () => void;
-  onStartSpeaking: () => void;
-  onDoneSpeaking: () => void;
-  onNext: () => void;
+  onSpeak: () => void;
+  onDone: () => void;
 }) {
   return (
-    <div className="space-y-4">
-      <div className="text-center space-y-1">
-        <Badge variant="outline" className="mb-2">
-          <BookOpen className="h-3 w-3 mr-1" />
-          Phrase {index + 1} of {total}
-        </Badge>
-        <p className="text-3xl font-semibold tracking-tight text-foreground">
-          {phrase.phrase}
-        </p>
-        <p className="text-base text-muted-foreground">{phrase.translation}</p>
+    <div
+      className={`rounded-md border bg-card px-3 py-2.5 flex items-start gap-3 ${
+        phraseState === "mastered" ? "border-green-500/40" : ""
+      }`}
+      data-testid={`phrase-row-${index}`}
+    >
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium leading-snug">{phrase.phrase}</p>
+        <p className="text-xs text-muted-foreground leading-snug">{phrase.translation}</p>
+        {phrase.context && (
+          <p className="text-[11px] text-foreground/50 italic leading-snug mt-0.5">{phrase.context}</p>
+        )}
       </div>
-
-      <div className="rounded-md bg-muted/50 px-4 py-3">
-        <p className="text-sm text-muted-foreground italic">{phrase.context}</p>
-      </div>
-
-      {step === "present" && (
-        <div className="flex flex-col gap-2">
+      <div className="flex gap-1 shrink-0">
+        {phraseState === "speaking" ? (
           <Button
-            variant="outline"
-            className="w-full"
-            onClick={onListen}
-            disabled={isTtsLoading}
-            data-testid={`button-phrase-listen-${index}`}
-          >
-            {isTtsLoading
-              ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              : <Volume2 className="h-4 w-4 mr-2" />
-            }
-            Listen
-          </Button>
-          <Button
-            className="w-full"
-            onClick={onStartSpeaking}
-            data-testid={`button-phrase-speak-${index}`}
-          >
-            <Mic className="h-4 w-4 mr-2" />
-            Say it
-          </Button>
-        </div>
-      )}
-
-      {step === "speaking" && (
-        <div className="flex flex-col items-center gap-3">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-            </span>
-            Listening…
-          </div>
-          <Button
+            size="sm"
             variant="destructive"
-            className="w-full max-w-xs"
-            onClick={onDoneSpeaking}
+            onClick={onDone}
             data-testid={`button-phrase-done-${index}`}
           >
-            <MicOff className="h-4 w-4 mr-2" />
+            <MicOff className="h-3 w-3 mr-1" />
             Done
           </Button>
-        </div>
-      )}
-
-      {step === "eval" && (
-        <div className="flex flex-col gap-2">
-          <Button
-            className="w-full"
-            onClick={onNext}
-            data-testid={`button-phrase-next-${index}`}
-          >
-            {index + 1 < total ? (
-              <>
-                Next phrase
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </>
-            ) : (
-              <>
-                Finish
-                <CheckCircle2 className="h-4 w-4 ml-2" />
-              </>
-            )}
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── CompletionView ────────────────────────────────────────────────────────────
-
-function CompletionView({
-  vocabCount,
-  phraseCount,
-  masteredCount,
-  onRestart,
-  onDone,
-}: {
-  vocabCount: number;
-  phraseCount: number;
-  masteredCount: number;
-  onRestart: () => void;
-  onDone?: () => void;
-}) {
-  const pct = vocabCount > 0 ? Math.round((masteredCount / vocabCount) * 100) : 0;
-  return (
-    <div className="flex flex-col items-center gap-5 py-4 text-center">
-      <div className="w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center">
-        <Star className="h-8 w-8 text-primary" />
-      </div>
-      <div className="space-y-1">
-        <p className="text-lg font-semibold">Session complete</p>
-        <p className="text-sm text-muted-foreground">
-          {masteredCount} of {vocabCount} words — got it right away
-        </p>
-        {phraseCount > 0 && (
-          <p className="text-sm text-muted-foreground">
-            {phraseCount} conversation {phraseCount === 1 ? "phrase" : "phrases"} practiced
-          </p>
-        )}
-      </div>
-      <Progress value={pct} className="w-full max-w-xs h-2" />
-      <div className="flex flex-col gap-2 w-full max-w-xs">
-        {masteredCount < vocabCount && (
-          <Button variant="outline" onClick={onRestart} data-testid="button-sisl-restart">
-            <RotateCcw className="h-4 w-4 mr-2" />
-            Practice again
-          </Button>
-        )}
-        {onDone && (
-          <Button onClick={onDone} data-testid="button-sisl-done-session">
-            Done
-          </Button>
+        ) : (
+          <>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={onListen}
+              disabled={ttsLoading}
+              data-testid={`button-phrase-listen-${index}`}
+            >
+              {ttsLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Volume2 className="h-4 w-4" />
+              )}
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={onSpeak}
+              data-testid={`button-phrase-speak-${index}`}
+            >
+              {phraseState === "mastered" ? (
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+              ) : (
+                <Mic className="h-4 w-4" />
+              )}
+            </Button>
+          </>
         )}
       </div>
     </div>
   );
 }
 
-// ── SeeItSayItLoop — main component ──────────────────────────────────────────
+// ── SeeItSayItLoop — full page vocab grid ─────────────────────────────────────
 
 export function SeeItSayItLoop({
   lessonId,
@@ -475,91 +349,85 @@ export function SeeItSayItLoop({
   const vocabList: VocabItem[] = content?.vocabulary_list ?? [];
   const phrases: KeyPhrase[] = content?.key_phrases_for_chat ?? [];
 
-  const [phase, setPhase] = useState<Phase>("vocab");
-  const [vocabIndex, setVocabIndex] = useState(0);
-  const [vocabStep, setVocabStep] = useState<VocabStep>("present");
-  const [phraseIndex, setPhraseIndex] = useState(0);
-  const [phraseStep, setPhraseStep] = useState<VocabStep>("present");
-  const [masteredIds, setMasteredIds] = useState<Set<number>>(new Set());
-  const [ttsLoading, setTtsLoading] = useState(false);
+  // Per-card state (not sequential — any card can be in any state)
+  const [cardStates, setCardStates] = useState<Map<number, CardState>>(new Map());
+  const [ttsLoadingIndex, setTtsLoadingIndex] = useState<number | null>(null);
+  const [phraseStates, setPhraseStates] = useState<Map<number, CardState>>(new Map());
+  const [phraseTtsLoadingIndex, setPhraseTtsLoadingIndex] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const speakWithTTS = useCallback(async (text: string) => {
-    if (ttsLoading) return;
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
-    setTtsLoading(true);
-    try {
-      const result = await synthesizeSpeech(text, language ?? "spanish");
-      const url = URL.createObjectURL(result.audioBlob);
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      audio.onended = () => { URL.revokeObjectURL(url); audioRef.current = null; };
-      audio.onerror = () => { URL.revokeObjectURL(url); audioRef.current = null; };
-      await audio.play();
-    } catch {
-      if (window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-        const utt = new SpeechSynthesisUtterance(text);
-        utt.lang = langTag;
-        utt.rate = 0.82;
-        window.speechSynthesis.speak(utt);
+  const getCard = (i: number): CardState => cardStates.get(i) ?? "idle";
+  const setCard = (i: number, state: CardState) =>
+    setCardStates((prev) => new Map(prev).set(i, state));
+  const getPhrase = (i: number): CardState => phraseStates.get(i) ?? "idle";
+  const setPhrase = (i: number, state: CardState) =>
+    setPhraseStates((prev) => new Map(prev).set(i, state));
+
+  const masteredCount = Array.from(cardStates.values()).filter((s) => s === "mastered").length;
+  const progressPct = vocabList.length > 0 ? (masteredCount / vocabList.length) * 100 : 0;
+
+  const speakTTS = useCallback(
+    async (text: string) => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
       }
-    } finally {
-      setTtsLoading(false);
-    }
-  }, [ttsLoading, language, langTag]);
+      try {
+        const result = await synthesizeSpeech(text, language ?? "spanish");
+        const url = URL.createObjectURL(result.audioBlob);
+        const audio = new Audio(url);
+        audioRef.current = audio;
+        audio.onended = () => {
+          URL.revokeObjectURL(url);
+          audioRef.current = null;
+        };
+        audio.onerror = () => {
+          URL.revokeObjectURL(url);
+          audioRef.current = null;
+        };
+        await audio.play();
+      } catch {
+        if (window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+          const utt = new SpeechSynthesisUtterance(text);
+          utt.lang = langTag;
+          utt.rate = 0.82;
+          window.speechSynthesis.speak(utt);
+        }
+      }
+    },
+    [language, langTag]
+  );
+
+  const handleVocabListen = useCallback(
+    async (item: VocabItem, index: number) => {
+      if (ttsLoadingIndex !== null) return;
+      setTtsLoadingIndex(index);
+      const text = item.exampleSentences?.[0]?.target ?? item.word;
+      await speakTTS(text);
+      setTtsLoadingIndex(null);
+    },
+    [ttsLoadingIndex, speakTTS]
+  );
+
+  const handlePhraseListen = useCallback(
+    async (phrase: KeyPhrase, index: number) => {
+      if (phraseTtsLoadingIndex !== null) return;
+      setPhraseTtsLoadingIndex(index);
+      await speakTTS(phrase.phrase);
+      setPhraseTtsLoadingIndex(null);
+    },
+    [phraseTtsLoadingIndex, speakTTS]
+  );
 
   useEffect(() => {
     return () => {
-      if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
     };
   }, []);
-
-  const currentVocab = vocabList[vocabIndex];
-  const currentPhrase = phrases[phraseIndex];
-  const totalItems = vocabList.length + phrases.length;
-  const doneItems =
-    phase === "vocab"
-      ? vocabIndex
-      : vocabList.length + (phase === "phrases" ? phraseIndex : phrases.length);
-  const progressPct = totalItems > 0 ? (doneItems / totalItems) * 100 : 0;
-
-  const advanceVocab = useCallback(() => {
-    const next = vocabIndex + 1;
-    if (next < vocabList.length) {
-      setVocabIndex(next);
-      setVocabStep("present");
-    } else if (phrases.length > 0) {
-      setPhase("phrases");
-      setPhraseIndex(0);
-      setPhraseStep("present");
-    } else {
-      setPhase("complete");
-      onComplete?.();
-    }
-  }, [vocabIndex, vocabList.length, phrases.length, onComplete]);
-
-  const advancePhrase = useCallback(() => {
-    const next = phraseIndex + 1;
-    if (next < phrases.length) {
-      setPhraseIndex(next);
-      setPhraseStep("present");
-    } else {
-      setPhase("complete");
-      onComplete?.();
-    }
-  }, [phraseIndex, phrases.length, onComplete]);
-
-  const handleRestart = () => {
-    setPhase("vocab");
-    setVocabIndex(0);
-    setVocabStep("present");
-    setPhraseIndex(0);
-    setPhraseStep("present");
-  };
 
   // ── Loading ────────────────────────────────────────────────────────────────
 
@@ -580,90 +448,92 @@ export function SeeItSayItLoop({
     );
   }
 
-  // ── Complete ───────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────────────
 
-  if (phase === "complete") {
-    return (
-      <CompletionView
-        vocabCount={vocabList.length}
-        phraseCount={phrases.length}
-        masteredCount={masteredIds.size}
-        onRestart={handleRestart}
-        onDone={onComplete}
-      />
-    );
-  }
+  return (
+    <div className="space-y-5" data-testid="sisl-page">
 
-  // ── Progress bar (shared) ──────────────────────────────────────────────────
-
-  const progressBar = (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>
-          {phase === "vocab" ? (
-            <>Word {vocabIndex + 1} of {vocabList.length}</>
-          ) : (
-            <>Phrase {phraseIndex + 1} of {phrases.length}</>
-          )}
-        </span>
-        <span>{Math.round(progressPct)}%</span>
+      {/* Header row */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <BookOpen className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            {lessonName ?? "Vocabulary"}
+          </span>
+        </div>
+        {masteredCount > 0 && (
+          <Badge variant="outline" className="text-xs gap-1">
+            <CheckCircle2 className="h-3 w-3 text-green-600" />
+            {masteredCount} / {vocabList.length} mastered
+          </Badge>
+        )}
       </div>
-      <Progress value={progressPct} className="h-1.5" />
+
+      {/* Progress bar (only shows once practice starts) */}
+      {masteredCount > 0 && (
+        <Progress value={progressPct} className="h-1.5" />
+      )}
+
+      {/* ── Vocab grid — all items visible at once ── */}
+      <div
+        className="grid gap-3"
+        style={{ gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))" }}
+        data-testid="sisl-vocab-grid"
+      >
+        {vocabList.map((item, i) => (
+          <CompactVocabCard
+            key={i}
+            item={item}
+            imageUrl={imageMap[item.word]?.url}
+            cardState={getCard(i)}
+            ttsLoading={ttsLoadingIndex === i}
+            onListen={() => handleVocabListen(item, i)}
+            onSpeak={() => setCard(i, "speaking")}
+            onDone={() => setCard(i, "eval")}
+            onGotIt={() => setCard(i, "mastered")}
+            onNeedsWork={() => setCard(i, "needs-work")}
+          />
+        ))}
+      </div>
+
+      {/* ── Key phrases — compact list ── */}
+      {phrases.length > 0 && (
+        <div className="space-y-2" data-testid="sisl-phrases-section">
+          <div className="flex items-center gap-2 px-1">
+            <BookOpen className="h-4 w-4 text-muted-foreground" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Key Phrases
+            </span>
+          </div>
+          <div className="space-y-1.5">
+            {phrases.map((phrase, i) => (
+              <PhraseRow
+                key={i}
+                phrase={phrase}
+                index={i}
+                ttsLoading={phraseTtsLoadingIndex === i}
+                phraseState={getPhrase(i)}
+                onListen={() => handlePhraseListen(phrase, i)}
+                onSpeak={() => setPhrase(i, "speaking")}
+                onDone={() => setPhrase(i, "mastered")}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Done button */}
+      {masteredCount > 0 && onComplete && (
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={onComplete}
+          data-testid="button-sisl-finish"
+        >
+          <CheckCircle2 className="h-4 w-4 mr-2" />
+          Continue to grammar
+        </Button>
+      )}
     </div>
   );
-
-  // ── Vocab phase ────────────────────────────────────────────────────────────
-
-  if (phase === "vocab" && currentVocab) {
-    return (
-      <div className="space-y-4" data-testid="sisl-vocab-phase">
-        {progressBar}
-        <VocabCard
-          item={currentVocab}
-          step={vocabStep}
-          langTag={langTag}
-          imageUrl={imageMap[currentVocab.word]?.url}
-          isTtsLoading={ttsLoading}
-          onListen={() => {
-            const phrase = currentVocab.exampleSentences?.[0]?.target ?? currentVocab.word;
-            speakWithTTS(phrase);
-          }}
-          onStartSpeaking={() => setVocabStep("speaking")}
-          onDoneSpeaking={() => setVocabStep("eval")}
-          onGotIt={() => {
-            setMasteredIds((prev) => new Set([...prev, vocabIndex]));
-            advanceVocab();
-          }}
-          onNeedsWork={() => advanceVocab()}
-          onRetry={() => {
-            setVocabStep("speaking");
-          }}
-        />
-      </div>
-    );
-  }
-
-  // ── Phrases phase ──────────────────────────────────────────────────────────
-
-  if (phase === "phrases" && currentPhrase) {
-    return (
-      <div className="space-y-4" data-testid="sisl-phrases-phase">
-        {progressBar}
-        <PhraseCard
-          phrase={currentPhrase}
-          index={phraseIndex}
-          total={phrases.length}
-          step={phraseStep}
-          langTag={langTag}
-          isTtsLoading={ttsLoading}
-          onListen={() => speakWithTTS(currentPhrase.phrase)}
-          onStartSpeaking={() => setPhraseStep("speaking")}
-          onDoneSpeaking={() => setPhraseStep("eval")}
-          onNext={advancePhrase}
-        />
-      </div>
-    );
-  }
-
-  return null;
 }
