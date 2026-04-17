@@ -392,6 +392,71 @@ async function fetchRecentDrillStatus(userId: string): Promise<string | null> {
 }
 
 /**
+ * Fetch grammar pattern compartment context for Daniela's greeting prompt.
+ * Returns a compact summary of patterns that are wobbling or actively being pounded
+ * so Daniela knows what to revisit — without asking.
+ */
+async function fetchPatternSignalContext(userId: string, language: string): Promise<string | null> {
+  try {
+    const compartments = await storage.getCompartmentMap(userId, language);
+    if (!compartments.length) return null;
+
+    const active = compartments.filter(c => c.status === 'wobbling' || c.status === 'pounding');
+    if (!active.length) return null;
+
+    // Surface wobbling first (regression — needs attention), then pounding (in progress)
+    const wobbling = active.filter(c => c.status === 'wobbling');
+    const pounding = active.filter(c => c.status === 'pounding');
+
+    const lines: string[] = [];
+    for (const c of wobbling.slice(0, 3)) {
+      const lastWobble = c.lastWobbledAt
+        ? Math.floor((Date.now() - new Date(c.lastWobbledAt).getTime()) / (1000 * 60 * 60 * 24))
+        : null;
+      const ago = lastWobble !== null ? (lastWobble === 0 ? 'today' : lastWobble === 1 ? 'yesterday' : `${lastWobble}d ago`) : '';
+      lines.push(`- ${c.patternKey}: WOBBLING — slipped back after partial stability${ago ? ` (last wobble ${ago})` : ''}. Needs revisiting.`);
+    }
+    for (const c of pounding.slice(0, 3)) {
+      lines.push(`- ${c.patternKey}: IN PROGRESS — being drilled (${c.poundingCount} poundings, ${c.wobbleCount} wobbles). Keep building.`);
+    }
+
+    if (!lines.length) return null;
+    return lines.join('\n');
+  } catch (err) {
+    console.warn('[PatternSignals] Failed to fetch compartment context:', err);
+    return null;
+  }
+}
+
+/**
+ * Fetch recent learning milestones (Daniela-flagged breakthroughs) for the greeting prompt.
+ * Returns the 3 most recent milestones so Daniela can reference wins and build on momentum.
+ */
+async function fetchRecentMilestonesContext(userId: string, language: string): Promise<string | null> {
+  try {
+    const milestones = await journeyMemoryService.getMilestones(userId, language, 5);
+    if (!milestones.length) return null;
+
+    // Only surface milestones from the last 30 days — older ones are history, not context
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const recent = milestones.filter(m => m.occurredAt && new Date(m.occurredAt) >= thirtyDaysAgo);
+    if (!recent.length) return null;
+
+    const lines = recent.slice(0, 3).map(m => {
+      const daysAgo = Math.floor((Date.now() - new Date(m.occurredAt).getTime()) / (1000 * 60 * 60 * 24));
+      const ago = daysAgo === 0 ? 'today' : daysAgo === 1 ? 'yesterday' : `${daysAgo} days ago`;
+      const sig = m.significance ? ` (${m.significance.substring(0, 80)})` : '';
+      return `- [${ago}] ${m.milestoneType}: "${m.title}" — ${m.description.substring(0, 120)}${m.description.length > 120 ? '...' : ''}${sig}`;
+    });
+
+    return lines.join('\n');
+  } catch (err) {
+    console.warn('[Milestones] Failed to fetch milestone context:', err);
+    return null;
+  }
+}
+
+/**
  * Parse sprint suggestion content with fallback
  * Handles both JSON format and free-form text
  */
@@ -7802,6 +7867,20 @@ Remember: David may reference things discussed in these recent text chats.
       } catch (drillErr: any) {
         console.log(`[Streaming Greeting] Could not fetch drill status: ${drillErr.message}`);
       }
+
+      // Fetch grammar pattern signals — wobbling/pounding compartments Daniela should revisit
+      let patternSignalContext: string | null = null;
+      let recentMilestonesContext: string | null = null;
+      if (session.userId && session.targetLanguage) {
+        const [psCtx, msCtx] = await Promise.all([
+          fetchPatternSignalContext(String(session.userId), session.targetLanguage).catch(() => null),
+          fetchRecentMilestonesContext(String(session.userId), session.targetLanguage).catch(() => null),
+        ]);
+        patternSignalContext = psCtx;
+        recentMilestonesContext = msCtx;
+        if (patternSignalContext) console.log(`[Streaming Greeting] Pattern signals loaded (${patternSignalContext.split('\n').length} active patterns)`);
+        if (recentMilestonesContext) console.log(`[Streaming Greeting] Recent milestones loaded (${recentMilestonesContext.split('\n').length} milestones)`);
+      }
       
       // Build greeting prompt with full context
       // DEBUG: Log context being passed to greeting prompt
@@ -7835,7 +7914,9 @@ Remember: David may reference things discussed in these recent text chats.
         connectionsAboutStudent,
         colleagueFeedback,
         todaysEarlierChats,
-        recentDrillStatus
+        recentDrillStatus,
+        patternSignalContext,
+        recentMilestonesContext
       );
       
       // Inject scenario context if the student navigated here from the scenario browser
@@ -8384,7 +8465,9 @@ Remember: David may reference things discussed in these recent text chats.
     connectionsAboutStudent?: { mentioner: string; relationship: string; context: string }[],
     colleagueFeedback?: { agent: string; subject: string; summary: string }[],
     todaysEarlierChats?: { role: string; content: string; language: string }[],
-    recentDrillStatus?: string | null
+    recentDrillStatus?: string | null,
+    patternSignalContext?: string | null,
+    recentMilestonesContext?: string | null
   ): string {
     // RAW HONESTY MODE: Minimal prompting for authentic conversation exploration
     // Skip all the normal tutor context and let Daniela respond authentically
@@ -8450,6 +8533,22 @@ CRITICAL: Do NOT recite the date, time, or system context. Greet the student war
       contextParts.push(recentDrillStatus);
     }
     
+    // GRAMMAR PATTERN SIGNALS — patterns Daniela flagged as wobbling or in-progress
+    // These compound over sessions: Daniela knows which patterns to revisit without asking
+    if (patternSignalContext) {
+      contextParts.push(`\n*** GRAMMAR PATTERNS TO WATCH ***`);
+      contextParts.push(`These are grammatical patterns you've been tracking. Wobbling means the student slipped back — revisit naturally. In Progress means active drilling — keep the momentum.`);
+      contextParts.push(patternSignalContext);
+    }
+
+    // RECENT BREAKTHROUGHS — milestones Daniela celebrated in recent sessions
+    // Use these to open with momentum: "Last time you had that click with..."
+    if (recentMilestonesContext) {
+      contextParts.push(`\n*** RECENT BREAKTHROUGHS ***`);
+      contextParts.push(`Moments you celebrated with this student recently. Reference these naturally to acknowledge their progress and build on momentum.`);
+      contextParts.push(recentMilestonesContext);
+    }
+
     // TODAY'S EARLIER CHATS - What you talked about earlier today
     // This gives instant recall of today's conversations without needing memory_lookup
     if (todaysEarlierChats && todaysEarlierChats.length > 0) {
