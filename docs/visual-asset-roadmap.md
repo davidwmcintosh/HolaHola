@@ -3047,6 +3047,8 @@ These require a multi-step operation:
 
 This is a **decoding operation**, not a vocabulary acquisition event. The student is practicing the rule, not learning the Spanish word. Critically, they are installing a memory trace that permanently routes through English: every future access to "conversación" goes through "conversation → apply TION rule." That is not fluency. That is a lookup table.
 
+And the pattern is not even the right tool for comprehension. If you are reading a Spanish newspaper article about a car accident and you encounter "ambulancia," you should be able to infer its meaning from the context — not from a spelling rule. That contextual inference works whether you speak English, Korean, or Arabic. Pattern cognates offer an English-speaker's shortcut to an inference that contextual reasoning already provides — and unlike contextual reasoning, the pattern shortcut is not portable and does not strengthen a generalizable skill.
+
 **Tier 3 — False friends** (embarazada/embarrassed, sensible/sensato)
 
 The flip side of pattern cognates — the same routing mechanism, but it misfires. Not directly relevant here, but illustrates why L1 routing is a risk, not just an inconvenience.
@@ -3058,6 +3060,32 @@ The flip side of pattern cognates — the same routing mechanism, but it misfire
 Pattern cognates are an English-speaker's hack. A Korean speaker, an Arabic speaker, a Mandarin speaker — they get nothing from the TION→CIÓN rule. The hack is not portable across learner backgrounds.
 
 But even for English speakers, the hack has an expiration date. It is most useful at the very beginning, when the student has no Spanish vocabulary at all and needs to feel like they know something. As the student advances, the L1 routing it installs becomes a liability. Fluent speakers do not think "conversation → conversación" — they just think "conversación." The rule-based shortcut has to be unlearned, or more precisely, overwritten by direct access. The image-based approach builds direct access from lesson one and never has to be unlearned.
+
+---
+
+### Contextual Inference: The Skill That Actually Matters
+
+The Defense Language Institute — which trains military linguists to professional-grade fluency in some of the world's hardest languages — uses an aptitude test called GLOSS before admitting students to any language program. One of the test's core components evaluates how a candidate responds to a language they have never seen before: Can they infer anything about the grammar? The word order? The meaning of a word from its surroundings?
+
+Their finding: **the ability to infer from context is the single strongest predictor of language acquisition ability.**
+
+This has a direct implication for the cognate debate. A skilled reader who encounters "ambulancia" in a Spanish newspaper article about an emergency is not running a pattern-matching rule. They are doing something more fundamental: gathering context, forming a hypothesis, confirming or updating it. That process works in any language, for any learner background. It is the same process the DLI tests for.
+
+Pattern cognates, at their best, produce the same output as contextual inference — a reasonable guess at the word's meaning — but through a mechanically different route. The pattern-cognate route:
+- Requires knowing English well enough to recognize the root
+- Short-circuits the contextual engagement that would have produced the same result
+- Does not transfer to languages without English cognate overlap
+- Atrophies the more fundamental skill precisely because it offers a shortcut
+
+The contextual inference route:
+- Works in any language pair
+- Works for any learner background
+- Strengthens with practice — it is a generalizable metacognitive skill
+- Is what the DLI identifies as the fundamental differentiator between fast and slow learners
+
+**The pattern cognate rules are not a reading comprehension strategy. They are a substitute for a reading comprehension strategy — and an inferior one.**
+
+For HoloHola, this means: Daniela does not teach reading comprehension through pattern rules. She models contextual inference. When a student encounters an unfamiliar word, Daniela asks: "What do you think that word means from the context?" not "Does that look like an English word you know?"
 
 ---
 
@@ -3080,7 +3108,7 @@ See It and Say It's pedagogical organization — every new concept introduced th
 | Category | Value | How HoloHola Uses It |
 |---|---|---|
 | **Direct cognates** | Genuinely free vocabulary — concept already known, Spanish attaches directly | Daniela surfaces these as "bonus awareness" — "you already know this one" — without making them a teaching method |
-| **Pattern cognates (Madrigal's 8 rules)** | Useful as a reading-comprehension decoder for English speakers; not a vocabulary learning strategy | Available as a reference tool for English-speaking students; never presented as the primary way to learn a word; Daniela does not teach vocabulary through pattern rules |
+| **Pattern cognates (Madrigal's 8 rules)** | An English-speaker's shortcut that substitutes for contextual inference — the more valuable and generalizable skill; not a vocabulary learning strategy and not a reading comprehension strategy | Available as passive background knowledge for English-speaking students; Daniela never teaches through pattern rules and never prompts students to recognize English roots as a comprehension strategy |
 | **Image anchoring** | Builds direct concept-to-Spanish links; universally applicable; creates the same cognitive architecture as native acquisition | The primary vocabulary teaching method across all learner backgrounds and all languages HoloHola teaches |
 
 ---
@@ -3115,9 +3143,11 @@ The parts that do not carry forward:
 
 | Date | Action | Status |
 |---|---|---|
-| Apr 17, 2026 (S66) | Three-tier cognate hierarchy established: direct cognates (free vocabulary, no L1 mediation) vs. pattern cognates (reading decoder, not a production strategy) vs. image anchoring (primary pedagogy, universally applicable) | Documented |
-| Apr 17, 2026 (S66) | Revised HoloHola pedagogy hierarchy: image anchoring primary; direct cognates as bonus awareness; pattern cognates stripped from teaching method but available as reference | Documented |
-| Apr 17, 2026 (S66) | Daniela teaching style implication: never teach a word by invoking its English root; teach from the concept, which the image already establishes | Documented |
+| Apr 17, 2026 (S66) | Three-tier cognate hierarchy established: direct cognates (free vocabulary, no L1 mediation) vs. pattern cognates (shortcut substituting for contextual inference) vs. image anchoring (primary pedagogy, universally applicable) | Documented |
+| Apr 17, 2026 (S66) | Pattern cognates re-evaluated: not a valid reading-comprehension strategy either — contextual inference produces the same output through a more portable and generalizeable route | Documented |
+| Apr 17, 2026 (S66) | DLI GLOSS aptitude test documented: contextual inference is the #1 predictor of language acquisition ability; pattern rule reliance is a shortcut that atrophies this skill | Documented |
+| Apr 17, 2026 (S66) | Revised HoloHola pedagogy hierarchy: image anchoring primary; direct cognates as bonus awareness; pattern cognates stripped entirely from teaching method — Daniela models contextual inference instead | Documented |
+| Apr 17, 2026 (S66) | Daniela reading instruction implication: when student encounters unfamiliar word, Daniela asks "what do you think it means from context?" — never "does it look like an English word?" | Documented |
 | Apr 17, 2026 (S66) | Magic Key's lasting contribution scoped: substitution drill format and grammar sequence carry forward; pattern cognate rules as teaching method do not | Documented |
 
 ---
