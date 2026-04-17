@@ -3298,9 +3298,44 @@ HoloHola's conversation topics and textbook chapters should align to the 10 GLOS
 
 The text content of GLOSS lessons is bilingual, level-tagged, topic-organized, and likely public domain. These dialogues are ready-made input for Daniela to prime vocabulary before a production session. A GLOSS Level 1 Society dialogue → Daniela runs the same conversation with the student → vocabulary is encountered first in input, then exercised in output.
 
-**4. GLOSS's passive-input model confirms HoloHola's output-practice positioning**
+**4. GLOSS's spoken output gap is HoloHola's market position**
 
-GLOSS does not attempt to drive production. This is a gap, and it is HoloHola's market position. A student who has used GLOSS has consumed excellent input but has not been pushed to produce. HoloHola is where production happens.
+GLOSS reaches written production at Activity 5 but has no spoken conversation practice. A student who has completed a GLOSS lesson has consumed excellent input and done structured written output but has not spoken a word. HoloHola is where spoken production happens.
+
+---
+
+### The Alignment: What GLOSS Gets Right That Almost Nobody Else Does
+
+Direct observation of GLOSS content identifies six principles that define what genuine language learning looks like — and that HoloHola is also built around:
+
+| Principle | What GLOSS Does | What HoloHola Does |
+|---|---|---|
+| **Context** | Every word learned in a real sentence, a real situation — never in isolation | Daniela teaches vocabulary through conversation; compartment pounding uses real sentence frames, not naked word lists |
+| **Immersion** | Authentic content at target-language speed; the student is dropped into real Spanish from lesson one | Daniela speaks to the student as a native speaker would; the session is Spanish-first, not an English grammar class that happens to use Spanish |
+| **Natural language** | Real dialogues between real speakers; real news broadcasts; not scripted slow-learner text | Daniela speaks naturally — she does not slow down, over-enunciate, or simplify unless explicitly asked |
+| **Ear training** | Video forecasts at native speed; no artificially slowed or synthesized audio | TTS voices at natural rate; comprehensible speed is managed through context and vocabulary prep, not through slowing speech |
+| **Real-world language** | The vocabulary of real conversations, news, documents — not "Hello, my name is..." | Compartment vocabulary drawn from real communicative situations; Madrigal's sentence frames are all practical and immediately usable |
+| **Real-world scenarios** | Weather forecasts, where you live, local culture — actual situations students will encounter | Daniela tailors conversation to the student's actual life — job, family, travel — not generic textbook scenarios |
+
+**The one-sentence summary:** GLOSS is built on exactly the same philosophy as HoloHola. The difference is that GLOSS delivers this through a static web interface from the early 2000s, and HoloHola delivers it through Daniela — a real-time adaptive AI tutor who responds to what the student actually said.
+
+---
+
+### The Business Opportunity: Spectacular Content, Clunky Technology
+
+GLOSS has spent decades building an extraordinary library of authentic, level-tagged, real-world language content in 40+ languages. The content philosophy is exactly right. The technology is the exact opposite: a static web page where the student clicks through numbered activities, watches a video, fills in a text box, and submits. There is no adaptation. No conversation. No memory of what the student said or struggled with. No voice. The lesson ends and nothing carries forward.
+
+What GLOSS cannot do:
+- Hear the student speak
+- Adapt based on what the student said
+- Remember what the student struggled with last session
+- Follow a tangent the student introduces
+- Notice that the student hesitated on "recámara" twice and decide to revisit it
+- Give the student the feeling that someone is actually listening
+
+All of that is Daniela.
+
+**HoloHola is what the DLI would build if they started GLOSS from scratch today with modern AI.** Same philosophy. Same content taxonomy. Same commitment to real-world, immersive, natural-language learning. Different technology — technology that can actually respond.
 
 ---
 
@@ -3317,6 +3352,8 @@ GLOSS does not attempt to drive production. This is a gap, and it is HoloHola's 
 | Apr 17, 2026 (S66) | Flickr/Jose Hernandez image credit visible on lesson viewer confirms third-party image copyright directly; validates licensing concern documented above | Documented |
 | Apr 17, 2026 (S66) | Strategic positioning refined: GLOSS covers Input + Processing; HoloHola covers Spoken Output; three-stage table (Comprehensible Input / Processing / Spoken Output) documents the complementary roles | Documented |
 | Apr 17, 2026 (S66) | ODA (Online Diagnostic Assessment, oda.dliflc.edu) noted as separate DLI proficiency assessment tool, distinct from GLOSS and DLAB | Documented |
+| Apr 17, 2026 (S66) | Six-principle alignment table documented: Context, Immersion, Natural language, Ear training, Real-world language, Real-world scenarios — GLOSS and HoloHola built on identical philosophy | Documented |
+| Apr 17, 2026 (S66) | Business opportunity documented: GLOSS = spectacular content, clunky 2000s-era technology; HoloHola = same philosophy + Daniela (adaptive, voice, memory, real-time); "what the DLI would build if they started GLOSS from scratch today" | Documented |
 
 ---
 
