@@ -1010,7 +1010,7 @@ const F_GRADE_IMAGES = [
     conceptKey: 'vocab_time_dias_semana',
     label: 'días de la semana (days of week)',
     reason: '"MONDAY", "WEDNESDAY", "SATURDAY" English day names baked in',
-    prompt: 'A clean 7-column weekly calendar grid, watercolor illustration style, white background. Each column contains exactly one simple pictographic icon and nothing else — no words, no abbreviations, no letters, no numbers. The icons represent the seven days symbolically using universally understood pictograms only: a bright sun, a crescent moon, a flame, a water droplet, a hammer, a music note, and a five-pointed star — one per column in a neat horizontal row. No text whatsoever. No day names in any language. No numbers. Just 7 simple icons arranged in a neat grid.',
+    prompt: 'NO TEXT, NO WORDS, NO LETTERS, NO NUMBERS anywhere in the image. Watercolor illustration. Seven round glowing sun icons arranged in a neat horizontal row on a plain white background. Each sun is a different colour of the rainbow: the first sun is red-orange, then orange, yellow, lime-green, teal, blue, and the last is soft purple. Each sun has a circular glowing centre and short radiating rays around it. The seven differently-coloured suns represent seven days. No calendar, no grid, no columns, no labels, no day names in any language, no numbers.',
   },
 ] as const;
 
