@@ -28,6 +28,7 @@ The analysis documents below have been integrated inline as **Part I** of this r
 | **Part I.K** — Interactive Textbook Architecture *(inline below)* | Daniela leads every page; drill system scoped to tangent queue only; observable behavior replaces inferred behavior; Daniela as Fluency Judge | Before implementing any new textbook or drill feature |
 | **Part I.L** — The 20 Reminder Cards: Madrigal's Skeleton Key *(inline below)* | All 20 cards catalogued by type and lesson; two-type taxonomy (cognate pattern cards vs. substitution drill grids); Spanish 1 compartment sequence derived from card order; HoloHola design recommendations | Before designing Spanish 1 compartment sequence or the Cognate Key feature |
 | **Part I.M** — The Cognate Trap: Why Image Anchoring Is the Primary Pedagogy *(inline below)* | Three-tier cognate hierarchy (direct / pattern / false friends); why pattern cognates install L1-mediated memory traces that are counterproductive for production fluency; image anchoring as the universally applicable primary pedagogy; what Daniela must never do; what Magic Key contributes beyond cognates | Definitive statement of HoloHola's vocabulary learning philosophy — read before designing any new vocabulary feature |
+| **Part I.N** — GLOSS as a Reference Architecture *(inline below)* | GLOSS content taxonomy (4 competencies × 10 topics × 2 modalities); lesson format documented from downloaded package (bilingual dialogue + bilingual audio); licensing status (original text likely public domain; images/audio need individual evaluation); GLOSS as comprehensible input pipeline feeding HoloHola's output practice | Before designing content organization, competency tracking, or input/output session sequencing |
 | `docs/curriculum-strategy.md` *(external)* | Overall platform philosophy, ACTFL level mapping, M1–M6 component definitions | Framing new chapter types |
 
 **Image generation style note:** HoloHola uses soft watercolor, not Madrigal's B&W line art — we are not trying to replicate her drawings. What Madrigal's illustrations teach us is how *minimal* you can get and still communicate a word unambiguously. Her drawings are a masterclass in stripping an image down to its single essential idea. That principle applies directly to our watercolor generation: when in doubt, simplify. One subject, one context, no clutter. Part I.D documents how she solves each concept type — use it as a simplicity reference, not a style guide.
@@ -3156,6 +3157,138 @@ The parts that do not carry forward:
 | Apr 17, 2026 (S66) | Revised HoloHola pedagogy hierarchy: image anchoring primary; direct cognates as bonus awareness; pattern cognates stripped entirely from teaching method — Daniela models contextual inference instead | Documented |
 | Apr 17, 2026 (S66) | Daniela reading instruction implication: when student encounters unfamiliar word, Daniela asks "what do you think it means from context?" — never "does it look like an English word?" | Documented |
 | Apr 17, 2026 (S66) | Magic Key's lasting contribution scoped: substitution drill format and grammar sequence carry forward; pattern cognate rules as teaching method do not | Documented |
+
+---
+
+## Part I.N — GLOSS as a Reference Architecture: Content Taxonomy, Lesson Format, and Licensing (S66, April 2026)
+
+*Source: Direct inspection of gloss.dliflc.edu and a downloaded Level 1 Spanish lesson package (sp_soc417, "Where do you live now?", Society topic, Lexical competence).*
+
+---
+
+### What GLOSS Actually Is
+
+GLOSS — Global Language Online Support System — is a free, publicly accessible library of language learning content maintained by the Defense Language Institute Foreign Language Center (DLIFLC). It covers 40+ languages including the DLI's priority languages: Arabic, Mandarin, Korean, Dari, Pashto, Farsi, and many others with no English cognate overlap.
+
+Content is organized along four dimensions:
+
+| Dimension | Options |
+|---|---|
+| **Language** | 40+ languages |
+| **Level** | ILR/ACTFL-mapped levels |
+| **Modality** | Listening, Reading |
+| **Competence** | Discourse, Lexical, Sociocultural, Structural |
+| **Topic** | Culture, Economy, Environment, Geography, Military, Politics, Science, Security, Society, Technology |
+
+Video lessons are also available — authentic video content in target languages, organized by the same taxonomy.
+
+The ODA (Online Diagnostic Assessment) at [oda.dliflc.edu](https://oda.dliflc.edu) is a separate DLI tool that evaluates language proficiency — distinct from both GLOSS and the DLAB aptitude battery.
+
+---
+
+### The GLOSS Competency Taxonomy
+
+The four GLOSS competencies define the full range of language skill without overlap, and are more precise than the typical "grammar" / "vocabulary" split:
+
+| Competency | What It Covers |
+|---|---|
+| **Lexical** | Vocabulary in context — words and phrases as used in real communication |
+| **Structural** | Grammar and syntax — how the language is constructed |
+| **Discourse** | How sentences connect into coherent speech and text — cohesion, coherence, pragmatics, conversation flow |
+| **Sociocultural** | Cultural knowledge embedded in language use — register, norms, what is implied vs. stated |
+
+Most language apps only touch Lexical and Structural. Discourse and Sociocultural are where fluency actually lives. A student can have perfect grammar and extensive vocabulary and still fail to navigate real conversation because they don't understand how the discourse works or what cultural norms govern it.
+
+The GLOSS taxonomy is worth adopting as HoloHola's internal competency framework — it is precise, validated, and used by the institution that produces some of the world's most capable language learners.
+
+---
+
+### The GLOSS Topic Taxonomy
+
+Ten topic domains organized around real-world communicative needs, not grammar points:
+
+Culture · Economy · Environment · Geography · Military · Politics · Science · Security · **Society** · Technology
+
+"Where do you live now?" maps to Society — a communicative need, not a grammar chapter. The DLI organizes content around what students need to *do* with the language in the real world, then the grammar that serves that need emerges from the content. This is the antithesis of "Chapter 4: The Preterite."
+
+---
+
+### What a GLOSS Lesson Actually Contains
+
+The downloaded Level 1 Spanish lesson package (sp_soc417, Society: "Where do you live now?") contains:
+
+| File | Content |
+|---|---|
+| `.docx` / `.doc` | Bilingual dialogue — Spanish + English side by side |
+| `.pdf` | Formatted version of the same dialogue |
+| `.mp3` | Audio recording of the dialogue |
+| `_alt.mp3` | Alternate recording (different speaker, speed, or gender) |
+
+The lesson text is a natural conversation between two named women — Karina and Margarita — discussing their homes in Mexico City and Guadalajara. No grammar explanation. No drill. Just a real conversation at natural register, with vocabulary in context:
+
+*Margarita: "Mi apartamento actualmente es un estudio cerca del centro de la ciudad. No tengo recámaras, pero en una esquina del estudio tengo una cama mediana con una mesa de noche grande que la uso como escritorio. Las paredes son de color amarillo claro para agrandar el espacio."*
+
+The vocabulary this lesson teaches (through context, not list): apartamento, casa, cuartos, recámara, sala, cocina, comedor, cuarto de huéspedes — plus furniture (cama, almohadas, escritorio, sofá-cama, muebles) and descriptive adjectives (pequeña, grande, cómoda, colorida, eficiente, abierta). This maps exactly to the housing/furniture chapter in Madrigal's See It and Say It.
+
+**The lesson is passive input only.** The student reads and listens. No production required. This is consistent with GLOSS's modality scope (Listening + Reading only) and with comprehensible input theory: you absorb the vocabulary and structure through exposure, then practice production elsewhere.
+
+---
+
+### Input vs. Output: GLOSS and HoloHola Are Complementary, Not Competing
+
+GLOSS provides **comprehensible input** — curated, authentic, level-appropriate reading and listening material. The student absorbs language through exposure without the pressure of production.
+
+HoloHola provides **guided output practice** — Daniela drives production through conversation, drills, and real-time feedback. The student must retrieve and use language under the gentle pressure of a real interaction.
+
+These are not competing approaches. They are the two halves of a complete language acquisition cycle, as established by Krashen's input hypothesis and later refined by Merrill Swain's output hypothesis: you need both comprehensible input (to acquire the forms) and pushed output (to notice gaps and develop fluency).
+
+**The strategic implication:** GLOSS content could serve directly as the input pipeline that feeds HoloHola sessions. A student reads or listens to a GLOSS dialogue on "where do you live" — then Daniela picks up the conversation: "Now let me ask you the same questions Karina asked Margarita." The GLOSS lesson primes the vocabulary; Daniela drives the production. The gap between input and output closes in a single session.
+
+---
+
+### Licensing Status
+
+| Content Type | Status |
+|---|---|
+| **Original text (dialogues, lesson materials)** | Almost certainly **public domain** — produced by a U.S. federal government agency; ineligible for copyright under 17 U.S.C. § 105 |
+| **Third-party images** | **Individually copyrighted** — DLIFLC explicitly states most images are copyrighted by individuals or companies and require prior permission |
+| **Audio recordings** | **Uncertain** — if recorded by DLI staff, likely public domain; if licensed from external voice actors or studios, may carry individual rights |
+| **Classification** | Unclassified; approved for international military students without restriction |
+
+**Bottom line for HoloHola:** The text content of GLOSS lessons is likely free to use as source material for Daniela's conversations. The audio and images require individual evaluation. For any intended use beyond reference, contact DLIFLC directly via [dliflc.edu/dliflc-media-copyright/](https://www.dliflc.edu/dliflc-media-copyright/) or the Chief, Regulatory Law and Intellectual Property Division, U.S. Army Legal Services Agency.
+
+---
+
+### What This Means for HoloHola
+
+**1. Adopt the GLOSS competency taxonomy internally**
+
+Lexical, Structural, Discourse, Sociocultural — these four labels should organize how HoloHola tracks and surfaces student progress. Daniela's pattern signals (`record_pattern_signal`) and milestones already implicitly address all four; naming them makes the framework explicit and makes progress visible to students.
+
+**2. Adopt the GLOSS topic taxonomy for content organization**
+
+HoloHola's conversation topics and textbook chapters should align to the 10 GLOSS topic domains. This is not just organizational tidiness — it maps HoloHola's content to a framework used by the world's most rigorous language training institution, and it organizes learning around real communicative needs rather than grammar chapters.
+
+**3. Use GLOSS dialogues as source material for Daniela's conversation starters**
+
+The text content of GLOSS lessons is bilingual, level-tagged, topic-organized, and likely public domain. These dialogues are ready-made input for Daniela to prime vocabulary before a production session. A GLOSS Level 1 Society dialogue → Daniela runs the same conversation with the student → vocabulary is encountered first in input, then exercised in output.
+
+**4. GLOSS's passive-input model confirms HoloHola's output-practice positioning**
+
+GLOSS does not attempt to drive production. This is a gap, and it is HoloHola's market position. A student who has used GLOSS has consumed excellent input but has not been pushed to produce. HoloHola is where production happens.
+
+---
+
+### Session Log
+
+| Date | Action | Status |
+|---|---|---|
+| Apr 17, 2026 (S66) | GLOSS inspected directly; lesson package downloaded and extracted (sp_soc417, Society: "Where do you live now?") | Documented |
+| Apr 17, 2026 (S66) | GLOSS lesson format documented: bilingual dialogue (named characters), .docx + .pdf + .mp3 + alt .mp3, passive input only | Documented |
+| Apr 17, 2026 (S66) | GLOSS competency taxonomy (Lexical, Structural, Discourse, Sociocultural) and topic taxonomy (10 domains) documented | Documented |
+| Apr 17, 2026 (S66) | Licensing status: original text likely public domain (17 U.S.C. § 105); images and audio require individual evaluation | Documented |
+| Apr 17, 2026 (S66) | Strategic positioning: GLOSS = comprehensible input; HoloHola = guided output practice; complementary not competing; GLOSS dialogues as source material proposal | Documented |
+| Apr 17, 2026 (S66) | ODA (Online Diagnostic Assessment, oda.dliflc.edu) noted as separate DLI proficiency assessment tool, distinct from GLOSS and DLAB | Documented |
 
 ---
 
