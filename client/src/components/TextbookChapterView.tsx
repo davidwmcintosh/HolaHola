@@ -540,7 +540,6 @@ export function TextbookChapterView({
   const firstSislSection = chapter.sections.find(
     s => s.lessonType === 'vocabulary' || s.lessonType === 'drill'
   );
-  const [showChapterSisl, setShowChapterSisl] = useState(false);
 
   return (
     <div className="space-y-6 w-full max-w-4xl mx-auto pb-12 touch-pan-y overscroll-contain">
@@ -581,6 +580,17 @@ export function TextbookChapterView({
           </p>
         )}
       </div>
+
+      {/* ── See It, Say It — primary vocab presentation (Madrigal method) ── */}
+      {firstSislSection && (
+        <div data-testid="sisl-chapter-inline">
+          <SeeItSayItLoop
+            lessonId={firstSislSection.id}
+            language={language}
+            lessonName={firstSislSection.name}
+          />
+        </div>
+      )}
 
       {/* ── Grammar / intro reference ── */}
       <ChapterIntroduction
@@ -631,29 +641,8 @@ export function TextbookChapterView({
           ));
       })()}
 
-      {/* ── Primary CTA: Start Chat + See It Say It ── */}
+      {/* ── Primary CTA: Start Chat ── */}
       <div className="space-y-2" data-testid="chapter-cta-section">
-        {firstSislSection && (
-          <Button
-            variant={showChapterSisl ? "default" : "outline"}
-            className="w-full min-h-[52px] text-base gap-2"
-            onClick={() => setShowChapterSisl(prev => !prev)}
-            data-testid="button-chapter-see-it-say-it"
-          >
-            <Eye className="h-5 w-5" />
-            {showChapterSisl ? "Close" : "See It, Say It — vocabulary practice"}
-          </Button>
-        )}
-        {showChapterSisl && firstSislSection && (
-          <div className="rounded-lg border bg-card p-4" data-testid="sisl-chapter-panel">
-            <SeeItSayItLoop
-              lessonId={firstSislSection.id}
-              language={language}
-              lessonName={firstSislSection.name}
-              onComplete={() => setShowChapterSisl(false)}
-            />
-          </div>
-        )}
         <Button
           className="w-full min-h-[52px] text-base gap-2"
           onClick={onStartConversation}
