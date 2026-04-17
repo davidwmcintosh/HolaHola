@@ -30,6 +30,7 @@ The analysis documents below have been integrated inline as **Part I** of this r
 | **Part I.M** — The Cognate Trap: Why Image Anchoring Is the Primary Pedagogy *(inline below)* | Three-tier cognate hierarchy (direct / pattern / false friends); why pattern cognates install L1-mediated memory traces that are counterproductive for production fluency; image anchoring as the universally applicable primary pedagogy; what Daniela must never do; what Magic Key contributes beyond cognates | Definitive statement of HoloHola's vocabulary learning philosophy — read before designing any new vocabulary feature |
 | **Part I.N** — GLOSS as a Reference Architecture *(inline below)* | GLOSS content taxonomy (4 competencies × 10 topics × 2 modalities); lesson format documented from downloaded package (bilingual dialogue + bilingual audio); licensing status (original text likely public domain; images/audio need individual evaluation); GLOSS as comprehensible input pipeline feeding HoloHola's output practice | Before designing content organization, competency tracking, or input/output session sequencing |
 | **Part I.O** — The DLI Campus: Physical Immersion Environments *(inline below)* | DLI physically builds restaurant, café, train station sets with native-speaker actors on Monterey campus; GLOSS digital tools are pre-work, campus does the immersion; HoloHola SceneCanvas is the digital equivalent; competitive positioning reframed from "quiz app" to "campus in your pocket" | Before designing scene environments, scenario conversations, or marketing copy |
+| **Part I.P** — The Affective Filter: Why Cold Immersion Fails Most Learners *(inline below)* | Krashen's Affective Filter Hypothesis; commitment/circumstance dichotomy (ambassador's kids vs. casual learners); Calibrated Immersion model — Spanish always the medium, English sometimes the scaffold; whiteboard as precision scaffolding surface; calibration spectrum Spanish 1 → Spanish 5; Daniela's gentle hand is not a concession but the product design decision that determines whether broader-market students reach Spanish 3 | Definitive statement of how Daniela modulates immersion intensity — read before designing any student-facing difficulty controls, scaffolding features, or Daniela behavior for beginner/anxious/child learners |
 | `docs/curriculum-strategy.md` *(external)* | Overall platform philosophy, ACTFL level mapping, M1–M6 component definitions | Framing new chapter types |
 
 **Image generation style note:** HoloHola uses soft watercolor, not Madrigal's B&W line art — we are not trying to replicate her drawings. What Madrigal's illustrations teach us is how *minimal* you can get and still communicate a word unambiguously. Her drawings are a masterclass in stripping an image down to its single essential idea. That principle applies directly to our watercolor generation: when in doubt, simplify. One subject, one context, no clutter. Part I.D documents how she solves each concept type — use it as a simplicity reference, not a style guide.
@@ -3457,6 +3458,137 @@ It does not need to be exhaustive. It does not need to cover every edge case. It
 | Apr 17, 2026 (S66) | HoloHola SceneCanvas mapped to DLI physical sets (parallel table): same environments, same no-translation constraint, digital vs. physical delivery | Documented |
 | Apr 17, 2026 (S66) | Competitive positioning reframed: HoloHola vs. residential campus immersion (DLI standard), not vs. quiz apps | Documented |
 | Apr 17, 2026 (S66) | Core positioning statement: "The DLI's immersion method is the most effective proven approach to language acquisition in the US. It requires a residential campus. HoloHola puts that campus in your pocket." | Documented |
+
+---
+
+# Part I.P — The Affective Filter: Why Cold Immersion Fails Most Learners (S66, April 2026)
+
+*Source: Krashen's Input Hypothesis and Affective Filter Hypothesis; direct observation of who succeeds with full immersion and who doesn't.*
+
+---
+
+## The Proof That Immersion Works
+
+Immersion works. This is not in dispute. The evidence is overwhelming and personal:
+
+- Ambassador's kids — dropped into a foreign school at age 8, fluent in 18 months
+- Military kids who move overseas — same pattern
+- Anyone who takes a job abroad and has no English-speaking escape hatch
+- The DLI itself — arguably the most effective language training program in the world
+
+The mechanism is simple: when you are *forced* to use a language to meet basic human needs (food, shelter, connection, employment), your brain acquires it. There is no choice involved. The target language becomes the only path forward.
+
+---
+
+## The Caveat: Commitment and Circumstance
+
+Every success story in cold immersion shares one of two preconditions:
+
+**1. No choice.** The ambassador's kid didn't choose to move. The military family didn't choose deployment. The circumstance eliminated the escape route. The brain adapted because it had to.
+
+**2. Pre-committed.** DLI students are like Navy SEALs or Army Rangers. They signed up knowing it would be brutal, knowing it was a proven method, and knowing the result would be extraordinary. The difficulty was part of the contract. They are not the general population.
+
+The person who voluntarily moves to Spain for a year and spends all their time with other Americans is making a rational choice: comfort in their native language is available, so they take it. This is not weakness — it is the normal human response to a difficult option when an easier option exists. The same mechanism explains why thousands of people live in the United States for decades without learning English: they live in neighborhoods where they don't have to.
+
+**When given the choice between comfort and stretch, most people choose comfort. Every time.**
+
+---
+
+## The Affective Filter: The Psychological Mechanism
+
+Stephen Krashen's Affective Filter Hypothesis names exactly what's happening. The affective filter is a psychological barrier to language acquisition that rises when a learner feels:
+
+- Anxious or embarrassed
+- Overwhelmed by incomprehensible input
+- Judged for making mistakes
+- Functionally illiterate — unable to understand what's happening around them
+
+When the filter is high, language acquisition stops. The learner may be surrounded by the target language — literally living in the country — but if the filter is up, almost nothing gets through. This is why immersion without support produces inconsistent results outside of the DLI's controlled, pre-committed environment.
+
+**The DLI knows about the affective filter.** Their solution is institutional: you signed up, you're on campus, the filter must come down or you wash out. That is not a replicable solution for a commercial app.
+
+---
+
+## What This Means for HoloHola
+
+HoloHola's students are not DLI recruits. They are:
+
+- High school students who find the work optional when it gets hard
+- Adults who are self-conscious about sounding foolish
+- Children who shut down completely when they feel lost
+- People who have tried other apps and stopped because they felt incompetent
+- Casual learners who want progress but cannot commit to structured difficulty
+
+For these students, cold immersion — Daniela speaks only Spanish, provides no English scaffolding, never translates — will raise the affective filter past the acquisition threshold. The student will disengage. The app will close. And the student will tell themselves they are "not a language person."
+
+**The immersion philosophy does not change. The delivery must.**
+
+---
+
+## Calibrated Immersion: The HoloHola Model
+
+The goal is not to replicate the DLI. The goal is to deliver the *outcomes* of immersion to students who are not DLI recruits. That requires keeping the affective filter low enough that acquisition can happen — even if it means the session is not 100% Spanish.
+
+The key insight: **Daniela is not a strict immersion enforcer. Daniela is a skilled tutor who uses immersion as her primary tool but holds scaffolding in reserve.**
+
+A skilled human tutor does exactly this. They don't translate constantly — that destroys immersion. But they also don't watch a student drown in confusion and do nothing. They read the student's face. They notice the deer-in-headlights expression. They write a word on the board. They say "this one word means X — now let's try again." Then they get back to Spanish.
+
+**The whiteboard is the key scaffolding surface.** When Daniela writes something in English on the SceneCanvas whiteboard, it is not a failure of immersion. It is a precision instrument: a lifeline delivered in a way that doesn't require breaking the Spanish-speaking frame. The student sees the English; Daniela keeps talking in Spanish.
+
+---
+
+## The Calibration Spectrum
+
+| Student Profile | Daniela's Default Mode |
+|---|---|
+| **Spanish 1 beginner, first session** | More English scaffolding; writes key vocabulary on whiteboard in English alongside Spanish; openly acknowledges confusion; celebrates small wins aggressively |
+| **Spanish 1, 3 weeks in** | Mostly Spanish; whiteboard scaffolding available on demand; Daniela eases back when she detects shutdown signals |
+| **Spanish 2-3 intermediate** | Spanish-primary; English scaffolding as a "lifeline" the student can request or Daniela can offer in high-confusion moments |
+| **Spanish 4-5 advanced** | Full immersion; Spanish only; Daniela does not translate; student is expected to tolerate ambiguity and infer from context |
+| **Child or easily anxious learner (any level)** | Daniela calibrates down regardless of level; more celebration, more scaffolding, smaller steps, more visible progress |
+
+The level system (Spanish 1–5) is not just a curriculum sequencer. It is also a calibration signal for how much English scaffolding is appropriate. A Spanish 1 student who gets 80% Spanish is succeeding. A Spanish 5 student who gets 80% Spanish has a problem.
+
+---
+
+## What Daniela Must Not Do
+
+**She must not abandon immersion out of kindness.**
+
+The temptation — especially with a struggling or anxious student — is to switch to English entirely, explain everything fully, and make the session comfortable. This feels kind. It is counterproductive. A session conducted primarily in English is not a language session. It is a grammar lecture.
+
+The line Daniela holds: **Spanish is always the medium; English is sometimes the scaffold.** The scaffold is a tool she picks up and puts down. The medium is constant.
+
+This is exactly what Madrigal herself does in her books — not coincidentally. Madrigal's books are not cold immersion. She uses English extensively to explain and scaffold before every Spanish exercise. But when it's time to practice, you practice in Spanish. The explanation is in English; the language work is in Spanish. That is the model.
+
+---
+
+## The Market This Unlocks
+
+The DLI serves a narrow population: government and military professionals who self-select for intensity. This is not a criticism — it is appropriate for their mission.
+
+HoloHola serves everyone else:
+
+- The high school student who is curious but not committed to difficulty
+- The adult professional who wants conversational Spanish but has no time for a rigid curriculum
+- The child who is just beginning and needs encouragement more than rigor
+- The heritage speaker who understands Spanish at home but can't produce it in conversation
+- The adult who tried Duolingo, felt patronized, and wants something that actually talks back
+
+None of these students will tolerate cold immersion. All of them can acquire language if the affective filter stays low enough to let acquisition happen. **Daniela's gentle hand is not a concession to weakness — it is the product design decision that determines whether these students make it to Spanish 3.**
+
+---
+
+### Session Log
+
+| Date | Action | Status |
+|---|---|---|
+| Apr 17, 2026 (S66) | Krashen's Affective Filter Hypothesis documented as the psychological mechanism behind why cold immersion fails most learners | Documented |
+| Apr 17, 2026 (S66) | Commitment/circumstance dichotomy: success with cold immersion requires either no choice (ambassador's kids) or pre-commitment (DLI); average learner has neither | Documented |
+| Apr 17, 2026 (S66) | Calibrated Immersion model defined: Spanish is always the medium; English is sometimes the scaffold; whiteboard as precision scaffolding surface | Documented |
+| Apr 17, 2026 (S66) | Calibration spectrum documented: Spanish 1 beginner → more scaffolding; Spanish 5 advanced → full immersion; child/anxious learner → calibrate down regardless of level | Documented |
+| Apr 17, 2026 (S66) | Madrigal as confirmation: her books are not cold immersion — English explains, Spanish practices; same model as Daniela's calibrated approach | Documented |
+| Apr 17, 2026 (S66) | Market positioning: DLI serves pre-committed professionals; HoloHola serves everyone else; Daniela's gentle hand is what makes the broader market reachable | Documented |
 
 ---
 
