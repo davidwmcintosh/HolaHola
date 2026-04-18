@@ -601,8 +601,8 @@ export function TextbookChapterView({
         className="mb-4"
       />
 
-      {/* ── Chapter-level vocab grid ── */}
-      {chapter.sections.length > 0 && (
+      {/* ── Chapter-level vocab grid (hidden when SeeItSayItLoop covers the same vocab) ── */}
+      {chapter.sections.length > 0 && !firstSislSection && (
         <ChapterVocabSection
           sections={chapter.sections}
           language={language}

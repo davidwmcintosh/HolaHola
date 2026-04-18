@@ -11163,6 +11163,7 @@ Return ONLY the ${targetLanguage} phrase:`;
                 word: item.word,
                 language,
                 description: item.translation ?? item.word,
+                libraryOnly: true,
               });
               return { word: item.word, url: result.imageUrl, source: result.source };
             } catch {
@@ -11171,7 +11172,7 @@ Return ONLY the ${targetLanguage} phrase:`;
           })
         );
         for (const r of results) {
-          if (r.url) images[r.word] = { url: r.url, source: r.source };
+          if (r.url && r.source !== 'placeholder') images[r.word] = { url: r.url, source: r.source };
         }
       }
 

@@ -28,6 +28,13 @@ export interface VocabImageRequest {
    * This prevents runaway generation of FR/DE/PT/etc images during bulk seeds.
    */
   seederMode?: boolean;
+  /**
+   * When true, only return images that are already in the cache library.
+   * DALL-E generation is completely blocked — cache misses return a placeholder.
+   * Use this for consumer-facing textbook routes to prevent inconsistent
+   * on-the-fly images from appearing in curated lesson content.
+   */
+  libraryOnly?: boolean;
 }
 
 export interface VocabImageResult {
@@ -2834,7 +2841,7 @@ export function isSceneConcept(word: string, scene?: string): boolean {
 export async function resolveVocabularyImage(
   request: VocabImageRequest,
 ): Promise<VocabImageResult> {
-  const { word, language, description = word, scene, translation, userId, seederMode } = request;
+  const { word, language, description = word, scene, translation, userId, seederMode, libraryOnly } = request;
 
   // ── TOP-LEVEL seeder guard ────────────────────────────────────────────────
   // During batch seeding, non-Spanish words MUST NOT trigger DALL-E.
@@ -3042,6 +3049,11 @@ export async function resolveVocabularyImage(
     const generationType = isSceneConcept(word, sceneFromOverride) ? 'infographic' : 'image';
     console.log(`[VocabImage] Concept cache miss — generating (${generationType}) for concept "${conceptKey}": "${conceptForGeneration.slice(0, 80)}..."`);
 
+    if (libraryOnly) {
+      console.log(`[VocabImage] Library-only mode — skipping DALL-E for concept "${conceptKey}"`);
+      return { imageUrl: getPlaceholderUrl(word), source: 'placeholder', word, description };
+    }
+
     try {
       const { generateVisual } = await import('./visual-content-service');
       const result = await generateVisual(conceptForGeneration, generationType);
@@ -3180,6 +3192,11 @@ export async function resolveVocabularyImage(
   }
 
   console.log(`[VocabImage] Cache miss — generating (${generationType}${anchorImageUrl ? ', anchored' : ''}) for: "${conceptForGeneration}"`);
+
+  if (libraryOnly) {
+    console.log(`[VocabImage] Library-only mode — skipping DALL-E for "${word}"`);
+    return { imageUrl: getPlaceholderUrl(word), source: 'placeholder', word, description };
+  }
 
   try {
     const { generateVisual } = await import('./visual-content-service');
