@@ -34,11 +34,14 @@ Fetches pre-generated audio for a specific drill item.
 #### POST `/api/tts/pronunciation`
 Generates pronunciation audio for arbitrary text on-demand. **Now with database-backed caching!**
 
+> **Design note for new textbook components:** Always use this endpoint — never `POST /api/voice/synthesize` — for any audio button in the interactive textbook. Always pass `gender` from `useLanguage()`. See `docs/textbook-component-tts-stt-guide.md` for the full design rule and anti-pattern list.
+
 **Request:**
 ```json
 {
   "text": "Buenos días",
-  "language": "spanish"
+  "language": "spanish",
+  "gender": "female"
 }
 ```
 
@@ -54,6 +57,7 @@ Generates pronunciation audio for arbitrary text on-demand. **Now with database-
 **Validation:**
 - `text`: Required, max 500 characters
 - `language`: Required, 2-10 characters
+- `gender`: Optional (`'female'` | `'male'`). When omitted the server falls back to the user's DB `tutorGender`, but **always pass it explicitly** so voice is consistent regardless of DB state.
 
 **Caching Behavior:**
 - First request for any text+language+voice combination: generates audio via TTS, stores in database, returns `cacheHit: false`
