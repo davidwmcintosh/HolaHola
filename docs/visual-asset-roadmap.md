@@ -3858,6 +3858,150 @@ Each step is independently shippable. Step 1 delivers value immediately — stud
 ---
 
 
+# Part I.S — The Flat Page First Principle & SentenceColumnGenerator Design (S67, April 2026)
+
+**Session:** S67 (April 18, 2026)
+**Status:** Design decisions finalized — `SentenceColumnGenerator` component built
+
+---
+
+## The Flat Page First Principle
+
+The printed textbook page has three strengths that most digital products destroy in the name of "interactivity":
+
+1. **Rapid acquisition** — the eye can absorb an entire page of information at once
+2. **Fast eye movement** — scanning is free; there is no interaction cost to looking at something
+3. **Subconscious parallel processing** — the gestalt of the page teaches even before the reader consciously processes individual items
+
+HoloHola's design mandate: **take that flat page and augment it with audio, voice, and dynamic generation — without burying anything that should be visible.**
+
+### The Test for Every Page Element
+
+> "Can the student see this without clicking anything?"
+
+If the answer is no — if something is behind a button, an accordion, a tab, a modal, or a navigation away from the page — it fails. Content must be on the page. Audio buttons, mic buttons, and selection controls sit *alongside* visible content. They do not reveal it.
+
+### The Resting State Rule
+
+Every component must have a fully useful resting state. If the student never touches anything, never taps, never speaks — they should still be learning from looking at it. **Interaction is bonus. Visibility is mandatory.**
+
+---
+
+## The Micro-Cycle: Madrigal's Atomic Page Rhythm
+
+From direct inspection of *See It and Say It in Spanish* (pages 9–21), Madrigal's atomic page unit is:
+
+1. **Positive form** — concept shown in sentence form, 4+ images with labeled phrases beneath
+2. **Negative form** — same structural pattern, **different images** (free vocabulary expansion opportunity)
+3. **Question form** — question + affirmative/negative answer pairings with images
+4. **Exercise** — images only, no scaffolding, student produces without help
+
+Critically: there are no chapter delineations. No headers announcing a new topic. The transition from one concept to the next is marked only by the new pattern appearing at the top of the page. The learning is continuous, not partitioned.
+
+**HoloHola equivalent of this cycle:**
+- Daniela models the positive with the image
+- Daniela models the negative ("How would you say you're NOT going there?") — with new images that smuggle in new vocabulary
+- Daniela asks the question form — student produces the answer
+- Student generates without scaffolding — Daniela responds in character
+
+The cycle is invisible to the student — experienced as a natural conversation, not labeled "Step 3: Question Form."
+
+### Key Detail: Negative Form Uses Different Images
+
+Madrigal does not always reuse the same four images for the negative form. She uses it as a **free vocabulary expansion slot** — the structural pattern is familiar (no cognitive load for grammar), so new vocabulary slides in through the images without announcement. HoloHola should do the same.
+
+---
+
+## Chapter Page Audit: What Currently Fails the Flat Page Test
+
+| Element | Status | Issue |
+|---|---|---|
+| SeeItSayItLoop vocab grid | ✓ Pass | All vocabulary visible at once, images + audio alongside |
+| Chapter title + description | ✓ Pass | Always visible |
+| **Lesson Reference accordion** | ✗ Fail | All lesson study notes, grammar explanations, substitution drill hidden behind expand clicks |
+| **CTA buttons mid-page** | ✗ Fail | Placed between visible content and lesson reference — signals "you're done" before the page is complete |
+| **No negative or question form** | ✗ Fail | The micro-cycle does not exist on the page — only the positive form is shown |
+| ChapterRecap at bottom | ✗ Fail | Redundant with CTAs; pulls attention to navigation instead of content |
+
+**The accordion is the primary violation.** It must be removed from learning pages. Content belongs on the page.
+
+---
+
+## The SentenceColumnGenerator: Design Decisions
+
+### Why Not Drag-and-Drop
+
+Making the sentence builder interactive via drag-and-drop slows the brain from parallel scanning to sequential construction. The value of Madrigal's three-column table is not that it *forces* one sentence at a time — it is that it *permits* the student to construct dozens of sentences simultaneously in their head, with their eyes, before touching anything.
+
+**Drag-and-drop removes a capability the static page already has.** It is a regression disguised as an enhancement.
+
+### The Radio Button Solution
+
+Radio buttons are the minimum viable interaction layer for the column generator:
+- All options in all columns remain visible at all times (flat-page principle preserved)
+- One selection per column — the assembled sentence is always valid
+- Change a single column, sentence updates immediately — isolates the substitution
+- The eye still scans all columns and mentally simulates all outcomes without clicking anything
+
+The assembled sentence bar at the top of the component is the "live output" — shows the current selection, updates as you select, has a play button (hear it) and a mic button (say it). No "submit" step. Immediate feedback.
+
+### Why No Images in the Column Generator
+
+The column generator sits below the vocabulary section on the same flat page. The images already exist above it — "banco" and "teatro" are visually anchored before the student reaches the columns. The constructor is a **grammar tool, not a vocabulary tool**. Images are not needed here because the page's flat-page layout puts them nearby.
+
+This also makes the component portable: it works on mobile without image loading or layout concerns.
+
+### Component Specification
+
+**File:** `client/src/components/SentenceColumnGenerator.tsx`
+
+| Feature | Implementation |
+|---|---|
+| Assembled sentence bar | Top of component; always visible; updates on any selection change |
+| Column count | 2–4 columns (configurable) |
+| Items per column | Unlimited; vertical list with radio button per item |
+| Item display | Spanish text + English translation on two lines |
+| Audio per item | Small volume icon → hears that word pronounced (TTS pronunciation pipeline) |
+| Audio for sentence | Play button on assembled bar → hears full sentence (TTS pronunciation pipeline) |
+| Mic for sentence | Mic button on assembled bar → student says the sentence |
+| Images | None — images live in the vocabulary section above |
+| Default state | First item in each column selected — always a valid sentence on arrival |
+| Data source (current) | Hardcoded demo; pending API route for `key_phrases_for_chat` |
+
+### Responsive Design Note
+
+Desktop: all columns visible side by side — full spatial scanning.
+Mobile: Madrigal's small-format book actually provides the right model. The columns are narrow; a column-per-column layout works well. The assembled sentence bar stays fixed at top.
+
+---
+
+## Component Build Status
+
+| Component | Status | Notes |
+|---|---|---|
+| SentenceColumnGenerator | ✓ Built | `client/src/components/SentenceColumnGenerator.tsx` — demo data wired to TextbookChapterView |
+| Negative form component | ✗ Not built | Same image-grid format as positive; different images |
+| Question form component | ✗ Not built | Question + answer pairings with images |
+| Micro-cycle container | ✗ Not built | Wraps positive / negative / question / generator in one flat layout |
+| `key_phrases_for_chat` API route | ✗ Not built | Data exists in DB; no frontend route yet |
+| Chapter page accordion removal | ✗ Not built | Lesson Reference accordion must be replaced with flat content |
+
+---
+
+### Session Log
+
+| Date | Action | Status |
+|---|---|---|
+| Apr 18, 2026 (S67) | Flat Page First Principle articulated and documented | Documented |
+| Apr 18, 2026 (S67) | Madrigal's micro-cycle identified: positive → negative (new images) → question → exercise | Documented |
+| Apr 18, 2026 (S67) | Chapter page audit conducted — accordion as primary flat-page violation; 5 failures identified | Documented |
+| Apr 18, 2026 (S67) | SentenceColumnGenerator design decided: radio buttons, pure text, no drag-and-drop, no images | Decided |
+| Apr 18, 2026 (S67) | SentenceColumnGenerator component built and wired to chapter page with demo data | Built |
+| Apr 18, 2026 (S67) | Resting state rule established: every component must be useful before any interaction occurs | Documented |
+
+---
+
+
 # Part II: Asset Library & Generation Specs
 
 ## 9-Language Textbook Component Coverage Matrix

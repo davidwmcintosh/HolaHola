@@ -26,6 +26,7 @@ import { ChapterRecap } from "./ChapterRecap";
 import { ChapterIntroduction, classifyGrammarType, GrammarChapterView, ConversationStripsSection } from "./ChapterIntroduction";
 import { RhythmDrill } from "./RhythmDrill";
 import { SeeItSayItLoop } from "./SeeItSayItLoop";
+import { SentenceColumnGenerator } from "./SentenceColumnGenerator";
 import { apiRequest } from "@/lib/queryClient";
 
 interface DrillItem {
@@ -588,6 +589,51 @@ export function TextbookChapterView({
             lessonId={firstSislSection.id}
             language={language}
             lessonName={firstSislSection.name}
+          />
+        </div>
+      )}
+
+      {/* ── Sentence Column Generator — substitution practice ── */}
+      {language === "spanish" && (
+        <div data-testid="sentence-column-generator-section">
+          <div className="flex items-center gap-2 px-1 mb-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Sentence Practice
+            </h2>
+          </div>
+          <SentenceColumnGenerator
+            language={language}
+            columns={[
+              {
+                label: "I / He / We",
+                items: [
+                  { text: "Voy", translation: "I go / I'm going" },
+                  { text: "Va", translation: "He/she goes" },
+                  { text: "Vamos", translation: "We go / Let's go" },
+                  { text: "Van", translation: "They go" },
+                ],
+              },
+              {
+                label: "to the",
+                items: [
+                  { text: "al", translation: "to the (masc.)" },
+                  { text: "a la", translation: "to the (fem.)" },
+                ],
+              },
+              {
+                label: "Place",
+                items: [
+                  { text: "hotel", translation: "hotel" },
+                  { text: "banco", translation: "bank" },
+                  { text: "restaurante", translation: "restaurant" },
+                  { text: "teatro", translation: "theater" },
+                  { text: "parque", translation: "park" },
+                  { text: "cine", translation: "cinema" },
+                  { text: "mercado", translation: "market" },
+                  { text: "farmacia", translation: "pharmacy" },
+                ],
+              },
+            ]}
           />
         </div>
       )}
