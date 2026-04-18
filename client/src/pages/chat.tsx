@@ -284,6 +284,7 @@ export default function Chat() {
     const params = new URLSearchParams(search);
     const resumeId = params.get('resume');
     const textbookChapter = params.get('textbook_chapter');
+    const textbookLessonId = params.get('lesson_id');
     
     if (resumeId) {
       console.log('[SHARED CHAT] Resuming conversation from URL:', resumeId);
@@ -292,10 +293,11 @@ export default function Chat() {
       setIsResumedConversation(true);
       setLocation('/chat', { replace: true });
     } else if (textbookChapter) {
-      console.log('[SHARED CHAT] Navigated from textbook chapter:', textbookChapter);
+      console.log('[SHARED CHAT] Navigated from textbook chapter:', textbookChapter, 'lessonId:', textbookLessonId);
       resumeHandledRef.current = true;
       setTextbookContext(textbookChapter);
       sessionStorage.setItem('textbook_chapter_context', textbookChapter);
+      if (textbookLessonId) sessionStorage.setItem('textbook_lesson_id', textbookLessonId);
       setForceNewConversation(true);
       setConversationId(null);
       sessionStorage.removeItem('currentChatConversationId');
@@ -485,11 +487,15 @@ export default function Chat() {
         (isHonestyMode ? 'honesty-mode' : undefined);
       
       const pendingTextbookChapter = sessionStorage.getItem('textbook_chapter_context');
+      const pendingTextbookLessonId = sessionStorage.getItem('textbook_lesson_id');
       if (pendingTextbookChapter) {
         sessionStorage.removeItem('textbook_chapter_context');
       }
+      if (pendingTextbookLessonId) {
+        sessionStorage.removeItem('textbook_lesson_id');
+      }
       
-      console.log('[SHARED CHAT] Creating shared conversation...', isOnboardingComplete ? '(post-onboarding)' : '(onboarding)', 'forceNew:', forceNewConversation, 'mode:', mode, 'classId:', selectedClassId, 'founderMode:', isFounderMode, 'textbookChapter:', pendingTextbookChapter);
+      console.log('[SHARED CHAT] Creating shared conversation...', isOnboardingComplete ? '(post-onboarding)' : '(onboarding)', 'forceNew:', forceNewConversation, 'mode:', mode, 'classId:', selectedClassId, 'founderMode:', isFounderMode, 'textbookChapter:', pendingTextbookChapter, 'textbookLessonId:', pendingTextbookLessonId);
       setIsCreatingConversation(true);
       
       apiRequest("POST", "/api/conversations", {
@@ -504,6 +510,7 @@ export default function Chat() {
         classId: selectedClassId,
         founderMode: isFounderMode,
         textbookChapter: pendingTextbookChapter || undefined,
+        textbookLessonId: pendingTextbookLessonId || undefined,
       })
         .then(res => res.json())
         .then(async (data) => {

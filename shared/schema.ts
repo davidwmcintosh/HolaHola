@@ -448,6 +448,7 @@ export const conversations = pgTable("conversations", {
   learningContext: learningContextEnum("learning_context").default("self_directed"), // self_directed or class_assigned
   // Conversation type - distinguishes learning from editor collaboration
   conversationType: conversationTypeEnum("conversation_type").default("learning"), // learning, editor_collaboration
+  textbookLessonId: text("textbook_lesson_id"), // Lesson ID when conversation starts from a textbook chapter
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
   index("idx_conversations_user_id").on(table.userId),
@@ -1758,6 +1759,7 @@ export const textbookLessonContent = pgTable("textbook_lesson_content", {
   readingPassageTranslation:  text("reading_passage_translation"),
   comprehensionQuestions:     jsonb("comprehension_questions"),   // [{question, answer}]
   keyPhrasesForChat:          jsonb("key_phrases_for_chat"),      // [{phrase, translation, context}]
+  microCycleData:             jsonb("micro_cycle_data"),           // AI-generated {negativeItems, questionItems, sentenceColumns, patternLabel}
   // === Metadata ===
   sources:                    jsonb("sources"),                   // [{source:'wiktionary'|'tatoeba'|'wikipedia'|'wikivoyage', url?}]
   seedVersion:                integer("seed_version").default(1),

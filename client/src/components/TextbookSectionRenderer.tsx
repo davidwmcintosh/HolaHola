@@ -266,7 +266,7 @@ function VocabularyBlock({ words }: { words: { word: string; translation: string
 interface TextbookSectionRendererProps {
   section: TextbookSection;
   onStartDrill?: () => void;
-  onStartConversation?: () => void;
+  onStartConversation?: (lessonId?: string) => void;
   className?: string;
 }
 

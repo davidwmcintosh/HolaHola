@@ -75,7 +75,7 @@ interface TextbookChapterViewProps {
   chapter: Chapter;
   language: string;
   onBack: () => void;
-  onStartConversation: () => void;
+  onStartConversation: (lessonId?: string) => void;
   onStartDrill: (sectionId: string) => void;
   onReviewFlashcards?: () => void;
 }
@@ -695,7 +695,7 @@ export function TextbookChapterView({
       <div className="space-y-2 pt-2" data-testid="chapter-cta-section">
         <Button
           className="w-full min-h-[52px] text-base gap-2"
-          onClick={onStartConversation}
+          onClick={() => onStartConversation(firstSislSection?.id)}
           data-testid="button-start-chapter-chat"
         >
           <MessageSquare className="h-5 w-5" />

@@ -3772,8 +3772,9 @@ export async function registerRoutes(app: Express): Promise<void> {
       }
       
       const textbookChapter = req.body.textbookChapter;
+      const textbookLessonId = req.body.textbookLessonId as string | undefined;
       if (textbookChapter) {
-        console.log('[CONVERSATION CREATE] Textbook chapter context:', textbookChapter);
+        console.log('[CONVERSATION CREATE] Textbook chapter context:', textbookChapter, 'lessonId:', textbookLessonId);
       }
 
       if (canReuseConversation && recentConversation) {
@@ -3793,6 +3794,7 @@ export async function registerRoutes(app: Express): Promise<void> {
           nativeLanguage: userNativeLanguage || data.nativeLanguage || "english",
           classId: classId,
           title: conversationTitle,
+          textbookLessonId: textbookLessonId || null,
         } as typeof conversations.$inferInsert);
         
         console.log('[CONVERSATION CREATE] Created new conversation:', conversation.id, classId ? `(class: ${classId})` : '(self-directed)');
@@ -4707,6 +4709,28 @@ Return [] if nothing is worth surfacing.`;
           console.log(`[VOICE FAST-PATH] Injecting mastery acknowledgment for: ${_voicePendingMastery.join(', ')}`);
         }
 
+        // Inject textbook chapter key phrases into Daniela's context
+        if (activeConversation.textbookLessonId) {
+          try {
+            const { getUserDb: _getVoiceDb } = await import('./db');
+            const { sql: _voiceSql } = await import('drizzle-orm');
+            const _voiceDb = _getVoiceDb();
+            const _phraseRow = await _voiceDb.execute(
+              _voiceSql`SELECT key_phrases_for_chat FROM textbook_lesson_content WHERE lesson_id = ${activeConversation.textbookLessonId} LIMIT 1`
+            );
+            if (_phraseRow.rows[0]?.key_phrases_for_chat) {
+              const _phrases = _phraseRow.rows[0].key_phrases_for_chat as Array<{ phrase: string; translation: string; context: string }>;
+              if (_phrases.length > 0) {
+                const _phraseList = _phrases.map(p => `• ${p.phrase} — ${p.translation}`).join('\n');
+                systemPrompt += `\n\n📖 TEXTBOOK CHAPTER CONTEXT: The student just completed practice drills on these key sentence patterns from the textbook chapter they are studying. Reference, reinforce, and extend these patterns naturally in conversation:\n${_phraseList}`;
+                console.log(`[VOICE FAST-PATH] Injected ${_phrases.length} textbook key phrases for lesson ${activeConversation.textbookLessonId}`);
+              }
+            }
+          } catch (err: any) {
+            console.warn('[VOICE FAST-PATH] Textbook phrase injection failed:', err.message);
+          }
+        }
+
         const model = 'gemini-3-flash-preview'; // Gemini 3 Flash preview
         
         const fetchTime = Date.now() - startTime;
@@ -5522,6 +5546,28 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
         pendingMasteryAcknowledgments.delete(userId);
         systemPrompt += `\n\n⭐ IN-SESSION MASTERY: The student just locked in ${_textPendingMastery.map(w => `"${w}"`).join(', ')} through practice in this very session. Weave a warm, specific acknowledgment into your very next reply — name the word and make it feel like a genuine milestone moment.`;
         console.log(`[TEXT CHAT] Injecting mastery acknowledgment for: ${_textPendingMastery.join(', ')}`);
+      }
+
+      // Inject textbook chapter key phrases into Daniela's context
+      if (updatedConversation.textbookLessonId) {
+        try {
+          const { getUserDb: _getTextDb } = await import('./db');
+          const { sql: _textSql } = await import('drizzle-orm');
+          const _textDb = _getTextDb();
+          const _textPhraseRow = await _textDb.execute(
+            _textSql`SELECT key_phrases_for_chat FROM textbook_lesson_content WHERE lesson_id = ${updatedConversation.textbookLessonId} LIMIT 1`
+          );
+          if (_textPhraseRow.rows[0]?.key_phrases_for_chat) {
+            const _textPhrases = _textPhraseRow.rows[0].key_phrases_for_chat as Array<{ phrase: string; translation: string; context: string }>;
+            if (_textPhrases.length > 0) {
+              const _textPhraseList = _textPhrases.map(p => `• ${p.phrase} — ${p.translation}`).join('\n');
+              systemPrompt += `\n\n📖 TEXTBOOK CHAPTER CONTEXT: The student just completed practice drills on these key sentence patterns from the textbook chapter they are studying. Reference, reinforce, and extend these patterns naturally in conversation:\n${_textPhraseList}`;
+              console.log(`[TEXT CHAT] Injected ${_textPhrases.length} textbook key phrases for lesson ${updatedConversation.textbookLessonId}`);
+            }
+          }
+        } catch (err: any) {
+          console.warn('[TEXT CHAT] Textbook phrase injection failed:', err.message);
+        }
       }
 
       const model = getModelForTier(user.subscriptionTier, user);
@@ -11133,8 +11179,10 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   // ── Micro-cycle data generator ─────────────────────────────────────────────
   // Generates NegativeForm / QuestionForm / SentenceColumns for a lesson.
-  // First call: Claude generates from key_phrases_for_chat + vocabulary_list.
-  // Subsequent calls: served from in-memory cache (per lessonId × language).
+  // L1: In-memory Map cache (fast, lost on restart)
+  // L2: DB column micro_cycle_data (persistent, survives restarts)
+  // L3: Claude generation (first-ever call per lesson × language, ~2-3s)
+  // Works for all 9 supported languages — pass ?language=<lang> param.
   // GET /api/textbook/micro-cycle/:lessonId?language=spanish
   {
     const microCycleCache = new Map<string, object>();
@@ -11145,6 +11193,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         const language = (req.query.language as string) || 'spanish';
         const cacheKey = `${lessonId}::${language}`;
 
+        // L1: in-memory cache
         if (microCycleCache.has(cacheKey)) {
           return res.json({ ...microCycleCache.get(cacheKey), fromCache: true });
         }
@@ -11153,13 +11202,29 @@ Return ONLY the ${targetLanguage} phrase:`;
         const { sql: drizzleSql } = await import('drizzle-orm');
         const db = getUserDb();
         const row = await db.execute(
-          drizzleSql`SELECT key_phrases_for_chat, vocabulary_list FROM textbook_lesson_content WHERE lesson_id = ${lessonId} LIMIT 1`
+          drizzleSql`SELECT key_phrases_for_chat, vocabulary_list, micro_cycle_data FROM textbook_lesson_content WHERE lesson_id = ${lessonId} AND language = ${language} LIMIT 1`
         );
 
-        if (row.rows.length === 0) return res.status(404).json({ error: 'No content for this lesson' });
+        // Try fallback without language filter if no row found
+        let contentRow = row.rows[0];
+        if (!contentRow) {
+          const fallback = await db.execute(
+            drizzleSql`SELECT key_phrases_for_chat, vocabulary_list, micro_cycle_data FROM textbook_lesson_content WHERE lesson_id = ${lessonId} LIMIT 1`
+          );
+          contentRow = fallback.rows[0];
+        }
 
-        const keyPhrases = (row.rows[0].key_phrases_for_chat ?? []) as Array<{ phrase: string; translation: string; context: string }>;
-        const vocabList = (row.rows[0].vocabulary_list ?? []) as Array<{
+        if (!contentRow) return res.status(404).json({ error: 'No content for this lesson' });
+
+        // L2: DB cache — return immediately if already generated
+        if (contentRow.micro_cycle_data) {
+          const cached = contentRow.micro_cycle_data as object;
+          microCycleCache.set(cacheKey, cached);
+          return res.json({ ...cached, fromCache: true });
+        }
+
+        const keyPhrases = (contentRow.key_phrases_for_chat ?? []) as Array<{ phrase: string; translation: string; context: string }>;
+        const vocabList = (contentRow.vocabulary_list ?? []) as Array<{
           word: string;
           translation: string;
           gender?: string;
@@ -11171,6 +11236,7 @@ Return ONLY the ${targetLanguage} phrase:`;
           return res.json({ negativeItems: [], questionItems: [], sentenceColumns: [], patternLabel: '', fromCache: false });
         }
 
+        // L3: Claude generation
         const anthropic = new Anthropic();
         const prompt = `You are generating micro-cycle practice data for a language learning app.
 Language: ${language}
@@ -11209,6 +11275,12 @@ Return ONLY valid JSON, no markdown, no explanation.`;
         const cleaned = raw.startsWith('```') ? raw.replace(/^```[a-z]*\n?/, '').replace(/\n?```$/, '') : raw;
         const data = JSON.parse(cleaned);
 
+        // Write-through to DB (L2 cache) — fire and forget
+        db.execute(
+          drizzleSql`UPDATE textbook_lesson_content SET micro_cycle_data = ${JSON.stringify(data)}::jsonb WHERE lesson_id = ${lessonId} AND language = ${language}`
+        ).catch((err: any) => console.warn('[MicroCycle] DB write failed:', err.message));
+
+        // Store in L1 cache
         microCycleCache.set(cacheKey, data);
         return res.json({ ...data, fromCache: false });
       } catch (error: any) {
