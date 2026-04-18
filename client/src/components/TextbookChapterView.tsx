@@ -22,9 +22,9 @@ import { VisualVocabGrid } from "./TextbookInfographics";
 import { ChapterIntroduction, classifyGrammarType, GrammarChapterView, ConversationStripsSection } from "./ChapterIntroduction";
 import { RhythmDrill } from "./RhythmDrill";
 import { SeeItSayItLoop } from "./SeeItSayItLoop";
-import { SentenceColumnGenerator } from "./SentenceColumnGenerator";
-import { NegativeFormSection } from "./NegativeFormSection";
-import { QuestionFormSection } from "./QuestionFormSection";
+import { SentenceColumnGenerator, SentenceColumn } from "./SentenceColumnGenerator";
+import { NegativeFormSection, NegativeFormItem } from "./NegativeFormSection";
+import { QuestionFormSection, QuestionFormItem } from "./QuestionFormSection";
 import { apiRequest } from "@/lib/queryClient";
 
 interface DrillItem {
@@ -109,6 +109,37 @@ const INLINE_SUPPRESS_TYPES = new Set([
   'ja_numbers', 'ko_numbers', 'zh_numbers', 'he_numbers',
   'es_numbers', 'fr_numbers', 'de_numbers', 'it_numbers', 'pt_numbers', 'en_numbers',
 ]);
+
+// ── Micro-cycle data hook ──────────────────────────────────────────────────────
+// Fetches AI-generated NegativeForm / QuestionForm / SentenceColumns for a lesson.
+// First call: backend calls Claude (~2-3s). All subsequent calls: instant cache.
+
+interface MicroCycleData {
+  negativeItems: NegativeFormItem[];
+  questionItems: QuestionFormItem[];
+  sentenceColumns: SentenceColumn[];
+  patternLabel: string;
+  fromCache: boolean;
+}
+
+function useMicroCycleData(lessonId: string | undefined, language: string) {
+  return useQuery<MicroCycleData>({
+    queryKey: ["/api/textbook/micro-cycle", lessonId, language],
+    queryFn: async () => {
+      if (!lessonId) throw new Error("No lessonId");
+      const res = await fetch(
+        `/api/textbook/micro-cycle/${lessonId}?language=${encodeURIComponent(language)}`,
+        { credentials: "include" }
+      );
+      if (!res.ok) throw new Error(`micro-cycle fetch failed: ${res.status}`);
+      return res.json();
+    },
+    enabled: !!lessonId,
+    staleTime: 1000 * 60 * 30,
+  });
+}
+
+// ── Inline lesson content ──────────────────────────────────────────────────────
 
 function InlineLessonContent({ lessonId, lessonName, language }: {
   lessonId: string;
@@ -446,6 +477,17 @@ export function TextbookChapterView({
     s => s.lessonType === 'vocabulary' || s.lessonType === 'drill'
   );
 
+  // Micro-cycle data — AI-generated for this chapter's first vocab lesson
+  const { data: microCycle, isLoading: microCycleLoading } = useMicroCycleData(
+    firstSislSection?.id,
+    language ?? "spanish"
+  );
+
+  const hasMicroCycle =
+    !microCycleLoading &&
+    microCycle &&
+    (microCycle.negativeItems.length > 0 || microCycle.questionItems.length > 0 || microCycle.sentenceColumns.length > 0);
+
   return (
     <div className="space-y-6 w-full max-w-4xl mx-auto pb-12 touch-pan-y overscroll-contain">
 
@@ -497,122 +539,71 @@ export function TextbookChapterView({
         </div>
       )}
 
-      {/* ── Negative form — different images, free vocabulary expansion ── */}
-      {language === "spanish" && (
+      {/* ── Negative form — real data from micro-cycle hook ── */}
+      {(microCycleLoading || (hasMicroCycle && microCycle!.negativeItems.length > 0)) && (
         <div data-testid="negative-form-section-wrapper">
           <div className="flex items-center gap-2 px-1 mb-3">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
               Negative Form
             </h2>
           </div>
-          <NegativeFormSection
-            language={language}
-            patternLabel="No voy / No va / No vamos / No van…"
-            items={[
-              { imageWord: "hospital", negativePhrase: "No voy al hospital.", translation: "I'm not going to the hospital." },
-              { imageWord: "museo", negativePhrase: "No va al museo.", translation: "She's not going to the museum." },
-              { imageWord: "playa", negativePhrase: "No vamos a la playa.", translation: "We're not going to the beach." },
-              { imageWord: "aeropuerto", negativePhrase: "No van al aeropuerto.", translation: "They're not going to the airport." },
-            ]}
-          />
+          {microCycleLoading ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="text-sm">Generating practice content…</span>
+            </div>
+          ) : (
+            <NegativeFormSection
+              language={language}
+              patternLabel={microCycle!.patternLabel}
+              items={microCycle!.negativeItems}
+            />
+          )}
         </div>
       )}
 
-      {/* ── Question form — Q + Sí/No answers with images ── */}
-      {language === "spanish" && (
+      {/* ── Question form — real data from micro-cycle hook ── */}
+      {(microCycleLoading || (hasMicroCycle && microCycle!.questionItems.length > 0)) && (
         <div data-testid="question-form-section-wrapper">
           <div className="flex items-center gap-2 px-1 mb-3">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
               Question Form
             </h2>
           </div>
-          <QuestionFormSection
-            language={language}
-            patternLabel="¿Va al / Va a la…?"
-            items={[
-              {
-                imageWord: "estadio",
-                question: "¿Va al estadio?",
-                questionTranslation: "Is he going to the stadium?",
-                affirmativeAnswer: "Sí, va al estadio.",
-                affirmativeTranslation: "Yes, he's going to the stadium.",
-                negativeAnswer: "No, no va al estadio.",
-                negativeTranslation: "No, he's not going to the stadium.",
-              },
-              {
-                imageWord: "correo",
-                question: "¿Va al correo?",
-                questionTranslation: "Is she going to the post office?",
-                affirmativeAnswer: "Sí, va al correo.",
-                affirmativeTranslation: "Yes, she's going to the post office.",
-                negativeAnswer: "No, no va al correo.",
-                negativeTranslation: "No, she's not going to the post office.",
-              },
-              {
-                imageWord: "universidad",
-                question: "¿Van a la universidad?",
-                questionTranslation: "Are they going to the university?",
-                affirmativeAnswer: "Sí, van a la universidad.",
-                affirmativeTranslation: "Yes, they're going to the university.",
-                negativeAnswer: "No, no van a la universidad.",
-                negativeTranslation: "No, they're not going to the university.",
-              },
-              {
-                imageWord: "supermercado",
-                question: "¿Vamos al supermercado?",
-                questionTranslation: "Are we going to the supermarket?",
-                affirmativeAnswer: "Sí, vamos al supermercado.",
-                affirmativeTranslation: "Yes, we're going to the supermarket.",
-                negativeAnswer: "No, no vamos al supermercado.",
-                negativeTranslation: "No, we're not going to the supermarket.",
-              },
-            ]}
-          />
+          {microCycleLoading ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="text-sm">Generating practice content…</span>
+            </div>
+          ) : (
+            <QuestionFormSection
+              language={language}
+              patternLabel={microCycle!.patternLabel}
+              items={microCycle!.questionItems}
+            />
+          )}
         </div>
       )}
 
-      {/* ── Sentence Column Generator — substitution practice ── */}
-      {language === "spanish" && (
+      {/* ── Sentence Practice — real data from micro-cycle hook ── */}
+      {(microCycleLoading || (hasMicroCycle && microCycle!.sentenceColumns.length > 0)) && (
         <div data-testid="sentence-column-generator-section">
           <div className="flex items-center gap-2 px-1 mb-3">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
               Sentence Practice
             </h2>
           </div>
-          <SentenceColumnGenerator
-            language={language}
-            columns={[
-              {
-                label: "I / He / We",
-                items: [
-                  { text: "Voy", translation: "I go / I'm going" },
-                  { text: "Va", translation: "He/she goes" },
-                  { text: "Vamos", translation: "We go / Let's go" },
-                  { text: "Van", translation: "They go" },
-                ],
-              },
-              {
-                label: "to the",
-                items: [
-                  { text: "al", translation: "to the (masc.)" },
-                  { text: "a la", translation: "to the (fem.)" },
-                ],
-              },
-              {
-                label: "Place",
-                items: [
-                  { text: "hotel", translation: "hotel" },
-                  { text: "banco", translation: "bank" },
-                  { text: "restaurante", translation: "restaurant" },
-                  { text: "teatro", translation: "theater" },
-                  { text: "parque", translation: "park" },
-                  { text: "cine", translation: "cinema" },
-                  { text: "mercado", translation: "market" },
-                  { text: "farmacia", translation: "pharmacy" },
-                ],
-              },
-            ]}
-          />
+          {microCycleLoading ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="text-sm">Generating practice content…</span>
+            </div>
+          ) : (
+            <SentenceColumnGenerator
+              language={language}
+              columns={microCycle!.sentenceColumns}
+            />
+          )}
         </div>
       )}
 

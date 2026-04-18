@@ -11131,6 +11131,93 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ── Micro-cycle data generator ─────────────────────────────────────────────
+  // Generates NegativeForm / QuestionForm / SentenceColumns for a lesson.
+  // First call: Claude generates from key_phrases_for_chat + vocabulary_list.
+  // Subsequent calls: served from in-memory cache (per lessonId × language).
+  // GET /api/textbook/micro-cycle/:lessonId?language=spanish
+  {
+    const microCycleCache = new Map<string, object>();
+
+    app.get('/api/textbook/micro-cycle/:lessonId', isAuthenticated, async (req: any, res) => {
+      try {
+        const { lessonId } = req.params;
+        const language = (req.query.language as string) || 'spanish';
+        const cacheKey = `${lessonId}::${language}`;
+
+        if (microCycleCache.has(cacheKey)) {
+          return res.json({ ...microCycleCache.get(cacheKey), fromCache: true });
+        }
+
+        const { getUserDb } = await import('./db');
+        const { sql: drizzleSql } = await import('drizzle-orm');
+        const db = getUserDb();
+        const row = await db.execute(
+          drizzleSql`SELECT key_phrases_for_chat, vocabulary_list FROM textbook_lesson_content WHERE lesson_id = ${lessonId} LIMIT 1`
+        );
+
+        if (row.rows.length === 0) return res.status(404).json({ error: 'No content for this lesson' });
+
+        const keyPhrases = (row.rows[0].key_phrases_for_chat ?? []) as Array<{ phrase: string; translation: string; context: string }>;
+        const vocabList = (row.rows[0].vocabulary_list ?? []) as Array<{
+          word: string;
+          translation: string;
+          gender?: string;
+          partOfSpeech?: string;
+          exampleSentences?: Array<{ target: string; translation: string }>;
+        }>;
+
+        if (keyPhrases.length === 0 && vocabList.length === 0) {
+          return res.json({ negativeItems: [], questionItems: [], sentenceColumns: [], patternLabel: '', fromCache: false });
+        }
+
+        const anthropic = new Anthropic();
+        const prompt = `You are generating micro-cycle practice data for a language learning app.
+Language: ${language}
+
+Vocabulary list (up to first 10 items):
+${JSON.stringify(vocabList.slice(0, 10), null, 2)}
+
+Key conversation phrases:
+${JSON.stringify(keyPhrases, null, 2)}
+
+Generate a JSON object with exactly these fields:
+
+1. "patternLabel" — a short string describing the main sentence pattern (e.g. "Me duele / No me duele / ¿Te duele...?")
+
+2. "negativeItems" — array of 4-5 objects, each:
+   { "imageWord": string (bare noun/word for image lookup, no article, e.g. "cabeza"), "negativePhrase": string (full negative sentence in ${language}), "translation": string (English translation of the negative phrase) }
+   Use different vocabulary words for each item. Pick short, concrete, imageable nouns.
+
+3. "questionItems" — array of 4 objects, each:
+   { "imageWord": string, "question": string, "questionTranslation": string, "affirmativeAnswer": string, "affirmativeTranslation": string, "negativeAnswer": string, "negativeTranslation": string }
+   Each question should be a natural yes/no question about the vocabulary item.
+
+4. "sentenceColumns" — array of 2-3 column objects, each:
+   { "label": string (short column header), "items": [{ "text": string, "translation": string }] }
+   The columns should form a substitution drill — first column has the verb/subject variants (3-5 items), subsequent column(s) have the object/place/noun variants (4-8 items from the vocabulary).
+
+Return ONLY valid JSON, no markdown, no explanation.`;
+
+        const response = await anthropic.messages.create({
+          model: 'claude-sonnet-4-5',
+          max_tokens: 1500,
+          messages: [{ role: 'user', content: prompt }],
+        });
+
+        const raw = (response.content[0] as { type: string; text: string }).text.trim();
+        const cleaned = raw.startsWith('```') ? raw.replace(/^```[a-z]*\n?/, '').replace(/\n?```$/, '') : raw;
+        const data = JSON.parse(cleaned);
+
+        microCycleCache.set(cacheKey, data);
+        return res.json({ ...data, fromCache: false });
+      } catch (error: any) {
+        console.error('[MicroCycle]', error.message);
+        res.status(500).json({ error: error.message });
+      }
+    });
+  }
+
   // Resolve vocabulary images from textbook_lesson_content.vocabulary_list
   // Returns { images: { [word]: { url: string; source: string } } }
   app.get('/api/textbook-content/:lessonId/vocab-images', isAuthenticated, async (req: any, res) => {
