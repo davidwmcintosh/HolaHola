@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -14,15 +14,11 @@ import {
   Sparkles,
   CheckCircle2,
   Music2,
-  ChevronDown,
-  ChevronUp,
   BookMarked,
   Loader2,
   Library,
-  Eye,
 } from "lucide-react";
 import { VisualVocabGrid } from "./TextbookInfographics";
-import { ChapterRecap } from "./ChapterRecap";
 import { ChapterIntroduction, classifyGrammarType, GrammarChapterView, ConversationStripsSection } from "./ChapterIntroduction";
 import { RhythmDrill } from "./RhythmDrill";
 import { SeeItSayItLoop } from "./SeeItSayItLoop";
@@ -256,31 +252,26 @@ function ChapterVocabSection({
   );
 }
 
-// ── Compact lesson reference card ─────────────────────────────────────────────
-// Shows lesson name/type + study notes toggle + rhythm drill only.
-// No vocab grid (shown at chapter level), no per-lesson chat buttons.
+// ── Flat lesson section ────────────────────────────────────────────────────────
+// All content visible without clicking. Progress marked automatically when
+// section scrolls into view (IntersectionObserver, 40% threshold).
 
-function CompactLessonCard({
+function FlatLessonSection({
   section,
   index,
   language,
-  autoExpand,
   onViewed,
   onMarkedRead,
 }: {
   section: Section;
   index: number;
   language?: string;
-  autoExpand?: boolean;
   onViewed: () => void;
   onMarkedRead?: (id: string) => void;
 }) {
+  const sectionRef = useRef<HTMLDivElement>(null);
   const viewedRef = useRef(false);
-  const hasMarkedReadRef = useRef(false);
-  const cardRef = useRef<HTMLDivElement>(null);
-  const [showRhythmDrill, setShowRhythmDrill] = useState(false);
-  const [showSeeItSayIt, setShowSeeItSayIt] = useState(false);
-  const [contentExpanded, setContentExpanded] = useState(autoExpand ?? false);
+  const markedReadRef = useRef(false);
   const queryClient = useQueryClient();
 
   const markReadMutation = useMutation({
@@ -297,31 +288,40 @@ function CompactLessonCard({
     },
   });
 
+  // Auto-mark read + viewed when scrolled into view
   useEffect(() => {
-    if (autoExpand && !hasMarkedReadRef.current) {
-      hasMarkedReadRef.current = true;
-      markReadMutation.mutate();
+    const el = sectionRef.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      viewedRef.current = true;
+      onViewed();
+      return;
     }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          if (!viewedRef.current) {
+            viewedRef.current = true;
+            onViewed();
+          }
+          if (!markedReadRef.current) {
+            markedReadRef.current = true;
+            markReadMutation.mutate();
+          }
+        }
+      },
+      { threshold: 0.4 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  function handleToggleContent() {
-    const opening = !contentExpanded;
-    setContentExpanded(opening);
-    if (opening && !hasMarkedReadRef.current) {
-      hasMarkedReadRef.current = true;
-      markReadMutation.mutate();
-    }
-  }
 
   const isRhythmEligible =
     (section.lessonType === 'vocabulary' || section.lessonType === 'drill') &&
     section.hasDrills &&
     section.drills &&
     section.drills.length > 0;
-
-  const isSeeItSayItEligible =
-    section.lessonType === 'vocabulary' || section.lessonType === 'drill';
 
   const rhythmItems = (section.drills ?? []).map(d => ({
     id: d.id,
@@ -331,163 +331,65 @@ function CompactLessonCard({
     category: d.itemType,
   }));
 
-  useEffect(() => {
-    const el = cardRef.current;
-    if (!el || viewedRef.current) return;
-    if (typeof IntersectionObserver === 'undefined') {
-      viewedRef.current = true;
-      onViewed();
-      return;
-    }
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !viewedRef.current) {
-          viewedRef.current = true;
-          onViewed();
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.5 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [onViewed]);
-
   return (
-    <Card
-      ref={cardRef}
-      className="overflow-hidden touch-manipulation"
-      data-testid={`lesson-card-${section.id}`}
+    <div
+      ref={sectionRef}
+      className="space-y-4"
+      data-testid={`flat-lesson-${section.id}`}
     >
-      <CardContent className="p-0">
-        {/* Compact header — two siblings: expand area + action buttons */}
-        <div className="flex items-center gap-2 p-4">
-          {/* Expand toggle (takes up most width) */}
-          <button
-            className="flex-1 text-left flex items-center gap-3 min-w-0 rounded-md"
-            onClick={handleToggleContent}
-            data-testid={`button-toggle-lesson-${section.id}`}
-          >
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-              section.isComplete
-                ? 'bg-green-500/20 text-green-600 dark:text-green-400'
-                : 'bg-primary/10 text-primary'
-            }`}>
-              {section.isComplete ? <CheckCircle2 className="h-3.5 w-3.5" /> : index + 1}
-            </div>
-            <div className="min-w-0">
-              <p className="font-medium text-sm truncate">{section.name}</p>
-              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                <Badge variant="outline" className="text-xs gap-1 py-0">
-                  {getLessonTypeIcon(section.lessonType)}
-                  {section.lessonType}
-                </Badge>
-                <span className="text-xs text-muted-foreground">{section.estimatedMinutes} min</span>
-                {section.textbookRead && (
-                  <Badge variant="secondary" className="text-xs gap-1 py-0" data-testid={`badge-read-${section.id}`}>
-                    <BookMarked className="h-3 w-3" />
-                    Read
-                  </Badge>
-                )}
-                {section.danielaCovered && (
-                  <Badge className="text-xs gap-1 py-0 bg-primary/20 text-primary hover:bg-primary/20" data-testid={`badge-daniela-${section.id}`}>
-                    <Sparkles className="h-3 w-3" />
-                    Covered
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </button>
-          {/* Action buttons — sibling to expand toggle, not nested */}
-          <div className="flex items-center gap-2 shrink-0">
-            {isSeeItSayItEligible && (
-              <Button
-                variant={showSeeItSayIt ? "default" : "outline"}
-                size="sm"
-                className="h-8"
-                onClick={() => {
-                  setShowSeeItSayIt(prev => !prev);
-                  setShowRhythmDrill(false);
-                  if (contentExpanded) setContentExpanded(false);
-                }}
-                data-testid={`button-see-it-say-it-${section.id}`}
-              >
-                <Eye className="h-3.5 w-3.5 mr-1" />
-                See It, Say It
-              </Button>
-            )}
-            <button
-              className="text-muted-foreground p-1 rounded-md hover-elevate"
-              onClick={handleToggleContent}
-              aria-label={contentExpanded ? "Collapse lesson" : "Expand lesson"}
-            >
-              {contentExpanded
-                ? <ChevronUp className="h-4 w-4" />
-                : <ChevronDown className="h-4 w-4" />
-              }
-            </button>
-          </div>
+      {/* Section name — minimal label */}
+      <div className="flex items-center gap-2.5">
+        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+          section.isComplete
+            ? 'bg-green-500/20 text-green-600 dark:text-green-400'
+            : 'bg-primary/10 text-primary'
+        }`}>
+          {section.isComplete ? <CheckCircle2 className="h-3 w-3" /> : index + 1}
         </div>
-
-        {/* See It, Say It panel — always directly under the header when active */}
-        {showSeeItSayIt && isSeeItSayItEligible && (
-          <div className="border-t px-4 pb-4 pt-3" data-testid={`sisl-panel-${section.id}`}>
-            <SeeItSayItLoop
-              lessonId={section.id}
-              language={language}
-              lessonName={section.name}
-              onComplete={() => setShowSeeItSayIt(false)}
-            />
-          </div>
+        <h3 className="font-semibold text-sm" data-testid={`text-lesson-name-${section.id}`}>
+          {section.name}
+        </h3>
+        {section.textbookRead && (
+          <Badge variant="secondary" className="text-xs gap-1 py-0" data-testid={`badge-read-${section.id}`}>
+            <BookMarked className="h-3 w-3" />
+            Read
+          </Badge>
         )}
-
-        {/* Study notes (expandable) */}
-        {contentExpanded && (
-          <div className="border-t px-4 pb-4 pt-3" data-testid={`study-notes-${section.id}`}>
-            <InlineLessonContent
-              lessonId={section.id}
-              lessonName={section.name}
-              language={language ?? "spanish"}
-            />
-            {isRhythmEligible && rhythmItems.length > 0 && (
-              <div className="mt-4 pt-4 border-t space-y-2">
-                <Button
-                  variant={showRhythmDrill ? "secondary" : "ghost"}
-                  size="sm"
-                  className="w-full text-muted-foreground"
-                  onClick={() => {
-                    setShowRhythmDrill(prev => !prev);
-                    setShowSeeItSayIt(false);
-                  }}
-                  data-testid={`button-rhythm-expanded-${section.id}`}
-                >
-                  <Music2 className="h-3.5 w-3.5 mr-2" />
-                  Quick Review
-                  {showRhythmDrill
-                    ? <ChevronUp className="h-3.5 w-3.5 ml-2" />
-                    : <ChevronDown className="h-3.5 w-3.5 ml-2" />
-                  }
-                </Button>
-                {showRhythmDrill && (
-                  <div className="mt-2" data-testid={`rhythm-drill-expanded-${section.id}`}>
-                    <RhythmDrill
-                      title={section.name}
-                      description="Listen to each item, then say it aloud when the mic appears."
-                      items={rhythmItems}
-                      language={language}
-                      onComplete={(results) => {
-                        const correct = results.filter(r => r.correct).length;
-                        if (correct / results.length >= 0.7) setShowRhythmDrill(false);
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+        {section.danielaCovered && (
+          <Badge className="text-xs gap-1 py-0 bg-primary/20 text-primary" data-testid={`badge-daniela-${section.id}`}>
+            <Sparkles className="h-3 w-3" />
+            Covered
+          </Badge>
         )}
-      </CardContent>
-    </Card>
+      </div>
+
+      {/* Study notes — always visible, no click required */}
+      <div data-testid={`study-notes-${section.id}`}>
+        <InlineLessonContent
+          lessonId={section.id}
+          lessonName={section.name}
+          language={language ?? "spanish"}
+        />
+      </div>
+
+      {/* Quick Review — visible when drills are available */}
+      {isRhythmEligible && rhythmItems.length > 0 && (
+        <div className="pt-1" data-testid={`rhythm-drill-${section.id}`}>
+          <div className="flex items-center gap-2 mb-3">
+            <Music2 className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Quick Review
+            </span>
+          </div>
+          <RhythmDrill
+            title={section.name}
+            description="Listen to each item, then say it aloud when the mic appears."
+            items={rhythmItems}
+            language={language}
+          />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -763,8 +665,43 @@ export function TextbookChapterView({
           ));
       })()}
 
-      {/* ── Primary CTA: Start Chat ── */}
-      <div className="space-y-2" data-testid="chapter-cta-section">
+      {/* ── Flat lesson sections ── */}
+      {chapter.sections.length > 0 && (
+        <div className="space-y-8" data-testid="flat-lesson-sections">
+          <div className="flex items-center gap-2 px-1">
+            <BookOpen className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Lesson Notes
+            </h2>
+          </div>
+          {chapter.sections.map((section, index) => (
+            <FlatLessonSection
+              key={section.id}
+              section={{
+                ...section,
+                textbookRead: section.textbookRead || locallyReadIds.has(section.id),
+              }}
+              index={index}
+              language={language}
+              onViewed={() => handleSectionViewed(section.id)}
+              onMarkedRead={handleMarkedRead}
+            />
+          ))}
+        </div>
+      )}
+
+      {chapter.sections.length === 0 && (
+        <Card className="p-8 text-center bg-muted/30">
+          <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="font-semibold mb-2">Lessons Coming Soon</h3>
+          <p className="text-sm text-muted-foreground">
+            This chapter's content is being prepared. Check back soon!
+          </p>
+        </Card>
+      )}
+
+      {/* ── CTAs — at the bottom, after all content ── */}
+      <div className="space-y-2 pt-2" data-testid="chapter-cta-section">
         <Button
           className="w-full min-h-[52px] text-base gap-2"
           onClick={onStartConversation}
@@ -785,54 +722,6 @@ export function TextbookChapterView({
           </Button>
         )}
       </div>
-
-      {/* ── Lesson reference accordion ── */}
-      {chapter.sections.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 px-1">
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-              Lesson Reference
-            </h2>
-          </div>
-          <div className="space-y-2">
-            {chapter.sections.map((section, index) => (
-              <CompactLessonCard
-                key={section.id}
-                section={{
-                  ...section,
-                  textbookRead: section.textbookRead || locallyReadIds.has(section.id),
-                }}
-                index={index}
-                language={language}
-                autoExpand={false}
-                onViewed={() => handleSectionViewed(section.id)}
-                onMarkedRead={handleMarkedRead}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {chapter.sections.length === 0 && (
-        <Card className="p-8 text-center bg-muted/30">
-          <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="font-semibold mb-2">Lessons Coming Soon</h3>
-          <p className="text-sm text-muted-foreground">
-            This chapter's content is being prepared. Check back soon!
-          </p>
-        </Card>
-      )}
-
-      {/* ── Chapter recap ── */}
-      {chapter.sections.length > 0 && (
-        <ChapterRecap
-          chapter={chapter}
-          language={language}
-          onPracticeWithDaniela={onStartConversation}
-          onReviewFlashcards={handleReviewFlashcards}
-        />
-      )}
     </div>
   );
 }
