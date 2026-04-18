@@ -7129,6 +7129,21 @@ ${memoryContext}
       const cleanText = stripMarkdownForSpeech(text);
       console.log(`[TTS] Synthesizing speech for user ${userId}, original: ${text.length} chars, cleaned: ${cleanText.length} chars, language: ${effectiveLanguage}, gender: ${tutorGender}`);
 
+      // When no Cartesia voiceId is configured, select a gender-appropriate Google Neural2 voice.
+      // The client sends 'nova' (an OpenAI name) which confuses the Google TTS path — replace it
+      // with the correct gendered voice name so the speaker always matches the tutor avatar.
+      let effectiveVoice = voice;
+      if (!voiceId) {
+        try {
+          const { getAssistantVoice } = await import('./services/tts-service');
+          const genderVoiceConfig = getAssistantVoice(effectiveLanguage, tutorGender as 'female' | 'male');
+          effectiveVoice = genderVoiceConfig.name; // e.g. 'es-US-Neural2-A' for Spanish female
+          console.log(`[TTS] Using gendered Google voice: ${effectiveVoice} (${tutorGender})`);
+        } catch (_err) {
+          // fall through — use default Chirp HD
+        }
+      }
+
       // Use TTS service abstraction (Cartesia Sonic-3 primary, Google fallback)
       // Priority: request speaking rate > admin-configured > default 0.9
       const effectiveSpeakingRate = requestSpeakingRate ?? configuredSpeakingRate;
@@ -7136,7 +7151,7 @@ ${memoryContext}
       const result = await ttsService.synthesize({
         text: cleanText,
         language: effectiveLanguage,
-        voice,
+        voice: effectiveVoice,
         voiceId, // Pass admin-configured voice ID if available
         targetLanguage, // Pass target language for SSML phoneme tag processing
         returnTimings, // Request word-level timing data for subtitle sync
