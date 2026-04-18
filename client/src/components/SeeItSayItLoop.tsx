@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { synthesizeSpeech } from "@/lib/restVoiceApi";
 import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -324,6 +325,7 @@ export function SeeItSayItLoop({
   onComplete,
 }: SeeItSayItLoopProps) {
   const langTag = getLangTag(language);
+  const { tutorGender } = useLanguage();
 
   const { data, isLoading, error } = useQuery<{ content: TextbookContent | null }>({
     queryKey: ["/api/textbook-content", lessonId],
@@ -373,18 +375,18 @@ export function SeeItSayItLoop({
         audioRef.current = null;
       }
       try {
-        const result = await synthesizeSpeech(text, language ?? "spanish");
-        const url = URL.createObjectURL(result.audioBlob);
-        const audio = new Audio(url);
+        // Use the same pronunciation endpoint as TextAudioPlayButton / VisualVocabGrid
+        // so voice gender is consistent with every other component on the page.
+        const response = await apiRequest("POST", "/api/tts/pronunciation", {
+          text,
+          language: language ?? "spanish",
+          gender: tutorGender ?? "female",
+        });
+        const data = await response.json();
+        const audio = new Audio(data.audioUrl);
         audioRef.current = audio;
-        audio.onended = () => {
-          URL.revokeObjectURL(url);
-          audioRef.current = null;
-        };
-        audio.onerror = () => {
-          URL.revokeObjectURL(url);
-          audioRef.current = null;
-        };
+        audio.onended = () => { audioRef.current = null; };
+        audio.onerror = () => { audioRef.current = null; };
         await audio.play();
       } catch {
         if (window.speechSynthesis) {
@@ -396,7 +398,7 @@ export function SeeItSayItLoop({
         }
       }
     },
-    [language, langTag]
+    [language, langTag, tutorGender]
   );
 
   const handleVocabListen = useCallback(
