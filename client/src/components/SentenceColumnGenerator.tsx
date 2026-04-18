@@ -119,51 +119,6 @@ export function SentenceColumnGenerator({
   return (
     <div className={`space-y-4 ${className}`} data-testid="sentence-column-generator">
 
-      {/* ── Assembled sentence bar ── */}
-      <div
-        className="flex items-center gap-3 rounded-md bg-muted/60 border px-4 py-3"
-        data-testid="assembled-sentence-bar"
-      >
-        <div className="flex-1 min-w-0">
-          <p
-            className="font-semibold text-base leading-snug"
-            data-testid="text-assembled-sentence"
-          >
-            {assembledText}
-          </p>
-          <p
-            className="text-xs text-muted-foreground mt-0.5"
-            data-testid="text-assembled-translation"
-          >
-            {assembledTranslation}
-          </p>
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={handlePlay}
-            disabled={isPlaying || !assembledText}
-            data-testid="button-play-assembled"
-            title="Listen to sentence"
-          >
-            <Volume2 className={`h-4 w-4 ${isPlaying ? "text-primary animate-pulse" : ""}`} />
-          </Button>
-          <Button
-            size="icon"
-            variant={isRecording ? "secondary" : "ghost"}
-            onClick={() => setIsRecording(r => !r)}
-            data-testid="button-mic-assembled"
-            title="Say this sentence"
-          >
-            {isRecording
-              ? <MicOff className="h-4 w-4 text-destructive" />
-              : <Mic className="h-4 w-4" />
-            }
-          </Button>
-        </div>
-      </div>
-
       {/* ── Column grid ── */}
       <div
         className="grid gap-x-2 gap-y-0"
@@ -236,6 +191,51 @@ export function SentenceColumnGenerator({
             </div>
           </div>
         ))}
+      </div>
+
+      {/* ── Assembled sentence — total line ── */}
+      <div
+        className="flex items-center gap-3 rounded-md bg-muted/60 border border-dashed px-4 py-3"
+        data-testid="assembled-sentence-bar"
+      >
+        <div className="flex-1 min-w-0">
+          <p
+            className="font-semibold text-base leading-snug"
+            data-testid="text-assembled-sentence"
+          >
+            {assembledText}
+          </p>
+          <p
+            className="text-xs text-muted-foreground mt-0.5"
+            data-testid="text-assembled-translation"
+          >
+            {assembledTranslation}
+          </p>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={handlePlay}
+            disabled={isPlaying || !assembledText}
+            data-testid="button-play-assembled"
+            title="Listen to sentence"
+          >
+            <Volume2 className={`h-4 w-4 ${isPlaying ? "text-primary animate-pulse" : ""}`} />
+          </Button>
+          <Button
+            size="icon"
+            variant={isRecording ? "secondary" : "ghost"}
+            onClick={() => setIsRecording(r => !r)}
+            data-testid="button-mic-assembled"
+            title="Say this sentence"
+          >
+            {isRecording
+              ? <MicOff className="h-4 w-4 text-destructive" />
+              : <Mic className="h-4 w-4" />
+            }
+          </Button>
+        </div>
       </div>
     </div>
   );

@@ -27,6 +27,7 @@ import { ChapterIntroduction, classifyGrammarType, GrammarChapterView, Conversat
 import { RhythmDrill } from "./RhythmDrill";
 import { SeeItSayItLoop } from "./SeeItSayItLoop";
 import { SentenceColumnGenerator } from "./SentenceColumnGenerator";
+import { NegativeFormSection } from "./NegativeFormSection";
 import { apiRequest } from "@/lib/queryClient";
 
 interface DrillItem {
@@ -589,6 +590,27 @@ export function TextbookChapterView({
             lessonId={firstSislSection.id}
             language={language}
             lessonName={firstSislSection.name}
+          />
+        </div>
+      )}
+
+      {/* ── Negative form — different images, free vocabulary expansion ── */}
+      {language === "spanish" && (
+        <div data-testid="negative-form-section-wrapper">
+          <div className="flex items-center gap-2 px-1 mb-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Negative Form
+            </h2>
+          </div>
+          <NegativeFormSection
+            language={language}
+            patternLabel="No voy / No va / No vamos / No van…"
+            items={[
+              { imageWord: "hospital", negativePhrase: "No voy al hospital.", translation: "I'm not going to the hospital." },
+              { imageWord: "museo", negativePhrase: "No va al museo.", translation: "She's not going to the museum." },
+              { imageWord: "playa", negativePhrase: "No vamos a la playa.", translation: "We're not going to the beach." },
+              { imageWord: "aeropuerto", negativePhrase: "No van al aeropuerto.", translation: "They're not going to the airport." },
+            ]}
           />
         </div>
       )}
