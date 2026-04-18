@@ -63,22 +63,13 @@ export function SentenceColumnGenerator({
       const res = await apiRequest("POST", "/api/tts/pronunciation", {
         text: assembledText,
         language,
-        gender: tutorGender ?? "female",
+        tutorGender: tutorGender ?? "female",
       });
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
+      const { audioUrl } = await res.json();
+      const audio = new Audio(audioUrl);
       audioRef.current = audio;
-      audio.onended = () => {
-        setIsPlaying(false);
-        audioRef.current = null;
-        URL.revokeObjectURL(url);
-      };
-      audio.onerror = () => {
-        setIsPlaying(false);
-        audioRef.current = null;
-        URL.revokeObjectURL(url);
-      };
+      audio.onended = () => { setIsPlaying(false); audioRef.current = null; };
+      audio.onerror = () => { setIsPlaying(false); audioRef.current = null; };
       audio.play();
     } catch {
       setIsPlaying(false);
@@ -94,20 +85,13 @@ export function SentenceColumnGenerator({
       const res = await apiRequest("POST", "/api/tts/pronunciation", {
         text,
         language,
-        gender: tutorGender ?? "female",
+        tutorGender: tutorGender ?? "female",
       });
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
+      const { audioUrl } = await res.json();
+      const audio = new Audio(audioUrl);
       audioRef.current = audio;
-      audio.onended = () => {
-        audioRef.current = null;
-        URL.revokeObjectURL(url);
-      };
-      audio.onerror = () => {
-        audioRef.current = null;
-        URL.revokeObjectURL(url);
-      };
+      audio.onended = () => { audioRef.current = null; };
+      audio.onerror = () => { audioRef.current = null; };
       audio.play();
     } catch {
       // silent fail

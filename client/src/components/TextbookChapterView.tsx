@@ -28,6 +28,7 @@ import { RhythmDrill } from "./RhythmDrill";
 import { SeeItSayItLoop } from "./SeeItSayItLoop";
 import { SentenceColumnGenerator } from "./SentenceColumnGenerator";
 import { NegativeFormSection } from "./NegativeFormSection";
+import { QuestionFormSection } from "./QuestionFormSection";
 import { apiRequest } from "@/lib/queryClient";
 
 interface DrillItem {
@@ -610,6 +611,59 @@ export function TextbookChapterView({
               { imageWord: "museo", negativePhrase: "No va al museo.", translation: "She's not going to the museum." },
               { imageWord: "playa", negativePhrase: "No vamos a la playa.", translation: "We're not going to the beach." },
               { imageWord: "aeropuerto", negativePhrase: "No van al aeropuerto.", translation: "They're not going to the airport." },
+            ]}
+          />
+        </div>
+      )}
+
+      {/* ── Question form — Q + Sí/No answers with images ── */}
+      {language === "spanish" && (
+        <div data-testid="question-form-section-wrapper">
+          <div className="flex items-center gap-2 px-1 mb-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Question Form
+            </h2>
+          </div>
+          <QuestionFormSection
+            language={language}
+            patternLabel="¿Va al / Va a la…?"
+            items={[
+              {
+                imageWord: "estadio",
+                question: "¿Va al estadio?",
+                questionTranslation: "Is he going to the stadium?",
+                affirmativeAnswer: "Sí, va al estadio.",
+                affirmativeTranslation: "Yes, he's going to the stadium.",
+                negativeAnswer: "No, no va al estadio.",
+                negativeTranslation: "No, he's not going to the stadium.",
+              },
+              {
+                imageWord: "correo",
+                question: "¿Va al correo?",
+                questionTranslation: "Is she going to the post office?",
+                affirmativeAnswer: "Sí, va al correo.",
+                affirmativeTranslation: "Yes, she's going to the post office.",
+                negativeAnswer: "No, no va al correo.",
+                negativeTranslation: "No, she's not going to the post office.",
+              },
+              {
+                imageWord: "universidad",
+                question: "¿Van a la universidad?",
+                questionTranslation: "Are they going to the university?",
+                affirmativeAnswer: "Sí, van a la universidad.",
+                affirmativeTranslation: "Yes, they're going to the university.",
+                negativeAnswer: "No, no van a la universidad.",
+                negativeTranslation: "No, they're not going to the university.",
+              },
+              {
+                imageWord: "supermercado",
+                question: "¿Vamos al supermercado?",
+                questionTranslation: "Are we going to the supermarket?",
+                affirmativeAnswer: "Sí, vamos al supermercado.",
+                affirmativeTranslation: "Yes, we're going to the supermarket.",
+                negativeAnswer: "No, no vamos al supermercado.",
+                negativeTranslation: "No, we're not going to the supermarket.",
+              },
             ]}
           />
         </div>

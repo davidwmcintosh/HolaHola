@@ -60,12 +60,11 @@ function NegativeCard({
         language,
         tutorGender,
       });
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
+      const { audioUrl } = await res.json();
+      const audio = new Audio(audioUrl);
       audioRef.current = audio;
-      audio.onended = () => { setIsPlaying(false); URL.revokeObjectURL(url); };
-      audio.onerror = () => { setIsPlaying(false); };
+      audio.onended = () => { setIsPlaying(false); audioRef.current = null; };
+      audio.onerror = () => { setIsPlaying(false); audioRef.current = null; };
       audio.play();
     } catch {
       setIsPlaying(false);
