@@ -471,6 +471,13 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   // Language-prefixed entry used by fix-greetings when language='spanish'
   'spanish:de nada':    youreWelcome(CHAR.ES.secondary),
 
+  // ── Spanish honorifics — Señor / Señora / Señorita ────────────────────────
+  // Each uses the matching recurring character so the style stays consistent
+  // with the rest of Chapter 1's vocabulary illustrations.
+  'senor':    `${CHAR.ES.secondary} standing tall with calm dignified confidence, dressed in a smart blazer and neat shirt, giving a courteous respectful nod with a warm gentle smile, bright airy background`,
+  'senora':   `${CHAR.ES.abuela} standing with gracious warmth and quiet dignity, wearing a neat blouse, offering a gentle welcoming nod and a kind smile in a bright sunny courtyard`,
+  'senorita': `${CHAR.ES.primary} standing with poised youthful energy, smiling brightly and giving a small polite wave of greeting, cheerful warm background`,
+
   // ── Spanish core vocabulary — yes/no/pronouns/demonstratives/question phrases ──
   // All language-prefixed to prevent collisions with cognate forms in other Romance languages.
   // SPEECH BUBBLE RULE: no quoted speech — physical gestures and expressions only.
@@ -1595,6 +1602,7 @@ export const GREETINGS_WORDS: Record<string, string[]> = {
     'hasta mañana','hasta pronto','mucho gusto','encantado','encantada',
     '¿cómo estás?','¿cómo está usted?','bien','muy bien','muy bien, gracias','mal','más o menos','regular',
     'por favor','gracias','muchas gracias','de nada','perdón','disculpe','lo siento',
+    'señor','señora','señorita',
   ],
   french: [
     'bonjour','bonsoir','bonne nuit','au revoir','salut','à bientôt','à demain',
