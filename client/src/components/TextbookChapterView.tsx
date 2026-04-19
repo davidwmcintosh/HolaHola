@@ -17,6 +17,8 @@ import {
   BookMarked,
   Loader2,
   Library,
+  Globe,
+  MessageCircle,
 } from "lucide-react";
 import { VisualVocabGrid } from "./TextbookInfographics";
 import { ChapterIntroduction, classifyGrammarType, GrammarChapterView, ConversationStripsSection } from "./ChapterIntroduction";
@@ -95,13 +97,19 @@ function getLessonTypeIcon(type: string) {
   }
 }
 
+interface GrammarExample {
+  target: string;
+  translation: string;
+  note?: string;
+}
+
 interface TextbookContent {
   lesson_id: string;
   introduction?: string;
   grammar_explanation?: string;
-  vocabulary_notes?: string;
-  example_sentences?: Array<{ target: string; native: string }>;
-  cultural_notes?: string;
+  grammar_examples?: GrammarExample[];
+  cultural_note?: string;
+  reading_passage?: string;
   actfl_level?: string;
 }
 
@@ -169,41 +177,90 @@ function InlineLessonContent({ lessonId, lessonName, language }: {
       )}
 
       {!isLoading && content && (
-        <div className="space-y-4 text-sm">
+        <div className="space-y-5 text-sm">
+
+          {/* Introduction */}
           {content.introduction && (
             <p className="text-muted-foreground leading-relaxed">{content.introduction}</p>
           )}
+
+          {/* Grammar Focus */}
           {content.grammar_explanation && (
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <p className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Grammar Focus</p>
               <p className="text-muted-foreground leading-relaxed">{content.grammar_explanation}</p>
             </div>
           )}
-          {content.vocabulary_notes && (
-            <div className="space-y-1">
-              <p className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Vocabulary Notes</p>
-              <p className="text-muted-foreground leading-relaxed">{content.vocabulary_notes}</p>
-            </div>
-          )}
-          {content.example_sentences && content.example_sentences.length > 0 && (
-            <div className="space-y-1">
+
+          {/* Grammar Examples — with register/usage notes */}
+          {content.grammar_examples && content.grammar_examples.length > 0 && (
+            <div className="space-y-1.5">
               <p className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Examples</p>
-              <div className="space-y-1.5">
-                {content.example_sentences.slice(0, 4).map((ex, i) => (
-                  <div key={i} className="rounded-md bg-muted/50 px-3 py-1.5">
-                    <p className="font-medium">{ex.target}</p>
-                    <p className="text-xs text-muted-foreground">{ex.native}</p>
+              <div className="space-y-2">
+                {content.grammar_examples.slice(0, 5).map((ex, i) => (
+                  <div key={i} className="rounded-md bg-muted/40 px-3 py-2 space-y-0.5">
+                    {ex.note && (
+                      <p className="text-[10px] text-muted-foreground/70 italic leading-snug">{ex.note}</p>
+                    )}
+                    <p className="font-medium text-sm leading-snug">{ex.target}</p>
+                    <p className="text-xs text-muted-foreground leading-snug">{ex.translation}</p>
                   </div>
                 ))}
               </div>
             </div>
           )}
-          {content.cultural_notes && (
-            <div className="space-y-1">
-              <p className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Cultural Notes</p>
-              <p className="text-muted-foreground leading-relaxed">{content.cultural_notes}</p>
+
+          {/* Cultural Context */}
+          {content.cultural_note && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <Globe className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <p className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Cultural Context</p>
+              </div>
+              <p className="text-muted-foreground leading-relaxed">{content.cultural_note}</p>
             </div>
           )}
+
+          {/* Reading — rendered as dialogue if lines start with — */}
+          {content.reading_passage && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <MessageCircle className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <p className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Reading</p>
+              </div>
+              {content.reading_passage.includes('—') ? (
+                <div
+                  className="rounded-md border bg-muted/20 px-4 py-3 space-y-2"
+                  data-testid="reading-dialogue"
+                >
+                  {content.reading_passage.split('\n').filter(Boolean).map((line, i) => {
+                    const isLine = line.startsWith('—') || line.startsWith('-');
+                    const text = isLine ? line.replace(/^[—-]\s*/, '') : line;
+                    return (
+                      <p
+                        key={i}
+                        className={`text-sm leading-snug ${
+                          isLine
+                            ? i % 2 === 0
+                              ? 'font-medium'
+                              : 'text-muted-foreground pl-4'
+                            : 'text-muted-foreground italic'
+                        }`}
+                      >
+                        {isLine && (
+                          <span className="text-muted-foreground/50 mr-1.5 select-none">—</span>
+                        )}
+                        {text}
+                      </p>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-muted-foreground leading-relaxed">{content.reading_passage}</p>
+              )}
+            </div>
+          )}
+
         </div>
       )}
 
