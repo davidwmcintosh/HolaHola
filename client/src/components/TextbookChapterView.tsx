@@ -179,11 +179,6 @@ function InlineLessonContent({ lessonId, lessonName, language }: {
       {!isLoading && content && (
         <div className="space-y-5 text-sm">
 
-          {/* Introduction */}
-          {content.introduction && (
-            <p className="text-muted-foreground leading-relaxed">{content.introduction}</p>
-          )}
-
           {/* Grammar Focus */}
           {content.grammar_explanation && (
             <div className="space-y-1.5">
