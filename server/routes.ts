@@ -11342,22 +11342,34 @@ Now generate each part:
    { "imageWord": string, "negativePhrase": string, "translation": string }
 
    ── HOW TO GENERATE (Madrigal image repetition rules) ──────────────
+
+   ★ THE ONE RULE THAT OVERRIDES EVERYTHING ELSE ★
+   Every single negativePhrase must use THE SAME VERB as the patternLabel.
+   The verb NEVER changes across negativeItems. The NOUN changes. Not the verb.
+
+   If patternLabel is "Hablo / Habla / No hablo":
+     CORRECT: "No hablo español." / "No hablo inglés." / "No hablo en clase."
+     WRONG:   "No compro el libro." (compro is a different verb — forbidden)
+     WRONG:   "No escucho música."  (escucho is a different verb — forbidden)
+     WRONG:   "No trabajo aquí."    (trabajo is a different verb — forbidden)
+
+   The reason: This section is a pounding machine. The verb hammers in through
+   repetition while the noun varies. If the verb changes, the pounding stops.
+   You have introduced grammar study instead of pattern absorption.
+
+   Even if the vocabulary list contains multiple verbs — pick ONE. The verb
+   in the patternLabel is the one. Use it in every negativePhrase. Every one.
+
    • imageWord: a bare, concrete, imageable noun from the vocabulary list.
      No articles. No adjectives. The word that an image would depict.
-     GOOD: "banco", "playa", "biblioteca"  BAD: "mucho", "bien", "todos"
-   • negativePhrase: always uses the YO form in the negative.
-     "No voy al banco." — not "No va" or "No vamos." The student is
-     learning to negate what THEY do, in their own voice.
-     It should be something the student might genuinely say.
-     GOOD: "No voy al banco."  BAD: "No es el banco en términos generales."
-   • Each item should use a DIFFERENT vocabulary word — ideally words from
-     the chapter that were NOT the 4 main words shown in the See It Say It
-     image grid. Madrigal uses fresh places (club, teatro) for the negative
-     section, not the same hotels and banks from the positive grid. If the
-     vocabulary list has 8+ items, use the second set for negativeItems.
-   • The same sentence frame should appear in every negativePhrase.
-     The noun varies; the frame is fixed. This is the pounding.
-     WRONG: mixing "No voy al..." and "No tengo..." in the same section.
+     GOOD: "banco", "playa", "lápiz"   BAD: "español" (a language, not drawable)
+     BAD: "mucho" (an adverb, not drawable)   BAD: "bien" (not drawable)
+   • negativePhrase: always uses the YO form — "No hablo..." not "No habla..."
+     The student is always speaking in their own voice.
+   • Each item uses a DIFFERENT NOUN — ideally nouns from a second set in the
+     vocabulary list, not the same ones shown in the positive image grid above.
+     Madrigal: positive section = hotel/banco/restaurante; negative = club/teatro/cine.
+   • 4–5 items total. Never more.
 
 3. "questionItems" — PART 3: Repetition with question and answer (4 items)
    { "imageWord": string, "question": string, "questionTranslation": string,
@@ -11365,26 +11377,34 @@ Now generate each part:
      "negativeAnswer": string, "negativeTranslation": string }
 
    ── HOW TO GENERATE (Madrigal Q&A rules) ──────────────────────────
-   CRITICAL — NO TÚ FORM. This curriculum eliminates the tú form entirely
-   until it is explicitly reintroduced in a later chapter. The reason:
-   the tú form (-as / -es endings) looks similar to él/ella forms in some
-   verbs and causes confusion before the yo/él patterns are fully wired.
 
-   The question uses the ÉL / ELLA form instead — asking about a third person:
+   ★ SAME RULE AS NEGATIVEITEMS: ONE VERB, USED IN ALL 4 QUESTIONS ★
+   The verb in the question is the same verb as the patternLabel. Every question.
+   The NOUN changes — the person, the place, the object. The VERB never changes.
+
+   If patternLabel is "Hablo / Habla / No hablo":
+     CORRECT: "¿Habla María español?"  / "¿Habla Pedro inglés?"
+     WRONG:   "¿Estudia Pedro inglés?"  (estudia is a different verb — forbidden)
+     WRONG:   "¿Trabaja Ana en la escuela?" (trabaja is different — forbidden)
+     WRONG:   "¿Necesita Carlos un lápiz?"  (necesita is different — forbidden)
+
+   Madrigal's Q&A pages use one verb per spread: "¿Va al banco?" / "¿Va al teatro?"
+   The place changes. The verb is "va" every time. The student hears the same form
+   over and over until it is automatic.
+
+   CRITICAL — NO TÚ FORM anywhere. The question uses ÉL / ELLA only:
      "¿Va Pedro al banco?"       NOT "¿Vas al banco?"
-     "¿Tiene María hambre?"      NOT "¿Tienes hambre?"
+     "¿Habla María español?"     NOT "¿Hablas español?"
    The student answers in the YO form — their own voice:
-     "Sí, yo voy al banco."      / "No, no voy al banco."
-   The third-person name in the question can be varied: Pedro, María, Carlos,
-   Ana — use different names across the 4 items for natural variety.
+     "Sí, yo hablo español."     / "No, no hablo español."
+   Use different names across the 4 items: Pedro, María, Carlos, Ana.
 
-   • affirmativeAnswer: YO form, complete sentence — "Sí, yo voy al banco."
-   • negativeAnswer: complete sentence with double no — "No, no voy al banco."
-   • imageWord: bare concrete noun from the chapter vocabulary that appears
-     in the question. Must be imageable.
-   • Use a different vocabulary noun for each of the 4 items.
-   • The él/ella distinction: use "él" (he) or "ella" (she) as needed to
-     match the named subject — or simply use the name without a pronoun.
+   • affirmativeAnswer: YO form, complete sentence — "Sí, yo hablo español."
+   • negativeAnswer: complete sentence with double no — "No, no hablo español."
+   • imageWord: bare concrete noun from the question. Must be imageable.
+     "español" is a language — not imageable. Use "libro", "lápiz", "cuaderno."
+   • Use a different vocabulary NOUN for each of the 4 items.
+     The verb is fixed. Only the noun varies.
 
 4. "sentenceColumns" — PART 4: General repetition / substitution columns
    { "label": string, "items": [{ "text": string, "translation": string }] }
