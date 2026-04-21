@@ -5,6 +5,17 @@
 
 **The central principle:** The page layout is part of the pedagogy. Every lesson page in See It and Say It uses the same layout. The student's eye knows exactly where to look before they read a single word. By lesson 3, the visual shape of the page IS the learning ritual. Deviation from the layout is a distraction; consistency is a cognitive gift.
 
+**The Vocabulary Cluster Principle (the deepest Madrigal rule):**
+Each lesson page organizes around exactly two things: one verb and one vocabulary cluster. The verb is the constant. The cluster is the variety.
+
+> voy al hotel / voy al banco / voy al restaurante / voy al teatro / voy al cine / voy al parque
+
+The verb (`voy / va`) never changes across the entire lesson spread — not in the positive images, not in the negative section, not in the Q&A, not in the drill. What changes are the nouns: a cluster of places that share a semantic field (city destinations in Lesson 1, classroom objects in Lesson 3, family members in Lesson 5).
+
+This means: the variety in a Madrigal lesson is **never verb variety**. It is always **noun variety within a cluster**. The student is not learning "here are six verbs"; they are learning "here is one verb applied to six members of a family" or "here is one verb applied to six rooms of a house." The verb bonds with the cluster through repetition. Both are acquired together.
+
+**Why this distinction matters for generation:** When Claude generates `negativeItems`, `questionItems`, or `sentenceColumns`, the temptation is to introduce multiple verbs to "show variety." This is exactly wrong — it converts an acquisition exercise into a grammar survey. The noun changes; the verb never does.
+
 ---
 
 ## Before the Lesson Begins: The Book's Opening Move (pp. 1–8)

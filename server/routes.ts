@@ -11444,30 +11444,35 @@ Now generate each part:
    Every Column 2 object must work with EVERY Column 1 verb form — or the student hits
    a nonsense sentence ("Yo hablo un lápiz") and stops trusting the material.
 
-   ── COLUMN 2 — The variation engine (5–8 items) ────────────────────
-   This column generates the permutations. Rules:
+   ── COLUMN 2 — The vocabulary cluster (5–8 items) ────────────────────
+
+   ★ THE VOCABULARY CLUSTER PRINCIPLE ★
+   Column 2 is not "variety for variety's sake." It is the lesson's vocabulary cluster —
+   the set of nouns that share a semantic field and pair naturally with the anchored verb.
+
+   Madrigal Lesson 1 (ir): Column 2 = places in a city — hotel, banco, restaurante, teatro, cine, parque
+   A classroom lesson (usar): Column 2 = classroom objects — silla, mesa, papel, lápiz, tiza, pizarra
+   A family lesson (tener): Column 2 = family members — hermano, padre, madre, tío, abuelo, primo
+
+   The verb bonds with the cluster through repetition. That is the whole point.
+   Do NOT put different categories of nouns in Column 2 — that is mixing semantic fields.
+   Do NOT put adverbs (mucho, bien) alongside nouns (silla, mesa) — different dimensions.
+   Do NOT put manner adverbs alongside place adverbs — different dimensions.
+
+   Column 2 rules:
    1. Every item must be semantically compatible with EVERY verb form in Column 1.
       If it only works with one form, leave it out entirely.
-   2. Vary along ONE dimension only — all places, OR all time phrases, OR all objects
-      the verb takes. Do NOT mix categories (e.g., don't mix "a la playa" [destination]
-      with "mucho" [manner] — they are different dimensions; the brain cannot scan them
-      as equivalent alternatives).
-   3. CONCRETE AND IMAGEABLE ONLY. Each item should be something the student can
-      picture. "a la playa" works — you see a beach. "en términos generales" doesn't
-      work — it's abstract and breaks the scan. Concrete nouns, named places, and
-      simple adverbs of manner all pass. Abstract phrases, subordinate clauses, and
-      explanatory phrases all fail.
-   4. ORDER BY FREQUENCY OF USE — most useful/common item first. The eye scans
-      top-to-bottom; the highest-payoff item should be seen first. Not alphabetical.
-      Not random. Ranked by how often a beginner would actually say this phrase.
-   5. PULL FROM THE VOCABULARY LIST PROVIDED — the items above are what the student
-      already studied in the See It Say It section. Reuse those words. Do not invent
-      new vocabulary that wasn't in the lesson. If the vocabulary list gives you 8
-      usable items, use 6–7 of them rather than manufacturing new ones.
+   2. ONE semantic dimension only — all city places, OR all classroom objects, OR all
+      family members, OR all foods. Never mix: "a la playa" [destination] with "mucho"
+      [manner] are different dimensions and break the scan.
+   3. CONCRETE AND IMAGEABLE ONLY. "a la playa" works — you see a beach. "generalmente"
+      doesn't — it's abstract. Concrete nouns and named places pass. Adverbs of manner
+      (mucho, bien) may be used only as a cluster by themselves, not mixed with nouns.
+   4. ORDER BY FREQUENCY OF USE — most useful item first. Not alphabetical. Not random.
+   5. PULL FROM THE VOCABULARY LIST PROVIDED. Do not invent words not in the lesson.
+      If the list has 8 nouns in the same semantic field, use 6–7 of them.
    6. Items should be visually distinct — different lengths, different starting words.
-      The eye distinguishes them effortlessly. Similar-looking items get skipped.
-   7. 5–8 items is the sweet spot. Fewer = not enough permutations.
-      More than 8 = the column becomes a list to read, not a column to scan.
+   7. 5–8 items. Fewer = not enough permutations. More = the column becomes a list.
 
    Good examples:
      ir   → a la playa / al banco / a la biblioteca / al mercado / a casa / al restaurante

@@ -297,6 +297,36 @@ The broad reasoning:
 
 ---
 
+### Decision 7: The Vocabulary Cluster Principle — noun variety, never verb variety
+
+**Decision: The variety in a Madrigal-style lesson is always noun variety within a semantic cluster. The verb is the constant. Verb variety is forbidden within any single lesson section.**
+
+*Articulated April 2026, encoding the deepest structural principle in Madrigal's method.*
+
+Every lesson organizes around two things:
+1. **One verb** (or one short verb phrase) — the fixed anchor, repeated identically in every section
+2. **One vocabulary cluster** — a set of nouns sharing a semantic field (city places, classroom objects, family members, foods) that permute against the verb
+
+Example: `usar` + classroom objects cluster
+> voy a usar una silla / una mesa / papel / un lápiz / una tiza / la pizarra
+
+The verb `usar` (or `voy a usar`) appears in the positive image section, the negative section, the Q&A, and the drill columns — every time. The nouns (silla, mesa, papel, lápiz, tiza, pizarra) are the cluster. They appear across all four sections as the items that vary.
+
+**What this means for generation (negative items, Q&A items, drill columns):**
+- `negativeItems`: "No uso una silla." / "No uso una mesa." / "No uso papel." — verb fixed, noun varies
+- `questionItems`: "¿Usa María una silla?" / "¿Usa Pedro una mesa?" — verb fixed, noun varies
+- `sentenceColumns` Column 2: silla / mesa / papel / lápiz / tiza / pizarra — the cluster
+
+**What is explicitly forbidden:**
+- Mixing different verbs in `negativeItems` or `questionItems` — this converts acquisition into grammar survey
+- Mixing different semantic dimensions in Column 2 (e.g., nouns + manner adverbs together)
+- Treating "variety" as "show different verbs" — variety is always within the noun cluster
+
+**Why this principle works cognitively:**
+The verb bonds with the cluster through repetition. By the end of the lesson, the student can use the verb with any cluster member — not because they studied it, but because they saw it ten times in natural contexts. The noun cluster provides the breadth (real-world applicability); the verb provides the depth (automaticity). Neither is useful without the other.
+
+---
+
 ## 5. What Was Decided and Completed (History)
 
 | Date | Decision | Outcome |
