@@ -28,6 +28,7 @@ import { SentenceColumnGenerator, SentenceColumn } from "./SentenceColumnGenerat
 import { NegativeFormSection, NegativeFormItem } from "./NegativeFormSection";
 import { QuestionFormSection, QuestionFormItem } from "./QuestionFormSection";
 import { SocialPhraseUnit } from "./SocialPhraseUnit";
+import { VerbUnit } from "./VerbUnit";
 import { apiRequest } from "@/lib/queryClient";
 
 interface DrillItem {
@@ -540,6 +541,19 @@ export function TextbookChapterView({
     !microCycleLoading &&
     microCycle &&
     (microCycle.negativeItems.length > 0 || microCycle.questionItems.length > 0 || microCycle.sentenceColumns.length > 0);
+
+  // ── Format 2: Verb Unit ────────────────────────────────────────────────────
+  if (chapter.chapterType === 'verb_unit') {
+    return (
+      <VerbUnit
+        chapter={chapter}
+        language={language ?? "spanish"}
+        onBack={onBack}
+        onStartConversation={onStartConversation}
+        onStartDrill={onStartDrill}
+      />
+    );
+  }
 
   // ── Format 1: Social Phrase Card ──────────────────────────────────────────
   if (chapter.chapterType === 'social_phrases') {
