@@ -11262,25 +11262,68 @@ Generate a JSON object with exactly these fields:
 4. "sentenceColumns" — array of 2-3 column objects, each:
    { "label": string (short column header), "items": [{ "text": string, "translation": string }] }
 
-   CRITICAL RULE — Madrigal "See It and Say It" substitution drill philosophy:
-   The goal is to POUND IN 1–2 verb forms through repetition, not to survey all conjugations.
-   Every single combination of one item from each column MUST produce a grammatically correct
-   AND semantically meaningful sentence. No exceptions.
+   ════════════════════════════════════════════════════════════════
+   THE "SEE IT AND SAY IT" VISUAL SCANNING PHILOSOPHY
+   (Madrigal method — this overrides all traditional pedagogy instincts)
+   ════════════════════════════════════════════════════════════════
 
-   HOW TO STRUCTURE THE COLUMNS:
-   - Column 1 (verb forms): Use only 1–2 conjugated forms of ONE verb — the forms most
-     essential for the beginner. Typically:
-       • The yo form (first-person singular): "voy", "hablo", "tengo"
-       • The él/ella form (third-person singular): "va", "habla", "tiene"
-     These two forms cover "I do X" and "he/she/you (formal) does X" — the most common
-     real-world uses. Do NOT list all 5-6 conjugations — that spreads attention thin.
-     Example for "ir": Column 1 = ["voy (I go)", "va (he/she goes)"]
-   - Column 2 (objects/places/complements): Provide 5–8 items from the vocabulary that work
-     semantically with BOTH verb forms in column 1. This is where the pounding happens —
-     "voy a la playa, voy al banco, voy a la biblioteca" repeats the verb form many times.
-   - Column 3 (optional): Only add a third column if it creates meaningful additional variation
-     and ALL combinations across all three columns remain valid.
-   - NEVER mix different semantically-distinct verbs in column 1. One verb, 1-2 forms only.
+   This is NOT a fill-in-the-blank exercise. It is not a conjugation table. It is a
+   VISUAL PERCEPTION ENGINE. The student's eye scans across the columns and their brain
+   automatically assembles sentences — the same way eyes scan a multiplication table and
+   produce products without doing arithmetic. The permutations happen passively, at a
+   glance, without conscious effort.
+
+   THE GOAL: maximize the number of correct sentences a student's brain generates per
+   second of looking at the screen, while minimizing the cognitive work required to do so.
+
+   ── COLUMN 1 — The fixed anchor (1–2 items ONLY) ──────────────────
+   Pick ONE verb. Use only its two most essential forms:
+     • yo form  (1st person singular) — "voy", "hablo", "tengo"  — "I do X"
+     • él/ella form (3rd person singular) — "va", "habla", "tiene" — "he/she does X"
+   These two forms cover the vast majority of real-world use. That is all Column 1 gets.
+
+   WHY NOT ALL 6 CONJUGATIONS? This is the most important rule.
+   Traditional pedagogy surveys the whole paradigm. This is exactly wrong here.
+   - 6 forms × 7 objects = 42 combinations the brain must check one by one (studying)
+   - 2 forms × 7 objects = 14 combinations the eye generates in a single scan (acquiring)
+   A long Column 1 destroys the "fixed anchor" effect. The eye has to travel; the brain
+   has to hold 6 unfamiliar things in working memory; the scan becomes a study session.
+   The tú form and plural forms belong in a LATER chapter as "one small change."
+
+   NEVER mix different verbs in Column 1 (hablar + comprar + trabajar = disaster).
+   Every Column 2 object must work with EVERY Column 1 verb form — or the student hits
+   a nonsense sentence ("Yo hablo un lápiz") and stops trusting the material.
+
+   ── COLUMN 2 — The variation engine (5–8 items) ────────────────────
+   This column generates the permutations. Rules:
+   1. Every item must be semantically compatible with EVERY verb form in Column 1.
+      If it only works with one form, leave it out entirely.
+   2. Vary along ONE dimension only — all places, OR all time phrases, OR all objects
+      the verb takes. Do NOT mix categories (e.g., don't mix "a la playa" [destination]
+      with "mucho" [manner] — they are different dimensions; the brain cannot scan them
+      as equivalent alternatives).
+   3. Items should be visually distinct — different lengths, different starting words.
+      The eye distinguishes them effortlessly. Similar-looking items get skipped.
+   4. 5–8 items is the sweet spot. Fewer = not enough permutations.
+      More than 8 = the column becomes a list to read, not a column to scan.
+
+   Good examples:
+     ir   → a la playa / al banco / a la biblioteca / al mercado / a casa / al restaurante
+     hablar → español / inglés / francés / mucho / bien / todos los días
+     tener  → hambre / sed / frío / calor / miedo / sueño
+
+   ── COLUMN 3 — Optional only if every 3-way combo is valid ─────────
+   Add a third column only when a third dimension is central to the vocabulary AND every
+   Column1 × Column2 × Column3 combination produces a correct, meaningful sentence.
+   When in doubt: omit Column 3. A clean 2-column drill beats a broken 3-column drill.
+
+   ── THE ANTI-PATTERN TO AVOID ───────────────────────────────────────
+   Your default instinct will be to write something like:
+     Column 1: yo voy / tú vas / él va / nosotros vamos / vosotros vais / ellos van
+     Column 2: a la playa / al banco
+   This is wrong. It puts maximum cognitive load in Column 1 (6 unfamiliar forms) and
+   minimum variation in Column 2 (2 objects). The brain cannot scan it — it has to study.
+   The correct direction is always the opposite: minimum in Column 1, maximum in Column 2.
 
 Return ONLY valid JSON, no markdown, no explanation.`;
 
