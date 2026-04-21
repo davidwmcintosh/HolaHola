@@ -80,9 +80,11 @@ function useMicroCycle(lessonId: string | undefined, language: string) {
 export function VerbUnit({ chapter, language, onBack, onStartConversation, onStartDrill }: VerbUnitProps) {
   const grammarType = classifyGrammarType(chapter.title, language);
 
-  const firstVocabSection = chapter.sections.find(
-    s => s.lessonType === "vocabulary" || s.lessonType === "drill"
-  );
+  // Use the grammar spotlight lesson if present, otherwise the first section.
+  // Verb units are seeded with 'grammar' or 'conversation' lesson types, not 'vocabulary'.
+  const firstVocabSection =
+    chapter.sections.find(s => s.lessonType === "grammar") ??
+    chapter.sections[0];
 
   const { data: microCycle, isLoading: microLoading } = useMicroCycle(
     firstVocabSection?.id,

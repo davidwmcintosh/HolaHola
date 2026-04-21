@@ -212,7 +212,7 @@ function PhraseCard({
   index: number;
   imageUrl?: string;
 }) {
-  const { gender } = useLanguage();
+  const { tutorGender } = useLanguage();
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [practiced, setPracticed] = useState(false);
@@ -230,7 +230,7 @@ function PhraseCard({
         body: JSON.stringify({
           text: phrase.spanish,
           language: "spanish",
-          gender: gender ?? "female",
+          gender: tutorGender ?? "female",
         }),
       });
       if (!res.ok) throw new Error("TTS failed");
@@ -404,15 +404,16 @@ interface SocialPhraseUnitProps {
 
 export function SocialPhraseUnit({ language = "spanish", lessonId }: SocialPhraseUnitProps) {
   // Load vocab images from the lesson if we have a lessonId
-  const { data: imageData } = useQuery<VocabImageMap>({
+  // API returns { images: { [word]: { url, source } } }
+  const { data: imageData } = useQuery<{ images: VocabImageMap }>({
     queryKey: ["/api/textbook-content", lessonId, "vocab-images", language],
     queryFn: async () => {
-      if (!lessonId) return {};
+      if (!lessonId) return { images: {} };
       const res = await fetch(
         `/api/textbook-content/${lessonId}/vocab-images?language=${encodeURIComponent(language)}`,
         { credentials: "include" }
       );
-      if (!res.ok) return {};
+      if (!res.ok) return { images: {} };
       return res.json();
     },
     enabled: !!lessonId,
@@ -421,10 +422,9 @@ export function SocialPhraseUnit({ language = "spanish", lessonId }: SocialPhras
 
   // Build a lookup: normalized Spanish → image URL
   const imageMap: Record<string, string> = {};
-  if (imageData) {
-    for (const [word, data] of Object.entries(imageData)) {
-      imageMap[word.toLowerCase()] = data.url;
-    }
+  const images = imageData?.images ?? {};
+  for (const [word, data] of Object.entries(images)) {
+    imageMap[word.toLowerCase()] = data.url;
   }
 
   function getImage(phrase: SocialPhrase): string | undefined {

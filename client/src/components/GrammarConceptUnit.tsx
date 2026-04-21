@@ -4,6 +4,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, MessageSquare, Volume2, Loader2, Globe, MessageCircle } from "lucide-react";
 import { classifyGrammarType, GrammarChapterView } from "./ChapterIntroduction";
+import { SeeItSayItLoop } from "./SeeItSayItLoop";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -56,7 +57,7 @@ function ExampleSentence({
   language: string;
   index: number;
 }) {
-  const { gender } = useLanguage();
+  const { tutorGender } = useLanguage();
   const [isPlaying, setIsPlaying] = useState(false);
 
   const handleListen = useCallback(async () => {
@@ -67,7 +68,7 @@ function ExampleSentence({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ text: example.target, language, gender: gender ?? "female" }),
+        body: JSON.stringify({ text: example.target, language, gender: tutorGender ?? "female" }),
       });
       if (!res.ok) throw new Error("TTS failed");
       const blob = await res.blob();
@@ -281,6 +282,20 @@ export function GrammarConceptUnit({
             chapterNumber={chapter.number}
             language={language}
             chapterTitle={chapter.title}
+          />
+        </div>
+      )}
+
+      {/* ── Vocabulary grid — word pairs with images (alto/bajo, etc.) ── */}
+      {chapter.sections[0] && (
+        <div className="space-y-3" data-testid="grammar-concept-vocab">
+          <p className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">
+            Vocabulary
+          </p>
+          <SeeItSayItLoop
+            lessonId={chapter.sections[0].id}
+            language={language}
+            hideHeader
           />
         </div>
       )}
