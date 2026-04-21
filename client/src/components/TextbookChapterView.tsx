@@ -27,6 +27,7 @@ import { SeeItSayItLoop } from "./SeeItSayItLoop";
 import { SentenceColumnGenerator, SentenceColumn } from "./SentenceColumnGenerator";
 import { NegativeFormSection, NegativeFormItem } from "./NegativeFormSection";
 import { QuestionFormSection, QuestionFormItem } from "./QuestionFormSection";
+import { SocialPhraseUnit } from "./SocialPhraseUnit";
 import { apiRequest } from "@/lib/queryClient";
 
 interface DrillItem {
@@ -539,6 +540,49 @@ export function TextbookChapterView({
     !microCycleLoading &&
     microCycle &&
     (microCycle.negativeItems.length > 0 || microCycle.questionItems.length > 0 || microCycle.sentenceColumns.length > 0);
+
+  // ── Format 1: Social Phrase Card ──────────────────────────────────────────
+  if (chapter.chapterType === 'social_phrases') {
+    return (
+      <div className="space-y-6 w-full max-w-2xl mx-auto pb-12 touch-pan-y overscroll-contain">
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-3 -mx-4 px-4 border-b supports-[backdrop-filter]:bg-background/80">
+          <div className="flex items-center justify-between gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onBack}
+              data-testid="button-back-to-chapters"
+              className="gap-1 -ml-2"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              All Chapters
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <p className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">
+            Unit {chapter.number}
+          </p>
+          <h1 className="text-2xl font-bold">{chapter.title}</h1>
+          <p className="text-sm text-muted-foreground">{chapter.description}</p>
+        </div>
+
+        <SocialPhraseUnit language={language} />
+
+        <div className="pt-2">
+          <Button
+            className="w-full min-h-[52px] text-base gap-2"
+            onClick={() => onStartConversation()}
+            data-testid="button-start-chapter-chat"
+          >
+            <MessageSquare className="h-5 w-5" />
+            Practice with Daniela
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 w-full max-w-4xl mx-auto pb-12 touch-pan-y overscroll-contain">
