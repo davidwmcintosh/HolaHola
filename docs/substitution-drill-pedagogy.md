@@ -4,6 +4,33 @@
 
 ---
 
+## Where the Drill Fits: Recognition → Drill → Production
+
+From `curriculum-strategy.md` (Decision 3, March 2026):
+
+> *The textbook is not the learning event. It is rapid preparation for the real learning event — a voice session with Daniela.*
+
+The substitution drill is stage two of a three-stage acquisition cycle:
+
+| Stage | What happens | Student effort |
+|-------|-------------|----------------|
+| 1. See It Say It (vocabulary grid) | Passive recognition — student encounters new words with images and audio | Low — absorb, don't produce |
+| 2. **Substitution drill** ← *this is what we're generating* | Semi-active pattern absorption — eye scans across columns, brain fires sentences without being asked to | Very low — perceive, don't construct |
+| 3. Voice session with Daniela | Active production — student must speak in real time, handle correction, adapt | High — produce, respond, use |
+
+**Implication for drill design:** The drill should make stage 3 easier, not replicate it. It is a confidence-builder, not a test. Every choice must feel safe. Every combination must produce something real.
+
+## "Confident Imperfection" (HoloHola Core Philosophy, March 2026)
+
+> *"Confident imperfection instead of halting or nervous perfection."*
+
+This applies to how students use the drill: they should risk picking any option and discover it works. The drill is engineered so that any route through it produces a correct, natural sentence. The student experiences *succeeding* — over and over — before they ever have to speak to Daniela.
+
+A drill that has one "right answer" and wrong alternatives teaches checking, not fluency.  
+A drill where every combination succeeds teaches confidence.
+
+---
+
 ## The Central Insight: The Eye Does the Work
 
 The substitution drill is not a fill-in-the-blank exercise. It is not a quiz. It is a **visual perception engine**.
@@ -48,16 +75,47 @@ Traditional textbook instinct says "teach the whole paradigm." That instinct is 
 
 This column does the heavy lifting. It generates the permutations.
 
-Rules:
-- Every item must be semantically compatible with **every** verb form in Column 1. No exceptions. One broken combination destroys the student's trust in the material.
-- Items should vary along **one dimension only** — all places, OR all time expressions, OR all objects the verb can take. Do not mix categories (e.g., don't put "a la playa" and "mucho" in the same column — one is a destination, one is a manner adverb; the brain can't scan them as equivalent alternatives).
-- Items should be **visually distinct** at a glance — different lengths, different starting letters help. The eye distinguishes them effortlessly.
-- 5–8 items is the sweet spot. Fewer than 5 is not enough permutations. More than 8 and the column becomes a list to read, not a column to scan.
+Rules (from curriculum audits, Jan–Apr 2026):
+
+**1. Every combo must be valid.** Each item must work semantically with every verb form in Column 1. One broken combination destroys trust in the material.
+
+**2. One dimension only.** All places, OR all objects the verb takes, OR all manner adverbs — never a mix. When the brain sees "a la playa" followed by "mucho" it has to evaluate them as non-equivalent alternatives. That activates the wrong cognitive mode.
+
+**3. Concrete and imageable only.** Items the student can picture. *a la playa* — you see a beach. *en términos generales* — you see nothing; it's abstract and breaks the scan. Named places, concrete nouns, and simple adverbs of manner all pass. Abstract phrases and subordinate clauses fail.
+
+**4. Order by frequency of use.** Most useful item first — what the student would most likely say in real conversation, not alphabetical, not random. The eye scans top-to-bottom; priority items should be seen first.
+
+**5. Pull from the chapter vocabulary list.** The drill recombines words the student already saw in the See It Say It section. It does not introduce new vocabulary. Reuse those items — don't manufacture new ones.
+
+**6. Visually distinct.** Different lengths, different starting words. The eye distinguishes them effortlessly; similar-looking items get skipped.
+
+**7. 5–8 items.** Fewer than 5 = not enough permutations. More than 8 = the column becomes a list to read, not a column to scan.
 
 Good Column 2 examples:
-- For *ir* (to go): *a la playa / al banco / a la biblioteca / al mercado / a casa / al restaurante* — all destinations, grammatically parallel, visually scannable
+- For *ir* (to go): *a la playa / al banco / a la biblioteca / al mercado / a casa / al restaurante* — all destinations, parallel, scannable
 - For *hablar* (to speak): *español / inglés / francés / mucho / bien / todos los días* — things/ways one can speak
-- For *tener* (to have): *hambre / sed / frío / calor / miedo / sueño* — idiom body-state nouns, all take *tener*
+- For *tener* (to have): *hambre / sed / frío / calor / miedo / sueño* — body-state idiom nouns, all take *tener*
+
+### Column Labels
+
+Use question words, not category names:
+
+| Works | Doesn't work |
+|-------|-------------|
+| "Where?" | "Destinations" |
+| "What?" | "Objects" |
+| "How?" | "Complements" |
+| "When?" | "Time Expressions" |
+
+A question word primes the student to connect the verb (Column 1) with the answer (Column 2). A category name makes the student think about grammar — the wrong mode.
+
+### Translation Rules
+
+Shortest accurate English equivalent. Not a definition, not an explanation.
+- GOOD: "to the beach" / "a lot" / "at school"
+- BAD: "to the beach (a popular vacation destination)" / "a lot (used as an adverb)"
+
+Economy in translation preserves the scanning rhythm.
 
 ### Column 3 — Optional third dimension
 

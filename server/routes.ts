@@ -11238,8 +11238,51 @@ Return ONLY the ${targetLanguage} phrase:`;
 
         // L3: Claude generation
         const anthropic = new Anthropic();
-        const prompt = `You are generating micro-cycle practice data for a language learning app.
+        const prompt = `You are generating micro-cycle practice data for HolaHola, an AI-powered language learning app.
 Language: ${language}
+
+════════════════════════════════════════════════════════════════
+HOLAHOLA PEDAGOGY — READ THIS BEFORE GENERATING ANYTHING
+(This is not generic language-teaching context. It overrides every
+textbook-derived instinct you have about how drills should work.)
+════════════════════════════════════════════════════════════════
+
+OUR LEARNING MODEL (from product audits, Jan–Apr 2026):
+The textbook is not the learning event. It is rapid preparation for the
+real learning event — a voice session with Daniela, the AI tutor.
+Students absorb a pattern quickly from the textbook (scan, hear it, see it)
+then go USE it in conversation. The drill lives between those two stages:
+after passive vocabulary recognition, before active production in speech.
+If the drill requires the student to think hard, it has failed — it should
+lower anxiety and build confidence, making them ready for real conversation.
+
+CORE PHILOSOPHY — "Confident Imperfection":
+Language acquisition happens when a student risks speaking before they are
+certain. Our drills must be designed so that EVERY choice feels safe.
+No wrong answers. No combinations that embarrass. No gotchas.
+The student who picks any item from any column should produce something
+they could say to a native speaker today. If any combination produces
+a nonsense or awkward sentence, the drill is broken.
+
+THE RECOGNITION → DRILL → PRODUCTION SEQUENCE (from curriculum audit):
+  1. Vocabulary list (See It Say It section) — passive recognition
+  2. THIS DRILL — semi-active pattern absorption (the stage you are generating)
+  3. Voice session with Daniela — active production / real use
+The drill recombines vocabulary the student ALREADY SAW in step 1.
+It never introduces new vocabulary. It converts recognition into readiness.
+
+WHAT WE KNOW FAILS (from January 2026 drill audit and March 2026 curriculum audit):
+  ✗ "Wide but not deep" — 87% of our drills were listen/repeat (novice audio only).
+    The substitution drill adds the depth that was missing.
+  ✗ fill_blank drills test recognition, not production. They don't build fluency.
+  ✗ Drills that survey full verb paradigms (all 6 conjugations) spread attention
+    thin. Students leave remembering none of the forms strongly.
+  ✗ Abstract or academic items in Column 2 break the visual scan —
+    "en términos generales" doesn't scan; "a la playa" does.
+  ✗ Content generated from stale curriculum data fields (required_vocabulary,
+    required_grammar) often inherits data quality problems. Generate from
+    the lesson vocabulary list and key phrases provided below — trust those,
+    not memorized textbook paradigms.
 
 Vocabulary list (up to first 10 items):
 ${JSON.stringify(vocabList.slice(0, 10), null, 2)}
@@ -11302,15 +11345,41 @@ Generate a JSON object with exactly these fields:
       the verb takes. Do NOT mix categories (e.g., don't mix "a la playa" [destination]
       with "mucho" [manner] — they are different dimensions; the brain cannot scan them
       as equivalent alternatives).
-   3. Items should be visually distinct — different lengths, different starting words.
+   3. CONCRETE AND IMAGEABLE ONLY. Each item should be something the student can
+      picture. "a la playa" works — you see a beach. "en términos generales" doesn't
+      work — it's abstract and breaks the scan. Concrete nouns, named places, and
+      simple adverbs of manner all pass. Abstract phrases, subordinate clauses, and
+      explanatory phrases all fail.
+   4. ORDER BY FREQUENCY OF USE — most useful/common item first. The eye scans
+      top-to-bottom; the highest-payoff item should be seen first. Not alphabetical.
+      Not random. Ranked by how often a beginner would actually say this phrase.
+   5. PULL FROM THE VOCABULARY LIST PROVIDED — the items above are what the student
+      already studied in the See It Say It section. Reuse those words. Do not invent
+      new vocabulary that wasn't in the lesson. If the vocabulary list gives you 8
+      usable items, use 6–7 of them rather than manufacturing new ones.
+   6. Items should be visually distinct — different lengths, different starting words.
       The eye distinguishes them effortlessly. Similar-looking items get skipped.
-   4. 5–8 items is the sweet spot. Fewer = not enough permutations.
+   7. 5–8 items is the sweet spot. Fewer = not enough permutations.
       More than 8 = the column becomes a list to read, not a column to scan.
 
    Good examples:
      ir   → a la playa / al banco / a la biblioteca / al mercado / a casa / al restaurante
      hablar → español / inglés / francés / mucho / bien / todos los días
      tener  → hambre / sed / frío / calor / miedo / sueño
+
+   ── COLUMN LABELS — use question words, not category names ──────────
+   Labels that work: "Where?" / "What?" / "How?" / "When?" / "With whom?"
+   Labels that don't work: "Destinations" / "Objects" / "Verb Forms" / "Complements"
+   A question word primes the student to connect the verb (Column 1) with the answer
+   (Column 2). It also scans in under a second. A category name makes the student
+   think about grammar, which breaks the acquisition flow.
+
+   ── TRANSLATION RULES — gloss only, never explain ───────────────────
+   Translation should be the shortest accurate English equivalent. Not a definition.
+   GOOD: "to the beach" / "a lot" / "at school"
+   BAD: "to the beach (a common vacation destination)" / "a lot (used as an adverb)"
+   Economy in the translation preserves the scanning rhythm. Verbose translations
+   make the student read, not scan.
 
    ── COLUMN 3 — Optional only if every 3-way combo is valid ─────────
    Add a third column only when a third dimension is central to the vocabulary AND every
