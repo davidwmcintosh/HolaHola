@@ -249,7 +249,7 @@ function PhraseCard({
     } catch {
       setIsPlayingAudio(false);
     }
-  }, [phrase.spanish, gender, isPlayingAudio]);
+  }, [phrase.spanish, tutorGender, isPlayingAudio]);
 
   const handleSpeak = useCallback(async () => {
     if (isRecording) {
