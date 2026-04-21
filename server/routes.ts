@@ -11306,10 +11306,12 @@ The space between them is structural — it lets the eye perceive both
 the pieces AND the assembled whole. This is the "Voy / Al" moment.
 
 PART 2 — REPETITION WITH IMAGES (→ negativeItems)
-The anchor's components are combined with images of concrete nouns.
-"Voy al banco." [image of a bank]. "No voy al banco." [same image].
-This fires the word-to-picture association. The image is never abstract.
-It is always the THING that appears in the sentence — the noun.
+The anchor's components are combined with images of concrete nouns —
+but using DIFFERENT nouns than the positive vocabulary grid above.
+"No voy al club." [image of a club]. "No voy al teatro." [image of a theater].
+Madrigal uses fresh images for the negative section, not the same ones
+from the positive grid. The verb form is what stays fixed; both the noun
+AND the polarity can vary. The student sees: the pattern works everywhere.
 
 PART 3 — REPETITION WITH QUESTION AND ANSWER (→ questionItems)
 "¿Va Pedro al banco?" / "Sí, yo voy al banco." / "No, no voy al banco."
@@ -11329,7 +11331,10 @@ Now generate each part:
 
 1. "patternLabel" — a short string showing the anchor pattern at the top
    of the lesson page. Format: the 2–3 building block forms separated by " / "
-   Example: "Voy / No voy / ¿Vas?" or "Tengo / No tengo / ¿Tienes?"
+   CRITICAL: NO TÚ FORM anywhere in patternLabel. Use yo / él forms only.
+   Example: "Voy / Va / No voy"  or  "Tengo / Tiene / No tengo"
+   WRONG: "Voy / No voy / ¿Vas?"  — "¿Vas?" is tú form. Do not use.
+   WRONG: "Tengo / No tengo / ¿Tienes?" — "¿Tienes?" is tú form. Do not use.
    This is what the student sees FIRST — the pieces before the whole.
    Keep it minimal. Madrigal's anchors are never more than 3 items.
 
@@ -11340,13 +11345,19 @@ Now generate each part:
    • imageWord: a bare, concrete, imageable noun from the vocabulary list.
      No articles. No adjectives. The word that an image would depict.
      GOOD: "banco", "playa", "biblioteca"  BAD: "mucho", "bien", "todos"
-   • negativePhrase: a complete, natural negative sentence using that noun.
+   • negativePhrase: always uses the YO form in the negative.
+     "No voy al banco." — not "No va" or "No vamos." The student is
+     learning to negate what THEY do, in their own voice.
      It should be something the student might genuinely say.
      GOOD: "No voy al banco."  BAD: "No es el banco en términos generales."
-   • Each item should use a different vocabulary word. The variety is the
-     repetition — the verb form stays constant while the noun changes.
-   • The same verb form from patternLabel should appear in every negativePhrase.
-     This is the pounding. The noun varies; the verb stays fixed.
+   • Each item should use a DIFFERENT vocabulary word — ideally words from
+     the chapter that were NOT the 4 main words shown in the See It Say It
+     image grid. Madrigal uses fresh places (club, teatro) for the negative
+     section, not the same hotels and banks from the positive grid. If the
+     vocabulary list has 8+ items, use the second set for negativeItems.
+   • The same sentence frame should appear in every negativePhrase.
+     The noun varies; the frame is fixed. This is the pounding.
+     WRONG: mixing "No voy al..." and "No tengo..." in the same section.
 
 3. "questionItems" — PART 3: Repetition with question and answer (4 items)
    { "imageWord": string, "question": string, "questionTranslation": string,
