@@ -29,6 +29,8 @@ import { NegativeFormSection, NegativeFormItem } from "./NegativeFormSection";
 import { QuestionFormSection, QuestionFormItem } from "./QuestionFormSection";
 import { SocialPhraseUnit } from "./SocialPhraseUnit";
 import { VerbUnit } from "./VerbUnit";
+import { GrammarConceptUnit } from "./GrammarConceptUnit";
+import { VocabularyClusterUnit } from "./VocabularyClusterUnit";
 import { apiRequest } from "@/lib/queryClient";
 
 interface DrillItem {
@@ -551,6 +553,30 @@ export function TextbookChapterView({
         onBack={onBack}
         onStartConversation={onStartConversation}
         onStartDrill={onStartDrill}
+      />
+    );
+  }
+
+  // ── Format 3: Grammar Concept Unit ────────────────────────────────────────
+  if (chapter.chapterType === 'grammar_concept') {
+    return (
+      <GrammarConceptUnit
+        chapter={chapter}
+        language={language ?? "spanish"}
+        onBack={onBack}
+        onStartConversation={onStartConversation}
+      />
+    );
+  }
+
+  // ── Format 4: Vocabulary Cluster Unit ─────────────────────────────────────
+  if (chapter.chapterType === 'vocabulary_cluster') {
+    return (
+      <VocabularyClusterUnit
+        chapter={chapter}
+        language={language ?? "spanish"}
+        onBack={onBack}
+        onStartConversation={onStartConversation}
       />
     );
   }

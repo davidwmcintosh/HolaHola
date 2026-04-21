@@ -52,6 +52,7 @@ interface SeeItSayItLoopProps {
   language?: string;
   lessonName?: string;
   onComplete?: () => void;
+  hideHeader?: boolean;
 }
 
 type CardState = "idle" | "speaking" | "eval" | "mastered" | "needs-work";
@@ -323,6 +324,7 @@ export function SeeItSayItLoop({
   language,
   lessonName,
   onComplete,
+  hideHeader = false,
 }: SeeItSayItLoopProps) {
   const langTag = getLangTag(language);
   const { tutorGender } = useLanguage();
@@ -456,20 +458,22 @@ export function SeeItSayItLoop({
     <div className="space-y-5" data-testid="sisl-page">
 
       {/* Header row */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          <BookOpen className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            {lessonName ?? "Vocabulary"}
-          </span>
+      {!hideHeader && (
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+              {lessonName ?? "Vocabulary"}
+            </span>
+          </div>
+          {masteredCount > 0 && (
+            <Badge variant="outline" className="text-xs gap-1">
+              <CheckCircle2 className="h-3 w-3 text-green-600" />
+              {masteredCount} / {vocabList.length} mastered
+            </Badge>
+          )}
         </div>
-        {masteredCount > 0 && (
-          <Badge variant="outline" className="text-xs gap-1">
-            <CheckCircle2 className="h-3 w-3 text-green-600" />
-            {masteredCount} / {vocabList.length} mastered
-          </Badge>
-        )}
-      </div>
+      )}
 
       {/* Progress bar (only shows once practice starts) */}
       {masteredCount > 0 && (
