@@ -2,7 +2,7 @@
 ## HoloHola — Interactive Textbook Design Playbook & Visual Library
 
 **Created:** March 15, 2026  
-**Last updated:** April 15, 2026 — Part I pedagogy foundation integrated inline  
+**Last updated:** April 21, 2026 — Part I.T: Spanish 1 unit taxonomy and curriculum map added  
 **Referenced by:** `docs/curriculum-strategy.md` (Section 8)  
 **Component coverage manifest:** `docs/textbook-component-coverage.json` (machine-readable, Lyra-monitored)  
 **Status column key:** ⬜ Planned | 🔄 Generating | ✅ In Library
@@ -33,6 +33,8 @@ The analysis documents below have been integrated inline as **Part I** of this r
 | **Part I.P** — The Affective Filter: Why Cold Immersion Fails Most Learners *(inline below)* | Krashen's Affective Filter Hypothesis; commitment/circumstance dichotomy (ambassador's kids vs. casual learners); Calibrated Immersion model — Spanish always the medium, English sometimes the scaffold; whiteboard as precision scaffolding surface; calibration spectrum Spanish 1 → Spanish 5; Daniela's gentle hand is not a concession but the product design decision that determines whether broader-market students reach Spanish 3 | Definitive statement of how Daniela modulates immersion intensity — read before designing any student-facing difficulty controls, scaffolding features, or Daniela behavior for beginner/anxious/child learners |
 | **Part I.Q** — Prompt Philosophy: Principles Over Scripts *(inline below)* | Daniela is built on internalized philosophy, not decision trees; if-then prompt failure mode documented (brittle, grows without bound, conflicts); right model: who she is + what she believes + what she knows + what she values; practical test for any prompt addition | Read before writing or modifying any Daniela system prompt content — this is the governing philosophy for all prompt design decisions |
 | **Part I.R** — The Textbook Data Model and Build Sequence *(inline below)* | Live database audit: 27 active units with correct Madrigal vocabulary data; 32,927 drill items — 28,433 are word-level translation cards (wrong format); architectural decision: layer, don't replace (vocabulary_list for See It and Say It loop, key_phrases_for_chat for substitution drill, curriculum_drill_items demoted to supplementary review); 8-step See It and Say It micro-sequence specified; 5-step build sequence | Read before building any vocabulary presentation, drill component, or Daniela lesson context injection |
+| **Part I.S** — The Flat Page First Principle & SentenceColumnGenerator Design *(inline below)* | Madrigal's micro-cycle: positive → negative (new images) → question → exercise; Flat Page First rule — every element must be visible without interaction; resting state rule; SentenceColumnGenerator design decisions | Read before building any drill or substitution practice component |
+| **Part I.T** — Spanish 1 Unit Taxonomy & Curriculum Map *(inline below)* | Four unit format types defined: Social Phrase Card / Verb Unit / Grammar Concept / Vocabulary Cluster; 27-unit Spanish 1 curriculum map across 10 phases; key decisions: preterite before present tense, greetings as Social Phrase not Unit 1, thinking columns deferred to Spanish 2+, La Familia distributed not standalone | **Read before building any new Spanish 1 unit or restructuring existing units — this is the definitive curriculum architecture** |
 | `docs/textbook-component-tts-stt-guide.md` *(external)* | **TTS / STT pipeline design note (April 18, 2026).** The one true pattern for audio in textbook components: always POST `/api/tts/pronunciation` with `gender` from `useLanguage()`. Anti-pattern list (never use `synthesizeSpeech` in a textbook component). STT recording pattern with `transcribeAudio`. Component inventory table showing which file uses which pipeline. Pre-ship checklist. | **Read before adding any audio button or mic button to any textbook component.** Failure to follow this guide causes voice gender mismatches between components on the same page. |
 | `docs/curriculum-strategy.md` *(external)* | Overall platform philosophy, ACTFL level mapping, M1–M6 component definitions | Framing new chapter types |
 
@@ -3998,6 +4000,249 @@ Mobile: Madrigal's small-format book actually provides the right model. The colu
 | Apr 18, 2026 (S67) | SentenceColumnGenerator design decided: radio buttons, pure text, no drag-and-drop, no images | Decided |
 | Apr 18, 2026 (S67) | SentenceColumnGenerator component built and wired to chapter page with demo data | Built |
 | Apr 18, 2026 (S67) | Resting state rule established: every component must be useful before any interaction occurs | Documented |
+
+---
+
+
+# Part I.T — Spanish 1 Unit Taxonomy & Curriculum Map (S68, April 2026)
+
+**Session:** S68 (April 21, 2026)
+**Status:** Decisions finalized — unit map defined, format taxonomy established
+
+---
+
+## The Problem This Solves
+
+HoloHola's existing 27 units are organized by topic (Greetings, Activities, Mi Familia). This is a category error — topic-based organization assumes bounded knowledge boxes, which is the opposite of how Madrigal and communicative language teaching work. A unit called "La Familia" implicitly tells the learner's brain "you have learned family vocabulary" and files it away. A unit organized by grammatical structure keeps every tool available.
+
+The curriculum map below reorganizes Spanish 1 around **function and structure**, not topic. Units can be presented in almost any order once built — the format types below are stable containers that work regardless of sequence. Organization is a presentation decision that can be changed at any time without rebuilding the content.
+
+---
+
+## The Four Unit Format Types
+
+Every unit in Spanish 1 (and every future language) falls into exactly one of four format types. The format is determined by the nature of the content, not by a design choice.
+
+---
+
+### Format 1 — Social Phrase Card
+
+**What defines it:** Ritual phrases with no verb conjugation engine underneath. The phrase IS the unit — there is no grammatical slot to rotate.
+
+**Content characteristics:**
+- Phrases are memorized as fixed or semi-fixed units
+- No image anchor is needed (no object to picture; the phrase itself carries the meaning)
+- Register matters more than grammar: formal vs. casual, time-of-day, social context
+- Contextual use is the drill — hearing and saying in realistic exchange
+
+**Page layout:**
+- Phrase in large type (Spanish)
+- Pronunciation guide beneath
+- Register/context note (e.g., "used any time of day, informal")
+- Listen button + Speak button
+- Optional: one ambient scene image for context — decorative, not conceptual
+
+**When it appears:** Surfaced by Daniela from session 1, before any grammar unit. Students absorb these through repetition before formally studying them.
+
+**Spanish 1 examples:** Hola / Buenos días / Buenas tardes / Buenas noches / Gracias / De nada / Por favor / Perdón / ¿Qué tal? / ¿Qué pasa?
+
+**Note on ¿Cómo estás?:** This phrase belongs to the estar Grammar Concept unit (Unit 12), not the Social Phrase unit, because it has a conjugation structure underneath (estoy / está). Students hear it from Daniela in session 1 as a social ritual; they formally learn why it works in Unit 12.
+
+---
+
+### Format 2 — Verb Unit
+
+**What defines it:** One verb or tense, image-anchored vocabulary, substitution drill columns. This is the main curriculum spine and the most common unit type.
+
+**Content characteristics:**
+- One grammatical frame is the organizing principle (e.g., tomé ___ / ¿tomó ___)
+- Each vocabulary word is anchored to an image
+- Substitution columns rotate the object while the frame stays fixed
+- Column 1 may expand in later units to include related tenses (see Spanish 2+ note below)
+
+**Page layout:**
+- Image grid: 4–6 images, each anchoring a vocabulary word
+- Target phrase beneath each image (word used in the verb frame)
+- Substitution drill: frame + column choices (clean columns only in Spanish 1)
+- Conjugation reference note at bottom (small, reference — not the focus)
+
+**Spanish 1 column rule:** Every column 1 item works with every column 2 item. No invalid combinations. This is a conscious Spanish 1 decision — see Spanish 2+ note below.
+
+**Spanish 1 examples:** ir / tomar (preterite) / comprar (preterite) / ir + a + infinitive / querer / poder / hay / present tense AR / present tense ER-IR / present progressive / preterite all persons / irregular preterites / present perfect
+
+---
+
+### Format 3 — Grammar Concept Unit
+
+**What defines it:** One verb, but multiple qualitatively distinct use cases that cannot be collapsed into a single substitution frame. The same verb does fundamentally different jobs in different contexts.
+
+**Content characteristics:**
+- Each use case gets its own image set and drill
+- The unit is organized by domain (location / health / emotions), not by grammatical variation
+- The conjugation table is presented once and referenced across all domains
+- Layout is longer than a verb unit but uses the same visual components — just more of them in sequence
+
+**What makes this different from Format 2:** In a Verb Unit, all substitution drills use the same semantic frame (tomar = consume something). In a Grammar Concept Unit, the semantic frame changes between domains — estar for location means something structurally different from estar for emotion, even though the conjugation is identical.
+
+**Spanish 1 examples:**
+- **ser** — description (es grande) vs. classification (es un animal) vs. identity (soy Ana) vs. gender rules
+- **tener** — possession (tengo un gato) vs. obligation (tengo que ir) vs. idioms (tengo hambre / sed / frío / calor)
+- **estar** — location (¿Dónde está?) vs. health/state (¿Cómo estás? / Estoy bien) vs. emotions (contento / cansado / enojado / triste)
+- **gustar** — inverted structure (me gusta / me gustan) vs. me gustaría — the structure itself is the lesson, not just the vocabulary
+- **Plurals** — -o→-os / -a→-as / -or→-ores / adjective agreement — grammar rules across multiple noun classes
+
+---
+
+### Format 4 — Vocabulary Cluster
+
+**What defines it:** No verb, topic-defined by shared contextual or functional logic. All words in the unit do the same job or occupy the same semantic space. A vocabulary cluster is valid only when the words have intrinsic coherence independent of any verb structure.
+
+**The test:** Can you teach all these words together without needing to anchor them to a single conjugated verb? If yes, it may be a valid vocabulary cluster. If the words each require different verb structures to make sentences, they belong as object vocabulary distributed across verb units instead.
+
+**Content characteristics:**
+- Image-per-word (each word gets a visual anchor)
+- Short example phrase showing the word in a natural sentence — but the phrase may use different verbs for different words; the verb is not the organizing principle
+- Optional: a scene diagram (e.g., a room layout for Las Direcciones, a color palette for Los Colores)
+- No conjugation table
+- Substitution drill limited to vocabulary rotation, not tense variation
+
+**Why "La Familia" is NOT a vocabulary cluster:** Family words require different verb structures (tengo una hermana / mi madre es alta / mi padre está en casa). The family vocabulary is distributed as object vocabulary inside the tener, ser, and estar units. It is not a standalone cluster.
+
+**Why "Las Direcciones" IS a vocabulary cluster:** All prepositions of location do exactly the same job — they answer ¿Dónde? — and they can all be shown together in a single spatial scene. They work independently of verb structure.
+
+**Spanish 1 examples:**
+- **¿Qué es? — Categories**: animals / fruits / vegetables / flowers (all feed into the ser classification drill)
+- **Los Colores**: 12 colors + gender agreement rules
+- **Los Números**: 0–1000
+- **Las Direcciones**: cerca / lejos / al lado / encima / debajo / adelante / atrás / a la derecha / a la izquierda / alrededor / en la pared
+- **La Casa**: rooms + key objects (feeds into estar location drills)
+- **El Tiempo / Los Días / Los Meses**: weather expressions + days of week + months + seasons
+
+---
+
+## Spanish 1 Unit Map
+
+27 units, organized by pedagogical phase. Units are modular — order can be adjusted as long as dependencies are respected (e.g., estar location drills work better after Las Direcciones vocabulary is established).
+
+### Phase 0 — Conversational scaffold (before the curriculum)
+
+| # | Unit | Format | Key content |
+|---|---|---|---|
+| 0 | Social Phrases | Social Phrase | Hola / Buenos días / tardes / noches / Gracias / De nada / Por favor / Perdón / ¿Qué tal? / ¿Qué pasa? |
+
+### Phase 1 — Survival foundations
+
+| # | Unit | Format | Key content |
+|---|---|---|---|
+| 1 | ir | Verb | voy / va / vamos / van — places (hotel, banco, parque, restaurante, cine) |
+| 2 | ser | Grammar Concept | es / son; el / la gender; description (grande / chiquito / bonito); gender rules for adjectives |
+| 3 | ¿Qué es? — Categories | Vocabulary Cluster | Animals / fruits / vegetables / flowers — ser for classification, not description |
+| 4 | Los Colores | Vocabulary Cluster | 12 colors; ser + color adjective; gender agreement (rojo / roja) |
+
+### Phase 2 — First verbs in the past + near future
+
+| # | Unit | Format | Key content |
+|---|---|---|---|
+| 5 | tomar (preterite) | Verb | tomé / tomó — meals, drinks, transportation |
+| 6 | comprar (preterite) | Verb | compré / compró — shopping, clothing vocabulary as objects |
+| 7 | ir + a + infinitive | Verb | voy a / va a / vamos a / van a + any infinitive — near future; unlocks all verbs |
+
+### Phase 3 — Ownership, need, desire
+
+| # | Unit | Format | Key content |
+|---|---|---|---|
+| 8 | tener | Grammar Concept | tengo / tiene / tenemos / tienen — possession; tener que + infinitive; tener idioms (hambre / sed / frío / calor / razón) |
+| 9 | querer | Verb | quiero / quiere — want + noun; want + ir; personal a (Quiero a mi madre) |
+
+### Phase 4 — Numbers and plurality
+
+| # | Unit | Format | Key content |
+|---|---|---|---|
+| 10 | Los Números | Vocabulary Cluster | 0–1000; practical use |
+| 11 | Plurals | Grammar Concept | -o→-os / -a→-as / -or→-ores; el→los / la→las; adjective agreement in plural |
+
+### Phase 5 — Location, state, space
+
+| # | Unit | Format | Key content |
+|---|---|---|---|
+| 12 | estar | Grammar Concept | estoy / estás / está / estamos / están — location (¿Dónde está?); health + greeting (¿Cómo estás? / Estoy bien); emotions (contento / cansado / enojado / triste / enfermo) |
+| 13 | Las Direcciones | Vocabulary Cluster | cerca / lejos / al lado / encima / debajo / adelante / atrás / a la derecha / a la izquierda / alrededor / en la pared |
+| 14 | La Casa | Vocabulary Cluster | Rooms + key objects — feeds directly into estar location drills |
+
+### Phase 6 — Ability, existence, preference
+
+| # | Unit | Format | Key content |
+|---|---|---|---|
+| 15 | poder | Verb | puedo / puede / podemos / pueden + infinitive — can / be able to |
+| 16 | hay | Verb | hay + noun — there is / there are; ¿Hay...? — existential |
+| 17 | gustar | Grammar Concept | me gusta / le gusta / nos gusta; me gustan (plural objects); me gustaría; inverted structure — the verb follows its object |
+
+### Phase 7 — Time and weather
+
+| # | Unit | Format | Key content |
+|---|---|---|---|
+| 18 | El Tiempo / Los Días / Los Meses | Vocabulary Cluster | hace frío / calor / viento / fresco; está lloviendo / nevando; days of week; months; seasons |
+
+### Phase 8 — Present tense (deliberately late, following Madrigal's sequence)
+
+| # | Unit | Format | Key content |
+|---|---|---|---|
+| 19 | Present tense — AR | Verb | hablar / trabajar / estudiar / bailar / caminar — full paradigm yo / tú / usted / nosotros / ellos |
+| 20 | Present tense — ER/IR | Verb | vivir / escribir / leer / comer / vender — full paradigm |
+| 21 | Present progressive | Verb | estoy / está + -ando / -iendo — AR→ando, ER/IR→iendo; what is happening right now |
+
+### Phase 9 — Preterite expanded
+
+| # | Unit | Format | Key content |
+|---|---|---|---|
+| 22 | AR preterite — all persons | Verb | hablé / hablaste / habló / hablamos / hablaron + bailar / trabajar / estudiar |
+| 23 | ER/IR preterite | Verb | recibí / recibió; escribí / escribió; vi / vio |
+| 24 | Irregular preterite — tener / estar / hacer / venir | Verb | tuve / tuvo / estuve / estuvo / hice / hizo / vine / vino |
+| 25 | Irregular preterite — ir | Verb | fui / fue / fuimos / fueron + a (place or activity) |
+
+### Phase 10 — Perfect
+
+| # | Unit | Format | Key content |
+|---|---|---|---|
+| 26 | Present perfect | Verb | he / ha / hemos / han + -ado / -ido |
+
+---
+
+## Key Decisions Recorded
+
+| Decision | Rationale |
+|---|---|
+| Preterite before present tense | Students talk about what they did (narrative) before what they do habitually; Madrigal's sequence and communicative priority both confirm this |
+| Near future (ir + a) in Phase 2 | One conjugation (voy/va/vamos/van) unlocks every verb in the language; highest ROI structure for beginners |
+| Greetings as Social Phrase (not Unit 1) | Greetings have no verb conjugation engine — they cannot be taught with the standard substitution drill format; they are Daniela's conversational protocol, not curriculum content |
+| ¿Cómo estás? belongs in estar unit | It uses estar conjugation; students hear it in session 1 from Daniela but formally learn it in Unit 12 |
+| La Familia is not a standalone unit | Family words require tener / ser / estar — they are object vocabulary distributed across those verb units, not a cohesive cluster |
+| Las Direcciones is a standalone cluster | All prepositions of location answer ¿Dónde? and can be shown together in one spatial scene; intrinsic coherence independent of verb structure |
+| Clean columns only (Spanish 1) | Every column 1 item works with every column 2 item; no combinations requiring grammatical validation; conscious Spanish 1 decision |
+| Thinking columns deferred to Spanish 2+ | Mixed-validity column combinations (e.g., tengo / tengo que / tuve with shared object column) require students to reason about grammar constraints — appropriate at intermediate level, not beginner |
+
+---
+
+## What "Modular" Means
+
+Once each unit is built to its format spec, the page is self-contained. The learning experience on that page is complete regardless of what comes before or after it. This means:
+
+1. Unit order can be adjusted based on student needs, curriculum feedback, or new pedagogical decisions — without rebuilding any unit
+2. A student can enter the curriculum at any point and the page they land on is immediately usable
+3. Future languages can adopt the same four formats with language-specific content — no new format design required
+
+The formats are the infrastructure. The units are the content. They are independent.
+
+---
+
+### Session Log
+
+| Date | Action | Status |
+|---|---|---|
+| Apr 21, 2026 (S68) | Four unit format types defined: Social Phrase / Verb Unit / Grammar Concept / Vocabulary Cluster | Documented |
+| Apr 21, 2026 (S68) | Spanish 1 unit map established: 27 units across 10 phases | Documented |
+| Apr 21, 2026 (S68) | Key decisions recorded: column rules, greeting placement, family vocabulary distribution, thinking columns deferred | Documented |
+| Apr 21, 2026 (S68) | Modular architecture principle established: format is infrastructure, unit content is independent | Documented |
 
 ---
 
