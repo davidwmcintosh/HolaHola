@@ -118,16 +118,6 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
         </Button>
       </div>
 
-      {/* ── Unit title ── */}
-      <div className="space-y-1">
-        <p className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">
-          Unit {chapter.number}
-        </p>
-        <h1 className="text-2xl font-bold" data-testid="verb-unit-title">
-          {chapter.title}
-        </h1>
-      </div>
-
       {/* ── Grammar reference card — FIRST ── */}
       {grammarType && (
         <div data-testid="verb-unit-grammar-card">
@@ -185,6 +175,16 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
           )}
         </div>
       )}
+
+      {/* ── Unit title — bottom, like a chapter total ── */}
+      <div className="space-y-0.5 border-t pt-6">
+        <p className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">
+          Unit {chapter.number}
+        </p>
+        <h1 className="text-2xl font-bold" data-testid="verb-unit-title">
+          {chapter.title}
+        </h1>
+      </div>
 
       {/* ── CTAs ── */}
       <div className="space-y-2 pt-2" data-testid="verb-unit-ctas">
