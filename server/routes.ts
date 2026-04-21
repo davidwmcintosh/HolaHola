@@ -11262,22 +11262,25 @@ Generate a JSON object with exactly these fields:
 4. "sentenceColumns" — array of 2-3 column objects, each:
    { "label": string (short column header), "items": [{ "text": string, "translation": string }] }
 
-   CRITICAL RULE: This is a Madrigal-style substitution drill. Every single combination of
-   one item from each column MUST produce a grammatically correct AND semantically meaningful sentence.
-   No exceptions. A student should be able to pick ANY row from column 1 + ANY row from column 2
-   (+ ANY row from column 3 if present) and get a sentence that makes real-world sense.
+   CRITICAL RULE — Madrigal "See It and Say It" substitution drill philosophy:
+   The goal is to POUND IN 1–2 verb forms through repetition, not to survey all conjugations.
+   Every single combination of one item from each column MUST produce a grammatically correct
+   AND semantically meaningful sentence. No exceptions.
 
-   How to achieve this:
-   - Column 1: Use ONE verb with all its subject-pronoun conjugations (e.g. for hablar:
-     "Yo hablo / Tú hablas / Él habla / Nosotros hablamos / Ellos hablan").
-     Do NOT mix different verbs in column 1 unless their objects are completely interchangeable.
-   - Column 2 (and 3): Only include objects/phrases that work semantically with EVERY verb form
-     in column 1. If an object fits only some verbs, leave it out entirely.
-   - When in doubt: choose a single verb and vary only the subject pronouns + conjugations.
-     A drill with 5 conjugations × 5 objects = 25 valid sentences is better than one with
-     mismatched combinations.
-   - Do NOT put multiple semantically distinct verbs in column 1 unless you can verify that
-     every object in column 2 works with ALL of them.
+   HOW TO STRUCTURE THE COLUMNS:
+   - Column 1 (verb forms): Use only 1–2 conjugated forms of ONE verb — the forms most
+     essential for the beginner. Typically:
+       • The yo form (first-person singular): "voy", "hablo", "tengo"
+       • The él/ella form (third-person singular): "va", "habla", "tiene"
+     These two forms cover "I do X" and "he/she/you (formal) does X" — the most common
+     real-world uses. Do NOT list all 5-6 conjugations — that spreads attention thin.
+     Example for "ir": Column 1 = ["voy (I go)", "va (he/she goes)"]
+   - Column 2 (objects/places/complements): Provide 5–8 items from the vocabulary that work
+     semantically with BOTH verb forms in column 1. This is where the pounding happens —
+     "voy a la playa, voy al banco, voy a la biblioteca" repeats the verb form many times.
+   - Column 3 (optional): Only add a third column if it creates meaningful additional variation
+     and ALL combinations across all three columns remain valid.
+   - NEVER mix different semantically-distinct verbs in column 1. One verb, 1-2 forms only.
 
 Return ONLY valid JSON, no markdown, no explanation.`;
 
