@@ -11292,17 +11292,85 @@ ${JSON.stringify(keyPhrases, null, 2)}
 
 Generate a JSON object with exactly these fields:
 
-1. "patternLabel" — a short string describing the main sentence pattern (e.g. "Me duele / No me duele / ¿Te duele...?")
+════════════════════════════════════════════════════════════════
+THE COMPLETE MADRIGAL PAGE STRUCTURE
+Every page in "See It and Say It" / "Magic Key to Spanish" follows
+the same four-part format. The four fields below map directly to it.
+════════════════════════════════════════════════════════════════
 
-2. "negativeItems" — array of 4-5 objects, each:
-   { "imageWord": string (bare noun/word for image lookup, no article, e.g. "cabeza"), "negativePhrase": string (full negative sentence in ${language}), "translation": string (English translation of the negative phrase) }
-   Use different vocabulary words for each item. Pick short, concrete, imageable nouns.
+PART 1 (top of the page) — THE ANCHOR
+"Voy, I'm going."     "Al, to the."
+Two or three building blocks. Widely spaced. Nothing else.
+The reader sees the grammatical components before they see any sentences.
+The space between them is structural — it lets the eye perceive both
+the pieces AND the assembled whole. This is the "Voy / Al" moment.
 
-3. "questionItems" — array of 4 objects, each:
-   { "imageWord": string, "question": string, "questionTranslation": string, "affirmativeAnswer": string, "affirmativeTranslation": string, "negativeAnswer": string, "negativeTranslation": string }
-   Each question should be a natural yes/no question about the vocabulary item.
+PART 2 — REPETITION WITH IMAGES (→ negativeItems)
+The anchor's components are combined with images of concrete nouns.
+"Voy al banco." [image of a bank]. "No voy al banco." [same image].
+This fires the word-to-picture association. The image is never abstract.
+It is always the THING that appears in the sentence — the noun.
 
-4. "sentenceColumns" — array of 2-3 column objects, each:
+PART 3 — REPETITION WITH QUESTION AND ANSWER (→ questionItems)
+"¿Vas al banco?" / "Sí, voy al banco." / "No, no voy al banco."
+The question uses the TÚ form (asking the student).
+The answer uses the YO form (student responds).
+This is WHY only two conjugations are needed — the Q&A pattern
+produces them naturally. The student doesn't study conjugation;
+they acquire it through the conversation pattern.
+
+PART 4 — GENERAL REPETITION / SUBSTITUTION COLUMNS (→ sentenceColumns)
+"voy / va" in Column 1 × many destinations in Column 2.
+The eye scans. The brain fires sentences. No conscious effort.
+
+════════════════════════════════════════════════════════════════
+Now generate each part:
+════════════════════════════════════════════════════════════════
+
+1. "patternLabel" — a short string showing the anchor pattern at the top
+   of the lesson page. Format: the 2–3 building block forms separated by " / "
+   Example: "Voy / No voy / ¿Vas?" or "Tengo / No tengo / ¿Tienes?"
+   This is what the student sees FIRST — the pieces before the whole.
+   Keep it minimal. Madrigal's anchors are never more than 3 items.
+
+2. "negativeItems" — PART 2: Repetition with images (4–5 items)
+   { "imageWord": string, "negativePhrase": string, "translation": string }
+
+   ── HOW TO GENERATE (Madrigal image repetition rules) ──────────────
+   • imageWord: a bare, concrete, imageable noun from the vocabulary list.
+     No articles. No adjectives. The word that an image would depict.
+     GOOD: "banco", "playa", "biblioteca"  BAD: "mucho", "bien", "todos"
+   • negativePhrase: a complete, natural negative sentence using that noun.
+     It should be something the student might genuinely say.
+     GOOD: "No voy al banco."  BAD: "No es el banco en términos generales."
+   • Each item should use a different vocabulary word. The variety is the
+     repetition — the verb form stays constant while the noun changes.
+   • The same verb form from patternLabel should appear in every negativePhrase.
+     This is the pounding. The noun varies; the verb stays fixed.
+
+3. "questionItems" — PART 3: Repetition with question and answer (4 items)
+   { "imageWord": string, "question": string, "questionTranslation": string,
+     "affirmativeAnswer": string, "affirmativeTranslation": string,
+     "negativeAnswer": string, "negativeTranslation": string }
+
+   ── HOW TO GENERATE (Madrigal Q&A rules) ──────────────────────────
+   • question: uses the TÚ form — asking the student directly.
+     "¿Vas al banco?" — not "¿Va él al banco?" (that's grammar class).
+   • affirmativeAnswer: uses the YO form — student's own voice.
+     "Sí, voy al banco." — complete sentence, not just "Sí."
+   • negativeAnswer: "No, no voy al banco." — complete sentence with double no.
+   • This Q&A pattern is WHY the yo/tú forms are the essential two.
+     The student HEARS the tú form in the question and SAYS the yo form
+     in the answer. Both wire in naturally without a grammar lesson.
+   • imageWord: the same concrete noun as in negativeItems — the thing
+     depicted. Should be the noun that appears in the question.
+   • Use a different vocabulary noun for each of the 4 items.
+   • Keep questions conversational — "¿Tienes hambre?" not "¿Hay hambre?"
+
+4. "sentenceColumns" — PART 4: General repetition / substitution columns
+   { "label": string, "items": [{ "text": string, "translation": string }] }
+
+   ── HOW TO GENERATE (Madrigal substitution drill — full rules below) ──
    { "label": string (short column header), "items": [{ "text": string, "translation": string }] }
 
    ════════════════════════════════════════════════════════════════

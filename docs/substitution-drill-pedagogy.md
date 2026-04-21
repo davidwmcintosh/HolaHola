@@ -31,6 +31,50 @@ A drill where every combination succeeds teaches confidence.
 
 ---
 
+## The Complete Madrigal Page Structure
+
+Every page in *See It and Say It* follows the same four-part format. HolaHola's micro-cycle maps directly onto it:
+
+```
+MADRIGAL PAGE                           HOLAHOLA COMPONENT
+─────────────────────────────────────   ──────────────────────────────────
+PART 1 — The Anchor                     patternLabel
+  "Voy, I'm going."                       "Voy / No voy / ¿Vas?"
+  "Al, to the."
+  (2–3 building blocks, widely spaced)
+
+PART 2 — Repetition with Images         negativeItems
+  "Voy al banco."  [bank image]            { imageWord, negativePhrase }
+  "No voy al banco."  [same image]         verb stays fixed, noun varies
+
+PART 3 — Repetition with Q&A           questionItems
+  "¿Vas al banco?"                         question: tú form asks
+  "Sí, voy al banco."                      answer: yo form responds
+  "No, no voy al banco."
+
+PART 4 — General Repetition / Columns  sentenceColumns
+  voy  │ al banco                          Column 1: 1–2 verb forms
+  va   │ a la playa                        Column 2: 5–8 destinations
+       │ a la biblioteca                   Eye scans → brain fires
+       │ al mercado
+```
+
+### Why the Anchor Comes First
+
+"Voy, I'm going." and "Al, to the." are placed at the top with space between them — not sentences, just pieces. The student sees the grammatical structure *before* they see a complete sentence. The space is structural: it lets the eye perceive both the components and their relationship. Once the brain has the pieces, every subsequent sentence on the page is a recombination, not a new thing to learn.
+
+The `patternLabel` field ("Voy / No voy / ¿Vas?") is this anchor. It is what the student sees at the top before any images, Q&A, or columns appear.
+
+### Why Each Part Exists
+
+**Part 2 (Images):** The image forces the brain to CREATE the word-to-meaning connection, not just recognize it. The noun is always the imageable thing in the sentence — the bank, the beach, the library. Abstract nouns ("mucho", "bien") cannot be illustrated and must not appear as `imageWord` values.
+
+**Part 3 (Q&A):** The question uses the *tú* form; the answer uses the *yo* form. This is the reason only two conjugations are needed — the Q&A pattern produces them naturally. The student doesn't study conjugation; they acquire it by being asked and answering. "¿Vas al banco?" → "Sí, voy al banco." wires in both forms in one exchange.
+
+**Part 4 (Columns):** The eye scans. The brain assembles. The verb form pounds in through sheer repetition across many combinations. No conscious effort required.
+
+---
+
 ## The Central Insight: The Eye Does the Work
 
 The substitution drill is not a fill-in-the-blank exercise. It is not a quiz. It is a **visual perception engine**.
