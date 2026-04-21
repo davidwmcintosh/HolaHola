@@ -568,7 +568,7 @@ export function TextbookChapterView({
           <p className="text-sm text-muted-foreground">{chapter.description}</p>
         </div>
 
-        <SocialPhraseUnit language={language} />
+        <SocialPhraseUnit language={language} lessonId={chapter.sections[0]?.id} />
 
         <div className="pt-2">
           <Button
