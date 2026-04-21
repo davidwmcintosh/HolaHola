@@ -69,7 +69,7 @@ The `patternLabel` field ("Voy / No voy / ¿Vas?") is this anchor. It is what th
 
 **Part 2 (Images):** The image forces the brain to CREATE the word-to-meaning connection, not just recognize it. The noun is always the imageable thing in the sentence — the bank, the beach, the library. Abstract nouns ("mucho", "bien") cannot be illustrated and must not appear as `imageWord` values.
 
-**Part 3 (Q&A):** The question uses the *tú* form; the answer uses the *yo* form. This is the reason only two conjugations are needed — the Q&A pattern produces them naturally. The student doesn't study conjugation; they acquire it by being asked and answering. "¿Vas al banco?" → "Sí, voy al banco." wires in both forms in one exchange.
+**Part 3 (Q&A):** The question uses the *él/ella* form — asking about a named third person ("¿Va Pedro al banco?"). The answer uses the *yo* form — the student speaks as themselves ("Sí, yo voy al banco."). **The *tú* form is eliminated from this curriculum until explicitly reintroduced** (Decision 5, April 2026). The él/ella question produces the yo answer just as naturally, and avoids the confusion caused by the -as/-es endings before the yo/él pattern is solid.
 
 **Part 4 (Columns):** The eye scans. The brain assembles. The verb form pounds in through sheer repetition across many combinations. No conscious effort required.
 

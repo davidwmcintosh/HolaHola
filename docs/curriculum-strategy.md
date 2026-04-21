@@ -260,6 +260,43 @@ Lyra now has two new monitoring domains added March 20, 2026:
 
 ---
 
+### Decision 5: Eliminate the *tú* form until explicitly reintroduced
+
+**Decision: No tú form anywhere in Spanish 1 until a chapter specifically introduces it.**
+
+The *tú* form was generating confusion in early chapters. The second-person singular (-as / -es endings) looks deceptively similar to él/ella forms in some verbs, and students were encountering it in Q&A sections (Part 3 of the Madrigal page) before the yo/él pattern was fully wired.
+
+**Practical impact (April 2026):**
+- `questionItems` in the micro-cycle prompt now use ÉL/ELLA form in the question instead of tú:  
+  "¿Va Pedro al banco?" → "Sí, yo voy al banco." — NOT "¿Vas al banco?"
+- `patternLabel` omits tú — anchor shows yo/él only: "Voy / Va / No voy"
+- `sentenceColumns` Column 1 contains yo/él only (already the rule)
+- When tú is reintroduced: it becomes the **"one small change"** for that chapter — same drill structure, new form added to Column 1
+
+*Rationale:* Confident imperfection requires the student to succeed at every turn. The tú form, introduced too early, creates a visible fork in the pattern that breaks the scan. Removing it lets yo/él pound in deeply before a second anchor point is added.
+
+---
+
+### Decision 6: *Voy a* + preterite before present tense (content sequencing — to be detailed)
+
+**Decision: Spanish 1 opens with "voy a + infinitive" and the preterite tense, before introducing the simple present.**
+
+*Flagged April 2026. Full chapter-by-chapter content sequencing is a separate planning conversation.*
+
+The broad reasoning:
+- **"Voy a + infinitive"** (periphrastic future) uses *ir* — a high-frequency, immediately useful verb that Madrigal introduces on her first lesson page. "I'm going to eat" / "I'm going to go" is instantly conversational.
+- **Preterite before present** — the preterite has regular, predictable endings for -ar verbs and is arguably more immediately conversational than the present: "Comí" (I ate) is a complete thought; the present "Como" (I eat / I am eating) competes with the progressive and confuses English speakers.
+- This is not universally how textbooks sequence content. It is a specific content decision for HolaHola's Spanish 1.
+
+**What is not yet decided:**
+- Which chapter number introduces the preterite
+- Which verbs are used in which chapter
+- How the "one small change" progression maps across all 27 chapters
+
+*This decision unblocks the chapter-sequencing planning conversation. When that conversation happens, this document should be updated with the full chapter map.*
+
+---
+
 ## 5. What Was Decided and Completed (History)
 
 | Date | Decision | Outcome |

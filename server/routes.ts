@@ -11312,12 +11312,12 @@ This fires the word-to-picture association. The image is never abstract.
 It is always the THING that appears in the sentence — the noun.
 
 PART 3 — REPETITION WITH QUESTION AND ANSWER (→ questionItems)
-"¿Vas al banco?" / "Sí, voy al banco." / "No, no voy al banco."
-The question uses the TÚ form (asking the student).
-The answer uses the YO form (student responds).
-This is WHY only two conjugations are needed — the Q&A pattern
-produces them naturally. The student doesn't study conjugation;
-they acquire it through the conversation pattern.
+"¿Va Pedro al banco?" / "Sí, yo voy al banco." / "No, no voy al banco."
+The question uses the ÉL/ELLA form (asking about a named third person).
+The answer uses the YO form (student responds in their own voice).
+IMPORTANT: NO TÚ FORM. The tú form is eliminated from this curriculum
+until explicitly reintroduced. Él/ella questions produce the YO answer
+just as naturally as tú questions did — "¿Va Pedro?" → "Yo voy."
 
 PART 4 — GENERAL REPETITION / SUBSTITUTION COLUMNS (→ sentenceColumns)
 "voy / va" in Column 1 × many destinations in Column 2.
@@ -11354,18 +11354,26 @@ Now generate each part:
      "negativeAnswer": string, "negativeTranslation": string }
 
    ── HOW TO GENERATE (Madrigal Q&A rules) ──────────────────────────
-   • question: uses the TÚ form — asking the student directly.
-     "¿Vas al banco?" — not "¿Va él al banco?" (that's grammar class).
-   • affirmativeAnswer: uses the YO form — student's own voice.
-     "Sí, voy al banco." — complete sentence, not just "Sí."
-   • negativeAnswer: "No, no voy al banco." — complete sentence with double no.
-   • This Q&A pattern is WHY the yo/tú forms are the essential two.
-     The student HEARS the tú form in the question and SAYS the yo form
-     in the answer. Both wire in naturally without a grammar lesson.
-   • imageWord: the same concrete noun as in negativeItems — the thing
-     depicted. Should be the noun that appears in the question.
+   CRITICAL — NO TÚ FORM. This curriculum eliminates the tú form entirely
+   until it is explicitly reintroduced in a later chapter. The reason:
+   the tú form (-as / -es endings) looks similar to él/ella forms in some
+   verbs and causes confusion before the yo/él patterns are fully wired.
+
+   The question uses the ÉL / ELLA form instead — asking about a third person:
+     "¿Va Pedro al banco?"       NOT "¿Vas al banco?"
+     "¿Tiene María hambre?"      NOT "¿Tienes hambre?"
+   The student answers in the YO form — their own voice:
+     "Sí, yo voy al banco."      / "No, no voy al banco."
+   The third-person name in the question can be varied: Pedro, María, Carlos,
+   Ana — use different names across the 4 items for natural variety.
+
+   • affirmativeAnswer: YO form, complete sentence — "Sí, yo voy al banco."
+   • negativeAnswer: complete sentence with double no — "No, no voy al banco."
+   • imageWord: bare concrete noun from the chapter vocabulary that appears
+     in the question. Must be imageable.
    • Use a different vocabulary noun for each of the 4 items.
-   • Keep questions conversational — "¿Tienes hambre?" not "¿Hay hambre?"
+   • The él/ella distinction: use "él" (he) or "ella" (she) as needed to
+     match the named subject — or simply use the name without a pronoun.
 
 4. "sentenceColumns" — PART 4: General repetition / substitution columns
    { "label": string, "items": [{ "text": string, "translation": string }] }
