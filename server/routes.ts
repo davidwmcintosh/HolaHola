@@ -11261,7 +11261,23 @@ Generate a JSON object with exactly these fields:
 
 4. "sentenceColumns" — array of 2-3 column objects, each:
    { "label": string (short column header), "items": [{ "text": string, "translation": string }] }
-   The columns should form a substitution drill — first column has the verb/subject variants (3-5 items), subsequent column(s) have the object/place/noun variants (4-8 items from the vocabulary).
+
+   CRITICAL RULE: This is a Madrigal-style substitution drill. Every single combination of
+   one item from each column MUST produce a grammatically correct AND semantically meaningful sentence.
+   No exceptions. A student should be able to pick ANY row from column 1 + ANY row from column 2
+   (+ ANY row from column 3 if present) and get a sentence that makes real-world sense.
+
+   How to achieve this:
+   - Column 1: Use ONE verb with all its subject-pronoun conjugations (e.g. for hablar:
+     "Yo hablo / Tú hablas / Él habla / Nosotros hablamos / Ellos hablan").
+     Do NOT mix different verbs in column 1 unless their objects are completely interchangeable.
+   - Column 2 (and 3): Only include objects/phrases that work semantically with EVERY verb form
+     in column 1. If an object fits only some verbs, leave it out entirely.
+   - When in doubt: choose a single verb and vary only the subject pronouns + conjugations.
+     A drill with 5 conjugations × 5 objects = 25 valid sentences is better than one with
+     mismatched combinations.
+   - Do NOT put multiple semantically distinct verbs in column 1 unless you can verify that
+     every object in column 2 works with ALL of them.
 
 Return ONLY valid JSON, no markdown, no explanation.`;
 
