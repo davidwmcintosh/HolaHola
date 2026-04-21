@@ -1,6 +1,7 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, MessageSquare, Volume2, Loader2, Globe, MessageCircle } from "lucide-react";
 import { classifyGrammarType, GrammarChapterView } from "./ChapterIntroduction";
@@ -64,23 +65,20 @@ function ExampleSentence({
     if (isPlaying) return;
     setIsPlaying(true);
     try {
-      const res = await fetch("/api/tts/pronunciation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ text: example.target, language, gender: tutorGender ?? "female" }),
+      const response = await apiRequest("POST", "/api/tts/pronunciation", {
+        text: example.target,
+        language,
+        gender: tutorGender ?? "female",
       });
-      if (!res.ok) throw new Error("TTS failed");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audio.onended = () => { setIsPlaying(false); URL.revokeObjectURL(url); };
-      audio.onerror = () => { setIsPlaying(false); URL.revokeObjectURL(url); };
+      const data = await response.json();
+      const audio = new Audio(data.audioUrl);
+      audio.onended = () => setIsPlaying(false);
+      audio.onerror = () => setIsPlaying(false);
       await audio.play();
     } catch {
       setIsPlaying(false);
     }
-  }, [example.target, language, gender, isPlaying]);
+  }, [example.target, language, tutorGender, isPlaying]);
 
   return (
     <div

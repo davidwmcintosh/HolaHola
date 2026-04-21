@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Volume2, Mic, MicOff, CheckCircle2, Loader2 } from "lucide-react";
@@ -223,28 +224,15 @@ function PhraseCard({
     if (isPlayingAudio) return;
     setIsPlayingAudio(true);
     try {
-      const res = await fetch("/api/tts/pronunciation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          text: phrase.spanish,
-          language: "spanish",
-          gender: tutorGender ?? "female",
-        }),
+      const response = await apiRequest("POST", "/api/tts/pronunciation", {
+        text: phrase.spanish,
+        language: "spanish",
+        gender: tutorGender ?? "female",
       });
-      if (!res.ok) throw new Error("TTS failed");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audio.onended = () => {
-        setIsPlayingAudio(false);
-        URL.revokeObjectURL(url);
-      };
-      audio.onerror = () => {
-        setIsPlayingAudio(false);
-        URL.revokeObjectURL(url);
-      };
+      const data = await response.json();
+      const audio = new Audio(data.audioUrl);
+      audio.onended = () => setIsPlayingAudio(false);
+      audio.onerror = () => setIsPlayingAudio(false);
       await audio.play();
     } catch {
       setIsPlayingAudio(false);
@@ -305,17 +293,17 @@ function PhraseCard({
       }`}
       data-testid={`phrase-card-${index}`}
     >
-      {/* Image area */}
-      {imageUrl && (
-        <div className="aspect-video relative overflow-hidden bg-muted/30">
+      {/* Image area — always rendered for consistent card height */}
+      <div className="aspect-[4/3] relative overflow-hidden bg-muted/20">
+        {imageUrl && (
           <img
             src={imageUrl}
             alt={phrase.spanish}
             className="w-full h-full object-cover"
             loading="lazy"
           />
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Text content */}
       <div className="flex flex-col flex-1 p-3 space-y-1">
