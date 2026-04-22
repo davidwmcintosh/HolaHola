@@ -770,6 +770,190 @@ const TENER_I_HAVE: PreteriteUnitContent = {
   ],
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Quiero: I Want
+// Source: Madrigal pp. 56–61
+//
+// Six vocabulary clusters:
+//   1. Quiero comprar — 4 statement cards + conjugation table + combiner (p. 56)
+//   2. ¿Quiere comprar? — Q&A + Quiere forms (p. 57)
+//   3. Quiero ir al — 4 statement cards + 2-col combiner (p. 58)
+//   4. ¿Quiere ir a la? — Q&A + Queremos ir combiner (p. 59)
+//   5. Te quiero — love expressions (p. 60)
+//   6. ¿Quieres ___ mañana? — Q&A with activity verbs (p. 61)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const QUIERO_I_WANT: PreteriteUnitContent = {
+  chapterTitleKey: "quiero",
+
+  clusters: [
+    // ── Cluster 1: Quiero comprar — statement cards + conjugation + combiner (p. 56) ──
+    {
+      anchorItems: [
+        { spanish: "Comprar,",        english: "To buy." },
+        { spanish: "Quiero comprar,", english: "I want to buy." },
+        { spanish: "Un, Una,",        english: "A, an." },
+      ],
+
+      statementCards: [
+        { word: "auto",  sentence: "Quiero comprar un auto.",   translation: "I want to buy a car.",    imageDescription: "a car" },
+        { word: "pipa",  sentence: "Quiero comprar una pipa.",  translation: "I want to buy a pipe.",   imageDescription: "a smoking pipe" },
+        { word: "falda", sentence: "Quiero comprar una falda.", translation: "I want to buy a skirt.",  imageDescription: "a skirt" },
+        { word: "blusa", sentence: "Quiero comprar una blusa.", translation: "I want to buy a blouse.", imageDescription: "a blouse" },
+      ],
+
+      conjugationTable: [
+        { form: "Querer",   meaning: "to want" },
+        { form: "Quiero",   meaning: "I want" },
+        { form: "Quieres",  meaning: "you want" },
+        { form: "¿Quiere?", meaning: "do you want?" },
+        { form: "Queremos", meaning: "we want" },
+        { form: "Quieren",  meaning: "they want" },
+      ],
+
+      sentenceColumns: [
+        {
+          items: [
+            { text: "Quiere comprar", translation: "He/she wants to buy" },
+          ],
+        },
+        {
+          items: [
+            { text: "una pipa.",  translation: "a pipe." },
+            { text: "una falda.", translation: "a skirt." },
+            { text: "una blusa.", translation: "a blouse." },
+          ],
+        },
+      ],
+    },
+
+    // ── Cluster 2: ¿Quiere comprar? Q&A + Quiere forms (p. 57) ──────────────
+    {
+      anchorItems: [
+        { spanish: "Una,",             english: "A, an." },
+        { spanish: "¿Quiere comprar?", english: "Do you want to buy?" },
+        { spanish: "Quiero comprar,",  english: "I want to buy." },
+      ],
+
+      qaCards: [
+        { imageWord: "chocolates", question: "¿Quieres comprar chocolates?",  questionTranslation: "Do you want to buy chocolates?", answer: "Sí, quiero comprar chocolates.",  answerTranslation: "Yes, I want to buy chocolates." },
+        { imageWord: "perlas",     question: "¿Quieres comprar perlas?",      questionTranslation: "Do you want to buy pearls?",      answer: "Sí, quiero comprar perlas.",      answerTranslation: "Yes, I want to buy pearls." },
+        { imageWord: "corbata",    question: "¿Quieres comprar una corbata?", questionTranslation: "Do you want to buy a tie?",       answer: "Sí, quiero comprar una corbata.", answerTranslation: "Yes, I want to buy a tie." },
+        { imageWord: "camisa",     question: "¿Quieres comprar una camisa?",  questionTranslation: "Do you want to buy a shirt?",     answer: "Sí, quiero comprar una camisa.",  answerTranslation: "Yes, I want to buy a shirt." },
+      ],
+
+      conjugationTable: [
+        { form: "Quiere",   meaning: "you want · he wants · she wants · it wants" },
+        { form: "¿Quiere?", meaning: "Do you want? · Does he want? · Does she want?" },
+      ],
+
+      noteAfter: "Alberto quiere comprar un auto. — Albert wants to buy a car.",
+    },
+
+    // ── Cluster 3: Quiero ir al — statement cards + 2-col combiner (p. 58) ───
+    {
+      anchorItems: [
+        { spanish: "Ir,",        english: "To go." },
+        { spanish: "Quiero ir,", english: "I want to go." },
+        { spanish: "Al,",        english: "To the." },
+      ],
+
+      statementCards: [
+        { word: "parque",    sentence: "Quiero ir al parque.",    translation: "I want to go to the park.",    imageDescription: "a sunny public park" },
+        { word: "cine",      sentence: "Quiero ir al cine.",      translation: "I want to go to the movies.",  imageDescription: "a movie theater" },
+        { word: "concierto", sentence: "Quiero ir al concierto.", translation: "I want to go to the concert.", imageDescription: "a concert hall" },
+        { word: "teatro",    sentence: "Quiero ir al teatro.",    translation: "I want to go to the theater.", imageDescription: "a theater building" },
+      ],
+
+      sentenceColumns: [
+        {
+          items: [
+            { text: "Quiero ir", translation: "I want to go" },
+            { text: "Quiere ir", translation: "He/she wants to go" },
+          ],
+        },
+        {
+          items: [
+            { text: "al restaurante.", translation: "to the restaurant." },
+            { text: "al hotel.",       translation: "to the hotel." },
+            { text: "a México.",       translation: "to Mexico." },
+            { text: "a París.",        translation: "to Paris." },
+            { text: "al cine.",        translation: "to the movies." },
+            { text: "al concierto.",   translation: "to the concert." },
+          ],
+        },
+      ],
+    },
+
+    // ── Cluster 4: ¿Quiere ir a la? Q&A + Queremos ir combiner (p. 59) ───────
+    {
+      anchorItems: [
+        { spanish: "¿Quiere ir?,",  english: "Do you want to go?" },
+        { spanish: "Quiero ir,",    english: "I want to go." },
+        { spanish: "A la fiesta,",  english: "To the party." },
+        { spanish: "A la tienda,",  english: "To the store." },
+        { spanish: "A la playa,",   english: "To the beach." },
+      ],
+
+      qaCards: [
+        { imageWord: "fiesta", question: "¿Quiere ir a la fiesta?", questionTranslation: "Do you want to go to the party?", answer: "Sí, quiero ir a la fiesta.", answerTranslation: "Yes, I want to go to the party." },
+        { imageWord: "playa",  question: "¿Quiere ir a la playa?",  questionTranslation: "Do you want to go to the beach?", answer: "Sí, quiero ir a la playa.",  answerTranslation: "Yes, I want to go to the beach." },
+        { imageWord: "tienda", question: "¿Quiere ir a la tienda?", questionTranslation: "Do you want to go to the store?", answer: "Sí, quiero ir a la tienda.", answerTranslation: "Yes, I want to go to the store." },
+        { imageWord: "casa",   question: "¿Quiere ir a la casa?",   questionTranslation: "Do you want to go home?",         answer: "Sí, quiero ir a la casa.",   answerTranslation: "Yes, I want to go home." },
+      ],
+
+      sentenceColumns: [
+        {
+          items: [
+            { text: "Queremos ir", translation: "We want to go" },
+          ],
+        },
+        {
+          items: [
+            { text: "a la fiesta.", translation: "to the party." },
+            { text: "a la playa.",  translation: "to the beach." },
+            { text: "a la tienda.", translation: "to the store." },
+            { text: "a la casa.",   translation: "home." },
+          ],
+        },
+      ],
+    },
+
+    // ── Cluster 5: Te quiero — love expressions (p. 60) ──────────────────────
+    {
+      noteBefore: "Quiero means both 'I want' and 'I love.' When naming a specific person, use quiero a: Quiero a mi mamá.",
+
+      anchorItems: [
+        { spanish: "Quiero,",              english: "I want. / I love." },
+        { spanish: "Te quiero,",           english: "I love you." },
+        { spanish: "Lo quiero,",           english: "I love him." },
+        { spanish: "La quiero,",           english: "I love her." },
+        { spanish: "Te quiero mucho,",     english: "I love you very much." },
+        { spanish: "Te quiero muchísimo,", english: "I love you very, very much." },
+        { spanish: "Quiero a Roberto,",    english: "I love Robert." },
+        { spanish: "Quiero a María,",      english: "I love Mary." },
+        { spanish: "Quiero a mi mamá,",    english: "I love my mother." },
+        { spanish: "Quiero a mi papá,",    english: "I love my father." },
+      ],
+    },
+
+    // ── Cluster 6: ¿Quieres ___ mañana? — activity Q&A (p. 61) ──────────────
+    {
+      anchorItems: [
+        { spanish: "¿Quiere dormir?,", english: "Do you want to sleep?" },
+        { spanish: "Mañana,",          english: "Tomorrow." },
+      ],
+
+      qaCards: [
+        { imageWord: "nadar",    question: "¿Quieres nadar mañana?",    questionTranslation: "Do you want to swim tomorrow?",  answer: "Sí, quiero nadar mañana.",    answerTranslation: "Yes, I want to swim tomorrow." },
+        { imageWord: "dormir",   question: "¿Quieres dormir mañana?",   questionTranslation: "Do you want to sleep tomorrow?", answer: "Sí, quiero dormir mañana.",   answerTranslation: "Yes, I want to sleep tomorrow." },
+        { imageWord: "estudiar", question: "¿Quieres estudiar mañana?", questionTranslation: "Do you want to study tomorrow?", answer: "Sí, quiero estudiar mañana.", answerTranslation: "Yes, I want to study tomorrow." },
+        { imageWord: "pescar",   question: "¿Quieres pescar mañana?",   questionTranslation: "Do you want to fish tomorrow?",  answer: "Sí, quiero pescar mañana.",   answerTranslation: "Yes, I want to fish tomorrow." },
+      ],
+    },
+  ],
+};
+
 // ── Registries ────────────────────────────────────────────────────────────────
 
 const MADRIGAL_VERB_UNITS: MadrigalVerbUnitContent[] = [
@@ -781,6 +965,7 @@ const PRETERITE_UNITS: PreteriteUnitContent[] = [
   TOMAR_I_TOOK,
   COMPRAR_I_BOUGHT,
   TENER_I_HAVE,
+  QUIERO_I_WANT,
 ];
 
 /**
