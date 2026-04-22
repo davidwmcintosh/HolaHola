@@ -9,7 +9,7 @@
  * Clusters are separated by the same dashed PageRule used in VerbUnit.
  */
 
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, MessageSquare, Dumbbell } from "lucide-react";
 import { MadrigalAnchorBlock, MadrigalPositiveGrid, MadrigalNote } from "./MadrigalPageComponents";
@@ -55,7 +55,7 @@ export function PreteriteUnit({
   const firstVocabSection =
     sections.find(s => s.lessonType === "grammar") ?? sections[0];
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     window.scrollTo(0, 0);
     const scrollContainer = document.querySelector(".overflow-y-auto");
     if (scrollContainer) scrollContainer.scrollTop = 0;

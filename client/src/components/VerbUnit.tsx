@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, MessageSquare, Dumbbell, Loader2 } from "lucide-react";
@@ -91,7 +91,7 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
   const hasPreterite = !hasMadrigal && !!preterite;
 
   // Scroll to top whenever this chapter opens (hooks must precede conditional returns)
-  useEffect(() => {
+  useLayoutEffect(() => {
     window.scrollTo(0, 0);
     const scrollContainer = document.querySelector(".overflow-y-auto");
     if (scrollContainer) scrollContainer.scrollTop = 0;
