@@ -1,14 +1,17 @@
 /**
  * SerUnit.tsx
- * Renderer for Madrigal's gender & plurals chapter (ser, el/la/los/las).
- * Source: Madrigal pp. 64–71.
+ * Renderer for Madrigal's ser/estar chapters.
  *
  * Cluster types:
- *   article-pairs       — el/los and la/las image cards with singular/plural labels
- *   es-son-sentences    — two-column sentence cards (singular | plural)
- *   ser-qa              — Q&A image cards (¿Son bonitos…? / Sí, son bonitos.)
- *   consonant-plural    — image pairs + word list + -al vocabulary
- *   adjective-expressions — adjective pairs + ¡Eso es! expressions
+ *   article-pairs        — el/los and la/las image cards with singular/plural labels
+ *   es-son-sentences     — two-column sentence cards (singular | plural)
+ *   ser-qa               — Q&A image cards; optional roomHeader for room sections
+ *   consonant-plural     — image pairs + word list + -al vocabulary
+ *   adjective-expressions— adjective pairs + ¡Eso es! expressions
+ *   estar-statements     — statement image cards (El café está en la mesa.)
+ *   estar-conj           — estar conjugation table + sentence combinator
+ *   word-chips           — cognate / vocabulary word chip list
+ *   estar-expressions    — M/F adjective columns + additional expressions
  */
 
 import { useRef, useLayoutEffect, useState, useCallback } from "react";
@@ -344,6 +347,13 @@ function SerQACluster({
 }) {
   return (
     <div className="flex flex-col gap-4">
+      {/* Optional room header (e.g. "En el baño") */}
+      {cluster.roomHeader && (
+        <div className="flex flex-col gap-0.5">
+          <p className="text-2xl font-bold tracking-tight">{cluster.roomHeader.spanish}</p>
+          <p className="text-sm text-muted-foreground">{cluster.roomHeader.english}</p>
+        </div>
+      )}
       {cluster.anchorItems && cluster.anchorItems.length > 0 && (
         <MadrigalAnchorBlock items={cluster.anchorItems} />
       )}
@@ -474,6 +484,319 @@ function AdjectiveExpressionsCluster({
   );
 }
 
+// ── Estar statement cards ─────────────────────────────────────────────────────
+
+function EstarStatementCard({
+  card,
+  cardIndex,
+  language,
+  tutorGender,
+}: {
+  card: { imageWord: string; imageDescription?: string; statement: string; translation: string };
+  cardIndex: number;
+  language: string;
+  tutorGender: string;
+}) {
+  const { data } = useWordImage(card.imageWord, language, card.imageDescription);
+  const { playingKey, play } = useTTSButton(language, tutorGender);
+  const testId = `${card.imageWord}-${cardIndex}`;
+  const key = `stmt-${testId}`;
+
+  return (
+    <div
+      className="flex flex-col rounded-md border bg-card overflow-hidden"
+      data-testid={`estar-statement-card-${testId}`}
+    >
+      {/* Image */}
+      <div className="relative w-full aspect-square bg-muted/30 flex items-center justify-center">
+        {data?.url ? (
+          <img
+            src={data.url}
+            alt={card.imageDescription ?? card.imageWord}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/30" />
+        )}
+      </div>
+
+      {/* Statement */}
+      <div className="flex flex-col items-center px-2 pt-2 pb-2 text-center gap-0.5">
+        <p className="text-sm font-medium leading-snug" data-testid={`text-statement-${testId}`}>
+          {card.statement}
+        </p>
+        <p className="text-[11px] text-muted-foreground leading-tight">{card.translation}</p>
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={() => play(card.statement, key)}
+          disabled={playingKey === key}
+          data-testid={`button-play-statement-${testId}`}
+          title={`Hear "${card.statement}"`}
+        >
+          {playingKey === key
+            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            : <Volume2 className="h-3.5 w-3.5" />}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function EstarStatementsCluster({
+  cluster,
+  language,
+  tutorGender,
+}: {
+  cluster: Extract<SerCluster, { type: 'estar-statements' }>;
+  language: string;
+  tutorGender: string;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      {cluster.anchorItems && cluster.anchorItems.length > 0 && (
+        <MadrigalAnchorBlock items={cluster.anchorItems} />
+      )}
+      <div className="grid grid-cols-2 gap-3" data-testid="estar-statement-grid">
+        {cluster.cards.map((card, i) => (
+          <EstarStatementCard
+            key={`${card.imageWord}-${i}`}
+            card={card}
+            cardIndex={i}
+            language={language}
+            tutorGender={tutorGender}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Estar conjugation + combinator ────────────────────────────────────────────
+
+function EstarConjCluster({
+  cluster,
+  language,
+  tutorGender,
+}: {
+  cluster: Extract<SerCluster, { type: 'estar-conj' }>;
+  language: string;
+  tutorGender: string;
+}) {
+  const { playingKey, play } = useTTSButton(language, tutorGender);
+
+  return (
+    <div className="flex flex-col gap-5">
+      {/* Conjugation table */}
+      <div className="rounded-md border bg-card overflow-hidden" data-testid="estar-conj-table">
+        {cluster.rows.map((row, i) => (
+          <div
+            key={i}
+            className={`flex items-center gap-3 px-4 py-2.5 ${i < cluster.rows.length - 1 ? 'border-b' : ''}`}
+          >
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => play(row.conjugated, `conj-${i}`)}
+              disabled={playingKey === `conj-${i}`}
+              data-testid={`button-play-conj-${i}`}
+              title={`Hear "${row.conjugated}"`}
+            >
+              {playingKey === `conj-${i}`
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                : <Volume2 className="h-3.5 w-3.5" />}
+            </Button>
+            <span className="text-base font-bold min-w-[5rem]">{row.conjugated}</span>
+            <span className="text-sm text-muted-foreground">{row.translation}</span>
+          </div>
+        ))}
+        {/* Question form row */}
+        <div className="flex items-center gap-3 px-4 py-2.5 border-t bg-muted/20">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => play(cluster.questionForm, 'qform')}
+            disabled={playingKey === 'qform'}
+            data-testid="button-play-question-form"
+            title={`Hear "${cluster.questionForm}"`}
+          >
+            {playingKey === 'qform'
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              : <Volume2 className="h-3.5 w-3.5" />}
+          </Button>
+          <span className="text-base font-bold min-w-[5rem]">{cluster.questionForm}</span>
+          <span className="text-sm text-muted-foreground">{cluster.questionTranslation}</span>
+        </div>
+      </div>
+
+      {/* Sentence combinator */}
+      <div className="flex flex-col gap-2" data-testid="estar-combinator">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Combine
+        </p>
+        <div className="rounded-md border bg-card overflow-hidden">
+          {cluster.combinatorWords.map((word, i) => {
+            const full = `${cluster.combinatorLeft} ${word.spanish}`;
+            return (
+              <div
+                key={i}
+                className={`flex items-center gap-3 px-4 py-2.5 ${i < cluster.combinatorWords.length - 1 ? 'border-b' : ''}`}
+              >
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => play(full, `comb-${i}`)}
+                  disabled={playingKey === `comb-${i}`}
+                  data-testid={`button-play-combinator-${i}`}
+                  title={`Hear "${full}"`}
+                >
+                  {playingKey === `comb-${i}`
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    : <Volume2 className="h-3.5 w-3.5" />}
+                </Button>
+                <span className="text-sm font-medium">
+                  <span className="text-muted-foreground">{cluster.combinatorLeft} </span>
+                  {word.spanish}
+                </span>
+                <span className="text-xs text-muted-foreground ml-auto">{word.english}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Word chips (cognate list) ─────────────────────────────────────────────────
+
+function WordChipsCluster({
+  cluster,
+}: {
+  cluster: Extract<SerCluster, { type: 'word-chips' }>;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <MadrigalNote text={cluster.note} />
+      <div className="flex flex-wrap gap-2" data-testid="word-chips-list">
+        {cluster.words.map((word, i) => (
+          <span
+            key={i}
+            className="rounded-md border bg-muted/30 px-2.5 py-1 text-sm font-medium"
+            data-testid={`word-chip-${i}`}
+          >
+            {word}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Estar expressions (M/F table + additionals) ───────────────────────────────
+
+function EstarExpressionsCluster({
+  cluster,
+  language,
+  tutorGender,
+}: {
+  cluster: Extract<SerCluster, { type: 'estar-expressions' }>;
+  language: string;
+  tutorGender: string;
+}) {
+  const { playingKey, play } = useTTSButton(language, tutorGender);
+
+  return (
+    <div className="flex flex-col gap-5">
+      {/* M/F two-column table */}
+      <div className="rounded-md border bg-card overflow-hidden" data-testid="estar-expressions-table">
+        {/* Header */}
+        <div className="grid grid-cols-2 divide-x border-b bg-muted/30 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="px-3 py-2">Masculine</div>
+          <div className="px-3 py-2">Feminine</div>
+        </div>
+        {cluster.genderPairs.map((pair, i) => (
+          <div
+            key={i}
+            className={`grid grid-cols-2 divide-x ${i < cluster.genderPairs.length - 1 ? 'border-b' : ''}`}
+          >
+            {/* Masculine cell */}
+            <div className="flex flex-col px-3 py-2 gap-0.5">
+              <div className="flex items-center gap-2">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => play(pair.masculine.spanish, `m-${i}`)}
+                  disabled={playingKey === `m-${i}`}
+                  data-testid={`button-play-masc-${i}`}
+                  title={`Hear "${pair.masculine.spanish}"`}
+                >
+                  {playingKey === `m-${i}`
+                    ? <Loader2 className="h-3 w-3 animate-spin" />
+                    : <Volume2 className="h-3 w-3" />}
+                </Button>
+                <span className="text-sm font-medium">{pair.masculine.spanish}</span>
+              </div>
+              <span className="text-[11px] text-muted-foreground pl-9">{pair.masculine.english}</span>
+            </div>
+            {/* Feminine cell */}
+            <div className="flex flex-col px-3 py-2 gap-0.5">
+              {pair.feminine ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => play(pair.feminine!.spanish, `f-${i}`)}
+                      disabled={playingKey === `f-${i}`}
+                      data-testid={`button-play-fem-${i}`}
+                      title={`Hear "${pair.feminine.spanish}"`}
+                    >
+                      {playingKey === `f-${i}`
+                        ? <Loader2 className="h-3 w-3 animate-spin" />
+                        : <Volume2 className="h-3 w-3" />}
+                    </Button>
+                    <span className="text-sm font-medium">{pair.feminine.spanish}</span>
+                  </div>
+                  <span className="text-[11px] text-muted-foreground pl-9">{pair.feminine.english}</span>
+                </>
+              ) : (
+                <span className="text-sm text-muted-foreground/40 italic px-9 py-0.5">—</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Additional / neutral items */}
+      <div className="flex flex-col gap-1" data-testid="estar-additional-items">
+        {cluster.additionalItems.map((item, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-3 rounded-md border bg-card px-4 py-2"
+            data-testid={`estar-additional-${i}`}
+          >
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => play(item.spanish, `add-${i}`)}
+              disabled={playingKey === `add-${i}`}
+              data-testid={`button-play-additional-${i}`}
+              title={`Hear "${item.spanish}"`}
+            >
+              {playingKey === `add-${i}`
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                : <Volume2 className="h-3.5 w-3.5" />}
+            </Button>
+            <span className="text-base font-bold tracking-tight">{item.spanish}</span>
+            <span className="text-sm text-muted-foreground ml-auto">{item.english}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── SerUnit ───────────────────────────────────────────────────────────────────
 
 interface SerUnitProps {
@@ -565,6 +888,32 @@ export function SerUnit({
             )}
             {cluster.type === 'adjective-expressions' && (
               <AdjectiveExpressionsCluster
+                cluster={cluster}
+                language={language}
+                tutorGender={tutorGender}
+              />
+            )}
+            {cluster.type === 'estar-statements' && (
+              <EstarStatementsCluster
+                cluster={cluster}
+                language={language}
+                tutorGender={tutorGender}
+              />
+            )}
+            {cluster.type === 'estar-conj' && (
+              <EstarConjCluster
+                cluster={cluster}
+                language={language}
+                tutorGender={tutorGender}
+              />
+            )}
+            {cluster.type === 'word-chips' && (
+              <WordChipsCluster
+                cluster={cluster}
+              />
+            )}
+            {cluster.type === 'estar-expressions' && (
+              <EstarExpressionsCluster
                 cluster={cluster}
                 language={language}
                 tutorGender={tutorGender}

@@ -133,9 +133,40 @@ export type SerCluster =
     }
   | {
       type: 'ser-qa';
+      roomHeader?: { spanish: string; english: string }; // e.g. "En el baño"
       anchorItems?: MadrigalAnchorItem[];
       cards: PreteriteQACard[];
       noteAfter?: string;
+    }
+  | {
+      /** Statement image cards: "El café está en la mesa." (no Q&A) */
+      type: 'estar-statements';
+      anchorItems?: MadrigalAnchorItem[];
+      cards: { imageWord: string; imageDescription?: string; statement: string; translation: string }[];
+    }
+  | {
+      /** Estar conjugation table + sentence combinator */
+      type: 'estar-conj';
+      rows: { conjugated: string; translation: string }[];
+      questionForm: string;       // "¿Está?"
+      questionTranslation: string;
+      combinatorLeft: string;     // "¿Dónde está..."
+      combinatorWords: { spanish: string; english: string }[];
+    }
+  | {
+      /** Word chip list (cognates, vocabulary) */
+      type: 'word-chips';
+      note: string;
+      words: string[];
+    }
+  | {
+      /** Estar adjective expressions in M/F columns + neutral additions */
+      type: 'estar-expressions';
+      genderPairs: {
+        masculine: { spanish: string; english: string };
+        feminine?: { spanish: string; english: string };
+      }[];
+      additionalItems: { spanish: string; english: string }[];
     }
   | {
       type: 'consonant-plural';
@@ -1164,8 +1195,179 @@ const SER_PLURALS_GENDER: SerUnitContent = {
   ],
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Chapter 34: I Am: Estar — Locations & Expressions
+// Source: pp. 74–81 (estar, ¿Dónde está?, rooms, expressions)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const ESTAR_LOCATIONS: SerUnitContent = {
+  chapterTitleKey: 'estar',
+  clusters: [
+    // ─── p74: Table items (statement cards) ─────────────────────────────────
+    {
+      type: 'estar-statements',
+      anchorItems: [
+        { spanish: 'Está', english: 'is (located)' },
+        { spanish: 'en', english: 'in, on, at' },
+        { spanish: 'la mesa', english: 'the table' },
+      ],
+      cards: [
+        { imageWord: 'café', imageDescription: 'a cup of coffee on a table', statement: 'El café está en la mesa.', translation: 'The coffee is on the table.' },
+        { imageWord: 'crema', imageDescription: 'a small pitcher of cream', statement: 'La crema está en la mesa.', translation: 'The cream is on the table.' },
+        { imageWord: 'plato', imageDescription: 'a dinner plate', statement: 'El plato está en la mesa.', translation: 'The plate is on the table.' },
+        { imageWord: 'vaso', imageDescription: 'a drinking glass', statement: 'El vaso está en la mesa.', translation: 'The glass is on the table.' },
+      ],
+    },
+    // ─── p74: Estar conjugation + sentence combinator ───────────────────────
+    {
+      type: 'estar-conj',
+      rows: [
+        { conjugated: 'Estoy', translation: 'I am' },
+        { conjugated: 'Estamos', translation: 'we are' },
+        { conjugated: 'Está', translation: 'you are / he is / she is / it is' },
+        { conjugated: 'Están', translation: 'they are' },
+      ],
+      questionForm: '¿Está?',
+      questionTranslation: 'Are you? Is he? Is she? Is it?',
+      combinatorLeft: '¿Dónde está',
+      combinatorWords: [
+        { spanish: 'el café?', english: 'the coffee?' },
+        { spanish: 'la crema?', english: 'the cream?' },
+        { spanish: 'el plato?', english: 'the plate?' },
+        { spanish: 'el vaso?', english: 'the glass?' },
+      ],
+    },
+    // ─── p75: Professions at locations (statement cards) ────────────────────
+    {
+      type: 'estar-statements',
+      anchorItems: [
+        { spanish: 'En', english: 'in, on, at' },
+      ],
+      cards: [
+        { imageWord: 'doctor', imageDescription: 'a doctor in a hospital', statement: 'El doctor está en el hospital.', translation: 'The doctor is in the hospital.' },
+        { imageWord: 'actor', imageDescription: 'an actor performing on a stage in a theater', statement: 'El actor está en el teatro.', translation: 'The actor is in the theater.' },
+        { imageWord: 'conductor', imageDescription: 'a train conductor', statement: 'El conductor está en el tren.', translation: 'The conductor is on the train.' },
+        { imageWord: 'tenor', imageDescription: 'a tenor singer performing in an opera', statement: 'El tenor está en la ópera.', translation: 'The tenor is in the opera.' },
+      ],
+    },
+    // ─── p75: -or cognate words ──────────────────────────────────────────────
+    {
+      type: 'word-chips',
+      note: 'Most words which end in "-or" are alike in Spanish and English.',
+      words: ['el actor', 'el tractor', 'el color', 'el reflector', 'vigor', 'exterior', 'favor', 'el director', 'humor', 'error'],
+    },
+    // ─── p76: People at places (Q&A) ────────────────────────────────────────
+    {
+      type: 'ser-qa',
+      anchorItems: [
+        { spanish: '¿Dónde está?', english: 'Where is?' },
+        { spanish: 'en casa', english: 'at home' },
+        { spanish: 'en el despacho', english: 'at the office' },
+      ],
+      cards: [
+        { imageWord: 'despacho', imageDescription: 'a home office desk', question: '¿Dónde está papá?', questionTranslation: 'Where is Dad?', answer: 'Papá está en el despacho.', answerTranslation: 'Dad is at the office.' },
+        { imageWord: 'casa', imageDescription: 'a house', question: '¿Dónde está mamá?', questionTranslation: 'Where is Mom?', answer: 'Mamá está en casa.', answerTranslation: 'Mom is at home.' },
+        { imageWord: 'cine', imageDescription: 'a movie theater', question: '¿Dónde está Roberto?', questionTranslation: 'Where is Roberto?', answer: 'Roberto está en el cine.', answerTranslation: 'Roberto is at the movies.' },
+        { imageWord: 'banco', imageDescription: 'a bank building', question: '¿Dónde está Alberto?', questionTranslation: 'Where is Alberto?', answer: 'Alberto está en el banco.', answerTranslation: 'Alberto is at the bank.' },
+      ],
+      noteAfter: 'Roberto está en el restaurante. — María está en el club. — Daniel está en México.',
+    },
+    // ─── p77: Bathroom (Q&A with room header) ────────────────────────────────
+    {
+      type: 'ser-qa',
+      roomHeader: { spanish: 'En el baño', english: 'in the bathroom' },
+      anchorItems: [
+        { spanish: 'La toalla', english: 'the towel' },
+      ],
+      cards: [
+        { imageWord: 'lavamanos', imageDescription: 'a bathroom sink', question: '¿Dónde está el lavamanos?', questionTranslation: 'Where is the sink?', answer: 'El lavamanos está en el baño.', answerTranslation: 'The sink is in the bathroom.' },
+        { imageWord: 'tina', imageDescription: 'a bathtub', question: '¿Dónde está la tina?', questionTranslation: 'Where is the bathtub?', answer: 'La tina está en el baño.', answerTranslation: 'The bathtub is in the bathroom.' },
+        { imageWord: 'jabón', imageDescription: 'a bar of soap', question: '¿Dónde está el jabón?', questionTranslation: 'Where is the soap?', answer: 'El jabón está en el baño.', answerTranslation: 'The soap is in the bathroom.' },
+        { imageWord: 'toalla', imageDescription: 'a folded bath towel', question: '¿Dónde está la toalla?', questionTranslation: 'Where is the towel?', answer: 'La toalla está en el baño.', answerTranslation: 'The towel is in the bathroom.' },
+      ],
+    },
+    // ─── p78: Dining room (Q&A with room header) ─────────────────────────────
+    {
+      type: 'ser-qa',
+      roomHeader: { spanish: 'En el comedor', english: 'in the dining room' },
+      anchorItems: [
+        { spanish: 'La servilleta', english: 'the napkin' },
+        { spanish: 'El mantel', english: 'the tablecloth' },
+      ],
+      cards: [
+        { imageWord: 'mesa', imageDescription: 'a dining table', question: '¿Dónde está la mesa?', questionTranslation: 'Where is the table?', answer: 'La mesa está en el comedor.', answerTranslation: 'The table is in the dining room.' },
+        { imageWord: 'silla', imageDescription: 'a dining chair', question: '¿Dónde está la silla?', questionTranslation: 'Where is the chair?', answer: 'La silla está en el comedor.', answerTranslation: 'The chair is in the dining room.' },
+        { imageWord: 'mantel', imageDescription: 'a tablecloth on a dining table', question: '¿Dónde está el mantel?', questionTranslation: 'Where is the tablecloth?', answer: 'El mantel está en el comedor.', answerTranslation: 'The tablecloth is in the dining room.' },
+        { imageWord: 'servilleta', imageDescription: 'a folded cloth napkin', question: '¿Dónde está la servilleta?', questionTranslation: 'Where is the napkin?', answer: 'La servilleta está en la mesa.', answerTranslation: 'The napkin is on the table.' },
+      ],
+    },
+    // ─── p79: Living room (Q&A with room header) ─────────────────────────────
+    {
+      type: 'ser-qa',
+      roomHeader: { spanish: 'En la sala', english: 'in the living room' },
+      anchorItems: [
+        { spanish: 'El sillón', english: 'the armchair' },
+      ],
+      cards: [
+        { imageWord: 'sofá', imageDescription: 'a living room sofa', question: '¿Dónde está el sofá?', questionTranslation: 'Where is the sofa?', answer: 'El sofá está en la sala.', answerTranslation: 'The sofa is in the living room.' },
+        { imageWord: 'sillón', imageDescription: 'an armchair', question: '¿Dónde está el sillón?', questionTranslation: 'Where is the armchair?', answer: 'El sillón está en la sala.', answerTranslation: 'The armchair is in the living room.' },
+        { imageWord: 'televisión', imageDescription: 'a television set', question: '¿Dónde está la televisión?', questionTranslation: 'Where is the television?', answer: 'La televisión está en la sala.', answerTranslation: 'The television is in the living room.' },
+        { imageWord: 'teléfono', imageDescription: 'a telephone', question: '¿Dónde está el teléfono?', questionTranslation: 'Where is the telephone?', answer: 'El teléfono está en la sala.', answerTranslation: 'The telephone is in the living room.' },
+      ],
+      noteAfter: 'Roberto está en la sala.',
+    },
+    // ─── p80: Kitchen (Q&A with room header) ─────────────────────────────────
+    {
+      type: 'ser-qa',
+      roomHeader: { spanish: 'En la cocina', english: 'in the kitchen' },
+      anchorItems: [
+        { spanish: 'La olla', english: 'the pot' },
+        { spanish: 'La cafetera', english: 'the coffee maker' },
+        { spanish: 'La estufa', english: 'the stove' },
+      ],
+      cards: [
+        { imageWord: 'estufa', imageDescription: 'a kitchen stove', question: '¿Dónde está la estufa?', questionTranslation: 'Where is the stove?', answer: 'La estufa está en la cocina.', answerTranslation: 'The stove is in the kitchen.' },
+        { imageWord: 'olla', imageDescription: 'a cooking pot on a stove', question: '¿Dónde está la olla?', questionTranslation: 'Where is the pot?', answer: 'La olla está en la estufa.', answerTranslation: 'The pot is on the stove.' },
+        { imageWord: 'cafetera', imageDescription: 'a coffee maker', question: '¿Dónde está la cafetera?', questionTranslation: 'Where is the coffee maker?', answer: 'La cafetera está en la cocina.', answerTranslation: 'The coffee maker is in the kitchen.' },
+        { imageWord: 'refrigerador', imageDescription: 'a refrigerator', question: '¿Dónde está el refrigerador?', questionTranslation: 'Where is the refrigerator?', answer: 'El refrigerador está en la cocina.', answerTranslation: 'The refrigerator is in the kitchen.' },
+      ],
+      noteAfter: 'Mamá está en la cocina.',
+    },
+    // ─── p81: Everyday expressions with estar ────────────────────────────────
+    {
+      type: 'estar-expressions',
+      genderPairs: [
+        { masculine: { spanish: 'Está contento', english: 'he is happy' }, feminine: { spanish: 'Está contenta', english: 'she is happy' } },
+        { masculine: { spanish: 'Está cansado', english: 'he is tired' }, feminine: { spanish: 'Está cansada', english: 'she is tired' } },
+        { masculine: { spanish: 'Está ocupado', english: 'he is busy' }, feminine: { spanish: 'Está ocupada', english: 'she is busy' } },
+        { masculine: { spanish: 'Está enfermo', english: 'he is sick' }, feminine: { spanish: 'Está enferma', english: 'she is sick' } },
+        { masculine: { spanish: 'Está listo', english: 'he is ready' } },
+        { masculine: { spanish: 'Está solo', english: 'he is alone' } },
+        { masculine: { spanish: 'Está enojado', english: 'he is angry' } },
+        { masculine: { spanish: 'Está furioso', english: 'he is furious' } },
+        { masculine: { spanish: 'Está aburrido', english: 'he is bored' } },
+        { masculine: { spanish: 'Está enamorado', english: 'he is in love' } },
+      ],
+      additionalItems: [
+        { spanish: 'Está bien', english: "it's all right" },
+        { spanish: 'Está mejor', english: 'he/she is better' },
+        { spanish: 'Está mal', english: 'he/she is ill' },
+        { spanish: 'Está peor', english: 'he/she is worse' },
+        { spanish: 'Está con Huberto', english: 'he/she is with Huberto' },
+        { spanish: 'Está triste', english: 'he/she is sad' },
+        { spanish: 'Estamos contentos', english: 'we are happy' },
+        { spanish: 'Están cansados', english: 'they are tired' },
+        { spanish: 'Estoy contento', english: 'I am happy (m)' },
+        { spanish: 'Estoy contenta', english: 'I am happy (f)' },
+        { spanish: 'Está cómodo', english: 'he/she is comfortable' },
+      ],
+    },
+  ],
+};
+
 const SER_UNITS: SerUnitContent[] = [
   SER_PLURALS_GENDER,
+  ESTAR_LOCATIONS,
 ];
 
 /**
