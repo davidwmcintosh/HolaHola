@@ -87,25 +87,22 @@ function NegativeCard({
         )}
       </div>
 
-      {/* Phrase + audio */}
-      <div className="px-2 pt-1.5 pb-2 flex items-start gap-1">
-        <div className="flex-1 min-w-0">
-          <p
-            className="text-sm font-medium leading-snug"
-            data-testid={`text-negative-phrase-${item.imageWord}`}
-          >
-            {item.negativePhrase}
-          </p>
-          <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
-            {item.translation}
-          </p>
-        </div>
+      {/* Phrase + audio — centered */}
+      <div className="flex flex-col items-center px-2 pt-2 pb-1.5 text-center gap-0.5">
+        <p
+          className="text-sm font-medium leading-snug"
+          data-testid={`text-negative-phrase-${item.imageWord}`}
+        >
+          {item.negativePhrase}
+        </p>
+        <p className="text-[11px] text-muted-foreground leading-tight">
+          {item.translation}
+        </p>
         <Button
           size="icon"
           variant="ghost"
           onClick={handlePlay}
           disabled={isPlaying}
-          className="shrink-0"
           data-testid={`button-play-negative-${item.imageWord}`}
           title={`Hear "${item.negativePhrase}"`}
         >

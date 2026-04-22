@@ -8,7 +8,6 @@ import { SentenceColumnGenerator, SentenceColumn } from "./SentenceColumnGenerat
 import {
   MadrigalAnchorBlock,
   MadrigalPositiveGrid,
-  MadrigalVaQuestionGrid,
   MadrigalNote,
   MadrigalPage12Grid,
   MadrigalVaDefinition,
@@ -130,9 +129,11 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
           Madrigal gets straight into content — no chapter title, no header.
 
           Scroll order matches the book exactly:
-            voyAnchor + 4 positive + 4 negative
+            voyAnchor + 4 positive
             ─ ─ ─ ─ ─
-            vaAnchor + 4 questions + note + noAnswerAnchor + 4 negative answers
+            vaAnchor + ¿Va? 2-column drill + note
+            ─ ─ ─ ─ ─
+            noVoyAnchor + 4 negative (same places)
             substitution drill (8 verb forms × 8 places)
             ─ ─ ─ ─ ─
             vamosAnchor + 4 Vamos pictures + note
@@ -144,33 +145,32 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
       {hasMadrigal && madrigal && (
         <div className="space-y-6 px-4">
 
-          {/* Voy + al (same line) */}
+          {/* Voy + al — same line anchor */}
           <MadrigalAnchorBlock items={madrigal.voyAnchor} />
 
-          {/* 4 positive pictures: Voy al ___ */}
+          {/* 4 positive pictures: Voy al hotel / banco / garaje / restaurante */}
           <MadrigalPositiveGrid items={madrigal.positiveItems} language={language} />
-
-          {/* 4 negative pictures: No voy al ___ */}
-          <NegativeFormSection items={madrigal.negativeItems} language={language} />
 
           <PageRule />
 
           {/* ¿Va? anchor */}
           <MadrigalAnchorBlock items={madrigal.vaAnchor} />
 
-          {/* 4 question pictures using the positive vocabulary */}
-          <MadrigalVaQuestionGrid items={madrigal.vaQuestions} language={language} />
+          {/* ¿Va al ___? — 2-column substitution drill */}
+          <SentenceColumnGenerator language={language} columns={madrigal.vaColumns} />
 
           {/* Subject pronoun note */}
           {madrigal.subjectPronounNote && (
             <MadrigalNote text={madrigal.subjectPronounNote} />
           )}
 
-          {/* No, no voy... + al anchor */}
-          <MadrigalAnchorBlock items={madrigal.noAnswerAnchor} />
+          <PageRule />
 
-          {/* 4 negative-answer pictures */}
-          <NegativeFormSection items={madrigal.negativeAnswerItems} language={language} />
+          {/* No voy + al — same line anchor */}
+          <MadrigalAnchorBlock items={madrigal.noVoyAnchor} />
+
+          {/* 4 negative pictures — same 4 places as positive */}
+          <NegativeFormSection items={madrigal.negativeItems} language={language} />
 
           {/* Substitution drill: 8 verb forms × 8 places */}
           <SentenceColumnGenerator language={language} columns={madrigal.sentenceColumns} />

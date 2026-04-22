@@ -17,22 +17,15 @@ export interface MadrigalAnchorItem {
 }
 
 export interface MadrigalPositiveItem {
-  word: string;
-  sentence: string;
+  word: string;        // used as the image lookup key
+  sentence: string;    // displayed sentence (may differ from word, e.g. "discoteca" → "Vamos al club.")
   translation: string;
   imageDescription: string;
 }
 
-/** Just a question + translation, shown under an image. No answer visible yet. */
-export interface VaQuestionItem {
-  imageWord: string;
-  question: string;
-  questionTranslation: string;
-}
-
 /** A Q&A pair shown together under an image (page 12 format). */
 export interface Page12QAItem {
-  imageWord?: string;          // no image for the last two items on page 12
+  imageWord?: string;          // optional — last two items on page 12 have no image
   question: string;
   affirmativeAnswer: string;
   affirmativeTranslation: string;
@@ -44,24 +37,23 @@ export interface MadrigalVerbUnitContent {
   chapterTitleKey: string;
 
   // ── Page 9: Voy section ──────────────────────────────────────────────────
-  // Anchor on one line: "Voy,  I'm going.   al,  to the."
+  // Same-line anchor: "Voy,  I'm going.   al,  to the."
   voyAnchor: MadrigalAnchorItem[];
   // 4 images: hotel / banco / garaje / restaurante  →  "Voy al ___."
   positiveItems: MadrigalPositiveItem[];
-  // 4 images: club / teatro / cine / parque  →  "No voy al ___."
-  negativeItems: NegativeFormItem[];
 
-  // ── ¿Va? question section ────────────────────────────────────────────────
+  // ── ¿Va? section: 2-column substitution (goes between positive and negative)
   // Anchor: "¿Va?  Are you going?"
   vaAnchor: MadrigalAnchorItem[];
-  // 4 images using the SAME places as positive  →  "¿Va al ___?"
-  vaQuestions: VaQuestionItem[];
-  // Note: "In Spanish, you generally drop subject pronouns."
+  // 2-column drill: "¿Va al" | hotel / banco / garaje / restaurante
+  vaColumns: SentenceColumn[];
   subjectPronounNote?: string;
-  // Anchor: "No, no voy...  No, I'm not going.   al,  to the."
-  noAnswerAnchor: MadrigalAnchorItem[];
-  // 4 images with negative answers  →  "No, no voy al ___."
-  negativeAnswerItems: NegativeFormItem[];
+
+  // ── No voy section ───────────────────────────────────────────────────────
+  // Anchor: "No voy,  I'm not going.   al,  to the."
+  noVoyAnchor: MadrigalAnchorItem[];
+  // 4 images using the SAME places as positive  →  "No voy al ___."
+  negativeItems: NegativeFormItem[];
 
   // ── Substitution drill ───────────────────────────────────────────────────
   // Column 1: 8 verb forms  |  Column 2: 8 places
@@ -88,69 +80,75 @@ export interface MadrigalVerbUnitContent {
 //
 // Source: Madrigal pp. 9–13
 //
-// Page 9:  Anchor (Voy + al) → 4 positive (hotel/banco/garaje/restaurante) →
-//          4 negative (club/teatro/cine/parque)
-// Page 10: ¿Va? anchor → 4 questions (same places as positive) → subject pronoun note →
-//          "No, no voy..." anchor → 4 negative-answer pictures
-//          Substitution drill: 8 verb forms × 8 places
-// Next pg: Vamos anchor → 4 Vamos pictures → note about vamos dual meaning
-// Page 12: 4-item anchor (¿Va?/al/Voy/Sí) → 4 Q&A picture pairs →
-//          2 Q&A without pictures → Va: definition
+// Page 9:  Anchor (Voy + al) → 4 positive (hotel/banco/garaje/restaurante)
+// ---
+// ¿Va? anchor → 2-column drill (¿Va al | hotel/banco/garaje/restaurante) → note
+// ---
+// No voy anchor → 4 negative (same 4 places) → substitution drill (8 forms × 8 places)
+// ---
+// Vamos anchor → 4 Vamos pictures → note about dual meaning
+// ---
+// Page 12: 4-item anchor (¿Va?/al/Voy/Sí) → 4 Q&A pairs → Va: definition
 
 const IR_GOING_PLACES: MadrigalVerbUnitContent = {
   chapterTitleKey: "where are you going",
 
-  // Page 9 ──────────────────────────────────────────────────────────────────
+  // Page 9: Voy ─────────────────────────────────────────────────────────────
 
   voyAnchor: [
     { spanish: "Voy,", english: "I'm going." },
-    { spanish: "al,", english: "to the." },
+    { spanish: "al,",  english: "to the." },
   ],
 
   positiveItems: [
     { word: "hotel",       sentence: "Voy al hotel.",       translation: "I'm going to the hotel.",      imageDescription: "a classic hotel building exterior" },
     { word: "banco",       sentence: "Voy al banco.",       translation: "I'm going to the bank.",       imageDescription: "a bank building with columns" },
     { word: "garaje",      sentence: "Voy al garaje.",      translation: "I'm going to the garage.",     imageDescription: "a car garage with open door" },
-    { word: "restaurante", sentence: "Voy al restaurante.", translation: "I'm going to the restaurant.", imageDescription: "a restaurant exterior with sign" },
-  ],
-
-  negativeItems: [
-    { imageWord: "club",        negativePhrase: "No voy al club.",        translation: "I'm not going to the club." },
-    { imageWord: "teatro",      negativePhrase: "No voy al teatro.",      translation: "I'm not going to the theater." },
-    { imageWord: "cine",        negativePhrase: "No voy al cine.",        translation: "I'm not going to the movies." },
-    { imageWord: "parque",      negativePhrase: "No voy al parque.",      translation: "I'm not going to the park." },
+    { word: "restaurante", sentence: "Voy al restaurante.", translation: "I'm going to the restaurant.", imageDescription: "a restaurant exterior with outdoor seating" },
   ],
 
   // ¿Va? section ─────────────────────────────────────────────────────────────
+  // Uses same 4 places as positive — the question introduces Va via familiar vocabulary
 
   vaAnchor: [
     { spanish: "¿Va?", english: "Are you going?" },
   ],
 
-  // Same 4 places as positiveItems — the question introduces Va using familiar vocabulary
-  vaQuestions: [
-    { imageWord: "hotel",       question: "¿Va al hotel?",       questionTranslation: "Are you going to the hotel?" },
-    { imageWord: "banco",       question: "¿Va al banco?",       questionTranslation: "Are you going to the bank?" },
-    { imageWord: "garaje",      question: "¿Va al garaje?",      questionTranslation: "Are you going to the garage?" },
-    { imageWord: "restaurante", question: "¿Va al restaurante?", questionTranslation: "Are you going to the restaurant?" },
+  vaColumns: [
+    {
+      items: [
+        { text: "¿Va al", translation: "Are you going to the" },
+      ],
+    },
+    {
+      items: [
+        { text: "hotel?",       translation: "hotel?" },
+        { text: "banco?",       translation: "bank?" },
+        { text: "garaje?",      translation: "garage?" },
+        { text: "restaurante?", translation: "restaurant?" },
+      ],
+    },
   ],
 
   subjectPronounNote: "In Spanish, you generally drop subject pronouns (I, you, we, they, etc.).",
 
-  noAnswerAnchor: [
-    { spanish: "No, no voy...", english: "No, I'm not going..." },
-    { spanish: "al,",           english: "to the." },
+  // No voy section ───────────────────────────────────────────────────────────
+  // Same 4 places as positive — introduces the negative form of the same vocabulary
+
+  noVoyAnchor: [
+    { spanish: "No voy,", english: "I'm not going." },
+    { spanish: "al,",     english: "to the." },
   ],
 
-  negativeAnswerItems: [
-    { imageWord: "hotel",       negativePhrase: "No, no voy al hotel.",       translation: "No, I'm not going to the hotel." },
-    { imageWord: "banco",       negativePhrase: "No, no voy al banco.",       translation: "No, I'm not going to the bank." },
-    { imageWord: "garaje",      negativePhrase: "No, no voy al garaje.",      translation: "No, I'm not going to the garage." },
-    { imageWord: "restaurante", negativePhrase: "No, no voy al restaurante.", translation: "No, I'm not going to the restaurant." },
+  negativeItems: [
+    { imageWord: "hotel",       negativePhrase: "No voy al hotel.",       translation: "I'm not going to the hotel." },
+    { imageWord: "banco",       negativePhrase: "No voy al banco.",       translation: "I'm not going to the bank." },
+    { imageWord: "garaje",      negativePhrase: "No voy al garaje.",      translation: "I'm not going to the garage." },
+    { imageWord: "restaurante", negativePhrase: "No voy al restaurante.", translation: "I'm not going to the restaurant." },
   ],
 
   // Substitution drill ───────────────────────────────────────────────────────
-  // Column 1: 8 verb forms  |  Column 2: 8 places
+  // Column 1: 8 verb forms  |  Column 2: 8 places (all vocabulary from this chapter)
 
   sentenceColumns: [
     {
@@ -189,8 +187,9 @@ const IR_GOING_PLACES: MadrigalVerbUnitContent = {
   vamosItems: [
     { word: "hotel",       sentence: "Vamos al hotel.",       translation: "Let's go to the hotel.",      imageDescription: "a classic hotel building exterior" },
     { word: "banco",       sentence: "Vamos al banco.",       translation: "Let's go to the bank.",       imageDescription: "a bank building with columns" },
-    { word: "restaurante", sentence: "Vamos al restaurante.", translation: "Let's go to the restaurant.", imageDescription: "a restaurant exterior with sign" },
-    { word: "club",        sentence: "Vamos al club.",        translation: "Let's go to the club.",       imageDescription: "a nightclub or social club exterior" },
+    { word: "restaurante", sentence: "Vamos al restaurante.", translation: "Let's go to the restaurant.", imageDescription: "a restaurant exterior with outdoor seating" },
+    // "discoteca" as the image lookup key so we get a nightclub, not a caveman club
+    { word: "discoteca",   sentence: "Vamos al club.",        translation: "Let's go to the club.",       imageDescription: "a nightclub or social club exterior at night" },
   ],
 
   vamosNote: "\"Vamos\" means both \"Let's go\" and \"We are going.\"",

@@ -149,21 +149,18 @@ function VocabImageCard({
           </div>
         )}
       </div>
-      <div className="flex items-center gap-1 px-2 py-2">
+      <div className="flex flex-col items-center px-2 pt-2 pb-1.5 text-center gap-0.5">
+        <p className="text-sm font-medium leading-snug">{sentence}</p>
+        <p className="text-[11px] text-muted-foreground leading-tight">{translation}</p>
         <Button
           size="icon"
           variant="ghost"
           onClick={() => play(sentence, key)}
           disabled={isPlaying}
-          className="shrink-0"
           data-testid={`button-listen-${testIndex}`}
         >
           {isPlaying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Volume2 className="h-3.5 w-3.5" />}
         </Button>
-        <div className="min-w-0">
-          <p className="text-sm font-medium leading-snug">{sentence}</p>
-          <p className="text-[11px] text-muted-foreground leading-tight">{translation}</p>
-        </div>
       </div>
     </div>
   );
@@ -233,21 +230,18 @@ function VaQuestionCard({
           </div>
         )}
       </div>
-      <div className="flex items-center gap-1 px-2 py-2">
+      <div className="flex flex-col items-center px-2 pt-2 pb-1.5 text-center gap-0.5">
+        <p className="text-sm font-medium leading-snug">{item.question}</p>
+        <p className="text-[11px] text-muted-foreground leading-tight">{item.questionTranslation}</p>
         <Button
           size="icon"
           variant="ghost"
           onClick={() => play(item.question, key)}
           disabled={isPlaying}
-          className="shrink-0"
           data-testid={`button-listen-va-${index}`}
         >
           {isPlaying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Volume2 className="h-3.5 w-3.5" />}
         </Button>
-        <div className="min-w-0">
-          <p className="text-sm font-medium leading-snug">{item.question}</p>
-          <p className="text-[11px] text-muted-foreground leading-tight">{item.questionTranslation}</p>
-        </div>
       </div>
     </div>
   );
