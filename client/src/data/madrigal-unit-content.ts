@@ -71,6 +71,8 @@ export interface PreteriteQACard {
   questionTranslation: string;
   answer: string;
   answerTranslation: string;
+  /** Optional hint for image generation when cache misses occur */
+  imageDescription?: string;
 }
 
 /** One conjugation row (Tomé / I took) */
@@ -796,10 +798,10 @@ const QUIERO_I_WANT: PreteriteUnitContent = {
       ],
 
       statementCards: [
-        { word: "auto",  sentence: "Quiero comprar un auto.",   translation: "I want to buy a car.",    imageDescription: "a car" },
-        { word: "pipa",  sentence: "Quiero comprar una pipa.",  translation: "I want to buy a pipe.",   imageDescription: "a smoking pipe" },
-        { word: "falda", sentence: "Quiero comprar una falda.", translation: "I want to buy a skirt.",  imageDescription: "a skirt" },
-        { word: "blusa", sentence: "Quiero comprar una blusa.", translation: "I want to buy a blouse.", imageDescription: "a blouse" },
+        { word: "auto",       sentence: "Quiero comprar un auto.",        translation: "I want to buy a car.",      imageDescription: "a car" },
+        { word: "bicicleta",  sentence: "Quiero comprar una bicicleta.",  translation: "I want to buy a bicycle.",  imageDescription: "a bicycle" },
+        { word: "falda",      sentence: "Quiero comprar una falda.",      translation: "I want to buy a skirt.",    imageDescription: "a skirt" },
+        { word: "blusa",      sentence: "Quiero comprar una blusa.",      translation: "I want to buy a blouse.",   imageDescription: "a blouse" },
       ],
 
       conjugationTable: [
@@ -836,10 +838,10 @@ const QUIERO_I_WANT: PreteriteUnitContent = {
       ],
 
       qaCards: [
-        { imageWord: "chocolates", question: "¿Quieres comprar chocolates?",  questionTranslation: "Do you want to buy chocolates?", answer: "Sí, quiero comprar chocolates.",  answerTranslation: "Yes, I want to buy chocolates." },
-        { imageWord: "perlas",     question: "¿Quieres comprar perlas?",      questionTranslation: "Do you want to buy pearls?",      answer: "Sí, quiero comprar perlas.",      answerTranslation: "Yes, I want to buy pearls." },
-        { imageWord: "corbata",    question: "¿Quieres comprar una corbata?", questionTranslation: "Do you want to buy a tie?",       answer: "Sí, quiero comprar una corbata.", answerTranslation: "Yes, I want to buy a tie." },
-        { imageWord: "camisa",     question: "¿Quieres comprar una camisa?",  questionTranslation: "Do you want to buy a shirt?",     answer: "Sí, quiero comprar una camisa.",  answerTranslation: "Yes, I want to buy a shirt." },
+        { imageWord: "chocolates", question: "¿Quiere comprar chocolates?",  questionTranslation: "Do you want to buy chocolates?", answer: "Sí, quiero comprar chocolates.",  answerTranslation: "Yes, I want to buy chocolates.", imageDescription: "assorted chocolates in an open box, no people" },
+        { imageWord: "peras",      question: "¿Quiere comprar peras?",       questionTranslation: "Do you want to buy pears?",       answer: "Sí, quiero comprar peras.",       answerTranslation: "Yes, I want to buy pears." },
+        { imageWord: "corbata",    question: "¿Quiere comprar una corbata?", questionTranslation: "Do you want to buy a tie?",       answer: "Sí, quiero comprar una corbata.", answerTranslation: "Yes, I want to buy a tie." },
+        { imageWord: "camisa",     question: "¿Quiere comprar una camisa?",  questionTranslation: "Do you want to buy a shirt?",     answer: "Sí, quiero comprar una camisa.",  answerTranslation: "Yes, I want to buy a shirt." },
       ],
 
       conjugationTable: [
@@ -859,10 +861,10 @@ const QUIERO_I_WANT: PreteriteUnitContent = {
       ],
 
       statementCards: [
-        { word: "parque",    sentence: "Quiero ir al parque.",    translation: "I want to go to the park.",    imageDescription: "a sunny public park" },
-        { word: "cine",      sentence: "Quiero ir al cine.",      translation: "I want to go to the movies.",  imageDescription: "a movie theater" },
-        { word: "concierto", sentence: "Quiero ir al concierto.", translation: "I want to go to the concert.", imageDescription: "a concert hall" },
-        { word: "teatro",    sentence: "Quiero ir al teatro.",    translation: "I want to go to the theater.", imageDescription: "a theater building" },
+        { word: "parque",    sentence: "Quiero ir al parque.",    translation: "I want to go to the park.",    imageDescription: "a sunny public park with benches and trees, no people" },
+        { word: "cine",      sentence: "Quiero ir al cine.",      translation: "I want to go to the movies.",  imageDescription: "exterior facade of a movie cinema building with a marquee sign, no people" },
+        { word: "concierto", sentence: "Quiero ir al concierto.", translation: "I want to go to the concert.", imageDescription: "interior of a concert hall with seats and a stage, no people" },
+        { word: "teatro",    sentence: "Quiero ir al teatro.",    translation: "I want to go to the theater.", imageDescription: "exterior of a grand theater building at night, no people" },
       ],
 
       sentenceColumns: [
@@ -945,10 +947,10 @@ const QUIERO_I_WANT: PreteriteUnitContent = {
       ],
 
       qaCards: [
-        { imageWord: "nadar",    question: "¿Quieres nadar mañana?",    questionTranslation: "Do you want to swim tomorrow?",  answer: "Sí, quiero nadar mañana.",    answerTranslation: "Yes, I want to swim tomorrow." },
-        { imageWord: "dormir",   question: "¿Quieres dormir mañana?",   questionTranslation: "Do you want to sleep tomorrow?", answer: "Sí, quiero dormir mañana.",   answerTranslation: "Yes, I want to sleep tomorrow." },
-        { imageWord: "estudiar", question: "¿Quieres estudiar mañana?", questionTranslation: "Do you want to study tomorrow?", answer: "Sí, quiero estudiar mañana.", answerTranslation: "Yes, I want to study tomorrow." },
-        { imageWord: "pescar",   question: "¿Quieres pescar mañana?",   questionTranslation: "Do you want to fish tomorrow?",  answer: "Sí, quiero pescar mañana.",   answerTranslation: "Yes, I want to fish tomorrow." },
+        { imageWord: "nadar",    question: "¿Quiere nadar mañana?",    questionTranslation: "Do you want to swim tomorrow?",  answer: "Sí, quiero nadar mañana.",    answerTranslation: "Yes, I want to swim tomorrow." },
+        { imageWord: "dormir",   question: "¿Quiere dormir mañana?",   questionTranslation: "Do you want to sleep tomorrow?", answer: "Sí, quiero dormir mañana.",   answerTranslation: "Yes, I want to sleep tomorrow." },
+        { imageWord: "estudiar", question: "¿Quiere estudiar mañana?", questionTranslation: "Do you want to study tomorrow?", answer: "Sí, quiero estudiar mañana.", answerTranslation: "Yes, I want to study tomorrow." },
+        { imageWord: "pescar",   question: "¿Quiere pescar mañana?",   questionTranslation: "Do you want to fish tomorrow?",  answer: "Sí, quiero pescar mañana.",   answerTranslation: "Yes, I want to fish tomorrow." },
       ],
     },
   ],
