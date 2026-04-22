@@ -393,7 +393,53 @@ export function IrVerbsCard({ className = '' }: { className?: string }) {
 }
 
 export function SerCard({ className = '' }: { className?: string }) {
-  return <VerbConjugationTable data={SER_PRES} />;
+  const SER_CORE = [
+    { pronoun: 'yo', form: 'soy', english: 'I am' },
+    { pronoun: 'él / ella / Ud.', form: 'es', english: 'he/she/you is' },
+    { pronoun: 'nosotros/as', form: 'somos', english: 'we are' },
+    { pronoun: 'ellos / Uds.', form: 'son', english: 'they/you all are' },
+  ];
+
+  const USE_CASES = [
+    { label: 'Description', example: 'El caballo es negro.' },
+    { label: 'Nationality', example: 'Ella es mexicana.' },
+    { label: 'Profession', example: 'Él es doctor.' },
+    { label: 'Identity', example: 'Soy estudiante.' },
+    { label: 'Origin', example: 'Somos de España.' },
+    { label: 'Time', example: 'Son las dos.' },
+  ];
+
+  return (
+    <div className={`space-y-3 ${className}`} data-testid="grammar-card-ser">
+      {/* Essential forms — core 4 only, no tú / no vosotros */}
+      <div className="rounded-lg border bg-card overflow-hidden">
+        <div className="px-3 py-2 border-b bg-gradient-to-r from-blue-500/10 to-transparent flex items-baseline gap-2">
+          <span className="font-bold text-sm text-blue-600 dark:text-blue-400">SER</span>
+          <span className="text-xs text-muted-foreground">— to be (permanent characteristics)</span>
+        </div>
+        <div className="divide-y">
+          {SER_CORE.map(({ pronoun, form, english }) => (
+            <div key={pronoun} className="flex items-center px-3 py-2 gap-3">
+              <span className="text-xs text-muted-foreground w-28 shrink-0">{pronoun}</span>
+              <span className="font-bold text-sm text-blue-600 dark:text-blue-400 w-16 shrink-0">{form}</span>
+              <TextAudioPlayButton text={form} language="spanish" size="sm" variant="ghost" className="shrink-0 opacity-60 hover:opacity-100" />
+              <span className="text-xs text-muted-foreground">{english}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Use cases */}
+      <div className="grid grid-cols-2 gap-2">
+        {USE_CASES.map(({ label, example }) => (
+          <div key={label} className="rounded-md border bg-muted/20 p-2.5">
+            <p className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground mb-0.5">{label}</p>
+            <p className="text-xs font-medium">{example}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function EstarCard({ className = '' }: { className?: string }) {

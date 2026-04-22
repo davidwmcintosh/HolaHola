@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, MessageSquare, Volume2, Loader2, Globe, MessageCircle } from "lucide-react";
+import { ChevronLeft, MessageSquare, Volume2, Loader2, MessageCircle } from "lucide-react";
 import { classifyGrammarType, GrammarChapterView } from "./ChapterIntroduction";
 import { SeeItSayItLoop } from "./SeeItSayItLoop";
 
@@ -198,13 +198,6 @@ function DomainBlock({
             </div>
           )}
 
-          {/* Cultural note */}
-          {content.cultural_note && (
-            <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
-              <Globe className="h-3 w-3 shrink-0 mt-0.5" />
-              <p className="leading-relaxed">{content.cultural_note}</p>
-            </div>
-          )}
 
           {/* Reading / dialogue */}
           {content.reading_passage && (
@@ -284,17 +277,47 @@ export function GrammarConceptUnit({
         </div>
       )}
 
-      {/* ── Vocabulary grid — word pairs with images (alto/bajo, etc.) ── */}
+      {/* ── Vocabulary grid — See It, Say It ── */}
       {chapter.sections[0] && (
         <div className="space-y-3" data-testid="grammar-concept-vocab">
           <p className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">
-            Vocabulary
+            See It — Say It
           </p>
           <SeeItSayItLoop
             lessonId={chapter.sections[0].id}
             language={language}
             hideHeader
           />
+        </div>
+      )}
+
+      {/* ── Everyday expressions — hardcoded from Madrigal p. 71 (ser_only only) ── */}
+      {grammarType === 'ser_only' && (
+        <div className="space-y-2" data-testid="ser-everyday-expressions">
+          <p className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">
+            Everyday Expressions
+          </p>
+          <p className="text-xs text-muted-foreground">
+            These expressions work on their own — no subject needed.
+          </p>
+          <div className="rounded-lg border bg-card overflow-hidden px-1">
+            {([
+              { target: 'Es importante.', translation: "It's important." },
+              { target: 'Es terrible.', translation: "It's terrible." },
+              { target: 'Es fantástico.', translation: "It's fantastic." },
+              { target: 'Es bueno.', translation: "It's good." },
+              { target: 'Es malo.', translation: "It's bad." },
+              { target: 'Es interesante.', translation: "It's interesting." },
+              { target: 'Es formidable.', translation: "It's wonderful / great." },
+            ] as GrammarExample[]).map((ex, i) => (
+              <ExampleSentence
+                key={i}
+                example={ex}
+                language={language}
+                index={100 + i}
+              />
+            ))}
+          </div>
         </div>
       )}
 
