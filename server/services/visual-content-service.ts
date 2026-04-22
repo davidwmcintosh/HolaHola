@@ -51,8 +51,9 @@ const NO_TEXT_INSTRUCTION =
 
 // Vocabulary props: single object, white background, clean silhouette
 const PROP_STYLE =
-  'warm painterly digital illustration, soft natural lighting, slightly stylized friendly characters, ' +
-  'rich warm color palette with golden tones, semi-realistic proportions, textured brushwork with depth, ' +
+  'bright vibrant digital illustration, full-spectrum color palette, clean cheerful colors, ' +
+  'soft even lighting with no heavy shadows or warm cast, slightly stylized cartoon-friendly style, ' +
+  'semi-realistic proportions, smooth painterly brushwork, ' +
   'object centred on a clean pure white background, clear recognisable silhouette, ' +
   'FRAMING: entire object fully visible within frame, generous white space border on all sides — ' +
   'subject fills no more than 65–70% of canvas width and height, never touching or bleeding to any edge, ' +
