@@ -11066,6 +11066,25 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // GET /api/vocab-image/by-word?word=hotel&language=spanish
+  // Returns a single watercolor image for a vocabulary word. Used by hardcoded Madrigal unit pages.
+  app.get("/api/vocab-image/by-word", isAuthenticated, async (req: any, res) => {
+    try {
+      const { word, language = 'spanish', description } = req.query as Record<string, string>;
+      if (!word) return res.status(400).json({ error: "word is required" });
+      const { resolveVocabularyImage } = await import('./services/vocabulary-image-resolver');
+      const result = await resolveVocabularyImage({
+        word,
+        language,
+        description: description || word,
+        userId: req.user?.id,
+      });
+      res.json({ url: result.imageUrl ?? null, source: result.source ?? 'unknown' });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/textbook/vocab-images/:lessonId", isAuthenticated, async (req: any, res) => {
     try {
       const { lessonId } = req.params;

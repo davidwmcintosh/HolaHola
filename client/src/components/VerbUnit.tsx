@@ -6,6 +6,8 @@ import { SeeItSayItLoop } from "./SeeItSayItLoop";
 import { NegativeFormSection, NegativeFormItem } from "./NegativeFormSection";
 import { QuestionFormSection, QuestionFormItem } from "./QuestionFormSection";
 import { SentenceColumnGenerator, SentenceColumn } from "./SentenceColumnGenerator";
+import { MadrigalAnchorBlock, MadrigalPositiveGrid, MadrigalVamosLine } from "./MadrigalPageComponents";
+import { getMadrigalContent } from "@/data/madrigal-unit-content";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -56,9 +58,9 @@ interface VerbUnitProps {
   onStartDrill: (lessonId: string) => void;
 }
 
-// ── Micro-cycle hook ──────────────────────────────────────────────────────────
+// ── Micro-cycle hook (used when Madrigal static content is NOT available) ─────
 
-function useMicroCycle(lessonId: string | undefined, language: string) {
+function useMicroCycle(lessonId: string | undefined, language: string, enabled: boolean) {
   return useQuery<MicroCycleData>({
     queryKey: ["/api/textbook/micro-cycle", lessonId, language],
     queryFn: async () => {
@@ -70,7 +72,7 @@ function useMicroCycle(lessonId: string | undefined, language: string) {
       if (!res.ok) throw new Error(`micro-cycle fetch failed: ${res.status}`);
       return res.json();
     },
-    enabled: !!lessonId,
+    enabled: enabled && !!lessonId,
     staleTime: 1000 * 60 * 30,
   });
 }
@@ -80,20 +82,25 @@ function useMicroCycle(lessonId: string | undefined, language: string) {
 export function VerbUnit({ chapter, language, onBack, onStartConversation, onStartDrill }: VerbUnitProps) {
   const grammarType = classifyGrammarType(chapter.title, language);
 
-  // Use the grammar spotlight lesson if present, otherwise the first section.
-  // Verb units are seeded with 'grammar' or 'conversation' lesson types, not 'vocabulary'.
+  // Check for hardcoded Madrigal content first
+  const madrigal = getMadrigalContent(chapter.title);
+  const hasMadrigal = !!madrigal;
+
+  // For fallback path: find the grammar/vocabulary lesson
   const firstVocabSection =
     chapter.sections.find(s => s.lessonType === "grammar") ??
     chapter.sections[0];
 
   const { data: microCycle, isLoading: microLoading } = useMicroCycle(
     firstVocabSection?.id,
-    language
+    language,
+    !hasMadrigal  // only fetch if we don't have hardcoded content
   );
 
   const totalDrills = chapter.sections.reduce((acc, s) => acc + (s.drillCount || 0), 0);
   const firstDrillSectionId = chapter.sections.find(s => s.hasDrills && s.drillCount > 0)?.id;
 
+  // Fallback path flags
   const hasNegative = !microLoading && microCycle && microCycle.negativeItems.length > 0;
   const hasQuestion = !microLoading && microCycle && microCycle.questionItems.length > 0;
   const hasSentence = !microLoading && microCycle && microCycle.sentenceColumns.length > 0;
@@ -118,65 +125,124 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
         </Button>
       </div>
 
-      {/* ── Grammar reference card — FIRST ── */}
-      {grammarType && (
-        <div data-testid="verb-unit-grammar-card">
-          <GrammarChapterView
-            type={grammarType}
-            chapterNumber={chapter.number}
-            language={language}
-            chapterTitle={chapter.title}
-          />
-        </div>
-      )}
+      {/* ════════════════════════════════════════════════════════════════════
+          PATH A — Madrigal hardcoded content (pp. 9–13 formula)
+          Order: Anchor → Positive images → Negative → Vamos → Q&A → Drill
+          ════════════════════════════════════════════════════════════════════ */}
+      {hasMadrigal && madrigal && (
+        <>
+          {/* Element 1: Anchor block — the two building-block components */}
+          <MadrigalAnchorBlock items={madrigal.anchor} />
 
-      {/* ── Vocabulary grid (See It, Say It) ── */}
-      {firstVocabSection && (
-        <div data-testid="verb-unit-sisl">
-          <SeeItSayItLoop
-            lessonId={firstVocabSection.id}
-            language={language}
-            lessonName={firstVocabSection.name}
-          />
-        </div>
-      )}
+          {/* Element 2: Positive image grid — 4 places, same sentence frame */}
+          <div data-testid="verb-unit-positive">
+            <MadrigalPositiveGrid
+              items={madrigal.positiveItems}
+              language={language}
+            />
+          </div>
 
-      {/* ── Micro-cycle drills — flat, no section headers ── */}
-      {microLoading && (
-        <div className="flex items-center justify-center py-8 text-muted-foreground gap-2">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span className="text-sm">Generating practice drills…</span>
-        </div>
-      )}
-
-      {anyMicro && (
-        <div className="space-y-6" data-testid="verb-unit-micro-cycle">
-          {hasNegative && (
+          {/* Element 3: Negative section — 4 new places with "No voy al ___" */}
+          {madrigal.negativeItems.length > 0 && (
             <NegativeFormSection
               language={language}
-              patternLabel={microCycle!.patternLabel}
-              items={microCycle!.negativeItems}
+              patternLabel={madrigal.patternLabel}
+              items={madrigal.negativeItems}
             />
           )}
 
-          {hasQuestion && (
+          {/* Element 4: Vamos — quiet one-line addition, no heading */}
+          {madrigal.vamos && (
+            <MadrigalVamosLine
+              vamos={madrigal.vamos}
+              language={language}
+            />
+          )}
+
+          {/* Element 5: Q&A exchange */}
+          {madrigal.questionItems.length > 0 && (
             <QuestionFormSection
               language={language}
-              patternLabel={microCycle!.patternLabel}
-              items={microCycle!.questionItems}
+              patternLabel={madrigal.patternLabel}
+              items={madrigal.questionItems}
             />
           )}
 
-          {hasSentence && (
+          {/* Element 6: Substitution drill */}
+          {madrigal.sentenceColumns.length > 0 && (
             <SentenceColumnGenerator
               language={language}
-              columns={microCycle!.sentenceColumns}
+              columns={madrigal.sentenceColumns}
             />
           )}
-        </div>
+        </>
       )}
 
-      {/* ── Unit title — bottom, like a chapter total ── */}
+      {/* ════════════════════════════════════════════════════════════════════
+          PATH B — Fallback: grammar reference card + SeeItSayItLoop + micro-cycle
+          Used for chapters not yet transcribed from Madrigal
+          ════════════════════════════════════════════════════════════════════ */}
+      {!hasMadrigal && (
+        <>
+          {/* Grammar reference card */}
+          {grammarType && (
+            <div data-testid="verb-unit-grammar-card">
+              <GrammarChapterView
+                type={grammarType}
+                chapterNumber={chapter.number}
+                language={language}
+                chapterTitle={chapter.title}
+              />
+            </div>
+          )}
+
+          {/* Vocabulary grid (See It, Say It) */}
+          {firstVocabSection && (
+            <div data-testid="verb-unit-sisl">
+              <SeeItSayItLoop
+                lessonId={firstVocabSection.id}
+                language={language}
+                lessonName={firstVocabSection.name}
+              />
+            </div>
+          )}
+
+          {/* Micro-cycle drills */}
+          {microLoading && (
+            <div className="flex items-center justify-center py-8 text-muted-foreground gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="text-sm">Generating practice drills…</span>
+            </div>
+          )}
+
+          {anyMicro && (
+            <div className="space-y-6" data-testid="verb-unit-micro-cycle">
+              {hasNegative && (
+                <NegativeFormSection
+                  language={language}
+                  patternLabel={microCycle!.patternLabel}
+                  items={microCycle!.negativeItems}
+                />
+              )}
+              {hasQuestion && (
+                <QuestionFormSection
+                  language={language}
+                  patternLabel={microCycle!.patternLabel}
+                  items={microCycle!.questionItems}
+                />
+              )}
+              {hasSentence && (
+                <SentenceColumnGenerator
+                  language={language}
+                  columns={microCycle!.sentenceColumns}
+                />
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── Unit title — bottom, like a chapter total (both paths) ── */}
       <div className="space-y-0.5 border-t pt-6">
         <p className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">
           Unit {chapter.number}
@@ -186,7 +252,7 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
         </h1>
       </div>
 
-      {/* ── CTAs ── */}
+      {/* ── CTAs (both paths) ── */}
       <div className="space-y-2 pt-2" data-testid="verb-unit-ctas">
         <Button
           className="w-full min-h-[52px] text-base gap-2"
