@@ -1,6 +1,9 @@
+import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, MessageSquare, BookOpen, Globe } from "lucide-react";
+import { ChevronLeft, MessageSquare, Globe, Volume2, Loader2 } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { apiRequest } from "@/lib/queryClient";
 import { classifyGrammarType, GrammarChapterView } from "./ChapterIntroduction";
 import { SeeItSayItLoop } from "./SeeItSayItLoop";
 
@@ -42,14 +45,59 @@ interface VocabularyClusterUnitProps {
   onStartConversation: (lessonId?: string) => void;
 }
 
-// ── Key phrase row ─────────────────────────────────────────────────────────────
+// ── Key phrase row with TTS ────────────────────────────────────────────────────
 
-function KeyPhraseRow({ phrase, index }: { phrase: KeyPhrase; index: number }) {
+function KeyPhraseRow({
+  phrase,
+  index,
+  language,
+}: {
+  phrase: KeyPhrase;
+  index: number;
+  language: string;
+}) {
+  const { tutorGender } = useLanguage();
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const handleListen = useCallback(async () => {
+    if (isPlaying) return;
+    setIsPlaying(true);
+    try {
+      const response = await apiRequest("POST", "/api/tts/pronunciation", {
+        text: phrase.phrase,
+        language,
+        gender: tutorGender ?? "female",
+      });
+      const data = await response.json();
+      const audio = new Audio(data.audioUrl);
+      audio.onended = () => setIsPlaying(false);
+      audio.onerror = () => setIsPlaying(false);
+      await audio.play();
+    } catch {
+      setIsPlaying(false);
+    }
+  }, [phrase.phrase, language, tutorGender, isPlaying]);
+
   return (
     <div
-      className="flex items-start gap-3 py-2.5 border-b last:border-0"
+      className="flex items-start gap-2 py-2.5 border-b last:border-0"
       data-testid={`key-phrase-${index}`}
     >
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={handleListen}
+        disabled={isPlaying}
+        aria-label={`Listen to: ${phrase.phrase}`}
+        data-testid={`button-listen-phrase-${index}`}
+        className="shrink-0 mt-0.5"
+      >
+        {isPlaying ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <Volume2 className="h-3.5 w-3.5" />
+        )}
+      </Button>
       <div className="flex-1 min-w-0">
         {phrase.usage && (
           <p className="text-[10px] italic text-muted-foreground/60 mb-0.5">{phrase.usage}</p>
@@ -63,7 +111,13 @@ function KeyPhraseRow({ phrase, index }: { phrase: KeyPhrase; index: number }) {
 
 // ── Lesson key phrases block ──────────────────────────────────────────────────
 
-function LessonKeyPhrases({ lessonId }: { lessonId: string }) {
+function LessonKeyPhrases({
+  lessonId,
+  language,
+}: {
+  lessonId: string;
+  language: string;
+}) {
   const { data, isLoading } = useQuery<{ content: VocabContent | null }>({
     queryKey: ["/api/textbook-content", lessonId],
     enabled: !!lessonId,
@@ -75,23 +129,15 @@ function LessonKeyPhrases({ lessonId }: { lessonId: string }) {
   if (isLoading || !phrases || phrases.length === 0) return null;
 
   return (
-    <div className="space-y-2" data-testid="key-phrases-block">
-      <div className="flex items-center gap-1.5">
-        <BookOpen className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-        <p className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">
-          Key Phrases
-        </p>
-      </div>
-      <div>
-        {phrases.slice(0, 10).map((ph, i) => (
-          <KeyPhraseRow key={i} phrase={ph} index={i} />
-        ))}
-      </div>
+    <div data-testid="key-phrases-block">
+      {phrases.slice(0, 10).map((ph, i) => (
+        <KeyPhraseRow key={i} phrase={ph} index={i} language={language} />
+      ))}
     </div>
   );
 }
 
-// ── Lesson cultural notes ─────────────────────────────────────────────────────
+// ── Lesson cultural note ──────────────────────────────────────────────────────
 
 function LessonCulturalNote({ lessonId }: { lessonId: string }) {
   const { data } = useQuery<{ content: VocabContent | null }>({
@@ -165,30 +211,52 @@ export function VocabularyClusterUnit({
         </div>
       )}
 
-      {/* ── Vocabulary grid with images ── */}
-      {firstSection && (
-        <div className="space-y-3" data-testid="vocabulary-cluster-grid">
+      {/* ── Vocabulary images — all sections, each gets its own See It Say It loop ── */}
+      {chapter.sections.length > 0 && (
+        <div className="space-y-6" data-testid="vocabulary-cluster-grid">
           <p className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">
             Vocabulary
           </p>
-          <SeeItSayItLoop
-            lessonId={firstSection.id}
-            language={language}
-            hideHeader
-          />
+          {chapter.sections.map((section) => (
+            <div key={section.id}>
+              {chapter.sections.length > 1 && (
+                <p className="text-xs font-medium text-muted-foreground mb-2">{section.name}</p>
+              )}
+              <SeeItSayItLoop
+                lessonId={section.id}
+                language={language}
+                hideHeader
+              />
+            </div>
+          ))}
         </div>
       )}
 
-      {/* ── Key phrases from all sections ── */}
-      {chapter.sections.map((section) => (
-        <LessonKeyPhrases key={section.id} lessonId={section.id} />
-      ))}
+      {/* ── Key phrases with TTS — all sections ── */}
+      {chapter.sections.some(() => true) && (
+        <div className="space-y-3" data-testid="vocabulary-cluster-phrases">
+          <p className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">
+            Key Phrases
+          </p>
+          {chapter.sections.map((section) => (
+            <LessonKeyPhrases key={section.id} lessonId={section.id} language={language} />
+          ))}
+        </div>
+      )}
 
       {/* ── Cultural notes from all sections ── */}
       <div className="space-y-2">
         {chapter.sections.map((section) => (
           <LessonCulturalNote key={section.id} lessonId={section.id} />
         ))}
+      </div>
+
+      {/* ── Unit title footer — mirrors VerbUnit pattern ── */}
+      <div className="border-t pt-6 space-y-1" data-testid="vocabulary-cluster-footer">
+        <p className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">
+          Unit {chapter.number}
+        </p>
+        <h2 className="text-lg font-bold">{chapter.title}</h2>
       </div>
 
       {/* ── CTA ── */}

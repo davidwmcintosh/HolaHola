@@ -376,16 +376,9 @@ The Magic Key contains 20 reminder cards. Cards 1–2 are cognate vocabulary pat
 
 Cards 1–2 are Madrigal's actual "Magic Key" — the insight that English speakers already know thousands of Spanish words through shared Latin and Greek roots. These two cards appear **before any verb is introduced**. They are Madrigal's confidence-building opening: "You already know Spanish."
 
-**Current state:** No unit in the Spanish 1 curriculum teaches cognate word endings. The `SocialPhraseUnit` covers greetings but not cognates. The archived Unit 1001 ([ARCHIVED] ¡Hola! Greetings & Introductions) has no lessons.
+**Current state:** A cognate opener **already exists** in the `ChapterIntroduction.tsx` layer, powered by `cognateOpener` data in `chapter-intro-content.ts`. For Spanish, it shows "You already speak some Spanish" with clickable word cards (actor, doctor, hotel, animal, natural, formal, social…) and TTS per word. This IS the Magic Key concept, already built and shown at the chapter intro level. The archived Unit 1001 is its home — no lessons needed because the cognate card is its entire content. The open decision is whether to promote this to a dedicated `vocabulary_cluster` unit or keep it at the chapter intro layer.
 
-**The gap:** The "Magic Key" concept — OR→el doctor, OUS→famoso, TION→la invitación — has no home. In Madrigal's method, this is introduced before page 9 (before the first verb lesson). It serves a psychological function: the student arrives at Lesson 1 already feeling capable.
-
-**Proposed resolution (for future content decision session):**  
-Option A: Add a "Las Llaves Mágicas" Vocabulary Cluster unit as Unit 0.5 — between Social Phrases and ir — covering the 8 major cognate patterns with examples.  
-Option B: Embed one cognate pattern panel into the Social Phrases unit as an introductory moment.  
-Option C: Handle cognate awareness in Daniela's opening session script (outside the textbook unit system entirely).
-
-**No code or database change has been made.** This is a content decision that should happen alongside the broader 27-unit content sequencing session, with the Magic Key card PDF as a reference.
+**Open decision:** Whether to give the cognate opener a dedicated unit slot in the 27-unit sequence (e.g., as Unit 0.5 — "Las Llaves Mágicas" — between Social Phrases and ir) or keep it at the chapter intro layer. This is a content organization decision for the 27-unit sequencing session.
 
 ---
 

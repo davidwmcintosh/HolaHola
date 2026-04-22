@@ -266,7 +266,7 @@ Before any verb appears, Madrigal gives the student two cards about **cognate wo
 
 These two cards are the entire premise of the book: *you already know thousands of Spanish words.* They reduce anxiety before page 9 arrives. They are the book's opening promise made tangible and portable.
 
-**HoloHola status:** No unit currently teaches cognate word endings. This is a gap. The `SocialPhraseUnit` covers greetings but not cognates. The `madrigal-page-one-analysis.md` note about Daniela's opening session ("¿Hospital? That's Spanish.") handles this informally in voice, but there is no textbook unit for it. See Decision 8 in `curriculum-strategy.md` for the three resolution options.
+**HoloHola status:** A cognate opener **does exist** — it is rendered in `ChapterIntroduction.tsx` at the chapter introduction layer, using data from `client/src/data/chapter-intro-content.ts` (`cognateOpener` field). For Spanish, it shows "You already speak some Spanish" with "IDENTICAL IN BOTH LANGUAGES" (actor, doctor, director, hotel, animal, color, error, motor) and "NEARLY THE SAME" (natural, formal, social, normal, total) — styled as a tappable word grid with TTS per word. This is exactly what Madrigal's Cards 1–2 establish. The decision of whether to promote it to a dedicated `vocabulary_cluster` unit or keep it at the intro layer remains open — see Decision 8 in `curriculum-strategy.md`.
 
 ### Finding 3: The Magic Key sequence confirms the 27-unit roadmap ordering
 

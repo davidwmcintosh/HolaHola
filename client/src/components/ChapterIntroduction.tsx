@@ -1151,7 +1151,7 @@ export function classifyGrammarType(title: string, language = 'spanish'): Gramma
   if (lower.includes('false cognate') || lower.includes('falso cognado') || lower.includes('false friend') || lower.includes('amigos falsos')) return 'false_cognates';
 
   // ── Section 3 — verb conjugation tables ─────────────────────────────────
-  if (lower.includes('-ar verb') || lower.includes('ar verb') || (lower.includes('hablar') && !lower.includes('pret')) || lower.includes('regular ar') || lower.includes('verbos -ar')) return 'ar_verbs';
+  if (lower.includes('-ar verb') || lower.includes('ar verb') || (lower.includes('hablar') && !lower.includes('pret')) || lower.includes('regular ar') || lower.includes('verbos -ar') || (lower.includes('present tense') && lower.includes('ar')) || (lower.includes('presente') && lower.includes('ar'))) return 'ar_verbs';
   if (lower.includes('-er verb') || lower.includes('er verb') || (lower.includes('comer') && !lower.includes('pret')) || lower.includes('regular er') || lower.includes('verbos -er')) return 'er_verbs';
   if (lower.includes('-ir verb') || lower.includes('ir verb') || (lower.includes('vivir') && !lower.includes('pret')) || lower.includes('regular ir') || lower.includes('verbos -ir')) return 'ir_verbs';
   if (lower === 'ser' || lower.includes('verb ser') || lower.includes('el verbo ser') || (lower.startsWith('ser') && !lower.includes('estar'))) return 'ser_only';
@@ -1177,7 +1177,7 @@ export function classifyGrammarType(title: string, language = 'spanish'): Gramma
 
   // ── Section 4 — Prepositions ─────────────────────────────────────────────
   if (lower.includes('temporal prep') || lower.includes('preposicion de tiempo') || lower.includes('antes de') || lower.includes('después de') || lower.includes('hace + tiempo')) return 'temporal_prep';
-  if (lower.includes('preposition') || lower.includes('preposición') || lower.includes('spatial') || lower.includes('prep of place') || lower.includes('places in town') || lower.includes('places in the community') || lower.includes('la ciudad') || lower.includes('giving direction') || lower.includes('getting around')) return 'spatial_prep';
+  if (lower.includes('preposition') || lower.includes('preposición') || lower.includes('spatial') || lower.includes('prep of place') || lower.includes('places in town') || lower.includes('places in the community') || lower.includes('la ciudad') || lower.includes('giving direction') || lower.includes('getting around') || lower.includes('las direcciones') || lower.includes('dirección') || lower.includes('direcciones')) return 'spatial_prep';
 
   // ── Section 5 — Cultural infographics ────────────────────────────────────
   // More specific first to avoid false positives

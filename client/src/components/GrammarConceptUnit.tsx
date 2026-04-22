@@ -92,7 +92,7 @@ function ExampleSentence({
         disabled={isPlaying}
         aria-label={`Listen to: ${example.target}`}
         data-testid={`button-listen-example-${index}`}
-        className="h-7 w-7 shrink-0 mt-0.5"
+        className="shrink-0 mt-0.5"
       >
         {isPlaying ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
