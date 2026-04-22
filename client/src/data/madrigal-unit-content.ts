@@ -586,6 +586,190 @@ const NEAR_FUTURE_VOY_A: PreteriteUnitContent = {
   ],
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Tener: I Have
+// Source: Madrigal pp. 46–53
+//
+// Seven vocabulary clusters:
+//   1. ¿Tiene? basic possession — auto/bicicleta/guitarra/fonógrafo (p. 46)
+//   2. Tiene + vocabulary — mantequilla/azúcar/discos/libros (p. 47)
+//   3. En casa — humorous negative Q&A (pp. 48–49)
+//   4. Tengo que comprar — statement cards (p. 50)
+//   5. ¿Tiene que comprar? — Q&A (p. 51)
+//   6. Tengo que ir — places + sentence combinator (p. 52)
+//   7. Everyday expressions (p. 53)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const TENER_I_HAVE: PreteriteUnitContent = {
+  chapterTitleKey: "tener",
+
+  clusters: [
+    // ── Cluster 1: ¿Tiene? basic possession (p. 46) ───────────────────────────
+    {
+      anchorItems: [
+        { spanish: "¿Tiene?",  english: "Have you?" },
+        { spanish: "Un, Una,", english: "A, an." },
+        { spanish: "Tengo,",   english: "I have." },
+        { spanish: "Sí,",      english: "Yes." },
+      ],
+
+      qaCards: [
+        { imageWord: "auto",      question: "¿Tiene un auto?",       questionTranslation: "Do you have a car?",        answer: "Sí, tengo un auto.",       answerTranslation: "Yes, I have a car." },
+        { imageWord: "bicicleta", question: "¿Tiene una bicicleta?", questionTranslation: "Do you have a bicycle?",    answer: "Sí, tengo una bicicleta.", answerTranslation: "Yes, I have a bicycle." },
+        { imageWord: "guitarra",  question: "¿Tiene una guitarra?",  questionTranslation: "Do you have a guitar?",     answer: "Sí, tengo una guitarra.",  answerTranslation: "Yes, I have a guitar." },
+        { imageWord: "fonógrafo", question: "¿Tiene un fonógrafo?",  questionTranslation: "Do you have a phonograph?", answer: "Sí, tengo un fonógrafo.",  answerTranslation: "Yes, I have a phonograph." },
+      ],
+
+      conjugationTable: [
+        { form: "Tener",   meaning: "to have" },
+        { form: "Tengo",   meaning: "I have" },
+        { form: "Tenemos", meaning: "we have" },
+        { form: "¿Tiene?", meaning: "have you?" },
+        { form: "Tienen",  meaning: "they have" },
+        { form: "Tiene",   meaning: "he has · she has · you have" },
+      ],
+    },
+
+    // ── Cluster 2: Tiene — vocabulary + forms (p. 47) ────────────────────────
+    {
+      anchorItems: [
+        { spanish: "Mantequilla,",   english: "Butter." },
+        { spanish: "Azúcar,",        english: "Sugar." },
+        { spanish: "Muchos discos,", english: "Many records." },
+        { spanish: "Muchos libros,", english: "Many books." },
+      ],
+
+      statementCards: [
+        { word: "discos", sentence: "Tiene muchos discos.", translation: "He has many records.", imageDescription: "a collection of vinyl records" },
+        { word: "libros", sentence: "Tiene muchos libros.", translation: "He has many books.",   imageDescription: "a large stack of books" },
+      ],
+
+      // Madrigal shows that "Tiene" covers four English translations —
+      // and "¿Tiene?" covers the same four as questions.
+      conjugationTable: [
+        { form: "Tiene",   meaning: "you have · he has · she has · it has" },
+        { form: "¿Tiene?", meaning: "Have you? · Has he? · Has she? · Has it?" },
+      ],
+    },
+
+    // ── Cluster 3: En casa — humorous negative Q&A (pp. 48–49) ──────────────
+    {
+      anchorItems: [
+        { spanish: "En casa,",         english: "At home." },
+        { spanish: "Por fortuna,",     english: "Fortunately." },
+        { spanish: "Eso es terrible,", english: "That is terrible." },
+      ],
+
+      noteBefore: "¡Caramba! — Good gracious! / For goodness' sake! In this section we practice the negative with some very surprising situations.",
+
+      qaCards: [
+        { imageWord: "gorila",    question: "¿Tiene un gorila en casa?",     questionTranslation: "Do you have a gorilla at home?",   answer: "¡Caramba, no! ¡Es ridículo! No tengo un gorila en casa.",                             answerTranslation: "Good gracious, no! That's ridiculous! I don't have a gorilla at home." },
+        { imageWord: "toro",      question: "¿Tiene un toro en casa?",       questionTranslation: "Do you have a bull at home?",       answer: "¡No! ¡Es absolutamente ridículo! No tengo un toro en casa.",                          answerTranslation: "No! That's absolutely ridiculous! I don't have a bull at home." },
+        { imageWord: "elefante",  question: "¿Tiene un elefante en casa?",   questionTranslation: "Do you have an elephant at home?", answer: "¡Caramba, no! ¡Es absolutamente ridículo! No tengo un elefante en casa. ¡No es posible!", answerTranslation: "Good gracious, no! Absolutely ridiculous! I don't have an elephant at home. It's impossible!" },
+        { imageWord: "león",      question: "¿Tiene un león en casa?",       questionTranslation: "Do you have a lion at home?",       answer: "¡Caramba! ¡Eso es terrible! No tengo un león en casa.",                               answerTranslation: "Good gracious! That's terrible! I don't have a lion at home." },
+        { imageWord: "rata",      question: "¿Tiene una rata en casa?",      questionTranslation: "Do you have a rat at home?",        answer: "¡Eso es terrible! No tengo una rata en casa.",                                        answerTranslation: "That's terrible! I don't have a rat at home." },
+        { imageWord: "serpiente", question: "¿Tiene una serpiente en casa?", questionTranslation: "Do you have a snake at home?",      answer: "¡Caramba! ¡Eso es terrible! No tengo una serpiente en casa.",                         answerTranslation: "Good gracious! That's terrible! I don't have a snake at home." },
+      ],
+
+      noteAfter: "Eso es ridículo. — That is ridiculous.\nEso es absolutamente ridículo. — That is absolutely ridiculous.",
+    },
+
+    // ── Cluster 4: Tengo que comprar — statement cards (p. 50) ───────────────
+    {
+      anchorItems: [
+        { spanish: "Tengo que comprar,", english: "I have to buy." },
+        { spanish: "Un, Una,",           english: "A, an." },
+      ],
+
+      statementCards: [
+        { word: "silla",    sentence: "Tengo que comprar una silla.",  translation: "I have to buy a chair.",   imageDescription: "a simple wooden chair" },
+        { word: "jabón",    sentence: "Tengo que comprar jabón.",      translation: "I have to buy soap.",      imageDescription: "a bar of soap" },
+        { word: "cortinas", sentence: "Tengo que comprar cortinas.",   translation: "I have to buy curtains.",  imageDescription: "window curtains" },
+        { word: "camisa",   sentence: "Tengo que comprar una camisa.", translation: "I have to buy a shirt.",   imageDescription: "a button-up shirt" },
+      ],
+
+      noteAfter: "Tenemos que comprar — We have to buy\nTenemos que comprar café.\nTenemos que comprar un auto.",
+    },
+
+    // ── Cluster 5: ¿Tiene que comprar? Q&A (p. 51) ───────────────────────────
+    {
+      anchorItems: [
+        { spanish: "Huevos,",             english: "Eggs." },
+        { spanish: "¿Tiene que comprar?", english: "Do you have to buy?" },
+        { spanish: "Tengo que comprar,",  english: "I have to buy." },
+      ],
+
+      qaCards: [
+        { imageWord: "auto",    question: "¿Tiene que comprar un auto?",     questionTranslation: "Do you have to buy a car?",   answer: "Sí, tengo que comprar un auto.",     answerTranslation: "Yes, I have to buy a car." },
+        { imageWord: "jabón",   question: "¿Tiene que comprar jabón?",       questionTranslation: "Do you have to buy soap?",    answer: "Sí, tengo que comprar jabón.",       answerTranslation: "Yes, I have to buy soap." },
+        { imageWord: "huevos",  question: "¿Tiene que comprar huevos?",      questionTranslation: "Do you have to buy eggs?",    answer: "Sí, tengo que comprar huevos.",      answerTranslation: "Yes, I have to buy eggs." },
+        { imageWord: "lámpara", question: "¿Tiene que comprar una lámpara?", questionTranslation: "Do you have to buy a lamp?",  answer: "Sí, tengo que comprar una lámpara.", answerTranslation: "Yes, I have to buy a lamp." },
+      ],
+    },
+
+    // ── Cluster 6: Tengo que ir — places + sentence combinator (p. 52) ───────
+    {
+      anchorItems: [
+        { spanish: "Tengo que ir,",    english: "I have to go." },
+        { spanish: "Al,",              english: "To the." },
+        { spanish: "Al correo,",       english: "To the post office." },
+        { spanish: "Al despacho,",     english: "To the office." },
+      ],
+
+      statementCards: [
+        { word: "correo",      sentence: "Tengo que ir al correo.",      translation: "I have to go to the post office.", imageDescription: "a post office building" },
+        { word: "banco",       sentence: "Tengo que ir al banco.",       translation: "I have to go to the bank.",        imageDescription: "a bank building exterior" },
+        { word: "restaurante", sentence: "Tengo que ir al restaurante.", translation: "I have to go to the restaurant.",  imageDescription: "a restaurant exterior" },
+        { word: "despacho",    sentence: "Tengo que ir al despacho.",    translation: "I have to go to the office.",      imageDescription: "an office building" },
+      ],
+
+      sentenceColumns: [
+        {
+          items: [
+            { text: "Tengo que ir", translation: "I have to go" },
+          ],
+        },
+        {
+          items: [
+            { text: "al hotel.",       translation: "to the hotel." },
+            { text: "al hospital.",    translation: "to the hospital." },
+            { text: "al club.",        translation: "to the club." },
+            { text: "al correo.",      translation: "to the post office." },
+            { text: "al banco.",       translation: "to the bank." },
+            { text: "al restaurante.", translation: "to the restaurant." },
+          ],
+        },
+      ],
+    },
+
+    // ── Cluster 7: Everyday expressions (p. 53) ──────────────────────────────
+    {
+      anchorItems: [
+        { spanish: "Tengo tiempo,",             english: "I have time." },
+        { spanish: "No tengo tiempo,",          english: "I don't have time." },
+        { spanish: "Tengo visitas,",            english: "I have company." },
+        { spanish: "Tengo catarro,",            english: "I have a cold." },
+        { spanish: "Tengo hambre,",             english: "I'm hungry." },
+        { spanish: "Tengo sed,",                english: "I'm thirsty." },
+        { spanish: "Tengo frío,",               english: "I'm cold." },
+        { spanish: "Tengo calor,",              english: "I'm warm." },
+        { spanish: "Tengo dolor de cabeza,",    english: "I have a headache." },
+        { spanish: "Tiene razón,",              english: "You are right." },
+        { spanish: "¿Qué tiene?,",              english: "What's wrong? / What have you got?" },
+        { spanish: "¿Cuántos años tiene?,",     english: "How old are you?" },
+        { spanish: "Alberto tiene cinco años,", english: "Albert is five years old." },
+      ],
+
+      conjugationTable: [
+        { form: "Tengo",   meaning: "I have" },
+        { form: "Tiene",   meaning: "you have · he has · she has" },
+        { form: "Tenemos", meaning: "we have" },
+        { form: "Tienen",  meaning: "they have" },
+      ],
+    },
+  ],
+};
+
 // ── Registries ────────────────────────────────────────────────────────────────
 
 const MADRIGAL_VERB_UNITS: MadrigalVerbUnitContent[] = [
@@ -596,6 +780,7 @@ const PRETERITE_UNITS: PreteriteUnitContent[] = [
   NEAR_FUTURE_VOY_A,
   TOMAR_I_TOOK,
   COMPRAR_I_BOUGHT,
+  TENER_I_HAVE,
 ];
 
 /**
