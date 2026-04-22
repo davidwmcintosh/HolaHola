@@ -204,8 +204,8 @@ function SerQACardItem({
       className="rounded-md border bg-card flex flex-col overflow-hidden"
       data-testid={`ser-qa-card-${testId}`}
     >
-      {/* Image */}
-      <div className="relative w-full aspect-square bg-muted/30 overflow-hidden">
+      {/* Image — fixed height so it doesn't overwhelm the card */}
+      <div className="relative w-full h-36 bg-muted/30 overflow-hidden flex-shrink-0">
         {imageData?.url ? (
           <img
             src={imageData.url}
@@ -220,17 +220,8 @@ function SerQACardItem({
         )}
       </div>
 
-      {/* Question */}
-      <div className="flex flex-col items-center px-2 pt-2 pb-1 text-center gap-0.5 border-b border-border/30">
-        <p
-          className="text-sm font-medium leading-snug"
-          data-testid={`text-question-${testId}`}
-        >
-          {card.question}
-        </p>
-        <p className="text-[11px] text-muted-foreground leading-tight">
-          {card.questionTranslation}
-        </p>
+      {/* Question — speaker + text + translation inline */}
+      <div className="flex items-center gap-2 px-2 py-2 border-b border-border/30">
         <Button
           size="icon"
           variant="ghost"
@@ -238,24 +229,27 @@ function SerQACardItem({
           disabled={playingKey === qKey}
           data-testid={`button-play-question-${testId}`}
           title={`Hear "${card.question}"`}
+          className="flex-shrink-0"
         >
           {playingKey === qKey
             ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
             : <Volume2 className="h-3.5 w-3.5" />}
         </Button>
+        <div className="flex flex-col min-w-0">
+          <p
+            className="text-sm font-medium leading-snug"
+            data-testid={`text-question-${testId}`}
+          >
+            {card.question}
+          </p>
+          <p className="text-[11px] text-muted-foreground leading-tight">
+            {card.questionTranslation}
+          </p>
+        </div>
       </div>
 
-      {/* Answer */}
-      <div className="flex flex-col items-center px-2 pt-1.5 pb-2 text-center gap-0.5">
-        <p
-          className="text-sm font-medium leading-snug"
-          data-testid={`text-answer-${testId}`}
-        >
-          {card.answer}
-        </p>
-        <p className="text-[11px] text-muted-foreground leading-tight">
-          {card.answerTranslation}
-        </p>
+      {/* Answer — speaker + text + translation inline */}
+      <div className="flex items-center gap-2 px-2 py-2">
         <Button
           size="icon"
           variant="ghost"
@@ -263,11 +257,23 @@ function SerQACardItem({
           disabled={playingKey === aKey}
           data-testid={`button-play-answer-${testId}`}
           title={`Hear "${card.answer}"`}
+          className="flex-shrink-0"
         >
           {playingKey === aKey
             ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
             : <Volume2 className="h-3.5 w-3.5" />}
         </Button>
+        <div className="flex flex-col min-w-0">
+          <p
+            className="text-sm font-medium leading-snug"
+            data-testid={`text-answer-${testId}`}
+          >
+            {card.answer}
+          </p>
+          <p className="text-[11px] text-muted-foreground leading-tight">
+            {card.answerTranslation}
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -347,14 +353,30 @@ function SerQACluster({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      {/* Optional room header (e.g. "En el baño") */}
+      {/* Room header + anchor items on the same line, same font size */}
       {cluster.roomHeader && (
-        <div className="flex flex-col gap-0.5">
-          <p className="text-2xl font-bold tracking-tight">{cluster.roomHeader.spanish}</p>
-          <p className="text-sm text-muted-foreground">{cluster.roomHeader.english}</p>
+        <div
+          className="flex flex-wrap items-baseline gap-x-8 gap-y-2 py-1"
+          data-testid="room-header-block"
+        >
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold tracking-tight leading-none">
+              {cluster.roomHeader.spanish}
+            </span>
+            <span className="text-base text-muted-foreground font-normal">
+              {cluster.roomHeader.english}
+            </span>
+          </div>
+          {cluster.anchorItems?.map((item, i) => (
+            <div key={i} className="flex items-baseline gap-2">
+              <span className="text-3xl font-bold tracking-tight leading-none">{item.spanish}</span>
+              <span className="text-base text-muted-foreground font-normal">{item.english}</span>
+            </div>
+          ))}
         </div>
       )}
-      {cluster.anchorItems && cluster.anchorItems.length > 0 && (
+      {/* Anchor items only (no room header) */}
+      {!cluster.roomHeader && cluster.anchorItems && cluster.anchorItems.length > 0 && (
         <MadrigalAnchorBlock items={cluster.anchorItems} />
       )}
       <SerQAGrid cards={cluster.cards} language={language} />
@@ -507,8 +529,8 @@ function EstarStatementCard({
       className="flex flex-col rounded-md border bg-card overflow-hidden"
       data-testid={`estar-statement-card-${testId}`}
     >
-      {/* Image */}
-      <div className="relative w-full aspect-square bg-muted/30 flex items-center justify-center">
+      {/* Image — fixed height to stay compact */}
+      <div className="relative w-full h-36 bg-muted/30 flex items-center justify-center overflow-hidden flex-shrink-0">
         {data?.url ? (
           <img
             src={data.url}
@@ -554,6 +576,7 @@ function EstarStatementsCluster({
 }) {
   return (
     <div className="flex flex-col gap-4">
+      {cluster.introNote && <MadrigalNote text={cluster.introNote} />}
       {cluster.anchorItems && cluster.anchorItems.length > 0 && (
         <MadrigalAnchorBlock items={cluster.anchorItems} />
       )}
@@ -585,54 +608,46 @@ function EstarConjCluster({
 }) {
   const { playingKey, play } = useTTSButton(language, tutorGender);
 
+  // All conjugation forms (rows + question) in one flat array for the 3-col grid
+  const allForms = [
+    ...cluster.rows.map(r => ({ text: r.conjugated, translation: r.translation, key: r.conjugated })),
+    { text: cluster.questionForm, translation: cluster.questionTranslation, key: 'qform' },
+  ];
+
   return (
     <div className="flex flex-col gap-5">
-      {/* Conjugation table */}
-      <div className="rounded-md border bg-card overflow-hidden" data-testid="estar-conj-table">
-        {cluster.rows.map((row, i) => (
+      {/* Conjugation — 3-column grid to keep it compact */}
+      <div
+        className="grid grid-cols-3 gap-2"
+        data-testid="estar-conj-table"
+      >
+        {allForms.map((form, i) => (
           <div
             key={i}
-            className={`flex items-center gap-3 px-4 py-2.5 ${i < cluster.rows.length - 1 ? 'border-b' : ''}`}
+            className="flex flex-col items-center gap-1 rounded-md border bg-card px-2 py-3 text-center"
           >
+            <span className="text-base font-bold leading-tight">{form.text}</span>
+            <span className="text-[11px] text-muted-foreground leading-snug">{form.translation}</span>
             <Button
               size="icon"
               variant="ghost"
-              onClick={() => play(row.conjugated, `conj-${i}`)}
-              disabled={playingKey === `conj-${i}`}
+              onClick={() => play(form.text, form.key)}
+              disabled={playingKey === form.key}
               data-testid={`button-play-conj-${i}`}
-              title={`Hear "${row.conjugated}"`}
+              title={`Hear "${form.text}"`}
             >
-              {playingKey === `conj-${i}`
+              {playingKey === form.key
                 ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 : <Volume2 className="h-3.5 w-3.5" />}
             </Button>
-            <span className="text-base font-bold min-w-[5rem]">{row.conjugated}</span>
-            <span className="text-sm text-muted-foreground">{row.translation}</span>
           </div>
         ))}
-        {/* Question form row */}
-        <div className="flex items-center gap-3 px-4 py-2.5 border-t bg-muted/20">
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={() => play(cluster.questionForm, 'qform')}
-            disabled={playingKey === 'qform'}
-            data-testid="button-play-question-form"
-            title={`Hear "${cluster.questionForm}"`}
-          >
-            {playingKey === 'qform'
-              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              : <Volume2 className="h-3.5 w-3.5" />}
-          </Button>
-          <span className="text-base font-bold min-w-[5rem]">{cluster.questionForm}</span>
-          <span className="text-sm text-muted-foreground">{cluster.questionTranslation}</span>
-        </div>
       </div>
 
-      {/* Sentence combinator */}
+      {/* Sentence practice — list of complete sentences */}
       <div className="flex flex-col gap-2" data-testid="estar-combinator">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Combine
+          Practice sentences
         </p>
         <div className="rounded-md border bg-card overflow-hidden">
           {cluster.combinatorWords.map((word, i) => {

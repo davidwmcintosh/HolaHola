@@ -79,8 +79,8 @@ function PreteriteQACardItem({
       className="rounded-md border bg-card flex flex-col overflow-hidden"
       data-testid={`preterite-qa-card-${card.imageWord}`}
     >
-      {/* Image */}
-      <div className="relative w-full aspect-square bg-muted/30 overflow-hidden">
+      {/* Image — fixed height so it doesn't dominate the card */}
+      <div className="relative w-full h-36 bg-muted/30 overflow-hidden flex-shrink-0">
         {imageUrl ? (
           <img
             src={imageUrl}
@@ -95,17 +95,8 @@ function PreteriteQACardItem({
         )}
       </div>
 
-      {/* Question */}
-      <div className="flex flex-col items-center px-2 pt-2 pb-1 text-center gap-0.5 border-b border-border/30">
-        <p
-          className="text-sm font-medium leading-snug"
-          data-testid={`text-question-${card.imageWord}`}
-        >
-          {card.question}
-        </p>
-        <p className="text-[11px] text-muted-foreground leading-tight">
-          {card.questionTranslation}
-        </p>
+      {/* Question — speaker + text + translation inline */}
+      <div className="flex items-center gap-2 px-2 py-2 border-b border-border/30">
         <Button
           size="icon"
           variant="ghost"
@@ -113,25 +104,28 @@ function PreteriteQACardItem({
           disabled={playingKey === qKey}
           data-testid={`button-play-question-${card.imageWord}`}
           title={`Hear "${card.question}"`}
+          className="flex-shrink-0"
         >
           {playingKey === qKey
             ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
             : <Volume2 className="h-3.5 w-3.5" />
           }
         </Button>
+        <div className="flex flex-col min-w-0">
+          <p
+            className="text-sm font-medium leading-snug"
+            data-testid={`text-question-${card.imageWord}`}
+          >
+            {card.question}
+          </p>
+          <p className="text-[11px] text-muted-foreground leading-tight">
+            {card.questionTranslation}
+          </p>
+        </div>
       </div>
 
-      {/* Answer */}
-      <div className="flex flex-col items-center px-2 pt-1.5 pb-2 text-center gap-0.5">
-        <p
-          className="text-sm font-medium leading-snug"
-          data-testid={`text-answer-${card.imageWord}`}
-        >
-          {card.answer}
-        </p>
-        <p className="text-[11px] text-muted-foreground leading-tight">
-          {card.answerTranslation}
-        </p>
+      {/* Answer — speaker + text + translation inline */}
+      <div className="flex items-center gap-2 px-2 py-2">
         <Button
           size="icon"
           variant="ghost"
@@ -139,12 +133,24 @@ function PreteriteQACardItem({
           disabled={playingKey === aKey}
           data-testid={`button-play-answer-${card.imageWord}`}
           title={`Hear "${card.answer}"`}
+          className="flex-shrink-0"
         >
           {playingKey === aKey
             ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
             : <Volume2 className="h-3.5 w-3.5" />
           }
         </Button>
+        <div className="flex flex-col min-w-0">
+          <p
+            className="text-sm font-medium leading-snug"
+            data-testid={`text-answer-${card.imageWord}`}
+          >
+            {card.answer}
+          </p>
+          <p className="text-[11px] text-muted-foreground leading-tight">
+            {card.answerTranslation}
+          </p>
+        </div>
       </div>
     </div>
   );

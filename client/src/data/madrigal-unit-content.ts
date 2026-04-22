@@ -141,6 +141,7 @@ export type SerCluster =
   | {
       /** Statement image cards: "El café está en la mesa." (no Q&A) */
       type: 'estar-statements';
+      introNote?: string;          // shown above anchor block on first page
       anchorItems?: MadrigalAnchorItem[];
       cards: { imageWord: string; imageDescription?: string; statement: string; translation: string }[];
     }
@@ -1206,6 +1207,7 @@ const ESTAR_LOCATIONS: SerUnitContent = {
     // ─── p74: Table items (statement cards) ─────────────────────────────────
     {
       type: 'estar-statements',
+      introNote: 'Use estar when you want to say where someone or something is.',
       anchorItems: [
         { spanish: 'Está', english: 'is (located)' },
         { spanish: 'en', english: 'in, on, at' },
