@@ -104,6 +104,59 @@ export interface PreteriteUnitContent {
   clusters: PreteriteCluster[];
 }
 
+// ── Unit type 3: Ser-style (gender, number, ser verb) ─────────────────────────
+// Used for the gender & plurals chapter (Madrigal pp. 64–71)
+
+/** One image card showing both singular and plural forms of the same noun */
+export interface DualFormPair {
+  imageWord: string;
+  imageDescription?: string;
+  leftLabel: string;       // e.g. "El sombrero" or "El caballo es bonito."
+  leftTranslation: string;
+  rightLabel: string;      // e.g. "Los sombreros" or "Los caballos son bonitos."
+  rightTranslation: string;
+}
+
+export type SerCluster =
+  | {
+      type: 'article-pairs';
+      articleSingular: string; // "el" or "la"
+      articlePlural: string;   // "los" or "las"
+      pluralRule: string;
+      pairs: DualFormPair[];
+      footerNote: string;
+    }
+  | {
+      type: 'es-son-sentences';
+      anchorItems?: MadrigalAnchorItem[];
+      pairs: DualFormPair[];
+    }
+  | {
+      type: 'ser-qa';
+      anchorItems?: MadrigalAnchorItem[];
+      cards: PreteriteQACard[];
+      noteAfter?: string;
+    }
+  | {
+      type: 'consonant-plural';
+      pluralRule: string;
+      imagePairs: DualFormPair[];
+      wordList: { singular: string; plural: string }[];
+      wordListNote: string;
+      alWords?: string[];
+    }
+  | {
+      type: 'adjective-expressions';
+      anchorItems?: MadrigalAnchorItem[];
+      adjectives: { singular: string; plural: string; english: string }[];
+      expressions: { spanish: string; english: string }[];
+    };
+
+export interface SerUnitContent {
+  chapterTitleKey: string;
+  clusters: SerCluster[];
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Chapter 23: Where Are You Going? (ir — to go)
 // Source: Madrigal pp. 9–13
@@ -970,6 +1023,151 @@ const PRETERITE_UNITS: PreteriteUnitContent[] = [
   QUIERO_I_WANT,
 ];
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Chapter 33: Ser — Gender & Plurals
+// Source: Madrigal pp. 64–71
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const SER_PLURALS_GENDER: SerUnitContent = {
+  chapterTitleKey: 'ser',
+  clusters: [
+    // ─── p64: El / Los (masculine singular/plural) ──────────────────────────
+    {
+      type: 'article-pairs',
+      articleSingular: 'el',
+      articlePlural: 'los',
+      pluralRule: 'To form the plural of a word that ends in a vowel, add the letter S.',
+      pairs: [
+        { imageWord: 'sombrero', imageDescription: 'a wide-brimmed sombrero hat', leftLabel: 'El sombrero', leftTranslation: 'the hat', rightLabel: 'Los sombreros', rightTranslation: 'the hats' },
+        { imageWord: 'libro', imageDescription: 'a book', leftLabel: 'El libro', leftTranslation: 'the book', rightLabel: 'Los libros', rightTranslation: 'the books' },
+        { imageWord: 'caballo', imageDescription: 'a horse', leftLabel: 'El caballo', leftTranslation: 'the horse', rightLabel: 'Los caballos', rightTranslation: 'the horses' },
+        { imageWord: 'perro', imageDescription: 'a dog', leftLabel: 'El perro', leftTranslation: 'the dog', rightLabel: 'Los perros', rightTranslation: 'the dogs' },
+      ],
+      footerNote: 'Words that end in O are masculine and take the articles el and los.',
+    },
+    // ─── p65: La / Las (feminine singular/plural) ───────────────────────────
+    {
+      type: 'article-pairs',
+      articleSingular: 'la',
+      articlePlural: 'las',
+      pluralRule: 'To form the plural of a word that ends in a vowel, add the letter S.',
+      pairs: [
+        { imageWord: 'perra', imageDescription: 'a female dog', leftLabel: 'La perra', leftTranslation: 'the dog (f)', rightLabel: 'Las perras', rightTranslation: 'the dogs (f)' },
+        { imageWord: 'casa', imageDescription: 'a house', leftLabel: 'La casa', leftTranslation: 'the house', rightLabel: 'Las casas', rightTranslation: 'the houses' },
+        { imageWord: 'rosa', imageDescription: 'a red rose', leftLabel: 'La rosa', leftTranslation: 'the rose', rightLabel: 'Las rosas', rightTranslation: 'the roses' },
+        { imageWord: 'blusa', imageDescription: 'a blouse', leftLabel: 'La blusa', leftTranslation: 'the blouse', rightLabel: 'Las blusas', rightTranslation: 'the blouses' },
+      ],
+      footerNote: 'Words that end in A are feminine and take the articles la and las.',
+    },
+    // ─── p66: Masculine es/son sentences ────────────────────────────────────
+    {
+      type: 'es-son-sentences',
+      anchorItems: [
+        { spanish: 'bonito', english: 'pretty (m)' },
+        { spanish: 'bonitos', english: 'pretty (m. pl.)' },
+        { spanish: 'delicioso', english: 'delicious (m)' },
+        { spanish: 'deliciosos', english: 'delicious (m. pl.)' },
+        { spanish: 'rábano', english: 'radish' },
+        { spanish: 'plátano', english: 'banana' },
+        { spanish: 'es', english: 'is' },
+        { spanish: 'son', english: 'are' },
+      ],
+      pairs: [
+        { imageWord: 'caballo', imageDescription: 'a horse', leftLabel: 'El caballo es bonito.', leftTranslation: 'The horse is pretty.', rightLabel: 'Los caballos son bonitos.', rightTranslation: 'The horses are pretty.' },
+        { imageWord: 'libro', imageDescription: 'a book', leftLabel: 'El libro es bonito.', leftTranslation: 'The book is pretty.', rightLabel: 'Los libros son bonitos.', rightTranslation: 'The books are pretty.' },
+        { imageWord: 'plátano', imageDescription: 'a banana', leftLabel: 'El plátano es delicioso.', leftTranslation: 'The banana is delicious.', rightLabel: 'Los plátanos son deliciosos.', rightTranslation: 'The bananas are delicious.' },
+        { imageWord: 'rábano', imageDescription: 'a radish', leftLabel: 'El rábano es delicioso.', leftTranslation: 'The radish is delicious.', rightLabel: 'Los rábanos son deliciosos.', rightTranslation: 'The radishes are delicious.' },
+      ],
+    },
+    // ─── p67: Feminine es/son sentences ─────────────────────────────────────
+    {
+      type: 'es-son-sentences',
+      anchorItems: [
+        { spanish: 'bonita', english: 'pretty (f)' },
+        { spanish: 'bonitas', english: 'pretty (f. pl.)' },
+        { spanish: 'deliciosa', english: 'delicious (f)' },
+        { spanish: 'deliciosas', english: 'delicious (f. pl.)' },
+      ],
+      pairs: [
+        { imageWord: 'manzana', imageDescription: 'an apple', leftLabel: 'La manzana es deliciosa.', leftTranslation: 'The apple is delicious.', rightLabel: 'Las manzanas son deliciosas.', rightTranslation: 'The apples are delicious.' },
+        { imageWord: 'mariposa', imageDescription: 'a butterfly', leftLabel: 'La mariposa es bonita.', leftTranslation: 'The butterfly is pretty.', rightLabel: 'Las mariposas son bonitas.', rightTranslation: 'The butterflies are pretty.' },
+        { imageWord: 'perra', imageDescription: 'a female dog', leftLabel: 'La perra es bonita.', leftTranslation: 'The dog is pretty.', rightLabel: 'Las perras son bonitas.', rightTranslation: 'The dogs are pretty.' },
+        { imageWord: 'rosa', imageDescription: 'a red rose', leftLabel: 'La rosa es bonita.', leftTranslation: 'The rose is pretty.', rightLabel: 'Las rosas son bonitas.', rightTranslation: 'The roses are pretty.' },
+      ],
+    },
+    // ─── p68: ¿Son...? Q&A ───────────────────────────────────────────────────
+    {
+      type: 'ser-qa',
+      cards: [
+        { imageWord: 'vestido', imageDescription: 'a dress', question: '¿Son bonitos los vestidos?', questionTranslation: 'Are the dresses pretty?', answer: 'Sí, los vestidos son bonitos.', answerTranslation: 'Yes, the dresses are pretty.' },
+        { imageWord: 'falda', imageDescription: 'a skirt', question: '¿Son bonitas las faldas?', questionTranslation: 'Are the skirts pretty?', answer: 'Sí, las faldas son bonitas.', answerTranslation: 'Yes, the skirts are pretty.' },
+        { imageWord: 'corbata', imageDescription: 'a necktie', question: '¿Son bonitas las corbatas?', questionTranslation: 'Are the ties pretty?', answer: 'Sí, las corbatas son bonitas.', answerTranslation: 'Yes, the ties are pretty.' },
+      ],
+    },
+    // ─── p69: Consonant plurals (add -es) ────────────────────────────────────
+    {
+      type: 'consonant-plural',
+      pluralRule: 'To form the plural of words that end in a consonant, add es.',
+      imagePairs: [
+        { imageWord: 'doctor', imageDescription: 'a doctor in a white coat', leftLabel: 'El Doctor', leftTranslation: 'the doctor', rightLabel: 'Los Doctores', rightTranslation: 'the doctors' },
+        { imageWord: 'flor', imageDescription: 'a flower', leftLabel: 'La Flor', leftTranslation: 'the flower', rightLabel: 'Las Flores', rightTranslation: 'the flowers' },
+      ],
+      wordList: [
+        { singular: 'El animal', plural: 'Los animales' },
+        { singular: 'El metal', plural: 'Los metales' },
+        { singular: 'El cereal', plural: 'Los cereales' },
+        { singular: 'El actor', plural: 'Los actores' },
+        { singular: 'La invitación', plural: 'Las invitaciones' },
+      ],
+      wordListNote: 'Most words which end in "al" are alike in Spanish and English.',
+      alWords: ['el animal', 'el hospital', 'natural', 'final', 'capital', 'central', 'personal', 'local', 'rural', 'plural', 'el canal', 'federal'],
+    },
+    // ─── p70: ¿Es muy...? Q&A ────────────────────────────────────────────────
+    {
+      type: 'ser-qa',
+      anchorItems: [
+        { spanish: 'Ay, sí', english: 'Oh yes!' },
+        { spanish: 'Muy', english: 'Very' },
+      ],
+      cards: [
+        { imageWord: 'torero', imageDescription: 'a Spanish bullfighter in traditional costume', question: '¿Es valiente el Torero?', questionTranslation: 'Is the bullfighter brave?', answer: 'Ay, sí, el Torero es muy valiente.', answerTranslation: 'Oh yes, the bullfighter is very brave.' },
+        { imageWord: 'torero', imageDescription: 'a Spanish bullfighter in traditional costume', question: '¿Es romántico el Torero?', questionTranslation: 'Is the bullfighter romantic?', answer: 'Sí, el Torero es muy romántico.', answerTranslation: 'Yes, the bullfighter is very romantic.' },
+        { imageWord: 'toro', imageDescription: 'a bull', question: '¿Es valiente el Toro?', questionTranslation: 'Is the bull brave?', answer: 'Sí, el Toro es muy valiente.', answerTranslation: 'Yes, the bull is very brave.' },
+        { imageWord: 'dentista', imageDescription: 'a dentist treating a nervous patient', question: '¿Es valiente el paciente del dentista?', questionTranslation: "Is the dentist's patient brave?", answer: 'Ay, sí, el paciente del dentista es muy valiente.', answerTranslation: "Oh yes, the dentist's patient is very brave." },
+      ],
+      noteAfter: "Vamos a los toros. — Let's go to the bullfight!",
+    },
+    // ─── p71: Es/Son adjective pairs + expressions ───────────────────────────
+    {
+      type: 'adjective-expressions',
+      anchorItems: [
+        { spanish: 'es', english: 'is / it is' },
+        { spanish: 'son', english: 'are / they are' },
+      ],
+      adjectives: [
+        { singular: 'importante', plural: 'importantes', english: 'important' },
+        { singular: 'terrible', plural: 'terribles', english: 'terrible' },
+        { singular: 'fantástico', plural: 'fantásticos', english: 'fantastic' },
+        { singular: 'bueno', plural: 'buenos', english: 'good' },
+        { singular: 'malo', plural: 'malos', english: 'bad' },
+        { singular: 'interesante', plural: 'interesantes', english: 'interesting' },
+        { singular: 'formidable', plural: 'formidables', english: 'formidable' },
+      ],
+      expressions: [
+        { spanish: '¡Eso es!', english: "That's it!" },
+        { spanish: '¡Claro!', english: 'Of course!' },
+        { spanish: '¡Cómo no!', english: 'Of course!' },
+        { spanish: '¡Por supuesto!', english: 'Of course!' },
+        { spanish: '¡Ya lo creo!', english: 'Now I believe it!' },
+      ],
+    },
+  ],
+};
+
+const SER_UNITS: SerUnitContent[] = [
+  SER_PLURALS_GENDER,
+];
+
 /**
  * Returns hardcoded ir-style Madrigal content for a chapter if available.
  */
@@ -984,4 +1182,12 @@ export function getMadrigalContent(chapterTitle: string): MadrigalVerbUnitConten
 export function getPreteriteContent(chapterTitle: string): PreteriteUnitContent | null {
   const lower = chapterTitle.toLowerCase();
   return PRETERITE_UNITS.find(u => lower.includes(u.chapterTitleKey)) ?? null;
+}
+
+/**
+ * Returns hardcoded ser-style content for a chapter if available.
+ */
+export function getSerContent(chapterTitle: string): SerUnitContent | null {
+  const lower = chapterTitle.toLowerCase();
+  return SER_UNITS.find(u => lower.includes(u.chapterTitleKey)) ?? null;
 }

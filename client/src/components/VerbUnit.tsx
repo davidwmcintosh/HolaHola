@@ -14,7 +14,8 @@ import {
   MadrigalVaDefinition,
 } from "./MadrigalPageComponents";
 import { PreteriteUnit } from "./PreteriteUnit";
-import { getMadrigalContent, getPreteriteContent } from "@/data/madrigal-unit-content";
+import { SerUnit } from "./SerUnit";
+import { getMadrigalContent, getPreteriteContent, getSerContent } from "@/data/madrigal-unit-content";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -86,9 +87,11 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
 
   // Madrigal hardcoded content takes precedence
   const madrigal = getMadrigalContent(chapter.title);
-  const preterite = getPreteriteContent(chapter.title);
+  const preterite = !madrigal ? getPreteriteContent(chapter.title) : null;
+  const ser = !madrigal && !preterite ? getSerContent(chapter.title) : null;
   const hasMadrigal = !!madrigal;
-  const hasPreterite = !hasMadrigal && !!preterite;
+  const hasPreterite = !!preterite;
+  const hasSer = !!ser;
 
   const topRef = useRef<HTMLDivElement>(null);
 
@@ -102,6 +105,20 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
     return (
       <PreteriteUnit
         content={preterite}
+        language={language}
+        chapter={chapter}
+        onBack={onBack}
+        onStartConversation={onStartConversation}
+        onStartDrill={onStartDrill}
+      />
+    );
+  }
+
+  // If this is a ser/gender/plurals unit, delegate to SerUnit
+  if (hasSer && ser) {
+    return (
+      <SerUnit
+        content={ser}
         language={language}
         chapter={chapter}
         onBack={onBack}
