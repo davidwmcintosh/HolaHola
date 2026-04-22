@@ -81,23 +81,46 @@ Voy al garage.     Voy al restaurante.
 
 ## Pages 10–11: The Negative and the First Conjugation Expansion
 
+### Element 2b — The ¿Va? Sentence Former (between p. 9 and p. 10 — HoloHola addition)
+
+```
+[ ¿Va al ]  ←→  [ hotel? ]
+                 [ banco? ]
+                 [ garaje? ]
+                 [ restaurante? ]
+```
+
+**What appears in Madrigal's book:** Madrigal does not place a dedicated ¿Va? section between the positive and negative grids. She introduces `va` implicitly through the question/answer exchange on p. 12.
+
+**HoloHola deviation (April 2026):** We insert a 2-column sentence-former drill between the positive image grid and the negative grid. The left column contains the question opener "¿Va al" and the right column lists the same four nouns from the positive section (hotel / banco / garaje / restaurante). The student combines left + right to form any of the four questions.
+
+**Why this deviation works:** On a digital scrolling page, the student arrives at the negative section having just seen `voy`. Without a short bridge, the appearance of `va` in the negative's "¿Va? / Sí, voy." pair (page 12) could feel abrupt. The 2-column drill gives the student one focused look at `va` in question form before they reach the negative images — using the exact same places they already know, so there is no new vocabulary load.
+
+**HoloHola implementation:** The `vaColumns` field in `MadrigalUnitContent`. Rendered by `SentenceColumnGenerator`. Anchor text displayed in `vaAnchor`; a short pedagogical note follows in `vaNote`.
+
+---
+
 ### Element 3 — The Negative Page (p. 10)
 
 ```
-[club image]       [teatro image]
-No voy al club.    No voy al teatro.
+[hotel image]      [banco image]
+No voy al hotel.   No voy al banco.
 
-[cine image]       [parque image]
-No voy al cine.    No voy al parque.
+[garaje image]     [restaurante image]
+No voy al garaje.  No voy al restaurante.
 ```
 
-**Exactly what appears:** A new 2×2 grid. Different images — not the same four places from page 9. "No" added to the beginning of the sentence. Same structure otherwise.
+**Exactly what appears in Madrigal:** A new 2×2 grid with *different* images — club, teatro, cine, parque — not the same four places from page 9. "No" added to the beginning of the sentence.
 
-**Why new images:** This is the most important design decision on this spread. If Madrigal had used the same hotel, banco, garage, restaurante images with "no" added, the student would unconsciously tag those four images as "positive" and these four as "negative." By switching to a fresh set of places (club, teatro, cine, parque), she signals: the "no" goes with the *sentence*, not with the *place*. The pattern is `No voy al ___` and it works with any place. The images are interchangeable. The structure is what's being learned.
+**Why new images (Madrigal's original reasoning):** If Madrigal had used the same hotel, banco, garage, restaurante images with "no" added, the student would unconsciously tag those four images as "positive" and these four as "negative." By switching to a fresh set of places (club, teatro, cine, parque), she signals: the "no" goes with the *sentence*, not with the *place*. The images are interchangeable. The structure is what's being learned.
+
+**HoloHola deviation (April 2026):** We use the *same* four places (hotel / banco / garaje / restaurante) for the negative section rather than Madrigal's fresh set. This is a deliberate choice for a digital scrolling format where vertical continuity matters more than page-turn novelty. The student sees the identical images they just paired with "Voy al ___" now paired with "No voy al ___" — which directly demonstrates that `no` negates the verb, not the place. The scroll from positive to negative is a single screen movement, making the contrast immediately visible without the page-flip that justifies Madrigal's fresh-vocabulary approach.
+
+**Consequence for the Q&A section (page 12):** Because we use the same four places across positive and negative, the page 12 Q&A (`¿Va al hotel? / Sí, voy al hotel. / No, no voy al hotel.`) also uses those same four nouns. The Vamos section continues to use a different set (teatro / club / restaurante / cine) to provide noun variety.
 
 **Why negative before question:** Madrigal introduces the negative before the question form. The reason is cognitive load sequencing. The negative is a minimal addition to what the student already knows — one word added to the front of a sentence they can already say. The question form (`¿Va al banco?`) requires a new conjugation (`va` instead of `voy`) and a new intonation pattern. The negative is simpler, so it arrives first.
 
-**HoloHola equivalent:** The `negativeItems` array. The image words must be different from the vocabulary used in the positive image grid above. The student should be able to look at the negative section and see fresh vocabulary — not the same images "marked negative."
+**HoloHola equivalent:** The `negativeItems` array. In the current implementation, image words match the positive section vocabulary (hotel / banco / garaje / restaurante).
 
 ---
 
@@ -170,22 +193,39 @@ va al ___   │  al parque
 
 ---
 
-## The Full Page Sequence: Why This Order Is Not Negotiable
+## The Full Page Sequence
+
+### Madrigal's original print sequence
 
 ```
 ANCHOR          →  POSITIVE IMAGES  →  NEGATIVE (new images)  →  Q&A  →  DRILL
 "Voy / Al"         4 places              4 new places             Sí/No    Eye scan
 [components]       [sentences]          [sentences]               [exchange] [synthesis]
-Cognitive load:
-  minimal          low                   low                       medium    none
-Student state:
-  "I see           "I know this"        "I still know this        "I can     "I already
-  the pieces"                            with 'no'"                say it"    own this"
 ```
 
-The sequence is a confidence ramp. Each section asks slightly more of the student, but only after the previous section has fully established the pattern. The student never hits a wall — they hit a small step, already holding everything they need to climb it.
+### HoloHola digital scroll sequence (current implementation, April 2026)
 
-**Reversing the order breaks the system.** The drill cannot come before the images because the student doesn't know the vocabulary yet. The Q&A cannot come before the negative because the student hasn't heard `va` yet. The negative cannot come before the positive because you can't negate a pattern you don't own yet.
+```
+ANCHOR       →  POSITIVE     →  ¿VA? DRILL  →  NEGATIVE      →  SUBST.   →  VAMOS  →  PAGE 12 Q&A
+"Voy / Al"      4 images        2-col former    same 4 images    DRILL       1 line     ¿Va?/Sí/No
+[components]    [sentences]     [sentence        [sentences]      [eye scan]  [quiet     [exchange]
+                                 former]                                       add]
+Cognitive load:
+  minimal        low             low              low              none        minimal    medium
+Student state:
+  "I see         "I know         "I can ask       "I still know   "I own      "Let's     "I can
+  the pieces"    this verb"      this"            this with 'no'" this"       go"        converse"
+```
+
+**Deviations from Madrigal's print sequence and why:**
+1. **¿Va? drill inserted between positive and negative** — gives the student one pass at the `va` conjugation before it appears in the Q&A, using familiar vocabulary so there is zero new load.
+2. **Negative uses same 4 nouns as positive** — on a scroll page, the contrast between "Voy al hotel" and "No voy al hotel" is visually immediate (one scroll movement). The fresh-vocabulary principle that Madrigal applies makes more sense on a page-turn where the two grids are not simultaneously visible.
+3. **Substitution drill precedes Vamos** — the drill recombines what the student has seen; Vamos is a quiet addition afterwards.
+4. **Q&A (Page 12) comes last** — it is the highest cognitive demand item (new conjugation + conversational form), so it anchors the end of the page after everything else is acquired.
+
+The confidence ramp still holds. The student never hits a wall — they hit a small step, already holding everything they need to climb it.
+
+**What must not be reordered:** The drill cannot come before the images because the student doesn't know the vocabulary yet. The Q&A cannot come before the negative because the student hasn't heard `va` yet. The negative cannot come before the positive because you can't negate a pattern you don't own yet.
 
 ---
 
@@ -212,11 +252,13 @@ This predictability is not a design compromise — it is a core feature. The mor
 | Madrigal page element | HoloHola field / component | File |
 |---|---|---|
 | Anchor block (Voy / Al) | `patternLabel` | Displayed at top of `VerbUnit` |
-| Positive image grid (4 items) | `See It Say It` loop (vocabulary_list) | `VerbUnit.tsx` image section |
-| Negative sentences (new images) | `negativeItems` | `VerbUnit.tsx` negative section |
-| Q&A exchange (3 lines × 4 items) | `questionItems` | `VerbUnit.tsx` Q&A section |
+| Positive image grid (4 items) | `See It Say It` loop (`positiveItems`) | `VerbUnit.tsx` / `MadrigalPageComponents.tsx` |
+| ¿Va? sentence former (HoloHola addition) | `vaAnchor` + `vaColumns` + `vaNote` | `VerbUnit.tsx` / `SentenceColumnGenerator.tsx` |
+| Negative sentences (same 4 images) | `negativeItems` | `NegativeFormSection.tsx` |
 | Substitution drill columns | `sentenceColumns` | `SentenceColumnGenerator.tsx` |
-| Content data source | `key_phrases_for_chat` (via micro-cycle prompt) | `server/routes.ts` |
+| Vamos (quiet addition) | `vamosItems` / `vamosAnchor` | `VerbUnit.tsx` / `MadrigalPageComponents.tsx` |
+| Q&A exchange — Page 12 (3 lines × 4 items) | `noVoyAnchor` + `page12Items` | `VerbUnit.tsx` / `MadrigalPageComponents.tsx` |
+| Content data source | `client/src/data/madrigal-unit-content.ts` | `IR_GOING_PLACES` export |
 
 ---
 
