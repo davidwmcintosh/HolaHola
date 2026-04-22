@@ -1,4 +1,4 @@
-import { useLayoutEffect } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, MessageSquare, Dumbbell, Loader2 } from "lucide-react";
@@ -90,11 +90,11 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
   const hasMadrigal = !!madrigal;
   const hasPreterite = !hasMadrigal && !!preterite;
 
+  const topRef = useRef<HTMLDivElement>(null);
+
   // Scroll to top whenever this chapter opens (hooks must precede conditional returns)
   useLayoutEffect(() => {
-    window.scrollTo(0, 0);
-    const scrollContainer = document.querySelector(".overflow-y-auto");
-    if (scrollContainer) scrollContainer.scrollTop = 0;
+    topRef.current?.scrollIntoView({ block: "start", behavior: "instant" });
   }, [chapter.id]);
 
   // If this is a preterite unit, delegate immediately
@@ -132,6 +132,7 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
 
   return (
     <div
+      ref={topRef}
       className="w-full max-w-2xl mx-auto pb-16 touch-pan-y overscroll-contain"
       data-testid="verb-unit"
     >
