@@ -22,18 +22,15 @@ interface QuestionFormSectionProps {
   className?: string;
 }
 
-function useVocabImages(words: string[], language: string) {
-  const keys = words.map(w => `vocab_${language}_${w.toLowerCase().replace(/\s+/g, "_")}`);
-  return useQuery<{ images: Record<string, { url: string; source: string }> }>({
-    queryKey: ["/api/textbook/vocab-images-by-keys", keys.join(",")],
-    queryFn: async () => {
-      if (!keys.length) return { images: {} };
-      const params = new URLSearchParams({ keys: keys.join(",") });
-      const res = await fetch(`/api/textbook/vocab-images-by-keys?${params}`, { credentials: "include" });
-      return res.json();
-    },
-    enabled: keys.length > 0,
-    staleTime: 1000 * 60 * 10,
+function useWordImage(word: string, language: string) {
+  return useQuery<{ url: string | null; source: string }>({
+    queryKey: ["/api/vocab-image/by-word", word, language],
+    queryFn: () =>
+      fetch(
+        `/api/vocab-image/by-word?word=${encodeURIComponent(word)}&language=${encodeURIComponent(language)}`,
+        { credentials: "include" }
+      ).then((r) => r.json()),
+    staleTime: 1000 * 60 * 60 * 24,
   });
 }
 
@@ -43,16 +40,13 @@ function useTTS(language: string, tutorGender: string) {
 
   const play = useCallback(async (text: string, key: string) => {
     if (playingKey === key) return;
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     setPlayingKey(key);
     try {
       const res = await apiRequest("POST", "/api/tts/pronunciation", {
         text,
         language,
-        tutorGender,
+        gender: tutorGender,
       });
       const { audioUrl } = await res.json();
       const audio = new Audio(audioUrl);
@@ -68,7 +62,7 @@ function useTTS(language: string, tutorGender: string) {
   return { play, playingKey };
 }
 
-function AudioButton({
+function TinyAudioButton({
   text,
   playKey,
   play,
@@ -81,17 +75,17 @@ function AudioButton({
   playingKey: string | null;
   testId?: string;
 }) {
-  const isPlaying = playingKey === playKey;
+  const isActive = playingKey === playKey;
   return (
     <button
       type="button"
       onClick={() => play(text, playKey)}
-      disabled={isPlaying}
-      className="shrink-0 p-0.5 rounded text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+      disabled={isActive}
+      className="shrink-0 p-0.5 rounded text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
       data-testid={testId}
       title={`Hear: "${text}"`}
     >
-      {isPlaying
+      {isActive
         ? <Loader2 className="h-3 w-3 animate-spin" />
         : <Volume2 className="h-3 w-3" />
       }
@@ -101,17 +95,17 @@ function AudioButton({
 
 function QuestionCard({
   item,
-  imageUrl,
   language,
   tutorGender,
 }: {
   item: QuestionFormItem;
-  imageUrl?: string;
   language: string;
   tutorGender: string;
 }) {
   const { play, playingKey } = useTTS(language, tutorGender);
   const cardKey = item.imageWord;
+  const { data: imageData } = useWordImage(item.imageWord, language);
+  const imageUrl = imageData?.url;
 
   return (
     <div
@@ -129,24 +123,28 @@ function QuestionCard({
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <span className="text-4xl font-bold text-muted-foreground/20 select-none">
-              {item.imageWord[0]?.toUpperCase()}
-            </span>
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/30" />
           </div>
         )}
       </div>
 
-      {/* Q&A lines */}
-      <div className="px-2 pt-2 pb-2 flex flex-col gap-2">
+      {/* Q&A block */}
+      <div className="px-2 pt-2 pb-2 flex flex-col gap-1.5">
+
         {/* Question */}
-        <div className="flex items-start gap-1.5">
+        <div className="flex items-start gap-1">
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium leading-snug" data-testid={`text-question-${cardKey}`}>
+            <p
+              className="text-sm font-medium leading-snug"
+              data-testid={`text-question-${cardKey}`}
+            >
               {item.question}
             </p>
-            <p className="text-[11px] text-muted-foreground leading-tight">{item.questionTranslation}</p>
+            <p className="text-[11px] text-muted-foreground leading-tight">
+              {item.questionTranslation}
+            </p>
           </div>
-          <AudioButton
+          <TinyAudioButton
             text={item.question}
             playKey={`${cardKey}-q`}
             play={play}
@@ -155,21 +153,25 @@ function QuestionCard({
           />
         </div>
 
-        {/* Divider */}
         <div className="border-t border-dashed" />
 
-        {/* Affirmative */}
-        <div className="flex items-start gap-1.5">
-          <div className="w-2 shrink-0 pt-0.5">
-            <span className="text-[10px] font-bold text-green-600 dark:text-green-400">Sí</span>
-          </div>
+        {/* Sí answer */}
+        <div className="flex items-start gap-1">
+          <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 pt-0.5 w-4 shrink-0">
+            Sí
+          </span>
           <div className="flex-1 min-w-0">
-            <p className="text-sm leading-snug" data-testid={`text-affirmative-${cardKey}`}>
+            <p
+              className="text-sm leading-snug"
+              data-testid={`text-affirmative-${cardKey}`}
+            >
               {item.affirmativeAnswer}
             </p>
-            <p className="text-[11px] text-muted-foreground leading-tight">{item.affirmativeTranslation}</p>
+            <p className="text-[11px] text-muted-foreground leading-tight">
+              {item.affirmativeTranslation}
+            </p>
           </div>
-          <AudioButton
+          <TinyAudioButton
             text={item.affirmativeAnswer}
             playKey={`${cardKey}-yes`}
             play={play}
@@ -178,18 +180,23 @@ function QuestionCard({
           />
         </div>
 
-        {/* Negative */}
-        <div className="flex items-start gap-1.5">
-          <div className="w-2 shrink-0 pt-0.5">
-            <span className="text-[10px] font-bold text-muted-foreground">No</span>
-          </div>
+        {/* No answer */}
+        <div className="flex items-start gap-1">
+          <span className="text-[10px] font-bold text-muted-foreground pt-0.5 w-4 shrink-0">
+            No
+          </span>
           <div className="flex-1 min-w-0">
-            <p className="text-sm leading-snug" data-testid={`text-negative-answer-${cardKey}`}>
+            <p
+              className="text-sm leading-snug"
+              data-testid={`text-negative-answer-${cardKey}`}
+            >
               {item.negativeAnswer}
             </p>
-            <p className="text-[11px] text-muted-foreground leading-tight">{item.negativeTranslation}</p>
+            <p className="text-[11px] text-muted-foreground leading-tight">
+              {item.negativeTranslation}
+            </p>
           </div>
-          <AudioButton
+          <TinyAudioButton
             text={item.negativeAnswer}
             playKey={`${cardKey}-no`}
             play={play}
@@ -209,50 +216,32 @@ export function QuestionFormSection({
   className = "",
 }: QuestionFormSectionProps) {
   const { tutorGender } = useLanguage();
-  const words = items.map(i => i.imageWord);
-  const { data: imageData, isLoading: imagesLoading } = useVocabImages(words, language);
-  const imageMap = imageData?.images ?? {};
-
   if (!items.length) return null;
 
   return (
     <div className={`space-y-3 ${className}`} data-testid="question-form-section">
       {patternLabel && (
-        <div className="flex items-center gap-2 px-1">
-          <span
-            className="text-sm font-semibold text-muted-foreground"
-            data-testid="text-question-pattern-label"
-          >
-            {patternLabel}
-          </span>
-        </div>
+        <p
+          className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-0.5"
+          data-testid="text-question-pattern-label"
+        >
+          {patternLabel}
+        </p>
       )}
 
       <div
-        className="grid gap-3"
-        style={{ gridTemplateColumns: `repeat(${Math.min(items.length, 4)}, minmax(0, 1fr))` }}
+        className="grid grid-cols-2 gap-3"
         data-testid="question-card-grid"
       >
-        {items.map(item => {
-          const key = `vocab_${language}_${item.imageWord.toLowerCase().replace(/\s+/g, "_")}`;
-          return (
-            <QuestionCard
-              key={item.imageWord}
-              item={item}
-              imageUrl={imageMap[key]?.url}
-              language={language}
-              tutorGender={tutorGender}
-            />
-          );
-        })}
+        {items.map((item) => (
+          <QuestionCard
+            key={item.imageWord}
+            item={item}
+            language={language}
+            tutorGender={tutorGender}
+          />
+        ))}
       </div>
-
-      {imagesLoading && (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground px-1">
-          <Loader2 className="h-3 w-3 animate-spin" />
-          Loading images…
-        </div>
-      )}
     </div>
   );
 }

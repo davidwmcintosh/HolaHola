@@ -77,6 +77,12 @@ function useMicroCycle(lessonId: string | undefined, language: string, enabled: 
   });
 }
 
+// ── Thin horizontal rule between major page sections ─────────────────────────
+
+function PageRule() {
+  return <hr className="border-dashed border-border/60" />;
+}
+
 // ── VerbUnit ──────────────────────────────────────────────────────────────────
 
 export function VerbUnit({ chapter, language, onBack, onStartConversation, onStartDrill }: VerbUnitProps) {
@@ -94,7 +100,7 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
   const { data: microCycle, isLoading: microLoading } = useMicroCycle(
     firstVocabSection?.id,
     language,
-    !hasMadrigal  // only fetch if we don't have hardcoded content
+    !hasMadrigal  // only fetch when no hardcoded content
   );
 
   const totalDrills = chapter.sections.reduce((acc, s) => acc + (s.drillCount || 0), 0);
@@ -108,11 +114,11 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
 
   return (
     <div
-      className="space-y-8 w-full max-w-3xl mx-auto pb-12 touch-pan-y overscroll-contain"
+      className="w-full max-w-2xl mx-auto pb-16 touch-pan-y overscroll-contain"
       data-testid="verb-unit"
     >
       {/* ── Sticky top bar ── */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm py-3 -mx-4 px-4 border-b supports-[backdrop-filter]:bg-background/80">
+      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm py-3 -mx-4 px-4 border-b supports-[backdrop-filter]:bg-background/80 mb-6">
         <Button
           variant="ghost"
           size="sm"
@@ -127,14 +133,44 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
 
       {/* ════════════════════════════════════════════════════════════════════
           PATH A — Madrigal hardcoded content (pp. 9–13 formula)
-          Order: Anchor → Positive images → Negative → Vamos → Q&A → Drill
+
+          Page structure (matches Madrigal exactly):
+            Verb header (ch. number + verb + English)
+            ─────────────
+            Anchor block (Voy / Al)
+            Positive image grid (2×2)
+            ─────────────
+            Negative image grid (2×2)
+            Vamos line
+            ─────────────
+            Q&A image grid (2×2)
+            ─────────────
+            Substitution drill
+            ─────────────
+            Unit title + CTAs
           ════════════════════════════════════════════════════════════════════ */}
       {hasMadrigal && madrigal && (
-        <>
-          {/* Element 1: Anchor block — the two building-block components */}
+        <div className="space-y-7 px-4">
+
+          {/* ── Verb header ── */}
+          <div data-testid="verb-unit-chapter-header">
+            <p className="text-xs uppercase tracking-wider font-semibold text-muted-foreground mb-0.5">
+              Chapter {chapter.number}
+            </p>
+            <h1 className="text-4xl font-bold tracking-tight" data-testid="verb-unit-title">
+              {chapter.title}
+            </h1>
+            {chapter.description && (
+              <p className="text-base text-muted-foreground mt-1">{chapter.description}</p>
+            )}
+          </div>
+
+          <PageRule />
+
+          {/* ── Anchor block ── */}
           <MadrigalAnchorBlock items={madrigal.anchor} />
 
-          {/* Element 2: Positive image grid — 4 places, same sentence frame */}
+          {/* ── Positive image grid ── */}
           <div data-testid="verb-unit-positive">
             <MadrigalPositiveGrid
               items={madrigal.positiveItems}
@@ -142,16 +178,17 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
             />
           </div>
 
-          {/* Element 3: Negative section — 4 new places with "No voy al ___" */}
+          <PageRule />
+
+          {/* ── Negative image grid ── */}
           {madrigal.negativeItems.length > 0 && (
             <NegativeFormSection
               language={language}
-              patternLabel={madrigal.patternLabel}
               items={madrigal.negativeItems}
             />
           )}
 
-          {/* Element 4: Vamos — quiet one-line addition, no heading */}
+          {/* ── Vamos line ── */}
           {madrigal.vamos && (
             <MadrigalVamosLine
               vamos={madrigal.vamos}
@@ -159,23 +196,51 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
             />
           )}
 
-          {/* Element 5: Q&A exchange */}
+          <PageRule />
+
+          {/* ── Q&A section ── */}
           {madrigal.questionItems.length > 0 && (
             <QuestionFormSection
               language={language}
-              patternLabel={madrigal.patternLabel}
               items={madrigal.questionItems}
             />
           )}
 
-          {/* Element 6: Substitution drill */}
+          <PageRule />
+
+          {/* ── Substitution drill ── */}
           {madrigal.sentenceColumns.length > 0 && (
             <SentenceColumnGenerator
               language={language}
               columns={madrigal.sentenceColumns}
             />
           )}
-        </>
+
+          <PageRule />
+
+          {/* ── CTAs ── */}
+          <div className="space-y-2" data-testid="verb-unit-ctas">
+            <Button
+              className="w-full min-h-[52px] text-base gap-2"
+              onClick={() => onStartConversation(firstVocabSection?.id)}
+              data-testid="button-start-chapter-chat"
+            >
+              <MessageSquare className="h-5 w-5" />
+              Practice with Daniela
+            </Button>
+            {firstDrillSectionId && totalDrills > 0 && (
+              <Button
+                variant="outline"
+                className="w-full min-h-[44px] gap-2"
+                onClick={() => onStartDrill(firstDrillSectionId)}
+                data-testid="button-start-chapter-drill"
+              >
+                <Dumbbell className="h-4 w-4" />
+                {totalDrills} Practice Activities
+              </Button>
+            )}
+          </div>
+        </div>
       )}
 
       {/* ════════════════════════════════════════════════════════════════════
@@ -183,7 +248,18 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
           Used for chapters not yet transcribed from Madrigal
           ════════════════════════════════════════════════════════════════════ */}
       {!hasMadrigal && (
-        <>
+        <div className="space-y-8 px-4">
+
+          {/* Chapter header */}
+          <div>
+            <p className="text-xs uppercase tracking-wider font-semibold text-muted-foreground mb-0.5">
+              Chapter {chapter.number}
+            </p>
+            <h1 className="text-3xl font-bold" data-testid="verb-unit-title">
+              {chapter.title}
+            </h1>
+          </div>
+
           {/* Grammar reference card */}
           {grammarType && (
             <div data-testid="verb-unit-grammar-card">
@@ -239,41 +315,31 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
               )}
             </div>
           )}
-        </>
+
+          {/* CTAs */}
+          <div className="space-y-2 pt-4" data-testid="verb-unit-ctas">
+            <Button
+              className="w-full min-h-[52px] text-base gap-2"
+              onClick={() => onStartConversation(firstVocabSection?.id)}
+              data-testid="button-start-chapter-chat"
+            >
+              <MessageSquare className="h-5 w-5" />
+              Practice with Daniela
+            </Button>
+            {firstDrillSectionId && totalDrills > 0 && (
+              <Button
+                variant="outline"
+                className="w-full min-h-[44px] gap-2"
+                onClick={() => onStartDrill(firstDrillSectionId)}
+                data-testid="button-start-chapter-drill"
+              >
+                <Dumbbell className="h-4 w-4" />
+                {totalDrills} Practice Activities
+              </Button>
+            )}
+          </div>
+        </div>
       )}
-
-      {/* ── Unit title — bottom, like a chapter total (both paths) ── */}
-      <div className="space-y-0.5 border-t pt-6">
-        <p className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">
-          Unit {chapter.number}
-        </p>
-        <h1 className="text-2xl font-bold" data-testid="verb-unit-title">
-          {chapter.title}
-        </h1>
-      </div>
-
-      {/* ── CTAs (both paths) ── */}
-      <div className="space-y-2 pt-2" data-testid="verb-unit-ctas">
-        <Button
-          className="w-full min-h-[52px] text-base gap-2"
-          onClick={() => onStartConversation(firstVocabSection?.id)}
-          data-testid="button-start-chapter-chat"
-        >
-          <MessageSquare className="h-5 w-5" />
-          Practice with Daniela
-        </Button>
-        {firstDrillSectionId && totalDrills > 0 && (
-          <Button
-            variant="outline"
-            className="w-full min-h-[44px] gap-2"
-            onClick={() => onStartDrill(firstDrillSectionId)}
-            data-testid="button-start-chapter-drill"
-          >
-            <Dumbbell className="h-4 w-4" />
-            {totalDrills} Practice Activities
-          </Button>
-        )}
-      </div>
     </div>
   );
 }

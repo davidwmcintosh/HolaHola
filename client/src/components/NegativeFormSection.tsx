@@ -18,47 +18,40 @@ interface NegativeFormSectionProps {
   className?: string;
 }
 
-function useVocabImages(words: string[], language: string) {
-  const keys = words.map(w => `vocab_${language}_${w.toLowerCase().replace(/\s+/g, "_")}`);
-  return useQuery<{ images: Record<string, { url: string; source: string }> }>({
-    queryKey: ["/api/textbook/vocab-images-by-keys", keys.join(",")],
-    queryFn: async () => {
-      if (!keys.length) return { images: {} };
-      const params = new URLSearchParams({ keys: keys.join(",") });
-      const res = await fetch(`/api/textbook/vocab-images-by-keys?${params}`, { credentials: "include" });
-      return res.json();
-    },
-    enabled: keys.length > 0,
-    staleTime: 1000 * 60 * 10,
+function useWordImage(word: string, language: string) {
+  return useQuery<{ url: string | null; source: string }>({
+    queryKey: ["/api/vocab-image/by-word", word, language],
+    queryFn: () =>
+      fetch(
+        `/api/vocab-image/by-word?word=${encodeURIComponent(word)}&language=${encodeURIComponent(language)}`,
+        { credentials: "include" }
+      ).then((r) => r.json()),
+    staleTime: 1000 * 60 * 60 * 24,
   });
 }
 
 function NegativeCard({
   item,
-  imageUrl,
   language,
   tutorGender,
 }: {
   item: NegativeFormItem;
-  imageUrl?: string;
   language: string;
   tutorGender: string;
 }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { data: imageData } = useWordImage(item.imageWord, language);
 
   const handlePlay = useCallback(async () => {
     if (isPlaying) return;
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     setIsPlaying(true);
     try {
       const res = await apiRequest("POST", "/api/tts/pronunciation", {
         text: item.negativePhrase,
         language,
-        tutorGender,
+        gender: tutorGender,
       });
       const { audioUrl } = await res.json();
       const audio = new Audio(audioUrl);
@@ -70,6 +63,8 @@ function NegativeCard({
       setIsPlaying(false);
     }
   }, [isPlaying, item.negativePhrase, language, tutorGender]);
+
+  const imageUrl = imageData?.url;
 
   return (
     <div
@@ -87,15 +82,13 @@ function NegativeCard({
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <span className="text-4xl font-bold text-muted-foreground/20 select-none">
-              {item.imageWord[0]?.toUpperCase()}
-            </span>
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/30" />
           </div>
         )}
       </div>
 
-      {/* Text + audio */}
-      <div className="px-2 pt-2 pb-2 flex items-start gap-1.5">
+      {/* Phrase + audio */}
+      <div className="px-2 pt-1.5 pb-2 flex items-start gap-1">
         <div className="flex-1 min-w-0">
           <p
             className="text-sm font-medium leading-snug"
@@ -103,7 +96,7 @@ function NegativeCard({
           >
             {item.negativePhrase}
           </p>
-          <p className="text-xs text-muted-foreground leading-tight mt-0.5">
+          <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
             {item.translation}
           </p>
         </div>
@@ -112,7 +105,7 @@ function NegativeCard({
           variant="ghost"
           onClick={handlePlay}
           disabled={isPlaying}
-          className="shrink-0 mt-0.5"
+          className="shrink-0"
           data-testid={`button-play-negative-${item.imageWord}`}
           title={`Hear "${item.negativePhrase}"`}
         >
@@ -133,50 +126,32 @@ export function NegativeFormSection({
   className = "",
 }: NegativeFormSectionProps) {
   const { tutorGender } = useLanguage();
-  const words = items.map(i => i.imageWord);
-  const { data: imageData, isLoading: imagesLoading } = useVocabImages(words, language);
-  const imageMap = imageData?.images ?? {};
-
   if (!items.length) return null;
 
   return (
     <div className={`space-y-3 ${className}`} data-testid="negative-form-section">
       {patternLabel && (
-        <div className="flex items-center gap-2 px-1">
-          <span
-            className="text-sm font-semibold text-muted-foreground"
-            data-testid="text-negative-pattern-label"
-          >
-            {patternLabel}
-          </span>
-        </div>
+        <p
+          className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-0.5"
+          data-testid="text-negative-pattern-label"
+        >
+          {patternLabel}
+        </p>
       )}
 
       <div
-        className="grid gap-3"
-        style={{ gridTemplateColumns: `repeat(${Math.min(items.length, 4)}, minmax(0, 1fr))` }}
+        className="grid grid-cols-2 gap-3"
         data-testid="negative-card-grid"
       >
-        {items.map(item => {
-          const key = `vocab_${language}_${item.imageWord.toLowerCase().replace(/\s+/g, "_")}`;
-          return (
-            <NegativeCard
-              key={item.imageWord}
-              item={item}
-              imageUrl={imageMap[key]?.url}
-              language={language}
-              tutorGender={tutorGender}
-            />
-          );
-        })}
+        {items.map((item) => (
+          <NegativeCard
+            key={item.imageWord}
+            item={item}
+            language={language}
+            tutorGender={tutorGender}
+          />
+        ))}
       </div>
-
-      {imagesLoading && (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground px-1">
-          <Loader2 className="h-3 w-3 animate-spin" />
-          Loading images…
-        </div>
-      )}
     </div>
   );
 }
