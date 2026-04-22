@@ -411,6 +411,181 @@ const COMPRAR_I_BOUGHT: PreteriteUnitContent = {
   ],
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Near Future: Voy a + Infinitive
+// Source: Madrigal pp. 36–42
+//
+// Seven vocabulary clusters across six pages:
+//   1. Voy a comprar — clothing (statement grid + combinator)
+//   2. ¿Va a comprar? Q&A + conjugation table
+//   3. Esta mañana — Q&A with time expression
+//   4. ¿Van al mercado? — third-person plural
+//   5. Voy a tomar — transportation
+//   6. Voy a tomar — food (with "tomar = to have" note)
+//   7. Activity verbs: nadar, cantar, bailar, pescar (page 42)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const NEAR_FUTURE_VOY_A: PreteriteUnitContent = {
+  chapterTitleKey: "voy a",
+
+  clusters: [
+    // ── Cluster 1: voy a comprar — clothing (pp. 36) ──────────────────────────
+    {
+      anchorItems: [
+        { spanish: "Voy a comprar,", english: "I'm going to buy." },
+        { spanish: "Una,",           english: "A or an." },
+        { spanish: "Una bufanda,",   english: "A scarf." },
+      ],
+
+      statementCards: [
+        { word: "blusa",   sentence: "Voy a comprar una blusa.",   translation: "I'm going to buy a blouse.",  imageDescription: "a woman's blouse on a hanger" },
+        { word: "falda",   sentence: "Voy a comprar una falda.",   translation: "I'm going to buy a skirt.",   imageDescription: "a skirt on a hanger" },
+        { word: "bufanda", sentence: "Voy a comprar una bufanda.", translation: "I'm going to buy a scarf.",   imageDescription: "a colorful wool scarf" },
+        { word: "corbata", sentence: "Voy a comprar una corbata.", translation: "I'm going to buy a tie.",     imageDescription: "a dress necktie" },
+      ],
+
+      sentenceColumns: [
+        {
+          items: [
+            { text: "¿Va a comprar", translation: "Are you going to buy" },
+          ],
+        },
+        {
+          items: [
+            { text: "una blusa?",   translation: "a blouse?" },
+            { text: "una corbata?", translation: "a tie?" },
+            { text: "una falda?",   translation: "a skirt?" },
+            { text: "una bufanda?", translation: "a scarf?" },
+          ],
+        },
+      ],
+    },
+
+    // ── Cluster 2: ¿Va a comprar? Q&A + conjugation table (pp. 37) ───────────
+    {
+      anchorItems: [],
+
+      qaCards: [
+        { imageWord: "sombrero", question: "¿Va a comprar un sombrero?", questionTranslation: "Are you going to buy a hat?",    answer: "Sí, voy a comprar.", answerTranslation: "Yes, I'm going to buy." },
+        { imageWord: "blusa",    question: "¿Va a comprar una blusa?",   questionTranslation: "Are you going to buy a blouse?", answer: "Sí, voy a comprar.", answerTranslation: "Yes, I'm going to buy." },
+        { imageWord: "corbata",  question: "¿Va a comprar una corbata?", questionTranslation: "Are you going to buy a tie?",    answer: "Sí, voy a comprar.", answerTranslation: "Yes, I'm going to buy." },
+        { imageWord: "falda",    question: "¿Va a comprar una falda?",   questionTranslation: "Are you going to buy a skirt?",  answer: "Sí, voy a comprar.", answerTranslation: "Yes, I'm going to buy." },
+      ],
+
+      conjugationTable: [
+        { form: "Voy a comprar",   meaning: "I'm going to buy" },
+        { form: "Va a comprar",    meaning: "Are you going to buy? · He is going to buy" },
+        { form: "Vamos a comprar", meaning: "We are going to buy" },
+        { form: "Van a comprar",   meaning: "They are going to buy" },
+      ],
+    },
+
+    // ── Cluster 3: esta mañana — Q&A with time expression (pp. 38) ───────────
+    {
+      anchorItems: [
+        { spanish: "Esta mañana,", english: "This morning." },
+      ],
+
+      qaCards: [
+        { imageWord: "sombrero", question: "¿Va a comprar un sombrero esta mañana?", questionTranslation: "Are you going to buy a hat this morning?",     answer: "Sí, voy a comprar un sombrero esta mañana.", answerTranslation: "Yes, I'm going to buy a hat this morning." },
+        { imageWord: "blusa",    question: "¿Va a comprar una blusa esta mañana?",   questionTranslation: "Are you going to buy a blouse this morning?",  answer: "Sí, voy a comprar una blusa esta mañana.",   answerTranslation: "Yes, I'm going to buy a blouse this morning." },
+        { imageWord: "corbata",  question: "¿Va a comprar una corbata esta mañana?", questionTranslation: "Are you going to buy a tie this morning?",     answer: "Sí, voy a comprar una corbata esta mañana.", answerTranslation: "Yes, I'm going to buy a tie this morning." },
+      ],
+    },
+
+    // ── Cluster 4: ¿Van al mercado? — third-person plural (pp. 39) ───────────
+    {
+      anchorItems: [
+        { spanish: "¿Van... al mercado?", english: "Are they going to the market?" },
+        { spanish: "Van al...",           english: "They are going to the..." },
+      ],
+
+      qaCards: [
+        { imageWord: "hotel",   question: "¿Van al hotel?",   questionTranslation: "Are they going to the hotel?",   answer: "Sí, van al hotel.",   answerTranslation: "Yes, they're going to the hotel." },
+        { imageWord: "garaje",  question: "¿Van al garaje?",  questionTranslation: "Are they going to the garage?",  answer: "Sí, van al garaje.",  answerTranslation: "Yes, they're going to the garage." },
+        { imageWord: "cine",    question: "¿Van al cine?",    questionTranslation: "Are they going to the cinema?",  answer: "Sí, van al cine.",    answerTranslation: "Yes, they're going to the cinema." },
+        { imageWord: "mercado", question: "¿Van al mercado?", questionTranslation: "Are they going to the market?",  answer: "Sí, van al mercado.", answerTranslation: "Yes, they're going to the market." },
+      ],
+    },
+
+    // ── Cluster 5: voy a tomar — transportation (pp. 40) ─────────────────────
+    {
+      anchorItems: [
+        { spanish: "¿Va a tomar?", english: "Are you going to take?" },
+        { spanish: "Voy a tomar,", english: "I'm going to take." },
+      ],
+
+      qaCards: [
+        { imageWord: "taxi",    question: "¿Va a tomar un taxi?",    questionTranslation: "Are you going to take a taxi?",  answer: "Sí, voy a tomar un taxi.",    answerTranslation: "Yes, I'm going to take a taxi." },
+        { imageWord: "tren",    question: "¿Va a tomar un tren?",    questionTranslation: "Are you going to take a train?", answer: "Sí, voy a tomar un tren.",    answerTranslation: "Yes, I'm going to take a train." },
+        { imageWord: "autobús", question: "¿Va a tomar un autobús?", questionTranslation: "Are you going to take a bus?",   answer: "Sí, voy a tomar un autobús.", answerTranslation: "Yes, I'm going to take a bus." },
+        { imageWord: "avión",   question: "¿Va a tomar un avión?",   questionTranslation: "Are you going to take a plane?", answer: "Sí, voy a tomar un avión.",   answerTranslation: "Yes, I'm going to take a plane." },
+      ],
+    },
+
+    // ── Cluster 6: voy a tomar — food (pp. 41) ────────────────────────────────
+    {
+      anchorItems: [
+        { spanish: "¿Va a tomar?",  english: "Are you going to have?" },
+        { spanish: "Una ensalada,", english: "A salad." },
+        { spanish: "Chocolate,",    english: "Chocolate." },
+        { spanish: "Pollo,",        english: "Chicken." },
+      ],
+
+      noteBefore: "In Spanish, we use tomar (to take) to express eating and drinking. Instead of \"I'm going to have soup,\" we say \"Voy a tomar sopa.\"",
+
+      qaCards: [
+        { imageWord: "ensalada", question: "¿Va a tomar una ensalada?", questionTranslation: "Are you going to have a salad?",  answer: "Sí, voy a tomar una ensalada.", answerTranslation: "Yes, I'm going to have a salad." },
+        { imageWord: "café",     question: "¿Va a tomar café?",         questionTranslation: "Are you going to have coffee?",   answer: "Sí, voy a tomar café.",         answerTranslation: "Yes, I'm going to have coffee." },
+        { imageWord: "apio",     question: "¿Va a tomar apio?",         questionTranslation: "Are you going to have celery?",   answer: "Sí, voy a tomar apio.",         answerTranslation: "Yes, I'm going to have celery." },
+        { imageWord: "sopa",     question: "¿Va a tomar sopa?",         questionTranslation: "Are you going to have soup?",     answer: "Sí, voy a tomar sopa.",         answerTranslation: "Yes, I'm going to have soup." },
+      ],
+    },
+
+    // ── Cluster 7: activity verbs — page 42 ───────────────────────────────────
+    //
+    // New verbs: nadar, cantar, bailar, pescar.
+    // Q&A drill, then a 3-column combinator: ¿Va a [verb] esta noche?
+    {
+      anchorItems: [
+        { spanish: "Nadar,",  english: "To swim." },
+        { spanish: "Cantar,", english: "To sing." },
+        { spanish: "Bailar,", english: "To dance." },
+        { spanish: "Pescar,", english: "To fish." },
+      ],
+
+      qaCards: [
+        { imageWord: "bailar", question: "¿Va a bailar?", questionTranslation: "Are you going to dance?", answer: "Sí, voy a bailar.", answerTranslation: "Yes, I'm going to dance." },
+        { imageWord: "nadar",  question: "¿Va a nadar?",  questionTranslation: "Are you going to swim?",  answer: "Sí, voy a nadar.",  answerTranslation: "Yes, I'm going to swim." },
+        { imageWord: "cantar", question: "¿Va a cantar?", questionTranslation: "Are you going to sing?",  answer: "Sí, voy a cantar.", answerTranslation: "Yes, I'm going to sing." },
+        { imageWord: "pescar", question: "¿Va a pescar?", questionTranslation: "Are you going to fish?",  answer: "Sí, voy a pescar.", answerTranslation: "Yes, I'm going to fish." },
+      ],
+
+      // 3-column combinator: ¿Va a [verb] esta noche?
+      sentenceColumns: [
+        {
+          items: [
+            { text: "¿Va a", translation: "Are you going to" },
+          ],
+        },
+        {
+          items: [
+            { text: "bailar", translation: "dance" },
+            { text: "nadar",  translation: "swim" },
+            { text: "cantar", translation: "sing" },
+            { text: "pescar", translation: "fish" },
+          ],
+        },
+        {
+          items: [
+            { text: "esta noche?", translation: "tonight?" },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
 // ── Registries ────────────────────────────────────────────────────────────────
 
 const MADRIGAL_VERB_UNITS: MadrigalVerbUnitContent[] = [
@@ -418,6 +593,7 @@ const MADRIGAL_VERB_UNITS: MadrigalVerbUnitContent[] = [
 ];
 
 const PRETERITE_UNITS: PreteriteUnitContent[] = [
+  NEAR_FUTURE_VOY_A,
   TOMAR_I_TOOK,
   COMPRAR_I_BOUGHT,
 ];
