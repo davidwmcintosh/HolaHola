@@ -58,7 +58,7 @@ export interface MadrigalVerbUnitContent {
 // one-syllable-simple (banco, cine, parque) — all instantly pronounceable.
 
 const IR_GOING_PLACES: MadrigalVerbUnitContent = {
-  chapterTitleKey: "ir",
+  chapterTitleKey: "where are you going",
   patternLabel: "Voy al ___ — I'm going to the ___",
 
   anchor: [
