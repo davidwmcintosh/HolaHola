@@ -53,7 +53,9 @@ const NO_TEXT_INSTRUCTION =
 const PROP_STYLE =
   'warm painterly digital illustration, soft natural lighting, slightly stylized friendly characters, ' +
   'rich warm color palette with golden tones, semi-realistic proportions, textured brushwork with depth, ' +
-  'object centred and prominent on a clean pure white background, clear recognisable silhouette, ' +
+  'object centred on a clean pure white background, clear recognisable silhouette, ' +
+  'FRAMING: entire object fully visible within frame, generous white space border on all sides — ' +
+  'subject fills no more than 65–70% of canvas width and height, never touching or bleeding to any edge, ' +
   'wholesome family-friendly educational quality, ' +
   NO_TEXT_INSTRUCTION;
 

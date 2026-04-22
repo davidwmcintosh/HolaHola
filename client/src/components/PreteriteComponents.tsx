@@ -17,14 +17,14 @@ import type { PreteriteQACard, PreteriteConjugationRow } from "@/data/madrigal-u
 
 // ── Shared: fetch one image by word ──────────────────────────────────────────
 
-function useWordImage(word: string | undefined, language: string) {
+function useWordImage(word: string | undefined, language: string, description?: string) {
   return useQuery<{ url: string | null }>({
-    queryKey: ["/api/vocab-image/by-word", word ?? "", language],
-    queryFn: () =>
-      fetch(
-        `/api/vocab-image/by-word?word=${encodeURIComponent(word ?? "")}&language=${encodeURIComponent(language)}`,
-        { credentials: "include" }
-      ).then((r) => r.json()),
+    queryKey: ["/api/vocab-image/by-word", word ?? "", language, description ?? ""],
+    queryFn: () => {
+      const params = new URLSearchParams({ word: word ?? "", language });
+      if (description) params.set("description", description);
+      return fetch(`/api/vocab-image/by-word?${params.toString()}`, { credentials: "include" }).then((r) => r.json());
+    },
     enabled: !!word,
     staleTime: 1000 * 60 * 60 * 24,
   });
@@ -67,7 +67,7 @@ function PreteriteQACardItem({
   language: string;
   tutorGender: string;
 }) {
-  const { data: imageData } = useWordImage(card.imageWord, language);
+  const { data: imageData } = useWordImage(card.imageWord, language, card.imageDescription);
   const { playingKey, play } = useTTSButton(language, tutorGender);
   const imageUrl = imageData?.url;
 

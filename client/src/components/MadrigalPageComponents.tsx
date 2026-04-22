@@ -24,14 +24,14 @@ import type {
 
 // ── Shared: fetch one image by word ──────────────────────────────────────────
 
-function useWordImage(word: string | undefined, language: string) {
+function useWordImage(word: string | undefined, language: string, description?: string) {
   return useQuery<{ url: string | null }>({
-    queryKey: ["/api/vocab-image/by-word", word ?? "", language],
-    queryFn: () =>
-      fetch(
-        `/api/vocab-image/by-word?word=${encodeURIComponent(word ?? "")}&language=${encodeURIComponent(language)}`,
-        { credentials: "include" }
-      ).then((r) => r.json()),
+    queryKey: ["/api/vocab-image/by-word", word ?? "", language, description ?? ""],
+    queryFn: () => {
+      const params = new URLSearchParams({ word: word ?? "", language });
+      if (description) params.set("description", description);
+      return fetch(`/api/vocab-image/by-word?${params.toString()}`, { credentials: "include" }).then((r) => r.json());
+    },
     enabled: !!word,
     staleTime: 1000 * 60 * 60 * 24,
   });
@@ -128,7 +128,7 @@ function VocabImageCard({
   testIndex: number;
   imageDescription?: string;
 }) {
-  const { data: img } = useWordImage(word, language);
+  const { data: img } = useWordImage(word, language, imageDescription);
   const { play, playingKey } = useTTS(language, gender);
   const key = `vocab-${word}-${testIndex}`;
   const isPlaying = playingKey === key;
