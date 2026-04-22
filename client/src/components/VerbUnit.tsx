@@ -12,7 +12,8 @@ import {
   MadrigalPage12Grid,
   MadrigalVaDefinition,
 } from "./MadrigalPageComponents";
-import { getMadrigalContent } from "@/data/madrigal-unit-content";
+import { PreteriteUnit } from "./PreteriteUnit";
+import { getMadrigalContent, getPreteriteContent } from "@/data/madrigal-unit-content";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -84,7 +85,23 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
 
   // Madrigal hardcoded content takes precedence
   const madrigal = getMadrigalContent(chapter.title);
+  const preterite = getPreteriteContent(chapter.title);
   const hasMadrigal = !!madrigal;
+  const hasPreterite = !hasMadrigal && !!preterite;
+
+  // If this is a preterite unit, delegate immediately
+  if (hasPreterite && preterite) {
+    return (
+      <PreteriteUnit
+        content={preterite}
+        language={language}
+        chapter={chapter}
+        onBack={onBack}
+        onStartConversation={onStartConversation}
+        onStartDrill={onStartDrill}
+      />
+    );
+  }
 
   const firstVocabSection =
     chapter.sections.find(s => s.lessonType === "grammar") ??

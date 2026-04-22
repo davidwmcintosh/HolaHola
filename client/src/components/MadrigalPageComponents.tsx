@@ -4,8 +4,7 @@
  *
  * Components:
  *   MadrigalAnchorBlock   — Same-line anchor items (e.g. "Voy, I'm going.  al, to the.")
- *   MadrigalPositiveGrid  — 2×2 image grid with "Voy al ___" sentences + TTS
- *   MadrigalVaQuestionGrid— 2×2 image grid showing only the question + translation
+ *   MadrigalPositiveGrid  — 2×2 image grid with sentences + TTS (used for both positive and Vamos)
  *   MadrigalNote          — Muted italic pedagogical note (e.g. subject pronoun note)
  *   MadrigalPage12Grid    — Q&A pairs: 2 with images, 2 text-only
  *   MadrigalVaDefinition  — Final "Va: You are going · He is going…" reference block
@@ -20,7 +19,6 @@ import { apiRequest } from "@/lib/queryClient";
 import type {
   MadrigalAnchorItem,
   MadrigalPositiveItem,
-  VaQuestionItem,
   Page12QAItem,
 } from "@/data/madrigal-unit-content";
 
@@ -189,81 +187,6 @@ export function MadrigalPositiveGrid({
           language={language}
           gender={tutorGender ?? "female"}
           testIndex={i}
-        />
-      ))}
-    </div>
-  );
-}
-
-// ── MadrigalVaQuestionGrid ─────────────────────────────────────────────────────
-//
-// 2×2 grid showing only the question + translation under each image.
-// No answer visible — student reads the question aloud.
-
-function VaQuestionCard({
-  item,
-  language,
-  gender,
-  index,
-}: {
-  item: VaQuestionItem;
-  language: string;
-  gender: string;
-  index: number;
-}) {
-  const { data: img } = useWordImage(item.imageWord, language);
-  const { play, playingKey } = useTTS(language, gender);
-  const key = `va-q-${item.imageWord}-${index}`;
-  const isPlaying = playingKey === key;
-
-  return (
-    <div
-      className="rounded-md border bg-card overflow-hidden flex flex-col"
-      data-testid={`va-question-card-${index}`}
-    >
-      <div className="aspect-square bg-muted/30 overflow-hidden">
-        {img?.url ? (
-          <img src={img.url} alt={item.imageWord} className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/30" />
-          </div>
-        )}
-      </div>
-      <div className="flex flex-col items-center px-2 pt-2 pb-1.5 text-center gap-0.5">
-        <p className="text-sm font-medium leading-snug">{item.question}</p>
-        <p className="text-[11px] text-muted-foreground leading-tight">{item.questionTranslation}</p>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={() => play(item.question, key)}
-          disabled={isPlaying}
-          data-testid={`button-listen-va-${index}`}
-        >
-          {isPlaying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Volume2 className="h-3.5 w-3.5" />}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-export function MadrigalVaQuestionGrid({
-  items,
-  language,
-}: {
-  items: VaQuestionItem[];
-  language: string;
-}) {
-  const { tutorGender } = useLanguage();
-  return (
-    <div className="grid grid-cols-2 gap-3" data-testid="madrigal-va-question-grid">
-      {items.map((item, i) => (
-        <VaQuestionCard
-          key={item.imageWord}
-          item={item}
-          language={language}
-          gender={tutorGender ?? "female"}
-          index={i}
         />
       ))}
     </div>
