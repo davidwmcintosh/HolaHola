@@ -220,6 +220,72 @@ This predictability is not a design compromise — it is a core feature. The mor
 
 ---
 
+## Magic Key Reminder Cards: What They Confirm and What They Reveal
+
+*Added April 21, 2026 — after full read of the Madrigal Magic Key reminder card PDF.*
+
+The Magic Key book contains 20 reminder cards. Reading them in sequence against our HoloHola design yields three findings:
+
+### Finding 1: The VerbUnit format is Madrigal's own format
+
+Cards 3–20 are each a two-column substitution drill with one verb at the top and a grid of objects, places, and time expressions that permute against it. This is the exact format `VerbUnit.tsx` implements. The card format precedes the digital format by decades — we reverse-engineered something Madrigal encoded in print.
+
+**Example (Card 3 — tomar):**
+```
+¿Tomó usted     café         esta mañana?
+                la cena      esta tarde?
+                sopa         anoche?
+                una ensalada en el hotel?
+
+No, no tomé     una aspirina  en la clase
+(No, I didn't take)          en el club
+
+Tomé            té            en el tren
+(I took)        un sandwich   en el avión
+                un taxi       en la estación
+                el tren       en el restaurante
+                el avión
+```
+
+This is Column 1 (verb phrase) × Column 2 (objects) × Column 3 (places/times). Three columns, one verb. Our `sentenceColumns` field maps to this directly.
+
+### Finding 2: The first two cards are not verbs — they are the "Magic Key" itself
+
+Before any verb appears, Madrigal gives the student two cards about **cognate word endings** — English patterns that map directly to Spanish:
+
+| English ending | Spanish ending | Example |
+|---|---|---|
+| -OR | identical | el doctor, el actor |
+| -AL | identical | el animal, personal |
+| -BLE | identical | el cable, probable |
+| -IC | -ICO | el Atlántico, eléctrico |
+| -ENT / -ANT | -ENTE / -ANTE | el presidente, importante |
+| -IST | -ISTA | el dentista, el pianista |
+| -OUS | -OSO | delicioso, famoso |
+| -TION / -SION | -CIÓN / -SIÓN | la invitación, la conversación |
+
+These two cards are the entire premise of the book: *you already know thousands of Spanish words.* They reduce anxiety before page 9 arrives. They are the book's opening promise made tangible and portable.
+
+**HoloHola status:** No unit currently teaches cognate word endings. This is a gap. The `SocialPhraseUnit` covers greetings but not cognates. The `madrigal-page-one-analysis.md` note about Daniela's opening session ("¿Hospital? That's Spanish.") handles this informally in voice, but there is no textbook unit for it. See Decision 8 in `curriculum-strategy.md` for the three resolution options.
+
+### Finding 3: The Magic Key sequence confirms the 27-unit roadmap ordering
+
+| Magic Key sequence | HoloHola roadmap | Match? |
+|---|---|---|
+| Cognates first (Cards 1–2) | No unit yet | ❌ Gap |
+| tomar preterite (Card 3) | Unit 5 | ✅ |
+| comprar preterite (Card 7) | Unit 6 | ✅ |
+| ir + a + infinitive (Cards 8–9) | Unit 7 | ✅ |
+| estar location/health (Card 6) | Unit 12 | ✅ |
+| Progressive before present (Card 14 before 15) | Unit 21 before 19/20 | ✅ |
+| Present tense AR late (Card 15) | Unit 19 | ✅ |
+| Irregular preterites last in preterite phase (17–19) | Units 24–25 | ✅ |
+| Present perfect final (Card 20) | Unit 26 | ✅ |
+
+The sequencing is sound. The one missing piece is the cognate vocabulary unlock at the start.
+
+---
+
 ## What This Document Is Not
 
 This is not a style guide. HoloHola does not replicate Madrigal's B&W line art, her typeface, her exact 2×2 grid. The visual design is ours — soft watercolor, color, audio, digital interaction.

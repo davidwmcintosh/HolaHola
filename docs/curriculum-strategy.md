@@ -325,6 +325,68 @@ The verb `usar` (or `voy a usar`) appears in the positive image section, the neg
 **Why this principle works cognitively:**
 The verb bonds with the cluster through repetition. By the end of the lesson, the student can use the verb with any cluster member — not because they studied it, but because they saw it ten times in natural contexts. The noun cluster provides the breadth (real-world applicability); the verb provides the depth (automaticity). Neither is useful without the other.
 
+### Decision 8: Magic Key Reminder Card Analysis — Verb Sequencing Confirmed, Cognates Gap Identified
+
+**Decision: The 27-unit roadmap verb sequencing is confirmed by Madrigal's Magic Key reminder cards. One structural gap identified: the cognate vocabulary unlock (Cards 1–2) has no home in the current unit map.**
+
+*Recorded April 21, 2026, after full read of the Magic Key reminder card PDF.*
+
+#### The 20 reminder cards and what they establish
+
+The Magic Key contains 20 reminder cards. Cards 1–2 are cognate vocabulary patterns. Cards 3–20 are verb drill tables in the exact format our VerbUnit implements (one verb, two-column object + time/place drill).
+
+| Card | Content | VerbUnit format? |
+|---|---|---|
+| 1 | Cognate endings: OR, AL, BLE, IC→ICO, ENT/ANT→ENTE/ANTE | No — vocabulary unlock |
+| 2 | Cognate endings: IST→ISTA, OUS→OSO, TION/SION→CIÓN/SIÓN | No — vocabulary unlock |
+| 3 | tomar preterite (tomé/tomó) — meals, drinks, transport | ✅ Verb Unit |
+| 4 | invitar preterite (invité/invitó) — social invitations | ✅ Verb Unit |
+| 5 | hablar preterite (habló) — talking by phone | ✅ Verb Unit |
+| 6 | estar — ¿Dónde está? (location) + ¿Cómo está? (health/greeting) | Grammar Concept |
+| 7 | comprar preterite (compré/compró) — what/where/when | ✅ Verb Unit |
+| 8 | ir + a + infinitive (singular) | ✅ Verb Unit |
+| 9 | ir + a + infinitive (all persons) | ✅ Verb Unit |
+| 10 | recibir + escribir preterite (recibí/recibió/escribí) | ✅ Verb Unit |
+| 11 | ver preterite (vi/vio) + ir a ver | ✅ Verb Unit |
+| 12 | leer preterite (leí/leyó) + ir a leer | ✅ Verb Unit |
+| 13 | Plural preterite all persons (compraron/compramos) | ✅ Verb Unit |
+| 14 | Present progressive (estoy/está/estamos/están + -ando/-iendo) | ✅ Verb Unit |
+| 15 | Present tense AR — hablo/habla, trabajo/trabaja (yo + usted only) | ✅ Verb Unit |
+| 16 | Present tense ER/IR — vivo/vive, escribo/escribe | ✅ Verb Unit |
+| 17 | Irregular preterite — tuve/tuvo + estuve/estuvo | ✅ Verb Unit |
+| 18 | Irregular preterite — hice/hizo + vine/vino | ✅ Verb Unit |
+| 19 | ir preterite — fui/fue/fuimos/fueron + a nadar / al cine | ✅ Verb Unit |
+| 20 | Present perfect — he/ha/hemos/han + -ado/-ido (trabajado, vivido, visto) | ✅ Verb Unit |
+
+#### What the cards confirm about the 27-unit roadmap
+
+1. **Preterite before present tense is correct.** Madrigal introduces tomar, invitar, hablar, comprar all in preterite (Cards 3–7) before any simple present (Card 15). Our roadmap's Phase 2 preterite → Phase 8 present tense sequencing is confirmed.
+
+2. **Present progressive before simple present is correct.** Card 14 (progressive) comes before Cards 15–16 (simple present). Our Unit 21 (progressive) before Unit 19/20 (present tense) is confirmed.
+
+3. **ir + a + infinitive early is correct.** Cards 8–9 come in the first half of the card sequence. Our Unit 7 placement is confirmed.
+
+4. **Irregular preterite tener/estar/hacer/venir/ir at the end of Phase 9 is correct.** Cards 17–19. Our Units 24–25 confirmed.
+
+5. **Present perfect last is correct.** Card 20 is the final card. Our Unit 26 confirmed.
+
+6. **ser has no dedicated verb drill card.** Madrigal never drills ser with a substitution table. It is woven in through cognates, description, and examples — a Grammar Concept, not a Verb Unit. Our roadmap's Unit 2 as Grammar Concept is confirmed.
+
+#### The cognates gap
+
+Cards 1–2 are Madrigal's actual "Magic Key" — the insight that English speakers already know thousands of Spanish words through shared Latin and Greek roots. These two cards appear **before any verb is introduced**. They are Madrigal's confidence-building opening: "You already know Spanish."
+
+**Current state:** No unit in the Spanish 1 curriculum teaches cognate word endings. The `SocialPhraseUnit` covers greetings but not cognates. The archived Unit 1001 ([ARCHIVED] ¡Hola! Greetings & Introductions) has no lessons.
+
+**The gap:** The "Magic Key" concept — OR→el doctor, OUS→famoso, TION→la invitación — has no home. In Madrigal's method, this is introduced before page 9 (before the first verb lesson). It serves a psychological function: the student arrives at Lesson 1 already feeling capable.
+
+**Proposed resolution (for future content decision session):**  
+Option A: Add a "Las Llaves Mágicas" Vocabulary Cluster unit as Unit 0.5 — between Social Phrases and ir — covering the 8 major cognate patterns with examples.  
+Option B: Embed one cognate pattern panel into the Social Phrases unit as an introductory moment.  
+Option C: Handle cognate awareness in Daniela's opening session script (outside the textbook unit system entirely).
+
+**No code or database change has been made.** This is a content decision that should happen alongside the broader 27-unit content sequencing session, with the Magic Key card PDF as a reference.
+
 ---
 
 ## 5. What Was Decided and Completed (History)
