@@ -27,20 +27,24 @@ export function SentenceColumnGenerator({
 }: SentenceColumnGeneratorProps) {
   const { tutorGender } = useLanguage();
 
+  // -1 means "not yet chosen" — avoids browser auto-scrolling to a checked radio on mount
   const [selections, setSelections] = useState<number[]>(
-    columns.map(() => 0)
+    columns.map(() => -1)
   );
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [audioRef] = useState<{ current: HTMLAudioElement | null }>({ current: null });
 
+  // For the assembled preview, fall back to index 0 when nothing is explicitly chosen
+  const effectiveSelections = selections.map(s => (s === -1 ? 0 : s));
+
   const assembledText = columns
-    .map((col, i) => col.items[selections[i]]?.text ?? "")
+    .map((col, i) => col.items[effectiveSelections[i]]?.text ?? "")
     .filter(Boolean)
     .join(" ");
 
   const assembledTranslation = columns
-    .map((col, i) => col.items[selections[i]]?.translation ?? "")
+    .map((col, i) => col.items[effectiveSelections[i]]?.translation ?? "")
     .filter(Boolean)
     .join(" ");
 
@@ -138,7 +142,7 @@ export function SentenceColumnGenerator({
                     <input
                       type="radio"
                       name={`col-${colIdx}`}
-                      checked={isSelected}
+                      checked={selections[colIdx] !== -1 && isSelected}
                       onChange={() => handleSelect(colIdx, itemIdx)}
                       className="accent-primary shrink-0"
                       data-testid={`radio-col${colIdx}-${itemIdx}`}
