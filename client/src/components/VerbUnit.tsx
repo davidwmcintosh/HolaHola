@@ -15,7 +15,8 @@ import {
 } from "./MadrigalPageComponents";
 import { PreteriteUnit } from "./PreteriteUnit";
 import { SerUnit } from "./SerUnit";
-import { getMadrigalContent, getPreteriteContent, getSerContent } from "@/data/madrigal-unit-content";
+import { HayUnit } from "./HayUnit";
+import { getMadrigalContent, getPreteriteContent, getSerContent, getHayContent } from "@/data/madrigal-unit-content";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -89,9 +90,11 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
   const madrigal = getMadrigalContent(chapter.title);
   const preterite = !madrigal ? getPreteriteContent(chapter.title) : null;
   const ser = !madrigal && !preterite ? getSerContent(chapter.title) : null;
+  const hay = !madrigal && !preterite && !ser ? getHayContent(chapter.title) : null;
   const hasMadrigal = !!madrigal;
   const hasPreterite = !!preterite;
   const hasSer = !!ser;
+  const hasHay = !!hay;
 
   const topRef = useRef<HTMLDivElement>(null);
 
@@ -119,6 +122,20 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
     return (
       <SerUnit
         content={ser}
+        language={language}
+        chapter={chapter}
+        onBack={onBack}
+        onStartConversation={onStartConversation}
+        onStartDrill={onStartDrill}
+      />
+    );
+  }
+
+  // If this is a Hay / Puedo ir unit, delegate to HayUnit
+  if (hasHay && hay) {
+    return (
+      <HayUnit
+        content={hay}
         language={language}
         chapter={chapter}
         onBack={onBack}

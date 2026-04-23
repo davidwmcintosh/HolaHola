@@ -189,6 +189,45 @@ export interface SerUnitContent {
   clusters: SerCluster[];
 }
 
+// ── Unit type 4: Hay-style (existential / puedo ir — Q&A image clusters) ──────
+// Used for "Hay" (there is/are) and "Puedo ir" (I can go) chapters.
+
+/** One Q&A image card (¿Hay café? / Sí, hay café.) */
+export interface HayQandAPair {
+  imageWord?: string;
+  imageDescription?: string;
+  question: string;
+  questionTranslation: string;
+  answer: string;
+  answerTranslation: string;
+  /** Additional sentence shown below the answer (e.g. "Es muy bonita.") */
+  extraNote?: string;
+}
+
+/** One vocabulary cluster within a Hay-style lesson */
+export interface HayVocabCluster {
+  heading?: string;
+  /** Pedagogical note displayed above cards */
+  noteInline?: string;
+  pairs: HayQandAPair[];
+  /** Optional sentence-former columns shown at the bottom of the cluster */
+  sentenceColumns?: SentenceColumn[];
+  /** Short note shown after the cards */
+  noteAfter?: string;
+}
+
+export interface HayUnitContent {
+  /** Substring matched against chapter title (case-insensitive) */
+  chapterTitleKey: string;
+  /** Large headline word or phrase, e.g. "Hay" or "Puedo ir" */
+  conceptLabel: string;
+  /** Meaning shown below the headline, e.g. "there is / there are / is there? / are there?" */
+  conceptDefinition: string;
+  /** Pedagogical note displayed after the concept header */
+  introNote?: string;
+  clusters: HayVocabCluster[];
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Chapter 23: Where Are You Going? (ir — to go)
 // Source: Madrigal pp. 9–13
@@ -1394,4 +1433,372 @@ export function getPreteriteContent(chapterTitle: string): PreteriteUnitContent 
 export function getSerContent(chapterTitle: string): SerUnitContent | null {
   const lower = chapterTitle.toLowerCase();
   return SER_UNITS.find(u => lower.includes(u.chapterTitleKey)) ?? null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Chapter 35: I Can Go — Puedo ir
+// Source: Madrigal pp. 84–85
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const PUEDO_IR: HayUnitContent = {
+  chapterTitleKey: "puedo ir",
+  conceptLabel: "Puedo ir",
+  conceptDefinition: "I can go · Can you go?",
+  introNote: "\"Puedo ir\" = I can go. \"Puede ir\" = you can go (formal). This is the polite form throughout.",
+
+  clusters: [
+    {
+      // Page 84: Places
+      noteInline: "Puedo ir  I can go · Puede ir  you can go · a mi casa  to my house · a su casa  to your house",
+      pairs: [
+        {
+          imageWord: "tienda",
+          question: "¿Puede ir a la tienda?",
+          questionTranslation: "Can you go to the store?",
+          answer: "Sí, puedo ir a la tienda.",
+          answerTranslation: "Yes, I can go to the store.",
+        },
+        {
+          imageWord: "fiesta",
+          question: "¿Puede ir a la fiesta?",
+          questionTranslation: "Can you go to the party?",
+          answer: "Sí, puedo ir a la fiesta.",
+          answerTranslation: "Yes, I can go to the party.",
+        },
+        {
+          imageWord: "casa",
+          imageDescription: "a house exterior, front door visible",
+          question: "¿Puede ir a mi casa?",
+          questionTranslation: "Can you come to my house?",
+          answer: "Sí, puedo ir a su casa.",
+          answerTranslation: "Yes, I can go to your house.",
+        },
+        {
+          imageWord: "clase",
+          imageDescription: "a classroom with desks and a chalkboard, no people",
+          question: "¿Puede ir a la clase?",
+          questionTranslation: "Can you go to class?",
+          answer: "Sí, puedo ir a la clase.",
+          answerTranslation: "Yes, I can go to class.",
+        },
+      ],
+      noteAfter: "No puedo ir a la fiesta. — I can't go to the party.",
+    },
+    {
+      // Page 85: Evening events
+      heading: "Esta noche",
+      noteInline: "esta noche  tonight · conmigo  with me · con usted  with you (formal)",
+      pairs: [
+        {
+          imageWord: "baile",
+          imageDescription: "two people elegantly dancing at a ballroom event",
+          question: "¿Puede ir al baile conmigo?",
+          questionTranslation: "Can you go to the dance with me?",
+          answer: "Sí, puedo ir al baile con usted.",
+          answerTranslation: "Yes, I can go to the dance with you.",
+        },
+        {
+          imageWord: "concierto",
+          imageDescription: "interior of a concert hall with a lit stage, no people",
+          question: "¿Puede ir al concierto esta noche?",
+          questionTranslation: "Can you go to the concert tonight?",
+          answer: "Sí, puedo ir al concierto esta noche.",
+          answerTranslation: "Yes, I can go to the concert tonight.",
+        },
+        {
+          imageWord: "ballet",
+          imageDescription: "ballet dancers on a stage, classical performance",
+          question: "¿Puede ir al ballet esta noche?",
+          questionTranslation: "Can you go to the ballet tonight?",
+          answer: "Sí, puedo ir al ballet con usted.",
+          answerTranslation: "Yes, I can go to the ballet with you.",
+        },
+      ],
+      sentenceColumns: [
+        {
+          label: "Subject",
+          items: [
+            { text: "puedo ir",    translation: "I can go" },
+            { text: "puede ir",    translation: "you can go" },
+            { text: "no puedo ir", translation: "I can't go" },
+            { text: "no puede ir", translation: "you can't go" },
+          ],
+        },
+        {
+          label: "Destination",
+          items: [
+            { text: "al baile",     translation: "to the dance" },
+            { text: "al concierto", translation: "to the concert" },
+            { text: "al ballet",    translation: "to the ballet" },
+            { text: "a la tienda",  translation: "to the store" },
+            { text: "a la fiesta",  translation: "to the party" },
+            { text: "a la clase",   translation: "to class" },
+            { text: "a mi casa",    translation: "to my house" },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Chapter 36: Hay — There Is / There Are
+// Source: Madrigal pp. 86–91
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const HAY_CHAPTER: HayUnitContent = {
+  chapterTitleKey: "hay:",
+  conceptLabel: "Hay",
+  conceptDefinition: "there is · there are · is there? · are there?",
+  introNote: "One word covers it all. \"Hay café\" can mean \"There is coffee\" or \"Is there any coffee?\" — context makes the meaning clear.",
+
+  clusters: [
+    {
+      // Page 86: Basic food/drink items
+      pairs: [
+        {
+          imageWord: "café",
+          question: "¿Hay café?",
+          questionTranslation: "Is there any coffee?",
+          answer: "Sí, hay café.",
+          answerTranslation: "Yes, there is coffee.",
+        },
+        {
+          imageWord: "sopa",
+          question: "¿Hay sopa?",
+          questionTranslation: "Is there any soup?",
+          answer: "Sí, hay sopa.",
+          answerTranslation: "Yes, there is soup.",
+        },
+        {
+          imageWord: "chocolate",
+          imageDescription: "a steaming cup of hot chocolate",
+          question: "¿Hay chocolate?",
+          questionTranslation: "Is there any chocolate?",
+          answer: "Sí, hay chocolate.",
+          answerTranslation: "Yes, there is chocolate.",
+        },
+        {
+          imageWord: "té",
+          question: "¿Hay té?",
+          questionTranslation: "Is there any tea?",
+          answer: "Sí, hay té.",
+          answerTranslation: "Yes, there is tea.",
+        },
+      ],
+    },
+    {
+      // Page 87: At the store and bank
+      heading: "En la tienda y en el banco",
+      noteInline: "en la tienda  in the store · mucho dinero  a lot of money · y  and",
+      pairs: [
+        {
+          imageWord: "dinero",
+          imageDescription: "stacks of paper money and coins on a bank counter",
+          question: "¿Hay mucho dinero en el banco?",
+          questionTranslation: "Is there a lot of money in the bank?",
+          answer: "Sí, hay mucho dinero en el banco.",
+          answerTranslation: "Yes, there is a lot of money in the bank.",
+        },
+        {
+          imageWord: "blusa",
+          imageDescription: "a blouse and a skirt hanging on store clothing racks",
+          question: "¿Hay blusas y faldas en la tienda?",
+          questionTranslation: "Are there blouses and skirts in the store?",
+          answer: "Sí, hay blusas y faldas en la tienda.",
+          answerTranslation: "Yes, there are blouses and skirts in the store.",
+        },
+        {
+          imageWord: "gasolina",
+          imageDescription: "a gas station with fuel pumps, exterior view",
+          question: "¿Hay gasolina en la estación de gasolina?",
+          questionTranslation: "Is there gas at the gas station?",
+          answer: "Sí, hay gasolina en la estación de gasolina.",
+          answerTranslation: "Yes, there is gas at the gas station.",
+        },
+      ],
+    },
+    {
+      // Page 88: muchos / muchas — market items
+      heading: "muchos · muchas",
+      noteInline: "muchos = many (masculine plural) · muchas = many (feminine plural)",
+      pairs: [
+        {
+          imageWord: "calcetines",
+          imageDescription: "a display of many colorful socks in a store",
+          question: "¿Hay muchos calcetines en la tienda?",
+          questionTranslation: "Are there many socks in the store?",
+          answer: "Sí, hay muchos calcetines en la tienda.",
+          answerTranslation: "Yes, there are many socks in the store.",
+        },
+        {
+          imageWord: "zapatos",
+          imageDescription: "rows of shoes displayed in a store",
+          question: "¿Hay muchas medias en la tienda?",
+          questionTranslation: "Are there many stockings in the store?",
+          answer: "Sí, hay muchas medias en la tienda.",
+          answerTranslation: "Yes, there are many stockings in the store.",
+        },
+        {
+          imageWord: "naranja",
+          imageDescription: "many oranges piled on a market stall",
+          question: "¿Hay muchas naranjas en el mercado?",
+          questionTranslation: "Are there many oranges at the market?",
+          answer: "Sí, hay muchas naranjas en el mercado.",
+          answerTranslation: "Yes, there are many oranges at the market.",
+        },
+        {
+          imageWord: "plátano",
+          imageDescription: "bunches of bananas on a market stand",
+          question: "¿Hay muchos plátanos en el mercado?",
+          questionTranslation: "Are there many bananas at the market?",
+          answer: "Sí, hay muchos plátanos en el mercado.",
+          answerTranslation: "Yes, there are many bananas at the market.",
+        },
+      ],
+    },
+    {
+      // Page 89: No hay + humor
+      heading: "No hay",
+      noteInline: "No hay = there isn't / there aren't",
+      pairs: [
+        {
+          imageWord: "gorila",
+          imageDescription: "a cartoon-style gorilla sitting in an empty classroom, absurd scene",
+          question: "¿Hay gorilas en la clase?",
+          questionTranslation: "Are there gorillas in the class?",
+          answer: "No hay gorilas en la clase.",
+          answerTranslation: "There are no gorillas in the class.",
+          extraNote: "Eso es absolutamente ridículo. — That is absolutely ridiculous.",
+        },
+        {
+          imageWord: "estudiante",
+          imageDescription: "students sitting at desks in a classroom",
+          question: "¿Hay estudiantes en la clase?",
+          questionTranslation: "Are there students in the class?",
+          answer: "Sí, hay estudiantes en la clase.",
+          answerTranslation: "Yes, there are students in the class.",
+        },
+      ],
+      noteAfter: "¡Eso es absolutamente ridículo! — That is absolutely ridiculous!",
+    },
+    {
+      // Page 90: En el hotel
+      heading: "En el hotel",
+      noteInline: "muchos turistas  many tourists · una piscina  a swimming pool · muy bonita  very pretty · un peluquero  a barber",
+      pairs: [
+        {
+          imageWord: "turistas",
+          imageDescription: "a group of tourists with luggage in a hotel lobby",
+          question: "¿Hay turistas en el hotel?",
+          questionTranslation: "Are there tourists at the hotel?",
+          answer: "Sí, hay muchos turistas en el hotel.",
+          answerTranslation: "Yes, there are many tourists at the hotel.",
+          extraNote: "Hay turistas americanos, italianos, mexicanos, etc.",
+        },
+        {
+          imageWord: "piscina",
+          imageDescription: "a beautiful outdoor swimming pool at a hotel resort",
+          question: "¿Hay una piscina en el hotel?",
+          questionTranslation: "Is there a swimming pool at the hotel?",
+          answer: "Sí, hay una piscina en el hotel. Es muy bonita.",
+          answerTranslation: "Yes, there is a swimming pool at the hotel. It's very pretty.",
+        },
+        {
+          imageWord: "peluquero",
+          imageDescription: "a barber chair and barber tools in a professional barbershop",
+          question: "¿Hay un peluquero en el hotel?",
+          questionTranslation: "Is there a barber at the hotel?",
+          answer: "Sí, hay un peluquero excelente en el hotel.",
+          answerTranslation: "Yes, there is an excellent barber at the hotel.",
+        },
+      ],
+      noteAfter: "¿Qué hay? — What is there? / What's up?",
+    },
+    {
+      // Page 91: Las tiendas — store vocabulary
+      heading: "Las tiendas",
+      noteInline: "la zapatería  shoe store · la panadería  bakery · la carnicería  butcher shop · la joyería  jewelry shop",
+      pairs: [
+        {
+          imageWord: "zapatos",
+          imageDescription: "shoes displayed in a shoe store",
+          question: "¿Hay zapatos en la zapatería?",
+          questionTranslation: "Are there shoes in the shoe store?",
+          answer: "Sí, hay zapatos en la zapatería.",
+          answerTranslation: "Yes, there are shoes in the shoe store.",
+        },
+        {
+          imageWord: "pan",
+          imageDescription: "loaves of fresh bread in a bakery display",
+          question: "¿Hay pan en la panadería?",
+          questionTranslation: "Is there bread in the bakery?",
+          answer: "Sí, hay pan en la panadería.",
+          answerTranslation: "Yes, there is bread in the bakery.",
+        },
+        {
+          imageWord: "carne",
+          imageDescription: "cuts of fresh meat in a butcher shop display case",
+          question: "¿Hay carne en la carnicería?",
+          questionTranslation: "Is there meat in the butcher shop?",
+          answer: "Sí, hay carne en la carnicería.",
+          answerTranslation: "Yes, there is meat in the butcher shop.",
+        },
+        {
+          imageWord: "joyas",
+          imageDescription: "rings, necklaces and bracelets in a jewelry store display case",
+          question: "¿Hay joyas en la joyería?",
+          questionTranslation: "Is there jewelry in the jewelry store?",
+          answer: "Sí, hay joyas en la joyería.",
+          answerTranslation: "Yes, there is jewelry in the jewelry store.",
+        },
+      ],
+      sentenceColumns: [
+        {
+          label: "Quantity",
+          items: [
+            { text: "¿Hay muchos",  translation: "Are there many (m)" },
+            { text: "¿Hay muchas",  translation: "Are there many (f)" },
+            { text: "Sí, hay muchos",  translation: "Yes, there are many (m)" },
+            { text: "Sí, hay muchas",  translation: "Yes, there are many (f)" },
+          ],
+        },
+        {
+          label: "Item",
+          items: [
+            { text: "zapatos",    translation: "shoes" },
+            { text: "joyas",      translation: "jewelry" },
+            { text: "calcetines", translation: "socks" },
+            { text: "naranjas",   translation: "oranges" },
+            { text: "plátanos",   translation: "bananas" },
+            { text: "blusas",     translation: "blouses" },
+          ],
+        },
+        {
+          label: "Location",
+          items: [
+            { text: "en la zapatería?", translation: "in the shoe store?" },
+            { text: "en la joyería?",   translation: "in the jewelry store?" },
+            { text: "en la tienda?",    translation: "in the store?" },
+            { text: "en el mercado?",   translation: "at the market?" },
+          ],
+        },
+      ],
+      noteAfter: "muchos (many) — use with masculine nouns · muchas (many) — use with feminine nouns",
+    },
+  ],
+};
+
+const HAY_UNITS: HayUnitContent[] = [
+  PUEDO_IR,
+  HAY_CHAPTER,
+];
+
+/**
+ * Returns hardcoded Hay-style content for a chapter if available.
+ * Covers "Puedo ir" and "Hay" chapters.
+ */
+export function getHayContent(chapterTitle: string): HayUnitContent | null {
+  const lower = chapterTitle.toLowerCase();
+  return HAY_UNITS.find(u => lower.includes(u.chapterTitleKey)) ?? null;
 }
