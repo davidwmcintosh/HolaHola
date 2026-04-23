@@ -154,6 +154,56 @@ function GrammarRuleBox({ text }: { text: string }) {
   );
 }
 
+// ── ConjugationTable — verb conjugation grid (e.g. Fui/Fue/Fuimos/Fueron) ─────
+
+function ConjugationTable({
+  rows,
+  language,
+  tutorGender,
+}: {
+  rows: { conjugated: string; translation: string }[];
+  language: string;
+  tutorGender: string;
+}) {
+  const { play, playingKey } = useTTS(language, tutorGender);
+  return (
+    <div className="rounded-md border overflow-hidden" data-testid="gust-conjugation-table">
+      <div className="px-4 py-2 bg-muted/60 border-b">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Conjugation
+        </p>
+      </div>
+      <div className="divide-y">
+        {rows.map((row, i) => (
+          <div key={i} className="flex items-center gap-3 px-4 py-3">
+            <button
+              type="button"
+              onClick={() => play(row.conjugated, `conj-${i}`)}
+              className="shrink-0"
+              data-testid={`button-play-conj-${i}`}
+              title="Listen"
+            >
+              {playingKey === `conj-${i}`
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                : <Volume2 className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground transition-colors" />
+              }
+            </button>
+            <span
+              className="text-lg font-bold flex-1"
+              data-testid={`text-conj-${row.conjugated}`}
+            >
+              {row.conjugated}
+            </span>
+            <span className="text-sm text-muted-foreground">
+              {row.translation}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── NegativeExampleList — "No me gusta…" sentences ───────────────────────────
 
 function NegativeExampleList({ items, language, tutorGender }: {
@@ -345,6 +395,15 @@ function GustClusterSection({
       {cluster.negativeExamples && cluster.negativeExamples.length > 0 && (
         <NegativeExampleList
           items={cluster.negativeExamples}
+          language={language}
+          tutorGender={tutorGender}
+        />
+      )}
+
+      {/* Conjugation table */}
+      {cluster.conjugationTable && cluster.conjugationTable.length > 0 && (
+        <ConjugationTable
+          rows={cluster.conjugationTable}
           language={language}
           tutorGender={tutorGender}
         />

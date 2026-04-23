@@ -1813,6 +1813,8 @@ export interface GustVocabCluster extends HayVocabCluster {
   grammarRule?: string;
   /** List of negative sentences shown at the end of the cluster */
   negativeExamples?: string[];
+  /** Full verb conjugation table shown at the bottom of the cluster */
+  conjugationTable?: { conjugated: string; translation: string }[];
 }
 
 export interface GustUnitContent {
@@ -2184,9 +2186,197 @@ const GUSTARIA_CHAPTER: GustUnitContent = {
   ],
 };
 
+// ── Chapter 39: Fui — Where I Went (pp. 106–109) ─────────────────────────────
+
+const FUI_CHAPTER: GustUnitContent = {
+  chapterTitleKey: "fui:",
+  conceptLabel: "Fui",
+  conceptDefinition: "I went",
+  clusters: [
+    // ── Cluster 1: Fui + destinations (page 106) ──────────────────
+    {
+      heading: "Fui",
+      noteInline: "Fui  I went",
+      pairs: [
+        {
+          imageWord: "iglesia",
+          imageDescription: "a white stone church with a bell tower on a sunny day",
+          question: "¿Fue a la iglesia el domingo?",
+          questionTranslation: "Did you go to church on Sunday?",
+          answer: "Sí, fui a la iglesia el domingo.",
+          answerTranslation: "Yes, I went to church on Sunday.",
+        },
+        {
+          imageWord: "museo",
+          imageDescription: "the grand exterior of a classical museum building",
+          question: "¿Fue al museo el sábado?",
+          questionTranslation: "Did you go to the museum on Saturday?",
+          answer: "Sí, fui al museo el sábado.",
+          answerTranslation: "Yes, I went to the museum on Saturday.",
+        },
+        {
+          imageWord: "concierto",
+          imageDescription: "a concert stage with bright spotlights and a crowd",
+          question: "¿Fue al concierto el domingo?",
+          questionTranslation: "Did you go to the concert on Sunday?",
+          answer: "Sí, fui al concierto el domingo.",
+          answerTranslation: "Yes, I went to the concert on Sunday.",
+        },
+        {
+          imageWord: "tienda",
+          imageDescription: "the entrance of a small shop with a display window",
+          question: "¿Fue a la tienda?",
+          questionTranslation: "Did you go to the store?",
+          answer: "Sí, fui a la tienda.",
+          answerTranslation: "Yes, I went to the store.",
+        },
+      ],
+      sentenceColumns: [
+        {
+          label: "Verb",
+          items: [
+            { text: "Fui", translation: "I went" },
+          ],
+        },
+        {
+          label: "Destination",
+          items: [
+            { text: "al club.",         translation: "to the club." },
+            { text: "al hotel.",        translation: "to the hotel." },
+            { text: "al restaurante.",  translation: "to the restaurant." },
+            { text: "al cine.",         translation: "to the movies." },
+            { text: "al banco.",        translation: "to the bank." },
+            { text: "a la iglesia.",    translation: "to church." },
+            { text: "al museo.",        translation: "to the museum." },
+            { text: "al concierto.",    translation: "to the concert." },
+            { text: "a la tienda.",     translation: "to the store." },
+            { text: "al teatro.",       translation: "to the theater." },
+          ],
+        },
+      ],
+    },
+    // ── Cluster 2: ¿Fue? / Fui Q&A + third person (page 107) ─────
+    {
+      heading: "¿Fue? / Fui",
+      noteInline: "¿Fue?  Did you go? · Fue  You/he/she went · Fui  I went",
+      pairs: [
+        {
+          imageWord: "cine",
+          imageDescription: "the exterior of a movie theater with a bright marquee at night",
+          question: "¿Fue al cine?",
+          questionTranslation: "Did you go to the movies?",
+          answer: "Sí, fui al cine.",
+          answerTranslation: "Yes, I went to the movies.",
+        },
+        {
+          imageWord: "banco",
+          imageDescription: "the exterior of a bank building with glass doors",
+          question: "¿Fue al banco?",
+          questionTranslation: "Did you go to the bank?",
+          answer: "Sí, fui al banco.",
+          answerTranslation: "Yes, I went to the bank.",
+        },
+        {
+          imageWord: "fiesta",
+          imageDescription: "a festive party scene with colorful decorations and balloons",
+          question: "¿Fue a la fiesta?",
+          questionTranslation: "Did you go to the party?",
+          answer: "Sí, fui a la fiesta.",
+          answerTranslation: "Yes, I went to the party.",
+        },
+        {
+          imageWord: "restaurante",
+          imageDescription: "a cozy restaurant interior with tables and candles",
+          question: "¿Fue al restaurante?",
+          questionTranslation: "Did you go to the restaurant?",
+          answer: "Sí, fui al restaurante.",
+          answerTranslation: "Yes, I went to the restaurant.",
+        },
+      ],
+      sentenceColumns: [
+        {
+          label: "Subject",
+          items: [
+            { text: "María",        translation: "María" },
+            { text: "Roberto",      translation: "Roberto" },
+            { text: "El doctor",    translation: "The doctor" },
+            { text: "El estudiante", translation: "The student" },
+          ],
+        },
+        {
+          label: "Action",
+          items: [
+            { text: "fue al cine.",    translation: "went to the movies." },
+            { text: "fue a la fiesta.", translation: "went to the party." },
+            { text: "fue al banco.",   translation: "went to the bank." },
+            { text: "fue al teatro.",  translation: "went to the theater." },
+          ],
+        },
+      ],
+    },
+    // ── Cluster 3: Modifiers — esta mañana / en taxi / en avión (pp. 108–109) ──
+    {
+      heading: "Modifiers",
+      noteInline: "No fui  I didn't go · esta mañana  this morning · en taxi  by taxi · en avión  by plane",
+      pairs: [
+        {
+          imageWord: "despacho",
+          imageDescription: "the interior of a professional office with a desk and computer",
+          question: "¿Fue al despacho esta mañana?",
+          questionTranslation: "Did you go to the office this morning?",
+          answer: "Sí, fui al despacho esta mañana.",
+          answerTranslation: "Yes, I went to the office this morning.",
+        },
+        {
+          imageWord: "taxi",
+          imageDescription: "a yellow taxi cab on a city street",
+          question: "¿Fue al despacho en taxi?",
+          questionTranslation: "Did you go to the office by taxi?",
+          answer: "Sí, fui al despacho en taxi.",
+          answerTranslation: "Yes, I went to the office by taxi.",
+        },
+        {
+          imageWord: "avión",
+          imageDescription: "a commercial airplane in flight against a clear blue sky",
+          question: "¿Fue al circo con Roberto?",
+          questionTranslation: "Did you go to the circus with Roberto?",
+          answer: "Sí, fui al circo con Roberto.",
+          answerTranslation: "Yes, I went to the circus with Roberto.",
+        },
+        {
+          imageWord: "circo",
+          imageDescription: "a colorful circus tent with pennant flags",
+          question: "¿Fue al circo en taxi?",
+          questionTranslation: "Did you go to the circus by taxi?",
+          answer: "Sí, fui al circo en taxi.",
+          answerTranslation: "Yes, I went to the circus by taxi.",
+        },
+      ],
+      negativeExamples: [
+        "No fui al despacho en avión. ¡Eso es ridículo!",
+        "No fui al circo en avión.",
+        "No fui al circo esta mañana.",
+      ],
+    },
+    // ── Cluster 4: Full conjugation table (page 109) ───────────────
+    {
+      heading: "Ir — Preterite",
+      noteInline: "Fui  I went · Fue  You/he/she went · Fuimos  We went · Fueron  They went",
+      pairs: [],
+      conjugationTable: [
+        { conjugated: "Fui",    translation: "I went" },
+        { conjugated: "Fue",    translation: "You/he/she/it went" },
+        { conjugated: "Fuimos", translation: "We went" },
+        { conjugated: "Fueron", translation: "They went" },
+      ],
+    },
+  ],
+};
+
 const GUST_UNITS: GustUnitContent[] = [
   GUSTAR_CHAPTER,
   GUSTARIA_CHAPTER,
+  FUI_CHAPTER,
 ];
 
 /**
