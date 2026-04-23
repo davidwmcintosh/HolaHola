@@ -96,6 +96,8 @@ ACTFL is used here as the **measurement framework** (what can students demonstra
 | 40 | Voy a: I Am Going To | NH ✓ — near future + mega sentence combiner |
 | 41 | Va a: Vender/Leer/Escribir | NH ✓ — 3rd person near future, Q&A |
 | 45 | Está: Limpio y Sucio | NH ✓ — estar + adjective states, gender agreement |
+| 46 | Estudié: I Studied | NH ✓ — full AR preterite: -é/-ó/-amos/-aron (pp. 122–125) |
+| 47 | Recibí: I Received | NH ✓ — full ER/IR preterite: -í/-ió/-imos/-ieron (pp. 132–137) |
 
 ---
 
@@ -103,15 +105,12 @@ ACTFL is used here as the **measurement framework** (what can students demonstra
 
 These are areas where ACTFL Novice High students should have competence but our current content is incomplete.
 
-### Gap 1 — Regular AR/ER/IR Preterite Paradigm ⚠️ HIGH PRIORITY
-**What's missing:** Pages 122–141 (chapters ~42–51 in the sequence) — the full regular preterite with all three verb endings.
+### ~~Gap 1 — Regular AR/ER/IR Preterite Paradigm~~ ✅ NOW COMPLETE
+Pages 122–137 transcribed and built as two new chapters:
+- **Ch. 46 — Estudié: I Studied** (pp. 122–125) — AR preterite: -é/-ó/-amos/-aron. Verbs: estudiar, comprar, pagar, nadar, alquilar, trabajar, dejar. Includes conjugation tables and ¿Dónde dejó? sentence combiner.
+- **Ch. 47 — Recibí: I Received** (pp. 132–137) — ER/IR preterite: -í/-ió/-imos/-ieron. Verbs: recibir, escribir, vender, ver. Includes gift vocabulary (cumpleaños/Navidad), circus vocabulary, and conjugation tables for ver and vender.
 
-Currently students can say *fui, tomé, compré* but cannot say *comí, escribí, viví, vendí, corrí* or apply the paradigm productively.
-
-ACTFL NH requires: *"I can tell where I went and what I did."*  
-Without the regular preterite paradigm, that coverage is thin.
-
-**Recommendation:** Fill in pages 122–141 before finalizing the Spanish 1 scope. These are true Spanish 1 content.
+Note: Pages 128–131 (additional tomar material) skipped — already covered by Ch. 28 (I Took: Tomar). Pages 138–141 not transcribed; user confirmed content ends at page 137 for purposes of Spanish 1.
 
 ### Gap 2 — Physical Descriptions / Appearance ⚠️ MEDIUM
 **What's missing:** Adjectives for describing physical appearance — alto/bajo, delgado/gordo, rubio/moreno, joven/viejo, bonito/feo.
@@ -184,13 +183,15 @@ Spanish 2 then builds on these toward:
 |---|---|
 | Novice Low (NL) coverage | ✅ Complete |
 | Novice Mid (NM) coverage | ✅ Complete |
-| Novice High (NH) coverage | ⚠️ Mostly complete — 2 remaining gaps |
+| Novice High (NH) coverage | ✅ Core complete — 2 optional gaps remain |
 | Numbers coverage | ✅ Confirmed complete (Ch. 5: 0–millions) |
-| Priority gap | Regular preterite paradigm (pages 122–141) — requires transcription |
-| Secondary gap | Physical appearance adjectives (images exist, need Madrigal sentences) |
-| Spanish 1 boundary | Ch. 45 (with preterite gap content added) |
+| Regular preterite (Gap 1) | ✅ Built — Ch. 46 (AR) + Ch. 47 (ER/IR) |
+| Physical appearance (Gap 2) | ⚠️ Images exist, need Madrigal-sourced sentences |
+| Health vocabulary (Gap 4) | ⚠️ Low priority — optional for Spanish 1 |
+| Clothing vocabulary (Gap 5) | ⚠️ Low priority — partially covered in Ch. 20 |
+| Spanish 1 boundary | ✅ Ch. 47 — Madrigal book pages 1–137 fully covered |
 | Chapters to move to Spanish 2 | Ch. 42, 43, 44 |
-| Chapters firmly in Spanish 2 | Ch. 42–44 + all irregular preterites, indirect pronouns, imperfect |
+| Chapters firmly in Spanish 2 | Ch. 42–44 + Madrigal pages 142+ |
 
 ---
 
