@@ -48,7 +48,7 @@ ACTFL is used here as the **measurement framework** (what can students demonstra
 | 1 | Social Phrases | NL ✓ — greet, thank, apologize, farewell |
 | 2 | Meeting People | NL ✓ — introduce self, give name, state origin |
 | 3 | Classroom Survival | NL ✓ — request repetition, ask for help |
-| 5 | Los Números | NL ✓ — numbers 0–20, age, phone |
+| 5 | Los Números | NL→NM ✓ — numbers 0–20, tens (20–90), hundreds, thousands, millions, compound rules |
 | 6 | Telling Time | NL ✓ — clock time, quarter/half hour |
 | 7 | Birthdays & Dates | NL ✓ — months, ordinal dates |
 | 8 | Family Members | NL ✓ — immediate family vocabulary |
@@ -120,14 +120,12 @@ Ch. 9 (ser) covers personality and some appearance, but vocabulary for describin
 
 ACTFL NH: *"I can describe people and things."*
 
-**Recommendation:** Add a short "Así es…" (describing people) cluster — can be folded into an existing chapter or added as a thin standalone.
+**Asset note:** Image pairs for alto/bajo and related adjective contrasts have already been created and are in attached_assets. They just need a chapter to live in.
 
-### Gap 3 — Numbers Beyond 20 ⚠️ MEDIUM
-**What's missing:** Numbers 21–100, hundreds, thousands. Prices above 20 can't be expressed.
+**Recommendation:** Add a short "Así es…" (describing people) cluster — can be folded into Ch. 9 (ser) or added as a thin standalone. Images are ready; content needs Madrigal-sourced sentences to remain within the content law.
 
-Ch. 5 covers 0–20. Shopping (ch. 21) requires bigger numbers for prices, but students have no vocabulary for them.
-
-**Recommendation:** A "Los Números II" chapter (21–100, then 100–1000) — important for Shopping, Travel, and Hotel chapters to function fully.
+### ~~Gap 3 — Numbers Beyond 20~~ ✅ NOT A GAP
+Ch. 5 (Los Números) confirmed to cover: 0–20 (individual), tens 20–90, hundreds (cien/ciento/doscientos), thousands (mil), millions (un millón), and compound rules (16–19 fuse, 21–29 fuse, 31+ use "y"). The DB description ("zero to twenty") understates the actual chapter content. No action needed.
 
 ### Gap 4 — Health Vocabulary ⚠️ LOW–MEDIUM
 **What's missing:** *Estoy enfermo/a, me duele la cabeza, tengo fiebre, el médico, la farmacia.*
@@ -186,8 +184,16 @@ Spanish 2 then builds on these toward:
 |---|---|
 | Novice Low (NL) coverage | ✅ Complete |
 | Novice Mid (NM) coverage | ✅ Complete |
-| Novice High (NH) coverage | ⚠️ Mostly complete — 3 gaps |
-| Priority gap | Regular preterite paradigm (pages 122–141) |
-| Spanish 1 boundary | Ch. 45 (with gap content added) |
+| Novice High (NH) coverage | ⚠️ Mostly complete — 2 remaining gaps |
+| Numbers coverage | ✅ Confirmed complete (Ch. 5: 0–millions) |
+| Priority gap | Regular preterite paradigm (pages 122–141) — requires transcription |
+| Secondary gap | Physical appearance adjectives (images exist, need Madrigal sentences) |
+| Spanish 1 boundary | Ch. 45 (with preterite gap content added) |
 | Chapters to move to Spanish 2 | Ch. 42, 43, 44 |
 | Chapters firmly in Spanish 2 | Ch. 42–44 + all irregular preterites, indirect pronouns, imperfect |
+
+---
+
+## Note on Content Sources
+
+See `docs/content-audit-legacy-vs-madrigal.md` for a full analysis of which chapters follow Madrigal's pedagogy and which are legacy traditional-textbook chapters. This distinction matters for sequencing decisions and identifying duplication.
