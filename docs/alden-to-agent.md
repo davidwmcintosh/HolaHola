@@ -2,7 +2,7 @@
 
 *61 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
 
-Generated: 4/23/2026, 6:40:33 PM
+Generated: 4/23/2026, 7:41:23 PM
 
 ---
 
