@@ -8,7 +8,7 @@
  *   Chapter 38 — Me gustaría: I Would Like      (pp. 98–101)
  */
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useLayoutEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Volume2, Loader2, ChevronLeft, MessageSquare, Dumbbell, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -430,6 +430,11 @@ export function GustUnit({
   const { tutorGender } = useLanguage();
   const gender = tutorGender ?? "female";
 
+  const topRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    topRef.current?.scrollIntoView({ block: "start", behavior: "instant" });
+  }, [chapter.id]);
+
   const sections = chapter.sections ?? [];
   const totalDrills = sections.reduce((acc, s) => acc + (s.drillCount || 0), 0);
   const firstVocabSection = sections.find(s => s.lessonType === "grammar") ?? sections[0];
@@ -437,6 +442,7 @@ export function GustUnit({
 
   return (
     <div
+      ref={topRef}
       className="w-full max-w-2xl mx-auto pb-16 touch-pan-y overscroll-contain"
       data-testid="gust-unit"
     >
