@@ -16,7 +16,8 @@ import {
 import { PreteriteUnit } from "./PreteriteUnit";
 import { SerUnit } from "./SerUnit";
 import { HayUnit } from "./HayUnit";
-import { getMadrigalContent, getPreteriteContent, getSerContent, getHayContent } from "@/data/madrigal-unit-content";
+import { GustUnit } from "./GustUnit";
+import { getMadrigalContent, getPreteriteContent, getSerContent, getHayContent, getGustContent } from "@/data/madrigal-unit-content";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -91,10 +92,12 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
   const preterite = !madrigal ? getPreteriteContent(chapter.title) : null;
   const ser = !madrigal && !preterite ? getSerContent(chapter.title) : null;
   const hay = !madrigal && !preterite && !ser ? getHayContent(chapter.title) : null;
+  const gust = !madrigal && !preterite && !ser && !hay ? getGustContent(chapter.title) : null;
   const hasMadrigal = !!madrigal;
   const hasPreterite = !!preterite;
   const hasSer = !!ser;
   const hasHay = !!hay;
+  const hasGust = !!gust;
 
   const topRef = useRef<HTMLDivElement>(null);
 
@@ -136,6 +139,20 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
     return (
       <HayUnit
         content={hay}
+        language={language}
+        chapter={chapter}
+        onBack={onBack}
+        onStartConversation={onStartConversation}
+        onStartDrill={onStartDrill}
+      />
+    );
+  }
+
+  // If this is a gustar-family unit, delegate to GustUnit
+  if (hasGust && gust) {
+    return (
+      <GustUnit
+        content={gust}
         language={language}
         chapter={chapter}
         onBack={onBack}

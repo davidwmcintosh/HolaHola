@@ -1802,3 +1802,398 @@ export function getHayContent(chapterTitle: string): HayUnitContent | null {
   const lower = chapterTitle.toLowerCase();
   return HAY_UNITS.find(u => lower.includes(u.chapterTitleKey)) ?? null;
 }
+
+// ── Unit type 5: Gust-style (gustar / gustaría / encanta / encantaría) ─────────
+// Used for the "gustar" family chapters (Madrigal pp. 94–101).
+
+/** One vocabulary cluster in a gustar-style lesson.
+ *  Extends HayVocabCluster with an optional grammar-rule callout and negative examples. */
+export interface GustVocabCluster extends HayVocabCluster {
+  /** Rule callout displayed after the cards, e.g. singular vs plural contrast */
+  grammarRule?: string;
+  /** List of negative sentences shown at the end of the cluster */
+  negativeExamples?: string[];
+}
+
+export interface GustUnitContent {
+  /** Substring matched against chapter title (case-insensitive) */
+  chapterTitleKey: string;
+  /** Large headline word or phrase, e.g. "Me gusta" */
+  conceptLabel: string;
+  /** Meaning shown below the headline */
+  conceptDefinition: string;
+  /** Pedagogical note displayed after the concept header */
+  introNote?: string;
+  clusters: GustVocabCluster[];
+}
+
+// ── Chapter 37: Gustar — Me gusta / Me gustan (pp. 94–97) ─────────────────────
+
+const GUSTAR_CHAPTER: GustUnitContent = {
+  chapterTitleKey: "gustar:",
+  conceptLabel: "Me gusta",
+  conceptDefinition: "I like · it pleases me",
+  introNote: "Notice that in Spanish you don't say 'I like soup.' You must say 'I like the soup.' It is necessary to add 'the' before a noun.",
+  clusters: [
+    // ── Cluster 1: Me gusta (singular foods) ──────────────────────
+    {
+      heading: "Me gusta",
+      noteInline: "Me gusta  I like · ¿Le gusta?  Do you like?",
+      pairs: [
+        {
+          imageWord: "sopa",
+          imageDescription: "a steaming bowl of soup on a white background",
+          question: "¿Le gusta la sopa?",
+          questionTranslation: "Do you like the soup?",
+          answer: "Sí, me gusta mucho la sopa.",
+          answerTranslation: "Yes, I like the soup a lot.",
+        },
+        {
+          imageWord: "limonada",
+          imageDescription: "a glass of lemonade with ice and lemon on a white background",
+          question: "¿Le gusta la limonada?",
+          questionTranslation: "Do you like the lemonade?",
+          answer: "Sí, me gusta mucho la limonada.",
+          answerTranslation: "Yes, I like the lemonade a lot.",
+        },
+        {
+          imageWord: "queso",
+          imageDescription: "a wedge of yellow cheese on a white background",
+          question: "¿Le gusta el queso?",
+          questionTranslation: "Do you like the cheese?",
+          answer: "Sí, me gusta mucho el queso.",
+          answerTranslation: "Yes, I like the cheese a lot.",
+        },
+        {
+          imageWord: "leche",
+          imageDescription: "a glass of milk on a white background",
+          question: "¿Le gusta la leche?",
+          questionTranslation: "Do you like the milk?",
+          answer: "Sí, me gusta mucho la leche.",
+          answerTranslation: "Yes, I like the milk a lot.",
+        },
+      ],
+      sentenceColumns: [
+        {
+          label: "Question",
+          items: [
+            { text: "¿Le gusta", translation: "Do you like" },
+          ],
+        },
+        {
+          label: "Item",
+          items: [
+            { text: "el campo?",   translation: "the countryside?" },
+            { text: "la música?",  translation: "music?" },
+            { text: "México?",     translation: "Mexico?" },
+            { text: "Acapulco?",   translation: "Acapulco?" },
+            { text: "el arroz?",   translation: "rice?" },
+            { text: "el pollo?",   translation: "chicken?" },
+            { text: "el pescado?", translation: "fish?" },
+          ],
+        },
+      ],
+    },
+    // ── Cluster 2: Me gustan (plural foods) ───────────────────────
+    {
+      heading: "Me gustan",
+      noteInline: "Me gustan  I like (plural) · ¿Le gustan?  Do you like (plural)?",
+      pairs: [
+        {
+          imageWord: "espárragos",
+          imageDescription: "a bundle of fresh green asparagus on a white background",
+          question: "¿Le gustan los espárragos?",
+          questionTranslation: "Do you like the asparagus?",
+          answer: "Sí, me gustan los espárragos.",
+          answerTranslation: "Yes, I like the asparagus.",
+        },
+        {
+          imageWord: "huevos",
+          imageDescription: "three white eggs on a white background",
+          question: "¿Le gustan los huevos?",
+          questionTranslation: "Do you like the eggs?",
+          answer: "Sí, me gustan los huevos.",
+          answerTranslation: "Yes, I like the eggs.",
+        },
+        {
+          imageWord: "frijoles",
+          imageDescription: "a pile of black beans on a white background",
+          question: "¿Le gustan los frijoles?",
+          questionTranslation: "Do you like the beans?",
+          answer: "Sí, me gustan los frijoles.",
+          answerTranslation: "Yes, I like the beans.",
+        },
+        {
+          imageWord: "espinacas",
+          imageDescription: "a handful of fresh spinach leaves on a white background",
+          question: "¿Le gustan las espinacas?",
+          questionTranslation: "Do you like the spinach?",
+          answer: "Sí, me gustan las espinacas.",
+          answerTranslation: "Yes, I like the spinach.",
+        },
+      ],
+      grammarRule: "Use me gusta when what you like is singular · Use me gustan when what you like is plural · Me gusta la rosa / Me gustan las rosas",
+    },
+    // ── Cluster 3: Gustar + infinitive ────────────────────────────
+    {
+      heading: "Gustar + infinitive",
+      noteInline: "Me gusta  I like · ¿Le gusta?  Do you like?",
+      pairs: [
+        {
+          imageWord: "nadar",
+          imageDescription: "a person swimming in a bright blue pool",
+          question: "¿Le gusta nadar?",
+          questionTranslation: "Do you like to swim?",
+          answer: "Sí, me gusta nadar.",
+          answerTranslation: "Yes, I like to swim.",
+        },
+        {
+          imageWord: "pescar",
+          imageDescription: "a person fishing with a rod at a lake",
+          question: "¿Le gusta pescar?",
+          questionTranslation: "Do you like to fish?",
+          answer: "Sí, me gusta pescar.",
+          answerTranslation: "Yes, I like to fish.",
+        },
+        {
+          imageWord: "bailar",
+          imageDescription: "a person dancing with arms raised",
+          question: "¿Le gusta bailar?",
+          questionTranslation: "Do you like to dance?",
+          answer: "Sí, me gusta bailar.",
+          answerTranslation: "Yes, I like to dance.",
+        },
+        {
+          imageWord: "estudiar",
+          imageDescription: "a person studying at a desk with an open book",
+          question: "¿Le gusta estudiar?",
+          questionTranslation: "Do you like to study?",
+          answer: "Sí, me gusta estudiar.",
+          answerTranslation: "Yes, I like to study.",
+        },
+      ],
+      negativeExamples: [
+        "No me gusta pescar.",
+        "No me gusta nadar.",
+        "No me gusta bailar.",
+      ],
+    },
+  ],
+};
+
+// ── Chapter 38: Me gustaría — I Would Like (pp. 98–101) ──────────────────────
+
+const GUSTARIA_CHAPTER: GustUnitContent = {
+  chapterTitleKey: "me gustaría:",
+  conceptLabel: "Me gustaría",
+  conceptDefinition: "I would like · I would love",
+  clusters: [
+    // ── Cluster 1: Me gustaría ir ──────────────────────────────────
+    {
+      heading: "Me gustaría ir",
+      noteInline: "Me gustaría ir  I would like to go · ¿Le gustaría ir?  Would you like to go?",
+      pairs: [
+        {
+          imageWord: "parque",
+          imageDescription: "a sunny park with green trees and a bench",
+          question: "¿Le gustaría ir al parque?",
+          questionTranslation: "Would you like to go to the park?",
+          answer: "Sí, me gustaría ir al parque.",
+          answerTranslation: "Yes, I would like to go to the park.",
+        },
+        {
+          imageWord: "teatro",
+          imageDescription: "the interior of an elegant theater with red curtains",
+          question: "¿Le gustaría ir al teatro?",
+          questionTranslation: "Would you like to go to the theater?",
+          answer: "Sí, me gustaría ir al teatro.",
+          answerTranslation: "Yes, I would like to go to the theater.",
+        },
+        {
+          imageWord: "cine",
+          imageDescription: "the exterior of a movie theater at night with bright marquee lights",
+          question: "¿Le gustaría ir al cine?",
+          questionTranslation: "Would you like to go to the movies?",
+          answer: "Sí, me gustaría ir al cine.",
+          answerTranslation: "Yes, I would like to go to the movies.",
+        },
+        {
+          imageWord: "campo",
+          imageDescription: "a scenic countryside landscape with rolling green hills",
+          question: "¿Le gustaría ir al campo?",
+          questionTranslation: "Would you like to go to the countryside?",
+          answer: "Sí, me gustaría ir al campo.",
+          answerTranslation: "Yes, I would like to go to the countryside.",
+        },
+      ],
+      sentenceColumns: [
+        {
+          label: "Phrase",
+          items: [
+            { text: "¿Le gustaría ir",   translation: "Would you like to go" },
+            { text: "Me gustaría ir",    translation: "I would like to go" },
+            { text: "Me gustaría nadar.", translation: "I would like to swim." },
+            { text: "Me gustaría estudiar español.", translation: "I would like to study Spanish." },
+          ],
+        },
+        {
+          label: "Location",
+          items: [
+            { text: "al parque?",  translation: "to the park?" },
+            { text: "al cine?",    translation: "to the movies?" },
+            { text: "al teatro?",  translation: "to the theater?" },
+            { text: "al campo?",   translation: "to the countryside?" },
+          ],
+        },
+      ],
+    },
+    // ── Cluster 2: Me encanta (singular) ──────────────────────────
+    {
+      heading: "Me encanta",
+      noteInline: "Me encanta  I love · it enchants me",
+      pairs: [
+        {
+          imageWord: "salmón",
+          imageDescription: "a cooked salmon fillet on a white plate",
+          question: "¿Le encanta el salmón?",
+          questionTranslation: "Do you love the salmon?",
+          answer: "Sí, me encanta el salmón.",
+          answerTranslation: "Yes, I love the salmon.",
+        },
+        {
+          imageWord: "pavo",
+          imageDescription: "a roasted turkey on a white plate",
+          question: "¿Le encanta el pavo?",
+          questionTranslation: "Do you love the turkey?",
+          answer: "Sí, me encanta el pavo.",
+          answerTranslation: "Yes, I love the turkey.",
+        },
+      ],
+      sentenceColumns: [
+        {
+          label: "Phrase",
+          items: [
+            { text: "Me encanta", translation: "I love" },
+          ],
+        },
+        {
+          label: "Item",
+          items: [
+            { text: "el queso.",      translation: "the cheese." },
+            { text: "el tocino.",     translation: "the bacon." },
+            { text: "el café.",       translation: "the coffee." },
+            { text: "el chocolate.", translation: "the chocolate." },
+            { text: "el salmón.",     translation: "the salmon." },
+            { text: "el pavo.",       translation: "the turkey." },
+            { text: "México.",        translation: "Mexico." },
+            { text: "Costa Rica.",    translation: "Costa Rica." },
+            { text: "Caracas.",       translation: "Caracas." },
+          ],
+        },
+      ],
+      noteAfter: "In Spanish, you must add 'the' before whatever food you love. You say 'I love the cheese' — never 'I love cheese.'",
+    },
+    // ── Cluster 3: Me encantan (plural) ───────────────────────────
+    {
+      heading: "Me encantan",
+      noteInline: "Me encantan  I love (plural)",
+      pairs: [
+        {
+          imageWord: "fresas",
+          imageDescription: "a handful of fresh red strawberries on a white background",
+          question: "¿Le encantan las fresas?",
+          questionTranslation: "Do you love the strawberries?",
+          answer: "Sí, me encantan las fresas.",
+          answerTranslation: "Yes, I love the strawberries.",
+        },
+        {
+          imageWord: "cerezas",
+          imageDescription: "a cluster of ripe dark red cherries on a white background",
+          question: "¿Le encantan las cerezas?",
+          questionTranslation: "Do you love the cherries?",
+          answer: "Sí, me encantan las cerezas.",
+          answerTranslation: "Yes, I love the cherries.",
+        },
+        {
+          imageWord: "cebollas",
+          imageDescription: "two white onions on a white background",
+          question: "¿Le encantan las cebollas?",
+          questionTranslation: "Do you love the onions?",
+          answer: "Sí, me encantan las cebollas.",
+          answerTranslation: "Yes, I love the onions.",
+        },
+        {
+          imageWord: "aceitunas",
+          imageDescription: "a small bowl of green olives on a white background",
+          question: "¿Le encantan las aceitunas?",
+          questionTranslation: "Do you love the olives?",
+          answer: "Sí, me encantan las aceitunas.",
+          answerTranslation: "Yes, I love the olives.",
+        },
+      ],
+      grammarRule: "Use me encanta for singular items · Use me encantan for plural items · Me encanta el chocolate / Me encantan las cebollas",
+    },
+    // ── Cluster 4: Me encantaría ir ───────────────────────────────
+    {
+      heading: "Me encantaría ir",
+      noteInline: "Me encantaría ir  I would love to go",
+      pairs: [
+        {
+          imageWord: "museo",
+          imageDescription: "the exterior of a grand museum building",
+          question: "¿Le encantaría ir al museo?",
+          questionTranslation: "Would you love to go to the museum?",
+          answer: "Sí, me encantaría ir al museo.",
+          answerTranslation: "Yes, I would love to go to the museum.",
+        },
+        {
+          imageWord: "playa",
+          imageDescription: "a beautiful sandy beach with gentle waves",
+          question: "¿Le encantaría ir a la playa?",
+          questionTranslation: "Would you love to go to the beach?",
+          answer: "Sí, me encantaría ir a la playa.",
+          answerTranslation: "Yes, I would love to go to the beach.",
+        },
+      ],
+      sentenceColumns: [
+        {
+          label: "Phrase",
+          items: [
+            { text: "Me encantaría ir", translation: "I would love to go" },
+          ],
+        },
+        {
+          label: "Destination",
+          items: [
+            { text: "al museo.",       translation: "to the museum." },
+            { text: "al centro.",      translation: "downtown." },
+            { text: "al club.",        translation: "to the club." },
+            { text: "a Venezuela.",    translation: "to Venezuela." },
+            { text: "a Buenos Aires.", translation: "to Buenos Aires." },
+            { text: "al ballet.",      translation: "to the ballet." },
+            { text: "al teatro.",      translation: "to the theater." },
+            { text: "a nadar.",        translation: "swimming." },
+            { text: "a la playa.",     translation: "to the beach." },
+            { text: "al cine.",        translation: "to the movies." },
+            { text: "al campo.",       translation: "to the countryside." },
+          ],
+        },
+      ],
+      noteAfter: "¿Le gustaría ir al cine?  Would you like to go to the movies? · Sí, me encantaría ir al cine.  Yes, I would love to go to the movies.",
+    },
+  ],
+};
+
+const GUST_UNITS: GustUnitContent[] = [
+  GUSTAR_CHAPTER,
+  GUSTARIA_CHAPTER,
+];
+
+/**
+ * Returns hardcoded Gust-style content for a chapter if available.
+ * Covers "Gustar: Me gusta / Me gustan" and "Me gustaría: I Would Like" chapters.
+ */
+export function getGustContent(chapterTitle: string): GustUnitContent | null {
+  const lower = chapterTitle.toLowerCase();
+  return GUST_UNITS.find(u => lower.includes(u.chapterTitleKey)) ?? null;
+}
