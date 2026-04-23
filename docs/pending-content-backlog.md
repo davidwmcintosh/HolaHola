@@ -336,3 +336,85 @@ Now that all EE pages are transcribed, a clearer picture emerges:
 
 ### New social phrases with no current home (could go in Ch. 1 or a "More Social Phrases" cluster):
 Me alegro / Me divertí / Figúrese / Nos vemos / Nos vemos pronto / Buena suerte / En seguro
+
+---
+
+## 6. Full Book Map: See It and Say It in Spanish
+
+### Conversation Lessons — Pages 9–199
+This is the main instructional body of the book. **Coverage is now complete:**
+
+| Page range | Content | HoloHola status |
+|---|---|---|
+| pp. 9–12 | ir — ¿Adónde va? (destinations) | ✅ Ch. 23 |
+| pp. 13–27 | Early vocabulary (cognates, nouns, ser) | ✅ Covered across Ch. 1, 9, 33 (legacy + Madrigal) |
+| pp. 28 | EE — Restaurant phrases | ⬜ Fold into Ch. 18 |
+| pp. 29–42 | Vocabulary clusters | ✅ Various legacy chapters |
+| pp. 43 | EE — Buenos Días / Greetings | ✅ Ch. 1 |
+| pp. 44–52 | Tener, querer, poder clusters | ✅ Ch. 31, 32, 35 |
+| pp. 53 | EE — Tener expressions | ⬜ Extend Ch. 31 |
+| pp. 54–59 | More vocabulary | ✅ Various chapters |
+| pp. 60 | EE — Querer / Lo quiero | ⬜ Extend Ch. 32 |
+| pp. 61–70 | Vocabulary + estar intro | ✅ Ch. 34 |
+| pp. 71 | EE — Es + adjective / Claro / Por supuesto | ⬜ Extend Ch. 33 |
+| pp. 72–80 | Estar location + prepositions | ✅ Ch. 34 |
+| pp. 81 | EE — Estar + emotional states | ⬜ **New chapter needed** |
+| pp. 82–119 | Gustar, ir, hay, voy a, va a, modals | ✅ Ch. 35–41 |
+| pp. 120–121 | Está limpio/sucio | ✅ Ch. 45 |
+| pp. 122–127 | AR preterite (estudié, alquilé) | ✅ Ch. 46 |
+| pp. 128–131 | More tomar | Skipped — already Ch. 28 |
+| pp. 132–137 | ER/IR preterite (recibí, vendí, vi) | ✅ Ch. 47 |
+| pp. 138–141 | Exercises only | No content to transcribe |
+| pp. 142–148 | ¿Qué hizo? (irregular preterite) | ✅ Ch. 42 (Spanish 2) |
+| pp. 149–161 | Tuvo / Irregular preterites | ✅ Ch. 43 (Spanish 2) |
+| pp. 162 | EE — Una vez / Dos veces | ✅ Captured in Section 1 |
+| pp. 163–168 | Le — indirect object pronoun | ✅ Ch. 44 (Spanish 2) |
+| pp. 169 | EE — Hacer (weather + ago) | ⬜ Extend Ch. 26 + new time cluster |
+| pp. 170–180 | More vocabulary / review | Not yet assessed |
+| pp. 181 | EE — Mixed: time + social + commands | ⬜ Social phrases to Ch. 1; commands = Spanish 2 |
+| pp. 182–197 | Additional vocabulary / review | Not yet assessed |
+| pp. 198 | EE — Commands (formal imperative) | Spanish 2 — documented above |
+| pp. 199 | End of conversation lessons | — |
+
+---
+
+### Traveler's Handy Word Guides (back of book, after p. 199)
+
+Quick-reference vocabulary lists in 10 categories. These are reference material, not lesson content — Madrigal intends them as a travel companion, not instructional units. Each guide overlaps with existing HoloHola chapters.
+
+| Guide | Topic | HoloHola overlap |
+|---|---|---|
+| 1 | In the restaurant | Ch. 17 (Food & Dining), Ch. 18 (At the Restaurant) |
+| 2 | In the hotel | Ch. 27 (At the Hotel) |
+| 3 | In the stores and shops | Ch. 21 (Shopping) |
+| 4 | The numbers | Ch. 5 (Los Números) |
+| 5 | The days of the week | Ch. 7 (Birthdays & Dates) |
+| 6 | The months of the year | Ch. 7 (Birthdays & Dates) |
+| 7 | The seasons | Ch. 26 (El Tiempo) |
+| 8 | The members of the family | Ch. 8 (Family Members) |
+| 9 | The colors | Ch. 20 (Los Colores) |
+| 10 | Parts of the body | **No current chapter** — could support health vocabulary (Gap 4) |
+
+**Recommendation for the word guides:**  
+These are most useful as a *reference layer* within HoloHola — a searchable "Quick Look-Up" section, not lesson pages. The vocabulary lists can seed the `vocabulary_list` field of existing chapters. Guide 10 (body parts) is the one genuinely new vocabulary set — useful if a health chapter is ever built (Gap 4).
+
+---
+
+### Grammar Appendix (back of book)
+
+Madrigal closes with a full verb conjugation reference covering all tenses for -AR, -ER, and -IR verbs. This is a **reference section, not instructional content** — she presents it as a look-up tool after the student has been learning communicatively.
+
+| Tense | Status in HoloHola |
+|---|---|
+| Preterite -AR (-é/-ó/-amos/-aron) | ✅ Ch. 46 |
+| Preterite -ER/IR (-í/-ió/-imos/-ieron) | ✅ Ch. 47 |
+| Present -AR (-o/-a/-amos/-an) | ✅ Ch. 12 (legacy) |
+| Present -ER/IR | Not yet a dedicated chapter — Spanish 2 |
+| Present progressive (-ando/-iendo) | Referenced in Ch. 41; no dedicated chapter |
+| Imperfect | Spanish 2 |
+| Future | Spanish 2 |
+| Conditional | Spanish 2+ |
+| Subjunctive | Spanish 3+ |
+
+**Recommendation:**  
+The appendix is the basis for a future **"Verb Reference"** section in HoloHola — a living table students can consult. It doesn't need to be a lesson. The conjugation tables we're already building in GustUnit chapters (Ch. 46, 47, etc.) are the interactive equivalent of this appendix, one verb at a time.
