@@ -3205,6 +3205,429 @@ const ESTA_LIMPIO_CHAPTER: GustUnitContent = {
   ],
 };
 
+// ── Chapter 46: Estudié — AR Preterite (pp. 122–125) ─────────────────────────
+
+const ESTUDIIE_CHAPTER: GustUnitContent = {
+  chapterTitleKey: "estudié:",
+  conceptLabel: "Estudié",
+  conceptDefinition: "I studied",
+  introNote: "In the past tense, -AR verbs end in -é when you speak of yourself and -ó when you speak of someone else (singular). For groups (ellos/ustedes), add -aron. For nosotros, add -amos.",
+  clusters: [
+    // ── Cluster 1: -é / -ó pattern (page 122) ─────────────────────
+    {
+      heading: "Estudié, Compré, Nadé",
+      noteInline: "-é = I (yo)  ·  -ó = you / he / she (usted / él / ella)",
+      pairs: [
+        {
+          imageWord: "estudiar",
+          imageDescription: "a student sitting at a desk studying from an open textbook",
+          question: "¿Estudió hoy?",
+          questionTranslation: "Did you study today?",
+          answer: "Sí, estudié hoy.",
+          answerTranslation: "Yes, I studied today.",
+        },
+        {
+          imageWord: "pagar",
+          imageDescription: "a hand placing money on a restaurant table to pay the bill",
+          question: "¿Pagó la cuenta hoy?",
+          questionTranslation: "Did you pay the bill today?",
+          answer: "Sí, pagué la cuenta hoy.",
+          answerTranslation: "Yes, I paid the bill today.",
+        },
+        {
+          imageWord: "nadar",
+          imageDescription: "a person swimming in a bright blue outdoor pool",
+          question: "¿Nadó hoy?",
+          questionTranslation: "Did you swim today?",
+          answer: "Sí, nadé hoy.",
+          answerTranslation: "Yes, I swam today.",
+        },
+        {
+          imageWord: "comprar",
+          imageDescription: "a person holding a shopping bag outside a store",
+          question: "¿Compró un bata hoy?",
+          questionTranslation: "Did you buy a bathrobe today?",
+          answer: "Sí, compré un bata hoy.",
+          answerTranslation: "Yes, I bought a bathrobe today.",
+        },
+      ],
+      noteAfter: "AR verbs end in -é when you speak of yourself and -ó when you speak of someone else. Roberto nadó hoy.",
+    },
+    // ── Cluster 2: -aron form + full conjugation (page 123) ────────
+    {
+      heading: "Compraron, Alquilaron",
+      noteInline: "-aron = they / you all (ellos / ustedes)  ·  -amos = we (nosotros)",
+      pairs: [
+        {
+          imageWord: "lancha",
+          imageDescription: "a small motorboat floating on calm blue water",
+          question: "¿Compraron una lancha?",
+          questionTranslation: "Did they buy a boat?",
+          answer: "Sí, compraron una lancha.",
+          answerTranslation: "Yes, they bought a boat.",
+        },
+        {
+          imageWord: "casa",
+          imageDescription: "a white family house with a garden and blue sky",
+          question: "¿Alquilaron una casa?",
+          questionTranslation: "Did they rent a house?",
+          answer: "Sí, alquilaron una casa.",
+          answerTranslation: "Yes, they rented a house.",
+        },
+        {
+          imageWord: "trabajo",
+          imageDescription: "two people working together at an office desk at night",
+          question: "¿Trabajaron anoche?",
+          questionTranslation: "Did they work last night?",
+          answer: "Sí, trabajaron mucho anoche.",
+          answerTranslation: "Yes, they worked a lot last night.",
+        },
+      ],
+      conjugationTable: [
+        { conjugated: "alquilé",    translation: "I rented (yo)" },
+        { conjugated: "alquiló",    translation: "you / he / she rented" },
+        { conjugated: "alquilamos", translation: "we rented (nosotros)" },
+        { conjugated: "alquilaron", translation: "they rented (ellos)" },
+      ],
+    },
+    // ── Cluster 3: ¿Dónde dejó? (pages 124–125) ───────────────────
+    {
+      heading: "¿Dónde dejó?",
+      noteInline: "Dejé  I left  ·  Dejó  you / he / she left  ·  Dejamos  we left  ·  Dejaron  they left",
+      pairs: [
+        {
+          imageWord: "valija",
+          imageDescription: "a travel suitcase standing in a hotel lobby",
+          question: "¿Dejó la valija en el hotel?",
+          questionTranslation: "Did you leave the suitcase at the hotel?",
+          answer: "Sí, dejé la valija en el hotel.",
+          answerTranslation: "Yes, I left the suitcase at the hotel.",
+        },
+        {
+          imageWord: "guantes",
+          imageDescription: "a pair of gloves resting on a theater seat",
+          question: "¿Dejó los guantes en el teatro?",
+          questionTranslation: "Did you leave the gloves at the theater?",
+          answer: "No, no dejé los guantes en el teatro.",
+          answerTranslation: "No, I did not leave the gloves at the theater.",
+        },
+        {
+          imageWord: "portafolio",
+          imageDescription: "a leather briefcase on a bank counter",
+          question: "¿Dejó el portafolio en el banco?",
+          questionTranslation: "Did you leave the briefcase at the bank?",
+          answer: "Sí, dejé el portafolio en el banco.",
+          answerTranslation: "Yes, I left the briefcase at the bank.",
+        },
+        {
+          imageWord: "llave",
+          imageDescription: "a key resting on a wooden table",
+          question: "¿Dejó la llave en la mesa?",
+          questionTranslation: "Did you leave the key on the table?",
+          answer: "Sí, dejé la llave en la mesa.",
+          answerTranslation: "Yes, I left the key on the table.",
+        },
+        {
+          imageWord: "dinero",
+          imageDescription: "folded banknotes on a bank counter",
+          question: "¿Dejaron el dinero en el banco?",
+          questionTranslation: "Did they leave the money at the bank?",
+          answer: "Sí, dejamos el dinero en el banco.",
+          answerTranslation: "Yes, we left the money at the bank.",
+        },
+        {
+          imageWord: "perro",
+          imageDescription: "a dog sitting contentedly inside a cozy home",
+          question: "¿Dejaron el perro en casa?",
+          questionTranslation: "Did they leave the dog at home?",
+          answer: "Sí, dejamos el perro en casa.",
+          answerTranslation: "Yes, we left the dog at home.",
+        },
+      ],
+      sentenceColumns: [
+        {
+          label: "Verb",
+          items: [
+            { text: "Dejé",    translation: "I left" },
+            { text: "Dejamos", translation: "we left" },
+            { text: "Dejó",    translation: "you / he / she left" },
+            { text: "Dejaron", translation: "they left" },
+          ],
+        },
+        {
+          label: "Object",
+          items: [
+            { text: "la valija",    translation: "the suitcase" },
+            { text: "los guantes",  translation: "the gloves" },
+            { text: "el portafolio", translation: "the briefcase" },
+            { text: "la llave",     translation: "the key" },
+            { text: "el dinero",    translation: "the money" },
+            { text: "el pasaporte", translation: "the passport" },
+            { text: "el perro",     translation: "the dog" },
+            { text: "el auto",      translation: "the car" },
+          ],
+        },
+        {
+          label: "Place",
+          items: [
+            { text: "en el hotel.",   translation: "at the hotel." },
+            { text: "en el teatro.",  translation: "at the theater." },
+            { text: "en el banco.",   translation: "at the bank." },
+            { text: "en la mesa.",    translation: "on the table." },
+            { text: "en el garaje.",  translation: "in the garage." },
+            { text: "en casa.",       translation: "at home." },
+          ],
+        },
+      ],
+      conjugationTable: [
+        { conjugated: "dejé",    translation: "I left (yo)" },
+        { conjugated: "dejó",    translation: "you / he / she left" },
+        { conjugated: "dejamos", translation: "we left (nosotros)" },
+        { conjugated: "dejaron", translation: "they left (ellos)" },
+      ],
+      negativeExamples: [
+        "No, no dejé los guantes en el teatro.",
+        "No, no dejamos el pasaporte en casa.",
+      ],
+    },
+  ],
+};
+
+// ── Chapter 47: Recibí — ER/IR Preterite (pp. 132–137) ───────────────────────
+
+const RECIBI_CHAPTER: GustUnitContent = {
+  chapterTitleKey: "recibí:",
+  conceptLabel: "Recibí",
+  conceptDefinition: "I received",
+  introNote: "In the past tense, -ER and -IR verbs end in -í when you speak of yourself and -ió when you speak of anyone else (singular). For ellos/ustedes, add -ieron. For nosotros, add -imos.",
+  clusters: [
+    // ── Cluster 1: -í / -ió pattern (page 132) ────────────────────
+    {
+      heading: "Recibí, Vendí, Vi",
+      noteInline: "-í = I (yo)  ·  -ió = you / he / she (usted / él / ella)",
+      pairs: [
+        {
+          imageWord: "lancha",
+          imageDescription: "a small motorboat floating on calm blue water",
+          question: "¿Vendió la lancha hoy?",
+          questionTranslation: "Did you sell the boat today?",
+          answer: "Sí, vendí la lancha hoy.",
+          answerTranslation: "Yes, I sold the boat today.",
+        },
+        {
+          imageWord: "carta",
+          imageDescription: "a handwritten letter on a wooden desk",
+          question: "¿Escribió la carta hoy?",
+          questionTranslation: "Did you write the letter today?",
+          answer: "Sí, escribí la carta hoy.",
+          answerTranslation: "Yes, I wrote the letter today.",
+        },
+        {
+          imageWord: "paquete",
+          imageDescription: "a wrapped package with a ribbon on a white background",
+          question: "¿Recibió el paquete hoy?",
+          questionTranslation: "Did you receive the package today?",
+          answer: "Sí, recibí el paquete hoy.",
+          answerTranslation: "Yes, I received the package today.",
+        },
+        {
+          imageWord: "televisión",
+          imageDescription: "a living room television screen showing a programme",
+          question: "¿Vio el programa de televisión?",
+          questionTranslation: "Did you see the television programme?",
+          answer: "Sí, vi el programa de televisión.",
+          answerTranslation: "Yes, I saw the television programme.",
+        },
+      ],
+      noteAfter: "ER and IR verbs end in -í when you speak of yourself and -ió when you speak of anyone else singular. Enrique vendió la lancha.",
+    },
+    // ── Cluster 2: ¿Qué recibió? — gifts (page 133) ───────────────
+    {
+      heading: "¿Qué recibió?",
+      noteInline: "para su cumpleaños  for your birthday  ·  para la Navidad  for Christmas",
+      pairs: [
+        {
+          imageWord: "chocolates",
+          imageDescription: "a box of assorted chocolates open on a table",
+          question: "¿Qué recibió para su cumpleaños?",
+          questionTranslation: "What did you receive for your birthday?",
+          answer: "Recibí una caja de chocolates para mi cumpleaños.",
+          answerTranslation: "I received a box of chocolates for my birthday.",
+        },
+        {
+          imageWord: "perfume",
+          imageDescription: "an elegant glass bottle of perfume on a white background",
+          question: "¿Qué recibió para la Navidad?",
+          questionTranslation: "What did you receive for Christmas?",
+          answer: "Recibí una botella de perfume para la Navidad.",
+          answerTranslation: "I received a bottle of perfume for Christmas.",
+        },
+        {
+          imageWord: "billetera",
+          imageDescription: "a leather wallet on a white background",
+          question: "¿Qué recibió para su cumpleaños?",
+          questionTranslation: "What did you receive for your birthday?",
+          answer: "Recibí una billetera para mi cumpleaños.",
+          answerTranslation: "I received a wallet for my birthday.",
+        },
+        {
+          imageWord: "portafolio",
+          imageDescription: "a leather briefcase on a white background",
+          question: "¿Qué recibió para la Navidad?",
+          questionTranslation: "What did you receive for Christmas?",
+          answer: "Recibí un portafolio para la Navidad.",
+          answerTranslation: "I received a briefcase for Christmas.",
+        },
+      ],
+    },
+    // ── Cluster 3: ¿Vio? / Vi (page 134) ─────────────────────────
+    {
+      heading: "¿Vio? / Vi",
+      noteInline: "¿Vio?  Did you see?  ·  Vi  I saw",
+      pairs: [
+        {
+          imageWord: "pintura",
+          imageDescription: "a framed painting hanging on a museum wall",
+          question: "¿Vio la pintura?",
+          questionTranslation: "Did you see the painting?",
+          answer: "Sí, vi la pintura.",
+          answerTranslation: "Yes, I saw the painting.",
+        },
+        {
+          imageWord: "estatua",
+          imageDescription: "a marble statue in a museum gallery",
+          question: "¿Vio la estatua?",
+          questionTranslation: "Did you see the statue?",
+          answer: "Sí, vi la estatua.",
+          answerTranslation: "Yes, I saw the statue.",
+        },
+        {
+          imageWord: "sombrero",
+          imageDescription: "a stylish new hat on a white background",
+          question: "¿Vio mi sombrero nuevo?",
+          questionTranslation: "Did you see my new hat?",
+          answer: "Sí, vi su sombrero nuevo.",
+          answerTranslation: "Yes, I saw your new hat.",
+        },
+        {
+          imageWord: "accidente",
+          imageDescription: "a car accident scene on a city street",
+          question: "¿Vio el accidente?",
+          questionTranslation: "Did you see the accident?",
+          answer: "No, por fortuna, no vi el accidente.",
+          answerTranslation: "No, fortunately I did not see the accident.",
+        },
+      ],
+      negativeExamples: [
+        "No, por fortuna, no vi el accidente.",
+      ],
+    },
+    // ── Cluster 4: ¿Qué vieron? / Vimos (pages 135–136) ───────────
+    {
+      heading: "¿Qué vieron? / Vimos",
+      noteInline: "Vieron  they saw  ·  Vimos  we saw",
+      pairs: [
+        {
+          imageWord: "payaso",
+          imageDescription: "a cheerful clown performing at a circus",
+          question: "¿Qué vieron los niños en el circo?",
+          questionTranslation: "What did the children see at the circus?",
+          answer: "Los niños vieron un payaso en el circo.",
+          answerTranslation: "The children saw a clown at the circus.",
+        },
+        {
+          imageWord: "elefante",
+          imageDescription: "a large elephant performing at a circus",
+          question: "¿Qué vieron los niños en el circo?",
+          questionTranslation: "What did the children see at the circus?",
+          answer: "Los niños vieron un elefante en el circo.",
+          answerTranslation: "The children saw an elephant at the circus.",
+        },
+        {
+          imageWord: "mono",
+          imageDescription: "a playful monkey performing tricks at a circus",
+          question: "¿Qué vieron los niños en el circo?",
+          questionTranslation: "What did the children see at the circus?",
+          answer: "Los niños vieron un mono en el circo.",
+          answerTranslation: "The children saw a monkey at the circus.",
+        },
+        {
+          imageWord: "comedia",
+          imageDescription: "the interior of a theater with a stage and audience",
+          question: "¿Vieron una comedia anoche?",
+          questionTranslation: "Did you see a play last night?",
+          answer: "Sí, vimos una comedia muy interesante anoche.",
+          answerTranslation: "Yes, we saw a very interesting play last night.",
+        },
+        {
+          imageWord: "edificio",
+          imageDescription: "a modern glass office building in a city center",
+          question: "¿Vieron el edificio?",
+          questionTranslation: "Did you see the building?",
+          answer: "Sí, vimos el edificio. Es muy moderno.",
+          answerTranslation: "Yes, we saw the building. It is very modern.",
+        },
+      ],
+      conjugationTable: [
+        { conjugated: "vi",      translation: "I saw (yo)" },
+        { conjugated: "vio",     translation: "you / he / she saw" },
+        { conjugated: "vimos",   translation: "we saw (nosotros)" },
+        { conjugated: "vieron",  translation: "they saw (ellos)" },
+      ],
+      noteAfter: "El payaso es muy chistoso. · El elefante es un animal muy grande. · El mono es un animal muy chistoso. · Note: 'jajaja' in Spanish is pronounced 'hahaha.'",
+    },
+    // ── Cluster 5: Escribimos / Vendimos (page 137) ────────────────
+    {
+      heading: "Escribimos, Vendimos",
+      noteInline: "-imos = we (nosotros)  ·  -ieron = they (ellos)",
+      pairs: [
+        {
+          imageWord: "cartas",
+          imageDescription: "a stack of handwritten letters on a desk",
+          question: "¿Escribieron las cartas esta mañana?",
+          questionTranslation: "Did you write the letters this morning?",
+          answer: "Sí, escribimos las cartas esta mañana.",
+          answerTranslation: "Yes, we wrote the letters this morning.",
+        },
+        {
+          imageWord: "bicicleta",
+          imageDescription: "a bicycle leaning against a wall",
+          question: "¿Vendieron la bicicleta?",
+          questionTranslation: "Did you sell the bicycle?",
+          answer: "Sí, vendimos la bicicleta esta mañana.",
+          answerTranslation: "Yes, we sold the bicycle this morning.",
+        },
+        {
+          imageWord: "composición",
+          imageDescription: "a student writing a composition at a school desk",
+          question: "¿Escribieron una composición para la clase?",
+          questionTranslation: "Did you write a composition for class?",
+          answer: "Sí, escribimos una composición para la clase.",
+          answerTranslation: "Yes, we wrote a composition for class.",
+        },
+        {
+          imageWord: "casa",
+          imageDescription: "a white family house with a 'for sale' sign in the garden",
+          question: "¿Vendieron la casa?",
+          questionTranslation: "Did you sell the house?",
+          answer: "No, no vendimos la casa.",
+          answerTranslation: "No, we did not sell the house.",
+        },
+      ],
+      conjugationTable: [
+        { conjugated: "vendí",     translation: "I sold (yo)" },
+        { conjugated: "vendió",    translation: "you / he / she sold" },
+        { conjugated: "vendimos",  translation: "we sold (nosotros)" },
+        { conjugated: "vendieron", translation: "they sold (ellos)" },
+      ],
+      negativeExamples: [
+        "No, no vendimos la casa.",
+        "No, no escribimos la composición para la clase.",
+      ],
+    },
+  ],
+};
+
 const GUST_UNITS: GustUnitContent[] = [
   GUSTAR_CHAPTER,
   GUSTARIA_CHAPTER,
@@ -3215,6 +3638,8 @@ const GUST_UNITS: GustUnitContent[] = [
   TUVO_CHAPTER,
   LE_CHAPTER,
   ESTA_LIMPIO_CHAPTER,
+  ESTUDIIE_CHAPTER,
+  RECIBI_CHAPTER,
 ];
 
 /**
