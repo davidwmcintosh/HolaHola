@@ -2685,12 +2685,232 @@ const VA_A_CHAPTER: GustUnitContent = {
   ],
 };
 
+// ── Chapter 42: ¿Qué Hizo? — What Did You Do? (pp. 142–144) ─────────────────
+
+const QUE_HIZO_CHAPTER: GustUnitContent = {
+  chapterTitleKey: "qué hizo",
+  conceptLabel: "¿Qué hizo?",
+  conceptDefinition: "What did you do?",
+  clusters: [
+    // ── Cluster 1: ¿Qué hizo? — jugué / trabajé / vi (page 142) ──
+    {
+      heading: "¿Qué hizo?",
+      noteInline: "jugué  I played · trabajé  I worked · vi  I saw",
+      pairs: [
+        {
+          imageWord: "tenis",
+          imageDescription: "a person playing tennis on a clay tennis court",
+          question: "¿Qué hizo esta mañana?",
+          questionTranslation: "What did you do this morning?",
+          answer: "Esta mañana jugué al tenis.",
+          answerTranslation: "This morning I played tennis.",
+        },
+        {
+          imageWord: "jardín",
+          imageDescription: "a person tending a colorful backyard garden",
+          question: "¿Qué hizo esta mañana?",
+          questionTranslation: "What did you do this morning?",
+          answer: "Esta mañana trabajé en el jardín.",
+          answerTranslation: "This morning I worked in the garden.",
+        },
+        {
+          imageWord: "golf",
+          imageDescription: "a golfer mid-swing on a green fairway",
+          question: "¿Qué hizo hoy?",
+          questionTranslation: "What did you do today?",
+          answer: "Jugué al golf hoy.",
+          answerTranslation: "I played golf today.",
+        },
+        {
+          imageWord: "televisión",
+          imageDescription: "a television set displaying a colorful programme",
+          question: "¿Qué hizo esta noche?",
+          questionTranslation: "What did you do tonight?",
+          answer: "Esta noche vi un programa de televisión.",
+          answerTranslation: "Tonight I watched a television programme.",
+        },
+      ],
+    },
+    // ── Cluster 2: Hacer conjugation (page 142) ───────────────────
+    {
+      heading: "Hacer — to do / to make",
+      noteInline: "hice  I did · hicimos  we did · hizo  you/he/she did · hicieron  they did",
+      pairs: [],
+      conjugationTable: {
+        verb: "hacer",
+        verbTranslation: "to do / to make",
+        rows: [
+          { pronoun: "Yo",                  form: "hice",     translation: "I did / made" },
+          { pronoun: "Usted / Él / Ella",   form: "hizo",     translation: "you / he / she did" },
+          { pronoun: "Nosotros",            form: "hicimos",  translation: "we did / made" },
+          { pronoun: "Ellos / Ellas",       form: "hicieron", translation: "they did / made" },
+        ],
+      },
+      noteAfter: "hice limonada · hice mucho trabajo · hice la cama",
+    },
+    // ── Cluster 3: ¿Qué hizo? — leí / oí / fui (page 143) ────────
+    {
+      heading: "¿Qué hizo? — más verbos",
+      noteInline: "leí  I read · oí  I heard · fui  I went",
+      pairs: [
+        {
+          imageWord: "playa",
+          imageDescription: "a sunny beach with gentle waves and golden sand",
+          question: "¿Qué hizo ayer?",
+          questionTranslation: "What did you do yesterday?",
+          answer: "Ayer fui a la playa.",
+          answerTranslation: "Yesterday I went to the beach.",
+        },
+        {
+          imageWord: "cine",
+          imageDescription: "a movie theater entrance with bright marquee lights",
+          question: "¿Qué hizo ayer?",
+          questionTranslation: "What did you do yesterday?",
+          answer: "Ayer fui al cine.",
+          answerTranslation: "Yesterday I went to the cinema.",
+        },
+        {
+          imageWord: "radio",
+          imageDescription: "a vintage radio receiver glowing on a wooden table",
+          question: "¿Qué hizo esta noche?",
+          questionTranslation: "What did you do tonight?",
+          answer: "Esta noche oí un programa de radio.",
+          answerTranslation: "Tonight I listened to a radio programme.",
+        },
+        {
+          imageWord: "periódico",
+          imageDescription: "a folded newspaper on a white background",
+          question: "¿Qué hizo esta tarde?",
+          questionTranslation: "What did you do this afternoon?",
+          answer: "Esta tarde leí el periódico.",
+          answerTranslation: "This afternoon I read the newspaper.",
+        },
+      ],
+    },
+    // ── Cluster 4: Oír conjugation (page 143) ─────────────────────
+    {
+      heading: "Oír — to hear / to listen",
+      noteInline: "Note the spelling change: oí / oyó / oímos / oyeron",
+      pairs: [],
+      conjugationTable: {
+        verb: "oír",
+        verbTranslation: "to hear / to listen",
+        rows: [
+          { pronoun: "Yo",                form: "oí",      translation: "I heard" },
+          { pronoun: "Usted / Él / Ella", form: "oyó",     translation: "you / he / she heard" },
+          { pronoun: "Nosotros",          form: "oímos",   translation: "we heard" },
+          { pronoun: "Ellos / Ellas",     form: "oyeron",  translation: "they heard" },
+        ],
+      },
+    },
+    // ── Cluster 5: Leer conjugation (page 143) ────────────────────
+    {
+      heading: "Leer — to read",
+      noteInline: "Note the spelling change: leí / leyó / leímos / leyeron",
+      pairs: [],
+      conjugationTable: {
+        verb: "leer",
+        verbTranslation: "to read",
+        rows: [
+          { pronoun: "Yo",                form: "leí",     translation: "I read" },
+          { pronoun: "Usted / Él / Ella", form: "leyó",    translation: "you / he / she read" },
+          { pronoun: "Nosotros",          form: "leímos",  translation: "we read" },
+          { pronoun: "Ellos / Ellas",     form: "leyeron", translation: "they read" },
+        ],
+      },
+    },
+    // ── Cluster 6: ¿Dónde puso? (page 144) ───────────────────────
+    {
+      heading: "¿Dónde puso?",
+      noteInline: "Puse  I put · ¿Dónde puso?  Where did you put?",
+      pairs: [
+        {
+          imageWord: "sal",
+          imageDescription: "a salt shaker on a white background",
+          question: "¿Dónde puso la sal?",
+          questionTranslation: "Where did you put the salt?",
+          answer: "Puse la sal en la mesa.",
+          answerTranslation: "I put the salt on the table.",
+        },
+        {
+          imageWord: "pan",
+          imageDescription: "a round loaf of bread on a white background",
+          question: "¿Dónde puso el pan?",
+          questionTranslation: "Where did you put the bread?",
+          answer: "Puse el pan en la mesa.",
+          answerTranslation: "I put the bread on the table.",
+        },
+        {
+          imageWord: "pimienta",
+          imageDescription: "a pepper shaker on a white background",
+          question: "¿Dónde puso la pimienta?",
+          questionTranslation: "Where did you put the pepper?",
+          answer: "Puse la pimienta en la mesa.",
+          answerTranslation: "I put the pepper on the table.",
+        },
+      ],
+      conjugationTable: {
+        verb: "poner",
+        verbTranslation: "to put / to place",
+        rows: [
+          { pronoun: "Yo",                form: "puse",     translation: "I put" },
+          { pronoun: "Usted / Él / Ella", form: "puso",     translation: "you / he / she put" },
+          { pronoun: "Nosotros",          form: "pusimos",  translation: "we put" },
+          { pronoun: "Ellos / Ellas",     form: "pusieron", translation: "they put" },
+        ],
+      },
+    },
+    // ── Cluster 7: ¿Dónde estuvo? (page 144) ─────────────────────
+    {
+      heading: "¿Dónde estuvo?",
+      noteInline: "Estuve  I was · ¿Dónde estuvo?  Where were you?",
+      pairs: [
+        {
+          imageWord: "golf",
+          imageDescription: "a golfer mid-swing on a green fairway",
+          question: "¿Dónde estuvo esta mañana?",
+          questionTranslation: "Where were you this morning?",
+          answer: "Esta mañana estuve en el club. Jugué al golf toda la mañana.",
+          answerTranslation: "This morning I was at the club. I played golf all morning.",
+        },
+        {
+          imageWord: "despacho",
+          imageDescription: "a tidy office interior with a desk and bookshelves",
+          question: "¿Dónde estuvo esta tarde?",
+          questionTranslation: "Where were you this afternoon?",
+          answer: "Esta tarde estuve en el despacho. Trabajé toda la tarde.",
+          answerTranslation: "This afternoon I was at the office. I worked all afternoon.",
+        },
+        {
+          imageWord: "cine",
+          imageDescription: "a movie theater entrance with bright marquee lights",
+          question: "¿Dónde estuvo esta noche?",
+          questionTranslation: "Where were you tonight?",
+          answer: "Esta noche estuve en el cine. Vi una película excelente.",
+          answerTranslation: "Tonight I was at the cinema. I saw an excellent film.",
+        },
+      ],
+      conjugationTable: {
+        verb: "estar",
+        verbTranslation: "to be (temporary state / location)",
+        rows: [
+          { pronoun: "Yo",                form: "estuve",     translation: "I was" },
+          { pronoun: "Usted / Él / Ella", form: "estuvo",     translation: "you / he / she was" },
+          { pronoun: "Nosotros",          form: "estuvimos",  translation: "we were" },
+          { pronoun: "Ellos / Ellas",     form: "estuvieron", translation: "they were" },
+        ],
+      },
+    },
+  ],
+};
+
 const GUST_UNITS: GustUnitContent[] = [
   GUSTAR_CHAPTER,
   GUSTARIA_CHAPTER,
   FUI_CHAPTER,
   VOY_A_CHAPTER,
   VA_A_CHAPTER,
+  QUE_HIZO_CHAPTER,
 ];
 
 /**
