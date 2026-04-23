@@ -2785,8 +2785,8 @@ function getPlaceholderUrl(word: string): string {
  * 2. Without leading articles (e.g. "las olas" → "olas")
  * 3. Each individual word component (e.g. "caliente frio" → try "caliente", then "frio")
  */
-// Spanish definite/indefinite articles (singular + plural)
-const SPANISH_ARTICLES = ['el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas'];
+// Spanish articles to try as prefixes when looking up bare nouns in the cache
+const SPANISH_ARTICLE_PREFIXES = ['el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas'];
 
 function getFallbackCacheKeys(word: string, language: string): string[] {
   const normalized = normalizeWord(word);
@@ -2821,7 +2821,7 @@ function getFallbackCacheKeys(word: string, language: string): string[] {
   //    Older cached images may have been stored with the article (e.g. "el plato", "la crema")
   //    even though the current request uses the bare noun ("plato", "crema").
   if (language === 'spanish' && parts.length === 1 && !ALL_ARTICLES.has(parts[0])) {
-    for (const article of SPANISH_ARTICLES) {
+    for (const article of SPANISH_ARTICLE_PREFIXES) {
       const candidate = `vocab_${language}_${article} ${normalized}`;
       if (!keys.includes(candidate)) keys.push(candidate);
     }

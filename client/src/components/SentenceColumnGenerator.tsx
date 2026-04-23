@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { Volume2, Mic, MicOff } from "lucide-react";
+import { useState, useCallback, useRef } from "react";
+import { Volume2, Mic, MicOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiRequest } from "@/lib/queryClient";
@@ -33,7 +33,7 @@ export function SentenceColumnGenerator({
   );
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [audioRef] = useState<{ current: HTMLAudioElement | null }>({ current: null });
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // For the assembled preview, fall back to index 0 when nothing is explicitly chosen
   const effectiveSelections = selections.map(s => (s === -1 ? 0 : s));
@@ -48,16 +48,9 @@ export function SentenceColumnGenerator({
     .filter(Boolean)
     .join(" ");
 
-  const handleSelect = useCallback((colIndex: number, itemIndex: number) => {
-    setSelections(prev => {
-      const next = [...prev];
-      next[colIndex] = itemIndex;
-      return next;
-    });
-  }, []);
-
-  const handlePlay = useCallback(async () => {
-    if (isPlaying || !assembledText) return;
+  // Plays a given sentence string — used both for the bottom bar and auto-play on selection
+  const playSentence = useCallback(async (text: string) => {
+    if (!text) return;
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
@@ -65,7 +58,7 @@ export function SentenceColumnGenerator({
     setIsPlaying(true);
     try {
       const res = await apiRequest("POST", "/api/tts/pronunciation", {
-        text: assembledText,
+        text,
         language,
         tutorGender: tutorGender ?? "female",
       });
@@ -78,29 +71,27 @@ export function SentenceColumnGenerator({
     } catch {
       setIsPlaying(false);
     }
-  }, [assembledText, isPlaying, language, tutorGender, audioRef]);
+  }, [language, tutorGender]);
 
-  const handlePlaySingle = useCallback(async (text: string) => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
-    try {
-      const res = await apiRequest("POST", "/api/tts/pronunciation", {
-        text,
-        language,
-        tutorGender: tutorGender ?? "female",
-      });
-      const { audioUrl } = await res.json();
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
-      audio.onended = () => { audioRef.current = null; };
-      audio.onerror = () => { audioRef.current = null; };
-      audio.play();
-    } catch {
-      // silent fail
-    }
-  }, [language, tutorGender, audioRef]);
+  // When a chip is selected, update selections AND auto-play the full sentence
+  const handleSelect = useCallback((colIndex: number, itemIndex: number) => {
+    setSelections(prev => {
+      const next = [...prev];
+      next[colIndex] = itemIndex;
+      // Compute the assembled text with the new selections immediately
+      const fullText = columns
+        .map((col, i) => col.items[i === colIndex ? itemIndex : (next[i] === -1 ? 0 : next[i])]?.text ?? "")
+        .filter(Boolean)
+        .join(" ");
+      // Auto-play the full sentence for this new combination
+      playSentence(fullText);
+      return next;
+    });
+  }, [columns, playSentence]);
+
+  const handlePlay = useCallback(() => {
+    playSentence(assembledText);
+  }, [assembledText, playSentence]);
 
   if (!columns || columns.length === 0) return null;
 
@@ -161,18 +152,7 @@ export function SentenceColumnGenerator({
                         {item.translation}
                       </span>
                     </span>
-                    <button
-                      type="button"
-                      onClick={e => {
-                        e.preventDefault();
-                        handlePlaySingle(item.text);
-                      }}
-                      className="shrink-0 p-0.5 rounded text-muted-foreground hover:text-foreground transition-colors"
-                      data-testid={`button-play-item-col${colIdx}-${itemIdx}`}
-                      title={`Hear "${item.text}"`}
-                    >
-                      <Volume2 className="h-3 w-3" />
-                    </button>
+                    {/* No per-word speaker button — sentence plays automatically on selection */}
                   </label>
                 );
               })}
@@ -181,7 +161,7 @@ export function SentenceColumnGenerator({
         ))}
       </div>
 
-      {/* ── Assembled sentence — total line ── */}
+      {/* ── Assembled sentence bar — full sentence with replay + mic ── */}
       <div
         className="flex items-center gap-3 rounded-md bg-muted/60 border border-dashed px-4 py-3"
         data-testid="assembled-sentence-bar"
@@ -207,9 +187,12 @@ export function SentenceColumnGenerator({
             onClick={handlePlay}
             disabled={isPlaying || !assembledText}
             data-testid="button-play-assembled"
-            title="Listen to sentence"
+            title="Replay sentence"
           >
-            <Volume2 className={`h-4 w-4 ${isPlaying ? "text-primary animate-pulse" : ""}`} />
+            {isPlaying
+              ? <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              : <Volume2 className="h-4 w-4" />
+            }
           </Button>
           <Button
             size="icon"
