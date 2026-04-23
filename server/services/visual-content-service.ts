@@ -50,11 +50,16 @@ const NO_TEXT_INSTRUCTION =
   'the image must be a pure illustration with zero readable or decorative text elements';
 
 // Vocabulary props: single object, white background, clean silhouette
+// IMPORTANT: use natural realistic colors — objects must look like their real-world counterparts.
+// A plate is white/off-white, a glass is clear, a banana is yellow, a tomato is red, etc.
+// Do NOT apply rainbow or iridescent color effects to everyday objects.
 const PROP_STYLE =
-  'bright vibrant digital illustration, full-spectrum color palette, clean cheerful colors, ' +
-  'soft even lighting with no heavy shadows or warm cast, slightly stylized cartoon-friendly style, ' +
-  'semi-realistic proportions, smooth painterly brushwork, ' +
-  'object centred on a clean pure white background, clear recognisable silhouette, ' +
+  'bright digital illustration, natural accurate object colors — objects appear in their real-world everyday colors ' +
+  '(a white ceramic plate, a clear drinking glass, a red apple, a yellow banana, etc.), ' +
+  'NOT rainbow-colored, NOT iridescent, NOT holographic — realistic natural colors only, ' +
+  'soft even lighting with no heavy shadows or warm cast, slightly stylized cheerful style, ' +
+  'semi-realistic proportions, smooth clean artwork, ' +
+  'single isolated object centred on a clean pure white background, clear recognisable silhouette, ' +
   'FRAMING: entire object fully visible within frame, generous white space border on all sides — ' +
   'subject fills no more than 65–70% of canvas width and height, never touching or bleeding to any edge, ' +
   'wholesome family-friendly educational quality, ' +

@@ -2785,6 +2785,9 @@ function getPlaceholderUrl(word: string): string {
  * 2. Without leading articles (e.g. "las olas" → "olas")
  * 3. Each individual word component (e.g. "caliente frio" → try "caliente", then "frio")
  */
+// Spanish definite/indefinite articles (singular + plural)
+const SPANISH_ARTICLES = ['el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas'];
+
 function getFallbackCacheKeys(word: string, language: string): string[] {
   const normalized = normalizeWord(word);
   const keys: string[] = [];
@@ -2814,6 +2817,16 @@ function getFallbackCacheKeys(word: string, language: string): string[] {
     }
   }
 
+  // 4. For bare Spanish nouns (single word, no article), also try article-prefixed variants.
+  //    Older cached images may have been stored with the article (e.g. "el plato", "la crema")
+  //    even though the current request uses the bare noun ("plato", "crema").
+  if (language === 'spanish' && parts.length === 1 && !ALL_ARTICLES.has(parts[0])) {
+    for (const article of SPANISH_ARTICLES) {
+      const candidate = `vocab_${language}_${article} ${normalized}`;
+      if (!keys.includes(candidate)) keys.push(candidate);
+    }
+  }
+
   return keys;
 }
 
@@ -2826,13 +2839,25 @@ export function isSceneConcept(word: string, scene?: string): boolean {
   // If a scene description was explicitly provided and is long, treat as scene
   if (scene && scene.split(' ').length >= 6) return true;
 
-  // Certain Spanish words strongly imply a scene
+  // Certain Spanish words strongly imply a scene (location/room/environment words)
+  // These render far better with DALL-E 3 scene style than as isolated props.
   const normalized = normalizeWord(word);
-  const sceneWords = ['playa', 'mar', 'olas', 'ola', 'ciudad', 'mercado', 'parque', 'bosque',
+  const sceneWords = [
+    // Outdoor/city places
+    'playa', 'mar', 'olas', 'ola', 'ciudad', 'mercado', 'parque', 'bosque',
     'montanas', 'campo', 'pueblo', 'calle', 'restaurante', 'cafe', 'aeropuerto',
-    'estacion', 'jardin', 'cocina', 'sala', 'dormitorio', 'escuela', 'oficina',
-    'hospital', 'supermercado', 'tienda', 'banco', 'iglesia', 'museo', 'teatro',
-    'playa beach ocean waves sunset sunrise landscape countryside desert jungle forest'];
+    'estacion', 'jardin', 'patio', 'plazuela', 'plaza',
+    // Indoor rooms and spaces + house/home
+    'casa', 'cocina', 'sala', 'dormitorio', 'bano', 'comedor', 'despacho', 'oficina',
+    'cuarto', 'habitacion', 'garaje', 'sotano', 'desvan', 'pasillo', 'entrada',
+    // Institutions/buildings
+    'escuela', 'hospital', 'supermercado', 'tienda', 'banco', 'iglesia', 'museo',
+    'teatro', 'cine', 'gimnasio', 'estadio', 'universidad', 'biblioteca',
+    // English equivalents (for cross-language concepts)
+    'beach', 'ocean', 'waves', 'sunset', 'sunrise', 'landscape', 'countryside',
+    'desert', 'jungle', 'forest', 'office', 'kitchen', 'bathroom', 'bedroom',
+    'living room', 'dining room', 'school', 'hospital', 'store', 'market',
+  ];
   return sceneWords.some(w => normalized.includes(w));
 }
 
