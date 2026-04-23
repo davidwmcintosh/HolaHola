@@ -2904,6 +2904,148 @@ const QUE_HIZO_CHAPTER: GustUnitContent = {
   ],
 };
 
+// ── Chapter 43: Tuvo — Did You Have? (pp. 146–147) ──────────────────────────
+
+const TUVO_CHAPTER: GustUnitContent = {
+  chapterTitleKey: "tuvo:",
+  conceptLabel: "¿Tuvo?",
+  conceptDefinition: "Did you have?",
+  clusters: [
+    // ── Cluster 1: ¿Tuvo? — tener preterite (page 146) ────────────
+    {
+      heading: "¿Tuvo?",
+      noteInline: "Tuve  I had · No tuve  I didn't have · ¡Qué terrible!  How terrible!",
+      pairs: [
+        {
+          imageWord: "fiesta",
+          imageDescription: "a lively indoor party with colorful balloons and guests",
+          question: "¿Tuvo una fiesta el sábado?",
+          questionTranslation: "Did you have a party on Saturday?",
+          answer: "Sí, tuve una fiesta linda el sábado.",
+          answerTranslation: "Yes, I had a lovely party on Saturday.",
+        },
+        {
+          imageWord: "visitas",
+          imageDescription: "a welcoming living room scene with guests sitting together",
+          question: "¿Tuvo visitas el sábado?",
+          questionTranslation: "Did you have company on Saturday?",
+          answer: "Sí, tuve visitas el sábado.",
+          answerTranslation: "Yes, I had company on Saturday.",
+        },
+        {
+          imageWord: "catarro",
+          imageDescription: "a person wrapped in a blanket looking unwell with tissues",
+          question: "¿Tuvo catarro esta semana?",
+          questionTranslation: "Did you have a cold this week?",
+          answer: "Sí, tuve catarro esta semana. ¡Qué terrible!",
+          answerTranslation: "Yes, I had a cold this week. How terrible!",
+        },
+        {
+          imageWord: "trabajo",
+          imageDescription: "a desk overflowing with stacked papers and folders",
+          question: "¿Tuvo mucho trabajo esta semana?",
+          questionTranslation: "Did you have a lot of work this week?",
+          answer: "Sí, tuve mucho trabajo esta semana. ¡Qué terrible!",
+          answerTranslation: "Yes, I had a lot of work this week. How terrible!",
+        },
+        {
+          imageWord: "visitas",
+          imageDescription: "a welcoming living room scene with guests sitting together",
+          question: "¿Tuvo visitas esta mañana?",
+          questionTranslation: "Did you have company this morning?",
+          answer: "No, no tuve una fiesta esta mañana.",
+          answerTranslation: "No, I didn't have a party this morning.",
+        },
+      ],
+      conjugationTable: {
+        verb: "tener",
+        verbTranslation: "to have",
+        rows: [
+          { pronoun: "Yo",                form: "tuve",     translation: "I had" },
+          { pronoun: "Usted / Él / Ella", form: "tuvo",     translation: "you / he / she had" },
+          { pronoun: "Nosotros",          form: "tuvimos",  translation: "we had" },
+          { pronoun: "Ellos / Ellas",     form: "tuvieron", translation: "they had" },
+        ],
+      },
+      noteAfter: "Tuve mucho trabajo. · María tuvo una fiesta. · Tuvimos una fiesta. · Tuvieron una fiesta.",
+    },
+    // ── Cluster 2: ¿Vino? — venir preterite (page 147) ───────────
+    {
+      heading: "¿Vino?",
+      noteInline: "Vine  I came · No vine  I didn't come · No pude  I couldn't · No tuve tiempo  I didn't have time",
+      pairs: [
+        {
+          imageWord: "playa",
+          imageDescription: "a sunny beach with gentle waves and golden sand",
+          question: "¿Vino a la playa la semana pasada?",
+          questionTranslation: "Did you come to the beach last week?",
+          answer: "No, no vine a la playa la semana pasada. No pude, no tuve tiempo.",
+          answerTranslation: "No, I didn't come to the beach last week. I couldn't, I didn't have time.",
+        },
+        {
+          imageWord: "clase",
+          imageDescription: "a classroom interior with student desks and a chalkboard",
+          question: "¿Vino a la clase la semana pasada?",
+          questionTranslation: "Did you come to class last week?",
+          answer: "Sí, vine a la clase la semana pasada.",
+          answerTranslation: "Yes, I came to class last week.",
+        },
+        {
+          imageWord: "fiesta",
+          imageDescription: "a lively indoor party with colorful balloons and guests",
+          question: "¿Vino a la fiesta la semana pasada?",
+          questionTranslation: "Did you come to the party last week?",
+          answer: "No, no vine a la fiesta la semana pasada. No pude, no tuve tiempo.",
+          answerTranslation: "No, I didn't come to the party last week. I couldn't, I didn't have time.",
+        },
+        {
+          imageWord: "campo",
+          imageDescription: "a scenic countryside landscape with rolling green hills",
+          question: "¿Vino al campo la semana pasada?",
+          questionTranslation: "Did you come to the countryside last week?",
+          answer: "No, no vine al campo la semana pasada. No pude, no tuve tiempo.",
+          answerTranslation: "No, I didn't come to the countryside last week. I couldn't, I didn't have time.",
+        },
+        {
+          imageWord: "club",
+          imageDescription: "a golf club house entrance with manicured grounds",
+          question: "¿Vino al club la semana pasada?",
+          questionTranslation: "Did you come to the club last week?",
+          answer: "Sí, vine al club la semana pasada.",
+          answerTranslation: "Yes, I came to the club last week.",
+        },
+      ],
+      conjugationTable: {
+        verb: "venir",
+        verbTranslation: "to come",
+        rows: [
+          { pronoun: "Yo",                form: "vine",     translation: "I came" },
+          { pronoun: "Usted / Él / Ella", form: "vino",     translation: "you / he / she came" },
+          { pronoun: "Nosotros",          form: "vinimos",  translation: "we came" },
+          { pronoun: "Ellos / Ellas",     form: "vinieron", translation: "they came" },
+        ],
+      },
+    },
+    // ── Cluster 3: Poder — preterite (page 147) ───────────────────
+    {
+      heading: "Poder — to be able to",
+      noteInline: "Pude  I could · No pude  I couldn't",
+      pairs: [],
+      conjugationTable: {
+        verb: "poder",
+        verbTranslation: "to be able to / can",
+        rows: [
+          { pronoun: "Yo",                form: "pude",     translation: "I could" },
+          { pronoun: "Usted / Él / Ella", form: "pudo",     translation: "you / he / she could" },
+          { pronoun: "Nosotros",          form: "pudimos",  translation: "we could" },
+          { pronoun: "Ellos / Ellas",     form: "pudieron", translation: "they could" },
+        ],
+      },
+      noteAfter: "No pude, no tuve tiempo. · I couldn't, I didn't have time.",
+    },
+  ],
+};
+
 const GUST_UNITS: GustUnitContent[] = [
   GUSTAR_CHAPTER,
   GUSTARIA_CHAPTER,
@@ -2911,6 +3053,7 @@ const GUST_UNITS: GustUnitContent[] = [
   VOY_A_CHAPTER,
   VA_A_CHAPTER,
   QUE_HIZO_CHAPTER,
+  TUVO_CHAPTER,
 ];
 
 /**
