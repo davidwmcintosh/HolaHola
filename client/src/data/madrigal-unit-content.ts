@@ -2373,10 +2373,324 @@ const FUI_CHAPTER: GustUnitContent = {
   ],
 };
 
+// ── Chapter 40: Voy a — I Am Going To (pp. 112–115) ─────────────────────────
+
+const VOY_A_CHAPTER: GustUnitContent = {
+  chapterTitleKey: "voy a:",
+  conceptLabel: "Voy a",
+  conceptDefinition: "I am going to",
+  introNote: "After 'voy a,' 'quiero,' 'puedo,' and similar verbs, the next verb keeps its unconjugated 'to' form — the infinitive. Notice these infinitives end in -AR, -ER, or -IR.",
+  clusters: [
+    // ── Cluster 1: Voy a + AR infinitives (page 112) ──────────────
+    {
+      heading: "Voy a",
+      noteInline: "Voy a  I am going to · Va a  You/he/she is going to",
+      pairs: [
+        {
+          imageWord: "clase",
+          imageDescription: "a classroom interior with student desks and a chalkboard",
+          question: "¿Va a hablar español en la clase?",
+          questionTranslation: "Are you going to speak Spanish in class?",
+          answer: "Sí, voy a hablar español en la clase.",
+          answerTranslation: "Yes, I am going to speak Spanish in class.",
+        },
+        {
+          imageWord: "fiesta",
+          imageDescription: "a festive party scene with colorful balloons and decorations",
+          question: "¿Va a bailar en la fiesta?",
+          questionTranslation: "Are you going to dance at the party?",
+          answer: "Sí, voy a bailar en la fiesta.",
+          answerTranslation: "Yes, I am going to dance at the party.",
+        },
+        {
+          imageWord: "estudiar",
+          imageDescription: "a person studying at a desk with an open book",
+          question: "¿Va a estudiar español en la clase?",
+          questionTranslation: "Are you going to study Spanish in class?",
+          answer: "Sí, voy a estudiar español en la clase.",
+          answerTranslation: "Yes, I am going to study Spanish in class.",
+        },
+        {
+          imageWord: "cantar",
+          imageDescription: "a person singing on a stage with a microphone",
+          question: "¿Va a cantar en la fiesta?",
+          questionTranslation: "Are you going to sing at the party?",
+          answer: "Sí, voy a cantar en la fiesta.",
+          answerTranslation: "Yes, I am going to sing at the party.",
+        },
+      ],
+      noteAfter: "estudiar — to study · hablar — to speak · cantar — to sing · comprar — to buy. These 'to' forms appear after 'voy a' because they follow another verb.",
+    },
+    // ── Cluster 2: Quiero (page 113) ──────────────────────────────
+    {
+      heading: "Quiero",
+      noteInline: "Quiero  I want · ¿Quiere?  Do you want?",
+      pairs: [
+        {
+          imageWord: "paquete",
+          imageDescription: "a wrapped package with a ribbon on a white background",
+          question: "¿Quiere dejar el paquete en el hotel?",
+          questionTranslation: "Do you want to leave the package at the hotel?",
+          answer: "Sí, quiero dejar el paquete en el hotel.",
+          answerTranslation: "Yes, I want to leave the package at the hotel.",
+        },
+        {
+          imageWord: "valija",
+          imageDescription: "a travel suitcase standing upright on a white background",
+          question: "¿Quiere dejar la valija en el hotel?",
+          questionTranslation: "Do you want to leave the suitcase at the hotel?",
+          answer: "Sí, quiero dejar la valija en el hotel.",
+          answerTranslation: "Yes, I want to leave the suitcase at the hotel.",
+        },
+        {
+          imageWord: "nadar",
+          imageDescription: "a person swimming in a bright blue pool",
+          question: "¿Quiere nadar mañana?",
+          questionTranslation: "Do you want to swim tomorrow?",
+          answer: "Sí, quiero nadar mañana.",
+          answerTranslation: "Yes, I want to swim tomorrow.",
+        },
+        {
+          imageWord: "campo",
+          imageDescription: "a scenic countryside landscape with rolling green hills",
+          question: "¿Quiere caminar en el campo?",
+          questionTranslation: "Do you want to walk in the countryside?",
+          answer: "Sí, quiero caminar en el campo.",
+          answerTranslation: "Yes, I want to walk in the countryside.",
+        },
+      ],
+    },
+    // ── Cluster 3: Voy a / Va a — more verbs + personal a (page 114) ──
+    {
+      heading: "Voy a / Va a",
+      noteInline: "Voy a  I am going to · Va a  You/he/she is going to",
+      pairs: [
+        {
+          imageWord: "pollo",
+          imageDescription: "a roasted chicken on a plate with steam rising",
+          question: "¿Va a preparar pollo?",
+          questionTranslation: "Are you going to prepare chicken?",
+          answer: "Sí, voy a preparar pollo.",
+          answerTranslation: "Yes, I am going to prepare chicken.",
+        },
+        {
+          imageWord: "salmón",
+          imageDescription: "a cooked salmon fillet on a white plate",
+          question: "¿Va a preparar salmón?",
+          questionTranslation: "Are you going to prepare salmon?",
+          answer: "Sí, voy a preparar salmón.",
+          answerTranslation: "Yes, I am going to prepare salmon.",
+        },
+        {
+          imageWord: "cuenta",
+          imageDescription: "a restaurant bill or check on a small tray",
+          question: "¿Va a pagar la cuenta?",
+          questionTranslation: "Are you going to pay the bill?",
+          answer: "Sí, voy a pagar la cuenta.",
+          answerTranslation: "Yes, I am going to pay the bill.",
+        },
+        {
+          imageWord: "valija",
+          imageDescription: "a travel suitcase standing upright on a white background",
+          question: "¿Va a llevar la valija?",
+          questionTranslation: "Are you going to take the suitcase?",
+          answer: "Sí, voy a llevar la valija.",
+          answerTranslation: "Yes, I am going to take the suitcase.",
+        },
+      ],
+      noteAfter: "Use 'a' after 'invitar' and 'visitar' when a person follows: Voy a invitar a María · Voy a visitar a Roberto · Voy a viajar en México.",
+    },
+    // ── Cluster 4: Mega sentence combiner (page 115) ───────────────
+    {
+      heading: "Combine",
+      noteInline: "Debo  I should · Debe  You/he should",
+      pairs: [],
+      sentenceColumns: [
+        {
+          label: "Verb phrase",
+          items: [
+            { text: "Voy a",       translation: "I am going to" },
+            { text: "¿Va a?",      translation: "Are you/Is he going to?" },
+            { text: "Va a",        translation: "You/he/she is going to" },
+            { text: "Tengo que",   translation: "I have to" },
+            { text: "Tiene que",   translation: "You/he/she has to" },
+            { text: "Quiero",      translation: "I want to" },
+            { text: "¿Quiere?",    translation: "Do you want to?" },
+            { text: "Puedo",       translation: "I can" },
+            { text: "No puedo",    translation: "I can't" },
+            { text: "Me gusta",    translation: "I like to" },
+            { text: "Me gustaría", translation: "I would like to" },
+            { text: "Me encanta",  translation: "I love to" },
+            { text: "Debo",        translation: "I should" },
+            { text: "Debe",        translation: "You/he should" },
+          ],
+        },
+        {
+          label: "Infinitive",
+          items: [
+            { text: "nadar.",              translation: "to swim." },
+            { text: "cantar.",             translation: "to sing." },
+            { text: "estudiar.",           translation: "to study." },
+            { text: "trabajar.",           translation: "to work." },
+            { text: "ir.",                 translation: "to go." },
+            { text: "invitar a Roberto.",  translation: "to invite Roberto." },
+            { text: "visitar a María.",    translation: "to visit María." },
+            { text: "comprar.",            translation: "to buy." },
+            { text: "tomar.",              translation: "to take." },
+            { text: "caminar.",            translation: "to walk." },
+            { text: "pagar.",              translation: "to pay." },
+            { text: "hablar.",             translation: "to speak." },
+            { text: "bailar.",             translation: "to dance." },
+            { text: "dejar.",              translation: "to leave." },
+          ],
+        },
+      ],
+      noteAfter: "Debo and Debe (I should / you should) follow the same pattern — they take an infinitive directly after them.",
+    },
+  ],
+};
+
+// ── Chapter 41: Va a — Vender / Leer / Escribir (pp. 116–118) ────────────────
+
+const VA_A_CHAPTER: GustUnitContent = {
+  chapterTitleKey: "va a:",
+  conceptLabel: "Va a",
+  conceptDefinition: "You/he/she is going to",
+  clusters: [
+    // ── Cluster 1: Vender (page 116) ──────────────────────────────
+    {
+      heading: "Vender — to sell",
+      noteInline: "¿Va a vender?  Are you going to sell? · Voy a vender  I am going to sell",
+      pairs: [
+        {
+          imageWord: "casa",
+          imageDescription: "a classic single-family house with a front yard",
+          question: "¿Va a vender la casa?",
+          questionTranslation: "Are you going to sell the house?",
+          answer: "Sí, voy a vender la casa.",
+          answerTranslation: "Yes, I am going to sell the house.",
+        },
+        {
+          imageWord: "lancha",
+          imageDescription: "a small motorboat on calm blue water",
+          question: "¿Va a vender la lancha?",
+          questionTranslation: "Are you going to sell the boat?",
+          answer: "Sí, voy a vender la lancha.",
+          answerTranslation: "Yes, I am going to sell the boat.",
+        },
+        {
+          imageWord: "auto",
+          imageDescription: "a sedan car on a white background",
+          question: "¿Va a vender el auto?",
+          questionTranslation: "Are you going to sell the car?",
+          answer: "Sí, voy a vender el auto.",
+          answerTranslation: "Yes, I am going to sell the car.",
+        },
+        {
+          imageWord: "boletos",
+          imageDescription: "two admission tickets side by side on a white background",
+          question: "¿Va a vender los boletos?",
+          questionTranslation: "Are you going to sell the tickets?",
+          answer: "Sí, voy a vender los boletos.",
+          answerTranslation: "Yes, I am going to sell the tickets.",
+        },
+      ],
+      noteAfter: "el boleto — ticket (Latin America) · el billete — ticket (Spain)",
+    },
+    // ── Cluster 2: Leer (page 117) ────────────────────────────────
+    {
+      heading: "Leer — to read",
+      noteInline: "¿Va a leer?  Are you going to read? · Voy a leer  I am going to read",
+      pairs: [
+        {
+          imageWord: "revista",
+          imageDescription: "an open magazine on a white background",
+          question: "¿Va a leer la revista?",
+          questionTranslation: "Are you going to read the magazine?",
+          answer: "Sí, voy a leer la revista.",
+          answerTranslation: "Yes, I am going to read the magazine.",
+        },
+        {
+          imageWord: "menú",
+          imageDescription: "a folded restaurant menu booklet on a white background",
+          question: "¿Va a leer el menú?",
+          questionTranslation: "Are you going to read the menu?",
+          answer: "Sí, voy a leer el menú.",
+          answerTranslation: "Yes, I am going to read the menu.",
+        },
+        {
+          imageWord: "periódico",
+          imageDescription: "a folded newspaper on a white background",
+          question: "¿Va a leer el periódico?",
+          questionTranslation: "Are you going to read the newspaper?",
+          answer: "Sí, voy a leer el periódico.",
+          answerTranslation: "Yes, I am going to read the newspaper.",
+        },
+        {
+          imageWord: "libro",
+          imageDescription: "an open hardcover book on a white background",
+          question: "¿Va a leer el libro?",
+          questionTranslation: "Are you going to read the book?",
+          answer: "Sí, voy a leer el libro.",
+          answerTranslation: "Yes, I am going to read the book.",
+        },
+      ],
+    },
+    // ── Cluster 3: Escribir / Recibir (page 118) ──────────────────
+    {
+      heading: "Escribir / Recibir",
+      noteInline: "Escribir  to write · Recibir  to receive",
+      pairs: [
+        {
+          imageWord: "carta",
+          imageDescription: "a handwritten letter next to an open envelope on a white background",
+          question: "¿Va a escribir una carta?",
+          questionTranslation: "Are you going to write a letter?",
+          answer: "Sí, voy a escribir una carta.",
+          answerTranslation: "Yes, I am going to write a letter.",
+        },
+        {
+          imageWord: "tarjeta postal",
+          imageDescription: "a colorful scenic postcard on a white background",
+          question: "¿Va a recibir una tarjeta postal?",
+          questionTranslation: "Are you going to receive a postcard?",
+          answer: "Sí, voy a recibir una tarjeta postal.",
+          answerTranslation: "Yes, I am going to receive a postcard.",
+        },
+      ],
+      sentenceColumns: [
+        {
+          label: "Phrase",
+          items: [
+            { text: "Voy a escribir",  translation: "I am going to write" },
+            { text: "Voy a leer",      translation: "I am going to read" },
+            { text: "Voy a recibir",   translation: "I am going to receive" },
+            { text: "Voy a vender",    translation: "I am going to sell" },
+          ],
+        },
+        {
+          label: "Object",
+          items: [
+            { text: "una carta.",         translation: "a letter." },
+            { text: "una tarjeta postal.", translation: "a postcard." },
+            { text: "la novela.",         translation: "the novel." },
+            { text: "el artículo.",       translation: "the article." },
+            { text: "el periódico.",      translation: "the newspaper." },
+            { text: "la revista.",        translation: "the magazine." },
+            { text: "el libro.",          translation: "the book." },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
 const GUST_UNITS: GustUnitContent[] = [
   GUSTAR_CHAPTER,
   GUSTARIA_CHAPTER,
   FUI_CHAPTER,
+  VOY_A_CHAPTER,
+  VA_A_CHAPTER,
 ];
 
 /**
