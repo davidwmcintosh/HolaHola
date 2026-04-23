@@ -370,11 +370,129 @@ This is the main instructional body of the book. **Coverage is now complete:**
 | pp. 162 | EE — Una vez / Dos veces | ✅ Captured in Section 1 |
 | pp. 163–168 | Le — indirect object pronoun | ✅ Ch. 44 (Spanish 2) |
 | pp. 169 | EE — Hacer (weather + ago) | ⬜ Extend Ch. 26 + new time cluster |
-| pp. 170–180 | More vocabulary / review | Not yet assessed |
-| pp. 181 | EE — Mixed: time + social + commands | ⬜ Social phrases to Ch. 1; commands = Spanish 2 |
-| pp. 182–197 | Additional vocabulary / review | Not yet assessed |
-| pp. 198 | EE — Commands (formal imperative) | Spanish 2 — documented above |
-| pp. 199 | End of conversation lessons | — |
+| pp. 170 | ¿A qué hora sale? — salir (present tense); transport vocab | ⬜ Spanish 2 — present tense irregular verbs |
+| pp. 171 | ¿A qué hora llega? — llegar; ¿Cuándo viene? — venir | ⬜ Spanish 2 — present tense |
+| pp. 172–181 | Mixed review / social phrases / time | ⬜ Social phrases → Ch. 1; time → Ch. 6; commands = Sp.2 |
+| pp. 182–183 | Present progressive -ando: tocando, hablando, nadando, patinando | Spanish 2 — ¿Está tocando? / Estoy tocando; conjugation: estoy/está/estamos |
+| pp. 184–185 | Present progressive -iendo: escribiendo, vendiendo, aprendiendo; leyendo (irregular) | Spanish 2 — ¿Qué está haciendo? |
+| pp. 186–187 | Exercises only | No content to transcribe |
+| pp. 188–189 | Present perfect: ha/he comprado, estudiado, vendido, vivido, recibido; he/ha/hemos/han | Spanish 2 — Magic Key Card 20 |
+| pp. 190–191 | Direct object pronouns lo/la (singular) and los/las (plural); personal A | Spanish 2 — lo veo, la veo, los veo, las veo |
+| pp. 192–193 | Indirect object pronoun le (singular): le hablo, le escribí; les (plural): les hablé | Spanish 2 — already documented in Ch. 44 |
+| pp. 194–195 | Double object pronouns me lo / se lo; pronouns attached to infinitive (comprarlo, mandárselo); dar | Spanish 2 — advanced pronoun stacking |
+| pp. 196–197 | Imperfect -aba (compraba/comprábamos/compraban); imperfect -ía (vendía, tenía/teníamos/tenían) | Spanish 2 — first imperfect tense |
+| pp. 198 | Commands: formal imperative -AR→-e, ER/IR→-a; irregular GA commands | Spanish 2 — documented in Section 2 |
+| pp. 199 | Present subjunctive (brief intro) | Spanish 3 |
+
+---
+
+### Spanish 2 Content Detail — Pages 170–199
+
+Full transcriptions of the grammar concepts from the final lesson pages. These are the building blocks for Spanish 2 chapters when that course is built.
+
+#### Present Tense Irregular Verbs (pp. 170–171) — ¿A qué hora sale? / llega?
+Transportation departure/arrival context. Introduces salir (sale/salgo), llegar (llega/llego), venir (viene/vengo).
+
+Sentence patterns:
+- ¿A qué hora sale el tren / avión / autobús / helicóptero / barco / la excursión?
+- ¿A qué hora llega Roberto?
+- ¿Cuándo viene a mi casa?
+
+#### Present Progressive (pp. 182–185) — ¿Está tocando? / ¿Qué está haciendo?
+
+-ando (AR verbs): tocando (piano, guitarra, violín, acordeón), hablando, estudiando, nadando, patinando, hablando por teléfono  
+-iendo (ER/IR verbs): escribiendo, vendiendo, aprendiendo  
+Irregular: leyendo (leer → -yendo, not -iendo)  
+
+Sentence patterns:
+- ¿Está tocando el piano? Sí, estoy tocando el piano.
+- ¿Está estudiando español? Sí, estoy estudiando español.
+- ¿Qué está haciendo? Estoy escribiendo una carta / vendiendo la lancha / aprendiendo la lección.
+- ¿Está leyendo el periódico? Sí, estoy leyendo el periódico.
+
+Conjugation (estar + -ando/-iendo):
+- Estoy nadando / Está nadando / Estamos nadando / Están nadando
+
+#### Present Perfect (pp. 188–189) — Ha comprado / He comprado
+
+-AR: comprado, estudiado, pagado  
+-ER/IR: vendido, vivido, recibido  
+Irregular: visto (ver)  
+
+Conjugation: he / ha / hemos / han + participio  
+
+Sentence patterns:
+- ¿Ha comprado la bicicleta? No, no he comprado la bicicleta todavía.
+- ¿Ha estudiado esta semana? Sí, he estudiado esta semana.
+- ¿Ha vendido el auto? Sí, he vendido el auto.
+- ¿Ha vivido en México mucho tiempo? Sí, he vivido en México mucho tiempo.
+
+Key words introduced: todavía (yet/still), esta semana (this week)
+
+#### Direct Object Pronouns (pp. 190–191) — Lo veo / La veo / Los veo / Las veo
+
+Singular: lo (him / it masc.), la (her / it fem.), me (me)  
+Plural: los (them masc.), las (them fem.), nos (us)  
+Personal A: ¿Ve a los muchachos? Sí, los veo. (required before animate direct objects)  
+
+Sentence patterns:
+- Lo veo / La veo / Lo llamo / La llamo / Me ve
+- Lo conozco / La conozco / Lo quiero / La quiero
+- ¿Ve a los muchachos? Sí, los veo.
+- ¿Ve a las muchachas? Sí, las veo.
+- ¿Ve las mariposas? Sí, las veo.
+- ¿Ve a Daniel y a Roberto? Sí, los veo. / ¿Ve a Marta y Luisa? Sí, las veo.
+
+#### Indirect Object Pronouns (pp. 192–193) — Le hablo / Les escribí
+
+Singular: le (to you, to him, to her)  
+Plural: les (to them, to you-plural)  
+
+Sentence patterns:
+- Le hablo / Le hablé / Le escribo / Le escribí ayer / hoy / esta noche / esta mañana
+- Les hablo / Les hablé / Les escribí hoy / esta tarde
+- Les escribí a Marta y a María
+
+*Note: le/les in pp. 192–193 are singular/plural indirect pronouns. Ch. 44 (Le) covers the singular form — les is new.*
+
+#### Double Object Pronouns + Attachment to Infinitive (pp. 194–195)
+
+me lo (it to me), se lo (it to you / him / her / them)  
+
+Sentence patterns:
+- ¿Le mandó el paquete? Sí, me lo mandó hoy.
+- ¿Le trajo el paraguas? Sí, me lo trajo hoy.
+
+Pronouns attached to infinitive (one word):
+- Quiero comprarlo / mandarlo / mandárselo / traérselo / verlo
+- Quiero hablarle / escribirle
+- Voy a traerlo / traérselo
+
+With dar:
+- Voy a dárselo / Quiere dármelo / Quiero dárselo
+- Quiero verlo mañana / Quiero hacerlo mañana
+- Se lo dije (I told him/her) / Me lo dijo (He/she told me)
+
+Objects used in context: el regalo, el paquete, el paraguas, el libro, el disco
+
+#### Imperfect Tense (pp. 196–197) — Compraba / Vendía / Tenía
+
+First introduction of the imperfect. AR verbs → -aba; ER/IR verbs → -ía.
+
+-aba conjugation (compraba):  
+compraba / comprábamos / compraban  
+
+-ía conjugation (vendía, tenía):  
+tenía / teníamos / tenían  
+
+Sentence patterns:
+- ¿Dónde trabaja? Trabaja en el hotel / en el banco. (present — contrast)
+- ¿Qué compraba? Compraba máquinas / tractores.
+- ¿Qué vendía? Vendía sombreros.
+- ¿Qué vendía María? María vendía blusas.
+- Tenía una casa en el campo / un auto lindo / un caballo / un perro / un auto azul.
+
+Vocabulary introduced: máquinas (machines), tractores (tractors), sombreros (hats), blusas (blouses), campo (countryside)
 
 ---
 
