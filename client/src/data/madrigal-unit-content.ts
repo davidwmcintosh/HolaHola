@@ -3046,6 +3046,165 @@ const TUVO_CHAPTER: GustUnitContent = {
   ],
 };
 
+// ── Chapter 44: Le — To Him, To Her (p. 150) ────────────────────────────────
+
+const LE_CHAPTER: GustUnitContent = {
+  chapterTitleKey: "le:",
+  conceptLabel: "Le",
+  conceptDefinition: "To him / to her / to you",
+  introNote: "'Le' is the indirect object pronoun — it tells you who received the action. Le traje un libro = I brought him/her a book.",
+  clusters: [
+    // ── Cluster 1: ¿Qué le trajo? (page 150) ─────────────────────
+    {
+      heading: "¿Qué le trajo?",
+      noteInline: "Le traje  I brought him/her · ¿Qué le trajo?  What did you bring him/her?",
+      pairs: [
+        {
+          imageWord: "libro",
+          imageDescription: "an open hardcover book on a white background",
+          question: "¿Qué le trajo?",
+          questionTranslation: "What did you bring him/her?",
+          answer: "Le traje un libro.",
+          answerTranslation: "I brought him/her a book.",
+        },
+        {
+          imageWord: "disco",
+          imageDescription: "a vinyl record on a plain white background",
+          question: "¿Qué le trajo?",
+          questionTranslation: "What did you bring him/her?",
+          answer: "Le traje un disco.",
+          answerTranslation: "I brought him/her a record.",
+        },
+      ],
+      conjugationTable: {
+        verb: "traer",
+        verbTranslation: "to bring",
+        rows: [
+          { pronoun: "Yo",                form: "traje",    translation: "I brought" },
+          { pronoun: "Usted / Él / Ella", form: "trajo",    translation: "you / he / she brought" },
+          { pronoun: "Nosotros",          form: "trajimos", translation: "we brought" },
+          { pronoun: "Ellos / Ellas",     form: "trajeron", translation: "they brought" },
+        ],
+      },
+    },
+    // ── Cluster 2: ¿Qué le dijo? (page 150) ──────────────────────
+    {
+      heading: "¿Qué le dijo?",
+      noteInline: "Le dije que era...  I told him/her that it was...",
+      pairs: [],
+      sentenceColumns: [
+        {
+          label: "Phrase",
+          items: [
+            { text: "Le dije que era", translation: "I told him/her that it was" },
+          ],
+        },
+        {
+          label: "Adjective",
+          items: [
+            { text: "interesante.",  translation: "interesting." },
+            { text: "terrible.",     translation: "terrible." },
+            { text: "excelente.",    translation: "excellent." },
+            { text: "imposible.",    translation: "impossible." },
+            { text: "formidable.",   translation: "wonderful." },
+          ],
+        },
+      ],
+      conjugationTable: {
+        verb: "decir",
+        verbTranslation: "to say / to tell",
+        rows: [
+          { pronoun: "Yo",                form: "dije",    translation: "I said / told" },
+          { pronoun: "Usted / Él / Ella", form: "dijo",    translation: "you / he / she said" },
+          { pronoun: "Nosotros",          form: "dijimos", translation: "we said / told" },
+          { pronoun: "Ellos / Ellas",     form: "dijeron", translation: "they said / told" },
+        ],
+      },
+    },
+  ],
+};
+
+// ── Chapter 45: Está — Limpio y Sucio (p. 151) ──────────────────────────────
+
+const ESTA_LIMPIO_CHAPTER: GustUnitContent = {
+  chapterTitleKey: "está:",
+  conceptLabel: "Está",
+  conceptDefinition: "Is (state)",
+  introNote: "'Limpio/limpia' means clean · 'Sucio/sucia' means dirty. The ending changes to match the gender of the noun: el plato limpio · la cuchara limpia.",
+  clusters: [
+    {
+      heading: "¿Está limpio/a? ¿Está sucio/a?",
+      noteInline: "Limpio / Limpia  Clean · Sucio / Sucia  Dirty",
+      pairs: [
+        {
+          imageWord: "cuchara",
+          imageDescription: "a polished silver spoon on a white background",
+          question: "¿Está limpia la cuchara?",
+          questionTranslation: "Is the spoon clean?",
+          answer: "Sí, la cuchara está limpia.",
+          answerTranslation: "Yes, the spoon is clean.",
+        },
+        {
+          imageWord: "plato",
+          imageDescription: "a white ceramic dinner plate on a white background",
+          question: "¿Está limpio el plato?",
+          questionTranslation: "Is the plate clean?",
+          answer: "Sí, está limpio.",
+          answerTranslation: "Yes, it is clean.",
+        },
+        {
+          imageWord: "servilleta",
+          imageDescription: "a folded white cloth napkin on a white background",
+          question: "¿La servilleta está sucia?",
+          questionTranslation: "Is the napkin dirty?",
+          answer: "No, la servilleta no está sucia. La servilleta está limpia.",
+          answerTranslation: "No, the napkin is not dirty. The napkin is clean.",
+        },
+        {
+          imageWord: "mantel",
+          imageDescription: "a clean white tablecloth draped neatly over a table",
+          question: "¿Está sucio el mantel?",
+          questionTranslation: "Is the tablecloth dirty?",
+          answer: "No, el mantel no está sucio. El mantel está limpio.",
+          answerTranslation: "No, the tablecloth is not dirty. The tablecloth is clean.",
+        },
+        {
+          imageWord: "jarra",
+          imageDescription: "a clear glass pitcher with water on a white background",
+          question: "¿Está limpia la jarra?",
+          questionTranslation: "Is the pitcher clean?",
+          answer: "Sí, la jarra está limpia.",
+          answerTranslation: "Yes, the pitcher is clean.",
+        },
+        {
+          imageWord: "taza",
+          imageDescription: "a white ceramic coffee cup on a white background",
+          question: "¿Está limpia la taza?",
+          questionTranslation: "Is the cup clean?",
+          answer: "Sí, la taza está limpia.",
+          answerTranslation: "Yes, the cup is clean.",
+        },
+        {
+          imageWord: "vaso",
+          imageDescription: "a clear drinking glass on a white background",
+          question: "¿Está limpio el vaso?",
+          questionTranslation: "Is the glass clean?",
+          answer: "Sí, el vaso está limpio.",
+          answerTranslation: "Yes, the glass is clean.",
+        },
+        {
+          imageWord: "cuchillo",
+          imageDescription: "a dinner knife on a white background",
+          question: "¿Está limpio el cuchillo?",
+          questionTranslation: "Is the knife clean?",
+          answer: "Sí, el cuchillo está limpio.",
+          answerTranslation: "Yes, the knife is clean.",
+        },
+      ],
+    },
+  ],
+};
+
 const GUST_UNITS: GustUnitContent[] = [
   GUSTAR_CHAPTER,
   GUSTARIA_CHAPTER,
@@ -3054,6 +3213,8 @@ const GUST_UNITS: GustUnitContent[] = [
   VA_A_CHAPTER,
   QUE_HIZO_CHAPTER,
   TUVO_CHAPTER,
+  LE_CHAPTER,
+  ESTA_LIMPIO_CHAPTER,
 ];
 
 /**
