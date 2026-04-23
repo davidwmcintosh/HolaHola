@@ -266,7 +266,7 @@ function GustQACard({
         <img
           src={imageUrl}
           alt={pair.imageWord ?? ""}
-          className="w-full h-36 object-cover bg-muted"
+          className="w-full h-36 object-cover object-top bg-muted"
           data-testid={`img-gust-${pair.imageWord}`}
         />
       )}
