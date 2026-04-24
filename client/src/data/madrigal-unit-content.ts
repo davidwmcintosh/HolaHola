@@ -4392,6 +4392,297 @@ const ESTA_TOCANDO_CHAPTER: GustUnitContent = {
   ],
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Chapter: Me Levanto — Verbos Reflexivos
+// Source: Madrigal's Magic Key to Spanish, Lesson 38 (pp. 342–361)
+// chapterTitleKey "me levanto" matches DB unit "Me Levanto — Verbos Reflexivos"
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const ME_LEVANTO_CHAPTER: GustUnitContent = {
+  chapterTitleKey: "me levanto",
+  conceptLabel: "Me Levanto",
+  conceptDefinition: "I get up · Reflexive Verbs",
+  introNote: "A reflexive verb reflects the action back upon the subject. Many Spanish reflexive verbs describe physical actions — the things you do to yourself when getting ready.",
+  clusters: [
+
+    // ── Cluster 1: Physical Verb List ─────────────────────────────────────────
+    {
+      heading: "Verbos Reflexivos",
+      noteInline: "bañarse  to bathe · lavarse  to wash · peinarse  to comb · secarse  to dry · afeitarse  to shave · levantarse  to get up · acostarse  to go to bed · ponerse  to put on · quitarse  to take off · pararse  to stand up · sentarse  to sit down",
+      pairs: [],
+      noteAfter: "Reflexive pronouns: me (myself), se (yourself / himself / herself), nos (ourselves). They always appear immediately before the verb.",
+    },
+
+    // ── Cluster 2: Morning Routine — Preterite Dialogue ───────────────────────
+    {
+      heading: "Esta Mañana — This Morning",
+      noteInline: "Me bañé  I bathed · Me peiné  I combed · Me lavé  I washed",
+      pairs: [
+        {
+          imageWord: "cama",
+          imageDescription: "a comfortable bed in a bedroom at night with bedside lamp",
+          question: "¿A qué hora se acostó anoche?",
+          questionTranslation: "At what time did you go to bed last night?",
+          answer: "Anoche me acosté a las once.",
+          answerTranslation: "Last night I went to bed at eleven.",
+        },
+        {
+          imageWord: "despertador",
+          imageDescription: "an alarm clock showing seven o'clock on a bedside table",
+          question: "¿A qué hora se levantó esta mañana?",
+          questionTranslation: "At what time did you get up this morning?",
+          answer: "Me levanté a las siete esta mañana.",
+          answerTranslation: "I got up at seven this morning.",
+        },
+        {
+          imageWord: "jabón",
+          imageDescription: "a bar of soap and a shower head with water running",
+          question: "¿Se bañó con agua y jabón?",
+          questionTranslation: "Did you bathe with soap and water?",
+          answer: "Sí, me bañé con agua y jabón.",
+          answerTranslation: "Yes, I bathed with soap and water.",
+        },
+        {
+          imageWord: "toalla",
+          imageDescription: "a fluffy white towel folded neatly on a white background",
+          question: "¿Se secó con una toalla?",
+          questionTranslation: "Did you dry off with a towel?",
+          answer: "Sí, me sequé con una toalla.",
+          answerTranslation: "Yes, I dried off with a towel.",
+        },
+        {
+          imageWord: "peine",
+          imageDescription: "a comb lying on a white background",
+          question: "¿Se peinó usted?",
+          questionTranslation: "Did you comb your hair?",
+          answer: "Sí, me peiné con un peine.",
+          answerTranslation: "Yes, I combed my hair with a comb.",
+        },
+        {
+          imageWord: "cara",
+          imageDescription: "a person gently washing their face at a bathroom sink",
+          question: "¿Se lavó la cara?",
+          questionTranslation: "Did you wash your face?",
+          answer: "Sí, me lavé la cara.",
+          answerTranslation: "Yes, I washed my face.",
+        },
+        {
+          imageWord: "afeitarse",
+          imageDescription: "a razor and shaving cream on a bathroom shelf",
+          question: "¿Se afeitó usted?",
+          questionTranslation: "Did you shave?",
+          answer: "Sí, me afeité.",
+          answerTranslation: "Yes, I shaved.",
+        },
+        {
+          imageWord: "pelo",
+          imageDescription: "a person rinsing hair under a shower",
+          question: "¿Se lavó el pelo?",
+          questionTranslation: "Did you wash your hair?",
+          answer: "Sí, me lavé el pelo.",
+          answerTranslation: "Yes, I washed my hair.",
+        },
+      ],
+    },
+
+    // ── Cluster 3: Getting Dressed — Ponerse ──────────────────────────────────
+    {
+      heading: "Me Puse — I Put On",
+      noteInline: "Me puse  I put on · ¿Se puso?  Did you put on?",
+      pairs: [
+        {
+          imageWord: "camisa",
+          imageDescription: "a button-up shirt laid flat on a white background",
+          question: "¿Se puso la camisa?",
+          questionTranslation: "Did you put on your shirt?",
+          answer: "Sí, me puse la camisa.",
+          answerTranslation: "Yes, I put on the shirt.",
+        },
+        {
+          imageWord: "zapatos",
+          imageDescription: "a pair of leather shoes on a white background",
+          question: "¿Se puso los zapatos?",
+          questionTranslation: "Did you put on your shoes?",
+          answer: "Sí, me puse los zapatos.",
+          answerTranslation: "Yes, I put on the shoes.",
+        },
+        {
+          imageWord: "corbata",
+          imageDescription: "a necktie laid flat on a white background",
+          question: "¿Se puso la corbata?",
+          questionTranslation: "Did you put on your tie?",
+          answer: "Sí, me puse la corbata.",
+          answerTranslation: "Yes, I put on the tie.",
+        },
+        {
+          imageWord: "traje",
+          imageDescription: "a suit jacket and trousers hanging neatly on a hanger",
+          question: "¿Se puso el traje?",
+          questionTranslation: "Did you put on your suit?",
+          answer: "Sí, me puse el traje.",
+          answerTranslation: "Yes, I put on the suit.",
+        },
+      ],
+      grammarRule: "After a reflexive verb, you do not use possessive adjectives. · Me puse el sombrero. / I put on the hat. (not: mi sombrero) · Me lavé las manos. / I washed the hands. (not: mis manos)",
+    },
+
+    // ── Cluster 4: Ponerse a — I Started To ───────────────────────────────────
+    {
+      heading: "Me Puse a... — I Started To...",
+      noteInline: "Ponerse a  to start to do something",
+      pairs: [
+        {
+          question: "¿Se puso a trabajar?",
+          questionTranslation: "Did you start to work?",
+          answer: "Sí, me puse a trabajar.",
+          answerTranslation: "Yes, I started to work.",
+        },
+        {
+          question: "¿Se puso a cantar?",
+          questionTranslation: "Did you start to sing?",
+          answer: "Sí, me puse a cantar.",
+          answerTranslation: "Yes, I started to sing.",
+        },
+        {
+          question: "¿Se puso a llorar?",
+          questionTranslation: "Did you start to cry?",
+          answer: "No, no me puse a llorar.",
+          answerTranslation: "No, I did not start to cry.",
+        },
+        {
+          question: "¿Se puso a reír?",
+          questionTranslation: "Did you start to laugh?",
+          answer: "Sí, me puse a reír.",
+          answerTranslation: "Yes, I started to laugh.",
+        },
+      ],
+      noteAfter: "\"Ponerse\" also means \"to become\" when followed by an adjective: Se puso furioso. (He became furious.) Se puso pálido. (He turned pale.)",
+    },
+
+    // ── Cluster 5: Reciprocal Reflexives — Each Other ─────────────────────────
+    {
+      heading: "Nos Vemos — Each Other",
+      noteInline: "Reflexive pronouns also express actions that two people do to one another.",
+      pairs: [],
+      grammarRule: "Se besaron. / They kissed each other. · Nos vemos. / We see each other. · No se hablan. / They don't speak to each other. · Se comprenden. / They understand each other. · Se parecen. / They resemble each other.",
+    },
+
+    // ── Cluster 6: Future Dialogue — Me Voy a... ──────────────────────────────
+    {
+      heading: "¿Qué Va a Hacer? — Going To...",
+      noteInline: "Me voy a bañar  I'm going to bathe · ¿Se va a...?  Are you going to...?",
+      pairs: [
+        {
+          question: "¿Se va a bañar?",
+          questionTranslation: "Are you going to bathe?",
+          answer: "Sí, me voy a bañar.",
+          answerTranslation: "Yes, I'm going to bathe.",
+        },
+        {
+          question: "¿A qué hora se va a levantar mañana?",
+          questionTranslation: "At what time are you going to get up tomorrow?",
+          answer: "Me voy a levantar a las seis.",
+          answerTranslation: "I'm going to get up at six.",
+        },
+        {
+          question: "¿Se va a afeitar?",
+          questionTranslation: "Are you going to shave?",
+          answer: "Sí, me voy a afeitar.",
+          answerTranslation: "Yes, I'm going to shave.",
+        },
+        {
+          question: "¿Se va a poner la corbata?",
+          questionTranslation: "Are you going to put on your tie?",
+          answer: "Sí, me voy a poner la corbata.",
+          answerTranslation: "Yes, I'm going to put on the tie.",
+        },
+      ],
+    },
+
+    // ── Cluster 7: Conjugation Reference — Bañarse ────────────────────────────
+    {
+      heading: "Conjugaciones",
+      noteInline: "BAÑARSE  to bathe (yourself)",
+      pairs: [],
+      conjugationTable: [
+        { conjugated: "— Present —", translation: "" },
+        { conjugated: "Me baño", translation: "I bathe myself" },
+        { conjugated: "Se baña", translation: "you / he / she bathes" },
+        { conjugated: "Nos bañamos", translation: "we bathe ourselves" },
+        { conjugated: "Se bañan", translation: "they bathe themselves" },
+        { conjugated: "— Preterite —", translation: "" },
+        { conjugated: "Me bañé", translation: "I bathed myself" },
+        { conjugated: "Se bañó", translation: "you / he / she bathed" },
+        { conjugated: "Nos bañamos", translation: "we bathed ourselves" },
+        { conjugated: "Se bañaron", translation: "they bathed themselves" },
+      ],
+    },
+
+    // ── Cluster 8: Conjugation Reference — Lavarse ────────────────────────────
+    {
+      noteInline: "LAVARSE  to wash (yourself)",
+      pairs: [],
+      conjugationTable: [
+        { conjugated: "— Present —", translation: "" },
+        { conjugated: "Me lavo", translation: "I wash myself" },
+        { conjugated: "Se lava", translation: "you / he / she washes" },
+        { conjugated: "Nos lavamos", translation: "we wash ourselves" },
+        { conjugated: "Se lavan", translation: "they wash themselves" },
+        { conjugated: "— Preterite —", translation: "" },
+        { conjugated: "Me lavé", translation: "I washed myself" },
+        { conjugated: "Se lavó", translation: "you / he / she washed" },
+        { conjugated: "Nos lavamos", translation: "we washed ourselves" },
+        { conjugated: "Se lavaron", translation: "they washed themselves" },
+      ],
+    },
+
+    // ── Cluster 9: Conjugation Reference — Levantarse / Acostarse ────────────
+    {
+      noteInline: "LEVANTARSE  to get up · ACOSTARSE  to go to bed",
+      pairs: [],
+      conjugationTable: [
+        { conjugated: "— Present —", translation: "" },
+        { conjugated: "Me levanto", translation: "I get up" },
+        { conjugated: "Se levanta", translation: "you / he / she gets up" },
+        { conjugated: "Nos levantamos", translation: "we get up" },
+        { conjugated: "Se levantan", translation: "they get up" },
+        { conjugated: "Me acuesto", translation: "I go to bed" },
+        { conjugated: "Se acuesta", translation: "you / he / she goes to bed" },
+        { conjugated: "Nos acostamos", translation: "we go to bed" },
+        { conjugated: "Se acuestan", translation: "they go to bed" },
+        { conjugated: "— Preterite —", translation: "" },
+        { conjugated: "Me levanté", translation: "I got up" },
+        { conjugated: "Se levantó", translation: "you / he / she got up" },
+        { conjugated: "Nos levantamos", translation: "we got up" },
+        { conjugated: "Se levantaron", translation: "they got up" },
+        { conjugated: "Me acosté", translation: "I went to bed" },
+        { conjugated: "Se acostó", translation: "you / he / she went to bed" },
+        { conjugated: "Nos acostamos", translation: "we went to bed" },
+        { conjugated: "Se acostaron", translation: "they went to bed" },
+      ],
+    },
+
+    // ── Cluster 10: Conjugation Reference — Ponerse ───────────────────────────
+    {
+      noteInline: "PONERSE  to put on (clothing)",
+      pairs: [],
+      conjugationTable: [
+        { conjugated: "— Present —", translation: "" },
+        { conjugated: "Me pongo", translation: "I put on" },
+        { conjugated: "Se pone", translation: "you / he / she puts on" },
+        { conjugated: "Nos ponemos", translation: "we put on" },
+        { conjugated: "Se ponen", translation: "they put on" },
+        { conjugated: "— Preterite (irregular) —", translation: "" },
+        { conjugated: "Me puse", translation: "I put on" },
+        { conjugated: "Se puso", translation: "you / he / she put on" },
+        { conjugated: "Nos pusimos", translation: "we put on" },
+        { conjugated: "Se pusieron", translation: "they put on" },
+      ],
+      noteAfter: "Ponerse has an irregular preterite stem: puse, puso, pusimos, pusieron.",
+    },
+  ],
+};
+
 const GUST_UNITS: GustUnitContent[] = [
   GUSTAR_CHAPTER,
   GUSTARIA_CHAPTER,
@@ -4409,6 +4700,7 @@ const GUST_UNITS: GustUnitContent[] = [
   COMPRABA_CHAPTER,
   SALE_LLEGA_CHAPTER,
   TENGO_CATARRO_CHAPTER,
+  ME_LEVANTO_CHAPTER,
 ];
 
 /**

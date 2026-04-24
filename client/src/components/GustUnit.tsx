@@ -155,6 +155,7 @@ function GrammarRuleBox({ text }: { text: string }) {
 }
 
 // ── ConjugationTable — verb conjugation grid (e.g. Fui/Fue/Fuimos/Fueron) ─────
+// Rows whose conjugated text matches /^—.*—$/ are rendered as section dividers.
 
 function ConjugationTable({
   rows,
@@ -174,31 +175,43 @@ function ConjugationTable({
         </p>
       </div>
       <div className="divide-y">
-        {rows.map((row, i) => (
-          <div key={i} className="flex items-center gap-3 px-4 py-3">
-            <button
-              type="button"
-              onClick={() => play(row.conjugated, `conj-${i}`)}
-              className="shrink-0"
-              data-testid={`button-play-conj-${i}`}
-              title="Listen"
-            >
-              {playingKey === `conj-${i}`
-                ? <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                : <Volume2 className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground transition-colors" />
-              }
-            </button>
-            <span
-              className="text-lg font-bold flex-1"
-              data-testid={`text-conj-${row.conjugated}`}
-            >
-              {row.conjugated}
-            </span>
-            <span className="text-sm text-muted-foreground">
-              {row.translation}
-            </span>
-          </div>
-        ))}
+        {rows.map((row, i) => {
+          const isDivider = /^—.*—$/.test(row.conjugated.trim());
+          if (isDivider) {
+            return (
+              <div key={i} className="px-4 py-1.5 bg-muted/40" data-testid={`conj-divider-${i}`}>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {row.conjugated.trim().replace(/^—\s*/, "").replace(/\s*—$/, "")}
+                </p>
+              </div>
+            );
+          }
+          return (
+            <div key={i} className="flex items-center gap-3 px-4 py-3">
+              <button
+                type="button"
+                onClick={() => play(row.conjugated, `conj-${i}`)}
+                className="shrink-0"
+                data-testid={`button-play-conj-${i}`}
+                title="Listen"
+              >
+                {playingKey === `conj-${i}`
+                  ? <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                  : <Volume2 className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground transition-colors" />
+                }
+              </button>
+              <span
+                className="text-lg font-bold flex-1"
+                data-testid={`text-conj-${row.conjugated}`}
+              >
+                {row.conjugated}
+              </span>
+              <span className="text-sm text-muted-foreground">
+                {row.translation}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

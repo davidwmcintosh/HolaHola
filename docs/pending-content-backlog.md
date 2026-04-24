@@ -713,7 +713,7 @@ Travel vocabulary from Madrigal pp. 170–171 (¿A qué hora sale el tren? ¿A q
 | — | ~~Replace Unit 5: "¿Cómo Está? — States & Feelings"~~ | ~~Delete Números II~~ | ~~p.81~~ | ✅ Done April 2026 |
 | — | ~~Replace Unit 9: "¿Qué Está Haciendo? — Present Progressive"~~ | ~~Delete Intermediate Mid~~ | ~~pp.182–185~~ | ✅ Done April 2026 |
 | — | ~~Build Unit 10: Compraba — The Imperfect Tense~~ | ~~Childhood Memories~~ | ~~pp.196–197~~ | ✅ Done April 2026 |
-| 2 | Build Unit 4 interactive textbook: "Me Levanto: Reflexive Verbs" | Modify Daily Routines | Needs sentence sourcing | ⬜ Blocked (source needed) |
+| 2 | ~~Build Unit 4 interactive textbook: "Me Levanto: Reflexive Verbs"~~ | ~~Modify Daily Routines~~ | ~~Magic Key Lesson 38~~ | ✅ Done April 2026 |
 | — | ~~Supplement Unit 11: ¿A Qué Hora Sale? — Transporte y Horarios~~ | ~~Travel & Culture~~ | ~~pp.170–171~~ | ✅ Done April 2026 |
 | — | ~~Strip Unit 6 (Salud): remove filler; add tener health expressions~~ | ~~La Salud~~ | ~~p.53~~ | ✅ Done April 2026 |
 | 5 | Future: present perfect (he/ha comprado) | New unit after imperfect | Section 6, pp.188–189 | ⬜ Future |
@@ -733,8 +733,8 @@ Travel vocabulary from Madrigal pp. 170–171 (¿A qué hora sale el tren? ¿A q
 ---
 
 ## 9. CONTENT BRIEF — Reflexive Verbs (Unit 4, Spanish 2)
-**Status:** ⬜ BLOCKED — waiting for you to source sentences from the book  
-**Unit:** Spanish 2, Unit 4 (currently "Unit 1: Review & Daily Routines")  
+**Status:** ✅ DONE — April 2026. Source: Magic Key Lesson 38 (pp. 342–361). DB unit id: 6555dd05-7669-478b-a805-8ae7fee47671  
+**Unit:** Spanish 2, "Me Levanto — Verbos Reflexivos"  
 **Target name:** "Me Levanto — Verbos Reflexivos"
 
 ### What reflexive verbs are
