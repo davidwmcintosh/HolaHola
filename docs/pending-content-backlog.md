@@ -536,3 +536,197 @@ Madrigal closes with a full verb conjugation reference covering all tenses for -
 
 **Recommendation:**  
 The appendix is the basis for a future **"Verb Reference"** section in HoloHola — a living table students can consult. It doesn't need to be a lesson. The conjugation tables we're already building in GustUnit chapters (Ch. 46, 47, etc.) are the interactive equivalent of this appendix, one verb at a time.
+
+---
+
+## 7. Spanish 2 Existing Unit Audit (Units 4–11)
+
+*Completed April 2026 after restructuring Spanish 2 to add Madrigal bridge chapters at positions 1–3.*
+
+**Context:** Spanish 2 now opens with three Madrigal-grounded chapters (¿Qué Hizo?, Tuvo, Le — positions 1–3). Units 4–11 were built before the Madrigal method was established. This audit evaluates each against Madrigal principles and our content law (no AI-generated Spanish content; all sentences must have a source).
+
+**Madrigal principles applied here:**
+- High-frequency verbs as vocabulary anchors (not grammar drills)
+- Communicative need before grammar names
+- Q&A format with image anchoring
+- Content sourced from the book — never AI-generated
+
+---
+
+### Unit 4 (pos. 4) — "Review & Daily Routines" → ⚠️ RENAME + MODIFY
+
+**Chapter type:** `daily` | **Lessons:** 7 (4 conversation, 1 grammar, 2 drill)
+
+**What's there:** Reflexive verbs (levantarse, ducharse, desayunar, limpiar, cocinar), weekday vs. weekend routines, cultural lesson on Spanish-speaking daily schedules, grammar spotlight on reflexive pronouns.
+
+**Assessment:** Reflexive verbs ARE legitimate Spanish 2 content — Madrigal doesn't cover them, but they're essential for natural conversation (me levanto, me llamo, me siento). The lessons themselves are conversation-based which is good. Problems:
+- "Review" in the title is weak positioning — this should open Spanish 2 confidently, not apologetically
+- No Madrigal source exists for reflexive verb sentences → these sentences need sourcing or approval before going into an interactive textbook unit
+- The cultural lesson (Un Día Típico en España) is fine as a discovery note, not a full lesson
+
+**Verdict:** Keep reflexive verbs as the theme. Rename to **"Me Levanto: Reflexive Verbs"** or similar. Rebuild the interactive textbook page using the GustUnit format with Madrigal-style Q&A pairs. The conversation lessons can stay as Daniela chat material.
+
+**Content needed:** Q&A pairs and example sentences for reflexive verbs — must be sourced (not AI-generated). No Madrigal page exists for this. User must approve sentences or provide a source.
+
+---
+
+### Unit 5 (pos. 5) — "Los Números II" → ❌ REPLACE
+
+**Chapter type:** `numbers` | **Lessons:** 2 (both drill)
+
+**What's there:** Numbers 21–1000+, large numbers, prices with decimals, percentages, ordinal numbers.
+
+**Assessment:** Almost entirely redundant. Spanish 1 Ch. 5 already covers 0–millions including hundreds, thousands, compound rules, and how to read prices. The only potentially new content is:
+- **Ordinal numbers** (primero, segundo, tercero…) — not in Spanish 1
+- **Percentages** (el 10%, el 50%) — not in Spanish 1
+
+Ordinals are low-frequency. Percentages are useful but minor. Neither justifies a full unit slot.
+
+**Verdict:** Delete this unit. If ordinal numbers are needed, add them as a cluster within an existing chapter (dates, rankings, sports). The slot should be given to something with higher communicative value.
+
+**Proposed replacement for this slot:** **"Estar + States: How Someone Is Feeling"** — the p.81 content (contento, cansado, enfermo, enamorado) is fully transcribed in Section 2 of this document and needs a home. It belongs at intermediate_low and is the natural next vocabulary set after the Ch. 34/45 estar foundation from Spanish 1.
+
+---
+
+### Unit 6 (pos. 6) — "La Salud - Health & Wellness" → ⚠️ STRIP DOWN
+
+**Chapter type:** none | **Lessons:** 13
+
+**What's there:** Body parts vocabulary, doctor's office conversation, healthy lifestyle, pharmacy. Plus 9 generic ACTFL-alignment lessons (understanding announcements, writing messages, community news) that are completely off-topic for a health unit.
+
+**Assessment:** The core — body parts, ¿Qué tiene?, ¿Dónde le duele?, En el consultorio, La farmacia — is solid Spanish 2 content. The tener expressions from Madrigal p.53 (Tengo catarro / Tengo dolor de cabeza / ¿Qué tiene?) belong in this unit and are fully transcribed in Section 2.
+
+Lessons 5–13 (announcements, neighborhood news, writing community messages, "¡Qué tal tu día?") are generic ACTFL filler with no connection to health — they appear to have been bulk-generated for level-alignment. They should be removed.
+
+**Verdict:** Keep the 4 core health conversations. Add the p.53 tener expressions as an interactive textbook cluster. Remove lessons 5–13. Target: 4–6 focused lessons.
+
+**Madrigal content available:** Tengo catarro / tengo dolor de cabeza / Tengo hambre / ¿Qué tiene? / ¿Cuántos años tiene? (p.53) — all transcribed in Section 2.
+
+---
+
+### Unit 7 (pos. 7) — "La Tecnología" → 🔴 LOW PRIORITY / FLAG
+
+**Chapter type:** none | **Lessons:** 4 (1 vocabulary, 3 conversation)
+
+**What's there:** Smartphone/device vocabulary, social media conversation, pros/cons of technology, future technology predictions.
+
+**Assessment:** Modern vocabulary with no Madrigal source. Smartphones, redes sociales, inteligencia artificial — none of this appears in See It and Say It. All sentences in an interactive textbook unit for this topic would need approval or external sourcing.
+
+The topic itself is legitimately useful for intermediate learners having real conversations in Spanish. But the content law means we cannot use AI-generated example sentences.
+
+**Verdict:** Keep as Daniela conversation material (chat-based lessons are fine here — Daniela improvises). Do not build interactive textbook pages for this unit until a sentence source is established. Flag for a future "modern vocabulary" source decision.
+
+---
+
+### Unit 8 (pos. 8) — "El Medio Ambiente" → 🔴 LOW PRIORITY / FLAG
+
+**Chapter type:** none | **Lessons:** 4 (1 vocabulary, 3 conversation)
+
+**What's there:** Nature vocabulary, pollution/climate change, recycling, environmental activism.
+
+**Assessment:** Same situation as Unit 7. Legitimately useful vocabulary (contaminación, reciclaje, animales en peligro) but no Madrigal source. Conversation lessons are fine for Daniela chat. Interactive textbook pages are blocked by content law.
+
+**Verdict:** Same as Unit 7 — fine for Daniela conversations, no textbook pages until sourced.
+
+---
+
+### Unit 9 (pos. 9) — "Intermediate Mid Skills" → ❌ REPLACE
+
+**Chapter type:** none | **Lessons:** 3
+
+**What's there:** Three generic ACTFL skill lessons — listening comprehension at a market, reading sequence of events, writing community announcements. No vocabulary theme. No grammar focus.
+
+**Assessment:** This is pure ACTFL-alignment scaffolding with no actual content. It was likely auto-generated to fill an intermediate_mid slot. It does not belong in a Madrigal-method course.
+
+**Verdict:** Replace entirely. Proposed replacement: **"¿Qué Estaba Haciendo? — Present Progressive"** (pp. 182–185 content — fully transcribed in Section 6 of this document). Or hold the slot for the double object pronoun chapter (me lo/se lo, pp. 194–195).
+
+---
+
+### Unit 10 (pos. 10) — "Childhood Memories (Past Tense)" → ✅ KEEP + BUILD OUT
+
+**Chapter type:** none | **Lessons:** 6 (2 conversation, 2 conversation, 1 culture, 1 grammar)
+
+**What's there:** Childhood vocabulary, imperfect tense intro (cuando era niño), games and toys, special memories, family traditions, Grammar Spotlight: El Pretérito.
+
+**Assessment:** This is the best-aligned existing unit in Spanish 2. The imperfect tense (compraba, vendía, tenía) transcribed from Madrigal pp. 196–197 belongs here. Madrigal's examples (tenía una casa en el campo, tenía un caballo, vendía sombreros) are exactly the kind of nostalgic "what someone used to have/do" framing this unit uses.
+
+One mismatch: Grammar Spotlight lesson 5 says "El Pretérito" but should be "El Imperfecto" — the imperfect is what this unit is teaching. Preterite was already in Spanish 1.
+
+**Verdict:** Keep the unit. Build the interactive textbook pages using Madrigal pp. 196–197 content. Fix the grammar spotlight to say "Imperfecto" not "Pretérito". The childhood/nostalgia frame is perfect for Madrigal's tenía + possessed items vocabulary.
+
+**Madrigal content available:** compraba/comprábamos/compraban; vendía sombreros; tenía una casa/auto/caballo/perro — all transcribed in Section 6 (Imperfect Tense).
+
+---
+
+### Unit 11 (pos. 11) — "Travel & Culture" → ✅ KEEP + SUPPLEMENT
+
+**Chapter type:** none | **Lessons:** 5 (1 vocabulary/drill, 3 conversation, 1 culture, 1 grammar)
+
+**What's there:** Travel vocabulary, airport navigation, city exploration, cultural heritage sites, Grammar Spotlight: Imperfecto vs. Pretérito.
+
+**Assessment:** The imperfecto vs. pretérito grammar spotlight (lesson 5) is correctly positioned after Unit 10 introduces the imperfect. That sequencing is right.
+
+Travel vocabulary from Madrigal pp. 170–171 (¿A qué hora sale el tren? ¿A qué hora llega?) fits naturally here — transportation departures and arrivals are a travel context. Airport and city exploration conversations are legitimate and can be sourced.
+
+**Verdict:** Keep. Add ¿A qué hora sale/llega? content from pp. 170–171 as an interactive textbook cluster. The Grammar Spotlight on imperfecto vs. pretérito is well-placed and should be built out.
+
+**Madrigal content available:** ¿A qué hora sale el tren/avión/autobús/helicóptero/barco/la excursión? / ¿A qué hora llega? — transcribed in Section 6 (Present Tense Irregular Verbs).
+
+---
+
+### Spanish 2 Audit Summary Table
+
+| Pos | Unit | Verdict | Priority | Action |
+|---|---|---|---|---|
+| 1 | ¿Qué Hizo? | ✅ Already built (Madrigal) | — | Done |
+| 2 | Tuvo: Did You Have? | ✅ Already built (Madrigal) | — | Done |
+| 3 | Le: To Him, To Her | ✅ Already built (Madrigal) | — | Done |
+| 4 | Daily Routines | ⚠️ Modify | High | Rename; rebuild textbook page; source reflexive verb sentences |
+| 5 | Los Números II | ❌ Replace | High | Delete; replace with Estar + States (p.81 content) |
+| 6 | La Salud | ⚠️ Strip down | Medium | Keep core 4 health lessons; add p.53 tener expressions; remove filler |
+| 7 | La Tecnología | 🔴 Flag | Low | Conversation only; no textbook until sourced |
+| 8 | El Medio Ambiente | 🔴 Flag | Low | Conversation only; no textbook until sourced |
+| 9 | Intermediate Mid Skills | ❌ Replace | Medium | Replace with Present Progressive (pp. 182–185) |
+| 10 | Childhood Memories | ✅ Keep + build | High | Build textbook pages using pp. 196–197 imperfect content |
+| 11 | Travel & Culture | ✅ Keep + supplement | Medium | Add ¿A qué hora sale? (pp. 170–171); build grammar spotlight |
+
+---
+
+## 8. Next Steps — Prioritized Build Queue
+
+### Spanish 1 — Remaining gaps (do these first, they complete Spanish 1)
+
+| Priority | Task | Content source |
+|---|---|---|
+| 1 | Fold p.53 tener expressions into Ch. 31 (tengo hambre, tengo catarro, tengo razón) | Section 2, p.53 |
+| 2 | Fold p.81 estar-states into new chapter or extend Ch. 34/45 | Section 2, p.81 |
+| 3 | Fold p.71 es + adjective / Claro / Por supuesto into Ch. 33 | Section 2, p.71 |
+| 4 | Fold p.169 hacer weather + hace = ago into Ch. 26 + time chapter | Section 2, p.169 |
+| 5 | Fold p.28 restaurant phrases into Ch. 18 | Section 2, p.28 |
+| 6 | Add Me alegro / Nos vemos / Buena suerte / Me divertí to Ch. 1 | Section 2, p.181 |
+| 7 | Add vez expressions (una vez, muchas veces…) to Ch. 6 | Section 1 |
+
+### Spanish 2 — New textbook chapters (in sequence order)
+
+| Priority | Task | Replaces/extends | Content source |
+|---|---|---|---|
+| 1 | Replace Unit 5 slot: build "Está: How Someone Is Feeling" GustUnit | Delete Números II | Section 2, p.81 |
+| 2 | Build Unit 4 interactive textbook: "Me Levanto: Reflexive Verbs" | Modify Daily Routines | Needs sentence sourcing |
+| 3 | Build Unit 10 interactive textbook: imperfect -aba/-ía | Childhood Memories | Section 6, pp.196–197 |
+| 4 | Replace Unit 9 slot: build "¿Qué Está Haciendo? — Present Progressive" | Delete Intermediate Mid | Section 6, pp.182–185 |
+| 5 | Supplement Unit 11: add ¿A qué hora sale/llega? cluster | Travel & Culture | Section 6, pp.170–171 |
+| 6 | Strip Unit 6 (Salud): remove filler lessons 5–13; add p.53 content | La Salud | Section 2, p.53 |
+| 7 | Future: present perfect (he/ha comprado) | New unit after imperfect | Section 6, pp.188–189 |
+| 8 | Future: direct object pronouns lo/la/los/las | New unit | Section 6, pp.190–191 |
+| 9 | Future: double object pronouns me lo/se lo | New unit | Section 6, pp.194–195 |
+| 10 | Future: formal commands | New unit | Section 2, p.198 |
+
+### Infrastructure / decisions still open
+
+| Item | Decision needed |
+|---|---|
+| Reflexive verb sentences | Source or approval required before building interactive textbook page |
+| Technology / environment units | Decide: keep as conversation-only, or find a content source for sentences |
+| Cognate opener | Promote to standalone unit ("Las Llaves Mágicas") or keep at intro layer? |
+| Physical appearance adjectives | Images don't exist; Madrigal is not the source — separate decision |
+| Spanish 1 → Spanish 2 progression UI | How does a student move from completing Spanish 1 to enrolling in Spanish 2? |
