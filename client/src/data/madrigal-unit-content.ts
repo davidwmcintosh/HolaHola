@@ -4962,6 +4962,159 @@ const LO_VEO_CHAPTER: GustUnitContent = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Chapter: Me Lo — Double Object Pronouns
+// Source: See It and Say It in Spanish, pp. 194–195
+// chapterTitleKey "me lo" matches DB unit "Me Lo — Double Object Pronouns"
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const ME_LO_CHAPTER: GustUnitContent = {
+  chapterTitleKey: "me lo",
+  conceptLabel: "Me Lo",
+  conceptDefinition: "It to me · Double Object Pronouns",
+  introNote: "When 'le' (to you / to him / to her) comes before 'lo' or 'la', 'le' changes to 'se'. The result is: me lo (it to me) · se lo (it to you / to him / to her / to them) · nos lo (it to us).",
+  clusters: [
+
+    // ── Cluster 1: Me lo / Se lo with images ─────────────────────────────────
+    {
+      heading: "¿Le mandó? → Me lo mandó",
+      noteInline: "Me lo  it to me · Se lo  it to you / him / her / them",
+      pairs: [
+        {
+          imageWord: "paquete",
+          imageDescription: "a wrapped package tied with string on a white background",
+          question: "¿Le mandó el paquete?",
+          questionTranslation: "Did he send you the package?",
+          answer: "Sí, me lo mandó hoy.",
+          answerTranslation: "Yes, he sent it to me today.",
+        },
+        {
+          imageWord: "paraguas",
+          imageDescription: "a closed umbrella leaning against a wall",
+          question: "¿Le trajo el paraguas?",
+          questionTranslation: "Did he bring you the umbrella?",
+          answer: "Sí, me lo trajo hoy.",
+          answerTranslation: "Yes, he brought it to me today.",
+        },
+        {
+          imageWord: "disco",
+          imageDescription: "a vinyl record on a white background",
+          question: "¿Le trajo el disco?",
+          questionTranslation: "Did he bring you the record?",
+          answer: "Sí, me lo trajo hoy.",
+          answerTranslation: "Yes, he brought it to me today.",
+        },
+        {
+          imageWord: "libro",
+          imageDescription: "a hardcover book on a white background",
+          question: "¿Le mandó el libro?",
+          questionTranslation: "Did he send you the book?",
+          answer: "Sí, me lo mandó hoy.",
+          answerTranslation: "Yes, he sent it to me today.",
+        },
+        {
+          imageWord: "regalo",
+          imageDescription: "a gift-wrapped box with a bow on top",
+          question: "¿Le trajo el regalo?",
+          questionTranslation: "Did he bring you the gift?",
+          answer: "Sí, me lo trajo.",
+          answerTranslation: "Yes, he brought it to me.",
+        },
+      ],
+      grammarRule: "Le + lo / la → se lo / se la · The 'le' (indirect) changes to 'se' before 'lo' or 'la' (direct) · Me lo mandó = He sent it to me · Se lo trajo = He brought it to you / him / her",
+      noteAfter: "Nos lo: when the indirect pronoun is 'us' · Nos lo trajo. (He brought it to us.) · Nos lo mandó. (He sent it to us.)",
+    },
+
+    // ── Cluster 2: Se lo — question and answer ────────────────────────────────
+    {
+      heading: "Se lo — To You / To Him / To Her",
+      noteInline: "Se lo can mean: to you / to him / to her / to them + lo (it)",
+      pairs: [
+        {
+          question: "¿Se lo trajo hoy?",
+          questionTranslation: "Did he bring it to you today?",
+          answer: "Sí, me lo trajo hoy.",
+          answerTranslation: "Yes, he brought it to me today.",
+        },
+        {
+          question: "Se lo dije.",
+          questionTranslation: "I told it to you / to him / to her.",
+          answer: "Me lo dijo.",
+          answerTranslation: "He / she told it to me.",
+        },
+        {
+          question: "Nos lo trajo.",
+          questionTranslation: "He brought it to us.",
+          answer: "Nos lo mandó.",
+          answerTranslation: "He sent it to us.",
+        },
+      ],
+      grammarRule: "Se lo dije = I told it to you (or him / her / them) · Me lo dijo = He / she told it to me · Nos lo = it to us · The pattern: indirect pronoun + lo/la + verb",
+    },
+
+    // ── Cluster 3: Pronouns attached to infinitives ───────────────────────────
+    {
+      heading: "Pronouns on the Infinitive",
+      noteInline: "Pronouns can be added directly to the end of the infinitive to form one word",
+      pairs: [
+        {
+          question: "Quiero verlo.",
+          questionTranslation: "I want to see it.",
+          answer: "Quiero comprarlo.",
+          answerTranslation: "I want to buy it.",
+        },
+        {
+          question: "Quiero mandarlo.",
+          questionTranslation: "I want to send it.",
+          answer: "Voy a traerlo.",
+          answerTranslation: "I'm going to bring it.",
+        },
+        {
+          question: "Quiero hablarle.",
+          questionTranslation: "I want to speak to him / her.",
+          answer: "Quiero escribirle.",
+          answerTranslation: "I want to write to him / her.",
+        },
+        {
+          question: "Quiero mandárselo.",
+          questionTranslation: "I want to send it to him / her.",
+          answer: "Quiero traérselo.",
+          answerTranslation: "I want to bring it to him / her.",
+        },
+        {
+          question: "Voy a traérselo.",
+          questionTranslation: "I'm going to bring it to him / her.",
+          answer: "Voy a dárselo.",
+          answerTranslation: "I'm going to give it to him / her.",
+        },
+      ],
+      grammarRule: "Attach the pronoun to the infinitive: ver + lo → verlo · mandar + lo → mandarlo · When adding two pronouns, the indirect comes first: mandar + se + lo → mandárselo (accent required on the stressed syllable)",
+    },
+
+    // ── Cluster 4: Dar + combined forms ──────────────────────────────────────
+    {
+      heading: "Dar — To Give",
+      noteInline: "dar (to give) · dárselo (to give it to him/her) · dármelo (to give it to me)",
+      pairs: [
+        {
+          question: "¿Quiere dármelo?",
+          questionTranslation: "Do you want to give it to me?",
+          answer: "Sí, quiero dárselo.",
+          answerTranslation: "Yes, I want to give it to you / to him / to her.",
+        },
+        {
+          question: "Quiero verlo mañana.",
+          questionTranslation: "I want to see it tomorrow.",
+          answer: "Quiero hacerlo mañana.",
+          answerTranslation: "I want to do it tomorrow.",
+        },
+      ],
+      grammarRule: "Dar (to give): voy a dárselo (I'm going to give it to him/her) · quiero dármelo (I want to give it to me) · The same infinitive-attachment rule applies to all verbs",
+      noteAfter: "Summary: me lo (it to me) · se lo (it to you / him / her / them) · nos lo (it to us) · Pronouns can go before a conjugated verb OR attach to the end of an infinitive.",
+    },
+  ],
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Chapter: Hable — Formal Commands & Present Subjunctive
 // Source: See It and Say It in Spanish, pp. 198–199
 // chapterTitleKey "hable:" matches DB unit "Hable: Formal Commands"
@@ -5148,6 +5301,7 @@ const GUST_UNITS: GustUnitContent[] = [
   ME_LEVANTO_CHAPTER,
   HE_COMPRADO_CHAPTER,
   LO_VEO_CHAPTER,
+  ME_LO_CHAPTER,
   HABLE_CHAPTER,
 ];
 
