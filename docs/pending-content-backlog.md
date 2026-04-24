@@ -688,7 +688,7 @@ Travel vocabulary from Madrigal pp. 170–171 (¿A qué hora sale el tren? ¿A q
 | 8 | El Medio Ambiente | 🔴 Flag | Low | Conversation only; no textbook until sourced |
 | 9 | ~~Intermediate Mid Skills~~ → **¿Qué Está Haciendo? — Present Progressive** | ✅ Built (April 2026) | — | GustUnit built from pp.182–185; 3 clusters; -ando/-iendo; leyendo irregular |
 | 10 | ~~Childhood Memories~~ → **Compraba: The Imperfect Tense** | ✅ Built (April 2026) | — | GustUnit built from pp.196–197; 3 clusters: -aba (compraba), -ía (vendía), tenía possession; full conjugation tables; sentence combiner |
-| 11 | Travel & Culture | ✅ Keep + supplement | Medium | Add ¿A qué hora sale? (pp. 170–171); build grammar spotlight |
+| 11 | ~~Travel & Culture~~ → **¿A Qué Hora Sale? — Transporte y Horarios** | ✅ Built (April 2026) | — | GustUnit built from pp.170–171; 2 clusters: sale (departures), llega (arrivals); sentence combiner; salgo/llego yo forms highlighted |
 
 ---
 
@@ -714,7 +714,7 @@ Travel vocabulary from Madrigal pp. 170–171 (¿A qué hora sale el tren? ¿A q
 | — | ~~Replace Unit 9: "¿Qué Está Haciendo? — Present Progressive"~~ | ~~Delete Intermediate Mid~~ | ~~pp.182–185~~ | ✅ Done April 2026 |
 | — | ~~Build Unit 10: Compraba — The Imperfect Tense~~ | ~~Childhood Memories~~ | ~~pp.196–197~~ | ✅ Done April 2026 |
 | 2 | Build Unit 4 interactive textbook: "Me Levanto: Reflexive Verbs" | Modify Daily Routines | Needs sentence sourcing | ⬜ Blocked (source needed) |
-| 3 | Supplement Unit 11: add ¿A qué hora sale/llega? cluster | Travel & Culture | Section 6, pp.170–171 | ⬜ Pending |
+| — | ~~Supplement Unit 11: ¿A Qué Hora Sale? — Transporte y Horarios~~ | ~~Travel & Culture~~ | ~~pp.170–171~~ | ✅ Done April 2026 |
 | 4 | Strip Unit 6 (Salud): remove filler lessons 5–13; add p.53 content | La Salud | Section 2, p.53 | ⬜ Pending |
 | 5 | Future: present perfect (he/ha comprado) | New unit after imperfect | Section 6, pp.188–189 | ⬜ Future |
 | 6 | Future: direct object pronouns lo/la/los/las | New unit | Section 6, pp.190–191 | ⬜ Future |

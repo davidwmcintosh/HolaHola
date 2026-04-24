@@ -3803,6 +3803,144 @@ const COMPRABA_CHAPTER: GustUnitContent = {
   ],
 };
 
+// ── Spanish 2 Unit 11: ¿A Qué Hora Sale? — Transporte y Horarios (pp. 170–171) ─
+// Supplemented from Madrigal pp. 170–171 — departure/arrival schedules.
+// chapterTitleKey "a qué hora" matches DB unit "¿A Qué Hora Sale? — Transporte y Horarios".
+// Three clusters: sale (departures), llega (arrivals), sentence combiner.
+
+const SALE_LLEGA_CHAPTER: GustUnitContent = {
+  chapterTitleKey: "a qué hora",
+  conceptLabel: "Sale / Llega",
+  conceptDefinition: "leaves / arrives",
+  introNote: "¿A qué hora sale? — At what time does it leave? ¿A qué hora llega? — At what time does it arrive? Use these two verbs to navigate any transportation schedule in Spanish.",
+  clusters: [
+    // ── Cluster 1: Sale — departures ─────────────────────────────────────
+    {
+      heading: "¿A Qué Hora Sale? — Departures",
+      noteInline: "sale  it leaves / you leave  ·  salen  they leave  ·  salimos  we leave  ·  salgo  I leave",
+      pairs: [
+        {
+          imageWord: "tren",
+          imageDescription: "a long passenger train pulling out of a busy urban station platform",
+          question: "¿A qué hora sale el tren?",
+          questionTranslation: "At what time does the train leave?",
+          answer: "El tren sale a las nueve.",
+          answerTranslation: "The train leaves at nine.",
+        },
+        {
+          imageWord: "avión",
+          imageDescription: "a commercial jet airplane lifting off a runway into a blue sky",
+          question: "¿A qué hora sale el avión?",
+          questionTranslation: "At what time does the plane leave?",
+          answer: "El avión sale a las doce.",
+          answerTranslation: "The plane leaves at twelve.",
+        },
+        {
+          imageWord: "autobús",
+          imageDescription: "a large intercity coach bus parked at a departure terminal",
+          question: "¿A qué hora sale el autobús?",
+          questionTranslation: "At what time does the bus leave?",
+          answer: "El autobús sale a las dos.",
+          answerTranslation: "The bus leaves at two.",
+        },
+        {
+          imageWord: "barco",
+          imageDescription: "a large ferry boat pulling away from a dock at a busy port",
+          question: "¿A qué hora sale el barco?",
+          questionTranslation: "At what time does the boat leave?",
+          answer: "El barco sale a las seis.",
+          answerTranslation: "The boat leaves at six.",
+        },
+      ],
+      conjugationTable: [
+        { conjugated: "salgo",   translation: "I leave / I go out" },
+        { conjugated: "sale",    translation: "it leaves / you leave / he, she leaves" },
+        { conjugated: "salimos", translation: "we leave" },
+        { conjugated: "salen",   translation: "they leave / you all leave" },
+      ],
+      grammarRule: "Salir means 'to leave' or 'to go out.' The yo form is irregular: salgo. All other present-tense forms are regular.",
+    },
+    // ── Cluster 2: Llega — arrivals ──────────────────────────────────────
+    {
+      heading: "¿A Qué Hora Llega? — Arrivals",
+      noteInline: "llega  it arrives / you arrive  ·  llegan  they arrive  ·  llegamos  we arrive  ·  llego  I arrive",
+      pairs: [
+        {
+          imageWord: "tren",
+          imageDescription: "a passenger train arriving at a station platform where people are waiting",
+          question: "¿A qué hora llega el tren?",
+          questionTranslation: "At what time does the train arrive?",
+          answer: "El tren llega a las tres.",
+          answerTranslation: "The train arrives at three.",
+        },
+        {
+          imageWord: "avión",
+          imageDescription: "a commercial airplane landing on a runway with airport buildings in the background",
+          question: "¿A qué hora llega el avión?",
+          questionTranslation: "At what time does the plane arrive?",
+          answer: "El avión llega a las ocho.",
+          answerTranslation: "The plane arrives at eight.",
+        },
+        {
+          imageWord: "autobús",
+          imageDescription: "a coach bus arriving at a bus station terminal with passengers ready to board",
+          question: "¿A qué hora llega el autobús?",
+          questionTranslation: "At what time does the bus arrive?",
+          answer: "El autobús llega a las cinco.",
+          answerTranslation: "The bus arrives at five.",
+        },
+        {
+          imageWord: "barco",
+          imageDescription: "a large ferry arriving at a harbor dock with ropes being thrown ashore",
+          question: "¿A qué hora llega el barco?",
+          questionTranslation: "At what time does the boat arrive?",
+          answer: "El barco llega a las diez.",
+          answerTranslation: "The boat arrives at ten.",
+        },
+      ],
+      conjugationTable: [
+        { conjugated: "llego",    translation: "I arrive" },
+        { conjugated: "llega",    translation: "it arrives / you arrive / he, she arrives" },
+        { conjugated: "llegamos", translation: "we arrive" },
+        { conjugated: "llegan",   translation: "they arrive / you all arrive" },
+      ],
+      grammarRule: "Llegar follows regular AR patterns in the present tense. Use ¿A qué hora llega...? to ask about any arriving vehicle.",
+      sentenceColumns: [
+        {
+          label: "Vehicle",
+          items: [
+            { text: "El tren",    translation: "The train" },
+            { text: "El avión",   translation: "The plane" },
+            { text: "El autobús", translation: "The bus" },
+            { text: "El barco",   translation: "The boat" },
+          ],
+        },
+        {
+          label: "Action",
+          items: [
+            { text: "sale",   translation: "leaves" },
+            { text: "llega",  translation: "arrives" },
+          ],
+        },
+        {
+          label: "Time",
+          items: [
+            { text: "a las nueve.",  translation: "at nine." },
+            { text: "a las doce.",   translation: "at twelve." },
+            { text: "a las dos.",    translation: "at two." },
+            { text: "a las seis.",   translation: "at six." },
+            { text: "a las tres.",   translation: "at three." },
+            { text: "a las ocho.",   translation: "at eight." },
+            { text: "a las cinco.",  translation: "at five." },
+            { text: "a las diez.",   translation: "at ten." },
+          ],
+        },
+      ],
+      noteAfter: "¿A qué hora? means 'At what time?' — the most useful phrase for reading any schedule, timetable, or departure board.",
+    },
+  ],
+};
+
 // ── Spanish 2 Unit 5: ¿Cómo Está? — States & Feelings (Madrigal p. 81) ─────────
 // Replaces the redundant "Los Números II" slot.
 // chapterTitleKey "cómo está" matches "¿Cómo Está? — States & Feelings" (unit name in DB).
@@ -4144,6 +4282,7 @@ const GUST_UNITS: GustUnitContent[] = [
   ESTA_CONTENTO_CHAPTER,
   ESTA_TOCANDO_CHAPTER,
   COMPRABA_CHAPTER,
+  SALE_LLEGA_CHAPTER,
 ];
 
 /**
