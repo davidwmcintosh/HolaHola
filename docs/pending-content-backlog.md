@@ -716,10 +716,10 @@ Travel vocabulary from Madrigal pp. 170–171 (¿A qué hora sale el tren? ¿A q
 | 2 | ~~Build Unit 4 interactive textbook: "Me Levanto: Reflexive Verbs"~~ | ~~Modify Daily Routines~~ | ~~Magic Key Lesson 38~~ | ✅ Done April 2026 |
 | — | ~~Supplement Unit 11: ¿A Qué Hora Sale? — Transporte y Horarios~~ | ~~Travel & Culture~~ | ~~pp.170–171~~ | ✅ Done April 2026 |
 | — | ~~Strip Unit 6 (Salud): remove filler; add tener health expressions~~ | ~~La Salud~~ | ~~p.53~~ | ✅ Done April 2026 |
-| 5 | Future: present perfect (he/ha comprado) | New unit after imperfect | Section 6, pp.188–189 | ⬜ Future |
-| 6 | Future: direct object pronouns lo/la/los/las | New unit | Section 6, pp.190–191 | ⬜ Future |
-| 7 | Future: double object pronouns me lo/se lo | New unit | Section 6, pp.194–195 | ⬜ Future |
-| 8 | Future: formal commands | New unit | Section 2, p.198 | ⬜ Future |
+| 5 | ~~Future: present perfect (he/ha comprado)~~ | ~~New unit after imperfect~~ | ~~pp.188–189~~ | ✅ Done April 2026 — DB: c8d0775e |
+| 6 | Future: direct object pronouns lo/la/los/las | New unit | pp.190–191 | ⬜ Deferred — no clear source identified |
+| 7 | Future: double object pronouns me lo/se lo | New unit | pp.194–195 | ⬜ Deferred — no clear source identified |
+| 8 | ~~Future: formal commands~~ | ~~New unit~~ | ~~p.198–199~~ | ✅ Done April 2026 — DB: ad867c15 (includes subjunctive p.199) |
 
 ### Infrastructure / decisions still open
 

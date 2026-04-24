@@ -4683,6 +4683,300 @@ const ME_LEVANTO_CHAPTER: GustUnitContent = {
   ],
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Chapter: He Comprado — Present Perfect
+// Source: See It and Say It in Spanish, pp. 188–189
+// chapterTitleKey "he comprado" matches DB unit "He Comprado — El Presente Perfecto"
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const HE_COMPRADO_CHAPTER: GustUnitContent = {
+  chapterTitleKey: "he comprado",
+  conceptLabel: "He Comprado",
+  conceptDefinition: "I have bought · Present Perfect Tense",
+  introNote: "The present perfect is formed with: He / Ha / Hemos / Han + past participle. -AR verbs: drop -AR and add -ado. -ER and -IR verbs: drop the ending and add -ido.",
+  clusters: [
+
+    // ── Cluster 1: -AR Verbs (-ado) ───────────────────────────────────────────
+    {
+      heading: "-AR Verbs → -ado",
+      noteInline: "He comprado  I have bought · ¿Ha comprado?  Have you bought?",
+      pairs: [
+        {
+          imageWord: "bicicleta",
+          imageDescription: "a bicycle leaning against a white wall",
+          question: "¿Ha comprado la bicicleta?",
+          questionTranslation: "Have you bought the bicycle?",
+          answer: "No, no he comprado la bicicleta todavía.",
+          answerTranslation: "No, I have not bought the bicycle yet.",
+        },
+        {
+          imageWord: "estudiar",
+          imageDescription: "an open textbook and pencil on a desk",
+          question: "¿Ha estudiado esta semana?",
+          questionTranslation: "Have you studied this week?",
+          answer: "Sí, he estudiado mucho esta semana.",
+          answerTranslation: "Yes, I have studied a lot this week.",
+        },
+        {
+          imageWord: "casa",
+          imageDescription: "a small house with a front yard on a sunny day",
+          question: "¿Ha comprado la casa?",
+          questionTranslation: "Have you bought the house?",
+          answer: "Sí, he comprado la casa.",
+          answerTranslation: "Yes, I have bought the house.",
+        },
+        {
+          imageWord: "cuenta",
+          imageDescription: "a restaurant bill or invoice on a table",
+          question: "¿Ha pagado la cuenta?",
+          questionTranslation: "Have you paid the bill?",
+          answer: "Sí, he pagado la cuenta.",
+          answerTranslation: "Yes, I have paid the bill.",
+        },
+      ],
+      grammarRule: "-AR verb present perfect: drop -AR, add -ado · comprar → comprado · estudiar → estudiado · pagar → pagado",
+      conjugationTable: [
+        { conjugated: "He comprado", translation: "I have bought" },
+        { conjugated: "Ha comprado", translation: "you / he / she have bought" },
+        { conjugated: "Hemos comprado", translation: "we have bought" },
+        { conjugated: "Han comprado", translation: "they have bought" },
+      ],
+      noteAfter: "Vocabulary: esta semana (this week) · todavía (yet / still) · mucho (a lot / much)",
+    },
+
+    // ── Cluster 2: -ER / -IR Verbs (-ido) ────────────────────────────────────
+    {
+      heading: "-ER and -IR Verbs → -ido",
+      noteInline: "He vendido  I have sold · ¿Ha vendido?  Have you sold?",
+      pairs: [
+        {
+          imageWord: "auto",
+          imageDescription: "a car parked in a driveway on a white background",
+          question: "¿Ha vendido el auto?",
+          questionTranslation: "Have you sold the car?",
+          answer: "Sí, he vendido el auto.",
+          answerTranslation: "Yes, I have sold the car.",
+        },
+        {
+          imageWord: "lancha",
+          imageDescription: "a motorboat on calm water on a sunny day",
+          question: "¿Ha vendido la lancha?",
+          questionTranslation: "Have you sold the boat?",
+          answer: "Sí, he vendido la lancha.",
+          answerTranslation: "Yes, I have sold the boat.",
+        },
+        {
+          imageWord: "telegrama",
+          imageDescription: "a telegram envelope on a white background",
+          question: "¿Ha recibido el telegrama?",
+          questionTranslation: "Have you received the telegram?",
+          answer: "Sí, he recibido el telegrama.",
+          answerTranslation: "Yes, I have received the telegram.",
+        },
+        {
+          imageWord: "cable",
+          imageDescription: "a cable message or wire notification document",
+          question: "¿Ha recibido el cable?",
+          questionTranslation: "Have you received the cable?",
+          answer: "Sí, he recibido el cable.",
+          answerTranslation: "Yes, I have received the cable.",
+        },
+        {
+          imageWord: "lección",
+          imageDescription: "an open lesson book on a desk with study notes",
+          question: "¿Ha aprendido la lección?",
+          questionTranslation: "Have you learned the lesson?",
+          answer: "Sí, he aprendido la lección.",
+          answerTranslation: "Yes, I have learned the lesson.",
+        },
+        {
+          imageWord: "México",
+          imageDescription: "a colorful Mexican street with buildings and flags",
+          question: "¿Ha vivido en México mucho tiempo?",
+          questionTranslation: "Have you lived in Mexico a long time?",
+          answer: "Sí, he vivido en México mucho tiempo.",
+          answerTranslation: "Yes, I have lived in Mexico a long time.",
+        },
+      ],
+      grammarRule: "-ER and -IR verb present perfect: drop ending, add -ido · vender → vendido · aprender → aprendido · vivir → vivido · recibir → recibido",
+      conjugationTable: [
+        { conjugated: "He vendido", translation: "I have sold" },
+        { conjugated: "Ha vendido", translation: "you / he / she have sold" },
+        { conjugated: "Hemos vendido", translation: "we have sold" },
+        { conjugated: "Han vendido", translation: "they have sold" },
+      ],
+      noteAfter: "Vocabulary: mucho tiempo (a long time) · la lección (the lesson) · Ha vendido (you / he / she have sold)",
+    },
+  ],
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Chapter: Hable — Formal Commands & Present Subjunctive
+// Source: See It and Say It in Spanish, pp. 198–199
+// chapterTitleKey "hable:" matches DB unit "Hable: Formal Commands"
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const HABLE_CHAPTER: GustUnitContent = {
+  chapterTitleKey: "hable:",
+  conceptLabel: "Hable",
+  conceptDefinition: "Speak · Formal Commands (Usted)",
+  introNote: "To give a formal command (usted): -AR verbs end in -e; -ER and -IR verbs end in -a. It is the opposite of the present tense endings.",
+  clusters: [
+
+    // ── Cluster 1: Regular -AR Commands → -e ─────────────────────────────────
+    {
+      heading: "-AR Verbs → -e",
+      noteInline: "hablar → hable · tomar → tome · contestar → conteste",
+      pairs: [
+        {
+          imageWord: "hablar",
+          imageDescription: "two people having a conversation, one gesturing to speak slowly",
+          question: "hablar (to speak)",
+          questionTranslation: "-AR verb → command ends in -e",
+          answer: "Hable despacio.",
+          answerTranslation: "Speak slowly.",
+        },
+        {
+          imageWord: "mirar",
+          imageDescription: "a person looking attentively at something off-screen",
+          question: "mirar (to look)",
+          questionTranslation: "-AR verb → command ends in -e",
+          answer: "Mire.",
+          answerTranslation: "Look.",
+        },
+        {
+          imageWord: "teléfono",
+          imageDescription: "a ringing telephone on a desk",
+          question: "contestar (to answer)",
+          questionTranslation: "-AR verb → command ends in -e",
+          answer: "Conteste el teléfono.",
+          answerTranslation: "Answer the phone.",
+        },
+        {
+          imageWord: "tomar",
+          imageDescription: "a hand reaching out to take something from a table",
+          question: "tomar (to take)",
+          questionTranslation: "-AR verb → command ends in -e",
+          answer: "Tome esto.",
+          answerTranslation: "Take this.",
+        },
+      ],
+      grammarRule: "-AR verb formal command: drop -AR, add -e · hablar → hable · mirar → mire · contestar → conteste · tomar → tome",
+    },
+
+    // ── Cluster 2: Regular -ER / -IR Commands → -a ────────────────────────────
+    {
+      heading: "-ER and -IR Verbs → -a",
+      noteInline: "vender → venda · aprender → aprenda · escribir → escriba",
+      pairs: [
+        {
+          imageWord: "vender",
+          imageDescription: "a 'for sale' sign in front of a house",
+          question: "vender (to sell)",
+          questionTranslation: "-ER verb → command ends in -a",
+          answer: "Venda la casa.",
+          answerTranslation: "Sell the house.",
+        },
+        {
+          imageWord: "aprender",
+          imageDescription: "a student studying an open book with focus",
+          question: "aprender (to learn)",
+          questionTranslation: "-ER verb → command ends in -a",
+          answer: "Aprenda la lección.",
+          answerTranslation: "Learn the lesson.",
+        },
+        {
+          imageWord: "escribir",
+          imageDescription: "a hand writing with a pen on paper",
+          question: "escribir (to write)",
+          questionTranslation: "-IR verb → command ends in -a",
+          answer: "Escríbame.",
+          answerTranslation: "Write to me.",
+          extraNote: "Pronouns attach directly to the end of the command: escribir → escriba → escríbame",
+        },
+      ],
+      grammarRule: "-ER / -IR verb formal command: drop ending, add -a · vender → venda · aprender → aprenda · escribir → escriba",
+    },
+
+    // ── Cluster 3: Irregular -ga Commands ────────────────────────────────────
+    {
+      heading: "Irregular Commands — -ga Ending",
+      noteInline: "oír → oiga · traer → traiga · venir → venga · hacer → haga · decir → diga",
+      pairs: [
+        {
+          question: "oír (to hear / to listen)",
+          questionTranslation: "irregular: oír → oiga",
+          answer: "Oiga.",
+          answerTranslation: "Hello. / Listen.",
+          extraNote: "Oiga is used to get someone's attention or to answer the phone.",
+        },
+        {
+          question: "venir (to come)",
+          questionTranslation: "irregular: venir → venga",
+          answer: "Venga acá.",
+          answerTranslation: "Come here.",
+        },
+        {
+          question: "hacer (to do / to make)",
+          questionTranslation: "irregular: hacer → haga",
+          answer: "Hágalo.",
+          answerTranslation: "Do it.",
+          extraNote: "Pronouns attach to the end: haga + lo → hágalo",
+        },
+        {
+          question: "decir (to say / to tell)",
+          questionTranslation: "irregular: decir → diga",
+          answer: "Dígame.",
+          answerTranslation: "Tell me.",
+        },
+        {
+          question: "traer (to bring)",
+          questionTranslation: "irregular: traer → traiga",
+          answer: "Tráigamelo.",
+          answerTranslation: "Bring it to me.",
+          extraNote: "Traiga + me + lo → tráigamelo. Multiple pronouns can attach.",
+        },
+      ],
+      grammarRule: "These verbs have irregular command stems ending in -ga. · oír → oiga · traer → traiga · venir → venga · hacer → haga · decir → diga",
+    },
+
+    // ── Cluster 4: Present Subjunctive — espero que / quiero que ──────────────
+    {
+      heading: "Espero que... / Quiero que...",
+      noteInline: "Espero que  I hope that · Quiero que  I want you to",
+      pairs: [
+        {
+          question: "Quiero que venda la casa.",
+          questionTranslation: "I want you to sell the house.",
+          answer: "Espero que aprenda la lección.",
+          answerTranslation: "I hope you learn the lesson.",
+        },
+        {
+          question: "Espero que venga a la fiesta.",
+          questionTranslation: "I hope you come to the party.",
+          answer: "Espero que lo conteste.",
+          answerTranslation: "I hope you answer it.",
+          extraNote: "Pronoun goes before the subjunctive verb: lo + conteste",
+        },
+        {
+          question: "Quiero que lo traiga.",
+          questionTranslation: "I want you to bring it.",
+          answer: "Espero que me escriba.",
+          answerTranslation: "I hope you write to me.",
+        },
+        {
+          question: "Quiero que lo haga.",
+          questionTranslation: "I want you to do it.",
+          answer: "Espero que lo haga pronto.",
+          answerTranslation: "I hope you do it soon.",
+        },
+      ],
+      grammarRule: "The subjunctive uses the same endings as the command form. · After espero que and quiero que, use the command form of the verb. · Pronouns go before the subjunctive verb: Espero que lo conteste. / Quiero que lo traiga.",
+      noteAfter: "The subjunctive is triggered by expressions of wanting, hoping, or wishing followed by a different subject: Quiero que usted venda. (I want you to sell.)",
+    },
+  ],
+};
+
 const GUST_UNITS: GustUnitContent[] = [
   GUSTAR_CHAPTER,
   GUSTARIA_CHAPTER,
@@ -4701,6 +4995,8 @@ const GUST_UNITS: GustUnitContent[] = [
   SALE_LLEGA_CHAPTER,
   TENGO_CATARRO_CHAPTER,
   ME_LEVANTO_CHAPTER,
+  HE_COMPRADO_CHAPTER,
+  HABLE_CHAPTER,
 ];
 
 /**
