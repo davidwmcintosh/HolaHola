@@ -6,6 +6,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { apiRequest } from "@/lib/queryClient";
 import { classifyGrammarType, GrammarChapterView } from "./ChapterIntroduction";
 import { SeeItSayItLoop } from "./SeeItSayItLoop";
+import { PhrasesCluster } from "./PhrasesCluster";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -156,6 +157,28 @@ function LessonCulturalNote({ lessonId }: { lessonId: string }) {
   );
 }
 
+// ── Hacer: Weather + Ago expressions (p. 169) — Chapter 26: El Tiempo ────────
+
+const HACER_WEATHER = [
+  { spanish: "Hace calor",      english: "It's hot" },
+  { spanish: "Hace frío",       english: "It's cold" },
+  { spanish: "Hace fresco",     english: "It's cool" },
+  { spanish: "Hace mucho calor",english: "It's very hot" },
+  { spanish: "Hace viento",     english: "It's windy" },
+];
+
+const HACE_AGO = [
+  { spanish: "Hace un minuto",      english: "A minute ago" },
+  { spanish: "Hace una hora",       english: "An hour ago" },
+  { spanish: "Hace una semana",     english: "A week ago" },
+  { spanish: "Hace un mes",         english: "A month ago" },
+  { spanish: "Hace un año",         english: "A year ago" },
+  { spanish: "Hace mucho tiempo",   english: "A long time ago" },
+  { spanish: "Hace poco tiempo",    english: "A short time ago" },
+  { spanish: "Hace ocho días",      english: "Eight days ago" },
+  { spanish: "Hace quince días",    english: "Two weeks ago (fifteen days)" },
+];
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export function VocabularyClusterUnit({
@@ -209,6 +232,24 @@ export function VocabularyClusterUnit({
             chapterTitle={chapter.title}
           />
         </div>
+      )}
+
+      {/* ── Hacer Weather + Ago — El Tiempo chapter (Ch. 26) ── */}
+      {chapter.title.toLowerCase().includes('tiempo') && (
+        <>
+          <PhrasesCluster
+            heading="Hacer — Weather Expressions"
+            introNote="Hace (from hacer, 'to make/do') is used with weather. It doesn't change — just swap the noun."
+            phrases={HACER_WEATHER}
+            language={language}
+          />
+          <PhrasesCluster
+            heading="Hace + Time = Ago"
+            introNote="The same hace pattern expresses how long ago something happened — a very useful construction."
+            phrases={HACE_AGO}
+            language={language}
+          />
+        </>
       )}
 
       {/* ── Vocabulary images — all sections, each gets its own See It Say It loop ── */}

@@ -193,6 +193,48 @@ const FAREWELLS: SocialPhrase[] = [
     context: "Goodbye until the next day",
     register: "Informal",
   },
+  {
+    spanish: "Nos vemos",
+    pronunciation: "nos BEH-mos",
+    english: "See you / We'll see each other",
+    context: "Very common casual parting — more natural than Hasta luego in everyday speech",
+    register: "Informal",
+  },
+  {
+    spanish: "Nos vemos pronto",
+    pronunciation: "nos BEH-mos PRON-to",
+    english: "See you soon",
+    context: "Warm goodbye when you expect to reconnect shortly",
+    register: "Informal",
+  },
+  {
+    spanish: "Me alegro",
+    pronunciation: "meh ah-LEH-gro",
+    english: "I'm glad / I'm happy to hear it",
+    context: "Warm response when someone shares good news",
+    register: "Neutral",
+  },
+  {
+    spanish: "Me divertí",
+    pronunciation: "meh dee-ver-TEE",
+    english: "I had a good time",
+    context: "Said at the end of a visit or event — past tense of divertirse",
+    register: "Neutral",
+  },
+  {
+    spanish: "Buena suerte",
+    pronunciation: "BWEH-nah SWER-teh",
+    english: "Good luck",
+    context: "Said before an exam, interview, or challenge",
+    register: "Neutral",
+  },
+  {
+    spanish: "Figúrese",
+    pronunciation: "fee-GOO-reh-seh",
+    english: "Just imagine / Can you imagine?",
+    context: "Expresses surprise or disbelief — invites the listener to picture the situation",
+    register: "Neutral",
+  },
 ];
 
 const ALL_GROUPS = [

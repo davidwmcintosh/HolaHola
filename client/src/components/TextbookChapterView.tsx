@@ -31,6 +31,7 @@ import { SocialPhraseUnit } from "./SocialPhraseUnit";
 import { VerbUnit } from "./VerbUnit";
 import { GrammarConceptUnit } from "./GrammarConceptUnit";
 import { VocabularyClusterUnit } from "./VocabularyClusterUnit";
+import { PhrasesCluster } from "./PhrasesCluster";
 import { apiRequest } from "@/lib/queryClient";
 
 interface DrillItem {
@@ -480,6 +481,31 @@ function FlatLessonSection({
   );
 }
 
+// ── Vez Expressions (p. 162) — Chapter 6: Telling Time ───────────────────────
+
+const VEZ_EXPRESSIONS = [
+  { spanish: "una vez",          english: "one time / once" },
+  { spanish: "dos veces",        english: "twice / two times" },
+  { spanish: "muchas veces",     english: "many times / a lot" },
+  { spanish: "unas veces",       english: "sometimes" },
+  { spanish: "de vez en cuando", english: "from time to time / every now and then" },
+  { spanish: "otra vez",         english: "again / another time" },
+  { spanish: "tal vez",          english: "perhaps / maybe" },
+  { spanish: "esta vez",         english: "this time" },
+  { spanish: "esa vez",          english: "that time" },
+];
+
+// ── Restaurant Survival Phrases (p. 28) — Chapter 18: At the Restaurant ──────
+
+const RESTAURANT_PHRASES = [
+  { spanish: "Por favor, la cuenta",       english: "Check, please" },
+  { spanish: "Un vaso de agua, por favor", english: "A glass of water, please" },
+  { spanish: "Azúcar",                     english: "Sugar" },
+  { spanish: "Café",                       english: "Coffee" },
+  { spanish: "Chocolate, por favor",       english: "Chocolate, please" },
+  { spanish: "Bistec",                     english: "Steak" },
+];
+
 // ── Main chapter view ─────────────────────────────────────────────────────────
 
 export function TextbookChapterView({
@@ -673,6 +699,26 @@ export function TextbookChapterView({
             lessonName={firstSislSection.name}
           />
         </div>
+      )}
+
+      {/* ── Vez Expressions — Chapter 6 (time type) ── */}
+      {chapter.chapterType === 'time' && (
+        <PhrasesCluster
+          heading="Vez — Time Frequency Expressions"
+          introNote="Vez (time / occasion) gives you powerful ways to say how often — from 'once' to 'from time to time.'"
+          phrases={VEZ_EXPRESSIONS}
+          language={language ?? "spanish"}
+        />
+      )}
+
+      {/* ── Restaurant Survival Phrases — Chapter 18 (food type) ── */}
+      {chapter.chapterType === 'food' && (
+        <PhrasesCluster
+          heading="At the Table — Essential Phrases"
+          introNote="These short phrases will carry you through any restaurant conversation from the first sip to the check."
+          phrases={RESTAURANT_PHRASES}
+          language={language ?? "spanish"}
+        />
       )}
 
       {/* ── Negative form — real data from micro-cycle hook ── */}

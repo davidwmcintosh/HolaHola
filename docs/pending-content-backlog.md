@@ -696,15 +696,15 @@ Travel vocabulary from Madrigal pp. 170–171 (¿A qué hora sale el tren? ¿A q
 
 ### Spanish 1 — Remaining gaps (do these first, they complete Spanish 1)
 
-| Priority | Task | Content source |
-|---|---|---|
-| 1 | Fold p.53 tener expressions into Ch. 31 (tengo hambre, tengo catarro, tengo razón) | Section 2, p.53 |
-| 2 | Fold p.81 estar-states into new chapter or extend Ch. 34/45 | Section 2, p.81 |
-| 3 | Fold p.71 es + adjective / Claro / Por supuesto into Ch. 33 | Section 2, p.71 |
-| 4 | Fold p.169 hacer weather + hace = ago into Ch. 26 + time chapter | Section 2, p.169 |
-| 5 | Fold p.28 restaurant phrases into Ch. 18 | Section 2, p.28 |
-| 6 | Add Me alegro / Nos vemos / Buena suerte / Me divertí to Ch. 1 | Section 2, p.181 |
-| 7 | Add vez expressions (una vez, muchas veces…) to Ch. 6 | Section 1 |
+| Priority | Task | Content source | Status |
+|---|---|---|---|
+| — | ~~Fold p.53 tener expressions into Ch. 31~~ | ~~Section 2, p.53~~ | ✅ Already built — Cluster 7 of TENER_I_HAVE |
+| — | ~~Fold p.81 estar-states into Ch. 34~~ | ~~Section 2, p.81~~ | ✅ Already built — 'estar-expressions' cluster in ESTAR_LOCATIONS |
+| — | ~~Fold p.71 es + adjective / Claro / Por supuesto into Ch. 33~~ | ~~Section 2, p.71~~ | ✅ Already built — 'adjective-expressions' cluster in SER_PLURALS_GENDER |
+| — | ~~Fold p.169 hacer weather + hace = ago into Ch. 26~~ | ~~Section 2, p.169~~ | ✅ Done April 2026 — PhrasesCluster in VocabularyClusterUnit |
+| — | ~~Fold p.28 restaurant phrases into Ch. 18~~ | ~~Section 2, p.28~~ | ✅ Done April 2026 — PhrasesCluster in TextbookChapterView (food type) |
+| — | ~~Add Me alegro / Nos vemos / Buena suerte / Me divertí to Ch. 1~~ | ~~Section 2, p.181~~ | ✅ Done April 2026 — Added 6 phrases to FAREWELLS in SocialPhraseUnit |
+| — | ~~Add vez expressions (una vez, muchas veces…) to Ch. 6~~ | ~~Section 1~~ | ✅ Done April 2026 — PhrasesCluster in TextbookChapterView (time type) |
 
 ### Spanish 2 — New textbook chapters (in sequence order)
 
