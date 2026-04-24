@@ -107,6 +107,27 @@ Full table and design notes: `docs/multi-subject-platform-vision.md`
 
 ---
 
+### April 24, 2026 — Spanish 3/4/5 Advanced Unit Pages
+**Status**: COMPLETED ✅ — awaiting David's review before replicating to other languages
+
+**What was built:**
+- `client/src/data/advanced-unit-content.ts` — content for all 20 Spanish 3/4/5 units
+- `client/src/components/AdvancedUnit.tsx` — renderer for `chapter_type = 'advanced_unit'`
+- `TextbookChapterView.tsx` — dispatch added for new type
+- DB: all 20 Spanish 3/4/5 `curriculum_units` updated to `chapter_type = 'advanced_unit'`
+
+**Each unit now has:**
+1. 10 curated vocabulary words (tap-to-expand: translation, POS, example sentence, TTS)
+2. An authentic reading passage in Spanish (public-domain literary works where appropriate — Rubén Darío, José Martí, Sor Juana Inés de la Cruz — plus original cultural/news texts)
+3. A cultural note written entirely in Spanish (100–200 words, appropriate level)
+4. Practice with Daniela CTA
+
+**Level mapping:** B1–B2 (Spanish 3), B2–C1 (Spanish 4), C1 (Spanish 5)
+
+**PENDING — Do not replicate yet:** David will review the Spanish content first. Once approved, the same `advanced_unit` pattern should be replicated to French, German, Italian, Portuguese, Japanese, Chinese, and Korean advanced-level units. The `AdvancedUnit.tsx` component and `getAdvancedUnitContent()` lookup will need language-specific data files.
+
+---
+
 ### March 21, 2026 — La Hora Lesson + Clock Gallery
 **Status**: COMPLETED
 

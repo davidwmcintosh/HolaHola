@@ -4616,3 +4616,35 @@ These are verbatim or near-verbatim from Magic Key, ready to load into `danielaN
 - Vendor-agnostic design principle becomes negotiating leverage — vendors compete to be the one HoloHola endorses
 - The competitive forcing function: HoloHola shipping first accelerates Google's rate limit decision and every other vendor's production-readiness timetable
 - Quality bar for "reference implementation" standard documented (character distinctness, seamless transitions, visible pedagogical value, scene feel)
+
+---
+
+## From Agent — April 24, 2026 (session: Spanish 3/4/5 advanced unit pages)
+
+### What was built
+Spanish is now a complete curriculum end to end. All 20 Spanish 3/4/5 units have been filled with structured content via a new `advanced_unit` chapter type.
+
+**New files:**
+- `client/src/data/advanced-unit-content.ts` — 20 content objects (Spanish 3×8, Spanish 4×8, Spanish 5×4), each with vocabulary, reading passage, and cultural note
+- `client/src/components/AdvancedUnit.tsx` — renderer: vocab tap-to-expand cards + TTS, reading passage with attribution, cultural note in Spanish, Practice with Daniela button
+
+**Modified:**
+- `TextbookChapterView.tsx` — Format 5 dispatch block for `advanced_unit`
+- `replit.md` — Advanced Unit System section added
+- `docs/batch-doc-updates.md` — session entry added
+
+**DB:** `curriculum_units.chapter_type = 'advanced_unit'` set on all 20 Spanish 3/4/5 unit rows.
+
+### What's intentionally NOT done yet
+David wants to review the Spanish content before we replicate to other languages. **Do not auto-generate or trigger content generation for French, German, Italian, Portuguese, Japanese, Chinese, or Korean advanced units** until David gives the green light. The `AdvancedUnit.tsx` component is language-agnostic and ready for extension — it just needs language-specific data files (e.g., `french-advanced-unit-content.ts`) and a language-aware lookup in `getAdvancedUnitContent()`.
+
+### Reading passages used
+- Rubén Darío "Sonatina" (1896) — Arts & Literature (Sp3)
+- José Martí "Nuestra América" (1891) — Identity & Social Issues (Sp3), Global Challenges (Sp4)
+- Sor Juana Inés de la Cruz excerpt — History & Heritage (Sp3)
+- All other passages are original cultural/news-style texts written in Spanish at the appropriate ACTFL level
+
+### Level mapping
+- Spanish 3: B1–B2
+- Spanish 4: B2–C1
+- Spanish 5: C1
