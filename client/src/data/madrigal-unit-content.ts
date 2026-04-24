@@ -4811,6 +4811,157 @@ const HE_COMPRADO_CHAPTER: GustUnitContent = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Chapter: Lo Veo — Direct Object Pronouns
+// Source: See It and Say It in Spanish, pp. 190–191
+// chapterTitleKey "lo veo" matches DB unit "Lo Veo — Direct Object Pronouns"
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const LO_VEO_CHAPTER: GustUnitContent = {
+  chapterTitleKey: "lo veo",
+  conceptLabel: "Lo Veo",
+  conceptDefinition: "I see it / I see him · Direct Object Pronouns",
+  introNote: "Direct object pronouns replace the noun that receives the action of the verb. They go directly before the verb. Use the personal 'a' (a personal) when the direct object is a person.",
+  clusters: [
+
+    // ── Cluster 1: Singular — lo / la with images ─────────────────────────────
+    {
+      heading: "Lo veo · La veo",
+      noteInline: "Lo  it (masc.) / him · La  it (fem.) / her · Me  me",
+      pairs: [
+        {
+          imageWord: "edificio",
+          imageDescription: "a tall office building on a city street",
+          question: "¿Ve el edificio?",
+          questionTranslation: "Do you see the building?",
+          answer: "Sí, lo veo.",
+          answerTranslation: "Yes, I see it.",
+        },
+        {
+          imageWord: "barco",
+          imageDescription: "a large ship on the ocean",
+          question: "¿Ve el barco?",
+          questionTranslation: "Do you see the boat?",
+          answer: "Sí, lo veo.",
+          answerTranslation: "Yes, I see it.",
+        },
+        {
+          imageWord: "lámpara",
+          imageDescription: "a table lamp with a warm glow on a white background",
+          question: "¿Ve la lámpara?",
+          questionTranslation: "Do you see the lamp?",
+          answer: "Sí, la veo.",
+          answerTranslation: "Yes, I see it.",
+        },
+      ],
+      grammarRule: "Lo replaces a masculine noun · La replaces a feminine noun · Both come before the verb: ¿Ve el barco? → Lo veo.",
+    },
+
+    // ── Cluster 2: More lo / la examples (parallel masculine / feminine) ──────
+    {
+      heading: "Lo / La — More Examples",
+      noteInline: "Lo  him / it (masc.) · La  her / it (fem.) · Me  me",
+      pairs: [
+        {
+          question: "Lo veo.",
+          questionTranslation: "I see him / I see it.",
+          answer: "La veo.",
+          answerTranslation: "I see her / I see it.",
+        },
+        {
+          question: "Lo llamo.",
+          questionTranslation: "I call him.",
+          answer: "La llamo.",
+          answerTranslation: "I call her.",
+        },
+        {
+          question: "Lo conozco.",
+          questionTranslation: "I know him.",
+          answer: "La conozco.",
+          answerTranslation: "I know her.",
+        },
+        {
+          question: "Lo quiero.",
+          questionTranslation: "I want him / I want it.",
+          answer: "La quiero.",
+          answerTranslation: "I want her / I want it.",
+        },
+        {
+          question: "Me ve.",
+          questionTranslation: "She / he sees me.",
+          answer: "Me llama.",
+          answerTranslation: "She / he calls me.",
+          extraNote: "Me (me) also goes before the verb: Me ve. (She sees me.) · Me llama. (She calls me.)",
+        },
+      ],
+      noteAfter: "The pronoun always goes directly before the verb · Lo / la can mean a person or a thing · When referring to a person, use the personal 'a' before the name: ¿Ve a María? → La veo.",
+    },
+
+    // ── Cluster 3: Plural — los / las with images ─────────────────────────────
+    {
+      heading: "Los veo · Las veo",
+      noteInline: "Los  them (masc.) · Las  them (fem.) · Nos  us",
+      pairs: [
+        {
+          imageWord: "muchachos",
+          imageDescription: "a group of young men standing together outdoors",
+          question: "¿Ve los muchachos?",
+          questionTranslation: "Do you see the boys?",
+          answer: "Sí, los veo.",
+          answerTranslation: "Yes, I see them.",
+        },
+        {
+          imageWord: "muchachas",
+          imageDescription: "a group of young women smiling outdoors",
+          question: "¿Ve las muchachas?",
+          questionTranslation: "Do you see the girls?",
+          answer: "Sí, las veo.",
+          answerTranslation: "Yes, I see them.",
+        },
+        {
+          imageWord: "mariposas",
+          imageDescription: "colorful butterflies resting on flowers in a garden",
+          question: "¿Ve las mariposas?",
+          questionTranslation: "Do you see the butterflies?",
+          answer: "Sí, las veo.",
+          answerTranslation: "Yes, I see them.",
+        },
+        {
+          imageWord: "estrellas",
+          imageDescription: "bright stars in a dark night sky",
+          question: "¿Ve las estrellas?",
+          questionTranslation: "Do you see the stars?",
+          answer: "Sí, las veo.",
+          answerTranslation: "Yes, I see them.",
+        },
+      ],
+      grammarRule: "Los replaces a masculine plural noun · Las replaces a feminine plural noun · Both go before the verb · Nos = us (also goes before the verb)",
+    },
+
+    // ── Cluster 4: People with the personal 'a' ───────────────────────────────
+    {
+      heading: "People — Personal 'a'",
+      noteInline: "Use 'a' before a person's name or a person when they are the direct object",
+      pairs: [
+        {
+          question: "¿Ve a Daniel y a Roberto?",
+          questionTranslation: "Do you see Daniel and Roberto?",
+          answer: "Sí, los veo.",
+          answerTranslation: "Yes, I see them.",
+        },
+        {
+          question: "¿Ve a María y a Luisa?",
+          questionTranslation: "Do you see María and Luisa?",
+          answer: "Sí, las veo.",
+          answerTranslation: "Yes, I see them.",
+        },
+      ],
+      grammarRule: "Use the personal 'a' before a person who is the direct object · ¿Ve a Daniel? Sí, lo veo. · ¿Ve a María? Sí, la veo. · ¿Ve a Daniel y Roberto? Sí, los veo. (mixed or all-male group → los)",
+      noteAfter: "Summary: Lo (him/it masc.) · La (her/it fem.) · Los (them masc.) · Las (them fem.) · Me (me) · Nos (us) · All go directly before the verb.",
+    },
+  ],
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Chapter: Hable — Formal Commands & Present Subjunctive
 // Source: See It and Say It in Spanish, pp. 198–199
 // chapterTitleKey "hable:" matches DB unit "Hable: Formal Commands"
@@ -4996,6 +5147,7 @@ const GUST_UNITS: GustUnitContent[] = [
   TENGO_CATARRO_CHAPTER,
   ME_LEVANTO_CHAPTER,
   HE_COMPRADO_CHAPTER,
+  LO_VEO_CHAPTER,
   HABLE_CHAPTER,
 ];
 
