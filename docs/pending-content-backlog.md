@@ -725,8 +725,77 @@ Travel vocabulary from Madrigal pp. 170–171 (¿A qué hora sale el tren? ¿A q
 
 | Item | Decision needed |
 |---|---|
-| Reflexive verb sentences | Source or approval required before building interactive textbook page |
 | Technology / environment units | Decide: keep as conversation-only, or find a content source for sentences |
 | Cognate opener | Promote to standalone unit ("Las Llaves Mágicas") or keep at intro layer? |
 | Physical appearance adjectives | Images don't exist; Madrigal is not the source — separate decision |
 | Spanish 1 → Spanish 2 progression UI | How does a student move from completing Spanish 1 to enrolling in Spanish 2? |
+
+---
+
+## 9. CONTENT BRIEF — Reflexive Verbs (Unit 4, Spanish 2)
+**Status:** ⬜ BLOCKED — waiting for you to source sentences from the book  
+**Unit:** Spanish 2, Unit 4 (currently "Unit 1: Review & Daily Routines")  
+**Target name:** "Me Levanto — Verbos Reflexivos"
+
+### What reflexive verbs are
+
+A reflexive verb describes an action done to yourself. The "reflexive pronoun" travels with the verb:
+- me (I → myself)
+- se (you/he/she → yourself/himself/herself)
+- nos (we → ourselves)
+
+Madrigal's pattern: the verb is shown without the pronoun attached (levanto), and the pronoun (me/se) comes before it.
+
+**¿A qué hora se levanta?** → Me levanto a las siete.  
+What time do you get up? → I get up at seven.
+
+### Verbs needed — look these up in the book
+
+For each verb, find Madrigal's **exact question** and **exact answer** sentence. The Q&A pattern is what matters for the picture-pair cards.
+
+| Verb (infinitive) | Reflexive form | Meaning | Typical Madrigal question | Typical Madrigal answer |
+|---|---|---|---|---|
+| levantarse | me levanto / se levanta | to get up | ¿A qué hora se levanta? | Me levanto a las ___. |
+| lavarse | me lavo / se lava | to wash (oneself) | ¿Se lava con jabón? | Sí, me lavo con jabón. |
+| vestirse | me visto / se viste | to dress (oneself) | ¿Cómo se viste? | Me visto ___. |
+| peinarse | me peino / se peina | to comb one's hair | ¿Se peina todos los días? | Sí, me peino todos los días. |
+| bañarse | me baño / se baña | to bathe | ¿Se baña por la mañana? | Sí, me baño por la mañana. |
+| acostarse | me acuesto / se acuesta | to go to bed | ¿A qué hora se acuesta? | Me acuesto a las ___. |
+| despertarse | me despierto / se despierta | to wake up | ¿A qué hora se despierta? | Me despierto a las ___. |
+| llamarse | me llamo / se llama | to be named | ¿Cómo se llama? | Me llamo ___. |
+
+### What to bring back from the book
+
+**Look in the index** under "reflexive verbs" or find the section that shows daily routine pictures (getting up, washing, dressing). Madrigal usually shows a picture of someone performing the action to themselves alongside the Q&A.
+
+For each verb, record:
+1. **The exact question** (¿A qué hora se levanta? vs ¿Se levanta temprano? — whichever Madrigal uses)
+2. **The exact answer** (Me levanto a las siete. or similar — with any specific object/time Madrigal includes)
+3. **The page number** for the audit trail
+
+### What gets built once you provide them
+
+A 2-cluster GustUnit:
+
+**Cluster 1 — La Mañana (Morning Routine)**  
+Cards: despertarse, levantarse, lavarse, peinarse/vestirse  
+Conjugation table: me despierto / se despierta / nos despertamos / se despiertan  
+Grammar rule: stem changes (despertarse: e→ie, vestirse: e→i, acostarse: o→ue)
+
+**Cluster 2 — El Resto del Día (Rest of Day)**  
+Cards: bañarse, acostarse + sentence combiner  
+Sentence combiner: Me/Se/Nos + verb + time expression
+
+### Conjugation reminder (for building the tables later)
+
+| Pronoun | Form | Notes |
+|---|---|---|
+| me | me levanto | I get up — yo form |
+| se | se levanta | you/he/she get(s) up — usted/él/ella |
+| nos | nos levantamos | we get up |
+| se | se levantan | they/you all get up |
+
+Stem-changing verbs to flag:
+- despertarse (e→ie): me **d**e**s**p**ier**to
+- acostarse (o→ue): me **acu**esto
+- vestirse (e→i): me **visto**
