@@ -3628,6 +3628,332 @@ const RECIBI_CHAPTER: GustUnitContent = {
   ],
 };
 
+// ── Spanish 2 Unit 5: ¿Cómo Está? — States & Feelings (Madrigal p. 81) ─────────
+// Replaces the redundant "Los Números II" slot.
+// chapterTitleKey "cómo está" matches "¿Cómo Está? — States & Feelings" (unit name in DB).
+// Does NOT collide with ESTA_LIMPIO_CHAPTER key "está:" because this title has no colon after está.
+
+const ESTA_CONTENTO_CHAPTER: GustUnitContent = {
+  chapterTitleKey: "cómo está",
+  conceptLabel: "Está contento",
+  conceptDefinition: "He / she is happy",
+  introNote: "Estar describes how someone feels right now — not who they are. The adjective ending matches the person: -o for masculine, -a for feminine. Está triste is the same for both.",
+  clusters: [
+    // ── Cluster 1: Positive states (pp. 81) ─────────────────────────────
+    {
+      heading: "Contento, Listo, Cómodo",
+      noteInline: "Está contento / contenta  He/she is happy  ·  Estoy contento / contenta  I am happy",
+      pairs: [
+        {
+          imageWord: "contento",
+          imageDescription: "a smiling man sitting comfortably at a sunny café table",
+          question: "¿Está contento?",
+          questionTranslation: "Is he happy? / Are you happy?",
+          answer: "Sí, estoy muy contento.",
+          answerTranslation: "Yes, I am very happy.",
+        },
+        {
+          imageWord: "lista",
+          imageDescription: "a woman standing at the door with her coat on, ready to leave",
+          question: "¿Está lista?",
+          questionTranslation: "Is she ready? / Are you ready?",
+          answer: "Sí, estoy lista.",
+          answerTranslation: "Yes, I am ready.",
+        },
+        {
+          imageWord: "cómodo",
+          imageDescription: "a man relaxing in a large armchair with a blanket",
+          question: "¿Está cómodo?",
+          questionTranslation: "Is he comfortable? / Are you comfortable?",
+          answer: "Sí, estoy muy cómodo.",
+          answerTranslation: "Yes, I am very comfortable.",
+        },
+        {
+          imageWord: "enamorada",
+          imageDescription: "a woman with a warm smile looking at a bouquet of flowers",
+          question: "¿Está enamorada?",
+          questionTranslation: "Is she in love? / Are you in love?",
+          answer: "Sí, estoy enamorada.",
+          answerTranslation: "Yes, I am in love.",
+        },
+      ],
+      grammarRule: "Masculine: contento · listo · cómodo · enamorado\nFeminine: contenta · lista · cómoda · enamorada",
+    },
+    // ── Cluster 2: Difficult states (pp. 81) ──────────────────────────────
+    {
+      heading: "Cansado, Enfermo, Enojado",
+      noteInline: "Está cansado / cansada  He/she is tired  ·  Está triste  He/she is sad (same for both)",
+      pairs: [
+        {
+          imageWord: "cansada",
+          imageDescription: "a woman with tired eyes resting her head on her hand at a desk",
+          question: "¿Está cansada?",
+          questionTranslation: "Is she tired? / Are you tired?",
+          answer: "Sí, estoy muy cansada.",
+          answerTranslation: "Yes, I am very tired.",
+        },
+        {
+          imageWord: "enfermo",
+          imageDescription: "a man lying in bed with a thermometer, looking unwell",
+          question: "¿Está enfermo?",
+          questionTranslation: "Is he sick? / Are you sick?",
+          answer: "Sí, estoy enfermo.",
+          answerTranslation: "Yes, I am sick.",
+        },
+        {
+          imageWord: "enojada",
+          imageDescription: "a woman with crossed arms and a firm expression",
+          question: "¿Está enojada?",
+          questionTranslation: "Is she angry? / Are you angry?",
+          answer: "Sí, estoy un poco enojada.",
+          answerTranslation: "Yes, I am a little angry.",
+        },
+        {
+          imageWord: "aburrido",
+          imageDescription: "a man staring blankly at a wall, looking bored",
+          question: "¿Está aburrido?",
+          questionTranslation: "Is he bored? / Are you bored?",
+          answer: "Sí, estoy muy aburrido.",
+          answerTranslation: "Yes, I am very bored.",
+        },
+        {
+          imageWord: "triste",
+          imageDescription: "a person sitting alone by a window on a rainy day",
+          question: "¿Está triste?",
+          questionTranslation: "Is he/she sad? / Are you sad?",
+          answer: "Sí, estoy un poco triste.",
+          answerTranslation: "Yes, I am a little sad.",
+        },
+        {
+          imageWord: "sola",
+          imageDescription: "a woman sitting alone at a large empty table",
+          question: "¿Está sola?",
+          questionTranslation: "Is she alone? / Are you alone?",
+          answer: "Sí, estoy sola.",
+          answerTranslation: "Yes, I am alone.",
+        },
+      ],
+      grammarRule: "Triste never changes: está triste (both masculine and feminine).\nSolo → sola · cansado → cansada · enfermo → enferma · enojado → enojada",
+    },
+    // ── Cluster 3: Wellness scale + plural forms (pp. 81) ─────────────────
+    {
+      heading: "Bien, Mejor, Mal, Peor",
+      noteInline: "Está bien  He/she is well  ·  Está mejor  He/she is better  ·  Está mal  He/she is not well  ·  Está peor  He/she is worse",
+      pairs: [
+        {
+          imageWord: "bien",
+          imageDescription: "a person giving a thumbs-up with a relaxed smile",
+          question: "¿Cómo está usted?",
+          questionTranslation: "How are you?",
+          answer: "Estoy bien, gracias.",
+          answerTranslation: "I am well, thank you.",
+        },
+        {
+          imageWord: "mejor",
+          imageDescription: "a person leaving a doctor's office looking relieved and healthier",
+          question: "¿Está mejor hoy?",
+          questionTranslation: "Are you better today?",
+          answer: "Sí, estoy mucho mejor hoy.",
+          answerTranslation: "Yes, I am much better today.",
+        },
+        {
+          imageWord: "mal",
+          imageDescription: "a person holding their head and looking pale",
+          question: "¿Está mal?",
+          questionTranslation: "Are you not well? / Is he/she not well?",
+          answer: "Sí, estoy mal.",
+          answerTranslation: "Yes, I am not well.",
+        },
+        {
+          imageWord: "peor",
+          imageDescription: "a sick person in bed looking worse than before",
+          question: "¿Está peor hoy?",
+          questionTranslation: "Are you worse today?",
+          answer: "Sí, estoy peor hoy.",
+          answerTranslation: "Yes, I am worse today.",
+        },
+      ],
+      conjugationTable: [
+        { conjugated: "Estoy contento / contenta",   translation: "I am happy" },
+        { conjugated: "Está contento / contenta",    translation: "you / he / she is happy" },
+        { conjugated: "Estamos contentos / contentas", translation: "we are happy" },
+        { conjugated: "Están contentos / contentas", translation: "they / you all are happy" },
+      ],
+      noteAfter: "These four forms work with any state: estoy cansado · está enferma · estamos listos · están solos.",
+    },
+  ],
+};
+
+// ── Spanish 2 Unit 9: ¿Qué Está Haciendo? — Present Progressive (pp. 182–185) ──
+// Replaces the placeholder "Intermediate Mid Skills" slot.
+// chapterTitleKey "qué está haciendo" matches the DB unit name.
+
+const ESTA_TOCANDO_CHAPTER: GustUnitContent = {
+  chapterTitleKey: "qué está haciendo",
+  conceptLabel: "Estoy tocando",
+  conceptDefinition: "I am playing",
+  introNote: "To say what is happening right now, use estoy / está / estamos / están + the present participle. AR verbs → -ando. ER and IR verbs → -iendo. One key irregular: leer → leyendo.",
+  clusters: [
+    // ── Cluster 1: -ando verbs (pp. 182–183) ─────────────────────────────
+    {
+      heading: "Tocando, Hablando, Estudiando",
+      noteInline: "AR verbs: drop -ar, add -ando  ·  tocar → tocando  ·  hablar → hablando  ·  estudiar → estudiando",
+      pairs: [
+        {
+          imageWord: "piano",
+          imageDescription: "a person's hands playing the keys of a grand piano",
+          question: "¿Está tocando el piano?",
+          questionTranslation: "Are you playing the piano?",
+          answer: "Sí, estoy tocando el piano.",
+          answerTranslation: "Yes, I am playing the piano.",
+        },
+        {
+          imageWord: "guitarra",
+          imageDescription: "a person strumming an acoustic guitar",
+          question: "¿Está tocando la guitarra?",
+          questionTranslation: "Are you playing the guitar?",
+          answer: "Sí, estoy tocando la guitarra.",
+          answerTranslation: "Yes, I am playing the guitar.",
+        },
+        {
+          imageWord: "teléfono",
+          imageDescription: "a woman talking on a mobile phone outdoors",
+          question: "¿Está hablando por teléfono?",
+          questionTranslation: "Are you talking on the phone?",
+          answer: "Sí, estoy hablando por teléfono.",
+          answerTranslation: "Yes, I am talking on the phone.",
+        },
+        {
+          imageWord: "español",
+          imageDescription: "a student at a desk with a Spanish textbook open in front of them",
+          question: "¿Está estudiando español?",
+          questionTranslation: "Are you studying Spanish?",
+          answer: "Sí, estoy estudiando español.",
+          answerTranslation: "Yes, I am studying Spanish.",
+        },
+        {
+          imageWord: "natación",
+          imageDescription: "a person swimming laps in an outdoor pool",
+          question: "¿Está nadando?",
+          questionTranslation: "Are you swimming?",
+          answer: "Sí, estoy nadando.",
+          answerTranslation: "Yes, I am swimming.",
+        },
+        {
+          imageWord: "patines",
+          imageDescription: "a person gliding on ice skates at an outdoor rink",
+          question: "¿Está patinando?",
+          questionTranslation: "Are you skating?",
+          answer: "Sí, estoy patinando.",
+          answerTranslation: "Yes, I am skating.",
+        },
+      ],
+      conjugationTable: [
+        { conjugated: "Estoy tocando",    translation: "I am playing" },
+        { conjugated: "Está tocando",     translation: "you / he / she is playing" },
+        { conjugated: "Estamos tocando",  translation: "we are playing" },
+        { conjugated: "Están tocando",    translation: "they / you all are playing" },
+      ],
+    },
+    // ── Cluster 2: -iendo verbs (pp. 184) ────────────────────────────────
+    {
+      heading: "Escribiendo, Vendiendo, Aprendiendo",
+      noteInline: "ER / IR verbs: drop -er / -ir, add -iendo  ·  escribir → escribiendo  ·  vender → vendiendo  ·  aprender → aprendiendo",
+      pairs: [
+        {
+          imageWord: "carta",
+          imageDescription: "a person writing a letter by hand at a wooden desk",
+          question: "¿Está escribiendo una carta?",
+          questionTranslation: "Are you writing a letter?",
+          answer: "Sí, estoy escribiendo una carta.",
+          answerTranslation: "Yes, I am writing a letter.",
+        },
+        {
+          imageWord: "lancha",
+          imageDescription: "a person standing beside a small boat with a 'for sale' sign",
+          question: "¿Está vendiendo la lancha?",
+          questionTranslation: "Are you selling the boat?",
+          answer: "Sí, estoy vendiendo la lancha.",
+          answerTranslation: "Yes, I am selling the boat.",
+        },
+        {
+          imageWord: "lección",
+          imageDescription: "a student at a desk concentrating on a lesson with notes open",
+          question: "¿Está aprendiendo la lección?",
+          questionTranslation: "Are you learning the lesson?",
+          answer: "Sí, estoy aprendiendo la lección.",
+          answerTranslation: "Yes, I am learning the lesson.",
+        },
+      ],
+      sentenceColumns: [
+        {
+          label: "Phrase",
+          items: [
+            { text: "Estoy escribiendo",    translation: "I am writing" },
+            { text: "Estoy vendiendo",      translation: "I am selling" },
+            { text: "Estoy aprendiendo",    translation: "I am learning" },
+            { text: "Estoy tocando",        translation: "I am playing" },
+            { text: "Estoy estudiando",     translation: "I am studying" },
+            { text: "Estoy hablando",       translation: "I am talking" },
+          ],
+        },
+        {
+          label: "Object",
+          items: [
+            { text: "una carta.",           translation: "a letter." },
+            { text: "el periódico.",        translation: "the newspaper." },
+            { text: "la lección.",          translation: "the lesson." },
+            { text: "el piano.",            translation: "the piano." },
+            { text: "la guitarra.",         translation: "the guitar." },
+            { text: "español.",             translation: "Spanish." },
+          ],
+        },
+      ],
+    },
+    // ── Cluster 3: leyendo (irregular) + ¿Qué está haciendo? (pp. 184–185) ─
+    {
+      heading: "¿Qué Está Haciendo? — Leyendo",
+      noteInline: "leer → leyendo  (not leyiendo — the i drops when surrounded by vowels)  ·  ¿Qué está haciendo?  What are you doing?",
+      pairs: [
+        {
+          imageWord: "periódico",
+          imageDescription: "a person reading a folded newspaper on a park bench",
+          question: "¿Está leyendo el periódico?",
+          questionTranslation: "Are you reading the newspaper?",
+          answer: "Sí, estoy leyendo el periódico.",
+          answerTranslation: "Yes, I am reading the newspaper.",
+        },
+        {
+          imageWord: "novela",
+          imageDescription: "a person reading a thick novel in an armchair by a lamp",
+          question: "¿Qué está haciendo?",
+          questionTranslation: "What are you doing?",
+          answer: "Estoy leyendo una novela.",
+          answerTranslation: "I am reading a novel.",
+        },
+        {
+          imageWord: "composición",
+          imageDescription: "a student writing a composition at a school desk",
+          question: "¿Qué está haciendo?",
+          questionTranslation: "What are you doing?",
+          answer: "Estoy escribiendo una composición.",
+          answerTranslation: "I am writing a composition.",
+        },
+        {
+          imageWord: "violín",
+          imageDescription: "a musician playing a violin on a small stage",
+          question: "¿Qué está haciendo?",
+          questionTranslation: "What are you doing?",
+          answer: "Estoy tocando el violín.",
+          answerTranslation: "I am playing the violin.",
+        },
+      ],
+      grammarRule: "leer → leyendo  ·  All other ER/IR verbs follow the regular -iendo pattern.",
+      noteAfter: "¿Qué está haciendo? is the open question that invites any -ando / -iendo answer. Use it to ask about anything happening right now.",
+    },
+  ],
+};
+
 const GUST_UNITS: GustUnitContent[] = [
   GUSTAR_CHAPTER,
   GUSTARIA_CHAPTER,
@@ -3640,6 +3966,8 @@ const GUST_UNITS: GustUnitContent[] = [
   ESTA_LIMPIO_CHAPTER,
   ESTUDIIE_CHAPTER,
   RECIBI_CHAPTER,
+  ESTA_CONTENTO_CHAPTER,
+  ESTA_TOCANDO_CHAPTER,
 ];
 
 /**
