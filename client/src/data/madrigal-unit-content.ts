@@ -3803,6 +3803,131 @@ const COMPRABA_CHAPTER: GustUnitContent = {
   ],
 };
 
+// ── Spanish 2 Unit 6: Tengo Catarro — Expresiones de Salud (Madrigal p. 53) ─────
+// chapterTitleKey "tengo catarro" matches DB unit "Tengo Catarro — Expresiones de Salud".
+// Collision check: "tengo catarro".includes("tener") → FALSE (tengo ≠ tener substring).
+// Three clusters: enfermedades (illnesses), dolores (pains), sentence combiner.
+
+const TENGO_CATARRO_CHAPTER: GustUnitContent = {
+  chapterTitleKey: "tengo catarro",
+  conceptLabel: "Tengo Catarro",
+  conceptDefinition: "I have a cold",
+  introNote: "In Spanish, tener (to have) is used to describe health conditions and physical states. Tengo catarro means 'I have a cold' — literally 'I have a cold.' This pattern works for illnesses, pains, and many everyday feelings.",
+  clusters: [
+    // ── Cluster 1: Enfermedades — Illnesses ──────────────────────────────
+    {
+      heading: "Enfermedades — Illnesses",
+      noteInline: "catarro  cold  ·  fiebre  fever  ·  tos  cough  ·  gripe  flu",
+      pairs: [
+        {
+          imageWord: "catarro",
+          imageDescription: "a person bundled up in a blanket on a sofa, nose red, holding a tissue",
+          question: "¿Qué tiene?",
+          questionTranslation: "What do you have? / What does he/she have?",
+          answer: "Tengo catarro.",
+          answerTranslation: "I have a cold.",
+        },
+        {
+          imageWord: "fiebre",
+          imageDescription: "a person lying in bed with a thermometer in their mouth and a warm compress on their forehead",
+          question: "¿Tiene fiebre?",
+          questionTranslation: "Do you have a fever?",
+          answer: "Sí, tengo fiebre.",
+          answerTranslation: "Yes, I have a fever.",
+        },
+        {
+          imageWord: "tos",
+          imageDescription: "a person covering their mouth with a fist while coughing, looking uncomfortable",
+          question: "¿Qué tiene?",
+          questionTranslation: "What do you have?",
+          answer: "Tengo tos.",
+          answerTranslation: "I have a cough.",
+        },
+        {
+          imageWord: "gripe",
+          imageDescription: "a person in bed looking ill, surrounded by medicine bottles and a box of tissues",
+          question: "¿Tiene gripe?",
+          questionTranslation: "Do you have the flu?",
+          answer: "Sí, tengo gripe.",
+          answerTranslation: "Yes, I have the flu.",
+        },
+      ],
+      conjugationTable: [
+        { conjugated: "tengo",   translation: "I have" },
+        { conjugated: "tiene",   translation: "you have / he, she has" },
+        { conjugated: "tenemos", translation: "we have" },
+        { conjugated: "tienen",  translation: "they have / you all have" },
+      ],
+      grammarRule: "Tener means 'to have.' With health conditions, tengo + illness = I have that illness. Tengo is irregular: note the -go ending in yo, just like salgo, vengo, and pongo.",
+    },
+    // ── Cluster 2: Dolores — Pains ────────────────────────────────────────
+    {
+      heading: "Dolores — Pains",
+      noteInline: "dolor  pain  ·  dolor de cabeza  headache  ·  dolor de garganta  sore throat  ·  dolor de estómago  stomachache  ·  dolor de espalda  backache",
+      pairs: [
+        {
+          imageWord: "cabeza",
+          imageDescription: "a person holding both hands on their temples with eyes closed, grimacing in pain",
+          question: "¿Qué tiene?",
+          questionTranslation: "What do you have?",
+          answer: "Tengo dolor de cabeza.",
+          answerTranslation: "I have a headache.",
+        },
+        {
+          imageWord: "garganta",
+          imageDescription: "a person touching their neck with one hand and looking pained, mouth slightly open",
+          question: "¿Tiene dolor de garganta?",
+          questionTranslation: "Do you have a sore throat?",
+          answer: "Sí, tengo dolor de garganta.",
+          answerTranslation: "Yes, I have a sore throat.",
+        },
+        {
+          imageWord: "estómago",
+          imageDescription: "a person sitting hunched forward with one hand pressed against their abdomen, looking uncomfortable",
+          question: "¿Tiene dolor de estómago?",
+          questionTranslation: "Do you have a stomachache?",
+          answer: "Sí, tengo dolor de estómago.",
+          answerTranslation: "Yes, I have a stomachache.",
+        },
+        {
+          imageWord: "espalda",
+          imageDescription: "a person standing and pressing one hand into their lower back, wincing slightly",
+          question: "¿Tiene dolor de espalda?",
+          questionTranslation: "Do you have a backache?",
+          answer: "Sí, tengo dolor de espalda.",
+          answerTranslation: "Yes, I have a backache.",
+        },
+      ],
+      grammarRule: "Dolor de + body part = pain in that area.\nTengo dolor de cabeza = I have a headache (lit. 'I have pain of head.')\nNote the accent on estómago: es-TÓ-ma-go.",
+      sentenceColumns: [
+        {
+          label: "Verb",
+          items: [
+            { text: "Tengo",   translation: "I have" },
+            { text: "Tiene",   translation: "You have / He, she has" },
+            { text: "Tenemos", translation: "We have" },
+            { text: "Tienen",  translation: "They have" },
+          ],
+        },
+        {
+          label: "Condition",
+          items: [
+            { text: "catarro.",             translation: "a cold." },
+            { text: "fiebre.",              translation: "a fever." },
+            { text: "tos.",                 translation: "a cough." },
+            { text: "gripe.",               translation: "the flu." },
+            { text: "dolor de cabeza.",     translation: "a headache." },
+            { text: "dolor de garganta.",   translation: "a sore throat." },
+            { text: "dolor de estómago.",   translation: "a stomachache." },
+            { text: "dolor de espalda.",    translation: "a backache." },
+          ],
+        },
+      ],
+      noteAfter: "¿Cómo se siente? — How do you feel? / How does he/she feel? Use this question to open any conversation about health.",
+    },
+  ],
+};
+
 // ── Spanish 2 Unit 11: ¿A Qué Hora Sale? — Transporte y Horarios (pp. 170–171) ─
 // Supplemented from Madrigal pp. 170–171 — departure/arrival schedules.
 // chapterTitleKey "a qué hora" matches DB unit "¿A Qué Hora Sale? — Transporte y Horarios".
@@ -4283,6 +4408,7 @@ const GUST_UNITS: GustUnitContent[] = [
   ESTA_TOCANDO_CHAPTER,
   COMPRABA_CHAPTER,
   SALE_LLEGA_CHAPTER,
+  TENGO_CATARRO_CHAPTER,
 ];
 
 /**

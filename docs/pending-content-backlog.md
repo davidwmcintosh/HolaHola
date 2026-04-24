@@ -683,7 +683,7 @@ Travel vocabulary from Madrigal pp. 170–171 (¿A qué hora sale el tren? ¿A q
 | 3 | Le: To Him, To Her | ✅ Already built (Madrigal) | — | Done |
 | 4 | Daily Routines | ⚠️ Modify | High | Rename; rebuild textbook page; source reflexive verb sentences |
 | 5 | ~~Los Números II~~ → **¿Cómo Está? — States & Feelings** | ✅ Built (April 2026) | — | GustUnit built from p.81; 3 clusters; gender agreement; wellness scale |
-| 6 | La Salud | ⚠️ Strip down | Medium | Keep core 4 health lessons; add p.53 tener expressions; remove filler |
+| 6 | ~~La Salud~~ → **Tengo Catarro — Expresiones de Salud** | ✅ Built (April 2026) | — | Stripped filler lessons 5–13 (9 deleted); GustUnit built from p.53; 2 clusters: enfermedades (catarro/fiebre/tos/gripe), dolores (cabeza/garganta/estómago/espalda); sentence combiner |
 | 7 | La Tecnología | 🔴 Flag | Low | Conversation only; no textbook until sourced |
 | 8 | El Medio Ambiente | 🔴 Flag | Low | Conversation only; no textbook until sourced |
 | 9 | ~~Intermediate Mid Skills~~ → **¿Qué Está Haciendo? — Present Progressive** | ✅ Built (April 2026) | — | GustUnit built from pp.182–185; 3 clusters; -ando/-iendo; leyendo irregular |
@@ -715,7 +715,7 @@ Travel vocabulary from Madrigal pp. 170–171 (¿A qué hora sale el tren? ¿A q
 | — | ~~Build Unit 10: Compraba — The Imperfect Tense~~ | ~~Childhood Memories~~ | ~~pp.196–197~~ | ✅ Done April 2026 |
 | 2 | Build Unit 4 interactive textbook: "Me Levanto: Reflexive Verbs" | Modify Daily Routines | Needs sentence sourcing | ⬜ Blocked (source needed) |
 | — | ~~Supplement Unit 11: ¿A Qué Hora Sale? — Transporte y Horarios~~ | ~~Travel & Culture~~ | ~~pp.170–171~~ | ✅ Done April 2026 |
-| 4 | Strip Unit 6 (Salud): remove filler lessons 5–13; add p.53 content | La Salud | Section 2, p.53 | ⬜ Pending |
+| — | ~~Strip Unit 6 (Salud): remove filler; add tener health expressions~~ | ~~La Salud~~ | ~~p.53~~ | ✅ Done April 2026 |
 | 5 | Future: present perfect (he/ha comprado) | New unit after imperfect | Section 6, pp.188–189 | ⬜ Future |
 | 6 | Future: direct object pronouns lo/la/los/las | New unit | Section 6, pp.190–191 | ⬜ Future |
 | 7 | Future: double object pronouns me lo/se lo | New unit | Section 6, pp.194–195 | ⬜ Future |
