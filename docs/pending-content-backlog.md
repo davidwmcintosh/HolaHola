@@ -687,7 +687,7 @@ Travel vocabulary from Madrigal pp. 170–171 (¿A qué hora sale el tren? ¿A q
 | 7 | La Tecnología | 🔴 Flag | Low | Conversation only; no textbook until sourced |
 | 8 | El Medio Ambiente | 🔴 Flag | Low | Conversation only; no textbook until sourced |
 | 9 | ~~Intermediate Mid Skills~~ → **¿Qué Está Haciendo? — Present Progressive** | ✅ Built (April 2026) | — | GustUnit built from pp.182–185; 3 clusters; -ando/-iendo; leyendo irregular |
-| 10 | Childhood Memories | ✅ Keep + build | High | Build textbook pages using pp. 196–197 imperfect content |
+| 10 | ~~Childhood Memories~~ → **Compraba: The Imperfect Tense** | ✅ Built (April 2026) | — | GustUnit built from pp.196–197; 3 clusters: -aba (compraba), -ía (vendía), tenía possession; full conjugation tables; sentence combiner |
 | 11 | Travel & Culture | ✅ Keep + supplement | Medium | Add ¿A qué hora sale? (pp. 170–171); build grammar spotlight |
 
 ---
@@ -712,7 +712,7 @@ Travel vocabulary from Madrigal pp. 170–171 (¿A qué hora sale el tren? ¿A q
 |---|---|---|---|---|
 | — | ~~Replace Unit 5: "¿Cómo Está? — States & Feelings"~~ | ~~Delete Números II~~ | ~~p.81~~ | ✅ Done April 2026 |
 | — | ~~Replace Unit 9: "¿Qué Está Haciendo? — Present Progressive"~~ | ~~Delete Intermediate Mid~~ | ~~pp.182–185~~ | ✅ Done April 2026 |
-| 1 | Build Unit 10 interactive textbook: imperfect -aba/-ía | Childhood Memories | Section 6, pp.196–197 | ⬜ Next |
+| — | ~~Build Unit 10: Compraba — The Imperfect Tense~~ | ~~Childhood Memories~~ | ~~pp.196–197~~ | ✅ Done April 2026 |
 | 2 | Build Unit 4 interactive textbook: "Me Levanto: Reflexive Verbs" | Modify Daily Routines | Needs sentence sourcing | ⬜ Blocked (source needed) |
 | 3 | Supplement Unit 11: add ¿A qué hora sale/llega? cluster | Travel & Culture | Section 6, pp.170–171 | ⬜ Pending |
 | 4 | Strip Unit 6 (Salud): remove filler lessons 5–13; add p.53 content | La Salud | Section 2, p.53 | ⬜ Pending |

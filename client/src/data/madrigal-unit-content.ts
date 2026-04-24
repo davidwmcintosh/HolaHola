@@ -3628,6 +3628,181 @@ const RECIBI_CHAPTER: GustUnitContent = {
   ],
 };
 
+// ── Spanish 2 Unit 10: Compraba — The Imperfect Tense (Madrigal pp. 196–197) ────
+// Replaces the hollow "Childhood Memories" placeholder.
+// chapterTitleKey "compraba" matches DB unit name "Compraba: The Imperfect Tense".
+// Three clusters: -aba pattern (compraba), -ía pattern (vendía), tenía possession.
+
+const COMPRABA_CHAPTER: GustUnitContent = {
+  chapterTitleKey: "compraba",
+  conceptLabel: "Compraba",
+  conceptDefinition: "used to buy / was buying",
+  introNote: "The imperfect tense describes what someone used to do, or how things were in the past. It is the tense of stories, memories, and descriptions. AR verbs end in -aba. ER and IR verbs end in -ía.",
+  clusters: [
+    // ── Cluster 1: Compraba — AR verbs, -aba pattern (p. 196) ────────────
+    {
+      heading: "¿Qué Compraba? — The -aba Pattern",
+      noteInline: "compraba  used to buy / was buying  ·  comprábamos  we used to buy  ·  compraban  they used to buy",
+      pairs: [
+        {
+          imageWord: "máquinas",
+          imageDescription: "a factory worker examining large industrial machines on a production floor",
+          question: "¿Qué compraba antes?",
+          questionTranslation: "What used to you buy / What did you used to buy?",
+          answer: "Compraba máquinas.",
+          answerTranslation: "I used to buy machines.",
+        },
+        {
+          imageWord: "tractores",
+          imageDescription: "a row of green farm tractors lined up in a field",
+          question: "¿Compraba tractores también?",
+          questionTranslation: "Did you used to buy tractors too?",
+          answer: "Sí, compraba tractores también.",
+          answerTranslation: "Yes, I used to buy tractors too.",
+        },
+        {
+          imageWord: "frutas",
+          imageDescription: "a colorful display of fresh fruit at an outdoor market stall",
+          question: "¿Qué compraba en el mercado?",
+          questionTranslation: "What used to you buy at the market?",
+          answer: "Compraba frutas en el mercado.",
+          answerTranslation: "I used to buy fruit at the market.",
+        },
+        {
+          imageWord: "café",
+          imageDescription: "a steaming cup of coffee on a wooden café table in the morning sun",
+          question: "¿Compraba café por las mañanas?",
+          questionTranslation: "Did you used to buy coffee in the mornings?",
+          answer: "Sí, compraba café todas las mañanas.",
+          answerTranslation: "Yes, I used to buy coffee every morning.",
+        },
+      ],
+      conjugationTable: [
+        { conjugated: "compraba",    translation: "I used to buy / you used to buy / he, she used to buy" },
+        { conjugated: "comprábamos", translation: "we used to buy" },
+        { conjugated: "compraban",   translation: "they / you all used to buy" },
+      ],
+      grammarRule: "AR verbs: drop -ar, add -aba / -ábamos / -aban\nThe yo and usted/él/ella forms are identical: compraba.",
+    },
+    // ── Cluster 2: Vendía — ER verbs, -ía pattern (p. 197) ────────────────
+    {
+      heading: "¿Qué Vendía? — The -ía Pattern",
+      noteInline: "vendía  used to sell  ·  vendíamos  we used to sell  ·  vendían  they used to sell",
+      pairs: [
+        {
+          imageWord: "sombreros",
+          imageDescription: "a street vendor with a colorful display of wide-brimmed hats at a market",
+          question: "¿Qué vendía usted?",
+          questionTranslation: "What did you used to sell?",
+          answer: "Vendía sombreros.",
+          answerTranslation: "I used to sell hats.",
+        },
+        {
+          imageWord: "blusas",
+          imageDescription: "a woman arranging folded blouses on a shop display table",
+          question: "¿Qué vendía María?",
+          questionTranslation: "What did María used to sell?",
+          answer: "María vendía blusas.",
+          answerTranslation: "María used to sell blouses.",
+        },
+        {
+          imageWord: "flores",
+          imageDescription: "a flower seller with buckets of fresh cut flowers at an outdoor stall",
+          question: "¿Vendía flores en el mercado?",
+          questionTranslation: "Did you used to sell flowers at the market?",
+          answer: "Sí, vendía flores en el mercado.",
+          answerTranslation: "Yes, I used to sell flowers at the market.",
+        },
+        {
+          imageWord: "libros",
+          imageDescription: "a small bookshop with stacks of books arranged in a narrow storefront",
+          question: "¿Vendía libros?",
+          questionTranslation: "Did you used to sell books?",
+          answer: "Sí, vendía libros en la librería.",
+          answerTranslation: "Yes, I used to sell books at the bookshop.",
+        },
+      ],
+      conjugationTable: [
+        { conjugated: "vendía",    translation: "I used to sell / you used to sell / he, she used to sell" },
+        { conjugated: "vendíamos", translation: "we used to sell" },
+        { conjugated: "vendían",   translation: "they / you all used to sell" },
+      ],
+      grammarRule: "ER / IR verbs: drop -er / -ir, add -ía / -íamos / -ían\nThe yo and usted/él/ella forms are identical: vendía.",
+    },
+    // ── Cluster 3: Tenía — possession in the past (p. 197) ───────────────
+    {
+      heading: "Tenía — What Someone Used to Have",
+      noteInline: "tenía  used to have  ·  teníamos  we used to have  ·  tenían  they used to have",
+      pairs: [
+        {
+          imageWord: "campo",
+          imageDescription: "a rustic country house surrounded by green fields and rolling hills",
+          question: "¿Tenía una casa?",
+          questionTranslation: "Did you used to have a house?",
+          answer: "Sí, tenía una casa en el campo.",
+          answerTranslation: "Yes, I used to have a house in the countryside.",
+        },
+        {
+          imageWord: "auto",
+          imageDescription: "a classic blue car parked in front of a house with a vintage feel",
+          question: "¿Tenía un auto?",
+          questionTranslation: "Did you used to have a car?",
+          answer: "Sí, tenía un auto azul.",
+          answerTranslation: "Yes, I used to have a blue car.",
+        },
+        {
+          imageWord: "caballo",
+          imageDescription: "a brown horse standing in a green pasture on a sunny day",
+          question: "¿Tenía un caballo?",
+          questionTranslation: "Did you used to have a horse?",
+          answer: "Sí, tenía un caballo.",
+          answerTranslation: "Yes, I used to have a horse.",
+        },
+        {
+          imageWord: "perro",
+          imageDescription: "a friendly dog sitting in a backyard garden looking at the camera",
+          question: "¿Tenía un perro?",
+          questionTranslation: "Did you used to have a dog?",
+          answer: "Sí, tenía un perro bonito.",
+          answerTranslation: "Yes, I used to have a beautiful dog.",
+        },
+      ],
+      conjugationTable: [
+        { conjugated: "tenía",    translation: "I used to have / you used to have / he, she used to have" },
+        { conjugated: "teníamos", translation: "we used to have" },
+        { conjugated: "tenían",   translation: "they / you all used to have" },
+      ],
+      grammarRule: "Tener follows the -ía pattern in the imperfect, even though it is irregular in the present tense.",
+      sentenceColumns: [
+        {
+          label: "Verb",
+          items: [
+            { text: "Compraba",   translation: "I used to buy" },
+            { text: "Vendía",     translation: "I used to sell" },
+            { text: "Tenía",      translation: "I used to have" },
+          ],
+        },
+        {
+          label: "Object",
+          items: [
+            { text: "máquinas.",              translation: "machines." },
+            { text: "tractores.",             translation: "tractors." },
+            { text: "sombreros.",             translation: "hats." },
+            { text: "blusas.",                translation: "blouses." },
+            { text: "flores.",                translation: "flowers." },
+            { text: "libros.",                translation: "books." },
+            { text: "una casa en el campo.",  translation: "a house in the countryside." },
+            { text: "un auto azul.",          translation: "a blue car." },
+            { text: "un caballo.",            translation: "a horse." },
+            { text: "un perro bonito.",       translation: "a beautiful dog." },
+          ],
+        },
+      ],
+      noteAfter: "Antes means 'before' or 'in the past.' Use it to signal that you are speaking in the imperfect: Antes tenía un perro. — I used to have a dog.",
+    },
+  ],
+};
+
 // ── Spanish 2 Unit 5: ¿Cómo Está? — States & Feelings (Madrigal p. 81) ─────────
 // Replaces the redundant "Los Números II" slot.
 // chapterTitleKey "cómo está" matches "¿Cómo Está? — States & Feelings" (unit name in DB).
@@ -3968,6 +4143,7 @@ const GUST_UNITS: GustUnitContent[] = [
   RECIBI_CHAPTER,
   ESTA_CONTENTO_CHAPTER,
   ESTA_TOCANDO_CHAPTER,
+  COMPRABA_CHAPTER,
 ];
 
 /**
