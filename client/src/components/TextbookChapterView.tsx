@@ -32,6 +32,7 @@ import { VerbUnit } from "./VerbUnit";
 import { GrammarConceptUnit } from "./GrammarConceptUnit";
 import { VocabularyClusterUnit } from "./VocabularyClusterUnit";
 import { PhrasesCluster } from "./PhrasesCluster";
+import { AdvancedUnit } from "./AdvancedUnit";
 import { apiRequest } from "@/lib/queryClient";
 
 interface DrillItem {
@@ -599,6 +600,18 @@ export function TextbookChapterView({
   if (chapter.chapterType === 'vocabulary_cluster') {
     return (
       <VocabularyClusterUnit
+        chapter={chapter}
+        language={language ?? "spanish"}
+        onBack={onBack}
+        onStartConversation={onStartConversation}
+      />
+    );
+  }
+
+  // ── Format 5: Advanced Unit (Spanish 3/4/5) ────────────────────────────────
+  if (chapter.chapterType === 'advanced_unit') {
+    return (
+      <AdvancedUnit
         chapter={chapter}
         language={language ?? "spanish"}
         onBack={onBack}
