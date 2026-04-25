@@ -1400,6 +1400,17 @@ Remember: David may reference things discussed in these recent text chats.
               cache.textbookChapterContext = block;
               console.log(`[Context Prefetch] Textbook chapter context loaded: ${vocab.length} vocab, ${phrases.length} phrases for lesson ${textbookLessonId}`);
             }
+            // Adjacent chapter context (prev + next lessons)
+            try {
+              const { buildAdjacentLessonContext } = await import('./textbook-navigation-service');
+              const adjacentBlock = await buildAdjacentLessonContext(textbookLessonId, _tbDb, _tbSql);
+              if (adjacentBlock) {
+                cache.textbookChapterContext = (cache.textbookChapterContext ?? '') + adjacentBlock;
+                console.log(`[Context Prefetch] Adjacent lesson context appended for lesson ${textbookLessonId}`);
+              }
+            } catch (adjErr: any) {
+              console.warn(`[Context Prefetch] Adjacent lesson context failed:`, adjErr.message);
+            }
           } catch (err: any) {
             console.warn(`[Context Prefetch] Textbook chapter context failed:`, err.message);
           }

@@ -4736,6 +4736,17 @@ Return [] if nothing is worth surfacing.`;
                 console.log(`[VOICE FAST-PATH] Injected textbook context: ${_vocab.length} vocab, ${_phrases.length} phrases for lesson ${activeConversation.textbookLessonId}`);
               }
             }
+            // Adjacent chapter context (prev + next lessons)
+            try {
+              const { buildAdjacentLessonContext } = await import('./services/textbook-navigation-service');
+              const _adjacentBlock = await buildAdjacentLessonContext(activeConversation.textbookLessonId, _voiceDb, _voiceSql);
+              if (_adjacentBlock) {
+                systemPrompt += _adjacentBlock;
+                console.log(`[VOICE FAST-PATH] Injected adjacent lesson context for lesson ${activeConversation.textbookLessonId}`);
+              }
+            } catch (adjErr: any) {
+              console.warn('[VOICE FAST-PATH] Adjacent lesson context failed:', adjErr.message);
+            }
           } catch (err: any) {
             console.warn('[VOICE FAST-PATH] Textbook context injection failed:', err.message);
           }
@@ -5584,6 +5595,17 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
               systemPrompt += _textBlock;
               console.log(`[TEXT CHAT] Injected textbook context: ${_textVocab.length} vocab, ${_textPhrases.length} phrases for lesson ${updatedConversation.textbookLessonId}`);
             }
+          }
+          // Adjacent chapter context (prev + next lessons)
+          try {
+            const { buildAdjacentLessonContext } = await import('./services/textbook-navigation-service');
+            const _textAdjacentBlock = await buildAdjacentLessonContext(updatedConversation.textbookLessonId, _textDb, _textSql);
+            if (_textAdjacentBlock) {
+              systemPrompt += _textAdjacentBlock;
+              console.log(`[TEXT CHAT] Injected adjacent lesson context for lesson ${updatedConversation.textbookLessonId}`);
+            }
+          } catch (adjErr: any) {
+            console.warn('[TEXT CHAT] Adjacent lesson context failed:', adjErr.message);
           }
         } catch (err: any) {
           console.warn('[TEXT CHAT] Textbook context injection failed:', err.message);
