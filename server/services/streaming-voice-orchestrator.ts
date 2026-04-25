@@ -1366,6 +1366,46 @@ Remember: David may reference things discussed in these recent text chats.
           .catch(err => console.warn(`[Context Prefetch] Fat context failed:`, err.message))
       );
     }
+
+    // Textbook chapter context — fetch vocab + key phrases for the chapter the student came from
+    if (session.conversationId) {
+      promises.push(
+        (async () => {
+          try {
+            const { getUserDb: _tbGetDb } = await import('../db');
+            const { sql: _tbSql } = await import('drizzle-orm');
+            const _tbDb = _tbGetDb();
+            const convRow = await _tbDb.execute(
+              _tbSql`SELECT textbook_lesson_id FROM conversations WHERE id = ${session.conversationId} LIMIT 1`
+            );
+            const textbookLessonId = convRow.rows[0]?.textbook_lesson_id as string | null;
+            if (!textbookLessonId) return;
+            const contentRow = await _tbDb.execute(
+              _tbSql`SELECT vocabulary_list, key_phrases_for_chat FROM textbook_lesson_content WHERE lesson_id = ${textbookLessonId} LIMIT 1`
+            );
+            if (!contentRow.rows[0]) return;
+            const vocab = (contentRow.rows[0].vocabulary_list ?? []) as Array<{ word: string; translation: string; partOfSpeech: string }>;
+            const phrases = (contentRow.rows[0].key_phrases_for_chat ?? []) as Array<{ phrase: string; translation: string }>;
+            let block = '📖 TEXTBOOK CHAPTER CONTEXT:';
+            if (vocab.length > 0) {
+              block += '\n\nVocabulary the student just studied in the textbook:\n';
+              block += vocab.map(v => `• ${v.word} (${v.translation}) — ${v.partOfSpeech}`).join('\n');
+              block += '\n\nUSE SHOW_IMAGE: When discussing any of these vocabulary words, call show_image(word) to display a visual — making the classroom feel continuous with the textbook.';
+            }
+            if (phrases.length > 0) {
+              block += '\n\nKey sentence patterns from this chapter to reinforce naturally:\n';
+              block += phrases.map(p => `• ${p.phrase} — ${p.translation}`).join('\n');
+            }
+            if (vocab.length > 0 || phrases.length > 0) {
+              cache.textbookChapterContext = block;
+              console.log(`[Context Prefetch] Textbook chapter context loaded: ${vocab.length} vocab, ${phrases.length} phrases for lesson ${textbookLessonId}`);
+            }
+          } catch (err: any) {
+            console.warn(`[Context Prefetch] Textbook chapter context failed:`, err.message);
+          }
+        })()
+      );
+    }
     
     await Promise.all(promises);
     session.cachedContext = cache;
@@ -2410,6 +2450,9 @@ Remember: David may reference things discussed in these recent text chats.
       }
       if (hasFreshCache && session.cachedContext?.fatContextConversations) {
         dynamicContextParts.push(session.cachedContext.fatContextConversations);
+      }
+      if (hasFreshCache && session.cachedContext?.textbookChapterContext) {
+        dynamicContextParts.push(session.cachedContext.textbookChapterContext);
       }
       
       // studentLearningSection is now folded into the classroom (Student Progress Board)
@@ -5262,6 +5305,9 @@ Remember: David may reference things discussed in these recent text chats.
       }
       if (hasFreshCacheOpenMic && session.cachedContext?.fatContextConversations) {
         dynamicContextPartsOpenMic.push(session.cachedContext.fatContextConversations);
+      }
+      if (hasFreshCacheOpenMic && session.cachedContext?.textbookChapterContext) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.textbookChapterContext);
       }
       
       if (passiveMemorySectionOpenMic) {

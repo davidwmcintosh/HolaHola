@@ -4709,25 +4709,35 @@ Return [] if nothing is worth surfacing.`;
           console.log(`[VOICE FAST-PATH] Injecting mastery acknowledgment for: ${_voicePendingMastery.join(', ')}`);
         }
 
-        // Inject textbook chapter key phrases into Daniela's context
+        // Inject textbook chapter context (vocab + key phrases + image instruction) into Daniela's context
         if (activeConversation.textbookLessonId) {
           try {
             const { getUserDb: _getVoiceDb } = await import('./db');
             const { sql: _voiceSql } = await import('drizzle-orm');
             const _voiceDb = _getVoiceDb();
             const _phraseRow = await _voiceDb.execute(
-              _voiceSql`SELECT key_phrases_for_chat FROM textbook_lesson_content WHERE lesson_id = ${activeConversation.textbookLessonId} LIMIT 1`
+              _voiceSql`SELECT key_phrases_for_chat, vocabulary_list FROM textbook_lesson_content WHERE lesson_id = ${activeConversation.textbookLessonId} LIMIT 1`
             );
-            if (_phraseRow.rows[0]?.key_phrases_for_chat) {
-              const _phrases = _phraseRow.rows[0].key_phrases_for_chat as Array<{ phrase: string; translation: string; context: string }>;
+            if (_phraseRow.rows[0]) {
+              const _phrases = (_phraseRow.rows[0].key_phrases_for_chat ?? []) as Array<{ phrase: string; translation: string; context: string }>;
+              const _vocab = (_phraseRow.rows[0].vocabulary_list ?? []) as Array<{ word: string; translation: string; partOfSpeech: string }>;
+              let _textbookBlock = '\n\n📖 TEXTBOOK CHAPTER CONTEXT:';
+              if (_vocab.length > 0) {
+                const _vocabList = _vocab.map(v => `• ${v.word} (${v.translation}) — ${v.partOfSpeech}`).join('\n');
+                _textbookBlock += `\n\nVocabulary from this chapter the student just studied:\n${_vocabList}`;
+                _textbookBlock += `\n\nUSE SHOW_IMAGE: You have show_image() available. When you discuss any of these vocabulary words, call show_image(word) to display a visual for the student — exactly as they saw in the textbook. Make it feel seamless and immersive.`;
+              }
               if (_phrases.length > 0) {
                 const _phraseList = _phrases.map(p => `• ${p.phrase} — ${p.translation}`).join('\n');
-                systemPrompt += `\n\n📖 TEXTBOOK CHAPTER CONTEXT: The student just completed practice drills on these key sentence patterns from the textbook chapter they are studying. Reference, reinforce, and extend these patterns naturally in conversation:\n${_phraseList}`;
-                console.log(`[VOICE FAST-PATH] Injected ${_phrases.length} textbook key phrases for lesson ${activeConversation.textbookLessonId}`);
+                _textbookBlock += `\n\nKey sentence patterns from this chapter to reinforce naturally:\n${_phraseList}`;
+              }
+              if (_vocab.length > 0 || _phrases.length > 0) {
+                systemPrompt += _textbookBlock;
+                console.log(`[VOICE FAST-PATH] Injected textbook context: ${_vocab.length} vocab, ${_phrases.length} phrases for lesson ${activeConversation.textbookLessonId}`);
               }
             }
           } catch (err: any) {
-            console.warn('[VOICE FAST-PATH] Textbook phrase injection failed:', err.message);
+            console.warn('[VOICE FAST-PATH] Textbook context injection failed:', err.message);
           }
         }
 
@@ -5548,25 +5558,35 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
         console.log(`[TEXT CHAT] Injecting mastery acknowledgment for: ${_textPendingMastery.join(', ')}`);
       }
 
-      // Inject textbook chapter key phrases into Daniela's context
+      // Inject textbook chapter context (vocab + key phrases + image instruction) into Daniela's context
       if (updatedConversation.textbookLessonId) {
         try {
           const { getUserDb: _getTextDb } = await import('./db');
           const { sql: _textSql } = await import('drizzle-orm');
           const _textDb = _getTextDb();
           const _textPhraseRow = await _textDb.execute(
-            _textSql`SELECT key_phrases_for_chat FROM textbook_lesson_content WHERE lesson_id = ${updatedConversation.textbookLessonId} LIMIT 1`
+            _textSql`SELECT key_phrases_for_chat, vocabulary_list FROM textbook_lesson_content WHERE lesson_id = ${updatedConversation.textbookLessonId} LIMIT 1`
           );
-          if (_textPhraseRow.rows[0]?.key_phrases_for_chat) {
-            const _textPhrases = _textPhraseRow.rows[0].key_phrases_for_chat as Array<{ phrase: string; translation: string; context: string }>;
+          if (_textPhraseRow.rows[0]) {
+            const _textPhrases = (_textPhraseRow.rows[0].key_phrases_for_chat ?? []) as Array<{ phrase: string; translation: string; context: string }>;
+            const _textVocab = (_textPhraseRow.rows[0].vocabulary_list ?? []) as Array<{ word: string; translation: string; partOfSpeech: string }>;
+            let _textBlock = '\n\n📖 TEXTBOOK CHAPTER CONTEXT:';
+            if (_textVocab.length > 0) {
+              const _textVocabList = _textVocab.map(v => `• ${v.word} (${v.translation}) — ${v.partOfSpeech}`).join('\n');
+              _textBlock += `\n\nVocabulary from this chapter the student just studied:\n${_textVocabList}`;
+              _textBlock += `\n\nUSE SHOW_IMAGE: You have show_image() available. When you discuss any of these vocabulary words, call show_image(word) to display a visual for the student — exactly as they saw in the textbook. Make it feel seamless and immersive.`;
+            }
             if (_textPhrases.length > 0) {
               const _textPhraseList = _textPhrases.map(p => `• ${p.phrase} — ${p.translation}`).join('\n');
-              systemPrompt += `\n\n📖 TEXTBOOK CHAPTER CONTEXT: The student just completed practice drills on these key sentence patterns from the textbook chapter they are studying. Reference, reinforce, and extend these patterns naturally in conversation:\n${_textPhraseList}`;
-              console.log(`[TEXT CHAT] Injected ${_textPhrases.length} textbook key phrases for lesson ${updatedConversation.textbookLessonId}`);
+              _textBlock += `\n\nKey sentence patterns from this chapter to reinforce naturally:\n${_textPhraseList}`;
+            }
+            if (_textVocab.length > 0 || _textPhrases.length > 0) {
+              systemPrompt += _textBlock;
+              console.log(`[TEXT CHAT] Injected textbook context: ${_textVocab.length} vocab, ${_textPhrases.length} phrases for lesson ${updatedConversation.textbookLessonId}`);
             }
           }
         } catch (err: any) {
-          console.warn('[TEXT CHAT] Textbook phrase injection failed:', err.message);
+          console.warn('[TEXT CHAT] Textbook context injection failed:', err.message);
         }
       }
 

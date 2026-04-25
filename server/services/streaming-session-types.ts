@@ -234,6 +234,7 @@ export interface StreamingSession {
     fatContextVocabulary?: string;
     fatContextConversations?: string;
     fatContextTokenEstimate?: number;
+    textbookChapterContext?: string;
     lastFetchTime: number;
   };
   contextCacheReady?: Promise<void>;

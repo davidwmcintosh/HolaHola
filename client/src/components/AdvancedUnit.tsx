@@ -13,7 +13,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import { getAdvancedUnitContent, type AdvancedVocabWord } from "@/data/advanced-unit-content";
+import { getAdvancedUnitContent, type AdvancedVocabWord } from "@shared/advanced-unit-content";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -247,7 +247,7 @@ export function AdvancedUnit({
         </div>
         <Button
           className="w-full min-h-[52px] text-base gap-2"
-          onClick={() => onStartConversation()}
+          onClick={() => onStartConversation(chapter.id)}
           data-testid="button-start-chapter-chat"
         >
           <MessageSquare className="h-5 w-5" />
@@ -317,7 +317,7 @@ export function AdvancedUnit({
       <div className="pt-2">
         <Button
           className="w-full min-h-[52px] text-base gap-2"
-          onClick={() => onStartConversation()}
+          onClick={() => onStartConversation(chapter.id)}
           data-testid="button-start-chapter-chat"
         >
           <MessageSquare className="h-5 w-5" />

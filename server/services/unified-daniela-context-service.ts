@@ -363,15 +363,43 @@ ${context.journeyContext}`);
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-      // Recently read lessons (marked completed in textbook)
+      // Recently interacted lesson IDs with section-type breakdown
       const readRecords = await db
-        .select({ lessonId: textbookSectionProgress.lessonId, completedAt: textbookSectionProgress.completedAt })
+        .select({
+          lessonId: textbookSectionProgress.lessonId,
+          sectionType: textbookSectionProgress.sectionType,
+          completed: textbookSectionProgress.completed,
+          drillsCompleted: textbookSectionProgress.drillsCompleted,
+          drillsTotal: textbookSectionProgress.drillsTotal,
+          completedAt: textbookSectionProgress.completedAt,
+        })
         .from(textbookSectionProgress)
         .where(eq(textbookSectionProgress.userId, userId))
         .orderBy(desc(textbookSectionProgress.completedAt))
-        .limit(8);
+        .limit(40);
 
-      const recentlyRead = readRecords.filter(r => r.completedAt !== null && r.completedAt > sevenDaysAgo);
+      const recentReadRecords = readRecords.filter(
+        r => r.completedAt !== null && r.completedAt > sevenDaysAgo
+      );
+
+      // Group by lessonId so we can report section-level completion
+      const lessonSectionMap = new Map<string, {
+        sections: Map<string, { completed: boolean; drillsCompleted?: number | null; drillsTotal?: number | null }>;
+        latestAt: Date;
+      }>();
+
+      for (const r of recentReadRecords) {
+        if (!lessonSectionMap.has(r.lessonId)) {
+          lessonSectionMap.set(r.lessonId, { sections: new Map(), latestAt: r.completedAt! });
+        }
+        const entry = lessonSectionMap.get(r.lessonId)!;
+        entry.sections.set(r.sectionType ?? 'content', {
+          completed: r.completed ?? false,
+          drillsCompleted: r.drillsCompleted,
+          drillsTotal: r.drillsTotal,
+        });
+        if (r.completedAt! > entry.latestAt) entry.latestAt = r.completedAt!;
+      }
 
       // Lessons Daniela has covered in conversation (status = 'completed')
       const coveredRecords = await db
@@ -386,11 +414,11 @@ ${context.journeyContext}`);
 
       const recentlyCovered = coveredRecords.filter(r => r.updatedAt > sevenDaysAgo);
 
-      if (recentlyRead.length === 0 && recentlyCovered.length === 0) return null;
+      if (lessonSectionMap.size === 0 && recentlyCovered.length === 0) return null;
 
       // Fetch lesson names for all relevant IDs
       const allLessonIds = [
-        ...new Set([...recentlyRead.map(r => r.lessonId), ...recentlyCovered.map(r => r.lessonId)])
+        ...new Set([...lessonSectionMap.keys(), ...recentlyCovered.map(r => r.lessonId)])
       ];
 
       const lessonRows = allLessonIds.length > 0
@@ -401,13 +429,37 @@ ${context.journeyContext}`);
 
       const lessonNameMap = new Map(lessonRows.map(l => [l.id, l.name]));
 
+      // Helper to format section completion status
+      const formatSectionStatus = (sections: Map<string, { completed: boolean; drillsCompleted?: number | null; drillsTotal?: number | null }>) => {
+        const parts: string[] = [];
+        const sectionLabels: Record<string, string> = {
+          content: 'reading',
+          vocabulary: 'vocabulary',
+          drill: 'drills',
+          rhythm: 'rhythm drill',
+          recap: 'recap',
+        };
+        for (const [type, data] of sections.entries()) {
+          const label = sectionLabels[type] ?? type;
+          if (type === 'drill' && data.drillsTotal) {
+            parts.push(`${label}: ${data.drillsCompleted ?? 0}/${data.drillsTotal}`);
+          } else {
+            parts.push(`${label}: ${data.completed ? '✓' : 'in progress'}`);
+          }
+        }
+        return parts.join(', ');
+      };
+
       let output = '';
 
-      if (recentlyRead.length > 0) {
-        const names = recentlyRead.map(r => lessonNameMap.get(r.lessonId) ?? r.lessonId).filter(Boolean);
-        output += `Student has recently read in the textbook (last 7 days):\n`;
-        names.forEach(n => { output += `  • ${n}\n`; });
-        output += `\nINSTRUCTION: If you haven't already reinforced these topics in conversation, naturally work them in. Ask the student if they have questions about what they read, or use the vocabulary/grammar from those lessons.\n`;
+      if (lessonSectionMap.size > 0) {
+        output += `Student has recently studied in the textbook (last 7 days — section details below):\n`;
+        for (const [lessonId, entry] of lessonSectionMap.entries()) {
+          const name = lessonNameMap.get(lessonId) ?? lessonId;
+          const statusStr = formatSectionStatus(entry.sections);
+          output += `  • ${name} — ${statusStr}\n`;
+        }
+        output += `\nINSTRUCTION: Use this section data. If the student completed vocabulary but not drills, offer to drill. If they read the passage, ask a comprehension question. Reinforce what they've studied. If they haven't started a section, gently guide them there.\n`;
       }
 
       if (recentlyCovered.length > 0) {
