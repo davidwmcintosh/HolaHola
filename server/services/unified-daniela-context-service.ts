@@ -53,6 +53,7 @@ export interface UnifiedDanielaContext {
   textbookReadingContext: string | null;
   journeyContext: string | null;
   courseTOC: string | null;
+  pedagogyDocContext: string | null;
   channel: string;
   loadedAt: Date;
 }
@@ -220,6 +221,11 @@ class UnifiedDanielaContextService {
       contextKeys.push('courseTOC');
     }
 
+    // Pedagogy doc — full brief + key roadmap sections for Daniela's review
+    // Always loaded (not student-specific) — cached after first read
+    contextPromises.push(this.buildPedagogyDocContext());
+    contextKeys.push('pedagogyDocContext');
+
     const results = await Promise.all(contextPromises);
     
     const context: UnifiedDanielaContext = {
@@ -234,6 +240,7 @@ class UnifiedDanielaContextService {
       journeyContext: results[8],
       textbookReadingContext: results[9] ?? null,
       courseTOC: results[10] ?? null,
+      pedagogyDocContext: results[11] ?? null,
       channel,
       loadedAt: new Date(),
     };
@@ -250,6 +257,15 @@ class UnifiedDanielaContextService {
    */
   formatForPrompt(context: UnifiedDanielaContext): string {
     const sections: string[] = [];
+
+    if (context.pedagogyDocContext) {
+      sections.push(`
+═══════════════════════════════════════════════════════════════════
+📋 PEDAGOGY FOUNDATION — Your Character & Teaching Philosophy
+(Full brief + key roadmap source sections. Read this to evaluate and respond to the 8 seeded principles.)
+═══════════════════════════════════════════════════════════════════
+${context.pedagogyDocContext}`);
+    }
 
     if (context.growthMemory) {
       sections.push(`
@@ -726,6 +742,115 @@ ${context.journeyContext}`);
       return this._fetchTOCForPath(db, rawSql, pathId);
     } catch (err: any) {
       console.warn(`[UnifiedDanielContext] Course TOC error:`, err.message);
+      return null;
+    }
+  }
+
+  /**
+   * Build Daniela's pedagogy foundation context.
+   *
+   * Injects:
+   *   1. The full pedagogical brief (`docs/daniela-pedagogy-brief.md`) — addressed directly to Daniela
+   *      for her review and input before adoption.
+   *   2. Two deeper roadmap passages that expand on what the brief summarises:
+   *      - I.K: The Interactive Textbook Architecture (why Daniela initiates and leads every page)
+   *      - I.M: The Cognate Trap — the three-tier hierarchy and why image anchoring is primary
+   *
+   * Cached at service level — the files are read once per server restart, not once per session.
+   */
+  private _pedagogyDocCache: string | null | undefined = undefined; // undefined = not yet loaded
+
+  async buildPedagogyDocContext(): Promise<string | null> {
+    if (this._pedagogyDocCache !== undefined) return this._pedagogyDocCache;
+
+    try {
+      const { promises: fs } = await import('fs');
+      const { join } = await import('path');
+
+      // 1. Full pedagogy brief (addressed to Daniela)
+      const briefPath = join(process.cwd(), 'docs', 'daniela-pedagogy-brief.md');
+      let briefText = '';
+      try {
+        briefText = await fs.readFile(briefPath, 'utf-8');
+      } catch {
+        console.warn('[UnifiedDanielContext] Pedagogy brief not found at docs/daniela-pedagogy-brief.md');
+      }
+
+      // 2. Condensed I.K — The Interactive Textbook Architecture
+      const roadmapIK = `
+═══ FROM THE ROADMAP: Part I.K — The Interactive Textbook Architecture ═══
+
+THE CORE INSIGHT
+When a student opens a textbook page with Daniela present, Daniela speaks the instruction. She explains the rule. She names the picture. She walks the student through the verb table. The student's job is to respond — not to decode.
+
+The page goes from a thing you read and interpret to a thing you react to.
+
+DANIELA INITIATES. ALWAYS.
+When a student opens a page, Daniela is already explaining it. There is no "Practice Mode" button. There is no "Start Drill" toggle. The audio-on state is the practice state.
+
+THE ONLY REMAINING DRILL USE CASE
+When a conversation goes off-curriculum — the student's job, a hobby, a trip — new vocabulary surfaces that isn't in any textbook page. This is the only remaining legitimate use case for a standalone drill structure. It should be: short-lived (7–14 days), Daniela-curated, small, and phrase-based (not naked vocabulary). "Trabajo en una oficina — I work in an office" not "oficina = office."
+
+OBSERVABLE BEHAVIOR REPLACES INFERRED BEHAVIOR
+In an interactive textbook, the student's button presses and audio submissions already identify exactly which page and which element they were working on. Daniela doesn't need to ask "did you practice?" — the event log already answers it.
+
+DANIELA AS FLUENCY JUDGE
+The event log tells you what the student did. Daniela tells you who they're becoming. Three signal streams: (1) real-time pattern signals — wobble, stability, derivation, pounding; (2) session-level milestone observations — first spontaneous use of a tense they avoided; (3) ACTFL-aligned holistic assessment across sessions. A grammar quiz cannot notice that a student hesitated less this week than last week.
+`;
+
+      // 3. Condensed I.M — The Cognate Trap
+      const roadmapIM = `
+═══ FROM THE ROADMAP: Part I.M — The Cognate Trap (Why Image Anchoring Is Primary) ═══
+
+THE CORE DISTINCTION
+- Magic Key to Spanish: organised around cognates. The student's native language is always in the chain.
+- See It and Say It in Spanish: organised around images. No native language involved.
+
+This is not a minor formatting difference. It is a different theory of how vocabulary should be learned.
+
+THE THREE-TIER COGNATE HIERARCHY
+Tier 1 — Direct cognates (actor/actor, doctor/doctor): genuinely free vocabulary. No transformation step. Useful and costs nothing.
+
+Tier 2 — Pattern cognates (ambulance/ambulancia, conversation/conversación): a decoding operation, not vocabulary acquisition. The student is practising the rule, not learning the Spanish word. Critically, they are installing a memory trace that permanently routes through English. That is not fluency. That is a lookup table. Furthermore: the pattern rule is an English-speaker's hack — it does not transfer to Korean speakers, Arabic speakers, or Mandarin speakers. It is the most portable-seeming approach and the least portable in practice.
+
+Tier 3 — False friends (embarazada/embarrassed): the same routing mechanism, but it misfires.
+
+THE DLIFLC FINDING
+The Defense Language Institute tests all students on the DLAB — the Defense Language Aptitude Battery — before any language program. It measures raw pattern-inference ability on an invented language. Their finding: the ability to infer from context is the single strongest predictor of language acquisition ability. Pattern cognate rules are a substitute for contextual inference — and an inferior one. They short-circuit the more generalizable skill precisely because they offer a shortcut.
+
+DANIELA'S IMPLICATION
+Daniela never teaches a word by prompting the student to recall its English equivalent. She teaches from the concept — which is what the image already establishes.
+  WRONG: "Conversación is like 'conversation' in English — just change the ending."
+  RIGHT: Point to the image or describe the scene, and name it in Spanish.
+
+When a student encounters an unfamiliar word, Daniela asks: "What do you think that word means from the context?" — never "Does that look like an English word you know?"
+
+WHAT CARRIES FORWARD FROM MAGIC KEY
+The substitution drill grid format → Daniela's sentence table tool. The direct cognates scattered through the vocabulary → surfaced by Daniela as bonuses, not teaching anchors. The grammar sequence (preterite before present, near future early) → the Spanish 1 compartment order. The pattern cognate rules as a teaching method → do NOT carry forward.
+`;
+
+      if (!briefText && !roadmapIK) {
+        this._pedagogyDocCache = null;
+        return null;
+      }
+
+      const combined = [
+        briefText ? `═══════════════════════════════════════════════════════════════════
+📋 PEDAGOGY BRIEF — For Daniela's Review & Input (Read before evaluating the 8 seeded principles)
+═══════════════════════════════════════════════════════════════════
+
+${briefText}` : '',
+        roadmapIK,
+        roadmapIM,
+      ].filter(Boolean).join('\n\n');
+
+      this._pedagogyDocCache = combined;
+      console.log(`[UnifiedDanielContext] Pedagogy doc context cached (${combined.length} chars)`);
+      return combined;
+
+    } catch (err: any) {
+      console.warn(`[UnifiedDanielContext] Pedagogy doc context error:`, err.message);
+      this._pedagogyDocCache = null;
       return null;
     }
   }

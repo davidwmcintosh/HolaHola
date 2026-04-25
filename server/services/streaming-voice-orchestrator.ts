@@ -1440,6 +1440,22 @@ Remember: David may reference things discussed in these recent text chats.
       );
     }
 
+    // Pedagogy foundation doc — brief + I.K/I.M roadmap passages (cached after first load)
+    promises.push(
+      (async () => {
+        try {
+          const { unifiedDanielaContextService } = await import('./unified-daniela-context-service');
+          const pedagogy = await unifiedDanielaContextService.buildPedagogyDocContext();
+          if (pedagogy) {
+            cache.pedagogyDocContext = pedagogy;
+            console.log(`[Context Prefetch] Pedagogy doc context loaded (${pedagogy.length} chars)`);
+          }
+        } catch (err: any) {
+          console.warn(`[Context Prefetch] Pedagogy doc context failed:`, err.message);
+        }
+      })()
+    );
+
     await Promise.all(promises);
     session.cachedContext = cache;
     console.log(`[Context Prefetch] Session ${session.id} context pre-cached in ${Date.now() - prefetchStart}ms`);
@@ -2489,6 +2505,9 @@ Remember: David may reference things discussed in these recent text chats.
       }
       if (hasFreshCache && session.cachedContext?.courseTOC) {
         dynamicContextParts.push(session.cachedContext.courseTOC);
+      }
+      if (hasFreshCache && session.cachedContext?.pedagogyDocContext) {
+        dynamicContextParts.push(session.cachedContext.pedagogyDocContext);
       }
       
       // studentLearningSection is now folded into the classroom (Student Progress Board)
@@ -5347,6 +5366,9 @@ Remember: David may reference things discussed in these recent text chats.
       }
       if (hasFreshCacheOpenMic && session.cachedContext?.courseTOC) {
         dynamicContextPartsOpenMic.push(session.cachedContext.courseTOC);
+      }
+      if (hasFreshCacheOpenMic && session.cachedContext?.pedagogyDocContext) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.pedagogyDocContext);
       }
       
       if (passiveMemorySectionOpenMic) {

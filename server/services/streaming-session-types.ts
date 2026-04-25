@@ -236,6 +236,7 @@ export interface StreamingSession {
     fatContextTokenEstimate?: number;
     textbookChapterContext?: string;
     courseTOC?: string;
+    pedagogyDocContext?: string;
     lastFetchTime: number;
   };
   contextCacheReady?: Promise<void>;
