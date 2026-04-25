@@ -73,7 +73,7 @@ export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 /**
  * Whiteboard item display types (lowercase for UI styling)
  */
-export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'call_assistant' | 'actfl_update' | 'syllabus_progress' | 'phase_shift' | 'hive' | 'self_surgery' | 'pronunciation_coaching' | 'assistant_handoff' | 'dialogue' | 'scene_canvas';
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'call_assistant' | 'actfl_update' | 'syllabus_progress' | 'phase_shift' | 'hive' | 'self_surgery' | 'pronunciation_coaching' | 'assistant_handoff' | 'dialogue' | 'scene_canvas' | 'sentence_table' | 'textbook_search';
 
 /**
  * Drill types for inline micro-exercises
@@ -994,6 +994,54 @@ export interface SceneCanvasItem extends WhiteboardItemBase {
 
 // ──────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Sentence table item data — Madrigal-style substitution drill
+ * Renders a column grid where changing one column produces a new valid sentence.
+ * Daniela calls show_sentence_table(lesson_id) and the backend fetches micro_cycle_data.sentenceColumns.
+ */
+export interface SentenceColumn {
+  header?: string;
+  items: string[];
+}
+
+export interface SentenceTableItemData {
+  patternLabel?: string;         // e.g. "Voy al/a la ___" — the sentence pattern being drilled
+  columns: SentenceColumn[];     // 2-4 columns; swapping within a column = new valid sentence
+  lessonId?: string;             // Source lesson (for reference)
+  isLoading?: boolean;
+}
+
+export interface SentenceTableItem extends WhiteboardItemBase {
+  type: 'sentence_table';
+  content: string;
+  data: SentenceTableItemData;
+}
+
+/**
+ * Textbook search result item — returned when Daniela calls search_textbook(query)
+ * Displays matching chapters/lessons with excerpts so student can see what was found.
+ */
+export interface TextbookSearchMatch {
+  unitName: string;
+  lessonName: string;
+  lessonId: string;
+  chapterNumber?: number;
+  excerpt: string;               // Short excerpt from the matched field (grammar_explanation, etc.)
+  matchField: 'lesson_name' | 'unit_name' | 'grammar_explanation' | 'cultural_note' | 'conversation_topic';
+}
+
+export interface TextbookSearchItemData {
+  query: string;
+  matches: TextbookSearchMatch[];
+  isLoading?: boolean;
+}
+
+export interface TextbookSearchItem extends WhiteboardItemBase {
+  type: 'textbook_search';
+  content: string;
+  data: TextbookSearchItemData;
+}
+
 export type WhiteboardItem = 
   | WriteItem 
   | PhoneticItem 
@@ -1022,7 +1070,9 @@ export type WhiteboardItem =
   | HiveItem
   | SelfSurgeryItem
   | DialogueItem
-  | SceneCanvasItem;
+  | SceneCanvasItem
+  | SentenceTableItem
+  | TextbookSearchItem;
 
 /**
  * Legacy interface for backward compatibility
@@ -2830,6 +2880,14 @@ export function isDialogueItem(item: WhiteboardItem): item is DialogueItem {
 
 export function isSceneCanvasItem(item: WhiteboardItem): item is SceneCanvasItem {
   return item.type === 'scene_canvas';
+}
+
+export function isSentenceTableItem(item: WhiteboardItem): item is SentenceTableItem {
+  return item.type === 'sentence_table';
+}
+
+export function isTextbookSearchItem(item: WhiteboardItem): item is TextbookSearchItem {
+  return item.type === 'textbook_search';
 }
 
 /**

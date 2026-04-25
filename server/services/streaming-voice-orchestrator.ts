@@ -1418,6 +1418,28 @@ Remember: David may reference things discussed in these recent text chats.
       );
     }
     
+    // Course TOC — full chapter/lesson map for the student's enrolled course
+    if (session.userId && session.targetLanguage) {
+      promises.push(
+        (async () => {
+          try {
+            const { unifiedDanielaContextService } = await import('./unified-daniela-context-service');
+            const toc = await unifiedDanielaContextService.buildCourseTOC(
+              String(session.userId),
+              session.targetLanguage!
+            );
+            if (toc) {
+              cache.courseTOC = toc;
+              const unitCount = (toc.match(/^Ch\./gm) || []).length;
+              console.log(`[Context Prefetch] Course TOC loaded: ${unitCount} chapters for ${session.targetLanguage}`);
+            }
+          } catch (err: any) {
+            console.warn(`[Context Prefetch] Course TOC failed:`, err.message);
+          }
+        })()
+      );
+    }
+
     await Promise.all(promises);
     session.cachedContext = cache;
     console.log(`[Context Prefetch] Session ${session.id} context pre-cached in ${Date.now() - prefetchStart}ms`);
@@ -2464,6 +2486,9 @@ Remember: David may reference things discussed in these recent text chats.
       }
       if (hasFreshCache && session.cachedContext?.textbookChapterContext) {
         dynamicContextParts.push(session.cachedContext.textbookChapterContext);
+      }
+      if (hasFreshCache && session.cachedContext?.courseTOC) {
+        dynamicContextParts.push(session.cachedContext.courseTOC);
       }
       
       // studentLearningSection is now folded into the classroom (Student Progress Board)
@@ -5319,6 +5344,9 @@ Remember: David may reference things discussed in these recent text chats.
       }
       if (hasFreshCacheOpenMic && session.cachedContext?.textbookChapterContext) {
         dynamicContextPartsOpenMic.push(session.cachedContext.textbookChapterContext);
+      }
+      if (hasFreshCacheOpenMic && session.cachedContext?.courseTOC) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.courseTOC);
       }
       
       if (passiveMemorySectionOpenMic) {

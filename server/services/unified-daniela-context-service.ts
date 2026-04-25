@@ -52,6 +52,7 @@ export interface UnifiedDanielaContext {
   curriculumContext: string | null;
   textbookReadingContext: string | null;
   journeyContext: string | null;
+  courseTOC: string | null;
   channel: string;
   loadedAt: Date;
 }
@@ -210,6 +211,15 @@ class UnifiedDanielaContextService {
       contextKeys.push('textbookReadingContext');
     }
 
+    // Course TOC — lightweight table of contents for the student's full language course
+    if (userId && targetLanguage) {
+      contextPromises.push(this.buildCourseTOC(userId.toString(), targetLanguage));
+      contextKeys.push('courseTOC');
+    } else {
+      contextPromises.push(Promise.resolve(null));
+      contextKeys.push('courseTOC');
+    }
+
     const results = await Promise.all(contextPromises);
     
     const context: UnifiedDanielaContext = {
@@ -223,6 +233,7 @@ class UnifiedDanielaContextService {
       curriculumContext: results[7],
       journeyContext: results[8],
       textbookReadingContext: results[9] ?? null,
+      courseTOC: results[10] ?? null,
       channel,
       loadedAt: new Date(),
     };
@@ -294,6 +305,14 @@ ${context.hiveContext}`);
 🧠 TEACHING KNOWLEDGE (From My Neural Network)
 ═══════════════════════════════════════════════════════════════════
 ${context.neuralNetworkContext}`);
+    }
+
+    if (context.courseTOC) {
+      sections.push(`
+═══════════════════════════════════════════════════════════════════
+🗺️ COURSE MAP — Full Chapter & Lesson Reference
+═══════════════════════════════════════════════════════════════════
+${context.courseTOC}`);
     }
 
     if (context.curriculumContext) {
@@ -661,6 +680,109 @@ ${context.journeyContext}`);
     if (diffMins < 60) return `${diffMins}min ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     return 'Yesterday';
+  }
+
+  /**
+   * Build a lightweight course table of contents — all chapter titles and lesson names
+   * for the student's enrolled curriculum path.
+   * 
+   * Daniela carries this at all times so she can say "that's coming up in Chapter 8"
+   * or "we covered that in Chapter 3" with accurate references.
+   * 
+   * Designed to be compact: ~400 tokens for a full Spanish 1 course.
+   */
+  async buildCourseTOC(userId: string, targetLanguage: string): Promise<string | null> {
+    try {
+      const { getUserDb } = await import('../db');
+      const { sql: rawSql } = await import('drizzle-orm');
+      const db = getUserDb();
+
+      // Find the student's active curriculum path via enrollment
+      const enrollmentRows = await db.execute(rawSql`
+        SELECT tc.curriculum_path_id
+        FROM class_enrollments ce
+        JOIN teacher_classes tc ON ce.class_id = tc.id
+        WHERE ce.student_id = ${userId}
+          AND ce.is_active = true
+          AND tc.language = ${targetLanguage}
+        LIMIT 1
+      `);
+
+      const pathId = enrollmentRows.rows[0]?.curriculum_path_id as string | null;
+
+      if (!pathId) {
+        // Fallback: try to find any path for this language
+        const pathRows = await db.execute(rawSql`
+          SELECT id FROM curriculum_paths
+          WHERE language = ${targetLanguage}
+          ORDER BY created_at ASC
+          LIMIT 1
+        `);
+        const fallbackPathId = pathRows.rows[0]?.id as string | null;
+        if (!fallbackPathId) return null;
+        return this._fetchTOCForPath(db, rawSql, fallbackPathId);
+      }
+
+      return this._fetchTOCForPath(db, rawSql, pathId);
+    } catch (err: any) {
+      console.warn(`[UnifiedDanielContext] Course TOC error:`, err.message);
+      return null;
+    }
+  }
+
+  private async _fetchTOCForPath(db: any, rawSql: any, pathId: string): Promise<string | null> {
+    // Fetch all units in order
+    const unitRows = await db.execute(rawSql`
+      SELECT id, name, order_index, description
+      FROM curriculum_units
+      WHERE curriculum_path_id = ${pathId}
+      ORDER BY order_index ASC
+    `);
+
+    if (!unitRows.rows.length) return null;
+
+    // Fetch all lessons in order
+    const lessonRows = await db.execute(rawSql`
+      SELECT cl.id, cl.name, cl.conversation_topic, cl.order_index, cl.curriculum_unit_id
+      FROM curriculum_lessons cl
+      JOIN curriculum_units cu ON cl.curriculum_unit_id = cu.id
+      WHERE cu.curriculum_path_id = ${pathId}
+      ORDER BY cu.order_index ASC, cl.order_index ASC
+    `);
+
+    // Build a unit → lessons map
+    const lessonsByUnit = new Map<string, Array<{ id: string; name: string; topic?: string; order: number }>>();
+    for (const row of lessonRows.rows as any[]) {
+      const unitId = row.curriculum_unit_id as string;
+      if (!lessonsByUnit.has(unitId)) lessonsByUnit.set(unitId, []);
+      lessonsByUnit.get(unitId)!.push({
+        id: row.id,
+        name: row.name,
+        topic: row.conversation_topic || undefined,
+        order: row.order_index,
+      });
+    }
+
+    // Format compact TOC
+    const lines: string[] = [
+      `This is your course map — the full table of contents for the student's Spanish 1 course.`,
+      `You carry this so you can reference any chapter or lesson accurately in conversation.`,
+      ``,
+    ];
+
+    for (const unit of unitRows.rows as any[]) {
+      const chapterNum = unit.order_index as number;
+      lines.push(`Ch.${chapterNum}: ${unit.name}`);
+      const lessons = lessonsByUnit.get(unit.id as string) || [];
+      for (const lesson of lessons) {
+        const topicNote = lesson.topic ? ` (${lesson.topic})` : '';
+        lines.push(`  · ${lesson.name}${topicNote} [id: ${lesson.id}]`);
+      }
+    }
+
+    const toc = lines.join('\n');
+    console.log(`[UnifiedDanielContext] Course TOC built: ${unitRows.rows.length} chapters, ${lessonRows.rows.length} lessons`);
+    return toc;
   }
 }
 

@@ -93,8 +93,10 @@ import type {
   MatchPair,
   DialogueItem,
   DialogueLine,
+  SentenceTableItem,
+  TextbookSearchItem,
 } from "@shared/whiteboard-types";
-import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isDialogueItem, isSceneCanvasItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, isMultipleChoiceDrill, isTrueFalseDrill, isConjugationDrill, isDictationDrill, isSpeakDrill, isCognateMatchDrill, isFalseFriendTrapDrill, getDrillInstructions } from "@shared/whiteboard-types";
+import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isDialogueItem, isSceneCanvasItem, isSentenceTableItem, isTextbookSearchItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, isMultipleChoiceDrill, isTrueFalseDrill, isConjugationDrill, isDictationDrill, isSpeakDrill, isCognateMatchDrill, isFalseFriendTrapDrill, getDrillInstructions } from "@shared/whiteboard-types";
 import { SceneCanvas } from "@/components/SceneCanvas";
 import type { CognatePair, FalseFriendOption } from "@shared/whiteboard-types";
 import type { ToneItem } from "@shared/whiteboard-types";
@@ -153,6 +155,10 @@ const getItemIcon = (type: WhiteboardItemType) => {
       return <TrendingUp className="h-4 w-4" />;
     case "text_input":
       return <PenLine className="h-4 w-4" />;
+    case "sentence_table":
+      return <Table2 className="h-4 w-4" />;
+    case "textbook_search":
+      return <BookOpen className="h-4 w-4" />;
     default:
       return null;
   }
@@ -198,6 +204,10 @@ const getItemStyle = (type: WhiteboardItemType): string => {
       return "bg-blue-500/10 border-blue-500/30 text-blue-700 dark:text-blue-300";
     case "text_input":
       return "bg-lime-500/10 border-lime-500/30 text-lime-700 dark:text-lime-300";
+    case "sentence_table":
+      return "bg-indigo-500/10 border-indigo-500/30 text-indigo-700 dark:text-indigo-300";
+    case "textbook_search":
+      return "bg-sky-500/10 border-sky-500/30 text-sky-700 dark:text-sky-300";
     default:
       return "bg-muted border-border text-foreground";
   }
@@ -3804,6 +3814,95 @@ const TextInputItemDisplay = ({ item, index, onSubmit }: TextInputItemDisplayPro
   );
 };
 
+// ─── Sentence Table (Madrigal substitution drill) ───────────────────────────
+function SentenceTableItemDisplay({ item, index }: { item: SentenceTableItem; index: number }) {
+  const { columns, patternLabel } = item.data;
+  if (!columns || columns.length === 0) return null;
+  const maxRows = Math.max(...columns.map(c => c.items.length));
+
+  return (
+    <div className="space-y-2" data-testid={`whiteboard-item-sentence-table-${index}`}>
+      {patternLabel && (
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{patternLabel}</p>
+      )}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr>
+              {columns.map((col, ci) => (
+                <th
+                  key={ci}
+                  className="text-left px-3 py-1.5 text-xs font-semibold text-muted-foreground border-b border-border/60 uppercase tracking-wide"
+                >
+                  {col.header || `Column ${ci + 1}`}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: maxRows }).map((_, ri) => (
+              <tr key={ri} className="border-b border-border/30 last:border-0 hover:bg-muted/30 transition-colors">
+                {columns.map((col, ci) => (
+                  <td
+                    key={ci}
+                    className="px-3 py-1.5 font-medium"
+                    data-testid={`sentence-table-cell-${index}-${ri}-${ci}`}
+                  >
+                    {col.items[ri] ?? ''}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Each row is a complete sentence — swap any column to make a new one.
+      </p>
+    </div>
+  );
+}
+
+// ─── Textbook Search Results ──────────────────────────────────────────────────
+function TextbookSearchItemDisplay({ item, index }: { item: TextbookSearchItem; index: number }) {
+  const { query, matches } = item.data;
+
+  return (
+    <div className="space-y-2" data-testid={`whiteboard-item-textbook-search-${index}`}>
+      <div className="flex items-center gap-2">
+        <BookOpen className="h-4 w-4 text-muted-foreground shrink-0" />
+        <p className="text-sm font-medium">
+          Results for &ldquo;<span className="text-foreground">{query}</span>&rdquo;
+        </p>
+      </div>
+      {matches.length === 0 ? (
+        <p className="text-sm text-muted-foreground italic">No chapters found covering this topic yet.</p>
+      ) : (
+        <div className="space-y-2">
+          {matches.map((match, mi) => (
+            <div
+              key={mi}
+              className="rounded-md border border-border/50 bg-background/60 px-3 py-2 space-y-0.5"
+              data-testid={`textbook-search-match-${index}-${mi}`}
+            >
+              <div className="flex items-center gap-2">
+                {match.chapterNumber !== undefined && (
+                  <span className="text-xs font-semibold text-muted-foreground shrink-0">Ch.{match.chapterNumber}</span>
+                )}
+                <span className="text-sm font-semibold text-foreground">{match.unitName}</span>
+              </div>
+              <p className="text-xs text-muted-foreground">{match.lessonName}</p>
+              {match.excerpt && (
+                <p className="text-xs text-foreground/70 line-clamp-2">{match.excerpt}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const WhiteboardItemDisplay = ({ 
   item, 
   index,
@@ -3946,6 +4045,14 @@ const WhiteboardItemDisplay = ({
         data-testid={`whiteboard-item-scene-canvas-${index}`}
       />
     );
+  }
+
+  if (isSentenceTableItem(item)) {
+    return <SentenceTableItemDisplay item={item} index={index} />;
+  }
+
+  if (isTextbookSearchItem(item)) {
+    return <TextbookSearchItemDisplay item={item} index={index} />;
   }
   
   return <TextItemDisplay item={item} index={index} />;

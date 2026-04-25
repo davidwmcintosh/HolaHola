@@ -4153,6 +4153,28 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'SHOW_SENTENCE_TABLE': {
+        const text = fn.args.text as string | undefined;
+        const lessonId = (fn.args.lesson_id || fn.args.lessonId) as string | undefined;
+        if (!lessonId) {
+          console.warn(`[Native Function→ShowSentenceTable] Missing lesson_id`);
+          break;
+        }
+        await this.handleShowSentenceTable(session, lessonId, text);
+        break;
+      }
+
+      case 'SEARCH_TEXTBOOK': {
+        const text = fn.args.text as string | undefined;
+        const query = fn.args.query as string | undefined;
+        if (!query) {
+          console.warn(`[Native Function→SearchTextbook] Missing query param`);
+          break;
+        }
+        await this.handleSearchTextbook(session, query, text);
+        break;
+      }
+
       default:
         console.log(`[Native Function Call] Unknown function type: ${fn.legacyType}`);
     }
@@ -4943,6 +4965,157 @@ export class NativeFunctionCallHandler {
       
     } catch (error: any) {
       console.error(`[Architect Bidirectional] Failed to route message:`, error.message);
+    }
+  }
+
+  /**
+   * Handle show_sentence_table — fetch micro_cycle_data from textbook_lesson_content
+   * and emit a sentence_table whiteboard update to the student's classroom.
+   */
+  async handleShowSentenceTable(session: StreamingSession, lessonId: string, text?: string): Promise<void> {
+    if (text && !session.functionCallText) {
+      session.functionCallText = text;
+    }
+
+    try {
+      const { getUserDb } = await import('../db');
+      const { sql: rawSql } = await import('drizzle-orm');
+      const db = getUserDb();
+
+      const rows = await db.execute(
+        rawSql`SELECT micro_cycle_data FROM textbook_lesson_content WHERE lesson_id = ${lessonId} LIMIT 1`
+      );
+
+      const microCycleData = rows.rows[0]?.micro_cycle_data as any;
+      const sentenceColumns = microCycleData?.sentenceColumns as Array<{ header?: string; items: string[] }> | undefined;
+      const patternLabel = microCycleData?.patternLabel as string | undefined;
+
+      if (!sentenceColumns || sentenceColumns.length === 0) {
+        console.warn(`[Native Function→ShowSentenceTable] No sentenceColumns in micro_cycle_data for lesson ${lessonId}`);
+        return;
+      }
+
+      const whiteboardUpdate = {
+        type: 'whiteboard_update' as const,
+        timestamp: Date.now(),
+        items: [{
+          type: 'sentence_table' as const,
+          content: patternLabel || `Sentence patterns from lesson ${lessonId}`,
+          data: {
+            patternLabel,
+            columns: sentenceColumns,
+            lessonId,
+          },
+        }],
+      };
+
+      if (session.firstAudioSent) {
+        this.sendMessage(session.ws, whiteboardUpdate);
+      } else {
+        if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
+        session.pendingWhiteboardUpdates.push(whiteboardUpdate);
+        console.log(`[Native Function→ShowSentenceTable] Buffered for audio sync`);
+      }
+
+      console.log(`[Native Function→ShowSentenceTable] Sent ${sentenceColumns.length} columns for lesson ${lessonId}`);
+    } catch (err: any) {
+      console.error(`[Native Function→ShowSentenceTable] Error:`, err.message);
+    }
+  }
+
+  /**
+   * Handle search_textbook — keyword search across curriculum units/lessons and textbook content.
+   * Emits a textbook_search whiteboard update with matching chapters.
+   */
+  async handleSearchTextbook(session: StreamingSession, query: string, text?: string): Promise<void> {
+    if (text && !session.functionCallText) {
+      session.functionCallText = text;
+    }
+
+    try {
+      const { getUserDb } = await import('../db');
+      const { sql: rawSql } = await import('drizzle-orm');
+      const db = getUserDb();
+
+      const searchPattern = `%${query.toLowerCase()}%`;
+
+      // Search across lesson names, unit names, grammar explanations, cultural notes, conversation topics
+      const rows = await db.execute(rawSql`
+        SELECT DISTINCT
+          cl.id AS lesson_id,
+          cl.name AS lesson_name,
+          cl.conversation_topic,
+          cl.order_index AS lesson_order,
+          cu.name AS unit_name,
+          cu.order_index AS unit_order,
+          tlc.grammar_explanation,
+          tlc.cultural_note,
+          CASE
+            WHEN LOWER(cl.name) LIKE ${searchPattern} THEN 'lesson_name'
+            WHEN LOWER(cu.name) LIKE ${searchPattern} THEN 'unit_name'
+            WHEN LOWER(cl.conversation_topic) LIKE ${searchPattern} THEN 'conversation_topic'
+            WHEN LOWER(tlc.grammar_explanation) LIKE ${searchPattern} THEN 'grammar_explanation'
+            WHEN LOWER(tlc.cultural_note) LIKE ${searchPattern} THEN 'cultural_note'
+            ELSE 'lesson_name'
+          END AS match_field
+        FROM curriculum_lessons cl
+        JOIN curriculum_units cu ON cl.curriculum_unit_id = cu.id
+        LEFT JOIN textbook_lesson_content tlc ON tlc.lesson_id = cl.id
+        WHERE
+          LOWER(cl.name) LIKE ${searchPattern}
+          OR LOWER(cu.name) LIKE ${searchPattern}
+          OR LOWER(cl.conversation_topic) LIKE ${searchPattern}
+          OR LOWER(tlc.grammar_explanation) LIKE ${searchPattern}
+          OR LOWER(tlc.cultural_note) LIKE ${searchPattern}
+        ORDER BY cu.order_index ASC, cl.order_index ASC
+        LIMIT 8
+      `);
+
+      const matches = rows.rows.map((row: any) => {
+        const matchField = row.match_field as string;
+        let excerpt = '';
+        if (matchField === 'grammar_explanation' && row.grammar_explanation) {
+          excerpt = (row.grammar_explanation as string).substring(0, 120).trim() + '…';
+        } else if (matchField === 'cultural_note' && row.cultural_note) {
+          excerpt = (row.cultural_note as string).substring(0, 120).trim() + '…';
+        } else if (matchField === 'conversation_topic' && row.conversation_topic) {
+          excerpt = row.conversation_topic as string;
+        } else {
+          excerpt = `${row.unit_name} — ${row.lesson_name}`;
+        }
+        return {
+          unitName: row.unit_name as string,
+          lessonName: row.lesson_name as string,
+          lessonId: row.lesson_id as string,
+          chapterNumber: row.unit_order as number | undefined,
+          excerpt,
+          matchField: matchField as any,
+        };
+      });
+
+      const whiteboardUpdate = {
+        type: 'whiteboard_update' as const,
+        timestamp: Date.now(),
+        items: [{
+          type: 'textbook_search' as const,
+          content: query,
+          data: {
+            query,
+            matches,
+          },
+        }],
+      };
+
+      if (session.firstAudioSent) {
+        this.sendMessage(session.ws, whiteboardUpdate);
+      } else {
+        if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
+        session.pendingWhiteboardUpdates.push(whiteboardUpdate);
+      }
+
+      console.log(`[Native Function→SearchTextbook] Found ${matches.length} matches for "${query}"`);
+    } catch (err: any) {
+      console.error(`[Native Function→SearchTextbook] Error:`, err.message);
     }
   }
 }

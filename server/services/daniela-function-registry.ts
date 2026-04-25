@@ -2698,6 +2698,72 @@ This is how the system learns what this student has installed. Call it whenever 
       },
     },
   },
+
+  // === TEXTBOOK LIVE TOOLS ===
+  {
+    legacyType: 'SHOW_SENTENCE_TABLE',
+    declaration: {
+      name: "show_sentence_table",
+      description: `Display a Madrigal-style substitution drill table in the student's classroom view.
+
+This renders the same sentence-column grid from the textbook — where swapping one column produces a new valid sentence. Use it when:
+• You want to show how a verb pattern works with multiple nouns ("Voy al banco / al teatro / al mercado")
+• A student asks "how do I use this verb?" and a column grid would be clearer than explanation
+• You're introducing a chapter's core sentence pattern live in conversation
+
+Pass the lesson_id of the textbook lesson whose micro_cycle_data you want to display. The backend fetches the column data automatically.
+
+Say what you're showing as you call this: "Let me show you how this works — look at these patterns."`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: {
+            type: "string",
+            description: "What you say to the student as the table appears (e.g. 'Let me show you the pattern — every row is a complete sentence!')",
+          },
+          lesson_id: {
+            type: "string",
+            description: "The curriculum lesson ID whose sentence columns you want to display. Use the lesson ID from the current textbook context.",
+          },
+        },
+        required: ["text", "lesson_id"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) =>
+      `Sentence table displayed for lesson ${fc.args.lesson_id}. Point out a specific row and ask the student to read it aloud.`,
+  },
+
+  {
+    legacyType: 'SEARCH_TEXTBOOK',
+    declaration: {
+      name: "search_textbook",
+      description: `Search the course textbook by topic and show matching chapters in the student's classroom view.
+
+Use this when:
+• A student asks about a grammar topic or vocabulary set that isn't in the current chapter ("Can we talk about the subjunctive?")
+• You want to tell the student exactly where something is covered ("that's coming up in Chapter 8")
+• You're navigating contextually between chapters based on student questions
+
+The search covers lesson names, unit names, grammar explanations, and conversation topics across all chapters.
+Results appear as a panel showing which chapters/lessons cover the topic, with a brief excerpt.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: {
+            type: "string",
+            description: "What you say as the results appear (e.g. 'Let me find where we cover that...')",
+          },
+          query: {
+            type: "string",
+            description: "The topic or keyword to search for (e.g. 'subjunctive', 'preterite', 'ser vs estar', 'restaurant vocabulary')",
+          },
+        },
+        required: ["text", "query"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) =>
+      `Search results for "${fc.args.query}" are now showing in the student's view. Reference the specific chapter numbers and offer to navigate there.`,
+  },
 ];
 
 
