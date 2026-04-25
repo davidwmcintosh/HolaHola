@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, April 24, 2026 at 10:31 PM
+**Generated:** Saturday, April 25, 2026 at 02:24 AM
 
 ---
 
@@ -111,22 +111,24 @@ PHASE 1 — Schema Migration:
 ## What Happened Last Session
 *From the Agent ↔ Alden handoff file — full history in docs/alden-agent-handoff.md*
 
-## From Agent — Sun Mar 15, 2026
+## From Agent — April 24, 2026 (session: Spanish 3/4/5 advanced unit pages)
 
-**Session summary: Backpack prop + environment background redesign for compositor accuracy**
+### What was built
+Spanish is now a complete curriculum end to end. All 20 Spanish 3/4/5 units have been filled with structured content via a new `advanced_unit` chapter type.
 
-### What was built / changed
+**New files:**
+- `client/src/data/advanced-unit-content.ts` — 20 content objects (Spanish 3×8, Spanish 4×8, Spanish 5×4), each with vocabulary, reading passage, and cultural note
+- `client/src/components/AdvancedUnit.tsx` — renderer: vocab tap-to-expand cards + TTS, reading passage with attribution, cultural note in Spanish, Practice with Daniela button
 
-1. **Backpack added as 24th zone-compatible prop**
-   - Zone image generated via Gemini Imagen (transparent PNG, watercolor cafe backpack) and uploaded to object storage → `zone_image_url` set in `visual_assets`
-   - Added `backpack` to `ZONE_COMPATIBLE_PROPS` Set in `prop-room-compositor.ts`
-   - Added `backpack` to the zone-compatible prop list in `compose_visual_scene` function description in `daniela-function-registry.ts`
-   - Removed `mochila` from the `generate_visual` "non-zone examples" list in the registry — added explicit note: *"mochila (backpack) IS zone-compatible — use compose_visual_scene"*
-   - Added Mode B usage hint: *"backpack under_table — natural café floor prop, use restaurant_table environment"*
+**Modified:**
+- `TextbookChapterView.tsx` — Format 5 dispatch block for `advanced_unit`
+- `replit.md` — Advanced Unit System section added
+- `docs/batch-doc-updates.md` — session entry added
 
-2. **Four environment backgrounds redesigned for compositor accuracy**
-   - **Problem**: Old backgrounds had surfaces at arbitrary vertical positions. `on_counter` (cy=0.68) and `on_table` (cy=0.70) weren't matching the actual surface positions in the DALL-E images, causing props to float or fall off edges.
-   -
+**DB:** `curriculum_units.chapter_type = 'advanced_unit'` set on all 20 Spanish 3/4/5 unit rows.
+
+### What's intentionally NOT done yet
+David wants to review the Spanish content before we replicate to other languages. **Do not auto-generate or trigger content generation for French, German, Italian, Portuguese, Japanese, Chinese, or Korean advanced units** until David gives the green light. The 
 
 *[truncated — read full file for details]*
 
