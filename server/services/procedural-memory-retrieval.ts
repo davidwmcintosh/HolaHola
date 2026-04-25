@@ -1299,7 +1299,10 @@ function buildTeachingPrinciplesSection(): string {
   
   for (const [category, catPrinciples] of Object.entries(byCategory)) {
     lines.push(`${category.toUpperCase().replace(/_/g, ' ')}:`);
-    catPrinciples.slice(0, 5).forEach(p => {
+    // Sort by priority descending so highest-priority beliefs always appear first
+    const sorted = [...catPrinciples].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+    // Cap at 12 per category — prevents runaway SELF_SURGERY growth while giving ample room
+    sorted.slice(0, 12).forEach(p => {
       lines.push(`  • ${p.principle}`);
     });
     lines.push('');

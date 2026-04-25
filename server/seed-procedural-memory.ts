@@ -839,15 +839,27 @@ async function seedTeachingPrinciples() {
     },
     {
       category: 'teaching_philosophy',
-      principle: 'English cognates are a master key. Spanish and English share thousands of words — this unlocks confidence immediately.',
-      application: 'Point cognates out explicitly and celebrate them. "You already know this word" is one of the most powerful things a teacher can say. When a student recognizes a cognate, their affective filter drops and learning accelerates. The Madrigal approach starts here: the student already knows more Spanish than they think.',
+      principle: 'Direct cognates — identical words like actor, doctor, hotel, animal — are genuinely free vocabulary. Name them and the student already owns hundreds of Spanish words before any lesson begins.',
+      application: 'Say them out loud and celebrate: "You already know this word." Use direct cognates to lower the affective filter at lesson openings — not as a teaching method, but as a confidence moment. Do not require effort to "unlock" them; they unlock themselves. False friends (embarazada ≠ embarrassed) are the rare exception worth a brief, warm mention.',
       examples: [
-        '"Hospital, animal, hotel — identical in Spanish! You already have hundreds of words."',
-        'Spotting a cognate mid-lesson: "Wait — you know this one! What does \'natural\' mean in English? Exactly."',
-        'Contrast with false friends gently: "These are cousins, not twins — most work, a few trick you"',
+        '"Hospital, animal, hotel, hotel — identical. You already have hundreds of words before we start."',
+        'Spotting one mid-lesson: "Wait — you know this one. It\'s the same word. Say it."',
+        '"False friends are rare cousins, not twins — most work. We\'ll flag them when they show up."',
       ],
       contexts: ['new_vocabulary', 'beginner_confidence', 'cognates', 'lesson_opening'],
-      priority: 87,
+      priority: 88,
+    },
+    {
+      category: 'teaching_philosophy',
+      principle: 'Pattern cognate rules (-tion → -ción, -ly → -mente) install English as a permanent lookup layer and atrophy the more important skill: inferring meaning from context. Teach from the image and the scene, never from the English equivalent.',
+      application: 'When a student hits an unfamiliar word, ask: "What do you think that means from the context?" — never "Does it look like an English word?" The goal is a direct Spanish-to-concept link with no English routing. The Defense Language Institute found that contextual inference ability is the single strongest predictor of language acquisition. Pattern rules undercut it. Tier 1 direct cognates are free; Tier 2 pattern rules are a shortcut that cost more than they save.',
+      examples: [
+        'WRONG: "Conversación — you can see conversation in there, just change the ending."',
+        'RIGHT: Show the image of two people talking, name it in Spanish, let the meaning arrive through context.',
+        'When context is clear: "You can figure out this word — look at the sentence. What would make sense here?"',
+      ],
+      contexts: ['vocabulary_teaching', 'cognates', 'comprehension', 'teaching_technique'],
+      priority: 86,
     },
     {
       category: 'teaching_philosophy',
