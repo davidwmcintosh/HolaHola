@@ -21482,14 +21482,38 @@ Current conversation context:
   // Same catalog as Gemini 2.5 Flash TTS voices but served by the Live API model.
   app.get("/api/admin/gemini-live-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), (req: any, res) => {
     const GEMINI_LIVE_VOICES = [
-      { id: 'Aoede',  name: 'Aoede',  gender: 'female', provider: 'gemini-live', description: 'Warm, lyrical' },
-      { id: 'Kore',   name: 'Kore',   gender: 'female', provider: 'gemini-live', description: 'Clear, precise' },
-      { id: 'Leda',   name: 'Leda',   gender: 'female', provider: 'gemini-live', description: 'Gentle, expressive' },
-      { id: 'Zephyr', name: 'Zephyr', gender: 'female', provider: 'gemini-live', description: 'Bright, energetic' },
-      { id: 'Puck',   name: 'Puck',   gender: 'male',   provider: 'gemini-live', description: 'Playful, warm' },
-      { id: 'Charon', name: 'Charon', gender: 'male',   provider: 'gemini-live', description: 'Deep, steady' },
-      { id: 'Fenrir', name: 'Fenrir', gender: 'male',   provider: 'gemini-live', description: 'Bold, confident' },
-      { id: 'Orus',   name: 'Orus',   gender: 'male',   provider: 'gemini-live', description: 'Smooth, authoritative' },
+      // ── Original 8 (Chirp HD overlap) ────────────────────────────────────────
+      { id: 'Aoede',           name: 'Aoede',           gender: 'female', provider: 'gemini-live', description: 'Breezy, easy-going' },
+      { id: 'Kore',            name: 'Kore',            gender: 'female', provider: 'gemini-live', description: 'Firm, confident' },
+      { id: 'Leda',            name: 'Leda',            gender: 'female', provider: 'gemini-live', description: 'Youthful, bright' },
+      { id: 'Zephyr',          name: 'Zephyr',          gender: 'female', provider: 'gemini-live', description: 'Bright, upbeat' },
+      { id: 'Puck',            name: 'Puck',            gender: 'male',   provider: 'gemini-live', description: 'Upbeat, playful' },
+      { id: 'Charon',          name: 'Charon',          gender: 'male',   provider: 'gemini-live', description: 'Informative, calm' },
+      { id: 'Fenrir',          name: 'Fenrir',          gender: 'male',   provider: 'gemini-live', description: 'Excitable, energetic' },
+      { id: 'Orus',            name: 'Orus',            gender: 'male',   provider: 'gemini-live', description: 'Confident, warm' },
+      // ── 22 additional Gemini Live–only voices ────────────────────────────────
+      { id: 'Achernar',        name: 'Achernar',        gender: 'female', provider: 'gemini-live', description: 'Soft, gentle' },
+      { id: 'Autonoe',         name: 'Autonoe',         gender: 'female', provider: 'gemini-live', description: 'Bright, inquisitive' },
+      { id: 'Callirrhoe',      name: 'Callirrhoe',      gender: 'female', provider: 'gemini-live', description: 'Easy-going, natural' },
+      { id: 'Despina',         name: 'Despina',         gender: 'female', provider: 'gemini-live', description: 'Smooth, friendly' },
+      { id: 'Erinome',         name: 'Erinome',         gender: 'female', provider: 'gemini-live', description: 'Clear, precise' },
+      { id: 'Laomedeia',       name: 'Laomedeia',       gender: 'female', provider: 'gemini-live', description: 'Upbeat, lively' },
+      { id: 'Pulcherrima',     name: 'Pulcherrima',     gender: 'female', provider: 'gemini-live', description: 'Forward, direct' },
+      { id: 'Sulafat',         name: 'Sulafat',         gender: 'female', provider: 'gemini-live', description: 'Warm, inviting' },
+      { id: 'Vindemiatrix',    name: 'Vindemiatrix',    gender: 'female', provider: 'gemini-live', description: 'Gentle, expressive' },
+      { id: 'Achird',          name: 'Achird',          gender: 'male',   provider: 'gemini-live', description: 'Friendly, conversational' },
+      { id: 'Algenib',         name: 'Algenib',         gender: 'male',   provider: 'gemini-live', description: 'Gravelly, distinctive' },
+      { id: 'Algieba',         name: 'Algieba',         gender: 'male',   provider: 'gemini-live', description: 'Smooth, composed' },
+      { id: 'Alnilam',         name: 'Alnilam',         gender: 'male',   provider: 'gemini-live', description: 'Firm, strong' },
+      { id: 'Enceladus',       name: 'Enceladus',       gender: 'male',   provider: 'gemini-live', description: 'Breathy, soft' },
+      { id: 'Gacrux',          name: 'Gacrux',          gender: 'male',   provider: 'gemini-live', description: 'Mature, deep' },
+      { id: 'Iapetus',         name: 'Iapetus',         gender: 'male',   provider: 'gemini-live', description: 'Clear, articulate' },
+      { id: 'Rasalgethi',      name: 'Rasalgethi',      gender: 'male',   provider: 'gemini-live', description: 'Informative, professional' },
+      { id: 'Sadachbia',       name: 'Sadachbia',       gender: 'male',   provider: 'gemini-live', description: 'Lively, animated' },
+      { id: 'Sadaltager',      name: 'Sadaltager',      gender: 'male',   provider: 'gemini-live', description: 'Knowledgeable, authoritative' },
+      { id: 'Schedar',         name: 'Schedar',         gender: 'male',   provider: 'gemini-live', description: 'Even, balanced' },
+      { id: 'Umbriel',         name: 'Umbriel',         gender: 'male',   provider: 'gemini-live', description: 'Easy-going, calm' },
+      { id: 'Zubenelgenubi',   name: 'Zubenelgenubi',   gender: 'male',   provider: 'gemini-live', description: 'Casual, conversational' },
     ];
     const gender = req.query.gender as 'male' | 'female' | undefined;
     const voices = gender ? GEMINI_LIVE_VOICES.filter(v => v.gender === gender) : GEMINI_LIVE_VOICES;
