@@ -1987,9 +1987,19 @@ export function GenderAgreementGrid({
   );
 }
 
-// ── Modal-Like Verbs Card (M3 — verb + infinitive pattern) ───────────────────
+// ── The Infinitive Pattern Card (M3 — trigger verb + infinitive) ─────────────
 
 const MODAL_VERBS_DATA = [
+  {
+    verb: 'VOY A',
+    meaning: 'going to (near future)',
+    colorClass: 'text-rose-600 dark:text-rose-400',
+    bgClass: 'from-rose-500/10',
+    conjugations: ['voy a', 'vas a', 'va a', 'vamos a', 'van a'],
+    example: 'Voy a estudiar esta noche.',
+    translation: 'I am going to study tonight.',
+    note: 'ir (irregular) + a',
+  },
   {
     verb: 'QUERER',
     meaning: 'to want',
@@ -2036,18 +2046,18 @@ export function ModalVerbsCard({ className = '' }: { className?: string }) {
   return (
     <div className={`rounded-lg border bg-card overflow-hidden ${className}`} data-testid="grammar-card-modal-verbs">
       <div className="px-4 py-3 border-b bg-gradient-to-r from-primary/10 to-transparent">
-        <p className="text-sm font-semibold text-center">Verb + Infinitive — the modal pattern</p>
-        <p className="text-xs text-muted-foreground text-center">querer · poder · deber · tener que</p>
+        <p className="text-sm font-semibold text-center">The Infinitive Pattern</p>
+        <p className="text-xs text-muted-foreground text-center">voy a · quiero · puedo · debo · tengo que</p>
       </div>
 
       {/* Formula bar */}
       <div className="flex items-center justify-center gap-2 px-4 py-3 bg-muted/20 border-b">
         <div className="flex items-center gap-1.5">
-          <span className="px-2 py-1 rounded bg-primary/10 border border-primary/20 text-xs font-bold text-primary">modal verb</span>
+          <span className="px-2 py-1 rounded bg-primary/10 border border-primary/20 text-xs font-bold text-primary">trigger verb</span>
           <span className="text-xs font-bold text-muted-foreground">+</span>
           <span className="px-2 py-1 rounded bg-muted border text-xs font-semibold text-foreground/70">infinitive</span>
           <span className="text-xs text-muted-foreground mx-1">→</span>
-          <span className="text-xs text-muted-foreground italic">Quiero <span className="font-semibold text-foreground/80">comer</span>.</span>
+          <span className="text-xs text-muted-foreground italic">Voy a <span className="font-semibold text-foreground/80">comer</span>.</span>
         </div>
       </div>
 
@@ -2075,7 +2085,7 @@ export function ModalVerbsCard({ className = '' }: { className?: string }) {
 
       <div className="px-4 py-2 border-t bg-muted/20">
         <p className="text-xs text-center text-muted-foreground">
-          The <span className="font-medium text-foreground/80">modal verb</span> is conjugated · the <span className="font-medium text-foreground/80">infinitive stays unchanged</span>
+          The <span className="font-medium text-foreground/80">trigger verb</span> is conjugated · the <span className="font-medium text-foreground/80">infinitive stays unchanged</span>
         </p>
       </div>
     </div>

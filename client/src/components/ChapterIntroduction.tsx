@@ -1158,7 +1158,7 @@ export function classifyGrammarType(title: string, language = 'spanish'): Gramma
   if (lower === 'estar' || lower.includes('verb estar') || lower.includes('el verbo estar') || (lower.startsWith('estar') && !lower.includes('ser'))) return 'estar_only';
   if (lower.includes('tener') && !lower.includes('pret')) return 'tener';
   if ((lower.includes(' ir ') || lower.startsWith('ir') || lower.includes('verb ir') || lower.includes('going to') || lower.includes('ir a ')) && !lower.includes('vivir') && !lower.includes('subjun') && !lower.includes('pret')) return 'ir_go';
-  if (lower.includes('modal') || (lower.includes('querer') && lower.includes('poder') && (lower.includes('deber') || lower.includes('tener') || lower.includes('modal') || lower.includes('infinitivo') || lower.includes('infinitive'))) || lower.includes('tener que') && lower.includes('poder') || lower.includes('verb + infinitive') || lower.includes('verbo + infinitivo')) return 'modal_verbs';
+  if (lower.includes('modal') || lower.includes('infinitive pattern') || lower.includes('patrón de infinitivo') || lower.includes('verb + infinitive') || lower.includes('verbo + infinitivo') || (lower.includes('querer') && lower.includes('poder') && (lower.includes('deber') || lower.includes('tener') || lower.includes('modal') || lower.includes('infinitivo') || lower.includes('infinitive'))) || (lower.includes('tener que') && lower.includes('poder'))) return 'modal_verbs';
   if (lower.includes('stem change') || lower.includes('boot verb') || lower.includes('cambio de raíz') || lower.includes('e→ie') || lower.includes('o→ue') || lower.includes('stem-change') || (lower.includes('querer') && lower.includes('poder'))) return 'stem_change';
   if (lower.includes('-go verb') || lower.includes('go verb') || lower.includes('verbos irregulares con go') || (lower.includes('hacer') && lower.includes('poner'))) return 'go_verbs';
   if (lower.includes('saber') || lower.includes('conocer')) return 'saber_conocer';
@@ -1236,7 +1236,7 @@ const GRAMMAR_LABELS: Record<GrammarChapterType, { title: string; subtitle: stri
   ir_go: { title: 'The Verb IR', subtitle: 'To go — plus IR + a + infinitive for future plans' },
   stem_change: { title: 'Stem-changing Verbs', subtitle: 'Boot verbs — e→ie, o→ue, e→i in all forms except nosotros & vosotros' },
   go_verbs: { title: '–GO Verbs', subtitle: 'Irregular yo only — hacer, poner, traer, salir, venir…' },
-  modal_verbs: { title: 'Verb + Infinitive', subtitle: 'querer, poder, deber, tener que — combine with an infinitive to say what you want, can, or must do' },
+  modal_verbs: { title: 'The Infinitive Pattern', subtitle: 'voy a, quiero, puedo, debo, tengo que — conjugate the first verb, leave the infinitive unchanged' },
   saber_conocer: { title: 'SABER vs CONOCER', subtitle: 'Both mean "to know" — factual knowledge vs. familiarity' },
   reflexive: { title: 'Reflexive Verbs', subtitle: 'The subject does the action to themselves — ducharse, levantarse, llamarse…' },
   pret_regular: { title: 'Preterite — Regular Verbs', subtitle: 'Completed past actions with specific timing' },
