@@ -974,10 +974,14 @@ async function seedTeachingPrinciples() {
     },
   ];
   
-  for (const principle of principles) {
+  // Fetch existing principle texts to avoid duplicates (no unique constraint on principle column)
+  const existing = await db.select({ principle: teachingPrinciples.principle }).from(teachingPrinciples);
+  const existingSet = new Set(existing.map(r => r.principle));
+  const toInsert = principles.filter(p => !existingSet.has(p.principle));
+  for (const principle of toInsert) {
     await db.insert(teachingPrinciples).values(principle).onConflictDoNothing();
   }
-  console.log(`[Procedural Memory] Seeded ${principles.length} teaching principles (new entries added)`);
+  console.log(`[Procedural Memory] Seeded ${principles.length} teaching principles (${toInsert.length} new entries added)`);
 }
 
 // ===== TUTOR PROCEDURES =====

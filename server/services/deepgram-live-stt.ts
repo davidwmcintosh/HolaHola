@@ -536,12 +536,12 @@ export class OpenMicSession {
           punctuate: true,
           smart_format: true,
           vad_events: true,
-          utterance_end_ms: 2500, // Allow ~2.5s pause for natural thinking without cutting off
+          utterance_end_ms: 3500, // 3.5s pause required before UtteranceEnd fires — gives users time to think mid-sentence
           interim_results: true,
           encoding: 'linear16',
           sample_rate: 16000,
           channels: 1,
-          endpointing: 300, // 300ms endpointing — reduces false speech_final triggers from background noise
+          endpointing: 500, // 500ms silence before speech_final — less aggressive than 300ms, reduces mid-sentence cutoffs
           // Intelligence features only when plan supports them
           ...(DEEPGRAM_INTELLIGENCE_ENABLED && {
             diarize: true,           // Speaker separation
@@ -863,7 +863,7 @@ export class OpenMicSession {
                 // LINGERING TRANSCRIPT SAFETY NET: With `multi` language model, background noise
                 // at ~-66dB keeps Deepgram's VAD active, preventing speech_final from ever firing
                 // for real speech. Without this timer, the transcript accumulates but is never
-                // submitted — Cindy never responds. If speech_final doesn't arrive within 3s
+                // submitted — Daniela never responds. If speech_final doesn't arrive within 5s
                 // after a real final transcript, force-submit via utterance end.
                 if (!this.isSuppressed) {
                   if (this.lingeringSpeechTimeout) clearTimeout(this.lingeringSpeechTimeout);
@@ -877,7 +877,7 @@ export class OpenMicSession {
                     this.currentIntelligence = {};
                     this.lastFinalSegment = '';
                     this.bestInterimForSegment = '';
-                  }, 3000);
+                  }, 5000); // 5s safety net — enough time for mid-sentence pauses + dev CPU lag
                 }
                 // CRITICAL: Also notify PTT handler of accumulated transcript
                 // This ensures PTT mode sees the full accumulated text, not just interim fragments

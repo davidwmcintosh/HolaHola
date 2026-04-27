@@ -1779,18 +1779,11 @@ ${buildNativeFunctionCallingSection()}`;
                 }
               },
               onSpeechFinal: (transcript: string) => {
-                // IMMEDIATE THINKING SIGNAL: mirrors PTT's processing_pending behavior.
-                // speech_final fires the moment the user stops speaking (before UtteranceEnd
-                // adds the 1400ms pause + AI latency). Sending processing_pending here gives
-                // the user instant visual feedback that Cindy heard them.
-                if (ws.readyState === WS_OPEN) {
-                  console.log(`[OpenMic] speech_final with text — sending processing_pending early signal`);
-                  ws.send(JSON.stringify({
-                    type: 'processing_pending',
-                    timestamp: Date.now(),
-                    transcript,
-                  }));
-                }
+                // NOTE: We intentionally do NOT send processing_pending here in open mic mode.
+                // speech_final fires after 500ms of silence — but the user may still be mid-sentence
+                // (thinking, breathing). Sending "thinking" UI here causes confusing early cutoff
+                // perception. processing_pending is sent only at onUtteranceEnd, when submission is certain.
+                console.log(`[OpenMic] speech_final received — "${transcript.slice(0, 60)}" — awaiting UtteranceEnd`);
               },
               onUtteranceEnd: async (transcript, confidence) => {
                 console.log(`[OpenMic] VAD: Utterance end - "${transcript}" (${(confidence * 100).toFixed(0)}%)`);
@@ -1803,6 +1796,15 @@ ${buildNativeFunctionCallingSection()}`;
                     timestamp: Date.now(),
                     empty: isEmptyTranscript,
                   }));
+                  // THINKING SIGNAL: Only send processing_pending when submission is actually
+                  // happening — not on speech_final which fires mid-sentence.
+                  if (!isEmptyTranscript) {
+                    ws.send(JSON.stringify({
+                      type: 'processing_pending',
+                      timestamp: Date.now(),
+                      interimTranscript: transcript,
+                    }));
+                  }
                 }
                 
                 if (!isEmptyTranscript && session) {
