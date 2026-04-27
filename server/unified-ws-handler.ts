@@ -40,6 +40,8 @@ import {
   ClientTelemetryEvent,
 } from '@shared/streaming-voice-types';
 import { OpenMicSession, OpenMicEvents, getDeepgramLanguageCode } from './services/deepgram-live-stt';
+import { GeminiLiveSession, createGeminiLiveSession, GEMINI_LIVE_VOICE_ENABLED } from './services/gemini-live-session';
+import { DANIELA_FUNCTION_DECLARATIONS } from './services/daniela-function-registry';
 import { generateCongratulatoryPromptAddition } from './services/competency-verifier';
 import { buildCurriculumContext, detectSyllabusQuery } from './services/curriculum-context';
 import { usageService } from './services/usage-service';
@@ -959,6 +961,9 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
   let userId: string | null = null;
   let isAuthenticated = false;
   
+  // Gemini Live voice session (feature-flagged via GEMINI_LIVE_VOICE=true)
+  let geminiLiveSession: GeminiLiveSession | null = null;
+
   // Open mic mode state
   let openMicSession: OpenMicSession | null = null;
   let openMicPendingChunks: Buffer[] = [];
@@ -1461,6 +1466,26 @@ ${buildNativeFunctionCallingSection()}`;
             
             // Note: tutorDirectory is built dynamically by Socket.io path
             // HTTP WebSocket path doesn't support tutor handoffs, so we skip this
+
+            // ── Gemini Live voice session (feature-flagged) ──────────────────
+            if (GEMINI_LIVE_VOICE_ENABLED) {
+              try {
+                const glSendMessage = (targetWs: any, message: any) => {
+                  try {
+                    if (targetWs?.readyState === 1 /* OPEN */) {
+                      targetWs.send(JSON.stringify(message));
+                    }
+                  } catch (_) {}
+                };
+                geminiLiveSession = createGeminiLiveSession(session, glSendMessage);
+                await geminiLiveSession.start(systemPrompt, DANIELA_FUNCTION_DECLARATIONS);
+                console.log(`[GeminiLive] Session started alongside orchestrator session ${session.id}`);
+              } catch (glErr: any) {
+                console.error('[GeminiLive] Failed to start Gemini Live session:', glErr.message);
+                geminiLiveSession = null;
+                // Fall through — session still works via legacy pipeline
+              }
+            }
             
             // Track reconnection state — prevents double greetings when client reconnects
             (session as any).__isReconnect = isReconnectSO;
@@ -1555,16 +1580,25 @@ ${buildNativeFunctionCallingSection()}`;
           
           console.log(`[Streaming Voice] Generating AI greeting... (resumed: ${greetingRequest.isResumed || false}, scenario: ${greetingRequest.scenarioSlug || 'none'})`);
           
-          try {
-            await orchestrator.processGreetingRequest(
-              session.id,
+          if (geminiLiveSession) {
+            // Gemini Live mode: trigger greeting via Live session
+            geminiLiveSession.sendGreetingTrigger(
               greetingRequest.userName,
               greetingRequest.isResumed,
-              greetingRequest.scenarioSlug
+              greetingRequest.scenarioSlug,
             );
-          } catch (greetingError: any) {
-            console.error('[Streaming Voice] Greeting error:', greetingError.message);
-            sendErrorAdapter(ws, 'AI_FAILED', 'Failed to generate greeting', true);
+          } else {
+            try {
+              await orchestrator.processGreetingRequest(
+                session.id,
+                greetingRequest.userName,
+                greetingRequest.isResumed,
+                greetingRequest.scenarioSlug
+              );
+            } catch (greetingError: any) {
+              console.error('[Streaming Voice] Greeting error:', greetingError.message);
+              sendErrorAdapter(ws, 'AI_FAILED', 'Failed to generate greeting', true);
+            }
           }
           break;
         }
@@ -1654,7 +1688,11 @@ ${buildNativeFunctionCallingSection()}`;
         }
         
         case 'interrupt':
-          if (session) orchestrator.handleInterrupt(session.id);
+          if (geminiLiveSession) {
+            geminiLiveSession.interrupt();
+          } else if (session) {
+            orchestrator.handleInterrupt(session.id);
+          }
           break;
         
         case 'user_activity':
@@ -1740,6 +1778,12 @@ ${buildNativeFunctionCallingSection()}`;
             audioBuffer = Buffer.from(chunkMessage.audio, 'base64');
           } else {
             audioBuffer = Buffer.from(chunkMessage.audio);
+          }
+
+          // ── Gemini Live path: relay PCM16 directly to the Live session ──
+          if (geminiLiveSession) {
+            geminiLiveSession.sendAudioChunk(audioBuffer);
+            break;
           }
           
           // Handle based on current input mode
@@ -2497,6 +2541,12 @@ ${buildNativeFunctionCallingSection()}`;
 
   ws.on('close', () => {
     console.log('[Streaming Voice] Socket.io connection closed');
+
+    // Stop Gemini Live session if active
+    if (geminiLiveSession) {
+      geminiLiveSession.stop();
+      geminiLiveSession = null;
+    }
     
     if (openMicSession) {
       openMicSession.close();
@@ -2568,6 +2618,12 @@ ${buildNativeFunctionCallingSection()}`;
 
   ws.on('error', (error) => {
     console.error('[Streaming Voice] Socket.io connection error:', error);
+
+    // Stop Gemini Live session on error
+    if (geminiLiveSession) {
+      geminiLiveSession.stop();
+      geminiLiveSession = null;
+    }
     
     if (openMicSession) {
       openMicSession.close();
