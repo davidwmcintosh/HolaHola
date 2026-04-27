@@ -1987,6 +1987,101 @@ export function GenderAgreementGrid({
   );
 }
 
+// ── Modal-Like Verbs Card (M3 — verb + infinitive pattern) ───────────────────
+
+const MODAL_VERBS_DATA = [
+  {
+    verb: 'QUERER',
+    meaning: 'to want',
+    colorClass: 'text-emerald-600 dark:text-emerald-400',
+    bgClass: 'from-emerald-500/10',
+    conjugations: ['quiero', 'quieres', 'quiere', 'queremos', 'quieren'],
+    example: 'Quiero aprender español.',
+    translation: 'I want to learn Spanish.',
+    note: 'e → ie  stem change',
+  },
+  {
+    verb: 'PODER',
+    meaning: 'can / to be able to',
+    colorClass: 'text-blue-600 dark:text-blue-400',
+    bgClass: 'from-blue-500/10',
+    conjugations: ['puedo', 'puedes', 'puede', 'podemos', 'pueden'],
+    example: 'Puedo hablar un poco.',
+    translation: 'I can speak a little.',
+    note: 'o → ue  stem change',
+  },
+  {
+    verb: 'DEBER',
+    meaning: 'should / must (obligation)',
+    colorClass: 'text-amber-600 dark:text-amber-400',
+    bgClass: 'from-amber-500/10',
+    conjugations: ['debo', 'debes', 'debe', 'debemos', 'deben'],
+    example: 'Debes practicar cada día.',
+    translation: 'You should practice every day.',
+    note: 'regular –ER verb',
+  },
+  {
+    verb: 'TENER QUE',
+    meaning: 'to have to / must (necessity)',
+    colorClass: 'text-violet-600 dark:text-violet-400',
+    bgClass: 'from-violet-500/10',
+    conjugations: ['tengo que', 'tienes que', 'tiene que', 'tenemos que', 'tienen que'],
+    example: 'Tengo que irme ahora.',
+    translation: 'I have to go now.',
+    note: 'tener (irregular) + que',
+  },
+];
+
+export function ModalVerbsCard({ className = '' }: { className?: string }) {
+  return (
+    <div className={`rounded-lg border bg-card overflow-hidden ${className}`} data-testid="grammar-card-modal-verbs">
+      <div className="px-4 py-3 border-b bg-gradient-to-r from-primary/10 to-transparent">
+        <p className="text-sm font-semibold text-center">Verb + Infinitive — the modal pattern</p>
+        <p className="text-xs text-muted-foreground text-center">querer · poder · deber · tener que</p>
+      </div>
+
+      {/* Formula bar */}
+      <div className="flex items-center justify-center gap-2 px-4 py-3 bg-muted/20 border-b">
+        <div className="flex items-center gap-1.5">
+          <span className="px-2 py-1 rounded bg-primary/10 border border-primary/20 text-xs font-bold text-primary">modal verb</span>
+          <span className="text-xs font-bold text-muted-foreground">+</span>
+          <span className="px-2 py-1 rounded bg-muted border text-xs font-semibold text-foreground/70">infinitive</span>
+          <span className="text-xs text-muted-foreground mx-1">→</span>
+          <span className="text-xs text-muted-foreground italic">Quiero <span className="font-semibold text-foreground/80">comer</span>.</span>
+        </div>
+      </div>
+
+      {/* Verb rows */}
+      <div className="divide-y">
+        {MODAL_VERBS_DATA.map((m) => (
+          <div key={m.verb} className={`px-4 py-3 bg-gradient-to-r ${m.bgClass} to-transparent`} data-testid={`modal-row-${m.verb.toLowerCase().replace(/\s+/g, '-')}`}>
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 mb-1">
+              <span className={`text-sm font-bold ${m.colorClass}`}>{m.verb}</span>
+              <span className="text-xs text-muted-foreground">— {m.meaning}</span>
+              <span className="text-xs text-muted-foreground/60 ml-auto">{m.note}</span>
+            </div>
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5 mb-2">
+              {m.conjugations.map((c, i) => (
+                <span key={i} className={`text-xs font-medium ${i === 0 ? m.colorClass : 'text-foreground/70'}`}>{c}</span>
+              ))}
+            </div>
+            <div className="text-xs">
+              <span className="font-semibold text-foreground">{m.example}</span>
+              <span className="text-muted-foreground ml-2 italic">{m.translation}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="px-4 py-2 border-t bg-muted/20">
+        <p className="text-xs text-center text-muted-foreground">
+          The <span className="font-medium text-foreground/80">modal verb</span> is conjugated · the <span className="font-medium text-foreground/80">infinitive stays unchanged</span>
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ── Verb Anchor Grid (M4) ─────────────────────────────────────────────────────
 
 interface VerbExample {
