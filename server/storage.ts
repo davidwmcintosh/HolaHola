@@ -5527,7 +5527,7 @@ export class DatabaseStorage implements IStorage {
       this.getStudentEnrollments(userId).catch(() => [] as any[]),
 
       db.select({ createdAt: conversations.createdAt }).from(conversations)
-        .where(buildAndConditions(eq(conversations.userId, userId), convLangFilter, convClassFilter))
+        .where(buildAndConditions(eq(conversations.userId, userId), convLangFilter))
         .orderBy(desc(conversations.createdAt))
         .limit(1),
     ]);

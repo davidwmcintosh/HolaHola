@@ -518,40 +518,16 @@ export default function ReviewHub() {
               )}
             </div>
 
-            {/* Awards / milestone row — always visible */}
+            {/* ACTFL progress row */}
             {masteryStats && (
-              <div className="flex items-center gap-2 px-3 py-2 border-t border-border/40 flex-wrap" data-testid="milestone-awards-row">
-                <Trophy className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                {masteryStats.milestones.map((m) => (
-                  <div
-                    key={m.count}
-                    className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${
-                      m.achieved
-                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
-                        : 'bg-muted/50 text-muted-foreground/60'
-                    }`}
-                    data-testid={`milestone-badge-${m.count}`}
-                  >
-                    {m.achieved
-                      ? <CheckCircle2 className="h-3 w-3" />
-                      : <Circle className="h-3 w-3" />
-                    }
-                    <span>{m.label}</span>
-                  </div>
-                ))}
-                <div className="ml-auto flex items-center gap-3 shrink-0">
-                  {masteryStats.totalMastered > 0 ? (
-                    <span className="text-xs text-muted-foreground">
-                      {masteryStats.totalMastered} mastered
-                      {masteryStats.nextMilestone && ` · ${masteryStats.nextMilestone - masteryStats.totalMastered} to go`}
-                    </span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground/50 hidden sm:inline">
-                      Practice to earn your first trophy
-                    </span>
-                  )}
-                  <ActflMiniGauge />
-                </div>
+              <div className="flex items-center gap-3 px-3 py-2 border-t border-border/40 justify-end" data-testid="milestone-awards-row">
+                {masteryStats.totalMastered > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    {masteryStats.totalMastered} mastered
+                    {masteryStats.nextMilestone && ` · ${masteryStats.nextMilestone - masteryStats.totalMastered} to go`}
+                  </span>
+                )}
+                <ActflMiniGauge />
               </div>
             )}
           </div>
