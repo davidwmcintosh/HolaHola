@@ -127,6 +127,7 @@ interface ReviewHubData {
     dueCount: number;
     streakDays: number;
     lastConversationDate: string | null;
+    sessionsThisWeek: number;
   };
 }
 
@@ -438,7 +439,7 @@ export default function ReviewHub() {
       {data && (() => {
         const streakDays = data.stats.streakDays;
         const hasStarted = data.stats.totalConversations > 0;
-        const sessionsThisWeek = data.recentConversations.length;
+        const sessionsThisWeek = data.stats.sessionsThisWeek;
 
         // Use all-time last conversation date (not filtered to last 7 days)
         const lastConvDateRaw = data.stats.lastConversationDate ?? data.recentConversations[0]?.createdAt;

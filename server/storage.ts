@@ -772,6 +772,8 @@ export interface IStorage {
       totalVocabulary: number;
       dueCount: number;
       streakDays: number;
+      lastConversationDate: Date | null;
+      sessionsThisWeek: number;
     };
   }>;
 
@@ -5441,6 +5443,7 @@ export class DatabaseStorage implements IStorage {
       dueCount: number;
       streakDays: number;
       lastConversationDate: Date | null;
+      sessionsThisWeek: number;
     };
   }> {
     const now = new Date();
@@ -5479,6 +5482,7 @@ export class DatabaseStorage implements IStorage {
       allTopics,
       enrollments,
       lastConvResult,
+      sessionsThisWeekResult,
     ] = await Promise.all([
       db.select().from(vocabularyWords)
         .where(buildAndConditions(
@@ -5510,8 +5514,9 @@ export class DatabaseStorage implements IStorage {
         .orderBy(desc(vocabularyWords.nextReviewDate))
         .limit(20),
 
+      // Cross-context total — used for hasStarted check (streak/nudge logic must be globally consistent)
       db.select({ count: sql<number>`count(*)` }).from(conversations)
-        .where(buildAndConditions(eq(conversations.userId, userId), convLangFilter, convClassFilter)),
+        .where(buildAndConditions(eq(conversations.userId, userId), convLangFilter)),
 
       db.select({ count: sql<number>`count(*)` }).from(vocabularyWords)
         .where(buildAndConditions(eq(vocabularyWords.userId, userId), vocabLangFilter, vocabClassFilter)),
@@ -5530,6 +5535,14 @@ export class DatabaseStorage implements IStorage {
         .where(buildAndConditions(eq(conversations.userId, userId), convLangFilter))
         .orderBy(desc(conversations.createdAt))
         .limit(1),
+
+      // Cross-context sessions this week — no class filter so it matches streak/last-session scope
+      db.select({ count: sql<number>`count(*)` }).from(conversations)
+        .where(buildAndConditions(
+          eq(conversations.userId, userId),
+          convLangFilter,
+          gte(conversations.createdAt, weekAgo)
+        )),
     ]);
 
     const [conversationTopicResults, streakResult, tipsResult, activeLessonsResult] = await Promise.all([
@@ -5833,7 +5846,8 @@ export class DatabaseStorage implements IStorage {
         totalVocabulary: Number(totalVocabResult[0]?.count || 0),
         dueCount: Number(dueCountResult[0]?.count || 0),
         streakDays,
-        lastConversationDate: lastConvResult[0]?.createdAt ?? null
+        lastConversationDate: lastConvResult[0]?.createdAt ?? null,
+        sessionsThisWeek: Number(sessionsThisWeekResult[0]?.count || 0),
       }
     };
   }
