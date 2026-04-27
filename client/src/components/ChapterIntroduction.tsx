@@ -1756,6 +1756,48 @@ const GRAMMAR_LABELS_HE: Partial<Record<GrammarChapterType, { title: string; sub
   country_dot_map:  { title: 'עברית בעולם', subtitle: 'Where Hebrew is spoken — Israel and diaspora communities worldwide' },
 };
 
+const MODAL_QA = [
+  { question: '¿Qué va a hacer esta noche?', answer: 'Voy a estudiar español.', answerTranslation: 'I am going to study Spanish.' },
+  { question: '¿Puedes hablar español?', answer: 'Sí, puedo hablar un poco.', answerTranslation: 'Yes, I can speak a little.' },
+  { question: '¿Quieres aprender más vocabulario?', answer: 'Sí, quiero aprender más.', answerTranslation: 'Yes, I want to learn more.' },
+  { question: '¿Tienes que trabajar mañana?', answer: 'No, no tengo que trabajar.', answerTranslation: 'No, I don\'t have to work.' },
+  { question: '¿Debes practicar cada día?', answer: 'Sí, debo practicar cada día.', answerTranslation: 'Yes, I should practice every day.' },
+  { question: '¿Va a comer en el restaurante?', answer: 'Sí, voy a comer allí.', answerTranslation: 'Yes, I\'m going to eat there.' },
+];
+
+const MODAL_FRAMES = [
+  {
+    frame: 'Voy a ___.',
+    frameTranslation: 'I\'m going to ___.',
+    items: [
+      { filler: 'estudiar', fullSentence: 'Voy a estudiar.', translation: 'I\'m going to study.' },
+      { filler: 'comer', fullSentence: 'Voy a comer.', translation: 'I\'m going to eat.' },
+      { filler: 'hablar', fullSentence: 'Voy a hablar.', translation: 'I\'m going to speak.' },
+      { filler: 'ir', fullSentence: 'Voy a ir.', translation: 'I\'m going to go.' },
+    ],
+  },
+  {
+    frame: 'Quiero ___.',
+    frameTranslation: 'I want to ___.',
+    items: [
+      { filler: 'aprender', fullSentence: 'Quiero aprender.', translation: 'I want to learn.' },
+      { filler: 'practicar', fullSentence: 'Quiero practicar.', translation: 'I want to practice.' },
+      { filler: 'hablar', fullSentence: 'Quiero hablar.', translation: 'I want to speak.' },
+      { filler: 'comer', fullSentence: 'Quiero comer.', translation: 'I want to eat.' },
+    ],
+  },
+  {
+    frame: 'Puedo ___.',
+    frameTranslation: 'I can ___.',
+    items: [
+      { filler: 'hablar', fullSentence: 'Puedo hablar.', translation: 'I can speak.' },
+      { filler: 'leer', fullSentence: 'Puedo leer.', translation: 'I can read.' },
+      { filler: 'entender', fullSentence: 'Puedo entender.', translation: 'I can understand.' },
+      { filler: 'escribir', fullSentence: 'Puedo escribir.', translation: 'I can write.' },
+    ],
+  },
+];
+
 export function GrammarChapterView({ type, chapterNumber, chapterTitle, language = 'spanish' }: { type: GrammarChapterType; chapterNumber: number; chapterTitle?: string; language?: string }) {
   const baseLabel = GRAMMAR_LABELS[type];
   const frLabel = language === 'french' ? GRAMMAR_LABELS_FR[type] : undefined;
@@ -1801,6 +1843,8 @@ export function GrammarChapterView({ type, chapterNumber, chapterTitle, language
       {type === 'stem_change' && <StemChangeCard />}
       {type === 'go_verbs' && <GoVerbsCard />}
       {type === 'modal_verbs' && <ModalVerbsCard />}
+      {type === 'modal_verbs' && <VocabQAGrid items={MODAL_QA} language={language} />}
+      {type === 'modal_verbs' && <SentenceFrameGrid frames={MODAL_FRAMES} language={language} />}
       {type === 'saber_conocer' && <SaberConocerCard />}
       {type === 'reflexive' && <ReflexiveVerbCard />}
       {type === 'pret_regular' && <PretRegularCard />}

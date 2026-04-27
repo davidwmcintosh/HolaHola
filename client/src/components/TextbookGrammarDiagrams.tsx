@@ -184,10 +184,8 @@ const IR_PRES: VerbTableData = {
   note: 'IR + a + infinitive = future plans: Voy a estudiar (I\'m going to study).',
   rows: [
     { pronoun: 'yo', form: 'voy' },
-    { pronoun: 'tú', form: 'vas' },
     { pronoun: 'él / ella / Ud.', form: 'va' },
     { pronoun: 'nosotros/as', form: 'vamos' },
-    { pronoun: 'vosotros/as', form: 'vais' },
     { pronoun: 'ellos / Uds.', form: 'van' },
   ],
 };

@@ -1991,11 +1991,11 @@ export function GenderAgreementGrid({
 
 const MODAL_VERBS_DATA = [
   {
-    verb: 'VOY A',
+    verb: 'IR A',
     meaning: 'going to (near future)',
     colorClass: 'text-rose-600 dark:text-rose-400',
     bgClass: 'from-rose-500/10',
-    conjugations: ['voy a', 'vas a', 'va a', 'vamos a', 'van a'],
+    conjugations: ['voy a', 'va a', 'vamos a', 'van a'],
     example: 'Voy a estudiar esta noche.',
     translation: 'I am going to study tonight.',
     note: 'ir (irregular) + a',
@@ -2047,7 +2047,7 @@ export function ModalVerbsCard({ className = '' }: { className?: string }) {
     <div className={`rounded-lg border bg-card overflow-hidden ${className}`} data-testid="grammar-card-modal-verbs">
       <div className="px-4 py-3 border-b bg-gradient-to-r from-primary/10 to-transparent">
         <p className="text-sm font-semibold text-center">The Infinitive Pattern</p>
-        <p className="text-xs text-muted-foreground text-center">voy a · quiero · puedo · debo · tengo que</p>
+        <p className="text-xs text-muted-foreground text-center">ir a · querer · poder · deber · tener que</p>
       </div>
 
       {/* Formula bar */}
