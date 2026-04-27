@@ -200,6 +200,25 @@ export class GeminiLiveSession {
   }
 
   /**
+   * Send a typed text turn to Gemini Live (e.g. from a PTT transcript).
+   * Used when the client submits a push-to-talk recording and speculative STT
+   * has already produced a transcript — we route it here so Gemini Live
+   * generates the audio response instead of the legacy pipeline.
+   */
+  sendTextTurn(text: string): void {
+    if (!this.liveSession || this.isStopped) return;
+    try {
+      this.liveSession.sendClientContent({
+        turns: [{ role: 'user', parts: [{ text }] }],
+        turnComplete: true,
+      });
+      console.log(`[GeminiLive] Text turn sent (${text.length} chars): "${text.slice(0, 80)}"`);
+    } catch (err) {
+      console.warn('[GeminiLive] Failed to send text turn:', err);
+    }
+  }
+
+  /**
    * Close the Gemini Live session cleanly.
    */
   stop(): void {

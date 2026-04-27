@@ -176,6 +176,7 @@ export function VoiceLabPanel({
   const isElevenLabs = currentVoice?.provider === 'elevenlabs';
   const isGoogle = currentVoice?.provider === 'google';
   const isGemini = currentVoice?.provider === 'gemini';
+  const isGeminiLive = currentVoice?.provider === 'gemini-live';
 
   // Fetch available Cartesia voices for main tutors (only when using Cartesia)
   const { data: cartesiaVoicesData, isLoading: isLoadingCartesiaVoices } = useQuery<{ voices: CartesiaVoice[]; total: number }>({
@@ -185,7 +186,7 @@ export function VoiceLabPanel({
       if (!res.ok) throw new Error('Failed to fetch voices');
       return res.json();
     },
-    enabled: isOpen && !!language && !isAssistant && !isElevenLabs && !isGoogle && !isGemini,
+    enabled: isOpen && !!language && !isAssistant && !isElevenLabs && !isGoogle && !isGemini && !isGeminiLive,
   });
   const cartesiaVoices = cartesiaVoicesData?.voices || [];
 
@@ -197,6 +198,15 @@ export function VoiceLabPanel({
   const geminiVoices = (geminiVoicesData || [])
     .filter(v => !tutorGender || v.gender === tutorGender)
     .map(v => ({ id: v.id, name: v.name, description: 'Gemini 2.5 Flash TTS', language: '', gender: v.gender }));
+
+  interface GeminiLiveVoice { id: string; name: string; gender: string; provider: string; description: string; }
+  const { data: geminiLiveVoicesData, isLoading: isLoadingGeminiLiveVoices } = useQuery<GeminiLiveVoice[]>({
+    queryKey: ['/api/admin/gemini-live-voices'],
+    enabled: isOpen && isGeminiLive,
+  });
+  const geminiLiveVoices = (geminiLiveVoicesData || [])
+    .filter(v => !tutorGender || v.gender === tutorGender)
+    .map(v => ({ id: v.id, name: `${v.name} — ${v.description}`, description: 'Gemini Live', language: '', gender: v.gender }));
 
   const langCodeMap: Record<string, string> = {
     english: 'en', spanish: 'es', french: 'fr', german: 'de',
@@ -238,8 +248,8 @@ export function VoiceLabPanel({
   const googleVoices = googleVoicesData?.voices || [];
 
   // Use appropriate voice list based on role and provider
-  const availableVoices = (isAssistant || isGoogle) ? googleVoices : isElevenLabs ? elevenLabsVoices : isGemini ? geminiVoices : cartesiaVoices;
-  const isLoadingVoices = (isAssistant || isGoogle) ? isLoadingGoogleVoices : isElevenLabs ? isLoadingElevenLabsVoices : isGemini ? isLoadingGeminiVoices : isLoadingCartesiaVoices;
+  const availableVoices = (isAssistant || isGoogle) ? googleVoices : isElevenLabs ? elevenLabsVoices : isGemini ? geminiVoices : isGeminiLive ? geminiLiveVoices : cartesiaVoices;
+  const isLoadingVoices = (isAssistant || isGoogle) ? isLoadingGoogleVoices : isElevenLabs ? isLoadingElevenLabsVoices : isGemini ? isLoadingGeminiVoices : isGeminiLive ? isLoadingGeminiLiveVoices : isLoadingCartesiaVoices;
 
   // Initialize local state from current voice or override
   useEffect(() => {
@@ -278,7 +288,7 @@ export function VoiceLabPanel({
       emotion,
       ...(selectedVoiceId && selectedVoiceId !== currentVoice?.voiceId ? { voiceId: selectedVoiceId } : {}),
       ...(isElevenLabs ? { elStability, elSimilarityBoost, elStyle } : {}),
-      ...(isGemini && selectedAccent ? { geminiLanguageCode: selectedAccent } : {}),
+      ...((isGemini || isGeminiLive) && selectedAccent ? { geminiLanguageCode: selectedAccent } : {}),
     };
     onOverrideChange(override);
     setHasChanges(true);
@@ -340,7 +350,7 @@ export function VoiceLabPanel({
         emotion,
         ...(selectedVoiceId && selectedVoiceId !== currentVoice?.voiceId ? { voiceId: selectedVoiceId } : {}),
         ...(isElevenLabs ? { elStability, elSimilarityBoost, elStyle } : {}),
-        ...(isGemini && selectedAccent ? { geminiLanguageCode: selectedAccent } : {}),
+        ...((isGemini || isGeminiLive) && selectedAccent ? { geminiLanguageCode: selectedAccent } : {}),
       };
       onOverrideChange(override);
       setHasChanges(false);
@@ -380,6 +390,11 @@ export function VoiceLabPanel({
         bodyData.elSpeed = speakingRate;
       }
       if (isGemini) {
+        if (selectedAccent) bodyData.accentLanguage = selectedAccent;
+        bodyData.nativeLanguage = 'english';
+      }
+      if (isGeminiLive) {
+        bodyData.provider = 'gemini';
         if (selectedAccent) bodyData.accentLanguage = selectedAccent;
         bodyData.nativeLanguage = 'english';
       }
@@ -532,6 +547,49 @@ export function VoiceLabPanel({
               </>
             )}
 
+            {/* Gemini Live mode — voice config + accent variant */}
+            {isGeminiLive && (
+              <>
+                <div className="flex items-start gap-2 p-3 rounded-md bg-muted/40">
+                  <Sparkles className="h-4 w-4 mt-0.5 text-primary shrink-0" />
+                  <div>
+                    <p className="text-xs font-medium">Real-time Audio Pipeline</p>
+                    <p className="text-xs text-muted-foreground">
+                      Gemini Live generates speech directly — no separate STT or TTS step.
+                      Enable with <span className="font-mono">GEMINI_LIVE_VOICE=true</span>.
+                      Audition uses Gemini TTS as a preview.
+                    </p>
+                  </div>
+                </div>
+                {languageAccents.length > 1 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Globe className="h-4 w-4 text-muted-foreground" />
+                      <Label>Accent Variant</Label>
+                    </div>
+                    <Select
+                      value={selectedAccent || languageAccents[0]?.code || ''}
+                      onValueChange={(v) => setSelectedAccent(v)}
+                    >
+                      <SelectTrigger data-testid="select-gemini-live-accent">
+                        <SelectValue placeholder="Select accent..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {languageAccents.map(variant => (
+                          <SelectItem key={variant.code} value={variant.code}>
+                            {variant.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Regional accent hint — passed to Gemini Live as language code
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+
             <Separator />
 
             {/* Speaking Speed - all providers */}
@@ -546,7 +604,7 @@ export function VoiceLabPanel({
                 value={[speakingRate]}
                 onValueChange={([value]) => setSpeakingRate(value)}
                 min={isElevenLabs ? 0.5 : isGoogle ? 0.25 : 0.7}
-                max={isElevenLabs ? 2.0 : isGoogle ? 4.0 : 1.3}
+                max={isElevenLabs ? 2.0 : isGoogle || isGemini || isGeminiLive ? 4.0 : 1.3}
                 step={0.1}
                 className="w-full"
                 data-testid="slider-voice-lab-speed"
@@ -558,7 +616,7 @@ export function VoiceLabPanel({
               </div>
             </div>
 
-            {isGoogle ? null : isElevenLabs ? (
+            {isGoogle || isGemini || isGeminiLive ? null : isElevenLabs ? (
               <>
                 {/* ElevenLabs Voice Settings */}
                 <div className="space-y-3">

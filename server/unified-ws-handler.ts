@@ -1624,6 +1624,26 @@ ${buildNativeFunctionCallingSection()}`;
           } else {
             audioBuffer = Buffer.from(audioMessage.audio);
           }
+
+          // GEMINI LIVE PATH: Route PTT through Gemini Live when the Live session is active.
+          // We prefer the speculative transcript (already captured by the streaming STT during recording).
+          // If no transcript is available, we skip silently — open-mic is the preferred mode with GLive.
+          if (geminiLiveSession) {
+            if (pendingSpeculativeTranscript && pendingSpeculativeWordCount >= 1) {
+              const transcript = pendingSpeculativeTranscript;
+              pendingSpeculativeTranscript = null;
+              pendingSpeculativeWordCount = 0;
+              console.log(`[GeminiLive PTT] Routing via text turn (${transcript.length} chars): "${transcript.slice(0, 80)}"`);
+              geminiLiveSession.sendTextTurn(transcript);
+            } else {
+              if (pendingSpeculativeTranscript) {
+                pendingSpeculativeTranscript = null;
+                pendingSpeculativeWordCount = 0;
+              }
+              console.log('[GeminiLive PTT] No transcript available — skipping blob (open-mic preferred with Gemini Live)');
+            }
+            break;
+          }
           
           // Wrap in try/catch to prevent STT/AI errors from disconnecting the session
           // Errors like EMPTY_TRANSCRIPT are recoverable and shouldn't close the socket

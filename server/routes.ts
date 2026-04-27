@@ -20623,8 +20623,8 @@ Current conversation context:
   app.post("/api/admin/tutor-voices/provider", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { provider } = req.body;
-      if (!provider || !['cartesia', 'elevenlabs', 'google', 'gemini'].includes(provider)) {
-        return res.status(400).json({ error: "Provider must be 'cartesia', 'elevenlabs', 'google', or 'gemini'" });
+      if (!provider || !['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live'].includes(provider)) {
+        return res.status(400).json({ error: "Provider must be 'cartesia', 'elevenlabs', 'google', 'gemini', or 'gemini-live'" });
       }
       
       const count = await storage.updateAllTutorVoicesProvider(provider);
@@ -21475,6 +21475,25 @@ Current conversation context:
       console.error('Error fetching Gemini TTS voices:', error);
       res.status(500).json({ error: error.message });
     }
+  });
+
+  // Gemini Live prebuilt voices — static list for the Voice Lab / Voice Console
+  // These are the native voice names accepted by ai.live.connect() speechConfig.
+  // Same catalog as Gemini 2.5 Flash TTS voices but served by the Live API model.
+  app.get("/api/admin/gemini-live-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), (req: any, res) => {
+    const GEMINI_LIVE_VOICES = [
+      { id: 'Aoede',  name: 'Aoede',  gender: 'female', provider: 'gemini-live', description: 'Warm, lyrical' },
+      { id: 'Kore',   name: 'Kore',   gender: 'female', provider: 'gemini-live', description: 'Clear, precise' },
+      { id: 'Leda',   name: 'Leda',   gender: 'female', provider: 'gemini-live', description: 'Gentle, expressive' },
+      { id: 'Zephyr', name: 'Zephyr', gender: 'female', provider: 'gemini-live', description: 'Bright, energetic' },
+      { id: 'Puck',   name: 'Puck',   gender: 'male',   provider: 'gemini-live', description: 'Playful, warm' },
+      { id: 'Charon', name: 'Charon', gender: 'male',   provider: 'gemini-live', description: 'Deep, steady' },
+      { id: 'Fenrir', name: 'Fenrir', gender: 'male',   provider: 'gemini-live', description: 'Bold, confident' },
+      { id: 'Orus',   name: 'Orus',   gender: 'male',   provider: 'gemini-live', description: 'Smooth, authoritative' },
+    ];
+    const gender = req.query.gender as 'male' | 'female' | undefined;
+    const voices = gender ? GEMINI_LIVE_VOICES.filter(v => v.gender === gender) : GEMINI_LIVE_VOICES;
+    res.json(voices);
   });
   
   // Get TTS emotion metadata for admin voice console (admin/developer only)
