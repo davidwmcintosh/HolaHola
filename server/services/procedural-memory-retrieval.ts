@@ -1301,8 +1301,9 @@ function buildTeachingPrinciplesSection(): string {
     lines.push(`${category.toUpperCase().replace(/_/g, ' ')}:`);
     // Sort by priority descending so highest-priority beliefs always appear first
     const sorted = [...catPrinciples].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
-    // Cap at 12 per category — prevents runaway SELF_SURGERY growth while giving ample room
-    sorted.slice(0, 12).forEach(p => {
+    // Cap at 50 per category — the DB already has 40+ in some categories from months of SELF_SURGERY;
+    // 12 was silently dropping the majority of Daniela's own accumulated wisdom.
+    sorted.slice(0, 50).forEach(p => {
       lines.push(`  • ${p.principle}`);
     });
     lines.push('');

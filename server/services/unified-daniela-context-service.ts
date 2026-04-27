@@ -772,31 +772,31 @@ ${context.journeyContext}`);
     try {
       const { promises: fsp } = await import('fs');
       const { join } = await import('path');
+      const docsDir = join(process.cwd(), 'docs');
+
+      const readDoc = async (filename: string): Promise<string> => {
+        try { return await fsp.readFile(join(docsDir, filename), 'utf-8'); }
+        catch { console.warn(`[UnifiedDanielContext] Doc not found: ${filename}`); return ''; }
+      };
 
       // 1. Full pedagogy brief (addressed directly to Daniela)
-      const briefPath = join(process.cwd(), 'docs', 'daniela-pedagogy-brief.md');
-      let briefText = '';
-      try {
-        briefText = await fsp.readFile(briefPath, 'utf-8');
-      } catch {
-        console.warn('[UnifiedDanielContext] Pedagogy brief not found at docs/daniela-pedagogy-brief.md');
-      }
+      const briefText = await readDoc('daniela-pedagogy-brief.md');
 
-      // 2. Extract four verbatim sections from the visual asset roadmap
-      const roadmapPath = join(process.cwd(), 'docs', 'visual-asset-roadmap.md');
-      let roadmapIA = '';
-      let roadmapIG = '';
-      let roadmapIK = '';
-      let roadmapIM = '';
-      try {
-        const roadmapFull = await fsp.readFile(roadmapPath, 'utf-8');
-        roadmapIA = this._extractRoadmapSection(roadmapFull, 'Part I.A');
-        roadmapIG = this._extractRoadmapSection(roadmapFull, 'Part I.G');
-        roadmapIK = this._extractRoadmapSection(roadmapFull, 'Part I.K');
-        roadmapIM = this._extractRoadmapSection(roadmapFull, 'Part I.M');
-      } catch {
-        console.warn('[UnifiedDanielContext] Visual asset roadmap not found at docs/visual-asset-roadmap.md');
-      }
+      // 2. Visual asset roadmap — six verbatim sections
+      const roadmapFull = await readDoc('visual-asset-roadmap.md');
+      const roadmapIA = roadmapFull ? this._extractRoadmapSection(roadmapFull, 'Part I.A') : '';
+      // I.B: structure + drawing style only — stops before the full 600-line lesson map
+      const roadmapIB = roadmapFull
+        ? this._extractRoadmapSectionUntil(roadmapFull, 'Part I.B', '## Complete Conversation Lesson Map')
+        : '';
+      const roadmapID = roadmapFull ? this._extractRoadmapSection(roadmapFull, 'Part I.D') : '';
+      const roadmapIG = roadmapFull ? this._extractRoadmapSection(roadmapFull, 'Part I.G') : '';
+      const roadmapIK = roadmapFull ? this._extractRoadmapSection(roadmapFull, 'Part I.K') : '';
+      const roadmapIM = roadmapFull ? this._extractRoadmapSection(roadmapFull, 'Part I.M') : '';
+
+      // 3. Standalone docs
+      const madrigalPageOne = await readDoc('madrigal-page-one-analysis.md');
+      const curriculumStrategy = await readDoc('curriculum-strategy.md');
 
       const parts: string[] = [];
 
@@ -811,17 +811,35 @@ ${briefText}`);
 
       if (roadmapIA) {
         parts.push(`═══════════════════════════════════════════════════════════════════
-📗 ROADMAP SOURCE: Part I.A — Where HoloHola Improves on Madrigal
-(Verbatim from docs/visual-asset-roadmap.md)
+📗 ROADMAP: Part I.A — Where HoloHola Improves on Madrigal
+NOTE: The 🟡/🟠/🔴 matrix at the end reflects April 2026 state. Several items since
+resolved — see curriculum-strategy.md below for current honest inventory.
 ═══════════════════════════════════════════════════════════════════
 
 ${roadmapIA}`);
       }
 
+      if (roadmapIB) {
+        parts.push(`═══════════════════════════════════════════════════════════════════
+📗 ROADMAP: Part I.B — See It and Say It: Book Structure & Drawing Style
+(Structure section only — full 95-lesson map omitted for brevity)
+═══════════════════════════════════════════════════════════════════
+
+${roadmapIB}`);
+      }
+
+      if (roadmapID) {
+        parts.push(`═══════════════════════════════════════════════════════════════════
+📗 ROADMAP: Part I.D — How Madrigal Illustrates Each Concept
+(Visual formula guide — use this when thinking about show_image calls)
+═══════════════════════════════════════════════════════════════════
+
+${roadmapID}`);
+      }
+
       if (roadmapIG) {
         parts.push(`═══════════════════════════════════════════════════════════════════
-📗 ROADMAP SOURCE: Part I.G — The Two-Book Synthesis
-(Verbatim from docs/visual-asset-roadmap.md)
+📗 ROADMAP: Part I.G — The Two-Book Synthesis
 ═══════════════════════════════════════════════════════════════════
 
 ${roadmapIG}`);
@@ -829,8 +847,7 @@ ${roadmapIG}`);
 
       if (roadmapIK) {
         parts.push(`═══════════════════════════════════════════════════════════════════
-📗 ROADMAP SOURCE: Part I.K — The Interactive Textbook Architecture
-(Verbatim from docs/visual-asset-roadmap.md)
+📗 ROADMAP: Part I.K — The Interactive Textbook Architecture
 ═══════════════════════════════════════════════════════════════════
 
 ${roadmapIK}`);
@@ -838,11 +855,32 @@ ${roadmapIK}`);
 
       if (roadmapIM) {
         parts.push(`═══════════════════════════════════════════════════════════════════
-📗 ROADMAP SOURCE: Part I.M — The Cognate Trap
-(Verbatim from docs/visual-asset-roadmap.md)
+📗 ROADMAP: Part I.M — The Cognate Trap
 ═══════════════════════════════════════════════════════════════════
 
 ${roadmapIM}`);
+      }
+
+      if (madrigalPageOne) {
+        parts.push(`═══════════════════════════════════════════════════════════════════
+📘 DESIGN SPEC: The Madrigal Page — Complete Element-by-Element Analysis
+Source: docs/madrigal-page-one-analysis.md
+Includes: Vocabulary Cluster Principle, HoloHola digital scroll sequence, component map
+═══════════════════════════════════════════════════════════════════
+
+${madrigalPageOne}`);
+      }
+
+      if (curriculumStrategy) {
+        parts.push(`═══════════════════════════════════════════════════════════════════
+📊 CURRICULUM STRATEGY — Honest Inventory (March–April 2026)
+Source: docs/curriculum-strategy.md
+This is the authoritative current state: what's built, what's partial, what's not started,
+and all 8 strategic decisions including tú timing, voy a + preterite sequencing,
+vocabulary cluster rule, and the cognate vocabulary gap.
+═══════════════════════════════════════════════════════════════════
+
+${curriculumStrategy}`);
       }
 
       if (parts.length === 0) {
@@ -852,8 +890,9 @@ ${roadmapIM}`);
 
       const combined = parts.join('\n\n');
       this._pedagogyDocCache = combined;
-      const sections = [roadmapIA, roadmapIG, roadmapIK, roadmapIM].filter(Boolean).length;
-      console.log(`[UnifiedDanielContext] Pedagogy doc cached: brief + ${sections} roadmap sections verbatim (${combined.length} chars)`);
+      const roadmapSections = [roadmapIA, roadmapIB, roadmapID, roadmapIG, roadmapIK, roadmapIM].filter(Boolean).length;
+      const standaloneDocs = [madrigalPageOne, curriculumStrategy].filter(Boolean).length;
+      console.log(`[UnifiedDanielContext] Pedagogy doc cached: brief + ${roadmapSections} roadmap sections + ${standaloneDocs} standalone docs (${combined.length} chars / ~${Math.round(combined.length / 4)} tokens)`);
       return combined;
 
     } catch (err: any) {
@@ -868,14 +907,11 @@ ${roadmapIM}`);
    * Reads from the section heading to (but not including) the next ## Part I. heading.
    */
   private _extractRoadmapSection(fullText: string, sectionId: string): string {
-    // Match e.g. "## Part I.A" or "## Part I.K —" (with or without subtitle)
     const startRe = new RegExp(`(^## ${sectionId.replace('.', '\\.')}(?:\\s|$).*)`, 'm');
     const startMatch = startRe.exec(fullText);
     if (!startMatch) return '';
 
     const startIdx = startMatch.index;
-
-    // Find the next ## Part I. heading after this one
     const nextPartRe = /^## Part I\./m;
     const afterStart = fullText.slice(startIdx + startMatch[0].length);
     const nextMatch = nextPartRe.exec(afterStart);
@@ -884,6 +920,37 @@ ${roadmapIM}`);
       : fullText.length;
 
     return fullText.slice(startIdx, endIdx).trim();
+  }
+
+  /**
+   * Like _extractRoadmapSection, but stops at a specific sub-heading within the section
+   * instead of at the next Part I. heading. Used to extract structural overview without
+   * the full data tables (e.g., I.B structure only, not the 600-line lesson map).
+   */
+  private _extractRoadmapSectionUntil(fullText: string, sectionId: string, stopHeading: string): string {
+    const startRe = new RegExp(`(^## ${sectionId.replace('.', '\\.')}(?:\\s|$).*)`, 'm');
+    const startMatch = startRe.exec(fullText);
+    if (!startMatch) return '';
+
+    const startIdx = startMatch.index;
+    const afterStart = fullText.slice(startIdx + startMatch[0].length);
+
+    // Look for the stop heading first, then fall back to the next Part I. heading
+    const stopRe = new RegExp(`^${stopHeading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'm');
+    const stopMatch = stopRe.exec(afterStart);
+    const nextPartRe = /^## Part I\./m;
+    const nextPartMatch = nextPartRe.exec(afterStart);
+
+    let endRelIdx: number;
+    if (stopMatch && (!nextPartMatch || stopMatch.index < nextPartMatch.index)) {
+      endRelIdx = stopMatch.index;
+    } else if (nextPartMatch) {
+      endRelIdx = nextPartMatch.index;
+    } else {
+      endRelIdx = afterStart.length;
+    }
+
+    return fullText.slice(startIdx, startIdx + startMatch[0].length + endRelIdx).trim();
   }
 
   private async _fetchTOCForPath(db: any, rawSql: any, pathId: string): Promise<string | null> {
