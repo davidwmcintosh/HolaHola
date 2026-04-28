@@ -1173,7 +1173,11 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
                 SESSION_INIT_TIMEOUT, 'getMessages', [] as any[]
               ),
               withTimeout(
-                storage.getTutorVoice(effectiveLanguage, tutorGender),
+                // When Gemini Live is enabled, prefer the gemini-live provider voice.
+                // Each language+gender has both a google and a gemini-live active row;
+                // without this, LIMIT 1 returns whichever the DB picks — often google —
+                // and the Gemini Live session then falls back to the default voice.
+                storage.getTutorVoice(effectiveLanguage, tutorGender, GEMINI_LIVE_VOICE_ENABLED ? 'gemini-live' : undefined),
                 SESSION_INIT_TIMEOUT, 'getTutorVoice', null
               ),
             ]);
@@ -1928,7 +1932,7 @@ ${buildNativeFunctionCallingSection()}`;
             voiceUpdateInProgress = true;
             try {
               const targetLanguage = session.targetLanguage || 'spanish';
-              const tutorVoice = await storage.getTutorVoice(targetLanguage, voiceMsg.tutorGender);
+              const tutorVoice = await storage.getTutorVoice(targetLanguage, voiceMsg.tutorGender, GEMINI_LIVE_VOICE_ENABLED ? 'gemini-live' : undefined);
               
               if (tutorVoice?.voiceId) {
                 orchestrator.updateSessionVoice(session.id, tutorVoice.voiceId, tutorVoice.provider);

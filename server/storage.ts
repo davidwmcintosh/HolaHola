@@ -779,8 +779,9 @@ export interface IStorage {
 
   // ===== Tutor Voice Management (Admin Console) =====
   
-  // Get voice for a specific language and gender
-  getTutorVoice(language: string, gender: 'male' | 'female'): Promise<TutorVoice | undefined>;
+  // Get voice for a specific language and gender.
+  // Pass preferredProvider (e.g. 'gemini-live') to try that provider first before falling back.
+  getTutorVoice(language: string, gender: 'male' | 'female', preferredProvider?: string): Promise<TutorVoice | undefined>;
   
   // Get all configured voices
   getAllTutorVoices(): Promise<TutorVoice[]>;
@@ -5854,8 +5855,26 @@ export class DatabaseStorage implements IStorage {
 
   // ===== Tutor Voice Management =====
 
-  async getTutorVoice(language: string, gender: 'male' | 'female'): Promise<TutorVoice | undefined> {
+  async getTutorVoice(language: string, gender: 'male' | 'female', preferredProvider?: string): Promise<TutorVoice | undefined> {
     // IMPORTANT: Filter by role='tutor' to get main Cartesia tutor, not Google assistant
+    //
+    // Each language+gender pair may have multiple active rows — one per provider
+    // (e.g. 'google' + 'gemini-live' both active).  When a preferred provider is
+    // supplied (e.g. 'gemini-live' when that feature flag is on) we try it first;
+    // if no match we fall back to any active tutor voice so the session always starts.
+    if (preferredProvider) {
+      const preferred = await getSharedDb().select().from(tutorVoices).where(
+        and(
+          eq(tutorVoices.language, language),
+          eq(tutorVoices.gender, gender),
+          eq(tutorVoices.role, 'tutor'),
+          eq(tutorVoices.isActive, true),
+          eq(tutorVoices.provider, preferredProvider)
+        )
+      ).orderBy(desc(tutorVoices.updatedAt)).limit(1);
+      if (preferred[0]) return preferred[0];
+      // Fall through to any-provider query below
+    }
     const result = await getSharedDb().select().from(tutorVoices).where(
       and(
         eq(tutorVoices.language, language),
@@ -5863,7 +5882,7 @@ export class DatabaseStorage implements IStorage {
         eq(tutorVoices.role, 'tutor'),  // Only main tutors, not assistants
         eq(tutorVoices.isActive, true)
       )
-    ).limit(1);
+    ).orderBy(desc(tutorVoices.updatedAt)).limit(1);
     return result[0];
   }
 

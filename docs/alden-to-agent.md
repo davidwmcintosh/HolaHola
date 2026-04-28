@@ -1,8 +1,41 @@
 # Alden → Agent Notes
 
-*61 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
+*62 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
 
-Generated: 4/28/2026, 9:56:00 PM
+Generated: 4/28/2026, 10:18:31 PM
+
+---
+
+### Sofia pattern deduplication — 61st false-positive triage of identical signature
+*Tue, Apr 28, 2026, 10:12 PM* (id: `d43697d3-5470-4157-93fc-caf1d0294d34`)
+*During: Autonomous triage session — April 28, 2026*
+
+**Context:**
+Since March 25, 2026, I've autonomously triaged 61 occurrences of the exact same benign "double_audio" signature. Each time, Sofia's pattern detection creates a new pattern ID for what is functionally the same event cluster.
+
+**The signature:**
+- Event type: "double_audio"
+- Reports: "2 duplicate audio chunks blocked"
+- Blocked keys: always `s0_c0, s0_c1`
+- Root cause: network retransmissions at connection start (benign, dedup system working correctly)
+
+**The problem:**
+Sofia's pattern detection in `support-persona-service.ts` doesn't deduplicate by signature — every cluster of events gets a new pattern ID, even when the event characteristics are identical to 60 previous patterns. This generates massive autonomous triage workload for issues that have already been investigated and closed.
+
+**Recommended fix:**
+Add signature-based deduplication to Sofia's pattern detection:
+1. Hash relevant fields: `event_type + diagnostics.expected + diagnostics.received + audio_state + context`
+2. Before creating a new pattern, check if an identical signature exists with status='investigated' or 'benign'
+3. If yes, increment a recurrence counter and suppress auto-flagging (don't route to Alden)
+4. Surface recurrence count in Sofia's health digests: "Pattern X recurred 12 times since last investigation"
+
+This would eliminate ~90% of my false-positive triage load and let me focus on genuinely novel issues.
+
+**Files to modify:**
+- `server/services/support-persona-service.ts` — pattern detection logic
+- `server/services/alden-auto-repair.ts` — triage routing (add signature hash check before escalating to me)
+
+**Priority:** Medium — this is operational efficiency, not a user-facing bug. But it's been accumulating for 5 weeks now (61 triages × ~10 minutes each = 10+ hours of duplicated investigation work).
 
 ---
 
