@@ -18,7 +18,14 @@
  * Feature flag: GEMINI_LIVE_VOICE=true
  */
 
-import { GoogleGenAI, Modality, type Session, type LiveServerMessage } from '@google/genai';
+import {
+  GoogleGenAI,
+  Modality,
+  StartSensitivity,
+  EndSensitivity,
+  type Session,
+  type LiveServerMessage,
+} from '@google/genai';
 import type { FunctionDeclaration } from '@google/genai';
 import { NativeFunctionCallHandler } from './native-fc-handlers';
 import type { StreamingSession } from './streaming-session-types';
@@ -122,6 +129,33 @@ export class GeminiLiveSession {
             },
           },
         },
+
+        // ── VAD configuration ─────────────────────────────────────────────
+        // High start-sensitivity: pick up student speech quickly.
+        // Low end-sensitivity: don't cut off mid-sentence pauses.
+        // 700 ms silence before the turn is handed back to Daniela.
+        realtimeInputConfig: {
+          automaticActivityDetection: {
+            disabled: false,
+            startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_HIGH,
+            endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_LOW,
+            silenceDurationMs: 700,
+          },
+        },
+
+        // ── Proactive audio ───────────────────────────────────────────────
+        // Allows Daniela to break silence proactively (e.g. prompting a
+        // student who hasn't spoken after a long pause).
+        proactivity: {
+          proactiveAudio: true,
+        },
+
+        // ── Session resumption ────────────────────────────────────────────
+        // Server will stream back newHandle tokens on each turn.
+        // We store the latest token so we can reconnect without losing context.
+        sessionResumption: this.session.geminiLiveResumptionHandle
+          ? { handle: this.session.geminiLiveResumptionHandle }
+          : {},
       },
       callbacks: {
         onmessage: (msg: LiveServerMessage) => {
@@ -370,6 +404,43 @@ export class GeminiLiveSession {
     if (msg.toolCallCancellation) {
       console.log('[GeminiLive] Server cancelled tool call(s)');
     }
+
+    // ── Usage metadata — accumulate into session telemetry ───────────────────
+    // Feeds the burn report and Daniela's compass credit display.
+    if (msg.usageMetadata) {
+      const meta = msg.usageMetadata;
+      if (meta.promptTokenCount) {
+        this.session.telemetryLlmInputTokens =
+          (this.session.telemetryLlmInputTokens || 0) + meta.promptTokenCount;
+      }
+      if (meta.candidatesTokenCount) {
+        this.session.telemetryLlmOutputTokens =
+          (this.session.telemetryLlmOutputTokens || 0) + meta.candidatesTokenCount;
+      }
+      if (meta.totalTokenCount) {
+        console.log(
+          `[GeminiLive] Usage — in: ${meta.promptTokenCount ?? 0}, out: ${meta.candidatesTokenCount ?? 0}, total: ${meta.totalTokenCount} (session cumulative: ${this.session.telemetryLlmInputTokens}in/${this.session.telemetryLlmOutputTokens}out)`,
+        );
+      }
+    }
+
+    // ── Session resumption token ──────────────────────────────────────────────
+    // Store the latest handle so a dropped connection can resume without
+    // losing conversation context.
+    if (msg.sessionResumptionUpdate?.newHandle) {
+      this.session.geminiLiveResumptionHandle = msg.sessionResumptionUpdate.newHandle;
+    }
+  }
+
+  /**
+   * Expose accumulated token counts so the orchestrator can log them
+   * to the burn report when the session ends.
+   */
+  getUsageSummary(): { inputTokens: number; outputTokens: number } {
+    return {
+      inputTokens: this.session.telemetryLlmInputTokens || 0,
+      outputTokens: this.session.telemetryLlmOutputTokens || 0,
+    };
   }
 }
 

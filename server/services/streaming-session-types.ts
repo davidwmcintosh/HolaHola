@@ -85,6 +85,7 @@ export interface StreamingSession {
   studentGoals?: string;
   dbSessionId?: string;
   classId?: string;
+  geminiLiveResumptionHandle?: string;  // Last resumption token from Gemini Live — used to reconnect dropped sessions
   toolsUsedSession: string[];
   hiveChannelId?: string;
   pendingArchitectNoteIds: string[];
