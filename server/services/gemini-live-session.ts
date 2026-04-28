@@ -37,7 +37,7 @@ const DEFAULT_LIVE_VOICE = 'Aoede';
  * Controls both STT recognition language and influences output voice accent.
  */
 const LANGUAGE_TO_BCP47: Record<string, string> = {
-  spanish:    'es-ES',
+  spanish:    'es-US',   // es-ES rejected by gemini-2.5-flash-native-audio-preview models
   french:     'fr-FR',
   italian:    'it-IT',
   portuguese: 'pt-BR',

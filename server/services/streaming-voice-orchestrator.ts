@@ -1423,7 +1423,7 @@ Remember: David may reference things discussed in these recent text chats.
       promises.push(
         (async () => {
           try {
-            const { unifiedDanielaContextService } = await import('./unified-daniela-context-service');
+            const { unifiedDanielaContext: unifiedDanielaContextService } = await import('./unified-daniela-context-service');
             const toc = await unifiedDanielaContextService.buildCourseTOC(
               String(session.userId),
               session.targetLanguage!
@@ -1444,8 +1444,8 @@ Remember: David may reference things discussed in these recent text chats.
     promises.push(
       (async () => {
         try {
-          const { unifiedDanielaContextService } = await import('./unified-daniela-context-service');
-          const pedagogy = await unifiedDanielaContextService.buildPedagogyDocContext();
+          const { unifiedDanielaContext: unifiedDanielaContextServicePedagogy } = await import('./unified-daniela-context-service');
+          const pedagogy = await unifiedDanielaContextServicePedagogy.buildPedagogyDocContext();
           if (pedagogy) {
             cache.pedagogyDocContext = pedagogy;
             console.log(`[Context Prefetch] Pedagogy doc context loaded (${pedagogy.length} chars)`);
