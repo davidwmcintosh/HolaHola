@@ -45,7 +45,7 @@ const DEFAULT_LIVE_VOICE = 'Aoede';
  */
 const LANGUAGE_TO_BCP47: Record<string, string> = {
   english:    'en-US',
-  spanish:    'es-US',   // es-ES rejected by gemini-2.5-flash-native-audio-preview models
+  spanish:    'es-ES',   // es-US caused silence on gemini-3.1-flash-live-preview; es-ES is correct BCP-47
   french:     'fr-FR',
   italian:    'it-IT',
   portuguese: 'pt-BR',
@@ -83,6 +83,7 @@ export class GeminiLiveSession {
   private currentSentenceIndex = 0;
   private currentChunkIndex = 0;       // Resets to 0 at each new sentenceIndex boundary
   private hadAudioInCurrentSubturn = false;
+  private firstAudioSentThisTurn = false;   // Guard: don't send processing_pending AFTER audio already started
   private isStopped = false;
   private isStarted = false;
   private isSetupComplete = false;
@@ -269,6 +270,7 @@ export class GeminiLiveSession {
     if (!this.liveSession || this.isStopped) return;
     this.currentTurnId++;
     this.currentChunkIndex = 0;
+    this.firstAudioSentThisTurn = false;
     console.log(`[GeminiLive] Interrupted — advancing to turnId ${this.currentTurnId}`);
   }
 
@@ -418,6 +420,10 @@ export class GeminiLiveSession {
           const pcm16Buffer = Buffer.from(part.inlineData.data, 'base64');
           const f32leBuffer = pcm16ToF32le(pcm16Buffer);
 
+          // Mark that audio has started for this turn — prevents late outputTranscription
+          // chunks from firing a spurious processing_pending AFTER audio has played.
+          this.firstAudioSentThisTurn = true;
+
           this.sendWsMessage(this.session.ws, {
             type: 'audio_chunk',
             audio: f32leBuffer.toString('base64'),
@@ -489,13 +495,18 @@ export class GeminiLiveSession {
         // that GL has finished listening to the user and is now generating a response.
         // Firing it earlier (on inputTranscription) caused the user to see the thinking
         // avatar while still speaking and stop talking prematurely.
+        // GUARD: skip if audio already started — a late transcription chunk arriving after
+        // audio has played would stick the avatar in "thinking" with no audio to follow.
         const isFirstOutputChunk = this.pendingOutputTranscript.trim() === '';
         this.pendingOutputTranscript += text;
-        if (isFirstOutputChunk) {
+        if (isFirstOutputChunk && !this.firstAudioSentThisTurn) {
+          console.log('[GeminiLive] Firing processing_pending (transcription first, before audio)');
           this.sendWsMessage(this.session.ws, {
             type: 'processing_pending',
             timestamp: Date.now(),
           });
+        } else if (isFirstOutputChunk && this.firstAudioSentThisTurn) {
+          console.log('[GeminiLive] Skipping processing_pending — audio already started this turn');
         }
         this.sendWsMessage(this.session.ws, {
           type: 'daniela_transcript',
@@ -678,6 +689,7 @@ export class GeminiLiveSession {
     this.currentSentenceIndex = 0;
     this.currentChunkIndex = 0;
     this.pendingInputSaved = false;
+    this.firstAudioSentThisTurn = false;
     this.session.currentTurnId = ++this.currentTurnId;
 
     // Send response_complete AFTER DB writes so the client's cache invalidation
