@@ -442,7 +442,52 @@ This is now on the roadmap for Phase 3.
 
 ---
 
-## 6. Future Enhancements
+## 6. Live Voice Pipeline — Concurrency & Rate Limits
+
+The live voice session (Daniela talking to a student in real-time) runs on a different infrastructure stack from the textbook audio system. Two pipelines exist:
+
+### Legacy Pipeline (Deepgram + Google Chirp HD)
+
+Each active voice session consumes from **two separate quotas simultaneously**:
+
+| Service | Role | Limit |
+|---|---|---|
+| **Deepgram STT** (Nova-3) | Student speech → text | ~45 concurrent WebSocket streams (tripled Feb 2026; was ~15) |
+| **Google Cloud Chirp HD TTS** | Daniela's voice → audio | 100 requests/min per project (~12–16 concurrent heavy users) |
+
+The real bottleneck is Deepgram — one persistent WebSocket stream per student for the entire session duration. At 45 concurrent streams, that's the ceiling for simultaneous live sessions. The Chirp HD 100 RPM limit is softer in practice because TTS calls are short HTTP requests (~200ms each) and sessions have natural silence gaps.
+
+### Gemini Live Pipeline (`GEMINI_LIVE_VOICE=true`)
+
+Gemini Live **replaces both** Deepgram STT and Chirp HD TTS with a single persistent bidirectional session — one connection handles all audio in and out.
+
+| Tier | Concurrent Sessions | How to reach |
+|---|---|---|
+| Free | ~3 | Default (no billing) |
+| Tier 1 | ~50 | Enable Cloud billing (instant) |
+| Tier 2 | ~1,000 | $250+ cumulative spend on the project |
+| Enterprise | Custom | Contact Google |
+
+**Per-session hard limits:**
+- Max session length: 15 minutes (audio-only); connection terminates with a going-away notification so reconnection can be handled
+- Context window: 128k tokens
+- Audio in: PCM16, 16kHz mono
+- Audio out: PCM16, 24kHz mono
+
+### Side-by-side comparison
+
+| | Legacy (Deepgram + Chirp HD) | Gemini Live Tier 1 | Gemini Live Tier 2 |
+|---|---|---|---|
+| Max concurrent sessions | ~45 (Deepgram ceiling) | ~50 | ~1,000 |
+| Quota sources to manage | 2 (Deepgram + GCP) | 1 (Gemini API) | 1 (Gemini API) |
+| Session duration | Unlimited | 15 min (reconnect supported) | 15 min (reconnect supported) |
+| Latency profile | STT + LLM + TTS in series | Single stream, lower end-to-end latency | Same |
+
+**Key takeaway:** At current scale the pipelines are roughly equivalent on concurrency (~45 vs ~50). The Gemini Live advantage appears at Tier 2 — a 20× jump to 1,000 concurrent sessions with no additional engineering work, just spend threshold.
+
+---
+
+## 7. Future Enhancements
 
 1. **Speed Control UI**: Add slow/normal/fast buttons to textbook audio players
 2. **Audio Caching**: Pre-generate and cache common drill audio
