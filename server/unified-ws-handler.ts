@@ -655,6 +655,22 @@ async function getUserIdFromSession(req: IncomingMessage): Promise<string | null
  */
 const pendingHandoffIntros = new Map<string, { tutorName: string; gender: 'male' | 'female'; language: string; timestamp: number }>();
 
+// Canonical tutor names per language + gender.
+// These override any raw voice-name that may be stored in the voiceName field
+// (e.g. "Aoede", "Erinome") — raw voice names must never leak into tutor identity.
+const LANGUAGE_TUTOR_NAMES: Record<string, { female: string; male: string }> = {
+  spanish:            { female: 'Daniela',  male: 'Agustin'  },
+  english:            { female: 'Cindy',    male: 'Blake'    },
+  french:             { female: 'Juliette', male: 'Vincent'  },
+  german:             { female: 'Greta',    male: 'Lukas'    },
+  italian:            { female: 'Liv',      male: 'Luca'     },
+  portuguese:         { female: 'Isabel',   male: 'Camilo'   },
+  japanese:           { female: 'Sayuri',   male: 'Daisuke'  },
+  'mandarin chinese': { female: 'Hua',      male: 'Tao'      },
+  korean:             { female: 'Jihyun',   male: 'Minho'    },
+  hebrew:             { female: 'Noa',      male: 'Eitan'    },
+};
+
 /**
  * Handle streaming voice WebSocket connection (native WS path).
  * All voice logic is unified in handleStreamingVoiceConnectionWithAdapter.
@@ -1188,12 +1204,22 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             const isFounderMode = isDeveloper && config.founderMode === true;
             
             let voiceId = tutorVoice?.voiceId || '';
-            let tutorName = tutorGender === 'male' ? 'Agustin' : 'Daniela';
-            if (tutorVoice?.voiceName) {
+            // Resolve tutor display name.
+            // Priority 1: canonical language+gender lookup (prevents raw voice IDs like "Aoede" leaking
+            //              into identity — these are voice names, not tutor names).
+            // Priority 2: voiceName field (only used for languages not in the lookup, i.e. custom entries),
+            //              parsed before the first dash so "Daniela - Warm Teacher" → "Daniela".
+            // Priority 3: gender-based default.
+            const langKey = (effectiveLanguage || '').toLowerCase();
+            const canonicalNames = LANGUAGE_TUTOR_NAMES[langKey];
+            let tutorName: string;
+            if (canonicalNames) {
+              tutorName = tutorGender === 'male' ? canonicalNames.male : canonicalNames.female;
+            } else if (tutorVoice?.voiceName) {
               const voiceNameParts = tutorVoice.voiceName.split(/\s*[-–]\s*/);
-              if (voiceNameParts[0]?.trim()) {
-                tutorName = voiceNameParts[0].trim();
-              }
+              tutorName = voiceNameParts[0]?.trim() || (tutorGender === 'male' ? 'Agustin' : 'Daniela');
+            } else {
+              tutorName = tutorGender === 'male' ? 'Agustin' : 'Daniela';
             }
             // Biology sessions use Evelyn (female) or Gene (male)
             if (isBiologySession(config.subject, config.targetLanguage)) {
@@ -1500,6 +1526,40 @@ ${buildNativeFunctionCallingSection()}`;
             // ── Gemini Live voice session (feature-flagged) ──────────────────
             if (GEMINI_LIVE_VOICE_ENABLED) {
               try {
+                // Classroom context: Gemini Live uses a one-shot system prompt — it bypasses the
+                // per-turn orchestrator injection. Fetch now and bake it directly into the prompt.
+                let geminiLiveSystemPrompt = systemPrompt;
+                try {
+                  const { buildClassroomEnvironment } = await import('./services/classroom-environment');
+                  const creditBalance = await usageService.getBalanceWithBypass(String(userId));
+                  const classroomCtx = await buildClassroomEnvironment({
+                    userId: String(userId),
+                    sessionStartTime: Date.now(),
+                    targetLanguage: effectiveLanguage,
+                    isFounderMode,
+                    isRawHonestyMode: rawHonestyMode,
+                    isBetaTester: false,
+                    isIncognito: false,
+                    whiteboardItems: [],
+                    sessionImages: [],
+                    exchangeCount: conversationHistory.filter(h => h.role === 'user').length,
+                    struggleCount: 0,
+                    recentConfidences: [],
+                    creditRemainingSeconds: creditBalance.remainingSeconds,
+                    creditWarningLevel: creditBalance.warningLevel,
+                    creditPercentRemaining: creditBalance.percentRemaining,
+                    tutorName,
+                    technicalHealthNote: voiceDiagnostics.getTechnicalHealthContext(),
+                    activeScenario: null,
+                  });
+                  if (classroomCtx) {
+                    geminiLiveSystemPrompt += '\n\n' + classroomCtx;
+                    console.log('[GeminiLive] ✓ Classroom context baked into system prompt');
+                  }
+                } catch (classroomErr: any) {
+                  console.warn('[GeminiLive] Classroom context fetch skipped:', classroomErr.message);
+                }
+
                 const glSendMessage = (targetWs: any, message: any) => {
                   try {
                     if (targetWs?.readyState === 1 /* OPEN */) {
@@ -1511,7 +1571,7 @@ ${buildNativeFunctionCallingSection()}`;
                 // No function declarations — tool calls are handled by the parallel orchestrator
                 // pipeline; GeminiLive is audio-in/audio-out only. Function declarations
                 // are rejected by the native-audio model with 1007/1011 errors.
-                await geminiLiveSession.start(systemPrompt, []);
+                await geminiLiveSession.start(geminiLiveSystemPrompt, []);
                 console.log(`[GeminiLive] Session started alongside orchestrator session ${session.id}`);
               } catch (glErr: any) {
                 console.error('[GeminiLive] Failed to start Gemini Live session:', glErr.message);
@@ -1790,8 +1850,16 @@ ${buildNativeFunctionCallingSection()}`;
               if (tutorVoice?.voiceId) {
                 orchestrator.updateSessionVoice(session.id, tutorVoice.voiceId, tutorVoice.provider);
                 
-                const voiceNameParts = tutorVoice.voiceName?.split(/\s*[-–]\s*/) || [];
-                const tutorFirstName = voiceNameParts[0]?.trim() || (voiceMsg.tutorGender === 'male' ? 'your new tutor' : 'your new tutor');
+                // Resolve tutor first name using canonical lookup (prevents raw voice IDs like
+                // "Aoede" appearing in intro speech).
+                const switchLangKey = (targetLanguage || '').toLowerCase();
+                const switchNames = LANGUAGE_TUTOR_NAMES[switchLangKey];
+                const tutorFirstName = switchNames
+                  ? (voiceMsg.tutorGender === 'male' ? switchNames.male : switchNames.female)
+                  : (() => {
+                      const parts = tutorVoice.voiceName?.split(/\s*[-–]\s*/) || [];
+                      return parts[0]?.trim() || 'your new tutor';
+                    })();
                 
                 const isLanguageSwitch = (session as any).isLanguageSwitchHandoff || false;
                 

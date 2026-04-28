@@ -6063,6 +6063,10 @@ export class DatabaseStorage implements IStorage {
             eq(tutorVoices.language, v.language),
             eq(tutorVoices.gender, v.gender),
             eq(tutorVoices.role, 'tutor'),
+            // Skip voices the admin has intentionally set to a Gemini provider — those are
+            // deliberate overrides and must not be clobbered on every server boot.
+            ne(tutorVoices.provider, 'gemini-live'),
+            ne(tutorVoices.provider, 'gemini'),
           )
         )
         .returning({ id: tutorVoices.id });
