@@ -636,7 +636,10 @@ export function VoiceConsoleContent() {
     
     let mappedVoiceId = voice.voiceId;
     let mappedVoiceName = voice.voiceName;
-    if (!providerMatchesVoice) {
+    if (voice.provider && voice.provider !== globalProvider) {
+      // Voice has its own explicit provider — always use its own voiceId/name as-is.
+      // Cross-provider ID mapping only applies when the user switches the global provider.
+    } else if (!providerMatchesVoice) {
       if (globalProvider === 'google' && !voice.voiceId.includes('Chirp3-HD')) {
         // Bare Gemini name (e.g. "Aoede") maps directly to Google base speaker
         mappedVoiceId = voice.voiceId;
@@ -660,7 +663,7 @@ export function VoiceConsoleContent() {
     setFormData({
       language: voice.language,
       gender: voice.gender,
-      provider: globalProvider,
+      provider: voice.provider || globalProvider,
       voiceId: mappedVoiceId,
       voiceName: mappedVoiceName,
       languageCode: voice.languageCode,
