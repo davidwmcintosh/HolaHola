@@ -1014,6 +1014,9 @@ export function StreamingVoiceChat({
           onImmersiveModeChange: (active) => {
             onImmersiveModeChange?.(active);
           },
+          onIncognitoChanged: (enabled) => {
+            setIsIncognito(enabled);
+          },
           onVadSpeechStarted: () => {
             // TRUE DUPLEX: Always handle VAD speech events for visual feedback
             // NOTE: We no longer interrupt on VAD alone - echo/feedback can trigger false VAD
@@ -2844,9 +2847,9 @@ export function StreamingVoiceChat({
   };
 
   const handleToggleIncognito = () => {
-    const newState = !isIncognito;
-    setIsIncognito(newState);
-    streamingVoice.sendToggleIncognito(newState);
+    // Send the request to the server; state updates via the confirmed onIncognitoChanged callback
+    // (no optimistic update — we wait for the server's authoritative incognito_changed signal)
+    streamingVoice.sendToggleIncognito(!isIncognito);
   };
 
   const handleSubmitReport = async () => {

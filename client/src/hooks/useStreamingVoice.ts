@@ -107,6 +107,8 @@ export interface StreamingSessionConfig {
   onImmersiveModeChange?: (active: boolean) => void;
   /** Called when the AI advances to the next scene zone within a scenario */
   onSceneZoneAdvanced?: (data: { zoneIndex: number; zoneName: string | null; imageUrl: string | null; isChain?: boolean; nextScenarioSlug?: string | null; isComplete?: boolean }) => void;
+  /** Called when server confirms the incognito toggle (authoritative state source) */
+  onIncognitoChanged?: (enabled: boolean) => void;
 }
 
 /**
@@ -1465,6 +1467,10 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const handleCharacterChange = useCallback((message: { type: string; character: { id: string; displayName: string; role: string; gender: 'male' | 'female' } | null }) => {
     setActiveCharacter(message.character);
   }, []);
+
+  const handleIncognitoChanged = useCallback((message: { type: string; enabled: boolean; timestamp: number }) => {
+    sessionConfigRef.current?.onIncognitoChanged?.(message.enabled);
+  }, []);
   
   /**
    * Handle tutor handoff - triggered after current tutor says goodbye
@@ -1626,6 +1632,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('propUpdate', handlePropUpdate);
       clientRef.current.on('immersiveMode', handleImmersiveMode);
       clientRef.current.on('characterChange', handleCharacterChange);
+      clientRef.current.on('incognitoChanged', handleIncognitoChanged);
       
       // Keep screen alive on mobile during voice session
       acquireWakeLock();
@@ -1689,7 +1696,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleTranscript, handleDanielaTranscript, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded, handleZoneAdvanced, handlePropUpdate, handleImmersiveMode, handleCharacterChange]);
+  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleTranscript, handleDanielaTranscript, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded, handleZoneAdvanced, handlePropUpdate, handleImmersiveMode, handleCharacterChange, handleIncognitoChanged]);
   
   /**
    * Disconnect from streaming voice service
@@ -1735,6 +1742,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('propUpdate', handlePropUpdate);
       clientRef.current.off('immersiveMode', handleImmersiveMode);
       clientRef.current.off('characterChange', handleCharacterChange);
+      clientRef.current.off('incognitoChanged', handleIncognitoChanged);
       clientRef.current.disconnect();
       clientRef.current = null;
     }
@@ -1762,7 +1770,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       tutorSwitchTimeoutRef.current = null;
     }
     setIsSwitchingTutor(false);
-  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleTranscript, handleDanielaTranscript, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, subtitles]);
+  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleTranscript, handleDanielaTranscript, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleIncognitoChanged, subtitles]);
   
   /**
    * Send audio for processing

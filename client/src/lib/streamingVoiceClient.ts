@@ -227,6 +227,7 @@ type StreamingEventType =
   | 'immersiveMode'      // Enter/exit immersive fullscreen mode
   | 'zoneAdvanced'       // Scenario zone advanced to next zone
   | 'zoneImageReady'     // Lazy-generated zone image is now available
+  | 'incognitoChanged'   // Server confirmed incognito toggle
   | 'error';
 
 /**
@@ -1223,6 +1224,11 @@ export class StreamingVoiceClient {
         case 'daniela_transcript':
           // Daniela's spoken response transcription from Gemini Live
           this.emit('danielaTranscript', message as { type: string; text: string; turnId: number });
+          break;
+
+        case 'incognito_changed':
+          // Server confirmed incognito toggle — drives authoritative client state
+          this.emit('incognitoChanged', message as { type: string; enabled: boolean; timestamp: number });
           break;
           
         case 'input_mode_changed':
