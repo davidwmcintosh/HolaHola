@@ -1214,6 +1214,16 @@ export class StreamingVoiceClient {
         case 'interim_transcript':
           this.emit('interimTranscript', message);
           break;
+
+        case 'transcript':
+          // Final user speech transcript from Gemini Live VAD
+          this.emit('transcript', message as { type: string; text: string; isFinal: boolean; source: string });
+          break;
+
+        case 'daniela_transcript':
+          // Daniela's spoken response transcription from Gemini Live
+          this.emit('danielaTranscript', message as { type: string; text: string; turnId: number });
+          break;
           
         case 'input_mode_changed':
           this.emit('inputModeChanged', message);

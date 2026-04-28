@@ -495,10 +495,8 @@ export function StreamingVoiceChat({
           if (startOpenMicRecordingRef.current) {
             console.log('[MODE SWITCH] Calling startOpenMicRecordingRef.current()...');
             startOpenMicRecordingRef.current().then(() => {
-              console.log('[MODE SWITCH] Open mic auto-started successfully');
-              // DON'T immediately show green light!
-              // The playback state effect will show it when Daniela finishes speaking
-              console.log('[MODE SWITCH] Mic ready, green light controlled by playback state');
+              console.log('[MODE SWITCH] Open mic auto-started successfully — enabling green mic');
+              setOpenMicState('ready');
             }).catch((err: any) => {
               console.error('[MODE SWITCH] Failed to auto-start open mic:', err);
               setOpenMicState('idle');

@@ -123,6 +123,13 @@ export class GeminiLiveSession {
         systemInstruction: systemPrompt,
         tools: tools.length > 0 ? [{ functionDeclarations: tools }] : undefined,
         responseModalities: [Modality.AUDIO],
+
+        // ── Transcription ─────────────────────────────────────────────────
+        // Enable both input (student) and output (Daniela) transcription so
+        // we can persist messages to the DB and display them in chat history.
+        inputAudioTranscription: {},
+        outputAudioTranscription: {},
+
         speechConfig: {
           languageCode,
           voiceConfig: {
@@ -387,12 +394,23 @@ export class GeminiLiveSession {
     if ((msg.serverContent as any)?.inputTranscription?.text) {
       const text = (msg.serverContent as any).inputTranscription.text as string;
       if (text.trim()) {
+        // Signal avatar to show "thinking" state immediately
+        this.sendWsMessage(this.session.ws, {
+          type: 'processing_pending',
+          timestamp: Date.now(),
+          interimTranscript: text,
+        });
+        // Send transcript to client for display
         this.sendWsMessage(this.session.ws, {
           type: 'transcript',
           text,
           isFinal: true,
           source: 'gemini_live',
         });
+        // Persist user message to DB (non-blocking)
+        this.persistMessage('user', text).catch(err =>
+          console.warn('[GeminiLive] Failed to persist user transcript:', err.message)
+        );
       }
     }
 
@@ -405,6 +423,10 @@ export class GeminiLiveSession {
           text,
           turnId: this.currentTurnId,
         });
+        // Persist Daniela's message to DB (non-blocking)
+        this.persistMessage('assistant', text).catch(err =>
+          console.warn('[GeminiLive] Failed to persist Daniela transcript:', err.message)
+        );
       }
     }
 
@@ -489,6 +511,39 @@ export class GeminiLiveSession {
       inputTokens: this.session.telemetryLlmInputTokens || 0,
       outputTokens: this.session.telemetryLlmOutputTokens || 0,
     };
+  }
+
+  /**
+   * Persist a transcript message (user or assistant) to the messages table.
+   * Called non-blocking from inputTranscription / outputTranscription handlers.
+   */
+  private async persistMessage(role: 'user' | 'assistant', content: string): Promise<void> {
+    try {
+      const { getUserDb } = await import('../db');
+      const { messages, conversations } = await import('../../shared/schema');
+      const { sql: rawSql } = await import('drizzle-orm');
+      const db = getUserDb();
+      const conversationId = this.session.conversationId;
+
+      if (!conversationId) return;
+
+      // Ensure the conversation exists before inserting a message
+      const convCheck = await db.execute(
+        rawSql`SELECT id FROM conversations WHERE id = ${conversationId} LIMIT 1`
+      );
+      if (convCheck.rows.length === 0) {
+        console.warn(`[GeminiLive] Conversation ${conversationId} not found — skipping message persist`);
+        return;
+      }
+
+      await db.insert(messages).values({
+        conversationId,
+        role,
+        content,
+      });
+    } catch (err: any) {
+      throw new Error(err.message);
+    }
   }
 }
 

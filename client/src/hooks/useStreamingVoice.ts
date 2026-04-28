@@ -1362,6 +1362,20 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     sessionConfigRef.current?.onOpenMicSilenceLoop?.(message.consecutiveEmptyCount, message.msSinceLastSuccessfulTranscript);
   }, []);
 
+  // ── Gemini Live transcript events ──────────────────────────────────────────
+  const handleTranscript = useCallback((message: { type: string; text: string; isFinal: boolean; source: string }) => {
+    if (isVerboseLoggingEnabled()) {
+      console.log('[StreamingVoice] User transcript (Gemini Live):', message.text.substring(0, 60));
+    }
+    sessionConfigRef.current?.onInterimTranscript?.(message.text);
+  }, []);
+
+  const handleDanielaTranscript = useCallback((message: { type: string; text: string; turnId: number }) => {
+    if (isVerboseLoggingEnabled()) {
+      console.log('[StreamingVoice] Daniela transcript (Gemini Live):', message.text.substring(0, 60));
+    }
+  }, []);
+
   const handleReconnected = useCallback((_message: { timestamp: number }) => {
     console.log('[StreamingVoice] Successfully reconnected after connection drop — clearing stale processing state');
 
@@ -1598,6 +1612,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('interimTranscript', handleInterimTranscript);  // Open mic interim
       clientRef.current.on('openMicSessionClosed', handleOpenMicSessionClosed);  // Open mic session ended
       clientRef.current.on('openMicSilenceLoop', handleOpenMicSilenceLoop);  // Open mic silence loop detection
+      clientRef.current.on('transcript', handleTranscript);  // Gemini Live final user transcript
+      clientRef.current.on('danielaTranscript', handleDanielaTranscript);  // Gemini Live Daniela transcript
       clientRef.current.on('reconnected', handleReconnected);  // Successful reconnection after drop
       clientRef.current.on('proactive_reconnect', handleProactiveReconnect);  // Intentional 4.5-min WS cycle
       clientRef.current.on('tutorHandoff', handleTutorHandoff);  // Voice-initiated tutor switch
@@ -1673,7 +1689,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded, handleZoneAdvanced, handlePropUpdate, handleImmersiveMode, handleCharacterChange]);
+  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleTranscript, handleDanielaTranscript, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded, handleZoneAdvanced, handlePropUpdate, handleImmersiveMode, handleCharacterChange]);
   
   /**
    * Disconnect from streaming voice service
@@ -1706,6 +1722,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('vadUtteranceEnd', handleVadUtteranceEnd);  // Open mic VAD
       clientRef.current.off('interimTranscript', handleInterimTranscript);  // Open mic interim
       clientRef.current.off('openMicSilenceLoop', handleOpenMicSilenceLoop);  // Open mic silence loop
+      clientRef.current.off('transcript', handleTranscript);  // Gemini Live final user transcript
+      clientRef.current.off('danielaTranscript', handleDanielaTranscript);  // Gemini Live Daniela transcript
       clientRef.current.off('reconnected', handleReconnected);  // Successful reconnection
       clientRef.current.off('proactive_reconnect', handleProactiveReconnect);  // Intentional 4.5-min WS cycle
       clientRef.current.off('subtitleModeChange', handleSubtitleModeChange);  // Server subtitle mode command
@@ -1744,7 +1762,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       tutorSwitchTimeoutRef.current = null;
     }
     setIsSwitchingTutor(false);
-  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, subtitles]);
+  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleTranscript, handleDanielaTranscript, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, subtitles]);
   
   /**
    * Send audio for processing
