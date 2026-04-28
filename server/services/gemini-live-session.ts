@@ -33,6 +33,22 @@ const AUDIO_INPUT_SAMPLE_RATE = 16000;
 const DEFAULT_LIVE_VOICE = 'Aoede';
 
 /**
+ * Map target language names → BCP-47 language codes for Gemini Live speechConfig.
+ * Controls both STT recognition language and influences output voice accent.
+ */
+const LANGUAGE_TO_BCP47: Record<string, string> = {
+  spanish:    'es-ES',
+  french:     'fr-FR',
+  italian:    'it-IT',
+  portuguese: 'pt-BR',
+  german:     'de-DE',
+  japanese:   'ja-JP',
+  mandarin:   'zh-CN',
+  chinese:    'zh-CN',
+  korean:     'ko-KR',
+};
+
+/**
  * Map of Gemini TTS voice IDs → Gemini Live prebuilt voice names.
  * Gemini Live uses the same Chirp HD voice catalog, just different naming.
  */
@@ -88,7 +104,9 @@ export class GeminiLiveSession {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
     const liveName = VOICE_ID_TO_LIVE_NAME[this.session.voiceId || ''] || DEFAULT_LIVE_VOICE;
-    console.log(`[GeminiLive] Opening session — model: ${GEMINI_LIVE_MODEL}, voice: ${liveName}`);
+    const langKey = (this.session.targetLanguage || '').toLowerCase().trim();
+    const languageCode = LANGUAGE_TO_BCP47[langKey] || 'es-ES';
+    console.log(`[GeminiLive] Opening session — model: ${GEMINI_LIVE_MODEL}, voice: ${liveName}, languageCode: ${languageCode}`);
 
     this.liveSession = await ai.live.connect({
       model: GEMINI_LIVE_MODEL,
@@ -97,6 +115,7 @@ export class GeminiLiveSession {
         tools: tools.length > 0 ? [{ functionDeclarations: tools }] : undefined,
         responseModalities: [Modality.AUDIO],
         speechConfig: {
+          languageCode,
           voiceConfig: {
             prebuiltVoiceConfig: {
               voiceName: liveName,
