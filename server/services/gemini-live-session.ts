@@ -307,10 +307,31 @@ export class GeminiLiveSession {
   }
 
   private async handleServerMessage(msg: LiveServerMessage): Promise<void> {
+    // ── Diagnostic: log the top-level keys of every message ─────────────────
+    const msgKeys = Object.keys(msg).filter(k => (msg as any)[k] != null);
+    if (!msg.usageMetadata && !msg.sessionResumptionUpdate) {
+      // Log non-accounting messages so we can trace what Gemini is actually returning
+      console.log(`[GeminiLive] Server msg keys: [${msgKeys.join(', ')}]`, {
+        hasTurnComplete: !!msg.serverContent?.turnComplete,
+        hasParts: !!msg.serverContent?.modelTurn?.parts,
+        partCount: msg.serverContent?.modelTurn?.parts?.length ?? 0,
+        hasToolCall: !!msg.toolCall,
+        hasError: !!(msg as any).error,
+      });
+    }
+
+    // ── Catch any top-level error from Gemini ────────────────────────────────
+    if ((msg as any).error) {
+      console.error('[GeminiLive] API error in message:', (msg as any).error);
+    }
+
     // ── Audio output ────────────────────────────────────────────────────────
     if (msg.serverContent?.modelTurn?.parts) {
+      let audioParts = 0;
+      let textParts = 0;
       for (const part of msg.serverContent.modelTurn.parts) {
         if (part.inlineData?.data && part.inlineData.mimeType?.includes('audio')) {
+          audioParts++;
           const pcm16Buffer = Buffer.from(part.inlineData.data, 'base64');
           const f32leBuffer = pcm16ToF32le(pcm16Buffer);
 
@@ -328,11 +349,21 @@ export class GeminiLiveSession {
 
         // Model text output (transcription / subtitles)
         if (part.text) {
+          textParts++;
           this.sendWsMessage(this.session.ws, {
             type: 'response_text',
             text: part.text,
             turnId: this.currentTurnId,
           });
+        }
+      }
+      if (audioParts > 0 || textParts > 0) {
+        console.log(`[GeminiLive] Parts processed — audio: ${audioParts}, text: ${textParts}, turnId: ${this.currentTurnId}`);
+      } else {
+        console.warn(`[GeminiLive] modelTurn had ${msg.serverContent.modelTurn.parts.length} part(s) but none had audio or text`);
+        for (const part of msg.serverContent.modelTurn.parts) {
+          const partKeys = Object.keys(part).filter(k => (part as any)[k] != null);
+          console.warn(`[GeminiLive] Part keys: [${partKeys.join(', ')}]`, part.inlineData?.mimeType ?? '(no mimeType)');
         }
       }
     }
