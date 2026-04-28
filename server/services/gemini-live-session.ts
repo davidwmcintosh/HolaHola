@@ -76,11 +76,23 @@ export class GeminiLiveSession {
   private liveSession: Session | null = null;
   private fcHandler: NativeFunctionCallHandler;
   private currentTurnId = 0;
-  private currentChunkIndex = 0;
+  // Each Gemini sub-turn (one turnComplete) maps to one "sentence" in the progressive PCM player.
+  // sentenceIndex must increment per sub-turn so the player queues them sequentially instead of
+  // overwriting earlier chunks with chunkIndex:0 from a later sub-turn.
+  private currentSentenceIndex = 0;
+  private currentChunkIndex = 0;       // Resets to 0 at each new sentenceIndex boundary
+  private hadAudioInCurrentSubturn = false;
   private isStopped = false;
   private isStarted = false;
-  // Accumulate streaming output transcription chunks; persist the full utterance at turnComplete
-  private pendingOutputTranscript = '';
+
+  // ── Transcript accumulators ─────────────────────────────────────────────
+  // Both user and assistant transcripts are accumulated across multiple
+  // inputTranscription / outputTranscription / turnComplete events and
+  // flushed as single complete utterances once the response is truly done.
+  private pendingInputTranscript = '';   // Accumulates user's speech per utterance
+  private pendingInputSaved = false;     // True once user message has been persisted for this turn
+  private pendingOutputTranscript = '';  // Accumulates Daniela's reply across all sub-turns
+  private transcriptFlushTimer: NodeJS.Timeout | null = null;
 
   constructor(
     private session: StreamingSession,
@@ -303,12 +315,20 @@ export class GeminiLiveSession {
   stop(): void {
     if (this.isStopped) return;
     this.isStopped = true;
+    if (this.transcriptFlushTimer) {
+      clearTimeout(this.transcriptFlushTimer);
+      this.transcriptFlushTimer = null;
+    }
     if (this.liveSession) {
       try {
         this.liveSession.close();
       } catch (_) {}
       this.liveSession = null;
     }
+    // Flush any unsaved transcripts on session end (e.g., user closes mid-response)
+    this.flushTranscripts().catch(err =>
+      console.warn('[GeminiLive] Final transcript flush error on stop:', err.message)
+    );
     console.log(`[GeminiLive] Session stopped — sessionId: ${this.session.id}`);
   }
 
@@ -338,6 +358,19 @@ export class GeminiLiveSession {
       for (const part of msg.serverContent.modelTurn.parts) {
         if (part.inlineData?.data && part.inlineData.mimeType?.includes('audio')) {
           audioParts++;
+          this.hadAudioInCurrentSubturn = true;
+
+          // Flush accumulated user input the moment model starts generating audio
+          // (user is definitely done speaking at this point).
+          if (!this.pendingInputSaved && this.pendingInputTranscript.trim()) {
+            this.pendingInputSaved = true;
+            const userText = this.pendingInputTranscript.trim();
+            this.pendingInputTranscript = '';
+            this.persistMessage('user', userText).catch(err =>
+              console.warn('[GeminiLive] Failed to persist user transcript:', err.message)
+            );
+          }
+
           const pcm16Buffer = Buffer.from(part.inlineData.data, 'base64');
           const f32leBuffer = pcm16ToF32le(pcm16Buffer);
 
@@ -347,7 +380,7 @@ export class GeminiLiveSession {
             audioFormat: 'pcm_f32le',
             sampleRate: AUDIO_OUTPUT_SAMPLE_RATE,
             turnId: this.currentTurnId,
-            sentenceIndex: 0,
+            sentenceIndex: this.currentSentenceIndex,
             chunkIndex: this.currentChunkIndex++,
             isLast: false,
           });
@@ -375,26 +408,32 @@ export class GeminiLiveSession {
     }
 
     // ── Input transcription (what the user said) ─────────────────────────────
+    // inputTranscription fires per word/phrase as Gemini transcribes the user's speech.
+    // We accumulate all chunks and only persist once (when model starts generating),
+    // avoiding word-by-word rows in the messages table.
     if ((msg.serverContent as any)?.inputTranscription?.text) {
       const text = (msg.serverContent as any).inputTranscription.text as string;
       if (text.trim()) {
-        // Signal avatar to show "thinking" state immediately
-        this.sendWsMessage(this.session.ws, {
-          type: 'processing_pending',
-          timestamp: Date.now(),
-          interimTranscript: text,
-        });
-        // Send transcript to client for display
+        const isFirstChunk = this.pendingInputTranscript.trim() === '';
+        this.pendingInputTranscript += text;
+        this.pendingInputSaved = false;
+
+        // Fire processing_pending ONCE (on first chunk) to show thinking avatar immediately
+        if (isFirstChunk) {
+          this.sendWsMessage(this.session.ws, {
+            type: 'processing_pending',
+            timestamp: Date.now(),
+            interimTranscript: text,
+          });
+        }
+
+        // Forward each chunk to the client for interim display (subtitle / transcript bar)
         this.sendWsMessage(this.session.ws, {
           type: 'transcript',
           text,
           isFinal: true,
           source: 'gemini_live',
         });
-        // Persist user message to DB (non-blocking)
-        this.persistMessage('user', text).catch(err =>
-          console.warn('[GeminiLive] Failed to persist user transcript:', err.message)
-        );
       }
     }
 
@@ -415,36 +454,42 @@ export class GeminiLiveSession {
     }
 
     // ── Turn complete ────────────────────────────────────────────────────────
-    // Checked AFTER outputTranscription so the buffer is fully populated before flush.
+    // Gemini Live fires turnComplete after each sub-turn (phrase/sentence), not just
+    // at the true end of the full response. We handle two concerns separately:
+    //
+    //  1. AUDIO: send isLast:true for the current sentence so the progressive PCM
+    //     player can start rendering it. Increment sentenceIndex so the NEXT
+    //     sub-turn's audio is queued as a new sentence (not overwriting chunkIndex 0).
+    //
+    //  2. TRANSCRIPTS: debounce 800 ms — only persist user + assistant text once the
+    //     model has truly stopped generating (no more turnComplete events incoming).
+    //     This produces one DB row per utterance instead of one per phrase.
     if (msg.serverContent?.turnComplete) {
-      // Persist the fully-assembled assistant utterance (accumulated from streaming chunks).
-      // IMPORTANT: await the persist so the DB write completes BEFORE we signal the client
-      // with isLast:true. Without this, the client's onResponseComplete cache invalidation
-      // refetches messages before the new row exists, leaving the History tab empty.
-      if (this.pendingOutputTranscript.trim()) {
-        const fullText = this.pendingOutputTranscript.trim();
-        this.pendingOutputTranscript = '';
-        try {
-          await this.persistMessage('assistant', fullText);
-        } catch (err: any) {
-          console.warn('[GeminiLive] Failed to persist assistant transcript:', err.message);
-        }
+      // ── Audio: close current sentence, prepare next ──────────────────────
+      if (this.hadAudioInCurrentSubturn) {
+        this.sendWsMessage(this.session.ws, {
+          type: 'audio_chunk',
+          audio: '',
+          audioFormat: 'pcm_f32le',
+          sampleRate: AUDIO_OUTPUT_SAMPLE_RATE,
+          turnId: this.currentTurnId,
+          sentenceIndex: this.currentSentenceIndex,
+          chunkIndex: this.currentChunkIndex,
+          isLast: true,
+        });
+        this.currentSentenceIndex++;
+        this.currentChunkIndex = 0;
+        this.hadAudioInCurrentSubturn = false;
+        console.log(`[GeminiLive] Sub-turn audio sealed — sentenceIndex now ${this.currentSentenceIndex}`);
       }
 
-      // Signal end-of-turn to the client's audio player
-      this.sendWsMessage(this.session.ws, {
-        type: 'audio_chunk',
-        audio: '',
-        audioFormat: 'pcm_f32le',
-        sampleRate: AUDIO_OUTPUT_SAMPLE_RATE,
-        turnId: this.currentTurnId,
-        sentenceIndex: 0,
-        chunkIndex: this.currentChunkIndex,
-        isLast: true,
-      });
-      this.session.currentTurnId = ++this.currentTurnId;
-      this.currentChunkIndex = 0;
-      console.log(`[GeminiLive] Turn complete → turnId now ${this.currentTurnId}`);
+      // ── Transcripts: debounced flush ─────────────────────────────────────
+      if (this.transcriptFlushTimer) clearTimeout(this.transcriptFlushTimer);
+      this.transcriptFlushTimer = setTimeout(() => {
+        this.flushTranscripts().catch(err =>
+          console.warn('[GeminiLive] Transcript flush error:', err.message)
+        );
+      }, 800);
     }
 
     // ── Tool calls ────────────────────────────────────────────────────────────
@@ -531,13 +576,70 @@ export class GeminiLiveSession {
   }
 
   /**
-   * Persist a transcript message (user or assistant) to the messages table.
-   * Called non-blocking from inputTranscription / outputTranscription handlers.
+   * Flush accumulated user and assistant transcripts to the database as complete utterances.
+   * Called 800 ms after the last turnComplete (debounced) and also on session stop().
+   * Produces one DB row per user utterance and one per assistant response, rather than
+   * one row per transcription chunk / sub-turn.
+   */
+  private async flushTranscripts(): Promise<void> {
+    // Capture state before async operations
+    const totalSentences = this.currentSentenceIndex;  // how many PCM sentences were sent
+    const flushTurnId = this.currentTurnId;            // turnId client associates with this response
+
+    // Save user message first (ordering matters: user → assistant)
+    if (!this.pendingInputSaved && this.pendingInputTranscript.trim()) {
+      this.pendingInputSaved = true;
+      const userText = this.pendingInputTranscript.trim();
+      this.pendingInputTranscript = '';
+      try {
+        await this.persistMessage('user', userText);
+      } catch (err: any) {
+        console.warn('[GeminiLive] Failed to flush user transcript:', err.message);
+      }
+    }
+
+    // Save assistant message
+    if (this.pendingOutputTranscript.trim()) {
+      const assistantText = this.pendingOutputTranscript.trim();
+      this.pendingOutputTranscript = '';
+      try {
+        await this.persistMessage('assistant', assistantText);
+      } catch (err: any) {
+        console.warn('[GeminiLive] Failed to flush assistant transcript:', err.message);
+        return;
+      }
+    }
+
+    // Reset per-response state for the next user utterance
+    this.currentSentenceIndex = 0;
+    this.currentChunkIndex = 0;
+    this.pendingInputSaved = false;
+    this.session.currentTurnId = ++this.currentTurnId;
+
+    // Send response_complete AFTER DB writes so the client's cache invalidation
+    // (onResponseComplete → queryClient.invalidateQueries) refetches the messages
+    // that are now in the DB. Also tells the progressive PCM player the total
+    // sentence count (totalSentences) so it knows when the stream is fully done.
+    this.sendWsMessage(this.session.ws, {
+      type: 'response_complete',
+      timestamp: Date.now(),
+      conversationId: this.session.conversationId,
+      turnId: flushTurnId,
+      totalSentences,
+      fullText: '',
+    });
+
+    console.log(`[GeminiLive] Transcripts flushed & response_complete sent — sentences: ${totalSentences}, old turnId: ${flushTurnId}, new turnId: ${this.currentTurnId}`);
+  }
+
+  /**
+   * Insert one message row and bump the conversation's message_count + duration.
+   * Uses a raw SQL UPDATE so message_count is always accurate in the list view.
    */
   private async persistMessage(role: 'user' | 'assistant', content: string): Promise<void> {
     try {
       const { getUserDb } = await import('../db');
-      const { messages, conversations } = await import('../../shared/schema');
+      const { messages } = await import('../../shared/schema');
       const { sql: rawSql } = await import('drizzle-orm');
       const db = getUserDb();
       const conversationId = this.session.conversationId;
@@ -553,11 +655,19 @@ export class GeminiLiveSession {
         return;
       }
 
-      await db.insert(messages).values({
-        conversationId,
-        role,
-        content,
-      });
+      await db.insert(messages).values({ conversationId, role, content });
+
+      // Update conversation stats so the list view shows correct counts
+      await db.execute(rawSql`
+        UPDATE conversations
+        SET
+          message_count = message_count + 1,
+          duration = GREATEST(
+            EXTRACT(EPOCH FROM (NOW() - created_at)) / 60,
+            1
+          )::integer
+        WHERE id = ${conversationId}
+      `);
     } catch (err: any) {
       throw new Error(err.message);
     }
