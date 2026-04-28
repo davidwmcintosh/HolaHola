@@ -166,20 +166,22 @@ export class GeminiLiveSession {
         //  END_SENSITIVITY_LOW       — be patient about pauses; the model uses
         //                             context (sentence completeness, grammar) to
         //                             decide whether the student is still mid-thought.
-        //  prefixPaddingMs: 300      — require 300 ms of sustained speech before
+        //  prefixPaddingMs: 200      — require 200 ms of sustained speech before
         //                             committing a turn start, filtering out coughs,
         //                             filler sounds, and accidental mic noise.
-        //  silenceDurationMs: 800    — hard cutoff: 800 ms of silence forces end
+        //  silenceDurationMs: 1500   — hard cutoff: 1500 ms of silence forces end
         //                             of turn even if semantic signal is ambiguous.
-        //                             Language learners often pause while searching
-        //                             for a word, so we give a little extra room.
+        //                             Language learners frequently pause while
+        //                             searching for a word mid-sentence, so we give
+        //                             them significantly more breathing room.
+        //                             (was 800ms — user reported being cut off)
         realtimeInputConfig: {
           automaticActivityDetection: {
             disabled: false,
             startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_HIGH,
             endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_LOW,
-            prefixPaddingMs: 300,
-            silenceDurationMs: 800,
+            prefixPaddingMs: 200,
+            silenceDurationMs: 1500,
           },
         },
 
