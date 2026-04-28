@@ -79,6 +79,8 @@ export class GeminiLiveSession {
   private currentChunkIndex = 0;
   private isStopped = false;
   private isStarted = false;
+  // Accumulate streaming output transcription chunks; persist the full utterance at turnComplete
+  private pendingOutputTranscript = '';
 
   constructor(
     private session: StreamingSession,
@@ -372,24 +374,6 @@ export class GeminiLiveSession {
       }
     }
 
-    // ── Turn complete ────────────────────────────────────────────────────────
-    if (msg.serverContent?.turnComplete) {
-      // Signal end-of-turn to the client's audio player
-      this.sendWsMessage(this.session.ws, {
-        type: 'audio_chunk',
-        audio: '',
-        audioFormat: 'pcm_f32le',
-        sampleRate: AUDIO_OUTPUT_SAMPLE_RATE,
-        turnId: this.currentTurnId,
-        sentenceIndex: 0,
-        chunkIndex: this.currentChunkIndex,
-        isLast: true,
-      });
-      this.session.currentTurnId = ++this.currentTurnId;
-      this.currentChunkIndex = 0;
-      console.log(`[GeminiLive] Turn complete → turnId now ${this.currentTurnId}`);
-    }
-
     // ── Input transcription (what the user said) ─────────────────────────────
     if ((msg.serverContent as any)?.inputTranscription?.text) {
       const text = (msg.serverContent as any).inputTranscription.text as string;
@@ -415,19 +399,47 @@ export class GeminiLiveSession {
     }
 
     // ── Output transcription (what Daniela said) ─────────────────────────────
+    // outputTranscription fires per-chunk (streaming tokens) — accumulate here.
+    // Checked BEFORE turnComplete so if both arrive in the same message, the
+    // final chunk is appended to the buffer before the flush occurs.
     if ((msg.serverContent as any)?.outputTranscription?.text) {
       const text = (msg.serverContent as any).outputTranscription.text as string;
       if (text.trim()) {
+        this.pendingOutputTranscript += text;
         this.sendWsMessage(this.session.ws, {
           type: 'daniela_transcript',
           text,
           turnId: this.currentTurnId,
         });
-        // Persist Daniela's message to DB (non-blocking)
-        this.persistMessage('assistant', text).catch(err =>
-          console.warn('[GeminiLive] Failed to persist Daniela transcript:', err.message)
+      }
+    }
+
+    // ── Turn complete ────────────────────────────────────────────────────────
+    // Checked AFTER outputTranscription so the buffer is fully populated before flush.
+    if (msg.serverContent?.turnComplete) {
+      // Persist the fully-assembled assistant utterance (accumulated from streaming chunks)
+      if (this.pendingOutputTranscript.trim()) {
+        const fullText = this.pendingOutputTranscript.trim();
+        this.pendingOutputTranscript = '';
+        this.persistMessage('assistant', fullText).catch(err =>
+          console.warn('[GeminiLive] Failed to persist assistant transcript:', err.message)
         );
       }
+
+      // Signal end-of-turn to the client's audio player
+      this.sendWsMessage(this.session.ws, {
+        type: 'audio_chunk',
+        audio: '',
+        audioFormat: 'pcm_f32le',
+        sampleRate: AUDIO_OUTPUT_SAMPLE_RATE,
+        turnId: this.currentTurnId,
+        sentenceIndex: 0,
+        chunkIndex: this.currentChunkIndex,
+        isLast: true,
+      });
+      this.session.currentTurnId = ++this.currentTurnId;
+      this.currentChunkIndex = 0;
+      console.log(`[GeminiLive] Turn complete → turnId now ${this.currentTurnId}`);
     }
 
     // ── Tool calls ────────────────────────────────────────────────────────────

@@ -157,9 +157,14 @@ export async function buildAldenWorkspaceContext(): Promise<string> {
   // The Agent writes "From Agent" after major build sessions.
   try {
     const handoffPath = join(process.cwd(), 'docs/alden-agent-handoff.md');
-    const handoff = readFileSync(handoffPath, 'utf-8').trim();
-    if (handoff) {
-      sections.push(`🤝 HANDOFF NOTES — alden-agent-handoff.md\n${handoff}`);
+    const rawHandoff = readFileSync(handoffPath, 'utf-8');
+    // Cap at last 50 KB — the file grows unboundedly; only recent entries matter.
+    const MAX_HANDOFF_CHARS = 50_000;
+    const handoff = rawHandoff.length > MAX_HANDOFF_CHARS
+      ? `[… earlier entries omitted — ${(rawHandoff.length / 1024).toFixed(0)}KB file, showing last ${(MAX_HANDOFF_CHARS / 1024).toFixed(0)}KB]\n\n${rawHandoff.slice(-MAX_HANDOFF_CHARS)}`
+      : rawHandoff;
+    if (handoff.trim()) {
+      sections.push(`🤝 HANDOFF NOTES — alden-agent-handoff.md\n${handoff.trim()}`);
     }
   } catch {
     // File may not exist yet — that's fine

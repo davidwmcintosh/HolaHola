@@ -114,10 +114,17 @@ Note: Zone type '${s.zoneType}' means ${
     }
     // ─────────────────────────────────────────────────────────────────────────
 
+    // Cap individual history messages at 4 KB — tool call results and long responses
+    // can each be tens of KB; 20 of them × 50 KB = 1 M tokens just from history.
+    const MAX_HISTORY_MSG_CHARS = 4_000;
     for (const msg of conversationHistory.slice(-20)) {
+      const raw = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+      const content = raw.length > MAX_HISTORY_MSG_CHARS
+        ? raw.slice(0, MAX_HISTORY_MSG_CHARS) + `\n[… ${raw.length - MAX_HISTORY_MSG_CHARS} chars truncated from history]`
+        : raw;
       messages.push({
         role: msg.role === 'user' ? 'user' : 'assistant',
-        content: msg.content,
+        content,
       });
     }
 
@@ -174,10 +181,17 @@ Note: Zone type '${s.zoneType}' means ${
         try {
           const toolResult = await executeAldenTool(toolUse.name, (toolUse.input as Record<string, any>) || {}, { conversationId });
           aldenActivity.push({ type: 'tool_result', name: toolUse.name, success: true, timestamp: new Date().toISOString() });
+          // Cap tool results at 12 KB — large responses (file reads, shell output)
+          // are the primary driver of the quadratic token blowup across rounds.
+          const MAX_TOOL_RESULT_CHARS = 12_000;
+          const rawToolResult = JSON.stringify(toolResult.data);
+          const truncatedToolResult = rawToolResult.length > MAX_TOOL_RESULT_CHARS
+            ? rawToolResult.slice(0, MAX_TOOL_RESULT_CHARS) + `\n... [truncated: ${rawToolResult.length - MAX_TOOL_RESULT_CHARS} chars omitted]`
+            : rawToolResult;
           toolResults.push({
             type: 'tool_result',
             tool_use_id: toolUse.id,
-            content: JSON.stringify(toolResult.data),
+            content: truncatedToolResult,
           });
           // Detect continuation signal from request_continuation tool
           if (toolResult.sideEffects?.continuation) {
