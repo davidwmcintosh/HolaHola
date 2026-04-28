@@ -671,6 +671,9 @@ Only include observations you can clearly justify from the exchange. Return empt
           config: {
             responseMimeType: "application/json",
             responseSchema: STUDENT_OBSERVATION_SCHEMA as any,
+            // Thinking enabled — student observation analysis is background reasoning,
+            // not in the voice/chat response path. Automatic budget = model decides depth.
+            thinkingConfig: { thinkingBudget: -1 },
           },
         });
         

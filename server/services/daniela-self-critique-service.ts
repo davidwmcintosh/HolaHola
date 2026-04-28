@@ -27,7 +27,12 @@ async function callGemini(systemPrompt: string, userPrompt: string): Promise<str
   const gemini = getGemini();
   const result = await gemini.models.generateContent({
     model: 'gemini-3-flash-preview',
-    config: { systemInstruction: systemPrompt },
+    config: {
+      systemInstruction: systemPrompt,
+      // Thinking enabled — self-critique is deep reasoning, not latency-sensitive.
+      // thinkingBudget: -1 lets the model decide how much reasoning the task needs.
+      thinkingConfig: { thinkingBudget: -1 },
+    },
     contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
   });
   return result.text || '';

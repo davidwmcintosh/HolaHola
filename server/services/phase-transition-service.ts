@@ -361,6 +361,11 @@ Be concise - this summary will be injected into the next phase's context.`;
 
       const result = await genAI.models.generateContent({
         model: "gemini-3-flash-preview",
+        config: {
+          // Thinking enabled — phase-transition summaries distill the session so far
+          // for the next phase's context. Quality matters more than latency here.
+          thinkingConfig: { thinkingBudget: -1 },
+        },
         contents: [{ role: "user", parts: [{ text: prompt }] }],
       });
       let summary = result.text;

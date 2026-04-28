@@ -130,16 +130,30 @@ export class GeminiLiveSession {
           },
         },
 
-        // ── VAD configuration ─────────────────────────────────────────────
-        // High start-sensitivity: pick up student speech quickly.
-        // Low end-sensitivity: don't cut off mid-sentence pauses.
-        // 700 ms silence before the turn is handed back to Daniela.
+        // ── VAD / Turn-taking configuration ───────────────────────────────
+        // Gemini Live's audio model does semantic turn detection — it
+        // understands whether a sentence sounds complete, not just whether
+        // there's silence. Our settings tune how much patience it shows:
+        //
+        //  START_SENSITIVITY_HIGH    — detect speech onset quickly so Daniela
+        //                             doesn't miss when the student starts talking.
+        //  END_SENSITIVITY_LOW       — be patient about pauses; the model uses
+        //                             context (sentence completeness, grammar) to
+        //                             decide whether the student is still mid-thought.
+        //  prefixPaddingMs: 300      — require 300 ms of sustained speech before
+        //                             committing a turn start, filtering out coughs,
+        //                             filler sounds, and accidental mic noise.
+        //  silenceDurationMs: 800    — hard cutoff: 800 ms of silence forces end
+        //                             of turn even if semantic signal is ambiguous.
+        //                             Language learners often pause while searching
+        //                             for a word, so we give a little extra room.
         realtimeInputConfig: {
           automaticActivityDetection: {
             disabled: false,
             startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_HIGH,
             endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_LOW,
-            silenceDurationMs: 700,
+            prefixPaddingMs: 300,
+            silenceDurationMs: 800,
           },
         },
 
