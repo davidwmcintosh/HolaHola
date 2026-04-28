@@ -1588,6 +1588,13 @@ ${buildNativeFunctionCallingSection()}`;
                 // These sections are what make Daniela "herself" — her accumulated teaching
                 // wisdom, awareness of the Hive, Express Lane history, and student knowledge.
                 // The regular pipeline injects these per-turn; here we bake them upfront.
+                //
+                // IMPORTANT: Gemini Live native audio model has a system instruction size limit.
+                // Only include compact, high-signal sections. DO NOT include:
+                //   - fatContextVocabulary (full vocabulary map — can be 30,000+ chars)
+                //   - fatContextConversations (raw transcript excerpts — can be 20,000+ chars)
+                //   - textChatSection (can be large depending on chat history)
+                // These are text-mode artifacts that overwhelm the system prompt for voice.
                 const cache = session.cachedContext;
                 const richSections: string[] = [];
 
@@ -1615,35 +1622,38 @@ ${buildNativeFunctionCallingSection()}`;
                   richSections.push(cache.pedagogyDocContext);
                   console.log('[GeminiLive] ✓ Pedagogy doc baked in');
                 }
-                // Textbook chapter context — the actual lesson the student is working through.
-                // Critical for voice sessions: Daniela should know what page/chapter is active.
+                // Textbook chapter context — the active lesson page/chapter.
                 if (cache?.textbookChapterContext) {
                   richSections.push(cache.textbookChapterContext);
                   console.log('[GeminiLive] ✓ Textbook chapter context baked in');
                 }
-                // FAT (Full Adaptive Transcript) profile — the deep student character model.
-                // Includes vocabulary knowledge, learning patterns, and recent conversation excerpts.
+                // FAT profile only — compact student character model (not vocabulary or transcripts).
                 if (cache?.fatContextProfile) {
                   richSections.push(cache.fatContextProfile);
                   console.log('[GeminiLive] ✓ FAT profile baked in');
                 }
-                if (cache?.fatContextVocabulary) {
-                  richSections.push(cache.fatContextVocabulary);
-                  console.log('[GeminiLive] ✓ FAT vocabulary baked in');
-                }
-                if (cache?.fatContextConversations) {
-                  richSections.push(cache.fatContextConversations);
-                  console.log('[GeminiLive] ✓ FAT conversations baked in');
-                }
-                // Recent text chat history — keeps voice sessions aware of prior text exchanges.
-                if (cache?.textChatSection) {
-                  richSections.push(cache.textChatSection);
-                  console.log('[GeminiLive] ✓ Text chat section baked in');
-                }
+                // fatContextVocabulary and fatContextConversations intentionally excluded —
+                // they can each exceed 20,000 chars and are not useful in real-time voice mode.
 
                 if (richSections.length > 0) {
-                  geminiLiveSystemPrompt += '\n\n' + richSections.join('\n\n');
+                  const combined = richSections.join('\n\n');
+                  // Hard cap: Gemini Live native audio model rejects oversized system instructions
+                  // with a 1007 error after setupComplete. Keep total prompt under 40,000 chars.
+                  const GL_SYSTEM_PROMPT_CHAR_LIMIT = 40_000;
+                  const available = GL_SYSTEM_PROMPT_CHAR_LIMIT - geminiLiveSystemPrompt.length;
+                  if (combined.length <= available) {
+                    geminiLiveSystemPrompt += '\n\n' + combined;
+                  } else if (available > 500) {
+                    // Trim to fit — truncate at a paragraph boundary if possible
+                    const trimmed = combined.slice(0, available - 100);
+                    const lastPara = trimmed.lastIndexOf('\n\n');
+                    geminiLiveSystemPrompt += '\n\n' + (lastPara > 0 ? trimmed.slice(0, lastPara) : trimmed);
+                    console.warn(`[GeminiLive] ⚠ System prompt truncated to fit ${GL_SYSTEM_PROMPT_CHAR_LIMIT} char limit`);
+                  } else {
+                    console.warn(`[GeminiLive] ⚠ System prompt already at limit — skipping rich context sections`);
+                  }
                 }
+                console.log(`[GeminiLive] System prompt total length: ${geminiLiveSystemPrompt.length} chars`);
 
                 const glSendMessage = (targetWs: any, message: any) => {
                   try {
