@@ -5875,9 +5875,9 @@ export class DatabaseStorage implements IStorage {
     // Default to 'tutor' role if not specified
     const role = data.role || 'tutor';
     
-    const validTutorProviders = ['cartesia', 'elevenlabs', 'google', 'gemini'];
+    const validTutorProviders = ['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live'];
     if (role === 'tutor' && !validTutorProviders.includes(data.provider)) {
-      throw new Error('[Voice Guard] Main tutors must use Cartesia, ElevenLabs, Google, or Gemini voices.');
+      throw new Error('[Voice Guard] Main tutors must use Cartesia, ElevenLabs, Google, Gemini, or Gemini Live voices.');
     }
     if ((role === 'assistant' || role === 'support') && data.provider !== 'google') {
       throw new Error('[Voice Guard] Assistant tutors and support must use Google voices.');

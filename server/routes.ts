@@ -20522,10 +20522,10 @@ Current conversation context:
       const validRoles = ['tutor', 'assistant', 'support', 'alden'];
       const validatedRole = validRoles.includes(role) ? role : 'tutor';
       
-      const validTutorProviders = ['cartesia', 'elevenlabs', 'google', 'gemini'];
+      const validTutorProviders = ['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live'];
       if (validatedRole === 'tutor' && !validTutorProviders.includes(provider)) {
         return res.status(400).json({ 
-          error: "Main tutors must use Cartesia, ElevenLabs, Google, or Gemini voices." 
+          error: "Main tutors must use Cartesia, ElevenLabs, Google, Gemini, or Gemini Live voices." 
         });
       }
       if ((validatedRole === 'assistant' || validatedRole === 'support' || validatedRole === 'alden') && provider !== 'google') {
@@ -20853,7 +20853,7 @@ Current conversation context:
   app.patch("/api/admin/voices/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { id } = req.params;
-      const { speakingRate, personality, expressiveness, emotion, pedagogicalFocus, teachingStyle, errorTolerance } = req.body;
+      const { speakingRate, personality, expressiveness, emotion, pedagogicalFocus, teachingStyle, errorTolerance, voiceId, voiceName } = req.body;
       
       // Get existing voice first
       const voices = await storage.getAllTutorVoices();
@@ -20898,6 +20898,13 @@ Current conversation context:
         if (validTolerance.includes(errorTolerance)) {
           updates.errorTolerance = errorTolerance;
         }
+      }
+      if (voiceId !== undefined && typeof voiceId === 'string' && voiceId.trim()) {
+        updates.voiceId = voiceId.trim();
+        // For Gemini/Gemini-Live voices the name equals the ID; for others use provided name or keep existing
+        updates.voiceName = (voiceName && typeof voiceName === 'string' && voiceName.trim())
+          ? voiceName.trim()
+          : voiceId.trim();
       }
       
       // Use upsert with existing voice data plus updates
