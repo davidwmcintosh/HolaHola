@@ -1162,7 +1162,7 @@ export function VoiceConsoleContent() {
                                 } : undefined,
                                 selectedVoice?.source === 'library' ? selectedVoice.previewUrl : undefined,
                                 undefined,
-                                (formData.provider === 'gemini' || formData.provider === 'google') ? formData.geminiLanguageCode : undefined,
+                                (formData.provider === 'gemini' || formData.provider === 'gemini-live' || formData.provider === 'google') ? formData.geminiLanguageCode : undefined,
                               );
                             }}
                             data-testid="button-audition"

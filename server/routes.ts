@@ -21004,7 +21004,7 @@ Current conversation context:
         return;
       }
 
-      if (provider === 'gemini') {
+      if (provider === 'gemini' || provider === 'gemini-live') {
         const { getGeminiLiveTtsService } = await import('./services/gemini-live-tts');
         const geminiLiveTtsService = getGeminiLiveTtsService();
         const audioBuffer = await geminiLiveTtsService.synthesizeToBuffer(text, voiceId || 'Kore', languageCode || undefined, accentLanguage || undefined, nativeLanguage || 'english');
