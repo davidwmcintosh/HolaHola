@@ -1285,11 +1285,28 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
                   })(),
                   SESSION_INIT_TIMEOUT, 'usageSession', null as UsageVoiceSession | null
                 );
+
+            // Course TOC — fetch early so it can be injected into the GeminiLive system prompt
+            // (The orchestrator prefetch also loads this per-turn, but GeminiLive needs it at startup)
+            const isSubjectSessionEarly = isBiologySession(config.subject, config.targetLanguage)
+              || isHistorySession(config.subject, config.targetLanguage)
+              || isMathSession(config.subject, config.targetLanguage)
+              || isBusinessSession(config.subject, config.targetLanguage);
+            const courseTocPromise = (!isSubjectSessionEarly && userId && effectiveLanguage)
+              ? withTimeout(
+                  (async () => {
+                    const { unifiedDanielaContext } = await import('./services/unified-daniela-context-service');
+                    return await unifiedDanielaContext.buildCourseTOC(String(userId), effectiveLanguage);
+                  })(),
+                  SESSION_INIT_TIMEOUT, 'courseToc', null as string | null
+                )
+              : Promise.resolve(null as string | null);
             
-            const [compassResult, neuralNetworkContext, usageSessionResult] = await Promise.all([
+            const [compassResult, neuralNetworkContext, usageSessionResult, courseToc] = await Promise.all([
               compassPromise.catch((err: any) => { console.warn(`[Compass Init] Error: ${err.message}`); return null; }),
               neuralNetworkPromise.catch((err: any) => { console.warn(`[Neural Network] Error: ${err.message}`); return ''; }),
               usageSessionPromise.catch((err: any) => { console.warn(`[Usage Session] Error: ${err.message}`); return null; }),
+              courseTocPromise.catch((err: any) => { console.warn(`[Course TOC] Error: ${err.message}`); return null; }),
             ]);
             
             const phase2Ms = Date.now() - phase2Start;
@@ -1402,6 +1419,17 @@ ${buildNativeFunctionCallingSection()}`;
                 console.log(`[Streaming Voice] ✓ Neural network context appended for ${effectiveLanguage}`);
               } else {
                 console.warn('[Streaming Voice] ⚠ Neural network context was empty — bold-marking relies on fallback in prompt');
+              }
+
+              // Course TOC — inject for language sessions so Daniela knows the full chapter/lesson map.
+              // This is critical for GeminiLive (audio-only, no per-turn injection) so she can reference
+              // any chapter by number and know lesson IDs for show_sentence_table calls.
+              if (courseToc) {
+                systemPrompt += `\n\n═══════════════════════════════════════════════════════════════════\n🗺️ COURSE MAP — Full Chapter & Lesson Reference\n(You carry this so you can reference any chapter or lesson accurately in conversation. Lesson IDs in brackets are for show_sentence_table calls.)\n═══════════════════════════════════════════════════════════════════\n${courseToc}`;
+                const unitCount = (courseToc.match(/^Ch\./gm) || []).length;
+                console.log(`[Streaming Voice] ✓ Course TOC injected into system prompt: ${unitCount} chapters`);
+              } else {
+                console.log(`[Streaming Voice] No course TOC found for user (no enrollment or no curriculum path)`);
               }
             }
 
