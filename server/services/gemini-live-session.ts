@@ -32,7 +32,7 @@ import type { StreamingSession } from './streaming-session-types';
 import { lookupLegacyType } from './daniela-function-registry';
 import type { ExtractedFunctionCall } from './gemini-function-declarations';
 
-const GEMINI_LIVE_MODEL = process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-pro-preview-customtools';
+const GEMINI_LIVE_MODEL = process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview';
 const AUDIO_OUTPUT_SAMPLE_RATE = 24000;
 const AUDIO_INPUT_SAMPLE_RATE = 16000;
 
