@@ -105,7 +105,7 @@ export class GeminiLiveSession {
 
     const liveName = VOICE_ID_TO_LIVE_NAME[this.session.voiceId || ''] || DEFAULT_LIVE_VOICE;
     const langKey = (this.session.targetLanguage || '').toLowerCase().trim();
-    const languageCode = LANGUAGE_TO_BCP47[langKey] || 'es-ES';
+    const languageCode = LANGUAGE_TO_BCP47[langKey] || 'es-US';
     console.log(`[GeminiLive] Opening session — model: ${GEMINI_LIVE_MODEL}, voice: ${liveName}, languageCode: ${languageCode}`);
 
     this.liveSession = await ai.live.connect({
