@@ -58,19 +58,20 @@ const LANGUAGE_TO_BCP47: Record<string, string> = {
 };
 
 /**
- * Map of Gemini TTS voice IDs → Gemini Live prebuilt voice names.
- * Gemini Live uses the same Chirp HD voice catalog, just different naming.
+ * Complete set of valid Gemini Live prebuilt voice names.
+ * The voice ID used in our DB/overrides IS the voice name — no translation needed.
+ * Gemini Live rejects unknown voice names, so we validate against this set and
+ * fall back to DEFAULT_LIVE_VOICE for anything not in the list.
  */
-const VOICE_ID_TO_LIVE_NAME: Record<string, string> = {
-  'Aoede':  'Aoede',
-  'Kore':   'Kore',
-  'Leda':   'Leda',
-  'Zephyr': 'Zephyr',
-  'Puck':   'Puck',
-  'Charon': 'Charon',
-  'Fenrir': 'Fenrir',
-  'Orus':   'Orus',
-};
+const GEMINI_LIVE_VOICE_NAMES = new Set([
+  // Original 8 (shared with Chirp HD catalog)
+  'Aoede', 'Kore', 'Leda', 'Zephyr', 'Puck', 'Charon', 'Fenrir', 'Orus',
+  // Additional Gemini Live–only voices
+  'Achernar', 'Autonoe', 'Callirrhoe', 'Despina', 'Erinome', 'Laomedeia',
+  'Pulcherrima', 'Sulafat', 'Vindemiatrix',
+  'Achird', 'Algenib', 'Algieba', 'Alnilam', 'Enceladus', 'Gacrux',
+  'Iapetus', 'Rasalgethi', 'Sadachbia', 'Sadaltager', 'Schedar', 'Umbriel', 'Zubenelgenubi',
+]);
 
 export class GeminiLiveSession {
   private liveSession: Session | null = null;
@@ -126,7 +127,9 @@ export class GeminiLiveSession {
 
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
-    const liveName = VOICE_ID_TO_LIVE_NAME[this.session.voiceId || ''] || DEFAULT_LIVE_VOICE;
+    // Voice override (from Voice Lab) takes priority over the session's stored voice.
+    const effectiveVoiceId = (this.session as any).voiceOverride?.voiceId ?? this.session.voiceId ?? '';
+    const liveName = GEMINI_LIVE_VOICE_NAMES.has(effectiveVoiceId) ? effectiveVoiceId : DEFAULT_LIVE_VOICE;
     const langKey = (this.session.targetLanguage || '').toLowerCase().trim();
     const languageCode = LANGUAGE_TO_BCP47[langKey] || 'en-US';
     console.log(`[GeminiLive] Opening session — model: ${GEMINI_LIVE_MODEL}, voice: ${liveName}, languageCode: ${languageCode}`);

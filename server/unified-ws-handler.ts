@@ -979,6 +979,8 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
   
   // Gemini Live voice session (feature-flagged via GEMINI_LIVE_VOICE=true)
   let geminiLiveSession: GeminiLiveSession | null = null;
+  // Cached system prompt for the Gemini Live session — needed to restart with a new voice
+  let geminiLiveSystemPromptCache = '';
   // Prevent duplicate greeting triggers — client may retry if audio is slow
   let geminiLiveGreetingSent = false;
 
@@ -1567,6 +1569,8 @@ ${buildNativeFunctionCallingSection()}`;
                     }
                   } catch (_) {}
                 };
+                // Cache the final system prompt so voice-override reconnects can reuse it
+                geminiLiveSystemPromptCache = geminiLiveSystemPrompt;
                 geminiLiveSession = createGeminiLiveSession(session, glSendMessage);
                 // No function declarations — tool calls are handled by the parallel orchestrator
                 // pipeline; GeminiLive is audio-in/audio-out only. Function declarations
@@ -2571,6 +2575,10 @@ ${buildNativeFunctionCallingSection()}`;
             } | null;
           };
           
+          // Detect if the voice changed so we can restart the Gemini Live session
+          const prevVoiceId = (session as any).voiceOverride?.voiceId ?? session.voiceId;
+          const nextVoiceId = overrideMsg.override?.voiceId;
+
           // Store override in session for use by TTS
           (session as any).voiceOverride = overrideMsg.override;
           
@@ -2578,6 +2586,31 @@ ${buildNativeFunctionCallingSection()}`;
           orchestrator.setVoiceOverride(session.id, overrideMsg.override);
           
           console.log('[Streaming Voice] Voice override applied:', overrideMsg.override);
+
+          // ── Gemini Live voice reconnect ────────────────────────────────────
+          // Gemini Live bakes the voice into the WebSocket handshake — it cannot
+          // be changed mid-session.  When the user picks a new voice via Voice Lab
+          // we stop the existing session and open a fresh one with the new voice.
+          const voiceChanged = nextVoiceId && nextVoiceId !== prevVoiceId;
+          if (voiceChanged && geminiLiveSession && geminiLiveSystemPromptCache) {
+            console.log(`[GeminiLive] Voice changed ${prevVoiceId} → ${nextVoiceId}, reconnecting…`);
+            try {
+              geminiLiveSession.stop();
+              geminiLiveSession = null;
+
+              const glSendMessage = (targetWs: any, msg: any) => {
+                try {
+                  if (targetWs?.readyState === 1) targetWs.send(JSON.stringify(msg));
+                } catch (_) {}
+              };
+              geminiLiveSession = createGeminiLiveSession(session, glSendMessage);
+              await geminiLiveSession.start(geminiLiveSystemPromptCache, []);
+              console.log(`[GeminiLive] Reconnected with voice: ${nextVoiceId}`);
+            } catch (reconnErr: any) {
+              console.error('[GeminiLive] Voice reconnect failed:', reconnErr.message);
+              geminiLiveSession = null;
+            }
+          }
           
           ws.send(JSON.stringify({
             type: 'voice_override_applied',
