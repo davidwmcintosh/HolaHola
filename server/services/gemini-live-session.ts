@@ -85,6 +85,8 @@ export class GeminiLiveSession {
   private hadAudioInCurrentSubturn = false;
   private isStopped = false;
   private isStarted = false;
+  private isSetupComplete = false;
+  private pendingGreetingTrigger: string | null = null;
 
   // ── Transcript accumulators ─────────────────────────────────────────────
   // Both user and assistant transcripts are accumulated across multiple
@@ -231,18 +233,12 @@ export class GeminiLiveSession {
 
     console.log(`[GeminiLive] Session open — sessionId: ${this.session.id}`);
 
-    // If a greeting trigger is provided, send it as the first user turn.
-    // Gemini Live will respond with Daniela's opening greeting audio.
-    if (greetingTrigger && this.liveSession) {
-      try {
-        this.liveSession.sendClientContent({
-          turns: [{ role: 'user', parts: [{ text: greetingTrigger }] }],
-          turnComplete: true,
-        });
-        console.log('[GeminiLive] Greeting trigger sent');
-      } catch (err) {
-        console.warn('[GeminiLive] Failed to send greeting trigger:', err);
-      }
+    // If a greeting trigger is provided at start() time, buffer it — setupComplete
+    // has not arrived yet at this point (it arrives asynchronously via onmessage).
+    // handleServerMessage will fire it as soon as setupComplete is received.
+    if (greetingTrigger) {
+      this.pendingGreetingTrigger = greetingTrigger;
+      console.log('[GeminiLive] Greeting buffered at start() — waiting for setupComplete');
     }
   }
 
@@ -294,6 +290,16 @@ export class GeminiLiveSession {
       : `This is a new session — greet me warmly and start speaking in ${langName} right away. Your entire response must be in ${langName} (language code: ${langCode}).`;
     const scenario = scenarioSlug ? ` We are doing a scenario: ${scenarioSlug}.` : '';
     const trigger = `Hello ${tutorName}${name}. ${resumed}${scenario}`;
+
+    // If setupComplete hasn't arrived yet, buffer the greeting — it will be sent
+    // automatically by handleServerMessage the moment setupComplete is received.
+    // Sending content before setupComplete causes the model to silently ignore it.
+    if (!this.isSetupComplete) {
+      this.pendingGreetingTrigger = trigger;
+      console.log(`[GeminiLive] Greeting buffered — waiting for setupComplete (resumed: ${isResumed || false})`);
+      return;
+    }
+
     try {
       this.liveSession.sendClientContent({
         turns: [{ role: 'user', parts: [{ text: trigger }] }],
@@ -364,6 +370,29 @@ export class GeminiLiveSession {
     // ── Catch any top-level error from Gemini ────────────────────────────────
     if ((msg as any).error) {
       console.error('[GeminiLive] API error in message:', (msg as any).error);
+    }
+
+    // ── Setup complete — model is now ready to receive content ───────────────
+    // The Gemini Live protocol requires waiting for setupComplete before sending
+    // any client content turns. We buffer the greeting and fire it here so it
+    // is never sent before the model is ready.
+    if ((msg as any).setupComplete != null) {
+      if (!this.isSetupComplete) {
+        this.isSetupComplete = true;
+        console.log('[GeminiLive] setupComplete received — model ready');
+        if (this.pendingGreetingTrigger && this.liveSession) {
+          try {
+            this.liveSession.sendClientContent({
+              turns: [{ role: 'user', parts: [{ text: this.pendingGreetingTrigger }] }],
+              turnComplete: true,
+            });
+            console.log('[GeminiLive] Pending greeting fired after setupComplete');
+          } catch (err) {
+            console.warn('[GeminiLive] Failed to send pending greeting:', err);
+          }
+          this.pendingGreetingTrigger = null;
+        }
+      }
     }
 
     // ── Audio output ────────────────────────────────────────────────────────
