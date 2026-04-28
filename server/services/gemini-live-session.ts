@@ -429,18 +429,15 @@ export class GeminiLiveSession {
     if ((msg.serverContent as any)?.inputTranscription?.text) {
       const text = (msg.serverContent as any).inputTranscription.text as string;
       if (text.trim()) {
-        const isFirstChunk = this.pendingInputTranscript.trim() === '';
         this.pendingInputTranscript += text;
         this.pendingInputSaved = false;
 
-        // Fire processing_pending ONCE (on first chunk) to show thinking avatar immediately
-        if (isFirstChunk) {
-          this.sendWsMessage(this.session.ws, {
-            type: 'processing_pending',
-            timestamp: Date.now(),
-            interimTranscript: text,
-          });
-        }
+        // DO NOT fire processing_pending here — inputTranscription arrives while the user
+        // is still mid-sentence (GL transcribes in real-time). Showing the thinking avatar
+        // at this point makes the user believe they've been cut off, causing them to stop
+        // talking, which then triggers an actual cutoff. processing_pending is now fired
+        // on the first outputTranscription chunk — the true "you've finished, she's
+        // generating" signal.
 
         // Forward each chunk to the client for interim display (subtitle / transcript bar)
         this.sendWsMessage(this.session.ws, {
@@ -459,7 +456,18 @@ export class GeminiLiveSession {
     if ((msg.serverContent as any)?.outputTranscription?.text) {
       const text = (msg.serverContent as any).outputTranscription.text as string;
       if (text.trim()) {
+        // Fire processing_pending on the FIRST output chunk. This is the definitive signal
+        // that GL has finished listening to the user and is now generating a response.
+        // Firing it earlier (on inputTranscription) caused the user to see the thinking
+        // avatar while still speaking and stop talking prematurely.
+        const isFirstOutputChunk = this.pendingOutputTranscript.trim() === '';
         this.pendingOutputTranscript += text;
+        if (isFirstOutputChunk) {
+          this.sendWsMessage(this.session.ws, {
+            type: 'processing_pending',
+            timestamp: Date.now(),
+          });
+        }
         this.sendWsMessage(this.session.ws, {
           type: 'daniela_transcript',
           text,
