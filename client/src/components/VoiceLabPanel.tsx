@@ -372,11 +372,15 @@ export function VoiceLabPanel({
   const handleAudition = async () => {
     if (!currentVoice) return;
     
+    const auditVoiceId = selectedVoiceId || currentVoice.voiceId;
+    const auditVoiceName = availableVoices.find(v => v.id === auditVoiceId)?.name || auditVoiceId;
+    console.log(`[VoiceLab] Auditioning voice: ${auditVoiceId} (${auditVoiceName}), provider: ${currentVoice.provider}`);
+
     setIsAuditioning(true);
     try {
       const phrase = SAMPLE_PHRASES[language] || SAMPLE_PHRASES.english;
       const bodyData: Record<string, unknown> = {
-        voiceId: selectedVoiceId || currentVoice.voiceId,
+        voiceId: auditVoiceId,
         text: phrase,
         languageCode: currentVoice.languageCode,
         speakingRate,
@@ -767,7 +771,10 @@ export function VoiceLabPanel({
                 ) : (
                   <Play className="h-4 w-4 mr-2" />
                 )}
-                {isAuditioning ? 'Playing...' : 'Audition'}
+                {isAuditioning
+                  ? `Playing ${availableVoices.find(v => v.id === (selectedVoiceId || currentVoice?.voiceId))?.name?.split(' —')[0] || (selectedVoiceId || currentVoice?.voiceId)}...`
+                  : 'Audition'
+                }
               </Button>
 
               {/* Apply Button - Session Override */}

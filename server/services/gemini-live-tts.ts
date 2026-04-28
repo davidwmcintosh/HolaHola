@@ -203,7 +203,7 @@ export class GeminiLiveTtsService extends EventEmitter {
     }
 
     if (hints.length === 0) {
-      return 'Say naturally and conversationally:';
+      return '';
     }
 
     return `Say ${hints.join(', ')}:`;
