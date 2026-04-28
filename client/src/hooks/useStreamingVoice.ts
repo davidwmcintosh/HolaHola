@@ -80,6 +80,9 @@ export interface StreamingSessionConfig {
   onVadUtteranceEnd?: (transcript: string, empty?: boolean) => void;
   /** Called when interim transcript available (open mic mode) */
   onInterimTranscript?: (transcript: string) => void;
+  /** Called for each Gemini Live real-time speech chunk (GL mode only). Distinct from onInterimTranscript
+   *  which is shared with Deepgram. Accumulate chunks to build the live user caption bar. */
+  onGlUserTranscript?: (chunk: string) => void;
   /** Called when open mic session closes (e.g., Deepgram timeout) */
   onOpenMicSessionClosed?: () => void;
   /** Called when OpenMic detects consecutive empty transcripts (silence loop) */
@@ -576,8 +579,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * This fires right when PTT is released, before Deepgram finalization wait.
    * Triggers thinking avatar immediately for better perceived responsiveness.
    */
-  const handleProcessingPending = useCallback((msg: { type: string; timestamp: number; interimTranscript: string }) => {
-    console.log(`[StreamingVoice] Processing pending: "${msg.interimTranscript.substring(0, 30)}..."`);
+  const handleProcessingPending = useCallback((msg: { type: string; timestamp: number; interimTranscript?: string }) => {
+    console.log(`[StreamingVoice] Processing pending: "${(msg.interimTranscript ?? '').substring(0, 30)}..."`);
     
     // IMMEDIATELY show thinking indicator
     setIsProcessing(true);
@@ -1377,7 +1380,11 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     if (isVerboseLoggingEnabled()) {
       console.log('[StreamingVoice] User transcript (Gemini Live):', message.text.substring(0, 60));
     }
+    // Forward as barge-in signal (same as Deepgram interim, drives open-mic state machine)
     sessionConfigRef.current?.onInterimTranscript?.(message.text);
+    // Also fire dedicated GL callback so the component can accumulate the live caption bar
+    // without conflating it with Deepgram interim transcripts.
+    sessionConfigRef.current?.onGlUserTranscript?.(message.text);
   }, []);
 
   const handleDanielaTranscript = useCallback((message: { type: string; text: string; turnId: number }) => {

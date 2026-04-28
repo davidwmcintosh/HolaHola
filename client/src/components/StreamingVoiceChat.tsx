@@ -287,6 +287,9 @@ export function StreamingVoiceChat({
   const activeInputTypeRef = useRef<'mouse' | 'touch' | 'keyboard' | null>(null); // Track which input started recording
   const [isMicPreparing, setIsMicPreparing] = useState(false); // Show "Preparing mic..." before actual recording starts
   const [isProcessing, setIsProcessing] = useState(false);
+  // Live transcript of what the user is currently saying (Gemini Live real-time transcription only).
+  // Accumulated from 'transcript' chunks, cleared when processing_pending fires.
+  const [glUserTranscript, setGlUserTranscript] = useState('');
   const [processingStage, setProcessingStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [avatarState, setAvatarState] = useState<AvatarState>('idle');
@@ -923,6 +926,13 @@ export function StreamingVoiceChat({
             setIsProcessing(true);
             isProcessingRef.current = true;
             isAwaitingResponseRef.current = true;
+            // Clear live transcript — user is done speaking, Daniela is now thinking.
+            setGlUserTranscript('');
+          },
+          onGlUserTranscript: (chunk) => {
+            // Accumulate GL real-time speech chunks into the live caption bar.
+            // Cleared by onProcessingPending when Daniela starts responding.
+            setGlUserTranscript(prev => (prev + ' ' + chunk).trim());
           },
           onNoSpeechDetected: () => {
             console.log('[STREAMING] No speech detected - resetting processing state');
@@ -3770,6 +3780,7 @@ export function StreamingVoiceChat({
           subtitleState={streamingVoice.subtitles.state}
           regularSubtitleMode={whiteboard.regularSubtitleMode}
           customOverlayText={whiteboard.customOverlayText}
+          glUserTranscript={glUserTranscript}
           inputMode={inputMode}
           setInputMode={setInputMode}
           openMicState={openMicState}
