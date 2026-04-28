@@ -113,7 +113,7 @@ function PreteriteQACardItem({
         </Button>
         <div className="flex flex-col min-w-0">
           <p
-            className="text-sm font-medium leading-snug"
+            className="text-sm font-medium leading-snug text-blue-600 dark:text-blue-400"
             data-testid={`text-question-${card.imageWord}`}
           >
             {card.question}
@@ -142,7 +142,7 @@ function PreteriteQACardItem({
         </Button>
         <div className="flex flex-col min-w-0">
           <p
-            className="text-sm font-medium leading-snug"
+            className="text-sm font-medium leading-snug text-red-600 dark:text-red-400"
             data-testid={`text-answer-${card.imageWord}`}
           >
             {card.answer}

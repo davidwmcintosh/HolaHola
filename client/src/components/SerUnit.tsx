@@ -237,7 +237,7 @@ function SerQACardItem({
         </Button>
         <div className="flex flex-col min-w-0">
           <p
-            className="text-sm font-medium leading-snug"
+            className="text-sm font-medium leading-snug text-blue-600 dark:text-blue-400"
             data-testid={`text-question-${testId}`}
           >
             {card.question}
@@ -265,7 +265,7 @@ function SerQACardItem({
         </Button>
         <div className="flex flex-col min-w-0">
           <p
-            className="text-sm font-medium leading-snug"
+            className="text-sm font-medium leading-snug text-red-600 dark:text-red-400"
             data-testid={`text-answer-${testId}`}
           >
             {card.answer}
