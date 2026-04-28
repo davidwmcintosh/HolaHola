@@ -292,8 +292,8 @@ export function StreamingVoiceChat({
   const [avatarState, setAvatarState] = useState<AvatarState>('idle');
   const [currentPlayingMessageId, setCurrentPlayingMessageId] = useState<string | null>(null);
   
-  // Voice input mode: push-to-talk (default) or open-mic
-  const [inputMode, setInputMode] = useState<VoiceInputMode>('push-to-talk');
+  // Voice input mode: push-to-talk or open-mic (default)
+  const [inputMode, setInputMode] = useState<VoiceInputMode>('open-mic');
   // Open mic visual state for feedback
   const [openMicState, setOpenMicState] = useState<OpenMicState>('idle');
   const openMicStateRef = useRef<OpenMicState>('idle');

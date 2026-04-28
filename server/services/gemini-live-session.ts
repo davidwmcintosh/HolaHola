@@ -252,11 +252,15 @@ export class GeminiLiveSession {
   sendGreetingTrigger(userName?: string, isResumed?: boolean, scenarioSlug?: string): void {
     if (!this.liveSession || this.isStopped) return;
     const name = userName ? `, my name is ${userName}` : '';
+    const langName = this.session.targetLanguage
+      ? this.session.targetLanguage.charAt(0).toUpperCase() + this.session.targetLanguage.slice(1)
+      : 'Spanish';
+    const tutorName = this.session.tutorName || 'Daniela';
     const resumed = isResumed
       ? 'This is a resumed session — acknowledge that we are continuing.'
-      : 'This is a new session — greet me warmly and dive straight into Spanish.';
+      : `This is a new session — greet me warmly and dive straight into ${langName}.`;
     const scenario = scenarioSlug ? ` We are doing a scenario: ${scenarioSlug}.` : '';
-    const trigger = `Hello Daniela${name}. ${resumed}${scenario}`;
+    const trigger = `Hello ${tutorName}${name}. ${resumed}${scenario}`;
     try {
       this.liveSession.sendClientContent({
         turns: [{ role: 'user', parts: [{ text: trigger }] }],

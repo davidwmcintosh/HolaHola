@@ -217,6 +217,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   // Increased from 15s to 25s Jan 2026 to handle server delays from RAM pressure
   const processingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const PROCESSING_TIMEOUT_MS = 60000;  // 60 seconds max "thinking" time (Gemini TTS can take 40-50s for long responses)
+  
+  // Ref for greeting silence watchdog (cleanup on disconnect)
+  const greetingSilenceWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Refs
   const clientRef = useRef<StreamingVoiceClient | null>(null);
@@ -1631,7 +1634,11 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
         isSwitchingTutorFn: () => isSwitchingTutorRef.current,
       });
       diagMarkConnect();
-      startGreetingSilenceWatchdog();
+      // Store timer ID so we can clean it up on disconnect
+      if (greetingSilenceWatchdogRef.current) {
+        clearTimeout(greetingSilenceWatchdogRef.current);
+      }
+      greetingSilenceWatchdogRef.current = startGreetingSilenceWatchdog();
       
       (await import('@/lib/consoleCapture')).startSessionCapture({
         conversationId: config.conversationId,
