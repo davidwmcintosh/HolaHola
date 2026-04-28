@@ -68,8 +68,8 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
   // VAD mode: 'push-to-talk' (manual), 'semantic_vad' (auto-detect with AI), 'server_vad' (simple auto-detect)
-  // DEFAULT: push-to-talk to avoid microphone permission errors on page load (browsers require user gesture)
-  const [vadMode, setVadMode] = useState<'push-to-talk' | 'semantic_vad' | 'server_vad'>('push-to-talk');
+  // DEFAULT: semantic_vad (Open Mic) — mic permission is requested on connect, not page load
+  const [vadMode, setVadMode] = useState<'push-to-talk' | 'semantic_vad' | 'server_vad'>('semantic_vad');
   const [isVadActive, setIsVadActive] = useState(false); // Is VAD currently detecting speech?
   
   const wsRef = useRef<WebSocket | null>(null);

@@ -44,6 +44,7 @@ const DEFAULT_LIVE_VOICE = 'Aoede';
  * Controls both STT recognition language and influences output voice accent.
  */
 const LANGUAGE_TO_BCP47: Record<string, string> = {
+  english:    'en-US',
   spanish:    'es-US',   // es-ES rejected by gemini-2.5-flash-native-audio-preview models
   french:     'fr-FR',
   italian:    'it-IT',
@@ -53,6 +54,7 @@ const LANGUAGE_TO_BCP47: Record<string, string> = {
   mandarin:   'zh-CN',
   chinese:    'zh-CN',
   korean:     'ko-KR',
+  hebrew:     'he-IL',
 };
 
 /**
@@ -112,7 +114,7 @@ export class GeminiLiveSession {
 
     const liveName = VOICE_ID_TO_LIVE_NAME[this.session.voiceId || ''] || DEFAULT_LIVE_VOICE;
     const langKey = (this.session.targetLanguage || '').toLowerCase().trim();
-    const languageCode = LANGUAGE_TO_BCP47[langKey] || 'es-US';
+    const languageCode = LANGUAGE_TO_BCP47[langKey] || 'en-US';
     console.log(`[GeminiLive] Opening session — model: ${GEMINI_LIVE_MODEL}, voice: ${liveName}, languageCode: ${languageCode}`);
 
     this.liveSession = await ai.live.connect({
