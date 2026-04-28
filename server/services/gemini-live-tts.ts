@@ -25,47 +25,57 @@ const TTS_SAMPLE_RATE = 24000;
 const CHUNK_SIZE_SAMPLES = 2400;
 const SYNTHESIS_TIMEOUT_MS = 30000;
 
-export const LANGUAGE_ACCENT_VARIANTS: Record<string, { label: string; code: string; googleSupported: boolean }[]> = {
+/**
+ * Accent variants per language.
+ *
+ * googleSupported    — accepted by Google Cloud TTS (voice name locale prefix swap)
+ * geminiLiveSupported — accepted by the Gemini Live speechConfig.languageCode.
+ *                       Only one dialect per language is typically supported.
+ *                       Confirmed rejected by gemini-2.5-flash-native-audio-preview: es-ES.
+ */
+export const LANGUAGE_ACCENT_VARIANTS: Record<string, { label: string; code: string; googleSupported: boolean; geminiLiveSupported: boolean }[]> = {
   spanish: [
-    { label: 'Spanish (US)', code: 'es-US', googleSupported: true },
-    { label: 'Spanish (Spain)', code: 'es-ES', googleSupported: true },
-    { label: 'Spanish (Mexico)', code: 'es-MX', googleSupported: false },
-    { label: 'Spanish (Argentina)', code: 'es-AR', googleSupported: false },
-    { label: 'Spanish (Colombia)', code: 'es-CO', googleSupported: false },
+    { label: 'Spanish (US)',        code: 'es-US', googleSupported: true,  geminiLiveSupported: true  },
+    { label: 'Spanish (Spain)',     code: 'es-ES', googleSupported: true,  geminiLiveSupported: false }, // rejected by native-audio-preview models
+    { label: 'Spanish (Mexico)',    code: 'es-MX', googleSupported: false, geminiLiveSupported: false },
+    { label: 'Spanish (Argentina)', code: 'es-AR', googleSupported: false, geminiLiveSupported: false },
+    { label: 'Spanish (Colombia)',  code: 'es-CO', googleSupported: false, geminiLiveSupported: false },
   ],
   english: [
-    { label: 'English (US)', code: 'en-US', googleSupported: true },
-    { label: 'English (UK)', code: 'en-GB', googleSupported: true },
-    { label: 'English (Australia)', code: 'en-AU', googleSupported: true },
-    { label: 'English (India)', code: 'en-IN', googleSupported: true },
+    { label: 'English (US)',        code: 'en-US', googleSupported: true,  geminiLiveSupported: true  },
+    { label: 'English (UK)',        code: 'en-GB', googleSupported: true,  geminiLiveSupported: false },
+    { label: 'English (Australia)', code: 'en-AU', googleSupported: true,  geminiLiveSupported: false },
+    { label: 'English (India)',     code: 'en-IN', googleSupported: true,  geminiLiveSupported: false },
   ],
   french: [
-    { label: 'French (France)', code: 'fr-FR', googleSupported: true },
-    { label: 'French (Canada)', code: 'fr-CA', googleSupported: true },
+    { label: 'French (France)',  code: 'fr-FR', googleSupported: true, geminiLiveSupported: true  },
+    { label: 'French (Canada)',  code: 'fr-CA', googleSupported: true, geminiLiveSupported: false },
   ],
   german: [
-    { label: 'German (Germany)', code: 'de-DE', googleSupported: true },
-    { label: 'German (Austria)', code: 'de-AT', googleSupported: false },
+    { label: 'German (Germany)', code: 'de-DE', googleSupported: true,  geminiLiveSupported: true  },
+    { label: 'German (Austria)', code: 'de-AT', googleSupported: false, geminiLiveSupported: false },
   ],
   italian: [
-    { label: 'Italian (Italy)', code: 'it-IT', googleSupported: true },
+    { label: 'Italian (Italy)', code: 'it-IT', googleSupported: true, geminiLiveSupported: true },
   ],
   portuguese: [
-    { label: 'Portuguese (Brazil)', code: 'pt-BR', googleSupported: true },
-    { label: 'Portuguese (Portugal)', code: 'pt-PT', googleSupported: false },
+    { label: 'Portuguese (Brazil)',   code: 'pt-BR', googleSupported: true,  geminiLiveSupported: true  },
+    { label: 'Portuguese (Portugal)', code: 'pt-PT', googleSupported: false, geminiLiveSupported: false },
   ],
   japanese: [
-    { label: 'Japanese (Japan)', code: 'ja-JP', googleSupported: true },
+    { label: 'Japanese (Japan)', code: 'ja-JP', googleSupported: true, geminiLiveSupported: true },
   ],
   'mandarin chinese': [
-    { label: 'Chinese (Mainland)', code: 'cmn-CN', googleSupported: true },
-    { label: 'Chinese (Taiwan)', code: 'zh-TW', googleSupported: false },
+    // Gemini Live requires zh-CN (not cmn-CN); cmn-CN is valid for Google TTS only
+    { label: 'Chinese (Mainland — Gemini Live)', code: 'zh-CN',  googleSupported: false, geminiLiveSupported: true  },
+    { label: 'Chinese (Mainland — Google TTS)', code: 'cmn-CN', googleSupported: true,  geminiLiveSupported: false },
+    { label: 'Chinese (Taiwan)',                 code: 'zh-TW',  googleSupported: false, geminiLiveSupported: false },
   ],
   korean: [
-    { label: 'Korean (Korea)', code: 'ko-KR', googleSupported: true },
+    { label: 'Korean (Korea)', code: 'ko-KR', googleSupported: true, geminiLiveSupported: true },
   ],
   hebrew: [
-    { label: 'Hebrew (Israel)', code: 'he-IL', googleSupported: true },
+    { label: 'Hebrew (Israel)', code: 'he-IL', googleSupported: true, geminiLiveSupported: true },
   ],
 };
 
