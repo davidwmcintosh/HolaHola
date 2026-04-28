@@ -916,6 +916,14 @@ export function StreamingVoiceChat({
           tutorGender,  // Pass current tutor gender from context
           rawHonestyMode: isHonestyMode,  // Minimal prompting for authentic conversation
           founderMode: isExplicitFounderMode,  // Only true when explicitly selected
+          onProcessingPending: () => {
+            // processing_pending fired (PTT released, Gemini transcribed) — set thinking immediately.
+            // Uses component-level isProcessing (properly cleared by onResponseComplete) rather
+            // than the hook-level state, which can get stuck in the Gemini Live PCM audio path.
+            setIsProcessing(true);
+            isProcessingRef.current = true;
+            isAwaitingResponseRef.current = true;
+          },
           onNoSpeechDetected: () => {
             console.log('[STREAMING] No speech detected - resetting processing state');
             setIsProcessing(false);
@@ -3685,7 +3693,7 @@ export function StreamingVoiceChat({
           onRecordingStop={inputMode === 'open-mic' ? () => {} : stopPushToTalkRecording}
           isRecording={isRecording}
           isMicPreparing={isMicPreparing}
-          isProcessing={isProcessing || streamingVoice.state.isProcessing}
+          isProcessing={isProcessing}
           isPlaying={globalPlaybackState === 'playing' || globalPlaybackState === 'buffering' || streamingVoice.microAckPlaying}
           isConnecting={useStreamingMode && (streamingVoice.state.connectionState === 'connecting' || streamingVoice.state.connectionState === 'reconnecting')}
           isReconnecting={useStreamingMode && streamingVoice.state.connectionState === 'reconnecting'}

@@ -68,6 +68,8 @@ export interface StreamingSessionConfig {
   rawHonestyMode?: boolean;  // Minimal prompting for authentic conversation with Daniela
   founderMode?: boolean;  // Explicit founder mode flag - only true when user selects "Founder Mode" context
   onResponseComplete?: (conversationId: string) => void;
+  /** Called when processing_pending arrives — sets component-level thinking state immediately */
+  onProcessingPending?: () => void;
   /** Called when server detects no speech during PTT - resets processing state */
   onNoSpeechDetected?: () => void;
   /** Called when server sends whiteboard updates (e.g., enriched WORD_MAP items) */
@@ -581,6 +583,12 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     setIsProcessing(true);
     setGlobalPlaybackState('thinking');
     audioReceivedInTurnRef.current = false;
+    
+    // Notify component so it can set its own isProcessing state immediately.
+    // This drives the thinking avatar via the component-level isProcessing prop
+    // (which is properly cleared by onResponseComplete), avoiding the hook's
+    // internal timing issues with checkAndClearProcessing in the PCM audio path.
+    sessionConfigRef.current?.onProcessingPending?.();
     
     // Start processing timeout (same as handleProcessing)
     if (processingTimeoutRef.current) {

@@ -107,7 +107,7 @@ export class TtsDispatcher {
         autoDetectLanguage: true,
         targetLanguage: session.targetLanguage,
         geminiLanguageCode: session.geminiLanguageCode,
-        voiceId: session.voiceId,
+        voiceId: voiceOverride?.voiceId ?? session.voiceId,
         speakingRate: effectiveSpeakingRate,
         emotion: effectiveEmotion as CartesiaEmotion,
         personality: effectivePersonality,
@@ -123,7 +123,7 @@ export class TtsDispatcher {
         const ttsService = getTTSService();
         await ttsService.streamSynthesizeWithGoogle({
           text: textWithEmphases,
-          voiceId: session.voiceId || '',
+          voiceId: (voiceOverride?.voiceId ?? session.voiceId) || '',
           speakingRate: effectiveSpeakingRate,
           targetLanguage: session.targetLanguage,
           accentLanguageCode: session.geminiLanguageCode || undefined,
@@ -666,7 +666,7 @@ export class TtsDispatcher {
         targetLanguage: session.targetLanguage,
         nativeLanguage: session.nativeLanguage || 'english',
         geminiLanguageCode: session.geminiLanguageCode,
-        voiceId: session.voiceId,
+        voiceId: voiceOverride?.voiceId ?? session.voiceId,
         speakingRate: effectiveSpeakingRate,
         emotion: effectiveEmotion as CartesiaEmotion,
         personality: effectivePersonality,
@@ -866,7 +866,7 @@ export class TtsDispatcher {
       
       await ttsService.streamSynthesizeWithGoogle({
         text: textWithEmphases,
-        voiceId: session.voiceId || '',
+        voiceId: progressiveRequest.voiceId || session.voiceId || '',
         speakingRate: effectiveSpeakingRate,
         targetLanguage: session.targetLanguage,
         accentLanguageCode: session.geminiLanguageCode || undefined,
