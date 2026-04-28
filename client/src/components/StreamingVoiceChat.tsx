@@ -3685,7 +3685,7 @@ export function StreamingVoiceChat({
           onRecordingStop={inputMode === 'open-mic' ? () => {} : stopPushToTalkRecording}
           isRecording={isRecording}
           isMicPreparing={isMicPreparing}
-          isProcessing={isProcessing}
+          isProcessing={isProcessing || streamingVoice.state.isProcessing}
           isPlaying={globalPlaybackState === 'playing' || globalPlaybackState === 'buffering' || streamingVoice.microAckPlaying}
           isConnecting={useStreamingMode && (streamingVoice.state.connectionState === 'connecting' || streamingVoice.state.connectionState === 'reconnecting')}
           isReconnecting={useStreamingMode && streamingVoice.state.connectionState === 'reconnecting'}

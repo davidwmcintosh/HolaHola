@@ -417,13 +417,18 @@ export class GeminiLiveSession {
     // ── Turn complete ────────────────────────────────────────────────────────
     // Checked AFTER outputTranscription so the buffer is fully populated before flush.
     if (msg.serverContent?.turnComplete) {
-      // Persist the fully-assembled assistant utterance (accumulated from streaming chunks)
+      // Persist the fully-assembled assistant utterance (accumulated from streaming chunks).
+      // IMPORTANT: await the persist so the DB write completes BEFORE we signal the client
+      // with isLast:true. Without this, the client's onResponseComplete cache invalidation
+      // refetches messages before the new row exists, leaving the History tab empty.
       if (this.pendingOutputTranscript.trim()) {
         const fullText = this.pendingOutputTranscript.trim();
         this.pendingOutputTranscript = '';
-        this.persistMessage('assistant', fullText).catch(err =>
-          console.warn('[GeminiLive] Failed to persist assistant transcript:', err.message)
-        );
+        try {
+          await this.persistMessage('assistant', fullText);
+        } catch (err: any) {
+          console.warn('[GeminiLive] Failed to persist assistant transcript:', err.message);
+        }
       }
 
       // Signal end-of-turn to the client's audio player
