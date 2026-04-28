@@ -199,7 +199,10 @@ export class GeminiLiveSession {
     // Gemini Live will respond with Daniela's opening greeting audio.
     if (greetingTrigger && this.liveSession) {
       try {
-        this.liveSession.sendRealtimeInput({ text: greetingTrigger });
+        this.liveSession.sendClientContent({
+          turns: [{ role: 'user', parts: [{ text: greetingTrigger }] }],
+          turnComplete: true,
+        });
         console.log('[GeminiLive] Greeting trigger sent');
       } catch (err) {
         console.warn('[GeminiLive] Failed to send greeting trigger:', err);
@@ -254,8 +257,10 @@ export class GeminiLiveSession {
     const scenario = scenarioSlug ? ` We are doing a scenario: ${scenarioSlug}.` : '';
     const trigger = `Hello ${tutorName}${name}. ${resumed}${scenario}`;
     try {
-      // Use sendRealtimeInput for text — sendClientContent causes 1011 on native-audio models
-      this.liveSession.sendRealtimeInput({ text: trigger });
+      this.liveSession.sendClientContent({
+        turns: [{ role: 'user', parts: [{ text: trigger }] }],
+        turnComplete: true,
+      });
       console.log(`[GeminiLive] Greeting trigger sent (resumed: ${isResumed || false})`);
     } catch (err) {
       console.warn('[GeminiLive] Failed to send greeting trigger:', err);
@@ -271,8 +276,10 @@ export class GeminiLiveSession {
   sendTextTurn(text: string): void {
     if (!this.liveSession || this.isStopped) return;
     try {
-      // Use sendRealtimeInput — sendClientContent causes 1011 on native-audio models
-      this.liveSession.sendRealtimeInput({ text });
+      this.liveSession.sendClientContent({
+        turns: [{ role: 'user', parts: [{ text }] }],
+        turnComplete: true,
+      });
       console.log(`[GeminiLive] Text turn sent (${text.length} chars): "${text.slice(0, 80)}"`);
     } catch (err) {
       console.warn('[GeminiLive] Failed to send text turn:', err);

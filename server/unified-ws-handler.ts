@@ -1467,25 +1467,14 @@ ${buildNativeFunctionCallingSection()}`;
             // Note: tutorDirectory is built dynamically by Socket.io path
             // HTTP WebSocket path doesn't support tutor handoffs, so we skip this
 
-            // ── Gemini Live voice session (feature-flagged) ──────────────────
-            if (GEMINI_LIVE_VOICE_ENABLED) {
-              try {
-                const glSendMessage = (targetWs: any, message: any) => {
-                  try {
-                    if (targetWs?.readyState === 1 /* OPEN */) {
-                      targetWs.send(JSON.stringify(message));
-                    }
-                  } catch (_) {}
-                };
-                geminiLiveSession = createGeminiLiveSession(session, glSendMessage);
-                await geminiLiveSession.start(systemPrompt, DANIELA_FUNCTION_DECLARATIONS);
-                console.log(`[GeminiLive] Session started alongside orchestrator session ${session.id}`);
-              } catch (glErr: any) {
-                console.error('[GeminiLive] Failed to start Gemini Live session:', glErr.message);
-                geminiLiveSession = null;
-                // Fall through — session still works via legacy pipeline
-              }
-            }
+            // ── Gemini Live voice session ─────────────────────────────────────
+            // DISABLED: Native-audio model (Aoede) produces English-accented Spanish
+            // regardless of languageCode setting, which is inconsistent with the
+            // orchestrator's Google Chirp3 HD Spanish voice used for greetings.
+            // All voice turns route through the orchestrator pipeline for a consistent accent.
+            // Re-enable when a Spanish-native Gemini Live voice is available.
+            // if (GEMINI_LIVE_VOICE_ENABLED) { ... }
+            // geminiLiveSession remains null → all audio handled by orchestrator
             
             // Track reconnection state — prevents double greetings when client reconnects
             (session as any).__isReconnect = isReconnectSO;
@@ -1580,25 +1569,18 @@ ${buildNativeFunctionCallingSection()}`;
           
           console.log(`[Streaming Voice] Generating AI greeting... (resumed: ${greetingRequest.isResumed || false}, scenario: ${greetingRequest.scenarioSlug || 'none'})`);
           
-          if (geminiLiveSession) {
-            // Gemini Live mode: trigger greeting via Live session
-            geminiLiveSession.sendGreetingTrigger(
+          // Always use the orchestrator for greetings — it handles TTS + AI text reliably.
+          // GeminiLive handles subsequent audio turns (user speech → model audio response).
+          try {
+            await orchestrator.processGreetingRequest(
+              session.id,
               greetingRequest.userName,
               greetingRequest.isResumed,
-              greetingRequest.scenarioSlug,
+              greetingRequest.scenarioSlug
             );
-          } else {
-            try {
-              await orchestrator.processGreetingRequest(
-                session.id,
-                greetingRequest.userName,
-                greetingRequest.isResumed,
-                greetingRequest.scenarioSlug
-              );
-            } catch (greetingError: any) {
-              console.error('[Streaming Voice] Greeting error:', greetingError.message);
-              sendErrorAdapter(ws, 'AI_FAILED', 'Failed to generate greeting', true);
-            }
+          } catch (greetingError: any) {
+            console.error('[Streaming Voice] Greeting error:', greetingError.message);
+            sendErrorAdapter(ws, 'AI_FAILED', 'Failed to generate greeting', true);
           }
           break;
         }
