@@ -1665,11 +1665,31 @@ ${buildNativeFunctionCallingSection()}`;
                 // Cache the final system prompt so voice-override reconnects can reuse it
                 geminiLiveSystemPromptCache = geminiLiveSystemPrompt;
                 geminiLiveSession = createGeminiLiveSession(session, glSendMessage);
-                // No function declarations — tool calls are handled by the parallel orchestrator
-                // pipeline; GeminiLive is audio-in/audio-out only. Function declarations
-                // are rejected by the native-audio model with 1007/1011 errors.
+                // No function declarations — the native-audio model rejects them with 1007.
+                // Tool call side-effects are handled by the parallel orchestrator shadow turn
+                // wired up via geminiLiveSession.onUserTurnComplete below.
                 await geminiLiveSession.start(geminiLiveSystemPrompt, []);
                 console.log(`[GeminiLive] Session started alongside orchestrator session ${session.id}`);
+
+                // ── Parallel tool-detection pipeline ─────────────────────────────────
+                // When GL fires a complete user transcript, route it through the
+                // orchestrator in tools-only mode (TTS + DB persistence suppressed).
+                // This gives Daniela access to all 90+ tools: whiteboard, scenarios,
+                // memory_lookup, express_lane_lookup, sentence tables, textbook search, etc.
+                geminiLiveSession.onUserTurnComplete = (userTranscript: string) => {
+                  session.geminiLiveToolsOnly = true;
+                  console.log(`[GeminiLive Shadow] Routing transcript to orchestrator for tool detection: "${userTranscript.slice(0, 80)}"`);
+                  orchestrator.processOpenMicTranscript(session.id, userTranscript, 1.0)
+                    .then(() => {
+                      console.log(`[GeminiLive Shadow] Tool-detection pass complete for: "${userTranscript.slice(0, 60)}"`);
+                    })
+                    .catch((err: Error) => {
+                      console.warn(`[GeminiLive Shadow] Tool-detection pass error: ${err.message}`);
+                    })
+                    .finally(() => {
+                      session.geminiLiveToolsOnly = false;
+                    });
+                };
               } catch (glErr: any) {
                 console.error('[GeminiLive] Failed to start Gemini Live session:', glErr.message);
                 geminiLiveSession = null;
@@ -2699,6 +2719,16 @@ ${buildNativeFunctionCallingSection()}`;
               geminiLiveSession = createGeminiLiveSession(session, glSendMessage);
               await geminiLiveSession.start(geminiLiveSystemPromptCache, []);
               console.log(`[GeminiLive] Reconnected with voice: ${nextVoiceId}`);
+
+              // Re-wire tool-detection shadow turn after voice reconnect
+              geminiLiveSession.onUserTurnComplete = (userTranscript: string) => {
+                session.geminiLiveToolsOnly = true;
+                console.log(`[GeminiLive Shadow] (voice-reconnect) Routing transcript to orchestrator: "${userTranscript.slice(0, 80)}"`);
+                orchestrator.processOpenMicTranscript(session.id, userTranscript, 1.0)
+                  .then(() => { console.log(`[GeminiLive Shadow] (voice-reconnect) Tool pass complete`); })
+                  .catch((err: Error) => { console.warn(`[GeminiLive Shadow] (voice-reconnect) Error: ${err.message}`); })
+                  .finally(() => { session.geminiLiveToolsOnly = false; });
+              };
             } catch (reconnErr: any) {
               console.error('[GeminiLive] Voice reconnect failed:', reconnErr.message);
               geminiLiveSession = null;

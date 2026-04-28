@@ -86,6 +86,13 @@ export interface StreamingSession {
   dbSessionId?: string;
   classId?: string;
   geminiLiveResumptionHandle?: string;  // Last resumption token from Gemini Live — used to reconnect dropped sessions
+  /**
+   * When true the orchestrator is running a "shadow" tool-detection turn alongside
+   * Gemini Live.  TTS audio dispatch and DB message persistence are suppressed so
+   * the orchestrator only executes tool call side-effects (whiteboard, scenarios,
+   * memory lookups, etc.) while GL handles the actual audio response.
+   */
+  geminiLiveToolsOnly?: boolean;
   toolsUsedSession: string[];
   hiveChannelId?: string;
   pendingArchitectNoteIds: string[];

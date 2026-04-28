@@ -7429,6 +7429,10 @@ Remember: David may reference things discussed in these recent text chats.
       console.log(`[Persist] INCOGNITO - skipping message persistence`);
       return;
     }
+    if (session.geminiLiveToolsOnly) {
+      console.log(`[Persist] GL tools-only shadow turn — skipping persistence (GL session handles messages)`);
+      return;
+    }
     try {
       // CRITICAL FIX: Ensure conversation exists before saving messages
       // Client may connect with conversationId but never send start_session message.
@@ -7584,6 +7588,17 @@ Remember: David may reference things discussed in these recent text chats.
       console.log(`[SendMessage] Sending 'processing' message: readyState=${ws.readyState}, WS.OPEN=${WS.OPEN}`);
     }
     if (ws.readyState === WS.OPEN) {
+      // GL TOOLS-ONLY MODE: Suppress audio/transcript messages when running as a shadow
+      // tool-detection pass alongside Gemini Live.  The GL session handles audio; the
+      // orchestrator only needs to execute tool side-effects (whiteboard, scenarios, etc.)
+      const glSession = session || Array.from(this.sessions.values()).find(s => s.ws === ws);
+      if (glSession?.geminiLiveToolsOnly) {
+        const audioOnlyTypes = new Set(['audio_chunk', 'sentence_start', 'sentence_end', 'processing', 'processing_pending', 'response_complete']);
+        if (audioOnlyTypes.has(message.type)) {
+          return; // Let GL handle audio; drop orchestrator-generated audio messages
+        }
+      }
+
       // DEDUPLICATION: Prevent duplicate audio chunks (double audio bug fix)
       // Only deduplicate audio_chunk messages - sentence_ready has different semantics
       if (message.type === 'audio_chunk') {

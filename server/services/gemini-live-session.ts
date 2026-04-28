@@ -95,6 +95,14 @@ export class GeminiLiveSession {
   private pendingOutputTranscript = '';  // Accumulates Daniela's reply across all sub-turns
   private transcriptFlushTimer: NodeJS.Timeout | null = null;
 
+  /**
+   * Optional callback fired with the completed user transcript after each GL turn.
+   * Used by the unified-ws-handler to route the transcript through the orchestrator
+   * in "tools-only" mode so tool call side-effects (whiteboard, memory lookups,
+   * scenarios, etc.) fire even though GL handles audio natively.
+   */
+  onUserTurnComplete?: (transcript: string) => void;
+
   constructor(
     private session: StreamingSession,
     private sendWsMessage: (ws: any, message: any, session?: any) => void,
@@ -602,6 +610,18 @@ export class GeminiLiveSession {
         await this.persistMessage('user', userText);
       } catch (err: any) {
         console.warn('[GeminiLive] Failed to flush user transcript:', err.message);
+      }
+
+      // Fire the tool-detection shadow turn in the background.
+      // The callback (set by unified-ws-handler) routes the transcript through the
+      // orchestrator with TTS and DB persistence suppressed so tool side-effects
+      // (whiteboard, scenarios, memory lookups, etc.) fire normally.
+      if (this.onUserTurnComplete) {
+        try {
+          this.onUserTurnComplete(userText);
+        } catch (cbErr: any) {
+          console.warn('[GeminiLive] onUserTurnComplete callback error:', cbErr.message);
+        }
       }
     }
 
