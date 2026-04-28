@@ -159,13 +159,6 @@ export class GeminiLiveSession {
           },
         },
 
-        // ── Proactive audio ───────────────────────────────────────────────
-        // Allows Daniela to break silence proactively (e.g. prompting a
-        // student who hasn't spoken after a long pause).
-        proactivity: {
-          proactiveAudio: true,
-        },
-
         // ── Session resumption ────────────────────────────────────────────
         // Server will stream back newHandle tokens on each turn.
         // We store the latest token so we can reconnect without losing context.
