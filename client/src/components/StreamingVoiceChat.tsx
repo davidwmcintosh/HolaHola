@@ -856,7 +856,27 @@ export function StreamingVoiceChat({
       }
     }
   }, [streamingVoice.state.connectionState, useStreamingMode, messages, isResumedConversation]);
-  
+
+  // AUTO-START open mic whenever session becomes ready in open-mic mode.
+  // This covers: initial session load (mode already open-mic), and reconnects.
+  // The mode-switch effect only fires when switching FROM push-to-talk → open-mic,
+  // so this is needed for the initial default-mode case.
+  useEffect(() => {
+    if (!useStreamingMode) return;
+    const { connectionState } = streamingVoice.state;
+    if (connectionState === 'ready' && inputModeRef.current === 'open-mic') {
+      console.log('[OPEN MIC AUTO-START] Session ready in open-mic mode — auto-starting recording');
+      if (startOpenMicRecordingRef.current) {
+        startOpenMicRecordingRef.current().then(() => {
+          console.log('[OPEN MIC AUTO-START] Recording started — enabling green mic');
+          setOpenMicState('ready');
+        }).catch((err: any) => {
+          console.error('[OPEN MIC AUTO-START] Failed to auto-start recording:', err);
+        });
+      }
+    }
+  }, [streamingVoice.state.connectionState, useStreamingMode]);
+
   // Fetch user details to get tutor gender preference
   const { data: userDetails } = useQuery<User>({
     queryKey: ["/api/auth/user"],
@@ -1382,6 +1402,9 @@ export function StreamingVoiceChat({
         console.log('[OPEN MIC DUPLEX] Daniela speaking - showing green light (duplex mode)');
         setOpenMicState('ready');
       }
+    } else if (streamProcessing || isProcessingRef.current) {
+      // Processing but audio hasn't arrived yet — show thinking state
+      setAvatarState('thinking');
     } else if (!streamProcessing && !isProcessingRef.current && !isAwaitingResponseRef.current) {
       // Not processing (hook) AND not processing (component) AND not awaiting response AND not playing
       // The isAwaitingResponseRef guard prevents the "thinking→listening→speaking" blip:
