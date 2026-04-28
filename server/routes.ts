@@ -20574,7 +20574,7 @@ Current conversation context:
         elSpeakerBoost: provider === 'elevenlabs' ? (elSpeakerBoost ?? true) : null,
         googlePitch: provider === 'google' ? (googlePitch ?? 0) : null,
         googleVolumeGainDb: provider === 'google' ? (googleVolumeGainDb ?? 0) : null,
-        geminiLanguageCode: (provider === 'gemini' || provider === 'google') ? (geminiLanguageCode || null) : null,
+        geminiLanguageCode: (provider === 'gemini' || provider === 'gemini-live' || provider === 'google') ? (geminiLanguageCode || null) : null,
       });
       
       // Log the action

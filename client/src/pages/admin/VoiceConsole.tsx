@@ -269,7 +269,8 @@ export function VoiceConsoleContent() {
   // Fetch accent variants for Gemini TTS and Google Cloud TTS
   const { data: accentVariants } = useQuery<Record<string, { label: string; code: string; googleSupported: boolean }[]>>({
     queryKey: ['/api/admin/accent-variants'],
-    enabled: globalProvider === 'gemini' || globalProvider === 'gemini-live' || globalProvider === 'google',
+    enabled: globalProvider === 'gemini' || globalProvider === 'gemini-live' || globalProvider === 'google'
+      || formData.provider === 'gemini' || formData.provider === 'gemini-live' || formData.provider === 'google',
   });
   const allLanguageAccents = accentVariants?.[formData.language] || [];
   const languageAccents = formData.provider === 'google'
@@ -677,8 +678,11 @@ export function VoiceConsoleContent() {
       elSimilarityBoost: voice.elSimilarityBoost ?? 0.75,
       elStyle: voice.elStyle ?? 0.0,
       elSpeakerBoost: voice.elSpeakerBoost ?? true,
-      // Gemini TTS accent variant
-      geminiLanguageCode: voice.geminiLanguageCode || '',
+      // Gemini TTS accent variant — fall back to the voice's languageCode so
+      // gemini-live voices always have a sensible default selected in the dropdown
+      geminiLanguageCode: voice.geminiLanguageCode || (
+        (voice.provider === 'gemini' || voice.provider === 'gemini-live') ? (voice.languageCode || '') : ''
+      ),
     });
     // Sync audition controls with saved values so preview uses saved emotion
     setAuditionPersonality(savedPersonality);
@@ -879,8 +883,8 @@ export function VoiceConsoleContent() {
                       </div>
                     )}
 
-                    {/* Regional Accent Variant (Gemini + Google Cloud TTS) */}
-                    {formData.voiceId && (formData.provider === 'gemini' || formData.provider === 'google') && (
+                    {/* Regional Accent Variant (Gemini + Gemini Live + Google Cloud TTS) */}
+                    {formData.voiceId && (formData.provider === 'gemini' || formData.provider === 'gemini-live' || formData.provider === 'google') && (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
                           <Globe className="h-4 w-4 text-muted-foreground" />
@@ -905,7 +909,9 @@ export function VoiceConsoleContent() {
                         <p className="text-xs text-muted-foreground">
                           {formData.provider === 'google'
                             ? 'Changes the locale prefix on the voice name (e.g. en-US → en-GB for British accent)'
-                            : 'Controls the regional pronunciation accent for Gemini TTS'}
+                            : formData.provider === 'gemini-live'
+                              ? 'Sets the regional language code sent to Gemini Live (affects accent and STT recognition)'
+                              : 'Controls the regional pronunciation accent for Gemini TTS'}
                         </p>
                       </div>
                     )}
