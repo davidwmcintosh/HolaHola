@@ -169,19 +169,21 @@ export class GeminiLiveSession {
         //  prefixPaddingMs: 200      — require 200 ms of sustained speech before
         //                             committing a turn start, filtering out coughs,
         //                             filler sounds, and accidental mic noise.
-        //  silenceDurationMs: 1500   — hard cutoff: 1500 ms of silence forces end
+        //  silenceDurationMs: 2500   — hard cutoff: 2500 ms of silence forces end
         //                             of turn even if semantic signal is ambiguous.
         //                             Language learners frequently pause while
-        //                             searching for a word mid-sentence, so we give
-        //                             them significantly more breathing room.
-        //                             (was 800ms — user reported being cut off)
+        //                             searching for a word mid-sentence. Also, Google
+        //                             VAD can misfire on stop consonants / breath
+        //                             transitions mid-speech; a longer hard cutoff
+        //                             gives the model time to self-correct.
+        //                             (was 800ms → 1500ms → 2500ms)
         realtimeInputConfig: {
           automaticActivityDetection: {
             disabled: false,
             startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_HIGH,
             endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_LOW,
             prefixPaddingMs: 200,
-            silenceDurationMs: 1500,
+            silenceDurationMs: 2500,
           },
         },
 

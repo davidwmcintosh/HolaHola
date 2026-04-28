@@ -1611,6 +1611,31 @@ ${buildNativeFunctionCallingSection()}`;
                   richSections.push(cache.pedagogyDocContext);
                   console.log('[GeminiLive] ✓ Pedagogy doc baked in');
                 }
+                // Textbook chapter context — the actual lesson the student is working through.
+                // Critical for voice sessions: Daniela should know what page/chapter is active.
+                if (cache?.textbookChapterContext) {
+                  richSections.push(cache.textbookChapterContext);
+                  console.log('[GeminiLive] ✓ Textbook chapter context baked in');
+                }
+                // FAT (Full Adaptive Transcript) profile — the deep student character model.
+                // Includes vocabulary knowledge, learning patterns, and recent conversation excerpts.
+                if (cache?.fatContextProfile) {
+                  richSections.push(cache.fatContextProfile);
+                  console.log('[GeminiLive] ✓ FAT profile baked in');
+                }
+                if (cache?.fatContextVocabulary) {
+                  richSections.push(cache.fatContextVocabulary);
+                  console.log('[GeminiLive] ✓ FAT vocabulary baked in');
+                }
+                if (cache?.fatContextConversations) {
+                  richSections.push(cache.fatContextConversations);
+                  console.log('[GeminiLive] ✓ FAT conversations baked in');
+                }
+                // Recent text chat history — keeps voice sessions aware of prior text exchanges.
+                if (cache?.textChatSection) {
+                  richSections.push(cache.textChatSection);
+                  console.log('[GeminiLive] ✓ Text chat section baked in');
+                }
 
                 if (richSections.length > 0) {
                   geminiLiveSystemPrompt += '\n\n' + richSections.join('\n\n');
