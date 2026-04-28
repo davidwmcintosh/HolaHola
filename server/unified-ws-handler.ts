@@ -1528,9 +1528,26 @@ ${buildNativeFunctionCallingSection()}`;
             // ── Gemini Live voice session (feature-flagged) ──────────────────
             if (GEMINI_LIVE_VOICE_ENABLED) {
               try {
-                // Classroom context: Gemini Live uses a one-shot system prompt — it bypasses the
-                // per-turn orchestrator injection. Fetch now and bake it directly into the prompt.
+                // Gemini Live uses a one-shot system prompt — it bypasses the per-turn orchestrator
+                // injection that the regular pipeline relies on. We must bake ALL of Daniela's
+                // accumulated context (growth memories, hive, express lane, student snapshot, etc.)
+                // directly into this prompt at startup.
                 let geminiLiveSystemPrompt = systemPrompt;
+
+                // ── Phase 1: Wait for orchestrator context prefetch ──────────
+                // The orchestrator fires prefetchSessionContext() asynchronously on createSession().
+                // We MUST await it here so session.cachedContext is fully populated before we pull
+                // from it. Without this, we'd get an empty cache and bake nothing into the prompt.
+                try {
+                  if (session.contextCacheReady) {
+                    await session.contextCacheReady;
+                    console.log('[GeminiLive] ✓ Orchestrator context cache ready');
+                  }
+                } catch (cacheErr: any) {
+                  console.warn('[GeminiLive] Context cache wait failed (continuing):', cacheErr.message);
+                }
+
+                // ── Phase 2: Bake classroom environment ──────────────────────
                 try {
                   const { buildClassroomEnvironment } = await import('./services/classroom-environment');
                   const creditBalance = await usageService.getBalanceWithBypass(String(userId));
@@ -1551,6 +1568,7 @@ ${buildNativeFunctionCallingSection()}`;
                     creditWarningLevel: creditBalance.warningLevel,
                     creditPercentRemaining: creditBalance.percentRemaining,
                     tutorName,
+                    studentLearningSection: session.cachedContext?.studentLearningSection,
                     technicalHealthNote: voiceDiagnostics.getTechnicalHealthContext(),
                     activeScenario: null,
                   });
@@ -1560,6 +1578,42 @@ ${buildNativeFunctionCallingSection()}`;
                   }
                 } catch (classroomErr: any) {
                   console.warn('[GeminiLive] Classroom context fetch skipped:', classroomErr.message);
+                }
+
+                // ── Phase 3: Bake rich Daniela context from orchestrator cache ──
+                // These sections are what make Daniela "herself" — her accumulated teaching
+                // wisdom, awareness of the Hive, Express Lane history, and student knowledge.
+                // The regular pipeline injects these per-turn; here we bake them upfront.
+                const cache = session.cachedContext;
+                const richSections: string[] = [];
+
+                if (cache?.growthMemoriesSection) {
+                  richSections.push(cache.growthMemoriesSection);
+                  console.log('[GeminiLive] ✓ Growth memories baked in');
+                }
+                if (cache?.identityMemoriesSection) {
+                  richSections.push(cache.identityMemoriesSection);
+                  console.log('[GeminiLive] ✓ Identity memories baked in');
+                }
+                if (cache?.hiveContextSection) {
+                  richSections.push(cache.hiveContextSection);
+                  console.log('[GeminiLive] ✓ Hive context baked in');
+                }
+                if (cache?.expressLaneSection) {
+                  richSections.push(cache.expressLaneSection);
+                  console.log('[GeminiLive] ✓ Express Lane context baked in');
+                }
+                if (cache?.courseTOC) {
+                  richSections.push(cache.courseTOC);
+                  console.log('[GeminiLive] ✓ Course TOC baked in');
+                }
+                if (cache?.pedagogyDocContext) {
+                  richSections.push(cache.pedagogyDocContext);
+                  console.log('[GeminiLive] ✓ Pedagogy doc baked in');
+                }
+
+                if (richSections.length > 0) {
+                  geminiLiveSystemPrompt += '\n\n' + richSections.join('\n\n');
                 }
 
                 const glSendMessage = (targetWs: any, message: any) => {
