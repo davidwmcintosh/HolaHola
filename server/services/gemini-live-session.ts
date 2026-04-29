@@ -426,14 +426,18 @@ export class GeminiLiveSession {
     }
 
     try {
+      // Prime audio context before text turn — required on gemini-3.1-flash-live-preview.
+      const silencePcm = Buffer.alloc(32000, 0); // 1s PCM16 LE at 16 kHz
+      this.liveSession.sendRealtimeInput({
+        audio: { data: silencePcm.toString('base64'), mimeType: 'audio/pcm;rate=16000' },
+      });
       this.liveSession.sendClientContent({
         turns: [{ role: 'user', parts: [{ text: trigger }] }],
         turnComplete: true,
       });
-      // Force VAD end-of-turn so GL doesn't wait indefinitely for audio silence.
       this.liveSession.sendRealtimeInput({ activityEnd: {} });
       this.greetingPhaseActive = true;
-      console.log(`[GeminiLive] Greeting trigger sent (resumed: ${isResumed || false}) — activityEnd sent, mic gated`);
+      console.log(`[GeminiLive] Greeting trigger sent (resumed: ${isResumed || false}) — silence primer + activityEnd, mic gated`);
     } catch (err) {
       console.warn('[GeminiLive] Failed to send greeting trigger:', err);
     }
@@ -517,23 +521,26 @@ export class GeminiLiveSession {
         console.log('[GeminiLive] setupComplete received — model ready');
         if (this.pendingGreetingTrigger && this.liveSession) {
           try {
+            // gemini-3.1-flash-live-preview requires audio input to be established
+            // before it will respond to text turns (sendClientContent). Without prior
+            // audio the session accepts the connection (setupComplete fires) but
+            // generates zero responses to any text or activity signals. Sending a
+            // 1-second silence chunk primes the audio context so the model is ready
+            // to generate audio output when the greeting text turn arrives.
+            const silencePcm = Buffer.alloc(32000, 0); // 1s PCM16 LE at 16 kHz
+            this.liveSession.sendRealtimeInput({
+              audio: { data: silencePcm.toString('base64'), mimeType: 'audio/pcm;rate=16000' },
+            });
             this.liveSession.sendClientContent({
               turns: [{ role: 'user', parts: [{ text: this.pendingGreetingTrigger }] }],
               turnComplete: true,
             });
-            // Follow the text turn with an explicit activityEnd signal.
-            // GL's native VAD (automaticActivityDetection.disabled: false) waits
-            // for audio silence before it fires end-of-turn, even when the text
-            // turn specifies turnComplete: true. Without activityEnd the VAD
-            // holds GL in "waiting for user speech" state indefinitely, causing
-            // complete silence after the greeting. activityEnd bypasses the VAD
-            // and immediately signals "user just finished speaking" → GL responds.
+            // activityEnd explicitly signals "user finished speaking" — overrides the
+            // VAD so GL doesn't wait indefinitely for audio silence before responding.
             this.liveSession.sendRealtimeInput({ activityEnd: {} });
             // Block mic audio until GL sends its first response chunk.
-            // Without this gate, continuous open-mic audio tricks GL's VAD
-            // into thinking the user is mid-speech and suppresses the greeting.
             this.greetingPhaseActive = true;
-            console.log('[GeminiLive] Pending greeting fired after setupComplete — mic gated, activityEnd sent');
+            console.log('[GeminiLive] Pending greeting fired — silence primer + text turn + activityEnd sent, mic gated');
           } catch (err) {
             console.warn('[GeminiLive] Failed to send pending greeting:', err);
           }
