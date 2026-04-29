@@ -89,6 +89,15 @@ export class GeminiLiveSession {
   private isSetupComplete = false;
   private pendingGreetingTrigger: string | null = null;
 
+  // ── Greeting-phase mic gate ────────────────────────────────────────────────
+  // When open-mic mode is active, the client streams audio continuously.
+  // If we forward that audio to GL while GL is generating the greeting, GL's
+  // VAD detects the user as "currently speaking" and refuses to generate.
+  // We gate the mic: block all sendRealtimeInput audio until GL delivers its
+  // first audio response chunk. Once the first chunk arrives, the gate opens
+  // and normal conversational audio flows freely.
+  private greetingPhaseActive = false;
+
   // ── Auto-reconnect ─────────────────────────────────────────────────────────
   // When the GL WebSocket closes unexpectedly (1011 internal error, 1006 network
   // drop, etc.) we transparently reconnect so the student doesn't have to reload.
@@ -305,6 +314,7 @@ export class GeminiLiveSession {
               this.currentChunkIndex = 0;
               this.hadAudioInCurrentSubturn = false;
               this.firstAudioSentThisTurn = false;
+              this.greetingPhaseActive = false;
               this.pendingInputTranscript = '';
               this.pendingInputSaved = false;
               this.pendingOutputTranscript = '';
@@ -357,6 +367,11 @@ export class GeminiLiveSession {
    */
   sendAudioChunk(pcm16Buffer: Buffer): void {
     if (!this.liveSession || this.isStopped) return;
+    // During the greeting phase GL is generating its opening response.
+    // Forwarding mic audio while GL is generating causes its VAD to detect
+    // the user as "currently speaking" and suppress the response entirely.
+    // Drop incoming mic audio until GL delivers its first audio chunk.
+    if (this.greetingPhaseActive) return;
     const base64Audio = pcm16Buffer.toString('base64');
     this.liveSession.sendRealtimeInput({
       audio: {
@@ -412,7 +427,8 @@ export class GeminiLiveSession {
         turns: [{ role: 'user', parts: [{ text: trigger }] }],
         turnComplete: true,
       });
-      console.log(`[GeminiLive] Greeting trigger sent (resumed: ${isResumed || false})`);
+      this.greetingPhaseActive = true;
+      console.log(`[GeminiLive] Greeting trigger sent (resumed: ${isResumed || false}) — mic gated`);
     } catch (err) {
       console.warn('[GeminiLive] Failed to send greeting trigger:', err);
     }
@@ -500,7 +516,11 @@ export class GeminiLiveSession {
               turns: [{ role: 'user', parts: [{ text: this.pendingGreetingTrigger }] }],
               turnComplete: true,
             });
-            console.log('[GeminiLive] Pending greeting fired after setupComplete');
+            // Block mic audio until GL sends its first response chunk.
+            // Without this gate, continuous open-mic audio tricks GL's VAD
+            // into thinking the user is mid-speech and suppresses the greeting.
+            this.greetingPhaseActive = true;
+            console.log('[GeminiLive] Pending greeting fired after setupComplete — mic gated');
           } catch (err) {
             console.warn('[GeminiLive] Failed to send pending greeting:', err);
           }
@@ -517,6 +537,13 @@ export class GeminiLiveSession {
         if (part.inlineData?.data && part.inlineData.mimeType?.includes('audio')) {
           audioParts++;
           this.hadAudioInCurrentSubturn = true;
+
+          // First audio from GL — open the mic gate.
+          // The greeting has been delivered; the student can now speak.
+          if (this.greetingPhaseActive) {
+            this.greetingPhaseActive = false;
+            console.log('[GeminiLive] Mic gate lifted — first audio chunk received from GL');
+          }
 
           // Flush accumulated user input the moment model starts generating audio
           // (user is definitely done speaking at this point).
