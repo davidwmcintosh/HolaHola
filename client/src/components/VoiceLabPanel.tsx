@@ -147,7 +147,7 @@ export function VoiceLabPanel({
   const [selectedAccent, setSelectedAccent] = useState<string>('');
 
   // Fetch accent variants for language
-  const { data: accentVariants } = useQuery<Record<string, { label: string; code: string }[]>>({
+  const { data: accentVariants } = useQuery<Record<string, { label: string; code: string; googleSupported: boolean; geminiLiveSupported: boolean; gl31Status: 'working' | 'broken' | 'untested' }[]>>({
     queryKey: ['/api/admin/accent-variants'],
     enabled: isOpen,
   });
@@ -539,7 +539,16 @@ export function VoiceLabPanel({
                     <SelectContent>
                       {languageAccents.map(variant => (
                         <SelectItem key={variant.code} value={variant.code}>
-                          {variant.label}
+                          <span className="flex items-center gap-2">
+                            <span>{variant.label}</span>
+                            <span className="font-mono text-xs text-muted-foreground">{variant.code}</span>
+                            {variant.gl31Status === 'working' && (
+                              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-green-600 border-green-400 dark:text-green-400 dark:border-green-600">3.1 ✓</Badge>
+                            )}
+                            {variant.gl31Status === 'broken' && (
+                              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-red-600 border-red-400 dark:text-red-400 dark:border-red-600">3.1 ✗</Badge>
+                            )}
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -581,7 +590,16 @@ export function VoiceLabPanel({
                       <SelectContent>
                         {languageAccents.map(variant => (
                           <SelectItem key={variant.code} value={variant.code}>
-                            {variant.label}
+                            <span className="flex items-center gap-2">
+                              <span>{variant.label}</span>
+                              <span className="font-mono text-xs text-muted-foreground">{variant.code}</span>
+                              {variant.gl31Status === 'working' && (
+                                <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-green-600 border-green-400 dark:text-green-400 dark:border-green-600">3.1 ✓</Badge>
+                              )}
+                              {variant.gl31Status === 'broken' && (
+                                <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-red-600 border-red-400 dark:text-red-400 dark:border-red-600">3.1 ✗</Badge>
+                              )}
+                            </span>
                           </SelectItem>
                         ))}
                       </SelectContent>
