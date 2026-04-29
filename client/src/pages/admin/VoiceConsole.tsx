@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Play, Pause, Plus, Edit2, Trash2, Volume2, User, Languages, Loader2, Sparkles, Heart, Headphones, MessageSquare, GraduationCap, Scale, Ear, Globe, Bot } from "lucide-react";
+import { Play, Pause, Plus, Edit2, Trash2, Volume2, User, Languages, Loader2, Sparkles, Heart, Headphones, MessageSquare, GraduationCap, Scale, Ear, Globe, Bot, Mic } from "lucide-react";
 
 // Personality preset types matching backend
 type PersonalityType = 'warm' | 'calm' | 'energetic' | 'professional';
@@ -234,6 +234,12 @@ export function VoiceConsoleContent() {
   const [auditionPersonality, setAuditionPersonality] = useState<PersonalityType>('warm');
   const [auditionExpressiveness, setAuditionExpressiveness] = useState(3);
   const [auditionEmotion, setAuditionEmotion] = useState('friendly');
+
+  // GL Live audition state (mic → real GL 3.1 session → WAV playback)
+  type GlPhase = 'idle' | 'recording' | 'waiting' | 'playing';
+  const [glPhase, setGlPhase] = useState<GlPhase>('idle');
+  const [glCountdown, setGlCountdown] = useState(3);
+  const glCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   const [formData, setFormData] = useState({
     language: '',
@@ -625,6 +631,68 @@ export function VoiceConsoleContent() {
       elSpeed: voice.speakingRate,
     } : undefined;
     await handleAudition(voice.voiceId, voice.voiceName, voice.language, voice.languageCode, voice.speakingRate, voice.provider, elSettings, undefined, voice.id, voice.languageCode);
+  };
+
+  // GL Live audition: record 3s of mic audio → real GL 3.1 session → play WAV
+  const handleGlAudition = async () => {
+    if (glPhase !== 'idle') return;
+    const voiceId = formData.voiceId || 'Aoede';
+    const langCode = formData.geminiLanguageCode || 'es-ES';
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1 } });
+      setGlPhase('recording');
+      setGlCountdown(3);
+      glCountdownRef.current = setInterval(() => setGlCountdown(c => Math.max(0, c - 1)), 1000);
+
+      const audioCtx = new AudioContext({ sampleRate: 16000 });
+      const source = audioCtx.createMediaStreamSource(stream);
+      const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+      const buffers: Float32Array[] = [];
+      processor.onaudioprocess = (e) => buffers.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+      source.connect(processor);
+      processor.connect(audioCtx.destination);
+
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      processor.disconnect(); source.disconnect();
+      stream.getTracks().forEach(t => t.stop());
+      await audioCtx.close();
+      if (glCountdownRef.current) clearInterval(glCountdownRef.current);
+
+      // Float32 → Int16 PCM → base64
+      const totalLen = buffers.reduce((n, b) => n + b.length, 0);
+      const pcm16 = new Int16Array(totalLen);
+      let offset = 0;
+      for (const buf of buffers)
+        for (let i = 0; i < buf.length; i++) {
+          const s = Math.max(-1, Math.min(1, buf[i]));
+          pcm16[offset++] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+        }
+      const bytes = new Uint8Array(pcm16.buffer);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i += 8192)
+        binary += String.fromCharCode(...(bytes.subarray(i, i + 8192) as any));
+      const base64Audio = btoa(binary);
+
+      setGlPhase('waiting');
+      const res = await fetch('/api/admin/gl-audition', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ audio: base64Audio, languageCode: langCode, voiceId }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'GL audition failed'); }
+
+      setGlPhase('playing');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.onended = () => { URL.revokeObjectURL(url); setGlPhase('idle'); };
+      await audio.play();
+    } catch (error: any) {
+      if (glCountdownRef.current) clearInterval(glCountdownRef.current);
+      setGlPhase('idle');
+      toast({ title: 'GL Audition failed', description: error.message, variant: 'destructive' });
+    }
   };
 
   const handleEdit = (voice: TutorVoice) => {
@@ -1152,60 +1220,96 @@ export function VoiceConsoleContent() {
                     {formData.voiceId && (
                       <div className="space-y-2">
                         <Label>Audition</Label>
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => {
-                              const selectedVoice = activeVoices.find(v => v.id === formData.voiceId);
-                              handleAudition(
-                                formData.voiceId,
-                                formData.voiceName,
-                                formData.language,
-                                formData.languageCode,
-                                formData.speakingRate,
-                                formData.provider,
-                                formData.provider === 'elevenlabs' ? {
-                                  elStability: formData.elStability,
-                                  elSimilarityBoost: formData.elSimilarityBoost,
-                                  elStyle: formData.elStyle,
-                                  elSpeed: formData.speakingRate,
-                                } : undefined,
-                                selectedVoice?.source === 'library' ? selectedVoice.previewUrl : undefined,
-                                undefined,
-                                (formData.provider === 'gemini' || formData.provider === 'gemini-live' || formData.provider === 'google') ? formData.geminiLanguageCode : undefined,
-                              );
-                            }}
-                            data-testid="button-audition"
-                            className="flex-1"
-                          >
-                            {playingVoiceId === formData.voiceId ? (
-                              <>
-                                <Pause className="h-4 w-4 mr-2" />
-                                {auditionPhase === 'target' ? 'Playing Target Language...' : 'Playing English...'}
-                              </>
-                            ) : (
-                              <>
-                                <Languages className="h-4 w-4 mr-2" />
-                                Audition Voice
-                              </>
-                            )}
-                          </Button>
-                          {playingVoiceId === formData.voiceId && (
-                            <Badge variant="secondary">
-                              {auditionPhase === 'target' 
-                                ? SUPPORTED_LANGUAGES.find(l => l.value === formData.language)?.label 
-                                : 'English'}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Heart className="h-3 w-3" />
-                          <span>Using <strong className="capitalize">{auditionEmotion}</strong> emotion ({auditionPersonality} personality)</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Plays a sample in {SUPPORTED_LANGUAGES.find(l => l.value === formData.language)?.label || 'the target language'}{formData.language !== 'english' && ', then in English'} at selected speed
-                        </p>
+                        {formData.provider === 'gemini-live' ? (
+                          /* GL Live: mic-based audition using real GL 3.1 session */
+                          <>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="w-full"
+                              onClick={handleGlAudition}
+                              disabled={glPhase !== 'idle'}
+                              data-testid="button-gl-audition"
+                            >
+                              {glPhase === 'recording' ? (
+                                <Mic className="h-4 w-4 mr-2 text-red-500 animate-pulse" />
+                              ) : glPhase === 'waiting' || glPhase === 'playing' ? (
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              ) : (
+                                <Mic className="h-4 w-4 mr-2" />
+                              )}
+                              {glPhase === 'recording'
+                                ? `Recording… ${glCountdown}s`
+                                : glPhase === 'waiting'
+                                ? 'Waiting for GL response…'
+                                : glPhase === 'playing'
+                                ? 'Playing GL response…'
+                                : 'GL Audition (live mic)'
+                              }
+                            </Button>
+                            <p className="text-xs text-muted-foreground">
+                              Records 3s of your voice and sends it to a real Gemini Live 3.1 session with the selected voice and accent
+                            </p>
+                          </>
+                        ) : (
+                          /* Standard TTS audition for all other providers */
+                          <>
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  const selectedVoice = activeVoices.find(v => v.id === formData.voiceId);
+                                  handleAudition(
+                                    formData.voiceId,
+                                    formData.voiceName,
+                                    formData.language,
+                                    formData.languageCode,
+                                    formData.speakingRate,
+                                    formData.provider,
+                                    formData.provider === 'elevenlabs' ? {
+                                      elStability: formData.elStability,
+                                      elSimilarityBoost: formData.elSimilarityBoost,
+                                      elStyle: formData.elStyle,
+                                      elSpeed: formData.speakingRate,
+                                    } : undefined,
+                                    selectedVoice?.source === 'library' ? selectedVoice.previewUrl : undefined,
+                                    undefined,
+                                    (formData.provider === 'gemini' || formData.provider === 'google') ? formData.geminiLanguageCode : undefined,
+                                  );
+                                }}
+                                data-testid="button-audition"
+                                className="flex-1"
+                              >
+                                {playingVoiceId === formData.voiceId ? (
+                                  <>
+                                    <Pause className="h-4 w-4 mr-2" />
+                                    {auditionPhase === 'target' ? 'Playing Target Language...' : 'Playing English...'}
+                                  </>
+                                ) : (
+                                  <>
+                                    <Languages className="h-4 w-4 mr-2" />
+                                    Audition Voice
+                                  </>
+                                )}
+                              </Button>
+                              {playingVoiceId === formData.voiceId && (
+                                <Badge variant="secondary">
+                                  {auditionPhase === 'target'
+                                    ? SUPPORTED_LANGUAGES.find(l => l.value === formData.language)?.label
+                                    : 'English'}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Heart className="h-3 w-3" />
+                              <span>Using <strong className="capitalize">{auditionEmotion}</strong> emotion ({auditionPersonality} personality)</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Plays a sample in {SUPPORTED_LANGUAGES.find(l => l.value === formData.language)?.label || 'the target language'}{formData.language !== 'english' && ', then in English'} at selected speed
+                            </p>
+                          </>
+                        )}
                       </div>
                     )}
 
