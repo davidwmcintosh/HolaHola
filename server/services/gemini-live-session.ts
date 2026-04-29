@@ -419,17 +419,9 @@ export class GeminiLiveSession {
     // If setupComplete hasn't arrived yet, buffer the greeting — it will be sent
     // automatically by handleServerMessage the moment setupComplete is received.
     // Sending content before setupComplete causes the model to silently ignore it.
-    //
-    // CRITICAL: Gate the mic immediately here, not only after setupComplete.
-    // Between ai.live.connect() completing and setupComplete firing, mic audio
-    // flows freely to GL (greetingPhaseActive is false). GL's VAD accumulates
-    // this audio and marks the user as "currently speaking", which causes it to
-    // suppress the greeting response entirely. Activating the gate now ensures
-    // zero mic audio reaches GL during the entire setup → greeting window.
     if (!this.isSetupComplete) {
       this.pendingGreetingTrigger = trigger;
-      this.greetingPhaseActive = true;
-      console.log(`[GeminiLive] Greeting buffered — waiting for setupComplete (resumed: ${isResumed || false}) — mic pre-gated`);
+      console.log(`[GeminiLive] Greeting buffered — waiting for setupComplete (resumed: ${isResumed || false})`);
       return;
     }
 
@@ -438,8 +430,10 @@ export class GeminiLiveSession {
         turns: [{ role: 'user', parts: [{ text: trigger }] }],
         turnComplete: true,
       });
+      // Force VAD end-of-turn so GL doesn't wait indefinitely for audio silence.
+      this.liveSession.sendRealtimeInput({ activityEnd: {} });
       this.greetingPhaseActive = true;
-      console.log(`[GeminiLive] Greeting trigger sent (resumed: ${isResumed || false}) — mic gated`);
+      console.log(`[GeminiLive] Greeting trigger sent (resumed: ${isResumed || false}) — activityEnd sent, mic gated`);
     } catch (err) {
       console.warn('[GeminiLive] Failed to send greeting trigger:', err);
     }
@@ -527,11 +521,19 @@ export class GeminiLiveSession {
               turns: [{ role: 'user', parts: [{ text: this.pendingGreetingTrigger }] }],
               turnComplete: true,
             });
+            // Follow the text turn with an explicit activityEnd signal.
+            // GL's native VAD (automaticActivityDetection.disabled: false) waits
+            // for audio silence before it fires end-of-turn, even when the text
+            // turn specifies turnComplete: true. Without activityEnd the VAD
+            // holds GL in "waiting for user speech" state indefinitely, causing
+            // complete silence after the greeting. activityEnd bypasses the VAD
+            // and immediately signals "user just finished speaking" → GL responds.
+            this.liveSession.sendRealtimeInput({ activityEnd: {} });
             // Block mic audio until GL sends its first response chunk.
             // Without this gate, continuous open-mic audio tricks GL's VAD
             // into thinking the user is mid-speech and suppresses the greeting.
             this.greetingPhaseActive = true;
-            console.log('[GeminiLive] Pending greeting fired after setupComplete — mic gated');
+            console.log('[GeminiLive] Pending greeting fired after setupComplete — mic gated, activityEnd sent');
           } catch (err) {
             console.warn('[GeminiLive] Failed to send pending greeting:', err);
           }
