@@ -206,13 +206,16 @@ export function VoiceLabPanel({
     .map(v => ({ id: v.id, name: v.name, description: 'Gemini 2.5 Flash TTS', language: '', gender: v.gender }));
 
   interface GeminiLiveVoice { id: string; name: string; gender: string; provider: string; description: string; }
+  // Fetch GL voices always (not gated on isGeminiLive) — needed for the GL Audition picker on any voice card
   const { data: geminiLiveVoicesData, isLoading: isLoadingGeminiLiveVoices } = useQuery<GeminiLiveVoice[]>({
     queryKey: ['/api/admin/gemini-live-voices'],
-    enabled: isOpen && isGeminiLive,
+    enabled: isOpen && !isAssistant,
   });
   const geminiLiveVoices = (geminiLiveVoicesData || [])
     .filter(v => !tutorGender || v.gender === tutorGender)
     .map(v => ({ id: v.id, name: `${v.name} — ${v.description}`, description: 'Gemini Live', language: '', gender: v.gender }));
+  // GL voice selection for the audition — separate from the main TTS voice picker
+  const [selectedGlVoiceId, setSelectedGlVoiceId] = useState<string>('');
 
   const langCodeMap: Record<string, string> = {
     english: 'en', spanish: 'es', french: 'fr', german: 'de',
@@ -444,7 +447,11 @@ export function VoiceLabPanel({
   const handleGlAudition = async () => {
     if (!currentVoice || glPhase !== 'idle') return;
 
-    const voiceId = selectedVoiceId || currentVoice.voiceId;
+    // Resolve the GL voice: if on a gemini-live card use the selected TTS voice;
+    // otherwise use the dedicated GL audition picker (falling back to Aoede on server).
+    const voiceId = isGeminiLive
+      ? (selectedVoiceId || currentVoice.voiceId)
+      : (selectedGlVoiceId || geminiLiveVoices[0]?.id || 'Aoede');
     const langCode = selectedAccent || languageAccents[0]?.code || 'es-ES';
 
     try {
@@ -895,31 +902,54 @@ export function VoiceLabPanel({
                 }
               </Button>
 
-              {/* GL Live Audition Button — only for Gemini Live voices */}
-              {isGeminiLive && (
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={handleGlAudition}
-                  disabled={glPhase !== 'idle' || isAuditioning}
-                  data-testid="button-voice-lab-gl-audition"
-                >
-                  {glPhase === 'recording' ? (
-                    <Mic className="h-4 w-4 mr-2 text-red-500 animate-pulse" />
-                  ) : glPhase === 'waiting' || glPhase === 'playing' ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Mic className="h-4 w-4 mr-2" />
+              {/* GL Live Audition — available on any tutor voice card, not just gemini-live */}
+              {!isAssistant && (
+                <div className="space-y-2">
+                  {/* Voice picker for GL audition when the current card isn't a GL voice */}
+                  {!isGeminiLive && geminiLiveVoices.length > 0 && (
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">GL Voice to audition</Label>
+                      <Select
+                        value={selectedGlVoiceId || geminiLiveVoices[0]?.id || ''}
+                        onValueChange={setSelectedGlVoiceId}
+                      >
+                        <SelectTrigger className="h-8 text-xs" data-testid="select-gl-audition-voice">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {geminiLiveVoices.map(v => (
+                            <SelectItem key={v.id} value={v.id} className="text-xs">
+                              {v.id}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   )}
-                  {glPhase === 'recording'
-                    ? `Recording… ${glCountdown}s`
-                    : glPhase === 'waiting'
-                    ? 'Waiting for GL response…'
-                    : glPhase === 'playing'
-                    ? 'Playing GL response…'
-                    : 'GL Audition (live mic)'
-                  }
-                </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleGlAudition}
+                    disabled={glPhase !== 'idle' || isAuditioning}
+                    data-testid="button-voice-lab-gl-audition"
+                  >
+                    {glPhase === 'recording' ? (
+                      <Mic className="h-4 w-4 mr-2 text-red-500 animate-pulse" />
+                    ) : glPhase === 'waiting' || glPhase === 'playing' ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Mic className="h-4 w-4 mr-2" />
+                    )}
+                    {glPhase === 'recording'
+                      ? `Recording… ${glCountdown}s`
+                      : glPhase === 'waiting'
+                      ? 'Waiting for GL response…'
+                      : glPhase === 'playing'
+                      ? 'Playing GL response…'
+                      : 'GL Audition (live mic)'
+                    }
+                  </Button>
+                </div>
               )}
 
               {/* Apply Button - Session Override */}
