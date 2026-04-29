@@ -89,6 +89,22 @@ export class GeminiLiveSession {
   private isSetupComplete = false;
   private pendingGreetingTrigger: string | null = null;
 
+  // ── Auto-reconnect ─────────────────────────────────────────────────────────
+  // When the GL WebSocket closes unexpectedly (1011 internal error, 1006 network
+  // drop, etc.) we transparently reconnect so the student doesn't have to reload.
+  private reconnectAttempts = 0;
+  private readonly MAX_RECONNECT_ATTEMPTS = 3;
+  // Close codes we consider transient/retriable (not policy violations or intentional closes).
+  private readonly RETRIABLE_CLOSE_CODES = new Set([
+    1006,  // Abnormal closure — no close frame (network drop)
+    1011,  // Internal server error (transient GL service error)
+    1012,  // Service restart
+    1013,  // Try again later
+  ]);
+  // Stored so reconnect can re-call start() with the same arguments.
+  private lastSystemPrompt = '';
+  private lastTools: FunctionDeclaration[] = [];
+
   // ── Transcript accumulators ─────────────────────────────────────────────
   // Both user and assistant transcripts are accumulated across multiple
   // inputTranscription / outputTranscription / turnComplete events and
@@ -135,6 +151,9 @@ export class GeminiLiveSession {
       return;
     }
     this.isStarted = true;
+    // Store for use by auto-reconnect
+    this.lastSystemPrompt = systemPrompt;
+    this.lastTools = tools;
 
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
@@ -248,15 +267,65 @@ export class GeminiLiveSession {
           console.error('[GeminiLive] WebSocket error:', err);
         },
         onclose: (event: any) => {
-          const code = event?.code;
+          const code = event?.code as number;
           const reason = event?.reason || '(no reason)';
           console.log(`[GeminiLive] Session closed — code: ${code}, reason: ${reason}`);
-          if (!this.isStopped) {
+
+          // ── Auto-reconnect ─────────────────────────────────────────────────
+          // Retriable codes are transient (network hiccup, GL service restart).
+          // We only reconnect when isStopped is false (student didn't end the session)
+          // and we haven't exhausted our 3 attempts.
+          if (!this.isStopped && this.RETRIABLE_CLOSE_CODES.has(code) && this.reconnectAttempts < this.MAX_RECONNECT_ATTEMPTS) {
+            this.reconnectAttempts++;
+            const delayMs = 1000 * Math.pow(2, this.reconnectAttempts - 1); // 1 s, 2 s, 4 s
+            console.log(`[GeminiLive] Scheduling reconnect ${this.reconnectAttempts}/${this.MAX_RECONNECT_ATTEMPTS} in ${delayMs} ms`);
+
+            this.sendWsMessage(this.session.ws, {
+              type: 'gl_reconnecting',
+              attempt: this.reconnectAttempts,
+              maxAttempts: this.MAX_RECONNECT_ATTEMPTS,
+              delayMs,
+            });
+
+            setTimeout(async () => {
+              if (this.isStopped) return;
+              console.log(`[GeminiLive] Reconnect attempt ${this.reconnectAttempts}…`);
+
+              // Reset per-session flags so start() can run again
+              this.isStarted = false;
+              this.isSetupComplete = false;
+              this.liveSession = null;
+              this.currentTurnId = 0;
+              this.currentSentenceIndex = 0;
+              this.currentChunkIndex = 0;
+              this.hadAudioInCurrentSubturn = false;
+              this.firstAudioSentThisTurn = false;
+              this.pendingInputTranscript = '';
+              this.pendingInputSaved = false;
+              this.pendingOutputTranscript = '';
+              if (this.transcriptFlushTimer) {
+                clearTimeout(this.transcriptFlushTimer);
+                this.transcriptFlushTimer = null;
+              }
+
+              try {
+                // Reconnect without a greeting — student was already mid-session
+                await this.start(this.lastSystemPrompt, this.lastTools);
+                this.reconnectAttempts = 0; // success — reset counter
+                console.log('[GeminiLive] Reconnected successfully');
+                this.sendWsMessage(this.session.ws, { type: 'gl_reconnected' });
+              } catch (err: any) {
+                console.error(`[GeminiLive] Reconnect attempt ${this.reconnectAttempts} failed:`, err?.message);
+                // onclose will fire again and trigger the next attempt (or give up)
+              }
+            }, delayMs);
+          } else if (!this.isStopped) {
+            // Non-retriable close or retries exhausted — surface to client
             this.sendWsMessage(this.session.ws, {
               type: 'voice_error',
               code: 'GEMINI_LIVE_DISCONNECTED',
               message: 'Daniela\'s voice session disconnected',
-              recoverable: true,
+              recoverable: this.reconnectAttempts < this.MAX_RECONNECT_ATTEMPTS,
             });
           }
         },

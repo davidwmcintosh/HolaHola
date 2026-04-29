@@ -1178,6 +1178,20 @@ export class StreamingVoiceClient {
           });
           break;
           
+        case 'gl_reconnecting':
+          // GL API WebSocket to Google closed unexpectedly; server is auto-reconnecting
+          console.log(`[WS CLIENT] GL reconnecting (attempt ${(message as any).attempt}/${(message as any).maxAttempts})`);
+          this.setState('reconnecting');
+          this.emit('glReconnecting', message as { type: string; attempt: number; maxAttempts: number; delayMs: number });
+          break;
+
+        case 'gl_reconnected':
+          // GL API WebSocket successfully re-established
+          console.log('[WS CLIENT] GL reconnected');
+          this.setState('ready');
+          this.emit('glReconnected', message);
+          break;
+
         case 'voice_updated':
           // Voice switch confirmation
           this.emit('voiceUpdated', message as { type: string; gender: string; voiceName: string; timestamp: number });

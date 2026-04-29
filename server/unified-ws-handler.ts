@@ -2397,7 +2397,22 @@ ${buildNativeFunctionCallingSection()}`;
             sendErrorAdapter(ws, 'UNKNOWN', 'Session not ready', true);
             return;
           }
-          
+
+          // ── GL fast-path ─────────────────────────────────────────────────────
+          // For Gemini Live sessions the speculative Deepgram PTT session is never
+          // started — audio streams directly to GL via sendAudioChunk(). GL's own
+          // VAD handles turn detection and triggers the response. Waiting 1,200 ms
+          // for a Deepgram final that will never arrive would add dead latency to
+          // every GL PTT turn, so we exit early here.
+          if (geminiLiveSession) {
+            console.log('[GeminiLive PTT] ptt_release — GL active, skipping Deepgram wait');
+            if (speculativePttSession) {
+              speculativePttSession.close();
+              speculativePttSession = null;
+            }
+            break;
+          }
+
           const interimTranscript = speculativePttTranscript.trim();
           console.log(`[SpeculativePTT] PTT released - interim transcript: "${interimTranscript}" (${speculativePttWordCount} words)`);
           
