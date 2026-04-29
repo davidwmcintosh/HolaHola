@@ -949,6 +949,7 @@ export function StreamingVoiceChat({
             const isAudioPlaying = currentPlayback === 'playing' || currentPlayback === 'buffering';
             
             setProcessingStage(null);
+            setGlUserTranscript('');
             
             if (isAudioPlaying) {
               console.log('[STREAMING] Response complete, audio playing - clearing isProcessing (mic stays locked via isAudioActive)');
@@ -2688,6 +2689,7 @@ export function StreamingVoiceChat({
           channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
+          autoGainControl: true,
         } 
       });
       openMicStreamRef.current = stream;
