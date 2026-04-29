@@ -47,8 +47,6 @@ interface VoiceChatViewManagerProps {
   regularSubtitleMode?: SubtitleMode;
   // Custom overlay text (independent from regular subtitles)
   customOverlayText?: string | null;
-  // Live user speech transcript (Gemini Live real-time transcription)
-  glUserTranscript?: string;
   // Voice input mode: push-to-talk (default) or open-mic
   inputMode?: VoiceInputMode;
   setInputMode?: (mode: VoiceInputMode) => void;
@@ -102,7 +100,6 @@ export function VoiceChatViewManager({
   subtitleState,
   regularSubtitleMode = 'off',
   customOverlayText,
-  glUserTranscript,
   inputMode = 'push-to-talk',
   setInputMode,
   openMicState = 'idle',
@@ -238,7 +235,6 @@ export function VoiceChatViewManager({
                 subtitleState={subtitleState}
                 regularSubtitleMode={regularSubtitleMode}
                 customOverlayText={customOverlayText}
-                glUserTranscript={glUserTranscript}
                 inputMode={inputMode}
                 setInputMode={setInputMode}
                 openMicState={openMicState}

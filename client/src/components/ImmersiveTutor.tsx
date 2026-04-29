@@ -112,8 +112,6 @@ interface ImmersiveTutorProps {
   regularSubtitleMode?: SubtitleMode;
   // Custom overlay text (independent from regular subtitles)
   customOverlayText?: string | null;
-  // Live user speech transcript (Gemini Live real-time transcription)
-  glUserTranscript?: string;
   // Voice input mode: push-to-talk (default) or open-mic
   inputMode?: VoiceInputMode;
   setInputMode?: (mode: VoiceInputMode) => void;
@@ -168,7 +166,6 @@ export function ImmersiveTutor({
   subtitleState,
   regularSubtitleMode = 'off',
   customOverlayText,
-  glUserTranscript,
   inputMode = 'push-to-talk',
   setInputMode,
   openMicState = 'idle',
@@ -749,16 +746,6 @@ export function ImmersiveTutor({
           />
         )}
         
-        {/* Live user speech caption — shown while Gemini Live is transcribing the user's speech in real-time */}
-        {glUserTranscript && glUserTranscript.trim().length > 0 && (
-          <div
-            className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20 max-w-[85%] px-4 py-2 rounded-full bg-black/50 backdrop-blur-sm text-white text-sm text-center"
-            data-testid="text-gl-user-transcript"
-          >
-            {glUserTranscript}
-          </div>
-        )}
-
         {/* Floating Subtitle Overlay - Karaoke-style word highlighting */}
         {/* Two independent display systems: */}
         {/* 1. Regular subtitles: [SUBTITLE off/on/target] - what Daniela is saying */}
