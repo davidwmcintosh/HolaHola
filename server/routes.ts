@@ -22779,11 +22779,16 @@ Current conversation context:
       let glSession: any = null;
       let audioSent = false;
 
+      // Disable automatic VAD so we can bracket a pre-recorded blob with
+      // explicit activityStart / activityEnd instead of relying on silence detection.
       const sendAudio = (s: any) => {
         if (audioSent) return;
         audioSent = true;
         console.log(`[GL Audition] Sending audio — voice: ${voice}, langCode: ${langCode}`);
+        // Manual activity bracketing: tells GL when speech starts and ends
+        s.sendRealtimeInput({ activityStart: {} });
         s.sendRealtimeInput({ audio: { data: audio, mimeType: 'audio/pcm;rate=16000' } });
+        s.sendRealtimeInput({ activityEnd: {} });
       };
 
       await new Promise<void>((resolve, reject) => {
@@ -22809,19 +22814,27 @@ Current conversation context:
               languageCode: langCode,
               voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
             },
+            // Disable automatic VAD — we send explicit activityStart/activityEnd
+            realtimeInputConfig: {
+              automaticActivityDetection: { disabled: true },
+            },
           },
           callbacks: {
             onopen: () => { if (glSession) sendAudio(glSession); },
             onmessage: (msg: any) => {
+              // Collect inline audio parts from modelTurn
               for (const part of msg.serverContent?.modelTurn?.parts ?? []) {
                 if (part.inlineData?.data && part.inlineData?.mimeType?.includes('audio')) {
                   responseChunks.push(Buffer.from(part.inlineData.data, 'base64'));
                 }
               }
-              if (msg.serverContent?.turnComplete && responseChunks.length > 0) finish();
+              if (msg.serverContent?.turnComplete) {
+                if (responseChunks.length > 0) finish();
+                // If turnComplete but no chunks yet, keep waiting (model may still stream)
+              }
             },
             onerror: (e: any) => finish(new Error(e?.message ?? String(e))),
-            onclose: () => { if (responseChunks.length > 0) finish(); },
+            onclose: () => { if (responseChunks.length > 0) finish(); else finish(new Error('GL session closed with no audio')); },
           },
         }).then((s: any) => {
           glSession = s;
