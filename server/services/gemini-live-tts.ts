@@ -393,6 +393,9 @@ export class GeminiLiveTtsService extends EventEmitter {
           prebuiltVoiceConfig: { voiceName },
         },
       };
+      if (resolvedLanguageCode) {
+        speechConfig.languageCode = resolvedLanguageCode;
+      }
 
       let chunkIndex = 0;
       let cumulativeDurationMs = 0;
@@ -554,6 +557,9 @@ export class GeminiLiveTtsService extends EventEmitter {
     const speechConfig: any = {
       voiceConfig: { prebuiltVoiceConfig: { voiceName } },
     };
+    if (resolvedLanguageCode) {
+      speechConfig.languageCode = resolvedLanguageCode;
+    }
 
     console.log(`[Gemini TTS] Pre-generating: "${trimmedText.substring(0, 50)}..." (${segments.length} segments)`);
 

@@ -393,6 +393,9 @@ export function VoiceLabPanel({
         bodyData.elStyle = elStyle;
         bodyData.elSpeed = speakingRate;
       }
+      if (isGoogle) {
+        if (selectedAccent) bodyData.accentLanguage = selectedAccent;
+      }
       if (isGemini) {
         if (selectedAccent) bodyData.accentLanguage = selectedAccent;
         bodyData.nativeLanguage = 'english';
@@ -521,8 +524,8 @@ export function VoiceLabPanel({
               </p>
             </div>
 
-            {/* Accent Variant - for Gemini TTS with multiple regional variants */}
-            {isGemini && languageAccents.length > 1 && (
+            {/* Accent Variant - for Gemini TTS or Google Chirp3 HD with multiple regional variants */}
+            {(isGemini || isGoogle) && languageAccents.length > 1 && (
               <>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
@@ -542,10 +545,10 @@ export function VoiceLabPanel({
                           <span className="flex items-center gap-2">
                             <span>{variant.label}</span>
                             <span className="font-mono text-xs text-muted-foreground">{variant.code}</span>
-                            {variant.gl31Status === 'working' && (
+                            {isGemini && variant.gl31Status === 'working' && (
                               <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-green-600 border-green-400 dark:text-green-400 dark:border-green-600">3.1 ✓</Badge>
                             )}
-                            {variant.gl31Status === 'broken' && (
+                            {isGemini && variant.gl31Status === 'broken' && (
                               <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-red-600 border-red-400 dark:text-red-400 dark:border-red-600">3.1 ✗</Badge>
                             )}
                           </span>
@@ -554,7 +557,9 @@ export function VoiceLabPanel({
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    Regional accent for Gemini TTS - changes pronunciation style
+                    {isGoogle
+                      ? "Regional accent for Google Chirp3 HD — swaps locale prefix on voice name"
+                      : "Regional accent for Gemini TTS — sets language code on speech config"}
                   </p>
                 </div>
               </>
