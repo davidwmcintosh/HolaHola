@@ -203,10 +203,15 @@ export class GeminiLiveSession {
         responseModalities: [Modality.AUDIO],
 
         // ── Transcription ─────────────────────────────────────────────────
-        // Enable both input (student) and output (Daniela) transcription so
-        // we can persist messages to the DB and display them in chat history.
+        // inputAudioTranscription: enables real-time user speech→text so we can
+        // display live captions and persist the user's utterance to the DB.
+        //
+        // outputAudioTranscription: intentionally OMITTED.
+        // gemini-3.1-flash-live-preview closes with 1008 "Operation is not
+        // implemented" when this field is included in the connect config.
+        // Daniela's transcript is inferred from outputTranscription events
+        // only when the model voluntarily emits them; we do not request it.
         inputAudioTranscription: {},
-        outputAudioTranscription: {},
 
         speechConfig: {
           languageCode,
@@ -459,11 +464,18 @@ export class GeminiLiveSession {
     // ── Diagnostic: log the top-level keys of every message ─────────────────
     const msgKeys = Object.keys(msg).filter(k => (msg as any)[k] != null);
     if (!msg.usageMetadata && !msg.sessionResumptionUpdate) {
-      // Log non-accounting messages so we can trace what Gemini is actually returning
+      const sc = msg.serverContent as any;
+      const scKeys = sc ? Object.keys(sc).filter((k: string) => sc[k] != null) : [];
       console.log(`[GeminiLive] Server msg keys: [${msgKeys.join(', ')}]`, {
-        hasTurnComplete: !!msg.serverContent?.turnComplete,
-        hasParts: !!msg.serverContent?.modelTurn?.parts,
-        partCount: msg.serverContent?.modelTurn?.parts?.length ?? 0,
+        hasTurnComplete: !!sc?.turnComplete,
+        hasParts: !!sc?.modelTurn?.parts,
+        partCount: sc?.modelTurn?.parts?.length ?? 0,
+        serverContentKeys: scKeys,
+        hasInputTranscription: !!sc?.inputTranscription,
+        inputTranscriptionText: sc?.inputTranscription?.text?.slice(0, 80),
+        hasOutputTranscription: !!sc?.outputTranscription,
+        outputTranscriptionText: sc?.outputTranscription?.text?.slice(0, 80),
+        hasInterrupted: !!sc?.interrupted,
         hasToolCall: !!msg.toolCall,
         hasError: !!(msg as any).error,
       });
