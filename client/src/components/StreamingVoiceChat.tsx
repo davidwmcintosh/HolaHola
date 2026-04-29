@@ -1081,10 +1081,14 @@ export function StreamingVoiceChat({
                 setOpenMicState('listening');
               }
               
-              // BARGE-IN: Interrupt tutor when we have ACTUAL transcribed speech
-              // This is more reliable than VAD alone, which can trigger on TTS echo
-              if (avatarStateRef.current === 'speaking' || isAwaitingResponseRef.current) {
-                console.log('[BARGE-IN] User speaking with transcript - stopping audio and sending interrupt');
+              // BARGE-IN: Interrupt tutor when we have ACTUAL transcribed speech.
+              // Require ≥3 words before triggering to filter mic echo artifacts —
+              // GL inputTranscription can pick up the tutor's own audio playing
+              // through the speaker (especially without headphones) and a single
+              // echo word would cut off the tutor mid-sentence.
+              const wordCount = transcript.trim().split(/\s+/).filter((w: string) => w.length > 0).length;
+              if ((avatarStateRef.current === 'speaking' || isAwaitingResponseRef.current) && wordCount >= 3) {
+                console.log('[BARGE-IN] User speaking with transcript (' + wordCount + ' words) - stopping audio and sending interrupt');
                 // CRITICAL: Stop audio playback immediately on client side
                 streamingVoice.stop();
                 // Also notify server to stop generating
@@ -3133,10 +3137,11 @@ export function StreamingVoiceChat({
                     setOpenMicState('listening');
                   }
                   
-                  // BARGE-IN: Interrupt tutor when we have ACTUAL transcribed speech
-                  // This is more reliable than VAD alone, which can trigger on TTS echo
-                  if (avatarStateRef.current === 'speaking' || isAwaitingResponseRef.current) {
-                    console.log('[BARGE-IN] User speaking with transcript - stopping audio and sending interrupt');
+                  // BARGE-IN: Interrupt tutor when we have ACTUAL transcribed speech.
+                  // Require ≥3 words to filter mic echo (tutor audio bleeding into mic).
+                  const wordCount = transcript.trim().split(/\s+/).filter((w: string) => w.length > 0).length;
+                  if ((avatarStateRef.current === 'speaking' || isAwaitingResponseRef.current) && wordCount >= 3) {
+                    console.log('[BARGE-IN] User speaking with transcript (' + wordCount + ' words) - stopping audio and sending interrupt');
                     // CRITICAL: Stop audio playback immediately on client side
                     streamingVoice.stop();
                     // Also notify server to stop generating

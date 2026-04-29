@@ -84,6 +84,7 @@ export class GeminiLiveSession {
   private currentChunkIndex = 0;       // Resets to 0 at each new sentenceIndex boundary
   private hadAudioInCurrentSubturn = false;
   private firstAudioSentThisTurn = false;   // Guard: don't send processing_pending AFTER audio already started
+  private processingPendingSentThisTurn = false; // Guard: send processing_pending exactly once per conversation turn
   private isStopped = false;
   private isStarted = false;
   private isSetupComplete = false;
@@ -314,6 +315,7 @@ export class GeminiLiveSession {
               this.currentChunkIndex = 0;
               this.hadAudioInCurrentSubturn = false;
               this.firstAudioSentThisTurn = false;
+              this.processingPendingSentThisTurn = false;
               this.greetingPhaseActive = false;
               this.pendingInputTranscript = '';
               this.pendingInputSaved = false;
@@ -391,6 +393,7 @@ export class GeminiLiveSession {
     this.currentTurnId++;
     this.currentChunkIndex = 0;
     this.firstAudioSentThisTurn = false;
+    this.processingPendingSentThisTurn = false;
     console.log(`[GeminiLive] Interrupted — advancing to turnId ${this.currentTurnId}`);
   }
 
@@ -416,9 +419,17 @@ export class GeminiLiveSession {
     // If setupComplete hasn't arrived yet, buffer the greeting — it will be sent
     // automatically by handleServerMessage the moment setupComplete is received.
     // Sending content before setupComplete causes the model to silently ignore it.
+    //
+    // CRITICAL: Gate the mic immediately here, not only after setupComplete.
+    // Between ai.live.connect() completing and setupComplete firing, mic audio
+    // flows freely to GL (greetingPhaseActive is false). GL's VAD accumulates
+    // this audio and marks the user as "currently speaking", which causes it to
+    // suppress the greeting response entirely. Activating the gate now ensures
+    // zero mic audio reaches GL during the entire setup → greeting window.
     if (!this.isSetupComplete) {
       this.pendingGreetingTrigger = trigger;
-      console.log(`[GeminiLive] Greeting buffered — waiting for setupComplete (resumed: ${isResumed || false})`);
+      this.greetingPhaseActive = true;
+      console.log(`[GeminiLive] Greeting buffered — waiting for setupComplete (resumed: ${isResumed || false}) — mic pre-gated`);
       return;
     }
 
@@ -540,6 +551,7 @@ export class GeminiLiveSession {
 
           // First audio from GL — open the mic gate.
           // The greeting has been delivered; the student can now speak.
+          const wasGreetingPhase = this.greetingPhaseActive;
           if (this.greetingPhaseActive) {
             this.greetingPhaseActive = false;
             console.log('[GeminiLive] Mic gate lifted — first audio chunk received from GL');
@@ -561,7 +573,24 @@ export class GeminiLiveSession {
 
           // Mark that audio has started for this turn — prevents late outputTranscription
           // chunks from firing a spurious processing_pending AFTER audio has played.
-          this.firstAudioSentThisTurn = true;
+          //
+          // ALSO: fire processing_pending on the first audio chunk of CONVERSATION turns
+          // (not the greeting). GL rarely emits outputTranscription (outputAudioTranscription
+          // was removed from the config because it caused 1008 errors), so the outputTranscription
+          // path at line ~641 almost never fires. This is the reliable fallback: the moment
+          // the first audio arrives we know GL is responding and the avatar should show thinking
+          // briefly (it flips to speaking within the same render cycle in practice).
+          if (!this.firstAudioSentThisTurn) {
+            this.firstAudioSentThisTurn = true;
+            if (!wasGreetingPhase && !this.processingPendingSentThisTurn) {
+              this.processingPendingSentThisTurn = true;
+              console.log('[GeminiLive] Firing processing_pending (first audio chunk, conversation turn)');
+              this.sendWsMessage(this.session.ws, {
+                type: 'processing_pending',
+                timestamp: Date.now(),
+              });
+            }
+          }
 
           this.sendWsMessage(this.session.ws, {
             type: 'audio_chunk',
@@ -638,14 +667,15 @@ export class GeminiLiveSession {
         // audio has played would stick the avatar in "thinking" with no audio to follow.
         const isFirstOutputChunk = this.pendingOutputTranscript.trim() === '';
         this.pendingOutputTranscript += text;
-        if (isFirstOutputChunk && !this.firstAudioSentThisTurn) {
+        if (isFirstOutputChunk && !this.firstAudioSentThisTurn && !this.processingPendingSentThisTurn) {
+          this.processingPendingSentThisTurn = true;
           console.log('[GeminiLive] Firing processing_pending (transcription first, before audio)');
           this.sendWsMessage(this.session.ws, {
             type: 'processing_pending',
             timestamp: Date.now(),
           });
-        } else if (isFirstOutputChunk && this.firstAudioSentThisTurn) {
-          console.log('[GeminiLive] Skipping processing_pending — audio already started this turn');
+        } else if (isFirstOutputChunk) {
+          console.log('[GeminiLive] Skipping processing_pending — already sent or audio started this turn');
         }
         this.sendWsMessage(this.session.ws, {
           type: 'daniela_transcript',
@@ -829,6 +859,7 @@ export class GeminiLiveSession {
     this.currentChunkIndex = 0;
     this.pendingInputSaved = false;
     this.firstAudioSentThisTurn = false;
+    this.processingPendingSentThisTurn = false;
     this.session.currentTurnId = ++this.currentTurnId;
 
     // Send response_complete AFTER DB writes so the client's cache invalidation
