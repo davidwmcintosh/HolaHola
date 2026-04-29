@@ -788,6 +788,9 @@ export interface IStorage {
   
   // Create or update a voice configuration
   upsertTutorVoice(data: InsertTutorVoice): Promise<TutorVoice>;
+
+  // Update an existing voice configuration by its UUID (for edit flows)
+  updateTutorVoiceById(id: string, data: Partial<InsertTutorVoice>): Promise<TutorVoice>;
   
   // Delete a voice configuration
   deleteTutorVoice(id: string): Promise<boolean>;
@@ -5923,6 +5926,15 @@ export class DatabaseStorage implements IStorage {
       const created = await getSharedDb().insert(tutorVoices).values({ ...data, role }).returning();
       return created[0];
     }
+  }
+
+  async updateTutorVoiceById(id: string, data: Partial<InsertTutorVoice>): Promise<TutorVoice> {
+    const updated = await getSharedDb().update(tutorVoices)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(tutorVoices.id, id))
+      .returning();
+    if (!updated[0]) throw new Error(`Tutor voice with id ${id} not found`);
+    return updated[0];
   }
 
   async deleteTutorVoice(id: string): Promise<boolean> {

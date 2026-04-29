@@ -384,7 +384,8 @@ export function VoiceConsoleContent() {
 
   const upsertMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      return apiRequest("POST", "/api/admin/tutor-voices", data);
+      const payload = editingVoice?.id ? { ...data, id: editingVoice.id } : data;
+      return apiRequest("POST", "/api/admin/tutor-voices", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/tutor-voices"] });

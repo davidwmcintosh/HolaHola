@@ -20512,7 +20512,7 @@ Current conversation context:
   // Only super admins can modify voice settings including personality, expressiveness, and emotion
   app.post("/api/admin/tutor-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const { language, gender, provider, voiceId, voiceName, languageCode, speakingRate, personality, expressiveness, emotion, isActive, role, elStability, elSimilarityBoost, elStyle, elSpeakerBoost, googlePitch, googleVolumeGainDb, geminiLanguageCode } = req.body;
+      const { id: voiceRecordId, language, gender, provider, voiceId, voiceName, languageCode, speakingRate, personality, expressiveness, emotion, isActive, role, elStability, elSimilarityBoost, elStyle, elSpeakerBoost, googlePitch, googleVolumeGainDb, geminiLanguageCode } = req.body;
       
       if (!language || !gender || !provider || !voiceId || !voiceName || !languageCode) {
         return res.status(400).json({ error: "Missing required fields" });
@@ -20536,7 +20536,7 @@ Current conversation context:
       
       // Validate speakingRate: ElevenLabs supports 0.5-2.0, Google supports 0.25-4.0, Cartesia supports 0.7-1.3
       const isElevenLabs = provider === 'elevenlabs';
-      const isGoogle = provider === 'google' || provider === 'gemini';
+      const isGoogle = provider === 'google' || provider === 'gemini' || provider === 'gemini-live';
       const rateMin = (validatedRole === 'assistant' || validatedRole === 'support' || isElevenLabs || isGoogle) ? 0.25 : 0.7;
       const rateMax = isGoogle ? 4.0 : (validatedRole === 'assistant' || validatedRole === 'support' || isElevenLabs) ? 2.0 : 1.3;
       const validatedSpeakingRate = speakingRate !== undefined 
@@ -20554,8 +20554,8 @@ Current conversation context:
       
       // Validate emotion (use provided or default to friendly)
       const validatedEmotion = emotion || 'friendly';
-      
-      const voice = await storage.upsertTutorVoice({
+
+      const voiceData = {
         language,
         gender,
         provider,
@@ -20566,7 +20566,7 @@ Current conversation context:
         personality: validatedPersonality,
         expressiveness: validatedExpressiveness,
         emotion: validatedEmotion,
-        isActive: isActive !== false, // default to true
+        isActive: isActive !== false,
         role: validatedRole,
         elStability: provider === 'elevenlabs' ? (elStability ?? 0.5) : null,
         elSimilarityBoost: provider === 'elevenlabs' ? (elSimilarityBoost ?? 0.75) : null,
@@ -20575,7 +20575,13 @@ Current conversation context:
         googlePitch: provider === 'google' ? (googlePitch ?? 0) : null,
         googleVolumeGainDb: provider === 'google' ? (googleVolumeGainDb ?? 0) : null,
         geminiLanguageCode: (provider === 'gemini' || provider === 'gemini-live' || provider === 'google') ? (geminiLanguageCode || null) : null,
-      });
+      };
+
+      // When editing an existing record, update directly by its UUID to avoid
+      // the language+gender+role lookup that can hit the wrong row when duplicates exist.
+      const voice = voiceRecordId
+        ? await storage.updateTutorVoiceById(voiceRecordId, voiceData)
+        : await storage.upsertTutorVoice(voiceData);
       
       // Log the action
       await storage.logAdminAction({
