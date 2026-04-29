@@ -82,7 +82,7 @@ export function WhiteboardPanel({
             onTextInputSubmit={onTextInputSubmit}
           />
         ) : (
-          <div className="flex flex-col items-center justify-center h-full text-center py-12">
+          <div className="flex flex-col items-center text-center pt-8">
             <div className="rounded-full bg-muted p-4 mb-4">
               <BookOpen className="h-8 w-8 text-muted-foreground" />
             </div>
