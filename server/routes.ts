@@ -22775,24 +22775,27 @@ Current conversation context:
       const { GoogleGenAI, Modality } = await import('@google/genai');
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
+      // Decode the base64 PCM16 audio and append 3s of silence so the default
+      // VAD (silenceDurationMs: 800ms) reliably fires without any protocol changes.
+      const audioBytes = Buffer.from(audio, 'base64');
+      const SILENCE_SECONDS = 3;
+      const SILENCE_BYTES = 16000 * SILENCE_SECONDS * 2; // 16kHz, 16-bit = 2 bytes/sample
+      const paddedAudio = Buffer.concat([audioBytes, Buffer.alloc(SILENCE_BYTES, 0)]);
+      const paddedBase64 = paddedAudio.toString('base64');
+
       const responseChunks: Buffer[] = [];
       let glSession: any = null;
       let audioSent = false;
 
-      // Disable automatic VAD so we can bracket a pre-recorded blob with
-      // explicit activityStart / activityEnd instead of relying on silence detection.
       const sendAudio = (s: any) => {
         if (audioSent) return;
         audioSent = true;
-        console.log(`[GL Audition] Sending audio — voice: ${voice}, langCode: ${langCode}`);
-        // Manual activity bracketing: tells GL when speech starts and ends
-        s.sendRealtimeInput({ activityStart: {} });
-        s.sendRealtimeInput({ audio: { data: audio, mimeType: 'audio/pcm;rate=16000' } });
-        s.sendRealtimeInput({ activityEnd: {} });
+        console.log(`[GL Audition] Sending audio — voice: ${voice}, langCode: ${langCode}, audioBytes: ${audioBytes.length}, paddedBytes: ${paddedAudio.length}`);
+        s.sendRealtimeInput({ audio: { data: paddedBase64, mimeType: 'audio/pcm;rate=16000' } });
       };
 
       await new Promise<void>((resolve, reject) => {
-        const TIMEOUT_MS = 25000;
+        const TIMEOUT_MS = 30000;
         const timer = setTimeout(() => {
           try { glSession?.close(); } catch {}
           if (responseChunks.length > 0) resolve();
@@ -22814,10 +22817,6 @@ Current conversation context:
               languageCode: langCode,
               voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
             },
-            // Disable automatic VAD — we send explicit activityStart/activityEnd
-            realtimeInputConfig: {
-              automaticActivityDetection: { disabled: true },
-            },
           },
           callbacks: {
             onopen: () => { if (glSession) sendAudio(glSession); },
@@ -22830,11 +22829,19 @@ Current conversation context:
               }
               if (msg.serverContent?.turnComplete) {
                 if (responseChunks.length > 0) finish();
-                // If turnComplete but no chunks yet, keep waiting (model may still stream)
               }
             },
-            onerror: (e: any) => finish(new Error(e?.message ?? String(e))),
-            onclose: () => { if (responseChunks.length > 0) finish(); else finish(new Error('GL session closed with no audio')); },
+            onerror: (e: any) => {
+              console.error('[GL Audition] onerror:', e?.message ?? e?.code ?? String(e));
+              finish(new Error(e?.message ?? 'GL error'));
+            },
+            onclose: (event: any) => {
+              const code = event?.code ?? '?';
+              const reason = event?.reason || '(no reason)';
+              console.log(`[GL Audition] onclose — code: ${code}, reason: ${reason}, chunks: ${responseChunks.length}`);
+              if (responseChunks.length > 0) finish();
+              else finish(new Error(`GL session closed (code: ${code}, reason: ${reason})`));
+            },
           },
         }).then((s: any) => {
           glSession = s;
