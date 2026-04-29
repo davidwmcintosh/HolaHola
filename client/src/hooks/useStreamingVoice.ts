@@ -543,7 +543,11 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     // CRITICAL: Set processing state when server indicates new turn is processing
     // This ensures thinking indicator shows for server-initiated responses (tutor handoffs, etc.)
     setIsProcessing(true);
-    setGlobalPlaybackState('thinking');
+    // Guard: never overwrite 'playing' or 'buffering' — audio may already be streaming
+    // (race condition: audio chunk arrives before the processing signal in the GL path)
+    if (getGlobalPlaybackState() !== 'playing' && getGlobalPlaybackState() !== 'buffering') {
+      setGlobalPlaybackState('thinking');
+    }
     
     // Reset audio received flag for new turn
     audioReceivedInTurnRef.current = false;
@@ -584,8 +588,18 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     
     // IMMEDIATELY show thinking indicator
     setIsProcessing(true);
-    setGlobalPlaybackState('thinking');
+    // Guard: never overwrite 'playing' or 'buffering' — in the GL path, processing_pending
+    // fires on the same first audio chunk, so audio may already be streaming by the time
+    // this handler runs. Overwriting 'playing' with 'thinking' causes the avatar to get
+    // stuck on the thinking state for the entire duration of the response.
+    if (getGlobalPlaybackState() !== 'playing' && getGlobalPlaybackState() !== 'buffering') {
+      setGlobalPlaybackState('thinking');
+    }
     audioReceivedInTurnRef.current = false;
+    
+    // Pre-warm the AudioContext so the first audio samples don't fade in from silence.
+    // processing_pending fires just before audio arrives — an ideal time to resume.
+    playerRef.current?.resumeAudioContext?.();
     
     // Notify component so it can set its own isProcessing state immediately.
     // This drives the thinking avatar via the component-level isProcessing prop
