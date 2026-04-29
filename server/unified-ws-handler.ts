@@ -2669,9 +2669,11 @@ ${buildNativeFunctionCallingSection()}`;
             } | null;
           };
           
-          // Detect if the voice changed so we can restart the Gemini Live session
+          // Detect if the voice or language code changed so we can restart the Gemini Live session
           const prevVoiceId = (session as any).voiceOverride?.voiceId ?? session.voiceId;
+          const prevLangCode = (session as any).voiceOverride?.geminiLanguageCode;
           const nextVoiceId = overrideMsg.override?.voiceId;
+          const nextLangCode = overrideMsg.override?.geminiLanguageCode;
 
           // Store override in session for use by TTS
           (session as any).voiceOverride = overrideMsg.override;
@@ -2681,13 +2683,17 @@ ${buildNativeFunctionCallingSection()}`;
           
           console.log('[Streaming Voice] Voice override applied:', overrideMsg.override);
 
-          // ── Gemini Live voice reconnect ────────────────────────────────────
-          // Gemini Live bakes the voice into the WebSocket handshake — it cannot
-          // be changed mid-session.  When the user picks a new voice via Voice Lab
-          // we stop the existing session and open a fresh one with the new voice.
+          // ── Gemini Live reconnect ──────────────────────────────────────────
+          // Gemini Live bakes both the voice name AND the languageCode into the
+          // WebSocket handshake — neither can be changed mid-session.  Reconnect
+          // whenever either changes.
           const voiceChanged = nextVoiceId && nextVoiceId !== prevVoiceId;
-          if (voiceChanged && geminiLiveSession && geminiLiveSystemPromptCache) {
-            console.log(`[GeminiLive] Voice changed ${prevVoiceId} → ${nextVoiceId}, reconnecting…`);
+          const langCodeChanged = nextLangCode !== prevLangCode;
+          if ((voiceChanged || langCodeChanged) && geminiLiveSession && geminiLiveSystemPromptCache) {
+            const changeReason = voiceChanged
+              ? `voice changed ${prevVoiceId} → ${nextVoiceId}`
+              : `languageCode changed ${prevLangCode ?? 'default'} → ${nextLangCode ?? 'default'}`;
+            console.log(`[GeminiLive] ${changeReason}, reconnecting…`);
             try {
               geminiLiveSession.stop();
               geminiLiveSession = null;

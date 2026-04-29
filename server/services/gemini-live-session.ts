@@ -139,11 +139,13 @@ export class GeminiLiveSession {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
     // Voice override (from Voice Lab) takes priority over the session's stored voice.
-    const effectiveVoiceId = (this.session as any).voiceOverride?.voiceId ?? this.session.voiceId ?? '';
+    const voiceOverride = (this.session as any).voiceOverride;
+    const effectiveVoiceId = voiceOverride?.voiceId ?? this.session.voiceId ?? '';
     const liveName = GEMINI_LIVE_VOICE_NAMES.has(effectiveVoiceId) ? effectiveVoiceId : DEFAULT_LIVE_VOICE;
     const langKey = (this.session.targetLanguage || '').toLowerCase().trim();
-    const languageCode = LANGUAGE_TO_BCP47[langKey] || 'en-US';
-    console.log(`[GeminiLive] Opening session — model: ${GEMINI_LIVE_MODEL}, voice: ${liveName}, languageCode: ${languageCode}`);
+    // geminiLanguageCode from the Voice Lab override takes priority over the language-map default.
+    const languageCode = voiceOverride?.geminiLanguageCode || LANGUAGE_TO_BCP47[langKey] || 'en-US';
+    console.log(`[GeminiLive] Opening session — model: ${GEMINI_LIVE_MODEL}, voice: ${liveName}, languageCode: ${languageCode}${voiceOverride?.geminiLanguageCode ? ' (voice-lab override)' : ''}`);
 
     this.liveSession = await ai.live.connect({
       model: GEMINI_LIVE_MODEL,
