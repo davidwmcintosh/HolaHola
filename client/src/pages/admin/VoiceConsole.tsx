@@ -638,7 +638,14 @@ export function VoiceConsoleContent() {
   const handleGlAudition = async () => {
     if (glPhase !== 'idle') return;
     const voiceId = formData.voiceId || 'Aoede';
-    const langCode = formData.geminiLanguageCode || 'es-ES';
+    // Derive BCP-47 from the voice's configured language when no explicit accent is saved
+    const LANG_TO_BCP47: Record<string, string> = {
+      english: 'en-US', spanish: 'es-ES', french: 'fr-FR',
+      german: 'de-DE', italian: 'it-IT', portuguese: 'pt-BR',
+      japanese: 'ja-JP', 'mandarin chinese': 'zh-CN', chinese: 'zh-CN',
+      korean: 'ko-KR', hebrew: 'he-IL',
+    };
+    const langCode = formData.geminiLanguageCode || LANG_TO_BCP47[formData.language?.toLowerCase() || ''] || 'en-US';
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1 } });
       setGlPhase('recording');

@@ -147,10 +147,39 @@ export class GeminiLiveSession {
     const languageCode = voiceOverride?.geminiLanguageCode || LANGUAGE_TO_BCP47[langKey] || 'en-US';
     console.log(`[GeminiLive] Opening session — model: ${GEMINI_LIVE_MODEL}, voice: ${liveName}, languageCode: ${languageCode}${voiceOverride?.geminiLanguageCode ? ' (voice-lab override)' : ''}`);
 
+    // Inject a compact native-accent directive for non-English sessions so the
+    // model prioritises the target language's phonology and prosody in its output.
+    const NATIVE_ACCENT_DIRECTIVE: Record<string, string> = {
+      'es-ES': 'Speak Spanish with authentic Castilian Spanish phonology.',
+      'es-MX': 'Speak Spanish with authentic Mexican Spanish phonology.',
+      'es-CO': 'Speak Spanish with authentic Colombian Spanish phonology.',
+      'es-AR': 'Speak Spanish with authentic Rioplatense Spanish phonology.',
+      'es-CL': 'Speak Spanish with authentic Chilean Spanish phonology.',
+      'es-PE': 'Speak Spanish with authentic Peruvian Spanish phonology.',
+      'fr-FR': 'Speak French with authentic Parisian French phonology.',
+      'fr-CA': 'Speak French with authentic Québécois phonology.',
+      'de-DE': 'Speak German with authentic Standard German (Hochdeutsch) phonology and prosody.',
+      'de-AT': 'Speak German with authentic Austrian German phonology.',
+      'de-CH': 'Speak German with authentic Swiss Standard German phonology.',
+      'it-IT': 'Speak Italian with authentic Standard Italian phonology.',
+      'it-CH': 'Speak Italian with authentic Swiss Italian phonology.',
+      'pt-BR': 'Speak Portuguese with authentic Brazilian Portuguese phonology and prosody.',
+      'pt-PT': 'Speak Portuguese with authentic European Portuguese phonology.',
+      'ja-JP': 'Speak Japanese with authentic standard Tokyo Japanese phonology and pitch accent.',
+      'zh-CN': 'Speak Mandarin Chinese with authentic Mainland Putonghua phonology and tones.',
+      'zh-TW': 'Speak Mandarin Chinese with authentic Taiwan Guoyu phonology and tones.',
+      'ko-KR': 'Speak Korean with authentic Seoul Korean phonology.',
+      'he-IL': 'Speak Hebrew with authentic Modern Israeli Hebrew phonology.',
+    };
+    const accentDirective = NATIVE_ACCENT_DIRECTIVE[languageCode];
+    const effectiveSystemPrompt = accentDirective
+      ? `${systemPrompt}\n\n[VOICE]: ${accentDirective}`
+      : systemPrompt;
+
     this.liveSession = await ai.live.connect({
       model: GEMINI_LIVE_MODEL,
       config: {
-        systemInstruction: systemPrompt,
+        systemInstruction: effectiveSystemPrompt,
         tools: tools.length > 0 ? [{ functionDeclarations: tools }] : undefined,
         responseModalities: [Modality.AUDIO],
 

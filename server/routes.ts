@@ -22777,6 +22777,42 @@ Current conversation context:
     const langCode = languageCode || 'es-ES';
     const MODEL = process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview';
 
+    // Build a language-aware system instruction so the model responds in the
+    // correct language (and hopefully with the correct accent) during audition.
+    const LANG_CODE_TO_INSTRUCTION: Record<string, string> = {
+      'en-US': 'Respond in English (American accent).',
+      'en-GB': 'Respond in English with a British accent.',
+      'en-AU': 'Respond in English with an Australian accent.',
+      'en-IN': 'Respond in English with an Indian accent.',
+      'en-CA': 'Respond in English with a Canadian accent.',
+      'en-ZA': 'Respond in English with a South African accent.',
+      'es-ES': 'Responde en español con acento de España (castellano).',
+      'es-MX': 'Responde en español con acento mexicano.',
+      'es-CO': 'Responde en español con acento colombiano.',
+      'es-AR': 'Responde en español con acento argentino.',
+      'es-CL': 'Responde en español con acento chileno.',
+      'es-PE': 'Responde en español con acento peruano.',
+      'es-US': 'Responde en español latino.',
+      'fr-FR': 'Réponds en français avec un accent de France.',
+      'fr-CA': 'Réponds en français québécois.',
+      'fr-BE': 'Réponds en français belge.',
+      'fr-CH': 'Réponds en français suisse.',
+      'de-DE': 'Antworte auf Deutsch mit deutschem Akzent.',
+      'de-AT': 'Antworte auf Österreichischem Deutsch.',
+      'de-CH': 'Antworte auf Schweizerdeutsch.',
+      'it-IT': 'Rispondi in italiano con accento italiano.',
+      'it-CH': 'Rispondi in italiano svizzero.',
+      'pt-BR': 'Responda em português brasileiro.',
+      'pt-PT': 'Responda em português europeu.',
+      'ja-JP': '日本語で返答してください。',
+      'zh-CN': '请用普通话（简体中文）回答。',
+      'zh-TW': '請用國語（繁體中文）回答。',
+      'ko-KR': '한국어로 대답해주세요.',
+      'he-IL': 'ענה בעברית.',
+    };
+    const langInstruction = LANG_CODE_TO_INSTRUCTION[langCode] || `Respond in the language matching locale ${langCode}.`;
+    const auditionSystemInstruction = `You are a friendly language tutor demonstrating your voice. ${langInstruction} The user will say something brief — respond warmly in one or two sentences.`;
+
     try {
       const { GoogleGenAI, Modality } = await import('@google/genai');
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
@@ -22817,7 +22853,7 @@ Current conversation context:
         ai.live.connect({
           model: MODEL,
           config: {
-            systemInstruction: 'You are a friendly language tutor. The user will say something brief. Respond warmly with one or two sentences.',
+            systemInstruction: auditionSystemInstruction,
             responseModalities: [Modality.AUDIO],
             speechConfig: {
               languageCode: langCode,
