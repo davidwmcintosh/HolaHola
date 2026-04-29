@@ -22755,6 +22755,103 @@ Current conversation context:
     }
   });
 
+  // Admin: Gemini Live 3.1 voice audition — user sends mic PCM, server opens real GL session, returns WAV
+  app.post("/api/admin/gl-audition", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    const { audio, languageCode, voiceId } = req.body;
+    if (!audio) return res.status(400).json({ error: 'audio (base64 PCM16 @ 16kHz) required' });
+
+    const VALID_VOICES = new Set([
+      'Aoede','Kore','Leda','Zephyr','Puck','Charon','Fenrir','Orus',
+      'Achernar','Autonoe','Callirrhoe','Despina','Erinome','Laomedeia',
+      'Pulcherrima','Sulafat','Vindemiatrix','Achird','Algenib','Algieba',
+      'Alnilam','Enceladus','Gacrux','Iapetus','Rasalgethi','Sadachbia',
+      'Sadaltager','Schedar','Umbriel','Zubenelgenubi',
+    ]);
+    const voice = VALID_VOICES.has(voiceId) ? voiceId : 'Aoede';
+    const langCode = languageCode || 'es-ES';
+    const MODEL = process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview';
+
+    try {
+      const { GoogleGenAI, Modality } = await import('@google/genai');
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+
+      const responseChunks: Buffer[] = [];
+      let glSession: any = null;
+      let audioSent = false;
+
+      const sendAudio = (s: any) => {
+        if (audioSent) return;
+        audioSent = true;
+        console.log(`[GL Audition] Sending audio — voice: ${voice}, langCode: ${langCode}`);
+        s.sendRealtimeInput({ audio: { data: audio, mimeType: 'audio/pcm;rate=16000' } });
+      };
+
+      await new Promise<void>((resolve, reject) => {
+        const TIMEOUT_MS = 25000;
+        const timer = setTimeout(() => {
+          try { glSession?.close(); } catch {}
+          if (responseChunks.length > 0) resolve();
+          else reject(new Error('GL audition timed out — no audio response received'));
+        }, TIMEOUT_MS);
+
+        const finish = (err?: Error) => {
+          clearTimeout(timer);
+          try { glSession?.close(); } catch {}
+          err ? reject(err) : resolve();
+        };
+
+        ai.live.connect({
+          model: MODEL,
+          config: {
+            systemInstruction: 'You are a friendly language tutor. The user will say something brief. Respond warmly with one or two sentences.',
+            responseModalities: [Modality.AUDIO],
+            speechConfig: {
+              languageCode: langCode,
+              voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
+            },
+          },
+          callbacks: {
+            onopen: () => { if (glSession) sendAudio(glSession); },
+            onmessage: (msg: any) => {
+              for (const part of msg.serverContent?.modelTurn?.parts ?? []) {
+                if (part.inlineData?.data && part.inlineData?.mimeType?.includes('audio')) {
+                  responseChunks.push(Buffer.from(part.inlineData.data, 'base64'));
+                }
+              }
+              if (msg.serverContent?.turnComplete && responseChunks.length > 0) finish();
+            },
+            onerror: (e: any) => finish(new Error(e?.message ?? String(e))),
+            onclose: () => { if (responseChunks.length > 0) finish(); },
+          },
+        }).then((s: any) => {
+          glSession = s;
+          sendAudio(s); // also covers the case where onopen fired before this .then()
+        }).catch((e: any) => finish(e instanceof Error ? e : new Error(String(e))));
+      });
+
+      // Build WAV: PCM16 LE at 24kHz mono (GL output sample rate)
+      const pcm = Buffer.concat(responseChunks);
+      const SR = 24000, CH = 1, BITS = 16;
+      const byteRate = SR * CH * (BITS / 8);
+      const blockAlign = CH * (BITS / 8);
+      const hdr = Buffer.alloc(44);
+      hdr.write('RIFF', 0);        hdr.writeUInt32LE(36 + pcm.length, 4);
+      hdr.write('WAVE', 8);        hdr.write('fmt ', 12);
+      hdr.writeUInt32LE(16, 16);   hdr.writeUInt16LE(1, 20);
+      hdr.writeUInt16LE(CH, 22);   hdr.writeUInt32LE(SR, 24);
+      hdr.writeUInt32LE(byteRate, 28); hdr.writeUInt16LE(blockAlign, 32);
+      hdr.writeUInt16LE(BITS, 34); hdr.write('data', 36);
+      hdr.writeUInt32LE(pcm.length, 40);
+
+      console.log(`[GL Audition] Returning ${pcm.length} bytes PCM (${(pcm.length / (SR * 2)).toFixed(1)}s audio)`);
+      res.setHeader('Content-Type', 'audio/wav');
+      res.send(Buffer.concat([hdr, pcm]));
+    } catch (error: any) {
+      console.error('[GL Audition] Error:', error.message);
+      if (!res.headersSent) res.status(500).json({ error: error.message || 'GL audition failed' });
+    }
+  });
+
   // Admin: Get available Google TTS voices for assistant tutors
   app.get("/api/admin/google-voices/:language?/:gender?", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {

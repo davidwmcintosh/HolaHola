@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Loader2, Volume2, Save, RotateCcw, Play, Sparkles, Users, ArrowRightLeft, Globe } from "lucide-react";
+import { Loader2, Volume2, Save, RotateCcw, Play, Sparkles, Users, ArrowRightLeft, Globe, Mic } from "lucide-react";
 
 type PersonalityType = 'warm' | 'calm' | 'energetic' | 'professional';
 
@@ -127,6 +127,12 @@ export function VoiceLabPanel({
   const { toast } = useToast();
   const [isAuditioning, setIsAuditioning] = useState(false);
   const [audioElement] = useState(() => new Audio());
+
+  // GL Live audition state
+  type GlPhase = 'idle' | 'recording' | 'waiting' | 'playing';
+  const [glPhase, setGlPhase] = useState<GlPhase>('idle');
+  const [glCountdown, setGlCountdown] = useState(3);
+  const glCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   // Local state for sliders (initialized from current voice or override)
   const [speakingRate, setSpeakingRate] = useState(0.9);
@@ -431,6 +437,95 @@ export function VoiceLabPanel({
         variant: "destructive",
       });
       setIsAuditioning(false);
+    }
+  };
+
+  // GL Live audition: record 3 s of mic audio → send to real GL 3.1 session → play WAV response
+  const handleGlAudition = async () => {
+    if (!currentVoice || glPhase !== 'idle') return;
+
+    const voiceId = selectedVoiceId || currentVoice.voiceId;
+    const langCode = selectedAccent || languageAccents[0]?.code || 'es-ES';
+
+    try {
+      // 1. Request microphone
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1 } });
+
+      // 2. Record 3 s at 16 kHz using ScriptProcessor (raw PCM)
+      const RECORD_MS = 3000;
+      setGlPhase('recording');
+      setGlCountdown(3);
+      glCountdownRef.current = setInterval(() => {
+        setGlCountdown(c => Math.max(0, c - 1));
+      }, 1000);
+
+      const audioCtx = new AudioContext({ sampleRate: 16000 });
+      const source = audioCtx.createMediaStreamSource(stream);
+      const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+      const buffers: Float32Array[] = [];
+      processor.onaudioprocess = (e) => {
+        buffers.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+      };
+      source.connect(processor);
+      processor.connect(audioCtx.destination);
+
+      await new Promise(resolve => setTimeout(resolve, RECORD_MS));
+
+      processor.disconnect();
+      source.disconnect();
+      stream.getTracks().forEach(t => t.stop());
+      await audioCtx.close();
+      if (glCountdownRef.current) clearInterval(glCountdownRef.current);
+
+      // 3. Encode Float32 → Int16 PCM → base64
+      const totalLen = buffers.reduce((n, b) => n + b.length, 0);
+      const pcm16 = new Int16Array(totalLen);
+      let offset = 0;
+      for (const buf of buffers) {
+        for (let i = 0; i < buf.length; i++) {
+          const s = Math.max(-1, Math.min(1, buf[i]));
+          pcm16[offset++] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+        }
+      }
+      const bytes = new Uint8Array(pcm16.buffer);
+      let binary = '';
+      const CHUNK = 8192;
+      for (let i = 0; i < bytes.length; i += CHUNK) {
+        binary += String.fromCharCode(...(bytes.subarray(i, i + CHUNK) as any));
+      }
+      const base64Audio = btoa(binary);
+
+      // 4. Send to server → real GL 3.1 session
+      setGlPhase('waiting');
+      const res = await fetch('/api/admin/gl-audition', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ audio: base64Audio, languageCode: langCode, voiceId }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'GL audition failed');
+      }
+
+      // 5. Play the WAV response
+      setGlPhase('playing');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      audioElement.src = url;
+      audioElement.onended = () => {
+        URL.revokeObjectURL(url);
+        setGlPhase('idle');
+      };
+      await audioElement.play();
+    } catch (error: any) {
+      if (glCountdownRef.current) clearInterval(glCountdownRef.current);
+      setGlPhase('idle');
+      toast({
+        title: "GL Audition failed",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -786,7 +881,7 @@ export function VoiceLabPanel({
                 variant="outline"
                 className="w-full"
                 onClick={handleAudition}
-                disabled={isAuditioning}
+                disabled={isAuditioning || glPhase !== 'idle'}
                 data-testid="button-voice-lab-audition"
               >
                 {isAuditioning ? (
@@ -799,6 +894,33 @@ export function VoiceLabPanel({
                   : 'Audition'
                 }
               </Button>
+
+              {/* GL Live Audition Button — only for Gemini Live voices */}
+              {isGeminiLive && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleGlAudition}
+                  disabled={glPhase !== 'idle' || isAuditioning}
+                  data-testid="button-voice-lab-gl-audition"
+                >
+                  {glPhase === 'recording' ? (
+                    <Mic className="h-4 w-4 mr-2 text-red-500 animate-pulse" />
+                  ) : glPhase === 'waiting' || glPhase === 'playing' ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Mic className="h-4 w-4 mr-2" />
+                  )}
+                  {glPhase === 'recording'
+                    ? `Recording… ${glCountdown}s`
+                    : glPhase === 'waiting'
+                    ? 'Waiting for GL response…'
+                    : glPhase === 'playing'
+                    ? 'Playing GL response…'
+                    : 'GL Audition (live mic)'
+                  }
+                </Button>
+              )}
 
               {/* Apply Button - Session Override */}
               <Button
