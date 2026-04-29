@@ -1094,7 +1094,13 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
         
         if (session) {
           const audioBuffer = Buffer.isBuffer(data) ? data : Buffer.from(data as string);
-          
+
+          // GL path: binary blobs are treated the same as stream_audio_chunk — relay to Live session.
+          if (geminiLiveSession) {
+            geminiLiveSession.sendAudioChunk(audioBuffer);
+            return;
+          }
+
           // SPECULATIVE PTT BYPASS: If we have a pending speculative transcript,
           // skip the expensive blob STT and go straight to AI generation
           if (pendingSpeculativeTranscript && pendingSpeculativeWordCount >= SPECULATIVE_TRANSCRIPT_MIN_WORDS) {
@@ -2563,8 +2569,19 @@ ${buildNativeFunctionCallingSection()}`;
             // In streaming PTT mode, there's no audio_data blob - we already have the transcript
             // BUGFIX: Use actual final word count, not stale interim word count
             const finalWordCount = finalTranscript.split(/\s+/).filter((w: string) => w.length > 0).length;
-            
-            if (finalTranscript && finalWordCount >= SPECULATIVE_TRANSCRIPT_MIN_WORDS) {
+
+            if (geminiLiveSession) {
+              // GL path: the streaming audio was already delivered to GL via sendAudioChunk().
+              // GL's own VAD drives the response; if we also have a transcript, send it as a
+              // text turn for reliability. Do NOT set speculativeAiAccepted — the audio_data
+              // handler may still have a transcript to contribute via sendTextTurn.
+              if (finalTranscript && finalWordCount >= 1) {
+                console.log(`[GeminiLive PTT] Routing transcript via text turn (${finalWordCount} words): "${finalTranscript.slice(0, 80)}"`);
+                geminiLiveSession.sendTextTurn(finalTranscript);
+              } else {
+                console.log('[GeminiLive PTT] No transcript — GL VAD will handle response from streamed audio');
+              }
+            } else if (finalTranscript && finalWordCount >= SPECULATIVE_TRANSCRIPT_MIN_WORDS) {
               console.log(`[SpeculativePTT] No speculative AI - triggering directly with transcript (${finalWordCount} words)`);
               
               // CRITICAL: Set speculativeAiAccepted so audio_data handler knows to skip
