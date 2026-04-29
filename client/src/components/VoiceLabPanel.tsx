@@ -883,29 +883,31 @@ export function VoiceLabPanel({
 
             {/* Action Buttons */}
             <div className="space-y-3">
-              {/* Audition Button */}
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={handleAudition}
-                disabled={isAuditioning || glPhase !== 'idle'}
-                data-testid="button-voice-lab-audition"
-              >
-                {isAuditioning ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Play className="h-4 w-4 mr-2" />
-                )}
-                {isAuditioning
-                  ? `Playing ${availableVoices.find(v => v.id === (selectedVoiceId || currentVoice?.voiceId))?.name?.split(' —')[0] || (selectedVoiceId || currentVoice?.voiceId)}...`
-                  : 'Audition'
-                }
-              </Button>
+              {/* Regular TTS Audition — hidden for gemini-live cards (TTS proxy gives misleading results) */}
+              {!isGeminiLive && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleAudition}
+                  disabled={isAuditioning || glPhase !== 'idle'}
+                  data-testid="button-voice-lab-audition"
+                >
+                  {isAuditioning ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Play className="h-4 w-4 mr-2" />
+                  )}
+                  {isAuditioning
+                    ? `Playing ${availableVoices.find(v => v.id === (selectedVoiceId || currentVoice?.voiceId))?.name?.split(' —')[0] || (selectedVoiceId || currentVoice?.voiceId)}...`
+                    : 'Audition'
+                  }
+                </Button>
+              )}
 
-              {/* GL Live Audition — available on any tutor voice card, not just gemini-live */}
+              {/* GL Live Audition — available on any tutor voice card */}
               {!isAssistant && (
                 <div className="space-y-2">
-                  {/* Voice picker for GL audition when the current card isn't a GL voice */}
+                  {/* Voice picker only when not already on a gemini-live card */}
                   {!isGeminiLive && geminiLiveVoices.length > 0 && (
                     <div className="space-y-1">
                       <Label className="text-xs text-muted-foreground">GL Voice to audition</Label>
