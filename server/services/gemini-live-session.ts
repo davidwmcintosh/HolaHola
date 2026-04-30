@@ -737,6 +737,44 @@ export class GeminiLiveSession {
       }, 800);
     }
 
+    // ── Interrupted signal (barge-in detected) ───────────────────────────────
+    // GL sends serverContent.interrupted=true when the user starts speaking mid-generation.
+    // Audio delivery stops immediately; no further outputTranscription arrives for this turn
+    // (audio was already in the client's PCM buffer — faster than transcription text).
+    // We close the open audio sub-turn and flush whatever partial transcript we have so
+    // the truncated assistant message is saved cleanly before the next user turn begins.
+    if ((msg.serverContent as any)?.interrupted) {
+      console.log('[GeminiLive] Barge-in detected — flushing partial transcript and sealing audio sub-turn');
+
+      // Seal the current audio sub-turn so the PCM player doesn't wait indefinitely
+      if (this.hadAudioInCurrentSubturn) {
+        this.sendWsMessage(this.session.ws, {
+          type: 'audio_chunk',
+          audio: '',
+          audioFormat: 'pcm_f32le',
+          sampleRate: AUDIO_OUTPUT_SAMPLE_RATE,
+          turnId: this.currentTurnId,
+          sentenceIndex: this.currentSentenceIndex,
+          chunkIndex: this.currentChunkIndex,
+          isLast: true,
+        });
+        this.currentSentenceIndex++;
+        this.currentChunkIndex = 0;
+        this.hadAudioInCurrentSubturn = false;
+      }
+
+      // Flush the partial assistant transcript immediately (don't wait for next turnComplete)
+      if (this.pendingOutputTranscript.trim()) {
+        if (this.transcriptFlushTimer) {
+          clearTimeout(this.transcriptFlushTimer);
+          this.transcriptFlushTimer = null;
+        }
+        this.flushTranscripts().catch(err =>
+          console.warn('[GeminiLive] Barge-in transcript flush error:', err.message)
+        );
+      }
+    }
+
     // ── Tool calls ────────────────────────────────────────────────────────────
     if (msg.toolCall?.functionCalls && msg.toolCall.functionCalls.length > 0) {
       const responses: Array<{ id: string; name: string; response: Record<string, unknown> }> = [];
