@@ -214,17 +214,17 @@ export class GeminiLiveSession {
       config: {
         systemInstruction: effectiveSystemPrompt,
         tools: tools.length > 0 ? [{ functionDeclarations: tools }] : undefined,
-        responseModalities: [Modality.AUDIO],
+        responseModalities: [Modality.AUDIO, Modality.TEXT],
 
         // ── Transcription ─────────────────────────────────────────────────
         // inputAudioTranscription: enables real-time user speech→text so we can
         // display live captions and persist the user's utterance to the DB.
         //
-        // outputAudioTranscription: intentionally OMITTED.
-        // gemini-3.1-flash-live-preview closes with 1008 "Operation is not
-        // implemented" when this field is included in the connect config.
-        // Daniela's transcript is inferred from outputTranscription events
-        // only when the model voluntarily emits them; we do not request it.
+        // TEXT modality (above): gemini-3.1-flash-live-preview will emit part.text
+        // in modelTurn.parts alongside the audio chunks. We accumulate those text
+        // parts into pendingOutputTranscript so the assistant's response is saved to
+        // the DB on generationComplete. This avoids outputAudioTranscription which
+        // caused 1008 "Operation is not implemented" on this model.
         inputAudioTranscription: {},
 
         speechConfig: {
@@ -617,9 +617,12 @@ export class GeminiLiveSession {
           });
         }
 
-        // Model text output (transcription / subtitles)
+        // Model text output — emitted when TEXT is included in responseModalities.
+        // Accumulate into pendingOutputTranscript so the assistant's full reply is
+        // persisted to the DB on generationComplete / turnComplete flush.
         if (part.text) {
           textParts++;
+          this.pendingOutputTranscript += part.text;
           this.sendWsMessage(this.session.ws, {
             type: 'response_text',
             text: part.text,
@@ -735,6 +738,48 @@ export class GeminiLiveSession {
           console.warn('[GeminiLive] Transcript flush error:', err.message)
         );
       }, 800);
+    }
+
+    // ── Generation complete (GL uses this instead of turnComplete) ───────────
+    // gemini-3.1-flash-live-preview sends serverContent.generationComplete rather than
+    // turnComplete to signal the end of a full response. Without this handler the
+    // 800 ms debounce flush timer inside the turnComplete block never fires, so
+    // assistant messages are never persisted to the DB and voice transcripts are lost.
+    //
+    // When generationComplete arrives we:
+    //  1. Seal the open audio sub-turn (send isLast:true) so the PCM player can start rendering.
+    //  2. Cancel any pending debounce timer from an earlier turnComplete.
+    //  3. Flush transcripts immediately — generationComplete is a definitive end-of-response
+    //     signal, so there is no value in waiting for more sub-turns.
+    if ((msg.serverContent as any)?.generationComplete) {
+      console.log('[GeminiLive] generationComplete received — sealing audio sub-turn and flushing transcripts');
+
+      // Seal current audio sub-turn
+      if (this.hadAudioInCurrentSubturn) {
+        this.sendWsMessage(this.session.ws, {
+          type: 'audio_chunk',
+          audio: '',
+          audioFormat: 'pcm_f32le',
+          sampleRate: AUDIO_OUTPUT_SAMPLE_RATE,
+          turnId: this.currentTurnId,
+          sentenceIndex: this.currentSentenceIndex,
+          chunkIndex: this.currentChunkIndex,
+          isLast: true,
+        });
+        this.currentSentenceIndex++;
+        this.currentChunkIndex = 0;
+        this.hadAudioInCurrentSubturn = false;
+        console.log(`[GeminiLive] generationComplete: audio sub-turn sealed — sentenceIndex now ${this.currentSentenceIndex}`);
+      }
+
+      // Cancel any pending debounce and flush immediately
+      if (this.transcriptFlushTimer) {
+        clearTimeout(this.transcriptFlushTimer);
+        this.transcriptFlushTimer = null;
+      }
+      this.flushTranscripts().catch(err =>
+        console.warn('[GeminiLive] generationComplete flush error:', err.message)
+      );
     }
 
     // ── Interrupted signal (barge-in detected) ───────────────────────────────
