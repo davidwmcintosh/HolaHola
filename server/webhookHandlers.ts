@@ -1,6 +1,7 @@
 import { StripeSync } from 'stripe-replit-sync';
 import Stripe from 'stripe';
 import { getStripeSecretKey, getStripeWebhookSecret } from './stripeClient';
+import { reportWebhookFulfillmentFailure, reportPaymentFailed } from './services/sofia-billing-monitor';
 
 let stripeSync: StripeSync | null = null;
 let stripeClient: Stripe | null = null;
@@ -92,7 +93,6 @@ export class WebhookHandlers {
             } else {
               console.error(`[Stripe] Webhook fulfillment failed for session ${session.id}: ${result.error}`);
               // File a Sofia billing-fault report so her pattern detector catches repeated failures
-              const { reportWebhookFulfillmentFailure } = await import('./services/sofia-billing-monitor');
               reportWebhookFulfillmentFailure({
                 sessionId: session.id,
                 userId: session.metadata?.userId,
@@ -126,6 +126,13 @@ export class WebhookHandlers {
               await storage.updateUserStripeInfo(user.id, { subscriptionStatus: 'past_due' });
               console.log(`[Stripe] Marked user ${user.id} as past_due after payment failure`);
             }
+            // Notify Sofia — a cluster of payment failures signals a processor outage or expired-card wave
+            reportPaymentFailed({
+              customerId,
+              userId: user?.id ?? undefined,
+              invoiceId: typeof invoice.id === 'string' ? invoice.id : undefined,
+              attemptCount: invoice.attempt_count ?? undefined,
+            }).catch(() => {});
           }
           break;
         }

@@ -31,6 +31,7 @@ import { NativeFunctionCallHandler } from './native-fc-handlers';
 import type { StreamingSession } from './streaming-session-types';
 import { lookupLegacyType, buildFunctionContinuationResponse } from './daniela-function-registry';
 import type { ExtractedFunctionCall } from './gemini-function-declarations';
+import { reportGlToolCallFailure } from './sofia-billing-monitor';
 
 const GEMINI_LIVE_MODEL = process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview';
 const AUDIO_OUTPUT_SAMPLE_RATE = 24000;
@@ -919,8 +920,16 @@ export class GeminiLiveSession {
             console.log(`[GeminiLive] Tool ${fcName}: returning ${text.length} chars of result data`);
           }
         } catch (err) {
+          const errMsg = (err as Error).message || String(err);
           console.error(`[GeminiLive] Tool call failed (${fcName}):`, err);
-          toolResponsePayload = { result: `Tool call failed: ${(err as Error).message}` };
+          toolResponsePayload = { result: `Tool call failed: ${errMsg}` };
+          // File a Sofia report — clusters of the same tool failing reveal systemic bugs
+          reportGlToolCallFailure({
+            toolName: fcName,
+            sessionId: this.session.id,
+            userId: this.session.userId,
+            error: errMsg,
+          }).catch(() => {});
         }
 
         responses.push({

@@ -17,15 +17,20 @@ export const SOFIA_HEALTH_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   },
   {
     name: "get_recent_pipeline_events",
-    description: "Query raw voice pipeline diagnostic events. Use this to investigate which specific error types are occurring and which users/devices are affected.",
+    description: "Query raw voice pipeline events — both client-side diagnostics and server-side failures. Use this to investigate errors, function call failures, and latency spikes.",
     parametersJsonSchema: {
       type: "object",
       properties: {
         minutes: { type: "number", description: "How many minutes back to look (default 60, max 360)" },
+        source: {
+          type: "string",
+          enum: ["client", "server", "all"],
+          description: "Which event source to query. 'client' = client_diag_* events (device/browser diagnostics). 'server' = server-side events like silent_function_failure, gl_turn_latency, gl_tool_failure. 'all' = both. Default: 'all'.",
+        },
         event_types: {
           type: "array",
           items: { type: "string" },
-          description: "Filter by specific event types: lockout_watchdog_8s, failsafe_tier1_20s, failsafe_tier2_45s, greeting_silence_15s, error, tts_error, mismatch_recovery",
+          description: "Optional: filter by specific event type substrings. Client examples: lockout_watchdog_8s, failsafe_tier1_20s, error, tts_error. Server examples: silent_function_failure, gl_turn_latency, gl_tool_failure.",
         },
       },
     },
@@ -54,7 +59,7 @@ export const SOFIA_HEALTH_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
     parametersJsonSchema: {
       type: "object",
       properties: {
-        older_than_hours: { type: "number", description: "Only cleanup sessions older than this many hours (minimum 2)" },
+        older_than_hours: { type: "number", description: "Only cleanup sessions older than this many hours (minimum 0.5 = 30 minutes, which matches the zombie auto-cleanup threshold)" },
       },
       required: ["older_than_hours"],
     },
@@ -271,29 +276,49 @@ export async function executeSofiaTool(
     case "get_recent_pipeline_events": {
       const minutes = Math.min(args.minutes || 60, 360);
       const since = new Date(Date.now() - minutes * 60 * 1000);
-      let typeFilter = sql`1=1`;
-      if (args.event_types?.length > 0) {
-        const prefixed = args.event_types.map((t: string) => `client_diag_${t}`);
-        typeFilter = sql`event_type = ANY(${prefixed})`;
+      const source: string = args.source || 'all';
+
+      // Build source filter
+      let sourceFilter: string;
+      if (source === 'client') {
+        sourceFilter = `event_type LIKE 'client_diag_%'`;
+      } else if (source === 'server') {
+        sourceFilter = `event_type NOT LIKE 'client_diag_%'`;
+      } else {
+        sourceFilter = `1=1`;
       }
-      const rows = await sharedDb.execute(sql`
+
+      // Build optional event_type substring filter
+      let typeClause = '';
+      if (args.event_types?.length > 0) {
+        const conditions = (args.event_types as string[])
+          .map(t => `event_type LIKE '%${t.replace(/'/g, "''")}%'`)
+          .join(' OR ');
+        typeClause = `AND (${conditions})`;
+      }
+
+      const rows = await sharedDb.execute(sql.raw(`
         SELECT 
           event_type,
           user_id,
-          event_data->'device'->>'screenWidth' as screen_width,
-          event_data->'device'->>'browser' as browser,
-          event_data->>'triggerType' as trigger_type,
+          event_data,
           created_at
         FROM voice_pipeline_events
-        WHERE event_type LIKE 'client_diag_%'
-          AND created_at >= ${since}
-          AND ${typeFilter}
+        WHERE ${sourceFilter}
+          AND created_at >= '${since.toISOString()}'
+          ${typeClause}
         ORDER BY created_at DESC
         LIMIT 50
-      `);
+      `));
       const summary = {
         totalEvents: rows.rows.length,
-        events: rows.rows,
+        source,
+        events: rows.rows.map((r: any) => ({
+          eventType: r.event_type,
+          userId: r.user_id,
+          data: typeof r.event_data === 'string' ? JSON.parse(r.event_data) : r.event_data,
+          createdAt: r.created_at,
+        })),
       };
       return { success: true, data: summary };
     }
@@ -327,7 +352,7 @@ export async function executeSofiaTool(
       if (checkCooldown('stale_session_cleanup')) {
         return { success: false, data: { reason: "Cooldown active — stale session cleanup was already performed within the last 30 minutes" } };
       }
-      const hours = Math.max(args.older_than_hours || 2, 2);
+      const hours = Math.max(args.older_than_hours || 0.5, 0.5);
       const threshold = new Date(Date.now() - hours * 60 * 60 * 1000);
       const result = await sharedDb.execute(sql`
         UPDATE voice_sessions 

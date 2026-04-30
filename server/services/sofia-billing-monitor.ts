@@ -3,11 +3,13 @@
  *
  * Files server-originated issue reports for billing-integrity events so Sofia's
  * pattern-detection worker can spot repeating failures without waiting for user
- * support tickets.  Three event types are covered:
+ * support tickets.  Five event types are covered:
  *
- *   billing_fault:webhook_failed     — Stripe webhook couldn't fulfill a purchase
- *   runtime_fault:concurrent_session — A user was blocked by the concurrent-session guard
- *   billing_fault:credit_exhausted   — A user ran out of credits mid-session
+ *   billing_fault:webhook_failed      — Stripe webhook couldn't fulfill a purchase
+ *   billing_fault:payment_failed      — Stripe invoice.payment_failed (card declined etc.)
+ *   runtime_fault:concurrent_session  — A user was blocked by the concurrent-session guard
+ *   billing_fault:credit_exhausted    — A user ran out of credits mid-session
+ *   runtime_fault:gl_tool_failure     — Gemini Live tool call threw an unhandled error
  *
  * Each call is fire-and-forget (errors are logged, never thrown) so it never
  * interferes with the hot path.
@@ -141,5 +143,52 @@ export async function reportCreditExhausted(opts: {
       `. Remaining: ${remainingSeconds}s.`,
     { userId, sessionId, remainingSeconds },
     `credit_exhausted:${userId}`,
+  );
+}
+
+/**
+ * Called when Stripe fires invoice.payment_failed for a known user.
+ * A cluster here may indicate a card-processor outage or an expired-card wave.
+ * Deduped per Stripe customer ID per 10 min to avoid spam on retry storms.
+ */
+export async function reportPaymentFailed(opts: {
+  customerId: string;
+  userId?: string | number;
+  invoiceId?: string;
+  attemptCount?: number;
+}): Promise<void> {
+  const { customerId, userId, invoiceId, attemptCount } = opts;
+  await fileSofiaReport(
+    'billing_fault:payment_failed',
+    `Stripe payment failed for customer ${customerId}` +
+      (userId ? ` (userId: ${userId})` : '') +
+      (invoiceId ? `, invoice ${invoiceId}` : '') +
+      (attemptCount ? `, attempt #${attemptCount}` : '') +
+      `. User marked past_due.`,
+    { customerId, userId, invoiceId, attemptCount },
+    `payment_failed:${customerId}`,
+  );
+}
+
+/**
+ * Called when a Gemini Live tool call throws an unhandled error.
+ * Clustering here reveals systemic tool-call bugs that the model can't recover from.
+ * Deduped per toolName per 10 min so noisy tools don't flood the table.
+ */
+export async function reportGlToolCallFailure(opts: {
+  toolName: string;
+  sessionId?: string;
+  userId?: string | number;
+  error: string;
+}): Promise<void> {
+  const { toolName, sessionId, userId, error } = opts;
+  await fileSofiaReport(
+    'runtime_fault:gl_tool_failure',
+    `Gemini Live tool call failed: ${toolName}` +
+      (userId ? ` (userId: ${userId})` : '') +
+      (sessionId ? `, session ${sessionId.substring(0, 8)}…` : '') +
+      `.\nError: ${error.substring(0, 300)}`,
+    { toolName, sessionId, userId, error: error.substring(0, 500) },
+    `gl_tool_failure:${toolName}`,
   );
 }
