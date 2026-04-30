@@ -1176,6 +1176,14 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
                 if (ageSeconds > 90) {
                   // Real concurrent session — block this new attempt
                   console.warn(`[ConcurrentGuard] User ${userId} already has active session ${existingActiveSession.id.substring(0, 8)} (age ${Math.round(ageSeconds)}s) — rejecting new connection`);
+                  // File a Sofia report (fire-and-forget) so repeated blocks surface as a pattern
+                  import('./services/sofia-billing-monitor').then(({ reportConcurrentSessionBlocked }) => {
+                    reportConcurrentSessionBlocked({
+                      userId: String(userId),
+                      existingSessionId: existingActiveSession.id,
+                      ageSeconds,
+                    }).catch(() => {});
+                  }).catch(() => {});
                   try {
                     ws.send(JSON.stringify({
                       type: 'session_conflict',
@@ -2067,6 +2075,17 @@ If asked about something covered above, answer directly from this context. If yo
                       });
                       try { ws.send(payload); } catch (_) {}
                       console.log(`[CreditWarning] Emitted '${level}' warning to user ${userId} (${balance.remainingSeconds}s remaining)`);
+
+                      // File a Sofia report when credits are fully exhausted mid-session
+                      if (level === 'exhausted') {
+                        import('./services/sofia-billing-monitor').then(({ reportCreditExhausted }) => {
+                          reportCreditExhausted({
+                            userId: String(userId),
+                            sessionId: usageSession?.id,
+                            remainingSeconds: balance.remainingSeconds,
+                          }).catch(() => {});
+                        }).catch(() => {});
+                      }
                     }
                   } catch (balErr: any) {
                     console.warn('[CreditWarning] Balance check failed:', balErr.message);

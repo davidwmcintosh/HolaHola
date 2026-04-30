@@ -436,6 +436,7 @@ class SupportPersonaService {
         sql`(
           ${sofiaIssueReports.issueType} LIKE 'runtime_fault:%' 
           OR ${sofiaIssueReports.issueType} LIKE 'voice_fault:%'
+          OR ${sofiaIssueReports.issueType} LIKE 'billing_fault:%'
           OR ${sofiaIssueReports.issueType} IN ('no_audio', 'connection', 'double_audio', 'latency')
         )`,
       ))

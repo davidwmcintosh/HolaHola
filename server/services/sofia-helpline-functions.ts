@@ -241,7 +241,7 @@ export async function executeSofiaHelplineTool(
         .from(sofiaIssueReports)
         .where(and(
           sql`${sofiaIssueReports.createdAt} > ${oneDayAgo}`,
-          sql`(${sofiaIssueReports.issueType} LIKE 'runtime_fault:%' OR ${sofiaIssueReports.issueType} LIKE 'voice_fault:%')`,
+          sql`(${sofiaIssueReports.issueType} LIKE 'runtime_fault:%' OR ${sofiaIssueReports.issueType} LIKE 'voice_fault:%' OR ${sofiaIssueReports.issueType} LIKE 'billing_fault:%')`,
         ))
         .orderBy(desc(sofiaIssueReports.createdAt))
         .limit(limit);

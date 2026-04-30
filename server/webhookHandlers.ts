@@ -91,6 +91,13 @@ export class WebhookHandlers {
               console.log(`[Stripe] Webhook: session ${session.id} already fulfilled, skipping`);
             } else {
               console.error(`[Stripe] Webhook fulfillment failed for session ${session.id}: ${result.error}`);
+              // File a Sofia billing-fault report so her pattern detector catches repeated failures
+              const { reportWebhookFulfillmentFailure } = await import('./services/sofia-billing-monitor');
+              reportWebhookFulfillmentFailure({
+                sessionId: session.id,
+                userId: session.metadata?.userId,
+                error: result.error || 'unknown fulfillment error',
+              }).catch(() => {});
             }
           }
           break;
