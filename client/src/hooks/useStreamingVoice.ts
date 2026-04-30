@@ -114,6 +114,8 @@ export interface StreamingSessionConfig {
   onSceneZoneAdvanced?: (data: { zoneIndex: number; zoneName: string | null; imageUrl: string | null; isChain?: boolean; nextScenarioSlug?: string | null; isComplete?: boolean }) => void;
   /** Called when server confirms the incognito toggle (authoritative state source) */
   onIncognitoChanged?: (enabled: boolean) => void;
+  /** Called when server pushes a mid-session credit balance warning (every 2 min periodic check) */
+  onCreditWarning?: (data: { level: 'low' | 'critical' | 'exhausted'; remainingSeconds: number; percentRemaining: number }) => void;
 }
 
 /**
@@ -1323,7 +1325,26 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     setGlobalPlaybackState('idle');
     playerRef.current?.stop?.();
   }, []);
-  
+
+  const handleCreditWarning = useCallback(({ level, remainingSeconds, percentRemaining }: {
+    level: 'low' | 'critical' | 'exhausted';
+    remainingSeconds: number;
+    percentRemaining: number;
+  }) => {
+    console.warn(`[StreamingVoice] Credit warning: ${level} (${remainingSeconds}s / ${percentRemaining.toFixed(1)}% remaining)`);
+    if (sessionConfigRef.current?.onCreditWarning) {
+      sessionConfigRef.current.onCreditWarning({ level, remainingSeconds, percentRemaining });
+    }
+  }, []);
+
+  const handleSessionConflict = useCallback(({ message }: { message: string; existingSessionId?: string }) => {
+    console.warn('[StreamingVoice] Session conflict:', message);
+    setError(message || 'A session is already active in another tab. Please close it and try again.');
+    setIsProcessing(false);
+    setGlobalPlaybackState('idle');
+    playerRef.current?.stop?.();
+  }, []);
+
   /**
    * Handle whiteboard updates from server (e.g., enriched WORD_MAP items)
    */
@@ -1707,6 +1728,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('characterChange', handleCharacterChange);
       clientRef.current.on('incognitoChanged', handleIncognitoChanged);
       clientRef.current.on('idleTimeout', handleIdleTimeout);
+      clientRef.current.on('creditWarning', handleCreditWarning);
+      clientRef.current.on('sessionConflict', handleSessionConflict);
       
       // Keep screen alive on mobile during voice session
       acquireWakeLock();
@@ -1770,7 +1793,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleIdleTimeout, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleTranscript, handleDanielaTranscript, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded, handleZoneAdvanced, handlePropUpdate, handleImmersiveMode, handleCharacterChange, handleIncognitoChanged]);
+  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleIdleTimeout, handleCreditWarning, handleSessionConflict, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleTranscript, handleDanielaTranscript, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded, handleZoneAdvanced, handlePropUpdate, handleImmersiveMode, handleCharacterChange, handleIncognitoChanged]);
   
   /**
    * Disconnect from streaming voice service
@@ -1818,6 +1841,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('characterChange', handleCharacterChange);
       clientRef.current.off('incognitoChanged', handleIncognitoChanged);
       clientRef.current.off('idleTimeout', handleIdleTimeout);
+      clientRef.current.off('creditWarning', handleCreditWarning);
+      clientRef.current.off('sessionConflict', handleSessionConflict);
       clientRef.current.disconnect();
       clientRef.current = null;
     }

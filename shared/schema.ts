@@ -150,6 +150,8 @@ export const users = pgTable("users", {
   monthlyMessageLimit: integer("monthly_message_limit").default(20), // 20 for free, unlimited for paid
   lastMessageResetDate: timestamp("last_message_reset_date").defaultNow(),
   totalConversations: integer("total_conversations").default(0),
+  // Legal acceptance
+  tosAcceptedAt: timestamp("tos_accepted_at"), // When user accepted Terms of Service (null = not yet accepted)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

@@ -1152,6 +1152,25 @@ export class StreamingVoiceClient {
           this.emit('idleTimeout', { idleMinutes: message.idleMinutes ?? 5 });
           this.intentionalDisconnect = true;
           break;
+
+        case 'credit_warning':
+          // Mid-session credit balance warning emitted by periodic server sync
+          this.emit('creditWarning', {
+            level: message.level as 'low' | 'critical' | 'exhausted',
+            remainingSeconds: message.remainingSeconds as number,
+            percentRemaining: message.percentRemaining as number,
+          });
+          break;
+
+        case 'session_conflict':
+          // Server rejected this connection because user already has an active session elsewhere
+          console.warn('[WS CLIENT] Session conflict — already active in another tab/device');
+          this.emit('sessionConflict', {
+            message: message.message as string,
+            existingSessionId: message.existingSessionId as string | undefined,
+          });
+          this.intentionalDisconnect = true;
+          break;
           
         case 'feedback':
           // Pedagogical feedback (one-word rule, pronunciation tips, etc.)

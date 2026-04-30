@@ -24,6 +24,7 @@ import { SystemAlertBanner } from "@/components/SystemAlertBanner";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PendingJoinCodeHandler } from "@/components/PendingJoinCodeHandler";
 import { BUILD_TIME } from "./buildtime";
+import { TermsGate } from "@/components/TermsGate";
 
 function lazyWithRetry(importFn: () => Promise<any>, retries = 3, delay = 1500) {
   return lazy(() => {
@@ -203,6 +204,9 @@ function Router() {
   // For authenticated users, always define all routes
   // ReviewHub is the main landing page (Language Hub)
   return (
+    <>
+    {/* ToS gate — shown as overlay when user hasn't accepted yet */}
+    {user && !user.tosAcceptedAt && <TermsGate>{null}</TermsGate>}
     <PageWrapper>
       <ScrollToTop />
       <Switch>
@@ -278,6 +282,7 @@ function Router() {
         <Route component={NotFound} />
       </Switch>
     </PageWrapper>
+    </>
   );
 }
 

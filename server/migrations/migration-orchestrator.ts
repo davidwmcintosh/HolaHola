@@ -378,6 +378,22 @@ const MIGRATIONS: Migration[] = [
       console.log(`[MIGRATIONS] 004: Added ${drillItemsAdded} new drill items for "see you soon" words across languages`);
     },
   },
+  {
+    version: '005',
+    name: 'beta-launch-columns',
+    up: async () => {
+      // Add tos_accepted_at to users table (Terms of Service acceptance tracking)
+      try {
+        await db.execute(sql`
+          ALTER TABLE users ADD COLUMN IF NOT EXISTS tos_accepted_at TIMESTAMP
+        `);
+        console.log('[MIGRATIONS] 005: Added tos_accepted_at column to users table');
+      } catch (err: any) {
+        if (!err.message?.includes('already exists')) throw err;
+        console.log('[MIGRATIONS] 005: tos_accepted_at column already exists, skipping');
+      }
+    },
+  },
 ];
 
 export class MigrationOrchestrator {

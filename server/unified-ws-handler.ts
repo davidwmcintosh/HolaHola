@@ -1163,7 +1163,38 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
           const tutorGender = config.tutorGender || 'female';
           const rawHonestyMode = config.rawHonestyMode || false;
           console.log(`[Streaming Voice] Processing start_session (Socket.io)${isReconnectSO ? ' (RECONNECT — will skip greeting)' : ''}`);
-          
+
+          // ── Concurrent session guard ────────────────────────────────────────
+          // Prevent a student from opening two simultaneous billing sessions.
+          // Grace: reconnect requests and very-recent sessions (< 90 s) are allowed through
+          // so that page reloads don't get blocked.
+          if (!isReconnectSO) {
+            try {
+              const existingActiveSession = await usageService.getActiveSession(String(userId));
+              if (existingActiveSession) {
+                const ageSeconds = (Date.now() - new Date(existingActiveSession.startedAt).getTime()) / 1000;
+                if (ageSeconds > 90) {
+                  // Real concurrent session — block this new attempt
+                  console.warn(`[ConcurrentGuard] User ${userId} already has active session ${existingActiveSession.id.substring(0, 8)} (age ${Math.round(ageSeconds)}s) — rejecting new connection`);
+                  try {
+                    ws.send(JSON.stringify({
+                      type: 'session_conflict',
+                      message: 'You already have an active session open in another tab or device. Please close it before starting a new one.',
+                      existingSessionId: existingActiveSession.id,
+                    }));
+                  } catch (_) {}
+                  ws.close(4409, 'session_conflict');
+                  return;
+                }
+                // Age ≤ 90 s — allow through (likely a reconnect or quick page reload)
+                console.log(`[ConcurrentGuard] User ${userId} has recent session (age ${Math.round(ageSeconds)}s) — allowing through`);
+              }
+            } catch (guardErr: any) {
+              // Don't block the session on guard errors — log and continue
+              console.warn('[ConcurrentGuard] Guard check failed (allowing through):', guardErr.message);
+            }
+          }
+
           try {
             const initStart = Date.now();
             const SESSION_INIT_TIMEOUT = 3000; // 3s timeout for each DB operation
@@ -2002,6 +2033,7 @@ If asked about something covered above, answer directly from this context. If yo
                 // ── Periodic GL metrics sync ────────────────────────────────────────
                 // Write accumulated GL metrics to DB every 2 minutes.
                 // Ensures zombie cleanup picks up real exchange/speaking data.
+                let lastEmittedWarningLevel: string = 'none';
                 glMetricsSyncHandle = setInterval(async () => {
                   if (!geminiLiveSession || !usageSession) return;
                   const glExchanges = geminiLiveSession.getCompletedExchangeCount();
@@ -2017,6 +2049,27 @@ If asked about something covered above, answer directly from this context. If yo
                       ...(glTokens.inputTokens > 0 ? { llmInputTokens: glTokens.inputTokens } : {}),
                       ...(glTokens.outputTokens > 0 ? { llmOutputTokens: glTokens.outputTokens } : {}),
                     }).catch((err: Error) => console.warn('[GeminiLive] Periodic metrics sync failed:', err.message));
+                  }
+
+                  // ── Mid-session credit warning ──────────────────────────────
+                  // After each periodic sync, check the user's credit balance and
+                  // push a warning event to the client if the level has changed.
+                  try {
+                    const balance = await usageService.getBalanceWithBypass(String(userId));
+                    const level = balance.warningLevel as string;
+                    if (level !== 'none' && level !== lastEmittedWarningLevel) {
+                      lastEmittedWarningLevel = level;
+                      const payload = JSON.stringify({
+                        type: 'credit_warning',
+                        level,                                            // 'low' | 'critical' | 'exhausted'
+                        remainingSeconds: balance.remainingSeconds,
+                        percentRemaining: balance.percentRemaining,
+                      });
+                      try { ws.send(payload); } catch (_) {}
+                      console.log(`[CreditWarning] Emitted '${level}' warning to user ${userId} (${balance.remainingSeconds}s remaining)`);
+                    }
+                  } catch (balErr: any) {
+                    console.warn('[CreditWarning] Balance check failed:', balErr.message);
                   }
                 }, GL_METRICS_SYNC_INTERVAL_MS);
               } catch (glErr: any) {

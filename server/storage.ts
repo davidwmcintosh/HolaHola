@@ -302,6 +302,8 @@ export interface IStorage {
       redactionRequestedAt?: string;
     };
   }): Promise<User | undefined>;
+  getUserByStripeCustomerId(stripeCustomerId: string): Promise<User | undefined>;
+  acceptTermsOfService(userId: string): Promise<User | undefined>;
   updateUserStripeInfo(userId: string, stripeInfo: {
     stripeCustomerId?: string;
     stripeSubscriptionId?: string;
@@ -1491,6 +1493,19 @@ export class DatabaseStorage implements IStorage {
         ...preferences,
         updatedAt: new Date(),
       })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated;
+  }
+
+  async getUserByStripeCustomerId(stripeCustomerId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.stripeCustomerId, stripeCustomerId)).limit(1);
+    return user;
+  }
+
+  async acceptTermsOfService(userId: string): Promise<User | undefined> {
+    const [updated] = await db.update(users)
+      .set({ tosAcceptedAt: new Date(), updatedAt: new Date() })
       .where(eq(users.id, userId))
       .returning();
     return updated;

@@ -1026,6 +1026,23 @@ export function StreamingVoiceChat({
           onIncognitoChanged: (enabled) => {
             setIsIncognito(enabled);
           },
+          onCreditWarning: ({ level, remainingSeconds }) => {
+            const mins = Math.floor(remainingSeconds / 60);
+            const secs = remainingSeconds % 60;
+            const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+            if (level === 'critical' || level === 'exhausted') {
+              toast({
+                title: 'Credits running low',
+                description: `You have about ${timeStr} of speaking time remaining. Purchase more to keep learning.`,
+                variant: 'destructive',
+              });
+            } else if (level === 'low') {
+              toast({
+                title: 'Credit reminder',
+                description: `You have about ${timeStr} of speaking time remaining.`,
+              });
+            }
+          },
           onVadSpeechStarted: () => {
             // TRUE DUPLEX: Always handle VAD speech events for visual feedback
             // NOTE: We no longer interrupt on VAD alone - echo/feedback can trigger false VAD

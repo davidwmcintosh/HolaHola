@@ -964,6 +964,20 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
   
+  // Terms of Service acceptance — called once when user agrees to ToS before first session
+  app.post('/api/auth/accept-terms', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id || req.session?.userId;
+      if (!userId) return res.status(401).json({ message: 'Not authenticated' });
+      const user = await storage.acceptTermsOfService(userId);
+      if (!user) return res.status(404).json({ message: 'User not found' });
+      res.json({ success: true, tosAcceptedAt: user.tosAcceptedAt });
+    } catch (err: any) {
+      console.error('[ToS] Failed to record acceptance:', err.message);
+      res.status(500).json({ message: 'Failed to record acceptance' });
+    }
+  });
+
   // Request password reset
   app.post('/api/auth/password/request-reset', authLimiter, async (req: any, res) => {
     try {
