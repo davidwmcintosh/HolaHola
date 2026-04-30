@@ -1567,8 +1567,23 @@ ${buildNativeFunctionCallingSection()}`;
               // This is critical for GeminiLive (audio-only, no per-turn injection) so she can reference
               // any chapter by number and know lesson IDs for show_sentence_table calls.
               if (courseToc) {
-                systemPrompt += `\n\n═══════════════════════════════════════════════════════════════════\n🗺️ COURSE MAP — Full Chapter & Lesson Reference\n(You carry this so you can reference any chapter or lesson accurately in conversation. Lesson IDs in brackets are for show_sentence_table calls.)\n═══════════════════════════════════════════════════════════════════\n${courseToc}`;
-                const unitCount = (courseToc.match(/^Ch\./gm) || []).length;
+                // Cap the TOC at 5,000 chars — voice sessions don't need every lesson ID;
+                // the full map is available for tool calls. Trim at the last chapter boundary
+                // so the injected slice is always a clean, coherent unit.
+                const TOC_VOICE_CAP = 5_000;
+                let tocForPrompt = courseToc;
+                if (courseToc.length > TOC_VOICE_CAP) {
+                  const candidate = courseToc.slice(0, TOC_VOICE_CAP);
+                  const lastChapter = candidate.lastIndexOf('\nCh.');
+                  tocForPrompt = lastChapter > TOC_VOICE_CAP * 0.5
+                    ? candidate.slice(0, lastChapter)
+                    : candidate;
+                  const keptChapters = (tocForPrompt.match(/^Ch\./gm) || []).length;
+                  const totalChapters = (courseToc.match(/^Ch\./gm) || []).length;
+                  console.log(`[Streaming Voice] Course TOC capped: ${keptChapters}/${totalChapters} chapters kept (${tocForPrompt.length}/${courseToc.length} chars)`);
+                }
+                systemPrompt += `\n\n═══════════════════════════════════════════════════════════════════\n🗺️ COURSE MAP — Full Chapter & Lesson Reference\n(You carry this so you can reference any chapter or lesson accurately in conversation. Lesson IDs in brackets are for show_sentence_table calls.)\n═══════════════════════════════════════════════════════════════════\n${tocForPrompt}`;
+                const unitCount = (tocForPrompt.match(/^Ch\./gm) || []).length;
                 console.log(`[Streaming Voice] ✓ Course TOC injected into system prompt: ${unitCount} chapters`);
               } else {
                 console.log(`[Streaming Voice] No course TOC found for user (no enrollment or no curriculum path)`);
