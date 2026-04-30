@@ -1354,6 +1354,22 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
   }
   
   /**
+   * Trigger an immediate out-of-band monitoring check without waiting for the 5-minute interval.
+   * Call this after filing a high-severity flare report so Sofia acts within seconds, not minutes.
+   * Silently no-ops if another check is already in progress.
+   */
+  triggerImmediateCheck(): void {
+    // Fire-and-forget; use a short debounce so back-to-back flares don't pile on
+    if ((this as any)._immediateCheckDebounce) return;
+    (this as any)._immediateCheckDebounce = setTimeout(() => {
+      (this as any)._immediateCheckDebounce = null;
+      this.runMonitoringCheck().catch(err =>
+        console.warn('[Sofia Monitor] Immediate check error:', err.message),
+      );
+    }, 2000); // 2s debounce — collapses flare storms into a single check
+  }
+
+  /**
    * Run a single monitoring check - detect patterns and emit summary
    */
   private async runMonitoringCheck(): Promise<void> {

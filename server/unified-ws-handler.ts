@@ -1046,6 +1046,11 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
   // so zombie cleanup captures real data even if the session is never cleanly ended
   const GL_METRICS_SYNC_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
   let glMetricsSyncHandle: NodeJS.Timeout | null = null;
+
+  // Tutor no-response watchdog — fires a Sofia flare if Daniela produces no audio
+  // within 90s of GL session start (GL API hang or network issue to Gemini)
+  const GL_TUTOR_RESPONSE_TIMEOUT_MS = 90 * 1000; // 90 seconds
+  let tutorNoResponseWatchdog: NodeJS.Timeout | null = null;
   
   const conversationId = ws.conversationId;
   let pendingVoiceUpdate: 'male' | 'female' | null = null;
@@ -2013,6 +2018,30 @@ If asked about something covered above, answer directly from this context. If yo
                 // into her spoken response in real-time.
                 await geminiLiveSession.start(geminiLiveSystemPrompt, DANIELA_FUNCTION_DECLARATIONS);
                 console.log(`[GeminiLive] Session started with ${DANIELA_FUNCTION_DECLARATIONS.length} tool declarations alongside orchestrator session ${session.id}`);
+
+                // ── Tutor no-response watchdog ───────────────────────────────────────
+                // If Daniela produces no audio within 90s, the GL API may have hung.
+                // Fire a Sofia flare so she can investigate and potentially restart.
+                if (usageSession && userId) {
+                  const capturedSessionId = usageSession.id;
+                  const capturedUserId = userId;
+                  tutorNoResponseWatchdog = setTimeout(() => {
+                    tutorNoResponseWatchdog = null;
+                    if (!geminiLiveSession) return; // session already ended cleanly
+                    const outputChars = geminiLiveSession.getTotalOutputCharacters();
+                    const tutorSpeakingMs = geminiLiveSession.getSpeakingStats().tutorSpeakingMs;
+                    if (outputChars === 0 && tutorSpeakingMs === 0) {
+                      console.warn(`[GeminiLive] Tutor no-response watchdog fired — Daniela has produced no audio in ${GL_TUTOR_RESPONSE_TIMEOUT_MS / 1000}s`);
+                      import('./services/sofia-billing-monitor').then(({ reportTutorNoResponse }) => {
+                        reportTutorNoResponse({
+                          userId: capturedUserId,
+                          sessionId: capturedSessionId,
+                          watchdogSeconds: GL_TUTOR_RESPONSE_TIMEOUT_MS / 1000,
+                        }).catch(() => {});
+                      }).catch(() => {});
+                    }
+                  }, GL_TUTOR_RESPONSE_TIMEOUT_MS);
+                }
 
                 // ── GL idle timeout ─────────────────────────────────────────────────
                 // Start idle timer. Resets whenever client audio arrives.
@@ -3268,12 +3297,19 @@ If asked about something covered above, answer directly from this context. If yo
     }
   });
 
-  ws.on('close', () => {
-    console.log('[Streaming Voice] Socket.io connection closed');
+  ws.on('close', (closeCode: number, closeReason: Buffer) => {
+    console.log(`[Streaming Voice] Socket.io connection closed (code: ${closeCode})`);
 
-    // Clear GL idle timeout and periodic sync timers
+    // Snapshot identifiers before any nulling — needed for the Sofia flare below
+    const disconnectUserId = userId;
+    const disconnectSessionId = usageSession?.id;
+    const disconnectExchangeCount = exchangeCount;
+    const disconnectStudentSpeaking = studentSpeakingSeconds;
+
+    // Clear GL idle timeout, periodic sync, and tutor watchdog timers
     if (glIdleTimeoutHandle) { clearTimeout(glIdleTimeoutHandle); glIdleTimeoutHandle = null; }
     if (glMetricsSyncHandle) { clearInterval(glMetricsSyncHandle); glMetricsSyncHandle = null; }
+    if (tutorNoResponseWatchdog) { clearTimeout(tutorNoResponseWatchdog); tutorNoResponseWatchdog = null; }
     (ws as any).__resetGlIdleTimer = undefined;
 
     // Capture Gemini Live metrics before stopping (stop() resets internal state)
@@ -3383,6 +3419,24 @@ If asked about something covered above, answer directly from this context. If yo
     }
     
     if (session) orchestrator.endSession(session.id);
+
+    // ── Sofia abnormal-disconnect flare ─────────────────────────────────────
+    // Code 1000 = normal close (idle timeout, user left, session_closed message).
+    // Anything else (1001 browser away, 1006 network drop, etc.) with real activity
+    // is worth investigating — file a flare so Sofia can act immediately.
+    const CLEAN_CLOSE_CODES = new Set([1000, 1001]);
+    if (!CLEAN_CLOSE_CODES.has(closeCode) && disconnectUserId &&
+        (disconnectExchangeCount > 0 || disconnectStudentSpeaking > 0)) {
+      import('./services/sofia-billing-monitor').then(({ reportAbnormalDisconnect }) => {
+        reportAbnormalDisconnect({
+          userId: disconnectUserId,
+          sessionId: disconnectSessionId,
+          closeCode,
+          exchangeCount: disconnectExchangeCount,
+          studentSpeakingSeconds: disconnectStudentSpeaking,
+        }).catch(() => {});
+      }).catch(() => {});
+    }
   });
 
   ws.on('error', (error) => {
@@ -3391,6 +3445,7 @@ If asked about something covered above, answer directly from this context. If yo
     // Clear GL idle timeout and periodic sync timers
     if (glIdleTimeoutHandle) { clearTimeout(glIdleTimeoutHandle); glIdleTimeoutHandle = null; }
     if (glMetricsSyncHandle) { clearInterval(glMetricsSyncHandle); glMetricsSyncHandle = null; }
+    if (tutorNoResponseWatchdog) { clearTimeout(tutorNoResponseWatchdog); tutorNoResponseWatchdog = null; }
     (ws as any).__resetGlIdleTimer = undefined;
 
     // Capture Gemini Live metrics before stopping on error

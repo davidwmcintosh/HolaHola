@@ -18,6 +18,7 @@
 import { getUserDb } from '../db';
 import { sofiaIssueReports } from '@shared/schema';
 import { founderCollabService } from './founder-collaboration-service';
+import { supportPersonaService } from './support-persona-service';
 
 const SYSTEM_USER_ID = 'system';
 const environment = () =>
@@ -46,6 +47,7 @@ async function fileSofiaReport(
   description: string,
   diagnosticData: Record<string, unknown>,
   dedupKey: string,
+  opts: { immediateFlare?: boolean } = {},
 ): Promise<void> {
   if (isDuplicate(dedupKey)) return;
 
@@ -63,7 +65,8 @@ async function fileSofiaReport(
       })
       .returning();
 
-    console.log(`[SofiaBillingMonitor] Filed ${issueType} report ${report.id}`);
+    const flareSuffix = opts.immediateFlare ? ' [FLARE]' : '';
+    console.log(`[SofiaBillingMonitor] Filed ${issueType} report ${report.id}${flareSuffix}`);
 
     // Notify Team Room so Sofia sees it in real-time
     founderCollabService
@@ -78,6 +81,11 @@ async function fileSofiaReport(
       .catch((e: Error) =>
         console.warn('[SofiaBillingMonitor] Alert emit failed:', e.message),
       );
+
+    // High-severity flares skip the 5-min wait — trigger Sofia's check immediately
+    if (opts.immediateFlare) {
+      supportPersonaService.triggerImmediateCheck();
+    }
   } catch (err: any) {
     console.error('[SofiaBillingMonitor] Failed to file report:', err.message);
   }
@@ -190,5 +198,53 @@ export async function reportGlToolCallFailure(opts: {
       `.\nError: ${error.substring(0, 300)}`,
     { toolName, sessionId, userId, error: error.substring(0, 500) },
     `gl_tool_failure:${toolName}`,
+  );
+}
+
+/**
+ * FLARE — called when a voice session WS closes abnormally (non-1000 code) AND the
+ * session had real student activity.  This is the "chat connection died" signal.
+ * Triggers an immediate Sofia monitoring check rather than waiting up to 5 minutes.
+ * Deduped per userId per 10 min to suppress reconnect storms.
+ */
+export async function reportAbnormalDisconnect(opts: {
+  userId: string | number;
+  sessionId?: string;
+  closeCode: number;
+  exchangeCount: number;
+  studentSpeakingSeconds: number;
+}): Promise<void> {
+  const { userId, sessionId, closeCode, exchangeCount, studentSpeakingSeconds } = opts;
+  await fileSofiaReport(
+    'runtime_fault:abnormal_disconnect',
+    `Voice session disconnected abnormally (WS code ${closeCode}) for user ${userId}` +
+      (sessionId ? `, session ${sessionId.substring(0, 8)}…` : '') +
+      `. Activity at disconnect: ${exchangeCount} exchanges, ${Math.round(studentSpeakingSeconds)}s student speaking.`,
+    { userId, sessionId, closeCode, exchangeCount, studentSpeakingSeconds },
+    `abnormal_disconnect:${userId}`,
+    { immediateFlare: true },
+  );
+}
+
+/**
+ * FLARE — called when Gemini Live starts but Daniela produces no audio within the
+ * watchdog window (default 90s).  This is the "tutor didn't answer the call" signal.
+ * Triggers an immediate Sofia monitoring check.
+ * Deduped per sessionId so one watchdog fire generates at most one report.
+ */
+export async function reportTutorNoResponse(opts: {
+  userId: string | number;
+  sessionId: string;
+  watchdogSeconds: number;
+}): Promise<void> {
+  const { userId, sessionId, watchdogSeconds } = opts;
+  await fileSofiaReport(
+    'runtime_fault:tutor_no_response',
+    `Gemini Live session started but Daniela produced no audio within ${watchdogSeconds}s` +
+      ` for user ${userId} (session ${sessionId.substring(0, 8)}…).` +
+      ` Possible GL API hang or network issue between server and Gemini.`,
+    { userId, sessionId, watchdogSeconds },
+    `tutor_no_response:${sessionId}`,
+    { immediateFlare: true },
   );
 }
