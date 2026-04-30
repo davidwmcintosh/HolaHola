@@ -1146,6 +1146,12 @@ export class StreamingVoiceClient {
           this.setState('error');
           this.intentionalDisconnect = true;
           break;
+
+        case 'session_idle_timeout':
+          console.warn('[WS CLIENT] Session ended due to inactivity');
+          this.emit('idleTimeout', { idleMinutes: message.idleMinutes ?? 5 });
+          this.intentionalDisconnect = true;
+          break;
           
         case 'feedback':
           // Pedagogical feedback (one-word rule, pronunciation tips, etc.)

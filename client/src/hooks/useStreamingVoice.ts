@@ -1315,6 +1315,14 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }
     setIsSwitchingTutor(false);
   }, []);
+
+  const handleIdleTimeout = useCallback(({ idleMinutes }: { idleMinutes: number }) => {
+    console.warn(`[StreamingVoice] Session ended due to ${idleMinutes} min inactivity`);
+    setError(`Session ended after ${idleMinutes} minutes of inactivity. Tap the button to start a new session.`);
+    setIsProcessing(false);
+    setGlobalPlaybackState('idle');
+    playerRef.current?.stop?.();
+  }, []);
   
   /**
    * Handle whiteboard updates from server (e.g., enriched WORD_MAP items)
@@ -1698,6 +1706,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('immersiveMode', handleImmersiveMode);
       clientRef.current.on('characterChange', handleCharacterChange);
       clientRef.current.on('incognitoChanged', handleIncognitoChanged);
+      clientRef.current.on('idleTimeout', handleIdleTimeout);
       
       // Keep screen alive on mobile during voice session
       acquireWakeLock();
@@ -1761,7 +1770,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleTranscript, handleDanielaTranscript, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded, handleZoneAdvanced, handlePropUpdate, handleImmersiveMode, handleCharacterChange, handleIncognitoChanged]);
+  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleIdleTimeout, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleTranscript, handleDanielaTranscript, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded, handleZoneAdvanced, handlePropUpdate, handleImmersiveMode, handleCharacterChange, handleIncognitoChanged]);
   
   /**
    * Disconnect from streaming voice service
@@ -1808,6 +1817,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('immersiveMode', handleImmersiveMode);
       clientRef.current.off('characterChange', handleCharacterChange);
       clientRef.current.off('incognitoChanged', handleIncognitoChanged);
+      clientRef.current.off('idleTimeout', handleIdleTimeout);
       clientRef.current.disconnect();
       clientRef.current = null;
     }
