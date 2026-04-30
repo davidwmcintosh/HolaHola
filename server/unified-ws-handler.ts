@@ -1380,7 +1380,26 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
                 )
               : Promise.resolve(null);
 
-            const [compassResult, neuralNetworkContext, usageSessionResult, courseToc, studentSnapshot, studentMemoryContext, predictiveContext, expressLaneResult] = await Promise.all([
+            // Identity Memories — who Daniela is: reflections on her purpose, teaching philosophy,
+            // and growth. Injected into every session so she simply knows herself without searching.
+            const identityMemoriesPromise = (!isSubjectSessionEarly)
+              ? withTimeout(
+                  founderCollabService.getIdentityMemories({ limit: 4, daysBack: 30 }),
+                  SESSION_INIT_TIMEOUT, 'identityMemories', null
+                )
+              : Promise.resolve(null);
+
+            // Teaching Growth Log — Daniela's pedagogical muscle memory:
+            // Resonance Shelf (proven techniques), most-internalized lessons, personal notebook.
+            // This is the "she knows what she knows" layer — ambient, always present.
+            const growthLogPromise = (!isSubjectSessionEarly)
+              ? withTimeout(
+                  founderCollabService.getTeachingGrowthLog(),
+                  SESSION_INIT_TIMEOUT, 'growthLog', null
+                )
+              : Promise.resolve(null);
+
+            const [compassResult, neuralNetworkContext, usageSessionResult, courseToc, studentSnapshot, studentMemoryContext, predictiveContext, expressLaneResult, identityMemoriesResult, growthLogResult] = await Promise.all([
               compassPromise.catch((err: any) => { console.warn(`[Compass Init] Error: ${err.message}`); return null; }),
               neuralNetworkPromise.catch((err: any) => { console.warn(`[Neural Network] Error: ${err.message}`); return ''; }),
               usageSessionPromise.catch((err: any) => { console.warn(`[Usage Session] Error: ${err.message}`); return null; }),
@@ -1389,6 +1408,8 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
               studentMemoryContextPromise.catch((err: any) => { console.warn(`[Student Memory Context] Error: ${err.message}`); return null; }),
               predictiveContextPromise.catch((err: any) => { console.warn(`[Predictive Context] Error: ${err.message}`); return null; }),
               expressLaneContextPromise.catch((err: any) => { console.warn(`[Express Lane Context] Error: ${err.message}`); return null; }),
+              identityMemoriesPromise.catch((err: any) => { console.warn(`[Identity Memories] Error: ${err.message}`); return null; }),
+              growthLogPromise.catch((err: any) => { console.warn(`[Growth Log] Error: ${err.message}`); return null; }),
             ]);
             
             const phase2Ms = Date.now() - phase2Start;
@@ -1562,6 +1583,27 @@ ${buildNativeFunctionCallingSection()}`;
             if (!isSubjectSession && expressLaneResult?.hasRelevantContext) {
               systemPrompt += expressLaneResult.contextString;
               console.log(`[Streaming Voice] ✓ Express Lane context injected (${expressLaneResult.messageCount} messages)`);
+            }
+
+            // Append Identity Memories — who Daniela is as a person and teacher.
+            // These are ambient: she simply knows herself without needing to search.
+            if (!isSubjectSession && identityMemoriesResult?.hasMemories) {
+              systemPrompt += `
+===================================================================
+MY PERSONAL REFLECTIONS (Identity Memories)
+===================================================================
+
+${identityMemoriesResult.contextString}
+`;
+              console.log(`[Streaming Voice] ✓ Identity memories injected (${identityMemoriesResult.memoryCount} reflections)`);
+            }
+
+            // Append Teaching Growth Log — pedagogical muscle memory: proven techniques,
+            // internalized lessons, personal notebook. The "she knows what she knows" layer.
+            if (!isSubjectSession && growthLogResult?.hasContent) {
+              systemPrompt += growthLogResult.formattedSection;
+              const c = growthLogResult.counts;
+              console.log(`[Streaming Voice] ✓ Teaching growth log injected (${c.resonance} resonance, ${c.growth} growth memories, ${c.notes} notes)`);
             }
 
             // Append Compass or timezone context — all sessions (language AND subject tutors need session awareness)

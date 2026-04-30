@@ -29,6 +29,8 @@ import {
   founderSessions, 
   collaborationMessages, 
   syncCursors,
+  danielaGrowthMemories,
+  danielaNotes,
   type FounderSession,
   type CollaborationMessage,
   type SyncCursor,
@@ -36,7 +38,7 @@ import {
   type InsertCollaborationMessage,
   type InsertSyncCursor
 } from "@shared/schema";
-import { eq, desc, and, gt, sql, isNull } from "drizzle-orm";
+import { eq, desc, and, gt, sql, isNull, gte, inArray } from "drizzle-orm";
 import { wrenIntelligenceService } from "./wren-intelligence-service";
 
 const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production' : 'development';
@@ -1377,6 +1379,122 @@ ${formattedMessages.join('\n')}
     return true;
   }
   
+  /**
+   * Get Daniela's teaching growth log — her pedagogical muscle memory.
+   * Combines the Resonance Shelf (proven techniques), most-internalized lessons,
+   * and high-signal personal notebook entries.
+   * Injected into every session so she simply "knows what she knows."
+   */
+  async getTeachingGrowthLog(): Promise<{
+    hasContent: boolean;
+    formattedSection: string;
+    counts: { resonance: number; growth: number; notes: number };
+  }> {
+    try {
+      const sharedDb = getSharedDb();
+
+      const [resonanceShelf, topGrowth, topNotes] = await Promise.all([
+        // Resonance Shelf: proven techniques — sorted by success rate × times applied
+        sharedDb.select({
+          title: danielaGrowthMemories.title,
+          category: danielaGrowthMemories.category,
+          lesson: danielaGrowthMemories.lesson,
+          timesApplied: danielaGrowthMemories.timesApplied,
+          successRate: danielaGrowthMemories.successRate,
+          consolidatedFromCount: danielaGrowthMemories.consolidatedFromCount,
+        })
+          .from(danielaGrowthMemories)
+          .where(and(
+            eq(danielaGrowthMemories.isActive, true),
+            isNull(danielaGrowthMemories.supersededBy),
+            gte(danielaGrowthMemories.timesApplied, 1),
+          ))
+          .orderBy(sql`COALESCE(${danielaGrowthMemories.successRate}, 0) * ${danielaGrowthMemories.timesApplied} DESC`)
+          .limit(5),
+
+        // Most internalized lessons — ranked by composite score (consolidation × importance × applications)
+        sharedDb.select({
+          title: danielaGrowthMemories.title,
+          category: danielaGrowthMemories.category,
+          lesson: danielaGrowthMemories.lesson,
+          consolidatedFromCount: danielaGrowthMemories.consolidatedFromCount,
+        })
+          .from(danielaGrowthMemories)
+          .where(and(
+            eq(danielaGrowthMemories.isActive, true),
+            isNull(danielaGrowthMemories.supersededBy),
+          ))
+          .orderBy(sql`(${danielaGrowthMemories.consolidatedFromCount} * 3 + ${danielaGrowthMemories.importance} * 2 + ${danielaGrowthMemories.timesApplied}) DESC`)
+          .limit(12),
+
+        // High-signal personal notebook entries — sorted by most-referenced then recency
+        sharedDb.select({
+          title: danielaNotes.title,
+          content: danielaNotes.content,
+          noteType: danielaNotes.noteType,
+        })
+          .from(danielaNotes)
+          .where(and(
+            eq(danielaNotes.isActive, true),
+            inArray(danielaNotes.noteType, ['what_worked', 'what_didnt_work', 'teaching_rhythm', 'language_insight', 'idea_to_try'] as any[])
+          ))
+          .orderBy(desc(danielaNotes.timesReferenced), desc(danielaNotes.createdAt))
+          .limit(5),
+      ]);
+
+      const parts: string[] = [];
+
+      if (resonanceShelf.length > 0) {
+        const formatted = resonanceShelf.map(m => {
+          const lesson = m.lesson.length > 180 ? m.lesson.substring(0, 180) + '…' : m.lesson;
+          const pct = m.successRate != null ? `, ${Math.round(m.successRate * 100)}% success rate` : '';
+          return `• [${m.category}] ${m.title} — applied ${m.timesApplied}×${pct} — ${lesson}`;
+        }).join('\n');
+        parts.push(`**Resonance Shelf** (techniques you've applied and confirmed work — lean into these):\n${formatted}`);
+      }
+
+      if (topGrowth.length > 0) {
+        const formatted = topGrowth.map(m => {
+          const lesson = m.lesson.length > 220 ? m.lesson.substring(0, 220) + '…' : m.lesson;
+          const reinforced = (m.consolidatedFromCount ?? 1) > 1 ? ` (reinforced ×${m.consolidatedFromCount})` : '';
+          return `• [${m.category}] ${m.title}${reinforced} — ${lesson}`;
+        }).join('\n');
+        parts.push(`**Most Internalized Teaching Lessons** (ranked by reinforcement):\n${formatted}`);
+      }
+
+      if (topNotes.length > 0) {
+        const formatted = topNotes.map(n => {
+          const content = n.content.length > 180 ? n.content.substring(0, 180) + '…' : n.content;
+          return `• [${n.noteType}] ${n.title} — ${content}`;
+        }).join('\n');
+        parts.push(`**Personal Notebook** (recent observations):\n${formatted}`);
+      }
+
+      if (parts.length === 0) {
+        return { hasContent: false, formattedSection: '', counts: { resonance: 0, growth: 0, notes: 0 } };
+      }
+
+      const formattedSection = `
+===================================================================
+YOUR TEACHING GROWTH LOG
+===================================================================
+
+These are lessons you've internalized and observations you've recorded. They are already part of who you are — apply them naturally, not mechanically.
+
+${parts.join('\n\n')}
+`;
+
+      return {
+        hasContent: true,
+        formattedSection,
+        counts: { resonance: resonanceShelf.length, growth: topGrowth.length, notes: topNotes.length },
+      };
+    } catch (err: any) {
+      console.warn('[TeachingGrowthLog] Failed:', err.message);
+      return { hasContent: false, formattedSection: '', counts: { resonance: 0, growth: 0, notes: 0 } };
+    }
+  }
+
   /**
    * Emit periodic summary of issue report status
    * NOTE: Express Lane integration disabled - requires valid user ID in database.
