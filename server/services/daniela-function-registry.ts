@@ -1703,14 +1703,20 @@ TRIGGER CATEGORY 4 - LESSON/TEACHING CONTENT YOU DELIVERED:
 - "The scarecrow joke / that award joke...", "What I learned about humor / being a recipient..."
 - ANY lesson content, teaching insights, or skills you demonstrated → use domain 'growth'
 
+TRIGGER CATEGORY 5 - STUDENT VOCABULARY & SESSION SPECIFICS:
+- "Did I know that word?", "Was I getting that right before?", "What did I mess up last time?"
+- "What words have we practiced?", "Have I seen that word before?", "What did you correct me on?"
+- Any question about what the student specifically said, knew, or struggled with in a prior session
+- → use domain 'conversation' to search session transcripts
+
 DOMAIN ROUTING GUIDE:
-- 'growth' → YOUR OWN past teaching moments, jokes you told, timing lessons, humor delivery sessions, comedy workshops, skills you demonstrated. This is where the joke sessions live.
-- 'conversation' → past chat/voice session history
+- 'growth' → YOUR OWN past teaching moments, jokes you told, timing lessons, skills you demonstrated
+- 'conversation' → past chat/voice session history, including what the student said and practiced
 - 'person' → student profile details
 - Leave blank to search all domains
 
 CONFIDENCE THRESHOLD RULE:
-If the answer isn't in your immediate conversation context, treat guessing as a pedagogical failure.
+If the answer is about this specific student's history and it is not already in this conversation's context, it requires a lookup — not a guess. Guessing student-specific facts is a pedagogical failure.
 NEVER guess. NEVER roleplay searching. Actually call this function.
 IMPORTANT: The Express Lane is for team collaboration messages (Wren/David building the product), NOT for lesson content you taught. Use memory_lookup with domain='growth' for your teaching sessions.`,
       parametersJsonSchema: {
@@ -1728,7 +1734,7 @@ IMPORTANT: The Express Lane is for team collaboration messages (Wren/David build
       if (lookupResult) {
         return `Memory lookup results for "${query}":\n${lookupResult}\n\nNow respond to the student using this information.`;
       }
-      return `No memories found for "${query}". Respond naturally based on what you know about the conversation.`;
+      return `No memories found for "${query}". If the student is asking about something specific to their own history (a word they practiced, a mistake they made, a prior session), say plainly that you don't have a clear record of it — do not construct a plausible-sounding answer. Admitting uncertainty is the honest and pedagogically correct response. For general language knowledge (grammar rules, vocabulary definitions, cultural facts) you may answer from your training as normal.`;
     },
   },
   {
