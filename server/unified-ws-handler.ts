@@ -60,9 +60,10 @@ import { founderCollabService } from './services/founder-collaboration-service';
 import { studentLearningService } from './services/student-learning-service';
 import { voiceDiagnostics } from './services/voice-diagnostics-service';
 import type { VoiceSession as UsageVoiceSession, CompassContext, TutorSession } from '@shared/schema';
-import { voiceGracePeriods } from '@shared/schema';
-import { db } from './db';
-import { eq, and, gt, lt } from 'drizzle-orm';
+import { voiceGracePeriods, compartmentInstallation } from '@shared/schema';
+import { db, getUserDb } from './db';
+import { eq, and, gt, lt, ne, desc } from 'drizzle-orm';
+import { getPendingSuggestions } from './services/daniela-reflection';
 
 // Use /api/ paths - Replit's proxy properly routes these
 const STREAMING_VOICE_PATH = '/api/voice/stream/ws';
@@ -1399,7 +1400,43 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
                 )
               : Promise.resolve(null);
 
-            const [compassResult, neuralNetworkContext, usageSessionResult, courseToc, studentSnapshot, studentMemoryContext, predictiveContext, expressLaneResult, identityMemoriesResult, growthLogResult] = await Promise.all([
+            // Daniela's suggestions — her self-generated insights about teaching improvements,
+            // content gaps, and UX observations (ready/emerging status, ranked by priority + evidence).
+            // Privacy-safe: student IDs stripped before storage.
+            const danielaSuggestionsPromise = (!isSubjectSessionEarly)
+              ? withTimeout(
+                  getPendingSuggestions(5),
+                  SESSION_INIT_TIMEOUT, 'danielaSuggestions', [] as any[]
+                )
+              : Promise.resolve([] as any[]);
+
+            // Pattern Compass snapshot — David's grammar installation map at session start.
+            // Shows which patterns are pounding, wobbling, stable, or deriving so Daniela
+            // knows the grammar landscape before the first word is spoken.
+            const patternCompassPromise = (!isSubjectSessionEarly && userId)
+              ? withTimeout(
+                  getUserDb()
+                    .select({
+                      patternKey: compartmentInstallation.patternKey,
+                      status: compartmentInstallation.status,
+                      poundingCount: compartmentInstallation.poundingCount,
+                      wobbleCount: compartmentInstallation.wobbleCount,
+                      derivationCount: compartmentInstallation.derivationCount,
+                      lastDrilledAt: compartmentInstallation.lastDrilledAt,
+                    })
+                    .from(compartmentInstallation)
+                    .where(and(
+                      eq(compartmentInstallation.userId, String(userId)),
+                      eq(compartmentInstallation.language, effectiveLanguage),
+                      ne(compartmentInstallation.status, 'unstarted'),
+                    ))
+                    .orderBy(desc(compartmentInstallation.lastDrilledAt))
+                    .limit(40),
+                  SESSION_INIT_TIMEOUT, 'patternCompass', [] as any[]
+                )
+              : Promise.resolve([] as any[]);
+
+            const [compassResult, neuralNetworkContext, usageSessionResult, courseToc, studentSnapshot, studentMemoryContext, predictiveContext, expressLaneResult, identityMemoriesResult, growthLogResult, danielaSuggestionsResult, patternCompassRows] = await Promise.all([
               compassPromise.catch((err: any) => { console.warn(`[Compass Init] Error: ${err.message}`); return null; }),
               neuralNetworkPromise.catch((err: any) => { console.warn(`[Neural Network] Error: ${err.message}`); return ''; }),
               usageSessionPromise.catch((err: any) => { console.warn(`[Usage Session] Error: ${err.message}`); return null; }),
@@ -1410,6 +1447,8 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
               expressLaneContextPromise.catch((err: any) => { console.warn(`[Express Lane Context] Error: ${err.message}`); return null; }),
               identityMemoriesPromise.catch((err: any) => { console.warn(`[Identity Memories] Error: ${err.message}`); return null; }),
               growthLogPromise.catch((err: any) => { console.warn(`[Growth Log] Error: ${err.message}`); return null; }),
+              danielaSuggestionsPromise.catch((err: any) => { console.warn(`[Daniela Suggestions] Error: ${err.message}`); return []; }),
+              patternCompassPromise.catch((err: any) => { console.warn(`[Pattern Compass] Error: ${err.message}`); return []; }),
             ]);
             
             const phase2Ms = Date.now() - phase2Start;
@@ -1606,6 +1645,53 @@ ${identityMemoriesResult.contextString}
               console.log(`[Streaming Voice] ✓ Teaching growth log injected (${c.resonance} resonance, ${c.growth} growth memories, ${c.notes} notes)`);
             }
 
+            // Append Daniela's suggestions — her self-generated insights about teaching improvements.
+            // These are her own ideas she's been developing; bring them back so she can apply them.
+            if (!isSubjectSession && danielaSuggestionsResult?.length > 0) {
+              const lines: string[] = [
+                '',
+                '===================================================================',
+                'YOUR PENDING INSIGHTS (Ideas You\'ve Been Developing)',
+                '===================================================================',
+                '',
+                'These are patterns and ideas you\'ve noticed across many sessions.',
+                'Apply them where relevant — they\'re yours.',
+                '',
+              ];
+              for (const s of danielaSuggestionsResult) {
+                const evidence = s.evidenceCount > 1 ? ` (seen ${s.evidenceCount}×)` : '';
+                lines.push(`• [${s.category}] ${s.title}${evidence}: ${s.description}`);
+                if (s.suggestedActions?.length > 0) {
+                  lines.push(`  → Try: ${s.suggestedActions[0]}`);
+                }
+              }
+              systemPrompt += lines.join('\n');
+              console.log(`[Streaming Voice] ✓ Daniela suggestions injected (${danielaSuggestionsResult.length} insights)`);
+            }
+
+            // Append Pattern Compass snapshot — student's grammar installation map at session start.
+            if (!isSubjectSession && patternCompassRows?.length > 0) {
+              const compassParts = patternCompassRows.map((r: any) => {
+                const counts = [
+                  r.poundingCount > 0 ? `${r.poundingCount}× drilled` : '',
+                  r.wobbleCount > 0 ? `${r.wobbleCount}× wobble` : '',
+                  r.derivationCount > 0 ? `${r.derivationCount}× derived` : '',
+                ].filter(Boolean).join(', ');
+                return `${r.patternKey}: ${r.status}${counts ? ` (${counts})` : ''}`;
+              }).join(' | ');
+              systemPrompt += `
+===================================================================
+PATTERN COMPASS (Grammar Installation Map)
+===================================================================
+
+patternKey format: subject-verbEnding-tense (e.g. yo-AR-present, tú-ER-present)
+Detect during session — Wobble: ending dropped when verb changed (revisit before moving on) | Stability: holds on new verbs (candidate for unlock) | Derivation: correct form for undrilled verb (generative; accelerate) | Pounding: actively drilling one form across many verbs
+
+Current map (${effectiveLanguage}): ${compassParts}
+`;
+              console.log(`[Streaming Voice] ✓ Pattern compass injected (${patternCompassRows.length} patterns)`);
+            }
+
             // Append Compass or timezone context — all sessions (language AND subject tutors need session awareness)
             {
               if (compassContext && COMPASS_ENABLED) {
@@ -1626,6 +1712,39 @@ ${identityMemoriesResult.contextString}
               }
             }
             
+            // ── CONTEXT MAP ──────────────────────────────────────────────────
+            // The metacognitive marker. Tells Daniela exactly what's already loaded
+            // so she doesn't look up things she already has, or claim ignorance
+            // about things that are sitting right in her awareness.
+            if (!isSubjectSession) {
+              const loadedSources: string[] = [];
+              if (studentSnapshot) loadedSources.push('student progress snapshot (last session, streak, wins)');
+              if (studentMemoryContext) loadedSources.push('personal memory (insights, motivations, struggles, session notes, connections)');
+              if (predictiveContext && (predictiveContext.predictions.length > 0 || predictiveContext.alerts.length > 0)) loadedSources.push('predictive teaching context (anticipated struggles, engagement alerts)');
+              if (expressLaneResult?.hasRelevantContext) loadedSources.push('express lane strategy context');
+              if (identityMemoriesResult?.hasMemories) loadedSources.push('personal identity reflections');
+              if (growthLogResult?.hasContent) loadedSources.push('teaching growth log (resonance shelf, internalized lessons, notebook)');
+              if (danielaSuggestionsResult?.length > 0) loadedSources.push('your pending insights and ideas');
+              if (patternCompassRows?.length > 0) loadedSources.push('grammar pattern compass');
+              if (neuralNetworkContext) loadedSources.push('neural network (ACTFL knowledge, error patterns, tool awareness)');
+              if (loadedSources.length > 0) {
+                systemPrompt += `
+
+===================================================================
+CONTEXT MAP (What Is Already In Your Awareness)
+===================================================================
+
+The following sources are already loaded into your context for this session:
+${loadedSources.map(s => `• ${s}`).join('\n')}
+
+You do NOT need to use memory_lookup for any of the above — it is all here.
+Use memory_lookup ONLY for specific conversation details, past quotes, or historical specifics NOT covered by the sections above.
+If asked about something covered above, answer directly from this context. If you genuinely cannot find it above, THEN search.
+`;
+                console.log(`[Streaming Voice] ✓ Context map injected (${loadedSources.length} sources listed)`);
+              }
+            }
+
             // Build conversation history
             const conversationLang = (conversation?.language || '').toLowerCase();
             const targetLang = (config.targetLanguage || '').toLowerCase();
