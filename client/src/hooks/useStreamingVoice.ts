@@ -611,6 +611,15 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }
     audioReceivedInTurnRef.current = false;
     
+    // GL PATH FIX: Reset the audio player's deduplication state for the new turn.
+    // In the GL path, only processing_pending fires (never the 'processing' event),
+    // so resetForNewTurn() was never called between turns. The dedup set from the
+    // previous turn persisted, causing early chunks of the new turn (s0_c0, s0_c1, …)
+    // to be incorrectly blocked as "already seen" — chopping off the first few seconds
+    // of every GL response after the first. This is idempotent: calling it in both
+    // handleProcessingPending and handleProcessing (PTT path) is safe.
+    playerRef.current?.resetForNewTurn?.();
+    
     // Pre-warm the AudioContext so the first audio samples don't fade in from silence.
     // processing_pending fires just before audio arrives — an ideal time to resume.
     playerRef.current?.resumeAudioContext?.();
