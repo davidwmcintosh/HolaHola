@@ -55,7 +55,8 @@ import { buildEvelynSystemPrompt, buildGeneSystemPrompt, EVELYN_NAME, GENE_NAME,
 import { buildClioSystemPrompt, buildMarcusSystemPrompt, CLIO_NAME, MARCUS_NAME, CLIO_VOICE_CONFIG, MARCUS_VOICE_CONFIG, isHistorySession } from './services/history-persona';
 import { buildAdaSystemPrompt, buildLeoSystemPrompt, ADA_NAME, LEO_NAME, ADA_VOICE_CONFIG, LEO_VOICE_CONFIG, isMathSession } from './services/math-persona';
 import { buildMorganSystemPrompt, buildSterlingSystemPrompt, MORGAN_NAME, STERLING_NAME, MORGAN_VOICE_CONFIG, STERLING_VOICE_CONFIG, isBusinessSession } from './services/business-persona';
-import { getPredictiveTeachingContext, getStudentSnapshotData, buildStudentSnapshotSection, buildStudentMemoryAwarenessSection, type PredictiveTeachingContext, type StudentSnapshotContext } from './services/procedural-memory-retrieval';
+import { getPredictiveTeachingContext, buildPredictiveTeachingSection, getStudentSnapshotData, buildStudentSnapshotSection, buildStudentMemoryAwarenessSection, type PredictiveTeachingContext, type StudentSnapshotContext } from './services/procedural-memory-retrieval';
+import { founderCollabService } from './services/founder-collaboration-service';
 import { studentLearningService } from './services/student-learning-service';
 import { voiceDiagnostics } from './services/voice-diagnostics-service';
 import type { VoiceSession as UsageVoiceSession, CompassContext, TutorSession } from '@shared/schema';
@@ -1357,13 +1358,37 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
                 )
               : Promise.resolve(null);
 
-            const [compassResult, neuralNetworkContext, usageSessionResult, courseToc, studentSnapshot, studentMemoryContext] = await Promise.all([
+            // Predictive teaching context — active predictions (top 3 by confidence) and engagement
+            // alerts (top 2) from the neural network. Let Daniela anticipate struggles before they surface.
+            const predictiveContextPromise = (!isSubjectSessionEarly && userId)
+              ? withTimeout(
+                  getPredictiveTeachingContext(String(userId), effectiveLanguage),
+                  SESSION_INIT_TIMEOUT, 'predictiveContext', null as PredictiveTeachingContext | null
+                )
+              : Promise.resolve(null as PredictiveTeachingContext | null);
+
+            // Express Lane context — recent Founder↔Daniela strategy discussions filtered to this
+            // target language. Only fetched for developer users; gives Daniela her own operational memory.
+            const expressLaneContextPromise = (isDeveloper && !isSubjectSessionEarly)
+              ? withTimeout(
+                  founderCollabService.getRelevantExpressLaneContext({
+                    targetLanguage: effectiveLanguage,
+                    limit: 10,
+                    daysBack: 14,
+                  }),
+                  SESSION_INIT_TIMEOUT, 'expressLaneContext', null
+                )
+              : Promise.resolve(null);
+
+            const [compassResult, neuralNetworkContext, usageSessionResult, courseToc, studentSnapshot, studentMemoryContext, predictiveContext, expressLaneResult] = await Promise.all([
               compassPromise.catch((err: any) => { console.warn(`[Compass Init] Error: ${err.message}`); return null; }),
               neuralNetworkPromise.catch((err: any) => { console.warn(`[Neural Network] Error: ${err.message}`); return ''; }),
               usageSessionPromise.catch((err: any) => { console.warn(`[Usage Session] Error: ${err.message}`); return null; }),
               courseTocPromise.catch((err: any) => { console.warn(`[Course TOC] Error: ${err.message}`); return null; }),
               studentSnapshotPromise.catch((err: any) => { console.warn(`[Student Snapshot] Error: ${err.message}`); return null; }),
               studentMemoryContextPromise.catch((err: any) => { console.warn(`[Student Memory Context] Error: ${err.message}`); return null; }),
+              predictiveContextPromise.catch((err: any) => { console.warn(`[Predictive Context] Error: ${err.message}`); return null; }),
+              expressLaneContextPromise.catch((err: any) => { console.warn(`[Express Lane Context] Error: ${err.message}`); return null; }),
             ]);
             
             const phase2Ms = Date.now() - phase2Start;
@@ -1520,6 +1545,23 @@ ${buildNativeFunctionCallingSection()}`;
                   console.log(`[Streaming Voice] Student memory context empty — no relationship history yet`);
                 }
               }
+            }
+
+            // Append predictive teaching context — anticipated struggles and engagement alerts
+            // Gives Daniela foresight on what's coming before the student hits a wall.
+            if (!isSubjectSession && predictiveContext) {
+              const predictiveSection = buildPredictiveTeachingSection(predictiveContext);
+              if (predictiveSection) {
+                systemPrompt += predictiveSection;
+                console.log(`[Streaming Voice] ✓ Predictive context injected (${predictiveContext.predictions.length} predictions, ${predictiveContext.alerts.length} alerts)`);
+              }
+            }
+
+            // Append Express Lane context — Daniela's own operational memory from Founder↔Daniela discussions
+            // Gives her continuity on teaching strategies we've agreed on, without her having to be told again.
+            if (!isSubjectSession && expressLaneResult?.hasRelevantContext) {
+              systemPrompt += expressLaneResult.contextString;
+              console.log(`[Streaming Voice] ✓ Express Lane context injected (${expressLaneResult.messageCount} messages)`);
             }
 
             // Append Compass or timezone context — all sessions (language AND subject tutors need session awareness)
