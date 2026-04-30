@@ -2029,11 +2029,25 @@ If asked about something covered above, answer directly from this context. If yo
           }
           
           // RECONNECTION GUARD: If this session was created via reconnection,
-          // skip the greeting to prevent double audio after infrastructure timeout
+          // skip the greeting to prevent double audio after infrastructure timeout.
+          //
+          // EXCEPTION — Gemini Live sessions: GL is a fresh WebSocket after every reconnect
+          // (the GL connection lives server-side and closes when Socket.io disconnects).
+          // There is no "old" GL audio playing, so double-audio is impossible. Without the
+          // greeting, GL is in a blank limbo — it has context but no orientation turn, so
+          // it just waits silently and never responds to the user's first utterance.
+          // For GL reconnects we let the greeting through (marked as resumed so she says
+          // "continuing..." not "hola!").
           if ((session as any).__isReconnect) {
-            console.log('[Streaming Voice] Ignoring greeting request — session was reconnected (prevents double audio) [Socket.io]');
+            const isGlActive = !!geminiLiveSession;
+            if (!isGlActive) {
+              console.log('[Streaming Voice] Ignoring greeting request — legacy pipeline reconnect (prevents double audio) [Socket.io]');
+              (session as any).__isReconnect = false;
+              break;
+            }
+            // GL reconnect — allow greeting but mark as resumed
+            console.log('[Streaming Voice] GL reconnect — allowing resumption greeting (GL session is always fresh after reconnect)');
             (session as any).__isReconnect = false;
-            break;
           }
           
           const greetingRequest = message as { type: 'request_greeting'; userName?: string; isResumed?: boolean; scenarioSlug?: string };

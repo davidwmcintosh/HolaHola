@@ -350,6 +350,7 @@ export function StreamingVoiceChat({
   const currentConversationRef = useRef<string | null>(conversationId);
   const hasPlayedGreetingRef = useRef<string | null>(null); // Track which conversation's greeting was played
   const hasDanielaSpokeOnceRef = useRef<boolean>(false); // Track if Daniela has spoken at least once this session
+  const needsGreetingAfterReconnectRef = useRef<boolean>(false); // Set after proactive reconnect so greeting re-fires
   const isRecordingRef = useRef<boolean>(false);
   const isProcessingRef = useRef<boolean>(false);
   const isPlayingRef = useRef<boolean>(false); // For stable keyboard handlers
@@ -1156,6 +1157,12 @@ export function StreamingVoiceChat({
             // No toast — reconnects from autoscale rotation are routine infrastructure
             // events and should be completely invisible to the user.
 
+            // GREETING LOCK RESET: GL is always a fresh WebSocket after reconnect — needs
+            // an orientation greeting or it waits silently for the user's first utterance.
+            greetingRequestedRef.current = null;
+            clearGreetingLock();
+            needsGreetingAfterReconnectRef.current = true;
+
             // Restart open-mic automatically if that was the active mode
             if (inputModeRef.current === 'open-mic') {
               setOpenMicState('idle');
@@ -1618,12 +1625,14 @@ export function StreamingVoiceChat({
     // Don't request if recording or processing
     if (isRecording || isProcessing) return;
     
-    // CRITICAL: Skip greeting on reconnected sessions to prevent double audio streams
-    // When WebSocket reconnects, the session is re-initialized but we don't want a new greeting
+    // NOTE on reconnected sessions: Previously we skipped the greeting entirely here to
+    // prevent double audio on legacy-pipeline reconnects. That guard has been moved server-side
+    // (the server suppresses request_greeting for legacy sessions but allows it for GL sessions).
+    // GL is always a fresh WebSocket after reconnect — without a greeting Daniela waits silently.
+    // The greeting lock is cleared in onReconnected so this effect can re-fire after reconnect.
     const client = getStreamingVoiceClient();
     if (client.isReconnectedSession) {
-      console.log('[STREAMING GREETING] Skipping — this is a reconnected session (prevents double audio)');
-      return;
+      console.log('[STREAMING GREETING] Reconnected session — allowing greeting (server-side guard handles legacy vs GL)');
     }
     
     // Check if this is a new conversation (no messages yet, or only AI greeting placeholder)
@@ -1631,13 +1640,15 @@ export function StreamingVoiceChat({
     const userMessages = messages.filter(m => m.role === 'user');
     
     // Request greeting if: new conversation (no user messages) OR resuming a past conversation
+    // OR just reconnected mid-session (GL always needs an orientation turn after reconnect)
     const isNewConversation = userMessages.length === 0 && aiMessages.length <= 1;
-    const shouldGreet = isNewConversation || isResumedConversation;
+    const isReconnectGreeting = needsGreetingAfterReconnectRef.current;
+    const shouldGreet = isNewConversation || isResumedConversation || isReconnectGreeting;
     
     if (shouldGreet) {
-      // ATOMICALLY try to acquire lock (using full lock key including -resumed suffix)
+      // ATOMICALLY try to acquire lock (using full lock key including -resumed/-reconnect suffix)
       // This prevents double-greetings on mobile reloads and fast switching
-      const lockKey = `streaming-greeting-${conversationId}${isResumedConversation ? '-resumed' : ''}`;
+      const lockKey = `streaming-greeting-${conversationId}${isResumedConversation ? '-resumed' : isReconnectGreeting ? '-reconnect' : ''}`;
       
       // Check if we already requested greeting for this exact lockKey (handles both new and resumed)
       if (greetingRequestedRef.current === lockKey) {
@@ -1655,11 +1666,16 @@ export function StreamingVoiceChat({
         return;
       }
       
-      // Mark as requested using full lockKey to distinguish new vs resumed
+      // Mark as requested using full lockKey to distinguish new vs resumed vs reconnect
       greetingRequestedRef.current = lockKey;
       hasPlayedGreetingRef.current = lockKey;
       
-      const greetingType = isResumedConversation ? 'RESUMED (welcome-back)' : 'NEW conversation';
+      // Clear the reconnect flag — it's a one-shot trigger
+      if (isReconnectGreeting) {
+        needsGreetingAfterReconnectRef.current = false;
+      }
+      
+      const greetingType = isResumedConversation ? 'RESUMED (welcome-back)' : isReconnectGreeting ? 'RECONNECT (continuing)' : 'NEW conversation';
       console.log(`[STREAMING GREETING] Requesting ${greetingType} AI-generated personalized greeting...`);
       
       // Pick up any pending scenario slug (set when navigating from scenario browser)
@@ -1671,8 +1687,10 @@ export function StreamingVoiceChat({
       
       // Request greeting through the streaming pipeline
       // The server will generate an ACTFL-aware, history-aware greeting
-      // For resumed conversations, it will generate a contextual "welcome back" message
-      streamingVoice.requestGreeting(userDetails.firstName ?? undefined, isResumedConversation, pendingScenarioSlug);
+      // For resumed/reconnected conversations, it will generate a contextual "welcome back" message
+      // isResumed=true on reconnect so Daniela continues naturally rather than re-introducing herself
+      const isResumedForGreeting = isResumedConversation || isReconnectGreeting;
+      streamingVoice.requestGreeting(userDetails.firstName ?? undefined, isResumedForGreeting, pendingScenarioSlug);
       
       // Mark resume as handled so we don't keep triggering it
       if (isResumedConversation && onResumeHandled) {
@@ -3175,6 +3193,14 @@ export function StreamingVoiceChat({
                 isAwaitingResponseRef.current = false;
                 isProcessingRef.current = false;
                 // No toast — routine infrastructure reconnect, fully invisible to user.
+
+                // GREETING LOCK RESET: Clear the greeting lock and flag that a greeting is needed.
+                // GL is always a fresh WebSocket after reconnect — without a greeting Daniela
+                // waits silently and never responds to the user's first utterance.
+                // The greeting effect fires when connectionState becomes 'ready' (after GL init).
+                greetingRequestedRef.current = null;
+                clearGreetingLock();
+                needsGreetingAfterReconnectRef.current = true;
 
                 if (inputModeRef.current === 'open-mic') {
                   setOpenMicState('idle');
