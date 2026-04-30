@@ -1751,8 +1751,13 @@ ${agentSection}`;
         const exchanges      = Number(r.totalExchanges || 0);
         const tokenTracked   = llmIn > 0;
 
-        const geminiCost   = tokenTracked ? (llmIn * 0.075 / 1_000_000) + (llmOut * 0.30 / 1_000_000) : exchanges * 0.0005;
-        // TTS: first 1M chars/month free, then $30/M. Use marginal rate here (will overstate during free tier).
+        // Gemini 2.0 Flash pricing (GL uses Flash; audio output billing is included in token count).
+        // Audio tokens from GL usageMetadata are included in llmIn/llmOut.
+        // For GL sessions, tts_characters = Daniela's transcript chars (NOT billed as Google TTS — audio is in Gemini billing).
+        const geminiCost   = tokenTracked ? (llmIn * 0.10 / 1_000_000) + (llmOut * 0.40 / 1_000_000) : exchanges * 0.0005;
+        // GL sessions: tts_characters = output transcript proxy (no separate Google TTS charge; GL audio is in Gemini billing).
+        // Classic TTS sessions: first 1M chars/month free, then $30/M.
+        // The ttsCost below only applies to classic (pre-GL) sessions. GL sessions' audio cost is in geminiCost.
         const ttsCost      = (Math.max(0, ttsChars - 1_000_000) / 1_000_000) * 30;
         const sttCost      = (sttSec / 60) * 0.0059;
         const studentTotal = geminiCost + ttsCost + sttCost;
@@ -1813,9 +1818,9 @@ ${agentSection}`;
           ``,
           `VOICE SESSIONS (last ${hours}h window — non-test only${env !== 'all' ? `, ${env}` : ''})`,
           `  Sessions: ${sessions} | Students: ${activeStudents} | Minutes: ${totalMinutes}min`,
-          `  Gemini: ${tokenTracked ? `${fmtK(llmIn)} in / ${fmtK(llmOut)} out (real tokens)` : `${exchanges} exchanges (estimated)`} → ${fmt(geminiCost)}`,
-          `  Google TTS: ${fmtK(ttsChars)} chars → ${fmt(ttsCost)}  (marginal rate; 1M chars/month free)`,
-          `  Deepgram STT: ${(sttSec / 60).toFixed(1)}min → ${fmt(sttCost)}`,
+          `  Gemini (2.0 Flash): ${tokenTracked ? `${fmtK(llmIn)} in / ${fmtK(llmOut)} out (real tokens, includes GL audio)` : `${exchanges} exchanges (estimated)`} → ${fmt(geminiCost)}`,
+          `  TTS chars: ${fmtK(ttsChars)} (GL sessions: transcript proxy only, audio in Gemini billing above) → ${fmt(ttsCost)}`,
+          `  Deepgram STT: ${(sttSec / 60).toFixed(1)}min → ${fmt(sttCost)}  (near-zero for GL; GL audio billed through Gemini)`,
           `  Student subtotal: ${fmt(studentTotal)}`,
           ``,
           ...(pricingModel.length > 0 ? [

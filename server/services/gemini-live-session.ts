@@ -81,6 +81,23 @@ export class GeminiLiveSession {
   private completedExchanges = 0;
   /** Cumulative length of all Daniela output transcripts — used as TTS char proxy for billing. */
   private totalOutputCharacters = 0;
+
+  // ── Session-level speaking & latency metrics ────────────────────────────
+  // These are accumulated per-turn and exposed at session end for billing/telemetry.
+  /** Accumulated student speaking time in ms (from first inputTranscription → first Daniela audio). */
+  private studentSpeakingMs = 0;
+  /** Accumulated tutor speaking time in ms (from first audio chunk → generationComplete). */
+  private tutorSpeakingMs = 0;
+  /** Per-turn latencies in ms: time from processing_pending → first audio chunk. */
+  private turnLatencies: number[] = [];
+  /** Timestamp (Date.now()) when the current turn's processing_pending was fired. */
+  private turnLatencyStartTime: number | null = null;
+  /** Timestamp (Date.now()) when Daniela's first audio chunk arrived for the current turn. */
+  private tutorSpeakingStartTime: number | null = null;
+  /** Timestamp (Date.now()) when the first inputTranscription arrived for the current user turn. */
+  private studentSpeakingStartTime: number | null = null;
+  /** Timestamp (Date.now()) of the LAST inputTranscription chunk — used for latency: last word → first audio. */
+  private lastInputTranscriptionTime: number | null = null;
   // Each Gemini sub-turn (one turnComplete) maps to one "sentence" in the progressive PCM player.
   // sentenceIndex must increment per sub-turn so the player queues them sequentially instead of
   // overwriting earlier chunks with chunkIndex:0 from a later sub-turn.
@@ -595,6 +612,33 @@ export class GeminiLiveSession {
           // briefly (it flips to speaking within the same render cycle in practice).
           if (!this.firstAudioSentThisTurn) {
             this.firstAudioSentThisTurn = true;
+            const now = Date.now();
+
+            // ── Student speaking duration ──────────────────────────────────
+            // Student stopped speaking when Daniela's first audio arrives.
+            if (!wasGreetingPhase && this.studentSpeakingStartTime !== null) {
+              this.studentSpeakingMs += now - this.studentSpeakingStartTime;
+              this.studentSpeakingStartTime = null;
+            }
+
+            // ── Turn latency ───────────────────────────────────────────────
+            // Latency = time from last inputTranscription chunk → first Daniela audio.
+            // This measures "how long after GL finished hearing the student did it start speaking".
+            if (!wasGreetingPhase && this.lastInputTranscriptionTime !== null) {
+              const latencyMs = now - this.lastInputTranscriptionTime;
+              if (latencyMs >= 0 && latencyMs < 30000) { // sanity: 0ms–30s window
+                this.turnLatencies.push(latencyMs);
+                console.log(`[GeminiLive] Turn latency: ${latencyMs}ms (last-word → first audio)`);
+              }
+              this.lastInputTranscriptionTime = null;
+            }
+            this.turnLatencyStartTime = null;
+
+            // ── Tutor speaking start ───────────────────────────────────────
+            if (!wasGreetingPhase) {
+              this.tutorSpeakingStartTime = now;
+            }
+
             if (!wasGreetingPhase && !this.processingPendingSentThisTurn) {
               this.processingPendingSentThisTurn = true;
               console.log('[GeminiLive] Firing processing_pending (first audio chunk, conversation turn)');
@@ -648,6 +692,12 @@ export class GeminiLiveSession {
     if ((msg.serverContent as any)?.inputTranscription?.text) {
       const text = (msg.serverContent as any).inputTranscription.text as string;
       if (text.trim()) {
+        // Track student speech timing: start on first chunk, update last-word timestamp each chunk
+        const inputNow = Date.now();
+        if (this.studentSpeakingStartTime === null) {
+          this.studentSpeakingStartTime = inputNow;
+        }
+        this.lastInputTranscriptionTime = inputNow;
         this.pendingInputTranscript += text;
         this.pendingInputSaved = false;
 
@@ -754,6 +804,12 @@ export class GeminiLiveSession {
     if ((msg.serverContent as any)?.generationComplete) {
       console.log('[GeminiLive] generationComplete received — sealing audio sub-turn and flushing transcripts');
 
+      // ── Tutor speaking end ─────────────────────────────────────────────
+      if (this.tutorSpeakingStartTime !== null) {
+        this.tutorSpeakingMs += Date.now() - this.tutorSpeakingStartTime;
+        this.tutorSpeakingStartTime = null;
+      }
+
       // Seal current audio sub-turn
       if (this.hadAudioInCurrentSubturn) {
         this.sendWsMessage(this.session.ws, {
@@ -790,6 +846,14 @@ export class GeminiLiveSession {
     // the truncated assistant message is saved cleanly before the next user turn begins.
     if ((msg.serverContent as any)?.interrupted) {
       console.log('[GeminiLive] Barge-in detected — flushing partial transcript and sealing audio sub-turn');
+      // Close tutor speaking timer on barge-in (student interrupted before generation complete)
+      if (this.tutorSpeakingStartTime !== null) {
+        this.tutorSpeakingMs += Date.now() - this.tutorSpeakingStartTime;
+        this.tutorSpeakingStartTime = null;
+      }
+      // Reset latency tracking — new user turn starting
+      this.studentSpeakingStartTime = null;
+      this.lastInputTranscriptionTime = null;
 
       // Seal the current audio sub-turn so the PCM player doesn't wait indefinitely
       if (this.hadAudioInCurrentSubturn) {
@@ -931,6 +995,37 @@ export class GeminiLiveSession {
    */
   getTotalOutputCharacters(): number {
     return this.totalOutputCharacters;
+  }
+
+  /**
+   * Accumulated speaking time for both parties this session.
+   * Used by billing (studentSpeakingSeconds) and analytics (tutorSpeakingSeconds).
+   */
+  getSpeakingStats(): { studentSpeakingMs: number; tutorSpeakingMs: number } {
+    // Include any in-progress tutor turn (session ending mid-speech)
+    const activeTutorMs = this.tutorSpeakingStartTime !== null
+      ? Date.now() - this.tutorSpeakingStartTime
+      : 0;
+    return {
+      studentSpeakingMs: this.studentSpeakingMs,
+      tutorSpeakingMs: this.tutorSpeakingMs + activeTutorMs,
+    };
+  }
+
+  /**
+   * Per-turn latency statistics (time from last inputTranscription → first Daniela audio).
+   * Used by voice health monitor and burn report.
+   */
+  getTurnLatencyStats(): { avgMs: number; p50Ms: number; p95Ms: number; count: number; samples: number[] } {
+    const samples = [...this.turnLatencies];
+    if (samples.length === 0) {
+      return { avgMs: 0, p50Ms: 0, p95Ms: 0, count: 0, samples: [] };
+    }
+    const sorted = [...samples].sort((a, b) => a - b);
+    const avg = Math.round(samples.reduce((s, v) => s + v, 0) / samples.length);
+    const p50 = sorted[Math.floor(sorted.length * 0.5)];
+    const p95 = sorted[Math.floor(sorted.length * 0.95)] ?? sorted[sorted.length - 1];
+    return { avgMs: avg, p50Ms: p50, p95Ms: p95, count: samples.length, samples };
   }
 
   /**

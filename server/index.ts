@@ -591,7 +591,7 @@ app.use((req, res, next) => {
     setTimeout(async () => {
       const { usageService } = await import('./services/usage-service');
       const ZOMBIE_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
-      const ZOMBIE_MAX_AGE_SECONDS = 7200;
+      const ZOMBIE_MAX_AGE_SECONDS = 1800; // 30 min — GL idle timeout (5 min) is primary guard; this is the safety net
       setInterval(async () => {
         try {
           const cleaned = await usageService.cleanupZombieSessions(ZOMBIE_MAX_AGE_SECONDS);

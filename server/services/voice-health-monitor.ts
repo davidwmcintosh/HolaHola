@@ -27,7 +27,7 @@ async function computeHealthStatus(): Promise<{ status: string; reasons: string[
   const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
   const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
 
-  const [last1h, last6h, latency1h] = await Promise.all([
+  const [last1h, last6h, latency1h, glLatency1h] = await Promise.all([
     sharedDb.execute(sql`
       SELECT 
         COUNT(*)::int as total,
@@ -44,8 +44,8 @@ async function computeHealthStatus(): Promise<{ status: string; reasons: string[
       FROM voice_pipeline_events
       WHERE event_type LIKE 'client_diag_%' AND created_at >= ${sixHoursAgo}
     `),
-    // E2E turn latency: aggregate p95 values reported by clients in the last hour.
-    // event_data->timing->p95TurnLatencyMs is the per-session p95 (ms: speech_end → first_audio).
+    // Legacy E2E turn latency from old streaming pipeline (pre-GL).
+    // Kept for backwards compatibility; will be empty for GL sessions.
     sharedDb.execute(sql`
       SELECT
         COUNT(*)::int as sample_count,
@@ -57,13 +57,32 @@ async function computeHealthStatus(): Promise<{ status: string; reasons: string[
         AND event_data->'timing'->>'p95TurnLatencyMs' IS NOT NULL
         AND (event_data->'timing'->>'p95TurnLatencyMs')::float > 0
     `),
+    // GL turn latency: per-session stats written at session end.
+    // event_data: { avgMs, p50Ms, p95Ms, count } — last-word-transcription → first Daniela audio.
+    sharedDb.execute(sql`
+      SELECT
+        COUNT(*)::int as session_count,
+        SUM((event_data->>'count')::int) as total_turns,
+        AVG((event_data->>'avgMs')::float)::int as avg_avg_ms,
+        AVG((event_data->>'p50Ms')::float)::int as avg_p50_ms,
+        AVG((event_data->>'p95Ms')::float)::int as avg_p95_ms,
+        MAX((event_data->>'p95Ms')::float)::int as max_p95_ms
+      FROM voice_pipeline_events
+      WHERE event_type = 'gl_turn_latency'
+        AND created_at >= ${oneHourAgo}
+        AND (event_data->>'count')::int > 0
+    `),
   ]);
 
   const h1 = last1h.rows[0] as any;
   const h6 = last6h.rows[0] as any;
   const eventsPerUserPer6h = h6.users > 0 ? h6.total / h6.users : 0;
   const lat = latency1h.rows[0] as any;
-  const avgP95Ms: number | null = lat?.avg_p95_ms ?? null;
+  const glLat = glLatency1h.rows[0] as any;
+  // Prefer GL latency if we have recent GL sessions; fall back to legacy client_diag_latency_snapshot
+  const glAvgP95Ms: number | null = (glLat?.session_count > 0) ? (glLat.avg_p95_ms ?? null) : null;
+  const legacyAvgP95Ms: number | null = lat?.avg_p95_ms ?? null;
+  const avgP95Ms: number | null = glAvgP95Ms ?? legacyAvgP95Ms;
 
   let status: string = 'green';
   const reasons: string[] = [];
@@ -101,15 +120,18 @@ async function computeHealthStatus(): Promise<{ status: string; reasons: string[
   }
   // Single-user 6h threshold removed: testing sessions shouldn't trigger platform-wide yellow status.
 
-  // Latency health: E2E turn latency p95 thresholds (speech_end → first_audio)
+  // Latency health: E2E turn latency p95 thresholds (last_word_heard → first_audio)
   // Green: < 3 000 ms  Yellow: 3 000–5 000 ms  Red: > 5 000 ms
-  if (avgP95Ms !== null && lat?.sample_count > 0) {
+  // Prefer GL server-side measurements; fall back to legacy client_diag_latency_snapshot
+  const latencySampleCount = (glLat?.session_count > 0) ? glLat.session_count : (lat?.sample_count ?? 0);
+  const latencySource = (glLat?.session_count > 0) ? 'GL sessions' : 'legacy reports';
+  if (avgP95Ms !== null && latencySampleCount > 0) {
     if (avgP95Ms > 5000) {
       status = 'red';
-      reasons.push(`High E2E latency: avg p95=${avgP95Ms}ms over last hour (${lat.sample_count} reports)`);
+      reasons.push(`High E2E latency: avg p95=${avgP95Ms}ms over last hour (${latencySampleCount} ${latencySource})`);
     } else if (avgP95Ms > 3000) {
       if (status !== 'red') status = 'yellow';
-      reasons.push(`Elevated E2E latency: avg p95=${avgP95Ms}ms over last hour (${lat.sample_count} reports)`);
+      reasons.push(`Elevated E2E latency: avg p95=${avgP95Ms}ms over last hour (${latencySampleCount} ${latencySource})`);
     }
   }
 
@@ -121,7 +143,19 @@ async function computeHealthStatus(): Promise<{ status: string; reasons: string[
     metrics: {
       last1h: h1,
       last6h: h6,
-      latency: avgP95Ms !== null ? { avgP95Ms, maxP95Ms: lat?.max_p95_ms, sampleCount: lat?.sample_count } : null,
+      latency: avgP95Ms !== null ? {
+        avgP95Ms,
+        maxP95Ms: (glLat?.session_count > 0) ? glLat.max_p95_ms : lat?.max_p95_ms,
+        sampleCount: latencySampleCount,
+        source: latencySource,
+        // GL-specific extras
+        ...(glLat?.session_count > 0 ? {
+          glAvgMs: glLat.avg_avg_ms,
+          glP50Ms: glLat.avg_p50_ms,
+          glSessions: glLat.session_count,
+          glTurns: glLat.total_turns,
+        } : {}),
+      } : null,
     },
   };
 }

@@ -1036,6 +1036,16 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
   let compassSession: TutorSession | null = null;
   let compassContext: CompassContext | null = null;
   let sessionStartTime = 0;
+
+  // GL idle timeout — closes session if no client audio for 5 minutes
+  // Prevents zombie sessions from accumulating when user leaves the tab open
+  const GL_IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+  let glIdleTimeoutHandle: NodeJS.Timeout | null = null;
+
+  // GL periodic metrics sync — writes accumulated GL metrics to DB every 2 minutes
+  // so zombie cleanup captures real data even if the session is never cleanly ended
+  const GL_METRICS_SYNC_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
+  let glMetricsSyncHandle: NodeJS.Timeout | null = null;
   
   const conversationId = ws.conversationId;
   let pendingVoiceUpdate: 'male' | 'female' | null = null;
@@ -1099,6 +1109,9 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
 
           // GL path: binary blobs are treated the same as stream_audio_chunk — relay to Live session.
           if (geminiLiveSession) {
+            // Reset idle timer on every audio chunk from client
+            const resetTimer = (ws as any).__resetGlIdleTimer as (() => void) | undefined;
+            if (resetTimer) resetTimer();
             geminiLiveSession.sendAudioChunk(audioBuffer);
             return;
           }
@@ -1961,6 +1974,51 @@ If asked about something covered above, answer directly from this context. If yo
                 // into her spoken response in real-time.
                 await geminiLiveSession.start(geminiLiveSystemPrompt, DANIELA_FUNCTION_DECLARATIONS);
                 console.log(`[GeminiLive] Session started with ${DANIELA_FUNCTION_DECLARATIONS.length} tool declarations alongside orchestrator session ${session.id}`);
+
+                // ── GL idle timeout ─────────────────────────────────────────────────
+                // Start idle timer. Resets whenever client audio arrives.
+                // If no audio for 5 minutes, close the session to prevent zombie accumulation.
+                const resetGlIdleTimer = () => {
+                  if (glIdleTimeoutHandle) clearTimeout(glIdleTimeoutHandle);
+                  glIdleTimeoutHandle = setTimeout(async () => {
+                    if (!geminiLiveSession) return;
+                    console.log(`[GeminiLive] Idle timeout (${GL_IDLE_TIMEOUT_MS / 60000} min) — closing session`);
+                    // Notify client before closing
+                    try {
+                      if (ws.readyState === 1 /* OPEN */) {
+                        ws.send(JSON.stringify({ type: 'session_idle_timeout', idleMinutes: GL_IDLE_TIMEOUT_MS / 60000 }));
+                      }
+                    } catch (_) {}
+                    // Stop the GL session cleanly so ws.on('close') handles billing
+                    if (ws.readyState === 1 /* OPEN */) {
+                      try { ws.close(1000, 'idle_timeout'); } catch (_) {}
+                    }
+                  }, GL_IDLE_TIMEOUT_MS);
+                };
+                // Store reference so audio handlers can call it
+                (ws as any).__resetGlIdleTimer = resetGlIdleTimer;
+                resetGlIdleTimer(); // Start timer immediately
+
+                // ── Periodic GL metrics sync ────────────────────────────────────────
+                // Write accumulated GL metrics to DB every 2 minutes.
+                // Ensures zombie cleanup picks up real exchange/speaking data.
+                glMetricsSyncHandle = setInterval(async () => {
+                  if (!geminiLiveSession || !usageSession) return;
+                  const glExchanges = geminiLiveSession.getCompletedExchangeCount();
+                  const glOutputChars = geminiLiveSession.getTotalOutputCharacters();
+                  const glSpeaking = geminiLiveSession.getSpeakingStats();
+                  const glTokens = geminiLiveSession.getUsageSummary();
+                  if (glExchanges > 0 || glOutputChars > 0) {
+                    usageService.updateSessionMetrics(usageSession.id, {
+                      exchangeCount: exchangeCount + glExchanges,
+                      ttsCharacters: ttsCharacters + glOutputChars,
+                      studentSpeakingSeconds: Math.round((studentSpeakingSeconds * 1000 + glSpeaking.studentSpeakingMs) / 1000),
+                      tutorSpeakingSeconds: Math.round((tutorSpeakingSeconds * 1000 + glSpeaking.tutorSpeakingMs) / 1000),
+                      ...(glTokens.inputTokens > 0 ? { llmInputTokens: glTokens.inputTokens } : {}),
+                      ...(glTokens.outputTokens > 0 ? { llmOutputTokens: glTokens.outputTokens } : {}),
+                    }).catch((err: Error) => console.warn('[GeminiLive] Periodic metrics sync failed:', err.message));
+                  }
+                }, GL_METRICS_SYNC_INTERVAL_MS);
               } catch (glErr: any) {
                 console.error('[GeminiLive] Failed to start Gemini Live session:', glErr.message);
                 geminiLiveSession = null;
@@ -2317,6 +2375,9 @@ If asked about something covered above, answer directly from this context. If yo
 
           // ── Gemini Live path: relay PCM16 directly to the Live session ──
           if (geminiLiveSession) {
+            // Reset idle timer on every audio chunk from client
+            const resetTimer2 = (ws as any).__resetGlIdleTimer as (() => void) | undefined;
+            if (resetTimer2) resetTimer2();
             geminiLiveSession.sendAudioChunk(audioBuffer);
             break;
           }
@@ -3138,15 +3199,38 @@ If asked about something covered above, answer directly from this context. If yo
   ws.on('close', () => {
     console.log('[Streaming Voice] Socket.io connection closed');
 
+    // Clear GL idle timeout and periodic sync timers
+    if (glIdleTimeoutHandle) { clearTimeout(glIdleTimeoutHandle); glIdleTimeoutHandle = null; }
+    if (glMetricsSyncHandle) { clearInterval(glMetricsSyncHandle); glMetricsSyncHandle = null; }
+    (ws as any).__resetGlIdleTimer = undefined;
+
     // Capture Gemini Live metrics before stopping (stop() resets internal state)
     if (geminiLiveSession) {
       const glMetrics = geminiLiveSession.getUsageSummary();
       const glExchanges = geminiLiveSession.getCompletedExchangeCount();
       const glOutputChars = geminiLiveSession.getTotalOutputCharacters();
+      const glSpeaking = geminiLiveSession.getSpeakingStats();
+      const glLatency = geminiLiveSession.getTurnLatencyStats();
       exchangeCount += glExchanges;
       ttsCharacters += glOutputChars;
+      studentSpeakingSeconds += glSpeaking.studentSpeakingMs / 1000;
+      tutorSpeakingSeconds += glSpeaking.tutorSpeakingMs / 1000;
       if (glMetrics.inputTokens > 0 || glMetrics.outputTokens > 0) {
         console.log(`[GeminiLive] Session end metrics — exchanges: ${glExchanges}, outputChars: ${glOutputChars}, tokens: ${glMetrics.inputTokens}in/${glMetrics.outputTokens}out`);
+      }
+      if (glLatency.count > 0) {
+        console.log(`[GeminiLive] Latency stats — avg: ${glLatency.avgMs}ms, p50: ${glLatency.p50Ms}ms, p95: ${glLatency.p95Ms}ms (${glLatency.count} turns)`);
+        // Write latency telemetry event for voice health monitor
+        if (usageSession && userId) {
+          const { getSharedDb } = require('./neon-db');
+          const { sql: drizzleSql } = require('drizzle-orm');
+          const eventPayload = JSON.stringify({ avgMs: glLatency.avgMs, p50Ms: glLatency.p50Ms, p95Ms: glLatency.p95Ms, count: glLatency.count });
+          getSharedDb().execute(drizzleSql`
+            INSERT INTO voice_pipeline_events (id, session_id, user_id, event_type, event_data, created_at)
+            VALUES (gen_random_uuid(), ${usageSession.id}, ${userId}, 'gl_turn_latency',
+              ${eventPayload}::jsonb, NOW())
+          `).catch((err: Error) => console.warn('[GeminiLive] Failed to write latency event:', err.message));
+        }
       }
       // Store GL token counts on usageSession for updateSessionMetrics below
       if (usageSession) {
@@ -3232,13 +3316,21 @@ If asked about something covered above, answer directly from this context. If yo
   ws.on('error', (error) => {
     console.error('[Streaming Voice] Socket.io connection error:', error);
 
+    // Clear GL idle timeout and periodic sync timers
+    if (glIdleTimeoutHandle) { clearTimeout(glIdleTimeoutHandle); glIdleTimeoutHandle = null; }
+    if (glMetricsSyncHandle) { clearInterval(glMetricsSyncHandle); glMetricsSyncHandle = null; }
+    (ws as any).__resetGlIdleTimer = undefined;
+
     // Capture Gemini Live metrics before stopping on error
     if (geminiLiveSession) {
       const glMetrics = geminiLiveSession.getUsageSummary();
       const glExchanges = geminiLiveSession.getCompletedExchangeCount();
       const glOutputChars = geminiLiveSession.getTotalOutputCharacters();
+      const glSpeaking = geminiLiveSession.getSpeakingStats();
       exchangeCount += glExchanges;
       ttsCharacters += glOutputChars;
+      studentSpeakingSeconds += glSpeaking.studentSpeakingMs / 1000;
+      tutorSpeakingSeconds += glSpeaking.tutorSpeakingMs / 1000;
       if (usageSession) {
         (usageSession as any)._glInputTokens = glMetrics.inputTokens;
         (usageSession as any)._glOutputTokens = glMetrics.outputTokens;
