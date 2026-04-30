@@ -55,7 +55,7 @@ import { buildEvelynSystemPrompt, buildGeneSystemPrompt, EVELYN_NAME, GENE_NAME,
 import { buildClioSystemPrompt, buildMarcusSystemPrompt, CLIO_NAME, MARCUS_NAME, CLIO_VOICE_CONFIG, MARCUS_VOICE_CONFIG, isHistorySession } from './services/history-persona';
 import { buildAdaSystemPrompt, buildLeoSystemPrompt, ADA_NAME, LEO_NAME, ADA_VOICE_CONFIG, LEO_VOICE_CONFIG, isMathSession } from './services/math-persona';
 import { buildMorganSystemPrompt, buildSterlingSystemPrompt, MORGAN_NAME, STERLING_NAME, MORGAN_VOICE_CONFIG, STERLING_VOICE_CONFIG, isBusinessSession } from './services/business-persona';
-import { getPredictiveTeachingContext, getStudentSnapshotData, buildStudentSnapshotSection, type PredictiveTeachingContext, type StudentSnapshotContext } from './services/procedural-memory-retrieval';
+import { getPredictiveTeachingContext, getStudentSnapshotData, buildStudentSnapshotSection, buildStudentMemoryAwarenessSection, type PredictiveTeachingContext, type StudentSnapshotContext } from './services/procedural-memory-retrieval';
 import { studentLearningService } from './services/student-learning-service';
 import { voiceDiagnostics } from './services/voice-diagnostics-service';
 import type { VoiceSession as UsageVoiceSession, CompassContext, TutorSession } from '@shared/schema';
@@ -1340,8 +1340,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
                 )
               : Promise.resolve(null as string | null);
             
-            // Student snapshot — gives Daniela last-session topic, streak, wins,
-            // and personal follow-ups so she never greets David as a stranger.
+            // Student snapshot — last session, streak, personal follow-ups (structured progress data)
             const studentSnapshotPromise = (!isSubjectSessionEarly && userId)
               ? withTimeout(
                   getStudentSnapshotData(String(userId), effectiveLanguage),
@@ -1349,12 +1348,22 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
                 )
               : Promise.resolve(null as StudentSnapshotContext | null);
 
-            const [compassResult, neuralNetworkContext, usageSessionResult, courseToc, studentSnapshot] = await Promise.all([
+            // Student memory context — the relationship core: insights, motivations, struggles,
+            // session notes, people connections. This is the history of who they are to each other.
+            const studentMemoryContextPromise = (!isSubjectSessionEarly && userId)
+              ? withTimeout(
+                  storage.getStudentMemoryContext(String(userId), effectiveLanguage),
+                  SESSION_INIT_TIMEOUT, 'studentMemoryContext', null
+                )
+              : Promise.resolve(null);
+
+            const [compassResult, neuralNetworkContext, usageSessionResult, courseToc, studentSnapshot, studentMemoryContext] = await Promise.all([
               compassPromise.catch((err: any) => { console.warn(`[Compass Init] Error: ${err.message}`); return null; }),
               neuralNetworkPromise.catch((err: any) => { console.warn(`[Neural Network] Error: ${err.message}`); return ''; }),
               usageSessionPromise.catch((err: any) => { console.warn(`[Usage Session] Error: ${err.message}`); return null; }),
               courseTocPromise.catch((err: any) => { console.warn(`[Course TOC] Error: ${err.message}`); return null; }),
               studentSnapshotPromise.catch((err: any) => { console.warn(`[Student Snapshot] Error: ${err.message}`); return null; }),
+              studentMemoryContextPromise.catch((err: any) => { console.warn(`[Student Memory Context] Error: ${err.message}`); return null; }),
             ]);
             
             const phase2Ms = Date.now() - phase2Start;
@@ -1481,15 +1490,35 @@ ${buildNativeFunctionCallingSection()}`;
               }
             }
 
-            // Append student snapshot — language sessions only (not subject tutors)
-            // This is what lets Daniela remember David between sessions instead of greeting him as a stranger.
-            if (!isSubjectSession && studentSnapshot && user?.firstName) {
-              const snapshotSection = buildStudentSnapshotSection(user.firstName, studentSnapshot);
-              if (snapshotSection) {
-                systemPrompt += snapshotSection;
-                console.log(`[Streaming Voice] ✓ Student snapshot injected (last session: ${studentSnapshot.lastSession?.topic ?? 'none'}, streak: ${studentSnapshot.streak ?? 0})`);
-              } else {
-                console.log(`[Streaming Voice] Student snapshot empty — first-time student or no session data yet`);
+            // Append student snapshot + memory context — language sessions only (not subject tutors)
+            // Together these are what let Daniela know David as a person, not a stranger.
+            if (!isSubjectSession && user?.firstName) {
+              // 1. Snapshot: last session, streak, personal follow-ups
+              if (studentSnapshot) {
+                const snapshotSection = buildStudentSnapshotSection(user.firstName, studentSnapshot);
+                if (snapshotSection) {
+                  systemPrompt += snapshotSection;
+                  console.log(`[Streaming Voice] ✓ Student snapshot injected (last session: ${studentSnapshot.lastSession?.topic ?? 'none'}, streak: ${studentSnapshot.streak ?? 0})`);
+                } else {
+                  console.log(`[Streaming Voice] Student snapshot empty — first-time student or no session data yet`);
+                }
+              }
+
+              // 2. Memory context: insights, motivations, struggles, session notes, people connections
+              // This is the relationship core — the accumulated history of who they are to each other.
+              if (studentMemoryContext) {
+                const memorySection = buildStudentMemoryAwarenessSection(user.firstName, studentMemoryContext);
+                if (memorySection) {
+                  systemPrompt += memorySection;
+                  const totalItems = (studentMemoryContext.insights?.length ?? 0) +
+                    (studentMemoryContext.motivations?.length ?? 0) +
+                    (studentMemoryContext.struggles?.length ?? 0) +
+                    (studentMemoryContext.recentNotes?.length ?? 0) +
+                    (studentMemoryContext.connections?.length ?? 0);
+                  console.log(`[Streaming Voice] ✓ Student memory context injected (${totalItems} items: ${studentMemoryContext.insights?.length ?? 0} insights, ${studentMemoryContext.motivations?.length ?? 0} motivations, ${studentMemoryContext.struggles?.length ?? 0} struggles, ${studentMemoryContext.recentNotes?.length ?? 0} notes, ${studentMemoryContext.connections?.length ?? 0} connections)`);
+                } else {
+                  console.log(`[Streaming Voice] Student memory context empty — no relationship history yet`);
+                }
               }
             }
 
