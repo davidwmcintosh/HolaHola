@@ -57,7 +57,7 @@ import {
   type ToolKnowledge,
   type DanielaNote,
 } from '@shared/schema';
-import { eq, sql, desc, and, or, ilike, gte, isNull, inArray } from 'drizzle-orm';
+import { eq, sql, desc, asc, and, or, ilike, gte, lte, lt, gt, isNull, inArray } from 'drizzle-orm';
 
 /**
  * Tutor name to language mapping
@@ -1908,6 +1908,284 @@ export function formatTeachingKnowledge(response: TeachingMemoryResponse): strin
   return lines.join('\n');
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Conversation Thread Search
+// Returns full exchange context around matching messages, not isolated snippets.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ConversationThreadMessage {
+  role: string;
+  content: string;
+  createdAt: Date | null;
+  isMatch: boolean;  // true if this message was the search match
+}
+
+export interface ConversationThread {
+  conversationId: string;
+  conversationTitle: string | null;
+  conversationDate: Date | null;
+  language: string | null;
+  matchedContent: string;  // the snippet that triggered this thread
+  messages: ConversationThreadMessage[];
+}
+
+export interface ConversationThreadSearchResult {
+  query: string;
+  threads: ConversationThread[];
+  totalMatchingMessages: number;
+}
+
+/**
+ * Search for conversation threads that contain the query.
+ * For each matched message, returns the surrounding exchange context
+ * (contextBefore + contextAfter messages) so Daniela can recall the
+ * full conversation, not just an isolated snippet.
+ */
+export async function searchConversationThreads(
+  studentId: string,
+  query: string,
+  options: {
+    contextBefore?: number;  // messages before match (default 4)
+    contextAfter?: number;   // messages after match (default 4)
+    maxThreads?: number;     // max unique conversations to return (default 5)
+    afterDate?: Date;        // optional date filter: only return messages after this date
+    beforeDate?: Date;       // optional date filter: only return messages before this date
+  } = {}
+): Promise<ConversationThreadSearchResult> {
+  const {
+    contextBefore = 4,
+    contextAfter = 4,
+    maxThreads = 5,
+    afterDate,
+    beforeDate,
+  } = options;
+
+  const db = getSharedDb();
+
+  // Build keyword search conditions from query words
+  const words = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(w => w.length >= 3)  // skip very short words
+    .slice(0, 5);                 // max 5 keywords
+
+  const keywordConditions = words.length > 0
+    ? words.map(w => ilike(messages.content, `%${w}%`))
+    : [ilike(messages.content, `%${query}%`)];
+
+  // Also match the full phrase directly
+  const phraseCondition = ilike(messages.content, `%${query}%`);
+  const contentCondition = words.length > 0
+    ? or(phraseCondition, ...keywordConditions)!
+    : phraseCondition;
+
+  // Date conditions
+  const sixMonthsAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
+  const dateConditions: ReturnType<typeof and>[] = [
+    and(
+      eq(conversations.userId, studentId),
+      gte(messages.createdAt, afterDate || sixMonthsAgo),
+      contentCondition,
+    ) as ReturnType<typeof and>,
+  ];
+
+  if (beforeDate) {
+    dateConditions[0] = and(
+      eq(conversations.userId, studentId),
+      gte(messages.createdAt, afterDate || sixMonthsAgo),
+      lte(messages.createdAt, beforeDate),
+      contentCondition,
+    ) as ReturnType<typeof and>;
+  }
+
+  // Step 1: Find matching messages, ordered by recency
+  let matchingMessages: Array<{
+    messageId: string;
+    content: string;
+    role: string;
+    createdAt: Date | null;
+    conversationId: string;
+    conversationTitle: string | null;
+    conversationDate: Date | null;
+    language: string | null;
+  }> = [];
+
+  try {
+    matchingMessages = await db
+      .select({
+        messageId: messages.id,
+        content: messages.content,
+        role: messages.role,
+        createdAt: messages.createdAt,
+        conversationId: messages.conversationId,
+        conversationTitle: conversations.title,
+        conversationDate: conversations.createdAt,
+        language: conversations.language,
+      })
+      .from(messages)
+      .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+      .where(dateConditions[0])
+      .orderBy(desc(messages.createdAt))
+      .limit(50);  // get 50 candidates, we'll dedup by conversation
+  } catch (err: any) {
+    console.error('[ConversationThreads] Search query failed:', err.message);
+    return { query, threads: [], totalMatchingMessages: 0 };
+  }
+
+  if (matchingMessages.length === 0) {
+    // Try without date limit if no results
+    try {
+      matchingMessages = await db
+        .select({
+          messageId: messages.id,
+          content: messages.content,
+          role: messages.role,
+          createdAt: messages.createdAt,
+          conversationId: messages.conversationId,
+          conversationTitle: conversations.title,
+          conversationDate: conversations.createdAt,
+          language: conversations.language,
+        })
+        .from(messages)
+        .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+        .where(and(
+          eq(conversations.userId, studentId),
+          contentCondition,
+        ))
+        .orderBy(desc(messages.createdAt))
+        .limit(50);
+    } catch (err: any) {
+      console.error('[ConversationThreads] Fallback search failed:', err.message);
+      return { query, threads: [], totalMatchingMessages: 0 };
+    }
+  }
+
+  const totalMatchingMessages = matchingMessages.length;
+
+  // Step 2: Deduplicate by conversation — keep the BEST (most recent) match per conversation
+  const seenConversations = new Set<string>();
+  const uniqueMatches: typeof matchingMessages = [];
+  for (const msg of matchingMessages) {
+    if (!seenConversations.has(msg.conversationId)) {
+      seenConversations.add(msg.conversationId);
+      uniqueMatches.push(msg);
+      if (uniqueMatches.length >= maxThreads) break;
+    }
+  }
+
+  // Step 3: For each unique match, fetch the context window around it
+  const threadPromises = uniqueMatches.map(async (match) => {
+    try {
+      // Get messages BEFORE the match (inclusive of match itself to establish anchor)
+      const before = await db
+        .select({ role: messages.role, content: messages.content, createdAt: messages.createdAt })
+        .from(messages)
+        .where(and(
+          eq(messages.conversationId, match.conversationId),
+          lte(messages.createdAt, match.createdAt!),
+        ))
+        .orderBy(desc(messages.createdAt))
+        .limit(contextBefore + 1);  // +1 to include the match itself
+
+      // Get messages AFTER the match
+      const after = await db
+        .select({ role: messages.role, content: messages.content, createdAt: messages.createdAt })
+        .from(messages)
+        .where(and(
+          eq(messages.conversationId, match.conversationId),
+          gt(messages.createdAt, match.createdAt!),
+        ))
+        .orderBy(asc(messages.createdAt))
+        .limit(contextAfter);
+
+      // Combine: before (reversed to chronological) + after
+      const beforeChron = [...before].reverse();
+      const thread: ConversationThreadMessage[] = [
+        ...beforeChron.map((m, i) => ({
+          role: m.role,
+          content: m.content || '',
+          createdAt: m.createdAt,
+          isMatch: i === beforeChron.length - 1,  // last of "before" is the match
+        })),
+        ...after.map(m => ({
+          role: m.role,
+          content: m.content || '',
+          createdAt: m.createdAt,
+          isMatch: false,
+        })),
+      ];
+
+      return {
+        conversationId: match.conversationId,
+        conversationTitle: match.conversationTitle,
+        conversationDate: match.conversationDate,
+        language: match.language,
+        matchedContent: match.content || '',
+        messages: thread,
+      } satisfies ConversationThread;
+    } catch (err: any) {
+      console.error(`[ConversationThreads] Context fetch failed for ${match.conversationId}:`, err.message);
+      return null;
+    }
+  });
+
+  const threadResults = await Promise.all(threadPromises);
+  const threads = threadResults.filter((t): t is ConversationThread => t !== null);
+
+  console.log(`[ConversationThreads] "${query}" → ${totalMatchingMessages} matches across ${threads.length} conversation threads`);
+
+  return { query, threads, totalMatchingMessages };
+}
+
+/**
+ * Format conversation thread search results for Daniela's use.
+ * Returns readable thread excerpts that show the actual exchange, not just snippets.
+ */
+export function formatConversationThreads(result: ConversationThreadSearchResult, studentName = 'David'): string {
+  if (result.threads.length === 0) {
+    return `No conversation threads found for "${result.query}". The conversation may have happened before our recorded history or under different terms.`;
+  }
+
+  const lines: string[] = [];
+  lines.push(`CONVERSATION THREADS — "${result.query}"`);
+  lines.push(`Found in ${result.threads.length} conversation${result.threads.length > 1 ? 's' : ''} (${result.totalMatchingMessages} total matches)\n`);
+
+  for (const thread of result.threads) {
+    // Conversation header
+    const dateStr = thread.conversationDate
+      ? formatThreadDate(new Date(thread.conversationDate))
+      : 'Unknown date';
+    const title = thread.conversationTitle || 'Conversation';
+    const langLabel = thread.language ? ` [${thread.language}]` : '';
+    lines.push(`━━━ ${title}${langLabel} — ${dateStr} ━━━`);
+
+    // Thread messages
+    for (const msg of thread.messages) {
+      const speaker = msg.role === 'user' ? studentName : 'Daniela';
+      const marker = msg.isMatch ? ' ◄' : '';  // mark the matching message
+      // Full content — no truncation so Daniela sees the complete exchange
+      lines.push(`${speaker}: ${msg.content}${marker}`);
+    }
+    lines.push('');
+  }
+
+  lines.push(`Use these threads to recall the full context of our past conversations.`);
+  return lines.join('\n');
+}
+
+function formatThreadDate(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} week${Math.floor(diffDays / 7) > 1 ? 's' : ''} ago`;
+  if (diffDays < 365) return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+  return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
 // Export singleton-style functions
 export const neuralMemorySearch = {
   search: searchMemory,
@@ -1920,4 +2198,7 @@ export const neuralMemorySearch = {
   // Syllabus/curriculum lookup (Phase 2)
   searchSyllabi,
   formatSyllabi: formatSyllabusSearch,
+  // Conversation thread search (Phase 3)
+  searchThreads: searchConversationThreads,
+  formatThreads: formatConversationThreads,
 };

@@ -1748,6 +1748,30 @@ export class NativeFunctionCallHandler {
         break;
       }
       
+      case 'CONVERSATION_THREAD_SEARCH': {
+        const ctQuery = fn.args.query as string | undefined;
+        if (ctQuery) {
+          const contextMessages = (fn.args.context_messages as number | undefined) ?? 4;
+          const maxThreads = Math.min((fn.args.max_threads as number | undefined) ?? 3, 8);
+          const afterDateStr = fn.args.after_date as string | undefined;
+          const beforeDateStr = fn.args.before_date as string | undefined;
+          const afterDate = afterDateStr ? new Date(afterDateStr) : undefined;
+          const beforeDate = beforeDateStr ? new Date(beforeDateStr) : undefined;
+          
+          console.log(`[Native Function→ConversationThreadSearch] Query: "${ctQuery.substring(0, 60)}" context=${contextMessages} threads=${maxThreads}`);
+          
+          const threadSearchPromise = this.processConversationThreadSearch(
+            session, ctQuery, contextMessages, maxThreads, afterDate, beforeDate
+          ).catch(err => {
+            console.error(`[Native Function→ConversationThreadSearch] Error:`, err.message);
+          });
+          
+          if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+          session.pendingMemoryLookupPromises.push(threadSearchPromise);
+        }
+        break;
+      }
+      
       case 'TAKE_NOTE': {
         if (session.isIncognito) {
           console.log(`[Native Function→TakeNote] INCOGNITO - skipping note persistence`);
@@ -4374,6 +4398,53 @@ export class NativeFunctionCallHandler {
     }
   }
   
+  private async processConversationThreadSearch(
+    session: StreamingSession,
+    query: string,
+    contextMessages: number,
+    maxThreads: number,
+    afterDate?: Date,
+    beforeDate?: Date,
+  ): Promise<void> {
+    const studentId = session.userId;
+    if (!studentId) {
+      console.warn('[ConversationThreadSearch] No studentId on session');
+      return;
+    }
+    
+    if (!session.conversationThreadResults) session.conversationThreadResults = {};
+    
+    try {
+      const { searchConversationThreads, formatConversationThreads } = await import('./neural-memory-search');
+      
+      const result = await searchConversationThreads(studentId, query, {
+        contextBefore: contextMessages,
+        contextAfter: contextMessages,
+        maxThreads,
+        afterDate,
+        beforeDate,
+      });
+      
+      const formatted = formatConversationThreads(result, 'David');
+      
+      // Sanitize for any control characters that could break GL
+      const sanitized = formatted
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+        .replace(/\uFFFD/g, '')
+        .replace(/[\u2028\u2029]/g, '\n')
+        .replace(/[\u201C\u201D]/g, '"')
+        .replace(/[\u2018\u2019]/g, "'")
+        .replace(/[\u200B-\u200D\uFEFF]/g, '');
+      
+      session.conversationThreadResults[query] = sanitized;
+      
+      console.log(`[ConversationThreadSearch] Query: "${query.substring(0, 50)}" → ${result.threads.length} threads, ${result.totalMatchingMessages} total matches`);
+    } catch (err: any) {
+      console.error(`[ConversationThreadSearch] Error:`, err.message);
+      session.conversationThreadResults[query] = `Thread search failed for "${query}". Try memory_lookup with domain='conversation' as a fallback.`;
+    }
+  }
+
   private async processExpressLaneImageRecall(
     session: StreamingSession,
     imageQuery: string,

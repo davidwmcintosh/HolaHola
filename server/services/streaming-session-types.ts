@@ -196,6 +196,7 @@ export interface StreamingSession {
   // Memory lookup results
   memoryLookupResults?: Record<string, string>;
   expressLaneLookupResults?: Record<string, string>;
+  conversationThreadResults?: Record<string, string>;
   imageRecallResults?: Record<string, {
     text: string;
     images: Array<{ mimeType: string; data: string }>;

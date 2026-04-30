@@ -1738,6 +1738,60 @@ IMPORTANT: The Express Lane is for team collaboration messages (Wren/David build
     },
   },
   {
+    legacyType: 'CONVERSATION_THREAD_SEARCH',
+    declaration: {
+      name: "search_conversation_threads",
+      description: `Search for the complete exchange around a topic — returns the full back-and-forth conversation thread, not just isolated message snippets.
+
+Use this when you need to recall the ACTUAL CONVERSATION that happened around a topic:
+- "Do you remember that time we talked about reggaeton?"
+- "What did I say when we discussed [topic]?"
+- "Show me that whole exchange about [topic]"
+- "What was the context of what I told you about [thing]?"
+- Any time you need MORE than a snippet — the full exchange, including what led up to it and what came after
+
+DIFFERENCE from memory_lookup:
+- memory_lookup → structured memories, insights, teaching moments, short summaries
+- search_conversation_threads → actual raw conversation threads, the full exchange word for word
+
+Provide a specific query. Optionally filter by date if you know roughly when the conversation happened.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "Key topic, phrase, or concept to search for. Be specific — e.g. 'reggaeton music integrity' or 'scarecrow joke timing'",
+          },
+          context_messages: {
+            type: "number",
+            description: "How many messages before and after the match to include (default: 4). Use 6-8 for more context.",
+          },
+          max_threads: {
+            type: "number",
+            description: "How many different conversations to return (default: 3, max: 8).",
+          },
+          after_date: {
+            type: "string",
+            description: "Optional ISO date string (YYYY-MM-DD). Only find conversations after this date.",
+          },
+          before_date: {
+            type: "string",
+            description: "Optional ISO date string (YYYY-MM-DD). Only find conversations before this date.",
+          },
+        },
+        required: ["query"],
+      },
+    },
+    buildContinuationResponse: ({ session, fc }) => {
+      const query = fc.args.query as string;
+      const result = session.conversationThreadResults?.[query];
+      if (result) {
+        return `Conversation thread results:\n${result}\n\nNow respond to the student using this full context. You have the actual exchange — reference it specifically.`;
+      }
+      return `No conversation threads found for "${query}". The conversation may not be in the searchable window, or it may have happened under different terms. You can try memory_lookup with domain='conversation' for a broader search, or let the student know you don't have a record of that specific exchange.`;
+    },
+  },
+  {
     legacyType: 'EXPRESS_LANE_LOOKUP',
     declaration: {
       name: "express_lane_lookup",

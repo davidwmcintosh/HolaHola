@@ -3306,6 +3306,42 @@ Remember: David may reference things discussed in these recent text chats.
                   }
                   break;
                 }
+                case 'CONVERSATION_THREAD_SEARCH': {
+                  const ctQuery = cmd.params.query as string;
+                  const ctContextMessages = (cmd.params.context_messages as number | undefined) ?? 4;
+                  const ctMaxThreads = Math.min((cmd.params.max_threads as number | undefined) ?? 3, 8);
+                  const ctAfterDate = cmd.params.after_date ? new Date(cmd.params.after_date as string) : undefined;
+                  const ctBeforeDate = cmd.params.before_date ? new Date(cmd.params.before_date as string) : undefined;
+                  
+                  if (ctQuery) {
+                    try {
+                      const { searchConversationThreads, formatConversationThreads } = await import('./neural-memory-search');
+                      const studentId = String(session.userId);
+                      
+                      const result = await searchConversationThreads(studentId, ctQuery, {
+                        contextBefore: ctContextMessages,
+                        contextAfter: ctContextMessages,
+                        maxThreads: ctMaxThreads,
+                        afterDate: ctAfterDate,
+                        beforeDate: ctBeforeDate,
+                      });
+                      
+                      const formatted = formatConversationThreads(result, 'David');
+                      
+                      if (session.conversationHistory) {
+                        session.conversationHistory.push({
+                          role: 'user',
+                          content: `[SYSTEM: Conversation thread search results for "${ctQuery}"]\n${formatted}`,
+                        });
+                      }
+                      
+                      console.log(`[CommandParser→ConversationThreadSearch] "${ctQuery}" → ${result.threads.length} threads`);
+                    } catch (err) {
+                      console.error(`[CommandParser→ConversationThreadSearch] Error:`, err);
+                    }
+                  }
+                  break;
+                }
                 case 'EXPRESS_LANE_LOOKUP': {
                   // On-demand Express Lane history search - only in Founder/Honesty mode
                   const query = cmd.params.query as string;
@@ -8216,8 +8252,8 @@ Remember: David may reference things discussed in these recent text chats.
       // MULTI-STEP FUNCTION CALL CONTINUATION: If we got function calls but no text,
       // execute the functions and continue the conversation with Gemini
       const functionsNeedingContinuation = greetingFunctionCalls.filter(fc => 
-        fc.legacyType === 'MEMORY_LOOKUP' || fc.legacyType === 'EXPRESS_LANE_LOOKUP' ||
-        fc.name === 'memory_lookup' || fc.name === 'express_lane_lookup'
+        fc.legacyType === 'MEMORY_LOOKUP' || fc.legacyType === 'EXPRESS_LANE_LOOKUP' || fc.legacyType === 'CONVERSATION_THREAD_SEARCH' ||
+        fc.name === 'memory_lookup' || fc.name === 'express_lane_lookup' || fc.name === 'search_conversation_threads'
       );
       
       if (metrics.sentenceCount === 0 && greetingFunctionCalls.length > 0 && functionsNeedingContinuation.length > 0) {
