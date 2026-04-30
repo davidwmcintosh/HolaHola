@@ -27,7 +27,7 @@ async function computeHealthStatus(): Promise<{ status: string; reasons: string[
   const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
   const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
 
-  const [last1h, last6h, latency1h, glLatency1h] = await Promise.all([
+  const [last1h, last6h, latency1h, glLatency1h, reliability1h] = await Promise.all([
     sharedDb.execute(sql`
       SELECT 
         COUNT(*)::int as total,
@@ -72,6 +72,18 @@ async function computeHealthStatus(): Promise<{ status: string; reasons: string[
         AND created_at >= ${oneHourAgo}
         AND (event_data->>'count')::int > 0
     `),
+    // Session reliability: abnormal disconnects and tutor no-response events.
+    // These are server-side events written by unified-ws-handler when a session
+    // ends with a non-clean WS close code, or when the GL tutor watchdog fires.
+    sharedDb.execute(sql`
+      SELECT
+        COUNT(*) FILTER (WHERE event_type = 'session_abnormal_disconnect')::int as disconnects,
+        COUNT(DISTINCT user_id) FILTER (WHERE event_type = 'session_abnormal_disconnect')::int as disconnect_users,
+        COUNT(*) FILTER (WHERE event_type = 'gl_tutor_no_response')::int as tutor_silent
+      FROM voice_pipeline_events
+      WHERE event_type IN ('session_abnormal_disconnect', 'gl_tutor_no_response')
+        AND created_at >= ${oneHourAgo}
+    `),
   ]);
 
   const h1 = last1h.rows[0] as any;
@@ -79,6 +91,10 @@ async function computeHealthStatus(): Promise<{ status: string; reasons: string[
   const eventsPerUserPer6h = h6.users > 0 ? h6.total / h6.users : 0;
   const lat = latency1h.rows[0] as any;
   const glLat = glLatency1h.rows[0] as any;
+  const rel = reliability1h.rows[0] as any;
+  const disconnects1h: number = Number(rel?.disconnects ?? 0);
+  const disconnectUsers1h: number = Number(rel?.disconnect_users ?? 0);
+  const tutorSilent1h: number = Number(rel?.tutor_silent ?? 0);
   // Prefer GL latency if we have recent GL sessions; fall back to legacy client_diag_latency_snapshot
   const glAvgP95Ms: number | null = (glLat?.session_count > 0) ? (glLat.avg_p95_ms ?? null) : null;
   const legacyAvgP95Ms: number | null = lat?.avg_p95_ms ?? null;
@@ -135,6 +151,32 @@ async function computeHealthStatus(): Promise<{ status: string; reasons: string[
     }
   }
 
+  // Session reliability checks.
+  // Abnormal disconnects: any single user affected = yellow; ≥2 users or ≥5 events = red.
+  // Rationale: a single abnormal disconnect could be a fluke (bad network), but multiple
+  // affected users in one hour indicates a platform-side problem.
+  if (disconnects1h > 0) {
+    if (disconnects1h >= 5 || disconnectUsers1h >= 2) {
+      status = 'red';
+      reasons.push(`${disconnects1h} abnormal disconnects in last hour affecting ${disconnectUsers1h} user(s)`);
+    } else {
+      if (status !== 'red') status = 'yellow';
+      reasons.push(`${disconnects1h} abnormal disconnect(s) in last hour (${disconnectUsers1h} user)`);
+    }
+  }
+
+  // Tutor no-response: any occurrence is worth flagging. ≥3 in one hour = red.
+  // One event might be a transient GL API hiccup; ≥3 indicates a persistent hang pattern.
+  if (tutorSilent1h > 0) {
+    if (tutorSilent1h >= 3) {
+      status = 'red';
+      reasons.push(`${tutorSilent1h} tutor no-response events in last hour (GL watchdog fired)`);
+    } else {
+      if (status !== 'red') status = 'yellow';
+      reasons.push(`${tutorSilent1h} tutor no-response event(s) in last hour (GL watchdog)`);
+    }
+  }
+
   if (reasons.length === 0) reasons.push('All systems nominal');
 
   return {
@@ -143,6 +185,11 @@ async function computeHealthStatus(): Promise<{ status: string; reasons: string[
     metrics: {
       last1h: h1,
       last6h: h6,
+      reliability: {
+        disconnects: disconnects1h,
+        disconnectUsers: disconnectUsers1h,
+        tutorSilent: tutorSilent1h,
+      },
       latency: avgP95Ms !== null ? {
         avgP95Ms,
         maxP95Ms: (glLat?.session_count > 0) ? glLat.max_p95_ms : lat?.max_p95_ms,
@@ -216,7 +263,7 @@ async function generateDailySummary(targetDate?: Date): Promise<void> {
       return;
     }
 
-    const [totals, byTrigger, byDevice, hourly] = await Promise.all([
+    const [totals, byTrigger, byDevice, hourly, dailyReliability] = await Promise.all([
       sharedDb.execute(sql`
         SELECT 
           COUNT(*)::int as total,
@@ -256,6 +303,17 @@ async function generateDailySummary(targetDate?: Date): Promise<void> {
         ORDER BY count DESC
         LIMIT 1
       `),
+      // Daily reliability: fold session_abnormal_disconnect + gl_tutor_no_response
+      // into the by_trigger JSONB map under their own keys so Sofia and historical
+      // queries can see them alongside the client_diag breakdown.
+      sharedDb.execute(sql`
+        SELECT
+          COUNT(*) FILTER (WHERE event_type = 'session_abnormal_disconnect')::int as disconnects,
+          COUNT(*) FILTER (WHERE event_type = 'gl_tutor_no_response')::int as tutor_silent
+        FROM voice_pipeline_events
+        WHERE event_type IN ('session_abnormal_disconnect', 'gl_tutor_no_response')
+          AND created_at >= ${dayStart} AND created_at <= ${dayEnd}
+      `),
     ]);
 
     const t = totals.rows[0] as any;
@@ -263,6 +321,13 @@ async function generateDailySummary(targetDate?: Date): Promise<void> {
     for (const row of byTrigger.rows as any[]) {
       triggerMap[row.trigger] = row.count;
     }
+
+    // Include reliability counts in the trigger map with distinct keys.
+    const relDay = dailyReliability.rows[0] as any;
+    const dayDisconnects = Number(relDay?.disconnects ?? 0);
+    const dayTutorSilent = Number(relDay?.tutor_silent ?? 0);
+    if (dayDisconnects > 0) triggerMap['session_abnormal_disconnect'] = dayDisconnects;
+    if (dayTutorSilent > 0) triggerMap['gl_tutor_no_response'] = dayTutorSilent;
 
     let mobileCount = 0;
     let desktopCount = 0;
@@ -281,6 +346,14 @@ async function generateDailySummary(targetDate?: Date): Promise<void> {
         healthStatus = 'red';
       } else if (errorRate > 0.1 || eventsPerUser > 10 || peakHourlyRate > 20) {
         healthStatus = 'yellow';
+      }
+    }
+    // Reliability signals can independently push daily status to yellow/red.
+    if (healthStatus !== 'red') {
+      if (dayDisconnects >= 10 || dayTutorSilent >= 5) {
+        healthStatus = 'red';
+      } else if (dayDisconnects >= 3 || dayTutorSilent >= 1) {
+        if (healthStatus === 'green') healthStatus = 'yellow';
       }
     }
 
