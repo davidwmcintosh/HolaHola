@@ -2025,13 +2025,32 @@ If asked about something covered above, answer directly from this context. If yo
                 if (usageSession && userId) {
                   const capturedSessionId = usageSession.id;
                   const capturedUserId = userId;
+                  const watchdogStartMs = Date.now();
                   tutorNoResponseWatchdog = setTimeout(() => {
                     tutorNoResponseWatchdog = null;
                     if (!geminiLiveSession) return; // session already ended cleanly
                     const outputChars = geminiLiveSession.getTotalOutputCharacters();
                     const tutorSpeakingMs = geminiLiveSession.getSpeakingStats().tutorSpeakingMs;
                     if (outputChars === 0 && tutorSpeakingMs === 0) {
+                      const sessionAgeSeconds = Math.round((Date.now() - watchdogStartMs) / 1000);
                       console.warn(`[GeminiLive] Tutor no-response watchdog fired — Daniela has produced no audio in ${GL_TUTOR_RESPONSE_TIMEOUT_MS / 1000}s`);
+                      // Write telemetry event for trend analysis
+                      try {
+                        const { getSharedDb } = require('./neon-db');
+                        const { sql: drizzleSql } = require('drizzle-orm');
+                        const eventPayload = JSON.stringify({
+                          watchdogSeconds: GL_TUTOR_RESPONSE_TIMEOUT_MS / 1000,
+                          sessionAgeSeconds,
+                          outputChars,
+                          tutorSpeakingMs,
+                        });
+                        getSharedDb().execute(drizzleSql`
+                          INSERT INTO voice_pipeline_events (id, session_id, user_id, event_type, event_data, created_at)
+                          VALUES (gen_random_uuid(), ${capturedSessionId}, ${String(capturedUserId)},
+                            'gl_tutor_no_response', ${eventPayload}::jsonb, NOW())
+                        `).catch((err: Error) => console.warn('[GeminiLive] Failed to write tutor-no-response telemetry:', err.message));
+                      } catch (_) {}
+                      // File Sofia flare for immediate intervention
                       import('./services/sofia-billing-monitor').then(({ reportTutorNoResponse }) => {
                         reportTutorNoResponse({
                           userId: capturedUserId,
@@ -3300,11 +3319,15 @@ If asked about something covered above, answer directly from this context. If yo
   ws.on('close', (closeCode: number, closeReason: Buffer) => {
     console.log(`[Streaming Voice] Socket.io connection closed (code: ${closeCode})`);
 
-    // Snapshot identifiers before any nulling — needed for the Sofia flare below
+    // Snapshot identifiers and session context before any nulling —
+    // needed for the Sofia flare and telemetry write below
     const disconnectUserId = userId;
     const disconnectSessionId = usageSession?.id;
     const disconnectExchangeCount = exchangeCount;
     const disconnectStudentSpeaking = studentSpeakingSeconds;
+    const disconnectTutorSpeaking = tutorSpeakingSeconds;
+    const disconnectDurationSeconds = sessionStartTime > 0 ? Math.round((Date.now() - sessionStartTime) / 1000) : 0;
+    const disconnectHadGlSession = !!geminiLiveSession;
 
     // Clear GL idle timeout, periodic sync, and tutor watchdog timers
     if (glIdleTimeoutHandle) { clearTimeout(glIdleTimeoutHandle); glIdleTimeoutHandle = null; }
@@ -3420,13 +3443,33 @@ If asked about something covered above, answer directly from this context. If yo
     
     if (session) orchestrator.endSession(session.id);
 
-    // ── Sofia abnormal-disconnect flare ─────────────────────────────────────
+    // ── Abnormal-disconnect telemetry + Sofia flare ──────────────────────────
     // Code 1000 = normal close (idle timeout, user left, session_closed message).
     // Anything else (1001 browser away, 1006 network drop, etc.) with real activity
-    // is worth investigating — file a flare so Sofia can act immediately.
+    // is worth investigating.
+    // We write a pipeline event for trend analysis AND file a Sofia flare.
     const CLEAN_CLOSE_CODES = new Set([1000, 1001]);
     if (!CLEAN_CLOSE_CODES.has(closeCode) && disconnectUserId &&
         (disconnectExchangeCount > 0 || disconnectStudentSpeaking > 0)) {
+      // Write to voice_pipeline_events for queryable trend analysis
+      try {
+        const { getSharedDb } = require('./neon-db');
+        const { sql: drizzleSql } = require('drizzle-orm');
+        const eventPayload = JSON.stringify({
+          closeCode,
+          sessionDurationSeconds: disconnectDurationSeconds,
+          exchangeCount: disconnectExchangeCount,
+          studentSpeakingSeconds: disconnectStudentSpeaking,
+          tutorSpeakingSeconds: disconnectTutorSpeaking,
+          hadGlSession: disconnectHadGlSession,
+        });
+        getSharedDb().execute(drizzleSql`
+          INSERT INTO voice_pipeline_events (id, session_id, user_id, event_type, event_data, created_at)
+          VALUES (gen_random_uuid(), ${disconnectSessionId ?? null}, ${String(disconnectUserId)},
+            'session_abnormal_disconnect', ${eventPayload}::jsonb, NOW())
+        `).catch((err: Error) => console.warn('[Streaming Voice] Failed to write disconnect telemetry:', err.message));
+      } catch (_) {}
+      // File Sofia flare for immediate intervention
       import('./services/sofia-billing-monitor').then(({ reportAbnormalDisconnect }) => {
         reportAbnormalDisconnect({
           userId: disconnectUserId,

@@ -221,6 +221,16 @@ export const SOFIA_HEALTH_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
       },
     },
   },
+  {
+    name: "get_session_reliability_report",
+    description: "Trend analysis for session reliability problems. Shows daily counts of abnormal disconnects (WS code != 1000) and tutor no-response events, broken down by close code and most-affected users. Use this to spot recurring patterns and determine if a specific problem is getting better or worse over time.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        days: { type: "number", description: "How many days of history to include (default 7, max 30)" },
+      },
+    },
+  },
 ];
 
 export type SofiaToolResult = { success: boolean; data: any };
@@ -624,6 +634,108 @@ export async function executeSofiaTool(
             affectedEvents: a.affectedEvents,
           })),
           recommendation: anomalyResult.recommendation,
+        },
+      };
+    }
+
+    case "get_session_reliability_report": {
+      const days = Math.min(args.days || 7, 30);
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+      const [disconnectRows, noResponseRows] = await Promise.all([
+        sharedDb.execute(sql`
+          SELECT
+            DATE(created_at) AS day,
+            event_data->>'closeCode' AS close_code,
+            user_id,
+            COUNT(*) AS cnt,
+            AVG((event_data->>'sessionDurationSeconds')::float)::int AS avg_duration_s,
+            AVG((event_data->>'exchangeCount')::float)::int AS avg_exchanges
+          FROM voice_pipeline_events
+          WHERE event_type = 'session_abnormal_disconnect'
+            AND created_at >= ${since}
+          GROUP BY DATE(created_at), event_data->>'closeCode', user_id
+          ORDER BY day DESC, cnt DESC
+        `),
+        sharedDb.execute(sql`
+          SELECT
+            DATE(created_at) AS day,
+            user_id,
+            COUNT(*) AS cnt
+          FROM voice_pipeline_events
+          WHERE event_type = 'gl_tutor_no_response'
+            AND created_at >= ${since}
+          GROUP BY DATE(created_at), user_id
+          ORDER BY day DESC, cnt DESC
+        `),
+      ]);
+
+      // Roll up daily totals and breakdowns
+      const disconnectsByDay: Record<string, { total: number; byCode: Record<string, number>; affectedUsers: number }> = {};
+      const noResponseByDay: Record<string, { total: number; affectedUsers: number }> = {};
+      const codeFrequency: Record<string, number> = {};
+      const affectedUserSet = new Set<string>();
+
+      for (const row of disconnectRows.rows as any[]) {
+        const day = String(row.day).substring(0, 10);
+        if (!disconnectsByDay[day]) disconnectsByDay[day] = { total: 0, byCode: {}, affectedUsers: 0 };
+        const cnt = Number(row.cnt);
+        disconnectsByDay[day].total += cnt;
+        const code = row.close_code ?? 'unknown';
+        disconnectsByDay[day].byCode[code] = (disconnectsByDay[day].byCode[code] || 0) + cnt;
+        codeFrequency[code] = (codeFrequency[code] || 0) + cnt;
+        if (row.user_id) affectedUserSet.add(String(row.user_id));
+      }
+
+      for (const row of noResponseRows.rows as any[]) {
+        const day = String(row.day).substring(0, 10);
+        if (!noResponseByDay[day]) noResponseByDay[day] = { total: 0, affectedUsers: 0 };
+        noResponseByDay[day].total += Number(row.cnt);
+        if (row.user_id) affectedUserSet.add(String(row.user_id));
+      }
+
+      const totalDisconnects = Object.values(disconnectsByDay).reduce((s, d) => s + d.total, 0);
+      const totalNoResponse = Object.values(noResponseByDay).reduce((s, d) => s + d.total, 0);
+
+      // Trend: compare last half of window vs first half
+      const midpoint = new Date(since.getTime() + (days / 2) * 24 * 60 * 60 * 1000);
+      const midStr = midpoint.toISOString().substring(0, 10);
+      const recentDays = Object.entries(disconnectsByDay).filter(([d]) => d >= midStr);
+      const olderDays = Object.entries(disconnectsByDay).filter(([d]) => d < midStr);
+      const recentTotal = recentDays.reduce((s, [, d]) => s + d.total, 0);
+      const olderTotal = olderDays.reduce((s, [, d]) => s + d.total, 0);
+      const trend = olderTotal === 0 ? 'stable'
+        : recentTotal > olderTotal * 1.2 ? 'worsening'
+        : recentTotal < olderTotal * 0.8 ? 'improving'
+        : 'stable';
+
+      return {
+        success: true,
+        data: {
+          windowDays: days,
+          summary: {
+            totalAbnormalDisconnects: totalDisconnects,
+            totalTutorNoResponse: totalNoResponse,
+            uniqueAffectedUsers: affectedUserSet.size,
+            disconnectTrend: trend,
+          },
+          closeCodeBreakdown: Object.entries(codeFrequency)
+            .sort(([, a], [, b]) => b - a)
+            .map(([code, count]) => ({
+              code,
+              count,
+              meaning: code === '1006' ? 'abnormal closure / network drop'
+                : code === '1001' ? 'browser going away'
+                : code === '1011' ? 'server error'
+                : code === '1008' ? 'policy violation'
+                : 'other',
+            })),
+          dailyDisconnects: Object.entries(disconnectsByDay)
+            .sort(([a], [b]) => b.localeCompare(a))
+            .map(([day, d]) => ({ day, total: d.total, byCode: d.byCode })),
+          dailyTutorNoResponse: Object.entries(noResponseByDay)
+            .sort(([a], [b]) => b.localeCompare(a))
+            .map(([day, d]) => ({ day, total: d.total })),
         },
       };
     }
