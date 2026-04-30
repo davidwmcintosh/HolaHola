@@ -1629,6 +1629,19 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('stateChange', (state) => {
         connectionStateRef.current = state;
         setConnectionState(state);
+
+        // Keep the lockout-diagnostics connectionStatus in sync so snapshots
+        // show the real WS state instead of the stale initial 'disconnected'.
+        const diagStatus = (
+          state === 'connected' || state === 'ready' || state === 'processing' ? 'connected' :
+          state === 'streaming'    ? 'streaming'   :
+          state === 'connecting'   ? 'connecting'  :
+          state === 'reconnecting' ? 'connecting'  :
+          state === 'error'        ? 'error'        :
+          'disconnected'
+        ) as 'disconnected' | 'connecting' | 'connected' | 'streaming' | 'error';
+        updateDebugTimingState({ connectionStatus: diagStatus });
+
         // Fast recovery: if WS drops while we're waiting for audio that will never
         // arrive (response_complete received but TTS chunks were in-flight over the
         // now-dead socket), don't make the user wait 45s. Clear in 8s instead.

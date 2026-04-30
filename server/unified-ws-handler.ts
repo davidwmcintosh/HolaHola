@@ -2837,8 +2837,21 @@ ${buildNativeFunctionCallingSection()}`;
   ws.on('close', () => {
     console.log('[Streaming Voice] Socket.io connection closed');
 
-    // Stop Gemini Live session if active
+    // Capture Gemini Live metrics before stopping (stop() resets internal state)
     if (geminiLiveSession) {
+      const glMetrics = geminiLiveSession.getUsageSummary();
+      const glExchanges = geminiLiveSession.getCompletedExchangeCount();
+      const glOutputChars = geminiLiveSession.getTotalOutputCharacters();
+      exchangeCount += glExchanges;
+      ttsCharacters += glOutputChars;
+      if (glMetrics.inputTokens > 0 || glMetrics.outputTokens > 0) {
+        console.log(`[GeminiLive] Session end metrics — exchanges: ${glExchanges}, outputChars: ${glOutputChars}, tokens: ${glMetrics.inputTokens}in/${glMetrics.outputTokens}out`);
+      }
+      // Store GL token counts on usageSession for updateSessionMetrics below
+      if (usageSession) {
+        (usageSession as any)._glInputTokens = glMetrics.inputTokens;
+        (usageSession as any)._glOutputTokens = glMetrics.outputTokens;
+      }
       geminiLiveSession.stop();
       geminiLiveSession = null;
     }
@@ -2890,12 +2903,16 @@ ${buildNativeFunctionCallingSection()}`;
       compassSession = null;
       compassContext = null;
     } else if (usageSession) {
+      const glInputTokens = (usageSession as any)._glInputTokens as number | undefined;
+      const glOutputTokens = (usageSession as any)._glOutputTokens as number | undefined;
       usageService.updateSessionMetrics(usageSession.id, {
         exchangeCount,
         studentSpeakingSeconds: Math.round(studentSpeakingSeconds),
         tutorSpeakingSeconds: Math.round(tutorSpeakingSeconds),
         ttsCharacters,
         sttSeconds: Math.round(sttSeconds),
+        ...(glInputTokens ? { llmInputTokens: glInputTokens } : {}),
+        ...(glOutputTokens ? { llmOutputTokens: glOutputTokens } : {}),
       }).then(() => usageService.endSession(usageSession!.id))
         .then((endedSession) => {
           if (endedSession) {
@@ -2914,8 +2931,17 @@ ${buildNativeFunctionCallingSection()}`;
   ws.on('error', (error) => {
     console.error('[Streaming Voice] Socket.io connection error:', error);
 
-    // Stop Gemini Live session on error
+    // Capture Gemini Live metrics before stopping on error
     if (geminiLiveSession) {
+      const glMetrics = geminiLiveSession.getUsageSummary();
+      const glExchanges = geminiLiveSession.getCompletedExchangeCount();
+      const glOutputChars = geminiLiveSession.getTotalOutputCharacters();
+      exchangeCount += glExchanges;
+      ttsCharacters += glOutputChars;
+      if (usageSession) {
+        (usageSession as any)._glInputTokens = glMetrics.inputTokens;
+        (usageSession as any)._glOutputTokens = glMetrics.outputTokens;
+      }
       geminiLiveSession.stop();
       geminiLiveSession = null;
     }
@@ -2945,12 +2971,16 @@ ${buildNativeFunctionCallingSection()}`;
     
     // End usage session on error for usage tracking
     if (usageSession) {
+      const glInputTokens = (usageSession as any)._glInputTokens as number | undefined;
+      const glOutputTokens = (usageSession as any)._glOutputTokens as number | undefined;
       usageService.updateSessionMetrics(usageSession.id, {
         exchangeCount,
         studentSpeakingSeconds,
         tutorSpeakingSeconds,
         ttsCharacters,
         sttSeconds,
+        ...(glInputTokens ? { llmInputTokens: glInputTokens } : {}),
+        ...(glOutputTokens ? { llmOutputTokens: glOutputTokens } : {}),
       }).then(() => usageService.endSession(usageSession!.id))
         .then((endedSession) => {
           if (endedSession) {

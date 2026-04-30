@@ -1234,7 +1234,7 @@ VOICE SESSION CONTEXT:
 You are in streaming voice mode. Your text goes directly to text-to-speech.
 ${isSameLanguageSession
   ? `Full ${languageName} immersion: speak ONLY in ${languageName}. Your neural network contains content from many languages — but this session is ${languageName} ONLY. Do NOT mix in Spanish, French, or any other language unless the student explicitly asks. Greet in ${languageName}, teach in ${languageName}, respond in ${languageName}. Use **bold** for key ${languageName} vocabulary you are actively teaching.`
-  : `Plain text only. Wrap ALL ${languageName} words in **bold**. ${nativeLanguageName} translations in (parentheses).${getNativeScriptTTSRule(language)}`}
+  : `Communicate primarily in ${nativeLanguageName} — that is the student's learning environment. Introduce ${languageName} words and phrases wrapped in **bold** for teaching moments. ${nativeLanguageName} translations in (parentheses). Do NOT switch to full ${languageName} mid-conversation unless the student explicitly asks for ${languageName}-only immersion. If you are mid-sentence when a user speaks, finish naturally in ${nativeLanguageName}.${getNativeScriptTTSRule(language)}`}
 Speak once per turn, then wait. Your neural network knowledge has your full procedures - follow them.
 
 ${buildDetailedToolDocumentationSync(tutorDirectorySection)}
