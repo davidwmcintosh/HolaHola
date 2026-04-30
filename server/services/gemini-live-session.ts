@@ -77,6 +77,10 @@ export class GeminiLiveSession {
   private liveSession: Session | null = null;
   private fcHandler: NativeFunctionCallHandler;
   private currentTurnId = 0;
+  /** Total completed conversation exchanges (user speaks → Daniela responds) this session. */
+  private completedExchanges = 0;
+  /** Cumulative length of all Daniela output transcripts — used as TTS char proxy for billing. */
+  private totalOutputCharacters = 0;
   // Each Gemini sub-turn (one turnComplete) maps to one "sentence" in the progressive PCM player.
   // sentenceIndex must increment per sub-turn so the player queues them sequentially instead of
   // overwriting earlier chunks with chunkIndex:0 from a later sub-turn.
@@ -816,6 +820,19 @@ export class GeminiLiveSession {
     };
   }
 
+  /** Number of completed conversation exchanges (user turn → Daniela response) this session. */
+  getCompletedExchangeCount(): number {
+    return this.completedExchanges;
+  }
+
+  /**
+   * Total characters in all of Daniela's output transcripts this session.
+   * Used as a TTS-character proxy for analytics/billing (GL has no separate TTS step).
+   */
+  getTotalOutputCharacters(): number {
+    return this.totalOutputCharacters;
+  }
+
   /**
    * Flush accumulated user and assistant transcripts to the database as complete utterances.
    * Called 800 ms after the last turnComplete (debounced) and also on session stop().
@@ -854,6 +871,7 @@ export class GeminiLiveSession {
     // Save assistant message
     if (this.pendingOutputTranscript.trim()) {
       const assistantText = this.pendingOutputTranscript.trim();
+      this.totalOutputCharacters += assistantText.length;
       this.pendingOutputTranscript = '';
       try {
         await this.persistMessage('assistant', assistantText);
@@ -862,6 +880,9 @@ export class GeminiLiveSession {
         return;
       }
     }
+
+    // Count this as a completed exchange and advance the turn
+    this.completedExchanges++;
 
     // Reset per-response state for the next user utterance
     this.currentSentenceIndex = 0;
