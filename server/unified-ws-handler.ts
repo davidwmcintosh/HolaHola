@@ -1968,8 +1968,11 @@ If asked about something covered above, answer directly from this context. If yo
               }
             }
             
-            // Track reconnection state — prevents double greetings when client reconnects
-            (session as any).__isReconnect = isReconnectSO;
+            // Track reconnection state — prevents double greetings when client reconnects.
+            // If user context failed entirely (all Phase 1 lookups timed out), treat as a
+            // fresh start even if the client sent isReconnect=true — otherwise Daniela is
+            // silent with no greeting and no context, which looks like a dead session.
+            (session as any).__isReconnect = isReconnectSO && user != null;
             
             // RECONNECT FIX: Restore input mode from config.
             // Every new WS connection defaults currentInputMode to 'push-to-talk', but the client
