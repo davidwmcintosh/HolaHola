@@ -1913,6 +1913,21 @@ If asked about something covered above, answer directly from this context. If yo
                     console.warn(`[GeminiLive] ⚠ System prompt already at limit — skipping rich context sections`);
                   }
                 }
+                // ── HARD CAP ENFORCEMENT ──────────────────────────────────────
+                // GL silently produces zero output when system instructions exceed ~40K chars
+                // (it won't error, but generationComplete fires immediately with no speech).
+                // Trim at a paragraph boundary to keep the most important context (which
+                // appears first: identity, memory, predictive context, etc.).
+                const GL_HARD_CAP = 39_500;
+                if (geminiLiveSystemPrompt.length > GL_HARD_CAP) {
+                  const overBy = geminiLiveSystemPrompt.length - GL_HARD_CAP;
+                  const candidate = geminiLiveSystemPrompt.slice(0, GL_HARD_CAP);
+                  const lastSection = candidate.lastIndexOf('\n===');
+                  geminiLiveSystemPrompt = lastSection > GL_HARD_CAP * 0.75
+                    ? candidate.slice(0, lastSection)
+                    : candidate;
+                  console.warn(`[GeminiLive] ⚠ System prompt was ${geminiLiveSystemPrompt.length + overBy} chars — trimmed to ${geminiLiveSystemPrompt.length} (GL hard cap)`);
+                }
                 console.log(`[GeminiLive] System prompt total length: ${geminiLiveSystemPrompt.length} chars`);
 
                 const glSendMessage = (targetWs: any, message: any) => {
