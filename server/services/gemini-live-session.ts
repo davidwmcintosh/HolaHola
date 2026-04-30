@@ -29,7 +29,7 @@ import {
 import type { FunctionDeclaration } from '@google/genai';
 import { NativeFunctionCallHandler } from './native-fc-handlers';
 import type { StreamingSession } from './streaming-session-types';
-import { lookupLegacyType } from './daniela-function-registry';
+import { lookupLegacyType, buildFunctionContinuationResponse } from './daniela-function-registry';
 import type { ExtractedFunctionCall } from './gemini-function-declarations';
 
 const GEMINI_LIVE_MODEL = process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview';
@@ -836,16 +836,33 @@ export class GeminiLiveSession {
 
         console.log(`[GeminiLive] Tool call: ${fcName} (${legacyType})`);
 
+        let toolResponsePayload: Record<string, unknown> = { result: 'done' };
+
         try {
           await this.fcHandler.handle(this.session.id, this.session, extractedFc);
+
+          // For data-returning tools (memory_lookup, express_lane_lookup, etc.) the handler
+          // populates session caches (e.g. session.memoryLookupResults[query]). We use
+          // buildFunctionContinuationResponse() — the same path as non-GL streaming — to format
+          // the results and send them back to Gemini Live as the tool response payload.
+          // Without this, GL receives only { result: 'done' } and Daniela has no memory data.
+          const continuationText = buildFunctionContinuationResponse(this.session, extractedFc);
+          if (continuationText) {
+            const text = typeof continuationText === 'string'
+              ? continuationText
+              : JSON.stringify(continuationText);
+            toolResponsePayload = { result: text };
+            console.log(`[GeminiLive] Tool ${fcName}: returning ${text.length} chars of result data`);
+          }
         } catch (err) {
           console.error(`[GeminiLive] Tool call failed (${fcName}):`, err);
+          toolResponsePayload = { result: `Tool call failed: ${(err as Error).message}` };
         }
 
         responses.push({
           id: fc.id || '',
           name: fcName,
-          response: { result: 'done' },
+          response: toolResponsePayload,
         });
       }
 

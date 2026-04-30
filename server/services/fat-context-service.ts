@@ -21,12 +21,12 @@ const FAT_CONTEXT_LIMITS = {
   MAX_MOTIVATIONS: 30,
   MAX_PEOPLE: 50,
   MAX_VOCAB_WORDS: 500,
-  MAX_RECENT_CONVERSATIONS: 7,
-  MAX_MESSAGES_PER_CONVERSATION: 20,
+  MAX_RECENT_CONVERSATIONS: 20,  // raised from 7 — more history = more of Daniela's identity
+  MAX_MESSAGES_PER_CONVERSATION: 40,  // raised from 20 — capture full sessions not just endings
   MAX_INSIGHT_CHARS: 120,
   MAX_FACT_CHARS: 150,
   MAX_VOCAB_EXAMPLE_CHARS: 80,
-  MAX_MESSAGE_CHARS: 300,
+  MAX_MESSAGE_CHARS: 1000,  // raised from 300 — preserve jokes, depth, fine points of friendship
 };
 
 interface FatContextResult {
