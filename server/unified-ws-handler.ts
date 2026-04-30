@@ -55,7 +55,7 @@ import { buildEvelynSystemPrompt, buildGeneSystemPrompt, EVELYN_NAME, GENE_NAME,
 import { buildClioSystemPrompt, buildMarcusSystemPrompt, CLIO_NAME, MARCUS_NAME, CLIO_VOICE_CONFIG, MARCUS_VOICE_CONFIG, isHistorySession } from './services/history-persona';
 import { buildAdaSystemPrompt, buildLeoSystemPrompt, ADA_NAME, LEO_NAME, ADA_VOICE_CONFIG, LEO_VOICE_CONFIG, isMathSession } from './services/math-persona';
 import { buildMorganSystemPrompt, buildSterlingSystemPrompt, MORGAN_NAME, STERLING_NAME, MORGAN_VOICE_CONFIG, STERLING_VOICE_CONFIG, isBusinessSession } from './services/business-persona';
-import { getPredictiveTeachingContext, getStudentSnapshotData, type PredictiveTeachingContext, type StudentSnapshotContext } from './services/procedural-memory-retrieval';
+import { getPredictiveTeachingContext, getStudentSnapshotData, buildStudentSnapshotSection, type PredictiveTeachingContext, type StudentSnapshotContext } from './services/procedural-memory-retrieval';
 import { studentLearningService } from './services/student-learning-service';
 import { voiceDiagnostics } from './services/voice-diagnostics-service';
 import type { VoiceSession as UsageVoiceSession, CompassContext, TutorSession } from '@shared/schema';
@@ -1340,11 +1340,21 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
                 )
               : Promise.resolve(null as string | null);
             
-            const [compassResult, neuralNetworkContext, usageSessionResult, courseToc] = await Promise.all([
+            // Student snapshot — gives Daniela last-session topic, streak, wins,
+            // and personal follow-ups so she never greets David as a stranger.
+            const studentSnapshotPromise = (!isSubjectSessionEarly && userId)
+              ? withTimeout(
+                  getStudentSnapshotData(String(userId), effectiveLanguage),
+                  SESSION_INIT_TIMEOUT, 'studentSnapshot', null as StudentSnapshotContext | null
+                )
+              : Promise.resolve(null as StudentSnapshotContext | null);
+
+            const [compassResult, neuralNetworkContext, usageSessionResult, courseToc, studentSnapshot] = await Promise.all([
               compassPromise.catch((err: any) => { console.warn(`[Compass Init] Error: ${err.message}`); return null; }),
               neuralNetworkPromise.catch((err: any) => { console.warn(`[Neural Network] Error: ${err.message}`); return ''; }),
               usageSessionPromise.catch((err: any) => { console.warn(`[Usage Session] Error: ${err.message}`); return null; }),
               courseTocPromise.catch((err: any) => { console.warn(`[Course TOC] Error: ${err.message}`); return null; }),
+              studentSnapshotPromise.catch((err: any) => { console.warn(`[Student Snapshot] Error: ${err.message}`); return null; }),
             ]);
             
             const phase2Ms = Date.now() - phase2Start;
@@ -1468,6 +1478,18 @@ ${buildNativeFunctionCallingSection()}`;
                 console.log(`[Streaming Voice] ✓ Course TOC injected into system prompt: ${unitCount} chapters`);
               } else {
                 console.log(`[Streaming Voice] No course TOC found for user (no enrollment or no curriculum path)`);
+              }
+            }
+
+            // Append student snapshot — language sessions only (not subject tutors)
+            // This is what lets Daniela remember David between sessions instead of greeting him as a stranger.
+            if (!isSubjectSession && studentSnapshot && user?.firstName) {
+              const snapshotSection = buildStudentSnapshotSection(user.firstName, studentSnapshot);
+              if (snapshotSection) {
+                systemPrompt += snapshotSection;
+                console.log(`[Streaming Voice] ✓ Student snapshot injected (last session: ${studentSnapshot.lastSession?.topic ?? 'none'}, streak: ${studentSnapshot.streak ?? 0})`);
+              } else {
+                console.log(`[Streaming Voice] Student snapshot empty — first-time student or no session data yet`);
               }
             }
 
