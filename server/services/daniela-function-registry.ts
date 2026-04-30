@@ -1792,6 +1792,97 @@ Provide a specific query. Optionally filter by date if you know roughly when the
     },
   },
   {
+    legacyType: 'CONVERSATION_DATE_BROWSE',
+    declaration: {
+      name: "browse_conversations_by_date",
+      description: `Browse past conversations by date range — no keyword required.
+
+Use when the memory prompt is temporal rather than topical:
+- "What did we talk about in January?"
+- "What were our early sessions like?"
+- "Show me our conversations from a few months ago"
+- "What was I working on back in November?"
+- Any time David asks about a period of time rather than a specific topic
+
+Returns a list of conversation titles, dates, and opening lines for that period.
+Then use search_conversation_threads to dive into any specific session.
+
+DIFFERENCE:
+- search_conversation_threads → find by topic/keyword
+- browse_conversations_by_date → find by time period (no keyword needed)`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          after_date: {
+            type: "string",
+            description: "ISO date string (YYYY-MM-DD). Return conversations after this date.",
+          },
+          before_date: {
+            type: "string",
+            description: "ISO date string (YYYY-MM-DD). Return conversations before this date.",
+          },
+          limit: {
+            type: "number",
+            description: "How many conversations to return (default: 10, max: 20).",
+          },
+          language: {
+            type: "string",
+            description: "Filter by language: 'spanish', 'english', etc. Leave blank for all.",
+          },
+        },
+      },
+    },
+    buildContinuationResponse: ({ session, fc }) => {
+      const key = `${fc.args.after_date || ''}|${fc.args.before_date || ''}|${fc.args.language || ''}`;
+      const result = session.conversationBrowseResults?.[key];
+      if (result) {
+        return `Conversation browse results:\n${result}\n\nUse search_conversation_threads with a keyword to see the full exchange from any of these sessions.`;
+      }
+      return `No conversations found for that date range. The period may be outside the recorded history, or no sessions occurred then.`;
+    },
+  },
+  {
+    legacyType: 'CONVERSATION_THEME_MAP',
+    declaration: {
+      name: "get_conversation_themes",
+      description: `Get a high-level map of recurring themes across all of David's past sessions.
+
+Use when you want a bird's-eye view of the arc of the relationship:
+- "What kinds of things have we talked about most?"
+- "What themes keep coming up in our sessions?"
+- "Have we talked a lot about [topic]?"
+- "What has David been focused on since we started?"
+- Any time you want to understand the overall shape of the learning journey, not just a specific memory
+
+Returns the top themes (Music, Grammar, Humor, etc.) with frequency counts and when they last appeared.
+Then use search_conversation_threads or browse_conversations_by_date to explore any theme further.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          after_date: {
+            type: "string",
+            description: "Optional ISO date string (YYYY-MM-DD). Only analyze conversations after this date.",
+          },
+          before_date: {
+            type: "string",
+            description: "Optional ISO date string (YYYY-MM-DD). Only analyze conversations before this date.",
+          },
+          top_n: {
+            type: "number",
+            description: "How many themes to return (default: 12).",
+          },
+        },
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const result = session.conversationThemeResults;
+      if (result) {
+        return `Conversation theme map:\n${result}\n\nUse search_conversation_threads or browse_conversations_by_date to explore any theme in depth.`;
+      }
+      return `Could not compute conversation themes. Try again or use memory_lookup to search for a specific topic.`;
+    },
+  },
+  {
     legacyType: 'EXPRESS_LANE_LOOKUP',
     declaration: {
       name: "express_lane_lookup",

@@ -1772,6 +1772,51 @@ export class NativeFunctionCallHandler {
         break;
       }
       
+      case 'CONVERSATION_DATE_BROWSE': {
+        const afterDateStr = fn.args.after_date as string | undefined;
+        const beforeDateStr = fn.args.before_date as string | undefined;
+        const browseLimit = Math.min((fn.args.limit as number | undefined) ?? 10, 20);
+        const browseLang = fn.args.language as string | undefined;
+        const browseKey = `${afterDateStr || ''}|${beforeDateStr || ''}|${browseLang || ''}`;
+        
+        console.log(`[Native Function→ConversationDateBrowse] after=${afterDateStr} before=${beforeDateStr} limit=${browseLimit}`);
+        
+        const browsePromise = this.processConversationDateBrowse(
+          session, browseKey,
+          afterDateStr ? new Date(afterDateStr) : undefined,
+          beforeDateStr ? new Date(beforeDateStr) : undefined,
+          browseLimit,
+          browseLang,
+        ).catch(err => {
+          console.error(`[Native Function→ConversationDateBrowse] Error:`, err.message);
+        });
+        
+        if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+        session.pendingMemoryLookupPromises.push(browsePromise);
+        break;
+      }
+      
+      case 'CONVERSATION_THEME_MAP': {
+        const afterDateStr2 = fn.args.after_date as string | undefined;
+        const beforeDateStr2 = fn.args.before_date as string | undefined;
+        const topN = (fn.args.top_n as number | undefined) ?? 12;
+        
+        console.log(`[Native Function→ConversationThemeMap] after=${afterDateStr2} before=${beforeDateStr2} topN=${topN}`);
+        
+        const themePromise = this.processConversationThemeMap(
+          session,
+          afterDateStr2 ? new Date(afterDateStr2) : undefined,
+          beforeDateStr2 ? new Date(beforeDateStr2) : undefined,
+          topN,
+        ).catch(err => {
+          console.error(`[Native Function→ConversationThemeMap] Error:`, err.message);
+        });
+        
+        if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+        session.pendingMemoryLookupPromises.push(themePromise);
+        break;
+      }
+
       case 'TAKE_NOTE': {
         if (session.isIncognito) {
           console.log(`[Native Function→TakeNote] INCOGNITO - skipping note persistence`);
@@ -4439,9 +4484,126 @@ export class NativeFunctionCallHandler {
       session.conversationThreadResults[query] = sanitized;
       
       console.log(`[ConversationThreadSearch] Query: "${query.substring(0, 50)}" → ${result.threads.length} threads, ${result.totalMatchingMessages} total matches`);
+
+      // Fire-and-forget: trigger Lyra re-extraction for found conversations so their
+      // insights crystallize into structured memory for future sessions.
+      // We don't await this — it runs in the background so the search returns immediately.
+      if (result.threads.length > 0) {
+        this.triggerLyraExtractionForThreads(studentId, result.threads).catch(err => {
+          console.warn(`[ConversationThreadSearch] Lyra trigger failed:`, err.message);
+        });
+      }
     } catch (err: any) {
       console.error(`[ConversationThreadSearch] Error:`, err.message);
       session.conversationThreadResults[query] = `Thread search failed for "${query}". Try memory_lookup with domain='conversation' as a fallback.`;
+    }
+  }
+
+  private async triggerLyraExtractionForThreads(
+    studentId: string,
+    threads: Array<{ conversationId: string; language: string | null; messages: Array<{ role: string; content: string; createdAt: Date | null }> }>
+  ): Promise<void> {
+    try {
+      const { learnerMemoryExtractionService } = await import('./learner-memory-extraction-service');
+      const { getSharedDb } = await import('../db');
+      const { messages: messagesTable, conversations: conversationsTable } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      const db = getSharedDb();
+
+      for (const thread of threads.slice(0, 3)) {  // process up to 3 conversations
+        try {
+          // Fetch full message list for the conversation (more complete than the thread window)
+          const fullMessages = await db
+            .select({ role: messagesTable.role, content: messagesTable.content })
+            .from(messagesTable)
+            .where(eq(messagesTable.conversationId, thread.conversationId))
+            .orderBy(messagesTable.createdAt)
+            .limit(100);  // cap at 100 messages per conversation
+
+          const language = thread.language || 'english';
+          const msgs = fullMessages
+            .filter(m => m.content)
+            .map(m => ({ role: m.role, content: m.content! }));
+
+          if (msgs.length >= 4) {
+            console.log(`[LyraAutoExtract] Processing conversation ${thread.conversationId} (${msgs.length} messages, lang: ${language})`);
+            await learnerMemoryExtractionService.extractFromConversation(
+              studentId,
+              language,
+              thread.conversationId,
+              msgs
+            );
+          }
+        } catch (err: any) {
+          console.warn(`[LyraAutoExtract] Failed for conversation ${thread.conversationId}:`, err.message);
+        }
+      }
+
+      console.log(`[LyraAutoExtract] Completed extraction for ${Math.min(threads.length, 3)} conversations`);
+    } catch (err: any) {
+      console.error(`[LyraAutoExtract] Import or setup failed:`, err.message);
+    }
+  }
+
+  private async processConversationDateBrowse(
+    session: StreamingSession,
+    cacheKey: string,
+    afterDate: Date | undefined,
+    beforeDate: Date | undefined,
+    limit: number,
+    language: string | undefined,
+  ): Promise<void> {
+    const studentId = session.userId;
+    if (!studentId) return;
+
+    if (!session.conversationBrowseResults) session.conversationBrowseResults = {};
+
+    try {
+      const { browseConversationsByDate, formatConversationBrowse } = await import('./neural-memory-search');
+
+      const result = await browseConversationsByDate(studentId, { afterDate, beforeDate, limit, language });
+      const formatted = formatConversationBrowse(result, 'David');
+
+      session.conversationBrowseResults[cacheKey] = formatted
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+        .replace(/\uFFFD/g, '')
+        .replace(/[\u201C\u201D]/g, '"')
+        .replace(/[\u2018\u2019]/g, "'");
+
+      console.log(`[ConversationDateBrowse] Found ${result.totalFound} conversations for date range`);
+    } catch (err: any) {
+      console.error(`[ConversationDateBrowse] Error:`, err.message);
+      if (session.conversationBrowseResults) {
+        session.conversationBrowseResults[cacheKey] = `Date browse failed. Try search_conversation_threads with a specific topic instead.`;
+      }
+    }
+  }
+
+  private async processConversationThemeMap(
+    session: StreamingSession,
+    afterDate: Date | undefined,
+    beforeDate: Date | undefined,
+    topN: number,
+  ): Promise<void> {
+    const studentId = session.userId;
+    if (!studentId) return;
+
+    try {
+      const { getConversationThemes, formatConversationThemes } = await import('./neural-memory-search');
+
+      const result = await getConversationThemes(studentId, { afterDate, beforeDate, topN });
+      const formatted = formatConversationThemes(result);
+
+      session.conversationThemeResults = formatted
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+        .replace(/\uFFFD/g, '')
+        .replace(/[\u201C\u201D]/g, '"')
+        .replace(/[\u2018\u2019]/g, "'");
+
+      console.log(`[ConversationThemeMap] Generated theme map — ${result.themes.length} themes from ${result.totalConversationsAnalyzed} conversations`);
+    } catch (err: any) {
+      console.error(`[ConversationThemeMap] Error:`, err.message);
+      session.conversationThemeResults = `Theme map failed. Try memory_lookup or search_conversation_threads for a specific topic.`;
     }
   }
 

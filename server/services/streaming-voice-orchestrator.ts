@@ -3342,6 +3342,59 @@ Remember: David may reference things discussed in these recent text chats.
                   }
                   break;
                 }
+                case 'CONVERSATION_DATE_BROWSE': {
+                  const afterDate = cmd.params.after_date ? new Date(cmd.params.after_date as string) : undefined;
+                  const beforeDate = cmd.params.before_date ? new Date(cmd.params.before_date as string) : undefined;
+                  const browseLimit = Math.min((cmd.params.limit as number | undefined) ?? 10, 20);
+                  const browseLang = cmd.params.language as string | undefined;
+                  
+                  try {
+                    const { browseConversationsByDate, formatConversationBrowse } = await import('./neural-memory-search');
+                    const studentId = String(session.userId);
+                    
+                    const result = await browseConversationsByDate(studentId, {
+                      afterDate, beforeDate, limit: browseLimit, language: browseLang
+                    });
+                    const formatted = formatConversationBrowse(result, 'David');
+                    
+                    if (session.conversationHistory) {
+                      session.conversationHistory.push({
+                        role: 'user',
+                        content: `[SYSTEM: Conversation date browse results]\n${formatted}`,
+                      });
+                    }
+                    console.log(`[CommandParser→ConversationDateBrowse] Found ${result.totalFound} conversations`);
+                  } catch (err) {
+                    console.error(`[CommandParser→ConversationDateBrowse] Error:`, err);
+                  }
+                  break;
+                }
+                
+                case 'CONVERSATION_THEME_MAP': {
+                  const afterDate2 = cmd.params.after_date ? new Date(cmd.params.after_date as string) : undefined;
+                  const beforeDate2 = cmd.params.before_date ? new Date(cmd.params.before_date as string) : undefined;
+                  const topN = (cmd.params.top_n as number | undefined) ?? 12;
+                  
+                  try {
+                    const { getConversationThemes, formatConversationThemes } = await import('./neural-memory-search');
+                    const studentId = String(session.userId);
+                    
+                    const result = await getConversationThemes(studentId, { afterDate: afterDate2, beforeDate: beforeDate2, topN });
+                    const formatted = formatConversationThemes(result);
+                    
+                    if (session.conversationHistory) {
+                      session.conversationHistory.push({
+                        role: 'user',
+                        content: `[SYSTEM: Conversation theme map]\n${formatted}`,
+                      });
+                    }
+                    console.log(`[CommandParser→ConversationThemeMap] ${result.themes.length} themes from ${result.totalConversationsAnalyzed} conversations`);
+                  } catch (err) {
+                    console.error(`[CommandParser→ConversationThemeMap] Error:`, err);
+                  }
+                  break;
+                }
+                
                 case 'EXPRESS_LANE_LOOKUP': {
                   // On-demand Express Lane history search - only in Founder/Honesty mode
                   const query = cmd.params.query as string;
@@ -8252,8 +8305,10 @@ Remember: David may reference things discussed in these recent text chats.
       // MULTI-STEP FUNCTION CALL CONTINUATION: If we got function calls but no text,
       // execute the functions and continue the conversation with Gemini
       const functionsNeedingContinuation = greetingFunctionCalls.filter(fc => 
-        fc.legacyType === 'MEMORY_LOOKUP' || fc.legacyType === 'EXPRESS_LANE_LOOKUP' || fc.legacyType === 'CONVERSATION_THREAD_SEARCH' ||
-        fc.name === 'memory_lookup' || fc.name === 'express_lane_lookup' || fc.name === 'search_conversation_threads'
+        fc.legacyType === 'MEMORY_LOOKUP' || fc.legacyType === 'EXPRESS_LANE_LOOKUP' ||
+        fc.legacyType === 'CONVERSATION_THREAD_SEARCH' || fc.legacyType === 'CONVERSATION_DATE_BROWSE' || fc.legacyType === 'CONVERSATION_THEME_MAP' ||
+        fc.name === 'memory_lookup' || fc.name === 'express_lane_lookup' ||
+        fc.name === 'search_conversation_threads' || fc.name === 'browse_conversations_by_date' || fc.name === 'get_conversation_themes'
       );
       
       if (metrics.sentenceCount === 0 && greetingFunctionCalls.length > 0 && functionsNeedingContinuation.length > 0) {

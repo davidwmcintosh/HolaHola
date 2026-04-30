@@ -2186,6 +2186,370 @@ function formatThreadDate(date: Date): string {
   return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Conversation Date Browser
+// Temporal browsing without a keyword — "What did we talk about in January?"
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ConversationSummary {
+  conversationId: string;
+  title: string | null;
+  date: Date | null;
+  language: string | null;
+  messageCount: number;
+  firstMessage: string;
+  lastMessage: string;
+}
+
+export interface ConversationBrowseResult {
+  afterDate: Date | null;
+  beforeDate: Date | null;
+  conversations: ConversationSummary[];
+  totalFound: number;
+}
+
+/**
+ * Browse conversations by date range without a keyword query.
+ * Returns conversation summaries so Daniela can orient herself temporally.
+ * "Show me what we were talking about in January" → list of sessions from that period.
+ */
+export async function browseConversationsByDate(
+  studentId: string,
+  options: {
+    afterDate?: Date;
+    beforeDate?: Date;
+    limit?: number;
+    language?: string;
+  } = {}
+): Promise<ConversationBrowseResult> {
+  const {
+    limit = 10,
+    afterDate,
+    beforeDate,
+    language,
+  } = options;
+
+  const db = getSharedDb();
+
+  try {
+    const base = eq(conversations.userId, studentId);
+
+    const dateConditions = [
+      base,
+      ...(afterDate ? [gte(conversations.createdAt, afterDate)] : []),
+      ...(beforeDate ? [lte(conversations.createdAt, beforeDate)] : []),
+      ...(language ? [eq(conversations.language, language)] : []),
+    ];
+
+    const convRows = await db
+      .select({
+        id: conversations.id,
+        title: conversations.title,
+        createdAt: conversations.createdAt,
+        language: conversations.language,
+      })
+      .from(conversations)
+      .where(and(...dateConditions))
+      .orderBy(desc(conversations.createdAt))
+      .limit(limit);
+
+    if (convRows.length === 0) {
+      return { afterDate: afterDate || null, beforeDate: beforeDate || null, conversations: [], totalFound: 0 };
+    }
+
+    // For each conversation, get message count and first/last message
+    const summaries = await Promise.all(convRows.map(async (conv) => {
+      try {
+        const [countRow] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(messages)
+          .where(eq(messages.conversationId, conv.id));
+
+        const firstMsg = await db
+          .select({ content: messages.content, role: messages.role })
+          .from(messages)
+          .where(eq(messages.conversationId, conv.id))
+          .orderBy(asc(messages.createdAt))
+          .limit(1);
+
+        const lastMsg = await db
+          .select({ content: messages.content, role: messages.role })
+          .from(messages)
+          .where(eq(messages.conversationId, conv.id))
+          .orderBy(desc(messages.createdAt))
+          .limit(1);
+
+        const firstContent = firstMsg[0]?.content || '';
+        const lastContent = lastMsg[0]?.content || '';
+
+        return {
+          conversationId: conv.id,
+          title: conv.title,
+          date: conv.createdAt,
+          language: conv.language,
+          messageCount: countRow?.count || 0,
+          firstMessage: firstContent.substring(0, 200),
+          lastMessage: lastContent.substring(0, 200),
+        } satisfies ConversationSummary;
+      } catch {
+        return {
+          conversationId: conv.id,
+          title: conv.title,
+          date: conv.createdAt,
+          language: conv.language,
+          messageCount: 0,
+          firstMessage: '',
+          lastMessage: '',
+        } satisfies ConversationSummary;
+      }
+    }));
+
+    console.log(`[ConversationBrowse] Found ${summaries.length} conversations in date range`);
+
+    return {
+      afterDate: afterDate || null,
+      beforeDate: beforeDate || null,
+      conversations: summaries,
+      totalFound: summaries.length,
+    };
+  } catch (err: any) {
+    console.error('[ConversationBrowse] Error:', err.message);
+    return { afterDate: afterDate || null, beforeDate: beforeDate || null, conversations: [], totalFound: 0 };
+  }
+}
+
+export function formatConversationBrowse(result: ConversationBrowseResult, studentName = 'David'): string {
+  if (result.conversations.length === 0) {
+    const range = [
+      result.afterDate ? `after ${formatThreadDate(result.afterDate)}` : null,
+      result.beforeDate ? `before ${formatThreadDate(result.beforeDate)}` : null,
+    ].filter(Boolean).join(' and ');
+    return `No conversations found${range ? ` ${range}` : ''}. The date range may be outside the recorded history.`;
+  }
+
+  const lines: string[] = [];
+  const range = [
+    result.afterDate ? `after ${result.afterDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}` : null,
+    result.beforeDate ? `before ${result.beforeDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}` : null,
+  ].filter(Boolean).join(' and ');
+
+  lines.push(`CONVERSATION BROWSER${range ? ` — ${range}` : ''}`);
+  lines.push(`${result.conversations.length} sessions found\n`);
+
+  for (const conv of result.conversations) {
+    const dateStr = conv.date ? formatThreadDate(new Date(conv.date)) : 'Unknown date';
+    const title = conv.title || 'Untitled session';
+    const langLabel = conv.language ? ` [${conv.language}]` : '';
+    lines.push(`${title}${langLabel} — ${dateStr} (${conv.messageCount} messages)`);
+    if (conv.firstMessage) {
+      const speaker = conv.firstMessage.startsWith(studentName) ? studentName : 'Opening';
+      lines.push(`  Opening: "${conv.firstMessage.substring(0, 120)}"`);
+    }
+    lines.push('');
+  }
+
+  lines.push(`Use search_conversation_threads with a specific keyword to see the full exchange from any of these sessions.`);
+  return lines.join('\n');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Conversation Topic Map
+// A high-level view of what themes have emerged across all of David's sessions.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ConversationTheme {
+  theme: string;
+  conversationCount: number;
+  messageCount: number;
+  mostRecentDate: Date | null;
+  earliestDate: Date | null;
+  exampleTitles: string[];
+}
+
+export interface ConversationThemeMap {
+  themes: ConversationTheme[];
+  totalConversationsAnalyzed: number;
+  dateRange: { earliest: Date | null; mostRecent: Date | null };
+}
+
+/**
+ * Analyze conversation titles and session notes to build a topic map.
+ * Groups by common keywords to surface recurring themes across all sessions.
+ * Gives Daniela a view of the full arc of the student's learning journey.
+ */
+export async function getConversationThemes(
+  studentId: string,
+  options: {
+    afterDate?: Date;
+    beforeDate?: Date;
+    topN?: number;
+  } = {}
+): Promise<ConversationThemeMap> {
+  const { afterDate, beforeDate, topN = 15 } = options;
+  const db = getSharedDb();
+
+  try {
+    const dateConditions = [
+      eq(conversations.userId, studentId),
+      ...(afterDate ? [gte(conversations.createdAt, afterDate)] : []),
+      ...(beforeDate ? [lte(conversations.createdAt, beforeDate)] : []),
+    ];
+
+    // Get all conversation titles + dates
+    const convRows = await db
+      .select({
+        id: conversations.id,
+        title: conversations.title,
+        createdAt: conversations.createdAt,
+        language: conversations.language,
+      })
+      .from(conversations)
+      .where(and(...dateConditions))
+      .orderBy(desc(conversations.createdAt))
+      .limit(2000);  // analyze up to 2000 conversations
+
+    if (convRows.length === 0) {
+      return { themes: [], totalConversationsAnalyzed: 0, dateRange: { earliest: null, mostRecent: null } };
+    }
+
+    // Also pull session notes summaries for richer theme detection
+    const noteRows = await db
+      .select({
+        conversationId: sessionNotes.conversationId,
+        summary: sessionNotes.summary,
+        wins: sessionNotes.wins,
+        nextSteps: sessionNotes.nextSteps,
+      })
+      .from(sessionNotes)
+      .where(eq(sessionNotes.studentId, studentId))
+      .limit(2000);
+
+    const notesByConv = new Map<string, typeof noteRows[0]>();
+    for (const note of noteRows) {
+      if (note.conversationId) notesByConv.set(note.conversationId, note);
+    }
+
+    // Build a text corpus per conversation: title + notes
+    const corpusEntries = convRows.map(conv => {
+      const note = notesByConv.get(conv.id);
+      const text = [
+        conv.title || '',
+        note?.summary || '',
+        note?.wins || '',
+        note?.nextSteps || '',
+      ].join(' ').toLowerCase();
+      return { id: conv.id, title: conv.title, createdAt: conv.createdAt, language: conv.language, text };
+    });
+
+    // Keyword → theme mapping
+    // These are the themes we look for — organized by semantic cluster
+    const themeKeywords: Array<{ theme: string; keywords: string[] }> = [
+      { theme: 'Music & Culture', keywords: ['music', 'song', 'reggaeton', 'cumbia', 'salsa', 'merengue', 'playlist', 'rhythm', 'beat', 'concert', 'musician', 'artist', 'listen', 'genre'] },
+      { theme: 'Humor & Comedy', keywords: ['joke', 'humor', 'funny', 'laugh', 'comedy', 'punchline', 'timing', 'witty', 'scarecrow', 'award', 'recipient'] },
+      { theme: 'Grammar & Structure', keywords: ['grammar', 'conjugat', 'subjunctive', 'tense', 'preterite', 'imperfect', 'ser', 'estar', 'por', 'para', 'noun', 'verb', 'adjective', 'syntax'] },
+      { theme: 'Vocabulary & Words', keywords: ['vocab', 'word', 'vocabulary', 'phrase', 'expression', 'idiom', 'meaning', 'definition', 'translate'] },
+      { theme: 'Speaking & Pronunciation', keywords: ['speaking', 'pronunciation', 'accent', 'fluency', 'spoken', 'voice', 'speak', 'say', 'pronounce', 'intonation'] },
+      { theme: 'Reading & Writing', keywords: ['reading', 'writing', 'text', 'article', 'paragraph', 'essay', 'read', 'write', 'written'] },
+      { theme: 'Travel & Places', keywords: ['travel', 'trip', 'country', 'city', 'spain', 'mexico', 'colombia', 'argentina', 'latin', 'puerto rico', 'vacation', 'visit', 'place'] },
+      { theme: 'Personal Growth & Identity', keywords: ['goal', 'progress', 'journey', 'growth', 'confidence', 'identity', 'self', 'improve', 'better', 'motivation', 'why', 'reason'] },
+      { theme: 'Food & Dining', keywords: ['food', 'eat', 'restaurant', 'cook', 'meal', 'recipe', 'cuisine', 'dish', 'drink', 'taste'] },
+      { theme: 'Family & Relationships', keywords: ['family', 'friend', 'relationship', 'partner', 'parent', 'child', 'mother', 'father', 'sister', 'brother', 'love', 'connect'] },
+      { theme: 'Work & Business', keywords: ['work', 'job', 'business', 'career', 'professional', 'meeting', 'colleague', 'office', 'company', 'startup', 'product'] },
+      { theme: 'Philosophy & Deep Thoughts', keywords: ['philosophy', 'meaning', 'integrity', 'ethics', 'values', 'purpose', 'truth', 'beauty', 'life', 'exist', 'conscious', 'belief'] },
+      { theme: 'Conversation Practice', keywords: ['conversation', 'practice', 'dialogue', 'role play', 'scenario', 'chat', 'discuss', 'talk', 'exchange'] },
+      { theme: 'News & Current Events', keywords: ['news', 'event', 'politics', 'economy', 'society', 'culture', 'world', 'history', 'today', 'happen'] },
+      { theme: 'Emotions & Feelings', keywords: ['feel', 'emotion', 'happy', 'sad', 'excited', 'nervous', 'anxious', 'joy', 'frustrat', 'confid'] },
+    ];
+
+    // Score each conversation against each theme
+    const themeScores = new Map<string, {
+      conversationIds: string[];
+      titles: string[];
+      dates: Date[];
+    }>();
+
+    for (const { theme } of themeKeywords) {
+      themeScores.set(theme, { conversationIds: [], titles: [], dates: [] });
+    }
+
+    for (const entry of corpusEntries) {
+      for (const { theme, keywords } of themeKeywords) {
+        const matches = keywords.some(kw => entry.text.includes(kw));
+        if (matches) {
+          const bucket = themeScores.get(theme)!;
+          bucket.conversationIds.push(entry.id);
+          if (entry.title) bucket.titles.push(entry.title);
+          if (entry.createdAt) bucket.dates.push(new Date(entry.createdAt));
+        }
+      }
+    }
+
+    // Build theme results, sorted by conversation count
+    const themes: ConversationTheme[] = [];
+    for (const { theme } of themeKeywords) {
+      const bucket = themeScores.get(theme)!;
+      if (bucket.conversationIds.length === 0) continue;
+
+      const sortedDates = bucket.dates.sort((a, b) => a.getTime() - b.getTime());
+      const exampleTitles = [...new Set(bucket.titles)].slice(0, 3);
+
+      themes.push({
+        theme,
+        conversationCount: bucket.conversationIds.length,
+        messageCount: 0,  // expensive to compute — skip for now
+        mostRecentDate: sortedDates.length > 0 ? sortedDates[sortedDates.length - 1] : null,
+        earliestDate: sortedDates.length > 0 ? sortedDates[0] : null,
+        exampleTitles,
+      });
+    }
+
+    themes.sort((a, b) => b.conversationCount - a.conversationCount);
+
+    const dates = convRows.map(c => c.createdAt).filter(Boolean) as Date[];
+    const sortedAll = dates.map(d => new Date(d)).sort((a, b) => a.getTime() - b.getTime());
+
+    console.log(`[ConversationThemes] Analyzed ${corpusEntries.length} conversations → ${themes.length} themes for student ${studentId}`);
+
+    return {
+      themes: themes.slice(0, topN),
+      totalConversationsAnalyzed: corpusEntries.length,
+      dateRange: {
+        earliest: sortedAll[0] || null,
+        mostRecent: sortedAll[sortedAll.length - 1] || null,
+      },
+    };
+  } catch (err: any) {
+    console.error('[ConversationThemes] Error:', err.message);
+    return { themes: [], totalConversationsAnalyzed: 0, dateRange: { earliest: null, mostRecent: null } };
+  }
+}
+
+export function formatConversationThemes(result: ConversationThemeMap): string {
+  if (result.themes.length === 0) {
+    return `No conversation themes found. The conversation history may be empty or too short to detect patterns.`;
+  }
+
+  const lines: string[] = [];
+  const rangeStr = [
+    result.dateRange.earliest ? result.dateRange.earliest.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : null,
+    result.dateRange.mostRecent ? result.dateRange.mostRecent.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : null,
+  ].filter(Boolean).join(' → ');
+
+  lines.push(`CONVERSATION THEME MAP`);
+  lines.push(`Analyzed ${result.totalConversationsAnalyzed} conversations${rangeStr ? ` (${rangeStr})` : ''}\n`);
+
+  for (const theme of result.themes) {
+    const recentStr = theme.mostRecentDate ? `last: ${formatThreadDate(new Date(theme.mostRecentDate))}` : '';
+    lines.push(`${theme.theme} — ${theme.conversationCount} sessions (${recentStr})`);
+    if (theme.exampleTitles.length > 0) {
+      lines.push(`  e.g. "${theme.exampleTitles[0]}"`);
+    }
+  }
+
+  lines.push(`\nUse search_conversation_threads or browse_conversations_by_date to explore any theme further.`);
+  return lines.join('\n');
+}
+
 // Export singleton-style functions
 export const neuralMemorySearch = {
   search: searchMemory,
@@ -2201,4 +2565,9 @@ export const neuralMemorySearch = {
   // Conversation thread search (Phase 3)
   searchThreads: searchConversationThreads,
   formatThreads: formatConversationThreads,
+  // Date browser + theme map (Phase 4)
+  browseByDate: browseConversationsByDate,
+  formatBrowse: formatConversationBrowse,
+  getThemes: getConversationThemes,
+  formatThemes: formatConversationThemes,
 };
