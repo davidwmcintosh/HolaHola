@@ -363,6 +363,20 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
         // Use ref to ensure we always call the current setPlaybackState
         setPlaybackStateRef.current(state);
         (window as any).__playbackStateSetCount = ((window as any).__playbackStateSetCount || 0) + 1;
+        
+        // GL/PCM PATH FIX: In the Gemini Live path, audio goes through
+        // enqueueProgressivePcmChunk which bypasses the traditional sentence
+        // queue's playNext() → notifyComplete() chain. This means onComplete
+        // never fires, so checkAndClearProcessing is never retried after
+        // onSentenceStart clears the audioReceivedInTurnRef guard.
+        // When the player transitions to 'idle' and response_complete has
+        // already arrived, we know the turn is truly done — clear the guard
+        // and re-run the check so the hook's isProcessing clears immediately
+        // instead of waiting for the 10-second deferred timeout.
+        if (state === 'idle' && responseCompleteRef.current) {
+          audioReceivedInTurnRef.current = false;
+          checkAndClearProcessing();
+        }
       },
       onProgress: (currentTime, duration) => {
         // Update subtitle highlighting with actual duration for rescaling
