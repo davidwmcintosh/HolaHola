@@ -234,18 +234,17 @@ export class GeminiLiveSession {
       config: {
         systemInstruction: effectiveSystemPrompt,
         tools: tools.length > 0 ? [{ functionDeclarations: tools }] : undefined,
-        responseModalities: [Modality.AUDIO, Modality.TEXT],
+        // AUDIO-only: gemini-3.1-flash-live-preview does NOT support TEXT as a
+        // responseModality — sending [AUDIO, TEXT] causes immediate 1011
+        // "Internal error encountered." at setup time. Use outputAudioTranscription
+        // to capture the assistant's words instead.
+        responseModalities: [Modality.AUDIO],
 
         // ── Transcription ─────────────────────────────────────────────────
-        // inputAudioTranscription: enables real-time user speech→text so we can
-        // display live captions and persist the user's utterance to the DB.
-        //
-        // TEXT modality (above): gemini-3.1-flash-live-preview will emit part.text
-        // in modelTurn.parts alongside the audio chunks. We accumulate those text
-        // parts into pendingOutputTranscript so the assistant's response is saved to
-        // the DB on generationComplete. This avoids outputAudioTranscription which
-        // caused 1008 "Operation is not implemented" on this model.
+        // inputAudioTranscription:  student speech → text (live captions + DB)
+        // outputAudioTranscription: assistant speech → text (DB conversation log)
         inputAudioTranscription: {},
+        outputAudioTranscription: {},
 
         speechConfig: {
           languageCode,
@@ -635,11 +634,11 @@ export class GeminiLiveSession {
           // chunks from firing a spurious processing_pending AFTER audio has played.
           //
           // ALSO: fire processing_pending on the first audio chunk of CONVERSATION turns
-          // (not the greeting). GL rarely emits outputTranscription (outputAudioTranscription
-          // was removed from the config because it caused 1008 errors), so the outputTranscription
-          // path at line ~641 almost never fires. This is the reliable fallback: the moment
-          // the first audio arrives we know GL is responding and the avatar should show thinking
-          // briefly (it flips to speaking within the same render cycle in practice).
+          // (not the greeting). outputAudioTranscription is enabled and will fire
+          // outputTranscription chunks, but audio typically arrives before the transcription
+          // text. This is the reliable fallback: the moment the first audio arrives we know
+          // GL is responding and the avatar should show thinking briefly (it flips to speaking
+          // within the same render cycle in practice).
           if (!this.firstAudioSentThisTurn) {
             this.firstAudioSentThisTurn = true;
             const now = Date.now();

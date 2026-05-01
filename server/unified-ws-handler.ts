@@ -42,7 +42,7 @@ import {
 import { OpenMicSession, OpenMicEvents, getDeepgramLanguageCode } from './services/deepgram-live-stt';
 import { GeminiLiveSession, createGeminiLiveSession, GEMINI_LIVE_VOICE_ENABLED, GEMINI_LIVE_MODEL } from './services/gemini-live-session';
 import { costTracker } from './services/cost-tracker';
-import { DANIELA_FUNCTION_DECLARATIONS, DANIELA_GL_FUNCTION_DECLARATIONS } from './services/daniela-function-registry';
+import { DANIELA_FUNCTION_DECLARATIONS } from './services/daniela-function-registry';
 import { generateCongratulatoryPromptAddition } from './services/competency-verifier';
 import { buildCurriculumContext, detectSyllabusQuery } from './services/curriculum-context';
 import { usageService } from './services/usage-service';
@@ -2013,10 +2013,8 @@ If asked about something covered above, answer directly from this context. If yo
                 // Cache the final system prompt so voice-override reconnects can reuse it
                 geminiLiveSystemPromptCache = geminiLiveSystemPrompt;
                 geminiLiveSession = createGeminiLiveSession(session, glSendMessage);
-                // Use the GL-specific 64-tool subset (Gemini Live hard-caps at 64 function
-                // declarations per session; sending more causes immediate 1011 "Internal error").
-                await geminiLiveSession.start(geminiLiveSystemPrompt, DANIELA_GL_FUNCTION_DECLARATIONS);
-                console.log(`[GeminiLive] Session started with ${DANIELA_GL_FUNCTION_DECLARATIONS.length} tool declarations alongside orchestrator session ${session.id}`);
+                await geminiLiveSession.start(geminiLiveSystemPrompt, DANIELA_FUNCTION_DECLARATIONS);
+                console.log(`[GeminiLive] Session started with ${DANIELA_FUNCTION_DECLARATIONS.length} tool declarations alongside orchestrator session ${session.id}`);
 
                 // ── Tutor no-response watchdog ───────────────────────────────────────
                 // If Daniela produces no audio within 90s, the GL API may have hung.
@@ -3217,8 +3215,8 @@ If asked about something covered above, answer directly from this context. If yo
                 } catch (_) {}
               };
               geminiLiveSession = createGeminiLiveSession(session, glSendMessage);
-              await geminiLiveSession.start(geminiLiveSystemPromptCache, DANIELA_GL_FUNCTION_DECLARATIONS);
-              console.log(`[GeminiLive] Reconnected with voice: ${nextVoiceId} (${DANIELA_GL_FUNCTION_DECLARATIONS.length} tools)`);
+              await geminiLiveSession.start(geminiLiveSystemPromptCache, DANIELA_FUNCTION_DECLARATIONS);
+              console.log(`[GeminiLive] Reconnected with voice: ${nextVoiceId} (${DANIELA_FUNCTION_DECLARATIONS.length} tools)`);
             } catch (reconnErr: any) {
               console.error('[GeminiLive] Voice reconnect failed:', reconnErr.message);
               geminiLiveSession = null;
