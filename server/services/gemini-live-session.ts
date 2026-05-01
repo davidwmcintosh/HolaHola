@@ -127,9 +127,11 @@ export class GeminiLiveSession {
   private reconnectAttempts = 0;
   private readonly MAX_RECONNECT_ATTEMPTS = 3;
   // Close codes we consider transient/retriable (not policy violations or intentional closes).
+  // 1011 is intentionally excluded: it covers both quota exhaustion and Gemini internal errors.
+  // Both cases are non-retriable — retrying immediately with a large system prompt just burns
+  // more quota. Quota is handled explicitly above; other 1011s bail with a clear error.
   private readonly RETRIABLE_CLOSE_CODES = new Set([
     1006,  // Abnormal closure — no close frame (network drop)
-    1011,  // Internal server error (transient GL service error)
     1012,  // Service restart
     1013,  // Try again later
   ]);
@@ -323,6 +325,19 @@ export class GeminiLiveSession {
               code: 'GEMINI_QUOTA_EXCEEDED',
               message: 'Voice sessions are temporarily unavailable due to high demand. Please try again in a few minutes.',
               recoverable: false,
+            });
+            return;
+          }
+          // Any other 1011 (e.g. "Internal error encountered.") is also non-retriable.
+          // Retrying immediately resends the full system prompt (~13K tokens) and burns quota.
+          // Surface a recoverable error so the client can prompt the user to try again.
+          if (code === 1011 && !this.isStopped) {
+            console.error('[GeminiLive] Internal error (1011) — not retrying. Reason:', reason || '(no reason)');
+            this.sendWsMessage(this.session.ws, {
+              type: 'voice_error',
+              code: 'GEMINI_INTERNAL_ERROR',
+              message: 'The voice connection encountered an error. Please try again.',
+              recoverable: true,
             });
             return;
           }
