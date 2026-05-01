@@ -1939,6 +1939,27 @@ If asked about something covered above, answer directly from this context. If yo
                 const cache = session.cachedContext;
                 const richSections: string[] = [];
 
+                // ── MANDATORY TOOL RULES — injected first so it survives any truncation ──
+                // Gemini Live voice mode does not inherit the per-turn function calling section.
+                // This compact block enforces the tool-call contract in the baked system prompt.
+                richSections.push(`=== MANDATORY TOOL USAGE RULES (VOICE MODE) ===
+You have real tools — USE THEM. Do not simulate, roleplay, or describe searching. Actually call the function.
+
+SEARCH_CONVERSATION_THREADS — call this IMMEDIATELY when:
+- Student says "look up [word/topic] in our conversations"
+- Student says "search for", "find", or "check" anything in past sessions
+- Student asks "do you remember when we talked about [topic]?"
+- Student asks what was said/discussed in a prior session about any keyword
+→ NEVER say "I tried to find it" or "I searched" without calling this tool first.
+
+MEMORY_LOOKUP — call this IMMEDIATELY when:
+- Student references past lessons, sessions, or teaching moments ("last time", "before", "a few weeks ago")
+- Student asks about their own progress, mistakes, or vocabulary from prior sessions
+→ NEVER guess student-specific history. Call memory_lookup first, then respond.
+
+RULE: If you would naturally say "I don't have a record of that" — call the tool first and let the result speak.`);
+                console.log('[GeminiLive] ✓ Mandatory tool rules injected into system prompt');
+
                 if (cache?.growthMemoriesSection) {
                   richSections.push(cache.growthMemoriesSection);
                   console.log('[GeminiLive] ✓ Growth memories baked in');
