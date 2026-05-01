@@ -312,6 +312,20 @@ export class GeminiLiveSession {
           // Retriable codes are transient (network hiccup, GL service restart).
           // We only reconnect when isStopped is false (student didn't end the session)
           // and we haven't exhausted our 3 attempts.
+          //
+          // Quota errors (1011 + "quota" in reason) are NOT retriable — retrying
+          // immediately just burns more quota. Surface a clear error instead.
+          const isQuotaError = code === 1011 && /quota|exceeded|billing/i.test(reason);
+          if (isQuotaError && !this.isStopped) {
+            console.error('[GeminiLive] Quota exceeded — not retrying. Reason:', reason);
+            this.sendWsMessage(this.session.ws, {
+              type: 'voice_error',
+              code: 'GEMINI_QUOTA_EXCEEDED',
+              message: 'Voice sessions are temporarily unavailable due to high demand. Please try again in a few minutes.',
+              recoverable: false,
+            });
+            return;
+          }
           if (!this.isStopped && this.RETRIABLE_CLOSE_CODES.has(code) && this.reconnectAttempts < this.MAX_RECONNECT_ATTEMPTS) {
             this.reconnectAttempts++;
             const delayMs = 1000 * Math.pow(2, this.reconnectAttempts - 1); // 1 s, 2 s, 4 s

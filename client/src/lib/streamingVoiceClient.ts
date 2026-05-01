@@ -1217,6 +1217,20 @@ export class StreamingVoiceClient {
           this.emit('glReconnected', message);
           break;
 
+        case 'voice_error': {
+          const veCode = (message as any).code as string;
+          const veMsg = (message as any).message as string;
+          console.error('[WS CLIENT] Voice error:', veCode, veMsg);
+          if (veCode === 'GEMINI_QUOTA_EXCEEDED') {
+            this.emit('error', new Error(veMsg || 'Voice sessions are temporarily unavailable. Please try again in a few minutes.'));
+          } else {
+            this.emit('error', new Error(veMsg || 'Voice connection lost. Please refresh and try again.'));
+          }
+          this.setState('error');
+          this.intentionalDisconnect = true;
+          break;
+        }
+
         case 'voice_updated':
           // Voice switch confirmation
           this.emit('voiceUpdated', message as { type: string; gender: string; voiceName: string; timestamp: number });
