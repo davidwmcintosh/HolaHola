@@ -33,7 +33,7 @@ import { lookupLegacyType, buildFunctionContinuationResponse } from './daniela-f
 import type { ExtractedFunctionCall } from './gemini-function-declarations';
 import { reportGlToolCallFailure } from './sofia-billing-monitor';
 
-const GEMINI_LIVE_MODEL = process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview';
+export const GEMINI_LIVE_MODEL = process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview';
 const AUDIO_OUTPUT_SAMPLE_RATE = 24000;
 const AUDIO_INPUT_SAMPLE_RATE = 16000;
 

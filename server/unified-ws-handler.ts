@@ -40,7 +40,8 @@ import {
   ClientTelemetryEvent,
 } from '@shared/streaming-voice-types';
 import { OpenMicSession, OpenMicEvents, getDeepgramLanguageCode } from './services/deepgram-live-stt';
-import { GeminiLiveSession, createGeminiLiveSession, GEMINI_LIVE_VOICE_ENABLED } from './services/gemini-live-session';
+import { GeminiLiveSession, createGeminiLiveSession, GEMINI_LIVE_VOICE_ENABLED, GEMINI_LIVE_MODEL } from './services/gemini-live-session';
+import { costTracker } from './services/cost-tracker';
 import { DANIELA_FUNCTION_DECLARATIONS } from './services/daniela-function-registry';
 import { generateCongratulatoryPromptAddition } from './services/competency-verifier';
 import { buildCurriculumContext, detectSyllabusQuery } from './services/curriculum-context';
@@ -3348,6 +3349,9 @@ If asked about something covered above, answer directly from this context. If yo
       tutorSpeakingSeconds += glSpeaking.tutorSpeakingMs / 1000;
       if (glMetrics.inputTokens > 0 || glMetrics.outputTokens > 0) {
         console.log(`[GeminiLive] Session end metrics — exchanges: ${glExchanges}, outputChars: ${glOutputChars}, tokens: ${glMetrics.inputTokens}in/${glMetrics.outputTokens}out`);
+        // Log GL token costs to ai_cost_logs so burn report's per-model breakdown
+        // includes GL usage. costTracker persists to DB via the wired DbPersister.
+        costTracker.track(GEMINI_LIVE_MODEL, glMetrics.inputTokens, glMetrics.outputTokens, 'gemini-live-session');
       }
       if (glLatency.count > 0) {
         console.log(`[GeminiLive] Latency stats — avg: ${glLatency.avgMs}ms, p50: ${glLatency.p50Ms}ms, p95: ${glLatency.p95Ms}ms (${glLatency.count} turns)`);
