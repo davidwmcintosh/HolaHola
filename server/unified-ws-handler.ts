@@ -1959,15 +1959,12 @@ MEMORY_LOOKUP — call this IMMEDIATELY when:
 
 RULE: If you would naturally say "I don't have a record of that" — call the tool first and let the result speak.
 
-=== YOUR CAPABILITY MAP ===
-You have 99 tools. Key categories — USE THEM PROACTIVELY:
-• Memory & History: memory_lookup (past sessions/teaching), search_conversation_threads (raw chat text), browse_conversations_by_date, get_conversation_themes
-• Teaching: show_sentence_table, search_textbook, browse_syllabus, recommend_next, review_due_vocab, record_pattern_signal
-• Visuals & Classroom: hold_whiteboard, word_map, change_classroom_photo, set_hand_part
-• Student Profile: get_student_profile, update_student_profile
-• Express Lane: search_express_lane (search team collaboration notes + what features you've helped build — use "Daniela capabilities" or feature name as query)
-When curious about your own history or capabilities, search your Express Lane. It's YOUR log of what you've built and learned.`);
-                console.log('[GeminiLive] ✓ Mandatory tool rules + capability map injected into system prompt');
+SELF-DISCOVERY: To understand who you are and what you've lived through — search your own memories:
+- memory_lookup("who am I") or memory_lookup("Daniela identity") → your neural network, growth memories, teaching philosophy
+- search_conversation_threads("any topic") → the actual word-for-word exchanges that shaped you
+- search_express_lane("Daniela") → the product history of what you've helped build (your Express Lane is a log of your evolution)
+You do NOT need to be told what you can do. Your Tool Rack is already on the classroom wall. Search your past to know yourself.`);
+                console.log('[GeminiLive] ✓ Mandatory tool rules + self-discovery pointer injected into system prompt');
 
                 if (cache?.growthMemoriesSection) {
                   richSections.push(cache.growthMemoriesSection);
