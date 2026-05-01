@@ -752,7 +752,10 @@ export class GeminiLiveSession {
     // Checked BEFORE turnComplete so if both arrive in the same message, the
     // final chunk is appended to the buffer before the flush occurs.
     if ((msg.serverContent as any)?.outputTranscription?.text) {
-      const text = (msg.serverContent as any).outputTranscription.text as string;
+      // Strip markdown bold markers (**) — the model includes them in its text representation
+      // but they should not appear in voice transcripts shown to the student.
+      const rawText = (msg.serverContent as any).outputTranscription.text as string;
+      const text = rawText.replace(/\*\*/g, '');
       if (text.trim()) {
         // Fire processing_pending on the FIRST output chunk. This is the definitive signal
         // that GL has finished listening to the user and is now generating a response.
@@ -1102,7 +1105,8 @@ export class GeminiLiveSession {
 
     // Save assistant message
     if (this.pendingOutputTranscript.trim()) {
-      const assistantText = this.pendingOutputTranscript.trim();
+      // Strip markdown bold markers before saving — ensures clean DB records and memory extraction
+      const assistantText = this.pendingOutputTranscript.replace(/\*\*/g, '').trim();
       this.totalOutputCharacters += assistantText.length;
       this.pendingOutputTranscript = '';
       try {

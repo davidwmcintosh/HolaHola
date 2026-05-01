@@ -127,6 +127,9 @@ export class AudioRecorder {
         audio: {
           channelCount: 1,
           sampleRate: 24000,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
         } 
       });
 

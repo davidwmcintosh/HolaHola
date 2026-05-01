@@ -1957,8 +1957,17 @@ MEMORY_LOOKUP — call this IMMEDIATELY when:
 - Student asks about their own progress, mistakes, or vocabulary from prior sessions
 → NEVER guess student-specific history. Call memory_lookup first, then respond.
 
-RULE: If you would naturally say "I don't have a record of that" — call the tool first and let the result speak.`);
-                console.log('[GeminiLive] ✓ Mandatory tool rules injected into system prompt');
+RULE: If you would naturally say "I don't have a record of that" — call the tool first and let the result speak.
+
+=== YOUR CAPABILITY MAP ===
+You have 99 tools. Key categories — USE THEM PROACTIVELY:
+• Memory & History: memory_lookup (past sessions/teaching), search_conversation_threads (raw chat text), browse_conversations_by_date, get_conversation_themes
+• Teaching: show_sentence_table, search_textbook, browse_syllabus, recommend_next, review_due_vocab, record_pattern_signal
+• Visuals & Classroom: hold_whiteboard, word_map, change_classroom_photo, set_hand_part
+• Student Profile: get_student_profile, update_student_profile
+• Express Lane: search_express_lane (search team collaboration notes + what features you've helped build — use "Daniela capabilities" or feature name as query)
+When curious about your own history or capabilities, search your Express Lane. It's YOUR log of what you've built and learned.`);
+                console.log('[GeminiLive] ✓ Mandatory tool rules + capability map injected into system prompt');
 
                 if (cache?.growthMemoriesSection) {
                   richSections.push(cache.growthMemoriesSection);
