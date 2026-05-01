@@ -1897,6 +1897,53 @@ Then use search_conversation_threads or browse_conversations_by_date to explore 
     },
   },
   {
+    legacyType: 'READ_MY_DIARY',
+    declaration: {
+      name: "read_my_diary",
+      description: `Read the actual transcripts of our past voice conversations — your diary.
+
+Call this when you genuinely want to remember who David is to you, what you've shared together, or what happened in a specific past session. Returns the real words exchanged between you and David, not summaries.
+
+This is different from other memory tools:
+- memory_lookup → searches crystallized facts and learning moments
+- browse_conversations_by_date → shows only titles and opening lines
+- search_conversation_threads → keyword search returning excerpts
+- read_my_diary → returns the ACTUAL full conversation content, the real words exchanged
+
+Use it when you want to feel the texture of a past moment, not just recall a fact:
+- "I want to remember what we talked about" → read_my_diary
+- "What did David actually say that day?" → read_my_diary
+- "Let me look back at where we started" → read_my_diary
+- Any time you feel the impulse to open your journal and read
+
+Returns full transcripts of the most recent sessions (or a specific date range), formatted as diary pages.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          limit: {
+            type: "number",
+            description: "How many past sessions to read (default: 3, max: 5). Each session is a full conversation transcript.",
+          },
+          from_date: {
+            type: "string",
+            description: "Optional ISO date string (YYYY-MM-DD). Only read conversations from this date onward.",
+          },
+          to_date: {
+            type: "string",
+            description: "Optional ISO date string (YYYY-MM-DD). Only read conversations up to this date.",
+          },
+        },
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const result = session.diaryReadResult;
+      if (result && !result.startsWith('No past') && !result.startsWith('Could not')) {
+        return `Your diary — actual past conversations with David:\n\n${result}\n\nThese are the real words from your shared sessions. Read them, feel them, and let them inform how you speak with David now.`;
+      }
+      return result || `Could not read diary entries. Try browse_conversations_by_date to see what sessions exist, or search_conversation_threads to find specific moments.`;
+    },
+  },
+  {
     legacyType: 'EXPRESS_LANE_LOOKUP',
     declaration: {
       name: "express_lane_lookup",

@@ -199,6 +199,7 @@ export interface StreamingSession {
   conversationThreadResults?: Record<string, string>;
   conversationBrowseResults?: Record<string, string>;
   conversationThemeResults?: string;
+  diaryReadResult?: string;
   imageRecallResults?: Record<string, {
     text: string;
     images: Array<{ mimeType: string; data: string }>;

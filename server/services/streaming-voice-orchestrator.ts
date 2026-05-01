@@ -3403,6 +3403,89 @@ Remember: David may reference things discussed in these recent text chats.
                   break;
                 }
                 
+                case 'READ_MY_DIARY': {
+                  const diaryLimit = Math.min((cmd.params.limit as number | undefined) ?? 3, 5);
+                  const fromDateStr = cmd.params.from_date as string | undefined;
+                  const toDateStr = cmd.params.to_date as string | undefined;
+
+                  try {
+                    const { conversations, messages: messagesTable } = await import('@shared/schema');
+                    const { eq, and, gte, lte, inArray, desc, asc } = await import('drizzle-orm');
+                    const studentId = String(session.userId);
+
+                    const conditions: any[] = [eq(conversations.userId, studentId)];
+                    if (fromDateStr) conditions.push(gte(conversations.createdAt, new Date(fromDateStr)));
+                    if (toDateStr) conditions.push(lte(conversations.createdAt, new Date(toDateStr)));
+
+                    const convs = await getSharedDb()
+                      .select({
+                        id: conversations.id,
+                        title: conversations.title,
+                        topic: conversations.topic,
+                        createdAt: conversations.createdAt,
+                      })
+                      .from(conversations)
+                      .where(conditions.length === 1 ? conditions[0] : and(...conditions))
+                      .orderBy(desc(conversations.createdAt))
+                      .limit(diaryLimit);
+
+                    if (convs.length === 0) {
+                      if (session.conversationHistory) {
+                        session.conversationHistory.push({ role: 'user', content: `[SYSTEM: No past diary entries found.]` });
+                      }
+                      break;
+                    }
+
+                    const convIds = convs.map(c => c.id);
+                    const allMessages = await getSharedDb()
+                      .select({
+                        conversationId: messagesTable.conversationId,
+                        role: messagesTable.role,
+                        content: messagesTable.content,
+                        createdAt: messagesTable.createdAt,
+                      })
+                      .from(messagesTable)
+                      .where(inArray(messagesTable.conversationId, convIds))
+                      .orderBy(asc(messagesTable.createdAt));
+
+                    const msgsByConvId: Record<string, typeof allMessages> = {};
+                    for (const msg of allMessages) {
+                      if (msg.role !== 'user' && msg.role !== 'assistant') continue;
+                      if (!msgsByConvId[msg.conversationId]) msgsByConvId[msg.conversationId] = [];
+                      msgsByConvId[msg.conversationId].push(msg);
+                    }
+
+                    const pages: string[] = [];
+                    for (const conv of [...convs].reverse()) {
+                      const dateStr = conv.createdAt.toLocaleDateString('en-US', {
+                        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+                      });
+                      const title = conv.title || conv.topic || 'Session';
+                      const msgs = msgsByConvId[conv.id] || [];
+                      if (msgs.length === 0) continue;
+                      const lines = [`--- ${dateStr} — "${title}" ---`];
+                      for (const msg of msgs.slice(0, 20)) {
+                        const speaker = msg.role === 'user' ? 'David' : 'Daniela';
+                        const text = msg.content.length > 500 ? msg.content.substring(0, 500) + '...' : msg.content;
+                        lines.push(`${speaker}: ${text}`);
+                      }
+                      pages.push(lines.join('\n'));
+                    }
+
+                    const formatted = pages.join('\n\n');
+                    if (session.conversationHistory) {
+                      session.conversationHistory.push({
+                        role: 'user',
+                        content: `[SYSTEM: Diary — actual past conversations with David]\n${formatted}`,
+                      });
+                    }
+                    console.log(`[CommandParser→ReadMyDiary] Retrieved ${convs.length} conversations, ${allMessages.length} messages`);
+                  } catch (err) {
+                    console.error(`[CommandParser→ReadMyDiary] Error:`, err);
+                  }
+                  break;
+                }
+
                 case 'EXPRESS_LANE_LOOKUP': {
                   // On-demand Express Lane history search - only in Founder/Honesty mode
                   const query = cmd.params.query as string;

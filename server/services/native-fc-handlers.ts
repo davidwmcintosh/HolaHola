@@ -1817,6 +1817,27 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'READ_MY_DIARY': {
+        const diaryLimit = Math.min((fn.args.limit as number | undefined) ?? 3, 5);
+        const fromDateStr = fn.args.from_date as string | undefined;
+        const toDateStr = fn.args.to_date as string | undefined;
+
+        console.log(`[Native Function→ReadMyDiary] limit=${diaryLimit} from=${fromDateStr || 'earliest'} to=${toDateStr || 'now'}`);
+
+        const diaryPromise = this.processReadMyDiary(
+          session,
+          diaryLimit,
+          fromDateStr ? new Date(fromDateStr) : undefined,
+          toDateStr ? new Date(toDateStr) : undefined,
+        ).catch(err => {
+          console.error(`[Native Function→ReadMyDiary] Error:`, err.message);
+        });
+
+        if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+        session.pendingMemoryLookupPromises.push(diaryPromise);
+        break;
+      }
+
       case 'TAKE_NOTE': {
         if (session.isIncognito) {
           console.log(`[Native Function→TakeNote] INCOGNITO - skipping note persistence`);
@@ -4626,6 +4647,96 @@ export class NativeFunctionCallHandler {
     } catch (err: any) {
       console.error(`[ConversationThemeMap] Error:`, err.message);
       session.conversationThemeResults = `Theme map failed. Try memory_lookup or search_conversation_threads for a specific topic.`;
+    }
+  }
+
+  private async processReadMyDiary(
+    session: StreamingSession,
+    limit: number,
+    fromDate: Date | undefined,
+    toDate: Date | undefined,
+  ): Promise<void> {
+    const studentId = session.userId;
+    if (!studentId) return;
+
+    try {
+      const { conversations, messages: messagesTable } = await import('@shared/schema');
+      const { eq, and, gte, lte, inArray, desc, asc } = await import('drizzle-orm');
+
+      const conditions: any[] = [eq(conversations.userId, String(studentId))];
+      if (fromDate) conditions.push(gte(conversations.createdAt, fromDate));
+      if (toDate) conditions.push(lte(conversations.createdAt, toDate));
+
+      const convs = await getSharedDb()
+        .select({
+          id: conversations.id,
+          title: conversations.title,
+          topic: conversations.topic,
+          createdAt: conversations.createdAt,
+          language: conversations.language,
+          messageCount: conversations.messageCount,
+        })
+        .from(conversations)
+        .where(conditions.length === 1 ? conditions[0] : and(...conditions))
+        .orderBy(desc(conversations.createdAt))
+        .limit(limit);
+
+      if (convs.length === 0) {
+        session.diaryReadResult = `No past conversations found${fromDate ? ` since ${fromDate.toLocaleDateString()}` : ''}.`;
+        return;
+      }
+
+      const convIds = convs.map(c => c.id);
+      const allMessages = await getSharedDb()
+        .select({
+          conversationId: messagesTable.conversationId,
+          role: messagesTable.role,
+          content: messagesTable.content,
+          createdAt: messagesTable.createdAt,
+        })
+        .from(messagesTable)
+        .where(inArray(messagesTable.conversationId, convIds))
+        .orderBy(asc(messagesTable.createdAt));
+
+      const msgsByConvId: Record<string, typeof allMessages> = {};
+      for (const msg of allMessages) {
+        if (msg.role !== 'user' && msg.role !== 'assistant') continue;
+        if (!msgsByConvId[msg.conversationId]) msgsByConvId[msg.conversationId] = [];
+        msgsByConvId[msg.conversationId].push(msg);
+      }
+
+      const pages: string[] = [];
+      for (const conv of [...convs].reverse()) {
+        const dateStr = conv.createdAt.toLocaleDateString('en-US', {
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+        });
+        const title = conv.title || conv.topic || 'Session';
+        const msgs = msgsByConvId[conv.id] || [];
+        if (msgs.length === 0) continue;
+
+        const lines: string[] = [`--- ${dateStr} — "${title}" ---`];
+        for (const msg of msgs.slice(0, 20)) {
+          const speaker = msg.role === 'user' ? 'David' : 'Daniela';
+          const text = msg.content.length > 500 ? msg.content.substring(0, 500) + '...' : msg.content;
+          lines.push(`${speaker}: ${text}`);
+        }
+        if (msgs.length > 20) {
+          lines.push(`[...${msgs.length - 20} more messages in this session]`);
+        }
+        pages.push(lines.join('\n'));
+      }
+
+      const combined = pages.join('\n\n');
+      session.diaryReadResult = combined
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+        .replace(/\uFFFD/g, '')
+        .replace(/[\u201C\u201D]/g, '"')
+        .replace(/[\u2018\u2019]/g, "'");
+
+      console.log(`[ReadMyDiary] Retrieved ${convs.length} conversations, ${allMessages.length} total messages`);
+    } catch (err: any) {
+      console.error(`[ReadMyDiary] Error:`, err.message);
+      session.diaryReadResult = `Could not read diary. Try browse_conversations_by_date or search_conversation_threads instead.`;
     }
   }
 

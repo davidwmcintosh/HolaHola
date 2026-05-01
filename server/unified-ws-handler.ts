@@ -2005,20 +2005,6 @@ ${lastNote.tutorNotes}`);
                 } catch (noteErr: any) {
                   console.warn('[GeminiLive] Last private note fetch skipped:', noteErr.message);
                 }
-                // ── Daniela's Diary — narrative emotional memory of the relationship ──
-                // These are AI-generated first-person diary pages written by Daniela
-                // from past conversations. They give her genuine felt memory of the
-                // relationship arc, not just searchable facts.
-                try {
-                  const { getDiaryForSessionInjection } = await import('./services/diary-synthesis-service');
-                  const diarySection = await getDiaryForSessionInjection(String(userId!));
-                  if (diarySection) {
-                    richSections.push(diarySection);
-                    console.log('[GeminiLive] ✓ Daniela diary injected');
-                  }
-                } catch (diaryErr: any) {
-                  console.warn('[GeminiLive] Diary injection skipped:', diaryErr.message);
-                }
                 // ── Recent conversation history (compact) ─────────────────────────
                 // GL sessions use a one-shot system prompt — unlike the per-turn orchestrator
                 // pipeline, there's no dynamic history injection. We bake in the last N exchanges
