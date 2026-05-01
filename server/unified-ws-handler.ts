@@ -1974,6 +1974,37 @@ You do NOT need to be told what you can do. Your Tool Rack is already on the cla
                   richSections.push(cache.identityMemoriesSection);
                   console.log('[GeminiLive] ✓ Identity memories baked in');
                 }
+
+                // ── Last Private Note — what Daniela told herself about this student ──
+                // The tutor_notes field in close_session is never shown to the student.
+                // We pull the most recent non-null tutor_notes for this user so she walks
+                // into every GL session carrying her own private handoff from last time.
+                try {
+                  const { getSharedDb } = await import('./neon-db');
+                  const { tutorSessions: ts } = await import('@shared/schema');
+                  const { desc: descOp, eq: eqOp, isNotNull } = await import('drizzle-orm');
+                  const sharedDb = getSharedDb();
+                  const [lastNote] = await sharedDb
+                    .select({ tutorNotes: ts.tutorNotes, endedAt: ts.endedAt })
+                    .from(ts)
+                    .where(eqOp(ts.userId, String(userId!)))
+                    .orderBy(descOp(ts.endedAt))
+                    .limit(10)
+                    .then(rows => rows.filter(r => r.tutorNotes && r.tutorNotes.trim().length > 0));
+                  if (lastNote?.tutorNotes) {
+                    const when = lastNote.endedAt
+                      ? new Date(lastNote.endedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                      : 'last session';
+                    richSections.push(`═══════════════════════════════════════════════════════════════════
+MY LAST PRIVATE NOTE (written ${when} — only you can see this)
+═══════════════════════════════════════════════════════════════════
+
+${lastNote.tutorNotes}`);
+                    console.log('[GeminiLive] ✓ Last private tutor note injected');
+                  }
+                } catch (noteErr: any) {
+                  console.warn('[GeminiLive] Last private note fetch skipped:', noteErr.message);
+                }
                 // ── Recent conversation history (compact) ─────────────────────────
                 // GL sessions use a one-shot system prompt — unlike the per-turn orchestrator
                 // pipeline, there's no dynamic history injection. We bake in the last N exchanges

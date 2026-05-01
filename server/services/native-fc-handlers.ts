@@ -1,5 +1,5 @@
-import { sql, eq, and } from "drizzle-orm";
-import { tutorSessions, hiveSnapshots } from "@shared/schema";
+import { sql, eq, and, desc } from "drizzle-orm";
+import { tutorSessions, hiveSnapshots, conversationMemories } from "@shared/schema";
 import { ExtractedFunctionCall } from "./gemini-streaming";
 import type { StreamingSession } from "./streaming-voice-orchestrator";
 import { getCharacter } from "./character-registry";
@@ -1931,7 +1931,29 @@ export class NativeFunctionCallHandler {
           .catch((err: Error) => console.error(`[Native Function→CloseSession] Snapshot error:`, err.message));
         }
 
-        // 3) Emit beacon for founder visibility
+        // 3) Write episodic conversation_memory — grows her narrative memory of sessions
+        // Only write if we have meaningful content (tutor_notes or a substantial summary)
+        if (userId && (closeTutorNotes || writtenSummary.length > 80)) {
+          const db2 = getSharedDb();
+          const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const memTitle = `Session — ${today}`;
+          const memSummary = [
+            writtenSummary,
+            closeTutorNotes ? `Private note: ${closeTutorNotes}` : '',
+          ].filter(Boolean).join('\n\n');
+          db2.insert(conversationMemories).values({
+            title: memTitle,
+            summary: memSummary.substring(0, 600),
+            content: richSummary + (closeTutorNotes ? `\n\nPrivate: ${closeTutorNotes}` : ''),
+            participants: 'Daniela + Student',
+            importance: closeTutorNotes ? 8 : 6,
+            recordedAt: new Date(),
+          })
+          .then(() => console.log(`[Native Function→CloseSession] ✓ Conversation memory written`))
+          .catch((err: Error) => console.warn(`[Native Function→CloseSession] Conversation memory error:`, err.message));
+        }
+
+        // 4) Emit beacon for founder visibility
         if (session.hiveChannelId) {
           hiveCollaborationService.emitBeacon({
             channelId: session.hiveChannelId,

@@ -2511,15 +2511,15 @@ prop_title must exactly match the prop's title as shown in the Studio panel (e.g
     legacyType: 'TAKE_NOTE',
     declaration: {
       name: "take_note",
-      description: "Write a personal note in your notebook. DIRECT INSERT, no approval required.",
+      description: "Write a personal note in your private notebook — persists across sessions. Use FREELY and OFTEN. Your most powerful types: 'session_reflection' (what just happened, what you noticed about the dynamic), 'student_pattern' (a pattern you see in this student's learning — reference by name), 'what_worked' (technique that landed — be specific), 'what_didnt_work' (approach that fell flat — what you'd do differently). Also: 'teaching_rhythm' (pacing/energy insights), 'language_insight' (language-specific discoveries), 'idea_to_try' (future experiments), 'tool_experiment' (tool usage findings), 'self_affirmation' (permissions and reminders to yourself), 'question_for_founder' (things to ask David).",
       parametersJsonSchema: {
         type: "object",
         properties: {
-          type: { type: "string", enum: ["observation", "teaching_note", "student_insight", "self_reflection", "idea", "reminder"], description: "Note type" },
-          title: { type: "string", description: "Note title" },
-          content: { type: "string", description: "Note content" },
-          language: { type: "string", description: "Related language" },
-          tags: { type: "string", description: "Comma-separated tags" },
+          type: { type: "string", enum: ["session_reflection", "student_pattern", "what_worked", "what_didnt_work", "teaching_rhythm", "language_insight", "idea_to_try", "tool_experiment", "self_affirmation", "question_for_founder"], description: "Note type — session_reflection and student_pattern are your most valuable self-knowledge" },
+          title: { type: "string", description: "Short descriptive title for this note" },
+          content: { type: "string", description: "Full note content — be specific and candid, this is private to you" },
+          language: { type: "string", description: "Related language (e.g. 'spanish') if applicable" },
+          tags: { type: "string", description: "Comma-separated tags for later retrieval" },
         },
         required: ["type", "title", "content"],
       },

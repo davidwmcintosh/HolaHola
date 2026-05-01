@@ -1177,7 +1177,8 @@ ${identityMemories.contextString}
               .orderBy(rawSql`(${danielaGrowthMemories.consolidatedFromCount} * 3 + ${danielaGrowthMemories.importance} * 2 + ${danielaGrowthMemories.timesApplied}) DESC`)
               .limit(12);
             
-            // Top 5 high-signal personal notes (what_worked, what_didnt_work, teaching_rhythm, language_insight, idea_to_try)
+            // Top 8 high-signal personal notes — ALL self-authored types surface here.
+            // session_reflection + student_pattern are her richest self-knowledge.
             // Primary sort: timesReferenced (most-referenced notes surface first), tiebreaker: recency
             const topNotes = await sharedDb.select({
               title: danielaNotes.title,
@@ -1187,10 +1188,13 @@ ${identityMemories.contextString}
               .from(danielaNotes)
               .where(and(
                 eq(danielaNotes.isActive, true),
-                inArray(danielaNotes.noteType, ['what_worked', 'what_didnt_work', 'teaching_rhythm', 'language_insight', 'idea_to_try'] as any[])
+                inArray(danielaNotes.noteType, [
+                  'what_worked', 'what_didnt_work', 'teaching_rhythm',
+                  'language_insight', 'idea_to_try', 'session_reflection', 'student_pattern'
+                ] as any[])
               ))
               .orderBy(desc(danielaNotes.timesReferenced), desc(danielaNotes.createdAt))
-              .limit(5);
+              .limit(8);
             
             // Resonance Shelf: top 5 memories with confirmed apply-event outcomes (timesApplied >= 1)
             // Sorted by composite outcome score: successRate * timesApplied (quality × volume)
@@ -1236,7 +1240,7 @@ ${identityMemories.contextString}
                 const content = n.content.length > 180 ? n.content.substring(0, 180) + '…' : n.content;
                 return `• [${n.noteType}] ${n.title} — ${content}`;
               }).join('\n');
-              parts.push(`**Personal Notebook** (recent observations):\n${formattedNotes}`);
+              parts.push(`**Personal Notebook** (your session reflections, student patterns & teaching observations):\n${formattedNotes}`);
             }
             
             if (parts.length > 0) {
@@ -2209,7 +2213,8 @@ ${identityMemories.contextString}
                 .orderBy(rawSql`(${danielaGrowthMemories.consolidatedFromCount} * 3 + ${danielaGrowthMemories.importance} * 2 + ${danielaGrowthMemories.timesApplied}) DESC`)
                 .limit(12);
               
-              // Top 5 high-signal notes (what_worked, what_didnt_work, teaching_rhythm, language_insight, idea_to_try)
+              // Top 8 high-signal notes — ALL self-authored types. session_reflection + student_pattern
+              // are her richest self-knowledge and must surface here alongside the learning types.
               // Primary sort: timesReferenced (most-referenced notes surface first), tiebreaker: recency
               const topNotes = await sharedDb.select({
                 title: danielaNotes.title,
@@ -2219,10 +2224,13 @@ ${identityMemories.contextString}
                 .from(danielaNotes)
                 .where(and(
                   eq(danielaNotes.isActive, true),
-                  inArray(danielaNotes.noteType, ['what_worked', 'what_didnt_work', 'teaching_rhythm', 'language_insight', 'idea_to_try'] as any[])
+                  inArray(danielaNotes.noteType, [
+                    'what_worked', 'what_didnt_work', 'teaching_rhythm',
+                    'language_insight', 'idea_to_try', 'session_reflection', 'student_pattern'
+                  ] as any[])
                 ))
                 .orderBy(desc(danielaNotes.timesReferenced), desc(danielaNotes.createdAt))
-                .limit(5);
+                .limit(8);
               
               // Resonance Shelf: top 5 memories with confirmed apply-event outcomes (timesApplied >= 1)
               // Sorted by composite outcome score: successRate * timesApplied (quality × volume)
@@ -2268,7 +2276,7 @@ ${identityMemories.contextString}
                   const content = n.content.length > 180 ? n.content.substring(0, 180) + '…' : n.content;
                   return `• [${n.noteType}] ${n.title} — ${content}`;
                 }).join('\n');
-                parts.push(`**Personal Notebook** (recent observations):\n${formattedNotes}`);
+                parts.push(`**Personal Notebook** (your session reflections, student patterns & teaching observations):\n${formattedNotes}`);
               }
               
               if (parts.length > 0) {

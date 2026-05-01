@@ -9,7 +9,7 @@ const DANIELA_WINDOW_CONFIG_KEY = "daniela_classroom_window";
 
 // In-memory cache for static classroom data — refreshed every 5 minutes
 type CachedPrinciples = Array<{ principle: string; category: string }>;
-type CachedNotes = Array<{ title: string; content: string }>;
+type CachedNotes = Array<{ title: string; content: string; noteType: string }>;
 let principlesCache: { data: CachedPrinciples; expiresAt: number } | null = null;
 let notesCache: { data: CachedNotes; expiresAt: number } | null = null;
 const CLASSROOM_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -31,15 +31,17 @@ async function getCachedPrinciples(): Promise<CachedPrinciples> {
 async function getCachedNotes(): Promise<CachedNotes> {
   const now = Date.now();
   if (notesCache && notesCache.expiresAt > now) return notesCache.data;
+  // Show ALL note types — not just self_affirmation. Her session reflections,
+  // student patterns, teaching rhythms and learnings are her most valuable self-knowledge.
   const data = await db
-    .select({ title: danielaNotes.title, content: danielaNotes.content })
+    .select({ title: danielaNotes.title, content: danielaNotes.content, noteType: danielaNotes.noteType })
     .from(danielaNotes)
-    .where(and(eq(danielaNotes.isActive, true), eq(danielaNotes.noteType, 'self_affirmation')))
+    .where(eq(danielaNotes.isActive, true))
     .orderBy(desc(danielaNotes.createdAt))
-    .limit(5)
+    .limit(8)
     .catch(() => [] as CachedNotes);
   notesCache = { data, expiresAt: now + CLASSROOM_CACHE_TTL_MS };
-  console.log(`[Classroom Cache] Refreshed danielaNotes (${data.length} rows)`);
+  console.log(`[Classroom Cache] Refreshed danielaNotes (${data.length} rows, all types)`);
   return data;
 }
 
@@ -248,11 +250,11 @@ function formatNorthStarWall(principles: Array<{ principle: string; category: st
     .join(" | ");
 }
 
-function formatIdentityNotes(notes: Array<{ title: string; content: string }>): string {
+function formatIdentityNotes(notes: Array<{ title: string; content: string; noteType: string }>): string {
   if (!notes || notes.length === 0) return "(none yet)";
   return notes.map((n) => {
-    const short = n.content.length > 80 ? n.content.substring(0, 77) + "..." : n.content;
-    return `"${n.title}" — ${short}`;
+    const short = n.content.length > 90 ? n.content.substring(0, 87) + "..." : n.content;
+    return `[${n.noteType}] "${n.title}" — ${short}`;
   }).join(" | ");
 }
 
