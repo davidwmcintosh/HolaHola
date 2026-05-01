@@ -1939,6 +1939,38 @@ If asked about something covered above, answer directly from this context. If yo
                   richSections.push(cache.identityMemoriesSection);
                   console.log('[GeminiLive] ✓ Identity memories baked in');
                 }
+                // ── Recent conversation history (compact) ─────────────────────────
+                // GL sessions use a one-shot system prompt — unlike the per-turn orchestrator
+                // pipeline, there's no dynamic history injection. We bake in the last N exchanges
+                // so Daniela can reference what was discussed in the prior session.
+                // Capped at 2500 chars so it fits inside the 40K system prompt limit.
+                // Placed early in richSections so it survives the truncation window.
+                if (conversationHistory && conversationHistory.length > 0) {
+                  const GL_CONV_HISTORY_CHARS = 2500;
+                  const studentLabel = user?.firstName || 'Student';
+                  const tutorLabel = tutorName || 'Daniela';
+                  // Take last 10 messages (5 exchanges) — most recent context is most useful
+                  const recentMsgs = conversationHistory.slice(-10);
+                  const lines: string[] = [];
+                  for (const msg of recentMsgs) {
+                    const label = msg.role === 'user' ? `[${studentLabel}]` : `[${tutorLabel}]`;
+                    // Truncate individual messages that are very long (e.g. long tutor explanations)
+                    const content = msg.content.length > 400 ? msg.content.slice(0, 397) + '…' : msg.content;
+                    lines.push(`${label} ${content}`);
+                  }
+                  let recentConvText = lines.join('\n');
+                  if (recentConvText.length > GL_CONV_HISTORY_CHARS) {
+                    recentConvText = recentConvText.slice(recentConvText.length - GL_CONV_HISTORY_CHARS);
+                    // Start from next line boundary to avoid cutting mid-message
+                    const firstNewline = recentConvText.indexOf('\n');
+                    if (firstNewline > 0) recentConvText = recentConvText.slice(firstNewline + 1);
+                  }
+                  if (recentConvText.trim()) {
+                    const section = `=== RECENT CONVERSATION HISTORY ===\nWhat was discussed in recent sessions with ${studentLabel} — reference naturally when continuing.\n\n${recentConvText}`;
+                    richSections.push(section);
+                    console.log(`[GeminiLive] ✓ Recent conversation history baked in (${recentMsgs.length} messages, ${section.length} chars)`);
+                  }
+                }
                 if (cache?.hiveContextSection) {
                   richSections.push(cache.hiveContextSection);
                   console.log('[GeminiLive] ✓ Hive context baked in');
