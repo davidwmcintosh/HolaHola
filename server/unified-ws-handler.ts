@@ -1172,36 +1172,44 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
 
           // ── Concurrent session guard ────────────────────────────────────────
           // Prevent a student from opening two simultaneous billing sessions.
-          // Grace: reconnect requests and very-recent sessions (< 90 s) are allowed through
-          // so that page reloads don't get blocked.
+          // Strategy: if an existing active session is found, auto-end it rather than
+          // hard-blocking the user. This handles:
+          //   (a) Grace-period sessions (user just ended and is starting fresh)
+          //   (b) Zombie sessions (disconnect without proper cleanup)
+          //   (c) True concurrent sessions (different tab/device) — older session loses
+          // Very-recent sessions (< 90 s) are allowed through without touching the DB
+          // to handle quick page reloads that haven't sent start_session yet.
           if (!isReconnectSO) {
             try {
               const existingActiveSession = await usageService.getActiveSession(String(userId));
               if (existingActiveSession) {
                 const ageSeconds = (Date.now() - new Date(existingActiveSession.startedAt).getTime()) / 1000;
                 if (ageSeconds > 90) {
-                  // Real concurrent session — block this new attempt
-                  console.warn(`[ConcurrentGuard] User ${userId} already has active session ${existingActiveSession.id.substring(0, 8)} (age ${Math.round(ageSeconds)}s) — rejecting new connection`);
-                  // File a Sofia report (fire-and-forget) so repeated blocks surface as a pattern
-                  import('./services/sofia-billing-monitor').then(({ reportConcurrentSessionBlocked }) => {
-                    reportConcurrentSessionBlocked({
-                      userId: String(userId),
-                      existingSessionId: existingActiveSession.id,
-                      ageSeconds,
-                    }).catch(() => {});
-                  }).catch(() => {});
-                  try {
-                    ws.send(JSON.stringify({
-                      type: 'session_conflict',
-                      message: 'You already have an active session open in another tab or device. Please close it before starting a new one.',
-                      existingSessionId: existingActiveSession.id,
-                    }));
-                  } catch (_) {}
-                  ws.close(4409, 'session_conflict');
-                  return;
+                  console.warn(`[ConcurrentGuard] Found stale active session ${existingActiveSession.id.substring(0, 8)} (age ${Math.round(ageSeconds)}s) for user ${userId} — auto-ending and allowing new session`);
+
+                  // Cancel any in-flight grace-period timer for this user
+                  for (const [convId, entry] of pendingReconnectSessions) {
+                    if (entry.userId === String(userId)) {
+                      clearTimeout(entry.timer);
+                      pendingReconnectSessions.delete(convId);
+                      db.delete(voiceGracePeriods)
+                        .where(eq(voiceGracePeriods.conversationId, convId))
+                        .catch(() => {});
+                      console.log(`[ConcurrentGuard] Cancelled grace-period timer for conv ${convId.substring(0, 8)}`);
+                      break;
+                    }
+                  }
+
+                  // End the stale DB record so billing is clean
+                  usageService.endSession(existingActiveSession.id).catch((err: Error) => {
+                    console.warn('[ConcurrentGuard] Failed to end stale session:', err.message);
+                  });
+
+                  // Fall through — do NOT block the new session
+                } else {
+                  // Age ≤ 90 s — allow through (likely a reconnect or quick page reload)
+                  console.log(`[ConcurrentGuard] User ${userId} has recent session (age ${Math.round(ageSeconds)}s) — allowing through`);
                 }
-                // Age ≤ 90 s — allow through (likely a reconnect or quick page reload)
-                console.log(`[ConcurrentGuard] User ${userId} has recent session (age ${Math.round(ageSeconds)}s) — allowing through`);
               }
             } catch (guardErr: any) {
               // Don't block the session on guard errors — log and continue
