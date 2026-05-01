@@ -2928,6 +2928,44 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] =
   registry.map(entry => entry.declaration);
 
 /**
+ * Gemini Live has a hard limit of 64 function declarations per session.
+ * This is the curated GL subset: all 99 Daniela tools minus the 35 that are
+ * post-session utilities, background queries, or rarely called mid-conversation.
+ *
+ * Excluded (35): change_classroom_photo, change_classroom_window, hold_whiteboard,
+ *   search_visual_library, get_scene_zones, move_in_scene, set_hand_part,
+ *   clear_hand_diagram, clear_world_map, search_conversation_threads,
+ *   browse_conversations_by_date, get_conversation_themes, recall_express_lane_image,
+ *   express_lane_post, hive_suggestion, self_surgery, phonetic, stroke, tone,
+ *   pronunciation_tag, culture, context, reading, compare, word_map, play_audio,
+ *   browse_syllabus, recommend_next, review_due_vocab, record_pattern_signal,
+ *   show_sentence_table, search_textbook, summary, clear_calendar, highlight_country
+ */
+const GL_EXCLUDED_TOOLS = new Set<string>([
+  'change_classroom_photo', 'change_classroom_window',
+  'hold_whiteboard',
+  'search_visual_library', 'get_scene_zones', 'move_in_scene',
+  'set_hand_part', 'clear_hand_diagram',
+  'clear_world_map',
+  'search_conversation_threads', 'browse_conversations_by_date', 'get_conversation_themes',
+  'recall_express_lane_image', 'express_lane_post',
+  'hive_suggestion', 'self_surgery',
+  'phonetic', 'stroke', 'tone', 'pronunciation_tag',
+  'culture', 'context', 'reading', 'compare', 'word_map',
+  'play_audio',
+  'browse_syllabus', 'recommend_next', 'review_due_vocab',
+  'record_pattern_signal', 'show_sentence_table', 'search_textbook',
+  'summary',
+  'clear_calendar',
+  'highlight_country',
+]);
+
+export const DANIELA_GL_FUNCTION_DECLARATIONS: FunctionDeclaration[] =
+  registry
+    .filter(entry => !GL_EXCLUDED_TOOLS.has(entry.declaration.name as string))
+    .map(entry => entry.declaration);
+
+/**
  * Look up the legacyType for a function name.
  * Returns `name.toUpperCase()` as fallback for unknown functions.
  */
