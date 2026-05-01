@@ -191,6 +191,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   if (sessionUserId) {
     const dbUser = await storage.getUser(sessionUserId);
     if (dbUser) {
+      (req as any).resolvedUserId = sessionUserId;
       return next();
     }
   }
@@ -201,13 +202,20 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   if (claimsSub) {
     const dbUser = await storage.getUser(claimsSub);
     if (dbUser) {
+      (req as any).resolvedUserId = claimsSub;
       return next();
     }
   }
 
-  // Neither auth method succeeded
+  // Neither auth method succeeded via fast paths — fall through to OIDC session check
   if (!req.isAuthenticated()) {
     return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  // Stamp the OIDC user ID now so downstream handlers can rely on it
+  const oidcUserId = user?.claims?.sub || user?.sub;
+  if (oidcUserId) {
+    (req as any).resolvedUserId = oidcUserId;
   }
   
   // If expires_at is not set (OIDC didn't provide exp claim), allow through
@@ -230,6 +238,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     const config = await getOidcConfig();
     const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
     updateUserSession(user, tokenResponse);
+    (req as any).resolvedUserId = (req.user as any)?.claims?.sub;
     return next();
   } catch (error) {
     res.status(401).json({ message: "Unauthorized" });

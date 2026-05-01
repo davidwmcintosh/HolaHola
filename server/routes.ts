@@ -967,7 +967,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Terms of Service acceptance — called once when user agrees to ToS before first session
   app.post('/api/auth/accept-terms', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getRequestUserId(req);
+      const userId = (req as any).resolvedUserId || getRequestUserId(req);
       if (!userId) return res.status(401).json({ message: 'Not authenticated' });
       const user = await storage.acceptTermsOfService(userId);
       if (!user) return res.status(404).json({ message: 'User not found' });
