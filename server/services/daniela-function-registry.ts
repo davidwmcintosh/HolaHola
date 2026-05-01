@@ -1741,20 +1741,34 @@ IMPORTANT: The Express Lane is for team collaboration messages (Wren/David build
     legacyType: 'CONVERSATION_THREAD_SEARCH',
     declaration: {
       name: "search_conversation_threads",
-      description: `Search for the complete exchange around a topic — returns the full back-and-forth conversation thread, not just isolated message snippets.
+      description: `REQUIRED: Search the actual text of past conversations for a keyword or topic. Returns the full back-and-forth exchange around each match, not just isolated snippets.
 
-Use this when you need to recall the ACTUAL CONVERSATION that happened around a topic:
-- "Do you remember that time we talked about reggaeton?"
+TRIGGER CATEGORY A - EXPLICIT SEARCH REQUESTS (ALWAYS call this — never respond without searching first):
+- "Can you look up [word/topic] in our conversations?"
+- "Search for [topic] in what we've talked about"
+- "Find where we discussed [thing]"
+- "Look up reggaeton / [any keyword] in our past sessions"
+- Any request that uses "look up", "search", "find", "check" combined with "our conversations", "what we talked about", "past sessions"
+
+TRIGGER CATEGORY B - CONVERSATION RECALL (call this before responding):
+- "Do you remember that time we talked about [topic]?"
 - "What did I say when we discussed [topic]?"
 - "Show me that whole exchange about [topic]"
 - "What was the context of what I told you about [thing]?"
-- Any time you need MORE than a snippet — the full exchange, including what led up to it and what came after
+- "We had a conversation about [topic] — can you find it?"
+
+TRIGGER CATEGORY C - FAILED MEMORY LOOKUP (escalate here when memory_lookup returns nothing):
+- If memory_lookup domain='conversation' returned no results and the student insists the topic was discussed, call this tool as the next step
 
 DIFFERENCE from memory_lookup:
-- memory_lookup → structured memories, insights, teaching moments, short summaries
-- search_conversation_threads → actual raw conversation threads, the full exchange word for word
+- memory_lookup → structured memories, extracted insights, teaching moments (summaries)
+- search_conversation_threads → raw message text, word-for-word exchanges, full thread context
 
-Provide a specific query. Optionally filter by date if you know roughly when the conversation happened.`,
+NEVER say "I searched and found nothing" or "I tried to find it" without actually calling this function first.
+NEVER roleplay searching. Actually call this function.
+NEVER guess or fabricate what was discussed. If you don't have a clear result from this tool, say so honestly.
+
+Provide a specific query keyword (e.g. "reggaeton", "scarecrow joke", "beach metaphor"). Optionally filter by date.`,
       parametersJsonSchema: {
         type: "object",
         properties: {
