@@ -394,6 +394,37 @@ const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    version: '006',
+    name: 'daniela-diary-entries',
+    up: async () => {
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS daniela_diary_entries (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          student_id VARCHAR NOT NULL,
+          language VARCHAR DEFAULT 'english',
+          entry_title VARCHAR(200),
+          narrative TEXT NOT NULL,
+          emotional_tone VARCHAR(50),
+          themes TEXT[],
+          source_conversation_ids TEXT[],
+          entry_date TIMESTAMP,
+          significance REAL DEFAULT 0.7,
+          generated_at TIMESTAMP DEFAULT NOW(),
+          is_active BOOLEAN DEFAULT TRUE
+        )
+      `);
+      await db.execute(sql`
+        CREATE INDEX IF NOT EXISTS idx_diary_student_date
+        ON daniela_diary_entries(student_id, entry_date DESC)
+      `);
+      await db.execute(sql`
+        CREATE INDEX IF NOT EXISTS idx_diary_student_active
+        ON daniela_diary_entries(student_id, is_active)
+      `);
+      console.log('[MIGRATIONS] 006: Created daniela_diary_entries table');
+    },
+  },
 ];
 
 export class MigrationOrchestrator {

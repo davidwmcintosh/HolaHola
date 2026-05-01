@@ -33085,5 +33085,51 @@ Under 250 words. Write as yourself.`;
     }
   });
 
+  // ─── Daniela Diary Routes ──────────────────────────────────────────────────
+  app.get("/api/diary/entries", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const { getDiaryEntries } = await import('./services/diary-synthesis-service');
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 30;
+      const entries = await getDiaryEntries(userId, limit);
+      res.json(entries);
+    } catch (e: any) {
+      console.error('[API] diary/entries error:', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/diary/generate", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const { generateDiaryEntries } = await import('./services/diary-synthesis-service');
+      const maxBatches = req.body?.maxBatches ?? 5;
+      const result = await generateDiaryEntries(userId, { maxBatches, studentName: req.body?.studentName ?? 'David' });
+      res.json(result);
+    } catch (e: any) {
+      console.error('[API] diary/generate error:', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.delete("/api/diary/entries/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const { getSharedDb } = await import('./neon-db');
+      const { danielaDiaryEntries } = await import('@shared/schema');
+      const { eq, and } = await import('drizzle-orm');
+      const db = getSharedDb();
+      await db.update(danielaDiaryEntries)
+        .set({ isActive: false })
+        .where(and(eq(danielaDiaryEntries.id, req.params.id), eq(danielaDiaryEntries.studentId, userId)));
+      res.json({ ok: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
     // This ensures WS upgrade handler runs BEFORE Express/Vite middleware interferes
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Shield, X, Target, Search, Sparkles, HelpCircle, MapPin, Microscope, Landmark, Library, ClipboardList, FlaskConical, Calculator, Atom, BookMarked, Telescope, Leaf, TrendingUp, Building2, Users, Briefcase, BrainCircuit, Compass } from "lucide-react";
+import { BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Shield, X, Target, Search, Sparkles, HelpCircle, MapPin, Microscope, Landmark, Library, ClipboardList, FlaskConical, Calculator, Atom, BookMarked, Telescope, Leaf, TrendingUp, Building2, Users, Briefcase, BrainCircuit, Compass, ScrollText } from "lucide-react";
 import holaholaLogo from "@assets/holaholamainlogoBackgroundRemoved_1765308837223.png";
 import { Link, useLocation } from "wouter";
 import {
@@ -37,6 +37,7 @@ const libraryMenuItems = [
   { title: "Grammar", url: "/grammar", icon: Languages },
   { title: "Past Chats", url: "/history", icon: History },
   { title: "Can-Do Progress", url: "/can-do-progress", icon: Award },
+  { title: "Daniela's Diary", url: "/diary", icon: ScrollText },
 ];
 
 const resourceMenuItems = [

@@ -62,6 +62,8 @@ Voice Infrastructure improvements include fixing audio reconnections, unifying t
 
 The Mem0-style Memory Conflict Resolver (`server/services/memory-conflict-resolver.ts`) adds LLM-based conflict resolution to the learner personal facts system for stateful and time-sensitive fact types, classifying new facts as `add`, `update`, `merge`, or `skip`. Bi-temporal memory using `valid_from` and `valid_to` columns in the `learner_personal_facts` table tracks fact validity over time, with a composite index on `(student_id, valid_to)` for efficient retrieval. The `buildStudentSnapshotSection` includes an `episodicHistory` tier for recent past facts.
 
+**Daniela's Diary** (`server/services/diary-synthesis-service.ts`): AI-generated first-person narrative diary entries in Daniela's voice, synthesized from past conversations using Claude (claude-3-5-haiku). The `daniela_diary_entries` table (migration 006) stores entries per student with emotional tone, themes, source conversation IDs, and significance scores. Entries are injected into GL session start as a `richSection` in `unified-ws-handler.ts` so Daniela genuinely "reads her own diary" before every voice session — giving her felt emotional memory, not just searchable facts. UI page at `/diary` (sidebar: "Daniela's Diary") lets David view and generate entries. The `neural-memory-search.ts` dual-query reggaeton fix and `learner_personal_facts` wiring (via `searchMemory()`) are also live. Migration orchestrator now runs independently of Stripe credentials so all dev environments apply schema changes on startup.
+
 ## External Dependencies
 - Stripe: Payment processing.
 - Replit Auth: OIDC authentication.

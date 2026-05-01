@@ -3345,6 +3345,30 @@ export type InsertDanielaNote = z.infer<typeof insertDanielaNoteSchema>;
 export type DanielaNote = typeof danielaNotes.$inferSelect;
 export type DanielaNoteType = 'tool_experiment' | 'teaching_rhythm' | 'session_reflection' | 'language_insight' | 'student_pattern' | 'idea_to_try' | 'what_worked' | 'what_didnt_work' | 'question_for_founder';
 
+// ─── Daniela Diary ───────────────────────────────────────────────────────────
+// Narrative memory entries — Daniela's "diary" of her relationship with a student.
+// Each entry is an AI-generated first-person narrative covering a batch of
+// conversations. Injected at session start so she "remembers" the emotional arc
+// of the relationship, not just individual facts.
+export const danielaDiaryEntries = pgTable("daniela_diary_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  studentId: varchar("student_id").notNull(),
+  language: varchar("language").default("english"),
+  entryTitle: varchar("entry_title", { length: 200 }),
+  narrative: text("narrative").notNull(),
+  emotionalTone: varchar("emotional_tone", { length: 50 }),
+  themes: text("themes").array(),
+  sourceConversationIds: text("source_conversation_ids").array(),
+  entryDate: timestamp("entry_date"),
+  significance: real("significance").default(0.7),
+  generatedAt: timestamp("generated_at").defaultNow(),
+  isActive: boolean("is_active").default(true),
+});
+
+export const insertDiaryEntrySchema = createInsertSchema(danielaDiaryEntries).omit({ id: true, generatedAt: true });
+export type InsertDiaryEntry = z.infer<typeof insertDiaryEntrySchema>;
+export type DiaryEntry = typeof danielaDiaryEntries.$inferSelect;
+
 // Agenda Queue Priority Enum
 export const agendaPriorityEnum = pgEnum("agenda_priority", [
   'high',      // Urgent - discuss first

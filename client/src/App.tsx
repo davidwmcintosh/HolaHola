@@ -72,6 +72,7 @@ const AdminDeveloperDashboard = lazyWithRetry(() => import("@/pages/admin/Develo
 const AdminBrainHealth = lazyWithRetry(() => import("@/pages/admin/BrainHealth"));
 const AdminSessionEconomics = lazyWithRetry(() => import("@/pages/admin/SessionEconomics"));
 const AdminAICostMonitor = lazyWithRetry(() => import("@/pages/admin/AICostMonitor"));
+const DanielaDiary = lazyWithRetry(() => import("@/pages/daniela-diary"));
 const Lessons = lazyWithRetry(() => import("@/pages/lessons"));
 const ReviewHub = lazyWithRetry(() => import("@/pages/review-hub"));
 const ArisPractice = lazyWithRetry(() => import("@/pages/aris-practice"));
@@ -243,6 +244,7 @@ function Router() {
         <Route path="/agent-space" component={AgentSpace} />
         <Route path="/team-room" component={TeamRoom} />
         <Route path="/study-mode" component={StudyMode} />
+        <Route path="/diary" component={DanielaDiary} />
         
         {/* Teacher Routes - Protected */}
         <Route path="/teacher/dashboard" component={TeacherDashboard} />

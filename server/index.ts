@@ -79,6 +79,20 @@ const stripeInitPromise = (async function initStripe() {
   const secretKey = await getStripeSecretKey();
   const webhookSecret = await getStripeWebhookSecret();
   
+  // Always run versioned migrations — even without Stripe credentials
+  try {
+    console.log('Running database migrations...');
+    const migrationResult = await migrationOrchestrator.runMigrations();
+    if (migrationResult.applied.length > 0) {
+      console.log(`Applied migrations: ${migrationResult.applied.join(', ')}`);
+    }
+    if (migrationResult.errors.length > 0) {
+      console.error('Migration errors:', migrationResult.errors);
+    }
+  } catch (migErr: any) {
+    console.error('Migration error (non-fatal):', migErr.message);
+  }
+
   if (!secretKey || !webhookSecret) {
     console.log('Stripe credentials not available - skipping Stripe schema and sync');
     stripeReady = false;
@@ -92,16 +106,6 @@ const stripeInitPromise = (async function initStripe() {
       schema: 'stripe'
     });
     console.log('Stripe schema ready');
-    
-    // Run versioned migrations (for cross-env sync)
-    console.log('Running database migrations...');
-    const migrationResult = await migrationOrchestrator.runMigrations();
-    if (migrationResult.applied.length > 0) {
-      console.log(`Applied migrations: ${migrationResult.applied.join(', ')}`);
-    }
-    if (migrationResult.errors.length > 0) {
-      console.error('Migration errors:', migrationResult.errors);
-    }
     
     console.log('Syncing Stripe data...');
     const stripeSync = new StripeSync({
