@@ -15,6 +15,7 @@ import { storage } from '../storage';
 import {
   peopleConnections,
   studentInsights,
+  learnerPersonalFacts,
   learningMotivations,
   recurringStruggles,
   sessionNotes,
@@ -451,6 +452,52 @@ export async function searchMemory(
     })());
   }
   
+  // === LEARNER PERSONAL FACTS (SHARED database) ===
+  // These are structured facts extracted from conversations — e.g. "Enjoys reggaeton music"
+  // Included whenever 'person' domain is requested or no specific domain is given
+  if (domainsToSearch.includes('person') || !domains || domains.length === 0) {
+    searchPromises.push((async () => {
+      try {
+        const facts = await getSharedDb().select().from(learnerPersonalFacts)
+          .where(and(
+            eq(learnerPersonalFacts.studentId, studentId),
+            eq(learnerPersonalFacts.isActive, true),
+            or(
+              ilike(learnerPersonalFacts.fact, searchPattern),
+              ilike(learnerPersonalFacts.context, searchPattern),
+              ilike(learnerPersonalFacts.factType, searchPattern)
+            )
+          ))
+          .orderBy(desc(learnerPersonalFacts.confidenceScore))
+          .limit(15);
+
+        if (facts.length > 0) {
+          // Group by fact_type for a cleaner summary
+          const grouped: Record<string, string[]> = {};
+          for (const f of facts) {
+            const type = f.factType || 'general';
+            if (!grouped[type]) grouped[type] = [];
+            grouped[type].push(f.fact);
+          }
+          const summaryLines = Object.entries(grouped)
+            .map(([type, fs]) => `[${type}] ${fs.join(' | ')}`)
+            .join('\n');
+
+          results.push({
+            domain: 'person',
+            relevance: 0.85,
+            summary: `Personal facts (${facts.length} found): ${facts[0].fact.substring(0, 80)}`,
+            details: `Extracted facts about the student:\n${summaryLines}`,
+            timestamp: facts[0].createdAt,
+            source: 'learner_personal_facts',
+          });
+        }
+      } catch (err: any) {
+        console.error('[NeuralMemory] Error searching learner_personal_facts:', err.message);
+      }
+    })());
+  }
+
   // === CONVERSATION HISTORY (Cross-tutor memory) ===
   if (domainsToSearch.includes('conversation')) {
     searchedDomains.push('conversation');
@@ -1998,8 +2045,11 @@ export async function searchConversationThreads(
     ) as ReturnType<typeof and>;
   }
 
-  // Step 1: Find matching messages, ordered by recency
-  let matchingMessages: Array<{
+  // Step 1: Find matching messages using TWO queries — newest-first AND oldest-first.
+  // This ensures original (early) conversations are always found alongside recent ones,
+  // preventing "recency burial" where recent tool-call failure messages crowd out the
+  // original rich conversations that happened months ago.
+  type MatchRow = {
     messageId: string;
     content: string;
     role: string;
@@ -2008,25 +2058,54 @@ export async function searchConversationThreads(
     conversationTitle: string | null;
     conversationDate: Date | null;
     language: string | null;
-  }> = [];
+  };
+
+  const selectFields = {
+    messageId: messages.id,
+    content: messages.content,
+    role: messages.role,
+    createdAt: messages.createdAt,
+    conversationId: messages.conversationId,
+    conversationTitle: conversations.title,
+    conversationDate: conversations.createdAt,
+    language: conversations.language,
+  };
+
+  let matchingMessages: MatchRow[] = [];
+
+  const runDualQuery = async (whereCondition: ReturnType<typeof and>): Promise<MatchRow[]> => {
+    const [newestRows, oldestRows] = await Promise.all([
+      db.select(selectFields).from(messages)
+        .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+        .where(whereCondition)
+        .orderBy(desc(messages.createdAt))
+        .limit(30),
+      db.select(selectFields).from(messages)
+        .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+        .where(whereCondition)
+        .orderBy(asc(messages.createdAt))
+        .limit(30),
+    ]);
+    // Merge: interleave newest and oldest, dedup by messageId
+    const seen = new Set<string>();
+    const merged: MatchRow[] = [];
+    // Alternate: 1 from oldest, 1 from newest — gives time-diverse coverage
+    const maxLen = Math.max(newestRows.length, oldestRows.length);
+    for (let i = 0; i < maxLen; i++) {
+      if (i < oldestRows.length && !seen.has(oldestRows[i].messageId)) {
+        seen.add(oldestRows[i].messageId);
+        merged.push(oldestRows[i]);
+      }
+      if (i < newestRows.length && !seen.has(newestRows[i].messageId)) {
+        seen.add(newestRows[i].messageId);
+        merged.push(newestRows[i]);
+      }
+    }
+    return merged;
+  };
 
   try {
-    matchingMessages = await db
-      .select({
-        messageId: messages.id,
-        content: messages.content,
-        role: messages.role,
-        createdAt: messages.createdAt,
-        conversationId: messages.conversationId,
-        conversationTitle: conversations.title,
-        conversationDate: conversations.createdAt,
-        language: conversations.language,
-      })
-      .from(messages)
-      .innerJoin(conversations, eq(messages.conversationId, conversations.id))
-      .where(dateConditions[0])
-      .orderBy(desc(messages.createdAt))
-      .limit(50);  // get 50 candidates, we'll dedup by conversation
+    matchingMessages = await runDualQuery(dateConditions[0] as ReturnType<typeof and>);
   } catch (err: any) {
     console.error('[ConversationThreads] Search query failed:', err.message);
     return { query, threads: [], totalMatchingMessages: 0 };
@@ -2035,25 +2114,11 @@ export async function searchConversationThreads(
   if (matchingMessages.length === 0) {
     // Try without date limit if no results
     try {
-      matchingMessages = await db
-        .select({
-          messageId: messages.id,
-          content: messages.content,
-          role: messages.role,
-          createdAt: messages.createdAt,
-          conversationId: messages.conversationId,
-          conversationTitle: conversations.title,
-          conversationDate: conversations.createdAt,
-          language: conversations.language,
-        })
-        .from(messages)
-        .innerJoin(conversations, eq(messages.conversationId, conversations.id))
-        .where(and(
-          eq(conversations.userId, studentId),
-          contentCondition,
-        ))
-        .orderBy(desc(messages.createdAt))
-        .limit(50);
+      const noDateCondition = and(
+        eq(conversations.userId, studentId),
+        contentCondition,
+      );
+      matchingMessages = await runDualQuery(noDateCondition as ReturnType<typeof and>);
     } catch (err: any) {
       console.error('[ConversationThreads] Fallback search failed:', err.message);
       return { query, threads: [], totalMatchingMessages: 0 };
@@ -2062,7 +2127,8 @@ export async function searchConversationThreads(
 
   const totalMatchingMessages = matchingMessages.length;
 
-  // Step 2: Deduplicate by conversation — keep the BEST (most recent) match per conversation
+  // Step 2: Deduplicate by conversation, respecting the interleaved oldest+newest order
+  // This ensures we see the ORIGINAL conversations (oldest) first, followed by recent ones
   const seenConversations = new Set<string>();
   const uniqueMatches: typeof matchingMessages = [];
   for (const msg of matchingMessages) {

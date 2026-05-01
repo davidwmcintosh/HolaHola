@@ -1752,7 +1752,7 @@ export class NativeFunctionCallHandler {
         const ctQuery = fn.args.query as string | undefined;
         if (ctQuery) {
           const contextMessages = (fn.args.context_messages as number | undefined) ?? 4;
-          const maxThreads = Math.min((fn.args.max_threads as number | undefined) ?? 3, 8);
+          const maxThreads = Math.min((fn.args.max_threads as number | undefined) ?? 6, 10);
           const afterDateStr = fn.args.after_date as string | undefined;
           const beforeDateStr = fn.args.before_date as string | undefined;
           const afterDate = afterDateStr ? new Date(afterDateStr) : undefined;
