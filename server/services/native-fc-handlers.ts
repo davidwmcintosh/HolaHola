@@ -4553,10 +4553,12 @@ export class NativeFunctionCallHandler {
       // ─── OUTBOUND PRESENCE ────────────────────────────────────────────────────
 
       case 'LEAVE_FOR_NEXT_SESSION': {
-        // Explicit targetUserId allows this to fire from Express Lane (no live student session).
-        // Falls back to session student for in-session calls.
+        // Security: targetUserId cross-student override is ONLY allowed when there is no live
+        // student session (session.userId is null) — i.e. Express Lane / founder context.
+        // In live student sessions targetUserId is silently ignored to prevent IDOR.
         const rawTarget = fn.args.targetUserId as string | undefined;
-        const resolvedTarget = rawTarget?.trim();
+        const inExpressLaneContext = !session.userId; // no live student = trusted context
+        const resolvedTarget = inExpressLaneContext ? rawTarget?.trim() : undefined;
         const hasLiveStudentSession = !session.isIncognito && !!session.userId;
         if (!resolvedTarget && !hasLiveStudentSession) {
           console.warn('[Native→LeaveForNextSession] No targetUserId and no live student session — skipping');
@@ -4571,6 +4573,7 @@ export class NativeFunctionCallHandler {
             return;
           }
           const db = (await import('../db')).getSharedDb();
+          // resolvedTarget only set in Express Lane context; live sessions always use session.userId.
           const userId = resolvedTarget || String(session.userId);
           const existing = await db.select({ id: danielaOutboundQueue.id })
             .from(danielaOutboundQueue)
@@ -4597,6 +4600,12 @@ export class NativeFunctionCallHandler {
       }
 
       case 'DISMISS_ABSENCE_NUDGE': {
+        // Security: only allowed in Express Lane / founder context (no live student session).
+        // Prevents any student from dismissing or snoozing absence nudges for arbitrary user IDs.
+        if (session.userId) {
+          console.warn(`[Native→DismissAbsenceNudge] Blocked: called from live student session (userId=${session.userId})`);
+          break;
+        }
         const userId = (fn.args.userId as string | undefined)?.trim();
         if (!userId) {
           console.warn('[Native→DismissAbsenceNudge] Missing userId param');

@@ -3718,12 +3718,14 @@ Remember: David may reference things discussed in these recent text chats.
                 }
 
                 case 'LEAVE_FOR_NEXT_SESSION': {
-                  // targetUserId allows Daniela to queue a message from an Express Lane / founder
-                  // context (no active student session) — e.g. responding to an absence nudge.
-                  // Without targetUserId we require a real non-incognito student session (original guard).
+                  // Security: targetUserId cross-student override is ONLY allowed in Express Lane /
+                  // founder contexts (where session.userId is null — no live student is present).
+                  // In live student sessions, targetUserId is ignored and always falls back to
+                  // session.userId to prevent IDOR (one student injecting content for another).
                   {
                     const rawTarget = cmd.params.targetUserId as string | undefined;
-                    const resolvedTarget = rawTarget?.trim();
+                    const inExpressLaneContext = !session.userId; // no live student = trusted context
+                    const resolvedTarget = inExpressLaneContext ? rawTarget?.trim() : undefined;
                     const hasLiveStudentSession = !session.isIncognito && !!session.userId;
                     if (!resolvedTarget && !hasLiveStudentSession) break;
                     (async () => {
@@ -3732,8 +3734,8 @@ Remember: David may reference things discussed in these recent text chats.
                       const content = cmd.params.content as string | undefined;
                       if (!content?.trim()) return;
                       const db = getSharedDb();
-                      // Explicit targetUserId wins (founder/Express Lane context).
-                      // Fall back to current session student for live sessions.
+                      // resolvedTarget is only set when in Express Lane context (no live student).
+                      // In live sessions resolvedTarget is undefined and we always use session.userId.
                       const userId = resolvedTarget || String(session.userId);
                       // Replace any existing undelivered message (one queued item per student)
                       const existing = await db.select({ id: danielaOutboundQueue.id })
@@ -3779,6 +3781,12 @@ Remember: David may reference things discussed in these recent text chats.
                 }
 
                 case 'DISMISS_ABSENCE_NUDGE': {
+                  // Security: only allowed in Express Lane / founder context (no live student session).
+                  // Prevents any student from dismissing absence nudges for arbitrary user IDs.
+                  if (session.userId) {
+                    console.warn(`[CommandParser→DismissAbsenceNudge] Blocked: called from live student session (userId=${session.userId})`);
+                    break;
+                  }
                   (async () => {
                     try {
                       const targetUserId = cmd.params.userId as string | undefined;
