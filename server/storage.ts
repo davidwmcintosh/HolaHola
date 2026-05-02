@@ -1580,7 +1580,7 @@ export class DatabaseStorage implements IStorage {
     phoneConsentSource?: string;
   }): Promise<import('@shared/schema').StudentContactPreferences> {
     const { studentContactPreferences } = await import('@shared/schema');
-    const { encryptPhone } = await import('./services/phone-encryption');
+    const { encryptPhone, decryptPhone } = await import('./services/phone-encryption');
     const storedData = {
       ...data,
       phone: data.phone != null ? encryptPhone(data.phone) : data.phone,
@@ -1592,7 +1592,6 @@ export class DatabaseStorage implements IStorage {
         set: { ...storedData, updatedAt: new Date() },
       })
       .returning();
-    // Decrypt before returning so callers always see plaintext E.164
     if (result.phone) {
       try {
         result.phone = decryptPhone(result.phone);
