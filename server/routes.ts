@@ -8770,6 +8770,8 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   // Twilio voice-answer webhook — called when student answers the outbound call.
   // Returns TwiML with <Connect><Stream> for bidirectional audio (Media Streams).
+  // userId, queueId, and HMAC nonce are passed as TwiML <Parameter> elements
+  // rather than URL query params (Twilio Media Streams ignores query strings).
   app.post("/api/webhooks/twilio/voice-answer", async (req: any, res) => {
     try {
       const queueId = (req.query.queueId as string) || '';
@@ -8785,17 +8787,25 @@ Return ONLY the ${targetLanguage} phrase:`;
         return res.set('Content-Type', 'text/xml').send('<?xml version="1.0"?><Response><Hangup/></Response>');
       }
 
-      // Build the bidirectional Media Streams WebSocket URL (wss://)
-      const wsUrl =
-        appUrl.replace(/^https?:\/\//, 'wss://') +
-        `/api/voice/twilio-stream?userId=${encodeURIComponent(userId)}&queueId=${encodeURIComponent(queueId)}`;
+      // Compute per-call HMAC nonce for bridge authentication
+      const { computeCallNonce } = await import('./services/voice-call-sender');
+      const sig = computeCallNonce(userId, queueId);
+
+      // Plain WS path — no query params (Twilio ignores them on Media Streams)
+      const wsUrl = appUrl.replace(/^https?:\/\//, 'wss://') + '/api/voice/twilio-stream';
 
       // <Connect><Stream> creates a BIDIRECTIONAL stream — Twilio sends audio to
-      // the server AND plays audio sent back from the server to the caller.
+      // the server AND plays audio sent from the server back to the caller.
+      // userId, queueId, and sig are embedded as <Parameter> values so they arrive
+      // in the 'start' event's customParameters object inside the bridge.
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Connect>
-    <Stream url="${wsUrl}" />
+    <Stream url="${wsUrl}">
+      <Parameter name="userId" value="${userId}" />
+      <Parameter name="queueId" value="${queueId}" />
+      <Parameter name="sig" value="${sig}" />
+    </Stream>
   </Connect>
 </Response>`;
 

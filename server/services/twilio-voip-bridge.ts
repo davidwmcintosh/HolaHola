@@ -8,10 +8,10 @@
  *   Gemini Live (PCM16 24 kHz) → downsample 8 kHz → encode → Twilio (μ-law 8 kHz)
  *
  * Twilio Media Streams protocol (JSON over WS):
- *   connected  → session handshake
- *   start      → call begins, streamSid available → trigger Daniela greeting
- *   media      → audio chunk (base64 μ-law payload)
- *   stop       → call ended → close Gemini session, log event
+ *   connected        → session handshake (no auth data yet)
+ *   start            → call begins; customParameters contain userId/queueId/sig
+ *   media            → audio chunk (base64 μ-law payload)
+ *   stop             → call ended → close Gemini session, log voice session event
  */
 
 import { WebSocket } from 'ws';
@@ -25,9 +25,10 @@ import {
 } from '@google/genai';
 import { getSharedDb } from '../db';
 import { storage } from '../storage';
-import { danielaOutboundQueue, tutorSessions } from '@shared/schema';
+import { danielaOutboundQueue, voiceSessions, tutorSessions } from '@shared/schema';
 import { eq, desc } from 'drizzle-orm';
 import { unifiedDanielaContextService } from './unified-daniela-context-service';
+import { computeCallNonce } from './voice-call-sender';
 
 const GEMINI_LIVE_MODEL = process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview';
 const DANIELA_LIVE_VOICE = 'Kore';
@@ -119,9 +120,17 @@ interface CallContext {
 }
 
 /**
- * Load full context for the call: student profile, last session, absence info,
- * and Daniela's unified memory context (same path used by normal voice sessions).
- * Returns null if the queue item does not belong to userId (ownership mismatch).
+ * Verify the per-call HMAC nonce embedded in the TwiML <Parameter> values.
+ * Prevents unauthorized actors from abusing the WS endpoint to open Gemini sessions.
+ */
+function verifyCallNonce(userId: string, queueId: string, sig: string): boolean {
+  const expected = computeCallNonce(userId, queueId);
+  return expected === sig;
+}
+
+/**
+ * Load full context for the call.
+ * Returns null if the queue item does not exist or belongs to a different user.
  */
 async function loadCallContext(userId: string, queueId: string): Promise<CallContext | null> {
   const db = getSharedDb();
@@ -135,13 +144,14 @@ async function loadCallContext(userId: string, queueId: string): Promise<CallCon
       .then((rows) => rows[0] ?? null),
   ]);
 
-  // Ownership check — reject if the queue item doesn't belong to this user
   if (!queueRow) {
     console.warn(`[TwilioVoipBridge] Queue item ${queueId.slice(-6)} not found`);
     return null;
   }
   if (queueRow.userId !== userId) {
-    console.warn(`[TwilioVoipBridge] Queue ownership mismatch — item belongs to ${queueRow.userId.slice(-6)}, caller claims ${userId.slice(-6)}`);
+    console.warn(
+      `[TwilioVoipBridge] Queue ownership mismatch — item ${queueId.slice(-6)} belongs to ${queueRow.userId.slice(-6)}, caller claims ${userId.slice(-6)}`,
+    );
     return null;
   }
 
@@ -170,10 +180,13 @@ async function loadCallContext(userId: string, queueId: string): Promise<CallCon
       }
     }
   } catch (err: unknown) {
-    console.warn('[TwilioVoipBridge] Last session fetch error:', err instanceof Error ? err.message : String(err));
+    console.warn(
+      '[TwilioVoipBridge] Last session fetch error:',
+      err instanceof Error ? err.message : String(err),
+    );
   }
 
-  // Load Daniela's full unified memory context — same path used by voice sessions
+  // Same context path used by normal voice sessions
   let unifiedContext = '';
   try {
     unifiedContext = await unifiedDanielaContextService.getContext({
@@ -188,10 +201,22 @@ async function loadCallContext(userId: string, queueId: string): Promise<CallCon
       includeJourneyContext: false,
     });
   } catch (err: unknown) {
-    console.warn('[TwilioVoipBridge] Unified context load error:', err instanceof Error ? err.message : String(err));
+    console.warn(
+      '[TwilioVoipBridge] Unified context load error:',
+      err instanceof Error ? err.message : String(err),
+    );
   }
 
-  return { studentName, targetLanguage, languageCode, actflLevel, messageContent, lastSessionSummary, daysAbsent, unifiedContext };
+  return {
+    studentName,
+    targetLanguage,
+    languageCode,
+    actflLevel,
+    messageContent,
+    lastSessionSummary,
+    daysAbsent,
+    unifiedContext,
+  };
 }
 
 function buildCallSystemPrompt(ctx: CallContext): string {
@@ -209,7 +234,6 @@ function buildCallSystemPrompt(ctx: CallContext): string {
   const msgNote = ctx.messageContent
     ? `Your note to them: "${ctx.messageContent.slice(0, 300)}"`
     : '';
-
   const memorySection = ctx.unifiedContext
     ? `\n\nDaniela's memory context:\n${ctx.unifiedContext.slice(0, 1200)}`
     : '';
@@ -250,12 +274,14 @@ interface BridgeState {
   pendingGreeting: string;
   userId: string;
   queueId: string;
+  targetLanguage: string;
+  contextReady: boolean;
 }
 
 const activeBridges = new Map<string, BridgeState>();
 
 function sendAudioToTwilio(ws: WebSocket, state: BridgeState, pcm24k: Buffer): void {
-  if (ws.readyState !== WebSocket.OPEN || state.isEnded) return;
+  if (ws.readyState !== WebSocket.OPEN || state.isEnded || !state.streamSid) return;
   const mulaw = pcm24kBufToMulaw8k(pcm24k);
   if (mulaw.length === 0) return;
   ws.send(
@@ -265,6 +291,34 @@ function sendAudioToTwilio(ws: WebSocket, state: BridgeState, pcm24k: Buffer): v
       media: { payload: mulaw.toString('base64') },
     }),
   );
+}
+
+/**
+ * Log the completed call as a voiceSession record so it appears in session
+ * history and resets absence detection (which reads voiceSessions.endedAt).
+ */
+async function logCallAsVoiceSession(state: BridgeState, durationSeconds: number): Promise<void> {
+  if (!state.answeredAt || !state.userId) return;
+  try {
+    const db = getSharedDb();
+    await db.insert(voiceSessions).values({
+      userId: state.userId,
+      startedAt: state.answeredAt,
+      endedAt: new Date(),
+      durationSeconds,
+      language: state.targetLanguage || 'spanish',
+      status: 'completed',
+      tutorMode: 'main',
+    });
+    console.log(
+      `[TwilioVoipBridge] Voice session logged — user ${state.userId.slice(-6)}, ${durationSeconds}s`,
+    );
+  } catch (err: unknown) {
+    console.warn(
+      '[TwilioVoipBridge] Failed to log voice session:',
+      err instanceof Error ? err.message : String(err),
+    );
+  }
 }
 
 async function endBridge(ws: WebSocket, state: BridgeState): Promise<void> {
@@ -291,15 +345,24 @@ async function endBridge(ws: WebSocket, state: BridgeState): Promise<void> {
       .set({
         callAnsweredAt: state.answeredAt,
         callDurationSeconds: wasAnswered ? durationSeconds : null,
-        // Mark as delivered if the student actually answered — resets absence detection
+        // Set deliveredAt on successful answer — marks the item as delivered
+        // and resets absence detection for this student
         deliveredAt: wasAnswered ? state.answeredAt : undefined,
       })
       .where(eq(danielaOutboundQueue.id, state.queueId));
+
+    if (wasAnswered) {
+      await logCallAsVoiceSession(state, durationSeconds);
+    }
+
     console.log(
       `[TwilioVoipBridge] Call ended — user ${state.userId.slice(-6)}, answered: ${wasAnswered}, duration: ${durationSeconds}s`,
     );
   } catch (err: unknown) {
-    console.warn('[TwilioVoipBridge] Failed to log call end:', err instanceof Error ? err.message : String(err));
+    console.warn(
+      '[TwilioVoipBridge] Failed to log call end:',
+      err instanceof Error ? err.message : String(err),
+    );
   }
 }
 
@@ -337,7 +400,10 @@ async function openGeminiSession(
     callbacks: {
       onmessage: (msg: LiveServerMessage) => handleGeminiMessage(ws, state, msg),
       onerror: (err: unknown) => {
-        console.error('[TwilioVoipBridge] Gemini error:', err instanceof Error ? err.message : String(err));
+        console.error(
+          '[TwilioVoipBridge] Gemini error:',
+          err instanceof Error ? err.message : String(err),
+        );
       },
       onclose: (event: { code?: number }) => {
         console.log(`[TwilioVoipBridge] Gemini session closed — code: ${event?.code}`);
@@ -353,14 +419,14 @@ async function openGeminiSession(
 }
 
 function handleGeminiMessage(ws: WebSocket, state: BridgeState, msg: LiveServerMessage): void {
-  // setupComplete → send greeting prompt
   const msgAny = msg as Record<string, unknown>;
+
+  // setupComplete → fire the greeting prompt
   if (msgAny.setupComplete != null && !state.isSetupComplete) {
     state.isSetupComplete = true;
     console.log('[TwilioVoipBridge] Gemini setupComplete — firing greeting');
     if (state.pendingGreeting && state.geminiSession) {
       try {
-        // Prime audio context (required for gemini-3.1-flash-live-preview)
         const silencePcm = Buffer.alloc(32000, 0);
         state.geminiSession.sendRealtimeInput({
           audio: { data: silencePcm.toString('base64'), mimeType: 'audio/pcm;rate=16000' },
@@ -372,12 +438,15 @@ function handleGeminiMessage(ws: WebSocket, state: BridgeState, msg: LiveServerM
         state.geminiSession.sendRealtimeInput({ activityEnd: {} });
         state.pendingGreeting = '';
       } catch (err: unknown) {
-        console.warn('[TwilioVoipBridge] Greeting send error:', err instanceof Error ? err.message : String(err));
+        console.warn(
+          '[TwilioVoipBridge] Greeting send error:',
+          err instanceof Error ? err.message : String(err),
+        );
       }
     }
   }
 
-  // Audio output → forward to Twilio
+  // Audio output → encode to μ-law and forward to Twilio
   if (msg.serverContent?.modelTurn?.parts) {
     for (const part of msg.serverContent.modelTurn.parts) {
       if (part.inlineData?.data && part.inlineData.mimeType?.includes('audio')) {
@@ -402,12 +471,15 @@ function handleGeminiMessage(ws: WebSocket, state: BridgeState, msg: LiveServerM
 
 // ── WebSocket connection handler ───────────────────────────────────────────────
 
-export async function handleTwilioMediaStream(
-  ws: WebSocket,
-  userId: string,
-  queueId: string,
-): Promise<void> {
-  console.log(`[TwilioVoipBridge] New connection — user ${userId.slice(-6)}, queue ${queueId.slice(-6)}`);
+/**
+ * Entry point — called by unified-ws-handler for every /api/voice/twilio-stream connection.
+ *
+ * Since Twilio Media Streams does not pass query parameters from the Stream URL,
+ * all call-specific data (userId, queueId, HMAC nonce) arrives in the 'start'
+ * event's customParameters field, populated via TwiML <Parameter> elements.
+ */
+export async function handleTwilioMediaStream(ws: WebSocket): Promise<void> {
+  console.log('[TwilioVoipBridge] New Twilio Media Streams connection');
 
   const state: BridgeState = {
     streamSid: '',
@@ -418,31 +490,11 @@ export async function handleTwilioMediaStream(
     answeredAt: null,
     isSetupComplete: false,
     pendingGreeting: 'Hello! I just called you. Please start the conversation.',
-    userId,
-    queueId,
+    userId: '',
+    queueId: '',
+    targetLanguage: 'spanish',
+    contextReady: false,
   };
-
-  // Load context + open Gemini session eagerly (before Twilio 'start' event).
-  // Rejects on ownership mismatch.
-  let contextReady = false;
-  loadCallContext(userId, queueId)
-    .then(async (ctx) => {
-      if (!ctx) {
-        console.error(`[TwilioVoipBridge] Context load rejected (ownership mismatch) — closing`);
-        state.isEnded = true;
-        if (ws.readyState === WebSocket.OPEN) ws.close(1008, 'Forbidden');
-        return;
-      }
-      if (!state.isEnded) {
-        const systemPrompt = buildCallSystemPrompt(ctx);
-        state.pendingGreeting = `Hello! I just called you. Please start speaking now.`;
-        await openGeminiSession(ws, state, systemPrompt, ctx.languageCode);
-        contextReady = true;
-      }
-    })
-    .catch((err: unknown) => {
-      console.error('[TwilioVoipBridge] Context load / Gemini open error:', err instanceof Error ? err.message : String(err));
-    });
 
   ws.on('message', (raw: Buffer | string) => {
     if (state.isEnded) return;
@@ -455,23 +507,65 @@ export async function handleTwilioMediaStream(
 
     switch (event.event as string) {
       case 'connected':
-        console.log('[TwilioVoipBridge] Twilio connected');
+        console.log('[TwilioVoipBridge] Twilio connected — waiting for start event');
         break;
 
       case 'start': {
-        const startData = event.start as Record<string, string> | undefined;
-        state.streamSid = startData?.streamSid ?? '';
-        state.callSid = startData?.callSid ?? '';
+        const startData = event.start as Record<string, unknown> | undefined;
+        state.streamSid = (startData?.streamSid as string) ?? '';
+        state.callSid = (startData?.callSid as string) ?? '';
         state.answeredAt = new Date();
         if (state.callSid) activeBridges.set(state.callSid, state);
+
+        // Extract call identity from TwiML <Parameter> values
+        const params = (startData?.customParameters ?? {}) as Record<string, string>;
+        const userId = params.userId ?? '';
+        const queueId = params.queueId ?? '';
+        const sig = params.sig ?? '';
+
         console.log(
-          `[TwilioVoipBridge] Stream started — streamSid: ${state.streamSid.slice(-8)}, callSid: ${state.callSid.slice(-8)}`,
+          `[TwilioVoipBridge] Stream started — streamSid: ${state.streamSid.slice(-8)}, user: ${userId.slice(-6)}, queue: ${queueId.slice(-6)}`,
         );
+
+        // Verify HMAC nonce — rejects forged connections
+        if (!userId || !queueId || !verifyCallNonce(userId, queueId, sig)) {
+          console.warn('[TwilioVoipBridge] Nonce verification failed — rejecting stream');
+          state.isEnded = true;
+          if (ws.readyState === WebSocket.OPEN) ws.close(1008, 'Forbidden');
+          return;
+        }
+
+        state.userId = userId;
+        state.queueId = queueId;
+
+        // Load context and open Gemini session now that we have the identity
+        loadCallContext(userId, queueId)
+          .then(async (ctx) => {
+            if (!ctx) {
+              console.error('[TwilioVoipBridge] Context load rejected — closing');
+              state.isEnded = true;
+              if (ws.readyState === WebSocket.OPEN) ws.close(1008, 'Forbidden');
+              return;
+            }
+            state.targetLanguage = ctx.targetLanguage;
+            const systemPrompt = buildCallSystemPrompt(ctx);
+            state.pendingGreeting = `Hello! I just called you. Please introduce yourself now.`;
+            if (!state.isEnded) {
+              await openGeminiSession(ws, state, systemPrompt, ctx.languageCode);
+              state.contextReady = true;
+            }
+          })
+          .catch((err: unknown) => {
+            console.error(
+              '[TwilioVoipBridge] Context/Gemini init error:',
+              err instanceof Error ? err.message : String(err),
+            );
+          });
         break;
       }
 
       case 'media': {
-        if (!contextReady || !state.geminiSession) return;
+        if (!state.contextReady || !state.geminiSession) return;
         const mediaData = event.media as { payload?: string } | undefined;
         if (!mediaData?.payload) return;
         const mulawBuf = Buffer.from(mediaData.payload, 'base64');
@@ -481,7 +575,10 @@ export async function handleTwilioMediaStream(
             audio: { data: pcm16k.toString('base64'), mimeType: 'audio/pcm;rate=16000' },
           });
         } catch (err: unknown) {
-          console.warn('[TwilioVoipBridge] Audio send error:', err instanceof Error ? err.message : String(err));
+          console.warn(
+            '[TwilioVoipBridge] Audio send error:',
+            err instanceof Error ? err.message : String(err),
+          );
         }
         break;
       }
@@ -507,8 +604,8 @@ export async function handleTwilioMediaStream(
 }
 
 /**
- * Called by voice-status webhook when a call ends without answer.
- * Marks callNoAnswer on the queue item and falls back to SMS delivery.
+ * Called by voice-status webhook when a call ends without the student answering.
+ * Marks callNoAnswer and falls back to SMS delivery.
  */
 export async function handleCallNoAnswer(userId: string, queueId: string): Promise<void> {
   try {
@@ -520,9 +617,8 @@ export async function handleCallNoAnswer(userId: string, queueId: string): Promi
     const item = rows[0];
     if (!item) return;
 
-    // Ownership check
     if (item.userId !== userId) {
-      console.warn(`[TwilioVoipBridge] handleCallNoAnswer ownership mismatch — skipping`);
+      console.warn('[TwilioVoipBridge] handleCallNoAnswer ownership mismatch — skipping');
       return;
     }
 
@@ -543,6 +639,9 @@ export async function handleCallNoAnswer(userId: string, queueId: string): Promi
       );
     }
   } catch (err: unknown) {
-    console.error('[TwilioVoipBridge] handleCallNoAnswer error:', err instanceof Error ? err.message : String(err));
+    console.error(
+      '[TwilioVoipBridge] handleCallNoAnswer error:',
+      err instanceof Error ? err.message : String(err),
+    );
   }
 }

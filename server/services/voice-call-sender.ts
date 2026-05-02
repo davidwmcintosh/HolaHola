@@ -10,6 +10,7 @@
  * and streaming-voice-orchestrator.ts.
  */
 
+import { createHmac, randomBytes } from 'crypto';
 import { canContactStudent } from './outbound-consent';
 import { storage } from '../storage';
 import { getSharedDb } from '../db';
@@ -20,6 +21,16 @@ const APP_URL = process.env.APP_URL || 'https://getholahola.com';
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || '';
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || '';
 const TWILIO_FROM_NUMBER = process.env.TWILIO_FROM_NUMBER || '';
+
+/**
+ * Compute a per-call HMAC nonce that the bridge verifies at stream start.
+ * Prevents unauthorized actors from triggering Gemini sessions by guessing
+ * the WS path.
+ */
+export function computeCallNonce(userId: string, queueId: string): string {
+  const secret = TWILIO_AUTH_TOKEN || 'dev-nonce-secret';
+  return createHmac('sha256', secret).update(`${userId}:${queueId}`).digest('hex').slice(0, 32);
+}
 
 /**
  * Place an outbound Twilio call to the student.
@@ -46,8 +57,9 @@ async function initiateCall(userId: string, queueId: string): Promise<boolean> {
     return false;
   }
 
-  const answerUrl = `${APP_URL}/api/webhooks/twilio/voice-answer?queueId=${queueId}&userId=${userId}`;
-  const statusUrl = `${APP_URL}/api/webhooks/twilio/voice-status?queueId=${queueId}&userId=${userId}`;
+  const appUrl = APP_URL;
+  const answerUrl = `${appUrl}/api/webhooks/twilio/voice-answer?queueId=${queueId}&userId=${userId}`;
+  const statusUrl = `${appUrl}/api/webhooks/twilio/voice-status?queueId=${queueId}&userId=${userId}`;
   const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');
 
   try {
@@ -65,7 +77,13 @@ async function initiateCall(userId: string, queueId: string): Promise<boolean> {
           Url: answerUrl,
           StatusCallback: statusUrl,
           StatusCallbackMethod: 'POST',
-          StatusCallbackEvent: 'completed no-answer busy failed',
+          // 'completed' covers answered+hung-up, no-answer, busy, and failed
+          // as the CallStatus field on the completed callback
+          StatusCallbackEvent: 'completed',
+          // Machine detection — AnsweredBy will be 'human', 'machine_start', etc.
+          MachineDetection: 'Enable',
+          AsyncAmd: 'true',
+          AsyncAmdStatusCallback: statusUrl,
         }).toString(),
       },
     );
@@ -88,7 +106,10 @@ async function initiateCall(userId: string, queueId: string): Promise<boolean> {
 
     return true;
   } catch (err: unknown) {
-    console.error('[VoiceCallSender] initiateCall error:', err instanceof Error ? err.message : String(err));
+    console.error(
+      '[VoiceCallSender] initiateCall error:',
+      err instanceof Error ? err.message : String(err),
+    );
     return false;
   }
 }
@@ -114,7 +135,9 @@ export async function initiateOutboundContact(
       const callPlaced = await initiateCall(userId, queueId);
       if (callPlaced) return;
       // Call initiation failed — fall through to SMS
-      console.log(`[VoiceCallSender] Call initiation failed — falling back to SMS for user ${userId.slice(-6)}`);
+      console.log(
+        `[VoiceCallSender] Call initiation failed — falling back to SMS for user ${userId.slice(-6)}`,
+      );
     }
 
     const smsOk = await canContactStudent(userId, 'sms');
@@ -125,8 +148,13 @@ export async function initiateOutboundContact(
       return;
     }
 
-    console.log(`[VoiceCallSender] No outbound consent for user ${userId.slice(-6)} — message stays in queue`);
+    console.log(
+      `[VoiceCallSender] No outbound consent for user ${userId.slice(-6)} — message stays in queue`,
+    );
   } catch (err: unknown) {
-    console.error('[VoiceCallSender] initiateOutboundContact error:', err instanceof Error ? err.message : String(err));
+    console.error(
+      '[VoiceCallSender] initiateOutboundContact error:',
+      err instanceof Error ? err.message : String(err),
+    );
   }
 }

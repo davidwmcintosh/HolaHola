@@ -682,25 +682,14 @@ const LANGUAGE_TUTOR_NAMES: Record<string, { female: string; male: string }> = {
  */
 /**
  * Handle Twilio Media Streams WebSocket connection (Phase 4 VoIP).
- * URL: /api/voice/twilio-stream?userId=xxx&queueId=xxx
+ *
+ * Twilio does not pass URL query parameters through the Stream <url> attribute,
+ * so all call identity (userId, queueId, HMAC nonce) arrives in the 'start'
+ * event's customParameters field. The bridge handles all identity resolution.
  */
 function handleTwilioStreamConnection(ws: WS, req: IncomingMessage) {
-  let userId = '';
-  let queueId = '';
-  try {
-    const url = new URL(req.url || '', 'http://localhost');
-    userId = url.searchParams.get('userId') || '';
-    queueId = url.searchParams.get('queueId') || '';
-  } catch { /* ignore */ }
-
-  if (!userId || !queueId) {
-    console.warn('[Unified WS] Twilio stream missing userId/queueId — closing');
-    ws.close(1008, 'Missing userId or queueId');
-    return;
-  }
-
   import('./services/twilio-voip-bridge').then(({ handleTwilioMediaStream }) => {
-    handleTwilioMediaStream(ws, userId, queueId).catch((err: Error) => {
+    handleTwilioMediaStream(ws).catch((err: Error) => {
       console.error('[Unified WS] TwilioVoipBridge error:', err.message);
     });
   }).catch((err: Error) => {
