@@ -907,9 +907,6 @@ export function formatMemoryForConversation(response: MemorySearchResponse): str
     lines.push(`— ${memory}${when}`);
   }
 
-  lines.push('');
-  lines.push('Speak from these as your own memories. Do NOT cite dates, categories, or sources. If it fits the moment, weave it in naturally — "I remember you mentioned..." or just let it inform how you respond.');
-
   return lines.join('\n');
 }
 

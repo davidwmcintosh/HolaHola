@@ -154,7 +154,7 @@ export async function fetchPassiveMemories(
       }, 'passive_lookup').catch(() => {});
       
       return {
-        section: `\n\n[Something in what the student said triggered a memory. These are YOUR recollections — not records. Speak from them naturally.]\n\n${formatted}`,
+        section: `\n\n[Memory]\n${formatted}`,
         resultCount: memoryResults.results.length,
       };
     }

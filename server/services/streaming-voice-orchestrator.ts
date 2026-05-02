@@ -1286,9 +1286,7 @@ ${identityMemories.contextString}
             if (parts.length > 0) {
               cache.growthMemoriesSection = `
 ---
-Your Teaching Self (internalized — not a list to follow, a person you already are):
-
-These lessons and observations shaped you. They live in how you teach, not in rules you recite. When you read them, don't think "I should do X" — think "this is already part of how I work."
+Your teaching experience and observations:
 
 ${parts.join('\n\n')}
 `;
@@ -2174,11 +2172,7 @@ TEACHING GUIDANCE:
                 
                 if (memoryResults.results.length > 0) {
                   const formatted = formatMemoryForConversation(memoryResults);
-                  passiveMemorySection = `
-[Something in what the student just said triggered a memory. These came up naturally — they are YOUR recollections, not records you're reading.]
-
-${formatted}
-`;
+                  passiveMemorySection = `\n[Memory]\n${formatted}`;
                   console.log(`[Passive Memory] Auto-retrieved ${memoryResults.results.length} memories for query: "${searchQuery}"`);
                   
                   // BRAIN HEALTH TELEMETRY: Track passive memory injection
@@ -2315,9 +2309,7 @@ ${identityMemories.contextString}
               if (parts.length > 0) {
                 growthMemoriesSection = `
 ---
-Your Teaching Self (internalized — not a list to follow, a person you already are):
-
-These lessons and observations shaped you. They live in how you teach, not in rules you recite. When you read them, don't think "I should do X" — think "this is already part of how I work."
+Your teaching experience and observations:
 
 ${parts.join('\n\n')}
 `;
@@ -5793,7 +5785,7 @@ Remember: David may reference things discussed in these recent text chats.
                 
                 if (memoryResults.results.length > 0) {
                   const formatted = formatMemoryForConversation(memoryResults);
-                  passiveMemorySectionOpenMic = `\n\n[Something in what the student said triggered a memory. These are YOUR recollections — not records. Speak from them naturally.]\n\n${formatted}`;
+                  passiveMemorySectionOpenMic = `\n\n[Memory]\n${formatted}`;
                   console.log(`[Passive Memory - OpenMic] Auto-retrieved ${memoryResults.results.length} memories`);
                 }
               } catch (err: any) {
@@ -9276,8 +9268,6 @@ ${contextParts.join('\n')}
 ${continuityGuidance}
 
 Using this context, speak first to the student with a natural opening message. Open the conversation based on who they are and what you know about them — just like a real tutor would. Be warm, be brief (2 sentences max), and be yourself.
-
-MEMORY POSTURE: The context above contains things you know about this student from past sessions. These are YOUR memories, not files you're reading. When something from that context is relevant, speak from it the way a person would — "I've been thinking about what you said last time..." or "Last time you mentioned..." — not by citing or summarizing records. If the memory shaped how you see this student, let that show. Don't narrate the data. Be the person who remembers.
 
 CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just state the date, time, or repeat system context. Greet them by name, welcome them, and set the tone for the lesson.`;
   }
