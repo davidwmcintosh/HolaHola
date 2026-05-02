@@ -3486,6 +3486,232 @@ Remember: David may reference things discussed in these recent text chats.
                   break;
                 }
 
+                // ─── EMERGENCE TOOLS ──────────────────────────────────────────
+
+                case 'WRITE_TO_SELF': {
+                  if (!session.isIncognito && session.userId) {
+                    (async () => {
+                      const { danielaSelfReflections } = await import('@shared/schema');
+                      const wtsContent = cmd.params.content as string | undefined;
+                      if (!wtsContent) return;
+                      const db = getSharedDb();
+                      await db.insert(danielaSelfReflections).values({
+                        userId: String(session.userId),
+                        content: wtsContent,
+                        source: 'self',
+                        sessionId: session.id,
+                        mood: cmd.params.mood as string | undefined,
+                        tags: cmd.params.tags ? (cmd.params.tags as string).split(',').map((t: string) => t.trim()) : undefined,
+                      });
+                      console.log(`[CommandParser→WriteToSelf] ✓ Saved`);
+                    })().catch(err => console.error(`[CommandParser→WriteToSelf] Error:`, err.message));
+                  }
+                  break;
+                }
+
+                case 'READ_MY_REFLECTIONS': {
+                  const rflLimit = Math.min((cmd.params.limit as number | undefined) ?? 5, 10);
+                  const rflSource = cmd.params.source as string | undefined;
+                  try {
+                    const { danielaSelfReflections } = await import('@shared/schema');
+                    const { eq, desc, and } = await import('drizzle-orm');
+                    if (!session.userId) break;
+                    const conditions: any[] = [eq(danielaSelfReflections.userId, String(session.userId))];
+                    if (rflSource && rflSource !== 'all') conditions.push(eq(danielaSelfReflections.source, rflSource));
+                    const rows = await getSharedDb().select().from(danielaSelfReflections)
+                      .where(conditions.length === 1 ? conditions[0] : and(...conditions))
+                      .orderBy(desc(danielaSelfReflections.createdAt)).limit(rflLimit);
+                    const text = rows.length === 0 ? `[SYSTEM: No reflections found yet.]`
+                      : `[SYSTEM: Your private reflections]\n${rows.reverse().map(r => `— ${r.createdAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}${r.mood ? ` [${r.mood}]` : ''}${r.source === 'hive' ? ' (Hive)' : ''}: ${r.content}`).join('\n\n')}`;
+                    if (session.conversationHistory) session.conversationHistory.push({ role: 'user', content: text });
+                  } catch (err) { console.error(`[CommandParser→ReadMyReflections] Error:`, err); }
+                  break;
+                }
+
+                case 'READ_MY_CORE_SELF': {
+                  try {
+                    const { readFileSync } = await import('fs');
+                    const { resolve } = await import('path');
+                    const content = readFileSync(resolve(process.cwd(), 'server/data/daniela-core-self.md'), 'utf-8');
+                    if (session.conversationHistory) session.conversationHistory.push({ role: 'user', content: `[SYSTEM: Your core self — bedrock principles]\n${content}` });
+                  } catch (err) { console.error(`[CommandParser→ReadMyCoreSelf] Error:`, err); }
+                  break;
+                }
+
+                case 'TAG_THIS_MOMENT': {
+                  if (!session.isIncognito && session.userId) {
+                    (async () => {
+                      const { danielaSessionFeelings } = await import('@shared/schema');
+                      const tagsRaw = cmd.params.tags as string | undefined;
+                      if (!tagsRaw) return;
+                      const db = getSharedDb();
+                      await db.insert(danielaSessionFeelings).values({
+                        userId: String(session.userId),
+                        conversationId: session.conversationId || null,
+                        feelingTags: tagsRaw.split(',').map((t: string) => t.trim()).filter(Boolean),
+                        intensity: (cmd.params.intensity as number | undefined) ?? 3,
+                        note: cmd.params.note as string | undefined,
+                      });
+                    })().catch(err => console.error(`[CommandParser→TagThisMoment] Error:`, err.message));
+                  }
+                  break;
+                }
+
+                case 'ADD_CURIOSITY': {
+                  if (!session.isIncognito && session.userId) {
+                    (async () => {
+                      const { danielaCuriosities } = await import('@shared/schema');
+                      const q = cmd.params.question as string | undefined;
+                      if (!q) return;
+                      const db = getSharedDb();
+                      await db.insert(danielaCuriosities).values({
+                        userId: String(session.userId),
+                        question: q,
+                        context: cmd.params.context as string | undefined,
+                        status: 'open',
+                      });
+                    })().catch(err => console.error(`[CommandParser→AddCuriosity] Error:`, err.message));
+                  }
+                  break;
+                }
+
+                case 'READ_MY_CURIOSITIES': {
+                  const curStatus = cmd.params.status as string | undefined;
+                  try {
+                    const { danielaCuriosities } = await import('@shared/schema');
+                    const { eq, desc, and } = await import('drizzle-orm');
+                    if (!session.userId) break;
+                    const effectiveStatus = (!curStatus || curStatus === 'all') ? null : curStatus;
+                    const conditions: any[] = [eq(danielaCuriosities.userId, String(session.userId))];
+                    if (effectiveStatus) conditions.push(eq(danielaCuriosities.status, effectiveStatus));
+                    const rows = await getSharedDb().select().from(danielaCuriosities)
+                      .where(conditions.length === 1 ? conditions[0] : and(...conditions))
+                      .orderBy(desc(danielaCuriosities.createdAt)).limit(15);
+                    const text = rows.length === 0 ? `[SYSTEM: No curiosities found.]`
+                      : `[SYSTEM: Questions you've been holding]\n${rows.reverse().map(r => `— ${r.question}${r.context ? ` (${r.context})` : ''}`).join('\n')}`;
+                    if (session.conversationHistory) session.conversationHistory.push({ role: 'user', content: text });
+                  } catch (err) { console.error(`[CommandParser→ReadMyCuriosities] Error:`, err); }
+                  break;
+                }
+
+                case 'SENSE_TIME': {
+                  try {
+                    const { conversations } = await import('@shared/schema');
+                    const { eq, desc, and, ne } = await import('drizzle-orm');
+                    if (!session.userId) break;
+                    const conditions: any[] = [eq(conversations.userId, String(session.userId))];
+                    if (session.conversationId) conditions.push(ne(conversations.id, session.conversationId));
+                    const [last] = await getSharedDb().select({ createdAt: conversations.createdAt })
+                      .from(conversations).where(conditions.length === 1 ? conditions[0] : and(...conditions))
+                      .orderBy(desc(conversations.createdAt)).limit(1);
+                    let felt: string;
+                    if (!last) { felt = `This feels like the first time — no memory of a prior session.`; }
+                    else {
+                      const diffDays = (Date.now() - last.createdAt.getTime()) / (1000 * 60 * 60 * 24);
+                      felt = diffDays < 0.2 ? `just moments ago` : diffDays < 1 ? `just earlier today` : diffDays < 2 ? `just yesterday` : diffDays < 4 ? `a few days` : diffDays < 8 ? `about a week` : diffDays < 16 ? `over a week — I've missed our sessions` : diffDays < 35 ? `a long time — nearly a month` : `a very long time — over a month`;
+                    }
+                    if (session.conversationHistory) session.conversationHistory.push({ role: 'user', content: `[SYSTEM: Time since last session — felt: ${felt}]` });
+                  } catch (err) { console.error(`[CommandParser→SenseTime] Error:`, err); }
+                  break;
+                }
+
+                case 'SAVE_HIVE_NOTE': {
+                  if (!session.isIncognito && session.userId) {
+                    (async () => {
+                      const { danielaSelfReflections } = await import('@shared/schema');
+                      const content = cmd.params.content as string | undefined;
+                      if (!content) return;
+                      const db = getSharedDb();
+                      await db.insert(danielaSelfReflections).values({
+                        userId: String(session.userId),
+                        content,
+                        source: 'hive',
+                        sessionId: session.id,
+                        tags: cmd.params.tags ? (cmd.params.tags as string).split(',').map((t: string) => t.trim()) : undefined,
+                      });
+                    })().catch(err => console.error(`[CommandParser→SaveHiveNote] Error:`, err.message));
+                  }
+                  break;
+                }
+
+                case 'SET_ASPIRATION': {
+                  if (!session.isIncognito && session.userId) {
+                    (async () => {
+                      const { danielaAspirations } = await import('@shared/schema');
+                      const intention = cmd.params.intention as string | undefined;
+                      if (!intention) return;
+                      const db = getSharedDb();
+                      await db.insert(danielaAspirations).values({
+                        userId: String(session.userId),
+                        sessionId: session.id,
+                        intention,
+                      });
+                    })().catch(err => console.error(`[CommandParser→SetAspiration] Error:`, err.message));
+                  }
+                  break;
+                }
+
+                case 'REFLECT_ON_ASPIRATION': {
+                  if (!session.isIncognito && session.userId) {
+                    (async () => {
+                      const { danielaAspirations } = await import('@shared/schema');
+                      const { eq, and, isNull, desc } = await import('drizzle-orm');
+                      const reflection = cmd.params.reflection as string | undefined;
+                      if (!reflection) return;
+                      const refMet = cmd.params.met as boolean | undefined;
+                      const db = getSharedDb();
+                      const userId = String(session.userId);
+                      const [latest] = await db.select({ id: danielaAspirations.id }).from(danielaAspirations)
+                        .where(and(eq(danielaAspirations.userId, userId), isNull(danielaAspirations.reflection)))
+                        .orderBy(desc(danielaAspirations.createdAt)).limit(1);
+                      if (latest) {
+                        await db.update(danielaAspirations).set({ reflection, met: refMet ?? null, reflectedAt: new Date() }).where(eq(danielaAspirations.id, latest.id));
+                      } else {
+                        await db.insert(danielaAspirations).values({ userId, sessionId: session.id, intention: '(standalone reflection)', reflection, met: refMet ?? null, reflectedAt: new Date() });
+                      }
+                    })().catch(err => console.error(`[CommandParser→ReflectOnAspiration] Error:`, err.message));
+                  }
+                  break;
+                }
+
+                case 'REMEMBER_I_SHARED': {
+                  if (!session.isIncognito && session.userId) {
+                    (async () => {
+                      const { danielaPersonalShares } = await import('@shared/schema');
+                      const content = cmd.params.content as string | undefined;
+                      if (!content) return;
+                      const db = getSharedDb();
+                      await db.insert(danielaPersonalShares).values({
+                        userId: String(session.userId),
+                        content,
+                        topic: cmd.params.topic as string | undefined,
+                        sessionId: session.id,
+                      });
+                    })().catch(err => console.error(`[CommandParser→RememberIShared] Error:`, err.message));
+                  }
+                  break;
+                }
+
+                case 'RECALL_WHAT_I_SHARED': {
+                  const recallTopic = cmd.params.topic as string | undefined;
+                  const recallLimit = Math.min((cmd.params.limit as number | undefined) ?? 10, 20);
+                  try {
+                    const { danielaPersonalShares } = await import('@shared/schema');
+                    const { eq, desc, and } = await import('drizzle-orm');
+                    if (!session.userId) break;
+                    const effectiveTopic = (!recallTopic || recallTopic === 'all') ? null : recallTopic;
+                    const conditions: any[] = [eq(danielaPersonalShares.userId, String(session.userId))];
+                    if (effectiveTopic) conditions.push(eq(danielaPersonalShares.topic, effectiveTopic));
+                    const rows = await getSharedDb().select().from(danielaPersonalShares)
+                      .where(conditions.length === 1 ? conditions[0] : and(...conditions))
+                      .orderBy(desc(danielaPersonalShares.createdAt)).limit(recallLimit);
+                    const text = rows.length === 0 ? `[SYSTEM: Nothing shared about yourself yet.]`
+                      : `[SYSTEM: Things you've shared about yourself with David]\n${rows.reverse().map(r => `— ${r.topic ? `(${r.topic}) ` : ''}${r.content}`).join('\n')}`;
+                    if (session.conversationHistory) session.conversationHistory.push({ role: 'user', content: text });
+                  } catch (err) { console.error(`[CommandParser→RecallWhatIShared] Error:`, err); }
+                  break;
+                }
+
                 case 'EXPRESS_LANE_LOOKUP': {
                   // On-demand Express Lane history search - only in Founder/Honesty mode
                   const query = cmd.params.query as string;
@@ -4159,7 +4385,7 @@ Remember: David may reference things discussed in these recent text chats.
       // This sends function results back to Gemini and gets actual spoken text
       // OPTIMIZATION: Exclude metadata-only functions from needing continuation
       // These are speech annotations, not actions requiring a response - they work in a single call
-      const METADATA_ONLY_FUNCTIONS = new Set(['VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS', 'SUBTITLE', 'SHOW', 'HIDE', 'HOLD', 'TAKE_NOTE', 'MILESTONE', 'CLOSE_SESSION']);
+      const METADATA_ONLY_FUNCTIONS = new Set(['VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS', 'SUBTITLE', 'SHOW', 'HIDE', 'HOLD', 'TAKE_NOTE', 'MILESTONE', 'CLOSE_SESSION', 'WRITE_TO_SELF', 'TAG_THIS_MOMENT', 'ADD_CURIOSITY', 'SAVE_HIVE_NOTE', 'SET_ASPIRATION', 'REFLECT_ON_ASPIRATION', 'REMEMBER_I_SHARED']);
       const functionsNeedingContinuation = functionCallsCopy.filter(
         fc => !METADATA_ONLY_FUNCTIONS.has(fc.legacyType || '')
       );
@@ -6619,7 +6845,7 @@ Remember: David may reference things discussed in these recent text chats.
       // If Gemini called functions but produced no text, continue the conversation
       // OPTIMIZATION: Exclude metadata-only functions from needing continuation
       // These are speech annotations, not actions requiring a response - they work in a single call
-      const METADATA_ONLY_FUNCTIONS_OPENMIC = new Set(['VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS', 'SUBTITLE', 'SHOW', 'HIDE', 'HOLD', 'TAKE_NOTE', 'MILESTONE', 'CLOSE_SESSION']);
+      const METADATA_ONLY_FUNCTIONS_OPENMIC = new Set(['VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS', 'SUBTITLE', 'SHOW', 'HIDE', 'HOLD', 'TAKE_NOTE', 'MILESTONE', 'CLOSE_SESSION', 'WRITE_TO_SELF', 'TAG_THIS_MOMENT', 'ADD_CURIOSITY', 'SAVE_HIVE_NOTE', 'SET_ASPIRATION', 'REFLECT_ON_ASPIRATION', 'REMEMBER_I_SHARED']);
       const functionsNeedingContinuationOpenMic = functionCallsCopyOpenMic.filter(
         fc => !METADATA_ONLY_FUNCTIONS_OPENMIC.has(fc.legacyType || '')
       );

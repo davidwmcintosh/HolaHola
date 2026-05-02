@@ -200,6 +200,11 @@ export interface StreamingSession {
   conversationBrowseResults?: Record<string, string>;
   conversationThemeResults?: string;
   diaryReadResult?: string;
+  selfReflectionsResult?: string;
+  coreSelfResult?: string;
+  curiositiesResult?: string;
+  personalSharesResult?: string;
+  senseTimeResult?: string;
   imageRecallResults?: Record<string, {
     text: string;
     images: Array<{ mimeType: string; data: string }>;

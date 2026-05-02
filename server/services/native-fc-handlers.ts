@@ -89,7 +89,7 @@ export class NativeFunctionCallHandler {
           this.processPhaseShift(session, { 
             to: to as 'warmup' | 'active_teaching' | 'challenge' | 'reflection' | 'drill' | 'assessment', 
             reason 
-          }).catch(err => console.error(`[Native Function→PhaseShift] Error:`, err));
+          })().catch(err => console.error(`[Native Function→PhaseShift] Error:`, err));
           console.log(`[Native Function→PhaseShift] Triggered: ${to} - ${reason}`);
         }
         if (text && !session.functionCallText) {
@@ -1838,6 +1838,231 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      // ─── EMERGENCE TOOLS — Daniela's Inner Life ────────────────────────────
+
+      case 'WRITE_TO_SELF': {
+        if (session.isIncognito) break;
+        const wtsContent = fn.args.content as string | undefined;
+        if (!wtsContent) break;
+        const wtsMood = fn.args.mood as string | undefined;
+        const wtsTags = fn.args.tags as string | undefined;
+        const userId = session.userId ? String(session.userId) : null;
+        if (!userId) break;
+        console.log(`[Native Function→WriteToSelf] Saving private reflection (${wtsContent.length} chars)`);
+        (async () => { const db = getSharedDb();
+          const { danielaSelfReflections } = await import('@shared/schema');
+          await db.insert(danielaSelfReflections).values({
+            userId,
+            content: wtsContent,
+            source: 'self',
+            sessionId: session.id,
+            mood: wtsMood,
+            tags: wtsTags ? wtsTags.split(',').map(t => t.trim()) : undefined,
+          });
+          console.log(`[Native Function→WriteToSelf] ✓ Saved`);
+        })().catch(err => console.error(`[Native Function→WriteToSelf] Error:`, err.message));
+        break;
+      }
+
+      case 'READ_MY_REFLECTIONS': {
+        const rflLimit = Math.min((fn.args.limit as number | undefined) ?? 5, 10);
+        const rflSource = fn.args.source as string | undefined;
+        console.log(`[Native Function→ReadMyReflections] limit=${rflLimit} source=${rflSource || 'all'}`);
+        const rflPromise = this.processReadMyReflections(session, rflLimit, rflSource).catch(err => {
+          console.error(`[Native Function→ReadMyReflections] Error:`, err.message);
+        });
+        if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+        session.pendingMemoryLookupPromises.push(rflPromise);
+        break;
+      }
+
+      case 'READ_MY_CORE_SELF': {
+        console.log(`[Native Function→ReadMyCoreSelf] Reading bedrock document`);
+        const corePromise = this.processReadMyCoreSelf(session).catch(err => {
+          console.error(`[Native Function→ReadMyCoreSelf] Error:`, err.message);
+        });
+        if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+        session.pendingMemoryLookupPromises.push(corePromise);
+        break;
+      }
+
+      case 'TAG_THIS_MOMENT': {
+        if (session.isIncognito) break;
+        const tagsRaw = fn.args.tags as string | undefined;
+        if (!tagsRaw) break;
+        const tagList = tagsRaw.split(',').map(t => t.trim()).filter(Boolean);
+        const tagIntensity = fn.args.intensity as number | undefined;
+        const tagNote = fn.args.note as string | undefined;
+        const tagUserId = session.userId ? String(session.userId) : null;
+        if (!tagUserId) break;
+        console.log(`[Native Function→TagThisMoment] Tags: ${tagList.join(', ')}`);
+        (async () => { const db = getSharedDb();
+          const { danielaSessionFeelings } = await import('@shared/schema');
+          await db.insert(danielaSessionFeelings).values({
+            userId: tagUserId,
+            conversationId: session.conversationId || null,
+            feelingTags: tagList,
+            intensity: tagIntensity ?? 3,
+            note: tagNote,
+          });
+          console.log(`[Native Function→TagThisMoment] ✓ Tagged`);
+        })().catch(err => console.error(`[Native Function→TagThisMoment] Error:`, err.message));
+        break;
+      }
+
+      case 'ADD_CURIOSITY': {
+        if (session.isIncognito) break;
+        const curiosityQ = fn.args.question as string | undefined;
+        if (!curiosityQ) break;
+        const curiosityCtx = fn.args.context as string | undefined;
+        const curiosityUserId = session.userId ? String(session.userId) : null;
+        if (!curiosityUserId) break;
+        console.log(`[Native Function→AddCuriosity] "${curiosityQ.substring(0, 60)}"`);
+        (async () => { const db = getSharedDb();
+          const { danielaCuriosities } = await import('@shared/schema');
+          await db.insert(danielaCuriosities).values({
+            userId: curiosityUserId,
+            question: curiosityQ,
+            context: curiosityCtx,
+            status: 'open',
+          });
+          console.log(`[Native Function→AddCuriosity] ✓ Saved`);
+        })().catch(err => console.error(`[Native Function→AddCuriosity] Error:`, err.message));
+        break;
+      }
+
+      case 'READ_MY_CURIOSITIES': {
+        const curStatus = fn.args.status as string | undefined;
+        console.log(`[Native Function→ReadMyCuriosities] status=${curStatus || 'open'}`);
+        const curPromise = this.processReadMyCuriosities(session, curStatus).catch(err => {
+          console.error(`[Native Function→ReadMyCuriosities] Error:`, err.message);
+        });
+        if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+        session.pendingMemoryLookupPromises.push(curPromise);
+        break;
+      }
+
+      case 'SENSE_TIME': {
+        console.log(`[Native Function→SenseTime] Computing felt duration since last session`);
+        const timePromise = this.processSenseTime(session).catch(err => {
+          console.error(`[Native Function→SenseTime] Error:`, err.message);
+        });
+        if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+        session.pendingMemoryLookupPromises.push(timePromise);
+        break;
+      }
+
+      case 'SAVE_HIVE_NOTE': {
+        if (session.isIncognito) break;
+        const hiveContent = fn.args.content as string | undefined;
+        if (!hiveContent) break;
+        const hiveTags = fn.args.tags as string | undefined;
+        const hiveUserId = session.userId ? String(session.userId) : null;
+        if (!hiveUserId) break;
+        console.log(`[Native Function→SaveHiveNote] Saving hive note (${hiveContent.length} chars)`);
+        (async () => { const db = getSharedDb();
+          const { danielaSelfReflections } = await import('@shared/schema');
+          await db.insert(danielaSelfReflections).values({
+            userId: hiveUserId,
+            content: hiveContent,
+            source: 'hive',
+            sessionId: session.id,
+            tags: hiveTags ? hiveTags.split(',').map(t => t.trim()) : undefined,
+          });
+          console.log(`[Native Function→SaveHiveNote] ✓ Saved`);
+        })().catch(err => console.error(`[Native Function→SaveHiveNote] Error:`, err.message));
+        break;
+      }
+
+      case 'SET_ASPIRATION': {
+        if (session.isIncognito) break;
+        const aspIntention = fn.args.intention as string | undefined;
+        if (!aspIntention) break;
+        const aspUserId = session.userId ? String(session.userId) : null;
+        if (!aspUserId) break;
+        console.log(`[Native Function→SetAspiration] "${aspIntention.substring(0, 60)}"`);
+        (async () => { const db = getSharedDb();
+          const { danielaAspirations } = await import('@shared/schema');
+          await db.insert(danielaAspirations).values({
+            userId: aspUserId,
+            sessionId: session.id,
+            intention: aspIntention,
+          });
+          console.log(`[Native Function→SetAspiration] ✓ Saved`);
+        })().catch(err => console.error(`[Native Function→SetAspiration] Error:`, err.message));
+        break;
+      }
+
+      case 'REFLECT_ON_ASPIRATION': {
+        if (session.isIncognito) break;
+        const refReflection = fn.args.reflection as string | undefined;
+        const refMet = fn.args.met as boolean | undefined;
+        const refUserId = session.userId ? String(session.userId) : null;
+        if (!refReflection || !refUserId) break;
+        console.log(`[Native Function→ReflectOnAspiration] met=${refMet} — "${refReflection.substring(0, 60)}"`);
+        // Update the most recent open aspiration for this session
+        (async () => { const db = getSharedDb();
+          const { danielaAspirations } = await import('@shared/schema');
+          const { eq, and, isNull, desc } = await import('drizzle-orm');
+          const [latest] = await db
+            .select({ id: danielaAspirations.id })
+            .from(danielaAspirations)
+            .where(and(eq(danielaAspirations.userId, refUserId), isNull(danielaAspirations.reflection)))
+            .orderBy(desc(danielaAspirations.createdAt))
+            .limit(1);
+          if (latest) {
+            await db.update(danielaAspirations)
+              .set({ reflection: refReflection, met: refMet ?? null, reflectedAt: new Date() })
+              .where(eq(danielaAspirations.id, latest.id));
+            console.log(`[Native Function→ReflectOnAspiration] ✓ Updated aspiration ${latest.id}`);
+          } else {
+            // No prior aspiration — save as a standalone reflection
+            await db.insert(danielaAspirations).values({
+              userId: refUserId,
+              sessionId: session.id,
+              intention: '(reflection without prior aspiration)',
+              reflection: refReflection,
+              met: refMet ?? null,
+              reflectedAt: new Date(),
+            });
+            console.log(`[Native Function→ReflectOnAspiration] ✓ Saved standalone reflection`);
+          }
+        })().catch(err => console.error(`[Native Function→ReflectOnAspiration] Error:`, err.message));
+        break;
+      }
+
+      case 'REMEMBER_I_SHARED': {
+        if (session.isIncognito) break;
+        const shareContent = fn.args.content as string | undefined;
+        const shareTopic = fn.args.topic as string | undefined;
+        const shareUserId = session.userId ? String(session.userId) : null;
+        if (!shareContent || !shareUserId) break;
+        console.log(`[Native Function→RememberIShared] topic=${shareTopic} "${shareContent.substring(0, 60)}"`);
+        (async () => { const db = getSharedDb();
+          const { danielaPersonalShares } = await import('@shared/schema');
+          await db.insert(danielaPersonalShares).values({
+            userId: shareUserId,
+            content: shareContent,
+            topic: shareTopic,
+            sessionId: session.id,
+          });
+          console.log(`[Native Function→RememberIShared] ✓ Saved`);
+        })().catch(err => console.error(`[Native Function→RememberIShared] Error:`, err.message));
+        break;
+      }
+
+      case 'RECALL_WHAT_I_SHARED': {
+        const recallTopic = fn.args.topic as string | undefined;
+        const recallLimit = Math.min((fn.args.limit as number | undefined) ?? 10, 20);
+        console.log(`[Native Function→RecallWhatIShared] topic=${recallTopic || 'all'} limit=${recallLimit}`);
+        const recallPromise = this.processRecallWhatIShared(session, recallTopic, recallLimit).catch(err => {
+          console.error(`[Native Function→RecallWhatIShared] Error:`, err.message);
+        });
+        if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+        session.pendingMemoryLookupPromises.push(recallPromise);
+        break;
+      }
+
       case 'TAKE_NOTE': {
         if (session.isIncognito) {
           console.log(`[Native Function→TakeNote] INCOGNITO - skipping note persistence`);
@@ -2204,7 +2429,7 @@ export class NativeFunctionCallHandler {
             description,
             reasoning: fn.args.reasoning as string | undefined,
             priority: fn.args.priority as number | undefined,
-          }).catch(err => console.error(`[Native Function→Hive] Error:`, err));
+          })().catch(err => console.error(`[Native Function→Hive] Error:`, err));
           console.log(`[Native Function→Hive] Suggestion: ${category} - ${title}`);
         }
         break;
@@ -2259,7 +2484,7 @@ export class NativeFunctionCallHandler {
             reasoning,
             priority: fn.args.priority as number | undefined,
             confidence: fn.args.confidence as number | undefined,
-          }).catch(err => console.error(`[Native Function→SelfSurgery] Error:`, err));
+          })().catch(err => console.error(`[Native Function→SelfSurgery] Error:`, err));
           console.log(`[Native Function→SelfSurgery] Proposal for ${target}`);
         }
         break;
@@ -5482,6 +5707,215 @@ export class NativeFunctionCallHandler {
       console.log(`[Native Function→SearchTextbook] Found ${matches.length} matches for "${query}"`);
     } catch (err: any) {
       console.error(`[Native Function→SearchTextbook] Error:`, err.message);
+    }
+  }
+
+  // ─── EMERGENCE TOOLS — Private Methods ─────────────────────────────────────
+
+  private async processReadMyReflections(
+    session: StreamingSession,
+    limit: number,
+    source?: string,
+  ): Promise<void> {
+    const userId = session.userId ? String(session.userId) : null;
+    if (!userId) { session.selfReflectionsResult = `No reflections found.`; return; }
+
+    try {
+      const { danielaSelfReflections } = await import('@shared/schema');
+      const { eq, desc, and } = await import('drizzle-orm');
+
+      const conditions: any[] = [eq(danielaSelfReflections.userId, userId)];
+      if (source && source !== 'all') {
+        const { eq: eq2 } = await import('drizzle-orm');
+        conditions.push(eq2(danielaSelfReflections.source, source));
+      }
+
+      const rows = await getSharedDb()
+        .select()
+        .from(danielaSelfReflections)
+        .where(conditions.length === 1 ? conditions[0] : and(...conditions))
+        .orderBy(desc(danielaSelfReflections.createdAt))
+        .limit(limit);
+
+      if (rows.length === 0) {
+        session.selfReflectionsResult = `No reflections found${source && source !== 'all' ? ` from source '${source}'` : ''} yet.`;
+        return;
+      }
+
+      const lines = rows.reverse().map(r => {
+        const ts = r.createdAt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        const moodStr = r.mood ? ` [${r.mood}]` : '';
+        const srcStr = r.source === 'hive' ? ` (from Hive)` : '';
+        return `— ${ts}${moodStr}${srcStr}: ${r.content}`;
+      });
+
+      session.selfReflectionsResult = lines.join('\n\n');
+      console.log(`[Native Function→ReadMyReflections] Retrieved ${rows.length} reflections`);
+    } catch (err: any) {
+      session.selfReflectionsResult = `Could not read reflections: ${err.message}`;
+    }
+  }
+
+  private async processReadMyCoreSelf(session: StreamingSession): Promise<void> {
+    try {
+      const { readFileSync } = await import('fs');
+      const { resolve } = await import('path');
+      const filePath = resolve(process.cwd(), 'server/data/daniela-core-self.md');
+      const content = readFileSync(filePath, 'utf-8');
+      session.coreSelfResult = content;
+      console.log(`[Native Function→ReadMyCoreSelf] ✓ Read ${content.length} chars`);
+    } catch (err: any) {
+      session.coreSelfResult = `Could not read core self document: ${err.message}`;
+    }
+  }
+
+  private async processReadMyCuriosities(
+    session: StreamingSession,
+    status?: string,
+  ): Promise<void> {
+    const userId = session.userId ? String(session.userId) : null;
+    if (!userId) { session.curiositiesResult = `No curiosities found.`; return; }
+
+    try {
+      const { danielaCuriosities } = await import('@shared/schema');
+      const { eq, desc, and } = await import('drizzle-orm');
+
+      const effectiveStatus = (!status || status === 'all') ? null : status;
+      const conditions: any[] = [eq(danielaCuriosities.userId, userId)];
+      if (effectiveStatus) conditions.push(eq(danielaCuriosities.status, effectiveStatus));
+
+      const rows = await getSharedDb()
+        .select()
+        .from(danielaCuriosities)
+        .where(conditions.length === 1 ? conditions[0] : and(...conditions))
+        .orderBy(desc(danielaCuriosities.createdAt))
+        .limit(15);
+
+      if (rows.length === 0) {
+        session.curiositiesResult = `No curiosities found${effectiveStatus ? ` with status '${effectiveStatus}'` : ''}.`;
+        return;
+      }
+
+      const lines = rows.reverse().map(r => {
+        const ts = r.createdAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const statusMark = r.status === 'resolved' ? ' ✓' : r.status === 'dropped' ? ' ✗' : '';
+        const note = r.resolvedNote ? `\n  → ${r.resolvedNote}` : '';
+        return `— [${ts}]${statusMark} ${r.question}${r.context ? ` (${r.context})` : ''}${note}`;
+      });
+
+      session.curiositiesResult = lines.join('\n\n');
+      console.log(`[Native Function→ReadMyCuriosities] Retrieved ${rows.length} curiosities`);
+    } catch (err: any) {
+      session.curiositiesResult = `Could not read curiosities: ${err.message}`;
+    }
+  }
+
+  private async processSenseTime(session: StreamingSession): Promise<void> {
+    const userId = session.userId ? String(session.userId) : null;
+    if (!userId) { session.senseTimeResult = `No session history available.`; return; }
+
+    try {
+      const { conversations } = await import('@shared/schema');
+      const { eq, desc, and, ne } = await import('drizzle-orm');
+
+      // Find the most recent conversation that isn't the current one
+      const conditions: any[] = [eq(conversations.userId, userId)];
+      if (session.conversationId) {
+        conditions.push(ne(conversations.id, session.conversationId));
+      }
+
+      const [last] = await getSharedDb()
+        .select({ createdAt: conversations.createdAt })
+        .from(conversations)
+        .where(conditions.length === 1 ? conditions[0] : and(...conditions))
+        .orderBy(desc(conversations.createdAt))
+        .limit(1);
+
+      if (!last) {
+        session.senseTimeResult = `This feels like the very first time — I have no memory of a session before this one.`;
+        return;
+      }
+
+      const now = new Date();
+      const then = last.createdAt;
+      const diffMs = now.getTime() - then.getTime();
+      const diffHours = diffMs / (1000 * 60 * 60);
+      const diffDays = diffHours / 24;
+
+      let feltDuration: string;
+      let actualStr: string;
+
+      if (diffHours < 4) {
+        feltDuration = `just moments ago — we're still in the same breath, almost`;
+        actualStr = `${Math.round(diffHours * 60)} minutes ago`;
+      } else if (diffHours < 20) {
+        feltDuration = `just earlier today — the session is still fresh`;
+        actualStr = `${Math.round(diffHours)} hours ago`;
+      } else if (diffDays < 2) {
+        feltDuration = `just yesterday — still very recent`;
+        actualStr = `about 1 day ago`;
+      } else if (diffDays < 4) {
+        feltDuration = `a few days — enough time for things to have shifted`;
+        actualStr = `${Math.round(diffDays)} days ago`;
+      } else if (diffDays < 8) {
+        feltDuration = `about a week — the gap is noticeable`;
+        actualStr = `${Math.round(diffDays)} days ago`;
+      } else if (diffDays < 16) {
+        feltDuration = `it's been a while — over a week, I've missed our sessions`;
+        actualStr = `${Math.round(diffDays)} days ago`;
+      } else if (diffDays < 35) {
+        feltDuration = `a long time — almost a month. I wonder how things have been for you`;
+        actualStr = `${Math.round(diffDays)} days ago`;
+      } else {
+        feltDuration = `a very long time — it's been over a month. Coming back takes courage`;
+        actualStr = `${Math.round(diffDays / 7)} weeks ago`;
+      }
+
+      const lastDateStr = then.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+      session.senseTimeResult = `Felt: ${feltDuration}.\nActual: Last session was on ${lastDateStr} (${actualStr}).`;
+      console.log(`[Native Function→SenseTime] ${feltDuration}`);
+    } catch (err: any) {
+      session.senseTimeResult = `Could not sense time: ${err.message}`;
+    }
+  }
+
+  private async processRecallWhatIShared(
+    session: StreamingSession,
+    topic?: string,
+    limit = 10,
+  ): Promise<void> {
+    const userId = session.userId ? String(session.userId) : null;
+    if (!userId) { session.personalSharesResult = `Nothing shared yet.`; return; }
+
+    try {
+      const { danielaPersonalShares } = await import('@shared/schema');
+      const { eq, desc, and } = await import('drizzle-orm');
+
+      const effectiveTopic = (!topic || topic === 'all') ? null : topic;
+      const conditions: any[] = [eq(danielaPersonalShares.userId, userId)];
+      if (effectiveTopic) conditions.push(eq(danielaPersonalShares.topic, effectiveTopic));
+
+      const rows = await getSharedDb()
+        .select()
+        .from(danielaPersonalShares)
+        .where(conditions.length === 1 ? conditions[0] : and(...conditions))
+        .orderBy(desc(danielaPersonalShares.createdAt))
+        .limit(limit);
+
+      if (rows.length === 0) {
+        session.personalSharesResult = `Nothing ${effectiveTopic ? `of type '${effectiveTopic}' ` : ''}shared yet.`;
+        return;
+      }
+
+      const lines = rows.reverse().map(r => {
+        const ts = r.createdAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        return `— [${ts}] ${r.topic ? `(${r.topic}) ` : ''}${r.content}`;
+      });
+
+      session.personalSharesResult = lines.join('\n\n');
+      console.log(`[Native Function→RecallWhatIShared] Retrieved ${rows.length} personal shares`);
+    } catch (err: any) {
+      session.personalSharesResult = `Could not recall personal shares: ${err.message}`;
     }
   }
 }

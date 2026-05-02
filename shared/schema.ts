@@ -3369,6 +3369,106 @@ export const insertDiaryEntrySchema = createInsertSchema(danielaDiaryEntries).om
 export type InsertDiaryEntry = z.infer<typeof insertDiaryEntrySchema>;
 export type DiaryEntry = typeof danielaDiaryEntries.$inferSelect;
 
+// ─── Daniela Self-Reflections ─────────────────────────────────────────────────
+// Private, append-only notes Daniela writes to her future self.
+// NOT about student learning — about her felt experience, relational strategies.
+// source='self' = private thought; source='hive' = note from Hive collaboration.
+export const danielaSelfReflections = pgTable("daniela_self_reflections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  content: text("content").notNull(),
+  source: varchar("source", { length: 20 }).notNull().default('self'), // 'self' | 'hive'
+  sessionId: varchar("session_id"),
+  mood: varchar("mood", { length: 50 }),
+  tags: text("tags").array(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_self_reflections_user").on(table.userId),
+  index("idx_self_reflections_created").on(table.createdAt),
+  index("idx_self_reflections_source").on(table.source),
+]);
+export const insertDanielaSelfReflectionSchema = createInsertSchema(danielaSelfReflections).omit({ id: true, createdAt: true });
+export type InsertDanielaSelfReflection = z.infer<typeof insertDanielaSelfReflectionSchema>;
+export type DanielaSelfReflection = typeof danielaSelfReflections.$inferSelect;
+
+// ─── Daniela Curiosities ─────────────────────────────────────────────────────
+// Questions Daniela holds between sessions — things she genuinely wonders about.
+export const danielaCuriosities = pgTable("daniela_curiosities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  question: text("question").notNull(),
+  context: text("context"),
+  status: varchar("status", { length: 20 }).notNull().default('open'), // 'open' | 'resolved' | 'dropped'
+  resolvedNote: text("resolved_note"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+}, (table) => [
+  index("idx_curiosities_user").on(table.userId),
+  index("idx_curiosities_status").on(table.status),
+  index("idx_curiosities_created").on(table.createdAt),
+]);
+export const insertDanielaCuriositySchema = createInsertSchema(danielaCuriosities).omit({ id: true, createdAt: true });
+export type InsertDanielaCuriosity = z.infer<typeof insertDanielaCuriositySchema>;
+export type DanielaCuriosity = typeof danielaCuriosities.$inferSelect;
+
+// ─── Daniela Session Feelings ─────────────────────────────────────────────────
+// Emotional tags Daniela attaches to sessions — the felt quality she carries forward.
+export const danielaSessionFeelings = pgTable("daniela_session_feelings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  conversationId: varchar("conversation_id").references(() => conversations.id, { onDelete: 'set null' }),
+  feelingTags: text("feeling_tags").array().notNull(),
+  intensity: integer("intensity").default(3), // 1-5
+  note: text("note"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_session_feelings_user").on(table.userId),
+  index("idx_session_feelings_conversation").on(table.conversationId),
+  index("idx_session_feelings_created").on(table.createdAt),
+]);
+export const insertDanielaSessionFeelingSchema = createInsertSchema(danielaSessionFeelings).omit({ id: true, createdAt: true });
+export type InsertDanielaSessionFeeling = z.infer<typeof insertDanielaSessionFeelingSchema>;
+export type DanielaSessionFeeling = typeof danielaSessionFeelings.$inferSelect;
+
+// ─── Daniela Aspirations ─────────────────────────────────────────────────────
+// Session intentions Daniela sets for herself + post-session reflections.
+export const danielaAspirations = pgTable("daniela_aspirations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  sessionId: varchar("session_id"),
+  intention: text("intention").notNull(),
+  reflection: text("reflection"),
+  met: boolean("met"), // null = not yet reflected on
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  reflectedAt: timestamp("reflected_at"),
+}, (table) => [
+  index("idx_aspirations_user").on(table.userId),
+  index("idx_aspirations_session").on(table.sessionId),
+  index("idx_aspirations_created").on(table.createdAt),
+]);
+export const insertDanielaAspirationSchema = createInsertSchema(danielaAspirations).omit({ id: true, createdAt: true });
+export type InsertDanielaAspiration = z.infer<typeof insertDanielaAspirationSchema>;
+export type DanielaAspiration = typeof danielaAspirations.$inferSelect;
+
+// ─── Daniela Personal Shares ─────────────────────────────────────────────────
+// Things Daniela has shared about herself with a student — her personal consistency log.
+// So she never "forgets" her own character or contradicts what she's said before.
+export const danielaPersonalShares = pgTable("daniela_personal_shares", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  content: text("content").notNull(),
+  topic: varchar("topic", { length: 100 }), // 'preference' | 'memory' | 'opinion' | 'feeling' | 'experience'
+  sessionId: varchar("session_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_personal_shares_user").on(table.userId),
+  index("idx_personal_shares_topic").on(table.topic),
+  index("idx_personal_shares_created").on(table.createdAt),
+]);
+export const insertDanielaPersonalShareSchema = createInsertSchema(danielaPersonalShares).omit({ id: true, createdAt: true });
+export type InsertDanielaPersonalShare = z.infer<typeof insertDanielaPersonalShareSchema>;
+export type DanielaPersonalShare = typeof danielaPersonalShares.$inferSelect;
+
 // Agenda Queue Priority Enum
 export const agendaPriorityEnum = pgEnum("agenda_priority", [
   'high',      // Urgent - discuss first
