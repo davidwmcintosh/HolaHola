@@ -618,13 +618,11 @@ export default function Settings() {
                 </div>
               ) : (
                 <>
-                  {/* Honest description */}
                   <div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground space-y-1">
                     <p>Daniela can send you a short voice message or call you if you haven't practiced in a while — nothing automated, nothing spammy. She decides when it's worth reaching out based on your sessions together.</p>
                     <p className="text-xs mt-1">Reply STOP to any text to unsubscribe at any time. Message frequency varies. Standard message and data rates may apply.</p>
                   </div>
 
-                  {/* Phone number input */}
                   <div className="space-y-1.5">
                     <Label htmlFor="input-phone" className="text-sm font-medium">
                       Phone number
@@ -658,7 +656,6 @@ export default function Settings() {
                     <p className="text-xs text-muted-foreground">International format required, e.g. +15551234567</p>
                   </div>
 
-                  {/* Consent checkboxes */}
                   <div className="space-y-3">
                     <p className="text-sm font-medium">What Daniela is allowed to do</p>
                     <div className="flex items-start gap-3">
@@ -693,7 +690,6 @@ export default function Settings() {
                     </div>
                   </div>
 
-                  {/* Consent timestamp if set */}
                   {contactPrefs?.phoneConsentAt && (contactPrefs.phoneConsentSms || contactPrefs.phoneConsentVoice) && (
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />

@@ -4604,8 +4604,16 @@ export class NativeFunctionCallHandler {
           console.warn('[Native→RecordStudentConsent] No session userId — skipping');
           break;
         }
-        const consentSms = fn.args.consentSms as boolean | undefined;
-        const consentVoice = fn.args.consentVoice as boolean | undefined;
+        const { z } = await import('zod');
+        const argsResult = z.object({
+          consentSms: z.boolean().optional(),
+          consentVoice: z.boolean().optional(),
+        }).safeParse(fn.args);
+        if (!argsResult.success) {
+          console.warn('[Native→RecordStudentConsent] Invalid args:', argsResult.error.message);
+          break;
+        }
+        const { consentSms, consentVoice } = argsResult.data;
         if (consentSms === undefined && consentVoice === undefined) {
           console.warn('[Native→RecordStudentConsent] No consent flags provided — skipping');
           break;

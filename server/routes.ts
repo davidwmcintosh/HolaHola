@@ -1266,8 +1266,6 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
-  // ── Contact preferences & SMS/voice consent ──────────────────────────────
-  // GET /api/user/contact-preferences — returns current phone + consent state
   app.get('/api/user/contact-preferences', isAuthenticated, async (req: any, res) => {
     try {
       const userId = getRequestUserId(req);
@@ -1286,7 +1284,6 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
-  // PUT /api/user/contact-preferences — update phone and/or consent flags
   app.put('/api/user/contact-preferences', isAuthenticated, async (req: any, res) => {
     try {
       const userId = getRequestUserId(req);
@@ -1311,7 +1308,6 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
-  // DELETE /api/user/contact-preferences/phone — withdraw phone + consent
   app.delete('/api/user/contact-preferences/phone', isAuthenticated, async (req: any, res) => {
     try {
       const userId = getRequestUserId(req);

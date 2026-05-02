@@ -1555,10 +1555,21 @@ export class DatabaseStorage implements IStorage {
 
   async getContactPreferences(userId: string): Promise<import('@shared/schema').StudentContactPreferences | undefined> {
     const { studentContactPreferences } = await import('@shared/schema');
-    const [prefs] = await db.select().from(studentContactPreferences)
+    const [row] = await db.select().from(studentContactPreferences)
       .where(eq(studentContactPreferences.userId, userId))
       .limit(1);
-    return prefs;
+    if (!row) return undefined;
+    if (row.phone) {
+      try {
+        const { decryptPhone } = await import('./services/phone-encryption');
+        row.phone = decryptPhone(row.phone);
+      } catch {
+        // If decryption fails the value is either corrupted or an unencrypted legacy
+        // row — surface null rather than leaking ciphertext to callers.
+        row.phone = null;
+      }
+    }
+    return row;
   }
 
   async upsertContactPreferences(userId: string, data: {
@@ -1569,13 +1580,26 @@ export class DatabaseStorage implements IStorage {
     phoneConsentSource?: string;
   }): Promise<import('@shared/schema').StudentContactPreferences> {
     const { studentContactPreferences } = await import('@shared/schema');
+    const { encryptPhone } = await import('./services/phone-encryption');
+    const storedData = {
+      ...data,
+      phone: data.phone != null ? encryptPhone(data.phone) : data.phone,
+    };
     const [result] = await db.insert(studentContactPreferences)
-      .values({ userId, ...data, updatedAt: new Date() })
+      .values({ userId, ...storedData, updatedAt: new Date() })
       .onConflictDoUpdate({
         target: studentContactPreferences.userId,
-        set: { ...data, updatedAt: new Date() },
+        set: { ...storedData, updatedAt: new Date() },
       })
       .returning();
+    // Decrypt before returning so callers always see plaintext E.164
+    if (result.phone) {
+      try {
+        result.phone = decryptPhone(result.phone);
+      } catch {
+        result.phone = null;
+      }
+    }
     return result;
   }
 
