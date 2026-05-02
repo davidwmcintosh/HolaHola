@@ -4598,6 +4598,31 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'RECORD_STUDENT_CONSENT': {
+        // Only valid in live student sessions (session.userId must be set)
+        if (!session.userId) {
+          console.warn('[Native→RecordStudentConsent] No session userId — skipping');
+          break;
+        }
+        const consentSms = fn.args.consentSms as boolean | undefined;
+        const consentVoice = fn.args.consentVoice as boolean | undefined;
+        if (consentSms === undefined && consentVoice === undefined) {
+          console.warn('[Native→RecordStudentConsent] No consent flags provided — skipping');
+          break;
+        }
+        (async () => {
+          const { storage: st } = await import('../storage');
+          await st.upsertContactPreferences(String(session.userId), {
+            ...(consentSms !== undefined && { phoneConsentSms: consentSms }),
+            ...(consentVoice !== undefined && { phoneConsentVoice: consentVoice }),
+            phoneConsentAt: new Date(),
+            phoneConsentSource: 'in_session',
+          });
+          console.log(`[Native→RecordStudentConsent] Consent recorded for user ${session.userId} (sms=${consentSms}, voice=${consentVoice})`);
+        })().catch(err => console.error('[Native→RecordStudentConsent] Error:', err.message));
+        break;
+      }
+
       case 'DISMISS_ABSENCE_NUDGE': {
         // Security: only allowed in Founder Mode or Raw Honesty Mode (authenticated trusted context).
         // Prevents regular students from dismissing or snoozing absence nudges for arbitrary user IDs.

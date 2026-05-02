@@ -2194,6 +2194,38 @@ Call this at the start of a session if you want to know whether something is wai
   },
 
   {
+    legacyType: 'RECORD_STUDENT_CONSENT',
+    declaration: {
+      name: "record_student_consent",
+      description: `Record that a student has explicitly agreed — in this session — to be contacted by Daniela via SMS or phone call.
+
+Use this ONLY when the student gives a clear verbal yes. Not if they seem okay with it, not if they don't object. It must be an unambiguous affirmative.
+
+After calling this, tell the student they can confirm or change their phone number in Account Settings. The consent is saved immediately, but no outreach happens until they've added a number.
+
+Parameters:
+- consentSms: true if student agreed to receive SMS texts from Daniela
+- consentVoice: true if student agreed to receive voice calls from Daniela`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          consentSms: {
+            type: "boolean",
+            description: "Whether the student consented to SMS outreach",
+          },
+          consentVoice: {
+            type: "boolean",
+            description: "Whether the student consented to voice call outreach",
+          },
+        },
+        required: [],
+      },
+    },
+    buildContinuationResponse: () =>
+      `[SYSTEM: In-session consent recorded. The student's settings have been updated. Let them know they can add or confirm their phone number in Account Settings — no messages will go out until a number is on file.]`,
+  },
+
+  {
     legacyType: 'DISMISS_ABSENCE_NUDGE',
     declaration: {
       name: "dismiss_absence_nudge",

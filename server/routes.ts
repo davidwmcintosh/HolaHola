@@ -1266,6 +1266,69 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
+  // ── Contact preferences & SMS/voice consent ──────────────────────────────
+  // GET /api/user/contact-preferences — returns current phone + consent state
+  app.get('/api/user/contact-preferences', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getRequestUserId(req);
+      const prefs = await storage.getContactPreferences(userId);
+      // Return normalised shape even when no row exists yet
+      res.json(prefs ?? {
+        phone: null,
+        phoneConsentSms: false,
+        phoneConsentVoice: false,
+        phoneConsentAt: null,
+        phoneConsentSource: null,
+      });
+    } catch (err) {
+      console.error('[Contact prefs GET]', err);
+      res.status(500).json({ message: 'Failed to fetch contact preferences' });
+    }
+  });
+
+  // PUT /api/user/contact-preferences — update phone and/or consent flags
+  app.put('/api/user/contact-preferences', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getRequestUserId(req);
+      const { updateContactPreferencesSchema } = await import('@shared/schema');
+      const parsed = updateContactPreferencesSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: 'Invalid request', errors: parsed.error.errors });
+      }
+      const hasConsentChange =
+        parsed.data.phoneConsentSms !== undefined || parsed.data.phoneConsentVoice !== undefined;
+      const prefs = await storage.upsertContactPreferences(userId, {
+        ...parsed.data,
+        ...(hasConsentChange && {
+          phoneConsentAt: new Date(),
+          phoneConsentSource: 'manual_entry',
+        }),
+      });
+      res.json(prefs);
+    } catch (err) {
+      console.error('[Contact prefs PUT]', err);
+      res.status(500).json({ message: 'Failed to update contact preferences' });
+    }
+  });
+
+  // DELETE /api/user/contact-preferences/phone — withdraw phone + consent
+  app.delete('/api/user/contact-preferences/phone', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getRequestUserId(req);
+      await storage.upsertContactPreferences(userId, {
+        phone: null,
+        phoneConsentSms: false,
+        phoneConsentVoice: false,
+        phoneConsentAt: new Date(),
+        phoneConsentSource: 'manual_entry',
+      });
+      res.json({ success: true });
+    } catch (err) {
+      console.error('[Contact prefs DELETE phone]', err);
+      res.status(500).json({ message: 'Failed to remove phone number' });
+    }
+  });
+
   // Update user timezone (called automatically from browser)
   // This enables time-aware greetings from Daniela
   app.put('/api/user/timezone', isAuthenticated, async (req: any, res) => {

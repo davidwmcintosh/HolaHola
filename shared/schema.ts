@@ -9099,3 +9099,36 @@ export const danielaAbsenceNudges = pgTable("daniela_absence_nudges", {
 export const insertDanielaAbsenceNudgeSchema = createInsertSchema(danielaAbsenceNudges).omit({ id: true, notifiedAt: true });
 export type InsertDanielaAbsenceNudge = z.infer<typeof insertDanielaAbsenceNudgeSchema>;
 export type DanielaAbsenceNudge = typeof danielaAbsenceNudges.$inferSelect;
+
+// ===== Student Contact Preferences =====
+// Stores phone number and explicit SMS/voice consent for outbound Daniela contact.
+// Written only on explicit student action (settings UI or in-session verbal consent).
+// Phone stored in E.164 format. Consent timestamps track when each type was granted.
+// One row per student (upsert on userId).
+export const studentContactPreferences = pgTable("student_contact_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  phone: varchar("phone"),                                          // E.164 e.g. +15551234567
+  phoneConsentSms: boolean("phone_consent_sms").notNull().default(false),   // opt-in for SMS
+  phoneConsentVoice: boolean("phone_consent_voice").notNull().default(false), // opt-in for voice calls
+  phoneConsentAt: timestamp("phone_consent_at"),                    // when consent was last updated
+  phoneConsentSource: varchar("phone_consent_source"),              // 'manual_entry' | 'in_session'
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_student_contact_pref_user").on(table.userId),
+]);
+
+export const insertStudentContactPreferencesSchema = createInsertSchema(studentContactPreferences).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertStudentContactPreferences = z.infer<typeof insertStudentContactPreferencesSchema>;
+export type StudentContactPreferences = typeof studentContactPreferences.$inferSelect;
+
+// Zod schema for the PUT /api/user/contact-preferences endpoint
+export const updateContactPreferencesSchema = z.object({
+  phone: z.string()
+    .regex(/^\+[1-9]\d{7,14}$/, "Phone must be in E.164 format (e.g. +15551234567)")
+    .nullable()
+    .optional(),
+  phoneConsentSms: z.boolean().optional(),
+  phoneConsentVoice: z.boolean().optional(),
+});

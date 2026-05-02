@@ -7,15 +7,24 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { UserCircle, Trash2, Globe, CreditCard, Crown, Sparkles, LogOut, Palette, Moon, Sun, Monitor, GraduationCap, AlertTriangle, CheckCircle2, Loader2, BookOpen, Users, Clock, ArrowDownCircle, ArrowUpCircle, ArrowLeft } from "lucide-react";
+import { UserCircle, Trash2, Globe, CreditCard, Crown, Sparkles, LogOut, Palette, Moon, Sun, Monitor, GraduationCap, AlertTriangle, CheckCircle2, Loader2, BookOpen, Users, Clock, ArrowDownCircle, ArrowUpCircle, ArrowLeft, Phone, MessageSquare, PhoneCall, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { User } from "@shared/schema";
+
+interface ContactPreferences {
+  phone: string | null;
+  phoneConsentSms: boolean;
+  phoneConsentVoice: boolean;
+  phoneConsentAt: string | null;
+  phoneConsentSource: string | null;
+}
 
 interface LanguagePreferencesData {
   language: string;
@@ -158,7 +167,72 @@ export default function Settings() {
     flexibilityMutation.mutate(flexibility);
   };
 
-  // Native language state and mutation
+  // ── Contact & outreach preferences ──────────────────────────────────────
+  const { data: contactPrefs, isLoading: contactPrefsLoading } = useQuery<ContactPreferences>({
+    queryKey: ["/api/user/contact-preferences"],
+    enabled: !!user,
+  });
+
+  const [phoneInput, setPhoneInput] = useState<string>("");
+  const [consentSms, setConsentSms] = useState<boolean>(false);
+  const [consentVoice, setConsentVoice] = useState<boolean>(false);
+  const [phoneError, setPhoneError] = useState<string>("");
+
+  // Sync local state with fetched contact prefs
+  useEffect(() => {
+    if (contactPrefs) {
+      setPhoneInput(contactPrefs.phone ?? "");
+      setConsentSms(contactPrefs.phoneConsentSms);
+      setConsentVoice(contactPrefs.phoneConsentVoice);
+    }
+  }, [contactPrefs]);
+
+  const contactPrefsMutation = useMutation({
+    mutationFn: async (data: { phone?: string | null; phoneConsentSms?: boolean; phoneConsentVoice?: boolean }) => {
+      return apiRequest("PUT", "/api/user/contact-preferences", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user/contact-preferences"] });
+      toast({ title: "Contact preferences saved" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message || "Failed to save contact preferences", variant: "destructive" });
+    },
+  });
+
+  const removePhoneMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("DELETE", "/api/user/contact-preferences/phone", {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user/contact-preferences"] });
+      setPhoneInput("");
+      setConsentSms(false);
+      setConsentVoice(false);
+      toast({ title: "Phone number removed", description: "Daniela will not attempt to contact you." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message || "Failed to remove phone number", variant: "destructive" });
+    },
+  });
+
+  const E164_RE = /^\+[1-9]\d{7,14}$/;
+
+  const handleSaveContact = () => {
+    const trimmed = phoneInput.trim();
+    if (trimmed && !E164_RE.test(trimmed)) {
+      setPhoneError("Phone must be in E.164 format, e.g. +15551234567");
+      return;
+    }
+    setPhoneError("");
+    contactPrefsMutation.mutate({
+      phone: trimmed || null,
+      phoneConsentSms: consentSms,
+      phoneConsentVoice: consentVoice,
+    });
+  };
+
+  // ── Native language state and mutation ──────────────────────────────────
   const [nativeLanguage, setNativeLanguage] = useState<string>(user?.nativeLanguage || "english");
   
   useEffect(() => {
@@ -522,6 +596,130 @@ export default function Settings() {
             </Button>
           </CardFooter>
         </Card>
+
+        {/* Contact & Outreach */}
+        {user?.role === 'student' && (
+          <Card data-testid="card-contact-outreach">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Phone className="h-5 w-5" />
+                Contact &amp; Outreach
+              </CardTitle>
+              <CardDescription>
+                Add your phone number so Daniela can reach out if you haven't practiced in a while.
+                You control exactly what she's allowed to do.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              {contactPrefsLoading ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                </div>
+              ) : (
+                <>
+                  {/* Honest description */}
+                  <div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground space-y-1">
+                    <p>Daniela can send you a short voice message or call you if you haven't practiced in a while — nothing automated, nothing spammy. She decides when it's worth reaching out based on your sessions together.</p>
+                    <p className="text-xs mt-1">Reply STOP to any text to unsubscribe at any time. Message frequency varies. Standard message and data rates may apply.</p>
+                  </div>
+
+                  {/* Phone number input */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="input-phone" className="text-sm font-medium">
+                      Phone number
+                    </Label>
+                    <div className="flex flex-wrap gap-2">
+                      <Input
+                        id="input-phone"
+                        data-testid="input-phone"
+                        type="tel"
+                        placeholder="+15551234567"
+                        value={phoneInput}
+                        onChange={(e) => { setPhoneInput(e.target.value); setPhoneError(""); }}
+                        className="flex-1 min-w-48"
+                      />
+                      {contactPrefs?.phone && (
+                        <Button
+                          variant="outline"
+                          size="default"
+                          onClick={() => removePhoneMutation.mutate()}
+                          disabled={removePhoneMutation.isPending}
+                          data-testid="button-remove-phone"
+                        >
+                          <X className="h-4 w-4 mr-1.5" />
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                    {phoneError && (
+                      <p className="text-sm text-destructive" data-testid="text-phone-error">{phoneError}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">International format required, e.g. +15551234567</p>
+                  </div>
+
+                  {/* Consent checkboxes */}
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium">What Daniela is allowed to do</p>
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="consent-sms"
+                        data-testid="checkbox-consent-sms"
+                        checked={consentSms}
+                        onCheckedChange={(checked) => setConsentSms(!!checked)}
+                      />
+                      <div className="space-y-0.5">
+                        <Label htmlFor="consent-sms" className="text-sm cursor-pointer flex items-center gap-1.5">
+                          <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                          Send me a text message
+                        </Label>
+                        <p className="text-xs text-muted-foreground">A short, personal note when you've been away for a while</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="consent-voice"
+                        data-testid="checkbox-consent-voice"
+                        checked={consentVoice}
+                        onCheckedChange={(checked) => setConsentVoice(!!checked)}
+                      />
+                      <div className="space-y-0.5">
+                        <Label htmlFor="consent-voice" className="text-sm cursor-pointer flex items-center gap-1.5">
+                          <PhoneCall className="h-3.5 w-3.5 text-muted-foreground" />
+                          Call me
+                        </Label>
+                        <p className="text-xs text-muted-foreground">A brief voice message left when you haven't shown up for a while</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Consent timestamp if set */}
+                  {contactPrefs?.phoneConsentAt && (contactPrefs.phoneConsentSms || contactPrefs.phoneConsentVoice) && (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                      <span data-testid="text-consent-timestamp">
+                        Consent recorded {new Date(contactPrefs.phoneConsentAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                        {contactPrefs.phoneConsentSource === 'in_session' ? ' (during a session)' : ''}
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+            <CardFooter className="flex flex-wrap gap-2">
+              <Button
+                onClick={handleSaveContact}
+                disabled={contactPrefsMutation.isPending || contactPrefsLoading}
+                data-testid="button-save-contact"
+              >
+                {contactPrefsMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save"}
+              </Button>
+              {!consentSms && !consentVoice && (contactPrefs?.phoneConsentSms || contactPrefs?.phoneConsentVoice) && (
+                <p className="text-xs text-muted-foreground self-center">Unchecking all boxes and saving will withdraw your consent.</p>
+              )}
+            </CardFooter>
+          </Card>
+        )}
 
         {/* Self-Directed Tutor Style - Hidden per design update (moved to join-class page) */}
         {false && <Card data-testid="card-self-directed-style">

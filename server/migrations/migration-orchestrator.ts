@@ -452,6 +452,30 @@ const MIGRATIONS: Migration[] = [
       console.log('[MIGRATIONS] 007: Created daniela_absence_nudges table');
     },
   },
+  {
+    version: '008',
+    name: 'student-contact-preferences',
+    up: async () => {
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS student_contact_preferences (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          phone VARCHAR,
+          phone_consent_sms BOOLEAN NOT NULL DEFAULT FALSE,
+          phone_consent_voice BOOLEAN NOT NULL DEFAULT FALSE,
+          phone_consent_at TIMESTAMP,
+          phone_consent_source VARCHAR,
+          created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+      `);
+      await db.execute(sql`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_student_contact_pref_user
+        ON student_contact_preferences(user_id)
+      `);
+      console.log('[MIGRATIONS] 008: Created student_contact_preferences table');
+    },
+  },
 ];
 
 export class MigrationOrchestrator {

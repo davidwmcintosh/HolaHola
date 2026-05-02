@@ -318,6 +318,16 @@ export interface IStorage {
   }): Promise<User | undefined>;
   updateUserTimezone(userId: string, timezone: string): Promise<void>;
 
+  // Contact preferences + SMS/voice consent
+  getContactPreferences(userId: string): Promise<import('@shared/schema').StudentContactPreferences | undefined>;
+  upsertContactPreferences(userId: string, data: {
+    phone?: string | null;
+    phoneConsentSms?: boolean;
+    phoneConsentVoice?: boolean;
+    phoneConsentAt?: Date;
+    phoneConsentSource?: string;
+  }): Promise<import('@shared/schema').StudentContactPreferences>;
+
   // Per-language self-directed preferences
   getLanguagePreferences(userId: string, language: string): Promise<UserLanguagePreferences | undefined>;
   getAllLanguagePreferences(userId: string): Promise<UserLanguagePreferences[]>;
@@ -1541,6 +1551,32 @@ export class DatabaseStorage implements IStorage {
     await db.update(users)
       .set({ timezone, updatedAt: new Date() })
       .where(eq(users.id, userId));
+  }
+
+  async getContactPreferences(userId: string): Promise<import('@shared/schema').StudentContactPreferences | undefined> {
+    const { studentContactPreferences } = await import('@shared/schema');
+    const [prefs] = await db.select().from(studentContactPreferences)
+      .where(eq(studentContactPreferences.userId, userId))
+      .limit(1);
+    return prefs;
+  }
+
+  async upsertContactPreferences(userId: string, data: {
+    phone?: string | null;
+    phoneConsentSms?: boolean;
+    phoneConsentVoice?: boolean;
+    phoneConsentAt?: Date;
+    phoneConsentSource?: string;
+  }): Promise<import('@shared/schema').StudentContactPreferences> {
+    const { studentContactPreferences } = await import('@shared/schema');
+    const [result] = await db.insert(studentContactPreferences)
+      .values({ userId, ...data, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: studentContactPreferences.userId,
+        set: { ...data, updatedAt: new Date() },
+      })
+      .returning();
+    return result;
   }
 
   // Per-language self-directed preferences
