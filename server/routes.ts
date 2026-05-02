@@ -8744,6 +8744,63 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Twilio voice-answer webhook — called when student answers the outbound call.
+  // Returns TwiML instructing Twilio to open a Media Streams WebSocket to our server.
+  app.post("/api/webhooks/twilio/voice-answer", async (req: any, res) => {
+    try {
+      const queueId = (req.query.queueId as string) || '';
+      const userId = (req.query.userId as string) || '';
+      const appUrl = process.env.APP_URL || 'https://getholahola.com';
+
+      // Build the Media Streams WebSocket URL (wss://)
+      const wsUrl = appUrl.replace(/^https?:\/\//, 'wss://') +
+        `/api/voice/twilio-stream?userId=${encodeURIComponent(userId)}&queueId=${encodeURIComponent(queueId)}`;
+
+      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Start>
+    <Stream url="${wsUrl}" />
+  </Start>
+  <Pause length="300" />
+</Response>`;
+
+      console.log(`[Route] Twilio voice-answer — queueId: ${queueId.slice(-6)}, userId: ${userId.slice(-6)}, wsUrl: ${wsUrl}`);
+      res.set('Content-Type', 'text/xml').send(twiml);
+    } catch (err: any) {
+      console.error('[Route] Twilio voice-answer error:', err.message);
+      res.set('Content-Type', 'text/xml').send('<?xml version="1.0"?><Response><Hangup/></Response>');
+    }
+  });
+
+  // Twilio voice-status callback — handles no-answer, busy, and failed calls.
+  // Falls back to SMS voice note delivery when the call is not answered.
+  app.post("/api/webhooks/twilio/voice-status", async (req: any, res) => {
+    try {
+      const queueId = (req.query.queueId as string) || '';
+      const userId = (req.query.userId as string) || '';
+      const callStatus: string = req.body?.CallStatus || '';
+      const answeredBy: string = req.body?.AnsweredBy || '';
+
+      console.log(`[Route] Twilio voice-status — status: ${callStatus}, answeredBy: ${answeredBy}, user: ${userId.slice(-6)}`);
+
+      const NO_ANSWER_STATUSES = new Set(['no-answer', 'busy', 'failed', 'canceled']);
+      const IS_MACHINE = /^machine/.test(answeredBy);
+
+      if (NO_ANSWER_STATUSES.has(callStatus) || IS_MACHINE) {
+        if (queueId && userId) {
+          import('./services/twilio-voip-bridge').then(({ handleCallNoAnswer }) =>
+            handleCallNoAnswer(userId, queueId)
+          ).catch((e: any) => console.warn('[Route] handleCallNoAnswer error:', e.message));
+        }
+      }
+
+      res.set('Content-Type', 'text/xml').send('<?xml version="1.0"?><Response/>');
+    } catch (err: any) {
+      console.error('[Route] Twilio voice-status error:', err.message);
+      if (!res.headersSent) res.status(500).send('Error');
+    }
+  });
+
   // Multimedia - Fetch stock image from Unsplash
   app.post("/api/media/stock-image", isAuthenticated, async (req: any, res) => {
     try {

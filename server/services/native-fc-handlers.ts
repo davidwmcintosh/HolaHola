@@ -4600,10 +4600,10 @@ export class NativeFunctionCallHandler {
           await resolveAbsenceNudge(userId, 'message_queued').catch(e =>
             console.warn('[Native→LeaveForNextSession] Nudge resolve error:', e.message)
           );
-          // Fire-and-forget SMS delivery if the student has consent
-          import('./voice-message-delivery').then(({ deliverVoiceMessageViaSms }) =>
-            deliverVoiceMessageViaSms(queueId, userId, content.trim())
-          ).catch(e => console.warn('[Native→LeaveForNextSession] SMS delivery error:', e.message));
+          // Fire-and-forget outbound contact: VoIP call (Phase 4) → SMS (Phase 3) → queue
+          import('./voice-call-sender').then(({ initiateOutboundContact }) =>
+            initiateOutboundContact(userId, queueId, content.trim())
+          ).catch(e => console.warn('[Native→LeaveForNextSession] Outbound contact error:', e.message));
         })().catch(err => console.error('[Native→LeaveForNextSession] Error:', err.message));
         break;
       }

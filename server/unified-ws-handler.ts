@@ -69,6 +69,7 @@ import { getPendingSuggestions } from './services/daniela-reflection';
 // Use /api/ paths - Replit's proxy properly routes these
 const STREAMING_VOICE_PATH = '/api/voice/stream/ws';
 const REALTIME_PATH = '/api/realtime/ws';
+const TWILIO_STREAM_PATH = '/api/voice/twilio-stream';
 
 /**
  * Promise timeout utility - prevents indefinite hangs on DB queries or service calls.
@@ -679,6 +680,35 @@ const LANGUAGE_TUTOR_NAMES: Record<string, { female: string; male: string }> = {
  * All voice logic is unified in handleStreamingVoiceConnectionWithAdapter.
  * This thin shim wraps the native WS in NativeWSAdapter and delegates.
  */
+/**
+ * Handle Twilio Media Streams WebSocket connection (Phase 4 VoIP).
+ * URL: /api/voice/twilio-stream?userId=xxx&queueId=xxx
+ */
+function handleTwilioStreamConnection(ws: WS, req: IncomingMessage) {
+  let userId = '';
+  let queueId = '';
+  try {
+    const url = new URL(req.url || '', 'http://localhost');
+    userId = url.searchParams.get('userId') || '';
+    queueId = url.searchParams.get('queueId') || '';
+  } catch { /* ignore */ }
+
+  if (!userId || !queueId) {
+    console.warn('[Unified WS] Twilio stream missing userId/queueId — closing');
+    ws.close(1008, 'Missing userId or queueId');
+    return;
+  }
+
+  import('./services/twilio-voip-bridge').then(({ handleTwilioMediaStream }) => {
+    handleTwilioMediaStream(ws as any, userId, queueId).catch((err: any) => {
+      console.error('[Unified WS] TwilioVoipBridge error:', err.message);
+    });
+  }).catch((err: any) => {
+    console.error('[Unified WS] Failed to import twilio-voip-bridge:', err.message);
+    ws.close(1011, 'Bridge unavailable');
+  });
+}
+
 function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
   let conversationId: string | null = null;
   try {
@@ -742,11 +772,11 @@ export function setupUnifiedWebSocketHandler(server: Server) {
 
     console.log(`[Unified WS] Upgrade request for: ${pathname}`);
 
-    if (pathname === STREAMING_VOICE_PATH || pathname === REALTIME_PATH) {
+    if (pathname === STREAMING_VOICE_PATH || pathname === REALTIME_PATH || pathname === TWILIO_STREAM_PATH) {
       // Mark socket as handled IMMEDIATELY to prevent race conditions
       handledSockets.add(socket);
       
-      console.log(`[Unified WS] Routing to ${pathname === STREAMING_VOICE_PATH ? 'streaming voice' : 'realtime'} handler`);
+      console.log(`[Unified WS] Routing to ${pathname === STREAMING_VOICE_PATH ? 'streaming voice' : pathname === TWILIO_STREAM_PATH ? 'twilio media stream' : 'realtime'} handler`);
       console.log('[Unified WS] Socket state before handleUpgrade:', socket.destroyed ? 'DESTROYED' : 'OK', 'writable:', socket.writable);
       
       // CRITICAL: Resume the socket to ensure data flows
@@ -761,6 +791,9 @@ export function setupUnifiedWebSocketHandler(server: Server) {
           if (pathname === STREAMING_VOICE_PATH) {
             wss.emit('connection', ws, request);
             handleStreamingVoiceConnection(ws, request);
+          } else if (pathname === TWILIO_STREAM_PATH) {
+            wss.emit('connection', ws, request);
+            handleTwilioStreamConnection(ws, request);
           } else {
             wss.emit('connection', ws, request);
             handleRealtimeConnection(ws, request);

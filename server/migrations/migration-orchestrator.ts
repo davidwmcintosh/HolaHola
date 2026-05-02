@@ -489,6 +489,21 @@ const MIGRATIONS: Migration[] = [
       console.log('[MIGRATIONS] 009: Added SMS/audio fields to daniela_outbound_queue');
     },
   },
+  {
+    version: '010',
+    name: 'daniela-outbound-queue-voip-fields',
+    up: async () => {
+      await db.execute(sql`
+        ALTER TABLE daniela_outbound_queue
+          ADD COLUMN IF NOT EXISTS call_sid VARCHAR,
+          ADD COLUMN IF NOT EXISTS call_at TIMESTAMP,
+          ADD COLUMN IF NOT EXISTS call_answered_at TIMESTAMP,
+          ADD COLUMN IF NOT EXISTS call_duration_seconds INTEGER,
+          ADD COLUMN IF NOT EXISTS call_no_answer BOOLEAN DEFAULT FALSE
+      `);
+      console.log('[MIGRATIONS] 010: Added VoIP call tracking fields to daniela_outbound_queue');
+    },
+  },
 ];
 
 export class MigrationOrchestrator {

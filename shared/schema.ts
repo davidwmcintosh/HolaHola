@@ -9071,6 +9071,12 @@ export const danielaOutboundQueue = pgTable("daniela_outbound_queue", {
   smsDeliveredAt: timestamp("sms_delivered_at"), // set once Twilio SMS is sent
   audioUrl: varchar("audio_url"), // app-relative path to the rendered WAV
   audioPlayedAt: timestamp("audio_played_at"), // set on first playback page load
+  // Phase 4: VoIP call tracking
+  callSid: varchar("call_sid"),                    // Twilio Call SID once initiated
+  callAt: timestamp("call_at"),                    // when outbound call was placed
+  callAnsweredAt: timestamp("call_answered_at"),   // when student picked up
+  callDurationSeconds: integer("call_duration_seconds"), // total call length
+  callNoAnswer: boolean("call_no_answer").default(false), // true → fell back to SMS
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
   index("idx_daniela_outbound_queue_user").on(table.userId),
