@@ -20,6 +20,7 @@ import {
 } from '@shared/schema';
 import { eq, and, isNull, ne, lte, desc, max, sql } from 'drizzle-orm';
 import { founderCollabService } from './founder-collaboration-service';
+import { founderCollabWSBroker } from './founder-collab-ws-broker';
 
 // How many days of absence before Daniela is notified
 // Override via ABSENCE_THRESHOLD_DAYS env var (e.g. "7" for weekly learners)
@@ -70,7 +71,9 @@ async function detectAbsentStudents(): Promise<Array<{
 
   // Join with users for names; filter to:
   // - Students absent >= threshold
-  // - Active accounts only (exclude canceled — churned users shouldn't generate nudges)
+  // - Role = 'student' only (exclude developer/admin/teacher accounts)
+  // - Non-test accounts only (isTestAccount = false)
+  // - Active subscription (exclude canceled — churned users shouldn't generate nudges)
   const absentStudents = await db
     .select({
       userId: lastSessionByUser.userId,
@@ -89,6 +92,8 @@ async function detectAbsentStudents(): Promise<Array<{
     .where(
       and(
         lte(lastSessionByUser.lastSessionDate, thresholdDate),
+        eq(users.role, 'student'),
+        eq(users.isTestAccount, false),
         ne(users.subscriptionStatus, 'canceled'),
       )
     );
@@ -177,7 +182,9 @@ userId: ${student.userId}`;
     EXPRESS_LANE_SESSION_TITLE,
   );
 
-  await founderCollabService.addMessage(expressSession.id, {
+  // Use addAndBroadcastMessage so connected Express Lane clients receive the nudge live,
+  // not just on next reconnect/replay. Falls back gracefully if no clients are connected.
+  await founderCollabWSBroker.addAndBroadcastMessage(expressSession.id, {
     role: 'system',
     content: nudgeText,
     messageType: 'text',
@@ -188,7 +195,7 @@ userId: ${student.userId}`;
     },
   });
 
-  console.log(`[AbsenceWorker] Nudge posted for ${name} (${student.daysSinceLastSession} days absent)`);
+  console.log(`[AbsenceWorker] Nudge posted + broadcast for ${name} (${student.daysSinceLastSession} days absent)`);
 }
 
 /**
@@ -246,14 +253,22 @@ async function runAbsenceCheck(): Promise<void> {
  * detection query blocks re-notification for any row where suppressUntil > NOW(),
  * regardless of resolvedAt, so the snooze survives the resolve.
  */
+// Maximum snooze allowed (365 days) — prevents runaway suppressUntil values
+const MAX_SUPPRESS_DAYS = 365;
+
 export async function resolveAbsenceNudge(
   userId: string,
   resolutionType: 'message_queued' | 'dismissed',
   suppressDays?: number,
 ): Promise<void> {
   const db = getSharedDb();
-  const suppressUntil = suppressDays
-    ? new Date(Date.now() + suppressDays * 24 * 60 * 60 * 1000)
+  // Validate suppressDays: must be a positive integer within allowed range
+  const validatedSuppressDays =
+    typeof suppressDays === 'number' && Number.isFinite(suppressDays) && suppressDays > 0
+      ? Math.min(Math.floor(suppressDays), MAX_SUPPRESS_DAYS)
+      : undefined;
+  const suppressUntil = validatedSuppressDays
+    ? new Date(Date.now() + validatedSuppressDays * 24 * 60 * 60 * 1000)
     : undefined;
 
   await db.update(danielaAbsenceNudges)
