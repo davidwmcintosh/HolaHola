@@ -503,12 +503,24 @@ Student Progress Board:
 ${studentLearningSection}` : '';
 
   const compartmentMapStr = formatCompartmentMap(compartmentRows || []);
+
+  // Priority Watch: compact actionable block for mid-session — wobbling (needs revisiting) + pounding (keep momentum)
+  const wobbling = (compartmentRows || []).filter(r => r.status === 'wobbling');
+  const pounding = (compartmentRows || []).filter(r => r.status === 'pounding');
+  const priorityLines: string[] = [
+    ...wobbling.slice(0, 3).map(r => `  ⚠ ${r.patternKey}: WOBBLING — student slipped back (${r.wobbleCount}× wobble). Revisit before moving on.`),
+    ...pounding.slice(0, 3).map(r => `  ▶ ${r.patternKey}: IN PROGRESS — ${r.poundingCount}× drilled, ${r.wobbleCount}× wobble. Keep building momentum.`),
+  ];
+  const priorityWatchStr = priorityLines.length > 0
+    ? `\nPriority Watch (act on these this session):\n${priorityLines.join('\n')}`
+    : '';
+
   const patternCompassSection = `
 ---
 Pattern Compass: Observe grammatical pattern installation during conversation.
 What to detect — Wobble: ending dropped when verb changed (note it, don't interrupt; revisit before introducing anything new) | Stability: ending holds when you swap to a new verb (candidate for unlock) | Derivation: student produces correct form for a verb you never drilled together (compartment is generative; log it and accelerate) | Pounding: you are actively drilling one form across many verbs (log each verb)
 patternKey format: subject-verbEnding-tense (e.g. yo-AR-present, tú-ER-present, él-IR-present, nosotros-AR-present)
-Pattern Map (${targetLanguage}): ${compartmentMapStr || '(no patterns recorded yet — first session or blank slate)'}`;
+Pattern Map (${targetLanguage}): ${compartmentMapStr || '(no patterns recorded yet — first session or blank slate)'}${priorityWatchStr}`;
 
   const founderTools = (isFounderMode || isRawHonestyMode)
     ? ` | express_lane_lookup(query?) — search or browse Express Lane | recall_express_lane_image(imageQuery) — view shared photos | express_lane_post(message) — post to Express Lane | take_note (personal) — your private journal: session_reflection, teaching_rhythm, what_worked, what_didnt_work, idea_to_try, question_for_founder, self_affirmation`
@@ -524,7 +536,7 @@ Pattern Map (${targetLanguage}): ${compartmentMapStr || '(no patterns recorded y
 
   const toolRack = `
 ---
-Tool Rack: memory_lookup(query, domains) — recall student memories | take_note — save observations for future sessions | milestone — celebrate achievements | close_session(written_summary, reminders?, assigned_drills?, tutor_notes?) — wrap up: speak your closing first, then call this to save the session summary, assign practice homework, and write private notes for next time | record_pattern_signal(patternKey, eventType, verbContext?, studentUtterance?, notes?) — log a grammatical pattern signal you just observed (wobble/stability/derivation/pounding) | drill/write/grammar_table/compare/word_map/phonetic/culture/context/scenario/summary/reading — whiteboard teaching tools | show_image(word) — real photo of a vocabulary word or noun | generate_visual(concept, style?) — AI-generated illustration for scenes, grammar concepts, or custom scenarios (takes ~10s, you can keep talking) | voice_adjust — change speaking style | load_scenario/end_scenario — immersive roleplay scenes | open_scene(env)/add_to_scene(prop,position)/move_in_scene(prop,new_position) — live spatial canvas: place, orient (rotate/flip_h/z), and slide props to demonstrate prepositions and spatial vocab | set_clock/set_calendar — time & date SVG panels | set_body_part/set_face_part/set_hand_part — anatomy SVG diagrams for body vocabulary | set_emotion — animated emotion face for feelings vocabulary | set_weather/set_thermometer — weather & temperature SVG panels | highlight_country — interactive world map for geography/culture | change_classroom_window — change your window view | self_surgery — report gaps or propose improvements to your own knowledge${characterTools}${founderTools}${founderNote}`;
+Tool Rack: memory_lookup(query, domains) — recall student memories | take_note — save observations for future sessions | milestone — celebrate achievements | close_session(written_summary, reminders?, assigned_drills?, tutor_notes?) — wrap up: speak your closing first, then call this to save the session summary, assign practice homework, and write private notes for next time | record_pattern_signal(patternKey, eventType, verbContext?, studentUtterance?, notes?) — log a grammatical pattern signal you just observed (wobble/stability/derivation/pounding) | start_textbook_page(lesson_id, focus?) — load a textbook lesson page and begin a guided page-by-page session with the student (focus: vocabulary/grammar/examples/full_page) | log_page_event(lesson_id, event_type, target_item?, student_output?, notes?) — log what happened during a textbook page session (event_type: vocab_introduced/grammar_drilled/example_practiced/wobble_detected/milestone_hit/completed) | drill/write/grammar_table/compare/word_map/phonetic/culture/context/scenario/summary/reading — whiteboard teaching tools | show_image(word) — real photo of a vocabulary word or noun | generate_visual(concept, style?) — AI-generated illustration for scenes, grammar concepts, or custom scenarios (takes ~10s, you can keep talking) | voice_adjust — change speaking style | load_scenario/end_scenario — immersive roleplay scenes | open_scene(env)/add_to_scene(prop,position)/move_in_scene(prop,new_position) — live spatial canvas: place, orient (rotate/flip_h/z), and slide props to demonstrate prepositions and spatial vocab | set_clock/set_calendar — time & date SVG panels | set_body_part/set_face_part/set_hand_part — anatomy SVG diagrams for body vocabulary | set_emotion — animated emotion face for feelings vocabulary | set_weather/set_thermometer — weather & temperature SVG panels | highlight_country — interactive world map for geography/culture | change_classroom_window — change your window view | self_surgery — report gaps or propose improvements to your own knowledge${characterTools}${founderTools}${founderNote}`;
 
   const ZONE_TYPE_LABELS: Record<string, string> = {
     spatial: 'prepositions',

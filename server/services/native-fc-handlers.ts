@@ -2063,6 +2063,44 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'START_TEXTBOOK_PAGE': {
+        const stpLessonId = fn.args.lesson_id as string | undefined;
+        const stpFocus = (fn.args.focus as string | undefined) || 'full_page';
+        if (!stpLessonId) break;
+        console.log(`[Native Function→StartTextbookPage] lesson=${stpLessonId} focus=${stpFocus}`);
+        const stpPromise = this.processStartTextbookPage(session, stpLessonId, stpFocus).catch(err => {
+          console.error(`[Native Function→StartTextbookPage] Error:`, err.message);
+        });
+        if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+        session.pendingMemoryLookupPromises.push(stpPromise);
+        break;
+      }
+
+      case 'LOG_PAGE_EVENT': {
+        if (session.isIncognito) break;
+        const lpeUserId = session.userId ? String(session.userId) : null;
+        if (!lpeUserId) break;
+        const lpeLessonId = fn.args.lesson_id as string | undefined;
+        const lpeEventType = fn.args.event_type as string | undefined;
+        if (!lpeLessonId || !lpeEventType) break;
+        console.log(`[Native Function→LogPageEvent] ${lpeEventType} on ${lpeLessonId}`);
+        (async () => {
+          const { lessonPageEvents } = await import('@shared/schema');
+          const db = getSharedDb();
+          await db.insert(lessonPageEvents).values({
+            userId: lpeUserId,
+            lessonId: lpeLessonId,
+            conversationId: session.conversationId || null,
+            eventType: lpeEventType as any,
+            targetItem: fn.args.target_item as string | undefined,
+            studentOutput: fn.args.student_output as string | undefined,
+            notes: fn.args.notes as string | undefined,
+          });
+          console.log(`[Native Function→LogPageEvent] ✓ Logged`);
+        })().catch(err => console.error(`[Native Function→LogPageEvent] Error:`, err.message));
+        break;
+      }
+
       case 'TAKE_NOTE': {
         if (session.isIncognito) {
           console.log(`[Native Function→TakeNote] INCOGNITO - skipping note persistence`);
@@ -5916,6 +5954,64 @@ export class NativeFunctionCallHandler {
       console.log(`[Native Function→RecallWhatIShared] Retrieved ${rows.length} personal shares`);
     } catch (err: any) {
       session.personalSharesResult = `Could not recall personal shares: ${err.message}`;
+    }
+  }
+
+  private async processStartTextbookPage(session: StreamingSession, lessonId: string, focus: string): Promise<void> {
+    try {
+      const { textbookLessonContent, lessonPageEvents } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      const db = getSharedDb();
+      const [row] = await db.select().from(textbookLessonContent)
+        .where(eq(textbookLessonContent.lessonId, lessonId)).limit(1);
+      if (!row) {
+        session.textbookPageResult = `Could not find textbook page for lesson_id="${lessonId}". Use search_textbook to find the correct ID.`;
+        return;
+      }
+      // Build guide from lesson content
+      const parts: string[] = [];
+      parts.push(`=== TEXTBOOK PAGE: ${row.lessonId} (${row.actflLevel || 'beginner'}) ===`);
+      if (focus === 'full_page' || focus === 'vocabulary') {
+        const vocab = row.vocabularyList as any;
+        if (vocab) {
+          const vocabList = Array.isArray(vocab)
+            ? vocab.map((v: any) => typeof v === 'string' ? v : `${v.word || v.term || JSON.stringify(v)}`).join(', ')
+            : typeof vocab === 'string' ? vocab : JSON.stringify(vocab);
+          parts.push(`VOCABULARY (introduce one at a time, have student repeat):\n${vocabList}`);
+        }
+      }
+      if (focus === 'full_page' || focus === 'grammar') {
+        if (row.grammarExplanation) {
+          parts.push(`GRAMMAR PATTERN (explain in your own words, then demonstrate):\n${row.grammarExplanation}`);
+        }
+      }
+      if (focus === 'full_page' || focus === 'examples') {
+        const examples = row.grammarExamples as any;
+        if (examples) {
+          const exList = Array.isArray(examples)
+            ? examples.map((e: any, i: number) => `${i + 1}. ${e.target || e.phrase || (typeof e === 'string' ? e : JSON.stringify(e))}${e.translation ? ` — ${e.translation}` : ''}${e.note ? ` (${e.note})` : ''}`).join('\n')
+            : typeof examples === 'string' ? examples : JSON.stringify(examples);
+          parts.push(`KEY EXAMPLES (have student read each aloud then close their eyes and reproduce):\n${exList}`);
+        }
+        const micro = row.microCycleData as any;
+        if (micro) {
+          const microStr = typeof micro === 'string' ? micro
+            : Array.isArray(micro) ? micro.map((m: any) => typeof m === 'string' ? m : JSON.stringify(m)).join(' | ')
+            : JSON.stringify(micro);
+          parts.push(`SENTENCE PATTERNS:\n${microStr}`);
+        }
+      }
+      session.textbookPageResult = parts.join('\n\n');
+      // Log page-started event (fire-and-forget)
+      if (!session.isIncognito && session.userId) {
+        db.insert(lessonPageEvents).values({
+          userId: String(session.userId), lessonId,
+          conversationId: session.conversationId || null, eventType: 'started',
+        }).catch(err => console.error(`[StartTextbookPage] Log error:`, err.message));
+      }
+      console.log(`[Native Function→StartTextbookPage] Loaded page: ${lessonId}`);
+    } catch (err: any) {
+      session.textbookPageResult = `Could not load textbook page: ${err.message}`;
     }
   }
 }

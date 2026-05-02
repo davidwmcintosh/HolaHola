@@ -3184,6 +3184,96 @@ This is how the system learns what this student has installed. Call it whenever 
 
   // === TEXTBOOK LIVE TOOLS ===
   {
+    legacyType: 'START_TEXTBOOK_PAGE',
+    declaration: {
+      name: "start_textbook_page",
+      description: `Begin a guided walk-through of a specific textbook page with the student.
+
+Call this when you want to lead a structured, page-by-page lesson — not a free conversation, but a deliberate guided session through one textbook lesson's vocabulary, grammar, and examples.
+
+What happens when you call this:
+- The system loads the full lesson content for the page (vocab list, grammar explanation, key examples, sentence patterns)
+- You receive that content as your guide — use it to walk the student through the page step by step
+- The lesson page appears in the student's classroom view
+
+How to lead the page:
+1. Introduce the topic ("Today we're going to go through Chapter 3 on -AR verbs")
+2. Teach the vocabulary one word at a time — say the word, have the student repeat, give a sentence
+3. Explain the grammar pattern in your own words — point to the examples
+4. Have the student practice each key example sentence aloud
+5. Use record_pattern_signal whenever you observe a wobble or stability
+6. Use log_page_event to mark moments (vocab_introduced, grammar_drilled, example_practiced)
+7. At the end, close with a summary of what was practiced
+
+Best for: Starting a focused study session, following a structured curriculum, drilling a specific chapter the student wants to master.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          lesson_id: {
+            type: "string",
+            description: "The curriculum lesson ID to load (e.g. 'madrigal-ch1-ar-present'). Use search_textbook first if unsure which lesson to load.",
+          },
+          focus: {
+            type: "string",
+            enum: ["vocabulary", "grammar", "examples", "full_page"],
+            description: "What to focus on this session. 'full_page' goes through everything in order. Default: 'full_page'.",
+          },
+        },
+        required: ["lesson_id"],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const result = session.textbookPageResult;
+      if (result && !result.startsWith('Could not')) {
+        return `${result}\n\nLead the student through this page step by step. Start by introducing the topic, then go through vocabulary one word at a time. Use record_pattern_signal for wobbles and stability. Use log_page_event to mark what you cover.`;
+      }
+      return result || `Could not load textbook page. Try search_textbook to find the right lesson ID.`;
+    },
+  },
+  {
+    legacyType: 'LOG_PAGE_EVENT',
+    declaration: {
+      name: "log_page_event",
+      description: `Log a specific event during a textbook page session — what was practiced and how it went.
+
+Call this throughout a start_textbook_page session to record:
+- A vocabulary word that was introduced and practiced (vocab_introduced)
+- A grammar pattern that was drilled with examples (grammar_drilled)
+- A key sentence the student read or produced aloud (example_practiced)
+- A moment where the student made an error on a target form (wobble_detected)
+- A moment where the student produced a target form correctly under new conditions (milestone_hit)
+
+This builds a record of the session that Daniela can reference in future sessions.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          lesson_id: {
+            type: "string",
+            description: "The lesson_id of the page being worked through.",
+          },
+          event_type: {
+            type: "string",
+            enum: ["vocab_introduced", "grammar_drilled", "example_practiced", "wobble_detected", "milestone_hit", "completed"],
+            description: "What kind of event occurred.",
+          },
+          target_item: {
+            type: "string",
+            description: "The specific vocab word, grammar key, or example sentence (e.g. 'hablar', 'yo-AR-present', 'Yo hablo español.').",
+          },
+          student_output: {
+            type: "string",
+            description: "Optional: what the student actually said.",
+          },
+          notes: {
+            type: "string",
+            description: "Optional: brief observation (e.g. 'confident', 'needed 2 tries', 'dropped the -o ending').",
+          },
+        },
+        required: ["lesson_id", "event_type"],
+      },
+    },
+  },
+  {
     legacyType: 'SHOW_SENTENCE_TABLE',
     declaration: {
       name: "show_sentence_table",

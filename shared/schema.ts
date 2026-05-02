@@ -3469,6 +3469,38 @@ export const insertDanielaPersonalShareSchema = createInsertSchema(danielaPerson
 export type InsertDanielaPersonalShare = z.infer<typeof insertDanielaPersonalShareSchema>;
 export type DanielaPersonalShare = typeof danielaPersonalShares.$inferSelect;
 
+// ─── Lesson Page Events ───────────────────────────────────────────────────────
+// Tracks what happened when Daniela led a student through a textbook page.
+// Each row = one observed event during a page-guided session.
+export const lessonPageEventTypeEnum = pgEnum("lesson_page_event_type", [
+  'started',           // Daniela opened the page and began guiding
+  'completed',         // Daniela finished guiding through the full page
+  'vocab_introduced',  // A vocabulary word was practiced aloud
+  'grammar_drilled',   // A grammar pattern was drilled (with a specific example)
+  'example_practiced', // Student read or produced a key example sentence
+  'wobble_detected',   // Student made an error on a target form
+  'milestone_hit',     // Student produced a target correctly under new conditions
+]);
+
+export const lessonPageEvents = pgTable("lesson_page_events", {
+  id:             varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId:         varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  lessonId:       varchar("lesson_id").notNull(),       // textbook_lesson_content.lesson_id
+  conversationId: varchar("conversation_id"),           // session when this happened
+  eventType:      lessonPageEventTypeEnum("event_type").notNull(),
+  targetItem:     varchar("target_item", { length: 255 }), // vocab word, grammar key, or example sentence
+  studentOutput:  text("student_output"),               // what the student actually said
+  notes:          text("notes"),                        // Daniela's brief observation
+  createdAt:      timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_lesson_page_events_user").on(table.userId),
+  index("idx_lesson_page_events_lesson").on(table.lessonId),
+  index("idx_lesson_page_events_created").on(table.createdAt),
+]);
+export const insertLessonPageEventSchema = createInsertSchema(lessonPageEvents).omit({ id: true, createdAt: true });
+export type InsertLessonPageEvent = z.infer<typeof insertLessonPageEventSchema>;
+export type LessonPageEvent = typeof lessonPageEvents.$inferSelect;
+
 // Agenda Queue Priority Enum
 export const agendaPriorityEnum = pgEnum("agenda_priority", [
   'high',      // Urgent - discuss first

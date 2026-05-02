@@ -205,6 +205,7 @@ export interface StreamingSession {
   curiositiesResult?: string;
   personalSharesResult?: string;
   senseTimeResult?: string;
+  textbookPageResult?: string;
   imageRecallResults?: Record<string, {
     text: string;
     images: Array<{ mimeType: string; data: string }>;

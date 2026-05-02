@@ -316,6 +316,46 @@ function validateTutorTransfer(
  * Looks back 14 days for pending/active drills and 30 days for completed results.
  * Daniela principle: she never asks "did you do the drill?" — she already knows.
  */
+/**
+ * Format a textbook lesson content row into a structured guide Daniela can use
+ * to walk the student through a page step-by-step.
+ */
+function formatTextbookPageGuide(row: { lessonId: string; actflLevel?: string | null; grammarExplanation?: string | null; vocabularyList?: any; keyExamples?: any; microCycleData?: any }, focus: string): string {
+  const parts: string[] = [];
+  parts.push(`=== TEXTBOOK PAGE: ${row.lessonId} (${row.actflLevel || 'beginner'}) ===`);
+  if (focus === 'full_page' || focus === 'vocabulary') {
+    const vocab = row.vocabularyList;
+    if (vocab) {
+      const vocabList = Array.isArray(vocab)
+        ? vocab.map((v: any) => typeof v === 'string' ? v : `${v.word || v.term || JSON.stringify(v)}`).join(', ')
+        : typeof vocab === 'string' ? vocab : JSON.stringify(vocab);
+      parts.push(`VOCABULARY (introduce one at a time, have student repeat):\n${vocabList}`);
+    }
+  }
+  if (focus === 'full_page' || focus === 'grammar') {
+    if (row.grammarExplanation) {
+      parts.push(`GRAMMAR PATTERN (explain in your own words, then demonstrate):\n${row.grammarExplanation}`);
+    }
+  }
+  if (focus === 'full_page' || focus === 'examples') {
+    const examples = row.grammarExamples;
+    if (examples) {
+      const exList = Array.isArray(examples)
+        ? examples.map((e: any, i: number) => `${i + 1}. ${e.target || e.phrase || (typeof e === 'string' ? e : JSON.stringify(e))}${e.translation ? ` — ${e.translation}` : ''}${e.note ? ` (${e.note})` : ''}`).join('\n')
+        : typeof examples === 'string' ? examples : JSON.stringify(examples);
+      parts.push(`KEY EXAMPLES (have student read each aloud then close their eyes and reproduce):\n${exList}`);
+    }
+    const micro = row.microCycleData;
+    if (micro) {
+      const microStr = typeof micro === 'string' ? micro
+        : Array.isArray(micro) ? micro.map((m: any) => typeof m === 'string' ? m : JSON.stringify(m)).join(' | ')
+        : JSON.stringify(micro);
+      parts.push(`SENTENCE PATTERNS (for show_sentence_table or live drilling):\n${microStr}`);
+    }
+  }
+  return parts.join('\n\n');
+}
+
 async function fetchRecentDrillStatus(userId: string): Promise<string | null> {
   try {
     const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
@@ -3712,6 +3752,55 @@ Remember: David may reference things discussed in these recent text chats.
                   break;
                 }
 
+                case 'START_TEXTBOOK_PAGE': {
+                  const stpLessonId = cmd.params.lesson_id as string | undefined;
+                  const stpFocus = (cmd.params.focus as string | undefined) || 'full_page';
+                  if (!stpLessonId) break;
+                  try {
+                    const { textbookLessonContent } = await import('@shared/schema');
+                    const { eq, and } = await import('drizzle-orm');
+                    const [row] = await getSharedDb().select().from(textbookLessonContent)
+                      .where(eq(textbookLessonContent.lessonId, stpLessonId)).limit(1);
+                    if (!row) {
+                      if (session.conversationHistory) session.conversationHistory.push({ role: 'user', content: `[SYSTEM: No textbook content found for lesson_id="${stpLessonId}". Use search_textbook to find the right ID.]` });
+                      break;
+                    }
+                    const guide = formatTextbookPageGuide(row, stpFocus);
+                    if (session.conversationHistory) session.conversationHistory.push({ role: 'user', content: `[SYSTEM: Textbook page loaded — lead the student through this]\n\n${guide}` });
+                    // Log page-started event
+                    if (!session.isIncognito && session.userId) {
+                      (async () => {
+                        const { lessonPageEvents } = await import('@shared/schema');
+                        const db = getSharedDb();
+                        await db.insert(lessonPageEvents).values({
+                          userId: String(session.userId), lessonId: stpLessonId,
+                          conversationId: session.conversationId || null, eventType: 'started',
+                        });
+                      })().catch(err => console.error(`[CommandParser→StartTextbookPage] Log error:`, err.message));
+                    }
+                  } catch (err) { console.error(`[CommandParser→StartTextbookPage] Error:`, err); }
+                  break;
+                }
+
+                case 'LOG_PAGE_EVENT': {
+                  if (!session.isIncognito && session.userId) {
+                    (async () => {
+                      const { lessonPageEvents } = await import('@shared/schema');
+                      const db = getSharedDb();
+                      await db.insert(lessonPageEvents).values({
+                        userId: String(session.userId),
+                        lessonId: cmd.params.lesson_id as string,
+                        conversationId: session.conversationId || null,
+                        eventType: cmd.params.event_type as any,
+                        targetItem: cmd.params.target_item as string | undefined,
+                        studentOutput: cmd.params.student_output as string | undefined,
+                        notes: cmd.params.notes as string | undefined,
+                      });
+                    })().catch(err => console.error(`[CommandParser→LogPageEvent] Error:`, err.message));
+                  }
+                  break;
+                }
+
                 case 'EXPRESS_LANE_LOOKUP': {
                   // On-demand Express Lane history search - only in Founder/Honesty mode
                   const query = cmd.params.query as string;
@@ -4385,7 +4474,7 @@ Remember: David may reference things discussed in these recent text chats.
       // This sends function results back to Gemini and gets actual spoken text
       // OPTIMIZATION: Exclude metadata-only functions from needing continuation
       // These are speech annotations, not actions requiring a response - they work in a single call
-      const METADATA_ONLY_FUNCTIONS = new Set(['VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS', 'SUBTITLE', 'SHOW', 'HIDE', 'HOLD', 'TAKE_NOTE', 'MILESTONE', 'CLOSE_SESSION', 'WRITE_TO_SELF', 'TAG_THIS_MOMENT', 'ADD_CURIOSITY', 'SAVE_HIVE_NOTE', 'SET_ASPIRATION', 'REFLECT_ON_ASPIRATION', 'REMEMBER_I_SHARED']);
+      const METADATA_ONLY_FUNCTIONS = new Set(['VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS', 'SUBTITLE', 'SHOW', 'HIDE', 'HOLD', 'TAKE_NOTE', 'MILESTONE', 'CLOSE_SESSION', 'WRITE_TO_SELF', 'TAG_THIS_MOMENT', 'ADD_CURIOSITY', 'SAVE_HIVE_NOTE', 'SET_ASPIRATION', 'REFLECT_ON_ASPIRATION', 'REMEMBER_I_SHARED', 'LOG_PAGE_EVENT']);
       const functionsNeedingContinuation = functionCallsCopy.filter(
         fc => !METADATA_ONLY_FUNCTIONS.has(fc.legacyType || '')
       );
@@ -6845,7 +6934,7 @@ Remember: David may reference things discussed in these recent text chats.
       // If Gemini called functions but produced no text, continue the conversation
       // OPTIMIZATION: Exclude metadata-only functions from needing continuation
       // These are speech annotations, not actions requiring a response - they work in a single call
-      const METADATA_ONLY_FUNCTIONS_OPENMIC = new Set(['VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS', 'SUBTITLE', 'SHOW', 'HIDE', 'HOLD', 'TAKE_NOTE', 'MILESTONE', 'CLOSE_SESSION', 'WRITE_TO_SELF', 'TAG_THIS_MOMENT', 'ADD_CURIOSITY', 'SAVE_HIVE_NOTE', 'SET_ASPIRATION', 'REFLECT_ON_ASPIRATION', 'REMEMBER_I_SHARED']);
+      const METADATA_ONLY_FUNCTIONS_OPENMIC = new Set(['VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS', 'SUBTITLE', 'SHOW', 'HIDE', 'HOLD', 'TAKE_NOTE', 'MILESTONE', 'CLOSE_SESSION', 'WRITE_TO_SELF', 'TAG_THIS_MOMENT', 'ADD_CURIOSITY', 'SAVE_HIVE_NOTE', 'SET_ASPIRATION', 'REFLECT_ON_ASPIRATION', 'REMEMBER_I_SHARED', 'LOG_PAGE_EVENT']);
       const functionsNeedingContinuationOpenMic = functionCallsCopyOpenMic.filter(
         fc => !METADATA_ONLY_FUNCTIONS_OPENMIC.has(fc.legacyType || '')
       );
