@@ -9067,7 +9067,10 @@ export const danielaOutboundQueue = pgTable("daniela_outbound_queue", {
   userId: varchar("user_id").notNull(),
   sessionId: varchar("session_id"), // voice session where the message was written
   content: text("content").notNull(),
-  deliveredAt: timestamp("delivered_at"), // null = pending delivery
+  deliveredAt: timestamp("delivered_at"), // null = pending session-start delivery
+  smsDeliveredAt: timestamp("sms_delivered_at"), // set once Twilio SMS is sent
+  audioUrl: varchar("audio_url"), // app-relative path to the rendered WAV
+  audioPlayedAt: timestamp("audio_played_at"), // set on first playback page load
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
   index("idx_daniela_outbound_queue_user").on(table.userId),

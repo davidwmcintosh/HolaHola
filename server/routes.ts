@@ -8610,6 +8610,132 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Voice message audio serving (public — UUID in path is the access token)
+  app.get("/api/media/vm-audio/:filename", async (req: any, res) => {
+    try {
+      const filename = req.params.filename.replace(/[^a-zA-Z0-9._-]/g, '');
+      if (!filename.endsWith('.wav')) return res.status(400).json({ error: 'Invalid filename' });
+      const bucketId = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID || '';
+      if (!bucketId) return res.status(503).json({ error: 'Audio storage not configured' });
+      const { objectStorageClient } = await import('./replit_integrations/object_storage/objectStorage');
+      const file = objectStorageClient.bucket(bucketId).file(`public/voice-messages/${filename}`);
+      const [exists] = await file.exists();
+      if (!exists) return res.status(404).json({ error: 'Audio not found' });
+      const [data] = await file.download();
+      res.set({
+        'Content-Type': 'audio/wav',
+        'Cache-Control': 'public, max-age=86400',
+        'Content-Length': String(data.length),
+      });
+      res.send(data);
+    } catch (err: any) {
+      console.error('[Route] vm-audio serve error:', err.message);
+      if (!res.headersSent) res.status(500).json({ error: 'Failed to serve audio' });
+    }
+  });
+
+  // Voice message playback page API (public — UUID is the access token)
+  app.get("/api/vm/:id", async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      if (!id?.match(/^[0-9a-f-]{36}$/i)) return res.status(400).json({ error: 'Invalid ID' });
+      const { danielaOutboundQueue } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      const db = getSharedDb();
+      const [item] = await db.select({
+        id: danielaOutboundQueue.id,
+        content: danielaOutboundQueue.content,
+        audioUrl: danielaOutboundQueue.audioUrl,
+        audioPlayedAt: danielaOutboundQueue.audioPlayedAt,
+        createdAt: danielaOutboundQueue.createdAt,
+      }).from(danielaOutboundQueue).where(eq(danielaOutboundQueue.id, id)).limit(1);
+      if (!item) return res.status(404).json({ error: 'Voice note not found' });
+      res.json({
+        id: item.id,
+        audioUrl: item.audioUrl,
+        content: item.content,
+        playedAt: item.audioPlayedAt,
+        createdAt: item.createdAt,
+      });
+    } catch (err: any) {
+      console.error('[Route] GET /api/vm/:id error:', err.message);
+      if (!res.headersSent) res.status(500).json({ error: 'Internal error' });
+    }
+  });
+
+  app.post("/api/vm/:id/played", async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      if (!id?.match(/^[0-9a-f-]{36}$/i)) return res.status(400).json({ error: 'Invalid ID' });
+      const { danielaOutboundQueue } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      const db = getSharedDb();
+      await db.update(danielaOutboundQueue)
+        .set({ audioPlayedAt: new Date() })
+        .where(eq(danielaOutboundQueue.id, id));
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error('[Route] POST /api/vm/:id/played error:', err.message);
+      if (!res.headersSent) res.status(500).json({ error: 'Internal error' });
+    }
+  });
+
+  // Twilio STOP webhook — honor opt-out requests from SMS replies
+  app.post("/api/webhooks/twilio/stop", async (req: any, res) => {
+    try {
+      // Twilio signature validation
+      const twilioSig = req.headers['x-twilio-signature'] as string | undefined;
+      const authToken = process.env.TWILIO_AUTH_TOKEN || '';
+      if (authToken && twilioSig) {
+        const { createHmac } = await import('crypto');
+        const url = (process.env.APP_URL || 'https://getholahola.com') + '/api/webhooks/twilio/stop';
+        const params: Record<string, string> = req.body || {};
+        const sortedKeys = Object.keys(params).sort();
+        const paramStr = sortedKeys.map(k => k + params[k]).join('');
+        const expected = createHmac('sha1', authToken).update(url + paramStr).digest('base64');
+        if (expected !== twilioSig) {
+          console.warn('[Twilio STOP] Signature mismatch — rejected');
+          return res.status(403).send('Forbidden');
+        }
+      } else if (authToken) {
+        console.warn('[Twilio STOP] Missing X-Twilio-Signature — rejected');
+        return res.status(403).send('Forbidden');
+      }
+
+      const from: string = req.body?.From || '';
+      if (!from) return res.status(400).send('Missing From');
+
+      const { studentContactPreferences } = await import('@shared/schema');
+      const db = getSharedDb();
+      const rows = await db.select().from(studentContactPreferences).where(
+        (await import('drizzle-orm')).isNotNull(studentContactPreferences.phone)
+      );
+
+      const { decryptPhone } = await import('./services/phone-encryption');
+      let matched = 0;
+      for (const row of rows) {
+        if (!row.phone) continue;
+        try {
+          const phone = decryptPhone(row.phone);
+          if (phone === from) {
+            await db.update(studentContactPreferences)
+              .set({ phoneConsentSms: false })
+              .where((await import('drizzle-orm')).eq(studentContactPreferences.id, row.id));
+            matched++;
+            console.log(`[Twilio STOP] Opted-out user ${row.userId.slice(-6)} from SMS`);
+            break;
+          }
+        } catch { /* bad ciphertext — skip */ }
+      }
+      if (matched === 0) console.warn('[Twilio STOP] No matching user found for number', from.replace(/.(?=.{4})/g, '*'));
+      // Twilio expects 200 + TwiML (empty is fine)
+      res.set('Content-Type', 'text/xml').send('<?xml version="1.0"?><Response/>');
+    } catch (err: any) {
+      console.error('[Route] Twilio STOP webhook error:', err.message);
+      if (!res.headersSent) res.status(500).send('Error');
+    }
+  });
+
   // Multimedia - Fetch stock image from Unsplash
   app.post("/api/media/stock-image", isAuthenticated, async (req: any, res) => {
     try {

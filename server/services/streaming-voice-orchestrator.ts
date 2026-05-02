@@ -3741,22 +3741,32 @@ Remember: David may reference things discussed in these recent text chats.
                         .from(danielaOutboundQueue)
                         .where(eq(danielaOutboundQueue.userId, userId))
                         .limit(1);
+                      let queueId: string;
                       if (existing.length > 0) {
+                        queueId = existing[0].id;
                         await db.update(danielaOutboundQueue)
-                          .set({ content: content.trim(), sessionId: session.id, deliveredAt: null, createdAt: new Date() })
-                          .where(eq(danielaOutboundQueue.id, existing[0].id));
+                          .set({
+                            content: content.trim(), sessionId: session.id, deliveredAt: null,
+                            smsDeliveredAt: null, audioUrl: null, createdAt: new Date(),
+                          })
+                          .where(eq(danielaOutboundQueue.id, queueId));
                       } else {
-                        await db.insert(danielaOutboundQueue).values({
+                        const [inserted] = await db.insert(danielaOutboundQueue).values({
                           userId,
                           sessionId: session.id,
                           content: content.trim(),
-                        });
+                        }).returning({ id: danielaOutboundQueue.id });
+                        queueId = inserted.id;
                       }
                       console.log(`[CommandParser→LeaveForNextSession] Queued message for user ${userId}${rawTarget ? ' (targeted)' : ''}`);
                       // Auto-resolve any pending absence nudge for this student (fire-and-forget)
                       import('./daniela-absence-worker').then(({ resolveAbsenceNudge }) =>
                         resolveAbsenceNudge(userId, 'message_queued')
                       ).catch(e => console.warn(`[CommandParser→LeaveForNextSession] Nudge resolve error:`, e.message));
+                      // Fire-and-forget SMS delivery if the student has consent
+                      import('./voice-message-delivery').then(({ deliverVoiceMessageViaSms }) =>
+                        deliverVoiceMessageViaSms(queueId, userId, content.trim())
+                      ).catch(e => console.warn(`[CommandParser→LeaveForNextSession] SMS delivery error:`, e.message));
                     })().catch(err => console.error(`[CommandParser→LeaveForNextSession] Error:`, err.message));
                   }
                   break;

@@ -476,6 +476,19 @@ const MIGRATIONS: Migration[] = [
       console.log('[MIGRATIONS] 008: Created student_contact_preferences table');
     },
   },
+  {
+    version: '009',
+    name: 'daniela-outbound-queue-sms-fields',
+    up: async () => {
+      await db.execute(sql`
+        ALTER TABLE daniela_outbound_queue
+          ADD COLUMN IF NOT EXISTS sms_delivered_at TIMESTAMP,
+          ADD COLUMN IF NOT EXISTS audio_url VARCHAR,
+          ADD COLUMN IF NOT EXISTS audio_played_at TIMESTAMP
+      `);
+      console.log('[MIGRATIONS] 009: Added SMS/audio fields to daniela_outbound_queue');
+    },
+  },
 ];
 
 export class MigrationOrchestrator {

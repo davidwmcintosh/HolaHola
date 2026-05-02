@@ -90,6 +90,7 @@ const TeamRoom = lazyWithRetry(() => import("@/pages/TeamRoom"));
 const StudyMode = lazyWithRetry(() => import("@/pages/StudyMode"));
 const ReadingLibrary = lazyWithRetry(() => import("@/pages/reading-library"));
 const ProgressReport = lazyWithRetry(() => import("@/pages/progress-report"));
+const VoiceMessage = lazyWithRetry(() => import("@/pages/voice-message"));
 const NotFound = lazyWithRetry(() => import("@/pages/not-found"));
 
 const Login = lazyWithRetry(() => import("@/pages/auth/Login"));
@@ -196,6 +197,7 @@ function Router() {
           <Route path="/complete-registration" component={CompleteRegistration} />
           <Route path="/forgot-password" component={ForgotPassword} />
           <Route path="/reset-password" component={ResetPassword} />
+          <Route path="/vm/:id" component={VoiceMessage} />
           <Route component={NotFound} />
         </Switch>
       </PageWrapper>
@@ -281,6 +283,7 @@ function Router() {
         <Route path="/login"><Redirect to="/" /></Route>
         <Route path="/signup"><Redirect to="/" /></Route>
         
+        <Route path="/vm/:id" component={VoiceMessage} />
         <Route component={NotFound} />
       </Switch>
     </PageWrapper>
