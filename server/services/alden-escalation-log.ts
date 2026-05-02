@@ -5,13 +5,14 @@
  * or an ALERT-severity issue that was immediately ineligible for repair,
  * it writes here so the Replit Agent sees it at session start and can act.
  *
- * File: .local/alden-escalations.md
- * Agent: read this at session start. Each entry describes what broke,
- * why auto-repair declined, and what action is recommended.
+ * Primary: alden_escalations table in the database (survives restarts).
+ * Secondary: .local/alden-escalations.md file (for agent briefing file).
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { getUserDb } from '../db';
+import { aldenEscalations } from '@shared/schema';
 
 const ESCALATION_LOG_PATH = path.join(process.cwd(), '.local/alden-escalations.md');
 
@@ -24,6 +25,7 @@ function ensureEscalationFile(): void {
 > that auto-repair cannot fix autonomously — it needs your attention.
 > Each entry shows the issue, why Alden couldn't fix it, and what he recommends.
 > Mark items resolved by appending \`[RESOLVED: <date> — <what you did>]\` below the entry.
+> The canonical source of truth is the alden_escalations database table.
 
 ---
 
@@ -33,17 +35,32 @@ function ensureEscalationFile(): void {
 }
 
 /**
- * Append an escalation entry to the log file.
+ * Write an escalation entry to the database (primary) and the file log (secondary).
  *
- * @param issueDescription  What Alden detected (from the notification message)
- * @param analysis          Claude's analysis / recommended action
- * @param trigger           Why this is being escalated ('recurring_pattern' | 'alert_ineligible')
+ * @param issueDescription  What Alden detected
+ * @param analysis          Claude's analysis and recommended action
+ * @param trigger           Why this is being escalated
  */
-export function writeEscalation(
+export async function writeEscalation(
   issueDescription: string,
   analysis: string,
   trigger: 'recurring_pattern' | 'alert_ineligible' = 'recurring_pattern',
-): void {
+): Promise<void> {
+  // Primary: write to the database
+  try {
+    const db = getUserDb();
+    await db.insert(aldenEscalations).values({
+      issueDescription,
+      analysis,
+      trigger,
+      status: 'open',
+    });
+    console.log('[AldenEscalation] Written escalation to database');
+  } catch (dbErr: any) {
+    console.warn('[AldenEscalation] Failed to write escalation to DB:', dbErr.message);
+  }
+
+  // Secondary: write to file so agent briefing still works
   try {
     ensureEscalationFile();
 
@@ -60,15 +77,14 @@ export function writeEscalation(
 **Analysis / Recommended Action:**
 ${analysis}
 
-**Status:** OPEN
+**Status:** OPEN (check alden_escalations table for canonical status)
 
 ---
 
 `;
 
     fs.appendFileSync(ESCALATION_LOG_PATH, entry, 'utf-8');
-    console.log(`[AldenEscalation] Written escalation to ${ESCALATION_LOG_PATH}`);
-  } catch (err: any) {
-    console.warn('[AldenEscalation] Failed to write escalation log:', err.message);
+  } catch (fileErr: any) {
+    console.warn('[AldenEscalation] Failed to write escalation file:', fileErr.message);
   }
 }

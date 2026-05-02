@@ -164,6 +164,19 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "check_student_health",
+    description: "Check per-student session quality for the last N days. Surfaces students with consistently low quality scores, zero exchanges, or short sessions — so you can spot individuals having degraded experiences that system-wide averages would hide.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        days: { type: "number" as const, description: "How many days back to look (default 7)" },
+        min_sessions: { type: "number" as const, description: "Minimum sessions per student to include in results (default 2)" },
+        quality_threshold: { type: "number" as const, description: "Flag students whose avg quality score is below this (0.0–1.0, default 0.4)" },
+      },
+      required: [],
+    },
+  },
+  {
     name: "read_file",
     description: "Read the contents of any file in the HolaHola codebase. Use this to examine actual implementation details rather than guessing from memory. Can read specific line ranges for large files.",
     input_schema: {
@@ -1178,6 +1191,57 @@ export async function executeAldenTool(
               ? `${Math.round((activeUsersThisWeek / totalUsers) * 100)}%`
               : '0%',
             summary: `${activeSessions} live sessions now · ${todaySessions} voice sessions today · ${activeUsersThisWeek}/${totalUsers} users active this week`,
+          },
+        };
+      }
+
+      case "check_student_health": {
+        const days = Math.min(Number(args.days) || 7, 30);
+        const minSessions = Number(args.min_sessions) || 2;
+        const qualityThreshold = Number(args.quality_threshold) || 0.4;
+        const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+        const sharedDb = getMonitoringDb();
+        const rows = await sharedDb.execute(sql`
+          SELECT
+            user_id,
+            COUNT(*)::int AS session_count,
+            ROUND(AVG(quality_score)::numeric, 2) AS avg_quality,
+            ROUND(AVG(exchange_count)::numeric, 1) AS avg_exchanges,
+            ROUND(AVG(student_speaking_seconds)::numeric, 0) AS avg_speaking_secs,
+            MAX(created_at) AS last_session,
+            SUM(error_count)::int AS total_errors
+          FROM student_session_health
+          WHERE created_at >= ${since}
+          GROUP BY user_id
+          HAVING COUNT(*) >= ${minSessions}
+          ORDER BY AVG(quality_score) ASC
+          LIMIT 50
+        `);
+
+        const allStudents = rows.rows as any[];
+        const struggling = allStudents.filter(r => Number(r.avg_quality) < qualityThreshold);
+        const healthy = allStudents.filter(r => Number(r.avg_quality) >= qualityThreshold);
+
+        return {
+          data: {
+            windowDays: days,
+            qualityThreshold,
+            totalStudentsWithData: allStudents.length,
+            strugglingCount: struggling.length,
+            struggling: struggling.map(r => ({
+              userId: r.user_id,
+              sessions: r.session_count,
+              avgQuality: r.avg_quality,
+              avgExchanges: r.avg_exchanges,
+              avgSpeakingSeconds: r.avg_speaking_secs,
+              lastSession: r.last_session,
+              totalErrors: r.total_errors,
+            })),
+            healthySummary: `${healthy.length} student(s) with avg quality ≥ ${qualityThreshold}`,
+            summary: struggling.length === 0
+              ? `All ${allStudents.length} student(s) with ≥${minSessions} sessions in last ${days}d are above quality threshold (${qualityThreshold})`
+              : `${struggling.length} student(s) below quality threshold ${qualityThreshold} in last ${days}d — check struggling list`,
           },
         };
       }

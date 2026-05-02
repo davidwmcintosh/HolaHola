@@ -25,7 +25,6 @@ import { costTracker } from "./cost-tracker";
 import { writeEscalation } from "./alden-escalation-log";
 
 const CHECK_INTERVAL_MS = 2 * 60 * 60 * 1000;
-const COOLDOWN_MS = 6 * 60 * 60 * 1000;
 const HEALTH_SCORE_LOW_THRESHOLD = 70;
 const BUDGET_ALERT_USD = 5;
 
@@ -47,6 +46,10 @@ let consecutiveLowScoreCycles = 0;
 
 // Budget alert cooldown (fires at most once per 12h)
 let lastBudgetAlertTime: number | null = null;
+
+// Note: global cooldown removed. Each issue type is deduplicated by fingerprint
+// (hasDuplicateActiveIssue). New issue types fire immediately; repeat issues are
+// suppressed until the founder marks the prior notification as read.
 
 // Auto-repair proposal: rolling buffer of last 3 non-NOTHING alert messages
 const MAX_ALERT_HISTORY = 3;
@@ -75,22 +78,6 @@ function buildTrendBlock(current: CycleMetric, history: CycleMetric[]): Record<s
   };
 }
 
-async function getLastNotificationAge(): Promise<number> {
-  try {
-    const db = getUserDb();
-    const [last] = await db
-      .select({ createdAt: aldenNotifications.createdAt })
-      .from(aldenNotifications)
-      .where(eq(aldenNotifications.triggeredBy, 'alden-watch'))
-      .orderBy(desc(aldenNotifications.createdAt))
-      .limit(1);
-    if (!last?.createdAt) return Infinity;
-    return Date.now() - new Date(last.createdAt).getTime();
-  } catch {
-    return Infinity;
-  }
-}
-
 /**
  * Returns true if an unread notification with this fingerprint already exists.
  * This prevents the same issue from being reported repeatedly until the user
@@ -115,12 +102,6 @@ async function hasDuplicateActiveIssue(fingerprint: string): Promise<boolean> {
 
 async function runWatchCycle() {
   try {
-    // Respect cooldown — don't spam
-    const age = await getLastNotificationAge();
-    if (age < COOLDOWN_MS) {
-      return;
-    }
-
     // Gather system state using existing tools — each is isolated so one failure
     // doesn't poison the whole snapshot with a WebSocket/DB error narrative.
     const safeCall = async (toolName: string, args: Record<string, any>) => {
@@ -387,7 +368,7 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
               message,
               'Auto-repair declined this issue as ineligible (likely infrastructure or architectural). Immediate Agent review recommended.',
               'alert_ineligible',
-            );
+            ).catch(e => console.warn('[AldenWatch] Escalation write failed:', e.message));
           }
         }
       }).catch(err => {
@@ -431,7 +412,7 @@ async function checkAndPostRepairProposal(client: Anthropic, messages: string[])
 
   // Write to the escalation log so the Agent sees it at session start
   const issueSummary = messages[messages.length - 1] ?? messages[0];
-  writeEscalation(issueSummary, proposal, 'recurring_pattern');
+  await writeEscalation(issueSummary, proposal, 'recurring_pattern');
 
   try {
     const dbR = getUserDb();
@@ -450,7 +431,7 @@ async function checkAndPostRepairProposal(client: Anthropic, messages: string[])
 }
 
 export function startAldenWatchWorker() {
-  console.log('[AldenWatch] Starting (interval: 2h, cooldown: 6h)');
+  console.log('[AldenWatch] Starting (interval: 2h, per-issue-type dedup via fingerprint)');
   // Initial check after 5 minutes (let the server settle)
   setTimeout(() => {
     runWatchCycle();

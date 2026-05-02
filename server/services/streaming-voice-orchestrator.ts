@@ -226,6 +226,7 @@ import { phonemeAnalyticsService } from "./phoneme-analytics-service";
 import { supportPersonaService } from "./support-persona-service";
 import { journeyMemoryService } from "./journey-memory-service";
 import { db, getSharedDb } from "../db";
+import { studentSessionHealth } from "@shared/schema";
 import { logVoiceOrchestratorError, trackVoicePipelineStage, logGeminiTimeout, logTtsFailure, logGeminiNoAudio } from "./production-telemetry";
 // Language segmenter no longer needed - pronunciation handled via Daniela's [lang:word] tags
 import { 
@@ -9395,6 +9396,32 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
         });
       }
       
+      // STUDENT SESSION HEALTH: Write per-student quality record for Alden/Lyra monitoring.
+      // Runs fire-and-forget — doesn't block session cleanup.
+      if (session.dbSessionId && !session.isIncognito) {
+        const exchangeCount = session.telemetryExchangeCount || 0;
+        const studentSpeakingSeconds = Math.round((session.telemetryStudentSpeakingMs || 0) / 1000);
+        const durationSeconds = Math.round((session.telemetrySttSeconds || 0));
+        // Quality: exchanges carry 60% weight, student speaking time carries 40%.
+        // 10 exchanges + 3 minutes speaking = 1.0. Zero exchanges = 0.
+        const qualityScore = Math.min(1.0,
+          (Math.min(exchangeCount, 10) / 10) * 0.6 +
+          (Math.min(studentSpeakingSeconds, 180) / 180) * 0.4
+        );
+        getSharedDb().insert(studentSessionHealth).values({
+          userId: String(session.userId),
+          sessionId: session.dbSessionId,
+          language: session.targetLanguage || null,
+          durationSeconds,
+          exchangeCount,
+          studentSpeakingSeconds,
+          errorCount: 0,
+          qualityScore,
+        }).catch((err: Error) => {
+          console.warn(`[SessionHealth] Failed to write student session health:`, err.message);
+        });
+      }
+
       // Capture session data for async memory extraction and phoneme analytics before deletion
       const sessionData = {
         userId: String(session.userId),

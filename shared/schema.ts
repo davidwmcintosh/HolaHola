@@ -9010,3 +9010,49 @@ export const compartmentEvents = pgTable('compartment_events', {
 export const insertCompartmentEventSchema = createInsertSchema(compartmentEvents).omit({ id: true, createdAt: true });
 export type InsertCompartmentEvent = z.infer<typeof insertCompartmentEventSchema>;
 export type CompartmentEvent = typeof compartmentEvents.$inferSelect;
+
+// ===== Alden Escalation Queue =====
+// Persistent DB record of issues Alden detected but cannot auto-repair.
+// Survives server restarts — unlike the file-based log this was replacing.
+// Written by: alden-escalation-log.ts (watch worker and auto-repair service).
+// Read by: the Replit Agent at session start via Alden tools.
+
+export const aldenEscalations = pgTable("alden_escalations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  issueDescription: text("issue_description").notNull(),
+  analysis: text("analysis").notNull(),
+  trigger: varchar("trigger").notNull().default('recurring_pattern'), // 'recurring_pattern' | 'alert_ineligible'
+  status: varchar("status").notNull().default('open'), // 'open' | 'resolved'
+  resolvedAt: timestamp("resolved_at"),
+  resolutionNote: text("resolution_note"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertAldenEscalationSchema = createInsertSchema(aldenEscalations).omit({ id: true, createdAt: true });
+export type InsertAldenEscalation = z.infer<typeof insertAldenEscalationSchema>;
+export type AldenEscalation = typeof aldenEscalations.$inferSelect;
+
+// ===== Per-Student Session Health =====
+// Lightweight record written at the end of every voice session.
+// Captures quality signals so Alden and Lyra can detect individual students
+// having degraded experiences — not just system-wide averages.
+
+export const studentSessionHealth = pgTable("student_session_health", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  sessionId: varchar("session_id"), // voice_sessions.id
+  language: varchar("language"),
+  durationSeconds: integer("duration_seconds").default(0),
+  exchangeCount: integer("exchange_count").default(0),
+  studentSpeakingSeconds: integer("student_speaking_seconds").default(0),
+  errorCount: integer("error_count").default(0),
+  qualityScore: real("quality_score"), // 0.0–1.0 computed at session end
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_student_session_health_user").on(table.userId),
+  index("idx_student_session_health_created").on(table.createdAt),
+]);
+
+export const insertStudentSessionHealthSchema = createInsertSchema(studentSessionHealth).omit({ id: true, createdAt: true });
+export type InsertStudentSessionHealth = z.infer<typeof insertStudentSessionHealthSchema>;
+export type StudentSessionHealth = typeof studentSessionHealth.$inferSelect;
