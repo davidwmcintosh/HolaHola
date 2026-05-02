@@ -225,6 +225,13 @@ function buildCallSession(userId: string, ctx: CallContext, twilioWs: WebSocket)
     sessionTranscripts: [],
     sentAudioChunks: new Set<string>(),
     sentAudioHashes: new Map<string, number>(),
+    telemetryTtsCharacters: 0,
+    telemetrySttSeconds: 0,
+    telemetryExchangeCount: 0,
+    telemetryStudentSpeakingMs: 0,
+    telemetryTutorSpeakingMs: 0,
+    telemetryLlmInputTokens: 0,
+    telemetryLlmOutputTokens: 0,
   };
 }
 

@@ -8750,7 +8750,13 @@ Return ONLY the ${targetLanguage} phrase:`;
     fullUrl: string,
   ): Promise<boolean> {
     const authToken = process.env.TWILIO_AUTH_TOKEN || '';
-    if (!authToken) return true; // credentials not configured — allow (dev mode)
+    if (!authToken) {
+      if (process.env.NODE_ENV === 'production') {
+        console.error('[TwilioWebhook] TWILIO_AUTH_TOKEN not set in production — rejecting request');
+        return false;
+      }
+      return true; // dev only — credentials not configured
+    }
     const twilioSig = (req.headers['x-twilio-signature'] as string | undefined) || '';
     if (!twilioSig) {
       console.warn('[TwilioWebhook] Missing X-Twilio-Signature — rejected');

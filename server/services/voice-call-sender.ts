@@ -28,6 +28,9 @@ const TWILIO_FROM_NUMBER = process.env.TWILIO_FROM_NUMBER || '';
  * the WS path.
  */
 export function computeCallNonce(userId: string, queueId: string): string {
+  if (!TWILIO_AUTH_TOKEN && process.env.NODE_ENV === 'production') {
+    console.error('[VoiceCallSender] TWILIO_AUTH_TOKEN not set — nonce is insecure in production');
+  }
   const secret = TWILIO_AUTH_TOKEN || 'dev-nonce-secret';
   return createHmac('sha256', secret).update(`${userId}:${queueId}`).digest('hex').slice(0, 32);
 }
