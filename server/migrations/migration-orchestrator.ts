@@ -425,6 +425,33 @@ const MIGRATIONS: Migration[] = [
       console.log('[MIGRATIONS] 006: Created daniela_diary_entries table');
     },
   },
+  {
+    version: '007',
+    name: 'daniela-absence-nudges',
+    up: async () => {
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS daniela_absence_nudges (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id VARCHAR NOT NULL,
+          notified_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          resolved_at TIMESTAMP,
+          resolution_type VARCHAR,
+          suppress_until TIMESTAMP,
+          last_session_date TIMESTAMP,
+          days_since_last_session INTEGER
+        )
+      `);
+      await db.execute(sql`
+        CREATE INDEX IF NOT EXISTS idx_daniela_absence_nudges_user
+        ON daniela_absence_nudges(user_id)
+      `);
+      await db.execute(sql`
+        CREATE INDEX IF NOT EXISTS idx_daniela_absence_nudges_resolved
+        ON daniela_absence_nudges(resolved_at)
+      `);
+      console.log('[MIGRATIONS] 007: Created daniela_absence_nudges table');
+    },
+  },
 ];
 
 export class MigrationOrchestrator {

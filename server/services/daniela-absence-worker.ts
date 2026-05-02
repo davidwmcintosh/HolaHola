@@ -15,9 +15,10 @@ import { getSharedDb } from '../db';
 import {
   danielaAbsenceNudges,
   voiceSessions,
+  sessionNotes,
   users,
 } from '@shared/schema';
-import { eq, and, isNull, or, lt, lte, desc, max, sql } from 'drizzle-orm';
+import { eq, and, isNull, lte, desc, max, sql } from 'drizzle-orm';
 import { founderCollabService } from './founder-collaboration-service';
 
 // How many days of absence before Daniela is notified
@@ -34,11 +35,11 @@ const EXPRESS_LANE_FOUNDER_ID = 'system-absence-worker';
  * Find all students who:
  * 1. Have had at least one real voice session
  * 2. Last session was >= ABSENCE_THRESHOLD_DAYS ago
- * 3. No unresolved absence nudge is currently pending for them
- * 4. No suppressUntil in the future
+ * 3. No unresolved absence nudge is pending for them
+ * 4. No active suppress window (suppressUntil > NOW(), regardless of resolvedAt)
  *
- * Returns each student with their userId, firstName, last session date, and
- * a rough last topic derived from the session language.
+ * Returns each student with their userId, firstName, last session date,
+ * days absent, language, and last session topic from session_notes.
  */
 async function detectAbsentStudents(): Promise<Array<{
   userId: string;
@@ -46,12 +47,13 @@ async function detectAbsentStudents(): Promise<Array<{
   lastSessionDate: Date;
   daysSinceLastSession: number;
   language: string | null;
+  lastTopic: string | null;
 }>> {
   const db = getSharedDb();
   const thresholdDate = new Date(Date.now() - ABSENCE_THRESHOLD_DAYS * 24 * 60 * 60 * 1000);
   const now = new Date();
 
-  // Subquery: most recent session per user
+  // Subquery: most recent session per user (excluding test sessions)
   const lastSessionByUser = db
     .select({
       userId: voiceSessions.userId,
@@ -62,7 +64,7 @@ async function detectAbsentStudents(): Promise<Array<{
     .groupBy(voiceSessions.userId)
     .as('last_session_by_user');
 
-  // Join with users to get names
+  // Join with users for names; filter to students absent >= threshold
   const absentStudents = await db
     .select({
       userId: lastSessionByUser.userId,
@@ -82,48 +84,58 @@ async function detectAbsentStudents(): Promise<Array<{
 
   if (absentStudents.length === 0) return [];
 
-  // Filter out students who already have an unresolved nudge or suppressed nudge
-  const absentUserIds = absentStudents.map(s => s.userId);
-
-  const pendingNudges = await db
-    .select({ userId: danielaAbsenceNudges.userId, suppressUntil: danielaAbsenceNudges.suppressUntil })
+  // Find blocked users: any user with an unresolved nudge OR an active suppress window
+  // Note: suppressUntil blocks re-notification even if the nudge is already resolved
+  const blockedRows = await db
+    .select({ userId: danielaAbsenceNudges.userId })
     .from(danielaAbsenceNudges)
     .where(
-      and(
-        isNull(danielaAbsenceNudges.resolvedAt),
-      )
+      sql`(${danielaAbsenceNudges.resolvedAt} IS NULL OR ${danielaAbsenceNudges.suppressUntil} > NOW())`
     );
 
-  const suppressedNudges = await db
-    .select({ userId: danielaAbsenceNudges.userId, suppressUntil: danielaAbsenceNudges.suppressUntil })
-    .from(danielaAbsenceNudges)
-    .where(
-      and(
-        sql`${danielaAbsenceNudges.suppressUntil} > NOW()`,
-        isNull(danielaAbsenceNudges.resolvedAt),
-      )
-    );
+  const blockedUserIds = new Set(blockedRows.map(r => r.userId));
 
-  const blockedUserIds = new Set([
-    ...pendingNudges.map(n => n.userId),
-    ...suppressedNudges.map(n => n.userId),
-  ]);
+  // Enrich with last session topic from session_notes
+  const eligibleStudents = absentStudents.filter(s => !blockedUserIds.has(s.userId));
 
-  return absentStudents
-    .filter(s => !blockedUserIds.has(s.userId))
-    .map(s => ({
-      userId: s.userId,
-      firstName: s.firstName,
-      lastSessionDate: s.lastSessionDate!,
-      daysSinceLastSession: Math.floor((now.getTime() - s.lastSessionDate!.getTime()) / (24 * 60 * 60 * 1000)),
-      language: s.language,
-    }));
+  const enriched = await Promise.all(
+    eligibleStudents.map(async (s) => {
+      let lastTopic: string | null = null;
+      try {
+        const [note] = await db
+          .select({ topicsCovered: sessionNotes.topicsCovered, summary: sessionNotes.summary })
+          .from(sessionNotes)
+          .where(eq(sessionNotes.studentId, s.userId))
+          .orderBy(desc(sessionNotes.createdAt))
+          .limit(1);
+        if (note) {
+          if (note.topicsCovered && note.topicsCovered.length > 0) {
+            lastTopic = note.topicsCovered.slice(0, 3).join(', ');
+          } else if (note.summary) {
+            lastTopic = note.summary.substring(0, 120);
+          }
+        }
+      } catch {
+        // topic is optional — don't fail the whole nudge if session_notes query fails
+      }
+      return {
+        userId: s.userId,
+        firstName: s.firstName,
+        lastSessionDate: s.lastSessionDate!,
+        daysSinceLastSession: Math.floor(
+          (now.getTime() - s.lastSessionDate!.getTime()) / (24 * 60 * 60 * 1000)
+        ),
+        language: s.language,
+        lastTopic,
+      };
+    })
+  );
+
+  return enriched;
 }
 
 /**
  * Format and post a nudge to the Express Lane for a single absent student.
- * The message is structured so Daniela can understand who, how long, what
- * language, and what her options are (leave a message or dismiss).
  */
 async function postNudgeForStudent(student: {
   userId: string;
@@ -131,16 +143,21 @@ async function postNudgeForStudent(student: {
   lastSessionDate: Date;
   daysSinceLastSession: number;
   language: string | null;
+  lastTopic: string | null;
 }): Promise<void> {
   const name = student.firstName ?? `student ${student.userId.slice(-6)}`;
   const languageLine = student.language ? ` (${student.language})` : '';
   const lastDate = student.lastSessionDate.toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric',
   });
+  const topicLine = student.lastTopic ? `\nLast topic: ${student.lastTopic}` : '';
 
-  const nudgeText = `[ABSENCE NUDGE] ${name} hasn't had a session in ${student.daysSinceLastSession} days. Last session: ${lastDate}${languageLine}.
+  const nudgeText = `[ABSENCE NUDGE] ${name} hasn't had a session in ${student.daysSinceLastSession} days. Last session: ${lastDate}${languageLine}.${topicLine}
 
-You know ${name}. If you want to reach out, call leave_for_next_session(content) — it'll be waiting when they arrive. If you know they're away or it's fine, call dismiss_absence_nudge(userId="${student.userId}") or dismiss_absence_nudge(userId="${student.userId}", suppressDays=14) to snooze for two weeks.
+You know ${name}. If you want to reach out:
+- Call leave_for_next_session(content, targetUserId="${student.userId}") — message waits for them at their next session start
+- Call dismiss_absence_nudge(userId="${student.userId}") to resolve without leaving a message
+- Call dismiss_absence_nudge(userId="${student.userId}", suppressDays=14) to snooze for two weeks
 
 userId: ${student.userId}`;
 
@@ -213,6 +230,10 @@ async function runAbsenceCheck(): Promise<void> {
  * Resolve an absence nudge when Daniela writes a message or dismisses.
  * Called from the orchestrator when Daniela uses dismiss_absence_nudge
  * or leave_for_next_session (auto-resolves pending nudge for that userId).
+ *
+ * suppressDays: if provided, sets suppressUntil on the resolved row — the
+ * detection query blocks re-notification for any row where suppressUntil > NOW(),
+ * regardless of resolvedAt, so the snooze survives the resolve.
  */
 export async function resolveAbsenceNudge(
   userId: string,

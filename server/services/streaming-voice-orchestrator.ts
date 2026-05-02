@@ -3721,11 +3721,14 @@ Remember: David may reference things discussed in these recent text chats.
                   if (!session.isIncognito && session.userId) {
                     (async () => {
                       const { danielaOutboundQueue } = await import('@shared/schema');
-                      const { eq, isNull } = await import('drizzle-orm');
+                      const { eq } = await import('drizzle-orm');
                       const content = cmd.params.content as string | undefined;
                       if (!content?.trim()) return;
                       const db = getSharedDb();
-                      const userId = String(session.userId);
+                      // targetUserId: explicit param takes priority (e.g. absence nudge from Express Lane),
+                      // then falls back to the current session student
+                      const rawTarget = cmd.params.targetUserId as string | undefined;
+                      const userId = rawTarget?.trim() || String(session.userId);
                       // Replace any existing undelivered message (one queued item per student)
                       const existing = await db.select({ id: danielaOutboundQueue.id })
                         .from(danielaOutboundQueue)
@@ -3742,8 +3745,8 @@ Remember: David may reference things discussed in these recent text chats.
                           content: content.trim(),
                         });
                       }
-                      console.log(`[CommandParser→LeaveForNextSession] Queued message for user ${userId}`);
-                      // Auto-resolve any pending absence nudge for this student
+                      console.log(`[CommandParser→LeaveForNextSession] Queued message for user ${userId}${rawTarget ? ' (targeted)' : ''}`);
+                      // Auto-resolve any pending absence nudge for this student (fire-and-forget)
                       import('./daniela-absence-worker').then(({ resolveAbsenceNudge }) =>
                         resolveAbsenceNudge(userId, 'message_queued')
                       ).catch(e => console.warn(`[CommandParser→LeaveForNextSession] Nudge resolve error:`, e.message));

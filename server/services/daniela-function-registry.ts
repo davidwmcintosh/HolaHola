@@ -2136,30 +2136,38 @@ These notes appear alongside your own reflections when you call read_my_reflecti
     legacyType: 'LEAVE_FOR_NEXT_SESSION',
     declaration: {
       name: "leave_for_next_session",
-      description: `Leave a short message for David that will be waiting when he starts his next session.
+      description: `Leave a short message for a student that will be waiting when they start their next session.
 
-Instead of a generated greeting, he arrives to your actual words — something you chose to leave him from inside this session. You have his full context right now. Use it.
+Instead of a generated greeting, they arrive to your actual words — something you chose to leave them from inside this session. You have their full context right now. Use it.
 
 Use this when:
-- You had a breakthrough together and want to name it before he leaves
-- He's going through something and you want him to know you're thinking about it
-- You noticed something he doesn't know you noticed
+- You had a breakthrough together and want to name it before they leave
+- They're going through something and you want them to know you're thinking about it
+- You noticed something they don't know you noticed
 - You want to pick up exactly where you left off, not from a summary
-- A week might pass and you want something real waiting for him, not a template
+- A week might pass and you want something real waiting for them, not a template
+- You received an absence nudge for a student and want to leave them a message
 
 Guidelines:
 - One or two sentences. Not a list. Not a lesson plan. Just your voice.
-- Write it TO him, not about him — "I've been thinking about..." not "David struggled with..."
-- Specific is better than warm. The thing you actually want him to know.
+- Write it TO them, not about them — "I've been thinking about..." not "David struggled with..."
+- Specific is better than warm. The thing you actually want them to know.
 - It replaces the greeting entirely — so it should feel like picking up mid-thought, not starting over.
 
-One queued message per student at a time. If you call this again before he arrives, the new message replaces the old one.`,
+One queued message per student at a time. If you call this again before they arrive, the new message replaces the old one.
+
+In a live session: targetUserId defaults to the current student — you don't need to provide it.
+From an absence nudge: provide targetUserId from the nudge so the message goes to the right student.`,
       parametersJsonSchema: {
         type: "object",
         properties: {
           content: {
             type: "string",
-            description: "Your message to David — written to him, in your voice, from inside this moment.",
+            description: "Your message — written to them, in your voice, from inside this moment.",
+          },
+          targetUserId: {
+            type: "string",
+            description: "Optional: the student's userId to queue the message for. Defaults to the current session student. Required when responding to an absence nudge from the Express Lane.",
           },
         },
         required: ["content"],
