@@ -3718,17 +3718,23 @@ Remember: David may reference things discussed in these recent text chats.
                 }
 
                 case 'LEAVE_FOR_NEXT_SESSION': {
-                  if (!session.isIncognito && session.userId) {
+                  // targetUserId allows Daniela to queue a message from an Express Lane / founder
+                  // context (no active student session) — e.g. responding to an absence nudge.
+                  // Without targetUserId we require a real non-incognito student session (original guard).
+                  {
+                    const rawTarget = cmd.params.targetUserId as string | undefined;
+                    const resolvedTarget = rawTarget?.trim();
+                    const hasLiveStudentSession = !session.isIncognito && !!session.userId;
+                    if (!resolvedTarget && !hasLiveStudentSession) break;
                     (async () => {
                       const { danielaOutboundQueue } = await import('@shared/schema');
                       const { eq } = await import('drizzle-orm');
                       const content = cmd.params.content as string | undefined;
                       if (!content?.trim()) return;
                       const db = getSharedDb();
-                      // targetUserId: explicit param takes priority (e.g. absence nudge from Express Lane),
-                      // then falls back to the current session student
-                      const rawTarget = cmd.params.targetUserId as string | undefined;
-                      const userId = rawTarget?.trim() || String(session.userId);
+                      // Explicit targetUserId wins (founder/Express Lane context).
+                      // Fall back to current session student for live sessions.
+                      const userId = resolvedTarget || String(session.userId);
                       // Replace any existing undelivered message (one queued item per student)
                       const existing = await db.select({ id: danielaOutboundQueue.id })
                         .from(danielaOutboundQueue)

@@ -22,14 +22,18 @@ import { eq, and, isNull, lte, desc, max, sql } from 'drizzle-orm';
 import { founderCollabService } from './founder-collaboration-service';
 
 // How many days of absence before Daniela is notified
-const ABSENCE_THRESHOLD_DAYS = 5;
+// Override via ABSENCE_THRESHOLD_DAYS env var (e.g. "7" for weekly learners)
+const ABSENCE_THRESHOLD_DAYS = parseInt(process.env.ABSENCE_THRESHOLD_DAYS ?? '5', 10);
 
-// Worker runs once per day
-const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+// Worker check interval — defaults to once per day
+// Override via ABSENCE_CHECK_INTERVAL_HOURS env var (e.g. "12" for twice-daily)
+const CHECK_INTERVAL_MS =
+  parseInt(process.env.ABSENCE_CHECK_INTERVAL_HOURS ?? '24', 10) * 60 * 60 * 1000;
 
-// The Express Lane session Daniela uses to receive these nudges
+// Post nudges to the real founder's Express Lane so Daniela can see them.
+// All Express Lane services use David's actual Replit userId as the founderId.
 const EXPRESS_LANE_SESSION_TITLE = 'Daniela — Student Watch';
-const EXPRESS_LANE_FOUNDER_ID = 'system-absence-worker';
+const EXPRESS_LANE_FOUNDER_ID = '49847136'; // David's Replit userId
 
 /**
  * Find all students who:
