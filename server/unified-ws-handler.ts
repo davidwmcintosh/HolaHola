@@ -700,10 +700,10 @@ function handleTwilioStreamConnection(ws: WS, req: IncomingMessage) {
   }
 
   import('./services/twilio-voip-bridge').then(({ handleTwilioMediaStream }) => {
-    handleTwilioMediaStream(ws as any, userId, queueId).catch((err: any) => {
+    handleTwilioMediaStream(ws, userId, queueId).catch((err: Error) => {
       console.error('[Unified WS] TwilioVoipBridge error:', err.message);
     });
-  }).catch((err: any) => {
+  }).catch((err: Error) => {
     console.error('[Unified WS] Failed to import twilio-voip-bridge:', err.message);
     ws.close(1011, 'Bridge unavailable');
   });

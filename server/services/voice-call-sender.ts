@@ -21,16 +21,20 @@ const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || '';
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || '';
 const TWILIO_FROM_NUMBER = process.env.TWILIO_FROM_NUMBER || '';
 
-async function initiateCall(userId: string, queueId: string): Promise<void> {
+/**
+ * Place an outbound Twilio call to the student.
+ * Returns true if the call was successfully initiated, false on any failure.
+ */
+async function initiateCall(userId: string, queueId: string): Promise<boolean> {
   if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_FROM_NUMBER) {
     console.warn('[VoiceCallSender] Twilio credentials not configured — call skipped');
-    return;
+    return false;
   }
 
   const prefs = await storage.getContactPreferences(userId);
   if (!prefs?.phone) {
     console.warn(`[VoiceCallSender] No phone number for user ${userId.slice(-6)}`);
-    return;
+    return false;
   }
 
   const { decryptPhone } = await import('./phone-encryption');
@@ -39,7 +43,7 @@ async function initiateCall(userId: string, queueId: string): Promise<void> {
     phone = decryptPhone(prefs.phone);
   } catch {
     console.error(`[VoiceCallSender] Phone decrypt failed for user ${userId.slice(-6)}`);
-    return;
+    return false;
   }
 
   const answerUrl = `${APP_URL}/api/webhooks/twilio/voice-answer?queueId=${queueId}&userId=${userId}`;
@@ -69,7 +73,7 @@ async function initiateCall(userId: string, queueId: string): Promise<void> {
     if (!response.ok) {
       const text = await response.text();
       console.error(`[VoiceCallSender] Twilio API error ${response.status}:`, text.slice(0, 200));
-      return;
+      return false;
     }
 
     const json = (await response.json()) as { sid: string };
@@ -81,8 +85,11 @@ async function initiateCall(userId: string, queueId: string): Promise<void> {
       .update(danielaOutboundQueue)
       .set({ callSid, callAt: new Date() })
       .where(eq(danielaOutboundQueue.id, queueId));
-  } catch (err: any) {
-    console.error('[VoiceCallSender] initiateCall error:', err.message);
+
+    return true;
+  } catch (err: unknown) {
+    console.error('[VoiceCallSender] initiateCall error:', err instanceof Error ? err.message : String(err));
+    return false;
   }
 }
 
@@ -91,7 +98,7 @@ async function initiateCall(userId: string, queueId: string): Promise<void> {
  * Should be called fire-and-forget after leave_for_next_session creates a queue item.
  *
  * Priority order:
- *  1. VoIP call (phoneConsentVoice)
+ *  1. VoIP call (phoneConsentVoice) — falls through to SMS if call initiation fails
  *  2. SMS voice note (phoneConsentSms)
  *  3. Session-start queue (no consent, already queued)
  */
@@ -104,20 +111,22 @@ export async function initiateOutboundContact(
     const voiceOk = await canContactStudent(userId, 'voice');
     if (voiceOk) {
       console.log(`[VoiceCallSender] Voice consent ✓ — initiating call for user ${userId.slice(-6)}`);
-      await initiateCall(userId, queueId);
-      return;
+      const callPlaced = await initiateCall(userId, queueId);
+      if (callPlaced) return;
+      // Call initiation failed — fall through to SMS
+      console.log(`[VoiceCallSender] Call initiation failed — falling back to SMS for user ${userId.slice(-6)}`);
     }
 
     const smsOk = await canContactStudent(userId, 'sms');
     if (smsOk) {
-      console.log(`[VoiceCallSender] No voice consent, falling back to SMS for user ${userId.slice(-6)}`);
+      console.log(`[VoiceCallSender] SMS consent ✓ — delivering via SMS for user ${userId.slice(-6)}`);
       const { deliverVoiceMessageViaSms } = await import('./voice-message-delivery');
       await deliverVoiceMessageViaSms(queueId, userId, content);
       return;
     }
 
     console.log(`[VoiceCallSender] No outbound consent for user ${userId.slice(-6)} — message stays in queue`);
-  } catch (err: any) {
-    console.error('[VoiceCallSender] initiateOutboundContact error:', err.message);
+  } catch (err: unknown) {
+    console.error('[VoiceCallSender] initiateOutboundContact error:', err instanceof Error ? err.message : String(err));
   }
 }

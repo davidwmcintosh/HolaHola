@@ -8744,27 +8744,62 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Shared Twilio signature validator for voice webhooks.
+  async function validateTwilioWebhookSignature(
+    req: any,
+    fullUrl: string,
+  ): Promise<boolean> {
+    const authToken = process.env.TWILIO_AUTH_TOKEN || '';
+    if (!authToken) return true; // credentials not configured — allow (dev mode)
+    const twilioSig = (req.headers['x-twilio-signature'] as string | undefined) || '';
+    if (!twilioSig) {
+      console.warn('[TwilioWebhook] Missing X-Twilio-Signature — rejected');
+      return false;
+    }
+    const { createHmac } = await import('crypto');
+    const params: Record<string, string> = req.body || {};
+    const sortedKeys = Object.keys(params).sort();
+    const paramStr = sortedKeys.map((k) => k + params[k]).join('');
+    const expected = createHmac('sha1', authToken).update(fullUrl + paramStr).digest('base64');
+    if (expected !== twilioSig) {
+      console.warn('[TwilioWebhook] Signature mismatch — rejected');
+      return false;
+    }
+    return true;
+  }
+
   // Twilio voice-answer webhook — called when student answers the outbound call.
-  // Returns TwiML instructing Twilio to open a Media Streams WebSocket to our server.
+  // Returns TwiML with <Connect><Stream> for bidirectional audio (Media Streams).
   app.post("/api/webhooks/twilio/voice-answer", async (req: any, res) => {
     try {
       const queueId = (req.query.queueId as string) || '';
       const userId = (req.query.userId as string) || '';
       const appUrl = process.env.APP_URL || 'https://getholahola.com';
+      const fullUrl = `${appUrl}/api/webhooks/twilio/voice-answer?queueId=${queueId}&userId=${userId}`;
 
-      // Build the Media Streams WebSocket URL (wss://)
-      const wsUrl = appUrl.replace(/^https?:\/\//, 'wss://') +
+      const sigValid = await validateTwilioWebhookSignature(req, fullUrl);
+      if (!sigValid) return res.status(403).set('Content-Type', 'text/xml').send('<?xml version="1.0"?><Response><Hangup/></Response>');
+
+      if (!queueId || !userId) {
+        console.warn('[Route] Twilio voice-answer — missing queueId or userId');
+        return res.set('Content-Type', 'text/xml').send('<?xml version="1.0"?><Response><Hangup/></Response>');
+      }
+
+      // Build the bidirectional Media Streams WebSocket URL (wss://)
+      const wsUrl =
+        appUrl.replace(/^https?:\/\//, 'wss://') +
         `/api/voice/twilio-stream?userId=${encodeURIComponent(userId)}&queueId=${encodeURIComponent(queueId)}`;
 
+      // <Connect><Stream> creates a BIDIRECTIONAL stream — Twilio sends audio to
+      // the server AND plays audio sent back from the server to the caller.
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Start>
+  <Connect>
     <Stream url="${wsUrl}" />
-  </Start>
-  <Pause length="300" />
+  </Connect>
 </Response>`;
 
-      console.log(`[Route] Twilio voice-answer — queueId: ${queueId.slice(-6)}, userId: ${userId.slice(-6)}, wsUrl: ${wsUrl}`);
+      console.log(`[Route] Twilio voice-answer — queueId: ${queueId.slice(-6)}, userId: ${userId.slice(-6)}`);
       res.set('Content-Type', 'text/xml').send(twiml);
     } catch (err: any) {
       console.error('[Route] Twilio voice-answer error:', err.message);
@@ -8778,20 +8813,24 @@ Return ONLY the ${targetLanguage} phrase:`;
     try {
       const queueId = (req.query.queueId as string) || '';
       const userId = (req.query.userId as string) || '';
+      const appUrl = process.env.APP_URL || 'https://getholahola.com';
+      const fullUrl = `${appUrl}/api/webhooks/twilio/voice-status?queueId=${queueId}&userId=${userId}`;
+
+      const sigValid = await validateTwilioWebhookSignature(req, fullUrl);
+      if (!sigValid) return res.status(403).send('Forbidden');
+
       const callStatus: string = req.body?.CallStatus || '';
       const answeredBy: string = req.body?.AnsweredBy || '';
 
       console.log(`[Route] Twilio voice-status — status: ${callStatus}, answeredBy: ${answeredBy}, user: ${userId.slice(-6)}`);
 
       const NO_ANSWER_STATUSES = new Set(['no-answer', 'busy', 'failed', 'canceled']);
-      const IS_MACHINE = /^machine/.test(answeredBy);
+      const isMachine = /^machine/.test(answeredBy);
 
-      if (NO_ANSWER_STATUSES.has(callStatus) || IS_MACHINE) {
-        if (queueId && userId) {
-          import('./services/twilio-voip-bridge').then(({ handleCallNoAnswer }) =>
-            handleCallNoAnswer(userId, queueId)
-          ).catch((e: any) => console.warn('[Route] handleCallNoAnswer error:', e.message));
-        }
+      if ((NO_ANSWER_STATUSES.has(callStatus) || isMachine) && queueId && userId) {
+        import('./services/twilio-voip-bridge')
+          .then(({ handleCallNoAnswer }) => handleCallNoAnswer(userId, queueId))
+          .catch((e: Error) => console.warn('[Route] handleCallNoAnswer error:', e.message));
       }
 
       res.set('Content-Type', 'text/xml').send('<?xml version="1.0"?><Response/>');
