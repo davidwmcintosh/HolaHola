@@ -4553,12 +4553,11 @@ export class NativeFunctionCallHandler {
       // ─── OUTBOUND PRESENCE ────────────────────────────────────────────────────
 
       case 'LEAVE_FOR_NEXT_SESSION': {
-        // Security: targetUserId cross-student override is ONLY allowed when there is no live
-        // student session (session.userId is null) — i.e. Express Lane / founder context.
-        // In live student sessions targetUserId is silently ignored to prevent IDOR.
+        // Security: targetUserId cross-student override only allowed in Founder Mode / Raw Honesty Mode.
+        // In normal student sessions targetUserId is silently ignored (always uses session.userId) to prevent IDOR.
         const rawTarget = fn.args.targetUserId as string | undefined;
-        const inExpressLaneContext = !session.userId; // no live student = trusted context
-        const resolvedTarget = inExpressLaneContext ? rawTarget?.trim() : undefined;
+        const inTrustedContext = !!(session.isFounderMode || session.isRawHonestyMode);
+        const resolvedTarget = inTrustedContext ? rawTarget?.trim() : undefined;
         const hasLiveStudentSession = !session.isIncognito && !!session.userId;
         if (!resolvedTarget && !hasLiveStudentSession) {
           console.warn('[Native→LeaveForNextSession] No targetUserId and no live student session — skipping');
@@ -4600,10 +4599,10 @@ export class NativeFunctionCallHandler {
       }
 
       case 'DISMISS_ABSENCE_NUDGE': {
-        // Security: only allowed in Express Lane / founder context (no live student session).
-        // Prevents any student from dismissing or snoozing absence nudges for arbitrary user IDs.
-        if (session.userId) {
-          console.warn(`[Native→DismissAbsenceNudge] Blocked: called from live student session (userId=${session.userId})`);
+        // Security: only allowed in Founder Mode or Raw Honesty Mode (authenticated trusted context).
+        // Prevents regular students from dismissing or snoozing absence nudges for arbitrary user IDs.
+        if (!session.isFounderMode && !session.isRawHonestyMode) {
+          console.warn(`[Native→DismissAbsenceNudge] Blocked: not in trusted context (isFounderMode=${session.isFounderMode}, isRawHonestyMode=${session.isRawHonestyMode})`);
           break;
         }
         const userId = (fn.args.userId as string | undefined)?.trim();

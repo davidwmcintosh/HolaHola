@@ -3718,14 +3718,13 @@ Remember: David may reference things discussed in these recent text chats.
                 }
 
                 case 'LEAVE_FOR_NEXT_SESSION': {
-                  // Security: targetUserId cross-student override is ONLY allowed in Express Lane /
-                  // founder contexts (where session.userId is null — no live student is present).
-                  // In live student sessions, targetUserId is ignored and always falls back to
-                  // session.userId to prevent IDOR (one student injecting content for another).
+                  // Security: targetUserId cross-student override is ONLY allowed in authenticated
+                  // Founder Mode or Raw Honesty Mode sessions. In normal student sessions targetUserId
+                  // is silently ignored (always queues for the current session student) to prevent IDOR.
                   {
                     const rawTarget = cmd.params.targetUserId as string | undefined;
-                    const inExpressLaneContext = !session.userId; // no live student = trusted context
-                    const resolvedTarget = inExpressLaneContext ? rawTarget?.trim() : undefined;
+                    const inTrustedContext = !!(session.isFounderMode || session.isRawHonestyMode);
+                    const resolvedTarget = inTrustedContext ? rawTarget?.trim() : undefined;
                     const hasLiveStudentSession = !session.isIncognito && !!session.userId;
                     if (!resolvedTarget && !hasLiveStudentSession) break;
                     (async () => {
@@ -3781,10 +3780,10 @@ Remember: David may reference things discussed in these recent text chats.
                 }
 
                 case 'DISMISS_ABSENCE_NUDGE': {
-                  // Security: only allowed in Express Lane / founder context (no live student session).
-                  // Prevents any student from dismissing absence nudges for arbitrary user IDs.
-                  if (session.userId) {
-                    console.warn(`[CommandParser→DismissAbsenceNudge] Blocked: called from live student session (userId=${session.userId})`);
+                  // Security: only allowed in Founder Mode or Raw Honesty Mode (authenticated trusted
+                  // context). Prevents regular students from dismissing absence nudges for arbitrary IDs.
+                  if (!session.isFounderMode && !session.isRawHonestyMode) {
+                    console.warn(`[CommandParser→DismissAbsenceNudge] Blocked: not in trusted context (isFounderMode=${session.isFounderMode}, isRawHonestyMode=${session.isRawHonestyMode})`);
                     break;
                   }
                   (async () => {
