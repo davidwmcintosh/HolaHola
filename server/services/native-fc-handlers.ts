@@ -4722,7 +4722,7 @@ export class NativeFunctionCallHandler {
         const chronological = [...results].reverse();
         const formattedResults = chronological.map(msg => {
           const date = new Date(msg.createdAt).toLocaleDateString();
-          const preview = msg.content.length > 2000 ? msg.content.substring(0, 2000) + '...[truncated]' : msg.content;
+          const preview = msg.content.length > 6000 ? msg.content.substring(0, 6000) + '...[truncated]' : msg.content;
           return `[${date}] ${msg.role}: ${preview}`;
         }).join('\n\n---\n\n');
         
