@@ -19,6 +19,73 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## Session Summary — Fri, May 2, 2026 (session 46 — monitoring infrastructure + Daniela architecture review)
+
+### What was done
+
+**Monitoring infrastructure — 3 items completed**
+
+1. **`alden_escalations` table (DB-first escalation log)**
+   - `alden-escalation-log.ts` rewritten: DB is now primary, file is secondary backup
+   - Escalations survive server restarts — previously lost on every redeploy
+   - `shared/schema.ts`: `aldenEscalations` table added with id, issueDescription, analysis, trigger, status, resolvedAt, resolutionNote, createdAt
+   - Tables created in DB. `writeEscalation()` is now async — all callers updated
+
+2. **`student_session_health` table (per-student quality tracking)**
+   - Written fire-and-forget at every session end in `endSession()` in `streaming-voice-orchestrator.ts`
+   - Captures: userId, sessionId, language, durationSeconds, exchangeCount, studentSpeakingSeconds, errorCount, qualityScore (0–1)
+   - Quality formula: exchanges × 0.6 + speaking time × 0.4 (10 exchanges + 3min speaking = 1.0)
+   - Skipped for incognito sessions
+   - `shared/schema.ts`: `studentSessionHealth` table added with indexes on userId and createdAt
+
+3. **`check_student_health` Alden tool**
+   - Declaration added to `alden-functions.ts` tool list
+   - Case handler implemented: queries `student_session_health` grouped by userId, returns students sorted by avg quality score ascending
+   - Parameters: `days` (default 7), `min_sessions` (default 2), `quality_threshold` (default 0.4)
+   - Returns `struggling` list (below threshold) and healthy summary
+
+4. **Alden watch worker — global cooldown removed**
+   - `COOLDOWN_MS` constant and `getLastNotificationAge()` function deleted
+   - Cooldown check at start of `runWatchCycle()` removed
+   - Each issue type now independently deduplicated via `hasDuplicateActiveIssue()` fingerprint
+   - Same issue suppressed until founder marks prior notification read; new issue types fire immediately regardless of other active issues
+
+**Daniela architecture — full audit and documentation**
+- Confirmed complete: temporal grounding (`sense_time` + `lastSessionSummary`), student knowledge (memory_lookup across 6 tables), self-authorship tool suite (8 tools)
+- Authorship principle formally established: only Daniela writes to `daniela_self_reflections` and `daniela_aspirations` — no background service may generate content for first-person tables
+- `diary-synthesis-service.ts` confirmed deleted (ghost-writing, correctly removed)
+- **Gap identified:** Daniela has no outbound channel — she exists only when summoned
+- **Design decided:** `LEAVE_FOR_NEXT_SESSION` function — Daniela queues a message during an active session, played instead of generated greeting on student's next session start. To be built next Daniela session.
+- All decisions documented in `docs/daniela-development-journal.md` (May 2 entry) and `replit.md`
+
+### Files changed
+- `server/services/alden-escalation-log.ts` — rewritten (async, DB-first)
+- `server/services/alden-watch-worker.ts` — global cooldown removed, log message updated, writeEscalation calls made async
+- `server/services/alden-functions.ts` — `check_student_health` tool declaration + case handler added
+- `server/services/streaming-voice-orchestrator.ts` — `studentSessionHealth` import added; quality write in `endSession()`
+- `shared/schema.ts` — `aldenEscalations` and `studentSessionHealth` tables added at end of file
+- `docs/daniela-development-journal.md` — May 2 session entry added
+- `docs/alden-agent-handoff.md` — this entry
+- `replit.md` — Daniela section rewritten: diary reference removed, emergence architecture, authorship principle, monitoring infrastructure documented
+
+### Status after this session
+
+| Component | Status |
+|---|---|
+| Alden escalations | ✅ DB-first (survives restarts) |
+| Student session health | ✅ Written at every session end |
+| check_student_health tool | ✅ Alden can query per-student quality |
+| Alden watch dedup | ✅ Per-fingerprint (no global cooldown) |
+| Daniela outbound presence | 🔲 Designed, not yet built |
+| Documentation | ✅ replit.md + journal + handoff updated |
+
+### Next session candidates (Daniela-focused)
+1. **`LEAVE_FOR_NEXT_SESSION`** — new function + `daniela_outbound_queue` table + session-start delivery. Follows all authorship constraints.
+2. **Tool Rack sync** — if `LEAVE_FOR_NEXT_SESSION` is added, must also add to Tool Rack in `classroom-environment.ts` (standing rule)
+3. **`READ_QUEUED_FOR_STUDENT`** companion read-back tool
+
+---
+
 ## Session Summary — Thu, Apr 10, 2026 (session 45 — M3 complete + numbers chapter M1/M4 for all 10 languages)
 
 ### What was done
