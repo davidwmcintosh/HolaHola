@@ -4550,6 +4550,69 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      // ─── OUTBOUND PRESENCE ────────────────────────────────────────────────────
+
+      case 'LEAVE_FOR_NEXT_SESSION': {
+        // Explicit targetUserId allows this to fire from Express Lane (no live student session).
+        // Falls back to session student for in-session calls.
+        const rawTarget = fn.args.targetUserId as string | undefined;
+        const resolvedTarget = rawTarget?.trim();
+        const hasLiveStudentSession = !session.isIncognito && !!session.userId;
+        if (!resolvedTarget && !hasLiveStudentSession) {
+          console.warn('[Native→LeaveForNextSession] No targetUserId and no live student session — skipping');
+          break;
+        }
+        (async () => {
+          const { danielaOutboundQueue } = await import('@shared/schema');
+          const { eq } = await import('drizzle-orm');
+          const content = fn.args.content as string | undefined;
+          if (!content?.trim()) {
+            console.warn('[Native→LeaveForNextSession] Empty content — skipping');
+            return;
+          }
+          const db = (await import('../db')).getSharedDb();
+          const userId = resolvedTarget || String(session.userId);
+          const existing = await db.select({ id: danielaOutboundQueue.id })
+            .from(danielaOutboundQueue)
+            .where(eq(danielaOutboundQueue.userId, userId))
+            .limit(1);
+          if (existing.length > 0) {
+            await db.update(danielaOutboundQueue)
+              .set({ content: content.trim(), sessionId: session.id, deliveredAt: null, createdAt: new Date() })
+              .where(eq(danielaOutboundQueue.id, existing[0].id));
+          } else {
+            await db.insert(danielaOutboundQueue).values({
+              userId,
+              sessionId: session.id,
+              content: content.trim(),
+            });
+          }
+          console.log(`[Native→LeaveForNextSession] Queued message for user ${userId}${resolvedTarget ? ' (targeted)' : ''}`);
+          const { resolveAbsenceNudge } = await import('./daniela-absence-worker');
+          await resolveAbsenceNudge(userId, 'message_queued').catch(e =>
+            console.warn('[Native→LeaveForNextSession] Nudge resolve error:', e.message)
+          );
+        })().catch(err => console.error('[Native→LeaveForNextSession] Error:', err.message));
+        break;
+      }
+
+      case 'DISMISS_ABSENCE_NUDGE': {
+        const userId = (fn.args.userId as string | undefined)?.trim();
+        if (!userId) {
+          console.warn('[Native→DismissAbsenceNudge] Missing userId param');
+          break;
+        }
+        const suppressDays = fn.args.suppressDays as number | undefined;
+        (async () => {
+          const { resolveAbsenceNudge } = await import('./daniela-absence-worker');
+          await resolveAbsenceNudge(userId, 'dismissed', suppressDays);
+          console.log(`[Native→DismissAbsenceNudge] Resolved nudge for user ${userId}${suppressDays ? ` (snooze ${suppressDays}d)` : ''}`);
+        })().catch(err => console.error('[Native→DismissAbsenceNudge] Error:', err.message));
+        break;
+      }
+
+      // ──────────────────────────────────────────────────────────────────────────
+
       default:
         console.log(`[Native Function Call] Unknown function type: ${fn.legacyType}`);
     }

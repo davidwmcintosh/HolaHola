@@ -18,7 +18,7 @@ import {
   sessionNotes,
   users,
 } from '@shared/schema';
-import { eq, and, isNull, lte, desc, max, sql } from 'drizzle-orm';
+import { eq, and, isNull, ne, lte, desc, max, sql } from 'drizzle-orm';
 import { founderCollabService } from './founder-collaboration-service';
 
 // How many days of absence before Daniela is notified
@@ -68,7 +68,9 @@ async function detectAbsentStudents(): Promise<Array<{
     .groupBy(voiceSessions.userId)
     .as('last_session_by_user');
 
-  // Join with users for names; filter to students absent >= threshold
+  // Join with users for names; filter to:
+  // - Students absent >= threshold
+  // - Active accounts only (exclude canceled — churned users shouldn't generate nudges)
   const absentStudents = await db
     .select({
       userId: lastSessionByUser.userId,
@@ -84,7 +86,12 @@ async function detectAbsentStudents(): Promise<Array<{
     })
     .from(lastSessionByUser)
     .innerJoin(users, eq(users.id, lastSessionByUser.userId))
-    .where(lte(lastSessionByUser.lastSessionDate, thresholdDate));
+    .where(
+      and(
+        lte(lastSessionByUser.lastSessionDate, thresholdDate),
+        ne(users.subscriptionStatus, 'canceled'),
+      )
+    );
 
   if (absentStudents.length === 0) return [];
 
