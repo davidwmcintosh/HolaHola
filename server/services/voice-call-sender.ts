@@ -57,6 +57,7 @@ async function initiateCall(userId: string, queueId: string): Promise<boolean> {
   const appUrl = APP_URL;
   const answerUrl = `${appUrl}/api/webhooks/twilio/voice-answer?queueId=${encodeURIComponent(queueId)}&userId=${encodeURIComponent(userId)}`;
   const statusUrl = `${appUrl}/api/webhooks/twilio/voice-status?queueId=${encodeURIComponent(queueId)}&userId=${encodeURIComponent(userId)}`;
+  const recordingCallbackUrl = `${appUrl}/api/webhooks/twilio/recording-complete?queueId=${encodeURIComponent(queueId)}&userId=${encodeURIComponent(userId)}`;
   const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');
 
   try {
@@ -82,6 +83,11 @@ async function initiateCall(userId: string, queueId: string): Promise<boolean> {
           // <Hangup/> for machines before any stream is established, preventing Daniela
           // from speaking into voicemail.
           MachineDetection: 'Enable',
+          // Record the full call for quality review and transcription.
+          // Twilio REST API uses Record=true (boolean) to enable recording from answer.
+          Record: 'true',
+          RecordingStatusCallback: recordingCallbackUrl,
+          RecordingStatusCallbackMethod: 'POST',
         }).toString(),
       },
     );

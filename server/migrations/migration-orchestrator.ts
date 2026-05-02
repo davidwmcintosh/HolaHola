@@ -504,6 +504,17 @@ const MIGRATIONS: Migration[] = [
       console.log('[MIGRATIONS] 010: Added VoIP call tracking fields to daniela_outbound_queue');
     },
   },
+  {
+    version: '011',
+    name: 'daniela-outbound-queue-call-transcript',
+    up: async () => {
+      await db.execute(sql`
+        ALTER TABLE daniela_outbound_queue
+          ADD COLUMN IF NOT EXISTS call_transcript TEXT
+      `);
+      console.log('[MIGRATIONS] 011: Added call_transcript column to daniela_outbound_queue');
+    },
+  },
 ];
 
 export class MigrationOrchestrator {

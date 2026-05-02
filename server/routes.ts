@@ -8871,6 +8871,127 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Twilio recording-complete callback — called when a call recording is ready.
+  // Downloads the audio, transcribes via Deepgram, and stores the transcript.
+  app.post("/api/webhooks/twilio/recording-complete", async (req: any, res) => {
+    try {
+      const queueId = (req.query.queueId as string) || '';
+      const userId = (req.query.userId as string) || '';
+      const appUrl = process.env.APP_URL || 'https://getholahola.com';
+      const fullUrl = `${appUrl}/api/webhooks/twilio/recording-complete?queueId=${encodeURIComponent(queueId)}&userId=${encodeURIComponent(userId)}`;
+
+      const sigValid = await validateTwilioWebhookSignature(req, fullUrl);
+      if (!sigValid) return res.status(403).send('Forbidden');
+
+      const recordingStatus: string = req.body?.RecordingStatus || '';
+      const recordingUrl: string = req.body?.RecordingUrl || '';
+      const callSid: string = req.body?.CallSid || '';
+      const recordingDuration: string = req.body?.RecordingDuration || '';
+
+      console.log(`[Route] Twilio recording-complete — status: ${recordingStatus}, callSid: ${callSid.slice(-6)}, duration: ${recordingDuration}s`);
+
+      // Acknowledge immediately; process transcription async
+      res.set('Content-Type', 'text/xml').send('<?xml version="1.0"?><Response/>');
+
+      if (recordingStatus !== 'completed' || !recordingUrl || !callSid) {
+        console.warn('[Route] recording-complete — skipping (not completed or missing URL)');
+        return;
+      }
+
+      // Find the queue row by callSid (fall back to queueId from query param)
+      const { danielaOutboundQueue } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      const db = getSharedDb();
+
+      let targetQueueId = queueId;
+      if (!targetQueueId) {
+        const rows = await db.select({ id: danielaOutboundQueue.id })
+          .from(danielaOutboundQueue)
+          .where(eq(danielaOutboundQueue.callSid, callSid))
+          .limit(1);
+        targetQueueId = rows[0]?.id || '';
+      }
+
+      if (!targetQueueId) {
+        console.warn(`[Route] recording-complete — no queue row found for callSid ${callSid.slice(-6)}`);
+        return;
+      }
+
+      // Transcription is done asynchronously after responding to Twilio
+      (async () => {
+        try {
+          const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || '';
+          const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || '';
+          const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY || '';
+
+          if (!DEEPGRAM_API_KEY) {
+            console.warn('[Route] recording-complete — DEEPGRAM_API_KEY not set, skipping transcription');
+            return;
+          }
+
+          // Download the recording from Twilio (MP3 format)
+          const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');
+          const audioResp = await fetch(`${recordingUrl}.mp3`, {
+            headers: { Authorization: `Basic ${auth}` },
+          });
+          if (!audioResp.ok) {
+            console.error(`[Route] recording-complete — failed to download recording: ${audioResp.status}`);
+            return;
+          }
+          const audioBuffer = Buffer.from(await audioResp.arrayBuffer());
+          console.log(`[Route] recording-complete — downloaded ${audioBuffer.length} bytes for queue ${targetQueueId.slice(-6)}`);
+
+          // Transcribe with Deepgram (nova-2, multi-language to capture both Spanish and English)
+          const { createClient } = await import('@deepgram/sdk');
+          const dgClient = createClient(DEEPGRAM_API_KEY);
+          const { result } = await dgClient.listen.prerecorded.transcribeFile(audioBuffer, {
+            model: 'nova-2',
+            language: 'multi',
+            smart_format: true,
+            punctuate: true,
+            diarize: true,
+            mimetype: 'audio/mpeg',
+          });
+
+          const transcript = result?.results?.channels?.[0]?.alternatives?.[0]?.transcript || '';
+          if (!transcript.trim()) {
+            console.warn(`[Route] recording-complete — empty transcript for queue ${targetQueueId.slice(-6)}`);
+            return;
+          }
+
+          await db.update(danielaOutboundQueue)
+            .set({ callTranscript: transcript })
+            .where(eq(danielaOutboundQueue.id, targetQueueId));
+
+          console.log(`[Route] recording-complete — transcript stored (${transcript.length} chars) for queue ${targetQueueId.slice(-6)}`);
+        } catch (txErr: unknown) {
+          console.error('[Route] recording-complete transcription error:', txErr instanceof Error ? txErr.message : String(txErr));
+        }
+      })();
+    } catch (err: any) {
+      console.error('[Route] Twilio recording-complete error:', err.message);
+      if (!res.headersSent) res.status(500).send('Error');
+    }
+  });
+
+  // Admin: list recent Daniela outbound calls for call quality review
+  app.get("/api/admin/outbound-calls", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const limit = Math.min(parseInt((req.query.limit as string) || '50'), 200);
+      const { danielaOutboundQueue } = await import('@shared/schema');
+      const { desc, isNotNull } = await import('drizzle-orm');
+      const db = getSharedDb();
+      const rows = await db.select().from(danielaOutboundQueue)
+        .where(isNotNull(danielaOutboundQueue.callSid))
+        .orderBy(desc(danielaOutboundQueue.callAt))
+        .limit(limit);
+      res.json({ calls: rows, total: rows.length });
+    } catch (err: any) {
+      console.error('[Admin] outbound-calls error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Multimedia - Fetch stock image from Unsplash
   app.post("/api/media/stock-image", isAuthenticated, async (req: any, res) => {
     try {
