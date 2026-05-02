@@ -4584,7 +4584,7 @@ export class NativeFunctionCallHandler {
             await db.update(danielaOutboundQueue)
               .set({
                 content: content.trim(), sessionId: session.id, deliveredAt: null,
-                smsDeliveredAt: null, audioUrl: null, createdAt: new Date(),
+                smsDeliveredAt: null, audioUrl: null, audioPlayedAt: null, createdAt: new Date(),
               })
               .where(eq(danielaOutboundQueue.id, queueId));
           } else {

@@ -3747,7 +3747,7 @@ Remember: David may reference things discussed in these recent text chats.
                         await db.update(danielaOutboundQueue)
                           .set({
                             content: content.trim(), sessionId: session.id, deliveredAt: null,
-                            smsDeliveredAt: null, audioUrl: null, createdAt: new Date(),
+                            smsDeliveredAt: null, audioUrl: null, audioPlayedAt: null, createdAt: new Date(),
                           })
                           .where(eq(danielaOutboundQueue.id, queueId));
                       } else {

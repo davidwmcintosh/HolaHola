@@ -8705,6 +8705,14 @@ Return ONLY the ${targetLanguage} phrase:`;
       const from: string = req.body?.From || '';
       if (!from) return res.status(400).send('Missing From');
 
+      // Only honor recognized opt-out keywords (Twilio standard + carrier aliases)
+      const body: string = (req.body?.Body || '').trim().toUpperCase();
+      const OPT_OUT_KEYWORDS = new Set(['STOP', 'STOPALL', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT']);
+      if (!OPT_OUT_KEYWORDS.has(body)) {
+        console.log(`[Twilio STOP] Ignored non-opt-out message body="${body}" from ${from.replace(/.(?=.{4})/g, '*')}`);
+        return res.set('Content-Type', 'text/xml').send('<?xml version="1.0"?><Response/>');
+      }
+
       const { studentContactPreferences } = await import('@shared/schema');
       const db = getSharedDb();
       const rows = await db.select().from(studentContactPreferences).where(
