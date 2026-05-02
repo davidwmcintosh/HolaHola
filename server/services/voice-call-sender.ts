@@ -55,8 +55,8 @@ async function initiateCall(userId: string, queueId: string): Promise<boolean> {
   const phone = prefs.phone;
 
   const appUrl = APP_URL;
-  const answerUrl = `${appUrl}/api/webhooks/twilio/voice-answer?queueId=${queueId}&userId=${userId}`;
-  const statusUrl = `${appUrl}/api/webhooks/twilio/voice-status?queueId=${queueId}&userId=${userId}`;
+  const answerUrl = `${appUrl}/api/webhooks/twilio/voice-answer?queueId=${encodeURIComponent(queueId)}&userId=${encodeURIComponent(userId)}`;
+  const statusUrl = `${appUrl}/api/webhooks/twilio/voice-status?queueId=${encodeURIComponent(queueId)}&userId=${encodeURIComponent(userId)}`;
   const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');
 
   try {

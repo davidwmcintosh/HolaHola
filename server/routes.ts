@@ -8783,7 +8783,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       const queueId = (req.query.queueId as string) || '';
       const userId = (req.query.userId as string) || '';
       const appUrl = process.env.APP_URL || 'https://getholahola.com';
-      const fullUrl = `${appUrl}/api/webhooks/twilio/voice-answer?queueId=${queueId}&userId=${userId}`;
+      const fullUrl = `${appUrl}/api/webhooks/twilio/voice-answer?queueId=${encodeURIComponent(queueId)}&userId=${encodeURIComponent(userId)}`;
 
       const sigValid = await validateTwilioWebhookSignature(req, fullUrl);
       if (!sigValid) return res.status(403).set('Content-Type', 'text/xml').send('<?xml version="1.0"?><Response><Hangup/></Response>');
@@ -8845,7 +8845,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       const queueId = (req.query.queueId as string) || '';
       const userId = (req.query.userId as string) || '';
       const appUrl = process.env.APP_URL || 'https://getholahola.com';
-      const fullUrl = `${appUrl}/api/webhooks/twilio/voice-status?queueId=${queueId}&userId=${userId}`;
+      const fullUrl = `${appUrl}/api/webhooks/twilio/voice-status?queueId=${encodeURIComponent(queueId)}&userId=${encodeURIComponent(userId)}`;
 
       const sigValid = await validateTwilioWebhookSignature(req, fullUrl);
       if (!sigValid) return res.status(403).send('Forbidden');

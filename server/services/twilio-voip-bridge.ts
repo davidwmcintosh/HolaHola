@@ -391,12 +391,18 @@ export async function handleTwilioMediaStream(ws: WebSocket): Promise<void> {
             state.glSession = gl;
 
             const systemPrompt = buildCallSystemPrompt(ctx);
-            const greetingTrigger = `Hello Daniela! Please greet ${ctx.studentName} warmly in ${ctx.targetLanguage} right now — you just called them.`;
+            const langName = ctx.targetLanguage.charAt(0).toUpperCase() + ctx.targetLanguage.slice(1);
+            const greetingTrigger = `Daniela, you have just reached ${ctx.studentName} on a phone call. Please greet them warmly now, in ${langName}, and begin the check-in.`;
             await gl.start(systemPrompt, [], greetingTrigger);
             state.contextReady = true;
           })
           .catch((err: unknown) => {
             console.error('[TwilioVoipBridge] Session init error:', err instanceof Error ? err.message : String(err));
+            // Hang up and attempt SMS fallback rather than leaving a silent call
+            hangUpCall(state.callSid).catch(() => {});
+            endBridge(state).catch(() => {});
+            if (ws.readyState === WebSocket.OPEN) ws.close();
+            handleCallNoAnswer(state.userId, state.queueId).catch(() => {});
           });
         break;
       }
