@@ -878,46 +878,38 @@ export async function searchMemory(
  */
 export function formatMemoryForConversation(response: MemorySearchResponse): string {
   if (response.results.length === 0) {
-    return `[Memory search for "${response.query}": No memories found]`;
+    return `[Nothing surfaces in your memory for "${response.query}" — respond from what you know now.]`;
   }
-  
+
+  // Convert timestamps to natural relative phrasing, not citations
+  function naturalTime(ts?: string | null): string {
+    if (!ts) return '';
+    const days = Math.floor((Date.now() - new Date(ts).getTime()) / (1000 * 60 * 60 * 24));
+    if (days < 3) return ' — this was recent';
+    if (days < 14) return ' — this was about a week or two ago';
+    if (days < 60) return ' — this came up a month or so back';
+    if (days < 180) return ' — this was a few months ago';
+    return ' — this was a while back';
+  }
+
   const lines: string[] = [];
-  lines.push(`\n═══ MEMORY RECALL: "${response.query}" ═══`);
-  lines.push(`Found ${response.totalMatches} relevant memories:\n`);
-  
-  // Group by domain
-  const byDomain = new Map<string, MemorySearchResult[]>();
-  for (const result of response.results) {
-    if (!byDomain.has(result.domain)) {
-      byDomain.set(result.domain, []);
-    }
-    byDomain.get(result.domain)!.push(result);
+  lines.push(`What surfaces when you think about "${response.query}":`);
+  lines.push('');
+
+  // Flatten all results, up to 6 total, ordered by relevance
+  const top = response.results.slice(0, 6);
+  for (const result of top) {
+    const when = naturalTime(result.timestamp);
+    // Use details if it adds substance beyond the summary, otherwise just summary
+    const memory = (result.details && result.details !== result.summary && result.details.length > result.summary.length)
+      ? result.details.substring(0, 250)
+      : result.summary;
+    lines.push(`— ${memory}${when}`);
   }
-  
-  const domainLabels: Record<string, string> = {
-    person: '👥 People',
-    motivation: '🎯 Motivations',
-    insight: '💡 Insights',
-    struggle: '⚠️ Struggles',
-    session: '📝 Past Sessions',
-    progress: '📈 Progress',
-    conversation: '💬 Past Conversations',
-  };
-  
-  for (const [domain, domainResults] of Array.from(byDomain)) {
-    lines.push(`${domainLabels[domain] || domain}:`);
-    for (const result of domainResults.slice(0, 3)) { // Max 3 per domain
-      const date = result.timestamp ? ` (${new Date(result.timestamp).toLocaleDateString()})` : '';
-      lines.push(`  • ${result.summary}${date}`);
-      if (result.details && result.details !== result.summary) {
-        lines.push(`    └─ ${result.details.substring(0, 200)}`);
-      }
-    }
-    lines.push('');
-  }
-  
-  lines.push('═══════════════════════════════════════');
-  
+
+  lines.push('');
+  lines.push('Speak from these as your own memories. Do NOT cite dates, categories, or sources. If it fits the moment, weave it in naturally — "I remember you mentioned..." or just let it inform how you respond.');
+
   return lines.join('\n');
 }
 

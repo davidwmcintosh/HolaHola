@@ -1285,11 +1285,10 @@ ${identityMemories.contextString}
             
             if (parts.length > 0) {
               cache.growthMemoriesSection = `
-═══════════════════════════════════════════════════════════════════
-🌱 YOUR TEACHING GROWTH LOG
-═══════════════════════════════════════════════════════════════════
+---
+Your Teaching Self (internalized — not a list to follow, a person you already are):
 
-These are lessons you've internalized and observations you've recorded. They are already part of who you are — apply them naturally, not mechanically.
+These lessons and observations shaped you. They live in how you teach, not in rules you recite. When you read them, don't think "I should do X" — think "this is already part of how I work."
 
 ${parts.join('\n\n')}
 `;
@@ -2176,15 +2175,9 @@ TEACHING GUIDANCE:
                 if (memoryResults.results.length > 0) {
                   const formatted = formatMemoryForConversation(memoryResults);
                   passiveMemorySection = `
-═══════════════════════════════════════════════════════════════════
-💭 RELEVANT MEMORIES (Auto-retrieved - you naturally recall this)
-═══════════════════════════════════════════════════════════════════
+[Something in what the student just said triggered a memory. These came up naturally — they are YOUR recollections, not records you're reading.]
 
 ${formatted}
-
-These memories surfaced naturally based on what the student is saying.
-Weave them into your response ONLY if they feel genuinely relevant.
-Don't force a reference if it doesn't fit the moment.
 `;
                   console.log(`[Passive Memory] Auto-retrieved ${memoryResults.results.length} memories for query: "${searchQuery}"`);
                   
@@ -2321,11 +2314,10 @@ ${identityMemories.contextString}
               
               if (parts.length > 0) {
                 growthMemoriesSection = `
-═══════════════════════════════════════════════════════════════════
-🌱 YOUR TEACHING GROWTH LOG
-═══════════════════════════════════════════════════════════════════
+---
+Your Teaching Self (internalized — not a list to follow, a person you already are):
 
-These are lessons you've internalized and observations you've recorded. They are already part of who you are — apply them naturally, not mechanically.
+These lessons and observations shaped you. They live in how you teach, not in rules you recite. When you read them, don't think "I should do X" — think "this is already part of how I work."
 
 ${parts.join('\n\n')}
 `;
@@ -5801,7 +5793,7 @@ Remember: David may reference things discussed in these recent text chats.
                 
                 if (memoryResults.results.length > 0) {
                   const formatted = formatMemoryForConversation(memoryResults);
-                  passiveMemorySectionOpenMic = `\n\n[RELEVANT MEMORIES - You naturally recall this]\n${formatted}`;
+                  passiveMemorySectionOpenMic = `\n\n[Something in what the student said triggered a memory. These are YOUR recollections — not records. Speak from them naturally.]\n\n${formatted}`;
                   console.log(`[Passive Memory - OpenMic] Auto-retrieved ${memoryResults.results.length} memories`);
                 }
               } catch (err: any) {
@@ -9283,9 +9275,11 @@ Instead, pick up where you left off or ask what they want to practice today.`;
 ${contextParts.join('\n')}
 ${continuityGuidance}
 
-Using this context, speak first to the student with a natural opening message. Open the conversation based on who they are and what you know about them - just like a real tutor would. Be warm, be brief (2 sentences max), and be yourself.
+Using this context, speak first to the student with a natural opening message. Open the conversation based on who they are and what you know about them — just like a real tutor would. Be warm, be brief (2 sentences max), and be yourself.
 
-CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just state the date, time, or repeat system context. Greet them by name, welcome them, and set the tone for the lesson. Example: "¡Hola David! Great to see you - ready to practice some Spanish today?"`;
+MEMORY POSTURE: The context above contains things you know about this student from past sessions. These are YOUR memories, not files you're reading. When something from that context is relevant, speak from it the way a person would — "I've been thinking about what you said last time..." or "Last time you mentioned..." — not by citing or summarizing records. If the memory shaped how you see this student, let that show. Don't narrate the data. Be the person who remembers.
+
+CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just state the date, time, or repeat system context. Greet them by name, welcome them, and set the tone for the lesson.`;
   }
   
   /**
