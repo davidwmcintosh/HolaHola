@@ -751,6 +751,12 @@ app.use((req, res, next) => {
       setInterval(runDiagRetention, DIAG_CLEANUP_INTERVAL_MS);
     }, 60000);
 
+    // +80s: Daniela Absence Worker — daily check for absent students, Express Lane nudge
+    setTimeout(async () => {
+      const { startDanielaAbsenceWorker } = await import('./services/daniela-absence-worker');
+      startDanielaAbsenceWorker();
+    }, 80000);
+
     // +75s: Curriculum Enrichment Auto-Resume
     // Fires on every boot. The enrichment service skips already-enriched lessons
     // (within 7 days), so this is safe to run repeatedly and acts as a self-healing

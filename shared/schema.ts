@@ -9077,3 +9077,25 @@ export const danielaOutboundQueue = pgTable("daniela_outbound_queue", {
 export const insertDanielaOutboundQueueSchema = createInsertSchema(danielaOutboundQueue).omit({ id: true, createdAt: true });
 export type InsertDanielaOutboundQueue = z.infer<typeof insertDanielaOutboundQueueSchema>;
 export type DanielaOutboundQueueItem = typeof danielaOutboundQueue.$inferSelect;
+
+// ===== Daniela Absence Nudges =====
+// Tracks which students Daniela has been notified about for absence so she
+// is not re-nudged until she resolves the prior nudge (writes a message or
+// explicitly dismisses). Authorship rule: only the absence worker writes here.
+export const danielaAbsenceNudges = pgTable("daniela_absence_nudges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  notifiedAt: timestamp("notified_at").notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at"),         // null = Daniela hasn't acted yet
+  resolutionType: varchar("resolution_type"),   // 'message_queued' | 'dismissed'
+  suppressUntil: timestamp("suppress_until"),   // if Daniela snoozes, no re-nudge before this
+  lastSessionDate: timestamp("last_session_date"),
+  daysSinceLastSession: integer("days_since_last_session"),
+}, (table) => [
+  index("idx_daniela_absence_nudges_user").on(table.userId),
+  index("idx_daniela_absence_nudges_resolved").on(table.resolvedAt),
+]);
+
+export const insertDanielaAbsenceNudgeSchema = createInsertSchema(danielaAbsenceNudges).omit({ id: true, notifiedAt: true });
+export type InsertDanielaAbsenceNudge = z.infer<typeof insertDanielaAbsenceNudgeSchema>;
+export type DanielaAbsenceNudge = typeof danielaAbsenceNudges.$inferSelect;

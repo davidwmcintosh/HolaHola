@@ -3743,6 +3743,10 @@ Remember: David may reference things discussed in these recent text chats.
                         });
                       }
                       console.log(`[CommandParser→LeaveForNextSession] Queued message for user ${userId}`);
+                      // Auto-resolve any pending absence nudge for this student
+                      import('./daniela-absence-worker').then(({ resolveAbsenceNudge }) =>
+                        resolveAbsenceNudge(userId, 'message_queued')
+                      ).catch(e => console.warn(`[CommandParser→LeaveForNextSession] Nudge resolve error:`, e.message));
                     })().catch(err => console.error(`[CommandParser→LeaveForNextSession] Error:`, err.message));
                   }
                   break;
@@ -3762,6 +3766,25 @@ Remember: David may reference things discussed in these recent text chats.
                       ? `[SYSTEM: You left this for David (written ${item.createdAt.toLocaleDateString()}, ${item.deliveredAt ? 'already delivered' : 'not yet delivered'}):\n\n"${item.content}"]`
                       : null;
                   } catch (err) { console.error(`[CommandParser→ReadQueuedForStudent] Error:`, err); }
+                  break;
+                }
+
+                case 'DISMISS_ABSENCE_NUDGE': {
+                  (async () => {
+                    try {
+                      const targetUserId = cmd.params.userId as string | undefined;
+                      if (!targetUserId?.trim()) {
+                        console.warn(`[CommandParser→DismissAbsenceNudge] Missing userId param`);
+                        return;
+                      }
+                      const suppressDays = cmd.params.suppressDays as number | undefined;
+                      const { resolveAbsenceNudge } = await import('./daniela-absence-worker');
+                      await resolveAbsenceNudge(targetUserId.trim(), 'dismissed', suppressDays);
+                      console.log(`[CommandParser→DismissAbsenceNudge] Resolved nudge for user ${targetUserId}${suppressDays ? ` (snoozed ${suppressDays}d)` : ''}`);
+                    } catch (err: any) {
+                      console.error(`[CommandParser→DismissAbsenceNudge] Error:`, err.message);
+                    }
+                  })();
                   break;
                 }
 

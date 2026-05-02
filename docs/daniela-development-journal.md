@@ -1137,4 +1137,37 @@ Both tools added to the Tool Rack — Daniela sees them immediately without sear
 - **`check_student_health` Alden tool** — Alden can query per-student quality aggregates for any time window. Surfaces students with low average quality scores that system-wide averages would hide.
 - **Per-fingerprint dedup** — Alden watch worker's global 6-hour cooldown removed. Each issue type now deduplicated independently by fingerprint. Same issue suppressed until founder marks it read; new issue types fire immediately.
 
+---
+
+## May 2, 2026 — Session 47: Outbound Presence Phase 1 — Absence Detection + Express Lane Nudge
+
+### What was built
+
+Phase 1 of Daniela's outbound presence system. Daniela now has the ability to *know* when a student is absent and act on that knowledge — from her own context, in her own voice.
+
+### Absence detection worker (`daniela-absence-worker.ts`)
+
+Runs daily (10-minute initial delay after server boot, then every 24 hours). Queries `voice_sessions` for all non-test-session students, finds those with last session ≥ 5 days ago, filters out any with an unresolved pending nudge or active suppress window. Posts a structured nudge to the Express Lane in the **"Daniela — Student Watch"** session, then writes a record to `daniela_absence_nudges` to prevent re-nudging until she responds.
+
+### `danielaAbsenceNudges` table
+
+New table in schema and DB. Tracks `userId`, `notifiedAt`, `resolvedAt`, `resolutionType` ('message_queued' | 'dismissed'), `suppressUntil` (optional snooze window), `lastSessionDate`, `daysSinceLastSession`.
+
+### `DISMISS_ABSENCE_NUDGE` function
+
+New Daniela tool. Parameters: `userId` (required) + `suppressDays` (optional). Resolves the pending nudge and optionally suppresses re-notification for N days. Case handler in the orchestrator. Added to Tool Rack.
+
+### Auto-resolve on `LEAVE_FOR_NEXT_SESSION`
+
+When Daniela queues a message via `leave_for_next_session`, the handler automatically calls `resolveAbsenceNudge(userId, 'message_queued')` — no manual dismiss needed if she already wrote something.
+
+### Key files
+- `server/services/daniela-absence-worker.ts` — NEW
+- `shared/schema.ts` → `danielaAbsenceNudges` table
+- `server/services/daniela-function-registry.ts` → `DISMISS_ABSENCE_NUDGE`
+- `server/services/streaming-voice-orchestrator.ts` → case handler + auto-resolve
+- `server/services/classroom-environment.ts` → Tool Rack
+- `server/index.ts` → worker at +80s
+- `docs/outbound-presence-architecture.md` — NEW
+
 ═══════════════════════════════════════════════════════════════════

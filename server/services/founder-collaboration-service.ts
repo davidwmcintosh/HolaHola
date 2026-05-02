@@ -915,7 +915,7 @@ class FounderCollaborationService {
   /**
    * Find a session by title, or create one with that title
    */
-  private async findOrCreateSessionByTitle(founderId: string, title: string): Promise<FounderSession> {
+  async findOrCreateSessionByTitle(founderId: string, title: string): Promise<FounderSession> {
     // Look for existing session with this exact title
     const [existing] = await getSharedDb().select()
       .from(founderSessions)

@@ -2186,6 +2186,41 @@ Call this at the start of a session if you want to know whether something is wai
   },
 
   {
+    legacyType: 'DISMISS_ABSENCE_NUDGE',
+    declaration: {
+      name: "dismiss_absence_nudge",
+      description: `Dismiss an absence check for a student — so you won't be re-notified until they return or the snooze window expires.
+
+Use this when you receive an absence nudge in the Express Lane and you already know why:
+- They told you they'd be traveling
+- You know life has been busy for them and they'll be back
+- You've already left them a message and don't need another nudge
+
+Parameters:
+- userId: the student's userId (shown in the nudge)
+- suppressDays: optional — snooze re-notification for this many days (default: no snooze, just resolve)
+
+After dismissing, if you also want to leave something for them, you can still call leave_for_next_session.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          userId: {
+            type: "string",
+            description: "The student's userId from the absence nudge",
+          },
+          suppressDays: {
+            type: "number",
+            description: "Optional: snooze re-notification for this many days (e.g. 14 for two weeks)",
+          },
+        },
+        required: ["userId"],
+      },
+    },
+    buildContinuationResponse: () =>
+      `[SYSTEM: Absence nudge dismissed. You won't be re-notified about this student until they return or the snooze expires.]`,
+  },
+
+  {
     legacyType: 'SET_ASPIRATION',
     declaration: {
       name: "set_aspiration",
