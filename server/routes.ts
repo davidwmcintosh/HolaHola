@@ -8836,6 +8836,15 @@ Return ONLY the ${targetLanguage} phrase:`;
 
       const NO_ANSWER_STATUSES = new Set(['no-answer', 'busy', 'failed', 'canceled']);
       const isMachine = /^machine/.test(answeredBy);
+      const isHuman = answeredBy === 'human';
+
+      if (isHuman && queueId && userId) {
+        // AMD confirmed human — allow deliveredAt and voiceSessions to be written on call end
+        const callSid: string = req.body?.CallSid || '';
+        import('./services/twilio-voip-bridge')
+          .then(({ confirmHumanAnswer }) => confirmHumanAnswer(callSid))
+          .catch((e: Error) => console.warn('[Route] confirmHumanAnswer error:', e.message));
+      }
 
       if ((NO_ANSWER_STATUSES.has(callStatus) || isMachine) && queueId && userId) {
         import('./services/twilio-voip-bridge')
