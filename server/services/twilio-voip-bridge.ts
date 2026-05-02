@@ -429,6 +429,12 @@ export async function handleCallNoAnswer(userId: string, queueId: string): Promi
     if (!item) return;
     if (item.userId !== userId) { console.warn('[TwilioVoipBridge] handleCallNoAnswer ownership mismatch'); return; }
 
+    // Idempotency guard — skip if already handled by a prior callback
+    if (item.callNoAnswer || item.deliveredAt || item.smsDeliveredAt) {
+      console.log(`[TwilioVoipBridge] handleCallNoAnswer — already handled, skipping (user ${userId.slice(-6)})`);
+      return;
+    }
+
     await db.update(danielaOutboundQueue).set({ callNoAnswer: true }).where(eq(danielaOutboundQueue.id, queueId));
 
     if (item.callSid) await hangUpCall(item.callSid);

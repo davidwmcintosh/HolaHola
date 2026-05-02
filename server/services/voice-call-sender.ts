@@ -48,14 +48,8 @@ async function initiateCall(userId: string, queueId: string): Promise<boolean> {
     return false;
   }
 
-  const { decryptPhone } = await import('./phone-encryption');
-  let phone: string;
-  try {
-    phone = decryptPhone(prefs.phone);
-  } catch {
-    console.error(`[VoiceCallSender] Phone decrypt failed for user ${userId.slice(-6)}`);
-    return false;
-  }
+  // getContactPreferences() already decrypts the phone — use it directly
+  const phone = prefs.phone;
 
   const appUrl = APP_URL;
   const answerUrl = `${appUrl}/api/webhooks/twilio/voice-answer?queueId=${queueId}&userId=${userId}`;
