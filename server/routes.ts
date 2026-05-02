@@ -8787,17 +8787,32 @@ Return ONLY the ${targetLanguage} phrase:`;
         return res.set('Content-Type', 'text/xml').send('<?xml version="1.0"?><Response><Hangup/></Response>');
       }
 
-      // Compute per-call HMAC nonce for bridge authentication
+      // Synchronous AMD: Twilio includes AnsweredBy in the POST body before executing TwiML.
+      // Return <Hangup/> for machines so no stream is ever established for voicemail.
+      const answeredBy: string = req.body?.AnsweredBy || '';
+      if (/^machine/.test(answeredBy)) {
+        console.log(`[Route] Twilio voice-answer — machine detected (${answeredBy}), hanging up — queueId: ${queueId.slice(-6)}`);
+        const { handleCallNoAnswer } = await import('./services/twilio-voip-bridge');
+        handleCallNoAnswer(userId, queueId).catch((e: Error) => console.warn('[Route] handleCallNoAnswer error:', e.message));
+        return res.set('Content-Type', 'text/xml').send('<?xml version="1.0"?><Response><Hangup/></Response>');
+      }
+
       const { computeCallNonce } = await import('./services/voice-call-sender');
       const sig = computeCallNonce(userId, queueId);
-
-      // Plain WS path — no query params (Twilio ignores them on Media Streams)
       const wsUrl = appUrl.replace(/^https?:\/\//, 'wss://') + '/api/voice/twilio-stream';
 
-      // <Connect><Stream> creates a BIDIRECTIONAL stream — Twilio sends audio to
-      // the server AND plays audio sent from the server back to the caller.
-      // userId, queueId, and sig are embedded as <Parameter> values so they arrive
-      // in the 'start' event's customParameters object inside the bridge.
+      // Human confirmed — persist callAnsweredAt in DB now so it survives any subsequent restart
+      const callSid: string = req.body?.CallSid || '';
+      if (callSid && queueId) {
+        const { getSharedDb } = await import('./db');
+        const { danielaOutboundQueue } = await import('../shared/schema');
+        const { eq } = await import('drizzle-orm');
+        getSharedDb().update(danielaOutboundQueue)
+          .set({ callAnsweredAt: new Date() })
+          .where(eq(danielaOutboundQueue.id, queueId))
+          .catch((e: Error) => console.warn('[Route] callAnsweredAt persist error:', e.message));
+      }
+
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Connect>
@@ -8809,7 +8824,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   </Connect>
 </Response>`;
 
-      console.log(`[Route] Twilio voice-answer — queueId: ${queueId.slice(-6)}, userId: ${userId.slice(-6)}`);
+      console.log(`[Route] Twilio voice-answer — human confirmed, queueId: ${queueId.slice(-6)}, userId: ${userId.slice(-6)}`);
       res.set('Content-Type', 'text/xml').send(twiml);
     } catch (err: any) {
       console.error('[Route] Twilio voice-answer error:', err.message);
@@ -8836,15 +8851,6 @@ Return ONLY the ${targetLanguage} phrase:`;
 
       const NO_ANSWER_STATUSES = new Set(['no-answer', 'busy', 'failed', 'canceled']);
       const isMachine = /^machine/.test(answeredBy);
-      const isHuman = answeredBy === 'human';
-
-      if (isHuman && queueId && userId) {
-        // AMD confirmed human — allow deliveredAt and voiceSessions to be written on call end
-        const callSid: string = req.body?.CallSid || '';
-        import('./services/twilio-voip-bridge')
-          .then(({ confirmHumanAnswer }) => confirmHumanAnswer(callSid))
-          .catch((e: Error) => console.warn('[Route] confirmHumanAnswer error:', e.message));
-      }
 
       if ((NO_ANSWER_STATUSES.has(callStatus) || isMachine) && queueId && userId) {
         import('./services/twilio-voip-bridge')

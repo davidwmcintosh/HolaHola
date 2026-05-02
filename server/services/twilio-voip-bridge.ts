@@ -2,28 +2,14 @@
  * Twilio VoIP Bridge — Daniela Calls the Student (Phase 4)
  *
  * Bridges Twilio Media Streams ↔ GeminiLiveSession for real-time outbound calls.
- * Uses the same GeminiLiveSession pipeline as normal voice sessions so billing,
- * lifecycle management, and session instrumentation are fully consistent.
+ * Uses the same GeminiLiveSession pipeline as normal voice sessions.
  *
- * Audio path (inbound):
- *   Twilio μ-law 8kHz → decode + upsample → PCM16 16kHz → GeminiLiveSession.sendAudioChunk()
+ * Human-answer guarantee: the voice-answer webhook uses synchronous AMD —
+ * Twilio returns <Hangup/> for machines before the stream is established.
+ * Streams are therefore always human calls; no in-memory AMD gate is needed.
  *
- * Audio path (outbound):
- *   GeminiLiveSession sendWsMessage audio_chunk (F32LE 24kHz)
- *     → downsample + encode → μ-law 8kHz → Twilio media event
- *
- * Call identity (userId, queueId, HMAC nonce) arrives via TwiML <Parameter>
- * elements in the Media Streams 'start' event customParameters — Twilio does
- * not forward URL query params through the Stream url attribute.
- *
- * Human-answer gate:
- *   `deliveredAt` and the voiceSessions DB row are only written after
- *   `confirmHumanAnswer(callSid)` is called by the voice-status webhook with
- *   AnsweredBy='human'. Machine/no-answer paths call `handleCallNoAnswer()`.
- *
- * Max-duration guard:
- *   A hard 3-minute timer fires a server-side hangup so short check-in calls
- *   never run indefinitely if the student stays on the line.
+ * Audio: Twilio μ-law 8kHz → PCM16 16kHz → GeminiLiveSession.sendAudioChunk()
+ *        GeminiLiveSession audio_chunk (F32LE 24kHz) → μ-law 8kHz → Twilio
  */
 
 import { WebSocket } from 'ws';
@@ -39,7 +25,7 @@ import { eq, desc } from 'drizzle-orm';
 import { unifiedDanielaContext } from './unified-daniela-context-service';
 import { computeCallNonce } from './voice-call-sender';
 
-const MAX_CALL_DURATION_MS = 3 * 60 * 1000; // 3-minute hard cap for outbound check-in calls
+const MAX_CALL_DURATION_MS = 3 * 60 * 1000;
 
 // ── G.711 μ-law codec ─────────────────────────────────────────────────────────
 
@@ -62,7 +48,6 @@ function decodeUlaw(ulaw: number): number {
   return sign * magnitude;
 }
 
-/** μ-law bytes (8kHz mono) → PCM16 LE (16kHz, 2× linear interpolation). */
 function mulawBufToPcm16k(src: Buffer): Buffer {
   const decoded: number[] = new Array(src.length);
   for (let i = 0; i < src.length; i++) decoded[i] = decodeUlaw(src[i]);
@@ -77,10 +62,8 @@ function mulawBufToPcm16k(src: Buffer): Buffer {
   return out;
 }
 
-/** F32LE bytes (24kHz) → μ-law bytes (8kHz, average every 3 samples). */
 function f32le24kBufToMulaw8k(src: Buffer): Buffer {
-  const floatCount = Math.floor(src.length / 4);
-  const outSamples = Math.floor(floatCount / 3);
+  const outSamples = Math.floor(src.length / 12);
   const out = Buffer.allocUnsafe(outSamples);
   for (let i = 0; i < outSamples; i++) {
     const f0 = src.readFloatLE(i * 12);
@@ -196,22 +179,13 @@ CALL RULES: Brief 2-3 min check-in only. Start immediately: "¡Hola ${ctx.studen
 Begin speaking now.`;
 }
 
-// ── Minimal StreamingSession adapter for GeminiLiveSession ───────────────────
+// ── StreamingSession adapter for GeminiLiveSession ───────────────────────────
 
-/**
- * Build a StreamingSession adapter so GeminiLiveSession can operate for an
- * outbound VoIP call without an active client WebSocket session.
- *
- * All required fields are given explicit types — no type-bypassing casts.
- * The Twilio WS is the same ws.WebSocket type that StreamingSession.ws expects,
- * so it is passed directly. Optional fields with no relevant meaning for a
- * standalone call are omitted (TypeScript omit-as-undefined semantics).
- */
 function buildCallSession(userId: string, ctx: CallContext, twilioWs: WebSocket): StreamingSession {
   const personality: TutorPersonality = 'warm';
-  const voiceSpeed: VoiceSpeedOption = 'normal';
+  const speed: VoiceSpeedOption = 'normal';
 
-  const session: StreamingSession = {
+  return {
     id: randomUUID(),
     userId,
     conversationId: randomUUID(),
@@ -221,7 +195,7 @@ function buildCallSession(userId: string, ctx: CallContext, twilioWs: WebSocket)
     subtitleMode: 'off',
     tutorPersonality: personality,
     tutorExpressiveness: 0.7,
-    voiceSpeed,
+    voiceSpeed: speed,
     voiceId: 'Kore',
     tutorGender: 'female',
     tutorName: 'Daniela',
@@ -249,8 +223,9 @@ function buildCallSession(userId: string, ctx: CallContext, twilioWs: WebSocket)
     sessionWordAnalyses: [],
     sessionAudioChunks: [],
     sessionTranscripts: [],
+    sentAudioChunks: new Set<string>(),
+    sentAudioHashes: new Map<string, number>(),
   };
-  return session;
 }
 
 // ── Per-call bridge state ─────────────────────────────────────────────────────
@@ -261,10 +236,7 @@ interface BridgeState {
   glSession: GeminiLiveSession | null;
   isEnded: boolean;
   callStartMs: number;
-  /** Set when the stream 'start' event fires (call connected). */
   streamStartedAt: Date | null;
-  /** Set when AMD confirms AnsweredBy='human' via the status webhook. */
-  isHumanConfirmed: boolean;
   maxDurationTimer: NodeJS.Timeout | null;
   userId: string;
   queueId: string;
@@ -272,7 +244,6 @@ interface BridgeState {
   contextReady: boolean;
 }
 
-/** Index by callSid so the status webhook can confirm human answer. */
 const activeBridges = new Map<string, BridgeState>();
 
 async function logCallAsVoiceSession(state: BridgeState, durationSeconds: number): Promise<void> {
@@ -297,28 +268,27 @@ async function logCallAsVoiceSession(state: BridgeState, durationSeconds: number
 async function endBridge(state: BridgeState): Promise<void> {
   if (state.isEnded) return;
   state.isEnded = true;
-
   if (state.maxDurationTimer) { clearTimeout(state.maxDurationTimer); state.maxDurationTimer = null; }
   if (state.callSid) activeBridges.delete(state.callSid);
   try { state.glSession?.stop(); } catch (_) {}
   state.glSession = null;
 
-  if (!state.queueId) return;
+  if (!state.queueId || !state.streamStartedAt) return;
   const durationSeconds = Math.round((Date.now() - state.callStartMs) / 1000);
-
   try {
     const db = getSharedDb();
+    // Fetch the current queue row to check callAnsweredAt (set by voice-answer webhook)
+    const rows = await db.select({ callAnsweredAt: danielaOutboundQueue.callAnsweredAt })
+      .from(danielaOutboundQueue).where(eq(danielaOutboundQueue.id, state.queueId));
+    const wasHumanAnswered = !!rows[0]?.callAnsweredAt;
+
     await db.update(danielaOutboundQueue).set({
-      callAnsweredAt: state.streamStartedAt,
-      callDurationSeconds: state.isHumanConfirmed ? durationSeconds : null,
-      // deliveredAt and the voice session row are only written for confirmed human answers.
-      // Machine/voicemail detections are handled by handleCallNoAnswer (never set these).
-      deliveredAt: state.isHumanConfirmed ? state.streamStartedAt : undefined,
+      callDurationSeconds: wasHumanAnswered ? durationSeconds : null,
+      deliveredAt: wasHumanAnswered ? state.streamStartedAt : undefined,
     }).where(eq(danielaOutboundQueue.id, state.queueId));
 
-    if (state.isHumanConfirmed) await logCallAsVoiceSession(state, durationSeconds);
-
-    console.log(`[TwilioVoipBridge] Call ended — user ${state.userId.slice(-6)}, humanConfirmed: ${state.isHumanConfirmed}, ${durationSeconds}s`);
+    if (wasHumanAnswered) await logCallAsVoiceSession(state, durationSeconds);
+    console.log(`[TwilioVoipBridge] Call ended — user ${state.userId.slice(-6)}, humanAnswered: ${wasHumanAnswered}, ${durationSeconds}s`);
   } catch (err: unknown) {
     console.warn('[TwilioVoipBridge] Failed to log call end:', err instanceof Error ? err.message : String(err));
   }
@@ -326,18 +296,12 @@ async function endBridge(state: BridgeState): Promise<void> {
 
 // ── WebSocket connection handler ──────────────────────────────────────────────
 
-/**
- * Entry point — called by unified-ws-handler for every /api/voice/twilio-stream connection.
- *
- * All call identity (userId, queueId, HMAC nonce) arrives in the Media Streams
- * 'start' event customParameters field, embedded as TwiML <Parameter> elements.
- */
 export async function handleTwilioMediaStream(ws: WebSocket): Promise<void> {
   console.log('[TwilioVoipBridge] New Twilio Media Streams connection');
 
   const state: BridgeState = {
     streamSid: '', callSid: '', glSession: null, isEnded: false,
-    callStartMs: Date.now(), streamStartedAt: null, isHumanConfirmed: false,
+    callStartMs: Date.now(), streamStartedAt: null,
     maxDurationTimer: null,
     userId: '', queueId: '', targetLanguage: 'spanish', contextReady: false,
   };
@@ -377,7 +341,6 @@ export async function handleTwilioMediaStream(ws: WebSocket): Promise<void> {
         state.userId = userId;
         state.queueId = queueId;
 
-        // Hard max-duration guard: hang up after 3 minutes regardless
         state.maxDurationTimer = setTimeout(() => {
           console.log(`[TwilioVoipBridge] Max duration reached — hanging up user ${userId.slice(-6)}`);
           hangUpCall(state.callSid).catch(() => {});
@@ -396,7 +359,6 @@ export async function handleTwilioMediaStream(ws: WebSocket): Promise<void> {
             }
             state.targetLanguage = ctx.targetLanguage;
 
-            // sendWsMessage intercept: route audio_chunk to Twilio; drop UI-only messages
             const sendWsMessage = (_ws: unknown, message: unknown): void => {
               const msg = message as Record<string, unknown>;
               if (
@@ -459,26 +421,6 @@ export async function handleTwilioMediaStream(ws: WebSocket): Promise<void> {
   });
 }
 
-/**
- * Called by the voice-status webhook when AMD confirms AnsweredBy='human'.
- * Marks the bridge as delivering to a confirmed human so `endBridge()` will
- * write `deliveredAt` and insert the voiceSessions record.
- */
-export function confirmHumanAnswer(callSid: string): void {
-  const state = activeBridges.get(callSid);
-  if (!state) {
-    console.log(`[TwilioVoipBridge] confirmHumanAnswer: no active bridge for SID ${callSid.slice(-8)}`);
-    return;
-  }
-  state.isHumanConfirmed = true;
-  console.log(`[TwilioVoipBridge] Human answer confirmed — user ${state.userId.slice(-6)}`);
-}
-
-/**
- * Called by the voice-status webhook when a call ends without a human answer
- * (no-answer, busy, machine detected, failed). Hangs up the Twilio call to
- * prevent audio streaming into voicemail, then falls back to SMS if consent allows.
- */
 export async function handleCallNoAnswer(userId: string, queueId: string): Promise<void> {
   try {
     const db = getSharedDb();
@@ -489,7 +431,6 @@ export async function handleCallNoAnswer(userId: string, queueId: string): Promi
 
     await db.update(danielaOutboundQueue).set({ callNoAnswer: true }).where(eq(danielaOutboundQueue.id, queueId));
 
-    // Terminate the Twilio call to prevent audio streaming into voicemail
     if (item.callSid) await hangUpCall(item.callSid);
 
     const { canContactStudent } = await import('./outbound-consent');

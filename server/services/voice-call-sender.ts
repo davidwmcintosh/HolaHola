@@ -80,10 +80,11 @@ async function initiateCall(userId: string, queueId: string): Promise<boolean> {
           // 'completed' covers answered+hung-up, no-answer, busy, and failed
           // as the CallStatus field on the completed callback
           StatusCallbackEvent: 'completed',
-          // Machine detection — AnsweredBy will be 'human', 'machine_start', etc.
+          // Synchronous AMD: Twilio detects human vs machine before calling the TwiML URL.
+          // AnsweredBy is included in the voice-answer POST body — the webhook can return
+          // <Hangup/> for machines before any stream is established, preventing Daniela
+          // from speaking into voicemail.
           MachineDetection: 'Enable',
-          AsyncAmd: 'true',
-          AsyncAmdStatusCallback: statusUrl,
         }).toString(),
       },
     );
