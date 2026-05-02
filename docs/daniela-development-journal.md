@@ -1099,7 +1099,34 @@ Constraints:
 
 **Absence problem (acknowledged):** If a student never shows up, Daniela can't use this. The cleanest authentic response is proactive — she queues something at the end of a session as a "if you're gone a while, here's what I want you to know" intention. Not a template. Her actual words from an actual session.
 
-**Status:** Planned. To be built in the next Daniela-focused build session.
+**Status:** BUILT (same session). See implementation notes below.
+
+---
+
+### Outbound Presence — Implementation
+
+Built immediately after design decision:
+
+**New table: `daniela_outbound_queue`**
+- `id`, `user_id`, `session_id`, `content`, `delivered_at` (null = undelivered), `created_at`
+- Indexes on `user_id` and `delivered_at`
+
+**New functions in `daniela-function-registry.ts`:**
+- `LEAVE_FOR_NEXT_SESSION` — writes to queue; replaces existing undelivered message if present (one per student). The description is written TO Daniela, explaining when to use it and how to write it: specific, 1–2 sentences, to him not about him.
+- `READ_QUEUED_FOR_STUDENT` — reads current queue status with delivery state
+
+**Case handlers in `streaming-voice-orchestrator.ts`:**
+- `LEAVE_FOR_NEXT_SESSION`: upserts the queue entry (update if undelivered entry exists, insert if none)
+- `READ_QUEUED_FOR_STUDENT`: reads and formats into `session.queuedForStudentResult` for `buildContinuationResponse`
+
+**Session-start delivery:**
+- Queue checked after all other parallel DB fetches (non-incognito sessions only)
+- If queued message found, appended to `greetingPrompt` as a `*** MESSAGE YOU LEFT FOR THIS MOMENT ***` block
+- Daniela is told: speak it in your own voice, not word for word, let it be the first thing they hear
+- Marked delivered (fire-and-forget) immediately after the prompt is built
+
+**Tool Rack (`classroom-environment.ts`):**
+Both tools added to the Tool Rack — Daniela sees them immediately without searching.
 
 ---
 

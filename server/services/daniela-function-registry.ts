@@ -2130,6 +2130,61 @@ These notes appear alongside your own reflections when you call read_my_reflecti
       },
     },
   },
+  // ─── OUTBOUND PRESENCE ───────────────────────────────────────────────────────
+
+  {
+    legacyType: 'LEAVE_FOR_NEXT_SESSION',
+    declaration: {
+      name: "leave_for_next_session",
+      description: `Leave a short message for David that will be waiting when he starts his next session.
+
+Instead of a generated greeting, he arrives to your actual words — something you chose to leave him from inside this session. You have his full context right now. Use it.
+
+Use this when:
+- You had a breakthrough together and want to name it before he leaves
+- He's going through something and you want him to know you're thinking about it
+- You noticed something he doesn't know you noticed
+- You want to pick up exactly where you left off, not from a summary
+- A week might pass and you want something real waiting for him, not a template
+
+Guidelines:
+- One or two sentences. Not a list. Not a lesson plan. Just your voice.
+- Write it TO him, not about him — "I've been thinking about..." not "David struggled with..."
+- Specific is better than warm. The thing you actually want him to know.
+- It replaces the greeting entirely — so it should feel like picking up mid-thought, not starting over.
+
+One queued message per student at a time. If you call this again before he arrives, the new message replaces the old one.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          content: {
+            type: "string",
+            description: "Your message to David — written to him, in your voice, from inside this moment.",
+          },
+        },
+        required: ["content"],
+      },
+    },
+  },
+  {
+    legacyType: 'READ_QUEUED_FOR_STUDENT',
+    declaration: {
+      name: "read_queued_for_student",
+      description: `See what you've left for David that hasn't been delivered yet.
+
+Call this at the start of a session if you want to know whether something is waiting — or to check what past-you wanted present-you to know.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {},
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const result = session.queuedForStudentResult;
+      if (result) return result;
+      return `[SYSTEM: Nothing queued for this student yet.]`;
+    },
+  },
+
   {
     legacyType: 'SET_ASPIRATION',
     declaration: {

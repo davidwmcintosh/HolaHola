@@ -9056,3 +9056,24 @@ export const studentSessionHealth = pgTable("student_session_health", {
 export const insertStudentSessionHealthSchema = createInsertSchema(studentSessionHealth).omit({ id: true, createdAt: true });
 export type InsertStudentSessionHealth = z.infer<typeof insertStudentSessionHealthSchema>;
 export type StudentSessionHealth = typeof studentSessionHealth.$inferSelect;
+
+// ===== Daniela Outbound Queue =====
+// Messages Daniela writes during a live session, delivered at the student's next session start
+// instead of a generated greeting. Authorship rule: only Daniela writes here, from an active
+// session context. No background process may write to this table.
+
+export const danielaOutboundQueue = pgTable("daniela_outbound_queue", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  sessionId: varchar("session_id"), // voice session where the message was written
+  content: text("content").notNull(),
+  deliveredAt: timestamp("delivered_at"), // null = pending delivery
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_daniela_outbound_queue_user").on(table.userId),
+  index("idx_daniela_outbound_queue_delivered").on(table.deliveredAt),
+]);
+
+export const insertDanielaOutboundQueueSchema = createInsertSchema(danielaOutboundQueue).omit({ id: true, createdAt: true });
+export type InsertDanielaOutboundQueue = z.infer<typeof insertDanielaOutboundQueueSchema>;
+export type DanielaOutboundQueueItem = typeof danielaOutboundQueue.$inferSelect;

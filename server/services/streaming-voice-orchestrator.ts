@@ -3717,6 +3717,54 @@ Remember: David may reference things discussed in these recent text chats.
                   break;
                 }
 
+                case 'LEAVE_FOR_NEXT_SESSION': {
+                  if (!session.isIncognito && session.userId) {
+                    (async () => {
+                      const { danielaOutboundQueue } = await import('@shared/schema');
+                      const { eq, isNull } = await import('drizzle-orm');
+                      const content = cmd.params.content as string | undefined;
+                      if (!content?.trim()) return;
+                      const db = getSharedDb();
+                      const userId = String(session.userId);
+                      // Replace any existing undelivered message (one queued item per student)
+                      const existing = await db.select({ id: danielaOutboundQueue.id })
+                        .from(danielaOutboundQueue)
+                        .where(eq(danielaOutboundQueue.userId, userId))
+                        .limit(1);
+                      if (existing.length > 0) {
+                        await db.update(danielaOutboundQueue)
+                          .set({ content: content.trim(), sessionId: session.id, deliveredAt: null, createdAt: new Date() })
+                          .where(eq(danielaOutboundQueue.id, existing[0].id));
+                      } else {
+                        await db.insert(danielaOutboundQueue).values({
+                          userId,
+                          sessionId: session.id,
+                          content: content.trim(),
+                        });
+                      }
+                      console.log(`[CommandParser→LeaveForNextSession] Queued message for user ${userId}`);
+                    })().catch(err => console.error(`[CommandParser→LeaveForNextSession] Error:`, err.message));
+                  }
+                  break;
+                }
+
+                case 'READ_QUEUED_FOR_STUDENT': {
+                  try {
+                    if (!session.userId) break;
+                    const { danielaOutboundQueue } = await import('@shared/schema');
+                    const { eq, isNull, asc } = await import('drizzle-orm');
+                    const [item] = await getSharedDb().select()
+                      .from(danielaOutboundQueue)
+                      .where(eq(danielaOutboundQueue.userId, String(session.userId)))
+                      .orderBy(asc(danielaOutboundQueue.createdAt))
+                      .limit(1);
+                    session.queuedForStudentResult = item
+                      ? `[SYSTEM: You left this for David (written ${item.createdAt.toLocaleDateString()}, ${item.deliveredAt ? 'already delivered' : 'not yet delivered'}):\n\n"${item.content}"]`
+                      : null;
+                  } catch (err) { console.error(`[CommandParser→ReadQueuedForStudent] Error:`, err); }
+                  break;
+                }
+
                 case 'RECALL_WHAT_I_SHARED': {
                   const recallTopic = cmd.params.topic as string | undefined;
                   const recallLimit = Math.min((cmd.params.limit as number | undefined) ?? 10, 20);
@@ -8484,6 +8532,28 @@ Remember: David may reference things discussed in these recent text chats.
         if (recentMilestonesContext) console.log(`[Streaming Greeting] Recent milestones loaded (${recentMilestonesContext.split('\n').length} milestones)`);
       }
       
+      // Check for a message Daniela left for this student from a previous session.
+      // If found, it replaces the generated greeting opener — Daniela's actual words, not a template.
+      let queuedMessage: { id: string; content: string } | null = null;
+      if (!session.isIncognito && session.userId) {
+        try {
+          const { danielaOutboundQueue } = await import('@shared/schema');
+          const { eq, isNull, asc } = await import('drizzle-orm');
+          const [item] = await getSharedDb()
+            .select({ id: danielaOutboundQueue.id, content: danielaOutboundQueue.content })
+            .from(danielaOutboundQueue)
+            .where(and(eq(danielaOutboundQueue.userId, String(session.userId)), isNull(danielaOutboundQueue.deliveredAt)))
+            .orderBy(asc(danielaOutboundQueue.createdAt))
+            .limit(1);
+          if (item) {
+            queuedMessage = item;
+            console.log(`[Streaming Greeting] Queued message found for user ${session.userId} — will override greeting opener`);
+          }
+        } catch (queueErr: any) {
+          console.log(`[Streaming Greeting] Could not check outbound queue: ${queueErr.message}`);
+        }
+      }
+
       // Build greeting prompt with full context
       // DEBUG: Log context being passed to greeting prompt
       console.log(`[Streaming Greeting] Context for prompt:`, {
@@ -8521,6 +8591,20 @@ Remember: David may reference things discussed in these recent text chats.
         recentMilestonesContext
       );
       
+      // Inject queued message: Daniela left this for the student from a previous session.
+      // It replaces the generated opener — she speaks her own words, not a reconstructed greeting.
+      if (queuedMessage) {
+        const qm = queuedMessage;
+        greetingPrompt += `\n\n*** MESSAGE YOU LEFT FOR THIS MOMENT ***\nBefore this session, you wrote this for ${userName || 'the student'}:\n\n"${qm.content}"\n\nThis was your intention from your last session with them. Open with it — not word for word, but in your own voice, as if you've been holding it. Let it be the first thing they hear.`;
+        // Mark delivered (fire-and-forget)
+        ;(async () => {
+          const { danielaOutboundQueue } = await import('@shared/schema');
+          const { eq } = await import('drizzle-orm');
+          await getSharedDb().update(danielaOutboundQueue).set({ deliveredAt: new Date() }).where(eq(danielaOutboundQueue.id, qm.id));
+          console.log(`[Streaming Greeting] Queued message ${qm.id} marked delivered`);
+        })().catch(err => console.error(`[Streaming Greeting] Could not mark queue item delivered:`, err.message));
+      }
+
       // Inject scenario context if the student navigated here from the scenario browser
       if (scenarioSlug) {
         console.log(`[Streaming Greeting] Injecting scenario context for slug: "${scenarioSlug}"`);
