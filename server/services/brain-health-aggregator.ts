@@ -250,6 +250,39 @@ async function assessMemoryHealth(): Promise<HealthDimension> {
       reasons.push(highLatency.message);
     }
 
+    // === SEARCH INDEX INTEGRITY ===
+    // Baseline (established May 2026): 0 null, 184 empty (punctuation-only messages)
+    // Null > 0 means the INSERT trigger stopped firing — new messages aren't being indexed.
+    // Empty growing sharply above baseline means something upstream is writing bad content.
+    const SEARCH_VECTOR_EMPTY_BASELINE = 184;
+    const SEARCH_VECTOR_EMPTY_ALERT_THRESHOLD = 50; // flag if empty count grows this much above baseline
+    try {
+      const vectorResult = await getSharedDb().execute(sql`
+        SELECT
+          COUNT(*) FILTER (WHERE search_vector IS NULL) AS null_count,
+          COUNT(*) FILTER (WHERE search_vector = '') AS empty_count
+        FROM messages
+      `);
+      const row = (vectorResult.rows as any[])[0];
+      const nullCount = Number(row?.null_count ?? 0);
+      const emptyCount = Number(row?.empty_count ?? 0);
+      const emptyGrowth = emptyCount - SEARCH_VECTOR_EMPTY_BASELINE;
+
+      metrics.searchVectorNullCount = nullCount;
+      metrics.searchVectorEmptyCount = emptyCount;
+
+      if (nullCount > 0) {
+        score -= 30;
+        reasons.push(`Search index broken: ${nullCount} message(s) have null search_vector — INSERT trigger may have stopped firing`);
+      }
+      if (emptyGrowth > SEARCH_VECTOR_EMPTY_ALERT_THRESHOLD) {
+        score -= 20;
+        reasons.push(`Search index growth anomaly: empty search_vector count is ${emptyCount} (baseline ${SEARCH_VECTOR_EMPTY_BASELINE}, growth: +${emptyGrowth}) — possible bad content being written to messages`);
+      }
+    } catch (vectorErr: any) {
+      reasons.push(`Search vector check skipped: ${vectorErr.message}`);
+    }
+
     score = Math.max(0, score);
     const status: BrainHealthStatus = score >= 70 ? 'green' : score >= 40 ? 'yellow' : 'red';
 
