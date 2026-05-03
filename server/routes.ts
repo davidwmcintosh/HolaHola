@@ -8757,6 +8757,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
       const { computeCallNonce } = await import('./services/voice-call-sender');
       const sig = computeCallNonce(userId, queueId);
+      const appUrl = process.env.APP_URL || 'https://getholahola.com';
       const wsUrl = appUrl.replace(/^https?:\/\//, 'wss://') + '/api/voice/twilio-stream';
 
       // Human confirmed — persist callAnsweredAt in DB now so it survives any subsequent restart
