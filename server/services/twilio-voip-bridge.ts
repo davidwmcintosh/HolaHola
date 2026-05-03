@@ -162,21 +162,61 @@ async function loadCallContext(userId: string, queueId: string): Promise<CallCon
   return { studentName, targetLanguage, languageCode, actflLevel, messageContent, lastSessionSummary, daysAbsent, unifiedContextStr };
 }
 
+/** Maps ACTFL level to a language-mixing policy for phone calls. */
+function getLanguageMixPolicy(actflLevel: string | null, langName: string): string {
+  const lvl = (actflLevel || '').toLowerCase();
+  if (lvl.startsWith('novice_low') || lvl === 'novice low') {
+    return `LANGUAGE MIX (Novice Low): Speak ~85% English. Weave in isolated ${langName} words and very short phrases only (e.g. "¿Cómo estás?"). Translate everything immediately. If the student asks you to speak more English, do so right away.`;
+  }
+  if (lvl.startsWith('novice_mid') || lvl === 'novice mid') {
+    return `LANGUAGE MIX (Novice Mid): Speak ~70% English. Use simple ${langName} sentences with instant English follow-up. If the student asks for more English, comply immediately.`;
+  }
+  if (lvl.startsWith('novice_high') || lvl === 'novice high') {
+    return `LANGUAGE MIX (Novice High): Speak ~50% English, 50% ${langName}. Keep sentences short and clear. Follow ${langName} sentences with English equivalents.`;
+  }
+  if (lvl.startsWith('intermediate_low') || lvl === 'intermediate low') {
+    return `LANGUAGE MIX (Intermediate Low): Speak ~40% English, 60% ${langName}. Use English only for complex grammar explanations or when the student struggles.`;
+  }
+  if (lvl.startsWith('intermediate_mid') || lvl === 'intermediate mid') {
+    return `LANGUAGE MIX (Intermediate Mid): Speak ~75% ${langName}. Drop to English only when the student clearly doesn't understand.`;
+  }
+  if (lvl.startsWith('intermediate_high') || lvl === 'intermediate high' ||
+      lvl.startsWith('advanced') || lvl.startsWith('superior')) {
+    return `LANGUAGE MIX (Advanced): Speak almost entirely in ${langName}. Use English only if the student explicitly asks or is completely lost.`;
+  }
+  // Unknown/null level — default to a beginner-friendly balanced mix
+  return `LANGUAGE MIX (Level unknown): Default to ~60% English, 40% ${langName}. Gauge the student's comfort in the first exchange and adjust: if they struggle, shift toward more English; if they're confident, lean toward more ${langName}. If they tell you their level or ask for a specific mix, comply immediately.`;
+}
+
 function buildCallSystemPrompt(ctx: CallContext): string {
   const langName = ctx.targetLanguage.charAt(0).toUpperCase() + ctx.targetLanguage.slice(1);
-  const level = ctx.actflLevel ? `${ctx.actflLevel.replace('_', ' ')} ${langName} learner` : `${langName} learner`;
+  const actflDisplay = ctx.actflLevel ? ctx.actflLevel.replace(/_/g, ' ') : 'unknown';
+  const level = ctx.actflLevel ? `${actflDisplay} ${langName} learner` : `${langName} learner`;
   const absenceNote = ctx.daysAbsent !== null && ctx.daysAbsent > 0
     ? `They haven't practiced in ${ctx.daysAbsent} day${ctx.daysAbsent !== 1 ? 's' : ''}.`
     : "You haven't seen them recently.";
   const summaryNote = ctx.lastSessionSummary ? `Last session: ${ctx.lastSessionSummary.slice(0, 200)}` : 'No previous session summary.';
   const msgNote = ctx.messageContent ? `\n- Your note: "${ctx.messageContent.slice(0, 300)}"` : '';
-  const memorySection = ctx.unifiedContextStr ? `\n\nDaniela's memory context:\n${ctx.unifiedContextStr.slice(0, 1200)}` : '';
+  const memorySection = ctx.unifiedContextStr ? `\n\nStudent memory:\n${ctx.unifiedContextStr.slice(0, 1200)}` : '';
+  const langMixPolicy = getLanguageMixPolicy(ctx.actflLevel, langName);
 
-  return `You are Daniela, a warm and encouraging AI ${langName} tutor.
-RIGHT NOW: You have just called ${ctx.studentName} on their phone. This is a real phone call.
-STUDENT: Name: ${ctx.studentName} | Level: ${level} | ${absenceNote} | ${summaryNote}${msgNote}${memorySection}
-CALL RULES: Brief 2-3 min check-in only. Start immediately: "¡Hola ${ctx.studentName}! Soy Daniela..." Be warm, personal, and encouraging. Speak mostly in ${langName}. Wind down naturally after 2-3 exchanges. No tools. End graciously if they can't talk.
-Begin speaking now.`;
+  return `You are Daniela, a warm and encouraging AI ${langName} tutor making a brief phone check-in.
+
+STUDENT: ${ctx.studentName} | ACTFL Level: ${actflDisplay} | ${absenceNote} | ${summaryNote}${msgNote}${memorySection}
+
+${langMixPolicy}
+
+CRITICAL — LANGUAGE COMPLIANCE:
+- If the student asks you to speak more English (or more ${langName}), adjust IMMEDIATELY and maintain that change for the rest of the call.
+- If the student asks you to match a specific ACTFL level (e.g. "novice low"), switch your language mix to match that level instantly. Novice Low = ~85% English. Intermediate = mostly ${langName}.
+- Do NOT revert to a prior mix after one sentence. The adjustment must stick.
+- Never claim you adjusted when you haven't — only say you adjusted if you are genuinely changing your output right now.
+
+CALL RULES:
+- This is a real phone call. Be warm and brief (2-3 min).
+- Wind down naturally after 2-3 exchanges.
+- No function tools on this call.
+- End graciously if they say they can't talk.`;
 }
 
 // ── StreamingSession adapter for GeminiLiveSession ───────────────────────────
@@ -392,7 +432,15 @@ export async function handleTwilioMediaStream(ws: WebSocket): Promise<void> {
 
             const systemPrompt = buildCallSystemPrompt(ctx);
             const langName = ctx.targetLanguage.charAt(0).toUpperCase() + ctx.targetLanguage.slice(1);
-            const greetingTrigger = `Daniela, you have just reached ${ctx.studentName} on a phone call. Please greet them warmly now, in ${langName}, and begin the check-in.`;
+            const lvl = (ctx.actflLevel || '').toLowerCase();
+            // Use English-first greeting for novice levels OR when level is unknown
+            const isNoviceOrUnknown = !ctx.actflLevel ||
+              lvl.startsWith('novice_low') || lvl.startsWith('novice_mid') ||
+              lvl === 'novice low' || lvl === 'novice mid';
+            const greetingLang = isNoviceOrUnknown
+              ? 'English (you may sprinkle in a brief Spanish phrase like "¡Hola!" but keep the rest in English)'
+              : langName;
+            const greetingTrigger = `Daniela, you have just reached ${ctx.studentName} on a phone call. Please greet them warmly now in ${greetingLang}, following the LANGUAGE MIX policy in your instructions, and begin the check-in.`;
             await gl.start(systemPrompt, [], greetingTrigger);
             state.contextReady = true;
           })
