@@ -98,7 +98,9 @@ export async function initiateCall(userId: string, queueId: string): Promise<str
         StatusCallback: statusUrl,
         StatusCallbackMethod: 'POST',
         StatusCallbackEvent: 'completed',
-        MachineDetection: 'Enable',
+        // MachineDetection intentionally omitted — synchronous AMD adds 3-5s
+        // of dead silence before TwiML runs, causing users to hang up.
+        // Admin-triggered calls are always human; AMD is not needed.
         Record: 'true',
         RecordingStatusCallback: recordingCallbackUrl,
         RecordingStatusCallbackMethod: 'POST',

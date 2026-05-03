@@ -8731,7 +8731,11 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Returns TwiML with <Connect><Stream> for bidirectional audio (Media Streams).
   // userId, queueId, and HMAC nonce are passed as TwiML <Parameter> elements
   // rather than URL query params (Twilio Media Streams ignores query strings).
-  app.post("/api/webhooks/twilio/voice-answer", validateTwilioSignature, async (req: any, res) => {
+  app.post("/api/webhooks/twilio/voice-answer", async (req: any, res, next) => {
+    // Pre-signature log so we can confirm Twilio is reaching this endpoint in production
+    console.log('[Route] Twilio voice-answer RECEIVED — AnsweredBy:', req.body?.AnsweredBy || '(none)', 'CallStatus:', req.body?.CallStatus || '(none)');
+    next();
+  }, validateTwilioSignature, async (req: any, res) => {
     try {
       const queueId = (req.query.queueId as string) || '';
       const userId = (req.query.userId as string) || '';

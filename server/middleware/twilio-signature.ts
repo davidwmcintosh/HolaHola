@@ -14,7 +14,8 @@ import { createHmac, timingSafeEqual } from "crypto";
  * In production the token is required; missing token → 403.
  */
 export function validateTwilioSignature(req: Request, res: Response, next: NextFunction): void {
-  const authToken = process.env.TWILIO_AUTH_TOKEN || '';
+  // Trim whitespace/newlines that Replit secrets sometimes append
+  const authToken = (process.env.TWILIO_AUTH_TOKEN || '').trim();
 
   if (!authToken) {
     if (process.env.NODE_ENV === 'production') {
@@ -48,10 +49,17 @@ export function validateTwilioSignature(req: Request, res: Response, next: NextF
     timingSafeEqual(expectedBuf, receivedBuf);
 
   if (!sigMatch) {
-    console.warn('[TwilioWebhook] Signature mismatch — rejected', { url: fullUrl });
+    console.warn('[TwilioWebhook] Signature mismatch — rejected', {
+      url: fullUrl,
+      expectedLen: expectedBuf.length,
+      receivedLen: receivedBuf.length,
+      paramCount: sortedKeys.length,
+    });
     res.status(403).send('Forbidden');
     return;
   }
+
+  console.log('[TwilioWebhook] Signature verified ✓', { url: fullUrl.split('?')[0] });
 
   next();
 }
