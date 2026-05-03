@@ -15684,26 +15684,25 @@ Return ONLY valid JSON, no markdown, no explanation.`;
         return res.status(404).json({ error: 'User not found' });
       }
 
-      // Check what outbound channel will be used (informational — does not gate the call)
-      const { canContactStudent } = await import('./services/outbound-consent');
-      const voiceOk = await canContactStudent(userId, 'voice');
-      const smsOk = !voiceOk && await canContactStudent(userId, 'sms');
-      const channel = voiceOk ? 'voice' : smsOk ? 'sms' : 'none';
-
-      // Insert a queue entry
+      // Insert a queue entry first
       const db = getSharedDb();
       const [row] = await db
         .insert(danielaOutboundQueue)
         .values({ userId, content })
         .returning();
 
-      // Fire outbound contact — bypasses time-window logic entirely
-      const { initiateOutboundContact } = await import('./services/voice-call-sender');
-      initiateOutboundContact(userId, row.id, content).catch((err: Error) =>
-        console.error('[Admin] trigger-call initiateOutboundContact error:', err.message)
-      );
-
-      res.json({ success: true, queueId: row.id, channel });
+      // Admin trigger always forces a VoIP call — bypasses consent and time-window checks.
+      // Returns success:false with the real Twilio error so the admin UI can show it.
+      const { initiateCall } = await import('./services/voice-call-sender');
+      try {
+        const callSid = await initiateCall(userId, row.id);
+        console.log(`[Admin] trigger-call succeeded — SID: ${callSid}, user: ${userId.slice(-6)}`);
+        return res.json({ success: true, queueId: row.id, channel: 'voice', callSid });
+      } catch (callErr: any) {
+        console.error('[Admin] trigger-call Twilio error:', callErr.message);
+        // Return 200 so the full error message reaches the frontend (not swallowed by the generic 5xx handler)
+        return res.json({ success: false, queueId: row.id, error: callErr.message });
+      }
     } catch (error: any) {
       console.error('[Admin] Error triggering call:', error);
       res.status(500).json({ error: error.message });

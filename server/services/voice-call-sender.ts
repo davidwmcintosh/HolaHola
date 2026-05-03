@@ -10,7 +10,7 @@
  * and streaming-voice-orchestrator.ts.
  */
 
-import { createHmac, randomBytes } from 'crypto';
+import { createHmac } from 'crypto';
 import { canContactStudent } from './outbound-consent';
 import { storage } from '../storage';
 import { getSharedDb } from '../db';
@@ -60,18 +60,17 @@ export function computeCallNonce(userId: string, queueId: string): string {
 
 /**
  * Place an outbound Twilio call to the student.
- * Returns true if the call was successfully initiated, false on any failure.
+ * Returns the CallSID on success, or throws with a human-readable message on failure.
+ * Use this directly from admin routes that need to bypass consent checks.
  */
-async function initiateCall(userId: string, queueId: string): Promise<boolean> {
+export async function initiateCall(userId: string, queueId: string): Promise<string> {
   if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_FROM_NUMBER) {
-    console.warn('[VoiceCallSender] Twilio credentials not configured — call skipped');
-    return false;
+    throw new Error('Twilio credentials not configured (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER must all be set)');
   }
 
   const prefs = await storage.getContactPreferences(userId);
   if (!prefs?.phone) {
-    console.warn(`[VoiceCallSender] No phone number for user ${userId.slice(-6)}`);
-    return false;
+    throw new Error(`No phone number on file for user ${userId.slice(-6)}`);
   }
 
   // getContactPreferences() already decrypts the phone — normalize to valid E.164
@@ -84,62 +83,52 @@ async function initiateCall(userId: string, queueId: string): Promise<boolean> {
   const recordingCallbackUrl = `${appUrl}/api/webhooks/twilio/recording-complete?queueId=${encodeURIComponent(queueId)}&userId=${encodeURIComponent(userId)}`;
   const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');
 
-  try {
-    const response = await fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls.json`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Basic ${auth}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          To: phone,
-          From: TWILIO_FROM_NUMBER,
-          Url: answerUrl,
-          StatusCallback: statusUrl,
-          StatusCallbackMethod: 'POST',
-          // 'completed' covers answered+hung-up, no-answer, busy, and failed
-          // as the CallStatus field on the completed callback
-          StatusCallbackEvent: 'completed',
-          // Synchronous AMD: Twilio detects human vs machine before calling the TwiML URL.
-          // AnsweredBy is included in the voice-answer POST body — the webhook can return
-          // <Hangup/> for machines before any stream is established, preventing Daniela
-          // from speaking into voicemail.
-          MachineDetection: 'Enable',
-          // Record the full call for quality review and transcription.
-          // Twilio REST API uses Record=true (boolean) to enable recording from answer.
-          Record: 'true',
-          RecordingStatusCallback: recordingCallbackUrl,
-          RecordingStatusCallbackMethod: 'POST',
-        }).toString(),
+  const response = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls.json`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${auth}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
-    );
+      body: new URLSearchParams({
+        To: phone,
+        From: TWILIO_FROM_NUMBER,
+        Url: answerUrl,
+        StatusCallback: statusUrl,
+        StatusCallbackMethod: 'POST',
+        StatusCallbackEvent: 'completed',
+        MachineDetection: 'Enable',
+        Record: 'true',
+        RecordingStatusCallback: recordingCallbackUrl,
+        RecordingStatusCallbackMethod: 'POST',
+      }).toString(),
+    },
+  );
 
-    if (!response.ok) {
-      const text = await response.text();
-      console.error(`[VoiceCallSender] Twilio API error ${response.status}:`, text.slice(0, 200));
-      return false;
-    }
-
-    const json = (await response.json()) as { sid: string };
-    const callSid = json.sid;
-    console.log(`[VoiceCallSender] Call initiated — SID: ${callSid}, user: ${userId.slice(-6)}`);
-
-    const db = getSharedDb();
-    await db
-      .update(danielaOutboundQueue)
-      .set({ callSid, callAt: new Date() })
-      .where(eq(danielaOutboundQueue.id, queueId));
-
-    return true;
-  } catch (err: unknown) {
-    console.error(
-      '[VoiceCallSender] initiateCall error:',
-      err instanceof Error ? err.message : String(err),
-    );
-    return false;
+  if (!response.ok) {
+    const text = await response.text();
+    console.error(`[VoiceCallSender] Twilio API error ${response.status}:`, text.slice(0, 500));
+    // Extract Twilio's human-readable message if available
+    let twilioMsg = `Twilio ${response.status}`;
+    try {
+      const body = JSON.parse(text);
+      if (body.message) twilioMsg = `Twilio error: ${body.message}`;
+    } catch { /* ignore parse errors */ }
+    throw new Error(twilioMsg);
   }
+
+  const json = (await response.json()) as { sid: string };
+  const callSid = json.sid;
+  console.log(`[VoiceCallSender] Call initiated — SID: ${callSid}, to: ${phone}, user: ${userId.slice(-6)}`);
+
+  const db = getSharedDb();
+  await db
+    .update(danielaOutboundQueue)
+    .set({ callSid, callAt: new Date() })
+    .where(eq(danielaOutboundQueue.id, queueId));
+
+  return callSid;
 }
 
 /**
@@ -160,12 +149,16 @@ export async function initiateOutboundContact(
     const voiceOk = await canContactStudent(userId, 'voice');
     if (voiceOk) {
       console.log(`[VoiceCallSender] Voice consent ✓ — initiating call for user ${userId.slice(-6)}`);
-      const callPlaced = await initiateCall(userId, queueId);
-      if (callPlaced) return;
-      // Call initiation failed — fall through to SMS
-      console.log(
-        `[VoiceCallSender] Call initiation failed — falling back to SMS for user ${userId.slice(-6)}`,
-      );
+      try {
+        await initiateCall(userId, queueId);
+        return;
+      } catch (callErr: unknown) {
+        // Call initiation failed — fall through to SMS
+        console.log(
+          `[VoiceCallSender] Call initiation failed — falling back to SMS for user ${userId.slice(-6)}:`,
+          callErr instanceof Error ? callErr.message : String(callErr),
+        );
+      }
     }
 
     const smsOk = await canContactStudent(userId, 'sms');

@@ -1674,13 +1674,19 @@ function VoipConsoleTab() {
   });
 
   const triggerCallMutation = useMutation({
-    mutationFn: async (): Promise<{ success: boolean; queueId: string; channel: 'voice' | 'sms' | 'none' }> => {
+    mutationFn: async (): Promise<{ success: boolean; queueId: string; channel?: 'voice' | 'sms' | 'none'; callSid?: string; error?: string }> => {
       const res = await apiRequest("POST", "/api/admin/trigger-call", { userId: selectedUserId, content: callContent });
       return res.json();
     },
     onSuccess: (data) => {
-      const channelLabel = data.channel === 'voice' ? 'Attempting VoIP call via Twilio (check queue for callSid)' : data.channel === 'sms' ? 'Attempting SMS delivery (no voice consent)' : 'No consent/phone on file — message queued for session-start delivery';
-      toast({ title: "Outbound contact triggered", description: channelLabel });
+      if (!data.success) {
+        toast({ title: "Twilio call failed", description: data.error ?? "Unknown error from Twilio", variant: "destructive" });
+        refetchQueue();
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/outbound-queue"] });
+        return;
+      }
+      const desc = data.callSid ? `Call initiated — SID: ${data.callSid}` : 'Call queued (check queue for status)';
+      toast({ title: "VoIP call triggered", description: desc });
       setCallContent("");
       refetchQueue();
       queryClient.invalidateQueries({ queryKey: ["/api/admin/outbound-queue"] });
