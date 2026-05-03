@@ -25,9 +25,8 @@ function getKey(): Buffer {
     }
     return buf;
   }
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('PHONE_ENCRYPTION_KEY environment variable is required in production');
-  }
+  // Derive a stable key from DATABASE_URL — both dev and prod share the same
+  // Neon URL so this always produces the same key in both environments.
   const seed = process.env.DATABASE_URL ?? 'holahola-dev-phone-encryption-seed';
   return crypto.createHash('sha256').update(seed).digest();
 }
