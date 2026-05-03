@@ -62,10 +62,12 @@ async function uploadAudioToStorage(queueId: string, wavBuffer: Buffer): Promise
   }
 }
 
-async function sendTwilioSms(to: string, body: string): Promise<void> {
+/** Returns true if the SMS was actually sent, false if credentials are missing. Throws on API errors. */
+async function sendTwilioSms(to: string, body: string): Promise<boolean> {
   if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_FROM_NUMBER) {
-    console.warn('[VoiceMessageDelivery] Twilio credentials not configured — SMS skipped');
-    return;
+    console.warn('[VoiceMessageDelivery] Twilio credentials not configured — SMS skipped. ' +
+      'Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_NUMBER to Secrets.');
+    return false;
   }
   const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');
   const response = await fetch(
@@ -85,6 +87,7 @@ async function sendTwilioSms(to: string, body: string): Promise<void> {
   }
   const data = await response.json() as { sid?: string; status?: string };
   console.log(`[VoiceMessageDelivery] SMS sent sid=${data.sid} status=${data.status}`);
+  return true;
 }
 
 /**
@@ -130,10 +133,16 @@ export async function deliverVoiceMessageViaSms(
   const vmUrl = `${APP_URL}/vm/${queueId}`;
   const smsBody = `Daniela left you a voice note. Tap to listen: ${vmUrl}  Reply STOP to unsubscribe.`;
 
+  let smsSent = false;
   try {
-    await sendTwilioSms(prefs.phone, smsBody);
+    smsSent = await sendTwilioSms(prefs.phone, smsBody);
   } catch (err: any) {
     console.error('[VoiceMessageDelivery] SMS send failed:', err.message);
+    return;
+  }
+
+  if (!smsSent) {
+    // Credentials not configured — logged inside sendTwilioSms; leave queue item as-is
     return;
   }
 
