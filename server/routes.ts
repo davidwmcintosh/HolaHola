@@ -9,6 +9,7 @@ import { eq, and, gte, desc, sql, isNotNull, isNull, inArray } from "drizzle-orm
 import { stripeService } from "./stripeService";
 import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter, hiveExternalLimiter, generalLimiter } from "./middleware/rate-limiter";
 import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, logAgentAction, getAgentAuditLog, isAgentTokenConfigured } from "./middleware/rbac";
+import { validateTwilioSignature } from "./middleware/twilio-signature";
 import { voiceDiagnostics } from "./services/voice-diagnostics-service";
 import { voiceIntelligenceService } from "./services/voice-intelligence-service";
 import { voiceTelemetry } from "./services/voice-pipeline-telemetry";
@@ -8682,27 +8683,8 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Twilio STOP webhook — honor opt-out requests from SMS replies
-  app.post("/api/webhooks/twilio/stop", async (req: any, res) => {
+  app.post("/api/webhooks/twilio/stop", validateTwilioSignature, async (req: any, res) => {
     try {
-      // Twilio signature validation
-      const twilioSig = req.headers['x-twilio-signature'] as string | undefined;
-      const authToken = process.env.TWILIO_AUTH_TOKEN || '';
-      if (authToken && twilioSig) {
-        const { createHmac } = await import('crypto');
-        const url = (process.env.APP_URL || 'https://getholahola.com') + '/api/webhooks/twilio/stop';
-        const params: Record<string, string> = req.body || {};
-        const sortedKeys = Object.keys(params).sort();
-        const paramStr = sortedKeys.map(k => k + params[k]).join('');
-        const expected = createHmac('sha1', authToken).update(url + paramStr).digest('base64');
-        if (expected !== twilioSig) {
-          console.warn('[Twilio STOP] Signature mismatch — rejected');
-          return res.status(403).send('Forbidden');
-        }
-      } else if (authToken) {
-        console.warn('[Twilio STOP] Missing X-Twilio-Signature — rejected');
-        return res.status(403).send('Forbidden');
-      }
-
       const from: string = req.body?.From || '';
       if (!from) return res.status(400).send('Missing From');
 
@@ -8745,49 +8727,14 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
-  // Shared Twilio signature validator for voice webhooks.
-  async function validateTwilioWebhookSignature(
-    req: any,
-    fullUrl: string,
-  ): Promise<boolean> {
-    const authToken = process.env.TWILIO_AUTH_TOKEN || '';
-    if (!authToken) {
-      if (process.env.NODE_ENV === 'production') {
-        console.error('[TwilioWebhook] TWILIO_AUTH_TOKEN not set in production — rejecting request');
-        return false;
-      }
-      return true; // dev only — credentials not configured
-    }
-    const twilioSig = (req.headers['x-twilio-signature'] as string | undefined) || '';
-    if (!twilioSig) {
-      console.warn('[TwilioWebhook] Missing X-Twilio-Signature — rejected');
-      return false;
-    }
-    const { createHmac } = await import('crypto');
-    const params: Record<string, string> = req.body || {};
-    const sortedKeys = Object.keys(params).sort();
-    const paramStr = sortedKeys.map((k) => k + params[k]).join('');
-    const expected = createHmac('sha1', authToken).update(fullUrl + paramStr).digest('base64');
-    if (expected !== twilioSig) {
-      console.warn('[TwilioWebhook] Signature mismatch — rejected');
-      return false;
-    }
-    return true;
-  }
-
   // Twilio voice-answer webhook — called when student answers the outbound call.
   // Returns TwiML with <Connect><Stream> for bidirectional audio (Media Streams).
   // userId, queueId, and HMAC nonce are passed as TwiML <Parameter> elements
   // rather than URL query params (Twilio Media Streams ignores query strings).
-  app.post("/api/webhooks/twilio/voice-answer", async (req: any, res) => {
+  app.post("/api/webhooks/twilio/voice-answer", validateTwilioSignature, async (req: any, res) => {
     try {
       const queueId = (req.query.queueId as string) || '';
       const userId = (req.query.userId as string) || '';
-      const appUrl = process.env.APP_URL || 'https://getholahola.com';
-      const fullUrl = `${appUrl}/api/webhooks/twilio/voice-answer?queueId=${encodeURIComponent(queueId)}&userId=${encodeURIComponent(userId)}`;
-
-      const sigValid = await validateTwilioWebhookSignature(req, fullUrl);
-      if (!sigValid) return res.status(403).set('Content-Type', 'text/xml').send('<?xml version="1.0"?><Response><Hangup/></Response>');
 
       if (!queueId || !userId) {
         console.warn('[Route] Twilio voice-answer — missing queueId or userId');
@@ -8841,15 +8788,10 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   // Twilio voice-status callback — handles no-answer, busy, and failed calls.
   // Falls back to SMS voice note delivery when the call is not answered.
-  app.post("/api/webhooks/twilio/voice-status", async (req: any, res) => {
+  app.post("/api/webhooks/twilio/voice-status", validateTwilioSignature, async (req: any, res) => {
     try {
       const queueId = (req.query.queueId as string) || '';
       const userId = (req.query.userId as string) || '';
-      const appUrl = process.env.APP_URL || 'https://getholahola.com';
-      const fullUrl = `${appUrl}/api/webhooks/twilio/voice-status?queueId=${encodeURIComponent(queueId)}&userId=${encodeURIComponent(userId)}`;
-
-      const sigValid = await validateTwilioWebhookSignature(req, fullUrl);
-      if (!sigValid) return res.status(403).send('Forbidden');
 
       const callStatus: string = req.body?.CallStatus || '';
       const answeredBy: string = req.body?.AnsweredBy || '';
