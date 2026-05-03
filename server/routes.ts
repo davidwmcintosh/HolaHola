@@ -56,6 +56,7 @@ import {
   selfPracticeSessions,
   neuralNetworkTelemetry,
   tutorVoices,
+  danielaOutboundQueue,
   textbookSectionProgress,
   studentLessonProgress,
   textbookUserPosition,
@@ -15659,6 +15660,66 @@ Return ONLY valid JSON, no markdown, no explanation.`;
       res.json(result);
     } catch (error: any) {
       console.error('Error fetching users:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== Daniela VoIP Console (admin only) =====
+
+  // List all danielaOutboundQueue rows with call-tracking fields
+  app.get("/api/admin/outbound-queue", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const db = getSharedDb();
+      const rows = await db
+        .select()
+        .from(danielaOutboundQueue)
+        .orderBy(desc(danielaOutboundQueue.createdAt))
+        .limit(200);
+      res.json({ items: rows });
+    } catch (error: any) {
+      console.error('[Admin] Error fetching outbound queue:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Manually trigger an outbound Daniela call for a specific user (bypasses time-window)
+  app.post("/api/admin/trigger-call", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { userId, content } = req.body;
+      if (!userId || typeof userId !== 'string') {
+        return res.status(400).json({ error: 'userId is required' });
+      }
+      if (!content || typeof content !== 'string') {
+        return res.status(400).json({ error: 'content is required' });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Check what outbound channel will be used (informational — does not gate the call)
+      const { canContactStudent } = await import('./services/outbound-consent');
+      const voiceOk = await canContactStudent(userId, 'voice');
+      const smsOk = !voiceOk && await canContactStudent(userId, 'sms');
+      const channel = voiceOk ? 'voice' : smsOk ? 'sms' : 'none';
+
+      // Insert a queue entry
+      const db = getSharedDb();
+      const [row] = await db
+        .insert(danielaOutboundQueue)
+        .values({ userId, content })
+        .returning();
+
+      // Fire outbound contact — bypasses time-window logic entirely
+      const { initiateOutboundContact } = await import('./services/voice-call-sender');
+      initiateOutboundContact(userId, row.id, content).catch((err: Error) =>
+        console.error('[Admin] trigger-call initiateOutboundContact error:', err.message)
+      );
+
+      res.json({ success: true, queueId: row.id, channel });
+    } catch (error: any) {
+      console.error('[Admin] Error triggering call:', error);
       res.status(500).json({ error: error.message });
     }
   });

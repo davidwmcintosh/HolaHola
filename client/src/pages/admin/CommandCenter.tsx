@@ -1644,6 +1644,191 @@ function SessionEconomicsTab() {
 
 const FOUNDER_USER_ID = '49847136';
 
+// ===== VoIP Console Tab =====
+interface OutboundQueueItem {
+  id: string;
+  userId: string;
+  content: string;
+  callSid: string | null;
+  callAt: string | null;
+  callAnsweredAt: string | null;
+  callDurationSeconds: number | null;
+  callNoAnswer: boolean | null;
+  createdAt: string;
+  deliveredAt: string | null;
+  smsDeliveredAt: string | null;
+}
+
+function VoipConsoleTab() {
+  const { toast } = useToast();
+  const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [callContent, setCallContent] = useState<string>("");
+
+  const { data: usersData } = useQuery<{ users: { id: string; firstName: string | null; lastName: string | null; email: string | null }[] }>({
+    queryKey: ["/api/admin/users"],
+  });
+
+  const { data: queueData, isLoading: queueLoading, refetch: refetchQueue } = useQuery<{ items: OutboundQueueItem[] }>({
+    queryKey: ["/api/admin/outbound-queue"],
+    refetchInterval: 15000,
+  });
+
+  const triggerCallMutation = useMutation({
+    mutationFn: async (): Promise<{ success: boolean; queueId: string; channel: 'voice' | 'sms' | 'none' }> => {
+      const res = await apiRequest("POST", "/api/admin/trigger-call", { userId: selectedUserId, content: callContent });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      const channelLabel = data.channel === 'voice' ? 'Attempting VoIP call via Twilio (check queue for callSid)' : data.channel === 'sms' ? 'Attempting SMS delivery (no voice consent)' : 'No consent/phone on file — message queued for session-start delivery';
+      toast({ title: "Outbound contact triggered", description: channelLabel });
+      setCallContent("");
+      refetchQueue();
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/outbound-queue"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to trigger call", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const users = usersData?.users ?? [];
+  const items = queueData?.items ?? [];
+
+  function formatTs(ts: string | null) {
+    if (!ts) return "—";
+    return new Date(ts).toLocaleString();
+  }
+
+  function callStatus(item: OutboundQueueItem) {
+    if (item.callNoAnswer) return <Badge variant="secondary" data-testid={`badge-noanswer-${item.id}`}>No Answer</Badge>;
+    if (item.callAnsweredAt) return <Badge className="bg-green-600 text-white" data-testid={`badge-answered-${item.id}`}>Answered</Badge>;
+    if (item.callSid) return <Badge variant="outline" data-testid={`badge-initiated-${item.id}`}>Initiated</Badge>;
+    if (item.smsDeliveredAt) return <Badge variant="secondary" data-testid={`badge-sms-${item.id}`}>SMS</Badge>;
+    if (item.deliveredAt) return <Badge variant="secondary" data-testid={`badge-delivered-${item.id}`}>In-App</Badge>;
+    return <Badge variant="outline" data-testid={`badge-pending-${item.id}`}>Pending</Badge>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Phone className="h-5 w-5" />
+            Trigger Outbound Daniela Call
+          </CardTitle>
+          <CardDescription>
+            Manually fire a VoIP call to a student, bypassing the time-window check. Requires the student to have voice consent and a registered phone number.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Student</label>
+            <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+              <SelectTrigger data-testid="select-trigger-user">
+                <SelectValue placeholder="Pick a user…" />
+              </SelectTrigger>
+              <SelectContent>
+                {users.map((u) => (
+                  <SelectItem key={u.id} value={u.id} data-testid={`option-user-${u.id}`}>
+                    {u.firstName || u.lastName
+                      ? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim()
+                      : u.email ?? u.id}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Message content (what Daniela will say)</label>
+            <Textarea
+              placeholder="Hey! I wanted to check in on your Spanish practice…"
+              value={callContent}
+              onChange={(e) => setCallContent(e.target.value)}
+              className="min-h-24"
+              data-testid="input-call-content"
+            />
+          </div>
+
+          <Button
+            onClick={() => triggerCallMutation.mutate()}
+            disabled={!selectedUserId || !callContent.trim() || triggerCallMutation.isPending}
+            data-testid="button-trigger-call"
+          >
+            {triggerCallMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Phone className="h-4 w-4 mr-2" />}
+            Trigger Call Now
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Outbound Queue
+            </CardTitle>
+            <CardDescription>Recent danielaOutboundQueue entries with VoIP call status</CardDescription>
+          </div>
+          <Button size="icon" variant="ghost" onClick={() => refetchQueue()} data-testid="button-refresh-queue">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {queueLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
+            </div>
+          ) : items.length === 0 ? (
+            <div className="py-10 text-center text-muted-foreground" data-testid="text-empty-queue">
+              <Phone className="h-10 w-10 mx-auto mb-3 opacity-30" />
+              <p>No queue entries yet.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="pb-2 pr-4 font-medium">Status</th>
+                    <th className="pb-2 pr-4 font-medium">User ID</th>
+                    <th className="pb-2 pr-4 font-medium">Call SID</th>
+                    <th className="pb-2 pr-4 font-medium">Called At</th>
+                    <th className="pb-2 pr-4 font-medium">Answered At</th>
+                    <th className="pb-2 pr-4 font-medium">Duration (s)</th>
+                    <th className="pb-2 pr-4 font-medium">No Answer</th>
+                    <th className="pb-2 pr-4 font-medium">Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item) => (
+                    <tr key={item.id} className="border-b last:border-0" data-testid={`row-queue-${item.id}`}>
+                      <td className="py-2 pr-4">{callStatus(item)}</td>
+                      <td className="py-2 pr-4 font-mono text-xs text-muted-foreground" data-testid={`text-userid-${item.id}`}>
+                        {item.userId.slice(-8)}
+                      </td>
+                      <td className="py-2 pr-4 font-mono text-xs text-muted-foreground" data-testid={`text-callsid-${item.id}`}>
+                        {item.callSid ? item.callSid.slice(-12) : "—"}
+                      </td>
+                      <td className="py-2 pr-4 text-xs" data-testid={`text-callat-${item.id}`}>{formatTs(item.callAt)}</td>
+                      <td className="py-2 pr-4 text-xs" data-testid={`text-answeredat-${item.id}`}>{formatTs(item.callAnsweredAt)}</td>
+                      <td className="py-2 pr-4 text-xs" data-testid={`text-duration-${item.id}`}>
+                        {item.callDurationSeconds ?? "—"}
+                      </td>
+                      <td className="py-2 pr-4 text-xs" data-testid={`text-noanswer-${item.id}`}>
+                        {item.callNoAnswer ? <Badge variant="destructive" className="text-xs">Yes</Badge> : "—"}
+                      </td>
+                      <td className="py-2 text-xs text-muted-foreground" data-testid={`text-created-${item.id}`}>{formatTs(item.createdAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function CommandCenter() {
   const { user } = useAuth();
   const { user: fullUser } = useUser();
@@ -1746,6 +1931,7 @@ export default function CommandCenter() {
         { id: "dev-tools", label: "Dev Tools", icon: Code, roles: ['developer', 'admin'] },
         { id: "voice-lab", label: "Voice Lab", icon: Volume2, roles: ['admin', 'developer'] },
         { id: "voice-intelligence", label: "Diagnostics", icon: Activity, roles: ['admin', 'developer'] },
+        { id: "voip-console", label: "VoIP Console", icon: Phone, roles: ['admin'] },
         { id: "sync-control", label: "Sync", icon: Database, roles: ['founder'] },
         { id: "memory-migration", label: "Migration", icon: Brain, roles: ['developer'] },
         { id: "personal-facts", label: "Memories", icon: BookOpen, roles: ['admin', 'developer'] },
@@ -2013,6 +2199,10 @@ export default function CommandCenter() {
 
           <TabsContent value="sync-control" className="space-y-4">
             <SyncControlCenterContent />
+          </TabsContent>
+
+          <TabsContent value="voip-console" className="space-y-4">
+            <VoipConsoleTab />
           </TabsContent>
         </Tabs>
       </div>
