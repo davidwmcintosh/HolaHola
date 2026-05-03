@@ -598,8 +598,7 @@ export default function Settings() {
         </Card>
 
         {/* Contact & Outreach */}
-        {user?.role === 'student' && (
-          <Card data-testid="card-contact-outreach">
+        <Card data-testid="card-contact-outreach">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Phone className="h-5 w-5" />
@@ -714,8 +713,7 @@ export default function Settings() {
                 <p className="text-xs text-muted-foreground self-center">Unchecking all boxes and saving will withdraw your consent.</p>
               )}
             </CardFooter>
-          </Card>
-        )}
+        </Card>
 
         {/* Self-Directed Tutor Style - Hidden per design update (moved to join-class page) */}
         {false && <Card data-testid="card-self-directed-style">

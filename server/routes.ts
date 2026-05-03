@@ -15608,6 +15608,50 @@ Return ONLY valid JSON, no markdown, no explanation.`;
 
   // ===== Daniela VoIP Console (admin only) =====
 
+  // Users with phone/consent data for VoIP dropdown — sorted: phone first, then alphabetical
+  app.get("/api/admin/voip-users", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { users } = await storage.getAllUsers({ limit: 500 });
+      const { studentContactPreferences } = await import('../shared/schema');
+      const db = getSharedDb();
+      const prefs = await db.select({
+        userId: studentContactPreferences.userId,
+        phone: studentContactPreferences.phone,
+        phoneConsentSms: studentContactPreferences.phoneConsentSms,
+        phoneConsentVoice: studentContactPreferences.phoneConsentVoice,
+      }).from(studentContactPreferences);
+
+      const prefsMap = new Map(prefs.map(p => [p.userId, p]));
+
+      const enriched = users.map(u => ({
+        id: u.id,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        email: u.email,
+        role: u.role,
+        isTestAccount: u.isTestAccount,
+        phone: prefsMap.get(u.id)?.phone ?? null,
+        phoneConsentSms: prefsMap.get(u.id)?.phoneConsentSms ?? false,
+        phoneConsentVoice: prefsMap.get(u.id)?.phoneConsentVoice ?? false,
+      }));
+
+      // Sort: voice consent + phone first, then phone only, then rest — all alphabetical within groups
+      enriched.sort((a, b) => {
+        const scoreA = (a.phone && a.phoneConsentVoice ? 2 : 0) + (a.phone ? 1 : 0);
+        const scoreB = (b.phone && b.phoneConsentVoice ? 2 : 0) + (b.phone ? 1 : 0);
+        if (scoreB !== scoreA) return scoreB - scoreA;
+        const nameA = [a.firstName, a.lastName].filter(Boolean).join(' ') || a.email || '';
+        const nameB = [b.firstName, b.lastName].filter(Boolean).join(' ') || b.email || '';
+        return nameA.localeCompare(nameB);
+      });
+
+      res.json({ users: enriched });
+    } catch (error: any) {
+      console.error('[Admin] voip-users error:', error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // List all danielaOutboundQueue rows with call-tracking fields
   app.get("/api/admin/outbound-queue", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {

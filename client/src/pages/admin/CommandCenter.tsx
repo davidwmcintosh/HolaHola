@@ -1664,8 +1664,8 @@ function VoipConsoleTab() {
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [callContent, setCallContent] = useState<string>("");
 
-  const { data: usersData } = useQuery<{ users: { id: string; firstName: string | null; lastName: string | null; email: string | null }[] }>({
-    queryKey: ["/api/admin/users"],
+  const { data: usersData } = useQuery<{ users: { id: string; firstName: string | null; lastName: string | null; email: string | null; role: string | null; isTestAccount: boolean | null; phone: string | null; phoneConsentVoice: boolean; phoneConsentSms: boolean }[] }>({
+    queryKey: ["/api/admin/voip-users"],
   });
 
   const { data: queueData, isLoading: queueLoading, refetch: refetchQueue } = useQuery<{ items: OutboundQueueItem[] }>({
@@ -1727,13 +1727,20 @@ function VoipConsoleTab() {
                 <SelectValue placeholder="Pick a user…" />
               </SelectTrigger>
               <SelectContent>
-                {users.map((u) => (
-                  <SelectItem key={u.id} value={u.id} data-testid={`option-user-${u.id}`}>
-                    {u.firstName || u.lastName
-                      ? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim()
-                      : u.email ?? u.id}
-                  </SelectItem>
-                ))}
+                {users.map((u) => {
+                  const name = (u.firstName || u.lastName)
+                    ? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim()
+                    : u.email ?? u.id.slice(-8);
+                  const phoneLabel = u.phone
+                    ? `${u.phone}${u.phoneConsentVoice ? " ✓ voice" : u.phoneConsentSms ? " ✓ sms" : " (no consent)"}`
+                    : "no phone";
+                  const tag = u.isTestAccount ? " [test]" : u.role === 'admin' ? " [admin]" : "";
+                  return (
+                    <SelectItem key={u.id} value={u.id} data-testid={`option-user-${u.id}`}>
+                      {name}{tag} — {phoneLabel}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
