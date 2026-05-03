@@ -98,6 +98,75 @@ interface TeacherClass {
   enrolledCount?: number;
 }
 
+const COUNTRY_CODES = [
+  { flag: "🇺🇸", name: "United States", dial: "+1" },
+  { flag: "🇨🇦", name: "Canada",        dial: "+1" },
+  { flag: "🇬🇧", name: "United Kingdom",dial: "+44" },
+  { flag: "🇦🇺", name: "Australia",     dial: "+61" },
+  { flag: "🇳🇿", name: "New Zealand",   dial: "+64" },
+  { flag: "🇮🇪", name: "Ireland",       dial: "+353" },
+  { flag: "🇲🇽", name: "Mexico",        dial: "+52" },
+  { flag: "🇨🇴", name: "Colombia",      dial: "+57" },
+  { flag: "🇦🇷", name: "Argentina",     dial: "+54" },
+  { flag: "🇨🇱", name: "Chile",         dial: "+56" },
+  { flag: "🇵🇪", name: "Peru",          dial: "+51" },
+  { flag: "🇻🇪", name: "Venezuela",     dial: "+58" },
+  { flag: "🇪🇨", name: "Ecuador",       dial: "+593" },
+  { flag: "🇬🇹", name: "Guatemala",     dial: "+502" },
+  { flag: "🇨🇺", name: "Cuba",          dial: "+53" },
+  { flag: "🇩🇴", name: "Dominican Rep.",dial: "+1" },
+  { flag: "🇵🇷", name: "Puerto Rico",   dial: "+1" },
+  { flag: "🇧🇴", name: "Bolivia",       dial: "+591" },
+  { flag: "🇵🇾", name: "Paraguay",      dial: "+595" },
+  { flag: "🇺🇾", name: "Uruguay",       dial: "+598" },
+  { flag: "🇵🇦", name: "Panama",        dial: "+507" },
+  { flag: "🇨🇷", name: "Costa Rica",    dial: "+506" },
+  { flag: "🇭🇳", name: "Honduras",      dial: "+504" },
+  { flag: "🇸🇻", name: "El Salvador",   dial: "+503" },
+  { flag: "🇳🇮", name: "Nicaragua",     dial: "+505" },
+  { flag: "🇪🇸", name: "Spain",         dial: "+34" },
+  { flag: "🇵🇹", name: "Portugal",      dial: "+351" },
+  { flag: "🇧🇷", name: "Brazil",        dial: "+55" },
+  { flag: "🇫🇷", name: "France",        dial: "+33" },
+  { flag: "🇩🇪", name: "Germany",       dial: "+49" },
+  { flag: "🇮🇹", name: "Italy",         dial: "+39" },
+  { flag: "🇳🇱", name: "Netherlands",   dial: "+31" },
+  { flag: "🇧🇪", name: "Belgium",       dial: "+32" },
+  { flag: "🇨🇭", name: "Switzerland",   dial: "+41" },
+  { flag: "🇦🇹", name: "Austria",       dial: "+43" },
+  { flag: "🇸🇪", name: "Sweden",        dial: "+46" },
+  { flag: "🇳🇴", name: "Norway",        dial: "+47" },
+  { flag: "🇩🇰", name: "Denmark",       dial: "+45" },
+  { flag: "🇫🇮", name: "Finland",       dial: "+358" },
+  { flag: "🇵🇱", name: "Poland",        dial: "+48" },
+  { flag: "🇷🇺", name: "Russia",        dial: "+7" },
+  { flag: "🇺🇦", name: "Ukraine",       dial: "+380" },
+  { flag: "🇯🇵", name: "Japan",         dial: "+81" },
+  { flag: "🇨🇳", name: "China",         dial: "+86" },
+  { flag: "🇰🇷", name: "South Korea",   dial: "+82" },
+  { flag: "🇮🇳", name: "India",         dial: "+91" },
+  { flag: "🇵🇰", name: "Pakistan",      dial: "+92" },
+  { flag: "🇧🇩", name: "Bangladesh",    dial: "+880" },
+  { flag: "🇮🇩", name: "Indonesia",     dial: "+62" },
+  { flag: "🇵🇭", name: "Philippines",   dial: "+63" },
+  { flag: "🇻🇳", name: "Vietnam",       dial: "+84" },
+  { flag: "🇹🇭", name: "Thailand",      dial: "+66" },
+  { flag: "🇲🇾", name: "Malaysia",      dial: "+60" },
+  { flag: "🇸🇬", name: "Singapore",     dial: "+65" },
+  { flag: "🇹🇼", name: "Taiwan",        dial: "+886" },
+  { flag: "🇭🇰", name: "Hong Kong",     dial: "+852" },
+  { flag: "🇸🇦", name: "Saudi Arabia",  dial: "+966" },
+  { flag: "🇦🇪", name: "UAE",           dial: "+971" },
+  { flag: "🇮🇱", name: "Israel",        dial: "+972" },
+  { flag: "🇹🇷", name: "Turkey",        dial: "+90" },
+  { flag: "🇿🇦", name: "South Africa",  dial: "+27" },
+  { flag: "🇳🇬", name: "Nigeria",       dial: "+234" },
+  { flag: "🇰🇪", name: "Kenya",         dial: "+254" },
+  { flag: "🇬🇭", name: "Ghana",         dial: "+233" },
+  { flag: "🇪🇹", name: "Ethiopia",      dial: "+251" },
+  { flag: "🇪🇬", name: "Egypt",         dial: "+20" },
+];
+
 export default function Settings() {
   const [, navigate] = useLocation();
   const { user, isLoading: authLoading } = useAuth();
@@ -173,7 +242,9 @@ export default function Settings() {
     enabled: !!user,
   });
 
-  const [phoneInput, setPhoneInput] = useState<string>("");
+  const [countryCode, setCountryCode] = useState<string>("+1");
+  const [localPhone, setLocalPhone] = useState<string>("");
+  const [phoneInput, setPhoneInput] = useState<string>(""); // kept for internal E.164 assembly
   const [consentSms, setConsentSms] = useState<boolean>(false);
   const [consentVoice, setConsentVoice] = useState<boolean>(false);
   const [phoneError, setPhoneError] = useState<string>("");
@@ -181,9 +252,27 @@ export default function Settings() {
   // Sync local state with fetched contact prefs
   useEffect(() => {
     if (contactPrefs) {
-      setPhoneInput(contactPrefs.phone ?? "");
+      const stored = contactPrefs.phone ?? "";
+      setPhoneInput(stored);
       setConsentSms(contactPrefs.phoneConsentSms);
       setConsentVoice(contactPrefs.phoneConsentVoice);
+      if (stored) {
+        // Try to match a known country code prefix (longest match first)
+        const match = COUNTRY_CODES
+          .slice()
+          .sort((a, b) => b.dial.length - a.dial.length)
+          .find(c => stored.startsWith(c.dial));
+        if (match) {
+          setCountryCode(match.dial);
+          setLocalPhone(stored.slice(match.dial.length));
+        } else {
+          // Unknown prefix — put full number in local field
+          setCountryCode("+1");
+          setLocalPhone(stored.startsWith("+") ? stored.slice(2) : stored);
+        }
+      } else {
+        setLocalPhone("");
+      }
     }
   }, [contactPrefs]);
 
@@ -216,20 +305,21 @@ export default function Settings() {
     },
   });
 
-  const E164_RE = /^\+[1-9]\d{7,14}$/;
-
   const handleSaveContact = () => {
-    const trimmed = phoneInput.trim();
-    if (trimmed && !E164_RE.test(trimmed)) {
-      setPhoneError("Phone must be in E.164 format, e.g. +15551234567");
+    const digits = localPhone.replace(/[\s\-().]/g, "");
+    if (!digits) {
+      // Clearing the phone number is allowed
+      setPhoneError("");
+      contactPrefsMutation.mutate({ phone: null, phoneConsentSms: consentSms, phoneConsentVoice: consentVoice });
+      return;
+    }
+    if (!/^\d{4,15}$/.test(digits)) {
+      setPhoneError("Enter just the local number — digits only (no country code)");
       return;
     }
     setPhoneError("");
-    contactPrefsMutation.mutate({
-      phone: trimmed || null,
-      phoneConsentSms: consentSms,
-      phoneConsentVoice: consentVoice,
-    });
+    const e164 = `${countryCode}${digits}`;
+    contactPrefsMutation.mutate({ phone: e164, phoneConsentSms: consentSms, phoneConsentVoice: consentVoice });
   };
 
   // ── Native language state and mutation ──────────────────────────────────
@@ -623,18 +713,28 @@ export default function Settings() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="input-phone" className="text-sm font-medium">
-                      Phone number
-                    </Label>
+                    <Label className="text-sm font-medium">Phone number</Label>
                     <div className="flex flex-wrap gap-2">
+                      <Select value={countryCode} onValueChange={(v) => { setCountryCode(v); setPhoneError(""); }}>
+                        <SelectTrigger data-testid="select-country-code" className="w-44">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-72">
+                          {COUNTRY_CODES.map((c) => (
+                            <SelectItem key={c.dial + c.name} value={c.dial}>
+                              {c.flag} {c.name} ({c.dial})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <Input
                         id="input-phone"
                         data-testid="input-phone"
                         type="tel"
-                        placeholder="+15551234567"
-                        value={phoneInput}
-                        onChange={(e) => { setPhoneInput(e.target.value); setPhoneError(""); }}
-                        className="flex-1 min-w-48"
+                        placeholder="555 123 4567"
+                        value={localPhone}
+                        onChange={(e) => { setLocalPhone(e.target.value); setPhoneError(""); }}
+                        className="flex-1 min-w-36"
                       />
                       {contactPrefs?.phone && (
                         <Button
@@ -652,7 +752,9 @@ export default function Settings() {
                     {phoneError && (
                       <p className="text-sm text-destructive" data-testid="text-phone-error">{phoneError}</p>
                     )}
-                    <p className="text-xs text-muted-foreground">International format required, e.g. +15551234567</p>
+                    <p className="text-xs text-muted-foreground">
+                      Enter your number without the country code — we'll add it automatically.
+                    </p>
                   </div>
 
                   <div className="space-y-3">
