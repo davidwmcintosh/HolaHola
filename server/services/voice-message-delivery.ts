@@ -25,6 +25,17 @@ const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || '';
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || '';
 const TWILIO_FROM_NUMBER = (process.env.TWILIO_FROM_NUMBER || '').replace(/[\s\-().]/g, '');
 
+function normalizeE164(phone: string): string {
+  const stripped = phone.replace(/[\s\-().]/g, '');
+  if (!stripped.startsWith('+')) return stripped;
+  for (const len of [3, 2, 1]) {
+    const cc = stripped.slice(1, 1 + len);
+    const rest = stripped.slice(1 + len);
+    if (rest.startsWith(cc)) return '+' + cc + rest.slice(cc.length);
+  }
+  return stripped;
+}
+
 const DANIELA_VOICE = 'Kore';
 
 async function renderAudioBuffer(text: string): Promise<Buffer | null> {
@@ -135,7 +146,7 @@ export async function deliverVoiceMessageViaSms(
 
   let smsSent = false;
   try {
-    smsSent = await sendTwilioSms(prefs.phone, smsBody);
+    smsSent = await sendTwilioSms(normalizeE164(prefs.phone), smsBody);
   } catch (err: any) {
     console.error('[VoiceMessageDelivery] SMS send failed:', err.message);
     return;

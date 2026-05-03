@@ -306,12 +306,18 @@ export default function Settings() {
   });
 
   const handleSaveContact = () => {
-    const digits = localPhone.replace(/[\s\-().]/g, "");
+    let digits = localPhone.replace(/[\s\-().]/g, "");
     if (!digits) {
       // Clearing the phone number is allowed
       setPhoneError("");
       contactPrefsMutation.mutate({ phone: null, phoneConsentSms: consentSms, phoneConsentVoice: consentVoice });
       return;
+    }
+    // Strip the country code's numeric part if the user accidentally included it
+    // e.g. countryCode="+1", digits="16027438228" → strip leading "1" → "6027438228"
+    const dialDigits = countryCode.replace(/^\+/, "");
+    if (dialDigits && digits.startsWith(dialDigits)) {
+      digits = digits.slice(dialDigits.length);
     }
     if (!/^\d{4,15}$/.test(digits)) {
       setPhoneError("Enter just the local number — digits only (no country code)");

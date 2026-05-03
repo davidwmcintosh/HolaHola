@@ -23,6 +23,29 @@ const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || '';
 const TWILIO_FROM_NUMBER = (process.env.TWILIO_FROM_NUMBER || '').replace(/[\s\-().]/g, '');
 
 /**
+ * Collapse duplicate country-code prefixes that arise when a user enters
+ * "16027438228" in a US (+1) field, producing "+116027438228".
+ * Works for any country code: strips formatting then checks if the digits
+ * after "+" start with a repeated copy of the country prefix.
+ * "+116027438228" → "+16027438228"  (US double-1)
+ * "+4940123456"   → "+4940123456"   (unchanged, valid DE number)
+ */
+function normalizeE164(phone: string): string {
+  const stripped = phone.replace(/[\s\-().]/g, '');
+  if (!stripped.startsWith('+')) return stripped;
+  // Try common country code lengths (1–3 digits) longest-first
+  for (const len of [3, 2, 1]) {
+    const cc = stripped.slice(1, 1 + len);   // e.g. "1" for US
+    const rest = stripped.slice(1 + len);     // digits after the code
+    if (rest.startsWith(cc)) {
+      // Duplicate detected — return without the extra copy
+      return '+' + cc + rest.slice(cc.length);
+    }
+  }
+  return stripped;
+}
+
+/**
  * Compute a per-call HMAC nonce that the bridge verifies at stream start.
  * Prevents unauthorized actors from triggering Gemini sessions by guessing
  * the WS path.
@@ -51,8 +74,9 @@ async function initiateCall(userId: string, queueId: string): Promise<boolean> {
     return false;
   }
 
-  // getContactPreferences() already decrypts the phone — use it directly
-  const phone = prefs.phone;
+  // getContactPreferences() already decrypts the phone — normalize to valid E.164
+  // Guard against double country-code entries like +116027438228 → +16027438228
+  const phone = normalizeE164(prefs.phone);
 
   const appUrl = APP_URL;
   const answerUrl = `${appUrl}/api/webhooks/twilio/voice-answer?queueId=${encodeURIComponent(queueId)}&userId=${encodeURIComponent(userId)}`;
