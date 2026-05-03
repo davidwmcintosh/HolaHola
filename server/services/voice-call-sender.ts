@@ -20,7 +20,7 @@ import { eq } from 'drizzle-orm';
 const APP_URL = process.env.APP_URL || 'https://getholahola.com';
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || '';
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || '';
-const TWILIO_FROM_NUMBER = process.env.TWILIO_FROM_NUMBER || '';
+const TWILIO_FROM_NUMBER = (process.env.TWILIO_FROM_NUMBER || '').replace(/[\s\-().]/g, '');
 
 /**
  * Compute a per-call HMAC nonce that the bridge verifies at stream start.
