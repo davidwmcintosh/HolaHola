@@ -77,10 +77,19 @@ The Mem0-style Memory Conflict Resolver (`server/services/memory-conflict-resolv
 **Daniela's student knowledge** — searchable via `memory_lookup` tool: `student_insights` (deep observations, confidence-scored), `session_notes` (wins/challenges/next steps per session), `learner_personal_facts` (bi-temporal personal facts with conflict resolution), `recurring_struggles` (persistent challenge patterns), `learning_motivations`, ACTFL assessment events. Podcast memory for David is stored as a `student_insights` entry (id: 447f96fa, confidence 1.0) and is fully indexed.
 
 **Memory search tools:**
-- `recall` — primary scatter-gather tool. One call fans out to three parallel arms: (1) structured memories via `searchMemory`, (2) raw conversation threads via `searchConversationThreads` (10-msg context window), (3) Express Lane keyword search. Returns combined result. Default for any memory query.
+- `recall` — primary scatter-gather tool. One call fans out to four parallel arms plus associative chaining:
+  1. `searchMemory` (structured insights, facts, motivations, struggles)
+  2. `searchConversationThreads` (raw word-for-word exchanges, 10-msg context window)
+  3. Express Lane `collaborationMessages` ILIKE search
+  4. `semanticSearch` (Gemini text-embedding-004 cosine similarity — finds conceptually related memories without keyword overlap, e.g. "music" → surfaces "jazz", "rhythm", "improvisation")
+  + Associative chaining: after primary results, extracts top-4 distinctive content terms and runs one additional `searchMemory` pass to surface co-occurring memories
 - `memory_lookup` — targeted structured-memory search (domain-filtered: growth/person/conversation/etc.)
 - `search_conversation_threads` — raw message text with configurable context window
 - `browse_conversations_by_date` — temporal browsing (no keyword needed)
+
+**Memory Embedding Indexer** (`server/services/memory-embedding-indexer.ts`) — runs every 2h (+100s boot delay). Generates Gemini text-embedding-004 vectors (768-dim) for student_insights, hive_snapshots (relationship_moment/session_summary/breakthrough/teaching_moment/life_context), daniela_growth_memories, learner_personal_facts. Stored in `memory_embeddings` table (JSONB float[] + contentHash for idempotency). Batch size 10, 600ms pause between batches.
+
+**Memory Consolidation Worker** (`server/services/memory-consolidator.ts`) — runs weekly (+120s boot delay). Merges oldest session_summary snapshots (5 at a time per student) into a single `aggregate_analytics` snapshot using Gemini Flash. Source snapshots tagged with `metadata.consolidatedInto`. No data deleted — consolidation is additive.
 
 **Daniela Presence Worker** (`server/services/daniela-presence-worker.ts`) — runs every 30 min, generates a Gemini-authored 300–400 word narrative "WHERE I AM RIGHT NOW" for each active student. Sources: session_notes, relationship_moment snapshots, session_summary snapshots, daniela_self_reflections, daniela_curiosities. Stored as `.local/daniela-presence-{userId}.json` (4-hour staleness window). Injected as the FIRST section in Daniela's context at every session start via `unified-daniela-context-service.ts`. Authorship principle preserved — reads self_reflections, never writes them.
 

@@ -764,6 +764,21 @@ app.use((req, res, next) => {
       startDanielaPresenceWorker();
     }, 85000);
 
+    // +95s: Memory Embedding Indexer — generates Gemini text-embedding-004 vectors
+    // for all memory records (student_insights, hive_snapshots, personal_facts, growth_memories)
+    // enabling semantic similarity search in the recall scatter-gather tool
+    setTimeout(async () => {
+      const { startMemoryEmbeddingIndexer } = await import('./services/memory-embedding-indexer');
+      startMemoryEmbeddingIndexer();
+    }, 95000);
+
+    // +120s: Memory Consolidation Worker — weekly job that merges related session_summary
+    // snapshots into aggregate_analytics entries, reducing noise in long-running students
+    setTimeout(async () => {
+      const { startMemoryConsolidator } = await import('./services/memory-consolidator');
+      startMemoryConsolidator();
+    }, 120000);
+
     // +75s: Curriculum Enrichment Auto-Resume
     // Fires on every boot. The enrichment service skips already-enriched lessons
     // (within 7 days), so this is safe to run repeatedly and acts as a self-healing

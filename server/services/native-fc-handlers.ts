@@ -4947,8 +4947,8 @@ export class NativeFunctionCallHandler {
        .replace(/[\u2018\u2019]/g, "'")
        .replace(/[\u200B-\u200D\uFEFF]/g, '');
 
-    // Fire both search arms in parallel — no sequential waiting
-    const [structuredText, threadText, expressLaneText] = await Promise.all([
+    // Fire all search arms in parallel — no sequential waiting
+    const [structuredText, threadText, expressLaneText, semanticText] = await Promise.all([
 
       // Arm 1: structured memories — insights, facts, motivations, struggles, teaching moments
       (async () => {
@@ -5010,12 +5010,111 @@ export class NativeFunctionCallHandler {
           return null;
         }
       })(),
+
+      // Arm 4: Semantic similarity search — finds conceptually related memories without keyword match
+      // e.g. "music" surfaces memories about "jazz", "rhythm", "improvisation"
+      (async () => {
+        try {
+          const { semanticSearch } = await import('./semantic-memory-service');
+          const hits = await semanticSearch(studentId, query, 5);
+          if (hits.length === 0) return null;
+
+          // Hydrate hit records from their source tables
+          const sharedDb = getSharedDb();
+          const lines: string[] = [];
+          for (const hit of hits) {
+            try {
+              if (hit.memoryType === 'student_insight') {
+                const { studentInsights } = await import('@shared/schema');
+                const [row] = await sharedDb.select({ insight: studentInsights.insight, category: studentInsights.category })
+                  .from(studentInsights).where(eq(studentInsights.id, hit.memoryId)).limit(1);
+                if (row) lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | ${row.category}] ${row.insight}`);
+              } else if (hit.memoryType === 'hive_snapshot') {
+                const { hiveSnapshots: hs } = await import('@shared/schema');
+                const [row] = await sharedDb.select({ title: hs.title, content: hs.content, snapshotType: hs.snapshotType })
+                  .from(hs).where(eq(hs.id, hit.memoryId)).limit(1);
+                if (row) lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | ${row.snapshotType}] ${row.title}: ${row.content?.substring(0, 300)}`);
+              } else if (hit.memoryType === 'personal_fact') {
+                const { learnerPersonalFacts: lpf } = await import('@shared/schema');
+                const [row] = await sharedDb.select({ fact: lpf.fact, factType: lpf.factType })
+                  .from(lpf).where(eq(lpf.id, hit.memoryId)).limit(1);
+                if (row) lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | ${row.factType}] ${row.fact}`);
+              } else if (hit.memoryType === 'growth_memory') {
+                const { danielaGrowthMemories } = await import('@shared/schema');
+                const [row] = await sharedDb.select({ content: danielaGrowthMemories.content })
+                  .from(danielaGrowthMemories).where(eq(danielaGrowthMemories.id, hit.memoryId)).limit(1);
+                if (row) lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | growth] ${row.content?.substring(0, 300)}`);
+              }
+            } catch { /* skip failed hydration */ }
+          }
+          return lines.length > 0 ? lines.join('\n') : null;
+        } catch (err: any) {
+          // Semantic search is optional enrichment — fail silently
+          if (!err.message?.includes('no embeddings')) {
+            console.warn(`[UnifiedRecall] Semantic arm failed: ${err.message}`);
+          }
+          return null;
+        }
+      })(),
     ]);
 
     const sections: string[] = [];
     if (structuredText) sections.push(`=== STRUCTURED MEMORIES (summaries, extracted insights, facts) ===\n${structuredText}`);
     if (threadText) sections.push(`=== CONVERSATION THREADS (word-for-word past exchanges) ===\n${threadText}`);
     if (expressLaneText) sections.push(`=== EXPRESS LANE (team collaboration messages mentioning this topic) ===\n${expressLaneText}`);
+    if (semanticText) sections.push(`=== SEMANTIC ASSOCIATIONS (conceptually related memories, no keyword overlap needed) ===\n${semanticText}`);
+
+    // Associative chaining — after primary results, extract the most distinctive
+    // content terms and run one more targeted search to surface co-occurring memories
+    // that the original query may have missed (e.g., "podcast" → also surfaces "Professor Dora",
+    // "spontaneity", "bridge metaphor" because they co-occur in those sessions)
+    if (structuredText && structuredText.length > 100) {
+      try {
+        const STOPWORDS = new Set([
+          'this','that','with','have','from','they','will','been','were','their','what',
+          'when','who','which','about','could','would','should','your','into','over',
+          'more','also','some','there','then','like','just','very','even','only','well',
+          'feel','felt','need','know','think','said','says','does','make','made','take',
+          'took','come','came','goes','going','being','doing','having','want','good',
+          'great','much','many','most','such','both','each','same','other','than',
+          'these','those','while','after','before','because','through','during',
+          'between','though','although','however','student','daniela','lesson',
+          'session','learning','language','practice','spanish','english','really',
+          'always','never','often','still','again','first','second','third','david',
+          'class','course','word','words','conversation','tutor','teacher',
+        ]);
+        const termFreq = new Map<string, number>();
+        const tokens = structuredText.toLowerCase()
+          .replace(/[^\w\s]/g, ' ')
+          .split(/\s+/)
+          .filter(w => w.length >= 5 && !STOPWORDS.has(w) && !/^\d+$/.test(w));
+        // Also skip terms from the original query (avoid redundancy)
+        const queryTerms = new Set(query.toLowerCase().split(/\s+/));
+        for (const tok of tokens) {
+          if (!queryTerms.has(tok)) termFreq.set(tok, (termFreq.get(tok) || 0) + 1);
+        }
+        // Take top-4 most frequent distinctive terms
+        const topTerms = [...termFreq.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 4)
+          .map(([w]) => w);
+
+        if (topTerms.length >= 2) {
+          const associativeQuery = topTerms.join(' ');
+          const { searchMemory, formatMemoryForConversation } = await import('./neural-memory-search');
+          const assocResult = await searchMemory(studentId, associativeQuery, undefined, session.targetLanguage || undefined);
+          if (assocResult.results.length > 0) {
+            const assocText = formatMemoryForConversation(assocResult);
+            // Only add if not largely duplicating structured arm
+            if (assocText && !structuredText.includes(assocText.substring(0, 80))) {
+              sections.push(`=== ASSOCIATED MEMORIES (auto-expanded from: "${topTerms.join(', ')}") ===\n${assocText}`);
+            }
+          }
+        }
+      } catch {
+        // Associative chaining is optional enrichment — fail silently
+      }
+    }
 
     const combined = sections.length > 0
       ? sanitize(sections.join('\n\n'))
@@ -5024,7 +5123,7 @@ export class NativeFunctionCallHandler {
     if (!session.recallResults) session.recallResults = {};
     session.recallResults[query] = combined;
 
-    console.log(`[UnifiedRecall] "${query.substring(0, 50)}" → structured: ${structuredText ? 'found' : 'none'}, threads: ${threadText ? 'found' : 'none'}`);
+    console.log(`[UnifiedRecall] "${query.substring(0, 50)}" → structured: ${structuredText ? 'found' : 'none'}, threads: ${threadText ? 'found' : 'none'}, semantic: ${semanticText ? 'found' : 'none (indexing in progress)'}`);
   }
 
   private async triggerLyraExtractionForThreads(
