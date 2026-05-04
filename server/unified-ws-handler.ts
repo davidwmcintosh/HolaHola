@@ -1251,7 +1251,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             // ══════════════════════════════════════════════════════════════
             const effectiveLanguage = normalizeLanguageKey(config.targetLanguage || 'spanish');
             
-            const [user, conversation_raw, isDeveloper, messages, tutorVoice] = await Promise.all([
+            const [user, conversation_raw, isDeveloper, messages, tutorVoice, actflProgressRow] = await Promise.all([
               withTimeout(
                 userId ? storage.getUser(userId) : Promise.resolve(null),
                 SESSION_INIT_TIMEOUT, 'getUser', null
@@ -1275,6 +1275,14 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
                 // and the Gemini Live session then falls back to the default voice.
                 storage.getTutorVoice(effectiveLanguage, tutorGender, GEMINI_LIVE_VOICE_ENABLED ? 'gemini-live' : undefined),
                 SESSION_INIT_TIMEOUT, 'getTutorVoice', null
+              ),
+              // users.actfl_level is rarely populated — pull from actfl_progress per language.
+              // This is the same fix applied to the Twilio bridge. Runs in parallel so zero extra latency.
+              withTimeout(
+                (userId && effectiveLanguage)
+                  ? storage.getOrCreateActflProgress(effectiveLanguage, String(userId))
+                  : Promise.resolve(null),
+                SESSION_INIT_TIMEOUT, 'getActflProgress', null
               ),
             ]);
             
@@ -1625,11 +1633,17 @@ This is a voice conversation. Speak naturally, as you would.
 ${buildNativeFunctionCallingSection()}`;
               console.log('[Streaming Voice] Using RAW HONESTY MODE prompt');
             } else {
+              // Resolve ACTFL level: users.actfl_level is rarely populated, so fall back
+              // to actfl_progress.current_actfl_level (same fix as the Twilio bridge).
+              const resolvedActflLevel = user?.actflLevel || actflProgressRow?.currentActflLevel || null;
+              if (resolvedActflLevel) {
+                console.log(`[SessionInit] ACTFL level resolved: ${resolvedActflLevel} (${effectiveLanguage})`);
+              }
               systemPrompt = createStreamingVoicePrompt(
                 effectiveLanguage,
-                config.difficultyLevel || 'beginner',
+                actflToDifficulty(resolvedActflLevel) || config.difficultyLevel || 'beginner',
                 config.nativeLanguage || 'english',
-                user?.actflLevel || null,
+                resolvedActflLevel,
                 (user?.tutorPersonality || 'warm') as any,
                 user?.tutorExpressiveness || 3,
                 isFounderMode,
