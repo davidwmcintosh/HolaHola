@@ -704,22 +704,12 @@ export function ImmersiveTutor({
         
         {/* Thinking Indicator removed — latency is low enough that the brief blip was distracting */}
         
-        {/* Open Mic Status - Minimal indicator like a real phone call */}
-        {/* Green dot when mic is live, hidden when thinking indicator is showing */}
-        {inputMode === 'open-mic' && !(isProcessing && !isPlaying) && (
-          <>
-            {isRecording || openMicState === 'processing' || openMicState === 'ready' || openMicState === 'listening' ? (
-              <div 
-                className="absolute top-4 right-4 w-4 h-4 bg-green-500 rounded-full shadow-lg"
-                data-testid="indicator-mic-hot"
-              />
-            ) : (
-              <div 
-                className="absolute top-4 right-4 w-4 h-4 bg-gray-400 rounded-full shadow-lg opacity-50"
-                data-testid="indicator-mic-off"
-              />
-            )}
-          </>
+        {/* Open Mic Status - always green; pulses when your voice is being recorded */}
+        {inputMode === 'open-mic' && (
+          <div 
+            className={`absolute top-4 right-4 w-4 h-4 bg-green-500 rounded-full shadow-lg transition-opacity ${isRecording ? 'animate-pulse' : ''}`}
+            data-testid={isRecording ? "indicator-mic-recording" : "indicator-mic-hot"}
+          />
         )}
         
         
