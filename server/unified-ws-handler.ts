@@ -2283,6 +2283,10 @@ ${lastNote.tutorNotes}`);
             // silent with no greeting and no context, which looks like a dead session.
             (session as any).__isReconnect = isReconnectSO && user != null;
             
+            // Store the message count at session-start time so the request_greeting handler
+            // (a separate case in the switch, different scope) can detect mid-session reconnects.
+            (session as any).__initialMessageCount = Array.isArray(messages) ? messages.length : 0;
+            
             // RECONNECT FIX: Restore input mode from config.
             // Every new WS connection defaults currentInputMode to 'push-to-talk', but the client
             // may have been in open-mic mode. Without this restoration, all post-reconnect open-mic
@@ -2385,7 +2389,20 @@ ${lastNote.tutorNotes}`);
             }
           }
           
-          console.log(`[Streaming Voice] Generating AI greeting... (resumed: ${greetingRequest.isResumed || false}, scenario: ${greetingRequest.scenarioSlug || 'none'})`);
+          // SAFETY NET: If the conversation already had messages when this session started,
+          // this is always a resumption — never a fresh greeting.
+          // This catches race conditions (proactive 4.5-min reconnect, mid-session WS drop, GL reconnect)
+          // where the client sends isResumed=false but the conversation was clearly ongoing.
+          // Without this, Daniela re-introduces herself mid-conversation after reconnect.
+          // __initialMessageCount is stored on the session object in start_session (different scope).
+          const initialMsgCount: number = (session as any).__initialMessageCount ?? 0;
+          const conversationHasHistory = initialMsgCount > 2;
+          const effectiveIsResumed = greetingRequest.isResumed || conversationHasHistory;
+          if (!greetingRequest.isResumed && conversationHasHistory) {
+            console.log(`[Streaming Voice] Forcing isResumed=true — conversation had ${initialMsgCount} messages at session start (reconnect mid-session)`);
+          }
+
+          console.log(`[Streaming Voice] Generating AI greeting... (resumed: ${effectiveIsResumed}, scenario: ${greetingRequest.scenarioSlug || 'none'})`);
           
           if (geminiLiveSession) {
             // GeminiLive mode: route the greeting through the Live session so the session
@@ -2396,7 +2413,7 @@ ${lastNote.tutorNotes}`);
               geminiLiveGreetingSent = true;
               geminiLiveSession.sendGreetingTrigger(
                 greetingRequest.userName,
-                greetingRequest.isResumed,
+                effectiveIsResumed,
                 greetingRequest.scenarioSlug,
               );
             } else {
@@ -2408,7 +2425,7 @@ ${lastNote.tutorNotes}`);
               await orchestrator.processGreetingRequest(
                 session.id,
                 greetingRequest.userName,
-                greetingRequest.isResumed,
+                effectiveIsResumed,
                 greetingRequest.scenarioSlug
               );
             } catch (greetingError: any) {
