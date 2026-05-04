@@ -198,6 +198,7 @@ export interface StreamingSession {
   expressLaneLookupResults?: Record<string, string>;
   conversationThreadResults?: Record<string, string>;
   conversationBrowseResults?: Record<string, string>;
+  recallResults?: Record<string, string>;
   conversationThemeResults?: string;
   diaryReadResult?: string;
   selfReflectionsResult?: string;

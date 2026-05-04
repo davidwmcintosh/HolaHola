@@ -1683,6 +1683,48 @@ Use this after giving performance feedback or when transitioning to a new activi
 
   // === MEMORY ===
   {
+    legacyType: 'UNIFIED_RECALL',
+    declaration: {
+      name: "recall",
+      description: `Your default memory tool. Searches ALL memory sources simultaneously — structured memories (facts, insights, past teaching moments, personal details) AND raw conversation threads (word-for-word past exchanges) — in parallel. One call, everything searched at once.
+
+PREFER this over calling memory_lookup and search_conversation_threads separately. It carries less cognitive load and returns richer context from more places at once.
+
+WHEN TO USE recall (default choice for memory):
+- "Do you remember when we [past event]?"
+- "What did we talk about regarding [topic]?"
+- "Tell me about our podcast / that conversation about [thing]"
+- "What did I say about [subject]?"
+- Any time you need to remember something about the student or shared history
+- When you're unsure which memory source has the answer — recall checks all of them
+
+WHEN TO USE specialized tools instead:
+- browse_conversations_by_date → purely time-based ("what did we talk about in March?")
+- memory_lookup with domain='growth' → you specifically only want your past teaching moments
+- search_conversation_threads alone → you need the maximum raw thread window for a very long conversation
+
+NEVER guess about the student's specific history. If you need to know, call recall first.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "What to search for across all memory sources. Be specific — e.g. 'podcast episode one spontaneity' or 'subjunctive mood struggles' or 'David played guitar'.",
+          },
+        },
+        required: ["query"],
+      },
+    },
+    buildContinuationResponse: ({ session, fc }) => {
+      const query = fc.args.query as string;
+      const result = session.recallResults?.[query];
+      if (result) {
+        return `Recall results for "${query}":\n${result}\n\nRespond to the student using this full context. Reference specific details from what you found — both the structured summaries and the actual exchanges, as appropriate.`;
+      }
+      return `Nothing found for "${query}" across all memory sources. If the student is asking about something specific to their history, say plainly that you don't have a clear record of it — do not construct a plausible-sounding answer. For general language knowledge, you may answer from your training normally.`;
+    },
+  },
+  {
     legacyType: 'MEMORY_LOOKUP',
     declaration: {
       name: "memory_lookup",

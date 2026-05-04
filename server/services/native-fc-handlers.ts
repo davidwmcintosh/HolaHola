@@ -1775,6 +1775,19 @@ export class NativeFunctionCallHandler {
         break;
       }
       
+      case 'UNIFIED_RECALL': {
+        const urQuery = fn.args.query as string | undefined;
+        if (urQuery) {
+          console.log(`[Native Function→UnifiedRecall] Query: "${urQuery.substring(0, 60)}"`);
+          const urPromise = this.processUnifiedRecall(session, urQuery).catch(err => {
+            console.error(`[Native Function→UnifiedRecall] Error:`, err.message);
+          });
+          if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+          session.pendingMemoryLookupPromises.push(urPromise);
+        }
+        break;
+      }
+
       case 'CONVERSATION_DATE_BROWSE': {
         const afterDateStr = fn.args.after_date as string | undefined;
         const beforeDateStr = fn.args.before_date as string | undefined;
@@ -4920,6 +4933,69 @@ export class NativeFunctionCallHandler {
       console.error(`[ConversationThreadSearch] Error:`, err.message);
       session.conversationThreadResults[query] = `Thread search failed for "${query}". Try memory_lookup with domain='conversation' as a fallback.`;
     }
+  }
+
+  private async processUnifiedRecall(session: StreamingSession, query: string): Promise<void> {
+    const studentId = String(session.userId);
+    if (!studentId) return;
+
+    const sanitize = (s: string) =>
+      s.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+       .replace(/\uFFFD/g, '')
+       .replace(/[\u2028\u2029]/g, '\n')
+       .replace(/[\u201C\u201D]/g, '"')
+       .replace(/[\u2018\u2019]/g, "'")
+       .replace(/[\u200B-\u200D\uFEFF]/g, '');
+
+    // Fire both search arms in parallel — no sequential waiting
+    const [structuredText, threadText] = await Promise.all([
+
+      // Arm 1: structured memories — insights, facts, motivations, struggles, teaching moments
+      (async () => {
+        try {
+          const { searchMemory, formatMemoryForConversation } = await import('./neural-memory-search');
+          const result = await searchMemory(studentId, query, undefined, session.targetLanguage || undefined);
+          return result.results.length > 0 ? formatMemoryForConversation(result) : null;
+        } catch (err: any) {
+          console.warn(`[UnifiedRecall] Structured arm failed: ${err.message}`);
+          return null;
+        }
+      })(),
+
+      // Arm 2: raw conversation threads — word-for-word exchanges with context window
+      (async () => {
+        try {
+          const { searchConversationThreads, formatConversationThreads } = await import('./neural-memory-search');
+          const result = await searchConversationThreads(studentId, query, {
+            contextBefore: 10,
+            contextAfter: 10,
+            maxThreads: 4,
+          });
+          if (result.threads.length === 0) return null;
+          // Background Lyra re-extraction so found conversations crystallize into structured memory
+          if (result.threads.length > 0) {
+            this.triggerLyraExtractionForThreads(studentId, result.threads).catch(() => {});
+          }
+          return formatConversationThreads(result, 'David');
+        } catch (err: any) {
+          console.warn(`[UnifiedRecall] Thread arm failed: ${err.message}`);
+          return null;
+        }
+      })(),
+    ]);
+
+    const sections: string[] = [];
+    if (structuredText) sections.push(`=== STRUCTURED MEMORIES (summaries, extracted insights, facts) ===\n${structuredText}`);
+    if (threadText) sections.push(`=== CONVERSATION THREADS (word-for-word past exchanges) ===\n${threadText}`);
+
+    const combined = sections.length > 0
+      ? sanitize(sections.join('\n\n'))
+      : `Nothing found for "${query}" across all memory sources (structured memories and conversation threads).`;
+
+    if (!session.recallResults) session.recallResults = {};
+    session.recallResults[query] = combined;
+
+    console.log(`[UnifiedRecall] "${query.substring(0, 50)}" → structured: ${structuredText ? 'found' : 'none'}, threads: ${threadText ? 'found' : 'none'}`);
   }
 
   private async triggerLyraExtractionForThreads(

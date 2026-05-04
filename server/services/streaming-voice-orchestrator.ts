@@ -7295,7 +7295,13 @@ Remember: David may reference things discussed in these recent text chats.
             
             for (const fc of recursiveFCs) {
               let responseText = 'Function executed successfully.';
-              if (fc.legacyType === 'MEMORY_LOOKUP') {
+              if (fc.legacyType === 'UNIFIED_RECALL' || fc.name === 'recall') {
+                const query = fc.args.query as string;
+                const recallResult = session.recallResults?.[query];
+                responseText = recallResult
+                  ? `Recall results for "${query}":\n${recallResult}\n\nNow respond using this full combined context.`
+                  : `Nothing found for "${query}" across all memory sources. Respond naturally.`;
+              } else if (fc.legacyType === 'MEMORY_LOOKUP') {
                 const query = fc.args.query as string;
                 const lookupResult = session.memoryLookupResults?.[query];
                 responseText = lookupResult 
@@ -8831,8 +8837,10 @@ Remember: David may reference things discussed in these recent text chats.
       const functionsNeedingContinuation = greetingFunctionCalls.filter(fc => 
         fc.legacyType === 'MEMORY_LOOKUP' || fc.legacyType === 'EXPRESS_LANE_LOOKUP' ||
         fc.legacyType === 'CONVERSATION_THREAD_SEARCH' || fc.legacyType === 'CONVERSATION_DATE_BROWSE' || fc.legacyType === 'CONVERSATION_THEME_MAP' ||
+        fc.legacyType === 'UNIFIED_RECALL' ||
         fc.name === 'memory_lookup' || fc.name === 'express_lane_lookup' ||
-        fc.name === 'search_conversation_threads' || fc.name === 'browse_conversations_by_date' || fc.name === 'get_conversation_themes'
+        fc.name === 'search_conversation_threads' || fc.name === 'browse_conversations_by_date' || fc.name === 'get_conversation_themes' ||
+        fc.name === 'recall'
       );
       
       if (metrics.sentenceCount === 0 && greetingFunctionCalls.length > 0 && functionsNeedingContinuation.length > 0) {
@@ -8853,7 +8861,13 @@ Remember: David may reference things discussed in these recent text chats.
         for (const fc of greetingFunctionCalls) {
           let responseText = 'Function executed successfully.';
           
-          if (fc.legacyType === 'MEMORY_LOOKUP' || fc.name === 'memory_lookup') {
+          if (fc.legacyType === 'UNIFIED_RECALL' || fc.name === 'recall') {
+            const query = fc.args.query as string;
+            const recallResult = session.recallResults?.[query];
+            responseText = recallResult
+              ? `Recall results for "${query}":\n${recallResult}\n\nNow respond naturally using this full combined context.`
+              : `Nothing found for "${query}" across all memory sources. Respond naturally based on the conversation context.`;
+          } else if (fc.legacyType === 'MEMORY_LOOKUP' || fc.name === 'memory_lookup') {
             const query = fc.args.query as string;
             const lookupResult = session.memoryLookupResults?.[query];
             if (lookupResult) {

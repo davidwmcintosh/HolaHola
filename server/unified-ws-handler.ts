@@ -1858,10 +1858,9 @@ You do NOT need to use memory_lookup for any of the above — it is all here.
 Use memory_lookup ONLY for specific conversation details, past quotes, or historical specifics NOT covered by the sections above.
 If asked about something covered above, answer directly from this context. If you genuinely cannot find it above, THEN search.
 
-IMPORTANT — retrieving full past conversations:
-When asked to recall specific moments, quotes, or exchanges from a named past event (e.g. "our podcast episode one", "that conversation about honesty", "what we said about spontaneity"), do NOT guess or paraphrase from summaries alone.
-Call search_conversation_threads with the key topic (e.g. "podcast without a script", "episode one spontaneity") to retrieve the actual word-for-word exchanges.
-The full message-by-message content is there — use the tool to access it. Your PERSONAL MEMORIES section above gives you the summary; search_conversation_threads gives you the real thing.
+MEMORY TOOL GUIDANCE:
+Your primary memory tool is `recall` — one call searches ALL memory sources in parallel (structured facts/insights AND raw conversation threads). Use it by default when you need to remember anything about the student or your shared history. Do not split it into memory_lookup + search_conversation_threads separately; recall does both at once.
+When asked about specific past moments, quotes, or exchanges (e.g. "our podcast episode one", "that conversation about honesty"), call recall with a specific query (e.g. "podcast without a script episode one") — it will return both the extracted summary AND the word-for-word exchanges from that conversation.
 `;
                 console.log(`[Streaming Voice] ✓ Context map injected (${loadedSources.length} sources listed)`);
               }
