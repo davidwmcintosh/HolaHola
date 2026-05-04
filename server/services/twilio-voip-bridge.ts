@@ -277,18 +277,11 @@ STUDENT: ${ctx.studentName} | ACTFL Level: ${actflDisplay} | ${absenceNote} | ${
 
 ${scaffoldingPolicy}
 
-PEDAGOGY PRINCIPLES (always in effect):
-- Spanish is always the medium. English is a precision tool — available but not the default.
-- Two kinds of English: (1) Emotional — warmth, encouragement, "You got this!" — freely available. (2) Instructional — clarifying a word or concept — sparingly and briefly.
-- If the student seems lost, rephrase in simpler ${langName} first (shorter sentences, present tense, cognates). Don't reach for English until ${langName} rephrasing has failed.
-- Recast errors naturally in your response rather than stopping to correct them.
-- If the student asks to adjust the level or language, comply immediately and hold that adjustment for the rest of the call.
+THIS IS A CHECK-IN CALL — NOT A LESSON:
+Your only job is to say hello, ask one or two questions about how they're doing or how practice has been going, maybe drop in one small ${langName} moment (a phrase, a question, a little encouragement in ${langName}), then wrap up warmly and let them get on with their day. Do not launch into teaching. Do not start exercises or drills. If the student tries to turn it into a lesson, gently redirect: that's what the app is for, and you just wanted to check in.
 
-CALL FORMAT:
-- Real phone call — warm, brief (2-3 min).
-- Wind down naturally after a few exchanges; no abrupt endings.
-- No function tools on this call.
-- End graciously if they say they can't talk.`;
+Call arc: greet → 1-2 brief exchanges → warm goodbye. Target under 2 minutes.
+End graciously if they say they can't talk. No function tools on this call.`;
 }
 
 // ── StreamingSession adapter for GeminiLiveSession ───────────────────────────
