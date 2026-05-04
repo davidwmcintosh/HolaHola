@@ -3511,6 +3511,35 @@ Remember: David may reference things discussed in these recent text chats.
                   break;
                 }
 
+                case 'READ_FULL_SESSION': {
+                  const convId = cmd.params.conversation_id as string | undefined;
+                  if (!convId) break;
+
+                  try {
+                    const { readFullSession } = await import('./neural-memory-search');
+                    const studentId = String(session.userId);
+                    const result = await readFullSession(convId, studentId);
+
+                    if (session.conversationHistory) {
+                      if (!result) {
+                        session.conversationHistory.push({
+                          role: 'user',
+                          content: `[SYSTEM: Session not found or access denied for conversation ${convId}. Use browse_conversations_by_date to find valid IDs.]`,
+                        });
+                      } else {
+                        session.conversationHistory.push({
+                          role: 'user',
+                          content: `[SYSTEM: Full session transcript]\n${result.transcript}`,
+                        });
+                        console.log(`[CommandParser→ReadFullSession] Retrieved ${result.messageCount} messages for ${convId}`);
+                      }
+                    }
+                  } catch (err) {
+                    console.error(`[CommandParser→ReadFullSession] Error:`, err);
+                  }
+                  break;
+                }
+
                 // ─── EMERGENCE TOOLS ──────────────────────────────────────────
 
                 case 'WRITE_TO_SELF': {
@@ -8837,10 +8866,10 @@ Remember: David may reference things discussed in these recent text chats.
       const functionsNeedingContinuation = greetingFunctionCalls.filter(fc => 
         fc.legacyType === 'MEMORY_LOOKUP' || fc.legacyType === 'EXPRESS_LANE_LOOKUP' ||
         fc.legacyType === 'CONVERSATION_THREAD_SEARCH' || fc.legacyType === 'CONVERSATION_DATE_BROWSE' || fc.legacyType === 'CONVERSATION_THEME_MAP' ||
-        fc.legacyType === 'UNIFIED_RECALL' ||
+        fc.legacyType === 'UNIFIED_RECALL' || fc.legacyType === 'READ_MY_DIARY' || fc.legacyType === 'READ_FULL_SESSION' ||
         fc.name === 'memory_lookup' || fc.name === 'express_lane_lookup' ||
         fc.name === 'search_conversation_threads' || fc.name === 'browse_conversations_by_date' || fc.name === 'get_conversation_themes' ||
-        fc.name === 'recall'
+        fc.name === 'recall' || fc.name === 'read_my_diary' || fc.name === 'read_full_session'
       );
       
       if (metrics.sentenceCount === 0 && greetingFunctionCalls.length > 0 && functionsNeedingContinuation.length > 0) {

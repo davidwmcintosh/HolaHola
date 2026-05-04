@@ -1854,6 +1854,21 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'READ_FULL_SESSION': {
+        const convId = fn.args.conversation_id as string | undefined;
+        if (!convId) break;
+
+        console.log(`[Native Function→ReadFullSession] conversationId=${convId}`);
+
+        const fullSessionPromise = this.processReadFullSession(session, convId).catch(err => {
+          console.error(`[Native Function→ReadFullSession] Error:`, err.message);
+        });
+
+        if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+        session.pendingMemoryLookupPromises.push(fullSessionPromise);
+        break;
+      }
+
       // ─── EMERGENCE TOOLS — Daniela's Inner Life ────────────────────────────
 
       case 'WRITE_TO_SELF': {
@@ -5329,6 +5344,39 @@ export class NativeFunctionCallHandler {
     } catch (err: any) {
       console.error(`[ReadMyDiary] Error:`, err.message);
       session.diaryReadResult = `Could not read diary. Try browse_conversations_by_date or search_conversation_threads instead.`;
+    }
+  }
+
+  private async processReadFullSession(
+    session: StreamingSession,
+    conversationId: string,
+  ): Promise<void> {
+    try {
+      const studentId = session.userId ? String(session.userId) : null;
+      if (!studentId) {
+        if (!session.fullSessionResults) session.fullSessionResults = {};
+        session.fullSessionResults[conversationId] = `Cannot read session — no student ID in session.`;
+        return;
+      }
+
+      const { readFullSession } = await import('./neural-memory-search');
+      const result = await readFullSession(conversationId, studentId);
+
+      if (!session.fullSessionResults) session.fullSessionResults = {};
+
+      if (!result) {
+        session.fullSessionResults[conversationId] =
+          `Session not found or access denied. Use browse_conversations_by_date to find valid conversation IDs.`;
+        return;
+      }
+
+      session.fullSessionResults[conversationId] = result.transcript;
+      console.log(`[ReadFullSession] Retrieved ${result.messageCount} messages for conversation ${conversationId}`);
+    } catch (err: any) {
+      console.error(`[ReadFullSession] Error:`, err.message);
+      if (!session.fullSessionResults) session.fullSessionResults = {};
+      session.fullSessionResults[conversationId] =
+        `Could not load session transcript. Try browse_conversations_by_date or search_conversation_threads instead.`;
     }
   }
 

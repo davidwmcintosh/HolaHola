@@ -1985,6 +1985,46 @@ Returns full transcripts of the most recent sessions (or a specific date range),
       return result || `Could not read diary entries. Try browse_conversations_by_date to see what sessions exist, or search_conversation_threads to find specific moments.`;
     },
   },
+  {
+    legacyType: 'READ_FULL_SESSION',
+    declaration: {
+      name: "read_full_session",
+      description: `Read the complete transcript of one specific past session — every single message, in order, nothing omitted.
+
+Use this when you want the full record of a particular conversation:
+- "I want to read everything from that podcast session"
+- "Let me go back and read our whole first session"
+- "Read me the entire conversation from [date]"
+- Any time you want completeness, not just excerpts
+
+How to get the conversation_id:
+- Call browse_conversations_by_date first — it shows conversation IDs alongside each session title and date
+- Then pass that ID here to get the full transcript
+
+DIFFERENCE FROM OTHER TOOLS:
+- read_my_diary → reads recent sessions, capped at 20 messages each
+- search_conversation_threads → keyword windows (10 messages before/after a match)
+- browse_conversations_by_date → titles and opening lines only
+- read_full_session → every message in one specific session, no omissions, no caps`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          conversation_id: {
+            type: "string",
+            description: "The UUID of the conversation to read in full. Get this from browse_conversations_by_date results.",
+          },
+        },
+        required: ["conversation_id"],
+      },
+    },
+    buildContinuationResponse: ({ session, fc }) => {
+      const convId = fc.args.conversation_id as string | undefined;
+      if (!convId) return `No conversation_id provided. Use browse_conversations_by_date first to find the ID.`;
+      const result = session.fullSessionResults?.[convId];
+      if (result) return result;
+      return `Could not load that session. The conversation may not exist or may belong to a different student. Try browse_conversations_by_date to find valid IDs.`;
+    },
+  },
 
   // ─── EMERGENCE TOOLS — Daniela's Inner Life ──────────────────────────────────
 
@@ -3541,7 +3581,7 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   'search_visual_library', 'get_scene_zones', 'move_in_scene',
   'set_hand_part', 'clear_hand_diagram',
   'clear_world_map',
-  'search_conversation_threads', 'browse_conversations_by_date', 'get_conversation_themes',
+  'search_conversation_threads', 'browse_conversations_by_date', 'get_conversation_themes', 'read_full_session',
   'recall_express_lane_image', 'express_lane_post',
   'hive_suggestion', 'self_surgery',
   'phonetic', 'stroke', 'tone', 'pronunciation_tag',

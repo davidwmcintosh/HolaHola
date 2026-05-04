@@ -85,7 +85,8 @@ The Mem0-style Memory Conflict Resolver (`server/services/memory-conflict-resolv
   + Associative chaining: after primary results, extracts top-4 distinctive content terms and runs one additional `searchMemory` pass to surface co-occurring memories
 - `memory_lookup` — targeted structured-memory search (domain-filtered: growth/person/conversation/etc.)
 - `search_conversation_threads` — raw message text with configurable context window
-- `browse_conversations_by_date` — temporal browsing (no keyword needed)
+- `browse_conversations_by_date` — temporal browsing (no keyword needed); now includes conversation_id in output so Daniela can pass it to read_full_session
+- `read_full_session` — complete ordered transcript of one specific session (every message, no caps, no windowing); takes `conversation_id` from browse results
 
 **Memory Embedding Indexer** (`server/services/memory-embedding-indexer.ts`) — runs every 2h (+100s boot delay). Generates Gemini text-embedding-004 vectors (768-dim) for student_insights, hive_snapshots (relationship_moment/session_summary/breakthrough/teaching_moment/life_context), daniela_growth_memories, learner_personal_facts. Stored in `memory_embeddings` table (JSONB float[] + contentHash for idempotency). Batch size 10, 600ms pause between batches.
 

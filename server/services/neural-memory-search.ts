@@ -2347,6 +2347,7 @@ export async function browseConversationsByDate(
           firstMessage: firstContent.substring(0, 200),
           lastMessage: lastContent.substring(0, 200),
         } satisfies ConversationSummary;
+
       } catch {
         return {
           conversationId: conv.id,
@@ -2374,6 +2375,87 @@ export async function browseConversationsByDate(
   }
 }
 
+// ─── Full Session Transcript ─────────────────────────────────────────────────
+
+export interface FullSessionTranscript {
+  conversationId: string;
+  title: string | null;
+  date: Date | null;
+  language: string | null;
+  messageCount: number;
+  transcript: string;
+}
+
+/**
+ * Read every message in a specific conversation in chronological order.
+ * No windowing, no truncation, no keyword filter — the complete record.
+ *
+ * Security: verifies the conversation belongs to `studentId` before returning anything.
+ */
+export async function readFullSession(
+  conversationId: string,
+  studentId: string,
+): Promise<FullSessionTranscript | null> {
+  const db = getSharedDb();
+
+  // Ownership check
+  const [conv] = await db
+    .select({
+      id: conversations.id,
+      title: conversations.title,
+      topic: conversations.topic,
+      createdAt: conversations.createdAt,
+      language: conversations.language,
+    })
+    .from(conversations)
+    .where(and(eq(conversations.id, conversationId), eq(conversations.userId, studentId)))
+    .limit(1);
+
+  if (!conv) return null; // not found or not owned by this student
+
+  const allMessages = await db
+    .select({
+      role: messages.role,
+      content: messages.content,
+      createdAt: messages.createdAt,
+    })
+    .from(messages)
+    .where(and(
+      eq(messages.conversationId, conversationId),
+      // Only user/assistant turns — skip system prompts
+    ))
+    .orderBy(asc(messages.createdAt));
+
+  const turns = allMessages.filter(m => m.role === 'user' || m.role === 'assistant');
+
+  const dateStr = conv.createdAt
+    ? new Date(conv.createdAt).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+    : 'Unknown date';
+  const title = conv.title || conv.topic || 'Session';
+  const langLabel = conv.language ? ` [${conv.language}]` : '';
+
+  const lines: string[] = [
+    `FULL TRANSCRIPT — ${dateStr}${langLabel}`,
+    `"${title}"`,
+    `${turns.length} messages — complete record, no omissions`,
+    ``,
+  ];
+
+  for (const msg of turns) {
+    const speaker = msg.role === 'user' ? 'David' : 'Daniela';
+    lines.push(`${speaker}: ${msg.content}`);
+  }
+
+  return {
+    conversationId,
+    title: conv.title,
+    date: conv.createdAt,
+    language: conv.language,
+    messageCount: turns.length,
+    transcript: lines.join('\n'),
+  };
+}
+
 export function formatConversationBrowse(result: ConversationBrowseResult, studentName = 'David'): string {
   if (result.conversations.length === 0) {
     const range = [
@@ -2397,14 +2479,14 @@ export function formatConversationBrowse(result: ConversationBrowseResult, stude
     const title = conv.title || 'Untitled session';
     const langLabel = conv.language ? ` [${conv.language}]` : '';
     lines.push(`${title}${langLabel} — ${dateStr} (${conv.messageCount} messages)`);
+    lines.push(`  ID: ${conv.conversationId}`);
     if (conv.firstMessage) {
-      const speaker = conv.firstMessage.startsWith(studentName) ? studentName : 'Opening';
       lines.push(`  Opening: "${conv.firstMessage.substring(0, 120)}"`);
     }
     lines.push('');
   }
 
-  lines.push(`Use search_conversation_threads with a specific keyword to see the full exchange from any of these sessions.`);
+  lines.push(`To read any session completely (every message, no omissions), call read_full_session with the conversation_id shown above.`);
   return lines.join('\n');
 }
 
@@ -2626,4 +2708,6 @@ export const neuralMemorySearch = {
   formatBrowse: formatConversationBrowse,
   getThemes: getConversationThemes,
   formatThemes: formatConversationThemes,
+  // Full session transcript (Phase 5)
+  readFullSession,
 };

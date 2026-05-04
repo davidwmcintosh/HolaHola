@@ -201,6 +201,7 @@ export interface StreamingSession {
   recallResults?: Record<string, string>;
   conversationThemeResults?: string;
   diaryReadResult?: string;
+  fullSessionResults?: Record<string, string>; // keyed by conversationId
   selfReflectionsResult?: string;
   coreSelfResult?: string;
   curiositiesResult?: string;
