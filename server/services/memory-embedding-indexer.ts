@@ -23,6 +23,7 @@ import {
   hiveSnapshots,
   danielaGrowthMemories,
   learnerPersonalFacts,
+  collaborationMessages,
   memoryEmbeddings,
   users,
 } from '@shared/schema';
@@ -156,6 +157,34 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
     }
   } catch (err: any) {
     console.warn('[EmbedIndexer] personal_facts scan failed:', err.message);
+  }
+
+  // collaboration_messages (Express Lane) — founder/Daniela/team messages
+  // Stored with userId = null (globally-scoped, not per-student).
+  // semanticSearch() includes userId IS NULL records so these surface in all sessions.
+  try {
+    const rows = await db
+      .select({
+        id: collaborationMessages.id,
+        role: collaborationMessages.role,
+        content: collaborationMessages.content,
+      })
+      .from(collaborationMessages)
+      .where(sql`
+        NOT EXISTS (
+          SELECT 1 FROM memory_embeddings
+          WHERE memory_type = 'collaboration_message' AND memory_id = ${collaborationMessages.id}
+        )
+        AND length(content) > 20
+      `)
+      .limit(300);
+    for (const r of rows) {
+      // Prepend role so the embedding captures speaker context ("founder: ..." vs "daniela: ...")
+      const content = `${r.role}: ${r.content}`;
+      targets.push({ id: r.id, userId: null, content, memoryType: 'collaboration_message' });
+    }
+  } catch (err: any) {
+    console.warn('[EmbedIndexer] collaboration_messages scan failed:', err.message);
   }
 
   return targets;

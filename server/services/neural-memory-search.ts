@@ -900,9 +900,10 @@ export function formatMemoryForConversation(response: MemorySearchResponse): str
   const top = response.results.slice(0, 6);
   for (const result of top) {
     const when = naturalTime(result.timestamp);
-    // Use details if it adds substance beyond the summary, otherwise just summary
+    // Use details (full record) if it has more substance than the summary.
+    // No truncation — Daniela needs the full memory to recall accurately.
     const memory = (result.details && result.details !== result.summary && result.details.length > result.summary.length)
-      ? result.details.substring(0, 250)
+      ? result.details
       : result.summary;
     lines.push(`— ${memory}${when}`);
   }

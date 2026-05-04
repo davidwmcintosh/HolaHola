@@ -20,7 +20,7 @@ import { GoogleGenAI } from '@google/genai';
 import { createHash } from 'crypto';
 import { getSharedDb } from '../db';
 import { memoryEmbeddings } from '@shared/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, or, isNull } from 'drizzle-orm';
 
 const EMBEDDING_MODEL = 'text-embedding-004';
 const EMBEDDING_DIM = 768;
@@ -141,8 +141,9 @@ export async function semanticSearch(
 ): Promise<SemanticSearchResult[]> {
   const db = getSharedDb();
 
-  // Load all stored embeddings for this user
-  const conditions = [eq(memoryEmbeddings.userId, userId)];
+  // Load embeddings for this student PLUS globally-scoped records (userId IS NULL).
+  // Globally-scoped records include: Express Lane collaboration messages,
+  // Daniela growth memories — content relevant to any session, not one student.
   const rows = await db
     .select({
       memoryType: memoryEmbeddings.memoryType,
@@ -151,7 +152,10 @@ export async function semanticSearch(
       contentHash: memoryEmbeddings.contentHash,
     })
     .from(memoryEmbeddings)
-    .where(and(...conditions));
+    .where(or(
+      eq(memoryEmbeddings.userId, userId),
+      isNull(memoryEmbeddings.userId),
+    ));
 
   if (rows.length === 0) return [];
 

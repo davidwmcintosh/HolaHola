@@ -5033,7 +5033,7 @@ export class NativeFunctionCallHandler {
                 const { hiveSnapshots: hs } = await import('@shared/schema');
                 const [row] = await sharedDb.select({ title: hs.title, content: hs.content, snapshotType: hs.snapshotType })
                   .from(hs).where(eq(hs.id, hit.memoryId)).limit(1);
-                if (row) lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | ${row.snapshotType}] ${row.title}: ${row.content?.substring(0, 300)}`);
+                if (row) lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | ${row.snapshotType}] ${row.title}: ${row.content ?? ''}`);
               } else if (hit.memoryType === 'personal_fact') {
                 const { learnerPersonalFacts: lpf } = await import('@shared/schema');
                 const [row] = await sharedDb.select({ fact: lpf.fact, factType: lpf.factType })
@@ -5043,7 +5043,15 @@ export class NativeFunctionCallHandler {
                 const { danielaGrowthMemories } = await import('@shared/schema');
                 const [row] = await sharedDb.select({ content: danielaGrowthMemories.content })
                   .from(danielaGrowthMemories).where(eq(danielaGrowthMemories.id, hit.memoryId)).limit(1);
-                if (row) lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | growth] ${row.content?.substring(0, 300)}`);
+                if (row) lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | growth] ${row.content ?? ''}`);
+              } else if (hit.memoryType === 'collaboration_message') {
+                const { collaborationMessages: cm } = await import('@shared/schema');
+                const [row] = await sharedDb.select({ content: cm.content, role: cm.role, createdAt: cm.createdAt })
+                  .from(cm).where(eq(cm.id, hit.memoryId)).limit(1);
+                if (row) {
+                  const date = new Date(row.createdAt).toLocaleDateString();
+                  lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | express_lane | ${row.role} | ${date}] ${row.content}`);
+                }
               }
             } catch { /* skip failed hydration */ }
           }
