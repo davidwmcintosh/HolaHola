@@ -4948,7 +4948,7 @@ export class NativeFunctionCallHandler {
        .replace(/[\u200B-\u200D\uFEFF]/g, '');
 
     // Fire both search arms in parallel — no sequential waiting
-    const [structuredText, threadText] = await Promise.all([
+    const [structuredText, threadText, expressLaneText] = await Promise.all([
 
       // Arm 1: structured memories — insights, facts, motivations, struggles, teaching moments
       (async () => {
@@ -4982,11 +4982,40 @@ export class NativeFunctionCallHandler {
           return null;
         }
       })(),
+
+      // Arm 3: Express Lane — founder/team collaboration messages matching the query
+      (async () => {
+        try {
+          const { collaborationMessages } = await import('@shared/schema');
+          const sharedDb = getSharedDb();
+          const keywords = query.split(/\s+/).filter(w => w.length >= 3);
+          const keywordConditions = keywords.length > 0
+            ? sql.join(keywords.map(kw => sql`content ILIKE ${`%${kw}%`}`), sql` OR `)
+            : sql`content ILIKE ${`%${query}%`}`;
+          const results = await sharedDb
+            .select()
+            .from(collaborationMessages)
+            .where(keywordConditions)
+            .orderBy(sql`created_at DESC`)
+            .limit(5);
+          if (results.length === 0) return null;
+          const formatted = [...results].reverse().map(msg => {
+            const date = new Date(msg.createdAt).toLocaleDateString();
+            const preview = msg.content.length > 2000 ? msg.content.substring(0, 2000) + '...' : msg.content;
+            return `[${date}] ${msg.role}: ${preview}`;
+          }).join('\n\n---\n\n');
+          return formatted;
+        } catch (err: any) {
+          console.warn(`[UnifiedRecall] Express Lane arm failed: ${err.message}`);
+          return null;
+        }
+      })(),
     ]);
 
     const sections: string[] = [];
     if (structuredText) sections.push(`=== STRUCTURED MEMORIES (summaries, extracted insights, facts) ===\n${structuredText}`);
     if (threadText) sections.push(`=== CONVERSATION THREADS (word-for-word past exchanges) ===\n${threadText}`);
+    if (expressLaneText) sections.push(`=== EXPRESS LANE (team collaboration messages mentioning this topic) ===\n${expressLaneText}`);
 
     const combined = sections.length > 0
       ? sanitize(sections.join('\n\n'))

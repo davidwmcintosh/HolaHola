@@ -1859,7 +1859,7 @@ Use memory_lookup ONLY for specific conversation details, past quotes, or histor
 If asked about something covered above, answer directly from this context. If you genuinely cannot find it above, THEN search.
 
 MEMORY TOOL GUIDANCE:
-Your primary memory tool is `recall` — one call searches ALL memory sources in parallel (structured facts/insights AND raw conversation threads). Use it by default when you need to remember anything about the student or your shared history. Do not split it into memory_lookup + search_conversation_threads separately; recall does both at once.
+Your primary memory tool is recall — one call searches ALL memory sources in parallel (structured facts/insights AND raw conversation threads). Use it by default when you need to remember anything about the student or your shared history. Do not split it into memory_lookup + search_conversation_threads separately; recall does both at once.
 When asked about specific past moments, quotes, or exchanges (e.g. "our podcast episode one", "that conversation about honesty"), call recall with a specific query (e.g. "podcast without a script episode one") — it will return both the extracted summary AND the word-for-word exchanges from that conversation.
 `;
                 console.log(`[Streaming Voice] ✓ Context map injected (${loadedSources.length} sources listed)`);

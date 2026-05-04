@@ -76,6 +76,14 @@ The Mem0-style Memory Conflict Resolver (`server/services/memory-conflict-resolv
 
 **Daniela's student knowledge** — searchable via `memory_lookup` tool: `student_insights` (deep observations, confidence-scored), `session_notes` (wins/challenges/next steps per session), `learner_personal_facts` (bi-temporal personal facts with conflict resolution), `recurring_struggles` (persistent challenge patterns), `learning_motivations`, ACTFL assessment events. Podcast memory for David is stored as a `student_insights` entry (id: 447f96fa, confidence 1.0) and is fully indexed.
 
+**Memory search tools:**
+- `recall` — primary scatter-gather tool. One call fans out to three parallel arms: (1) structured memories via `searchMemory`, (2) raw conversation threads via `searchConversationThreads` (10-msg context window), (3) Express Lane keyword search. Returns combined result. Default for any memory query.
+- `memory_lookup` — targeted structured-memory search (domain-filtered: growth/person/conversation/etc.)
+- `search_conversation_threads` — raw message text with configurable context window
+- `browse_conversations_by_date` — temporal browsing (no keyword needed)
+
+**Daniela Presence Worker** (`server/services/daniela-presence-worker.ts`) — runs every 30 min, generates a Gemini-authored 300–400 word narrative "WHERE I AM RIGHT NOW" for each active student. Sources: session_notes, relationship_moment snapshots, session_summary snapshots, daniela_self_reflections, daniela_curiosities. Stored as `.local/daniela-presence-{userId}.json` (4-hour staleness window). Injected as the FIRST section in Daniela's context at every session start via `unified-daniela-context-service.ts`. Authorship principle preserved — reads self_reflections, never writes them.
+
 **Temporal grounding** — built and active: `SENSE_TIME` function queries conversations table for elapsed time and injects a felt description into conversation history. `lastSessionSummary` surfaces what they covered last time. Both run at session start for all non-incognito sessions.
 
 **Outbound presence** — Phases 1–3 LIVE (May 2026). Daniela detects absent students, queues personalized messages, and delivers them as SMS voice notes.

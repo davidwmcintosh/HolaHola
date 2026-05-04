@@ -757,6 +757,13 @@ app.use((req, res, next) => {
       startDanielaAbsenceWorker();
     }, 80000);
 
+    // +85s: Daniela Presence Worker — generates narrative "where I am with this student"
+    // doc every 30min so Daniela arrives oriented, not blank, at each session start
+    setTimeout(async () => {
+      const { startDanielaPresenceWorker } = await import('./services/daniela-presence-worker');
+      startDanielaPresenceWorker();
+    }, 85000);
+
     // +75s: Curriculum Enrichment Auto-Resume
     // Fires on every boot. The enrichment service skips already-enriched lessons
     // (within 7 days), so this is safe to run repeatedly and acts as a self-healing
