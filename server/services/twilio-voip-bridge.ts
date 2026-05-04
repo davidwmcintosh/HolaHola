@@ -20,7 +20,7 @@ import type { TutorPersonality } from './tts-service';
 import type { VoiceSpeedOption } from './voice-speed-config';
 import { getSharedDb } from '../db';
 import { storage } from '../storage';
-import { danielaOutboundQueue, voiceSessions, tutorSessions } from '@shared/schema';
+import { danielaOutboundQueue, voiceSessions, tutorSessions, actflProgress } from '@shared/schema';
 import { eq, desc } from 'drizzle-orm';
 import { unifiedDanielaContext } from './unified-daniela-context-service';
 import { computeCallNonce } from './voice-call-sender';
@@ -130,8 +130,26 @@ async function loadCallContext(userId: string, queueId: string): Promise<CallCon
   const studentName = user ? [user.firstName, user.lastName].filter(Boolean).join(' ') || 'there' : 'there';
   const targetLanguage = user?.targetLanguage || 'spanish';
   const languageCode = LANGUAGE_TO_BCP47[targetLanguage.toLowerCase()] || 'es-ES';
-  const actflLevel = user?.actflLevel ?? null;
   const messageContent = queueRow.content || '';
+
+  // users.actfl_level is rarely populated — pull from actfl_progress per language instead
+  let actflLevel: string | null = user?.actflLevel ?? null;
+  if (!actflLevel) {
+    try {
+      const { and } = await import('drizzle-orm');
+      const progressRows = await db
+        .select({ currentActflLevel: actflProgress.currentActflLevel })
+        .from(actflProgress)
+        .where(and(eq(actflProgress.userId, userId), eq(actflProgress.language, targetLanguage)))
+        .limit(1);
+      if (progressRows[0]?.currentActflLevel) {
+        actflLevel = progressRows[0].currentActflLevel;
+        console.log(`[TwilioVoipBridge] ACTFL level from actfl_progress: ${actflLevel} (${targetLanguage})`);
+      }
+    } catch (err: unknown) {
+      console.warn('[TwilioVoipBridge] actfl_progress fetch:', err instanceof Error ? err.message : String(err));
+    }
+  }
 
   let lastSessionSummary: string | null = null;
   let daysAbsent: number | null = null;
