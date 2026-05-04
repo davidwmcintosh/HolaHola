@@ -3341,7 +3341,7 @@ Remember: David may reference things discussed in these recent text chats.
                 }
                 case 'CONVERSATION_THREAD_SEARCH': {
                   const ctQuery = cmd.params.query as string;
-                  const ctContextMessages = (cmd.params.context_messages as number | undefined) ?? 4;
+                  const ctContextMessages = (cmd.params.context_messages as number | undefined) ?? 10;
                   const ctMaxThreads = Math.min((cmd.params.max_threads as number | undefined) ?? 6, 10);
                   const ctAfterDate = cmd.params.after_date ? new Date(cmd.params.after_date as string) : undefined;
                   const ctBeforeDate = cmd.params.before_date ? new Date(cmd.params.before_date as string) : undefined;

@@ -1751,7 +1751,10 @@ export class NativeFunctionCallHandler {
       case 'CONVERSATION_THREAD_SEARCH': {
         const ctQuery = fn.args.query as string | undefined;
         if (ctQuery) {
-          const contextMessages = (fn.args.context_messages as number | undefined) ?? 4;
+          // Default to 10 messages of context before/after each match (was 4).
+          // A 20-message conversation with contextMessages=10 returns up to 21 messages
+          // around the first match — enough to cover most full conversations in one result.
+          const contextMessages = (fn.args.context_messages as number | undefined) ?? 10;
           const maxThreads = Math.min((fn.args.max_threads as number | undefined) ?? 6, 10);
           const afterDateStr = fn.args.after_date as string | undefined;
           const beforeDateStr = fn.args.before_date as string | undefined;

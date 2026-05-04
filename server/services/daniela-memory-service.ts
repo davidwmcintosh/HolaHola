@@ -437,15 +437,18 @@ Only include non-empty arrays. Return {} if no memorable personal moments.`;
         return "";
       }
       
-      // Format for prompt injection
+      // Format for prompt injection — full content, no truncation.
+      // These memories are exactly what Daniela needs to recall shared moments without searching.
+      // If she needs the raw word-for-word exchange from a past conversation, she should use
+      // search_conversation_threads to retrieve it in full.
       const memoryLines = memories.map(m => {
-        const type = m.snapshotType === 'role_reversal' ? '🔄 Role Reversal' :
-                     m.snapshotType === 'humor_shared' ? '😊 Shared Humor' :
-                     '💫 Personal Moment';
-        return `${type}: ${m.title}\n   ${m.content.slice(0, 200)}...`;
+        const type = m.snapshotType === 'role_reversal' ? 'Role Reversal' :
+                     m.snapshotType === 'humor_shared' ? 'Shared Humor' :
+                     'Personal Moment';
+        return `[${type}] ${m.title}\n${m.content}`;
       });
       
-      return `\n\n--- PERSONAL MEMORIES (things you should remember about this person) ---\n${memoryLines.join('\n\n')}`;
+      return `\n\n--- PERSONAL MEMORIES (things you should remember about this person) ---\n${memoryLines.join('\n\n---\n\n')}`;
     } catch (err: any) {
       console.error(`[Daniela Memory] Failed to get personal context: ${err.message}`);
       return "";
