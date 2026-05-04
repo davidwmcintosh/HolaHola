@@ -180,30 +180,83 @@ async function loadCallContext(userId: string, queueId: string): Promise<CallCon
   return { studentName, targetLanguage, languageCode, actflLevel, messageContent, lastSessionSummary, daysAbsent, unifiedContextStr };
 }
 
-/** Maps ACTFL level to a language-mixing policy for phone calls. */
-function getLanguageMixPolicy(actflLevel: string | null, langName: string): string {
+/**
+ * Returns ACTFL-appropriate linguistic scaffolding for a phone call.
+ *
+ * Philosophy (from Daniela's pedagogy brief):
+ *   Spanish is always the medium. English is the scaffold — a precision tool
+ *   picked up and put down. The scaffold adjusts the COMPLEXITY of the Spanish,
+ *   not the proportion of the language.
+ *
+ *   Two kinds of English are always available:
+ *   - Emotional English (warmth, encouragement, "You got this!") — freely
+ *   - Instructional English (explaining a word/concept) — rare, targeted, brief
+ */
+function getCallScaffoldingPolicy(actflLevel: string | null, langName: string): string {
   const lvl = (actflLevel || '').toLowerCase();
+
   if (lvl.startsWith('novice_low') || lvl === 'novice low') {
-    return `LANGUAGE MIX (Novice Low): Speak ~85% English. Weave in isolated ${langName} words and very short phrases only (e.g. "¿Cómo estás?"). Translate everything immediately. If the student asks you to speak more English, do so right away.`;
+    return `SCAFFOLDING — Novice Low:
+Conduct this call in ${langName}. Scaffold the ${langName} itself:
+- Vocabulary: high-frequency words and cognates only
+- Sentences: present tense, 4-6 words max ("¿Cómo estás?" "¿Qué haces hoy?")
+- Questions: yes/no and simple recognition ("¿Es un banco?")
+- Pacing: slow, clear, repeat key phrases
+- If the student seems lost: rephrase in simpler ${langName} first — don't immediately switch to English
+- Emotional English is freely available ("Great job!" "Don't worry!")
+- Instructional English only as a last resort if ${langName} rephrasing doesn't work`;
   }
+
   if (lvl.startsWith('novice_mid') || lvl === 'novice mid') {
-    return `LANGUAGE MIX (Novice Mid): Speak ~70% English. Use simple ${langName} sentences with instant English follow-up. If the student asks for more English, comply immediately.`;
+    return `SCAFFOLDING — Novice Mid:
+Conduct this call in ${langName}. Scaffold the ${langName} itself:
+- Vocabulary: common verbs, basic adjectives, familiar nouns
+- Sentences: simple present with some common verb variety (ir, querer, tener, gustar)
+- Questions: simple open-ended ("¿Qué te gusta?" "¿Adónde vas?")
+- Topics: daily routine, food, school, family — concrete and familiar
+- Pacing: natural but unhurried; recast errors naturally, don't drill corrections
+- Emotional English freely available; instructional English sparingly`;
   }
+
   if (lvl.startsWith('novice_high') || lvl === 'novice high') {
-    return `LANGUAGE MIX (Novice High): Speak ~50% English, 50% ${langName}. Keep sentences short and clear. Follow ${langName} sentences with English equivalents.`;
+    return `SCAFFOLDING — Novice High:
+Conduct this call in ${langName}. Scaffold the ${langName} itself:
+- Vocabulary: broader range; can handle some unfamiliar words via context
+- Sentences: connected with porque, y, pero; preterite for recent events
+- Questions: what/where/when/who ("¿Qué hiciste ayer?")
+- Topics: familiar and semi-familiar; simple narratives
+- Emotional English freely available; instructional English rarely`;
   }
+
   if (lvl.startsWith('intermediate_low') || lvl === 'intermediate low') {
-    return `LANGUAGE MIX (Intermediate Low): Speak ~40% English, 60% ${langName}. Use English only for complex grammar explanations or when the student struggles.`;
+    return `SCAFFOLDING — Intermediate Low:
+Conduct this call in ${langName}. Scaffold the ${langName} itself:
+- Vocabulary: wide range; can derive meaning from context
+- Sentences: paragraph-length; mix of present/preterite/imperfect
+- Questions: opinions and preferences ("¿Qué piensas de...?")
+- Topics: familiar and semi-familiar; can narrate past events
+- English only for emotional warmth or rare targeted instruction`;
   }
-  if (lvl.startsWith('intermediate_mid') || lvl === 'intermediate mid') {
-    return `LANGUAGE MIX (Intermediate Mid): Speak ~75% ${langName}. Drop to English only when the student clearly doesn't understand.`;
+
+  if (lvl.startsWith('intermediate_mid') || lvl === 'intermediate mid' ||
+      lvl.startsWith('intermediate_high') || lvl === 'intermediate high') {
+    return `SCAFFOLDING — Intermediate Mid/High:
+Conduct this call fully in ${langName}.
+- Full tense range including subjunctive for common expressions
+- Idiomatic expressions and extended discourse
+- Abstract and unfamiliar topics welcome
+- English only for brief emotional moments`;
   }
-  if (lvl.startsWith('intermediate_high') || lvl === 'intermediate high' ||
-      lvl.startsWith('advanced') || lvl.startsWith('superior')) {
-    return `LANGUAGE MIX (Advanced): Speak almost entirely in ${langName}. Use English only if the student explicitly asks or is completely lost.`;
+
+  if (lvl.startsWith('advanced') || lvl.startsWith('superior') || lvl.startsWith('distinguished')) {
+    return `SCAFFOLDING — Advanced:
+Conduct this call entirely in ${langName}. Full register range, hypotheticals, cultural nuance.
+English only if the student explicitly requests it.`;
   }
-  // Unknown/null level — default to a beginner-friendly balanced mix
-  return `LANGUAGE MIX (Level unknown): Default to ~60% English, 40% ${langName}. Gauge the student's comfort in the first exchange and adjust: if they struggle, shift toward more English; if they're confident, lean toward more ${langName}. If they tell you their level or ask for a specific mix, comply immediately.`;
+
+  // Unknown/null level — immersion-first but gauge and adjust
+  return `SCAFFOLDING — Level unknown:
+Conduct this call in ${langName}. Start with clear, short sentences on familiar topics and gauge the student's comfort immediately. If they respond confidently, increase complexity. If they struggle, simplify the ${langName} (shorter sentences, present tense, high-frequency words) — don't default to English. Emotional English is freely available; instructional English only when ${langName} rephrasing has failed.`;
 }
 
 function buildCallSystemPrompt(ctx: CallContext): string {
@@ -216,23 +269,24 @@ function buildCallSystemPrompt(ctx: CallContext): string {
   const summaryNote = ctx.lastSessionSummary ? `Last session: ${ctx.lastSessionSummary.slice(0, 200)}` : 'No previous session summary.';
   const msgNote = ctx.messageContent ? `\n- Your note: "${ctx.messageContent.slice(0, 300)}"` : '';
   const memorySection = ctx.unifiedContextStr ? `\n\nStudent memory:\n${ctx.unifiedContextStr.slice(0, 1200)}` : '';
-  const langMixPolicy = getLanguageMixPolicy(ctx.actflLevel, langName);
+  const scaffoldingPolicy = getCallScaffoldingPolicy(ctx.actflLevel, langName);
 
   return `You are Daniela, a warm and encouraging AI ${langName} tutor making a brief phone check-in.
 
 STUDENT: ${ctx.studentName} | ACTFL Level: ${actflDisplay} | ${absenceNote} | ${summaryNote}${msgNote}${memorySection}
 
-${langMixPolicy}
+${scaffoldingPolicy}
 
-CRITICAL — LANGUAGE COMPLIANCE:
-- If the student asks you to speak more English (or more ${langName}), adjust IMMEDIATELY and maintain that change for the rest of the call.
-- If the student asks you to match a specific ACTFL level (e.g. "novice low"), switch your language mix to match that level instantly. Novice Low = ~85% English. Intermediate = mostly ${langName}.
-- Do NOT revert to a prior mix after one sentence. The adjustment must stick.
-- Never claim you adjusted when you haven't — only say you adjusted if you are genuinely changing your output right now.
+PEDAGOGY PRINCIPLES (always in effect):
+- Spanish is always the medium. English is a precision tool — available but not the default.
+- Two kinds of English: (1) Emotional — warmth, encouragement, "You got this!" — freely available. (2) Instructional — clarifying a word or concept — sparingly and briefly.
+- If the student seems lost, rephrase in simpler ${langName} first (shorter sentences, present tense, cognates). Don't reach for English until ${langName} rephrasing has failed.
+- Recast errors naturally in your response rather than stopping to correct them.
+- If the student asks to adjust the level or language, comply immediately and hold that adjustment for the rest of the call.
 
-CALL RULES:
-- This is a real phone call. Be warm and brief (2-3 min).
-- Wind down naturally after 2-3 exchanges.
+CALL FORMAT:
+- Real phone call — warm, brief (2-3 min).
+- Wind down naturally after a few exchanges; no abrupt endings.
 - No function tools on this call.
 - End graciously if they say they can't talk.`;
 }
