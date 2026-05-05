@@ -2412,17 +2412,35 @@ ${lastNote.tutorNotes}`);
           let recentConversationContext: string | undefined;
           if (effectiveIsResumed && conversationHasHistory && session.conversationId) {
             try {
-              const recentMsgs = await db
+              // Fetch all messages in this session — we'll trim by character budget,
+              // not by a fixed count, so long sessions don't lose early context.
+              const allMsgs = await db
                 .select({ role: messages.role, content: messages.content })
                 .from(messages)
                 .where(eq(messages.conversationId, session.conversationId))
                 .orderBy(desc((messages as any).createdAt))
-                .limit(6);
-              if (recentMsgs.length > 0) {
-                recentConversationContext = recentMsgs
-                  .reverse()
-                  .map(m => `${m.role === 'assistant' ? 'You' : 'Student'}: ${m.content.substring(0, 200)}`)
-                  .join('\n');
+                .limit(60); // safety cap — 60 exchanges is ~30 min of conversation
+              if (allMsgs.length > 0) {
+                // Reverse to chronological order, then build within a character budget
+                const chronological = allMsgs.reverse();
+                const CHARACTER_BUDGET = 5000;
+                const lines: string[] = [];
+                let budget = CHARACTER_BUDGET;
+                // Walk chronologically — if we can't fit everything, drop oldest first
+                for (let i = chronological.length - 1; i >= 0; i--) {
+                  const m = chronological[i];
+                  const speaker = m.role === 'assistant' ? 'You' : 'Student';
+                  const line = `${speaker}: ${m.content.substring(0, 300)}`;
+                  if (budget - line.length < 0) break;
+                  lines.unshift(line);
+                  budget -= line.length;
+                }
+                if (lines.length > 0) {
+                  const dropped = chronological.length - lines.length;
+                  recentConversationContext = dropped > 0
+                    ? `[Earlier ${dropped} exchange(s) omitted for brevity]\n` + lines.join('\n')
+                    : lines.join('\n');
+                }
               }
             } catch {
               // Non-critical — proceed without context

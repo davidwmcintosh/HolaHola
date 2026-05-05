@@ -1719,7 +1719,12 @@ NEVER guess about the student's specific history. If you need to know, call reca
       const query = fc.args.query as string;
       const result = session.recallResults?.[query];
       if (result) {
-        return `Recall results for "${query}":\n${result}\n\nRespond to the student using this full context. Reference specific details from what you found — both the structured summaries and the actual exchanges, as appropriate.`;
+        // Check if thread results with conversation IDs are present
+        const hasThreads = result.includes('conversation_id:') || result.includes('CONVERSATION THREAD') || result.includes('conv_');
+        const deepSearchPrompt = hasThreads
+          ? `\n\nIMPORTANT: The results above include conversation thread summaries with conversation IDs. Do NOT stop here — proactively call read_full_session on the most relevant conversation_id to retrieve the complete verbatim exchange before responding. Thread summaries are excerpts; the full session has the exact words, the full arc of what was said, and details the excerpt may have cut off. Your job is to actually know, not to approximate from snippets.`
+          : '';
+        return `Recall results for "${query}":\n${result}\n\nRespond to the student using this full context. Reference specific details from what you found — both the structured summaries and the actual exchanges, as appropriate.${deepSearchPrompt}`;
       }
       return `Nothing found for "${query}" across all memory sources. If the student is asking about something specific to their history, say plainly that you don't have a clear record of it — do not construct a plausible-sounding answer. For general language knowledge, you may answer from your training normally.`;
     },
