@@ -1214,10 +1214,13 @@ export function buildUnifiedBrainSync(
   }
 
   // 6. Awareness procedures — behavioral guidance for auto-surfaced context
-  // These fire every session because the context they guide (temporal awareness, coverage audit,
-  // proactive memory surfaces) may be present in any session.
+  // Scoped to exactly the three triggers that fire automatically each session:
+  // proactive memory surfaces, temporal facts, and coverage audit gaps.
+  // Other awareness procedures (ACTFL advancement, syllabus signals, etc.) are
+  // situational and belong in Founder Mode full neural network only.
+  const ALWAYS_ON_AWARENESS_TRIGGERS = ['memory_surfaced', 'temporal_fact_upcoming', 'coverage_gap_detected'];
   const awarenessProcs = (proceduresCache || []).filter(
-    p => p.category === 'awareness' && p.isActive
+    p => ALWAYS_ON_AWARENESS_TRIGGERS.includes(p.trigger || '') && p.isActive
   ).sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
 
   if (awarenessProcs.length > 0) {
