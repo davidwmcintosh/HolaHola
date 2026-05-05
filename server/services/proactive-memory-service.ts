@@ -114,6 +114,14 @@ export async function checkForMemoryTrigger(
     if (!session.pendingMemorySurfaces) session.pendingMemorySurfaces = [];
     session.pendingMemorySurfaces.push(...surfaces);
     console.log(`[MemorySurface] Staged ${surfaces.length} memory surface(s) for next turn`);
+
+    // REINFORCEMENT: each surfaced memory gets a strength bump + clock reset.
+    // Non-awaited — runs in background after staging is already done.
+    import('./memory-decay-service').then(({ reinforceMemory }) => {
+      for (const hit of fresh) {
+        reinforceMemory(hit.memoryType, hit.memoryId).catch(() => {});
+      }
+    }).catch(() => {});
   } catch (err: any) {
     console.warn('[MemorySurface] Check failed (non-fatal):', err.message);
   }

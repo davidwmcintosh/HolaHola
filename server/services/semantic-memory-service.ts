@@ -21,6 +21,7 @@ import { createHash } from 'crypto';
 import { getSharedDb } from '../db';
 import { memoryEmbeddings } from '@shared/schema';
 import { eq, and, or, isNull } from 'drizzle-orm';
+import { computeDecayMultiplier } from './memory-decay-service';
 
 const EMBEDDING_MODEL = 'text-embedding-004';
 const EMBEDDING_DIM = 768;
@@ -150,6 +151,9 @@ export async function semanticSearch(
       memoryId: memoryEmbeddings.memoryId,
       embedding: memoryEmbeddings.embedding,
       contentHash: memoryEmbeddings.contentHash,
+      strength: memoryEmbeddings.strength,
+      lastReinforcedAt: memoryEmbeddings.lastReinforcedAt,
+      pinned: memoryEmbeddings.pinned,
     })
     .from(memoryEmbeddings)
     .where(or(
@@ -169,15 +173,28 @@ export async function semanticSearch(
   // Embed the query
   const queryVec = await embedText(query);
 
-  // Score all candidates
-  const scored = candidates.map(row => ({
-    memoryType: row.memoryType,
-    memoryId: row.memoryId,
-    contentHash: row.contentHash,
-    similarity: cosineSimilarity(queryVec, row.embedding as number[]),
-  }));
+  // Score all candidates — raw cosine for threshold, decayed score for ranking
+  const scored = candidates.map(row => {
+    const similarity = cosineSimilarity(queryVec, row.embedding as number[]);
+    const decay = computeDecayMultiplier(
+      row.strength ?? 1.0,
+      row.lastReinforcedAt ?? null,
+      row.pinned ?? false,
+    );
+    return {
+      memoryType: row.memoryType,
+      memoryId: row.memoryId,
+      contentHash: row.contentHash,
+      similarity,               // raw cosine — used for threshold checks by callers
+      effectiveScore: similarity * decay, // decay-weighted — used for ranking only
+    };
+  });
 
-  // Sort descending, take top-k above threshold
-  scored.sort((a, b) => b.similarity - a.similarity);
-  return scored.filter(r => r.similarity > 0.65).slice(0, limit);
+  // Sort by effective score (recently reinforced memories rank higher at equal relevance).
+  // Threshold applied to raw cosine so highly relevant but faded memories still pass.
+  scored.sort((a, b) => b.effectiveScore - a.effectiveScore);
+  return scored
+    .filter(r => r.similarity > 0.65)
+    .slice(0, limit)
+    .map(r => ({ memoryType: r.memoryType, memoryId: r.memoryId, similarity: r.similarity, contentHash: r.contentHash }));
 }

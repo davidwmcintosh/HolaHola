@@ -3965,6 +3965,10 @@ export const memoryEmbeddings = pgTable("memory_embeddings", {
   embedding: jsonb("embedding").$type<number[]>().notNull(),
   contentHash: varchar("content_hash", { length: 64 }).notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  // Memory decay & reinforcement — added for weighted recall
+  strength: real("strength").notNull().default(1.0),          // 0.05–1.0; decays exponentially without reinforcement
+  lastReinforcedAt: timestamp("last_reinforced_at").defaultNow(), // updated each time this memory is accessed
+  pinned: boolean("pinned").notNull().default(false),          // pinned memories never decay
 }, (table) => [
   uniqueIndex("idx_memory_embeddings_pair").on(table.memoryType, table.memoryId),
   index("idx_memory_embeddings_user_type").on(table.userId, table.memoryType),

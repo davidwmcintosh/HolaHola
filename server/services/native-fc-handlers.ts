@@ -1869,6 +1869,20 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'SET_MEMORY_PIN': {
+        if (session.isIncognito) break;
+        const pinMemType = fn.args.memory_type as string | undefined;
+        const pinMemId   = fn.args.memory_id   as string | undefined;
+        const pinValue   = fn.args.pinned       as boolean | undefined;
+        if (!pinMemType || !pinMemId || typeof pinValue !== 'boolean') break;
+
+        console.log(`[Native Function→SetMemoryPin] ${pinValue ? 'Pinning' : 'Unpinning'} ${pinMemType}/${pinMemId}`);
+        import('./memory-decay-service').then(({ setMemoryPin }) => {
+          setMemoryPin(pinMemType, pinMemId, pinValue).catch(() => {});
+        }).catch(() => {});
+        break;
+      }
+
       // ─── EMERGENCE TOOLS — Daniela's Inner Life ────────────────────────────
 
       case 'WRITE_TO_SELF': {
@@ -5069,6 +5083,12 @@ export class NativeFunctionCallHandler {
                 }
               }
             } catch { /* skip failed hydration */ }
+          }
+          if (lines.length > 0) {
+            // REINFORCEMENT: memories that surface via explicit recall get a strength bump.
+            import('./memory-decay-service').then(({ reinforceMemory }) => {
+              for (const hit of hits) reinforceMemory(hit.memoryType, hit.memoryId).catch(() => {});
+            }).catch(() => {});
           }
           return lines.length > 0 ? lines.join('\n') : null;
         } catch (err: any) {

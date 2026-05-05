@@ -3549,6 +3549,48 @@ Results appear as a panel showing which chapters/lessons cover the topic, with a
     buildContinuationResponse: ({ fc }) =>
       `Search results for "${fc.args.query}" are now showing in the student's view. Reference the specific chapter numbers and offer to navigate there.`,
   },
+
+  {
+    legacyType: 'SET_MEMORY_PIN',
+    declaration: {
+      name: "set_memory_pin",
+      description: `Pin or unpin a specific memory so it is protected from decay (or allowed to fade again).
+
+Memories naturally weaken over time if not revisited — this is by design, so old or less-relevant details fade into the background. But some memories are important enough that you want them to stay strong indefinitely.
+
+Use pin when:
+• A memory is deeply significant and should never fade (e.g. a student's major life event, a breakthrough moment, a personal detail that defines who they are)
+• You explicitly think "I never want to forget this about them"
+
+Use unpin when:
+• A memory was pinned but circumstances have changed and it's okay for it to fade naturally
+
+You will need the memory_type and memory_id, which you can get from the recall tool results or browse_conversations_by_date.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          memory_type: {
+            type: "string",
+            enum: ["personal_fact", "student_insight", "growth_memory", "hive_snapshot"],
+            description: "The type of memory to pin or unpin",
+          },
+          memory_id: {
+            type: "string",
+            description: "The unique ID of the memory record (from recall results)",
+          },
+          pinned: {
+            type: "boolean",
+            description: "true to pin (prevent decay forever), false to unpin (allow natural decay)",
+          },
+        },
+        required: ["memory_type", "memory_id", "pinned"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) =>
+      fc.args.pinned
+        ? `Memory pinned — it will never decay regardless of how much time passes.`
+        : `Memory unpinned — it will now fade naturally if not reinforced over time.`,
+  },
 ];
 
 

@@ -764,6 +764,15 @@ app.use((req, res, next) => {
       startDanielaPresenceWorker();
     }, 85000);
 
+    // +50s: Memory Decay Migration — idempotent ALTER TABLE that adds strength/
+    // last_reinforced_at/pinned columns to memory_embeddings. Safe to run every boot.
+    setTimeout(async () => {
+      const { runMemoryDecayMigration } = await import('./services/memory-decay-service');
+      runMemoryDecayMigration().catch((err: Error) =>
+        console.warn('[MemoryDecay] Migration skipped:', err.message)
+      );
+    }, 50000);
+
     // +95s: Memory Embedding Indexer — generates Gemini text-embedding-004 vectors
     // for all memory records (student_insights, hive_snapshots, personal_facts, growth_memories)
     // enabling semantic similarity search in the recall scatter-gather tool
