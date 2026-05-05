@@ -43,6 +43,7 @@ interface IndexTarget {
   userId: string | null;
   content: string;
   memoryType: string;
+  initialStrength?: number;
 }
 
 async function collectUnindexedMemories(): Promise<IndexTarget[]> {
@@ -57,13 +58,14 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
         sql`memory_type = ${type} AND memory_id = ${idCol}`
       );
 
-  // student_insights
+  // student_insights — observationCount feeds initial embedding strength
   try {
     const rows = await db
       .select({
         id: studentInsights.id,
         userId: studentInsights.studentId,
         content: studentInsights.insight,
+        observationCount: studentInsights.observationCount,
       })
       .from(studentInsights)
       .where(
@@ -75,7 +77,10 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
       )
       .limit(200);
     for (const r of rows) {
-      if (r.content) targets.push({ id: r.id, userId: r.userId, content: r.content, memoryType: 'student_insight' });
+      if (r.content) targets.push({
+        id: r.id, userId: r.userId, content: r.content, memoryType: 'student_insight',
+        initialStrength: Math.min(1.0, 0.7 + (r.observationCount ?? 1) * 0.06),
+      });
     }
   } catch (err: any) {
     console.warn('[EmbedIndexer] student_insights scan failed:', err.message);
@@ -131,7 +136,7 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
     console.warn('[EmbedIndexer] growth_memories scan failed:', err.message);
   }
 
-  // learner_personal_facts
+  // learner_personal_facts — mentionCount feeds initial embedding strength
   try {
     const rows = await db
       .select({
@@ -139,6 +144,7 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
         studentId: learnerPersonalFacts.studentId,
         fact: learnerPersonalFacts.fact,
         context: learnerPersonalFacts.context,
+        mentionCount: learnerPersonalFacts.mentionCount,
       })
       .from(learnerPersonalFacts)
       .where(sql`
@@ -152,7 +158,10 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
     for (const r of rows) {
       const content = [r.fact, r.context].filter(Boolean).join('. ');
       if (content.trim().length > 5) {
-        targets.push({ id: r.id, userId: r.studentId, content, memoryType: 'personal_fact' });
+        targets.push({
+          id: r.id, userId: r.studentId, content, memoryType: 'personal_fact',
+          initialStrength: Math.min(1.0, 0.7 + (r.mentionCount ?? 1) * 0.06),
+        });
       }
     }
   } catch (err: any) {
@@ -209,7 +218,7 @@ async function runIndexer(): Promise<void> {
     await Promise.all(
       batch.map(async (t) => {
         try {
-          const isNew = await generateAndStoreEmbedding(t.memoryType, t.id, t.userId, t.content);
+          const isNew = await generateAndStoreEmbedding(t.memoryType, t.id, t.userId, t.content, t.initialStrength);
           if (isNew) generated++;
         } catch (err: any) {
           errors++;
@@ -238,7 +247,7 @@ async function runIndexer(): Promise<void> {
 export async function indexNewMemoriesForUser(userId: string): Promise<void> {
   const db = getSharedDb();
   const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000);
-  const targets: Array<{ id: string; userId: string | null; content: string; memoryType: string }> = [];
+  const targets: IndexTarget[] = [];
 
   try {
     const rows = await db
@@ -247,6 +256,7 @@ export async function indexNewMemoriesForUser(userId: string): Promise<void> {
         insight: studentInsights.insight,
         details: studentInsights.details,
         category: studentInsights.category,
+        observationCount: studentInsights.observationCount,
       })
       .from(studentInsights)
       .where(sql`
@@ -260,7 +270,10 @@ export async function indexNewMemoriesForUser(userId: string): Promise<void> {
       .limit(20);
     for (const r of rows) {
       const content = [r.insight, r.details, r.category].filter(Boolean).join('. ');
-      if (content.trim().length > 5) targets.push({ id: r.id, userId, content, memoryType: 'student_insight' });
+      if (content.trim().length > 5) targets.push({
+        id: r.id, userId, content, memoryType: 'student_insight',
+        initialStrength: Math.min(1.0, 0.7 + (r.observationCount ?? 1) * 0.06),
+      });
     }
   } catch (err: any) {
     console.warn('[PostSessionIndex] student_insights scan failed:', err.message);
@@ -272,6 +285,7 @@ export async function indexNewMemoriesForUser(userId: string): Promise<void> {
         id: learnerPersonalFacts.id,
         fact: learnerPersonalFacts.fact,
         context: learnerPersonalFacts.context,
+        mentionCount: learnerPersonalFacts.mentionCount,
       })
       .from(learnerPersonalFacts)
       .where(sql`
@@ -286,7 +300,10 @@ export async function indexNewMemoriesForUser(userId: string): Promise<void> {
       .limit(20);
     for (const r of rows) {
       const content = [r.fact, r.context].filter(Boolean).join('. ');
-      if (content.trim().length > 5) targets.push({ id: r.id, userId, content, memoryType: 'personal_fact' });
+      if (content.trim().length > 5) targets.push({
+        id: r.id, userId, content, memoryType: 'personal_fact',
+        initialStrength: Math.min(1.0, 0.7 + (r.mentionCount ?? 1) * 0.06),
+      });
     }
   } catch (err: any) {
     console.warn('[PostSessionIndex] personal_facts scan failed:', err.message);
@@ -301,7 +318,7 @@ export async function indexNewMemoriesForUser(userId: string): Promise<void> {
   let indexed = 0;
   for (const t of targets) {
     try {
-      const isNew = await generateAndStoreEmbedding(t.memoryType, t.id, t.userId, t.content);
+      const isNew = await generateAndStoreEmbedding(t.memoryType, t.id, t.userId, t.content, t.initialStrength);
       if (isNew) indexed++;
     } catch (err: any) {
       console.warn(`[PostSessionIndex] Failed to embed ${t.memoryType}/${t.id}:`, err.message);

@@ -892,6 +892,20 @@ export function formatMemoryForConversation(response: MemorySearchResponse): str
     return ' — this was a while back';
   }
 
+  // Show urgency for upcoming or recently-past relevant dates
+  function relevantDateNote(ts?: string | null): string {
+    if (!ts) return '';
+    const diffMs = new Date(ts).getTime() - Date.now();
+    const days = Math.round(diffMs / (1000 * 60 * 60 * 24));
+    if (days > 0 && days <= 3) return ` — THIS IS COMING UP IN ${days} DAY${days === 1 ? '' : 'S'}`;
+    if (days > 3 && days <= 14) return ` — coming up in about ${days} days`;
+    if (days > 14 && days <= 60) return ` — coming up in a few weeks`;
+    if (days > 60) return ` — upcoming (still in the future)`;
+    if (days < 0 && days >= -7) return ` — this just happened ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} ago`;
+    if (days < -7 && days >= -30) return ` — this happened about a week or two ago`;
+    return '';
+  }
+
   const lines: string[] = [];
   lines.push(`What surfaces when you think about "${response.query}":`);
   lines.push('');
@@ -909,6 +923,99 @@ export function formatMemoryForConversation(response: MemorySearchResponse): str
   }
 
   return lines.join('\n');
+}
+
+/**
+ * Temporal Awareness — surfaces upcoming and recently-past time-sensitive personal facts.
+ * Injected at session start so Daniela naturally brings up relevant dates without being asked.
+ * E.g. "That trip to Barcelona is coming up in 4 days — ask how prep is going."
+ */
+export async function buildTemporalAwareness(userId: string): Promise<string | null> {
+  try {
+    const db = getUserDb();
+    const now = new Date();
+    const windowStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);   // 7 days ago
+    const windowEnd   = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);  // 90 days out
+
+    const rows = await db
+      .select({
+        fact: learnerPersonalFacts.fact,
+        factType: learnerPersonalFacts.factType,
+        relevantDate: learnerPersonalFacts.relevantDate,
+        lastMentionedAt: learnerPersonalFacts.lastMentionedAt,
+        mentionCount: learnerPersonalFacts.mentionCount,
+      })
+      .from(learnerPersonalFacts)
+      .where(sql`
+        student_id = ${userId}
+        AND is_active = true
+        AND relevant_date IS NOT NULL
+        AND relevant_date >= ${windowStart}
+        AND relevant_date <= ${windowEnd}
+      `)
+      .orderBy(asc(learnerPersonalFacts.relevantDate))
+      .limit(8);
+
+    if (rows.length === 0) return null;
+
+    const lines: string[] = ['[TEMPORAL AWARENESS — time-sensitive facts for this student:]'];
+    for (const r of rows) {
+      const diffMs = new Date(r.relevantDate!).getTime() - now.getTime();
+      const days   = Math.round(diffMs / (1000 * 60 * 60 * 24));
+      let urgency: string;
+      if (days > 0 && days <= 3)   urgency = `⚠️ IN ${days} DAY${days === 1 ? '' : 'S'} — bring this up`;
+      else if (days > 3 && days <= 14) urgency = `coming up in ${days} days`;
+      else if (days > 14)              urgency = `coming up (${days} days away)`;
+      else if (days === 0)             urgency = `TODAY`;
+      else                             urgency = `just happened ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} ago — ask how it went`;
+      lines.push(`— ${r.fact} [${urgency}]`);
+    }
+    lines.push('Note: Reference these naturally, not as a checklist read-out.]');
+    return lines.join('\n');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Coverage Audit — identifies topic areas Daniela knows little or nothing about for this student.
+ * Injected at session start so she can explore blind spots through natural conversation over time.
+ * Returns null for brand-new students (< 3 facts total) — no meaningful audit possible yet.
+ */
+export async function buildCoverageAudit(userId: string): Promise<string | null> {
+  const EXPECTED_FACT_TYPES    = ['family', 'work', 'travel', 'goal', 'preference', 'relationship', 'personal_detail', 'life_event'];
+  const EXPECTED_INSIGHT_TYPES = ['learning_style', 'preference', 'strength', 'personality'];
+
+  try {
+    const userDb   = getUserDb();
+    const sharedDb = getSharedDb();
+
+    const [facts, insights] = await Promise.all([
+      userDb.select({ factType: learnerPersonalFacts.factType })
+        .from(learnerPersonalFacts)
+        .where(and(eq(learnerPersonalFacts.studentId, userId), eq(learnerPersonalFacts.isActive, true))),
+      sharedDb.select({ insightType: studentInsights.insightType })
+        .from(studentInsights)
+        .where(and(eq(studentInsights.studentId, userId), eq(studentInsights.isActive, true))),
+    ]);
+
+    if (facts.length + insights.length < 3) return null;
+
+    const coveredFacts    = new Set(facts.map(f => f.factType));
+    const coveredInsights = new Set(insights.map(i => i.insightType));
+    const missingFacts    = EXPECTED_FACT_TYPES.filter(t => !coveredFacts.has(t));
+    const missingInsights = EXPECTED_INSIGHT_TYPES.filter(t => !coveredInsights.has(t));
+
+    if (missingFacts.length === 0 && missingInsights.length === 0) return null;
+
+    const lines: string[] = ['[BLIND SPOTS — areas you know little about this student yet:'];
+    if (missingFacts.length > 0)    lines.push(`Personal areas unexplored: ${missingFacts.join(', ')}`);
+    if (missingInsights.length > 0) lines.push(`Learning profile gaps: ${missingInsights.join(', ')}`);
+    lines.push('Let these inform questions you weave in naturally — not a checklist to blast through.]');
+    return lines.join('\n');
+  } catch {
+    return null;
+  }
 }
 
 /**

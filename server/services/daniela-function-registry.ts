@@ -3591,6 +3591,81 @@ You will need the memory_type and memory_id, which you can get from the recall t
         ? `Memory pinned — it will never decay regardless of how much time passes.`
         : `Memory unpinned — it will now fade naturally if not reinforced over time.`,
   },
+
+  {
+    legacyType: 'CORRECT_MEMORY',
+    declaration: {
+      name: "correct_memory",
+      description: `Correct an inaccurate stored memory. Use when the student explicitly tells you that something you remembered is wrong.
+
+When a student says "actually, that's not right" or "I never said that" or corrects a fact you recalled:
+1. Acknowledge the correction naturally in conversation
+2. Call this tool with the memory_type, memory_id, and the corrected fact
+3. The wrong memory will be deactivated and the correction stored
+
+You need the memory_id from recall tool results. If you don't have the ID, you can call recall first, find the wrong memory, then correct it.
+
+Do NOT use this for fuzzy uncertainty ("I'm not sure if this is still true") — only call it when the student explicitly corrects you.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          memory_type: {
+            type: "string",
+            enum: ["personal_fact", "student_insight"],
+            description: "The type of memory to correct",
+          },
+          memory_id: {
+            type: "string",
+            description: "The unique ID of the wrong memory record (from recall results)",
+          },
+          correction: {
+            type: "string",
+            description: "The corrected fact, as the student stated it. If the student just denied the fact without a replacement, omit this.",
+          },
+        },
+        required: ["memory_type", "memory_id"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) =>
+      fc.args.correction
+        ? `Memory corrected — the old record has been deactivated and the corrected version stored.`
+        : `Memory deactivated — I've noted that what I had stored was incorrect.`,
+  },
+
+  {
+    legacyType: 'FORGET_MEMORY',
+    declaration: {
+      name: "forget_memory",
+      description: `Forget a specific memory at the student's explicit request. Use when a student says "please don't remember that", "forget I said that", or "I'd rather you not keep that".
+
+This deactivates the memory record and floors its embedding strength so it stops surfacing in recall. It is not permanently deleted — but it will not appear in searches or context injections going forward.
+
+You need the memory_type and memory_id. If you don't know the ID, you can call the recall tool first to surface relevant memories, then identify which one to forget.
+
+Only use this for explicit student requests to forget. Do not use it for corrections (use correct_memory instead) or for your own judgment that something is no longer relevant (use decay/pinning instead).`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          memory_type: {
+            type: "string",
+            enum: ["personal_fact", "student_insight"],
+            description: "The type of memory to forget",
+          },
+          memory_id: {
+            type: "string",
+            description: "The unique ID of the memory record the student wants forgotten",
+          },
+          reason: {
+            type: "string",
+            description: "Optional: what the student said that prompted this (for your own log context)",
+          },
+        },
+        required: ["memory_type", "memory_id"],
+      },
+    },
+    buildContinuationResponse: () =>
+      `Done — I've set that aside and it won't come up again.`,
+  },
 ];
 
 

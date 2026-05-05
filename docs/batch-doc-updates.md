@@ -219,3 +219,67 @@ Both are fire-and-forget (non-blocking, silent failure)
 - Pinned memories: decay permanently suspended
 - Daniela uses this for major life events, breakthroughs, defining personal details
 - IDs come from recall tool results or `browse_conversations_by_date`
+
+---
+
+## May 2026 Session 5 — Memory Intelligence: Temporal Reasoning, Correction, Confidence, Coverage, Forgetting
+
+**Status**: COMPLETE
+
+Five memory intelligence features built. No schema changes required — all built on existing columns.
+
+### 1. Temporal Reasoning (`neural-memory-search.ts`, `streaming-voice-orchestrator.ts`)
+
+**`buildTemporalAwareness(userId)`** — new export:
+- Queries `learner_personal_facts` WHERE `relevant_date` is within -7 to +90 days of now
+- Formats urgency naturally: "⚠️ IN 2 DAYS — bring this up", "coming up in 11 days", "just happened 3 days ago — ask how it went"
+- Returns null if no time-sensitive facts exist (safe to skip)
+- Injected at session start via prefetchSessionContext → `cache.temporalAwarenessSection`
+- Surfaced in both PTT and OpenMic dynamic context blocks
+
+Also enhanced `formatMemoryForConversation` with `relevantDateNote()` helper for upcoming/recent recall results.
+
+### 2. Memory Correction (`correct_memory` tool)
+
+**Registry** (`daniela-function-registry.ts`): legacyType `CORRECT_MEMORY`, args: `memory_type`, `memory_id`, `correction?`
+**Handler** (`native-fc-handlers.ts`, case `CORRECT_MEMORY`):
+- Deactivates old record (`is_active = false`) in appropriate DB
+- Floors embedding strength to 0.05 and unpins (`memory_embeddings`)
+- If `correction` provided: inserts new `learner_personal_facts` row with `factType: 'correction'`
+- Only fires when student explicitly corrects a recalled fact
+
+### 3. Confidence Calibration (`semantic-memory-service.ts`, `memory-embedding-indexer.ts`)
+
+**`generateAndStoreEmbedding`** now accepts optional `initialStrength?: number`:
+- On INSERT: `strength = clamp(initialStrength ?? 1.0, 0.05, 1.0)`
+- On UPDATE (stale content): strength preserved — reinforcement history intact
+
+**Indexer** (`collectUnindexedMemories` + `indexNewMemoriesForUser`):
+- `student_insights`: selects `observationCount`, passes `initialStrength = min(1.0, 0.7 + observationCount × 0.06)`
+- `learner_personal_facts`: selects `mentionCount`, passes `initialStrength = min(1.0, 0.7 + mentionCount × 0.06)`
+- Formula: mention/observationCount=1 → 0.76, count=5 → 1.0
+- Off-hand single mentions start weaker; repeatedly confirmed facts start strong
+
+### 4. Coverage Awareness (`neural-memory-search.ts`, `streaming-voice-orchestrator.ts`)
+
+**`buildCoverageAudit(userId)`** — new export:
+- Expected `factType` categories: `family`, `work`, `travel`, `goal`, `preference`, `relationship`, `personal_detail`, `life_event`
+- Expected `insightType` categories: `learning_style`, `preference`, `strength`, `personality`
+- Returns null if fewer than 3 total facts (brand-new student — no meaningful audit)
+- Returns null if all categories covered (no blind spots to surface)
+- Injected at session start via prefetchSessionContext → `cache.coverageAuditSection`
+- Surfaced in both PTT and OpenMic dynamic context
+
+### 5. Student-Controlled Forgetting (`forget_memory` tool)
+
+**Registry** (`daniela-function-registry.ts`): legacyType `FORGET_MEMORY`, args: `memory_type`, `memory_id`, `reason?`
+**Handler** (`native-fc-handlers.ts`, case `FORGET_MEMORY`):
+- Deactivates record (`is_active = false`)
+- Floors embedding strength to 0.05, unpins
+- Record is not deleted — just invisible to recall and context injection
+- Only fires on explicit student request ("please don't remember that")
+
+### Session Types (`streaming-session-types.ts`)
+Two new optional fields in `cachedContext`:
+- `temporalAwarenessSection?: string`
+- `coverageAuditSection?: string`

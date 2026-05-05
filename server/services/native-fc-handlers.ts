@@ -1883,6 +1883,69 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'CORRECT_MEMORY': {
+        if (session.isIncognito) break;
+        const corrMemType = fn.args.memory_type as string | undefined;
+        const corrMemId   = fn.args.memory_id   as string | undefined;
+        const correction  = fn.args.correction  as string | undefined;
+        if (!corrMemType || !corrMemId) break;
+
+        console.log(`[Native Function→CorrectMemory] Deactivating ${corrMemType}/${corrMemId}, correction="${correction?.substring(0, 60)}"`);
+        (async () => {
+          const { learnerPersonalFacts, studentInsights, memoryEmbeddings } = await import('@shared/schema');
+          const db = getSharedDb();
+          const userDb = (await import('../db')).getUserDb();
+
+          if (corrMemType === 'personal_fact') {
+            await userDb.update(learnerPersonalFacts).set({ isActive: false }).where(eq(learnerPersonalFacts.id, corrMemId));
+          } else if (corrMemType === 'student_insight') {
+            await db.update(studentInsights).set({ isActive: false }).where(eq(studentInsights.id, corrMemId));
+          }
+
+          await db.update(memoryEmbeddings)
+            .set({ strength: 0.05, pinned: false })
+            .where(and(eq(memoryEmbeddings.memoryType, corrMemType), eq(memoryEmbeddings.memoryId, corrMemId)));
+
+          if (correction && session.userId) {
+            await userDb.insert(learnerPersonalFacts).values({
+              studentId: String(session.userId),
+              factType: 'correction',
+              fact: correction,
+              context: `Corrected from memory ${corrMemId}`,
+            });
+            console.log(`[Native Function→CorrectMemory] Stored corrected fact for user ${session.userId}`);
+          }
+        })().catch(err => console.error(`[Native Function→CorrectMemory] Error:`, err.message));
+        break;
+      }
+
+      case 'FORGET_MEMORY': {
+        if (session.isIncognito) break;
+        const forgetMemType = fn.args.memory_type as string | undefined;
+        const forgetMemId   = fn.args.memory_id   as string | undefined;
+        if (!forgetMemType || !forgetMemId) break;
+
+        console.log(`[Native Function→ForgetMemory] Forgetting ${forgetMemType}/${forgetMemId} (student request)`);
+        (async () => {
+          const { learnerPersonalFacts, studentInsights, memoryEmbeddings } = await import('@shared/schema');
+          const db = getSharedDb();
+          const userDb = (await import('../db')).getUserDb();
+
+          if (forgetMemType === 'personal_fact') {
+            await userDb.update(learnerPersonalFacts).set({ isActive: false }).where(eq(learnerPersonalFacts.id, forgetMemId));
+          } else if (forgetMemType === 'student_insight') {
+            await db.update(studentInsights).set({ isActive: false }).where(eq(studentInsights.id, forgetMemId));
+          }
+
+          await db.update(memoryEmbeddings)
+            .set({ strength: 0.05, pinned: false })
+            .where(and(eq(memoryEmbeddings.memoryType, forgetMemType), eq(memoryEmbeddings.memoryId, forgetMemId)));
+
+          console.log(`[Native Function→ForgetMemory] Done — floored embedding strength for ${forgetMemType}/${forgetMemId}`);
+        })().catch(err => console.error(`[Native Function→ForgetMemory] Error:`, err.message));
+        break;
+      }
+
       // ─── EMERGENCE TOOLS — Daniela's Inner Life ────────────────────────────
 
       case 'WRITE_TO_SELF': {

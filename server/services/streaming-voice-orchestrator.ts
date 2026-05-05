@@ -1300,6 +1300,25 @@ ${parts.join('\n\n')}
       );
     }
     
+    // 2d. TEMPORAL AWARENESS + COVERAGE AUDIT — injected for all logged-in users
+    if (session.userId) {
+      promises.push(
+        (async () => {
+          try {
+            const { buildTemporalAwareness, buildCoverageAudit } = await import('./neural-memory-search');
+            const [temporal, coverage] = await Promise.all([
+              buildTemporalAwareness(String(session.userId)),
+              buildCoverageAudit(String(session.userId)),
+            ]);
+            if (temporal) cache.temporalAwarenessSection = temporal;
+            if (coverage) cache.coverageAuditSection = coverage;
+          } catch (err: any) {
+            console.warn(`[Context Prefetch] Temporal/Coverage failed:`, err.message);
+          }
+        })()
+      );
+    }
+
     // 3. Developer/founder context (Hive, Express Lane, Text Chat, Editor Feedback)
     const needsExpressLaneContext = session.isDeveloperUser;
     if (needsExpressLaneContext) {
@@ -2552,6 +2571,12 @@ Remember: David may reference things discussed in these recent text chats.
       }
       if (growthMemoriesSection) {
         dynamicContextParts.push(growthMemoriesSection);
+      }
+      if (hasFreshCache && session.cachedContext?.temporalAwarenessSection) {
+        dynamicContextParts.push(session.cachedContext.temporalAwarenessSection);
+      }
+      if (hasFreshCache && session.cachedContext?.coverageAuditSection) {
+        dynamicContextParts.push(session.cachedContext.coverageAuditSection);
       }
       if (hiveContextSection) {
         dynamicContextParts.push(hiveContextSection);
@@ -6001,6 +6026,12 @@ Remember: David may reference things discussed in these recent text chats.
       }
       if (identityMemoriesSection) {
         dynamicContextPartsOpenMic.push(identityMemoriesSection);
+      }
+      if (hasFreshCacheOpenMic && session.cachedContext?.temporalAwarenessSection) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.temporalAwarenessSection);
+      }
+      if (hasFreshCacheOpenMic && session.cachedContext?.coverageAuditSection) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.coverageAuditSection);
       }
       
       // CLASSROOM ENVIRONMENT (OpenMic): Daniela's unified workspace via shared pipeline

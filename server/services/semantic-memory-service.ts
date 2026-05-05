@@ -82,6 +82,7 @@ export async function generateAndStoreEmbedding(
   memoryId: string,
   userId: string | null,
   content: string,
+  initialStrength?: number,
 ): Promise<boolean> {
   const db = getSharedDb();
   const hash = hashContent(content);
@@ -112,13 +113,14 @@ export async function generateAndStoreEmbedding(
         eq(memoryEmbeddings.memoryId, memoryId),
       ));
   } else {
-    // Insert new
+    // Insert new — use initialStrength if provided (confidence calibration)
     await db.insert(memoryEmbeddings).values({
       memoryType,
       memoryId,
       userId,
       embedding,
       contentHash: hash,
+      strength: Math.min(1.0, Math.max(0.05, initialStrength ?? 1.0)),
     });
   }
   return true;
