@@ -2639,11 +2639,30 @@ Remember: David may reference things discussed in these recent text chats.
         console.log(`[History Cap] Trimmed history from ${session.conversationHistory.length} to ${MAX_HISTORY_ENTRIES} entries`);
       }
       conversationHistoryWithContext.push(...historyToSend);
+
+      // PROACTIVE MEMORY INJECTION (PTT): Inject any memory surfaces staged from the previous turn.
+      // These were discovered asynchronously after the last utterance with zero latency impact.
+      if (session.pendingMemorySurfaces?.length) {
+        conversationHistoryWithContext.push({
+          role: 'user',
+          content: `[MEMORIES SURFACED — relevant to this moment]\n${session.pendingMemorySurfaces.join('\n')}`,
+        });
+        console.log(`[MemorySurface] Injected ${session.pendingMemorySurfaces.length} staged memory surface(s) into PTT context`);
+        session.pendingMemorySurfaces = [];
+      }
       
       // MESSAGE CHECKPOINTING: Save user message BEFORE Gemini call
       // This ensures user messages are preserved even if Gemini fails/times out
       // Latency impact: ~5-10ms (negligible vs 1-2s LLM response time)
       await this.checkpointUserMessage(session, transcript);
+
+      // PROACTIVE MEMORY CHECK (PTT): Fire async after checkpointing — results staged for next turn.
+      // Runs in background — does not add latency to current response.
+      if (!session.isIncognito && session.userId) {
+        import('./proactive-memory-service').then(({ checkForMemoryTrigger }) => {
+          checkForMemoryTrigger(session, transcript).catch(() => {});
+        }).catch(() => {});
+      }
       
       // Track pipeline stage: Gemini call starting
       const geminiStartTime = Date.now();
@@ -6032,10 +6051,27 @@ Remember: David may reference things discussed in these recent text chats.
         console.log(`[History Cap - OpenMic] Trimmed history from ${session.conversationHistory.length} to ${MAX_HISTORY_ENTRIES_OPENMIC} entries`);
       }
       conversationHistoryWithContext.push(...historyToSendOpenMic);
+
+      // PROACTIVE MEMORY INJECTION (OpenMic): same as PTT path
+      if (session.pendingMemorySurfaces?.length) {
+        conversationHistoryWithContext.push({
+          role: 'user',
+          content: `[MEMORIES SURFACED — relevant to this moment]\n${session.pendingMemorySurfaces.join('\n')}`,
+        });
+        console.log(`[MemorySurface] Injected ${session.pendingMemorySurfaces.length} staged memory surface(s) into OpenMic context`);
+        session.pendingMemorySurfaces = [];
+      }
       
       // MESSAGE CHECKPOINTING (OpenMic): Save user message BEFORE Gemini call
       // This ensures user messages are preserved even if Gemini fails/times out
       await this.checkpointUserMessage(session, transcript);
+
+      // PROACTIVE MEMORY CHECK (OpenMic): Fire async — results staged for next turn
+      if (!session.isIncognito && session.userId) {
+        import('./proactive-memory-service').then(({ checkForMemoryTrigger }) => {
+          checkForMemoryTrigger(session, transcript).catch(() => {});
+        }).catch(() => {});
+      }
       
       // Abort signal for early stream termination when function call TTS starts (open-mic)
       const streamAbortSignalOpenMic = { aborted: false };
@@ -9656,6 +9692,11 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
           if (result.saved.length > 0) {
             console.log(`[Streaming Orchestrator] Extracted ${result.saved.length} personal facts from session`);
           }
+          // POST-SESSION INDEXING: immediately embed newly extracted memories so
+          // semantic search finds them in the next session, not 2 hours from now.
+          import('./memory-embedding-indexer').then(({ indexNewMemoriesForUser }) => {
+            indexNewMemoriesForUser(sessionData.userId).catch(() => {});
+          }).catch(() => {});
         }).catch((err: Error) => {
           console.warn(`[Streaming Orchestrator] Memory extraction failed:`, err.message);
         });

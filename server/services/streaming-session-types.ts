@@ -202,6 +202,9 @@ export interface StreamingSession {
   conversationThemeResults?: string;
   diaryReadResult?: string;
   fullSessionResults?: Record<string, string>; // keyed by conversationId
+  // Proactive memory surfacing (zero-latency, next-turn injection)
+  surfacedMemoryIds?: Set<string>;    // memory IDs already injected this session (dedup)
+  pendingMemorySurfaces?: string[];   // formatted memory lines staged for next turn's context
   selfReflectionsResult?: string;
   coreSelfResult?: string;
   curiositiesResult?: string;

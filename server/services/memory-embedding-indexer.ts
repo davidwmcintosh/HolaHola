@@ -228,6 +228,88 @@ async function runIndexer(): Promise<void> {
   console.log(`[EmbedIndexer] Done — generated: ${generated}, errors: ${errors}, already fresh: ${targets.length - generated - errors}`);
 }
 
+/**
+ * Post-session incremental indexer.
+ * Embeds only the newest student_insights and personal_facts for one user
+ * (records created in the last 15 minutes that have no embedding yet).
+ * Called immediately after memory extraction at session end so new memories
+ * are semantically searchable within the same session — not 2 hours later.
+ */
+export async function indexNewMemoriesForUser(userId: string): Promise<void> {
+  const db = getSharedDb();
+  const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000);
+  const targets: Array<{ id: string; userId: string | null; content: string; memoryType: string }> = [];
+
+  try {
+    const rows = await db
+      .select({
+        id: studentInsights.id,
+        insight: studentInsights.insight,
+        details: studentInsights.details,
+        category: studentInsights.category,
+      })
+      .from(studentInsights)
+      .where(sql`
+        student_id = ${userId}
+        AND created_at >= ${fifteenMinsAgo}
+        AND NOT EXISTS (
+          SELECT 1 FROM memory_embeddings
+          WHERE memory_type = 'student_insight' AND memory_id = ${studentInsights.id}
+        )
+      `)
+      .limit(20);
+    for (const r of rows) {
+      const content = [r.insight, r.details, r.category].filter(Boolean).join('. ');
+      if (content.trim().length > 5) targets.push({ id: r.id, userId, content, memoryType: 'student_insight' });
+    }
+  } catch (err: any) {
+    console.warn('[PostSessionIndex] student_insights scan failed:', err.message);
+  }
+
+  try {
+    const rows = await db
+      .select({
+        id: learnerPersonalFacts.id,
+        fact: learnerPersonalFacts.fact,
+        context: learnerPersonalFacts.context,
+      })
+      .from(learnerPersonalFacts)
+      .where(sql`
+        student_id = ${userId}
+        AND is_active = true
+        AND created_at >= ${fifteenMinsAgo}
+        AND NOT EXISTS (
+          SELECT 1 FROM memory_embeddings
+          WHERE memory_type = 'personal_fact' AND memory_id = ${learnerPersonalFacts.id}
+        )
+      `)
+      .limit(20);
+    for (const r of rows) {
+      const content = [r.fact, r.context].filter(Boolean).join('. ');
+      if (content.trim().length > 5) targets.push({ id: r.id, userId, content, memoryType: 'personal_fact' });
+    }
+  } catch (err: any) {
+    console.warn('[PostSessionIndex] personal_facts scan failed:', err.message);
+  }
+
+  if (targets.length === 0) {
+    console.log(`[PostSessionIndex] Nothing new to index for user ${userId}`);
+    return;
+  }
+
+  console.log(`[PostSessionIndex] Indexing ${targets.length} new record(s) for user ${userId}...`);
+  let indexed = 0;
+  for (const t of targets) {
+    try {
+      const isNew = await generateAndStoreEmbedding(t.memoryType, t.id, t.userId, t.content);
+      if (isNew) indexed++;
+    } catch (err: any) {
+      console.warn(`[PostSessionIndex] Failed to embed ${t.memoryType}/${t.id}:`, err.message);
+    }
+  }
+  console.log(`[PostSessionIndex] Done — ${indexed} new embedding(s) stored for user ${userId}`);
+}
+
 export function startMemoryEmbeddingIndexer(): void {
   console.log('[EmbedIndexer] Starting (interval: 2h)');
 
