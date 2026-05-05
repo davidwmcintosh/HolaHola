@@ -1212,6 +1212,29 @@ export function buildUnifiedBrainSync(
     const principles = buildTeachingPrinciplesSection();
     if (principles) sections.push(principles);
   }
+
+  // 6. Awareness procedures — behavioral guidance for auto-surfaced context
+  // These fire every session because the context they guide (temporal awareness, coverage audit,
+  // proactive memory surfaces) may be present in any session.
+  const awarenessProcs = (proceduresCache || []).filter(
+    p => p.category === 'awareness' && p.isActive
+  ).sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+
+  if (awarenessProcs.length > 0) {
+    const lines: string[] = [
+      '',
+      '───────────────────────────────────────────────────────────────────',
+      'AWARENESS GUIDANCE',
+      '───────────────────────────────────────────────────────────────────',
+      '',
+    ];
+    awarenessProcs.forEach(p => {
+      lines.push(`${p.title.toUpperCase()}`);
+      lines.push(p.procedure);
+      lines.push('');
+    });
+    sections.push(lines.join('\n'));
+  }
   
   return sections.join('\n');
 }
@@ -1861,8 +1884,18 @@ Your function call tools are being loaded from your knowledge base.
     'STROKE', 'TONE'
   ]);
 
-  renderCategory('MEMORY & NOTES', [
-    'MEMORY_LOOKUP', 'TAKE_NOTE', 'MILESTONE'
+  renderCategory('MEMORY & RECALL', [
+    'MEMORY_LOOKUP', 'UNIFIED_RECALL', 'BROWSE_SYLLABUS',
+    'CONVERSATION_THREAD_SEARCH', 'CONVERSATION_DATE_BROWSE',
+    'TAKE_NOTE', 'MILESTONE'
+  ]);
+
+  renderCategory('MEMORY MANAGEMENT', [
+    'set_memory_pin', 'correct_memory', 'forget_memory', 'read_full_session'
+  ]);
+
+  renderCategory('LEARNING GOALS', [
+    'set_learning_goal', 'advance_capability', 'get_current_goal_state'
   ]);
 
   renderCategory('SELF-IMPROVEMENT', [
