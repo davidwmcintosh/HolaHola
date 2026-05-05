@@ -137,3 +137,85 @@ Full table and design notes: `docs/multi-subject-platform-vision.md`
 - `TimeVocabCard` enhanced: 4 pattern tab buttons, image grid (12 images per tab), lazy loading. Bug fixed: PostgreSQL `text[]` returned as raw string — added backend normalization before JSON response
 - `classifyGrammarType("La Hora — Telling Time", "spanish")` returns `'telling_time'` → renders `TimeVocabCard`
 - All study notes now auto-expand by default (`autoExpand={true}` for all lessons in `TextbookChapterView`)
+
+---
+
+### May 2026 — Memory Recall System Overhaul (Sessions 1–4)
+**Status**: COMPLETED ✅
+
+A four-session deep audit and rebuild of Daniela's memory recall system. Summary of all changes:
+
+#### Session 1 — Five Recall Bugs Fixed
+Five silent defects that were causing Daniela to return incomplete or truncated memories:
+
+1. **`formatMemoryForConversation` truncation removed** — was capping each memory at 250 chars before sending to Gemini; cap removed entirely. File: `neural-memory-search.ts`
+2. **Semantic arm hydration truncation removed** — `hive_snapshot` and `growth_memory` hydration in the scatter-gather recall tool were both capping content at 300 chars; caps removed. File: `native-fc-handlers.ts`
+3. **`semanticSearch()` scope fix** — Express Lane collaboration messages are stored with `userId = null` but semantic search was only querying `userId = studentId`. Fixed to `OR (eq(userId, X), isNull(userId))`. File: `semantic-memory-service.ts`
+4. **`collaborationMessages` added to embedding indexer** — Express Lane messages were never being embedded; added to the indexer's batch so they become semantically searchable. File: `memory-embedding-indexer.ts`
+5. **`collaboration_message` hydration case added** — semantic search was finding Express Lane hits but the hydration switch had no case for them, so they silently dropped. File: `native-fc-handlers.ts`
+
+#### Session 2 — `read_full_session` Tool
+New Daniela tool giving her access to complete verbatim transcripts of any past conversation (no message limit, no truncation):
+
+- `readFullSession(studentId, conversationId)` in `neural-memory-search.ts`
+- `READ_FULL_SESSION` case + `processReadFullSession()` in `native-fc-handlers.ts`
+- Registered in `daniela-function-registry.ts` (excluded from the GL 64-tool cap — available in full API mode)
+- `browse_conversations_by_date` output updated to include `conversation_id` so Daniela can pass it to `read_full_session`
+- Security: verifies `conversations.userId = studentId` before returning anything
+
+#### Session 3 — Proactive Memory Surfacing + Post-Session Indexing
+
+**Proactive surfacing** (`proactive-memory-service.ts` — new file):
+- After every substantive user utterance (≥6 words), fires an async semantic check in the background
+- Threshold: 0.73 (vs. recall's 0.65) — higher bar to avoid noise in the hot path
+- Max 2 surfaces per utterance, max 8 per session; deduped via `session.surfacedMemoryIds` (Set)
+- Results staged in `session.pendingMemorySurfaces` (string[])
+- At the START of the next Gemini call, staged surfaces are injected into `conversationHistoryWithContext` — zero latency impact on current response
+- Covers: student_insight, personal_fact, hive_snapshot, growth_memory
+- Skipped for incognito sessions; never throws
+- Wired into both PTT (line ~2644) and OpenMic (line ~6056) paths in `streaming-voice-orchestrator.ts`
+
+**Post-session incremental indexing** (`indexNewMemoriesForUser()` in `memory-embedding-indexer.ts`):
+- Called inside `extractFromConversation().then()` at `endSession` so it runs right after memory extraction completes
+- Queries `student_insights` and `learner_personal_facts` created in the last 15 minutes for this user that don't yet have embeddings
+- Eliminates the 2-hour lag between extraction and semantic discoverability
+- Existing records that already have embeddings: skipped (idempotent)
+
+**Session types** (`streaming-session-types.ts`):
+- Added `surfacedMemoryIds?: Set<string>` — dedup set for proactive surfacing
+- Added `pendingMemorySurfaces?: string[]` — staged surfaces awaiting next Gemini call
+
+#### Session 4 — Memory Decay, Reinforcement, and Pinning
+
+**New service**: `server/services/memory-decay-service.ts`
+
+Biologically-inspired memory model:
+```
+strength(t) = initial_strength × e^(−0.03 × days_since_reinforcement)
+```
+Half-life ≈ 23 days. Floor at 0.05 so memories never fully disappear. Ceiling at 1.0.
+
+**Schema** (`shared/schema.ts`): Three new columns on `memory_embeddings`:
+- `strength REAL NOT NULL DEFAULT 1.0` — current memory strength (0.05–1.0)
+- `last_reinforced_at TIMESTAMPTZ DEFAULT now()` — when the memory was last accessed
+- `pinned BOOLEAN NOT NULL DEFAULT false` — if true, decay is disabled entirely
+
+**Startup migration** (`server/index.ts` → `runMemoryDecayMigration()`):
+- Idempotent `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` runs at +50s after startup
+- Safe to run on every server restart; existing rows default to strength=1.0, pinned=false
+
+**Weighted ranking** (`semantic-memory-service.ts`):
+- Search still uses raw cosine for threshold decisions (0.65 / 0.73) — highly relevant faded memories still pass
+- Results now SORTED by `effectiveScore = cosine × computeDecayMultiplier(strength, lastReinforcedAt, pinned)`
+- Equal-relevance memories rank in order of recency — recently reinforced ones surface first
+
+**Reinforcement events** — strength bump +0.15, clock reset:
+1. Proactive surfacing: after memories are staged (`proactive-memory-service.ts`)
+2. Explicit recall: UNIFIED_RECALL semantic arm after hydration (`native-fc-handlers.ts`)
+Both are fire-and-forget (non-blocking, silent failure)
+
+**`set_memory_pin` tool** (`daniela-function-registry.ts`, `native-fc-handlers.ts`):
+- Args: `memory_type`, `memory_id`, `pinned: boolean`
+- Pinned memories: decay permanently suspended
+- Daniela uses this for major life events, breakthroughs, defining personal details
+- IDs come from recall tool results or `browse_conversations_by_date`
