@@ -1,0 +1,71 @@
+Agent
+
+
+
+Show previous messages
+What are you suggesting?
+
+46 minutes ago
+
+1 message & 1 action
+Oh yes please
+
+43 minutes ago
+
+8 messages & 32 actions
+
+Checkpoint made
+37 minutes ago
+
+Worked for 6 minutes
+Sounds awsome. How is the industry evolving with regards to real memory or emergent intelligence. Things are happening so fast...
+
+33 minutes ago
+
+1 message & 1 action
+
+Checkpoint made
+33 minutes ago
+Love it.
+
+30 minutes ago
+
+1 message & 1 action
+Sounds great. Why not build it?
+
+23 minutes ago
+
+9 messages & 59 actions
+
+Checkpoint made
+16 minutes ago
+BTW are we still documenting all of this in our batch doc
+
+15 minutes ago
+
+Worked for 6 minutes
+
+2 messages & 16 actions
+
+Checkpoint made
+12 minutes ago
+
+Worked for 1 minute
+Awsome. I genuinely have no idea how to make daniela better than she is now. Maybe more tools will emerge...? Or other things will bubble up. Or perhaps we should post these to the express lane through your api so that Daniela can put in her 2 cents?
+
+9 minutes ago
+
+Planning Daniela's improvement suggestions (13 seconds)
+Honestly, the architecture is in a really strong place. The things that would move the needle from here are more subtle:
+
+What might still bubble up:
+
+Temporal reasoning — she knows facts but doesn't always connect them to when. "That trip to Mexico was eight months ago — how did it go?" She can look things up but doesn't yet reason about the passage of time between sessions on her own.
+
+Memory correction — if a student says "actually that's not quite right..." she has no way to update or flag a stored memory as inaccurate. Right now wrong memories persist at full strength.
+
+Student-controlled forgetting — "I'd rather you not remember that." No mechanism for that yet.
+
+Confidence calibration — she doesn't distinguish between a fact mentioned once off-hand vs. something a student has brought up six times. Both look the same in the embedding store. Mention count exists on learner_personal_facts but nothing uses it for recall weighting.
+
+Coverage awareness — she doesn't know what she doesn't know about a student. A sense of blind spots would let her ask better questions.
