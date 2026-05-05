@@ -791,6 +791,26 @@ app.use((req, res, next) => {
       startMemoryEmbeddingIndexer();
     }, 95000);
 
+    // +100s: Daniela Tool Indexer — embeds all function declarations into neural memory
+    // (memoryType='daniela_tool', userId=null, pinned=true). Daniela can recall what
+    // tools she has and when to use them even if context injection is degraded.
+    setTimeout(async () => {
+      const { runDanielaToolIndexer } = await import('./services/daniela-tool-indexer');
+      runDanielaToolIndexer().catch((err: Error) =>
+        console.warn('[ToolIndexer] Skipped:', err.message)
+      );
+    }, 100000);
+
+    // +105s: Learning Goal Capability Indexer — embeds all active + recently-archived
+    // goal capabilities into neural memory (memoryType='goal_capability', userId=studentId).
+    // Daniela can recall capability status and evidence notes via semantic search.
+    setTimeout(async () => {
+      const { indexAllActiveGoalCapabilities } = await import('./services/learning-goal-service');
+      indexAllActiveGoalCapabilities().catch((err: Error) =>
+        console.warn('[LearningGoal] Capability index skipped:', err.message)
+      );
+    }, 105000);
+
     // +120s: Memory Consolidation Worker — weekly job that merges related session_summary
     // snapshots into aggregate_analytics entries, reducing noise in long-running students
     setTimeout(async () => {

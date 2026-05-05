@@ -351,3 +351,34 @@ Three new cases before WRITE_TO_SELF section:
 
 ### Startup Migration (`server/index.ts`)
 - `+55s` setTimeout calls `runLearningGoalsMigration()` — idempotent, safe on every boot
+
+---
+
+## May 2026 Session 7 — Neural Memory Indexing: Tools + Goal Capabilities
+
+### Overview
+Two additions that deepen Daniela's neural net coverage:
+1. **Daniela Tool Indexer** — all function declarations embedded into `memory_embeddings` as `daniela_tool` records (pinned, globally scoped). Daniela can recall what tools she has and when to use them even if context injection fails.
+2. **Goal Capability Indexer** — learning goal capabilities embedded as `goal_capability` records (student-scoped). Daniela can recall capability status and Daniela's own evidence notes via semantic search across all sessions.
+
+### Design principle
+The neural memory system (vector search) is the persistent layer. Context injection (prompt) is the fast path. Both should agree. When they conflict or one fails, the other covers.
+
+### New file: `server/services/daniela-tool-indexer.ts`
+- `runDanielaToolIndexer()` — iterates all entries in `DANIELA_FUNCTION_REGISTRY`
+- For each tool: formats rich text (name + description + parameter names/descriptions) → embeds
+- `memoryType = 'daniela_tool'`, `memoryId = legacyType`, `userId = null` (globally scoped)
+- After indexing, pins all `daniela_tool` embeddings (`pinned = true`) — tools never decay
+- Idempotent via content hash — re-runs are cheap unless a tool description changed
+
+### Updates to `server/services/learning-goal-service.ts`
+- `formatCapabilityForEmbedding(goalStatement, cap)` — rich text: goal statement + capability name + status + evidence notes
+- `indexGoalCapabilities(goal)` — fire-and-forget, indexes all caps for a given goal row
+  - `memoryType = 'goal_capability'`, `memoryId = '{goalId}:{capabilityId}'`, `userId = studentId`
+  - Content hash detects status/note changes → auto-updates embedding on advance
+- `indexAllActiveGoalCapabilities()` — startup scan: all active + recently-archived (last 30d) goals
+- Wired into `setLearningGoal` and `advanceCapability` — indexing happens on every write
+
+### Startup timeline (`server/index.ts`)
+- `+100s` — `runDanielaToolIndexer()` (after the main embedding indexer at +95s)
+- `+105s` — `indexAllActiveGoalCapabilities()` (picks up any goals created before this boot)

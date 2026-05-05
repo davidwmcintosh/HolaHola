@@ -15,9 +15,108 @@
 
 import { getSharedDb } from '../db';
 import { learningGoals, GoalCapability } from '@shared/schema';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, sql, or, gte } from 'drizzle-orm';
+import { generateAndStoreEmbedding } from './semantic-memory-service';
 
 const STATUS_ORDER = ['planned', 'planted', 'practiced', 'integrated'] as const;
+const GOAL_CAP_MEMORY_TYPE = 'goal_capability';
+
+// ─── Neural memory indexing ───────────────────────────────────────────────────
+
+/**
+ * Format a single capability as a rich text document for embedding.
+ * Captures the goal context, capability name, current status, and any
+ * evidence notes Daniela has added — enough for semantic recall.
+ */
+function formatCapabilityForEmbedding(
+  goalStatement: string,
+  cap: GoalCapability,
+): string {
+  const lines = [
+    `Learning Goal: "${goalStatement}"`,
+    `Capability: ${cap.name}`,
+    `Status: ${cap.status} (arc: planned → planted → practiced → integrated)`,
+  ];
+  if (cap.notes.length > 0) {
+    lines.push(`Evidence: ${cap.notes.join(' | ')}`);
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Index all capabilities of a goal into the neural memory system.
+ * Each capability gets memoryType='goal_capability', memoryId='{goalId}:{capabilityId}'.
+ * Content hash ensures only changed capabilities are re-embedded.
+ * Fire-and-forget — does not block the caller.
+ */
+function indexGoalCapabilities(
+  goal: typeof learningGoals.$inferSelect,
+): void {
+  const caps = (goal.capabilities as GoalCapability[]) ?? [];
+  if (caps.length === 0) return;
+
+  (async () => {
+    let indexed = 0;
+    for (const cap of caps) {
+      try {
+        const content = formatCapabilityForEmbedding(goal.goalStatement, cap);
+        const memoryId = `${goal.id}:${cap.id}`;
+        const isNew = await generateAndStoreEmbedding(
+          GOAL_CAP_MEMORY_TYPE,
+          memoryId,
+          goal.studentId,
+          content,
+          1.0,
+        );
+        if (isNew) indexed++;
+      } catch (err: any) {
+        console.warn(`[LearningGoal] Failed to embed capability ${cap.id}:`, err.message);
+      }
+    }
+    if (indexed > 0) {
+      console.log(`[LearningGoal] Indexed ${indexed} capability embeddings for goal ${goal.id}`);
+    }
+  })().catch(err => console.error('[LearningGoal] indexGoalCapabilities failed:', err.message));
+}
+
+/**
+ * Startup scan — indexes all active goals and any goals deactivated in the
+ * last 30 days (recently-archived, still relevant for recall). Idempotent.
+ */
+export async function indexAllActiveGoalCapabilities(): Promise<void> {
+  const db = getSharedDb();
+  try {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const goals = await db
+      .select()
+      .from(learningGoals)
+      .where(or(
+        eq(learningGoals.isActive, true),
+        gte(learningGoals.updatedAt, thirtyDaysAgo),
+      ));
+
+    if (goals.length === 0) {
+      console.log('[LearningGoal] No goals to index');
+      return;
+    }
+
+    let totalCaps = 0;
+    for (const goal of goals) {
+      const caps = (goal.capabilities as GoalCapability[]) ?? [];
+      totalCaps += caps.length;
+      for (const cap of caps) {
+        try {
+          const content = formatCapabilityForEmbedding(goal.goalStatement, cap);
+          const memoryId = `${goal.id}:${cap.id}`;
+          await generateAndStoreEmbedding(GOAL_CAP_MEMORY_TYPE, memoryId, goal.studentId, content, 1.0);
+        } catch (_) {}
+      }
+    }
+    console.log(`[LearningGoal] Startup capability index complete — ${goals.length} goals, ${totalCaps} capabilities`);
+  } catch (err: any) {
+    console.warn('[LearningGoal] indexAllActiveGoalCapabilities failed:', err.message);
+  }
+}
 
 // ─── Core operations ──────────────────────────────────────────────────────────
 
@@ -63,6 +162,11 @@ export async function setLearningGoal(
   }).returning({ id: learningGoals.id });
 
   console.log(`[LearningGoal] Set goal for student ${studentId} (${language}): "${goalStatement.substring(0, 60)}..." with ${capabilities.length} capabilities`);
+
+  // Index all capabilities into neural memory immediately (fire-and-forget)
+  const [fullGoal] = await db.select().from(learningGoals).where(eq(learningGoals.id, row.id)).limit(1);
+  if (fullGoal) indexGoalCapabilities(fullGoal);
+
   return row.id;
 }
 
@@ -105,6 +209,11 @@ export async function advanceCapability(
     .where(eq(learningGoals.id, goalId));
 
   console.log(`[LearningGoal] Capability "${cap.name}" → ${newStatus} for goal ${goalId}${note ? ` (note: ${note.substring(0, 60)})` : ''}`);
+
+  // Re-index updated goal capabilities into neural memory (fire-and-forget)
+  const [updatedGoal] = await db.select().from(learningGoals).where(eq(learningGoals.id, goalId)).limit(1);
+  if (updatedGoal) indexGoalCapabilities(updatedGoal);
+
   return true;
 }
 
