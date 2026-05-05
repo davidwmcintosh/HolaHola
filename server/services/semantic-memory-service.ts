@@ -2,9 +2,9 @@
  * Semantic Memory Service
  *
  * Provides embedding-based similarity search over Daniela's memory stores.
- * Uses Gemini text-embedding-004 (768-dimensional) vectors stored in the
- * memory_embeddings table. Cosine similarity computed in JavaScript so no
- * pgvector extension is needed.
+ * Uses OpenAI text-embedding-3-small (768-dimensional, via dimensions param)
+ * stored in the memory_embeddings table. Cosine similarity computed in
+ * JavaScript so no pgvector extension is needed.
  *
  * Advantages over keyword search (ILIKE / tsvector):
  * - Finds conceptually related memories without exact word match
@@ -16,15 +16,15 @@
  *   const results = await semanticSearch(userId, 'his relationship with music', 5);
  */
 
-import { GoogleGenAI } from '@google/genai';
 import { createHash } from 'crypto';
 import { getSharedDb } from '../db';
 import { memoryEmbeddings } from '@shared/schema';
 import { eq, and, or, isNull } from 'drizzle-orm';
 import { computeDecayMultiplier } from './memory-decay-service';
 
-const EMBEDDING_MODEL = 'text-embedding-004';
+const EMBEDDING_MODEL = 'text-embedding-3-small';
 const EMBEDDING_DIM = 768;
+const OPENAI_EMBED_URL = 'https://api.openai.com/v1/embeddings';
 
 export interface SemanticSearchResult {
   memoryType: string;
@@ -51,22 +51,39 @@ export function hashContent(content: string): string {
   return createHash('sha256').update(content).digest('hex').substring(0, 64);
 }
 
-// ─── Gemini embedding API ─────────────────────────────────────────────────────
+// ─── OpenAI embedding API ─────────────────────────────────────────────────────
 
-let genAI: GoogleGenAI | null = null;
-function getGenAI(): GoogleGenAI {
-  if (!genAI) genAI = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY || '' });
-  return genAI;
+function getEmbedApiKey(): string {
+  // USER_OPENAI_API_KEY is a valid direct OpenAI key; OPENAI_API_KEY may be
+  // a managed/proxy key that doesn't support the embeddings endpoint.
+  return process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '';
 }
 
 export async function embedText(text: string): Promise<number[]> {
-  const ai = getGenAI();
-  const response = await ai.models.embedContent({
-    model: EMBEDDING_MODEL,
-    contents: text.substring(0, 8192), // API limit
+  const apiKey = getEmbedApiKey();
+  if (!apiKey) throw new Error('No OpenAI API key available for embeddings');
+
+  const res = await fetch(OPENAI_EMBED_URL, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: EMBEDDING_MODEL,
+      input: text.substring(0, 8192),
+      dimensions: EMBEDDING_DIM,
+    }),
   });
-  const values = response.embeddings?.[0]?.values;
-  if (!values || values.length === 0) throw new Error('Gemini returned empty embedding');
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`OpenAI embedding failed (${res.status}): ${err}`);
+  }
+
+  const json = await res.json() as { data: { embedding: number[] }[] };
+  const values = json.data?.[0]?.embedding;
+  if (!values || values.length === 0) throw new Error('OpenAI returned empty embedding');
   return values;
 }
 

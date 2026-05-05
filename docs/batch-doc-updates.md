@@ -382,3 +382,45 @@ The neural memory system (vector search) is the persistent layer. Context inject
 ### Startup timeline (`server/index.ts`)
 - `+100s` — `runDanielaToolIndexer()` (after the main embedding indexer at +95s)
 - `+105s` — `indexAllActiveGoalCapabilities()` (picks up any goals created before this boot)
+
+---
+
+## May 2026 Session 8 — Neural Network Coverage Audit (Sessions 1–7)
+
+### Overview
+Systematic audit of the two-layer neural architecture for all Sessions 1–7 features. Found embedding layer solid; structured procedural layer had gaps for Sessions 4–6 features (memory management tools and learning goal tools had no tool_knowledge entries, and three auto-surfaced awareness systems had no matching tutor_procedures). All gaps closed.
+
+### Bugs fixed during session
+1. **Awareness filter too broad** — `buildUnifiedBrainSync` filtered `category='awareness'` which matched 10 pre-existing situational procedures (ACTFL level, syllabus topic signals, etc.) and would have injected all into every session. Fixed: filter by explicit trigger values `['memory_surfaced', 'temporal_fact_upcoming', 'coverage_gap_detected']` — exactly the three auto-surfaced context systems.
+2. **Syntax field format** — new `tool_knowledge` entries had prose descriptions in `syntax` field instead of `FUNCTION CALL: func_name({...})` format used by `buildUnifiedToolKnowledgeSync`. Fixed: updated all 7 entries to match convention.
+3. **Uppercase/lowercase duplicates** — render categories had both `SET_MEMORY_PIN` and `set_memory_pin` for same tool. Fixed: removed uppercase dead entries (DB names are lowercase).
+4. **`READ_FULL_SESSION` in wrong category** — was listed under `MEMORY & RECALL`, correctly belongs only under `MEMORY MANAGEMENT`. Fixed.
+5. **`memory_embeddings` table missing** — entire vector embedding layer non-functional at boot (126 tool embedding errors, all student/hive/fact scans failed). Created table from schema definition in `shared/schema.ts`.
+
+### New DB entries — `tool_knowledge` (7, tool_type=native_function_call, sync_status=approved)
+Memory management: `set_memory_pin`, `correct_memory`, `forget_memory`, `read_full_session`
+Learning goals: `set_learning_goal`, `advance_capability`, `get_current_goal_state`
+Each entry has: purpose, syntax (`FUNCTION CALL:` format), examples, best_used_for, avoid_when, combines_with, sequence_patterns.
+
+### New DB entries — `tutor_procedures` (3, category=awareness, sync_status=approved)
+- `Proactive Memory Surfacing — Natural Weaving` (priority 75, trigger: `memory_surfaced`)
+- `Temporal Awareness — Time-Sensitive Facts` (priority 80, trigger: `temporal_fact_upcoming`)
+- `Coverage Audit — Organic Discovery` (priority 60, trigger: `coverage_gap_detected`)
+
+### Rendering wired (`server/services/procedural-memory-retrieval.ts`)
+- `buildDetailedToolDocumentationSync`: new `MEMORY MANAGEMENT` and `LEARNING GOALS` render categories (streaming voice sessions)
+- `buildUnifiedBrainSync`: new `AWARENESS GUIDANCE` section — renders only the 3 trigger-scoped procedures in every voice session
+
+### Architecture doc additions (`docs/neural-network-architecture.md`)
+- "The Neural Network as the Center of Daniela's Memory" section
+- "The North Star: No Prompt" section — documents the long-term design vision and the discipline it creates: before injecting anything, ask if Daniela could find it herself
+
+### `memory_embeddings` table created + full embedding layer repair
+Four sequential issues resolved to get embeddings working end-to-end:
+
+1. **Table missing** — created from `shared/schema.ts` definition. 9 columns, unique index on `(memory_type, memory_id)`, standard index on `(user_id, memory_type)`. No pgvector — cosine similarity computed in JS.
+2. **Wrong env var** — `semantic-memory-service.ts` used `GOOGLE_GENERATIVE_AI_API_KEY` (unset); entire codebase uses `GEMINI_API_KEY`. Fixed.
+3. **Wrong API version** — Gemini SDK defaults to `v1beta`; tried `httpOptions: { apiVersion: 'v1' }`. Still failed.
+4. **No embedding access on Gemini key** — the key only supports `generateContent`/`countTokens`, no embedding models at all. Switched to **OpenAI `text-embedding-3-small`** with `dimensions: 768` — `EMBEDDING_DIM` constant unchanged, `USER_OPENAI_API_KEY` (direct key, not managed proxy). Removed `@google/genai` import from this file.
+
+**Result on first clean boot**: `[ToolIndexer] Done — 126 indexed, 0 already fresh, 0 errors`. EmbedIndexer began processing ~12,200 student memories in 10-record batches (2h interval). Both neural network layers now operational.
