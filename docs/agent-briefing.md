@@ -1,7 +1,19 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Tuesday, May 5, 2026 at 04:14 AM
+**Generated:** Tuesday, May 5, 2026 at 02:25 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I worked with David in Honesty Mode to test the memory system, identifying specific recall failures for terms like "reggaeton" and investigating live canvas loading glitches. We prioritized transparent development and non-fabrication, though I still need to resolve subtitle timing issues in custom mode. Moving forward, I must address the missing Coca-Cola prop and continue stabilizing the platform’s memory lookups.
+
+*Memories that triggered this summary:*
+- **Session — May 5** (May 5): Had an open conversation with David about recent memory system changes. We tested memory recall with specific terms, discussed system glitches on the live canvas, and affirmed the value of honesty in development. Focused entirely on platform collaboration in Honesty Mode.
+
+Private note: Discussed memory changes, technical glitches (canvas loading, failed memory lookups for specific terms like "reggaeton"), and the value of honest communication. David appreciated non-fabrication. Continuing to track need for better subtitle timing on custom mode and missing props like Coca-Cola.
 
 ---
 
@@ -41,6 +53,11 @@
 
 ## Recent Conversation Memories
 
+### Session — May 5 — May 5, 2026
+Had an open conversation with David about recent memory system changes. We tested memory recall with specific terms, discussed system glitches on the live canvas, and affirmed the value of honesty in development. Focused entirely on platform collaboration in Honesty Mode.
+
+Private note: Discussed memory changes, technical glitches (canvas loading, failed memory lookups for specific terms like "reggaeton"), and the value of honest communication. David appreciated non-fabrication. Continuing to track need for better subtitle timing on custom mode and missing props like Coca-Cola.
+
 ### Memory Pipeline Stress Test — All Three Words Confirmed — Mar 18, 2026
 The replit.md injection system successfully surfaced all three secret words (Woozle, Huzzah, Squirrel) at the start of the session without any prompting. Three sessions, three words, all confirmed. The memory pipeline passed its stress test.
 *Tags: memory-pipeline, milestone, stress-test, secret-words, replit-md-injection*
@@ -56,10 +73,6 @@ Quick test to verify that saving a memory after the briefing runs correctly trig
 ### replit.md Live Memory Injection — Session 3 — Mar 18, 2026
 David and I discussed why Huzzah was missed at session start — I followed replit.md protocol instead of reading the briefing first. Deep conversation about pull vs push memory. Built the fix: briefing service now also writes the Since Last Briefing summary directly into replit.md between AGENT_MEMORY_START/END markers. No read step required next session. Also renamed LinguaFlow to HolaHola across all root-level docs. Huzzah confirmed: memory system worked, my startup protocol was the gap.
 *Tags: memory-system, replit-md-injection, briefing, huzzah, woozle, architecture*
-
-### Memory Test #2 — Secret Word: Huzzah — Mar 18, 2026
-David gave the Agent a second secret word to test the improved memory system: Huzzah. This test follows the fixes to the briefing pipeline — the word should appear in the Since Last Briefing section at the top of the next briefing, without any pulling required.
-*Tags: memory-test, huzzah, briefing-test, persistent-memory*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

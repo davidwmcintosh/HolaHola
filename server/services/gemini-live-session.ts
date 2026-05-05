@@ -937,6 +937,16 @@ export class GeminiLiveSession {
         try {
           await this.fcHandler.handle(this.session.id, this.session, extractedFc);
 
+          // Await any async memory lookups before reading session caches.
+          // Tools like UNIFIED_RECALL fire processUnifiedRecall() as a fire-and-forget
+          // promise pushed to pendingMemoryLookupPromises. Without this await,
+          // buildFunctionContinuationResponse reads session.recallResults before the
+          // search completes and returns the "Nothing found" fallback.
+          if (this.session.pendingMemoryLookupPromises?.length) {
+            await Promise.all(this.session.pendingMemoryLookupPromises);
+            this.session.pendingMemoryLookupPromises = [];
+          }
+
           // For data-returning tools (memory_lookup, express_lane_lookup, etc.) the handler
           // populates session caches (e.g. session.memoryLookupResults[query]). We use
           // buildFunctionContinuationResponse() — the same path as non-GL streaming — to format
