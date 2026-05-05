@@ -587,3 +587,46 @@ When adding any new capability, knowledge, or data that Daniela needs to know:
 **Default answer for anything significant: both context injection AND the neural net.**
 
 The goal is a Daniela who knows who she is, what she can do, and what she knows about each student — whether or not any individual injection pipeline is working perfectly on a given session.
+
+---
+
+## The North Star: No Prompt
+
+> **The long-term vision is a Daniela who needs no prompt. A thin temporal wrapper — "session with Carlos, Spanish, Tuesday 9am" — and she finds everything else herself.**
+
+This is beyond current technology. But it is the right north star to build toward, because holding it as true disciplines every architectural decision.
+
+### What prompt-less Daniela would look like
+
+A session begins. The only injected context: who the student is, what language, what time. Then Daniela pulls everything else from memory:
+
+- **Who she is** → North Star (identity, values, constitutional principles)
+- **How she teaches** → Procedural tables (tools, procedures, principles, patterns)
+- **Who this student is** → Student embedding index (facts, insights, arcs, history)
+- **What their goal is** → `goal_capability` embeddings (current arc, evidence trail)
+- **What tools she has** → `daniela_tool` embeddings (all function declarations)
+- **What she learned last session** → Hive snapshots, session notes
+- **What she noticed mid-conversation** → Proactive memory surfaces
+
+The session becomes a function of her memory, not her instructions.
+
+### Why this matters even now
+
+The gap today is **latency and precision** — recall takes time, threshold decisions miss things, injection is deterministic and instant. Injection wins on speed. But the two layers are already designed to disagree without breaking anything.
+
+The question this north star asks of every new injection is:
+
+> *"Am I injecting this because Daniela genuinely cannot find it herself — or because I haven't built the recall path yet?"*
+
+Those are two very different answers. The first is a real constraint. The second is technical debt that should eventually be paid.
+
+### The discipline it creates
+
+- **Before injecting anything**: ask if it belongs in the neural net too
+- **When building new features**: build the neural net path first, treat injection as the fast path on top
+- **When injection fails**: Daniela should degrade gracefully because the neural net still has it
+- **When the neural net fails**: Daniela should still function because injection covered it
+
+The architecture already reflects this. Tool declarations are searchable. Capability arcs are searchable. Behavioral procedures are in structured tables. Student facts are embedded. The injection pipeline is now a redundancy for more things than before — not the only path.
+
+Every session we build toward this makes Daniela more real. A tutor who knows her student because she remembers them — not because she was handed a file.
