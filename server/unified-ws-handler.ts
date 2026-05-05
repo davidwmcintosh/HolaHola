@@ -61,7 +61,7 @@ import { founderCollabService } from './services/founder-collaboration-service';
 import { studentLearningService } from './services/student-learning-service';
 import { voiceDiagnostics } from './services/voice-diagnostics-service';
 import type { VoiceSession as UsageVoiceSession, CompassContext, TutorSession } from '@shared/schema';
-import { voiceGracePeriods, compartmentInstallation } from '@shared/schema';
+import { voiceGracePeriods, compartmentInstallation, messages } from '@shared/schema';
 import { db, getUserDb } from './db';
 import { eq, and, gt, lt, ne, desc } from 'drizzle-orm';
 import { getPendingSuggestions } from './services/daniela-reflection';
@@ -2406,7 +2406,30 @@ ${lastNote.tutorNotes}`);
             console.log(`[Streaming Voice] Forcing isResumed=true — conversation had ${initialMsgCount} messages at session start (reconnect mid-session)`);
           }
 
-          console.log(`[Streaming Voice] Generating AI greeting... (resumed: ${effectiveIsResumed}, scenario: ${greetingRequest.scenarioSlug || 'none'})`);
+          // For mid-session GL reconnects, fetch the last few exchanges so the tutor
+          // can orient herself to what was just being discussed instead of saying
+          // "it feels like maybe yesterday" when it was seconds ago.
+          let recentConversationContext: string | undefined;
+          if (effectiveIsResumed && conversationHasHistory && session.conversationId) {
+            try {
+              const recentMsgs = await db
+                .select({ role: messages.role, content: messages.content })
+                .from(messages)
+                .where(eq(messages.conversationId, session.conversationId))
+                .orderBy(desc((messages as any).createdAt))
+                .limit(6);
+              if (recentMsgs.length > 0) {
+                recentConversationContext = recentMsgs
+                  .reverse()
+                  .map(m => `${m.role === 'assistant' ? 'You' : 'Student'}: ${m.content.substring(0, 200)}`)
+                  .join('\n');
+              }
+            } catch {
+              // Non-critical — proceed without context
+            }
+          }
+
+          console.log(`[Streaming Voice] Generating AI greeting... (resumed: ${effectiveIsResumed}, scenario: ${greetingRequest.scenarioSlug || 'none'}, recentContext: ${recentConversationContext ? 'yes' : 'no'})`);
           
           if (geminiLiveSession) {
             // GeminiLive mode: route the greeting through the Live session so the session
@@ -2419,6 +2442,7 @@ ${lastNote.tutorNotes}`);
                 greetingRequest.userName,
                 effectiveIsResumed,
                 greetingRequest.scenarioSlug,
+                recentConversationContext,
               );
             } else {
               console.log('[GeminiLive] Duplicate request_greeting ignored — greeting already sent');

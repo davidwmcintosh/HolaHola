@@ -451,7 +451,7 @@ export class GeminiLiveSession {
    * Send a greeting trigger to Gemini Live to start the conversation.
    * Called from the `request_greeting` WS handler instead of orchestrator.processGreetingRequest().
    */
-  sendGreetingTrigger(userName?: string, isResumed?: boolean, scenarioSlug?: string): void {
+  sendGreetingTrigger(userName?: string, isResumed?: boolean, scenarioSlug?: string, recentContext?: string): void {
     if (!this.liveSession || this.isStopped) return;
     const name = userName ? `, my name is ${userName}` : '';
     const langKey = (this.session.targetLanguage || '').toLowerCase().trim();
@@ -460,8 +460,11 @@ export class GeminiLiveSession {
       : 'Spanish';
     const tutorName = this.session.tutorName || 'Daniela';
     const langCode = LANGUAGE_TO_BCP47[langKey] || 'en-US';
+    const contextBlock = isResumed && recentContext
+      ? ` Here is what we were just discussing before the connection dropped:\n${recentContext}\nAcknowledge the reconnect briefly and continue naturally from where we left off.`
+      : '';
     const resumed = isResumed
-      ? `This is a resumed session — acknowledge that we are continuing. Respond in ${langName}.`
+      ? `This is a resumed session.${contextBlock || ' Acknowledge that we are continuing.'} Respond in ${langName}.`
       : `This is a new session — greet me warmly and start speaking in ${langName} right away. Your entire response must be in ${langName} (language code: ${langCode}).`;
     const scenario = scenarioSlug ? ` We are doing a scenario: ${scenarioSlug}.` : '';
     const trigger = `Hello ${tutorName}${name}. ${resumed}${scenario}`;
