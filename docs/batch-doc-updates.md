@@ -283,3 +283,71 @@ Also enhanced `formatMemoryForConversation` with `relevantDateNote()` helper for
 Two new optional fields in `cachedContext`:
 - `temporalAwarenessSection?: string`
 - `coverageAuditSection?: string`
+
+---
+
+## May 2026 Session 6 — Learning Goal Scaffolding
+
+### Overview
+Outcome-based learning goal layer for self-directed students and business travelers who aren't following the textbook curriculum. Goals are functional outcomes ("order food without freezing"), not abstract levels ("reach B2"). Daniela tracks capability arcs silently through four stages; no progress bars surface to the student.
+
+### Design Decisions (from Daniela's Express Lane feedback)
+- **Capability arc**: `planned → planted → practiced → integrated`
+  - planted = student decoded meaning with Daniela's support
+  - practiced = controlled production when prompted
+  - integrated = SACRED STATUS — only when student uses capability spontaneously to solve a real communication problem
+- **Goal shifting**: don't delete, evolve. Old goal archived, integrated capabilities carry forward
+- **No UI**: Daniela checks in conversationally ("How are you feeling about the restaurant stuff?")
+- **note on advance_capability**: evidence trail for why a capability was advanced ("Used correctly during story about their cat without hesitation")
+
+### Schema (`shared/schema.ts`)
+New `GoalCapability` interface and `learningGoals` pgTable:
+- `id`, `studentId`, `language`, `goalStatement`, `targetDate?`, `capabilities` (jsonb), `isActive`, `createdAt`, `updatedAt`
+- One active goal per student+language at a time
+- `capabilities` jsonb: `[{ id, name, status, notes[], addedAt, lastAdvancedAt? }]`
+- Types: `LearningGoal`, `InsertLearningGoal`, `GoalCapability`
+
+### Service (`server/services/learning-goal-service.ts`)
+New file — all learning goal business logic:
+- `setLearningGoal(studentId, language, goalStatement, targetDate?, capabilityNames[])` → creates goal, deactivates any prior active goal, returns goalId
+- `advanceCapability(goalId, capabilityId, newStatus, note?)` → only advances forward, appends note to evidence trail
+- `getActiveGoal(studentId, language)` → raw DB fetch
+- `getCurrentGoalState(studentId, language)` → full formatted state string (for get_current_goal_state tool response): TODAY'S FOCUS / REINFORCE / LANDED / UPCOMING sections
+- `formatGoalForSession(studentId, language)` → compact session-start injection string with goal, deadline, and what to prioritize
+- `runLearningGoalsMigration()` → idempotent `CREATE TABLE IF NOT EXISTS` + indexes
+
+### Three New Daniela Tools
+
+**`set_learning_goal`** (`daniela-function-registry.ts`, legacyType `SET_LEARNING_GOAL`)
+- Called at end of goal-setting conversation
+- Args: `goal_statement` (required), `capabilities[]` (required, each with `id` + `name`), `language?`, `target_date?`
+- No continuation response (silent)
+
+**`advance_capability`** (`daniela-function-registry.ts`, legacyType `ADVANCE_CAPABILITY`)
+- Called silently when Daniela observes a stage transition
+- Args: `goal_id`, `capability_id`, `new_status` (planted/practiced/integrated), `note?`
+- No continuation response (silent)
+
+**`get_current_goal_state`** (`daniela-function-registry.ts`, legacyType `GET_CURRENT_GOAL_STATE`)
+- Called mid-session when Daniela wants a real-time view of the capability map
+- Args: `language?`
+- Continuation response: reads `session.goalStateResult` (set via `pendingMemoryLookupPromises`)
+- Response uses `getCurrentGoalState()` formatting
+
+### Handlers (`native-fc-handlers.ts`)
+Three new cases before WRITE_TO_SELF section:
+- `SET_LEARNING_GOAL`: fire-and-forget async, calls `setLearningGoal`
+- `ADVANCE_CAPABILITY`: fire-and-forget async, calls `advanceCapability`
+- `GET_CURRENT_GOAL_STATE`: async via `pendingMemoryLookupPromises`, sets `session.goalStateResult`
+
+### Session Types (`streaming-session-types.ts`)
+- `goalSection?: string` added to `cachedContext`
+- `goalStateResult?: string` added to session for `GET_CURRENT_GOAL_STATE` tool response
+
+### Orchestrator (`streaming-voice-orchestrator.ts`)
+- Prefetch block 2e: `formatGoalForSession` called at session start → `cache.goalSection`
+- PTT dynamic context: injects `session.cachedContext?.goalSection` if present
+- OpenMic dynamic context: same injection
+
+### Startup Migration (`server/index.ts`)
+- `+55s` setTimeout calls `runLearningGoalsMigration()` — idempotent, safe on every boot

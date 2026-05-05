@@ -211,6 +211,7 @@ export interface StreamingSession {
   personalSharesResult?: string;
   senseTimeResult?: string;
   textbookPageResult?: string;
+  goalStateResult?: string;
   imageRecallResults?: Record<string, {
     text: string;
     images: Array<{ mimeType: string; data: string }>;
@@ -255,6 +256,7 @@ export interface StreamingSession {
     growthMemoriesSection?: string;  // Cindy's personal teaching growth log — pre-injected for all sessions
     temporalAwarenessSection?: string; // Upcoming/recent time-sensitive facts (temporal reasoning)
     coverageAuditSection?: string;     // Blind spots — topic areas Daniela knows little about yet
+    goalSection?: string;              // Active learning goal + capability map for self-directed students
     fatContextProfile?: string;
     fatContextVocabulary?: string;
     fatContextConversations?: string;

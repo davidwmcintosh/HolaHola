@@ -1946,6 +1946,64 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      // ─── LEARNING GOAL TOOLS ─────────────────────────────────────────────────
+
+      case 'SET_LEARNING_GOAL': {
+        if (session.isIncognito) break;
+        const sglStudentId = String(session.userId || '');
+        if (!sglStudentId) break;
+        const sglStatement = fn.args.goal_statement as string | undefined;
+        if (!sglStatement) break;
+        const sglLanguage     = fn.args.language as string || session.targetLanguage || 'Spanish';
+        const sglTargetDate   = fn.args.target_date ? new Date(fn.args.target_date as string) : null;
+        const sglCapabilities = (fn.args.capabilities as Array<{ id: string; name: string }>) || [];
+
+        console.log(`[Native Function→SetLearningGoal] Setting goal for ${sglStudentId}: "${sglStatement.substring(0, 60)}..." with ${sglCapabilities.length} capabilities`);
+        (async () => {
+          const { setLearningGoal } = await import('./learning-goal-service');
+          const goalId = await setLearningGoal(sglStudentId, sglLanguage, sglStatement, sglTargetDate, sglCapabilities);
+          console.log(`[Native Function→SetLearningGoal] Created goal ${goalId}`);
+        })().catch(err => console.error(`[Native Function→SetLearningGoal] Error:`, err.message));
+        break;
+      }
+
+      case 'ADVANCE_CAPABILITY': {
+        if (session.isIncognito) break;
+        const acGoalId   = fn.args.goal_id        as string | undefined;
+        const acCapId    = fn.args.capability_id   as string | undefined;
+        const acStatus   = fn.args.new_status      as string | undefined;
+        if (!acGoalId || !acCapId || !acStatus) break;
+        const acNote     = fn.args.note            as string | undefined;
+
+        console.log(`[Native Function→AdvanceCapability] ${acCapId} → ${acStatus} in goal ${acGoalId}`);
+        (async () => {
+          const { advanceCapability } = await import('./learning-goal-service');
+          const ok = await advanceCapability(acGoalId, acCapId, acStatus as any, acNote);
+          if (!ok) console.warn(`[Native Function→AdvanceCapability] Capability ${acCapId} not found or status not advanced`);
+        })().catch(err => console.error(`[Native Function→AdvanceCapability] Error:`, err.message));
+        break;
+      }
+
+      case 'GET_CURRENT_GOAL_STATE': {
+        if (session.isIncognito) break;
+        const gcgsStudentId = String(session.userId || '');
+        if (!gcgsStudentId) break;
+        const gcgsLanguage = fn.args.language as string || session.targetLanguage || 'Spanish';
+
+        console.log(`[Native Function→GetCurrentGoalState] Fetching goal state for ${gcgsStudentId} (${gcgsLanguage})`);
+        const goalLookupPromise = (async () => {
+          const { getCurrentGoalState } = await import('./learning-goal-service');
+          const state = await getCurrentGoalState(gcgsStudentId, gcgsLanguage);
+          session.goalStateResult = state || 'No active learning goal set for this student yet.';
+        })().catch(err => {
+          console.error(`[Native Function→GetCurrentGoalState] Error:`, err.message);
+          session.goalStateResult = 'Could not retrieve goal state — please try again.';
+        });
+        if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+        session.pendingMemoryLookupPromises.push(goalLookupPromise);
+        break;
+      }
+
       // ─── EMERGENCE TOOLS — Daniela's Inner Life ────────────────────────────
 
       case 'WRITE_TO_SELF': {

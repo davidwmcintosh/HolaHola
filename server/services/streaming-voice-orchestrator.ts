@@ -1319,6 +1319,22 @@ ${parts.join('\n\n')}
       );
     }
 
+    // 2e. LEARNING GOAL — injected for logged-in students with an active goal
+    if (session.userId) {
+      promises.push(
+        (async () => {
+          try {
+            const lang = session.targetLanguage || 'Spanish';
+            const { formatGoalForSession } = await import('./learning-goal-service');
+            const goalSection = await formatGoalForSession(String(session.userId), lang);
+            if (goalSection) cache.goalSection = goalSection;
+          } catch (err: any) {
+            console.warn(`[Context Prefetch] Learning goal failed:`, err.message);
+          }
+        })()
+      );
+    }
+
     // 3. Developer/founder context (Hive, Express Lane, Text Chat, Editor Feedback)
     const needsExpressLaneContext = session.isDeveloperUser;
     if (needsExpressLaneContext) {
@@ -2577,6 +2593,9 @@ Remember: David may reference things discussed in these recent text chats.
       }
       if (hasFreshCache && session.cachedContext?.coverageAuditSection) {
         dynamicContextParts.push(session.cachedContext.coverageAuditSection);
+      }
+      if (hasFreshCache && session.cachedContext?.goalSection) {
+        dynamicContextParts.push(session.cachedContext.goalSection);
       }
       if (hiveContextSection) {
         dynamicContextParts.push(hiveContextSection);
@@ -6032,6 +6051,9 @@ Remember: David may reference things discussed in these recent text chats.
       }
       if (hasFreshCacheOpenMic && session.cachedContext?.coverageAuditSection) {
         dynamicContextPartsOpenMic.push(session.cachedContext.coverageAuditSection);
+      }
+      if (hasFreshCacheOpenMic && session.cachedContext?.goalSection) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.goalSection);
       }
       
       // CLASSROOM ENVIRONMENT (OpenMic): Daniela's unified workspace via shared pipeline

@@ -773,6 +773,16 @@ app.use((req, res, next) => {
       );
     }, 50000);
 
+    // +55s: Learning Goals Migration — idempotent CREATE TABLE IF NOT EXISTS for
+    // learning_goals table. Tracks outcome-based goals + capability arcs for
+    // self-directed students and business travelers. Safe to run every boot.
+    setTimeout(async () => {
+      const { runLearningGoalsMigration } = await import('./services/learning-goal-service');
+      runLearningGoalsMigration().catch((err: Error) =>
+        console.warn('[LearningGoals] Migration skipped:', err.message)
+      );
+    }, 55000);
+
     // +95s: Memory Embedding Indexer — generates Gemini text-embedding-004 vectors
     // for all memory records (student_insights, hive_snapshots, personal_facts, growth_memories)
     // enabling semantic similarity search in the recall scatter-gather tool

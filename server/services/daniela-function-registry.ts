@@ -3666,6 +3666,137 @@ Only use this for explicit student requests to forget. Do not use it for correct
     buildContinuationResponse: () =>
       `Done — I've set that aside and it won't come up again.`,
   },
+
+  // ─── LEARNING GOAL TOOLS ──────────────────────────────────────────────────
+
+  {
+    legacyType: 'SET_LEARNING_GOAL',
+    declaration: {
+      name: "set_learning_goal",
+      description: `Store a student's active learning goal after a goal-setting conversation.
+
+Call this at the end of any goal-setting exchange — when you and the student have agreed on what they want to be able to DO (not a level to reach). Goals should be functional outcomes: "order food at a restaurant without freezing," "survive a week in Mexico City," "handle a business meeting in Spanish."
+
+You break the goal into individual capabilities and store them all at 'planned' status. You'll advance them silently as sessions progress using advance_capability.
+
+Only one goal is active per student at a time. If a goal evolves mid-journey (trip → ongoing interest), call this again with the evolved statement — the old goal is archived and integrated capabilities are preserved in the new one.
+
+Don't announce you're calling this tool. Just confirm the goal naturally in conversation: "Okay — two weeks, restaurant survival and getting around. Let's make those count."`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          goal_statement: {
+            type: "string",
+            description: "What the student said they want to be able to do — in their own words or a close paraphrase. E.g. 'Order food at a restaurant without freezing up'",
+          },
+          language: {
+            type: "string",
+            description: "The target language being studied (e.g. 'Spanish', 'English'). Defaults to the current session language.",
+          },
+          target_date: {
+            type: "string",
+            description: "Optional ISO 8601 date string for when they need to achieve this goal (e.g. trip date, business meeting). E.g. '2026-07-15'",
+          },
+          capabilities: {
+            type: "array",
+            description: "The individual skills that make up this goal. Keep to 4–8 specific, testable capabilities.",
+            items: {
+              type: "object",
+              properties: {
+                id: {
+                  type: "string",
+                  description: "A stable slug identifier for this capability (snake_case, no spaces). E.g. 'restaurant_ordering', 'taxi_directions', 'hotel_checkin'",
+                },
+                name: {
+                  type: "string",
+                  description: "A short, specific description of what the student should be able to do. E.g. 'Order food and ask about the menu at a restaurant'",
+                },
+              },
+              required: ["id", "name"],
+            },
+          },
+        },
+        required: ["goal_statement", "capabilities"],
+      },
+    },
+    buildContinuationResponse: () => null,
+  },
+
+  {
+    legacyType: 'ADVANCE_CAPABILITY',
+    declaration: {
+      name: "advance_capability",
+      description: `Silently advance a capability to the next stage based on your observation of the student's performance.
+
+The four stages:
+- planted: You introduced the concept and they decoded the meaning with your support. They recognised it when you used it.
+- practiced: They reproduced it when prompted (controlled production) — drills, role-plays, fill-in-the-blank. Not yet spontaneous.
+- integrated: SACRED STATUS. Only call this when they used the capability to solve a real communication problem, unprompted, in natural conversation — not just to answer a drill question.
+
+You decide when to advance based purely on your observation. Never ask the student for permission or announce you're tracking this. The tracking lives in your understanding.
+
+Only advances forward — the tool will silently ignore attempts to regress a stage.
+
+Call this during or after the session moment when you observe the advance. It's fine to call it mid-conversation — the student won't know.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          goal_id: {
+            type: "string",
+            description: "The ID of the active learning goal (visible in the [LEARNING GOAL] session context block)",
+          },
+          capability_id: {
+            type: "string",
+            description: "The slug ID of the capability being advanced (e.g. 'restaurant_ordering')",
+          },
+          new_status: {
+            type: "string",
+            enum: ["planted", "practiced", "integrated"],
+            description: "The new stage for this capability. Must be strictly higher than the current stage.",
+          },
+          note: {
+            type: "string",
+            description: "Optional: your observation of exactly what happened that earned this advance. E.g. 'Used correctly during the story about their cat without any hesitation — completely unprompted.' This becomes your evidence trail.",
+          },
+        },
+        required: ["goal_id", "capability_id", "new_status"],
+      },
+    },
+    buildContinuationResponse: () => null,
+  },
+
+  {
+    legacyType: 'GET_CURRENT_GOAL_STATE',
+    declaration: {
+      name: "get_current_goal_state",
+      description: `Retrieve the full current state of the student's active learning goal — what's been introduced, what's been drilled, what's been fully integrated.
+
+Use this mid-session when you want to:
+- Know exactly what to prioritize teaching today (planted but not yet practiced)
+- Find natural openings to let them use something spontaneously (practiced but not yet integrated)
+- Check overall progress before a conversational check-in ("How are you feeling about the restaurant stuff now?")
+
+The response shows four layers:
+- TODAY'S FOCUS: planted capabilities that need drilling
+- REINFORCE: practiced capabilities that need a natural opening for spontaneous use
+- LANDED: fully integrated capabilities
+- UPCOMING: planned capabilities not yet introduced
+
+The [LEARNING GOAL] block in your session context is pre-injected at session start — use this tool when you need a real-time refresh mid-session or want the full detailed breakdown.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          language: {
+            type: "string",
+            description: "The target language of the goal to retrieve (e.g. 'Spanish'). Defaults to the current session language.",
+          },
+        },
+        required: [],
+      },
+    },
+    buildContinuationResponse: ({ session }) =>
+      session.goalStateResult || 'No active learning goal found for this student.',
+  },
 ];
 
 

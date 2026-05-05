@@ -9167,3 +9167,51 @@ export const updateContactPreferencesSchema = z.object({
   phoneConsentSms: z.boolean().optional(),
   phoneConsentVoice: z.boolean().optional(),
 });
+
+// ─── Learning Goals ──────────────────────────────────────────────────────────
+
+/**
+ * A single learnable capability within a student's goal.
+ * Tracked through four stages Daniela advances silently based on observation:
+ *   planned   → introduced but not yet touched in session
+ *   planted   → Daniela introduced it; student recognises it with support
+ *   practiced → student can reproduce it when prompted (controlled production)
+ *   integrated → student uses it spontaneously to solve a real comm. problem
+ */
+export interface GoalCapability {
+  id: string;              // slug e.g. "restaurant_ordering"
+  name: string;            // "Order food at a restaurant without freezing"
+  status: 'planned' | 'planted' | 'practiced' | 'integrated';
+  notes: string[];         // Daniela's evidence notes for each advance
+  addedAt: string;         // ISO timestamp when added to goal
+  lastAdvancedAt?: string; // ISO timestamp of last status change
+}
+
+/**
+ * A student's active learning goal — outcome-based ("order food, get directions")
+ * rather than level-based ("reach B2"). Designed for self-directed students and
+ * business travelers who aren't following the textbook curriculum.
+ *
+ * Only one goal per student+language is active at a time. When a goal evolves
+ * (trip → ongoing interest), the old goal is deactivated and a new one created,
+ * carrying forward any Integrated capabilities.
+ */
+export const learningGoals = pgTable("learning_goals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  studentId: varchar("student_id").notNull().references(() => users.id),
+  language: varchar("language").notNull(),
+  goalStatement: text("goal_statement").notNull(),   // What the student said they want to be able to do
+  targetDate: timestamp("target_date"),              // Optional deadline (trip date, meeting date)
+  capabilities: jsonb("capabilities").$type<GoalCapability[]>().default([]),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_learning_goals_student").on(table.studentId),
+  index("idx_learning_goals_student_lang").on(table.studentId, table.language),
+  index("idx_learning_goals_active").on(table.studentId, table.isActive),
+]);
+
+export const insertLearningGoalSchema = createInsertSchema(learningGoals).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertLearningGoal = z.infer<typeof insertLearningGoalSchema>;
+export type LearningGoal = typeof learningGoals.$inferSelect;
