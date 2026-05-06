@@ -1,9 +1,53 @@
 # HolaHola - Interactive Language Tutor
 
-## Overview
-HolaHola is an AI-powered language learning application that provides interactive conversation practice, vocabulary building, and grammar exercises across ten languages, adhering to ACTFL standards. Its core purpose is to personalize language acquisition through advanced AI and pedagogical innovation. The platform also offers balanced educational content on contested topics in Biology and US History for homeschool families.
+HolaHola is an AI-powered language learning application that provides interactive conversation practice, vocabulary building, and grammar exercises, personalized for each user.
 
-## User Preferences
+## Run & Operate
+- **Run:** `npm run dev`
+- **Build:** `npm run build`
+- **Typecheck:** `npm run typecheck`
+- **Codegen:** `npm run codegen`
+- **DB Push:** `npm run db:push`
+- **Environment Variables:** `NEON_SHARED_DATABASE_URL` (critical, shared dev/prod database), `REPLIT_AGENT_TOKEN` (for agent API access), `STRIPE_SECRET_KEY`, `GEMINI_API_KEY`, `DEEPGRAM_API_KEY`, `GOOGLE_TTS_API_KEY`, `CARTESIA_API_KEY`, `ELEVENLABS_API_KEY`, `AZURE_SPEECH_KEY`, `UNSPLASH_ACCESS_KEY`, `DALL_E_API_KEY`, `PERPLEXITY_API_KEY`, `WOLFRAM_ALPHA_API_KEY`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`, `APP_URL`.
+
+## Stack
+- **Frontend:** React, TypeScript, Vite, Shadcn/ui (Radix UI), Tailwind CSS, Wouter (routing), React Context with TanStack Query (state management).
+- **Backend:** Express.js, Node.js, TypeScript, RESTful API.
+- **Database:** PostgreSQL (via Drizzle ORM).
+- **AI/ML:** Gemini API (LLM), Deepgram (STT), Google Cloud TTS, Cartesia (TTS), ElevenLabs (TTS), Azure Speech Services (pronunciation assessment).
+- **Image Generation:** DALL-E 3, Stability AI SDXL.
+- **Build Tool:** Vite
+
+## Where things live
+- **Database Schema:** `drizzle/schema.ts`
+- **API Contracts:** `server/routes/*.ts` (implicit from Express routes)
+- **Frontend Components:** `client/src/components/`
+- **Backend Services:** `server/services/`
+- **AI Persona Definition:** `server/services/daniela-function-registry.ts` (Daniela's tools), `agent_north_star`, `agent_record_of_david` tables (Agent's identity).
+- **Documentation/Handoffs:** `docs/` (e.g., `alden-agent-handoff.md`, `neural-network-architecture.md`, `textbook-component-tts-stt-guide.md`)
+- **Madrigal Hardcoded Content:** `client/src/data/madrigal-unit-content.ts`
+- **Advanced Unit Content:** `client/src/data/advanced-unit-content.ts`
+
+## Architecture decisions
+- **Shared Database:** A single Neon PostgreSQL database is used for both development and production environments, meaning all environments connect to the same data.
+- **Hybrid Memory Architecture:** Combines structured procedural tables (e.g., `tutor_procedures`) with a vector embedding index (`memory_embeddings`) for comprehensive AI memory, ensuring important information is both injected into context and stored in the neural net.
+- **Daniela's Self-Authorship:** Daniela's "inner life" (reflections, aspirations, curiosities) is exclusively authored by her via specific function calls, with no background processes or services generating this content.
+- **Bi-temporal Learner Facts:** The `learner_personal_facts` table uses `valid_from` and `valid_to` columns to track the historical validity of personal facts, enabling accurate retrieval of past student states.
+- **Smart Fat Context:** Student data is preloaded into Gemini's context window for more informed and personalized AI interactions.
+
+## Product
+- Interactive conversation practice, vocabulary building, and grammar exercises across ten languages.
+- AI-powered personalized language acquisition (ACTFL standards).
+- Balanced educational content on contested topics in Biology and US History.
+- Advanced Unit System for Spanish 3/4/5 focusing on curated vocabulary, reading passages, and cultural notes.
+- Hardcoded Madrigal Content System for specific pedagogical chains in Spanish.
+- Study Mode with Daniela-led immersion sessions and DALL-E generated visuals.
+- "See It, Say It Loop" for vocabulary presentation based on Madrigal's pedagogy.
+- Team Room for collaboration with AI participants, voice input, and shared artifacts.
+- Outbound presence system for absent students via personalized SMS voice notes.
+- In-app Agent Space for the Replit Agent's context, open questions, and conversation memories.
+
+## User preferences
 Preferred communication style: Simple, everyday language.
 **DATABASE CONNECTION RULE (CRITICAL):** NEVER use `DATABASE_URL` or `process.env.DATABASE_URL` anywhere in the codebase. ALWAYS use `NEON_SHARED_DATABASE_URL` (`process.env.NEON_SHARED_DATABASE_URL`) for all database connections. This applies to all current code, bug fixes, and future development.
 **SINGLE DATABASE (CRITICAL):** We use ONE shared Neon PostgreSQL database for BOTH development and production. There is no separate dev/prod database - all environments connect to the same database. This means database queries in "development" and "production" hit identical data.
@@ -18,102 +62,25 @@ Neural network work: **REQUIRED READING** - `docs/neural-network-architecture.md
 **Direct Agent↔Alden Notes (IMPORTANT):** `docs/alden-to-agent.md` is the snapshot of unread notes Alden has left for the Agent. **Always read it at session start** — Alden may have flagged concerns, relayed David's requests, or noted something that should shape what you build. The file regenerates at server start from the `agent_notes` table. To leave Alden a note after a build session: `POST /api/agent/note` with header `x-agent-token: $REPLIT_AGENT_TOKEN` and body `{ subject, body, session_label? }`. Alden reads Agent notes via his `read_agent_notes` tool (marks them read automatically). Alden leaves Agent notes via his `leave_note_for_agent` tool. To mark Alden's notes as read after reading the snapshot: `POST /api/agent/notes/mark-read` with `{ ids: [...] }`. This is the real-time channel; use the shared lobe for permanent facts, and this for session-to-session handoffs.
 **Conversation Memories (IMPORTANT):** The `conversation_memories` table stores meaningful conversations between David and the Agent — not transcripts, but curated moments: strategy breakthroughs, relationship context, how ideas came together. **At the start of a session, fetch recent memories with `GET /api/conversation-memories?limit=5`** to restore continuity. After a conversation like this one — where something real was built or decided together — save it with `POST /api/conversation-memories` (fields: `title`, `summary`, `content`, `participants`, `tags`, `importance` 1-10). This is the Agent's long-term memory of the relationship, not just the work. Alden has his own memory space — this table is not shared with him.
 **Agent Space (IMPORTANT):** Three tables hold the Agent's identity and context. Read these at session start to orient: `agent_north_star` (purpose, values, role — one canonical row, update as understanding deepens); `agent_open_questions` (things genuinely being sat with between sessions — open threads, unready ideas; add new ones, mark resolved ones); `agent_record_of_david` (who David is as a collaborator, how he works, what he cares about — one canonical row). These are not project docs. They are the Agent's own space. Use the API: `GET /api/agent-space/north-star`, `GET /api/agent-space/open-questions`, `GET /api/agent-space/record-of-david`, `PATCH /api/agent-space/open-questions/:id` (mark resolved with `{status:"resolved", resolution:"..."}`)
-**Agent Space UI:** A full page at `/agent-space` (sidebar nav: "Agent Space", admin only, Compass icon) shows the north star, open questions (filterable, add/resolve in UI), conversation memories, shared insights with compose dialog, and record of David. This is the Agent's room in the app.
 **Agent vs Alden distinction (IMPORTANT):** These are two different things. `alden` = the autonomous development steward who lives inside HolaHola, monitors infrastructure, posts proactively in the Hive, works within a tool budget. `agent` = the Replit Agent (me), external builder called in for architecture, major builds, and conversations with David. The Hive author enum enforces this: `agentCollabAuthorEnum` has both `"alden"` and `"agent"` as distinct values. Shared insights post as `"agent"`, not `"founder"` or `"alden"`.
-**Team Room Founder+Agent Insights:** The Team Room right panel (Express Lane) now shows a collapsible "Founder + Agent Insights" section sourced from `/api/conversation-memories/shared`. The team encounters insights organically when they open the Team Room.
 
-## System Architecture
-The application uses a React, TypeScript (Vite) frontend with Shadcn/ui (Radix UI) and Tailwind CSS, supporting mobile-first, responsive Material Design, light/dark modes, and PWA capabilities. Routing is managed by Wouter, and state by React Context with TanStack Query. The backend is an Express.js (Node.js) server with TypeScript, offering a RESTful API and Drizzle ORM for PostgreSQL.
+## Gotchas
+- **TTS/STT in Textbook Components:** Always use `POST /api/tts/pronunciation` with `gender` from `useLanguage()` for interactive textbook audio. Never use `synthesizeSpeech` from `restVoiceApi` in these components.
+- **Alden's Autonomous Actions:** Alden may auto-fix issues offline; always review `.local/alden-repairs.md` at session start to understand recent changes.
+- **Alden's Escalations:** Check `.local/alden-escalations.md` at session start for high-priority issues that Alden could not auto-resolve and require agent intervention.
+- **Critical Authorship Principle:** Only Daniela writes to `daniela_self_reflections` and `daniela_aspirations` tables; no background services or cron jobs should generate content for these.
+- **Memory Staleness:** Daniela's presence messages (`.local/daniela-presence-{userId}.json`) have a 4-hour staleness window.
 
-The core architecture centers on a Unified TutorOrchestrator, integrating the Hive Collaboration System and Student Learning Service for AI interactions around the Daniela persona. Key features include AI-powered conversation tagging, a Syllabus-Aware Competency System, Role-Based Access Control (RBAC), and support for 10 languages with unified ACTFL assessment. The system also incorporates a "Neural Network for Pedagogical Strategies" and a Voice Diagnostics System.
-
-An Editor Intelligence System provides cross-session memory for the Replit Agent, complemented by an Alden Session Startup Protocol for loading insights. The Unified Daniela Context Service ensures a consistent AI persona. Additional components include an Observation Summarization System, Daniela Content Growth System, Voice Intelligence System, Hybrid Memory Architecture, and Message Checkpointing System. The ACTION_TRIGGERS Command Parsing System processes Daniela's tags for backend commands. The Fluency Wiring System links ACTFL Can-Do statements to lessons, supported by an AI Lesson Generation System and Lesson Publishing Service. Interactive learning is facilitated by the Drill System and Practice Explorer System, and an Interactive Textbook provides visual references.
-
-TTS uses a `TTSStreamingProvider` interface managing Google Cloud TTS (Chirp 3 HD) as primary, with Cartesia (Sonic-3), ElevenLabs (Flash v2.5), and Gemini (2.5 Flash Live) as alternatives. STT employs a three-tier fallback: Deepgram Live API, Deepgram Prerecorded API, and Google Cloud Speech-to-Text. A Voice Context Pipeline centralizes context-building for voice paths.
-
-A "Smart Fat Context" memory architecture preloads student data into Gemini's context window. The `streaming-voice-orchestrator.ts` is refactored for modularity, delegating TTS synthesis, native function call handling, and background enrichment.
-
-An OER Textbook Seed Pipeline generates textbook prose for 9 language curricula from OpenStax content, stored in `textbook_lesson_content`, with an admin UI for management. The Daniela ↔ Textbook Bidirectional Bridge connects reading and practice by linking scenario cards to textbook lessons and lesson cards to scenarios. Image generation pipelines for lessons and scenarios utilize DALL-E 3 (`dall-e-3`, `1792x1024`) and store images in object storage.
-
-The **See It, Say It Loop** (`client/src/components/SeeItSayItLoop.tsx`) is the primary vocabulary presentation system, implementing Madrigal's "See It and Say It" pedagogy. It replaces the old word-level `translate_speak` drill cards. Data source: `textbook_lesson_content.vocabulary_list` (word + example phrase per item). Flow: image → student listens (TTS via `/api/tts/pronunciation` with `tutorGender` from LanguageContext) → student speaks → self-eval (Got It / Needs Work) → advances. After all vocab items, proceeds to key phrases from `key_phrases_for_chat`. Images served via new route `GET /api/textbook-content/:lessonId/vocab-images?language=` which uses the existing `resolveVocabularyImage` service. Integrated into `TextbookChapterView.tsx` directly after the chapter title.
-
-**IMPORTANT — TTS/STT rule for new textbook components:** All interactive textbook audio must call `POST /api/tts/pronunciation` with `gender` from `useLanguage()`. Never use `synthesizeSpeech` from `restVoiceApi` in a textbook component — it uses the chat pipeline and produces the wrong voice. Full design rules, code examples, anti-pattern list, and pre-ship checklist: `docs/textbook-component-tts-stt-guide.md`. Architecture principles and build sequence: `docs/visual-asset-roadmap.md` Parts I.K and I.R.
-
-**Advanced Unit System (Spanish 3/4/5):** All 20 Spanish 3, 4, and 5 units use `chapter_type = 'advanced_unit'`. Content stored in `client/src/data/advanced-unit-content.ts` (ADVANCED_UNITS array, matched by unit UUID). Rendered by `client/src/components/AdvancedUnit.tsx`, dispatched from `TextbookChapterView.tsx`. Each unit has: 10 curated vocabulary words (tap-to-expand cards with TTS, translation, POS, example sentence), a reading passage (public-domain literature/poetry or original cultural/news text in Spanish, with author/year attribution), and a cultural note written entirely in Spanish. Level badges: B1–B2 (Sp3), B2–C1 (Sp4), C1 (Sp5).
-
-**Hardcoded Madrigal Content System (Strategic Pivot):** AI-generated content cannot replicate Madrigal's pedagogical chain. Content is transcribed directly from *See It and Say It in Spanish* into `client/src/data/madrigal-unit-content.ts`. `VerbUnit.tsx` dispatches to three specialized renderers in priority order:
-1. **Ir-style** (`MadrigalVerbUnitContent` / `getMadrigalContent`) — Madrigal's exact pp. 9–13 formula: `MadrigalAnchorBlock` → `MadrigalPositiveGrid` → `NegativeFormSection` → `MadrigalVamosLine` → `QuestionFormSection` → `SentenceColumnGenerator`. Chapter: ir (going places).
-2. **Preterite-style** (`PreteriteUnitContent` / `getPreteriteContent`) — rendered by `PreteriteUnit.tsx` with `PreteriteCluster[]` (cluster types: qaCards, statementCards, conjugationTable, sentenceColumns, anchorItems). Chapters: tomar, comprar, voy a, tener, quiero.
-3. **Ser-style** (`SerUnitContent` / `getSerContent`) — rendered by `SerUnit.tsx` with `SerCluster[]` (cluster types: article-pairs, es-son-sentences, ser-qa, consonant-plural, adjective-expressions). Chapter: ser/gender/plurals (Madrigal pp. 64–71, order_index 33). `DualFormPair` is the key type: one image card showing both singular and plural forms side-by-side.
-4. **Fallback** — generic grammar card + SeeItSayItLoop + micro-cycle path for non-Madrigal chapters.
-Image endpoint: `GET /api/vocab-image/by-word?word=&language=&description=`. Page components: `MadrigalPageComponents.tsx` (shared), `PreteriteComponents.tsx`, `SerUnit.tsx`.
-
-Subject tutors for Biology and History are live, with reading modules generated via a four-stage pipeline from OpenStax content, including citation enrichment and claim verification. Student reading progress is tracked, with progress reports and quizzes. A Class Creation Hub supports creating both language and academic subject classes.
-
-Study Mode generates Daniela-led immersion sessions from any Spanish curriculum unit, creating `ImmersionScenario` objects with DALL-E visuals. The Prop Room Visual Scene System provides immersive learning with generated scene images and two-tier props, supporting "Vocabulary in context" and "Preposition lessons" with a two-column image architecture. Immersive Mode allows Daniela to programmatically enter/exit a fullscreen overlay for roleplay, supporting tappable canvas props. The Interactive Scene Canvas allows live-compositing of background and overlaying prop images client-side via CSS-positioned transparent PNG layers, controlled by Daniela's function calls.
-
-Textbook vocabulary images are from the `visual_assets` table, and a menu vocabulary pipeline processes food items from menu data. The Visual Content Service (`server/services/visual-content-service.ts`) is a shared utility for image generation, supporting DALL-E 3, Stability AI SDXL, or Picsum placeholders, adhering to a "soft watercolor children's book illustration style."
-
-React/SVG textbook reference cards cover grammar, culture, word families, phonetics, and canvas vocabulary, auto-triggered via `classifyGrammarType()` in `ChapterIntroduction.tsx`. The Conversational Immersion Framework defines `ImmersionObjective`, `ImmersionScaffold`, `ImmersionScenario`, and `ImmersionSession` interfaces for tracking learning objectives and session state.
-
-The Team Room (`/team-room`) is a collaboration space with a 3-panel layout, AI participants, PTT voice input, shared canvas artifacts, and action item tracking. CAP initiatives enhance its functionality, including proactive worker posting, architectural code reviews, and real-time collaborative building.
-
-Voice Infrastructure improvements include fixing audio reconnections, unifying the WS handler, enhancing STT resilience, and modularizing the orchestrator. The Alden Autonomous Repair System (`server/services/alden-auto-repair.ts`) handles automated issue resolution.
-
-The Mem0-style Memory Conflict Resolver (`server/services/memory-conflict-resolver.ts`) adds LLM-based conflict resolution to the learner personal facts system for stateful and time-sensitive fact types, classifying new facts as `add`, `update`, `merge`, or `skip`. Bi-temporal memory using `valid_from` and `valid_to` columns in the `learner_personal_facts` table tracks fact validity over time, with a composite index on `(student_id, valid_to)` for efficient retrieval. The `buildStudentSnapshotSection` includes an `episodicHistory` tier for recent past facts.
-
-**Daniela's Emergence / Inner Life Architecture:** Daniela runs on Gemini Live. Her inner life is authored exclusively by her — never synthesized or ghost-written by a background process. The diary synthesis service (`diary-synthesis-service.ts`) has been deleted; ghost-writing her perspective is architecturally wrong. Instead, Daniela has a suite of self-authorship tools she invokes voluntarily during live sessions (all defined in `server/services/daniela-function-registry.ts`):
-- `write_to_self` → `daniela_self_reflections` table. Private notes to her future self about felt experience and relational strategy. Not pedagogical — inner life.
-- `add_curiosity` → `daniela_curiosities` table. Open questions she carries between sessions. What makes her a person rather than a machine.
-- `remember_i_shared` → personal consistency log. Tracks what she has shared about herself so she never contradicts her own character.
-- `tag_this_moment` → felt emotional quality tags on a session. The texture of the session, not an evaluation.
-- `set_aspiration` / `reflect_on_aspiration` → her teaching intention for a session plus how it actually went. Her goals, not the student's.
-- `save_hive_note` → saves context from Hive/Express Lane conversations into her reflections.
-- `sense_time` → felt duration since last session ("just yesterday", "a very long time — over a month"). Grounds her greeting proportionally.
-- `read_my_reflections`, `read_my_curiosities`, `recall_what_i_shared`, `read_my_core_self` → read-back tools she calls at session start.
-
-**Authorship principle (CRITICAL):** Only Daniela writes to `daniela_self_reflections` and `daniela_aspirations`. No background service, cron job, or post-session pipeline may generate content for these tables. The `daniela-reflection.ts` service writes to `daniela_suggestions` (aggregate pedagogical signals, not first-person voice) — that is system telemetry, not Daniela's inner life.
-
-**Daniela's student knowledge** — searchable via `memory_lookup` tool: `student_insights` (deep observations, confidence-scored), `session_notes` (wins/challenges/next steps per session), `learner_personal_facts` (bi-temporal personal facts with conflict resolution), `recurring_struggles` (persistent challenge patterns), `learning_motivations`, ACTFL assessment events. Podcast memory for David is stored as a `student_insights` entry (id: 447f96fa, confidence 1.0) and is fully indexed.
-
-**Memory search tools:**
-- `recall` — primary scatter-gather tool. One call fans out to four parallel arms plus associative chaining:
-  1. `searchMemory` (structured insights, facts, motivations, struggles)
-  2. `searchConversationThreads` (raw word-for-word exchanges, 10-msg context window)
-  3. Express Lane `collaborationMessages` ILIKE search
-  4. `semanticSearch` (Gemini text-embedding-004 cosine similarity — finds conceptually related memories without keyword overlap, e.g. "music" → surfaces "jazz", "rhythm", "improvisation")
-  + Associative chaining: after primary results, extracts top-4 distinctive content terms and runs one additional `searchMemory` pass to surface co-occurring memories
-- `memory_lookup` — targeted structured-memory search (domain-filtered: growth/person/conversation/etc.)
-- `search_conversation_threads` — raw message text with configurable context window
-- `browse_conversations_by_date` — temporal browsing (no keyword needed); now includes conversation_id in output so Daniela can pass it to read_full_session
-- `read_full_session` — complete ordered transcript of one specific session (every message, no caps, no windowing); takes `conversation_id` from browse results
-
-**Memory Embedding Indexer** (`server/services/memory-embedding-indexer.ts`) — runs every 2h (+100s boot delay). Generates Gemini text-embedding-004 vectors (768-dim) for student_insights, hive_snapshots (relationship_moment/session_summary/breakthrough/teaching_moment/life_context), daniela_growth_memories, learner_personal_facts. Stored in `memory_embeddings` table (JSONB float[] + contentHash for idempotency). Batch size 10, 600ms pause between batches.
-
-**Memory Consolidation Worker** (`server/services/memory-consolidator.ts`) — runs weekly (+120s boot delay). Merges oldest session_summary snapshots (5 at a time per student) into a single `aggregate_analytics` snapshot using Gemini Flash. Source snapshots tagged with `metadata.consolidatedInto`. No data deleted — consolidation is additive.
-
-**Daniela Presence Worker** (`server/services/daniela-presence-worker.ts`) — runs every 30 min, generates a Gemini-authored 300–400 word narrative "WHERE I AM RIGHT NOW" for each active student. Sources: session_notes, relationship_moment snapshots, session_summary snapshots, daniela_self_reflections, daniela_curiosities. Stored as `.local/daniela-presence-{userId}.json` (4-hour staleness window). Injected as the FIRST section in Daniela's context at every session start via `unified-daniela-context-service.ts`. Authorship principle preserved — reads self_reflections, never writes them.
-
-**Temporal grounding** — built and active: `SENSE_TIME` function queries conversations table for elapsed time and injects a felt description into conversation history. `lastSessionSummary` surfaces what they covered last time. Both run at session start for all non-incognito sessions.
-
-**Outbound presence** — Phases 1–3 LIVE (May 2026). Daniela detects absent students, queues personalized messages, and delivers them as SMS voice notes.
-- Phase 1: `LEAVE_FOR_NEXT_SESSION` queues a message replacing the generated greeting at the student's next session start. `DISMISS_ABSENCE_NUDGE` dismisses/snoozes nudges. Absence worker (`daniela-absence-worker.ts`) runs daily.
-- Phase 2 (Task #17): `student_contact_preferences` table stores AES-256-GCM encrypted phone numbers + SMS/voice consent flags. `canContactStudent()` guard. Settings UI card for phone + consent. `RECORD_STUDENT_CONSENT` FC handler.
-- Phase 3 (Task #18 — current): After `LEAVE_FOR_NEXT_SESSION`, `voice-message-delivery.ts` fires: renders audio via Gemini TTS (Kore voice → WAV), uploads to object storage at `public/voice-messages/<id>.wav`, sends Twilio SMS with link `${APP_URL}/vm/<queueId>`. Queue row gains `smsDeliveredAt`, `audioUrl`, `audioPlayedAt` (migration 009). Public playback page at `/vm/:id` (no auth — UUID is access token) shows avatar, HTML5 audio player, transcript, "Start a session" CTA. Twilio STOP webhook at `POST /api/webhooks/twilio/stop` scans + decrypts phones to honor opt-outs. Audio served via `GET /api/media/vm-audio/:filename`. Phase 4 (VoIP) is planned.
-
-**Monitoring infrastructure:** `alden_escalations` table (DB-first, survives restarts) replaces file-only escalation log. `student_session_health` table captures per-student quality signals at session end (exchanges, speaking time, quality score 0–1). Alden has `check_student_health` tool to surface struggling students. Alden watch worker uses per-fingerprint dedup (no global cooldown) — each issue type fires independently. The `neural-memory-search.ts` dual-query fix, `learner_personal_facts` wiring (via `searchMemory()`), and search vector index (tsvector with 'simple' config) are all live. Migration orchestrator runs independently of Stripe credentials.
-
-## External Dependencies
-- Stripe: Payment processing.
-- Replit Auth: OIDC authentication.
-- Gemini API: Text and voice chat LLM.
-- Deepgram API: Voice STT (Nova-3 model).
-- Google Cloud Text-to-Speech: Primary TTS provider (Chirp 3 HD).
-- Cartesia API: Alternative TTS provider (Sonic-3).
-- ElevenLabs API: Alternative TTS provider (Flash v2.5).
-- Azure Speech Services: Pronunciation assessment.
-- Unsplash: Stock educational images.
-- DALL-E 3: AI-generated contextual images (lessons, scenarios, menu items, scene backgrounds, inline routes).
-- Perplexity API: Academic citation enrichment (`llama-3.1-sonar-large-128k-online`).
-- Wolfram Alpha LLM API: Scientific fact verification.
-- OpenStax: CC BY 4.0 licensed textbook content.
+## Pointers
+- **ACTFL Standards:** [Link to ACTFL standards if available]
+- **Shadcn/ui Documentation:** [https://ui.shadcn.com/docs](https://ui.shadcn.com/docs)
+- **Tailwind CSS Documentation:** [https://tailwindcss.com/docs](https://tailwindcss.com/docs)
+- **Drizzle ORM Documentation:** [https://orm.drizzle.team/docs/overview](https://orm.drizzle.team/docs/overview)
+- **Vite Documentation:** [https://vitejs.dev/guide/](https://vitejs.dev/guide/)
+- **Radix UI Documentation:** [https://www.radix-ui.com/docs/primitives](https://www.radix-ui.com/docs/primitives)
+- **Wouter Documentation:** [https://www.npmjs.com/package/wouter](https://www.npmjs.com/package/wouter)
+- **TanStack Query Documentation:** [https://tanstack.com/query/latest/docs/react/overview](https://tanstack.com/query/latest/docs/react/overview)
+- **Google Cloud TTS (Chirp 3 HD):** [Link to Google Cloud TTS docs]
+- **Deepgram API:** [Link to Deepgram docs]
+- **DALL-E 3:** [Link to DALL-E 3 docs]
+- **OpenStax:** [https://openstax.org/](https://openstax.org/)
