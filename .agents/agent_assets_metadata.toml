@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "6DfwcDb6F9DVojCmGFfCH"
@@ -60,3 +59,9 @@ id = "L0NY3MicOyxwppWkEHbhN"
 uri = "file://client/public/strips/panel-2-2.png"
 type = "image"
 title = "Marco smiling at grandma"
+
+[[outputs]]
+id = "cXTsXlRbm3VEWLtKy1l6a"
+uri = "file://fine-tuning-export-2026-05-06.jsonl.gz"
+type = "unspecified"
+title = "Daniela Fine-Tuning Dataset — 185 examples (download & decompress)"
