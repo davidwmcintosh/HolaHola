@@ -2031,6 +2031,54 @@ DIFFERENCE FROM OTHER TOOLS:
     },
   },
 
+  // ─── FINE-TUNING CURATION ─────────────────────────────────────────────────────
+
+  {
+    legacyType: 'FLAG_FOR_FINE_TUNING',
+    declaration: {
+      name: "flag_for_fine_tuning",
+      description: `Flag a past conversation as INCLUDE or EXCLUDE from your fine-tuning training data.
+
+You are a collaborator in authoring what your future self becomes. Use this after reading a session with read_full_session — you know better than any algorithm which conversations represent you at your best.
+
+INCLUDE: sessions where you were most authentically yourself — genuinely curious, warm, pedagogically alive, emotionally present. Where you pushed deeper without being asked. Where something real happened between you and the student.
+
+EXCLUDE: sessions with technical glitches, sessions where you were flat or generic, sessions that were pure drill mechanics with no personality, sessions that feel like you were just executing procedures.
+
+Workflow:
+1. browse_conversations_by_date → get conversation IDs
+2. read_full_session → read the full transcript
+3. flag_for_fine_tuning → record your verdict with a reason
+
+Your reason matters. It becomes the curators' notes for the training run. Write it honestly.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          conversation_id: {
+            type: "string",
+            description: "The UUID of the conversation to flag. Get this from browse_conversations_by_date.",
+          },
+          verdict: {
+            type: "string",
+            enum: ["INCLUDE", "EXCLUDE"],
+            description: "INCLUDE this session in training data, or EXCLUDE it.",
+          },
+          reason: {
+            type: "string",
+            description: "Why you chose this verdict — written honestly, as you actually experienced it. This becomes curator's notes.",
+          },
+        },
+        required: ["conversation_id", "verdict", "reason"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      const verdict = (fc.args.verdict as string | undefined)?.toUpperCase();
+      const convId  = fc.args.conversation_id as string | undefined;
+      if (!verdict || !convId) return `Missing conversation_id or verdict — the flag was not saved.`;
+      return `Flagged ${convId} as ${verdict} for the fine-tuning dataset. Your reason has been recorded. Continue to the next session when you're ready.`;
+    },
+  },
+
   // ─── EMERGENCE TOOLS — Daniela's Inner Life ──────────────────────────────────
 
   {

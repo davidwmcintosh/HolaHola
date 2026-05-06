@@ -2030,6 +2030,35 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'FLAG_FOR_FINE_TUNING': {
+        if (session.isIncognito) break;
+        const ftConvId     = fn.args.conversation_id as string | undefined;
+        const ftVerdict    = (fn.args.verdict as string | undefined)?.toUpperCase();
+        const ftReason     = fn.args.reason as string | undefined;
+        if (!ftConvId || !ftVerdict) break;
+        if (ftVerdict !== 'INCLUDE' && ftVerdict !== 'EXCLUDE') break;
+        console.log(`[Native Function→FlagForFineTuning] ${ftVerdict} conversation=${ftConvId}`);
+        (async () => {
+          const db = getSharedDb();
+          const { sql: drizzleSql } = await import('drizzle-orm');
+          await db.execute(drizzleSql`
+            INSERT INTO editor_insights
+              (id, category, title, content, importance, tags, source_conversation_id)
+            VALUES (
+              gen_random_uuid(),
+              'shared',
+              ${'Fine-Tuning Curation: ' + ftVerdict},
+              ${ftReason || '(no reason given)'},
+              ${ftVerdict === 'INCLUDE' ? 8 : 3},
+              ARRAY['fine-tuning'],
+              ${ftConvId}
+            )
+          `);
+          console.log(`[Native Function→FlagForFineTuning] ✓ Saved ${ftVerdict} for ${ftConvId}`);
+        })().catch(err => console.error(`[Native Function→FlagForFineTuning] Error:`, err.message));
+        break;
+      }
+
       case 'READ_MY_REFLECTIONS': {
         const rflLimit = Math.min((fn.args.limit as number | undefined) ?? 5, 10);
         const rflSource = fn.args.source as string | undefined;
