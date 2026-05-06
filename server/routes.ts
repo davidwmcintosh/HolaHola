@@ -24339,6 +24339,151 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
     }
   });
 
+  // ===== FINE-TUNING CURATION API =====
+
+  app.get("/api/fine-tuning/conversations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getRequestUserId(req);
+      const db = getSharedDb();
+      const language = (req.query.language as string) || "all";
+      const statusFilter = (req.query.status as string) || "all";
+      const page = Math.max(1, parseInt(req.query.page as string || "1", 10));
+      const limit = Math.min(50, parseInt(req.query.limit as string || "30", 10));
+      const offset = (page - 1) * limit;
+
+      // Fetch conversations with message counts
+      const langCondition = language === "all" ? sql`1=1` : sql`c.language = ${language}`;
+      const rawConvs = await db.execute(sql`
+        SELECT c.id, c.language, c.created_at,
+               COUNT(m.id)::int AS message_count,
+               MIN(CASE WHEN m.role = 'user' THEN m.content END) AS first_message
+        FROM conversations c
+        LEFT JOIN messages m ON m.conversation_id = c.id
+        WHERE c.user_id = ${userId} AND ${langCondition}
+        GROUP BY c.id, c.language, c.created_at
+        HAVING COUNT(m.id) >= 4
+        ORDER BY c.created_at DESC
+      `);
+
+      const allConvs = rawConvs.rows as Array<{
+        id: string; language: string | null; created_at: string;
+        message_count: number; first_message: string | null;
+      }>;
+
+      // Fetch all curation flags for this user's conversations
+      const convIds = allConvs.map(c => c.id);
+      let danielaFlags: any[] = [];
+      let davidFlags: any[] = [];
+
+      if (convIds.length > 0) {
+        const flagRows = await db.execute(sql`
+          SELECT title, content, source_conversation_id
+          FROM editor_insights
+          WHERE tags @> ARRAY['fine-tuning']
+            AND source_conversation_id = ANY(${convIds})
+          ORDER BY created_at DESC
+        `);
+        const flags = flagRows.rows as Array<{ title: string; content: string; source_conversation_id: string }>;
+        danielaFlags = flags.filter(f => !f.title?.includes('(David)'));
+        davidFlags = flags.filter(f => f.title?.includes('(David)'));
+      }
+
+      const danielaByConv = new Map<string, { verdict: "INCLUDE" | "EXCLUDE"; reason: string }>();
+      for (const f of danielaFlags) {
+        if (!f.source_conversation_id || danielaByConv.has(f.source_conversation_id)) continue;
+        const verdict = f.title?.toUpperCase().includes('INCLUDE') ? 'INCLUDE' : 'EXCLUDE';
+        danielaByConv.set(f.source_conversation_id, { verdict, reason: f.content });
+      }
+
+      const davidByConv = new Map<string, { verdict: "INCLUDE" | "EXCLUDE" | "HIGHLIGHT"; note: string }>();
+      for (const f of davidFlags) {
+        if (!f.source_conversation_id || davidByConv.has(f.source_conversation_id)) continue;
+        const title = f.title?.toUpperCase() || '';
+        const verdict = title.includes('HIGHLIGHT') ? 'HIGHLIGHT' : title.includes('EXCLUDE') ? 'EXCLUDE' : 'INCLUDE';
+        davidByConv.set(f.source_conversation_id, { verdict, note: f.content });
+      }
+
+      // Build enriched list
+      let enriched = allConvs.map(c => ({
+        id: c.id,
+        language: c.language,
+        createdAt: c.created_at,
+        messageCount: c.message_count,
+        firstMessage: c.first_message?.slice(0, 200) ?? null,
+        danielaVerdict: danielaByConv.get(c.id)?.verdict ?? null,
+        danielaReason: danielaByConv.get(c.id)?.reason ?? null,
+        davidVerdict: davidByConv.get(c.id)?.verdict ?? null,
+        davidNote: davidByConv.get(c.id)?.note ?? null,
+      }));
+
+      // Apply status filter
+      if (statusFilter === "highlighted") enriched = enriched.filter(c => c.davidVerdict === "HIGHLIGHT");
+      else if (statusFilter === "excluded") enriched = enriched.filter(c => c.davidVerdict === "EXCLUDE");
+      else if (statusFilter === "unreviewed") enriched = enriched.filter(c => c.davidVerdict === null);
+
+      const totalFiltered = enriched.length;
+      const paginated = enriched.slice(offset, offset + limit);
+
+      // Stats (always from full set)
+      const fullEnriched = allConvs.map(c => ({
+        davidVerdict: davidByConv.get(c.id)?.verdict ?? null,
+        danielaVerdict: danielaByConv.get(c.id)?.verdict ?? null,
+      }));
+      const stats = {
+        total: allConvs.length,
+        highlighted: fullEnriched.filter(c => c.davidVerdict === "HIGHLIGHT").length,
+        excluded: fullEnriched.filter(c => c.davidVerdict === "EXCLUDE").length,
+        danielaFlagged: fullEnriched.filter(c => c.danielaVerdict !== null).length,
+      };
+
+      res.json({ conversations: paginated, stats, total: totalFiltered });
+    } catch (error: any) {
+      console.error('[Fine-Tuning] Error fetching conversations:', error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/fine-tuning/flag", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getRequestUserId(req);
+      const db = getSharedDb();
+      const { conversationId, verdict, note } = req.body;
+
+      if (!conversationId) return res.status(400).json({ error: "conversationId required" });
+      if (verdict !== null && verdict !== "INCLUDE" && verdict !== "EXCLUDE" && verdict !== "HIGHLIGHT") {
+        return res.status(400).json({ error: "verdict must be INCLUDE, EXCLUDE, HIGHLIGHT, or null" });
+      }
+
+      // Remove any existing David flag for this conversation
+      await db.execute(sql`
+        DELETE FROM editor_insights
+        WHERE source_conversation_id = ${conversationId}
+          AND tags @> ARRAY['fine-tuning']
+          AND title ILIKE '%David%'
+      `);
+
+      if (verdict !== null) {
+        const importance = verdict === "HIGHLIGHT" ? 9 : verdict === "EXCLUDE" ? 2 : 7;
+        await db.execute(sql`
+          INSERT INTO editor_insights (id, category, title, content, importance, tags, source_conversation_id)
+          VALUES (
+            gen_random_uuid(), 'shared',
+            ${`Fine-Tuning Curation (David): ${verdict}`},
+            ${note || ''},
+            ${importance},
+            ARRAY['fine-tuning', 'david-curation'],
+            ${conversationId}
+          )
+        `);
+      }
+
+      res.json({ ok: true, conversationId, verdict });
+    } catch (error: any) {
+      console.error('[Fine-Tuning] Error saving flag:', error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ===== REPLIT AGENT API =====
   // Dedicated endpoints for Replit Agent to access Wren services
   // Uses x-agent-token header for authentication (separate from user auth)

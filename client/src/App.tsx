@@ -87,6 +87,7 @@ const MathTutor = lazyWithRetry(() => import("@/pages/math-tutor"));
 const BusinessTutor = lazyWithRetry(() => import("@/pages/business-tutor"));
 const AldenPage = lazyWithRetry(() => import("@/pages/alden"));
 const AgentSpace = lazyWithRetry(() => import("@/pages/AgentSpace"));
+const FineTuningCurator = lazyWithRetry(() => import("@/pages/fine-tuning-curator"));
 const TeamRoom = lazyWithRetry(() => import("@/pages/TeamRoom"));
 const StudyMode = lazyWithRetry(() => import("@/pages/StudyMode"));
 const ReadingLibrary = lazyWithRetry(() => import("@/pages/reading-library"));
@@ -245,6 +246,7 @@ function Router() {
         <Route path="/progress-report" component={ProgressReport} />
         <Route path="/alden" component={AldenPage} />
         <Route path="/agent-space" component={AgentSpace} />
+        <Route path="/fine-tuning" component={FineTuningCurator} />
         <Route path="/team-room" component={TeamRoom} />
         <Route path="/study-mode" component={StudyMode} />
         <Route path="/diary" component={DanielaDiary} />

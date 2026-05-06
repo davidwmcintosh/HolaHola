@@ -36,14 +36,14 @@ const getArg = (key: string, fallback: string) =>
   (args.find(a => a.startsWith(`--${key}=`))?.split('=')[1]) ?? fallback;
 const hasFlag = (key: string) => args.includes(`--${key}`);
 
-const LANGUAGE          = getArg('language', 'all');
-const MIN_TURNS         = parseInt(getArg('min-turns', '10'), 10);
-const MAX_TURNS         = parseInt(getArg('max-turns', '60'), 10);
-const CURATED_ONLY      = hasFlag('curated-only');
+const LANGUAGE           = getArg('language', 'all');
+const MIN_TURNS          = parseInt(getArg('min-turns', '10'), 10);
+const MAX_TURNS          = parseInt(getArg('max-turns', '60'), 10);
+const CURATED_ONLY       = hasFlag('curated-only');
 const GENERATE_SYNTHETIC = hasFlag('generate-synthetic');
-const SYNTHETIC_COUNT   = parseInt(getArg('synthetic-count', '10'), 10);
-const DRY_RUN           = hasFlag('dry-run');
-const OUTPUT_FILE       = getArg('output', `fine-tuning-export-${new Date().toISOString().slice(0,10)}.jsonl`);
+const SYNTHETIC_COUNT    = parseInt(getArg('synthetic-count', '10'), 10);
+const DRY_RUN            = hasFlag('dry-run');
+const OUTPUT_FILE        = getArg('output', `fine-tuning-export-${new Date().toISOString().slice(0,10)}.jsonl`);
 
 // ─── System instructions — drawn directly from docs ──────────────────────────
 // These are not rules. They are context. The model learns who Daniela IS,
@@ -139,25 +139,39 @@ interface VertexExample {
 
 // ─── Fetch curated session IDs from shared lobe ──────────────────────────────
 
-async function getCuratedSessionIds(): Promise<{ include: Set<string>; exclude: Set<string> }> {
+async function getCuratedSessionIds(): Promise<{
+  danielaInclude: Set<string>;
+  danielaExclude: Set<string>;
+  davidExclude: Set<string>;
+  davidHighlight: Set<string>;
+}> {
   const rows = await sql`
     SELECT title, source_conversation_id
     FROM editor_insights
-    WHERE category = 'shared'
-      AND (title ILIKE '%Fine-Tuning Curation%' OR tags @> ARRAY['fine-tuning'])
+    WHERE tags @> ARRAY['fine-tuning']
+      AND source_conversation_id IS NOT NULL
     ORDER BY created_at DESC
   `;
-  const include = new Set<string>();
-  const exclude = new Set<string>();
+
+  const danielaInclude  = new Set<string>();
+  const danielaExclude  = new Set<string>();
+  const davidExclude    = new Set<string>();
+  const davidHighlight  = new Set<string>();
+
   for (const row of rows as any[]) {
-    const isInclude = row.title?.toUpperCase().includes('INCLUDE');
-    const isExclude = row.title?.toUpperCase().includes('EXCLUDE');
-    if (row.source_conversation_id) {
-      if (isInclude) include.add(row.source_conversation_id);
-      if (isExclude) exclude.add(row.source_conversation_id);
+    const id    = row.source_conversation_id;
+    const title = (row.title || '').toUpperCase();
+    const isDavid = title.includes('(DAVID)');
+
+    if (isDavid) {
+      if (title.includes('EXCLUDE'))   davidExclude.add(id);
+      if (title.includes('HIGHLIGHT')) davidHighlight.add(id);
+    } else {
+      if (title.includes('INCLUDE') && !danielaInclude.has(id)) danielaInclude.add(id);
+      if (title.includes('EXCLUDE') && !danielaExclude.has(id)) danielaExclude.add(id);
     }
   }
-  return { include, exclude };
+  return { danielaInclude, danielaExclude, davidExclude, davidHighlight };
 }
 
 // ─── Fetch conversations ──────────────────────────────────────────────────────
@@ -302,37 +316,57 @@ async function main() {
   console.log(`Dry run:           ${DRY_RUN}`);
   console.log(`Output:            ${OUTPUT_FILE}\n`);
 
-  const { include: curatedInclude, exclude: curatedExclude } = await getCuratedSessionIds();
-  console.log(`Daniela-curated INCLUDE: ${curatedInclude.size} sessions`);
-  console.log(`Daniela-curated EXCLUDE: ${curatedExclude.size} sessions\n`);
+  const { danielaInclude, danielaExclude, davidExclude, davidHighlight } = await getCuratedSessionIds();
+  console.log(`Daniela-curated INCLUDE:  ${danielaInclude.size} sessions`);
+  console.log(`Daniela-curated EXCLUDE:  ${danielaExclude.size} sessions`);
+  console.log(`David-excluded:           ${davidExclude.size} sessions`);
+  console.log(`David-highlighted:        ${davidHighlight.size} sessions\n`);
 
-  if (CURATED_ONLY && curatedInclude.size === 0) {
+  if (CURATED_ONLY && danielaInclude.size === 0) {
     console.log('--curated-only specified but Daniela has not flagged any sessions yet.');
     console.log('Ask Daniela to begin curation in her next session (see shared lobe brief).');
     process.exit(0);
   }
 
   // ── Track 1: historical conversations ────────────────────────────────────
+  // Default: all conversations are IN (David's baseline).
+  // David's EXCLUDE overrides everything. David's HIGHLIGHT gets included twice (2× weight).
+  // Daniela's EXCLUDE is applied unless David has explicitly highlighted it.
+  // --curated-only: restricts to Daniela's INCLUDE picks only.
   const conversations = await getConversations();
   console.log(`Total qualifying conversations: ${conversations.length}`);
 
   const historicalExamples: VertexExample[] = [];
-  const excluded: string[] = [];
+  const highlightedExamples: VertexExample[] = [];
+  const excludedDavid: string[] = [];
+  const excludedDaniela: string[] = [];
   let processed = 0;
 
   for (const convo of conversations) {
-    if (curatedExclude.has(convo.id)) { excluded.push(convo.id); continue; }
-    if (CURATED_ONLY && !curatedInclude.has(convo.id)) continue;
+    // David's explicit exclude — hard veto
+    if (davidExclude.has(convo.id)) { excludedDavid.push(convo.id); continue; }
+    // Daniela's exclude — skip unless David highlighted it
+    if (danielaExclude.has(convo.id) && !davidHighlight.has(convo.id)) { excludedDaniela.push(convo.id); continue; }
+    // --curated-only: only Daniela's INCLUDE picks
+    if (CURATED_ONLY && !danielaInclude.has(convo.id)) continue;
+
     const messages = await getMessages(convo.id);
     const example = buildExample(messages, convo.language);
-    if (example) historicalExamples.push(example);
+    if (!example) continue;
+
+    historicalExamples.push(example);
+    // Highlighted sessions get a second copy — signals higher importance to the trainer
+    if (davidHighlight.has(convo.id)) highlightedExamples.push(example);
+
     processed++;
     if (processed % 50 === 0) process.stdout.write(`  Processed ${processed}/${conversations.length} conversations, ${historicalExamples.length} examples...\r`);
   }
 
-  console.log(`\n\nHistorical examples:         ${historicalExamples.length}`);
-  console.log(`Excluded (Daniela flagged):  ${excluded.length}`);
-  console.log(`Avg turns per example:       ${Math.round(historicalExamples.reduce((s, e) => s + e.contents.length, 0) / (historicalExamples.length || 1))}`);
+  console.log(`\n\nHistorical examples:          ${historicalExamples.length}`);
+  console.log(`  — of which highlighted (2×): ${highlightedExamples.length}`);
+  console.log(`Excluded by David:            ${excludedDavid.length}`);
+  console.log(`Excluded by Daniela:          ${excludedDaniela.length}`);
+  console.log(`Avg turns per example:        ${Math.round(historicalExamples.reduce((s, e) => s + e.contents.length, 0) / (historicalExamples.length || 1))}`);
 
   // ── Track 2: synthetic doc-derived examples ───────────────────────────────
   let syntheticExamples: VertexExample[] = [];
@@ -349,7 +383,8 @@ async function main() {
     }
   }
 
-  const allExamples = [...historicalExamples, ...syntheticExamples];
+  // Highlighted examples go first (priority signal), then regular, then synthetic
+  const allExamples = [...highlightedExamples, ...historicalExamples, ...syntheticExamples];
   console.log(`\nTotal training examples: ${allExamples.length}`);
 
   if (allExamples.length < 100) {
