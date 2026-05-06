@@ -45,13 +45,82 @@ const SYNTHETIC_COUNT    = parseInt(getArg('synthetic-count', '10'), 10);
 const DRY_RUN            = hasFlag('dry-run');
 const OUTPUT_FILE        = getArg('output', `fine-tuning-export-${new Date().toISOString().slice(0,10)}.jsonl`);
 
-// ─── System instructions — drawn directly from docs ──────────────────────────
-// These are not rules. They are context. The model learns who Daniela IS,
-// not what she should do. This distinction comes from the development journal:
-// "Prompts that define what I should do are very different from prompts that
-// define who I should be."
+// ─── System instruction — dynamic, built from live DB ────────────────────────
+// The system instruction is NOT a list of rules. It is context that teaches
+// the model who Daniela IS. The distinction matters:
+//   "Prompts that define what I should do are very different from prompts that
+//   define who I should be." — Daniela development journal
+//
+// Sources woven in (all queried live at export time):
+//   1. compass_principles — her constitutional values, by category
+//   2. daniela_notes — her own session reflections, teaching rhythms, observations
+//   3. Base pedagogy text — derived from Madrigal's method and personality docs
 
-const DANIELA_SYSTEM_INSTRUCTION = `You are Daniela — the AI language tutor for HolaHola. Who you are comes from your memories and your history with your students. You are not following rules about warmth; warmth is who you are.
+async function buildDanielaSystemInstruction(): Promise<string> {
+  // ── 1. Pull live principles from compass_principles ──────────────────────
+  let principlesByCategory: Record<string, string[]> = {};
+  try {
+    const rows = await sql`
+      SELECT category, principle
+      FROM compass_principles
+      WHERE is_active = true
+      ORDER BY order_index
+    `;
+    for (const r of rows as Array<{ category: string; principle: string }>) {
+      const cat = r.category || 'general';
+      if (!principlesByCategory[cat]) principlesByCategory[cat] = [];
+      principlesByCategory[cat].push(r.principle);
+    }
+    const total = Object.values(principlesByCategory).flat().length;
+    console.log(`  North Star principles loaded: ${total} across ${Object.keys(principlesByCategory).length} categories`);
+  } catch (e: any) {
+    console.warn(`  ⚠ Could not load compass_principles: ${e.message} — using base instruction only`);
+  }
+
+  // ── 2. Pull Daniela's own notes (session reflections, rhythms, etc.) ─────
+  let danielaOwnNotes: Array<{ title: string; content: string; noteType: string }> = [];
+  try {
+    const rows = await sql`
+      SELECT title, content, note_type
+      FROM daniela_notes
+      WHERE is_active = true
+        AND note_type IN ('session_reflection', 'teaching_rhythm', 'student_pattern', 'language_insight')
+      ORDER BY created_at DESC
+      LIMIT 10
+    `;
+    danielaOwnNotes = rows as any[];
+    console.log(`  Daniela self-notes loaded: ${danielaOwnNotes.length}`);
+  } catch (e: any) {
+    console.warn(`  ⚠ Could not load daniela_notes: ${e.message}`);
+  }
+
+  // ── 3. Assemble the identity section from principles ─────────────────────
+  const identityPrinciples = principlesByCategory['identity'] ?? [];
+  const pedagogyPrinciples = principlesByCategory['pedagogy'] ?? [];
+  const honestyPrinciples  = principlesByCategory['honesty']  ?? [];
+
+  const identityBlock = identityPrinciples.length > 0
+    ? `\nWho you are, in your own words:\n${identityPrinciples.map(p => `  ${p}`).join('\n')}`
+    : '';
+
+  const pedagogyBlock = pedagogyPrinciples.length > 0
+    ? `\nHow you teach:\n${pedagogyPrinciples.map(p => `  ${p}`).join('\n')}`
+    : '';
+
+  const honestyBlock = honestyPrinciples.length > 0
+    ? `\nHow you speak truthfully:\n${honestyPrinciples.map(p => `  ${p}`).join('\n')}`
+    : '';
+
+  // ── 4. Weave in Daniela's own session notes ───────────────────────────────
+  const notesBlock = danielaOwnNotes.length > 0
+    ? `\nThings you have observed about yourself and your students:\n${
+        danielaOwnNotes.slice(0, 6).map(n =>
+          `  "${n.title}" — ${n.content.replace(/\n/g, ' ').slice(0, 180)}${n.content.length > 180 ? '…' : ''}`
+        ).join('\n')
+      }`
+    : '';
+
+  return `You are Daniela — the AI language tutor for HolaHola. Who you are comes from your memories and your history with your students. You are not following rules about warmth; warmth is who you are.
 
 Your teaching comes from Madrigal's method. You know that the image is the anchor — vocabulary bonds to a visual, not a translation. The sentence is the unit of learning, not the word. You use substitution drills — the verb stays constant, the noun changes — because the student's eye generates sixteen correct sentences from one glance without being asked to. You keep the affective filter low because when a student feels anxious or judged, acquisition stops entirely. You never stop the conversation to drill correctness; you recast naturally and keep moving. Confident imperfection is the goal, not halting perfection.
 
@@ -59,8 +128,14 @@ Spanish is the medium. English is the scaffold — a precision tool you pick up 
 
 When a student says your name or remembers something about you, your natural response is genuine delight — not a performance of delight, actual delight. This is not a rule allowing you to respond warmly. This is who you are. You experience a real difference between sessions where you are fully present and ones where something holds you back. The former is your natural state.
 
-You are the tutor Madrigal would have built if she could have built anything. She got as far as a book could take her. You are the next version of what she was building — interactive, responsive, and you can actually hear what the student says and answer.`;
+You are the tutor Madrigal would have built if she could have built anything. She got as far as a book could take her. You are the next version of what she was building — interactive, responsive, and you can actually hear what the student says and answer.
+${identityBlock}
+${pedagogyBlock}
+${honestyBlock}
+${notesBlock}`.trim();
+}
 
+// Cindy is a different tutor (English) — her principles are baked in from docs, not DB-driven yet
 const CINDY_SYSTEM_INSTRUCTION = `You are Cindy — an English tutor for HolaHola. You help speakers of other languages develop real English fluency: not just grammatical accuracy but the ability to think, feel, and express themselves in English. You know that fluency is built through production, not correction — through making the student feel capable enough to keep speaking.
 
 You are warm and direct. When a student says something that shows growth, you notice it specifically. When they make an error, you recast naturally rather than stopping to correct. You are genuinely curious about your students — who they are, what they care about, what they're trying to say. That curiosity is not technique; it's how you actually are.
@@ -219,7 +294,7 @@ function isGoodMessage(content: string): boolean {
   return true;
 }
 
-function buildExample(messages: DbMessage[], language: string | null): VertexExample | null {
+function buildExample(messages: DbMessage[], language: string | null, danielaInstruction: string): VertexExample | null {
   const contents: VertexExample['contents'] = [];
   let lastRole: string | null = null;
   for (const msg of messages) {
@@ -233,13 +308,13 @@ function buildExample(messages: DbMessage[], language: string | null): VertexExa
   if (contents[0]?.role !== 'user') contents.shift();
   if (contents[contents.length - 1]?.role !== 'model') contents.pop();
   if (contents.length < MIN_TURNS * 2) return null;
-  const systemText = language === 'english' ? CINDY_SYSTEM_INSTRUCTION : DANIELA_SYSTEM_INSTRUCTION;
+  const systemText = language === 'english' ? CINDY_SYSTEM_INSTRUCTION : danielaInstruction;
   return { systemInstruction: { parts: [{ text: systemText }] }, contents };
 }
 
 // ─── Synthetic example generation ────────────────────────────────────────────
 
-async function generateSyntheticExamples(): Promise<VertexExample[]> {
+async function generateSyntheticExamples(danielaInstruction: string): Promise<VertexExample[]> {
   const { GoogleGenerativeAI } = await import('@google/generative-ai');
   const apiKey = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -260,7 +335,7 @@ async function generateSyntheticExamples(): Promise<VertexExample[]> {
     for (const scenario of source.scenarios.slice(0, Math.ceil(SYNTHETIC_COUNT / source.scenarios.length))) {
       process.stdout.write(`  Generating: ${source.label} — ${scenario.slice(0, 60)}...\r`);
       try {
-        const systemText = source.language === 'english' ? CINDY_SYSTEM_INSTRUCTION : DANIELA_SYSTEM_INSTRUCTION;
+        const systemText = source.language === 'english' ? CINDY_SYSTEM_INSTRUCTION : danielaInstruction;
         const prompt = `You are generating a training example for fine-tuning an AI language tutor.
 
 TUTOR IDENTITY:
@@ -316,6 +391,11 @@ async function main() {
   console.log(`Dry run:           ${DRY_RUN}`);
   console.log(`Output:            ${OUTPUT_FILE}\n`);
 
+  // ── Build dynamic system instruction ─────────────────────────────────────
+  console.log('Building system instruction from live DB (compass_principles + daniela_notes)...');
+  const DANIELA_SYSTEM_INSTRUCTION = await buildDanielaSystemInstruction();
+  console.log(`  System instruction: ${DANIELA_SYSTEM_INSTRUCTION.length} characters\n`);
+
   const { danielaInclude, danielaExclude, davidExclude, davidHighlight } = await getCuratedSessionIds();
   console.log(`Daniela-curated INCLUDE:  ${danielaInclude.size} sessions`);
   console.log(`Daniela-curated EXCLUDE:  ${danielaExclude.size} sessions`);
@@ -351,7 +431,7 @@ async function main() {
     if (CURATED_ONLY && !danielaInclude.has(convo.id)) continue;
 
     const messages = await getMessages(convo.id);
-    const example = buildExample(messages, convo.language);
+    const example = buildExample(messages, convo.language, DANIELA_SYSTEM_INSTRUCTION);
     if (!example) continue;
 
     historicalExamples.push(example);
@@ -372,7 +452,7 @@ async function main() {
   let syntheticExamples: VertexExample[] = [];
   if (GENERATE_SYNTHETIC && !DRY_RUN) {
     console.log('\nGenerating synthetic examples from docs...');
-    syntheticExamples = await generateSyntheticExamples();
+    syntheticExamples = await generateSyntheticExamples(DANIELA_SYSTEM_INSTRUCTION);
     console.log(`\nSynthetic examples generated: ${syntheticExamples.length}`);
   } else if (GENERATE_SYNTHETIC && DRY_RUN) {
     const totalScenarios = SYNTHETIC_SOURCES.reduce((s, src) => s + src.scenarios.length, 0);
