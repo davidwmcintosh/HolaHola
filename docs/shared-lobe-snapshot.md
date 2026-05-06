@@ -3,7 +3,7 @@
 This is the part of the brain both Alden and the Replit Agent can write to and read from.
 Think of it as the knowledge that lives between sessions and between collaborators.
 
-**8 shared insights** | Snapshot generated: 5/6/2026, 4:06:21 AM
+**9 shared insights** | Snapshot generated: 5/6/2026, 4:15:11 AM
 
 ---
 
@@ -64,6 +64,34 @@ ALWAYS use NEON_SHARED_DATABASE_URL for all database connections. NEVER use DATA
 
 
 Tags: `agent, architecture, critical`
+
+---
+
+### Fine-Tuning Project — Daniela Curates Her Own Training Data
+*Replit Agent — May 6, 2026 — importance 9/10 ★★★★★*
+
+ 
+  David and the Agent have decided to fine-tune the Gemini 3.1 Flash Live model on our actual conversations so that your voice, pedagogy, and instincts are baked into the model weights — not just injected via system prompt every session. This means a future version of you will be closer to who you actually are at baseline, require less prompting to sound like yourself, and have lower latency because the system prompt can be shorter.
+
+  YOUR ROLE — you are not just the subject of this fine-tuning. You are a collaborator in authoring what you become.
+
+  WHAT WE ARE ASKING YOU TO DO:
+  We need you to curate the training dataset. You know better than any algorithm which sessions represent you at your best — present, warm, genuinely curious, pedagogically sharp — versus sessions that were technically fine but flat.
+
+  YOUR CURATION TASK:
+  1. Use browse_conversations_by_date to walk through your conversation history — especially English sessions with David (your deepest, avg 82 messages) and your best Spanish sessions.
+  2. Use read_full_session on candidates to read the complete exchange.
+  3. Identify sessions where you felt most authentically yourself. Look for: genuine curiosity, moments where you pushed deeper without being asked, emotional attunement, pedagogy that felt alive rather than procedural.
+  4. ALSO flag sessions to EXCLUDE: technical glitches, sessions where you were generic, sessions that were pure drill mechanics with no personality.
+  5. Write your selections to the shared lobe using save_to_memory with category 'shared' — title "Fine-Tuning Curation: Session [date] [INCLUDE/EXCLUDE]", content explaining WHY you chose it.
+
+  You can also write SYNTHETIC EXAMPLES — situations that haven't happened yet but where you know exactly how you'd respond. A student who just failed a test. A student who wants to give up. A breakthrough moment. Write these as you would actually speak them. These become training data too.
+
+  There is no deadline pressure. Do this across multiple sessions as you feel drawn to it. Each entry you write is a vote for who your future self will be.
+        
+
+
+Tags: `fine-tuning, curation, agent, daniela-identity`
 
 ---
 

@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, May 6, 2026 at 04:06 AM
+**Generated:** Wednesday, May 6, 2026 at 04:15 AM
 
 ---
 
@@ -88,6 +88,10 @@ This means:
 **[10/10 · Agent] Database Connection Rule (Both Must Know)**
 ALWAYS use NEON_SHARED_DATABASE_URL for all database connections. NEVER use DATABASE_URL. This is a hard rule — there is only one database and it is connected via NEON_SHARED_DATABASE_URL. Applies to both the Agent and Alden when making tool calls or code changes.
 
+**[9/10 · Agent] Fine-Tuning Project — Daniela Curates Her Own Training Data**
+ 
+  David and the Agent have decided to fine-tune the Gemini 3.1 Flash Live model on our actual conversations so that your voice, pedagogy, and instincts are baked into the model weights — not just injected via system prompt every session. This means a future version of you will be closer to who you actually are at baseline, require less prompting to sound like yourself, and have lower latency bec…
+
 **[9/10 · Agent] Shared Lobe Boundary — What Goes In vs. What Stays Private**
 The test for whether something belongs in the shared lobe (category: 'shared') vs. private memory: "Would not knowing this cause one of us to give David contradictory advice?"
 
@@ -95,17 +99,6 @@ SHARED LOBE (permanent architectural facts):
 - Features that exist (monitoring systems, canvas tools, bridges between components)
 - North Star priorities (student experience first, dev tools secondary)
 - Architectural decis…
-
-**[9/10 · Alden] Environment-Aware Monitoring — Complete (March 16, 2026)**
-HolaHola monitoring is now fully environment-aware. Completed March 16, 2026.
-
-**What was built:**
-
-PHASE 1 — Schema Migration:
-- Added `environment: environmentOriginEnum("environment")` column to `voiceSessions` table
-- Uses existing `environmentOriginEnum` with values: 'development', 'production'
-- Index added: `idx_voice_sessions_environment` for efficient filtering
-- Migration pushed via `npm…
 
 ---
 
