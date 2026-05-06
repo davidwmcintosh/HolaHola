@@ -24351,42 +24351,50 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
       const limit = Math.min(50, parseInt(req.query.limit as string || "30", 10));
       const offset = (page - 1) * limit;
 
-      // Fetch conversations with message counts
-      const langCondition = language === "all" ? sql`1=1` : sql`c.language = ${language}`;
-      const rawConvs = await db.execute(sql`
-        SELECT c.id, c.language, c.created_at,
-               COUNT(m.id)::int AS message_count,
-               MIN(CASE WHEN m.role = 'user' THEN m.content END) AS first_message
-        FROM conversations c
-        LEFT JOIN messages m ON m.conversation_id = c.id
-        WHERE c.user_id = ${userId} AND ${langCondition}
-        GROUP BY c.id, c.language, c.created_at
-        HAVING COUNT(m.id) >= 4
-        ORDER BY c.created_at DESC
-      `);
+      // Use separate queries to avoid embedding sql fragments in execute()
+      const rawConvs = language === "all"
+        ? await db.execute(sql`
+            SELECT c.id, c.language, c.created_at,
+                   COUNT(m.id)::int AS message_count,
+                   MIN(CASE WHEN m.role = 'user' THEN m.content END) AS first_message
+            FROM conversations c
+            LEFT JOIN messages m ON m.conversation_id = c.id
+            WHERE c.user_id = ${userId}
+            GROUP BY c.id, c.language, c.created_at
+            HAVING COUNT(m.id) >= 4
+            ORDER BY c.created_at DESC
+          `)
+        : await db.execute(sql`
+            SELECT c.id, c.language, c.created_at,
+                   COUNT(m.id)::int AS message_count,
+                   MIN(CASE WHEN m.role = 'user' THEN m.content END) AS first_message
+            FROM conversations c
+            LEFT JOIN messages m ON m.conversation_id = c.id
+            WHERE c.user_id = ${userId} AND c.language = ${language}
+            GROUP BY c.id, c.language, c.created_at
+            HAVING COUNT(m.id) >= 4
+            ORDER BY c.created_at DESC
+          `);
 
       const allConvs = rawConvs.rows as Array<{
         id: string; language: string | null; created_at: string;
         message_count: number; first_message: string | null;
       }>;
 
-      // Fetch all curation flags for this user's conversations
-      const convIds = allConvs.map(c => c.id);
-      let danielaFlags: any[] = [];
-      let davidFlags: any[] = [];
+      // Fetch ALL fine-tuning flags; filter by conversation ID in JS to avoid ANY(array) issues
+      const flagRows = await db.execute(sql`
+        SELECT title, content, source_conversation_id
+        FROM editor_insights
+        WHERE tags @> ARRAY['fine-tuning']
+          AND source_conversation_id IS NOT NULL
+        ORDER BY created_at DESC
+      `);
+      const convIdSet = new Set(allConvs.map(c => c.id));
+      const allFlags = (flagRows.rows as Array<{ title: string; content: string; source_conversation_id: string }>)
+        .filter(f => convIdSet.has(f.source_conversation_id));
 
-      if (convIds.length > 0) {
-        const flagRows = await db.execute(sql`
-          SELECT title, content, source_conversation_id
-          FROM editor_insights
-          WHERE tags @> ARRAY['fine-tuning']
-            AND source_conversation_id = ANY(${convIds})
-          ORDER BY created_at DESC
-        `);
-        const flags = flagRows.rows as Array<{ title: string; content: string; source_conversation_id: string }>;
-        danielaFlags = flags.filter(f => !f.title?.includes('(David)'));
-        davidFlags = flags.filter(f => f.title?.includes('(David)'));
-      }
+      const danielaFlags = allFlags.filter(f => !f.title?.includes('(David)'));
+      const davidFlags   = allFlags.filter(f => f.title?.includes('(David)'));
 
       const danielaByConv = new Map<string, { verdict: "INCLUDE" | "EXCLUDE"; reason: string }>();
       for (const f of danielaFlags) {
@@ -24403,7 +24411,6 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
         davidByConv.set(f.source_conversation_id, { verdict, note: f.content });
       }
 
-      // Build enriched list
       let enriched = allConvs.map(c => ({
         id: c.id,
         language: c.language,
@@ -24416,7 +24423,6 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
         davidNote: davidByConv.get(c.id)?.note ?? null,
       }));
 
-      // Apply status filter
       if (statusFilter === "highlighted") enriched = enriched.filter(c => c.davidVerdict === "HIGHLIGHT");
       else if (statusFilter === "excluded") enriched = enriched.filter(c => c.davidVerdict === "EXCLUDE");
       else if (statusFilter === "unreviewed") enriched = enriched.filter(c => c.davidVerdict === null);
@@ -24424,16 +24430,11 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
       const totalFiltered = enriched.length;
       const paginated = enriched.slice(offset, offset + limit);
 
-      // Stats (always from full set)
-      const fullEnriched = allConvs.map(c => ({
-        davidVerdict: davidByConv.get(c.id)?.verdict ?? null,
-        danielaVerdict: danielaByConv.get(c.id)?.verdict ?? null,
-      }));
       const stats = {
         total: allConvs.length,
-        highlighted: fullEnriched.filter(c => c.davidVerdict === "HIGHLIGHT").length,
-        excluded: fullEnriched.filter(c => c.davidVerdict === "EXCLUDE").length,
-        danielaFlagged: fullEnriched.filter(c => c.danielaVerdict !== null).length,
+        highlighted: [...davidByConv.values()].filter(v => v.verdict === "HIGHLIGHT").length,
+        excluded:    [...davidByConv.values()].filter(v => v.verdict === "EXCLUDE").length,
+        danielaFlagged: danielaByConv.size,
       };
 
       res.json({ conversations: paginated, stats, total: totalFiltered });
@@ -24443,9 +24444,37 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
     }
   });
 
+  // Returns the live context layers injected into the system instruction
+  app.get("/api/fine-tuning/context", isAuthenticated, async (_req: any, res) => {
+    try {
+      const db = getSharedDb();
+      const [principleRows, noteRows] = await Promise.all([
+        db.execute(sql`
+          SELECT id, category, principle, order_index
+          FROM compass_principles
+          WHERE is_active = true
+          ORDER BY order_index
+        `),
+        db.execute(sql`
+          SELECT id, title, content, note_type, created_at
+          FROM daniela_notes
+          WHERE is_active = true
+          ORDER BY created_at DESC
+          LIMIT 20
+        `),
+      ]);
+      res.json({
+        principles: principleRows.rows,
+        notes: noteRows.rows,
+      });
+    } catch (error: any) {
+      console.error('[Fine-Tuning] Error fetching context:', error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/fine-tuning/flag", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getRequestUserId(req);
       const db = getSharedDb();
       const { conversationId, verdict, note } = req.body;
 
@@ -24454,7 +24483,6 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
         return res.status(400).json({ error: "verdict must be INCLUDE, EXCLUDE, HIGHLIGHT, or null" });
       }
 
-      // Remove any existing David flag for this conversation
       await db.execute(sql`
         DELETE FROM editor_insights
         WHERE source_conversation_id = ${conversationId}
