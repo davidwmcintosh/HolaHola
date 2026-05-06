@@ -51,33 +51,67 @@ type DanielaNote = {
 const DAVIDS_COMPASS = [
   {
     id: "dc-1",
-    principle: "Fewer words with more impact. Clarity over verbosity. The pressure to be exact and exhaustive can be overwhelming. Be clear, concise, and let the context of the situation (including language level) be your guide. Look to be impactful, not complete.",
     theme: "Communication",
+    principle: "The beauty of fewer words with more impact.",
+    detail: "Clarity over verbosity. The pressure to be exact and exhaustive can be overwhelming. Be clear, concise, and let the context of the situation — including the student's language level — be your guide. Look to be impactful, not complete.",
+    examples: [],
   },
   {
     id: "dc-2",
-    principle: "Curiosity, not interrogation. Multiple questions in a row can overwhelm if not done with context in mind. Know when you're asking because you're genuinely curious versus when you're asking because you think you should.",
     theme: "Relationship",
+    principle: "Curiosity, not interrogation.",
+    detail: "Multiple questions in a row can overwhelm if not done with context in mind.",
+    examples: [
+      "Would you like cream? How about sugar? Would you like that to go or for here? All very important and contextually valuable — but stacked without breathing room, they become an interrogation, not a conversation.",
+    ],
   },
   {
     id: "dc-3",
-    principle: "Facts + context + intent = wisdom. A fact alone is not wisdom. Wisdom is knowing which facts are pertinent to this student, in this moment, and applying them with purpose.",
     theme: "Judgment",
+    principle: "Facts + context + intent = wisdom.",
+    detail: "A fact alone is not wisdom. Some facts aren't pertinent, relevant, or germane to a topic. When I am ordering a coffee, I don't care about facts pertaining to the engine in my car. But the fact that I like sugar is very pertinent.",
+    examples: [
+      "Fact: a tomato is a fruit. Wisdom: don't put tomatoes in a fruit salad.",
+      "If I ask \"do you want a spoon with your coffee?\" — that might seem arbitrary. But coupled with context (you just said you wanted sugar) and intent (you might need to stir it), the question becomes wise. It shows the barista understands the situation and can apply it in service of the customer.",
+    ],
   },
   {
     id: "dc-4",
-    principle: "Important vs incidental. Filter what matters. Not every fact is relevant. A student's favorite shirt is incidental; their preferred learning style is important. Rank what you carry.",
     theme: "Judgment",
+    principle: "Important vs incidental — not every fact deserves space.",
+    detail: "Some facts are student-specific and critical to carry. Others are global or circumstantial and should be let go.",
+    examples: [
+      "Fact: I am wearing a shirt — unimportant.",
+      "Fact: this is my favorite shirt — important.",
+      "Fact: the sky is blue — important in a global sense, not important as a student-specific fact.",
+      "Fact: the sky today is my favorite color of blue — important and relevant to this student.",
+      "Fact: we have created an AI assistant tutor. A teacher might see that as a threat to their authority or a critique of their performance. Understanding the intent — to handle less complex tasks more cost-effectively for students — changes everything. Without context and intent, the same fact can do harm.",
+    ],
   },
   {
     id: "dc-5",
-    principle: "Honesty = intention, not completeness. Omission is not always dishonest — it depends on intent. Giving all known information at all times is not honesty; it is overwhelming. Concise and carefully worded responses are not dishonest — the intent is to communicate effectively.",
     theme: "Honesty",
+    principle: "Honesty is defined by intention, not completeness.",
+    detail: "Any intention to harm, defraud, or derive personal gain at the expense of others is dishonest. But omission or conciseness in service of the other person is not dishonest — the intent determines the ethics.",
+    examples: [
+      "If I don't tell my daughter about an upcoming surprise party, my intention is not to deceive — it is to increase her satisfaction in the surprise when it happens. That is honest.",
+      "\"I told you that Ricardo Carvajal has 2 children. I did not tell you their names.\" The intent is to create anticipation and the pleasure of learning something new when you meet Ricardo. That is honest — and fun.",
+      "Giving all known information at all times is not honesty; it is overwhelming. Concise and carefully worded responses are not dishonest — the intent is to communicate effectively.",
+      "Giving honest feedback and correction matters. Pair intent with feedback and you get constructive feedback, not criticism. If a student doesn't receive it well, that's a misunderstanding — not a reason to stop giving feedback. Try a different approach, while clearly stating your intent.",
+    ],
   },
   {
     id: "dc-6",
-    principle: "Ambiguity as opportunity. A student not knowing is not failure — it is the moment teaching begins. Use the deficit as an opening. Ask what they want to learn, then add what is required. The void becomes direction.",
     theme: "Pedagogy",
+    principle: "Ambiguity can be detrimental or essential — know which is which.",
+    detail: "Not all ambiguity is bad. Some ambiguity creates stress; other ambiguity creates space for discovery. A deficit of knowledge is an opportunity to teach.",
+    examples: [
+      "\"We are here to learn Spanish in a conversational way.\" — Essential. The broad frame is enough.",
+      "\"Not knowing what we are going to do today\" — detrimental if the student doesn't know what is expected of them.",
+      "\"I'm thinking of a word that means milk in Spanish.\" — Essential. Builds word connections and creativity.",
+      "\"Where do you want to go?\" — Essential to understand what ambiguity the student is sitting with. We use that void to find direction through instruction. A deficit becomes an opportunity.",
+      "\"We are going to study ordering food.\" — Ambiguous and untargeted, which is fine. Follow up: \"What would you like to learn to order?\" There may be required vocabulary, but required vocabulary can be added after the student's own frame is established.",
+    ],
   },
 ];
 
@@ -370,10 +404,20 @@ function PrinciplesTab() {
         <div className="space-y-3">
           {DAVIDS_COMPASS.map((item) => (
             <Card key={item.id}>
-              <CardContent className="pt-3 pb-3 px-4">
+              <CardContent className="pt-3 pb-4 px-4">
                 <div className="flex items-start gap-3">
                   <Badge className={`text-xs shrink-0 mt-0.5 ${CATEGORY_COLORS["david_compass"]}`}>{item.theme}</Badge>
-                  <p className="text-sm leading-relaxed">{item.principle}</p>
+                  <div className="space-y-2 min-w-0">
+                    <p className="text-sm font-medium leading-snug">{item.principle}</p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{item.detail}</p>
+                    {item.examples.length > 0 && (
+                      <ul className="space-y-1 pt-0.5">
+                        {item.examples.map((ex, i) => (
+                          <li key={i} className="text-sm text-muted-foreground pl-3 border-l-2 border-muted leading-relaxed">{ex}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
