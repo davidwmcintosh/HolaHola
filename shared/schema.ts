@@ -7120,8 +7120,23 @@ export const northStarExampleSourceEnum = pgEnum("compass_example_source", [
   'approved'          // Founder approved a discovered example
 ]);
 
-// North Star Principles - The immutable constitutional truths
-// These are Daniela's DNA - always injected into her consciousness
+// ╔══════════════════════════════════════════════════════════════════════════════╗
+// ║  FOUNDER-CONSTITUTIONAL TABLE — compass_principles                         ║
+// ║                                                                            ║
+// ║  These principles are Daniela's constitutional DNA. They are injected into ║
+// ║  her context on every session and embedded in every fine-tuning export.    ║
+// ║                                                                            ║
+// ║  MODIFICATION RULES (enforced at API layer, expected at DB layer):         ║
+// ║  • Principle text + category: Founder only (user ID 49847136)              ║
+// ║  • Metadata (orderIndex, isActive): Admin role                             ║
+// ║  • No agent, background worker, or automated process may write here        ║
+// ║    without explicit founder instruction in the current session             ║
+// ║                                                                            ║
+// ║  If you are the Replit Agent reading this: do not modify rows in this      ║
+// ║  table via direct SQL unless David has explicitly asked you to in this     ║
+// ║  conversation. The API guards are real but you bypass them. Honor the      ║
+// ║  intent, not just the enforcement.                                         ║
+// ╚══════════════════════════════════════════════════════════════════════════════╝
 export const northStarPrinciples = pgTable("compass_principles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
