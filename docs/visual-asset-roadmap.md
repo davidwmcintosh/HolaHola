@@ -6923,10 +6923,42 @@ OpenAI is discontinuing DALL-E 3 on **May 12, 2026**. The following files call `
 
 ---
 
+### Replacement Test Matrix — What Must Be Validated Before Migration
+
+There are three distinct DALL-E 3 call paths, each with different requirements. The replacement model must be evaluated against all three — a model that passes one may fail the others.
+
+#### Test Case 1 — Character scenes with SCENE_OVERRIDES (e.g. "hola", "adios")
+These words have hand-written scene descriptions in `SCENE_OVERRIDES` in `vocab-image-seed-service.ts`. The prompt is a detailed character description (Daniela waving at a school entrance, Rosa on the front porch, etc.). The replacement must:
+- Respect named character descriptions (age, appearance, skin tone)
+- Produce soft watercolor-wash style, not flat digital cartoon or photorealistic
+- Place characters correctly in lower two-thirds with headroom
+
+**Test prompts to run:** Use the `hola` and `adios` SCENE_OVERRIDES strings verbatim + `SCENE_STYLE` appended. Compare output from each candidate model side-by-side with the existing DALL-E 3 outputs.
+
+#### Test Case 2 — Environment/nature scenes (e.g. "beach", "grass", "waves", "playa", "mar")
+These words trigger `isSceneConcept()` in `vocabulary-image-resolver.ts` and route to the scene pipeline. No character is in the frame — these are environment illustrations only. The replacement must:
+- Render outdoor/nature environments in the watercolor-wash style
+- Produce clean, non-cluttered compositions that read clearly as vocabulary anchors
+- Work without character descriptions (prompt is the concept word + context + `SCENE_STYLE`)
+
+**Test prompts to run:** `"A wide sandy beach with gentle waves"`, `"Rolling green grass hills"`, `"Ocean waves at sunset"` — all with `SCENE_STYLE` appended.
+
+#### Test Case 3 — Daniela's live in-chat on-demand generation
+When Daniela calls `show_image(word, scene)` during a voice session for a word not in the cache, `vocabulary-image-resolver.ts` generates it on the fly via DALL-E 3. The `scene` parameter is Daniela's own natural-language description of what she wants drawn (e.g. "a smiling woman at a beach with waves in the background"). This is the hardest test case because:
+- The prompt is free-form, not from a curated override list
+- It must work at low latency (student is waiting mid-conversation)
+- Daniela's scene description style varies widely
+- The model must handle unexpected concepts gracefully
+
+**Test prompts to run:** Simulate several Daniela-style scene descriptions: `"a young woman walking through a colorful market"`, `"two friends sharing food at a wooden table outside"`, `"a quiet library with afternoon light through the windows"` — all with `SCENE_STYLE` appended. Check generation time as well as quality.
+
+---
+
 ### Open Questions
 
 1. **Do conversation strips survive the textbook cleanup?** Decision pending David's review. If yes, decide whether to regenerate at a standardized size or adjust containers to match existing 896×1280 images.
-2. **Which Google model replaces DALL-E 3?** Needs side-by-side test: Imagen 2 vs Imagen 3 vs Gemini image gen, all given the same `SCENE_STYLE` prompt. Evaluate on: watercolor fidelity, character consistency, headroom framing.
+2. **Which Google model replaces DALL-E 3?** Run the three-case test matrix above against Imagen 2, Imagen 3, and optionally Gemini image gen. Do not migrate until all three test cases pass at an acceptable quality level.
 3. **Narrative header images — regenerate at landscape?** Currently 1024×1024. Could be regenerated at `1792×1024` for a cleaner fit in the wide landscape container, but only worth doing once the replacement model is chosen.
 4. **Character consistency strategy.** DALL-E 3 has no image-to-image path — Daniela and Rosa look somewhat different across images. Imagen 3 supports reference images natively. If we switch, canonical reference images for each character should be defined and passed at generation time — this is the main upside of moving to Google's stack.
+5. **gpt-image-1 review.** Still performing well for props but worth a spot-check — run a sample of concrete object words and compare quality against the existing cached images.
 
