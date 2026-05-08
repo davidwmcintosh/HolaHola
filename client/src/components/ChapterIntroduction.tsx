@@ -2432,7 +2432,7 @@ export function ChapterIntroduction({ chapterNumber, chapterTitle, language, cha
                       <img
                         src={resolvedImageUrl}
                         alt={section.title}
-                        className="w-full h-48 md:h-full object-cover object-top"
+                        className="w-full h-48 md:h-full object-cover object-center"
                         data-testid={`img-narrative-${index}`}
                       />
                     ) : null}
@@ -2443,7 +2443,7 @@ export function ChapterIntroduction({ chapterNumber, chapterTitle, language, cha
                     <img
                       src={staticImageUrl}
                       alt={section.title}
-                      className="w-full h-48 md:h-full object-cover object-top"
+                      className="w-full h-48 md:h-full object-cover object-center"
                       data-testid={`img-narrative-${index}`}
                     />
                   </div>
