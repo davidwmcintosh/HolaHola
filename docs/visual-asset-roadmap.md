@@ -6868,19 +6868,35 @@ If the strip format is retained:
 
 ---
 
-### gpt-image-1 for Scenes — Tried and Abandoned
+### Google Imagen 1 for Scenes — Tried and Abandoned
 
-**History:** gpt-image-1 was evaluated as a scene generator (not just props) because it supports `images.edit`, allowing a reference image to be passed in — theoretically enabling visual consistency across character generations (same Daniela face, same Rosa appearance). This is a real advantage over DALL-E 3 which has no image-to-image path.
+**History:** Google's Imagen 1 was evaluated as a DALL-E 3 replacement for scene/character images. The motivation was the same as the gpt-image-1 anchor experiment: better character consistency and an alternative to DALL-E 3's style lottery.
 
-**Result:** The quality gap was too large. gpt-image-1 consistently drifted toward flat digital cartoon or heavy photorealistic rendering rather than the soft watercolor-wash style. Even with strong style prompts, it could not replicate the DALL-E 3 watercolor aesthetic. Abandoned for scene generation; retained for props only (where white-background isolation matters more than art style).
+**Result:** Quality was not competitive with DALL-E 3 for the HoloHola watercolor-wash aesthetic. Could not produce results visually similar to existing DALL-E 3 output. Abandoned as a primary pipeline replacement. No Imagen 1 calls remain in the active codebase.
 
-**Code artifact:** The `anchorImageUrl` parameter in `VisualGenerationRequest` and the `images.edit` path in `vocabulary-image-resolver.ts` are the remnants of this experiment. They are currently only exercised for prop generation when an anchor image is available.
+**What Alden uses Gemini Imagen for:** Alden has generated one-off specific assets using Gemini Imagen (zone images, prop room watercolor backgrounds for the restaurant environment). These are hand-crafted single images produced manually, not part of the automated pipeline. Quality for those specific use cases was acceptable.
+
+---
+
+### Code Note: `generateImageWithGemini()` Is Misleadingly Named
+
+The function `generateImageWithGemini()` in `server/routes.ts` (line 536) **actually calls DALL-E 3**, not Gemini. It uses the OpenAI client with `model: 'dall-e-3'` at `1792×1024`. The name is a historical artifact. Alden documented this explicitly. When DALL-E 3 is replaced, this function is one of the callsites that needs updating.
+
+---
+
+### gpt-image-1 (OpenAI) — Current Role: Props Only, Preserved
+
+**Status:** Active and not deprecated. Used exclusively for vocabulary prop images (single objects on white backgrounds) in `visual-content-service.ts`. Will continue in this role regardless of what replaces DALL-E 3 for scenes.
+
+**Why it works for props but not scenes:** Props only need clean object isolation on a white background — style fidelity matters less. Scene images require the warm pen-and-watercolor aesthetic that DALL-E 3 produces naturally and gpt-image-1 does not reliably match.
+
+**Code artifact — anchor image experiment:** The `anchorImageUrl` parameter in `VisualGenerationRequest` and the `images.edit` path in `vocabulary-image-resolver.ts` were from an experiment using gpt-image-1 with a reference image to improve character consistency. These remain in the codebase and are exercised for prop generation when an anchor image is available.
 
 ---
 
 ### DALL-E Deprecation — May 12, 2026
 
-OpenAI is discontinuing DALL-E 3 on **May 12, 2026**. Six files call `dall-e-3` directly:
+OpenAI is discontinuing DALL-E 3 on **May 12, 2026**. The following files call `dall-e-3` directly and will break:
 
 | File | Risk | Notes |
 |---|---|---|
@@ -6890,26 +6906,27 @@ OpenAI is discontinuing DALL-E 3 on **May 12, 2026**. Six files call `dall-e-3` 
 | `scenario-image-generator.ts` | 🟡 Medium | Roleplay scenes |
 | `menu-image-worker.ts` | 🟡 Medium | Food imagery |
 | `prop-room-compositor.ts` | 🟡 Medium | Environment backgrounds |
-| `routes.ts` (admin) | 🟢 Low | Admin regeneration tool only |
+| `routes.ts` → `generateImageWithGemini()` | 🟡 Medium | Misleadingly named — calls DALL-E 3 at 1792×1024 for admin/zone images |
 
-**Replacement candidates under consideration:**
+**Replacement candidates — Google models (untested for HoloHola aesthetic):**
 
-| Model | Provider | API | Watercolor capability | Status |
-|---|---|---|---|---|
-| `gpt-image-1` | OpenAI | Same SDK, trivial swap | Drifts to flat digital / photorealistic — **tried and rejected for scenes** | Rejected for scenes, kept for props |
-| **Imagen 3** | Google / Vertex AI | Vertex AI SDK or REST | Unknown — needs testing | **Candidate — untested** |
-| **Gemini 2.0 Flash image gen** | Google | Gemini SDK | Unknown — lower cost, possibly lower quality | **Candidate — untested** |
+| Model | Provider | API | Notes |
+|---|---|---|---|
+| **Imagen 1** | Google | Vertex AI | Tried and rejected — quality insufficient |
+| **Imagen 2** | Google | Vertex AI | Not yet tested — candidate |
+| **Imagen 3** | Google | Vertex AI | Not yet tested — leading candidate |
+| **Gemini image gen** | Google | Gemini SDK | Alden has used for one-off assets; not tested at scale for watercolor scenes |
 
-**Decision pending testing.** Before any migration, sample generations from Imagen 3 and Gemini image generation should be evaluated against the `SCENE_STYLE` prompt to determine which model best preserves the HoloHola watercolor aesthetic. Until a replacement is validated, existing cached images are unaffected — only new generation calls will break after May 12.
+**gpt-image-1 as stopgap:** Swapping `dall-e-3` → `gpt-image-1` across all files requires no API changes (same OpenAI SDK). Style quality will degrade for scenes but generation won't break. Buys time for proper Imagen 2/3 evaluation. Only use if testing isn't complete before May 12.
 
-**Immediate stopgap if needed:** Swap `dall-e-3` → `gpt-image-1` across all six files. Same OpenAI SDK, same parameters, no other changes. Style quality will degrade for scenes but generation will not break. This buys time for proper Imagen 3 evaluation.
+**Decision pending testing.** Need side-by-side sample generations from Imagen 2, Imagen 3, and optionally Gemini image gen — all given the same `SCENE_STYLE` prompt — before committing to a migration path.
 
 ---
 
 ### Open Questions
 
 1. **Do conversation strips survive the textbook cleanup?** Decision pending David's review. If yes, decide whether to regenerate at a standardized size or adjust containers to match existing 896×1280 images.
-2. **Which model replaces DALL-E 3?** Needs side-by-side test: Imagen 3 vs Gemini image gen vs gpt-image-1, all given the same `SCENE_STYLE` prompt. Evaluate on: watercolor fidelity, character consistency, headroom framing.
+2. **Which Google model replaces DALL-E 3?** Needs side-by-side test: Imagen 2 vs Imagen 3 vs Gemini image gen, all given the same `SCENE_STYLE` prompt. Evaluate on: watercolor fidelity, character consistency, headroom framing.
 3. **Narrative header images — regenerate at landscape?** Currently 1024×1024. Could be regenerated at `1792×1024` for a cleaner fit in the wide landscape container, but only worth doing once the replacement model is chosen.
-4. **Character consistency strategy.** DALL-E 3 has no image-to-image path — Daniela and Rosa look somewhat different across images. Imagen 3 supports reference images. If we switch, we should define canonical reference images for each character and pass them at generation time.
+4. **Character consistency strategy.** DALL-E 3 has no image-to-image path — Daniela and Rosa look somewhat different across images. Imagen 3 supports reference images natively. If we switch, canonical reference images for each character should be defined and passed at generation time — this is the main upside of moving to Google's stack.
 
