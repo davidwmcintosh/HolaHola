@@ -93,6 +93,24 @@ export function normalizeImageUrl(url: string): string {
 }
 
 /**
+ * Download a stored AI image from object storage as a Buffer.
+ * Returns null if the file is not found or storage is not configured.
+ */
+export async function downloadAiImageAsBuffer(
+  filename: string
+): Promise<{ buffer: Buffer; contentType: string } | null> {
+  if (!BUCKET_ID) return null;
+  const bucket = objectStorageClient.bucket(getBucketName());
+  const file = bucket.file(`public/ai-images/${filename}`);
+  const [exists] = await file.exists();
+  if (!exists) return null;
+  const [metadata] = await file.getMetadata();
+  const contentType = (metadata.contentType as string) || 'image/jpeg';
+  const [data] = await file.download();
+  return { buffer: data as Buffer, contentType };
+}
+
+/**
  * Stream a stored AI image from object storage to the Express response.
  * Used by GET /api/media/ai-image/:filename.
  */
