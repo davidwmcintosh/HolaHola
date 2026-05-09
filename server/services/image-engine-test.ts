@@ -147,6 +147,13 @@ export interface EngineResult {
   error?: string;
 }
 
+// Reference image passed from the client (base64 data + mime type).
+// Only Gemini Flash supports this — Imagen 4 is text-to-image only via Developer API.
+export interface ReferenceImage {
+  b64: string;       // raw base64, no data-URL prefix
+  mimeType: string;  // e.g. 'image/jpeg', 'image/png'
+}
+
 // ─── OpenAI client ────────────────────────────────────────────────────────────
 
 function getOpenAIClient(): OpenAI {
@@ -224,21 +231,48 @@ async function runGptImage1Prop(concept: string): Promise<EngineResult> {
 
 // ─── Gemini image generation ──────────────────────────────────────────────────
 
-async function runGeminiImagen(concept: string, type: 'scene' | 'prop'): Promise<EngineResult> {
+async function runGeminiImagen(
+  concept: string,
+  type: 'scene' | 'prop',
+  reference?: ReferenceImage,
+): Promise<EngineResult> {
   const t0 = Date.now();
   try {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) throw new Error('GEMINI_API_KEY not set');
 
     const ai = new GoogleGenAI({ apiKey });
+
     // Gemini Flash has no API aspect-ratio parameter — must be in the prompt.
-    const stylePrompt = type === 'prop'
+    const basePrompt = type === 'prop'
       ? `Square 1:1 format. Illustration of: ${concept}. ${PROP_STYLE}`
       : `Square 1:1 format. Illustrated scene: ${concept}. ${SCENE_STYLE}`;
 
+    // When a reference image is provided, prepend guidance so the model anchors
+    // the character appearance and art style to the reference, then generates
+    // the new scene. Multimodal contents array: [image part, text part].
+    const referencePrefix = reference
+      ? 'The image above is a reference showing the character named Daniela and the target art style (pen-and-watercolor-wash illustration). ' +
+        'Maintain identical character appearance (same face, hair, skin tone, clothing) and the same loose watercolor illustration style in the new scene. '
+      : '';
+
+    const textPrompt = referencePrefix + basePrompt;
+
+    let contents: any;
+    if (reference) {
+      contents = {
+        parts: [
+          { inlineData: { mimeType: reference.mimeType, data: reference.b64 } },
+          { text: textPrompt },
+        ],
+      };
+    } else {
+      contents = textPrompt;
+    }
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
-      contents: stylePrompt,
+      contents,
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
       },
@@ -295,18 +329,23 @@ async function runImagenModel(
 
 // ─── Main dispatch ────────────────────────────────────────────────────────────
 
+// Engines that support reference image input (multimodal contents).
+// Imagen 4 uses generateImages (text-only via Developer API).
+export const REFERENCE_CAPABLE_ENGINES = ['gemini-imagen'];
+
 export async function runEngineTest(
   engine: string,
   concept: string,
   type: 'scene' | 'prop',
+  reference?: ReferenceImage,
 ): Promise<EngineResult> {
   switch (engine) {
-    case 'dall-e-3':       return runDallE3(concept);
-    case 'gpt-image-1':    return runGptImage1Scene(concept);
+    case 'dall-e-3':         return runDallE3(concept);
+    case 'gpt-image-1':      return runGptImage1Scene(concept);
     case 'gpt-image-1-prop': return runGptImage1Prop(concept);
-    case 'gemini-imagen':   return runGeminiImagen(concept, type);
-    case 'imagen-3':        return runImagenModel('imagen-3', 'imagen-4.0-generate-001', concept, type);
-    case 'imagen-4-ultra':  return runImagenModel('imagen-4-ultra', 'imagen-4.0-ultra-generate-001', concept, type);
-    default:                return { dataUrl: null, elapsed: 0, engine, error: `Unknown engine: ${engine}` };
+    case 'gemini-imagen':    return runGeminiImagen(concept, type, reference);
+    case 'imagen-3':         return runImagenModel('imagen-3', 'imagen-4.0-generate-001', concept, type);
+    case 'imagen-4-ultra':   return runImagenModel('imagen-4-ultra', 'imagen-4.0-ultra-generate-001', concept, type);
+    default:                 return { dataUrl: null, elapsed: 0, engine, error: `Unknown engine: ${engine}` };
   }
 }

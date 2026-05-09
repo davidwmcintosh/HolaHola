@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,7 +7,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Play, RotateCcw, Clock, AlertCircle, ImageOff, ChevronDown, ChevronUp, RefreshCw, X, ZoomIn } from "lucide-react";
+import { Play, RotateCcw, Clock, AlertCircle, ImageOff, ChevronDown, ChevronUp, RefreshCw, X, ZoomIn, Upload, UserCheck, Loader2 } from "lucide-react";
+
+// Engines that support reference image input (must match REFERENCE_CAPABLE_ENGINES on server)
+const REFERENCE_CAPABLE_ENGINES = ["gemini-imagen"];
 
 // ─── Engine definitions ───────────────────────────────────────────────────────
 
@@ -193,6 +196,13 @@ type ResultMap = Record<string, ImageResult[]>; // engineId → results[]
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+interface ReferenceImage {
+  b64: string;
+  mimeType: string;
+  thumbnailDataUrl: string; // data-URL for preview only
+  label: string;
+}
+
 export default function ImageEngineTest() {
   const [selectedEngines, setSelectedEngines] = useState<string[]>(["dall-e-3", "gpt-image-1"]);
   const [runCount, setRunCount] = useState(2);
@@ -205,6 +215,12 @@ export default function ImageEngineTest() {
   const [showPrompt, setShowPrompt] = useState(false);
   const [lightbox, setLightbox] = useState<{ url: string; alt: string } | null>(null);
 
+  // Reference image state — passed to Gemini Flash for character consistency
+  const [referenceImage, setReferenceImage] = useState<ReferenceImage | null>(null);
+  const [fetchingReference, setFetchingReference] = useState(false);
+  const [referenceError, setReferenceError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const toggleEngine = (id: string) => {
     setSelectedEngines(prev =>
       prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id]
@@ -215,6 +231,61 @@ export default function ImageEngineTest() {
     setActivePreset(preset.key);
     setConcept(preset.concept);
     setPromptType(preset.type);
+  };
+
+  // Load an existing Daniela image from the DB cache as a reference
+  const loadDanielaReference = async () => {
+    setFetchingReference(true);
+    setReferenceError(null);
+    try {
+      const res = await fetch("/api/admin/image-engine-test/daniela-reference");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setReferenceImage({
+        b64: data.b64,
+        mimeType: data.mimeType,
+        thumbnailDataUrl: `data:${data.mimeType};base64,${data.b64}`,
+        label: `Cached: ${data.sourceKey}`,
+      });
+    } catch (err: any) {
+      setReferenceError(err.message || "Failed to load reference");
+    } finally {
+      setFetchingReference(false);
+    }
+  };
+
+  // Handle file upload — convert to base64 for sending to the backend
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setReferenceError(null);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      // data URL format: "data:<mimeType>;base64,<b64data>"
+      const [header, b64] = dataUrl.split(",");
+      const mimeType = header.replace("data:", "").replace(";base64", "");
+      setReferenceImage({ b64, mimeType, thumbnailDataUrl: dataUrl, label: file.name });
+    };
+    reader.readAsDataURL(file);
+    // Reset file input so the same file can be re-uploaded if cleared
+    e.target.value = "";
+  };
+
+  // Build request body — only include reference for engines that support it
+  const buildRequestBody = (engineId: string, type: "scene" | "prop") => {
+    const supportsReference = REFERENCE_CAPABLE_ENGINES.includes(engineId);
+    return JSON.stringify({
+      engine: engineId,
+      concept: concept.trim(),
+      type,
+      ...(supportsReference && referenceImage
+        ? { referenceImageB64: referenceImage.b64, referenceImageMimeType: referenceImage.mimeType }
+        : {}),
+    });
   };
 
   const updateResult = useCallback((engineId: string, runIndex: number, patch: Partial<ImageResult>) => {
@@ -252,7 +323,7 @@ export default function ImageEngineTest() {
           fetch("/api/admin/image-engine-test", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ engine: engineId, concept: concept.trim(), type }),
+            body: buildRequestBody(engineId, type),
           })
             .then(r => r.json())
             .then((data: any) => {
@@ -304,11 +375,19 @@ export default function ImageEngineTest() {
       })),
     }));
 
+    const supportsReference = REFERENCE_CAPABLE_ENGINES.includes(engineId);
     const promises = Array.from({ length: runCount }, (_, i) =>
       fetch("/api/admin/image-engine-test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ engine: engineId, concept: concept.trim(), type }),
+        body: JSON.stringify({
+          engine: engineId,
+          concept: concept.trim(),
+          type,
+          ...(supportsReference && referenceImage
+            ? { referenceImageB64: referenceImage.b64, referenceImageMimeType: referenceImage.mimeType }
+            : {}),
+        }),
       })
         .then(r => r.json())
         .then((data: any) => {
@@ -322,7 +401,7 @@ export default function ImageEngineTest() {
 
     await Promise.allSettled(promises);
     setRetryingEngines(prev => { const s = new Set(prev); s.delete(engineId); return s; });
-  }, [concept, promptType, runCount, updateResult]);
+  }, [concept, promptType, runCount, updateResult, referenceImage]);
 
   const activeEngines = ENGINES.filter(e => selectedEngines.includes(e.id));
 
@@ -446,6 +525,88 @@ export default function ImageEngineTest() {
 
             <Separator />
 
+            {/* Reference image — for Gemini Flash character consistency */}
+            <div>
+              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 block">
+                Reference Image
+              </Label>
+              <p className="text-xs text-muted-foreground mb-3">
+                Anchor Gemini Flash to a character or style. Only{" "}
+                <span className="font-medium text-foreground">Gemini Flash</span> supports reference input — other engines ignore it.
+              </p>
+
+              {/* Thumbnail preview */}
+              {referenceImage && (
+                <div className="mb-3 relative rounded-md overflow-hidden border border-border">
+                  <img
+                    src={referenceImage.thumbnailDataUrl}
+                    alt="Reference"
+                    className="w-full aspect-square object-cover"
+                    data-testid="img-reference-thumbnail"
+                  />
+                  <Button
+                    size="icon"
+                    variant="secondary"
+                    className="absolute top-1 right-1 opacity-90"
+                    onClick={() => { setReferenceImage(null); setReferenceError(null); }}
+                    data-testid="button-clear-reference"
+                    title="Remove reference image"
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                  <div className="px-2 py-1 bg-muted/80 text-xs text-muted-foreground truncate">
+                    {referenceImage.label}
+                  </div>
+                </div>
+              )}
+
+              {referenceError && (
+                <p className="text-xs text-destructive mb-2 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3 shrink-0" />
+                  {referenceError}
+                </p>
+              )}
+
+              <div className="flex flex-col gap-2">
+                {/* Load Daniela from cache */}
+                <Button
+                  variant="outline"
+                  size="default"
+                  onClick={loadDanielaReference}
+                  disabled={fetchingReference}
+                  data-testid="button-load-daniela-reference"
+                  className="w-full justify-start"
+                >
+                  {fetchingReference
+                    ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    : <UserCheck className="w-4 h-4 mr-2" />}
+                  Load Daniela from cache
+                </Button>
+
+                {/* Upload custom reference */}
+                <Button
+                  variant="outline"
+                  size="default"
+                  onClick={() => fileInputRef.current?.click()}
+                  data-testid="button-upload-reference"
+                  className="w-full justify-start"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload image
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                  data-testid="input-reference-file"
+                />
+              </div>
+            </div>
+
+            <Separator />
+
             {/* Engine selection */}
             <div>
               <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 block">
@@ -461,7 +622,14 @@ export default function ImageEngineTest() {
                       data-testid={`checkbox-engine-${engine.id}`}
                     />
                     <label htmlFor={`engine-${engine.id}`} className="text-sm cursor-pointer leading-tight">
-                      <div className="font-medium">{engine.label}</div>
+                      <div className="flex items-center gap-1.5 font-medium">
+                        {engine.label}
+                        {REFERENCE_CAPABLE_ENGINES.includes(engine.id) && (
+                          <Badge variant="secondary" className="text-[10px] px-1 py-0 h-auto leading-tight">
+                            ref
+                          </Badge>
+                        )}
+                      </div>
                       <div className="text-xs text-muted-foreground">{engine.sublabel}</div>
                     </label>
                   </div>

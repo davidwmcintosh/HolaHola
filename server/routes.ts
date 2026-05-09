@@ -20839,19 +20839,58 @@ Current conversation context:
   // as they land, so results fill in incrementally.
   app.post('/api/admin/image-engine-test', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const { engine, concept, type = 'scene' } = req.body as {
+      const { engine, concept, type = 'scene', referenceImageB64, referenceImageMimeType } = req.body as {
         engine: string;
         concept: string;
         type?: 'scene' | 'prop';
+        referenceImageB64?: string;
+        referenceImageMimeType?: string;
       };
       if (!engine || !concept) {
         return res.status(400).json({ error: 'engine and concept are required' });
       }
       const { runEngineTest } = await import('./services/image-engine-test');
-      const result = await runEngineTest(engine, concept, type);
+      const reference = referenceImageB64 && referenceImageMimeType
+        ? { b64: referenceImageB64, mimeType: referenceImageMimeType }
+        : undefined;
+      const result = await runEngineTest(engine, concept, type, reference);
       res.json(result);
     } catch (error: any) {
       console.error('[ImageEngineTest] error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ─── Image Engine Test — fetch a cached Daniela image as base64 reference ──
+  // Looks up the cached "hola" (Spanish) image which always features Daniela,
+  // fetches the URL, and returns it as base64 for use as a reference image in
+  // Gemini Flash multimodal generation.
+  app.get('/api/admin/image-engine-test/daniela-reference', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res) => {
+    try {
+      const candidateKeys = [
+        'vocab_spanish_hola',
+        'vocab_spanish_buenos dias',
+        'vocab_spanish_encantada',
+        'vocab_spanish_mas o menos',
+      ];
+      let imageUrl: string | null = null;
+      for (const key of candidateKeys) {
+        const cached = await storage.getCachedStockImage(key);
+        if (cached?.url) { imageUrl = cached.url; break; }
+      }
+      if (!imageUrl) {
+        return res.status(404).json({ error: 'No cached Daniela image found. Seed the greeting images first.' });
+      }
+      const fetchModule = await import('node-fetch');
+      const fetch = fetchModule.default as typeof fetchModule.default;
+      const imageRes = await (fetch as any)(imageUrl);
+      if (!imageRes.ok) throw new Error(`Failed to fetch image: ${imageRes.status}`);
+      const contentType = imageRes.headers.get('content-type') || 'image/jpeg';
+      const buffer = await imageRes.buffer();
+      const b64 = buffer.toString('base64');
+      res.json({ b64, mimeType: contentType, sourceKey: candidateKeys[0], url: imageUrl });
+    } catch (error: any) {
+      console.error('[ImageEngineTest] daniela-reference error:', error);
       res.status(500).json({ error: error.message });
     }
   });

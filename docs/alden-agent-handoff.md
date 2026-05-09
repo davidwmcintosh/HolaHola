@@ -19,6 +19,45 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## Session Summary — Sat, May 9, 2026 (session 47 — image engine test: reference image support)
+
+### What was done
+
+**Reference image support for Gemini Flash — fully wired end-to-end**
+
+This session completed the reference image feature started in session 46b:
+
+1. **`server/services/image-engine-test.ts`**
+   - Added `ReferenceImage` interface (`{ b64, mimeType }`)
+   - `runGeminiImagen()` now accepts optional `ReferenceImage`; when provided, builds multimodal `contents` object: `[inlineData part, text part]` with a character-consistency prefix ("The image above is a reference showing Daniela and the target art style...")
+   - `runEngineTest()` signature updated: `(engine, concept, type, reference?)`
+   - Exported `REFERENCE_CAPABLE_ENGINES = ['gemini-imagen']` (Imagen 4 is text-only via Developer API)
+
+2. **`server/routes.ts`**
+   - POST `/api/admin/image-engine-test`: accepts `referenceImageB64` + `referenceImageMimeType`; builds `ReferenceImage` and passes to `runEngineTest`
+   - GET `/api/admin/image-engine-test/daniela-reference`: looks up cached hola/buenos-dias/encantada image (tries 4 keys in order), fetches URL, returns `{ b64, mimeType, sourceKey, url }` — admin fetches this to preload a reference without manual upload
+
+3. **`client/src/pages/admin/ImageEngineTest.tsx`**
+   - `ReferenceImage` interface with `b64`, `mimeType`, `thumbnailDataUrl`, `label`
+   - `loadDanielaReference()`: calls new GET endpoint, populates state
+   - `handleFileUpload()`: FileReader → base64 → state (custom image path)
+   - `buildRequestBody()`: only sends reference fields to `REFERENCE_CAPABLE_ENGINES` (others ignored)
+   - `retryEngine()` updated to include reference in request body
+   - **Reference Image sidebar panel**: thumbnail preview with clear button, "Load Daniela from cache" button (with spinner), "Upload image" button (hidden file input), error display
+   - **"ref" badge** on Gemini Flash in engine selector so users know which engine supports the feature
+
+### Current state
+- Reference image feature: complete and deployed
+- All 7 missing Sp1 Unit 1 social phrases added (que tal, que pasa, todo bien, nada, y tu, igualmente, con permiso)
+- DALL-E 3 callsites: documented in `docs/visual-asset-roadmap.md` but NOT yet migrated — `visual-content-service.ts` is next
+- Engine decision: Imagen 4 Standard for props, Imagen 4 Ultra for scenes, Gemini Flash for live session
+
+### What Alden should know
+- The `/api/admin/image-engine-test/daniela-reference` endpoint tries `vocab_spanish_hola` first — if that key isn't seeded, it falls through to `buenos dias`, `encantada`, `mas o menos`. If none exist, returns 404 with a helpful message.
+- DALL-E 3 migration is the next priority — it deprecates May 12, 2026
+
+---
+
 ## Session Summary — Fri, May 2, 2026 (session 46 — monitoring infrastructure + Daniela architecture review)
 
 ### What was done
