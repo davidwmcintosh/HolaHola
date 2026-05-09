@@ -39,15 +39,15 @@ const ENGINES = [
   {
     id: "gemini-imagen",
     label: "Gemini image gen",
-    sublabel: "gemini-2.0-flash-preview",
+    sublabel: "gemini-2.5-flash-image",
     color: "bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-800",
     badgeClass: "bg-purple-600 text-white",
     promptType: "scene" as const,
   },
   {
     id: "imagen-3",
-    label: "Imagen 3",
-    sublabel: "Gemini API — imagen-3.0-generate-002",
+    label: "Imagen 4",
+    sublabel: "Gemini API — imagen-4.0-generate-001",
     color: "bg-orange-100 dark:bg-orange-900/30 border-orange-200 dark:border-orange-800",
     badgeClass: "bg-orange-600 text-white",
     promptType: "scene" as const,

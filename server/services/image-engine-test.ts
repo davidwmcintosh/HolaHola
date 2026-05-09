@@ -9,7 +9,7 @@
  *   gpt-image-1      — OpenAI alternative (same prompt), SCENE_STYLE
  *   gpt-image-1-prop — OpenAI prop pipeline (PROP_STYLE, white background)
  *   gemini-imagen    — Gemini 2.0 Flash image generation (Google)
- *   imagen-3         — Imagen 3 via Gemini API SDK (imagen-3.0-generate-002)
+ *   imagen-3         — Imagen 4 via Gemini API SDK (imagen-4.0-generate-001)
  */
 
 import OpenAI from 'openai';
@@ -189,7 +189,7 @@ async function runGeminiImagen(concept: string, type: 'scene' | 'prop'): Promise
       : `Illustrated scene: ${concept}. ${SCENE_STYLE}`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-2.5-flash-image',
       contents: stylePrompt,
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
@@ -221,7 +221,7 @@ async function runImagen3(concept: string, type: 'scene' | 'prop'): Promise<Engi
       : `Illustrated scene: ${concept}. ${SCENE_STYLE}`;
 
     const response = await ai.models.generateImages({
-      model: 'imagen-3.0-generate-002',
+      model: 'imagen-4.0-generate-001',
       prompt: stylePrompt,
       config: {
         numberOfImages: 1,
