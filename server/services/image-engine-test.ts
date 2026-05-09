@@ -248,24 +248,32 @@ async function runGeminiImagen(
       ? `Square 1:1 format. Illustration of: ${concept}. ${PROP_STYLE}`
       : `Square 1:1 format. Illustrated scene: ${concept}. ${SCENE_STYLE}`;
 
-    // When a reference image is provided, prepend guidance so the model anchors
-    // the character appearance and art style to the reference, then generates
-    // the new scene. Multimodal contents array: [image part, text part].
+    // When a reference image is provided, send it as a style+character guide.
+    // Critically: we tell the model to create a COMPLETELY NEW scene — NOT to
+    // reproduce or copy the reference. The reference is for style and character
+    // design only (face shape, hair, skin tone, illustration technique).
     const referencePrefix = reference
-      ? 'The image above is a reference showing the character named Daniela and the target art style (pen-and-watercolor-wash illustration). ' +
-        'Maintain identical character appearance (same face, hair, skin tone, clothing) and the same loose watercolor illustration style in the new scene. '
+      ? 'STYLE & CHARACTER REFERENCE (do not copy or reproduce this image): ' +
+        'Use the attached image to learn Daniela\'s character design (face shape, wavy dark-brown hair, warm medium-brown skin tone, bright brown eyes, casual clothing style) ' +
+        'and the illustration technique (soft pen linework with loose watercolor wash, warm natural palette, animated storybook feel). ' +
+        'Apply that same character design and illustration style to the BRAND NEW scene described below. ' +
+        'The composition, setting, pose, and background must be entirely new — not based on or derived from the reference image. '
       : '';
 
     const textPrompt = referencePrefix + basePrompt;
 
     let contents: any;
     if (reference) {
-      contents = {
-        parts: [
-          { inlineData: { mimeType: reference.mimeType, data: reference.b64 } },
-          { text: textPrompt },
-        ],
-      };
+      // Proper Gemini multimodal format: array of role-turn objects
+      contents = [
+        {
+          role: 'user',
+          parts: [
+            { inlineData: { mimeType: reference.mimeType, data: reference.b64 } },
+            { text: textPrompt },
+          ],
+        },
+      ];
     } else {
       contents = textPrompt;
     }
