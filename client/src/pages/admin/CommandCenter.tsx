@@ -1998,6 +1998,22 @@ export default function CommandCenter() {
           <p className="text-muted-foreground">
             Manage platform operations, monitor analytics, and configure system settings
           </p>
+          <div className="flex flex-wrap gap-2 mt-3">
+            <Button asChild variant="outline" size="sm" data-testid="button-image-engine-test">
+              <Link href="/admin/image-test">
+                <Layers className="h-4 w-4 mr-2" />
+                Image Engine Test
+                <ExternalLink className="h-3 w-3 ml-2 opacity-60" />
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm" data-testid="button-fine-tuning">
+              <Link href="/fine-tuning">
+                <Brain className="h-4 w-4 mr-2" />
+                Fine-Tuning Curator
+                <ExternalLink className="h-3 w-3 ml-2 opacity-60" />
+              </Link>
+            </Button>
+          </div>
         </div>
 
         <SystemHealthDashboard />
