@@ -444,7 +444,7 @@ async function runImagenModel(
 
 // Engines that support reference image input (multimodal contents).
 // Imagen 4 uses generateImages (text-only via Developer API).
-export const REFERENCE_CAPABLE_ENGINES = ['gemini-imagen', 'gemini-imagen-warm-ref'];
+export const REFERENCE_CAPABLE_ENGINES = ['gemini-imagen', 'gemini-imagen-ref'];
 
 export async function runEngineTest(
   engine: string,
@@ -457,9 +457,9 @@ export async function runEngineTest(
     case 'dall-e-3':         return runDallE3(concept);
     case 'gpt-image-1':      return runGptImage1Scene(concept);
     case 'gpt-image-1-prop': return runGptImage1Prop(concept);
-    case 'gemini-imagen':          return runGeminiImagen(concept, type, reference, variationIndex);
-    case 'gemini-imagen-warm':     return runGeminiImagen(concept, type, undefined, variationIndex, SCENE_STYLE_WARM);
-    case 'gemini-imagen-warm-ref': return runGeminiImagen(concept, type, reference, variationIndex, SCENE_STYLE_WARM);
+    case 'gemini-imagen':      return runGeminiImagen(concept, type, undefined, variationIndex);
+    case 'gemini-imagen-ref':  return runGeminiImagen(concept, type, reference, variationIndex);
+    case 'gemini-imagen-warm': return runGeminiImagen(concept, type, undefined, variationIndex, SCENE_STYLE_WARM);
     case 'imagen-3':           return runImagenModel('imagen-3', 'imagen-4.0-generate-001', concept, type);
     case 'imagen-4-ultra':   return runImagenModel('imagen-4-ultra', 'imagen-4.0-ultra-generate-001', concept, type);
     default:                 return { dataUrl: null, elapsed: 0, engine, error: `Unknown engine: ${engine}` };

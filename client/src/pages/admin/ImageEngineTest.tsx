@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Play, RotateCcw, Clock, AlertCircle, ImageOff, ChevronDown, ChevronUp, RefreshCw, X, ZoomIn, Upload, UserCheck, Loader2 } from "lucide-react";
 
 // Engines that support reference image input (must match REFERENCE_CAPABLE_ENGINES on server)
-const REFERENCE_CAPABLE_ENGINES = ["gemini-imagen", "gemini-imagen-warm-ref"];
+const REFERENCE_CAPABLE_ENGINES = ["gemini-imagen-ref"];
 
 // ─── Engine definitions ───────────────────────────────────────────────────────
 
@@ -42,25 +42,25 @@ const ENGINES = [
   {
     id: "gemini-imagen",
     label: "Gemini image gen",
-    sublabel: "gemini-2.5-flash-image — muted palette (current style)",
+    sublabel: "gemini-2.5-flash-image — muted palette, no reference",
     color: "bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-800",
     badgeClass: "bg-purple-600 text-white",
     promptType: "scene" as const,
   },
   {
-    id: "gemini-imagen-warm",
-    label: "Gemini image gen — warm",
-    sublabel: "gemini-2.5-flash-image — vibrant saturated palette",
-    color: "bg-violet-100 dark:bg-violet-900/30 border-violet-200 dark:border-violet-800",
-    badgeClass: "bg-violet-600 text-white",
+    id: "gemini-imagen-ref",
+    label: "Gemini image gen + ref",
+    sublabel: "gemini-2.5-flash-image — muted palette + reference style",
+    color: "bg-indigo-100 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800",
+    badgeClass: "bg-indigo-600 text-white",
     promptType: "scene" as const,
   },
   {
-    id: "gemini-imagen-warm-ref",
-    label: "Gemini image gen — warm + ref",
-    sublabel: "gemini-2.5-flash-image — warm palette + reference style",
-    color: "bg-fuchsia-100 dark:bg-fuchsia-900/30 border-fuchsia-200 dark:border-fuchsia-800",
-    badgeClass: "bg-fuchsia-600 text-white",
+    id: "gemini-imagen-warm",
+    label: "Gemini image gen — warm",
+    sublabel: "gemini-2.5-flash-image — vibrant saturated palette, no reference",
+    color: "bg-violet-100 dark:bg-violet-900/30 border-violet-200 dark:border-violet-800",
+    badgeClass: "bg-violet-600 text-white",
     promptType: "scene" as const,
   },
   {
