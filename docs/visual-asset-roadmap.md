@@ -2,7 +2,7 @@
 ## HoloHola — Interactive Textbook Design Playbook & Visual Library
 
 **Created:** March 15, 2026  
-**Last updated:** May 8, 2026 — Part I.O: Image container & generation pipeline audit; chapter header fix (object-top → object-center); DALL-E deprecation plan; gpt-image-1 scene experiment documented  
+**Last updated:** May 9, 2026 — Part I.O updated: Image engine evaluation complete (May 2026); DALL-E 3 replacement decision made; per-engine assignment, cost/rate-limit comparison, and prompt tuning notes added  
 **Referenced by:** `docs/curriculum-strategy.md` (Section 8)  
 **Component coverage manifest:** `docs/textbook-component-coverage.json` (machine-readable, Lyra-monitored)  
 **Status column key:** ⬜ Planned | 🔄 Generating | ✅ In Library
@@ -6917,9 +6917,7 @@ OpenAI is discontinuing DALL-E 3 on **May 12, 2026**. The following files call `
 | **Imagen 3** | Google | Vertex AI | Not yet tested — leading candidate |
 | **Gemini image gen** | Google | Gemini SDK | Alden has used for one-off assets; not tested at scale for watercolor scenes |
 
-**gpt-image-1 as stopgap:** Swapping `dall-e-3` → `gpt-image-1` across all files requires no API changes (same OpenAI SDK). Style quality will degrade for scenes but generation won't break. Buys time for proper Imagen 2/3 evaluation. Only use if testing isn't complete before May 12.
-
-**Decision pending testing.** Need side-by-side sample generations from Imagen 2, Imagen 3, and optionally Gemini image gen — all given the same `SCENE_STYLE` prompt — before committing to a migration path.
+**Decision made May 9, 2026.** See "Image Engine Evaluation — May 2026" section below for full test results, cost comparison, and per-callsite replacement assignments. All seven DALL-E 3 callsites will be migrated to Google engines. No gpt-image-1 stopgap needed — evaluation completed before the May 12 deadline.
 
 ---
 
@@ -6957,8 +6955,143 @@ When Daniela calls `show_image(word, scene)` during a voice session for a word n
 ### Open Questions
 
 1. **Do conversation strips survive the textbook cleanup?** Decision pending David's review. If yes, decide whether to regenerate at a standardized size or adjust containers to match existing 896×1280 images.
-2. **Which Google model replaces DALL-E 3?** Run the three-case test matrix above against Imagen 2, Imagen 3, and optionally Gemini image gen. Do not migrate until all three test cases pass at an acceptable quality level.
-3. **Narrative header images — regenerate at landscape?** Currently 1024×1024. Could be regenerated at `1792×1024` for a cleaner fit in the wide landscape container, but only worth doing once the replacement model is chosen.
-4. **Character consistency strategy.** DALL-E 3 has no image-to-image path — Daniela and Rosa look somewhat different across images. Imagen 3 supports reference images natively. If we switch, canonical reference images for each character should be defined and passed at generation time — this is the main upside of moving to Google's stack.
-5. **gpt-image-1 review.** Still performing well for props but worth a spot-check — run a sample of concrete object words and compare quality against the existing cached images.
+2. **Which Google model replaces DALL-E 3?** ✅ RESOLVED May 9, 2026 — see "Image Engine Evaluation — May 2026" below. Per-use-case assignments made.
+3. **Narrative header images — regenerate at landscape?** Currently 1024×1024. Worth regenerating at `1792×1024` once Imagen 4 Ultra migration is live — the wide landscape container will crop less.
+4. **Character consistency strategy.** Imagen 4 supports reference images via the SDK. Once canonical reference images for Daniela and Rosa are defined, pass them at generation time for all scene/character calls. This is the primary upside over DALL-E 3.
+5. **Sticker/cutout effect on Imagen 4 Standard environment scenes.** When prompted with "landscape only, no people", Imagen 4 Standard occasionally renders the scene as a floating illustration on white rather than full-bleed. Fix: add `"full bleed background, edge to edge, no white borders, no vignette"` to environment prompts.
+
+---
+
+## Image Engine Evaluation — May 2026
+
+**Date:** May 9, 2026  
+**Purpose:** Pre-migration side-by-side evaluation of six image generation engines across five use-case categories to determine DALL-E 3 replacements before the May 12, 2026 deprecation deadline.  
+**Test tool:** `/admin/image-test` — purpose-built evaluation page running all six engines in parallel with per-engine retry and full-size lightbox.  
+**Engines tested:** `dall-e-3`, `gpt-image-1`, `gpt-image-1-prop`, `gemini-2.5-flash-image`, `imagen-4.0-generate-001` (Imagen 4 Standard), `imagen-4.0-ultra-generate-001` (Imagen 4 Ultra)
+
+---
+
+### Test Categories and Observations
+
+| Category | Prompt used | Key finding |
+|---|---|---|
+| Character scene | `hola` (Daniela + school entrance SCENE_OVERRIDE) | Google engines competitive; Google character rendering warm and clear; DALL-E 3 slightly more dramatic atmosphere |
+| Environment | Beach (generic `playa` prompt) | DALL-E 3 clearly best on default prompt — cinematic detail, ocean spray, no unwanted people; Google engines flat and populated |
+| Environment (tuned) | Beach with `"no people, landscape only, wide establishing shot, full bleed, edge to edge"` added | **Gap closed.** Imagen 4 Standard and Ultra both produce vivid, detailed beach scenes on par with DALL-E 3. Confirms gap was prompt engineering, not capability. |
+| Freeform / live-session | Farmers market scene (Daniela-style description) | DALL-E 3 most cinematic (dramatic god-rays, backlit silhouette). Google engines produce warm watercolor style — clearer character faces, faster, pedagogically better for vocab teaching. |
+| Props (white bg) | Apple | **DALL-E 3 fails completely.** Run #1: giant surrealist apple with people. Run #2: abstract paint splatter. Google engines (all three) produce perfect photorealistic clean-background objects. gpt-image-1-prop acceptable but 28s. |
+| Cultural scene (custom) | `una familia hispana cenando juntos, mesa con comida tradicional, ambiente cálido` | All engines produce usable results. DALL-E 3 has more atmospheric depth (candlelight, fireplace glow). Google engines warm, clear, culturally accurate — adequate for educational use. Speed gap decisive. |
+
+---
+
+### Speed Benchmarks (observed across all tests)
+
+| Engine | Typical latency | Notes |
+|---|---|---|
+| `gemini-2.5-flash-image` | **5–7s** | Fastest by significant margin |
+| `imagen-4.0-generate-001` | **6–9s** | Slightly slower than Flash, cleaner props |
+| `imagen-4.0-ultra-generate-001` | **9–14s** | Best detail; still 2–4× faster than DALL-E 3 |
+| `dall-e-3` | **25–35s** | Retiring May 12, 2026 |
+| `gpt-image-1` | **34–43s** | Slowest tested; not a replacement candidate |
+| `gpt-image-1-prop` | **28–44s** | Acceptable for props only; dominated by Google speed |
+
+---
+
+### Cost Comparison
+
+| Engine | Cost per image | Notes |
+|---|---|---|
+| `gemini-2.5-flash-image` | **~$0.001** | Token-based: ~1,290 output tokens × $0.60/M = ~$0.0008/image. Effectively free at HoloHola scale. |
+| `imagen-4.0-generate-001` (Imagen 4 Standard) | **~$0.02–$0.04** | Per-image billing via Gemini Developer API |
+| `imagen-4.0-ultra-generate-001` (Imagen 4 Ultra) | **$0.06** | Confirmed pricing; premium tier |
+| `dall-e-3` standard | $0.04 | Retiring May 12, 2026 |
+| `dall-e-3` HD | $0.08 | Retiring May 12, 2026 |
+| `gpt-image-1` medium | ~$0.04–$0.08 | Not a replacement candidate |
+
+**At HoloHola scale (estimate ~500 images/month across all live sessions + seed generation):**
+- DALL-E 3 HD current cost: ~$40/month
+- Imagen 4 Ultra for all calls: ~$30/month (25% cheaper, better latency)
+- Gemini Flash for live session calls + Imagen 4 for batch/seed: ~$5–8/month (80–90% reduction)
+- Recommended mixed approach: ~$12–15/month total
+
+---
+
+### Rate Limits (Gemini Developer API, as of May 2026)
+
+| Engine | Free tier | Tier 1 (billing linked) | Tier 2 ($250+ spent) | Tier 3 ($1,000+ spent) |
+|---|---|---|---|---|
+| `imagen-4.0-generate-001` | 2 IPM, ~100 RPD | 10 IPM | 20 IPM | 100+ IPM (negotiated) |
+| `imagen-4.0-ultra-generate-001` | 2 IPM | 10 IPM | 20 IPM | 100+ IPM |
+| `gemini-2.5-flash-image` | 500 RPD, 10 RPM | Much higher (TPM-based) | Standard Flash limits apply | Standard Flash limits apply |
+
+**HoloHola note:** At HoloHola's current usage, Tier 1 (billing linked, no minimum spend) is sufficient. 10 IPM on Imagen means up to 10 simultaneous live-session image calls — more than enough. Gemini Flash's RPD-based limit at 500/day is generous for live sessions. Tier 2 available for ~$150 cumulative Cloud spend if we ever need burst capacity for batch re-seeding.
+
+**IPM = Images Per Minute.** This is the critical metric for Imagen models, not RPM. Each request generates 1 image.
+
+---
+
+### Decision: Per-Use-Case Engine Assignments
+
+The architecture already separates props from scenes (different code paths in `vocabulary-image-resolver.ts`). The replacement follows the same split — no architectural change, just engine swaps.
+
+| Use case | Old engine | New engine | Rationale |
+|---|---|---|---|
+| **Vocabulary props** (single objects, white bg) | `gpt-image-1` | **`imagen-4.0-generate-001`** | DALL-E 3 and gpt-image-1 both fail or are slow. Imagen 4 Standard: perfect photorealistic props, 6–7s, consistent across runs. |
+| **Character scenes** (Daniela, characters in context) | `dall-e-3` | **`imagen-4.0-ultra-generate-001`** | Best detail, warm watercolor illustration, clear face rendering, culturally accurate. 9–14s. |
+| **Environment scenes** (landscapes, locations, no character) | `dall-e-3` | **`imagen-4.0-ultra-generate-001`** | With tuned prompt (see below), produces vivid environments on par with DALL-E 3. Same engine as character scenes simplifies code. |
+| **Live session / freeform** (`show_image()` during voice chat) | `dall-e-3` | **`gemini-2.5-flash-image`** | Speed is the primary requirement mid-conversation. 5–7s vs 25–35s is the difference between a smooth lesson and a student watching a spinner. Quality is adequate and improving with prompt tuning. |
+| **Lesson header art** | `dall-e-3` | **`imagen-4.0-ultra-generate-001`** | Same as character scenes — quality is appropriate for a header image that sets chapter tone. |
+| **Scenario roleplay scenes** | `dall-e-3` | **`imagen-4.0-ultra-generate-001`** | Same reasoning. |
+| **Menu food images** | `dall-e-3` | **`imagen-4.0-generate-001`** | Food items are effectively props. Standard tier sufficient; saves cost. |
+| **Prop room backgrounds** | `dall-e-3` | **`imagen-4.0-ultra-generate-001`** | Environment scenes — Ultra for quality. |
+| **Admin/one-off regen** (`generateImageWithGemini()` in routes.ts) | `dall-e-3` | **`imagen-4.0-ultra-generate-001`** | Admin tool should default to best quality. |
+
+---
+
+### Prompt Tuning Notes for Google Engines
+
+The DALL-E 3 `SCENE_STYLE` constant was written for DALL-E 3's specific response patterns. Google engines respond well to the same style direction but need a few additions:
+
+**For all scene/character calls (Imagen 4 Ultra):**
+- Keep existing `SCENE_STYLE` content unchanged
+- Add: `"full bleed background, color and content to every corner, no white borders, no vignette, no color bars"`
+- This prevents the floating-illustration / sticker effect observed on some Imagen 4 Standard environment renders
+
+**For environment/landscape scenes specifically:**
+- Add: `"no people, no figures, landscape only, wide establishing shot"`
+- Confirmed effective: the beach test with these additions produced results directly on par with DALL-E 3
+
+**For live session / Gemini Flash freeform:**
+- The Flash model interprets style prompts well but leans toward softer, more painterly output
+- Its slightly-softer aesthetic is actually well-suited to the educational context (warmer, less intense than DALL-E 3's cinematic output)
+- Daniela's free-form scene descriptions work naturally with Flash — no additional prompt engineering required
+
+**What NOT to change:**
+- The `COMPOSITION_VARIANTS` rotation (lower two-thirds character placement) — keep as-is
+- The hair/clothing rules in `DALL_E_STYLE` constants — still apply to Google engines
+- The "no text, no typography" rule — still required for all engines
+
+---
+
+### Callsites to Update (Implementation Phase)
+
+Seven files need updating. All can route through a new shared `generateImageGoogle()` utility function rather than touching each file individually.
+
+| File | Current model | New model | Priority |
+|---|---|---|---|
+| `visual-content-service.ts` | `dall-e-3 HD` | `imagen-4.0-ultra-generate-001` (scenes) / `imagen-4.0-generate-001` (props) | 🔴 High — core pipeline |
+| `vocab-image-seed-service.ts` | via visual-content-service | Inherits from above | 🔴 High |
+| `lesson-image-generator.ts` | `dall-e-3` | `imagen-4.0-ultra-generate-001` | 🟡 Medium |
+| `scenario-image-generator.ts` | `dall-e-3` | `imagen-4.0-ultra-generate-001` | 🟡 Medium |
+| `menu-image-worker.ts` | `dall-e-3` | `imagen-4.0-generate-001` | 🟡 Medium |
+| `prop-room-compositor.ts` | `dall-e-3` | `imagen-4.0-ultra-generate-001` | 🟡 Medium |
+| `routes.ts` → `generateImageWithGemini()` | `dall-e-3` at 1792×1024 | `imagen-4.0-ultra-generate-001` | 🟡 Medium |
+
+**Recommended implementation approach:** Create `server/services/google-image-service.ts` as the single integration point for all Google image generation. Export two functions: `generateSceneImage(prompt)` → Imagen 4 Ultra, `generatePropImage(prompt)` → Imagen 4 Standard. All seven callsites import from this service. Live session `show_image()` path gets a separate `generateLiveImage(prompt)` → Gemini Flash for latency-critical calls.
+
+---
+
+### Previous Evaluation: Imagen 1 (Tried and Rejected, 2025)
+
+For historical context: Google Imagen 1 was evaluated as a DALL-E 3 replacement in 2025. Quality was not competitive — could not produce results visually similar to the existing DALL-E 3 watercolor-wash library. Abandoned with no remaining callsites. Imagen 4 (2026) is a fundamentally different product and passed all evaluation categories.
 

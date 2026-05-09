@@ -424,3 +424,29 @@ Four sequential issues resolved to get embeddings working end-to-end:
 4. **No embedding access on Gemini key** — the key only supports `generateContent`/`countTokens`, no embedding models at all. Switched to **OpenAI `text-embedding-3-small`** with `dimensions: 768` — `EMBEDDING_DIM` constant unchanged, `USER_OPENAI_API_KEY` (direct key, not managed proxy). Removed `@google/genai` import from this file.
 
 **Result on first clean boot**: `[ToolIndexer] Done — 126 indexed, 0 already fresh, 0 errors`. EmbedIndexer began processing ~12,200 student memories in 10-record batches (2h interval). Both neural network layers now operational.
+
+---
+
+## Session: May 9, 2026 — DALL-E 3 Replacement Engine Evaluation
+
+### What was built
+Purpose-built image engine test page at `/admin/image-test` for evaluating six image generation engines side-by-side. Also: full evaluation run across five use-case categories, decision reached, documentation written.
+
+### Test tool (`/admin/image-test`)
+- **File:** `client/src/pages/admin/ImageEngineTest.tsx`
+- **Backend:** `server/services/image-engine-test.ts`, route `POST /api/admin/image-engine-test`
+- **Features:** 6 engines in parallel, configurable run count, scene/prop mode toggle, per-engine retry button (spins independently, doesn't block global state), full-size lightbox on image click, download links, timing display per image
+- **Engines:** `dall-e-3`, `gpt-image-1`, `gpt-image-1-prop`, `gemini-2.5-flash-image`, `imagen-4.0-generate-001`, `imagen-4.0-ultra-generate-001`
+- **Access:** Admin Command Center → "Image Engine Test" button, or direct `/admin/image-test`
+
+### Decision reached
+Full evaluation documented in `docs/visual-asset-roadmap.md` under "Image Engine Evaluation — May 2026". Short version:
+- **Props:** Imagen 4 Standard (6–7s, perfect clean objects — DALL-E 3 was actually failing props with surrealist output)
+- **Scenes / characters / environments:** Imagen 4 Ultra (9–14s, quality on par with DALL-E 3 with prompt tuning)
+- **Live session `show_image()` calls:** Gemini Flash (5–7s, speed is the requirement mid-conversation)
+
+### What's NOT done
+Migration of the 7 DALL-E 3 callsites — documented in roadmap and handoff, ready for next session. Recommended: create `server/services/google-image-service.ts` as single integration point first.
+
+### Key prompt tuning note
+Add `"full bleed background, color and content to every corner, no white borders, no vignette"` to all Imagen 4 calls to prevent sticker/floating illustration effect on some environment renders.

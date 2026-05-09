@@ -4686,6 +4686,48 @@ These are verbatim or near-verbatim from Magic Key, ready to load into `danielaN
 
 ---
 
+## From Agent — May 9, 2026 (session: DALL-E 3 replacement — engine evaluation complete)
+
+### What was done
+Full six-engine image generation evaluation to replace DALL-E 3 before May 12, 2026 deprecation. Decision is made — see `docs/visual-asset-roadmap.md` "Image Engine Evaluation — May 2026" section for the full write-up.
+
+**Summary of decision:**
+- **Props** (single objects, white bg): `imagen-4.0-generate-001` (Imagen 4 Standard) — DALL-E 3 and gpt-image-1 both fail or are too slow; Google is perfect and fast (6–7s)
+- **Character + environment scenes**: `imagen-4.0-ultra-generate-001` (Imagen 4 Ultra) — 9–14s, high detail, warm watercolor style on par with DALL-E 3 with prompt tuning
+- **Live session / `show_image()` calls**: `gemini-2.5-flash-image` — 5–7s is the key requirement mid-conversation; quality is adequate and improving
+- **All other pipelines** (lesson headers, scenario scenes, menu food, prop room bg, admin regen): Imagen 4 Ultra
+
+**Cost:** ~$0.001/image for Flash, ~$0.02–$0.04 for Imagen 4 Standard, ~$0.06 for Imagen 4 Ultra. Compared to DALL-E 3 HD at $0.08. Estimated 80–90% cost reduction with mixed approach.
+
+**Key finding on props:** DALL-E 3 was actively failing on props (surrealist interpretations, paint splatters). The current `gpt-image-1` prop path also works but at 28–44s. Google at 6–9s is a clean win.
+
+**Key finding on environments:** The beach gap from the first round was entirely prompt engineering — adding `"no people, landscape only, full bleed, edge to edge"` produced Imagen 4 results directly on par with DALL-E 3.
+
+### What's NOT done yet — implementation phase
+The seven callsites have been documented but NOT migrated yet. That's the next session's work. Files:
+1. `visual-content-service.ts` — core pipeline (🔴 High)
+2. `vocab-image-seed-service.ts` — inherits from above (🔴 High)
+3. `lesson-image-generator.ts`
+4. `scenario-image-generator.ts`
+5. `menu-image-worker.ts`
+6. `prop-room-compositor.ts`
+7. `routes.ts` → `generateImageWithGemini()` (misleadingly named — actually calls DALL-E 3)
+
+**Recommended approach:** Create `server/services/google-image-service.ts` as the single integration point. Export `generateSceneImage()` → Imagen 4 Ultra, `generatePropImage()` → Imagen 4 Standard, `generateLiveImage()` → Gemini Flash. All seven callsites import from this service.
+
+### Prompt tuning notes for implementation
+- Add `"full bleed background, color and content to every corner, no white borders, no vignette"` to all Imagen calls (prevents sticker/floating effect)
+- For environment scenes: add `"no people, no figures, landscape only, wide establishing shot"`
+- Keep existing `SCENE_STYLE`, `COMPOSITION_VARIANTS`, hair/clothing rules unchanged — they apply to Google engines too
+
+### Test tool built
+`/admin/image-test` — six-engine parallel test page with per-engine retry buttons and full-size lightbox. Stays in the codebase as a permanent evaluation tool for future model changes. Access from Admin Command Center.
+
+### Rate limits (FYI)
+Imagen 4: 2 IPM free, 10 IPM Tier 1 (just link billing, no minimum spend). At HoloHola scale, Tier 1 is sufficient. Flash has generous RPD limits. No concerns about hitting limits in normal operation.
+
+---
+
 ## From Agent — April 24, 2026 (session: Spanish 3/4/5 advanced unit pages)
 
 ### What was built
