@@ -20873,22 +20873,38 @@ Current conversation context:
         'vocab_spanish_encantada',
         'vocab_spanish_mas o menos',
       ];
-      let imageUrl: string | null = null;
+      let foundUrl: string | null = null;
+      let foundKey: string | null = null;
       for (const key of candidateKeys) {
         const cached = await storage.getCachedStockImage(key);
-        if (cached?.url) { imageUrl = cached.url; break; }
+        if (cached?.url) { foundUrl = cached.url; foundKey = key; break; }
       }
-      if (!imageUrl) {
+      if (!foundUrl || !foundKey) {
         return res.status(404).json({ error: 'No cached Daniela image found. Seed the greeting images first.' });
       }
-      const fetchModule = await import('node-fetch');
-      const fetch = fetchModule.default as typeof fetchModule.default;
-      const imageRes = await (fetch as any)(imageUrl);
-      if (!imageRes.ok) throw new Error(`Failed to fetch image: ${imageRes.status}`);
-      const contentType = imageRes.headers.get('content-type') || 'image/jpeg';
-      const buffer = await imageRes.buffer();
-      const b64 = buffer.toString('base64');
-      res.json({ b64, mimeType: contentType, sourceKey: candidateKeys[0], url: imageUrl });
+
+      // URLs are stored as app-relative paths like /api/media/ai-image/<filename>
+      // — they are NOT fetchable via HTTP. Read the file directly from GCS.
+      const AI_IMAGE_PREFIX = '/api/media/ai-image/';
+      if (!foundUrl.startsWith(AI_IMAGE_PREFIX)) {
+        return res.status(400).json({ error: `Unexpected URL format: ${foundUrl}` });
+      }
+      const filename = foundUrl.slice(AI_IMAGE_PREFIX.length);
+
+      const { objectStorageClient } = await import('./replit_integrations/object_storage/objectStorage');
+      const bucketId = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID || '';
+      if (!bucketId) return res.status(503).json({ error: 'Object storage not configured' });
+
+      const file = objectStorageClient.bucket(bucketId).file(`public/ai-images/${filename}`);
+      const [exists] = await file.exists();
+      if (!exists) return res.status(404).json({ error: `Image file not found in storage: ${filename}` });
+
+      const [metadata] = await file.getMetadata();
+      const mimeType = (metadata.contentType as string) || 'image/jpeg';
+      const [data] = await file.download();
+      const b64 = data.toString('base64');
+
+      res.json({ b64, mimeType, sourceKey: foundKey, url: foundUrl });
     } catch (error: any) {
       console.error('[ImageEngineTest] daniela-reference error:', error);
       res.status(500).json({ error: error.message });
