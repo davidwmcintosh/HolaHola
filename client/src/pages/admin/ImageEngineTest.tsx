@@ -275,13 +275,15 @@ export default function ImageEngineTest() {
     e.target.value = "";
   };
 
-  // Build request body — only include reference for engines that support it
-  const buildRequestBody = (engineId: string, type: "scene" | "prop") => {
+  // Build request body — only include reference for engines that support it.
+  // variationIndex ensures parallel runs get different composition nudges.
+  const buildRequestBody = (engineId: string, type: "scene" | "prop", variationIndex: number = 0) => {
     const supportsReference = REFERENCE_CAPABLE_ENGINES.includes(engineId);
     return JSON.stringify({
       engine: engineId,
       concept: concept.trim(),
       type,
+      variationIndex,
       ...(supportsReference && referenceImage
         ? { referenceImageB64: referenceImage.b64, referenceImageMimeType: referenceImage.mimeType }
         : {}),
@@ -323,7 +325,7 @@ export default function ImageEngineTest() {
           fetch("/api/admin/image-engine-test", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: buildRequestBody(engineId, type),
+            body: buildRequestBody(engineId, type, runIndex),
           })
             .then(r => r.json())
             .then((data: any) => {
@@ -384,6 +386,7 @@ export default function ImageEngineTest() {
           engine: engineId,
           concept: concept.trim(),
           type,
+          variationIndex: i,
           ...(supportsReference && referenceImage
             ? { referenceImageB64: referenceImage.b64, referenceImageMimeType: referenceImage.mimeType }
             : {}),

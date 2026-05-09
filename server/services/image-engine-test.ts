@@ -231,10 +231,19 @@ async function runGptImage1Prop(concept: string): Promise<EngineResult> {
 
 // ─── Gemini image generation ──────────────────────────────────────────────────
 
+// Variation nudges ensure parallel requests produce meaningfully different compositions.
+const VARIATION_NUDGES: string[] = [
+  'Compose this as your first instinct — natural framing and balanced layout.',
+  'Use a different camera angle, viewing direction, and background setting than you would naturally choose first. Shift the composition — low angle, side view, or different depth of field.',
+  'Emphasise a different moment or emotional beat in the scene. Change the characters\' expressions, poses, and the mood of the lighting.',
+  'Reimagine the environment entirely — different time of day, different architectural details, different surrounding elements. Keep characters consistent but reinvent the world around them.',
+];
+
 async function runGeminiImagen(
   concept: string,
   type: 'scene' | 'prop',
   reference?: ReferenceImage,
+  variationIndex: number = 0,
 ): Promise<EngineResult> {
   const t0 = Date.now();
   try {
@@ -243,24 +252,34 @@ async function runGeminiImagen(
 
     const ai = new GoogleGenAI({ apiKey });
 
-    // Gemini Flash has no API aspect-ratio parameter — must be in the prompt.
-    const basePrompt = type === 'prop'
-      ? `Square 1:1 format. Illustration of: ${concept}. ${PROP_STYLE}`
-      : `Square 1:1 format. Illustrated scene: ${concept}. ${SCENE_STYLE}`;
+    const variationNudge = VARIATION_NUDGES[variationIndex % VARIATION_NUDGES.length];
 
-    // When a reference image is provided, send it as a style+character guide.
-    // Critically: we tell the model to create a COMPLETELY NEW scene — NOT to
-    // reproduce or copy the reference. The reference is for style and character
-    // design only (face shape, hair, skin tone, illustration technique).
-    const referencePrefix = reference
-      ? 'STYLE & CHARACTER REFERENCE (do not copy or reproduce this image): ' +
-        'Use the attached image to learn Daniela\'s character design (face shape, wavy dark-brown hair, warm medium-brown skin tone, bright brown eyes, casual clothing style) ' +
-        'and the illustration technique (soft pen linework with loose watercolor wash, warm natural palette, animated storybook feel). ' +
-        'Apply that same character design and illustration style to the BRAND NEW scene described below. ' +
-        'The composition, setting, pose, and background must be entirely new — not based on or derived from the reference image. '
-      : '';
+    let textPrompt: string;
 
-    const textPrompt = referencePrefix + basePrompt;
+    if (reference) {
+      // When a reference is provided, let IT define the style — do NOT append SCENE_STYLE
+      // (which says "muted palette") as it fights the reference's warm saturated look.
+      // Only add content/framing constraints and the variation nudge.
+      const contentOnly =
+        `Square 1:1 format. Full bleed edge-to-edge, no white borders, no padding. ` +
+        `Heads fully visible with generous headroom. ` +
+        `${concept}. ` +
+        `Absolutely no text, letters, numbers or typography in the image.`;
+
+      textPrompt =
+        'STYLE & CHARACTER REFERENCE (do not copy or reproduce this image — use it as a guide only): ' +
+        "Extract Daniela's character design from the reference: face shape, wavy dark-brown hair, warm medium-brown skin tone, bright brown eyes, and her casual clothing. " +
+        'Extract the illustration technique: match the exact color palette, saturation level, warmth, line weight, and painterly finish shown in the reference image. ' +
+        'Now create a COMPLETELY NEW scene — different composition, different setting, different pose, different background. ' +
+        `VARIATION DIRECTION: ${variationNudge} ` +
+        'NEW SCENE: ' + contentOnly;
+    } else {
+      // No reference — use the full SCENE_STYLE text description as before.
+      const basePrompt = type === 'prop'
+        ? `Square 1:1 format. Illustration of: ${concept}. ${PROP_STYLE}`
+        : `Square 1:1 format. Illustrated scene: ${concept}. ${SCENE_STYLE}`;
+      textPrompt = `VARIATION DIRECTION: ${variationNudge} ` + basePrompt;
+    }
 
     let contents: any;
     if (reference) {
@@ -346,12 +365,13 @@ export async function runEngineTest(
   concept: string,
   type: 'scene' | 'prop',
   reference?: ReferenceImage,
+  variationIndex: number = 0,
 ): Promise<EngineResult> {
   switch (engine) {
     case 'dall-e-3':         return runDallE3(concept);
     case 'gpt-image-1':      return runGptImage1Scene(concept);
     case 'gpt-image-1-prop': return runGptImage1Prop(concept);
-    case 'gemini-imagen':    return runGeminiImagen(concept, type, reference);
+    case 'gemini-imagen':    return runGeminiImagen(concept, type, reference, variationIndex);
     case 'imagen-3':         return runImagenModel('imagen-3', 'imagen-4.0-generate-001', concept, type);
     case 'imagen-4-ultra':   return runImagenModel('imagen-4-ultra', 'imagen-4.0-ultra-generate-001', concept, type);
     default:                 return { dataUrl: null, elapsed: 0, engine, error: `Unknown engine: ${engine}` };
