@@ -99,6 +99,15 @@ function withTimeout<T>(
 const activeVoiceConnections = new Map<string, VoiceWSConnection>();
 
 /**
+ * Dedup guard for concurrent SessionInit pipelines.
+ * When a duplicate socket reconnect fires a second start_session for the same
+ * conversationId while the first init is still running (both hit the DB pool
+ * simultaneously, causing a timeout cascade), the second one is dropped here.
+ * The Set is keyed by conversationId and cleared in the finally block.
+ */
+const sessionInitsInProgress = new Set<string>();
+
+/**
  * Reconnection Grace Period System
  * 
  * When a WebSocket drops (infrastructure timeout, network hiccup), we DON'T immediately
@@ -1239,9 +1248,21 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             }
           }
 
+          // ── Duplicate-init guard ────────────────────────────────────────────
+          // A duplicate socket reconnect can fire a second start_session for the same
+          // conversationId while the first full 18-query init is still running, causing
+          // both pipelines to compete for the Neon connection pool and timeout-cascade.
+          // Drop the duplicate — the first init will complete and the GeminiLive session
+          // will be ready. (Does not apply to explicit reconnects, which need a fresh init.)
+          if (conversationId && !isReconnectSO && sessionInitsInProgress.has(conversationId)) {
+            console.warn(`[SessionInit] ⚠ Duplicate start_session for conv ${conversationId.substring(0, 8)} already in progress — skipping to prevent DB pool saturation`);
+            break;
+          }
+          if (conversationId && !isReconnectSO) sessionInitsInProgress.add(conversationId);
+
           try {
             const initStart = Date.now();
-            const SESSION_INIT_TIMEOUT = 3000; // 3s timeout for each DB operation
+            const SESSION_INIT_TIMEOUT = 6000; // 6s timeout — gives headroom during boot-time DB saturation
             console.log(`[SessionInit] Starting session init pipeline...`);
             
             // ══════════════════════════════════════════════════════════════
@@ -2335,6 +2356,9 @@ ${lastNote.tutorNotes}`);
           } catch (err: any) {
             console.error('[Streaming Voice] Session creation failed:', err);
             sendErrorAdapter(ws, 'SESSION_FAILED', err.message || 'Session creation failed', false);
+          } finally {
+            // Always release the dedup guard so future reconnects can init normally
+            if (conversationId && !isReconnectSO) sessionInitsInProgress.delete(conversationId);
           }
           break;
         }
