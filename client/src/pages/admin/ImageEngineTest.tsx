@@ -42,9 +42,17 @@ const ENGINES = [
   {
     id: "gemini-imagen",
     label: "Gemini image gen",
-    sublabel: "gemini-2.5-flash-image — fast creative tier",
+    sublabel: "gemini-2.5-flash-image — muted palette (current style)",
     color: "bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-800",
     badgeClass: "bg-purple-600 text-white",
+    promptType: "scene" as const,
+  },
+  {
+    id: "gemini-imagen-warm",
+    label: "Gemini image gen — warm",
+    sublabel: "gemini-2.5-flash-image — vibrant saturated palette",
+    color: "bg-violet-100 dark:bg-violet-900/30 border-violet-200 dark:border-violet-800",
+    badgeClass: "bg-violet-600 text-white",
     promptType: "scene" as const,
   },
   {

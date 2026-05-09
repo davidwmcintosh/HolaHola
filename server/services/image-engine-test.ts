@@ -37,6 +37,26 @@ export const SCENE_STYLE =
   'no white space margins, no white bars, no vignette, no padding, background colour and texture extends all the way to every edge of the image; ' +
   NO_TEXT;
 
+/**
+ * Warmer, more saturated variant of SCENE_STYLE for testing.
+ * Identical technique (pen-and-watercolor-wash) but colours are rich and confident
+ * rather than muted and dusty — closer to the warmth of DALL-E's current output.
+ */
+export const SCENE_STYLE_WARM =
+  "pen-and-watercolor-wash illustration in the style of a warm, inviting picture book — " +
+  'loose expressive ink lines define the figures; rich saturated watercolor washes fill in colour with a confident, glowing warmth; ' +
+  'figures and their surroundings share the same painterly quality — characters are NOT sharply rendered or smoothly shaded; ' +
+  'skin and clothing painted with warm open washes that feel sun-lit and alive, not polished or airbrushed; ' +
+  'warm vibrant palette: rich sky blue, golden amber, warm terracotta, lush green, honeyed cream — ' +
+  'saturated and inviting, like the best classic illustrated storybooks; ' +
+  'warm soft directional light with a gentle golden glow — avoid cold or flat lighting; ' +
+  'NOT photorealistic, NOT flat cel-shading, NOT clean digital fills, NOT 3D render, NOT vector art; ' +
+  'IMPORTANT FRAMING: generous headroom — heads fully visible, never cropped at top of frame; ' +
+  'position characters in lower two-thirds of canvas so top quarter shows sky or background; ' +
+  'IMPORTANT SIZING: full bleed edge-to-edge composition — fill the entire canvas to every corner, ' +
+  'no white space margins, no white bars, no vignette, no padding, background colour and texture extends all the way to every edge of the image; ' +
+  NO_TEXT;
+
 export const PROP_STYLE =
   'bright digital illustration, natural accurate object colors — objects appear in their real-world everyday colors, ' +
   'NOT rainbow-colored, NOT iridescent — realistic natural colors only, ' +
@@ -312,6 +332,7 @@ async function runGeminiImagen(
   type: 'scene' | 'prop',
   reference?: ReferenceImage,
   variationIndex: number = 0,
+  sceneStyleOverride?: string,
 ): Promise<EngineResult> {
   const t0 = Date.now();
   try {
@@ -343,10 +364,11 @@ async function runGeminiImagen(
         `${concept}. ${frameConstraints}\n\n` +
         `COMPOSITION DIRECTION: ${variationNudge}`;
     } else {
-      // No reference — use the full SCENE_STYLE text description as before.
+      // No reference — use SCENE_STYLE (or an override for warm variant testing).
+      const sceneStyle = sceneStyleOverride ?? SCENE_STYLE;
       const basePrompt = type === 'prop'
         ? `Square 1:1 format. Illustration of: ${concept}. ${PROP_STYLE}`
-        : `Square 1:1 format. Illustrated scene: ${concept}. ${SCENE_STYLE}`;
+        : `Square 1:1 format. Illustrated scene: ${concept}. ${sceneStyle}`;
       textPrompt = `VARIATION DIRECTION: ${variationNudge}\n\n` + basePrompt;
     }
 
@@ -433,8 +455,9 @@ export async function runEngineTest(
     case 'dall-e-3':         return runDallE3(concept);
     case 'gpt-image-1':      return runGptImage1Scene(concept);
     case 'gpt-image-1-prop': return runGptImage1Prop(concept);
-    case 'gemini-imagen':    return runGeminiImagen(concept, type, reference, variationIndex);
-    case 'imagen-3':         return runImagenModel('imagen-3', 'imagen-4.0-generate-001', concept, type);
+    case 'gemini-imagen':      return runGeminiImagen(concept, type, reference, variationIndex);
+    case 'gemini-imagen-warm': return runGeminiImagen(concept, type, undefined, variationIndex, SCENE_STYLE_WARM);
+    case 'imagen-3':           return runImagenModel('imagen-3', 'imagen-4.0-generate-001', concept, type);
     case 'imagen-4-ultra':   return runImagenModel('imagen-4-ultra', 'imagen-4.0-ultra-generate-001', concept, type);
     default:                 return { dataUrl: null, elapsed: 0, engine, error: `Unknown engine: ${engine}` };
   }
