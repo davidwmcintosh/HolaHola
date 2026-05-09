@@ -51,8 +51,10 @@ export const SCENE_STYLE_WARM =
   'saturated and inviting, like the best classic illustrated storybooks; ' +
   'warm soft directional light with a gentle golden glow — avoid cold or flat lighting; ' +
   'NOT photorealistic, NOT flat cel-shading, NOT clean digital fills, NOT 3D render, NOT vector art; ' +
-  'IMPORTANT FRAMING: generous headroom — heads fully visible, never cropped at top of frame; ' +
-  'position characters in lower two-thirds of canvas so top quarter shows sky or background; ' +
+  'IMPORTANT FRAMING: close intimate portrait crop — characters shown from roughly waist to crown of head, ' +
+  'faces large and expressive, filling at least 70% of the frame height; ' +
+  'camera feels close and personal, like a conversation, NOT a wide establishing shot; ' +
+  'do NOT show full legs or feet; upper body and faces dominate the composition; ' +
   'IMPORTANT SIZING: full bleed edge-to-edge composition — fill the entire canvas to every corner, ' +
   'no white space margins, no white bars, no vignette, no padding, background colour and texture extends all the way to every edge of the image; ' +
   NO_TEXT;
