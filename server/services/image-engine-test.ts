@@ -1,0 +1,281 @@
+/**
+ * Image Engine Test Service
+ *
+ * Runs a single image generation across different engines for side-by-side comparison.
+ * Used exclusively by the admin image engine test page.
+ *
+ * Engines:
+ *   dall-e-3         — current scene pipeline (1024×1024 HD, SCENE_STYLE)
+ *   gpt-image-1      — OpenAI alternative (same prompt), SCENE_STYLE
+ *   gpt-image-1-prop — OpenAI prop pipeline (PROP_STYLE, white background)
+ *   gemini-imagen    — Gemini 2.0 Flash image generation (Google)
+ *   imagen-3         — Vertex AI Imagen 3 (Google, requires ADC credentials)
+ */
+
+import OpenAI from 'openai';
+import { GoogleGenAI } from '@google/genai';
+import { GoogleAuth } from 'google-auth-library';
+
+// ─── Style constants (mirrored from visual-content-service.ts) ────────────────
+
+const NO_TEXT =
+  'absolutely no text, no letters, no numbers, no words, no handwriting, no captions, ' +
+  'no labels, no symbols, no glyphs, no typography, no writing of any kind — ' +
+  'the image must be a pure illustration with zero readable or decorative text elements';
+
+export const SCENE_STYLE =
+  "pen-and-watercolor-wash illustration in the style of a charming children's book or editorial picture book — " +
+  'loose expressive ink lines define the figures; soft muted watercolor washes fill in colour with gentle bleed at edges; ' +
+  'figures and their surroundings share the same loose painterly quality — characters are NOT sharply rendered or smoothly shaded; ' +
+  'skin and clothing painted with the same soft open washes as the background, not polished or airbrushed; ' +
+  'warm muted palette: dusty blues, sage greens, warm creams, soft terracottas; ' +
+  'soft flat diffuse ambient light — NO dramatic rim lighting, NO cinematic backlighting; ' +
+  'NOT photorealistic, NOT flat cel-shading, NOT clean digital fills, NOT 3D render, NOT vector art; ' +
+  'IMPORTANT FRAMING: generous headroom — heads fully visible, never cropped at top of frame; ' +
+  'position characters in lower two-thirds of canvas so top quarter shows sky or background; ' +
+  NO_TEXT;
+
+export const PROP_STYLE =
+  'bright digital illustration, natural accurate object colors — objects appear in their real-world everyday colors, ' +
+  'NOT rainbow-colored, NOT iridescent — realistic natural colors only, ' +
+  'soft even lighting with no heavy shadows, slightly stylized cheerful style, semi-realistic proportions, smooth clean artwork, ' +
+  'single isolated object centred on a clean pure white background, clear recognisable silhouette, ' +
+  'FRAMING: entire object fully visible within frame, generous white space border on all sides, ' +
+  'wholesome family-friendly educational quality, ' +
+  NO_TEXT;
+
+// ─── Preset prompts ──────────────────────────────────────────────────────────
+
+const DANIELA =
+  'Daniela, a 28-year-old Latina woman with long wavy dark-brown hair, warm medium-brown skin, and bright brown eyes, wearing a sky-blue short-sleeve collared button-up shirt and dark jeans';
+const MARCO =
+  'Marco, a 30-year-old Latino man with short curly black hair, light-olive skin, and friendly dark eyes, wearing a white button-up shirt and chinos';
+const ROSA =
+  'Rosa, a warm 68-year-old Mexican grandmother with short curly silver-white hair, warm brown skin, kind dark eyes behind gold-rimmed glasses, and a white blouse with colorful floral embroidery';
+
+export const PRESET_PROMPTS: Record<string, { label: string; concept: string; type: 'scene' | 'prop'; description: string }> = {
+  hola: {
+    label: '"hola" (character scene)',
+    type: 'scene',
+    description: 'SCENE_OVERRIDES entry — greeting scene with named characters',
+    concept: `${DANIELA} waving hello with a big cheerful smile to ${MARCO} at a sunny school entrance, both standing a few feet apart, friendly classmate greeting, wholesome platonic interaction`,
+  },
+  adios: {
+    label: '"adiós" (character scene)',
+    type: 'scene',
+    description: 'SCENE_OVERRIDES entry — farewell scene with named characters',
+    concept: `${DANIELA} leaning out of a car window waving adiós, ${ROSA} standing on the front porch of a cozy house waving back with a warm smile`,
+  },
+  beach: {
+    label: '"beach" (environment)',
+    type: 'scene',
+    description: 'isSceneConcept() path — environment with no characters',
+    concept: 'A wide sandy beach with gentle waves rolling in under warm afternoon sun, soft foam at the waterline, distant horizon',
+  },
+  grass: {
+    label: '"grass / waves" (environment)',
+    type: 'scene',
+    description: 'isSceneConcept() path — natural landscape, no characters',
+    concept: 'Rolling green grass hills under a bright open sky with soft clouds, gentle wind visible in the grass blades',
+  },
+  daniela_freeform: {
+    label: 'Daniela freeform (live chat)',
+    type: 'scene',
+    description: 'Simulates Daniela calling show_image() with a free-form scene description',
+    concept: 'a young woman walking through a colorful outdoor market, warm afternoon light filtering through canvas stalls, baskets of vegetables, warm and lively',
+  },
+  prop_apple: {
+    label: 'Prop: apple',
+    type: 'prop',
+    description: 'gpt-image-1 prop pipeline — single object on white background',
+    concept: 'apple',
+  },
+};
+
+// ─── Engine result type ───────────────────────────────────────────────────────
+
+export interface EngineResult {
+  dataUrl: string | null;
+  elapsed: number;
+  engine: string;
+  error?: string;
+}
+
+// ─── OpenAI client ────────────────────────────────────────────────────────────
+
+function getOpenAIClient(): OpenAI {
+  const key = process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+  if (!key) throw new Error('No OpenAI API key available (USER_OPENAI_API_KEY or OPENAI_API_KEY)');
+  return new OpenAI({ apiKey: key });
+}
+
+// ─── DALL-E 3 scene generation ────────────────────────────────────────────────
+
+async function runDallE3(concept: string): Promise<EngineResult> {
+  const t0 = Date.now();
+  try {
+    const client = getOpenAIClient();
+    const prompt = `Illustrated scene: ${concept}. ${SCENE_STYLE}`;
+    const res = await client.images.generate({
+      model: 'dall-e-3',
+      prompt,
+      n: 1,
+      size: '1024x1024',
+      quality: 'hd',
+      response_format: 'b64_json',
+    });
+    const b64 = res.data?.[0]?.b64_json;
+    if (!b64) throw new Error('No b64_json in DALL-E 3 response');
+    return { dataUrl: `data:image/png;base64,${b64}`, elapsed: Date.now() - t0, engine: 'dall-e-3' };
+  } catch (err: any) {
+    return { dataUrl: null, elapsed: Date.now() - t0, engine: 'dall-e-3', error: err?.message || String(err) };
+  }
+}
+
+// ─── gpt-image-1 with scene style ────────────────────────────────────────────
+
+async function runGptImage1Scene(concept: string): Promise<EngineResult> {
+  const t0 = Date.now();
+  try {
+    const client = getOpenAIClient();
+    const prompt = `Illustrated scene: ${concept}. ${SCENE_STYLE}`;
+    const res = await (client.images as any).generate({
+      model: 'gpt-image-1',
+      prompt,
+      n: 1,
+      size: '1024x1024',
+      quality: 'high',
+    });
+    const b64 = res.data?.[0]?.b64_json;
+    if (!b64) throw new Error('No b64_json in gpt-image-1 response');
+    return { dataUrl: `data:image/png;base64,${b64}`, elapsed: Date.now() - t0, engine: 'gpt-image-1' };
+  } catch (err: any) {
+    return { dataUrl: null, elapsed: Date.now() - t0, engine: 'gpt-image-1', error: err?.message || String(err) };
+  }
+}
+
+// ─── gpt-image-1 with prop style ─────────────────────────────────────────────
+
+async function runGptImage1Prop(concept: string): Promise<EngineResult> {
+  const t0 = Date.now();
+  try {
+    const client = getOpenAIClient();
+    const prompt = `Illustration of: ${concept}. ${PROP_STYLE}`;
+    const res = await (client.images as any).generate({
+      model: 'gpt-image-1',
+      prompt,
+      n: 1,
+      size: '1024x1024',
+      quality: 'high',
+    });
+    const b64 = res.data?.[0]?.b64_json;
+    if (!b64) throw new Error('No b64_json in gpt-image-1 prop response');
+    return { dataUrl: `data:image/png;base64,${b64}`, elapsed: Date.now() - t0, engine: 'gpt-image-1-prop' };
+  } catch (err: any) {
+    return { dataUrl: null, elapsed: Date.now() - t0, engine: 'gpt-image-1-prop', error: err?.message || String(err) };
+  }
+}
+
+// ─── Gemini image generation ──────────────────────────────────────────────────
+
+async function runGeminiImagen(concept: string, type: 'scene' | 'prop'): Promise<EngineResult> {
+  const t0 = Date.now();
+  try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error('GEMINI_API_KEY not set');
+
+    const ai = new GoogleGenAI({ apiKey });
+    const stylePrompt = type === 'prop'
+      ? `Illustration of: ${concept}. ${PROP_STYLE}`
+      : `Illustrated scene: ${concept}. ${SCENE_STYLE}`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.0-flash-preview-image-generation',
+      contents: stylePrompt,
+      config: {
+        responseModalities: ['TEXT', 'IMAGE'],
+      },
+    });
+
+    const parts = response.candidates?.[0]?.content?.parts ?? [];
+    const imagePart = parts.find((p: any) => p.inlineData?.mimeType?.startsWith('image/'));
+    if (!imagePart?.inlineData) throw new Error('No image in Gemini response');
+
+    const { mimeType, data } = imagePart.inlineData as { mimeType: string; data: string };
+    return { dataUrl: `data:${mimeType};base64,${data}`, elapsed: Date.now() - t0, engine: 'gemini-imagen' };
+  } catch (err: any) {
+    return { dataUrl: null, elapsed: Date.now() - t0, engine: 'gemini-imagen', error: err?.message || String(err) };
+  }
+}
+
+// ─── Imagen 3 via Vertex AI REST ──────────────────────────────────────────────
+
+async function runImagen3(concept: string, type: 'scene' | 'prop'): Promise<EngineResult> {
+  const t0 = Date.now();
+  try {
+    const projectId = process.env.GOOGLE_CLOUD_PROJECT || 'language-tutor-478919';
+    const location = 'us-central1';
+    const model = 'imagen-3.0-generate-002';
+    const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${model}:predict`;
+
+    const auth = new GoogleAuth({
+      scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+    });
+    const client = await auth.getClient();
+    const tokenRes = await (client as any).getAccessToken();
+    const token = tokenRes?.token || tokenRes;
+    if (!token) throw new Error('Could not obtain Google access token');
+
+    const stylePrompt = type === 'prop'
+      ? `Illustration of: ${concept}. ${PROP_STYLE}`
+      : `Illustrated scene: ${concept}. ${SCENE_STYLE}`;
+
+    const body = {
+      instances: [{ prompt: stylePrompt }],
+      parameters: {
+        sampleCount: 1,
+        aspectRatio: '1:1',
+        safetySetting: 'block_some',
+      },
+    };
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Vertex AI ${res.status}: ${errText.slice(0, 300)}`);
+    }
+
+    const json = await res.json() as any;
+    const b64 = json.predictions?.[0]?.bytesBase64Encoded;
+    if (!b64) throw new Error('No image data in Imagen 3 response');
+
+    return { dataUrl: `data:image/png;base64,${b64}`, elapsed: Date.now() - t0, engine: 'imagen-3' };
+  } catch (err: any) {
+    return { dataUrl: null, elapsed: Date.now() - t0, engine: 'imagen-3', error: err?.message || String(err) };
+  }
+}
+
+// ─── Main dispatch ────────────────────────────────────────────────────────────
+
+export async function runEngineTest(
+  engine: string,
+  concept: string,
+  type: 'scene' | 'prop',
+): Promise<EngineResult> {
+  switch (engine) {
+    case 'dall-e-3':       return runDallE3(concept);
+    case 'gpt-image-1':    return runGptImage1Scene(concept);
+    case 'gpt-image-1-prop': return runGptImage1Prop(concept);
+    case 'gemini-imagen':  return runGeminiImagen(concept, type);
+    case 'imagen-3':       return runImagen3(concept, type);
+    default:               return { dataUrl: null, elapsed: 0, engine, error: `Unknown engine: ${engine}` };
+  }
+}

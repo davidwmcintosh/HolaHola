@@ -20832,6 +20832,36 @@ Current conversation context:
   });
 
   // List prop room asset images (from visual_assets)
+  // ─── Image Engine Test ────────────────────────────────────────────────────
+  // POST /api/admin/image-engine-test
+  // Generates ONE image with the specified engine and returns it as a data URL.
+  // The frontend fires N parallel requests (one per desired run) and renders them
+  // as they land, so results fill in incrementally.
+  app.post('/api/admin/image-engine-test', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { engine, concept, type = 'scene' } = req.body as {
+        engine: string;
+        concept: string;
+        type?: 'scene' | 'prop';
+      };
+      if (!engine || !concept) {
+        return res.status(400).json({ error: 'engine and concept are required' });
+      }
+      const { runEngineTest } = await import('./services/image-engine-test');
+      const result = await runEngineTest(engine, concept, type);
+      res.json(result);
+    } catch (error: any) {
+      console.error('[ImageEngineTest] error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ─── Image Engine Test — preset list ─────────────────────────────────────
+  app.get('/api/admin/image-engine-test/presets', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res) => {
+    const { PRESET_PROMPTS } = await import('./services/image-engine-test');
+    res.json(PRESET_PROMPTS);
+  });
+
   app.get("/api/admin/prop-images", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res) => {
     try {
       const sharedDb = getSharedDb();

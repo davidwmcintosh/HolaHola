@@ -118,6 +118,7 @@ import {
   Percent,
   Map as MapIcon,
   Bot,
+  Layers,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -1862,6 +1863,10 @@ export default function CommandCenter() {
       setLocation('/admin/voices');
       return;
     }
+    if (value === 'image-engine-test') {
+      setLocation('/admin/image-test');
+      return;
+    }
     setActiveTab(value);
   };
 
@@ -1924,6 +1929,7 @@ export default function CommandCenter() {
         { id: "lesson-drafts", label: "Lessons", icon: Sparkles, roles: ['admin', 'developer'] },
         { id: "fluency-coverage", label: "Fluency", icon: Target, roles: ['admin', 'developer'] },
         { id: "images", label: "Images", icon: Image, roles: ['admin', 'developer'] },
+        { id: "image-engine-test", label: "Engine Test", icon: Layers, roles: ['admin', 'developer'] },
         { id: "vocab-audit", label: "Vocab Audit", icon: LayoutGrid, roles: ['admin', 'developer'] },
         { id: "menu-gen", label: "Menu Gen", icon: Utensils, roles: ['admin', 'developer'] },
         { id: "curriculum-enrichment", label: "Curriculum", icon: DatabaseZap, roles: ['admin', 'developer'] },
