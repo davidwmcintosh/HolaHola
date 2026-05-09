@@ -19,6 +19,70 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## Session Summary — Sat, May 9, 2026 (session 47c — Daniela silence fix + Gemini image engine warm palette)
+
+### What was done
+
+**1. Daniela voice silence bug — root cause found and fixed**
+
+Students occasionally heard complete silence when starting a voice session. Root cause: two WebSocket connections from the same client would both reach `handleSessionInit()` at exactly the same time (browser sometimes opens a second connection before the first's upgrade completes). Two parallel `SessionInit` pipelines would each fire ~9 DB queries simultaneously, saturating the pool and causing a 3s timeout cascade — leaving one or both sessions in a broken state with no audio.
+
+Fix in `server/unified-ws-handler.ts`:
+- **`sessionInitsInProgress` Set** — before starting any SessionInit, check if `userId+language` is already being initialised. If yes, close the duplicate socket immediately with code 4001. The first connection always wins.
+- **`SESSION_INIT_TIMEOUT` raised 3000 → 6000ms** — gives the DB pool breathing room for the rare case where a single legitimate init takes longer than expected.
+
+No schema changes. No API changes. This was a pure concurrency guard.
+
+**2. Image Engine Test — two-call style extraction + warm palette variant**
+
+*Why the reference image approach changed*
+
+Feeding the reference image directly to `gemini-2.5-flash-image` causes the model to reproduce the composition, not just the style — it's fundamentally wired for visual consistency. Three iterations were tried; the reliable fix is a **two-call architecture**:
+
+- **Call 1** — send reference to `gemini-2.5-flash` (text only): extract ART STYLE and CHARACTER DESIGN as a precise verbal description. Cached by first-64-chars of b64 so parallel runs only pay this cost once.
+- **Call 2** — send only the text description (no image) to `gemini-2.5-flash-image`: generates a fresh composition in that style. Cannot copy what it can't see.
+
+The extraction prompt was tuned twice:
+- First version produced "digital watercolor" for an anime reference — wrong because it didn't force a style-category pick
+- Final version forces explicit category selection (anime/manga, watercolor, pen-and-watercolor-wash, etc.) then asks for line character, fill method, saturation, dominant hues, lighting in concrete terms
+
+`styleDescription` is now returned in the API response and surfaced in the UI as a collapsible "Style extracted from reference" panel — so the analyst can see exactly what was captured.
+
+*Strategic outcome — no reference for social readings*
+
+Side-by-side comparison confirmed: the reference adds complexity without enough benefit for bulk generation across 10 languages. The no-reference path is simpler, faster, cheaper, and more consistent. Reference image workflow remains available in the test tool for hero/brand images.
+
+*SCENE_STYLE_WARM — new warm palette variant*
+
+Current `SCENE_STYLE` explicitly asks for "muted, dusty" palette. DALL-E's output is warmer and more saturated. A new `SCENE_STYLE_WARM` constant was added (same pen-and-watercolor-wash technique, different colour language):
+- "rich saturated watercolor washes with a confident, glowing warmth"
+- "warm vibrant palette: rich sky blue, golden amber, warm terracotta, lush green, honeyed cream"
+- "warm soft directional light with a gentle golden glow"
+
+`gemini-imagen-warm` engine added to the test tool for side-by-side comparison. **Prompt is not yet final** — David will continue tuning. Outstanding issues: white border artifact in Gemini outputs, and framing (Gemini shows full body; DALL-E is tighter/waist-up).
+
+### Files changed
+- `server/unified-ws-handler.ts` — `sessionInitsInProgress` Set, dedup guard, `SESSION_INIT_TIMEOUT` 3000→6000ms
+- `server/services/image-engine-test.ts` — `extractStyleDescription()` two-call function, `styleExtractionCache`, improved extraction prompt, `SCENE_STYLE_WARM` constant, `runGeminiImagen()` `sceneStyleOverride` param, `gemini-imagen-warm` dispatch case, `styleDescription` field on `EngineResult`
+- `client/src/pages/admin/ImageEngineTest.tsx` — `styleDescription` on `ImageResult`, collapsible style panel in results, `gemini-imagen-warm` engine entry
+
+### Status after this session
+
+| Item | Status |
+|---|---|
+| Daniela silence bug | ✅ Fixed — dedup guard in place |
+| Sofia false-positive spam | ✅ Fixed (session 47b) |
+| Image engine test — reference image | ✅ Two-call approach working |
+| SCENE_STYLE_WARM | 🔄 In progress — prompt not final, white border + framing still to fix |
+| DALL-E → Gemini migration | 🔲 Pending — `visual-content-service.ts` not yet updated (May 12 deadline) |
+
+### What Alden should know
+- The dedup guard is transparent — the second connection closes immediately with code 4001. Students won't notice anything; the first connection proceeds normally.
+- `SCENE_STYLE_WARM` lives in `server/services/image-engine-test.ts` for now (test tool only). Once finalised, it will be promoted to `server/services/visual-content-service.ts` to replace `SCENE_STYLE` in production.
+- DALL-E 3 deprecates May 12, 2026 — the warm Gemini prompt needs to be locked before then so `visual-content-service.ts` can be migrated. This is the most time-sensitive open item.
+
+---
+
 ## Session Summary — Sat, May 9, 2026 (session 47b — Sofia false-positive suppression)
 
 ### What was done

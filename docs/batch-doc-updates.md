@@ -95,6 +95,36 @@ Full table and design notes: `docs/multi-subject-platform-vision.md`
 
 ## Recent Sessions
 
+### May 9, 2026 — Daniela silence fix + Gemini image engine warm palette (session 47c)
+**Status**: COMPLETED — SCENE_STYLE_WARM prompt still being tuned
+
+**Daniela voice silence bug (fixed)**
+Root cause: duplicate WebSocket connections caused two parallel `SessionInit` pipelines to fire simultaneously, saturating the DB pool with ~18 concurrent queries and triggering a 3s timeout cascade. Fix: `sessionInitsInProgress` Set in `unified-ws-handler.ts` — second init for same userId+language closes immediately (code 4001). `SESSION_INIT_TIMEOUT` also raised 3000→6000ms.
+
+**Image Engine Test — reference image architecture**
+- Direct multimodal approach (feeding reference to image model) causes composition copying, not style transfer
+- Two-call approach: Call 1 uses text model to extract style as language; Call 2 uses that text to generate (no image passed to generator)
+- `styleDescription` surfaced in UI as collapsible panel under results
+- **Strategic decision**: No reference for social reading bulk generation — simpler, faster, consistent across all 10 languages. Reference option remains in test tool for hero/brand images.
+
+**SCENE_STYLE_WARM — warm palette variant (in progress)**
+Added to `server/services/image-engine-test.ts`. Same pen-and-watercolor-wash technique as current `SCENE_STYLE` but with saturated, golden palette replacing muted/dusty language. `gemini-imagen-warm` engine added to test tool for side-by-side comparison.
+
+**Outstanding before DALL-E migration (May 12 deadline):**
+- Finalise `SCENE_STYLE_WARM` prompt (white border artifact, framing — full body vs. waist-up)
+- Promote finalised style to `server/services/visual-content-service.ts`
+
+**Files changed**: `server/unified-ws-handler.ts`, `server/services/image-engine-test.ts`, `client/src/pages/admin/ImageEngineTest.tsx`
+
+---
+
+### May 9, 2026 — Sofia false-positive suppression (session 47b)
+**Status**: COMPLETED
+
+`isKnownBenignFingerprint()` added to `server/services/support-persona-service.ts`. Four suppression rules covering: double_audio all-unknown fingerprint, no_audio expected==received, connection unknown+zero-received, voice_health_transition in dev. Dedup window 7→30 days. 62 Alden notes marked read.
+
+---
+
 ### March 21, 2026 — Infrastructure Audit Cleanup (T001–T006)
 **Status**: COMPLETED
 
