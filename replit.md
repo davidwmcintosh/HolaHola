@@ -15,6 +15,7 @@ HolaHola is an AI-powered language learning application that provides interactiv
 - **Backend:** Express.js, Node.js, TypeScript, RESTful API.
 - **Database:** PostgreSQL (via Drizzle ORM).
 - **AI/ML:** Gemini API (LLM), Deepgram (STT), Google Cloud TTS, Cartesia (TTS), ElevenLabs (TTS), Azure Speech Services (pronunciation assessment).
+- **Voice Chat (/chat route):** Uses Gemini Live 3.1 for end-to-end voice — no separate STT or TTS pipeline. Audio goes in and comes out of the same Gemini Live session. Deepgram/Google TTS/Cartesia are NOT used for this route.
 - **Image Generation:** DALL-E 3, Stability AI SDXL.
 - **Build Tool:** Vite
 
