@@ -47,7 +47,7 @@ const ENGINES = [
   {
     id: "imagen-3",
     label: "Imagen 3",
-    sublabel: "Vertex AI — imagen-3.0-generate-002",
+    sublabel: "Gemini API — imagen-3.0-generate-002",
     color: "bg-orange-100 dark:bg-orange-900/30 border-orange-200 dark:border-orange-800",
     badgeClass: "bg-orange-600 text-white",
     promptType: "scene" as const,

@@ -9,12 +9,11 @@
  *   gpt-image-1      — OpenAI alternative (same prompt), SCENE_STYLE
  *   gpt-image-1-prop — OpenAI prop pipeline (PROP_STYLE, white background)
  *   gemini-imagen    — Gemini 2.0 Flash image generation (Google)
- *   imagen-3         — Vertex AI Imagen 3 (Google, requires ADC credentials)
+ *   imagen-3         — Imagen 3 via Gemini API SDK (imagen-3.0-generate-002)
  */
 
 import OpenAI from 'openai';
 import { GoogleGenAI } from '@google/genai';
-import { GoogleAuth } from 'google-auth-library';
 
 // ─── Style constants (mirrored from visual-content-service.ts) ────────────────
 
@@ -190,7 +189,7 @@ async function runGeminiImagen(concept: string, type: 'scene' | 'prop'): Promise
       : `Illustrated scene: ${concept}. ${SCENE_STYLE}`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash-preview-image-generation',
+      model: 'gemini-2.0-flash-exp',
       contents: stylePrompt,
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
@@ -208,55 +207,32 @@ async function runGeminiImagen(concept: string, type: 'scene' | 'prop'): Promise
   }
 }
 
-// ─── Imagen 3 via Vertex AI REST ──────────────────────────────────────────────
+// ─── Imagen 3 via Gemini API SDK ─────────────────────────────────────────────
 
 async function runImagen3(concept: string, type: 'scene' | 'prop'): Promise<EngineResult> {
   const t0 = Date.now();
   try {
-    const projectId = process.env.GOOGLE_CLOUD_PROJECT || 'language-tutor-478919';
-    const location = 'us-central1';
-    const model = 'imagen-3.0-generate-002';
-    const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${model}:predict`;
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error('GEMINI_API_KEY not set');
 
-    const auth = new GoogleAuth({
-      scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-    });
-    const client = await auth.getClient();
-    const tokenRes = await (client as any).getAccessToken();
-    const token = tokenRes?.token || tokenRes;
-    if (!token) throw new Error('Could not obtain Google access token');
-
+    const ai = new GoogleGenAI({ apiKey });
     const stylePrompt = type === 'prop'
       ? `Illustration of: ${concept}. ${PROP_STYLE}`
       : `Illustrated scene: ${concept}. ${SCENE_STYLE}`;
 
-    const body = {
-      instances: [{ prompt: stylePrompt }],
-      parameters: {
-        sampleCount: 1,
+    const response = await ai.models.generateImages({
+      model: 'imagen-3.0-generate-002',
+      prompt: stylePrompt,
+      config: {
+        numberOfImages: 1,
         aspectRatio: '1:1',
-        safetySetting: 'block_some',
       },
-    };
-
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
     });
 
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`Vertex AI ${res.status}: ${errText.slice(0, 300)}`);
-    }
+    const imageBytes = response.generatedImages?.[0]?.image?.imageBytes;
+    if (!imageBytes) throw new Error('No image data in Imagen 3 response');
 
-    const json = await res.json() as any;
-    const b64 = json.predictions?.[0]?.bytesBase64Encoded;
-    if (!b64) throw new Error('No image data in Imagen 3 response');
-
+    const b64 = Buffer.from(imageBytes).toString('base64');
     return { dataUrl: `data:image/png;base64,${b64}`, elapsed: Date.now() - t0, engine: 'imagen-3' };
   } catch (err: any) {
     return { dataUrl: null, elapsed: Date.now() - t0, engine: 'imagen-3', error: err?.message || String(err) };
