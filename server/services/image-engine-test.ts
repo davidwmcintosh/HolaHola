@@ -364,12 +364,15 @@ async function runGeminiImagen(
     if (!imagePart?.inlineData) throw new Error('No image in Gemini response');
 
     const { mimeType, data } = imagePart.inlineData as { mimeType: string; data: string };
-    return {
+    const engineResult: EngineResult = {
       dataUrl: `data:${mimeType};base64,${data}`,
       elapsed: Date.now() - t0,
       engine: 'gemini-imagen',
-      ...(reference ? { styleDescription: styleDesc } : {}),
     };
+    if (styleDesc) {
+      engineResult.styleDescription = styleDesc;
+    }
+    return engineResult;
   } catch (err: any) {
     return { dataUrl: null, elapsed: Date.now() - t0, engine: 'gemini-imagen', error: err?.message || String(err) };
   }
