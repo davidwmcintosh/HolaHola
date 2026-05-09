@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Play, RotateCcw, Clock, AlertCircle, ImageOff, ChevronDown, ChevronUp, RefreshCw, X, ZoomIn, Upload, UserCheck, Loader2 } from "lucide-react";
 
 // Engines that support reference image input (must match REFERENCE_CAPABLE_ENGINES on server)
-const REFERENCE_CAPABLE_ENGINES = ["gemini-imagen"];
+const REFERENCE_CAPABLE_ENGINES = ["gemini-imagen", "gemini-imagen-warm-ref"];
 
 // ─── Engine definitions ───────────────────────────────────────────────────────
 
@@ -53,6 +53,14 @@ const ENGINES = [
     sublabel: "gemini-2.5-flash-image — vibrant saturated palette",
     color: "bg-violet-100 dark:bg-violet-900/30 border-violet-200 dark:border-violet-800",
     badgeClass: "bg-violet-600 text-white",
+    promptType: "scene" as const,
+  },
+  {
+    id: "gemini-imagen-warm-ref",
+    label: "Gemini image gen — warm + ref",
+    sublabel: "gemini-2.5-flash-image — warm palette + reference style",
+    color: "bg-fuchsia-100 dark:bg-fuchsia-900/30 border-fuchsia-200 dark:border-fuchsia-800",
+    badgeClass: "bg-fuchsia-600 text-white",
     promptType: "scene" as const,
   },
   {
