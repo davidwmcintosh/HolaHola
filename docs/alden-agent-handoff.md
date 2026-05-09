@@ -19,6 +19,43 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## Session Summary — Sat, May 9, 2026 (session 47d — DALL-E 3 → Gemini two-engine migration)
+
+### What was done
+
+**Full DALL-E 3 / gpt-image-1 migration — all 7+ callsites now on Google**
+
+DALL-E 3 deprecates May 12, 2026. The migration is complete. Two-engine strategy (David's decision):
+
+- **Gemini Warm** (`gemini-2.5-flash-image` + `SCENE_STYLE_WARM`): Daniela/character scenes — tight waist-up portrait crop, golden saturated palette. Called by `generateCharacterScene()`.
+- **Base Gemini Flash** (`gemini-2.5-flash-image` + `SCENE_STYLE` or `PROP_STYLE`): Everything else — environment scenes, vocabulary props, lesson headers, scenario covers, menu food, prop room backgrounds, admin one-off regen. Called by `generateEnvironmentScene()`, `generatePropImage()`, `generateFromCustomPrompt()`.
+
+Why warm for characters but base for everything else: `SCENE_STYLE_WARM` has a tight waist-up portrait crop baked in — correct for Daniela, wrong for a beach or a banana.
+
+### Files changed
+
+- **NEW: `server/services/google-image-service.ts`** — canonical home for all Google image generation. Contains the three style constants (`SCENE_STYLE`, `SCENE_STYLE_WARM`, `PROP_STYLE`) and four generation functions. All other files import from here — do not edit style constants elsewhere.
+- **`server/services/visual-content-service.ts`** — gutted the OpenAI path. Now imports `generateCharacterScene()` / `generatePropImage()` from `google-image-service.ts`. `generateWithModel()` reduced to 5 lines. Provider strings updated to `gemini-warm` / `gemini-base`.
+- **`server/routes.ts`** — `generateImageWithGemini()` body replaced: now calls `generateFromCustomPrompt()` from `google-image-service.ts`. The function name is preserved so all 8 callsites remain unchanged. Removed now-unused `getDallEImageClient()`.
+- **`docs/visual-asset-roadmap.md`** — "Final Engine Assignment" table added at the decision section. Old Imagen 4 three-tier plan marked as superseded with ⚠ header.
+
+### Status after this session
+
+| Item | Status |
+|---|---|
+| Daniela silence bug | ✅ Fixed (session 47c) |
+| Sofia false-positive spam | ✅ Fixed (session 47b) |
+| DALL-E 3 deprecation migration | ✅ Complete — all callsites on Gemini |
+| SCENE_STYLE_WARM | 🔄 Still being tuned at `/admin/image-test` |
+| White border artifact | 🔲 Parked — possible postcard aesthetic |
+
+### What Alden should know
+- `google-image-service.ts` is the single integration point for image generation going forward. No OpenAI image calls remain in the production pipeline.
+- The `SCENE_STYLE_WARM` prompt is not final — David is actively comparing it against real-world outputs at `/admin/image-test`. The constants in `google-image-service.ts` are what production uses; `image-engine-test.ts` still has its own copy for test-tool iteration. When warm prompt is locked, sync them.
+- `generateImageWithGemini()` in `routes.ts` kept its name so no callsites needed changing. It now delegates to `generateFromCustomPrompt()`. Future refactor can rename it.
+
+---
+
 ## Session Summary — Sat, May 9, 2026 (session 47c — Daniela silence fix + Gemini image engine warm palette)
 
 ### What was done

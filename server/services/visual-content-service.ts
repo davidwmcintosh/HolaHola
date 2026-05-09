@@ -1,17 +1,18 @@
 /**
  * Visual Content Generation Service
  *
- * Scene images (type='infographic'): DALL-E 3 HD
- *   Naturally produces the warm Disney-style illustrated cartoon with watercolor-wash
- *   backgrounds that matches the HoloHola aesthetic.
+ * Scene images (type='infographic'): Gemini Warm (gemini-2.5-flash-image + SCENE_STYLE_WARM)
+ *   Close portrait crop, golden saturated palette. Used for Daniela/character social reading
+ *   cards and vocabulary character images.
  *
- * Prop images (type='image'): gpt-image-1
- *   Better at isolating a single object against a clean white background without
- *   adding unwanted context — cleaner results for vocabulary prop cards.
+ * Prop images (type='image'): Base Gemini Flash (gemini-2.5-flash-image + PROP_STYLE)
+ *   Single object isolated on clean white background for vocabulary prop cards.
+ *
+ * See server/services/google-image-service.ts for style constants and engine rationale.
+ * See docs/visual-asset-roadmap.md → "Image Engine Evaluation — May 2026" for full decision.
  */
 
-import OpenAI from 'openai';
-import { uploadPublicBuffer } from './image-storage';
+import { generateCharacterScene, generatePropImage } from './google-image-service';
 
 export interface VisualGenerationRequest {
   concept: string;
@@ -22,9 +23,8 @@ export interface VisualGenerationRequest {
   educationalContext?: string;
   /**
    * Optional URL of an existing high-quality image that establishes the art style
-   * and character design for this generation.  When present (and type is
-   * 'infographic'), the service calls images.edit so gpt-image-1 can reference
-   * the visual style directly.  Falls back to text-only if the fetch fails.
+   * and character design for this generation. Reserved for future reference-image
+   * support — currently unused by the Gemini engine paths.
    */
   anchorImageUrl?: string;
 }
@@ -43,63 +43,6 @@ export interface VisualGenerationResult {
   };
 }
 
-const NO_TEXT_INSTRUCTION =
-  'absolutely no text, no letters, no numbers, no words, no handwriting, no captions, ' +
-  'no labels, no symbols, no glyphs, no typography, no writing of any kind anywhere in the image — ' +
-  'NO speech bubbles, NO dialogue bubbles, NO thought bubbles, NO comic-book panels, NO caption boxes — ' +
-  'the image must be a pure illustration with zero readable or decorative text elements';
-
-// Vocabulary props: single object, white background, clean silhouette
-// IMPORTANT: use natural realistic colors — objects must look like their real-world counterparts.
-// A plate is white/off-white, a glass is clear, a banana is yellow, a tomato is red, etc.
-// Do NOT apply rainbow or iridescent color effects to everyday objects.
-const PROP_STYLE =
-  'bright digital illustration, natural accurate object colors — objects appear in their real-world everyday colors ' +
-  '(a white ceramic plate, a clear drinking glass, a red apple, a yellow banana, etc.), ' +
-  'NOT rainbow-colored, NOT iridescent, NOT holographic — realistic natural colors only, ' +
-  'soft even lighting with no heavy shadows or warm cast, slightly stylized cheerful style, ' +
-  'semi-realistic proportions, smooth clean artwork, ' +
-  'single isolated object centred on a clean pure white background, clear recognisable silhouette, ' +
-  'FRAMING: entire object fully visible within frame, generous white space border on all sides — ' +
-  'subject fills no more than 65–70% of canvas width and height, never touching or bleeding to any edge, ' +
-  'wholesome family-friendly educational quality, ' +
-  NO_TEXT_INSTRUCTION;
-
-// Scene images: warm illustrated art that naturally ranges from soft watercolor-wash
-// to vibrant editorial illustration depending on the scene's mood.
-// Characters (Daniela, Marco, Rosa, etc.) stay consistent via CHARACTER_PROFILES.
-// Generated with DALL-E 3 (hd).
-const SCENE_STYLE =
-  'pen-and-watercolor-wash illustration in the style of a charming children\'s book or editorial picture book — ' +
-  'loose expressive ink lines define the figures; soft muted watercolor washes fill in colour with gentle bleed at edges; ' +
-  'figures and their surroundings share the same loose painterly quality — characters are NOT sharply rendered or smoothly shaded; ' +
-  'skin and clothing painted with the same soft open washes as the background, not polished or airbrushed; ' +
-  'warm muted palette: dusty blues, sage greens, warm creams, soft terracottas; ' +
-  'soft flat diffuse ambient light — NO dramatic rim lighting, NO cinematic backlighting, NO spotlight glow effects; ' +
-  'NOT photorealistic, NOT flat cel-shading, NOT clean digital fills, NOT 3D render, NOT vector art; ' +
-  'COMPOSITIONAL FREEDOM: interpret the scene with fresh, spontaneous framing — vary camera distance, angle, ' +
-  'character gestures, and poses; avoid repeating the same two-people-facing-each-other stock composition; ' +
-  'IMPORTANT CONTENT: wholesome, appropriate for all ages, strictly platonic interactions — ' +
-  'NO romantic, flirtatious, or sexual subtext; characters maintain comfortable friendly personal space; ' +
-  'IMPORTANT: characters should look distinctly different ages when the scene calls for it (young adult vs clearly elderly); ' +
-  'IMPORTANT FRAMING: generous headroom — heads fully visible, never cropped at top of frame; ' +
-  'position characters in lower two-thirds of canvas so top quarter shows sky or background; ' +
-  NO_TEXT_INSTRUCTION;
-
-// Rotating compositional cues injected per-generation to prevent DALL-E 3 from
-// defaulting to the same two-people-facing-each-other stock pose every time.
-// Keep language illustrated/gestural only — NO photographic terms (bokeh, etc.)
-const COMPOSITION_VARIANTS = [
-  'One character extends an open palm forward in a warm greeting gesture.',
-  'One character raises a hand in a cheerful wave.',
-  'One character tilts their head with a curious questioning expression.',
-  'Wide illustrated shot showing full figures with the setting visible around them.',
-  'Closer framing on faces and upper bodies, expressive reactions visible.',
-  'Characters at a slight angle, one a half-step ahead of the other.',
-  'One character gestures openly with both hands in an expressive shrug or welcome.',
-  'Characters shown side-by-side looking slightly toward each other.',
-];
-
 // Semantic tag categories for educational content
 const EDUCATIONAL_TAG_CATEGORIES = [
   'vocabulary', 'grammar', 'culture', 'geography', 'conversation',
@@ -107,98 +50,14 @@ const EDUCATIONAL_TAG_CATEGORIES = [
   'beginner', 'intermediate', 'advanced', 'actfl-novice', 'actfl-intermediate',
 ] as const;
 
-function getDallEClient(): OpenAI | null {
-  const key = process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-  if (!key) return null;
-  return new OpenAI({ apiKey: key });
-}
-
-/**
- * Generate an image using gpt-image-1.
- *
- * For scene images (type='infographic') with an anchorImageUrl, calls
- * images.edit so the model can reference the existing character/style.
- * For all other cases (props, or when no anchor is available) uses
- * images.generate with gpt-image-1 which follows character-description
- * prompts far more accurately than DALL-E 3.
- *
- * gpt-image-1 always returns b64_json — no response_format needed.
- */
-/**
- * Generate a SCENE image (type='infographic') using DALL-E 3.
- *
- * DALL-E 3 naturally produces the warm Disney-style illustrated cartoon with
- * watercolor-wash backgrounds that matches the existing HoloHola aesthetic.
- * gpt-image-1 consistently drifts to either flat digital cartoon or heavy
- * watercolor — neither matching the original character art.
- */
-async function generateSceneWithDallE3(
-  request: VisualGenerationRequest,
-  client: OpenAI,
-): Promise<string> {
-  const compositionHint = COMPOSITION_VARIANTS[Math.floor(Math.random() * COMPOSITION_VARIANTS.length)];
-  const prompt = `Illustrated scene: ${request.concept}. ${compositionHint} ${SCENE_STYLE}.`;
-  console.log('[VisualContent] DALL-E 3 (hd) scene prompt:', prompt.substring(0, 200));
-
-  const genResponse = await client.images.generate({
-    model: 'dall-e-3',
-    prompt,
-    n: 1,
-    size: '1024x1024',
-    quality: 'hd',
-    response_format: 'b64_json',
-  });
-
-  const b64 = genResponse.data?.[0]?.b64_json;
-  if (!b64) throw new Error('DALL-E 3 returned no image data');
-  return b64;
-}
-
-/**
- * Generate a PROP image (type='image') using gpt-image-1.
- *
- * gpt-image-1 is better than DALL-E 3 at isolating a single object against a
- * clean white background without adding unwanted context or scenery.
- */
-async function generatePropWithGptImage(
-  request: VisualGenerationRequest,
-  client: OpenAI,
-): Promise<string> {
-  const prompt = `Illustration of: ${request.concept}. ${PROP_STYLE}.`;
-  console.log('[VisualContent] gpt-image-1 prop prompt:', prompt.substring(0, 200));
-
-  const genResponse = await (client.images as any).generate({
-    model: 'gpt-image-1',
-    prompt,
-    n: 1,
-    size: '1024x1024',
-    quality: 'high',
-  });
-
-  const b64 = genResponse.data?.[0]?.b64_json;
-  if (!b64) throw new Error('gpt-image-1 returned no image data');
-  return b64;
-}
-
 async function generateWithModel(
   request: VisualGenerationRequest,
 ): Promise<{ imageUrl: string }> {
-  const client = getDallEClient();
-  if (!client) throw new Error('OPENAI_API_KEY not set');
-
   const isScene = request.type === 'infographic';
-  let b64: string;
-
-  if (isScene) {
-    b64 = await generateSceneWithDallE3(request, client);
-  } else {
-    b64 = await generatePropWithGptImage(request, client);
-  }
-
-  const buf = Buffer.from(b64, 'base64');
-  const filename = `visual-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
-  const url = await uploadPublicBuffer(filename, buf, 'image/jpeg');
-  return { imageUrl: url };
+  const imageUrl = isScene
+    ? await generateCharacterScene(request.concept)
+    : await generatePropImage(request.concept);
+  return { imageUrl };
 }
 
 function generatePlaceholderImage(request: VisualGenerationRequest): { imageUrl: string } {
@@ -258,7 +117,7 @@ export async function generateVisual(
   try {
     const result = await generateWithModel(request);
     imageUrl = result.imageUrl;
-    provider = type === 'infographic' ? 'dall-e-3' : 'gpt-image-1';
+    provider = type === 'infographic' ? 'gemini-warm' : 'gemini-base';
   } catch (error) {
     console.warn('[VisualContent] image generation failed, falling back to placeholder:', error);
     imageUrl = generatePlaceholderImage(request).imageUrl;

@@ -479,16 +479,6 @@ async function callGeminiWithSchema(
   return JSON.parse(responseText);
 }
 
-/**
- * Generate image with DALL-E 3
- * Returns a data URL (base64-encoded image)
- */
-function getDallEImageClient(): OpenAI {
-  const key = process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-  if (!key) throw new Error("OPENAI_API_KEY not set — cannot generate images");
-  return new OpenAI({ apiKey: key });
-}
-
 // Directives that conflict with the watercolor illustration style
 const CONFLICTING_STYLE_TERMS = /,?\s*(photorealistic|photo[-\s]?realistic|no\s+people|no\s+text|realistic|hyper[-\s]?realistic)/gi;
 
@@ -534,32 +524,11 @@ async function saveZoneImageToMediaLibrary(
 }
 
 async function generateImageWithGemini(prompt: string): Promise<string> {
-  try {
-    console.log('[DALLE IMAGE] Generating image for prompt:', prompt.substring(0, 100) + '...');
-
-    const client = getDallEImageClient();
-    const response = await client.images.generate({
-      model: 'dall-e-3',
-      prompt,
-      n: 1,
-      size: '1792x1024',
-      quality: 'standard',
-      response_format: 'url',
-    });
-
-    const imageUrl = response.data?.[0]?.url;
-    if (!imageUrl) throw new Error("No image URL in DALL-E response");
-
-    const fetchRes = await fetch(imageUrl);
-    if (!fetchRes.ok) throw new Error(`Failed to download image: ${fetchRes.status}`);
-    const buffer = Buffer.from(await fetchRes.arrayBuffer());
-    const dataUrl = `data:image/png;base64,${buffer.toString('base64')}`;
-    console.log('[DALLE IMAGE] ✓ Successfully generated image');
-    return dataUrl;
-  } catch (error) {
-    console.error('[DALLE IMAGE] ✗ Error generating image:', error);
-    throw error;
-  }
+  // Migrated from DALL-E 3 → Base Gemini Flash (May 9, 2026).
+  // Callers provide fully-formed prompts; base Gemini follows them faithfully.
+  // Character/Daniela scenes use generateCharacterScene() in google-image-service.ts instead.
+  const { generateFromCustomPrompt } = await import('./services/google-image-service');
+  return generateFromCustomPrompt(prompt);
 }
 
 // Configure multer for audio file uploads (in-memory storage)

@@ -7034,17 +7034,40 @@ When Daniela calls `show_image(word, scene)` during a voice session for a word n
 
 The architecture already separates props from scenes (different code paths in `vocabulary-image-resolver.ts`). The replacement follows the same split — no architectural change, just engine swaps.
 
-| Use case | Old engine | New engine | Rationale |
+**⚠ UPDATED DECISION — May 9, 2026:** The Imagen 4 three-tier plan below was the initial recommendation from the May 2026 evaluation. After further A/B testing and observing Imagen 4 preview API instability (503 RAI failures, 500 internal errors), the final decision was revised to a **two-engine Gemini Flash strategy**. See "Final Engine Assignment" table below — that is the implemented plan.
+
+| Use case | Old engine | Initial recommendation | Final decision |
 |---|---|---|---|
-| **Vocabulary props** (single objects, white bg) | `gpt-image-1` | **`imagen-4.0-generate-001`** | DALL-E 3 and gpt-image-1 both fail or are slow. Imagen 4 Standard: perfect photorealistic props, 6–7s, consistent across runs. |
-| **Character scenes** (Daniela, characters in context) | `dall-e-3` | **`imagen-4.0-ultra-generate-001`** | Best detail, warm watercolor illustration, clear face rendering, culturally accurate. 9–14s. |
-| **Environment scenes** (landscapes, locations, no character) | `dall-e-3` | **`imagen-4.0-ultra-generate-001`** | With tuned prompt (see below), produces vivid environments on par with DALL-E 3. Same engine as character scenes simplifies code. |
-| **Live session / freeform** (`show_image()` during voice chat) | `dall-e-3` | **`gemini-2.5-flash-image`** | Speed is the primary requirement mid-conversation. 5–7s vs 25–35s is the difference between a smooth lesson and a student watching a spinner. Quality is adequate and improving with prompt tuning. |
-| **Lesson header art** | `dall-e-3` | **`imagen-4.0-ultra-generate-001`** | Same as character scenes — quality is appropriate for a header image that sets chapter tone. |
-| **Scenario roleplay scenes** | `dall-e-3` | **`imagen-4.0-ultra-generate-001`** | Same reasoning. |
-| **Menu food images** | `dall-e-3` | **`imagen-4.0-generate-001`** | Food items are effectively props. Standard tier sufficient; saves cost. |
-| **Prop room backgrounds** | `dall-e-3` | **`imagen-4.0-ultra-generate-001`** | Environment scenes — Ultra for quality. |
-| **Admin/one-off regen** (`generateImageWithGemini()` in routes.ts) | `dall-e-3` | **`imagen-4.0-ultra-generate-001`** | Admin tool should default to best quality. |
+| **Vocabulary props** (single objects, white bg) | `gpt-image-1` | `imagen-4.0-generate-001` | **Base Gemini Flash** |
+| **Character scenes** (Daniela, characters in context) | `dall-e-3` | `imagen-4.0-ultra-generate-001` | **Gemini Warm** |
+| **Environment scenes** (landscapes, locations, no character) | `dall-e-3` | `imagen-4.0-ultra-generate-001` | **Base Gemini Flash** |
+| **Live session / freeform** (`show_image()` during voice chat) | `dall-e-3` | `gemini-2.5-flash-image` | **Gemini Warm** |
+| **Lesson header art** | `dall-e-3` | `imagen-4.0-ultra-generate-001` | **Base Gemini Flash** (custom prompt) |
+| **Scenario roleplay scenes** | `dall-e-3` | `imagen-4.0-ultra-generate-001` | **Base Gemini Flash** (custom prompt) |
+| **Menu food images** | `dall-e-3` | `imagen-4.0-generate-001` | **Base Gemini Flash** (custom prompt) |
+| **Prop room backgrounds** | `dall-e-3` | `imagen-4.0-ultra-generate-001` | **Base Gemini Flash** (custom prompt) |
+| **Admin/one-off regen** (`generateImageWithGemini()` in routes.ts) | `dall-e-3` | `imagen-4.0-ultra-generate-001` | **Base Gemini Flash** (custom prompt) |
+
+---
+
+### Final Engine Assignment (implemented May 9, 2026)
+
+Two engines. Same model (`gemini-2.5-flash-image`), different style constants and framing:
+
+| Engine | Style constant | When to use | Code path |
+|---|---|---|---|
+| **Gemini Warm** | `SCENE_STYLE_WARM` | Daniela + character scenes, live-session show_image() with people | `generateCharacterScene()` in `google-image-service.ts` → called by `visual-content-service.ts` `type='infographic'` |
+| **Base Gemini Flash** | `SCENE_STYLE` (environments) or `PROP_STYLE` (objects) | Environment scenes, props, all custom/freeform prompts | `generateEnvironmentScene()`, `generatePropImage()`, `generateFromCustomPrompt()` in `google-image-service.ts` |
+
+**Why warm for characters, base for everything else:**
+- `SCENE_STYLE_WARM` has a tight waist-up portrait crop baked in — correct for Daniela but wrong for a beach or a banana
+- `SCENE_STYLE` has wide landscape framing — correct for environments
+- `PROP_STYLE` enforces white background + centred object — correct for vocab cards
+- Custom prompts (lesson headers, scenario covers, food, backgrounds, admin) already contain their own style instructions — base Gemini follows them faithfully
+
+**Style constants live in:** `server/services/google-image-service.ts` (canonical) — do not edit the copies in `visual-content-service.ts` or `image-engine-test.ts` independently.
+
+**Warm prompt status:** `SCENE_STYLE_WARM` is still being tuned. The portrait crop and warm palette are confirmed. The white border/frame artifact is parked as a potential postcard aesthetic. Future tweaks: adjust golden backlight intensity, test tighter vs. slightly wider crop.
 
 ---
 

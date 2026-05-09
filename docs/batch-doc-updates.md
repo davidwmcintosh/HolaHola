@@ -480,3 +480,36 @@ Migration of the 7 DALL-E 3 callsites — documented in roadmap and handoff, rea
 
 ### Key prompt tuning note
 Add `"full bleed background, color and content to every corner, no white borders, no vignette"` to all Imagen 4 calls to prevent sticker/floating illustration effect on some environment renders.
+
+---
+
+## Session: May 9, 2026 (session 47d) — DALL-E 3 → Gemini two-engine migration
+
+### What was built
+
+Full migration of all DALL-E 3 / gpt-image-1 image generation callsites to Google Gemini. DALL-E 3 deprecates May 12, 2026 — migration complete 3 days early.
+
+### Two-engine strategy (final decision, David's call)
+
+| Engine | Style constant | When to use |
+|---|---|---|
+| **Gemini Warm** | `SCENE_STYLE_WARM` | Daniela + character scenes (social reading cards, vocabulary character images, live show_image() with people) |
+| **Base Gemini Flash** | `SCENE_STYLE` or `PROP_STYLE` | Environments, props, all custom/freeform prompts (headers, scenario covers, food, backgrounds, admin regen) |
+
+**Key design rationale:** `SCENE_STYLE_WARM` has a waist-up portrait crop — correct for Daniela, wrong for a beach or banana. Base engine has wide landscape framing. PROP_STYLE enforces white background + centred object.
+
+### Files changed
+
+- **NEW `server/services/google-image-service.ts`** — canonical image service. Exports: `SCENE_STYLE`, `SCENE_STYLE_WARM`, `PROP_STYLE` (style constants); `generateCharacterScene()`, `generateEnvironmentScene()`, `generatePropImage()`, `generateFromCustomPrompt()` (generation functions).
+- **`server/services/visual-content-service.ts`** — OpenAI path removed entirely. Imports from `google-image-service.ts`. `generateWithModel()` is now 5 lines. Provider strings: `gemini-warm` / `gemini-base`.
+- **`server/routes.ts`** — `generateImageWithGemini()` body replaced with `generateFromCustomPrompt()` delegate. `getDallEImageClient()` removed (unused). All 8 callsites unchanged — function name preserved.
+- **`docs/visual-asset-roadmap.md`** — "Final Engine Assignment" table added; old Imagen 4 plan marked superseded.
+
+### Where to review design decisions
+- **`server/services/google-image-service.ts`** — style constants with inline rationale comments. The file header has the full two-engine decision written out.
+- **`docs/visual-asset-roadmap.md` → "Image Engine Evaluation — May 2026" → "Final Engine Assignment"** — the decision table comparing old vs. initial recommendation vs. final decision.
+- **`/admin/image-test`** — live test tool for comparing warm vs. base across scene types. SCENE_STYLE_WARM is still being tuned here.
+
+### What's still open
+- `SCENE_STYLE_WARM` prompt is not locked — David is actively tuning it at `/admin/image-test`. White border artifact parked as possible postcard aesthetic.
+- When warm prompt is finalised, sync `image-engine-test.ts` copy → `google-image-service.ts`.
