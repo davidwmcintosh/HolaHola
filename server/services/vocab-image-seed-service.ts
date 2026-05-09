@@ -471,6 +471,18 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   // Language-prefixed entry used by fix-greetings when language='spanish'
   'spanish:de nada':    youreWelcome(CHAR.ES.secondary),
 
+  // ── Spanish social phrases — Unit 1 additions ─────────────────────────────
+  // These cover casual conversation phrases common in Spanish 1 Unit 1 that
+  // did not have hand-crafted prompts. All use CHAR.ES characters for style
+  // consistency with the existing greeting images.
+  'que tal':       `${CHAR.ES.primary} giving a relaxed friendly shrug with both palms open and raised eyebrows, a casual warm "how's it going?" expression, cheerful everyday outdoor setting`,
+  'que pasa':      `${CHAR.ES.primary} leaning against a wall with a relaxed easy smile, one hand gesturing open-palmed in a casual "what's going on?" expression, sunny school hallway or courtyard`,
+  'todo bien':     `${CHAR.ES.primary} with both thumbs up and a wide relaxed grin, leaning back slightly in an easygoing "all good" posture, warm bright background`,
+  'nada':          `${CHAR.ES.primary} giving a casual open-hands shrug with both palms facing upward and a small unbothered smile, expressing "nothing's going on", light airy background`,
+  'y tu':          `${CHAR.ES.primary} pointing warmly toward ${CHAR.ES.secondary} with one open hand and a friendly inquisitive smile, eyebrows raised in a "and what about you?" gesture, casual sunny outdoor setting`,
+  'igualmente':    `${CHAR.ES.primary} and ${CHAR.ES.secondary} both nodding and smiling warmly at each other, ${CHAR.ES.primary} pressing a hand to her chest and gesturing back toward ${CHAR.ES.secondary} in a warm mirroring "likewise" gesture, bright cheerful setting`,
+  'con permiso':   `${CHAR.ES.primary} squeezing politely past ${CHAR.ES.abuela} in a narrow doorway or corridor, one hand slightly raised in a gentle "excuse me" gesture with a kind apologetic smile, warm indoor setting`,
+
   // ── Spanish honorifics — Señor / Señora / Señorita ────────────────────────
   // Each uses the matching recurring character so the style stays consistent
   // with the rest of Chapter 1's vocabulary illustrations.
@@ -1601,6 +1613,7 @@ export const GREETINGS_WORDS: Record<string, string[]> = {
     'hola','buenos días','buenas tardes','buenas noches','adiós','hasta luego',
     'hasta mañana','hasta pronto','mucho gusto','encantado','encantada',
     '¿cómo estás?','¿cómo está usted?','bien','muy bien','muy bien, gracias','mal','más o menos','regular',
+    '¿qué tal?','¿qué pasa?','todo bien','nada','¿y tú?','igualmente','con permiso',
     'por favor','gracias','muchas gracias','de nada','perdón','disculpe','lo siento',
     'señor','señora','señorita',
   ],

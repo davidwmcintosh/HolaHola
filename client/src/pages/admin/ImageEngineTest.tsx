@@ -69,45 +69,110 @@ const MARCO = 'Marco, a 30-year-old Latino man with short curly black hair, ligh
 const ROSA = 'Rosa, a warm 68-year-old Mexican grandmother with short curly silver-white hair, warm brown skin, kind dark eyes behind gold-rimmed glasses, and a white blouse with colorful floral embroidery';
 
 const PRESETS = [
+  // ── Existing SCENE_OVERRIDES (greetings/farewells already have images) ─────
   {
     key: "hola",
-    label: '"hola" — character scene',
-    tag: "SCENE_OVERRIDES",
+    label: '"hola"',
+    tag: "existing",
+    group: "Existing",
     type: "scene" as const,
     concept: `${DANIELA} waving hello with a big cheerful smile to ${MARCO} at a sunny school entrance, both standing a few feet apart, friendly classmate greeting, wholesome platonic interaction`,
   },
   {
     key: "adios",
-    label: '"adiós" — character scene',
-    tag: "SCENE_OVERRIDES",
+    label: '"adiós"',
+    tag: "existing",
+    group: "Existing",
     type: "scene" as const,
     concept: `${DANIELA} leaning out of a car window waving adiós, ${ROSA} standing on the front porch of a cozy house waving back with a warm smile`,
   },
+  // ── Missing social phrases — Unit 1 Spanish 1 ────────────────────────────
+  {
+    key: "que_tal",
+    label: '"¿Qué tal?"',
+    tag: "missing",
+    group: "Missing Sp1",
+    type: "scene" as const,
+    concept: `${DANIELA} giving a relaxed friendly shrug with both palms open and raised eyebrows, asking "how's it going?" in a casual warm way, cheerful everyday outdoor setting`,
+  },
+  {
+    key: "que_pasa",
+    label: '"¿Qué pasa?"',
+    tag: "missing",
+    group: "Missing Sp1",
+    type: "scene" as const,
+    concept: `${DANIELA} leaning against a wall with a relaxed easy smile, one hand gesturing open-palmed in a casual "what's going on?" expression, sunny school hallway or courtyard`,
+  },
+  {
+    key: "todo_bien",
+    label: '"todo bien"',
+    tag: "missing",
+    group: "Missing Sp1",
+    type: "scene" as const,
+    concept: `${DANIELA} with both thumbs up and a wide relaxed grin, leaning back slightly in an easygoing "all good" posture, warm bright background`,
+  },
+  {
+    key: "nada",
+    label: '"nada"',
+    tag: "missing",
+    group: "Missing Sp1",
+    type: "scene" as const,
+    concept: `${DANIELA} giving a casual open-hands shrug with both palms facing upward and a small unbothered smile, expressing "nothing's going on", light airy background`,
+  },
+  {
+    key: "y_tu",
+    label: '"¿y tú?"',
+    tag: "missing",
+    group: "Missing Sp1",
+    type: "scene" as const,
+    concept: `${DANIELA} pointing warmly toward ${MARCO} with one open hand and a friendly inquisitive smile, eyebrows raised in a "and what about you?" gesture, casual sunny outdoor setting`,
+  },
+  {
+    key: "igualmente",
+    label: '"igualmente"',
+    tag: "missing",
+    group: "Missing Sp1",
+    type: "scene" as const,
+    concept: `${DANIELA} and ${MARCO} both nodding and smiling warmly at each other, ${DANIELA} pressing a hand to her chest and gesturing back toward ${MARCO} in a warm mirroring "likewise" gesture, bright cheerful setting`,
+  },
+  {
+    key: "con_permiso",
+    label: '"con permiso"',
+    tag: "missing",
+    group: "Missing Sp1",
+    type: "scene" as const,
+    concept: `${DANIELA} squeezing politely past ${ROSA} in a narrow doorway or corridor, one hand slightly raised in a gentle "excuse me" gesture with a kind apologetic smile, warm indoor setting`,
+  },
+  // ── Other categories ──────────────────────────────────────────────────────
   {
     key: "beach",
     label: '"beach" — environment',
-    tag: "isSceneConcept()",
+    tag: "env",
+    group: "Other",
     type: "scene" as const,
-    concept: "A wide sandy beach with gentle waves rolling in under warm afternoon sun, soft foam at the waterline, distant horizon",
+    concept: "A wide sandy beach with gentle waves rolling in under warm afternoon sun, soft foam at the waterline, distant horizon, no people, no figures, landscape only, wide establishing shot",
   },
   {
     key: "grass",
-    label: '"grass / waves" — environment',
-    tag: "isSceneConcept()",
+    label: '"grass" — environment',
+    tag: "env",
+    group: "Other",
     type: "scene" as const,
-    concept: "Rolling green grass hills under a bright open sky with soft clouds, gentle wind visible in the grass blades",
+    concept: "Rolling green grass hills under a bright open sky with soft clouds, gentle wind visible in the grass blades, no people, landscape only",
   },
   {
     key: "freeform",
     label: "Daniela freeform — live chat",
     tag: "show_image()",
+    group: "Other",
     type: "scene" as const,
     concept: "a young woman walking through a colorful outdoor market, warm afternoon light filtering through canvas stalls, baskets of vegetables, warm and lively",
   },
   {
     key: "prop_apple",
     label: "Prop: apple",
-    tag: "PROP_STYLE",
+    tag: "prop",
+    group: "Other",
     type: "prop" as const,
     concept: "apple",
   },
@@ -303,21 +368,35 @@ export default function ImageEngineTest() {
                 Preset prompts
               </Label>
               <div className="flex flex-col gap-1">
-                {PRESETS.map(p => (
-                  <button
-                    key={p.key}
-                    data-testid={`preset-${p.key}`}
-                    onClick={() => selectPreset(p)}
-                    className={`text-left px-3 py-2 rounded-md text-sm transition-colors hover-elevate ${
-                      activePreset === p.key
-                        ? "bg-accent text-accent-foreground"
-                        : "hover:bg-accent/50"
-                    }`}
-                  >
-                    <div className="font-medium leading-tight">{p.label}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">{p.tag}</div>
-                  </button>
-                ))}
+                {(["Existing", "Missing Sp1", "Other"] as const).map(group => {
+                  const groupPresets = PRESETS.filter(p => p.group === group);
+                  return (
+                    <div key={group}>
+                      <div className="text-xs font-semibold text-muted-foreground px-3 pt-2 pb-1 flex items-center gap-1.5">
+                        {group === "Missing Sp1" && (
+                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                        )}
+                        {group === "Existing" ? "Existing overrides" : group === "Missing Sp1" ? "Missing — Sp1 Unit 1" : "Other categories"}
+                      </div>
+                      {groupPresets.map(p => (
+                        <button
+                          key={p.key}
+                          data-testid={`preset-${p.key}`}
+                          onClick={() => selectPreset(p)}
+                          className={`text-left px-3 py-2 rounded-md text-sm transition-colors hover-elevate ${
+                            activePreset === p.key
+                              ? "bg-accent text-accent-foreground"
+                              : "hover:bg-accent/50"
+                          }`}
+                        >
+                          <div className="font-medium leading-tight">{p.label}</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">{p.tag}</div>
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })}
+                <div className="text-xs font-semibold text-muted-foreground px-3 pt-2 pb-1">Custom</div>
                 <button
                   data-testid="preset-custom"
                   onClick={() => { setActivePreset("custom"); setShowPrompt(true); }}

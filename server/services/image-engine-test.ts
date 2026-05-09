@@ -33,6 +33,8 @@ export const SCENE_STYLE =
   'NOT photorealistic, NOT flat cel-shading, NOT clean digital fills, NOT 3D render, NOT vector art; ' +
   'IMPORTANT FRAMING: generous headroom — heads fully visible, never cropped at top of frame; ' +
   'position characters in lower two-thirds of canvas so top quarter shows sky or background; ' +
+  'IMPORTANT SIZING: full bleed edge-to-edge composition — fill the entire canvas to every corner, ' +
+  'no white space margins, no white bars, no vignette, no padding, background colour and texture extends all the way to every edge of the image; ' +
   NO_TEXT;
 
 export const PROP_STYLE =
@@ -66,17 +68,61 @@ export const PRESET_PROMPTS: Record<string, { label: string; concept: string; ty
     description: 'SCENE_OVERRIDES entry — farewell scene with named characters',
     concept: `${DANIELA} leaning out of a car window waving adiós, ${ROSA} standing on the front porch of a cozy house waving back with a warm smile`,
   },
+  // ── Missing social phrases — Unit 1 Spanish 1 ────────────────────────────
+  que_tal: {
+    label: '"¿Qué tal?" (casual how-are-you)',
+    type: 'scene',
+    description: 'SCENE_OVERRIDES — missing entry, casual check-in phrase',
+    concept: `${DANIELA} giving a relaxed friendly shrug with both palms open and raised eyebrows, asking "how's it going?" in a casual warm way, cheerful everyday outdoor setting`,
+  },
+  que_pasa: {
+    label: '"¿Qué pasa?" (what\'s up)',
+    type: 'scene',
+    description: 'SCENE_OVERRIDES — missing entry, casual "what\'s happening" phrase',
+    concept: `${DANIELA} leaning against a wall with a relaxed easy smile, one hand gesturing open-palmed in a casual "what's going on?" expression, sunny school hallway or courtyard`,
+  },
+  todo_bien: {
+    label: '"todo bien" (all good)',
+    type: 'scene',
+    description: 'SCENE_OVERRIDES — missing entry, casual positive response',
+    concept: `${DANIELA} with both thumbs up and a wide relaxed grin, leaning back slightly in an easygoing "all good" posture, warm bright background`,
+  },
+  nada: {
+    label: '"nada" (nothing)',
+    type: 'scene',
+    description: 'SCENE_OVERRIDES — missing entry, "nothing" response to ¿Qué pasa?',
+    concept: `${DANIELA} giving a casual open-hands shrug with both palms facing upward and a small unbothered smile, expressing "nothing's going on", light airy background`,
+  },
+  y_tu: {
+    label: '"¿y tú?" (and you?)',
+    type: 'scene',
+    description: 'SCENE_OVERRIDES — missing entry, conversational redirect phrase',
+    concept: `${DANIELA} pointing warmly toward ${MARCO} with one open hand and a friendly inquisitive smile, eyebrows raised in a "and what about you?" gesture, casual sunny outdoor setting`,
+  },
+  igualmente: {
+    label: '"igualmente" (likewise)',
+    type: 'scene',
+    description: 'SCENE_OVERRIDES — missing entry, "same to you / likewise" response',
+    concept: `${DANIELA} and ${MARCO} both nodding and smiling warmly at each other, ${DANIELA} pressing a hand to her chest and gesturing back toward ${MARCO} in a warm mirroring "likewise" gesture, bright cheerful setting`,
+  },
+  con_permiso: {
+    label: '"con permiso" (excuse me)',
+    type: 'scene',
+    description: 'SCENE_OVERRIDES — missing entry, polite passing phrase',
+    concept: `${DANIELA} squeezing politely past ${ROSA} in a narrow doorway or corridor, one hand slightly raised in a gentle "excuse me" gesture with a kind apologetic smile, warm indoor setting`,
+  },
+  // ── Other test categories ─────────────────────────────────────────────────
   beach: {
     label: '"beach" (environment)',
     type: 'scene',
     description: 'isSceneConcept() path — environment with no characters',
-    concept: 'A wide sandy beach with gentle waves rolling in under warm afternoon sun, soft foam at the waterline, distant horizon',
+    concept: 'A wide sandy beach with gentle waves rolling in under warm afternoon sun, soft foam at the waterline, distant horizon, no people, no figures, landscape only, wide establishing shot',
   },
   grass: {
     label: '"grass / waves" (environment)',
     type: 'scene',
     description: 'isSceneConcept() path — natural landscape, no characters',
-    concept: 'Rolling green grass hills under a bright open sky with soft clouds, gentle wind visible in the grass blades',
+    concept: 'Rolling green grass hills under a bright open sky with soft clouds, gentle wind visible in the grass blades, no people, landscape only',
   },
   daniela_freeform: {
     label: 'Daniela freeform (live chat)',
@@ -185,9 +231,10 @@ async function runGeminiImagen(concept: string, type: 'scene' | 'prop'): Promise
     if (!apiKey) throw new Error('GEMINI_API_KEY not set');
 
     const ai = new GoogleGenAI({ apiKey });
+    // Gemini Flash has no API aspect-ratio parameter — must be in the prompt.
     const stylePrompt = type === 'prop'
-      ? `Illustration of: ${concept}. ${PROP_STYLE}`
-      : `Illustrated scene: ${concept}. ${SCENE_STYLE}`;
+      ? `Square 1:1 format. Illustration of: ${concept}. ${PROP_STYLE}`
+      : `Square 1:1 format. Illustrated scene: ${concept}. ${SCENE_STYLE}`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
