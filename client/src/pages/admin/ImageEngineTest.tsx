@@ -39,7 +39,7 @@ const ENGINES = [
   {
     id: "gemini-imagen",
     label: "Gemini image gen",
-    sublabel: "gemini-2.5-flash-image",
+    sublabel: "gemini-2.5-flash-image — fast creative tier",
     color: "bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-800",
     badgeClass: "bg-purple-600 text-white",
     promptType: "scene" as const,
