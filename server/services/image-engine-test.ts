@@ -9,7 +9,8 @@
  *   gpt-image-1      — OpenAI alternative (same prompt), SCENE_STYLE
  *   gpt-image-1-prop — OpenAI prop pipeline (PROP_STYLE, white background)
  *   gemini-imagen    — Gemini 2.0 Flash image generation (Google)
- *   imagen-3         — Imagen 4 via Gemini API SDK (imagen-4.0-generate-001)
+ *   imagen-3         — Imagen 4 Standard (imagen-4.0-generate-001)
+ *   imagen-4-ultra   — Imagen 4 Ultra (imagen-4.0-ultra-generate-001) — closest to ImageFX quality
  */
 
 import OpenAI from 'openai';
@@ -207,9 +208,14 @@ async function runGeminiImagen(concept: string, type: 'scene' | 'prop'): Promise
   }
 }
 
-// ─── Imagen 3 via Gemini API SDK ─────────────────────────────────────────────
+// ─── Imagen 4 via Gemini API SDK ─────────────────────────────────────────────
 
-async function runImagen3(concept: string, type: 'scene' | 'prop'): Promise<EngineResult> {
+async function runImagenModel(
+  engineId: string,
+  model: string,
+  concept: string,
+  type: 'scene' | 'prop',
+): Promise<EngineResult> {
   const t0 = Date.now();
   try {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -221,7 +227,7 @@ async function runImagen3(concept: string, type: 'scene' | 'prop'): Promise<Engi
       : `Illustrated scene: ${concept}. ${SCENE_STYLE}`;
 
     const response = await ai.models.generateImages({
-      model: 'imagen-4.0-generate-001',
+      model,
       prompt: stylePrompt,
       config: {
         numberOfImages: 1,
@@ -230,13 +236,13 @@ async function runImagen3(concept: string, type: 'scene' | 'prop'): Promise<Engi
     });
 
     const img = response.generatedImages?.[0]?.image;
-    if (!img?.imageBytes) throw new Error('No image data in Imagen 4 response');
+    if (!img?.imageBytes) throw new Error(`No image data in ${engineId} response`);
 
     // imageBytes is already a base64 string (SDK passthrough from bytesBase64Encoded)
     const mime = (img as any).mimeType || 'image/png';
-    return { dataUrl: `data:${mime};base64,${img.imageBytes}`, elapsed: Date.now() - t0, engine: 'imagen-3' };
+    return { dataUrl: `data:${mime};base64,${img.imageBytes}`, elapsed: Date.now() - t0, engine: engineId };
   } catch (err: any) {
-    return { dataUrl: null, elapsed: Date.now() - t0, engine: 'imagen-3', error: err?.message || String(err) };
+    return { dataUrl: null, elapsed: Date.now() - t0, engine: engineId, error: err?.message || String(err) };
   }
 }
 
@@ -251,8 +257,9 @@ export async function runEngineTest(
     case 'dall-e-3':       return runDallE3(concept);
     case 'gpt-image-1':    return runGptImage1Scene(concept);
     case 'gpt-image-1-prop': return runGptImage1Prop(concept);
-    case 'gemini-imagen':  return runGeminiImagen(concept, type);
-    case 'imagen-3':       return runImagen3(concept, type);
-    default:               return { dataUrl: null, elapsed: 0, engine, error: `Unknown engine: ${engine}` };
+    case 'gemini-imagen':   return runGeminiImagen(concept, type);
+    case 'imagen-3':        return runImagenModel('imagen-3', 'imagen-4.0-generate-001', concept, type);
+    case 'imagen-4-ultra':  return runImagenModel('imagen-4-ultra', 'imagen-4.0-ultra-generate-001', concept, type);
+    default:                return { dataUrl: null, elapsed: 0, engine, error: `Unknown engine: ${engine}` };
   }
 }

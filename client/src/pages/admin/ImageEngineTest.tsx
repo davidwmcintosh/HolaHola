@@ -47,9 +47,17 @@ const ENGINES = [
   {
     id: "imagen-3",
     label: "Imagen 4",
-    sublabel: "Gemini API — imagen-4.0-generate-001",
+    sublabel: "imagen-4.0-generate-001",
     color: "bg-orange-100 dark:bg-orange-900/30 border-orange-200 dark:border-orange-800",
     badgeClass: "bg-orange-600 text-white",
+    promptType: "scene" as const,
+  },
+  {
+    id: "imagen-4-ultra",
+    label: "Imagen 4 Ultra",
+    sublabel: "imagen-4.0-ultra-generate-001 — ImageFX quality",
+    color: "bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800",
+    badgeClass: "bg-red-700 text-white",
     promptType: "scene" as const,
   },
 ];
