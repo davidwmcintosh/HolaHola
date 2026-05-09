@@ -190,6 +190,7 @@ interface ImageResult {
   dataUrl?: string;
   elapsed?: number;
   error?: string;
+  styleDescription?: string;
 }
 
 type ResultMap = Record<string, ImageResult[]>; // engineId → results[]
@@ -340,6 +341,7 @@ export default function ImageEngineTest() {
                   status: "done",
                   dataUrl: data.dataUrl,
                   elapsed: data.elapsed,
+                  ...(data.styleDescription ? { styleDescription: data.styleDescription } : {}),
                 });
               }
             })
@@ -396,7 +398,7 @@ export default function ImageEngineTest() {
         .then((data: any) => {
           updateResult(engineId, i, data.error || !data.dataUrl
             ? { status: "error", error: data.error || "No image returned", elapsed: data.elapsed }
-            : { status: "done", dataUrl: data.dataUrl, elapsed: data.elapsed }
+            : { status: "done", dataUrl: data.dataUrl, elapsed: data.elapsed, ...(data.styleDescription ? { styleDescription: data.styleDescription } : {}) }
           );
         })
         .catch(err => updateResult(engineId, i, { status: "error", error: err.message || "Request failed" }))
@@ -704,6 +706,19 @@ export default function ImageEngineTest() {
                           </Button>
                         </div>
                       </div>
+
+                      {/* Extracted style description (Gemini with reference only) */}
+                      {engine.id === "gemini-imagen" && (() => {
+                        const desc = engineResults.find(r => r.styleDescription)?.styleDescription;
+                        return desc ? (
+                          <details className="mb-3 text-xs text-muted-foreground border border-border rounded-md">
+                            <summary className="px-3 py-2 cursor-pointer select-none font-medium text-foreground/70 hover:text-foreground transition-colors">
+                              Style extracted from reference
+                            </summary>
+                            <p className="px-3 pb-3 pt-1 leading-relaxed whitespace-pre-wrap">{desc}</p>
+                          </details>
+                        ) : null;
+                      })()}
 
                       {/* Image row */}
                       <div className="flex flex-wrap gap-4">

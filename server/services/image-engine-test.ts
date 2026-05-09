@@ -145,6 +145,8 @@ export interface EngineResult {
   elapsed: number;
   engine: string;
   error?: string;
+  /** Extracted style description (only set when a reference image was used). */
+  styleDescription?: string;
 }
 
 // Reference image passed from the client (base64 data + mime type).
@@ -273,16 +275,23 @@ async function extractStyleDescription(reference: ReferenceImage, apiKey: string
           { inlineData: { mimeType: reference.mimeType, data: reference.b64 } },
           {
             text:
-              'You are an illustration art director. Analyze this reference image and return exactly two labelled sections.\n\n' +
-              'ART STYLE (3-4 sentences): Describe only the illustration technique — ' +
-              'rendering method (watercolor, gouache, digital paint, cel-shading, etc.), ' +
-              'color palette (name the dominant hues, saturation level, warm vs cool bias), ' +
-              'line weight and linework character, lighting approach, ' +
-              'texture and brush quality, and overall visual tone. ' +
-              'Do NOT mention any characters, objects, or scene content.\n\n' +
-              'CHARACTER DESIGN (2-3 sentences): Describe only the main character\'s ' +
-              'physical appearance — face shape, hair color/texture/length, skin tone, ' +
-              'eye color, and clothing style. No poses, expressions, or scene context.\n\n' +
+              'You are an illustration art director doing a precise technical style analysis. ' +
+              'Analyze this reference image carefully and return exactly two labelled sections.\n\n' +
+              'ART STYLE (4-5 sentences):\n' +
+              'FIRST: identify the primary style category from this list and name it explicitly — ' +
+              'anime/manga, semi-realistic cartoon, watercolor, pen-and-watercolor-wash, ' +
+              'digital painterly, cel animation, vector/flat, or graphic novel. ' +
+              'THEN describe: (1) line work — are outlines bold/clean/sharp or soft/sketchy/absent? ' +
+              'Are lines a key visual element or dissolved into color? ' +
+              '(2) color fill method — flat cel fills, smooth digital gradients, translucent watercolor washes, or textured brushwork? ' +
+              '(3) saturation level — are colors rich and saturated, muted and dusty, or somewhere in between? ' +
+              '(4) dominant hues and warm/cool bias. ' +
+              '(5) lighting — flat ambient, soft diffuse, or dramatic directional? ' +
+              'Be precise and concrete. Do NOT use vague terms like "vibrant" or "lively." ' +
+              'Do NOT describe characters, poses, or scene content — only the visual technique.\n\n' +
+              'CHARACTER DESIGN (2-3 sentences): Describe only the main female character\'s ' +
+              'physical appearance — face shape, hair color and texture, skin tone, ' +
+              'eye color, and clothing style and colors. No poses or expressions.\n\n' +
               'Format your response as exactly:\n' +
               'ART STYLE: [your description]\n' +
               'CHARACTER DESIGN: [your description]',
@@ -354,7 +363,12 @@ async function runGeminiImagen(
     if (!imagePart?.inlineData) throw new Error('No image in Gemini response');
 
     const { mimeType, data } = imagePart.inlineData as { mimeType: string; data: string };
-    return { dataUrl: `data:${mimeType};base64,${data}`, elapsed: Date.now() - t0, engine: 'gemini-imagen' };
+    return {
+      dataUrl: `data:${mimeType};base64,${data}`,
+      elapsed: Date.now() - t0,
+      engine: 'gemini-imagen',
+      ...(reference ? { styleDescription: styleDesc } : {}),
+    };
   } catch (err: any) {
     return { dataUrl: null, elapsed: Date.now() - t0, engine: 'gemini-imagen', error: err?.message || String(err) };
   }
