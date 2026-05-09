@@ -233,11 +233,70 @@ async function runGptImage1Prop(concept: string): Promise<EngineResult> {
 
 // Variation nudges ensure parallel requests produce meaningfully different compositions.
 const VARIATION_NUDGES: string[] = [
-  'Compose this as your first instinct — natural framing and balanced layout.',
-  'Use a different camera angle, viewing direction, and background setting than you would naturally choose first. Shift the composition — low angle, side view, or different depth of field.',
-  'Emphasise a different moment or emotional beat in the scene. Change the characters\' expressions, poses, and the mood of the lighting.',
-  'Reimagine the environment entirely — different time of day, different architectural details, different surrounding elements. Keep characters consistent but reinvent the world around them.',
+  'Natural framing — balanced layout, straight-on eye-level view.',
+  'Low angle looking slightly up at the subject, off-centre composition, shallow depth of field.',
+  'Warm late-afternoon golden light; characters show a different emotional expression and body language.',
+  'Overhead or three-quarter bird\'s-eye view; reimagine the surrounding environment completely.',
 ];
+
+/**
+ * Two-call style-transfer cache.
+ * Key: first 64 chars of the reference b64 (fast fingerprint — no full hash needed).
+ * Value: the extracted style+character description string.
+ * Cleared on process restart; cheap enough not to need TTL for a test tool.
+ */
+const styleExtractionCache = new Map<string, string>();
+
+/**
+ * Call 1 of the two-call reference workflow.
+ *
+ * Sends the reference image to gemini-2.5-flash (text output only) and asks it
+ * to describe the art style and character design in precise language.
+ * The image generator in Call 2 never sees the reference — it only sees this
+ * verbal description, which carries style cues without content/composition cues.
+ */
+async function extractStyleDescription(reference: ReferenceImage, apiKey: string): Promise<string> {
+  const cacheKey = reference.b64.slice(0, 64);
+  const cached = styleExtractionCache.get(cacheKey);
+  if (cached) {
+    console.log('[GeminiImagen] Style description cache hit');
+    return cached;
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          { inlineData: { mimeType: reference.mimeType, data: reference.b64 } },
+          {
+            text:
+              'You are an illustration art director. Analyze this reference image and return exactly two labelled sections.\n\n' +
+              'ART STYLE (3-4 sentences): Describe only the illustration technique — ' +
+              'rendering method (watercolor, gouache, digital paint, cel-shading, etc.), ' +
+              'color palette (name the dominant hues, saturation level, warm vs cool bias), ' +
+              'line weight and linework character, lighting approach, ' +
+              'texture and brush quality, and overall visual tone. ' +
+              'Do NOT mention any characters, objects, or scene content.\n\n' +
+              'CHARACTER DESIGN (2-3 sentences): Describe only the main character\'s ' +
+              'physical appearance — face shape, hair color/texture/length, skin tone, ' +
+              'eye color, and clothing style. No poses, expressions, or scene context.\n\n' +
+              'Format your response as exactly:\n' +
+              'ART STYLE: [your description]\n' +
+              'CHARACTER DESIGN: [your description]',
+          },
+        ],
+      },
+    ],
+  });
+
+  const text = response.candidates?.[0]?.content?.parts?.find((p: any) => p.text)?.text ?? '';
+  console.log('[GeminiImagen] Style extracted:', text.slice(0, 120) + '…');
+  styleExtractionCache.set(cacheKey, text);
+  return text;
+}
 
 async function runGeminiImagen(
   concept: string,
@@ -251,55 +310,40 @@ async function runGeminiImagen(
     if (!apiKey) throw new Error('GEMINI_API_KEY not set');
 
     const ai = new GoogleGenAI({ apiKey });
-
     const variationNudge = VARIATION_NUDGES[variationIndex % VARIATION_NUDGES.length];
 
     let textPrompt: string;
 
     if (reference) {
-      // When a reference is provided, let IT define the style — do NOT append SCENE_STYLE
-      // (which says "muted palette") as it fights the reference's warm saturated look.
-      // Only add content/framing constraints and the variation nudge.
-      const contentOnly =
-        `Square 1:1 format. Full bleed edge-to-edge, no white borders, no padding. ` +
-        `Heads fully visible with generous headroom. ` +
-        `${concept}. ` +
-        `Absolutely no text, letters, numbers or typography in the image.`;
+      // ── Two-call approach ──────────────────────────────────────────────────
+      // The image generator NEVER receives the reference image directly.
+      // Giving it the image causes it to reproduce the composition, not just
+      // the style. Instead: Call 1 extracts style+character as text.
+      // Call 2 generates from that text description only.
+      const styleDesc = await extractStyleDescription(reference, apiKey);
+
+      const frameConstraints =
+        'Square 1:1 format. Full bleed edge-to-edge, no white borders, no padding. ' +
+        'Heads fully visible with generous headroom. ' +
+        'Absolutely no text, letters, numbers or typography in the image.';
 
       textPrompt =
-        'STYLE & CHARACTER REFERENCE (do not copy or reproduce this image — use it as a guide only): ' +
-        "Extract Daniela's character design from the reference: face shape, wavy dark-brown hair, warm medium-brown skin tone, bright brown eyes, and her casual clothing. " +
-        'Extract the illustration technique: match the exact color palette, saturation level, warmth, line weight, and painterly finish shown in the reference image. ' +
-        'Now create a COMPLETELY NEW scene — different composition, different setting, different pose, different background. ' +
-        `VARIATION DIRECTION: ${variationNudge} ` +
-        'NEW SCENE: ' + contentOnly;
+        `ILLUSTRATION STYLE TO MATCH:\n${styleDesc}\n\n` +
+        `SCENE TO ILLUSTRATE (use the style above, brand new composition):\n` +
+        `${concept}. ${frameConstraints}\n\n` +
+        `COMPOSITION DIRECTION: ${variationNudge}`;
     } else {
       // No reference — use the full SCENE_STYLE text description as before.
       const basePrompt = type === 'prop'
         ? `Square 1:1 format. Illustration of: ${concept}. ${PROP_STYLE}`
         : `Square 1:1 format. Illustrated scene: ${concept}. ${SCENE_STYLE}`;
-      textPrompt = `VARIATION DIRECTION: ${variationNudge} ` + basePrompt;
+      textPrompt = `VARIATION DIRECTION: ${variationNudge}\n\n` + basePrompt;
     }
 
-    let contents: any;
-    if (reference) {
-      // Proper Gemini multimodal format: array of role-turn objects
-      contents = [
-        {
-          role: 'user',
-          parts: [
-            { inlineData: { mimeType: reference.mimeType, data: reference.b64 } },
-            { text: textPrompt },
-          ],
-        },
-      ];
-    } else {
-      contents = textPrompt;
-    }
-
+    // Always text-only contents — reference image is never passed to the generator
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
-      contents,
+      contents: textPrompt,
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
       },
