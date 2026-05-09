@@ -322,6 +322,7 @@ async function runGeminiImagen(
     const variationNudge = VARIATION_NUDGES[variationIndex % VARIATION_NUDGES.length];
 
     let textPrompt: string;
+    let styleDesc: string | undefined;
 
     if (reference) {
       // ── Two-call approach ──────────────────────────────────────────────────
@@ -329,7 +330,7 @@ async function runGeminiImagen(
       // Giving it the image causes it to reproduce the composition, not just
       // the style. Instead: Call 1 extracts style+character as text.
       // Call 2 generates from that text description only.
-      const styleDesc = await extractStyleDescription(reference, apiKey);
+      styleDesc = await extractStyleDescription(reference, apiKey);
 
       const frameConstraints =
         'Square 1:1 format. Full bleed edge-to-edge, no white borders, no padding. ' +
