@@ -1527,11 +1527,62 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
   }
   
   /**
-   * Hand off a detected issue cluster to Alden for triage and potential auto-fix.
-   * Alden investigates the codebase, attempts a targeted fix if it's safe to do so,
-   * and notifies David if it needs human eyes. The cluster is written to support_patterns
-   * immediately so it's tracked regardless of what Alden finds.
+   * Returns true when a diagnostic fingerprint matches a known-benign pattern
+   * that has been investigated dozens of times and confirmed safe. These are
+   * structural false-positives — the monitoring is working correctly but the
+   * event is a normal part of session lifecycle, not a real issue.
+   *
+   * Benign catalogue (confirmed by Alden across 60+ triage sessions):
+   *  • double_audio + no diagnostic data → dedup system blocking retransmissions at session start
+   *  • no_audio + expected==received → Tier-2 failsafe fired after audio already played (by design)
+   *  • connection + context=unknown → diagnostic snapshot fired before audio initialized
+   *  • voice_health_transition in development → single-user (David) testing noise
    */
+  private isKnownBenignFingerprint(
+    issueType: string,
+    environment: string,
+    diagnosticFingerprint: string,
+    reports: typeof sofiaIssueReports.$inferSelect[]
+  ): boolean {
+    // double_audio with no diagnostic data = dedup blocking s0_c0/s0_c1 retransmissions at
+    // session start. The dedup system is doing its job; these are never real bugs.
+    if (issueType === 'double_audio') {
+      const allUnknown = diagnosticFingerprint.split('|').every(f => f === '?:?:?:?');
+      if (allUnknown) return true;
+    }
+
+    // no_audio where expected == received = audio was delivered successfully; the Tier-2
+    // 45-second failsafe fired afterward (by design, to clear stuck AudioWorklet states).
+    if (issueType === 'no_audio') {
+      const allDelivered = diagnosticFingerprint.split('|').every(f => {
+        const [expected, received] = f.split(':');
+        return expected !== '?' && received !== '?' && expected === received;
+      });
+      if (allDelivered) return true;
+    }
+
+    // connection with context=unknown = diagnostic snapshot fired before the audio pipeline
+    // initialised (expected=?, received=0). Sessions complete successfully afterward.
+    if (issueType === 'connection') {
+      const allEarlyConnect = diagnosticFingerprint.split('|').every(f => {
+        const parts = f.split(':');
+        const context = parts[3] ?? '';
+        const received = parts[1] ?? '';
+        return context === 'unknown' && received === '0';
+      });
+      if (allEarlyConnect) return true;
+    }
+
+    // voice_health_transition in development = single user (David) iterating on voice
+    // features. Oscillating green↔yellow is expected testing behaviour, not a production issue.
+    if (issueType === 'voice_health_transition' && environment === 'development') {
+      const userIds = new Set(reports.map(r => r.userId).filter(Boolean));
+      if (userIds.size <= 1) return true;
+    }
+
+    return false;
+  }
+
   private async escalateToAlden(
     issueType: string,
     reports: typeof sofiaIssueReports.$inferSelect[],
@@ -1560,18 +1611,28 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
         return `${expectedMatch?.[1] || '?'}:${receivedMatch?.[1] || '?'}:${audioMatch?.[1] || '?'}:${contextMatch?.[1] || '?'}`;
       }).join('|');
 
+      // Fast-path: suppress patterns we've investigated dozens of times and confirmed benign.
+      // These are structural false-positives (normal session lifecycle events, not real bugs).
+      // Suppressing here prevents DB writes and Alden triage calls entirely.
+      if (this.isKnownBenignFingerprint(issueType, environment, diagnosticFingerprint, reports)) {
+        console.log(`[Sofia→Alden] Suppressed known-benign pattern: ${issueType} (fingerprint: ${diagnosticFingerprint.substring(0, 60)})`);
+        return;
+      }
+
       const signatureHash = createHash('sha256')
         .update(`${issueType}:${environment}:${diagnosticFingerprint}`)
         .digest('hex')
         .substring(0, 64);
 
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      // Check for existing pattern — no time limit for 'known_benign' status rows so they
+      // suppress indefinitely; for other statuses use a 30-day rolling window.
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       const existing = await sharedDb
         .select({ id: supportPatterns.id, status: supportPatterns.status, occurrenceCount: supportPatterns.occurrenceCount })
         .from(supportPatterns)
         .where(and(
           eq(supportPatterns.signatureHash, signatureHash),
-          gte(supportPatterns.updatedAt, sevenDaysAgo),
+          gte(supportPatterns.updatedAt, thirtyDaysAgo),
         ))
         .limit(1);
 

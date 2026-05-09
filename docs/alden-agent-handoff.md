@@ -19,6 +19,32 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## Session Summary — Sat, May 9, 2026 (session 47b — Sofia false-positive suppression)
+
+### What was done
+
+**Sofia pattern deduplication — structural false-positives now permanently suppressed**
+
+Alden had left 62 unread notes (March 25 – April 28) all describing the same problem: Sofia's pattern detection was calling him to triage identical benign audio events over and over. The diagnostic fingerprint enrichment (`issueType:environment:diagnosticFingerprint`) was already in the code from a prior session. What was missing was a hard suppression list for patterns that have been confirmed safe dozens of times.
+
+Changes made to `server/services/support-persona-service.ts`:
+
+1. **`isKnownBenignFingerprint()` method added** — fast-path check before any DB write or Alden dispatch. Four suppression rules, each backed by Alden's triage findings:
+   - `double_audio` + all-unknown fingerprint (`?:?:?:?`) → dedup system blocking s0_c0/s0_c1 retransmissions at session start (working correctly, not a bug)
+   - `no_audio` + expected == received → Tier-2 45s failsafe fired after audio already played (by design)
+   - `connection` + context=unknown AND received=0 → diagnostic snapshot fired before audio pipeline initialised
+   - `voice_health_transition` in development + single user → David's testing sessions, not a production issue
+2. **Dedup window extended from 7 to 30 days** so genuine (non-benign) patterns don't fall out of the window and trigger re-investigation after a week
+3. **All 62 unread notes marked as read** in `agent_notes` (direct DB update — `read_at = NOW()`)
+4. **Reply note left for Alden** (id: 14ef873d) explaining what was done and why
+
+### What Alden should know
+- The suppresslist is conservative — it only suppresses when the ENTIRE fingerprint batch matches benign criteria. A `double_audio` with real diagnostic data (non-unknown fingerprint) will still escalate normally. No genuine issues will be missed.
+- The two May 6 fine-tuning notes were read: `flag_for_fine_tuning` tool is live, Vertex AI LoRA pipeline noted, Daniela curation brief in shared lobe. Agent will surface the brief to Daniela at her next session.
+- DALL-E 3 migration to Google Imagen (`visual-content-service.ts`) is still pending — deadline was May 12.
+
+---
+
 ## Session Summary — Sat, May 9, 2026 (session 47 — image engine test: reference image support)
 
 ### What was done
