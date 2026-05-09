@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Play, RotateCcw, Clock, AlertCircle, ImageOff, ChevronDown, ChevronUp } from "lucide-react";
+import { Play, RotateCcw, Clock, AlertCircle, ImageOff, ChevronDown, ChevronUp, RefreshCw, X, ZoomIn } from "lucide-react";
 
 // ─── Engine definitions ───────────────────────────────────────────────────────
 
@@ -136,7 +136,9 @@ export default function ImageEngineTest() {
   const [activePreset, setActivePreset] = useState<string>("hola");
   const [results, setResults] = useState<ResultMap>({});
   const [running, setRunning] = useState(false);
+  const [retryingEngines, setRetryingEngines] = useState<Set<string>>(new Set());
   const [showPrompt, setShowPrompt] = useState(false);
+  const [lightbox, setLightbox] = useState<{ url: string; alt: string } | null>(null);
 
   const toggleEngine = (id: string) => {
     setSelectedEngines(prev =>
@@ -220,6 +222,42 @@ export default function ImageEngineTest() {
   const clearResults = () => {
     setResults({});
   };
+
+  const retryEngine = useCallback(async (engineId: string) => {
+    const engine = ENGINES.find(e => e.id === engineId);
+    if (!engine) return;
+    const type = engine.promptType === "prop" ? "prop" : promptType;
+
+    setRetryingEngines(prev => new Set(prev).add(engineId));
+    // Reset this engine's slots to loading
+    setResults(prev => ({
+      ...prev,
+      [engineId]: Array.from({ length: runCount }, (_, i) => ({
+        runIndex: i,
+        engineId,
+        status: "loading" as const,
+      })),
+    }));
+
+    const promises = Array.from({ length: runCount }, (_, i) =>
+      fetch("/api/admin/image-engine-test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ engine: engineId, concept: concept.trim(), type }),
+      })
+        .then(r => r.json())
+        .then((data: any) => {
+          updateResult(engineId, i, data.error || !data.dataUrl
+            ? { status: "error", error: data.error || "No image returned", elapsed: data.elapsed }
+            : { status: "done", dataUrl: data.dataUrl, elapsed: data.elapsed }
+          );
+        })
+        .catch(err => updateResult(engineId, i, { status: "error", error: err.message || "Request failed" }))
+    );
+
+    await Promise.allSettled(promises);
+    setRetryingEngines(prev => { const s = new Set(prev); s.delete(engineId); return s; });
+  }, [concept, promptType, runCount, updateResult]);
 
   const activeEngines = ENGINES.filter(e => selectedEngines.includes(e.id));
 
@@ -404,6 +442,16 @@ export default function ImageEngineTest() {
                               {((r.elapsed ?? 0) / 1000).toFixed(1)}s
                             </span>
                           ))}
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => retryEngine(engine.id)}
+                            disabled={retryingEngines.has(engine.id) || running}
+                            title="Retry this engine"
+                            data-testid={`button-retry-${engine.id}`}
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 ${retryingEngines.has(engine.id) ? "animate-spin" : ""}`} />
+                          </Button>
                         </div>
                       </div>
 
@@ -415,7 +463,7 @@ export default function ImageEngineTest() {
                             data-testid={`image-slot-${engine.id}-${i}`}
                             className="flex flex-col gap-1"
                           >
-                            <div className="w-48 h-48 rounded-md border overflow-hidden bg-muted flex items-center justify-center relative">
+                            <div className="w-48 h-48 rounded-md border overflow-hidden bg-muted flex items-center justify-center relative group">
                               {result.status === "loading" && (
                                 <div className="flex flex-col items-center gap-2 text-muted-foreground animate-pulse">
                                   <div className="w-8 h-8 rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground animate-spin" />
@@ -423,11 +471,19 @@ export default function ImageEngineTest() {
                                 </div>
                               )}
                               {result.status === "done" && result.dataUrl && (
-                                <img
-                                  src={result.dataUrl}
-                                  alt={`${engine.label} run ${i + 1}`}
-                                  className="w-full h-full object-cover"
-                                />
+                                <>
+                                  <img
+                                    src={result.dataUrl}
+                                    alt={`${engine.label} run ${i + 1}`}
+                                    className="w-full h-full object-cover cursor-zoom-in"
+                                    onClick={() => setLightbox({ url: result.dataUrl!, alt: `${engine.label} — run ${i + 1}` })}
+                                  />
+                                  <div
+                                    className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center pointer-events-none"
+                                  >
+                                    <ZoomIn className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" />
+                                  </div>
+                                </>
                               )}
                               {result.status === "error" && (
                                 <div className="flex flex-col items-center gap-2 text-destructive px-2 text-center">
@@ -436,7 +492,7 @@ export default function ImageEngineTest() {
                                 </div>
                               )}
                               {/* Run number badge */}
-                              <div className="absolute top-1.5 left-1.5">
+                              <div className="absolute top-1.5 left-1.5 pointer-events-none">
                                 <Badge variant="secondary" className="text-xs px-1.5 py-0.5">
                                   #{i + 1}
                                 </Badge>
@@ -469,6 +525,33 @@ export default function ImageEngineTest() {
           </div>
         </ScrollArea>
       </div>
+
+      {/* Lightbox overlay */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setLightbox(null)}
+          data-testid="lightbox-overlay"
+        >
+          <button
+            className="absolute top-4 right-4 text-white/80 hover:text-white transition-colors"
+            onClick={() => setLightbox(null)}
+            data-testid="button-lightbox-close"
+          >
+            <X className="w-7 h-7" />
+          </button>
+          <img
+            src={lightbox.url}
+            alt={lightbox.alt}
+            className="max-w-full max-h-full rounded-md shadow-2xl object-contain"
+            style={{ maxWidth: "min(90vw, 900px)", maxHeight: "90vh" }}
+            onClick={e => e.stopPropagation()}
+          />
+          <p className="absolute bottom-4 left-0 right-0 text-center text-sm text-white/60">
+            {lightbox.alt} — click outside to close
+          </p>
+        </div>
+      )}
     </div>
   );
 }
