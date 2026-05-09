@@ -229,11 +229,12 @@ async function runImagen3(concept: string, type: 'scene' | 'prop'): Promise<Engi
       },
     });
 
-    const imageBytes = response.generatedImages?.[0]?.image?.imageBytes;
-    if (!imageBytes) throw new Error('No image data in Imagen 3 response');
+    const img = response.generatedImages?.[0]?.image;
+    if (!img?.imageBytes) throw new Error('No image data in Imagen 4 response');
 
-    const b64 = Buffer.from(imageBytes).toString('base64');
-    return { dataUrl: `data:image/png;base64,${b64}`, elapsed: Date.now() - t0, engine: 'imagen-3' };
+    // imageBytes is already a base64 string (SDK passthrough from bytesBase64Encoded)
+    const mime = (img as any).mimeType || 'image/png';
+    return { dataUrl: `data:${mime};base64,${img.imageBytes}`, elapsed: Date.now() - t0, engine: 'imagen-3' };
   } catch (err: any) {
     return { dataUrl: null, elapsed: Date.now() - t0, engine: 'imagen-3', error: err?.message || String(err) };
   }
