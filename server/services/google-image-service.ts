@@ -138,11 +138,12 @@ async function callGemini(prompt: string): Promise<Buffer> {
  * Look up a pinned style profile for the given language.
  * Returns the extracted style description string, or null if no profile is locked.
  */
-async function getLockedStyleProfile(language: string): Promise<string | null> {
+async function getLockedStyleProfile(profileKey: string): Promise<string | null> {
   try {
+    const titleKey = `style_profile:${profileKey}`;
     const result = await getUserDb().execute(drizzleSql`
       SELECT content FROM editor_insights
-      WHERE category = 'image_style_profile' AND title = ${language}
+      WHERE category = 'tools' AND title = ${titleKey}
       LIMIT 1
     `);
     const row = result.rows[0] as any;
@@ -190,9 +191,26 @@ export async function generateCharacterScene(concept: string, language?: string)
  * ENGINE B — Environment / location scene (Base Gemini Flash).
  * Wide landscape framing, muted palette. For scenes without characters.
  * Returns a permanent public URL.
+ *
+ * @param profileKey  Optional profile key to look up in pinned style profiles.
+ *                    Defaults to 'environment'. If a locked profile exists for
+ *                    this key, its extracted style description overrides SCENE_STYLE,
+ *                    giving consistency with the reference image used during testing.
  */
-export async function generateEnvironmentScene(concept: string): Promise<string> {
-  const prompt = `Square 1:1 format. Illustrated scene: ${concept}. ${SCENE_STYLE}`;
+export async function generateEnvironmentScene(concept: string, profileKey: string = 'environment'): Promise<string> {
+  let styleBlock = SCENE_STYLE;
+
+  const locked = await getLockedStyleProfile(profileKey);
+  if (locked) {
+    console.log(`[GoogleImage] Using pinned style profile for environment (key: ${profileKey})`);
+    styleBlock =
+      `ILLUSTRATION STYLE TO MATCH (extracted from reference):\n${locked}\n\n` +
+      `FRAMING: wide establishing shot — fill the entire canvas edge to edge, ` +
+      `no white borders or padding; no people or figures unless the concept explicitly includes them; ` +
+      `absolutely no text, letters, numbers or typography in the image.`;
+  }
+
+  const prompt = `Square 1:1 format. Illustrated scene: ${concept}. ${styleBlock}`;
   console.log('[GoogleImage] Environment scene (base):', prompt.substring(0, 200));
   const buf = await callGemini(prompt);
   const filename = `scene-base-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;

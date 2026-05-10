@@ -223,6 +223,11 @@ const LANGUAGES = [
   "japanese", "mandarin", "korean", "arabic", "russian",
 ];
 
+// Profile keys that aren't language names — appear at top of pin dropdown
+const SPECIAL_PROFILE_KEYS = [
+  { value: "environment", label: "Environment style" },
+];
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface ReferenceImage {
@@ -254,6 +259,9 @@ export default function ImageEngineTest() {
   const [lockedProfiles, setLockedProfiles] = useState<StyleProfile[]>([]);
   const [lockingStyle, setLockingStyle] = useState(false);
   const [pinLanguage, setPinLanguage] = useState("spanish");
+
+  // Extraction mode — controls what Gemini looks for in the reference image
+  const [extractionMode, setExtractionMode] = useState<"character" | "environment">("character");
 
   const loadProfiles = useCallback(async () => {
     try {
@@ -344,6 +352,7 @@ export default function ImageEngineTest() {
 
   // Build request body — only include reference for engines that support it.
   // variationIndex ensures parallel runs get different composition nudges.
+  // extractionMode tells the backend which style analysis prompt to use.
   const buildRequestBody = (engineId: string, type: "scene" | "prop", variationIndex: number = 0) => {
     const supportsReference = REFERENCE_CAPABLE_ENGINES.includes(engineId);
     return JSON.stringify({
@@ -351,6 +360,7 @@ export default function ImageEngineTest() {
       concept: concept.trim(),
       type,
       variationIndex,
+      extractionMode,
       ...(supportsReference && referenceImage
         ? { referenceImageB64: referenceImage.b64, referenceImageMimeType: referenceImage.mimeType }
         : {}),
@@ -606,6 +616,40 @@ export default function ImageEngineTest() {
                 <span className="font-medium text-foreground">Gemini Flash</span> supports reference input — other engines ignore it.
               </p>
 
+              {/* Extraction mode toggle */}
+              <div className="mb-3">
+                <div className="text-xs text-muted-foreground mb-1.5">Reads the reference as…</div>
+                <div className="flex rounded-md border border-border overflow-hidden text-xs">
+                  <button
+                    onClick={() => { setExtractionMode("character"); if (pinLanguage === "environment") setPinLanguage("spanish"); }}
+                    className={`flex-1 px-2 py-1.5 text-center transition-colors ${
+                      extractionMode === "character"
+                        ? "bg-accent text-accent-foreground font-medium"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    }`}
+                    data-testid="button-extraction-character"
+                  >
+                    Character
+                  </button>
+                  <button
+                    onClick={() => { setExtractionMode("environment"); setPinLanguage("environment"); }}
+                    className={`flex-1 px-2 py-1.5 text-center transition-colors border-l border-border ${
+                      extractionMode === "environment"
+                        ? "bg-accent text-accent-foreground font-medium"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    }`}
+                    data-testid="button-extraction-environment"
+                  >
+                    Environment
+                  </button>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1 leading-snug">
+                  {extractionMode === "character"
+                    ? "Extracts illustration style + character design (face, hair, skin, clothing)"
+                    : "Extracts illustration style + environment rendering (depth, sky, atmosphere, light)"}
+                </p>
+              </div>
+
               {/* Thumbnail preview */}
               {referenceImage && (
                 <div className="mb-3 relative rounded-md overflow-hidden border border-border">
@@ -827,9 +871,16 @@ export default function ImageEngineTest() {
                                 className="text-xs rounded-md border border-border bg-background px-2 py-1 text-foreground"
                                 data-testid="select-pin-language"
                               >
-                                {LANGUAGES.map(l => (
-                                  <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>
-                                ))}
+                                <optgroup label="Scene types">
+                                  {SPECIAL_PROFILE_KEYS.map(k => (
+                                    <option key={k.value} value={k.value}>{k.label}</option>
+                                  ))}
+                                </optgroup>
+                                <optgroup label="Languages">
+                                  {LANGUAGES.map(l => (
+                                    <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>
+                                  ))}
+                                </optgroup>
                               </select>
                               <Button
                                 size="sm"

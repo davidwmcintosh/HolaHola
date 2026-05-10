@@ -275,11 +275,18 @@ const styleExtractionCache = new Map<string, string>();
 
 // ─── DB-backed style cache (survives server restarts) ─────────────────────────
 
+// Category must be a valid editor_insight_category enum value.
+// We use 'tools' (image generation tool configuration) and prefix the title
+// so these rows are easily namespaced away from other tool entries.
+const STYLE_CACHE_CATEGORY = 'tools';
+const STYLE_PROFILE_CATEGORY = 'tools';
+
 async function getDbStyleCache(imageHash: string): Promise<string | null> {
   try {
+    const titleKey = `style_cache:${imageHash}`;
     const result = await getUserDb().execute(drizzleSql`
       SELECT content FROM editor_insights
-      WHERE category = 'image_style_cache' AND title = ${imageHash}
+      WHERE category = ${STYLE_CACHE_CATEGORY} AND title = ${titleKey}
       LIMIT 1
     `);
     return (result.rows[0] as any)?.content ?? null;
@@ -290,9 +297,10 @@ async function getDbStyleCache(imageHash: string): Promise<string | null> {
 
 async function setDbStyleCache(imageHash: string, styleDescription: string): Promise<void> {
   try {
+    const titleKey = `style_cache:${imageHash}`;
     await getUserDb().execute(drizzleSql`
       INSERT INTO editor_insights (id, category, title, content, importance, tags)
-      VALUES (gen_random_uuid(), 'image_style_cache', ${imageHash}, ${styleDescription}, 5, ARRAY['style_cache'])
+      VALUES (gen_random_uuid(), ${STYLE_CACHE_CATEGORY}, ${titleKey}, ${styleDescription}, 5, ARRAY['style_cache'])
       ON CONFLICT DO NOTHING
     `);
   } catch {
@@ -310,13 +318,14 @@ export interface StyleProfile {
 }
 
 export async function lockStyleProfile(language: string, styleDescription: string, imageHash: string): Promise<void> {
+  const titleKey = `style_profile:${language}`;
   const content = JSON.stringify({ styleDescription, imageHash, lockedAt: new Date().toISOString() });
   await getUserDb().execute(drizzleSql`
-    DELETE FROM editor_insights WHERE category = 'image_style_profile' AND title = ${language}
+    DELETE FROM editor_insights WHERE category = ${STYLE_PROFILE_CATEGORY} AND title = ${titleKey}
   `);
   await getUserDb().execute(drizzleSql`
     INSERT INTO editor_insights (id, category, title, content, importance, tags)
-    VALUES (gen_random_uuid(), 'image_style_profile', ${language}, ${content}, 9, ARRAY['image_style', ${language}])
+    VALUES (gen_random_uuid(), ${STYLE_PROFILE_CATEGORY}, ${titleKey}, ${content}, 9, ARRAY['image_style', ${language}])
   `);
   console.log(`[StyleProfile] Locked style for ${language}`);
 }
@@ -324,20 +333,21 @@ export async function lockStyleProfile(language: string, styleDescription: strin
 export async function getStyleProfiles(): Promise<StyleProfile[]> {
   const result = await getUserDb().execute(drizzleSql`
     SELECT title, content FROM editor_insights
-    WHERE category = 'image_style_profile'
+    WHERE category = ${STYLE_PROFILE_CATEGORY} AND title LIKE 'style_profile:%'
     ORDER BY title
   `);
   return (result.rows as any[]).map(row => ({
-    language: row.title,
+    language: (row.title as string).replace('style_profile:', ''),
     ...JSON.parse(row.content),
   }));
 }
 
 export async function getStyleProfileForLanguage(language: string): Promise<string | null> {
   try {
+    const titleKey = `style_profile:${language}`;
     const result = await getUserDb().execute(drizzleSql`
       SELECT content FROM editor_insights
-      WHERE category = 'image_style_profile' AND title = ${language}
+      WHERE category = ${STYLE_PROFILE_CATEGORY} AND title = ${titleKey}
       LIMIT 1
     `);
     const row = result.rows[0] as any;
@@ -349,39 +359,107 @@ export async function getStyleProfileForLanguage(language: string): Promise<stri
 }
 
 export async function deleteStyleProfile(language: string): Promise<void> {
+  const titleKey = `style_profile:${language}`;
   await getUserDb().execute(drizzleSql`
-    DELETE FROM editor_insights WHERE category = 'image_style_profile' AND title = ${language}
+    DELETE FROM editor_insights WHERE category = ${STYLE_PROFILE_CATEGORY} AND title = ${titleKey}
   `);
   console.log(`[StyleProfile] Deleted style profile for ${language}`);
+}
+
+export type ExtractionMode = 'character' | 'environment';
+
+// ─── Extraction prompt builders ───────────────────────────────────────────────
+
+function buildCharacterExtractionPrompt(): string {
+  return (
+    'You are an illustration art director doing a precise technical style analysis. ' +
+    'Analyze this reference image carefully and return exactly two labelled sections.\n\n' +
+    'ART STYLE (4-5 sentences):\n' +
+    'FIRST: identify the primary style category from this list and name it explicitly — ' +
+    'anime/manga, semi-realistic cartoon, watercolor, pen-and-watercolor-wash, ' +
+    'digital painterly, cel animation, vector/flat, or graphic novel. ' +
+    'THEN describe: (1) line work — are outlines bold/clean/sharp or soft/sketchy/absent? ' +
+    'Are lines a key visual element or dissolved into color? ' +
+    '(2) color fill method — flat cel fills, smooth digital gradients, translucent watercolor washes, or textured brushwork? ' +
+    '(3) saturation level — are colors rich and saturated, muted and dusty, or somewhere in between? ' +
+    '(4) dominant hues and warm/cool bias. ' +
+    '(5) lighting — flat ambient, soft diffuse, or dramatic directional? ' +
+    'Be precise and concrete. Do NOT use vague terms like "vibrant" or "lively." ' +
+    'Do NOT describe characters, poses, or scene content — only the visual technique.\n\n' +
+    'CHARACTER DESIGN (2-3 sentences): Describe only the main female character\'s ' +
+    'physical appearance — face shape, hair color and texture, skin tone, ' +
+    'eye color, and clothing style and colors. No poses or expressions.\n\n' +
+    'Format your response as exactly:\n' +
+    'ART STYLE: [your description]\n' +
+    'CHARACTER DESIGN: [your description]'
+  );
+}
+
+function buildEnvironmentExtractionPrompt(): string {
+  return (
+    'You are an illustration art director doing a precise technical style analysis. ' +
+    'Analyze this reference image carefully and return exactly two labelled sections.\n\n' +
+    'ART STYLE (4-5 sentences):\n' +
+    'FIRST: identify the primary style category from this list and name it explicitly — ' +
+    'anime/manga, semi-realistic cartoon, watercolor, pen-and-watercolor-wash, ' +
+    'digital painterly, cel animation, vector/flat, or graphic novel. ' +
+    'THEN describe: (1) line work — are outlines bold/clean/sharp or soft/sketchy/absent? ' +
+    'Are lines a key visual element or dissolved into color? ' +
+    '(2) color fill method — flat cel fills, smooth digital gradients, translucent watercolor washes, or textured brushwork? ' +
+    '(3) saturation level — are colors rich and saturated, muted and dusty, or somewhere in between? ' +
+    '(4) dominant hues and warm/cool bias. ' +
+    '(5) lighting quality — flat ambient, soft diffuse, golden-hour warmth, dramatic directional, or overcast even? ' +
+    'Be precise and concrete. Do NOT use vague terms like "vibrant" or "lively." ' +
+    'Do NOT describe any people or figures — only the environmental visual technique.\n\n' +
+    'ENVIRONMENT STYLE (2-3 sentences): Describe only how the environment and setting is rendered — ' +
+    'how backgrounds handle depth and perspective (flat, layered, atmospheric), ' +
+    'sky treatment (gradient fill, textured clouds, flat color wash), ' +
+    'ground and surface texture (smooth, detailed, impressionistic), ' +
+    'and any signature atmospheric qualities such as haze, glow, dappled light, or bloom.\n\n' +
+    'Format your response as exactly:\n' +
+    'ART STYLE: [your description]\n' +
+    'ENVIRONMENT STYLE: [your description]'
+  );
 }
 
 /**
  * Call 1 of the two-call reference workflow.
  *
  * Sends the reference image to gemini-2.5-flash (text output only) and asks it
- * to describe the art style and character design in precise language.
+ * to describe the art style in precise language — either focusing on character
+ * design (mode='character') or environment rendering (mode='environment').
  * The image generator in Call 2 never sees the reference — it only sees this
  * verbal description, which carries style cues without content/composition cues.
  *
  * Cache hierarchy: memory (fastest) → DB (survives restarts) → API extraction.
+ * Cache key includes the mode so character and environment extractions from the
+ * same image are stored independently.
  */
-async function extractStyleDescription(reference: ReferenceImage, apiKey: string): Promise<string> {
-  const cacheKey = reference.b64.slice(0, 64);
+async function extractStyleDescription(
+  reference: ReferenceImage,
+  apiKey: string,
+  mode: ExtractionMode = 'character',
+): Promise<string> {
+  const cacheKey = `${mode}:${reference.b64.slice(0, 64)}`;
 
   // 1. Memory cache (same session)
   const cached = styleExtractionCache.get(cacheKey);
   if (cached) {
-    console.log('[GeminiImagen] Style description memory cache hit');
+    console.log(`[GeminiImagen] Style description memory cache hit (${mode})`);
     return cached;
   }
 
   // 2. DB cache (survives server restarts)
   const dbCached = await getDbStyleCache(cacheKey);
   if (dbCached) {
-    console.log('[GeminiImagen] Style description DB cache hit');
+    console.log(`[GeminiImagen] Style description DB cache hit (${mode})`);
     styleExtractionCache.set(cacheKey, dbCached);
     return dbCached;
   }
+
+  const extractionPrompt = mode === 'environment'
+    ? buildEnvironmentExtractionPrompt()
+    : buildCharacterExtractionPrompt();
 
   const ai = new GoogleGenAI({ apiKey });
   const response = await ai.models.generateContent({
@@ -391,36 +469,14 @@ async function extractStyleDescription(reference: ReferenceImage, apiKey: string
         role: 'user',
         parts: [
           { inlineData: { mimeType: reference.mimeType, data: reference.b64 } },
-          {
-            text:
-              'You are an illustration art director doing a precise technical style analysis. ' +
-              'Analyze this reference image carefully and return exactly two labelled sections.\n\n' +
-              'ART STYLE (4-5 sentences):\n' +
-              'FIRST: identify the primary style category from this list and name it explicitly — ' +
-              'anime/manga, semi-realistic cartoon, watercolor, pen-and-watercolor-wash, ' +
-              'digital painterly, cel animation, vector/flat, or graphic novel. ' +
-              'THEN describe: (1) line work — are outlines bold/clean/sharp or soft/sketchy/absent? ' +
-              'Are lines a key visual element or dissolved into color? ' +
-              '(2) color fill method — flat cel fills, smooth digital gradients, translucent watercolor washes, or textured brushwork? ' +
-              '(3) saturation level — are colors rich and saturated, muted and dusty, or somewhere in between? ' +
-              '(4) dominant hues and warm/cool bias. ' +
-              '(5) lighting — flat ambient, soft diffuse, or dramatic directional? ' +
-              'Be precise and concrete. Do NOT use vague terms like "vibrant" or "lively." ' +
-              'Do NOT describe characters, poses, or scene content — only the visual technique.\n\n' +
-              'CHARACTER DESIGN (2-3 sentences): Describe only the main female character\'s ' +
-              'physical appearance — face shape, hair color and texture, skin tone, ' +
-              'eye color, and clothing style and colors. No poses or expressions.\n\n' +
-              'Format your response as exactly:\n' +
-              'ART STYLE: [your description]\n' +
-              'CHARACTER DESIGN: [your description]',
-          },
+          { text: extractionPrompt },
         ],
       },
     ],
   });
 
   const text = response.candidates?.[0]?.content?.parts?.find((p: any) => p.text)?.text ?? '';
-  console.log('[GeminiImagen] Style extracted:', text.slice(0, 120) + '…');
+  console.log(`[GeminiImagen] Style extracted (${mode}):`, text.slice(0, 120) + '…');
   styleExtractionCache.set(cacheKey, text);
   void setDbStyleCache(cacheKey, text); // persist in background — non-blocking
   return text;
@@ -432,6 +488,7 @@ async function runGeminiImagen(
   reference?: ReferenceImage,
   variationIndex: number = 0,
   sceneStyleOverride?: string,
+  extractionMode: ExtractionMode = 'character',
 ): Promise<EngineResult> {
   const t0 = Date.now();
   try {
@@ -448,9 +505,9 @@ async function runGeminiImagen(
       // ── Two-call approach ──────────────────────────────────────────────────
       // The image generator NEVER receives the reference image directly.
       // Giving it the image causes it to reproduce the composition, not just
-      // the style. Instead: Call 1 extracts style+character as text.
-      // Call 2 generates from that text description only.
-      styleDesc = await extractStyleDescription(reference, apiKey);
+      // the style. Instead: Call 1 extracts style as text (character or
+      // environment depending on mode). Call 2 generates from text only.
+      styleDesc = await extractStyleDescription(reference, apiKey, extractionMode);
 
       const frameConstraints =
         'Square 1:1 format. Full bleed edge-to-edge, no white borders, no padding. ' +
@@ -549,13 +606,14 @@ export async function runEngineTest(
   type: 'scene' | 'prop',
   reference?: ReferenceImage,
   variationIndex: number = 0,
+  extractionMode: ExtractionMode = 'character',
 ): Promise<EngineResult> {
   switch (engine) {
     case 'dall-e-3':         return runDallE3(concept);
     case 'gpt-image-1':      return runGptImage1Scene(concept);
     case 'gpt-image-1-prop': return runGptImage1Prop(concept);
     case 'gemini-imagen':      return runGeminiImagen(concept, type, undefined, variationIndex);
-    case 'gemini-imagen-ref':  return runGeminiImagen(concept, type, reference, variationIndex);
+    case 'gemini-imagen-ref':  return runGeminiImagen(concept, type, reference, variationIndex, undefined, extractionMode);
     case 'gemini-imagen-warm': return runGeminiImagen(concept, type, undefined, variationIndex, SCENE_STYLE_WARM);
     case 'imagen-3':           return runImagenModel('imagen-3', 'imagen-4.0-generate-001', concept, type);
     case 'imagen-4-ultra':   return runImagenModel('imagen-4-ultra', 'imagen-4.0-ultra-generate-001', concept, type);
