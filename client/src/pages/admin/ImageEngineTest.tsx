@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -263,6 +263,9 @@ export default function ImageEngineTest() {
   // Extraction mode — controls what Gemini looks for in the reference image
   const [extractionMode, setExtractionMode] = useState<"character" | "environment">("character");
 
+  // Editable copy of the extracted style description — user can modify/paste freely
+  const [editedStyleDesc, setEditedStyleDesc] = useState<string>("");
+
   const loadProfiles = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/image-style-profiles");
@@ -271,6 +274,21 @@ export default function ImageEngineTest() {
   }, []);
 
   useEffect(() => { loadProfiles(); }, [loadProfiles]);
+
+  // When a new extraction comes back from the engine, auto-populate the editable field.
+  // User can freely edit/paste over it; running a new reference image will refresh it.
+  const latestExtractedDesc = useMemo(() => {
+    for (const engineId of Object.keys(results)) {
+      for (const r of (results[engineId] || [])) {
+        if (r.styleDescription) return r.styleDescription;
+      }
+    }
+    return null;
+  }, [results]);
+
+  useEffect(() => {
+    if (latestExtractedDesc) setEditedStyleDesc(latestExtractedDesc);
+  }, [latestExtractedDesc]);
 
   const lockStyle = async (styleDescription: string, imageHash: string) => {
     setLockingStyle(true);
@@ -863,7 +881,23 @@ export default function ImageEngineTest() {
                             <summary className="px-3 py-2 cursor-pointer select-none font-medium text-foreground/70 hover:text-foreground transition-colors">
                               Style extracted from reference
                             </summary>
-                            <p className="px-3 pt-1 pb-2 leading-relaxed whitespace-pre-wrap">{desc}</p>
+                            <div className="px-3 pt-2 pb-2">
+                              <Textarea
+                                value={editedStyleDesc}
+                                onChange={e => setEditedStyleDesc(e.target.value)}
+                                className="text-xs font-mono leading-relaxed resize-y min-h-[100px]"
+                                data-testid="textarea-style-description"
+                              />
+                              {editedStyleDesc !== desc && (
+                                <button
+                                  onClick={() => setEditedStyleDesc(desc)}
+                                  className="mt-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
+                                  data-testid="button-reset-style-desc"
+                                >
+                                  Reset to last extracted
+                                </button>
+                              )}
+                            </div>
                             <div className="px-3 pb-3 flex flex-wrap items-center gap-2 border-t border-border pt-2">
                               <select
                                 value={pinLanguage}
@@ -885,7 +919,7 @@ export default function ImageEngineTest() {
                               <Button
                                 size="sm"
                                 variant={lockedProfiles.some(p => p.language === pinLanguage) ? "default" : "outline"}
-                                onClick={() => lockStyle(desc, imageHash)}
+                                onClick={() => lockStyle(editedStyleDesc || desc, imageHash)}
                                 disabled={lockingStyle}
                                 data-testid="button-pin-style"
                               >
