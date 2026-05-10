@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Play, RotateCcw, Clock, AlertCircle, ImageOff, ChevronDown, ChevronUp, RefreshCw, X, ZoomIn, Upload, UserCheck, Loader2 } from "lucide-react";
+import { Play, RotateCcw, Clock, AlertCircle, ImageOff, ChevronDown, ChevronUp, RefreshCw, X, ZoomIn, Upload, UserCheck, Loader2, Pin, Trash2 } from "lucide-react";
 
 // Engines that support reference image input (must match REFERENCE_CAPABLE_ENGINES on server)
 const REFERENCE_CAPABLE_ENGINES = ["gemini-imagen-ref"];
@@ -211,6 +211,18 @@ interface ImageResult {
 
 type ResultMap = Record<string, ImageResult[]>; // engineId → results[]
 
+interface StyleProfile {
+  language: string;
+  styleDescription: string;
+  imageHash: string;
+  lockedAt: string;
+}
+
+const LANGUAGES = [
+  "spanish", "french", "portuguese", "italian", "german",
+  "japanese", "mandarin", "korean", "arabic", "russian",
+];
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface ReferenceImage {
@@ -237,6 +249,44 @@ export default function ImageEngineTest() {
   const [fetchingReference, setFetchingReference] = useState(false);
   const [referenceError, setReferenceError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Pinned style profiles — persist across server restarts via DB
+  const [lockedProfiles, setLockedProfiles] = useState<StyleProfile[]>([]);
+  const [lockingStyle, setLockingStyle] = useState(false);
+  const [pinLanguage, setPinLanguage] = useState("spanish");
+
+  const loadProfiles = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/image-style-profiles");
+      if (res.ok) setLockedProfiles(await res.json());
+    } catch {}
+  }, []);
+
+  useEffect(() => { loadProfiles(); }, [loadProfiles]);
+
+  const lockStyle = async (styleDescription: string, imageHash: string) => {
+    setLockingStyle(true);
+    try {
+      const res = await fetch("/api/admin/image-style-profiles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language: pinLanguage, styleDescription, imageHash }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || "Failed");
+      await loadProfiles();
+    } catch (err: any) {
+      alert(`Failed to pin style: ${err.message}`);
+    } finally {
+      setLockingStyle(false);
+    }
+  };
+
+  const deleteProfile = async (language: string) => {
+    try {
+      await fetch(`/api/admin/image-style-profiles/${language}`, { method: "DELETE" });
+      await loadProfiles();
+    } catch {}
+  };
 
   const toggleEngine = (id: string) => {
     setSelectedEngines(prev =>
@@ -628,6 +678,42 @@ export default function ImageEngineTest() {
 
             <Separator />
 
+            {/* Pinned Style Profiles */}
+            <div>
+              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 block">
+                Pinned Styles
+              </Label>
+              {lockedProfiles.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">
+                  No styles pinned yet. Run <span className="font-medium text-foreground">gemini-imagen-ref</span> with a reference image, then pin the extracted style.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  {lockedProfiles.map(p => (
+                    <div key={p.language} className="flex items-center justify-between gap-2 rounded-md border border-border px-2.5 py-1.5">
+                      <div className="min-w-0">
+                        <div className="text-xs font-medium capitalize">{p.language}</div>
+                        <div className="text-[10px] text-muted-foreground">
+                          Pinned {new Date(p.lockedAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => deleteProfile(p.language)}
+                        title={`Remove pinned style for ${p.language}`}
+                        data-testid={`button-delete-profile-${p.language}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
             {/* Engine selection */}
             <div>
               <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 block">
@@ -723,15 +809,46 @@ export default function ImageEngineTest() {
                         </div>
                       </div>
 
-                      {/* Extracted style description (Gemini with reference only) */}
-                      {engine.id === "gemini-imagen" && (() => {
-                        const desc = engineResults.find(r => r.styleDescription)?.styleDescription;
+                      {/* Extracted style description (gemini-imagen-ref only) */}
+                      {engine.id === "gemini-imagen-ref" && (() => {
+                        const refResult = engineResults.find(r => r.styleDescription);
+                        const desc = refResult?.styleDescription;
+                        const imageHash = refResult?.dataUrl?.slice(0, 64) ?? "";
                         return desc ? (
-                          <details className="mb-3 text-xs text-muted-foreground border border-border rounded-md">
+                          <details className="mb-3 text-xs text-muted-foreground border border-border rounded-md" open>
                             <summary className="px-3 py-2 cursor-pointer select-none font-medium text-foreground/70 hover:text-foreground transition-colors">
                               Style extracted from reference
                             </summary>
-                            <p className="px-3 pb-3 pt-1 leading-relaxed whitespace-pre-wrap">{desc}</p>
+                            <p className="px-3 pt-1 pb-2 leading-relaxed whitespace-pre-wrap">{desc}</p>
+                            <div className="px-3 pb-3 flex flex-wrap items-center gap-2 border-t border-border pt-2">
+                              <select
+                                value={pinLanguage}
+                                onChange={e => setPinLanguage(e.target.value)}
+                                className="text-xs rounded-md border border-border bg-background px-2 py-1 text-foreground"
+                                data-testid="select-pin-language"
+                              >
+                                {LANGUAGES.map(l => (
+                                  <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>
+                                ))}
+                              </select>
+                              <Button
+                                size="sm"
+                                variant={lockedProfiles.some(p => p.language === pinLanguage) ? "default" : "outline"}
+                                onClick={() => lockStyle(desc, imageHash)}
+                                disabled={lockingStyle}
+                                data-testid="button-pin-style"
+                              >
+                                {lockingStyle
+                                  ? <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+                                  : <Pin className="w-3 h-3 mr-1.5" />}
+                                {lockedProfiles.some(p => p.language === pinLanguage) ? "Update pin" : "Pin this style"}
+                              </Button>
+                              {lockedProfiles.some(p => p.language === pinLanguage) && (
+                                <Badge variant="secondary" className="text-[10px]">
+                                  {pinLanguage} pinned
+                                </Badge>
+                              )}
+                            </div>
                           </details>
                         ) : null;
                       })()}

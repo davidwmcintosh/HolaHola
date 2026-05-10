@@ -28,6 +28,8 @@
 
 import { GoogleGenAI } from '@google/genai';
 import { uploadPublicBuffer } from './image-storage';
+import { getUserDb } from '../db';
+import { sql as drizzleSql } from 'drizzle-orm';
 
 const MODEL = 'gemini-2.5-flash-image';
 
@@ -133,13 +135,51 @@ async function callGemini(prompt: string): Promise<Buffer> {
 // ─── Public generation functions ──────────────────────────────────────────────
 
 /**
+ * Look up a pinned style profile for the given language.
+ * Returns the extracted style description string, or null if no profile is locked.
+ */
+async function getLockedStyleProfile(language: string): Promise<string | null> {
+  try {
+    const result = await getUserDb().execute(drizzleSql`
+      SELECT content FROM editor_insights
+      WHERE category = 'image_style_profile' AND title = ${language}
+      LIMIT 1
+    `);
+    const row = result.rows[0] as any;
+    if (!row?.content) return null;
+    return JSON.parse(row.content).styleDescription ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * ENGINE A — Daniela/character scene (Gemini Warm).
  * Tight portrait crop, golden palette. For social reading cards and vocabulary
  * character images. Returns a permanent public URL.
+ *
+ * @param language  Optional language code (e.g. 'spanish'). If a pinned style
+ *                  profile exists for this language, it overrides SCENE_STYLE_WARM,
+ *                  giving consistent character design across all generations.
  */
-export async function generateCharacterScene(concept: string): Promise<string> {
+export async function generateCharacterScene(concept: string, language?: string): Promise<string> {
   const hint = COMPOSITION_VARIANTS[Math.floor(Math.random() * COMPOSITION_VARIANTS.length)];
-  const prompt = `Square 1:1 format. Illustrated scene: ${concept}. ${hint}\n\n${SCENE_STYLE_WARM}`;
+
+  let styleBlock = SCENE_STYLE_WARM;
+  if (language) {
+    const locked = await getLockedStyleProfile(language);
+    if (locked) {
+      console.log(`[GoogleImage] Using pinned style profile for ${language}`);
+      styleBlock =
+        `ILLUSTRATION STYLE TO MATCH (extracted from reference):\n${locked}\n\n` +
+        `FRAMING: close intimate portrait crop — characters shown from roughly waist to crown of head, ` +
+        `faces large and expressive, filling at least 70% of the frame height; ` +
+        `full bleed edge-to-edge, no white borders or padding; ` +
+        `absolutely no text, letters, numbers or typography in the image.`;
+    }
+  }
+
+  const prompt = `Square 1:1 format. Illustrated scene: ${concept}. ${hint}\n\n${styleBlock}`;
   console.log('[GoogleImage] Character scene (warm):', prompt.substring(0, 200));
   const buf = await callGemini(prompt);
   const filename = `scene-warm-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;

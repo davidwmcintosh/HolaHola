@@ -513,3 +513,26 @@ Full migration of all DALL-E 3 / gpt-image-1 image generation callsites to Googl
 ### What's still open
 - `SCENE_STYLE_WARM` prompt is not locked — David is actively tuning it at `/admin/image-test`. White border artifact parked as possible postcard aesthetic.
 - When warm prompt is finalised, sync `image-engine-test.ts` copy → `google-image-service.ts`.
+
+---
+## Session 47e — Pinned style profile system (May 10, 2026)
+
+### What was built
+DB-persistent "pinned style profile" system for the image engine test tool. Allows locking an extracted style description (from the `gemini-imagen-ref` two-call workflow) to a language so it gets injected into production `generateCharacterScene()` calls.
+
+### How it works
+1. Run `gemini-imagen-ref` with a Daniela reference image at `/admin/image-test`
+2. The extracted style description appears in the results panel (auto-expanded)
+3. Choose a language in the dropdown and click "Pin this style"
+4. The style is saved to the DB (`editor_insights`, category=`image_style_profile`, title=language)
+5. All subsequent `generateCharacterScene(concept, 'spanish')` calls will inject that style instead of `SCENE_STYLE_WARM`
+6. Pinned styles survive server restarts. View/delete them from the "Pinned Styles" sidebar section.
+
+### Key files
+- `server/services/image-engine-test.ts` — DB cache + lock/get/delete exports
+- `server/services/google-image-service.ts` — `generateCharacterScene(concept, language?)` with profile injection
+- `server/routes.ts` — GET/POST/DELETE `/api/admin/image-style-profiles`
+- `client/src/pages/admin/ImageEngineTest.tsx` — Pin UI + Pinned Styles sidebar panel
+
+### User-facing instructions
+Go to Admin → Image Engine Test. Upload a Daniela reference image (or use "Load Daniela from cache"). Enable `gemini-imagen-ref`. Run. After generation, the style description panel opens automatically. Select a language and click "Pin this style". Done — all future vocabulary images for that language use that pinned style.

@@ -19,6 +19,57 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## Session Summary — Sun, May 10, 2026 (session 47e — Pinned style profile system)
+
+### What was done
+
+**Pinned style profiles — DB persistence + Lock button UI + production injection**
+
+The `gemini-imagen-ref` engine in the image test tool extracts a text style description from a reference image (Call 1 of the two-call reference workflow). Previously that extraction lived only in a per-session memory Map — lost on every server restart. Now it's a full system:
+
+1. **DB-backed extraction cache** — `extractStyleDescription()` now checks `editor_insights` (category=`image_style_cache`) before hitting the Gemini API. Cached on first extraction via a non-blocking background write. Survives server restarts.
+
+2. **Pinned style profiles** — a separate `editor_insights` row (category=`image_style_profile`, title=language) stores the style description that should be used in **production** generation for a given language. Three new exports: `lockStyleProfile()`, `getStyleProfiles()`, `deleteStyleProfile()`.
+
+3. **Three new admin API endpoints** (all behind `requireRole('admin')`):
+   - `GET /api/admin/image-style-profiles` — list all locked profiles
+   - `POST /api/admin/image-style-profiles` — lock a style for a language
+   - `DELETE /api/admin/image-style-profiles/:language` — remove a profile
+
+4. **Production injection** — `generateCharacterScene(concept, language?)` in `google-image-service.ts` now accepts an optional language. If a locked profile exists in the DB for that language, the extracted style description replaces `SCENE_STYLE_WARM` in the prompt. The injected style block includes the same framing constraints (waist-up, full bleed, no text).
+
+5. **UI** — `ImageEngineTest.tsx`:
+   - Corrected bug: style description panel was checking `engine.id === "gemini-imagen"` but `styleDescription` is only ever set on `gemini-imagen-ref` results.
+   - Style description panel now opens automatically (`open` attribute on `<details>`).
+   - Inline "Pin this style" control: language dropdown (10 languages) + Pin button. Shows "Update pin" and a badge if that language is already locked.
+   - "Pinned Styles" sidebar section: loads profiles on mount, shows language + lock date for each, trash button to remove.
+
+### Files changed
+
+- **`server/services/image-engine-test.ts`** — added DB cache helpers, modified `extractStyleDescription()` to check DB first, exported `StyleProfile` interface + `lockStyleProfile()` / `getStyleProfiles()` / `getStyleProfileForLanguage()` / `deleteStyleProfile()`
+- **`server/services/google-image-service.ts`** — added `getLockedStyleProfile()` DB lookup, updated `generateCharacterScene(concept, language?)` signature with profile injection
+- **`server/routes.ts`** — three new `/api/admin/image-style-profiles` endpoints after the presets endpoint (~line 20888)
+- **`client/src/pages/admin/ImageEngineTest.tsx`** — `StyleProfile` interface, `LANGUAGES` constant, new state/hooks, `lockStyle()` / `deleteProfile()` functions, fixed engine ID check, "Pin this style" UI, "Pinned Styles" sidebar panel
+
+### Status after this session
+
+| Item | Status |
+|---|---|
+| DALL-E 3 deprecation migration | ✅ Complete (session 47d) |
+| DB-backed style extraction cache | ✅ Complete |
+| Pinned style profile system | ✅ Complete |
+| Production injection into `generateCharacterScene()` | ✅ Complete |
+| Lock button UI in image test tool | ✅ Complete |
+| SCENE_STYLE_WARM vs. extracted style | 🔄 David can now run `gemini-imagen-ref` → pin → see if production images match |
+
+### What's next / unresolved
+
+- **Actually pin a style**: David needs to run `gemini-imagen-ref` with a Daniela reference image at `/admin/image-test`, look at the extracted style description, and hit "Pin this style" for Spanish. That locked profile will then be injected into all `generateCharacterScene('...', 'spanish')` calls.
+- **Pass language to callsites**: The existing `generateCharacterScene(concept)` callers in `visual-content-service.ts` don't yet pass a language param. Once a profile is pinned and David confirms the output looks good, thread the language param through.
+- **SCENE_STYLE_WARM constant**: Can be retired once pinned profiles are working well — or kept as the fallback when no profile is locked (current behavior).
+
+---
+
 ## Session Summary — Sat, May 9, 2026 (session 47d — DALL-E 3 → Gemini two-engine migration)
 
 ### What was done

@@ -15,6 +15,8 @@
 
 import OpenAI from 'openai';
 import { GoogleGenAI } from '@google/genai';
+import { getUserDb } from '../db';
+import { sql as drizzleSql } from 'drizzle-orm';
 
 // ─── Style constants (mirrored from visual-content-service.ts) ────────────────
 
@@ -271,6 +273,88 @@ const VARIATION_NUDGES: string[] = [
  */
 const styleExtractionCache = new Map<string, string>();
 
+// ─── DB-backed style cache (survives server restarts) ─────────────────────────
+
+async function getDbStyleCache(imageHash: string): Promise<string | null> {
+  try {
+    const result = await getUserDb().execute(drizzleSql`
+      SELECT content FROM editor_insights
+      WHERE category = 'image_style_cache' AND title = ${imageHash}
+      LIMIT 1
+    `);
+    return (result.rows[0] as any)?.content ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function setDbStyleCache(imageHash: string, styleDescription: string): Promise<void> {
+  try {
+    await getUserDb().execute(drizzleSql`
+      INSERT INTO editor_insights (id, category, title, content, importance, tags)
+      VALUES (gen_random_uuid(), 'image_style_cache', ${imageHash}, ${styleDescription}, 5, ARRAY['style_cache'])
+      ON CONFLICT DO NOTHING
+    `);
+  } catch {
+    // Non-fatal — memory cache still works
+  }
+}
+
+// ─── Pinned style profiles (locked for production use per language) ───────────
+
+export interface StyleProfile {
+  language: string;
+  styleDescription: string;
+  imageHash: string;
+  lockedAt: string;
+}
+
+export async function lockStyleProfile(language: string, styleDescription: string, imageHash: string): Promise<void> {
+  const content = JSON.stringify({ styleDescription, imageHash, lockedAt: new Date().toISOString() });
+  await getUserDb().execute(drizzleSql`
+    DELETE FROM editor_insights WHERE category = 'image_style_profile' AND title = ${language}
+  `);
+  await getUserDb().execute(drizzleSql`
+    INSERT INTO editor_insights (id, category, title, content, importance, tags)
+    VALUES (gen_random_uuid(), 'image_style_profile', ${language}, ${content}, 9, ARRAY['image_style', ${language}])
+  `);
+  console.log(`[StyleProfile] Locked style for ${language}`);
+}
+
+export async function getStyleProfiles(): Promise<StyleProfile[]> {
+  const result = await getUserDb().execute(drizzleSql`
+    SELECT title, content FROM editor_insights
+    WHERE category = 'image_style_profile'
+    ORDER BY title
+  `);
+  return (result.rows as any[]).map(row => ({
+    language: row.title,
+    ...JSON.parse(row.content),
+  }));
+}
+
+export async function getStyleProfileForLanguage(language: string): Promise<string | null> {
+  try {
+    const result = await getUserDb().execute(drizzleSql`
+      SELECT content FROM editor_insights
+      WHERE category = 'image_style_profile' AND title = ${language}
+      LIMIT 1
+    `);
+    const row = result.rows[0] as any;
+    if (!row?.content) return null;
+    return JSON.parse(row.content).styleDescription ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteStyleProfile(language: string): Promise<void> {
+  await getUserDb().execute(drizzleSql`
+    DELETE FROM editor_insights WHERE category = 'image_style_profile' AND title = ${language}
+  `);
+  console.log(`[StyleProfile] Deleted style profile for ${language}`);
+}
+
 /**
  * Call 1 of the two-call reference workflow.
  *
@@ -278,13 +362,25 @@ const styleExtractionCache = new Map<string, string>();
  * to describe the art style and character design in precise language.
  * The image generator in Call 2 never sees the reference — it only sees this
  * verbal description, which carries style cues without content/composition cues.
+ *
+ * Cache hierarchy: memory (fastest) → DB (survives restarts) → API extraction.
  */
 async function extractStyleDescription(reference: ReferenceImage, apiKey: string): Promise<string> {
   const cacheKey = reference.b64.slice(0, 64);
+
+  // 1. Memory cache (same session)
   const cached = styleExtractionCache.get(cacheKey);
   if (cached) {
-    console.log('[GeminiImagen] Style description cache hit');
+    console.log('[GeminiImagen] Style description memory cache hit');
     return cached;
+  }
+
+  // 2. DB cache (survives server restarts)
+  const dbCached = await getDbStyleCache(cacheKey);
+  if (dbCached) {
+    console.log('[GeminiImagen] Style description DB cache hit');
+    styleExtractionCache.set(cacheKey, dbCached);
+    return dbCached;
   }
 
   const ai = new GoogleGenAI({ apiKey });
@@ -326,6 +422,7 @@ async function extractStyleDescription(reference: ReferenceImage, apiKey: string
   const text = response.candidates?.[0]?.content?.parts?.find((p: any) => p.text)?.text ?? '';
   console.log('[GeminiImagen] Style extracted:', text.slice(0, 120) + '…');
   styleExtractionCache.set(cacheKey, text);
+  void setDbStyleCache(cacheKey, text); // persist in background — non-blocking
   return text;
 }
 

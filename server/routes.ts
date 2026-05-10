@@ -20882,6 +20882,45 @@ Current conversation context:
     res.json(PRESET_PROMPTS);
   });
 
+  // ─── Style Profile — list all locked profiles ─────────────────────────────
+  app.get('/api/admin/image-style-profiles', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res) => {
+    try {
+      const { getStyleProfiles } = await import('./services/image-engine-test');
+      const profiles = await getStyleProfiles();
+      res.json(profiles);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ─── Style Profile — lock a style for a language ──────────────────────────
+  app.post('/api/admin/image-style-profiles', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { language, styleDescription, imageHash } = req.body as {
+        language: string;
+        styleDescription: string;
+        imageHash: string;
+      };
+      if (!language || !styleDescription) return res.status(400).json({ error: 'language and styleDescription required' });
+      const { lockStyleProfile } = await import('./services/image-engine-test');
+      await lockStyleProfile(language, styleDescription, imageHash ?? '');
+      res.json({ ok: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ─── Style Profile — delete a pinned style ────────────────────────────────
+  app.delete('/api/admin/image-style-profiles/:language', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { deleteStyleProfile } = await import('./services/image-engine-test');
+      await deleteStyleProfile(req.params.language);
+      res.json({ ok: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/admin/prop-images", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res) => {
     try {
       const sharedDb = getSharedDb();
