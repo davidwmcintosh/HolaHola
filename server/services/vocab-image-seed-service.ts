@@ -2,13 +2,13 @@
  * Vocab Image Seed Service
  *
  * Pre-generates and caches watercolor vocabulary images for every word in the
- * textbook curriculum, so students never wait for on-demand DALL-E generation.
+ * textbook curriculum, so students never wait for on-demand image generation.
  *
  * Strategy:
  *   1. Pull all distinct vocab drill words (listen_repeat + translate_speak,
  *      target_text length < 50) for the requested language(s).
  *   2. Run each word through resolveVocabularyImage — which checks the shared
- *      cache first (free, instant) and only calls DALL-E on a true miss.
+ *      cache first (free, instant) and only calls Gemini on a true miss.
  *   3. Process 3 words concurrently per batch to stay within rate limits.
  *   4. Report progress via in-memory job map (polled by the admin endpoint).
  */
@@ -99,13 +99,13 @@ export const CHARACTER_PROFILES = {
 const CHAR = CHARACTER_PROFILES;
 
 // ── Scene overrides ────────────────────────────────────────────────────────
-// Words that DALL-E gets wrong when given just the word.
+// Words that need explicit scene descriptions to get a correct image.
 // Numbers: generic images instead of clear numeral illustrations.
 // Days of week: no clear visual concept — use calendar style illustration.
 //
-// Format: normalizedWord → scene description for DALL-E
+// Format: normalizedWord → scene description for Gemini
 // Shared number card style — same for every numeral, only the digit changes.
-// Locked down to prevent DALL-E from adding animals, balloons, stars, decorations, etc.
+// Locked down to prevent Gemini from adding animals, balloons, stars, decorations, etc.
 const NUM = (digit: string) =>
   `Flat graphic design: a single bold numeral "${digit}" centered on a soft cream background. ` +
   `The digit is rendered in deep navy blue with thick, clean rounded strokes, filling most of the frame. ` +
@@ -143,7 +143,7 @@ const thankYou = (primary: string): string =>
   `${primary} pressing both palms together with a heartfelt warm smile and a gentle nod of gratitude, bright cheerful background`;
 
 // youreWelcome: relaxed open-palm wave — casual, warm, unpretentious.
-// NO quoted phrases — DALL-E 3 renders quoted text as speech bubbles.
+// NO quoted phrases — Gemini renders quoted text as speech bubbles or labels.
 const youreWelcome = (secondary: string): string =>
   `${secondary} alone, lifting one hand in a warm relaxed open-palm wave with a kind easygoing smile and a modest shrug of dismissal, warm sunny background with soft painted light — solo portrait, no other people`;
 
@@ -159,7 +159,7 @@ const goodNight = (primary: string, setting: string): string =>
 //
 // canYouRepeat: right index finger making a small encouraging circular "one
 //   more time" motion — the universal "could you say that again?" gesture.
-// NO quoted phrases — DALL-E 3 renders quoted text as speech bubbles.
+// NO quoted phrases — Gemini renders quoted text as speech bubbles or labels.
 const canYouRepeat = (primary: string): string =>
   `${primary} in a bright airy classroom, right index finger raised and making a small` +
   ` gentle circular motion in the air, eyebrows raised in a warm patient polite request,` +
@@ -167,14 +167,14 @@ const canYouRepeat = (primary: string): string =>
 
 // speakSlowly: both open palms pressing gently downward and apart, the
 //   universal "take it slow / slower please" calming gesture.
-// NO quoted phrases — DALL-E 3 renders quoted text as speech bubbles.
+// NO quoted phrases — Gemini renders quoted text as speech bubbles or labels.
 const speakSlowly = (primary: string): string =>
   `${primary} gently pressing both open palms downward and apart in a slow calm` +
   ` measured calming gesture, patient encouraging expression, bright classroom setting`;
 
 // iDontUnderstand: puzzled face, head slightly tilted, one hand raised open
 //   in a gentle questioning gesture — universal confusion signal.
-// NO quoted phrases — DALL-E 3 renders quoted text as speech bubbles.
+// NO quoted phrases — Gemini renders quoted text as speech bubbles or labels.
 const iDontUnderstand = (primary: string): string =>
   `${primary} with a puzzled confused expression and head slightly tilted, one hand` +
   ` raised open in a gentle puzzled questioning gesture, soft warm` +
@@ -1369,7 +1369,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'angstlich':        'a single large round emoji face with enormous frightened eyes and a screaming open mouth, pale purple-blue circle on a clean white background, modern bold flat emoji style, no text, no other objects',
   'aufgeregt':        'a single large round emoji face with a huge excited grin and sparkling star-shaped eyes, vibrant orange-yellow circle on a clean white background, modern bold flat emoji style, no text, no other objects',
 
-  // ── Food items — force still-life framing so DALL-E doesn't add a person ──
+  // ── Food items — force still-life framing so Gemini doesn't add a person ──
   'legumbres':       'a colorful close-up arrangement of mixed legumes — kidney beans, brown lentils, chickpeas, and black beans — in small rustic clay bowls on a wooden table, soft warm watercolor food illustration, no people',
   'las legumbres':   'a colorful close-up arrangement of mixed legumes — kidney beans, brown lentils, chickpeas, and black beans — in small rustic clay bowls on a wooden table, soft warm watercolor food illustration, no people',
   'verduras':        'a fresh colorful arrangement of vegetables — broccoli, carrots, peppers, and tomatoes — on a wooden table, soft warm watercolor food illustration, no people',
@@ -1815,7 +1815,7 @@ export interface VocabSeedProgress {
   total: number;
   processed: number;
   cached: number;    // already had an image (cache hit)
-  generated: number; // newly generated via DALL-E
+  generated: number; // newly generated via Gemini
   skipped: number;   // placeholder / error
   errors: string[];
   currentWord: string;
@@ -1870,7 +1870,7 @@ async function fetchTextbookVocab(
 export async function seedVocabImages(language: string, jobId: string): Promise<void> {
   // Non-Spanish languages route through CONCEPT_KEY_MAP to existing Spanish anchor
   // images — the resolver handles that transparently during live sessions.
-  // Seeding them would only generate language-specific DALL-E junk.
+  // Seeding them would only generate language-specific junk images.
   // Spanish is the ONLY language we generate new images for during bulk seeding.
   if (language !== 'spanish') {
     console.log(`[VocabSeed] Skipping image generation for "${language}" — non-Spanish languages use Spanish anchors via CONCEPT_KEY_MAP`);
@@ -1922,7 +1922,7 @@ export async function seedVocabImages(language: string, jobId: string): Promise<
             const translation = cleanPromptToEnglish(prompt, word);
 
             // Skip abstract concepts that would be filtered out in the student view anyway —
-            // this prevents wasteful DALL-E generation for discourse markers, abstract nouns, etc.
+            // this prevents wasteful generation for discourse markers, abstract nouns, etc.
             if (!isWordSeedable(word, translation)) {
               progress.skipped++;
               progress.processed++;
@@ -1942,7 +1942,7 @@ export async function seedVocabImages(language: string, jobId: string): Promise<
               translation: translation !== word ? translation : undefined,
               scene: sceneOverride,
               // Non-Spanish languages must resolve via CONCEPT_KEY_MAP to existing
-              // Spanish anchors — block DALL-E so a missing map entry never creates
+              // Spanish anchors — block generation so a missing map entry never creates
               // language-specific junk images during bulk seeding.
               seederMode: true,
             });
@@ -1964,7 +1964,7 @@ export async function seedVocabImages(language: string, jobId: string): Promise<
         }),
       );
 
-      // Brief pause between batches to avoid overwhelming DALL-E
+      // Brief pause between batches to stay within Gemini rate limits
       if (i + BATCH < words.length) {
         await new Promise(r => setTimeout(r, 500));
       }
@@ -2041,7 +2041,7 @@ export async function seedAllVocabImages(jobId: string, languages?: string[]): P
 // ── Abstract-concept filter ────────────────────────────────────────────────
 // Mirrors the frontend isVisuallyMeaningful() filter. If a word would be
 // hidden in the student view anyway, skip generating an image for it — this
-// saves DALL-E credits and keeps the queue lean.
+// saves generation quota and keeps the queue lean.
 
 const SEED_SKIP_TRANSLATIONS = new Set([
   // Personal pronouns — no visual concept
@@ -2135,8 +2135,8 @@ const SEED_SKIP_PREFIXES = [
   'the concept of', 'the phenomenon', 'the situation', 'the consequences',
 ];
 
-// English word suffixes that almost always signal abstract nouns — DALL-E can't
-// produce a meaningful single object for these, so skip them to save DALL-E credits.
+// English word suffixes that almost always signal abstract nouns — Gemini can't
+// produce a meaningful single object for these, so skip them to save generation quota.
 // ONLY include long/unambiguous suffixes to avoid false positives like:
 //   -tion → "station", "portion"   -ment → "apartment"   -ance → "ambulance"
 //   -ence → "fence"   -ship → "ship"   -dom → "kingdom"
