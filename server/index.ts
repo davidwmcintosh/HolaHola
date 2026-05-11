@@ -425,6 +425,14 @@ app.use('/tts-eval', express.static('public/tts-eval'));
 // Apply general rate limiting to all API routes
 app.use('/api', generalLimiter);
 
+// SEO: explicitly allow indexing so proxies/CDNs don't suppress it
+app.use((req, res, next) => {
+  if (!req.path.startsWith('/api')) {
+    res.setHeader('X-Robots-Tag', 'index, follow');
+  }
+  next();
+});
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;

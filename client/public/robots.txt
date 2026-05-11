@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://holahola.replit.app/sitemap.xml
