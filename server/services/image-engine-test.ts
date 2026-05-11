@@ -5,12 +5,13 @@
  * Used exclusively by the admin image engine test page.
  *
  * Engines:
- *   dall-e-3         — current scene pipeline (1024×1024 HD, SCENE_STYLE)
- *   gpt-image-1      — OpenAI alternative (same prompt), SCENE_STYLE
- *   gpt-image-1-prop — OpenAI prop pipeline (PROP_STYLE, white background)
- *   gemini-imagen    — Gemini 2.0 Flash image generation (Google)
+ *   dall-e-3         — retired May 12 2026; kept here for historical comparison only
+ *   gpt-image-1      — retired; kept for comparison
+ *   gpt-image-1-prop — retired; kept for comparison
+ *   gemini-imagen    — Gemini 2.5 Flash (SCENE_STYLE) — production engine for character scenes
+ *   gemini-imagen-env — Gemini 2.5 Flash (ENV_STYLE) — production engine for environment scenes
  *   imagen-3         — Imagen 4 Standard (imagen-4.0-generate-001)
- *   imagen-4-ultra   — Imagen 4 Ultra (imagen-4.0-ultra-generate-001) — closest to ImageFX quality
+ *   imagen-4-ultra   — Imagen 4 Ultra (imagen-4.0-ultra-generate-001)
  */
 
 import OpenAI from 'openai';

@@ -169,7 +169,6 @@ async function generateScenarioImages(): Promise<void> {
 
         await new Promise(r => setTimeout(r, 1_000));
       } catch (err: any) {
-        if (err?.status === 401 || err?.code === 'invalid_api_key') throw err;
         console.error(`[ScenarioImages] Failed for ${scenario.slug}:`, err);
         failed++;
       }

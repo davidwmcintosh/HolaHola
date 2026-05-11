@@ -203,14 +203,14 @@ export const LANGUAGE_CHARACTER_INTROS: Record<string, string> = {
 // When generating a NEW scene image (type=infographic / character scene), the
 // resolver looks up this anchor key in the shared image cache and passes the
 // resulting URL to generateVisual.  The generation service then calls
-// gpt-image-1 images.edit with that reference image so the model can see the
-// actual character face, art style, and color palette — rather than relying on
-// text description alone.
+// generateCharacterScene() in google-image-service.ts with that reference image
+// so the model can see the actual character face, art style, and color palette —
+// rather than relying on text description alone.
 //
 // The anchor should be a "canonical" image that clearly shows the language's
 // primary character in the correct illustration style.  It must already exist in
 // the cached_stock_images table before any generation runs.  If the key is not
-// in the cache, the system gracefully falls back to text-only gpt-image-1.
+// in the cache, the system gracefully falls back to text-only generation.
 //
 // Best anchors: greeting/farewell images (show the character prominently in the
 // correct style).  Update these keys whenever a better anchor image is approved.
