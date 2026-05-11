@@ -492,6 +492,19 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'igualmente': `${CHAR.ES.primary} and ${CHAR.ES.secondary} both nodding and smiling warmly at each other, ${CHAR.ES.primary} pressing a hand to her chest and gesturing back toward ${CHAR.ES.secondary} in a warm mirroring "likewise" gesture, bright cheerful setting`,
   'con permiso': `${CHAR.ES.primary} squeezing politely past ${CHAR.ES.abuela} in a narrow doorway or corridor, one hand slightly raised in a gentle "excuse me" gesture with a kind apologetic smile, warm indoor setting`,
 
+  // ── Spanish polite "and you?" — usted form (tú form intentionally excluded at this level) ──
+  'y usted':     `${CHAR.ES.primary} gesturing respectfully toward ${CHAR.ES.abuela} with an open hand and an attentive warm smile, inclining her head slightly in a "and you?" expression, formal indoor setting — clearly a formal polite exchange, not casual`,
+
+  // ── Spanish farewells — parting expressions ────────────────────────────────
+  'nos vemos':        `${CHAR.ES.primary} and ${CHAR.ES.secondary} catching each other's eyes across a sunny plaza, both pointing at each other with relaxed see-you-around smiles as they head in different directions, warm afternoon light`,
+  'nos vemos pronto': `${CHAR.ES.primary} waving warmly over her shoulder as she walks away from ${CHAR.ES.secondary}, both turning back with bright expectant "see you soon!" smiles, sunny street setting`,
+
+  // ── Spanish reaction expressions ───────────────────────────────────────────
+  'me alegro':   `${CHAR.ES.primary} pressing both hands to her chest with a glowing warm smile and genuinely happy eyes, visibly moved by good news she has just heard, soft warm background`,
+  'me diverti':  `${CHAR.ES.primary} laughing with her head thrown back and hands raised, radiating the unmistakable look of someone who just had a great time, vivid cheerful background`,
+  'buena suerte': `${CHAR.ES.primary} crossing the fingers of both raised hands with a bright encouraging grin aimed toward ${CHAR.ES.secondary}, sunny cheerful backdrop`,
+  'figurese':    `${CHAR.ES.abuela} raising both eyebrows high and spreading her hands wide open in a dramatic "can you believe it?!" expression, mouth slightly open in mock disbelief, warm cozy indoor setting`,
+
   // ── Spanish honorifics — Señor / Señora / Señorita ────────────────────────
   // Each uses the matching recurring character so the style stays consistent
   // with the rest of Chapter 1's vocabulary illustrations.
@@ -1622,9 +1635,10 @@ export const GREETINGS_WORDS: Record<string, string[]> = {
     'hola','buenos días','buenas tardes','buenas noches','adiós','hasta luego',
     'hasta mañana','hasta pronto','mucho gusto','encantado','encantada',
     '¿cómo estás?','¿cómo está usted?','bien','muy bien','muy bien, gracias','mal','más o menos','regular',
-    '¿qué tal?','¿qué pasa?','todo bien','nada','¿y tú?','igualmente','con permiso',
+    '¿qué tal?','¿qué pasa?','todo bien','nada','¿y usted?','igualmente','con permiso',
     'por favor','gracias','muchas gracias','de nada','perdón','disculpe','lo siento',
     'señor','señora','señorita',
+    'nos vemos','nos vemos pronto','me alegro','me divertí','buena suerte','fígurese',
   ],
   french: [
     'bonjour','bonsoir','bonne nuit','au revoir','salut','à bientôt','à demain',
@@ -1736,7 +1750,7 @@ export const CLASSROOM_SURVIVAL_CACHE_KEYS: Record<string, string[]> = Object.fr
 // greeting or classroom-survival sets.
 export const SOCIAL_PHRASES_WORDS: Record<string, string[]> = {
   spanish: [
-    'que tal', 'que pasa', 'todo bien', 'nada', 'y tú',
+    'que tal', 'que pasa', 'todo bien', 'nada', 'y usted',
     'igualmente', 'con permiso',
     // Also bust the 'como' standalone which uses the same shrug silhouette
     '¿cómo?',
