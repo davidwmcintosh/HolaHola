@@ -492,6 +492,7 @@ async function runGeminiImagen(
   variationIndex: number = 0,
   sceneStyleOverride?: string,
   extractionMode: ExtractionMode = 'character',
+  styleDescriptionOverride?: string,
 ): Promise<EngineResult> {
   const t0 = Date.now();
   try {
@@ -504,6 +505,11 @@ async function runGeminiImagen(
     let textPrompt: string;
     let styleDesc: string | undefined;
 
+    const frameConstraints =
+      'Square 1:1 format. Full bleed edge-to-edge, no white borders, no padding. ' +
+      'Heads fully visible with generous headroom. ' +
+      'Absolutely no text, letters, numbers or typography in the image.';
+
     if (reference) {
       // ── Two-call approach ──────────────────────────────────────────────────
       // The image generator NEVER receives the reference image directly.
@@ -512,10 +518,16 @@ async function runGeminiImagen(
       // environment depending on mode). Call 2 generates from text only.
       styleDesc = await extractStyleDescription(reference, apiKey, extractionMode);
 
-      const frameConstraints =
-        'Square 1:1 format. Full bleed edge-to-edge, no white borders, no padding. ' +
-        'Heads fully visible with generous headroom. ' +
-        'Absolutely no text, letters, numbers or typography in the image.';
+      textPrompt =
+        `ILLUSTRATION STYLE TO MATCH:\n${styleDesc}\n\n` +
+        `SCENE TO ILLUSTRATE (use the style above, brand new composition):\n` +
+        `${concept}. ${frameConstraints}\n\n` +
+        `COMPOSITION DIRECTION: ${variationNudge}`;
+    } else if (styleDescriptionOverride) {
+      // ── Pinned style path ──────────────────────────────────────────────────
+      // No new reference image — use a previously extracted (and possibly
+      // user-edited) style description from the pinned library directly.
+      styleDesc = styleDescriptionOverride;
 
       textPrompt =
         `ILLUSTRATION STYLE TO MATCH:\n${styleDesc}\n\n` +
@@ -610,13 +622,14 @@ export async function runEngineTest(
   reference?: ReferenceImage,
   variationIndex: number = 0,
   extractionMode: ExtractionMode = 'character',
+  styleDescriptionOverride?: string,
 ): Promise<EngineResult> {
   switch (engine) {
     case 'dall-e-3':         return runDallE3(concept);
     case 'gpt-image-1':      return runGptImage1Scene(concept);
     case 'gpt-image-1-prop': return runGptImage1Prop(concept);
     case 'gemini-imagen':      return runGeminiImagen(concept, type, undefined, variationIndex);
-    case 'gemini-imagen-ref':  return runGeminiImagen(concept, type, reference, variationIndex, undefined, extractionMode);
+    case 'gemini-imagen-ref':  return runGeminiImagen(concept, type, reference, variationIndex, undefined, extractionMode, styleDescriptionOverride);
     case 'gemini-imagen-env':  return runGeminiImagen(concept, type, undefined, variationIndex, ENV_STYLE);
     case 'imagen-3':           return runImagenModel('imagen-3', 'imagen-4.0-generate-001', concept, type);
     case 'imagen-4-ultra':   return runImagenModel('imagen-4-ultra', 'imagen-4.0-ultra-generate-001', concept, type);

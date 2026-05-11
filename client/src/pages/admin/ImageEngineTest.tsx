@@ -290,6 +290,16 @@ export default function ImageEngineTest() {
     if (latestExtractedDesc) setEditedStyleDesc(latestExtractedDesc);
   }, [latestExtractedDesc]);
 
+  // When the language selector changes (or profiles first load), pre-populate
+  // the editable textarea from the pinned profile — unless a fresh extraction
+  // is already in state (latestExtractedDesc takes priority).
+  useEffect(() => {
+    if (latestExtractedDesc) return; // fresh extraction wins
+    const pinned = lockedProfiles.find(p => p.language === pinLanguage);
+    if (pinned) setEditedStyleDesc(pinned.styleDescription);
+    else setEditedStyleDesc(""); // no profile for this language — clear the field
+  }, [pinLanguage, lockedProfiles]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const lockStyle = async (styleDescription: string, imageHash: string) => {
     setLockingStyle(true);
     try {
@@ -371,6 +381,8 @@ export default function ImageEngineTest() {
   // Build request body — only include reference for engines that support it.
   // variationIndex ensures parallel runs get different composition nudges.
   // extractionMode tells the backend which style analysis prompt to use.
+  // If no image is uploaded but editedStyleDesc has content, send it as a
+  // styleDescriptionOverride so the engine uses the pinned style directly.
   const buildRequestBody = (engineId: string, type: "scene" | "prop", variationIndex: number = 0) => {
     const supportsReference = REFERENCE_CAPABLE_ENGINES.includes(engineId);
     return JSON.stringify({
@@ -381,6 +393,8 @@ export default function ImageEngineTest() {
       extractionMode,
       ...(supportsReference && referenceImage
         ? { referenceImageB64: referenceImage.b64, referenceImageMimeType: referenceImage.mimeType }
+        : supportsReference && editedStyleDesc
+        ? { styleDescriptionOverride: editedStyleDesc }
         : {}),
     });
   };

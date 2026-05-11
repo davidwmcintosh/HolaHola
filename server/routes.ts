@@ -20838,7 +20838,7 @@ Current conversation context:
   // as they land, so results fill in incrementally.
   app.post('/api/admin/image-engine-test', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const { engine, concept, type = 'scene', referenceImageB64, referenceImageMimeType, variationIndex = 0, extractionMode = 'character' } = req.body as {
+      const { engine, concept, type = 'scene', referenceImageB64, referenceImageMimeType, variationIndex = 0, extractionMode = 'character', styleDescriptionOverride } = req.body as {
         engine: string;
         concept: string;
         type?: 'scene' | 'prop';
@@ -20846,6 +20846,7 @@ Current conversation context:
         referenceImageMimeType?: string;
         variationIndex?: number;
         extractionMode?: 'character' | 'environment';
+        styleDescriptionOverride?: string;
       };
       if (!engine || !concept) {
         return res.status(400).json({ error: 'engine and concept are required' });
@@ -20854,7 +20855,7 @@ Current conversation context:
       const reference = referenceImageB64 && referenceImageMimeType
         ? { b64: referenceImageB64, mimeType: referenceImageMimeType }
         : undefined;
-      const result = await runEngineTest(engine, concept, type, reference, variationIndex, extractionMode);
+      const result = await runEngineTest(engine, concept, type, reference, variationIndex, extractionMode, styleDescriptionOverride);
       res.json(result);
     } catch (error: any) {
       console.error('[ImageEngineTest] error:', error);
