@@ -9,36 +9,7 @@
  * saved to the DB is never re-done (query filters WHERE image_url IS NULL).
  */
 
-import OpenAI from "openai";
-
-// ─── DALL-E client ─────────────────────────────────────────────────────────────
-function getDallEClient(): OpenAI | null {
-  const key = process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-  if (!key) return null;
-  return new OpenAI({ apiKey: key });
-}
-
-async function generateImageWithDallE(prompt: string): Promise<string> {
-  const client = getDallEClient();
-  if (!client) throw new Error("OPENAI_API_KEY not set — cannot generate menu images");
-
-  const response = await client.images.generate({
-    model: 'dall-e-3',
-    prompt,
-    n: 1,
-    size: '1024x1024',
-    quality: 'standard',
-    response_format: 'url',
-  });
-
-  const imageUrl = response.data?.[0]?.url;
-  if (!imageUrl) throw new Error("No image URL in DALL-E response");
-
-  const fetchRes = await fetch(imageUrl);
-  if (!fetchRes.ok) throw new Error(`Failed to download image: ${fetchRes.status}`);
-  const buffer = Buffer.from(await fetchRes.arrayBuffer());
-  return `data:image/png;base64,${buffer.toString('base64')}`;
-}
+import { generateFromCustomPrompt } from './google-image-service';
 
 // ─── Worker state ──────────────────────────────────────────────────────────────
 export const menuWorker = {
@@ -124,7 +95,7 @@ export async function startMenuImageWorker(opts: MenuWorkerOptions = {}): Promis
 
         try {
           const prompt = `Appetizing illustration of ${displayName}, warm watercolor style, soft natural tones, isolated on clean white background, artisan restaurant menu aesthetic, suitable for all ages`;
-          const dataUrl = await generateImageWithDallE(prompt);
+          const dataUrl = await generateFromCustomPrompt(prompt);
           const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
           if (!matches) throw new Error('Bad data URL');
 

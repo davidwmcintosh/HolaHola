@@ -56,9 +56,9 @@ const ENGINES = [
     promptType: "scene" as const,
   },
   {
-    id: "gemini-imagen-warm",
-    label: "Gemini image gen — warm",
-    sublabel: "gemini-2.5-flash-image — vibrant saturated palette, no reference",
+    id: "gemini-imagen-env",
+    label: "Gemini image gen — env",
+    sublabel: "gemini-2.5-flash-image — ENV_STYLE: vivid natural colors, wide landscape",
     color: "bg-violet-100 dark:bg-violet-900/30 border-violet-200 dark:border-violet-800",
     badgeClass: "bg-violet-600 text-white",
     promptType: "scene" as const,

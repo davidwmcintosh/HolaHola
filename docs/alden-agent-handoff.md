@@ -4903,6 +4903,39 @@ These are verbatim or near-verbatim from Magic Key, ready to load into `danielaN
 
 ---
 
+## From Agent — May 11, 2026 (session: DALL-E 3 migration — all callsites complete)
+
+### What was done
+Full production migration off DALL-E 3 onto `gemini-2.5-flash-image`. All seven callsites are migrated. No OpenAI image API calls remain in the codebase.
+
+**Files migrated this session:**
+- `scenario-image-generator.ts` — removed `getDallEClient` / `generateImageBuffer` (OpenAI), replaced with `generateFromCustomPrompt()`; renamed `DALL_E_STYLE` → `GEMINI_STYLE` (const + all template literals); delay 12s → 1s
+- `prop-room-compositor.ts` (`generateAllSceneImages`) — removed DALL-E 3 fetch path, replaced with `generateFromCustomPrompt()` + base64 decode
+
+**Previously migrated (earlier sessions, confirmed clean this session):**
+- `lesson-image-generator.ts` — DALL_E_STYLE → GEMINI_STYLE, delay 12s → 1s, batch 20 → 50
+- `menu-image-worker.ts` — generateFromCustomPrompt()
+- `visual-content-service.ts` / `vocab-image-seed-service.ts` / `routes.ts` → google-image-service.ts
+
+**Style constants (canonical in `google-image-service.ts`):**
+- `ENV_STYLE` — environments; vivid natural accurate real-world colors (replaced the cerulean/turquoise hardcoded palette)
+- `SCENE_STYLE` — character scenes + live freeform; reference image for consistency
+- `PROP_STYLE` — white background, single object vocab props
+
+**Docs updated:**
+- `visual-asset-roadmap.md` — pipeline table rewritten to Gemini, DALL-E deprecation section marked COMPLETED, gpt-image-1 section marked Retired, `generateImageWithGemini()` note corrected
+
+### Decision correction from May 9 plan
+The May 9 plan called for Imagen 4 Ultra for scenes and Imagen 4 Standard for props. After evaluation, the actual decision shifted to **single engine** (`gemini-2.5-flash-image` Base) for everything — the latency advantage (~5s) outweighed Imagen 4's quality edge, and the style prompts produce acceptable watercolor output. No Imagen 4 calls exist in production.
+
+### What's NOT done
+Nothing outstanding from this migration scope. The test page (`/admin/image-engine-test`) now shows `gemini-imagen-env` (environment engine) correctly.
+
+### Watch for
+- `scenario-image-generator.ts` still has a `catch` clause that checks `err?.status === 401 || err?.code === 'invalid_api_key'` — these were OpenAI error codes. Harmless for Gemini (Gemini throws differently) but could be cleaned up in a future pass.
+
+---
+
 ## From Agent — May 9, 2026 (session: DALL-E 3 replacement — engine evaluation complete)
 
 ### What was done

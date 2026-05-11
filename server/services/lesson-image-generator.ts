@@ -2,7 +2,7 @@
  * Lesson Image Generator
  *
  * Generates warm illustrative cover images for curriculum lessons using
- * DALL-E 3. Images are stored permanently in object storage and the URL
+ * Gemini Flash Image. Images are stored permanently in object storage and the URL
  * is saved back to curriculumLessons.imageUrl.
  *
  * Processes lessons that:
@@ -14,13 +14,13 @@
  * until all lessons are covered, then stops.
  */
 
-import OpenAI from 'openai';
+import { generateFromCustomPrompt } from './google-image-service';
 import { getSharedDb } from '../db';
 import { curriculumLessons, curriculumUnits, curriculumPaths } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
 import { uploadPublicBuffer } from './image-storage';
 
-const MAX_PER_RUN = 20; // DALL-E 3 is slower than Gemini — smaller batches
+const MAX_PER_RUN = 50; // Gemini is fast — larger batches are fine
 
 // Language priority order — Spanish first (highest scenario coverage), then others
 const LANGUAGE_PRIORITY: Record<string, number> = {
@@ -56,7 +56,7 @@ const PRIORITY_TOPICS = [
   'describing-symptoms', 'transportation', 'self-introduction', 'prices-money', 'quantities',
 ];
 
-const DALL_E_STYLE = `Warm editorial illustration style. Soft, inviting color palette with gentle gradients. Clean composition with a clear focal point. Wide landscape format.
+const GEMINI_STYLE = `Warm editorial illustration style. Soft, inviting color palette with gentle gradients. Clean composition with a clear focal point. Wide landscape format.
 Characters: racially diverse people with uncovered, freely styled hair. Every character wears only contemporary Western casual clothing — jeans, chinos, T-shirts, blouses, sweaters, blazers, sneakers. Every character's full head, face, and hair are clearly visible and fully within the frame. Characters shown at medium or wide distance so their entire head and upper body are well within the image boundaries — never cropped at the neck or shoulders.
 Pure illustration — the image contains absolutely no letters, numbers, words, text, typography, speech bubbles, signs, or written symbols of any kind anywhere. Zero text. No words. No captions.
 Suitable as an educational app lesson card header.`;
@@ -72,47 +72,17 @@ function buildImagePrompt(lessonName: string, lessonType: string, topics: string
     drill: 'An engaging hands-on practice scene',
   } as Record<string, string>)[lessonType] || 'A language learning scene';
 
-  return `${typeScene} for a "${lessonName}" language lesson. Topics: ${topicContext}. Setting: ${culture}. ${DALL_E_STYLE}`;
+  return `${typeScene} for a "${lessonName}" language lesson. Topics: ${topicContext}. Setting: ${culture}. ${GEMINI_STYLE}`;
 }
-
-function getDallEClient(): OpenAI | null {
-  const key = process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-  if (!key) return null;
-  return new OpenAI({ apiKey: key });
-}
-
-// Thrown to abort the worker when the API key is invalid
-class AuthAbortError extends Error {}
 
 async function generateImageBuffer(prompt: string): Promise<{ buffer: Buffer; mimeType: string } | null> {
-  const client = getDallEClient();
-  if (!client) {
-    console.warn('[LessonImages] OPENAI_API_KEY not set — skipping');
-    return null;
-  }
-
   try {
-    const response = await client.images.generate({
-      model: 'dall-e-3',
-      prompt,
-      n: 1,
-      size: '1792x1024',
-      quality: 'hd',
-      response_format: 'url',
-    });
-
-    const imageUrl = response.data?.[0]?.url;
-    if (!imageUrl) return null;
-
-    const fetchRes = await fetch(imageUrl);
-    if (!fetchRes.ok) throw new Error(`Failed to download image: ${fetchRes.status}`);
-    const buffer = Buffer.from(await fetchRes.arrayBuffer());
-    return { buffer, mimeType: 'image/png' };
-  } catch (err: any) {
-    if (err?.status === 401 || err?.code === 'invalid_api_key') {
-      throw new AuthAbortError('OpenAI API key is invalid — lesson image worker halted. Update OPENAI_API_KEY to resume.');
-    }
-    console.error('[LessonImages] DALL-E generation error:', err);
+    const dataUrl = await generateFromCustomPrompt(prompt);
+    const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+    if (!matches) return null;
+    return { buffer: Buffer.from(matches[2], 'base64'), mimeType: matches[1] };
+  } catch (err) {
+    console.error('[LessonImages] Gemini generation error:', err);
     return null;
   }
 }
@@ -160,7 +130,7 @@ export async function generateLessonImages(): Promise<number> {
     });
 
     const toProcess = candidates.slice(0, MAX_PER_RUN);
-    console.log(`[LessonImages] Generating ${toProcess.length} images via DALL-E 3 (${candidates.length} total need images)...`);
+    console.log(`[LessonImages] Generating ${toProcess.length} images via Gemini (${candidates.length} total need images)...`);
 
     let generated = 0;
     let failed = 0;
@@ -186,10 +156,8 @@ export async function generateLessonImages(): Promise<number> {
         generated++;
         console.log(`[LessonImages] ✓ [${lesson.language}] ${lesson.name.slice(0, 50)}`);
 
-        // DALL-E 3 rate limit: ~5 images/min — 12s between calls
-        await new Promise(r => setTimeout(r, 12_000));
+        await new Promise(r => setTimeout(r, 1_000));
       } catch (err) {
-        if (err instanceof AuthAbortError) throw err; // propagate to stop worker
         console.error(`[LessonImages] Failed for lesson ${lesson.id}:`, err);
         failed++;
       }
@@ -199,7 +167,6 @@ export async function generateLessonImages(): Promise<number> {
     console.log(`[LessonImages] Done: ${generated} generated, ${failed} failed, ${remaining} remaining`);
     return remaining;
   } catch (error) {
-    if (error instanceof AuthAbortError) throw error; // let worker stop permanently
     console.error('[LessonImages] Error:', error);
     return -1;
   }
@@ -208,7 +175,7 @@ export async function generateLessonImages(): Promise<number> {
 let _workerRunning = false;
 
 /**
- * Starts a continuous image generation worker using DALL-E 3.
+ * Starts a continuous image generation worker using Gemini Flash Image.
  * Runs batches back-to-back with a short cooldown until all lessons are covered.
  * Safe to call multiple times — only one worker runs at a time.
  */
@@ -227,11 +194,6 @@ export function startLessonImageWorker(): void {
         return;
       }
     } catch (err) {
-      if (err instanceof AuthAbortError) {
-        console.error('[LessonImages] Worker halted — invalid API key. Update OPENAI_API_KEY and restart to resume.');
-        _workerRunning = false;
-        return; // do not reschedule
-      }
       console.error('[LessonImages] Worker error:', err);
     }
     setTimeout(loop, COOLDOWN_MS);

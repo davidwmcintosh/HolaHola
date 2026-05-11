@@ -12,16 +12,10 @@
 
 import sharp from 'sharp';
 import crypto from 'crypto';
-import OpenAI from 'openai';
 import { db } from '../db';
 import { sql } from 'drizzle-orm';
 import { uploadPublicBuffer } from './image-storage';
-
-function getDallEClient(): OpenAI | null {
-  const key = process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-  if (!key) return null;
-  return new OpenAI({ apiKey: key });
-}
+import { generateFromCustomPrompt } from './google-image-service';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -830,33 +824,15 @@ export async function generateAllSceneImages(
       ? `${customPrompt}. ${styleForEnv}`
       : `${env.display_name} scene for language learning: ${env.name.replace(/_/g, ' ')}. ${styleForEnv}`;
 
-    console.log(`[PropRoom] Generating image for ${env.name} via DALL-E 3...`);
+    console.log(`[PropRoom] Generating image for ${env.name} via Gemini...`);
     try {
-      const dallE = getDallEClient();
-      if (!dallE) {
-        results.push({ name: env.name, success: false, error: 'OPENAI_API_KEY not set' });
+      const dataUrl = await generateFromCustomPrompt(prompt);
+      const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (!matches) {
+        results.push({ name: env.name, success: false, error: 'Bad dataUrl from Gemini' });
         continue;
       }
-
-      const imgResponse = await dallE.images.generate({
-        model: 'dall-e-3',
-        prompt,
-        n: 1,
-        size: '1792x1024',
-        quality: 'standard',
-        response_format: 'url',
-      });
-
-      const imageUrl = imgResponse.data?.[0]?.url;
-      if (!imageUrl) {
-        results.push({ name: env.name, success: false, error: 'No image URL in DALL-E response' });
-        continue;
-      }
-
-      const fetchRes = await fetch(imageUrl);
-      if (!fetchRes.ok) throw new Error(`Failed to download image: ${fetchRes.status}`);
-      const buf = Buffer.from(await fetchRes.arrayBuffer());
-
+      const buf = Buffer.from(matches[2], 'base64');
       const permanentUrl = await uploadPublicBuffer(`scene-${env.name}-${Date.now()}.jpg`, buf, 'image/jpeg');
 
       await db.execute(sql`UPDATE visual_environments SET image_url = ${permanentUrl} WHERE id = ${env.id}`);

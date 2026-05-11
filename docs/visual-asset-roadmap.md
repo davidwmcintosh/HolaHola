@@ -6849,22 +6849,25 @@ If the strip format is retained:
 
 ---
 
-### Image Generation Pipeline — Current State (May 2026)
+### Image Generation Pipeline — Current State (May 11, 2026 — migration complete)
 
-| Pipeline | File | Model | Size | What it generates |
+All image generation now runs on **`gemini-2.5-flash-image`** (Base Gemini Flash). DALL-E 3 and gpt-image-1 are fully retired. Style constants in `server/services/google-image-service.ts` control output.
+
+| Pipeline | File | Model | Style constant | What it generates |
 |---|---|---|---|---|
-| Scene / character images | `visual-content-service.ts` | **DALL-E 3 HD** | 1024×1024 | Daniela, characters, environments — watercolor style |
-| Vocab props | `visual-content-service.ts` | `gpt-image-1` | 1024×1024 | Single objects on white background |
-| Lesson images | `lesson-image-generator.ts` | **DALL-E 3** | varies | Lesson header art |
-| Scenario images | `scenario-image-generator.ts` | **DALL-E 3** | varies | Roleplay scene art |
-| Menu images | `menu-image-worker.ts` | **DALL-E 3** | varies | Food items for restaurant scenarios |
-| Prop room backgrounds | `prop-room-compositor.ts` | **DALL-E 3** | varies | Environment backgrounds |
-| Admin single-image fix | `routes.ts` | **DALL-E 3** | varies | One-off admin regeneration |
-| Vocab seed library | `vocab-image-seed-service.ts` | via visual-content-service | 1024×1024 | Pre-seeded vocabulary images |
+| Character scenes | `visual-content-service.ts` → `google-image-service.ts` | `gemini-2.5-flash-image` | `SCENE_STYLE` | Daniela, Rosa, Marco — reference image for consistency |
+| Environment scenes | `vocabulary-image-resolver.ts` → `google-image-service.ts` | `gemini-2.5-flash-image` | `ENV_STYLE` | Beach, grass, ocean, market — vivid natural-color watercolor |
+| Vocab props | `visual-content-service.ts` → `google-image-service.ts` | `gemini-2.5-flash-image` | `PROP_STYLE` | Single objects on white background |
+| Lesson images | `lesson-image-generator.ts` | `gemini-2.5-flash-image` | `GEMINI_STYLE` (local) | Chapter header art — watercolor editorial |
+| Scenario images | `scenario-image-generator.ts` | `gemini-2.5-flash-image` | `GEMINI_STYLE` (local) | Roleplay scene art |
+| Menu images | `menu-image-worker.ts` | `gemini-2.5-flash-image` | custom prompt | Food items for restaurant scenarios |
+| Prop room backgrounds | `prop-room-compositor.ts` | `gemini-2.5-flash-image` | `SCENE_STYLE` / `ZONE_STYLE` (local) | Environment backgrounds |
+| Admin single-image fix | `routes.ts` → `generateFromCustomPrompt()` | `gemini-2.5-flash-image` | custom prompt | One-off admin regeneration |
+| Vocab seed library | `vocab-image-seed-service.ts` | via visual-content-service | `SCENE_STYLE` / `PROP_STYLE` / `ENV_STYLE` | Pre-seeded vocabulary images |
 
-**Scene style:** `SCENE_STYLE` constant in `visual-content-service.ts` — pen-and-watercolor-wash, loose expressive ink lines, soft muted palette, warm Disney-style editorial illustration. This style was chosen because DALL-E 3 produces it naturally; other models require significant prompt engineering to approach it.
+**Style constants (canonical source):** `server/services/google-image-service.ts`. Do not edit copies in `visual-content-service.ts` or `image-engine-test.ts` independently.
 
-**Composition rule:** Characters positioned in lower two-thirds of canvas, generous headroom, heads never cropped at top of frame. Rotating `COMPOSITION_VARIANTS` injected per call to prevent repetitive two-people-facing-each-other poses.
+**Composition rule:** Characters positioned in lower two-thirds of canvas, generous headroom, heads never cropped at top of frame. Rotating `COMPOSITION_VARIANTS` injected per call.
 
 ---
 
@@ -6878,46 +6881,33 @@ If the strip format is retained:
 
 ---
 
-### Code Note: `generateImageWithGemini()` Is Misleadingly Named
+### Code Note: `generateImageWithGemini()` — Now Correctly Named
 
-The function `generateImageWithGemini()` in `server/routes.ts` (line 536) **actually calls DALL-E 3**, not Gemini. It uses the OpenAI client with `model: 'dall-e-3'` at `1792×1024`. The name is a historical artifact. Alden documented this explicitly. When DALL-E 3 is replaced, this function is one of the callsites that needs updating.
-
----
-
-### gpt-image-1 (OpenAI) — Current Role: Props Only, Preserved
-
-**Status:** Active and not deprecated. Used exclusively for vocabulary prop images (single objects on white backgrounds) in `visual-content-service.ts`. Will continue in this role regardless of what replaces DALL-E 3 for scenes.
-
-**Why it works for props but not scenes:** Props only need clean object isolation on a white background — style fidelity matters less. Scene images require the warm pen-and-watercolor aesthetic that DALL-E 3 produces naturally and gpt-image-1 does not reliably match.
-
-**Code artifact — anchor image experiment:** The `anchorImageUrl` parameter in `VisualGenerationRequest` and the `images.edit` path in `vocabulary-image-resolver.ts` were from an experiment using gpt-image-1 with a reference image to improve character consistency. These remain in the codebase and are exercised for prop generation when an anchor image is available.
+The function `generateImageWithGemini()` in `server/routes.ts` previously called DALL-E 3 despite its name (a historical artifact Alden documented). As of May 11, 2026 it now routes through `generateFromCustomPrompt()` in `google-image-service.ts` — actually calling Gemini.
 
 ---
 
-### DALL-E Deprecation — May 12, 2026
+### gpt-image-1 — Retired May 11, 2026
 
-OpenAI is discontinuing DALL-E 3 on **May 12, 2026**. The following files call `dall-e-3` directly and will break:
+**Status:** Retired. No longer used anywhere in the production pipeline. gpt-image-1 prop produced vivid environment test images that set the quality benchmark for `ENV_STYLE`, but the 28–44s latency made it unsuitable for any production path. Gemini Base at 5–7s with `ENV_STYLE` is the replacement.
 
-| File | Risk | Notes |
+---
+
+### DALL-E Deprecation — COMPLETED May 11, 2026
+
+OpenAI discontinued DALL-E 3 on **May 12, 2026**. All seven callsites were migrated to `gemini-2.5-flash-image` before the deadline:
+
+| File | Status | Replacement |
 |---|---|---|
-| `visual-content-service.ts` | 🔴 High | Core pipeline — all scene/character images |
-| `vocab-image-seed-service.ts` | 🔴 High | Seeding 1,000+ vocab words via visual-content-service |
-| `lesson-image-generator.ts` | 🟡 Medium | Chapter header art |
-| `scenario-image-generator.ts` | 🟡 Medium | Roleplay scenes |
-| `menu-image-worker.ts` | 🟡 Medium | Food imagery |
-| `prop-room-compositor.ts` | 🟡 Medium | Environment backgrounds |
-| `routes.ts` → `generateImageWithGemini()` | 🟡 Medium | Misleadingly named — calls DALL-E 3 at 1792×1024 for admin/zone images |
+| `visual-content-service.ts` | ✅ Done | `generateCharacterScene()` / `generatePropImage()` |
+| `vocab-image-seed-service.ts` | ✅ Done | via visual-content-service → google-image-service |
+| `lesson-image-generator.ts` | ✅ Done | `generateFromCustomPrompt()` |
+| `scenario-image-generator.ts` | ✅ Done | `generateFromCustomPrompt()` |
+| `menu-image-worker.ts` | ✅ Done | `generateFromCustomPrompt()` |
+| `prop-room-compositor.ts` | ✅ Done | `generateFromCustomPrompt()` |
+| `routes.ts` → `generateImageWithGemini()` | ✅ Done | `generateFromCustomPrompt()` |
 
-**Replacement candidates — Google models (untested for HoloHola aesthetic):**
-
-| Model | Provider | API | Notes |
-|---|---|---|---|
-| **Imagen 1** | Google | Vertex AI | Tried and rejected — quality insufficient |
-| **Imagen 2** | Google | Vertex AI | Not yet tested — candidate |
-| **Imagen 3** | Google | Vertex AI | Not yet tested — leading candidate |
-| **Gemini image gen** | Google | Gemini SDK | Alden has used for one-off assets; not tested at scale for watercolor scenes |
-
-**Decision made May 9, 2026.** See "Image Engine Evaluation — May 2026" section below for full test results, cost comparison, and per-callsite replacement assignments. All seven DALL-E 3 callsites will be migrated to Google engines. No gpt-image-1 stopgap needed — evaluation completed before the May 12 deadline.
+No OpenAI image API calls remain in the production codebase.
 
 ---
 
