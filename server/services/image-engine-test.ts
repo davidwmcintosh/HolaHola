@@ -40,20 +40,24 @@ export const SCENE_STYLE =
   NO_TEXT;
 
 /**
- * ENVIRONMENT STYLE — vivid saturated watercolor landscapes. No characters.
- * Mirror of ENV_STYLE in google-image-service.ts (canonical).
- * Used in the test page to compare environment scene quality across engines.
+ * ENVIRONMENT STYLE — vivid watercolor landscapes, natural accurate scene colors.
+ * Mirror of ENV_STYLE in google-image-service.ts (canonical). Do not edit independently.
+ * Used in the test page under engine key 'gemini-imagen-env'.
  * Retired: SCENE_STYLE_WARM (Gemini Warm) — replaced by SCENE_STYLE + reference image.
+ *
+ * Principle: natural accurate real-world colours for whatever scene is described
+ * (grass → rich green, beach → warm sand, market → varied naturalistic tones).
+ * No hardcoded palette — the scene concept drives the colours.
  */
 export const ENV_STYLE =
   "pen-and-watercolor-wash illustration in the style of a lush, richly coloured picture book — " +
-  'loose expressive ink lines define shapes and horizon lines; vibrant saturated watercolor washes fill every area with confident, glowing colour; ' +
-  'rich vivid palette: deep cerulean sky, turquoise and teal water, warm golden sand, lush emerald green, terracotta earth tones — ' +
-  'colours are fully saturated and luminous, NOT muted, NOT dusty, NOT washed-out; ' +
-  'natural atmospheric light: warm golden sunlight, sky gradient from deep blue at top to lighter horizon, ' +
-  'soft reflections on water surfaces, gentle shadows that add depth without darkness; ' +
-  'wide establishing shot — the full environment fills the frame; NO human figures, NO animals, NO people; ' +
-  'detailed and lush: textures of sand, grass, water, leaves, and sky are all rendered with watercolor brushwork and visible ink detail; ' +
+  'loose expressive ink lines define shapes and horizon lines; vibrant watercolor washes fill every area with rich, confident colour; ' +
+  'COLOUR PRINCIPLE: use natural accurate real-world colours for the specific scene depicted — ' +
+  'rich and fully saturated, true to what the scene actually looks like in life; ' +
+  'NOT muted, NOT dusty, NOT washed-out, NOT desaturated — colours should feel vivid and alive; ' +
+  'natural lighting appropriate to the scene: warm sunlight, realistic shadows, gentle atmospheric depth; ' +
+  'wide establishing shot — the full environment fills the frame; NO human figures, NO people; ' +
+  'detailed and lush: all textures (grass, sand, water, leaves, stone, wood) rendered with watercolor brushwork and visible ink detail; ' +
   'NOT photorealistic, NOT flat cel-shading, NOT digital fills, NOT 3D render, NOT vector art; ' +
   'IMPORTANT SIZING: full bleed edge-to-edge composition — fill the entire canvas to every corner, ' +
   'no white space margins, no white bars, no vignette, no padding, colour and texture extends all the way to every edge; ' +

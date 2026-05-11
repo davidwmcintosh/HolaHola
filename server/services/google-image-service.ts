@@ -36,21 +36,25 @@ const NO_TEXT =
   'the image must be a pure illustration with zero readable or decorative text elements';
 
 /**
- * ENVIRONMENT STYLE — vivid watercolor landscapes, rich saturated palette.
+ * ENVIRONMENT STYLE — vivid watercolor landscapes, natural accurate scene colors.
  * Used for: landscape/location vocabulary anchors (beach, grass, ocean, market…)
  * and visual_environments table backgrounds (prop room / classroom window scenes).
- * No characters. Wide establishing shot. Richly saturated to match the visual
- * quality benchmark set by gpt-image-1 prop environment tests (May 11, 2026).
+ * No characters. Wide establishing shot.
+ *
+ * Principle: colours should be natural and accurate for the specific scene described
+ * (rich greens for grass, warm earth for paths, accurate blue for sky, etc.) — NOT a
+ * fixed palette. Inspired by gpt-image-1 prop's "natural accurate real-world colors"
+ * approach applied to full-scene environments.
  */
 export const ENV_STYLE =
   'pen-and-watercolor-wash illustration in the style of a lush, richly coloured picture book — ' +
-  'loose expressive ink lines define shapes and horizon lines; vibrant saturated watercolor washes fill every area with confident, glowing colour; ' +
-  'rich vivid palette: deep cerulean sky, turquoise and teal water, warm golden sand, lush emerald green, terracotta earth tones — ' +
-  'colours are fully saturated and luminous, NOT muted, NOT dusty, NOT washed-out; ' +
-  'natural atmospheric light: warm golden sunlight, sky gradient from deep blue at top to lighter horizon, ' +
-  'soft reflections on water surfaces, gentle shadows that add depth without darkness; ' +
-  'wide establishing shot — the full environment fills the frame; NO human figures, NO animals, NO people; ' +
-  'detailed and lush: textures of sand, grass, water, leaves, and sky are all rendered with watercolor brushwork and visible ink detail; ' +
+  'loose expressive ink lines define shapes and horizon lines; vibrant watercolor washes fill every area with rich, confident colour; ' +
+  'COLOUR PRINCIPLE: use natural accurate real-world colours for the specific scene depicted — ' +
+  'rich and fully saturated, true to what the scene actually looks like in life; ' +
+  'NOT muted, NOT dusty, NOT washed-out, NOT desaturated — colours should feel vivid and alive; ' +
+  'natural lighting appropriate to the scene: warm sunlight, realistic shadows, gentle atmospheric depth; ' +
+  'wide establishing shot — the full environment fills the frame; NO human figures, NO people; ' +
+  'detailed and lush: all textures (grass, sand, water, leaves, stone, wood) rendered with watercolor brushwork and visible ink detail; ' +
   'NOT photorealistic, NOT flat cel-shading, NOT digital fills, NOT 3D render, NOT vector art; ' +
   'IMPORTANT SIZING: full bleed edge-to-edge composition — fill the entire canvas to every corner, ' +
   'no white space margins, no white bars, no vignette, no padding, colour and texture extends all the way to every edge; ' +

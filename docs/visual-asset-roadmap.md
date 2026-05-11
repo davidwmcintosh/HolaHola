@@ -7073,9 +7073,11 @@ The architecture already separates props from scenes (different code paths in `v
 - gpt-image-1's 28–44s latency makes it unacceptable for any use case, including pre-generation; Gemini Base at 5–7s with improved ENV_STYLE is the right path
 
 **`ENV_STYLE` improvement (May 11):**
-- Current `SCENE_STYLE` used for environments said "soft muted palette: dusty blues, sage greens, warm creams" — too washed out for landscapes
-- New `ENV_STYLE` uses rich, saturated nature colors; natural atmospheric lighting (golden sun, sky depth); lush detail language
-- Target: match the visual richness of the gpt-image-1 beach comparison while staying watercolor/illustrated
+- The quality benchmark: `gpt-image-1 prop` (using `PROP_STYLE`) produced vivid beach/landscape images. The key phrase in `PROP_STYLE` is "natural accurate object colors — objects appear in their real-world everyday colors." That principle — let the scene concept drive the colours, don't impose a fixed palette — is what made it work.
+- Old `SCENE_STYLE` for environments said "soft muted palette: dusty blues, sage greens, warm creams" — this is a fixed palette that's wrong for most scenes and too washed-out regardless.
+- New `ENV_STYLE` uses the same "natural accurate real-world colours" principle: rich and fully saturated, true to what the scene actually looks like. A grassy field gets rich greens. A beach gets warm sand and blue water. A market gets varied naturalistic tones. No hardcoded colour list.
+- Key negations added: NOT muted, NOT dusty, NOT washed-out, NOT desaturated.
+- Also: "detailed and lush — all textures (grass, sand, water, leaves, stone, wood) rendered with watercolor brushwork and visible ink detail."
 
 **Style constants live in:** `server/services/google-image-service.ts` (canonical).
 
