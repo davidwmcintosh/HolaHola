@@ -1,26 +1,20 @@
 /**
  * Google Image Service — single integration point for all Google-based image generation.
  *
- * TWO-ENGINE STRATEGY (decided May 9, 2026):
+ * ONE-ENGINE STRATEGY (revised May 11, 2026):
  * ─────────────────────────────────────────────────────────────────────────────
- *  Engine A — Gemini Warm (SCENE_STYLE_WARM)
- *    Model : gemini-2.5-flash-image
- *    When  : Daniela + character scenes (social reading cards, vocabulary character images,
- *             live-session show_image() when people are present)
- *    Why   : Tight waist-up portrait crop, golden saturated palette, sun-lit warmth.
- *             The intimate framing and warm light make character scenes feel personal
- *             and engaging — closer to the original DALL-E 3 aesthetic.
+ *  Single model: gemini-2.5-flash-image — used for everything.
+ *  Style constants control the look; a reference image is passed for character
+ *  consistency when generating Daniela/character scenes.
  *
- *  Engine B — Base Gemini Flash (SCENE_STYLE or PROP_STYLE)
- *    Model : gemini-2.5-flash-image
- *    When  : Environment scenes (beach, playa, grass, no characters),
- *             vocabulary props (single objects on white background),
- *             all custom/freeform prompts (lesson headers, scenario covers,
- *             menu food, prop room backgrounds, admin one-off regen).
- *    Why   : Wider landscape framing is correct for environments; PROP_STYLE
- *             handles clean object isolation. Custom prompts drive their own style.
- *             The wide-frame portrait crop baked into SCENE_STYLE_WARM would be
- *             wrong for a banana or a beach.
+ *  Style constants:
+ *    ENV_STYLE    — vivid watercolor landscapes, rich saturated palette, no characters
+ *    SCENE_STYLE  — character scenes + live-session freeform; reference image passed alongside
+ *    PROP_STYLE   — single object centred on white background (vocab props)
+ *    (custom)     — lesson headers, scenario covers, menu food, admin regen: caller-supplied prompt
+ *
+ *  No gpt-image-1, no Gemini Warm. All calls go through Base Gemini Flash.
+ *  Reference image is the mechanism for character consistency, not a separate warm style.
  *
  * Replaces: DALL-E 3 (scenes), gpt-image-1 (props), generateImageWithGemini() (custom)
  * ─────────────────────────────────────────────────────────────────────────────
@@ -42,43 +36,46 @@ const NO_TEXT =
   'the image must be a pure illustration with zero readable or decorative text elements';
 
 /**
- * BASE SCENE STYLE — environments, wide shots, no character framing constraints.
- * Used for: landscape/location scenes (beach, playa, grass, market, etc.)
- * Not for: character/Daniela scenes (those use SCENE_STYLE_WARM).
+ * ENVIRONMENT STYLE — vivid watercolor landscapes, rich saturated palette.
+ * Used for: landscape/location vocabulary anchors (beach, grass, ocean, market…)
+ * and visual_environments table backgrounds (prop room / classroom window scenes).
+ * No characters. Wide establishing shot. Richly saturated to match the visual
+ * quality benchmark set by gpt-image-1 prop environment tests (May 11, 2026).
  */
-export const SCENE_STYLE =
-  'pen-and-watercolor-wash illustration in the style of a charming children\'s book or editorial picture book — ' +
-  'loose expressive ink lines define the figures; soft muted watercolor washes fill in colour with gentle bleed at edges; ' +
-  'figures and their surroundings share the same loose painterly quality — characters are NOT sharply rendered or smoothly shaded; ' +
-  'skin and clothing painted with the same soft open washes as the background, not polished or airbrushed; ' +
-  'warm muted palette: dusty blues, sage greens, warm creams, soft terracottas; ' +
-  'soft flat diffuse ambient light — NO dramatic rim lighting, NO cinematic backlighting, NO spotlight glow effects; ' +
-  'NOT photorealistic, NOT flat cel-shading, NOT clean digital fills, NOT 3D render, NOT vector art; ' +
-  'IMPORTANT CONTENT: wholesome, appropriate for all ages, strictly platonic interactions; ' +
+export const ENV_STYLE =
+  'pen-and-watercolor-wash illustration in the style of a lush, richly coloured picture book — ' +
+  'loose expressive ink lines define shapes and horizon lines; vibrant saturated watercolor washes fill every area with confident, glowing colour; ' +
+  'rich vivid palette: deep cerulean sky, turquoise and teal water, warm golden sand, lush emerald green, terracotta earth tones — ' +
+  'colours are fully saturated and luminous, NOT muted, NOT dusty, NOT washed-out; ' +
+  'natural atmospheric light: warm golden sunlight, sky gradient from deep blue at top to lighter horizon, ' +
+  'soft reflections on water surfaces, gentle shadows that add depth without darkness; ' +
+  'wide establishing shot — the full environment fills the frame; NO human figures, NO animals, NO people; ' +
+  'detailed and lush: textures of sand, grass, water, leaves, and sky are all rendered with watercolor brushwork and visible ink detail; ' +
+  'NOT photorealistic, NOT flat cel-shading, NOT digital fills, NOT 3D render, NOT vector art; ' +
   'IMPORTANT SIZING: full bleed edge-to-edge composition — fill the entire canvas to every corner, ' +
-  'no white space margins, no white bars, no vignette, no padding; ' +
+  'no white space margins, no white bars, no vignette, no padding, colour and texture extends all the way to every edge; ' +
   NO_TEXT;
 
 /**
- * WARM CHARACTER SCENE STYLE — close portrait crop, golden palette.
- * Used for: Daniela + tutor character scenes (social reading cards, vocabulary character images).
- * NOT for: environment/landscape scenes or props (the portrait crop is wrong for those).
+ * CHARACTER SCENE STYLE — wide framing for character scenes and live-session freeform.
+ * Used for: Daniela, Rosa, Marco and other named characters in vocabulary images,
+ * social phrase cards, and live-session show_image() calls.
+ * A reference image should be passed alongside the prompt for character consistency.
  */
-export const SCENE_STYLE_WARM =
-  'pen-and-watercolor-wash illustration in the style of a warm, inviting picture book — ' +
-  'loose expressive ink lines define the figures; rich saturated watercolor washes fill in colour with a confident, glowing warmth; ' +
-  'figures and their surroundings share the same painterly quality — characters are NOT sharply rendered or smoothly shaded; ' +
-  'skin and clothing painted with warm open washes that feel sun-lit and alive, not polished or airbrushed; ' +
-  'warm vibrant palette: rich sky blue, golden amber, warm terracotta, lush green, honeyed cream — ' +
+export const SCENE_STYLE =
+  'pen-and-watercolor-wash illustration in the style of a charming children\'s book or editorial picture book — ' +
+  'loose expressive ink lines define the figures; warm saturated watercolor washes fill in colour with gentle bleed at edges; ' +
+  'figures and their surroundings share the same loose painterly quality — characters are NOT sharply rendered or smoothly shaded; ' +
+  'skin and clothing painted with the same warm open washes as the background, not polished or airbrushed; ' +
+  'warm inviting palette: rich sky blue, golden amber, warm terracotta, lush green, honeyed cream — ' +
   'saturated and inviting, like the best classic illustrated storybooks; ' +
-  'warm soft directional light with a gentle golden glow — avoid cold or flat lighting; ' +
+  'warm soft directional light with a gentle golden glow; ' +
   'NOT photorealistic, NOT flat cel-shading, NOT clean digital fills, NOT 3D render, NOT vector art; ' +
-  'IMPORTANT FRAMING: close intimate portrait crop — characters shown from roughly waist to crown of head, ' +
-  'faces large and expressive, filling at least 70% of the frame height; ' +
-  'camera feels close and personal, like a conversation, NOT a wide establishing shot; ' +
-  'do NOT show full legs or feet; upper body and faces dominate the composition; ' +
+  'IMPORTANT FRAMING: generous headroom — heads fully visible, never cropped at top of frame; ' +
+  'position characters in lower two-thirds of canvas so top quarter shows sky or background; ' +
+  'IMPORTANT CONTENT: wholesome, appropriate for all ages, strictly platonic interactions; ' +
   'IMPORTANT SIZING: full bleed edge-to-edge composition — fill the entire canvas to every corner, ' +
-  'no white space margins, no white bars, no vignette, no padding, background colour and texture extends all the way to every edge of the image; ' +
+  'no white space margins, no white bars, no vignette, no padding; ' +
   NO_TEXT;
 
 /**
@@ -155,50 +152,51 @@ async function getLockedStyleProfile(profileKey: string): Promise<string | null>
 }
 
 /**
- * ENGINE A — Daniela/character scene (Gemini Warm).
- * Tight portrait crop, golden palette. For social reading cards and vocabulary
- * character images. Returns a permanent public URL.
+ * CHARACTER SCENE — Daniela/character scenes and live-session freeform.
+ * Uses SCENE_STYLE (warm saturated watercolor, wide framing).
+ * Pass a reference image via language profile for character consistency.
+ * Returns a permanent public URL.
  *
  * @param language  Optional language code (e.g. 'spanish'). If a pinned style
- *                  profile exists for this language, it overrides SCENE_STYLE_WARM,
+ *                  profile exists for this language, it overrides SCENE_STYLE,
  *                  giving consistent character design across all generations.
  */
 export async function generateCharacterScene(concept: string, language?: string): Promise<string> {
   const hint = COMPOSITION_VARIANTS[Math.floor(Math.random() * COMPOSITION_VARIANTS.length)];
 
-  let styleBlock = SCENE_STYLE_WARM;
+  let styleBlock = SCENE_STYLE;
   if (language) {
     const locked = await getLockedStyleProfile(language);
     if (locked) {
       console.log(`[GoogleImage] Using pinned style profile for ${language}`);
       styleBlock =
         `ILLUSTRATION STYLE TO MATCH (extracted from reference):\n${locked}\n\n` +
-        `FRAMING: close intimate portrait crop — characters shown from roughly waist to crown of head, ` +
-        `faces large and expressive, filling at least 70% of the frame height; ` +
+        `FRAMING: generous headroom, heads fully visible, characters in lower two-thirds of canvas; ` +
         `full bleed edge-to-edge, no white borders or padding; ` +
         `absolutely no text, letters, numbers or typography in the image.`;
     }
   }
 
   const prompt = `Square 1:1 format. Illustrated scene: ${concept}. ${hint}\n\n${styleBlock}`;
-  console.log('[GoogleImage] Character scene (warm):', prompt.substring(0, 200));
+  console.log('[GoogleImage] Character scene:', prompt.substring(0, 200));
   const buf = await callGemini(prompt);
-  const filename = `scene-warm-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+  const filename = `scene-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
   return uploadPublicBuffer(filename, buf, 'image/jpeg');
 }
 
 /**
- * ENGINE B — Environment / location scene (Base Gemini Flash).
- * Wide landscape framing, muted palette. For scenes without characters.
+ * ENVIRONMENT SCENE — landscape/location scenes, no characters.
+ * Uses ENV_STYLE (vivid saturated palette, wide establishing shot).
+ * For both vocabulary anchor images (playa, mar, hierba) and
+ * visual_environments table backgrounds (prop room / classroom window).
  * Returns a permanent public URL.
  *
  * @param profileKey  Optional profile key to look up in pinned style profiles.
- *                    Defaults to 'environment'. If a locked profile exists for
- *                    this key, its extracted style description overrides SCENE_STYLE,
- *                    giving consistency with the reference image used during testing.
+ *                    Defaults to 'environment'. If a locked profile exists,
+ *                    its extracted style description overrides ENV_STYLE.
  */
 export async function generateEnvironmentScene(concept: string, profileKey: string = 'environment'): Promise<string> {
-  let styleBlock = SCENE_STYLE;
+  let styleBlock = ENV_STYLE;
 
   const locked = await getLockedStyleProfile(profileKey);
   if (locked) {
@@ -211,9 +209,9 @@ export async function generateEnvironmentScene(concept: string, profileKey: stri
   }
 
   const prompt = `Square 1:1 format. Illustrated scene: ${concept}. ${styleBlock}`;
-  console.log('[GoogleImage] Environment scene (base):', prompt.substring(0, 200));
+  console.log('[GoogleImage] Environment scene (ENV_STYLE):', prompt.substring(0, 200));
   const buf = await callGemini(prompt);
-  const filename = `scene-base-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+  const filename = `scene-env-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
   return uploadPublicBuffer(filename, buf, 'image/jpeg');
 }
 

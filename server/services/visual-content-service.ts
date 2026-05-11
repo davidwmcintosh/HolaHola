@@ -1,15 +1,16 @@
 /**
  * Visual Content Generation Service
  *
- * Scene images (type='infographic'): Gemini Warm (gemini-2.5-flash-image + SCENE_STYLE_WARM)
- *   Close portrait crop, golden saturated palette. Used for Daniela/character social reading
- *   cards and vocabulary character images.
+ * All generation routes through Base Gemini Flash (gemini-2.5-flash-image).
+ * Style constants in google-image-service.ts control the output:
  *
- * Prop images (type='image'): Base Gemini Flash (gemini-2.5-flash-image + PROP_STYLE)
- *   Single object isolated on clean white background for vocabulary prop cards.
+ * Scene images (type='infographic'): SCENE_STYLE — character scenes, warm watercolor,
+ *   wide framing. Reference image passed for character consistency (Daniela, Rosa, Marco).
  *
- * See server/services/google-image-service.ts for style constants and engine rationale.
- * See docs/visual-asset-roadmap.md → "Image Engine Evaluation — May 2026" for full decision.
+ * Prop images (type='image'): PROP_STYLE — single object on white background.
+ *
+ * See server/services/google-image-service.ts for style constants.
+ * See docs/visual-asset-roadmap.md → "Final Engine Assignment" for full decision log.
  */
 
 import { generateCharacterScene, generatePropImage } from './google-image-service';
@@ -117,7 +118,7 @@ export async function generateVisual(
   try {
     const result = await generateWithModel(request);
     imageUrl = result.imageUrl;
-    provider = type === 'infographic' ? 'gemini-warm' : 'gemini-base';
+    provider = 'gemini-base';
   } catch (error) {
     console.warn('[VisualContent] image generation failed, falling back to placeholder:', error);
     imageUrl = generatePlaceholderImage(request).imageUrl;

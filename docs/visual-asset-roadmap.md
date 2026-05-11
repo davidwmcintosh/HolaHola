@@ -7050,36 +7050,34 @@ The architecture already separates props from scenes (different code paths in `v
 
 ---
 
-### Final Engine Assignment (May 9, 2026 — revised May 11, 2026)
+### Final Engine Assignment (revised May 11, 2026)
 
-> **May 11 revision:** Two assignments changed based on live testing. Live-session freeform moved from Gemini Warm → Gemini Base + reference (Warm's portrait crop is wrong for arbitrary scene descriptions). Environments moved from Base Gemini Flash → gpt-image-1 prop (David confirmed gpt-image-1 prop produces vivid, high-quality beach/landscape scenes — clearly superior to Gemini Flash's soft muted watercolor output for this use case).
+> **Strategy: one model, multiple style constants.** Gemini Warm is retired. gpt-image-1 is retired for all new generation. Everything runs on `gemini-2.5-flash-image` (Base Gemini). Character consistency comes from passing a **reference image** alongside the prompt, not from a separate style variant. The key differentiator between use cases is the style constant, not the engine.
+>
+> **What the gpt-image-1 prop beach test showed (May 11):** gpt-image-1 produced more vivid, saturated landscape images than Gemini Base's default muted-palette output. The lesson is not "use gpt-image-1 for environments" — it's "improve the ENV_STYLE constant to get richer, more vivid landscape output from Gemini Base." That is the active improvement.
 
 **Where environments appear in the product — two distinct contexts:**
 1. **Vocabulary anchor images** — words like `playa`, `mar`, `hierba`, `pradera` that hit `isSceneConcept()` in `vocabulary-image-resolver.ts` and route to the scene pipeline. These appear as vocab cards in the textbook.
 2. **`visual_environments` table** — full-bleed backgrounds for the immersive prop room and classroom window scenes. When Daniela calls `open_scene("beach")` or changes the window view, it pulls from here. These are the stage backdrops behind props in roleplay.
 
-Both environment contexts now use gpt-image-1 prop.
+| Style constant | When to use | Code path |
+|---|---|---|
+| **`ENV_STYLE`** | Environment/landscape scenes — no characters — both vocab anchors and `visual_environments` backgrounds | `generateEnvironmentScene()` in `google-image-service.ts` |
+| **`SCENE_STYLE`** | Character scenes (Daniela, Rosa, Marco) + live-session freeform `show_image()` — reference image passed alongside for character consistency | `generateCharacterScene()` in `google-image-service.ts` |
+| **`PROP_STYLE`** | Vocabulary props — single object centred on white background | `generatePropImage()` in `google-image-service.ts` |
+| **custom prompt** | Lesson header art, scenario covers, menu food, prop room compositor, admin one-off regen | `generateFromCustomPrompt()` in `google-image-service.ts` |
 
-| Engine | Style constant | When to use | Code path |
-|---|---|---|---|
-| **Gemini Warm** | `SCENE_STYLE_WARM` | Daniela + character scenes with named characters | `generateCharacterScene()` in `google-image-service.ts` → called by `visual-content-service.ts` `type='infographic'` |
-| **Gemini Base** | `SCENE_STYLE` | Live-session freeform (`show_image()` during voice chat) + reference image passed alongside prompt | `generateFromCustomPrompt()` in `google-image-service.ts` — Daniela's free-form scene descriptions |
-| **gpt-image-1 prop** | `PROP_STYLE` (extended for landscapes) | Environment scenes — both vocab anchor images and `visual_environments` backgrounds | `generateEnvironmentScene()` in image pipeline; also used for batch-generating `visual_environments` backgrounds |
-| **Base Gemini Flash** | custom prompt | Lesson header art, scenario covers, menu food, prop room compositor, admin one-off regen | `generateEnvironmentScene()`, `generateFromCustomPrompt()`, `prop-room-compositor.ts`, `lesson-image-generator.ts`, `scenario-image-generator.ts`, `menu-image-worker.ts` |
+**Why one model:**
+- Gemini Warm's `SCENE_STYLE_WARM` had a tight portrait crop baked into the style constant — wrong for anything that isn't a close-up of Daniela
+- A reference image is the correct mechanism for character consistency — Gemini Base follows reference style naturally without needing a separate style constant
+- gpt-image-1's 28–44s latency makes it unacceptable for any use case, including pre-generation; Gemini Base at 5–7s with improved ENV_STYLE is the right path
 
-**Why warm for characters only:**
-- `SCENE_STYLE_WARM` has a tight waist-up portrait crop baked in — correct for Daniela but wrong for a beach, a banana, or a free-form scene description
-- `SCENE_STYLE` with wide framing + reference image is correct for Daniela's live freeform `show_image()` calls
+**`ENV_STYLE` improvement (May 11):**
+- Current `SCENE_STYLE` used for environments said "soft muted palette: dusty blues, sage greens, warm creams" — too washed out for landscapes
+- New `ENV_STYLE` uses rich, saturated nature colors; natural atmospheric lighting (golden sun, sky depth); lush detail language
+- Target: match the visual richness of the gpt-image-1 beach comparison while staying watercolor/illustrated
 
-**Why gpt-image-1 prop for environments:**
-- David confirmed (May 11, 2026) that gpt-image-1 prop produces vivid, detailed beach/landscape scenes that are superior to Gemini Flash's muted watercolor output for the environment use case
-- Gemini Flash environment output (5–7s, ~$0.001) is technically fast and cheap, but the visual quality for landscapes was noticeably softer and less compelling
-- gpt-image-1 prop (28–44s) is slower, but environment images are pre-generated and cached in `visual_environments` — latency at generation time is acceptable since students never wait for them live
-- For Daniela's live session `show_image()` on environment words mid-conversation, the latency tradeoff requires a decision: either pre-cache common environment words, or accept Gemini Base for live-session env words and gpt-image-1 for batch pre-generation only
-
-**Style constants live in:** `server/services/google-image-service.ts` (canonical) — do not edit the copies in `visual-content-service.ts` or `image-engine-test.ts` independently.
-
-**Warm prompt status:** `SCENE_STYLE_WARM` is still being tuned. The portrait crop and warm palette are confirmed. The white border/frame artifact is parked as a potential postcard aesthetic. Future tweaks: adjust golden backlight intensity, test tighter vs. slightly wider crop.
+**Style constants live in:** `server/services/google-image-service.ts` (canonical).
 
 ---
 

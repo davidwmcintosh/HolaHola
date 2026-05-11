@@ -40,25 +40,23 @@ export const SCENE_STYLE =
   NO_TEXT;
 
 /**
- * Warmer, more saturated variant of SCENE_STYLE for testing.
- * Identical technique (pen-and-watercolor-wash) but colours are rich and confident
- * rather than muted and dusty — closer to the warmth of DALL-E's current output.
+ * ENVIRONMENT STYLE — vivid saturated watercolor landscapes. No characters.
+ * Mirror of ENV_STYLE in google-image-service.ts (canonical).
+ * Used in the test page to compare environment scene quality across engines.
+ * Retired: SCENE_STYLE_WARM (Gemini Warm) — replaced by SCENE_STYLE + reference image.
  */
-export const SCENE_STYLE_WARM =
-  "pen-and-watercolor-wash illustration in the style of a warm, inviting picture book — " +
-  'loose expressive ink lines define the figures; rich saturated watercolor washes fill in colour with a confident, glowing warmth; ' +
-  'figures and their surroundings share the same painterly quality — characters are NOT sharply rendered or smoothly shaded; ' +
-  'skin and clothing painted with warm open washes that feel sun-lit and alive, not polished or airbrushed; ' +
-  'warm vibrant palette: rich sky blue, golden amber, warm terracotta, lush green, honeyed cream — ' +
-  'saturated and inviting, like the best classic illustrated storybooks; ' +
-  'warm soft directional light with a gentle golden glow — avoid cold or flat lighting; ' +
-  'NOT photorealistic, NOT flat cel-shading, NOT clean digital fills, NOT 3D render, NOT vector art; ' +
-  'IMPORTANT FRAMING: close intimate portrait crop — characters shown from roughly waist to crown of head, ' +
-  'faces large and expressive, filling at least 70% of the frame height; ' +
-  'camera feels close and personal, like a conversation, NOT a wide establishing shot; ' +
-  'do NOT show full legs or feet; upper body and faces dominate the composition; ' +
+export const ENV_STYLE =
+  "pen-and-watercolor-wash illustration in the style of a lush, richly coloured picture book — " +
+  'loose expressive ink lines define shapes and horizon lines; vibrant saturated watercolor washes fill every area with confident, glowing colour; ' +
+  'rich vivid palette: deep cerulean sky, turquoise and teal water, warm golden sand, lush emerald green, terracotta earth tones — ' +
+  'colours are fully saturated and luminous, NOT muted, NOT dusty, NOT washed-out; ' +
+  'natural atmospheric light: warm golden sunlight, sky gradient from deep blue at top to lighter horizon, ' +
+  'soft reflections on water surfaces, gentle shadows that add depth without darkness; ' +
+  'wide establishing shot — the full environment fills the frame; NO human figures, NO animals, NO people; ' +
+  'detailed and lush: textures of sand, grass, water, leaves, and sky are all rendered with watercolor brushwork and visible ink detail; ' +
+  'NOT photorealistic, NOT flat cel-shading, NOT digital fills, NOT 3D render, NOT vector art; ' +
   'IMPORTANT SIZING: full bleed edge-to-edge composition — fill the entire canvas to every corner, ' +
-  'no white space margins, no white bars, no vignette, no padding, background colour and texture extends all the way to every edge of the image; ' +
+  'no white space margins, no white bars, no vignette, no padding, colour and texture extends all the way to every edge; ' +
   NO_TEXT;
 
 export const PROP_STYLE =
@@ -614,7 +612,7 @@ export async function runEngineTest(
     case 'gpt-image-1-prop': return runGptImage1Prop(concept);
     case 'gemini-imagen':      return runGeminiImagen(concept, type, undefined, variationIndex);
     case 'gemini-imagen-ref':  return runGeminiImagen(concept, type, reference, variationIndex, undefined, extractionMode);
-    case 'gemini-imagen-warm': return runGeminiImagen(concept, type, undefined, variationIndex, SCENE_STYLE_WARM);
+    case 'gemini-imagen-env':  return runGeminiImagen(concept, type, undefined, variationIndex, ENV_STYLE);
     case 'imagen-3':           return runImagenModel('imagen-3', 'imagen-4.0-generate-001', concept, type);
     case 'imagen-4-ultra':   return runImagenModel('imagen-4-ultra', 'imagen-4.0-ultra-generate-001', concept, type);
     default:                 return { dataUrl: null, elapsed: 0, engine, error: `Unknown engine: ${engine}` };
