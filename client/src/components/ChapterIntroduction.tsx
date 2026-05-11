@@ -2771,11 +2771,13 @@ export function ConversationStripsSection({
                     data-testid={`panel-${sIdx}-${pIdx}`}
                   >
                     {panel.image && (
-                      <img
-                        src={panel.image}
-                        alt={`${panel.speaker} — ${panel.text}`}
-                        className="w-full h-36 object-cover object-top"
-                      />
+                      <div className="relative aspect-square overflow-hidden">
+                        <img
+                          src={panel.image}
+                          alt={`${panel.speaker} — ${panel.text}`}
+                          className="w-full h-full object-cover object-top"
+                        />
+                      </div>
                     )}
                     <div className="px-2.5 pt-2 pb-2.5 flex flex-col gap-1.5 flex-1">
                       <div className="flex items-center gap-1.5">

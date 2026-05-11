@@ -335,8 +335,8 @@ function PhraseCard({
       }`}
       data-testid={`phrase-card-${index}`}
     >
-      {/* Image area — always rendered for consistent card height */}
-      <div className="aspect-[4/3] relative overflow-hidden bg-muted/20">
+      {/* Image area — square, matching Chapter 2 VocabImageCard standard */}
+      <div className="relative aspect-square overflow-hidden bg-muted/20">
         {imageUrl && (
           <img
             src={imageUrl}

@@ -79,8 +79,8 @@ function PreteriteQACardItem({
       className="rounded-md border bg-card flex flex-col overflow-hidden"
       data-testid={`preterite-qa-card-${card.imageWord}`}
     >
-      {/* Image — fixed height so it doesn't dominate the card */}
-      <div className="relative w-full h-36 bg-muted/30 overflow-hidden flex-shrink-0">
+      {/* Image — square container matching Chapter 2 standard */}
+      <div className="relative w-full aspect-square bg-muted/30 overflow-hidden">
         {imageUrl ? (
           <img
             src={imageUrl}

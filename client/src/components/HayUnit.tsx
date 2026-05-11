@@ -142,18 +142,21 @@ function HayQACard({
       className="rounded-md border bg-card flex flex-col overflow-hidden"
       data-testid={`hay-qa-card-${pair.imageWord ?? "text"}`}
     >
-      {/* Image */}
-      {imageUrl && (
-        <img
-          src={imageUrl}
-          alt={pair.imageWord ?? ""}
-          className="w-full h-36 object-cover bg-muted"
-          data-testid={`img-hay-${pair.imageWord}`}
-        />
-      )}
-      {!imageUrl && pair.imageWord && (
-        <div className="w-full h-36 bg-muted flex items-center justify-center">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      {/* Image — square container matching Chapter 2 standard */}
+      {(imageUrl || pair.imageWord) && (
+        <div className="relative aspect-square overflow-hidden bg-muted">
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={pair.imageWord ?? ""}
+              className="w-full h-full object-cover"
+              data-testid={`img-hay-${pair.imageWord}`}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          )}
         </div>
       )}
 
