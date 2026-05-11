@@ -876,66 +876,75 @@ export default function ImageEngineTest() {
                         const refResult = engineResults.find(r => r.styleDescription);
                         const desc = refResult?.styleDescription;
                         const imageHash = refResult?.dataUrl?.slice(0, 64) ?? "";
-                        return (desc || editedStyleDesc) ? (
+                        const hasContent = !!(desc || editedStyleDesc);
+                        return (
                           <details className="mb-3 text-xs text-muted-foreground border border-border rounded-md" open>
                             <summary className="px-3 py-2 cursor-pointer select-none font-medium text-foreground/70 hover:text-foreground transition-colors">
                               Style extracted from reference
                             </summary>
-                            <div className="px-3 pt-2 pb-2">
-                              <Textarea
-                                value={editedStyleDesc}
-                                onChange={e => setEditedStyleDesc(e.target.value)}
-                                className="text-xs font-mono leading-relaxed resize-y min-h-[100px]"
-                                data-testid="textarea-style-description"
-                              />
-                              {editedStyleDesc !== desc && (
-                                <button
-                                  onClick={() => setEditedStyleDesc(desc)}
-                                  className="mt-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
-                                  data-testid="button-reset-style-desc"
-                                >
-                                  Reset to last extracted
-                                </button>
-                              )}
-                            </div>
-                            <div className="px-3 pb-3 flex flex-wrap items-center gap-2 border-t border-border pt-2">
-                              <select
-                                value={pinLanguage}
-                                onChange={e => setPinLanguage(e.target.value)}
-                                className="text-xs rounded-md border border-border bg-background px-2 py-1 text-foreground"
-                                data-testid="select-pin-language"
-                              >
-                                <optgroup label="Scene types">
-                                  {SPECIAL_PROFILE_KEYS.map(k => (
-                                    <option key={k.value} value={k.value}>{k.label}</option>
-                                  ))}
-                                </optgroup>
-                                <optgroup label="Languages">
-                                  {LANGUAGES.map(l => (
-                                    <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>
-                                  ))}
-                                </optgroup>
-                              </select>
-                              <Button
-                                size="sm"
-                                variant={lockedProfiles.some(p => p.language === pinLanguage) ? "default" : "outline"}
-                                onClick={() => lockStyle(editedStyleDesc || desc, imageHash)}
-                                disabled={lockingStyle}
-                                data-testid="button-pin-style"
-                              >
-                                {lockingStyle
-                                  ? <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
-                                  : <Pin className="w-3 h-3 mr-1.5" />}
-                                {lockedProfiles.some(p => p.language === pinLanguage) ? "Update pin" : "Pin this style"}
-                              </Button>
-                              {lockedProfiles.some(p => p.language === pinLanguage) && (
-                                <Badge variant="secondary" className="text-[10px]">
-                                  {pinLanguage} pinned
-                                </Badge>
-                              )}
-                            </div>
+                            {hasContent ? (
+                              <>
+                                <div className="px-3 pt-2 pb-2">
+                                  <Textarea
+                                    value={editedStyleDesc}
+                                    onChange={e => setEditedStyleDesc(e.target.value)}
+                                    className="text-xs font-mono leading-relaxed resize-y min-h-[100px]"
+                                    data-testid="textarea-style-description"
+                                  />
+                                  {desc && editedStyleDesc !== desc && (
+                                    <button
+                                      onClick={() => setEditedStyleDesc(desc)}
+                                      className="mt-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
+                                      data-testid="button-reset-style-desc"
+                                    >
+                                      Reset to last extracted
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="px-3 pb-3 flex flex-wrap items-center gap-2 border-t border-border pt-2">
+                                  <select
+                                    value={pinLanguage}
+                                    onChange={e => setPinLanguage(e.target.value)}
+                                    className="text-xs rounded-md border border-border bg-background px-2 py-1 text-foreground"
+                                    data-testid="select-pin-language"
+                                  >
+                                    <optgroup label="Scene types">
+                                      {SPECIAL_PROFILE_KEYS.map(k => (
+                                        <option key={k.value} value={k.value}>{k.label}</option>
+                                      ))}
+                                    </optgroup>
+                                    <optgroup label="Languages">
+                                      {LANGUAGES.map(l => (
+                                        <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>
+                                      ))}
+                                    </optgroup>
+                                  </select>
+                                  <Button
+                                    size="sm"
+                                    variant={lockedProfiles.some(p => p.language === pinLanguage) ? "default" : "outline"}
+                                    onClick={() => lockStyle(editedStyleDesc || desc || "", imageHash)}
+                                    disabled={lockingStyle || !editedStyleDesc}
+                                    data-testid="button-pin-style"
+                                  >
+                                    {lockingStyle
+                                      ? <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+                                      : <Pin className="w-3 h-3 mr-1.5" />}
+                                    {lockedProfiles.some(p => p.language === pinLanguage) ? "Update pin" : "Pin this style"}
+                                  </Button>
+                                  {lockedProfiles.some(p => p.language === pinLanguage) && (
+                                    <Badge variant="secondary" className="text-[10px]">
+                                      {pinLanguage} pinned
+                                    </Badge>
+                                  )}
+                                </div>
+                              </>
+                            ) : (
+                              <p className="px-3 py-3 text-muted-foreground italic">
+                                Load a reference image in the sidebar, then run this engine — Gemini will extract the style into an editable description you can pin.
+                              </p>
+                            )}
                           </details>
-                        ) : null;
+                        );
                       })()}
 
                       {/* Image row */}
