@@ -876,7 +876,7 @@ export default function ImageEngineTest() {
                         const refResult = engineResults.find(r => r.styleDescription);
                         const desc = refResult?.styleDescription;
                         const imageHash = refResult?.dataUrl?.slice(0, 64) ?? "";
-                        return desc ? (
+                        return (desc || editedStyleDesc) ? (
                           <details className="mb-3 text-xs text-muted-foreground border border-border rounded-md" open>
                             <summary className="px-3 py-2 cursor-pointer select-none font-medium text-foreground/70 hover:text-foreground transition-colors">
                               Style extracted from reference
