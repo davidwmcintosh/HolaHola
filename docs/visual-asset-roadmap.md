@@ -2,7 +2,7 @@
 ## HoloHola — Interactive Textbook Design Playbook & Visual Library
 
 **Created:** March 15, 2026  
-**Last updated:** May 9, 2026 — Part I.O updated: Image engine evaluation complete (May 2026); DALL-E 3 replacement decision made; per-engine assignment, cost/rate-limit comparison, and prompt tuning notes added  
+**Last updated:** May 11, 2026 — Engine assignments revised (see "Final Engine Assignment — Revised May 11, 2026" in Image Engine Evaluation section); live-session freeform changed from Gemini Warm → Gemini Base + reference; environments changed from Base Gemini Flash → gpt-image-1 prop; environment usage clarified (two distinct contexts: vocab anchor images + visual_environments prop room backgrounds)  
 **Referenced by:** `docs/curriculum-strategy.md` (Section 8)  
 **Component coverage manifest:** `docs/textbook-component-coverage.json` (machine-readable, Lyra-monitored)  
 **Status column key:** ⬜ Planned | 🔄 Generating | ✅ In Library
@@ -7050,20 +7050,32 @@ The architecture already separates props from scenes (different code paths in `v
 
 ---
 
-### Final Engine Assignment (implemented May 9, 2026)
+### Final Engine Assignment (May 9, 2026 — revised May 11, 2026)
 
-Two engines. Same model (`gemini-2.5-flash-image`), different style constants and framing:
+> **May 11 revision:** Two assignments changed based on live testing. Live-session freeform moved from Gemini Warm → Gemini Base + reference (Warm's portrait crop is wrong for arbitrary scene descriptions). Environments moved from Base Gemini Flash → gpt-image-1 prop (David confirmed gpt-image-1 prop produces vivid, high-quality beach/landscape scenes — clearly superior to Gemini Flash's soft muted watercolor output for this use case).
+
+**Where environments appear in the product — two distinct contexts:**
+1. **Vocabulary anchor images** — words like `playa`, `mar`, `hierba`, `pradera` that hit `isSceneConcept()` in `vocabulary-image-resolver.ts` and route to the scene pipeline. These appear as vocab cards in the textbook.
+2. **`visual_environments` table** — full-bleed backgrounds for the immersive prop room and classroom window scenes. When Daniela calls `open_scene("beach")` or changes the window view, it pulls from here. These are the stage backdrops behind props in roleplay.
+
+Both environment contexts now use gpt-image-1 prop.
 
 | Engine | Style constant | When to use | Code path |
 |---|---|---|---|
-| **Gemini Warm** | `SCENE_STYLE_WARM` | Daniela + character scenes, live-session show_image() with people | `generateCharacterScene()` in `google-image-service.ts` → called by `visual-content-service.ts` `type='infographic'` |
-| **Base Gemini Flash** | `SCENE_STYLE` (environments) or `PROP_STYLE` (objects) | Environment scenes, props, all custom/freeform prompts | `generateEnvironmentScene()`, `generatePropImage()`, `generateFromCustomPrompt()` in `google-image-service.ts` |
+| **Gemini Warm** | `SCENE_STYLE_WARM` | Daniela + character scenes with named characters | `generateCharacterScene()` in `google-image-service.ts` → called by `visual-content-service.ts` `type='infographic'` |
+| **Gemini Base** | `SCENE_STYLE` | Live-session freeform (`show_image()` during voice chat) + reference image passed alongside prompt | `generateFromCustomPrompt()` in `google-image-service.ts` — Daniela's free-form scene descriptions |
+| **gpt-image-1 prop** | `PROP_STYLE` (extended for landscapes) | Environment scenes — both vocab anchor images and `visual_environments` backgrounds | `generateEnvironmentScene()` in image pipeline; also used for batch-generating `visual_environments` backgrounds |
+| **Base Gemini Flash** | custom prompt | Lesson header art, scenario covers, menu food, prop room compositor, admin one-off regen | `generateEnvironmentScene()`, `generateFromCustomPrompt()`, `prop-room-compositor.ts`, `lesson-image-generator.ts`, `scenario-image-generator.ts`, `menu-image-worker.ts` |
 
-**Why warm for characters, base for everything else:**
-- `SCENE_STYLE_WARM` has a tight waist-up portrait crop baked in — correct for Daniela but wrong for a beach or a banana
-- `SCENE_STYLE` has wide landscape framing — correct for environments
-- `PROP_STYLE` enforces white background + centred object — correct for vocab cards
-- Custom prompts (lesson headers, scenario covers, food, backgrounds, admin) already contain their own style instructions — base Gemini follows them faithfully
+**Why warm for characters only:**
+- `SCENE_STYLE_WARM` has a tight waist-up portrait crop baked in — correct for Daniela but wrong for a beach, a banana, or a free-form scene description
+- `SCENE_STYLE` with wide framing + reference image is correct for Daniela's live freeform `show_image()` calls
+
+**Why gpt-image-1 prop for environments:**
+- David confirmed (May 11, 2026) that gpt-image-1 prop produces vivid, detailed beach/landscape scenes that are superior to Gemini Flash's muted watercolor output for the environment use case
+- Gemini Flash environment output (5–7s, ~$0.001) is technically fast and cheap, but the visual quality for landscapes was noticeably softer and less compelling
+- gpt-image-1 prop (28–44s) is slower, but environment images are pre-generated and cached in `visual_environments` — latency at generation time is acceptable since students never wait for them live
+- For Daniela's live session `show_image()` on environment words mid-conversation, the latency tradeoff requires a decision: either pre-cache common environment words, or accept Gemini Base for live-session env words and gpt-image-1 for batch pre-generation only
 
 **Style constants live in:** `server/services/google-image-service.ts` (canonical) — do not edit the copies in `visual-content-service.ts` or `image-engine-test.ts` independently.
 
