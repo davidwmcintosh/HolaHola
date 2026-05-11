@@ -450,8 +450,9 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   // NOTE: 'como esta' is language-prefixed because Portuguese shares the same bare key.
   'spanish:como esta':  `${CHAR.ES.primary} and ${CHAR.ES.abuela} facing each other warmly on a sunny sidewalk or courtyard, grandmother visibly shorter and much older, granddaughter asking a caring formal question with a warm smile, wholesome intergenerational exchange`,
   // NOTE: 'spanish:como' is language-prefixed — bare 'como' would collide with Portuguese 'como'.
-  // Covers standalone "¿Cómo?" (= "How?" / "What?") — classic questioning gesture.
-  'spanish:como':       `${CHAR.ES.primary} with both hands raised and palms facing upward in a wondering inquisitive shrug, eyebrows raised and head tilted to one side in a curious questioning expression, natural everyday outdoor setting`,
+  // Covers standalone "¿Cómo?" (= "How?" / "What?") — clearly PUZZLED/confused, not casual-friendly.
+  // Deliberately different from the greeting shrugs: furrowed brow, mouth open, leaning forward.
+  'spanish:como':       `${CHAR.ES.primary} leaning forward with a sharply furrowed brow and mouth slightly open, one hand raised to her ear in a "wait, how? what?" gesture of genuine puzzled confusion, clearly trying to understand something, not a casual greeting — perplexed indoor or classroom setting`,
   'como esta usted':    howAreYou(CHAR.ES.primary, CHAR.ES.secondary, 'a smart-casual Spanish indoor or outdoor setting'),
   'bien':               SPLIT('bien', 'a cheerful person giving a big thumbs-up with a bright grin, sunny warm background', 'mal', 'a person with slumped shoulders, frowning face, and drooping posture, grey cool background'),
   'estoy bien':         SPLIT('bien', `${CHAR.ES.primary} giving a big thumbs-up with a beaming grin under a bright sun`, 'mal', `${CHAR.ES.primary} with slumped shoulders, a downcast frown, and a rain cloud overhead, grey cool background`),
@@ -475,13 +476,21 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   // These cover casual conversation phrases common in Spanish 1 Unit 1 that
   // did not have hand-crafted prompts. All use CHAR.ES characters for style
   // consistency with the existing greeting images.
-  'que tal':       `${CHAR.ES.primary} giving a relaxed friendly shrug with both palms open and raised eyebrows, a casual warm "how's it going?" expression, cheerful everyday outdoor setting`,
-  'que pasa':      `${CHAR.ES.primary} leaning against a wall with a relaxed easy smile, one hand gesturing open-palmed in a casual "what's going on?" expression, sunny school hallway or courtyard`,
-  'todo bien':     `${CHAR.ES.primary} with both thumbs up and a wide relaxed grin, leaning back slightly in an easygoing "all good" posture, warm bright background`,
-  'nada':          `${CHAR.ES.primary} giving a casual open-hands shrug with both palms facing upward and a small unbothered smile, expressing "nothing's going on", light airy background`,
-  'y tu':          `${CHAR.ES.primary} pointing warmly toward ${CHAR.ES.secondary} with one open hand and a friendly inquisitive smile, eyebrows raised in a "and what about you?" gesture, casual sunny outdoor setting`,
-  'igualmente':    `${CHAR.ES.primary} and ${CHAR.ES.secondary} both nodding and smiling warmly at each other, ${CHAR.ES.primary} pressing a hand to her chest and gesturing back toward ${CHAR.ES.secondary} in a warm mirroring "likewise" gesture, bright cheerful setting`,
-  'con permiso':   `${CHAR.ES.primary} squeezing politely past ${CHAR.ES.abuela} in a narrow doorway or corridor, one hand slightly raised in a gentle "excuse me" gesture with a kind apologetic smile, warm indoor setting`,
+  //
+  // Visual differentiation strategy — these phrases are all "casual greeting energy"
+  // so each needs a distinct silhouette to avoid look-alike generations:
+  //   que tal   → two-person close sidewalk check-in (intimate, one-on-one)
+  //   que pasa  → energetic group arrival in a courtyard (wide arms, crowd)
+  //   todo bien → solo settled contentment, hands relaxed, NOT a thumbs-up
+  //   nada      → lounging pose, empty hands facing DOWN — NO shrug silhouette
+  //   y tú      → pointing gesture toward other person — directional, clear
+  'que tal':    `${CHAR.ES.primary} lightly touching ${CHAR.ES.secondary}'s arm on a sunny sidewalk, leaning in slightly with a warm curious smile and raised eyebrows in a close friendly "hey how's it going?" check-in, both facing each other in an easy one-on-one street greeting`,
+  'que pasa':   `${CHAR.ES.primary} arriving at a sunny school courtyard with both arms spread wide open and an excited surprised grin, ${CHAR.ES.secondary} and a third friend turning around with big welcoming smiles, energetic lively group reunion, high-energy casual street greeting`,
+  'todo bien':  `${CHAR.ES.primary} sitting on a low wall in a sunny plaza with hands resting relaxed on her knees and a calm contented smile, leaning back in an easygoing settled "everything's fine" posture, warm peaceful afternoon light`,
+  'nada':       `${CHAR.ES.primary} holding both hands out in front, palms turned DOWNWARD and fingers spread to show they are completely empty, looking at her own empty hands with a small unbothered smile conveying "nothing at all, nothing going on", minimal clean bright background`,
+  'y tu':       `${CHAR.ES.primary} pointing both hands warmly toward ${CHAR.ES.secondary} with a bright inquisitive smile and eyebrows raised high in a clear "and what about YOU?" gesture, ${CHAR.ES.secondary} pointing back at himself with a surprised expression, casual sunny outdoor setting`,
+  'igualmente': `${CHAR.ES.primary} and ${CHAR.ES.secondary} both nodding and smiling warmly at each other, ${CHAR.ES.primary} pressing a hand to her chest and gesturing back toward ${CHAR.ES.secondary} in a warm mirroring "likewise" gesture, bright cheerful setting`,
+  'con permiso': `${CHAR.ES.primary} squeezing politely past ${CHAR.ES.abuela} in a narrow doorway or corridor, one hand slightly raised in a gentle "excuse me" gesture with a kind apologetic smile, warm indoor setting`,
 
   // ── Spanish honorifics — Señor / Señora / Señorita ────────────────────────
   // Each uses the matching recurring character so the style stays consistent
@@ -1714,6 +1723,28 @@ export const CLASSROOM_SURVIVAL_WORDS: Record<string, string[]> = {
 
 export const CLASSROOM_SURVIVAL_CACHE_KEYS: Record<string, string[]> = Object.fromEntries(
   Object.entries(CLASSROOM_SURVIVAL_WORDS).map(([lang, words]) => [
+    lang,
+    words.map(w => toCacheKey(lang, w)),
+  ])
+);
+
+// ── Spanish social / casual phrases ─────────────────────────────────────────
+// These are the phrases that commonly look-alike because they share open-palm /
+// shrug body language.  The prompts were updated to give each a distinct
+// visual signature.  Keeping them in their own export so fix-social-phrases
+// can bust and re-seed exactly these keys without touching the broader
+// greeting or classroom-survival sets.
+export const SOCIAL_PHRASES_WORDS: Record<string, string[]> = {
+  spanish: [
+    'que tal', 'que pasa', 'todo bien', 'nada', 'y tú',
+    'igualmente', 'con permiso',
+    // Also bust the 'como' standalone which uses the same shrug silhouette
+    '¿cómo?',
+  ],
+};
+
+export const SOCIAL_PHRASES_CACHE_KEYS: Record<string, string[]> = Object.fromEntries(
+  Object.entries(SOCIAL_PHRASES_WORDS).map(([lang, words]) => [
     lang,
     words.map(w => toCacheKey(lang, w)),
   ])

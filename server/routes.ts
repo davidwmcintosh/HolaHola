@@ -12498,6 +12498,36 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
+  // ─── Fix Spanish social/casual phrases (que tal, que pasa, nada, etc.) ──────
+  // Busts and regenerates the phrases that share open-palm/shrug body language
+  // and were producing look-alike images.
+  app.post('/api/admin/vocab-images/fix-social-phrases', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { language = 'spanish' } = req.body;
+      const { bustVocabImageCache, SOCIAL_PHRASES_WORDS, SOCIAL_PHRASES_CACHE_KEYS, normalizeForOverride, SCENE_OVERRIDES } = await import('./services/vocab-image-seed-service');
+      const { resolveVocabularyImage } = await import('./services/vocabulary-image-resolver');
+      const keys = SOCIAL_PHRASES_CACHE_KEYS[language] ?? [];
+      const deleted = await bustVocabImageCache(keys);
+      const jobId = `vocab-fix-social-${language}-${Date.now()}`;
+      const words: string[] = SOCIAL_PHRASES_WORDS[language] ?? [];
+      (async () => {
+        for (const word of words) {
+          try {
+            const overrideKey = normalizeForOverride(word);
+            const sceneOverride = SCENE_OVERRIDES[`${language}:${overrideKey}`] ?? SCENE_OVERRIDES[overrideKey];
+            await resolveVocabularyImage({ word, language, description: word, scene: sceneOverride });
+          } catch (e: any) {
+            console.error(`[VocabFix] Failed social phrase "${word}" (${language}):`, e.message);
+          }
+        }
+        console.log(`[VocabFix] Finished regenerating ${words.length} ${language} social phrases (job ${jobId})`);
+      })().catch((e: any) => console.error('[VocabFix] Fatal error:', e.message));
+      res.json({ deleted, jobId, words, message: `Busted ${deleted} stale images. Regenerating ${words.length} social phrases in background.` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ─── BATCH: Fix numbers/days for ALL languages at once ───────────────────────
   app.post('/api/admin/vocab-images/fix-all-numbers', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {

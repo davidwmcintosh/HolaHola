@@ -7006,6 +7006,14 @@ function VocabImagesSection() {
     onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
   });
 
+  const fixSocialPhrasesMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-social-phrases', { language }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      toast({ title: 'Social phrases cache busted', description: `Deleted ${data.deleted} stale images. Re-seeding ${data.words?.length ?? 0} phrases in background.` });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
   const fixAllClassroomMutation = useMutation({
     mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-all-classroom', {}).then(r => r.json()),
     onSuccess: (data: any) => {
@@ -7219,6 +7227,20 @@ function VocabImagesSection() {
                   {fixAllClassroomResult && (
                     <p className="text-xs text-muted-foreground">All langs: deleted {fixAllClassroomResult.deleted} entries. Job: {fixAllClassroomResult.jobId?.slice(-8)}</p>
                   )}
+                  <div className="border-t border-border pt-2 mt-1">
+                    <p className="text-xs font-medium text-foreground/70 mb-1.5">Social phrases (que tal, que pasa, nada…)</p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => fixSocialPhrasesMutation.mutate()}
+                      disabled={fixSocialPhrasesMutation.isPending}
+                      className="w-full"
+                      data-testid="button-fix-social-phrases"
+                    >
+                      {fixSocialPhrasesMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+                      Fix Social Phrases (ES)
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
 
