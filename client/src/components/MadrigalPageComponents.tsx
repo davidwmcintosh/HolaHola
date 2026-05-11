@@ -176,7 +176,7 @@ export function MadrigalPositiveGrid({
 }) {
   const { tutorGender } = useLanguage();
   return (
-    <div className="grid grid-cols-2 gap-3" data-testid="madrigal-positive-grid">
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3" data-testid="madrigal-positive-grid">
       {items.map((item, i) => (
         <VocabImageCard
           key={item.word}
@@ -297,7 +297,7 @@ export function MadrigalPage12Grid({
   return (
     <div className="space-y-3" data-testid="madrigal-page12-grid">
       {withImages.length > 0 && (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {withImages.map((item, i) => (
             <Page12Card
               key={i}

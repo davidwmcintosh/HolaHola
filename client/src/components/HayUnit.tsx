@@ -248,8 +248,7 @@ function HayClusterSection({
 
       {/* Q&A image card grid */}
       <div
-        className="grid gap-3"
-        style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}
+        className="grid grid-cols-2 sm:grid-cols-3 gap-3"
         data-testid="hay-qa-grid"
       >
         {cluster.pairs.map((pair, i) => (
