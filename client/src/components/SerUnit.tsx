@@ -171,7 +171,7 @@ function DualFormCard({
 
 function DualFormGrid({ pairs, language, tutorGender }: { pairs: DualFormPair[]; language: string; tutorGender: string }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3" data-testid="dual-form-grid">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3" data-testid="dual-form-grid">
       {pairs.map((pair, i) => (
         <DualFormCard key={`${pair.imageWord}-${i}`} pair={pair} language={language} tutorGender={tutorGender} />
       ))}
@@ -284,7 +284,7 @@ function SerQACardItem({
 function SerQAGrid({ cards, language }: { cards: PreteriteQACard[]; language: string }) {
   const { tutorGender } = useLanguage();
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3" data-testid="ser-qa-grid">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3" data-testid="ser-qa-grid">
       {cards.map((card, i) => (
         <SerQACardItem
           key={`${card.imageWord}-${i}`}
@@ -580,7 +580,7 @@ function EstarStatementsCluster({
       {cluster.anchorItems && cluster.anchorItems.length > 0 && (
         <MadrigalAnchorBlock items={cluster.anchorItems} />
       )}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3" data-testid="estar-statement-grid">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3" data-testid="estar-statement-grid">
         {cluster.cards.map((card, i) => (
           <EstarStatementCard
             key={`${card.imageWord}-${i}`}

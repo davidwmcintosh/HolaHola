@@ -378,7 +378,7 @@ function GustClusterSection({
       {/* Q&A image card grid */}
       {cluster.pairs.length > 0 && (
         <div
-          className="grid grid-cols-2 sm:grid-cols-3 gap-3"
+          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"
           data-testid="gust-qa-grid"
         >
           {cluster.pairs.map((pair, i) => (
