@@ -536,3 +536,26 @@ DB-persistent "pinned style profile" system for the image engine test tool. Allo
 
 ### User-facing instructions
 Go to Admin → Image Engine Test. Upload a Daniela reference image (or use "Load Daniela from cache"). Enable `gemini-imagen-ref`. Run. After generation, the style description panel opens automatically. Select a language and click "Pin this style". Done — all future vocabulary images for that language use that pinned style.
+
+---
+
+## Session: May 12, 2026 — Adjective pair pipeline audit + final DALL-E 3 removal
+
+### What was built
+
+1. **Full adjective pair pipeline audit** — traced all paths that create adjective pair images and verified alignment with the Final Engine Assignment (all-Gemini, May 11 2026 decision):
+   - Live seed path (`seedVocabImages` → `resolveVocabularyImage` → `generateVisual`): ✅ Gemini Base
+   - `fix-adjectives` admin endpoint: ✅ Gemini Base (routes through same seed path)
+   - `scripts/regen-adjectives.ts` (standalone batch script): ❌ was still DALL-E 3 — now fixed
+
+2. **Migrated `scripts/regen-adjectives.ts`** from DALL-E 3 → Gemini Base (`gemini-2.5-flash-image`). This was the last DALL-E 3 reference anywhere in the codebase. The script uses `@google/genai` directly (not server imports) so it runs standalone. Same 8 adjective pairs, same visual descriptions, new engine. If a local file already exists it skips generation and only re-uploads + re-seeds (safe to re-run).
+
+3. **Fixed `SPLIT()` macro** in `vocab-image-seed-service.ts` — removed the "labeled X in small text at top" instructions from both LEFT and RIGHT half descriptions. Those label instructions contradicted the project-wide "ZERO TEXT ZERO WORDS ZERO LETTERS ZERO NUMBERS" rule and Gemini ignores them anyway. Added explicit no-text instruction to the `SPLIT()` output. The `leftLabel` / `rightLabel` parameters are retained for call-site compatibility (renamed to `_leftLabel`/`_rightLabel`) but no longer interpolated.
+
+### Key files modified
+- `scripts/regen-adjectives.ts` — full rewrite: OpenAI → @google/genai, DALL-E 3 → gemini-2.5-flash-image
+- `server/services/vocab-image-seed-service.ts` — SPLIT() macro: label text removed, no-text rule added
+
+### Roadmap updated
+- Header updated to May 12, 2026
+- "Callsites to Update" table replaced with "Callsites — Migration Status" table showing all 8 callsites (including `regen-adjectives.ts`) as ✅ Complete

@@ -2,7 +2,7 @@
 ## HoloHola — Interactive Textbook Design Playbook & Visual Library
 
 **Created:** March 15, 2026  
-**Last updated:** May 11, 2026 — Engine assignments revised (see "Final Engine Assignment — Revised May 11, 2026" in Image Engine Evaluation section); live-session freeform changed from Gemini Warm → Gemini Base + reference; environments changed from Base Gemini Flash → gpt-image-1 prop; environment usage clarified (two distinct contexts: vocab anchor images + visual_environments prop room backgrounds)  
+**Last updated:** May 12, 2026 — Adjective pair pipeline audit complete; `scripts/regen-adjectives.ts` migrated from DALL-E 3 → Gemini Base; `SPLIT()` macro no-text rule enforced; all seven original DALL-E callsites confirmed migrated (see "Callsites — Migration Status" below). Previously: May 11, 2026 — Engine assignments revised; live-session freeform changed from Gemini Warm → Gemini Base + reference; environments changed from Base Gemini Flash → gpt-image-1 prop; environment usage clarified (two distinct contexts: vocab anchor images + visual_environments prop room backgrounds)  
 **Referenced by:** `docs/curriculum-strategy.md` (Section 8)  
 **Component coverage manifest:** `docs/textbook-component-coverage.json` (machine-readable, Lyra-monitored)  
 **Status column key:** ⬜ Planned | 🔄 Generating | ✅ In Library
@@ -7098,21 +7098,24 @@ The DALL-E 3 `SCENE_STYLE` constant was written for DALL-E 3's specific response
 
 ---
 
-### Callsites to Update (Implementation Phase)
+### Callsites — Migration Status (May 12, 2026)
 
-Seven files need updating. All can route through a new shared `generateImageGoogle()` utility function rather than touching each file individually.
+All seven original DALL-E 3 callsites were migrated to Gemini in session 47d (May 9, 2026). The table below is the final status record.
 
-| File | Current model | New model | Priority |
+| File | Was | Now | Status |
 |---|---|---|---|
-| `visual-content-service.ts` | `dall-e-3 HD` | `imagen-4.0-ultra-generate-001` (scenes) / `imagen-4.0-generate-001` (props) | 🔴 High — core pipeline |
-| `vocab-image-seed-service.ts` | via visual-content-service | Inherits from above | 🔴 High |
-| `lesson-image-generator.ts` | `dall-e-3` | `imagen-4.0-ultra-generate-001` | 🟡 Medium |
-| `scenario-image-generator.ts` | `dall-e-3` | `imagen-4.0-ultra-generate-001` | 🟡 Medium |
-| `menu-image-worker.ts` | `dall-e-3` | `imagen-4.0-generate-001` | 🟡 Medium |
-| `prop-room-compositor.ts` | `dall-e-3` | `imagen-4.0-ultra-generate-001` | 🟡 Medium |
-| `routes.ts` → `generateImageWithGemini()` | `dall-e-3` at 1792×1024 | `imagen-4.0-ultra-generate-001` | 🟡 Medium |
+| `visual-content-service.ts` | `dall-e-3 HD` | `gemini-2.5-flash-image` via `google-image-service.ts` | ✅ Complete |
+| `vocab-image-seed-service.ts` | via visual-content-service | Inherits from above | ✅ Complete |
+| `lesson-image-generator.ts` | `dall-e-3` | `generateFromCustomPrompt()` → `gemini-2.5-flash-image` | ✅ Complete |
+| `scenario-image-generator.ts` | `dall-e-3` | `generateFromCustomPrompt()` → `gemini-2.5-flash-image` | ✅ Complete |
+| `menu-image-worker.ts` | `dall-e-3` | `generateFromCustomPrompt()` → `gemini-2.5-flash-image` | ✅ Complete |
+| `prop-room-compositor.ts` | `dall-e-3` | `generateFromCustomPrompt()` → `gemini-2.5-flash-image` | ✅ Complete |
+| `routes.ts` → `generateImageWithGemini()` | `dall-e-3` at 1792×1024 | `generateFromCustomPrompt()` → `gemini-2.5-flash-image` | ✅ Complete |
+| `scripts/regen-adjectives.ts` | `dall-e-3` (standalone script) | `gemini-2.5-flash-image` via `@google/genai` | ✅ Complete (May 12, 2026) |
 
-**Recommended implementation approach:** Create `server/services/google-image-service.ts` as the single integration point for all Google image generation. Export two functions: `generateSceneImage(prompt)` → Imagen 4 Ultra, `generatePropImage(prompt)` → Imagen 4 Standard. All seven callsites import from this service. Live session `show_image()` path gets a separate `generateLiveImage(prompt)` → Gemini Flash for latency-critical calls.
+**Single integration point:** `server/services/google-image-service.ts` — all generation funnels through the four exported functions (`generateCharacterScene`, `generateEnvironmentScene`, `generatePropImage`, `generateFromCustomPrompt`).
+
+**Note on `scripts/regen-adjectives.ts`:** This is a one-off batch script, not a live code path. It was the last remaining DALL-E 3 reference in the codebase. Migrated May 12 — uses `@google/genai` directly (no server import) so it can be run standalone with `npx tsx scripts/regen-adjectives.ts`.
 
 ---
 
