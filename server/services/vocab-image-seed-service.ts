@@ -121,12 +121,15 @@ const NUM_CJK = (digit: string, char: string, label: string) =>
  * Split-panel contrast illustration — shared by BOTH words in an antonym pair.
  * Left panel shows the "positive/first" concept; right panel shows the "negative/second".
  * Both members of the pair receive the SAME prompt so they always render identical images.
+ * NOTE: no text labels — Gemini ignores text instructions and all generation rules
+ * prohibit text/letters/numbers in images. The visual contrast alone carries the meaning.
  */
-const SPLIT = (leftLabel: string, leftDesc: string, rightLabel: string, rightDesc: string) =>
+const SPLIT = (_leftLabel: string, leftDesc: string, _rightLabel: string, rightDesc: string) =>
   `A clean split-panel flat illustration divided by a bold vertical line down the center. ` +
-  `LEFT half (labeled "${leftLabel}" in small text at top): ${leftDesc}. ` +
-  `RIGHT half (labeled "${rightLabel}" in small text at top): ${rightDesc}. ` +
-  `Bright, bold flat design. No clutter, minimal background. Square format.`;
+  `LEFT half: ${leftDesc}. ` +
+  `RIGHT half: ${rightDesc}. ` +
+  `Bright, bold flat design. No clutter, minimal background. Square format. ` +
+  `ZERO TEXT ZERO WORDS ZERO LETTERS ZERO NUMBERS anywhere in the image.`;
 
 // Shared scene concept for "how are you?" — same visual scene across all languages.
 // Only the characters (from CHARACTER_PROFILES) and cultural setting change.

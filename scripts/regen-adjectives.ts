@@ -1,30 +1,32 @@
 /**
- * Regenerate all 8 remaining adjective contrast-pair images in a consistent
- * flat simple cartoon style — matching feliz/triste and rapido/lento.
+ * Regenerate all adjective contrast-pair images using Gemini Base
+ * (gemini-2.5-flash-image) — the canonical engine for all HolaHola image
+ * generation as of May 2026.
  *
- * Strategy: avoid people entirely wherever possible. Use simple objects,
- * icons, animals, or shapes to convey each concept clearly.
+ * Strategy: avoid people wherever possible. Use simple objects, icons,
+ * animals, or shapes to convey each concept clearly.
+ *
+ * Run: npx tsx scripts/regen-adjectives.ts
  */
 
-import OpenAI from 'openai';
+import { GoogleGenAI } from '@google/genai';
 import { Storage } from '@google-cloud/storage';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { neon } from '@neondatabase/serverless';
 import { sql } from 'drizzle-orm';
 import fs from 'fs';
 import path from 'path';
-import https from 'https';
 
-const OPENAI_KEY = process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '';
+const GEMINI_KEY = process.env.GEMINI_API_KEY || '';
 const BUCKET_ID  = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID || '';
 const DB_URL     = process.env.NEON_SHARED_DATABASE_URL || '';
 const SIDECAR    = 'http://127.0.0.1:1106';
 
-if (!OPENAI_KEY) throw new Error('OPENAI_API_KEY not set');
+if (!GEMINI_KEY) throw new Error('GEMINI_API_KEY not set');
 if (!BUCKET_ID)  throw new Error('DEFAULT_OBJECT_STORAGE_BUCKET_ID not set');
 if (!DB_URL)     throw new Error('NEON_SHARED_DATABASE_URL not set');
 
-const openai = new OpenAI({ apiKey: OPENAI_KEY });
+const ai = new GoogleGenAI({ apiKey: GEMINI_KEY });
 
 const gcs = new Storage({
   credentials: {
@@ -45,24 +47,29 @@ const sqlClient = neon(DB_URL);
 const db = drizzle(sqlClient);
 const OUT_DIR = path.join(process.cwd(), 'attached_assets/generated_images/vocab');
 
-// Shared style — must match the feliz/triste and rapido/lento style exactly
+// Style constant — flat illustration matching the adjective pair library style.
+// No text labels: Gemini ignores them and all generation rules prohibit text in images.
 const STYLE =
   'flat simple cartoon illustration, bold clean outlines, bright flat colours, ' +
   "children's picture-book style, simple shapes, no realistic detail, pure white background. " +
   'ZERO TEXT ZERO WORDS ZERO LETTERS ZERO NUMBERS anywhere in the image.';
+
+// Split-panel helper — no label instructions, visual contrast carries the meaning.
+const SPLIT = (leftDesc: string, rightDesc: string) =>
+  `A clean split-panel flat illustration divided by a bold vertical line down the center. ` +
+  `LEFT half: ${leftDesc}. ` +
+  `RIGHT half: ${rightDesc}. ` +
+  `${STYLE}`;
 
 const IMAGES = [
   // ── cerca / lejos ──────────────────────────────────────────────────────────
   {
     filename: 'adj_cerca_lejos.png',
     destFilename: 'vocab_adj_cerca_lejos.png',
-    prompt:
-      'Two side-by-side panels showing NEAR vs FAR using size. ' +
-      'LEFT panel — a large, colourful cartoon house fills most of the space; a tiny cartoon figure stands right beside the front door, nearly the same height as the door. ' +
-      'RIGHT panel — the exact same house is now very tiny and distant at the far end of a long road stretching into the distance; the tiny cartoon figure is large in the foreground looking toward it. ' +
-      'The enormous size difference between the two houses makes the concept instantly obvious. ' +
-      'The two panels are separated by a clear dividing line. ' +
-      STYLE,
+    prompt: SPLIT(
+      'a large colourful cartoon house fills most of the space; a tiny cartoon figure stands right beside the front door',
+      'the exact same house is now very tiny and distant at the far end of a long road; the tiny cartoon figure is large in the foreground looking toward it',
+    ),
     cacheKeys: ['vocab_spanish_cerca', 'vocab_spanish_lejos'],
     tags: ['vocabulary', 'novice_mid', 'adjectives', 'section2'],
   },
@@ -71,13 +78,10 @@ const IMAGES = [
   {
     filename: 'adj_alto_bajo.png',
     destFilename: 'vocab_adj_alto_bajo.png',
-    prompt:
-      'Two simple cartoon giraffe vs mouse comparison side by side, illustrating tall vs short. ' +
-      'LEFT — a very tall cartoon giraffe with a long neck reaching up, its head near the top of the frame. ' +
-      'RIGHT — a very small cartoon mouse standing on the ground, tiny, its head barely above the bottom of the frame. ' +
-      'Both animals are cute and simple with bold outlines. ' +
-      'The height contrast is dramatic and unmistakable. ' +
-      STYLE,
+    prompt: SPLIT(
+      'a very tall cartoon giraffe with a long neck reaching up, head near the top of the frame',
+      'a very small cartoon mouse standing on the ground, tiny, barely above the bottom of the frame',
+    ),
     cacheKeys: ['vocab_spanish_alto', 'vocab_spanish_bajo'],
     tags: ['vocabulary', 'novice_mid', 'adjectives', 'section2'],
   },
@@ -86,12 +90,10 @@ const IMAGES = [
   {
     filename: 'adj_pesado_ligero.png',
     destFilename: 'vocab_adj_pesado_ligero.png',
-    prompt:
-      'Two simple objects side by side contrasting heavy vs light. ' +
-      'LEFT — a large cartoon round grey boulder with cracks in it, sitting heavily on the ground, with small downward pressure lines underneath it indicating great weight. ' +
-      'RIGHT — a single fluffy white cartoon feather floating lightly in the air, with a gentle upward wisp to show it is light as air. ' +
-      'Clear, simple, iconic — no people involved. ' +
-      STYLE,
+    prompt: SPLIT(
+      'a large cartoon round grey boulder with cracks, sitting heavily on the ground with small downward pressure lines underneath',
+      'a single fluffy white cartoon feather floating lightly in the air with a gentle upward wisp',
+    ),
     cacheKeys: ['vocab_spanish_pesado', 'vocab_spanish_ligero'],
     tags: ['vocabulary', 'novice_mid', 'adjectives', 'section2'],
   },
@@ -100,13 +102,10 @@ const IMAGES = [
   {
     filename: 'adj_joven_viejo_personas.png',
     destFilename: 'vocab_adj_joven_viejo_personas.png',
-    prompt:
-      'Two cartoon trees side by side showing young vs old. ' +
-      'LEFT — a small young sapling: a thin green trunk with just a few bright green leaves and a fresh look, full of energy. ' +
-      'RIGHT — a large ancient old tree: a thick gnarled trunk with many branches, a huge full canopy of leaves, and visible age rings or bark texture. ' +
-      'The young tree is small and fresh; the old tree is massive and well-established. ' +
-      'Simple, charming, no people. ' +
-      STYLE,
+    prompt: SPLIT(
+      'a small young sapling: thin green trunk with just a few bright green leaves, fresh and full of energy',
+      'a large ancient old tree: thick gnarled trunk with many branches, huge full canopy of leaves, visible bark texture',
+    ),
     cacheKeys: ['vocab_spanish_joven', 'vocab_spanish_viejo_persona'],
     tags: ['vocabulary', 'novice_mid', 'adjectives', 'section2'],
   },
@@ -115,12 +114,10 @@ const IMAGES = [
   {
     filename: 'adj_facil_dificil.png',
     destFilename: 'vocab_adj_facil_dificil.png',
-    prompt:
-      'Two cartoon scenarios side by side contrasting easy vs difficult. ' +
-      'LEFT — a single large cartoon puzzle piece clicking perfectly into place in a simple 2-piece puzzle; a big green checkmark above it shows success. Everything looks simple and happy. ' +
-      'RIGHT — a chaotic pile of hundreds of tiny jumbled puzzle pieces in a messy heap with question marks floating around; it looks impossibly complicated. ' +
-      'The contrast is immediately clear — one piece vs an overwhelming pile. ' +
-      STYLE,
+    prompt: SPLIT(
+      'a single large cartoon puzzle piece clicking perfectly into place in a simple 2-piece puzzle; a big green checkmark above it',
+      'a chaotic pile of hundreds of tiny jumbled puzzle pieces in a messy heap with question marks floating around',
+    ),
     cacheKeys: ['vocab_spanish_facil', 'vocab_spanish_dificil'],
     tags: ['vocabulary', 'novice_mid', 'adjectives', 'section2'],
   },
@@ -129,12 +126,10 @@ const IMAGES = [
   {
     filename: 'adj_ruidoso_tranquilo.png',
     destFilename: 'vocab_adj_ruidoso_tranquilo.png',
-    prompt:
-      'Two cartoon icons side by side contrasting loud vs quiet. ' +
-      'LEFT — a bright red cartoon megaphone or speaker blasting sound, with many bold jagged sound waves radiating outward in all directions, indicating extreme loudness. ' +
-      'RIGHT — a calm cartoon crescent moon with a small sleeping face (closed eyes, peaceful expression) with no sound lines at all — just stillness, perhaps a tiny "zzz" floating up. ' +
-      'The two icons are simple, bold, and immediately readable. ' +
-      STYLE,
+    prompt: SPLIT(
+      'a bright red cartoon megaphone blasting sound with many bold jagged sound waves radiating outward in all directions',
+      'a calm cartoon crescent moon with a small sleeping face (closed eyes, peaceful expression) with no sound lines — just stillness',
+    ),
     cacheKeys: ['vocab_spanish_ruidoso', 'vocab_spanish_tranquilo'],
     tags: ['vocabulary', 'novice_mid', 'adjectives', 'section2'],
   },
@@ -143,12 +138,10 @@ const IMAGES = [
   {
     filename: 'adj_oscuro_claro.png',
     destFilename: 'vocab_adj_oscuro_claro.png',
-    prompt:
-      'Two simple cartoon windows side by side contrasting dark vs bright. ' +
-      'LEFT — a cartoon window with dark navy-blue curtains drawn shut; a crescent moon is visible through a small gap; the overall colour is dark and dim. ' +
-      'RIGHT — the exact same cartoon window but with curtains wide open; bright yellow sunlight streams in with radiating sun rays; the overall colour is warm and bright. ' +
-      'The two windows are simple and immediately convey the contrast. ' +
-      STYLE,
+    prompt: SPLIT(
+      'a cartoon window with dark navy-blue curtains drawn shut; a crescent moon visible through a small gap; dark and dim overall',
+      'the exact same cartoon window but with curtains wide open; bright yellow sunlight streams in with radiating sun rays; warm and bright',
+    ),
     cacheKeys: ['vocab_spanish_oscuro', 'vocab_spanish_claro'],
     tags: ['vocabulary', 'novice_mid', 'adjectives', 'section2'],
   },
@@ -157,26 +150,27 @@ const IMAGES = [
   {
     filename: 'adj_duro_suave.png',
     destFilename: 'vocab_adj_duro_suave.png',
-    prompt:
-      'Two simple cartoon objects side by side contrasting hard vs soft. ' +
-      'LEFT — a rough jagged grey rock/boulder with angular sharp edges and cracks, looking very solid and hard. ' +
-      'RIGHT — a round plump cartoon pillow with a simple smiley face, soft curved edges, and squiggly lines to suggest fluffiness and softness. ' +
-      'The hard angular rock vs the soft round pillow is an immediately clear contrast. ' +
-      STYLE,
+    prompt: SPLIT(
+      'a rough jagged grey rock with angular sharp edges and cracks, looking very solid and hard',
+      'a round plump cartoon pillow with soft curved edges and squiggly lines to suggest fluffiness and softness',
+    ),
     cacheKeys: ['vocab_spanish_duro', 'vocab_spanish_suave', 'vocab_spanish_blando'],
     tags: ['vocabulary', 'novice_mid', 'adjectives', 'section2'],
   },
 ];
 
-async function downloadUrl(url: string): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    https.get(url, (res) => {
-      res.on('data', (chunk) => chunks.push(chunk));
-      res.on('end', () => resolve(Buffer.concat(chunks)));
-      res.on('error', reject);
-    }).on('error', reject);
+async function callGemini(prompt: string): Promise<Buffer> {
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash-image',
+    contents: prompt,
+    config: { responseModalities: ['TEXT', 'IMAGE'] },
   });
+
+  const parts = response.candidates?.[0]?.content?.parts ?? [];
+  const imagePart = parts.find((p: any) => p.inlineData?.mimeType?.startsWith('image/'));
+  if (!imagePart?.inlineData) throw new Error('No image in Gemini response');
+
+  return Buffer.from(imagePart.inlineData.data, 'base64');
 }
 
 async function main() {
@@ -187,35 +181,17 @@ async function main() {
     const idx = IMAGES.indexOf(entry) + 1;
     console.log(`\n[${idx}/${IMAGES.length}] ${entry.filename}`);
 
+    let buf: Buffer;
+
     if (fs.existsSync(localPath)) {
-      console.log('  ↩ Already exists locally — skipping generation');
-      // Still re-upload and re-seed in case DB is stale
-      const buf = fs.readFileSync(localPath);
-      const bucket = gcs.bucket(BUCKET_ID);
-      const file = bucket.file(`public/ai-images/${entry.destFilename}`);
-      await file.save(buf, { contentType: 'image/png', metadata: { cacheControl: 'public, max-age=31536000' } });
-      const url = `/api/media/ai-image/${entry.destFilename}`;
-      const tagsLiteral = sql.raw(`ARRAY[${entry.tags.map(t => `'${t}'`).join(',')}]::text[]`);
-      for (const key of entry.cacheKeys) {
-        await db.execute(sql`UPDATE media_files SET url = ${url} WHERE search_query = ${key}`);
-        console.log(`    ↻ Updated: ${key}`);
-      }
-      continue;
+      console.log('  ↩ Already exists locally — re-uploading & re-seeding (delete file to force regen)');
+      buf = fs.readFileSync(localPath);
+    } else {
+      console.log('  ⏳ Generating with Gemini…');
+      buf = await callGemini(entry.prompt);
+      fs.writeFileSync(localPath, buf);
+      console.log('  ✓ Generated & saved');
     }
-
-    const response = await openai.images.generate({
-      model: 'dall-e-3',
-      prompt: entry.prompt,
-      n: 1,
-      size: '1024x1024',
-      quality: 'standard',
-      response_format: 'url',
-    });
-
-    const imageUrl = response.data?.[0]?.url!;
-    const buf = await downloadUrl(imageUrl);
-    fs.writeFileSync(localPath, buf);
-    console.log('  ✓ Generated & saved');
 
     const bucket = gcs.bucket(BUCKET_ID);
     const file = bucket.file(`public/ai-images/${entry.destFilename}`);
@@ -238,10 +214,11 @@ async function main() {
       }
     }
 
-    await new Promise(r => setTimeout(r, 800));
+    // Brief pause between calls to stay within Gemini rate limits
+    if (idx < IMAGES.length) await new Promise(r => setTimeout(r, 1000));
   }
 
-  console.log(`\n✅ All ${IMAGES.length} adjective pairs regenerated.`);
+  console.log(`\n✅ All ${IMAGES.length} adjective pairs processed with Gemini.`);
 }
 
 main().catch(err => { console.error(err); process.exit(1); });
