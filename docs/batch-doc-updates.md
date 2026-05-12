@@ -564,12 +564,14 @@ Go to Admin → Image Engine Test. Upload a Daniela reference image (or use "Loa
 
 ## Product Decisions — May 12, 2026 (recorded from conversation)
 
-### 1. Single pinned style for all languages
+### 1. Single pinned style for all languages + adjective pairs reused
 **Decision:** One style profile pinned at `/admin/image-test`, applied to all 9 languages. Character profiles (`CHARACTER_PROFILES` in `vocab-image-seed-service.ts`) carry the cultural and visual difference between languages — the watercolor/illustration aesthetic is shared.
+
+**Adjective pairs:** The 8 split-panel contrast images (cerca/lejos, alto/bajo, etc.) are concept-universal — they use objects/animals/icons, not characters, so they are reused as-is across all languages. No per-language regen needed.
 
 **Rationale:** Avoids 9 separate reference-image extraction sessions. Characters (name, appearance, cultural setting) already differentiate scenes sufficiently. If a specific language needs a distinct aesthetic later, it can get its own pin at that point.
 
-**Next step:** Pin style once Spanish testing is signed off → trigger `seedVocabImages` per language. Social phrases seed automatically with correct character + setting per language.
+**Next step:** Pin style once Spanish testing is signed off → trigger `seedVocabImages` per language. Social phrases seed automatically with correct character + setting per language. Adjective pair images already in library — no action needed.
 
 ---
 

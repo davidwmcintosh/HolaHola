@@ -5253,6 +5253,31 @@ Priority order for language expansion: Spanish → French → German → then ot
 
 ---
 
+### Multi-Language Rollout Decisions (May 12, 2026)
+
+**1. Single pinned style, all languages**
+One style profile is pinned at `/admin/image-test` and applied globally. `CHARACTER_PROFILES` in `vocab-image-seed-service.ts` carry the cultural and visual difference between languages — each language has its own named character, appearance description, and cultural setting. The watercolor/illustration aesthetic is shared across all 9.
+
+Workflow once Spanish testing is signed off:
+1. Pin one style profile at `/admin/image-test`
+2. Trigger `seedVocabImages(language)` per language — social phrases seed automatically with correct character + cultural setting
+3. No per-language style extraction needed; individual pins can be added later if a language needs a distinct aesthetic
+
+**2. Adjective pairs are reused across all languages — no per-language regen**
+The 8 split-panel contrast images (`cerca/lejos`, `alto/bajo`, `pesado/ligero`, `joven/viejo`, `fácil/difícil`, `ruidoso/tranquilo`, `oscuro/claro`, `duro/suave`) use objects, animals, and icons — no culturally coded characters. The visual contrast is universally legible. These images are shared across all languages as-is.
+
+**3. Textbook copy to all languages — gated on Spanish content audit**
+Spanish 1/2/3/4/5 units are the reference architecture. Once David completes a final content audit (layout, images, content) of the Spanish textbooks, the structure will be adapted to all other supported languages. Scope per language:
+- Vocabulary lists translated/adapted
+- Social phrase + character scene images re-seeded with language-specific `CHARACTER_PROFILES`
+- Drill items adapted (key phrases, substitution columns)
+- Daniela's cultural framing updated per language
+
+**Gate:** Do not start multi-language textbook copy until Spanish 1–5 audit is complete.
+**Note:** Spanish 3/4/5 Advanced Units (Madrigal hardcoded content in `client/src/data/advanced-unit-content.ts`) are Spanish-specific by design and do not copy over.
+
+---
+
 ## Section 10 — Interactive Ordering Menus
 
 **Status: Planned**  
