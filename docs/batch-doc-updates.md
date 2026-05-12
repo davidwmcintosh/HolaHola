@@ -559,3 +559,29 @@ Go to Admin → Image Engine Test. Upload a Daniela reference image (or use "Loa
 ### Roadmap updated
 - Header updated to May 12, 2026
 - "Callsites to Update" table replaced with "Callsites — Migration Status" table showing all 8 callsites (including `regen-adjectives.ts`) as ✅ Complete
+
+---
+
+## Product Decisions — May 12, 2026 (recorded from conversation)
+
+### 1. Single pinned style for all languages
+**Decision:** One style profile pinned at `/admin/image-test`, applied to all 9 languages. Character profiles (`CHARACTER_PROFILES` in `vocab-image-seed-service.ts`) carry the cultural and visual difference between languages — the watercolor/illustration aesthetic is shared.
+
+**Rationale:** Avoids 9 separate reference-image extraction sessions. Characters (name, appearance, cultural setting) already differentiate scenes sufficiently. If a specific language needs a distinct aesthetic later, it can get its own pin at that point.
+
+**Next step:** Pin style once Spanish testing is signed off → trigger `seedVocabImages` per language. Social phrases seed automatically with correct character + setting per language.
+
+---
+
+### 2. Textbook copy to all languages — pending content audit
+**Decision:** Spanish 1/2/3/4/5 units will be adapted to all other supported languages once David has completed a final content audit of the Spanish textbooks (layout, images, content). The Spanish curriculum is the reference architecture — other languages follow the same structure.
+
+**Scope when it happens:**
+- Vocabulary lists translated/adapted per language
+- Social phrase and character scene images re-seeded with language-specific `CHARACTER_PROFILES`
+- Drill items adapted (key phrases, substitution columns)
+- Daniela's cultural framing updated per language context
+
+**Gate:** Spanish content audit must be complete first. Do not start multi-language copy until Spanish 1–5 is locked.
+
+**Note:** Spanish 3/4/5 Advanced Units (Madrigal hardcoded content) are Spanish-specific by design — those do not copy over.
