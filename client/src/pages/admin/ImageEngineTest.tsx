@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Play, RotateCcw, Clock, AlertCircle, ImageOff, ChevronDown, ChevronUp, RefreshCw, X, ZoomIn, Upload, UserCheck, Loader2, Pin, Trash2 } from "lucide-react";
+import { Play, RotateCcw, Clock, AlertCircle, ImageOff, ChevronDown, ChevronUp, RefreshCw, X, ZoomIn, Upload, UserCheck, Loader2, Pin, Trash2, Copy, Check } from "lucide-react";
 
 // Engines that support reference image input (must match REFERENCE_CAPABLE_ENGINES on server)
 const REFERENCE_CAPABLE_ENGINES = ["gemini-imagen-ref"];
@@ -259,6 +259,7 @@ export default function ImageEngineTest() {
   const [lockedProfiles, setLockedProfiles] = useState<StyleProfile[]>([]);
   const [lockingStyle, setLockingStyle] = useState(false);
   const [pinLanguage, setPinLanguage] = useState("spanish");
+  const [copiedLanguage, setCopiedLanguage] = useState<string | null>(null);
 
   // Extraction mode — controls what Gemini looks for in the reference image
   const [extractionMode, setExtractionMode] = useState<"character" | "environment">("character");
@@ -766,22 +767,45 @@ export default function ImageEngineTest() {
               ) : (
                 <div className="flex flex-col gap-1.5">
                   {lockedProfiles.map(p => (
-                    <div key={p.language} className="flex items-center justify-between gap-2 rounded-md border border-border px-2.5 py-1.5">
-                      <div className="min-w-0">
-                        <div className="text-xs font-medium capitalize">{p.language}</div>
-                        <div className="text-[10px] text-muted-foreground">
-                          Pinned {new Date(p.lockedAt).toLocaleDateString()}
+                    <div key={p.language} className="flex flex-col gap-1 rounded-md border border-border px-2.5 py-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-xs font-medium capitalize">{p.language}</div>
+                          <div className="text-[10px] text-muted-foreground">
+                            Pinned {new Date(p.lockedAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => {
+                              navigator.clipboard.writeText(p.styleDescription);
+                              setCopiedLanguage(p.language);
+                              setTimeout(() => setCopiedLanguage(null), 2000);
+                            }}
+                            title={`Copy pinned style prompt for ${p.language}`}
+                            data-testid={`button-copy-profile-${p.language}`}
+                          >
+                            {copiedLanguage === p.language
+                              ? <Check className="w-3.5 h-3.5 text-green-500" />
+                              : <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                            }
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => deleteProfile(p.language)}
+                            title={`Remove pinned style for ${p.language}`}
+                            data-testid={`button-delete-profile-${p.language}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
+                          </Button>
                         </div>
                       </div>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => deleteProfile(p.language)}
-                        title={`Remove pinned style for ${p.language}`}
-                        data-testid={`button-delete-profile-${p.language}`}
-                      >
-                        <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
-                      </Button>
+                      <p className="text-[10px] text-muted-foreground leading-relaxed line-clamp-2 select-text">
+                        {p.styleDescription}
+                      </p>
                     </div>
                   ))}
                 </div>
