@@ -505,7 +505,7 @@ Our `/chat` route currently runs `gemini-3.1-flash-live-preview` (set via `GEMIN
 | **Max concurrent sessions** | ~50 (Tier 1) / ~1,000 (Tier 2, $250+ spend) | ~100 (Tier 5, OpenAI's highest tier) | ~100 (Tier 5) |
 | **Concurrency path to scale** | Tier 2 auto-unlocks at spend threshold — no code change | Requires OpenAI org tier upgrades, account review | Same |
 | **Cost per minute (approx)** | ~$0.03/min (audio in + out combined) | ~$0.30/min — **10× more expensive** | ~$0.03/min — comparable |
-| **Languages (voice output)** | 30+ languages, all 9 HolaHola languages natively supported in voice | 50+ languages recognized (STT), but voice output voices are English-tuned — non-English output quality degrades | Same |
+| **Languages (voice output)** | 30+ languages, all 9 HolaHola languages natively supported in voice | Native audio end-to-end (no separate STT step) — model understands many languages, but the 8 generated voices were trained primarily on English data; non-English voice output quality degrades noticeably vs Gemini | Same — English-optimized voice output |
 | **Latency (time to first audio)** | ~300–600ms | ~320–500ms | ~400–600ms |
 | **Session length limit** | 15 min hard cap (auto-reconnect implemented and working) | No hard cap — longer sessions supported | No hard cap |
 | **Available voices** | 30+ prebuilt (Puck, Charon, Kore, Fenrir, Aoede, Leda, Orus, Perseus, and others) — some multilingual | 8 voices (alloy, ash, ballad, coral, echo, sage, shimmer, verse) — English-optimized | Same 8 voices |

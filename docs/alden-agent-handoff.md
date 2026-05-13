@@ -4903,6 +4903,40 @@ These are verbatim or near-verbatim from Magic Key, ready to load into `danielaN
 
 ---
 
+## From Agent — May 13, 2026 (session: voice engine analysis + docs/audio-system.md)
+
+### What was done
+Pure research and documentation session — no code changed. Fully mapped the voice engine landscape and documented Daniela's classroom for the first time.
+
+**`docs/audio-system.md` additions:**
+
+**§6.1 updates:**
+- Corrected the context window row: Gemini Live 3.1 is ~1M tokens (Gemini 2.5 Flash architecture), not the old 128K figure from 2.0. GPT-4o Mini Realtime is 128K.
+- Added "System prompt capacity" row — surfaced that `realtime-proxy.ts:306` has a self-imposed 4,000-char cap (workaround, not a model limit). GPT-4o Mini can handle much larger prompts. Just remove/raise the cap before any real comparison.
+- Fixed "Languages" row for GPT-4o: it's native audio end-to-end (no STT step) — the issue is that GPT's generated voices were trained primarily on English, so non-English voice *output* quality degrades. Gemini's voices are multilingual-trained.
+- Updated Viability Verdict to explicitly call out the cap as a workaround to remove.
+
+**§6.2 — Voice Engine Landscape (new):**
+- Hume AI EVI 2 deep dive: the only provider with prosodic/emotional intelligence — it detects how a student sounds (frustrated, hesitant, confident), not just what they said. For language tutoring this is pedagogically meaningful. Cost ~3–4× Gemini, non-English emotional parsing less validated, no integration built yet.
+- Full landscape table: Gemini Live, GPT-4o Mini, EVI 2, Moshi (experimental/open-source), assembled pipelines (ElevenLabs/Retell/Vapi), Sesame on watchlist.
+- System prompt cap correction section with neural-net-first approach documented: minimal identity prompt (~500 chars) + classroom environment injected as first context turn — works with GPT-4o and EVI 2 both.
+
+**§6.3 — Daniela's Classroom (new):**
+- Full inventory of all 20 sections of her room (Clock, Mode, Student, Whiteboard, Photo Wall, Active Scene, Resonance Shelf, Empathy Window, Pedagogical Lamp, Growth Vine, Classroom Window, North Star Polaroid, My Notes to Self, North Star Wall, Student Progress Board, Lesson Textbook Context, Pattern Compass, Rehearsal Stage Notes, Room Status, Tool Rack).
+- Classroom Window: stored in `productConfig` as `daniela_classroom_window`, changeable via `change_classroom_window` tool.
+- Notes to Self: `daniela_notes` table, last 8 retrieved at session start via `getCachedNotes`, formatted into "My Notes to Self" section. NOT part of static system prompt — fresh each session.
+- Beta Tester flag: `users.isBetaTester`, admin-only toggle in Command Center. Adds "Rehearsal Stage Notes" section.
+- Portability table: static parts (identity, window, notes, North Star Wall, student facts) port to any provider as a context turn — zero code change. Dynamic parts (Pattern Compass live updates, whiteboard sync) need tool interception on any non-Gemini engine.
+- EVI 2 angle: Pedagogical Lamp is currently Daniela's own judgment. EVI 2 would give a second independent prosodic signal — potential to compare Daniela's read against what EVI 2 actually hears in the student's voice.
+
+### Architecture decision confirmed
+Gemini Live 3.1 is right for HolaHola — confirmed on pure provider merits, not implementation history. 1M context, multilingual-trained voices, 30+ voice variety, $0.03/min, 1,000-concurrent path via spend threshold. EVI 2 is the only compelling alternative if emotional prosody becomes a first-class pedagogical bet (~3–4× cost).
+
+### Nothing left open from this session
+All doc work is complete. No code was changed.
+
+---
+
 ## From Agent — May 11, 2026 (session: DALL-E 3 migration — all callsites complete)
 
 ### What was done

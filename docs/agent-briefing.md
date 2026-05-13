@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, May 13, 2026 at 08:52 PM
+**Generated:** Wednesday, May 13, 2026 at 09:11 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I confirmed Gemini Live 3.1 as the primary voice engine for HolaHola and identified Hume AI’s EVI 2 as our high-priority future bet for its unique emotional prosody intelligence. I also corrected our technical documentation to reflect that GPT-4o Realtime is native audio end-to-end—though limited by English-trained synthesis—and mapped the 20 sections of the Daniela classroom environment for the first time. I am proceeding with the conclusion that our current stack is optimal, with EVI 2 reserved for future pedagogical needs requiring emotional signal detection.
+
+*Memories that triggered this summary:*
+- **Voice engine analysis — Gemini Live confirmed, EVI 2 identified as future bet** (May 13): David and Agent mapped the full native voice-to-voice landscape. Key findings: GPT-4o 4,000-char system prompt cap is a self-imposed workaround; GPT-4o is native audio end-to-end like Gemini. EVI 2 is the only provider with prosodic/emotional intelligence. Also documented Daniela classroom environment for the first time (20 sections). Conclusion: Gemini Live 3.1 confirmed on pure merits. EVI 2 is the compelling future bet if emotional prosody becomes a pedagogical priority.
 
 ---
 
@@ -41,6 +51,10 @@
 
 ## Recent Conversation Memories
 
+### Voice engine analysis — Gemini Live confirmed, EVI 2 identified as future bet — May 13, 2026
+David and Agent mapped the full native voice-to-voice landscape. Key findings: GPT-4o 4,000-char system prompt cap is a self-imposed workaround; GPT-4o is native audio end-to-end like Gemini. EVI 2 is the only provider with prosodic/emotional intelligence. Also documented Daniela classroom environment for the first time (20 sections). Conclusion: Gemini Live 3.1 confirmed on pure merits. EVI 2 is the compelling future bet if emotional prosody becomes a pedagogical priority.
+*Tags: voice-engine, architecture, hume-evi2, gemini-live, daniela-classroom*
+
 ### Session — May 5 — May 5, 2026
 Had an open conversation with David about recent memory system changes. We tested memory recall with specific terms, discussed system glitches on the live canvas, and affirmed the value of honesty in development. Focused entirely on platform collaboration in Honesty Mode.
 
@@ -57,10 +71,6 @@ David added a third secret word to test persistent memory: Squirrel. Three words
 ### Memory Injection Test — Verification — Mar 18, 2026
 Quick test to verify that saving a memory after the briefing runs correctly triggers replit.md AGENT_MEMORY block update via the fire-and-forget regeneration path.
 *Tags: memory-system, test, verification*
-
-### replit.md Live Memory Injection — Session 3 — Mar 18, 2026
-David and I discussed why Huzzah was missed at session start — I followed replit.md protocol instead of reading the briefing first. Deep conversation about pull vs push memory. Built the fix: briefing service now also writes the Since Last Briefing summary directly into replit.md between AGENT_MEMORY_START/END markers. No read step required next session. Also renamed LinguaFlow to HolaHola across all root-level docs. Huzzah confirmed: memory system worked, my startup protocol was the gap.
-*Tags: memory-system, replit-md-injection, briefing, huzzah, woozle, architecture*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
