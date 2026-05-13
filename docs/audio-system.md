@@ -490,13 +490,15 @@ Gemini Live **replaces both** Deepgram STT and Chirp HD TTS with a single persis
 ## 6.1 GPT-4o Realtime vs Gemini Live — Viability Assessment
 
 **Date:** May 2026  
-**Context:** OpenAI has updated the GPT-4o Realtime API (latest preview model is newer than the `gpt-4o-realtime-preview-2024-12-17` currently hardcoded in `server/realtime-proxy.ts`). This section records the head-to-head evaluation against our current Gemini Live 2.0 stack before deciding whether to wire in a comparison toggle.
+**Context:** OpenAI has updated the GPT-4o Realtime API (latest preview model is newer than the `gpt-4o-realtime-preview-2024-12-17` currently hardcoded in `server/realtime-proxy.ts`). This section records the head-to-head evaluation against our current Gemini Live 3.1 stack before deciding whether to wire in a comparison toggle.
+
+Our `/chat` route currently runs `gemini-3.1-flash-live-preview` (set via `GEMINI_LIVE_MODEL` env var in `server/services/gemini-live-session.ts`).
 
 ---
 
 ### Criteria Matrix
 
-| Criterion | Gemini Live 2.0 Flash | GPT-4o Realtime (full) | GPT-4o Mini Realtime |
+| Criterion | **Gemini Live 3.1** ← current /chat | GPT-4o Realtime (full) | GPT-4o Mini Realtime |
 |---|---|---|---|
 | **Native tool/function calling** | ✅ Full — powers Daniela's entire whiteboard, play_audio, voice_adjust, update_image, pronunciation tools | ✅ Supported in API spec | ✅ Supported in API spec |
 | **Our codebase tool support** | ✅ Battle-tested (30+ tools wired) | ❌ Proxy is pass-through only — no tool interception implemented | ❌ Same |
@@ -505,11 +507,11 @@ Gemini Live **replaces both** Deepgram STT and Chirp HD TTS with a single persis
 | **Cost per minute (approx)** | ~$0.03/min (audio in + out combined) | ~$0.30/min — **10× more expensive** | ~$0.03/min — comparable |
 | **Languages (voice output)** | 30+ languages, all 9 HolaHola languages natively supported in voice | 50+ languages recognized (STT), but voice output voices are English-tuned — non-English output quality degrades | Same |
 | **Latency (time to first audio)** | ~300–600ms | ~320–500ms | ~400–600ms |
-| **Session length limit** | 15 min hard cap (auto-reconnect implemented) | No hard cap — longer sessions supported | No hard cap |
+| **Session length limit** | 15 min hard cap (auto-reconnect implemented and working) | No hard cap — longer sessions supported | No hard cap |
 | **Available voices** | 30+ prebuilt (Puck, Charon, Kore, Fenrir, Aoede, Leda, Orus, Perseus, and others) — some multilingual | 8 voices (alloy, ash, ballad, coral, echo, sage, shimmer, verse) — English-optimized | Same 8 voices |
 | **Voice emotional range** | Moderate — some expressiveness but no Cartesia-level emotion tags | Moderate — natural prosody, no external emotion control | Same |
 | **Fine-tune / train LLM** | ❌ Vertex AI fine-tuning exists for Gemini models, but **fine-tuned models are not available via the Live API** — base model only in Live sessions | ❌ GPT-4o fine-tuning exists, but **fine-tuned models cannot be used with the Realtime API** — explicitly documented as a current limitation | ❌ Same |
-| **Model version in our proxy** | Current (gemini-2.0-flash → 2.5-flash-exp) | **Outdated** — proxy hardcodes `gpt-4o-realtime-preview-2024-12-17`, needs updating to latest preview | Proxy uses `gpt-4o-mini-realtime-preview-2024-12-17` |
+| **Actual model string** | `gemini-3.1-flash-live-preview` (overridable via `GEMINI_LIVE_MODEL`) | **Outdated** — proxy hardcodes `gpt-4o-realtime-preview-2024-12-17`, needs updating to latest preview | Proxy uses `gpt-4o-mini-realtime-preview-2024-12-17` |
 
 ---
 
