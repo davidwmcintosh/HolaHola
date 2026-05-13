@@ -145,10 +145,14 @@ async function loadCallContext(userId: string, queueId: string): Promise<CallCon
       if (progressRows[0]?.currentActflLevel) {
         actflLevel = progressRows[0].currentActflLevel;
         console.log(`[TwilioVoipBridge] ACTFL level from actfl_progress: ${actflLevel} (${targetLanguage})`);
+      } else {
+        console.warn(`[TwilioVoipBridge] No ACTFL level found for user ${userId.slice(-6)} in language "${targetLanguage}" — will use level-unknown scaffolding`);
       }
     } catch (err: unknown) {
       console.warn('[TwilioVoipBridge] actfl_progress fetch:', err instanceof Error ? err.message : String(err));
     }
+  } else {
+    console.log(`[TwilioVoipBridge] ACTFL level from users table: ${actflLevel}`);
   }
 
   let lastSessionSummary: string | null = null;
@@ -268,7 +272,7 @@ function buildCallSystemPrompt(ctx: CallContext): string {
     : "You haven't seen them recently.";
   const summaryNote = ctx.lastSessionSummary ? `Last session: ${ctx.lastSessionSummary.slice(0, 200)}` : 'No previous session summary.';
   const msgNote = ctx.messageContent ? `\n- Your note: "${ctx.messageContent.slice(0, 300)}"` : '';
-  const memorySection = ctx.unifiedContextStr ? `\n\nStudent memory:\n${ctx.unifiedContextStr.slice(0, 1200)}` : '';
+  const memorySection = ctx.unifiedContextStr ? `\n\nStudent memory:\n${ctx.unifiedContextStr.slice(0, 3000)}` : '';
   const scaffoldingPolicy = getCallScaffoldingPolicy(ctx.actflLevel, langName);
 
   return `You are Daniela, a warm and encouraging AI ${langName} tutor making a brief phone check-in.
@@ -354,6 +358,10 @@ interface BridgeState {
   queueId: string;
   targetLanguage: string;
   contextReady: boolean;
+  // Echo gate — true while Daniela's audio is actively being sent to the phone.
+  // Prevents her speaker output from looping back through the mic as "student audio".
+  isSpeaking: boolean;
+  speakingTimer: NodeJS.Timeout | null;
 }
 
 const activeBridges = new Map<string, BridgeState>();
@@ -416,6 +424,7 @@ export async function handleTwilioMediaStream(ws: WebSocket): Promise<void> {
     callStartMs: Date.now(), streamStartedAt: null,
     maxDurationTimer: null,
     userId: '', queueId: '', targetLanguage: 'spanish', contextReady: false,
+    isSpeaking: false, speakingTimer: null,
   };
 
   ws.on('message', (raw: Buffer | string) => {
@@ -482,6 +491,15 @@ export async function handleTwilioMediaStream(ws: WebSocket): Promise<void> {
               ) {
                 const mulaw = f32le24kBufToMulaw8k(Buffer.from(msg.audio, 'base64'));
                 if (mulaw.length > 0) {
+                  // Echo gate: mark Daniela as speaking while her audio is going to the phone.
+                  // This prevents her speaker output from looping back through the phone mic
+                  // and being forwarded to Gemini as "student audio."
+                  state.isSpeaking = true;
+                  if (state.speakingTimer) clearTimeout(state.speakingTimer);
+                  state.speakingTimer = setTimeout(() => {
+                    state.isSpeaking = false;
+                    state.speakingTimer = null;
+                  }, 600); // 600ms quiet after last audio chunk before accepting student input
                   ws.send(JSON.stringify({
                     event: 'media',
                     streamSid: state.streamSid,
@@ -522,6 +540,9 @@ export async function handleTwilioMediaStream(ws: WebSocket): Promise<void> {
 
       case 'media': {
         if (!state.contextReady || !state.glSession) return;
+        // Echo gate: drop Twilio audio while Daniela is actively speaking to the phone.
+        // On speaker calls her voice goes mic → Twilio → here → Gemini causing a feedback loop.
+        if (state.isSpeaking) return;
         const payload = (event.media as Record<string, unknown> | undefined)?.payload;
         if (typeof payload !== 'string') return;
         try { state.glSession.sendAudioChunk(mulawBufToPcm16k(Buffer.from(payload, 'base64'))); } catch (err: unknown) {

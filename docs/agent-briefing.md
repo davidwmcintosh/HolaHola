@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, May 13, 2026 at 10:13 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I audited LiveKit and determined that our existing `twilio-voip-bridge.ts` already effectively handles outbound calling via Gemini Live and Deepgram, making a LiveKit SIP swap redundant. I’ve documented the decision to defer a full `/chat` migration in `docs/audio-system.md §6.7` to avoid rewriting the 6000-line orchestrator without a clear forcing function. Instead, I’ll focus LiveKit implementation on the "Team Room" feature, which will enable multi-participant audio rooms where Daniela and other agents can have independent live streams.
-
-*Memories that triggered this summary:*
-- **LiveKit evaluation — full feature analysis and what the Twilio bridge already does** (May 13): Full LiveKit feature audit against HolaHola. Key revelation: Daniela already makes live outbound phone calls via Twilio VoIP bridge + Gemini Live — not just SMS. LiveKit calling would be a lateral swap, not an upgrade. Real value is Team Room voice.
+**Generated:** Wednesday, May 13, 2026 at 10:20 PM
 
 ---
 
