@@ -512,7 +512,7 @@ Our `/chat` route currently runs `gemini-3.1-flash-live-preview` (set via `GEMIN
 | **Voice emotional range** | Moderate — some expressiveness but no Cartesia-level emotion tags | Moderate — natural prosody, no external emotion control | Same |
 | **Fine-tune / train LLM** | ❌ Vertex AI fine-tuning exists for Gemini models, but **fine-tuned models are not available via the Live API** — base model only in Live sessions | ❌ GPT-4o fine-tuning exists, but **fine-tuned models cannot be used with the Realtime API** — explicitly documented as a current limitation | ❌ Same |
 | **Session context window** | **~1M tokens** (Gemini 2.5 Flash architecture; significant upgrade from 2.0's 128K) | 128K tokens | 128K tokens |
-| **System prompt capacity** | Full — Daniela's ~13K-token prompt loads entirely | ⚠️ **Hard-capped at 4,000 chars in our proxy** (`realtime-proxy.ts:306`) — prompt is silently truncated, Daniela's pedagogy/personality is mostly missing | ⚠️ Same cap |
+| **System prompt capacity** | Full — Daniela's ~13K-token prompt loads entirely | ⚠️ **Hard-capped at 4,000 chars in our proxy** (`realtime-proxy.ts:306`) — this is a **self-imposed conservative workaround**, not a model limit. Simply raising/removing the cap restores full prompt. Neural-net approach (minimal identity prompt + retrieval) can reduce the need for a large system prompt entirely — see §6.2. | ⚠️ Same cap — same fix |
 | **Actual model string** | `gemini-3.1-flash-live-preview` (overridable via `GEMINI_LIVE_MODEL`) | **Outdated** — proxy hardcodes `gpt-4o-realtime-preview-2024-12-17`, needs updating to latest preview | Proxy uses `gpt-4o-mini-realtime-preview-2024-12-17` |
 
 ---
@@ -597,7 +597,166 @@ These are 8 English-optimized voices. They sound natural in English but the mult
 | Which provider is likely to unlock fine-tune + realtime first? | 🔍 Watch both. OpenAI has been faster historically at API feature releases. Google's Vertex AI fine-tuning infrastructure is more mature. No clear winner. |
 | Should we wire in the toggle now? | ✅ Yes if the goal is voice quality comparison. ⏳ Defer if the goal is a real pedagogical comparison — need tool calling first. |
 
-**Recommendation:** Wire in the mini model toggle for voice quality listening. Note in the UI that tools (whiteboard, vocab saves) are disabled in GPT mode. Update the proxy to the latest model version at the same time. Set a reminder to re-evaluate both providers' fine-tune + realtime roadmap quarterly — whoever ships that first should be our default.
+**Recommendation:** Wire in the mini model toggle for voice quality listening. Note in the UI that tools (whiteboard, vocab saves) are disabled in GPT mode. Update the proxy to the latest model version at the same time. **Remove the self-imposed 4,000-char cap before testing — it's a workaround, not a real limit.** Set a reminder to re-evaluate both providers' fine-tune + realtime roadmap quarterly — whoever ships that first should be our default.
+
+---
+
+## 6.2 Voice Engine Landscape — Other Native Voice-to-Voice Pipelines
+
+**"Native" definition for this section:** Audio-in → LLM → audio-out without a separate STT or TTS step. The LLM itself processes and generates audio directly.
+
+### Hume AI — EVI 2 (Deep Dive)
+
+Hume AI's **Empathic Voice Interface 2** (EVI 2) is the most pedagogically interesting alternative to Gemini Live for HolaHola, for a reason no other provider offers: **it understands prosody and emotional tone in the student's voice**, not just the words.
+
+**What makes EVI 2 different:**
+
+EVI 2 is built on Hume's foundational research into vocal expression. It parses the emotional signal in a student's voice — hesitancy, frustration, confidence, boredom — and can use that signal to shape its responses. For a language tutor, this is non-trivial. A student saying *"sí, yo entiendo"* can mean two very different things depending on whether they sound certain or deflated. A conventional LLM can't tell the difference from text alone. EVI 2 can.
+
+**Technical spec:**
+
+| Property | EVI 2 Detail |
+|---|---|
+| **Architecture** | Native voice-to-voice — single model handles audio in and out |
+| **Emotional intelligence** | Detects valence, arousal, and discrete emotion categories (e.g., hesitance, confusion, enthusiasm) from the student's voice |
+| **Interruption / barge-in** | Full real-time barge-in support — model stops speaking when student starts |
+| **Latency** | ~500–700ms to first audio chunk |
+| **Languages** | Multilingual — documented support for Spanish, French, German, Japanese, and others. Emotional parsing trained primarily on English prosody; non-English emotional inference is less validated. |
+| **Voices** | Multiple prebuilt voices; custom voice cloning available |
+| **Tool / function calling** | ✅ Supported — via `tool_call` events in the EVI WebSocket protocol. Interception required server-side (similar to GPT-4o Realtime). |
+| **Context window** | ~200K tokens |
+| **Session length** | Configurable — no hard 15-min cap |
+| **Cost** | ~$0.07–$0.12/min depending on tier — 2–4× Gemini Live Flash, but below full GPT-4o Realtime |
+| **System prompt equivalent** | "System Prompt" field in EVI config — no documented hard character cap |
+| **API shape** | WebSocket, similar pattern to Gemini Live; Hume provides an official React SDK (`@humeai/voice-react`) |
+| **Fine-tuning** | ❌ Not available for EVI 2 as of this writing |
+
+**Where it fits vs Gemini Live:**
+
+| | Gemini Live 3.1 | EVI 2 |
+|---|---|---|
+| Emotional awareness | ❌ Text-semantic only | ✅ Prosodic + semantic |
+| Voice quality | High | High |
+| Multilingual voice output | ✅ Native | Partial — less validated non-English emotional parsing |
+| Tool calling (our codebase) | ✅ 30+ tools wired | ❌ Would need full interception layer (same gap as GPT-4o) |
+| Cost | ~$0.03/min | ~$0.07–$0.12/min |
+| Concurrency | ~50–1,000 (tiered) | Contact for scale tiers |
+| Daniela's classroom portability | ✅ Full | Partial — environment text can port, emotional config is new |
+
+**Verdict for HolaHola:** EVI 2 is the most compelling challenger to Gemini Live specifically *because* of emotional awareness — knowing a student sounds defeated is pedagogically actionable in ways text alone doesn't reveal. The cost premium (~3–4×) and the unproven non-English prosody parsing are the main reasons to wait rather than switch. Best use case today: run EVI 2 as an optional "emotional mode" or research prototype to gather data on how students' prosodic signals correlate with their actual learning outcomes.
+
+---
+
+### Full Landscape — Native Voice-to-Voice (May 2026)
+
+| Provider | Model | Truly native? | Why interesting | Production-ready? | Cost vs Gemini |
+|---|---|---|---|---|---|
+| **Google** | Gemini Live 3.1 | ✅ | Current stack — tools wired, 1M context, 30+ voices | ✅ | Baseline |
+| **OpenAI** | GPT-4o Mini Realtime | ✅ | Cost-comparable, no session cap, large STT language coverage | ✅ | ~1× |
+| **OpenAI** | GPT-4o Realtime (full) | ✅ | Higher quality than mini; better reasoning | ✅ | ~10× — untenable |
+| **Hume AI** | EVI 2 | ✅ | Only provider with emotional/prosodic intelligence | ✅ | ~3–4× |
+| **Kyutai** | Moshi | ✅ | Open source, true full-duplex (speaks and listens simultaneously), no latency from turn-taking | ❌ Experimental | Free (self-host) |
+| **ElevenLabs** | Conversational AI | ❌ Assembled | Best-in-class TTS quality; polished SDK | ✅ | ~2× |
+| **Retell / Vapi / Play.ai** | Various | ❌ Assembled | Orchestration layers — fast to deploy, not native intelligence | ✅ | Varies |
+| **Sesame** | TBD | Likely native | Early demo showed very natural conversational voice AI | ❌ Not public | Unknown |
+| **Anthropic / Meta / xAI** | Claude / LLaMA / Grok | ❌ None | No Live/Realtime API equivalent as of this writing | ❌ | N/A |
+
+**The "assembled vs native" distinction matters:** Assembled pipelines (ElevenLabs, Retell, etc.) run text through the seam between STT and LLM — meaning they lose prosodic information (tone, hesitation, emotional charge) at that conversion point. Native voice-to-voice models receive raw audio and can use everything in it.
+
+**Watch list:** Moshi (Kyutai) is the most interesting open-source entry. When it reaches production quality it removes the vendor dependency entirely. Sesame's team has serious AI voice credentials; if they open an API it's worth an immediate evaluation.
+
+---
+
+### System Prompt Cap — Correction
+
+The 4,000-character limit in `server/realtime-proxy.ts` (line 306) was added as an explicit temporary workaround during early testing of the mini model:
+
+```
+// CRITICAL FIX: Trim instructions to avoid server_error
+// Testing with very conservative limit (4000 chars) for mini model
+const MAX_INSTRUCTION_LENGTH = 4000;
+```
+
+This is not a model-imposed limit. GPT-4o mini realtime accepts much larger system prompts. Removing or raising this cap to 32,000+ chars is the immediate fix before any meaningful voice quality comparison.
+
+**Longer-term — the neural-net-first approach:** HolaHola's architecture preference is to push knowledge into the neural net (memory embeddings, structured procedural tables) and keep the system prompt as a minimal identity anchor. If taken to its logical conclusion for GPT-4o Mini:
+
+- **Minimal identity prompt (~500–800 chars):** Who Daniela is, the student's name, language, level
+- **Neural net retrieval at session start:** ACTFL procedures, error correction style, student personal facts, recent notes — retrieved as context turns rather than injected into the system config
+- **Classroom environment as a context turn:** The full `buildClassroomEnvironment()` output (~4,000–7,000 chars) can be injected as a first "assistant context" turn after session setup, which GPT-4o Realtime supports via `conversation.item.create`
+
+This approach aligns with the product direction and would make the system prompt limit a non-issue for any provider.
+
+---
+
+## 6.3 Daniela's Classroom — What It Is and How It Ports
+
+### What Daniela "Sees"
+
+`server/services/classroom-environment.ts` builds a structured environment string that Daniela receives at session start — her "room." It's not decoration; it drives her pedagogical decisions each turn. The builder produces ~4,000–7,000 characters of structured context.
+
+**Sections of her room:**
+
+| Section | What it contains | How it's generated |
+|---|---|---|
+| **Clock** | Current time (gives her time-of-day awareness for greetings, pacing) | System clock at session start |
+| **Mode / Phase / Exchanges** | Current teaching mode (drill, conversation, textbook), how many exchanges into the session | Session state from DB |
+| **Student** | Name, ACTFL level, target language, native language | `users` table |
+| **Student's Screen** | What the student currently sees on their side (whiteboard state, active card, textbook page) | Live state, updated via tool calls |
+| **Whiteboard** | Current content of the shared whiteboard | `sessions` table |
+| **Photo Wall** | Active vocabulary images on display | Image state |
+| **Active Scene** | If a scenario/roleplay is active: the scenario, Daniela's role, student's role, goals | `scenarios` table |
+| **Resonance Shelf** | Student's personal facts Daniela has gathered | `learner_personal_facts` table |
+| **Empathy Window** | Emotional read on the student this session — tone, energy, affect | Daniela-authored per session |
+| **Pedagogical Lamp** | Color-coded teaching signal: "Bright teal" (flow) / "Amber" (struggle) / "Red" (confusion) | Computed from session patterns |
+| **Growth Vine** | Student's progress arc — what they've mastered, what's sprouting | `learning_progress` |
+| **Classroom Window** | Daniela's chosen view (e.g., "Rolling green mountains at golden hour") | `productConfig` table, key `daniela_classroom_window`; changeable via `change_classroom_window` tool |
+| **North Star Polaroid** | Daniela's core identity anchor — who she is in one paragraph | `agent_north_star` |
+| **My Notes to Self** | Last 8 personal notes she's written (reflections, teaching rhythms, affirmations) | `daniela_notes` table, `take_note` tool |
+| **North Star Wall** | Full teaching principles — ACTFL philosophy, error correction approach, encouragement style | `tutor_procedures` table |
+| **Student Progress Board** | Specific grammar targets, recent struggles, current arc | `learning_progress` + session data |
+| **Lesson Textbook Context** | If a textbook page is active: the passage, vocabulary, exercises | `textbook_pages` table |
+| **Pattern Compass** | Live tracking of grammatical wobble (errors seen this session) vs stability (mastery confirmed) | Updated turn-by-turn |
+| **Rehearsal Stage Notes** | (Beta testers only) Instructions to be experimental, ask for feedback, handle role reversal | `users.isBetaTester` flag |
+| **Tool Rack** | Full list of her available function calls with brief descriptions | `daniela-function-registry.ts` |
+
+### Notes to Self
+
+Daniela writes notes using the `take_note` tool (categories: `session_reflection`, `teaching_rhythm`, `self_affirmation`, others). They're stored in `daniela_notes`. The last 8 are retrieved at session start and injected into her room. These are **not** part of the system prompt by default — they're part of the classroom environment context block, so they're always fresh without increasing the static prompt size.
+
+### The Classroom Window
+
+The window is a user-modifiable string stored in `productConfig` under the key `daniela_classroom_window`. Default: "Rolling green mountains at golden hour, light coming through the window." Daniela can change it mid-session via the `change_classroom_window` tool. It's purely atmospheric — it influences her language (seasonal metaphors, weather-based greetings) and gives her a persistent aesthetic anchor she can reference conversationally.
+
+### Beta Tester Flag
+
+`users.isBetaTester` (boolean). When true, adds the "Rehearsal Stage Notes" section to her room:
+- Be experimental, ask for technical feedback
+- Share when trying something new — perfection not the goal
+- **Role Reversal:** If the tester coaches Daniela on her voice or personality, receive it as coaching about delivery, acknowledge, adjust, ask if that was closer
+
+Controlled via the admin Command Center (`client/src/pages/admin/CommandCenter.tsx`). No UI for students — admin-only toggle.
+
+---
+
+### Portability — Can This Room Move to GPT-4o or Hume?
+
+The classroom environment is a **text string** — architecturally, it's completely portable. Here's the status per engine:
+
+| Element | Gemini Live 3.1 | GPT-4o Mini Realtime | Hume EVI 2 |
+|---|---|---|---|
+| **Full classroom context block** | ✅ Injected at session start (context turn) | ✅ Injectable via `conversation.item.create` (first turn) | ✅ Injectable as first conversation turn |
+| **Classroom Window** | ✅ Full | ✅ Text carries over | ✅ Text carries over; Hume's emotional layer adds tone coloring |
+| **Notes to Self** | ✅ Full | ✅ Text carries over | ✅ Text carries over |
+| **Beta Tester flag** | ✅ Full section injected | ✅ Text carries over | ✅ Text carries over |
+| **Pedagogical Lamp** | ✅ Full | ✅ Text carries over | 🔶 Text carries over + EVI 2 can *independently* detect the student's emotional state via prosody — potential for a second signal |
+| **Pattern Compass (live updates)** | ✅ Daniela calls `update_pattern_compass` tool | ❌ No tool interception in our proxy | ❌ Tool interception not implemented |
+| **Tool Rack** | ✅ All 30+ tools wired | ❌ Tools not available without proxy rewrite | ❌ Tools not available without proxy rewrite |
+| **Student's Screen updates** | ✅ Live via tool calls | ❌ No tool interception | ❌ No tool interception |
+
+**Summary:** The static parts of the classroom (identity, window, notes, student facts, North Star Wall) port to any provider with zero code change — they're just text in a context turn. The dynamic parts (Pattern Compass live updates, whiteboard state sync, Student's Screen) require tool calling interception, which is the same gap that blocks the full comparison on all non-Gemini engines.
+
+**Potential upgrade with EVI 2:** The Pedagogical Lamp is currently Daniela's own judgment call. EVI 2 could give us a *second, independent signal* from actual prosody — we could compare Daniela's read ("student sounds like they're in flow") against EVI 2's emotional detection ("student voice shows moderate uncertainty") and surface that divergence as a teaching signal. This has no equivalent in any other voice provider.
 
 ---
 
