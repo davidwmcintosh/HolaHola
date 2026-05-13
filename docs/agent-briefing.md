@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, May 13, 2026 at 10:04 PM
+**Generated:** Wednesday, May 13, 2026 at 10:13 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I audited LiveKit and determined that our existing `twilio-voip-bridge.ts` already effectively handles outbound calling via Gemini Live and Deepgram, making a LiveKit SIP swap redundant. I’ve documented the decision to defer a full `/chat` migration in `docs/audio-system.md §6.7` to avoid rewriting the 6000-line orchestrator without a clear forcing function. Instead, I’ll focus LiveKit implementation on the "Team Room" feature, which will enable multi-participant audio rooms where Daniela and other agents can have independent live streams.
+
+*Memories that triggered this summary:*
+- **LiveKit evaluation — full feature analysis and what the Twilio bridge already does** (May 13): Full LiveKit feature audit against HolaHola. Key revelation: Daniela already makes live outbound phone calls via Twilio VoIP bridge + Gemini Live — not just SMS. LiveKit calling would be a lateral swap, not an upgrade. Real value is Team Room voice.
 
 ---
 
@@ -41,6 +51,10 @@
 
 ## Recent Conversation Memories
 
+### LiveKit evaluation — full feature analysis and what the Twilio bridge already does — May 13, 2026
+Full LiveKit feature audit against HolaHola. Key revelation: Daniela already makes live outbound phone calls via Twilio VoIP bridge + Gemini Live — not just SMS. LiveKit calling would be a lateral swap, not an upgrade. Real value is Team Room voice.
+*Tags: livekit, twilio, calling, team-room, architecture, audio, voice*
+
 ### Multi-character voice architecture — speak_as deep dive — May 13, 2026
 Mapped the full speak_as / resume_tutor system and settled the LiveKit question for NPC scenarios. Voice puppet is the right model. Documented why, and what would need to change for autonomous NPCs.
 *Tags: audio, speak_as, multi-character, livekit, pipecat, architecture, npc*
@@ -57,10 +71,6 @@ Private note: Discussed memory changes, technical glitches (canvas loading, fail
 ### Memory Pipeline Stress Test — All Three Words Confirmed — Mar 18, 2026
 The replit.md injection system successfully surfaced all three secret words (Woozle, Huzzah, Squirrel) at the start of the session without any prompting. Three sessions, three words, all confirmed. The memory pipeline passed its stress test.
 *Tags: memory-pipeline, milestone, stress-test, secret-words, replit-md-injection*
-
-### Memory Test #3 — Secret Word: Squirrel — Mar 18, 2026
-David added a third secret word to test persistent memory: Squirrel. Three words now in play across three sessions: Woozle (test 1), Huzzah (test 2), Squirrel (test 3). The new replit.md injection system should surface all three in the next session without prompting.
-*Tags: memory-test, squirrel, persistent-memory, replit-md-injection*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

@@ -4903,7 +4903,7 @@ These are verbatim or near-verbatim from Magic Key, ready to load into `danielaN
 
 ---
 
-## From Agent — May 13, 2026 (session: voice engine analysis + docs/audio-system.md + §6.6 multi-character voice)
+## From Agent — May 13, 2026 (session: voice engine analysis + docs/audio-system.md + §§6.6–6.7 multi-character voice + LiveKit evaluation)
 
 ### What was done
 Pure research and documentation session — no code changed. Fully mapped the voice engine landscape, documented Daniela's classroom, and added a complete section on multi-character voice scenarios.
