@@ -238,7 +238,7 @@ interface ReferenceImage {
 }
 
 export default function ImageEngineTest() {
-  const [selectedEngines, setSelectedEngines] = useState<string[]>(["dall-e-3", "gpt-image-1"]);
+  const [selectedEngines, setSelectedEngines] = useState<string[]>(["gemini-imagen", "gemini-imagen-ref", "gemini-imagen-env"]);
   const [runCount, setRunCount] = useState(2);
   const [promptType, setPromptType] = useState<"scene" | "prop">("scene");
   const [concept, setConcept] = useState(PRESETS[0].concept);
