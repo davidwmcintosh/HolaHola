@@ -487,6 +487,116 @@ Gemini Live **replaces both** Deepgram STT and Chirp HD TTS with a single persis
 
 ---
 
+## 6.1 GPT-4o Realtime vs Gemini Live — Viability Assessment
+
+**Date:** May 2026  
+**Context:** OpenAI has updated the GPT-4o Realtime API (latest preview model is newer than the `gpt-4o-realtime-preview-2024-12-17` currently hardcoded in `server/realtime-proxy.ts`). This section records the head-to-head evaluation against our current Gemini Live 2.0 stack before deciding whether to wire in a comparison toggle.
+
+---
+
+### Criteria Matrix
+
+| Criterion | Gemini Live 2.0 Flash | GPT-4o Realtime (full) | GPT-4o Mini Realtime |
+|---|---|---|---|
+| **Native tool/function calling** | ✅ Full — powers Daniela's entire whiteboard, play_audio, voice_adjust, update_image, pronunciation tools | ✅ Supported in API spec | ✅ Supported in API spec |
+| **Our codebase tool support** | ✅ Battle-tested (30+ tools wired) | ❌ Proxy is pass-through only — no tool interception implemented | ❌ Same |
+| **Max concurrent sessions** | ~50 (Tier 1) / ~1,000 (Tier 2, $250+ spend) | ~100 (Tier 5, OpenAI's highest tier) | ~100 (Tier 5) |
+| **Concurrency path to scale** | Tier 2 auto-unlocks at spend threshold — no code change | Requires OpenAI org tier upgrades, account review | Same |
+| **Cost per minute (approx)** | ~$0.03/min (audio in + out combined) | ~$0.30/min — **10× more expensive** | ~$0.03/min — comparable |
+| **Languages (voice output)** | 30+ languages, all 9 HolaHola languages natively supported in voice | 50+ languages recognized (STT), but voice output voices are English-tuned — non-English output quality degrades | Same |
+| **Latency (time to first audio)** | ~300–600ms | ~320–500ms | ~400–600ms |
+| **Session length limit** | 15 min hard cap (auto-reconnect implemented) | No hard cap — longer sessions supported | No hard cap |
+| **Available voices** | 30+ prebuilt (Puck, Charon, Kore, Fenrir, Aoede, Leda, Orus, Perseus, and others) — some multilingual | 8 voices (alloy, ash, ballad, coral, echo, sage, shimmer, verse) — English-optimized | Same 8 voices |
+| **Voice emotional range** | Moderate — some expressiveness but no Cartesia-level emotion tags | Moderate — natural prosody, no external emotion control | Same |
+| **Fine-tune / train LLM** | ❌ Vertex AI fine-tuning exists for Gemini models, but **fine-tuned models are not available via the Live API** — base model only in Live sessions | ❌ GPT-4o fine-tuning exists, but **fine-tuned models cannot be used with the Realtime API** — explicitly documented as a current limitation | ❌ Same |
+| **Model version in our proxy** | Current (gemini-2.0-flash → 2.5-flash-exp) | **Outdated** — proxy hardcodes `gpt-4o-realtime-preview-2024-12-17`, needs updating to latest preview | Proxy uses `gpt-4o-mini-realtime-preview-2024-12-17` |
+
+---
+
+### The Fine-Tuning Blocker (Both Providers)
+
+This is the one criterion where both providers are tied — and both are blocking us the same way.
+
+**What we want:** Use a fine-tuned or instruction-tuned version of the underlying LLM so Daniela's personality, pedagogical approach, and language expertise are baked into the model weights — not just injected via system prompt at runtime.
+
+**Where both providers are today:**
+
+| Provider | Fine-tune available? | Usable in Live/Realtime? |
+|---|---|---|
+| Google Gemini | ✅ Via Vertex AI (supervised fine-tuning, RLHF) | ❌ Live API uses base model only |
+| OpenAI GPT-4o | ✅ Standard fine-tuning API | ❌ Realtime API does not accept fine-tuned models |
+
+Both providers have publicly indicated intent to close this gap, but neither has shipped it as of this writing. This means the comparison today is base model vs base model — Daniela's character lives entirely in the system prompt either way.
+
+**Why this matters for HolaHola:** If and when one provider ships fine-tune + realtime support first, it becomes a significant competitive advantage — we could bake Daniela's ACTFL pedagogy, error correction style, and encouragement patterns directly into the weights rather than relying on prompt injection. That provider wins our primary stack at that point.
+
+---
+
+### Tool Calling Gap (Critical for Daniela)
+
+This is the biggest practical blocker for a full GPT-4o Realtime comparison.
+
+**Gemini Live today:** Daniela calls ~30 tools in a live session — `update_whiteboard`, `play_audio`, `voice_adjust`, `update_image`, `save_vocabulary`, `check_drill_status`, and many more. These fire naturally during conversation and drive the entire whiteboard + study UI.
+
+**GPT-4o Realtime today:** The Realtime API supports function calling via a different event flow:
+1. Model emits `response.output_item.added` with type `function_call`
+2. Server must intercept, execute the tool, and inject a `conversation.item.create` event with type `function_call_output`
+3. Model resumes
+
+Our existing `realtime-proxy.ts` is a **pure pass-through** — it forwards all events between client and OpenAI without any interception layer. Daniela's tools would never fire. She'd be conversational-only: no whiteboard updates, no play_audio, no study cards, no vocabulary saves.
+
+**What a proper comparison requires:** Either (a) accept that we're comparing "lobotomized Daniela on GPT" vs "full Daniela on Gemini" which isn't apples-to-apples, or (b) implement a tool interception layer in the realtime proxy (estimated medium effort — probably a day of work to wire in even a subset of tools).
+
+For a quick voice quality listen, option (a) is fine. For a real pedagogical comparison, we'd need (b).
+
+---
+
+### Cost Reality Check
+
+At meaningful usage (say 200 active students, 30 min/day average):
+
+| Model | Monthly cost estimate |
+|---|---|
+| Gemini Live 2.0 Flash | ~$0.03 × 30 min × 200 students × 30 days = **~$5,400/month** |
+| GPT-4o Mini Realtime | ~$0.03 × 30 min × 200 students × 30 days = **~$5,400/month** (comparable) |
+| GPT-4o Realtime (full) | ~$0.30 × 30 min × 200 students × 30 days = **~$54,000/month** (10× — untenable) |
+
+The mini model is the only cost-comparable option. The full gpt-4o-realtime at 10× cost is not viable for production at any meaningful student volume.
+
+---
+
+### Voices — What's Actually Available
+
+**Gemini Live voices** (current validated set in `gemini-live-session.ts`):
+
+> Aoede, Charon, Fenrir, Kore, Leda, Orus, Puck, Perseus — plus additional voices; some have multilingual capability
+
+Daniela currently uses **Aoede** (female, warm, clear). The variety gives us room to differentiate Daniela's voice by language (e.g., a Spanish-accented voice for immersion mode).
+
+**GPT-4o Realtime voices:**
+
+> alloy, ash, ballad, coral, echo, sage, shimmer, verse
+
+These are 8 English-optimized voices. They sound natural in English but the multi-language quality drop is noticeable in testing. For a Spanish/French/Japanese tutoring app this matters.
+
+---
+
+### Viability Verdict
+
+| Question | Answer |
+|---|---|
+| Can we wire in a quick "hear what it sounds like" toggle? | ✅ Yes — mini model, no tools, same UI. Probably 1–2 hours. |
+| Is it a fair comparison to Gemini Live? | ❌ Not without implementing tool calling in the proxy. It's "chat-only GPT" vs "full Daniela on Gemini." |
+| Is the full gpt-4o-realtime viable for production? | ❌ 10× cost makes it untenable at scale. |
+| Is gpt-4o-mini-realtime cost-competitive? | ✅ Yes — roughly comparable to Gemini Live Flash. |
+| Does GPT-4o Realtime solve our fine-tuning limitation? | ❌ Same blocker — fine-tuned models not usable in Realtime API. |
+| Which provider is likely to unlock fine-tune + realtime first? | 🔍 Watch both. OpenAI has been faster historically at API feature releases. Google's Vertex AI fine-tuning infrastructure is more mature. No clear winner. |
+| Should we wire in the toggle now? | ✅ Yes if the goal is voice quality comparison. ⏳ Defer if the goal is a real pedagogical comparison — need tool calling first. |
+
+**Recommendation:** Wire in the mini model toggle for voice quality listening. Note in the UI that tools (whiteboard, vocab saves) are disabled in GPT mode. Update the proxy to the latest model version at the same time. Set a reminder to re-evaluate both providers' fine-tune + realtime roadmap quarterly — whoever ships that first should be our default.
+
+---
+
 ## 7. Future Enhancements
 
 1. **Speed Control UI**: Add slow/normal/fast buttons to textbook audio players
