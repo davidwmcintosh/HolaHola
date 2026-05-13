@@ -389,9 +389,13 @@ function buildCharacterExtractionPrompt(): string {
     '(5) lighting — flat ambient, soft diffuse, or dramatic directional? ' +
     'Be precise and concrete. Do NOT use vague terms like "vibrant" or "lively." ' +
     'Do NOT describe characters, poses, or scene content — only the visual technique.\n\n' +
-    'CHARACTER DESIGN (2-3 sentences): Describe only the main female character\'s ' +
-    'physical appearance — face shape, hair color and texture, skin tone, ' +
-    'eye color, and clothing style and colors. No poses or expressions.\n\n' +
+    'CHARACTER DESIGN (3-4 sentences): Describe only the main female character\'s ' +
+    'physical appearance. Cover: face shape and features; skin tone. ' +
+    'Then describe hair in detail — color, wave/curl pattern, length, how individual strands are rendered ' +
+    '(are strands visible and layered, or blended into flat masses?), ' +
+    'highlight and shadow depth in the hair (subtle sheen, bold specular highlight, or flat?), ' +
+    'and whether the hair has a dimensional multi-layered quality or a simpler graphic quality. ' +
+    'Then: eye color and style; clothing colors and style. No poses or expressions.\n\n' +
     'Format your response as exactly:\n' +
     'ART STYLE: [your description]\n' +
     'CHARACTER DESIGN: [your description]'
@@ -443,7 +447,7 @@ async function extractStyleDescription(
   apiKey: string,
   mode: ExtractionMode = 'character',
 ): Promise<string> {
-  const cacheKey = `${mode}:${reference.b64.slice(0, 64)}`;
+  const cacheKey = `v2:${mode}:${reference.b64.slice(0, 64)}`;
 
   // 1. Memory cache (same session)
   const cached = styleExtractionCache.get(cacheKey);
@@ -505,12 +509,19 @@ async function runGeminiImagen(
     let textPrompt: string;
     let styleDesc: string | undefined;
 
+    // Framing/layout requirements applied to every path.
     const frameConstraints =
       'Square 1:1 format. ' +
-      'Soft white picture-frame border around all edges — the illustration fades gently to white paper at the margins, ' +
-      'like a classic storybook or editorial illustration printed on white stock. ' +
       'Heads fully visible with generous headroom. ' +
       'Absolutely no text, letters, numbers or typography in the image.';
+
+    // Border requirement — promoted to a top-level mandatory section so the model
+    // cannot deprioritise it in favour of a style description that says "full bleed".
+    const borderRequirement =
+      'MANDATORY BORDER (non-negotiable): The final image MUST have a soft white picture-frame ' +
+      'border clearly visible on all four edges. The illustration content does NOT reach the edges — ' +
+      'it fades or sits within a white margin, like an illustration printed on white paper stock. ' +
+      'This overrides any full-bleed, edge-to-edge, or no-margin instruction in the style description.';
 
     if (styleDescriptionOverride) {
       // ── Override path (highest priority) ──────────────────────────────────
@@ -523,6 +534,7 @@ async function runGeminiImagen(
       styleDesc = styleDescriptionOverride;
 
       textPrompt =
+        `${borderRequirement}\n\n` +
         `ILLUSTRATION STYLE TO MATCH:\n${styleDesc}\n\n` +
         `SCENE TO ILLUSTRATE (use the style above, brand new composition):\n` +
         `${concept}. ${frameConstraints}\n\n` +
@@ -536,6 +548,7 @@ async function runGeminiImagen(
       styleDesc = await extractStyleDescription(reference, apiKey, extractionMode);
 
       textPrompt =
+        `${borderRequirement}\n\n` +
         `ILLUSTRATION STYLE TO MATCH:\n${styleDesc}\n\n` +
         `SCENE TO ILLUSTRATE (use the style above, brand new composition):\n` +
         `${concept}. ${frameConstraints}\n\n` +
@@ -545,7 +558,7 @@ async function runGeminiImagen(
       const sceneStyle = sceneStyleOverride ?? SCENE_STYLE;
       const basePrompt = type === 'prop'
         ? `Square 1:1 format. Illustration of: ${concept}. ${PROP_STYLE}`
-        : `Square 1:1 format. Illustrated scene: ${concept}. ${sceneStyle}`;
+        : `${borderRequirement}\n\nSquare 1:1 format. Illustrated scene: ${concept}. ${sceneStyle} ${frameConstraints}`;
       textPrompt = `VARIATION DIRECTION: ${variationNudge}\n\n` + basePrompt;
     }
 
