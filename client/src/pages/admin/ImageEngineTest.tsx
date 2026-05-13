@@ -986,6 +986,9 @@ export default function ImageEngineTest() {
                                     </Badge>
                                   )}
                                 </div>
+                                <p className="text-[10px] text-muted-foreground leading-snug">
+                                  Only the <strong>ART STYLE</strong> section is saved to the pin — CHARACTER DESIGN is excluded. Each language's character description comes from the production pipeline, so there's no conflict across languages.
+                                </p>
                               </>
                             ) : (
                               <p className="px-3 py-3 text-muted-foreground italic">

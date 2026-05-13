@@ -320,9 +320,28 @@ export interface StyleProfile {
   lockedAt: string;
 }
 
+/**
+ * Extracts only the ART STYLE section from an extraction result.
+ * CHARACTER DESIGN is intentionally excluded from pinned profiles — each language's
+ * character description comes from the production pipeline's concept text, not the pin.
+ * Pinning CHARACTER DESIGN would conflict with the per-language character registry
+ * (e.g. a Spanish-extracted Daniela description would bleed into French/German scenes).
+ */
+function extractArtStyleOnly(styleDescription: string): string {
+  // Handles "ART STYLE: ..." followed optionally by "CHARACTER DESIGN: ..."
+  const artStyleMatch = styleDescription.match(/ART STYLE:\s*([\s\S]*?)(?:\n\s*CHARACTER DESIGN:|$)/i);
+  if (artStyleMatch) {
+    return `ART STYLE: ${artStyleMatch[1].trim()}`;
+  }
+  // No labelled sections — return as-is (user pasted custom text without the extraction format)
+  return styleDescription;
+}
+
 export async function lockStyleProfile(language: string, styleDescription: string, imageHash: string): Promise<void> {
   const titleKey = `style_profile:${language}`;
-  const content = JSON.stringify({ styleDescription, imageHash, lockedAt: new Date().toISOString() });
+  // Strip CHARACTER DESIGN before storing — only the visual technique travels with the pin.
+  const artStyleOnly = extractArtStyleOnly(styleDescription);
+  const content = JSON.stringify({ styleDescription: artStyleOnly, imageHash, lockedAt: new Date().toISOString() });
   await getUserDb().execute(drizzleSql`
     DELETE FROM editor_insights WHERE category = ${STYLE_PROFILE_CATEGORY} AND title = ${titleKey}
   `);
