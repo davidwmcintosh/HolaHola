@@ -468,9 +468,9 @@ Gemini Live **replaces both** Deepgram STT and Chirp HD TTS with a single persis
 | Tier 2 | ~1,000 | $250+ cumulative spend on the project |
 | Enterprise | Custom | Contact Google |
 
-**Per-session hard limits:**
+**Per-session hard limits (Gemini Live 2.0 era — see §6.1 for 3.1 figures):**
 - Max session length: 15 minutes (audio-only); connection terminates with a going-away notification so reconnection can be handled
-- Context window: 128k tokens
+- Context window: 128k tokens *(was 2.0; Gemini Live 3.1 / gemini-2.5-flash architecture → 1M tokens)*
 - Audio in: PCM16, 16kHz mono
 - Audio out: PCM16, 24kHz mono
 
@@ -511,6 +511,8 @@ Our `/chat` route currently runs `gemini-3.1-flash-live-preview` (set via `GEMIN
 | **Available voices** | 30+ prebuilt (Puck, Charon, Kore, Fenrir, Aoede, Leda, Orus, Perseus, and others) — some multilingual | 8 voices (alloy, ash, ballad, coral, echo, sage, shimmer, verse) — English-optimized | Same 8 voices |
 | **Voice emotional range** | Moderate — some expressiveness but no Cartesia-level emotion tags | Moderate — natural prosody, no external emotion control | Same |
 | **Fine-tune / train LLM** | ❌ Vertex AI fine-tuning exists for Gemini models, but **fine-tuned models are not available via the Live API** — base model only in Live sessions | ❌ GPT-4o fine-tuning exists, but **fine-tuned models cannot be used with the Realtime API** — explicitly documented as a current limitation | ❌ Same |
+| **Session context window** | **~1M tokens** (Gemini 2.5 Flash architecture; significant upgrade from 2.0's 128K) | 128K tokens | 128K tokens |
+| **System prompt capacity** | Full — Daniela's ~13K-token prompt loads entirely | ⚠️ **Hard-capped at 4,000 chars in our proxy** (`realtime-proxy.ts:306`) — prompt is silently truncated, Daniela's pedagogy/personality is mostly missing | ⚠️ Same cap |
 | **Actual model string** | `gemini-3.1-flash-live-preview` (overridable via `GEMINI_LIVE_MODEL`) | **Outdated** — proxy hardcodes `gpt-4o-realtime-preview-2024-12-17`, needs updating to latest preview | Proxy uses `gpt-4o-mini-realtime-preview-2024-12-17` |
 
 ---
