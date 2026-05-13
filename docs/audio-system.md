@@ -814,6 +814,69 @@ When Daniela explicitly wants to model pronunciation or stress a key word, she c
 
 ---
 
+## 6.5 Gemini Live 3.1 — Wishlist / Roadmap Watch
+
+*Last updated: May 13, 2026. Features marked 🗓️ are on Google's public roadmap. Features marked 🔍 have no committed timeline.*
+
+### On Google's Public Roadmap (confirmed "coming soon")
+
+**🗓️ Asynchronous function calling**
+
+Currently all tool calls in Live sessions are synchronous — the model is officially blocked while waiting for the function result. In practice this means when Daniela calls `generate_visual()` (~10s image generation), she has to manage the dead air with a prompt-hack workaround ("keep talking naturally while the image generates"). True async would fire the tool, let the audio stream continue uninterrupted, and inject the result as a callback when ready. This is the single highest-impact missing feature for HolaHola — image generation mid-conversation would become seamless.
+
+*Current workaround:* Tool description instructs Daniela to announce the action conversationally and keep talking. Works, but the model can get slightly awkward during long tool waits.
+
+**🗓️ Proactive audio**
+
+The Live API is currently strictly reactive — Daniela can only speak when a student sends audio or text. She cannot initiate. This blocks:
+- Session-opening greetings (we trigger them with a client-side text inject — a hack)
+- Spontaneous silence check-ins ("Take your time — still with me?")
+- The SMS absence nudge system ever becoming a real in-session voice push from Daniela
+- Server-push audio notifications (credit warnings, teacher alerts)
+
+Once proactive audio ships, Daniela truly owns the rhythm of the conversation.
+
+**🗓️ Effective dialogue (full-duplex improvement)**
+
+Google's term for smarter turn-taking. Currently the VAD (voice activity detection) uses a time-based heuristic — our `silenceDurationMs: 2500` gives students 2.5 seconds of silence before the model treats them as done. This is deliberately long because language learners pause mid-sentence while searching for words. Effective dialogue means the model understands "they're still mid-thought" from semantic and prosodic context, not just silence length. It also handles natural overlap more gracefully when the student starts responding before Daniela finishes. Will let us reduce the silence buffer and make turn-taking feel more natural.
+
+*Current workaround:* `silenceDurationMs: 2500`, `END_SENSITIVITY_LOW` in VAD config. Works, but blunt.
+
+---
+
+### No Committed Timeline — But We'd Want Them
+
+| Feature | Why we want it | Impact |
+|---|---|---|
+| **🔍 Fine-tuned models in Live API** | Daniela's character lives entirely in the classroom environment context block — model weights are generic Gemini. Fine-tuning would bake her ACTFL pedagogy, error correction style, and encouragement patterns into the weights permanently, making the system prompt shorter and her behavior more consistent. | Highest architectural impact — changes the foundation |
+| **🔍 Custom voice / voice cloning** | Daniela's voice is Aoede — a prebuilt voice that sounds different across languages and isn't truly *hers*. Custom voice cloning would give her a persistent, unique voice identity consistent in Spanish, French, Japanese, and all 9 languages. | Brand-level impact — Daniela would sound like Daniela |
+| **🔍 Native pronunciation assessment** | Scoring phoneme accuracy currently requires a separate Azure Speech Services round-trip after the student speaks — a second API in the audio pipeline. Ideally the Live API would natively score pronunciation and provide phoneme-level feedback as part of the same audio understanding pass. | Simplifies architecture, reduces latency |
+| **🔍 Multi-participant audio sessions** | Voice-native Team Room requires multiple student audio streams in one session. Currently impossible — you'd need separate sessions per participant and some orchestration layer. | Unlocks a whole product feature |
+| **🔍 Audio-native memory** | We remember *what* a student said but not *how they sounded* — a student's hesitant vs confident voice pattern across sessions is lost. Only text descriptions persist in the neural net. | Richer longitudinal learner modeling |
+| **🔍 Real-time audio translation** | Immersion mode could have Daniela speak Spanish while the student simultaneously hears English — simultaneous interpretation in the same audio stream. Currently the student gets one language or the other. | Premium immersion feature |
+| **🔍 Tool calling during model speech** | Daniela can't fire a tool while she's speaking. She finishes speaking → calls tool → waits → resumes. True concurrency would make transitions seamless. | Quality-of-life, conversation smoothness |
+| **🔍 Longer session without reconnect** | 15-min hard cap requires our reconnection logic, which adds ~1–2s and risks context loss at the seam. Unlimited sessions would remove this engineering surface. | Reliability, simplicity |
+
+---
+
+### Priority Order — If Google Ships One Tomorrow, Which Do We Want Most?
+
+1. **Async function calling** — immediate quality improvement, images mid-conversation become clean
+2. **Proactive audio** — Daniela finally owns the conversation start and can initiate check-ins
+3. **Fine-tuning in Live** — deepest architectural improvement; Daniela's teaching philosophy in the weights
+4. **Native pronunciation assessment** — collapses multi-API round-trip into the existing audio stream
+5. **Effective dialogue** — removes VAD tuning guesswork, makes overlap natural
+6. **Custom voice** — Daniela gets a voice that's truly hers across all languages
+7. **Multi-participant audio** — unlocks voice-native Team Room
+
+---
+
+### Watch Signal
+
+Monitor the [Gemini Live API changelog](https://ai.google.dev/gemini-api/docs/changelog) and the `@google/genai` SDK release notes for these features. The first three (async, proactive, effective dialogue) are explicitly listed as coming. Fine-tuning in Live has been noted as a desired roadmap item with no committed date — whoever ships fine-tune + realtime first (Google or OpenAI) wins the architecture decision.
+
+---
+
 ## 7. Future Enhancements
 
 1. **Speed Control UI**: Add slow/normal/fast buttons to textbook audio players
