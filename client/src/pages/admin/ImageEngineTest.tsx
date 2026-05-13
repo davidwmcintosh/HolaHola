@@ -497,20 +497,11 @@ export default function ImageEngineTest() {
       })),
     }));
 
-    const supportsReference = REFERENCE_CAPABLE_ENGINES.includes(engineId);
     const promises = Array.from({ length: runCount }, (_, i) =>
       fetch("/api/admin/image-engine-test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          engine: engineId,
-          concept: concept.trim(),
-          type,
-          variationIndex: i,
-          ...(supportsReference && referenceImage
-            ? { referenceImageB64: referenceImage.b64, referenceImageMimeType: referenceImage.mimeType }
-            : {}),
-        }),
+        body: buildRequestBody(engineId, type, i),
       })
         .then(r => r.json())
         .then((data: any) => {
