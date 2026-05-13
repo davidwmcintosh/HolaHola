@@ -515,14 +515,15 @@ async function runGeminiImagen(
       'Heads fully visible with generous headroom. ' +
       'Absolutely no text, letters, numbers or typography in the image.';
 
-    // Border requirement — promoted to a top-level mandatory section so the model
-    // cannot deprioritise it in favour of a style description that says "full bleed".
+    // Edge vignette — promoted to a top-level section so the model treats it as mandatory.
+    // Uses vignette/fade language only — "border" and "frame" produce a hard rectangular mat.
     const borderRequirement =
-      'BORDER TREATMENT (required): A thin, soft inner border/vignette on all four edges. ' +
-      'The border should be narrow — roughly 3-5% of the image width — and feel like the illustration ' +
-      'was printed on warm cream or ivory paper: a gentle organic fade rather than a stark white mat. ' +
-      'The edges of the scene soften or vignette slightly inward, like a storybook illustration on off-white stock. ' +
-      'NOT a wide white mat, NOT a hard-edged frame, NOT a large white margin — subtle and warm. ' +
+      'EDGE VIGNETTE (required): Apply a subtle warm vignette at all four edges and corners of the image. ' +
+      'The scene content fades very gently toward the edges — as if the illustration was painted on ' +
+      'warm cream or ivory paper and the colour softens slightly near the margins. ' +
+      'The effect is organic and rounded, not rectangular — like the natural fade of aged ink on paper ' +
+      'or a soft photographic vignette, NOT a hard border, NOT a rectangular frame, NOT a white mat, ' +
+      'NOT a polaroid border. The vignette is barely visible — present but never distracting. ' +
       'This overrides any full-bleed or edge-to-edge instruction in the style description.';
 
     if (styleDescriptionOverride) {

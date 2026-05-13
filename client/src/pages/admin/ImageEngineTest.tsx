@@ -392,12 +392,13 @@ export default function ImageEngineTest() {
       type,
       variationIndex,
       extractionMode,
-      // Run always triggers a fresh extraction when a reference image is present.
-      // Override (pinned/edited) is only used when there is no reference image.
-      ...(supportsReference && referenceImage
-        ? { referenceImageB64: referenceImage.b64, referenceImageMimeType: referenceImage.mimeType }
-        : supportsReference && editedStyleDesc
+      // Priority: edited/pinned style text > reference image > nothing.
+      // If the user has typed or pasted a style description, that overrides the reference
+      // extraction so re-runs respect their edits without re-extracting from the image.
+      ...(supportsReference && editedStyleDesc
         ? { styleDescriptionOverride: editedStyleDesc }
+        : supportsReference && referenceImage
+        ? { referenceImageB64: referenceImage.b64, referenceImageMimeType: referenceImage.mimeType }
         : {}),
     });
   };
