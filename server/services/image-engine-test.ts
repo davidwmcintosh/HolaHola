@@ -512,24 +512,28 @@ async function runGeminiImagen(
       'Heads fully visible with generous headroom. ' +
       'Absolutely no text, letters, numbers or typography in the image.';
 
-    if (reference) {
-      // ── Two-call approach ──────────────────────────────────────────────────
-      // The image generator NEVER receives the reference image directly.
-      // Giving it the image causes it to reproduce the composition, not just
-      // the style. Instead: Call 1 extracts style as text (character or
-      // environment depending on mode). Call 2 generates from text only.
-      styleDesc = await extractStyleDescription(reference, apiKey, extractionMode);
+    if (styleDescriptionOverride) {
+      // ── Override path (highest priority) ──────────────────────────────────
+      // Caller has supplied an explicit style description — either a pinned
+      // profile or user-edited text from the extraction textarea. Use it
+      // directly and skip extraction entirely, even if a reference image was
+      // also sent. This lets the user iterate on the extracted text in the UI
+      // without triggering a new extraction call on every run.
+      // To force a fresh extraction: clear the textarea and run again.
+      styleDesc = styleDescriptionOverride;
 
       textPrompt =
         `ILLUSTRATION STYLE TO MATCH:\n${styleDesc}\n\n` +
         `SCENE TO ILLUSTRATE (use the style above, brand new composition):\n` +
         `${concept}. ${frameConstraints}\n\n` +
         `COMPOSITION DIRECTION: ${variationNudge}`;
-    } else if (styleDescriptionOverride) {
-      // ── Pinned style path ──────────────────────────────────────────────────
-      // No new reference image — use a previously extracted (and possibly
-      // user-edited) style description from the pinned library directly.
-      styleDesc = styleDescriptionOverride;
+    } else if (reference) {
+      // ── Two-call extraction path ───────────────────────────────────────────
+      // No override supplied — extract style from the reference image as text,
+      // then generate from that text. The image generator NEVER receives the
+      // reference image directly (that causes composition copying, not style
+      // transfer). Call 1: extract style. Call 2: generate from style text.
+      styleDesc = await extractStyleDescription(reference, apiKey, extractionMode);
 
       textPrompt =
         `ILLUSTRATION STYLE TO MATCH:\n${styleDesc}\n\n` +

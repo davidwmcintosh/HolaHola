@@ -392,8 +392,17 @@ export default function ImageEngineTest() {
       type,
       variationIndex,
       extractionMode,
+      // Send reference image when present (for fresh extraction when no override exists).
+      // Also send styleDescriptionOverride whenever editedStyleDesc has content — the server
+      // will prioritise the override over re-extraction, letting the user iterate on the
+      // extracted/pasted text without triggering a new extraction call each run.
+      // To force a fresh extraction: clear the textarea, then run.
       ...(supportsReference && referenceImage
-        ? { referenceImageB64: referenceImage.b64, referenceImageMimeType: referenceImage.mimeType }
+        ? {
+            referenceImageB64: referenceImage.b64,
+            referenceImageMimeType: referenceImage.mimeType,
+            ...(editedStyleDesc ? { styleDescriptionOverride: editedStyleDesc } : {}),
+          }
         : supportsReference && editedStyleDesc
         ? { styleDescriptionOverride: editedStyleDesc }
         : {}),
@@ -929,15 +938,26 @@ export default function ImageEngineTest() {
                                     className="text-xs font-mono leading-relaxed resize-y min-h-[100px]"
                                     data-testid="textarea-style-description"
                                   />
-                                  {desc && editedStyleDesc !== desc && (
-                                    <button
-                                      onClick={() => setEditedStyleDesc(desc)}
-                                      className="mt-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
-                                      data-testid="button-reset-style-desc"
-                                    >
-                                      Reset to last extracted
-                                    </button>
-                                  )}
+                                  <div className="mt-1 flex items-center gap-3">
+                                    {desc && editedStyleDesc !== desc && (
+                                      <button
+                                        onClick={() => setEditedStyleDesc(desc)}
+                                        className="text-[10px] text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
+                                        data-testid="button-reset-style-desc"
+                                      >
+                                        Reset to last extracted
+                                      </button>
+                                    )}
+                                    {editedStyleDesc && (
+                                      <button
+                                        onClick={() => setEditedStyleDesc("")}
+                                        className="text-[10px] text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
+                                        data-testid="button-clear-style-desc"
+                                      >
+                                        Clear to re-extract
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
                                 <div className="px-3 pb-3 flex flex-wrap items-center gap-2 border-t border-border pt-2">
                                   <select
