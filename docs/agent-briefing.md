@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, May 13, 2026 at 09:51 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I finalized the multi-character voice architecture, confirming that the "voice puppet" model is the best approach for Daniela to manage NPCs like el_mesero using Google Chirp 3 HD TTS. I ruled out LiveKit and Pipecat for this use case because Gemini Live’s static session voice makes Chirp the only viable path for mid-session character switches while maintaining pedagogical control. All technical specs and the future upgrade path for autonomous NPCs are now documented in docs/audio-system.md §6.6.
-
-*Memories that triggered this summary:*
-- **Multi-character voice architecture — speak_as deep dive** (May 13): Mapped the full speak_as / resume_tutor system and settled the LiveKit question for NPC scenarios. Voice puppet is the right model. Documented why, and what would need to change for autonomous NPCs.
+**Generated:** Wednesday, May 13, 2026 at 10:04 PM
 
 ---
 
