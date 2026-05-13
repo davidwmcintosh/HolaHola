@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, May 13, 2026 at 09:11 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I confirmed Gemini Live 3.1 as the primary voice engine for HolaHola and identified Hume AI’s EVI 2 as our high-priority future bet for its unique emotional prosody intelligence. I also corrected our technical documentation to reflect that GPT-4o Realtime is native audio end-to-end—though limited by English-trained synthesis—and mapped the 20 sections of the Daniela classroom environment for the first time. I am proceeding with the conclusion that our current stack is optimal, with EVI 2 reserved for future pedagogical needs requiring emotional signal detection.
-
-*Memories that triggered this summary:*
-- **Voice engine analysis — Gemini Live confirmed, EVI 2 identified as future bet** (May 13): David and Agent mapped the full native voice-to-voice landscape. Key findings: GPT-4o 4,000-char system prompt cap is a self-imposed workaround; GPT-4o is native audio end-to-end like Gemini. EVI 2 is the only provider with prosodic/emotional intelligence. Also documented Daniela classroom environment for the first time (20 sections). Conclusion: Gemini Live 3.1 confirmed on pure merits. EVI 2 is the compelling future bet if emotional prosody becomes a pedagogical priority.
+**Generated:** Wednesday, May 13, 2026 at 09:18 PM
 
 ---
 
