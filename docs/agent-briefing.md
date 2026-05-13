@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, May 13, 2026 at 09:40 PM
+**Generated:** Wednesday, May 13, 2026 at 09:51 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I finalized the multi-character voice architecture, confirming that the "voice puppet" model is the best approach for Daniela to manage NPCs like el_mesero using Google Chirp 3 HD TTS. I ruled out LiveKit and Pipecat for this use case because Gemini Live’s static session voice makes Chirp the only viable path for mid-session character switches while maintaining pedagogical control. All technical specs and the future upgrade path for autonomous NPCs are now documented in docs/audio-system.md §6.6.
+
+*Memories that triggered this summary:*
+- **Multi-character voice architecture — speak_as deep dive** (May 13): Mapped the full speak_as / resume_tutor system and settled the LiveKit question for NPC scenarios. Voice puppet is the right model. Documented why, and what would need to change for autonomous NPCs.
 
 ---
 
@@ -41,6 +51,10 @@
 
 ## Recent Conversation Memories
 
+### Multi-character voice architecture — speak_as deep dive — May 13, 2026
+Mapped the full speak_as / resume_tutor system and settled the LiveKit question for NPC scenarios. Voice puppet is the right model. Documented why, and what would need to change for autonomous NPCs.
+*Tags: audio, speak_as, multi-character, livekit, pipecat, architecture, npc*
+
 ### Voice engine analysis — Gemini Live confirmed, EVI 2 identified as future bet — May 13, 2026
 David and Agent mapped the full native voice-to-voice landscape. Key findings: GPT-4o 4,000-char system prompt cap is a self-imposed workaround; GPT-4o is native audio end-to-end like Gemini. EVI 2 is the only provider with prosodic/emotional intelligence. Also documented Daniela classroom environment for the first time (20 sections). Conclusion: Gemini Live 3.1 confirmed on pure merits. EVI 2 is the compelling future bet if emotional prosody becomes a pedagogical priority.
 *Tags: voice-engine, architecture, hume-evi2, gemini-live, daniela-classroom*
@@ -57,10 +71,6 @@ The replit.md injection system successfully surfaced all three secret words (Woo
 ### Memory Test #3 — Secret Word: Squirrel — Mar 18, 2026
 David added a third secret word to test persistent memory: Squirrel. Three words now in play across three sessions: Woozle (test 1), Huzzah (test 2), Squirrel (test 3). The new replit.md injection system should surface all three in the next session without prompting.
 *Tags: memory-test, squirrel, persistent-memory, replit-md-injection*
-
-### Memory Injection Test — Verification — Mar 18, 2026
-Quick test to verify that saving a memory after the briefing runs correctly triggers replit.md AGENT_MEMORY block update via the fire-and-forget regeneration path.
-*Tags: memory-system, test, verification*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

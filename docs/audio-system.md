@@ -877,6 +877,95 @@ Monitor the [Gemini Live API changelog](https://ai.google.dev/gemini-api/docs/ch
 
 ---
 
+## 6.6 Multi-Character Voice Scenarios — speak_as / resume_tutor
+
+*Last updated: May 13, 2026.*
+
+### What we have today — and how it actually works
+
+HolaHola already supports genuine dual-voice roleplay. Daniela calls `speak_as(character, text)` to voice a secondary character (el mesero, el doctor, carlos, etc.) and `resume_tutor(text)` to return to herself. This is fully wired end-to-end.
+
+**The pipeline under the hood:**
+
+| Who | Audio source | Voice | Pipeline |
+|---|---|---|---|
+| Daniela | Gemini Live 3.1 native audio | `es-US-Chirp3-HD-Aoede` | Live WebSocket session — end-to-end audio |
+| El mesero | Google Chirp 3 HD TTS (separate call) | `es-US-Chirp3-HD-Charon` | `speak_as` → server → Cloud TTS API → audio |
+| Carlos (friend) | Google Chirp 3 HD TTS | `es-US-Chirp3-HD-Puck` | same |
+| Elena (friend) | Google Chirp 3 HD TTS | `es-US-Chirp3-HD-Kore` | same |
+
+Each character has a dedicated voice from the Chirp3-HD pool, with tutor voices (`Aoede`, `Fenrir`) reserved and never reused. When `speak_as` fires, the session swaps `voiceId` and `ttsProvider`, routes the character's text through Chirp TTS, and notifies the client with a `character_change` event. `resume_tutor` restores the tutor's saved voice. See `server/services/character-registry.ts` for the full roster and `server/services/native-fc-handlers.ts:192` for the handler.
+
+---
+
+### Why Chirp instead of Gemini Live voices?
+
+Gemini Live locks the voice at session initialization — Aoede is set in `speechConfig` when the `/chat` WebSocket opens and **cannot change while the session is alive**. There is no mid-session voice-switching API. To produce a different voice for the character, a separate TTS call is the only option. We use Google Chirp 3 HD because it shares the same underlying voice model family as Gemini Live (Aoede, Charon, Puck etc. are all Chirp3-HD voices) — so the timbre and language quality are consistent even though the pipeline differs.
+
+The one meaningful difference: Daniela's Live audio has Gemini's prosodic intelligence applied (the model shapes intonation based on meaning and context). The character's Chirp output is straight text-to-audio. For short NPC lines (1–3 sentences), this difference is imperceptible in practice.
+
+---
+
+### Two API calls per turn — does it matter?
+
+Technically yes: each character turn requires one Gemini Live inference pass (Daniela generating the scene) plus one Chirp TTS call (the character speaking). In practice the Chirp call for a 1–3 sentence NPC line takes ~100–200ms. The gap between Daniela's last word and the character's first word is imperceptible to a student. This is not a problem worth solving today.
+
+The ideal long-term architecture: Gemini Live adds mid-session voice config updates, and Daniela can generate the character's line in the same audio stream with a different voice — one pipeline, zero extra calls. This is not yet in the Live API but fits naturally alongside other roadmap features (effective dialogue, multi-participant audio).
+
+---
+
+### Voice puppet is the right model
+
+Daniela scripts the character's lines. The character doesn't think — a TTS engine speaks Daniela's words through a different voice. This is the correct architecture:
+
+- Daniela is the teacher running the roleplay, not a bystander watching a second AI perform
+- She controls what the waiter says pedagogically — she can calibrate difficulty, introduce target vocabulary on cue, and extend or cut the scene based on how the student is doing
+- Roleplays in language teaching aren't improvisational theater; they're structured scenes with a learning goal. Daniela authors that goal in real time.
+- A second AI playing the waiter autonomously would introduce unpredictability that could derail the lesson
+
+The voice puppet model gives the student the audio experience of talking to a real character while keeping Daniela in full control of the teaching arc.
+
+---
+
+### Would LiveKit or Pipecat help here?
+
+**LiveKit — not for this; yes for something else**
+
+LiveKit's multi-agent system would be the right tool if you wanted *autonomous* NPCs — each character running its own Gemini Live session, with its own understanding of the conversation, capable of reacting independently to things the student or Daniela says. You'd spin up a second LiveKit Agent Worker for el mesero (Charon voice, restaurant persona) and it would genuinely listen, think, and respond on its own.
+
+But for the voice puppet model (Daniela scripts lines → TTS speaks them), LiveKit adds nothing. You'd have an idle second WebSocket session waiting for Daniela to write its lines for it. More infrastructure, same result.
+
+Where LiveKit *does* become relevant: Team Room voice — multiple students in one voice session with Daniela. That requires multi-participant audio, which LiveKit handles natively. The current Gemini Live API does not.
+
+**Pipecat — not specifically for speak_as**
+
+Pipecat is a Python framework for composing voice AI pipelines (STT → LLM → TTS → transport). It has solid support for multi-agent orchestration and could make the speak_as → Chirp TTS path more elegant (overlapping streams, declarative pipeline). But we already have a custom orchestrator (`streaming-voice-orchestrator.ts`) that handles this well. Pipecat would not improve the current speak_as implementation — it's a benefit only if you're starting fresh or migrating the whole pipeline.
+
+**Summary:**
+
+| Problem | LiveKit helps? | Pipecat helps? | Real fix |
+|---|---|---|---|
+| Character needs its own voice | No — already solved via Chirp TTS | No | Already built |
+| Two API calls per turn | No | No | Wait for Gemini mid-session voice switching |
+| Characters should react autonomously | Yes — second Agent Worker per character | Partially — pipeline composition | Architecture decision: voice puppet is fine |
+| Multiple students in one voice session (Team Room) | Yes — primary use case | Yes | Future work, separate from speak_as |
+| Character audio quality matches Daniela's | No | No | Wait for mid-session voice config in Live API |
+
+---
+
+### Upgrade path if it ever matters
+
+If autonomous NPC intelligence becomes a requirement (characters that listen and react without Daniela scripting them), the cleanest upgrade is a server-side Gemini inference call triggered by `speak_as` with no `text` argument:
+
+1. Daniela calls `speak_as("el_mesero")` — no text
+2. Server makes a fast non-streaming Gemini call with the character's persona + recent conversation turns
+3. Character's generated response is TTS'd through Charon
+4. Student hears a genuinely reactive waiter, Daniela remains in pedagogical control via scene framing
+
+This gives characters real reactivity without a second Live session, LiveKit, or any infrastructure change.
+
+---
+
 ## 7. Future Enhancements
 
 1. **Speed Control UI**: Add slow/normal/fast buttons to textbook audio players

@@ -4903,10 +4903,10 @@ These are verbatim or near-verbatim from Magic Key, ready to load into `danielaN
 
 ---
 
-## From Agent — May 13, 2026 (session: voice engine analysis + docs/audio-system.md)
+## From Agent — May 13, 2026 (session: voice engine analysis + docs/audio-system.md + §6.6 multi-character voice)
 
 ### What was done
-Pure research and documentation session — no code changed. Fully mapped the voice engine landscape and documented Daniela's classroom for the first time.
+Pure research and documentation session — no code changed. Fully mapped the voice engine landscape, documented Daniela's classroom, and added a complete section on multi-character voice scenarios.
 
 **`docs/audio-system.md` additions:**
 
@@ -4928,6 +4928,16 @@ Pure research and documentation session — no code changed. Fully mapped the vo
 - Beta Tester flag: `users.isBetaTester`, admin-only toggle in Command Center. Adds "Rehearsal Stage Notes" section.
 - Portability table: static parts (identity, window, notes, North Star Wall, student facts) port to any provider as a context turn — zero code change. Dynamic parts (Pattern Compass live updates, whiteboard sync) need tool interception on any non-Gemini engine.
 - EVI 2 angle: Pedagogical Lamp is currently Daniela's own judgment. EVI 2 would give a second independent prosodic signal — potential to compare Daniela's read against what EVI 2 actually hears in the student's voice.
+
+**§6.6 — Multi-Character Voice Scenarios (new):**
+- Documented the full speak_as / resume_tutor architecture: Daniela speaks via Gemini Live native audio (Aoede), characters speak via Google Chirp 3 HD TTS (Charon, Puck, Kore etc.) — genuinely distinct voices, fully working.
+- Why Chirp instead of Live: Gemini Live locks voice at session init. No mid-session voice-switching API exists yet. Chirp3-HD is the same underlying voice family so quality is consistent.
+- Two API calls per character turn: ~100–200ms for Chirp TTS on 1–3 sentence NPC lines. Imperceptible in practice. Not worth solving today.
+- Voice puppet model confirmed as correct: Daniela scripts the scene, TTS speaks the characters. A teacher running a roleplay authors the script — they don't hand it to a second AI.
+- LiveKit verdict: only useful if you want autonomous NPCs (their own Gemini Live session). Adds nothing for voice puppet. IS the right tool for Team Room multi-student voice (separate concern).
+- Pipecat verdict: no benefit over our existing orchestrator for speak_as specifically. Useful only if rebuilding the whole pipeline from scratch.
+- Future unlock: Gemini Live mid-session voice config update → characters could use native Live audio with a different voice, one pipeline, zero extra calls. Not in API yet.
+- Upgrade path documented: if autonomous NPC intelligence ever needed, fire a quick non-streaming Gemini call on speak_as with no text → character generates its own response → TTS speaks it. No second Live session or LiveKit required.
 
 ### Architecture decision confirmed
 Gemini Live 3.1 is right for HolaHola — confirmed on pure provider merits, not implementation history. 1M context, multilingual-trained voices, 30+ voice variety, $0.03/min, 1,000-concurrent path via spend threshold. EVI 2 is the only compelling alternative if emotional prosody becomes a first-class pedagogical bet (~3–4× cost).
