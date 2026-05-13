@@ -506,7 +506,9 @@ async function runGeminiImagen(
     let styleDesc: string | undefined;
 
     const frameConstraints =
-      'Square 1:1 format. Full bleed edge-to-edge, no white borders, no padding. ' +
+      'Square 1:1 format. ' +
+      'Soft white picture-frame border around all edges — the illustration fades gently to white paper at the margins, ' +
+      'like a classic storybook or editorial illustration printed on white stock. ' +
       'Heads fully visible with generous headroom. ' +
       'Absolutely no text, letters, numbers or typography in the image.';
 
