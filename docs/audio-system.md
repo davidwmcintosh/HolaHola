@@ -631,11 +631,15 @@ EVI 2 is built on Hume's foundational research into vocal expression. It parses 
 | **API shape** | WebSocket, similar pattern to Gemini Live; Hume provides an official React SDK (`@humeai/voice-react`) |
 | **Fine-tuning** | ❌ Not available for EVI 2 as of this writing |
 
-**Where it fits vs Gemini Live:**
+**Correction (May 13, 2026):** The original analysis below was partially wrong. Gemini Live 3.1 *does* interpret vocal stress, sarcasm, and hesitation from audio input natively — this is a documented Live API capability, not something that needs to be configured. The model processes raw audio holistically and understands these cues automatically. What was missing was not the capability but the *instructions to act on it* — Daniela had no prompt telling her to use what she hears. That has now been added as a "Voice Perception" line in her classroom environment. See §6.4 for the audio tags investigation.
+
+**Where it fits vs Gemini Live (corrected):**
 
 | | Gemini Live 3.1 | EVI 2 |
 |---|---|---|
-| Emotional awareness | ❌ Text-semantic only | ✅ Prosodic + semantic |
+| Reads vocal stress / hesitation from student audio | ✅ **Yes — automatic, built into the Live API** | ✅ Yes — same |
+| Emotional signal is *explicit / queryable* | ❌ Implicit — shapes model response, not exposed as data | ✅ Structured emotional signal you can route logic against |
+| Daniela instructed to act on what she hears | ✅ Now yes — "Voice Perception" added to classroom | ✅ By design |
 | Voice quality | High | High |
 | Multilingual voice output | ✅ Native | Partial — less validated non-English emotional parsing |
 | Tool calling (our codebase) | ✅ 30+ tools wired | ❌ Would need full interception layer (same gap as GPT-4o) |
@@ -643,7 +647,7 @@ EVI 2 is built on Hume's foundational research into vocal expression. It parses 
 | Concurrency | ~50–1,000 (tiered) | Contact for scale tiers |
 | Daniela's classroom portability | ✅ Full | Partial — environment text can port, emotional config is new |
 
-**Verdict for HolaHola:** EVI 2 is the most compelling challenger to Gemini Live specifically *because* of emotional awareness — knowing a student sounds defeated is pedagogically actionable in ways text alone doesn't reveal. The cost premium (~3–4×) and the unproven non-English prosody parsing are the main reasons to wait rather than switch. Best use case today: run EVI 2 as an optional "emotional mode" or research prototype to gather data on how students' prosodic signals correlate with their actual learning outcomes.
+**Revised verdict:** The gap between Gemini Live 3.1 and EVI 2 on the emotional input side is much smaller than originally assessed. Both models interpret the student's vocal signal. The real remaining difference is that EVI 2 *exposes* the emotional read as structured data — you could programmatically trigger a tool call when `frustration > 0.7`. Gemini absorbs the signal silently and factors it into its next response. For most pedagogical use cases, Gemini's implicit handling is sufficient and simpler. EVI 2's explicit signal would only matter if you wanted to build hard logic against emotional thresholds (e.g., auto-trigger a "take a break" card when frustration is sustained). That's a future feature consideration, not a current gap.
 
 ---
 
@@ -757,6 +761,56 @@ The classroom environment is a **text string** — architecturally, it's complet
 **Summary:** The static parts of the classroom (identity, window, notes, student facts, North Star Wall) port to any provider with zero code change — they're just text in a context turn. The dynamic parts (Pattern Compass live updates, whiteboard state sync, Student's Screen) require tool calling interception, which is the same gap that blocks the full comparison on all non-Gemini engines.
 
 **Potential upgrade with EVI 2:** The Pedagogical Lamp is currently Daniela's own judgment call. EVI 2 could give us a *second, independent signal* from actual prosody — we could compare Daniela's read ("student sounds like they're in flow") against EVI 2's emotional detection ("student voice shows moderate uncertainty") and surface that divergence as a teaching signal. This has no equivalent in any other voice provider.
+
+---
+
+## 6.4 Audio Tags — Should We Use Them With Daniela?
+
+### Background
+
+Gemini 3.1 Flash TTS (the standalone text-to-speech API) supports 200+ audio tags — explicit markers embedded in text that tell the synthesizer how to speak: `[pause]`, `[whisper]`, `[slow]`, `[fast]`, `[sigh]`, `[laugh]`, `[emphasis]`, and many more. The question is whether these tags should be used in Daniela's Gemini Live sessions to improve her expressive output.
+
+### What the two Gemini audio APIs actually are
+
+| | **Gemini TTS API** (`gemini-2.5-flash-preview-tts`) | **Gemini Live API** (`gemini-3.1-flash-live-preview`) |
+|---|---|---|
+| **Role** | Text-in → audio-out converter | Full conversation model — understands, reasons, and speaks |
+| **How output audio is generated** | From tagged/styled text you provide | From the model's own generated response, synthesized in the same pass |
+| **Where audio tags fit** | Natural — you control the text, you embed the tags | Ambiguous — you don't control the text the model generates |
+| **Used in our codebase** | `server/services/gemini-tts-streaming.ts` (textbook audio, vocabulary) | `server/services/gemini-live-session.ts` (all /chat voice sessions) |
+
+### The case against injecting audio tags into Live sessions
+
+The user's instinct is right: **audio tags are likely to confuse Daniela rather than improve her.** Here's the reasoning:
+
+**1. The model already has native prosodic intelligence.**
+Gemini Live 3.1 processes audio natively and generates spoken output with contextually appropriate prosody. When Daniela says "That was *exactly* right — well done," the model naturally stresses the right words, softens appropriately after corrections, and varies pacing based on the conversation state. This emerges from the model's understanding of context, not from explicit instructions.
+
+**2. Audio tags are a workaround for a dumber system.**
+The TTS API (standalone) is a pure converter — it receives text and produces audio with no understanding of what's happening in a conversation. Audio tags exist to compensate for the absence of contextual intelligence. Daniela already has that intelligence. Giving her tags is like giving a fluent speaker a pronunciation guide — it's likely to make them sound more mechanical, not less.
+
+**3. The Live API may not process tags the way the TTS API does.**
+The two APIs have different audio generation paths. In the Live API, the model generates text internally and synthesizes audio in the same pass. Embedding tags in Daniela's *instructions* might cause the model to read the tags aloud, ignore them, or produce inconsistent behavior. The TTS API is explicitly designed to parse tagged text. The Live API is not documented to process the same tags the same way.
+
+**4. Tags create rigidity where flexibility is needed.**
+Language tutoring requires moment-to-moment emotional calibration. A student who just nailed a subjunctive clause for the first time needs spontaneous warmth, not a scripted `[enthusiastic]` tag. Tags are static; Daniela's prosodic intelligence is dynamic.
+
+**5. The `word_emphasis` tool already exists as the right abstraction.**
+When Daniela explicitly wants to model pronunciation or stress a key word, she calls `word_emphasis()` — which triggers a self-instruction to speak that word with more care. This is the correct layer: Daniela decides *when* emphasis is needed based on her pedagogical read of the moment, and executes it through natural speech rather than markup. The tool is already in her Tool Rack.
+
+### The case for investigating tags (devil's advocate)
+
+- For specific, predictable moments (e.g., always slow down when introducing a new vocabulary word), tags could provide consistency
+- The 200+ tag set includes non-prosodic markers that might be useful (pronunciation guides for difficult phonemes, for example)
+- If the Live API *does* respect tags, it could be an additional control surface without replacing natural prosody
+
+### Recommendation
+
+**Do not inject audio tags into Daniela's Live sessions.** Trust the model's native prosodic intelligence. The "Voice Perception" addition to her classroom environment (added May 13, 2026) gives her explicit permission to use what she hears in the student's voice to shape how she responds — this is the right intervention. Natural intelligence over markup.
+
+**For textbook audio** (`gemini-tts-streaming.ts`): Audio tags *are* appropriate here because that pipeline is a pure TTS converter. Consider adding them to textbook vocabulary and example sentence audio to improve pronunciation modeling clarity. This is a separate investigation from the Live session question.
+
+**If you want to test:** Add a single benign tag (e.g., `[slow]`) to Daniela's instruction for introducing new vocabulary and listen to whether it helps or creates artifacts. Do this in a development session, not with a real student.
 
 ---
 

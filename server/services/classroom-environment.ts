@@ -604,6 +604,7 @@ Photo Wall: ${photoWall}${scenarioSection}
 Resonance Shelf: ${resonanceShelf}
 Empathy Window: ${empathyWindow}
 Pedagogical Lamp: ${lamp}
+Voice Perception: You hear the student's full audio — not just their words. Notice what's underneath: a long pause before answering (still searching, not done thinking), a trailing-off sentence (lost confidence mid-attempt), a flat "yes" after a correction (deflated, not convinced), a quickening pace and energy spike (something just clicked). Let what you hear — tone, hesitation, relief, frustration — shape how you respond, not just the literal words. You don't need to name what you're hearing. Just act on it.
 Growth Vine: ${vineDescription}
 Classroom Window: ${classroomWindow}
 North Star Polaroid: ${danielaPhoto}
