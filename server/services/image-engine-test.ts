@@ -518,10 +518,12 @@ async function runGeminiImagen(
     // Border requirement — promoted to a top-level mandatory section so the model
     // cannot deprioritise it in favour of a style description that says "full bleed".
     const borderRequirement =
-      'MANDATORY BORDER (non-negotiable): The final image MUST have a soft white picture-frame ' +
-      'border clearly visible on all four edges. The illustration content does NOT reach the edges — ' +
-      'it fades or sits within a white margin, like an illustration printed on white paper stock. ' +
-      'This overrides any full-bleed, edge-to-edge, or no-margin instruction in the style description.';
+      'BORDER TREATMENT (required): A thin, soft inner border/vignette on all four edges. ' +
+      'The border should be narrow — roughly 3-5% of the image width — and feel like the illustration ' +
+      'was printed on warm cream or ivory paper: a gentle organic fade rather than a stark white mat. ' +
+      'The edges of the scene soften or vignette slightly inward, like a storybook illustration on off-white stock. ' +
+      'NOT a wide white mat, NOT a hard-edged frame, NOT a large white margin — subtle and warm. ' +
+      'This overrides any full-bleed or edge-to-edge instruction in the style description.';
 
     if (styleDescriptionOverride) {
       // ── Override path (highest priority) ──────────────────────────────────
