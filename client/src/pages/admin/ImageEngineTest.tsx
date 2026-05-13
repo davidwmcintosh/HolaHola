@@ -392,17 +392,10 @@ export default function ImageEngineTest() {
       type,
       variationIndex,
       extractionMode,
-      // Send reference image when present (for fresh extraction when no override exists).
-      // Also send styleDescriptionOverride whenever editedStyleDesc has content — the server
-      // will prioritise the override over re-extraction, letting the user iterate on the
-      // extracted/pasted text without triggering a new extraction call each run.
-      // To force a fresh extraction: clear the textarea, then run.
+      // Run always triggers a fresh extraction when a reference image is present.
+      // Override (pinned/edited) is only used when there is no reference image.
       ...(supportsReference && referenceImage
-        ? {
-            referenceImageB64: referenceImage.b64,
-            referenceImageMimeType: referenceImage.mimeType,
-            ...(editedStyleDesc ? { styleDescriptionOverride: editedStyleDesc } : {}),
-          }
+        ? { referenceImageB64: referenceImage.b64, referenceImageMimeType: referenceImage.mimeType }
         : supportsReference && editedStyleDesc
         ? { styleDescriptionOverride: editedStyleDesc }
         : {}),
@@ -497,11 +490,28 @@ export default function ImageEngineTest() {
       })),
     }));
 
+    // Retry uses whatever is currently in the textarea (override) so the user
+    // can iterate on extracted/pasted style text without triggering a new
+    // extraction. Falls back to reference extraction only if the textarea is empty.
+    const supportsReference = REFERENCE_CAPABLE_ENGINES.includes(engineId);
+    const buildRetryBody = (variationIndex: number) => JSON.stringify({
+      engine: engineId,
+      concept: concept.trim(),
+      type,
+      variationIndex,
+      extractionMode,
+      ...(supportsReference && editedStyleDesc
+        ? { styleDescriptionOverride: editedStyleDesc }
+        : supportsReference && referenceImage
+        ? { referenceImageB64: referenceImage.b64, referenceImageMimeType: referenceImage.mimeType }
+        : {}),
+    });
+
     const promises = Array.from({ length: runCount }, (_, i) =>
       fetch("/api/admin/image-engine-test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: buildRequestBody(engineId, type, i),
+        body: buildRetryBody(i),
       })
         .then(r => r.json())
         .then((data: any) => {
@@ -929,26 +939,15 @@ export default function ImageEngineTest() {
                                     className="text-xs font-mono leading-relaxed resize-y min-h-[100px]"
                                     data-testid="textarea-style-description"
                                   />
-                                  <div className="mt-1 flex items-center gap-3">
-                                    {desc && editedStyleDesc !== desc && (
-                                      <button
-                                        onClick={() => setEditedStyleDesc(desc)}
-                                        className="text-[10px] text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
-                                        data-testid="button-reset-style-desc"
-                                      >
-                                        Reset to last extracted
-                                      </button>
-                                    )}
-                                    {editedStyleDesc && (
-                                      <button
-                                        onClick={() => setEditedStyleDesc("")}
-                                        className="text-[10px] text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
-                                        data-testid="button-clear-style-desc"
-                                      >
-                                        Clear to re-extract
-                                      </button>
-                                    )}
-                                  </div>
+                                  {desc && editedStyleDesc !== desc && (
+                                    <button
+                                      onClick={() => setEditedStyleDesc(desc)}
+                                      className="mt-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
+                                      data-testid="button-reset-style-desc"
+                                    >
+                                      Reset to last extracted
+                                    </button>
+                                  )}
                                 </div>
                                 <div className="px-3 pb-3 flex flex-wrap items-center gap-2 border-t border-border pt-2">
                                   <select
