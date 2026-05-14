@@ -20953,6 +20953,37 @@ Current conversation context:
     }
   });
 
+  // Returns the exact LANGUAGE_CHARACTER_INTROS map used in production so the
+  // test page can pre-populate the character builder with real values.
+  app.get('/api/admin/image-engine-test/character-intros', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res) => {
+    try {
+      const { LANGUAGE_CHARACTER_INTROS } = await import('./services/vocabulary-image-resolver');
+      res.json(LANGUAGE_CHARACTER_INTROS);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Assembles the exact concept string that production would send to the image
+  // engine for a given word + language combination.  Callers can edit the
+  // characterIntro before calling to preview tweaked character appearances.
+  app.post('/api/admin/image-engine-test/build-concept', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { word, language, characterIntro, scene } = req.body as {
+        word: string;
+        language: string;
+        characterIntro?: string;
+        scene?: string;
+      };
+      if (!word || !language) return res.status(400).json({ error: 'word and language are required' });
+      const { buildGenerationConcept } = await import('./services/vocabulary-image-resolver');
+      const concept = buildGenerationConcept(word, scene, word, undefined, language, characterIntro);
+      res.json({ concept });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/admin/prop-images", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res) => {
     try {
       const sharedDb = getSharedDb();

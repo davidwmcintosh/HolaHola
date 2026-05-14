@@ -7,7 +7,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Play, RotateCcw, Clock, AlertCircle, ImageOff, ChevronDown, ChevronUp, RefreshCw, X, ZoomIn, Upload, UserCheck, Loader2, Pin, Trash2, Copy, Check } from "lucide-react";
+import { Play, RotateCcw, Clock, AlertCircle, ImageOff, ChevronDown, ChevronUp, RefreshCw, X, ZoomIn, Upload, UserCheck, Loader2, Pin, Trash2, Copy, Check, Wand2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 // Engines that support reference image input (must match REFERENCE_CAPABLE_ENGINES on server)
 const REFERENCE_CAPABLE_ENGINES = ["gemini-imagen-ref"];
@@ -267,12 +268,58 @@ export default function ImageEngineTest() {
   // Editable copy of the extracted style description — user can modify/paste freely
   const [editedStyleDesc, setEditedStyleDesc] = useState<string>("");
 
+  // ── Production Preview Builder ─────────────────────────────────────────────
+  // Lets you pick a language, edit its character description, and type a word
+  // to preview the exact concept string production would generate.
+  const [showCharBuilder, setShowCharBuilder] = useState(false);
+  const [charIntros, setCharIntros] = useState<Record<string, string>>({});
+  const [builderLanguage, setBuilderLanguage] = useState("spanish");
+  const [builderCharDesc, setBuilderCharDesc] = useState("");
+  const [builderWord, setBuilderWord] = useState("");
+  const [builtConcept, setBuiltConcept] = useState<string | null>(null);
+  const [buildingConcept, setBuildingConcept] = useState(false);
+
   const loadProfiles = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/image-style-profiles");
       if (res.ok) setLockedProfiles(await res.json());
     } catch {}
   }, []);
+
+  // Load production character intros once on mount
+  useEffect(() => {
+    fetch("/api/admin/image-engine-test/character-intros")
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data) {
+          setCharIntros(data);
+          setBuilderCharDesc(data["spanish"] ?? "");
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // When language changes, reset char desc to production default
+  useEffect(() => {
+    if (charIntros[builderLanguage]) setBuilderCharDesc(charIntros[builderLanguage]);
+    setBuiltConcept(null);
+  }, [builderLanguage]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const buildProductionConcept = async () => {
+    if (!builderWord.trim()) return;
+    setBuildingConcept(true);
+    setBuiltConcept(null);
+    try {
+      const res = await fetch("/api/admin/image-engine-test/build-concept", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ word: builderWord.trim(), language: builderLanguage, characterIntro: builderCharDesc }),
+      });
+      const data = await res.json();
+      if (data.concept) setBuiltConcept(data.concept);
+    } catch {}
+    setBuildingConcept(false);
+  };
 
   useEffect(() => { loadProfiles(); }, [loadProfiles]);
 
@@ -614,6 +661,108 @@ export default function ImageEngineTest() {
                   <div className="text-xs text-muted-foreground">Type your own</div>
                 </button>
               </div>
+            </div>
+
+            {/* Production Preview Builder */}
+            <div>
+              <button
+                className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 hover:text-foreground transition-colors"
+                onClick={() => setShowCharBuilder(v => !v)}
+                data-testid="button-toggle-char-builder"
+              >
+                {showCharBuilder ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                Production preview builder
+              </button>
+              {showCharBuilder && (
+                <div className="flex flex-col gap-3">
+                  <p className="text-[11px] text-muted-foreground leading-snug">
+                    Build the exact concept string production uses — pick a language, edit the character if needed, type a word or scene, then use the result.
+                  </p>
+
+                  {/* Language selector */}
+                  <div>
+                    <Label className="text-[11px] text-muted-foreground mb-1 block">Language</Label>
+                    <select
+                      value={builderLanguage}
+                      onChange={e => setBuilderLanguage(e.target.value)}
+                      className="w-full text-xs rounded-md border border-input bg-background px-2 py-1.5"
+                      data-testid="select-builder-language"
+                    >
+                      {Object.keys(charIntros).map(lang => (
+                        <option key={lang} value={lang}>{lang.charAt(0).toUpperCase() + lang.slice(1)}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Editable character description */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <Label className="text-[11px] text-muted-foreground">Character description</Label>
+                      <button
+                        className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={() => setBuilderCharDesc(charIntros[builderLanguage] ?? "")}
+                        data-testid="button-reset-char-desc"
+                      >
+                        Reset to production
+                      </button>
+                    </div>
+                    <Textarea
+                      value={builderCharDesc}
+                      onChange={e => { setBuilderCharDesc(e.target.value); setBuiltConcept(null); }}
+                      rows={4}
+                      className="text-xs resize-y"
+                      placeholder="Character description from LANGUAGE_CHARACTER_INTROS…"
+                      data-testid="input-builder-char-desc"
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-1 leading-snug">
+                      Edit hair, clothing, or any detail — changes are local to this test only.
+                    </p>
+                  </div>
+
+                  {/* Word / scene input */}
+                  <div>
+                    <Label className="text-[11px] text-muted-foreground mb-1 block">Vocabulary word or scene</Label>
+                    <div className="flex gap-1.5">
+                      <Input
+                        value={builderWord}
+                        onChange={e => { setBuilderWord(e.target.value); setBuiltConcept(null); }}
+                        onKeyDown={e => e.key === "Enter" && buildProductionConcept()}
+                        placeholder='e.g. "hablar" or "greeting a student"'
+                        className="text-xs"
+                        data-testid="input-builder-word"
+                      />
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        onClick={buildProductionConcept}
+                        disabled={buildingConcept || !builderWord.trim()}
+                        data-testid="button-build-concept"
+                      >
+                        {buildingConcept ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Assembled concept preview */}
+                  {builtConcept && (
+                    <div className="flex flex-col gap-2">
+                      <Label className="text-[11px] text-muted-foreground">Assembled concept</Label>
+                      <div className="rounded-md border border-border bg-muted/40 p-2 text-xs leading-relaxed text-foreground">
+                        {builtConcept}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={() => { setConcept(builtConcept); setActivePreset("custom"); setShowPrompt(true); setBuiltConcept(null); }}
+                        data-testid="button-use-built-concept"
+                      >
+                        <Check className="w-3 h-3 mr-1.5" />
+                        Use this concept
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Prompt preview / editor */}
