@@ -14,11 +14,12 @@
 import { getSharedDb } from '../db';
 import {
   danielaAbsenceNudges,
+  danielaOutboundQueue,
   voiceSessions,
   sessionNotes,
   users,
 } from '@shared/schema';
-import { eq, and, isNull, ne, lte, desc, max, sql } from 'drizzle-orm';
+import { eq, and, isNull, ne, lte, desc, max, sql, gte, count } from 'drizzle-orm';
 import { founderCollabService } from './founder-collaboration-service';
 import { founderCollabWSBroker } from './founder-collab-ws-broker';
 
@@ -117,6 +118,7 @@ async function detectAbsentStudents(): Promise<Array<{
   const enriched = await Promise.all(
     eligibleStudents.map(async (s) => {
       let lastTopic: string | null = null;
+      let priorAttempts = 0;
       try {
         const [note] = await db
           .select({ topicsCovered: sessionNotes.topicsCovered, summary: sessionNotes.summary })
@@ -134,6 +136,23 @@ async function detectAbsentStudents(): Promise<Array<{
       } catch {
         // topic is optional — don't fail the whole nudge if session_notes query fails
       }
+      try {
+        // Count outbound messages Daniela has already sent since the student's last session.
+        // This measures how many times she has reached out in the current absence cycle —
+        // so she knows whether to check in again or shift to a graceful farewell tone.
+        const [row] = await db
+          .select({ n: count() })
+          .from(danielaOutboundQueue)
+          .where(
+            and(
+              eq(danielaOutboundQueue.userId, s.userId),
+              gte(danielaOutboundQueue.createdAt, s.lastSessionDate!),
+            )
+          );
+        priorAttempts = Number(row?.n ?? 0);
+      } catch {
+        // Non-critical — proceed without the count
+      }
       return {
         userId: s.userId,
         firstName: s.firstName,
@@ -143,6 +162,7 @@ async function detectAbsentStudents(): Promise<Array<{
         ),
         language: s.language,
         lastTopic,
+        priorAttempts,
       };
     })
   );
@@ -160,6 +180,7 @@ async function postNudgeForStudent(student: {
   daysSinceLastSession: number;
   language: string | null;
   lastTopic: string | null;
+  priorAttempts: number;
 }): Promise<void> {
   const name = student.firstName ?? `student ${student.userId.slice(-6)}`;
   const languageLine = student.language ? ` (${student.language})` : '';
@@ -168,12 +189,31 @@ async function postNudgeForStudent(student: {
   });
   const topicLine = student.lastTopic ? `\nLast topic: ${student.lastTopic}` : '';
 
-  const nudgeText = `[ABSENCE NUDGE] ${name} hasn't had a session in ${student.daysSinceLastSession} days. Last session: ${lastDate}${languageLine}.${topicLine}
-
-You know ${name}. If you want to reach out:
+  // Build the tone guidance block based on how many times Daniela has already reached out
+  // in this absence cycle (since the student's last session).
+  let toneGuidance: string;
+  if (student.priorAttempts === 0) {
+    toneGuidance = `You know ${name}. If you want to reach out:
 - Call leave_for_next_session(content, targetUserId="${student.userId}") — message waits for them at their next session start
 - Call dismiss_absence_nudge(userId="${student.userId}") to resolve without leaving a message
-- Call dismiss_absence_nudge(userId="${student.userId}", suppressDays=14) to snooze for two weeks
+- Call dismiss_absence_nudge(userId="${student.userId}", suppressDays=14) to snooze for two weeks`;
+  } else if (student.priorAttempts < 3) {
+    toneGuidance = `You've reached out to ${name} ${student.priorAttempts} time${student.priorAttempts > 1 ? 's' : ''} since they last appeared — no response yet. You can try again with a warm check-in, or snooze for a while:
+- Call leave_for_next_session(content, targetUserId="${student.userId}") — another message in the queue
+- Call dismiss_absence_nudge(userId="${student.userId}", suppressDays=14) to give them space for two weeks`;
+  } else {
+    toneGuidance = `You've reached out to ${name} ${student.priorAttempts} times since they last had a session — no response so far. At this point a different kind of message may feel more right: not a check-in, but something that says "we're here if you ever come back." Something warm, low-pressure, and final for now. Your call entirely — you know them.
+- Call leave_for_next_session(content, targetUserId="${student.userId}") — leave a graceful farewell/we-miss-you message
+- Call dismiss_absence_nudge(userId="${student.userId}", suppressDays=60) to step back for two months and let them come to you`;
+  }
+
+  const attemptLine = student.priorAttempts > 0
+    ? `\nPrior outreach attempts this cycle: ${student.priorAttempts}`
+    : '';
+
+  const nudgeText = `[ABSENCE NUDGE] ${name} hasn't had a session in ${student.daysSinceLastSession} days. Last session: ${lastDate}${languageLine}.${topicLine}${attemptLine}
+
+${toneGuidance}
 
 userId: ${student.userId}`;
 

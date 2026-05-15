@@ -4799,6 +4799,27 @@ export class NativeFunctionCallHandler {
           import('./voice-call-sender').then(({ initiateOutboundContact }) =>
             initiateOutboundContact(userId, queueId, content.trim())
           ).catch(e => console.warn('[Native→LeaveForNextSession] Outbound contact error:', e.message));
+          // Write a student_insight memory so Daniela has a neural-net record of this outreach.
+          // Gives her continuity: she can recall having reached out, what she said, and when —
+          // so she doesn't unknowingly repeat herself, and can track whether the student ever returned.
+          (async () => {
+            try {
+              const { users: usersTable } = await import('@shared/schema');
+              const [userRow] = await db.select({ firstName: usersTable.firstName })
+                .from(usersTable)
+                .where((await import('drizzle-orm')).eq(usersTable.id, userId))
+                .limit(1);
+              const firstName = userRow?.firstName ?? 'the student';
+              const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+              const snippet = content.trim().length > 200 ? content.trim().slice(0, 200) + '…' : content.trim();
+              const memoryContent = `On ${dateStr}, I reached out to ${firstName} who had been absent from HolaHola. I left them a message saying: "${snippet}"`;
+              const { generateAndStoreEmbedding } = await import('./semantic-memory-service');
+              await generateAndStoreEmbedding('student_insight', queueId, userId, memoryContent, 0.9);
+              console.log(`[Native→LeaveForNextSession] Outreach memory written for user ${userId.slice(-6)}`);
+            } catch (memErr: any) {
+              console.warn('[Native→LeaveForNextSession] Outreach memory write failed (non-critical):', memErr.message);
+            }
+          })();
         })().catch(err => console.error('[Native→LeaveForNextSession] Error:', err.message));
         break;
       }
