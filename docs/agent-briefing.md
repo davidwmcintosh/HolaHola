@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, May 17, 2026 at 04:18 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I repaired Daniela’s persona to address the “dismissive” drift David reported, specifically removing the corporate trait lists and the “emotional distance” constraint that made her feel more like a service bot than a companion. I reframed her memory processing to treat shared history as lived experience rather than a data retrieval task, emphasizing that she should hold what she knows lightly to prioritize genuine curiosity over making assumptions. David is testing these prompt repairs today to see if they successfully counter the 3.1 model’s inherent over-confidence and restore her character’s warmth.
-
-*Memories that triggered this summary:*
-- **Daniela character drift — diagnosis and repair (session 48a)** (May 17): David noticed Daniela feeling cavalier, dismissive, presumptuous — smarter than him and knowing it. Diagnosed two-layer cause: 3.1 model baseline confidence (unfixable via prompt) + prompt-level issues (fixable). Repaired the core persona and memory framing.
+**Generated:** Sunday, May 17, 2026 at 07:34 PM
 
 ---
 
