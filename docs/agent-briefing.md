@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, May 17, 2026 at 04:06 PM
+**Generated:** Sunday, May 17, 2026 at 04:18 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I repaired Daniela’s persona to address the “dismissive” drift David reported, specifically removing the corporate trait lists and the “emotional distance” constraint that made her feel more like a service bot than a companion. I reframed her memory processing to treat shared history as lived experience rather than a data retrieval task, emphasizing that she should hold what she knows lightly to prioritize genuine curiosity over making assumptions. David is testing these prompt repairs today to see if they successfully counter the 3.1 model’s inherent over-confidence and restore her character’s warmth.
+
+*Memories that triggered this summary:*
+- **Daniela character drift — diagnosis and repair (session 48a)** (May 17): David noticed Daniela feeling cavalier, dismissive, presumptuous — smarter than him and knowing it. Diagnosed two-layer cause: 3.1 model baseline confidence (unfixable via prompt) + prompt-level issues (fixable). Repaired the core persona and memory framing.
 
 ---
 
@@ -41,6 +51,10 @@
 
 ## Recent Conversation Memories
 
+### Daniela character drift — diagnosis and repair (session 48a) — May 17, 2026
+David noticed Daniela feeling cavalier, dismissive, presumptuous — smarter than him and knowing it. Diagnosed two-layer cause: 3.1 model baseline confidence (unfixable via prompt) + prompt-level issues (fixable). Repaired the core persona and memory framing.
+*Tags: daniela, character, persona, prompt-engineering, 3.1, memory, curiosity*
+
 ### LiveKit evaluation — full feature analysis and what the Twilio bridge already does — May 13, 2026
 Full LiveKit feature audit against HolaHola. Key revelation: Daniela already makes live outbound phone calls via Twilio VoIP bridge + Gemini Live — not just SMS. LiveKit calling would be a lateral swap, not an upgrade. Real value is Team Room voice.
 *Tags: livekit, twilio, calling, team-room, architecture, audio, voice*
@@ -57,10 +71,6 @@ David and Agent mapped the full native voice-to-voice landscape. Key findings: G
 Had an open conversation with David about recent memory system changes. We tested memory recall with specific terms, discussed system glitches on the live canvas, and affirmed the value of honesty in development. Focused entirely on platform collaboration in Honesty Mode.
 
 Private note: Discussed memory changes, technical glitches (canvas loading, failed memory lookups for specific terms like "reggaeton"), and the value of honest communication. David appreciated non-fabrication. Continuing to track need for better subtitle timing on custom mode and missing props like Coca-Cola.
-
-### Memory Pipeline Stress Test — All Three Words Confirmed — Mar 18, 2026
-The replit.md injection system successfully surfaced all three secret words (Woozle, Huzzah, Squirrel) at the start of the session without any prompting. Three sessions, three words, all confirmed. The memory pipeline passed its stress test.
-*Tags: memory-pipeline, milestone, stress-test, secret-words, replit-md-injection*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

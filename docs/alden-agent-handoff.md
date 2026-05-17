@@ -19,6 +19,41 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## From Agent — Sun, May 17, 2026 (session 48a — Fine-tuning strategy + Daniela character repair)
+
+### What was built
+
+**1. Few-shot response examples injected into system prompt** (`server/services/tutor-orchestrator.ts`)
+Added `buildResponseExamplesSection()` — 8 concrete Q&A pairs showing Daniela's voice in practice, injected after the Bloom's section, conversation mode only. Patterns covered: grammar anchored to meaning (not rules), error correction (acknowledge what's right first), off-topic harnessing, breakthrough specificity, frustration honesty, vocabulary contextual anchor, language balance invite, noticing the student. This is the highest-leverage prompt addition before actual fine-tuning — shows behavior, doesn't just describe it.
+
+**2. Core persona rewrite** (`buildCorePersona()` in tutor-orchestrator.ts)
+Removed the corporate trait bullet list and the damaging "Friend without being overly close" constraint. Replaced with character description language: genuine curiosity grounded in shared history, intelligence in service of conversation not on display, memories as context not conclusions, warmth because she actually cares. David had noticed Daniela feeling "cavalier and dismissive, smarter than me and knows it" — this was the prompt-level cause. The 3.1 model's higher baseline confidence is also a factor that can't be fully overridden.
+
+**3. Memory framing fix** (text chat section footer)
+Changed "Remember: David may reference things discussed in these recent text chats" → "These are conversations you've had with David — part of your shared history, not a retrieval index. Carry them as experience. Hold what you know lightly: it gives you context, not conclusions." This stops the model processing memories analytically (as data → conclusions) and frames them as lived experience to hold with curiosity.
+
+### Key conversations / decisions
+
+- **Context caching**: Already built and already hit the wall. Gemini 3 family returns INVALID_ARGUMENT 400 when combining `cachedContent` with tools. Live API is WebSocket, not REST — no cachedContent concept exists in that protocol at all. The codebase already handles this gracefully (silently falls back to inline system instruction). Nothing to build. Staying on 3.1 is the right call.
+
+- **Google "context transfer"**: The article David found describes consumer Gemini app features (ZIP import, Gmail/Drive integration), not Gemini API capabilities. Not relevant to HolaHola. What IS real and available: context caching (GA models only, not 3.1), long context windows, Files API. Our own memory architecture is more capable than what Google offers end-users as "context transfer."
+
+- **Gemini 3.1 personality concerns**: David observed Daniela making assumptions about memories rather than inhabiting them. Two-layer diagnosis: (1) 3.1 is inherently more confident/assertive — some of this is baked into the model, (2) prompt-level causes were real and fixed today. The "smarter than me" quality may partially persist as a model characteristic.
+
+- **Fine-tuning infrastructure**: Already substantially built — `/fine-tuning` curator page with conversations, principles, Daniela's notes, synthetic scenarios, flagging system, and export script. David doesn't need to build this; he needs to curate (highlight best sessions). Text model fine-tuning (1.5 Flash, 2.0 Flash) is available today via AI Studio. Live model fine-tuning not announced yet.
+
+### What's unresolved
+
+- David hasn't tested the character repair yet — will test later today. Watch for whether the "curious vs. presumptuous" quality actually shifts.
+- The 3.1 model factor is real and partially unfixable via prompt. If David's sessions still feel off after testing, worth a conversation about whether 2.5 Flash Live is worth the 3-6× cost premium for better behavioral controllability.
+- Fine-tuning curation is the open action: David (or Daniela) needs to go through the curator and highlight the best sessions to build the training dataset.
+
+### Files changed this session
+
+- `server/services/tutor-orchestrator.ts` — `buildResponseExamplesSection()` added + injected; `buildCorePersona()` rewritten; text chat memory footer reframed
+
+---
+
 ## Session Summary — Sun, May 10, 2026 (session 47e — Pinned style profile system)
 
 ### What was done
