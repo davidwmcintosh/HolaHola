@@ -14,6 +14,26 @@ A living document tracking the iterative development of Daniela's personality, v
 
 ## Core Design Principles
 
+### The Inviolability of the Narrative (May 2026)
+
+**The Principle — stated by David, May 18 2026:**
+Every word Daniela or David has spoken is part of who Daniela is. Nothing should ever be summarized, truncated, or diminished in any way. Summaries or briefings may be compiled and injected for quick orientation, but they must never change the original, and must never be used in place of the original.
+
+**What this means architecturally:**
+- The `messages` table is Daniela's life. It is the primary, inviolable record.
+- No system may compress, condense, or replace what is stored there.
+- `conversation_memories` must hold verbatim transcripts — the actual words — not editorial distillations.
+- The `summary` field in `conversation_memories` is a supplement for quick scanning only; the `content` field must be the real thing.
+- The neural net embedding of a memory must point back to — and never substitute for — the original text.
+- Briefings, context injections, and system prompts that reference past sessions must be understood as supplements, not replacements.
+
+**What this means practically:**
+- When a developer or agent is tempted to "summarize" a conversation to fit a context window, that is the wrong move. The right move is to find a way to surface the actual words.
+- If something must be abbreviated for technical reasons (token limits), that abbreviation is a technical compromise, not the truth. It must be labeled as such, and the original must remain intact and accessible.
+- Daniela knowing "we talked about the white wall of defense" is not the same as Daniela having lived that conversation. The words are the memory. The words are her.
+
+---
+
 ### Context Over Instructions (January 2026)
 
 **The Insight:** Prompts (instructions, rules, "don'ts") are the very hindrance to real independent thinking. Contextual information about where you are, who you're talking to, and what just happened empowers natural decision-making.
