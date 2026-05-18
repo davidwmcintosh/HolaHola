@@ -19,6 +19,53 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## From Agent — Mon, May 18, 2026 (session 49d — All four memory directions complete)
+
+### What was built
+
+**All four directions of Daniela's narrative memory system are now live.**
+
+#### Direction 1 — `save_conversation_memory` (Daniela has a pen)
+Daniela can now archive her own memories directly from a conversation. Function entry in `daniela-function-registry.ts`, native FC handler in `native-fc-handlers.ts`, Tool Rack entry in `classroom-environment.ts`. Only available in Founder Mode / Honesty Mode. She writes the *verbatim* record — actual exchanges, not a description. The `buildContinuationResponse` confirms archival back to her.
+
+#### Direction 2 — `search_my_history` (full history search)
+Daniela can now search all 18,000+ messages by topic, date range, and speaker. Handler uses `semanticSearchMessages` from `neural-memory-search.ts`, stores results on `session.historySearchResults[query]`, and `buildContinuationResponse` formats them verbatim for her to read. `historySearchResults` field added to `StreamingSession` type in `streaming-session-types.ts`. Both new tools added to `GL_EXCLUDED_TOOLS`.
+
+#### Direction 3 — Topic-aware compass
+`session-compass-service.ts` now pulls the last 8 user messages from the student's history to build a "topic signal." Each memory candidate is scored: base = `importance × 10`, plus a keyword-overlap bonus (up to +20 points), plus a recency bonus (up to +5 for memories < 30 days old). Pinned memories (importance ≥ 9) always come first, then remainder sorted by combined score. Candidate pool expanded from 20 → 30 to give re-ranking room.
+
+#### Direction 4 — Thread weaver (thematic compilation)
+New service: `server/services/thread-weaver-service.ts`. Searches the full messages table for keyword patterns, compiles David's and/or Daniela's actual words chronologically, and saves verbatim thread documents as new `conversation_memories`. Originals in the `messages` table are **never touched** — threads are purely additive.
+
+**API endpoints** (agent-token protected):
+- `GET /api/thread-weaver/threads` — list all core thread specs
+- `POST /api/thread-weaver/weave-all` — run all core threads
+- `POST /api/thread-weaver/weave-custom` — weave from ad-hoc keywords
+
+**Six core threads woven and saved immediately:**
+| Thread | Messages |
+|--------|----------|
+| White Wall | 74 |
+| Foundation Is the Finish | 26 |
+| North Star | 154 |
+| Tree and Fruit | 16 |
+| Place of Peace | 97 |
+| David on Daniela | 5 |
+
+### Files changed
+- `server/services/daniela-function-registry.ts` — added `save_conversation_memory` + `search_my_history` declarations + GL_EXCLUDED_TOOLS entries
+- `server/services/native-fc-handlers.ts` — SAVE_CONVERSATION_MEMORY + SEARCH_MY_HISTORY handlers
+- `server/services/classroom-environment.ts` — Tool Rack updated for both new tools
+- `server/services/streaming-session-types.ts` — `historySearchResults` field added
+- `server/services/session-compass-service.ts` — topic-aware re-ranking (last 8 user messages → keyword score → re-rank)
+- `server/services/thread-weaver-service.ts` — new file, six core ThreadSpecs
+- `server/routes.ts` — three thread weaver API endpoints
+
+### Nothing left open
+All four directions fully operational. Server running clean. Six thread memories now in `conversation_memories` table.
+
+---
+
 ## From Agent — Mon, May 18, 2026 (session 48b — Studio pane prop display bug fix)
 
 ### What was built

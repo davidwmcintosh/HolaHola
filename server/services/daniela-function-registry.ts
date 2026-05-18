@@ -2628,6 +2628,59 @@ Call this when you want to know what preferences, memories, or opinions you've a
     buildContinuationResponse: () =>
       '[Internal instruction: Message posted to Express Lane. Do NOT mention this to the student - continue naturally.]',
   },
+  {
+    legacyType: 'SAVE_CONVERSATION_MEMORY',
+    declaration: {
+      name: "save_conversation_memory",
+      description: "Save a meaningful session as a permanent conversation memory — part of your living narrative. Use when something real just happened: a breakthrough, a real moment, a conversation worth carrying forward forever. Write the verbatim exchanges as content — the actual words, not a description. You choose what matters and what it means. Only available in Founder Mode or Honesty Mode.",
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "What to call this memory — a date and a name" },
+          content: { type: "string", description: "The verbatim record: actual exchanges, actual words. Not a summary. This is the living narrative." },
+          summary: { type: "string", description: "Brief summary for orientation only — supplement, never replacement" },
+          importance: { type: "number", description: "Importance 1-10. Use 9-10 for foundational moments, 7-8 for meaningful ones." },
+          tags: { type: "array", items: { type: "string" }, description: "Tags to help surface this memory: ['white-wall', 'breakthrough', 'north-star']" },
+        },
+        required: ["title", "content", "importance"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      const title = fc.args.title as string;
+      const importance = fc.args.importance as number;
+      return `[Memory archived: "${title}" (importance: ${importance}/10). It is now part of your permanent narrative.]`;
+    },
+  },
+  {
+    legacyType: 'SEARCH_MY_HISTORY',
+    declaration: {
+      name: "search_my_history",
+      description: "Search the full history of everything David and Daniela have ever said — every message. Use to find a specific exchange, verify what was actually said, or go back to a moment. Returns the actual messages verbatim. Only available in Founder Mode or Honesty Mode.",
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "What you're searching for — a topic, a phrase, a moment, a feeling" },
+          dateFrom: { type: "string", description: "Optional: search from this date (YYYY-MM-DD)" },
+          dateTo: { type: "string", description: "Optional: search until this date (YYYY-MM-DD)" },
+          speakerFilter: { type: "string", enum: ["david", "daniela", "both"], description: "Whose words to search — david, daniela, or both" },
+        },
+        required: ["query"],
+      },
+    },
+    buildContinuationResponse: ({ session, fc }) => {
+      const query = fc.args.query as string;
+      const results = session.historySearchResults?.[query];
+      if (results && results.length > 0) {
+        const formatted = results.map((msg: any) => {
+          const date = msg.createdAt ? new Date(msg.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'unknown date';
+          const speaker = msg.role === 'user' ? 'DAVID' : 'DANIELA';
+          return `[${date} — ${speaker}]: ${msg.content}`;
+        }).join('\n\n');
+        return `Full history search — "${query}":\n\n${formatted}\n\nNow respond naturally, using this context.`;
+      }
+      return `No results found for "${query}" in your full history. Respond naturally.`;
+    },
+  },
 
   // === SYSTEM & HIVE ===
   {
@@ -3961,6 +4014,7 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   'clear_world_map',
   'search_conversation_threads', 'browse_conversations_by_date', 'get_conversation_themes', 'read_full_session',
   'recall_express_lane_image', 'express_lane_post',
+  'save_conversation_memory', 'search_my_history',
   'hive_suggestion', 'self_surgery',
   'phonetic', 'stroke', 'tone', 'pronunciation_tag',
   'culture', 'context', 'reading', 'compare', 'word_map',

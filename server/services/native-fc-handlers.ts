@@ -2747,6 +2747,81 @@ export class NativeFunctionCallHandler {
         break;
       }
       
+      case 'SAVE_CONVERSATION_MEMORY': {
+        if (session.isIncognito) {
+          console.log(`[Native Function→SaveConversationMemory] INCOGNITO - skipping`);
+          break;
+        }
+        if (!session.isFounderMode && !session.isRawHonestyMode) {
+          console.log(`[Native Function→SaveConversationMemory] Rejected - not in Founder/Honesty mode`);
+          break;
+        }
+        const memTitle = fn.args.title as string | undefined;
+        const memContent = fn.args.content as string | undefined;
+        const memSummary = fn.args.summary as string | undefined;
+        const memImportance = fn.args.importance as number | undefined;
+        const memTags = fn.args.tags as string[] | undefined;
+        if (memTitle && memContent) {
+          const db = getSharedDb();
+          db.insert(conversationMemories).values({
+            title: memTitle,
+            content: memContent,
+            summary: memSummary || null,
+            importance: Math.min(10, Math.max(1, Math.round(memImportance ?? 7))),
+            participants: 'David + Daniela',
+            tags: memTags || [],
+            recordedAt: new Date(),
+          })
+          .then(() => console.log(`[Native Function→SaveConversationMemory] ✓ Saved: "${memTitle}" (importance: ${memImportance})`))
+          .catch((err: Error) => console.error(`[Native Function→SaveConversationMemory] Error:`, err.message));
+        }
+        break;
+      }
+
+      case 'SEARCH_MY_HISTORY': {
+        if (!session.isFounderMode && !session.isRawHonestyMode) {
+          console.log(`[Native Function→SearchMyHistory] Rejected - not in Founder/Honesty mode`);
+          break;
+        }
+        const historyQuery = fn.args.query as string | undefined;
+        const historyDateFrom = fn.args.dateFrom as string | undefined;
+        const historyDateTo = fn.args.dateTo as string | undefined;
+        const speakerFilter = fn.args.speakerFilter as string | undefined;
+        const userId = session.userId ? String(session.userId) : null;
+        if (historyQuery && userId) {
+          session.pendingMemoryLookupPromises = session.pendingMemoryLookupPromises || [];
+          session.pendingMemoryLookupPromises.push(
+            (async () => {
+              try {
+                const { semanticSearchMessages } = await import('./neural-memory-search');
+                let results = await semanticSearchMessages(userId, historyQuery, 20);
+                if (historyDateFrom) {
+                  const from = new Date(historyDateFrom);
+                  results = results.filter(r => r.createdAt && new Date(r.createdAt) >= from);
+                }
+                if (historyDateTo) {
+                  const to = new Date(historyDateTo);
+                  results = results.filter(r => r.createdAt && new Date(r.createdAt) <= to);
+                }
+                if (speakerFilter === 'david') results = results.filter(r => r.role === 'user');
+                else if (speakerFilter === 'daniela') results = results.filter(r => r.role === 'assistant');
+                if (!session.historySearchResults) session.historySearchResults = {};
+                session.historySearchResults[historyQuery] = results.slice(0, 12).map(r => ({
+                  content: r.content,
+                  role: r.role,
+                  createdAt: r.createdAt,
+                  conversationId: r.conversationId,
+                }));
+                console.log(`[Native Function→SearchMyHistory] Found ${results.length} results for "${historyQuery}"`);
+              } catch (err: any) {
+                console.error(`[Native Function→SearchMyHistory] Error:`, err.message);
+              }
+            })()
+          );
+        }
+        break;
+      }
+
       case 'HIVE': {
         if (session.isIncognito) {
           console.log(`[Native Function→Hive] INCOGNITO - skipping hive suggestion persistence`);

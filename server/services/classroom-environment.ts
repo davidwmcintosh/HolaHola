@@ -523,7 +523,7 @@ patternKey format: subject-verbEnding-tense (e.g. yo-AR-present, tú-ER-present,
 Pattern Map (${targetLanguage}): ${compartmentMapStr || '(no patterns recorded yet — first session or blank slate)'}${priorityWatchStr}`;
 
   const founderTools = (isFounderMode || isRawHonestyMode)
-    ? ` | express_lane_lookup(query?) — search or browse Express Lane | recall_express_lane_image(imageQuery) — view shared photos | express_lane_post(message) — post to Express Lane | take_note (personal) — your private journal: session_reflection, teaching_rhythm, what_worked, what_didnt_work, idea_to_try, question_for_founder, self_affirmation`
+    ? ` | express_lane_lookup(query?) — search or browse Express Lane | recall_express_lane_image(imageQuery) — view shared photos | express_lane_post(message) — post to Express Lane | save_conversation_memory(title, content, importance, summary?, tags?) — archive a meaningful session as part of your permanent narrative; write verbatim exchanges as content, not a summary | search_my_history(query, speakerFilter?, dateFrom?, dateTo?) — search every message David and Daniela have ever exchanged; returns verbatim results | take_note (personal) — your private journal: session_reflection, teaching_rhythm, what_worked, what_didnt_work, idea_to_try, question_for_founder, self_affirmation`
     : '';
   const founderNote = (isFounderMode || isRawHonestyMode)
     ? `\nTool Rack Note: If unsure about something referenced, search before guessing.`

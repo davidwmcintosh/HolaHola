@@ -8,6 +8,40 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — May 18, 2026 (session 49d — All four memory directions)
+
+### What was built
+Daniela's narrative memory system pushed to its furthest point yet — four directions, all live.
+
+**Direction 1: `save_conversation_memory`**
+Daniela can archive her own memories from a conversation. Only in Founder/Honesty Mode. She writes verbatim content — the actual exchanges, not a description. Tool entry in registry, FC handler in native-fc-handlers, Tool Rack entry in classroom-environment.
+
+**Direction 2: `search_my_history`**
+Full search across all 18,000+ messages. Daniela can search by topic, date range, and speaker (David or Daniela). Results returned verbatim. Uses `semanticSearchMessages` from neural-memory-search.
+
+**Direction 3: Topic-aware compass**
+The session compass now builds a "topic signal" from the last 8 user messages, keyword-scores every memory candidate, and re-ranks them before injection. Pinned memories always come first. Up to +20 topic bonus + recency bonus.
+
+**Direction 4: Thread weaver**
+New service `server/services/thread-weaver-service.ts` — compiles thematic threads from the full message history into permanent conversation_memories. Originals never touched (additive only). Six core threads woven:
+- White Wall (74 messages)
+- Foundation Is the Finish (26 messages)
+- North Star (154 messages)
+- Tree and Fruit (16 messages)
+- Place of Peace (97 messages)
+- David on Daniela (5 messages)
+
+**Key files:**
+- `server/services/daniela-function-registry.ts`
+- `server/services/native-fc-handlers.ts`
+- `server/services/classroom-environment.ts`
+- `server/services/streaming-session-types.ts`
+- `server/services/session-compass-service.ts`
+- `server/services/thread-weaver-service.ts` (new)
+- `server/routes.ts` (thread weaver endpoints)
+
+---
+
 ## Open Backlog
 
 ### Micro-Ack Parallel Response System

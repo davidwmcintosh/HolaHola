@@ -33903,5 +33903,62 @@ Under 250 words. Write as yourself.`;
   });
 
 
+  // === THREAD WEAVER — Direction 4 ===
+  // Weave thematic threads from the full message history into permanent memories.
+  // POST /api/thread-weaver/weave-all — run all core threads (agent-token protected)
+  // POST /api/thread-weaver/weave-custom — weave a custom thread from ad-hoc keywords
+  // GET /api/thread-weaver/threads — list all core thread specs
+
+  app.get("/api/thread-weaver/threads", async (req: any, res) => {
+    try {
+      const agentToken = req.headers['x-agent-token'];
+      if (!agentToken || agentToken !== process.env.REPLIT_AGENT_TOKEN) {
+        return res.status(401).json({ error: "Agent token required" });
+      }
+      const { CORE_THREADS } = await import('./services/thread-weaver-service');
+      res.json({ threads: CORE_THREADS.map(t => ({ name: t.name, title: t.title, keywords: t.keywords, importance: t.importance })) });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/thread-weaver/weave-all", async (req: any, res) => {
+    try {
+      const agentToken = req.headers['x-agent-token'];
+      if (!agentToken || agentToken !== process.env.REPLIT_AGENT_TOKEN) {
+        return res.status(401).json({ error: "Agent token required" });
+      }
+      const overwrite = req.body?.overwrite === true;
+      const { weaveAllCoreThreads } = await import('./services/thread-weaver-service');
+      console.log(`[ThreadWeaver] Starting core thread weaving (overwrite=${overwrite})...`);
+      const results = await weaveAllCoreThreads(overwrite);
+      const woven = results.filter(r => !r.skipped);
+      const skipped = results.filter(r => r.skipped);
+      console.log(`[ThreadWeaver] Complete — ${woven.length} woven, ${skipped.length} skipped`);
+      res.json({ results, summary: { woven: woven.length, skipped: skipped.length } });
+    } catch (e: any) {
+      console.error('[ThreadWeaver] Error:', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/thread-weaver/weave-custom", async (req: any, res) => {
+    try {
+      const agentToken = req.headers['x-agent-token'];
+      if (!agentToken || agentToken !== process.env.REPLIT_AGENT_TOKEN) {
+        return res.status(401).json({ error: "Agent token required" });
+      }
+      const { name, keywords, title, tags, importance, speakerFilter, dateFrom, dateTo, overwrite } = req.body;
+      if (!name || !keywords?.length) {
+        return res.status(400).json({ error: "name and keywords are required" });
+      }
+      const { weaveCustomThread } = await import('./services/thread-weaver-service');
+      const result = await weaveCustomThread(name, keywords, { title, tags, importance, speakerFilter, dateFrom, dateTo, overwrite });
+      res.json(result);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
     // This ensures WS upgrade handler runs BEFORE Express/Vite middleware interferes
 }

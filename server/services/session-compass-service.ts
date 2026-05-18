@@ -330,13 +330,15 @@ export class SessionCompassService {
       const userActfl = userResult[0];
 
       // Load conversation memories — full narratives, not summaries.
-      // Strategy: always include importance >= 9 (pinned stories like the podcast),
-      // then fill remaining slots with most-recent memories down to importance >= 5.
-      // Total cap: 12 entries so the context block stays readable but complete.
+      // Strategy: importance >= 9 always pinned; remaining slots filled by topic-relevance
+      // scoring against recent conversation history, then recency. Cap: 12 total.
       let fetchedMemories: Array<{ title: string; content: string; importance: number; recordedAt: string }> = [];
       try {
         const db = getUserDb();
-        const allMemories = await db
+        const sharedDb = getSharedDb();
+
+        // Pull candidate memories (top 30 so we have room to re-rank)
+        const allMemories = await sharedDb
           .select({
             title: conversationMemories.title,
             content: conversationMemories.content,
@@ -345,19 +347,65 @@ export class SessionCompassService {
           })
           .from(conversationMemories)
           .orderBy(desc(conversationMemories.importance), desc(conversationMemories.recordedAt))
-          .limit(20);
+          .limit(30);
 
-        // Partition: pinned (importance >= 9) always in, then fill to 12 with the rest
-        const pinned = allMemories.filter(m => (m.importance ?? 0) >= 9);
-        const recent = allMemories.filter(m => (m.importance ?? 0) < 9);
-        const combined = [...pinned, ...recent].slice(0, 12);
+        // Build topic signal: last 8 user messages from this student's history
+        let topicSignal = '';
+        try {
+          const recentMsgs = await db
+            .select({ content: messages.content })
+            .from(messages)
+            .innerJoin(
+              conversations,
+              eq(messages.conversationId, conversations.id)
+            )
+            .where(
+              and(
+                eq(conversations.userId, session.userId),
+                eq(messages.role, 'user')
+              )
+            )
+            .orderBy(desc(messages.createdAt))
+            .limit(8);
+          topicSignal = recentMsgs.map(m => m.content).join(' ').toLowerCase();
+        } catch {
+          // Topic signal is best-effort; fall back to importance+recency ranking
+        }
+
+        // Score each memory: base = importance; boost if title/content keywords overlap with topic
+        const scored = allMemories.map(m => {
+          let score = (m.importance ?? 7) * 10; // base weight: 70-100
+          if (topicSignal && topicSignal.length > 20) {
+            const haystack = `${m.title} ${m.content.substring(0, 400)}`.toLowerCase();
+            // Extract meaningful words from topic signal (>4 chars, not stopwords)
+            const stopwords = new Set(['that', 'this', 'with', 'have', 'from', 'they', 'will', 'been', 'were', 'what', 'when', 'your', 'about', 'there', 'their', 'just', 'into', 'than', 'then', 'also', 'more', 'some', 'like', 'very']);
+            const topicWords = topicSignal.split(/\W+/).filter(w => w.length > 4 && !stopwords.has(w));
+            const uniqueTopicWords = [...new Set(topicWords)].slice(0, 25);
+            const hits = uniqueTopicWords.filter(w => haystack.includes(w)).length;
+            if (hits > 0) {
+              score += Math.min(hits * 4, 20); // up to +20 topic bonus
+            }
+          }
+          // Recency bonus for memories recorded in last 30 days
+          const ageMs = Date.now() - new Date(m.recordedAt).getTime();
+          const ageDays = ageMs / (1000 * 60 * 60 * 24);
+          if (ageDays < 30) score += Math.max(0, 5 - Math.floor(ageDays / 6));
+          return { ...m, score };
+        });
+
+        // Pinned (importance >= 9) always come first, then sort remainder by score
+        const pinned = scored.filter(m => (m.importance ?? 0) >= 9).sort((a, b) => b.score - a.score);
+        const rest = scored.filter(m => (m.importance ?? 0) < 9).sort((a, b) => b.score - a.score);
+        const combined = [...pinned, ...rest].slice(0, 12);
+
         fetchedMemories = combined.map(m => ({
           title: m.title,
           content: m.content,
           importance: m.importance ?? 7,
           recordedAt: m.recordedAt instanceof Date ? m.recordedAt.toISOString() : String(m.recordedAt),
         }));
-        console.log(`[Compass] Loaded ${fetchedMemories.length} conversation memories (${pinned.length} pinned, ${Math.min(recent.length, 12 - pinned.length)} recent)`);
+        const topicNote = topicSignal.length > 20 ? ', topic-boosted' : '';
+        console.log(`[Compass] Loaded ${fetchedMemories.length} conversation memories (${pinned.length} pinned${topicNote})`);
       } catch (err: any) {
         console.warn('[Compass] Failed to load conversation memories:', err.message);
       }

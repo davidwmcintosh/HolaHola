@@ -196,6 +196,7 @@ export interface StreamingSession {
   // Memory lookup results
   memoryLookupResults?: Record<string, string>;
   expressLaneLookupResults?: Record<string, string>;
+  historySearchResults?: Record<string, Array<{ content: string; role: string; createdAt: Date | null; conversationId: string }>>;
   conversationThreadResults?: Record<string, string>;
   conversationBrowseResults?: Record<string, string>;
   recallResults?: Record<string, string>;
