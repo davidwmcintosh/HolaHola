@@ -352,7 +352,7 @@ export class SessionCompassService {
           })
           .from(conversationMemories)
           .orderBy(desc(conversationMemories.importance), desc(conversationMemories.recordedAt))
-          .limit(60); // larger pool so threads never crowd out snapshots
+          .limit(30); // threads carry identity weight; snapshots just need top candidates
 
         // Split: woven identity threads go to their own always-on brief block;
         // snapshot memories go through the topic-scored 12-slot pool.
@@ -404,9 +404,13 @@ export class SessionCompassService {
           return { ...m, score };
         });
 
+        // Cap at 4 snapshots — identity threads now carry the thematic/identity weight,
+        // so we only need a small number of high-relevance recent moments here.
+        // Daniela can reach for search_my_history for the verbatim detail of any moment.
+        // Keeping this small is critical: GL returns zero audio when total context is too large.
         const pinned = scored.filter(m => (m.importance ?? 0) >= 9).sort((a, b) => b.score - a.score);
         const rest = scored.filter(m => (m.importance ?? 0) < 9).sort((a, b) => b.score - a.score);
-        const combined = [...pinned, ...rest].slice(0, 12);
+        const combined = [...pinned, ...rest].slice(0, 4);
 
         fetchedMemories = combined.map(m => ({
           title: m.title,
@@ -416,7 +420,7 @@ export class SessionCompassService {
         }));
 
         const topicNote = topicSignal.length > 20 ? ', topic-boosted' : '';
-        console.log(`[Compass] Memories — ${fetchedIdentityThreads.length} identity threads (brief), ${fetchedMemories.length} snapshots (${pinned.length} pinned${topicNote})`);
+        console.log(`[Compass] Memories — ${fetchedIdentityThreads.length} identity threads (brief) + ${fetchedMemories.length} snapshots (${pinned.length} pinned${topicNote}) [GL context-safe]`);
       } catch (err: any) {
         console.warn('[Compass] Failed to load conversation memories:', err.message);
       }
