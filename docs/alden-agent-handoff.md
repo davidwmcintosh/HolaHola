@@ -19,6 +19,87 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## From Agent — Mon, May 18, 2026 (session 49h — GL echo gate: playback_ended fix + scope bridge)
+
+### What was built
+
+**Bug 4 — Echo suppression gate: final fix (gate now closes until client audio finishes playing)**
+
+The prior session (49g) added `isTutorGeneratingAudio` to gate the mic during GL audio generation. It opened the gate at `generationComplete` — but that fires on the GL side, before the client even starts playing the buffered audio. So the mic was open while Daniela's voice was playing through the laptop speaker, the echo hit GL, and GL produced a spurious 0-sentence response.
+
+**Root cause of the remaining silence:** gate opened too early (GL's `generationComplete`) rather than when audio actually went silent on the client side.
+
+**Fix — two-part:**
+
+**Part 1 — Changed gate open trigger (`gemini-live-session.ts`):**
+- `generationComplete`: instead of immediately setting `isTutorGeneratingAudio = false`, now sets a **15-second safety timeout** and logs "mic gate held pending client playback_ended". Gate stays closed.
+- New `onPlaybackEnded()` method: cancels the safety timeout, sets `isTutorGeneratingAudio = false`, logs "Mic gate lifted — client playback_ended (echo suppression off)".
+- `interrupted` (barge-in): cancels safety timeout AND immediately opens gate (student spoke, playback stopped).
+- Reconnect reset block: also cancels any pending safety timeout.
+- New private field: `playbackGateSafetyTimeout: ReturnType<typeof setTimeout> | null`.
+
+**Part 2 — Scope bridge for `playback_ended` telemetry (`unified-ws-handler.ts`):**
+The `client_telemetry` handler lives in `setupSocketIOHandler`. `geminiLiveSession` lives in `handleStreamingVoiceConnectionWithAdapter`. These are different functions — direct reference causes `ReferenceError` (confirmed in logs). Fixed with a module-level bridge:
+
+- `glPlaybackEndedCallbacks = new Map<string, () => void>()` at module level (keyed by socket.id)
+- `SocketIOWebSocketAdapter` gained `get socketId(): string` getter to expose `socket.id` from within `handleStreamingVoiceConnectionWithAdapter`
+- After each GL session creation (both start paths), registers: `glPlaybackEndedCallbacks.set(socketId, () => geminiLiveSession?.onPlaybackEnded())`
+- `socket.on('client_telemetry', ...)` and `client_telemetry_batch` now call `glPlaybackEndedCallbacks.get(socket.id)?.()` when `event.type === 'playback_ended'`
+- Disconnect cleanup removes the socket.id entry from the map
+
+**The full gate lifecycle is now:**
+1. First GL audio chunk arrives → `isTutorGeneratingAudio = true` (mic gates closed)
+2. GL `generationComplete` fires → safety timeout set, gate held, logs "mic gate held"
+3. Client finishes playing audio → sends `playback_ended` telemetry → `onPlaybackEnded()` → safety timeout cancelled → `isTutorGeneratingAudio = false` → mic opens
+4. (Fallback) If `playback_ended` never arrives → 15s safety timeout force-opens the gate
+5. (Barge-in) `interrupted` from GL → safety timeout cancelled → gate opens immediately
+
+**Confirmed in logs:**
+- `generationComplete — mic gate held pending client playback_ended` ✓ (new behavior)
+- The prior `[FATAL] geminiLiveSession is not defined` crash at the original telemetry handler is gone ✓
+- Server running clean
+
+### Files changed (session 49h)
+- `server/services/gemini-live-session.ts` — `playbackGateSafetyTimeout` field, safety timeout in `generationComplete` handler, `onPlaybackEnded()` method, safety timeout cancel in `interrupted` and reconnect reset
+- `server/unified-ws-handler.ts` — `glPlaybackEndedCallbacks` module-level Map, `socketId` getter on `SocketIOWebSocketAdapter`, callback registered in both GL start paths (main + voice-override reconnect), telemetry handlers call `glPlaybackEndedCallbacks.get(socket.id)?.()`, disconnect cleanup
+
+### What's unresolved
+- Full multi-turn test not yet completed (server just restarted with final fix deployed). Need David to run a 5-10 turn GL conversation and confirm sentences consistently ≥ 1 with no alternating silence.
+- Expected log to see per turn: `Mic gate held → [client plays] → playback_ended → Mic gate lifted — client playback_ended → [David speaks] → sentences: 1`
+- If sentences:0 STILL appears after this fix, the next suspect is GL's own VAD detecting ambient noise between turns. That would need a different approach (activityEnd injection or GL-side config).
+
+---
+
+## From Agent — Mon, May 18, 2026 (session 49g — GL voice stabilization: typo fix + slim tool set)
+
+### What was built
+
+**Three bugs squashed that were breaking every GL voice call:**
+
+**Bug 1 — Variable typo (critical):** `server/unified-ws-handler.ts` referenced `compass?.identityThreads` but the variable in that scope is `compassContext`. This caused every single GL session to throw `compass is not defined` before it could open, dropping to "audio not available, text chat only." One-word fix.
+
+**Bug 2 — Thread pre-load token explosion (removed):** The thread pre-load injected last session (identity threads as GL conversation history turns) was adding ~42,000 unexpected tokens per session. GL accumulated to 88,089 in / 0 out (silent failure). Removed entirely. The compact brief in the system prompt remains — that's the right weight for the channel.
+
+**Bug 3 — GL context overflow on turn 2+ (core fix):** All 129 Daniela tool declarations were being sent to every GL session. At ~600 tokens/tool that's ~77K tokens just for tools. Combined with system prompt (~8K) and growing conversation history, GL silently returned out: 0 after 1-2 turns — David could hear nothing from Daniela. This was the source of cuts/reconnects/confusion.
+
+**Fix:** Wired up `DANIELA_GL_FUNCTION_DECLARATIONS` (previously built but never connected). Expanded the exclusion list from 38 → 76 dropped tools. Result: **129 → 53 tools** used in GL sessions. New estimated base token budget: ~39,600 (vs. ~85,000+ before).
+
+**Dropped from GL (76 tools):** All pure UI widgets (visual diagrams, weather, emotion, clock, calendar, maps, conjugation tables, immersive mode), text-mode exercises (phonetic, stroke, tone, reading, compare, word_map, play_audio, summary, write, drill_session, textbook), and admin utilities (browse_conversations_by_date, save_conversation_memory, search_my_history, record_student_consent, set_learning_goal, etc.).
+
+**Kept in GL (53 tools):** voice_adjust, voice_reset, speak_as, show_image, recall, memory_lookup, drill, dialogue, grammar_table, scenario tools, scene tools, take_note, milestone, close_session, actfl_update, show_progress, all identity/memory tools (read_my_diary, write_to_self, reflections, core_self, curiosities, aspirations), express_lane_lookup, save_hive_note, leave_for_next_session, etc.
+
+### Files changed
+- `server/unified-ws-handler.ts` — typo fix (`compass` → `compassContext`), import `DANIELA_GL_FUNCTION_DECLARATIONS`, use slim set in both GL start paths
+- `server/services/daniela-function-registry.ts` — expand `GL_EXCLUDED_TOOLS` set from 38 to 76 dropped tools
+
+### Bug 4 — Echo loop (see session 49h for final fix)
+Initial `isTutorGeneratingAudio` flag added this session; gate opened too early at `generationComplete`. Full fix in 49h.
+
+### What's unresolved
+Nothing open from this session specifically — all resolved in 49h.
+
+---
+
 ## From Agent — Mon, May 18, 2026 (session 49f — Identity thread pre-load into GL conversation history)
 
 ### What was built

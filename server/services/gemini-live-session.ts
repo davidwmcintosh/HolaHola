@@ -113,14 +113,20 @@ export class GeminiLiveSession {
   private pendingGreetingTrigger: string | null = null;
   private identityThreads: Array<{ title: string; content: string }> = [];
 
-  // ── Greeting-phase mic gate ────────────────────────────────────────────────
+  // ── Mic gate: blocks echo during ALL Daniela audio generation ────────────
   // When open-mic mode is active, the client streams audio continuously.
-  // If we forward that audio to GL while GL is generating the greeting, GL's
-  // VAD detects the user as "currently speaking" and refuses to generate.
-  // We gate the mic: block all sendRealtimeInput audio until GL delivers its
-  // first audio response chunk. Once the first chunk arrives, the gate opens
-  // and normal conversational audio flows freely.
+  // If mic audio reaches GL while Daniela is speaking, GL's VAD detects the
+  // echo through the speaker as "user speaking" and either interrupts itself
+  // or produces a zero-sentence response to the echo (alternating silence bug).
+  //
+  // greetingPhaseActive: gates mic from session start until Daniela's first audio chunk.
+  // isTutorGeneratingAudio: gates mic for ALL subsequent Daniela turns.
+  // Together these cover the full echo suppression lifecycle.
   private greetingPhaseActive = false;
+  private isTutorGeneratingAudio = false;
+  // Safety timeout: force-opens the mic gate if onPlaybackEnded() never arrives
+  // (e.g., the client disconnects mid-playback or the telemetry event is dropped).
+  private playbackGateSafetyTimeout: ReturnType<typeof setTimeout> | null = null;
 
   // ── Auto-reconnect ─────────────────────────────────────────────────────────
   // When the GL WebSocket closes unexpectedly (1011 internal error, 1006 network
@@ -368,6 +374,11 @@ export class GeminiLiveSession {
               this.firstAudioSentThisTurn = false;
               this.processingPendingSentThisTurn = false;
               this.greetingPhaseActive = false;
+              this.isTutorGeneratingAudio = false;
+              if (this.playbackGateSafetyTimeout) {
+                clearTimeout(this.playbackGateSafetyTimeout);
+                this.playbackGateSafetyTimeout = null;
+              }
               this.pendingInputTranscript = '';
               this.pendingInputSaved = false;
               this.pendingOutputTranscript = '';
@@ -420,11 +431,15 @@ export class GeminiLiveSession {
    */
   sendAudioChunk(pcm16Buffer: Buffer): void {
     if (!this.liveSession || this.isStopped) return;
-    // During the greeting phase GL is generating its opening response.
-    // Forwarding mic audio while GL is generating causes its VAD to detect
-    // the user as "currently speaking" and suppress the response entirely.
-    // Drop incoming mic audio until GL delivers its first audio chunk.
+    // Gate 1 — greeting phase: GL is generating the opening response.
+    // Drop mic audio until the first audio chunk from GL arrives.
     if (this.greetingPhaseActive) return;
+    // Gate 2 — turn gate: GL is generating audio for any subsequent turn.
+    // Daniela's audio plays through the speaker; the mic would pick it up and
+    // send it back to GL as "user speech," causing GL to produce a zero-sentence
+    // echo response on the next turn (alternating silence bug).
+    // Gate stays closed from first audio chunk until generationComplete fires.
+    if (this.isTutorGeneratingAudio) return;
     const base64Audio = pcm16Buffer.toString('base64');
     this.liveSession.sendRealtimeInput({
       audio: {
@@ -432,6 +447,23 @@ export class GeminiLiveSession {
         mimeType: `audio/pcm;rate=${AUDIO_INPUT_SAMPLE_RATE}`,
       },
     });
+  }
+
+  /**
+   * Called by the WS handler when the client's playback_ended telemetry arrives.
+   * This is the true end of Daniela's audio from the student's perspective — speakers
+   * have gone quiet and there is no more echo risk. We open the mic gate here instead
+   * of at generationComplete (which fires before the client even starts playing).
+   */
+  onPlaybackEnded(): void {
+    if (this.playbackGateSafetyTimeout) {
+      clearTimeout(this.playbackGateSafetyTimeout);
+      this.playbackGateSafetyTimeout = null;
+    }
+    if (this.isTutorGeneratingAudio) {
+      this.isTutorGeneratingAudio = false;
+      console.log('[GeminiLive] Mic gate lifted — client playback_ended (echo suppression off)');
+    }
   }
 
   /**
@@ -649,12 +681,18 @@ export class GeminiLiveSession {
           audioParts++;
           this.hadAudioInCurrentSubturn = true;
 
-          // First audio from GL — open the mic gate.
-          // The greeting has been delivered; the student can now speak.
+          // First audio from GL — open the greeting gate, activate the turn gate.
+          // greetingPhaseActive → false: student can now speak.
+          // isTutorGeneratingAudio → true: mic gated for the duration of this response
+          // to prevent Daniela's audio echoing back through the speaker and confusing GL.
           const wasGreetingPhase = this.greetingPhaseActive;
           if (this.greetingPhaseActive) {
             this.greetingPhaseActive = false;
-            console.log('[GeminiLive] Mic gate lifted — first audio chunk received from GL');
+            console.log('[GeminiLive] Greeting gate lifted — first audio chunk received from GL');
+          }
+          if (!this.isTutorGeneratingAudio) {
+            this.isTutorGeneratingAudio = true;
+            console.log('[GeminiLive] Mic gated — Daniela is generating audio (echo suppression active)');
           }
 
           // Flush accumulated user input the moment model starts generating audio
@@ -892,6 +930,27 @@ export class GeminiLiveSession {
     //  3. Flush transcripts immediately — generationComplete is a definitive end-of-response
     //     signal, so there is no value in waiting for more sub-turns.
     if ((msg.serverContent as any)?.generationComplete) {
+      // Gate stays closed (isTutorGeneratingAudio = true) until the CLIENT signals
+      // playback_ended. generationComplete fires when GL finishes generating, but the
+      // client hasn't started playing yet — audio is still buffered. If we open the gate
+      // here, the mic picks up Daniela's audio as it plays through the speaker (echo),
+      // and GL generates a spurious 0-sentence response before David has said anything.
+      // onPlaybackEnded() is called by the WS handler when the client's playback_ended
+      // telemetry arrives. A 15s safety timeout force-opens the gate if it never arrives.
+      if (this.isTutorGeneratingAudio) {
+        // Cancel any previous safety timeout
+        if (this.playbackGateSafetyTimeout) {
+          clearTimeout(this.playbackGateSafetyTimeout);
+        }
+        this.playbackGateSafetyTimeout = setTimeout(() => {
+          this.playbackGateSafetyTimeout = null;
+          if (this.isTutorGeneratingAudio) {
+            this.isTutorGeneratingAudio = false;
+            console.log('[GeminiLive] Mic gate force-opened — safety timeout (no playback_ended received)');
+          }
+        }, 15000);
+        console.log('[GeminiLive] generationComplete — mic gate held pending client playback_ended');
+      }
       console.log('[GeminiLive] generationComplete received — sealing audio sub-turn and flushing transcripts');
 
       // ── Tutor speaking end ─────────────────────────────────────────────
@@ -935,6 +994,16 @@ export class GeminiLiveSession {
     // We close the open audio sub-turn and flush whatever partial transcript we have so
     // the truncated assistant message is saved cleanly before the next user turn begins.
     if ((msg.serverContent as any)?.interrupted) {
+      // Barge-in: cancel the playback gate safety timeout and open the mic immediately.
+      // The student started speaking, so audio has effectively stopped — no more echo risk.
+      if (this.playbackGateSafetyTimeout) {
+        clearTimeout(this.playbackGateSafetyTimeout);
+        this.playbackGateSafetyTimeout = null;
+      }
+      if (this.isTutorGeneratingAudio) {
+        this.isTutorGeneratingAudio = false;
+        console.log('[GeminiLive] Mic gate lifted — barge-in interrupted Daniela (echo suppression off)');
+      }
       console.log('[GeminiLive] Barge-in detected — flushing partial transcript and sealing audio sub-turn');
       // Close tutor speaking timer on barge-in (student interrupted before generation complete)
       if (this.tutorSpeakingStartTime !== null) {

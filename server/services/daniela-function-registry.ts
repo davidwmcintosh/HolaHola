@@ -3994,36 +3994,67 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] =
 
 /**
  * Gemini Live has a hard limit of 64 function declarations per session.
- * This is the curated GL subset: all 99 Daniela tools minus the 35 that are
- * post-session utilities, background queries, or rarely called mid-conversation.
+ * This is the curated GL subset — voice-call-appropriate tools only.
+ * Pure UI widgets, admin tasks, and text-mode-only tools are excluded.
  *
- * Excluded (35): change_classroom_photo, change_classroom_window, hold_whiteboard,
- *   search_visual_library, get_scene_zones, move_in_scene, set_hand_part,
- *   clear_hand_diagram, clear_world_map, search_conversation_threads,
- *   browse_conversations_by_date, get_conversation_themes, recall_express_lane_image,
- *   express_lane_post, hive_suggestion, self_surgery, phonetic, stroke, tone,
- *   pronunciation_tag, culture, context, reading, compare, word_map, play_audio,
- *   browse_syllabus, recommend_next, review_due_vocab, record_pattern_signal,
- *   show_sentence_table, search_textbook, summary, clear_calendar, highlight_country
+ * Target: ~55 tools (well under the 64 GL cap, leaving headroom for conversation
+ * history token growth across a multi-turn session).
+ *
+ * Dropped from full set (74 tools):
+ *   Visual UI widgets: change_classroom_photo, change_classroom_window,
+ *     hold_whiteboard, compose_visual_scene, search_visual_library, get_scene_zones,
+ *     remove_from_scene, move_in_scene, clear_scene* (kept clear_scene),
+ *     set_clock, set_calendar, clear_calendar, set_body_part, clear_body_diagram,
+ *     set_face_part, clear_face_diagram, set_hand_part, clear_hand_diagram,
+ *     set_thermometer, clear_thermometer, set_emotion, clear_emotion,
+ *     set_weather, clear_weather, highlight_country, clear_world_map,
+ *     enter_immersive, exit_immersive, show_sentence_table
+ *   Text-mode exercises: phonetic, stroke, tone, pronunciation_tag,
+ *     culture, context, reading, compare, word_map, play_audio, summary,
+ *     init_conjugation_table, fill_conjugation, clear_conjugation_table,
+ *     write (text widget), load_vocab_set, drill_session, drill_session_next,
+ *     drill_session_end, start_textbook_page, log_page_event, search_textbook
+ *   Admin / post-session only: browse_conversations_by_date, get_conversation_themes,
+ *     read_full_session, search_conversation_threads, recall_express_lane_image,
+ *     express_lane_post, save_conversation_memory, search_my_history,
+ *     hive_suggestion, self_surgery, record_student_consent, dismiss_absence_nudge,
+ *     first_meeting_complete, mark_lesson_covered, record_pattern_signal,
+ *     set_memory_pin, correct_memory, forget_memory, set_learning_goal,
+ *     advance_capability, browse_syllabus, recommend_next, review_due_vocab,
+ *     request_text_input, add_curiosity, read_my_curiosities
  */
 const GL_EXCLUDED_TOOLS = new Set<string>([
+  // Visual UI widgets — no voice utility
   'change_classroom_photo', 'change_classroom_window',
-  'hold_whiteboard',
-  'search_visual_library', 'get_scene_zones', 'move_in_scene',
+  'hold_whiteboard', 'compose_visual_scene',
+  'search_visual_library', 'get_scene_zones', 'remove_from_scene', 'move_in_scene',
+  'set_clock', 'set_calendar', 'clear_calendar',
+  'set_body_part', 'clear_body_diagram', 'set_face_part', 'clear_face_diagram',
   'set_hand_part', 'clear_hand_diagram',
-  'clear_world_map',
+  'set_thermometer', 'clear_thermometer',
+  'set_emotion', 'clear_emotion',
+  'set_weather', 'clear_weather',
+  'highlight_country', 'clear_world_map',
+  'enter_immersive', 'exit_immersive',
+  'show_sentence_table',
+  // Text-mode exercises
+  'phonetic', 'stroke', 'tone', 'pronunciation_tag',
+  'culture', 'context', 'reading', 'compare', 'word_map',
+  'play_audio', 'summary', 'write',
+  'init_conjugation_table', 'fill_conjugation', 'clear_conjugation_table',
+  'load_vocab_set', 'drill_session', 'drill_session_next', 'drill_session_end',
+  'start_textbook_page', 'log_page_event', 'search_textbook',
+  // Admin / post-session utilities
   'search_conversation_threads', 'browse_conversations_by_date', 'get_conversation_themes', 'read_full_session',
   'recall_express_lane_image', 'express_lane_post',
   'save_conversation_memory', 'search_my_history',
   'hive_suggestion', 'self_surgery',
-  'phonetic', 'stroke', 'tone', 'pronunciation_tag',
-  'culture', 'context', 'reading', 'compare', 'word_map',
-  'play_audio',
+  'record_student_consent', 'dismiss_absence_nudge', 'first_meeting_complete',
+  'mark_lesson_covered', 'record_pattern_signal',
+  'set_memory_pin', 'correct_memory', 'forget_memory',
+  'set_learning_goal', 'advance_capability',
   'browse_syllabus', 'recommend_next', 'review_due_vocab',
-  'record_pattern_signal', 'show_sentence_table', 'search_textbook',
-  'summary',
-  'clear_calendar',
-  'highlight_country',
+  'request_text_input', 'add_curiosity', 'read_my_curiosities',
 ]);
 
 export const DANIELA_GL_FUNCTION_DECLARATIONS: FunctionDeclaration[] =

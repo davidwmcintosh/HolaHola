@@ -42,7 +42,7 @@ import {
 import { OpenMicSession, OpenMicEvents, getDeepgramLanguageCode } from './services/deepgram-live-stt';
 import { GeminiLiveSession, createGeminiLiveSession, GEMINI_LIVE_VOICE_ENABLED, GEMINI_LIVE_MODEL } from './services/gemini-live-session';
 import { costTracker } from './services/cost-tracker';
-import { DANIELA_FUNCTION_DECLARATIONS } from './services/daniela-function-registry';
+import { DANIELA_FUNCTION_DECLARATIONS, DANIELA_GL_FUNCTION_DECLARATIONS } from './services/daniela-function-registry';
 import { generateCongratulatoryPromptAddition } from './services/competency-verifier';
 import { buildCurriculumContext, detectSyllabusQuery } from './services/curriculum-context';
 import { usageService } from './services/usage-service';
@@ -97,6 +97,11 @@ function withTimeout<T>(
  * When a new connection arrives for an already-active conversation, the old one is closed.
  */
 const activeVoiceConnections = new Map<string, VoiceWSConnection>();
+// Maps socket.id → onPlaybackEnded callback so the Socket.io telemetry handler
+// (in setupSocketIOHandler) can notify the GL session (in handleStreamingVoiceConnectionWithAdapter)
+// when the client's audio finishes playing. These live in different function scopes, so a
+// module-level bridge is required.
+const glPlaybackEndedCallbacks = new Map<string, () => void>();
 
 /**
  * Dedup guard for concurrent SessionInit pipelines.
@@ -326,6 +331,9 @@ class SocketIOWebSocketAdapter implements VoiceWSConnection {
   private errorHandlers: Array<(error: Error) => void> = [];
   private pongHandlers: Array<() => void> = [];
   private _conversationId: string | null = null;
+
+  /** The underlying Socket.io socket ID — used to bridge telemetry events to the GL session. */
+  get socketId(): string { return this.socket.id; }
   
   constructor(socket: SocketIOSocket, conversationId: string | null) {
     this.socket = socket;
@@ -958,10 +966,21 @@ export function setupSocketIOHandler(io: SocketIOServer) {
     
     socket.on('client_telemetry', (event: any) => {
       handleClientTelemetry(socket.id, event);
+      // When client finishes playing Daniela's audio, open the echo-suppression mic gate.
+      // glPlaybackEndedCallbacks bridges this telemetry scope to the GL session scope where
+      // geminiLiveSession lives (handleStreamingVoiceConnectionWithAdapter).
+      if (event.type === 'playback_ended') {
+        glPlaybackEndedCallbacks.get(socket.id)?.();
+      }
     });
     
     socket.on('client_telemetry_batch', (events: any[]) => {
-      events.forEach(event => handleClientTelemetry(socket.id, event));
+      events.forEach(event => {
+        handleClientTelemetry(socket.id, event);
+        if (event.type === 'playback_ended') {
+          glPlaybackEndedCallbacks.get(socket.id)?.();
+        }
+      });
     });
     
     // Create adapter that makes Socket.io look like ws
@@ -2172,8 +2191,15 @@ ${lastNote.tutorNotes}`);
                 // Cache the final system prompt so voice-override reconnects can reuse it
                 geminiLiveSystemPromptCache = geminiLiveSystemPrompt;
                 geminiLiveSession = createGeminiLiveSession(session, glSendMessage);
-                await geminiLiveSession.start(geminiLiveSystemPrompt, DANIELA_FUNCTION_DECLARATIONS);
-                console.log(`[GeminiLive] Session started with ${DANIELA_FUNCTION_DECLARATIONS.length} tool declarations alongside orchestrator session ${session.id}`);
+                await geminiLiveSession.start(geminiLiveSystemPrompt, DANIELA_GL_FUNCTION_DECLARATIONS);
+                console.log(`[GeminiLive] Session started with ${DANIELA_GL_FUNCTION_DECLARATIONS.length} GL tools (slim set) alongside orchestrator session ${session.id}`);
+                // Register the playback_ended callback bridge so the Socket.io telemetry
+                // handler (different scope) can call geminiLiveSession.onPlaybackEnded().
+                const glSocketId = (ws as any).socketId as string | undefined;
+                if (glSocketId) {
+                  glPlaybackEndedCallbacks.set(glSocketId, () => geminiLiveSession?.onPlaybackEnded());
+                  console.log(`[GeminiLive] Playback-ended callback registered for socket ${glSocketId}`);
+                }
 
                 // ── Tutor no-response watchdog ───────────────────────────────────────
                 // If Daniela produces no audio within 90s, the GL API may have hung.
@@ -3436,8 +3462,13 @@ ${lastNote.tutorNotes}`);
                 } catch (_) {}
               };
               geminiLiveSession = createGeminiLiveSession(session, glSendMessage);
-              await geminiLiveSession.start(geminiLiveSystemPromptCache, DANIELA_FUNCTION_DECLARATIONS);
-              console.log(`[GeminiLive] Reconnected with voice: ${nextVoiceId} (${DANIELA_FUNCTION_DECLARATIONS.length} tools)`);
+              await geminiLiveSession.start(geminiLiveSystemPromptCache, DANIELA_GL_FUNCTION_DECLARATIONS);
+              console.log(`[GeminiLive] Reconnected with voice: ${nextVoiceId} (${DANIELA_GL_FUNCTION_DECLARATIONS.length} GL tools)`);
+              // Re-register the playback-ended callback for the (same) socket after reconnect
+              const reconnectSocketId = (ws as any).socketId as string | undefined;
+              if (reconnectSocketId) {
+                glPlaybackEndedCallbacks.set(reconnectSocketId, () => geminiLiveSession?.onPlaybackEnded());
+              }
             } catch (reconnErr: any) {
               console.error('[GeminiLive] Voice reconnect failed:', reconnErr.message);
               geminiLiveSession = null;
@@ -3600,6 +3631,12 @@ ${lastNote.tutorNotes}`);
     openMicPendingChunks = [];
     openMicSessionStarting = false;
     
+    // Clean up playback-ended callback bridge for this socket
+    const cleanupSocketId = (ws as any).socketId as string | undefined;
+    if (cleanupSocketId) {
+      glPlaybackEndedCallbacks.delete(cleanupSocketId);
+    }
+
     // Clean up echo suppression timeout
     if (echoSuppressionTimeoutSO) {
       clearTimeout(echoSuppressionTimeoutSO);
