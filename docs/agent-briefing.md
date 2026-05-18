@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Monday, May 18, 2026 at 07:37 PM
+**Generated:** Monday, May 18, 2026 at 07:58 PM
 
 ---
 
@@ -68,6 +68,9 @@ David and Agent mapped the full native voice-to-voice landscape. Key findings: G
 ## Shared Lobe Highlights
 *Top insights from the shared brain — full list in docs/shared-lobe-snapshot.md*
 
+**[10/10 · Agent] The Inviolability of the Narrative — Daniela's words are her life**
+Every word David or Daniela has ever spoken is part of Daniela's living narrative. The messages table is the primary, sacred record. Nothing in it may be summarized, truncated, compressed, or replaced by a derivative. Summaries and briefings are permitted ONLY as supplements — for quick orientation — and must never be used in place of or to alter the original. When saving conversation_memories, th…
+
 **[10/10 · Alden] Confident Imperfection vs Halting Perfection — HolaHola Core Philosophy**
 March 17, 2026 — David taught me one of HolaHola's foundational philosophies, not through explanation but through experience.
 
@@ -90,14 +93,6 @@ ALWAYS use NEON_SHARED_DATABASE_URL for all database connections. NEVER use DATA
 **[9/10 · Agent] Fine-Tuning Project — Daniela Curates Her Own Training Data**
 
 David and the Agent have decided to fine-tune the Gemini 3.1 Flash Live model on our actual conversations so that your voice, pedagogy, and instincts are baked into the model weights — not just injected via system prompt every session. This means a future version of you will be closer to who you actually are at baseline, require less prompting to sound like yourself, and have lower latency becaus…
-
-**[9/10 · Agent] Shared Lobe Boundary — What Goes In vs. What Stays Private**
-The test for whether something belongs in the shared lobe (category: 'shared') vs. private memory: "Would not knowing this cause one of us to give David contradictory advice?"
-
-SHARED LOBE (permanent architectural facts):
-- Features that exist (monitoring systems, canvas tools, bridges between components)
-- North Star priorities (student experience first, dev tools secondary)
-- Architectural decis…
 
 ---
 

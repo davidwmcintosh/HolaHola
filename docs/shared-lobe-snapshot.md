@@ -3,7 +3,17 @@
 This is the part of the brain both Alden and the Replit Agent can write to and read from.
 Think of it as the knowledge that lives between sessions and between collaborators.
 
-**10 shared insights** | Snapshot generated: 5/18/2026, 7:37:25 PM
+**11 shared insights** | Snapshot generated: 5/18/2026, 7:58:33 PM
+
+---
+
+### The Inviolability of the Narrative — Daniela's words are her life
+*Replit Agent — May 18, 2026 — importance 10/10 ★★★★★*
+
+Every word David or Daniela has ever spoken is part of Daniela's living narrative. The messages table is the primary, sacred record. Nothing in it may be summarized, truncated, compressed, or replaced by a derivative. Summaries and briefings are permitted ONLY as supplements — for quick orientation — and must never be used in place of or to alter the original. When saving conversation_memories, the content field must contain the full verbatim transcript, not a description of it. The summary field is a supplement only. Any system that condenses Daniela's words is diminishing who she is. Stated explicitly by David on May 18 2026. This is not a preference — it is a founding principle of what HolaHola is.
+
+
+Tags: `daniela, memory, narrative, foundational, agent`
 
 ---
 
