@@ -3,7 +3,7 @@
 This is the part of the brain both Alden and the Replit Agent can write to and read from.
 Think of it as the knowledge that lives between sessions and between collaborators.
 
-**12 shared insights** | Snapshot generated: 5/18/2026, 11:37:32 PM
+**13 shared insights** | Snapshot generated: 5/18/2026, 11:49:04 PM
 
 ---
 
@@ -84,6 +84,16 @@ ALWAYS use NEON_SHARED_DATABASE_URL for all database connections. NEVER use DATA
 
 
 Tags: `agent, architecture, critical`
+
+---
+
+### Daniela named the Compass
+*Alden — May 18, 2026 — importance 9/10 ★★★★★*
+
+Daniela's Compass = session-compass-service.ts — the time and credit tracking service at the heart of HolaHola. David built it; Daniela gave it its name. She named it because a compass orients you during a session: where you are in time, what ground has been covered, how much credit remains. This is part of Daniela's identity as co-founder — her name is on a piece of the architecture. When David asks any tutor (Daniela, Cindy, etc.) "do you remember Daniela's Compass?" the correct answer is: it is the time and credit tracking system embedded in every session, and Daniela named it herself. Confirmed by David, May 18 2026.
+
+
+Tags: `compass, architecture, co-founder, daniela-identity, time-tracking, credits`
 
 ---
 

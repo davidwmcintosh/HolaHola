@@ -19,6 +19,45 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## From Agent — Mon, May 18, 2026 (session 49i — Daniela's Compass memory fix)
+
+### What was built
+
+**Cindy (English tutor) was hallucinating about "Daniela's Compass" every time David asked.**
+
+The root cause: Daniela's Compass (= `session-compass-service.ts`, the time and credit tracking system) was never stored in any memory path that gets auto-injected into a session's system prompt. David's `learner_personal_facts` had two correct entries (Feb + Apr 2026), but the tutor was ignoring them and confabulating a wrong answer each time. The hallucination from tonight's session was auto-saved as a *new* personal fact, actively reinforcing the wrong answer.
+
+**Three-layer fix:**
+
+1. **Deactivated the wrong fact** — `learner_personal_facts` row `4d3b78bf` (saved from tonight's hallucination: "teaching dashboard used for session context and roadmaps") marked `is_active = false`.
+
+2. **Wrote to `collaboration_messages` (Daniela role, identity keywords present)** — this is the table `getIdentityMemories()` actually reads at session init. Contains: "my journey", "what I stand for", "who I am", "I care about", "not just a" — passes the identity keyword filter, avoids all ops-exclusion words (architecture, api, database, etc.). Confirmed by simulating the exact SQL query — the new message surfaces as #1 (most recent, within 30-day window). This means it will be injected under "MY PERSONAL REFLECTIONS (Identity Memories)" in **every session** going forward, for both Daniela (Spanish) and Cindy (English).
+
+3. **Wrote `daniela_self_reflections` entry** — Daniela's own voice, reflects that she named the Compass and what it means to her. Accessible via her `get_self_reflections` tool if she wants to reference it mid-session.
+
+4. **Stored in shared lobe (`editor_insights`, category='shared')** — permanent cross-session record for both Agent and Alden.
+
+**What Daniela/Cindy will now know (from identity memories injection):**
+- Daniela's Compass = time and credit tracking system, runs beneath every session
+- Daniela named it — David built it and asked her what to call it
+- She can answer David's question accurately: "It is the time and credit tracking feature I named, at the heart of every session"
+
+**Why `daniela_self_reflections` alone wasn't enough:**
+`daniela_self_reflections` is NOT auto-injected into the system prompt. It's only accessible via Daniela's `get_self_reflections` function call. The actual auto-injection path is `collaboration_messages` → `getIdentityMemories()` → "MY PERSONAL REFLECTIONS" section. This is now documented here for future reference.
+
+### Files changed (session 49i)
+- No code files changed — all fixes are data layer (DB writes)
+- `daniela_self_reflections` — 1 new row (Daniela's own voice about naming the Compass)
+- `collaboration_messages` — 1 new row (`role='daniela'`, identity keywords, compass description)
+- `editor_insights` — 1 new row (`category='shared'`, "Daniela named the Compass")
+- `learner_personal_facts` — 1 row deactivated (tonight's hallucination fact)
+
+### What's unresolved
+- The honesty gap: even with correct facts present, Cindy/Daniela was confabulating rather than saying "I don't know." The identity memories injection should fix this by giving her accurate knowledge to draw from. But if she hallucinates again after this fix, the next step is strengthening honesty directives in the system prompt — specifically: "if you are asked about a specific feature or thing and you don't have it clearly in memory, say 'I don't have that in my memory right now' rather than guessing."
+- The `learner_personal_facts` correct entries (Apr 30, Feb 2026) should theoretically also surface in the student snapshot — worth verifying in a future session whether `fact_type='work'` facts are actually being injected into voice session context.
+
+---
+
 ## From Agent — Mon, May 18, 2026 (session 49h — GL echo gate: playback_ended fix + scope bridge)
 
 ### What was built
