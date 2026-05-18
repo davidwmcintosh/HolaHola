@@ -72,33 +72,52 @@ interface UseWhiteboardReturn {
  * Enforce max items limit by removing oldest items.
  * Priority: Keep most recent drills first, then most recent non-drill items.
  * This implements the "no tool stacking" principle.
+ *
+ * scene_canvas items are ALWAYS preserved — they drive the immersive scene
+ * and must never be trimmed regardless of the item cap.
  */
 function enforceMaxItems(items: WhiteboardItem[], maxItems: number): WhiteboardItem[] {
   if (items.length <= maxItems) {
     return items;
   }
   
-  // Collect items with their original indices for stable ordering
-  const indexedItems = items.map((item, index) => ({ item, index, isDrill: isDrillItem(item) }));
+  // scene_canvas items are pinned — they hold the live immersive scene state.
+  // Collect them by original index so we can re-include them after trimming.
+  const pinnedOrigIndices = new Set<number>();
+  const trimmableIndexed: { item: WhiteboardItem; origIndex: number; isDrill: boolean }[] = [];
   
-  // Separate drills from others
-  const drills = indexedItems.filter(i => i.isDrill);
-  const others = indexedItems.filter(i => !i.isDrill);
+  items.forEach((item, origIndex) => {
+    if ((item as any).type === 'scene_canvas') {
+      pinnedOrigIndices.add(origIndex);
+    } else {
+      trimmableIndexed.push({ item, origIndex, isDrill: isDrillItem(item) });
+    }
+  });
   
-  // Strategy: Keep as many recent drills as possible, fill remaining slots with recent non-drills
-  // If drills alone exceed maxItems, keep only the most recent drills
-  const keptDrills = drills.slice(-Math.min(drills.length, maxItems));
-  const remainingSlots = maxItems - keptDrills.length;
+  // How many slots are available for non-pinned items?
+  const slotsForTrimmable = Math.max(0, maxItems - pinnedOrigIndices.size);
+  
+  if (trimmableIndexed.length <= slotsForTrimmable) {
+    // No trimming needed — all trimmable items fit within the remaining slots
+    return items;
+  }
+  
+  // Separate drills from other trimmable items
+  const drills = trimmableIndexed.filter(i => i.isDrill);
+  const others = trimmableIndexed.filter(i => !i.isDrill);
+  
+  // Keep most-recent drills first, fill remaining slots with most-recent non-drills
+  const keptDrills = drills.slice(-Math.min(drills.length, slotsForTrimmable));
+  const remainingSlots = slotsForTrimmable - keptDrills.length;
   const keptOthers = remainingSlots > 0 ? others.slice(-remainingSlots) : [];
   
-  // Build set of kept indices for O(1) lookup
-  const keptIndices = new Set<number>();
-  for (const { index } of [...keptDrills, ...keptOthers]) {
-    keptIndices.add(index);
+  // Merge pinned indices with kept trimmable indices
+  for (const { origIndex } of [...keptDrills, ...keptOthers]) {
+    pinnedOrigIndices.add(origIndex);
   }
   
   // Filter original array to preserve original order
-  const result = items.filter((_, index) => keptIndices.has(index));
+  const result = items.filter((_, index) => pinnedOrigIndices.has(index));
   
   if (result.length < items.length) {
     console.log('[WHITEBOARD] Auto-trimmed to enforce max items:', {

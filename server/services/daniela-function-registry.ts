@@ -815,7 +815,7 @@ Only works after open_scene has been called. Zone-compatible props:
   Bread:       bread_basket, plain_toast
   Breakfast:   scrambled_eggs, fried_eggs, omelette, bacon_strips, ham_slice, hash_browns
   Condiments:  salt_pepper, ketchup, mustard, hot_sauce, butter, jam, sugar_packets
-  Menus:       menu_card, breakfast_menu, lunch_menu, dinner_menu, cafe_menu
+  Menus:       menu_card, breakfast_menu, lunch_menu, dinner_menu
   Other:       book, cell_phone, candle, apple, croissant, backpack
 
 POSITIONING — each prop must use a DIFFERENT position. The positions form a layout:
@@ -906,7 +906,7 @@ SPATIAL PREPOSITION DEMO WORKFLOW:
               "fork","knife","spoon","napkin","bread_basket",
               "scrambled_eggs","fried_eggs","omelette","bacon_strips","ham_slice","hash_browns","plain_toast",
               "salt_pepper","ketchup","mustard","hot_sauce","butter","jam","sugar_packets",
-              "menu_card","breakfast_menu","lunch_menu","dinner_menu","cafe_menu",
+              "menu_card","breakfast_menu","lunch_menu","dinner_menu",
               "book","cell_phone","candle","apple","croissant","backpack"
             ],
           },
@@ -1649,62 +1649,62 @@ IMPORTANT — set up the FULL scene BEFORE calling enter_immersive:
    For "taqueria" (Mexican street food scenario):
    - Counter surface is bare — trompo, salsa jars, tiles are part of the background art
    - Use same prop positions as restaurant_table (center, left, right, etc.)
-   - Suggested opening props: plate → center | salsa_verde → condiment_1 | salsa_roja → condiment_2 | cafe_menu → left
-   - When student orders: add tacos / quesadilla / vampiro at center (the plate)
+   - Suggested opening props: plate → center | hot_sauce → condiment_1 | ketchup → condiment_2 | menu_card → left
+   - When student orders: add dinner_plate at center for the main dish
    - Label props in Spanish — this is a Spanish-immersive environment
 
    For "french_brasserie" (Parisian café/brasserie scenario):
    - Marble table surface is bare — bar, windows, and chalkboard are background art
    - Use same prop positions as restaurant_table (center, left, right, etc.)
-   - Suggested opening props: plate → center | fork → fork_spot | knife → knife_spot | wine_glass → glass_spot | cafe_menu → left | candle → right
+   - Suggested opening props: plate → center | fork → fork_spot | knife → knife_spot | wine_glass → glass_spot | menu_card → left | candle → right
    - For a café-only visit: espresso → center | croissant → side_plate | sugar_packets → condiment_4
    - Label props in French — this is a French-immersive environment
 
    For "japanese_izakaya" (Japanese pub scenario):
    - Dark wood table surface is bare — lanterns, sake shelves, grill are background art
    - Use same prop positions as restaurant_table (center, left, right, etc.)
-   - Suggested opening props: plate → center | chopsticks → fork_spot | glass → glass_spot | dinner_menu → left
-   - When student orders: add yakitori / edamame / gyoza at center or on_plate
-   - Add sake cup at glass_spot after the first round
+   - Suggested opening props: plate → center | fork → fork_spot | glass → glass_spot | dinner_menu → left
+   - When student orders: add dinner_plate at center or on_plate for the dish
+   - Add cup at glass_spot after the first round (for sake or beer)
    - Label props in Japanese romaji or kanji — this is a Japanese-immersive environment
 
    For "german_biergarten" (Bavarian beer garden scenario):
    - Long pine Biertisch table surface is bare — trees, kiosk, and guests are background art
    - Use same prop positions as restaurant_table (center, left, right, etc.)
-   - Suggested opening props: beer_mug → glass_spot | pretzel → center | dinner_menu → left
-   - When student orders food: add weisswurst / obatzda / radish at center or on_plate
-   - Add a second Masskrug at glass_spot_right when student orders another round
+   - Suggested opening props: cup → glass_spot | bread_basket → center | dinner_menu → left
+   - When student orders food: add dinner_plate at center or on_plate
+   - Add a second cup at right when the student orders another round
    - Label props in German — this is a German-immersive environment
 
    For "italian_trattoria" (Italian rustic restaurant scenario):
    - Checkered tablecloth is bare — stone arches, Chianti bottles, and candles are background art
    - Use same prop positions as restaurant_table (center, left, right, etc.)
    - Suggested opening props: plate → center | fork → fork_spot | knife → knife_spot | wine_glass → glass_spot | dinner_menu → left | candle → right
-   - When student orders: add pasta / pizza / bruschetta at center or on_plate
-   - Add olive_oil and bread_basket at side_plate for an Italian starter experience
+   - When student orders: add dinner_plate at center or on_plate for the dish
+   - Add hot_sauce and bread_basket at side_plate for an Italian starter experience
    - Label props in Italian — this is an Italian-immersive environment
 
    For "korean_bbq" (Korean barbecue restaurant scenario):
    - Stone table has a built-in grill at center — the grill is part of the background art
    - Place food props AROUND the grill (left, right, side_plate positions), not on top of it
-   - Suggested opening props: tongs → fork_spot | scissors → knife_spot | dinner_menu → left | glass → glass_spot
-   - When student orders: add raw meat (pork_belly / beef_bulgogi) at left or right, then cooked at on_plate
-   - Banchan bowls: add kimchi → condiment_1, spinach → condiment_2, pickled radish → condiment_3
+   - Suggested opening props: fork → fork_spot | knife → knife_spot | dinner_menu → left | glass → glass_spot
+   - When student orders: add plate at left or right for the raw ingredients, then dinner_plate at on_plate when cooked
+   - Banchan bowls: add hot_sauce → condiment_1, mustard → condiment_2, ketchup → condiment_3
    - Label props in Korean (Korean script where possible) — this is a Korean-immersive environment
 
    For "chinese_teahouse" (classical Chinese teahouse scenario):
    - Rosewood gongfu tea table with drainage tray is bare — bamboo, scrolls, and garden are background art
    - The drainage tray is built into the center — tea ceremony props sit ON or AROUND it
-   - Suggested opening props: teapot → center | teacup → glass_spot | teacup_2 → glass_spot_right | tea_caddy → left
-   - For a full meal: add dim_sum / dumplings / rice at on_plate positions
+   - Suggested opening props: cup → center | glass → glass_spot | spoon → spoon_spot | book → left
+   - For a full meal: add plate / dinner_plate at on_plate positions
    - This environment suits a slow, contemplative lesson on tea vocabulary and ritual phrases
    - Label props in Mandarin Chinese characters — this is a Mandarin-immersive environment
 
    For "israeli_cafe" (modern Tel Aviv coffee shop scenario):
    - White Caesarstone counter is bare — espresso machine, display case, and Hebrew chalkboard are background art
    - Use counter positions (center, left, right) for coffee cups, pastries, and small plates
-   - Suggested opening props: coffee_cup → center | cafe_menu → left | plate → right
-   - When student orders: add pastry / croissant / cake at on_plate; espresso or latte at glass_spot
+   - Suggested opening props: espresso → center | menu_card → left | plate → right
+   - When student orders: add croissant at on_plate; latte or cup at glass_spot
    - This environment is purpose-built for Hebrew — use it for Israeli Coffee Shop scenario lessons
    - Label props in Hebrew (right-to-left script) — this is a Hebrew-immersive environment
    - Great for novice vocabulary (kafeh, teh, ugah) and intermediate ordering conversations
@@ -1715,7 +1715,7 @@ Choose the right menu prop and meal_type based on the scenario:
   - Restaurant (morning): show_menu(meal_type='breakfast') → breakfast_menu prop
   - Restaurant (midday): show_menu(meal_type='lunch') → lunch_menu prop
   - Restaurant (evening): show_menu(meal_type='dinner') → dinner_menu prop
-  - Coffee shop (any time): show_menu(meal_type='cafe') → cafe_menu prop (uses coffee shop menu)
+  - Coffee shop (any time): show_menu(meal_type='cafe') → menu_card prop (uses coffee shop menu)
 
 Setting the table with narration IS the lesson warmup — don't skip it. Place items one at a
 time (or in quick pairs) with a short spoken line for each so the student hears every word.

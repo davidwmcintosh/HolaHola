@@ -19,6 +19,33 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## From Agent — Mon, May 18, 2026 (session 48b — Studio pane prop display bug fix)
+
+### What was built
+
+**Bug fix: props not appearing in studio pane during immersive scenes.** Three compounding root causes found and fixed.
+
+**1. `enforceMaxItems` silently dropped `scene_canvas` items** (`client/src/hooks/useWhiteboard.ts`)
+The whiteboard has a 4-item cap enforced by `enforceMaxItems`. `scene_canvas` is always inserted first (position 0 in the Map). When Daniela uses `[WRITE:]` markup or drills during a scene — which she does constantly — those items accumulate. Once there were 4+ other items, `slice(-remainingSlots)` kept the last N, dropping the `scene_canvas` at position 0. This caused `activeSceneCanvas` to go null → `ImmersiveOverlay` went blank and all props disappeared. Fix: `scene_canvas` items are now exempt from trimming (pinned by type before the max-items logic runs).
+
+**2. `cafe_menu` in the enum but missing from DB** (`server/services/daniela-function-registry.ts`, `native-fc-handlers.ts`)
+`cafe_menu` was in the `add_to_scene` prop enum, but the `visual_assets` table has no row for it. Any `add_to_scene('cafe_menu', ...)` call silently broke at the DB query. Also the `SHOW_MENU` handler mapped `meal_type='cafe'` → `'cafe_menu'`. Both fixed: removed from enum, mapped to `menu_card`.
+
+**3. `enter_immersive` description listed invalid props for all non-European scenarios**
+`salsa_verde`, `salsa_roja`, `beer_mug`, `pretzel`, `chopsticks`, `tongs`, `scissors`, `kimchi`, `teapot`, `teacup`, etc. were listed as "suggested opening props" but are not in the `add_to_scene` enum. Updated all 8 restaurant scenario descriptions (taqueria, french_brasserie, japanese_izakaya, german_biergarten, italian_trattoria, korean_bbq, chinese_teahouse, israeli_cafe) to only suggest props that exist in both the enum and visual_assets DB.
+
+### Key decisions
+
+- The European restaurant scenarios (restaurant_table, italian_trattoria, french_brasserie) had full prop coverage — only the `cafe_menu` was invalid. Non-European scenarios (Japanese, Korean, Chinese, German) had almost no culturally-appropriate props available. Mapped everything to the closest available equivalent (fork instead of chopsticks, cup instead of beer_mug, etc.) and noted the semantic gap in comments.
+- `cafe_menu` is not worth adding to the DB (would need a transparent PNG zone image). `menu_card` works as the coffee-shop menu substitute.
+
+### What's unresolved
+
+- The non-European restaurant environments still feel like they're using placeholder Western props. If David wants authentic chopsticks, sake cups, beer steins, etc., those need to be added as visual assets to the DB (zone_image_url transparent PNGs). This is a visual asset pipeline task, not a code task.
+- The `add_to_scene` enum has 40 props — all Western restaurant / café items. No food items specific to any cuisine are available. Adding cuisine-specific food props would make the Japanese/Korean/Chinese scenarios much more immersive.
+
+---
+
 ## From Agent — Sun, May 17, 2026 (session 48a — Fine-tuning strategy + Daniela character repair)
 
 ### What was built

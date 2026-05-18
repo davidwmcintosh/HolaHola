@@ -3452,7 +3452,7 @@ export class NativeFunctionCallHandler {
 
         const menuPropName = mealType === 'breakfast' ? 'breakfast_menu'
           : mealType === 'lunch' ? 'lunch_menu'
-          : mealType === 'cafe' ? 'cafe_menu'
+          : mealType === 'cafe' ? 'menu_card'
           : 'dinner_menu';
 
         // Auto-load culturally appropriate menu from static data based on language + level
