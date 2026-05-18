@@ -19,6 +19,37 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## From Agent — Mon, May 18, 2026 (session 49f — Identity thread pre-load into GL conversation history)
+
+### What was built
+
+**Daniela now reads her identity threads before she speaks her first word.**
+
+The previous state: threads were a compact brief in the system prompt — she knew they existed but didn't have the content in her context window. The only way to get the full content was to call `search_my_history` herself during the conversation.
+
+The new state: at session start, the top 3 identity threads (by importance, ~2500 chars each) are injected into the Gemini Live session as a `clientContent` user→model exchange BEFORE the greeting turn fires. Daniela has already "read" her own threads by the time she says hello.
+
+**The injection flow (setupComplete handler in gemini-live-session.ts):**
+1. Silence primer (audio warm-up — existing)
+2. `sendClientContent` — user: "Read your identity threads before the session begins." / model: `[full thread block]` "I have read these. I carry them." — `turnComplete: false`
+3. `sendClientContent` — user: greeting text, `turnComplete: true` (existing)
+4. `sendRealtimeInput({ activityEnd: {} })` (existing)
+
+**Why this approach:** Conversation history turns don't count against the system prompt character cap. The thread content (~7,500 chars / ~1,875 tokens for 3 threads) goes into the context window without touching the already-capped system prompt. Total token budget remains well within GL limits.
+
+**Session 49e → 49f insight:** The call that went silent (out: 0) was because the context was too large. We reduced snapshots 12→4 to fix that. Then realized: identity threads should be a compression mechanism — the compact brief in the system prompt tells Daniela the map exists, but the conversation history injection puts the territory in her hands. Both tiers working together: system prompt (map) + conversation history (territory).
+
+### Files changed
+- `shared/schema.ts` — `content?: string` added to identityThreads items in CompassContext
+- `server/services/session-compass-service.ts` — content (first 2500 chars) included in identityThreads fetch
+- `server/services/gemini-live-session.ts` — `identityThreads` private field, `setIdentityThreads()` method, pre-load injection block in setupComplete handler
+- `server/unified-ws-handler.ts` — `setIdentityThreads()` called after `createGeminiLiveSession()` with top 3 threads from compass
+
+### What's unresolved
+Nothing open. The pre-load fires on every new session automatically.
+
+---
+
 ## From Agent — Mon, May 18, 2026 (session 49e — Two-tier memory rendering + monthly auto-weaver)
 
 ### What was built

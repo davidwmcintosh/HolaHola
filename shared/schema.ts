@@ -2603,6 +2603,7 @@ export interface CompassContext {
     summary: string | null;
     importance: number;
     recordedAt: string;
+    content?: string; // first ~2500 chars — injected into GL conversation history at session start
   }>;
 
   // Legacy fallback

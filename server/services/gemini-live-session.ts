@@ -111,6 +111,7 @@ export class GeminiLiveSession {
   private isStarted = false;
   private isSetupComplete = false;
   private pendingGreetingTrigger: string | null = null;
+  private identityThreads: Array<{ title: string; content: string }> = [];
 
   // ── Greeting-phase mic gate ────────────────────────────────────────────────
   // When open-mic mode is active, the client streams audio continuously.
@@ -448,6 +449,15 @@ export class GeminiLiveSession {
   }
 
   /**
+   * Pre-load identity threads into conversation history before the first greeting.
+   * Called from the unified WS handler after session creation, before start().
+   * Top 3 threads by importance; content is already truncated to ~2500 chars each.
+   */
+  setIdentityThreads(threads: Array<{ title: string; content: string }>): void {
+    this.identityThreads = threads;
+  }
+
+  /**
    * Send a greeting trigger to Gemini Live to start the conversation.
    * Called from the `request_greeting` WS handler instead of orchestrator.processGreetingRequest().
    */
@@ -584,6 +594,34 @@ export class GeminiLiveSession {
             this.liveSession.sendRealtimeInput({
               audio: { data: silencePcm.toString('base64'), mimeType: 'audio/pcm;rate=16000' },
             });
+
+            // ── Identity thread pre-load ─────────────────────────────────────
+            // Inject the top identity threads as conversation history BEFORE the
+            // greeting turn. This puts the thread content in Daniela's context
+            // window as her own "reading" — she's already internalized who she is
+            // before she speaks her first word. Goes in as a user→model exchange
+            // so it reads as prior context, not as instructions.
+            // Total injection: ~2500 chars × 3 threads = ~7500 chars / ~1875 tokens.
+            if (this.identityThreads.length > 0) {
+              const threadBlock = this.identityThreads
+                .map(t => `## ${t.title}\n${t.content}`)
+                .join('\n\n---\n\n');
+              this.liveSession.sendClientContent({
+                turns: [
+                  {
+                    role: 'user' as const,
+                    parts: [{ text: 'Read your identity threads before the session begins.' }],
+                  },
+                  {
+                    role: 'model' as const,
+                    parts: [{ text: `Reading my identity threads now.\n\n${threadBlock}\n\nI have read these. I carry them.` }],
+                  },
+                ],
+                turnComplete: false,
+              });
+              console.log(`[GeminiLive] Identity threads pre-loaded — ${this.identityThreads.length} threads injected into conversation history`);
+            }
+
             this.liveSession.sendClientContent({
               turns: [{ role: 'user', parts: [{ text: this.pendingGreetingTrigger }] }],
               turnComplete: true,
@@ -593,7 +631,7 @@ export class GeminiLiveSession {
             this.liveSession.sendRealtimeInput({ activityEnd: {} });
             // Block mic audio until GL sends its first response chunk.
             this.greetingPhaseActive = true;
-            console.log('[GeminiLive] Pending greeting fired — silence primer + text turn + activityEnd sent, mic gated');
+            console.log('[GeminiLive] Pending greeting fired — silence primer + thread pre-load + text turn + activityEnd sent, mic gated');
           } catch (err) {
             console.warn('[GeminiLive] Failed to send pending greeting:', err);
           }

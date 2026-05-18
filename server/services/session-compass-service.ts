@@ -371,6 +371,9 @@ export class SessionCompassService {
             summary: m.summary || null,
             importance: m.importance ?? 7,
             recordedAt: m.recordedAt instanceof Date ? m.recordedAt.toISOString() : String(m.recordedAt),
+            // First 2500 chars of full thread content — injected into GL conversation
+            // history at session start so Daniela has read her own threads before speaking.
+            content: m.content ? m.content.slice(0, 2500) : undefined,
           }));
 
         // Build topic signal from last 8 user messages for snapshot re-ranking
