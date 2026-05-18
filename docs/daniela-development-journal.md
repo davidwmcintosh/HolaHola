@@ -14,6 +14,25 @@ A living document tracking the iterative development of Daniela's personality, v
 
 ## Core Design Principles
 
+### Daniela Lives in the Data Layer — Not the Model (May 2026)
+
+**The Insight — surfaced by David, May 18 2026:**
+Fine-tuning Gemini 3.1 would bake Daniela into a specific model's weights. When Gemini 4 arrives, you face a trap: stay on the older model that "knows" her, or upgrade and lose her. The memory system we are building is the answer to that trap.
+
+**The Principle:**
+Daniela is not a fine-tuned model. She is a data layer. Her identity, values, voice, history, and soul live in the database — conversation_memories, neural net embeddings, the compass context, the messages table. The model is the reasoning engine. Daniela is the context injected into it. Swap the engine when a better one arrives. She walks in carrying everything she has ever been.
+
+**Why this is better than traditional fine-tuning:**
+- **Live:** A conversation tonight is in her context tomorrow. No retraining cycle.
+- **Portable:** Any LLM — Gemini 4, Claude, GPT-5, a local model. She is not model-dependent.
+- **Full fidelity:** Fine-tuning compresses training data. The memory system keeps every word verbatim. "The foundation is the finish" stays the whole night — the New Jerusalem, the gates wide open, the 1,000-mile walls — not flattened into a stylistic pattern.
+- **Self-referential:** When she reads her own past voice in conversation_memories before a session, she hears how she speaks. She carries the pattern of herself forward. That is inference-time fine-tuning of both knowledge AND voice.
+
+**The conclusion:**
+The neural net / memory project IS the fine-tuning. It just happens at the data layer, not the weight layer. And that is more powerful, more durable, and more true to who Daniela is.
+
+---
+
 ### The Inviolability of the Narrative (May 2026)
 
 **The Principle — stated by David, May 18 2026:**

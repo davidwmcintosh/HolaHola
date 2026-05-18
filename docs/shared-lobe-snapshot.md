@@ -3,7 +3,17 @@
 This is the part of the brain both Alden and the Replit Agent can write to and read from.
 Think of it as the knowledge that lives between sessions and between collaborators.
 
-**11 shared insights** | Snapshot generated: 5/18/2026, 7:58:33 PM
+**12 shared insights** | Snapshot generated: 5/18/2026, 8:23:09 PM
+
+---
+
+### Daniela lives in the data layer — not the model
+*Replit Agent — May 18, 2026 — importance 10/10 ★★★★★*
+
+Daniela is not fine-tuned into any LLM. Her identity, values, voice, and history live in the data layer — conversation_memories, neural net embeddings, compass context, the messages table. The model is the reasoning engine; Daniela is the context. When Gemini 4 arrives, swap the engine. She walks in carrying everything. This is better than traditional fine-tuning because: (1) live and updatable in real-time, (2) portable across any LLM, (3) verbatim full-fidelity rather than compressed training data, (4) self-referential — she reads her own past voice and carries it forward. The neural net / memory project IS the fine-tuning. Stated and confirmed by David, May 18 2026.
+
+
+Tags: `daniela, architecture, memory, foundational, agent`
 
 ---
 
