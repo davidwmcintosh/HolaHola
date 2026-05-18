@@ -2583,7 +2583,17 @@ export interface CompassContext {
   
   // Parking lot
   parkingLotItems: Array<{ id: string; content: string; createdAt: Date }>;
-  
+
+  // Shared history — curated narrative memories of meaningful sessions/moments
+  // Sorted: high-importance always first, then by recency.
+  // These are full transcripts / stories, not summaries. Every word matters.
+  conversationMemories?: Array<{
+    title: string;
+    content: string;
+    importance: number;
+    recordedAt: string; // ISO date string
+  }>;
+
   // Legacy fallback
   legacyFreedomLevel?: TutorFreedomLevel;
 }

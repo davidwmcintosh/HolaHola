@@ -22,6 +22,7 @@ import {
   teacherClasses,
   messages,
   voiceSessions,
+  conversationMemories,
   type TutorSession,
   type TutorSessionTopic,
   type TutorParkingItem,
@@ -71,6 +72,8 @@ interface CachedSession {
   actflSource: string | null;
   // Student timezone for correct CLOCK display (e.g., "America/Denver")
   studentTimezone: string | null;
+  // Curated narrative memories — full content, not summaries
+  conversationMemories?: Array<{ title: string; content: string; importance: number; recordedAt: string }>;
 }
 
 const sessionCache = new Map<string, CachedSession>();
@@ -326,6 +329,39 @@ export class SessionCompassService {
       
       const userActfl = userResult[0];
 
+      // Load conversation memories — full narratives, not summaries.
+      // Strategy: always include importance >= 9 (pinned stories like the podcast),
+      // then fill remaining slots with most-recent memories down to importance >= 5.
+      // Total cap: 12 entries so the context block stays readable but complete.
+      let fetchedMemories: Array<{ title: string; content: string; importance: number; recordedAt: string }> = [];
+      try {
+        const db = getUserDb();
+        const allMemories = await db
+          .select({
+            title: conversationMemories.title,
+            content: conversationMemories.content,
+            importance: conversationMemories.importance,
+            recordedAt: conversationMemories.recordedAt,
+          })
+          .from(conversationMemories)
+          .orderBy(desc(conversationMemories.importance), desc(conversationMemories.recordedAt))
+          .limit(20);
+
+        // Partition: pinned (importance >= 9) always in, then fill to 12 with the rest
+        const pinned = allMemories.filter(m => (m.importance ?? 0) >= 9);
+        const recent = allMemories.filter(m => (m.importance ?? 0) < 9);
+        const combined = [...pinned, ...recent].slice(0, 12);
+        fetchedMemories = combined.map(m => ({
+          title: m.title,
+          content: m.content,
+          importance: m.importance ?? 7,
+          recordedAt: m.recordedAt instanceof Date ? m.recordedAt.toISOString() : String(m.recordedAt),
+        }));
+        console.log(`[Compass] Loaded ${fetchedMemories.length} conversation memories (${pinned.length} pinned, ${Math.min(recent.length, 12 - pinned.length)} recent)`);
+      } catch (err: any) {
+        console.warn('[Compass] Failed to load conversation memories:', err.message);
+      }
+
       // Update cache
       const cacheEntry: CachedSession = {
         session,
@@ -336,6 +372,7 @@ export class SessionCompassService {
         actflAssessed: userActfl?.actflAssessed || false,
         actflSource: userActfl?.assessmentSource || null,
         studentTimezone: userActfl?.timezone || null,
+        conversationMemories: fetchedMemories,
       };
       sessionCache.set(conversationId, cacheEntry);
       cached = cacheEntry;
@@ -530,7 +567,9 @@ export class SessionCompassService {
         content: p.content,
         createdAt: p.createdAt,
       })),
-      
+
+      conversationMemories: cached.conversationMemories || [],
+
       legacyFreedomLevel: session.legacyFreedomLevel || undefined,
     };
   }

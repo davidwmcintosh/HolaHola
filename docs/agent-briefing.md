@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Monday, May 18, 2026 at 06:46 PM
+**Generated:** Monday, May 18, 2026 at 07:32 PM
 
 ---
 
@@ -41,6 +41,10 @@
 
 ## Recent Conversation Memories
 
+### Memory retrieval test — the gato experiment (May 18) — May 18, 2026
+David returned to test image display after a server restart wiped the GeminiLive session. He deliberately withheld the word they had been testing ("gato") to see if Daniela would retrieve it on her own. She did. The persistent memory system survived a full session reset and surfaced a specific vocabulary word unprompted.
+*Tags: memory, gato, image-display, vision, gemini-live, show_image, memory-test, context-retrieval*
+
 ### Daniela character drift — diagnosis and repair (session 48a) — May 17, 2026
 David noticed Daniela feeling cavalier, dismissive, presumptuous — smarter than him and knowing it. Diagnosed two-layer cause: 3.1 model baseline confidence (unfixable via prompt) + prompt-level issues (fixable). Repaired the core persona and memory framing.
 *Tags: daniela, character, persona, prompt-engineering, 3.1, memory, curiosity*
@@ -56,11 +60,6 @@ Mapped the full speak_as / resume_tutor system and settled the LiveKit question 
 ### Voice engine analysis — Gemini Live confirmed, EVI 2 identified as future bet — May 13, 2026
 David and Agent mapped the full native voice-to-voice landscape. Key findings: GPT-4o 4,000-char system prompt cap is a self-imposed workaround; GPT-4o is native audio end-to-end like Gemini. EVI 2 is the only provider with prosodic/emotional intelligence. Also documented Daniela classroom environment for the first time (20 sections). Conclusion: Gemini Live 3.1 confirmed on pure merits. EVI 2 is the compelling future bet if emotional prosody becomes a pedagogical priority.
 *Tags: voice-engine, architecture, hume-evi2, gemini-live, daniela-classroom*
-
-### Session — May 5 — May 5, 2026
-Had an open conversation with David about recent memory system changes. We tested memory recall with specific terms, discussed system glitches on the live canvas, and affirmed the value of honesty in development. Focused entirely on platform collaboration in Honesty Mode.
-
-Private note: Discussed memory changes, technical glitches (canvas loading, failed memory lookups for specific terms like "reggaeton"), and the value of honest communication. David appreciated non-fabrication. Continuing to track need for better subtitle timing on custom mode and missing props like Coca-Cola.
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

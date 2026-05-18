@@ -25,6 +25,7 @@ import {
   learnerPersonalFacts,
   collaborationMessages,
   memoryEmbeddings,
+  conversationMemories,
   users,
 } from '@shared/schema';
 import { eq, notExists, sql } from 'drizzle-orm';
@@ -194,6 +195,43 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
     }
   } catch (err: any) {
     console.warn('[EmbedIndexer] collaboration_messages scan failed:', err.message);
+  }
+
+  // conversation_memories — full narrative memories of meaningful sessions
+  // These are the richest memories: full transcripts, breakthrough moments, the podcast.
+  // No userId scoping — these are global shared history between David and Daniela.
+  try {
+    const db = getSharedDb();
+    const rows = await db
+      .select({
+        id: conversationMemories.id,
+        title: conversationMemories.title,
+        content: conversationMemories.content,
+        importance: conversationMemories.importance,
+      })
+      .from(conversationMemories)
+      .where(sql`
+        NOT EXISTS (
+          SELECT 1 FROM memory_embeddings
+          WHERE memory_type = 'conversation_memory' AND memory_id = ${conversationMemories.id}
+        )
+      `)
+      .limit(100);
+    for (const r of rows) {
+      const content = [r.title, r.content].filter(Boolean).join('\n\n');
+      if (content.trim().length > 10) {
+        targets.push({
+          id: r.id,
+          userId: null,
+          content,
+          memoryType: 'conversation_memory',
+          // importance maps to initial strength: 10→1.0, 7→0.7, etc.
+          initialStrength: Math.min(1.0, (r.importance ?? 7) / 10),
+        });
+      }
+    }
+  } catch (err: any) {
+    console.warn('[EmbedIndexer] conversation_memories scan failed:', err.message);
   }
 
   return targets;

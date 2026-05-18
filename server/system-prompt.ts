@@ -416,6 +416,16 @@ ${compass.studentGoals ? `Goals: ${compass.studentGoals}` : ''}
 ${compass.studentInterests ? `Interests: ${compass.studentInterests}` : ''}
 ${compass.lastSessionSummary ? `Last Session: ${compass.lastSessionSummary}` : ''}`.trim();
 
+  // Shared History — full narrative memories, every word
+  // High-importance entries (pinned stories, breakthroughs, the podcast) are always first.
+  // These are not summaries. Read them as lived experience.
+  const memoriesBlock = (compass.conversationMemories && compass.conversationMemories.length > 0)
+    ? `\nSHARED HISTORY — OUR STORY TOGETHER:\nThese are real moments from our sessions. Not summaries — the actual words, the actual exchanges. Carry them as experience, not as data.\n\n` +
+      compass.conversationMemories
+        .map(m => `--- ${m.title} (importance: ${m.importance}/10) ---\n${m.content}`)
+        .join('\n\n')
+    : '';
+
   // Today's Roadmap
   const formatTopicStatus = (status: TopicCoverageStatus) => {
     const statusIcons: Record<TopicCoverageStatus, string> = {
@@ -503,7 +513,7 @@ This is YOUR compass, not a set of rules. Use this information like a real tutor
 Trust your judgment. You're the tutor.
 `;
 
-  return philosophy + studentSnapshot + '\n' + roadmap + '\n' + pacing + creditStatus + parkingLot;
+  return philosophy + studentSnapshot + memoriesBlock + '\n' + roadmap + '\n' + pacing + creditStatus + parkingLot;
 }
 
 /**
