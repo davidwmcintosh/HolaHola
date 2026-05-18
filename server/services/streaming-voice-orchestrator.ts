@@ -710,6 +710,13 @@ export class StreamingVoiceOrchestrator {
   getSession(sessionId: string): StreamingSession | undefined {
     return this.sessions.get(sessionId);
   }
+
+  /**
+   * Get the number of currently active sessions (used by system health dashboard)
+   */
+  getActiveSessionCount(): number {
+    return this.sessions.size;
+  }
   
   /**
    * Set callback for TTS state changes (used to suppress OpenMic during TTS)
