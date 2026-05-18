@@ -587,3 +587,34 @@ Go to Admin → Image Engine Test. Upload a Daniela reference image (or use "Loa
 **Gate:** Spanish content audit must be complete first. Do not start multi-language copy until Spanish 1–5 is locked.
 
 **Note:** Spanish 3/4/5 Advanced Units (Madrigal hardcoded content) are Spanish-specific by design — those do not copy over.
+
+---
+
+### Daniela Vision System — complete build (May 18, 2026)
+
+**What was built:** Full 4-piece vision system so Daniela can see vocabulary images, scene backgrounds, and props during voice sessions.
+
+**Piece 1 — Image fetch + inlineData injection**
+When Daniela calls `show_image`, `open_scene`, or `add_to_scene`, the system now fetches the resolved image URL as bytes and sends them as `inlineData` in the Gemini function response. Daniela sees the actual image. Uses the `pendingMemoryLookupPromises` pattern (same as `recall_express_lane_image`) so the async fetch completes before `buildContinuationResponse` is called.
+
+**Piece 2 — Session-level URL dedup**
+`session.seenImageUrls: Set<string>` tracks URLs already sent as inlineData this session. If the same image URL appears again (same word shown twice, same environment re-entered), bytes are skipped — Gemini already has it in context.
+
+**Piece 3 — `image_vision_cache` DB table**
+Persistent cache: `image_url → description`. First time a URL is shown, bytes are fetched + description is stored. Future sessions use the cached description as text instead of re-fetching bytes. Table created in shared/schema.ts, migrated via `npm run db:push`.
+
+**Piece 4 — Rich Tier-1 structural text for scene state**
+Every `open_scene` and `add_to_scene` response now includes full canvas state text: environment name, all props with their positions, and — critically — auto-spread notices when the system moves a prop to avoid overlap ("⚠ wine_glass auto-repositioned from center → glass_spot"). This is Daniela's spatial awareness, separate from visual awareness. `move_in_scene` also now returns current canvas state.
+
+**Key files:**
+- `server/services/image-vision-service.ts` — NEW: `getImageVision()` (fetch/cache/dedup logic), `buildSceneStateText()` (Tier-1 scene state builder)
+- `shared/schema.ts` — Added `image_vision_cache` table
+- `server/services/streaming-session-types.ts` — Added `seenImageUrls` and `visionBuffer` session fields
+- `server/services/native-fc-handlers.ts` — SHOW_IMAGE converted to `pendingMemoryLookupPromises` pattern + vision store; OPEN_SCENE and ADD_TO_SCENE now push vision promises + auto-spread tracking
+- `server/services/daniela-function-registry.ts` — Updated `buildContinuationResponse` for show_image, open_scene, add_to_scene, move_in_scene to return multimodal when inlineData available, always include Tier-1 structural text
+
+**Architecture:**
+- Two-tier: Tier-1 (structural text — always, instant, free) + Tier-2 (image bytes — first-time per URL per session)
+- Three-level cache: session Set → persistent DB → fetch fresh bytes
+- Cost: ~$0.00002/image (258 tokens at Flash pricing) — effectively free
+- Pattern: identical to working `recall_express_lane_image` multimodal flow

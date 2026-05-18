@@ -216,6 +216,14 @@ export interface StreamingSession {
     text: string;
     images: Array<{ mimeType: string; data: string }>;
   }>;
+  // Vision system — allows Daniela to see vocabulary images, scene backgrounds, and props
+  seenImageUrls?: Set<string>; // URLs already sent as inlineData this session (session-level dedup)
+  visionBuffer?: Record<string, {
+    url: string;
+    description: string;
+    inlineData?: { mimeType: string; data: string }; // present only on first-time bytes
+    sceneStateText?: string; // Tier-1 structural canvas state (open_scene / add_to_scene)
+  }>;
   pendingMemoryLookupPromises?: Promise<void>[];
   // Voice Lab override settings
   voiceOverride?: {

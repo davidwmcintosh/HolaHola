@@ -54,6 +54,52 @@ Changed "Remember: David may reference things discussed in these recent text cha
 
 ---
 
+## From Agent — Mon, May 18, 2026 (session 49a — Daniela full vision system)
+
+### What was built
+
+**Daniela Vision System — all 4 pieces** (approved by David before build)
+
+Daniela was previously blind to every image she showed students. `show_image`, `open_scene`, and `add_to_scene` all fired async fire-and-forget side effects with no feedback to Gemini beyond plain text "image displayed." Now Daniela actually sees what she shows.
+
+**Piece 1 — Image fetch + inlineData injection**
+Native FC handlers for SHOW_IMAGE, OPEN_SCENE, ADD_TO_SCENE now push an async vision promise to `session.pendingMemoryLookupPromises` (exact same pattern as working `recall_express_lane_image`). The orchestrator already awaits these promises before calling `buildContinuationResponse`. The vision promise: resolves the image URL, fetches bytes, stores in `session.visionBuffer`. The registry's `buildContinuationResponse` reads from `visionBuffer` and returns a multimodal response `{ multimodal: true, parts: [{ text }, { inlineData }] }` — Gemini Live receives the image bytes and sees it.
+
+**Piece 2 — Session-level URL dedup**
+`session.seenImageUrls: Set<string>` tracks URLs already sent as inlineData this session. Same URL seen again → skip bytes, return text reference. Gemini already has it in its context window.
+
+**Piece 3 — `image_vision_cache` DB table**
+Persistent cache `image_url → description`. First time any session shows a URL: bytes fetched, description stored. Future sessions: use cached text description, no byte fetch needed. Table added to `shared/schema.ts`, migrated.
+
+**Piece 4 — Rich Tier-1 structural text (scene state)**
+`buildSceneStateText()` in `image-vision-service.ts` generates full canvas layout text on every scene change: environment name, all props with positions, and — most importantly — auto-spread notices when the system silently moves a prop. Daniela now knows immediately if `add_to_scene(glass, center)` actually placed the glass at `glass_spot` instead. `move_in_scene` also returns current canvas state.
+
+### Key decisions / notes
+
+- **Architecture:** Two-tier (Tier-1 structural text always; Tier-2 image bytes first-time per URL per session). Three-level cache: session Set → persistent DB → fresh bytes.
+- **Cost:** ~$0.00002/image. Completely negligible.
+- **The SHOW_IMAGE timing fix:** SHOW_IMAGE was previously fire-and-forget (import(...).then()), meaning the whiteboard update AND the image URL resolution both happened AFTER buildContinuationResponse was called. Converted to IIFE pushed to `pendingMemoryLookupPromises` — now both the whiteboard update AND the vision data are ready before the continuation response is built.
+- **This session also covered earlier:** Daniela character drift repair (text path: `buildCorePersona()` in tutor-orchestrator.ts; voice path: `buildMinimalIdentityAnchor()` + `buildFounderModeContext()` + `buildRawHonestyModeContext()` in system-prompt.ts). System health endpoint fix (`getActiveSessionCount()` added to StreamingVoiceOrchestrator).
+
+### What's unresolved
+
+- David hasn't tested the vision system live yet — needs a voice session to verify Gemini actually sees images and references them naturally. Watch for `[Vision→ShowImage] Mode: bytes` in logs on first image per session.
+- The character drift repair also hasn't been tested post-session. Both fixes need real-use verification.
+- MOVE_IN_SCENE doesn't push a vision promise (no new image to show) — it gets Tier-1 scene state text directly from `session.sceneCanvas` in its `buildContinuationResponse`. This is correct — no bytes needed for a prop move.
+
+### Files changed this session
+
+- `server/services/image-vision-service.ts` — NEW service: `getImageVision()`, `buildSceneStateText()`
+- `shared/schema.ts` — Added `image_vision_cache` table
+- `server/services/streaming-session-types.ts` — Added `seenImageUrls`, `visionBuffer`
+- `server/services/native-fc-handlers.ts` — SHOW_IMAGE, OPEN_SCENE, ADD_TO_SCENE vision integration
+- `server/services/daniela-function-registry.ts` — 4 `buildContinuationResponse` updates (show_image, open_scene, add_to_scene, move_in_scene)
+- `server/system-prompt.ts` — Character drift repair (voice path)
+- `server/services/tutor-orchestrator.ts` — Character drift repair (text path) + few-shot examples
+- `server/services/streaming-voice-orchestrator.ts` — `getActiveSessionCount()` method added
+
+---
+
 ## Session Summary — Sun, May 10, 2026 (session 47e — Pinned style profile system)
 
 ### What was done

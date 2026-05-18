@@ -9230,3 +9230,20 @@ export const learningGoals = pgTable("learning_goals", {
 export const insertLearningGoalSchema = createInsertSchema(learningGoals).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertLearningGoal = z.infer<typeof insertLearningGoalSchema>;
 export type LearningGoal = typeof learningGoals.$inferSelect;
+
+/**
+ * Persistent cache mapping image URLs → Gemini-visible descriptions.
+ * First time an image URL is shown to Daniela, we fetch the bytes and send as inlineData.
+ * After that, we store a text description here so future sessions can use text instead
+ * of re-fetching bytes — saving latency and keeping the context window clean.
+ */
+export const imageVisionCache = pgTable("image_vision_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  imageUrl: text("image_url").notNull(),
+  description: text("description"),
+  mimeType: varchar("mime_type", { length: 50 }).notNull().default("image/jpeg"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  lastUsedAt: timestamp("last_used_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_image_vision_cache_url").on(table.imageUrl),
+]);

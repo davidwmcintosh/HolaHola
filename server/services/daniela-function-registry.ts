@@ -509,13 +509,37 @@ NON-LATIN SCRIPT LANGUAGES (Korean, Japanese, Mandarin, Hebrew): Always include 
         required: ["word"],
       },
     },
-    buildContinuationResponse: ({ fc }) => {
+    buildContinuationResponse: ({ session, fc }) => {
       const word = fc.args.word as string | undefined;
       const scene = fc.args.scene as string | undefined;
-      if (scene && !fc.args.description) {
-        return `Image for "${word || scene}" is loading. Continue speaking naturally.`;
+      const displayLabel = word || (scene ? scene.split(' ').slice(0, 3).join(' ') : 'image');
+      const visionEntry = session.visionBuffer?.['show_image'];
+
+      if (visionEntry) {
+        const descLine = visionEntry.description
+          ? `\nContent: ${visionEntry.description}`
+          : '';
+        if (visionEntry.inlineData) {
+          // Full vision: first time this image has been shown — Daniela sees it now
+          return {
+            multimodal: true,
+            parts: [
+              {
+                text: `Image displayed for "${displayLabel}".${descLine}\nYou can now see this image. Reference it naturally as you teach — describe what you see if helpful.`,
+              },
+              { inlineData: visionEntry.inlineData },
+            ],
+          };
+        }
+        // Cached or session-reference: Daniela already has visual context, no bytes needed
+        return `Image displayed for "${displayLabel}".${descLine}\n[Already in your visual context from this session — reference by name without re-describing.]`;
       }
-      return null;
+
+      // Fallback when vision promise didn't resolve in time
+      if (scene && !fc.args.description) {
+        return `Image for "${displayLabel}" is loading. Continue speaking naturally.`;
+      }
+      return `Image displayed for "${displayLabel}". Continue teaching.`;
     },
   },
 
@@ -755,9 +779,25 @@ Use the live canvas only when the SEQUENCE of changes is pedagogically meaningfu
         required: ["environment"],
       },
     },
-    buildContinuationResponse: ({ fc }) => {
-      const env = (fc.args.environment as string || 'the scene').replace(/_/g, ' ');
-      return `Scene opened: ${env}. You can now use add_to_scene, remove_from_scene, set_clock, or clear_scene to update the live canvas.`;
+    buildContinuationResponse: ({ session, fc }) => {
+      const env = (fc.args.environment as string || 'scene').replace(/_/g, ' ');
+      const visionEntry = session.visionBuffer?.['open_scene'];
+
+      // Always use Tier-1 structural scene state text if available
+      const baseText = visionEntry?.sceneStateText
+        || `Scene opened: ${env}.\nCanvas is now live — use add_to_scene, remove_from_scene, set_clock, or clear_scene to update it.`;
+
+      if (visionEntry?.inlineData) {
+        // Full vision: first time this environment has been shown — Daniela sees the background
+        return {
+          multimodal: true,
+          parts: [
+            { text: `${baseText}\nYou can now see the scene background. Use it to ground your teaching in this environment.` },
+            { inlineData: visionEntry.inlineData },
+          ],
+        };
+      }
+      return baseText;
     },
   },
 
@@ -911,7 +951,7 @@ Keep most props at 5. Only set z explicitly when teaching encima/debajo.`,
         required: ["prop_name", "position"],
       },
     },
-    buildContinuationResponse: ({ fc }) => {
+    buildContinuationResponse: ({ session, fc }) => {
       const prop = fc.args.prop_name as string || 'prop';
       const pos = fc.args.position as string || 'position';
       const rotate = fc.args.rotate as number | undefined;
@@ -922,7 +962,23 @@ Keep most props at 5. Only set z explicitly when teaching encima/debajo.`,
         flipH ? 'flipped' : '',
         z && z !== 5 ? `z=${z}` : '',
       ].filter(Boolean).join(', ');
-      return `Added ${prop} at ${pos} on the live canvas${extras ? ` (${extras})` : ''}. Continue the lesson — the prop is now visible to the student.`;
+      const visionEntry = session.visionBuffer?.['add_to_scene'];
+
+      // Always lead with Tier-1 structural scene state (full canvas layout + auto-spread notices)
+      const baseText = visionEntry?.sceneStateText
+        || `Added ${prop} at ${pos} on the live canvas${extras ? ` (${extras})` : ''}. Continue the lesson — the prop is now visible to the student.`;
+
+      if (visionEntry?.inlineData) {
+        // Prop image bytes: first time this prop type appears this session
+        return {
+          multimodal: true,
+          parts: [
+            { text: `${baseText}\nYou can now see the prop image above. Use the visual and position info to guide your teaching.` },
+            { inlineData: visionEntry.inlineData },
+          ],
+        };
+      }
+      return baseText;
     },
   },
 
@@ -970,8 +1026,21 @@ Use the same position names as add_to_scene (left, right, center, on_table, fork
         required: ["prop_name", "new_position"],
       },
     },
-    buildContinuationResponse: ({ fc }) => {
-      return `Moved ${fc.args.prop_name} to ${fc.args.new_position}. Continue teaching the spatial expression.`;
+    buildContinuationResponse: ({ session, fc }) => {
+      const prop = fc.args.prop_name as string || 'prop';
+      const newPos = fc.args.new_position as string || 'new position';
+
+      // Build Tier-1 scene state so Daniela knows where everything ended up after the move
+      const sceneCanvas = session.sceneCanvas;
+      if (sceneCanvas) {
+        const env = sceneCanvas.environmentLabel || (sceneCanvas.environment || '').replace(/_/g, ' ');
+        const props = (sceneCanvas.props || []) as Array<{ name: string; label?: string; position: string }>;
+        const propsLine = props.length === 0
+          ? 'Canvas: empty'
+          : `Props: ${props.map(p => `${p.name} @ ${p.position}`).join(' | ')}`;
+        return `Moved "${prop}" → ${newPos}.\nScene: ${env}\n${propsLine}\nContinue teaching the spatial expression — the move is now visible.`;
+      }
+      return `Moved "${prop}" to ${newPos}. Continue teaching the spatial expression.`;
     },
   },
 

@@ -531,8 +531,11 @@ export class NativeFunctionCallHandler {
         const displayWord = word || (scene || '').split(' ').slice(0, 3).join(' ');
         console.log(`[Native Function→ShowImage] Resolving image for "${displayWord}" (scene: ${scene || 'none'})`);
 
-        import('../services/vocabulary-image-resolver').then(async ({ resolveVocabularyImage }) => {
+        // Push to pendingMemoryLookupPromises so the orchestrator awaits resolution
+        // before buildContinuationResponse runs — same pattern as recall_express_lane_image.
+        const showImagePromise = (async () => {
           try {
+            const { resolveVocabularyImage } = await import('../services/vocabulary-image-resolver');
             const result = await resolveVocabularyImage({
               word: displayWord,
               language: session.language || 'spanish',
@@ -581,10 +584,27 @@ export class NativeFunctionCallHandler {
             session.classroomSessionImages.push(description || word);
             if (!session.classroomWhiteboardItems) session.classroomWhiteboardItems = [];
             session.classroomWhiteboardItems.push({ type: 'image', content: word, label: description || word });
+
+            // Vision system: give Daniela actual sight of the image she just showed the student
+            if (result.imageUrl) {
+              const { getImageVision } = await import('./image-vision-service');
+              const visionDesc = result.description
+                || `${displayWord}${translation ? ` (${translation})` : ''}${scene ? ` — ${scene}` : ''}`;
+              const vision = await getImageVision(result.imageUrl, visionDesc, session);
+              if (!session.visionBuffer) session.visionBuffer = {};
+              session.visionBuffer['show_image'] = {
+                url: result.imageUrl,
+                description: vision.description,
+                inlineData: vision.inlineData,
+              };
+              console.log(`[Vision→ShowImage] Mode: ${vision.mode} for "${displayWord}"`);
+            }
           } catch (err: any) {
-            console.error(`[Native Function→ShowImage] Error resolving image:`, err.message);
+            console.error(`[Native Function→ShowImage] Error:`, err.message);
           }
-        });
+        })();
+        if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+        session.pendingMemoryLookupPromises.push(showImagePromise as Promise<void>);
         break;
       }
 
@@ -864,6 +884,35 @@ export class NativeFunctionCallHandler {
             session.pendingWhiteboardUpdates.push(openSceneUpdate);
           }
           console.log(`[Native Function→OpenScene] Opened: ${sceneEnv}`);
+
+          // Vision system: fetch background image bytes so Daniela can see the environment
+          const openSceneVisionPromise = (async () => {
+            try {
+              const { getImageVision, buildSceneStateText } = await import('./image-vision-service');
+              const envLabel = session.sceneCanvas?.environmentLabel || sceneEnv.replace(/_/g, ' ');
+              const vision = await getImageVision(
+                envImageUrl,
+                `Scene background: ${envLabel}`,
+                session,
+              );
+              const sceneStateText = buildSceneStateText(
+                session.sceneCanvas,
+                { action: `Scene opened: ${envLabel}` },
+              );
+              if (!session.visionBuffer) session.visionBuffer = {};
+              session.visionBuffer['open_scene'] = {
+                url: envImageUrl,
+                description: vision.description,
+                inlineData: vision.inlineData,
+                sceneStateText,
+              };
+              console.log(`[Vision→OpenScene] Mode: ${vision.mode} for "${sceneEnv}"`);
+            } catch (err: any) {
+              console.error('[Vision→OpenScene] Error:', err.message);
+            }
+          })();
+          if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+          session.pendingMemoryLookupPromises.push(openSceneVisionPromise as Promise<void>);
         } catch (err: any) {
           console.error('[Native Function→OpenScene] Error:', err.message);
         }
@@ -933,6 +982,7 @@ export class NativeFunctionCallHandler {
           on_plate_right:      { cx: 0.54, cy: 0.71, scale: 0.08 }, // e.g. garnish right
         };
         let addPos = CANVAS_POSITION_MAP[addPosition] || CANVAS_POSITION_MAP.center;
+        let autoSpreadOccurred = false; // vision tracking: did auto-spread fire?
         // Auto-spread: if requested position is already occupied by an existing prop,
         // cycle through fallback slots so items don't stack on top of each other
         if (session.sceneCanvas?.props?.length) {
@@ -955,6 +1005,7 @@ export class NativeFunctionCallHandler {
             if (available) {
               console.log(`[Native Function→AddToScene] Auto-repositioning "${addPropName}" to avoid overlap`);
               addPos = available;
+              autoSpreadOccurred = true;
             }
           }
         }
@@ -1022,6 +1073,41 @@ export class NativeFunctionCallHandler {
             session.pendingWhiteboardUpdates.push(addUpdate);
           }
           console.log(`[Native Function→AddToScene] Added "${addPropName}" at ${addPosition}`);
+
+          // Vision system: give Daniela sight of the new prop + full Tier-1 scene state
+          const addToSceneVisionPromise = (async () => {
+            try {
+              const { getImageVision, buildSceneStateText } = await import('./image-vision-service');
+              // Reverse-lookup the final position name for auto-spread reporting
+              const resolvedPositionName = autoSpreadOccurred
+                ? (Object.entries(CANVAS_POSITION_MAP).find(
+                    ([, v]) => Math.abs(v.cx - addPos.cx) < 0.001 && Math.abs(v.cy - addPos.cy) < 0.001,
+                  )?.[0] || 'repositioned')
+                : addPosition;
+              // Only fetch prop image bytes if this prop type hasn't been seen this session
+              const propVision = propImageUrl
+                ? await getImageVision(propImageUrl, propDisplayName, session)
+                : null;
+              const sceneStateText = buildSceneStateText(session.sceneCanvas, {
+                action: `Prop added: ${propDisplayName}`,
+                autoSpreadProp: autoSpreadOccurred ? addPropName : undefined,
+                requestedPos: autoSpreadOccurred ? addPosition : undefined,
+                finalPos: autoSpreadOccurred ? resolvedPositionName : undefined,
+              });
+              if (!session.visionBuffer) session.visionBuffer = {};
+              session.visionBuffer['add_to_scene'] = {
+                url: propImageUrl || '',
+                description: propDisplayName,
+                inlineData: propVision?.inlineData,
+                sceneStateText,
+              };
+              console.log(`[Vision→AddToScene] Prop "${addPropName}" vision mode: ${propVision?.mode || 'no-url'}${autoSpreadOccurred ? ` (auto-spread → ${resolvedPositionName})` : ''}`);
+            } catch (err: any) {
+              console.error('[Vision→AddToScene] Error:', err.message);
+            }
+          })();
+          if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+          session.pendingMemoryLookupPromises.push(addToSceneVisionPromise as Promise<void>);
         } catch (err: any) {
           console.error('[Native Function→AddToScene] Error:', err.message);
         }
