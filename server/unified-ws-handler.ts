@@ -2175,8 +2175,8 @@ ${lastNote.tutorNotes}`);
                 // Pre-load top 3 identity threads (by importance) into the GL session.
                 // These are injected as conversation history turns before the greeting fires,
                 // so Daniela has read her own threads before she speaks her first word.
-                if (compass?.identityThreads?.length) {
-                  const preloadThreads = compass.identityThreads
+                if (compassContext?.identityThreads?.length) {
+                  const preloadThreads = compassContext.identityThreads
                     .filter(t => t.content)
                     .slice(0, 3)
                     .map(t => ({ title: t.title, content: t.content! }));
