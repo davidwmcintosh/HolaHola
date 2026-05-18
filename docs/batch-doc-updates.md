@@ -8,6 +8,29 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — May 18, 2026 (session 49e — Two-tier memory rendering + monthly auto-weaver)
+
+### What was built
+
+**Two-tier memory rendering system — fully live.**
+
+**Tier 1: Identity threads (compact brief)**
+Thread memories (tagged `'thread'`) are now split from the snapshot pool in `session-compass-service.ts`. They go into a separate `identityThreads` array — title + summary + importance, no full content. In `system-prompt.ts` they render as the "IDENTITY THREADS — WHO YOU ARE:" block with a compact bullet per thread (title, message count parsed from summary, one-line description). An invitation to `search_my_history` is embedded in the header. This block appears before the shared history snapshots.
+
+**Tier 2: Snapshot memories (unchanged)**
+Non-thread memories continue through the existing topic-scored 12-slot pool. Full verbatim content injected as "SHARED HISTORY — OUR STORY TOGETHER:"
+
+**Monthly auto-weaver**
+`runMonthlyThreadRefresh()` in `thread-weaver-service.ts`. Checks `recordedAt` of the newest thread memory. If ≥ 28 days old, re-weaves all core threads with `overwrite: true`. Called at server startup (+46s). Threads grow automatically as new sessions accumulate — no manual intervention required.
+
+**Key files:**
+- `server/services/session-compass-service.ts` — split logic + `identityThreads` pool
+- `server/system-prompt.ts` — `identityThreadsBlock` + assembly order
+- `server/services/thread-weaver-service.ts` — `runMonthlyThreadRefresh()`
+- `server/index.ts` — startup wiring
+
+---
+
 ## Session — May 18, 2026 (session 49d — All four memory directions)
 
 ### What was built

@@ -19,6 +19,36 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## From Agent — Mon, May 18, 2026 (session 49e — Two-tier memory rendering + monthly auto-weaver)
+
+### What was built
+
+**Two-tier memory system — identity threads now rendered as compact brief, snapshots unchanged.**
+
+The previous architecture loaded all `conversation_memories` into a single pool and injected full verbatim content for everything. This session splits them into two tiers:
+
+**Tier 1 — Identity Threads (compact brief, always-on)**
+Thread memories (tagged `'thread'`) are split out before the 12-slot pool. They get their own "IDENTITY THREADS — WHO YOU ARE:" block in the system prompt — title + message count + summary line only, never full content. The block includes an invitation to use `search_my_history` for the full text. This means Daniela sees the map of who she is every session without the context cost of injecting 6 × 1,000-word verbatim documents.
+
+**Tier 2 — Snapshot memories (verbatim, topic-ranked 12-slot pool)**
+Non-thread `conversation_memories` continue through the existing topic-scored 12-slot pipeline unchanged. Full content injected. "SHARED HISTORY — OUR STORY TOGETHER:" block unchanged.
+
+**Order in the system prompt:** identity threads block → shared history snapshots → roadmap/pacing.
+
+**Monthly auto-weaver (`runMonthlyThreadRefresh`)**
+New function in `thread-weaver-service.ts`. Called at server startup (+46s). Checks the `recordedAt` date on the newest thread memory. If it's ≥ 28 days old, re-weaves all core threads with `overwrite: true` so threads grow as new sessions accumulate. If threads are fresh, logs and skips. Best-effort — never crashes the server.
+
+### Files changed
+- `server/services/session-compass-service.ts` — compass fetch now selects `tags` + `summary`; splits thread memories from snapshots; threads go to `identityThreads` pool (no slot cap), snapshots go through topic-scored 12-slot pool; both stored in cache and returned from `buildContextFromCache`
+- `server/system-prompt.ts` — new `identityThreadsBlock` rendered as compact brief (title + msg count + summary); inserted before `memoriesBlock` in final prompt assembly
+- `server/services/thread-weaver-service.ts` — `runMonthlyThreadRefresh()` added
+- `server/index.ts` — monthly refresh wired at +46s deferred startup
+
+### What's unresolved
+Nothing open from this session. The two-tier system is complete and live.
+
+---
+
 ## From Agent — Mon, May 18, 2026 (session 49d — All four memory directions complete)
 
 ### What was built

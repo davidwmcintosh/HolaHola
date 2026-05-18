@@ -673,7 +673,13 @@ app.use((req, res, next) => {
       startAldenWatchWorker();
     }, 45000);
 
-    // +46s: Shared Lobe Snapshot — regenerate docs/shared-lobe-snapshot.md from DB
+    // +46s: Thread Weaver Monthly Refresh — re-weave identity threads if stale (> 28 days)
+    setTimeout(async () => {
+      const { runMonthlyThreadRefresh } = await import('./services/thread-weaver-service');
+      await runMonthlyThreadRefresh();
+    }, 46000);
+
+    // +47s: Shared Lobe Snapshot — regenerate docs/shared-lobe-snapshot.md from DB
     setTimeout(async () => {
       const { generateSharedLobeSnapshot } = await import('./services/shared-lobe-snapshot');
       await generateSharedLobeSnapshot();

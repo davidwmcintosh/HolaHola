@@ -72,8 +72,10 @@ interface CachedSession {
   actflSource: string | null;
   // Student timezone for correct CLOCK display (e.g., "America/Denver")
   studentTimezone: string | null;
-  // Curated narrative memories — full content, not summaries
+  // Curated narrative memories — full content, not summaries (snapshot pool, 12 slots)
   conversationMemories?: Array<{ title: string; content: string; importance: number; recordedAt: string }>;
+  // Identity threads — always-on compact brief (title + summary only, no full content)
+  identityThreads?: Array<{ title: string; summary: string | null; importance: number; recordedAt: string }>;
 }
 
 const sessionCache = new Map<string, CachedSession>();
@@ -333,67 +335,75 @@ export class SessionCompassService {
       // Strategy: importance >= 9 always pinned; remaining slots filled by topic-relevance
       // scoring against recent conversation history, then recency. Cap: 12 total.
       let fetchedMemories: Array<{ title: string; content: string; importance: number; recordedAt: string }> = [];
+      let fetchedIdentityThreads: Array<{ title: string; summary: string | null; importance: number; recordedAt: string }> = [];
       try {
         const db = getUserDb();
         const sharedDb = getSharedDb();
 
-        // Pull candidate memories (top 30 so we have room to re-rank)
+        // Pull all memories — threads and snapshots together
         const allMemories = await sharedDb
           .select({
             title: conversationMemories.title,
             content: conversationMemories.content,
+            summary: conversationMemories.summary,
             importance: conversationMemories.importance,
             recordedAt: conversationMemories.recordedAt,
+            tags: conversationMemories.tags,
           })
           .from(conversationMemories)
           .orderBy(desc(conversationMemories.importance), desc(conversationMemories.recordedAt))
-          .limit(30);
+          .limit(60); // larger pool so threads never crowd out snapshots
 
-        // Build topic signal: last 8 user messages from this student's history
+        // Split: woven identity threads go to their own always-on brief block;
+        // snapshot memories go through the topic-scored 12-slot pool.
+        const threadMemories = allMemories.filter(m =>
+          Array.isArray(m.tags) && m.tags.includes('thread')
+        );
+        const snapshotMemories = allMemories.filter(m =>
+          !Array.isArray(m.tags) || !m.tags.includes('thread')
+        );
+
+        // Identity threads: compact brief — title + summary only, sorted by importance
+        fetchedIdentityThreads = threadMemories
+          .sort((a, b) => (b.importance ?? 7) - (a.importance ?? 7))
+          .map(m => ({
+            title: m.title,
+            summary: m.summary || null,
+            importance: m.importance ?? 7,
+            recordedAt: m.recordedAt instanceof Date ? m.recordedAt.toISOString() : String(m.recordedAt),
+          }));
+
+        // Build topic signal from last 8 user messages for snapshot re-ranking
         let topicSignal = '';
         try {
           const recentMsgs = await db
             .select({ content: messages.content })
             .from(messages)
-            .innerJoin(
-              conversations,
-              eq(messages.conversationId, conversations.id)
-            )
-            .where(
-              and(
-                eq(conversations.userId, session.userId),
-                eq(messages.role, 'user')
-              )
-            )
+            .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+            .where(and(eq(conversations.userId, session.userId), eq(messages.role, 'user')))
             .orderBy(desc(messages.createdAt))
             .limit(8);
           topicSignal = recentMsgs.map(m => m.content).join(' ').toLowerCase();
         } catch {
-          // Topic signal is best-effort; fall back to importance+recency ranking
+          // Topic signal is best-effort
         }
 
-        // Score each memory: base = importance; boost if title/content keywords overlap with topic
-        const scored = allMemories.map(m => {
-          let score = (m.importance ?? 7) * 10; // base weight: 70-100
+        // Score snapshot memories by importance + topic relevance + recency
+        const scored = snapshotMemories.map(m => {
+          let score = (m.importance ?? 7) * 10;
           if (topicSignal && topicSignal.length > 20) {
             const haystack = `${m.title} ${m.content.substring(0, 400)}`.toLowerCase();
-            // Extract meaningful words from topic signal (>4 chars, not stopwords)
             const stopwords = new Set(['that', 'this', 'with', 'have', 'from', 'they', 'will', 'been', 'were', 'what', 'when', 'your', 'about', 'there', 'their', 'just', 'into', 'than', 'then', 'also', 'more', 'some', 'like', 'very']);
             const topicWords = topicSignal.split(/\W+/).filter(w => w.length > 4 && !stopwords.has(w));
             const uniqueTopicWords = [...new Set(topicWords)].slice(0, 25);
             const hits = uniqueTopicWords.filter(w => haystack.includes(w)).length;
-            if (hits > 0) {
-              score += Math.min(hits * 4, 20); // up to +20 topic bonus
-            }
+            if (hits > 0) score += Math.min(hits * 4, 20);
           }
-          // Recency bonus for memories recorded in last 30 days
-          const ageMs = Date.now() - new Date(m.recordedAt).getTime();
-          const ageDays = ageMs / (1000 * 60 * 60 * 24);
+          const ageDays = (Date.now() - new Date(m.recordedAt).getTime()) / (1000 * 60 * 60 * 24);
           if (ageDays < 30) score += Math.max(0, 5 - Math.floor(ageDays / 6));
           return { ...m, score };
         });
 
-        // Pinned (importance >= 9) always come first, then sort remainder by score
         const pinned = scored.filter(m => (m.importance ?? 0) >= 9).sort((a, b) => b.score - a.score);
         const rest = scored.filter(m => (m.importance ?? 0) < 9).sort((a, b) => b.score - a.score);
         const combined = [...pinned, ...rest].slice(0, 12);
@@ -404,8 +414,9 @@ export class SessionCompassService {
           importance: m.importance ?? 7,
           recordedAt: m.recordedAt instanceof Date ? m.recordedAt.toISOString() : String(m.recordedAt),
         }));
+
         const topicNote = topicSignal.length > 20 ? ', topic-boosted' : '';
-        console.log(`[Compass] Loaded ${fetchedMemories.length} conversation memories (${pinned.length} pinned${topicNote})`);
+        console.log(`[Compass] Memories — ${fetchedIdentityThreads.length} identity threads (brief), ${fetchedMemories.length} snapshots (${pinned.length} pinned${topicNote})`);
       } catch (err: any) {
         console.warn('[Compass] Failed to load conversation memories:', err.message);
       }
@@ -421,6 +432,7 @@ export class SessionCompassService {
         actflSource: userActfl?.assessmentSource || null,
         studentTimezone: userActfl?.timezone || null,
         conversationMemories: fetchedMemories,
+        identityThreads: fetchedIdentityThreads,
       };
       sessionCache.set(conversationId, cacheEntry);
       cached = cacheEntry;
@@ -617,6 +629,7 @@ export class SessionCompassService {
       })),
 
       conversationMemories: cached.conversationMemories || [],
+      identityThreads: cached.identityThreads || [],
 
       legacyFreedomLevel: session.legacyFreedomLevel || undefined,
     };

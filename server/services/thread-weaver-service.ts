@@ -298,6 +298,50 @@ export async function weaveAllCoreThreads(overwrite = false): Promise<ThreadResu
 }
 
 /**
+ * Monthly auto-weaver: checks if threads are stale (> 28 days) and re-weaves if so.
+ * Called once at server startup — safe to run in the background.
+ * This gives Daniela growing, ever-more-complete threads as new sessions accumulate.
+ */
+export async function runMonthlyThreadRefresh(): Promise<void> {
+  try {
+    const db = getSharedDb();
+
+    // Find the most recently updated thread memory
+    const newest = await db
+      .select({ recordedAt: conversationMemories.recordedAt, title: conversationMemories.title })
+      .from(conversationMemories)
+      .where(
+        sql`tags @> ARRAY['thread']::text[]`
+      )
+      .orderBy(desc(conversationMemories.recordedAt))
+      .limit(1);
+
+    if (!newest.length) {
+      console.log('[ThreadWeaver Monthly] No thread memories found — running initial weave');
+      await weaveAllCoreThreads(false);
+      return;
+    }
+
+    const ageMs = Date.now() - new Date(newest[0].recordedAt).getTime();
+    const ageDays = ageMs / (1000 * 60 * 60 * 24);
+
+    if (ageDays < 28) {
+      const lastDate = new Date(newest[0].recordedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+      console.log(`[ThreadWeaver Monthly] Threads are fresh (last woven: ${lastDate}, ${Math.round(ageDays)} days ago) — skipping`);
+      return;
+    }
+
+    console.log(`[ThreadWeaver Monthly] Threads are ${Math.round(ageDays)} days old — re-weaving all core threads`);
+    const results = await weaveAllCoreThreads(true);
+    const woven = results.filter(r => !r.skipped).length;
+    console.log(`[ThreadWeaver Monthly] ✓ Re-weaved ${woven} threads with fresh message history`);
+  } catch (err: any) {
+    // Monthly refresh is best-effort — never crash the server
+    console.warn('[ThreadWeaver Monthly] Refresh failed (non-fatal):', err.message);
+  }
+}
+
+/**
  * Weave a custom thread from ad-hoc keywords.
  */
 export async function weaveCustomThread(

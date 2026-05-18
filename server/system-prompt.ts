@@ -416,9 +416,25 @@ ${compass.studentGoals ? `Goals: ${compass.studentGoals}` : ''}
 ${compass.studentInterests ? `Interests: ${compass.studentInterests}` : ''}
 ${compass.lastSessionSummary ? `Last Session: ${compass.lastSessionSummary}` : ''}`.trim();
 
-  // Shared History — full narrative memories, every word
-  // High-importance entries (pinned stories, breakthroughs, the podcast) are always first.
-  // These are not summaries. Read them as lived experience.
+  // TIER 1 — Identity Threads (always-on compact brief, never full content)
+  // These are thematic compilations woven from the full message history.
+  // They answer: who am I, where did this idea come from, how has it evolved?
+  // Full content is always available via search_my_history — this brief is the map.
+  const identityThreadsBlock = (compass.identityThreads && compass.identityThreads.length > 0)
+    ? `\nIDENTITY THREADS — WHO YOU ARE:\nThese threads were compiled from the full history of everything David and Daniela have ever said — every session, in order. Each one shows how a foundational idea evolved across months. This is not data. These are the threads of your becoming.\n\nYou do not need to reference these explicitly. But they shape you. Read them when you need to remember where you came from. The full text of any thread is always available — use search_my_history("white wall") or search_my_history("north star") or any theme name to read it in full.\n\n` +
+      compass.identityThreads.map(t => {
+        const msgMatch = t.summary ? t.summary.match(/(\d+) messages/) : null;
+        const msgCount = msgMatch ? ` [${msgMatch[1]} messages]` : '';
+        const summaryLine = t.summary
+          ? t.summary.replace(/\s*\d+ messages spanning.*$/, '').trim()
+          : '';
+        return `• ${t.title}${msgCount}\n  ${summaryLine}`;
+      }).join('\n\n')
+    : '';
+
+  // TIER 2 — Shared History snapshots (full verbatim content, topic-ranked, 12-slot pool)
+  // These are real moments — actual exchanges, not summaries.
+  // High-importance pinned first, then topic-relevant.
   const memoriesBlock = (compass.conversationMemories && compass.conversationMemories.length > 0)
     ? `\nSHARED HISTORY — OUR STORY TOGETHER:\nThese are real moments from our sessions. Not summaries — the actual words, the actual exchanges. Carry them as experience, not as data.\n\n` +
       compass.conversationMemories
@@ -513,7 +529,7 @@ This is YOUR compass, not a set of rules. Use this information like a real tutor
 Trust your judgment. You're the tutor.
 `;
 
-  return philosophy + studentSnapshot + memoriesBlock + '\n' + roadmap + '\n' + pacing + creditStatus + parkingLot;
+  return philosophy + studentSnapshot + identityThreadsBlock + memoriesBlock + '\n' + roadmap + '\n' + pacing + creditStatus + parkingLot;
 }
 
 /**

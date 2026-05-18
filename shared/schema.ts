@@ -2594,6 +2594,17 @@ export interface CompassContext {
     recordedAt: string; // ISO date string
   }>;
 
+  // Identity threads — thematic compilations woven from the full message history.
+  // These are always injected as a compact brief (title + summary), never full content.
+  // Full content is always searchable via search_my_history.
+  // They answer: who am I, where did this idea come from, how has it evolved?
+  identityThreads?: Array<{
+    title: string;
+    summary: string | null;
+    importance: number;
+    recordedAt: string;
+  }>;
+
   // Legacy fallback
   legacyFreedomLevel?: TutorFreedomLevel;
 }
