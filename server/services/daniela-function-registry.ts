@@ -434,7 +434,9 @@ USE show_image for:
 • Cultural scenes or custom visuals — use 'word' as a short label and 'scene' to describe the image you want generated (e.g. word="mercado", scene="a bustling Mexican open-air market with colorful fruit stalls at sunset")
 • Grammar concept diagrams — use word="conjugation" and scene="a verb tense timeline diagram showing past, present, future"
 
-⚠️ Do NOT use compose_visual_scene for vocabulary unless it's a preposition lesson — show_image is always the right choice for vocabulary.
+⚠️ SCENE ACTIVE RULE — if you have called open_scene and the immersive scene is running, do NOT use show_image to place objects that belong inside the scene (food, drinks, utensils, animals, clothing, props). Use add_to_scene instead — it places the object directly onto the scene canvas. show_image replaces the whiteboard and fights with the scene. Example: student asks about "gato" during a café roleplay → add_to_scene("gato", "center"), NOT show_image("gato").
+
+⚠️ Do NOT use compose_visual_scene for vocabulary unless it's a preposition lesson — show_image is always the right choice for vocabulary (when no scene is active).
 
 IMPORTANT — always provide 'scene' for abstract concepts and non-visual words:
 The image library covers common concrete nouns and verbs. For abstract words (emotions, concepts, qualities) or words the library may not have, always include a 'scene' description in plain English so the image generator knows what to draw. Without it, the generator guesses and produces poor results.
@@ -807,7 +809,11 @@ Use the live canvas only when the SEQUENCE of changes is pedagogically meaningfu
       name: "add_to_scene",
       description: `Add a prop to the live scene canvas. The prop slides in with a gentle animation.
 
-Only works after open_scene has been called. Zone-compatible props:
+Only works after open_scene has been called.
+
+ANY OBJECT WORKS — you are not limited to the pre-loaded list below. Pass any short noun or noun phrase as prop_name (e.g. "cat", "gato", "chopsticks", "teapot", "sombrero", "pretzel") and the system will AI-generate an image on the fly (~3–5 seconds). Use this freely whenever a student asks about an object that belongs in the scene.
+
+Pre-loaded props (render instantly, no delay):
   Drinks:      cup, glass, wine_glass, water_pitcher
                espresso, latte, coffee, hot chocolate, coffee with cream
   Tableware:   plate, dinner_plate, bread_plate (small side plate)
