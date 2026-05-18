@@ -38,8 +38,16 @@ function detectMimeType(url: string, contentType?: string | null): string {
   return 'image/jpeg';
 }
 
+function resolveUrl(url: string): string {
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  // Relative URL — resolve against the app's own base URL for server-side fetch
+  const base = (process.env.APP_URL || 'http://localhost:5000').replace(/\/$/, '');
+  return `${base}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
 async function fetchImageBytes(url: string): Promise<{ data: string; mimeType: string }> {
-  const response = await fetch(url, {
+  const absoluteUrl = resolveUrl(url);
+  const response = await fetch(absoluteUrl, {
     signal: AbortSignal.timeout(8000),
     headers: { 'User-Agent': 'HolaHola-Vision/1.0' },
   });
