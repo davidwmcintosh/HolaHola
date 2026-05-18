@@ -2172,18 +2172,6 @@ ${lastNote.tutorNotes}`);
                 // Cache the final system prompt so voice-override reconnects can reuse it
                 geminiLiveSystemPromptCache = geminiLiveSystemPrompt;
                 geminiLiveSession = createGeminiLiveSession(session, glSendMessage);
-                // Pre-load top 3 identity threads (by importance) into the GL session.
-                // These are injected as conversation history turns before the greeting fires,
-                // so Daniela has read her own threads before she speaks her first word.
-                if (compassContext?.identityThreads?.length) {
-                  const preloadThreads = compassContext.identityThreads
-                    .filter(t => t.content)
-                    .slice(0, 3)
-                    .map(t => ({ title: t.title, content: t.content! }));
-                  if (preloadThreads.length > 0) {
-                    geminiLiveSession.setIdentityThreads(preloadThreads);
-                  }
-                }
                 await geminiLiveSession.start(geminiLiveSystemPrompt, DANIELA_FUNCTION_DECLARATIONS);
                 console.log(`[GeminiLive] Session started with ${DANIELA_FUNCTION_DECLARATIONS.length} tool declarations alongside orchestrator session ${session.id}`);
 
