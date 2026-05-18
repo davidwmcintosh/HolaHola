@@ -646,6 +646,23 @@ export class GeminiLiveSession {
             this.firstAudioSentThisTurn = true;
             const now = Date.now();
 
+            // ── Flush pending whiteboard updates ───────────────────────────
+            // Function calls (show_image, add_to_scene, etc.) buffer their
+            // whiteboard updates until audio starts, so images arrive in sync
+            // with speech. In the GeminiLive path, audio bypasses the
+            // orchestrator's sendMessage, so the orchestrator's flush logic
+            // never fires. We flush here instead — at the exact moment the
+            // first audio chunk arrives.
+            if (this.session.pendingWhiteboardUpdates && this.session.pendingWhiteboardUpdates.length > 0) {
+              const pending = this.session.pendingWhiteboardUpdates;
+              this.session.pendingWhiteboardUpdates = [];
+              console.log(`[GeminiLive] Flushing ${pending.length} pending whiteboard update(s) on first audio`);
+              for (const update of pending) {
+                this.sendWsMessage(this.session.ws, update);
+              }
+            }
+            this.session.firstAudioSent = true; // keep orchestrator flag in sync
+
             // ── Student speaking duration ──────────────────────────────────
             // Student stopped speaking when Daniela's first audio arrives.
             if (!wasGreetingPhase && this.studentSpeakingStartTime !== null) {
