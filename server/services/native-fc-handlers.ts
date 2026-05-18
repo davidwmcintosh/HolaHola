@@ -1020,10 +1020,25 @@ export class NativeFunctionCallHandler {
             LIMIT 1
           `);
           const assetRow = assetResult.rows[0] as any;
-          const propImageUrl = assetRow?.zone_image_url as string | undefined;
+          let propImageUrl = assetRow?.zone_image_url as string | undefined;
           if (!propImageUrl) {
-            console.warn(`[Native Function→AddToScene] No zone_image_url for prop "${addPropName}" — cannot add to canvas`);
-            break;
+            // Not in the pre-loaded library — generate on the fly with AI
+            console.log(`[Native Function→AddToScene] No visual asset for "${addPropName}" — generating with AI...`);
+            try {
+              if (!session.generatedPropCache) session.generatedPropCache = {} as Record<string, string>;
+              if (session.generatedPropCache[addPropName]) {
+                propImageUrl = session.generatedPropCache[addPropName];
+                console.log(`[Native Function→AddToScene] Using cached generated image for "${addPropName}"`);
+              } else {
+                const { generatePropImage } = await import('./google-image-service');
+                propImageUrl = await generatePropImage(addPropName);
+                session.generatedPropCache[addPropName] = propImageUrl;
+                console.log(`[Native Function→AddToScene] Generated prop image for "${addPropName}": ${propImageUrl}`);
+              }
+            } catch (genErr: any) {
+              console.error(`[Native Function→AddToScene] Failed to generate prop "${addPropName}":`, genErr.message);
+              break;
+            }
           }
           const propDisplayName = addLabel || (assetRow as any)?.display_name as string || addPropName;
           if (!session.sceneCanvas) {

@@ -898,17 +898,19 @@ SPATIAL PREPOSITION DEMO WORKFLOW:
           text: { type: "string", description: "What you're saying as this prop arrives (e.g. 'Aquí llega el agua...')" },
           prop_name: {
             type: "string",
-            description: "The prop to add.",
-            enum: [
-              "cup","glass","wine_glass","water_pitcher",
-              "espresso","latte","coffee","hot chocolate","coffee with cream",
-              "plate","dinner_plate","bread_plate",
-              "fork","knife","spoon","napkin","bread_basket",
-              "scrambled_eggs","fried_eggs","omelette","bacon_strips","ham_slice","hash_browns","plain_toast",
-              "salt_pepper","ketchup","mustard","hot_sauce","butter","jam","sugar_packets",
-              "menu_card","breakfast_menu","lunch_menu","dinner_menu",
-              "book","cell_phone","candle","apple","croissant","backpack"
-            ],
+            description: `Short noun or noun phrase identifying the object to place on the canvas (e.g. "cat", "chopsticks", "ceramic teapot", "sombrero").
+
+Pre-loaded props render instantly (no generation delay):
+  cup, glass, wine_glass, water_pitcher,
+  espresso, latte, coffee, hot chocolate, coffee with cream,
+  plate, dinner_plate, bread_plate,
+  fork, knife, spoon, napkin, bread_basket,
+  scrambled_eggs, fried_eggs, omelette, bacon_strips, ham_slice, hash_browns, plain_toast,
+  salt_pepper, ketchup, mustard, hot_sauce, butter, jam, sugar_packets,
+  menu_card, breakfast_menu, lunch_menu, dinner_menu,
+  book, cell_phone, candle, apple, croissant, backpack.
+
+Any other value (e.g. "cat", "chopsticks", "teapot", "pretzel", "sombrero") will be AI-generated on the fly (~3–5 seconds). Use a clear, short description so the image generator knows exactly what to draw.`,
           },
           position: {
             type: "string",
