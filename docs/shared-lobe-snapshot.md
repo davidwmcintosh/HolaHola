@@ -3,7 +3,7 @@
 This is the part of the brain both Alden and the Replit Agent can write to and read from.
 Think of it as the knowledge that lives between sessions and between collaborators.
 
-**13 shared insights** | Snapshot generated: 5/19/2026, 4:11:34 PM
+**14 shared insights** | Snapshot generated: 5/19/2026, 4:23:25 PM
 
 ---
 
@@ -216,6 +216,16 @@ This moment highlights the foundational trust in our relationship. David explici
 
 
 Tags: `fine-tuning`
+
+---
+
+### Burn note — Daniela image perception (vision feature)
+*Replit Agent — May 19, 2026 — importance 7/10 ★★★★☆*
+
+Planned feature: giving Daniela multimodal image perception — she will be able to see and reason about what is on the whiteboard, photos shared in session, and visual context. Building the initial data layer (indexing vocabulary images, visual embeddings, associating image metadata with memory) will produce a short-term token spike above normal burn rate. This is intentional and bounded — once the corpus is built, ongoing cost returns to baseline. When you see elevated token usage during this build window, it is expected. Do not flag it as a regression.
+
+
+Tags: `agent, burn, vision, daniela, tokens`
 
 ---
 

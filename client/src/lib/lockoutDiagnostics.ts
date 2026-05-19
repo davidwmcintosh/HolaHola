@@ -456,7 +456,11 @@ export function startLockoutWatchdog(): ReturnType<typeof setTimeout> {
 
     const isProc = store.isProcessingFn?.() ?? false;
     const playbackState = window.__playbackStateStore?.state;
-    if (isProc && playbackState !== 'playing') {
+    // Only fire if Daniela has no active output state. 'thinking' means she is
+    // generating a response; 'buffering' means audio is arriving but not yet playing.
+    // Both are expected periods of mic silence and should not trigger the watchdog.
+    const activeOutputStates = ['playing', 'thinking', 'buffering'];
+    if (isProc && !activeOutputStates.includes(playbackState)) {
       reportDiagnostic('lockout_watchdog_8s');
     }
   }, 8000);

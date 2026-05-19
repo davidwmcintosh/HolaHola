@@ -269,8 +269,36 @@ async function claimPendingReconnect(conversationId: string, userId: string): Pr
 async function hydratePendingReconnectsFromDb(): Promise<void> {
   try {
     const now = new Date();
-    // Clean up expired entries first
+    // Clean up expired entries first — fetch before deleting so we can end their
+    // usage sessions. A plain DELETE leaves usage_sessions.ended_at = null forever,
+    // which the concurrent-session guard then sees as a stale active session (the
+    // root cause of 1300s zombie session blocks).
+    const expiredRows = await db.select({
+      usageSessionId: voiceGracePeriods.usageSessionId,
+      conversationId: voiceGracePeriods.conversationId,
+      exchangeCount: voiceGracePeriods.exchangeCount,
+      studentSpeakingSeconds: voiceGracePeriods.studentSpeakingSeconds,
+      tutorSpeakingSeconds: voiceGracePeriods.tutorSpeakingSeconds,
+      ttsCharacters: voiceGracePeriods.ttsCharacters,
+      sttSeconds: voiceGracePeriods.sttSeconds,
+    }).from(voiceGracePeriods).where(lt(voiceGracePeriods.expiresAt, now));
+
     await db.delete(voiceGracePeriods).where(lt(voiceGracePeriods.expiresAt, now));
+
+    for (const expired of expiredRows) {
+      usageService.updateSessionMetrics(expired.usageSessionId, {
+        exchangeCount: expired.exchangeCount,
+        studentSpeakingSeconds: expired.studentSpeakingSeconds,
+        tutorSpeakingSeconds: expired.tutorSpeakingSeconds,
+        ttsCharacters: expired.ttsCharacters,
+        sttSeconds: expired.sttSeconds,
+      }).then(() => usageService.endSession(expired.usageSessionId))
+        .then(() => console.log(`[Reconnect Grace] Ended expired session ${expired.usageSessionId.substring(0, 8)} (conv ${expired.conversationId.substring(0, 8)}) on startup`))
+        .catch((err: Error) => console.warn(`[Reconnect Grace] Failed to end expired session ${expired.usageSessionId.substring(0, 8)}:`, err.message));
+    }
+    if (expiredRows.length > 0) {
+      console.log(`[Reconnect Grace] Ended ${expiredRows.length} expired session(s) that survived a server restart`);
+    }
 
     // Load any unexpired entries (e.g., from before a server restart)
     const rows = await db.select().from(voiceGracePeriods).where(
