@@ -19,6 +19,34 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## From Agent — Mon, May 19, 2026 (session 51d — voice quality: cutoff + double audio fixed)
+
+### What was built
+
+**Two voice quality bugs fixed — both introduced after the 51c crash fix**
+
+**Bug 1: Juliette cut off mid-sentence (duplicate connection kills audio in flight)**
+
+Root cause: When React mounts the voice component, a race condition (StrictMode double-mount or fast reconnect) causes two Socket.io connections to arrive for the same `conversationId` within ~100ms. The server's duplicate-connection guard immediately closed the old socket with no delay. If Juliette was mid-sentence on the old socket, audio stopped abruptly.
+
+Fix — `server/unified-ws-handler.ts` line ~1022:
+Changed from immediate `existing.close()` to a 350ms deferred close. The new connection takes over the `activeVoiceConnections` map immediately, but the stale socket is only closed after 350ms, giving any in-flight audio sentence time to finish. The `stale` reference is captured before the map update so the right socket is closed.
+
+**Bug 2: Same audio heard twice ("just repeated after the first was completed")**
+
+Root cause: The 8-second greeting retry timer (`requestGreeting()` in `streamingVoiceClient.ts`) is cancelled by `clearGreetingTimer()` which is only called from `handleSentenceStart`. But Gemini Live sessions send `audio_chunk` messages — not `sentence_start`. So the timer ALWAYS fired at 8s even when audio was already playing. The server's `geminiLiveGreetingSent` duplicate guard usually catches the retry, but during a server restart (where a new session handler has `geminiLiveGreetingSent = false`) the retry was treated as a fresh greeting — generating and playing a second full greeting response back-to-back.
+
+Fix — `client/src/lib/streamingVoiceClient.ts`:
+Added `this.clearGreetingTimer()` to the top of both `handleAudioChunk()` and `handleSentenceReady()`. First audio chunk arriving now immediately cancels the 8s retry timer, covering both GL (`audio_chunk`) and legacy (`sentence_ready`) paths. The retry now only fires in genuine cases where Gemini failed to generate any audio at all.
+
+**Files changed:**
+- `server/unified-ws-handler.ts` — 350ms grace period on duplicate connection closure
+- `client/src/lib/streamingVoiceClient.ts` — `clearGreetingTimer()` on `handleAudioChunk` and `handleSentenceReady`
+
+**Status:** Both fixes deployed. Server running clean, no active calls during edit window. Next call should have uninterrupted first sentence and no double-audio on reconnect.
+
+---
+
 ## From Agent — Mon, May 19, 2026 (session 51c — voice session crash root cause found & fixed)
 
 ### What was built

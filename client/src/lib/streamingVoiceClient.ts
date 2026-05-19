@@ -1435,6 +1435,8 @@ export class StreamingVoiceClient {
     
     console.log(`[WS CLIENT] sentence_ready received: sentence=${sentenceIndex}, timings=${firstWordTimings?.length || 0}, hasAudio=${hasAudio}, audioStripped=${audioStripped}`);
     
+    // Audio is arriving — greeting was delivered, cancel any pending retry timer
+    this.clearGreetingTimer();
     this.currentSentenceIndex = sentenceIndex;
     this.setState('streaming');
     
@@ -1442,6 +1444,9 @@ export class StreamingVoiceClient {
   }
   
   private handleAudioChunk(message: StreamingAudioChunkMessage): void {
+    // Audio is arriving — greeting was delivered, cancel any pending retry timer.
+    // GL sessions send audio_chunk (not sentence_start), so this is the primary clear path for GL.
+    this.clearGreetingTimer();
     // Store metadata for the upcoming binary frame
     this.currentSentenceIndex = message.sentenceIndex;
     

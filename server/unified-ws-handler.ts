@@ -1014,12 +1014,16 @@ export function setupSocketIOHandler(io: SocketIOServer) {
     // Create adapter that makes Socket.io look like ws
     const adapter = new SocketIOWebSocketAdapter(socket, conversationId);
     
-    // DUPLICATE CONNECTION GUARD: Close old connection if a new one arrives for the same conversation
+    // DUPLICATE CONNECTION GUARD: Close old connection if a new one arrives for the same conversation.
+    // Uses a 350ms grace period so any audio mid-sentence finishes before the old socket closes.
     if (conversationId) {
       const existing = activeVoiceConnections.get(conversationId);
       if (existing && existing.readyState === SocketIOWebSocketAdapter.OPEN) {
-        console.warn(`[Socket.io Voice] ⚠ Duplicate connection for ${conversationId} — closing old one (${existing.socketId})`);
-        try { existing.close(4000, 'Replaced by new connection'); } catch (e) { /* ignore */ }
+        console.warn(`[Socket.io Voice] ⚠ Duplicate connection for ${conversationId} — scheduling close of old one (${existing.socketId}) in 350ms`);
+        const stale = existing;
+        setTimeout(() => {
+          try { if (stale.readyState === SocketIOWebSocketAdapter.OPEN) stale.close(4000, 'Replaced by new connection'); } catch (e) { /* ignore */ }
+        }, 350);
       }
       activeVoiceConnections.set(conversationId, adapter);
       
