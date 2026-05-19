@@ -316,3 +316,36 @@ ${verbatimTranscript.substring(0, 5000)}`;
   console.log(`[Curator] Complete — curated ${curated} new conversation memories.`);
   return { candidates: uncurated.length, curated };
 }
+
+// ─── 3. Scheduled worker ─────────────────────────────────────────────────────
+
+const CURATOR_INTERVAL_MS = 24 * 60 * 60 * 1000; // daily
+
+/**
+ * Start the conversation curator as a long-running scheduled worker.
+ * Runs once at boot (after a short delay) then every 24 hours.
+ * Processes up to 20 new conversations per run — idempotent, safe to run repeatedly.
+ */
+export function startConversationCurator(): void {
+  console.log('[Curator] Starting scheduled worker (interval: daily)');
+
+  async function runCurator() {
+    try {
+      // Curate for David by default; expand to other users as needed
+      const result = await curateSignificantConversations(DAVID_USER_ID, 20);
+      if (result.curated > 0) {
+        console.log(`[Curator] Scheduled run complete — ${result.curated} new memories from ${result.candidates} candidates`);
+      } else {
+        console.log(`[Curator] Scheduled run — nothing new to curate (${result.candidates} candidates already covered)`);
+      }
+    } catch (err: any) {
+      console.error('[Curator] Scheduled run failed:', err.message);
+    }
+  }
+
+  // Boot run — low priority, starts well after other workers
+  setTimeout(runCurator, 150000); // +2.5 min after server ready
+
+  // Daily sweep
+  setInterval(runCurator, CURATOR_INTERVAL_MS);
+}

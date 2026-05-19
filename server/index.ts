@@ -850,6 +850,13 @@ app.use((req, res, next) => {
       startMemoryConsolidator();
     }, 120000);
 
+    // +130s: Conversation Curator — daily job that finds substantive conversations not yet
+    // in conversation_memories and saves them as verbatim-transcript memories. Idempotent.
+    setTimeout(async () => {
+      const { startConversationCurator } = await import('./services/history-backfill-service');
+      startConversationCurator();
+    }, 130000);
+
     // +75s: Curriculum Enrichment Auto-Resume
     // Fires on every boot. The enrichment service skips already-enriched lessons
     // (within 7 days), so this is safe to run repeatedly and acts as a self-healing
