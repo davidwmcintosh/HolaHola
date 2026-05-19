@@ -4075,7 +4075,7 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   // Admin / post-session utilities
   'search_conversation_threads', 'browse_conversations_by_date', 'get_conversation_themes', 'read_full_session',
   'recall_express_lane_image', 'express_lane_post',
-  'save_conversation_memory', 'read_full_memory',
+  'save_conversation_memory',
   'hive_suggestion', 'self_surgery',
   'record_student_consent', 'dismiss_absence_nudge', 'first_meeting_complete',
   'mark_lesson_covered', 'record_pattern_signal',
