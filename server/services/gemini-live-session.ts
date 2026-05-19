@@ -1081,11 +1081,28 @@ export class GeminiLiveSession {
           // Without this, GL receives only { result: 'done' } and Daniela has no memory data.
           const continuationText = buildFunctionContinuationResponse(this.session, extractedFc);
           if (continuationText) {
-            const text = typeof continuationText === 'string'
-              ? continuationText
-              : JSON.stringify(continuationText);
-            toolResponsePayload = { result: text };
-            console.log(`[GeminiLive] Tool ${fcName}: returning ${text.length} chars of result data`);
+            if (typeof continuationText === 'string') {
+              toolResponsePayload = { result: continuationText };
+              console.log(`[GeminiLive] Tool ${fcName}: returning ${continuationText.length} chars of result data`);
+            } else if (continuationText && typeof continuationText === 'object' && (continuationText as any).multimodal) {
+              // Multimodal response — extract text parts only for the tool response payload.
+              // GL tool responses cannot carry inlineData (binary) — sending base64 image data
+              // in the text field causes a 1007 "invalid argument" session crash.
+              // The inlineData is sent separately below as a realtimeInput media chunk.
+              const parts: any[] = (continuationText as any).parts || [];
+              const textOnly = parts.filter((p: any) => p.text).map((p: any) => p.text).join('\n');
+              const inlineParts = parts.filter((p: any) => p.inlineData);
+              toolResponsePayload = { result: textOnly || 'done' };
+              console.log(`[GeminiLive] Tool ${fcName}: multimodal — returning ${toolResponsePayload.result.length} chars text + ${inlineParts.length} inline part(s) via realtimeInput`);
+              // Queue inline parts to send after tool response is dispatched
+              if (inlineParts.length > 0 && this.liveSession) {
+                (this as any)._pendingInlineParts = inlineParts;
+              }
+            } else {
+              const text = JSON.stringify(continuationText);
+              toolResponsePayload = { result: text };
+              console.log(`[GeminiLive] Tool ${fcName}: returning ${text.length} chars of result data`);
+            }
           }
         } catch (err) {
           const errMsg = (err as Error).message || String(err);
@@ -1114,6 +1131,23 @@ export class GeminiLiveSession {
           console.log(`[GeminiLive] Tool responses sent: ${responses.map(r => r.name).join(', ')}`);
         } catch (err) {
           console.error('[GeminiLive] Failed to send tool responses:', err);
+        }
+
+        // Send any queued inline image parts (vision) as realtimeInput after tool response.
+        // These were stripped from the tool response payload to prevent 1007 crashes.
+        const pendingInline = (this as any)._pendingInlineParts as any[] | undefined;
+        if (pendingInline?.length && this.liveSession) {
+          (this as any)._pendingInlineParts = undefined;
+          for (const part of pendingInline) {
+            try {
+              this.liveSession.sendRealtimeInput({
+                mediaChunks: [{ mimeType: part.inlineData.mimeType, data: part.inlineData.data }],
+              });
+              console.log(`[GeminiLive] Vision inline data sent via realtimeInput (${part.inlineData.mimeType})`);
+            } catch (vErr) {
+              console.warn('[GeminiLive] Failed to send vision inline data:', (vErr as Error).message);
+            }
+          }
         }
       }
     }
