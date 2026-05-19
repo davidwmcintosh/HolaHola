@@ -19,7 +19,7 @@
 import { createHash } from 'crypto';
 import { getSharedDb } from '../db';
 import { memoryEmbeddings } from '@shared/schema';
-import { eq, and, or, isNull } from 'drizzle-orm';
+import { eq, and, or, isNull, inArray, desc } from 'drizzle-orm';
 import { computeDecayMultiplier } from './memory-decay-service';
 
 const EMBEDDING_MODEL = 'text-embedding-3-small';
@@ -145,13 +145,35 @@ export async function generateAndStoreEmbedding(
 
 // ─── Search ───────────────────────────────────────────────────────────────────
 
+// Global memory types that are always safe to include in student recall searches.
+// collaboration_message is intentionally excluded from this default set — it is 23k+ rows
+// of Hive messages that are only relevant for Express Lane / Hive-specific searches.
+// Including it in every student memory recall loaded ~356MB of JSONB per call, causing
+// the 10-second memory lookup delays observed in voice sessions.
+const GLOBAL_RECALL_TYPES = ['daniela_tool', 'hive_snapshot', 'conversation_memory', 'growth_memory', 'goal_capability'];
+
+const EMBED_SELECT = {
+  memoryType: memoryEmbeddings.memoryType,
+  memoryId: memoryEmbeddings.memoryId,
+  embedding: memoryEmbeddings.embedding,
+  contentHash: memoryEmbeddings.contentHash,
+  strength: memoryEmbeddings.strength,
+  lastReinforcedAt: memoryEmbeddings.lastReinforcedAt,
+  pinned: memoryEmbeddings.pinned,
+} as const;
+
 /**
  * Find the top-k memories most semantically similar to the query string.
- * Loads all stored embeddings for the user (or all users if null), computes
- * cosine similarity in JS, and returns ranked results.
  *
- * Performance: 1000 embeddings × 768 dims → ~3MB loaded, ~5ms computation.
- * Fine for current scale; revisit if memory count grows past ~50k.
+ * Runs two parallel queries — user-specific records + global records — then
+ * merges and scores with cosine similarity + decay weighting.
+ *
+ * Performance notes:
+ *   - User-specific: capped at 8000 rows, ordered by pinned → strength → recency.
+ *   - Global: only safe, small types loaded by default (191 rows).
+ *     collaboration_message (23k+ rows) is excluded unless explicitly requested
+ *     via memoryTypes — loading it for every recall caused ~10s delays.
+ *   - Type filter is pushed into SQL (not applied post-load).
  */
 export async function semanticSearch(
   userId: string,
@@ -161,39 +183,55 @@ export async function semanticSearch(
 ): Promise<SemanticSearchResult[]> {
   const db = getSharedDb();
 
-  // Load embeddings for this student PLUS globally-scoped records (userId IS NULL).
-  // Globally-scoped records include: Express Lane collaboration messages,
-  // Daniela growth memories — content relevant to any session, not one student.
-  const rows = await db
-    .select({
-      memoryType: memoryEmbeddings.memoryType,
-      memoryId: memoryEmbeddings.memoryId,
-      embedding: memoryEmbeddings.embedding,
-      contentHash: memoryEmbeddings.contentHash,
-      strength: memoryEmbeddings.strength,
-      lastReinforcedAt: memoryEmbeddings.lastReinforcedAt,
-      pinned: memoryEmbeddings.pinned,
-    })
-    .from(memoryEmbeddings)
-    .where(or(
-      eq(memoryEmbeddings.userId, userId),
-      isNull(memoryEmbeddings.userId),
-    ));
+  const wantsCollabMessages = memoryTypes?.includes('collaboration_message') ?? false;
 
+  // SQL-level type filter for user rows (push-down avoids loading irrelevant types)
+  const userTypeCondition = memoryTypes && memoryTypes.length > 0
+    ? inArray(memoryEmbeddings.memoryType, memoryTypes)
+    : undefined;
+
+  // Global types: use explicit list when provided, otherwise use safe defaults
+  // (excludes collaboration_message unless caller specifically asked for it)
+  const globalTypes = memoryTypes && memoryTypes.length > 0
+    ? (wantsCollabMessages ? memoryTypes : memoryTypes.filter(t => t !== 'collaboration_message'))
+    : GLOBAL_RECALL_TYPES;
+
+  // Run both queries in parallel
+  const [userRows, globalRows] = await Promise.all([
+    // User-specific: ordered by pinned → strength → recency, capped at 8000
+    db
+      .select(EMBED_SELECT)
+      .from(memoryEmbeddings)
+      .where(
+        userTypeCondition
+          ? and(eq(memoryEmbeddings.userId, userId), userTypeCondition)
+          : eq(memoryEmbeddings.userId, userId),
+      )
+      .orderBy(desc(memoryEmbeddings.pinned), desc(memoryEmbeddings.strength), desc(memoryEmbeddings.lastReinforcedAt))
+      .limit(8000),
+
+    // Global (userId IS NULL): only safe types unless collaboration explicitly requested
+    globalTypes.length > 0
+      ? db
+        .select(EMBED_SELECT)
+        .from(memoryEmbeddings)
+        .where(and(
+          isNull(memoryEmbeddings.userId),
+          inArray(memoryEmbeddings.memoryType, globalTypes),
+        ))
+        .orderBy(desc(memoryEmbeddings.pinned), desc(memoryEmbeddings.strength))
+        .limit(1000)
+      : Promise.resolve([]),
+  ]);
+
+  const rows = [...userRows, ...globalRows];
   if (rows.length === 0) return [];
-
-  // Filter by type if requested
-  const candidates = memoryTypes
-    ? rows.filter(r => memoryTypes.includes(r.memoryType))
-    : rows;
-
-  if (candidates.length === 0) return [];
 
   // Embed the query
   const queryVec = await embedText(query);
 
   // Score all candidates — raw cosine for threshold, decayed score for ranking
-  const scored = candidates.map(row => {
+  const scored = rows.map(row => {
     const similarity = cosineSimilarity(queryVec, row.embedding as number[]);
     const decay = computeDecayMultiplier(
       row.strength ?? 1.0,

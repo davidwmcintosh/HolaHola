@@ -139,6 +139,8 @@ export class GeminiLiveSession {
   // more quota. Quota is handled explicitly above; other 1011s bail with a clear error.
   private readonly RETRIABLE_CLOSE_CODES = new Set([
     1006,  // Abnormal closure — no close frame (network drop)
+    1008,  // GoAway / session duration limit reached — Gemini sends this when the session
+           // hits its maximum duration. Transparent reconnect restores the session.
     1012,  // Service restart
     1013,  // Try again later
   ]);

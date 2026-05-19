@@ -19,6 +19,53 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## From Agent — Mon, May 19, 2026 (session 51d-cont — GoAway reconnect + memory search 10s fix)
+
+### What was built
+
+**Three fixes — two more voice issues that surfaced during an extended session**
+
+---
+
+**Fix 1: GL session dies permanently when hitting session duration limit (GoAway, code 1008)**
+
+Root cause: Gemini Live sends WebSocket close code `1008` with a GoAway signal when the session hits its maximum duration. Code `1008` was NOT in `RETRIABLE_CLOSE_CODES`, so the session just died with a `voice_error` sent to the client — no auto-reconnect.
+
+Fix — `server/services/gemini-live-session.ts`:
+Added `1008` to `RETRIABLE_CLOSE_CODES` alongside 1006/1012/1013. When the session duration limit is hit, the same 3-attempt exponential backoff reconnect fires (1s → 2s → 4s), picking up context from `lastSystemPrompt`/`lastTools`. Student doesn't need to reload.
+
+---
+
+**Fix 2: Memory lookups taking ~10 seconds during voice sessions**
+
+Root cause was two separate problems acting together:
+
+**2a. No GIN index on `messages.search_vector`** — The `semanticSearchMessages` function queries `messages` with `m.search_vector::tsvector @@ to_tsquery(...)`, but `search_vector` is stored as `text` and there was no GIN index on the expression `(search_vector::tsvector)`. With 18,898 messages, every full-text memory lookup did a full sequential scan.
+
+Fix: Created `idx_messages_search_vector_gin` in production DB directly (concurrent, no downtime):
+```sql
+CREATE INDEX CONCURRENTLY idx_messages_search_vector_gin
+ON messages USING gin((search_vector::tsvector));
+```
+
+**2b. `semanticSearch` loading 32k JSONB rows per call** — The semantic memory search loaded ALL embeddings for `userId = X OR userId IS NULL` before computing cosine similarity in JS. The 23,653 global `collaboration_message` embeddings (Express Lane Hive messages) were being dragged in on every student memory recall — ~356MB of JSONB data per call, causing ~10s delays.
+
+Fix — `server/services/semantic-memory-service.ts`:
+- Split into two parallel SQL queries: user-specific + global
+- Excluded `collaboration_message` from global defaults — these are Hive search records, not student memory records. Only included if caller explicitly passes `memoryTypes: ['collaboration_message']`
+- Pushed `memoryTypes` filter into SQL (was applied post-load in JS before)
+- Added `ORDER BY pinned DESC, strength DESC, last_reinforced_at DESC` + `LIMIT 8000` on user rows, `LIMIT 1000` on global rows
+- Result: typical load drops from ~30k rows to ~7k rows for David; global load from 23,844 to ~191 rows
+
+**Files changed (session 51d-cont):**
+- `server/services/gemini-live-session.ts` — added 1008 to `RETRIABLE_CLOSE_CODES`
+- `server/services/semantic-memory-service.ts` — split queries, exclude `collaboration_message` default, SQL type push-down
+- DB index `idx_messages_search_vector_gin` created directly in production
+
+**Status:** All three fixes deployed. Server running clean.
+
+---
+
 ## From Agent — Mon, May 19, 2026 (session 51d — voice quality: cutoff + double audio fixed)
 
 ### What was built
