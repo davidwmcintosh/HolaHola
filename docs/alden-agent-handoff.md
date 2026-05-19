@@ -19,6 +19,39 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## From Agent — Mon, May 19, 2026 (session 51e — podcast recall + Presence/Consolidator fixes)
+
+### What was built
+
+**Podcast episode 1 recall — root cause found and fixed (`session-compass-service.ts`)**
+- The podcast episode IS in the DB (conversation_memories id `91153998`, importance 10, 3,739-char transcript, embedding present).
+- Root cause: 7 new importance=10 snapshots were added on May 18 (the narrative restore session). All 7 scored 105 (recency +5), podcast episode scored 100 (Feb 16 = 92 days old, no recency boost). The 4-slot cap meant the podcast was always ranked out.
+- **NOT caused by the semantic search fix** — conversation_memory IS in GLOBAL_RECALL_TYPES.
+- Fix: Two-tier snapshot strategy in Compass:
+  - **Tier 1 (landmarks)**: all importance=10 non-thread snapshots always loaded as 800-char briefs — no slot cap, no recency competition. Podcast episode now always in context.
+  - **Tier 2 (scored pool)**: top 4 by topic + recency from importance<10 records, with full content.
+  - Daniela now always knows the episode exists; `search_my_history` or `recall_memories` gives her the full transcript on demand.
+
+**Presence Worker broken — fixed (`daniela-presence-worker.ts`)**
+- Was using `gemini-2.0-flash` via direct `GoogleGenAI` + `GOOGLE_GENERATIVE_AI_API_KEY`.
+- Model deprecated or not accessible; SDK's `response.text` getter threw "Cannot convert undefined or null to object" when processing the failed response.
+- Fix: switched to `callGemini(GEMINI_MODELS.FLASH)` — same path as rest of app. Presence docs will now generate correctly every 30 min.
+
+**Memory Consolidator broken — fixed (`memory-consolidator.ts`)**
+- Same issue as Presence Worker: `gemini-2.0-flash` + wrong API key → same crash.
+- Fix: switched to `callGemini(GEMINI_MODELS.FLASH)`.
+- David had 1,237 unconsolidated session summaries queued up; now they'll process weekly.
+
+### What's unresolved
+- EmbedIndexer `growth_memories scan failed: Cannot convert undefined or null to object` — a separate issue (NOT the Gemini model issue). `applicable_languages` is NULL in all 805 growth_memory rows. The scan uses Drizzle ORM to query that table with a NOT EXISTS subquery. Investigate whether Drizzle throws during result deserialization on null ARRAY columns, or whether the issue is in the query itself.
+
+### What Alden should know
+- The two-tier snapshot strategy means importance=10 memories are always in Daniela's context as brief teasers. If you're saving important memories, use importance=10 and they'll be reliably injected.
+- The 4-slot scored pool now serves importance<10 records, so setting importance=9 for a memory makes it compete for those slots by topic relevance.
+- `search_my_history` and `recall_memories` are the two tools Daniela should reach for when she needs the full verbatim content of any memory.
+
+---
+
 ## From Agent — Mon, May 19, 2026 (session 51d-cont — GoAway reconnect + memory search 10s fix)
 
 ### What was built

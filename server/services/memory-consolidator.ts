@@ -24,20 +24,11 @@ import { getSharedDb } from '../db';
 import { hiveSnapshots, users } from '@shared/schema';
 import type { HiveSnapshotType } from '@shared/schema';
 import { eq, and, sql, desc, isNull } from 'drizzle-orm';
-import { GoogleGenAI } from '@google/genai';
+import { callGemini, GEMINI_MODELS } from '../gemini-utils';
 
 const CONSOLIDATOR_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000; // weekly
 const MIN_SUMMARIES_TO_CONSOLIDATE = 6; // need at least 6 before consolidating
 const SUMMARIES_PER_CONSOLIDATION = 5; // consolidate 5 at a time
-
-let genAI: GoogleGenAI | null = null;
-function getGenAI(): GoogleGenAI {
-  if (!genAI) {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || '';
-    genAI = new GoogleGenAI({ apiKey });
-  }
-  return genAI;
-}
 
 type SnapshotRow = {
   id: string;
@@ -90,14 +81,10 @@ ${contextBlock}
 
 Write the synthesis now:`;
 
-  const ai = getGenAI();
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.0-flash',
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    config: { temperature: 0.4, maxOutputTokens: 500 },
-  });
+  const synthesis = (await callGemini(GEMINI_MODELS.FLASH, [
+    { role: 'user', content: prompt },
+  ])).trim();
 
-  const synthesis = response.text?.trim();
   if (!synthesis) {
     console.warn(`[Consolidator] Gemini returned empty synthesis for ${userId}`);
     return;

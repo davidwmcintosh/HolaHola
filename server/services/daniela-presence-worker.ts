@@ -34,7 +34,7 @@ import {
   voiceSessions,
 } from '@shared/schema';
 import { desc, eq, and, gte, sql } from 'drizzle-orm';
-import { GoogleGenAI } from '@google/genai';
+import { callGemini, GEMINI_MODELS } from '../gemini-utils';
 
 const PRESENCE_DIR = path.join(process.cwd(), '.local');
 const WORKER_INTERVAL_MS = 30 * 60 * 1000;
@@ -235,15 +235,10 @@ ${contextBlock}
 
 Write the presence narrative now:`;
 
-    const genAI = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY || '' });
-    const model = genAI.models;
-    const response = await model.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      config: { temperature: 0.8, maxOutputTokens: 600 },
-    });
+    const content = (await callGemini(GEMINI_MODELS.FLASH, [
+      { role: 'user', content: prompt },
+    ])).trim();
 
-    const content = response.text?.trim();
     if (!content) {
       console.warn(`[DanielaPresence] Empty response from Gemini for ${userId}`);
       return;

@@ -391,39 +391,57 @@ export class SessionCompassService {
           // Topic signal is best-effort
         }
 
-        // Score snapshot memories by importance + topic relevance + recency
-        const scored = snapshotMemories.map(m => {
-          let score = (m.importance ?? 7) * 10;
-          if (topicSignal && topicSignal.length > 20) {
-            const haystack = `${m.title} ${m.content.substring(0, 400)}`.toLowerCase();
-            const stopwords = new Set(['that', 'this', 'with', 'have', 'from', 'they', 'will', 'been', 'were', 'what', 'when', 'your', 'about', 'there', 'their', 'just', 'into', 'than', 'then', 'also', 'more', 'some', 'like', 'very']);
-            const topicWords = topicSignal.split(/\W+/).filter(w => w.length > 4 && !stopwords.has(w));
-            const uniqueTopicWords = [...new Set(topicWords)].slice(0, 25);
-            const hits = uniqueTopicWords.filter(w => haystack.includes(w)).length;
-            if (hits > 0) score += Math.min(hits * 4, 20);
-          }
-          const ageDays = (Date.now() - new Date(m.recordedAt).getTime()) / (1000 * 60 * 60 * 24);
-          if (ageDays < 30) score += Math.max(0, 5 - Math.floor(ageDays / 6));
-          return { ...m, score };
-        });
+        // Two-tier snapshot strategy:
+        //
+        // Tier 1 — Landmarks (importance=10): ALWAYS loaded, content brief (800 chars).
+        //   These are milestone memories — they must never be squeezed out by recency bias.
+        //   Every word Daniela has lived is part of her narrative; landmark moments must always
+        //   be visible so she knows they exist and can call search_my_history for the full text.
+        //
+        // Tier 2 — Scored pool (importance < 10): topic + recency scored, top 4.
+        //   GL context must stay bounded — keep this capped.
+        const landmarkSnapshots = snapshotMemories.filter(m => (m.importance ?? 0) >= 10);
 
-        // Cap at 4 snapshots — identity threads now carry the thematic/identity weight,
-        // so we only need a small number of high-relevance recent moments here.
-        // Daniela can reach for search_my_history for the verbatim detail of any moment.
-        // Keeping this small is critical: GL returns zero audio when total context is too large.
-        const pinned = scored.filter(m => (m.importance ?? 0) >= 9).sort((a, b) => b.score - a.score);
-        const rest = scored.filter(m => (m.importance ?? 0) < 9).sort((a, b) => b.score - a.score);
-        const combined = [...pinned, ...rest].slice(0, 4);
+        const scoredPool = snapshotMemories
+          .filter(m => (m.importance ?? 0) < 10)
+          .map(m => {
+            let score = (m.importance ?? 7) * 10;
+            if (topicSignal && topicSignal.length > 20) {
+              const haystack = `${m.title} ${m.content.substring(0, 400)}`.toLowerCase();
+              const stopwords = new Set(['that', 'this', 'with', 'have', 'from', 'they', 'will', 'been', 'were', 'what', 'when', 'your', 'about', 'there', 'their', 'just', 'into', 'than', 'then', 'also', 'more', 'some', 'like', 'very']);
+              const topicWords = topicSignal.split(/\W+/).filter(w => w.length > 4 && !stopwords.has(w));
+              const uniqueTopicWords = [...new Set(topicWords)].slice(0, 25);
+              const hits = uniqueTopicWords.filter(w => haystack.includes(w)).length;
+              if (hits > 0) score += Math.min(hits * 4, 20);
+            }
+            const ageDays = (Date.now() - new Date(m.recordedAt).getTime()) / (1000 * 60 * 60 * 24);
+            if (ageDays < 30) score += Math.max(0, 5 - Math.floor(ageDays / 6));
+            return { ...m, score };
+          })
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 4);
 
-        fetchedMemories = combined.map(m => ({
+        // Landmarks: brief teaser (800 chars) — always present, always retrievable.
+        // Full verbatim content available via search_my_history or recall_memories.
+        const landmarkMapped = landmarkSnapshots.map(m => ({
+          title: m.title,
+          content: m.content ? m.content.slice(0, 800) : '',
+          importance: m.importance ?? 10,
+          recordedAt: m.recordedAt instanceof Date ? m.recordedAt.toISOString() : String(m.recordedAt),
+        }));
+
+        // Scored pool: full content for contextually-relevant detail.
+        const scoredMapped = scoredPool.map(m => ({
           title: m.title,
           content: m.content,
           importance: m.importance ?? 7,
           recordedAt: m.recordedAt instanceof Date ? m.recordedAt.toISOString() : String(m.recordedAt),
         }));
 
+        fetchedMemories = [...landmarkMapped, ...scoredMapped];
+
         const topicNote = topicSignal.length > 20 ? ', topic-boosted' : '';
-        console.log(`[Compass] Memories — ${fetchedIdentityThreads.length} identity threads (brief) + ${fetchedMemories.length} snapshots (${pinned.length} pinned${topicNote}) [GL context-safe]`);
+        console.log(`[Compass] Memories — ${fetchedIdentityThreads.length} identity threads + ${landmarkMapped.length} landmarks (brief, always-on) + ${scoredMapped.length} scored [GL context-safe]`);
       } catch (err: any) {
         console.warn('[Compass] Failed to load conversation memories:', err.message);
       }
