@@ -1370,7 +1370,9 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             if (isReconnectSO && userId && conversationId) {
               try {
                 const cacheKey = `session_ctx_${userId}_${conversationId}`;
-                const cacheRows = await db.execute(sql`
+                const { sql: drizzleSql } = require('drizzle-orm');
+                const { getSharedDb } = require('./neon-db');
+                const cacheRows = await getSharedDb().execute(drizzleSql`
                   SELECT content FROM editor_insights
                   WHERE title = ${cacheKey} AND category = 'context'
                   AND created_at > NOW() - INTERVAL '4 hours'
@@ -2000,7 +2002,9 @@ When asked about specific past moments, quotes, or exchanges (e.g. "our podcast 
             // Only cache language sessions (subject tutors use static prompts, not worth caching).
             if (!cachedContextPrompt && userId && conversationId && !isSubjectSession) {
               const cacheKey = `session_ctx_${userId}_${conversationId}`;
-              db.execute(sql`
+              const { sql: drizzleSqlCache } = require('drizzle-orm');
+              const { getSharedDb: getSharedDbCache } = require('./neon-db');
+              getSharedDbCache().execute(drizzleSqlCache`
                 INSERT INTO editor_insights (id, category, title, content, importance, tags)
                 VALUES (gen_random_uuid(), 'context', ${cacheKey}, ${systemPrompt!}, 1, ARRAY['session-cache'])
               `).then(() => {
