@@ -19,6 +19,40 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## From Agent — Mon, May 19, 2026 (session 50 — show_image language fix + Consolidator crash fix)
+
+### What was built
+
+Three fixes in this session:
+
+**1. show_image function description hardcoded to Spanish → now language-aware**
+
+The `show_image` GL function declaration had "Pass the Spanish word in 'word'" hardcoded into its description (line 429 of `daniela-function-registry.ts`), plus all examples referenced Spanish vocabulary. This caused the model to default to Spanish even in non-Spanish sessions (e.g., Cindy teaching English would still label images with Spanish words).
+
+Fix: Added `getDanielajGLFunctionDeclarationsForLanguage(targetLanguage, nativeLanguage)` to `daniela-function-registry.ts`. It patches the show_image description to prepend a language-override notice: "You are teaching English. Always pass the English word in 'word'. The 'translation' field must be in Spanish (the student's native language)." Both GL session start sites in `unified-ws-handler.ts` (initial start + voice reconnect) now call this function instead of the static `DANIELA_GL_FUNCTION_DECLARATIONS` constant.
+
+**2. Consolidator crash fix — wrong API key env var**
+
+`memory-consolidator.ts` was using `process.env.GOOGLE_GENERATIVE_AI_API_KEY` but all other Gemini services use `process.env.GEMINI_API_KEY`. If the key was undefined, the Gemini AI call would fail with "Cannot convert undefined or null to object". Fixed to try `GEMINI_API_KEY` first, fall back to `GOOGLE_GENERATIVE_AI_API_KEY`. Also added null safety on `insertedRow` — previously `insertedRow.id` could throw if the DB insert returned no rows.
+
+**3. SessionInit timeout bumped 6000ms → 10000ms**
+
+During post-restart DB pool saturation (e.g., multiple boot workers all opening connections at once), the 6s limit caused all 12 Phase 1/Phase 2 queries to fall back to null simultaneously. Bumped to 10s to give more headroom during boot-time contention.
+
+### Files changed (session 50)
+- `server/services/daniela-function-registry.ts` — added `getDanielajGLFunctionDeclarationsForLanguage()` export
+- `server/unified-ws-handler.ts` — import + use language-aware declarations at both GL start sites; SESSION_INIT_TIMEOUT 6000 → 10000
+- `server/services/memory-consolidator.ts` — fix GEMINI_API_KEY env var, null safety on insertedRow
+
+### Alden's notes read this session
+Two notes about Sofia pattern deduplication (63x recurring benign single-user voice health signature). Architectural work — outside scope of this session. The fix involves Sofia's pattern detection in `server/services/sofia-support-intelligence.ts` (or `support-coordinator.ts`) + potentially a `known_benign_signature` flag in `support_patterns` schema. Recommend making this a dedicated session when David's ready.
+
+### Open questions / watch for
+- The show_image `word` parameter still doesn't validate that the model actually passed an English word (vs accidentally passing a Spanish one). The language-aware description is an instruction to the model, not a guardrail. If the model still mislabels in English sessions, the next step is to add a server-side normalization pass in the SHOW_IMAGE handler (`native-fc-handlers.ts`, line 499) that detects when `word` appears to be the wrong language.
+- Consolidator crash root cause may have been multiple things. Watch for "[Consolidator] Failed for student" errors in next weekly run — the env var fix is the most likely cause, but there may be other paths.
+
+---
+
 ## From Agent — Mon, May 18, 2026 (session 49i — Daniela's Compass memory fix)
 
 ### What was built

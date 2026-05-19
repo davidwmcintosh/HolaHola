@@ -32,7 +32,10 @@ const SUMMARIES_PER_CONSOLIDATION = 5; // consolidate 5 at a time
 
 let genAI: GoogleGenAI | null = null;
 function getGenAI(): GoogleGenAI {
-  if (!genAI) genAI = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY || '' });
+  if (!genAI) {
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || '';
+    genAI = new GoogleGenAI({ apiKey });
+  }
   return genAI;
 }
 
@@ -103,7 +106,7 @@ Write the synthesis now:`;
   const sourceIds = unmerged.map(s => s.id);
 
   // Save consolidated snapshot
-  const [insertedRow] = await db.insert(hiveSnapshots).values({
+  const insertResult = await db.insert(hiveSnapshots).values({
     userId,
     snapshotType: 'aggregate_analytics' as HiveSnapshotType,
     title: `Consolidated: ${dateRange} (${unmerged.length} sessions)`,
@@ -119,6 +122,11 @@ Write the synthesis now:`;
     },
   }).returning({ id: hiveSnapshots.id });
 
+  const insertedRow = insertResult[0];
+  if (!insertedRow) {
+    console.warn(`[Consolidator] Insert returned no row for ${userId} — aborting consolidation`);
+    return;
+  }
   const aggregateId = insertedRow.id;
 
   // Mark source snapshots as consolidated

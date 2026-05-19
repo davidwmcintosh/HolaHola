@@ -4098,6 +4098,38 @@ export function buildFunctionContinuationResponse(
 }
 
 /**
+ * Returns GL function declarations with the show_image description patched to reflect
+ * the session's actual target language and native language.
+ *
+ * The base show_image description hardcodes Spanish examples and says "Pass the Spanish
+ * word in 'word'". This causes the model to use Spanish even in non-Spanish sessions
+ * (e.g. Cindy teaching English). This function prepends a language-override notice so
+ * the model always uses the correct languages.
+ */
+export function getDanielajGLFunctionDeclarationsForLanguage(
+  targetLanguage: string,
+  nativeLanguage: string
+): FunctionDeclaration[] {
+  const capTarget = targetLanguage.charAt(0).toUpperCase() + targetLanguage.slice(1);
+  const capNative = nativeLanguage.charAt(0).toUpperCase() + nativeLanguage.slice(1);
+
+  return DANIELA_GL_FUNCTION_DECLARATIONS.map(decl => {
+    if (decl.name !== 'show_image') return decl;
+
+    const languagePrefix =
+      `⚠️ SESSION LANGUAGE: You are teaching ${capTarget}. ` +
+      `Always pass the ${capTarget} word in 'word'. ` +
+      `The 'translation' field must be in ${capNative} (the student's native language). ` +
+      `The examples below reference Spanish — apply the same logic to ${capTarget}.\n\n`;
+
+    return {
+      ...decl,
+      description: languagePrefix + (decl.description || ''),
+    };
+  });
+}
+
+/**
  * Get allowed function declarations, optionally filtered.
  */
 export function getFilteredFunctionDeclarations(

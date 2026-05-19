@@ -42,7 +42,7 @@ import {
 import { OpenMicSession, OpenMicEvents, getDeepgramLanguageCode } from './services/deepgram-live-stt';
 import { GeminiLiveSession, createGeminiLiveSession, GEMINI_LIVE_VOICE_ENABLED, GEMINI_LIVE_MODEL } from './services/gemini-live-session';
 import { costTracker } from './services/cost-tracker';
-import { DANIELA_FUNCTION_DECLARATIONS, DANIELA_GL_FUNCTION_DECLARATIONS } from './services/daniela-function-registry';
+import { DANIELA_FUNCTION_DECLARATIONS, DANIELA_GL_FUNCTION_DECLARATIONS, getDanielajGLFunctionDeclarationsForLanguage } from './services/daniela-function-registry';
 import { generateCongratulatoryPromptAddition } from './services/competency-verifier';
 import { buildCurriculumContext, detectSyllabusQuery } from './services/curriculum-context';
 import { usageService } from './services/usage-service';
@@ -1281,7 +1281,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
 
           try {
             const initStart = Date.now();
-            const SESSION_INIT_TIMEOUT = 6000; // 6s timeout — gives headroom during boot-time DB saturation
+            const SESSION_INIT_TIMEOUT = 10000; // 10s timeout — gives headroom during boot-time DB pool saturation
             console.log(`[SessionInit] Starting session init pipeline...`);
             
             // ══════════════════════════════════════════════════════════════
@@ -2191,8 +2191,12 @@ ${lastNote.tutorNotes}`);
                 // Cache the final system prompt so voice-override reconnects can reuse it
                 geminiLiveSystemPromptCache = geminiLiveSystemPrompt;
                 geminiLiveSession = createGeminiLiveSession(session, glSendMessage);
-                await geminiLiveSession.start(geminiLiveSystemPrompt, DANIELA_GL_FUNCTION_DECLARATIONS);
-                console.log(`[GeminiLive] Session started with ${DANIELA_GL_FUNCTION_DECLARATIONS.length} GL tools (slim set) alongside orchestrator session ${session.id}`);
+                const glDeclarations = getDanielajGLFunctionDeclarationsForLanguage(
+                  config.targetLanguage || 'spanish',
+                  config.nativeLanguage || 'english'
+                );
+                await geminiLiveSession.start(geminiLiveSystemPrompt, glDeclarations);
+                console.log(`[GeminiLive] Session started with ${glDeclarations.length} GL tools (slim set, lang: ${config.targetLanguage || 'spanish'}) alongside orchestrator session ${session.id}`);
                 // Register the playback_ended callback bridge so the Socket.io telemetry
                 // handler (different scope) can call geminiLiveSession.onPlaybackEnded().
                 const glSocketId = (ws as any).socketId as string | undefined;
@@ -3462,8 +3466,12 @@ ${lastNote.tutorNotes}`);
                 } catch (_) {}
               };
               geminiLiveSession = createGeminiLiveSession(session, glSendMessage);
-              await geminiLiveSession.start(geminiLiveSystemPromptCache, DANIELA_GL_FUNCTION_DECLARATIONS);
-              console.log(`[GeminiLive] Reconnected with voice: ${nextVoiceId} (${DANIELA_GL_FUNCTION_DECLARATIONS.length} GL tools)`);
+              const glDeclsReconnect = getDanielajGLFunctionDeclarationsForLanguage(
+                session.targetLanguage || 'spanish',
+                session.nativeLanguage || 'english'
+              );
+              await geminiLiveSession.start(geminiLiveSystemPromptCache, glDeclsReconnect);
+              console.log(`[GeminiLive] Reconnected with voice: ${nextVoiceId} (${glDeclsReconnect.length} GL tools, lang: ${session.targetLanguage || 'spanish'})`);
               // Re-register the playback-ended callback for the (same) socket after reconnect
               const reconnectSocketId = (ws as any).socketId as string | undefined;
               if (reconnectSocketId) {
