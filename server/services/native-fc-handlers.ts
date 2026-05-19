@@ -5428,6 +5428,19 @@ export class NativeFunctionCallHandler {
                   const date = new Date(row.createdAt).toLocaleDateString();
                   lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | express_lane | ${row.role} | ${date}] ${row.content}`);
                 }
+              } else if (hit.memoryType === 'conversation_memory') {
+                const { conversationMemories: convMem } = await import('@shared/schema');
+                const [row] = await sharedDb.select({
+                  title: convMem.title,
+                  content: convMem.content,
+                  summary: convMem.summary,
+                  createdAt: convMem.createdAt,
+                }).from(convMem).where(eq(convMem.id, hit.memoryId)).limit(1);
+                if (row) {
+                  const date = new Date(row.createdAt).toLocaleDateString();
+                  const body = row.content ?? row.summary ?? '';
+                  lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | conversation_memory | ${date}] ${row.title}\n${body}`);
+                }
               }
             } catch { /* skip failed hydration */ }
           }
