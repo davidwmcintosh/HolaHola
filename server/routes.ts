@@ -667,6 +667,23 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Worker logic lives in server/services/menu-image-worker.ts
   // Auto-starts at server boot if there are pending items (see server/index.ts)
 
+  app.post('/api/admin/run-consolidator', async (req: any, res) => {
+    if (getRequestUserId(req) !== '49847136') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    try {
+      const { runConsolidator } = await import('./services/memory-consolidator');
+      res.json({ ok: true, message: 'Consolidator started in background' });
+      runConsolidator().then(() => {
+        console.log('[Admin] Manual consolidator run complete');
+      }).catch(err => {
+        console.error('[Admin] Manual consolidator run failed:', err.message);
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.post('/api/admin/start-menu-image-worker', async (req: any, res) => {
     if (getRequestUserId(req) !== '49847136') {
       return res.status(403).json({ error: 'Forbidden' });

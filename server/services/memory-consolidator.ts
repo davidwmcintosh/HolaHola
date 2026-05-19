@@ -184,11 +184,11 @@ async function runConsolidator(): Promise<void> {
 
         // Get student name for context
         const userRow = await db
-          .select({ firstName: users.firstName, username: users.username })
+          .select({ firstName: users.firstName, email: users.email })
           .from(users)
           .where(eq(users.id, userId))
           .limit(1);
-        const studentName = userRow[0]?.firstName || userRow[0]?.username || 'the student';
+        const studentName = userRow[0]?.firstName || userRow[0]?.email?.split('@')[0] || 'the student';
 
         await consolidateForStudent(userId, studentName, summaries);
         totalConsolidated++;
@@ -205,6 +205,8 @@ async function runConsolidator(): Promise<void> {
     console.error('[Consolidator] Worker run failed:', err.message);
   }
 }
+
+export { runConsolidator };
 
 export function startMemoryConsolidator(): void {
   console.log('[Consolidator] Starting (interval: weekly)');

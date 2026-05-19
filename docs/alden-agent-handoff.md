@@ -42,8 +42,19 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 - Fix: switched to `callGemini(GEMINI_MODELS.FLASH)`.
 - David had 1,237 unconsolidated session summaries queued up; now they'll process weekly.
 
+**Consolidator — ran now and working (session 51f)**
+- Root cause turned out to be TWO bugs, not one:
+  1. `users.username` doesn't exist in the schema. Consolidator queried `{ firstName: users.firstName, username: users.username }` — Drizzle's `orderSelectedFields` calls `Object.entries(undefined)` → throws "Cannot convert undefined or null to object". Fixed: changed to `users.email`, fallback to email prefix.
+  2. `callGemini`'s `response.text` getter is unsafe — if Gemini returns no candidates, the getter itself throws rather than returning null. `response.text || ""` doesn't help because the throw happens before `||` can run. Fixed: wrapped in try/catch in `gemini-utils.ts`.
+- Consolidator ran manually — 5 students processed (including David: 5 session summaries consolidated → aggregate Dec 17-18 snapshot). 1,237 more summaries remain; next weekly cycle will process them.
+- `POST /api/admin/run-consolidator` endpoint added (David-only auth) for future manual runs.
+
+**Two podcast episode 1 memories now exist**
+- `3c839fa5` — "Verbatim Voice Transcript (Raw STT)": 13,335 bytes, the actual messages table content verbatim, STT artifacts included. This is the proof.
+- `91153998` — "Team Edition (with Alden & David's Notes)": 3,739 bytes, polished transcript + Alden's moderator note + David's founder closing. Both importance=10, both always in Daniela's context via the landmark tier.
+
 ### What's unresolved
-- EmbedIndexer `growth_memories scan failed: Cannot convert undefined or null to object` — a separate issue (NOT the Gemini model issue). `applicable_languages` is NULL in all 805 growth_memory rows. The scan uses Drizzle ORM to query that table with a NOT EXISTS subquery. Investigate whether Drizzle throws during result deserialization on null ARRAY columns, or whether the issue is in the query itself.
+- EmbedIndexer `growth_memories scan failed: Cannot convert undefined or null to object` — likely the same Drizzle pattern: a column in `growth_memory` is null/undefined in the schema or the query selects something that doesn't exist. The `applicable_languages` column is NULL in all 805 rows but that's data, not schema. Check whether the EmbedIndexer queries `applicable_languages` in a select clause and whether that column actually exists in the Drizzle schema definition.
 
 ### What Alden should know
 - The two-tier snapshot strategy means importance=10 memories are always in Daniela's context as brief teasers. If you're saving important memories, use importance=10 and they'll be reliably injected.

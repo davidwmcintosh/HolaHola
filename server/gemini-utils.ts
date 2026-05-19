@@ -45,7 +45,11 @@ export async function callGemini(
     if (usage) costTracker.track(model, usage.promptTokenCount || 0, usage.candidatesTokenCount || 0, 'gemini');
   } catch {}
 
-  return response.text || "";
+  try {
+    return response.text || "";
+  } catch {
+    return "";
+  }
 }
 
 export async function callGeminiWithSchema<T = any>(
