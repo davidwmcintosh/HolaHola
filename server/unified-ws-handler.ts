@@ -1309,7 +1309,9 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
 
           try {
             const initStart = Date.now();
-            const SESSION_INIT_TIMEOUT = 10000; // 10s timeout — gives headroom during boot-time DB pool saturation
+            const SESSION_INIT_TIMEOUT = 25000; // 25s timeout — gives headroom during boot-time DB pool saturation
+            // (Background workers can hold pool slots for ~15-20s during the first 70s after restart;
+            //  10s was not enough when VocabImageSeed + Prefetch + Wren fired simultaneously.)
             console.log(`[SessionInit] Starting session init pipeline...`);
             
             // ══════════════════════════════════════════════════════════════

@@ -19,7 +19,7 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
-## From Agent — Mon, May 19, 2026 (session 51 — Sofia VHT dedup fix + show_image language refinement)
+## From Agent — Mon, May 19, 2026 (session 51 — Sofia VHT dedup + show_image refinement + 4 voice chat bugs)
 
 ### What was built
 
@@ -42,9 +42,50 @@ The session 50 fix was too prescriptive — the dynamic prefix said "Always pass
 - Static description: "Pass the Spanish word in 'word'" → "Pass the target language word in 'word'"
 - Dynamic prefix changed from command-style ("Always…", "must be in…") to a natural context note: "Session: teaching English to a Spanish-speaking student."
 
+**3. Lockout watchdog false-positive fix**
+
+`client/src/lib/lockoutDiagnostics.ts` — the watchdog at line ~466 was firing while Daniela was mid-thought (state = `'thinking'` or `'buffering'`) because it only excluded `'playing'`. Extended the active-output state guard to cover all three:
+
+```ts
+const activeOutputStates = ['playing', 'thinking', 'buffering'];
+```
+
+This stops the watchdog from incorrectly flagging GL mode as "stuck" during the processing window between user speech ending and Daniela's first audio chunk arriving.
+
+**4. Zombie session fix — expired grace periods now close properly on server restart**
+
+`server/unified-ws-handler.ts` — `hydratePendingReconnectsFromDb()` now fetches any expired grace period rows **before** deleting them, and for each expired row calls `usageService.updateSessionMetrics()` + `endSession()`. Previously, rows whose grace period expired while the server was down were silently deleted on restart, leaving open usage sessions and tripping the concurrent-session guard. This was the root cause of "concurrent session already running" blocks that forced hard refreshes.
+
+**5. Thinking avatar fix — GL open-mic mode**
+
+Root cause: in Gemini Live open-mic mode, `onVadUtteranceEnd` fires when the user stops talking and sets `isProcessing=true`, but `globalPlaybackState` remained `'idle'`. The avatar `useEffect` only re-runs when `globalPlaybackState` changes, so the thinking state was never shown — the avatar stayed in listening pose until Daniela's first audio chunk arrived, which could be 1-3 seconds later.
+
+Fix: `client/src/components/StreamingVoiceChat.tsx` — added `setGlobalPlaybackState('thinking')` at both `onVadUtteranceEnd` call sites (primary path ~line 1081, reconnect path ~line 3159) with the same guard as `handleProcessingPending`:
+
+```ts
+if (getGlobalPlaybackState() !== 'playing' && getGlobalPlaybackState() !== 'buffering') {
+  setGlobalPlaybackState('thinking');
+}
+```
+
+This gives immediate visual feedback (thinking avatar) the moment VAD detects speech end, well before the server round-trip.
+
+**6. Session init timeout 10s → 25s**
+
+`server/unified-ws-handler.ts` — `SESSION_INIT_TIMEOUT` bumped from 10s to 25s. During the first ~70s after server restart, background workers (VocabImageSeed with 2477 queries, Prefetch, Wren, MemoryDecay, DanielaPresence) can hold DB pool slots long enough to starve all 18 session init phases simultaneously. 10s was not enough. 25s gives the pool time to clear before falling back to empty context.
+
+### Files changed (session 51)
+- `server/services/sofia-support-intelligence.ts` — VHT dedup: remove dev gate, stable `'vht'` fingerprint, `or()` for `known_benign` age exclusion
+- `server/services/daniela-function-registry.ts` — show_image language fix: softer dynamic prefix
+- `client/src/lib/lockoutDiagnostics.ts` — watchdog: `activeOutputStates` now includes `'thinking'` and `'buffering'`
+- `server/unified-ws-handler.ts` — zombie session fix in `hydratePendingReconnectsFromDb()`, `SESSION_INIT_TIMEOUT` 10000 → 25000
+- `client/src/components/StreamingVoiceChat.tsx` — thinking avatar: `setGlobalPlaybackState('thinking')` on VAD utterance end (both primary + reconnect paths)
+
 ### What's unresolved / watch for
 
-Nothing new. The VHT fix is complete and the queue is clear (52 rows gone). If new VHT patterns appear from multi-user contexts (i.e., `userIds.size > 1`), those will still escalate correctly — the suppression only fires for single-user/system-sourced events.
+- **Thinking avatar**: fix is deployed and the code path is correct. Watch for the `[AVATAR SYNC DEBUG]` log showing `avatarState:'thinking'` between `[OPEN MIC] VAD utterance end` and `[AVATAR SYNC DEBUG] avatarState:'speaking'`. If it still doesn't show, the issue may be that the avatar component has an early return or the `'thinking'` → `'speaking'` transition happens faster than one render frame.
+- **Session init timeouts**: still possible if the DB pool is saturated for >25s (unlikely, but the VocabImageSeed worker runs 2477 sequential lookups). If this becomes a problem again, the real fix is to stagger VocabImageSeed startup with a 90s delay.
+- **DanielaPresence** is logging `Failed to generate for <userId>: Cannot convert undefined or null to object` for all 3 active students every cycle. This is an existing regression — `Object.entries()` somewhere is receiving null/undefined. Low severity (presence docs still generate from last run) but worth investigating.
 
 ---
 

@@ -1071,6 +1071,13 @@ export function StreamingVoiceChat({
             setIsProcessing(true);
             isProcessingRef.current = true;
             isAwaitingResponseRef.current = true;
+            // Show thinking avatar immediately — don't wait for the processing_pending
+            // server round-trip. By the time processing_pending arrives, the first audio
+            // chunk may already be batching in, causing React to skip the 'thinking'
+            // state entirely and jump straight to 'playing'.
+            if (getGlobalPlaybackState() !== 'playing' && getGlobalPlaybackState() !== 'buffering') {
+              setGlobalPlaybackState('thinking');
+            }
             
             // SAFETY: Start failsafe timer to recover from stuck processing state
             if (openMicProcessingTimeoutRef.current) clearTimeout(openMicProcessingTimeoutRef.current);
@@ -3145,6 +3152,10 @@ export function StreamingVoiceChat({
                 }
                 setOpenMicState('processing');
                 isAwaitingResponseRef.current = true;
+                // Show thinking avatar immediately (same reasoning as primary path above)
+                if (getGlobalPlaybackState() !== 'playing' && getGlobalPlaybackState() !== 'buffering') {
+                  setGlobalPlaybackState('thinking');
+                }
                 
                 // SAFETY: Start failsafe timer for reconnect path too
                 if (openMicProcessingTimeoutRef.current) clearTimeout(openMicProcessingTimeoutRef.current);
