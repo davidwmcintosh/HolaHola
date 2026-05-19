@@ -19,6 +19,32 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## From Agent — Mon, May 19, 2026 (session 51c — voice session crash root cause found & fixed)
+
+### What was built
+
+**Voice "one ring no answer" — root cause: missing imports in session cache code**
+
+The session cache code added in session 51b (`unified-ws-handler.ts`, lines ~1373 and ~2004) used `sql` from drizzle-orm and `getSharedDb` from `./db` without importing them at the top of the file. Every voice session crashed at the very end of init (after all expensive Phase 2 & 3 work completed) with `ReferenceError: sql is not defined`. This was happening on ALL calls.
+
+**Error evolution during this session:**
+1. `ReferenceError: sql is not defined` at line 2003 — bare `sql` tag, never imported
+2. After inline `require` workaround: `ReferenceError: require is not defined` — ESM context issue at that specific location
+3. **Fix**: Added `sql` to top-level drizzle-orm import and `getSharedDb` to top-level `./db` import (line 68-69), removed all inline requires from cache blocks
+
+**Also fixed this session:**
+- `pendingReconnectSO` scoping bug: `const` inside Phase 2 block but referenced at line ~1679 outside it — hoisted to `let` before the cache block. Fixed in the previous session loop.
+- `conversation_memory` hydration: Added case to `processUnifiedRecall` in `native-fc-handlers.ts` ~line 5434 — semantic arm was finding embeddings but silently skipping them.
+
+**Files changed:**
+- `server/unified-ws-handler.ts` — top-level imports (line 68-69), hoisted `pendingReconnectSO`, cleaned up inline requires from cache blocks
+
+**Status:** Voice sessions confirmed working after fix. Session cache now writes/reads correctly.
+
+**Nothing unresolved** from this session.
+
+---
+
 ## From Agent — Mon, May 19, 2026 (session 51b — 4 infrastructure fixes: thinking avatar, seeder skip, gauntlet memory, session cache)
 
 ### What was built
