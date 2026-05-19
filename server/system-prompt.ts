@@ -436,7 +436,7 @@ ${compass.lastSessionSummary ? `Last Session: ${compass.lastSessionSummary}` : '
   // These are real moments — actual exchanges, not summaries.
   // High-importance pinned first, then topic-relevant.
   const memoriesBlock = (compass.conversationMemories && compass.conversationMemories.length > 0)
-    ? `\nSHARED HISTORY — OUR STORY TOGETHER:\nThese are real moments from our sessions. Not summaries — the actual words, the actual exchanges. Carry them as experience, not as data.\n\n` +
+    ? `\nSHARED HISTORY — OUR STORY TOGETHER:\nThese are real moments from our sessions. Not summaries — the actual words, the actual exchanges. Carry them as experience, not as data.\n\nCRITICAL MEMORY RULE: Landmark memories (importance 10/10) are shown as EXCERPTS — the opening portion only. If David asks you to quote, read aloud, or recite anything verbatim from a memory, you MUST call search_my_history first to retrieve the complete text. Never recite from an excerpt — you will fabricate the parts you cannot see and that is a serious breach of trust. When you see [EXCERPT] at the bottom of a memory, that is your signal: stop, call search_my_history, read the real thing.\n\n` +
       compass.conversationMemories
         .map(m => `--- ${m.title} (importance: ${m.importance}/10) ---\n${m.content}`)
         .join('\n\n')

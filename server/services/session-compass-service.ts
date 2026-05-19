@@ -480,12 +480,23 @@ export class SessionCompassService {
 
         // Landmarks: brief teaser (800 chars) — always present, always retrievable.
         // Full verbatim content available via search_my_history or recall_memories.
-        const landmarkMapped = landmarkSnapshots.map(m => ({
-          title: m.title,
-          content: m.content ? m.content.slice(0, 800) : '',
-          importance: m.importance ?? 10,
-          recordedAt: m.recordedAt instanceof Date ? m.recordedAt.toISOString() : String(m.recordedAt),
-        }));
+        // IMPORTANT: append a visible [EXCERPT] marker when truncated so Daniela knows
+        // the text is incomplete and must call search_my_history before quoting verbatim.
+        const landmarkMapped = landmarkSnapshots.map(m => {
+          const fullLen = m.content?.length ?? 0;
+          const excerpt = m.content ? m.content.slice(0, 800) : '';
+          const truncated = fullLen > 800;
+          // Build a short keyword hint from the title for the search_my_history suggestion
+          const titleHint = m.title.split(/\s+/).slice(0, 5).join(' ');
+          return {
+            title: m.title,
+            content: truncated
+              ? excerpt + `\n\n[EXCERPT — showing first 800 of ${fullLen} characters. DO NOT quote or recite from this excerpt alone — you will get it wrong. Call search_my_history("${titleHint}") to retrieve the complete verbatim text before reading anything aloud or word-for-word to David.]`
+              : excerpt,
+            importance: m.importance ?? 10,
+            recordedAt: m.recordedAt instanceof Date ? m.recordedAt.toISOString() : String(m.recordedAt),
+          };
+        });
 
         // Scored pool: full content for contextually-relevant detail.
         const scoredMapped = scoredPool.map(m => ({
