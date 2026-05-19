@@ -62,8 +62,8 @@ import { studentLearningService } from './services/student-learning-service';
 import { voiceDiagnostics } from './services/voice-diagnostics-service';
 import type { VoiceSession as UsageVoiceSession, CompassContext, TutorSession } from '@shared/schema';
 import { voiceGracePeriods, compartmentInstallation, messages } from '@shared/schema';
-import { db, getUserDb } from './db';
-import { eq, and, gt, lt, ne, desc } from 'drizzle-orm';
+import { db, getUserDb, getSharedDb } from './db';
+import { eq, and, gt, lt, ne, desc, sql } from 'drizzle-orm';
 import { getPendingSuggestions } from './services/daniela-reflection';
 
 // Use /api/ paths - Replit's proxy properly routes these
@@ -1370,9 +1370,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             if (isReconnectSO && userId && conversationId) {
               try {
                 const cacheKey = `session_ctx_${userId}_${conversationId}`;
-                const { sql: drizzleSql } = require('drizzle-orm');
-                const { getSharedDb } = require('./neon-db');
-                const cacheRows = await getSharedDb().execute(drizzleSql`
+                const cacheRows = await getSharedDb().execute(sql`
                   SELECT content FROM editor_insights
                   WHERE title = ${cacheKey} AND category = 'context'
                   AND created_at > NOW() - INTERVAL '4 hours'
@@ -2002,9 +2000,7 @@ When asked about specific past moments, quotes, or exchanges (e.g. "our podcast 
             // Only cache language sessions (subject tutors use static prompts, not worth caching).
             if (!cachedContextPrompt && userId && conversationId && !isSubjectSession) {
               const cacheKey = `session_ctx_${userId}_${conversationId}`;
-              const { sql: drizzleSqlCache } = require('drizzle-orm');
-              const { getSharedDb: getSharedDbCache } = require('./neon-db');
-              getSharedDbCache().execute(drizzleSqlCache`
+              getSharedDb().execute(sql`
                 INSERT INTO editor_insights (id, category, title, content, importance, tags)
                 VALUES (gen_random_uuid(), 'context', ${cacheKey}, ${systemPrompt!}, 1, ARRAY['session-cache'])
               `).then(() => {
