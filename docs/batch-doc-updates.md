@@ -8,6 +8,18 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — May 19, 2026 (session 51 — Burn note: Daniela image perception)
+
+### Burn report note
+
+**Planned feature: Daniela image perception (multimodal vision)**
+
+Daniela will gain the ability to perceive and reason about images — seeing what's on the whiteboard, student-shared photos, or visual context in a session. Building the initial data layer for this (indexing existing vocabulary images, generating visual embeddings, associating image metadata with her memory system) will produce a **short-term token spike** above normal burn rate. This is intentional and bounded — once the corpus is built, ongoing cost returns to baseline.
+
+When Alden sees elevated token usage in this window, it is expected and does not represent a regression or runaway process.
+
+---
+
 ## Session — May 18, 2026 (session 49e — Two-tier memory rendering + monthly auto-weaver)
 
 ### What was built
