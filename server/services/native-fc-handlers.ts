@@ -2798,7 +2798,8 @@ export class NativeFunctionCallHandler {
                   .where(
                     or(
                       ilike(conversationMemories.title, `%${memQuery}%`),
-                      ilike(conversationMemories.summary, `%${memQuery}%`)
+                      ilike(conversationMemories.summary, `%${memQuery}%`),
+                      ilike(conversationMemories.content, `%${memQuery}%`)
                     )
                   )
                   .orderBy(desc(conversationMemories.importance))
@@ -5369,7 +5370,7 @@ export class NativeFunctionCallHandler {
        .replace(/[\u200B-\u200D\uFEFF]/g, '');
 
     // Fire all search arms in parallel — no sequential waiting
-    const [structuredText, threadText, expressLaneText, semanticText] = await Promise.all([
+    const [structuredText, threadText, expressLaneText, semanticText, memoriesText] = await Promise.all([
 
       // Arm 1: structured memories — insights, facts, motivations, struggles, teaching moments
       (async () => {
@@ -5504,6 +5505,47 @@ export class NativeFunctionCallHandler {
           return null;
         }
       })(),
+
+      // Arm 5: conversation_memories — curated landmark records (full narrative archives)
+      // Keyword search across title, summary, AND content body so nothing is missed
+      (async () => {
+        try {
+          const { conversationMemories: convMemTable } = await import('@shared/schema');
+          const sharedDb = getSharedDb();
+          const keywords = query.split(/\s+/).filter(w => w.length >= 3);
+          const keywordConditions = keywords.length > 0
+            ? sql.join(
+                keywords.map(kw => sql`(title ILIKE ${`%${kw}%`} OR summary ILIKE ${`%${kw}%`} OR content ILIKE ${`%${kw}%`})`),
+                sql` OR `
+              )
+            : sql`(title ILIKE ${`%${query}%`} OR summary ILIKE ${`%${query}%`} OR content ILIKE ${`%${query}%`})`;
+          const results = await sharedDb
+            .select({
+              id: convMemTable.id,
+              title: convMemTable.title,
+              summary: convMemTable.summary,
+              content: convMemTable.content,
+              importance: convMemTable.importance,
+              recordedAt: convMemTable.recordedAt,
+            })
+            .from(convMemTable)
+            .where(keywordConditions)
+            .orderBy(sql`importance DESC`)
+            .limit(3);
+          if (results.length === 0) return null;
+          const lines = results.map(r => {
+            const date = r.recordedAt ? new Date(r.recordedAt).toLocaleDateString() : 'unknown date';
+            const excerpt = r.content ? r.content.slice(0, 400) : (r.summary ?? '');
+            const hasMore = r.content && r.content.length > 400;
+            return `[importance: ${r.importance}/10 | ${date}] "${r.title}"\n${excerpt}${hasMore ? `\n... [${r.content!.length} chars total — call read_full_memory("${r.title.split(/\s+/).slice(0, 4).join(' ')}") for the complete verbatim text]` : ''}`;
+          });
+          console.log(`[UnifiedRecall] Memories arm: ${results.length} match(es) for "${query}"`);
+          return lines.join('\n\n---\n\n');
+        } catch (err: any) {
+          console.warn(`[UnifiedRecall] Memories arm failed: ${err.message}`);
+          return null;
+        }
+      })(),
     ]);
 
     const sections: string[] = [];
@@ -5511,6 +5553,7 @@ export class NativeFunctionCallHandler {
     if (threadText) sections.push(`=== CONVERSATION THREADS (word-for-word past exchanges) ===\n${threadText}`);
     if (expressLaneText) sections.push(`=== EXPRESS LANE (team collaboration messages mentioning this topic) ===\n${expressLaneText}`);
     if (semanticText) sections.push(`=== SEMANTIC ASSOCIATIONS (conceptually related memories, no keyword overlap needed) ===\n${semanticText}`);
+    if (memoriesText) sections.push(`=== CONVERSATION MEMORIES (curated landmark archives — call read_full_memory("title keyword") to retrieve any of these in full) ===\n${memoriesText}`);
 
     // Associative chaining — after primary results, extract the most distinctive
     // content terms and run one more targeted search to surface co-occurring memories
