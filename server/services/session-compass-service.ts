@@ -11,7 +11,7 @@
  */
 
 import { getUserDb, getSharedDb } from "../db";
-import { eq, and, isNull, isNotNull, desc, gte } from "drizzle-orm";
+import { eq, and, isNull, isNotNull, desc, gte, inArray, sql } from "drizzle-orm";
 import {
   tutorSessions,
   tutorSessionTopics,
@@ -213,24 +213,46 @@ export class SessionCompassService {
           );
 
           if (earlierToday.length > 0) {
-            const recentConv = earlierToday[0];
+            // Sort by message_count DESC — pick the richest conversation, not just the most recent
+            const sortedByWeight = [...earlierToday].sort(
+              (a, b) => (b.messageCount ?? 0) - (a.messageCount ?? 0)
+            );
 
-            const recentMessages = await getSharedDb()
-              .select({ role: messages.role, content: messages.content })
+            // Pull recent messages across ALL of today's earlier conversations, aggregated
+            // This ensures a server restart mid-day doesn't lose context from any session
+            const allConvIds = sortedByWeight.map(c => c.id);
+            const allTodayMessages = await getSharedDb()
+              .select({
+                role: messages.role,
+                content: messages.content,
+                conversationId: messages.conversationId,
+                createdAt: messages.createdAt,
+              })
               .from(messages)
-              .where(eq(messages.conversationId, recentConv.id))
+              .where(inArray(messages.conversationId, allConvIds))
               .orderBy(desc(messages.createdAt))
-              .limit(12);
+              .limit(20);
 
-            if (recentMessages.length > 0) {
-              const chronological = [...recentMessages].reverse();
-              const label = recentConv.title || recentConv.topic || 'a conversation';
-              const excerpt = chronological
-                .map(m => `${m.role === 'user' ? 'Student' : 'Daniela'}: ${(m.content || '').substring(0, 200)}`)
-                .join('\n');
+            if (allTodayMessages.length > 0) {
+              const chronological = [...allTodayMessages].reverse();
+              const convLabels = Object.fromEntries(
+                sortedByWeight.map(c => [c.id, c.title || c.topic || 'a conversation'])
+              );
+              // Group by conversation with a header when the conversation changes
+              let lastConvId = '';
+              const lines: string[] = [];
+              for (const m of chronological) {
+                if (m.conversationId !== lastConvId) {
+                  lines.push(`\n[Session: "${convLabels[m.conversationId] ?? 'conversation'}"]`);
+                  lastConvId = m.conversationId;
+                }
+                lines.push(`${m.role === 'user' ? 'Student' : 'Daniela'}: ${(m.content || '').substring(0, 400)}`);
+              }
 
-              lastSessionSummary = `[Earlier today — "${label}"]\n${excerpt}`;
-              console.log(`[Compass] Same-day bridge: ${recentMessages.length} messages from "${label}"`);
+              const totalConvs = sortedByWeight.length;
+              const richestLabel = convLabels[sortedByWeight[0].id];
+              lastSessionSummary = `[Earlier today — ${totalConvs} session${totalConvs > 1 ? 's' : ''}, most recent: "${richestLabel}"]\n${lines.join('\n')}`;
+              console.log(`[Compass] Same-day bridge: ${allTodayMessages.length} messages across ${totalConvs} conversation(s)`);
             }
           }
         } catch (bridgeErr: any) {
