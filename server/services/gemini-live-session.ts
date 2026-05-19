@@ -165,6 +165,14 @@ export class GeminiLiveSession {
    */
   onUserTurnComplete?: (transcript: string) => void;
 
+  /**
+   * Optional callback fired whenever Gemini sends a new session resumption handle.
+   * Used by the unified-ws-handler to persist the handle to the DB so a server
+   * restart can restore it and pass it back to Gemini on reconnect — giving
+   * Daniela full in-session memory even across hard process restarts.
+   */
+  onResumptionHandleUpdate?: (handle: string) => void;
+
   constructor(
     private session: StreamingSession,
     private sendWsMessage: (ws: any, message: any, session?: any) => void,
@@ -1191,9 +1199,11 @@ export class GeminiLiveSession {
 
     // ── Session resumption token ──────────────────────────────────────────────
     // Store the latest handle so a dropped connection can resume without
-    // losing conversation context.
+    // losing conversation context. Also fire the persistence callback so the
+    // unified-ws-handler can write it to the DB — survives server restarts.
     if (msg.sessionResumptionUpdate?.newHandle) {
       this.session.geminiLiveResumptionHandle = msg.sessionResumptionUpdate.newHandle;
+      this.onResumptionHandleUpdate?.(msg.sessionResumptionUpdate.newHandle);
     }
   }
 

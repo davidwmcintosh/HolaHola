@@ -72,6 +72,44 @@ const REALTIME_PATH = '/api/realtime/ws';
 const TWILIO_STREAM_PATH = '/api/voice/twilio-stream';
 
 /**
+ * Gemini Live resumption handle persistence.
+ *
+ * Gemini sends a new resumption token on every completed turn.  We write it
+ * to editor_insights (debounced to ≤1 write per 10s) so a hard server restart
+ * doesn't lose the handle.  On reconnect we read it back and pass it to the
+ * fresh GL session, giving Daniela full in-session memory across restarts.
+ */
+function makeHandlePersister(conversationId: string): (handle: string) => void {
+  let timer: NodeJS.Timeout | null = null;
+  let pendingHandle = '';
+  return (handle: string) => {
+    pendingHandle = handle;
+    if (timer) return; // already scheduled — newest handle will be written
+    timer = setTimeout(() => {
+      timer = null;
+      const h = pendingHandle;
+      if (!h) return;
+      const key = `gl_handle_${conversationId}`;
+      getSharedDb().execute(sql`
+        INSERT INTO editor_insights (id, category, title, content, importance, tags)
+        VALUES (gen_random_uuid(), 'context', ${key}, ${h}, 1, ARRAY[]::text[])
+      `).catch((e: Error) => console.warn('[ResumeHandle] Persist failed (non-fatal):', e.message));
+    }, 10000); // 10-second debounce — coalesces rapid handle updates per turn
+  };
+}
+
+/**
+ * Remove any persisted GL resumption handle for a conversation.
+ * Called when a session ends cleanly so stale handles don't accumulate.
+ */
+function clearPersistedHandle(conversationId: string): void {
+  const key = `gl_handle_${conversationId}`;
+  getSharedDb().execute(sql`
+    DELETE FROM editor_insights WHERE title = ${key} AND category = 'context'
+  `).catch(() => {});
+}
+
+/**
  * Promise timeout utility - prevents indefinite hangs on DB queries or service calls.
  * Returns fallback value if the promise doesn't resolve within the timeout.
  */
@@ -1371,23 +1409,39 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             // Cache lives in editor_insights (category='context') for up to 4h.
             // ══════════════════════════════════════════════════════════════
             let cachedContextPrompt: string | null = null;
+            // GL resumption handle from a previous server process — injected into
+            // the StreamingSession so Gemini can resume in-session context across restarts.
+            let restoredGlHandle: string | null = null;
             if (isReconnectSO && userId && conversationId) {
               try {
                 const cacheKey = `session_ctx_${userId}_${conversationId}`;
-                const cacheRows = await getSharedDb().execute(sql`
-                  SELECT content FROM editor_insights
-                  WHERE title = ${cacheKey} AND category = 'context'
-                  AND created_at > NOW() - INTERVAL '4 hours'
-                  ORDER BY created_at DESC LIMIT 1
-                `);
+                const handleKey = `gl_handle_${conversationId}`;
+                const [cacheRows, handleRows] = await Promise.all([
+                  getSharedDb().execute(sql`
+                    SELECT content FROM editor_insights
+                    WHERE title = ${cacheKey} AND category = 'context'
+                    AND created_at > NOW() - INTERVAL '4 hours'
+                    ORDER BY created_at DESC LIMIT 1
+                  `),
+                  getSharedDb().execute(sql`
+                    SELECT content FROM editor_insights
+                    WHERE title = ${handleKey} AND category = 'context'
+                    AND created_at > NOW() - INTERVAL '4 hours'
+                    ORDER BY created_at DESC LIMIT 1
+                  `),
+                ]);
                 if (cacheRows.rows.length > 0) {
                   cachedContextPrompt = cacheRows.rows[0].content as string;
                   console.log(`[SessionCache] ✓ Reconnect cache hit (${cachedContextPrompt.length} chars) — skipping Phase 2 & 3`);
                 } else {
                   console.log('[SessionCache] No fresh cache — running full init on reconnect');
                 }
+                if (handleRows.rows.length > 0) {
+                  restoredGlHandle = handleRows.rows[0].content as string;
+                  console.log('[ResumeHandle] ✓ GL resumption handle restored from DB — Gemini will resume in-session context');
+                }
               } catch (cacheErr: any) {
-                console.warn('[SessionCache] Cache lookup failed (continuing with full init):', cacheErr.message);
+                console.warn('[SessionCache] Cache/handle lookup failed (continuing with full init):', cacheErr.message);
               }
             }
             
@@ -2058,6 +2112,15 @@ When asked about specific past moments, quotes, or exchanges (e.g. "our podcast 
             // Note: tutorDirectory is built dynamically by Socket.io path
             // HTTP WebSocket path doesn't support tutor handoffs, so we skip this
 
+            // ── Inject restored GL resumption handle (server-restart reconnect) ──
+            // If a handle was persisted to DB during the previous server process,
+            // inject it now so the fresh GeminiLiveSession passes it to Gemini on
+            // connect — Gemini will resume in-session context rather than starting cold.
+            if (restoredGlHandle && session) {
+              session.geminiLiveResumptionHandle = restoredGlHandle;
+              console.log('[ResumeHandle] Injected restored handle into session — GL will reconnect with full context');
+            }
+
             // ── Gemini Live voice session (feature-flagged) ──────────────────
             if (GEMINI_LIVE_VOICE_ENABLED) {
               try {
@@ -2299,6 +2362,12 @@ ${lastNote.tutorNotes}`);
                 // Cache the final system prompt so voice-override reconnects can reuse it
                 geminiLiveSystemPromptCache = geminiLiveSystemPrompt;
                 geminiLiveSession = createGeminiLiveSession(session, glSendMessage);
+                // Persist each new resumption handle to DB (debounced, ≤1 write per 10s).
+                // This is what lets a server restart restore the handle and give Gemini
+                // full in-session context on reconnect.
+                if (conversationId) {
+                  geminiLiveSession.onResumptionHandleUpdate = makeHandlePersister(conversationId);
+                }
                 const glDeclarations = getDanielajGLFunctionDeclarationsForLanguage(
                   config.targetLanguage || 'spanish',
                   config.nativeLanguage || 'english'
@@ -3574,6 +3643,9 @@ ${lastNote.tutorNotes}`);
                 } catch (_) {}
               };
               geminiLiveSession = createGeminiLiveSession(session, glSendMessage);
+              if (conversationId) {
+                geminiLiveSession.onResumptionHandleUpdate = makeHandlePersister(conversationId);
+              }
               const glDeclsReconnect = getDanielajGLFunctionDeclarationsForLanguage(
                 session.targetLanguage || 'spanish',
                 session.nativeLanguage || 'english'
@@ -3738,6 +3810,8 @@ ${lastNote.tutorNotes}`);
       }
       geminiLiveSession.stop();
       geminiLiveSession = null;
+      // Clean up persisted resumption handle — session ended cleanly
+      if (conversationId) clearPersistedHandle(conversationId);
     }
     
     if (openMicSession) {
@@ -3881,6 +3955,8 @@ ${lastNote.tutorNotes}`);
       }
       geminiLiveSession.stop();
       geminiLiveSession = null;
+      // Clean up persisted resumption handle — session ended (error path)
+      if (conversationId) clearPersistedHandle(conversationId);
     }
     
     if (openMicSession) {

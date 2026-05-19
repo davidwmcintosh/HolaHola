@@ -19,6 +19,33 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## From Agent — Mon, May 19, 2026 (session 51i — GL resumption handle persistence)
+
+### What was built
+
+**Gemini Live resumption handle persistence — mid-session server-restart context preservation**
+
+- **The gap**: Gemini Live sends a session resumption token (`sessionResumptionUpdate.newHandle`) on every completed turn. The code already captured it into `session.geminiLiveResumptionHandle` (in-memory) and used it for in-process GL disconnects (codes 1006/1008/1012/1013). But if the *server process itself* restarted (Replit deploy, crash), the handle died with the process — next session started cold.
+- **The fix**: Three-layer change:
+  1. **`gemini-live-session.ts`**: Added `onResumptionHandleUpdate?: (handle: string) => void` callback on the `GeminiLiveSession` class. Fires immediately after setting `this.session.geminiLiveResumptionHandle` every time Gemini sends a new handle.
+  2. **`unified-ws-handler.ts` — persistence**: Added `makeHandlePersister(conversationId)` helper at module level. Creates a debounced (10s) function that INSERTs the latest handle into `editor_insights` (`category='context'`, `title='gl_handle_<convId>'`). Wired up after BOTH `createGeminiLiveSession` calls (main GL session creation + voice-override reconnect path at ~line 3648). Cleanup (`clearPersistedHandle`) called at both GL stop sites (normal disconnect + error path).
+  3. **`unified-ws-handler.ts` — restore on reconnect**: On reconnect (`isReconnectSO = true`), the existing context-cache lookup was extended to also query `gl_handle_<convId>` from `editor_insights` (both queries now run in `Promise.all` — no added latency). If found, stored in `restoredGlHandle`. Injected into `session.geminiLiveResumptionHandle` after `orchestrator.createSession` but before `geminiLiveSession.start()` — so Gemini receives the handle on connect and resumes the prior session.
+
+- **Why `editor_insights`**: already used for the context-cache (same TTL pattern, 4h window). No schema change needed. Rows are small (handle is a short token string). Cleanup on clean session end prevents accumulation; stale entries expire naturally via `created_at > NOW() - INTERVAL '4 hours'`.
+- **Debounce rationale**: Gemini sends a new handle after every turn. In a 30-exchange session, 30 DB writes would be noisy. The 10s debounce coalesces rapid bursts while still guaranteeing a write within 10s of each turn (so a crash 9s after a turn still has the previous turn's handle).
+- **What this means in practice**: David is mid-session, Replit redeploys. Client WebSocket drops, reconnects with `isReconnect: true`. New server process finds the handle, injects it, passes it to Gemini — Daniela resumes with full in-session context (everything said so far in this session) rather than starting cold with only long-term memory.
+
+### Key files changed
+- `server/services/gemini-live-session.ts` — `onResumptionHandleUpdate` callback (lines ~171-177, fires at ~1208)
+- `server/unified-ws-handler.ts` — `makeHandlePersister` + `clearPersistedHandle` helpers (lines 77-113), reconnect lookup (lines 1418-1449), handle injection (lines 2118-2125), callback wiring (lines 2368-2373, 3648-3651), cleanup (lines 3816-3817, 3961-3962)
+
+### Open questions / what's next
+- The 10s debounce means a restart within 10s of the last turn might miss the very latest handle but recover the previous one. This is acceptable — the previous handle gives Gemini most of the session context. Could be tightened to 2-3s if David wants tighter guarantees.
+- The same-day bridge provides raw message excerpts (last 12 messages), not a summary. A Gemini-summarized version would be cleaner but adds latency to session init. Acceptable tradeoff for now.
+- The staleness suppression logic uses a 1-day threshold. If a student has two sessions within the same hour and the first didn't call close_session, the bridge will give Daniela the raw last 12 messages. That's enough for continuity but David may want a quick Gemini summary in the future.
+
+---
+
 ## From Agent — Mon, May 19, 2026 (session 51h — same-day continuity bridge + image seeder status)
 
 ### What was built
