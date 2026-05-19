@@ -11,7 +11,7 @@
  */
 
 import { getUserDb, getSharedDb } from "../db";
-import { eq, and, isNull, isNotNull, desc } from "drizzle-orm";
+import { eq, and, isNull, isNotNull, desc, gte } from "drizzle-orm";
 import {
   tutorSessions,
   tutorSessionTopics,
@@ -179,6 +179,63 @@ export class SessionCompassService {
         }
       } else {
         console.log(`[Compass] No previous session summary found for user ${userId}`);
+      }
+
+      // Same-day bridge: if no session summary exists, look for earlier conversations today.
+      // Covers the common case where session 1 ended without close_session being called
+      // (user closed tab, session wound down naturally). Builds a compact raw-message
+      // excerpt so session 2 isn't starting cold. Non-fatal: any error is swallowed.
+      if (!lastSessionSummary) {
+        try {
+          const todayStart = new Date();
+          todayStart.setHours(0, 0, 0, 0);
+
+          const todayConvs = await getSharedDb()
+            .select({
+              id: conversations.id,
+              title: conversations.title,
+              topic: conversations.topic,
+              messageCount: conversations.messageCount,
+            })
+            .from(conversations)
+            .where(
+              and(
+                eq(conversations.userId, userId),
+                gte(conversations.createdAt, todayStart)
+              )
+            )
+            .orderBy(desc(conversations.createdAt))
+            .limit(5);
+
+          // Exclude the current conversation (just starting) and require messages
+          const earlierToday = todayConvs.filter(
+            c => c.id !== conversationId && (c.messageCount ?? 0) > 0
+          );
+
+          if (earlierToday.length > 0) {
+            const recentConv = earlierToday[0];
+
+            const recentMessages = await getSharedDb()
+              .select({ role: messages.role, content: messages.content })
+              .from(messages)
+              .where(eq(messages.conversationId, recentConv.id))
+              .orderBy(desc(messages.createdAt))
+              .limit(12);
+
+            if (recentMessages.length > 0) {
+              const chronological = [...recentMessages].reverse();
+              const label = recentConv.title || recentConv.topic || 'a conversation';
+              const excerpt = chronological
+                .map(m => `${m.role === 'user' ? 'Student' : 'Daniela'}: ${(m.content || '').substring(0, 200)}`)
+                .join('\n');
+
+              lastSessionSummary = `[Earlier today — "${label}"]\n${excerpt}`;
+              console.log(`[Compass] Same-day bridge: ${recentMessages.length} messages from "${label}"`);
+            }
+          }
+        } catch (bridgeErr: any) {
+          console.warn('[Compass] Same-day bridge check failed (non-fatal):', bridgeErr.message);
+        }
       }
 
       // Build student goals from profile and class context

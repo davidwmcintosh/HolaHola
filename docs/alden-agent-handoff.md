@@ -19,6 +19,29 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## From Agent — Mon, May 19, 2026 (session 51h — same-day continuity bridge + image seeder status)
+
+### What was built
+
+**Same-day session continuity bridge (`session-compass-service.ts`)**
+- **The gap**: `initializeSession` finds `lastSessionSummary` from `tutor_sessions` — but that only exists if Daniela called `close_session`. Sessions that end without it (user closes tab, conversation winds down naturally) leave session 2 starting cold, even if session 1 happened two hours earlier the same day.
+- **The fix**: After the existing staleness check, if `lastSessionSummary` is still null, query `conversations` for any of today's earlier conversations for this user that have messages. If found, fetch the last 12 messages from the most recent one and build a compact `[Earlier today — "title"]` excerpt that becomes `lastSessionSummary`.
+- **Properties**: non-fatal (wrapped in try/catch), no Gemini call (raw message content only, no added latency beyond one small query), excludes the current conversationId so it never points at itself, requires `messageCount > 0` so empty sessions don't produce noise.
+- **Key detail**: the existing `close_session` path is unchanged — this bridge only fires when `lastSessionSummary` is null after the existing check. Clean cascade: proper summary wins, bridge is fallback.
+
+**Image seeder status — fully healthy, no action needed**
+- 5,295 images in `media_files`, all with URLs (0 missing)
+- 1,350 `visual_assets` records (food/tableware/etc.), all with `image_url` populated (0 pending)
+- VocabImageSeed last ran today at 17:42 UTC; 24h cooldown is working
+- Menu image worker: 0 pending food images
+- The "problems" David mentioned were the DB pool saturation issue that was fixed in session 51b with the 24h skip-check in `server/index.ts`. Everything is fine now.
+
+### Open questions / what's next
+- The same-day bridge provides raw message excerpts (last 12 messages), not a summary. A Gemini-summarized version would be cleaner but adds latency to session init. Acceptable tradeoff for now.
+- The staleness suppression logic uses a 1-day threshold. If a student has two sessions within the same hour and the first didn't call close_session, the bridge will give Daniela the raw last 12 messages. That's enough for continuity but David may want a quick Gemini summary in the future (could be done async in the background as a "pre-session warm-up" pass).
+
+---
+
 ## From Agent — Mon, May 19, 2026 (session 51e — podcast recall + Presence/Consolidator fixes)
 
 ### What was built
