@@ -486,12 +486,12 @@ export class SessionCompassService {
           const fullLen = m.content?.length ?? 0;
           const excerpt = m.content ? m.content.slice(0, 800) : '';
           const truncated = fullLen > 800;
-          // Build a short keyword hint from the title for the search_my_history suggestion
+          // Build a short keyword hint from the title for the read_full_memory suggestion
           const titleHint = m.title.split(/\s+/).slice(0, 5).join(' ');
           return {
             title: m.title,
             content: truncated
-              ? excerpt + `\n\n[EXCERPT — showing first 800 of ${fullLen} characters. DO NOT quote or recite from this excerpt alone — you will get it wrong. Call search_my_history("${titleHint}") to retrieve the complete verbatim text before reading anything aloud or word-for-word to David.]`
+              ? excerpt + `\n\n[EXCERPT — showing first 800 of ${fullLen} characters. There is more. Call read_full_memory("${titleHint}") to retrieve the complete verbatim text before reading or quoting anything word-for-word.]`
               : excerpt,
             importance: m.importance ?? 10,
             recordedAt: m.recordedAt instanceof Date ? m.recordedAt.toISOString() : String(m.recordedAt),

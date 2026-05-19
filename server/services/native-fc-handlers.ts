@@ -2778,6 +2778,51 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'READ_FULL_MEMORY': {
+        if (!session.isFounderMode && !session.isRawHonestyMode) {
+          console.log(`[Native Function→ReadFullMemory] Rejected - not in Founder/Honesty mode`);
+          break;
+        }
+        const memQuery = fn.args.query as string | undefined;
+        if (memQuery) {
+          pendingAsyncOps.push(
+            (async () => {
+              try {
+                const { getSharedDb } = await import('../shared-db');
+                const { conversationMemories } = await import('../../drizzle/schema');
+                const { ilike, or, desc } = await import('drizzle-orm');
+                const db = getSharedDb();
+                const results = await db
+                  .select()
+                  .from(conversationMemories)
+                  .where(
+                    or(
+                      ilike(conversationMemories.title, `%${memQuery}%`),
+                      ilike(conversationMemories.summary, `%${memQuery}%`)
+                    )
+                  )
+                  .orderBy(desc(conversationMemories.importance))
+                  .limit(1);
+                if (!session.fullMemoryResults) session.fullMemoryResults = {};
+                if (results.length > 0) {
+                  session.fullMemoryResults[memQuery] = {
+                    title: results[0].title,
+                    content: results[0].content,
+                    importance: results[0].importance ?? 7,
+                  };
+                  console.log(`[Native Function→ReadFullMemory] ✓ Found "${results[0].title}" (${results[0].content.length} chars)`);
+                } else {
+                  console.log(`[Native Function→ReadFullMemory] No match for "${memQuery}"`);
+                }
+              } catch (err: any) {
+                console.error(`[Native Function→ReadFullMemory] Error:`, err.message);
+              }
+            })()
+          );
+        }
+        break;
+      }
+
       case 'SEARCH_MY_HISTORY': {
         if (!session.isFounderMode && !session.isRawHonestyMode) {
           console.log(`[Native Function→SearchMyHistory] Rejected - not in Founder/Honesty mode`);

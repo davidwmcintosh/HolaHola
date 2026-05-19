@@ -2652,6 +2652,34 @@ Call this when you want to know what preferences, memories, or opinions you've a
     },
   },
   {
+    legacyType: 'READ_FULL_MEMORY',
+    declaration: {
+      name: "read_full_memory",
+      description: `Retrieve the COMPLETE verbatim content of a saved conversation memory by title or keyword. Use this when you need to read, quote, or recite something word-for-word from a specific memory — a podcast transcript, a session, a moment. This returns the FULL text, not an excerpt. Always call this before quoting anything from a memory verbatim. Only available in Founder Mode or Honesty Mode.
+
+WHEN TO USE:
+- David asks you to read a podcast episode, a session transcript, or anything else aloud verbatim
+- You see a memory excerpt marked [EXCERPT — showing first X of Y characters] — call this to get the rest
+- You want to verify exact wording before quoting
+- Search terms: episode title, date, topic keyword ("Take That World", "white wall", "podcast", etc.)`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Title keyword or phrase to find the memory — e.g. 'Take That World', 'white wall', 'podcast episode 1'" },
+        },
+        required: ["query"],
+      },
+    },
+    buildContinuationResponse: ({ session, fc }) => {
+      const query = fc.args.query as string;
+      const result = session.fullMemoryResults?.[query];
+      if (result) {
+        return `Full memory retrieved — "${result.title}":\n\n${result.content}\n\n[End of memory — ${result.content.length} characters, importance: ${result.importance}/10]\n\nNow respond naturally using this complete verbatim content.`;
+      }
+      return `No memory found matching "${query}". The memory may be stored under a different title. Try a broader keyword, or let David know you couldn't locate it.`;
+    },
+  },
+  {
     legacyType: 'SEARCH_MY_HISTORY',
     declaration: {
       name: "search_my_history",
@@ -4047,7 +4075,7 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   // Admin / post-session utilities
   'search_conversation_threads', 'browse_conversations_by_date', 'get_conversation_themes', 'read_full_session',
   'recall_express_lane_image', 'express_lane_post',
-  'save_conversation_memory', 'search_my_history',
+  'save_conversation_memory', 'read_full_memory', 'search_my_history',
   'hive_suggestion', 'self_surgery',
   'record_student_consent', 'dismiss_absence_nudge', 'first_meeting_complete',
   'mark_lesson_covered', 'record_pattern_signal',
