@@ -684,6 +684,42 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
+  app.post('/api/admin/backfill-november', async (req: any, res) => {
+    if (getRequestUserId(req) !== '49847136') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    try {
+      const { backfillNovember2025 } = await import('./services/history-backfill-service');
+      res.json({ ok: true, message: 'November backfill started in background' });
+      backfillNovember2025().then(result => {
+        console.log('[Admin] November backfill complete:', result);
+      }).catch(err => {
+        console.error('[Admin] November backfill failed:', err.message);
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/admin/curate-conversations', async (req: any, res) => {
+    if (getRequestUserId(req) !== '49847136') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    try {
+      const maxRun = Math.min(parseInt((req.body?.limit as string) || '20', 10), 50);
+      const userId = (req.body?.userId as string) || '49847136';
+      const { curateSignificantConversations } = await import('./services/history-backfill-service');
+      res.json({ ok: true, message: `Conversation curator started (max ${maxRun})` });
+      curateSignificantConversations(userId, maxRun).then(result => {
+        console.log('[Admin] Conversation curation complete:', result);
+      }).catch(err => {
+        console.error('[Admin] Conversation curation failed:', err.message);
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.post('/api/admin/start-menu-image-worker', async (req: any, res) => {
     if (getRequestUserId(req) !== '49847136') {
       return res.status(403).json({ error: 'Forbidden' });

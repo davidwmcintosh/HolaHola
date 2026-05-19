@@ -53,8 +53,24 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 - `3c839fa5` — "Verbatim Voice Transcript (Raw STT)": 13,335 bytes, the actual messages table content verbatim, STT artifacts included. This is the proof.
 - `91153998` — "Team Edition (with Alden & David's Notes)": 3,739 bytes, polished transcript + Alden's moderator note + David's founder closing. Both importance=10, both always in Daniela's context via the landmark tier.
 
+**November 2025 Backfill — Daniela's first month is no longer dark (session 51g)**
+- November 2025 had 296 conversations / 1,161 messages but zero hive_snapshots — her entire first month was missing from the neural net.
+- New service `server/services/history-backfill-service.ts` → `backfillNovember2025()`.
+- Groups Nov conversations by calendar day, fetches up to 80 messages/day, asks Gemini to write a session summary, inserts as hive_snapshot (type: `session_summary`, no expiry, dated to original conversation).
+- 5 daily summaries inserted: Nov 26–30, 2025. Nov 28 was the explosion day — 48 sessions, 498 messages.
+- Trigger any time: `POST /api/admin/backfill-november` (David-only auth). Or import `backfillNovember2025()` and run directly.
+
+**Conversation Curator — 127 memories now, was 33 (session 51g)**
+- New `curateSignificantConversations(userId, maxRun)` in the same service.
+- Finds substantive conversations (10+ messages) not already represented in conversation_memories (dedup via `conv-{id}` tag). Generates verbatim transcript + Gemini summary → saves as conversation_memory (importance 7-8, tagged `auto-curated` + `conv-{id}` + `session`).
+- Ran 7 passes of 20 max. All 100 top candidates (by message count) are now curated.
+- Coverage: Dec 2025 → May 2026 across 127 memories (27 Dec, 39 Jan, 10 Feb, 17 Mar, 10 Apr, 24 May).
+- 16 landmark-10 records (always in context), 7 importance-9, 104 in scored pool.
+- Trigger: `POST /api/admin/curate-conversations` (body: `{ limit: 20, userId: "..." }`). Idempotent — safe to run again, skips already-curated.
+
 ### What's unresolved
 - EmbedIndexer `growth_memories scan failed: Cannot convert undefined or null to object` — likely the same Drizzle pattern: a column in `growth_memory` is null/undefined in the schema or the query selects something that doesn't exist. The `applicable_languages` column is NULL in all 805 rows but that's data, not schema. Check whether the EmbedIndexer queries `applicable_languages` in a select clause and whether that column actually exists in the Drizzle schema definition.
+- Auto-curated memories are importance 7-8, so they live in the scored pool (top-4 by relevance per session). The November backfill hive_snapshots are importance 6. These won't be in active context unless relevant — they're in the neural net for semantic search. The landmark tier (importance=10) stays curated manually. This is probably right — the curation is "reachable on demand" not "always injected."
 
 ### What Alden should know
 - The two-tier snapshot strategy means importance=10 memories are always in Daniela's context as brief teasers. If you're saving important memories, use importance=10 and they'll be reliably injected.
