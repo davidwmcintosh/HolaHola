@@ -1494,6 +1494,9 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             let patternCompassRows: any[] = [];
             let phase2Ms = 0;
 
+            // Declare pendingReconnectSO at outer scope — needed at line ~1679 regardless of cache hit
+            let pendingReconnectSO: Awaited<ReturnType<typeof claimPendingReconnect>> = null;
+
             if (!cachedContextPrompt) {
             const phase2Start = Date.now();
             
@@ -1523,7 +1526,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             );
             
             // Check for pending reconnect session BEFORE starting a new one
-            const pendingReconnectSO = isReconnectSO && conversationId
+            pendingReconnectSO = isReconnectSO && conversationId
               ? await claimPendingReconnect(conversationId, userId!)
               : null;
             
