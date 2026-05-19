@@ -4044,7 +4044,7 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] =
  *     drill_session_end, start_textbook_page, log_page_event, search_textbook
  *   Admin / post-session only: browse_conversations_by_date, get_conversation_themes,
  *     read_full_session, search_conversation_threads, recall_express_lane_image,
- *     express_lane_post, save_conversation_memory, search_my_history,
+ *     express_lane_post, save_conversation_memory, read_full_memory,
  *     hive_suggestion, self_surgery, record_student_consent, dismiss_absence_nudge,
  *     first_meeting_complete, mark_lesson_covered, record_pattern_signal,
  *     set_memory_pin, correct_memory, forget_memory, set_learning_goal,
