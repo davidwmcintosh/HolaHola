@@ -716,9 +716,27 @@ app.use((req, res, next) => {
 
     // +70s: Vocab Image Library — fill any gaps since cache hits are free/instant.
     // Processes all textbook vocab words for all languages; skips words that already
-    // have a cached watercolor image. Only calls DALL-E on true misses.
+    // have a cached watercolor image. Only calls the image engine on true misses.
+    // SKIP CHECK: If seeder ran within the last 24h, skip this startup run entirely
+    // to avoid DB pool saturation during /chat session init.
     setTimeout(async () => {
       try {
+        const { getSharedDb } = await import('./neon-db');
+        const { sql } = await import('drizzle-orm');
+        const db = getSharedDb();
+        const rows = await db.execute(sql`
+          SELECT content FROM editor_insights
+          WHERE title = 'vocab_image_seed_last_run' AND category = 'context'
+          ORDER BY created_at DESC LIMIT 1
+        `);
+        if (rows.rows.length > 0) {
+          const lastRun = new Date(rows.rows[0].content as string);
+          const hoursSince = (Date.now() - lastRun.getTime()) / (1000 * 60 * 60);
+          if (hoursSince < 24) {
+            console.log(`[VocabImageSeed] Skipping startup seed — last run ${hoursSince.toFixed(1)}h ago (< 24h)`);
+            return;
+          }
+        }
         const { seedAllVocabImages } = await import('./services/vocab-image-seed-service');
         const jobId = `boot-vocab-seed-${Date.now()}`;
         seedAllVocabImages(jobId).catch((e: any) =>

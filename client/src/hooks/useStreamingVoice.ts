@@ -656,6 +656,30 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       sessionConfigRef.current.onNoSpeechDetected();
     }
   }, []);
+
+  /**
+   * Handle function_executing message — server is running a tool call (memory search,
+   * image generation, etc.). Refreshes the thinking state so the avatar stays in
+   * "thinking" mode for the full duration of the tool call, not just until processing_pending.
+   */
+  const handleFunctionExecuting = useCallback((msg: { type: string; functionName?: string; timestamp?: number }) => {
+    console.log(`[StreamingVoice] Function executing: ${msg.functionName || 'unknown'} — refreshing thinking state`);
+    // Guard: never override active audio playback
+    if (getGlobalPlaybackState() === 'playing' || getGlobalPlaybackState() === 'buffering') return;
+    // Refresh thinking state and re-arm the processing timeout so the avatar doesn't
+    // time out during a long tool call (e.g. 15-30s image generation).
+    setIsProcessing(true);
+    setGlobalPlaybackState('thinking');
+    if (processingTimeoutRef.current) clearTimeout(processingTimeoutRef.current);
+    processingTimeoutRef.current = setTimeout(() => {
+      console.log('[StreamingVoice] Function-executing timeout — resetting stuck state');
+      setIsProcessing(false);
+      setGlobalPlaybackState('idle');
+      playerRef.current?.stop?.();
+    }, PROCESSING_TIMEOUT_MS);
+    // Notify component so it keeps its own isProcessing ref active
+    sessionConfigRef.current?.onProcessingPending?.();
+  }, []);
   
   /**
    * Handle sentence start message
@@ -1693,6 +1717,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       });
       clientRef.current.on('processing', handleProcessing);
       clientRef.current.on('processing_pending', handleProcessingPending);  // Immediate thinking signal
+      clientRef.current.on('functionExecuting', handleFunctionExecuting);   // Tool call in progress — refresh thinking
       clientRef.current.on('sentenceStart', handleSentenceStart);
       clientRef.current.on('expectedSentenceCount', handleExpectedSentenceCount);
       clientRef.current.on('sentenceReady', handleSentenceReady);  // NEW: Atomic first audio + timing

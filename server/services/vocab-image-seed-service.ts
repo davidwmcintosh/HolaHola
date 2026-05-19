@@ -2032,6 +2032,20 @@ export async function seedAllVocabImages(jobId: string, languages?: string[]): P
     bulk.status = 'complete';
     bulk.finishedAt = new Date().toISOString();
     console.log(`[BulkVocabSeed] All languages complete`);
+
+    // Record completion timestamp so startup skip check can short-circuit for 24h
+    try {
+      const { getSharedDb } = await import('../neon-db');
+      const { sql } = await import('drizzle-orm');
+      const db = getSharedDb();
+      await db.execute(sql`
+        INSERT INTO editor_insights (id, category, title, content, importance, tags)
+        VALUES (gen_random_uuid(), 'context', 'vocab_image_seed_last_run', ${new Date().toISOString()}, 3, ARRAY['seeder','startup'])
+      `);
+      console.log('[BulkVocabSeed] Saved completion timestamp to editor_insights');
+    } catch (stampErr: any) {
+      console.warn('[BulkVocabSeed] Failed to save completion timestamp:', stampErr.message);
+    }
   } catch (err: any) {
     bulk.status = 'error';
     bulk.errors.push(err.message);

@@ -1358,6 +1358,34 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             
             const phase1Ms = Date.now() - initStart;
             console.log(`[SessionInit] Phase 1 (parallel DB lookups) completed in ${phase1Ms}ms`);
+
+            // ══════════════════════════════════════════════════════════════
+            // SESSION CONTEXT CACHE: On reconnect after a server restart,
+            // check for a fresh cached system prompt to skip Phase 2 & 3
+            // (the expensive 12-query enrichment + prompt assembly).
+            // This cuts reconnect init from 10-25s to < 1s.
+            // Cache lives in editor_insights (category='context') for up to 4h.
+            // ══════════════════════════════════════════════════════════════
+            let cachedContextPrompt: string | null = null;
+            if (isReconnectSO && userId && conversationId) {
+              try {
+                const cacheKey = `session_ctx_${userId}_${conversationId}`;
+                const cacheRows = await db.execute(sql`
+                  SELECT content FROM editor_insights
+                  WHERE title = ${cacheKey} AND category = 'context'
+                  AND created_at > NOW() - INTERVAL '4 hours'
+                  ORDER BY created_at DESC LIMIT 1
+                `);
+                if (cacheRows.rows.length > 0) {
+                  cachedContextPrompt = cacheRows.rows[0].content as string;
+                  console.log(`[SessionCache] ✓ Reconnect cache hit (${cachedContextPrompt.length} chars) — skipping Phase 2 & 3`);
+                } else {
+                  console.log('[SessionCache] No fresh cache — running full init on reconnect');
+                }
+              } catch (cacheErr: any) {
+                console.warn('[SessionCache] Cache lookup failed (continuing with full init):', cacheErr.message);
+              }
+            }
             
             const userName = user?.firstName || 'friend';
             let conversation = conversation_raw;
@@ -1447,7 +1475,26 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             // PHASE 2: Parallel enrichment (compass, neural network, usage session)
             // These are independent and can ALL run at the same time.
             // Each has a timeout so one slow query can't block the others.
+            // SKIP if cachedContextPrompt is set (reconnect with fresh cache).
             // ══════════════════════════════════════════════════════════════
+
+            // Declare Phase 2 result vars as let so they can be set inside
+            // the conditional block below and used in Phase 3 when needed.
+            let compassResult: any = null;
+            let neuralNetworkContext: string = '';
+            let usageSessionResult: any = null;
+            let courseToc: any = null;
+            let studentSnapshot: any = null;
+            let studentMemoryContext: any = null;
+            let predictiveContext: any = null;
+            let expressLaneResult: any = null;
+            let identityMemoriesResult: any = null;
+            let growthLogResult: any = null;
+            let danielaSuggestionsResult: any[] = [];
+            let patternCompassRows: any[] = [];
+            let phase2Ms = 0;
+
+            if (!cachedContextPrompt) {
             const phase2Start = Date.now();
             
             const compassPromise = (COMPASS_ENABLED && conversationId && userId)
@@ -1602,7 +1649,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
                 )
               : Promise.resolve([] as any[]);
 
-            const [compassResult, neuralNetworkContext, usageSessionResult, courseToc, studentSnapshot, studentMemoryContext, predictiveContext, expressLaneResult, identityMemoriesResult, growthLogResult, danielaSuggestionsResult, patternCompassRows] = await Promise.all([
+            [compassResult, neuralNetworkContext, usageSessionResult, courseToc, studentSnapshot, studentMemoryContext, predictiveContext, expressLaneResult, identityMemoriesResult, growthLogResult, danielaSuggestionsResult, patternCompassRows] = await Promise.all([
               compassPromise.catch((err: any) => { console.warn(`[Compass Init] Error: ${err.message}`); return null; }),
               neuralNetworkPromise.catch((err: any) => { console.warn(`[Neural Network] Error: ${err.message}`); return ''; }),
               usageSessionPromise.catch((err: any) => { console.warn(`[Usage Session] Error: ${err.message}`); return null; }),
@@ -1617,8 +1664,9 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
               patternCompassPromise.catch((err: any) => { console.warn(`[Pattern Compass] Error: ${err.message}`); return []; }),
             ]);
             
-            const phase2Ms = Date.now() - phase2Start;
+            phase2Ms = Date.now() - phase2Start;
             console.log(`[SessionInit] Phase 2 (parallel enrichment) completed in ${phase2Ms}ms`);
+            } // end if (!cachedContextPrompt) — Phase 2 skip on reconnect cache hit
             
             // Apply compass results
             if (compassResult) {
@@ -1651,6 +1699,12 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             // ══════════════════════════════════════════════════════════════
             const isSubjectSession = isBiologySession(config.subject, config.targetLanguage) || isHistorySession(config.subject, config.targetLanguage) || isMathSession(config.subject, config.targetLanguage) || isBusinessSession(config.subject, config.targetLanguage);
             let systemPrompt: string;
+            if (cachedContextPrompt) {
+              // RECONNECT CACHE HIT: Use the prompt baked at session start.
+              // Skips the entire Phase 3 assembly (600-2000ms synchronous work).
+              systemPrompt = cachedContextPrompt;
+              console.log('[SessionCache] ✓ Skipping Phase 3 — using cached system prompt');
+            } else {
             if (isBiologySession(config.subject, config.targetLanguage)) {
               if (tutorGender === 'male') {
                 systemPrompt = buildGeneSystemPrompt({ studentName: user?.firstName || undefined });
@@ -1934,6 +1988,23 @@ When asked about specific past moments, quotes, or exchanges (e.g. "our podcast 
 `;
                 console.log(`[Streaming Voice] ✓ Context map injected (${loadedSources.length} sources listed)`);
               }
+            }
+            } // end if (!cachedContextPrompt) — Phase 3 skip on reconnect cache hit
+
+            // CONTEXT CACHE SAVE: After a fresh init, persist the assembled system prompt
+            // so that reconnects (e.g. after server restart) can skip Phases 2 & 3.
+            // Fire-and-forget — never blocks session creation.
+            // Only cache language sessions (subject tutors use static prompts, not worth caching).
+            if (!cachedContextPrompt && userId && conversationId && !isSubjectSession) {
+              const cacheKey = `session_ctx_${userId}_${conversationId}`;
+              db.execute(sql`
+                INSERT INTO editor_insights (id, category, title, content, importance, tags)
+                VALUES (gen_random_uuid(), 'context', ${cacheKey}, ${systemPrompt!}, 1, ARRAY['session-cache'])
+              `).then(() => {
+                console.log(`[SessionCache] ✓ Context cached (${systemPrompt!.length} chars) for conv ${conversationId!.substring(0, 8)}`);
+              }).catch((e: any) => {
+                console.warn('[SessionCache] Failed to save context cache:', e.message);
+              });
             }
 
             // Build conversation history

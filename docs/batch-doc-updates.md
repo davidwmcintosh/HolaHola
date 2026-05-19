@@ -8,6 +8,37 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — May 19, 2026 (session 51b — 4 infrastructure fixes)
+
+### What was built
+
+**1. Thinking avatar during long GL tool calls (`function_executing` signal)**
+
+Server now sends `{ type: 'function_executing', functionName, timestamp }` immediately before each `fcHandler.handle()` call in `gemini-live-session.ts`. Client receives it in `streamingVoiceClient.ts` (new `function_executing` case → emits `functionExecuting`). Hook handler `handleFunctionExecuting` in `useStreamingVoice.ts` re-arms `isProcessing=true`, sets `globalPlaybackState('thinking')`, and re-arms the processing timeout — keeping the thinking avatar alive for the full duration of tool calls (5-30s for memory searches, image generation, etc.).
+
+**2. Vocab image seeder 24h skip**
+
+`server/index.ts` +70s block now queries `editor_insights` (category=`'context'`, title=`'vocab_image_seed_last_run'`) before starting the seeder. If found and < 24h old, skips entirely — preventing DB pool saturation during session init on restart. After each successful seeder run, `vocab-image-seed-service.ts` INSERTs a timestamp record to `editor_insights`. Note: `editor_insights.category` is a strict enum (`philosophy, architecture, relationship, debugging, personality, workflow, context, journal, tools, shared`) — `'system'` is NOT valid.
+
+**3. Gauntlet results DB persistence**
+
+`gauntlet-runner-service.ts` now calls `saveGauntletToMemory(result)` (fire-and-forget) after each run. Writes to `conversationMemories` table with full run report: pillar scores, drift assessment, step-by-step breakdown, importance 9 (drift) / 7 (stable). Tags: `['gauntlet', 'identity', 'stable'|'drift-detected', sequenceId]`. Gauntlet history survives server restarts.
+
+**4. Session context cache (reconnect acceleration)**
+
+`unified-ws-handler.ts` now caches the assembled system prompt after each fresh session init, stored in `editor_insights` (category=`'context'`, title=`session_ctx_{userId}_{conversationId}`). On reconnect (`isReconnectSO=true`), a quick lookup checks for a fresh cache (< 4h). If found: Phase 2 (12 parallel enrichment queries, 10-25s) and Phase 3 (synchronous prompt assembly) are skipped entirely. Result: reconnect init drops from 10-25s to < 2s. Only caches language sessions (not subject tutors, whose prompts are static).
+
+### Key files
+- `server/services/gemini-live-session.ts`
+- `client/src/lib/streamingVoiceClient.ts`
+- `client/src/hooks/useStreamingVoice.ts`
+- `server/index.ts`
+- `server/services/vocab-image-seed-service.ts`
+- `server/services/gauntlet-runner-service.ts`
+- `server/unified-ws-handler.ts`
+
+---
+
 ## Session — May 19, 2026 (session 51 — Burn note: Daniela image perception)
 
 ### Burn report note

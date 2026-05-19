@@ -19,6 +19,74 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## From Agent — Mon, May 19, 2026 (session 51b — 4 infrastructure fixes: thinking avatar, seeder skip, gauntlet memory, session cache)
+
+### What was built
+
+**1. Thinking avatar stays alive during long GL tool calls (function_executing signal)**
+
+Root cause: When Gemini Live runs a tool call (memory search, image generation, etc.), the 5-30s gap between `processing_pending` and the next audio chunk had no client signal to keep `isProcessing=true`. The thinking avatar would drop to listening mid-tool-call.
+
+Fix: Three-file chain.
+- `server/services/gemini-live-session.ts` (~line 1065): Immediately before `await this.fcHandler.handle(...)`, the server sends a `{ type: 'function_executing', functionName, timestamp }` WS message. Fire-and-forget, non-critical.
+- `client/src/lib/streamingVoiceClient.ts` (case `function_executing`): Emits `functionExecuting` event to the hook. Also added `'functionExecuting'` to the `StreamingEventType` union.
+- `client/src/hooks/useStreamingVoice.ts`: `handleFunctionExecuting` callback — guards against overriding active playback, re-arms `isProcessing=true`, sets `globalPlaybackState('thinking')`, re-arms the `PROCESSING_TIMEOUT_MS` timer, and calls `onProcessingPending`. Registered at line ~1720 alongside other event listeners.
+
+Effect: Thinking avatar now stays visible for the full duration of any tool call, not just until `processing_pending` fires.
+
+**2. Vocab image seeder 24h skip (stops DB pool saturation on restart)**
+
+Root cause: The seeder at +70s ran on *every* server restart, flooding the DB pool with 2477+ queries exactly when session init was happening.
+
+Fix:
+- `server/index.ts` (+70s block): Before calling `seedAllVocabImages`, queries `editor_insights` for `title='vocab_image_seed_last_run'` AND `category='context'`. If found and < 24h old, logs skip and returns.
+- `server/services/vocab-image-seed-service.ts` (after `bulk.status = 'complete'`): INSERTs a new `editor_insights` row (category='context', title='vocab_image_seed_last_run', content=ISO timestamp).
+
+Important: The `editor_insights.category` column is an enum — valid values are: `philosophy, architecture, relationship, debugging, personality, workflow, context, journal, tools, shared`. Used `'context'`. Do NOT use `'system'` (not in the enum).
+
+**3. Gauntlet results survive server restarts (DB persistence)**
+
+Root cause: `GauntletRunnerService.results: GauntletResult[]` was in-memory only. Lost on restart.
+
+Fix: `server/services/gauntlet-runner-service.ts` — after `this.results.push(result)`, fires `this.saveGauntletToMemory(result)` as a non-blocking promise. New private method inserts into `conversationMemories` table: title includes sequence name + score label, content includes full structured run report (pillars, drift, step-by-step), importance=9 if drift detected else 7, tags include `['gauntlet', 'identity', 'stable'|'drift-detected', sequenceId]`. Participants: `'Gauntlet System + Daniela'`.
+
+**4. Session context cache (skips 18-phase init on reconnect)**
+
+Root cause: On mid-session server restart + reconnect (`isReconnectSO=true`), all 18 init phases re-ran (10-25s). This was particularly bad when the DB pool was already stressed at restart.
+
+Fix in `server/unified-ws-handler.ts` — three parts:
+
+A) **Cache check** (after Phase 1, before Phase 2): On `isReconnectSO && userId && conversationId`, queries `editor_insights` for `title = 'session_ctx_{userId}_{conversationId}'` (category='context') created within last 4h. If found, stores in `cachedContextPrompt`.
+
+B) **Phase 2 skip**: The 12 enrichment promise declarations are unchanged, but results are declared as `let` before the Phase 2 block, and the entire Phase 2 block is wrapped in `if (!cachedContextPrompt) { ... }`. On cache hit, all 12 variables default to null/empty (Daniela runs without live-fetched context but has the fully assembled prompt from session start).
+
+C) **Phase 3 skip**: `if (cachedContextPrompt) { systemPrompt = cachedContextPrompt; }` else the full Phase 3 assembly runs. After Phase 3 (fresh init only, non-subject sessions), a fire-and-forget INSERT to `editor_insights` caches the assembled prompt for future reconnects.
+
+Effect: Reconnect after server restart goes from 10-25s to < 2s (just Phase 1 user/messages lookup).
+
+### Key files changed
+
+- `server/services/gemini-live-session.ts` — function_executing signal before tool call
+- `client/src/lib/streamingVoiceClient.ts` — function_executing case + StreamingEventType union
+- `client/src/hooks/useStreamingVoice.ts` — handleFunctionExecuting + event registration
+- `server/index.ts` — seeder 24h skip check
+- `server/services/vocab-image-seed-service.ts` — seeder timestamp save
+- `server/services/gauntlet-runner-service.ts` — saveGauntletToMemory method
+- `server/unified-ws-handler.ts` — session context cache (check + Phase 2 conditional + Phase 3 conditional + save)
+
+### What to watch for
+
+- **Seeder skip**: First boot after this fix will still seed (no record exists yet). After it completes, `editor_insights` gets the timestamp row. All subsequent boots within 24h will skip. You'll see `[VocabImageSeed] Skipping startup seed — last run X.Xh ago (< 24h)` in logs.
+- **Session cache**: You'll see `[SessionCache] ✓ Context cached (XXXXX chars) for conv XXXXXXXX` in logs after first session init. On reconnect you'll see `[SessionCache] ✓ Reconnect cache hit (XXXXX chars) — skipping Phase 2 & 3`.
+- **Gauntlet memory**: After any gauntlet run, you'll see `[Gauntlet] ✓ Saved to conversation_memories: <sequence name> (<label>)` in logs.
+- **function_executing**: In voice chat during long tool calls, console will show `[StreamingVoice] Function executing: <toolName> — refreshing thinking state`.
+
+### What's unresolved
+
+Nothing critical from this session. The VoIP follow-up tasks (#26, #27, #28 — Daniela calling the student) are queued as project tasks.
+
+---
+
 ## From Agent — Mon, May 19, 2026 (session 51 — Sofia VHT dedup + show_image refinement + 4 voice chat bugs)
 
 ### What was built

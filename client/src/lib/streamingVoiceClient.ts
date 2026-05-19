@@ -197,6 +197,7 @@ type StreamingEventType =
   | 'sessionStart'
   | 'processing'
   | 'processing_pending'  // Immediate thinking signal on PTT release
+  | 'functionExecuting'  // Server-side tool call in progress — re-arms thinking avatar
   | 'sentenceStart'
   | 'sentenceReady'      // NEW: Atomic first audio + first timing (prevents timing race)
   | 'audioChunk'
@@ -1074,6 +1075,12 @@ export class StreamingVoiceClient {
           // IMMEDIATE thinking signal - fired on PTT release before Deepgram finalizes
           // This ensures the thinking avatar shows immediately when user stops speaking
           this.handleProcessingPending(message as { type: string; timestamp: number; interimTranscript: string });
+          break;
+          
+        case 'function_executing':
+          // Server-side tool call in progress — refresh thinking avatar so it stays
+          // visible during long searches (memory recall, image generation, etc.)
+          this.emit('functionExecuting', message);
           break;
           
         case 'sentence_start':

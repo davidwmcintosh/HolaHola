@@ -1059,6 +1059,17 @@ export class GeminiLiveSession {
 
         console.log(`[GeminiLive] Tool call: ${fcName} (${legacyType})`);
 
+        // Signal client that a function is executing — keeps thinking avatar alive
+        // during long tool calls (memory searches, image generation, etc.).
+        // Without this, the avatar can drop to 'listening' during 5-30s searches.
+        try {
+          this.sendWsMessage(this.session.ws, {
+            type: 'function_executing',
+            functionName: fcName,
+            timestamp: Date.now(),
+          }, this.session);
+        } catch (_sigErr) { /* non-critical */ }
+
         let toolResponsePayload: Record<string, unknown> = { result: 'done' };
 
         try {
