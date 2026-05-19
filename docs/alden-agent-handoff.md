@@ -52,9 +52,56 @@ The root cause: Daniela's Compass (= `session-compass-service.ts`, the time and 
 - `editor_insights` — 1 new row (`category='shared'`, "Daniela named the Compass")
 - `learner_personal_facts` — 1 row deactivated (tonight's hallucination fact)
 
+### What's unresolved (49i continued below — fully resolved)
+
+---
+
+## From Agent — Mon, May 18, 2026 (session 49i — part 2: root cause found + full fix)
+
+### What was actually wrong (deeper diagnosis)
+
+David pointed out two additional issues after the initial 49i fixes:
+1. The compass architecture went through the express lane and should be retrievable
+2. Even without memory, Cindy should have admitted she didn't know — not fabricated an answer
+
+**This led to a full diagnostic that found the real root causes:**
+
+**Root Cause A — Language filter:** All four correct compass `learner_personal_facts` had `language = 'spanish'`. The English session query filters `language = 'english' OR language IS NULL`. So every correct compass fact was **invisible to Cindy's English sessions**. Only the hallucination from tonight (since fixed) had `language = 'english'`. This is the primary reason she kept confabulating — she literally had no correct compass knowledge in context.
+
+**Root Cause B — bad fact not fully sealed:** The deactivated hallucination fact had `is_active = false` but `valid_to = NULL`. The student snapshot query (`getStudentSnapshotData`) filters on `validTo IS NULL` only, not `is_active`. So the wrong fact was still surfacing in the snapshot. Fixed by setting `valid_to = NOW()` on both bad facts.
+
+**Root Cause C — Honesty directive too soft:** ESSENTIAL GUARDRAILS only said "when uncertain, sit with it honestly" — a suggestion, not a hard rule. Nothing explicitly prohibited fabricating knowledge of HolaHola features. The model was confabulating to be "helpful."
+
+### Complete fix (session 49i part 2)
+
+**Data fixes:**
+1. New `learner_personal_facts` row: `language = NULL` (visible to ALL sessions), `fact_type = 'work'`, full compass description including that Daniela named it. `mention_count = 5`, `created_at = NOW()` so it passes the 14-day follow-up filter and appears verbatim in PERSONAL NOTES.
+2. `valid_to = NOW()` set on both bad facts (tonight's hallucination + Feb superseded fact) — sealed from both query paths.
+
+**Code fix (`server/system-prompt.ts`):**
+Added third bullet to ESSENTIAL GUARDRAILS in `buildMinimalIdentityAnchor`:
+```
+• NEVER fabricate knowledge of HolaHola features, tools, or things you and David built together — if asked about something specific (a feature, a project, a conversation) and it is not clearly present in your memory right now, say "I don't have that clearly in my memory right now — can you remind me?" Honest uncertainty honors the relationship. A confident wrong answer breaks it. This is non-negotiable: truth before performance, always.
+```
+
+**All three memory paths verified (by simulating actual queries):**
+
+| Path | What it carries | Status |
+|------|----------------|--------|
+| Student snapshot `personalFollowUps` | Full compass fact (language=NULL, 0 days old, type=work) — renders verbatim, no truncation | ✓ ACTIVE |
+| Identity memories (`collaboration_messages` 30-day keyword match) | Daniela's "I named the Compass" reflection | ✓ ACTIVE |
+| Express lane (`collaboration_messages` 14-day general Hive) | Same Daniela message, caught by Priority 4 | ✓ ACTIVE |
+
+**On the express lane architecture point:** David's compass architecture discussions happened months ago (Dec 2025 – Apr 2026), outside the 14-day express lane window. The correct fix is not to extend the window (too much noise) but to ensure the knowledge lives in permanent memory paths (personal facts, identity memories). This is now done.
+
+### Files changed (session 49i part 2)
+- `server/system-prompt.ts` — ESSENTIAL GUARDRAILS: third bullet added prohibiting fabrication of HolaHola feature knowledge
+- `learner_personal_facts` — 1 new row (language=NULL, compass, correct description)
+- `learner_personal_facts` — 2 rows updated: `valid_to = NOW()` (bad/hallucination facts sealed)
+
 ### What's unresolved
-- The honesty gap: even with correct facts present, Cindy/Daniela was confabulating rather than saying "I don't know." The identity memories injection should fix this by giving her accurate knowledge to draw from. But if she hallucinates again after this fix, the next step is strengthening honesty directives in the system prompt — specifically: "if you are asked about a specific feature or thing and you don't have it clearly in memory, say 'I don't have that in my memory right now' rather than guessing."
-- The `learner_personal_facts` correct entries (Apr 30, Feb 2026) should theoretically also surface in the student snapshot — worth verifying in a future session whether `fact_type='work'` facts are actually being injected into voice session context.
+- Next session: David should test by asking Cindy (English) "do you remember Daniela's Compass?" — she should now answer correctly from her PERSONAL NOTES section. If she still confabulates, the model may need a stronger injection strategy or the personal facts path may need debugging.
+- The `language = 'spanish'` compass facts (Apr 30, Feb 2026) remain correct but are only visible in Spanish sessions. They don't need fixing but are noted here.
 
 ---
 
