@@ -1573,9 +1573,11 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
       if (allEarlyConnect) return true;
     }
 
-    // voice_health_transition in development = single user (David) iterating on voice
-    // features. Oscillating green↔yellow is expected testing behaviour, not a production issue.
-    if (issueType === 'voice_health_transition' && environment === 'development') {
+    // voice_health_transition = server-generated health monitor events (userId: 'system').
+    // These are single-user session quality signals, not multi-user production outages.
+    // Green↔yellow oscillation on a single device (e.g. 4G) is expected and not actionable.
+    // Suppress in any environment when all reports come from a single user/source.
+    if (issueType === 'voice_health_transition') {
       const userIds = new Set(reports.map(r => r.userId).filter(Boolean));
       if (userIds.size <= 1) return true;
     }
@@ -1602,14 +1604,22 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
       // Build a diagnostic fingerprint from report details so that
       // genuinely different failure modes (e.g. expected=0 vs expected=1)
       // get separate hash rows rather than being silently merged.
-      const diagnosticFingerprint = reports.slice(0, 5).map(r => {
-        const desc = r.description || '';
-        const expectedMatch = desc.match(/expected=(\?|\d+)/);
-        const receivedMatch = desc.match(/received=(\d+)/);
-        const audioMatch = desc.match(/playing=(\w+)/);
-        const contextMatch = desc.match(/context=(\w+)/);
-        return `${expectedMatch?.[1] || '?'}:${receivedMatch?.[1] || '?'}:${audioMatch?.[1] || '?'}:${contextMatch?.[1] || '?'}`;
-      }).join('|');
+      //
+      // voice_health_transition reports never contain the expected=/received=/playing=/context=
+      // fields, so the regex-based fingerprint always produces ?:?:?:?  repeated N times where
+      // N = how many reports happen to be in the window at detection time.  Variable N → variable
+      // hash → new support_patterns row every single detection cycle (root cause of the 63-row
+      // accumulation).  Use a fixed fingerprint for this issue type so the hash is stable.
+      const diagnosticFingerprint = issueType === 'voice_health_transition'
+        ? 'vht'
+        : reports.slice(0, 5).map(r => {
+            const desc = r.description || '';
+            const expectedMatch = desc.match(/expected=(\?|\d+)/);
+            const receivedMatch = desc.match(/received=(\d+)/);
+            const audioMatch = desc.match(/playing=(\w+)/);
+            const contextMatch = desc.match(/context=(\w+)/);
+            return `${expectedMatch?.[1] || '?'}:${receivedMatch?.[1] || '?'}:${audioMatch?.[1] || '?'}:${contextMatch?.[1] || '?'}`;
+          }).join('|');
 
       // Fast-path: suppress patterns we've investigated dozens of times and confirmed benign.
       // These are structural false-positives (normal session lifecycle events, not real bugs).
@@ -1624,15 +1634,21 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
         .digest('hex')
         .substring(0, 64);
 
-      // Check for existing pattern — no time limit for 'known_benign' status rows so they
-      // suppress indefinitely; for other statuses use a 30-day rolling window.
+      // Check for existing pattern.
+      // known_benign rows suppress indefinitely (no time limit) — they've been investigated
+      // and confirmed harmless; we never want a new row for them regardless of age.
+      // All other statuses use a 30-day rolling window so genuinely recurring issues
+      // that have gone quiet can resurface for fresh investigation.
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       const existing = await sharedDb
         .select({ id: supportPatterns.id, status: supportPatterns.status, occurrenceCount: supportPatterns.occurrenceCount })
         .from(supportPatterns)
         .where(and(
           eq(supportPatterns.signatureHash, signatureHash),
-          gte(supportPatterns.updatedAt, thirtyDaysAgo),
+          or(
+            eq(supportPatterns.status, 'known_benign'),
+            gte(supportPatterns.updatedAt, thirtyDaysAgo),
+          ),
         ))
         .limit(1);
 

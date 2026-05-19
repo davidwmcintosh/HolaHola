@@ -426,7 +426,7 @@ Do NOT use this between character lines — only call it when YOU need to speak.
       description: `Display an image on the whiteboard. This is the ONLY image tool for vocabulary — use it for every vocabulary word: nouns, verbs, adjectives, colors, everything.
 
 HOW IT WORKS:
-1. Pass the Spanish word in 'word'. The tool checks the curated watercolor illustration library first (instant, free, stylistically consistent).
+1. Pass the target language word in 'word'. The tool checks the curated watercolor illustration library first (instant, free, stylistically consistent).
 2. If no library image exists, it automatically generates one in the same watercolor style and saves it for future use. You don't need to do anything — it's fully automatic.
 
 USE show_image for:
@@ -4116,15 +4116,12 @@ export function getDanielajGLFunctionDeclarationsForLanguage(
   return DANIELA_GL_FUNCTION_DECLARATIONS.map(decl => {
     if (decl.name !== 'show_image') return decl;
 
-    const languagePrefix =
-      `⚠️ SESSION LANGUAGE: You are teaching ${capTarget}. ` +
-      `Always pass the ${capTarget} word in 'word'. ` +
-      `The 'translation' field must be in ${capNative} (the student's native language). ` +
-      `The examples below reference Spanish — apply the same logic to ${capTarget}.\n\n`;
+    const sessionContext =
+      `Session: teaching ${capTarget} to a ${capNative}-speaking student.\n\n`;
 
     return {
       ...decl,
-      description: languagePrefix + (decl.description || ''),
+      description: sessionContext + (decl.description || ''),
     };
   });
 }

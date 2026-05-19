@@ -19,6 +19,35 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## From Agent — Mon, May 19, 2026 (session 51 — Sofia VHT dedup fix + show_image language refinement)
+
+### What was built
+
+**1. Sofia voice_health_transition dedup bug — 3 fixes, 52 junk rows cleaned**
+
+Root cause: `support_patterns` was accumulating a new row on every monitoring cycle for `voice_health_transition`. Two bugs:
+
+- **Benign suppression was dev-only** (`isKnownBenignFingerprint` at line ~1579): the check `&& environment === 'development'` meant production VHT events were never suppressed. Since all VHT reports have `userId: 'system'` (single source, server-generated), the `userIds.size <= 1` check works correctly in any environment. Removed the dev gate.
+
+- **Unstable fingerprint**: `escalateToAlden` builds a fingerprint from `expected=`/`received=`/`playing=`/`context=` regex matches. VHT descriptions never contain these fields, so every segment is `?:?:?:?`. The fingerprint length varied with how many reports were in the 1h window (3, 4, or 5 segments) — different lengths → different hashes → new row every cycle. Fixed: VHT now uses a stable fixed fingerprint `'vht'` so the hash is always `sha256("voice_health_transition:<env>:vht")`.
+
+- **Bonus: `known_benign` rows still hit the 30-day window**: the comment said they suppress indefinitely but the WHERE clause applied `gte(updatedAt, thirtyDaysAgo)` to all rows including `known_benign`. Fixed with an `or()` — `known_benign` rows now match regardless of age.
+
+DB cleanup: deleted all 52 existing VHT `support_patterns` rows (all `investigating`, none ever actioned). The benign suppression now fires before any DB write, so no new rows will form.
+
+**2. show_image language fix refined (David feedback)**
+
+The session 50 fix was too prescriptive — the dynamic prefix said "Always pass the English word in 'word'. The 'translation' field must be in Spanish." David's feedback: the AI should know the session languages and use them naturally (ACTFL-appropriate), not follow mechanical rules. Fixed:
+
+- Static description: "Pass the Spanish word in 'word'" → "Pass the target language word in 'word'"
+- Dynamic prefix changed from command-style ("Always…", "must be in…") to a natural context note: "Session: teaching English to a Spanish-speaking student."
+
+### What's unresolved / watch for
+
+Nothing new. The VHT fix is complete and the queue is clear (52 rows gone). If new VHT patterns appear from multi-user contexts (i.e., `userIds.size > 1`), those will still escalate correctly — the suppression only fires for single-user/system-sourced events.
+
+---
+
 ## From Agent — Mon, May 19, 2026 (session 50 — show_image language fix + Consolidator crash fix)
 
 ### What was built
