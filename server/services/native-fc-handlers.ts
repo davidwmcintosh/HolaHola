@@ -2807,6 +2807,11 @@ export class NativeFunctionCallHandler {
                     importance: results[0].importance ?? 7,
                   };
                   console.log(`[Native Function→ReadFullMemory] ✓ Found "${results[0].title}" (${results[0].content.length} chars)`);
+                  // Reinforce on ILIKE hit — accessed memories strengthen, keeping them surfaceable
+                  const hitId = results[0].id;
+                  import('./memory-decay-service').then(({ reinforceMemory }) => {
+                    reinforceMemory('conversation_memory', hitId).catch(() => {});
+                  });
                 } else {
                   // Semantic fallback — keyword search found nothing; try embedding similarity
                   console.log(`[Native Function→ReadFullMemory] No keyword match for "${memQuery}" — trying semantic fallback`);
@@ -2828,6 +2833,11 @@ export class NativeFunctionCallHandler {
                             importance: row.importance ?? 7,
                           };
                           console.log(`[Native Function→ReadFullMemory] ✓ Semantic match "${row.title}" (${(hits[0].similarity * 100).toFixed(0)}% similarity, ${row.content.length} chars)`);
+                          // Reinforce on semantic hit too — reading a memory is using it
+                          const semanticHitId = row.id;
+                          import('./memory-decay-service').then(({ reinforceMemory }) => {
+                            reinforceMemory('conversation_memory', semanticHitId).catch(() => {});
+                          });
                         } else {
                           console.log(`[Native Function→ReadFullMemory] Semantic hit memoryId=${hits[0].memoryId} not found in conversation_memories`);
                         }
@@ -2844,6 +2854,98 @@ export class NativeFunctionCallHandler {
               }
             })()
           );
+        }
+        break;
+      }
+
+      case 'FIND_CONNECTED_MEMORIES': {
+        const srcMemId = fn.args.memory_id as string | undefined;
+        const srcMemType = (fn.args.memory_type as string | undefined) || 'conversation_memory';
+        const connLimit = Math.min(10, Math.max(1, Number(fn.args.limit) || 5));
+        const userId = session.userId ? String(session.userId) : null;
+        if (srcMemId && userId) {
+          if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+          session.pendingMemoryLookupPromises.push(
+            (async () => {
+              try {
+                const { findConnectedMemories } = await import('./semantic-memory-service');
+                const connected = await findConnectedMemories(userId, srcMemId, srcMemType, connLimit);
+                if (!(session as any).connectedMemoriesResults) (session as any).connectedMemoriesResults = {};
+
+                if (connected.length === 0) {
+                  (session as any).connectedMemoriesResults[srcMemId] = [];
+                  console.log(`[Native Function→FindConnectedMemories] No connections found for ${srcMemId.slice(-6)}`);
+                  return;
+                }
+
+                // Hydrate titles from backing tables for display in the continuation response
+                const db = getSharedDb();
+                const { conversationMemories, studentInsights, danielaGrowthMemories, learnerPersonalFacts } = await import('@shared/schema');
+                const hydrated = await Promise.all(connected.map(async (hit) => {
+                  let title: string | null = null;
+                  try {
+                    if (hit.memoryType === 'conversation_memory') {
+                      const [row] = await db.select({ title: conversationMemories.title })
+                        .from(conversationMemories).where(eq(conversationMemories.id, hit.memoryId)).limit(1);
+                      title = row?.title ?? null;
+                    } else if (hit.memoryType === 'student_insight') {
+                      const [row] = await db.select({ insight: studentInsights.insight })
+                        .from(studentInsights).where(eq(studentInsights.id, hit.memoryId)).limit(1);
+                      title = row?.insight?.slice(0, 80) ?? null;
+                    } else if (hit.memoryType === 'growth_memory') {
+                      const [row] = await db.select({ title: danielaGrowthMemories.title })
+                        .from(danielaGrowthMemories).where(eq(danielaGrowthMemories.id, hit.memoryId)).limit(1);
+                      title = row?.title ?? null;
+                    } else if (hit.memoryType === 'personal_fact') {
+                      const [row] = await db.select({ content: learnerPersonalFacts.content })
+                        .from(learnerPersonalFacts).where(eq(learnerPersonalFacts.id, hit.memoryId)).limit(1);
+                      title = row?.content?.slice(0, 80) ?? null;
+                    }
+                  } catch { /* best-effort */ }
+                  return { ...hit, title };
+                }));
+
+                (session as any).connectedMemoriesResults[srcMemId] = hydrated;
+                console.log(`[Native Function→FindConnectedMemories] Found ${hydrated.length} connections for ${srcMemId.slice(-6)}`);
+              } catch (err: any) {
+                console.error('[Native Function→FindConnectedMemories] Error:', err.message);
+              }
+            })()
+          );
+        }
+        break;
+      }
+
+      case 'UPDATE_STUDENT_MODEL': {
+        const modelBelief = fn.args.belief as string | undefined;
+        const modelEvidence = fn.args.evidence as string | undefined;
+        const modelConfidence = Math.min(1, Math.max(0, Number(fn.args.confidence) || 0.7));
+        const userId = session.userId ? String(session.userId) : null;
+        if (modelBelief && modelEvidence && userId) {
+          (async () => {
+            try {
+              const { studentInsights } = await import('@shared/schema');
+              const db = getSharedDb();
+              const [inserted] = await db.insert(studentInsights).values({
+                studentId: userId,
+                insightType: 'student_model_of_daniela',
+                insight: modelBelief,
+                evidence: modelEvidence,
+                confidenceScore: modelConfidence,
+                observationCount: 1,
+                isActive: true,
+              }).returning({ id: studentInsights.id });
+
+              if (inserted?.id) {
+                const { generateAndStoreEmbedding } = await import('./semantic-memory-service');
+                const embedText = `${modelBelief}\n\nEvidence: ${modelEvidence}`;
+                await generateAndStoreEmbedding('student_insight', inserted.id, userId, embedText, modelConfidence);
+                console.log(`[Native Function→UpdateStudentModel] Stored belief — "${modelBelief.slice(0, 60)}" (confidence: ${modelConfidence})`);
+              }
+            } catch (err: any) {
+              console.error('[Native Function→UpdateStudentModel] Error:', err.message);
+            }
+          })().catch(() => {});
         }
         break;
       }

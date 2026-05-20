@@ -255,3 +255,62 @@ export async function semanticSearch(
     .slice(0, limit)
     .map(r => ({ memoryType: r.memoryType, memoryId: r.memoryId, similarity: r.similarity, contentHash: r.contentHash }));
 }
+
+/**
+ * Find memories that are semantically connected to a source memory.
+ * Uses the source memory's stored embedding vector directly — no new AI call needed.
+ * This surfaces the associative structure already latent in the embedding space.
+ *
+ * Returns up to `limit` connected memories sorted by raw cosine similarity (no decay
+ * weighting — for association we want the structural connection, not recency).
+ */
+export async function findConnectedMemories(
+  userId: string,
+  sourceMemoryId: string,
+  sourceMemoryType: string = 'conversation_memory',
+  limit: number = 5,
+): Promise<Array<{ memoryId: string; memoryType: string; similarity: number }>> {
+  const db = getSharedDb();
+
+  const [source] = await db
+    .select({ embedding: memoryEmbeddings.embedding })
+    .from(memoryEmbeddings)
+    .where(and(
+      eq(memoryEmbeddings.memoryId, sourceMemoryId),
+      eq(memoryEmbeddings.memoryType, sourceMemoryType),
+    ))
+    .limit(1);
+
+  if (!source?.embedding) return [];
+
+  const sourceVec = source.embedding as number[];
+
+  const [userRows, globalRows] = await Promise.all([
+    db.select(EMBED_SELECT)
+      .from(memoryEmbeddings)
+      .where(eq(memoryEmbeddings.userId, userId))
+      .orderBy(desc(memoryEmbeddings.strength), desc(memoryEmbeddings.lastReinforcedAt))
+      .limit(8000),
+    db.select(EMBED_SELECT)
+      .from(memoryEmbeddings)
+      .where(and(
+        isNull(memoryEmbeddings.userId),
+        inArray(memoryEmbeddings.memoryType, GLOBAL_RECALL_TYPES),
+      ))
+      .limit(1000),
+  ]);
+
+  const rows = [...userRows, ...globalRows].filter(r => r.memoryId !== sourceMemoryId);
+  if (rows.length === 0) return [];
+
+  const scored = rows.map(row => ({
+    memoryType: row.memoryType,
+    memoryId: row.memoryId,
+    similarity: cosineSimilarity(sourceVec, row.embedding as number[]),
+  }));
+
+  scored.sort((a, b) => b.similarity - a.similarity);
+  return scored
+    .filter(r => r.similarity > 0.6)
+    .slice(0, limit);
+}

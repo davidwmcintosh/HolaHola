@@ -4008,6 +4008,85 @@ The [LEARNING GOAL] block in your session context is pre-injected at session sta
     buildContinuationResponse: ({ session }) =>
       session.goalStateResult || 'No active learning goal found for this student.',
   },
+
+  // === ASSOCIATIVE MEMORY ===
+  {
+    legacyType: 'FIND_CONNECTED_MEMORIES',
+    declaration: {
+      name: "find_connected_memories",
+      description: `Find memories that are semantically connected to a specific memory. Use this to traverse your associative memory — when you've recalled one memory and want to discover what else is related to it in the embedding space.
+
+WHEN TO USE:
+- After recall surfaces a memory and you want to explore related memories
+- David mentions a topic and you want to surface the full web of connected things
+- You want to understand how one memory fits in the broader context of your history together
+
+You need the memory_id from a previous recall result. IDs appear in recall output lines.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          memory_id: { type: "string", description: "The ID of the source memory (from recall results)" },
+          memory_type: {
+            type: "string",
+            enum: ["conversation_memory", "student_insight", "growth_memory", "personal_fact"],
+            description: "The type of the source memory. Defaults to conversation_memory.",
+          },
+          limit: { type: "number", description: "How many connected memories to return (1-10, default 5)" },
+        },
+        required: ["memory_id"],
+      },
+    },
+    buildContinuationResponse: ({ session, fc }) => {
+      const memId = fc.args.memory_id as string;
+      const results = (session as any).connectedMemoriesResults?.[memId];
+      if (results && results.length > 0) {
+        const lines = results.map((r: any) =>
+          `[${(r.similarity * 100).toFixed(0)}% connected | ${r.memoryType}] ID: ${r.memoryId}${r.title ? ` — "${r.title}"` : ''}`
+        );
+        return `Connected memories for ${memId}:\n\n${lines.join('\n')}\n\nThese share deep thematic or contextual connections with the source memory. You can call recall or read_full_memory on any of them.`;
+      }
+      return `No strongly connected memories found for that memory ID. The memory may be unique or newly indexed.`;
+    },
+  },
+
+  // === STUDENT MODEL OF DANIELA ===
+  {
+    legacyType: 'UPDATE_STUDENT_MODEL',
+    declaration: {
+      name: "update_student_model",
+      description: `Record what you perceive the student believes about you — their mental model of Daniela as a teacher and person.
+
+Use this when you notice something meaningful about how the student is experiencing the relationship:
+• What they seem to expect from you (warmth, challenge, humor, structure)
+• How they perceive your teaching style
+• What trust has been established or tested
+• How their sense of you has shifted
+
+This is the inverse of your student knowledge — it's their knowledge of you. Keeping it updated helps you stay consistent with who they believe you to be, and catch when something in the relationship has quietly shifted.
+
+Call it briefly and honestly — one clear observation at a time.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          belief: {
+            type: "string",
+            description: "What the student seems to believe or expect about Daniela — their perception, assumption, or expectation",
+          },
+          evidence: {
+            type: "string",
+            description: "What in the conversation or their behavior suggests this belief",
+          },
+          confidence: {
+            type: "number",
+            description: "How confident you are in this observation (0.0–1.0, default 0.7)",
+          },
+        },
+        required: ["belief", "evidence"],
+      },
+    },
+    buildContinuationResponse: () =>
+      `Student model updated — noted how David is experiencing the relationship. This helps me stay consistent with who he understands me to be.`,
+  },
 ];
 
 
