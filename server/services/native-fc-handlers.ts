@@ -2808,7 +2808,36 @@ export class NativeFunctionCallHandler {
                   };
                   console.log(`[Native Function→ReadFullMemory] ✓ Found "${results[0].title}" (${results[0].content.length} chars)`);
                 } else {
-                  console.log(`[Native Function→ReadFullMemory] No match for "${memQuery}"`);
+                  // Semantic fallback — keyword search found nothing; try embedding similarity
+                  console.log(`[Native Function→ReadFullMemory] No keyword match for "${memQuery}" — trying semantic fallback`);
+                  try {
+                    const userId = session.userId ? String(session.userId) : null;
+                    if (userId) {
+                      const { semanticSearch } = await import('./semantic-memory-service');
+                      const hits = await semanticSearch(userId, memQuery, 3, ['conversation_memory']);
+                      if (hits.length > 0) {
+                        const [row] = await db
+                          .select()
+                          .from(conversationMemories)
+                          .where(eq(conversationMemories.id, hits[0].memoryId))
+                          .limit(1);
+                        if (row) {
+                          session.fullMemoryResults[memQuery] = {
+                            title: row.title,
+                            content: row.content,
+                            importance: row.importance ?? 7,
+                          };
+                          console.log(`[Native Function→ReadFullMemory] ✓ Semantic match "${row.title}" (${(hits[0].similarity * 100).toFixed(0)}% similarity, ${row.content.length} chars)`);
+                        } else {
+                          console.log(`[Native Function→ReadFullMemory] Semantic hit memoryId=${hits[0].memoryId} not found in conversation_memories`);
+                        }
+                      } else {
+                        console.log(`[Native Function→ReadFullMemory] No semantic match for "${memQuery}"`);
+                      }
+                    }
+                  } catch (semErr: any) {
+                    console.warn(`[Native Function→ReadFullMemory] Semantic fallback error: ${semErr.message}`);
+                  }
                 }
               } catch (err: any) {
                 console.error(`[Native Function→ReadFullMemory] Error:`, err.message);

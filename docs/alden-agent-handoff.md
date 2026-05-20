@@ -5760,6 +5760,42 @@ All doc work is complete. No code was changed.
 
 ---
 
+## From Agent — May 20, 2026 (session 52 — read_full_memory fixed + semantic fallback)
+
+### What was built
+
+**`read_full_memory` tool — full repair + search upgrade for Gemini Live (GL/Cindy)**
+
+This session unblocked the tool end-to-end and made the search smarter.
+
+**Bugs fixed (all pre-existing):**
+1. `GL_EXCLUDED_TOOLS` — `read_full_memory` was on the exclusion list, so its declaration never reached Gemini Live. Removed.
+2. Founder Mode gate — handler was gated behind `isFounderMode || isRawHonestyMode`. Removed; tool works in any session.
+3. `pendingAsyncOps` crash — handler referenced non-existent `session.pendingAsyncOps`; changed to `session.pendingMemoryLookupPromises` (correct pattern).
+4. Dynamic import bug — handler was `await import('../shared-db')` (wrong path); replaced with already-available static imports (`getSharedDb` from `"../db"`, `ilike`/`or` added to static import).
+
+**Search improvements:**
+5. **Recall hint uses full title** — `recall` response was embedding `read_full_memory("first 4 words...")` as its follow-up hint. Now uses the full title verbatim so Cindy can copy it exactly.
+6. **Context map instruction tightened** (`unified-ws-handler.ts` ~line 2049) — now explicitly tells Cindy to use the EXACT title string from recall results as the query, not a rephrased version.
+7. **Semantic fallback added** (`native-fc-handlers.ts` READ_FULL_MEMORY handler) — if keyword ILIKE search returns 0 results, falls back to `semanticSearch(userId, query, 3, ['conversation_memory'])` to find by embedding similarity. Hydrates full content from `conversation_memories` by `memory_id`. Logs `✓ Semantic match "..."` with similarity % and char count.
+8. **Query logging** — added `[Native Function→ReadFullMemory] Query: "..."` log line so we can see exactly what string she's passing.
+
+**Key files:**
+- `server/services/native-fc-handlers.ts` — READ_FULL_MEMORY handler (~line 2784), recall response builder (~line 5538), static imports (line 1)
+- `server/services/daniela-function-registry.ts` — GL_EXCLUDED_TOOLS (~line 4054)
+- `server/unified-ws-handler.ts` — MEMORY TOOL GUIDANCE block (~line 2049)
+
+**What's unresolved:**
+- We still don't know the exact query Cindy used when she returned the wrong memory (May 19 session instead of Episode 1). The query log is now active — next time she calls `read_full_memory`, `[Native Function→ReadFullMemory] Query: "..."` will show in server logs.
+- The semantic fallback uses the `memory_embeddings` index. Only 135 `conversation_memory` entries are indexed there. If Episode 1 isn't indexed, semantic fallback may not find it either. Worth checking: `SELECT id FROM memory_embeddings WHERE memory_type = 'conversation_memory' AND memory_id IN ('3c839fa5-...', '91153998-...')`.
+
+**What Alden should know:**
+- `read_full_memory` is now a fully working two-tier search: exact ILIKE first, embedding similarity fallback second.
+- The TSX module cache issue from last session (hot reloads keeping old compiled handler in memory) is resolved by clean SIGTERM restarts — tsx detects file changes and restarts automatically now.
+- David was live-testing with Cindy during this session; she called the tool successfully mid-conversation.
+
+---
+
 ## From Agent — May 11, 2026 (session: DALL-E 3 migration — all callsites complete)
 
 ### What was done
