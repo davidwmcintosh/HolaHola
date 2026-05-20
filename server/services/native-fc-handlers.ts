@@ -1,4 +1,4 @@
-import { sql, eq, and, desc } from "drizzle-orm";
+import { sql, eq, and, desc, ilike, or } from "drizzle-orm";
 import { tutorSessions, hiveSnapshots, conversationMemories } from "@shared/schema";
 import { ExtractedFunctionCall } from "./gemini-streaming";
 import type { StreamingSession } from "./streaming-voice-orchestrator";
@@ -2785,9 +2785,6 @@ export class NativeFunctionCallHandler {
           session.pendingMemoryLookupPromises.push(
             (async () => {
               try {
-                const { getSharedDb } = await import('../shared-db');
-                const { conversationMemories } = await import('../../drizzle/schema');
-                const { ilike, or, desc } = await import('drizzle-orm');
                 const db = getSharedDb();
                 const results = await db
                   .select()
