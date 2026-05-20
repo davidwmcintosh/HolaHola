@@ -29364,6 +29364,16 @@ ${memoryContext}
       const [memory] = await getUserDb().insert(conversationMemories).values(parsed.data).returning();
       console.log(`[Conversation Memories] Saved: "${memory.title}"`);
       res.json({ success: true, memory });
+      // Fire-and-forget: index the new memory in the embedding index so semantic search
+      // (used by read_full_memory in Gemini Live) can find it immediately.
+      // All conversation memories are Agent↔David, so always index under David's userId.
+      const DAVID_USER_ID = '49847136';
+      import('./services/semantic-memory-service').then(({ generateAndStoreEmbedding }) => {
+        const textToEmbed = `${memory.title}\n\n${memory.summary}\n\n${memory.content}`;
+        generateAndStoreEmbedding('conversation_memory', memory.id, DAVID_USER_ID, textToEmbed, 1.0)
+          .then(indexed => console.log(`[Conversation Memories] Embedding ${indexed ? 'stored' : 'already fresh'} for "${memory.title}"`))
+          .catch(err => console.warn('[Conversation Memories] Embedding failed:', err.message));
+      });
       // Regenerate the briefing immediately so the new memory is in the Agent's room
       // without waiting for the next server restart. Fire-and-forget — response already sent.
       import('./services/agent-briefing').then(({ generateAgentBriefing }) => {
