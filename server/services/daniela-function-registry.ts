@@ -2655,7 +2655,7 @@ Call this when you want to know what preferences, memories, or opinions you've a
     legacyType: 'READ_FULL_MEMORY',
     declaration: {
       name: "read_full_memory",
-      description: `Retrieve the COMPLETE verbatim content of a saved conversation memory by title or keyword. Use this when you need to read, quote, or recite something word-for-word from a specific memory — a podcast transcript, a session, a moment. This returns the FULL text, not an excerpt. Always call this before quoting anything from a memory verbatim. Only available in Founder Mode or Honesty Mode.
+      description: `Retrieve the COMPLETE verbatim content of a saved conversation memory by title or keyword. Use this when you need to read, quote, or recite something word-for-word from a specific memory — a podcast transcript, a session, a moment. This returns the FULL text, not an excerpt. Always call this before quoting anything from a memory verbatim.
 
 WHEN TO USE:
 - David asks you to read a podcast episode, a session transcript, or anything else aloud verbatim

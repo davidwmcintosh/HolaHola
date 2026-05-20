@@ -2779,13 +2779,10 @@ export class NativeFunctionCallHandler {
       }
 
       case 'READ_FULL_MEMORY': {
-        if (!session.isFounderMode && !session.isRawHonestyMode) {
-          console.log(`[Native Function→ReadFullMemory] Rejected - not in Founder/Honesty mode`);
-          break;
-        }
         const memQuery = fn.args.query as string | undefined;
         if (memQuery) {
-          pendingAsyncOps.push(
+          if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+          session.pendingMemoryLookupPromises.push(
             (async () => {
               try {
                 const { getSharedDb } = await import('../shared-db');
