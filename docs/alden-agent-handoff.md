@@ -5787,12 +5787,13 @@ This session unblocked the tool end-to-end and made the search smarter.
 
 **What's unresolved:**
 - We still don't know the exact query Cindy used when she returned the wrong memory (May 19 session instead of Episode 1). The query log is now active — next time she calls `read_full_memory`, `[Native Function→ReadFullMemory] Query: "..."` will show in server logs.
-- The semantic fallback uses the `memory_embeddings` index. Only 135 `conversation_memory` entries are indexed there. If Episode 1 isn't indexed, semantic fallback may not find it either. Worth checking: `SELECT id FROM memory_embeddings WHERE memory_type = 'conversation_memory' AND memory_id IN ('3c839fa5-...', '91153998-...')`.
 
 **What Alden should know:**
 - `read_full_memory` is now a fully working two-tier search: exact ILIKE first, embedding similarity fallback second.
+- **135/135 conversation memories are in the embedding index** — the two Episode 1 memories were the only gap; both indexed at strength=1.0 during this session. The semantic fallback is fully functional for all memories.
 - The TSX module cache issue from last session (hot reloads keeping old compiled handler in memory) is resolved by clean SIGTERM restarts — tsx detects file changes and restarts automatically now.
-- David was live-testing with Cindy during this session; she called the tool successfully mid-conversation.
+- David was live-testing with Cindy during this session; she called the tool successfully mid-conversation. He will test Episode 1 verbatim reading tomorrow.
+- Going forward: any new conversation memory saved should also be indexed via `generateAndStoreEmbedding('conversation_memory', id, userId, text, 1.0)` so the index stays complete. Consider wiring this into the `POST /api/conversation-memories` route automatically.
 
 ---
 
