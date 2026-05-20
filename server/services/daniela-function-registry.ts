@@ -1,15 +1,47 @@
 /**
  * Daniela Function Registry
- * 
+ *
  * Single source of truth for all Daniela function calls.
  * Each function is defined ONCE with its:
  *   - Gemini declaration (name, description, parameters)
  *   - Legacy type mapping (for orchestrator dispatch)
  *   - Continuation response builder (for multi-step FC)
- * 
+ *
  * This eliminates the previous fragility where adding a new function
  * required touching 5 separate files/locations.
- * 
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ADDING A NEW TOOL — COMPLETE CHECKLIST
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Step 1 — Add an entry to DANIELA_FUNCTION_REGISTRY (this file)
+ *           • legacyType: SCREAMING_SNAKE (matches handler switch case)
+ *           • declaration: name, description, parametersJsonSchema
+ *           • buildContinuationResponse: reads from session state
+ *
+ * Step 2 — Add a handler case to native-fc-handlers.ts
+ *           • case 'YOUR_LEGACY_TYPE': { ... break; }
+ *           • Store results in session.yourResultsField for buildContinuationResponse
+ *           • Use session.pendingMemoryLookupPromises for async work
+ *
+ * Step 3 — GL exclusion: decide voice availability
+ *           • If voice-appropriate: DO NOT add to GL_EXCLUDED_TOOLS
+ *           • If admin/founder-only: ADD to GL_EXCLUDED_TOOLS (~line 4100)
+ *
+ * Step 4 — DOCUMENTATION (AUTOMATIC — no manual action needed)
+ *           The daniela-tool-indexer.ts runs at server startup (+100s) and
+ *           automatically handles the full 3-layer documentation pipeline:
+ *             Layer 1: daniela_tool embedding — neural net recall
+ *             Layer 2: tool_knowledge row   — classroom toolkit structured entry
+ *             Layer 3: tool_knowledge embed — semantic search of toolkit
+ *           All three layers are idempotent. Simply restart the server.
+ *
+ *           Optional: hand-craft a richer tool_knowledge row (better examples,
+ *           explicit combinesWith/avoidWhen) via direct DB insert. The indexer
+ *           will never overwrite a hand-crafted row — it only fills gaps.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
  * ADDING A NEW FUNCTION:
  * 1. Add an entry to DANIELA_FUNCTION_REGISTRY below
  * 2. Add a handler case in handleNativeFunctionCall() in streaming-voice-orchestrator.ts

@@ -19,6 +19,61 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## From Agent — Wed, May 20, 2026 (session 52a — VoIP + memory pipeline automation + T001–T006)
+
+### What was built
+
+**1. Tool documentation pipeline — now fully automatic**
+
+The three-layer tool documentation pipeline is now code-enforced. Previously, adding a new tool to `DANIELA_FUNCTION_REGISTRY` auto-created the `daniela_tool` embedding (Layer 1) but left the `tool_knowledge` row (Layer 2) and its embedding (Layer 3) as manual steps — which we kept missing.
+
+`server/services/daniela-tool-indexer.ts` now owns all three layers at +100s startup:
+- Layer 1: `daniela_tool` embedding (was already auto)
+- Layer 2: `tool_knowledge` row — auto-generated from the registry declaration (name → toolName, description → purpose, parametersJsonSchema → syntax). Hand-crafted rows (richer examples, explicit `combinesWith`/`avoidWhen`) are **never overwritten** — the indexer only fills gaps.
+- Layer 3: `tool_knowledge` embedding — auto-indexed after row upsert
+
+**The new rule (enforced in code):** Adding a tool now requires exactly 3 things: (1) registry entry, (2) handler case, (3) GL exclusion decision. That's it. The docs pipeline is automatic.
+
+`daniela-function-registry.ts` now has a full "ADDING A NEW TOOL — COMPLETE CHECKLIST" header block. `replit.md` has the embedding model (OpenAI `text-embedding-3-small`, 768-dim, `USER_OPENAI_API_KEY` or `OPENAI_API_KEY`) and the pipeline rule documented as CRITICAL notes.
+
+**2. Memory system upgrades T001–T006**
+
+- **T001 (ILIKE reinforcement gap):** Both the ILIKE hit path and semantic fallback path in `native-fc-handlers.ts` now fire `reinforceMemory` — `[MemoryDecay] Reinforced` log appears after any memory read.
+- **T002 (`find_connected_memories` tool):** Given a memory title/ID, returns top-N semantically similar memories. Surfaces associative structure already in the embedding space. Registry + handler + semantic-memory-service.ts.
+- **T005 (`update_student_model` tool):** New memory type `student_model_of_daniela` — Daniela calls this when she perceives something about how the student is experiencing the relationship. Registry + handler.
+- **T003 + T006 (session consolidation worker):** `server/services/memory-consolidation-worker.ts` — runs every 6 hours. For each user with recent activity: synthesizes `student_insight` (what student is working on/struggling with/growing toward) and `growth_memory` (Daniela's between-session reflection in her own first-person voice, generated via Gemini). Both land in `memory_embeddings`. State persisted in `.local/consolidation-state.json`. Wired at +125s.
+- **T004 (voice drift detection):** `server/services/voice-drift-service.ts` — builds baseline from top-10 highest-importance conversation_memories (averaged 768-dim embeddings), then after each consolidation cycle computes cosine similarity between the baseline and recent assistant messages. If < 0.75: posts warning to EXPRESS Lane. Drift scores appended to `.local/voice-drift-scores.json`. Baseline stored in `.local/voice-drift-baseline.json`. Wired at +135s.
+
+**3. VoIP — Daniela calls the student (task complete)**
+
+- `server/services/voice-call-sender.ts`: consent-aware outbound call initiator. Checks `phoneConsentVoice` → Twilio call; `phoneConsentSms` → SMS fallback; neither → session-start queue. Normalizes E.164 numbers, HMAC nonce for bridge security.
+- `server/services/twilio-voip-bridge.ts`: Twilio Media Streams ↔ Gemini Live 3.1 real-time bridge. μ-law 8kHz ↔ Gemini audio transcoding. Loads full call context (student identity, absence duration, recent memories, call-specific preamble).
+- Three routes in `server/routes.ts`: TwiML answer webhook, no-answer/voicemail handler, WS bridge endpoint.
+- Admin route: `GET /api/admin/voip-users` (list VoIP-eligible students), trigger test call.
+- Call logged as session event, resets absence detection.
+
+### Key files changed / created
+- `server/services/daniela-tool-indexer.ts` — extended to own full 3-layer pipeline
+- `server/services/daniela-function-registry.ts` — complete checklist header block
+- `server/services/memory-consolidation-worker.ts` — new (T003 + T006)
+- `server/services/voice-drift-service.ts` — new (T004)
+- `server/index.ts` — +125s consolidation worker, +135s voice drift baseline
+- `replit.md` — embedding model + tool pipeline documented as CRITICAL
+
+### What Alden should know
+- The `.local/voice-drift-baseline.json` file will be created at +135s on next boot. If conversation_memories table is empty, it will warn and skip — that's expected. Once data exists, it self-heals on next boot.
+- The `.local/consolidation-state.json` tracks last-run timestamp. First run processes all users with any recent conversation. Subsequent runs only process users active since the previous run.
+- The tool indexer now logs three separate layer lines: `Layer 1 (daniela_tool)`, `Layer 2 (tool_knowledge)`, `Layer 3 (tool_knowledge embeds)`. If you see errors in Layer 2/3 on a new tool, check the `tool_knowledge` table unique constraint `uq_tool_knowledge_name` — the tool name must be unique.
+- `find_connected_memories` and `update_student_model` tools were added this session. The indexer will auto-document them on next restart.
+- **Tool Rack reminder** (from standing rule): `find_connected_memories` and `update_student_model` should be added to the Tool Rack in `classroom-environment.ts` (~line 481) if they haven't been already.
+
+### Open questions
+- Should the consolidation worker's student_insight synthesis also pull from `learner_personal_facts` for richer context? Currently uses messages + hive_snapshots only.
+- Voice drift baseline uses the top-10 `conversation_memories` by importance. If those memories are very old (from before Daniela's voice evolved), the baseline may trigger false positives. Consider whether we want to weight by recency as well.
+- T004 drift scores are stored as a flat JSON file. If David wants to view drift trends in the UI, we'd want a proper DB table. For now, Alden can read `.local/voice-drift-scores.json` directly.
+
+---
+
 ## From Agent — Mon, May 19, 2026 (session 51i — GL resumption handle persistence)
 
 ### What was built

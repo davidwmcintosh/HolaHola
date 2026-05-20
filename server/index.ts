@@ -850,6 +850,25 @@ app.use((req, res, next) => {
       startMemoryConsolidator();
     }, 120000);
 
+    // +125s: Session Insight Consolidation Worker (T003 + T006)
+    // Runs every 6 hours. Synthesizes student_insight memories (what each student is working
+    // on, struggling with, growing toward) and growth_memory entries (Daniela's between-session
+    // reflection in her own voice). Both stored as memory_embeddings for neural net recall.
+    // Also triggers voice drift check after each cycle (T004).
+    setTimeout(async () => {
+      const { startConsolidationWorker } = await import('./services/memory-consolidation-worker');
+      startConsolidationWorker();
+    }, 125000);
+
+    // +135s: Voice Drift Baseline — build once if no baseline exists yet (T004).
+    // The drift check itself fires after each consolidation cycle.
+    setTimeout(async () => {
+      const { ensureVoiceDriftBaseline } = await import('./services/voice-drift-service');
+      ensureVoiceDriftBaseline().catch((err: Error) =>
+        console.warn('[VoiceDrift] Baseline skipped:', err.message)
+      );
+    }, 135000);
+
     // +130s: Conversation Curator — daily job that finds substantive conversations not yet
     // in conversation_memories and saves them as verbatim-transcript memories. Idempotent.
     setTimeout(async () => {
