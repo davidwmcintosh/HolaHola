@@ -2780,6 +2780,7 @@ export class NativeFunctionCallHandler {
 
       case 'READ_FULL_MEMORY': {
         const memQuery = fn.args.query as string | undefined;
+        console.log(`[Native Function→ReadFullMemory] Query: "${memQuery}"`);
         if (memQuery) {
           if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
           session.pendingMemoryLookupPromises.push(
