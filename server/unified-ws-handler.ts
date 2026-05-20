@@ -2045,7 +2045,7 @@ If asked about something covered above, answer directly from this context. If yo
 
 MEMORY TOOL GUIDANCE:
 Your primary memory tool is recall — one call searches ALL memory sources in parallel (structured facts/insights AND raw conversation threads). Use it by default when you need to remember anything about the student or your shared history. Do not split it into memory_lookup + search_conversation_threads separately; recall does both at once.
-When asked about specific past moments, quotes, or exchanges (e.g. "our podcast episode one", "that conversation about honesty"), call recall with a specific query (e.g. "podcast without a script episode one") — it will return both the extracted summary AND the word-for-word exchanges from that conversation.
+When asked about specific past moments, quotes, or exchanges (e.g. "our podcast episode one", "that conversation about honesty"), call recall first with a specific query (e.g. "podcast without a script episode one") to locate the memory. Then — if the result contains an [EXCERPT] marker, or if David is asking you to quote, read aloud, or recite anything verbatim — you MUST call read_full_memory("title keyword") next to retrieve the complete untruncated text. recall finds it; read_full_memory gets the full real thing. Never recite from a recall excerpt — you will fabricate parts you cannot see.
 `;
                 console.log(`[Streaming Voice] ✓ Context map injected (${loadedSources.length} sources listed)`);
               }
