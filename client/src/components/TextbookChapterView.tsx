@@ -5,7 +5,15 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import {
   ChevronLeft,
+  ChevronRight,
   MessageSquare,
   Dumbbell,
   Book,
@@ -19,6 +27,8 @@ import {
   Library,
   Globe,
   MessageCircle,
+  List,
+  Lock,
 } from "lucide-react";
 import { VisualVocabGrid } from "./TextbookInfographics";
 import { ChapterIntroduction, classifyGrammarType, GrammarChapterView, ConversationStripsSection } from "./ChapterIntroduction";
@@ -83,6 +93,8 @@ interface TextbookChapterViewProps {
   chapter: Chapter;
   language: string;
   onBack: () => void;
+  onNavigate?: (chapter: Chapter) => void;
+  allChapters?: Chapter[];
   onStartConversation: (lessonId?: string) => void;
   onStartDrill: (sectionId: string) => void;
   onReviewFlashcards?: () => void;
@@ -513,6 +525,8 @@ export function TextbookChapterView({
   chapter,
   language,
   onBack,
+  onNavigate,
+  allChapters = [],
   onStartConversation,
   onStartDrill,
   onReviewFlashcards
@@ -520,7 +534,20 @@ export function TextbookChapterView({
   const completedCount = chapter.sections.filter(s => s.isComplete).length;
   const viewedSectionsRef = useRef<Set<string>>(new Set());
   const [locallyReadIds, setLocallyReadIds] = useState<Set<string>>(new Set());
+  const [chaptersDrawerOpen, setChaptersDrawerOpen] = useState(false);
   const queryClient = useQueryClient();
+
+  // Prev / next chapter in the list
+  const currentIndex = allChapters.findIndex(ch => ch.id === chapter.id);
+  const prevChapter = currentIndex > 0 ? allChapters[currentIndex - 1] : null;
+  const nextChapter = currentIndex >= 0 && currentIndex < allChapters.length - 1
+    ? allChapters[currentIndex + 1]
+    : null;
+
+  const handleNavigate = (target: Chapter) => {
+    setChaptersDrawerOpen(false);
+    if (onNavigate) onNavigate(target);
+  };
 
   useEffect(() => {
     viewedSectionsRef.current = new Set();
@@ -908,6 +935,99 @@ export function TextbookChapterView({
           </Button>
         )}
       </div>
+
+      {/* ── Kindle-style bottom navigation ── */}
+      {allChapters.length > 0 && (
+        <div className="sticky bottom-0 z-20 bg-background/95 backdrop-blur-sm border-t mt-8 -mx-4 px-4 py-3">
+          <div className="flex items-center justify-between gap-2 max-w-4xl mx-auto">
+
+            {/* Prev */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => prevChapter && handleNavigate(prevChapter)}
+              disabled={!prevChapter}
+              data-testid="button-chapter-prev"
+              className="gap-1 min-w-0 flex-1 justify-start"
+            >
+              <ChevronLeft className="h-4 w-4 shrink-0" />
+              <span className="truncate text-left hidden sm:block">
+                {prevChapter ? `Ch. ${prevChapter.number}` : ""}
+              </span>
+            </Button>
+
+            {/* Chapter list drawer trigger */}
+            <Sheet open={chaptersDrawerOpen} onOpenChange={setChaptersDrawerOpen}>
+              <SheetTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  data-testid="button-chapter-list"
+                  className="gap-1.5 shrink-0 px-3"
+                >
+                  <List className="h-4 w-4" />
+                  <span className="text-sm text-muted-foreground">
+                    {currentIndex + 1} / {allChapters.length}
+                  </span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="bottom" className="max-h-[70vh] overflow-y-auto">
+                <SheetHeader className="pb-3">
+                  <SheetTitle>All Chapters</SheetTitle>
+                </SheetHeader>
+                <div className="space-y-1 pb-4">
+                  {allChapters.map((ch) => (
+                    <button
+                      key={ch.id}
+                      onClick={() => !ch.isLocked && handleNavigate(ch)}
+                      disabled={ch.isLocked}
+                      data-testid={`button-chapter-jump-${ch.id}`}
+                      className={[
+                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-left transition-colors",
+                        ch.id === chapter.id
+                          ? "bg-accent text-accent-foreground"
+                          : ch.isLocked
+                          ? "opacity-40 cursor-not-allowed"
+                          : "hover-elevate",
+                      ].join(" ")}
+                    >
+                      <div className="shrink-0 w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
+                        {ch.isLocked ? <Lock className="h-3 w-3" /> : ch.number}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{ch.title}</div>
+                        {ch.progress > 0 && (
+                          <Progress value={ch.progress} className="h-1 mt-1" />
+                        )}
+                      </div>
+                      {ch.id === chapter.id && (
+                        <Badge variant="outline" className="shrink-0 text-xs">Current</Badge>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </SheetContent>
+            </Sheet>
+
+            {/* Next */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => nextChapter && handleNavigate(nextChapter)}
+              disabled={!nextChapter || nextChapter.isLocked}
+              data-testid="button-chapter-next"
+              className="gap-1 min-w-0 flex-1 justify-end"
+            >
+              <span className="truncate text-right hidden sm:block">
+                {nextChapter && !nextChapter.isLocked ? `Ch. ${nextChapter.number}` : ""}
+              </span>
+              <ChevronRight className="h-4 w-4 shrink-0" />
+            </Button>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

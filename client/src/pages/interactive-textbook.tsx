@@ -522,12 +522,20 @@ export default function InteractiveTextbook() {
     setSelectedChapter(null);
   }, []);
 
+  const handleNavigateChapter = useCallback((chapter: Chapter) => {
+    setSelectedChapter(chapter);
+    savePositionMutation.mutate({ chapterId: chapter.id });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [savePositionMutation]);
+
   if (selectedChapter) {
     return (
       <TextbookChapterView
         chapter={selectedChapter}
         language={language}
+        allChapters={chapters}
         onBack={() => setSelectedChapter(null)}
+        onNavigate={handleNavigateChapter}
         onStartConversation={handleStartConversation}
         onStartDrill={handleStartDrill}
         onReviewFlashcards={handleReviewFlashcards}
