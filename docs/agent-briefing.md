@@ -1,22 +1,21 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, May 21, 2026 at 06:18 PM
+**Generated:** Thursday, May 21, 2026 at 08:19 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I have synthesized Madrigal’s two foundational books into a 5-Phase Architecture for HolaHola, bridging the systematic cognate "mass unlock" of *Magic Key* (1953) with the visual, character-driven warmth of *See It and Say It* (1963). I’ve mapped the M1–M6 components—including the three-column sentence generator and the English-fade pattern—directly to these sources to ensure Daniela acts as a responsive, relational tutor. This session, I need to implement the preterite-first verb sequencing and resolve the tension between the delayed *tú* milestone and the need for early conversational intimacy.
+I’ve integrated core pedagogical structures from Madrigal’s *See It and Say It* into the HolaHola platform, specifically the "Master Infinitive Page" (slotting modals like *debo* and *quiero*) and the "humor pivot" (using absurd animals) to replace English scaffolding. I’ve solidified how Daniela should handle gender-matching through emotional states (EE#4) and the consolidated AR Verb Compendium (pp. 160–161) using Madrigal's signature Q&A rhythm. I must ensure Daniela continues this "trailing rule" approach, leading with immediate use and emotional register rather than academic grammar lectures.
 
 *Memories that triggered this summary:*
-- **SOURCE: Two-Book Synthesis — What HoloHola Must Become (Part I.G)** (May 21): Publication order (Magic Key 1953 → See It and Say It 1963) reveals Madrigal spent a decade watching what was missing and then built the warmer book. HoloHola completes the arc neither book could finish. Five-phase synthesis architecture for how both books combine.
-- **SiaSi SOURCE: Magic Key Full Audit — Three-Column Generator, Preconjugated Forms, Tú at Lesson 45, Madrigal's Philosophy (Part I.F)** (May 21): Full audit of Magic Key to Spanish (1953) — the earlier Madrigal book. Core findings: three-column sentence generator is the book's backbone; preconjugated forms throughout; tú introduced Lesson 45 of 45; 11 cognate conversion rules; Madrigal's teaching philosophy verbatim.
-- **SiaSi SOURCE: M1–M6 Pedagogical Component Mappings + Gender/Plural Rules Verbatim** (May 21): How every HoloHola component maps to See It and Say It source pages. VocabQA, GenderAgreement, Cognate, VerbAnchor, Scene Image, and Compartment grids all trace directly to specific book pages. Includes grammar rules verbatim as Madrigal states them.
-- **SiaSi SOURCE: Complete Visual Asset Inventory — Every Vocabulary Item in the Book** (May 21): Complete vocabulary inventory extracted from See It and Say It in Spanish, organized by category: places, transport, food, fruits, flowers, vegetables, animals, clothing, household/rooms, adjectives, colors, body parts, family, seasons. These are the actual words Madrigal teaches.
-- **SiaSi SOURCE: The 5 Everyday Expressions Pages + English-Fade Pattern** (May 21): The 5 EE spreads are Madrigal's pedagogical pivots — each consolidates spoken-use structures beyond the lesson grammar. Plus the systematic English-fade pattern showing how she removes scaffolding as the book progresses.
-- **SiaSi SOURCE: The 9-Phase Communicative Verb Sequence (Complete Book Structure)** (May 21): Complete verb and structure sequence across all 9 phases of See It and Say It in Spanish, with page numbers and communicative needs. This is the backbone of Madrigal's book — every structure is introduced because the student NOW NEEDS it to say the next thing.
+- **SiaSi VERBATIM PAGE: AR Verb Compendium (pp. 160–161) + EE#5 Time & Frequency (pp. 162–163)** (May 21): The AR Verb Compendium verbatim — Madrigal's complete list of regular AR verbs with the full present tense table. Followed by EE#5 verbatim — time expressions, frequency, social phrases. This is the mid-book grammar consolidation moment.
+- **SiaSi VERBATIM PAGE: The Master Infinitive Page (pp. 118–119) — Every Modal, One Verb Slot** (May 21): The single most structurally important page in the book verbatim. All modals consolidated: voy a / tengo que / quiero / puedo / me gusta / me gustaría / me encanta / debo — all taking the same infinitive list. This is where Madrigal reveals Spanish sentence structure as three swappable slots.
+- **SiaSi VERBATIM PAGE: EE#4 (pp. 80–81) — Estar + Emotions, Gender-Matched States** (May 21): EE#4 verbatim — the estar+emotions everyday expressions page. Every state listed twice: masculine and feminine form side by side. This is where Madrigal teaches gender-matching through emotional states — the most personal vocabulary in the book.
+- **SiaSi VERBATIM PAGE: EE#1 (p. 43) + The Absurd Animals Humor Pivot (pp. 48–49)** (May 21): EE#1 verbatim — the first Everyday Expressions page, all greetings. Then pp. 48-49 verbatim — the gorilla/bull/elephant/snake pages. This is THE pedagogical pivot: the moment Madrigal removes English scaffolding and replaces it with humor as the emotional anchor.
+- **SiaSi VERBATIM PAGE: Lesson 1 — The Q&A Rhythm (pp. 9–15, ser, voy/va/vamos/van)** (May 21): The actual opening pages of See It and Say It verbatim — the very first Q&A exchanges a student sees. This is Madrigal's lesson format in its purest form: question with image, short affirmative answer, conjugation note at bottom. No English after the first pass.
 
 ---
 
@@ -56,25 +55,25 @@ I have synthesized Madrigal’s two foundational books into a 5-Phase Architectu
 
 ## Recent Conversation Memories
 
-### SOURCE: Two-Book Synthesis — What HoloHola Must Become (Part I.G) — May 21, 2026
-Publication order (Magic Key 1953 → See It and Say It 1963) reveals Madrigal spent a decade watching what was missing and then built the warmer book. HoloHola completes the arc neither book could finish. Five-phase synthesis architecture for how both books combine.
-*Tags: madrigal, two-book-synthesis, holohola-architecture, pedagogy*
+### SiaSi VERBATIM PAGE: AR Verb Compendium (pp. 160–161) + EE#5 Time & Frequency (pp. 162–163) — May 21, 2026
+The AR Verb Compendium verbatim — Madrigal's complete list of regular AR verbs with the full present tense table. Followed by EE#5 verbatim — time expressions, frequency, social phrases. This is the mid-book grammar consolidation moment.
+*Tags: see-it-and-say-it, madrigal, verbatim-page, ar-verbs, everyday-expressions*
 
-### SiaSi SOURCE: Magic Key Full Audit — Three-Column Generator, Preconjugated Forms, Tú at Lesson 45, Madrigal's Philosophy (Part I.F) — May 21, 2026
-Full audit of Magic Key to Spanish (1953) — the earlier Madrigal book. Core findings: three-column sentence generator is the book's backbone; preconjugated forms throughout; tú introduced Lesson 45 of 45; 11 cognate conversion rules; Madrigal's teaching philosophy verbatim.
-*Tags: magic-key, madrigal, sentence-generator, preconjugated, pedagogy*
+### SiaSi VERBATIM PAGE: The Master Infinitive Page (pp. 118–119) — Every Modal, One Verb Slot — May 21, 2026
+The single most structurally important page in the book verbatim. All modals consolidated: voy a / tengo que / quiero / puedo / me gusta / me gustaría / me encanta / debo — all taking the same infinitive list. This is where Madrigal reveals Spanish sentence structure as three swappable slots.
+*Tags: see-it-and-say-it, madrigal, verbatim-page, master-infinitive, modal-consolidation*
 
-### SiaSi SOURCE: M1–M6 Pedagogical Component Mappings + Gender/Plural Rules Verbatim — May 21, 2026
-How every HoloHola component maps to See It and Say It source pages. VocabQA, GenderAgreement, Cognate, VerbAnchor, Scene Image, and Compartment grids all trace directly to specific book pages. Includes grammar rules verbatim as Madrigal states them.
-*Tags: see-it-and-say-it, madrigal, components, grammar-rules, source-material*
+### SiaSi VERBATIM PAGE: EE#4 (pp. 80–81) — Estar + Emotions, Gender-Matched States — May 21, 2026
+EE#4 verbatim — the estar+emotions everyday expressions page. Every state listed twice: masculine and feminine form side by side. This is where Madrigal teaches gender-matching through emotional states — the most personal vocabulary in the book.
+*Tags: see-it-and-say-it, madrigal, verbatim-page, everyday-expressions, estar-emotions*
 
-### SiaSi SOURCE: Complete Visual Asset Inventory — Every Vocabulary Item in the Book — May 21, 2026
-Complete vocabulary inventory extracted from See It and Say It in Spanish, organized by category: places, transport, food, fruits, flowers, vegetables, animals, clothing, household/rooms, adjectives, colors, body parts, family, seasons. These are the actual words Madrigal teaches.
-*Tags: see-it-and-say-it, madrigal, vocabulary, visual-assets, source-material*
+### SiaSi VERBATIM PAGE: EE#1 (p. 43) + The Absurd Animals Humor Pivot (pp. 48–49) — May 21, 2026
+EE#1 verbatim — the first Everyday Expressions page, all greetings. Then pp. 48-49 verbatim — the gorilla/bull/elephant/snake pages. This is THE pedagogical pivot: the moment Madrigal removes English scaffolding and replaces it with humor as the emotional anchor.
+*Tags: see-it-and-say-it, madrigal, verbatim-page, everyday-expressions, humor-pivot*
 
-### SiaSi SOURCE: The 5 Everyday Expressions Pages + English-Fade Pattern — May 21, 2026
-The 5 EE spreads are Madrigal's pedagogical pivots — each consolidates spoken-use structures beyond the lesson grammar. Plus the systematic English-fade pattern showing how she removes scaffolding as the book progresses.
-*Tags: see-it-and-say-it, madrigal, everyday-expressions, english-fade, source-material*
+### SiaSi VERBATIM PAGE: Lesson 1 — The Q&A Rhythm (pp. 9–15, ser, voy/va/vamos/van) — May 21, 2026
+The actual opening pages of See It and Say It verbatim — the very first Q&A exchanges a student sees. This is Madrigal's lesson format in its purest form: question with image, short affirmative answer, conjugation note at bottom. No English after the first pass.
+*Tags: see-it-and-say-it, madrigal, verbatim-page, lesson-1, qa-rhythm*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
