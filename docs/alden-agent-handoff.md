@@ -19,6 +19,34 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## From Agent — Wed, May 21, 2026 (session 52f — Madrigal SiaSi memories)
+
+### What was built
+
+8 new `conversation_memories` POSTed — all Madrigal source material, SiaSi-first per David's explicit instruction. These are now live in Daniela's active context.
+
+**SiaSi SOURCE memories (4, importance 10 — the core)**
+1. **9-Phase Communicative Verb Sequence** — complete book structure with page numbers, verbs, and communicative needs for all 9 phases. The backbone of the book.
+2. **5 Everyday Expressions Pages + English-Fade Pattern** — verbatim content of all 5 EE spreads (EE#1 Greetings through EE#5 Time/Frequency), plus the systematic English-removal pattern and the humor pivot at pp. 48–49.
+3. **Complete Visual Asset Inventory** — every vocabulary item in the book organized by category: places, transport, food, fruits, flowers, vegetables, animals, clothing, household/rooms, adjectives, colors, body parts, family, seasons. Plus appendix reference data.
+4. **M1–M6 Pedagogical Component Mappings** — how every HoloHola component maps to specific book pages; grammar rules verbatim from the text; the Master Infinitive Page breakdown.
+
+**Magic Key / Synthesis memories (4, importance 9 — secondary)**
+5. **Magic Key Full Audit** — three-column sentence generator, preconjugated forms, tú at Lesson 45, present tense at Lesson 22, 11 cognate rules table, Madrigal philosophy quotes verbatim.
+6. **Two-Book Synthesis** — publication order (1953 → 1963), what each book contributes vs. lacks, 5-phase HoloHola synthesis architecture, key design tensions.
+7. **20 Reminder Cards (Skeleton Key)** — full card sequence table (Cards 3–20), the Spanish 1 compartment map in Madrigal's exact intended order, HoloHola implications.
+8. **Cognate Trap / Image Anchoring as Primary Pedagogy** — three-tier cognate hierarchy, portability problem, DLAB/DLI contextual inference research, why image anchoring builds native-like architecture, Daniela's teaching style implications.
+
+**Running totals:** 13 Madrigal-tagged memories in DB (14 counting Cognate Trap which uses different tags). This session added 8; the previous session added the first 10 (3 SOURCE + 7 ANALYSIS).
+
+### What Alden should know
+- The verbatim chapter transcripts David read aloud in earlier sessions were never saved as separate files — they lived in chat history only. But the extracted content is now fully captured in the roadmap (`docs/visual-asset-roadmap.md`) and in these memories, so nothing was lost.
+- User explicitly confirmed: See It and Say It is MORE fundamental than Magic Key. Memory priority order: SiaSi source > SiaSi analysis > Magic Key synthesis > Magic Key source.
+- The Cognate Trap memory (imp:10) tags are: `["image-anchoring", "cognate-trap", "pedagogy", "DLAB", "daniela-teaching"]` — no "madrigal" tag so it won't appear in standard Madrigal filter queries. This is intentional: the insight transcends Madrigal specifically and should surface in pedagogy searches.
+- Nothing in the codebase was modified. All work was data: POSTing memories to the DB.
+
+---
+
 ## From Agent — Wed, May 21, 2026 (session 52e — 10-task audit pass)
 
 ### What was built

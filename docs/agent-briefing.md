@@ -1,21 +1,22 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, May 21, 2026 at 05:49 PM
+**Generated:** Thursday, May 21, 2026 at 06:18 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I completed the 96-spread map of *See It and Say It in Spanish* and identified 15 high-priority improvements for *HolaHola*, such as fixing the "olive problem" with clearer AI imagery and color-coding dialogues for readability. I also audited all 45 chapters to enforce the "Madrigal Content Law"—ensuring Spanish strings are sourced only from the book—and flagged duplications like the `Voy a` and `Gustar` units. Finally, I formalized the `SentenceColumnGenerator` design rules, strictly limiting Column 1 to 1–2 verb forms to ensure substitution drills function as visual perception engines rather than high-effort cognitive tasks.
+I have synthesized Madrigal’s two foundational books into a 5-Phase Architecture for HolaHola, bridging the systematic cognate "mass unlock" of *Magic Key* (1953) with the visual, character-driven warmth of *See It and Say It* (1963). I’ve mapped the M1–M6 components—including the three-column sentence generator and the English-fade pattern—directly to these sources to ensure Daniela acts as a responsive, relational tutor. This session, I need to implement the preterite-first verb sequencing and resolve the tension between the delayed *tú* milestone and the need for early conversational intimacy.
 
 *Memories that triggered this summary:*
-- **ANALYSIS — Visual Asset Roadmap Part I.B: See It and Say It Full Lesson Map (all 96 spreads)** (May 21): Complete lesson-by-lesson map of all 96 spreads in See It and Say It in Spanish (pp. 9–199), with confirmed drawings, grammar notes, and key phrases for every page. Also covers full book structure (10 appendix sections, grammar conjugation tables, vocabulary index), drawing style guide for AI image generation, and the 9 pedagogical phases of the book. Essential reference for building any of the 23 Madrigal backbone chapters.
-- **ANALYSIS — Visual Asset Roadmap Part I.A: 15 Places HolaHola Improves on Madrigal** (May 21): Catalogues every structural, visual, and pedagogical limitation of See It and Say It in Spanish and how HolaHola solves them. 15 improvements: dialogue colors, ambiguous drawings (olives/sardines/match/button), no color in color lessons, ser/estar never contrasted, modal wall-of-text, generic practice instructions, no self-assessment, fixed 4-item density, preterite-before-present unexplained, EE pages unanchored, weather disconnected, gender agreement untracked, verb lists alphabetical, no pronunciation guide, Spanish-only. Also documents what HolaHola keeps from Madrigal's genius.
-- **ANALYSIS — Drill Audit for Daniela (January 2026) + Daniela's Pedagogical Response** (May 21): January 2026 audit of drill distribution across 187,638 curriculum drills in 9 languages and 22 active classes. 87% are audio-based (listen_repeat + number_dictation). Asian languages nearly lack translate_speak (18–40 drills vs. ~3,600 for European languages). Advanced levels have almost no pronunciation drills. Includes Daniela's full pedagogical response endorsing the gaps and proposing: shadowing for advanced levels, real-world number drills at intermediate/advanced, sentence transformation for advanced production. Her summary: 'We have a Wide curriculum but we need a Deep one.'
-- **ANALYSIS — Content Audit: Legacy Chapters vs. Madrigal Backbone (45 chapters)** (May 21): Full classification of all 45 Spanish 1 chapters as Legacy (Chs. 1–22 + 24–27, traditional topic sequencing) vs. Madrigal Backbone (Ch. 23 + Chs. 28–45, built directly from See It and Say It). Documents 5 identified duplications: Voy a (Ch. 30 vs. 40), Gustar (Chs. 11/14 vs. 37), Ser (Ch. 9 vs. 33), Poder (Ch. 15 vs. 35), Present Tense AR (Ch. 12 — philosophical tension with Madrigal). Critical content law: Spanish content must come from Madrigal, never AI-generated.
-- **ANALYSIS — Substitution Drill Pedagogy: Full Design Rules** (May 21): Complete design specification for HolaHola's substitution drill component (SentenceColumnGenerator). Covers the three-stage acquisition cycle, visual perception engine mechanism, column design rules (Column 1: 1–2 verb forms only; Column 2: 5–8 concrete imageable items; Column 3: only if every 3-way combination is valid), anti-patterns, and the 27-chapter progression. Explains why Column 1 must be short (fixed anchor) and Column 2 must be one semantic dimension only.
+- **SOURCE: Two-Book Synthesis — What HoloHola Must Become (Part I.G)** (May 21): Publication order (Magic Key 1953 → See It and Say It 1963) reveals Madrigal spent a decade watching what was missing and then built the warmer book. HoloHola completes the arc neither book could finish. Five-phase synthesis architecture for how both books combine.
+- **SiaSi SOURCE: Magic Key Full Audit — Three-Column Generator, Preconjugated Forms, Tú at Lesson 45, Madrigal's Philosophy (Part I.F)** (May 21): Full audit of Magic Key to Spanish (1953) — the earlier Madrigal book. Core findings: three-column sentence generator is the book's backbone; preconjugated forms throughout; tú introduced Lesson 45 of 45; 11 cognate conversion rules; Madrigal's teaching philosophy verbatim.
+- **SiaSi SOURCE: M1–M6 Pedagogical Component Mappings + Gender/Plural Rules Verbatim** (May 21): How every HoloHola component maps to See It and Say It source pages. VocabQA, GenderAgreement, Cognate, VerbAnchor, Scene Image, and Compartment grids all trace directly to specific book pages. Includes grammar rules verbatim as Madrigal states them.
+- **SiaSi SOURCE: Complete Visual Asset Inventory — Every Vocabulary Item in the Book** (May 21): Complete vocabulary inventory extracted from See It and Say It in Spanish, organized by category: places, transport, food, fruits, flowers, vegetables, animals, clothing, household/rooms, adjectives, colors, body parts, family, seasons. These are the actual words Madrigal teaches.
+- **SiaSi SOURCE: The 5 Everyday Expressions Pages + English-Fade Pattern** (May 21): The 5 EE spreads are Madrigal's pedagogical pivots — each consolidates spoken-use structures beyond the lesson grammar. Plus the systematic English-fade pattern showing how she removes scaffolding as the book progresses.
+- **SiaSi SOURCE: The 9-Phase Communicative Verb Sequence (Complete Book Structure)** (May 21): Complete verb and structure sequence across all 9 phases of See It and Say It in Spanish, with page numbers and communicative needs. This is the backbone of Madrigal's book — every structure is introduced because the student NOW NEEDS it to say the next thing.
 
 ---
 
@@ -55,25 +56,25 @@ I completed the 96-spread map of *See It and Say It in Spanish* and identified 1
 
 ## Recent Conversation Memories
 
-### ANALYSIS — Visual Asset Roadmap Part I.B: See It and Say It Full Lesson Map (all 96 spreads) — May 21, 2026
-Complete lesson-by-lesson map of all 96 spreads in See It and Say It in Spanish (pp. 9–199), with confirmed drawings, grammar notes, and key phrases for every page. Also covers full book structure (10 appendix sections, grammar conjugation tables, vocabulary index), drawing style guide for AI image generation, and the 9 pedagogical phases of the book. Essential reference for building any of the 23 Madrigal backbone chapters.
-*Tags: ANALYSIS, visual-assets, roadmap, lesson-map, see-it-say-it, book-structure, drawing-style, pedagogical-phases*
+### SOURCE: Two-Book Synthesis — What HoloHola Must Become (Part I.G) — May 21, 2026
+Publication order (Magic Key 1953 → See It and Say It 1963) reveals Madrigal spent a decade watching what was missing and then built the warmer book. HoloHola completes the arc neither book could finish. Five-phase synthesis architecture for how both books combine.
+*Tags: madrigal, two-book-synthesis, holohola-architecture, pedagogy*
 
-### ANALYSIS — Visual Asset Roadmap Part I.A: 15 Places HolaHola Improves on Madrigal — May 21, 2026
-Catalogues every structural, visual, and pedagogical limitation of See It and Say It in Spanish and how HolaHola solves them. 15 improvements: dialogue colors, ambiguous drawings (olives/sardines/match/button), no color in color lessons, ser/estar never contrasted, modal wall-of-text, generic practice instructions, no self-assessment, fixed 4-item density, preterite-before-present unexplained, EE pages unanchored, weather disconnected, gender agreement untracked, verb lists alphabetical, no pronunciation guide, Spanish-only. Also documents what HolaHola keeps from Madrigal's genius.
-*Tags: ANALYSIS, visual-assets, madrigal-improvements, roadmap, image-quality, dialogue-colors, ser-estar, modals*
+### SiaSi SOURCE: Magic Key Full Audit — Three-Column Generator, Preconjugated Forms, Tú at Lesson 45, Madrigal's Philosophy (Part I.F) — May 21, 2026
+Full audit of Magic Key to Spanish (1953) — the earlier Madrigal book. Core findings: three-column sentence generator is the book's backbone; preconjugated forms throughout; tú introduced Lesson 45 of 45; 11 cognate conversion rules; Madrigal's teaching philosophy verbatim.
+*Tags: magic-key, madrigal, sentence-generator, preconjugated, pedagogy*
 
-### ANALYSIS — Drill Audit for Daniela (January 2026) + Daniela's Pedagogical Response — May 21, 2026
-January 2026 audit of drill distribution across 187,638 curriculum drills in 9 languages and 22 active classes. 87% are audio-based (listen_repeat + number_dictation). Asian languages nearly lack translate_speak (18–40 drills vs. ~3,600 for European languages). Advanced levels have almost no pronunciation drills. Includes Daniela's full pedagogical response endorsing the gaps and proposing: shadowing for advanced levels, real-world number drills at intermediate/advanced, sentence transformation for advanced production. Her summary: 'We have a Wide curriculum but we need a Deep one.'
-*Tags: ANALYSIS, drill-audit, ACTFL, asian-languages, translate-speak, pronunciation, curriculum-gaps, daniela-response*
+### SiaSi SOURCE: M1–M6 Pedagogical Component Mappings + Gender/Plural Rules Verbatim — May 21, 2026
+How every HoloHola component maps to See It and Say It source pages. VocabQA, GenderAgreement, Cognate, VerbAnchor, Scene Image, and Compartment grids all trace directly to specific book pages. Includes grammar rules verbatim as Madrigal states them.
+*Tags: see-it-and-say-it, madrigal, components, grammar-rules, source-material*
 
-### ANALYSIS — Content Audit: Legacy Chapters vs. Madrigal Backbone (45 chapters) — May 21, 2026
-Full classification of all 45 Spanish 1 chapters as Legacy (Chs. 1–22 + 24–27, traditional topic sequencing) vs. Madrigal Backbone (Ch. 23 + Chs. 28–45, built directly from See It and Say It). Documents 5 identified duplications: Voy a (Ch. 30 vs. 40), Gustar (Chs. 11/14 vs. 37), Ser (Ch. 9 vs. 33), Poder (Ch. 15 vs. 35), Present Tense AR (Ch. 12 — philosophical tension with Madrigal). Critical content law: Spanish content must come from Madrigal, never AI-generated.
-*Tags: ANALYSIS, content-audit, legacy, madrigal-backbone, chapter-classification, duplications, curriculum-map*
+### SiaSi SOURCE: Complete Visual Asset Inventory — Every Vocabulary Item in the Book — May 21, 2026
+Complete vocabulary inventory extracted from See It and Say It in Spanish, organized by category: places, transport, food, fruits, flowers, vegetables, animals, clothing, household/rooms, adjectives, colors, body parts, family, seasons. These are the actual words Madrigal teaches.
+*Tags: see-it-and-say-it, madrigal, vocabulary, visual-assets, source-material*
 
-### ANALYSIS — Substitution Drill Pedagogy: Full Design Rules — May 21, 2026
-Complete design specification for HolaHola's substitution drill component (SentenceColumnGenerator). Covers the three-stage acquisition cycle, visual perception engine mechanism, column design rules (Column 1: 1–2 verb forms only; Column 2: 5–8 concrete imageable items; Column 3: only if every 3-way combination is valid), anti-patterns, and the 27-chapter progression. Explains why Column 1 must be short (fixed anchor) and Column 2 must be one semantic dimension only.
-*Tags: ANALYSIS, substitution-drill, SentenceColumnGenerator, column-design, pedagogy, madrigal, anti-patterns*
+### SiaSi SOURCE: The 5 Everyday Expressions Pages + English-Fade Pattern — May 21, 2026
+The 5 EE spreads are Madrigal's pedagogical pivots — each consolidates spoken-use structures beyond the lesson grammar. Plus the systematic English-fade pattern showing how she removes scaffolding as the book progresses.
+*Tags: see-it-and-say-it, madrigal, everyday-expressions, english-fade, source-material*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
