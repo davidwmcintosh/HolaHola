@@ -1762,6 +1762,7 @@ export const textbookLessonContent = pgTable("textbook_lesson_content", {
   comprehensionQuestions:     jsonb("comprehension_questions"),   // [{question, answer}]
   keyPhrasesForChat:          jsonb("key_phrases_for_chat"),      // [{phrase, translation, context}]
   microCycleData:             jsonb("micro_cycle_data"),           // AI-generated {negativeItems, questionItems, sentenceColumns, patternLabel}
+  relatedScenarioSlugs:       text("related_scenario_slugs").array(), // Scenario slugs that pair well with this chapter (e.g. ['restaurant', 'grocery-store'])
   // === Metadata ===
   sources:                    jsonb("sources"),                   // [{source:'wiktionary'|'tatoeba'|'wikipedia'|'wikivoyage', url?}]
   seedVersion:                integer("seed_version").default(1),

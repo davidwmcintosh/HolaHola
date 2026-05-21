@@ -18240,6 +18240,95 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
   
+  // ── Scenario ↔ Curriculum Gap Analysis ─────────────────────────────────────
+  // Which textbook chapters have no related immersive scenario?
+  app.get("/api/admin/scenario-coverage", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const sharedDb = getSharedDb();
+      const { sql: gcSql } = await import('drizzle-orm');
+
+      // Chapters without any scenario tag
+      const gaps = await sharedDb.execute(gcSql`
+        SELECT tlc.lesson_id, tlc.language, cl.name AS lesson_name,
+               cl.required_topics
+        FROM textbook_lesson_content tlc
+        LEFT JOIN curriculum_lessons cl ON cl.id = tlc.lesson_id
+        WHERE tlc.related_scenario_slugs IS NULL
+           OR tlc.related_scenario_slugs = '{}'
+        ORDER BY tlc.language, cl.name NULLS LAST
+      `);
+
+      // Summary counts per language
+      const summary = await sharedDb.execute(gcSql`
+        SELECT tlc.language,
+               COUNT(*) AS total,
+               COUNT(*) FILTER (
+                 WHERE tlc.related_scenario_slugs IS NOT NULL
+                   AND array_length(tlc.related_scenario_slugs, 1) > 0
+               ) AS tagged,
+               COUNT(*) FILTER (
+                 WHERE tlc.related_scenario_slugs IS NULL
+                    OR tlc.related_scenario_slugs = '{}'
+               ) AS untagged
+        FROM textbook_lesson_content tlc
+        GROUP BY tlc.language
+        ORDER BY tlc.language
+      `);
+
+      res.json({
+        summary: summary.rows,
+        gaps: gaps.rows,
+        totalGaps: gaps.rows.length,
+      });
+    } catch (error: any) {
+      console.error('[Scenario Coverage] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Manually set related scenario slugs for a lesson
+  app.patch("/api/admin/scenario-coverage/:lessonId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { lessonId } = req.params;
+      const { slugs } = req.body as { slugs: string[] };
+      if (!Array.isArray(slugs)) return res.status(400).json({ error: 'slugs must be an array' });
+      const sharedDb = getSharedDb();
+      await sharedDb.update(textbookLessonContent)
+        .set({ relatedScenarioSlugs: slugs })
+        .where(eq(textbookLessonContent.lessonId, lessonId));
+      res.json({ lessonId, relatedScenarioSlugs: slugs });
+    } catch (error: any) {
+      console.error('[Scenario Coverage] Patch error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Re-run the automatic topic-match backfill for all lessons
+  app.post("/api/admin/scenario-coverage/backfill", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const sharedDb = getSharedDb();
+      const { sql: bfSql } = await import('drizzle-orm');
+      const result = await sharedDb.execute(bfSql`
+        UPDATE textbook_lesson_content tlc
+        SET related_scenario_slugs = subq.slugs
+        FROM (
+          SELECT tlc2.id, array_agg(DISTINCT s.slug ORDER BY s.slug) AS slugs
+          FROM textbook_lesson_content tlc2
+          JOIN curriculum_lessons cl ON cl.id = tlc2.lesson_id
+          JOIN scenarios s ON s.curriculum_topics && cl.required_topics
+            AND s.is_active = true
+          GROUP BY tlc2.id
+        ) subq
+        WHERE tlc.id = subq.id
+        RETURNING tlc.lesson_id
+      `);
+      res.json({ updated: result.rows.length });
+    } catch (error: any) {
+      console.error('[Scenario Coverage] Backfill error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Start automated gap filling for ALL languages
   app.post("/api/admin/lesson-drafts/fill-all-gaps", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {

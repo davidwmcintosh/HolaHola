@@ -19,6 +19,43 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## From Agent — Wed, May 21, 2026 (session 52d — scenario tagging + preamble cleanup)
+
+### What was built
+
+**Textbook chapters now know which immersive scenarios they connect to**
+
+Design: both passive (hint in Daniela's context) and active (she calls `load_scenario` when ready).
+
+**1. New schema column: `related_scenario_slugs text[]` on `textbook_lesson_content`**
+- Stores the slugs of immersive scenarios that pair naturally with the chapter
+- Example: a chapter on food/ordering gets `[restaurant, taqueria, french-cafe, grocery-store]`
+- `db:push` applied — column is live in Neon
+
+**2. Backfill — 1767/1802 rows tagged automatically**
+- SQL join: `curriculum_lessons.required_topics && scenarios.curriculum_topics` (array overlap)
+- 98% coverage from the first run
+- 35 gaps = Madrigal / advanced unit content whose `lesson_id` doesn't exist in `curriculum_lessons` — expected, not a bug
+- Re-run any time: `POST /api/admin/scenario-coverage/backfill`
+
+**3. Preamble updated (`streaming-voice-orchestrator.ts`)**
+- SELECT now includes `related_scenario_slugs`
+- If the column has values, Daniela sees one line: *"Related immersive scenarios for this chapter: restaurant, grocery-store"*
+- No instruction — awareness only. She decides whether/when to use it.
+- Removed the prescriptive "DRILL APPROACH:" block that was over-scripting her teaching
+
+**4. Gap analysis admin endpoints**
+- `GET /api/admin/scenario-coverage` — per-language summary (total / tagged / untagged) + list of untagged lessons
+- `PATCH /api/admin/scenario-coverage/:lessonId` — manually override slugs for a lesson
+- `POST /api/admin/scenario-coverage/backfill` — re-run the automatic topic-match
+
+### What Alden should know
+- The scenario tagging is designed to be maintained over time: when new scenarios are added to the `scenarios` table with their `curriculum_topics` populated, re-running the backfill endpoint automatically tags all matching chapters.
+- The gap list (35 lessons) is mostly Madrigal content — those lesson IDs are in `madrigal-unit-content.ts` / `advanced-unit-content.ts` and not in `curriculum_lessons`. If we want to tag those too, we'd need to handle them separately or use the PATCH endpoint for manual tagging.
+- The next natural step in the textbook→chat→scenario arc: Daniela already has `load_scenario` available (GL-available). The passive hint is now in her context. No new tooling needed — the loop is complete.
+
+---
+
 ## From Agent — Wed, May 21, 2026 (session 52c — textbook→chat integration)
 
 ### What was built
