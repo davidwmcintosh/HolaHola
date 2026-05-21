@@ -3762,6 +3762,49 @@ Say what you're showing as you call this: "Let me show you how this works — lo
   },
 
   {
+    legacyType: 'PULL_LESSON_CONTENT',
+    declaration: {
+      name: "pull_lesson_content",
+      description: `Pull vocabulary, key phrases, and sentence patterns from a textbook lesson to use naturally in the current conversation — without starting a formal lesson.
+
+Use this when you notice the conversation topic connects to something in the curriculum: a verb pattern you're drilling, a set of places or foods you've been talking about, a grammar structure the student keeps wobbling on. You don't announce you're pulling from the textbook — you just weave it in.
+
+What happens:
+- You get back the lesson's vocabulary list, key phrases, and sentence patterns
+- The sentence pattern table (Madrigal substitution grid) appears in the student's whiteboard if the lesson has one
+- You can then show_image for individual vocabulary words, drill phrases call-and-response style, or reference the pattern grid
+
+You need the lesson_id. If you don't know it, pass a topic keyword instead and the system will find the best match.
+
+Examples:
+• Conversation is about daily routines → pull_lesson_content(lesson_id: "madrigal-ch3-ar-present") to bring in the -AR verb pattern grid
+• Student asks how to say "I'm going to the market" → pull_lesson_content(topic: "ir places") to get the ir + destination patterns
+• Student wobbles on preterite forms → pull_lesson_content(topic: "preterite tomar") to surface that chapter's drills`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          lesson_id: {
+            type: "string",
+            description: "The curriculum lesson ID (e.g. 'madrigal-ch1-ar-present'). Use this if you know the lesson.",
+          },
+          topic: {
+            type: "string",
+            description: "Keyword fallback if lesson_id is unknown (e.g. 'ir places', 'preterite tomar', 'ar verbs present'). The system will find the best matching lesson.",
+          },
+          text: {
+            type: "string",
+            description: "What you say as the content loads — keep it natural and brief (e.g. 'Let me show you the pattern for this.')",
+          },
+        },
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const result = (session as any).pullLessonContentResult as string | undefined;
+      return result || 'Lesson content loaded. Use the vocabulary and phrases naturally in conversation.';
+    },
+  },
+
+  {
     legacyType: 'SEARCH_TEXTBOOK',
     declaration: {
       name: "search_textbook",
@@ -4175,7 +4218,6 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   'set_weather', 'clear_weather',
   'highlight_country', 'clear_world_map',
   'enter_immersive', 'exit_immersive',
-  'show_sentence_table',
   // Text-mode exercises
   'phonetic', 'stroke', 'tone', 'pronunciation_tag',
   'culture', 'context', 'reading', 'compare', 'word_map',

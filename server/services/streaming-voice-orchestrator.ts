@@ -1465,24 +1465,31 @@ Remember: David may reference things discussed in these recent text chats.
             const textbookLessonId = convRow.rows[0]?.textbook_lesson_id as string | null;
             if (!textbookLessonId) return;
             const contentRow = await _tbDb.execute(
-              _tbSql`SELECT vocabulary_list, key_phrases_for_chat FROM textbook_lesson_content WHERE lesson_id = ${textbookLessonId} LIMIT 1`
+              _tbSql`SELECT vocabulary_list, key_phrases_for_chat, micro_cycle_data FROM textbook_lesson_content WHERE lesson_id = ${textbookLessonId} LIMIT 1`
             );
             if (!contentRow.rows[0]) return;
             const vocab = (contentRow.rows[0].vocabulary_list ?? []) as Array<{ word: string; translation: string; partOfSpeech: string }>;
             const phrases = (contentRow.rows[0].key_phrases_for_chat ?? []) as Array<{ phrase: string; translation: string }>;
-            let block = '📖 TEXTBOOK CHAPTER CONTEXT:';
+            const microCycle = contentRow.rows[0].micro_cycle_data as { sentenceColumns?: Array<{ header?: string; items: string[] }>; patternLabel?: string } | null;
+            const sentenceColumns = microCycle?.sentenceColumns;
+
+            let block = `📖 TEXTBOOK CHAPTER CONTEXT (lesson_id: ${textbookLessonId}):`;
             if (vocab.length > 0) {
-              block += '\n\nVocabulary the student just studied in the textbook:\n';
+              block += '\n\nVocabulary from this chapter:\n';
               block += vocab.map(v => `• ${v.word} (${v.translation}) — ${v.partOfSpeech}`).join('\n');
-              block += '\n\nUSE SHOW_IMAGE: When discussing any of these vocabulary words, call show_image(word) to display a visual — making the classroom feel continuous with the textbook.';
+              block += '\n→ Use show_image(word) when naming any of these words to keep the visual thread from the textbook alive.';
             }
             if (phrases.length > 0) {
-              block += '\n\nKey sentence patterns from this chapter to reinforce naturally:\n';
+              block += '\n\nKey phrases to drill — use Madrigal call-and-response:\n';
               block += phrases.map(p => `• ${p.phrase} — ${p.translation}`).join('\n');
+              block += '\n→ DRILL APPROACH: You ask the question form (e.g. "¿Va al banco?"), student answers ("Sí, voy al banco."), you affirm and move to the next vocabulary slot. Rotate through the vocabulary list using the same sentence frame. This is the Madrigal loop — word + sentence + repetition, not words in isolation.';
+            }
+            if (sentenceColumns && sentenceColumns.length > 0) {
+              block += `\n\nSentence pattern table available for this lesson. Call show_sentence_table(lesson_id: "${textbookLessonId}") to display the substitution grid — it shows the full pattern visually (e.g. "Voy al banco / teatro / mercado").`;
             }
             if (vocab.length > 0 || phrases.length > 0) {
               cache.textbookChapterContext = block;
-              console.log(`[Context Prefetch] Textbook chapter context loaded: ${vocab.length} vocab, ${phrases.length} phrases for lesson ${textbookLessonId}`);
+              console.log(`[Context Prefetch] Textbook chapter context loaded: ${vocab.length} vocab, ${phrases.length} phrases, ${sentenceColumns?.length ?? 0} sentence columns for lesson ${textbookLessonId}`);
             }
             // Adjacent chapter context (prev + next lessons)
             try {

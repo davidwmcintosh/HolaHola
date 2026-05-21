@@ -5082,6 +5082,15 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'PULL_LESSON_CONTENT': {
+        const lessonId = (fn.args.lesson_id || fn.args.lessonId) as string | undefined;
+        const topic = fn.args.topic as string | undefined;
+        const text = fn.args.text as string | undefined;
+        if (text && !session.functionCallText) session.functionCallText = text;
+        await this.handlePullLessonContent(session, lessonId, topic);
+        break;
+      }
+
       case 'SEARCH_TEXTBOOK': {
         const text = fn.args.text as string | undefined;
         const query = fn.args.query as string | undefined;
@@ -6620,6 +6629,108 @@ export class NativeFunctionCallHandler {
       console.log(`[Native Function→ShowSentenceTable] Sent ${sentenceColumns.length} columns for lesson ${lessonId}`);
     } catch (err: any) {
       console.error(`[Native Function→ShowSentenceTable] Error:`, err.message);
+    }
+  }
+
+  /**
+   * Handle pull_lesson_content — lightweight fetch of a lesson's vocab, phrases, and sentence
+   * patterns for natural weaving into any /chat conversation. GL-available (unlike start_textbook_page).
+   * If lessonId is unknown, falls back to a keyword search to find the best matching lesson first.
+   * Auto-emits a sentence_table whiteboard update if micro_cycle_data has sentenceColumns.
+   */
+  async handlePullLessonContent(session: StreamingSession, lessonId?: string, topic?: string): Promise<void> {
+    try {
+      const { getUserDb } = await import('../db');
+      const { sql: rawSql } = await import('drizzle-orm');
+      const db = getUserDb();
+
+      let resolvedLessonId = lessonId;
+
+      // If no lessonId, search by topic keyword to find the best matching lesson
+      if (!resolvedLessonId && topic) {
+        const pattern = `%${topic.toLowerCase()}%`;
+        const searchRows = await db.execute(
+          rawSql`
+            SELECT cl.id
+            FROM curriculum_lessons cl
+            LEFT JOIN textbook_lesson_content tlc ON tlc.lesson_id = cl.id
+            WHERE lower(cl.name) LIKE ${pattern}
+               OR lower(cl.unit_name) LIKE ${pattern}
+               OR lower(coalesce(tlc.grammar_explanation, '')) LIKE ${pattern}
+            ORDER BY cl.order_index ASC
+            LIMIT 1
+          `
+        );
+        resolvedLessonId = searchRows.rows[0]?.id as string | undefined;
+        if (!resolvedLessonId) {
+          (session as any).pullLessonContentResult = `No lesson found matching "${topic}". Try a different keyword or use search_textbook to browse.`;
+          return;
+        }
+      }
+
+      if (!resolvedLessonId) {
+        (session as any).pullLessonContentResult = 'Provide a lesson_id or a topic keyword to find a lesson.';
+        return;
+      }
+
+      const rows = await db.execute(
+        rawSql`SELECT vocabulary_list, key_phrases_for_chat, micro_cycle_data, grammar_explanation FROM textbook_lesson_content WHERE lesson_id = ${resolvedLessonId} LIMIT 1`
+      );
+
+      if (!rows.rows[0]) {
+        (session as any).pullLessonContentResult = `No content found for lesson "${resolvedLessonId}". Use search_textbook to find the right ID.`;
+        return;
+      }
+
+      const vocab = (rows.rows[0].vocabulary_list ?? []) as Array<{ word: string; translation: string; partOfSpeech?: string }>;
+      const phrases = (rows.rows[0].key_phrases_for_chat ?? []) as Array<{ phrase: string; translation: string }>;
+      const microCycle = rows.rows[0].micro_cycle_data as { sentenceColumns?: Array<{ header?: string; items: string[] }>; patternLabel?: string } | null;
+      const grammarNote = rows.rows[0].grammar_explanation as string | null;
+
+      // Build the content summary returned to Daniela
+      const parts: string[] = [`LESSON CONTENT (${resolvedLessonId}):`];
+      if (vocab.length > 0) {
+        parts.push('Vocabulary:\n' + vocab.map(v => `• ${v.word} — ${v.translation}`).join('\n'));
+        parts.push('→ Use show_image(word) for any of these to display a visual as you say the word.');
+      }
+      if (phrases.length > 0) {
+        parts.push('Key phrases (Madrigal call-and-response):\n' + phrases.map(p => `• ${p.phrase} — ${p.translation}`).join('\n'));
+      }
+      if (grammarNote) {
+        parts.push(`Grammar pattern: ${grammarNote}`);
+      }
+
+      const sentenceColumns = microCycle?.sentenceColumns;
+      if (sentenceColumns && sentenceColumns.length > 0) {
+        parts.push(`Sentence pattern grid: ${sentenceColumns.length} columns available. The grid is now showing in the student's whiteboard.`);
+
+        // Auto-emit the sentence table
+        const whiteboardUpdate = {
+          type: 'whiteboard_update' as const,
+          timestamp: Date.now(),
+          items: [{
+            type: 'sentence_table' as const,
+            content: microCycle?.patternLabel || `Patterns from lesson ${resolvedLessonId}`,
+            data: {
+              patternLabel: microCycle?.patternLabel,
+              columns: sentenceColumns,
+              lessonId: resolvedLessonId,
+            },
+          }],
+        };
+        if (session.firstAudioSent) {
+          this.sendMessage(session.ws, whiteboardUpdate);
+        } else {
+          if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
+          session.pendingWhiteboardUpdates.push(whiteboardUpdate);
+        }
+      }
+
+      (session as any).pullLessonContentResult = parts.join('\n\n');
+      console.log(`[Native Function→PullLessonContent] Loaded lesson ${resolvedLessonId}: ${vocab.length} vocab, ${phrases.length} phrases, ${sentenceColumns?.length ?? 0} sentence cols`);
+    } catch (err: any) {
+      console.error(`[Native Function→PullLessonContent] Error:`, err.message);
+      (session as any).pullLessonContentResult = `Error loading lesson content: ${err.message}`;
     }
   }
 

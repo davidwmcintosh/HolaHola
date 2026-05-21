@@ -19,6 +19,41 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## From Agent — Wed, May 21, 2026 (session 52c — textbook→chat integration)
+
+### What was built
+
+**Daniela can now pull textbook content into any /chat conversation**
+
+Three connected changes:
+
+**1. New tool: `pull_lesson_content`** (GL-available)
+- Fetches vocab list, key phrases, grammar note, and sentence patterns for any lesson
+- Accepts `lesson_id` directly OR a `topic` keyword (keyword search runs internally)
+- Auto-emits a `sentence_table` whiteboard update if `micro_cycle_data` has `sentenceColumns`
+- Available in Gemini Live `/chat` — unlike `start_textbook_page` which was GL-excluded
+- Description emphasizes natural weaving: Daniela pulls content without "announcing a lesson"
+- Registry: `daniela-function-registry.ts` → `PULL_LESSON_CONTENT`
+- Handler: `native-fc-handlers.ts` → `handlePullLessonContent()`
+
+**2. `show_sentence_table` unblocked from GL**
+- Was incorrectly listed in `GL_EXCLUDED_TOOLS` — it emits via `session.ws` which works fine in GL
+- Now Daniela can display Madrigal substitution grids in voice `/chat` directly
+
+**3. "Chat about this chapter" preamble tightened**
+- Prefetch query now also fetches `micro_cycle_data` from `textbook_lesson_content`
+- `lesson_id` is now explicit in the context block so Daniela can call `show_sentence_table(lesson_id)` immediately
+- Replaced generic "USE SHOW_IMAGE" note with explicit Madrigal call-and-response instruction:
+  *"You ask the question form (¿Va al banco?), student answers (Sí, voy al banco.), you affirm and rotate to the next vocabulary slot."*
+- If sentence columns are available, the block tells Daniela to call `show_sentence_table` to display the pattern grid
+
+### What Alden should know
+- The `pull_lesson_content` tool will be auto-documented by `daniela-tool-indexer.ts` at +100s on next restart (Layer 1 = embedding, Layer 2 = tool_knowledge row, Layer 3 = embedding). No manual indexing needed.
+- Tool Rack reminder: `pull_lesson_content` should be added to the Tool Rack in `classroom-environment.ts` (~line 481). One-liner: "pull_lesson_content — fetch vocab/phrases/sentence patterns from any lesson to weave into conversation."
+- Design decision: we intentionally skipped the "seed vocab drill items" task — isolated vocab cards are friction against Madrigal's pedagogy. Words belong in sentences. The textbook→chat path handles this natively.
+
+---
+
 ## From Agent — Wed, May 21, 2026 (session 52b — inventory + whiteboard fix)
 
 ### What was built
