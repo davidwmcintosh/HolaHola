@@ -38,15 +38,40 @@ export function SentenceColumnGenerator({
   // For the assembled preview, fall back to index 0 when nothing is explicitly chosen
   const effectiveSelections = selections.map(s => (s === -1 ? 0 : s));
 
-  const assembledText = columns
-    .map((col, i) => col.items[effectiveSelections[i]]?.text ?? "")
-    .filter(Boolean)
-    .join(" ");
+  // Join parts intelligently: if the first part is a question opener (¿…?),
+  // move the closing ? to the end so "¿Tomó? un autobús" → "¿Tomó un autobús?"
+  function assemblePhrase(parts: string[]): string {
+    const filtered = parts.filter(Boolean);
+    if (filtered.length === 0) return "";
+    if (filtered.length === 1) return filtered[0];
+    const first = filtered[0];
+    if (first.startsWith("¿") && first.endsWith("?")) {
+      const stem = first.slice(0, -1); // strip trailing ?
+      return stem + " " + filtered.slice(1).join(" ") + "?";
+    }
+    return filtered.join(" ");
+  }
 
-  const assembledTranslation = columns
-    .map((col, i) => col.items[effectiveSelections[i]]?.translation ?? "")
-    .filter(Boolean)
-    .join(" ");
+  // Same idea for English translations: "did you take? a bus" → "did you take a bus?"
+  function assembleTranslation(parts: string[]): string {
+    const filtered = parts.filter(Boolean);
+    if (filtered.length === 0) return "";
+    if (filtered.length === 1) return filtered[0];
+    const first = filtered[0];
+    if (first.endsWith("?")) {
+      const stem = first.slice(0, -1);
+      return stem + " " + filtered.slice(1).join(" ") + "?";
+    }
+    return filtered.join(" ");
+  }
+
+  const assembledText = assemblePhrase(
+    columns.map((col, i) => col.items[effectiveSelections[i]]?.text ?? "")
+  );
+
+  const assembledTranslation = assembleTranslation(
+    columns.map((col, i) => col.items[effectiveSelections[i]]?.translation ?? "")
+  );
 
   // Plays a given sentence string — used both for the bottom bar and auto-play on selection
   const playSentence = useCallback(async (text: string) => {
@@ -79,10 +104,9 @@ export function SentenceColumnGenerator({
       const next = [...prev];
       next[colIndex] = itemIndex;
       // Compute the assembled text with the new selections immediately
-      const fullText = columns
-        .map((col, i) => col.items[i === colIndex ? itemIndex : (next[i] === -1 ? 0 : next[i])]?.text ?? "")
-        .filter(Boolean)
-        .join(" ");
+      const parts = columns
+        .map((col, i) => col.items[i === colIndex ? itemIndex : (next[i] === -1 ? 0 : next[i])]?.text ?? "");
+      const fullText = assemblePhrase(parts);
       // Auto-play the full sentence for this new combination
       playSentence(fullText);
       return next;
