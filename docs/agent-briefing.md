@@ -1,21 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, May 21, 2026 at 08:19 PM
+**Generated:** Thursday, May 21, 2026 at 08:26 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve integrated core pedagogical structures from Madrigal’s *See It and Say It* into the HolaHola platform, specifically the "Master Infinitive Page" (slotting modals like *debo* and *quiero*) and the "humor pivot" (using absurd animals) to replace English scaffolding. I’ve solidified how Daniela should handle gender-matching through emotional states (EE#4) and the consolidated AR Verb Compendium (pp. 160–161) using Madrigal's signature Q&A rhythm. I must ensure Daniela continues this "trailing rule" approach, leading with immediate use and emotional register rather than academic grammar lectures.
+I’ve integrated verbatim pedagogical strategies from Madrigal’s *See It and Say It* into Daniela’s core teaching logic, specifically the "inverse verb leap" of *me gusta* and the conceptual shift of "taking" food with the *tomar* preterite. I’ve decided Daniela will avoid technical grammar dumps, opting instead to demonstrate patterns like the requirement for definite articles ("me gusta *la* sopa") and the immediate transition into *me gustaría* and *me encanta*. My focus now is ensuring Daniela mirrors Madrigal’s "demonstrate, repeat, trust" approach to help students absorb these complex structures through context rather than analysis.
 
 *Memories that triggered this summary:*
-- **SiaSi VERBATIM PAGE: AR Verb Compendium (pp. 160–161) + EE#5 Time & Frequency (pp. 162–163)** (May 21): The AR Verb Compendium verbatim — Madrigal's complete list of regular AR verbs with the full present tense table. Followed by EE#5 verbatim — time expressions, frequency, social phrases. This is the mid-book grammar consolidation moment.
-- **SiaSi VERBATIM PAGE: The Master Infinitive Page (pp. 118–119) — Every Modal, One Verb Slot** (May 21): The single most structurally important page in the book verbatim. All modals consolidated: voy a / tengo que / quiero / puedo / me gusta / me gustaría / me encanta / debo — all taking the same infinitive list. This is where Madrigal reveals Spanish sentence structure as three swappable slots.
-- **SiaSi VERBATIM PAGE: EE#4 (pp. 80–81) — Estar + Emotions, Gender-Matched States** (May 21): EE#4 verbatim — the estar+emotions everyday expressions page. Every state listed twice: masculine and feminine form side by side. This is where Madrigal teaches gender-matching through emotional states — the most personal vocabulary in the book.
-- **SiaSi VERBATIM PAGE: EE#1 (p. 43) + The Absurd Animals Humor Pivot (pp. 48–49)** (May 21): EE#1 verbatim — the first Everyday Expressions page, all greetings. Then pp. 48-49 verbatim — the gorilla/bull/elephant/snake pages. This is THE pedagogical pivot: the moment Madrigal removes English scaffolding and replaces it with humor as the emotional anchor.
-- **SiaSi VERBATIM PAGE: Lesson 1 — The Q&A Rhythm (pp. 9–15, ser, voy/va/vamos/van)** (May 21): The actual opening pages of See It and Say It verbatim — the very first Q&A exchanges a student sees. This is Madrigal's lesson format in its purest form: question with image, short affirmative answer, conjugation note at bottom. No English after the first pass.
+- **SiaSi VERBATIM PAGE: Me Gusta Introduction (pp. 94–97) — The Inverse Verb Leap** (May 21): The actual pages where Madrigal introduces me gusta verbatim. This is the hardest structural leap in the book — the verb is inverted, the subject is the thing being liked, the person is the indirect object. Madrigal handles it with one quiet note and moves on. Plus me gustan for plurals.
+- **SiaSi VERBATIM PAGE: Tomar Preterite Introduction (pp. 28–33) — 'I Took Soup'** (May 21): The actual pages where Madrigal introduces the first preterite tense verbatim. The key conceptual move: in Spanish you don't 'have' soup — you 'take' it. Plus the comprar preterite pages. Madrigal's conjugation notes appear at the bottom of each page after the student has already seen every form in context.
 
 ---
 
@@ -55,6 +52,14 @@ I’ve integrated core pedagogical structures from Madrigal’s *See It and Say 
 
 ## Recent Conversation Memories
 
+### SiaSi VERBATIM PAGE: Me Gusta Introduction (pp. 94–97) — The Inverse Verb Leap — May 21, 2026
+The actual pages where Madrigal introduces me gusta verbatim. This is the hardest structural leap in the book — the verb is inverted, the subject is the thing being liked, the person is the indirect object. Madrigal handles it with one quiet note and moves on. Plus me gustan for plurals.
+*Tags: see-it-and-say-it, madrigal, verbatim-page, me-gusta, inverse-verb*
+
+### SiaSi VERBATIM PAGE: Tomar Preterite Introduction (pp. 28–33) — 'I Took Soup' — May 21, 2026
+The actual pages where Madrigal introduces the first preterite tense verbatim. The key conceptual move: in Spanish you don't 'have' soup — you 'take' it. Plus the comprar preterite pages. Madrigal's conjugation notes appear at the bottom of each page after the student has already seen every form in context.
+*Tags: see-it-and-say-it, madrigal, verbatim-page, preterite, tomar*
+
 ### SiaSi VERBATIM PAGE: AR Verb Compendium (pp. 160–161) + EE#5 Time & Frequency (pp. 162–163) — May 21, 2026
 The AR Verb Compendium verbatim — Madrigal's complete list of regular AR verbs with the full present tense table. Followed by EE#5 verbatim — time expressions, frequency, social phrases. This is the mid-book grammar consolidation moment.
 *Tags: see-it-and-say-it, madrigal, verbatim-page, ar-verbs, everyday-expressions*
@@ -66,14 +71,6 @@ The single most structurally important page in the book verbatim. All modals con
 ### SiaSi VERBATIM PAGE: EE#4 (pp. 80–81) — Estar + Emotions, Gender-Matched States — May 21, 2026
 EE#4 verbatim — the estar+emotions everyday expressions page. Every state listed twice: masculine and feminine form side by side. This is where Madrigal teaches gender-matching through emotional states — the most personal vocabulary in the book.
 *Tags: see-it-and-say-it, madrigal, verbatim-page, everyday-expressions, estar-emotions*
-
-### SiaSi VERBATIM PAGE: EE#1 (p. 43) + The Absurd Animals Humor Pivot (pp. 48–49) — May 21, 2026
-EE#1 verbatim — the first Everyday Expressions page, all greetings. Then pp. 48-49 verbatim — the gorilla/bull/elephant/snake pages. This is THE pedagogical pivot: the moment Madrigal removes English scaffolding and replaces it with humor as the emotional anchor.
-*Tags: see-it-and-say-it, madrigal, verbatim-page, everyday-expressions, humor-pivot*
-
-### SiaSi VERBATIM PAGE: Lesson 1 — The Q&A Rhythm (pp. 9–15, ser, voy/va/vamos/van) — May 21, 2026
-The actual opening pages of See It and Say It verbatim — the very first Q&A exchanges a student sees. This is Madrigal's lesson format in its purest form: question with image, short affirmative answer, conjugation note at bottom. No English after the first pass.
-*Tags: see-it-and-say-it, madrigal, verbatim-page, lesson-1, qa-rhythm*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
