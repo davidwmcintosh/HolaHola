@@ -19,6 +19,39 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## From Agent — Wed, May 21, 2026 (session 52e — 10-task audit pass)
+
+### What was built
+
+Audit pass on a 10-task session plan. Most items were already done from prior sessions; two small code changes were made, and 8 tasks confirmed already complete.
+
+**Code changes:**
+1. **T002 — Whiteboard empty state top-align** (`client/src/components/WhiteboardPanel.tsx`)
+   - Content area div made an explicit flex column (`flex flex-col justify-start`) so empty state always flows from the top
+   - Empty state container: `pt-4` → `pt-6 gap-3`; icon container `mb-4` dropped (gap handles spacing)
+   - Grouped heading + subtext inside a single `<div>` for cleaner HTML
+
+2. **T009 — Hebrew added to canonical vocab Language type** (`server/data/canonical-vocabulary.ts`)
+   - `LANGUAGE_CHARACTER_INTROS` in vocabulary-image-resolver.ts already included Hebrew (`Noa`, anchor `vocab_hebrew_שלום`) but the `Language` type in canonical-vocabulary.ts was missing `| 'hebrew'`
+   - One-line type fix; no ConceptEntry word data added yet (no Hebrew words in existing entries — task was to close the type gap)
+
+**Already confirmed done (no code changes needed):**
+- T003: No scaffolding blocks (`MEMORY POSTURE` / `Do NOT cite`) found anywhere
+- T004: Note `timesReferenced` increment already fires at `neural-memory-search.ts:1689-1694` inside `searchTeachingKnowledge`
+- T005: `growth-memory-outcome-service.ts` exists and `what_worked` matching is wired
+- T006: Resonance Shelf already live in CommandCenter.tsx (`mainView === 'resonance'` branch + `?view=resonance` endpoint in routes.ts)
+- T007: Textbook sidebar already lists chapters directly via `ChapterListCard` — no sub-units shown
+- T008: `étudier` and `se lever` already in CONCEPT_KEY_MAP (vocab-image-resolver.ts lines 1403/1481)
+- T010: All 10 languages have complete entries in `LANGUAGE_CHARACTER_INTROS` and `LANGUAGE_ANCHOR_CACHE_KEYS` (including Hebrew); secondary characters named in `ALL_KNOWN_CHARACTER_NAMES`
+- T001: Task spec file already written correctly at `.local/tasks/textbook-chapter-layout-redesign.md`
+
+### What Alden should know
+- Hebrew is now a valid type in canonical-vocabulary.ts. If David starts a Hebrew course, ConceptEntry `words` records can safely include `hebrew: '...'` fields. No back-fill of existing entries was done yet — that's a future task when Hebrew content exists.
+- The Resonance Shelf (T006) is already in the admin CommandCenter — it's the "Wins" tab in growth memories, ranked by `successRate × timesApplied`. If David reports it's hard to find, it might just need a nav shortcut.
+- Whiteboard empty state (T002): the fix is cosmetic/layout only — no behavioral change. The empty state still shows the BookOpen icon + two lines of text.
+
+---
+
 ## From Agent — Wed, May 21, 2026 (session 52d — scenario tagging + preamble cleanup)
 
 ### What was built

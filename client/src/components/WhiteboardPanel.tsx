@@ -73,7 +73,7 @@ export function WhiteboardPanel({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto p-3 custom-scrollbar flex flex-col justify-start">
         {items.length > 0 ? (
           <PanelWhiteboard
             items={items}
@@ -82,14 +82,16 @@ export function WhiteboardPanel({
             onTextInputSubmit={onTextInputSubmit}
           />
         ) : (
-          <div className="flex flex-col items-center text-center pt-4">
-            <div className="rounded-full bg-muted p-4 mb-4">
+          <div className="flex flex-col items-center text-center pt-6 gap-3">
+            <div className="rounded-full bg-muted p-4">
               <BookOpen className="h-8 w-8 text-muted-foreground" />
             </div>
-            <p className="text-sm font-medium text-muted-foreground mb-1">Whiteboard is clear</p>
-            <p className="text-xs text-muted-foreground max-w-[220px]">
-              Your tutor will write vocabulary, grammar, and notes here as you learn
-            </p>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Whiteboard is clear</p>
+              <p className="text-xs text-muted-foreground max-w-[220px] mt-1">
+                Your tutor will write vocabulary, grammar, and notes here as you learn
+              </p>
+            </div>
           </div>
         )}
       </div>

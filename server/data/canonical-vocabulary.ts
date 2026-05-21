@@ -42,7 +42,8 @@ export type Language =
   | 'spanish'
   | 'japanese'
   | 'korean'
-  | 'mandarin';
+  | 'mandarin'
+  | 'hebrew';
 
 export type ImageTier = 'shared' | 'scene_override' | 'svg' | 'none';
 
