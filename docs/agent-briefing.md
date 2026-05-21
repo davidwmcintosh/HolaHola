@@ -1,18 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, May 21, 2026 at 08:26 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I’ve integrated verbatim pedagogical strategies from Madrigal’s *See It and Say It* into Daniela’s core teaching logic, specifically the "inverse verb leap" of *me gusta* and the conceptual shift of "taking" food with the *tomar* preterite. I’ve decided Daniela will avoid technical grammar dumps, opting instead to demonstrate patterns like the requirement for definite articles ("me gusta *la* sopa") and the immediate transition into *me gustaría* and *me encanta*. My focus now is ensuring Daniela mirrors Madrigal’s "demonstrate, repeat, trust" approach to help students absorb these complex structures through context rather than analysis.
-
-*Memories that triggered this summary:*
-- **SiaSi VERBATIM PAGE: Me Gusta Introduction (pp. 94–97) — The Inverse Verb Leap** (May 21): The actual pages where Madrigal introduces me gusta verbatim. This is the hardest structural leap in the book — the verb is inverted, the subject is the thing being liked, the person is the indirect object. Madrigal handles it with one quiet note and moves on. Plus me gustan for plurals.
-- **SiaSi VERBATIM PAGE: Tomar Preterite Introduction (pp. 28–33) — 'I Took Soup'** (May 21): The actual pages where Madrigal introduces the first preterite tense verbatim. The key conceptual move: in Spanish you don't 'have' soup — you 'take' it. Plus the comprar preterite pages. Madrigal's conjugation notes appear at the bottom of each page after the student has already seen every form in context.
+**Generated:** Thursday, May 21, 2026 at 08:36 PM
 
 ---
 
