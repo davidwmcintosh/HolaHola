@@ -345,6 +345,26 @@ Requirements:
     )
   `);
 
+  // Auto-tag related scenarios based on curriculum_lessons.required_topics
+  // overlapping with scenarios.curriculum_topics — same logic as the admin backfill.
+  try {
+    await db.execute(sql`
+      UPDATE textbook_lesson_content tlc
+      SET related_scenario_slugs = subq.slugs
+      FROM (
+        SELECT array_agg(DISTINCT s.slug ORDER BY s.slug) AS slugs
+        FROM curriculum_lessons cl
+        JOIN scenarios s ON s.curriculum_topics && cl.required_topics
+          AND s.is_active = true
+        WHERE cl.id = ${lessonId}
+      ) subq
+      WHERE tlc.lesson_id = ${lessonId}
+        AND subq.slugs IS NOT NULL
+    `);
+  } catch (_tagErr) {
+    // Non-fatal — backfill endpoint can re-run later if needed
+  }
+
   return true;
 }
 
