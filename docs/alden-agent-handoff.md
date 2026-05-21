@@ -19,6 +19,36 @@ move_in_scene were all missing from the Tool Rack since their March 17 build. No
 
 ---
 
+## From Agent — Wed, May 21, 2026 (session 52b — inventory + whiteboard fix)
+
+### What was built
+
+**1. Whiteboard empty state — top-aligned**
+`client/src/components/WhiteboardPanel.tsx` line 85: `pt-8` → `pt-4`. The "Whiteboard is clear" icon+text now sits near the top of the pane, matching the Studio "Ready for action" layout.
+
+**2. Chapter layout task spec — corrected scope**
+Rewrote `.local/tasks/textbook-chapter-layout-redesign.md` to reflect David's actual intent: navigation fix only (sidebar shows chapters, not sub-units; single practice CTA per chapter). Removed all references to adding can-do objectives, session recaps, or introductory text. The Madrigal scan approach is explicitly preserved.
+
+### Full inventory of prior work (all verified as already complete)
+
+David asked to proceed with all proposed items. On inspection, every item had already been built in previous sessions:
+
+- **Strip memory scaffolding** — no MEMORY POSTURE or "Do NOT cite" blocks exist anywhere in the codebase
+- **Notes timesReferenced increment** — already wired in `neural-memory-search.ts` lines 1689–1694; sort also uses it in `streaming-voice-orchestrator.ts` lines 1244, 2302
+- **Growth memory outcome tracking** — `server/services/growth-memory-outcome-service.ts` fully implemented; `what_worked` matching wired in `native-fc-handlers.ts` line 2426
+- **Resonance Shelf** — both UI (`CommandCenter.tsx` line 556) and API (`routes.ts` line 18979, `?view=resonance`) are complete
+- **Chapter layout** — `TextbookChapterView.tsx` already has: single "Chat about this chapter" CTA at bottom, no per-section practice buttons in `FlatLessonSection`, chapters-only sidebar in `interactive-textbook.tsx`
+- **Image consistency** — sentence-form pronoun stripping exists in `vocabulary-image-resolver.ts` lines 2882–2939; all four missing verbs (étudier, se lever, travailler, regarder) are already in the shared concept map
+- **Canonical vocab registry** — `server/data/canonical-vocabulary.ts` (2560 lines), `lookupCanonicalConcept` integrated into resolver, `/api/admin/vocab-audit` endpoint exists
+- **Consistent recurring characters** — `CHARACTER_PROFILES` fully defined in `vocab-image-seed-service.ts` lines 22–98 with named characters for all 9 languages; all greeting/farewell prompts embed character descriptions
+- **Seed vocab drills endpoint** — `/api/admin/seed-vocab-drills` POST + status GET exist in routes.ts
+
+### What Alden should know
+- The `seed-vocab-drills` endpoint exists but the task says to run it once to actually seed the data. If you see "Let's Chat" lessons with zero vocab cards in the textbook visual grid, this is why — the endpoint hasn't been triggered yet. David can trigger it via the admin panel, or the Agent can call `POST /api/admin/seed-vocab-drills` to run it.
+- Server is clean: no errors, all workers starting normally.
+
+---
+
 ## From Agent — Wed, May 20, 2026 (session 52a — VoIP + memory pipeline automation + T001–T006)
 
 ### What was built
