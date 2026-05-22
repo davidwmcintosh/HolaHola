@@ -2787,18 +2787,45 @@ export class NativeFunctionCallHandler {
             (async () => {
               try {
                 const db = getSharedDb();
-                const results = await db
-                  .select()
-                  .from(conversationMemories)
-                  .where(
-                    or(
-                      ilike(conversationMemories.title, `%${memQuery}%`),
-                      ilike(conversationMemories.summary, `%${memQuery}%`),
-                      ilike(conversationMemories.content, `%${memQuery}%`)
-                    )
-                  )
-                  .orderBy(desc(conversationMemories.importance))
-                  .limit(1);
+                // Layered search — most precise first, broadening only if needed.
+                // Title/summary AND: all keywords in title+summary (no content false-positives)
+                // Title/summary OR:  any keyword in title+summary
+                // All-fields AND:    all keywords anywhere
+                // All-fields OR:     any keyword anywhere (original broad fallback)
+                const keywords = memQuery.split(/\s+/).filter(w => w.length >= 3);
+                let results: (typeof conversationMemories.$inferSelect)[] = [];
+                if (keywords.length > 0) {
+                  const andTitleSummary = sql.join(
+                    keywords.map(kw => sql`(title ILIKE ${`%${kw}%`} OR summary ILIKE ${`%${kw}%`})`),
+                    sql` AND `
+                  );
+                  results = await db.select().from(conversationMemories).where(andTitleSummary).orderBy(desc(conversationMemories.importance)).limit(1);
+                  if (results.length === 0) {
+                    const andAll = sql.join(
+                      keywords.map(kw => sql`(title ILIKE ${`%${kw}%`} OR summary ILIKE ${`%${kw}%`} OR content ILIKE ${`%${kw}%`})`),
+                      sql` AND `
+                    );
+                    results = await db.select().from(conversationMemories).where(andAll).orderBy(desc(conversationMemories.importance)).limit(1);
+                  }
+                  if (results.length === 0) {
+                    const orTitleSummary = sql.join(
+                      keywords.map(kw => sql`(title ILIKE ${`%${kw}%`} OR summary ILIKE ${`%${kw}%`})`),
+                      sql` OR `
+                    );
+                    results = await db.select().from(conversationMemories).where(orTitleSummary).orderBy(desc(conversationMemories.importance)).limit(1);
+                  }
+                  if (results.length === 0) {
+                    const orAll = sql.join(
+                      keywords.map(kw => sql`(title ILIKE ${`%${kw}%`} OR summary ILIKE ${`%${kw}%`} OR content ILIKE ${`%${kw}%`})`),
+                      sql` OR `
+                    );
+                    results = await db.select().from(conversationMemories).where(orAll).orderBy(desc(conversationMemories.importance)).limit(1);
+                  }
+                } else {
+                  results = await db.select().from(conversationMemories)
+                    .where(sql`(title ILIKE ${`%${memQuery}%`} OR summary ILIKE ${`%${memQuery}%`} OR content ILIKE ${`%${memQuery}%`})`)
+                    .orderBy(desc(conversationMemories.importance)).limit(1);
+                }
                 if (!session.fullMemoryResults) session.fullMemoryResults = {};
                 if (results.length > 0) {
                   session.fullMemoryResults[memQuery] = {
