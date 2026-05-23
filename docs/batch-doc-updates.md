@@ -718,3 +718,39 @@ Every `open_scene` and `add_to_scene` response now includes full canvas state te
 - Three-level cache: session Set → persistent DB → fetch fresh bytes
 - Cost: ~$0.00002/image (258 tokens at Flash pricing) — effectively free
 - Pattern: identical to working `recall_express_lane_image` multimodal flow
+
+---
+
+## AI Cost Reduction — Lyra dedup + Alden context trim (May 23, 2026)
+
+### What was built
+Three targeted fixes to reduce the Anthropic bill based on a 5-week burn analysis.
+
+### What changed
+
+**1. Lyra extraction dedup guard (`server/services/native-fc-handlers.ts`)**
+- Added `lyraExtractionCache: Map<string, number>` (24h TTL) as a class property on `NativeFunctionCallHandler`
+- `triggerLyraExtractionForThreads` now skips any conversation that was already extracted within the last 24h
+- Root cause: every `search_conversation_threads` and `unified_recall` tool call triggered a re-extraction of up to 3 conversations, firing 20-31 Claude Sonnet 4.5 calls per day instead of the expected 2 from the 12h worker
+- Expected reduction: Lyra from ~$0.75/day → ~$0.15/day
+
+**2. Alden workspace context trimmed (`server/services/alden-workspace-context.ts`)**
+- `replit.md`: was full file (~15-20KB), now capped at 4KB with note to use `read_file("replit.md")` for full content
+- Editor insights: was ALL 416 entries × 500 chars (~200KB), now top 30 by importance × 300 chars (~15KB)
+- Note added to header telling Alden to use search tools for full recall beyond the top 30
+- Root cause: 416 insights × 500 chars = 208K chars injected into every single chat turn, compounding in multi-round tool-use sessions
+
+**3. Alden conversation history window (`server/services/alden-persona-service.ts`)**
+- History window: 20 → 12 messages
+- Per-message cap: 4KB → 2KB
+- Root cause: multi-round tool-use sessions accumulate all prior messages across rounds; combined with fat workspace context, this caused quadratic growth (April 28 worst case: 8 calls averaging 1.28M tokens each = $30.94 in one day)
+
+### Expected combined impact
+- Alden chat: ~$0.50-0.90/session → ~$0.05-0.15/session (for normal sessions)
+- Spike protection: April 28-style $30 days should no longer be possible
+- Lyra: ~$0.75/day → ~$0.15/day
+
+### Key files modified
+- `server/services/native-fc-handlers.ts` — Lyra dedup cache
+- `server/services/alden-workspace-context.ts` — replit.md + insights cap
+- `server/services/alden-persona-service.ts` — history window

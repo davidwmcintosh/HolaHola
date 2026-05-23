@@ -24,12 +24,17 @@ import { getFounderPresence } from './founder-presence';
 export async function buildAldenWorkspaceContext(): Promise<string> {
   const sections: string[] = [];
 
-  // ── 0. replit.md — PROJECT BIBLE ──────────────────────────────────────────
+  // ── 0. replit.md — PROJECT BIBLE (critical sections only) ────────────────
   // The authoritative record of architecture, rules, and user preferences.
-  // The Replit Agent always has this in memory — now Alden does too.
+  // Capped at 4 KB — the full file is 15-20 KB and loads on every turn;
+  // the opening sections cover run/stack/architecture which are the most useful.
   try {
     const replitMdPath = join(process.cwd(), 'replit.md');
-    const replitMd = readFileSync(replitMdPath, 'utf-8').trim();
+    const rawReplitMd = readFileSync(replitMdPath, 'utf-8').trim();
+    const MAX_REPLIT_MD_CHARS = 4_000;
+    const replitMd = rawReplitMd.length > MAX_REPLIT_MD_CHARS
+      ? rawReplitMd.slice(0, MAX_REPLIT_MD_CHARS) + `\n… [${((rawReplitMd.length - MAX_REPLIT_MD_CHARS) / 1024).toFixed(0)}KB omitted — use read_file("replit.md") for full content]`
+      : rawReplitMd;
     if (replitMd) {
       sections.push(`📖 PROJECT BIBLE — replit.md\n${replitMd}`);
     }
@@ -37,9 +42,11 @@ export async function buildAldenWorkspaceContext(): Promise<string> {
     console.warn('[AldenWorkspace] replit.md read failed:', err.message);
   }
 
-  // ── 1. EDITOR INSIGHTS — ALL OF THEM ─────────────────────────────────────
-  // Alden's permanent memory. Load every insight, not just the top 12.
-  // Content shown up to 500 chars so critical details aren't truncated.
+  // ── 1. EDITOR INSIGHTS — top 30 by importance ────────────────────────────
+  // Alden's permanent memory. The table now has 400+ entries; loading all of them
+  // at 500 chars each = ~200 KB injected on every single turn, which is the primary
+  // driver of the context-size spikes. Cap to the 30 highest-importance entries,
+  // 300 chars each. Alden can use his search tools for deeper recall when needed.
   try {
     const insights = await db
       .select({
@@ -49,14 +56,15 @@ export async function buildAldenWorkspaceContext(): Promise<string> {
         importance: editorInsights.importance,
       })
       .from(editorInsights)
-      .orderBy(desc(editorInsights.importance), desc(editorInsights.createdAt));
+      .orderBy(desc(editorInsights.importance), desc(editorInsights.createdAt))
+      .limit(30);
 
     if (insights.length > 0) {
       const lines = insights.map(i => {
-        const preview = (i.content || '').substring(0, 500).replace(/\n+/g, ' ');
+        const preview = (i.content || '').substring(0, 300).replace(/\n+/g, ' ');
         return `  [${(i.category || 'note').toUpperCase()} · importance ${i.importance}] ${i.title}\n  ${preview}`;
       });
-      sections.push(`📚 PERSISTENT MEMORY — Editor Insights (${insights.length} entries)\n${lines.join('\n\n')}`);
+      sections.push(`📚 PERSISTENT MEMORY — Editor Insights (top 30 of ${insights.length} — use search tools for full recall)\n${lines.join('\n\n')}`);
     }
   } catch (err: any) {
     console.warn('[AldenWorkspace] Editor insights fetch failed:', err.message);

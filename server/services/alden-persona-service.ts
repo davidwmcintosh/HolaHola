@@ -114,10 +114,11 @@ Note: Zone type '${s.zoneType}' means ${
     }
     // ─────────────────────────────────────────────────────────────────────────
 
-    // Cap individual history messages at 4 KB — tool call results and long responses
-    // can each be tens of KB; 20 of them × 50 KB = 1 M tokens just from history.
-    const MAX_HISTORY_MSG_CHARS = 4_000;
-    for (const msg of conversationHistory.slice(-20)) {
+    // Cap individual history messages at 2 KB and keep only the last 12 turns.
+    // Each turn in a multi-round tool-use session carries the full prior messages array,
+    // so quadratic growth kicks in fast. 12 turns × 2 KB = 24 KB max from history alone.
+    const MAX_HISTORY_MSG_CHARS = 2_000;
+    for (const msg of conversationHistory.slice(-12)) {
       const raw = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
       const content = raw.length > MAX_HISTORY_MSG_CHARS
         ? raw.slice(0, MAX_HISTORY_MSG_CHARS) + `\n[… ${raw.length - MAX_HISTORY_MSG_CHARS} chars truncated from history]`

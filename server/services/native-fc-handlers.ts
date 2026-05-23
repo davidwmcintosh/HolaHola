@@ -30,6 +30,12 @@ interface ArchitectMessage {
 }
 
 export class NativeFunctionCallHandler {
+  // Dedup guard for background Lyra re-extraction — keyed by conversationId, value is last extraction timestamp.
+  // Prevents the same conversation from being re-extracted more than once per 24h, regardless of how many
+  // search_conversation_threads / unified_recall calls hit it in a given session.
+  private readonly lyraExtractionCache = new Map<string, number>();
+  private readonly LYRA_EXTRACTION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
   constructor(
     private sendMessage: (ws: any, message: any, session?: any) => void,
     private sendError: (ws: any, code: string, message: string, recoverable: boolean) => void,
@@ -5786,11 +5792,24 @@ export class NativeFunctionCallHandler {
     try {
       const { learnerMemoryExtractionService } = await import('./learner-memory-extraction-service');
       const { getSharedDb } = await import('../db');
-      const { messages: messagesTable, conversations: conversationsTable } = await import('@shared/schema');
+      const { messages: messagesTable } = await import('@shared/schema');
       const { eq } = await import('drizzle-orm');
       const db = getSharedDb();
 
+      const now = Date.now();
+      let skipped = 0;
+      let processed = 0;
+
       for (const thread of threads.slice(0, 3)) {  // process up to 3 conversations
+        const cacheKey = `${studentId}:${thread.conversationId}`;
+        const lastExtracted = this.lyraExtractionCache.get(cacheKey);
+
+        // Skip if this conversation was already extracted within the TTL window
+        if (lastExtracted !== undefined && (now - lastExtracted) < this.LYRA_EXTRACTION_TTL_MS) {
+          skipped++;
+          continue;
+        }
+
         try {
           // Fetch full message list for the conversation (more complete than the thread window)
           const fullMessages = await db
@@ -5813,13 +5832,18 @@ export class NativeFunctionCallHandler {
               thread.conversationId,
               msgs
             );
+            // Mark as extracted so this conversation is skipped for the next 24h
+            this.lyraExtractionCache.set(cacheKey, now);
+            processed++;
           }
         } catch (err: any) {
           console.warn(`[LyraAutoExtract] Failed for conversation ${thread.conversationId}:`, err.message);
         }
       }
 
-      console.log(`[LyraAutoExtract] Completed extraction for ${Math.min(threads.length, 3)} conversations`);
+      if (skipped > 0 || processed > 0) {
+        console.log(`[LyraAutoExtract] Completed: ${processed} extracted, ${skipped} skipped (already extracted within 24h)`);
+      }
     } catch (err: any) {
       console.error(`[LyraAutoExtract] Import or setup failed:`, err.message);
     }
