@@ -971,6 +971,11 @@ export function VoiceConsoleContent() {
                         <div className="flex items-center gap-2">
                           <Globe className="h-4 w-4 text-muted-foreground" />
                           <Label>Regional Accent</Label>
+                          {isGlProvider(formData.provider) && (
+                            <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                              {formData.provider === 'gemini-live-35' ? 'GL 3.5' : 'GL 3.1'}
+                            </span>
+                          )}
                         </div>
                         <Select
                           value={formData.geminiLanguageCode || '__default__'}
@@ -1256,11 +1261,13 @@ export function VoiceConsoleContent() {
                                 ? 'Waiting for GL response…'
                                 : glPhase === 'playing'
                                 ? 'Playing GL response…'
-                                : 'GL Audition (live mic)'
+                                : formData.provider === 'gemini-live-35'
+                                ? 'Audition with GL 3.5 Native Audio'
+                                : 'GL 3.1 Audition (live mic)'
                               }
                             </Button>
                             <p className="text-xs text-muted-foreground">
-                              Records 3s of your voice and sends it to a real Gemini Live 3.1 session with the selected voice and accent
+                              Records 3s of your voice and sends it to a real {formData.provider === 'gemini-live-35' ? 'Gemini Live 3.5 Native Audio' : 'Gemini Live 3.1'} session with the selected voice and accent
                             </p>
                           </>
                         ) : (
