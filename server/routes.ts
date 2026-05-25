@@ -23561,9 +23561,9 @@ Current conversation context:
     }
   });
 
-  // Admin: Gemini Live 3.1 voice audition — user sends mic PCM, server opens real GL session, returns WAV
+  // Admin: Gemini Live voice audition — user sends mic PCM, server opens real GL session (3.1 or 3.5), returns WAV
   app.post("/api/admin/gl-audition", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
-    const { audio, languageCode, voiceId } = req.body;
+    const { audio, languageCode, voiceId, model } = req.body;
     if (!audio) return res.status(400).json({ error: 'audio (base64 PCM16 @ 16kHz) required' });
 
     const VALID_VOICES = new Set([
@@ -23573,9 +23573,14 @@ Current conversation context:
       'Alnilam','Enceladus','Gacrux','Iapetus','Rasalgethi','Sadachbia',
       'Sadaltager','Schedar','Umbriel','Zubenelgenubi',
     ]);
+    const VALID_GL_MODELS = new Set([
+      'gemini-3.1-flash-live-preview',
+      'gemini-2.5-flash-native-audio-preview-12-2025',
+    ]);
     const voice = VALID_VOICES.has(voiceId) ? voiceId : 'Aoede';
     const langCode = languageCode || 'es-ES';
-    const MODEL = process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview';
+    const MODEL = VALID_GL_MODELS.has(model) ? model : (process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview');
+    console.log(`[GL Audition] model: ${MODEL}, voice: ${voice}, langCode: ${langCode}`);
 
     // Build a language-aware system instruction so the model responds in the
     // correct language (and hopefully with the correct accent) during audition.
@@ -23669,7 +23674,8 @@ Current conversation context:
                   responseChunks.push(Buffer.from(part.inlineData.data, 'base64'));
                 }
               }
-              if (msg.serverContent?.turnComplete) {
+              // 3.1 uses generationComplete; 3.5 may use turnComplete — handle both
+              if (msg.serverContent?.turnComplete || msg.serverContent?.generationComplete) {
                 if (responseChunks.length > 0) finish();
               }
             },

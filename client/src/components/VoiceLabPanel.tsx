@@ -79,7 +79,23 @@ export interface VoiceOverride {
   elSimilarityBoost?: number;
   elStyle?: number;
   geminiLanguageCode?: string;
+  glModel?: string;
 }
+
+const GL_MODELS: { value: string; label: string; badge: string; description: string }[] = [
+  {
+    value: 'gemini-3.1-flash-live-preview',
+    label: 'GL 3.1 Flash',
+    badge: '3.1',
+    description: 'Current production model',
+  },
+  {
+    value: 'gemini-2.5-flash-native-audio-preview-12-2025',
+    label: 'GL 3.5 Native Audio',
+    badge: '3.5',
+    description: '30 voices · 24 langs · better barge-in',
+  },
+];
 
 interface GoogleVoice {
   id: string;
@@ -216,6 +232,8 @@ export function VoiceLabPanel({
     .map(v => ({ id: v.id, name: `${v.name} — ${v.description}`, description: 'Gemini Live', language: '', gender: v.gender }));
   // GL voice selection for the audition — separate from the main TTS voice picker
   const [selectedGlVoiceId, setSelectedGlVoiceId] = useState<string>('');
+  // GL model selection for audition (and session override)
+  const [selectedGlModel, setSelectedGlModel] = useState<string>(GL_MODELS[0].value);
 
   const langCodeMap: Record<string, string> = {
     english: 'en', spanish: 'es', french: 'fr', german: 'de',
@@ -298,6 +316,7 @@ export function VoiceLabPanel({
       ...(selectedVoiceId && selectedVoiceId !== currentVoice?.voiceId ? { voiceId: selectedVoiceId } : {}),
       ...(isElevenLabs ? { elStability, elSimilarityBoost, elStyle } : {}),
       ...((isGemini || isGeminiLive) && selectedAccent ? { geminiLanguageCode: selectedAccent } : {}),
+      ...(selectedGlModel && selectedGlModel !== GL_MODELS[0].value ? { glModel: selectedGlModel } : {}),
     };
     onOverrideChange(override);
     setHasChanges(true);
@@ -502,12 +521,12 @@ export function VoiceLabPanel({
       }
       const base64Audio = btoa(binary);
 
-      // 4. Send to server → real GL 3.1 session
+      // 4. Send to server → real GL session (model selected in Voice Lab)
       setGlPhase('waiting');
       const res = await fetch('/api/admin/gl-audition', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ audio: base64Audio, languageCode: langCode, voiceId }),
+        body: JSON.stringify({ audio: base64Audio, languageCode: langCode, voiceId, model: selectedGlModel }),
       });
 
       if (!res.ok) {
@@ -677,7 +696,6 @@ export function VoiceLabPanel({
                     <p className="text-xs text-muted-foreground">
                       Gemini Live generates speech directly — no separate STT or TTS step.
                       Enable with <span className="font-mono">GEMINI_LIVE_VOICE=true</span>.
-                      Audition uses Gemini TTS as a preview.
                     </p>
                   </div>
                 </div>
@@ -700,11 +718,14 @@ export function VoiceLabPanel({
                             <span className="flex items-center gap-2">
                               <span>{variant.label}</span>
                               <span className="font-mono text-xs text-muted-foreground">{variant.code}</span>
-                              {variant.gl31Status === 'working' && (
+                              {selectedGlModel === GL_MODELS[0].value && variant.gl31Status === 'working' && (
                                 <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-green-600 border-green-400 dark:text-green-400 dark:border-green-600">3.1 ✓</Badge>
                               )}
-                              {variant.gl31Status === 'broken' && (
+                              {selectedGlModel === GL_MODELS[0].value && variant.gl31Status === 'broken' && (
                                 <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-red-600 border-red-400 dark:text-red-400 dark:border-red-600">3.1 ✗</Badge>
+                              )}
+                              {selectedGlModel === GL_MODELS[1].value && (
+                                <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-blue-600 border-blue-400 dark:text-blue-400 dark:border-blue-600">3.5 new</Badge>
                               )}
                             </span>
                           </SelectItem>
@@ -907,6 +928,30 @@ export function VoiceLabPanel({
               {/* GL Live Audition — available on any tutor voice card */}
               {!isAssistant && (
                 <div className="space-y-2">
+                  {/* GL Model selector */}
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">GL Model</Label>
+                    <div className="grid grid-cols-2 gap-1">
+                      {GL_MODELS.map(m => (
+                        <button
+                          key={m.value}
+                          type="button"
+                          onClick={() => setSelectedGlModel(m.value)}
+                          data-testid={`button-gl-model-${m.badge}`}
+                          className={[
+                            'rounded-md border px-2 py-1.5 text-left transition-colors',
+                            selectedGlModel === m.value
+                              ? 'border-primary bg-primary/10 text-primary'
+                              : 'border-border bg-muted/30 text-muted-foreground hover-elevate',
+                          ].join(' ')}
+                        >
+                          <p className="text-xs font-medium leading-tight">{m.label}</p>
+                          <p className="text-[10px] leading-tight mt-0.5 opacity-80">{m.description}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* Voice picker only when not already on a gemini-live card */}
                   {!isGeminiLive && geminiLiveVoices.length > 0 && (
                     <div className="space-y-1">
@@ -945,10 +990,10 @@ export function VoiceLabPanel({
                     {glPhase === 'recording'
                       ? `Recording… ${glCountdown}s`
                       : glPhase === 'waiting'
-                      ? 'Waiting for GL response…'
+                      ? `Waiting for ${GL_MODELS.find(m => m.value === selectedGlModel)?.label ?? 'GL'} response…`
                       : glPhase === 'playing'
                       ? 'Playing GL response…'
-                      : 'GL Audition (live mic)'
+                      : `Audition with ${GL_MODELS.find(m => m.value === selectedGlModel)?.label ?? 'GL'}`
                     }
                   </Button>
                 </div>
