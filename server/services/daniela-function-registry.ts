@@ -3757,8 +3757,14 @@ Say what you're showing as you call this: "Let me show you how this works — lo
         required: ["text", "lesson_id"],
       },
     },
-    buildContinuationResponse: ({ fc }) =>
-      `Sentence table displayed for lesson ${fc.args.lesson_id}. Point out a specific row and ask the student to read it aloud.`,
+    buildContinuationResponse: ({ session, fc }) => {
+      const result = (session as any).lastSentenceTableResult;
+      (session as any).lastSentenceTableResult = undefined;
+      if (result && !result.success) {
+        return `The sentence table for lesson "${fc.args.lesson_id}" could not be displayed — no sentence column data is loaded for that lesson ID. Skip the table for now and continue with a verbal explanation, or try pull_lesson_content to get vocabulary and phrases for this topic instead.`;
+      }
+      return `Sentence table displayed for lesson ${fc.args.lesson_id}. Point out a specific row and ask the student to read it aloud.`;
+    },
   },
 
   {

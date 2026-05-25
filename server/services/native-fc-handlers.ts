@@ -6652,6 +6652,7 @@ export class NativeFunctionCallHandler {
 
       if (!sentenceColumns || sentenceColumns.length === 0) {
         console.warn(`[Native Function→ShowSentenceTable] No sentenceColumns in micro_cycle_data for lesson ${lessonId}`);
+        (session as any).lastSentenceTableResult = { success: false, lessonId, reason: 'not_found' };
         return;
       }
 
