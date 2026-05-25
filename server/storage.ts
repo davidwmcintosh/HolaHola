@@ -5971,7 +5971,7 @@ export class DatabaseStorage implements IStorage {
     // Default to 'tutor' role if not specified
     const role = data.role || 'tutor';
     
-    const validTutorProviders = ['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live'];
+    const validTutorProviders = ['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live', 'gemini-live-35'];
     if (role === 'tutor' && !validTutorProviders.includes(data.provider)) {
       throw new Error('[Voice Guard] Main tutors must use Cartesia, ElevenLabs, Google, Gemini, or Gemini Live voices.');
     }
@@ -6017,7 +6017,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateAllTutorVoicesProvider(provider: string): Promise<number> {
-    const validProviders = ['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live'];
+    const validProviders = ['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live', 'gemini-live-35'];
     if (!validProviders.includes(provider)) {
       throw new Error(`[Voice Guard] Invalid provider: ${provider}. Must be one of: ${validProviders.join(', ')}`);
     }
@@ -6062,7 +6062,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateTutorVoiceProviderWithMapping(id: string, provider: string, voiceId: string, voiceName: string): Promise<void> {
-    const validProviders = ['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live'];
+    const validProviders = ['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live', 'gemini-live-35'];
     if (!validProviders.includes(provider)) {
       throw new Error(`[Voice Guard] Invalid provider: ${provider}. Must be one of: ${validProviders.join(', ')}`);
     }

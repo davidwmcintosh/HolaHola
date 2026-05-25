@@ -21322,7 +21322,7 @@ Current conversation context:
       const validRoles = ['tutor', 'assistant', 'support', 'alden'];
       const validatedRole = validRoles.includes(role) ? role : 'tutor';
       
-      const validTutorProviders = ['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live'];
+      const validTutorProviders = ['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live', 'gemini-live-35'];
       if (validatedRole === 'tutor' && !validTutorProviders.includes(provider)) {
         return res.status(400).json({ 
           error: "Main tutors must use Cartesia, ElevenLabs, Google, Gemini, or Gemini Live voices." 
