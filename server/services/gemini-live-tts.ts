@@ -50,6 +50,10 @@ export interface AccentVariant {
   gl35Supported: boolean;
   gl31Status: GL31Status;
 }
+// GL 3.5 accent probe results (gemini-2.5-flash-native-audio-preview-12-2025, run 2026-05-25):
+// Only one primary locale per language is accepted; all regional variants return 1007.
+// Confirmed supported:  es-US, en-US, fr-FR, de-DE, it-IT, pt-BR, ja-JP, ko-KR
+// Confirmed unsupported: all other codes (zh-CN, zh-TW, he-IL, and every regional variant)
 export const LANGUAGE_ACCENT_VARIANTS: Record<string, AccentVariant[]> = {
   spanish: [
     { label: 'España (Castilian)',  code: 'es-ES', googleSupported: true,  geminiLiveSupported: true,  gl35Supported: false, gl31Status: 'working'  },
@@ -62,9 +66,9 @@ export const LANGUAGE_ACCENT_VARIANTS: Record<string, AccentVariant[]> = {
   ],
   english: [
     { label: 'United States',  code: 'en-US', googleSupported: true, geminiLiveSupported: true,  gl35Supported: true,  gl31Status: 'working'  },
-    { label: 'United Kingdom', code: 'en-GB', googleSupported: true, geminiLiveSupported: true,  gl35Supported: true,  gl31Status: 'untested' },
-    { label: 'Australia',      code: 'en-AU', googleSupported: true, geminiLiveSupported: true,  gl35Supported: true,  gl31Status: 'untested' },
-    { label: 'India',          code: 'en-IN', googleSupported: true, geminiLiveSupported: true,  gl35Supported: true,  gl31Status: 'untested' },
+    { label: 'United Kingdom', code: 'en-GB', googleSupported: true, geminiLiveSupported: true,  gl35Supported: false, gl31Status: 'untested' },
+    { label: 'Australia',      code: 'en-AU', googleSupported: true, geminiLiveSupported: true,  gl35Supported: false, gl31Status: 'untested' },
+    { label: 'India',          code: 'en-IN', googleSupported: true, geminiLiveSupported: true,  gl35Supported: false, gl31Status: 'untested' },
     { label: 'Canada',         code: 'en-CA', googleSupported: true, geminiLiveSupported: true,  gl35Supported: false, gl31Status: 'untested' },
     { label: 'South Africa',   code: 'en-ZA', googleSupported: true, geminiLiveSupported: true,  gl35Supported: false, gl31Status: 'untested' },
   ],
@@ -91,8 +95,8 @@ export const LANGUAGE_ACCENT_VARIANTS: Record<string, AccentVariant[]> = {
     { label: '日本語 (Japan)', code: 'ja-JP', googleSupported: true, geminiLiveSupported: true, gl35Supported: true, gl31Status: 'untested' },
   ],
   'mandarin chinese': [
-    // Gemini Live requires zh-CN; Google TTS uses cmn-CN
-    { label: '普通话 Mainland (zh-CN)',   code: 'zh-CN',  googleSupported: true,  geminiLiveSupported: true,  gl35Supported: true,  gl31Status: 'untested' },
+    // GL 3.5 does NOT accept any Chinese locale (zh-CN returns 1007)
+    { label: '普通话 Mainland (zh-CN)',   code: 'zh-CN',  googleSupported: true,  geminiLiveSupported: true,  gl35Supported: false, gl31Status: 'untested' },
     { label: '國語 Taiwan (zh-TW)',       code: 'zh-TW',  googleSupported: true,  geminiLiveSupported: true,  gl35Supported: false, gl31Status: 'untested' },
     { label: 'Google TTS only (cmn-CN)', code: 'cmn-CN', googleSupported: true,  geminiLiveSupported: false, gl35Supported: false, gl31Status: 'untested' },
   ],
@@ -100,6 +104,7 @@ export const LANGUAGE_ACCENT_VARIANTS: Record<string, AccentVariant[]> = {
     { label: '한국어 (Korea)', code: 'ko-KR', googleSupported: true, geminiLiveSupported: true, gl35Supported: true, gl31Status: 'untested' },
   ],
   hebrew: [
+    // GL 3.5 does NOT support Hebrew (he-IL returns 1007)
     { label: 'עברית (Israel)', code: 'he-IL', googleSupported: true, geminiLiveSupported: true, gl35Supported: false, gl31Status: 'untested' },
   ],
 };
