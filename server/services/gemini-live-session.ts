@@ -858,10 +858,15 @@ export class GeminiLiveSession {
     // Checked BEFORE turnComplete so if both arrive in the same message, the
     // final chunk is appended to the buffer before the flush occurs.
     if ((msg.serverContent as any)?.outputTranscription?.text) {
-      // Strip markdown bold markers (**) — the model includes them in its text representation
-      // but they should not appear in voice transcripts shown to the student.
+      // Strip markdown bold markers (**) and any native function-call syntax that
+      // Gemini Live leaks into outputTranscription (e.g. `vocal_adjust{emotion:warm,...}`).
+      // These are internal tool calls and must never appear in student-facing transcripts.
       const rawText = (msg.serverContent as any).outputTranscription.text as string;
-      const text = rawText.replace(/\*\*/g, '');
+      const text = rawText
+        .replace(/\*\*/g, '')
+        .replace(/\b\w+\{[^{}]*\}/g, '')  // strip tool call syntax: name{key:val,...}
+        .replace(/\s{2,}/g, ' ')           // collapse double-spaces left by removal
+        .trimStart();
       if (text.trim()) {
         // Fire processing_pending on the FIRST output chunk. This is the definitive signal
         // that GL has finished listening to the user and is now generating a response.
@@ -1299,8 +1304,12 @@ export class GeminiLiveSession {
 
     // Save assistant message
     if (this.pendingOutputTranscript.trim()) {
-      // Strip markdown bold markers before saving — ensures clean DB records and memory extraction
-      const assistantText = this.pendingOutputTranscript.replace(/\*\*/g, '').trim();
+      // Strip markdown bold markers and any leaked tool call syntax before saving.
+      const assistantText = this.pendingOutputTranscript
+        .replace(/\*\*/g, '')
+        .replace(/\b\w+\{[^{}]*\}/g, '')  // strip tool call syntax: name{key:val,...}
+        .replace(/\s{2,}/g, ' ')           // collapse double-spaces
+        .trim();
       this.totalOutputCharacters += assistantText.length;
       this.pendingOutputTranscript = '';
       try {
