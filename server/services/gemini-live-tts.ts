@@ -28,12 +28,18 @@ const SYNTHESIS_TIMEOUT_MS = 30000;
 /**
  * Accent variants per language.
  *
- * googleSupported    — accepted by Google Cloud TTS (voice name locale prefix swap)
- * geminiLiveSupported — accepted by the Gemini Live speechConfig.languageCode field
- * gl31Status         — confirmed behaviour on gemini-3.1-flash-live-preview:
- *                        'working'  — confirmed produces audio
- *                        'broken'   — confirmed causes silence / rejection
- *                        'untested' — not yet verified on 3.1 (may or may not work)
+ * googleSupported     — accepted by Google Cloud TTS (voice name locale prefix swap)
+ * geminiLiveSupported — accepted by Gemini Live 3.1 speechConfig.languageCode
+ * gl35Supported       — accepted by Gemini Live 3.5 (Native Audio preview).
+ *                       Based on Google's published locale list for
+ *                       gemini-2.5-flash-native-audio-preview-12-2025.
+ *                       Only the standard BCP-47 codes in that list are true;
+ *                       regional variants not listed there are false.
+ *                       en-ZA confirmed broken (code 1007).
+ * gl31Status          — confirmed behaviour on gemini-3.1-flash-live-preview:
+ *                         'working'  — confirmed produces audio
+ *                         'broken'   — confirmed causes silence / rejection
+ *                         'untested' — not yet verified on 3.1 (may or may not work)
  */
 export type GL31Status = 'working' | 'broken' | 'untested';
 export interface AccentVariant {
@@ -41,59 +47,60 @@ export interface AccentVariant {
   code: string;
   googleSupported: boolean;
   geminiLiveSupported: boolean;
+  gl35Supported: boolean;
   gl31Status: GL31Status;
 }
 export const LANGUAGE_ACCENT_VARIANTS: Record<string, AccentVariant[]> = {
   spanish: [
-    { label: 'España (Castilian)',  code: 'es-ES', googleSupported: true,  geminiLiveSupported: true,  gl31Status: 'working'  },
-    { label: 'México',              code: 'es-MX', googleSupported: true,  geminiLiveSupported: true,  gl31Status: 'untested' },
-    { label: 'Colombia',            code: 'es-CO', googleSupported: true,  geminiLiveSupported: true,  gl31Status: 'untested' },
-    { label: 'Argentina',           code: 'es-AR', googleSupported: true,  geminiLiveSupported: true,  gl31Status: 'untested' },
-    { label: 'Chile',               code: 'es-CL', googleSupported: true,  geminiLiveSupported: true,  gl31Status: 'untested' },
-    { label: 'Perú',                code: 'es-PE', googleSupported: true,  geminiLiveSupported: true,  gl31Status: 'untested' },
-    { label: 'US Spanish (es-US)',  code: 'es-US', googleSupported: true,  geminiLiveSupported: false, gl31Status: 'broken'   },
+    { label: 'España (Castilian)',  code: 'es-ES', googleSupported: true,  geminiLiveSupported: true,  gl35Supported: true,  gl31Status: 'working'  },
+    { label: 'México',              code: 'es-MX', googleSupported: true,  geminiLiveSupported: true,  gl35Supported: false, gl31Status: 'untested' },
+    { label: 'Colombia',            code: 'es-CO', googleSupported: true,  geminiLiveSupported: true,  gl35Supported: false, gl31Status: 'untested' },
+    { label: 'Argentina',           code: 'es-AR', googleSupported: true,  geminiLiveSupported: true,  gl35Supported: false, gl31Status: 'untested' },
+    { label: 'Chile',               code: 'es-CL', googleSupported: true,  geminiLiveSupported: true,  gl35Supported: false, gl31Status: 'untested' },
+    { label: 'Perú',                code: 'es-PE', googleSupported: true,  geminiLiveSupported: true,  gl35Supported: false, gl31Status: 'untested' },
+    { label: 'US Spanish (es-US)',  code: 'es-US', googleSupported: true,  geminiLiveSupported: false, gl35Supported: true,  gl31Status: 'broken'   },
   ],
   english: [
-    { label: 'United States',  code: 'en-US', googleSupported: true, geminiLiveSupported: true,  gl31Status: 'working'  },
-    { label: 'United Kingdom', code: 'en-GB', googleSupported: true, geminiLiveSupported: true,  gl31Status: 'untested' },
-    { label: 'Australia',      code: 'en-AU', googleSupported: true, geminiLiveSupported: true,  gl31Status: 'untested' },
-    { label: 'India',          code: 'en-IN', googleSupported: true, geminiLiveSupported: true,  gl31Status: 'untested' },
-    { label: 'Canada',         code: 'en-CA', googleSupported: true, geminiLiveSupported: true,  gl31Status: 'untested' },
-    { label: 'South Africa',   code: 'en-ZA', googleSupported: true, geminiLiveSupported: true,  gl31Status: 'untested' },
+    { label: 'United States',  code: 'en-US', googleSupported: true, geminiLiveSupported: true,  gl35Supported: true,  gl31Status: 'working'  },
+    { label: 'United Kingdom', code: 'en-GB', googleSupported: true, geminiLiveSupported: true,  gl35Supported: true,  gl31Status: 'untested' },
+    { label: 'Australia',      code: 'en-AU', googleSupported: true, geminiLiveSupported: true,  gl35Supported: true,  gl31Status: 'untested' },
+    { label: 'India',          code: 'en-IN', googleSupported: true, geminiLiveSupported: true,  gl35Supported: true,  gl31Status: 'untested' },
+    { label: 'Canada',         code: 'en-CA', googleSupported: true, geminiLiveSupported: true,  gl35Supported: false, gl31Status: 'untested' },
+    { label: 'South Africa',   code: 'en-ZA', googleSupported: true, geminiLiveSupported: true,  gl35Supported: false, gl31Status: 'untested' },
   ],
   french: [
-    { label: 'France',          code: 'fr-FR', googleSupported: true, geminiLiveSupported: true,  gl31Status: 'untested' },
-    { label: 'Canada (Québec)', code: 'fr-CA', googleSupported: true, geminiLiveSupported: true,  gl31Status: 'untested' },
-    { label: 'Belgium',         code: 'fr-BE', googleSupported: true, geminiLiveSupported: true,  gl31Status: 'untested' },
-    { label: 'Switzerland',     code: 'fr-CH', googleSupported: true, geminiLiveSupported: true,  gl31Status: 'untested' },
+    { label: 'France',          code: 'fr-FR', googleSupported: true, geminiLiveSupported: true,  gl35Supported: true,  gl31Status: 'untested' },
+    { label: 'Canada (Québec)', code: 'fr-CA', googleSupported: true, geminiLiveSupported: true,  gl35Supported: false, gl31Status: 'untested' },
+    { label: 'Belgium',         code: 'fr-BE', googleSupported: true, geminiLiveSupported: true,  gl35Supported: false, gl31Status: 'untested' },
+    { label: 'Switzerland',     code: 'fr-CH', googleSupported: true, geminiLiveSupported: true,  gl35Supported: false, gl31Status: 'untested' },
   ],
   german: [
-    { label: 'Deutschland',  code: 'de-DE', googleSupported: true, geminiLiveSupported: true,  gl31Status: 'untested' },
-    { label: 'Österreich',   code: 'de-AT', googleSupported: true, geminiLiveSupported: true,  gl31Status: 'untested' },
-    { label: 'Schweiz',      code: 'de-CH', googleSupported: true, geminiLiveSupported: true,  gl31Status: 'untested' },
+    { label: 'Deutschland',  code: 'de-DE', googleSupported: true, geminiLiveSupported: true,  gl35Supported: true,  gl31Status: 'untested' },
+    { label: 'Österreich',   code: 'de-AT', googleSupported: true, geminiLiveSupported: true,  gl35Supported: false, gl31Status: 'untested' },
+    { label: 'Schweiz',      code: 'de-CH', googleSupported: true, geminiLiveSupported: true,  gl35Supported: false, gl31Status: 'untested' },
   ],
   italian: [
-    { label: 'Italia',     code: 'it-IT', googleSupported: true, geminiLiveSupported: true, gl31Status: 'untested' },
-    { label: 'Svizzera',   code: 'it-CH', googleSupported: true, geminiLiveSupported: true, gl31Status: 'untested' },
+    { label: 'Italia',     code: 'it-IT', googleSupported: true, geminiLiveSupported: true, gl35Supported: true,  gl31Status: 'untested' },
+    { label: 'Svizzera',   code: 'it-CH', googleSupported: true, geminiLiveSupported: true, gl35Supported: false, gl31Status: 'untested' },
   ],
   portuguese: [
-    { label: 'Brasil',    code: 'pt-BR', googleSupported: true, geminiLiveSupported: true,  gl31Status: 'untested' },
-    { label: 'Portugal',  code: 'pt-PT', googleSupported: true, geminiLiveSupported: true,  gl31Status: 'untested' },
+    { label: 'Brasil',    code: 'pt-BR', googleSupported: true, geminiLiveSupported: true,  gl35Supported: true,  gl31Status: 'untested' },
+    { label: 'Portugal',  code: 'pt-PT', googleSupported: true, geminiLiveSupported: true,  gl35Supported: false, gl31Status: 'untested' },
   ],
   japanese: [
-    { label: '日本語 (Japan)', code: 'ja-JP', googleSupported: true, geminiLiveSupported: true, gl31Status: 'untested' },
+    { label: '日本語 (Japan)', code: 'ja-JP', googleSupported: true, geminiLiveSupported: true, gl35Supported: true, gl31Status: 'untested' },
   ],
   'mandarin chinese': [
     // Gemini Live requires zh-CN; Google TTS uses cmn-CN
-    { label: '普通话 Mainland (zh-CN)',   code: 'zh-CN',  googleSupported: true,  geminiLiveSupported: true,  gl31Status: 'untested' },
-    { label: '國語 Taiwan (zh-TW)',       code: 'zh-TW',  googleSupported: true,  geminiLiveSupported: true,  gl31Status: 'untested' },
-    { label: 'Google TTS only (cmn-CN)', code: 'cmn-CN', googleSupported: true,  geminiLiveSupported: false, gl31Status: 'untested' },
+    { label: '普通话 Mainland (zh-CN)',   code: 'zh-CN',  googleSupported: true,  geminiLiveSupported: true,  gl35Supported: true,  gl31Status: 'untested' },
+    { label: '國語 Taiwan (zh-TW)',       code: 'zh-TW',  googleSupported: true,  geminiLiveSupported: true,  gl35Supported: false, gl31Status: 'untested' },
+    { label: 'Google TTS only (cmn-CN)', code: 'cmn-CN', googleSupported: true,  geminiLiveSupported: false, gl35Supported: false, gl31Status: 'untested' },
   ],
   korean: [
-    { label: '한국어 (Korea)', code: 'ko-KR', googleSupported: true, geminiLiveSupported: true, gl31Status: 'untested' },
+    { label: '한국어 (Korea)', code: 'ko-KR', googleSupported: true, geminiLiveSupported: true, gl35Supported: true, gl31Status: 'untested' },
   ],
   hebrew: [
-    { label: 'עברית (Israel)', code: 'he-IL', googleSupported: true, geminiLiveSupported: true, gl31Status: 'untested' },
+    { label: 'עברית (Israel)', code: 'he-IL', googleSupported: true, geminiLiveSupported: true, gl35Supported: false, gl31Status: 'untested' },
   ],
 };
 

@@ -273,7 +273,7 @@ export function VoiceConsoleContent() {
   });
 
   // Fetch accent variants for Gemini TTS and Google Cloud TTS
-  const { data: accentVariants } = useQuery<Record<string, { label: string; code: string; googleSupported: boolean; geminiLiveSupported: boolean }[]>>({
+  const { data: accentVariants } = useQuery<Record<string, { label: string; code: string; googleSupported: boolean; geminiLiveSupported: boolean; gl35Supported: boolean }[]>>({
     queryKey: ['/api/admin/accent-variants'],
     enabled: globalProvider === 'gemini' || globalProvider === 'gemini-live' || globalProvider === 'gemini-live-35' || globalProvider === 'google'
       || formData.provider === 'gemini' || formData.provider === 'gemini-live' || formData.provider === 'gemini-live-35' || formData.provider === 'google',
@@ -282,9 +282,11 @@ export function VoiceConsoleContent() {
   const isGlProvider = (p: string) => p === 'gemini-live' || p === 'gemini-live-35';
   const languageAccents = formData.provider === 'google'
     ? allLanguageAccents.filter(v => v.googleSupported)
-    : isGlProvider(formData.provider)
-      ? allLanguageAccents.filter(v => v.geminiLiveSupported)
-      : allLanguageAccents;
+    : formData.provider === 'gemini-live-35'
+      ? allLanguageAccents.filter(v => v.gl35Supported)
+      : isGlProvider(formData.provider)
+        ? allLanguageAccents.filter(v => v.geminiLiveSupported)
+        : allLanguageAccents;
 
   // Fetch available Cartesia voices based on selected language and gender
   const { data: cartesiaVoicesData, isLoading: isLoadingCartesiaVoices } = useQuery<{ voices: CartesiaVoice[]; total: number }>({
