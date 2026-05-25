@@ -275,13 +275,14 @@ export function VoiceConsoleContent() {
   // Fetch accent variants for Gemini TTS and Google Cloud TTS
   const { data: accentVariants } = useQuery<Record<string, { label: string; code: string; googleSupported: boolean; geminiLiveSupported: boolean }[]>>({
     queryKey: ['/api/admin/accent-variants'],
-    enabled: globalProvider === 'gemini' || globalProvider === 'gemini-live' || globalProvider === 'google'
-      || formData.provider === 'gemini' || formData.provider === 'gemini-live' || formData.provider === 'google',
+    enabled: globalProvider === 'gemini' || globalProvider === 'gemini-live' || globalProvider === 'gemini-live-35' || globalProvider === 'google'
+      || formData.provider === 'gemini' || formData.provider === 'gemini-live' || formData.provider === 'gemini-live-35' || formData.provider === 'google',
   });
   const allLanguageAccents = accentVariants?.[formData.language] || [];
+  const isGlProvider = (p: string) => p === 'gemini-live' || p === 'gemini-live-35';
   const languageAccents = formData.provider === 'google'
     ? allLanguageAccents.filter(v => v.googleSupported)
-    : formData.provider === 'gemini-live'
+    : isGlProvider(formData.provider)
       ? allLanguageAccents.filter(v => v.geminiLiveSupported)
       : allLanguageAccents;
 
@@ -365,7 +366,7 @@ export function VoiceConsoleContent() {
 
   const { data: geminiLiveVoices, isLoading: isLoadingGeminiLiveVoices } = useQuery<GeminiLiveVoice[]>({
     queryKey: ['/api/admin/gemini-live-voices'],
-    enabled: globalProvider === 'gemini-live' || formData.provider === 'gemini-live',
+    enabled: isGlProvider(globalProvider) || isGlProvider(formData.provider),
   });
 
   const geminiLiveVoicesAsCv: CartesiaVoice[] = (geminiLiveVoices || [])
@@ -379,8 +380,8 @@ export function VoiceConsoleContent() {
       isPublic: true,
     }));
 
-  const activeVoices = formData.provider === 'google' ? googleVoices : formData.provider === 'elevenlabs' ? elevenLabsVoices : formData.provider === 'gemini' ? geminiVoicesAsCv : formData.provider === 'gemini-live' ? geminiLiveVoicesAsCv : cartesiaVoices;
-  const isLoadingActiveVoices = formData.provider === 'google' ? isLoadingGoogleVoices : formData.provider === 'elevenlabs' ? isLoadingElevenLabsVoices : formData.provider === 'gemini' ? isLoadingGeminiVoices : formData.provider === 'gemini-live' ? isLoadingGeminiLiveVoices : isLoadingCartesiaVoices;
+  const activeVoices = formData.provider === 'google' ? googleVoices : formData.provider === 'elevenlabs' ? elevenLabsVoices : formData.provider === 'gemini' ? geminiVoicesAsCv : isGlProvider(formData.provider) ? geminiLiveVoicesAsCv : cartesiaVoices;
+  const isLoadingActiveVoices = formData.provider === 'google' ? isLoadingGoogleVoices : formData.provider === 'elevenlabs' ? isLoadingElevenLabsVoices : formData.provider === 'gemini' ? isLoadingGeminiVoices : isGlProvider(formData.provider) ? isLoadingGeminiLiveVoices : isLoadingCartesiaVoices;
 
   const upsertMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -418,7 +419,7 @@ export function VoiceConsoleContent() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/tutor-voices"] });
-      const providerLabel = globalProvider === 'google' ? 'Google Cloud TTS' : globalProvider === 'elevenlabs' ? 'ElevenLabs' : globalProvider === 'gemini' ? 'Gemini 2.5 Flash TTS' : globalProvider === 'gemini-live' ? 'Gemini Live' : 'Cartesia';
+      const providerLabel = globalProvider === 'google' ? 'Google Cloud TTS' : globalProvider === 'elevenlabs' ? 'ElevenLabs' : globalProvider === 'gemini' ? 'Gemini 2.5 Flash TTS' : globalProvider === 'gemini-live' ? 'Gemini Live 3.1' : globalProvider === 'gemini-live-35' ? 'Gemini Live 3.5 Native Audio' : 'Cartesia';
       toast({ title: "Success", description: `All tutor voices switched to ${providerLabel}` });
     },
     onError: (error: any) => {
@@ -683,10 +684,13 @@ export function VoiceConsoleContent() {
       const base64Audio = btoa(binary);
 
       setGlPhase('waiting');
+      const glModel = globalProvider === 'gemini-live-35'
+        ? 'gemini-2.5-flash-native-audio-preview-12-2025'
+        : 'gemini-3.1-flash-live-preview';
       const res = await fetch('/api/admin/gl-audition', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ audio: base64Audio, languageCode: langCode, voiceId }),
+        body: JSON.stringify({ audio: base64Audio, languageCode: langCode, voiceId, model: glModel }),
       });
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'GL audition failed'); }
 
@@ -759,7 +763,7 @@ export function VoiceConsoleContent() {
       // Gemini TTS accent variant — fall back to the voice's languageCode so
       // gemini-live voices always have a sensible default selected in the dropdown
       geminiLanguageCode: voice.geminiLanguageCode || (
-        (voice.provider === 'gemini' || voice.provider === 'gemini-live') ? (voice.languageCode || '') : ''
+        (voice.provider === 'gemini' || voice.provider === 'gemini-live' || voice.provider === 'gemini-live-35') ? (voice.languageCode || '') : ''
       ),
     });
     // Sync audition controls with saved values so preview uses saved emotion
@@ -819,7 +823,7 @@ export function VoiceConsoleContent() {
       elSpeakerBoost: pendingProvider === 'elevenlabs' ? true : prev.elSpeakerBoost,
       speakingRate: pendingProvider === 'cartesia' 
         ? Math.max(0.7, Math.min(1.3, prev.speakingRate))
-        : pendingProvider === 'gemini' || pendingProvider === 'gemini-live'
+        : pendingProvider === 'gemini' || pendingProvider === 'gemini-live' || pendingProvider === 'gemini-live-35'
         ? Math.max(0.25, Math.min(4.0, prev.speakingRate))
         : prev.speakingRate,
     }));
@@ -874,7 +878,7 @@ export function VoiceConsoleContent() {
                   <DialogHeader>
                     <DialogTitle>{editingVoice ? "Edit Voice" : "Add Voice Configuration"}</DialogTitle>
                     <DialogDescription>
-                      Select a language, gender, and voice for the tutor. Using {globalProvider === 'google' ? 'Google Cloud TTS (Chirp 3 HD)' : globalProvider === 'elevenlabs' ? 'ElevenLabs Flash v2.5' : globalProvider === 'gemini' ? 'Gemini 2.5 Flash TTS' : globalProvider === 'gemini-live' ? 'Gemini Live (real-time audio)' : 'Cartesia Sonic-3'}.
+                      Select a language, gender, and voice for the tutor. Using {globalProvider === 'google' ? 'Google Cloud TTS (Chirp 3 HD)' : globalProvider === 'elevenlabs' ? 'ElevenLabs Flash v2.5' : globalProvider === 'gemini' ? 'Gemini 2.5 Flash TTS' : globalProvider === 'gemini-live' ? 'Gemini Live 3.1 (Flash Preview)' : globalProvider === 'gemini-live-35' ? 'Gemini Live 3.5 (Native Audio)' : 'Cartesia Sonic-3'}.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
@@ -962,7 +966,7 @@ export function VoiceConsoleContent() {
                     )}
 
                     {/* Regional Accent Variant (Gemini + Gemini Live + Google Cloud TTS) */}
-                    {formData.voiceId && (formData.provider === 'gemini' || formData.provider === 'gemini-live' || formData.provider === 'google') && (
+                    {formData.voiceId && (formData.provider === 'gemini' || formData.provider === 'gemini-live' || formData.provider === 'gemini-live-35' || formData.provider === 'google') && (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
                           <Globe className="h-4 w-4 text-muted-foreground" />
@@ -987,7 +991,7 @@ export function VoiceConsoleContent() {
                         <p className="text-xs text-muted-foreground">
                           {formData.provider === 'google'
                             ? 'Changes the locale prefix on the voice name (e.g. en-US → en-GB for British accent)'
-                            : formData.provider === 'gemini-live'
+                            : isGlProvider(formData.provider)
                               ? 'Sets the regional language code sent to Gemini Live (affects accent and STT recognition)'
                               : 'Controls the regional pronunciation accent for Gemini TTS'}
                         </p>
@@ -1228,8 +1232,8 @@ export function VoiceConsoleContent() {
                     {formData.voiceId && (
                       <div className="space-y-2">
                         <Label>Audition</Label>
-                        {formData.provider === 'gemini-live' ? (
-                          /* GL Live: mic-based audition using real GL 3.1 session */
+                        {isGlProvider(formData.provider) ? (
+                          /* GL Live: mic-based audition using real GL session (3.1 or 3.5) */
                           <>
                             <Button
                               type="button"
@@ -1363,7 +1367,8 @@ export function VoiceConsoleContent() {
                     <SelectItem value="cartesia">Cartesia (Sonic-3)</SelectItem>
                     <SelectItem value="elevenlabs">ElevenLabs (Flash v2.5)</SelectItem>
                     <SelectItem value="gemini">Gemini (2.5 Flash TTS)</SelectItem>
-                    <SelectItem value="gemini-live">Gemini Live (Real-time Audio)</SelectItem>
+                    <SelectItem value="gemini-live">Gemini Live 3.1 (Flash Preview)</SelectItem>
+                    <SelectItem value="gemini-live-35">Gemini Live 3.5 (Native Audio)</SelectItem>
                   </SelectContent>
                 </Select>
                 {bulkProviderMutation.isPending && (
@@ -1418,7 +1423,7 @@ export function VoiceConsoleContent() {
               <DialogHeader>
                 <DialogTitle>Switch TTS Provider</DialogTitle>
                 <DialogDescription>
-                  This will update all tutor voices to use {pendingProvider === 'google' ? 'Google Cloud TTS (Chirp 3 HD)' : pendingProvider === 'elevenlabs' ? 'ElevenLabs Flash v2.5' : pendingProvider === 'gemini' ? 'Gemini 2.5 Flash TTS' : pendingProvider === 'gemini-live' ? 'Gemini Live (real-time audio — requires GEMINI_LIVE_VOICE=true flag)' : 'Cartesia Sonic-3'}. Each tutor will keep its current voice selection but the provider tag will change. You can reassign individual voices afterward.
+                  This will update all tutor voices to use {pendingProvider === 'google' ? 'Google Cloud TTS (Chirp 3 HD)' : pendingProvider === 'elevenlabs' ? 'ElevenLabs Flash v2.5' : pendingProvider === 'gemini' ? 'Gemini 2.5 Flash TTS' : pendingProvider === 'gemini-live' ? 'Gemini Live 3.1 (requires GEMINI_LIVE_VOICE=true)' : pendingProvider === 'gemini-live-35' ? 'Gemini Live 3.5 Native Audio (requires GEMINI_LIVE_VOICE=true — preview pricing ~5-20× higher)' : 'Cartesia Sonic-3'}. Each tutor will keep its current voice selection but the provider tag will change. You can reassign individual voices afterward.
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter className="flex gap-2">
