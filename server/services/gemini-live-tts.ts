@@ -52,7 +52,7 @@ export interface AccentVariant {
 }
 export const LANGUAGE_ACCENT_VARIANTS: Record<string, AccentVariant[]> = {
   spanish: [
-    { label: 'España (Castilian)',  code: 'es-ES', googleSupported: true,  geminiLiveSupported: true,  gl35Supported: true,  gl31Status: 'working'  },
+    { label: 'España (Castilian)',  code: 'es-ES', googleSupported: true,  geminiLiveSupported: true,  gl35Supported: false, gl31Status: 'working'  },
     { label: 'México',              code: 'es-MX', googleSupported: true,  geminiLiveSupported: true,  gl35Supported: false, gl31Status: 'untested' },
     { label: 'Colombia',            code: 'es-CO', googleSupported: true,  geminiLiveSupported: true,  gl35Supported: false, gl31Status: 'untested' },
     { label: 'Argentina',           code: 'es-AR', googleSupported: true,  geminiLiveSupported: true,  gl35Supported: false, gl31Status: 'untested' },
