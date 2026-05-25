@@ -21429,8 +21429,8 @@ Current conversation context:
   app.post("/api/admin/tutor-voices/provider", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { provider } = req.body;
-      if (!provider || !['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live'].includes(provider)) {
-        return res.status(400).json({ error: "Provider must be 'cartesia', 'elevenlabs', 'google', 'gemini', or 'gemini-live'" });
+      if (!provider || !['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live', 'gemini-live-35'].includes(provider)) {
+        return res.status(400).json({ error: "Provider must be 'cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live', or 'gemini-live-35'" });
       }
       
       const count = await storage.updateAllTutorVoicesProvider(provider);
