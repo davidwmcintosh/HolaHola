@@ -6746,7 +6746,7 @@ export class NativeFunctionCallHandler {
         parts.push('→ Use show_image(word) for any of these to display a visual as you say the word.');
       }
       if (phrases.length > 0) {
-        parts.push('Key phrases (Madrigal call-and-response):\n' + phrases.map(p => `• ${p.phrase} — ${p.translation}`).join('\n'));
+        parts.push('Key phrases (call-and-response):\n' + phrases.map(p => `• ${p.phrase} — ${p.translation}`).join('\n'));
       }
       if (grammarNote) {
         parts.push(`Grammar pattern: ${grammarNote}`);

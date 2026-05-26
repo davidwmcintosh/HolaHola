@@ -3732,7 +3732,7 @@ This builds a record of the session that Daniela can reference in future session
     legacyType: 'SHOW_SENTENCE_TABLE',
     declaration: {
       name: "show_sentence_table",
-      description: `Display a Madrigal-style substitution drill table in the student's classroom view.
+      description: `Display a HolaHola substitution drill table in the student's classroom view.
 
 This renders the same sentence-column grid from the textbook — where swapping one column produces a new valid sentence. Use it when:
 • You want to show how a verb pattern works with multiple nouns ("Voy al banco / al teatro / al mercado")
@@ -3777,7 +3777,7 @@ Use this when you notice the conversation topic connects to something in the cur
 
 What happens:
 - You get back the lesson's vocabulary list, key phrases, and sentence patterns
-- The sentence pattern table (Madrigal substitution grid) appears in the student's whiteboard if the lesson has one
+- The sentence pattern table (HolaHola substitution grid) appears in the student's whiteboard if the lesson has one
 - You can then show_image for individual vocabulary words, drill phrases call-and-response style, or reference the pattern grid
 
 You need the lesson_id. If you don't know it, pass a topic keyword instead and the system will find the best match.
