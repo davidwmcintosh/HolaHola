@@ -865,8 +865,11 @@ export class GeminiLiveSession {
       const text = rawText
         .replace(/\*\*/g, '')
         .replace(/\b\w+\{[^{}]*\}/g, '')  // strip tool call syntax: name{key:val,...}
-        .replace(/\s{2,}/g, ' ')           // collapse double-spaces left by removal
-        .trimStart();
+        .replace(/\s{2,}/g, ' ');          // collapse double-spaces left by removal
+        // NOTE: do NOT trimStart unconditionally — GL streaming chunks naturally include a
+        // leading space between words. Stripping it causes words to run together when chunks
+        // are concatenated (e.g. "Take" + "a" → "Takea"). Only trim on the first chunk so
+        // the saved transcript does not start with a leading space.
       if (text.trim()) {
         // Fire processing_pending on the FIRST output chunk. This is the definitive signal
         // that GL has finished listening to the user and is now generating a response.
@@ -875,7 +878,7 @@ export class GeminiLiveSession {
         // GUARD: skip if audio already started — a late transcription chunk arriving after
         // audio has played would stick the avatar in "thinking" with no audio to follow.
         const isFirstOutputChunk = this.pendingOutputTranscript.trim() === '';
-        this.pendingOutputTranscript += text;
+        this.pendingOutputTranscript += isFirstOutputChunk ? text.trimStart() : text;
         if (isFirstOutputChunk && !this.firstAudioSentThisTurn && !this.processingPendingSentThisTurn) {
           this.processingPendingSentThisTurn = true;
           console.log('[GeminiLive] Firing processing_pending (transcription first, before audio)');
