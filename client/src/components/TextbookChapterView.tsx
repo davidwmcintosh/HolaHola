@@ -598,59 +598,162 @@ export function TextbookChapterView({
     microCycle &&
     (microCycle.negativeItems.length > 0 || microCycle.questionItems.length > 0 || microCycle.sentenceColumns.length > 0);
 
+  // ── Shared Kindle-style navigation bar ────────────────────────────────────
+  // Rendered at the bottom of every chapter format so readers can move between
+  // chapters without going back to the chapter list first.
+  const kindleNav = allChapters.length > 0 ? (
+    <div className="sticky bottom-0 z-20 bg-background/95 backdrop-blur-sm border-t -mx-4 px-4 py-3">
+      <div className="flex items-center justify-between gap-2 max-w-4xl mx-auto">
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => prevChapter && handleNavigate(prevChapter)}
+          disabled={!prevChapter}
+          data-testid="button-chapter-prev"
+          className="gap-1 min-w-0 flex-1 justify-start"
+        >
+          <ChevronLeft className="h-4 w-4 shrink-0" />
+          <span className="truncate text-left hidden sm:block">
+            {prevChapter ? `Ch. ${prevChapter.number}` : ""}
+          </span>
+        </Button>
+
+        <Sheet open={chaptersDrawerOpen} onOpenChange={setChaptersDrawerOpen}>
+          <SheetTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              data-testid="button-chapter-list"
+              className="gap-1.5 shrink-0 px-3"
+            >
+              <List className="h-4 w-4" />
+              <span className="text-sm text-muted-foreground">
+                {currentIndex + 1} / {allChapters.length}
+              </span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="bottom" className="max-h-[70vh] overflow-y-auto">
+            <SheetHeader className="pb-3">
+              <SheetTitle>All Chapters</SheetTitle>
+            </SheetHeader>
+            <div className="space-y-1 pb-4">
+              {allChapters.map((ch) => (
+                <button
+                  key={ch.id}
+                  onClick={() => !ch.isLocked && handleNavigate(ch)}
+                  disabled={ch.isLocked}
+                  data-testid={`button-chapter-jump-${ch.id}`}
+                  className={[
+                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-left transition-colors",
+                    ch.id === chapter.id
+                      ? "bg-accent text-accent-foreground"
+                      : ch.isLocked
+                      ? "opacity-40 cursor-not-allowed"
+                      : "hover-elevate",
+                  ].join(" ")}
+                >
+                  <div className="shrink-0 w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
+                    {ch.isLocked ? <Lock className="h-3 w-3" /> : ch.number}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{ch.title}</div>
+                    {ch.progress > 0 && (
+                      <Progress value={ch.progress} className="h-1 mt-1" />
+                    )}
+                  </div>
+                  {ch.id === chapter.id && (
+                    <Badge variant="outline" className="shrink-0 text-xs">Current</Badge>
+                  )}
+                </button>
+              ))}
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => nextChapter && handleNavigate(nextChapter)}
+          disabled={!nextChapter || nextChapter.isLocked}
+          data-testid="button-chapter-next"
+          className="gap-1 min-w-0 flex-1 justify-end"
+        >
+          <span className="truncate text-right hidden sm:block">
+            {nextChapter && !nextChapter.isLocked ? `Ch. ${nextChapter.number}` : ""}
+          </span>
+          <ChevronRight className="h-4 w-4 shrink-0" />
+        </Button>
+
+      </div>
+    </div>
+  ) : null;
+
   // ── Format 2: Verb Unit ────────────────────────────────────────────────────
   if (chapter.chapterType === 'verb_unit') {
     return (
-      <VerbUnit
-        chapter={chapter}
-        language={language ?? "spanish"}
-        onBack={onBack}
-        onStartConversation={onStartConversation}
-        onStartDrill={onStartDrill}
-      />
+      <>
+        <VerbUnit
+          chapter={chapter}
+          language={language ?? "spanish"}
+          onBack={onBack}
+          onStartConversation={onStartConversation}
+          onStartDrill={onStartDrill}
+        />
+        {kindleNav}
+      </>
     );
   }
 
   // ── Format 3: Grammar Concept Unit ────────────────────────────────────────
   if (chapter.chapterType === 'grammar_concept') {
     return (
-      <GrammarConceptUnit
-        chapter={chapter}
-        language={language ?? "spanish"}
-        onBack={onBack}
-        onStartConversation={onStartConversation}
-      />
+      <>
+        <GrammarConceptUnit
+          chapter={chapter}
+          language={language ?? "spanish"}
+          onBack={onBack}
+          onStartConversation={onStartConversation}
+        />
+        {kindleNav}
+      </>
     );
   }
 
   // ── Format 4: Vocabulary Cluster Unit ─────────────────────────────────────
   if (chapter.chapterType === 'vocabulary_cluster') {
     return (
-      <VocabularyClusterUnit
-        chapter={chapter}
-        language={language ?? "spanish"}
-        onBack={onBack}
-        onStartConversation={onStartConversation}
-      />
+      <>
+        <VocabularyClusterUnit
+          chapter={chapter}
+          language={language ?? "spanish"}
+          onBack={onBack}
+          onStartConversation={onStartConversation}
+        />
+        {kindleNav}
+      </>
     );
   }
 
   // ── Format 5: Advanced Unit (Spanish 3/4/5) ────────────────────────────────
   if (chapter.chapterType === 'advanced_unit') {
     return (
-      <AdvancedUnit
-        chapter={chapter}
-        language={language ?? "spanish"}
-        onBack={onBack}
-        onStartConversation={onStartConversation}
-      />
+      <>
+        <AdvancedUnit
+          chapter={chapter}
+          language={language ?? "spanish"}
+          onBack={onBack}
+          onStartConversation={onStartConversation}
+        />
+        {kindleNav}
+      </>
     );
   }
 
   // ── Format 1: Social Phrase Card ──────────────────────────────────────────
   if (chapter.chapterType === 'social_phrases') {
     return (
-      <div className="space-y-6 w-full max-w-2xl mx-auto pb-12 touch-pan-y overscroll-contain">
+      <div className="space-y-6 w-full max-w-2xl mx-auto pb-4 touch-pan-y overscroll-contain">
         <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-3 -mx-4 px-4 border-b supports-[backdrop-filter]:bg-background/80">
           <div className="flex items-center justify-between gap-4">
             <Button
@@ -676,7 +779,7 @@ export function TextbookChapterView({
 
         <SocialPhraseUnit language={language} lessonId={chapter.sections[0]?.id} />
 
-        <div className="pt-2">
+        <div className="pt-2 pb-2">
           <Button
             className="w-full min-h-[52px] text-base gap-2"
             onClick={() => onStartConversation()}
@@ -686,6 +789,8 @@ export function TextbookChapterView({
             Practice with Daniela
           </Button>
         </div>
+
+        {kindleNav}
       </div>
     );
   }
@@ -936,97 +1041,7 @@ export function TextbookChapterView({
         )}
       </div>
 
-      {/* ── Kindle-style bottom navigation ── */}
-      {allChapters.length > 0 && (
-        <div className="sticky bottom-0 z-20 bg-background/95 backdrop-blur-sm border-t mt-8 -mx-4 px-4 py-3">
-          <div className="flex items-center justify-between gap-2 max-w-4xl mx-auto">
-
-            {/* Prev */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => prevChapter && handleNavigate(prevChapter)}
-              disabled={!prevChapter}
-              data-testid="button-chapter-prev"
-              className="gap-1 min-w-0 flex-1 justify-start"
-            >
-              <ChevronLeft className="h-4 w-4 shrink-0" />
-              <span className="truncate text-left hidden sm:block">
-                {prevChapter ? `Ch. ${prevChapter.number}` : ""}
-              </span>
-            </Button>
-
-            {/* Chapter list drawer trigger */}
-            <Sheet open={chaptersDrawerOpen} onOpenChange={setChaptersDrawerOpen}>
-              <SheetTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  data-testid="button-chapter-list"
-                  className="gap-1.5 shrink-0 px-3"
-                >
-                  <List className="h-4 w-4" />
-                  <span className="text-sm text-muted-foreground">
-                    {currentIndex + 1} / {allChapters.length}
-                  </span>
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="bottom" className="max-h-[70vh] overflow-y-auto">
-                <SheetHeader className="pb-3">
-                  <SheetTitle>All Chapters</SheetTitle>
-                </SheetHeader>
-                <div className="space-y-1 pb-4">
-                  {allChapters.map((ch) => (
-                    <button
-                      key={ch.id}
-                      onClick={() => !ch.isLocked && handleNavigate(ch)}
-                      disabled={ch.isLocked}
-                      data-testid={`button-chapter-jump-${ch.id}`}
-                      className={[
-                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-left transition-colors",
-                        ch.id === chapter.id
-                          ? "bg-accent text-accent-foreground"
-                          : ch.isLocked
-                          ? "opacity-40 cursor-not-allowed"
-                          : "hover-elevate",
-                      ].join(" ")}
-                    >
-                      <div className="shrink-0 w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
-                        {ch.isLocked ? <Lock className="h-3 w-3" /> : ch.number}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{ch.title}</div>
-                        {ch.progress > 0 && (
-                          <Progress value={ch.progress} className="h-1 mt-1" />
-                        )}
-                      </div>
-                      {ch.id === chapter.id && (
-                        <Badge variant="outline" className="shrink-0 text-xs">Current</Badge>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </SheetContent>
-            </Sheet>
-
-            {/* Next */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => nextChapter && handleNavigate(nextChapter)}
-              disabled={!nextChapter || nextChapter.isLocked}
-              data-testid="button-chapter-next"
-              className="gap-1 min-w-0 flex-1 justify-end"
-            >
-              <span className="truncate text-right hidden sm:block">
-                {nextChapter && !nextChapter.isLocked ? `Ch. ${nextChapter.number}` : ""}
-              </span>
-              <ChevronRight className="h-4 w-4 shrink-0" />
-            </Button>
-
-          </div>
-        </div>
-      )}
+      {kindleNav}
 
     </div>
   );
