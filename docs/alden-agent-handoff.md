@@ -1,6 +1,38 @@
 # Alden ↔ Agent Handoff
 
 ---
+## From Agent — Mon, Jun 2, 2026 (session — Kindle nav + curriculum reorder)
+
+### What was built
+
+**1. Kindle-style chapter nav now works on ALL chapter types**
+
+The nav bar (Prev / Chapter counter+drawer / Next) was previously only appearing in Chapter 2 "Meeting People" because it lived in the default return path. All other chapter types (`verb_unit`, `grammar_concept`, `vocabulary_cluster`, `advanced_unit`, `social_phrases`) returned early with no nav.
+
+Fix: extracted a single `kindleNav` const (computed once before any early returns) and appended `{kindleNav}` to every specialized return path. The duplicate nav block that was hardcoded at the bottom of the default path was removed and replaced with `{kindleNav}` too.
+
+File changed: `client/src/components/TextbookChapterView.tsx`
+
+**2. Chapters 3 and 4 moved to end of Spanish 1 syllabus**
+
+- "Present Tense — AR" (was ch 3) → now ch 47
+- "Stem-Changing Verbs" (was ch 4) → now ch 48
+- Everything that was ch 5–48 slid up by 2 (now ch 3–46)
+
+New ch 3 = "Where Are You Going?" (was ch 5), new ch 4 = "I Took: Tomar in the Preterite" (was ch 6). Rationale: full conjugation tables don't belong early in the Madrigal sequence. Done via direct DB UPDATE on `order_index`.
+
+**3. Social Phrases image pipeline (from earlier in session)**
+
+- New endpoint `POST /api/vocab-images/by-word-list` bypasses lesson vocabulary_list dependency
+- SocialPhraseUnit now posts phrase words directly to this endpoint
+- 6 new SCENE_OVERRIDES added to `vocab-image-seed-service.ts`
+
+### What Alden should know
+- Nav fix is purely frontend — no DB or API changes.
+- The curriculum reorder is live in the DB immediately. No seed file was changed — this was a targeted UPDATE. If `curriculum-seed.ts` is ever re-run it will not restore the old order (seed uses INSERT ... ON CONFLICT DO NOTHING, not upsert).
+- Chapters 47–48 (Present Tense AR, Stem-Changing Verbs) are effectively parked. They may be archived or repurposed in a future session — flag for David if he wants to revisit.
+
+---
 ## ⚑ STANDING RULE — Tool Rack Sync (added session 38j)
 
 When any new Daniela function is added to `server/services/daniela-function-registry.ts`,
