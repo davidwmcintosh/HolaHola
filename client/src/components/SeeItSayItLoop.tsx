@@ -87,6 +87,7 @@ function CompactVocabCard({
   onDone,
   onGotIt,
   onNeedsWork,
+  horizontal = false,
 }: {
   item: VocabItem;
   imageUrl?: string;
@@ -97,20 +98,115 @@ function CompactVocabCard({
   onDone: () => void;
   onGotIt: () => void;
   onNeedsWork: () => void;
+  horizontal?: boolean;
 }) {
   const isMastered = cardState === "mastered";
   const isNeedsWork = cardState === "needs-work";
   const phrase = item.exampleSentences?.[0];
 
+  const stateClass = isMastered
+    ? "border-green-500/40 bg-green-500/5 dark:bg-green-500/10"
+    : isNeedsWork
+    ? "border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/10"
+    : "";
+
+  // ── Horizontal book-page layout ──────────────────────────────────────────
+  if (horizontal) {
+    return (
+      <div
+        className={`rounded-md border bg-card flex flex-row overflow-hidden transition-colors ${stateClass}`}
+        data-testid={`vocab-card-${item.word}`}
+      >
+        {/* Square image — fixed width on left */}
+        <div className="relative w-20 shrink-0 bg-muted/30 self-stretch">
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={item.word}
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <span className="text-2xl font-bold text-muted-foreground/20 select-none">
+                {item.word[0]?.toUpperCase()}
+              </span>
+            </div>
+          )}
+          {isMastered && (
+            <div className="absolute top-1 left-1 bg-green-500 rounded-full p-0.5 shadow-sm">
+              <CheckCircle2 className="h-2.5 w-2.5 text-white" />
+            </div>
+          )}
+          {isNeedsWork && (
+            <div className="absolute top-1 left-1 bg-amber-500 rounded-full p-0.5 shadow-sm">
+              <RotateCcw className="h-2.5 w-2.5 text-white" />
+            </div>
+          )}
+        </div>
+
+        {/* Text + controls — right side */}
+        <div className="flex-1 min-w-0 flex flex-col justify-between px-2.5 py-2">
+          <div>
+            <div className="flex items-baseline gap-1.5 flex-wrap">
+              <span className="font-semibold text-sm leading-tight">{item.word}</span>
+              {item.gender && (
+                <span className="text-[10px] text-muted-foreground">
+                  {item.gender === "m" ? "masc." : "fem."}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground leading-tight">{item.translation}</p>
+            {phrase && (
+              <p className="text-[10px] text-foreground/50 italic leading-snug mt-0.5 line-clamp-1">
+                {phrase.target}
+              </p>
+            )}
+          </div>
+
+          {/* Compact action controls */}
+          <div className="mt-1.5">
+            {(cardState === "idle" || cardState === "mastered" || cardState === "needs-work") && (
+              <div className="flex gap-1">
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onListen} disabled={ttsLoading} data-testid={`button-listen-${item.word}`}>
+                  {ttsLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Volume2 className="h-3.5 w-3.5" />}
+                </Button>
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onSpeak} data-testid={`button-speak-${item.word}`}>
+                  <Mic className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
+            {cardState === "speaking" && (
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2 w-2 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                </span>
+                <Button size="sm" variant="destructive" className="h-7 text-xs px-2" onClick={onDone} data-testid={`button-done-${item.word}`}>
+                  <MicOff className="h-3 w-3 mr-1" />Done
+                </Button>
+              </div>
+            )}
+            {cardState === "eval" && (
+              <div className="flex gap-1">
+                <Button size="sm" variant="outline" className="h-7 text-xs px-2 flex-1" onClick={onNeedsWork} data-testid={`button-needs-work-${item.word}`}>
+                  <XCircle className="h-3 w-3 mr-1 text-destructive" />Again
+                </Button>
+                <Button size="sm" className="h-7 text-xs px-2 flex-1" onClick={onGotIt} data-testid={`button-got-it-${item.word}`}>
+                  <CheckCircle2 className="h-3 w-3 mr-1" />Got it
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Portrait card layout (mobile / fallback) ──────────────────────────────
   return (
     <div
-      className={`rounded-md border bg-card flex flex-col overflow-hidden transition-colors ${
-        isMastered
-          ? "border-green-500/40 bg-green-500/5 dark:bg-green-500/10"
-          : isNeedsWork
-          ? "border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/10"
-          : ""
-      }`}
+      className={`rounded-md border bg-card flex flex-col overflow-hidden transition-colors ${stateClass}`}
       data-testid={`vocab-card-${item.word}`}
     >
       {/* Image */}
@@ -163,32 +259,14 @@ function CompactVocabCard({
       <div className="px-2 pb-2 pt-1 mt-auto">
         {(cardState === "idle" || cardState === "mastered" || cardState === "needs-work") && (
           <div className="flex gap-1">
-            <Button
-              size="icon"
-              variant="ghost"
-              className="flex-1"
-              onClick={onListen}
-              disabled={ttsLoading}
-              data-testid={`button-listen-${item.word}`}
-            >
-              {ttsLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Volume2 className="h-4 w-4" />
-              )}
+            <Button size="icon" variant="ghost" className="flex-1" onClick={onListen} disabled={ttsLoading} data-testid={`button-listen-${item.word}`}>
+              {ttsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Volume2 className="h-4 w-4" />}
             </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="flex-1"
-              onClick={onSpeak}
-              data-testid={`button-speak-${item.word}`}
-            >
+            <Button size="icon" variant="ghost" className="flex-1" onClick={onSpeak} data-testid={`button-speak-${item.word}`}>
               <Mic className="h-4 w-4" />
             </Button>
           </div>
         )}
-
         {cardState === "speaking" && (
           <div className="space-y-1.5">
             <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
@@ -198,39 +276,18 @@ function CompactVocabCard({
               </span>
               Listening…
             </div>
-            <Button
-              size="sm"
-              variant="destructive"
-              className="w-full"
-              onClick={onDone}
-              data-testid={`button-done-${item.word}`}
-            >
-              <MicOff className="h-3 w-3 mr-1.5" />
-              Done
+            <Button size="sm" variant="destructive" className="w-full" onClick={onDone} data-testid={`button-done-${item.word}`}>
+              <MicOff className="h-3 w-3 mr-1.5" />Done
             </Button>
           </div>
         )}
-
         {cardState === "eval" && (
           <div className="flex gap-1">
-            <Button
-              size="sm"
-              variant="outline"
-              className="flex-1"
-              onClick={onNeedsWork}
-              data-testid={`button-needs-work-${item.word}`}
-            >
-              <XCircle className="h-3 w-3 mr-1 text-destructive" />
-              Again
+            <Button size="sm" variant="outline" className="flex-1" onClick={onNeedsWork} data-testid={`button-needs-work-${item.word}`}>
+              <XCircle className="h-3 w-3 mr-1 text-destructive" />Again
             </Button>
-            <Button
-              size="sm"
-              className="flex-1"
-              onClick={onGotIt}
-              data-testid={`button-got-it-${item.word}`}
-            >
-              <CheckCircle2 className="h-3 w-3 mr-1" />
-              Got it
+            <Button size="sm" className="flex-1" onClick={onGotIt} data-testid={`button-got-it-${item.word}`}>
+              <CheckCircle2 className="h-3 w-3 mr-1" />Got it
             </Button>
           </div>
         )}
@@ -480,10 +537,11 @@ export function SeeItSayItLoop({
         <Progress value={progressPct} className="h-1.5" />
       )}
 
-      {/* ── Vocab grid — all items visible at once ── */}
+      {/* ── Vocab — two-page book spread on md+, portrait grid on mobile ── */}
+
+      {/* Mobile: 2-column portrait grid */}
       <div
-        className="grid gap-3"
-        style={{ gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))" }}
+        className="grid grid-cols-2 gap-3 md:hidden"
         data-testid="sisl-vocab-grid"
       >
         {vocabList.map((item, i) => (
@@ -501,6 +559,57 @@ export function SeeItSayItLoop({
           />
         ))}
       </div>
+
+      {/* Desktop: two-page book spread — left page | right page */}
+      {(() => {
+        const half = Math.ceil(vocabList.length / 2);
+        const leftItems = vocabList.slice(0, half);
+        const rightItems = vocabList.slice(half);
+        return (
+          <div className="hidden md:grid md:grid-cols-2 gap-6" data-testid="sisl-vocab-grid-book">
+            {/* Left page */}
+            <div className="flex flex-col gap-2">
+              {leftItems.map((item, i) => (
+                <CompactVocabCard
+                  key={i}
+                  item={item}
+                  imageUrl={imageMap[item.word]?.url}
+                  cardState={getCard(i)}
+                  ttsLoading={ttsLoadingIndex === i}
+                  onListen={() => handleVocabListen(item, i)}
+                  onSpeak={() => setCard(i, "speaking")}
+                  onDone={() => setCard(i, "eval")}
+                  onGotIt={() => setCard(i, "mastered")}
+                  onNeedsWork={() => setCard(i, "needs-work")}
+                  horizontal
+                />
+              ))}
+            </div>
+            {/* Subtle page divider */}
+            <div className="relative flex flex-col gap-2">
+              <div className="absolute -left-3 top-0 bottom-0 w-px bg-border/50" />
+              {rightItems.map((item, i) => {
+                const idx = half + i;
+                return (
+                  <CompactVocabCard
+                    key={idx}
+                    item={item}
+                    imageUrl={imageMap[item.word]?.url}
+                    cardState={getCard(idx)}
+                    ttsLoading={ttsLoadingIndex === idx}
+                    onListen={() => handleVocabListen(item, idx)}
+                    onSpeak={() => setCard(idx, "speaking")}
+                    onDone={() => setCard(idx, "eval")}
+                    onGotIt={() => setCard(idx, "mastered")}
+                    onNeedsWork={() => setCard(idx, "needs-work")}
+                    horizontal
+                  />
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Key phrases — compact list ── */}
       {phrases.length > 0 && (

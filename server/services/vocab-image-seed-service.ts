@@ -518,6 +518,8 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   // ── Spanish destination phrases — "voy a / voy al…" ─────────────────────
   // Garage: prop/scene description (starts "a ") so character injection is bypassed.
   // Garage is the hero — wide door, car inside, no people, no text labels.
+  // NOTE: The Madrigal VerbUnit uses imageWord:"garaje" (bare word) so BOTH keys must exist.
+  'garaje':        `a classic one-car residential garage seen from just outside: wooden overhead door fully rolled up, a gleaming vintage blue car parked inside on smooth concrete, warm afternoon sunlight falling across the driveway, neatly hung wrenches on a pegboard wall inside, the garage fills the entire frame — no people, no human figures, absolutely no text, no words, no letters, no signs, no labels anywhere in the image`,
   'voy al garaje': `a classic one-car residential garage seen from just outside: wooden overhead door fully rolled up, a gleaming vintage blue car parked inside on smooth concrete, warm afternoon sunlight falling across the driveway, neatly hung wrenches on a pegboard wall inside, the garage fills the entire frame — no people, no human figures, absolutely no text, no words, no letters, no signs, no labels anywhere in the image`,
 
   // ── Spanish core vocabulary — yes/no/pronouns/demonstratives/question phrases ──

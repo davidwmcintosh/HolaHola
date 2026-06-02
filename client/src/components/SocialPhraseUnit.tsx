@@ -466,7 +466,7 @@ export function SocialPhraseUnit({ language = "spanish", lessonId: _lessonId }: 
           <p className="text-xs uppercase tracking-wider font-semibold text-muted-foreground mb-3">
             {label}
           </p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {phrases.map((phrase) => {
               const cardIdx = idx++;
               return (
