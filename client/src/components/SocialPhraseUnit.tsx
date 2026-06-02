@@ -104,13 +104,6 @@ const RESPONSES: SocialPhrase[] = [
     register: "Neutral",
   },
   {
-    spanish: "¿Y tú?",
-    pronunciation: "ee TOO",
-    english: "And you? (informal)",
-    context: "How to turn any greeting back to the other person",
-    register: "Informal",
-  },
-  {
     spanish: "¿Y usted?",
     pronunciation: "ee oos-TED",
     english: "And you? (formal)",
