@@ -18,7 +18,6 @@ import { SerUnit } from "./SerUnit";
 import { HayUnit } from "./HayUnit";
 import { GustUnit } from "./GustUnit";
 import { getMadrigalContent, getPreteriteContent, getSerContent, getHayContent, getGustContent } from "@/data/madrigal-unit-content";
-import { getMadrigalScanUrl } from "@/data/madrigal-page-scans";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -222,18 +221,6 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
           ══════════════════════════════════════════════════════════════════════ */}
       {hasMadrigal && madrigal && (
         <div className="space-y-4 px-4">
-
-          {/* ── Book page scan ── show the actual Madrigal page before the interactive content */}
-          {madrigal.positiveItems[0]?.bookPage && (
-            <div className="rounded-md overflow-hidden border bg-muted/10">
-              <img
-                src={getMadrigalScanUrl(madrigal.positiveItems[0].bookPage)}
-                alt={`See It and Say It — page ${madrigal.positiveItems[0].bookPage}`}
-                className="w-full h-auto"
-                loading="eager"
-              />
-            </div>
-          )}
 
           {/* Voy + al — same line anchor */}
           <MadrigalAnchorBlock items={madrigal.voyAnchor} />

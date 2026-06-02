@@ -418,19 +418,24 @@ export function SeeItSayItLoop({
   const imageMap: VocabImageMap = imagesData?.images ?? {};
   const content = data?.content;
 
-  // Deduplicate vocab — strip punctuation & lowercase for comparison
+  // Deduplicate vocab, remove explicit tú-pronoun items (we teach usted forms)
+  const TU_WORD = /\btú\b/i;
   const rawVocab: VocabItem[] = content?.vocabulary_list ?? [];
   const seenVocab = new Set<string>();
   const vocabList: VocabItem[] = rawVocab.filter(v => {
+    // Drop items that use the explicit tú pronoun
+    if (TU_WORD.test(v.word)) return false;
+    // Deduplicate by normalized key
     const key = v.word.toLowerCase().replace(/[¿?¡!,;:.]/g, '').trim();
     if (seenVocab.has(key)) return false;
     seenVocab.add(key);
     return true;
   });
 
-  // Key phrases — suppress any that duplicate a vocab word
+  // Key phrases — suppress any that duplicate a vocab word or use tú pronoun
   const vocabNorms = new Set(vocabList.map(v => v.word.toLowerCase().replace(/[¿?¡!,;:.]/g, '').trim()));
   const phrases: KeyPhrase[] = (content?.key_phrases_for_chat ?? []).filter(kp => {
+    if (TU_WORD.test(kp.phrase)) return false;
     const norm = kp.phrase.toLowerCase().replace(/[¿?¡!,;:.]/g, '').trim();
     return !vocabNorms.has(norm);
   });
