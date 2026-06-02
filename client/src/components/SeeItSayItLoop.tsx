@@ -417,8 +417,23 @@ export function SeeItSayItLoop({
 
   const imageMap: VocabImageMap = imagesData?.images ?? {};
   const content = data?.content;
-  const vocabList: VocabItem[] = content?.vocabulary_list ?? [];
-  const phrases: KeyPhrase[] = content?.key_phrases_for_chat ?? [];
+
+  // Deduplicate vocab — strip punctuation & lowercase for comparison
+  const rawVocab: VocabItem[] = content?.vocabulary_list ?? [];
+  const seenVocab = new Set<string>();
+  const vocabList: VocabItem[] = rawVocab.filter(v => {
+    const key = v.word.toLowerCase().replace(/[¿?¡!,;:.]/g, '').trim();
+    if (seenVocab.has(key)) return false;
+    seenVocab.add(key);
+    return true;
+  });
+
+  // Key phrases — suppress any that duplicate a vocab word
+  const vocabNorms = new Set(vocabList.map(v => v.word.toLowerCase().replace(/[¿?¡!,;:.]/g, '').trim()));
+  const phrases: KeyPhrase[] = (content?.key_phrases_for_chat ?? []).filter(kp => {
+    const norm = kp.phrase.toLowerCase().replace(/[¿?¡!,;:.]/g, '').trim();
+    return !vocabNorms.has(norm);
+  });
 
   // Per-card state (not sequential — any card can be in any state)
   const [cardStates, setCardStates] = useState<Map<number, CardState>>(new Map());
