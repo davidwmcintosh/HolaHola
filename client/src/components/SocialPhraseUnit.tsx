@@ -425,21 +425,23 @@ interface SocialPhraseUnitProps {
   lessonId?: string;
 }
 
-export function SocialPhraseUnit({ language = "spanish", lessonId }: SocialPhraseUnitProps) {
-  // Load vocab images from the lesson if we have a lessonId
-  // API returns { images: { [word]: { url, source } } }
+export function SocialPhraseUnit({ language = "spanish", lessonId: _lessonId }: SocialPhraseUnitProps) {
+  // Fetch images directly by word list — bypasses lesson vocabulary_list so every
+  // phrase card gets an image regardless of what the lesson's DB record contains.
+  const allPhraseWords = ALL_GROUPS.flatMap(({ phrases }) => phrases.map(p => p.spanish));
+
   const { data: imageData } = useQuery<{ images: VocabImageMap }>({
-    queryKey: ["/api/textbook-content", lessonId, "vocab-images", language],
+    queryKey: ["/api/vocab-images/by-word-list", language, allPhraseWords.join(",")],
     queryFn: async () => {
-      if (!lessonId) return { images: {} };
-      const res = await fetch(
-        `/api/textbook-content/${lessonId}/vocab-images?language=${encodeURIComponent(language)}`,
-        { credentials: "include" }
-      );
+      const res = await fetch("/api/vocab-images/by-word-list", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ language, words: allPhraseWords }),
+      });
       if (!res.ok) return { images: {} };
       return res.json();
     },
-    enabled: !!lessonId,
     staleTime: 1000 * 60 * 30,
   });
 

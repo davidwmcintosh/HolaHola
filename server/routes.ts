@@ -12070,6 +12070,40 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
+  // Fetch cached vocab images for an arbitrary list of words (used by SocialPhraseUnit).
+  // Does NOT depend on a lesson's vocabulary_list — looks up each word directly from cache.
+  app.post('/api/vocab-images/by-word-list', isAuthenticated, async (req: any, res) => {
+    try {
+      const { language = 'spanish', words } = req.body;
+      if (!Array.isArray(words) || words.length === 0) return res.json({ images: {} });
+
+      const { resolveVocabularyImage } = await import('./services/vocabulary-image-resolver');
+      const images: Record<string, { url: string; source: string }> = {};
+      const concurrency = 4;
+
+      for (let i = 0; i < words.length; i += concurrency) {
+        const batch = (words as string[]).slice(i, i + concurrency);
+        const results = await Promise.all(
+          batch.map(async (word: string) => {
+            try {
+              const result = await resolveVocabularyImage({ word, language, description: word, libraryOnly: true });
+              return { word, url: result.imageUrl, source: result.source };
+            } catch {
+              return { word, url: null, source: 'error' };
+            }
+          })
+        );
+        for (const r of results) {
+          if (r.url && r.source !== 'placeholder') images[r.word] = { url: r.url, source: r.source };
+        }
+      }
+
+      res.json({ images });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Trigger seed job for a curriculum path (admin only)
 
   // ── Curriculum Enrichment Routes ──────────────────────────────────────────
