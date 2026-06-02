@@ -135,7 +135,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
     ],
     chapters: {
       greetings: {
-        welcomeText: "Spanish greetings change with the clock — buenos días before noon, buenas tardes through the afternoon, buenas noches at night. Then one fork: usted for anyone you respect or don't know, tú for friends and family. Those two rules open any conversation in Spanish.",
+        welcomeText: "Spanish greetings change with the clock — buenos días before noon, buenas tardes through the afternoon, buenas noches at night. One word unlocks every introduction with anyone you've just met or want to show respect: usted. Master these greetings and you'll navigate any conversation in Spanish.",
         narrativeSections: [
           {
             title: "Time Matters",
@@ -145,22 +145,21 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
           },
 
           {
-            title: "Formal vs. Informal",
-            content: "Spanish has two words for 'you': 'usted' for people you respect or don't know well, and 't\u00fa' for friends and family. The verb ending changes slightly depending on which you use.",
-            infographic: 'formalInformal',
-            tip: "When in doubt, start formal. It's easier to move toward casual than to walk back a misstep.",
-            discoveryNote: "usted uses the same verb ending as \u00e9l and ella. '\u00bfC\u00f3mo est\u00e1 usted?' and '\u00bfC\u00f3mo est\u00e1 ella?' share the same form. Spanish builds formality through pronoun choice, not verb endings."
+            title: "Respect Comes First",
+            content: "Spanish has a word for 'you' that signals respect and courtesy: usted. Use it with anyone you've just met, with elders, teachers, and in any professional setting. It is always the right first move.",
+            tip: "When in doubt, use usted. It's always polite, never offensive, and any Spanish speaker will respect the choice.",
+            discoveryNote: "Usted takes the same verb ending as él and ella. '¿Cómo está usted?' works just like '¿Cómo está ella?' — same form, different pronoun. That makes it easy to remember."
           }
         ],
         conversationStrips: [
           {
-            title: "A Casual Hello",
-            context: "Agustín runs into Daniela between classes",
+            title: "Buenos Días",
+            context: "Agustín greets Daniela on the first morning of class",
             panels: [
-              { speaker: "Agustín", gender: "male", text: "\u00a1Hola, Daniela!", translation: "Hi, Daniela!", image: "/strips/panel-0-0.png" },
-              { speaker: "Daniela", gender: "female", text: "\u00a1Hola, Agust\u00edn! \u00bfC\u00f3mo est\u00e1s?", translation: "Hi, Agustín! How are you?", image: "/strips/panel-0-1.png" },
-              { speaker: "Agustín", gender: "male", text: "\u00a1Muy bien, gracias! \u00bfY t\u00fa?", translation: "Very well, thanks! And you?", image: "/strips/panel-0-2.png" },
-              { speaker: "Daniela", gender: "female", text: "\u00a1Bien! \u00a1Hasta luego!", translation: "Good! See you later!", image: "/strips/panel-0-3.png" }
+              { speaker: "Agustín", gender: "male", text: "\u00a1Buenos d\u00edas, Daniela!", translation: "Good morning, Daniela!", image: "/strips/panel-0-0.png" },
+              { speaker: "Daniela", gender: "female", text: "\u00a1Buenos d\u00edas, Agust\u00edn! \u00bfC\u00f3mo est\u00e1 usted?", translation: "Good morning, Agustín! How are you?", image: "/strips/panel-0-1.png" },
+              { speaker: "Agustín", gender: "male", text: "\u00a1Muy bien, gracias! \u00bfY usted?", translation: "Very well, thanks! And you?", image: "/strips/panel-0-2.png" },
+              { speaker: "Daniela", gender: "female", text: "\u00a1Bien, gracias! \u00a1Hasta luego!", translation: "Fine, thank you! See you later!", image: "/strips/panel-0-3.png" }
             ]
           },
           {
@@ -177,7 +176,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             context: "Agustín visits Rosa, his grandmother, always addressing her with 'usted'",
             panels: [
               { speaker: "Agustín", gender: "male", text: "Buenos d\u00edas, abuela. \u00bfC\u00f3mo est\u00e1 usted?", translation: "Good morning, Grandma. How are you?", note: "Agustín uses 'usted' — respect for elders", image: "/strips/panel-2-0.png" },
-              { speaker: "Rosa", gender: "female", text: "Muy bien, gracias, Agust\u00edn. \u00bfY t\u00fa?", translation: "Very well, thanks, Agustín. And you?", note: "Grandma uses 't\u00fa' back — she's the elder", image: "/strips/panel-2-1.png" },
+              { speaker: "Rosa", gender: "female", text: "Muy bien, gracias, Agust\u00edn. \u00a1Qu\u00e9 bueno verte!", translation: "Very well, thank you, Agustín. How nice to see you!", image: "/strips/panel-2-1.png" },
               { speaker: "Agustín", gender: "male", text: "Bien, gracias, abuela.", translation: "Fine, thank you, Grandma.", image: "/strips/panel-2-2.png" }
             ]
           }

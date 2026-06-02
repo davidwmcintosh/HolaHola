@@ -1636,7 +1636,7 @@ export const NUMBERS_DAYS_CACHE_KEYS: Record<string, string[]> = Object.fromEntr
 export const GREETINGS_WORDS: Record<string, string[]> = {
   spanish: [
     'hola','buenos días','buenas tardes','buenas noches','adiós','hasta luego',
-    'hasta mañana','hasta pronto','mucho gusto','encantado','encantada',
+    'hasta mañana','hasta pronto','mucho gusto','encantado','encantada','me llamo',
     '¿cómo estás?','¿cómo está usted?','bien','muy bien','muy bien, gracias','mal','más o menos','regular',
     '¿qué tal?','¿qué pasa?','todo bien','nada','¿y usted?','igualmente','con permiso',
     'por favor','gracias','muchas gracias','de nada','perdón','disculpe','lo siento',
