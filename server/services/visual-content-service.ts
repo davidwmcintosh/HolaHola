@@ -56,7 +56,7 @@ async function generateWithModel(
 ): Promise<{ imageUrl: string }> {
   const isScene = request.type === 'infographic';
   const imageUrl = isScene
-    ? await generateCharacterScene(request.concept)
+    ? await generateCharacterScene(request.concept, request.targetLanguage)
     : await generatePropImage(request.concept);
   return { imageUrl };
 }
@@ -110,8 +110,9 @@ export async function generateVisual(
   data?: Record<string, unknown>,
   style?: string,
   anchorImageUrl?: string,
+  language?: string,
 ): Promise<VisualGenerationResult> {
-  const request: VisualGenerationRequest = { concept, type, data, style, anchorImageUrl };
+  const request: VisualGenerationRequest = { concept, type, data, style, anchorImageUrl, targetLanguage: language };
   let imageUrl: string;
   let provider: string;
 

@@ -3081,7 +3081,7 @@ export async function resolveVocabularyImage(
 
     try {
       const { generateVisual } = await import('./visual-content-service');
-      const result = await generateVisual(conceptForGeneration, generationType);
+      const result = await generateVisual(conceptForGeneration, generationType, undefined, undefined, undefined, language);
 
       try {
         await storage.cacheImage({
