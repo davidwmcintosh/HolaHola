@@ -309,7 +309,7 @@ function GustQACard({
             }
           </button>
           <div className="min-w-0">
-            <p className="text-sm font-semibold leading-snug" data-testid={`text-q-${pair.imageWord}`}>
+            <p className="text-sm font-semibold leading-snug text-blue-600 dark:text-blue-400" data-testid={`text-q-${pair.imageWord}`}>
               {pair.question}
             </p>
             <p className="text-xs text-muted-foreground leading-tight">
@@ -333,7 +333,7 @@ function GustQACard({
             }
           </button>
           <div className="min-w-0">
-            <p className="text-sm font-medium leading-snug text-primary" data-testid={`text-a-${pair.imageWord}`}>
+            <p className="text-sm font-medium leading-snug text-red-600 dark:text-red-400" data-testid={`text-a-${pair.imageWord}`}>
               {pair.answer}
             </p>
             <p className="text-xs text-muted-foreground leading-tight">

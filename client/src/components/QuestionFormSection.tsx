@@ -135,7 +135,7 @@ function QuestionCard({
         <div className="flex items-start gap-1">
           <div className="flex-1 min-w-0">
             <p
-              className="text-sm font-medium leading-snug"
+              className="text-sm font-medium leading-snug text-blue-600 dark:text-blue-400"
               data-testid={`text-question-${cardKey}`}
             >
               {item.question}
@@ -162,7 +162,7 @@ function QuestionCard({
           </span>
           <div className="flex-1 min-w-0">
             <p
-              className="text-sm leading-snug"
+              className="text-sm leading-snug text-red-600 dark:text-red-400"
               data-testid={`text-affirmative-${cardKey}`}
             >
               {item.affirmativeAnswer}
@@ -187,7 +187,7 @@ function QuestionCard({
           </span>
           <div className="flex-1 min-w-0">
             <p
-              className="text-sm leading-snug"
+              className="text-sm leading-snug text-red-600 dark:text-red-400"
               data-testid={`text-negative-answer-${cardKey}`}
             >
               {item.negativeAnswer}
