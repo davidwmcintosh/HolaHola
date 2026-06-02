@@ -1,7 +1,7 @@
 /**
- * madrigal-page-scans.ts
+ * book-page-scans (internal)
  *
- * Page-by-page registry for the Madrigal "See It and Say It in Spanish" book.
+ * Page-by-page registry for the "See It and Say It in Spanish" book.
  * Scans live in Object Storage; this file is the metadata layer that connects
  * page numbers to vocabulary, chapter keys, and pedagogical context.
  *
@@ -19,7 +19,7 @@
  *   pp. 86–98  Back matter / review
  */
 
-export type MadrigalPageType =
+export type BookPageType =
   | "cover"
   | "dedication"
   | "toc"
@@ -35,13 +35,13 @@ export type MadrigalPageType =
   | "blank"
   | "unknown";
 
-export interface MadrigalPageScan {
+export interface BookPageScan {
   /** 1-based page number in the book */
   pageNumber: number;
-  pageType: MadrigalPageType;
+  pageType: BookPageType;
   /** Short plain-English description of what's on the page */
   description?: string;
-  /** Matches chapterTitleKey in madrigal-unit-content.ts */
+  /** Matches chapterTitleKey in book-unit-content */
   chapterKey?: string;
   /** Left-page number in the physical spread (so we know this page's partner) */
   spreadWith?: number;
@@ -52,10 +52,10 @@ export interface MadrigalPageScan {
 }
 
 // ── Known page annotations ────────────────────────────────────────────────────
-// Verified: pages 9 (from existing transcription in madrigal-unit-content.ts)
+// Verified: pages 9 (from existing transcription in book-unit-content)
 // Everything else is a stub; fill in as you review each scan.
 
-export const MADRIGAL_PAGE_SCANS: MadrigalPageScan[] = [
+export const BOOK_PAGE_SCANS: BookPageScan[] = [
   // ── Front matter ──────────────────────────────────────────────────────────
   { pageNumber: 1,  pageType: "cover",        description: "Front cover" },
   { pageNumber: 2,  pageType: "dedication",   description: "Dedication / copyright page" },
@@ -106,23 +106,23 @@ export const MADRIGAL_PAGE_SCANS: MadrigalPageScan[] = [
 ];
 
 // ── Appendix registry (29 pages) ──────────────────────────────────────────────
-export const MADRIGAL_APPENDIX_SCANS: MadrigalPageScan[] = [
+export const BOOK_APPENDIX_SCANS: BookPageScan[] = [
   { pageNumber: 1, pageType: "unknown", description: "To be identified" },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Returns the API URL that serves the scan image for a given page. */
-export function getMadrigalScanUrl(pageNumber: number, book: "main" | "appendix" = "main"): string {
-  return `/api/madrigal/page-scan/${book}/${pageNumber}`;
+export function getBookScanUrl(pageNumber: number, book: "main" | "appendix" = "main"): string {
+  return `/api/book/page-scan/${book}/${pageNumber}`;
 }
 
 /** Looks up the metadata for a given page, or returns a stub if not yet annotated. */
-export function getMadrigalPageMeta(
+export function getBookPageMeta(
   pageNumber: number,
   book: "main" | "appendix" = "main"
-): MadrigalPageScan {
-  const registry = book === "main" ? MADRIGAL_PAGE_SCANS : MADRIGAL_APPENDIX_SCANS;
+): BookPageScan {
+  const registry = book === "main" ? BOOK_PAGE_SCANS : BOOK_APPENDIX_SCANS;
   return (
     registry.find((p) => p.pageNumber === pageNumber) ?? {
       pageNumber,
@@ -135,10 +135,10 @@ export function getMadrigalPageMeta(
  * Given a list of vocabulary words, find the book page they appear on.
  * Returns the first matching page that contains ALL the given words.
  */
-export function findPageForVocab(words: string[]): MadrigalPageScan | null {
+export function findPageForVocab(words: string[]): BookPageScan | null {
   const lower = words.map((w) => w.toLowerCase());
   return (
-    MADRIGAL_PAGE_SCANS.find(
+    BOOK_PAGE_SCANS.find(
       (p) => p.vocabulary && lower.every((w) => p.vocabulary!.map((v) => v.toLowerCase()).includes(w))
     ) ?? null
   );
@@ -153,7 +153,7 @@ export function findPageForVocab(words: string[]): MadrigalPageScan | null {
  */
 export function getLeftPageCount(chapterKey: string, vocabWords: string[]): number {
   // Find pages in this chapter
-  const chapterPages = MADRIGAL_PAGE_SCANS.filter(
+  const chapterPages = BOOK_PAGE_SCANS.filter(
     (p) => p.chapterKey === chapterKey && p.vocabulary && p.vocabulary.length > 0
   );
   if (chapterPages.length === 0) {

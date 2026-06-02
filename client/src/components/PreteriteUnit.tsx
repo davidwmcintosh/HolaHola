@@ -1,6 +1,6 @@
 /**
  * PreteriteUnit.tsx
- * Renders Madrigal's preterite-style verb lessons (tomar, comprar, etc.)
+ * Renders preterite-style verb lessons (tomar, comprar, etc.)
  *
  * Each lesson has 2-3 vocabulary clusters. Each cluster renders:
  *   AnchorBlock  →  [note]  →  QA image cards or statement cards
@@ -12,7 +12,7 @@
 import { useLayoutEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, MessageSquare, Dumbbell } from "lucide-react";
-import { MadrigalAnchorBlock, MadrigalPositiveGrid, MadrigalNote } from "./MadrigalPageComponents";
+import { BookAnchorBlock, BookVocabGrid, BookNote } from "./MadrigalPageComponents";
 import { SentenceColumnGenerator } from "./SentenceColumnGenerator";
 import { PreteriteQAGrid, PreteriteConjTable } from "./PreteriteComponents";
 import type { PreteriteUnitContent } from "@/data/madrigal-unit-content";
@@ -89,11 +89,11 @@ export function PreteriteUnit({
             {clusterIndex > 0 && <PageRule />}
 
             {/* Anchor block */}
-            <MadrigalAnchorBlock items={cluster.anchorItems} />
+            <BookAnchorBlock items={cluster.anchorItems} />
 
             {/* Note before cards */}
             {cluster.noteBefore && (
-              <MadrigalNote text={cluster.noteBefore} />
+              <BookNote text={cluster.noteBefore} />
             )}
 
             {/* Q&A image cards */}
@@ -103,7 +103,7 @@ export function PreteriteUnit({
 
             {/* Statement image cards (para la cena style) */}
             {cluster.statementCards && cluster.statementCards.length > 0 && (
-              <MadrigalPositiveGrid
+              <BookVocabGrid
                 items={cluster.statementCards}
                 language={language}
               />
@@ -127,7 +127,7 @@ export function PreteriteUnit({
 
             {/* Note after */}
             {cluster.noteAfter && (
-              <MadrigalNote text={cluster.noteAfter} />
+              <BookNote text={cluster.noteAfter} />
             )}
           </div>
         ))}

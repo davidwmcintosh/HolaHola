@@ -835,7 +835,7 @@ export function TextbookChapterView({
         )}
       </div>
 
-      {/* ── See It, Say It — primary vocab presentation (Madrigal method) ── */}
+      {/* ── See It, Say It — primary vocab presentation (method) ── */}
       {firstSislSection && (
         <div data-testid="sisl-chapter-inline">
           <SeeItSayItLoop

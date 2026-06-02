@@ -1584,7 +1584,7 @@ export function LessonNarrative({
 }
 
 // ── Sentence Frame Grid ───────────────────────────────────────────────────────
-// Inspired by Margarita Madrigal's "See It and Say It in Spanish" (1962).
+// Inspired by classic visual-vocabulary pedagogy.
 // Displays a single structural sentence frame (e.g. "Tengo que ir al ___")
 // alongside a grid of vocabulary fillers — each card shows the full completed
 // sentence so the learner internalises both the frame and the word at once.

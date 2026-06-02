@@ -596,7 +596,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
           {
             verb: "être",
             verbTranslation: "to be (state or condition)",
-            verbHint: "In French, être links you to descriptions — Madrigal calls this the identity bridge.",
+            verbHint: "In French, être links you to descriptions — linguists call this the identity bridge.",
             examples: [
               { object: "bien",         fullPhrase: "Je suis bien.",        translation: "I am well." },
               { object: "fatigué(e)", fullPhrase: "Je suis fatigué.", translation: "I am tired." },

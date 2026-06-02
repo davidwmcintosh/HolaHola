@@ -7,17 +7,22 @@ import { SeeItSayItLoop } from "./SeeItSayItLoop";
 import { NegativeFormSection, NegativeFormItem } from "./NegativeFormSection";
 import { SentenceColumnGenerator, SentenceColumn } from "./SentenceColumnGenerator";
 import {
-  MadrigalAnchorBlock,
-  MadrigalPositiveGrid,
-  MadrigalNote,
-  MadrigalPage12Grid,
-  MadrigalVaDefinition,
+  BookAnchorBlock,
+  BookVocabGrid,
+  BookNote,
+  BookQAGridP12,
+  BookVaDefinition,
+  BookGrid2x2,
+  BookNegGrid2x2,
+  BookQAGrid,
 } from "./MadrigalPageComponents";
+import { BookSpread, BookPageShell } from "./BookSpread";
+import type { SpreadDef } from "./BookSpread";
 import { PreteriteUnit } from "./PreteriteUnit";
 import { SerUnit } from "./SerUnit";
 import { HayUnit } from "./HayUnit";
 import { GustUnit } from "./GustUnit";
-import { getMadrigalContent, getPreteriteContent, getSerContent, getHayContent, getGustContent } from "@/data/madrigal-unit-content";
+import { getBookVerbContent, getPreteriteContent, getSerContent, getHayContent, getGustContent } from "@/data/book-unit-content";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -76,7 +81,7 @@ function useMicroCycle(lessonId: string | undefined, language: string, enabled: 
   });
 }
 
-// ── Thin dashed rule — acts as Madrigal's page break in scroll format ─────────
+// ── Thin dashed rule — acts as page break in scroll format ─────────
 
 function PageRule() {
   return <hr className="border-dashed border-border/50 my-1" />;
@@ -87,13 +92,13 @@ function PageRule() {
 export function VerbUnit({ chapter, language, onBack, onStartConversation, onStartDrill }: VerbUnitProps) {
   const grammarType = classifyGrammarType(chapter.title, language);
 
-  // Madrigal hardcoded content takes precedence
-  const madrigal = getMadrigalContent(chapter.title);
-  const preterite = !madrigal ? getPreteriteContent(chapter.title) : null;
-  const ser = !madrigal && !preterite ? getSerContent(chapter.title) : null;
-  const hay = !madrigal && !preterite && !ser ? getHayContent(chapter.title) : null;
-  const gust = !madrigal && !preterite && !ser && !hay ? getGustContent(chapter.title) : null;
-  const hasMadrigal = !!madrigal;
+  // Hardcoded book content takes precedence
+  const bookContent = getBookVerbContent(chapter.title);
+  const preterite = !bookContent ? getPreteriteContent(chapter.title) : null;
+  const ser = !bookContent && !preterite ? getSerContent(chapter.title) : null;
+  const hay = !bookContent && !preterite && !ser ? getHayContent(chapter.title) : null;
+  const gust = !bookContent && !preterite && !ser && !hay ? getGustContent(chapter.title) : null;
+  const hasBookContent = !!bookContent;
   const hasPreterite = !!preterite;
   const hasSer = !!ser;
   const hasHay = !!hay;
@@ -169,7 +174,7 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
   const { data: microCycle, isLoading: microLoading } = useMicroCycle(
     firstVocabSection?.id,
     language,
-    !hasMadrigal
+    !hasBookContent
   );
 
   const sections = chapter.sections ?? [];
@@ -202,8 +207,8 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          PATH A — Hardcoded Madrigal content
-          Madrigal gets straight into content — no chapter title, no header.
+          PATH A — Hardcoded book content
+          Book layout starts content — no chapter title, no header.
 
           Scroll order matches the book exactly:
             voyAnchor + 4 positive
@@ -219,60 +224,60 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
             ─ ─ ─ ─ ─
             CTAs
           ══════════════════════════════════════════════════════════════════════ */}
-      {hasMadrigal && madrigal && (
+      {hasBookContent && bookContent && (
         <div className="space-y-4 px-4">
 
           {/* Voy + al — same line anchor */}
-          <MadrigalAnchorBlock items={madrigal.voyAnchor} />
+          <BookAnchorBlock items={bookContent.voyAnchor} />
 
           {/* 4 positive pictures: Voy al hotel / banco / garaje / restaurante */}
-          <MadrigalPositiveGrid items={madrigal.positiveItems} language={language} />
+          <BookVocabGrid items={bookContent.positiveItems} language={language} />
 
           <PageRule />
 
           {/* ¿Va? anchor */}
-          <MadrigalAnchorBlock items={madrigal.vaAnchor} />
+          <BookAnchorBlock items={bookContent.vaAnchor} />
 
           {/* ¿Va al ___? — 2-column substitution drill */}
-          <SentenceColumnGenerator language={language} columns={madrigal.vaColumns} />
+          <SentenceColumnGenerator language={language} columns={bookContent.vaColumns} />
 
           {/* Subject pronoun note */}
-          {madrigal.subjectPronounNote && (
-            <MadrigalNote text={madrigal.subjectPronounNote} />
+          {bookContent.subjectPronounNote && (
+            <BookNote text={bookContent.subjectPronounNote} />
           )}
 
           <PageRule />
 
           {/* No voy + al — same line anchor */}
-          <MadrigalAnchorBlock items={madrigal.noVoyAnchor} />
+          <BookAnchorBlock items={bookContent.noVoyAnchor} />
 
           {/* 4 negative pictures — same 4 places as positive */}
-          <NegativeFormSection items={madrigal.negativeItems} language={language} />
+          <NegativeFormSection items={bookContent.negativeItems} language={language} />
 
           {/* Substitution drill: 8 verb forms × 8 places */}
-          <SentenceColumnGenerator language={language} columns={madrigal.sentenceColumns} />
+          <SentenceColumnGenerator language={language} columns={bookContent.sentenceColumns} />
 
           <PageRule />
 
           {/* Vamos anchor */}
-          <MadrigalAnchorBlock items={madrigal.vamosAnchor} />
+          <BookAnchorBlock items={bookContent.vamosAnchor} />
 
           {/* 4 Vamos pictures */}
-          <MadrigalPositiveGrid items={madrigal.vamosItems} language={language} />
+          <BookVocabGrid items={bookContent.vamosItems} language={language} />
 
           {/* Vamos note */}
-          {madrigal.vamosNote && <MadrigalNote text={madrigal.vamosNote} />}
+          {bookContent.vamosNote && <BookNote text={bookContent.vamosNote} />}
 
           <PageRule />
 
           {/* Page 12: 4-item anchor (¿Va? + al + Voy + Sí) */}
-          <MadrigalAnchorBlock items={madrigal.page12Anchors} />
+          <BookAnchorBlock items={bookContent.page12Anchors} />
 
           {/* 4 Q&A pairs (2 with images, 2 text-only) */}
-          <MadrigalPage12Grid items={madrigal.page12Items} language={language} />
+          <BookQAGridP12 items={bookContent.page12Items} language={language} />
 
           {/* Va: definition */}
-          {madrigal.vaDefinition && <MadrigalVaDefinition text={madrigal.vaDefinition} />}
+          {bookContent.vaDefinition && <BookVaDefinition text={bookContent.vaDefinition} />}
 
           <PageRule />
 
@@ -303,9 +308,9 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
 
       {/* ══════════════════════════════════════════════════════════════════════
           PATH B — Fallback: grammar card + SeeItSayItLoop + micro-cycle
-          Used for chapters not yet transcribed from Madrigal
+          Used for chapters without hardcoded book content
           ══════════════════════════════════════════════════════════════════════ */}
-      {!hasMadrigal && (
+      {!hasBookContent && (
         <div className="space-y-8 px-4">
 
           <div>

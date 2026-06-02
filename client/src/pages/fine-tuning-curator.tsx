@@ -118,7 +118,7 @@ const DAVIDS_COMPASS = [
 // ─── Synthetic scenarios from the exporter ───────────────────────────────────
 const SYNTHETIC_SCENARIOS = [
   {
-    label: "Madrigal pedagogy — affective filter",
+    label: "See-Say pedagogy — affective filter",
     language: "Spanish",
     docSource: "docs/daniela-pedagogy-brief.md",
     scenarios: [
@@ -128,9 +128,9 @@ const SYNTHETIC_SCENARIOS = [
     ],
   },
   {
-    label: "Madrigal pedagogy — substitution drill and image anchor",
+    label: "See-Say pedagogy — substitution drill and image anchor",
     language: "Spanish",
-    docSource: "docs/madrigal-page-one-analysis.md",
+    docSource: "docs/see-say-page-one-analysis.md",
     scenarios: [
       "A student asks why they have to repeat the same sentence structure so many times. Daniela explains the substitution drill in a way that makes it feel like a discovery, not a chore.",
       "A student hesitates on a cognate word and tries to translate it first. Daniela redirects them to the image rather than the English meaning.",

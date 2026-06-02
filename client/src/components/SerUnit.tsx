@@ -1,6 +1,6 @@
 /**
  * SerUnit.tsx
- * Renderer for Madrigal's ser/estar chapters.
+ * Renderer for ser/estar chapters.
  *
  * Cluster types:
  *   article-pairs        — el/los and la/las image cards with singular/plural labels
@@ -20,7 +20,7 @@ import { ArrowLeft, Volume2, Loader2, MessageCircle, BookOpen } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiRequest } from "@/lib/queryClient";
-import { MadrigalAnchorBlock, MadrigalNote } from "@/components/MadrigalPageComponents";
+import { BookAnchorBlock, BookNote } from "@/components/MadrigalPageComponents";
 import type {
   SerUnitContent,
   SerCluster,
@@ -318,9 +318,9 @@ function ArticlePairsCluster({
         </span>
       </div>
 
-      <MadrigalNote text={cluster.pluralRule} />
+      <BookNote text={cluster.pluralRule} />
       <DualFormGrid pairs={cluster.pairs} language={language} tutorGender={tutorGender} />
-      <MadrigalNote text={cluster.footerNote} />
+      <BookNote text={cluster.footerNote} />
     </div>
   );
 }
@@ -337,7 +337,7 @@ function EsSonSentencesCluster({
   return (
     <div className="flex flex-col gap-4">
       {cluster.anchorItems && cluster.anchorItems.length > 0 && (
-        <MadrigalAnchorBlock items={cluster.anchorItems} />
+        <BookAnchorBlock items={cluster.anchorItems} />
       )}
       <DualFormGrid pairs={cluster.pairs} language={language} tutorGender={tutorGender} />
     </div>
@@ -377,10 +377,10 @@ function SerQACluster({
       )}
       {/* Anchor items only (no room header) */}
       {!cluster.roomHeader && cluster.anchorItems && cluster.anchorItems.length > 0 && (
-        <MadrigalAnchorBlock items={cluster.anchorItems} />
+        <BookAnchorBlock items={cluster.anchorItems} />
       )}
       <SerQAGrid cards={cluster.cards} language={language} />
-      {cluster.noteAfter && <MadrigalNote text={cluster.noteAfter} />}
+      {cluster.noteAfter && <BookNote text={cluster.noteAfter} />}
     </div>
   );
 }
@@ -396,7 +396,7 @@ function ConsonantPluralCluster({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <MadrigalNote text={cluster.pluralRule} />
+      <BookNote text={cluster.pluralRule} />
 
       {/* Image pairs for doctor / flor */}
       <DualFormGrid pairs={cluster.imagePairs} language={language} tutorGender={tutorGender} />
@@ -414,7 +414,7 @@ function ConsonantPluralCluster({
         ))}
       </div>
 
-      <MadrigalNote text={cluster.wordListNote} />
+      <BookNote text={cluster.wordListNote} />
 
       {/* -al word list */}
       {cluster.alWords && cluster.alWords.length > 0 && (
@@ -451,7 +451,7 @@ function AdjectiveExpressionsCluster({
   return (
     <div className="flex flex-col gap-4">
       {cluster.anchorItems && cluster.anchorItems.length > 0 && (
-        <MadrigalAnchorBlock items={cluster.anchorItems} />
+        <BookAnchorBlock items={cluster.anchorItems} />
       )}
 
       {/* Adjective pairs: Es X / Son Xs */}
@@ -576,9 +576,9 @@ function EstarStatementsCluster({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      {cluster.introNote && <MadrigalNote text={cluster.introNote} />}
+      {cluster.introNote && <BookNote text={cluster.introNote} />}
       {cluster.anchorItems && cluster.anchorItems.length > 0 && (
-        <MadrigalAnchorBlock items={cluster.anchorItems} />
+        <BookAnchorBlock items={cluster.anchorItems} />
       )}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3" data-testid="estar-statement-grid">
         {cluster.cards.map((card, i) => (
@@ -692,7 +692,7 @@ function WordChipsCluster({
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <MadrigalNote text={cluster.note} />
+      <BookNote text={cluster.note} />
       <div className="flex flex-wrap gap-2" data-testid="word-chips-list">
         {cluster.words.map((word, i) => (
           <span

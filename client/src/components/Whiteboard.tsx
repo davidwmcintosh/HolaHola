@@ -3814,7 +3814,7 @@ const TextInputItemDisplay = ({ item, index, onSubmit }: TextInputItemDisplayPro
   );
 };
 
-// ─── Sentence Table (Madrigal substitution drill) ───────────────────────────
+// ─── Sentence Table (Substitution drill) ───────────────────────────
 function SentenceTableItemDisplay({ item, index }: { item: SentenceTableItem; index: number }) {
   const { columns, patternLabel } = item.data;
   if (!columns || columns.length === 0) return null;

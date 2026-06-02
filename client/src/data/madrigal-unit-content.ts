@@ -1,8 +1,8 @@
 /**
- * madrigal-unit-content.ts
- * Hardcoded content transcribed directly from Madrigal's "See It and Say It in Spanish."
+ * book-unit-content (internal)
+ * Hardcoded pedagogical content — transcribed and curated for the curriculum.
  *
- * Content law: Never generate this from AI. Every element was chosen by Madrigal
+ * Content law: Never generate this from AI. Every element was pedagogically chosen
  * for a specific pedagogical reason. The chain must be preserved exactly.
  */
 
@@ -11,17 +11,17 @@ import type { SentenceColumn } from "@/components/SentenceColumnGenerator";
 
 // ── Shared types ──────────────────────────────────────────────────────────────
 
-export interface MadrigalAnchorItem {
+export interface BookAnchorItem {
   spanish: string;
   english: string;
 }
 
-export interface MadrigalPositiveItem {
+export interface BookPositiveItem {
   word: string;        // used as the image lookup key
   sentence: string;    // displayed sentence (may differ from word, e.g. "discoteca" → "Vamos al club.")
   translation: string;
   imageDescription: string;
-  /** The physical page number in Madrigal's "See It and Say It in Spanish."
+  /** The physical page number in the textbook's "See It and Say It in Spanish."
    *  Items sharing the same bookPage appear together on that page (typically 4 per page).
    *  Used by the two-page book spread to mirror the actual facing-pages layout. */
   bookPage?: number;
@@ -37,32 +37,32 @@ export interface Page12QAItem {
 
 // ── Unit type 1: ir-style (present tense, place vocabulary) ───────────────────
 
-export interface MadrigalVerbUnitContent {
+export interface BookVerbUnitContent {
   chapterTitleKey: string;
 
-  voyAnchor: MadrigalAnchorItem[];
-  positiveItems: MadrigalPositiveItem[];
+  voyAnchor: BookAnchorItem[];
+  positiveItems: BookPositiveItem[];
 
-  vaAnchor: MadrigalAnchorItem[];
+  vaAnchor: BookAnchorItem[];
   vaColumns: SentenceColumn[];
   subjectPronounNote?: string;
 
-  noVoyAnchor: MadrigalAnchorItem[];
+  noVoyAnchor: BookAnchorItem[];
   negativeItems: NegativeFormItem[];
 
   sentenceColumns: SentenceColumn[];
 
-  vamosAnchor: MadrigalAnchorItem[];
-  vamosItems: MadrigalPositiveItem[];
+  vamosAnchor: BookAnchorItem[];
+  vamosItems: BookPositiveItem[];
   vamosNote?: string;
 
-  page12Anchors: MadrigalAnchorItem[];
+  page12Anchors: BookAnchorItem[];
   page12Items: Page12QAItem[];
   vaDefinition?: string;
 }
 
 // ── Unit type 2: preterite style (past tense, multi-cluster) ──────────────────
-// Used for tomar, comprar, and similar verb units from Madrigal pp. 29+
+// Used for tomar, comprar, and similar verb units from p. 29+
 //
 // Each verb lesson has 2-3 vocabulary clusters.
 // Each cluster has: anchor, Q&A image cards or statement cards, optional
@@ -87,13 +87,13 @@ export interface PreteriteConjugationRow {
 
 /** One vocabulary cluster within a preterite lesson */
 export interface PreteriteCluster {
-  anchorItems: MadrigalAnchorItem[];
+  anchorItems: BookAnchorItem[];
   /** Pedagogical note shown BEFORE the image cards */
   noteBefore?: string;
   /** Q&A image cards — the main content of most clusters */
   qaCards?: PreteriteQACard[];
   /** Statement-only image cards — used for "Tomé pollo para la cena." style */
-  statementCards?: MadrigalPositiveItem[];
+  statementCards?: BookPositiveItem[];
   /** Full verb conjugation table — shown after qaCards */
   conjugationTable?: PreteriteConjugationRow[];
   /** Sentence-former columns — shown after conjugation table */
@@ -109,7 +109,7 @@ export interface PreteriteUnitContent {
 }
 
 // ── Unit type 3: Ser-style (gender, number, ser verb) ─────────────────────────
-// Used for the gender & plurals chapter (Madrigal pp. 64–71)
+// Used for the gender & plurals chapter (p. 64–71)
 
 /** One image card showing both singular and plural forms of the same noun */
 export interface DualFormPair {
@@ -132,13 +132,13 @@ export type SerCluster =
     }
   | {
       type: 'es-son-sentences';
-      anchorItems?: MadrigalAnchorItem[];
+      anchorItems?: BookAnchorItem[];
       pairs: DualFormPair[];
     }
   | {
       type: 'ser-qa';
       roomHeader?: { spanish: string; english: string }; // e.g. "En el baño"
-      anchorItems?: MadrigalAnchorItem[];
+      anchorItems?: BookAnchorItem[];
       cards: PreteriteQACard[];
       noteAfter?: string;
     }
@@ -146,7 +146,7 @@ export type SerCluster =
       /** Statement image cards: "El café está en la mesa." (no Q&A) */
       type: 'estar-statements';
       introNote?: string;          // shown above anchor block on first page
-      anchorItems?: MadrigalAnchorItem[];
+      anchorItems?: BookAnchorItem[];
       cards: { imageWord: string; imageDescription?: string; statement: string; translation: string }[];
     }
   | {
@@ -183,7 +183,7 @@ export type SerCluster =
     }
   | {
       type: 'adjective-expressions';
-      anchorItems?: MadrigalAnchorItem[];
+      anchorItems?: BookAnchorItem[];
       adjectives: { singular: string; plural: string; english: string }[];
       expressions: { spanish: string; english: string }[];
     };
@@ -234,10 +234,10 @@ export interface HayUnitContent {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Chapter 23: Where Are You Going? (ir — to go)
-// Source: Madrigal pp. 9–13
+// Source: p. 9–13
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const IR_GOING_PLACES: MadrigalVerbUnitContent = {
+const IR_GOING_PLACES: BookVerbUnitContent = {
   chapterTitleKey: "where are you going",
 
   voyAnchor: [
@@ -346,7 +346,7 @@ const IR_GOING_PLACES: MadrigalVerbUnitContent = {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Tomar: I Took (preterite)
-// Source: Madrigal pp. 29–31
+// Source: p. 29–31
 //
 // Three vocabulary clusters:
 //   1. Transportation (taxi / avión / tren / autobús)
@@ -463,7 +463,7 @@ const TOMAR_I_TOOK: PreteriteUnitContent = {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Comprar: I Bought (preterite)
-// Source: Madrigal pp. 32+
+// Source: p. 32+
 //
 // Two vocabulary clusters:
 //   1. Shopping items (blusa / periódico / automóvil / sombrero)
@@ -543,7 +543,7 @@ const COMPRAR_I_BOUGHT: PreteriteUnitContent = {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Near Future: Voy a + Infinitive
-// Source: Madrigal pp. 36–42
+// Source: p. 36–42
 //
 // Seven vocabulary clusters across six pages:
 //   1. Voy a comprar — clothing (statement grid + combinator)
@@ -718,7 +718,7 @@ const NEAR_FUTURE_VOY_A: PreteriteUnitContent = {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Tener: I Have
-// Source: Madrigal pp. 46–53
+// Source: p. 46–53
 //
 // Seven vocabulary clusters:
 //   1. ¿Tiene? basic possession — auto/bicicleta/guitarra/fonógrafo (p. 46)
@@ -774,7 +774,7 @@ const TENER_I_HAVE: PreteriteUnitContent = {
         { word: "libros", sentence: "Tiene muchos libros.", translation: "He has many books.",   imageDescription: "a large stack of books" },
       ],
 
-      // Madrigal shows that "Tiene" covers four English translations —
+      // Note: "Tiene" covers four English translations —
       // and "¿Tiene?" covers the same four as questions.
       conjugationTable: [
         { form: "Tiene",   meaning: "you have · he has · she has · it has" },
@@ -902,7 +902,7 @@ const TENER_I_HAVE: PreteriteUnitContent = {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Quiero: I Want
-// Source: Madrigal pp. 56–61
+// Source: p. 56–61
 //
 // Six vocabulary clusters:
 //   1. Quiero comprar — 4 statement cards + conjugation table + combiner (p. 56)
@@ -1086,7 +1086,7 @@ const QUIERO_I_WANT: PreteriteUnitContent = {
 
 // ── Registries ────────────────────────────────────────────────────────────────
 
-const MADRIGAL_VERB_UNITS: MadrigalVerbUnitContent[] = [
+const MADRIGAL_VERB_UNITS: BookVerbUnitContent[] = [
   IR_GOING_PLACES,
 ];
 
@@ -1100,7 +1100,7 @@ const PRETERITE_UNITS: PreteriteUnitContent[] = [
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Chapter 33: Ser — Gender & Plurals
-// Source: Madrigal pp. 64–71
+// Source: p. 64–71
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const SER_PLURALS_GENDER: SerUnitContent = {
@@ -1416,9 +1416,9 @@ const SER_UNITS: SerUnitContent[] = [
 ];
 
 /**
- * Returns hardcoded ir-style Madrigal content for a chapter if available.
+ * Returns hardcoded ir-style book content for a chapter if available.
  */
-export function getMadrigalContent(chapterTitle: string): MadrigalVerbUnitContent | null {
+export function getBookVerbContent(chapterTitle: string): BookVerbUnitContent | null {
   const lower = chapterTitle.toLowerCase();
   return MADRIGAL_VERB_UNITS.find(u => lower.includes(u.chapterTitleKey)) ?? null;
 }
@@ -1441,7 +1441,7 @@ export function getSerContent(chapterTitle: string): SerUnitContent | null {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Chapter 35: I Can Go — Puedo ir
-// Source: Madrigal pp. 84–85
+// Source: p. 84–85
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const PUEDO_IR: HayUnitContent = {
@@ -1547,7 +1547,7 @@ const PUEDO_IR: HayUnitContent = {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Chapter 36: Hay — There Is / There Are
-// Source: Madrigal pp. 86–91
+// Source: p. 86–91
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const HAY_CHAPTER: HayUnitContent = {
@@ -1808,7 +1808,7 @@ export function getHayContent(chapterTitle: string): HayUnitContent | null {
 }
 
 // ── Unit type 5: Gust-style (gustar / gustaría / encanta / encantaría) ─────────
-// Used for the "gustar" family chapters (Madrigal pp. 94–101).
+// Used for the "gustar" family chapters (p. 94–101).
 
 /** One vocabulary cluster in a gustar-style lesson.
  *  Extends HayVocabCluster with an optional grammar-rule callout and negative examples. */
@@ -3632,7 +3632,7 @@ const RECIBI_CHAPTER: GustUnitContent = {
   ],
 };
 
-// ── Spanish 2 Unit 10: Compraba — The Imperfect Tense (Madrigal pp. 196–197) ────
+// ── Spanish 2 Unit 10: Compraba — The Imperfect Tense (p. 196–197) ────
 // Replaces the hollow "Childhood Memories" placeholder.
 // chapterTitleKey "compraba" matches DB unit name "Compraba: The Imperfect Tense".
 // Three clusters: -aba pattern (compraba), -ía pattern (vendía), tenía possession.
@@ -3807,7 +3807,7 @@ const COMPRABA_CHAPTER: GustUnitContent = {
   ],
 };
 
-// ── Spanish 2 Unit 6: Tengo Catarro — Expresiones de Salud (Madrigal p. 53) ─────
+// ── Spanish 2 Unit 6: Tengo Catarro — Expresiones de Salud (p. 53) ─────
 // chapterTitleKey "tengo catarro" matches DB unit "Tengo Catarro — Expresiones de Salud".
 // Collision check: "tengo catarro".includes("tener") → FALSE (tengo ≠ tener substring).
 // Three clusters: enfermedades (illnesses), dolores (pains), sentence combiner.
@@ -3933,7 +3933,7 @@ const TENGO_CATARRO_CHAPTER: GustUnitContent = {
 };
 
 // ── Spanish 2 Unit 11: ¿A Qué Hora Sale? — Transporte y Horarios (pp. 170–171) ─
-// Supplemented from Madrigal pp. 170–171 — departure/arrival schedules.
+// Supplemented from p. 170–171 — departure/arrival schedules.
 // chapterTitleKey "a qué hora" matches DB unit "¿A Qué Hora Sale? — Transporte y Horarios".
 // Three clusters: sale (departures), llega (arrivals), sentence combiner.
 
@@ -4070,7 +4070,7 @@ const SALE_LLEGA_CHAPTER: GustUnitContent = {
   ],
 };
 
-// ── Spanish 2 Unit 5: ¿Cómo Está? — States & Feelings (Madrigal p. 81) ─────────
+// ── Spanish 2 Unit 5: ¿Cómo Está? — States & Feelings (p. 81) ─────────
 // Replaces the redundant "Los Números II" slot.
 // chapterTitleKey "cómo está" matches "¿Cómo Está? — States & Feelings" (unit name in DB).
 // Does NOT collide with ESTA_LIMPIO_CHAPTER key "está:" because this title has no colon after está.
@@ -4398,7 +4398,7 @@ const ESTA_TOCANDO_CHAPTER: GustUnitContent = {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Chapter: Me Levanto — Verbos Reflexivos
-// Source: Madrigal's Magic Key to Spanish, Lesson 38 (pp. 342–361)
+// Source: the textbook, Lesson 38 (pp. 342–361)
 // chapterTitleKey "me levanto" matches DB unit "Me Levanto — Verbos Reflexivos"
 // ═══════════════════════════════════════════════════════════════════════════════
 

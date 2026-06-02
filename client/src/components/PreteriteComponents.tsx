@@ -1,6 +1,6 @@
 /**
  * PreteriteComponents.tsx
- * Components for Madrigal's preterite-style verb units (tomar, comprar, etc.)
+ * Components for preterite-style verb units (tomar, comprar, etc.)
  *
  * Components:
  *   PreteriteQAGrid       — 2×2 grid of Q&A image cards (¿Tomó? / Sí, tomé…)

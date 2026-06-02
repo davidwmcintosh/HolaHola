@@ -11651,7 +11651,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Pages are stored under: public/madrigal/scans/main/page-NNN.jpg
   //                          public/madrigal/scans/appendix/page-NNN.jpg
 
-  app.get("/api/madrigal/page-scan/:book/:pageNumber", isAuthenticated, async (req: any, res) => {
+  app.get("/api/book/page-scan/:book/:pageNumber", isAuthenticated, async (req: any, res) => {
     try {
       const { book, pageNumber } = req.params;
       if (!["main", "appendix"].includes(book)) {
@@ -11676,7 +11676,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // List which pages have been uploaded (useful for admin view / progress)
-  app.get("/api/madrigal/page-scan-manifest/:book", isAuthenticated, async (req: any, res) => {
+  app.get("/api/book/page-scan-manifest/:book", isAuthenticated, async (req: any, res) => {
     try {
       const { book } = req.params;
       if (!["main", "appendix"].includes(book)) {

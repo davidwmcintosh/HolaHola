@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getLeftPageCount } from "@/data/madrigal-page-scans";
+import { getLeftPageCount } from "@/data/book-page-scans";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -55,9 +55,9 @@ interface SeeItSayItLoopProps {
   onComplete?: () => void;
   hideHeader?: boolean;
   /** How many vocab items go on the LEFT page. Defaults to Math.ceil(n/2).
-   *  Pass this when the content has a known book-page boundary (Madrigal chapters). */
+   *  Pass this when the content has a known book-page boundary (book chapters). */
   leftPageCount?: number;
-  /** Madrigal chapter key (e.g. "where are you going").
+  /** book chapter key (e.g. "where are you going").
    *  When provided, leftPageCount is derived automatically from the scan registry
    *  once the vocab list is loaded — unless leftPageCount is also explicitly passed. */
   chapterKey?: string;

@@ -1,6 +1,6 @@
 /**
  * HayUnit.tsx
- * Renders Madrigal's "Hay" and "Puedo ir" chapters — units built around
+ * Renders  "Hay" and "Puedo ir" chapters — units built around
  * Q&A image cards with a concept headline and vocabulary cluster structure.
  *
  * Used for:

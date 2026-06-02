@@ -291,7 +291,7 @@ export function GrammarConceptUnit({
         </div>
       )}
 
-      {/* ── Everyday expressions — hardcoded from Madrigal p. 71 (ser_only only) ── */}
+      {/* ── Everyday expressions — hardcoded fromp. 71 (ser_only only) ── */}
       {grammarType === 'ser_only' && (
         <div className="space-y-2" data-testid="ser-everyday-expressions">
           <p className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">
