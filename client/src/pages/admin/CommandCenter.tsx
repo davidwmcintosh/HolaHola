@@ -7055,7 +7055,7 @@ function VocabImagesSection() {
     mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/bust-and-reseed', { language, dryRun: false }).then(r => r.json()),
     onSuccess: (data: any) => {
       setBustReseedResult(data);
-      toast({ title: 'Bust & Reseed started', description: `Deleted ${data.deleted} stale images for ${language}. Job ${data.jobId?.slice(-8)} regenerating with character injection.` });
+      toast({ title: 'Bust & Reseed started', description: `Deleted ${data.deleted} images for ${language}. Job ${data.jobId?.slice(-8)} regenerating all vocab images from scratch.` });
     },
     onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
   });
@@ -7288,8 +7288,8 @@ function VocabImagesSection() {
 
               <Card className="bg-muted/30 border-orange-200 dark:border-orange-900">
                 <CardContent className="p-4 space-y-2">
-                  <p className="text-sm font-medium">Bust &amp; Reseed (Character Fix)</p>
-                  <p className="text-xs text-muted-foreground">Delete ALL cached images for selected language and regenerate with character injection. Use after updating character profiles or prompt logic.</p>
+                  <p className="text-sm font-medium">Bust &amp; Reseed (Full Art Reset)</p>
+                  <p className="text-xs text-muted-foreground">Delete ALL cached images for selected language and regenerate from scratch. Use when changing the art style or prompt logic across all word categories — not for character profile changes (use Fix Greetings for that).</p>
                   <Button
                     size="sm"
                     variant="outline"
