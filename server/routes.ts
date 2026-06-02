@@ -12994,7 +12994,16 @@ Return ONLY valid JSON, no markdown, no explanation.`;
 
       // Add a random compositional modifier so each "Generate" click produces a
       // genuinely different framing — prevents near-identical re-renders.
-      const COMPOSITION_VARIANTS = [
+      // Use scene/location variants when the override is a prop description (no characters);
+      // use character-focused variants otherwise.
+      const isPropOverride = sceneOverride != null && /^(a |an |the )/i.test(sceneOverride.trim());
+      const COMPOSITION_VARIANTS = isPropOverride ? [
+        'slightly wider establishing shot, good depth of field',
+        'three-quarter angle showing the full structure',
+        'classic exterior framing, warm natural light',
+        'eye-level view emphasising the open doorway',
+        'slightly low angle looking up at the structure',
+      ] : [
         'medium shot, characters facing each other at a slight angle',
         'slightly wider establishing shot showing more background',
         'three-quarter view from a slightly lower angle',

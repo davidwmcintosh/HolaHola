@@ -516,8 +516,9 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'senorita': `${CHAR.ES.primary} standing with poised youthful energy, smiling brightly and giving a small polite wave of greeting, cheerful warm background`,
 
   // ── Spanish destination phrases — "voy a / voy al…" ─────────────────────
-  // Garage: garage is the hero — wide door, car inside, no people, no text labels.
-  'voy al garaje': `Semi-realistic cartoon: a classic one-car residential garage seen from just outside, wooden overhead door fully rolled up, a gleaming vintage blue car parked inside on smooth concrete, warm afternoon sunlight falling across the driveway in front, neatly hung wrenches on a pegboard wall inside, garage fills the entire frame — no people, no human figures, absolutely no text, no words, no letters, no signs, no labels anywhere in the image`,
+  // Garage: prop/scene description (starts "a ") so character injection is bypassed.
+  // Garage is the hero — wide door, car inside, no people, no text labels.
+  'voy al garaje': `a classic one-car residential garage seen from just outside: wooden overhead door fully rolled up, a gleaming vintage blue car parked inside on smooth concrete, warm afternoon sunlight falling across the driveway, neatly hung wrenches on a pegboard wall inside, the garage fills the entire frame — no people, no human figures, absolutely no text, no words, no letters, no signs, no labels anywhere in the image`,
 
   // ── Spanish core vocabulary — yes/no/pronouns/demonstratives/question phrases ──
   // All language-prefixed to prevent collisions with cognate forms in other Romance languages.
