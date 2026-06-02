@@ -21,6 +21,10 @@ export interface MadrigalPositiveItem {
   sentence: string;    // displayed sentence (may differ from word, e.g. "discoteca" → "Vamos al club.")
   translation: string;
   imageDescription: string;
+  /** The physical page number in Madrigal's "See It and Say It in Spanish."
+   *  Items sharing the same bookPage appear together on that page (typically 4 per page).
+   *  Used by the two-page book spread to mirror the actual facing-pages layout. */
+  bookPage?: number;
 }
 
 /** A Q&A pair shown together under an image (page 12 format). */
@@ -242,10 +246,10 @@ const IR_GOING_PLACES: MadrigalVerbUnitContent = {
   ],
 
   positiveItems: [
-    { word: "hotel",       sentence: "Voy al hotel.",       translation: "I'm going to the hotel.",      imageDescription: "a classic hotel building exterior" },
-    { word: "banco",       sentence: "Voy al banco.",       translation: "I'm going to the bank.",       imageDescription: "a bank building with columns" },
-    { word: "garaje",      sentence: "Voy al garaje.",      translation: "I'm going to the garage.",     imageDescription: "a car garage with open door" },
-    { word: "restaurante", sentence: "Voy al restaurante.", translation: "I'm going to the restaurant.", imageDescription: "a restaurant exterior with outdoor seating" },
+    { word: "hotel",       sentence: "Voy al hotel.",       translation: "I'm going to the hotel.",      imageDescription: "a classic hotel building exterior",         bookPage: 9 },
+    { word: "banco",       sentence: "Voy al banco.",       translation: "I'm going to the bank.",       imageDescription: "a bank building with columns",              bookPage: 9 },
+    { word: "garaje",      sentence: "Voy al garaje.",      translation: "I'm going to the garage.",     imageDescription: "a car garage with open door",               bookPage: 9 },
+    { word: "restaurante", sentence: "Voy al restaurante.", translation: "I'm going to the restaurant.", imageDescription: "a restaurant exterior with outdoor seating", bookPage: 9 },
   ],
 
   vaAnchor: [

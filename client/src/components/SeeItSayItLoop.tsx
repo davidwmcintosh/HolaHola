@@ -53,6 +53,9 @@ interface SeeItSayItLoopProps {
   lessonName?: string;
   onComplete?: () => void;
   hideHeader?: boolean;
+  /** How many vocab items go on the LEFT page. Defaults to Math.ceil(n/2).
+   *  Pass this when the content has a known book-page boundary (Madrigal chapters). */
+  leftPageCount?: number;
 }
 
 type CardState = "idle" | "speaking" | "eval" | "mastered" | "needs-work";
@@ -382,6 +385,7 @@ export function SeeItSayItLoop({
   lessonName,
   onComplete,
   hideHeader = false,
+  leftPageCount,
 }: SeeItSayItLoopProps) {
   const langTag = getLangTag(language);
   const { tutorGender } = useLanguage();
@@ -537,36 +541,15 @@ export function SeeItSayItLoop({
         <Progress value={progressPct} className="h-1.5" />
       )}
 
-      {/* ── Vocab — two-page book spread on md+, portrait grid on mobile ── */}
-
-      {/* Mobile: 2-column portrait grid */}
-      <div
-        className="grid grid-cols-2 gap-3 md:hidden"
-        data-testid="sisl-vocab-grid"
-      >
-        {vocabList.map((item, i) => (
-          <CompactVocabCard
-            key={i}
-            item={item}
-            imageUrl={imageMap[item.word]?.url}
-            cardState={getCard(i)}
-            ttsLoading={ttsLoadingIndex === i}
-            onListen={() => handleVocabListen(item, i)}
-            onSpeak={() => setCard(i, "speaking")}
-            onDone={() => setCard(i, "eval")}
-            onGotIt={() => setCard(i, "mastered")}
-            onNeedsWork={() => setCard(i, "needs-work")}
-          />
-        ))}
-      </div>
-
-      {/* Desktop: two-page book spread — left page | right page */}
+      {/* ── Vocab — two-page book spread ── */}
+      {/* Always two columns of horizontal cards (book spread).
+          leftPageCount prop or n/2 default determines the page break. */}
       {(() => {
-        const half = Math.ceil(vocabList.length / 2);
+        const half = leftPageCount ?? Math.ceil(vocabList.length / 2);
         const leftItems = vocabList.slice(0, half);
         const rightItems = vocabList.slice(half);
         return (
-          <div className="hidden md:grid md:grid-cols-2 gap-6" data-testid="sisl-vocab-grid-book">
+          <div className="grid grid-cols-2 gap-6" data-testid="sisl-vocab-grid-book">
             {/* Left page */}
             <div className="flex flex-col gap-2">
               {leftItems.map((item, i) => (
@@ -585,9 +568,9 @@ export function SeeItSayItLoop({
                 />
               ))}
             </div>
-            {/* Subtle page divider */}
+            {/* Right page — subtle spine divider */}
             <div className="relative flex flex-col gap-2">
-              <div className="absolute -left-3 top-0 bottom-0 w-px bg-border/50" />
+              <div className="absolute -left-3 top-0 bottom-0 w-px bg-border/40" />
               {rightItems.map((item, i) => {
                 const idx = half + i;
                 return (
