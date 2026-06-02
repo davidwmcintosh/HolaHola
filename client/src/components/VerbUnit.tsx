@@ -184,11 +184,11 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
   return (
     <div
       ref={topRef}
-      className="w-full max-w-2xl mx-auto pb-16 touch-pan-y overscroll-contain"
+      className="w-full max-w-4xl mx-auto pb-16 touch-pan-y overscroll-contain"
       data-testid="verb-unit"
     >
       {/* ── Sticky back bar ── */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm py-3 -mx-4 px-4 border-b mb-6">
+      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm py-3 -mx-4 px-4 border-b mb-3">
         <Button
           variant="ghost"
           size="sm"
@@ -220,7 +220,7 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
             CTAs
           ══════════════════════════════════════════════════════════════════════ */}
       {hasMadrigal && madrigal && (
-        <div className="space-y-6 px-4">
+        <div className="space-y-4 px-4">
 
           {/* Voy + al — same line anchor */}
           <MadrigalAnchorBlock items={madrigal.voyAnchor} />

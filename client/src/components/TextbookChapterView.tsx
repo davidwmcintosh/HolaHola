@@ -753,7 +753,7 @@ export function TextbookChapterView({
   // ── Format 1: Social Phrase Card ──────────────────────────────────────────
   if (chapter.chapterType === 'social_phrases') {
     return (
-      <div className="space-y-6 w-full max-w-2xl mx-auto pb-4 touch-pan-y overscroll-contain">
+      <div className="space-y-6 w-full max-w-4xl mx-auto pb-4 touch-pan-y overscroll-contain">
         <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-3 -mx-4 px-4 border-b supports-[backdrop-filter]:bg-background/80">
           <div className="flex items-center justify-between gap-4">
             <Button
