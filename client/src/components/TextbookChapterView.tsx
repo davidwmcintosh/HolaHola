@@ -842,6 +842,7 @@ export function TextbookChapterView({
             lessonId={firstSislSection.id}
             language={language}
             lessonName={firstSislSection.name}
+            chapterKey={chapter.title?.toLowerCase()}
           />
         </div>
       )}

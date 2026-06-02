@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { getLeftPageCount } from "@/data/madrigal-page-scans";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -56,6 +57,10 @@ interface SeeItSayItLoopProps {
   /** How many vocab items go on the LEFT page. Defaults to Math.ceil(n/2).
    *  Pass this when the content has a known book-page boundary (Madrigal chapters). */
   leftPageCount?: number;
+  /** Madrigal chapter key (e.g. "where are you going").
+   *  When provided, leftPageCount is derived automatically from the scan registry
+   *  once the vocab list is loaded — unless leftPageCount is also explicitly passed. */
+  chapterKey?: string;
 }
 
 type CardState = "idle" | "speaking" | "eval" | "mastered" | "needs-work";
@@ -386,6 +391,7 @@ export function SeeItSayItLoop({
   onComplete,
   hideHeader = false,
   leftPageCount,
+  chapterKey,
 }: SeeItSayItLoopProps) {
   const langTag = getLangTag(language);
   const { tutorGender } = useLanguage();
@@ -543,9 +549,15 @@ export function SeeItSayItLoop({
 
       {/* ── Vocab — two-page book spread ── */}
       {/* Always two columns of horizontal cards (book spread).
-          leftPageCount prop or n/2 default determines the page break. */}
+          leftPageCount prop or n/2 default determines the page break.
+          If chapterKey is provided, the scan registry is consulted for the split. */}
       {(() => {
-        const half = leftPageCount ?? Math.ceil(vocabList.length / 2);
+        const vocabWords = vocabList.map((v) => v.word);
+        const half =
+          leftPageCount ??
+          (chapterKey
+            ? getLeftPageCount(chapterKey, vocabWords)
+            : Math.ceil(vocabList.length / 2));
         const leftItems = vocabList.slice(0, half);
         const rightItems = vocabList.slice(half);
         return (

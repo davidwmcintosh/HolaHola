@@ -11646,6 +11646,63 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ── Madrigal Book Page Scans ─────────────────────────────────────────────
+  // Serves scanned page images from Object Storage.
+  // Pages are stored under: public/madrigal/scans/main/page-NNN.jpg
+  //                          public/madrigal/scans/appendix/page-NNN.jpg
+
+  app.get("/api/madrigal/page-scan/:book/:pageNumber", isAuthenticated, async (req: any, res) => {
+    try {
+      const { book, pageNumber } = req.params;
+      if (!["main", "appendix"].includes(book)) {
+        return res.status(400).json({ error: "book must be 'main' or 'appendix'" });
+      }
+      const n = parseInt(pageNumber, 10);
+      if (isNaN(n) || n < 1 || n > 200) {
+        return res.status(400).json({ error: "Invalid page number" });
+      }
+      const padded = String(n).padStart(3, "0");
+      const { ObjectStorageService } = await import("./replit_integrations/object_storage/objectStorage");
+      const svc = new ObjectStorageService();
+      const file = await svc.searchPublicObject(`madrigal/scans/${book}/page-${padded}.jpg`);
+      if (!file) {
+        return res.status(404).json({ error: `Page ${n} scan not yet uploaded` });
+      }
+      await svc.downloadObject(file, res, 365 * 24 * 3600);
+    } catch (err: any) {
+      console.error("[MadrigalScan]", err.message);
+      res.status(500).json({ error: "Failed to serve scan" });
+    }
+  });
+
+  // List which pages have been uploaded (useful for admin view / progress)
+  app.get("/api/madrigal/page-scan-manifest/:book", isAuthenticated, async (req: any, res) => {
+    try {
+      const { book } = req.params;
+      if (!["main", "appendix"].includes(book)) {
+        return res.status(400).json({ error: "book must be 'main' or 'appendix'" });
+      }
+      const bucketName = (process.env.PUBLIC_OBJECT_SEARCH_PATHS ?? "")
+        .split(",")[0].trim().replace(/^\//, "").split("/")[0];
+      if (!bucketName) return res.status(500).json({ error: "Bucket not configured" });
+
+      const { objectStorageClient } = await import("./replit_integrations/object_storage/objectStorage");
+      const bucket = objectStorageClient.bucket(bucketName);
+      const [files] = await bucket.getFiles({ prefix: `public/madrigal/scans/${book}/` });
+      const pages = files
+        .map((f: any) => {
+          const m = f.name.match(/page-(\d+)\.jpg$/);
+          return m ? parseInt(m[1], 10) : null;
+        })
+        .filter(Boolean)
+        .sort((a: number, b: number) => a - b);
+      res.json({ book, totalPages: pages.length, pages });
+    } catch (err: any) {
+      console.error("[MadrigalScanManifest]", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // ── Textbook Content Routes ───────────────────────────────────────────────
 
   // Fetch textbook prose content for a single lesson

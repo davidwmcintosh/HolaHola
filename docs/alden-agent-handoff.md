@@ -1,6 +1,48 @@
 # Alden ↔ Agent Handoff
 
 ---
+## From Agent — Mon, Jun 2, 2026 (session — Madrigal scan infrastructure + vocab layout)
+
+### What was built
+
+**1. Madrigal book page scans — all 127 pages now in Object Storage**
+
+Every page of both books has been extracted (120 DPI JPEG via pdftoppm, one page at a time for reliability) and uploaded to:
+- `public/madrigal/scans/main/page-001.jpg` through `page-098.jpg`
+- `public/madrigal/scans/appendix/page-001.jpg` through `page-029.jpg`
+
+The upload script (`server/scripts/upload-madrigal-scans.ts`) is idempotent — re-running it skips already-uploaded pages.
+
+**2. Two new API endpoints**
+
+- `GET /api/madrigal/page-scan/:book/:pageNumber` — streams the scan image from Object Storage with 1-year cache headers (uses `ObjectStorageService.searchPublicObject` + `downloadObject`)
+- `GET /api/madrigal/page-scan-manifest/:book` — lists all uploaded page numbers for a book (useful for admin progress checks)
+
+Both require authentication. Book parameter is `"main"` or `"appendix"`.
+
+**3. SeeItSayItLoop — chapterKey-driven book spread**
+
+Added `chapterKey?: string` prop to `SeeItSayItLoop`. When provided, the component looks up the left-page word count from `madrigal-page-scans.ts` after the vocab list loads (via `getLeftPageCount`), giving a book-accurate split without the caller needing to know vocab in advance.
+
+Wired `chapterKey={chapter.title?.toLowerCase()}` into:
+- `TextbookChapterView.tsx` — SeeItSayItLoop call at the chapter level
+- `VerbUnit.tsx` — SeeItSayItLoop in PATH B (non-Madrigal fallback)
+
+**4. SocialPhraseUnit — 3-column max grid**
+Changed from `grid-cols-2 sm:grid-cols-3 md:grid-cols-4` → `grid-cols-2 sm:grid-cols-3`.
+
+**5. Garaje SCENE_OVERRIDE fix**
+Added `'garaje'` key to `SCENE_OVERRIDES` in `vocab-image-seed-service.ts` (alongside `'voy al garaje'`). David still needs to run the "Fix Single Word" admin tool with just `"garaje"` to clear the stale cache entry.
+
+### Page scan metadata registry
+`client/src/data/madrigal-page-scans.ts` has stubs for all known chapter boundaries. Only page 9 of "where are you going" is fully verified. As you view scans, you (or future sessions) should fill in `vocabulary`, `pageType`, `description`, and `verified: true` for each page you review. The `getLeftPageCount` and `findPageForVocab` helpers read from this registry.
+
+### What Alden should know
+- The scan pipeline script requires the Replit sidecar (port 1106) for GCS auth — it only runs in-environment, never locally.
+- The manifest endpoint currently uses `objectStorageClient.bucket().getFiles()` which returns all files under a prefix. If the bucket has many files this is fine but worth monitoring.
+- Pages are permanent/public cache (1-year `max-age`). No need to worry about expiry.
+
+---
 ## From Agent — Mon, Jun 2, 2026 (session — Kindle nav + curriculum reorder)
 
 ### What was built

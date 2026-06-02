@@ -334,6 +334,7 @@ export function VerbUnit({ chapter, language, onBack, onStartConversation, onSta
                 lessonId={firstVocabSection.id}
                 language={language}
                 lessonName={firstVocabSection.name}
+                chapterKey={chapter.title?.toLowerCase()}
               />
             </div>
           )}
