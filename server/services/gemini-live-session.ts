@@ -173,6 +173,12 @@ export class GeminiLiveSession {
    */
   onResumptionHandleUpdate?: (handle: string) => void;
 
+  /**
+   * Optional callback fired when Daniela's first audio chunk arrives.
+   * Used by the unified-ws-handler to clear the tutor-no-response watchdog timer.
+   */
+  onFirstAudioGenerated?: () => void;
+
   constructor(
     private session: StreamingSession,
     private sendWsMessage: (ws: any, message: any, session?: any) => void,
