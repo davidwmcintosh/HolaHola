@@ -263,6 +263,7 @@ export interface StreamingSession {
     editorFeedbackSection?: string;
     editorFeedbackIds?: string[];
     growthMemoriesSection?: string;  // Cindy's personal teaching growth log — pre-injected for all sessions
+    patternSignalsSection?: string;  // Student grammar pattern map (wobbles, stability, drilling) — pre-injected per student
     temporalAwarenessSection?: string; // Upcoming/recent time-sensitive facts (temporal reasoning)
     coverageAuditSection?: string;     // Blind spots — topic areas Daniela knows little about yet
     goalSection?: string;              // Active learning goal + capability map for self-directed students

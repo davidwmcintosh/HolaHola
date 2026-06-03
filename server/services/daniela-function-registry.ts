@@ -4368,6 +4368,27 @@ SUPPORTED CHAPTER KEYS:
 • "quiero-i-want" — Querer: wanting things
 • "ser-plurals-gender" — Ser: gender and plurals
 • "hay" — Hay: there is / there are
+• "gustar-me-gusta" — Gustar: me gusta / me gustan
+• "gustaria" — Me gustaría: I would like
+• "fui-i-went" — Fui: I went (preterite of ir)
+• "voy-a-infinitive" — Voy a + infinitive: near future
+• "va-a-third-person" — Va a + infinitive: third-person near future
+• "que-hizo" — Qué hizo: what did he/she do?
+• "tuvo-he-had" — Tuvo: he/she had (preterite of tener)
+• "le-indirect-object" — Le: indirect object pronoun
+• "esta-he-is" — Está: he/she is (location/condition)
+• "estudie-i-studied" — Estudié: I studied (preterite)
+• "recibi-i-received" — Recibí: I received (preterite)
+• "compraba-imperfect" — Compraba: I used to buy (imperfect)
+• "tengo-catarro" — Tengo catarro: I have a cold (illness vocab)
+• "a-que-hora" — A qué hora: at what time?
+• "como-esta" — Cómo está: how is he/she?
+• "que-esta-haciendo" — Qué está haciendo: what is he/she doing?
+• "me-levanto" — Me levanto: I get up (reflexive daily routine)
+• "he-comprado" — He comprado: I have bought (present perfect)
+• "lo-veo" — Lo veo: I see it / I see him (direct object pronoun)
+• "me-lo" — Me lo: to me / it to me (double object pronoun)
+• "hable-formal-commands" — Hable: speak! (formal command)
 
 SHOW AND SPEAK PROTOCOL (mandatory):
 1. Say something natural FIRST in the "text" field — "Let me pull up that chapter so we can see the full list."
@@ -4382,7 +4403,7 @@ SHOW AND SPEAK PROTOCOL (mandatory):
           },
           chapter_key: {
             type: "string",
-            enum: ["ir-going-places", "tomar-i-took", "comprar-i-bought", "near-future-voy-a", "tener-i-have", "quiero-i-want", "ser-plurals-gender", "hay"],
+            enum: ["ir-going-places", "tomar-i-took", "comprar-i-bought", "near-future-voy-a", "tener-i-have", "quiero-i-want", "ser-plurals-gender", "hay", "gustar-me-gusta", "gustaria", "fui-i-went", "voy-a-infinitive", "va-a-third-person", "que-hizo", "tuvo-he-had", "le-indirect-object", "esta-he-is", "estudie-i-studied", "recibi-i-received", "compraba-imperfect", "tengo-catarro", "a-que-hora", "como-esta", "que-esta-haciendo", "me-levanto", "he-comprado", "lo-veo", "me-lo", "hable-formal-commands"],
             description: "The textbook chapter to display (see supported keys above)",
           },
           title: {
@@ -4436,7 +4457,7 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] =
  *     read_full_session, search_conversation_threads, recall_express_lane_image,
  *     express_lane_post, save_conversation_memory, read_full_memory,
  *     hive_suggestion, self_surgery, record_student_consent, dismiss_absence_nudge,
- *     first_meeting_complete, mark_lesson_covered, record_pattern_signal,
+ *     first_meeting_complete, mark_lesson_covered,
  *     set_memory_pin, correct_memory, forget_memory, set_learning_goal,
  *     advance_capability, browse_syllabus, recommend_next, review_due_vocab,
  *     request_text_input, add_curiosity, read_my_curiosities
@@ -4467,7 +4488,7 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   'save_conversation_memory',
   'hive_suggestion', 'self_surgery',
   'record_student_consent', 'dismiss_absence_nudge', 'first_meeting_complete',
-  'mark_lesson_covered', 'record_pattern_signal',
+  'mark_lesson_covered',
   'set_memory_pin', 'correct_memory', 'forget_memory',
   'set_learning_goal', 'advance_capability',
   'browse_syllabus', 'recommend_next', 'review_due_vocab',

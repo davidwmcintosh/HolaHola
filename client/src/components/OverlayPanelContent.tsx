@@ -11,6 +11,7 @@ import {
   getPreteriteContent,
   getSerContent,
   getHayContent,
+  getGustContent,
 } from "@/data/madrigal-unit-content";
 
 // ── Vocab image card ──────────────────────────────────────────────────────────
@@ -151,6 +152,45 @@ interface VocabEntry {
   description: string;
 }
 
+const GUST_CHAPTER_MAP: Record<string, string> = {
+  "gustar-me-gusta":        "gustar:",
+  "gustaria":               "me gustaría:",
+  "fui-i-went":             "fui:",
+  "voy-a-infinitive":       "voy a:",
+  "va-a-third-person":      "va a:",
+  "que-hizo":               "qué hizo",
+  "tuvo-he-had":            "tuvo:",
+  "le-indirect-object":     "le:",
+  "esta-he-is":             "está:",
+  "estudie-i-studied":      "estudié:",
+  "recibi-i-received":      "recibí:",
+  "compraba-imperfect":     "compraba",
+  "tengo-catarro":          "tengo catarro",
+  "a-que-hora":             "a qué hora",
+  "como-esta":              "cómo está",
+  "que-esta-haciendo":      "qué está haciendo",
+  "me-levanto":             "me levanto",
+  "he-comprado":            "he comprado",
+  "lo-veo":                 "lo veo",
+  "me-lo":                  "me lo",
+  "hable-formal-commands":  "hable:",
+};
+
+function extractGustVocab(lookupKey: string): VocabEntry[] {
+  const c = getGustContent(lookupKey) as any;
+  if (!c) return [];
+  const entries: VocabEntry[] = [];
+  (c.clusters as any[]).forEach((cl: any) => {
+    const pairs: any[] = cl.pairs || [];
+    pairs.forEach((p: any) => {
+      if (p.imageWord) {
+        entries.push({ word: p.imageWord, description: p.answerTranslation || p.answer || "" });
+      }
+    });
+  });
+  return entries.filter(e => Boolean(e.word));
+}
+
 function getTextbookVocab(chapterKey: string): VocabEntry[] {
   const entries: VocabEntry[] = [];
 
@@ -201,6 +241,12 @@ function getTextbookVocab(chapterKey: string): VocabEntry[] {
         );
       });
     }
+  }
+
+  // Gust chapter family — covers all Madrigal chapters not handled above
+  const gustLookup = GUST_CHAPTER_MAP[chapterKey];
+  if (gustLookup) {
+    return extractGustVocab(gustLookup);
   }
 
   return entries.filter((e) => Boolean(e.word));

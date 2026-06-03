@@ -1307,7 +1307,36 @@ ${parts.join('\n\n')}
       );
     }
     
-    // 2d. TEMPORAL AWARENESS + COVERAGE AUDIT — injected for all logged-in users
+    // 2d. PATTERN SIGNALS — student grammar acquisition state (wobbles / stability)
+    if (session.userId) {
+      promises.push(
+        (async () => {
+          try {
+            const lang = session.targetLanguage || 'Spanish';
+            const compartments = await storage.getCompartmentMap(String(session.userId), lang);
+            if (compartments && compartments.length > 0) {
+              const wobbling = compartments.filter((c: any) => c.status === 'wobbling');
+              const pounding = compartments.filter((c: any) => c.status === 'pounding');
+              const stable   = compartments.filter((c: any) => c.status === 'stable');
+              const generative = compartments.filter((c: any) => c.status === 'generative');
+              const lines: string[] = [];
+              wobbling.forEach((c: any) => lines.push(`• WOBBLING → ${c.patternKey} (${c.wobbleCount || 0} wobble${(c.wobbleCount || 0) !== 1 ? 's' : ''}) — drill, expect errors`));
+              pounding.forEach((c: any) => lines.push(`• POUNDING → ${c.patternKey} (${c.poundingCount || 0} drills) — actively reinforcing`));
+              stable.forEach((c: any) => lines.push(`• STABLE → ${c.patternKey} — consolidated`));
+              generative.forEach((c: any) => lines.push(`• GENERATIVE → ${c.patternKey} — extends to novel forms`));
+              if (lines.length > 0) {
+                cache.patternSignalsSection = `---\n**Student Grammar Pattern Map** (live signal — use record_pattern_signal to update):\n${lines.join('\n')}\n`;
+                console.log(`[Pattern Signals] Prefetched ${compartments.length} compartments for session`);
+              }
+            }
+          } catch (err: any) {
+            console.warn(`[Context Prefetch] Pattern signals failed:`, err.message);
+          }
+        })()
+      );
+    }
+
+    // 2e. TEMPORAL AWARENESS + COVERAGE AUDIT — injected for all logged-in users
     if (session.userId) {
       promises.push(
         (async () => {
@@ -2072,6 +2101,7 @@ Remember: David may reference things discussed in these recent text chats.
       let expressLaneSection = (hasFreshCache && session.cachedContext?.expressLaneSection) || '';
       let identityMemoriesSection = (hasFreshCache && session.cachedContext?.identityMemoriesSection) || '';
       let growthMemoriesSection = (hasFreshCache && session.cachedContext?.growthMemoriesSection) || '';
+      let patternSignalsSection = (hasFreshCache && session.cachedContext?.patternSignalsSection) || '';
       let textChatSection = (hasFreshCache && session.cachedContext?.textChatSection) || '';
       let editorFeedbackSection = (hasFreshCache && session.cachedContext?.editorFeedbackSection) || '';
       let studentLearningSection = (hasFreshCache && session.cachedContext?.studentLearningSection) || '';
@@ -2374,7 +2404,36 @@ ${parts.join('\n\n')}
           })()
         );
       }
-      
+
+      // PATTERN SIGNALS (stale cache fallback) — student grammar acquisition state
+      if (!hasFreshCache && !patternSignalsSection && session.userId) {
+        contextPromises.push(
+          (async () => {
+            try {
+              const lang = session.targetLanguage || 'Spanish';
+              const compartments = await storage.getCompartmentMap(String(session.userId), lang);
+              if (compartments && compartments.length > 0) {
+                const wobbling   = compartments.filter((c: any) => c.status === 'wobbling');
+                const pounding   = compartments.filter((c: any) => c.status === 'pounding');
+                const stable     = compartments.filter((c: any) => c.status === 'stable');
+                const generative = compartments.filter((c: any) => c.status === 'generative');
+                const lines: string[] = [];
+                wobbling.forEach((c: any) => lines.push(`• WOBBLING → ${c.patternKey} (${c.wobbleCount || 0} wobble${(c.wobbleCount || 0) !== 1 ? 's' : ''}) — drill, expect errors`));
+                pounding.forEach((c: any) => lines.push(`• POUNDING → ${c.patternKey} (${c.poundingCount || 0} drills) — actively reinforcing`));
+                stable.forEach((c: any) => lines.push(`• STABLE → ${c.patternKey} — consolidated`));
+                generative.forEach((c: any) => lines.push(`• GENERATIVE → ${c.patternKey} — extends to novel forms`));
+                if (lines.length > 0) {
+                  patternSignalsSection = `---\n**Student Grammar Pattern Map** (live signal — use record_pattern_signal to update):\n${lines.join('\n')}\n`;
+                  console.log(`[Pattern Signals] Injected ${compartments.length} compartments (stale cache fallback)`);
+                }
+              }
+            } catch (err: any) {
+              console.warn(`[Pattern Signals] Failed:`, err.message);
+            }
+          })()
+        );
+      }
+
       // Founder Mode / Honesty Mode context fetches (all parallel)
       // ONE DANIELA EVERYWHERE: Express Lane context ensures voice Daniela knows what was discussed in collaboration
       // Security: Gated to developer/admin users (isDeveloperUser) - regular students shouldn't see internal team ops
@@ -2604,6 +2663,9 @@ Remember: David may reference things discussed in these recent text chats.
       }
       if (growthMemoriesSection) {
         dynamicContextParts.push(growthMemoriesSection);
+      }
+      if (patternSignalsSection) {
+        dynamicContextParts.push(patternSignalsSection);
       }
       if (hasFreshCache && session.cachedContext?.temporalAwarenessSection) {
         dynamicContextParts.push(session.cachedContext.temporalAwarenessSection);

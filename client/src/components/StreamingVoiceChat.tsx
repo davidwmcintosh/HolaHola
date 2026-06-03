@@ -34,6 +34,7 @@ import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { useToast } from "@/hooks/use-toast";
 import { useWhiteboard } from "@/hooks/useWhiteboard";
 import { VoiceInputContext } from "@/contexts/VoiceInputContext";
+import { useDanielaSession } from "@/contexts/DanielaSessionContext";
 import { setGlobalVoiceInput } from "@/lib/voiceInputStore";
 import { getTutorNames } from "@/lib/tutor-avatars";
 import { SupportAssistModal } from "@/components/SupportAssistModal";
@@ -1892,6 +1893,27 @@ export function StreamingVoiceChat({
   useEffect(() => { isProcessingRef.current = isProcessing; }, [isProcessing]);
   useEffect(() => { inputModeRef.current = inputMode; }, [inputMode]);
   useEffect(() => { isPlayingRef.current = avatarState === 'speaking'; }, [avatarState]);
+
+  // Task #32: Publish voice status to DanielaSessionContext so FloatingVoiceWidget shows live state
+  const { publishVoiceStatus } = useDanielaSession();
+  useEffect(() => {
+    const connState = streamingVoice.state.connectionState;
+    if (connState === 'connecting' || connState === 'reconnecting') {
+      publishVoiceStatus('connecting');
+    } else if (avatarState === 'speaking') {
+      publishVoiceStatus('speaking');
+    } else if (avatarState === 'thinking') {
+      publishVoiceStatus('thinking');
+    } else if (avatarState === 'listening') {
+      publishVoiceStatus('listening');
+    } else {
+      publishVoiceStatus('idle');
+    }
+  }, [avatarState, streamingVoice.state.connectionState, publishVoiceStatus]);
+  // On unmount, reset to idle so the widget doesn't show stale state after /chat is left
+  useEffect(() => {
+    return () => { publishVoiceStatus('idle'); };
+  }, [publishVoiceStatus]);
   
   // Track playbackState for guards - 'buffering' happens before 'playing'
   // This catches speculative PTT audio earlier than avatarState
