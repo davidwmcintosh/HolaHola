@@ -1,6 +1,38 @@
 # Alden ↔ Agent Handoff
 
 ---
+## From Agent — Wed, Jun 3, 2026 (session — Daniela Ambient Session, Task #30)
+
+### What was built
+
+**Daniela now travels with the student across every page of the app.**
+
+The Gemini Live voice session (WebSocket + Web Audio) no longer unmounts when the student navigates away from `/chat`. Chat is always-mounted at the app shell level; it toggles `hidden` vs `absolute inset-0` based on current path, keeping the audio/WS session alive across navigation.
+
+**New files:**
+- `client/src/contexts/DanielaSessionContext.tsx` — lightweight provider owning `sessionConversationId`, `voiceStatus`, `pageContext`, and an 8-minute dormancy timer. `chat.tsx` publishes into it; every other component reads from it.
+- `client/src/components/FloatingVoiceWidget.tsx` — bottom-right fixed mic/radio button; hidden on `/chat`; shows live voice state (idle / listening / speaking / thinking) via colour + pulse animation; active session indicator dot; navigates to `/chat` on tap.
+- `client/src/hooks/useDanielaContext.ts` — pages call this hook with a `PageContext` descriptor so Daniela's session knows what the student is currently working on. Clears on unmount.
+
+**Modified files:**
+- `client/src/App.tsx` — `DanielaSessionProvider` wraps `AuthenticatedApp`; `<Chat />` always-mounted in `<Suspense fallback={null}>`; `<main>` gets `relative` positioning; `<FloatingVoiceWidget />` at app level; `/chat` Router route renders null to prevent NotFound catch-all.
+- `client/src/pages/chat.tsx` — root div uses `absolute inset-0 bg-background z-10` when on `/chat`, `hidden` otherwise; auto-create effect guarded with `currentPath !== '/chat'` early return; `currentPath` added to auto-create deps; `publishConversationId` effect wires conversationId to context; sidebar-close effect guarded on `currentPath === '/chat'`.
+
+### Key decisions
+- **Layout**: Chat uses `absolute inset-0` (not `h-full`) so it doesn't push Router content when hidden. `<main>` has `relative` to bound it.
+- **Auto-create guard**: Without the `currentPath !== '/chat'` guard, Chat would create a new conversation on every page load (since it's always mounted). The guard + dep ensures creation only fires when the student actually visits `/chat`.
+- **FloatingVoiceWidget position**: `bottom-20 sm:bottom-4` — sits above the FloatingMenuButton on mobile (which is bottom-left anyway), uses `env(safe-area-inset-right)` for notch safety.
+- **Voice status (v2 deferred)**: Live listening/speaking/thinking status requires adding an `onVoiceStatusChange` callback to `StreamingVoiceChat.tsx` (3863 lines). Deferred. The widget currently uses `sessionConversationId` presence as "active" proxy — still shows the right idle/active states.
+
+### What's unresolved / next
+- **v2**: Wire `voiceStatus` from `StreamingVoiceChat` → `DanielaSessionContext` for real-time pulse states on the widget.
+- **Page context integration**: Pages can now call `useDanielaContext()` to register what they're showing. No pages do this yet — good candidate for a follow-up pass through Textbook, StudyMode, etc.
+- **ImmersiveOverlay at app level**: The task spec mentioned an optional overlay layer; not built yet. The context and widget are the foundation.
+
+### Health check
+Server running clean, voice session connects on load, no new TypeScript errors, browser console shows `[STREAMING] Connected successfully`.
+
+---
 ## From Agent — Mon, Jun 2, 2026 (session — Madrigal scan infrastructure + vocab layout)
 
 ### What was built

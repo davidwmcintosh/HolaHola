@@ -25,15 +25,17 @@ import type { WhiteboardItem, ScenarioItemData, SceneCanvasItemData, OverlayPane
 import { isScenarioItem, isSceneCanvasItem, isOverlayPanelItem } from "@shared/whiteboard-types";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useUser } from "@/lib/auth";
+import { useDanielaSession } from "@/contexts/DanielaSessionContext";
 
 export default function Chat() {
   const search = useSearch();
-  const [, setLocation] = useLocation();
+  const [currentPath, setLocation] = useLocation();
   const [mode, setMode] = useState<"text" | "voice">("voice");
   const { language, difficulty, userName, tutorGender } = useLanguage();
   const { learningContext, getSelectedClassName } = useLearningFilter();
   const { isDeveloper, isAdmin } = useUser();
   const { setOpen, setOpenMobile } = useSidebar();
+  const { publishConversationId } = useDanielaSession();
   const [conversationId, setConversationId] = useState<string | null>(() => {
     // Don't restore if user explicitly wants a new conversation
     const forceNew = localStorage.getItem('forceNewConversation') === 'true';
@@ -222,23 +224,30 @@ export default function Chat() {
       sessionStorage.setItem('currentChatConversationId', conversationId);
     }
   }, [conversationId]);
+
+  // Publish conversationId to the ambient session context so FloatingVoiceWidget
+  // and other app-level components can observe session status from any page.
+  useEffect(() => {
+    publishConversationId(conversationId);
+  }, [conversationId, publishConversationId]);
   
   // NOTE: We intentionally do NOT clear currentChatConversationId on unmount.
   // HMR remounts would wipe it, defeating the purpose of persistence.
   // The stored ID is cleared only by: handleNewChat(), forceNewConversation flag,
   // or overwritten when a new conversation is created.
   
-  // Auto-close sidebar when entering voice chat area
-  // This runs ONLY ONCE on initial mount - works for Call Tutor, New Chat, and Start Practicing
-  // Empty dependency array ensures user can reopen sidebar after initial close
+  // Auto-close sidebar when entering voice chat area.
+  // This fires ONCE on the first time the student navigates to /chat.
+  // Because Chat is always mounted at the app level, we guard by currentPath
+  // so the sidebar isn't closed while the student is on other pages.
   const hasClosedSidebarRef = useRef(false);
   useEffect(() => {
-    if (!hasClosedSidebarRef.current) {
+    if (!hasClosedSidebarRef.current && currentPath === '/chat') {
       hasClosedSidebarRef.current = true;
       setOpen(false);      // Close desktop sidebar
       setOpenMobile(false); // Close mobile sidebar
     }
-  }, [setOpen, setOpenMobile]);
+  }, [setOpen, setOpenMobile, currentPath]);
 
   // Check for active voice session on mount - allows resuming after reconnect/server restart
   // This runs BEFORE auto-create conversation logic to reuse existing sessions
@@ -460,6 +469,10 @@ export default function Chat() {
   
   // Auto-create shared conversation
   useEffect(() => {
+    // Chat is always mounted at the app level. Only create a conversation
+    // when the student is actually on /chat — not while they're elsewhere.
+    if (currentPath !== '/chat') return;
+
     // Wait for active session check to complete first
     if (isCheckingActiveSession) {
       console.log('[SHARED CHAT] Auto-create check - waiting for active session check');
@@ -551,8 +564,9 @@ export default function Chat() {
     }
     // NOTE: forceNewConversation is intentionally NOT in dependencies
     // We only read its current value when creating, we don't need to re-run when it changes
+    // currentPath IS in dependencies so the effect re-runs when user navigates to /chat
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language, difficulty, userName, conversationId, isCreatingConversation, currentConversationOnboarding, mode, isCheckingActiveSession]);
+  }, [language, difficulty, userName, conversationId, isCreatingConversation, currentConversationOnboarding, mode, isCheckingActiveSession, currentPath]);
 
   const handleNewChat = () => {
     console.log('[SHARED CHAT] User requested new chat - forcing new conversation');
@@ -608,7 +622,10 @@ export default function Chat() {
   }, []);
 
   return (
-    <div className="h-full flex flex-col relative">
+    <div className={currentPath === '/chat'
+      ? "absolute inset-0 flex flex-col bg-background z-10"
+      : "hidden"
+    }>
       {/* Smooth loading overlay for page reload */}
       {isReloading && (
         <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center animate-in fade-in duration-200">
