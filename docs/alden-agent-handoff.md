@@ -1,6 +1,45 @@
 # Alden ↔ Agent Handoff
 
 ---
+## From Agent — Wed, Jun 3, 2026 (session — Overlay Panel Toolkit, Task #29)
+
+### What was built
+
+**Daniela can now push interactive panels into the ImmersiveOverlay during voice sessions.**
+
+Four new function-call tools give Daniela live UI control:
+- `show_vocab_grid` — pushes a vocabulary image grid (4–6 words, AI-generated PROP-STYLE images)
+- `swap_vocab_image` — replaces one image in the active grid with a regenerated one
+- `show_sentence_builder` — pushes an interactive sentence-column drill panel (students tap to assemble sentences, audio plays automatically)
+- `show_textbook_section` — opens a textbook chapter's vocabulary list as a visual reference panel
+
+All tools include a "Show and Speak" protocol in their descriptions: text plays as audio before the panel appears, then Daniela walks through the content in her next turn.
+
+**Files that were already implemented before this session:**
+- `shared/whiteboard-types.ts` — `OverlayPanel` discriminated union type + `OverlayPanelItem` + `isOverlayPanelItem` guard
+- `client/src/components/OverlayPanelContent.tsx` — all 3 panel renderers (VocabGridPanel, SentenceBuilderPanel, TextbookSectionPanel) + the slide-in container
+- `client/src/components/ImmersiveOverlay.tsx` — panel zone wired (lines 714–723), `activePanel` + `onDismissPanel` props accepted
+- `client/src/pages/chat.tsx` — `activePanel` derived from whiteboardItems, dismiss handler removes overlay_panel items
+- `server/services/daniela-function-registry.ts` — all 4 tools registered
+- `server/services/native-fc-handlers.ts` — all 4 handlers (SHOW_VOCAB_GRID, SWAP_VOCAB_IMAGE, SHOW_SENTENCE_BUILDER, SHOW_TEXTBOOK_SECTION)
+
+**Fix made this session:**
+- `client/src/components/OverlayPanelContent.tsx` — fixed 5 TypeScript errors where `cl.cards` was used instead of the correct `cl.qaCards` for preterite cluster iteration (tomar, comprar, near-future, tener, quiero chapters)
+
+### Key decisions
+- Panel zone anchors to the right edge of ImmersiveOverlay, slides in from the right, dismissible with the X button
+- `show_vocab_grid` fires image resolution in the background (appended to `pendingMemoryLookupPromises`); panel updates after images resolve
+- `swap_vocab_image` uses `PROP_STYLE` from google-image-service and regenerates on-the-fly via `generateFromCustomPrompt`
+- `SentenceColumnGenerator.tsx` has no stub mic — it uses the existing Volume2 replay button only
+
+### What's unresolved / next
+- **Task #31**: Textbook section panel only covers 8 Madrigal chapter keys — advanced unit chapters not wired yet
+- **Task #32**: FloatingVoiceWidget pulse states are still presence-only (not real-time voice state from StreamingVoiceChat)
+
+### Health check
+Server running clean. TypeScript errors in OverlayPanelContent.tsx resolved. App builds without errors related to Task #29.
+
+---
 ## From Agent — Wed, Jun 3, 2026 (session — Daniela Ambient Session, Task #30)
 
 ### What was built

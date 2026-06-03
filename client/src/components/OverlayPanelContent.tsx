@@ -159,19 +159,19 @@ function getTextbookVocab(chapterKey: string): VocabEntry[] {
     if (c) c.positiveItems.forEach((i) => entries.push({ word: i.word, description: i.translation }));
   } else if (chapterKey === "tomar-i-took") {
     const c = getPreteriteContent("tomar");
-    if (c) c.clusters.forEach((cl) => cl.cards.forEach((card) => entries.push({ word: card.imageWord, description: card.answerTranslation })));
+    if (c) c.clusters.forEach((cl) => (cl.qaCards || []).forEach((card) => entries.push({ word: card.imageWord, description: card.answerTranslation })));
   } else if (chapterKey === "comprar-i-bought") {
     const c = getPreteriteContent("comprar");
-    if (c) c.clusters.forEach((cl) => cl.cards.forEach((card) => entries.push({ word: card.imageWord, description: card.answerTranslation })));
+    if (c) c.clusters.forEach((cl) => (cl.qaCards || []).forEach((card) => entries.push({ word: card.imageWord, description: card.answerTranslation })));
   } else if (chapterKey === "near-future-voy-a") {
     const c = getPreteriteContent("near future");
-    if (c) c.clusters.forEach((cl) => cl.cards.forEach((card) => entries.push({ word: card.imageWord, description: card.answerTranslation })));
+    if (c) c.clusters.forEach((cl) => (cl.qaCards || []).forEach((card) => entries.push({ word: card.imageWord, description: card.answerTranslation })));
   } else if (chapterKey === "tener-i-have") {
     const c = getPreteriteContent("tener");
-    if (c) c.clusters.forEach((cl) => cl.cards.forEach((card) => entries.push({ word: card.imageWord, description: card.answerTranslation })));
+    if (c) c.clusters.forEach((cl) => (cl.qaCards || []).forEach((card) => entries.push({ word: card.imageWord, description: card.answerTranslation })));
   } else if (chapterKey === "quiero-i-want") {
     const c = getPreteriteContent("quiero");
-    if (c) c.clusters.forEach((cl) => cl.cards.forEach((card) => entries.push({ word: card.imageWord, description: card.answerTranslation })));
+    if (c) c.clusters.forEach((cl) => (cl.qaCards || []).forEach((card) => entries.push({ word: card.imageWord, description: card.answerTranslation })));
   } else if (chapterKey === "ser-plurals-gender") {
     const c = getSerContent("ser");
     if (c) {
