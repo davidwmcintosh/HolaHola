@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { Volume2, Mic, MicOff, Loader2 } from "lucide-react";
+import { Volume2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiRequest } from "@/lib/queryClient";
@@ -32,7 +32,6 @@ export function SentenceColumnGenerator({
     columns.map(() => -1)
   );
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // For the assembled preview, fall back to index 0 when nothing is explicitly chosen
@@ -216,18 +215,6 @@ export function SentenceColumnGenerator({
             {isPlaying
               ? <Loader2 className="h-4 w-4 animate-spin text-primary" />
               : <Volume2 className="h-4 w-4" />
-            }
-          </Button>
-          <Button
-            size="icon"
-            variant={isRecording ? "secondary" : "ghost"}
-            onClick={() => setIsRecording(r => !r)}
-            data-testid="button-mic-assembled"
-            title="Say this sentence"
-          >
-            {isRecording
-              ? <MicOff className="h-4 w-4 text-destructive" />
-              : <Mic className="h-4 w-4" />
             }
           </Button>
         </div>

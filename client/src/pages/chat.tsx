@@ -21,8 +21,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { DevToolsFloatingMenu } from "@/components/DevToolsFloatingMenu";
 import { ImmersiveOverlay } from "@/components/ImmersiveOverlay";
 import { getTutorAvatar } from "@/lib/tutor-avatars";
-import type { WhiteboardItem, ScenarioItemData, SceneCanvasItemData } from "@shared/whiteboard-types";
-import { isScenarioItem, isSceneCanvasItem } from "@shared/whiteboard-types";
+import type { WhiteboardItem, ScenarioItemData, SceneCanvasItemData, OverlayPanel } from "@shared/whiteboard-types";
+import { isScenarioItem, isSceneCanvasItem, isOverlayPanelItem } from "@shared/whiteboard-types";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useUser } from "@/lib/auth";
 
@@ -75,6 +75,7 @@ export default function Chat() {
   
   const whiteboardScenario = whiteboardItems.find(isScenarioItem)?.data as ScenarioItemData | undefined ?? null;
   const activeSceneCanvas = whiteboardItems.find(isSceneCanvasItem)?.data as SceneCanvasItemData | undefined ?? null;
+  const activePanel: OverlayPanel | null = whiteboardItems.find(isOverlayPanelItem)?.data.panel ?? null;
 
   useEffect(() => {
     if (!activeSceneCanvas) return;
@@ -86,7 +87,9 @@ export default function Chat() {
     }
   }, [activeSceneCanvas]);
 
-  const displayWhiteboardItems = whiteboardItems.filter(item => !isSceneCanvasItem(item));
+  const displayWhiteboardItems = whiteboardItems.filter(
+    item => !isSceneCanvasItem(item) && !isOverlayPanelItem(item)
+  );
   const activeScenario: ScenarioItemData | null = loadedScenarioData
     ? {
         location: loadedScenarioData.location || loadedScenarioData.title,
@@ -1138,6 +1141,10 @@ export default function Chat() {
         contextImages={studioImages.filter(img => img.slot === 'context' && img.imageUrl)}
         tutorImageUrl={getTutorAvatar(language, tutorGender, 'idle')}
         onExit={() => setIsImmersiveMode(false)}
+        activePanel={activePanel}
+        onDismissPanel={() =>
+          setWhiteboardItems(prev => prev.filter(item => !isOverlayPanelItem(item)))
+        }
       />
     </div>
   );

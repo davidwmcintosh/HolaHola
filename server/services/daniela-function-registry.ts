@@ -4168,6 +4168,236 @@ Call it briefly and honestly — one clear observation at a time.`,
     buildContinuationResponse: () =>
       `Student model updated — noted how David is experiencing the relationship. This helps me stay consistent with who he understands me to be.`,
   },
+
+  // ─── Overlay Panel Toolkit ─────────────────────────────────────────────────
+
+  {
+    legacyType: 'SHOW_VOCAB_GRID',
+    declaration: {
+      name: "show_vocab_grid",
+      description: `Show an interactive vocabulary image grid in an immersive overlay panel — 4 to 6 words with AI-generated PROP-STYLE images side by side.
+
+USE THIS WHEN:
+• Introducing a thematic vocabulary set (foods, places, animals, emotions, household items)
+• The student asks "what are the words for ___?" and a visual set would stick better than a list
+• You're pre-loading vocab before a scene or conversation ("Before we go to the café, here are the key words")
+
+SHOW AND SPEAK PROTOCOL (mandatory):
+1. Say something natural FIRST — the line goes in the "text" field and plays as audio BEFORE the grid appears
+2. Call this function — the grid appears while you're speaking
+3. Your next spoken message after calling this should walk through the words: "Look at the first one — ___. Say it back to me."
+
+IMAGES: Each word gets its own AI-generated image in a consistent prop illustration style. You provide an imageQuery that describes what to generate (be specific — "a red apple on a wooden table" is better than "apple").
+
+Pass 4–6 words. More than 6 feels overwhelming; fewer than 4 isn't worth the panel.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: {
+            type: "string",
+            description: "What you say as the grid appears — sets context, e.g. 'Let me show you the key words for today — each one has its own picture.' This plays as audio BEFORE the images load.",
+          },
+          title: {
+            type: "string",
+            description: "Panel header text, e.g. 'At the Market' or 'Foods I Love' (short, 1–5 words)",
+          },
+          words: {
+            type: "array",
+            description: "4–6 vocabulary words to display",
+            items: {
+              type: "object",
+              properties: {
+                text: { type: "string", description: "Target-language word (e.g. 'el mercado')" },
+                translation: { type: "string", description: "Native-language translation (e.g. 'the market')" },
+                imageQuery: { type: "string", description: "Specific image description for generation (e.g. 'a busy outdoor market with colorful stalls in Mexico')" },
+              },
+              required: ["text", "translation", "imageQuery"],
+            },
+            minItems: 2,
+            maxItems: 8,
+          },
+        },
+        required: ["text", "words"],
+      },
+    },
+    buildContinuationResponse: ({ session, fc }) => {
+      const result = (session as any).showVocabGridResult as { success: boolean; wordCount: number; title?: string } | undefined;
+      if (!result?.success) {
+        return `Vocab grid could not be displayed — image generation may have failed. Continue verbally: name each word and have the student repeat.`;
+      }
+      const words = (fc.args.words as any[]) || [];
+      const wordList = words.map((w: any) => `${w.text} (${w.translation})`).join(', ');
+      return `Vocabulary grid displayed with ${result.wordCount} words: ${wordList}. Point to the first image and ask the student to say the word. Then cycle through the rest.`;
+    },
+  },
+
+  {
+    legacyType: 'SWAP_VOCAB_IMAGE',
+    declaration: {
+      name: "swap_vocab_image",
+      description: `Replace one image in the active vocabulary grid with a newly generated one.
+
+USE THIS WHEN:
+• You just called show_vocab_grid and one image didn't quite capture the word correctly
+• The student says "that doesn't look right" or seems confused by an image
+• You want to try a different visual angle to make the word click
+
+The panel must already be showing (call show_vocab_grid first).
+Provide the target-language word exactly as it appeared in the grid, and a new imageQuery that's more specific or takes a different visual approach.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: {
+            type: "string",
+            description: "What you say as the image swaps in — e.g. 'Let me try a better picture for that one.'",
+          },
+          word: {
+            type: "string",
+            description: "The target-language word whose image to replace (must match exactly what's in the grid)",
+          },
+          new_query: {
+            type: "string",
+            description: "New image description — be more specific than the original, e.g. 'a glass of fresh orange juice with ice, close-up on a café table'",
+          },
+        },
+        required: ["word", "new_query"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      const word = fc.args.word as string;
+      return `Image swapped for "${word}". Ask the student if the new picture is clearer.`;
+    },
+  },
+
+  {
+    legacyType: 'SHOW_SENTENCE_BUILDER',
+    declaration: {
+      name: "show_sentence_builder",
+      description: `Show an interactive sentence-builder panel — columns of interchangeable parts the student taps to assemble sentences, with audio playback of each combination.
+
+USE THIS WHEN:
+• Drilling a sentence pattern where swapping one part creates a new valid sentence ("Voy al banco / teatro / mercado")
+• The student needs to see HOW a grammar pattern works across multiple examples
+• You want to demonstrate word order, verb conjugation in context, or pronoun substitution
+
+SHOW AND SPEAK PROTOCOL (mandatory):
+1. Say something natural FIRST — the line goes in the "text" field and plays before the panel appears
+2. Call this function — the panel slides in
+3. Point to the first column in your next message: "Start with the subject — tap 'yo' or 'tú'."
+
+COLUMN DESIGN:
+• 2–4 columns maximum — more feels overwhelming
+• Each column should have 3–6 items maximum  
+• Every item needs both the target-language text AND a native-language translation
+• Label each column briefly ("Subject", "Verb", "Place")
+
+Example for "¿Tomó un taxi?" pattern:
+- Column 1 (Subject): yo / tú / él / ella
+- Column 2 (Verb): tomé / tomaste / tomó
+- Column 3 (Object): un taxi / el autobús / el tren`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: {
+            type: "string",
+            description: "What you say as the panel appears — sets context for the pattern you're drilling.",
+          },
+          title: {
+            type: "string",
+            description: "Short panel header, e.g. 'The ir Pattern' or 'Past Tense: tomar' (1–5 words)",
+          },
+          pattern_label: {
+            type: "string",
+            description: "The sentence template shown above the columns, e.g. 'Voy a ___ .' or '¿Tomó ___?' (optional but recommended)",
+          },
+          columns: {
+            type: "array",
+            description: "2–4 columns; each column swaps independently to produce new valid sentences",
+            items: {
+              type: "object",
+              properties: {
+                label: { type: "string", description: "Column header label, e.g. 'Subject', 'Verb', 'Place'" },
+                items: {
+                  type: "array",
+                  description: "3–6 interchangeable items for this column",
+                  items: {
+                    type: "object",
+                    properties: {
+                      text: { type: "string", description: "Target-language form (e.g. 'Voy al')" },
+                      translation: { type: "string", description: "Native-language translation (e.g. 'I go to the')" },
+                    },
+                    required: ["text", "translation"],
+                  },
+                  minItems: 2,
+                  maxItems: 8,
+                },
+              },
+              required: ["items"],
+            },
+            minItems: 2,
+            maxItems: 4,
+          },
+        },
+        required: ["text", "columns"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      const cols = (fc.args.columns as any[]) || [];
+      const totalCombinations = cols.reduce((acc: number, col: any) => acc * (col.items?.length || 1), 1);
+      return `Sentence builder displayed — ${cols.length} columns, ${totalCombinations} possible combinations. Point to the first column and ask the student to tap their first choice.`;
+    },
+  },
+
+  {
+    legacyType: 'SHOW_TEXTBOOK_SECTION',
+    declaration: {
+      name: "show_textbook_section",
+      description: `Open a textbook section directly inside the immersive overlay — shows the vocabulary set for that chapter as a visual reference panel.
+
+USE THIS WHEN:
+• A student asks "can we review the ir chapter?" and you want to show the vocab visually
+• You're about to drill a chapter and want the word list visible while you talk
+• The student needs to see the full vocabulary set for context
+
+SUPPORTED CHAPTER KEYS:
+• "ir-going-places" — Ir: going places vocabulary (el banco, la tienda, el mercado…)
+• "tomar-i-took" — Preterite: tomar (tomé un taxi, tomé el autobús…)
+• "comprar-i-bought" — Preterite: comprar (compré flores, compré leche…)
+• "near-future-voy-a" — Near future: voy a + infinitive
+• "tener-i-have" — Tener: having/possessing
+• "quiero-i-want" — Querer: wanting things
+• "ser-plurals-gender" — Ser: gender and plurals
+• "hay" — Hay: there is / there are
+
+SHOW AND SPEAK PROTOCOL (mandatory):
+1. Say something natural FIRST in the "text" field — "Let me pull up that chapter so we can see the full list."
+2. Call this function — the section loads
+3. Walk through a few words in your next message to anchor the student's attention`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: {
+            type: "string",
+            description: "What you say as the textbook section opens, e.g. 'Let me pull up that chapter — here's everything we covered.'",
+          },
+          chapter_key: {
+            type: "string",
+            enum: ["ir-going-places", "tomar-i-took", "comprar-i-bought", "near-future-voy-a", "tener-i-have", "quiero-i-want", "ser-plurals-gender", "hay"],
+            description: "The textbook chapter to display (see supported keys above)",
+          },
+          title: {
+            type: "string",
+            description: "Optional panel header override. Defaults to the chapter name if omitted.",
+          },
+        },
+        required: ["text", "chapter_key"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      const key = fc.args.chapter_key as string;
+      return `Textbook section "${key}" is open in the panel. Ask the student to look at the first word and say it aloud.`;
+    },
+  },
 ];
 
 

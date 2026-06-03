@@ -73,7 +73,7 @@ export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 /**
  * Whiteboard item display types (lowercase for UI styling)
  */
-export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'call_assistant' | 'actfl_update' | 'syllabus_progress' | 'phase_shift' | 'hive' | 'self_surgery' | 'pronunciation_coaching' | 'assistant_handoff' | 'dialogue' | 'scene_canvas' | 'sentence_table' | 'textbook_search';
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'call_assistant' | 'actfl_update' | 'syllabus_progress' | 'phase_shift' | 'hive' | 'self_surgery' | 'pronunciation_coaching' | 'assistant_handoff' | 'dialogue' | 'scene_canvas' | 'sentence_table' | 'textbook_search' | 'overlay_panel';
 
 /**
  * Drill types for inline micro-exercises
@@ -1042,6 +1042,57 @@ export interface TextbookSearchItem extends WhiteboardItemBase {
   data: TextbookSearchItemData;
 }
 
+// ─── Overlay Panel ─────────────────────────────────────────────────────────────
+
+/**
+ * A single vocabulary word card in the vocab-grid panel.
+ */
+export interface OverlayPanelVocabWord {
+  text: string;          // target-language word (e.g. "el mercado")
+  translation: string;   // native-language translation (e.g. "the market")
+  imageQuery: string;    // image search/generation query used to fetch the image
+  imageUrl?: string;     // resolved image URL (may be absent while loading)
+  isLoading?: boolean;
+}
+
+/**
+ * A single item in a sentence-builder column.
+ * Matches ColumnItem from SentenceColumnGenerator.tsx.
+ */
+export interface OverlayPanelColumnItem {
+  text: string;
+  translation: string;
+}
+
+/**
+ * A single column in the sentence-builder panel.
+ * Matches SentenceColumn from SentenceColumnGenerator.tsx.
+ */
+export interface OverlayPanelColumn {
+  label?: string;
+  items: OverlayPanelColumnItem[];
+}
+
+/**
+ * Discriminated union of overlay panel content types.
+ */
+export type OverlayPanel =
+  | { type: 'vocab-grid'; words: OverlayPanelVocabWord[]; title?: string }
+  | { type: 'sentence-builder'; columns: OverlayPanelColumn[]; patternLabel?: string; title?: string }
+  | { type: 'textbook-section'; chapterKey: string; title?: string };
+
+export interface OverlayPanelItemData {
+  panel: OverlayPanel;
+}
+
+export interface OverlayPanelItem extends WhiteboardItemBase {
+  type: 'overlay_panel';
+  content: string;
+  data: OverlayPanelItemData;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+
 export type WhiteboardItem = 
   | WriteItem 
   | PhoneticItem 
@@ -1072,7 +1123,8 @@ export type WhiteboardItem =
   | DialogueItem
   | SceneCanvasItem
   | SentenceTableItem
-  | TextbookSearchItem;
+  | TextbookSearchItem
+  | OverlayPanelItem;
 
 /**
  * Legacy interface for backward compatibility
@@ -2923,6 +2975,10 @@ export function isDictationDrill(item: DrillItem): boolean {
 
 export function isSpeakDrill(item: DrillItem): boolean {
   return !!item.data && item.data.drillType === 'speak' && !!item.data.textToSpeak;
+}
+
+export function isOverlayPanelItem(item: WhiteboardItem): item is OverlayPanelItem {
+  return item.type === 'overlay_panel';
 }
 
 export function isCognateMatchDrill(item: DrillItem): boolean {

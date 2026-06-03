@@ -5291,6 +5291,201 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      // ─── Overlay Panel Toolkit ──────────────────────────────────────────────
+
+      case 'SHOW_VOCAB_GRID': {
+        const text = fn.args.text as string | undefined;
+        const title = fn.args.title as string | undefined;
+        const rawWords = fn.args.words as Array<{ text: string; translation: string; imageQuery: string }> | undefined;
+
+        if (!Array.isArray(rawWords) || rawWords.length === 0) {
+          console.warn(`[Native Function→ShowVocabGrid] Missing words array`);
+          break;
+        }
+        if (text && !session.functionCallText) session.functionCallText = text;
+
+        const vocabGridPromise = (async () => {
+          try {
+            const { resolveVocabularyImage } = await import('./vocabulary-image-resolver');
+            const resolvedWords = await Promise.all(
+              rawWords.map(async (w) => {
+                try {
+                  const result = await resolveVocabularyImage({
+                    word: w.text,
+                    language: session.language || 'spanish',
+                    description: w.imageQuery || w.text,
+                    conversationId: session.conversationId?.toString(),
+                    userId: session.userId?.toString(),
+                  });
+                  return { text: w.text, translation: w.translation, imageQuery: w.imageQuery, imageUrl: result.imageUrl };
+                } catch (wordErr: any) {
+                  console.warn(`[ShowVocabGrid] Image failed for "${w.text}":`, wordErr.message);
+                  return { text: w.text, translation: w.translation, imageQuery: w.imageQuery };
+                }
+              })
+            );
+
+            (session as any).activeVocabGrid = resolvedWords;
+            (session as any).activeVocabGridTitle = title;
+
+            const whiteboardUpdate = {
+              type: 'whiteboard_update' as const,
+              timestamp: Date.now(),
+              items: [{
+                id: 'overlay-panel-active',
+                type: 'overlay_panel' as const,
+                content: title || 'Vocabulary Grid',
+                data: { panel: { type: 'vocab-grid' as const, words: resolvedWords, title } },
+              }],
+            };
+
+            if (session.firstAudioSent) {
+              this.sendMessage(session.ws, whiteboardUpdate);
+            } else {
+              if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
+              session.pendingWhiteboardUpdates.push(whiteboardUpdate);
+            }
+
+            (session as any).showVocabGridResult = { success: true, wordCount: resolvedWords.length, title };
+            console.log(`[Native Function→ShowVocabGrid] Displayed ${resolvedWords.length} words`);
+          } catch (err: any) {
+            console.error(`[Native Function→ShowVocabGrid] Error:`, err.message);
+            (session as any).showVocabGridResult = { success: false, wordCount: 0 };
+          }
+        })();
+
+        if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+        session.pendingMemoryLookupPromises.push(vocabGridPromise as Promise<void>);
+        break;
+      }
+
+      case 'SWAP_VOCAB_IMAGE': {
+        const text = fn.args.text as string | undefined;
+        const word = fn.args.word as string | undefined;
+        const newQuery = fn.args.new_query as string | undefined;
+
+        if (!word || !newQuery) {
+          console.warn('[Native Function→SwapVocabImage] Missing word or new_query');
+          break;
+        }
+        if (text && !session.functionCallText) session.functionCallText = text;
+
+        const activeGrid = (session as any).activeVocabGrid as Array<{ text: string; translation: string; imageQuery: string; imageUrl?: string }> | undefined;
+        if (!activeGrid || activeGrid.length === 0) {
+          console.warn('[Native Function→SwapVocabImage] No active vocab grid to swap in');
+          break;
+        }
+
+        (async () => {
+          try {
+            const { generateFromCustomPrompt, PROP_STYLE } = await import('./google-image-service');
+            const newImageUrl = await generateFromCustomPrompt(`${PROP_STYLE}. ${newQuery}`);
+            const updatedGrid = activeGrid.map(w =>
+              w.text === word ? { ...w, imageUrl: newImageUrl, imageQuery: newQuery } : w
+            );
+            (session as any).activeVocabGrid = updatedGrid;
+
+            const whiteboardUpdate = {
+              type: 'whiteboard_update' as const,
+              timestamp: Date.now(),
+              items: [{
+                id: 'overlay-panel-active',
+                type: 'overlay_panel' as const,
+                content: (session as any).activeVocabGridTitle || 'Vocabulary Grid',
+                data: { panel: { type: 'vocab-grid' as const, words: updatedGrid, title: (session as any).activeVocabGridTitle } },
+              }],
+            };
+
+            this.sendMessage(session.ws, whiteboardUpdate);
+            console.log(`[Native Function→SwapVocabImage] Swapped image for "${word}"`);
+          } catch (err: any) {
+            console.error(`[Native Function→SwapVocabImage] Error:`, err.message);
+          }
+        })().catch(err => console.error('[SwapVocabImage] Unhandled:', err.message));
+        break;
+      }
+
+      case 'SHOW_SENTENCE_BUILDER': {
+        const text = fn.args.text as string | undefined;
+        const title = fn.args.title as string | undefined;
+        const patternLabel = fn.args.pattern_label as string | undefined;
+        const rawColumns = fn.args.columns as Array<{ label?: string; items: Array<{ text: string; translation: string }> }> | undefined;
+
+        if (!Array.isArray(rawColumns) || rawColumns.length === 0) {
+          console.warn('[Native Function→ShowSentenceBuilder] Missing columns');
+          break;
+        }
+        if (text && !session.functionCallText) session.functionCallText = text;
+
+        const whiteboardUpdate = {
+          type: 'whiteboard_update' as const,
+          timestamp: Date.now(),
+          items: [{
+            id: 'overlay-panel-active',
+            type: 'overlay_panel' as const,
+            content: title || 'Sentence Builder',
+            data: {
+              panel: {
+                type: 'sentence-builder' as const,
+                columns: rawColumns.map(col => ({
+                  label: col.label,
+                  items: (col.items || []).map(item => ({ text: item.text, translation: item.translation })),
+                })),
+                patternLabel,
+                title,
+              },
+            },
+          }],
+        };
+
+        if (session.firstAudioSent) {
+          this.sendMessage(session.ws, whiteboardUpdate);
+        } else {
+          if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
+          session.pendingWhiteboardUpdates.push(whiteboardUpdate);
+        }
+        console.log(`[Native Function→ShowSentenceBuilder] Displayed ${rawColumns.length} columns`);
+        break;
+      }
+
+      case 'SHOW_TEXTBOOK_SECTION': {
+        const text = fn.args.text as string | undefined;
+        const chapterKey = fn.args.chapter_key as string | undefined;
+        const title = fn.args.title as string | undefined;
+
+        if (!chapterKey) {
+          console.warn('[Native Function→ShowTextbookSection] Missing chapter_key');
+          break;
+        }
+        if (text && !session.functionCallText) session.functionCallText = text;
+
+        const whiteboardUpdate = {
+          type: 'whiteboard_update' as const,
+          timestamp: Date.now(),
+          items: [{
+            id: 'overlay-panel-active',
+            type: 'overlay_panel' as const,
+            content: title || chapterKey,
+            data: {
+              panel: {
+                type: 'textbook-section' as const,
+                chapterKey,
+                title: title || chapterKey.replace(/-/g, ' '),
+              },
+            },
+          }],
+        };
+
+        if (session.firstAudioSent) {
+          this.sendMessage(session.ws, whiteboardUpdate);
+        } else {
+          if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
+          session.pendingWhiteboardUpdates.push(whiteboardUpdate);
+        }
+        console.log(`[Native Function→ShowTextbookSection] Displaying section: ${chapterKey}`);
+        break;
+      }
+
       // ──────────────────────────────────────────────────────────────────────────
 
       default:

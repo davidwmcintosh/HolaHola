@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { usePlaybackState } from "@/lib/playbackStateStore";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useGlobalVoiceInput } from "@/lib/voiceInputStore";
-import type { SceneCanvasItemData, SceneCanvasRichContent, WhiteboardItem } from "@shared/whiteboard-types";
+import type { SceneCanvasItemData, SceneCanvasRichContent, WhiteboardItem, OverlayPanel } from "@shared/whiteboard-types";
+import { OverlayPanelContent } from "@/components/OverlayPanelContent";
 
 interface ContextImageChip {
   word: string;
@@ -21,6 +22,8 @@ interface ImmersiveOverlayProps {
   contextImages?: ContextImageChip[];
   tutorImageUrl?: string;
   onExit: () => void;
+  activePanel?: OverlayPanel | null;
+  onDismissPanel?: () => void;
 }
 
 // ─── Inline menu renderers (immersive-themed) ────────────────────────────────
@@ -289,7 +292,7 @@ function ImmersiveWhiteboardStrip({ items }: { items: WhiteboardItem[] }) {
 
 // ─── Main overlay ─────────────────────────────────────────────────────────────
 
-export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems, contextImages, tutorImageUrl, onExit }: ImmersiveOverlayProps) {
+export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems, contextImages, tutorImageUrl, onExit, activePanel, onDismissPanel }: ImmersiveOverlayProps) {
   const playbackState = usePlaybackState();
   const { difficulty } = useLanguage();
   const isSpeaking = playbackState === 'playing' || playbackState === 'buffering';
@@ -707,6 +710,17 @@ export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems
               <X className="w-5 h-5" />
             </Button>
           </div>
+
+          {/* Overlay panel — slides in from right */}
+          <AnimatePresence>
+            {activePanel && onDismissPanel && (
+              <OverlayPanelContent
+                key={activePanel.type}
+                panel={activePanel}
+                onDismiss={onDismissPanel}
+              />
+            )}
+          </AnimatePresence>
 
           {/* Rich content sheet (menu / bill) */}
           <AnimatePresence>
