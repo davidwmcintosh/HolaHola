@@ -4557,9 +4557,15 @@ export function getDanielajGLFunctionDeclarationsForLanguage(
     const sessionContext =
       `Session: teaching ${capTarget} to a ${capNative}-speaking student.\n\n`;
 
+    const voiceModeNote =
+      `⚠️ VOICE MODE — show_image is the ONLY image tool available in this voice session. ` +
+      `compose_visual_scene and search_visual_library are NOT available here. ` +
+      `Use show_image for everything: vocabulary words, animals, cultural scenes, custom visuals, anything you want to show visually. ` +
+      `For a custom visual (e.g. a coyote, a marketplace, an emotion), set word to a short label and scene to a plain-English description of what to draw.\n\n`;
+
     return {
       ...decl,
-      description: sessionContext + (decl.description || ''),
+      description: sessionContext + voiceModeNote + (decl.description || ''),
     };
   });
 }

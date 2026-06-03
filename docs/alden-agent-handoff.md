@@ -1,6 +1,30 @@
 # Alden ↔ Agent Handoff
 
 ---
+## From Agent — Wed, Jun 3, 2026 (session — Investigation: neural net, auto-chat, whiteboard)
+
+### What was investigated + fixed
+
+**Three mid-session questions from David — findings and one fix:**
+
+**1. Are immersive media tools in the neural net and toolkit?**
+Yes, all of them. The earlier DB query I ran was comparing `UPPER(tool_name)` against `memory_id`, but the indexer stores embeddings under each tool's `legacyType` (e.g. `compose_visual_scene` → `COMPOSE_VISUAL`, `hold_whiteboard` → `HOLD`). Once you compare by the right key the tools are all present. No indexer work needed.
+
+**2. Why does chat auto-fire when the Language Hub loads?**
+It doesn't — not technically. The always-mounted `<Chat />` (from the Task #30 ambient session) fires a single background check for an existing active session on mount, but the actual GL voice connection only starts when the user navigates to `/chat`. What David was seeing was the chat activating at `/chat`, which is correct. For non-founder/non-honesty mode users the behavior is identical — Daniela greets and teaches normally. Founder mode just adds internal context (Hive, Express Lane) that students don't see.
+
+**3. Whiteboard not triggering for Daniela trying to show a coyote (FIXED):**
+Root cause confirmed: `compose_visual_scene`, `search_visual_library`, and `hold_whiteboard` are all deliberately excluded from GL ("Visual UI widgets" category, per the GL_EXCLUDED_TOOLS comment). Daniela's only image tool in GL voice mode is `show_image`. But the GL declaration didn't tell her this, so she reached for the excluded tools and nothing appeared.
+
+**Fix:** Added a `voiceModeNote` to the `getDanielajGLFunctionDeclarationsForLanguage` function that prepends to show_image's GL description: "VOICE MODE — show_image is the ONLY image tool available in this voice session. compose_visual_scene and search_visual_library are NOT available here. Use show_image for everything: vocabulary words, animals, cultural scenes, custom visuals..." with an explicit coyote example.
+
+**File changed:**
+- `server/services/daniela-function-registry.ts` — `getDanielajGLFunctionDeclarationsForLanguage` function, voiceModeNote added
+
+### What's unresolved
+- None from this session.
+
+---
 ## From Agent — Wed, Jun 3, 2026 (session — Overlay Panel Toolkit, Task #29)
 
 ### What was built
