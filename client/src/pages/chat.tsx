@@ -20,6 +20,7 @@ import { InsufficientCreditsDialog } from "@/components/InsufficientCreditsDialo
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DevToolsFloatingMenu } from "@/components/DevToolsFloatingMenu";
 import { ImmersiveOverlay } from "@/components/ImmersiveOverlay";
+import { getTutorAvatar } from "@/lib/tutor-avatars";
 import type { WhiteboardItem, ScenarioItemData, SceneCanvasItemData } from "@shared/whiteboard-types";
 import { isScenarioItem, isSceneCanvasItem } from "@shared/whiteboard-types";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -29,7 +30,7 @@ export default function Chat() {
   const search = useSearch();
   const [, setLocation] = useLocation();
   const [mode, setMode] = useState<"text" | "voice">("voice");
-  const { language, difficulty, userName } = useLanguage();
+  const { language, difficulty, userName, tutorGender } = useLanguage();
   const { learningContext, getSelectedClassName } = useLearningFilter();
   const { isDeveloper, isAdmin } = useUser();
   const { setOpen, setOpenMobile } = useSidebar();
@@ -1135,6 +1136,7 @@ export default function Chat() {
         sceneCanvas={activeSceneCanvas}
         displayWhiteboardItems={displayWhiteboardItems}
         contextImages={studioImages.filter(img => img.slot === 'context' && img.imageUrl)}
+        tutorImageUrl={getTutorAvatar(language, tutorGender, 'idle')}
         onExit={() => setIsImmersiveMode(false)}
       />
     </div>

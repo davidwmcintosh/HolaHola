@@ -19,6 +19,7 @@ interface ImmersiveOverlayProps {
   sceneCanvas: SceneCanvasItemData | null;
   displayWhiteboardItems?: WhiteboardItem[];
   contextImages?: ContextImageChip[];
+  tutorImageUrl?: string;
   onExit: () => void;
 }
 
@@ -288,7 +289,7 @@ function ImmersiveWhiteboardStrip({ items }: { items: WhiteboardItem[] }) {
 
 // ─── Main overlay ─────────────────────────────────────────────────────────────
 
-export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems, contextImages, onExit }: ImmersiveOverlayProps) {
+export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems, contextImages, tutorImageUrl, onExit }: ImmersiveOverlayProps) {
   const playbackState = usePlaybackState();
   const { difficulty } = useLanguage();
   const isSpeaking = playbackState === 'playing' || playbackState === 'buffering';
@@ -428,17 +429,20 @@ export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems
                         style={{ pointerEvents: 'none' }}
                       />
                     )}
-                    {/* Tap hint badge on tappable props */}
+                    {/* Tap hint badge on tappable props — visible enough to discover */}
                     {tappable && (
-                      <div
+                      <motion.div
                         className="absolute left-1/2 -translate-x-1/2"
-                        style={{ top: "calc(100% + 4px)", pointerEvents: 'none' }}
+                        style={{ top: "calc(100% + 6px)", pointerEvents: 'none' }}
+                        animate={{ y: [0, -3, 0] }}
+                        transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
                       >
-                        <span className="flex flex-col items-center text-white rounded-full bg-white/20 backdrop-blur-sm px-2 py-1 whitespace-nowrap border border-white/20">
-                          <span className="text-[10px] leading-tight font-semibold">{prop.label} — tap to open</span>
-                          {prop.nativeLabel && <span className="text-[8px] leading-tight text-white/70">{prop.nativeLabel}</span>}
+                        <span className="flex flex-col items-center text-white rounded-full bg-black/60 backdrop-blur-sm px-3 py-1.5 whitespace-nowrap border border-white/40 shadow-lg">
+                          <span className="text-[11px] leading-tight font-bold tracking-wide">{prop.label}</span>
+                          <span className="text-[9px] leading-tight text-white/80 font-medium">tap to open</span>
+                          {prop.nativeLabel && <span className="text-[8px] leading-tight text-white/60">{prop.nativeLabel}</span>}
                         </span>
-                      </div>
+                      </motion.div>
                     )}
                     {/* Regular label for non-tappable props */}
                     {!tappable && (
@@ -539,6 +543,29 @@ export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems
               )}
             </AnimatePresence>
           </div>
+
+          {/* Tutor avatar — bottom left corner, always visible so Daniela has presence in the scene */}
+          {tutorImageUrl && (
+            <motion.div
+              className="absolute bottom-20 left-4 z-10"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4 }}
+            >
+              <div
+                className="rounded-full overflow-hidden border-2 border-white/30 shadow-xl backdrop-blur-sm bg-black/20"
+                style={{ width: 72, height: 72 }}
+                data-testid="immersive-tutor-avatar"
+              >
+                <img
+                  src={tutorImageUrl}
+                  alt="Daniela"
+                  className="w-full h-full object-cover"
+                  draggable={false}
+                />
+              </div>
+            </motion.div>
+          )}
 
           {/* Context image chips — bottom right corner */}
           {contextImages && contextImages.length > 0 && (

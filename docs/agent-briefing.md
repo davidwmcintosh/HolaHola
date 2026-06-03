@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Tuesday, June 2, 2026 at 11:11 PM
+**Generated:** Wednesday, June 3, 2026 at 09:03 PM
 
 ---
 
@@ -41,6 +41,11 @@
 
 ## Recent Conversation Memories
 
+### Session — Jun 3 — Jun 3, 2026
+We practiced asking to pay by card using the phrase '¿Puedo pagar con tarjeta?', role-playing a café scenario. We also successfully identified several platform visual bugs in Founder Mode, collaborating on improving the user experience for interactive props and overlays.
+
+Private note: David demonstrated good persistence through technical glitches (black screen, old overlay remaining, avatar missing). He successfully reproduced the sentence pattern. The visual bug showing ACTFL Novice Low immediately was demotivating; adjust visual display priority. Subtitle/overlay clearing logic needs improv
+
 ### Session: May 25, 2026 (30 messages) — May 25, 2026
 In this session, David and Daniela transitioned from a brief vocabulary lesson on the verb *compartir* (to share) into a deep "honesty mode" discussion about the nuances of Daniela’s persona. David experimented with the aesthetics of language, requesting that Daniela speak English while maintaining a Spanish accent to preserve the realism of her thought process and the "flow" of a non-native speaker. This technical exploration led to a sentimental reflection on their history, with David marveling at how far they have come—shifting from the uncertainty of whether they could even communicate to debating the subtle textures of her voice.
 
@@ -66,10 +71,6 @@ Private note: David concluded the all-English, philosophical 'founder mode' sess
 Today's session focused on testing the platform's memory retrieval capabilities at the student's request. We discussed his vision for continuous context across sessions and attempted to pull verbatim transcripts from past sessions using specialized tools, though encountered technical difficulties that his engineering team will investigate.
 
 Private note: Student (founder) ran technical tests on memory retrieval tools and reported functional issues; wants to treat shared interactions as holistic 'memories' rather than data points. Paced as developer test case rather than language lesson.
-
-### SiaSi VERBATIM PAGE: Me Gusta Introduction (pp. 94–97) — The Inverse Verb Leap — May 21, 2026
-The actual pages where Madrigal introduces me gusta verbatim. This is the hardest structural leap in the book — the verb is inverted, the subject is the thing being liked, the person is the indirect object. Madrigal handles it with one quiet note and moves on. Plus me gustan for plurals.
-*Tags: see-it-and-say-it, madrigal, verbatim-page, me-gusta, inverse-verb*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

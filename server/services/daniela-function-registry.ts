@@ -3415,7 +3415,7 @@ prop_title must exactly match the prop's title as shown in the Studio panel (e.g
     legacyType: 'SHOW_PROGRESS',
     declaration: {
       name: "show_progress",
-      description: "Display a student progress snapshot: ACTFL level, words learned, lessons completed, streak days.",
+      description: "Display a student progress snapshot: ACTFL level, words learned, lessons completed, streak days. ONLY call when the student explicitly asks about their progress or level. Do NOT call this automatically at session start, during greetings, or unprompted — it can feel discouraging to open with a level label.",
       parametersJsonSchema: {
         type: "object",
         properties: {

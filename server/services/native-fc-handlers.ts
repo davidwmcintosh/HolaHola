@@ -493,6 +493,29 @@ export class NativeFunctionCallHandler {
         });
         session.classroomWhiteboardItems = [];
         console.log(`[Native Function Call] CLEAR -> whiteboard cleared (classroom tracking reset)`);
+        // If an immersive scene is active, re-inject it so CLEAR only removes
+        // whiteboard annotations (text, images, drills) but never takes down the
+        // scene backdrop or its props — the student would otherwise see a black screen.
+        if (session.sceneCanvas) {
+          const sceneRestore = {
+            type: 'whiteboard_update' as const,
+            timestamp: Date.now(),
+            items: [{
+              id: 'scene-canvas-active',
+              type: 'scene_canvas' as const,
+              content: session.sceneCanvas.environmentLabel || session.sceneCanvas.environment,
+              data: {
+                environment: session.sceneCanvas.environment,
+                environmentImageUrl: session.sceneCanvas.environmentImageUrl,
+                environmentLabel: session.sceneCanvas.environmentLabel,
+                props: session.sceneCanvas.props,
+                canvasAction: 'open_scene' as const,
+              },
+            }],
+          };
+          this.sendMessage(session.ws, sceneRestore);
+          console.log(`[Native Function→Clear] Scene active — restored scene canvas after whiteboard clear`);
+        }
         if (text && !session.functionCallText) {
           session.functionCallText = text;
           console.log(`[Native Function→Clear] Text included: "${text.substring(0, 80)}..."`);
