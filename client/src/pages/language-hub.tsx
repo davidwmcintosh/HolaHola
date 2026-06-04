@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUser } from "@/lib/auth";
 import { DanielaLearningInsights } from "@/components/DanielaLearningInsights";
+import { InteractiveTextbookCard } from "@/components/InteractiveTextbookCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -257,6 +258,11 @@ export default function LanguageHub() {
           </Card>
         </div>
       )}
+
+      {/* ── Interactive Textbook ──────────────────────────────────────────── */}
+      <div className="px-6 pb-6">
+        <InteractiveTextbookCard />
+      </div>
 
       {/* ── Scenario strip ────────────────────────────────────────────────── */}
       {topScenarios.length > 0 && (
